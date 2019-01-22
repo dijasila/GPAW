@@ -16,6 +16,62 @@ import os
 Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
 
+default_ehmasses = {'H-CrO2-NM': {'emass1': 0.875, 'hmass1': 1.442},
+                    'H-CrS2-NM': {'emass1': 0.872, 'hmass1': 0.883},
+                    'H-CrSe2-NM': {'emass1': 0.936, 'hmass1': 0.955},
+                    'H-CrTe2-NM': {'emass1': 0.855, 'hmass1': 0.9},
+                    'H-HfS2-NM': {'emass1': 1.255, 'hmass1': 2.653},
+                    'H-HfSe2-NM': {'emass1': 1.351, 'hmass1': 3.108},
+                    'H-HfTe2-NM': {'emass1': 1.722, 'hmass1': 0.612},
+                    'H-MoO2-NM': {'emass1': 0.419, 'hmass1': 0.764},
+                    'H-MoS2-NM': {'emass1': 0.427, 'hmass1': 0.53},
+                    'H-MoSe2-NM': {'emass1': 0.492, 'hmass1': 0.583},
+                    'H-MoTe2-NM': {'emass1': 0.493, 'hmass1': 0.597},
+                    'H-PbS2-NM': {'emass1': 0.386, 'hmass1': 0.618},
+                    'H-PbSe2-NM': {'emass1': 0.281, 'hmass1': 0.418},
+                    'H-PdSe2-NM': {'emass1': 1.241, 'hmass1': 0.333},
+                    'H-ScO2-FM': {'emass1': 2.94, 'hmass1': 10.669},
+                    'H-ScS2-FM': {'emass1': 4.018, 'hmass1': 5.235},
+                    'H-ScSe2-FM': {'emass1': 0.0, 'hmass1': 4.261},
+                    'H-SnO2-NM': {'emass1': 0.282, 'hmass1': 7.291},
+                    'H-SnS2-NM': {'emass1': 0.656, 'hmass1': 0.482},
+                    'H-TiS2-NM': {'emass1': 0.0, 'hmass1': 2.585},
+                    'H-TiSe2-NM': {'emass1': 0.0, 'hmass1': 1.654},
+                    'H-VSe2-FM': {'emass1': 2.157, 'hmass1': 0.801},
+                    'H-VTe2-FM': {'emass1': 3.332, 'hmass1': 1.105},
+                    'H-WO2-NM': {'emass1': 0.346, 'hmass1': 0.781},
+                    'H-WS2-NM': {'emass1': 0.328, 'hmass1': 0.336},
+                    'H-WSe2-NM': {'emass1': 0.389, 'hmass1': 0.355},
+                    'H-WTe2-NM': {'emass1': 0.364, 'hmass1': 0.286},
+                    'H-ZrS2-NM': {'emass1': 2.881, 'hmass1': 2.2},
+                    'H-ZrSe2-NM': {'emass1': 0.0, 'hmass1': 1.973},
+                    'H-ZrTe2-NM': {'emass1': 0.0, 'hmass1': 1.136},
+                    'T-GeO2-NM': {'emass1': 0.344, 'hmass1': 3.79},
+                    'T-GeS2-NM': {'emass1': 0.689, 'hmass1': 1.289},
+                    'T-HfO2-NM': {'emass1': 3.18, 'hmass1': 2.767},
+                    'T-HfS2-NM': {'emass1': 2.372, 'hmass1': 0.249},
+                    'T-HfSe2-NM': {'emass1': 2.286, 'hmass1': 0.159},
+                    'T-Mn2Cl4-FM': {'emass1': 1.746, 'hmass1': 6.806},
+                    'T-MnO2-FM': {'emass1': 1.055, 'hmass1': 43.724},
+                    'T-NiO2-NM': {'emass1': 2.007, 'hmass1': 0.0},
+                    'T-NiS2-NM': {'emass1': 0.403, 'hmass1': 0.617},
+                    'T-PbO2-NM': {'emass1': 0.45, 'hmass1': 29.088},
+                    'T-PbS2-NM': {'emass1': 0.895, 'hmass1': 4.138},
+                    'T-PbSe2-NM': {'emass1': 1.07, 'hmass1': 0.36},
+                    'T-PdO2-NM': {'emass1': 3.069, 'hmass1': 0.0},
+                    'T-PdS2-NM': {'emass1': 0.565, 'hmass1': 2.247},
+                    'T-PdSe2-NM': {'emass1': 0.337, 'hmass1': 0.635},
+                    'T-PtO2-NM': {'emass1': 3.288, 'hmass1': 28.946},
+                    'T-PtS2-NM': {'emass1': 0.682, 'hmass1': 1.546},
+                    'T-PtSe2-NM': {'emass1': 0.463, 'hmass1': 2.893},
+                    'T-PtTe2-NM': {'emass1': 0.251, 'hmass1': 0.359},
+                    'T-SnO2-NM': {'emass1': 0.355, 'hmass1': 4.491},
+                    'T-SnS2-NM': {'emass1': 0.779, 'hmass1': 2.034},
+                    'T-SnSe2-NM': {'emass1': 0.744, 'hmass1': 0.402},
+                    'T-TiO2-NM': {'emass1': 1.214, 'hmass1': 3.834},
+                    'T-ZrO2-NM': {'emass1': 1.384, 'hmass1': 3.017},
+                    'T-ZrS2-NM': {'emass1': 2.04, 'hmass1': 0.26},
+                    'T-ZrSe2-NM': {'emass1': 1.928, 'hmass1': 0.158}}
 
 default_thicknesses = {'H-MoS2-icsd-644245': 6.1511,
                        'H-TaSe2-icsd-651948': 6.375,
@@ -95,7 +151,7 @@ class Heterostructure:
         """
 
         self.timer = timer or Timer()
-        
+
         chi_monopole = []
         drho_monopole = []
         if include_dipole:
@@ -192,9 +248,11 @@ class Heterostructure:
             self.dim *= 2
 
         # Grid stuff
-        self.poisson_lim = 500  # above this limit use potential model
         edgesize = 50
         system_size = np.sum(self.d) + edgesize
+        self.poisson_lim = 500  # above this limit use potential model
+        assert system_size < self.poisson_lim
+
         self.z_lim = system_size
         self.dz = 0.01
         # master grid
@@ -362,7 +420,7 @@ class Heterostructure:
         f_z[:] = - 4 * np.pi * drho[:]
         f_z[0] = bc_v0
         f_z[Nint] = bc_vN
-        
+
         ab = np.zeros((3, Nint + 1), complex)
         ab[0, 2:] = 1. / dz**2
         ab[1, 1:-1] = -2 / dz**2 - q**2
@@ -1717,11 +1775,63 @@ def read_chi_wGG(name):
     return omega_w, pd, chi_wGG, q0
 
 
+def plot_plasmons(hs, output,
+                  plot_eigenvalues=False,
+                  plot_density=False,
+                  plot_potential=False,
+                  show=True):
+    eig, z, rho_z, phi_z, omega0, abseps = output
+
+    import matplotlib.pyplot as plt
+    q_q = hs.q_abs / Bohr
+    nq = len(q_q)
+    omega_w = hs.frequencies * Hartree
+
+    plt.figure()
+    plt.title('Plasmon modes')
+    for iq in range(nq):
+        freqs = np.array(omega0[iq])
+        plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
+        plt.ylabel(r'$\hbar\omega$ (eV)')
+        plt.xlabel(r'q (Å$^{-1}$)')
+
+    plt.figure()
+    plt.title('1 / |Det(Dielectric Matrix)|')
+    plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
+    plt.ylabel(r'$\hbar\omega$ (eV)')
+    plt.xlabel(r'q (Å$^{-1}$)')
+    plt.colorbar()
+
+    if plot_eigenvalues:
+        plt.figure()
+        for iq in range(0, nq, nq // 10):
+            plt.plot(omega_w, eig[iq].real)
+            plt.plot(omega_w, eig[iq].imag, '--')
+            
+    if plot_potential:
+        plt.figure()
+        plt.title('Induced potential')
+        q = nq // 10
+        pots = np.array(phi_z[q]).real
+        plt.plot(z, pots.T)
+        plt.xlabel('z $(\AA)$')
+
+    if plot_density:
+        plt.figure()
+        plt.title('Induced density')
+        q = nq // 10
+        dens = np.array(rho_z[q]).real
+        plt.plot(z, dens.T)
+        plt.xlabel('z $(\AA)$')
+
+    if show:
+        plt.show()
+
+        
 def make_heterostructure(layers,
                          frequencies=[0.001, 0.5, 5000],
                          momenta=[0.001, 0.04, 100],
-                         thicknesses=None,
-                         no_phonons=False):
+                         thicknesses=None):
     """Easy function for making a heterostructure based on some layers"""
 
     # Copy for internal handling
@@ -1736,23 +1846,22 @@ def make_heterostructure(layers,
     # Parse input for layer
     originallayers = []  # Unmodified layer identifiers
     layerargs = []  # Modifiers for layers like +phonons and +doped
-    
+
     for layer in layers:
         tmp = layer.split('+')
         name, layerargs = tmp[0], tmp[1:]
         originallayers.append(name)
         layerargs.append(layerargs)
-            
+
     if thicknesses is None:
         thicknesses = []
         for layer in layers:
-            print(layer)
             for key in default_thicknesses:
                 if '-icsd-' in key:
                     key2 = key.split('-icsd-')[0]
                 else:
                     key2 = key
-                
+
                 if key2 in layer:
                     thicknesses.append(default_thicknesses[key])
                     break
@@ -1778,9 +1887,9 @@ def make_heterostructure(layers,
         layers[il] = layer[:ind] + '_int' + layer[ind:]
 
     # Parse args and modify building blocks accordingly
-    from gpaw.response.buildingblocks import (GrapheneBB,
-                                              dopedsemiconductor,
-                                              phonon_polarizability)
+    from gpaw.qeh.buildingblocks import (GrapheneBB,
+                                         dopedsemiconductor,
+                                         phonon_polarizability)
     for layer in set(layers):
         # Everything that comes after a '+' is a modifier
         tmp = layer.split('+')
@@ -1793,16 +1902,20 @@ def make_heterostructure(layers,
         originpath = origin + '-chi.npz'
 
         bb = np.load(originpath)
-        
-        for modifier in modifiers:
+
+        for im, modifier in enumerate(modifiers):
             if 'doping' in modifier:
-                                    
                 subargs = modifier.split(',')
                 kwargs = {'doping': 0,
                           'temperature': 0,
-                          'effectivemass': 1,
                           'eta': 1e-4}
-                
+
+                # Try to find emass in default values
+                for key, val in default_ehmasses.items():
+                    if origin[:-4] in key:
+                        kwargs['effectivemass'] = val['emass1']
+
+                # Overwrite
                 for subarg in subargs:
                     key, value = subarg.split('=')
                     if key == 'T':
@@ -1811,11 +1924,15 @@ def make_heterostructure(layers,
                         key = 'effectivemass'
                     kwargs[key] = float(value)
 
+                mod = ['{}={}'.format(str(key), str(val))
+                       for key, val in kwargs.items()]
+                modifiers[im] = ','.join(mod)
+
                 if 'graphene' in layer:
                     # Treat graphene specially, since in this case we are using
                     # an analytical approximation of the building block
                     assert np.allclose(kwargs['temperature'], 0.0), \
-                        print('Graphene cannot be at a finite temp.')
+                        print('Graphene currently cannot be at a finite temp.')
                     bb = GrapheneBB(bb, doping=kwargs['doping'],
                                     eta=kwargs['eta'])
                 else:
@@ -1826,7 +1943,6 @@ def make_heterostructure(layers,
 
                 if not phonons.exists():
                     continue
-                print('Adding phonon contributions for {}'.format(layer))
                 dct = np.load(str(phonons))
 
                 Z_avv, freqs, modes, masses, cell = (dct['Z_avv'],
@@ -1837,16 +1953,25 @@ def make_heterostructure(layers,
                 bb = phonon_polarizability(bb, Z_avv, freqs, modes,
                                            masses, cell)
 
-            # Save modified building block
-            newlayerpath = '{}-chi.npz'.format(layer)
-            np.savez_compressed(newlayerpath, **bb)
-                
+        # Save modified building block
+        newlayer = '{}+{}'.format(origin, '+'.join(modifiers))
+        newlayerpath = newlayer + '-chi.npz'
+        np.savez_compressed(newlayerpath, **bb)
+
+        for il, layer2 in enumerate(layers):
+            if layer2 == layer:
+                layers[il] = newlayer
+
     thicknesses = np.array(thicknesses)
 
     # Calculate distance between layers
     d = (thicknesses[1:] + thicknesses[:-1]) / 2
     d0 = thicknesses[0]
 
+    # Print summary of structure
+    print('Structure:')
+    for thickness, layer in zip(thicknesses, layers):
+        print('    {} d = {} Å'.format(layer, thickness))
     het = Heterostructure(structure=layers, d=d, d0=d0)
     return het
 
@@ -1860,7 +1985,7 @@ def main(args=None):
     description = 'QEH Model command line interface'
 
     example_text = """examples:
-    (In the following "qeh = python -m gpaw.response.qeh". It can be nice
+    (In the following "qeh = python -m gpaw.qeh". It can be nice
     to set this as an alias in your bashrc.)
 
     Calculate graphene plasmons with doping and plot them:
@@ -1899,8 +2024,8 @@ def main(args=None):
     """
 
     parser.add_argument('layers', nargs='+', help=help, type=str)
-    help = ("For above example: '6.2, 3.2, 6.2' gives thicknesses of "
-            "6.2, 3.2, and 6.2 AA to MoS2, graphene and WS2 "
+    help = ("For above example: '6.2 3.2 6.2' gives thicknesses of "
+            "6.2 3.2 and 6.2 AA to MoS2, graphene and WS2 "
             "respectively. If not set, the QEH module will use a "
             "default set of thicknesses")
     parser.add_argument('--thicknesses', nargs='*', help=help,
@@ -1914,7 +2039,7 @@ def main(args=None):
 
     help = ("Calculate plasmon spectrum")
     parser.add_argument('--plasmons', action='store_true', help=help)
-    
+
     help = ("Also plot eigenvalues of dielectric matrix")
     parser.add_argument('--eigenvalues', action='store_true', help=help)
 
@@ -1976,7 +2101,7 @@ def main(args=None):
         # Parse layer and its arguments
         tmp = layer.split('+')
         layer = tmp[0]
-        
+
         layerpath = layer + '-chi.npz'
         p = Path(layerpath)
         for path in paths:
@@ -2018,62 +2143,23 @@ def main(args=None):
                               thicknesses=args.thicknesses,
                               momenta=args.q,
                               frequencies=args.omega)
-    
+
     if args.plot:
         import matplotlib.pyplot as plt
 
     if args.plasmons:
         print('Calculating plasmon spectrum')
         tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
-        eig, z, rho_z, phi_z, omega0, abseps = tmp
         if args.plot:
-            q_q = hs.q_abs / Bohr
-            nq = len(q_q)
-            omega_w = hs.frequencies * Hartree
-
-            plt.figure()
-            plt.title('Plasmon modes')
-            for iq in range(nq):
-                freqs = np.array(omega0[iq])
-                plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
-            plt.ylabel(r'$\hbar\omega$ (eV)')
-            plt.xlabel(r'q ($\AA^{-1}$)')
-
-            plt.figure()
-            plt.title('1 / |Det(Dielectric Matrix)|')
-            plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
-            plt.ylabel(r'$\hbar\omega$ (eV)')
-            plt.xlabel(r'q ($\AA^{-1}$)')
-            plt.colorbar()
-
-            if args.eigenvalues:
-                plt.figure()
-                for iq in range(0, nq, nq // 10):
-                    plt.plot(omega_w, eig[iq].real)
-                    plt.plot(omega_w, eig[iq].imag, '--')
-
-            if args.phi:
-                plt.figure()
-                plt.title('Induced potential')
-                q = nq // 10
-                pots = np.array(phi_z[q]).real
-                plt.plot(z, pots.T)
-                plt.xlabel('z $(\AA)$')
-
-            if args.rho:
-                plt.figure()
-                plt.title('Induced density')
-                q = nq // 10
-                print(omega0[q])
-                dens = np.array(rho_z[q]).real
-                plt.plot(z, dens.T)
-                plt.xlabel('z $(\AA)$')
-
+            plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues,
+                          plot_potential=args.phi,
+                          plot_density=args.rho,
+                          show=False)
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
     hs.timer.write()
-    
+
     if args.plot:
         plt.show()
 
