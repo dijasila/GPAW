@@ -284,7 +284,7 @@ class DirectMinLCAO(DirectLCAO):
                 elif self.matrix_exp == 'eigendecomposition':
                     # this method is based on diagonalisation
                     wfs.timer.start('Eigendecomposition')
-                    u_nn, self.evecs[k], self.evals[k] =\
+                    u_nn, evecs, evals =\
                         expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
                 else:
@@ -298,6 +298,16 @@ class DirectMinLCAO(DirectLCAO):
                 del u_nn
 
             self.gd.comm.broadcast(kpt.C_nM, 0)
+            if self.matrix_exp == 'eigendecomposition':
+                if self.gd.comm.rank != 0:
+                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=complex)
+                    evals = np.zeros(shape=n_dim[k],
+                                     dtype=float)
+
+                self.gd.comm.broadcast(evecs, 0)
+                self.gd.comm.broadcast(evals, 0)
+                self.evecs[k], self.evals[k] = evecs, evals
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
