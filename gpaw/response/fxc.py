@@ -303,6 +303,7 @@ class AdiabaticKernelCalculator:
                     df_ng[n, :] = f_g - ft_g
 
                 sheconvlim = 0.999  # XXX should be given as input
+                
                 # Expand angular part of dfxc in real spherical harmonics
                 # Find the angular norm square of df (which is a real function)
                 dfangns_g = rgd.zeros()
@@ -340,20 +341,28 @@ class AdiabaticKernelCalculator:
                           file=self.fd)
                     l += 1
 
-                # XXX missing parallelization
-                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                for g in range(ng):
-                    # Expand plane wave and perform integration
-                    # XXX could be vectorized
-                    for G1, G2 in np.ndindex(dG_GG.shape):
-                        x, y, z = dGn_GGv[G1, G2, :]
+                # Expand plane wave (Y and sphj could be vectorized?)
+                Y_LGG = np.zeros((len(useL_L), *dG_GG.shape))
+                j_gLGG = np.zeros((ng, *Y_LGG.shape))
+                for G1, G2 in np.ndindex(dG_GG.shape):
+                    x, y, z = dGn_GGv[G1, G2, :]
+                    for L in useL_L:
+                        Y_LGG[L, G1, G2] = Y(L, x, y, z)
+                    for g in range(ng):
+                        j_gLGG[g, :, G1, G2] = sphj(len(useL_L),
+                                                    dG_GG[G1, G2] * r_g[g])
+                
+                # Perform integration
+                coefatomR_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+                coefatomang_LGG = (-1.j) ** np.int(np.sqrt(useL_L)) * Y_LGG
+                coefatomrad_LGG = np.tensordot(j_gLGG * df_gL[:, useL_L,
+                                                              np.newaxis,
+                                                              np.newaxis],
+                                               dv_g[:ng], axes=([0, 0]))
+                coefatom_GG = np.sum(coefatomang_LGG * coefatomrad_LGG, axis=0)
+                KxcPAW_GG += coefatom_GG * coefatomR_GG
 
-                        j_L = sphj(len(useL_L), dG_GG[G1, G2] * r_g[g])
-                        for L in useL_L:
-                            tmp = (-1.j) ** int(np.sqrt(L)) * Y(L, x, y, z)
-                            tmp *= j_L[L] * df_gL[g, L] * dv_g[g]
-                            KxcPAW_GG[G1, G2] += tmp * coefatoms_GG[G1, G2]
-
+            # XXX missing parallelization
             Kxc_GG += KxcPAW_GG
 
         if self.RSrep == 'GPAW':  # XXX old stuff, to be deleted
