@@ -53,6 +53,7 @@ default_thicknesses = {'H-MoS2-icsd-644245': 6.1511,
                        'T-ZrSe2-icsd-652236': 6.128,
                        'T-PtSe2-icsd-649589': 5.0813,
                        'T-NiTe2-icsd-159382': 5.266,
+                       'MoSSe': 6.896,
                        'graphene': 3.35,  # Wiki
                        'BN': 3.33}  # ioffe.ru/SVA/NSM/Semicond/BN/basic.html}
 
@@ -1917,6 +1918,12 @@ def main(args=None):
     help = ("Also plot eigenvalues of dielectric matrix")
     parser.add_argument('--eigenvalues', action='store_true', help=help)
 
+    help = ("Plot induced potential for finite q")
+    parser.add_argument('--phi', action='store_true', help=help)
+
+    help = ("Plot induced density for finite q")
+    parser.add_argument('--rho', action='store_true', help=help)
+
     help = ("Save plasmon modes to file")
     parser.add_argument('--plasmonfile', type=str, default=None, help=help)
 
@@ -1926,7 +1933,7 @@ def main(args=None):
     help = ("Plot calculated quantities")
     parser.add_argument('--plot', action='store_true', help=help)
 
-    help = ("Custom frequencies to respresent quantities on (in eV). "
+    help = ("Custom frequencies to represent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
             "number of frequencies. E. g.: 0.1 1.0 100")
     parser.add_argument('--omega', default=[0.001, 0.3, 1000],
@@ -2030,13 +2037,13 @@ def main(args=None):
                 freqs = np.array(omega0[iq])
                 plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
             plt.ylabel(r'$\hbar\omega$ (eV)')
-            plt.xlabel(r'q (Bohr$^{-1}$)')
+            plt.xlabel(r'q ($\AA^{-1}$)')
 
             plt.figure()
             plt.title('1 / |Det(Dielectric Matrix)|')
             plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
             plt.ylabel(r'$\hbar\omega$ (eV)')
-            plt.xlabel(r'q (Bohr$^{-1}$)')
+            plt.xlabel(r'q ($\AA^{-1}$)')
             plt.colorbar()
 
             if args.eigenvalues:
@@ -2044,6 +2051,23 @@ def main(args=None):
                 for iq in range(0, nq, nq // 10):
                     plt.plot(omega_w, eig[iq].real)
                     plt.plot(omega_w, eig[iq].imag, '--')
+
+            if args.phi:
+                plt.figure()
+                plt.title('Induced potential')
+                q = nq // 10
+                pots = np.array(phi_z[q]).real
+                plt.plot(z, pots.T)
+                plt.xlabel('z $(\AA)$')
+
+            if args.rho:
+                plt.figure()
+                plt.title('Induced density')
+                q = nq // 10
+                print(omega0[q])
+                dens = np.array(rho_z[q]).real
+                plt.plot(z, dens.T)
+                plt.xlabel('z $(\AA)$')
 
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
