@@ -9,6 +9,8 @@ from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.spherical_harmonics import Y
+from gpaw.response.math_func import sphj
 
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
@@ -240,8 +242,121 @@ class AdiabaticKernelCalculator:
                 ijQ_c = (iQ_c - jQ_c)
                 if (abs(ijQ_c) < nG // 2).all():
                     Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-        
+
         if self.RSrep == 'gpaw':
+            print("\tCalculating PAW corrections to the kernel", file=self.fd)
+            
+            G_Gv = pd.get_reciprocal_vectors()
+            R_av = calc.atoms.positions / Bohr
+            setups = calc.wfs.setups
+            D_asp = calc.density.D_asp
+            
+            KxcPAW_GG = np.zeros_like(Kxc_GG)  # XXX missing parallelization
+            dG_GGv = np.zeros((npw, npw, 3))
+            for v in range(3):
+                dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+            dG_GG = np.linalg.norm(dG_GGv, axis=2)
+            dGn_GGv = np.zeros_like(dG_GGv)
+            mask0 = np.where(dG_GG != 0.)
+            dGn_GGv[mask0] = dG_GGv[mask0] / dG_GG[mask0][:, np.newaxis]
+
+            for a, setup in enumerate(setups):
+                Y_nL = setup.xc_correction.Y_nL
+                rgd = setup.xc_correction.rgd
+
+                n_qg = setup.xc_correction.n_qg
+                nt_qg = setup.xc_correction.nt_qg
+                nc_g = setup.xc_correction.nc_g
+                nct_g = setup.xc_correction.nct_g
+                r_g = rgd.r_g
+                dv_g = rgd.dv_g
+
+                D_sp = D_asp[a]
+                B_pqL = setup.xc_correction.B_pqL
+                D_sLq = np.inner(D_sp, B_pqL.T)
+                nspins = len(D_sp)
+
+                f_g = rgd.zeros()
+                ft_g = rgd.zeros()
+
+                n_sLg = np.dot(D_sLq, n_qg)
+                nt_sLg = np.dot(D_sLq, nt_qg)
+
+                # Add core density
+                n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
+                nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
+
+                # Calculate dfxc
+                # Please note: Using the radial grid descriptor with add_fxc
+                # might give problems beyond ALDA
+                nn = len(R_nv)  # number of Lebedev quadratures
+                df_ng = np.array([rgd.zeros() for n in range(nn)])
+                for n, Y_L in enumerate(Y_nL):
+                    f_g[:] = 0.
+                    n_sg = np.dot(Y_L, n_sLg)
+                    add_fxc(rgd, n_sg, f_g)
+
+                    ft_g[:] = 0.
+                    nt_sg = np.dot(Y_L, nt_sLg)
+                    add_fxc(rgd, nt_sg, ft_g)
+
+                    df_ng[n, :] = f_g - ft_g
+
+                sheconvlim = 0.999  # XXX should be given as input
+                # Expand angular part of dfxc in real spherical harmonics
+                # Find the angular norm square of df (which is a real function)
+                dfangns_g = rgd.zeros()
+                for g in range(len(r_g)):
+                    dfangns_g[g] = self._ang_int(df_ng[:, g] * df_ng[:, g])
+                # Find PAW correction range and allocate convergence meassures
+                ng = np.max(np.where(dfangns_g > 0.)) + 1
+                sheconv_g = np.zeros(ng)
+                useL_L = []
+                # Allocate memory
+                nL = Y_nL.shape[1]
+                assert nL <= 36  # above Lebedev integration is not exact
+                df_gL = np.zeros((ng, nL))
+                # Add real spherical harmonics to fulfill convergence criteria
+                l = 0
+                while np.min(sheconv_g) < sheconvlim:
+                    useL_L += range(l**2, l**2 + 2 * l + 1)
+                    if l > int(np.sqrt(nL) - 1):
+                        raise Exception('Could not expand %.f of ' % sheconvlim
+                                        + 'PAW correction to atom %d in ' % a
+                                        + 'real spherical harmonics up to '
+                                        + 'order l=%d' % int(np.sqrt(nL) - 1))
+                    for g in range(ng):
+                        dfshetot = self._add_sh_components(df_ng[:, g],
+                                                           df_gL[g, :],
+                                                           Y_nL, l)
+                        if dfangns_g[g] > 0.:
+                            sheconv_g[g] = dfshetot / dfangns_g[g]
+                        else:
+                            sheconv_g[g] = 1.
+
+                    print('At least a fraction of %.8f of' % np.min(sheconv_g)
+                          + ' the PAW correction to atom %d could be ' % a
+                          + 'expanded in spherical harmonics up to l=%d' % l,
+                          file=self.fd)
+                    l += 1
+
+                # XXX missing parallelization
+                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+                for g in range(ng):
+                    # Expand plane wave and perform integration
+                    # XXX could be vectorized
+                    for G1, G2 in np.ndindex(dG_GG.shape):
+                        x, y, z = dGn_GGv[G1, G2, :]
+
+                        j_L = sphj(len(useL_L), dG_GG[G1, G2] * r_g[g])
+                        for L in useL_L:
+                            tmp = (-1.j) ** int(np.sqrt(L)) * Y(L, x, y, z)
+                            tmp *= j_L[L] * df_gL[g, L] * dv_g[g]
+                            KxcPAW_GG[G1, G2] += tmp * coefatoms_GG[G1, G2]
+
+            Kxc_GG += KxcPAW_GG
+
+        if self.RSrep == 'GPAW':  # XXX old stuff, to be deleted
             print("\tCalculating PAW corrections to the kernel", file=self.fd)
             
             G_Gv = pd.get_reciprocal_vectors()
@@ -334,7 +449,25 @@ class AdiabaticKernelCalculator:
         
         return Kxc_GG / vol
 
-    def distribute_correction(self, setups, size):
+    def _ang_int(self, f_n):
+        nn = len(R_nv)  # Lebedev quadrature
+        return 4. * np.pi * np.sum([weight_n[n] * f_n[n] for n in range(nn)])
+
+    def _add_sh_components(self, f_n, f_L, Y_nL, l):
+        """
+        Adds the l-components in the real spherical harmonic expansion
+        of f_n to f_L.
+        Assumes f_n to be a real function.
+
+        Returns: sum of spherical harmonic components norm squared
+        """
+        L_L = range(l**2, l**2 + 2 * l + 1)
+        for L in L_L:
+            f_L[L] += self._ang_int(Y_nL[:, L] * f_n)
+
+        return np.sum(f_L**2)
+    
+    def distribute_correction(self, setups, size):  # XXX old stuff, tbd
         """ Make every process work an equal amount """
         # Figure out the total number of grid points
         tp = 0
