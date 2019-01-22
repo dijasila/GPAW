@@ -2044,10 +2044,10 @@ def main(args=None):
     parser.add_argument('--eigenvalues', action='store_true', help=help)
 
     help = ("Plot induced potential for finite q")
-    parser.add_argument('--phi', action='store_true', help=help)
+    parser.add_argument('--plot-potential', action='store_true', help=help)
 
     help = ("Plot induced density for finite q")
-    parser.add_argument('--rho', action='store_true', help=help)
+    parser.add_argument('--plot-density', action='store_true', help=help)
 
     help = ("Save plasmon modes to file")
     parser.add_argument('--plasmonfile', type=str, default=None, help=help)
@@ -2152,8 +2152,8 @@ def main(args=None):
         tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
         if args.plot:
             plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues,
-                          plot_potential=args.phi,
-                          plot_density=args.rho,
+                          plot_potential=args.plot_potential,
+                          plot_density=args.plot_density,
                           show=False)
     if args.eels:
         q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
