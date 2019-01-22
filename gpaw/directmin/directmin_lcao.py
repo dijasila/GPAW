@@ -153,7 +153,6 @@ class DirectMinLCAO(DirectLCAO):
         else:
             raise Exception('Check Search Direction Parameters')
 
-
     def iterate(self, ham, wfs, dens, occ):
 
         assert dens.mixer.driver.name == 'dummy', \
@@ -643,3 +642,70 @@ class DirectMinLCAO(DirectLCAO):
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
                 'sparse': self.sparse}
+
+    def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
+                                c_nm_ref, eps=1.0e-7):
+
+        assert not self.sparse
+        a_m = {}
+        g_n = {}
+        if self.matrix_exp == 'pade_approx':
+            c_nm_ref = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            a = np.random.random_sample(self.a_mat_u[u].shape) + \
+                1.0j * np.random.random_sample(self.a_mat_u[u].shape)
+            a = a - a.T.conj()
+            u_nn = expm(a)
+            g_n[u] = np.zeros_like(self.a_mat_u[u])
+
+            if self.matrix_exp == 'pade_approx':
+                a_m[u] = np.zeros_like(self.a_mat_u[u])
+                c_nm_ref[u] = np.dot(u_nn.T, kpt.C_nM[:u_nn.shape[0]])
+            elif self.matrix_exp == 'eigendecomposition':
+                a_m[u] = a
+
+        g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
+                                            dens, occ, c_nm_ref)[1]
+
+        h = [eps, -eps]
+        coeif = [1.0, -1.0]
+
+        if self.dtype == complex:
+            range_z = 2
+            complex_gr = [1.0, 1.0j]
+        else:
+            range_z = 1
+            complex_gr = [1.0]
+
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            dim = a_m[u].shape[0]
+            for z in range(range_z):
+                for i in range(dim):
+                    for j in range(dim):
+                        print(u, z, i, j)
+                        a = a_m[u][i][j]
+                        g = 0.0
+                        for l in range(2):
+                            if z == 0:
+                                if i != j:
+                                    a_m[u][i][j] = a + h[l]
+                                    a_m[u][j][i] = -np.conjugate(a + h[l])
+                            else:
+                                a_m[u][i][j] = a + 1.0j * h[l]
+                                if i != j:
+                                    a_m[u][j][i] = -np.conjugate(a + 1.0j * h[l])
+
+                            E = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens, occ, c_nm_ref)[0]
+
+                            g += E * coeif[l]
+
+                        g *= 1.0 / (2.0 * eps)
+
+                        g_n[u][i][j] += g * complex_gr[z]
+                        a_m[u][i][j] = a
+                        if i != j:
+                            a_m[u][j][i] = -np.conjugate(a)
+
+        return g_a, g_n
