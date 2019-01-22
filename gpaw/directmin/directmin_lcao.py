@@ -221,7 +221,7 @@ class DirectMinLCAO(DirectLCAO):
                                                 der_phi_0=der_phi[0],
                                                 phi_old=phi[1],
                                                 der_phi_old=der_phi[1],
-                                                alpha_max=3.0,
+                                                alpha_max=5.0,
                                                 alpha_old=alpha)
 
         if wfs.gd.comm.size > 1:
@@ -241,6 +241,7 @@ class DirectMinLCAO(DirectLCAO):
         # calculate new matrices for optimal step length
         for k in a.keys():
             a[k] += alpha * p[k]
+        self.alpha = alpha
         self.g_mat_u = g
         self.iters += 1
 
