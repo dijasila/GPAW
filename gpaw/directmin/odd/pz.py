@@ -26,9 +26,9 @@ class PzCorrectionsLcao:
         self.setups = wfs.setups
         self.bfs = wfs.basis_functions
         spos_ac = wfs.spos_ac
+        self.cgd = wfs.gd
 
         # what we need from dens
-        self.cgd = dens.gd
         self.finegd = dens.finegd
         self.sic_coarse_grid = sic_coarse_grid
 
@@ -59,7 +59,7 @@ class PzCorrectionsLcao:
 
         self.interpolator = Transformer(self.cgd, self.finegd, 3)
         self.restrictor = Transformer(self.finegd, self.cgd, 3)
-        self.timer = wfs.timer
+        # self.timer = wfs.timer
         self.dtype = wfs.dtype
         self.eigv_s = {}
         self.lagr_diag_s = {}
@@ -117,9 +117,10 @@ class PzCorrectionsLcao:
         for n in range(n_occ):
             F_MM, sic_energy_n =\
                 self.get_orbital_potential_matrix(f_n, c_nm, kpt,
-                                                  wfs, wfs.setups, n)
+                                                  wfs, wfs.setups,
+                                                  n, timer)
 
-            b_mn[:,n] = np.dot(c_nm[n], F_MM.conj()).T
+            b_mn[:, n] = np.dot(c_nm[n], F_MM.conj()).T
             e_total_sic = np.append(e_total_sic, sic_energy_n, axis=0)
         l_odd = np.dot(c_nm[:nbs].conj(), b_mn)
 
@@ -191,7 +192,7 @@ class PzCorrectionsLcao:
         return 2.0 * grad, error
 
     def get_orbital_potential_matrix(self, f_n, C_nM, kpt,
-                                     wfs, setup, m):
+                                     wfs, setup, m, timer):
         """
         :param f_n:
         :param C_nM:
@@ -213,25 +214,25 @@ class PzCorrectionsLcao:
         F_MM = np.zeros(shape=(n_set, n_set),
                         dtype=self.dtype)
         # get orbital-density
-        self.timer.start('Construct Density, Charge, adn DM')
+        timer.start('Construct Density, Charge, adn DM')
         nt_G, Q_aL, D_ap = \
             self.get_density(f_n,
                              C_nM, kpt,
                              wfs, setup, m)
-        self.timer.stop('Construct Density, Charge, adn DM')
+        timer.stop('Construct Density, Charge, adn DM')
 
         # calculate sic energy,
         # sic pseudo-potential and Hartree
-        self.timer.start('Get Pseudo Potential')
+        timer.start('Get Pseudo Potential')
         e_sic_m, vt_mG, vHt_g = \
-            self.get_pseudo_pot(nt_G, Q_aL, m, kpoint)
-        self.timer.stop('Get Pseudo Potential')
+            self.get_pseudo_pot(nt_G, Q_aL, m, kpoint, timer)
+        timer.stop('Get Pseudo Potential')
 
         # calculate PAW corrections
-        self.timer.start('PAW')
+        timer.start('PAW')
         e_sic_paw_m, dH_ap = \
-            self.get_paw_corrections(D_ap, vHt_g)
-        self.timer.stop('PAW')
+            self.get_paw_corrections(D_ap, vHt_g, timer)
+        timer.stop('PAW')
 
         # total sic:
         e_sic_m += e_sic_paw_m
@@ -243,13 +244,13 @@ class PzCorrectionsLcao:
 
         # TODO: sum over cell? see calculate_hamiltonian_matrix in
         # eigensolver.py
-        self.timer.start('ODD Potential Matrices')
+        timer.start('ODD Potential Matrices')
         Vt_MM = np.zeros_like(F_MM)
         self.bfs.calculate_potential_matrix(vt_mG, Vt_MM, kpt.q)
         # make matrix hermitian
         ind_l = np.tril_indices(Vt_MM.shape[0], -1)
         Vt_MM[(ind_l[1], ind_l[0])] = Vt_MM[ind_l].conj()
-        self.timer.stop('ODD Potential Matrices')
+        timer.stop('ODD Potential Matrices')
 
         # np.save('Vt_MM1', Vt_MM)
         #
@@ -276,7 +277,7 @@ class PzCorrectionsLcao:
         # np.save('Vt_MM2', Vt_MM)
 
         # PAW:
-        self.timer.start('Potential matrix - PAW')
+        timer.start('Potential matrix - PAW')
         for a, dH_p in dH_ap.items():
             P_Mj = wfs.P_aqMi[a][kpt.q]
             dH_ij = unpack(dH_p)
@@ -317,7 +318,7 @@ class PzCorrectionsLcao:
             self.cgd.comm.sum(F_MM)
         else:
             self.finegd.comm.sum(F_MM)
-        self.timer.stop('Potential matrix - PAW')
+        timer.stop('Potential matrix - PAW')
 
         return F_MM, e_sic_m * f_n[m]
 
@@ -326,7 +327,7 @@ class PzCorrectionsLcao:
 
         # construct orbital density matrix
         if f_n[m] > 1.0 + 1.0e-4:
-            occup_factor =  f_n[m] / (3.0 - wfs.nspins)
+            occup_factor = f_n[m] / (3.0 - wfs.nspins)
         else:
             occup_factor = f_n[m]
         rho_MM = occup_factor * np.outer(C_nM[m].conj(), C_nM[m])
@@ -363,7 +364,7 @@ class PzCorrectionsLcao:
 
         return nt_G, Q_aL, D_ap
 
-    def get_pseudo_pot(self, nt, Q_aL, i, kpoint):
+    def get_pseudo_pot(self, nt, Q_aL, i, kpoint, timer):
 
         if self.sic_coarse_grid is False:
             # change to fine grid
@@ -382,12 +383,12 @@ class PzCorrectionsLcao:
         else:
             nt_sg[0] = nt
 
-        self.timer.start('ODD XC 3D grid')
+        timer.start('ODD XC 3D grid')
         if self.sic_coarse_grid is False:
             e_xc = self.xc.calculate(self.finegd, nt_sg, vt_sg)
         else:
             e_xc = self.xc.calculate(self.cgd, nt_sg, vt_sg)
-        self.timer.stop('ODD XC 3D grid')
+        timer.stop('ODD XC 3D grid')
         vt_sg[0] *= -self.beta_x
 
         # Hartree
@@ -396,7 +397,7 @@ class PzCorrectionsLcao:
         else:
             self.ghat_cg.add(nt_sg[0], Q_aL)
 
-        self.timer.start('ODD Poisson')
+        timer.start('ODD Poisson')
         if self.store_potentials:
             if self.sic_coarse_grid:
                 vHt_g = self.old_pot[kpoint][i]
@@ -411,15 +412,15 @@ class PzCorrectionsLcao:
             else:
                 self.restrictor.apply(vHt_g, self.old_pot[kpoint][i])
 
-        self.timer.stop('ODD Poisson')
+        timer.stop('ODD Poisson')
 
-        self.timer.start('ODD Hartree integrate')
+        timer.start('ODD Hartree integrate')
         if self.sic_coarse_grid is False:
             ec = 0.5 * self.finegd.integrate(nt_sg[0] * vHt_g)
         else:
             ec = 0.5 * self.cgd.integrate(nt_sg[0] * vHt_g)
 
-        self.timer.stop('ODD Hartree integrate')
+        timer.stop('ODD Hartree integrate')
         vt_sg[0] -= vHt_g * self.beta_c
         if self.sic_coarse_grid is False:
             vt_G = self.cgd.zeros()
@@ -431,10 +432,10 @@ class PzCorrectionsLcao:
                          -e_xc*self.beta_x]),\
                vt_G, vHt_g
 
-    def get_paw_corrections(self, D_ap, vHt_g):
+    def get_paw_corrections(self, D_ap, vHt_g, timer):
 
         # XC-PAW
-        self.timer.start('xc-PAW')
+        timer.start('xc-PAW')
         dH_ap = {}
         exc = 0.0
         for a, D_p in D_ap.items():
@@ -446,19 +447,19 @@ class PzCorrectionsLcao:
                                                     addcoredensity=False,
                                                     a=a)
             dH_ap[a] = -dH_sp[0] * self.beta_x
-        self.timer.stop('xc-PAW')
+        timer.stop('xc-PAW')
 
         # Hartree-PAW
-        self.timer.start('Hartree-PAW')
+        timer.start('Hartree-PAW')
         ec = 0.0
-        self.timer.start('ghat-PAW')
+        timer.start('ghat-PAW')
         if self.sic_coarse_grid is False:
             W_aL = self.ghat.dict()
             self.ghat.integrate(vHt_g, W_aL)
         else:
             W_aL = self.ghat_cg.dict()
             self.ghat_cg.integrate(vHt_g, W_aL)
-        self.timer.stop('ghat-PAW')
+        timer.stop('ghat-PAW')
 
         for a, D_p in D_ap.items():
             setup = self.setups[a]
@@ -466,7 +467,7 @@ class PzCorrectionsLcao:
             ec += np.dot(D_p, M_p)
             dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL,
                                              W_aL[a])) * self.beta_c
-        self.timer.stop('Hartree-PAW')
+        timer.stop('Hartree-PAW')
 
         if self.sic_coarse_grid is False:
             ec = self.finegd.comm.sum(ec)
@@ -525,7 +526,9 @@ class PzCorrectionsLcao:
 
     def get_odd_corrections_to_forces(self, wfs, dens):
 
-        self.timer.start('ODD corrections')
+        timer = wfs.timer
+
+        timer.start('ODD corrections')
 
         natoms = len(wfs.setups)
         F_av = np.zeros((natoms, 3))
@@ -567,7 +570,7 @@ class PzCorrectionsLcao:
         # gd.comm.sum(dTdR_qvMM)
         # self.timer.stop('TCI derivative')
 
-        self.timer.start('TCI derivative')
+        timer.start('TCI derivative')
         dThetadR_qvMM, dTdR_qvMM = manytci.O_qMM_T_qMM(
             gd.comm, Mstart, Mstop, False, derivative=True)
 
@@ -575,7 +578,7 @@ class PzCorrectionsLcao:
             self.bfs.my_atom_indices, derivative=True)
         gd.comm.sum(dThetadR_qvMM)
         gd.comm.sum(dTdR_qvMM)
-        self.timer.stop('TCI derivative')
+        timer.stop('TCI derivative')
 
         my_atom_indices = self.bfs.my_atom_indices
         atom_indices = self.bfs.atom_indices
@@ -629,7 +632,8 @@ class PzCorrectionsLcao:
                     self.get_orbital_potential_matrix(f_n, kpt.C_nM,
                                                       kpt,
                                                       wfs,
-                                                      self.setups, m
+                                                      self.setups, m,
+                                                      timer
                                                       )[0]
 
                 sfrhoT_MM = np.linalg.solve(wfs.S_qMM[kpt.q],
@@ -707,9 +711,9 @@ class PzCorrectionsLcao:
                                      wfs, self.setups, m)
 
                 e_sic_m, vt_mG, vHt_g = \
-                    self.get_pseudo_pot(nt_G, Q_aL, m, u)
+                    self.get_pseudo_pot(nt_G, Q_aL, m, u, timer)
                 e_sic_paw_m, dH_ap = \
-                    self.get_paw_corrections(D_ap, vHt_g)
+                    self.get_paw_corrections(D_ap, vHt_g, timer)
 
                 Fpot_av += \
                     self.bfs.calculate_force_contribution(vt_mG,
@@ -772,15 +776,15 @@ class PzCorrectionsLcao:
 
         wfs.gd.comm.sum(F_av, 0)
 
-        self.timer.start('Wait for sum')
+        timer.start('Wait for sum')
         ksl.orbital_comm.sum(F_av)
         if wfs.bd.comm.rank == 0:
             wfs.kd.comm.sum(F_av, 0)
 
         wfs.world.broadcast(F_av, 0)
-        self.timer.stop('Wait for sum')
+        timer.stop('Wait for sum')
 
-        self.timer.stop('ODD corrections')
+        timer.stop('ODD corrections')
 
         return F_av * (3.0 - wfs.nspins)
 
@@ -802,6 +806,7 @@ class PzCorrectionsLcao:
             for n in range(n_occ):
                 F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                          wfs, setup, n,
+                                                         wfs.timer
                                                          )[0]
                 F_MM += H_MM
                 gemv(1.0, F_MM.conj(), C_nM[n], 0.0, b_nM[n])
@@ -855,8 +860,6 @@ class PzCorrectionsLcao:
             nrm_n = np.empty(L.shape[0])
             diagonalize(L, nrm_n)
             kpt.eps_n = nrm_n
-
-
         else:
             raise NotImplementedError
 
@@ -927,9 +930,10 @@ class PzCorrectionsLcao:
         for n in range(n_occ):
             F_MM, sic_energy_n =\
                 self.get_orbital_potential_matrix(f_n, c_nm, kpt,
-                                                  wfs, wfs.setups, n)
+                                                  wfs, wfs.setups,
+                                                  n, wfs.timer)
 
-            b_mn[:,n] = np.dot(c_nm[n], F_MM.conj()).T
+            b_mn[:, n] = np.dot(c_nm[n], F_MM.conj()).T
             e_total_sic = np.append(e_total_sic, sic_energy_n, axis=0)
         l_odd = np.dot(c_nm[:nbs].conj(), b_mn)
 
