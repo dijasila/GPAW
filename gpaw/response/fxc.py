@@ -200,6 +200,10 @@ class AdiabaticKernelCalculator:
         
         self.permitted_functionals = []
         self.functional = None
+
+        self.dfSns_g = None
+        self.dfmask_g = None
+        self.rsheconvmin = None
     
     def __call__(self, pd, calc, functional):
         assert functional in self.permitted_functionals
@@ -263,23 +267,15 @@ class AdiabaticKernelCalculator:
             dGn_GGv[mask0] = dG_GGv[mask0] / dG_GG[mask0][:, np.newaxis]
 
             for a, setup in enumerate(setups):
-                Y_nL = setup.xc_correction.Y_nL
-                rgd = setup.xc_correction.rgd
-
                 n_qg = setup.xc_correction.n_qg
                 nt_qg = setup.xc_correction.nt_qg
                 nc_g = setup.xc_correction.nc_g
                 nct_g = setup.xc_correction.nct_g
-                r_g = rgd.r_g
-                dv_g = rgd.dv_g
 
                 D_sp = D_asp[a]
                 B_pqL = setup.xc_correction.B_pqL
                 D_sLq = np.inner(D_sp, B_pqL.T)
                 nspins = len(D_sp)
-
-                f_g = rgd.zeros()
-                ft_g = rgd.zeros()
 
                 n_sLg = np.dot(D_sLq, n_qg)
                 nt_sLg = np.dot(D_sLq, nt_qg)
@@ -291,8 +287,11 @@ class AdiabaticKernelCalculator:
                 # Calculate dfxc
                 # Please note: Using the radial grid descriptor with add_fxc
                 # might give problems beyond ALDA
-                nn = len(R_nv)  # number of Lebedev quadratures
-                df_ng = np.array([rgd.zeros() for n in range(nn)])
+                Y_nL = setup.xc_correction.Y_nL
+                rgd = setup.xc_correction.rgd
+                f_g = rgd.zeros()
+                ft_g = rgd.zeros()
+                df_ng = np.array([rgd.zeros() for n in range(len(R_nv))])
                 for n, Y_L in enumerate(Y_nL):
                     f_g[:] = 0.
                     n_sg = np.dot(Y_L, n_sLg)
@@ -304,50 +303,49 @@ class AdiabaticKernelCalculator:
 
                     df_ng[n, :] = f_g - ft_g
 
-                sheconvlim = 0.999  # XXX should be given as input
+                rsheconvlim = 0.999  # XXX should be given as input
                 
-                # Expand angular part of dfxc in real spherical harmonics
-                # Find the angular norm square of df (which is a real function)
-                dfangns_g = rgd.zeros()
-                for g in range(len(r_g)):
-                    dfangns_g[g] = self._ang_int(df_ng[:, g] * df_ng[:, g])
-                # Find PAW correction range and allocate convergence meassures
-                ng = np.max(np.where(dfangns_g > 0.)) + 1
-                r_g = r_g[:ng]
-                dv_g = dv_g[:ng]
-                sheconv_g = np.zeros(ng)
+                # Expand angular part of dfxc in real spherical harmonics.
+                # First, initialize the expansion by finding the surface
+                # norm square of df to keep track of convergence
+                ng = self._initialize_rsh_expansion(df_ng)
+                # Integrate only r-values for which df is non-zero
+                df_ng = df_ng[:, :ng]
+                r_g = rgd.r_g[:ng]
+                dv_g = rgd.dv_g[:ng]
+
+                # Add real spherical harmonics to fulfill convergence criteria.
+                # Note that the Lebedev quadrature, which is used to calculate
+                # the expansion coefficients, is exact to order l=11. This
+                # implies that functions containing angular components l<=5 can
+                # be expanded exactly.
                 useL_L = []
                 usel_L = []
-                # Allocate memory
-                nL = Y_nL.shape[1]
-                assert nL <= 36  # above Lebedev integration is not exact
+                nL = min(Y_nL.shape[1], 36)
                 df_gL = np.zeros((ng, nL))
-                # Add real spherical harmonics to fulfill convergence criteria
+                self._evaluate_rshe_convergence(df_gL)
                 l = 0
-                while np.min(sheconv_g) < sheconvlim:
-                    useL_L += range(l**2, l**2 + 2 * l + 1)
-                    usel_L += [l] * (l * 2 + 1)
+                while self.rsheconvmin < rsheconvlim:
                     if l > int(np.sqrt(nL) - 1):
-                        raise Exception('Could not expand %.f of ' % sheconvlim
-                                        + 'PAW correction to atom %d in ' % a
+                        raise Exception('Could not expand %.f of' % rsheconvlim
+                                        + ' PAW correction to atom %d in ' % a
                                         + 'real spherical harmonics up to '
                                         + 'order l=%d' % int(np.sqrt(nL) - 1))
-                    for g in range(ng):
-                        dfshetot = self._add_sh_components(df_ng[:, g],
-                                                           df_gL[g, :],
-                                                           Y_nL, l)
-                        if dfangns_g[g] > 0.:
-                            sheconv_g[g] = dfshetot / dfangns_g[g]
-                        else:
-                            sheconv_g[g] = 1.
 
-                    print('At least a fraction of %.8f of' % np.min(sheconv_g)
-                          + ' the PAW correction to atom %d could be ' % a
+                    useL_L += range(l**2, l**2 + 2 * l + 1)
+                    usel_L += [l] * (l * 2 + 1)
+                    
+                    self._add_rshe_coefficients(df_ng, df_gL, Y_nL, l)
+                    self._evaluate_rshe_convergence(df_gL)
+
+                    print('At least a fraction of '
+                          + '%.8f' % self.rsheconvmin
+                          + ' of the PAW correction to atom %d could be ' % a
                           + 'expanded in spherical harmonics up to l=%d' % l,
                           file=self.fd)
                     l += 1
 
-                # Expand plane wave (Y and sphj could be vectorized?)
+                # Expand plane wave
                 Y_LGG = np.zeros((len(useL_L), *dG_GG.shape))
                 r_gLGG, l_gLGG, dG_gLGG = [a.reshape(ng, len(usel_L),
                                                      *dG_GG.shape)
@@ -355,10 +353,12 @@ class AdiabaticKernelCalculator:
                                                                 dG_GG)]
                 j_gLGG = spherical_jn(l_gLGG, dG_gLGG * r_gLGG)
                 Y_LGG = Yarr(useL_L, dGn_GGv)
+                ii_LK = (-1.j) ** np.repeat(usel_L, np.prod(dG_GG.shape))
+                ii_LGG = ii_LK.reshape((len(usel_L), *dG_GG.shape))
                 
                 # Perform integration
                 coefatomR_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                coefatomang_LGG = (-1.j) ** np.int(np.sqrt(useL_L)) * Y_LGG
+                coefatomang_LGG = ii_LGG * Y_LGG
                 coefatomrad_LGG = np.tensordot(j_gLGG * df_gL[:, useL_L,
                                                               np.newaxis,
                                                               np.newaxis],
@@ -462,24 +462,60 @@ class AdiabaticKernelCalculator:
         
         return Kxc_GG / vol
 
-    def _ang_int(self, f_n):  # XXX vectorize?
-        nn = len(R_nv)  # Lebedev quadrature
-        return 4. * np.pi * np.sum([weight_n[n] * f_n[n] for n in range(nn)])
+    def _ang_int(self, f_nA):
+        """ Make surface integral on a sphere using Lebedev quadrature """
+        return 4. * np.pi * np.tensordot(weight_n, f_nA, axes=([0], [0]))
 
-    def _add_sh_components(self, f_n, f_L, Y_nL, l):
+    def _initialize_rsh_expansion(self, f_ng):
+        """
+        Initialize the expansion in real spherical harmonics by finding
+        the surface norm square of f as a function of g (f is assumed to be
+        a real function). Store to keep track of convergence of the expansion.
+        """
+        self.dfSns_g = self._ang_int(f_ng ** 2)
+        # Find PAW correction range
+        self.dfmask_g = np.where(self.dfSns_g > 0.)
+        ng = np.max(self.dfmask_g) + 1
+        
+        return ng
+
+    def _evaluate_rshe_convergence(self, f_gL):
+        """
+        Find the minimal fraction of f_ng captured by the expansion
+        in real spherical harmonics f_gL.
+        """
+        rsheconv_g = np.ones(f_gL.shape[0])
+        rsheconv_g[self.dfmask_g] = np.sum(f_gL[self.dfmask_g]**2, axis=1)
+        rsheconv_g[self.dfmask_g] /= self.dfSns_g[self.dfmask_g]
+
+        '''
+        if dfangns_g[g] > 0.:
+            rsheconv_g[g] = dfrshetot / dfangns_g[g]
+        else:
+            rsheconv_g[g] = 1.
+        '''
+
+        self.rsheconvmin = np.min(rsheconv_g)
+    
+    def _add_rshe_coefficients(self, f_ng, f_gL, Y_nL, l):
         """
         Adds the l-components in the real spherical harmonic expansion
-        of f_n to f_L.
-        Assumes f_n to be a real function.
-
-        Returns: sum of spherical harmonic components norm squared
+        of f_ng to f_gL.
+        Assumes f_ng to be a real function.
         """
-        L_L = range(l**2, l**2 + 2 * l + 1)
+        nm = 2 * l + 1
+        L_L = range(l**2, l**2 + nm)
+        f_ngm = np.repeat(f_ng, nm, axis=1).reshape((*f_ng.shape, nm))
+        Y_ngm = np.repeat(Y_nL[:, L_L],
+                          f_ng.shape[1], axis=0).reshape((*f_ng.shape, nm))
+        f_gL[:, L_L] = self._ang_int(Y_ngm * f_ngm)
+        '''
         for L in L_L:
             f_L[L] += self._ang_int(Y_nL[:, L] * f_n)
 
         return np.sum(f_L**2)
-    
+        '''
+        
     def distribute_correction(self, setups, size):  # XXX old stuff, tbd
         """ Make every process work an equal amount """
         # Figure out the total number of grid points
