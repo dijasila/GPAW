@@ -13,6 +13,16 @@ Git master branch
 * Corresponding ASE release: ASE-3.17.1b1
 
 
+Version 1.5.1
+=============
+
+23 Jan 2019: :git:`1.5.1 <../1.5.1>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* Small bug fixes related to latest versions of Python, Numpy and Libxc.
+
+
 Version 1.5.0
 =============
 
