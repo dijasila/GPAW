@@ -62,7 +62,7 @@ from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 def md_min(func, step=.25, tolerance=1e-6, 
            verbose=False, gd=None, **kwargs):
     if verbose:
-        if gd is None:
+        if gd is not None:
             if gd.comm.rank == 0:
                 print('Localize with step =', step, 
                       'and tolerance =', tolerance)
@@ -86,13 +86,13 @@ def md_min(func, step=.25, tolerance=1e-6,
         func.niter = count
         #
         if verbose:
-            if gd is None:
+            if gd is not None:
                 if gd.comm.rank == 0:
                     print('MDmin: iter=%s, step=%s, value=%s' 
                           % (count, step, fvalue))
     t += time()
     if verbose:
-        if gd is None:
+        if gd is not None:
             if gd.comm.rank == 0:
                 print('%d iterations in %0.2f seconds'+ 
                       ' (%0.2f ms/iter), endstep = %s' 
@@ -552,11 +552,10 @@ class PipekMezey:
         elif self.wfs.world.rank == 0:
             return psit_G / Bohr**1.5
 
-
     def write_cube(self, index, fname, repeat=None, 
                    real=True, cell=None):
 
-        from ase.io.cube import write_cube
+        # from ase.io.cube import write_cube
         from ase.io import write
 
         # Default size of plotting cell is the one corresponding to k-points.
