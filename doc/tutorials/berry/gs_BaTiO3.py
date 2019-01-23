@@ -1,4 +1,3 @@
-import numpy as np
 from ase import Atoms
 from ase.optimize import BFGS
 from gpaw import GPAW, PW
@@ -24,4 +23,3 @@ calc.set(symmetry='off')
 a.get_potential_energy()
 
 calc.write('BaTiO3.gpw', mode='all')
-
