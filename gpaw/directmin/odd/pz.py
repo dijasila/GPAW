@@ -505,11 +505,13 @@ class PzCorrectionsLcao:
         C_conj_nM = np.copy(C_nM.conj()[:n_occ])
         mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
 
-        L_occ += C_conj_nM @ H_MM @ C_nM[:n_occ].T
+        L_occ += np.dot(C_conj_nM,
+                        np.dot(H_MM, C_nM[:n_occ].T))
         L_occ = 0.5 * (L_occ + L_occ.T.conj())
         del C_conj_nM
 
-        L_unocc = C_nM.conj()[n_occ:] @ H_MM @ C_nM[n_occ:].T
+        L_unocc = np.dot(C_nM.conj()[n_occ:],
+                         np.dot(H_MM, C_nM[n_occ:].T))
         L_unocc = 0.5 * (L_unocc + L_unocc.T.conj())
 
         self.lagr_diag_s[u] = \
