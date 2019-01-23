@@ -22,8 +22,8 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.4.1b1'
-__ase_version_required__ = '3.16.1b1'
+__version__ = '1.5.1b1'
+__ase_version_required__ = '3.17.1b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -142,6 +142,8 @@ def parse_arguments(argv):
 
 if is_gpaw_python:
     extra_parameters, gpaw_args = parse_arguments(sys.argv)
+    # The normal Python interpreter puts . in sys.path, so we also do that:
+    sys.path.insert(0, '.')
 else:
     # Ignore the arguments; rely on --gpaw only as below.
     extra_parameters, gpaw_args = parse_arguments([sys.argv[0]])

@@ -6,14 +6,15 @@ class Overlap:
     """Wave funcion overlap of two GPAW objects"""
     def __init__(self, calc):
         self.calc = calc
-        self.nb, self.nk = self.number_of_states(calc)
-        ##print(rank, 'nb, nk', self.nb, self.nk)
+        self.nb, self.nk, self.ns = self.number_of_states(calc)
         self.gd = self.calc.wfs.gd
+        self.kd = self.calc.wfs.kd
 
     def number_of_states(self, calc):
-        return calc.get_number_of_bands(), len(calc.wfs.kd.ibzk_kc)
+        return (calc.get_number_of_bands(), len(calc.get_ibz_k_points()),
+                calc.get_number_of_spins())
 
-    def pseudo(self, other, normalize=True):
+    def pseudo(self, other, myspin=0, otherspin=0, normalize=True):
         """Overlap with pseudo wave functions only
 
         Parameter
@@ -26,16 +27,22 @@ class Overlap:
         Returns
         -------
         out: array
-            u_ij =  \int dx mypsitilde_i^*(x) otherpsitilde_j(x)
+            u_kij =  \int dx mypsitilde_ki^*(x) otherpsitilde_kj(x)
         """
-        nbo, nko = self.number_of_states(other)
-        assert(self.nk == nko)
+        nbo, nko, _ = self.number_of_states(other)
+        assert(self.nk == nko)  # XXX allow for different number of k-points ?
 
         overlap_knn = []
         for k in range(self.nk):
+            # XXX what if parallelized over spin or kpoints ?
+            kpt_rank, u = self.kd.get_rank_and_index(myspin, k)
+            assert self.kd.comm.rank == kpt_rank
+            kpt_rank, uo = other.wfs.kd.get_rank_and_index(otherspin, k)
+            assert self.kd.comm.rank == kpt_rank
+            
             overlap_nn = np.zeros((self.nb, nbo), dtype=self.calc.wfs.dtype)
-            mkpt = self.calc.wfs.kpt_u[k]
-            okpt = other.wfs.kpt_u[k]
+            mkpt = self.calc.wfs.kpt_u[u]
+            okpt = other.wfs.kpt_u[uo]
             psit_nG = mkpt.psit_nG
             norm_n = self.gd.integrate(psit_nG.conj() * psit_nG)
             psito_nG = okpt.psit_nG
@@ -49,7 +56,7 @@ class Overlap:
             overlap_knn.append(overlap_nn)
         return np.array(overlap_knn)
 
-    def full(self, other):
+    def full(self, other, myspin=0, otherspin=0):
         """Overlap of Kohn-Sham states including local terms.
 
         Parameter
@@ -60,12 +67,18 @@ class Overlap:
         Returns
         -------
         out: array
-            u_ij =  \int dx mypsi_i^*(x) otherpsi_j(x)
+            u_kij =  \int dx mypsi_ki^*(x) otherpsi_kj(x)
         """
         ov_knn = self.pseudo(other, normalize=False)
         for k in range(self.nk):
-            mkpt = self.calc.wfs.kpt_u[k]
-            okpt = other.wfs.kpt_u[k]
+            # XXX what if parallelized over spin or kpoints ?
+            kpt_rank, u = self.kd.get_rank_and_index(myspin, k)
+            assert self.kd.comm.rank == kpt_rank
+            kpt_rank, uo = other.wfs.kd.get_rank_and_index(otherspin, k)
+            assert self.kd.comm.rank == kpt_rank
+
+            mkpt = self.calc.wfs.kpt_u[u]
+            okpt = other.wfs.kpt_u[uo]
 
             aov_nn = np.zeros_like(ov_knn[k])
             for a, mP_ni in mkpt.P_ani.items():

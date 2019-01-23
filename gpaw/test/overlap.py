@@ -49,8 +49,6 @@ def show(c2):
     lr2 = LrTDDFT(c2)
     ovkss = lr1.kss.overlap(ov[0], lr2.kss)
     parprint('KSSingles overlap:\n', ovkss)
-    print('lr1.kss', id(lr1.kss))
-    print('lr2.kss', id(lr2.kss))
     ovlr = lr1.overlap(ov[0], lr2)
     parprint('LrTDDFT overlap:\n', ovlr)
 
@@ -61,13 +59,18 @@ c2 = GPAW(h=h, txt=txt, eigensolver='cg', nbands=nbands + 1,
 show(c2)
 
 parprint('spin --------')
+H2.set_initial_magnetic_moments([1, -1])
 c2 = GPAW(h=h, txt=txt, spinpol=True, nbands=nbands + 1,
           parallel={'domain': world.size},
           convergence={'eigenstates':nbands + 1})
+H2.set_initial_magnetic_moments([0, 0])
 try:
     show(c2)
 except AssertionError:
     parprint('Not ready')
+if 1:
+    ov = Overlap(c1).pseudo(c2, otherspin=1)
+    parprint('wave function overlap (pseudo other spin):\n', ov)
     
 parprint('k-points --------')
 
@@ -83,5 +86,5 @@ c2 = GPAW(h=h, txt=txt, nbands=nbands + 1,
           convergence={'eigenstates':nbands + 1})
 try:
     show(c2)
-except AssertionError:
-    parprint('Not ready')
+except (AssertionError, IndexError) as e:
+    parprint('Not ready', e)

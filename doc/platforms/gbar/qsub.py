@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""This version of gpaw-qsub works in the DTU databar."""
+"""GPAW-wrapper for qsub."""
 
 import argparse
 import subprocess
 
 description = 'Submit a GPAW Python script via qsub.'
-maxcores = 8
+maxcores = 8  # XeonX5550
 
 
 def main():
@@ -26,7 +26,8 @@ def main():
     if nodes > 0:
         ppn = maxcores
         if rest > 0:
-            print('asdfasfd')
+            msg = f'Please use a multiple of {maxcores} processes!'
+            raise SystemExit(msg)
     else:
         nodes = 1
         ppn = args.processes

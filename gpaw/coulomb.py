@@ -88,7 +88,7 @@ class Coulomb:
                 if self.poisson is not None:
                     self.solve = self.poisson.solve
                 else:
-                    solver = PoissonSolver(nn=2)
+                    solver = PoissonSolver('fd', nn=2)
                     solver.set_grid_descriptor(self.gd)
                     #solver.initialize()
                     self.solve = solver.solve
@@ -183,7 +183,7 @@ class CoulombNEW:
         if fft:
             self.poisson = FFTPoissonSolver()
         else:
-            self.poisson = PoissonSolver(nn=3)
+            self.poisson = PoissonSolver(name='fd', nn=3)
         self.poisson.set_grid_descriptor(gd)
         self.setups = setups
 

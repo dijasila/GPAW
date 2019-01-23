@@ -44,7 +44,7 @@ for formula in systems:
                 parallel=dict(kpt=1),
                 mixer=Mixer(0.5, 5),
                 nbands=-2,
-                poissonsolver=PoissonSolver(relax='GS'),
+                poissonsolver=PoissonSolver('fd', relax='GS'),
                 xc='oldPBE',
                 #fixmom=True,
                 txt=formula + '.txt')

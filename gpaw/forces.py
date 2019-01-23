@@ -25,7 +25,7 @@ def calculate_forces(wfs, dens, ham, log=None):
     F_wfs_av = np.zeros((natoms, 3))
     wfs.calculate_forces(ham, F_wfs_av)
     wfs.gd.comm.sum(F_wfs_av, 0)
-            
+
     F_ham_av = np.zeros((natoms, 3))
 
     try:
@@ -52,7 +52,7 @@ def calculate_forces(wfs, dens, ham, log=None):
             kpt.rho_MM = None
 
     F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
-    
+
     if log:
         log('\nForces in eV/Ang:')
         c = Hartree / Bohr
@@ -60,5 +60,5 @@ def calculate_forces(wfs, dens, ham, log=None):
             log('%3d %-2s %10.5f %10.5f %10.5f' %
                 ((a, setup.symbol) + tuple(F_av[a] * c)))
         log()
-        
+
     return F_av

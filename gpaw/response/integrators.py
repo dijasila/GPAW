@@ -17,7 +17,7 @@ from functools import partial
 
 class Integrator():
 
-    def __init__(self, cell_cv, comm=mpi.world,
+    def __init__(self, cell_cv, response='density', comm=mpi.world,
                  txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
@@ -27,7 +27,8 @@ class Integrator():
         comm: mpi.communicator
         nblocks: block parallelization
         """
-
+        
+        self.response = response
         self.comm = comm
         self.eshift = eshift
         self.nblocks = nblocks
@@ -147,7 +148,7 @@ class PointIntegrator(Integrator):
         mydomain_t = self.distribute_domain(domain)
         nbz = len(domain[0])
         get_matrix_element, get_eigenvalues = integrand
-
+        
         prefactor = (2 * np.pi)**3 / self.vol / nbz
         out_wxx /= prefactor
 
@@ -200,13 +201,13 @@ class PointIntegrator(Integrator):
             else:
                 for out_xx in out_wxx:
                     out_xx[iu] = out_xx[il].conj()
-
+        
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
-
+        
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
@@ -215,14 +216,17 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
-
+        
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
-            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            if self.response == 'density':
+                x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            else:
+                x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
                 nx_mG = n_mG * x_m[:, np.newaxis]
-
+             
             gemm(1.0, n_mG.conj(), np.ascontiguousarray(nx_mG.T),
                  1.0, chi0_GG)
 

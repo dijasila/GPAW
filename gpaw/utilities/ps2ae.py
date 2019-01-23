@@ -136,6 +136,9 @@ class PS2AE:
 
     def add_potential_correction(self, v_R, alpha):
         dens = self.calc.density
+        dens.D_asp.redistribute(dens.atom_partition.as_serial())
+        dens.Q_aL.redistribute(dens.atom_partition.as_serial())
+
         dv_a1 = []
         for a, D_sp in dens.D_asp.items():
             setup = dens.setups[a]
@@ -154,6 +157,11 @@ class PS2AE:
             dv_g[-1] = 0.0
             dv_a1.append([rgd.spline(dv_g, points=POINTS)])
 
-        dv = LFC(self.gd, dv_a1)
-        dv.set_positions(self.calc.spos_ac)
-        dv.add(v_R)
+        dens.D_asp.redistribute(dens.atom_partition)
+        dens.Q_aL.redistribute(dens.atom_partition)
+
+        if dv_a1:
+            dv = LFC(self.gd, dv_a1)
+            dv.set_positions(self.calc.spos_ac)
+            dv.add(v_R)
+        dens.gd.comm.broadcast(v_R, 0)

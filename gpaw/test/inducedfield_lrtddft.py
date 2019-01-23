@@ -3,7 +3,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver
 from gpaw.test import equal
 
 do_print_values = False  # Use this for printing the reference values
@@ -11,7 +11,7 @@ poisson_eps = 1e-12
 density_eps = 1e-6
 
 # 0) PoissonSolver
-poissonsolver = PoissonSolver(eps=poisson_eps)
+poissonsolver = FDPoissonSolver(eps=poisson_eps)
 
 # 1) Ground state calculation with empty states
 atoms = Atoms(symbols='Na2',
@@ -20,6 +20,7 @@ atoms = Atoms(symbols='Na2',
 atoms.center(vacuum=3.0)
 
 calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
+            experimental={'niter_fixdensity': 2},
             convergence={'density': density_eps})
 atoms.set_calculator(calc)
 energy = atoms.get_potential_energy()

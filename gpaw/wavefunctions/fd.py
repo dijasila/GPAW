@@ -13,6 +13,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+import _gpaw
 
 
 class FD(Mode):
@@ -86,20 +87,16 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.timer.stop('Apply hamiltonian')
 
     def get_pseudo_partial_waves(self):
-        phit_aj = [setup.get_actual_atomic_orbitals()
+        phit_aj = [setup.get_partial_waves_for_atomic_orbitals()
                    for setup in self.setups]
         return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]
-        if self.dtype == float:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G**2, nt_G)
-        else:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G.real**2, nt_G)
-                axpy(f, psit_G.imag**2, nt_G)
+        for f, psit_G in zip(f_n, kpt.psit_nG):
+            # Same as nt_G += f * abs(psit_G)**2, but much faster:
+            _gpaw.add_to_density(f, psit_G, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):

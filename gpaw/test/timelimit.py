@@ -15,8 +15,8 @@ calc = GPAW(mode='lcao', basis='sz(dzp)', setups='1',
             maxiter=maxiter)
 atoms.set_calculator(calc)
 
-tl = TimeLimiter(calc, timelimit=5, output='scf.txt')
-tl.reset('scf', min_updates=1)
+tl = TimeLimiter(calc, timelimit=0, output='scf.txt')
+tl.reset('scf', min_updates=3)
 try:
     atoms.get_potential_energy()
 except KohnShamConvergenceError:
@@ -27,7 +27,7 @@ calc.write('gs.gpw', mode='all')
 
 # Time-propagation calculation that will never finish
 td_calc = LCAOTDDFT('gs.gpw')
-tl = TimeLimiter(td_calc, timelimit=5, output='tddft.txt')
-tl.reset('tddft', min_updates=1)
+tl = TimeLimiter(td_calc, timelimit=0, output='tddft.txt')
+tl.reset('tddft', min_updates=3)
 td_calc.propagate(10, maxiter - td_calc.niter)
 assert td_calc.maxiter < maxiter, 'TimeLimiter did not break the TDDFT loop'

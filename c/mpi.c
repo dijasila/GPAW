@@ -19,10 +19,19 @@
 #endif
 
 // Check that array is well-behaved and contains data that can be sent.
-#define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)               \
+#define CHK_ARRAY(a) if ((a) == NULL || !PyArray_Check(a)                   \
                          || !PyArray_ISCARRAY(a) || !PyArray_ISNUMBER(a)) { \
-    PyErr_SetString(PyExc_TypeError,                                    \
-                    "Not a proper NumPy array for MPI communication."); \
+    PyErr_SetString(PyExc_TypeError,                                        \
+                    "Not a proper NumPy array for MPI communication.");     \
+    return NULL; }
+
+// Check that array is well-behaved, read-only  and contains data that
+// can be sent.
+#define CHK_ARRAY_RO(a) if ((a) == NULL || !PyArray_Check(a)                \
+                         || !PyArray_ISCARRAY_RO(a)                         \
+                         || !PyArray_ISNUMBER(a)) {                         \
+    PyErr_SetString(PyExc_TypeError,                                        \
+                    "Not a proper NumPy array for MPI communication.");     \
     return NULL; }
 
 // Check that two arrays have the same type, and the size of the
@@ -358,7 +367,7 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Oi|i:send", kwlist,
                                    &a, &dest, &tag))
     return NULL;
-  CHK_ARRAY(a);
+  CHK_ARRAY_RO(a);
   CHK_OTHER_PROC(dest);
   int n = PyArray_DESCR(a)->elsize;
   for (int d = 0; d < PyArray_NDIM(a); d++)
@@ -530,7 +539,7 @@ static PyObject * mpi_waitall(MPIObject *self, PyObject *requests)
   free(rqs);
   Py_RETURN_NONE;
 }
- 
+
 
 static MPI_Datatype get_mpi_datatype(PyArrayObject *a)
 {
@@ -834,7 +843,7 @@ static PyObject *mpi_compare(MPIObject *self, PyObject *args)
   char* pyresult;
   if (!PyArg_ParseTuple(args, "O", &other))
     return NULL;
-  
+
   MPI_Comm_compare(self->comm, other->comm, &result);
   if(result == MPI_IDENT) pyresult = "ident";
   else if (result == MPI_CONGRUENT) pyresult = "congruent";
@@ -848,7 +857,7 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
 {
   PyObject* myranks_anytype; // Conversion to numpy array below
   MPIObject* other;
-  
+
   if (!PyArg_ParseTuple(args, "OO", &other, &myranks_anytype))
     return NULL;
 
@@ -856,7 +865,7 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
   // returned array is int32 while np.array(..., dtype=int) returns
   // int64.  This should very probably be changed so it always
   // corresponds to the default int of numpy.
-  
+
   // This handling of arrays of ranks is taken from the MPICommunicator
   // creation method.  See that method for explanation of casting, datatypes
   // etc.
@@ -864,9 +873,9 @@ static PyObject *mpi_translate_ranks(MPIObject *self, PyObject *args)
                                             myranks_anytype, NPY_LONG, 1, 1);
   if(myranks_long == NULL)
     return NULL;
-  
+
   int nranks = PyArray_DIM(myranks_long, 0);
-  
+
   PyArrayObject *myranks;
   myranks = (PyArrayObject*)PyArray_Cast(myranks_long, NPY_INT);
 
@@ -1049,14 +1058,14 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
 {
     static char *kwlist[] = {NULL};
     MPIObject* self;
-  
+
     if (! PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
         return NULL;
 
     self = (MPIObject *) type->tp_alloc(type, 0);
     if (self == NULL)
         return NULL;
-   
+
 #   ifndef GPAW_INTERPRETER
         MPI_Init(NULL, NULL);
 #   endif
@@ -1079,10 +1088,10 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
 static int InitMPIObject(MPIObject* self, PyObject *args, PyObject *kwds)
 {
   static char *kwlist[] = {NULL};
-  
+
   if (! PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
     return -1;
-  
+
   return 0;
 }
 

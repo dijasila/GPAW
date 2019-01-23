@@ -1,3 +1,5 @@
+.. _batteries:
+
 =========
 Batteries
 =========
@@ -28,7 +30,7 @@ Tools used:
 Part 1: Li intercalation energy in graphite
 ===========================================
 
-:download:`batteries1.ipynb`, :download:`C64.png`, :download:`gra_fit.png`,
+:download:`batteries1.ipynb`, :download:`C64.png`,
 :download:`Li2.png`, :download:`C144Li18.png`
 
 The notebook ``batteries1.ipynb`` will guide you through the first day of the
@@ -76,8 +78,7 @@ choice of functional. The notebook is ``batteries2.ipynb``.
 Part 3: Transport barriers and voltage profile
 ==============================================
 
-:download:`batteries3.ipynb`, :download:`NEB_init.traj`,
-:download:`initial.png`, :download:`final.png`
+:download:`batteries3.ipynb`, :download:`NEB_init.traj`
 
 You will calculate the energy barriers for transport of Li intercalated in the
 graphite anode. You will examine how sensitive this barrier is to the
