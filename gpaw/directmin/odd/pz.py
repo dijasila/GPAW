@@ -476,12 +476,15 @@ class PzCorrectionsLcao:
                                              W_aL[a])) * self.beta_c
         timer.stop('Hartree-PAW')
 
+        timer.start('Wait for sum')
         if self.sic_coarse_grid is False:
             ec = self.finegd.comm.sum(ec)
             exc = self.finegd.comm.sum(exc)
         else:
             ec = self.cgd.comm.sum(ec)
             exc = self.cgd.comm.sum(exc)
+        timer.stop('Wait for sum')
+
 
         return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
 

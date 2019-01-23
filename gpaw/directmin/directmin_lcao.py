@@ -194,6 +194,7 @@ class DirectMinLCAO(DirectLCAO):
                 occ.calculate(wfs)
                 if self.odd_parameters['name'] == 'PZ_SIC':
                     log("Pipek-Mezey Localization: ...", flush=True)
+                    wfs.timer.start('Pipek-Mezey Localization')
                     for kpt in wfs.kpt_u:
                         if sum(kpt.f_n) < 1.0e-3:
                             continue
@@ -206,6 +207,7 @@ class DirectMinLCAO(DirectLCAO):
                         n_occ = U.shape[0]
                         kpt.C_nM[:n_occ] = np.dot(U, kpt.C_nM[:n_occ])
                         del pm_obj
+                    wfs.timer.stop('Pipek-Mezey Localization')
                     log("Done", flush=True)
             else:
                 for kpt in wfs.kpt_u:
