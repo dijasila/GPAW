@@ -125,6 +125,7 @@ class StrongWolfeConditions:
         max_iter = self.max_iter
         phi_max = None
         der_phi_max = None
+        g_max = None
 
         # 'Get_step_length:'
         while True:
