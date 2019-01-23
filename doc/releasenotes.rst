@@ -12,6 +12,22 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.17.1b1
 
+* Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
+  for how to use it to calculate spontaneous polarization, Born effective
+  charges and other physical properties.
+
+* How to do :ref:`ehrenfest` has now been documented.
+
+
+Version 1.5.1
+=============
+
+23 Jan 2019: :git:`1.5.1 <../1.5.1>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* Small bug fixes related to latest versions of Python, Numpy and Libxc.
+
 
 Version 1.5.0
 =============
