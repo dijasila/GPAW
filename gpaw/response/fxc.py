@@ -4,13 +4,15 @@
 from __future__ import print_function
 
 import numpy as np
+from scipy.special import spherical_jn
 
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.spherical_harmonics import Y
-from gpaw.response.math_func import sphj
+from gpaw.spherical_harmonics import Yarr
+# from gpaw.spherical_harmonics import Y
+# from gpaw.response.math_func import sphj
 
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
@@ -311,8 +313,11 @@ class AdiabaticKernelCalculator:
                     dfangns_g[g] = self._ang_int(df_ng[:, g] * df_ng[:, g])
                 # Find PAW correction range and allocate convergence meassures
                 ng = np.max(np.where(dfangns_g > 0.)) + 1
+                r_g = r_g[:ng]
+                dv_g = dv_g[:ng]
                 sheconv_g = np.zeros(ng)
                 useL_L = []
+                usel_L = []
                 # Allocate memory
                 nL = Y_nL.shape[1]
                 assert nL <= 36  # above Lebedev integration is not exact
@@ -321,6 +326,7 @@ class AdiabaticKernelCalculator:
                 l = 0
                 while np.min(sheconv_g) < sheconvlim:
                     useL_L += range(l**2, l**2 + 2 * l + 1)
+                    usel_L += [l] * (l * 2 + 1)
                     if l > int(np.sqrt(nL) - 1):
                         raise Exception('Could not expand %.f of ' % sheconvlim
                                         + 'PAW correction to atom %d in ' % a
@@ -343,14 +349,12 @@ class AdiabaticKernelCalculator:
 
                 # Expand plane wave (Y and sphj could be vectorized?)
                 Y_LGG = np.zeros((len(useL_L), *dG_GG.shape))
-                j_gLGG = np.zeros((ng, *Y_LGG.shape))
-                for G1, G2 in np.ndindex(dG_GG.shape):
-                    x, y, z = dGn_GGv[G1, G2, :]
-                    for L in useL_L:
-                        Y_LGG[L, G1, G2] = Y(L, x, y, z)
-                    for g in range(ng):
-                        j_gLGG[g, :, G1, G2] = sphj(len(useL_L),
-                                                    dG_GG[G1, G2] * r_g[g])
+                r_gLGG, l_gLGG, dG_gLGG = [a.reshape(ng, len(usel_L),
+                                                     *dG_GG.shape)
+                                           for a in np.meshgrid(r_g, usel_L,
+                                                                dG_GG)]
+                j_gLGG = spherical_jn(l_gLGG, dG_gLGG * r_gLGG)
+                Y_LGG = Yarr(useL_L, dGn_GGv)
                 
                 # Perform integration
                 coefatomR_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
@@ -358,7 +362,7 @@ class AdiabaticKernelCalculator:
                 coefatomrad_LGG = np.tensordot(j_gLGG * df_gL[:, useL_L,
                                                               np.newaxis,
                                                               np.newaxis],
-                                               dv_g[:ng], axes=([0, 0]))
+                                               dv_g, axes=([0, 0]))
                 coefatom_GG = np.sum(coefatomang_LGG * coefatomrad_LGG, axis=0)
                 KxcPAW_GG += coefatom_GG * coefatomR_GG
 
@@ -458,7 +462,7 @@ class AdiabaticKernelCalculator:
         
         return Kxc_GG / vol
 
-    def _ang_int(self, f_n):
+    def _ang_int(self, f_n):  # XXX vectorize?
         nn = len(R_nv)  # Lebedev quadrature
         return 4. * np.pi * np.sum([weight_n[n] * f_n[n] for n in range(nn)])
 
