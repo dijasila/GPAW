@@ -18,8 +18,8 @@ class PzCorrectionsLcao:
 
     """
     def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
-                 sic_coarse_grid=True, store_potentials=True,
-                 poisson_solver='GS'):
+                 sic_coarse_grid=True, store_potentials=False,
+                 poisson_solver='FPS'):
 
         self.name = 'PZ_SIC'
         # what we need from wfs
@@ -47,10 +47,16 @@ class PzCorrectionsLcao:
         # what we need from ham
         self.xc = ham.xc
 
-        self.poiss = PoissonSolver(relax=poisson_solver,
-                                   eps=1.0e-16,
-                                   use_charge_center=True,
-                                   use_charged_periodic_corrections=True)
+        if poisson_solver == 'FPS':
+            self.poiss = PoissonSolver(eps=1.0e-16,
+                                       use_charge_center=True,
+                                       use_charged_periodic_corrections=True)
+        elif poisson_solver == 'GS':
+            self.poiss = PoissonSolver(name='fd',
+                                       relax=poisson_solver,
+                                       eps=1.0e-16,
+                                       use_charge_center=True,
+                                       use_charged_periodic_corrections=True)
 
         if self.sic_coarse_grid is True:
             self.poiss.set_grid_descriptor(self.cgd)
@@ -405,7 +411,8 @@ class PzCorrectionsLcao:
                 self.interpolator.apply(self.old_pot[kpoint][i],
                                         vHt_g)
         self.poiss.solve(vHt_g, nt_sg[0],
-                         zero_initial_phi=False)
+                         zero_initial_phi=self.store_potentials,
+                         timer=timer)
         if self.store_potentials:
             if self.sic_coarse_grid:
                 self.old_pot[kpoint][i] = vHt_g.copy()

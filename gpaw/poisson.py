@@ -110,7 +110,7 @@ class BasePoissonSolver(_PoissonSolver):
         self.use_charge_center = use_charge_center
         self.use_charged_periodic_corrections = \
             use_charged_periodic_corrections
-
+        self.charged_periodic_correction = None
         self.eps = eps
 
     def todict(self):
@@ -189,12 +189,12 @@ class BasePoissonSolver(_PoissonSolver):
                 phi[:] = 0.0
 
             iters = self.solve_neutral(phi, rho - background, eps=eps, timer=timer)
-
             if self.use_charged_periodic_corrections:
                 if self.charged_periodic_correction is None:
                     self.charged_periodic_correction = madelung(
                         self.gd.cell_cv)
                 phi += actual_charge * self.charged_periodic_correction
+
             return iters
 
         elif abs(charge) > maxcharge and not self.gd.pbc_c.any():
