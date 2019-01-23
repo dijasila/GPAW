@@ -255,10 +255,18 @@ class AdiabaticKernelCalculator:
             setups = calc.wfs.setups
             D_asp = calc.density.D_asp
             
-            KxcPAW_GG = np.zeros_like(Kxc_GG)  # XXX missing parallelization
-            dG_GGv = np.zeros((npw, npw, 3))
+            KxcPAW_GG = np.zeros_like(Kxc_GG)
+            
+            # Distribute correction and find dG
+            nGpr = (npw + self.world.size - 1) // self.world.size
+            Ga = min(self.world.rank * nGpr, npw)
+            Gb = min(Ga + nGpr, npw)
+            myG_G = range(Ga, Gb)
+            dG_GGv = np.zeros((len(myG_G), npw, 3))
             for v in range(3):
-                dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+                dG_GGv[:, :, v] = np.subtract.outer(G_Gv[myG_G, v], G_Gv[:, v])
+
+            # Find length of dG and the normalized dG
             dG_GG = np.linalg.norm(dG_GGv, axis=2)
             dGn_GGv = np.zeros_like(dG_GGv)
             mask0 = np.where(dG_GG != 0.)
@@ -362,9 +370,9 @@ class AdiabaticKernelCalculator:
                                                               np.newaxis],
                                                dv_g, axes=([0, 0]))
                 coefatom_GG = np.sum(coefatomang_LGG * coefatomrad_LGG, axis=0)
-                KxcPAW_GG += coefatom_GG * coefatomR_GG
+                KxcPAW_GG[myG_G] += coefatom_GG * coefatomR_GG
 
-            # XXX missing parallelization
+            self.world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
 
         if self.RSrep == 'GPAW':  # XXX old stuff, to be deleted
