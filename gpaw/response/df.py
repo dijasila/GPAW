@@ -239,6 +239,8 @@ class DielectricFunction:
             (not used in transverse reponse functions)
         RSrep : str
             real space representation of kernel ('gpaw' or 'grid')
+            if using the gpaw representation, the convergence criteria can be
+            specified as 'gpaw-rshe%f' % rshecc (default is gpaw-rshe0.99)
         spinpol_cut : float
             cutoff spin polarization below which f_xc is evaluated in
             unpolarized limit (make sure divergent terms cancel out correctly)

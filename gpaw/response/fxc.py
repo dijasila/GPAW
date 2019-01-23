@@ -61,9 +61,20 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world, RSrep,
-                                                 ecut=chi0.ecut,
-                                                 density_cut=density_cut)
+        # If using the gpaw representation, split out convergence criteria
+        if '-rshe' in RSrep:
+            RSrep_d = RSrep.split('-rshe', 2)
+            RSrep = RSrep_d[0]
+            rshecc = float(RSrep_d[1])
+            Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world, RSrep,
+                                                     rshecc=rshecc,
+                                                     ecut=chi0.ecut,
+                                                     density_cut=density_cut)
+        else:
+            assert RSrep in ['grid', 'gpaw']
+            Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world, RSrep,
+                                                     ecut=chi0.ecut,
+                                                     density_cut=density_cut)
         Kxc_sGG = np.array([Kcalc(pd, calc, functional)])
     elif functional[0] == 'r':
         # Renormalized kernel
@@ -105,10 +116,22 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating transverse %s kernel" % functional, file=fd)
-        Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world, RSrep,
-                                                    ecut=chi0.ecut,
-                                                    density_cut=density_cut,
-                                                    spinpol_cut=spinpol_cut)
+        # If using the gpaw representation, split out convergence criteria
+        if '-rshe' in RSrep:
+            RSrep_d = RSrep.split('-rshe', 2)
+            RSrep = RSrep_d[0]
+            rshecc = float(RSrep_d[1])
+            Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world, RSrep,
+                                                        rshecc=rshecc,
+                                                        ecut=chi0.ecut,
+                                                        density_cut=density_cut,
+                                                        spinpol_cut=spinpol_cut)
+        else:
+            assert RSrep in ['grid', 'gpaw']
+            Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world, RSrep,
+                                                        ecut=chi0.ecut,
+                                                        density_cut=density_cut,
+                                                        spinpol_cut=spinpol_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
     
@@ -184,11 +207,14 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
     
-    def __init__(self, fd, world, RSrep, ecut=None):
+    def __init__(self, fd, world, RSrep, rshecc=0.99, ecut=None):
 
         """
         RSrep : str
             real space representation of kernel ('gpaw' or 'grid')
+        rshecc : float
+            convergence criteria for expansion of PAW correction in
+            real spherical harmonics
         """
         
         self.fd = fd
@@ -199,9 +225,11 @@ class AdiabaticKernelCalculator:
         self.permitted_functionals = []
         self.functional = None
 
-        self.dfSns_g = None
-        self.dfmask_g = None
-        self.rsheconvmin = None
+        if self.RSrep == 'gpaw':
+            self.rshecc = rshecc
+            self.dfSns_g = None
+            self.dfmask_g = None
+            self.rsheconvmin = None
     
     def __call__(self, pd, calc, functional):
         assert functional in self.permitted_functionals
@@ -308,8 +336,6 @@ class AdiabaticKernelCalculator:
                     add_fxc(rgd, nt_sg, ft_g)
 
                     df_ng[n, :] = f_g - ft_g
-
-                rsheconvlim = 0.999  # XXX should be given as input
                 
                 # Expand angular part of dfxc in real spherical harmonics.
                 # First, initialize the expansion by finding the surface
@@ -331,9 +357,9 @@ class AdiabaticKernelCalculator:
                 df_gL = np.zeros((ng, nL))
                 self._evaluate_rshe_convergence(df_gL)
                 l = 0
-                while self.rsheconvmin < rsheconvlim:
+                while self.rsheconvmin < self.rshecc:
                     if l > int(np.sqrt(nL) - 1):
-                        raise Exception('Could not expand %.f of' % rsheconvlim
+                        raise Exception('Could not expand %.f of' % self.rshecc
                                         + ' PAW correction to atom %d in ' % a
                                         + 'real spherical harmonics up to '
                                         + 'order l=%d' % int(np.sqrt(nL) - 1))
@@ -344,7 +370,7 @@ class AdiabaticKernelCalculator:
                     self._add_rshe_coefficients(df_ng, df_gL, Y_nL, l)
                     self._evaluate_rshe_convergence(df_gL)
 
-                    print('At least a fraction of '
+                    print('\tAt least a fraction of '
                           + '%.8f' % self.rsheconvmin
                           + ' of the PAW correction to atom %d could be ' % a
                           + 'expanded in spherical harmonics up to l=%d' % l,
@@ -539,6 +565,7 @@ class AdiabaticKernelCalculator:
 class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
     def __init__(self, fd, world, RSrep,
+                 rshecc=0.99,
                  ecut=None,
                  density_cut=None):
         """
@@ -548,7 +575,8 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
         self.density_cut = density_cut
         
-        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep, ecut)
+        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep,
+                                           rshecc, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -600,6 +628,7 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
     
     def __init__(self, fd, world, RSrep,
+                 rshecc=0.99,
                  ecut=None,
                  density_cut=None,
                  spinpol_cut=None):
@@ -613,7 +642,8 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
         self.density_cut = density_cut
         self.spinpol_cut = spinpol_cut
         
-        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep, ecut)
+        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep,
+                                           rshecc, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
     
