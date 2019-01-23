@@ -77,9 +77,9 @@ class ZeroCorrectionsLcao:
             grad = np.ascontiguousarray(h_mm)
         elif matrix_exp == 'eigendecomposition':
             timer.start('Use Eigendecomposition')
-            grad = evec.T.conj() @ h_mm @ evec
+            grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
             grad = grad * D_matrix(evals)
-            grad = evec @ grad @ evec.T.conj()
+            grad = np.dot(evec, np.dot(grad, evec.T.conj()))
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
             timer.stop('Use Eigendecomposition')
