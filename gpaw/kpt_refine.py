@@ -1,5 +1,5 @@
 # Copyright (C) 2016 R. Warmbier Materials for Energy Research Group,
-# Wits University 
+# Wits University
 from __future__ import division
 
 import copy
@@ -46,7 +46,7 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
     reduce_symmetry = refine.get('reduce_symmetry', True)
 
     # Check that all sizes are odd. That's not so much an issue really. But even
-    # Monkhorst-Pack grids have points on the boundary, which just would require 
+    # Monkhorst-Pack grids have points on the boundary, which just would require
     # more special casing, which I want to avoid.
     if (np.array(size) % 2 == 0).any():
         raise RuntimeError('Grid size for refinement must be odd!  Is: {}'.
@@ -66,7 +66,7 @@ def create_kpoint_descriptor_with_refinement(refine, bzkpts_kc, nspins, atoms,
 
     if reduce_symmetry:
         # Define new symmetry object ignoring symmetries violated by the
-        # refined kpoints 
+        # refined kpoints
         kd_fine = create_kpoint_descriptor(bzk_fine_kc, **kwargs)
         symm = prune_symmetries_kpoints(kd_fine, symmetry)
         del kd_fine
@@ -103,7 +103,7 @@ def create_kpoint_descriptor(bzkpts_kc, nspins, atoms, symmetry, comm):
     kd = KPointDescriptor(bzkpts_kc, nspins)
     # self.timer.start('Set symmetry')
     kd.set_symmetry(atoms, symmetry, comm=comm)
-    # self.timer.stop('Set symmetry')  
+    # self.timer.stop('Set symmetry')
     return kd
 
 def create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
@@ -117,7 +117,7 @@ def create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
     # Add refined points
     nbzkpts_fine = bzk_fine_kc.shape[0]
     bzk_new_kc = np.append(bzk_new_kc, bzk_fine_kc, axis=0)
-    
+
     # Construct the new KPointDescriptor
     kd_new = create_kpoint_descriptor(bzk_new_kc, **kwargs)
     refine_info = KRefinement()
@@ -131,7 +131,7 @@ def create_mixed_kpoint_descriptor(bzk_coarse_kc, bzk_fine_kc, centers_i,
 
     # This new Descriptor is good, except the weights are completely wrong now.
     kd_new.weight_k = np.bincount(kd_new.bz2ibz_k, weight_k) / nbzkpts_coarse
-    assert np.abs(np.sum(kd_new.weight_k) - 1) < 1e-6 
+    assert np.abs(np.sum(kd_new.weight_k) - 1) < 1e-6
 
     # return kd_new.copy()
     return kd_new
@@ -173,7 +173,7 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
         center_i, index_map = np.unique(center_i, return_index=True)
 
         # Append to list for all shells
-        # Remove also points which occur also in a previous shell. This can 
+        # Remove also points which occur also in a previous shell. This can
         # happen due to symmetry or overlap of centers' shells
         center_i = np.setdiff1d(center_i, centers_i)
         centers_i = np.append(centers_i, center_i)
@@ -188,7 +188,7 @@ def get_fine_bzkpts(center_ic, size, bzk_coarse_kc, kwargs):
         for k, centers_c in enumerate(centers_kc):
             this_kc = mh_kc + centers_c
             bzk_fine_kc.append(this_kc)
-        
+
         # Determine weight of refined points
         weight = 1. / np.prod(size[shell])
         nkpts = len(center_i) * np.prod(size[shell])
@@ -243,8 +243,8 @@ def construct_neighbours_by_shells(nshells, N_c):
                 elements.append(list(range(-shell, shell + 1)))
 
         # Construct the vectors
-        # For each valid point, at least one component must have the value 
-        # of the shell index (+ or -). 
+        # For each valid point, at least one component must have the value
+        # of the shell index (+ or -).
         this_list = []
         for cx in elements[0]:
             for cy in elements[1]:
@@ -277,7 +277,7 @@ def prune_symmetries_kpoints(kd, symmetry):
     return new_symmetry
 
 def find_missing_points(kd):
-    """Find points in k-point descriptor, which miss in the set to fill the 
+    """Find points in k-point descriptor, which miss in the set to fill the
     group."""
     if -1 not in kd.bz2bz_ks:
         return None
@@ -303,25 +303,25 @@ def find_missing_points(kd):
                 buf = np.concatenate((buf, np.array(k_c, ndmin=2)))
 
     return buf
-  
+
 def add_missing_points(kd, kwargs):
     """Add points to k-point descriptor, which miss to fill the group."""
     add_points_kc = find_missing_points(kd)
     if add_points_kc is None:
         return kd
-    
+
     kd_new = create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs)
     assert -1 not in kd_new.bz2bz_ks
 
     return kd_new
 
 def add_plusq_points(kd, q_c, kwargs):
-    """Add +q points to k-point descriptor, if missing. Also, reduce the 
+    """Add +q points to k-point descriptor, if missing. Also, reduce the
     symmetry of the system as necessary."""
 
     # Add missing points to retrieve full symmetry. Might be redundant.
     _kd = add_missing_points(kd, kwargs)
-    
+
     # Find missing q
     add_points_kc = []
     for k in range(_kd.nbzkpts):
@@ -354,13 +354,13 @@ def create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs):
     points."""
     bzk_kc = np.append(kd.bzk_kc, add_points_kc, axis=0)
     nbzkpts_add = add_points_kc.shape[0]
-    
+
     # Make sure all points are unique
-    assert bzk_kc.shape[0] == np.vstack({tuple(row) for row in bzk_kc}).shape[0]
+    assert bzk_kc.shape[0] == np.vstack([tuple(row) for row in bzk_kc]).shape[0]
 
     # Construct the new KPointDescriptor
     kd_new = create_kpoint_descriptor(bzk_kc, **kwargs)
-    
+
     # Update refine_info
     kd_new.refine_info = kd.refine_info.copy()
     label_k = np.append(kd.refine_info.label_k, np.array(nbzkpts_add*['zero']))
@@ -372,7 +372,7 @@ def create_new_descriptor_with_zero_points(kd, add_points_kc, kwargs):
     # Correct ibz weights
     kd_new.weight_k = np.bincount(kd_new.bz2ibz_k, weight_k)
     kd_new.weight_k *= 1.0 / kd_new.refine_info.get_unrefined_nbzkpts()
-    assert np.abs(np.sum(kd_new.weight_k) - 1) < 1e-6 
+    assert np.abs(np.sum(kd_new.weight_k) - 1) < 1e-6
 
     return kd_new
 
@@ -391,7 +391,7 @@ class KRefinement:
         self.label_k = None
         self.weight_k = None
         self.almostoptical = None
-    
+
     def __str__(self):
         s = "Using k-point grid refinement"
         if self.almostoptical:
@@ -401,22 +401,22 @@ class KRefinement:
 
     def set_unrefined_nbzkpts(self, mhnbzkpts):
         self.mhnbzkpts = mhnbzkpts
-    
+
     def get_unrefined_nbzkpts(self):
         return self.mhnbzkpts
 
     def set_weight_k(self, weight_k):
         self.weight_k = weight_k
-    
+
     def get_weight_k(self):
         return self.weight_k
-    
+
     def set_label_k(self, label_k):
         self.label_k = label_k
-    
+
     def get_label_k(self):
         return self.label_k
-    
+
     def copy(self):
         refine_info = KRefinement()
         refine_info.mhnbzkpts = self.mhnbzkpts
@@ -424,4 +424,4 @@ class KRefinement:
         refine_info.weight_k = self.weight_k
         refine_info.almostoptical = self.almostoptical
         return refine_info
-        
+
