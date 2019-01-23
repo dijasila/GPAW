@@ -11,8 +11,6 @@ from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spherical_harmonics import Yarr
-# from gpaw.spherical_harmonics import Y
-# from gpaw.response.math_func import sphj
 
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
@@ -488,13 +486,6 @@ class AdiabaticKernelCalculator:
         rsheconv_g[self.dfmask_g] = np.sum(f_gL[self.dfmask_g]**2, axis=1)
         rsheconv_g[self.dfmask_g] /= self.dfSns_g[self.dfmask_g]
 
-        '''
-        if dfangns_g[g] > 0.:
-            rsheconv_g[g] = dfrshetot / dfangns_g[g]
-        else:
-            rsheconv_g[g] = 1.
-        '''
-
         self.rsheconvmin = np.min(rsheconv_g)
     
     def _add_rshe_coefficients(self, f_ng, f_gL, Y_nL, l):
@@ -509,12 +500,6 @@ class AdiabaticKernelCalculator:
         Y_ngm = np.repeat(Y_nL[:, L_L],
                           f_ng.shape[1], axis=0).reshape((*f_ng.shape, nm))
         f_gL[:, L_L] = self._ang_int(Y_ngm * f_ngm)
-        '''
-        for L in L_L:
-            f_L[L] += self._ang_int(Y_nL[:, L] * f_n)
-
-        return np.sum(f_L**2)
-        '''
         
     def distribute_correction(self, setups, size):  # XXX old stuff, tbd
         """ Make every process work an equal amount """
