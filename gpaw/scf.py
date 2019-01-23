@@ -62,7 +62,7 @@ class SCFLoop:
 
         while self.niter <= self.maxiter:
             if egs_name == 'direct_min':
-                wfs.eigensolver.iterate(ham, wfs, dens, occ)
+                wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
                 occ.calculate(wfs)
                 if hasattr(wfs.eigensolver, 'e_sic'):
                     e_sic = wfs.eigensolver.e_sic

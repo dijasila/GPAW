@@ -10,6 +10,7 @@ from gpaw.directmin.odd import odd_corrections
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.tools import loewdin
 from gpaw.xc.__init__ import xc_string_to_dict
+from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -45,6 +46,8 @@ class DirectMinLCAO(DirectLCAO):
 
         self.odd_parameters = odd_parameters
 
+        if isinstance(self.odd_parameters, basestring):
+            self.odd_parameters = xc_string_to_dict(self.odd_parameters)
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
@@ -168,7 +171,7 @@ class DirectMinLCAO(DirectLCAO):
             raise Exception('Check ODD Parameters')
         self.e_sic = 0.0
 
-    def iterate(self, ham, wfs, dens, occ):
+    def iterate(self, ham, wfs, dens, occ, log):
 
         assert dens.mixer.driver.name == 'dummy', \
             'Please, use: mixer=DummyMixer()'
@@ -188,6 +191,22 @@ class DirectMinLCAO(DirectLCAO):
             if not wfs.coefficients_read_from_file and \
                     self.c_nm_ref is None:
                 super().iterate(ham, wfs)
+                occ.calculate(wfs)
+                if self.odd_parameters['name'] == 'PZ_SIC':
+                    log("Pipek-Mezey Localization: ...", flush=True)
+                    for kpt in wfs.kpt_u:
+                        if sum(kpt.f_n) < 1.0e-3:
+                            continue
+                        pm_obj = pm(wfs=wfs, spin=kpt.s,
+                                    dtype=wfs.dtype)
+                        pm_obj.localize(tolerance=1.0e-10,
+                                        verbose=False)
+                        U = np.ascontiguousarray(pm_obj.W_k[kpt.q].T)
+                        wfs.gd.comm.broadcast(U, 0)
+                        n_occ = U.shape[0]
+                        kpt.C_nM[:n_occ] = np.dot(U, kpt.C_nM[:n_occ])
+                        del pm_obj
+                    log("Done", flush=True)
             else:
                 for kpt in wfs.kpt_u:
                     u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
@@ -197,8 +216,8 @@ class DirectMinLCAO(DirectLCAO):
                         C = kpt.C_nM
                     kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
                 wfs.coefficients_read_from_file = False
+                occ.calculate(wfs)
 
-            occ.calculate(wfs)
             self.update_ks_energy(ham, wfs, dens, occ)
             for kpt in wfs.kpt_u:
                 self.sort_wavefunctions(ham, wfs, kpt)
