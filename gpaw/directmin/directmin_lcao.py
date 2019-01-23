@@ -51,6 +51,9 @@ class DirectMinLCAO(DirectLCAO):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
 
+        if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
+            raise Exception('Use LBFGS_P with use_prec=True')
+
     def __repr__(self):
 
         sds = {'SD': 'Steepest Descent',
@@ -248,7 +251,7 @@ class DirectMinLCAO(DirectLCAO):
                                                 der_phi_0=der_phi[0],
                                                 phi_old=phi[1],
                                                 der_phi_old=der_phi[1],
-                                                alpha_max=3.0,
+                                                alpha_max=5.0,
                                                 alpha_old=alpha)
 
         if wfs.gd.comm.size > 1:
@@ -268,6 +271,7 @@ class DirectMinLCAO(DirectLCAO):
         # calculate new matrices for optimal step length
         for k in a.keys():
             a[k] += alpha * p[k]
+        self.alpha = alpha
         self.g_mat_u = g
         self.iters += 1
 
@@ -310,7 +314,7 @@ class DirectMinLCAO(DirectLCAO):
                 elif self.matrix_exp == 'eigendecomposition':
                     # this method is based on diagonalisation
                     wfs.timer.start('Eigendecomposition')
-                    u_nn, self.evecs[k], self.evals[k] =\
+                    u_nn, evecs, evals =\
                         expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
                 else:
@@ -324,6 +328,16 @@ class DirectMinLCAO(DirectLCAO):
                 del u_nn
 
             self.gd.comm.broadcast(kpt.C_nM, 0)
+            if self.matrix_exp == 'eigendecomposition':
+                if self.gd.comm.rank != 0:
+                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=complex)
+                    evals = np.zeros(shape=n_dim[k],
+                                     dtype=float)
+
+                self.gd.comm.broadcast(evecs, 0)
+                self.gd.comm.broadcast(evals, 0)
+                self.evecs[k], self.evals[k] = evecs, evals
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
@@ -426,9 +440,9 @@ class DirectMinLCAO(DirectLCAO):
             grad = np.ascontiguousarray(h_mm)
         elif self.matrix_exp == 'eigendecomposition':
             timer.start('Use Eigendecomposition')
-            grad = evec.T.conj() @ h_mm @ evec
+            grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
             grad = grad * D_matrix(evals)
-            grad = evec @ grad @ evec.T.conj()
+            grad = np.dot(evec, np.dot(grad, evec.T.conj()))
             timer.stop('Use Eigendecomposition')
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
@@ -717,3 +731,69 @@ class DirectMinLCAO(DirectLCAO):
                 'matrix_exp': self.matrix_exp,
                 'sparse': self.sparse,
                 'odd_parameters': self.odd_parameters}
+
+    def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
+                                c_nm_ref, eps=1.0e-7):
+        assert not self.sparse
+        a_m = {}
+        g_n = {}
+        if self.matrix_exp == 'pade_approx':
+            c_nm_ref = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            a = np.random.random_sample(self.a_mat_u[u].shape) + \
+                1.0j * np.random.random_sample(self.a_mat_u[u].shape)
+            a = a - a.T.conj()
+            u_nn = expm(a)
+            g_n[u] = np.zeros_like(self.a_mat_u[u])
+
+            if self.matrix_exp == 'pade_approx':
+                a_m[u] = np.zeros_like(self.a_mat_u[u])
+                c_nm_ref[u] = np.dot(u_nn.T, kpt.C_nM[:u_nn.shape[0]])
+            elif self.matrix_exp == 'eigendecomposition':
+                a_m[u] = a
+
+        g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
+                                            dens, occ, c_nm_ref)[1]
+
+        h = [eps, -eps]
+        coeif = [1.0, -1.0]
+
+        if self.dtype == complex:
+            range_z = 2
+            complex_gr = [1.0, 1.0j]
+        else:
+            range_z = 1
+            complex_gr = [1.0]
+
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            dim = a_m[u].shape[0]
+            for z in range(range_z):
+                for i in range(dim):
+                    for j in range(dim):
+                        print(u, z, i, j)
+                        a = a_m[u][i][j]
+                        g = 0.0
+                        for l in range(2):
+                            if z == 0:
+                                if i != j:
+                                    a_m[u][i][j] = a + h[l]
+                                    a_m[u][j][i] = -np.conjugate(a + h[l])
+                            else:
+                                a_m[u][i][j] = a + 1.0j * h[l]
+                                if i != j:
+                                    a_m[u][j][i] = -np.conjugate(a + 1.0j * h[l])
+
+                            E = self.get_energy_and_gradients(a_m, n_dim, ham, wfs, dens, occ, c_nm_ref)[0]
+
+                            g += E * coeif[l]
+
+                        g *= 1.0 / (2.0 * eps)
+
+                        g_n[u][i][j] += g * complex_gr[z]
+                        a_m[u][i][j] = a
+                        if i != j:
+                            a_m[u][j][i] = -np.conjugate(a)
+
+        return g_a, g_n
