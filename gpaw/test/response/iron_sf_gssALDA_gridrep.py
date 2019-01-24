@@ -50,7 +50,8 @@ calc = GPAW(xc=xc,
             mode=PW(pw),
             kpts=monkhorst_pack((kpts, kpts, kpts)),
             nbands=nb,
-            txt=None)
+            idiotproof=False,
+            parallel={'band': 1})
 
 Febcc.set_calculator(calc)
 Febcc.get_potential_energy()
@@ -62,8 +63,7 @@ for q in range(2):
     tms = TransverseMagneticSusceptibility(calc='Fe',
                                            frequencies=frq_qw[q],
                                            eta=eta,
-                                           ecut=ecut,
-                                           txt='iron_dsus_%d.out' % (q + 1))
+                                           ecut=ecut)
 
     chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
                                                      RSrep='grid',
