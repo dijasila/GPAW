@@ -62,7 +62,7 @@ tms = TransverseMagneticSusceptibility(calc='Fe',
                                        ecut=ecut)
 
 chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_c, xc=Kxc,
-                                                 RSrep='gpaw-rshe0.99',
+                                                 RSrep='gpaw-rshe0.999',
                                                  filename='iron_dsus'
                                                  + '_G.csv')
 

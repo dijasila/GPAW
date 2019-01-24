@@ -192,16 +192,16 @@ def Y(L, x, y, z):
     return result
 
 
-def Yarr(L_L, R_Av):
+def Yarr(L_M, R_Av):
     """
-    Calculate spherical harmonics L_L at positions R_Av, where
+    Calculate spherical harmonics L_M at positions R_Av, where
     A is some array like index.
     """
-    Y_LA = np.zeros((len(L_L), *R_Av.shape[:-1]))
-    for L in L_L:
+    Y_MA = np.zeros((len(L_M), *R_Av.shape[:-1]))
+    for M, L in enumerate(L_M):
         for c, n in YL[L]:  # could be vectorized further
-            Y_LA[L] += c * np.prod(np.power(R_Av, n), axis=-1)
-    return Y_LA
+            Y_MA[M] += c * np.prod(np.power(R_Av, n), axis=-1)
+    return Y_MA
 
 
 def nablarlYL(L, R):
