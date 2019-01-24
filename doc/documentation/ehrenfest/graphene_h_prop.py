@@ -7,10 +7,9 @@ import numpy as np
 name = 'graphene_h'
 Ekin = 40e3  # kinetic energy of the ion (in eV)
 
-# Adapted to the ion energy; here 0.5 as (may be too large!)
-timestep = 8.0 * np.sqrt(10e3 / Ekin)
+# Adapted to the ion energy; here 4 as (probably too large!)
+timestep = 16.0 * np.sqrt(10e3 / Ekin)
 ekin_str = '_ek' + str(int(Ekin / 1000)) + 'k'
-amu_to_aumass = _amu / _me
 strbody = name + ekin_str
 traj_file = strbody + '.traj'
 
@@ -29,8 +28,9 @@ proj_idx = 50  # atomic index of the projectile
 delta_stop = 5.0 / Bohr  # stop condition when ion is within 5 A of boundary.
 
 # Setting the initial velocity according to the kinetic energy.
+amu_to_aumass = _amu / _me
 Mproj = tdcalc.atoms.get_masses()[proj_idx] * amu_to_aumass
-Ekin *= Mproj / Hartree
+Ekin *= 1 / Hartree
 v = np.zeros((proj_idx + 1, 3))
 v[proj_idx, 2] = -np.sqrt((2 * Ekin) / Mproj) * Bohr / AUT
 tdcalc.atoms.set_velocities(v)
@@ -38,9 +38,9 @@ tdcalc.atoms.set_velocities(v)
 evv = EhrenfestVelocityVerlet(tdcalc)
 traj = Trajectory(traj_file, 'w', tdcalc.get_atoms())
 
-trajdiv = 2  # number of timesteps between trajectory images
+trajdiv = 1  # number of timesteps between trajectory images
 densdiv = 10  # number of timesteps between saved electron densities
-niters = 200  # total number of timesteps to propagate
+niters = 100 # total number of timesteps to propagate
 
 for i in range(niters):
     # Stopping condition when projectile z coordinate passes threshold
@@ -61,8 +61,6 @@ for i in range(niters):
     # Saving electron density every densdiv timesteps
     if (i != 0 and i % densdiv == 0):
         tdcalc.write(strbody + '_step' + str(i) + '.gpw')
-        v[proj_idx, 2] = -np.sqrt((2 * Ekin) / Mproj) * Bohr / AUT
-        tdcalc.atoms.set_velocities(v)
 
     evv.propagate(timestep)
 
