@@ -78,7 +78,7 @@ parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 
-# Part 3: identify peaks in scattering function and compare to test values
+# Part 3: identify magnon peaks in scattering function
 d1 = np.loadtxt('iron_dsus_1.csv', delimiter=', ')
 d2 = np.loadtxt('iron_dsus_2.csv', delimiter=', ')
 
@@ -88,6 +88,7 @@ wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
+# Part 4: compare new results to test values
 test_fxcs = 1.038135552
 test_mw1 = -0.0289017263039  # meV
 test_mw2 = 175.3  # meV

@@ -29,8 +29,8 @@ a = 2.867
 mm = 2.21
 
 # Part 2: magnetic response calculation
-q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5 / 2.]]  # Two q-points along G-N path
-frq_qw = [np.linspace(0.000, 0.200, 26), np.linspace(0.100, 0.300, 26)]
+q_c = [0.0, 0.0, 0.0]  # Gamma point
+frq_w = np.linspace(0.000, 0.200, 26)
 Kxc = 'ALDA'
 ecut = 300
 eta = 0.01
@@ -57,16 +57,15 @@ calc.write('Fe', 'all')
 t2 = time.time()
 
 # Part 2: magnetic response calculation
-for q in range(2):
-    tms = TransverseMagneticSusceptibility(calc='Fe',
-                                           frequencies=frq_qw[q],
-                                           eta=eta,
-                                           ecut=ecut)
+tms = TransverseMagneticSusceptibility(calc='Fe',
+                                       frequencies=frq_w,
+                                       eta=eta,
+                                       ecut=ecut)
 
-    chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
-                                                     RSrep='grid',
-                                                     filename='iron_dsus'
-                                                     + '_%d.csv' % (q + 1))
+chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_c, xc=Kxc,
+                                                 RSrep='grid',
+                                                 filename='iron_dsus'
+                                                 + '_G.csv')
 
 t3 = time.time()
 
@@ -75,25 +74,19 @@ parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 
-# Part 3: identify peaks in scattering function and compare to test values
-d1 = np.loadtxt('iron_dsus_1.csv', delimiter=', ')
-d2 = np.loadtxt('iron_dsus_2.csv', delimiter=', ')
+# Part 3: identify magnon peak in scattering function
+d = np.loadtxt('iron_dsus_G.csv', delimiter=', ')
 
-wpeak1, Ipeak1 = findpeak(d1[:, 0], - d1[:, 4])
-wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
+wpeak, Ipeak = findpeak(d[:, 0], - d[:, 4])
 
-mw1 = (wpeak1 + d1[0, 0]) * 1000
-mw2 = (wpeak2 + d2[0, 0]) * 1000
+mw = (wpeak + d[0, 0]) * 1000
 
-test_mw1 = 79.6502049831  # meV
-test_mw2 = 242.866784926  # meV
-test_Ipeak1 = 71.0518550563  # a.u.
-test_Ipeak2 = 58.3  # a.u.
+# Part 4: compare new results to test values
+test_mw = 79.6502049831  # meV
+test_Ipeak = 71.0518550563  # a.u.
 
 # Magnon peak:
-equal(test_mw1, mw1, eta * 100)
-equal(test_mw2, mw2, eta * 100)
+equal(test_mw, mw, eta * 100)
 
 # Scattering function intensity:
-equal(test_Ipeak1, Ipeak1, 1.5)
-equal(test_Ipeak2, Ipeak2, 2.0)
+equal(test_Ipeak, Ipeak, 1.5)
