@@ -25,6 +25,7 @@ GPAW calculator:
    electrodynamics/electrodynamics
    bse/bse
    gw_theory/gw_theory
+   defects_theory
    dscf/dscf
    pdos/pdos
    xas/xas
