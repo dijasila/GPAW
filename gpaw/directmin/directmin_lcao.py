@@ -200,7 +200,7 @@ class DirectMinLCAO(DirectLCAO):
                             continue
                         pm_obj = pm(wfs=wfs, spin=kpt.s,
                                     dtype=wfs.dtype)
-                        pm_obj.localize(tolerance=1.0e-10,
+                        pm_obj.localize(tolerance=1.0e-5,
                                         verbose=False)
                         U = np.ascontiguousarray(pm_obj.W_k[kpt.q].T)
                         wfs.gd.comm.broadcast(U, 0)
