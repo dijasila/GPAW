@@ -386,16 +386,14 @@ class AdiabaticKernelCalculator:
                 
                 # Expand plane wave
                 nM = len(L_M)
-                Y_MGG = np.zeros((nM, *dG_GG.shape))
                 (r_gMGG, l_gMGG,
-                 dG_gMGG) = [a.reshape(ng, nM,
-                                       *dG_GG.shape)
-                             for a in np.meshgrid(r_g, l_M,
-                                                  dG_GG)]
-                j_gMGG = spherical_jn(l_gMGG, dG_gMGG * r_gMGG)
+                 dG_gMGG) = [a.reshape(ng, nM, *dG_GG.shape)
+                             for a in np.meshgrid(r_g, l_M, dG_GG.flatten(),
+                                                  indexing='ij')]
+                j_gMGG = spherical_jn(l_gMGG, dG_gMGG * r_gMGG)  # Slow step
                 Y_MGG = Yarr(L_M, dGn_GGv)
-                ii_MK = (-1.j) ** np.repeat(l_M,
-                                            np.prod(dG_GG.shape))
+                ii_MK = (-1j) ** np.repeat(l_M,
+                                           np.prod(dG_GG.shape))
                 ii_MGG = ii_MK.reshape((nM, *dG_GG.shape))
                 
                 # Perform integration
@@ -411,7 +409,7 @@ class AdiabaticKernelCalculator:
             self.world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
 
-        if self.RSrep == 'GPAW':  # XXX old stuff, to be deleted
+        if self.RSrep == 'GPAW':  # XXX old stuff, to be removed
             print("\tCalculating PAW corrections to the kernel", file=self.fd)
             
             G_Gv = pd.get_reciprocal_vectors()
@@ -565,7 +563,7 @@ class AdiabaticKernelCalculator:
 
         self.rsheconvmin = np.min(rsheconv_g)
         
-    def distribute_correction(self, setups, size):  # XXX old stuff, tbd
+    def distribute_correction(self, setups, size):  # XXX old stuff, tbr
         """ Make every process work an equal amount """
         # Figure out the total number of grid points
         tp = 0

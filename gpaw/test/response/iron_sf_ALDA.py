@@ -33,6 +33,7 @@ frq_w = np.linspace(0.150, 0.350, 26)
 Kxc = 'ALDA'
 ecut = 300
 eta = 0.01
+rshecc_c = [0.99, 0.999]  # test different levels of expansion
 
 # ------------------- Script ------------------- #
 
@@ -61,10 +62,12 @@ tms = TransverseMagneticSusceptibility(calc='Fe',
                                        eta=eta,
                                        ecut=ecut)
 
-chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_c, xc=Kxc,
-                                                 RSrep='gpaw-rshe0.999',
-                                                 filename='iron_dsus'
-                                                 + '_G.csv')
+for c, rshecc in enumerate(rshecc_c):
+    RSrep = 'gpaw-rshe%.5f' % rshecc
+    chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_c, xc=Kxc,
+                                                     RSrep=RSrep,
+                                                     filename='iron_dsus'
+                                                     + '_G%d.csv' % (c + 1))
 
 t3 = time.time()
 
@@ -73,19 +76,26 @@ parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 
-# Part 3: identify magnon peak in scattering function
-d = np.loadtxt('iron_dsus_G.csv', delimiter=', ')
+# Part 3: identify magnon peak in scattering functions
+d1 = np.loadtxt('iron_dsus_G1.csv', delimiter=', ')
+d2 = np.loadtxt('iron_dsus_G2.csv', delimiter=', ')
 
-wpeak, Ipeak = findpeak(d[:, 0], - d[:, 4])
+wpeak1, Ipeak1 = findpeak(d1[:, 0], - d1[:, 4])
+wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
 
-mw = (wpeak + d[0, 0]) * 1000
+mw1 = (wpeak1 + d1[0, 0]) * 1000
+mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_mw = 248.822795658  # meV
-test_Ipeak = 66.5595189306  # a.u.
+test_mw1 = 247.45900031014196  # meV
+test_Ipeak1 = 69.03459765802732  # a.u.
+test_mw2 = 249.07170917738293  # meV
+test_Ipeak2 = 66.2462879760728  # a.u.
 
 # Magnon peak:
-equal(test_mw, mw, eta * 100)
+equal(test_mw1, mw1, eta * 100)
+equal(test_mw2, mw2, eta * 100)
 
 # Scattering function intensity:
-equal(test_Ipeak, Ipeak, 1.5)
+equal(test_Ipeak1, Ipeak1, 1.5)
+equal(test_Ipeak2, Ipeak2, 1.5)
