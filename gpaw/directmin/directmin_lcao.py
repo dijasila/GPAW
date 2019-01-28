@@ -278,7 +278,6 @@ class DirectMinLCAO(DirectLCAO):
                     # for large matrices... what can we do?
                     wfs.timer.start('Pade Approximants')
                     u_nn = expm(a)
-                    del a
                     wfs.timer.stop('Pade Approximants')
                 elif self.matrix_exp == 'eigendecomposition':
                     # this method is based on diagonalisation
@@ -295,9 +294,14 @@ class DirectMinLCAO(DirectLCAO):
                 kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                              c_nm_ref[k][:n_dim[k]])
                 del u_nn
+                del a
 
+            wfs.timer.start('Broadcast coefficients')
             self.gd.comm.broadcast(kpt.C_nM, 0)
+            wfs.timer.stop('Broadcast coefficients')
+
             if self.matrix_exp == 'eigendecomposition':
+                wfs.timer.start('Broadcast evecs and evals')
                 if self.gd.comm.rank != 0:
                     evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
                                      dtype=complex)
@@ -307,6 +311,8 @@ class DirectMinLCAO(DirectLCAO):
                 self.gd.comm.broadcast(evecs, 0)
                 self.gd.comm.broadcast(evals, 0)
                 self.evecs[k], self.evals[k] = evecs, evals
+                wfs.timer.stop('Broadcast evecs and evals')
+
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
