@@ -260,6 +260,7 @@ tests = [
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
     'response/test_unit_sphere_area.py',    # ~7s
+    'rsf_yukawa/lrtddft_short.py',          # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
@@ -310,6 +311,8 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
+    'response/iron_sf_ALDA_gridrep.py',     # ~15s
+    'response/iron_sf_gssALDA_gridrep.py',  # ~15s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
@@ -325,7 +328,6 @@ tests = [
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
     'ofdft/ofdft.py',                       # ~17s
-    'rsf_yukawa/lrtddft_short.py',          # ~18s
     'response/bse_silicon.py',              # ~18s
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
@@ -384,6 +386,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'response/iron_sf_ALDA.py',             # ~86s
     'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
@@ -461,6 +464,7 @@ if mpi.size < 4:
                 'exx/AA_enthalpy.py',
                 'exx/exx_scf.py',
                 'response/bse_aluminum.py',
+                'response/iron_sf_ALDA.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',

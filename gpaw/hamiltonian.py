@@ -160,13 +160,17 @@ class Hamiltonian:
                 # zero boundary conditions
                 vacuum = 0.0
             else:
-                axes = (c, (c + 1) % 3, (c + 2) % 3)
-                v_g = self.pd3.ifft(self.vHt_q).transpose(axes)
-                vacuum = v_g[0].mean()
+                v_q = self.pd3.gather(self.vHt_q)
+                if self.pd3.comm.rank == 0:
+                    axes = (c, (c + 1) % 3, (c + 2) % 3)
+                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                    vacuum = v_g[0].mean()
+                else:
+                    vacuum = np.nan
 
             wf1 = (vacuum - fermilevel + correction) * Ha
             wf2 = (vacuum - fermilevel - correction) * Ha
-            log('Dipole-layer corrected work functions: {0}, {1} eV'
+            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
                 .format(wf1, wf2))
             log()
 
@@ -283,7 +287,7 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                assert self.collinear
+                #assert self.collinear
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp

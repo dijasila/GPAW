@@ -8,6 +8,7 @@ a = 2.87
 atoms = bulk('Fe', 'bcc', a=a)
 atoms.set_initial_magnetic_moments([2.2])
 calc = GPAW(h=0.20,
+            experimental={'niter_fixdensity': 2},
             eigensolver='rmm-diis',
             mixer=MixerSum(0.1, 3),
             nbands=6,

@@ -23,4 +23,4 @@ e = system.get_potential_energy()
 ref = -60.557653422801671
 err = abs(e - ref)
 print('e=%r ref=%r err=%r' % (e, ref, err))
-assert err < 1e-6
+assert err < 1e-6, err

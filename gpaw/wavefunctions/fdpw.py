@@ -12,7 +12,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
 
 
 class NullWfsMover:
-    description = 'Wavefunctions reused if atoms move'
+    description = 'Wavefunctions kept unchanged if atoms move'
 
     def initialize(self, lcaowfs):
         pass
@@ -45,8 +45,8 @@ class PseudoPartialWaveWfsMover:
         for a in range(len(wfs.setups)):
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
-                   for phit in setup.get_actual_atomic_orbitals()]
-            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+                   for phit in setup.get_partial_waves_for_atomic_orbitals()]
+            #assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
@@ -195,7 +195,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.scalapack_parameters = parallel
 
         self.initksl = initksl
-        if reuse_wfs_method is None:
+        if reuse_wfs_method is None or reuse_wfs_method == 'keep':
             wfs_mover = NullWfsMover()
         elif hasattr(reuse_wfs_method, 'cut_wfs'):
             wfs_mover = reuse_wfs_method
@@ -233,8 +233,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def __str__(self):
         comm, r, c, b = self.scalapack_parameters
-        return ('  ScaLapack parameters: grid={}x{}, blocksize={}'
-                .format(r, c, b))
+        L1 = ('  ScaLapack parameters: grid={}x{}, blocksize={}'
+              .format(r, c, b))
+        L2 = ('  Wavefunction extrapolation:\n    {}'
+              .format(self.wfs_mover.description))
+        return '\n'.join([L1, L2])
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)

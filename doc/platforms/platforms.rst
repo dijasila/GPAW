@@ -15,6 +15,8 @@ Linux:
    Linux/openSUSE
    Linux/ubuntu
    Linux/Niflheim/Niflheim
+   Linux/Niflheim/load
+   Linux/Niflheim/build
    Linux/SUNCAT/SUNCAT
    Linux/akka
    Linux/armageddon

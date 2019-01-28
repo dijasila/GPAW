@@ -20,7 +20,7 @@ def check(reuse):
     calc = GPAW(mode='pw',
                 txt='gpaw.txt',
                 nbands=1,
-                experimental=dict(reuse_wfs_method='paw') if reuse else {},
+                experimental=dict(reuse_wfs_method='paw' if reuse else None),
                 kpts=[[-0.3, 0.4, 0.2]],
                 symmetry='off',
                 mixer=Mixer(0.7, 5, 50.0))

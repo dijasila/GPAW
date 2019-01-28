@@ -28,7 +28,7 @@ commands = {
         ['-f', '--xc-functional', '-a', '--add', '--spin-polarized', '-d',
          '--dirac', '-p', '--plot', '-e', '--exponents', '-l',
          '--logarithmic-derivatives', '-r', '--refine', '-s',
-         '--scalar-relativistic'],
+         '--scalar-relativistic', '--no-ee-interaction'],
     'completion':
         [],
     'dataset':
