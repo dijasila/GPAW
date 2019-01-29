@@ -190,7 +190,7 @@ class DirectMinLCAO(DirectLCAO):
             # super().iterate(ham, wfs)
             if not wfs.coefficients_read_from_file and \
                     self.c_nm_ref is None:
-                super().iterate(ham, wfs)
+                super(DirectMinLCAO, self).iterate(ham, wfs)
                 occ.calculate(wfs)
                 if self.odd_parameters['name'] == 'PZ_SIC':
                     log("Pipek-Mezey Localization: ...", flush=True)
@@ -685,7 +685,7 @@ class DirectMinLCAO(DirectLCAO):
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
         elif self.odd.name == 'Zero':
-            super().iterate(ham, wfs)
+            super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
             self.initialize_2(wfs, dens, ham)
             self.update_ks_energy(ham, wfs, dens, occ)
@@ -698,7 +698,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Get Canonical Representation')
 
     def reset(self):
-        super().reset()
+        super(DirectMinLCAO, self).reset()
         self._error = np.inf
         self.iters = 0
 

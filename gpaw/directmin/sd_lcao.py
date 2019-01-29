@@ -4,7 +4,7 @@ from ase.parallel import parprint
 # from gpaw.utilities.blas import dotc
 
 
-class SteepestDescent:
+class SteepestDescent(object):
     """
     Steepest descent algorithm
     """
@@ -95,7 +95,7 @@ class FRcg(SteepestDescent):
     """
 
     def __init__(self,  wfs):
-        super().__init__(wfs)
+        super(FRcg, self).__init__(wfs)
 
     def __str__(self):
         return 'Fletcher-Reeves conjugate gradient method'
@@ -137,7 +137,7 @@ class HZcg(SteepestDescent):
 
     def __init__(self, wfs):
 
-        super().__init__(wfs)
+        super(HZcg, self).__init__(wfs)
         self.eta = 0.01
 
     def __str__(self):
@@ -192,7 +192,7 @@ class HZcg(SteepestDescent):
 class QuickMin(SteepestDescent):
 
     def __init__(self, wfs):
-        super().__init__(wfs)
+        super(QuickMin, self).__init__(wfs)
         self.dt = 0.01
         self.m = 0.01
 
@@ -250,7 +250,7 @@ class LBFGS(SteepestDescent):
         """
         :param m: memory (amount of previous steps to use)
         """
-        super().__init__(wfs)
+        super(LBFGS, self).__init__(wfs)
 
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
@@ -401,7 +401,7 @@ class LBFGS_P(SteepestDescent):
         """
         :param m: memory (amount of previous steps to use)
         """
-        super().__init__(wfs)
+        super(LBFGS_P, self).__init__(wfs)
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
