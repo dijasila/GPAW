@@ -58,6 +58,7 @@ from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 
+from gpaw.mpi import rank, MASTER
 
 def md_min(func, step=.25, tolerance=1e-6, 
            verbose=False, gd=None, **kwargs):
@@ -94,8 +95,7 @@ def md_min(func, step=.25, tolerance=1e-6,
     if verbose:
         if gd is not None:
             if gd.comm.rank == 0:
-                print('%d iterations in %0.2f seconds'+ 
-                      ' (%0.2f ms/iter), endstep = %s' 
+                print('%d iterations in %0.2f seconds(%0.2f ms/iter), endstep = %s' 
                       %(count, t, t * 1000. / count, step))
 
 
@@ -146,6 +146,7 @@ def get_atoms_object_from_wfs(wfs):
 
     return atoms
 
+
 def random_orthogonal(s, dtype = float):
     # Make a random orthogonal matrix of dim s x s, 
     # such that WW* = I = W*W
@@ -177,18 +178,21 @@ class PipekMezey:
         self.penalty = abs(penalty) # penalty exponent
         self.mu      = mu     # WF variance (if 'H')
         #
-        self.gd      = wfs.gd
+        self.gd      = self.wfs.gd
         # Allow complex rotations
         if dtype != None:
             self.dtype = dtype
         else:
             self.dtype = self.wfs.dtype
-        #
-        self.cmplx   = self.dtype == complex
+
         self.setups  = self.wfs.setups
 
         # Make atoms object from setups
-        self.atoms = get_atoms_object_from_wfs(self.wfs)        
+        if calc is not None:
+            self.atoms = calc.atoms
+        else:
+            self.atoms = get_atoms_object_from_wfs(self.wfs)        
+
         self.Na    = len(self.atoms)
         self.ns    = self.wfs.nspins
         self.spin  = spin
@@ -205,8 +209,7 @@ class PipekMezey:
         # Hold on to
         self.P   = 0
         self.P_n = [] 
-        self.Qa_ii = np.zeros((self.Na, self.nocc)) # Diag
-        self.Qa_nn = np.zeros((self.Na, self.nocc, self.nocc)) # Norm.
+        self.Qa_nn = np.zeros((self.Na, self.nocc, self.nocc))
 
         # kpts and dirs
         self.k_kc = self.wfs.kd.bzk_kc
@@ -221,10 +224,9 @@ class PipekMezey:
         self.W_k = np.zeros((self.Nk, self.nocc, self.nocc), 
                             dtype=self.dtype)
 
-        # Expand cell to capture Bloch states etc.
-        unitcell = self.atoms.cell
-        self.largecell   = (unitcell.T * self.kgd).T
-        self.wd, self.Gd = calculate_weights(self.largecell)
+        # Expand cell to capture Bloch states
+        largecell = (self.atoms.cell.T * self.kgd).T
+        self.wd, self.Gd = calculate_weights(largecell)
         self.Nd = len(self.wd)
 
         # Get neighbor kpt lists 
@@ -243,36 +245,21 @@ class PipekMezey:
                 self.invlst_dk[d, k1] = \
                      self.lst_dk[d].tolist().index(k1)
 
-        # Make atom centered weightfunctions
-        self.WFa = self.gd.zeros(self.Na)
-        #
-        for atom in self.atoms:
-            # Weight function
-            if self.method == 'H':
-                self.WFa[atom.index] = WeightFunc(self.gd,
-                                       self.atoms,
-                                       [atom.index],
-                                       mu=self.mu
-                                       ).construct_weight_function()
-            #
-            elif self.method == 'W':
-                self.WFa[atom.index] = WignerSeitz(self.gd,
-                                       self.atoms,
-                                       atom.index
-                                       ).construct_weight_function()
-
         # Using WFa and k-d lists make overlap matrix
         Qadk_nm = np.zeros((self.Na,
                             self.Nd,
                             self.Nk,
                             self.nocc, self.nocc), complex)
 
-        if calc is not None:
+        if calc is not None and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_restart_file()
+
 
         # IF LCAO need to make sure wave function array is available
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
+
+        a = time()
 
         for d, dG in enumerate(self.Gd):
             #
@@ -296,13 +283,15 @@ class PipekMezey:
                              self.gd.beg_c, Gc / self.gd.N_c).T)
                 # for each atom
                 for atom in self.atoms:
-                    WF = self.WFa[atom.index]
-                    pw = (e_G * WF * cmo.conj()).reshape(self.nocc, -1)
-                    #
-                    Qadk_nm[atom.index,d,k] += np.inner(pw,
-                                               cmo1.reshape(self.nocc,
-                                               -1)) *\
-                                               self.gd.dv
+                    WF = self.get_weight_function_atom(atom.index)
+                    pw = (e_G * WF * cmo1)#
+                    #pw = (e_G * WF * cmo.conj()).reshape(self.nocc, -1)
+                    Qadk_nm[atom.index,d,k] += self.gd.integrate(cmo, pw,
+                                               global_integral=False)
+                    #Qadk_nm[atom.index,d,k] += np.inner(pw,
+                    #                           cmo1.reshape(self.nocc,
+                    #                           -1)) *\
+                    #                           self.gd.dv
                 # PAW corrections
                 P_ani1 = self.wfs.kpt_u[u1].P_ani
 
@@ -323,6 +312,10 @@ class PipekMezey:
         self.Qadk_nm = Qadk_nm.copy()
         self.Qadk_nn = np.zeros_like(self.Qadk_nm)
         #
+        b = time()
+
+        print('Time spent initializing', b-a)
+
         # Initial W_k: Start from random WW*=I
         for k in range(self.Nk):
             self.W_k[k] = random_orthogonal(self.nocc,
@@ -331,38 +324,7 @@ class PipekMezey:
         # Given all matrices, update
         self.update()
         self.initialized = True
-        #
-    #
 
-    def get_cutoff_value(self, chi_i, max_d=0.85):
-        # Find cutoff such that isosurface of isoval c
-        # corresponds to max_d% of the orbital density.
-
-        c  = np.zeros(len(chi_i))
-        dv = self.gd.dv
-
-        # chi*chi ~ 1.0, simple 'renorm'
-        for i, chi in enumerate(chi_i):
-            # --> e/dV in Bohr**-3 --> e
-            dens = chi.conj()*chi * dv
-            rn   = 1.0 / np.sum(dens)
-            # Ravel and 're-norm'
-            d    = np.ravel(dens*rn)
-            d_i  = np.sort(d)[::-1]
-            p    = 0
-            # From highest to lowest
-            for n, d in enumerate(d_i):
-                #
-                p += d
-                #
-                if p >= max_d:
-                    #
-                    c[i] = np.sqrt((d + d_i[n+1]) / 2)
-                    break
-        #
-        return c
-        #
-    #
 
     def step(self, dX):
         No = self.nocc
@@ -379,12 +341,28 @@ class PipekMezey:
                U[:] = np.dot(U, dU)
 
         self.update()
+
+
+    def get_weight_function_atom(self, index):
+        if self.method == 'H':
+            WFa = WeightFunc(self.gd,
+                             self.atoms,
+                             [index],
+                             mu=self.mu
+                             ).construct_weight_function()
         #
-    #
+        elif self.method == 'W':
+            WFa = WignerSeitz(self.gd,
+                              self.atoms,
+                              index
+                              ).construct_weight_function()
+        return WFa
+        
 
     def localize(self, step=0.25, tolerance=1e-8, verbose=False):
         #
         md_min(self, step, tolerance, verbose, self.gd)
+
 
     def update(self):
         for a in range(self.Na):
@@ -428,31 +406,7 @@ class PipekMezey:
         self.P_n.append(self.P)
         #
         return self.P
-    #
 
-    def get_normalized_pcm(self):
-        # Over k
-        Qad_nn = np.sum(abs(self.Qadk_nn), axis=2) / self.Nk
-        # Over d
-        Qa_nn = 0
-        for d in range(self.Nd):
-            Qa_nn += Qad_nn[:,d] * self.wd[d] / np.sum(self.wd)
-        self.Qa_nn = Qa_nn.copy()
-        # over a
-        for a in range(self.Na):
-            self.Qa_ii[a] = Qa_nn[a].diagonal()
-        #
-    #
-
-    def translate_all_to_cell(self, cell=[0,0,0]):
-        for a in range(self.Na):
-            Qd_nn = self.Qad_nn[a]
-            sc_c = np.angle(Qd_nn[:3].diagonal(0,1,2)).T * \
-                   self.kgd / (2 * pi)
-            tr_c = np.array(cell)[None] - np.floor(sc_c)
-            for k_c, W in zip(self.k_kc, self.W_k):
-                W *= np.exp(2.j * pi * np.dot(tr_c, k_c))
-        self.update()
 
     def get_gradients(self):
         #
@@ -482,100 +436,3 @@ class PipekMezey:
             dW.append(Wtemp.ravel())
         #
         return np.concatenate(dW)
-    #
-
-    def get_function(self, index, repeat=None, cell=None):
-        #
-        # Default size of plotting cell is the one corresponding to k-points.
-        if repeat is None:
-            repeat = self.kgd
-        N1, N2, N3 = repeat
-
-        dim = self.gd.N_c
-        largedim = dim * [N1, N2, N3]
-        pmgrid = np.zeros(largedim, dtype=complex)
-
-        #
-
-        for k, k_kc in enumerate(self.k_kc):
-            # The coordinate vector of wannier functions
-            if isinstance(index, int):
-                vec_n = self.W_k[k, :, index]
-            else:
-                vec_n = np.dot(self.W_k[k], index)
-
-            pm_G = np.zeros(dim, complex)
-            for n, coeff in enumerate(vec_n):
-                pm_G += coeff * self.get_pseudo_wave_function(
-                                     n, k, self.spin, pad=True)
-
-            # Distribute the small wavefunction over large cell:
-            for n1 in range(N1):
-                na = n1
-                for n2 in range(N2):
-                    nb = n2
-                    for n3 in range(N3): # sign?
-                        nc = n3
-                        if cell!=None:
-                            na, nb, nc = cell
-                        e = np.exp(-2.j * pi * np.dot([n1, n2, n3], k_kc))
-                        pmgrid[na * dim[0]:(na + 1) * dim[0],
-                               nb * dim[1]:(nb + 1) * dim[1],
-                               nc * dim[2]:(nc + 1) * dim[2]] += e * pm_G
-
-        # Normalization
-        pmgrid /= np.sqrt(self.Nk)
-        return pmgrid
-        #
-    #
-
-    def get_pseudo_wave_function(self, band, kpt=0, spin=0,
-                                 broadcast=True,
-                                 pad=True):
-        if pad:
-            psit_G = self.get_pseudo_wave_function(band, kpt,
-                                                   spin, True,
-                                                   pad=False)
-            if psit_G is None:
-                return
-            else:
-                return self.wfs.gd.zero_pad(psit_G)
-
-        psit_G = self.wfs.get_wave_function_array(band, kpt, spin,
-                                                  periodic=False)
-        if broadcast:
-            if not self.wfs.world.rank == 0:
-                psit_G = self.wfs.gd.empty(dtype=self.wfs.dtype,
-                                           global_array=True)
-            self.wfs.world.broadcast(psit_G, 0)
-            return psit_G / Bohr**1.5
-        elif self.wfs.world.rank == 0:
-            return psit_G / Bohr**1.5
-
-    def write_cube(self, index, fname, repeat=None, 
-                   real=True, cell=None):
-
-        # from ase.io.cube import write_cube
-        from ase.io import write
-
-        # Default size of plotting cell is the one corresponding to k-points.
-        if repeat is None:
-            repeat = self.kgd
-        atoms = self.atoms * repeat
-        func = self.get_function(index, repeat, cell)
-
-        # Handle separation of complex wave into real parts
-        if real:
-            if self.Nk == 1:
-                func *= np.exp(-1.j * np.angle(func.max()))
-                if 0: assert max(abs(func.imag).flat) < 1e-4
-                func = func.real
-            else:
-                func = (func * func.max()/(abs(func.max()))).real
-        else:
-            phase_fname = fname.split('.')
-            phase_fname.insert(1, 'phase')
-            phase_fname = '.'.join(phase_fname)
-            write(phase_fname, atoms, data=np.angle(func))
-            func = abs(func)
-        write(fname, atoms, data=func)
