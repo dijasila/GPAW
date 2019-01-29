@@ -4,14 +4,17 @@ from __future__ import print_function
     Find the set of maximally localized Wannier functions
     using the spread functional of Marzari and Vanderbilt
     (PRB 56, 1997 page 12847).
+    
+    this code is as in ASE but modified to use it with gpaw's wfs. 
 """
+
 from time import time
-from math import sqrt, pi
-from pickle import dump, load
+from math import pi # , sqrt
+# from pickle import dump, load
 
 import numpy as np
 
-from ase.parallel import paropen
+# from ase.parallel import paropen
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 from ase.transport.tools import dagger, normalize
 
