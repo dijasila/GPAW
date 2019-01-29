@@ -58,6 +58,7 @@ from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 
+from gpaw.mpi import rank, MASTER
 
 def md_min(func, step=.25, tolerance=1e-6, 
            verbose=False, gd=None, **kwargs):
@@ -177,7 +178,7 @@ class PipekMezey:
         self.penalty = abs(penalty) # penalty exponent
         self.mu      = mu     # WF variance (if 'H')
         #
-        self.gd      = wfs.gd
+        self.gd      = self.wfs.gd
         # Allow complex rotations
         if dtype != None:
             self.dtype = dtype
@@ -187,7 +188,11 @@ class PipekMezey:
         self.setups  = self.wfs.setups
 
         # Make atoms object from setups
-        self.atoms = get_atoms_object_from_wfs(self.wfs)        
+        if calc is not None:
+            self.atoms = calc.atoms
+        else:
+            self.atoms = get_atoms_object_from_wfs(self.wfs)        
+
         self.Na    = len(self.atoms)
         self.ns    = self.wfs.nspins
         self.spin  = spin
@@ -246,14 +251,15 @@ class PipekMezey:
                             self.Nk,
                             self.nocc, self.nocc), complex)
 
-        if calc is not None:
+        if calc is not None and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_restart_file()
 
-        a = time()
 
         # IF LCAO need to make sure wave function array is available
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
+
+        a = time()
 
         for d, dG in enumerate(self.Gd):
             #
@@ -278,12 +284,14 @@ class PipekMezey:
                 # for each atom
                 for atom in self.atoms:
                     WF = self.get_weight_function_atom(atom.index)
-                    pw = (e_G * WF * cmo.conj()).reshape(self.nocc, -1)
-                    #
-                    Qadk_nm[atom.index,d,k] += np.inner(pw,
-                                               cmo1.reshape(self.nocc,
-                                               -1)) *\
-                                               self.gd.dv
+                    pw = (e_G * WF * cmo1)#
+                    #pw = (e_G * WF * cmo.conj()).reshape(self.nocc, -1)
+                    Qadk_nm[atom.index,d,k] += self.gd.integrate(cmo, pw,
+                                               global_integral=False)
+                    #Qadk_nm[atom.index,d,k] += np.inner(pw,
+                    #                           cmo1.reshape(self.nocc,
+                    #                           -1)) *\
+                    #                           self.gd.dv
                 # PAW corrections
                 P_ani1 = self.wfs.kpt_u[u1].P_ani
 
