@@ -169,7 +169,7 @@ class DirectMinLCAO(DirectLCAO):
         if self.iters == 0:
             # need to initialize c_nm, eps, f_n and so on.
             # first iteration is diagonilisation using super class
-            super().iterate(ham, wfs)
+            super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
             self.initialize_2(wfs)
 
@@ -623,7 +623,7 @@ class DirectMinLCAO(DirectLCAO):
         # this usually happens in metals,
         # the so-called charge-sloshing problem..
         wfs.timer.start('Get canonical representation')
-        super().iterate(ham, wfs)
+        super(DirectMinLCAO, self).iterate(ham, wfs)
         occ.calculate(wfs)
         self.initialize_2(wfs)
         self.update_ks_energy(ham, wfs, dens, occ)
@@ -632,7 +632,7 @@ class DirectMinLCAO(DirectLCAO):
         return
 
     def reset(self):
-        super().reset()
+        super(DirectMinLCAO, self).reset()
         self._error = np.inf
         self.iters = 0
 
