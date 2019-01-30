@@ -52,13 +52,13 @@ from time import time
 import numpy as np
 from scipy.linalg import inv, sqrtm
 from math import pi
-from ase.units import Bohr
+# from ase.units import Bohr
 from ase.transport.tools import dagger
 from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 
-from gpaw.mpi import rank, MASTER
+# from gpaw.mpi import rank, MASTER
 
 def md_min(func, step=.25, tolerance=1e-6, 
            verbose=False, gd=None, **kwargs):
