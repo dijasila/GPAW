@@ -144,13 +144,18 @@ class Eigensolver:
         dH_asp = hamiltonian.dH_asp
 
         if self.keep_htpsit:
-            Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
+            if not self.cuda:
+                Htpsit_nG = reshape(self.Htpsit_nG, psit_nG.shape)
+            else:
+                Htpsit_nG = self.Htpsit_nG
         else:
             Htpsit_nG = None
 
         def H(psit_xG):
             if self.keep_htpsit:
                 result_xG = Htpsit_nG
+            elif self.cuda:
+                result_xG = self.operator.work1_xG
             else:
                 result_xG = reshape(self.operator.work1_xG, psit_xG.shape)
             wfs.apply_pseudo_hamiltonian(kpt, hamiltonian, psit_xG,
