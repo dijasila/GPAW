@@ -129,7 +129,7 @@ def md_min(func, step=.25, tolerance=1e-6, verbose=False, **kwargs):
     fvalueold = 0.
     fvalue = fvalueold + 10
     count = 0
-    V = np.zeros(func.get_gradients().shape, dtype=complex)
+    V = np.zeros_like(func.get_gradients())
     while abs((fvalue - fvalueold) / fvalue) > tolerance:
         fvalueold = fvalue
         dF = func.get_gradients()
@@ -252,6 +252,7 @@ class WannierLocalization:
         self.wfs = wfs
         self.gd = self.wfs.gd
         self.ns = self.wfs.nspins
+        self.dtype = wfs.dtype
 
         if hasattr(self.wfs, 'mode'):
             self.mode = self.wfs.mode
@@ -327,8 +328,8 @@ class WannierLocalization:
                 self.invkklst_dk[d, k1] = self.kklst_dk[d].tolist().index(k1)
 
         Nw = self.nwannier
-        Z_dknn = np.zeros((self.Ndir, self.Nk, Nw, Nw), complex)
-        self.Z_dkww = np.empty((self.Ndir, self.Nk, Nw, Nw), complex)
+        Z_dknn = np.zeros((self.Ndir, self.Nk, Nw, Nw), dtype=self.dtype)
+        self.Z_dkww = np.empty((self.Ndir, self.Nk, Nw, Nw), dtype=self.dtype)
 
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
@@ -354,6 +355,9 @@ class WannierLocalization:
                              self.gd.beg_c, Gc / self.gd.N_c).T)
                 pw = (e_G * cmo.conj()).reshape((Nw, -1))
 
+                if self.dtype == float:
+                    pw = pw.real
+
                 Z_dknn[d, k] += np.inner(pw,
                                          cmo1.reshape((Nw,
                                          -1))) * self.gd.dv
@@ -366,6 +370,9 @@ class WannierLocalization:
                     P_n  = P_ni[:Nw]
                     P_n1 = P_ani1[A][:Nw]
                     e = np.exp(-2.j * pi * np.dot(Gc, spos_ac[A]))
+                    if self.dtype == float:
+                        e = e.real
+
                     Z_dknn[d, k] += e * P_n.conj().dot(dS_ii.dot(P_n1.T))
 
         self.gd.comm.sum(Z_dknn)
@@ -381,10 +388,14 @@ class WannierLocalization:
         Nw = self.nwannier
 
         # Set U to random (orthogonal) matrix
-        self.U_kww = np.zeros((self.Nk, Nw, Nw), complex)
+        self.U_kww = np.zeros((self.Nk, Nw, Nw), self.dtype)
         
         #for k in range(self.Nk):
-        self.U_kww[:] = random_orthogonal_matrix(Nw, None, real=False)
+        if self.dtype == float:
+            real = True
+        else:
+            real = False
+        self.U_kww[:] = random_orthogonal_matrix(Nw, None, real=real)
 
         self.update()
 
@@ -434,10 +445,10 @@ class WannierLocalization:
     def get_gradients(self):
 
         Nw = self.nwannier
-
+        dtype = self.dtype
         dU = []
         for k in range(self.Nk):
-            Utemp_ww = np.zeros((Nw, Nw), complex)
+            Utemp_ww = np.zeros((Nw, Nw), dtype)
 
             for d, weight in enumerate(self.weight_d):
                 if abs(weight) < 1.0e-6:
