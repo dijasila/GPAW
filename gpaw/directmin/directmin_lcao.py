@@ -11,6 +11,7 @@ from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.tools import loewdin
 from gpaw.xc.__init__ import xc_string_to_dict
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
+from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -18,7 +19,7 @@ class DirectMinLCAO(DirectLCAO):
     def __init__(self, diagonalizer=None, error=np.inf,
                  search_direction_algorithm='LBFGS_P',
                  line_search_algorithm='SwcAwc',
-                 initial_orbitals='KS',
+                 initial_orbitals=None,
                  initial_rotation='zero',
                  update_ref_orbs_counter=15,
                  update_precond_counter=1000,
@@ -53,6 +54,10 @@ class DirectMinLCAO(DirectLCAO):
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
+
+        if self.odd_parameters['name'] == 'PZ_SIC':
+            if self.initial_orbitals is None:
+                self.initial_orbitals = 'W'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise Exception('Use LBFGS_P with use_prec=True')
@@ -193,21 +198,36 @@ class DirectMinLCAO(DirectLCAO):
                 super(DirectMinLCAO, self).iterate(ham, wfs)
                 occ.calculate(wfs)
                 if self.odd_parameters['name'] == 'PZ_SIC':
-                    log("Pipek-Mezey Localization: ...", flush=True)
-                    wfs.timer.start('Pipek-Mezey Localization')
+                    log("Initial Localization: ...", flush=True)
+                    wfs.timer.start('Initial Localization')
                     for kpt in wfs.kpt_u:
                         if sum(kpt.f_n) < 1.0e-3:
                             continue
-                        pm_obj = pm(wfs=wfs, spin=kpt.s,
-                                    dtype=wfs.dtype)
-                        pm_obj.localize(tolerance=1.0e-5,
-                                        verbose=False)
-                        U = np.ascontiguousarray(pm_obj.W_k[kpt.q].T)
+                        if self.initial_orbitals == 'KS' or \
+                                self.initial_orbitals is None:
+                            continue
+                        elif self.initial_orbitals == 'PM':
+                            lf_obj = pm(wfs=wfs, spin=kpt.s,
+                                        dtype=wfs.dtype)
+                        elif self.initial_orbitals == 'W':
+                            lf_obj = wl(wfs=wfs, spin=kpt.s)
+                        else:
+                            raise NotImplementedError('Check initial'
+                                                      ' orbitals.')
+                        lf_obj.localize(tolerance=1.0e-5)
+                        if self.initial_orbitals == 'PM':
+                            U = np.ascontiguousarray(
+                                lf_obj.W_k[kpt.q].T)
+                        else:
+                            U = np.ascontiguousarray(
+                                lf_obj.U_kww[kpt.q].T)
+                            if kpt.C_nM.dtype == float:
+                                U = U.real
                         wfs.gd.comm.broadcast(U, 0)
-                        n_occ = U.shape[0]
-                        kpt.C_nM[:n_occ] = np.dot(U, kpt.C_nM[:n_occ])
-                        del pm_obj
-                    wfs.timer.stop('Pipek-Mezey Localization')
+                        dim = U.shape[0]
+                        kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
+                        del lf_obj
+                    wfs.timer.stop('Initial Localization')
                     log("Done", flush=True)
             else:
                 for kpt in wfs.kpt_u:
@@ -744,8 +764,8 @@ class DirectMinLCAO(DirectLCAO):
         return {'name': 'direct_min_lcao',
                 'search_direction_algorithm': self.sda,
                 'line_search_algorithm': self.lsa,
-                'initial_orbitals': 'KS',
-                'initial_rotation':'zero',
+                'initial_orbitals': self.initial_orbitals,
+                'initial_rotation': 'zero',
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
