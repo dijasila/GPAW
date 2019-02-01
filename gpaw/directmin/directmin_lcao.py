@@ -13,8 +13,8 @@ from ase.utils import basestring
 class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, diagonalizer=None, error=np.inf,
-                 search_direction_algorithm='LBFGS_P',
-                 line_search_algorithm='SwcAwc',
+                 searchdir_algo='LBFGS_P',
+                 linesearch_algo='SwcAwc',
                  initial_orbitals='KS',
                  initial_rotation='zero',
                  update_ref_orbs_counter=15,
@@ -24,8 +24,8 @@ class DirectMinLCAO(DirectLCAO):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
-        self.sda = search_direction_algorithm
-        self.lsa = line_search_algorithm
+        self.sda = searchdir_algo
+        self.lsa = linesearch_algo
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
         self.get_en_and_grad_iters = 0
