@@ -48,7 +48,7 @@ class DirectMinLCAO(DirectLCAO):
             self.lsa['method'] = self.sda['name']
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
-            raise Exception('Use LBFGS_P with use_prec=True')
+            raise ValueError('Use LBFGS_P with use_prec=True')
 
     def __repr__(self):
 
@@ -286,11 +286,12 @@ class DirectMinLCAO(DirectLCAO):
                         expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
                 else:
-                    raise NotImplementedError('Check the keyword '
-                                              'for matrix_exp. \n'
-                                              'Must be '
-                                              '\'pade_approx\' or '
-                                              '\'eigendecomposition\'')
+                    raise ValueError('Check the keyword '
+                                     'for matrix_exp. \n'
+                                     'Must be '
+                                     '\'pade_approx\' or '
+                                     '\'eigendecomposition\'')
+
                 kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                              c_nm_ref[k][:n_dim[k]])
                 del u_nn
@@ -414,11 +415,12 @@ class DirectMinLCAO(DirectLCAO):
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
         else:
-            raise NotImplementedError('Check the keyword '
-                                      'for matrix_exp. \n'
-                                      'Must be '
-                                      '\'pade_approx\' or '
-                                      '\'eigendecomposition\'')
+            raise ValueError('Check the keyword '
+                             'for matrix_exp. \n'
+                             'Must be '
+                             '\'pade_approx\' or '
+                             '\'eigendecomposition\'')
+
         if self.dtype == float:
             grad = grad.real
         if self.sparse:

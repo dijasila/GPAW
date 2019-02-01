@@ -26,11 +26,9 @@ def search_direction(x, wfs):
         elif name == 'LBFGS_P':
             return LBFGS_P(wfs, **kwargs)
         else:
-            raise NotImplementedError('Check keyword for'
-                                      'search direction!')
+            raise ValueError('Check keyword for search direction!')
     else:
-        raise NotImplementedError('Check keyword for'
-                                  'search direction!')
+        raise ValueError('Check keyword for search direction!')
 
 
 def line_search_algorithm(x, objective_function):
@@ -49,8 +47,6 @@ def line_search_algorithm(x, objective_function):
                                          **kwargs
                                          )
         else:
-            raise NotImplementedError('Check keyword for '
-                                      'line search!')
+            raise ValueError('Check keyword for line search!')
     else:
-        raise NotImplementedError('Check keyword for '
-                                  'line search!')
+        raise ValueError('Check keyword for line search!')
