@@ -6,12 +6,12 @@ from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 
 
-def search_direction(x, wfs):
-    if isinstance(x, basestring):
-        x = xc_string_to_dict(x)
+def search_direction(method, wfs):
+    if isinstance(method, basestring):
+        method = xc_string_to_dict(method)
 
-    if isinstance(x, dict):
-        kwargs = x.copy()
+    if isinstance(method, dict):
+        kwargs = method.copy()
         name = kwargs.pop('name')
         if name == 'SD':
             return SteepestDescent(wfs)
@@ -31,12 +31,12 @@ def search_direction(x, wfs):
         raise ValueError('Check keyword for search direction!')
 
 
-def line_search_algorithm(x, objective_function):
-    if isinstance(x, basestring):
-        x = xc_string_to_dict(x)
+def line_search_algorithm(method, objective_function):
+    if isinstance(method, basestring):
+        method = xc_string_to_dict(method)
 
-    if isinstance(x, dict):
-        kwargs = x.copy()
+    if isinstance(method, dict):
+        kwargs = method.copy()
         name = kwargs.pop('name')
         if name == 'UnitStep':
             return UnitStepLength(objective_function)
