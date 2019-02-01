@@ -174,7 +174,7 @@ class DirectMinLCAO(DirectLCAO):
         self.iters = 1
         self.nvalence = wfs.nvalence
         self.kd_comm = wfs.kd.comm
-        self.heiss = {}  # heissian for LBFGS-P
+        self.hess = {}  # hessian for LBFGS-P
         self.precond = {}  # precondiner for other methods
 
         # choose search direction and line search algorithm
@@ -574,25 +574,25 @@ class DirectMinLCAO(DirectLCAO):
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
-                        heiss = self.get_hessian(kpt)
+                        hess = self.get_hessian(kpt)
                         if self.dtype is float:
-                            self.precond[k] = np.zeros_like(heiss)
-                            for i in range(heiss.shape[0]):
-                                if abs(heiss[i]) < 1.0e-4:
+                            self.precond[k] = np.zeros_like(hess)
+                            for i in range(hess.shape[0]):
+                                if abs(hess[i]) < 1.0e-4:
                                     self.precond[k][i] = 1.0
                                 else:
                                     self.precond[k][i] = \
-                                        1.0 / (heiss[i].real)
+                                        1.0 / (hess[i].real)
                         else:
-                            self.precond[k] = np.zeros_like(heiss)
-                            for i in range(heiss.shape[0]):
-                                if abs(heiss[i]) < 1.0e-4:
+                            self.precond[k] = np.zeros_like(hess)
+                            for i in range(hess.shape[0]):
+                                if abs(hess[i]) < 1.0e-4:
                                     self.precond[k][i] = 1.0 + 1.0j
                                 else:
                                     self.precond[k][i] = 1.0 / \
-                                                         heiss[i].real + \
+                                                         hess[i].real + \
                                                          1.0j / \
-                                                         heiss[i].imag
+                                                         hess[i].imag
                     return self.precond
                 else:
                     return self.precond
@@ -603,17 +603,17 @@ class DirectMinLCAO(DirectLCAO):
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
                     if self.iters % counter == 0 or self.iters == 1:
-                        self.heiss[k] = self.get_hessian(kpt)
-                    heiss = self.heiss[k]
+                        self.hess[k] = self.get_hessian(kpt)
+                    hess = self.hess[k]
                     if self.dtype is float:
                         precond[k] = 1.0 / (
-                                0.75 * heiss +
+                                0.75 * hess +
                                 0.25 * self.search_direction.beta_0 ** (-1))
                     else:
                         precond[k] = \
-                            1.0 / (0.75 * heiss.real +
+                            1.0 / (0.75 * hess.real +
                                    0.25 * self.search_direction.beta_0 ** (-1)) + \
-                            1.0j / (0.75 * heiss.imag +
+                            1.0j / (0.75 * hess.imag +
                                     0.25 * self.search_direction.beta_0 ** (-1))
                 return precond
         else:
@@ -632,21 +632,21 @@ class DirectMinLCAO(DirectLCAO):
                 il1 = np.tril_indices(eps_n.shape[0], -1)
             il1 = list(il1)
 
-        heiss = np.zeros(len(il1[0]), dtype=self.dtype)
+        hess = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
         for l, m in zip(*il1):
             df = f_n[l] - f_n[m]
-            heiss[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
+            hess[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
             if self.dtype is complex:
-                heiss[x] += 1.0j * heiss[x]
-                if abs(heiss[x]) < 1.0e-10:
-                    heiss[x] = 0.0 + 0.0j
+                hess[x] += 1.0j * hess[x]
+                if abs(hess[x]) < 1.0e-10:
+                    hess[x] = 0.0 + 0.0j
             else:
-                if abs(heiss[x]) < 1.0e-10:
-                    heiss[x] = 0.0
+                if abs(hess[x]) < 1.0e-10:
+                    hess[x] = 0.0
             x += 1
 
-        return heiss
+        return hess
 
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf

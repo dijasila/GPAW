@@ -418,7 +418,7 @@ class LBFGS_P(SteepestDescent):
 
         return 'LBFGS_P'
 
-    def update_data(self, wfs, x_k1, g_k1, heiss_1=None):
+    def update_data(self, wfs, x_k1, g_k1, hess_1=None):
 
         if self.k == 0:
             self.kp[self.k] = self.p
@@ -429,7 +429,7 @@ class LBFGS_P(SteepestDescent):
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
-            p = self.apply_prec(heiss_1, g_k1, -1.0)
+            p = self.apply_prec(hess_1, g_k1, -1.0)
             self.beta_0 = 1.0
             return p
 
@@ -468,7 +468,7 @@ class LBFGS_P(SteepestDescent):
                 parprint("y_k^Ts_k is not positive!")
                 self.stable = False
                 self.__init__(wfs, memory=self.m)
-                return self.update_data(wfs, x_k1, g_k1, heiss_1)
+                return self.update_data(wfs, x_k1, g_k1, hess_1)
 
             # q = np.copy(g_k1)
             q = copy.deepcopy(g_k1)
@@ -499,7 +499,7 @@ class LBFGS_P(SteepestDescent):
 
                 self.beta_0 = 1.0 / (rho_k[kp[t]] * dot_yy)
 
-                r = self.apply_prec(heiss_1, q)
+                r = self.apply_prec(hess_1, q)
 
             except ZeroDivisionError:
                 # r = 1.0e12 * q
