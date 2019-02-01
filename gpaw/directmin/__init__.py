@@ -1,4 +1,4 @@
-from gpaw.xc.__init__ import xc_string_to_dict
+from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS, LBFGS_P

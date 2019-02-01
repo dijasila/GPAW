@@ -6,7 +6,7 @@ from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
 from gpaw.directmin import search_direction, line_search_algorithm
-from gpaw.xc.__init__ import xc_string_to_dict
+from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 
 
