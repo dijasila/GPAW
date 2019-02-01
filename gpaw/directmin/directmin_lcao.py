@@ -238,10 +238,7 @@ class DirectMinLCAO(DirectLCAO):
                 der_phi_c += np.dot(g[k].conj(),
                                     p[k]).real
             else:
-                if self.dtype is complex:
-                    il1 = np.tril_indices(g[k].shape[0])
-                else:
-                    il1 = np.tril_indices(g[k].shape[0], -1)
+                il1 = get_indices(g[k].shape[0], self.dtype)
                 der_phi_c += np.dot(g[k][il1].conj(), p[k][il1]).real
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_c = wfs.kd.comm.sum(der_phi_c)
@@ -477,11 +474,7 @@ class DirectMinLCAO(DirectLCAO):
             a_vec = {}
 
             for k in a_mat_u.keys():
-                if self.dtype is complex:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0])
-                else:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
-
+                il1 = get_indices(a_mat_u[k].shape[0], self.dtype)
                 a_vec[k] = a_mat_u[k][il1]
                 g_vec[k] = g_mat_u[k][il1]
 
@@ -492,14 +485,12 @@ class DirectMinLCAO(DirectLCAO):
             p_mat_u = {}
             for k in p_vec.keys():
                 p_mat_u[k] = np.zeros_like(a_mat_u[k])
-                if self.dtype is complex:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0])
-                else:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
+                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
                 p_mat_u[k][il1] = p_vec[k]
                 # make it skew-hermitian
-                ind_l = np.tril_indices(p_mat_u[k].shape[0], -1)
-                p_mat_u[k][(ind_l[1], ind_l[0])] = -p_mat_u[k][ind_l].conj()
+                il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
+                p_mat_u[k][(il1[1], il1[0])] = -p_mat_u[k][il1].conj()
+
             del p_vec
 
         return p_mat_u
@@ -531,10 +522,8 @@ class DirectMinLCAO(DirectLCAO):
                                   p_mat_u[k]).real
         else:
             for k in p_mat_u.keys():
-                if self.dtype is complex:
-                    il1 = np.tril_indices(p_mat_u[k].shape[0])
-                else:
-                    il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
+
+                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
 
                 der_phi += np.dot(g_mat_u[k][il1].conj(),
                                   p_mat_u[k][il1]).real
@@ -626,10 +615,7 @@ class DirectMinLCAO(DirectLCAO):
         if self.sparse:
             il1 = list(self.ind_up)
         else:
-            if self.dtype is complex:
-                il1 = np.tril_indices(eps_n.shape[0])
-            else:
-                il1 = np.tril_indices(eps_n.shape[0], -1)
+            il1 = get_indices(eps_n.shape[0], self.dtype)
             il1 = list(il1)
 
         hess = np.zeros(len(il1[0]), dtype=self.dtype)
@@ -754,3 +740,13 @@ class DirectMinLCAO(DirectLCAO):
                             a_m[u][j][i] = -np.conjugate(a)
 
         return g_a, g_n
+
+
+def get_indices(dimens, dtype):
+
+    if dtype == complex:
+        il1 = np.tril_indices(dimens)
+    else:
+        il1 = np.tril_indices(dimens, -1)
+
+    return il1
