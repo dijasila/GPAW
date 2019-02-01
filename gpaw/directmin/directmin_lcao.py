@@ -105,12 +105,49 @@ class DirectMinLCAO(DirectLCAO):
         if self.sparse:
             # we may want to use different shapes for different
             # kpts, for example metals or sic, but later..
-            max = wfs.bd.nbands
-            nax = self.nvalence = wfs.nvalence
-            nax = nax // (3 - wfs.nspins) + nax % (3 - wfs.nspins)
-            ind_up = np.triu_indices(max, 1)
-            x = (max - nax) * (max - nax - 1) // 2
-            self.ind_up = (ind_up[0][:-x], ind_up[1][:-x])
+
+            # Matrices are sparse and Skew-Hermitian.
+            # They have this structure:
+            #  A_BigMatrix =
+            #
+            # (  A_1          A_2 )
+            # ( -A_2.T.conj() 0   )
+            #
+            # where 0 is a zero-matrix of size of (M-N) * (M-N)
+            #
+            # A_1 i skew-hermitian matrix of N * N,
+            # N-number of occupied states
+            # A_2 is matrix of size of (M-N) * N,
+            # M - number of basis functions
+            #
+            # if the energy functional is unitary invariant
+            # then A_1 = 0
+            # (see Hutter J., Parrinelo M and Vogel S.,
+            #  J. Chem. Phys. 101, 3862 (1994))
+            #
+            # We will keep A_1 as we would like to work with metals,
+            # SIC, and molecules with different occupation numbers.
+            #
+            # Thus, we need to store upper triangular part of A_1,
+            # and matrix A_2, so in total
+            # (M-N) * N + N * (N - 1)/2 = N * (M - (N + 1)/2) elements
+            #
+            # we will store these elements as a vector and
+            # also will store indices of the A_BigMatrix
+            # which correspond to these elements.
+
+            M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
+            # let's take all upper triangular indices of A_BigMatrix
+            ind_up = np.triu_indices(M, 1)
+            # and then delete indices from ind_up
+            # which correspond to 0 matrix in A_BigMatrix
+            # N_e - number of valence electrons
+            N_e = self.nvalence = wfs.nvalence
+            # remember spin degeneracy.
+            N_deg = N_e // (3 - wfs.nspins) + N_e % (3 - wfs.nspins)
+            zero_ind = (M - N_deg) * (M - N_deg - 1) // 2
+            self.ind_up = (ind_up[0][:-zero_ind].copy(),
+                           ind_up[1][:-zero_ind].copy())
             del ind_up
 
         for kpt in wfs.kpt_u:
