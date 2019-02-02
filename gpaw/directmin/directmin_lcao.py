@@ -167,8 +167,8 @@ class DirectMinLCAO(DirectLCAO):
             self.evals[u] = None
 
         self.alpha = 1.0  # step length
-        self.phi = [None, None]  # energy at alpha and alpha old
-        self.der_phi = [None, None]  # gradients at alpha and al. old
+        self.phi_2i = [None, None]  # energy at last two iterations
+        self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
         self.precond = None
 
         self.iters = 1
@@ -218,58 +218,56 @@ class DirectMinLCAO(DirectLCAO):
         a = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
-        phi = self.phi
+        phi_2i = self.phi_2i
+        der_phi_2i = self.der_phi_2i
         c_ref = self.c_nm_ref
-        der_phi = self.der_phi
 
         if self.iters == 1:
-            phi[0], g = self.get_energy_and_gradients(a, n_dim, ham,
-                                                      wfs, dens, occ,
-                                                      c_ref)
+            phi_2i[0], g = \
+                self.get_energy_and_gradients(a, n_dim, ham, wfs,
+                                              dens, occ, c_ref)
         else:
             g = self.g_mat_u
 
         wfs.timer.start('Get Search Direction')
         p = self.get_search_direction(a, g, precond, wfs)
         wfs.timer.stop('Get Search Direction')
-        der_phi_c = 0.0
+
+        # recalculate derivative with new search direction
+        der_phi_2i[0] = 0.0
         for k in g.keys():
             if self.sparse:
-                der_phi_c += np.dot(g[k].conj(),
-                                    p[k]).real
+                der_phi_2i[0] += np.dot(g[k].conj(), p[k]).real
             else:
                 il1 = get_indices(g[k].shape[0], self.dtype)
-                der_phi_c += np.dot(g[k][il1].conj(), p[k][il1]).real
+                der_phi_2i[0] += np.dot(g[k][il1].conj(),
+                                        p[k][il1]).real
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
-        der_phi_c = wfs.kd.comm.sum(der_phi_c)
-        der_phi[0] = der_phi_c
+        der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
-        phi_c, der_phi_c = phi[0], der_phi[0]
-
-        alpha, phi[0], der_phi[0], g = \
+        alpha, phi_alpha, der_phi_alpha, g = \
             self.line_search.step_length_update(a, p, n_dim,
                                                 ham, wfs, dens, occ,
                                                 c_ref,
-                                                phi_0=phi[0],
-                                                der_phi_0=der_phi[0],
-                                                phi_old=phi[1],
-                                                der_phi_old=der_phi[1],
+                                                phi_0=phi_2i[0],
+                                                der_phi_0=der_phi_2i[0],
+                                                phi_old=phi_2i[1],
+                                                der_phi_old=der_phi_2i[1],
                                                 alpha_max=5.0,
                                                 alpha_old=alpha)
 
         if wfs.gd.comm.size > 1:
             wfs.timer.start('Broadcast gradients')
-            alpha_phi_der_phi = np.array([alpha, phi[0], der_phi[0]])
+            alpha_phi_der_phi = np.array([alpha, phi_2i[0],
+                                          der_phi_2i[0]])
             wfs.gd.comm.broadcast(alpha_phi_der_phi, 0)
             alpha = alpha_phi_der_phi[0]
-            phi[0] = alpha_phi_der_phi[1]
-            der_phi[0] = alpha_phi_der_phi[2]
+            phi_2i[0] = alpha_phi_der_phi[1]
+            der_phi_2i[0] = alpha_phi_der_phi[2]
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 wfs.gd.comm.broadcast(g[k], 0)
             wfs.timer.stop('Broadcast gradients')
-
-        phi[1], der_phi[1] = phi_c, der_phi_c
 
         # calculate new matrices for optimal step length
         for k in a.keys():
@@ -277,6 +275,10 @@ class DirectMinLCAO(DirectLCAO):
         self.alpha = alpha
         self.g_mat_u = g
         self.iters += 1
+
+        # and 'shift' phi, der_phi for the next iteration
+        phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
+        phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         wfs.timer.stop('Direct Minimisation step')
 
