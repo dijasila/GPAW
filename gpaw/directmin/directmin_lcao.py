@@ -95,6 +95,7 @@ class DirectMinLCAO(DirectLCAO):
             u = kpt.s * self.n_kps + kpt.q
             self.n_dim[u] = wfs.bd.nbands
 
+        # values: matrices, keys: kpt number
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
         self.c_nm_ref = {}  # reference orbitals to be rotated
@@ -215,7 +216,7 @@ class DirectMinLCAO(DirectLCAO):
         self.update_ref_orbitals(wfs)  #, ham)
         wfs.timer.stop('Preconditioning:')
 
-        a = self.a_mat_u
+        a_mat_u = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
         phi_2i = self.phi_2i
@@ -223,32 +224,34 @@ class DirectMinLCAO(DirectLCAO):
         c_ref = self.c_nm_ref
 
         if self.iters == 1:
-            phi_2i[0], g = \
-                self.get_energy_and_gradients(a, n_dim, ham, wfs,
+            phi_2i[0], g_mat_u = \
+                self.get_energy_and_gradients(a_mat_u, n_dim, ham, wfs,
                                               dens, occ, c_ref)
         else:
-            g = self.g_mat_u
+            g_mat_u = self.g_mat_u
 
         wfs.timer.start('Get Search Direction')
-        p = self.get_search_direction(a, g, precond, wfs)
+        p_mat_u = self.get_search_direction(a_mat_u, g_mat_u, precond,
+                                            wfs)
         wfs.timer.stop('Get Search Direction')
 
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
-        for k in g.keys():
+        for k in g_mat_u.keys():
             if self.sparse:
-                der_phi_2i[0] += np.dot(g[k].conj(), p[k]).real
+                der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
+                                        p_mat_u[k]).real
             else:
-                il1 = get_indices(g[k].shape[0], self.dtype)
-                der_phi_2i[0] += np.dot(g[k][il1].conj(),
-                                        p[k][il1]).real
+                il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
+                der_phi_2i[0] += np.dot(g_mat_u[k][il1].conj(),
+                                        p_mat_u[k][il1]).real
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
-        alpha, phi_alpha, der_phi_alpha, g = \
-            self.line_search.step_length_update(a, p, n_dim,
-                                                ham, wfs, dens, occ,
-                                                c_ref,
+        alpha, phi_alpha, der_phi_alpha, g_mat_u = \
+            self.line_search.step_length_update(a_mat_u, p_mat_u,
+                                                n_dim, ham, wfs, dens,
+                                                occ, c_ref,
                                                 phi_0=phi_2i[0],
                                                 der_phi_0=der_phi_2i[0],
                                                 phi_old=phi_2i[1],
@@ -266,14 +269,14 @@ class DirectMinLCAO(DirectLCAO):
             der_phi_2i[0] = alpha_phi_der_phi[2]
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                wfs.gd.comm.broadcast(g[k], 0)
+                wfs.gd.comm.broadcast(g_mat_u[k], 0)
             wfs.timer.stop('Broadcast gradients')
 
         # calculate new matrices for optimal step length
-        for k in a.keys():
-            a[k] += alpha * p[k]
+        for k in a_mat_u.keys():
+            a_mat_u[k] += alpha * p_mat_u[k]
         self.alpha = alpha
-        self.g_mat_u = g
+        self.g_mat_u = g_mat_u
         self.iters += 1
 
         # and 'shift' phi, der_phi for the next iteration
