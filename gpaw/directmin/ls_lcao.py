@@ -24,14 +24,12 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
         return False
 
 
-class UnitStepLength:
+class UnitStepLength(object):
 
     def __init__(self, evaluate_phi_and_der_phi):
         """
 
-        :param evaluate_phi_and_der_phi: function which calculate
-        phi, der_phi and g for given x, p, n_dim and alpha
-        A_s[s] is skew-hermitian matrix, P_s[s] is matrix direction
+        :param evaluate_phi_and_der_phi:
         """
 
         self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
@@ -47,7 +45,46 @@ class UnitStepLength:
         return a_star, phi_star, der_phi_star, g_star
 
 
-class StrongWolfeConditions:
+class Parabola(UnitStepLength):
+
+    """
+    phi = f (x_k + a_k*p_k)
+    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
+    g = \grad f(x_k + a_k p_k)
+    """
+
+    def __init__(self, evaluate_phi_and_der_phi):
+        """
+        :param evaluate_phi_and_der_phi:
+        """
+        super(Parabola, self).__init__(evaluate_phi_and_der_phi)
+
+    def step_length_update(self, x, p, n_dim,
+                           *args, **kwargs):
+
+        phi_0 = kwargs['phi_0']
+        der_phi_0 = kwargs['der_phi_0']
+
+        phi_i, der_phi_i, g_i = \
+            self.evaluate_phi_and_der_phi(x, p, n_dim, 1.0, *args)
+
+        # if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
+        if descent(phi_0, phi_i, eps=1.0e-2):
+            return 1.0, phi_i, der_phi_i, g_i
+        else:
+            a_star = parabola_interpolation(0.0, 1.0,
+                                            phi_0, phi_i,
+                                            der_phi_0)
+            if a_star < 0.01:
+                a_star = 0.01
+        phi_star, der_phi_star, g_star = \
+            self.evaluate_phi_and_der_phi(x, p, n_dim,
+                                          a_star, *args)
+
+        return a_star, phi_star, der_phi_star, g_star
+
+
+class StrongWolfeConditions(UnitStepLength):
     """
     From a book of Jorge Nocedal and Stephen J. Wright 'Numerical
     Optimization' Second Edition, 2006 (p. 56)
@@ -79,10 +116,15 @@ class StrongWolfeConditions:
         :param eps_df: minimal change of function
         :param c1: see above
         :param c2: see above
+
+        this class works fine, but these parameters eps_dx, eps_df
+        might not be needed
+
         """
 
-        self.\
-            evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
+        super(StrongWolfeConditions, self).__init__(
+            evaluate_phi_and_der_phi)
+
         self.max_iter = max_iter
         self.method = method
         self.eps_dx = eps_dx
@@ -358,45 +400,4 @@ class StrongWolfeConditions:
             alpha_1 = 1.0
 
         return alpha_1
-
-
-class Parabola:
-
-    """
-    phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
-    """
-
-    def __init__(self, evaluate_phi_and_der_phi):
-        """
-        :param evaluate_phi_and_der_phi: function which calculate
-        phi, der_phi and g for given A_s, P_s, n_dim and alpha
-        A_s[s] is skew-hermitian matrix, P_s[s] is matrix direction
-        """
-        self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
-
-    def step_length_update(self, x, p, n_dim,
-                           *args, **kwargs):
-
-        phi_0 = kwargs['phi_0']
-        der_phi_0 = kwargs['der_phi_0']
-
-        phi_i, der_phi_i, g_i = \
-            self.evaluate_phi_and_der_phi(x, p, n_dim, 1.0, *args)
-
-        # if appr_wc(der_phi_0, phi_0, der_phi_i, phi_i):
-        if descent(phi_0, phi_i, eps=1.0e-2):
-            return 1.0, phi_i, der_phi_i, g_i
-        else:
-            a_star = parabola_interpolation(0.0, 1.0,
-                                            phi_0, phi_i,
-                                            der_phi_0)
-            if a_star < 0.01:
-                a_star = 0.01
-        phi_star, der_phi_star, g_star = \
-            self.evaluate_phi_and_der_phi(x, p, n_dim,
-                                          a_star, *args)
-
-        return a_star, phi_star, der_phi_star, g_star
 
