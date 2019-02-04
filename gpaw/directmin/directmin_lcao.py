@@ -247,7 +247,7 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
-        self.update_ref_orbitals(wfs)  #, ham)
+        self.update_ref_orbitals(wfs, ham)
         wfs.timer.stop('Preconditioning:')
 
         a = self.a_mat_u
@@ -580,11 +580,12 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs):  # , ham):
+    def update_ref_orbitals(self, wfs, ham):
         counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 and self.iters > 1:
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
+                self.sort_wavefunctions(ham, wfs, kpt)
                 self.c_nm_ref[u] = kpt.C_nM.copy()
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
                 # self.sort_wavefunctions(ham, wfs, kpt)
