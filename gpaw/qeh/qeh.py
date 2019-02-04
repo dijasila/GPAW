@@ -1777,8 +1777,7 @@ def read_chi_wGG(name):
 def plot_plasmons(hs, output,
                   plot_eigenvalues=False,
                   plot_density=False,
-                  plot_potential=False,
-                  show=True):
+                  plot_potential=False):
     eig, z, rho_z, phi_z, omega0, abseps = output
 
     import matplotlib.pyplot as plt
@@ -1822,10 +1821,7 @@ def plot_plasmons(hs, output,
         plt.plot(z, dens.T)
         plt.xlabel('z (Å)')
 
-    if show:
-        plt.show()
 
-        
 def make_heterostructure(layers,
                          frequencies=[0.001, 5, 5000],
                          momenta=[0.0001, 5, 1000],
@@ -2150,7 +2146,8 @@ def main(args=None):
         tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
         if args.plot:
             plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues,
-                          show=False)
+                          plot_potential=args.potential,
+                          plot_density=args.density)
 
     hs.timer.write()
 
