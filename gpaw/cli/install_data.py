@@ -4,11 +4,7 @@ import fnmatch
 from io import BytesIO
 import tarfile
 import re
-try:
-    from urllib2 import urlopen
-    input = raw_input
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 
 
 sources = [('gpaw', 'official GPAW setups releases [default]'),

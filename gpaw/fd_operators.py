@@ -216,7 +216,7 @@ class Gradient(FDOperator):
         M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
         voro = Voronoi(h_iv)
-        i_d = []  # type: List[int]
+        i_d = []  # List[int]
         for i1, i2 in voro.ridge_points:
             if i1 == 13 and i2 > 13:
                 i_d.append(i2)
