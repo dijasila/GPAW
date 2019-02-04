@@ -1,4 +1,4 @@
-from gpaw.xc.__init__ import xc_string_to_dict
+from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
     QuickMin, LBFGS, LBFGS_P
@@ -6,12 +6,12 @@ from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 
 
-def search_direction(x, wfs):
-    if isinstance(x, basestring):
-        x = xc_string_to_dict(x)
+def search_direction(method, wfs):
+    if isinstance(method, basestring):
+        method = xc_string_to_dict(method)
 
-    if isinstance(x, dict):
-        kwargs = x.copy()
+    if isinstance(method, dict):
+        kwargs = method.copy()
         name = kwargs.pop('name')
         if name == 'SD':
             return SteepestDescent(wfs)
@@ -26,19 +26,17 @@ def search_direction(x, wfs):
         elif name == 'LBFGS_P':
             return LBFGS_P(wfs, **kwargs)
         else:
-            raise NotImplementedError('Check keyword for'
-                                      'search direction!')
+            raise ValueError('Check keyword for search direction!')
     else:
-        raise NotImplementedError('Check keyword for'
-                                  'search direction!')
+        raise ValueError('Check keyword for search direction!')
 
 
-def line_search_algorithm(x, objective_function):
-    if isinstance(x, basestring):
-        x = xc_string_to_dict(x)
+def line_search_algorithm(method, objective_function):
+    if isinstance(method, basestring):
+        method = xc_string_to_dict(method)
 
-    if isinstance(x, dict):
-        kwargs = x.copy()
+    if isinstance(method, dict):
+        kwargs = method.copy()
         name = kwargs.pop('name')
         if name == 'UnitStep':
             return UnitStepLength(objective_function)
@@ -49,8 +47,6 @@ def line_search_algorithm(x, objective_function):
                                          **kwargs
                                          )
         else:
-            raise NotImplementedError('Check keyword for '
-                                      'line search!')
+            raise ValueError('Check keyword for line search!')
     else:
-        raise NotImplementedError('Check keyword for '
-                                  'line search!')
+        raise ValueError('Check keyword for line search!')

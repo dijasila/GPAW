@@ -5,11 +5,11 @@ from gpaw.directmin.tools import D_matrix, expm_ed
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
+from gpaw.directmin import search_direction, line_search_algorithm
+from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.odd import odd_corrections
-from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.directmin.tools import loewdin
-from gpaw.xc.__init__ import xc_string_to_dict
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
 from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 
@@ -17,10 +17,10 @@ from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 class DirectMinLCAO(DirectLCAO):
 
     def __init__(self, diagonalizer=None, error=np.inf,
-                 search_direction_algorithm='LBFGS_P',
-                 line_search_algorithm='SwcAwc',
+                 searchdir_algo='LBFGS_P',
+                 linesearch_algo='SwcAwc',
                  initial_orbitals=None,
-                 initial_rotation='zero',
+                 initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=15,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
@@ -28,8 +28,8 @@ class DirectMinLCAO(DirectLCAO):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
-        self.sda = search_direction_algorithm
-        self.lsa = line_search_algorithm
+        self.sda = searchdir_algo
+        self.lsa = linesearch_algo
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
         self.get_en_and_grad_iters = 0
@@ -107,6 +107,7 @@ class DirectMinLCAO(DirectLCAO):
             u = kpt.s * self.n_kps + kpt.q
             self.n_dim[u] = wfs.bd.nbands
 
+        # values: matrices, keys: kpt number
         self.a_mat_u = {}  # skew-hermitian matrix to be exponented
         self.g_mat_u = {}  # gradient matrix
         self.c_nm_ref = {}  # reference orbitals to be rotated
@@ -118,12 +119,49 @@ class DirectMinLCAO(DirectLCAO):
         if self.sparse:
             # we may want to use different shapes for different
             # kpts, for example metals or sic, but later..
-            max = wfs.bd.nbands
-            nax = self.nvalence = wfs.nvalence
-            nax = nax // (3 - wfs.nspins) + nax % (3 - wfs.nspins)
-            ind_up = np.triu_indices(max, 1)
-            x = (max - nax) * (max - nax - 1) // 2
-            self.ind_up = (ind_up[0][:-x], ind_up[1][:-x])
+
+            # Matrices are sparse and Skew-Hermitian.
+            # They have this structure:
+            #  A_BigMatrix =
+            #
+            # (  A_1          A_2 )
+            # ( -A_2.T.conj() 0   )
+            #
+            # where 0 is a zero-matrix of size of (M-N) * (M-N)
+            #
+            # A_1 i skew-hermitian matrix of N * N,
+            # N-number of occupied states
+            # A_2 is matrix of size of (M-N) * N,
+            # M - number of basis functions
+            #
+            # if the energy functional is unitary invariant
+            # then A_1 = 0
+            # (see Hutter J., Parrinelo M and Vogel S.,
+            #  J. Chem. Phys. 101, 3862 (1994))
+            #
+            # We will keep A_1 as we would like to work with metals,
+            # SIC, and molecules with different occupation numbers.
+            #
+            # Thus, we need to store upper triangular part of A_1,
+            # and matrix A_2, so in total
+            # (M-N) * N + N * (N - 1)/2 = N * (M - (N + 1)/2) elements
+            #
+            # we will store these elements as a vector and
+            # also will store indices of the A_BigMatrix
+            # which correspond to these elements.
+
+            M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
+            # let's take all upper triangular indices of A_BigMatrix
+            ind_up = np.triu_indices(M, 1)
+            # and then delete indices from ind_up
+            # which correspond to 0 matrix in A_BigMatrix
+            # N_e - number of valence electrons
+            N_e = self.nvalence = wfs.nvalence
+            # remember spin degeneracy.
+            N_deg = N_e // (3 - wfs.nspins) + N_e % (3 - wfs.nspins)
+            zero_ind = (M - N_deg) * (M - N_deg - 1) // 2
+            self.ind_up = (ind_up[0][:-zero_ind].copy(),
+                           ind_up[1][:-zero_ind].copy())
             del ind_up
 
         for kpt in wfs.kpt_u:
@@ -143,14 +181,14 @@ class DirectMinLCAO(DirectLCAO):
             self.evals[u] = None
 
         self.alpha = 1.0  # step length
-        self.phi = [None, None]  # energy at alpha and alpha old
-        self.der_phi = [None, None]  # gradients at alpha and al. old
+        self.phi_2i = [None, None]  # energy at last two iterations
+        self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
         self.precond = None
 
         self.iters = 1
         self.nvalence = wfs.nvalence
         self.kd_comm = wfs.kd.comm
-        self.heiss = {}  # heissian for LBFGS-P
+        self.hess = {}  # hessian for LBFGS-P
         self.precond = {}  # precondiner for other methods
 
         # choose search direction and line search algorithm
@@ -250,71 +288,72 @@ class DirectMinLCAO(DirectLCAO):
         self.update_ref_orbitals(wfs, ham)
         wfs.timer.stop('Preconditioning:')
 
-        a = self.a_mat_u
+        a_mat_u = self.a_mat_u
         n_dim = self.n_dim
         alpha = self.alpha
-        phi = self.phi
+        phi_2i = self.phi_2i
+        der_phi_2i = self.der_phi_2i
         c_ref = self.c_nm_ref
-        der_phi = self.der_phi
 
         if self.iters == 1:
-            phi[0], g = self.get_energy_and_gradients(a, n_dim, ham,
-                                                      wfs, dens, occ,
-                                                      c_ref)
+            phi_2i[0], g_mat_u = \
+                self.get_energy_and_gradients(a_mat_u, n_dim, ham, wfs,
+                                              dens, occ, c_ref)
         else:
-            g = self.g_mat_u
+            g_mat_u = self.g_mat_u
 
         wfs.timer.start('Get Search Direction')
-        p = self.get_search_direction(a, g, precond, wfs)
+        p_mat_u = self.get_search_direction(a_mat_u, g_mat_u, precond,
+                                            wfs)
         wfs.timer.stop('Get Search Direction')
-        der_phi_c = 0.0
-        for k in g.keys():
+
+        # recalculate derivative with new search direction
+        der_phi_2i[0] = 0.0
+        for k in g_mat_u.keys():
             if self.sparse:
-                der_phi_c += np.dot(g[k].conj(),
-                                    p[k]).real
+                der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
+                                        p_mat_u[k]).real
             else:
-                if self.dtype is complex:
-                    il1 = np.tril_indices(g[k].shape[0])
-                else:
-                    il1 = np.tril_indices(g[k].shape[0], -1)
-                der_phi_c += np.dot(g[k][il1].conj(), p[k][il1]).real
+                il1 = get_indices(g_mat_u[k].shape[0], self.dtype)
+                der_phi_2i[0] += np.dot(g_mat_u[k][il1].conj(),
+                                        p_mat_u[k][il1]).real
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
-        der_phi_c = wfs.kd.comm.sum(der_phi_c)
-        der_phi[0] = der_phi_c
+        der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
-        phi_c, der_phi_c = phi[0], der_phi[0]
-
-        alpha, phi[0], der_phi[0], g = \
-            self.line_search.step_length_update(a, p, n_dim,
-                                                ham, wfs, dens, occ,
-                                                c_ref,
-                                                phi_0=phi[0],
-                                                der_phi_0=der_phi[0],
-                                                phi_old=phi[1],
-                                                der_phi_old=der_phi[1],
+        alpha, phi_alpha, der_phi_alpha, g_mat_u = \
+            self.line_search.step_length_update(a_mat_u, p_mat_u,
+                                                n_dim, ham, wfs, dens,
+                                                occ, c_ref,
+                                                phi_0=phi_2i[0],
+                                                der_phi_0=der_phi_2i[0],
+                                                phi_old=phi_2i[1],
+                                                der_phi_old=der_phi_2i[1],
                                                 alpha_max=5.0,
                                                 alpha_old=alpha)
 
         if wfs.gd.comm.size > 1:
             wfs.timer.start('Broadcast gradients')
-            alpha_phi_der_phi = np.array([alpha, phi[0], der_phi[0]])
+            alpha_phi_der_phi = np.array([alpha, phi_2i[0],
+                                          der_phi_2i[0]])
             wfs.gd.comm.broadcast(alpha_phi_der_phi, 0)
             alpha = alpha_phi_der_phi[0]
-            phi[0] = alpha_phi_der_phi[1]
-            der_phi[0] = alpha_phi_der_phi[2]
+            phi_2i[0] = alpha_phi_der_phi[1]
+            der_phi_2i[0] = alpha_phi_der_phi[2]
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                wfs.gd.comm.broadcast(g[k], 0)
+                wfs.gd.comm.broadcast(g_mat_u[k], 0)
             wfs.timer.stop('Broadcast gradients')
 
-        phi[1], der_phi[1] = phi_c, der_phi_c
-
         # calculate new matrices for optimal step length
-        for k in a.keys():
-            a[k] += alpha * p[k]
+        for k in a_mat_u.keys():
+            a_mat_u[k] += alpha * p_mat_u[k]
         self.alpha = alpha
-        self.g_mat_u = g
+        self.g_mat_u = g_mat_u
         self.iters += 1
+
+        # and 'shift' phi, der_phi for the next iteration
+        phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
+        phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         wfs.timer.stop('Direct Minimisation step')
 
@@ -350,7 +389,6 @@ class DirectMinLCAO(DirectLCAO):
                     # for large matrices... what can we do?
                     wfs.timer.start('Pade Approximants')
                     u_nn = expm(a)
-                    del a
                     wfs.timer.stop('Pade Approximants')
                 elif self.matrix_exp == 'eigendecomposition':
                     # this method is based on diagonalisation
@@ -359,17 +397,23 @@ class DirectMinLCAO(DirectLCAO):
                         expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
                 else:
-                    raise NotImplementedError('Check the keyword '
-                                              'for matrix_exp. \n'
-                                              'Must be '
-                                              '\'pade_approx\' or '
-                                              '\'eigendecomposition\'')
+                    raise ValueError('Check the keyword '
+                                     'for matrix_exp. \n'
+                                     'Must be '
+                                     '\'pade_approx\' or '
+                                     '\'eigendecomposition\'')
+
                 kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
                                              c_nm_ref[k][:n_dim[k]])
                 del u_nn
+                del a
 
+            wfs.timer.start('Broadcast coefficients')
             self.gd.comm.broadcast(kpt.C_nM, 0)
+            wfs.timer.stop('Broadcast coefficients')
+
             if self.matrix_exp == 'eigendecomposition':
+                wfs.timer.start('Broadcast evecs and evals')
                 if self.gd.comm.rank != 0:
                     evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
                                      dtype=complex)
@@ -379,6 +423,8 @@ class DirectMinLCAO(DirectLCAO):
                 self.gd.comm.broadcast(evecs, 0)
                 self.gd.comm.broadcast(evals, 0)
                 self.evecs[k], self.evals[k] = evecs, evals
+                wfs.timer.stop('Broadcast evecs and evals')
+
             wfs.atomic_correction.calculate_projections(wfs, kpt)
         wfs.timer.stop('Unitary rotation')
 
@@ -418,6 +464,7 @@ class DirectMinLCAO(DirectLCAO):
         return e_total + self.e_sic, g_mat_u
 
     def update_ks_energy(self, ham, wfs, dens, occ):
+
         wfs.timer.start('Update Kohn-Sham energy')
         dens.update(wfs)
         ham.update(dens, wfs, False)
@@ -488,11 +535,12 @@ class DirectMinLCAO(DirectLCAO):
             for i in range(grad.shape[0]):
                 grad[i][i] *= 0.5
         else:
-            raise NotImplementedError('Check the keyword '
-                                      'for matrix_exp. \n'
-                                      'Must be '
-                                      '\'pade_approx\' or '
-                                      '\'eigendecomposition\'')
+            raise ValueError('Check the keyword '
+                             'for matrix_exp. \n'
+                             'Must be '
+                             '\'pade_approx\' or '
+                             '\'eigendecomposition\'')
+
         if self.dtype == float:
             grad = grad.real
         if self.sparse:
@@ -512,11 +560,7 @@ class DirectMinLCAO(DirectLCAO):
             a_vec = {}
 
             for k in a_mat_u.keys():
-                if self.dtype is complex:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0])
-                else:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
-
+                il1 = get_indices(a_mat_u[k].shape[0], self.dtype)
                 a_vec[k] = a_mat_u[k][il1]
                 g_vec[k] = g_mat_u[k][il1]
 
@@ -527,14 +571,12 @@ class DirectMinLCAO(DirectLCAO):
             p_mat_u = {}
             for k in p_vec.keys():
                 p_mat_u[k] = np.zeros_like(a_mat_u[k])
-                if self.dtype is complex:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0])
-                else:
-                    il1 = np.tril_indices(a_mat_u[k].shape[0], -1)
+                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
                 p_mat_u[k][il1] = p_vec[k]
                 # make it skew-hermitian
-                ind_l = np.tril_indices(p_mat_u[k].shape[0], -1)
-                p_mat_u[k][(ind_l[1], ind_l[0])] = -p_mat_u[k][ind_l].conj()
+                il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
+                p_mat_u[k][(il1[1], il1[0])] = -p_mat_u[k][il1].conj()
+
             del p_vec
 
         return p_mat_u
@@ -566,10 +608,8 @@ class DirectMinLCAO(DirectLCAO):
                                   p_mat_u[k]).real
         else:
             for k in p_mat_u.keys():
-                if self.dtype is complex:
-                    il1 = np.tril_indices(p_mat_u[k].shape[0])
-                else:
-                    il1 = np.tril_indices(p_mat_u[k].shape[0], -1)
+
+                il1 = get_indices(p_mat_u[k].shape[0], self.dtype)
 
                 der_phi += np.dot(g_mat_u[k][il1].conj(),
                                   p_mat_u[k][il1]).real
@@ -610,25 +650,25 @@ class DirectMinLCAO(DirectLCAO):
                 if self.iters % counter == 0 or self.iters == 1:
                     for kpt in wfs.kpt_u:
                         k = self.n_kps * kpt.s + kpt.q
-                        heiss = self.get_hessian(kpt)
+                        hess = self.get_hessian(kpt)
                         if self.dtype is float:
-                            self.precond[k] = np.zeros_like(heiss)
-                            for i in range(heiss.shape[0]):
-                                if abs(heiss[i]) < 1.0e-4:
+                            self.precond[k] = np.zeros_like(hess)
+                            for i in range(hess.shape[0]):
+                                if abs(hess[i]) < 1.0e-4:
                                     self.precond[k][i] = 1.0
                                 else:
                                     self.precond[k][i] = \
-                                        1.0 / (heiss[i].real)
+                                        1.0 / (hess[i].real)
                         else:
-                            self.precond[k] = np.zeros_like(heiss)
-                            for i in range(heiss.shape[0]):
-                                if abs(heiss[i]) < 1.0e-4:
+                            self.precond[k] = np.zeros_like(hess)
+                            for i in range(hess.shape[0]):
+                                if abs(hess[i]) < 1.0e-4:
                                     self.precond[k][i] = 1.0 + 1.0j
                                 else:
                                     self.precond[k][i] = 1.0 / \
-                                                         heiss[i].real + \
+                                                         hess[i].real + \
                                                          1.0j / \
-                                                         heiss[i].imag
+                                                         hess[i].imag
                     return self.precond
                 else:
                     return self.precond
@@ -639,17 +679,17 @@ class DirectMinLCAO(DirectLCAO):
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
                     if self.iters % counter == 0 or self.iters == 1:
-                        self.heiss[k] = self.get_hessian(kpt)
-                    heiss = self.heiss[k]
+                        self.hess[k] = self.get_hessian(kpt)
+                    hess = self.hess[k]
                     if self.dtype is float:
                         precond[k] = 1.0 / (
-                                0.75 * heiss +
+                                0.75 * hess +
                                 0.25 * self.search_direction.beta_0 ** (-1))
                     else:
                         precond[k] = \
-                            1.0 / (0.75 * heiss.real +
+                            1.0 / (0.75 * hess.real +
                                    0.25 * self.search_direction.beta_0 ** (-1)) + \
-                            1.0j / (0.75 * heiss.imag +
+                            1.0j / (0.75 * hess.imag +
                                     0.25 * self.search_direction.beta_0 ** (-1))
                 return precond
         else:
@@ -662,27 +702,24 @@ class DirectMinLCAO(DirectLCAO):
         if self.sparse:
             il1 = list(self.ind_up)
         else:
-            if self.dtype is complex:
-                il1 = np.tril_indices(eps_n.shape[0])
-            else:
-                il1 = np.tril_indices(eps_n.shape[0], -1)
+            il1 = get_indices(eps_n.shape[0], self.dtype)
             il1 = list(il1)
 
-        heiss = np.zeros(len(il1[0]), dtype=self.dtype)
+        hess = np.zeros(len(il1[0]), dtype=self.dtype)
         x = 0
         for l, m in zip(*il1):
             df = f_n[l] - f_n[m]
-            heiss[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
+            hess[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
             if self.dtype is complex:
-                heiss[x] += 1.0j * heiss[x]
-                if abs(heiss[x]) < 1.0e-10:
-                    heiss[x] = 0.0 + 0.0j
+                hess[x] += 1.0j * hess[x]
+                if abs(hess[x]) < 1.0e-10:
+                    hess[x] = 0.0 + 0.0j
             else:
-                if abs(heiss[x]) < 1.0e-10:
-                    heiss[x] = 0.0
+                if abs(hess[x]) < 1.0e-10:
+                    hess[x] = 0.0
             x += 1
 
-        return heiss
+        return hess
 
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
@@ -839,3 +876,12 @@ class DirectMinLCAO(DirectLCAO):
                             a_m[u][j][i] = -np.conjugate(a)
 
         return g_a, g_n
+
+def get_indices(dimens, dtype):
+
+    if dtype == complex:
+        il1 = np.tril_indices(dimens)
+    else:
+        il1 = np.tril_indices(dimens, -1)
+
+    return il1
