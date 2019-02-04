@@ -6,7 +6,6 @@ from gpaw import GPAW, PW
 from ase.parallel import parprint
 import scipy.integrate as integrate
 from scipy.interpolate import InterpolatedUnivariateSpline
-from gpaw.wavefunctions.pw import PWDescriptor
 from ase.units import Hartree as Ha
 
 
@@ -15,7 +14,7 @@ class ElectrostaticCorrections():
     Calculate the electrostatic corrections for charged defects.
     """
     def __init__(self, pristine, charged,
-                 q=None, sigma=None, r0=[0, 0, 0], dimensionality='3d'):
+                 q=None, sigma=None, r0=None, dimensionality='3d'):
         if isinstance(pristine, str):
             pristine = GPAW(pristine, txt=None, parallel={'domain': 1})
         if isinstance(charged, str):
@@ -24,7 +23,8 @@ class ElectrostaticCorrections():
                     kpts={'size': (1, 1, 1),
                           'gamma': True},
                     parallel={'domain': 1},
-                    symmetry='off')
+                    symmetry='off',
+                    txt=None)
         atoms = pristine.atoms.copy()
         calc.initialize(atoms)
 
@@ -33,10 +33,18 @@ class ElectrostaticCorrections():
         self.calc = calc
         self.q = q
         self.sigma = sigma
-        self.r0 = np.array(r0)
         self.dimensionality = dimensionality
 
         self.pd = self.calc.wfs.pd
+        self.L = self.pd.gd.cell_cv[2, 2]
+        if r0 is not None:
+            self.r0 = r0
+        elif dimensionality == '2d':
+            self.r0 = np.array([0, 0, self.L / 2])
+        else:
+            self.r0 = np.array([0, 0, 0])
+        self.z0 = self.r0[2]
+
         self.G_Gv = self.pd.get_reciprocal_vectors(q=0,
                                                    add_q=False)  # G in Bohr^-1
         self.G2_G = self.pd.G2_qG[0]  # |\vec{G}|^2 in Bohr^-2
@@ -44,8 +52,6 @@ class ElectrostaticCorrections():
         self.Omega = abs(np.linalg.det(self.calc.density.gd.cell_cv))
         self.data = None
         self.El = None
-        self.z0 = self.r0[2]
-        self.L = self.pd.gd.cell_cv[2, 2]
 
         # For the 2D case, we assume that the dielectric profile epsilon(z)
         # follows the electronic density of the pristine system n(z).
@@ -65,29 +71,20 @@ class ElectrostaticCorrections():
         self.G_parallel = np.unique(self.G_Gv[:, :2], axis=0)
         self.GG = np.outer(self.G_z, self.G_z)  # G * Gprime
 
-        # We need G-vectors up to twice the normal length in order to evaulate
-        # epsilon(G - G'). We could manipulate the existing ones, or we could
-        # just be lazy and make a new plane wave descriptor with four times the
-        # cutoff:
-        pd2 = PWDescriptor(self.pd.ecut * 4, self.pd.gd.refine(),
-                           dtype=complex)
-        self.G_z_fine = find_G_z(pd2)
+        # We need the G_z vectors on the finely sampled grid, to calculate
+        # epsilon(G - G'), which goes up to 2G_max in magnitude.
+        self.G_z_fine = (np.fft.fftfreq(len(fine_z)) *
+                         2 * np.pi / (self.L) * len(fine_z))
         self.index_array = self.get_index_array()
 
         self.epsilons_z = None
         self.Eli = None
         self.Elp = None
         self.epsilon_GG = None
-        self.V_neutral = -np.mean(self.pristine.get_electrostatic_potential(),
-                                  (0, 1))
-        self.V_charged = -np.mean(self.charged.get_electrostatic_potential(),
-                                  (0, 1))
 
     def calculate_gaussian_density(self):
         # Fourier transformed gaussian:
-        prefactor = np.exp(-1j * self.G_Gv @ self.r0)
-        rho_G = self.q * np.exp(-0.5 * self.G2_G * self.sigma ** 2)
-        return rho_G * prefactor
+        return self.q * np.exp(-0.5 * self.G2_G * self.sigma ** 2)
 
     def set_epsilons(self, epsilons, epsilon_bulk=1):
         """Set the bulk dielectric constant of the system corresponding to the
@@ -146,11 +143,10 @@ class ElectrostaticCorrections():
         elif self.dimensionality == '3d':
             eb = normalize(epsilons)
         self.eb = eb
-        eb = self.eb
 
         z = self.z_g
+        L = self.L
         density_1d = self.density_1d
-        L = z[-1] - z[0]
         N = simps(density_1d, z)
         epsilons_z = np.zeros((2,) + np.shape(density_1d))
         epsilons_z += density_1d
@@ -170,6 +166,7 @@ class ElectrostaticCorrections():
         epsilons_z[1] = epsilons_z[1] * k + eb[1]
         self.epsilons_z = {'in-plane': epsilons_z[0],
                            'out-of-plane': epsilons_z[1]}
+        self.calculate_epsilon_GG()
 
     def get_index_array(self):
         """
@@ -217,21 +214,24 @@ class ElectrostaticCorrections():
         Elp = 0.0
 
         for vector in self.G_parallel:
-            norm_G = (np.dot(vector, vector) + G_z * G_z)
-            rho_G = self.q * np.exp(- norm_G * self.sigma ** 2 / 2)
+            G2 = (np.dot(vector, vector) + G_z * G_z)
+            rho_G = self.q * np.exp(- G2 * self.sigma ** 2 / 2, dtype=complex)
+            if self.dimensionality == '2d':
+                rho_G *= np.exp(1j * self.z0 * G_z)
             A_GG = (self.GG * self.epsilon_GG['out-of-plane']
                     + np.dot(vector, vector) * self.epsilon_GG['in-plane'])
-            if np.allclose(vector * vector, 0):
+            if np.allclose(vector, 0):
                 A_GG[0, 0] = 1  # The d.c. potential is poorly defined
             V_G = np.linalg.solve(A_GG, rho_G)
             if np.allclose(vector, 0):
                 parprint('Skipping G^2=0 contribution to Elp')
-                V_G[0] = 0  # So we skip it!
-            Elp += (rho_G * V_G).sum() * 2.0 * np.pi
+                V_G[0] = 0
+            Elp += (rho_G * V_G).sum()
 
-        Elp *= 1. / self.Omega
-        self.Elp = Elp * Ha
-        return Elp * Ha
+        Elp *= 2.0 * np.pi * Ha / self.Omega
+
+        self.Elp = Elp
+        return Elp
 
     def calculate_isolated_correction(self):
         if self.Eli is not None:
@@ -243,7 +243,7 @@ class ElectrostaticCorrections():
         G, Gprime = np.meshgrid(G_z, G_z)
         Delta_GG = G - Gprime
         phase = Delta_GG * self.z0
-        gaussian = (Gprime ** 2 + G ** 2) * self.sigma ** 2 / 2
+        gaussian = (Gprime ** 2 + G ** 2) * self.sigma * self.sigma / 2
 
         prefactor = np.exp(1j * phase - gaussian)
 
@@ -256,74 +256,72 @@ class ElectrostaticCorrections():
                       - self.eb[1] * np.eye(len(self.G_z)))
 
         def integrand(k):
-            K_G = ((L * (self.eb[0] * k ** 2 + self.eb[1] * G_z ** 2)) /
-                   (1 - np.exp(-k * L / 2) * np.cos(L * G_z / 2)))
-            K_GG = np.diag(K_G)
-            D_GG = K_GG + dE_GG_perp * self.GG + dE_GG_par * k ** 2
+            K_inv_G = ((self.eb[0] * k ** 2 + self.eb[1] * G_z ** 2) /
+                       (1 - np.exp(-k * L / 2) * np.cos(L * G_z / 2)))
+            K_inv_GG = np.diag(K_inv_G)
+            D_GG = L * (K_inv_GG + dE_GG_perp * self.GG + dE_GG_par * k ** 2)
             return (k * np.exp(-k ** 2 * self.sigma ** 2) *
                     (prefactor * np.linalg.inv(D_GG)).sum())
 
         I = integrate.quad(integrand, 0, np.inf, limit=500)
-        Eli = self.q * self.q * I[0]
-        self.Eli = Eli * Ha
-        return Eli * Ha
+        Eli = self.q * self.q * I[0] * Ha
+        self.Eli = Eli
+        return Eli
 
     def calculate_potential_alignment(self):
-        if self.dimensionality == '2d':
-            # In two dimensions, we have access to the true vacuum at the
-            # boundaries of the cell, modulo any dipole moment of the layer.
-            return ((V_charged[0] + V_charged[-1]) -
-                    (V_neutral[0] + V_neutral[-1])) / 2
+        V_neutral = -np.mean(self.pristine.get_electrostatic_potential(),
+                             (0, 1))
+        V_charged = -np.mean(self.charged.get_electrostatic_potential(),
+                             (0, 1))
 
-        elif self.dimensionality == '3d':
-            z = self.density_z
+        z = self.density_z
+        z_model, V_model = self.calculate_z_avg_model_potential()
+        V_model = InterpolatedUnivariateSpline(z_model[:-1], V_model[:-1])
+        V_model = V_model(z)
+        self.V_model = V_model
+        Delta_V = self.average(V_model - V_charged + V_neutral, z)
+        return Delta_V
 
-            epsilon = self.eb[0]
-            z_model, V_model = self.calculate_z_avg_model_potential(epsilon)
-            V_model = InterpolatedUnivariateSpline(z_model[:-1], V_model[:-1])
-            V_model = V_model(z)
-            self.V_model = V_model
-            Delta_V = self.average(V_model
-                                   - self.V_charged
-                                   + self.V_neutral, z)
-            return Delta_V
+    def calculate_z_avg_model_potential(self):
 
-    def calculate_z_avg_model_potential(self, epsilon):
-        r_3xyz = self.calc.density.gd.refine().get_grid_point_coordinates()
-
-        nrz = np.shape(r_3xyz)[3]
-
-        vox3 = self.calc.density.gd.cell_cv[2, :] / nrz
+        vox3 = self.calc.density.gd.cell_cv[2, :] / len(self.z_g)
 
         # The grid is arranged with z increasing fastest, then y
         # then x (like a cube file)
 
-        selectedG = []
-        for iG, G in enumerate(self.G_Gv):
-            if np.isclose(G[0], 0.0) and np.isclose(G[1], 0.0):
-                selectedG.append(iG)
+        G_z = self.G_z[1:]
+        rho_Gz = self.q * np.exp(-0.5 * G_z * G_z * self.sigma * self.sigma)
 
-        assert(np.isclose(self.G2_G[selectedG[0]], 0.0))
-        selectedG.pop(0)
         zs = []
         Vs = []
+        if self.dimensionality == '2d':
+            phase = np.exp(1j * (self.G_z * self.z0))
+            A_GG = (self.GG * self.epsilon_GG['out-of-plane'])
+            A_GG[0, 0] = 1
+            V_G = np.linalg.solve(A_GG,
+                                  phase * np.array([0] + list(rho_Gz)))[1:]
+        elif self.dimensionality == '3d':
+            V_G = rho_Gz / self.eb[1] / G_z ** 2
+
         for z in self.z_g:
-            phase_G = np.exp(1j * (self.G_Gv[selectedG, 2] * z))
-            V = (np.sum(phase_G * self.rho_G[selectedG]
-                        / (self.G2_G[selectedG]))
-                 * Ha * 4.0 * np.pi / (epsilon * self.Omega))
+            phase_G = np.exp(1j * (G_z * z))
+            V = (np.sum(phase_G * V_G)
+                 * Ha * 4.0 * np.pi / (self.Omega))
             Vs.append(V)
 
-        V = (np.sum(self.rho_G[selectedG] / (self.G2_G[selectedG]))
-             * Ha * 4.0 * np.pi / (epsilon * self.Omega))
+        V = (np.sum(V_G) * Ha * 4.0 * np.pi / (self.Omega))
         zs = list(self.z_g) + [vox3[2]]
         Vs.append(V)
         return np.array(zs), np.array(Vs)
 
     def average(self, V, z):
         N = len(V)
-        middle = N // 2
-        points = range(middle - N // 8, middle + N // 8 + 1)
+        if self.dimensionality == '3d':
+            middle = N // 2
+            points = range(middle - N // 8, middle + N // 8 + 1)
+            restricted = V[points]
+        elif self.dimensionality == '2d':
+            points = list(range(0, N // 8)) + list(range(7 * N // 8, N))
         restricted = V[points]
         V_mean = np.mean(restricted)
         return V_mean
@@ -342,16 +340,20 @@ class ElectrostaticCorrections():
         return E_X - E_0
 
     def collect_electrostatic_data(self):
+        V_neutral = -np.mean(self.pristine.get_electrostatic_potential(),
+                             (0, 1)),
+        V_charged = -np.mean(self.charged.get_electrostatic_potential(),
+                             (0, 1)),
         data = {'epsilon': self.eb[0],
                 'z': self.density_z,
-                'V_0': self.V_neutral,
-                'V_X': self.V_charged,
+                'V_0': V_neutral,
+                'V_X': V_charged,
+                'Elc': self.Elp - self.Eli,
+                'D_V_mean': self.calculate_potential_alignment(),
                 'V_model': self.V_model,
-                'D_V': self.V_model - self.V_neutral + self.V_charged,
-                'D_V_mean': self.average(self.V_model
-                                         - self.V_charged
-                                         + self.V_neutral, self.density_z),
-                'Elc': self.Elp - self.Eli}
+                'D_V': (self.V_model
+                        - V_neutral
+                        + V_charged)}
         self.data = data
         return data
 
@@ -365,5 +367,5 @@ def find_G_z(pd):
 
 def find_z(gd):
     r3_xyz = gd.get_grid_point_coordinates()
-    nrz = r3_xyz.shape[2]
+    nrz = r3_xyz.shape[3]
     return r3_xyz[2].flatten()[:nrz]
