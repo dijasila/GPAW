@@ -2031,9 +2031,6 @@ def main(args=None):
     help = ("Save plasmon modes to file")
     parser.add_argument('--plasmonfile', type=str, default=None, help=help)
 
-    help = ("Calculate electron energy loss spectrum")
-    parser.add_argument('--eels', action='store_true', help=help)
-
     help = ("Plot calculated quantities")
     parser.add_argument('--plot', action='store_true', help=help)
 
@@ -2132,8 +2129,6 @@ def main(args=None):
         if args.plot:
             plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues,
                           show=False)
-    if args.eels:
-        q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
     hs.timer.write()
 
