@@ -1,16 +1,19 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from ase.units import Bohr, Hartree as Ha
+from ase.units import Hartree as Ha
 from gpaw import GPAW, PW
 from ase.parallel import parprint
 
 
 class ElectrostaticCorrections:
-    def __init__(self, pristine, defect, q, FWHM, model='gaussian'):
+    def __init__(self, pristine, neutral, charged,
+                 q, FWHM, model='gaussian'):
         if isinstance(pristine, str):
             pristine = GPAW(pristine, txt=None, parallel={'domain': 1})
-        if isinstance(defect, str):
-            defect = GPAW(defect, txt=None)
+        if isinstance(neutral, str):
+            neutral = GPAW(neutral, txt=None)
+        if isinstance(charged, str):
+            charged = GPAW(charged, txt=None)
         calc = GPAW(mode=PW(500, force_complex_dtype=True),
                     kpts={'size': (1, 1, 1),
                           'gamma': True},
@@ -18,8 +21,10 @@ class ElectrostaticCorrections:
                     symmetry='off')
         atoms = pristine.atoms.copy()
         calc.initialize(atoms)
+        print(self)
         self.pristine = pristine
-        self.defect = defect
+        self.defect = charged
+        self.neutral = neutral
         self.calc = calc
         self.q = q
         self.FWHM = FWHM
@@ -31,7 +36,7 @@ class ElectrostaticCorrections:
         self.G2_G = self.pd.G2_qG[0]  # |\vec{G}|^2 in Bohr^-2
         if model == 'gaussian':
             self.rho_G = self.calculate_gaussian_density()
-        self.Omega = atoms.get_volume() / (Bohr ** 3.0)  # Cubic Bohr
+        self.Omega = abs(np.linalg.det(self.calc.density.gd.cell_cv))
         self.data = None
         self.El = None
 
@@ -97,8 +102,7 @@ class ElectrostaticCorrections:
 
         nrz = np.shape(r_3xyz)[3]
 
-        cell = self.calc.atoms.get_cell()
-        vox3 = cell[2, :] / Bohr / nrz
+        vox3 = self.calc.density.gd.cell_cv[2, :] / nrz
 
         # The grid is arranged with z increasing fastest, then y
         # then x (like a cube file)
@@ -126,3 +130,8 @@ class ElectrostaticCorrections:
         zs.append(vox3[2])
         Vs.append(V)
         return np.array(zs), np.array(Vs)
+
+
+def fit_gaussian(density):
+    parameters = 0
+    return parameters
