@@ -1814,8 +1814,8 @@ def plot_plasmons(hs, output,
 
         
 def make_heterostructure(layers,
-                         frequencies=[0.001, 0.5, 5000],
-                         momenta=[0.001, 0.04, 100],
+                         frequencies=[0.001, 5, 5000],
+                         momenta=[0.0001, 5, 1000],
                          thicknesses=None):
     """Easy function for making a heterostructure based on some layers"""
 
@@ -2040,14 +2040,14 @@ def main(args=None):
     help = ("Custom frequencies to respresent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
             "number of frequencies. E. g.: 0.1 1.0 100")
-    parser.add_argument('--omega', default=[0.001, 0.3, 1000],
+    parser.add_argument('--omega', default=[0.001, 5, 5000],
                         nargs=3,
                         help=help, type=float)
 
     help = ("Custom momentas to respresent quantities on (in AA^-1). "
             "The format is: min. q, max. q, number of q's. "
             "E. g.: 0.001 0.1 100")
-    parser.add_argument('--q', default=[0.0001, 0.01, 100],
+    parser.add_argument('--q', default=[0.0001, 5, 1000],
                         nargs=3,
                         help=help, type=float)
 
