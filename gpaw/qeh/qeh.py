@@ -1776,7 +1776,8 @@ def read_chi_wGG(name):
 
 def plot_plasmons(hs, output,
                   plot_eigenvalues=False,
-                  plot_eigenmodes=False,
+                  plot_density=False,
+                  plot_potential=False,
                   show=True):
     eig, z, rho_z, phi_z, omega0, abseps = output
 
@@ -1805,9 +1806,21 @@ def plot_plasmons(hs, output,
         for iq in range(0, nq, nq // 10):
             plt.plot(omega_w, eig[iq].real)
             plt.plot(omega_w, eig[iq].imag, '--')
+    if plot_potential:
+        plt.figure()
+        plt.title('Induced potential')
+        q = nq // 10
+        pots = np.array(phi_z[q]).real
+        plt.plot(z, pots.T)
+        plt.xlabel('z (Å)')
 
-    if plot_eigenmodes:
-        raise NotImplementedError
+    if plot_density:
+        plt.figure()
+        plt.title('Induced density')
+        q = nq // 10
+        dens = np.array(rho_z[q]).real
+        plt.plot(z, dens.T)
+        plt.xlabel('z (Å)')
 
     if show:
         plt.show()
@@ -1830,7 +1843,7 @@ def make_heterostructure(layers,
 
     # Parse input for layer
     originallayers = []  # Unmodified layer identifiers
-    layerargs = []  # Modifiers for layers like +phonons and +doped
+    layerargs = []  # Modifiers for layers like +phonons and +doping
 
     for layer in layers:
         tmp = layer.split('+')
@@ -2025,8 +2038,14 @@ def main(args=None):
     help = ("Calculate plasmon spectrum")
     parser.add_argument('--plasmons', action='store_true', help=help)
 
-    help = ("Also plot eigenvalues of dielectric matrix")
+    help = ("Calculate eigenvalues of dielectric matrix")
     parser.add_argument('--eigenvalues', action='store_true', help=help)
+
+    help = ("Calculate induced potential for finite q")
+    parser.add_argument('--potential', action='store_true', help=help)
+
+    help = ("Calculate induced density for finite q")
+    parser.add_argument('--density', action='store_true', help=help)
 
     help = ("Save plasmon modes to file")
     parser.add_argument('--plasmonfile', type=str, default=None, help=help)
@@ -2034,7 +2053,10 @@ def main(args=None):
     help = ("Plot calculated quantities")
     parser.add_argument('--plot', action='store_true', help=help)
 
-    help = ("Custom frequencies to respresent quantities on (in eV). "
+    help = ("Save plots to file")
+    parser.add_argument('--saveplots', type=str, default=None, help=help)
+
+    help = ("Custom frequencies to represent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
             "number of frequencies. E. g.: 0.1 1.0 100")
     parser.add_argument('--omega', default=[0.001, 5, 5000],
