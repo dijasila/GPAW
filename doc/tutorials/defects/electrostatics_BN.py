@@ -4,7 +4,7 @@ from ase.io import read
 
 sigma = 1.0
 q = +1
-epsilons = [1.80453346, 1.14639513]
+epsilons = [1.9, 1.15]
 corrected = []
 uncorrected = []
 neutral_energy = []

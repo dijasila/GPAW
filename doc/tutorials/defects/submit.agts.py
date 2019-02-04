@@ -11,6 +11,14 @@ def create_tasks():
                                                    'gaas.py+2',
                                                    'gaas.py+3',
                                                    'gaas.py+4']),
-             task('plot_potentials.py', deps='electrostatics'),
-             task('plot_energies.py', deps='electrostatics')]
+             task('BN.py+1@8:1h'),
+             task('BN.py+2@8:1h'),
+             task('BN.py+3@8:1h'),
+             task('BN.py+4@8:1h'),
+             task('BN.py+5@8:1h'),
+             task('electrostatics_BN.py@1:15m', deps=['BN.py+1',
+                                                      'BN.py+2',
+                                                      'BN.py+3',
+                                                      'BN.py+4',
+                                                      'BN.py+5'])]
     return tasks
