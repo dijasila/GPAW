@@ -36,7 +36,9 @@ Gaunt coefficients::
 from math import pi, sqrt  # noqa
 
 from gpaw import debug
+from _gpaw import spherical_harmonics as Yl
 
+__all__ = ['Y', 'YL', 'nablarlYL', 'Yl', 'gam']
 
 # Computer generated tables - do not touch!
 YL = [# s:
