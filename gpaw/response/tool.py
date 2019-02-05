@@ -45,12 +45,12 @@ def get_orbitals(calc):
     return orb_MG
 
 
-def get_PWDescriptor(q_c, calc, ecut, gammacentered=False):
-        """Get the planewave descriptor of q_c."""
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(ecut, calc.wfs.gd,
-                          complex, qd, gammacentered=gammacentered)
-        return pd
+def get_pw_descriptor(q_c, calc, ecut, gammacentered=False):
+    """Get the planewave descriptor of q_c."""
+    qd = KPointDescriptor([q_c])
+    pd = PWDescriptor(ecut, calc.wfs.gd,
+                      complex, qd, gammacentered=gammacentered)
+    return pd
 
 
 def get_bz_transitions(filename, q_c, bzk_kc,
@@ -62,7 +62,7 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     """
     
     pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
-    pd = get_PWDescriptor(q_c, pair.calc, pair.ecut)
+    pd = get_pw_descriptor(q_c, pair.calc, pair.ecut)
 
     bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
