@@ -1,7 +1,5 @@
-from __future__ import print_function
-
-from gpaw import *
-from ase import *
+from gpaw import GPAW
+from ase import Atoms
 import numpy as np
 
 atom = Atoms(symbols='KTaO3',
