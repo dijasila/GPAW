@@ -46,11 +46,11 @@ def get_orbitals(calc):
 
 
 def get_pw_descriptor(q_c, calc, ecut, gammacentered=False):
-        """Get the planewave descriptor of q_c."""
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(ecut, calc.wfs.gd,
-                          complex, qd, gammacentered=gammacentered)
-        return pd
+    """Get the planewave descriptor of q_c."""
+    qd = KPointDescriptor([q_c])
+    pd = PWDescriptor(ecut, calc.wfs.gd,
+                      complex, qd, gammacentered=gammacentered)
+    return pd
 
 
 def get_bz_transitions(filename, q_c, bzk_kc,
