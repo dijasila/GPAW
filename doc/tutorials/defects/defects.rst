@@ -68,21 +68,22 @@ convergence by employing the following correction:
 
 .. math::
 
-  E[X^q] - E_0  = (E[X^q] - E_0)_\mathrm{uncorrected} - E_{\mathrm{l}} + q\Delta V
+  E[X^q] - E_0  =
+  (E[X^q] - E_0)_\mathrm{uncorrected} - E_{\mathrm{l}} + q\Delta V
 
-The uncorrected term in brackets is the total energy difference one obtains from
-calculations employing periodic boundary conditions, which include the
+The uncorrected term in brackets is the total energy difference one obtains
+from calculations employing periodic boundary conditions, which include the
 background charge. The first correction term, the *lattice term*
 `E_{\mathrm{l}}`, is the electrostatic energy per unit cell of a
 periodically-repeated array of model charges immersed in the neutralising
 background, minus the interaction of the model charge with itself. The second
-correction term, the *alignment term* `q\Delta V`, ensures that the zero point
-(d.c. component) of the electrostatic potential of the calculation with the
-defect is consistent with that used when determine the valence band edge
-`\epsilon_v`. In practice this is achieved by choosing `\Delta V` to align the
-electrostatic potential of the defect-containing supercell--- in a region of
-space located far from the defect itself--- with the electrostatic potential of
-a pristine supercell.
+correction term, the *alignment term* `q\Delta V`, ensures that the zero
+point (d.c. component) of the electrostatic potential of the calculation with
+the defect is consistent with that used when determine the valence band edge
+`\epsilon_v`. In practice this is achieved by choosing `\Delta V` to align
+the electrostatic potential of the defect-containing supercell--- in a region
+of space located far from the defect itself--- with the electrostatic
+potential of a pristine supercell.
 
 First we consider the lattice term.
 The key idea of the FNV scheme is to introduce a model charge distribution
@@ -114,7 +115,8 @@ obtained as
 
 .. math::
   E_{\mathrm{l}} = \frac{2\pi} {\varepsilon \Omega} \sum_{\vec{G} \neq 0}
-  \frac{|\rho^m(\vec{G})|^2}{G^2} - \frac{1}{\pi\varepsilon} \int_0^{\infty} \mathrm{d}g
+  \frac{|\rho^m(\vec{G})|^2}{G^2} -
+  \frac{1}{\pi\varepsilon} \int_0^{\infty} \mathrm{d}g
   |\rho^{m}(g)|^2.
 
 
@@ -132,7 +134,8 @@ For the case of the gaussian,
 so
 
 .. math::
-  E_{\mathrm{l}} = \frac{2\pi} {\varepsilon \Omega} \sum_{\vec{G} \neq 0} \frac{q^2 e^{-G^2\sigma^2}}{G^2}
+  E_{\mathrm{l}} = \frac{2\pi} {\varepsilon \Omega} \sum_{\vec{G} \neq 0}
+  \frac{q^2 e^{-G^2\sigma^2}}{G^2}
   -
   \frac{q^2}{2\sqrt{\pi}\varepsilon\sigma}.
 
@@ -143,7 +146,8 @@ the defect, the potential is bulklike, i.e.\ `V^{0}_\mathrm{el}`. In
 principle this means applying a shift
 
 .. math::
-  \Delta V'(\vec{r_0}) = V^{0}_\mathrm{el}(\vec{r_0}) - V^{X^q}_\mathrm{el}(\vec{r_0})
+  \Delta V'(\vec{r_0}) = V^{0}_\mathrm{el}(\vec{r_0}) -
+  V^{X^q}_\mathrm{el}(\vec{r_0})
 
 However, the problem is that the defect has a long-range effect on the
 electrostatic potential, such that even if `\vec{r_0}` is located many
@@ -188,15 +192,15 @@ The Ga vacancy in GaAs
 ======================
 
 We now apply the FNV scheme to the triple-negatively charged (`q = -3`) Ga
-vacancy in GaAs, which a system also considered in Ref. [#FNV]_. Due to the high
-charge state of the defect, electrostatic effects are particularly important
-here. We here consider an NxNxN supercell of GaAs, which contains 8*N**3 atoms.
-The script below calculates the total energies of the supercell with and without
-the defect, where we created the vacancy by removing the Ga atom at (0,0,0).
-Note how we set the charge in the defect calculation, and that we save the gpw
-files for further processing. Also, note that we do not perform a relaxation for
-the system with the defect. For N=2 this script takes around 30 minutes to
-complete using 8 processors.
+vacancy in GaAs, which a system also considered in Ref. [#FNV]_. Due to the
+high charge state of the defect, electrostatic effects are particularly
+important here. We here consider an NxNxN supercell of GaAs, which contains
+8*N**3 atoms. The script below calculates the total energies of the supercell
+with and without the defect, where we created the vacancy by removing the Ga
+atom at (0,0,0). Note how we set the charge in the defect calculation, and
+that we save the gpw files for further processing. Also, note that we do not
+perform a relaxation for the system with the defect. For N=2 this script
+takes around 30 minutes to complete using 8 processors.
 
 .. literalinclude:: gaas.py
 
@@ -204,25 +208,24 @@ By subtracting the energy of the pristine system from the energy of the
 defective system, we obtain an uncorrected total energy difference `(E[X^q] -
 E_0)_\mathrm{uncorrected}` of 21.78 eV.
 
-We now calculate the FNV corrections. Here we take a dielectric constant of 12.7
-which is the clamped-ion static limit (i.e. the low frequency dielectric
+We now calculate the FNV corrections. Here we take a dielectric constant of
+12.7 which is the clamped-ion static limit (i.e. the low frequency dielectric
 constant excluding the effects of ionic relaxation). We use a Gaussian model
 charge centred at (0, 0, 0) with a standard deviation of 0.72 Bohr
 (corresponding to a FWHM of 2 Bohr).
 
-The script ``electrostatics.py`` takes the gpw files of the defective and pristine
-calculation as input, as well as the gaussian parameters and dielectric
-constant, and calculates the different terms in the correction scheme. For this
-case, the calculated value of `E_{\mathrm{l}}` is -1.28 eV.
+The script ``electrostatics.py`` takes the gpw files of the defective and
+pristine calculation as input, as well as the gaussian parameters and
+dielectric constant, and calculates the different terms in the correction
+scheme. For this case, the calculated value of `E_{\mathrm{l}}` is -1.28 eV.
 
 .. literalinclude:: electrostatics.py
 
-
-The script also produces an output file ``electrostatic_data.npz`` which gives
-the function `\Delta V(z)` introduced above, and also the planar averages of the
-model potential and the difference between the planar averages of the defective
-and pristine electrostatic potentials. We can plot the data using the following
-script
+The script also produces an output file ``electrostatic_data.npz`` which
+gives the function `\Delta V(z)` introduced above, and also the planar
+averages of the model potential and the difference between the planar
+averages of the defective and pristine electrostatic potentials. We can plot
+the data using the following script
 
 .. literalinclude:: plot_potentials.py
 
@@ -232,11 +235,12 @@ This gives the following plot:
            :scale: 50 %
 
 According to the recipe introduced above, we extract the constant `\Delta V`
-from `\Delta V(z)` furthest from the defect, corresponding to the middle of the
-unit cell. The extracted value of `\Delta V = -0.14` eV is shown as the dashed
-line. Note that such a plot provides a consistency check of the FNV scheme; if
-`\Delta V(z)` does not display flat behaviour away from the defect, it is a sign
-that the model is not describing the true electrostatics sufficiently well.
+from `\Delta V(z)` furthest from the defect, corresponding to the middle of
+the unit cell. The extracted value of `\Delta V = -0.14` eV is shown as the
+dashed line. Note that such a plot provides a consistency check of the FNV
+scheme; if `\Delta V(z)` does not display flat behaviour away from the
+defect, it is a sign that the model is not describing the true electrostatics
+sufficiently well.
 
 Taken together, the corrected energy difference is
 
@@ -251,14 +255,15 @@ the charge state is large. Nonetheless, the large correction demonstrates the
 importance of electrostatics.
 
 The above calculation can be repeated for different sizes of supercells. The
-plot below shows the energy differences before and after the FNV corrections are
-applied, as a function of the number of atoms in the supercell (c.f. Fig. 5 of
-[#FNV]_). The corrections nicely remove the slow convergence due to the
+plot below shows the energy differences before and after the FNV corrections
+are applied, as a function of the number of atoms in the supercell (c.f. Fig.
+5 of [#FNV]_). The corrections nicely remove the slow convergence due to the
 electrostatics. Note also that even for the largest supercell (4x4x4, 512
 atoms), the electrostatic correction is still large, 0.7 eV.
 
 .. image:: energies.png
            :scale: 50 %
+
 
 Additional remarks on calculating formation energies
 ====================================================
@@ -287,8 +292,9 @@ equilibrium with bulk gallium. Normally one would consider the two limits
 `\mu_\mathrm{Ga}[\mathrm{GaAs}] = \mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` ("Ga
 rich") and `\mu_\mathrm{Ga}[\mathrm{GaAs}] = \mu_\mathrm{Ga}[\mathrm{bulk \
 Ga}] + \Delta H_\mathrm{f}[\mathrm{GaAs}]` ("As rich", or "Ga poor").
-`\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` and `\Delta H_\mathrm{f}[\mathrm{GaAs}]` can be
-obtained from total energy calculations on bulk Ga, As, and GaAs.
+`\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]` and `\Delta
+H_\mathrm{f}[\mathrm{GaAs}]` can be obtained from total energy calculations
+on bulk Ga, As, and GaAs.
 
 Carrying out the necessary calculations yields values of 4.75 eV for
 `\epsilon_v` and -3.59 eV for `\mu_\mathrm{Ga}[\mathrm{bulk \ Ga}]`. Hence the
@@ -296,6 +302,7 @@ defect formation energy calculated for the 222 cell with and without the FNV
 corrections, assuming Ga rich conditions, is 5.6 and 3.9 eV respectively (here
 we also set the position of the electron chemical potential to the top of the
 valence band, i.e. `\epsilon_F` = 0.
+
 
 Calculation electrostatic corrections in two dimensions
 =======================================================
@@ -316,10 +323,10 @@ In the limit of an infinitely large supercell, the formation energy in the
 supercell should approach that of the infinite cell, and the correction should
 go to zero. To accomplish this in two dimensions, we must be careful about how
 we scale the cell - If we increase the lateral size of the supercell without
-changing the vacuum, or if we increase the vacuum without changing the size of
-the supercell, we get incorrect results. Because of these difficulties, finding
-a robust correction scheme in 2D is that much more necessary. The starting point
-is the same as before, and we write:
+changing the vacuum, or if we increase the vacuum without changing the size
+of the supercell, we get incorrect results. Because of these difficulties,
+finding a robust correction scheme in 2D is that much more necessary. The
+starting point is the same as before, and we write:
 
 .. math::
   E[X^q] - E_0  = (E[X^q] - E_0)_{\mathrm{uncorrected}} - E_{\mathrm{l}} + q\Delta V.
@@ -328,22 +335,23 @@ The main problem arises in the `E_{\mathrm{l}}` term, and in particular, in
 finding an appropriate expression for the screened Coulomb interaction of the
 system.
 
-Recall that `E_{\mathrm{l}}` consists of two terms: The energy (per unit cell)
-associated with the interaction between the model charge distribution and all
-its periodic images, and the energy of the isolated charge distribution in the
-same dielectric environment. The first step in calculating either of these is to
-model the dielectric function.
+Recall that `E_{\mathrm{l}}` consists of two terms: The energy (per unit
+cell) associated with the interaction between the model charge distribution
+and all its periodic images, and the energy of the isolated charge
+distribution in the same dielectric environment. The first step in
+calculating either of these is to model the dielectric function.
 
-The approach used here is to assume that the dielectric function of the isolated
-layer is isotropic in plane, and varies only in the `z` direction. Additionally,
-the screening is assumed to follow the density distribution of the system so
-that we can write
+The approach used here is to assume that the dielectric function of the
+isolated layer is isotropic in plane, and varies only in the `z` direction.
+Additionally, the screening is assumed to follow the density distribution of
+the system so that we can write
 
 .. math::
  \varepsilon_{i}(z) = k_i\cdot n(z) + 1,
 
 Where `i` varies over "in-plane" and "out-of-plane", and `n` is the in-plane
-averaged density of the system. The normalization constants, `k_i`, are chosen such that
+averaged density of the system. The normalization constants, `k_i`, are
+chosen such that
 
 .. math::
 
@@ -352,7 +360,7 @@ averaged density of the system. The normalization constants, `k_i`, are chosen s
 
 The quantities appearing on the right hand side are the in-plane and
 out-of-plane dielectric constants resulting from a DFT/RPA calculation on the
-smallest unit cell of the pristine system, but with the same amount of vacuum as
+smallest unit cel of the pristine system, but with the same amount of vacuum as
 the supercell calculation. For 15 Å of vacuum, we calculate
 `\varepsilon_{\parallel}^{\mathrm{DFT}} = 1.80` and
 `\varepsilon_{\perp}^{\mathrm{DFT}} = 1.14`. The resulting dielectric profiles are shown below
@@ -384,8 +392,9 @@ differences are:
   constructor, which ensures that the object uses the 2D model for the
   dielectric functions.
 - The use of a list in the ``set_epsilons()`` member function, rather than a
-  single number. The first item corresponds to the in-plane dielectric constant,
-  while the second corresponds to the out-of-plane dielectric constant.
+  single number. The first item corresponds to the in-plane dielectric
+  constant, while the second corresponds to the out-of-plane dielectric
+  constant.
 
 .. literalinclude:: electrostatics_BN.py
 
@@ -393,9 +402,9 @@ As before, we can calculate the formation energy of the charged defect as a
 function of the supercell size, both with and without the electrostatic
 corrections. Since all of these systems have the same amount of vacuum, it is
 not expected that the uncorrected values converge to the true result, but it is
-encouraging to see the behaviour of the corrected values. As we are dealing with
-an unrelaxed system, we expect the formation energy of the defect to be too
-high, but again, the focus is on the electrostatics and the qualitative
+encouraging to see the behaviour of the corrected values. As we are dealing
+with an unrelaxed system, we expect the formation energy of the defect to be
+too high, but again, the focus is on the electrostatics and the qualitative
 behaviour as a function of the supercell size, rather than the true values.
 
 .. figure:: energies_BN.png
@@ -406,6 +415,7 @@ charge transition level between the neutral state and the +1 state. This is the
 energy with respect to the valence band at which the two formation energies are
 equal, and can be calculated just as `E_f[X^0] - E_f[X^{+1}]`. It comes to 2
 eV, in good agreement with [#KomsaErratum]_.
+
 
 References
 ==========
@@ -422,5 +432,6 @@ References
 .. [#Komsa] H.-P. Komsa, T. T. Rantala and A. Pasquarello
               *Phys. Rev. B* **86**, 045112 (2012)
 
-.. [#KomsaErratum] H.-P. Komsa, N. Berseneva, A. V. Krasheninnikov and R. M. Nieminen
+.. [#KomsaErratum] H.-P. Komsa, N. Berseneva, A. V. Krasheninnikov and
+              R. M. Nieminen
               *Phys Rev X* **4**, 031044 (2014)
