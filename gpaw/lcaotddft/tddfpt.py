@@ -120,7 +120,7 @@ class TDDFPT(GPAW):
         assert len(header) == 3
         self.omega = float(header[0])
         self.eta = float(header[1])
-        NA = int(header[2])
+        # NA = int(header[2])
 
         print('TDDFPT')
         print('Omega: %.4f eV' % (self.omega * Hartree))

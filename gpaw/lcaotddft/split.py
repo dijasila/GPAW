@@ -96,7 +96,8 @@ class DensityCollector(Observer):
                 print(s[0],s[1],s[2], file=f)
                 f.close()
 
-#TODO: Remove
+# TODO: Remove
+"""
 class ObsoleteSplitDensityCollector(Observer):
     def __init__(self, filename, lcao, splitstr):
         Observer.__init__(self)
@@ -164,7 +165,6 @@ class ObsoleteSplitDensityCollector(Observer):
         self.lcao.timer.stop('Split density dump')
 
 
-"""
 atoms = read('../geometries/ag13.traj')
 atoms.center(vacuum=5)
 

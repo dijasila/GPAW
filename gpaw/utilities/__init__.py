@@ -279,8 +279,10 @@ def divrl(a_g, l, r_g):
 def compiled_with_sl():
     return hasattr(_gpaw, 'new_blacs_context')
 
+
 def compiled_with_libvdwxc():
     return hasattr(_gpaw, 'libvdwxc_create')
+
 
 def load_balance(paw, atoms):
     try:
@@ -303,6 +305,7 @@ def load_balance(paw, atoms):
     print("Min. number of atoms/CPU:   ", min_atoms)
     print("Average number of atoms/CPU:", ave_atoms)
     print("    standard deviation:     %5.1f" % stddev_atoms)
+
 
 if not debug:
     hartree = _gpaw.hartree
