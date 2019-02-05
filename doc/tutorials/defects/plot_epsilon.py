@@ -1,4 +1,4 @@
-# creates: dielectric_profile.png
+# Creates: dielectric_profile.png
 import matplotlib.pyplot as plt
 from ase.units import Bohr
 from gpaw.defects import ElectrostaticCorrections

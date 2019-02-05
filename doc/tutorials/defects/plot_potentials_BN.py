@@ -1,4 +1,4 @@
-# creates: planaraverages_BN.png
+# Creates: planaraverages_BN.png
 
 import numpy as np
 import matplotlib.pyplot as plt

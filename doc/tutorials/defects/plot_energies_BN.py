@@ -1,4 +1,4 @@
-# creates: energies_BN.png
+# Creates: energies_BN.png
 import numpy as np
 import matplotlib.pyplot as plt
 
