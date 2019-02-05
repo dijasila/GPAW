@@ -138,7 +138,7 @@ class OmegaMatrix:
         gd = paw.density.finegd
         eh_comm = self.eh_comm
 
-        fg = self.finegrid is 2
+        fg = self.finegrid == 2
         kss = self.fullkss
         nij = len(kss)
 
@@ -431,7 +431,7 @@ class OmegaMatrix:
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -458,7 +458,7 @@ class OmegaMatrix:
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
 
                 pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
@@ -569,7 +569,7 @@ class OmegaMatrix:
         else:
             try:
                 emin, emax = energy_range
-            except:
+            except TypeError:
                 emax = energy_range
                 emin = 0.
             emin /= Hartree
