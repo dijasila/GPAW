@@ -11,4 +11,4 @@ master:
     - su user -c 'gpaw install-data --register gpaw-datasets'
     - su user -c 'gpaw -P 1 info'
     - su user -c 'ase build H2 -V1 | gpaw -P 2 run -p mode=pw'
-    - flake8 --ignore E,W gpaw doc
+    - flake8 --ignore E,W --exclude "doc/platforms/*" gpaw doc
