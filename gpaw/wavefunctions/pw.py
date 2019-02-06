@@ -1376,7 +1376,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}  # type: Dict[Spline, int]
+        splines = {}  # Dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
@@ -1392,7 +1392,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()  # type: Set[Spline]
+        done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
