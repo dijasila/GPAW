@@ -63,7 +63,7 @@ class KohnShamSingleExcitation:
             raise RuntimeError("Uninitialized KSSingle")
         return str
 
-        
+
 class KohnShamSingles:
     def __init__(self,
                  basefilename,
@@ -230,7 +230,7 @@ class KohnShamSingles:
             return
 
         #self.timer.start('Calculate KS properties')
-        
+
 
         # Init pair densities
         dnt_Gip = self.calc.wfs.gd.empty()
@@ -278,7 +278,7 @@ class KohnShamSingles:
             if (kss_ip.dip_mom_r is not None and
                 kss_ip.magn_mom is not None):
                 continue
-            
+
             # Transition dipole moment, mu_ip = <p| (-r) |i>
             kss_ip.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
             #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
@@ -295,7 +295,7 @@ class KohnShamSingles:
             # Gradients
             for c in range(3):
                 grad[c].apply(kss_ip.pair_density.psit2_G, grad_psit2_G[c], self.calc.wfs.kpt_u[self.kpt_ind].phase_cd)
-                    
+
             # <psi1|r x grad|psi2>
             #    i  j  k
             #    x  y  z   = (y pz - z py)i + (z px - x pz)j + (x py - y px)
@@ -311,7 +311,7 @@ class KohnShamSingles:
                                                       (r_cG[0] * grad_psit2_G[1] -
                                                        r_cG[1] * grad_psit2_G[0]))
 
-           
+
             # augmentation contributions to magnetic moment
             # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2>
             #                         = <psi1| (r-Ra) x nabla |psi2> + Ra x <psi1| nabla |psi2>
@@ -374,12 +374,12 @@ class KohnShamSingles:
                                               kss_ip.magn_mom[2]))
             self.kss_file.close()
         self.lr_comms.parent_comm.barrier()
-            
+
         self.kss_prop_ready = True      # avoid repeated work
         #self.timer.stop('Calculate KS properties')
-        
-        
-        
+
+
+
 
 
 ###############################################################################
@@ -391,8 +391,8 @@ class KohnShamSingles:
 # FIXME: USE EXISTING METHOD
 class LRiPairDensity:
     """Pair density calculator class."""
-    
-    def  __init__(self, density):
+
+    def __init__(self, density):
         """Initialization needs density instance"""
         self.density = density
 
@@ -421,7 +421,7 @@ class LRiPairDensity:
         np.multiply(self.psit1_G.conj(), self.psit2_G, nt_G)
         # Interpolate to fine grid
         self.density.interpolator.apply(nt_G, nt_g)
-        
+
         # Determine the compensation charges for each nucleus
         Q_aL = {}
         for a, P_ni in self.P_ani.items():
@@ -434,7 +434,7 @@ class LRiPairDensity:
             # the symmetric array Delta_pL
             D_p  = pack(D_ii)
             #FIXME: CHECK THIS D_p  = pack(D_ii, tolerance=1e30)
-            
+
             # Determine compensation charge coefficients:
             Q_aL[a] = np.dot(D_p, self.density.setups[a].Delta_pL)
 

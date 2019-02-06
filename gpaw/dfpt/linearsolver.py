@@ -41,7 +41,7 @@ class LinearSolver:
 
         return iter
 
-"""
+'''
     def apply_preconditioner(self, x, b):
         """Solves preconditioner equation.
 
@@ -61,4 +61,5 @@ class LinearSolver:
         else:
             psin[:] = psi
         #self.timer.stop('Solve Sternheimer preconditioner')
-"""
+'''
+

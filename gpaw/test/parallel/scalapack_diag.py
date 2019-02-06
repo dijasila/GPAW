@@ -64,7 +64,7 @@ eps, B = scal_diagonalize(A)
 
 check = 1
 if check and rank == 0:
-# check whether it gives the same result with lapack
+    # check whether it gives the same result with lapack
     eps1 = np.zeros(N)
     diagonalize(A, eps1)
     assert np.abs(eps-eps1).sum() < 1e-6

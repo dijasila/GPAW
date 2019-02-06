@@ -60,11 +60,11 @@ class SJM(SolvationGPAW):
                 Upper boundary of the counter charge region in terms of
                 coordinate in Anfstrom (default: z). The default is
                 atoms.cell[2][2] - 5.
-        verbose: bool or 'cube' 
-            True: 
+        verbose: bool or 'cube'
+            True:
                 Write final electrostatic potential, background charge and
                 and cavity into ASCII files.
-            'cube': 
+            'cube':
                 In addition to 'True', also write the cavity on the
                 3D-grid into a cube file.
 
@@ -540,7 +540,7 @@ class SJMPower12Potential(Power12Potential):
                 water_oxygen_ind = []
                 for i in range(self.H2O_layer):
                     water_oxygen_ind.append(
-                            allwater_oxygen_ind[indizes_water_ox_ind[-1-i]])
+                        allwater_oxygen_ind[indizes_water_ox_ind[-1-i]])
 
             else:
                 water_oxygen_ind = allwater_oxygen_ind
@@ -549,7 +549,7 @@ class SJMPower12Potential(Power12Potential):
             if len(water_oxygen_ind) > 1:
                 for windex in water_oxygen_ind[1:]:
                     oxygen = np.concatenate(
-                            (oxygen, self.pos_aav[windex] * Bohr))
+                        (oxygen, self.pos_aav[windex] * Bohr))
 
             O_layer = []
             if self.H2O_layer == 'plane':
@@ -562,7 +562,7 @@ class SJMPower12Potential(Power12Potential):
                 # sometimes if this scheme is used
 
                 plane_rel_oxygen = -1.5 * self.atomic_radii_output[
-                        water_oxygen_ind[0]]
+                    water_oxygen_ind[0]]
                 plane_z = oxygen[:, 2].min() + plane_rel_oxygen
 
                 r_diff_zg = self.r_vg[2, :, :, :] - plane_z / Bohr
@@ -684,10 +684,10 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
         self.gradient = None
 
         RealSpaceHamiltonian.__init__(
-                self,
-                gd, finegd, nspins, collinear, setups, timer, xc, world,
-                vext=vext, psolver=psolver,
-                stencil=stencil, redistributor=redistributor)
+            self,
+            gd, finegd, nspins, collinear, setups, timer, xc, world,
+            vext=vext, psolver=psolver,
+            stencil=stencil, redistributor=redistributor)
 
         for ia in interactions:
             setattr(self, 'e_' + ia.subscript, None)

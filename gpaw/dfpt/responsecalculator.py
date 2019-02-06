@@ -206,7 +206,7 @@ class ResponseCalculator:
 
         # Check for legal input parameters
         for key, value in kwargs.items():
-            if not key in ResponseCalculator.parameters:
+            if key not in ResponseCalculator.parameters:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
         # Insert default values if not given

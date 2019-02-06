@@ -148,7 +148,7 @@ class Phonons(phonons.Phonons):
                 for a in range(N):
                     for a_ in range(N):
                         C[3*a : 3*a + 3, 3*a : 3*a + 3] -= \
-                              C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
+                            C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
 
             # Check sum-rule for Gamma-component in debug mode
             if debug:

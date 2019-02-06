@@ -511,7 +511,7 @@ class LrtddftTransitions:
         if units == 'eVcgs':
             pass  # convf = 1/ase.units.Hartree
         elif units == 'au':
-            assertr 0  # convf = 1.
+            assert 0  # convf = 1.
         else:
             raise RuntimeError('Invalid units')
 

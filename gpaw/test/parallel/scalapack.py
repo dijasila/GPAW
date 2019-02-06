@@ -18,9 +18,8 @@ from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
 from gpaw.utilities.blas import rk
 from gpaw.utilities.scalapack import scalapack_general_diagonalize_dc, \
-    scalapack_diagonalize_dc,
-    scalapack_inverse_cholesky, scalapack_inverse ## , \
-    ## scalapack_diagonalize_mr3, scalapack_general_diagonalize_mr3
+    scalapack_diagonalize_dc, \
+    scalapack_inverse_cholesky, scalapack_inverse
 
 tol = 1.0e-8
 
@@ -87,12 +86,12 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     Sinv = dist.empty(dtype=dtype)
 
     # Eigenvalues are non-BLACS matrices
-    W = np.empty((N), dtype=float)
+    # W = np.empty((N), dtype=float)
     W_dc = np.empty((N), dtype=float)
-    W_mr3 = np.empty((N), dtype=float)
-    W_g = np.empty((N), dtype=float)
+    # W_mr3 = np.empty((N), dtype=float)
+    # W_g = np.empty((N), dtype=float)
     W_g_dc = np.empty((N), dtype=float)
-    W_g_mr3 = np.empty((N), dtype=float)
+    # W_g_mr3 = np.empty((N), dtype=float)
 
     Glob2dist = Redistributor(world, glob, dist)
     Glob2dist.redistribute(H0, H, uplo='L')

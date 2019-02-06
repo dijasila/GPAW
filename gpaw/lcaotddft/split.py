@@ -65,7 +65,7 @@ class DensityCollector(Observer):
             for n in range(self.lcao.wfs.bd.nbands):
                 band_rank, myn = self.lcao.wfs.bd.who_has(n)
                 if self.lcao.wfs.bd.rank == band_rank:
-                    if not n in rng:
+                    if n not in rng:
                         f_un[0][myn] = 0.0
             n_sG = self.lcao.wfs.gd.zeros(1)
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG,

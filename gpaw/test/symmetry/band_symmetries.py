@@ -13,9 +13,8 @@ from gpaw.utilities.tools import md5_array
 
 # Normal ground state calculation
 atoms = bulk('Si')
-calc = GPAW(h=0.24, kpts=(4,4,4), 
-            convergence={'eigenstates' : 1e-4, 'density' : 1e-3},
-    )
+calc = GPAW(h=0.24, kpts=(4,4,4),
+            convergence={'eigenstates' : 1e-4, 'density' : 1e-3})
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 
@@ -41,7 +40,7 @@ def find_classes(op_all_scc):
         new_class = True
         for op2 in op_all_scc:
             op_tmp = (np.dot(np.dot(op2, op1), np.linalg.inv(op2).astype(int)))
-            # Check whether operation op1 belongs to existing class 
+            # Check whether operation op1 belongs to existing class
             for op in op_scc:
                 if np.all((op_tmp - op) == 0):
                     new_class = False
@@ -90,14 +89,14 @@ for n in range(nbands):
                 # Indices of representation matrix are from 0 to ndeg
                 i1, i2 = n1 - n, n2 - n
                 representation_nn[i1, i2, nop] = calc.wfs.gd.integrate(wf1,
-                                                                       wf_rot) 
+                                                                       wf_rot)
                 representation_nn[i1, i2, nop] /= norm1 * norm2
 
     # Calculate traces of irreducible representations
     # If bands i1 and i2 are accidentally degenerate (i.e. not due to symmetry)
     # they belong to different irreducible representations and the
-    # corresponding representation matrix elements are zero  for all 
-    # symmetry operations. 
+    # corresponding representation matrix elements are zero  for all
+    # symmetry operations.
     for i1 in range(ndeg):
         for i2 in range(ndeg):
             if np.any(abs(representation_nn[i1, i2, :]) > 0.01):

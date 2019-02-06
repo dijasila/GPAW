@@ -28,6 +28,7 @@ class GridRedistributor:
         aux_gd.comm.broadcast(aux_ranks, 0)
 
         auxrank2rank = dict(zip(aux_ranks, np.arange(gd.comm.size)))
+
         def rank2parpos1(rank):
             if rank in auxrank2rank:
                 return gd.get_processor_position_from_rank(auxrank2rank[rank])

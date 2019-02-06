@@ -42,7 +42,7 @@ class AllElectron:
           a = AllElectron('Fe')
           a.run()
         """
-        
+
         if txt is None:
             txt = devnull
         elif txt == '-':
@@ -107,7 +107,7 @@ class AllElectron:
             self.f_j = [self.Z]
             self.e_j = [self.e_j[-1]]
 
-            
+
         t = self.text
         t()
         if scalarrel:
@@ -155,7 +155,7 @@ class AllElectron:
             u[:] = r**(1 + l) * np.exp(-a * r)
             norm = np.dot(u**2, dr)
             u *= 1.0 / sqrt(norm)
-            
+
     def run(self, use_restart_file=True):
         #     beta g
         # r = ------, g = 0, 1, ..., N - 1
@@ -194,12 +194,12 @@ class AllElectron:
         if self.xc.type == 'GLLB':
             self.xc.pass_stuff_1d(self)
             self.xc.initialize_1d()
-            
+
         n_j = self.n_j
         l_j = self.l_j
         f_j = self.f_j
         e_j = self.e_j
-        
+
         Z = self.Z    # nuclear charge
         r = self.r    # radial coordinate
         dr = self.dr  # dr/dg
@@ -240,12 +240,12 @@ class AllElectron:
 
         bar = '|------------------------------------------------|'
         t(bar)
-        
+
         niter = 0
         nitermax = 117
         qOK = log(1e-10)
         mix = 0.4
-        
+
         # orbital_free needs more iterations and coefficient
         if self.orbital_free:
             mix = 0.01
@@ -254,9 +254,9 @@ class AllElectron:
             if Z > 10 : #help convergence for third row elements
                 mix = 0.002
                 nitermax = 10000
-            
+
         vrold = None
-        
+
         while True:
             # calculate hartree potential
             hartree(0, n * r * dr, r, vHr)
@@ -333,7 +333,7 @@ class AllElectron:
                 pass
 
         Ekin = 0
-        
+
         for f, e in zip(f_j, e_j):
             Ekin += f * e
 
@@ -341,8 +341,8 @@ class AllElectron:
         Ekin += -4 * pi * np.dot(n * vr * r, dr)
 
         if self.orbital_free:
-        #e and vr are not scaled back
-        #instead Ekin is scaled for total energy (printed and inside setup)
+            # e and vr are not scaled back
+            # instead Ekin is scaled for total energy (printed and inside setup)
             Ekin *= self.tw_coeff
             t()
             t('Lambda:{0}'.format(self.tw_coeff))
@@ -590,7 +590,7 @@ class AllElectron:
 
     def solve_confined(self, j, rc, vconf=None):
         """Solve the Schroedinger equation in a confinement potential.
-        
+
         Solves the Schroedinger equation like the solve method, but with a
         number of differences.  Before invoking this method, run solve() to
         get initial guesses.
@@ -621,11 +621,11 @@ class AllElectron:
             l = self.l_j[j]
             e = self.e_j[j]
             u = self.u_j[j].copy()
-            
+
         nn, A = shoot_confined(u, l, vr, e, self.r2dvdr, r, dr, c10, c2,
                                self.scalarrel, rc=rc, beta=self.beta)
         assert nn == n - l - 1  # run() should have been called already
-        
+
         # adjust eigenenergy until u is smooth at the turning point
         de = 1.0
         while abs(de) > 1e-9:
@@ -673,7 +673,7 @@ class AllElectron:
 
     def get_confinement_potential(self, alpha, ri, rc):
         """Create a smooth confinement potential.
-        
+
         Returns a (potential) function which is zero inside the radius ri
         and goes to infinity smoothly at rc, after which point it is nan.
         The potential is given by::
@@ -844,7 +844,7 @@ guess for the density).
         # perform backwards integration from infinity to the turning point
         g = gcut - 2
         u[g] = u[g + 1] * f0[g + 1] / fm[g + 1]
-        
+
         while c0[g] > 0.0:  # this defines the classical turning point
             u[g - 1] = (f0[g] * u[g] + fp[g] * u[g + 1]) / fm[g]
             if u[g - 1] < 0.0:

@@ -1,7 +1,7 @@
 import pickle
 import pylab as plt
 import numpy as np
-fromm ase.units import kcal, mol
+from ase.units import kcal, mol
 
 #VDWFunctional().make_prl_plot()
 

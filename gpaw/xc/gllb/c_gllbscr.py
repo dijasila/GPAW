@@ -133,11 +133,10 @@ class C_GLLBScr(Contribution):
         #     ee = 0.05 / 27.21
 
         if lumo_perturbation:
-            return [np.array([
-                f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
-                          -self.f(eref_s[kpt.s]-e))
-                     for e, f in zip(kpt.eps_n, kpt.f_n) ])
-                     for kpt in kpt_u ]
+            return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
+                                         -self.f(eref_s[kpt.s]-e))
+                              for e, f in zip(kpt.eps_n, kpt.f_n) ])
+                    for kpt in kpt_u]
 
 
         else:

@@ -145,14 +145,14 @@ class TDDFPT(GPAW):
 
         print(self.hamiltonian.vt_sG, np.sum(self.hamiltonian.vt_sG))
         Hp_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                     self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
+            self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
 
         # Imag part
         self.hamiltonian.vt_sG[:] = self.cvt_sG.imag
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].imag
         Hm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-                     self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
+            self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
 
         S_MM = self.wfs.S_qMM[0]
         C0_nM = self.wfs.kpt_u[0].C_nM.copy()

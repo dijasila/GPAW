@@ -96,7 +96,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     if not processes:
         processes = [startcores]
         for n in range(startcores+1, ncores+1):
-            if n%2==0:
+            if n % 2==0:
                 processes.append(n)
 
     timer_entries_all = []
@@ -222,8 +222,6 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     #
     # arrange results - calculate statistics
     for p in processes:
-    #for p in range(len([1])):
-        #print pre_results[p]
         results[p] = []
         temp = []
         for q in range(p):
@@ -249,8 +247,9 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     DASHBASE=5
     DASHLEN=25
     DASHSTAGGER=3
+
     def dashlen(step):
-        return DASHBASE+(DASHLEN*(step%DASHSTAGGER))
+        return DASHBASE+(DASHLEN*(step % DASHSTAGGER))
     # print scaling results
     parameters = processes
     zero = [0.0 for i in range(len(parameters))]
@@ -276,7 +275,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
             'processes per node',
             'time [s]',
             'gpaw',
-            (colors[p%10]),
+            (colors[p % 10]),
             num=1)
     # from two_scales.py
     plot_save(".", 'memory_bandwidth_'+system)

@@ -15,8 +15,10 @@ for elpasolver in [None, '1stage', '2stage']:
                               kpt=2 if world.size > 2 else 1,
                               elpasolver=elpasolver),
                 txt='-')
+
     def stopcalc():
         calc.scf.converged = True
+
     calc.attach(stopcalc, 2)
     atoms.calc = calc
     E = atoms.get_potential_energy()

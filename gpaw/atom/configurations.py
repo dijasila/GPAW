@@ -1,6 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+# flake8: noqa
 # Computer generated code:
 # format:
 #    'element': (atomic number, [(n, l, occ, energy), ...])

@@ -1744,15 +1744,15 @@ def set_flags(self):
             # Two-point scheme default for rALDA and rAPBE
 
         self.spin_kernel = True
-            # rALDA/rAPBE are the only kernels which have spin-dependent forms
+        # rALDA/rAPBE are the only kernels which have spin-dependent forms
 
     else:
         self.spin_kernel = False
 
     if self.av_scheme == 'density':
         assert (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'
-               ), ('Two-point density average ' +
-                   'only implemented for rALDA and rAPBE')
+                ), ('Two-point density average ' +
+                    'only implemented for rALDA and rAPBE')
 
     elif self.xc not in ('RPA', 'range_RPA'):
         self.av_scheme = 'wavevector'
