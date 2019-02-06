@@ -1761,7 +1761,7 @@ def set_flags(self):
 
     if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx',
                    'RPA', 'rALDA', 'rAPBE', 'range_rALDA','ALDA'):
-            self.linear_kernel = True  # Scales linearly with coupling constant
+        self.linear_kernel = True  # Scales linearly with coupling constant
     else:
         self.linear_kernel = False
 

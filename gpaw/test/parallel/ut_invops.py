@@ -483,9 +483,9 @@ if __name__ in ['__main__', '__builtin__']:
 
     testcases = []
     for boundaries in ['zero', 'periodic', 'mixed']:
-         for dtype in [float, complex]:
-             testcases.append(UTGaussianWavefunctionFactory(boundaries, \
-                 dtype))
+        for dtype in [float, complex]:
+            testcases.append(UTGaussianWavefunctionFactory(boundaries, \
+                                                           dtype))
 
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']

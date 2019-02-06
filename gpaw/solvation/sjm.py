@@ -144,8 +144,8 @@ class SJM(SolvationGPAW):
 
         major_changes = False
         if kwargs:
-                SolvationGPAW.set(self, **kwargs)
-                major_changes = True
+            SolvationGPAW.set(self, **kwargs)
+            major_changes = True
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
@@ -162,8 +162,8 @@ class SJM(SolvationGPAW):
                             self.log('New Target electrode potential: %1.4f V'
                                      % self.potential)
                     else:
-                            self.log('Potential equilibration has been '
-                                     'turned off')
+                        self.log('Potential equilibration has been '
+                                 'turned off')
 
                 if key == 'doublelayer':
                     self.dl = SJM_changes[key]
@@ -174,8 +174,8 @@ class SJM(SolvationGPAW):
                          % SJM_changes[key])
                 potint = self.get_electrode_potential()
                 if abs(potint - self.potential) > SJM_changes[key]:
-                        self.results = {}
-                        self.log('Recalculating...\n')
+                    self.results = {}
+                    self.log('Recalculating...\n')
                 else:
                     self.log('Potential already reached the criterion.\n')
                 self.dpot = SJM_changes[key]
@@ -602,31 +602,31 @@ class SJMPower12Potential(Power12Potential):
             # of water which frees the interface in case of corrugated
             # water layers
             for ox in oxygen / Bohr:
-                    O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
-                                    self.atomic_radii_output[
-                                        water_oxygen_ind[0]] / Bohr])
+                O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
+                                self.atomic_radii_output[
+                                    water_oxygen_ind[0]] / Bohr])
 
             r12_add = []
             for i in range(len(O_layer)):
-                    self.pos_aav[len(atoms) + i] = [O_layer[i]]
-                    r12_add.append(self.r12_a[water_oxygen_ind[0]])
+                self.pos_aav[len(atoms) + i] = [O_layer[i]]
+                r12_add.append(self.r12_a[water_oxygen_ind[0]])
             r12_add = np.array(r12_add)
             # r12_a must have same dimensions as pos_aav items
             self.r12_a = np.concatenate((self.r12_a, r12_add))
 
         for index, pos_av in self.pos_aav.items():
-                pos_av = np.array(pos_av)
-                r12 = self.r12_a[index]
-                for pos_v in pos_av:
-                    origin_vg = pos_v[:, na, na, na]
-                    r_diff_vg = self.r_vg - origin_vg
-                    r_diff2_g = (r_diff_vg ** 2).sum(0)
-                    r_diff2_g[r_diff2_g < self.tiny] = self.tiny
-                    u_g = r12 / r_diff2_g ** 6
-                    self.u_g += u_g
-                    u_g /= r_diff2_g
-                    r_diff_vg *= u_g[na, ...]
-                    self.grad_u_vg += r_diff_vg
+            pos_av = np.array(pos_av)
+            r12 = self.r12_a[index]
+            for pos_v in pos_av:
+                origin_vg = pos_v[:, na, na, na]
+                r_diff_vg = self.r_vg - origin_vg
+                r_diff2_g = (r_diff_vg ** 2).sum(0)
+                r_diff2_g[r_diff2_g < self.tiny] = self.tiny
+                u_g = r12 / r_diff2_g ** 6
+                self.u_g += u_g
+                u_g /= r_diff2_g
+                r_diff_vg *= u_g[na, ...]
+                self.grad_u_vg += r_diff_vg
 
         self.u_g *= self.u0 / Hartree
         self.grad_u_vg *= -12. * self.u0 / Hartree
@@ -868,7 +868,7 @@ class SJMDipoleCorrection(DipoleCorrection):
         saw = np.zeros((int(L / gd.h_cv[c, c])))
         saw[0] = -0.5
         for i, eps in enumerate(eps_z):
-                saw[i+1] = saw[i] + step / eps
+            saw[i+1] = saw[i] + step / eps
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
         saw -= (saw[0] + saw[-1] + step / eps_z[-1])/2.
         return saw

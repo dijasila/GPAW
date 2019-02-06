@@ -249,10 +249,6 @@ class Kmatrix:
 
         self.values = K_matrix
 
-
-
-
-    ############################################################################
     # FIXME: implement spin polarized
     def calculate(self):
         # Check if already done before allocating

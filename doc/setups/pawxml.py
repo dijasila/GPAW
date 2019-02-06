@@ -69,18 +69,18 @@ class Reader(xml.sax.handler.ContentHandler):
 
 
 op = OptionParser(usage='%prog [options] setup[.gz]',
-                      version='%prog 0.2')
+                  version='%prog 0.2')
 op.add_option('-x', '--extract',
-                  help='Function to extract.',
-                  metavar='<name>')
+              help='Function to extract.',
+              metavar='<name>')
 op.add_option('-s', '--state',
-                  help='Select valence state.',
-                  metavar='<channel>')
+              help='Select valence state.',
+              metavar='<channel>')
 op.add_option('-l', '--list', action='store_true',
-                  help='List valence states.')
+              help='List valence states.')
 options, args = op.parse_args()
 if len(args) != 1:
-        op.error('incorrect number of arguments')
+    op.error('incorrect number of arguments')
 
 
 reader = Reader(options.list, options.extract, options.state)

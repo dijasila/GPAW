@@ -18,8 +18,8 @@ class VRespCollector(Observer):
         x_sg = self.lcao.density.gd.collect(x_sg, broadcast=False)
         iter = self.niter
         if world.rank==0:
-             fname = self.filename+"."+str(iter)+".vresp"
-             x_sg.astype(np.float32).tofile(fname)
+            fname = self.filename+"."+str(iter)+".vresp"
+            x_sg.astype(np.float32).tofile(fname)
 
 class DensityCollector(Observer):
     def __init__(self, filename, lcao, ranges_str='full'):
@@ -55,7 +55,7 @@ class DensityCollector(Observer):
                 print(N_c[0], N_c[1], N_c[2], file=f)
                 print("# This header is 10 lines long, then double precision binary data starts.", file=f)
                 for i in range(7):
-                     print("#", file=f)
+                    print("#", file=f)
                 f.close()
 
         #self.lcao.timer.start('Dump density')

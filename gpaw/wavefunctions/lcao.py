@@ -520,7 +520,7 @@ class LCAOWaveFunctions(WaveFunctions):
                         d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
                                         dtype=kpt.C_nM.dtype)
                         for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                                d_nn += ne * np.outer(c_n.conj(), c_n)
+                            d_nn += ne * np.outer(c_n.conj(), c_n)
                         rhoT_MM += ksl.get_transposed_density_matrix_delta(
                             d_nn, kpt.C_nM)
                         ET_MM += ksl.get_transposed_density_matrix_delta(

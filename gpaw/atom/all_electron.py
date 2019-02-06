@@ -672,7 +672,7 @@ class AllElectron:
         return int(r * self.N / (self.beta + r))
 
     def get_confinement_potential(self, alpha, ri, rc):
-        """Create a smooth confinement potential.
+        r"""Create a smooth confinement potential.
 
         Returns a (potential) function which is zero inside the radius ri
         and goes to infinity smoothly at rc, after which point it is nan.
@@ -787,8 +787,9 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
     # perform forward integration from zero to the turning point
     g = 1
     nodes = 0
-    while g <= gtp:  # integrate one step further than gtp
-                     # (such that dudr is defined in gtp)
+    # integrate one step further than gtp
+    # (such that dudr is defined in gtp)
+    while g <= gtp:
         u[g + 1] = (fm[g] * u[g - 1] - f0[g] * u[g]) / fp[g]
         if u[g + 1] * u[g] < 0:
             nodes += 1
@@ -871,8 +872,9 @@ guess for the density).
     # perform forward integration from zero to the turning point
     g = 1
     nodes = 0
-    while g <= gtp:  # integrate one step further than gtp
-                     # (such that dudr is defined in gtp)
+    # integrate one step further than gtp
+    # (such that dudr is defined in gtp)
+    while g <= gtp:
         u[g + 1] = (fm[g] * u[g - 1] - f0[g] * u[g]) / fp[g]
         if u[g + 1] * u[g] < 0:
             nodes += 1

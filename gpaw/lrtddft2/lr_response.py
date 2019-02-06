@@ -19,7 +19,6 @@ class LrResponse:
 
         self.response_wf_ready = False
 
-
     def read(self):
         raise RuntimeError('Error in LrtddftResponseWF read: Not implemented')
 
@@ -40,8 +39,6 @@ class LrResponse:
         else:
             self.solve_parallel()
 
-
-    #################################################################
     def get_response_coefficients(self, units = 'eVang'):
         C_re = self.C_re * 1.
         C_im = self.C_im * 1.
@@ -64,11 +61,9 @@ class LrResponse:
 
         return (C_re, C_im)
 
-
-    #################################################################
     def get_response_data(self, units = 'eVangcgs'):
         """Get response data.
-        
+
         Returns matrix where transitions are in rows and columns are
         occupied index, unoccupied index, occupied KS eigenvalue, unoccupied
         KS eigenvalue, occupied occupation number, unoccupied occupation number,
@@ -79,7 +74,7 @@ class LrResponse:
 
         data = np.zeros((len(self.lrtddft2.ks_singles.kss_list), 2+2+2+2+3+3+3))
         kpt_ind = self.lrtddft2.kpt_ind
-            
+
         for (ip,kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
             i = kss_ip.occ_ind
             p = kss_ip.unocc_ind
@@ -89,7 +84,7 @@ class LrResponse:
 
             f_i = self.lrtddft2.calc.wfs.kpt_u[kpt_ind].f_n[i]
             f_p = self.lrtddft2.calc.wfs.kpt_u[kpt_ind].f_n[p]
-            
+
             data[ip,0] = i
             data[ip,1] = p
 
@@ -148,8 +143,6 @@ class LrResponse:
 
         return data
 
-
-    #################################################################
     # amplitude, dipole, rotatory
     # dipole should integrate to absorption spectrum
     # rotatory should integrate to CD spectrum
@@ -166,7 +159,7 @@ class LrResponse:
         wx = np.arange(occ_min_energy, occ_max_energy, energy_step)
         # unoccupied energy range
         wy = np.arange(unocc_min_energy, unocc_max_energy, energy_step)
-        
+
         A = np.outer(wx,wy) * 0.
         S = np.outer(wx,wy) * 0.
         R = np.outer(wx,wy) * 0.
@@ -196,11 +189,9 @@ class LrResponse:
             raise RuntimeError('Error in get_transition_contribution_maps: Unit conversion from atomic units to eV ang cgs not implemented yet.')
         else:
             raise RuntimeError('Error in get_transition_contribution_maps: Invalid units.')
-                                           
+
         return (wx,wy,A,S,R)
 
-
-    #################################################################
     def get_induced_density(self, units='au', collect=False, amplitude_filter=1e-5):
         # Init pair densities
         dnt_Gip = self.lrtddft2.calc.wfs.gd.empty()
@@ -243,8 +234,6 @@ class LrResponse:
 
         return drhot_g
 
-
-    ############################################################################
     def get_approximate_electron_and_hole_densities(self, units='au', collect=False, amplitude_filter=1e-4):
         # Init pair densities
         dnt_Gip = self.lrtddft2.calc.wfs.gd.empty()
@@ -266,7 +255,7 @@ class LrResponse:
         #
         # remember both ip,jq  and jq,ip
         #
-        
+
         # occupations for electron and hole
         f_n  = self.lrtddft2.calc.wfs.kpt_u[self.lrtddft2.kpt_ind].f_n
         fe_n = np.zeros(len(f_n))
@@ -319,7 +308,7 @@ class LrResponse:
                 continue
             if abs(C_im[ip]) < amplitude_filter * maxC:
                 continue
-            
+
             for (jq,kss_jq) in enumerate(self.lrtddft2.ks_singles.kss_list):
                 # if diagonal, skip because already done
                 if ( kss_ip.occ_ind   == kss_jq.occ_ind and
@@ -366,7 +355,7 @@ class LrResponse:
                                                        kss_ip.occ_ind,
                                                        kss_jq.occ_ind )
                     kss_ij.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
-                    
+
                     drhot_gh -= (C_im[ip] * C_im[jq] * np.sqrt(kss_ip.pop_diff * kss_jq.pop_diff)) * drhot_gip
 
 
@@ -403,9 +392,6 @@ class LrResponse:
 
         return (drhot_ge, drhot_gh, drhot_geh)
 
-
-################################################################################
-
     def solve_serial(self):
         nrows = len(self.lrtddft2.ks_singles.kss_list)
 
@@ -430,7 +416,7 @@ class LrResponse:
                 A_matrix[ip*4+2,jq*4+3] = -K_matrix[lip,ljq] * kss_jq.pop_diff
                 A_matrix[ip*4+3,jq*4+2] = -K_matrix[lip,ljq] * kss_jq.pop_diff
                 A_matrix[ip*4+3,jq*4+3] =  K_matrix[lip,ljq] * kss_jq.pop_diff
-                
+
         # diagonal stuff: E, w, and eta
         for (ip, kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):
             lip = self.lrtddft2.lr_comms.get_local_eh_index(ip)
@@ -470,7 +456,7 @@ class LrResponse:
         # no transpose
         #A_matrix[:] = A_matrix.transpose()
 
-            
+
         # solve A C = V
         self.lrtddft2.lr_comms.parent_comm.sum(A_matrix)
         self.lrtddft2.lr_comms.dd_comm.sum(V_rhs)
@@ -521,8 +507,6 @@ class LrResponse:
 
         return (self.C_re,self.C_im)
 
-
-    ###########################################################################
     def solve_parallel(self):
         # total rows
         nrows = len(self.lrtddft2.ks_singles.kss_list)
@@ -572,7 +556,7 @@ class LrResponse:
             A_matrix_T[ljq*4+2,lip4_list+3] =  -KN_matrix_T[ljq,:]
             A_matrix_T[ljq*4+3,lip4_list+2] =  -KN_matrix_T[ljq,:]
             A_matrix_T[ljq*4+3,lip4_list+3] =  KN_matrix_T[ljq,:]
-        
+
 
         # diagonal stuff: E, w, and eta
         for (ip, kss_ip) in enumerate(self.lrtddft2.ks_singles.kss_list):

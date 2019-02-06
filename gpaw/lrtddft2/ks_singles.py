@@ -167,8 +167,6 @@ class KohnShamSingles:
         # Prevent repeated work
         self.kss_list_ready = True
 
-
-    ############################################################################
     def read(self):
         # Read KS_singles file if exists
         # occ_index | unocc index | energy diff | population diff |
@@ -204,9 +202,6 @@ class KohnShamSingles:
             if len(self.kss_list) <= 0:
                 self.kss_list = None
 
-
-
-    ############################################################################
     # Calculate dipole moment and magnetic moment for noninteracting
     # Kohn-Sham transitions
     # FIXME: Do it in parallel, currently doing repeated work

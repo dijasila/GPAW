@@ -44,8 +44,6 @@ class LrtddftTransitions:
         # is the "iploc"th local element of
         # the "kloc"th local eigenvector
 
-
-    ############################################################################
     def diagonalize_serial(self):
         nrows = len(self.ks_singles.kss_list)
 
@@ -124,9 +122,6 @@ class LrtddftTransitions:
         #                    print '%02d' % int(self.eigenvectors[i,j]),
         #                print
 
-
-
-    ############################################################################
     def diagonalize_scalapack(self):
         # total rows
         nrows = len(self.ks_singles.kss_list)
@@ -167,8 +162,6 @@ class LrtddftTransitions:
         omega_matrix[:,:] = np.transpose(self.eigenvectors)
         self.eigenvectors = omega_matrix
 
-
-    ############################################################################
     def calculate_properties(self):
         if self.custom_axes is not None:
             self.custom_axes = np.array(self.custom_axes)
@@ -321,7 +314,6 @@ class LrtddftTransitions:
 
         self.trans_prop_ready = True
 
-
     # omega_k = sqrt(lambda_k)
     def get_excitation_energy(self, k, units='au'):
         """Get excitation energy for kth interacting transition
@@ -413,8 +405,6 @@ class LrtddftTransitions:
         else:
             raise RuntimeError('Unknown units.')
 
-
-    ###################################################################################
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
 
@@ -473,8 +463,6 @@ class LrtddftTransitions:
 
         return (w,S,R,Sx,Sy,Sz)
 
-
-    ###################################################################################
     def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0,
                      energy_step=0.01, width=0.1, units='eVcgs'):
         """Get spectrum for dipole and rotatory strength.

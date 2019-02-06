@@ -6,7 +6,7 @@ import numpy as np
 from gpaw.utilities import erf
 
 
-def I(R, a, b, alpha, beta):
+def I(R, a, b, alpha, beta):  # noqa
     """Calculate integral and derivatives wrt. positions of Gaussian product.
 
     ::
