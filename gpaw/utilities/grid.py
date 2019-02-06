@@ -183,7 +183,7 @@ def main():
         gd1 = GridDescriptor(N1_c, N1_c)
         gd2 = GridDescriptor(N2_c, N2_c)
         serial_gd1 = gd1.new_descriptor(comm=serial)
-        serial_gd2 = gd2.new_descriptor(comm=serial)
+        # serial_gd2 = gd2.new_descriptor(comm=serial)
 
         a1_serial = serial_gd1.empty()
         a1_serial.flat[:] = gen_serial.rand(a1_serial.size)

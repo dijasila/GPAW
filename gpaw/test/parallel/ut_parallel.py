@@ -5,7 +5,7 @@ import numpy as np
 
 from gpaw.mpi import world
 from gpaw.test.parunittest import ParallelTestCase, ParallelTextTestRunner, \
-     defaultParallelTestLoader, main
+     defaultParallelTestLoader
 
 # ------------------------------------------------------------------
 

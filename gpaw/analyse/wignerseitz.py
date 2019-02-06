@@ -141,6 +141,7 @@ class LDOSbyBand:
         return elemi
 
 
+"""
 class WignerSeitzLDOS(LDOSbyBand):
 
     """Class to get the unfolded LDOS defined by Wigner-Seitz cells"""
@@ -169,3 +170,4 @@ class WignerSeitzLDOS(LDOSbyBand):
                     for n in range(paw.nbands):
                         # avery: Added dummy loop body to make compiling work.
                         1
+"""

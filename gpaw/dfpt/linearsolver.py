@@ -1,9 +1,8 @@
 import numpy as np
 
-from scipy.sparse.linalg import cgs
 
 class LinearSolver:
-    
+
     def __init__(self, method=None, preconditioner=None, tolerance = 1e-10,
                  max_iter = 10000):
         """Init method."""
@@ -12,11 +11,11 @@ class LinearSolver:
         # self.pc = pcs[preconditioner]
         self.tolerance = tolerance
         self.max_iter = max_iter
-        
+
     def solve(self, A, x_G, b_G):
         """Solve linear system A * x = b."""
 
-       
+
         ##########################################
         # Simple steepest descent implementation #
         ##########################################
@@ -29,7 +28,7 @@ class LinearSolver:
         r_G -= b_G
 
         for iter in range(self.max_iter):
-         
+
             x_G -= 0.01 * r_G
             A.dot(x_G,r_G)
             # Try and project out the undersired components in the residue
@@ -41,7 +40,8 @@ class LinearSolver:
                 break
 
         return iter
-            
+
+"""
     def apply_preconditioner(self, x, b):
         """Solves preconditioner equation.
 
@@ -61,3 +61,4 @@ class LinearSolver:
         else:
             psin[:] = psi
         #self.timer.stop('Solve Sternheimer preconditioner')
+"""

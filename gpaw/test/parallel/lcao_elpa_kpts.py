@@ -1,4 +1,3 @@
-import numpy as np
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mpi import world

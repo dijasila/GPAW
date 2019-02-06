@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import os
 import sys
 import xml.sax
 from optparse import OptionParser
-from math import exp, log
+from math import exp
 
 
 class Reader(xml.sax.handler.ContentHandler):
@@ -67,7 +66,7 @@ class Reader(xml.sax.handler.ContentHandler):
         if self.data is not None:
             for r, x in zip(self.r, self.data.split()):
                 print(r, x)
-                
+
 
 op = OptionParser(usage='%prog [options] setup[.gz]',
                       version='%prog 0.2')

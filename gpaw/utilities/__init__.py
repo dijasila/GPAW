@@ -308,7 +308,7 @@ def load_balance(paw, atoms):
 
 
 if not debug:
-    hartree = _gpaw.hartree
+    hartree = _gpaw.hartree  # noqa
     pack = _gpaw.pack
 
 

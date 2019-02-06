@@ -1,26 +1,24 @@
 """Test of ScaLAPACK diagonalize and inverse cholesky.
 
-The test generates a random symmetric matrix H0 and 
+The test generates a random symmetric matrix H0 and
 positive definite matrix S0 on a 1-by-1 BLACS grid. They
-are redistributed to a mprocs-by-nprocs BLACS grid, 
+are redistributed to a mprocs-by-nprocs BLACS grid,
 diagonalized in parallel, and eigenvalues are compared
 against LAPACK. Eigenvectors are not compared.
 """
 from __future__ import print_function
-import sys
 
 import numpy as np
 from numpy.linalg import inv
 from gpaw.mpi import world, rank
-from gpaw.blacs import BlacsGrid, Redistributor, parallelprint
+from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
     inverse_cholesky
-from gpaw.utilities.blas import rk, gemm
+from gpaw.utilities.blas import rk
 from gpaw.utilities.scalapack import scalapack_general_diagonalize_dc, \
-    scalapack_general_diagonalize_ex, \
-    scalapack_diagonalize_dc, scalapack_diagonalize_ex, \
+    scalapack_diagonalize_dc,
     scalapack_inverse_cholesky, scalapack_inverse ## , \
     ## scalapack_diagonalize_mr3, scalapack_general_diagonalize_mr3
 
@@ -29,7 +27,7 @@ tol = 1.0e-8
 def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
-    
+
     if (dtype==complex):
         epsilon = 1.0j
     else:
@@ -70,7 +68,7 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
         tri2full(S0_inv, 'L')
         S0_inv = inv(S0_inv)
         # tri2full(C0) # symmetrize
-        
+
     assert glob.check(H0) and glob.check(S0) and glob.check(C0)
 
     # Create distributed destriptors with various block sizes:
@@ -112,7 +110,7 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     ## scalapack_general_diagonalize_mr3(dist, H.copy(), S.copy(), Z, W_g_mr3, 'L')
 
     scalapack_inverse_cholesky(dist, C, 'L')
-    
+
     if dtype == complex: # Only supported for complex for now
         scalapack_inverse(dist, Sinv, 'L')
     # Undo redistribute
@@ -140,7 +138,7 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
         print('general diagonalize dc err', general_diag_dc_err)
         ## print 'general diagonalize mr3 err', general_diag_mr3_err
         print('inverse chol err', inverse_chol_err)
-        if dtype == complex:  
+        if dtype == complex:
             print('inverse err', inverse_err)
     else:
         ## diag_ex_err = 0.0
@@ -158,7 +156,7 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     ## diag_mr3_err = world.sum(diag_mr3_err)
     ## general_diag_ex_err = world.sum(general_diag_ex_err)
     general_diag_dc_err = world.sum(general_diag_dc_err)
-    ## general_diag_mr3_err = world.sum(general_diag_mr3_err) 
+    ## general_diag_mr3_err = world.sum(general_diag_mr3_err)
     inverse_chol_err = world.sum(inverse_chol_err)
     inverse_err = world.sum(inverse_err)
     ## assert diag_ex_err < tol
@@ -179,4 +177,4 @@ if __name__ in ['__main__', '__builtin__']:
         main(dtype=float)
 
 
-                   
+

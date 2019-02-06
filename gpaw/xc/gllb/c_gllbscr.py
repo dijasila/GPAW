@@ -127,10 +127,10 @@ class C_GLLBScr(Contribution):
 
         # The parameter ee might sometimes be set to small thereshold value to
         # achieve convergence on small systems with degenerate HOMO.
-        if len(kpt_u) > nspins:
-            ee = 0.0
-        else:
-            ee = 0.05 / 27.21
+        # if len(kpt_u) > nspins:
+        #     ee = 0.0
+        # else:
+        #     ee = 0.05 / 27.21
 
         if lumo_perturbation:
             return [np.array([

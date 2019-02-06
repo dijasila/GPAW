@@ -100,7 +100,7 @@ val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
 if do_print_values:
     i = 1
 
-    def equal(x, y, tol):
+    def equal(x, y, tol):  # noqa
         global i
         print("equal(val%d, %20.12f, tol)" % (i, x))
         i += 1

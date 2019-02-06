@@ -1,8 +1,7 @@
 import numpy as np
-from gpaw.blacs import BlacsGrid, parallelprint
+from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world, rank, size
 from gpaw.utilities.lapack import diagonalize
-from gpaw.utilities.scalapack import scalapack_diagonalize_dc
 from gpaw.blacs import Redistributor
 
 
@@ -23,7 +22,7 @@ def scal_diagonalize(A, nodes='master'):
     # create blacs descriptor
     mb = 64
     g = BlacsGrid(world, 2, size//2)
-    nndesc1 = g.new_descriptor(N, N, N,  N) 
+    nndesc1 = g.new_descriptor(N, N, N,  N)
     nndesc2 = g.new_descriptor(N, N, mb, mb)
 
     # distribute A to blacs grid A_
@@ -50,7 +49,7 @@ def scal_diagonalize(A, nodes='master'):
             B = np.zeros((N, N))
         world.broadcast(B, 0)
         return eps, B
-    
+
 
 # generate a matrix
 N = 512
@@ -69,7 +68,7 @@ if check and rank == 0:
     eps1 = np.zeros(N)
     diagonalize(A, eps1)
     assert np.abs(eps-eps1).sum() < 1e-6
-    
+
     for i in range(N//size):
         # the eigenvectors are row of the matrix, it can be differ by a minus sign.
         if np.abs(A[i,:] - B[i,:]).sum() > 1e-6:
