@@ -391,15 +391,15 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
 
 
 if not debug:
-    mmm = _gpaw.mmm
-    scal = _gpaw.scal
-    gemm = _gpaw.gemm
-    gemv = _gpaw.gemv
-    axpy = _gpaw.axpy
-    rk = _gpaw.rk
-    r2k = _gpaw.r2k
-    dotc = _gpaw.dotc
-    dotu = _gpaw.dotu
+    mmm = _gpaw.mmm  # noqa
+    scal = _gpaw.scal  # noqa
+    gemm = _gpaw.gemm  # noqa
+    gemv = _gpaw.gemv  # noqa
+    axpy = _gpaw.axpy  # noqa
+    rk = _gpaw.rk  # noqa
+    r2k = _gpaw.r2k  # noqa
+    dotc = _gpaw.dotc  # noqa
+    dotu = _gpaw.dotu  # noqa
     gemmdot = _gemmdot
     rotate = _rotate
 else:

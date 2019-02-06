@@ -1,8 +1,8 @@
-# creates: Ec_rpa.png
-from pylab import *
+import numpy as np
+import matplotlib.pyplot as plt
 
 A = np.loadtxt('range_results.safe.dat')  # full range_RPA
-plot(A[:, 0], A[:, 1] / 2, '-o', label='RPA')
+plt.plot(A[:, 0], A[:, 1] / 2, '-o', label='RPA')
 
 B = np.empty_like(A)
 
@@ -13,10 +13,10 @@ B[2, 1] = -5.3285
 B[3, 1] = -9.0291
 B[4, 1] = -10.7821
 B[5, 1] = -11.7281
-plot(B[:, 0], B[:, 1] / 2, '-o', label='Short range contribution')
-axhline(A[0, 1] / 2, ls='dashed')
-xlabel('$r_c$', fontsize=18)
-ylabel('Energy/Si atom(eV)', fontsize=18)
-legend(loc='upper right')
+plt.plot(B[:, 0], B[:, 1] / 2, '-o', label='Short range contribution')
+plt.axhline(A[0, 1] / 2, ls='dashed')
+plt.xlabel('$r_c$', fontsize=18)
+plt.ylabel('Energy/Si atom(eV)', fontsize=18)
+plt.legend(loc='upper right')
 # show()
-savefig('Ec_rpa.png')
+plt.savefig('Ec_rpa.png')

@@ -108,7 +108,7 @@ class UTDomainParallelSetup_Mixed(UTDomainParallelSetup):
 # Helper functions/classes here
 
 class FDWFS(FDWaveFunctions):
-    
+
     def __init__(self, gd, bd, kd, setups, block_comm, dtype): # override constructor
 
         assert kd.comm.size == 1
@@ -139,7 +139,7 @@ class FDWFS(FDWaveFunctions):
             P_In = np.empty((nproj, self.bd.nbands), self.pt.dtype)
         self.world.broadcast(P_In, 0)
         return P_In
-        
+
 # -------------------------------------------------------------------
 
 class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
@@ -185,11 +185,11 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
         self.kd = KPointDescriptor(bzk_kc, 1)
         self.kd.set_symmetry(self.atoms, self.setups)
         self.kd.set_communicator(self.kpt_comm)
-        
+
         # Create gamma-point dummy wavefunctions
         self.wfs = FDWFS(self.gd, self.bd, self.kd, self.setups,
                          self.block_comm, self.dtype)
-        
+
         spos_ac = self.atoms.get_scaled_positions() % 1.0
         self.wfs.set_positions(spos_ac)
         self.pt = self.wfs.pt # XXX shortcut
@@ -451,6 +451,7 @@ def UTGaussianWavefunctionFactory(boundaries, dtype):
     classname = 'UTGaussianWavefunctionSetup' \
     + sep + {'zero':'Zero', 'periodic':'Periodic', 'mixed':'Mixed'}[boundaries] \
     + sep + {float:'Float', complex:'Complex'}[dtype]
+
     class MetaPrototype(UTGaussianWavefunctionSetup, object):
         __doc__ = UTGaussianWavefunctionSetup.__doc__
         boundaries = boundaries
@@ -482,9 +483,9 @@ if __name__ in ['__main__', '__builtin__']:
 
     testcases = []
     for boundaries in ['zero', 'periodic', 'mixed']:
-         for dtype in [float, complex]:
-             testcases.append(UTGaussianWavefunctionFactory(boundaries, \
-                 dtype))
+        for dtype in [float, complex]:
+            testcases.append(UTGaussianWavefunctionFactory(boundaries, \
+                                                           dtype))
 
     for test in testcases:
         info = ['', test.__name__, test.__doc__.strip('\n')] + parinfo + ['']

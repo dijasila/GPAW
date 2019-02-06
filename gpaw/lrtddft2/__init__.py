@@ -73,11 +73,11 @@ class LrTDDFT2:
         min_occ
           Index of the first occupied state to be included in the calculation.
           (optional)
-          
+
         max_occ
           Index of the last occupied state (inclusive) to be included in the
           calculation. (optional)
- 
+
         min_unocc
           Index of the first unoccupied state to be included in the
           calculation. (optional)
@@ -175,7 +175,7 @@ class LrTDDFT2:
             raise RuntimeError('Error in LrTDDFT2: max_occ >= nbands')
         if self.max_unocc >= nbands:
             raise RuntimeError('Error in LrTDDFT2: max_unocc >= nbands')
- 
+
         # Only spin unpolarized calculations are supported atm
         # > FIXME
         assert len(self.calc.wfs.kpt_u) == 1, \
@@ -256,7 +256,6 @@ class LrTDDFT2:
         self.txt.write('Transitions calculated  (%s).\n' % str(datetime.datetime.now()))
         return trans
 
-
     #################################################################
     def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0,
                      energy_step=0.01, width=0.1, units='eVcgs'):
@@ -289,7 +288,6 @@ class LrTDDFT2:
         self.txt.write('Spectrum calculated     (%s).\n' % str(datetime.datetime.now()))
         return spec
 
-
     #################################################################
     def get_transition_contributions(self, index_of_transition):
         """Get contributions of Kohn-Sham singles to a given transition
@@ -310,15 +308,11 @@ class LrTDDFT2:
         self.calculate()
         return self.lr_transitions.get_transition_contributions(index_of_transition)
 
-
-    #################################################################
-    #
-    #################################################################
     def calculate_response(self, excitation_energy, excitation_direction, lorentzian_width, units='eVang'):
         """Calculates and returns response using TD-DFPT.
-        
+
         Input parameters:
-        
+
         excitation_energy
           Energy of the laser in given units
 
@@ -356,7 +350,7 @@ class LrTDDFT2:
     def calculate(self):
         """Calculates linear response matrix and properties of KS
         electron-hole pairs.
-        
+
         This is called implicitly by get_spectrum, get_transitions, etc.
         but there is no harm for calling this explicitly.
         """
@@ -424,10 +418,10 @@ class LrTDDFT2:
 
         # Wait... we don't want to read incomplete files
         self.lr_comms.parent_comm.barrier()
-        
+
         if not self.K_matrix_values_ready:
             self.K_matrix.read_values()
-            
+
         # lr_transitions logic
         if not self.lr_transitions.trans_prop_ready:
             trans_file = self.basefilename + '.transitions'

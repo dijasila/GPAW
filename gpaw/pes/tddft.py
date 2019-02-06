@@ -22,7 +22,7 @@ class TDDFTPES(BasePES):
             'grid': 0,
         }
         for key in tolerance.keys():
-            if not key in self.tolerance:
+            if key not in self.tolerance:
                 raise RuntimeError("Tolerance key '%s' not known."
                                    % key)
             self.tolerance[key] = tolerance[key]
