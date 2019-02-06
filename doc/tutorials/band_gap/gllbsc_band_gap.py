@@ -1,4 +1,4 @@
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from ase import Atoms
 import numpy as np
 

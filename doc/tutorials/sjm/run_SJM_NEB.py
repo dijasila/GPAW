@@ -1,5 +1,4 @@
 import sys
-import numpy as np
 from ase.parallel import world
 from ase.optimize import BFGS
 from ase.visualize import view
