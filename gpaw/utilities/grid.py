@@ -28,6 +28,7 @@ class GridRedistributor:
         aux_gd.comm.broadcast(aux_ranks, 0)
 
         auxrank2rank = dict(zip(aux_ranks, np.arange(gd.comm.size)))
+
         def rank2parpos1(rank):
             if rank in auxrank2rank:
                 return gd.get_processor_position_from_rank(auxrank2rank[rank])
@@ -183,7 +184,7 @@ def main():
         gd1 = GridDescriptor(N1_c, N1_c)
         gd2 = GridDescriptor(N2_c, N2_c)
         serial_gd1 = gd1.new_descriptor(comm=serial)
-        serial_gd2 = gd2.new_descriptor(comm=serial)
+        # serial_gd2 = gd2.new_descriptor(comm=serial)
 
         a1_serial = serial_gd1.empty()
         a1_serial.flat[:] = gen_serial.rand(a1_serial.size)

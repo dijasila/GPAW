@@ -28,6 +28,8 @@ To append use the form
     libraries += ['somelib', 'otherlib']
 """
 
+# flake8: noqa
+
 # compiler = 'gcc'
 # mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
 # mpilinker = 'mpicc'

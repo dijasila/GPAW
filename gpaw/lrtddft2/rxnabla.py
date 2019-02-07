@@ -7,7 +7,7 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
     """Calculate PAW-correction matrix elements of r x nabla.
 
     ::
-    
+
       /  _       _          _     ~   _      ~   _
       | dr [phi (r) O  phi (r) - phi (r) O  phi (r)]
       /        1     x    2         1     x    2
@@ -17,7 +17,7 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
              x     dz     dy
 
     and similar for y and z."""
-    
+
     # utility functions
 
     # from Y_L to Y_lm where Y_lm is a spherical harmonic and m= -l, ..., +l
@@ -61,7 +61,7 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
         sum = 0.j
         for (c1,l1,m1) in Yl1m1:
             for (c2,l2,m2) in Yl2m2:
-        #print '--------', c1, l1, m1, c2, l2, m2
+                # print '--------', c1, l1, m1, c2, l2, m2
                 lz = m2
                 if l1 == l2 and m1 == m2:
                     sum += lz * np.conjugate(c1) * c2
@@ -78,7 +78,7 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
         sum = 0.j
         for (c1,l1,m1) in Yl1m1:
             for (c2,l2,m2) in Yl2m2:
-        #print '--------', c1, l1, m1, c2, l2, m2
+                # print '--------', c1, l1, m1, c2, l2, m2
                 lp = sqrt(l2*(l2+1) - m2*(m2+1))
                 if abs(lp) < 1e-5: continue
                 if l1 == l2 and m1 == m2+1:
@@ -96,7 +96,7 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
         sum = 0.j
         for (c1,l1,m1) in Yl1m1:
             for (c2,l2,m2) in Yl2m2:
-        #print '--------', c1, l1, m1, c2, l2, m2
+                # print '--------', c1, l1, m1, c2, l2, m2
                 lp = sqrt(l2*(l2+1) - m2*(m2-1))
                 if abs(lp) < 1e-5: continue
                 if l1 == l2 and m1 == m2-1:

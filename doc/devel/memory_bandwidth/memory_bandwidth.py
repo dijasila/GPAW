@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 # Emacs: treat this as -*- python -*-
-from __future__ import print_function
 from optparse import OptionParser
 
 parser = OptionParser(usage='%prog [options]',
@@ -21,10 +20,6 @@ opt, args = parser.parse_args()
 
 import os
 
-import datetime
-
-from math import sqrt
-
 import numpy as np
 
 colors = [
@@ -39,13 +34,11 @@ colors = [
     'gray',
     'gray']
 
-from ase.data import atomic_numbers as numbers
 
 def plot(xdata, ydata, std,
          title,
          xlabel, ylabel,
          label, color, num=1):
-    import matplotlib
     #matplotlib.use('Agg')
     import pylab
 
@@ -103,7 +96,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     if not processes:
         processes = [startcores]
         for n in range(startcores+1, ncores+1):
-            if n%2==0:
+            if n % 2==0:
                 processes.append(n)
 
     timer_entries_all = []
@@ -136,22 +129,16 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     # absolute path to directory
     root_abspath = os.path.abspath(opt.dir)
     # length of directory name
-    rootlen = len(root_abspath) + 1
 
     ref_value_3300 = -44.85826
-    ref_SCF_3300 = 19
     ref_value_3301 = -44.85709
-    ref_SCF_3301 = 31
-    ref_value_3721 = -44.85666
-    ref_SCF_3721 = 35
+    # ref_value_3721 = -44.85666
+    # ref_SCF_3721 = 35
     ref_value_5147 = -44.83504
-    ref_SCF_5147 = 30
 
     ref_value_6383 = -44.84197
-    ref_SCF_6383 = 28
 
     ref_value = ref_value_6383
-    ref_SCF = ref_SCF_6383
 
     tolerance = 0.0001
 
@@ -181,20 +168,16 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         if len(str(gpaw_version)) > 1:
             if gpaw_version <= 6383:
                 ref_value = ref_value_6383
-                ref_SCF = ref_SCF_6383
             if gpaw_version <= 5147:
                 ref_value = ref_value_5147
-                ref_SCF = ref_SCF_5147
             if gpaw_version <= 3720:
                 ref_value = ref_value_3301
-                ref_SCF = ref_SCF_3301
             if gpaw_version <= 3300:
                 ref_value = ref_value_3300
-                ref_SCF = ref_SCF_3300
         elif len(str(gpaw_version)) == 1:
             if gpaw_version <= 4:
                 ref_value = ref_value_3300
-                ref_SCF = ref_SCF_3300
+                # ref_SCF = ref_SCF_3300
         gpaw_versions.append(gpaw_version)
         # search for timings
         print('gpaw version %d' % gpaw_version)
@@ -239,8 +222,6 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     #
     # arrange results - calculate statistics
     for p in processes:
-    #for p in range(len([1])):
-        #print pre_results[p]
         results[p] = []
         temp = []
         for q in range(p):
@@ -261,17 +242,14 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     #    q.append(np.std(pre_results[p]))
     import matplotlib
     matplotlib.use('Agg')
-    from matplotlib import pylab, ticker
-    from twiny import twiny
+    from matplotlib import pylab
     # from http://matplotlib.sourceforge.net/examples/dashtick.py
-    ROTATION=75
-    DASHROTATION=115
     DASHBASE=5
     DASHLEN=25
     DASHSTAGGER=3
-    FONTSIZE=10
+
     def dashlen(step):
-        return DASHBASE+(DASHLEN*(step%DASHSTAGGER))
+        return DASHBASE+(DASHLEN*(step % DASHSTAGGER))
     # print scaling results
     parameters = processes
     zero = [0.0 for i in range(len(parameters))]
@@ -297,7 +275,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
             'processes per node',
             'time [s]',
             'gpaw',
-            (colors[p%10]),
+            (colors[p % 10]),
             num=1)
     # from two_scales.py
     plot_save(".", 'memory_bandwidth_'+system)
