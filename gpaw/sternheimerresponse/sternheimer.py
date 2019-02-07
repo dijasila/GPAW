@@ -3,17 +3,15 @@ from functools import partial
 from gpaw.matrix import matrix_matrix_multiply as mmm
 import numpy as np
 from scipy.sparse.linalg import LinearOperator, bicgstab
-
+from functools import reduce
 
 
 
 class SternheimerResponse:
-
-
         def __init__(self, filename):
                 self.restart_filename = filename
                 self.calc = GPAW(filename, txt=None)
-                #Check that all info is in file
+                #TODO Check that all info is in file
                 self.wfs = self.calc.wfs
 
 
@@ -26,47 +24,249 @@ class SternheimerResponse:
                 #test_wave = self.wfs.kpt_u[0].psit_nG[0]
                 #self._apply_hamiltonian(test_wave, self.wfs.kpt_u[0])
 
-        def chi0_response(self, num_eigs):
+        def epsilon_response(self, qvectors, num_eigs):
+                '''
+                Input:
+                qvectors: List of qvectors
+                num_eigs: Number of eigenvalue-eigenvector pairs to find at each qvector
+
+
+                Returns:
+                A dictionary with key: qvector -> Value: List of num_eigs eigenvalue-eigenvector pairs
+                '''
+                #TODO only allow certain qvectors, namely only those that are given by a difference of two k-vectors in the BZ
                 start_vectors = self._get_trial_vectors(num_eigs)
+                solutions = self.epsilon_iteration(start_vectors, qvectors, num_eigs)
+
+                return solutions
 
                                 
 
 
+        def epsilon_iteration(self, start_vectors, qvectors, num_eigs):               
+                solutions = {} #Dict from qvector (array) -> list of num_eigs eigenpairs
+                
+                for qvec in qvectors:
+                        found_eigenvectors = []
+                        for start_vec in start_vectors:                        
+                                eigen_pair = self._sc_iteration(start_vec,
+                                                                self.epsilon_potential_from_deltawfs_wfs,
+                                                                qvec,
+                                                                self._epsilon_eigenpair_extractor,
+                                                                found_eigenvectors)
+
+                                if qvec not in solutions:
+                                        solutions[qvec] = [eigen_pair]
+                                else:
+                                        solutions[qvec].append(eigen_pair)
+                                found_eigenvectors = [pair[1] for pair in solutions[qvec]]
+
+                                
+
+                return solutions                                        
+                                
+
+
+        def epsilon_potential_from_vector(self, start_vector):
+                #TODO Smooth part + PAW corrections
+                return np.diag(start_vector)
+
+        def epsilon_potential_from_deltawfs_wfs(self, deltawfs_wfs):
+                
+
+                #delta_tilde_n = self.get_delta_tilde_n(deltawfs_wfs)
+                fine_delta_tilde_n = self.get_fine_delta_tild_n(deltawfs_wfs)
+
+       
+                #Comp charges is dict: atom -> charge
+                total_delta_comp_charge = self.get_compensation_charges(deltawfs_wfs)
+
+
+                poisson_term = self.solve_poisson(fine_delta_tilde_n + total_delta_comp_charge)
+                soft_term = self.transform_to_coarse_grid_operator(poisson_term)
+
+                
+
+                comp_charge_derivative_term = self.get_comp_charge_derivative_term(poisson_term)
+
+                
+                atom_charge_derivative_term = self.get_atom_charge_derivative_term(deltawfs_wfs)
+
+                smooth_atom_charge_derivative_term = self.get_smooth_atom_charge_derivative_term(deltawfs_wfs)
+
+
+                total_potential = soft_term + comp_charge_derivative_term + atom_charge_derivative_term - smooth_atom_charge_derivative_term
+
+                return total_potential
+
+
+
+
+        def get_compensation_charges(self, deltawfs_wfs):                
+                pt = self.wfs.pt
+                p_overlaps = {}
+                D_aii = {}
+                for q_index in deltawfs_wfs:
+                        deltawfs = np.array([tup[0] for tup in deltawfs_wfs[q_index]])
+                        c_axi = pt.integrate(deltawfs, q=q_index)
+                        p_overlaps[q_index] = c_axi
+
+                        kpt = self.wfs.mykpts[q_index]
+                        for a, c_xi in c_axi.items():
+                                P_ni = kpt.P[a]
+                                if a in D_aii:
+                                        D_aii[a] += np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
+                                else:
+                                        D_aii[a] = np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
+                                
+                
+                setups = self.wfs.setups
+                Q_aL = {}
+                for a in D_aii:
+                        setup = setups[a]
+                        D_ii = D_aii[a]
+                        Delta_iiL = setup.Delta_iiL
+                        Q_L = np.einsum("ij, ij", D_ii, Delta_iiL)
+                        Q_aL[a] = Q_L
+
+                
+                
+                comp_charge_G = self.calc.density.pd3.zeros()
+                
+                self.calc.density.ghat.add(comp_charge_G, Q_aL)
+
+                return comp_charge_G
+
+        def get_delta_tilde_n(self, deltawfs_wfs):
+                #Delta psi is in reciprocal lattice vector basis. Transform to real space to get delta n, then transform back
+
+
+                pass
+
+        def get_fine_delta_tilde_n(self, deltawfs_wfs):
+                #Interpolate delta psi
+                #Use wavefunctions/pw.py
+                #calc.density.pd2 (fine G grid)
+                
+                pd = self.wfs.pd
+                pd2 = self.calc.density.pd2
+                pd3 = self.calc.density.pd3
+                delta_n_R = pd2.gd.zeros()
+                for deltawf, wf in deltawfs_wfs:
+                        deltawf_R = pd.ifft(deltawf)
+                        wf_R = pd.ifft(wf)
+
+                        delta_n_R += deltawf_R*wf_R
+                        
+                fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
+
+                return fine_delta_n_G
+
+        def solve_poisson(self, charge_G, pd):
+                #charge(q)
+                G2 = pd3.G2_qG[0].copy()
+                G2[0] = 1.0
+                
+                return charge_G * 4 * pi/G2
+                
+        def transform_to_coarse_grid_operator(self, fine_grid_operator):
+                raise NotImplementedError
+                
+
+
+        def get_comp_charge_derivative_term(self, poisson_term):
+                #For each atom get partial wave, smooth partial waves and PAW projectors
+                #Calculate some stuff
+                #return stuff*projection_matrix
+                pass
+
+
+        def get_atom_charge_derivate_term(self, deltawfs_wfs):
+                #For each atom get partial wave, smooth partial waves and PAW projectors
+                #Use deltawfs_wfs to calculate delta_n_a
+                #Solve poisson equation with charge = delta_n_a
+                #Calculate stuff
+                #Return stuff*projection_matrix
+                pass
+
+
+        def get_smooth_atom_charge_derivative_term(self, deltawfs_wfs):
+                #For each atom get partial wave, smooth partial waves and PAW projectors
+                #Use deltawfs_wfs to calculate delta_tilde_n_a
+                #Solve poisson equation with charge = delta_tilde_n_a + comp charge for atom
+                #calculate stuff
+                #return stuff*projection_matrix
+                pass
+
+
+        def _epsilon_eigenpair_extractor(self, current_density, new_density):
+                eigenvalue = np.sqrt(new_density.dot(new_density)/current_density.dot(current_density))
+                new_density = new_density/np.sqrt(new_density.dot(new_density))
+                return (eigenvalue, new_density)
+
+
+        def _sc_iteration(self, start_vector, potential_generator_function, qvector, eigenpair_extractor, found_eigenvectors):
+                error_threshold = 1e-10
+                iter_max = 500
+                current_vector = start_vector
+                current_density = -np.ones(start_vector.shape)
+                for num_iter in range(iter_max):
+                        potential = potential_generator_function(current_vector)
+
+                        deltawfs_wfs = self.solve_sternheimer(potential, qvector)
+
+                        new_density = self._density_from_wf_pairs(deltawfs_wfs)                      
+                        new_density = self.orthogonalize(new_density, found_eigenvectors)
+                        
+                        eigenvalue, new_density = eigenpair_extractor(current_density, new_density)
+
+                        error = np.abs(1 - new_density.dot(current_density))
+                        
+                        if error < error_threshold:
+                                return (eigenvalue, new_density)
+
+
+                raise ValueError("Self-consistent iteration did not converge. Final error was {}".format(error))
+                                
+
+
+        def orthogonalize(out_vector, list_of_vectors):
+                new_vec = out_vector
+                for vec in list_of_vectors:
+                        new_vec -= vec*(out_vector.dot(vec))
+
+                return new_vec
+
+
+
+
+        def _density_from_wf_pairs(self, deltawfs_wfs):
+                #TODO add PAW corrections, see 1D code
+                return 2*np.real(reduce(lambda a, b : a + b[1].conj()*b[0], deltawfs_wfs, 0))
+                        
+                
+
+
 
         def solve_sternheimer(self, potential, qvector):
-                #print(len(self.wfs.kpt_u))
-                #print(dir(self.wfs))
-                #print(self.wfs.mykpts)
-                #print(self.wfs.kpt_u)
-                #print(dir(self.wfs.kpt_u[0]))
-                #print(self.wfs.kpt_u[0].eps_n)
-                #print((self.wfs.kpt_u[0].psit_nG).shape)
-                #print(dir(self.wfs.kpt_u[0].psit))
-                #print(self.wfs.kpt_u[0].psit.array.shape)
-                #print(dir(self.wfs.kpt_u))
-                #print("#############")
-                #print(dir(self.wfs.kpt_u[0]))
-                #print(self.wfs.kpt_u[0].__doc__)
+                solution_pairs = {}
 
-                #print(dir(self.calc))
-                #print(dir(self.wfs.kd))
-                #print(self.wfs.kd.what_is.__doc__)
-                #print(self.wfs.kd.where_is.__doc__)
-                solution_pairs = []
-
-                for index, kpt in enumerate(self.wfs.mykpts):
-                        k_plus_q_vector = self.wfs.kd.bzk_kc[index] + qvector
-                        
-
-                        ##TODO find out how you are supposed to use this
+                for index, kpt in enumerate(self.wfs.mykpts):                        
+                        solution_pairs[index] = []
                         k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [index])
                         assert len(k_plus_q_index) == 1
                         k_plus_q_index = k_plus_q_index[0]
-                        k_plus_q_object = self.wfs.mykpts[k_plus_q_index]                       
+                        k_plus_q_object = self.wfs.mykpts[k_plus_q_index]
+
+
+                        #Do this because shape of wavefunctions is seemingly not constant across kpts
+                        #This is bad and should be avoided
                         potential_at_k = self._get_potential_at_kpt(potential, kpt)
+
+
                         for energy, psi in zip(kpt.eps_n, kpt.psit.array):
                                 linop = self._get_LHS_linear_operator(k_plus_q_object, energy)
-                                RHS = self._get_RHS(kpt, psi, potential_at_k)
+                                RHS = self._get_RHS(k_plus_q_object, psi, potential_at_k)
                                 
 
                                 delta_wf, info = bicgstab(linop, RHS)
@@ -75,14 +275,14 @@ class SternheimerResponse:
                                         print(f"bicgstab did not converge. Info: {info}")
 
 
-                                solution_pairs.append((delta_wf, psi))
+                                solution_pairs[index].append((delta_wf, psi))
                                 #Solve Sternheimer for given n, q
                                 #
                         #print("Looking at kpt")
                 return solution_pairs
 
         def _get_potential_at_kpt(self, potential, kpt):
-
+                #TODO fix this, how does this couple to potential higher up?
                 ##shape = kpt.psit.array.shape[1] ##This seems buggy psit.array.shape is not the same as psit.myshape
                 shape = kpt.psit.myshape[1]
                 return np.zeros((shape,shape))
@@ -95,6 +295,8 @@ class SternheimerResponse:
         def _get_LHS_linear_operator(self, kpt, energy):
                 def mv(v):
                         return self._apply_LHS_Sternheimer(v, kpt, energy)
+
+
                 shape_tuple = (kpt.psit.array[0].shape[0], kpt.psit.array[0].shape[0])
                 linop = LinearOperator(shape_tuple, matvec = mv)
 
@@ -105,7 +307,7 @@ class SternheimerResponse:
                 result = np.zeros_like(wavefunction)
 
                 
-                result = result + self._apply_valence_projector(wavefunction, kpt)
+                result = self._apply_valence_projector(wavefunction, kpt)
                 
                 result = result + self._apply_hamiltonian(wavefunction, kpt)
                 
@@ -183,7 +385,8 @@ if __name__=="__main__":
                 calc = GPAW(mode=PW(100),
                             xc ="PBE",
                             kpts=(8,8,8),
-                            random=True,                            
+                            random=True,
+                            #symmetry=False,
                             occupations=FermiDirac(0.01),
                             txt = "test.out")
                 
