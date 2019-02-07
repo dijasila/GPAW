@@ -4,7 +4,7 @@ from gpaw.matrix import matrix_matrix_multiply as mmm
 import numpy as np
 from scipy.sparse.linalg import LinearOperator, bicgstab
 from functools import reduce
-
+from gpaw.utilities import pack, unpack
 
 
 class SternheimerResponse:
@@ -83,21 +83,30 @@ class SternheimerResponse:
 
 
                 poisson_term = self.solve_poisson(fine_delta_tilde_n + total_delta_comp_charge)
-                soft_term = self.transform_to_coarse_grid_operator(poisson_term)
+                soft_term_G = self.transform_to_coarse_grid_operator(poisson_term)
 
-                
+                soft_term_R = self.wfs.pd2.ifft(soft_term_G)
 
-                comp_charge_derivative_term = self.get_comp_charge_derivative_term(poisson_term)
-
-                
-                atom_charge_derivative_term = self.get_atom_charge_derivative_term(deltawfs_wfs)
-
-                smooth_atom_charge_derivative_term = self.get_smooth_atom_charge_derivative_term(deltawfs_wfs)
+                W_ap = self.get_charge_derivative_terms(poisson_term)                
 
 
-                total_potential = soft_term + comp_charge_derivative_term + atom_charge_derivative_term - smooth_atom_charge_derivative_term
 
-                return total_potential
+                def apply_potential(wvf_G, q_index):
+                        wvf_R = self.wfs.pd.ifft(wvf_G)
+                        pt = self.wfs.pt
+
+                        c_ai = pt.integrate(wvf_G, q=q_index)
+
+                        for a, c_i in c_ai.items():
+                                W_ii = unpack(W_ap[a])
+                                c_i[:] = W_ii.dot(c_i)
+
+                        V1 = self.wfs.pd.fft(soft_term_R*wvf_R)
+                        pt.add(V1, c_ai, q=_index)
+                        return V1   
+
+
+                return apply_potential
 
 
 
@@ -118,7 +127,7 @@ class SternheimerResponse:
                                         D_aii[a] += np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
                                 else:
                                         D_aii[a] = np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
-                                
+                self.D_aii = D_aii                                
                 
                 setups = self.wfs.setups
                 Q_aL = {}
@@ -129,7 +138,7 @@ class SternheimerResponse:
                         Q_L = np.einsum("ij, ij", D_ii, Delta_iiL)
                         Q_aL[a] = Q_L
 
-                
+
                 
                 comp_charge_G = self.calc.density.pd3.zeros()
                 
@@ -137,11 +146,7 @@ class SternheimerResponse:
 
                 return comp_charge_G
 
-        def get_delta_tilde_n(self, deltawfs_wfs):
-                #Delta psi is in reciprocal lattice vector basis. Transform to real space to get delta n, then transform back
 
-
-                pass
 
         def get_fine_delta_tilde_n(self, deltawfs_wfs):
                 #Interpolate delta psi
@@ -169,34 +174,40 @@ class SternheimerResponse:
                 
                 return charge_G * 4 * pi/G2
                 
-        def transform_to_coarse_grid_operator(self, fine_grid_operator):
-                raise NotImplementedError
+        def transform_to_coarse_grid_operator(self, fine_grid_operator):                
+                dens = self.calc.density
+                coarse_potential = dens.pd2.zeros()
+
+                dens.map23.add_to1(coarse_potential, fine_grid_operator)
+
+                return coarse_potential
                 
 
 
-        def get_comp_charge_derivative_term(self, poisson_term):
+
+
+
+        def get_charge_derivative_terms(self, poisson_term):
                 #For each atom get partial wave, smooth partial waves and PAW projectors
                 #Calculate some stuff
                 #return stuff*projection_matrix
-                pass
+                setups = self.wfs.setups
+
+                coulomb_factors_aL = self.calc.density.ghat.integrate(poisson_term)
+                W_ap = {}
+                
+                for a, glm_int_L in coulomb_factors_aL.items():
+                        W_ap[a] = setups[a].Delta_pL.dot(glm_int_L)
+
+                        
+
+                for a, setup in enumerate(self.wfs.setups):
+                        D_p = pack(self.D_aii[a])
+                        W_ap[a] += setup.M_pp.dot(D_p)
 
 
-        def get_atom_charge_derivate_term(self, deltawfs_wfs):
-                #For each atom get partial wave, smooth partial waves and PAW projectors
-                #Use deltawfs_wfs to calculate delta_n_a
-                #Solve poisson equation with charge = delta_n_a
-                #Calculate stuff
-                #Return stuff*projection_matrix
-                pass
+                return W_ap
 
-
-        def get_smooth_atom_charge_derivative_term(self, deltawfs_wfs):
-                #For each atom get partial wave, smooth partial waves and PAW projectors
-                #Use deltawfs_wfs to calculate delta_tilde_n_a
-                #Solve poisson equation with charge = delta_tilde_n_a + comp charge for atom
-                #calculate stuff
-                #return stuff*projection_matrix
-                pass
 
 
         def _epsilon_eigenpair_extractor(self, current_density, new_density):
