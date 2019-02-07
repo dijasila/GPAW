@@ -9,7 +9,7 @@ uncorrected = []
 repeats = [1, 2, 3, 4]
 for repeat in repeats:
     pristine = 'GaAs{0}{0}{0}.pristine.gpw'.format(repeat)
-    charged = 'GaAs{0}{0}{0}.Ga_vac.gpw'.format(repeat)
+    charged = 'GaAs{0}{0}{0}.Ga_vac_charged.gpw'.format(repeat)
     elc = ElectrostaticCorrections(pristine=pristine,
                                    charged=charged,
                                    q=q,
