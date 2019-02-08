@@ -67,11 +67,6 @@ class SternheimerResponse:
         return solutions                                        
                                 
 
-
-    def epsilon_potential_from_vector(self, start_vector):
-        #TODO Smooth part + PAW corrections
-        return np.diag(start_vector)
-
     def epsilon_potential_from_deltawfs_wfs(self, deltawfs_wfs):
                 
 
@@ -102,9 +97,9 @@ class SternheimerResponse:
                 W_ii = unpack(W_ap[a])
                 c_i[:] = W_ii.dot(c_i)
 
-                V1 = self.wfs.pd.fft(soft_term_R*wvf_R)
-                pt.add(V1, c_ai, q=_index)
-                return V1   
+            V1 = self.wfs.pd.fft(soft_term_R*wvf_R)
+            pt.add(V1, c_ai, q=q_index)
+            return V1   
 
 
         return apply_potential
@@ -158,11 +153,12 @@ class SternheimerResponse:
         pd2 = self.calc.density.pd2
         pd3 = self.calc.density.pd3
         delta_n_R = pd2.gd.zeros()
-        for deltawf, wf in deltawfs_wfs:
-            deltawf_R = pd.ifft(deltawf)
-            wf_R = pd.ifft(wf)
+        for q_index, sol_list in deltawfs_wfs.items():
+            for deltawf, wf in sol_list:
+                deltawf_R = pd.ifft(deltawf)
+                wf_R = pd.ifft(wf)
 
-            delta_n_R += deltawf_R*wf_R
+                delta_n_R += deltawf_R*wf_R
             
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
 
@@ -222,12 +218,19 @@ class SternheimerResponse:
         iter_max = 500
         current_vector = start_vector
         current_density = -np.ones(start_vector.shape)
+
         for num_iter in range(iter_max):
             potential = potential_generator_function(current_vector)
+
+            #Multiply potential by sqrt(v_c)
 
             deltawfs_wfs = self.solve_sternheimer(potential, qvector)
 
             new_density = self._density_from_wf_pairs(deltawfs_wfs)              
+            
+            #Multiply new_density by v_c and sqrt(v_c)^-1 to get action of epsilon_tilde on potential
+
+            #This should not be called density
             new_density = self.orthogonalize(new_density, found_eigenvectors)
             
             eigenvalue, new_density = eigenpair_extractor(current_density, new_density)
@@ -251,9 +254,38 @@ class SternheimerResponse:
 
 
 
+                                
+            
 
     def _density_from_wf_pairs(self, deltawfs_wfs):
         #TODO add PAW corrections, see 1D code
+        delta_tilde_n_R = self.calc.density.pd2.zeros()
+        correction_R = self.calc.density.pd3.zeros()
+        pt = self.wfs.pt
+        p_overlaps = {}
+        
+        for q_index, sol_list in deltawfs_wfs.items():
+            for deltawf_G, wf_G in sol_list:
+                deltawf_R = self.wfs.pd.ifft(deltawf_G)
+                wf_R = self.wfs.pd.ifft(wf_G)
+
+                delta_tilde_n_R += deltawf_R * wf_R
+
+            deltawfs = np.array([tup[0] for tup in deltawfs_wfs[q_index]])
+            c_ai = pt.integrate(deltawfs, q=q_index)
+            p_overlaps[q_index] = c_ai
+            
+            for a, c_i in c_ai.items():
+                phi_j = 1 #How to get this
+                phit_j = self.wfs.setups[a].basis.phit_j #How to get this as vector
+                correction_R += 2*(0)
+
+
+        fine_delta_tilde_n_R, fine_delta_tilde_n_G = pd2.interpolate(delta_tilde_n_R, self.calc.density.pd3)
+
+
+        raise NotImplementedError
+
         return 2*np.real(reduce(lambda a, b : a + b[1].conj()*b[0], deltawfs_wfs, 0))
             
         
@@ -265,10 +297,11 @@ class SternheimerResponse:
 
         for index, kpt in enumerate(self.wfs.mykpts):            
             solution_pairs[index] = []
+
+
             k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [index])
             assert len(k_plus_q_index) == 1
-            k_plus_q_index = k_plus_q_index[0]
-            k_plus_q_object = self.wfs.mykpts[k_plus_q_index]
+            k_plus_q_object = self.wfs.mykpts[k_plus_q_index[0]]
 
 
             #Do this because shape of wavefunctions is seemingly not constant across kpts
@@ -317,9 +350,10 @@ class SternheimerResponse:
 
     def _apply_LHS_Sternheimer(self, wavefunction, kpt, energy):
         result = np.zeros_like(wavefunction)
-
         
-        result = self._apply_valence_projector(wavefunction, kpt)
+        alpha = 1
+        
+        result = alpha*self._apply_valence_projector(wavefunction, kpt)
         
         result = result + self._apply_hamiltonian(wavefunction, kpt)
         
