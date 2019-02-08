@@ -1376,7 +1376,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}  # type: Dict[Spline, int]
+        splines = {}  # type: dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
