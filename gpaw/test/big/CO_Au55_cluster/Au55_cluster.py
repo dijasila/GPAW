@@ -14,8 +14,7 @@ cluster.center()
 
 kwargs_lcao = dict(mode='lcao',
               #basis='dzp',
-              convergence={'density':0.1, 'energy':0.1}
-              )#poissonsolver=poissonsolver)
+              convergence={'density':0.1, 'energy':0.1})
 
 calc = GPAW(h=0.18,txt=None,**kwargs_lcao)
 cluster.set_calculator(calc)
@@ -44,7 +43,7 @@ dyn4 = BFGSLineSearch(CO)
 dyn4.run(fmax=0.02)
 e_CO_paw = CO.get_potential_energy()
 
-CO_bond = CO.get_positions()[1][2] - CO.get_positions()[0][2] 
+CO_bond = CO.get_positions()[1][2] - CO.get_positions()[0][2]
 
 #Attach CO molecule onto the Au cluster
 pos=[]

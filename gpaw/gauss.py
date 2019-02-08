@@ -6,7 +6,7 @@ import numpy as np
 from gpaw.utilities import erf
 
 
-def I(R, a, b, alpha, beta):
+def I(R, a, b, alpha, beta):  # noqa
     """Calculate integral and derivatives wrt. positions of Gaussian product.
 
     ::
@@ -54,18 +54,18 @@ def I1(R, ap1, b, alpha, beta, m=0):
                                                              T * (5 + 2 * T))
                 if m == 4:
                     return 3.28125 * f1 / T**4 - 0.125 * f2 * \
-                           (52.5 + T * (35 + 2 * T * (7 + 2 * T)))
+                        (52.5 + T * (35 + 2 * T * (7 + 2 * T)))
                 if m == 5:
                     return 14.7656 * f1 / T**5 - 0.03125 * f2 * \
-                           (945 + T * (630 + T * (252 + T * (72 + T * 16))))
+                        (945 + T * (630 + T * (252 + T * (72 + T * 16))))
                 if m == 6:
                     return 81.2109 * f1 / T**6 - 0.015625 * f2 * \
-                           (10395 + T *
-                            (6930 + T *
-                             (2772 + T * (792 + T * (176 + T * 32)))))
+                        (10395 + T *
+                         (6930 + T *
+                          (2772 + T * (792 + T * (176 + T * 32)))))
                 else:
                     raise NotImplementedError
-                
+
             return f / (1 + 2 * m)
     for i in range(3):
         if ap1[i] > 0:
@@ -102,7 +102,7 @@ def test_derivatives(R, a, b, alpha, beta, i):
     R[i] += 0.5 * dr
     return dIdRi, dIdRi2
 
-    
+
 class Gauss:
     """Normalised Gauss distribution
 
@@ -117,24 +117,24 @@ class Gauss:
     def __init__(self, width=0.08):
         self.dtype = float
         self.set_width(width)
-        
+
     def get(self, x, x0=0):
         return self.norm * np.exp(-((x - x0) * self.wm1)**2)
-    
+
     def set_width(self, width=0.08):
         self.norm = 1. / width / np.sqrt(2 * np.pi)
         self.wm1 = np.sqrt(.5) / width
 
-        
+
 class Lorentz:
     """Normalised Lorentz distribution"""
     def __init__(self, width=0.08):
         self.dtype = float
         self.set_width(width)
-        
+
     def get(self, x, x0=0):
         return self.norm / ((x - x0)**2 + self.width2)
-    
+
     def set_width(self, width=0.08):
         self.norm = width / np.pi
         self.width2 = width**2

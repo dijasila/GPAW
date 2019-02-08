@@ -6,6 +6,7 @@ from ase.utils import import_module
 from ase.utils import search_current_git_hash
 
 import gpaw
+import _gpaw
 import gpaw.fftw as fftw
 from gpaw.mpi import rank, have_mpi
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
@@ -29,6 +30,7 @@ def info():
                 githash = '-{:.10}'.format(githash)
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
+    results.append(('libxc-' + _gpaw.libxc_version, ''))
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())

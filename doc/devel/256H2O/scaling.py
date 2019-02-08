@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Emacs: treat this as -*- python -*-
+# flake8: noqa
 from __future__ import print_function
 from optparse import OptionParser
 

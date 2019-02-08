@@ -78,7 +78,6 @@ class ApmB(OmegaMatrix):
             ivo_l = homo - self.xc.excited - 1
         else:
             ivo_l = None
-        
 
         for ij in range(nij):
             print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
@@ -90,7 +89,7 @@ class ApmB(OmegaMatrix):
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -116,7 +115,7 @@ class ApmB(OmegaMatrix):
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
                 pre = self.weight_Kijkq(ij, kq)
 
@@ -235,7 +234,7 @@ class ApmB(OmegaMatrix):
         kss_kq.initialize(self.paw.wfs.kpt_u[spin], k, q)
 
         rhot_p = kss_ij.with_compensation_charges(
-            self.finegrid is not 0)
+            self.finegrid != 0)
         phit_p = np.zeros(rhot_p.shape, rhot_p.dtype)
         if yukawa:
             self.screened_poissonsolver.solve(phit_p, rhot_p, charge=None)
@@ -249,7 +248,7 @@ class ApmB(OmegaMatrix):
             phit = phit_p
 
         rhot = kss_kq.with_compensation_charges(
-            self.finegrid is 2)
+            self.finegrid == 2)
 
         integrals[name] = self.Coulomb_integral_kss(kss_ij, kss_kq,
                                                     phit, rhot,

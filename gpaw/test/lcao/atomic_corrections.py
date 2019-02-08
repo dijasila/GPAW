@@ -37,8 +37,10 @@ for correction in corrections:
                 poissonsolver=PoissonSolver('fd', relax='J', eps=1e100, nn=1),
                 parallel=parallel,
                 h=0.35)
+
     def stopcalc():
         calc.scf.converged = True
+
     calc.attach(stopcalc, 2)
     system.set_calculator(calc)
     energy = system.get_potential_energy()

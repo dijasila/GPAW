@@ -1,5 +1,5 @@
-from gpaw import *
-from ase.io import *
+from gpaw import GPAW
+from ase.io import read
 
 L = 14  # ang
 atoms = read('r-methyl-oxirane.xyz')
