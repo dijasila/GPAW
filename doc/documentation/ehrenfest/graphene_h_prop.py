@@ -15,7 +15,7 @@ traj_file = strbody + '.traj'
 
 # The parallelization options should match the number of cores, here 8.
 p_bands = 2  # number of bands to parallelise over
-dom_dc = (2, 2, 1)  # domain decomposition for parallelization
+dom_dc = (2, 2, 4)  # domain decomposition for parallelization
 parallel = {'band': p_bands, 'domain': dom_dc}
 
 tdcalc = TDDFT(name + '.gpw',
