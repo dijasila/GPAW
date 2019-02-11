@@ -48,11 +48,17 @@ class DirectMinLCAO(DirectLCAO):
             self.lsa['method'] = self.sda['name']
 
         if isinstance(self.representation, basestring):
+            assert self.representation in ['sparse', 'univar', 'full'], \
+                'Value Error'
             self.representation = \
                 xc_string_to_dict(self.representation)
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
+
+        if matrix_exp == 'egdecomp2':
+            assert self.representation['name'] == 'uinvar', \
+                'Use univar representation with egdecomp2'
 
     def __repr__(self):
 
