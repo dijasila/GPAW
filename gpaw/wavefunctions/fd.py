@@ -189,13 +189,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
                 # Calculate PAW projections:
                 nproj_a = [setup.ni for setup in self.setups]
-                kpt2.P = Projections(
+                kpt2.projections = Projections(
                     self.bd.nbands, nproj_a,
-                    kpt.P.atom_partition,
+                    kpt.projections.atom_partition,
                     self.bd.comm,
                     collinear=True, spin=s, dtype=self.dtype)
 
-                kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
+                kpt2.psit.matrix_elements(self.pt, out=kpt2.projections)
                 kpt_u.append(kpt2)
 
         self.kd = kd
