@@ -49,7 +49,7 @@ def expm_ed_unit_inv(a_upp_r):
     psin = np.dot(sqrt_inv_p, sin_sqrt_p)
 
     u_oo = cos_sqrt_p
-    u_vo = - np.dot(a_upp_r.T.conj, psin)
+    u_vo = - np.dot(a_upp_r.T.conj(), psin)
     u_ov = np.dot(psin, a_upp_r)
     dim_v = a_upp_r.shape[1]
     dim_o = a_upp_r.shape[0]
