@@ -191,7 +191,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 nproj_a = [setup.ni for setup in self.setups]
                 kpt2.projections = Projections(
                     self.bd.nbands, nproj_a,
-                    kpt.P.atom_partition,
+                    kpt.projections.atom_partition,
                     self.bd.comm,
                     collinear=True, spin=s, dtype=self.dtype)
 
