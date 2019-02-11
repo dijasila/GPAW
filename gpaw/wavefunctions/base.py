@@ -191,7 +191,7 @@ class WaveFunctions:
                     P = kpt.projections
                     assert self.atom_partition == P.atom_partition
                     kpt.projections = P.redist(atom_partition)
-                    assert atom_partition == P.atom_partition
+                    assert atom_partition == kpt.projections.atom_partition
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
