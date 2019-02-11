@@ -35,7 +35,7 @@ def expm_ed(a_mat, evalevec=False, use_numpy=True):
     return product
 
 
-def expm_ed_unit_inv(a_upp_r):
+def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
     p_nn = np.dot(a_upp_r, a_upp_r.T.conj())
     eigval, evec = np.linalg.eigh(p_nn)
@@ -44,24 +44,26 @@ def expm_ed_unit_inv(a_upp_r):
     sin_sqrt_p = matrix_function(sqrt_eval, evec, np.sin)
     cos_sqrt_p = matrix_function(sqrt_eval, evec, np.cos)
     sqrt_inv_p = matrix_function(1.0 / sqrt_eval, evec)
-    inv_p = matrix_function(1.0 / eigval, evec)
 
     psin = np.dot(sqrt_inv_p, sin_sqrt_p)
-
     u_oo = cos_sqrt_p
     u_vo = - np.dot(a_upp_r.T.conj(), psin)
-    u_ov = np.dot(psin, a_upp_r)
-    dim_v = a_upp_r.shape[1]
-    dim_o = a_upp_r.shape[0]
-    u_vv = np.eye(dim_v) + \
-           a_upp_r.T.conj() @ \
-           (cos_sqrt_p - np.eye(dim_o)) @ inv_p @ a_upp_r
 
-    u = np.vstack([
-        np.hstack([u_oo, u_ov]),
-        np.hstack([u_vo, u_vv])])
+    if not oo_vo_blockonly:
+        inv_p = matrix_function(1.0 / eigval, evec)
+        u_ov = np.dot(psin, a_upp_r)
+        dim_v = a_upp_r.shape[1]
+        dim_o = a_upp_r.shape[0]
+        u_vv = np.eye(dim_v) + \
+               a_upp_r.T.conj() @ \
+               (cos_sqrt_p - np.eye(dim_o)) @ inv_p @ a_upp_r
+        u = np.vstack([
+            np.hstack([u_oo, u_ov]),
+            np.hstack([u_vo, u_vv])])
+    else:
+        u = np.vstack([u_oo, u_vo])
 
-    return u
+    return np.ascontiguousarray(u)
 
 
 def D_matrix(omega):
