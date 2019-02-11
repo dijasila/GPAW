@@ -37,6 +37,19 @@ def expm_ed(a_mat, evalevec=False, use_numpy=True):
 
 def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
 
+    if np.allclose(a_upp_r, np.zeros_like(a_upp_r)):
+        dim_v = a_upp_r.shape[1]
+        dim_o = a_upp_r.shape[0]
+        if not oo_vo_blockonly:
+            dim_v = a_upp_r.shape[1]
+            dim_o = a_upp_r.shape[0]
+
+            return np.eye(dim_o + dim_v, dtype=a_upp_r.dtype)
+        else:
+            return np.vstack([np.eye(dim_o, dtype=a_upp_r.dtype),
+                              np.zeros(shape=(dim_v, dim_o),
+                                       dtype=a_upp_r.dtype)])
+
     p_nn = np.dot(a_upp_r, a_upp_r.T.conj())
     eigval, evec = np.linalg.eigh(p_nn)
     sqrt_eval = np.sqrt(eigval)
