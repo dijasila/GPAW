@@ -68,8 +68,10 @@ def expm_ed_unit_inv(a_upp_r, oo_vo_blockonly=False):
         dim_v = a_upp_r.shape[1]
         dim_o = a_upp_r.shape[0]
         u_vv = np.eye(dim_v) + \
-               a_upp_r.T.conj() @ \
-               (cos_sqrt_p - np.eye(dim_o)) @ inv_p @ a_upp_r
+               np.dot(a_upp_r.T.conj(),
+                      np.dot(np.dot((cos_sqrt_p - np.eye(dim_o)),
+                                     inv_p),
+                             a_upp_r))
         u = np.vstack([
             np.hstack([u_oo, u_ov]),
             np.hstack([u_vo, u_vv])])
