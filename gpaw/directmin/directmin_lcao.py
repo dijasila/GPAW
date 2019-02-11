@@ -20,7 +20,7 @@ class DirectMinLCAO(DirectLCAO):
                  update_ref_orbs_counter=15,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
-                 sparse=True):
+                 representation='sparse'):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -33,7 +33,7 @@ class DirectMinLCAO(DirectLCAO):
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
-        self.sparse = sparse
+        self.representation = representation
         self.iters = 0
         self.name = 'direct_min'
 
@@ -46,6 +46,10 @@ class DirectMinLCAO(DirectLCAO):
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
+
+        if isinstance(self.representation, basestring):
+            self.representation = \
+                xc_string_to_dict(self.representation)
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
@@ -103,7 +107,7 @@ class DirectMinLCAO(DirectLCAO):
         self.evecs = {}   # eigendecomposition for a
         self.evals = {}
 
-        if self.sparse:
+        if self.representation['name'] == 'sparse':
             # we may want to use different shapes for different
             # kpts, for example metals or sic, but later..
 
@@ -141,11 +145,11 @@ class DirectMinLCAO(DirectLCAO):
             # let's take all upper triangular indices of A_BigMatrix
             ind_up = np.triu_indices(M, 1)
             # and then delete indices from ind_up
-            # which correspond to 0 matrix in A_BigMatrix
+            # which correspond to 0 matrix in A_BigMatrix.
             # N_e - number of valence electrons
-            N_e = self.nvalence = wfs.nvalence
+            N_e = wfs.nvalence
             # remember spin degeneracy.
-            N_deg = N_e // (3 - wfs.nspins) + N_e % (3 - wfs.nspins)
+            N_deg = N_e // 2 + N_e % 2
             zero_ind = (M - N_deg) * (M - N_deg - 1) // 2
             self.ind_up = (ind_up[0][:-zero_ind].copy(),
                            ind_up[1][:-zero_ind].copy())
@@ -153,7 +157,7 @@ class DirectMinLCAO(DirectLCAO):
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            if self.sparse:
+            if self.representation['name'] == 'sparse':
                 shape_of_arr = len(self.ind_up[0])
             else:
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
@@ -238,7 +242,7 @@ class DirectMinLCAO(DirectLCAO):
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
         for k in g_mat_u.keys():
-            if self.sparse:
+            if self.representation['name'] == 'sparse':
                 der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
                                         p_mat_u[k]).real
             else:
@@ -304,7 +308,7 @@ class DirectMinLCAO(DirectLCAO):
                 continue
 
             if self.gd.comm.rank == 0:
-                if self.sparse:
+                if self.representation['name'] == 'sparse':
                     a = np.zeros(shape=(n_dim[k], n_dim[k]),
                                  dtype=self.dtype)
                     a[self.ind_up] = a_mat_u[k]
@@ -462,7 +466,7 @@ class DirectMinLCAO(DirectLCAO):
 
         if self.dtype == float:
             grad = grad.real
-        if self.sparse:
+        if self.representation['name'] == 'sparse':
             grad = grad[self.ind_up]
         timer.stop('Construct Gradient Matrix')
 
@@ -470,7 +474,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
-        if self.sparse:
+        if self.representation['name'] == 'sparse':
             p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
                                                         g_mat_u,
                                                         precond)
@@ -521,7 +525,7 @@ class DirectMinLCAO(DirectLCAO):
             pass
 
         der_phi = 0.0
-        if self.sparse:
+        if self.representation['name'] == 'sparse':
             for k in p_mat_u.keys():
                 der_phi += np.dot(g_mat_u[k].conj(),
                                   p_mat_u[k]).real
@@ -617,7 +621,7 @@ class DirectMinLCAO(DirectLCAO):
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.sparse:
+        if self.representation['name'] == 'sparse':
             il1 = list(self.ind_up)
         else:
             il1 = get_indices(eps_n.shape[0], self.dtype)
@@ -669,20 +673,20 @@ class DirectMinLCAO(DirectLCAO):
     def todict(self):
 
         return {'name': 'direct_min_lcao',
-                'search_direction_algorithm': self.sda,
-                'line_search_algorithm': self.lsa,
+                'searchdir_algo': self.sda,
+                'linesearch_algo': self.lsa,
                 'initial_orbitals': 'KS',
                 'initial_rotation':'zero',
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
-                'sparse': self.sparse}
+                'representation': self.representation}
 
     def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
                                 c_nm_ref, eps=1.0e-7):
 
-        assert not self.sparse
+        assert not self.representation['name'] == 'sparse'
         a_m = {}
         g_n = {}
         if self.matrix_exp == 'pade_approx':
