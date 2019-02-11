@@ -17,7 +17,7 @@ class DirectMinLCAO(DirectLCAO):
                  linesearch_algo='SwcAwc',
                  initial_orbitals='KS',  # not used right now
                  initial_rotation='zero',  # not used right now
-                 update_ref_orbs_counter=15,
+                 update_ref_orbs_counter=20,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse'):
