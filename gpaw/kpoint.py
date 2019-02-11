@@ -82,7 +82,7 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.P = None
+        self.projections = None  # Projections
 
         # Only one of these two will be used:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
@@ -95,8 +95,8 @@ class KPoint:
 
     @property
     def P_ani(self):
-        if self.P is not None:
-            return {a: P_ni for a, P_ni in self.P.items()}
+        if self.projections is not None:
+            return {a: P_ni for a, P_ni in self.projections.items()}
 
     @property
     def psit_nG(self):
