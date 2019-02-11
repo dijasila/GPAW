@@ -1,7 +1,7 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import D_matrix, expm_ed
+from gpaw.directmin.tools import D_matrix, expm_ed, expm_ed_unit_inv
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
@@ -191,6 +191,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.iters = 1
         self.nvalence = wfs.nvalence
+        self.nbands = wfs.bd.nbands
         self.kd_comm = wfs.kd.comm
         self.hess = {}  # hessian for LBFGS-P
         self.precond = {}  # precondiner for other methods
@@ -314,64 +315,7 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        wfs.timer.start('Unitary rotation')
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            if n_dim[k] == 0:
-                continue
-
-            if self.gd.comm.rank == 0:
-                if self.representation['name'] in ['sparse', 'uinvar']:
-                    a = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                 dtype=self.dtype)
-                    a[self.ind_up[k]] = a_mat_u[k]
-                    a += -a.T.conj()
-                else:
-                    a = a_mat_u[k]
-
-                if self.matrix_exp == 'pade_approx':
-                    # this function takes a lot of memory
-                    # for large matrices... what can we do?
-                    wfs.timer.start('Pade Approximants')
-                    u_nn = expm(a)
-                    wfs.timer.stop('Pade Approximants')
-                elif self.matrix_exp == 'eigendecomposition':
-                    # this method is based on diagonalisation
-                    wfs.timer.start('Eigendecomposition')
-                    u_nn, evecs, evals =\
-                        expm_ed(a, evalevec=True)
-                    wfs.timer.stop('Eigendecomposition')
-                else:
-                    raise ValueError('Check the keyword '
-                                     'for matrix_exp. \n'
-                                     'Must be '
-                                     '\'pade_approx\' or '
-                                     '\'eigendecomposition\'')
-
-                kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
-                                             c_nm_ref[k][:n_dim[k]])
-                del u_nn
-                del a
-
-            wfs.timer.start('Broadcast coefficients')
-            self.gd.comm.broadcast(kpt.C_nM, 0)
-            wfs.timer.stop('Broadcast coefficients')
-
-            if self.matrix_exp == 'eigendecomposition':
-                wfs.timer.start('Broadcast evecs and evals')
-                if self.gd.comm.rank != 0:
-                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                     dtype=complex)
-                    evals = np.zeros(shape=n_dim[k],
-                                     dtype=float)
-
-                self.gd.comm.broadcast(evecs, 0)
-                self.gd.comm.broadcast(evals, 0)
-                self.evecs[k], self.evals[k] = evecs, evals
-                wfs.timer.stop('Broadcast evecs and evals')
-
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
-        wfs.timer.stop('Unitary rotation')
+        self.rotate_wavefunctions(wfs, a_mat_u, n_dim, c_nm_ref)
 
         e_total = self.update_ks_energy(ham, wfs, dens, occ)
 
@@ -451,7 +395,7 @@ class DirectMinLCAO(DirectLCAO):
         # continue with gradients
         timer.start('Construct Gradient Matrix')
         h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
-        if self.matrix_exp == 'pade_approx':
+        if self.matrix_exp in ['pade_approx', 'egdecomp2']:
             # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
@@ -462,7 +406,7 @@ class DirectMinLCAO(DirectLCAO):
             # grad = grad @ u.T.conj()
             # timer.stop('Frechet derivative')
             grad = np.ascontiguousarray(h_mm)
-        elif self.matrix_exp == 'eigendecomposition':
+        elif self.matrix_exp == 'egdecomp':
             timer.start('Use Eigendecomposition')
             grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
             grad = grad * D_matrix(evals)
@@ -475,7 +419,7 @@ class DirectMinLCAO(DirectLCAO):
                              'for matrix_exp. \n'
                              'Must be '
                              '\'pade_approx\' or '
-                             '\'eigendecomposition\'')
+                             '\'egdecomp\'')
 
         if self.dtype == float:
             grad = grad.real
@@ -717,7 +661,7 @@ class DirectMinLCAO(DirectLCAO):
             if self.matrix_exp == 'pade_approx':
                 a_m[u] = np.zeros_like(self.a_mat_u[u])
                 c_nm_ref[u] = np.dot(u_nn.T, kpt.C_nM[:u_nn.shape[0]])
-            elif self.matrix_exp == 'eigendecomposition':
+            elif self.matrix_exp == 'egdecomp':
                 a_m[u] = a
 
         g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
@@ -765,6 +709,82 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_a, g_n
 
+    def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
+
+        wfs.timer.start('Unitary rotation')
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            if n_dim[k] == 0:
+                continue
+
+            if self.gd.comm.rank == 0:
+                if self.representation['name'] in ['sparse', 'uinvar']:
+                    if self.matrix_exp == 'egdecomp2' and \
+                            self.representation['name'] == 'uinvar':
+                        n_occ = get_n_occ(kpt)
+                        n_v = self.nbands - n_occ
+                        a = a_mat_u[k].reshape(n_occ, n_v)
+                    else:
+                        a = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=self.dtype)
+                        a[self.ind_up[k]] = a_mat_u[k]
+                        a += -a.T.conj()
+                else:
+                    a = a_mat_u[k]
+
+                if self.matrix_exp == 'pade_approx':
+                    # this function takes a lot of memory
+                    # for large matrices... what can we do?
+                    wfs.timer.start('Pade Approximants')
+                    u_nn = expm(a)
+                    wfs.timer.stop('Pade Approximants')
+                elif self.matrix_exp == 'egdecomp':
+                    # this method is based on diagonalisation
+                    wfs.timer.start('Eigendecomposition')
+                    u_nn, evecs, evals = \
+                        expm_ed(a, evalevec=True)
+                    wfs.timer.stop('Eigendecomposition')
+                elif self.matrix_exp == 'egdecomp2':
+                    assert self.representation['name'] == 'uinvar'
+                    wfs.timer.start('Eigendecomposition')
+                    u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
+                    wfs.timer.stop('Eigendecomposition')
+
+                else:
+                    raise ValueError('Check the keyword '
+                                     'for matrix_exp. \n'
+                                     'Must be '
+                                     '\'pade_approx\' or '
+                                     '\'egdecomp\'')
+
+                dimens1 = u_nn.shape[0]
+                dimens2 = u_nn.shape[1]
+                kpt.C_nM[:dimens2] = np.dot(u_nn.T,
+                                             c_nm_ref[k][:dimens1])
+
+                del u_nn
+                del a
+
+            wfs.timer.start('Broadcast coefficients')
+            self.gd.comm.broadcast(kpt.C_nM, 0)
+            wfs.timer.stop('Broadcast coefficients')
+
+            if self.matrix_exp == 'egdecomp':
+                wfs.timer.start('Broadcast evecs and evals')
+                if self.gd.comm.rank != 0:
+                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=complex)
+                    evals = np.zeros(shape=n_dim[k],
+                                     dtype=float)
+
+                self.gd.comm.broadcast(evecs, 0)
+                self.gd.comm.broadcast(evals, 0)
+                self.evecs[k], self.evals[k] = evecs, evals
+                wfs.timer.stop('Broadcast evecs and evals')
+
+            wfs.atomic_correction.calculate_projections(wfs, kpt)
+
+        wfs.timer.stop('Unitary rotation')
 
 def get_indices(dimens, dtype):
 
