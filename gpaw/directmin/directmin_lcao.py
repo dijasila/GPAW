@@ -108,8 +108,6 @@ class DirectMinLCAO(DirectLCAO):
         self.evals = {}
 
         if self.representation['name'] == 'sparse':
-            # we may want to use different shapes for different
-            # kpts, for example metals or sic, but later..
 
             # Matrices are sparse and Skew-Hermitian.
             # They have this structure:
@@ -147,18 +145,23 @@ class DirectMinLCAO(DirectLCAO):
             # and then delete indices from ind_up
             # which correspond to 0 matrix in A_BigMatrix.
             # N_e - number of valence electrons
-            N_e = wfs.nvalence
-            # remember spin degeneracy.
-            N_deg = N_e // 2 + N_e % 2
-            zero_ind = (M - N_deg) * (M - N_deg - 1) // 2
-            self.ind_up = (ind_up[0][:-zero_ind].copy(),
-                           ind_up[1][:-zero_ind].copy())
+            self.ind_up = {}
+            for kpt in wfs.kpt_u:
+                nbands = len(kpt.f_n)
+                n_occ = 0
+                while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+                    n_occ += 1
+
+                u = self.n_kps * kpt.s + kpt.q
+                zero_ind = (M - n_occ) * (M - n_occ - 1) // 2
+                self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
+                                  ind_up[1][:-zero_ind].copy())
             del ind_up
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
             if self.representation['name'] == 'sparse':
-                shape_of_arr = len(self.ind_up[0])
+                shape_of_arr = len(self.ind_up[u][0])
             else:
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
 
@@ -311,7 +314,7 @@ class DirectMinLCAO(DirectLCAO):
                 if self.representation['name'] == 'sparse':
                     a = np.zeros(shape=(n_dim[k], n_dim[k]),
                                  dtype=self.dtype)
-                    a[self.ind_up] = a_mat_u[k]
+                    a[self.ind_up[k]] = a_mat_u[k]
                     a += -a.T.conj()
                 else:
                     a = a_mat_u[k]
@@ -467,7 +470,8 @@ class DirectMinLCAO(DirectLCAO):
         if self.dtype == float:
             grad = grad.real
         if self.representation['name'] == 'sparse':
-            grad = grad[self.ind_up]
+            u = self.n_kps * kpt.s + kpt.q
+            grad = grad[self.ind_up[u]]
         timer.stop('Construct Gradient Matrix')
 
         return 2.0 * grad, error
@@ -622,7 +626,8 @@ class DirectMinLCAO(DirectLCAO):
         f_n = kpt.f_n
         eps_n = kpt.eps_n
         if self.representation['name'] == 'sparse':
-            il1 = list(self.ind_up)
+            u = self.n_kps * kpt.s + kpt.q
+            il1 = list(self.ind_up[u])
         else:
             il1 = get_indices(eps_n.shape[0], self.dtype)
             il1 = list(il1)
