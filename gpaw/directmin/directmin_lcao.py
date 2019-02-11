@@ -107,8 +107,7 @@ class DirectMinLCAO(DirectLCAO):
         self.evecs = {}   # eigendecomposition for a
         self.evals = {}
 
-        if self.representation['name'] == 'sparse':
-
+        if self.representation['name'] in ['sparse', 'uinvar']:
             # Matrices are sparse and Skew-Hermitian.
             # They have this structure:
             #  A_BigMatrix =
@@ -130,37 +129,48 @@ class DirectMinLCAO(DirectLCAO):
             #
             # We will keep A_1 as we would like to work with metals,
             # SIC, and molecules with different occupation numbers.
+            # this corresponds to 'sparse' representation
             #
-            # Thus, we need to store upper triangular part of A_1,
-            # and matrix A_2, so in total
+            # Thus, for the 'sparse' we need to store upper
+            # triangular part of A_1, and matrix A_2, so in total
             # (M-N) * N + N * (N - 1)/2 = N * (M - (N + 1)/2) elements
             #
             # we will store these elements as a vector and
             # also will store indices of the A_BigMatrix
             # which correspond to these elements.
+            #
+            # 'uinvar' corresponds to the case when we want to
+            # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
             # let's take all upper triangular indices of A_BigMatrix
             ind_up = np.triu_indices(M, 1)
-            # and then delete indices from ind_up
-            # which correspond to 0 matrix in A_BigMatrix.
-            # N_e - number of valence electrons
             self.ind_up = {}
             for kpt in wfs.kpt_u:
-                nbands = len(kpt.f_n)
-                n_occ = 0
-                while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-                    n_occ += 1
-
+                n_occ = get_n_occ(kpt)
                 u = self.n_kps * kpt.s + kpt.q
-                zero_ind = (M - n_occ) * (M - n_occ - 1) // 2
-                self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
-                                  ind_up[1][:-zero_ind].copy())
-            del ind_up
+                if self.representation['name'] == 'sparse':
+                    # and then delete indices from ind_up
+                    # which correspond to 0 matrix in in A_BigMatrix.
+                    zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
+                    self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
+                                      ind_up[1][:-zero_ind].copy())
+
+                else:
+                    # take indices of A_2 only
+                    i1 = []
+                    i2 = []
+                    for i in range(n_occ):
+                        for j in range(n_occ, M):
+                            i1.append(i)
+                            i2.append(j)
+                    self.ind_up[u] = (np.asarray(i1),
+                                      np.asarray(i2))
+            del  ind_up
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            if self.representation['name'] == 'sparse':
+            if self.representation['name'] in ['sparse', 'uinvar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
@@ -245,7 +255,7 @@ class DirectMinLCAO(DirectLCAO):
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
         for k in g_mat_u.keys():
-            if self.representation['name'] == 'sparse':
+            if self.representation['name'] in ['sparse', 'uinvar']:
                 der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
                                         p_mat_u[k]).real
             else:
@@ -311,7 +321,7 @@ class DirectMinLCAO(DirectLCAO):
                 continue
 
             if self.gd.comm.rank == 0:
-                if self.representation['name'] == 'sparse':
+                if self.representation['name'] in ['sparse', 'uinvar']:
                     a = np.zeros(shape=(n_dim[k], n_dim[k]),
                                  dtype=self.dtype)
                     a[self.ind_up[k]] = a_mat_u[k]
@@ -469,7 +479,7 @@ class DirectMinLCAO(DirectLCAO):
 
         if self.dtype == float:
             grad = grad.real
-        if self.representation['name'] == 'sparse':
+        if self.representation['name'] in ['sparse', 'uinvar']:
             u = self.n_kps * kpt.s + kpt.q
             grad = grad[self.ind_up[u]]
         timer.stop('Construct Gradient Matrix')
@@ -478,7 +488,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
-        if self.representation['name'] == 'sparse':
+        if self.representation['name'] in ['sparse', 'uinvar']:
             p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
                                                         g_mat_u,
                                                         precond)
@@ -529,7 +539,7 @@ class DirectMinLCAO(DirectLCAO):
             pass
 
         der_phi = 0.0
-        if self.representation['name'] == 'sparse':
+        if self.representation['name'] in ['sparse', 'uinvar']:
             for k in p_mat_u.keys():
                 der_phi += np.dot(g_mat_u[k].conj(),
                                   p_mat_u[k]).real
@@ -625,7 +635,7 @@ class DirectMinLCAO(DirectLCAO):
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.representation['name'] == 'sparse':
+        if self.representation['name'] in ['sparse', 'uinvar']:
             u = self.n_kps * kpt.s + kpt.q
             il1 = list(self.ind_up[u])
         else:
@@ -691,7 +701,7 @@ class DirectMinLCAO(DirectLCAO):
     def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
                                 c_nm_ref, eps=1.0e-7):
 
-        assert not self.representation['name'] == 'sparse'
+        assert not self.representation['name'] in ['sparse', 'uinvar']
         a_m = {}
         g_n = {}
         if self.matrix_exp == 'pade_approx':
@@ -764,3 +774,11 @@ def get_indices(dimens, dtype):
         il1 = np.tril_indices(dimens, -1)
 
     return il1
+
+
+def get_n_occ(kpt):
+    nbands = len(kpt.f_n)
+    n_occ = 0
+    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+        n_occ += 1
+    return  n_occ
