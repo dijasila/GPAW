@@ -48,7 +48,7 @@ class DirectMinLCAO(DirectLCAO):
             self.lsa['method'] = self.sda['name']
 
         if isinstance(self.representation, basestring):
-            assert self.representation in ['sparse', 'univar', 'full'], \
+            assert self.representation in ['sparse', 'u_invar', 'full'], \
                 'Value Error'
             self.representation = \
                 xc_string_to_dict(self.representation)
@@ -57,8 +57,8 @@ class DirectMinLCAO(DirectLCAO):
             raise ValueError('Use LBFGS_P with use_prec=True')
 
         if matrix_exp == 'egdecomp2':
-            assert self.representation['name'] == 'uinvar', \
-                'Use univar representation with egdecomp2'
+            assert self.representation['name'] == 'u_invar', \
+                'Use u_invar representation with egdecomp2'
 
     def __repr__(self):
 
@@ -113,7 +113,7 @@ class DirectMinLCAO(DirectLCAO):
         self.evecs = {}   # eigendecomposition for a
         self.evals = {}
 
-        if self.representation['name'] in ['sparse', 'uinvar']:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             # Matrices are sparse and Skew-Hermitian.
             # They have this structure:
             #  A_BigMatrix =
@@ -145,7 +145,7 @@ class DirectMinLCAO(DirectLCAO):
             # also will store indices of the A_BigMatrix
             # which correspond to these elements.
             #
-            # 'uinvar' corresponds to the case when we want to
+            # 'u_invar' corresponds to the case when we want to
             # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
@@ -176,7 +176,7 @@ class DirectMinLCAO(DirectLCAO):
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            if self.representation['name'] in ['sparse', 'uinvar']:
+            if self.representation['name'] in ['sparse', 'u_invar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
@@ -262,7 +262,7 @@ class DirectMinLCAO(DirectLCAO):
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
         for k in g_mat_u.keys():
-            if self.representation['name'] in ['sparse', 'uinvar']:
+            if self.representation['name'] in ['sparse', 'u_invar']:
                 der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
                                         p_mat_u[k]).real
             else:
@@ -429,7 +429,7 @@ class DirectMinLCAO(DirectLCAO):
 
         if self.dtype == float:
             grad = grad.real
-        if self.representation['name'] in ['sparse', 'uinvar']:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             u = self.n_kps * kpt.s + kpt.q
             grad = grad[self.ind_up[u]]
         timer.stop('Construct Gradient Matrix')
@@ -438,7 +438,7 @@ class DirectMinLCAO(DirectLCAO):
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
-        if self.representation['name'] in ['sparse', 'uinvar']:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
                                                         g_mat_u,
                                                         precond)
@@ -489,7 +489,7 @@ class DirectMinLCAO(DirectLCAO):
             pass
 
         der_phi = 0.0
-        if self.representation['name'] in ['sparse', 'uinvar']:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             for k in p_mat_u.keys():
                 der_phi += np.dot(g_mat_u[k].conj(),
                                   p_mat_u[k]).real
@@ -585,7 +585,7 @@ class DirectMinLCAO(DirectLCAO):
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.representation['name'] in ['sparse', 'uinvar']:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             u = self.n_kps * kpt.s + kpt.q
             il1 = list(self.ind_up[u])
         else:
@@ -651,7 +651,7 @@ class DirectMinLCAO(DirectLCAO):
     def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
                                 c_nm_ref, eps=1.0e-7):
 
-        assert not self.representation['name'] in ['sparse', 'uinvar']
+        assert not self.representation['name'] in ['sparse', 'u_invar']
         a_m = {}
         g_n = {}
         if self.matrix_exp == 'pade_approx':
@@ -724,9 +724,9 @@ class DirectMinLCAO(DirectLCAO):
                 continue
 
             if self.gd.comm.rank == 0:
-                if self.representation['name'] in ['sparse', 'uinvar']:
+                if self.representation['name'] in ['sparse', 'u_invar']:
                     if self.matrix_exp == 'egdecomp2' and \
-                            self.representation['name'] == 'uinvar':
+                            self.representation['name'] == 'u_invar':
                         n_occ = get_n_occ(kpt)
                         n_v = self.nbands - n_occ
                         a = a_mat_u[k].reshape(n_occ, n_v)
@@ -751,7 +751,7 @@ class DirectMinLCAO(DirectLCAO):
                         expm_ed(a, evalevec=True)
                     wfs.timer.stop('Eigendecomposition')
                 elif self.matrix_exp == 'egdecomp2':
-                    assert self.representation['name'] == 'uinvar'
+                    assert self.representation['name'] == 'u_invar'
                     wfs.timer.start('Eigendecomposition')
                     u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
                     wfs.timer.stop('Eigendecomposition')
