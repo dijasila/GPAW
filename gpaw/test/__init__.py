@@ -96,6 +96,7 @@ tests = [
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
+    'pd_occ.py',
     'lfc/lf.py',
     'maths/fsbt.py',
     'parallel/compare.py',
