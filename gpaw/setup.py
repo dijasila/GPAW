@@ -96,6 +96,30 @@ def create_setup(symbol, xc='LDA', lmax=0,
         return setupdata
 
 
+def correct_occ_numbers(f_j,
+                        degeneracy_j,
+                        eps_j,
+                        correction: float,
+                        eps=1e-12) -> None:
+    """Correct f_j ndarray in-place."""
+    if correction > 0:
+        # Add electrons to the lowest eigenstates:
+        for j in eps_j.argsort():
+            c = min(correction, degeneracy_j[j] - f_j[j])
+            f_j[j] += c
+            correction -= c
+            if correction < eps:
+                break
+    elif correction < 0:
+        # Add electrons to the highest eigenstates:
+        for j in eps_j.argsort()[::-1]:
+            c = min(-correction, f_j[j])
+            f_j[j] -= c
+            correction += c
+            if correction > -eps:
+                break
+
+
 class LocalCorrectionVar:
     """Class holding data for local the calculation of local corr."""
     def __init__(self, s=None):
@@ -158,44 +182,22 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
+
+        if hasattr(self.data, 'eps_j'):
+            eps_j = np.array(self.data.eps_j)
+        else:
+            eps_j = np.arange(len(l_j))
+
+        deg_j = 2 * l_j + 1
         if len(l_j) == 0:
             l_j = np.ones(1)
 
-        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
-            nj = len(f_j)
-            # correct for the charge
-            if charge >= 0:
-                # reduce the higher levels first
-                for j in range(nj - 1, -1, -1):
-                    f = f_j[j]
-                    if use_complete or f < degeneracy_j[j]:
-                        c = min(f, charge)
-                        f_j[j] -= c
-                        charge -= c
-            else:
-                # add to the lower levels first
-                for j in range(nj):
-                    f = f_j[j]
-                    if use_complete or f > 0:
-                        c = min(degeneracy_j[j] - f, -charge)
-                        f_j[j] += c
-                        charge += c
-            if charge != 0 and c != 0:
-                correct_for_charge(f_j, charge, degeneracy_j, True)
-            elif charge != 0 and c == 0:
-                # print('Stopping electron distribution, ran out of '
-                #       'projector functions to fill.')
-                # Then there are more electrons in the
-                # calculation than can be distributed over the
-                # atomic projector functions. Leave remaining density
-                # undistributed.
-                return
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
             if not self.orbital_free:
-                correct_for_charge(f_sj[0], charge, 2 * (2 * l_j + 1))
+                correct_occ_numbers(f_sj[0], 2 * deg_j, eps_j, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
                 f_sj[0] += -charge
@@ -207,11 +209,9 @@ class BaseSetup:
                                    (magmom, nval))
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
-            ndown = 0.5 * (nval - magmom)
-            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
-                               2 * l_j + 1, False)
-            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
-                               2 * l_j + 1, False)
+            ndn = 0.5 * (nval - magmom)
+            correct_occ_numbers(f_sj[0], deg_j, eps_j, nup - f_sj[0].sum())
+            correct_occ_numbers(f_sj[1], deg_j, eps_j, ndn - f_sj[1].sum())
 
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
@@ -256,7 +256,7 @@ class BaseSetup:
                              % (magmom, self.symbol))
         assert i == nao
 
-#        print "fsi=", f_si
+        # print('fsi=', f_si)
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
