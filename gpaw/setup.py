@@ -96,21 +96,27 @@ def create_setup(symbol, xc='LDA', lmax=0,
         return setupdata
 
 
-def correct_occ_numbers(f_j, degeneracy_j, eps_j,
-                        correction: float) -> None:
+def correct_occ_numbers(f_j,
+                        degeneracy_j,
+                        eps_j,
+                        correction: float,
+                        eps=1e-12) -> None:
+    """Correct f_j ndarray in-place."""
     if correction > 0:
+        # Add electrons to the lowest eigenstates:
         for j in eps_j.argsort():
             c = min(correction, degeneracy_j[j] - f_j[j])
             f_j[j] += c
             correction -= c
-            if correction == 0:
+            if correction < eps:
                 break
     elif correction < 0:
+        # Add electrons to the highest eigenstates:
         for j in eps_j.argsort()[::-1]:
             c = min(-correction, f_j[j])
             f_j[j] -= c
             correction += c
-            if correction == 0:
+            if correction > -eps:
                 break
 
 
@@ -176,7 +182,12 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
-        eps_j = np.array(self.data.eps_j)
+
+        if hasattr(self.data, 'eps_j'):
+            eps_j = np.array(self.data.eps_j)
+        else:
+            eps_j = np.arange(len(l_j))
+
         deg_j = 2 * l_j + 1
         if len(l_j) == 0:
             l_j = np.ones(1)
@@ -245,7 +256,7 @@ class BaseSetup:
                              % (magmom, self.symbol))
         assert i == nao
 
-#        print "fsi=", f_si
+        # print('fsi=', f_si)
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
