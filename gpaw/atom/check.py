@@ -1,5 +1,4 @@
 import optparse
-import sys
 import traceback
 from pathlib import Path
 
@@ -15,7 +14,7 @@ from gpaw import GPAW, PW
 cutoffs = [200, 250, 300, 400, 500, 600, 700, 800, 1500]
 
 
-def check(con, name):
+def check(con, name: str, lcao=True):
     params = dict(xc='PBE',
                   symmetry='off')
 
@@ -67,17 +66,18 @@ def check(con, name):
         con.write(atoms, name=name, test='fd1', gpts=g)
         del con[id]
 
-    for g in [20, 24, 28]:
-        id = con.reserve(name=name, test='lcao1', gpts=g)
-        if id is None:
-            continue
-        atoms.calc = GPAW(gpts=(g, g, g),
-                          mode='lcao', basis='dzp',
-                          txt='{}-lcao-{}.txt'.format(name, g),
-                          **params)
-        atoms.get_potential_energy()
-        con.write(atoms, name=name, test='lcao1', gpts=g)
-        del con[id]
+    if lcao:
+        for g in [20, 24, 28]:
+            id = con.reserve(name=name, test='lcao1', gpts=g)
+            if id is None:
+                continue
+            atoms.calc = GPAW(gpts=(g, g, g),
+                              mode='lcao', basis='dzp',
+                              txt='{}-lcao-{}.txt'.format(name, g),
+                              **params)
+            atoms.get_potential_energy()
+            con.write(atoms, name=name, test='lcao1', gpts=g)
+            del con[id]
 
     Z = atomic_numbers[symbol]
     d = 2 * covalent_radii[Z]
@@ -115,17 +115,18 @@ def check(con, name):
         con.write(atoms, name=name, test='fd2', gpts=g)
         del con[id]
 
-    for g in [20, 24, 28]:
-        id = con.reserve(name=name, test='lcao2', gpts=g)
-        if id is None:
-            continue
-        atoms.calc = GPAW(gpts=(g, g, 2 * g),
-                          mode='lcao', basis='dzp',
-                          txt='{}2-lcao-{}.txt'.format(name, g),
-                          **params)
-        atoms.get_potential_energy()
-        con.write(atoms, name=name, test='lcao2', gpts=g)
-        del con[id]
+    if lcao:
+        for g in [20, 24, 28]:
+            id = con.reserve(name=name, test='lcao2', gpts=g)
+            if id is None:
+                continue
+            atoms.calc = GPAW(gpts=(g, g, 2 * g),
+                              mode='lcao', basis='dzp',
+                              txt='{}2-lcao-{}.txt'.format(name, g),
+                              **params)
+            atoms.get_potential_energy()
+            con.write(atoms, name=name, test='lcao2', gpts=g)
+            del con[id]
 
 
 def solve(energies, de):
@@ -199,6 +200,7 @@ def main():
     parser.add_option('-s', '--summary', action='store_true')
     parser.add_option('-v', '--verbose', action='store_true')
     parser.add_option('-p', '--plot', action='store_true')
+    parser.add_option('-l', '--lcao', action='store_true')
     parser.add_option('-d', '--database', default='check.db')
     parser.add_option('--datasets', default='.')
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
@@ -243,12 +245,7 @@ def main():
         plt.show()
     else:
         for name in names:
-            print(name)
-            try:
-                check(con, name)
-            except Exception:
-                print(name)
-                traceback.print_exc(file=sys.stdout)
+            check(con, name, opts.lcao)
 
 
 if __name__ == '__main__':
