@@ -32,5 +32,3 @@ try:
     atoms.get_potential_energy()
 except ConvergenceError:
     pass
-e = calc.hamiltonian.e_total_free
-equal(e, -0.37233154327, 0.00001)

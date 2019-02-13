@@ -83,13 +83,13 @@ wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
-test_mw1 = 248.822795658  # meV
+test_mw1 = 253.8  # meV
 test_mw2 = 399.3  # meV
 test_Ipeak1 = 66.5595189306  # a.u.
 test_Ipeak2 = 54.9375540086  # a.u.
 
 # Magnon peak:
-equal(test_mw1, mw1, eta * 100)
+equal(test_mw1, mw1, eta * 200)
 equal(test_mw2, mw2, eta * 150)
 
 # Scattering function intensity:
