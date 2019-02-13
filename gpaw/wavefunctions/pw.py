@@ -503,6 +503,9 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        if (pd.gd.N_c <= self.gd.N_c).any():
+            raise ValueError('Too few points in target grid!')
+
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -1376,7 +1379,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}  # type: Dict[Spline, int]
+        splines = {}  # Dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
@@ -1392,7 +1395,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()  # type: Set[Spline]
+        done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index

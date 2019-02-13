@@ -342,7 +342,7 @@ def md5_array(data, numeric=False):
     datahash = hashlib.md5(data.tostring())
 
     if numeric:
-        xor = lambda a,b: chr(ord(a)^ord(b)) # bitwise xor on 2 bytes -> 1 byte
+        xor = lambda a,b: chr(ord(a) ^ ord(b)) # bitwise xor on 2 bytes -> 1 byte
         sbuf128 = datahash.digest()
         sbuf64 = ''.join([xor(a,b) for a,b in zip(sbuf128[::2],sbuf128[1::2])])
         return np.fromstring(sbuf64, np.int64).item()

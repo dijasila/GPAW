@@ -1,12 +1,8 @@
-from ase import *
-from ase.io import *
-from ase.parallel import parprint
+from gpaw import GPAW
+from gpaw.poisson import PoissonSolver
+from gpaw.mpi import world, size
 
-from gpaw import *
-from gpaw.poisson import *
-from gpaw.mpi import world, size, rank
-
-from gpaw.lrtddft2 import *
+from gpaw.lrtddft2 import LrTDDFT2
 from gpaw.lrtddft2.lr_communicators import LrCommunicators
 
 # atoms, gs_calc = restart('r-methyl-oxirane.gpw')

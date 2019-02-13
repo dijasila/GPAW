@@ -9,6 +9,7 @@
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+#include <xc.h>
 
 #define PY3 (PY_MAJOR_VERSION >= 3)
 
@@ -398,6 +399,10 @@ static PyObject* moduleinit(void)
     Py_INCREF(&GPAW_MPI_Request_type);
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
+
+    PyObject_SetAttrString(m,
+                           "libxc_version",
+                           PyUnicode_FromString(xc_version_string()));
 
     Py_INCREF(&LFCType);
     Py_INCREF(&LocalizedFunctionsType);

@@ -75,7 +75,7 @@ Optional, but highly recommended:
 .. _Python: http://www.python.org/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc
+.. _LibXC: http://www.tddft.org/programs/libxc/
 .. _MPI: http://www.mpi-forum.org/
 .. _BLAS: http://www.netlib.org/blas/
 .. _BLACS: http://www.netlib.org/blacs/
@@ -272,9 +272,9 @@ instead.  The name of the FFTW shared library can also be set via the
 Libxc Installation
 ==================
 
-If you OS does not have a LibXC_ package you can use then you can download
-and install LibXC_ as described `here
-<http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A
+If you OS does not have a LibXC package you can use then you can download
+and install LibXC as described `here
+<http://www.tddft.org/programs/libxc/>`_.  A
 few extra tips:
 
 * Libxc installation requires both a C compiler and a fortran compiler.
@@ -289,29 +289,30 @@ few extra tips:
 * Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/4.0.1/install/lib']
-    include_dirs += ['/my/path/to/libxc/4.0.1/install/include']
+    library_dirs += ['/my/path/to/libxc/4.2.3/install/lib']
+    include_dirs += ['/my/path/to/libxc/4.2.3/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
 
-    export C_INCLUDE_PATH=/my/path/to/libxc/4.0.1/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/4.2.3/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
 
 Example::
 
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-4.0.1.tar.gz -O libxc-4.0.1.tar.gz
-    tar -xf libxc-4.0.1.tar.gz
-    cd libxc-4.0.1
-    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.0.1
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/4.2.3/libxc-4.2.3.tar.gz -O libxc-4.2.3.tar.gz
+    tar -xf libxc-4.2.3.tar.gz
+    cd libxc-4.2.3
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.2.3
     make
     make install
 
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/libxc-4.0.1/include
-    export LIBRARY_PATH=~/libxc-4.0.1/lib
-    export LD_LIBRARY_PATH=~/libxc-4.0.1/lib
+    XC=~/libxc-4.2.3
+    export C_INCLUDE_PATH=$XC/include
+    export LIBRARY_PATH=$XC/lib
+    export LD_LIBRARY_PATH=$XC/lib
 
 
 .. _envvars:

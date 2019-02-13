@@ -14,12 +14,12 @@ def write_parallel_cube(basename, data, gd, atoms, rank):
 
     f.write('GPAW Global (natom  nx ny nz  hx hy hz):  %6d  %6d %6d %6d  %12.6lf %12.6lf %12.6lf\n' % (len(atoms), gd.N_c[0], gd.N_c[1], gd.N_c[2], hx,hy,hz))
     f.write('GPAW Local (xbeg xend  ybeg yend  zbeg zend):  %6d %6d  %6d %6d  %6d %6d\n' % ( gd.beg_c[0], gd.end_c[0],  gd.beg_c[1], gd.end_c[1],  gd.beg_c[2], gd.end_c[2]))
-    
+
     f.write('%6d %12.6lf %12.6lf %12.6lf\n' % (len(atoms), hx*gd.beg_c[0], hy*gd.beg_c[1], hz*gd.beg_c[2]))
     f.write('%6d %12.6lf %12.6lf %12.6lf\n' % (gd.n_c[0], hx, 0.0, 0.0))
     f.write('%6d %12.6lf %12.6lf %12.6lf\n' % (gd.n_c[1], 0.0, hy, 0.0))
     f.write('%6d %12.6lf %12.6lf %12.6lf\n' % (gd.n_c[2], 0.0, 0.0, hz))
-    
+
     for (i,atom) in enumerate(atoms):
         f.write('%6d %12.6lf %12.6lf %12.6lf %12.6lf\n' % (atom.number, 0.0, atom.position[0]/0.529177, atom.position[1]/0.529177, atom.position[2]/0.529177))
     for i in range(data.shape[0]):
@@ -55,12 +55,12 @@ def cubify(out_filename, filenames):
 
         if data is None:
             data = np.zeros((nx,ny,nz))
-    
+
         for i in range(xb,xe):
             for j in range(yb,ye):
                 for k in range(zb,ze):
                     data[i,j,k] = float(f.readline())
-    
+
         f.close()
 
     sys.stderr.write('Reading done. %s\n' % datetime.datetime.now())
@@ -99,20 +99,20 @@ def isocubes(filename, isoval, scale):
 
     elems = f.readline().split()
     nx = int(elems[0])
-    x0 = float(elems[1])
+    # x0 = float(elems[1])
 
     elems = f.readline().split()
     ny = int(elems[0])
-    y0 = float(elems[2])
+    # y0 = float(elems[2])
 
     elems = f.readline().split()
     nz = int(elems[0])
-    z0 = float(elems[3])
+    # z0 = float(elems[3])
 
     for i in range(natom):
         f.readline()
 
-    
+
     #data = np.zeros((nx,ny,nz))
     dataxy = [[0.0,0.0] for i in range(nx*ny)]
     dataxz = [[0.0,0.0] for i in range(nx*nz)]
@@ -135,7 +135,7 @@ def isocubes(filename, isoval, scale):
                     dataxz[i*nz+k][1] -= -val * scale
                     datayz[j*nz+k][0] += -val * scale
                     datayz[j*nz+k][1] -= -val * scale
-    
+
 
 
 
