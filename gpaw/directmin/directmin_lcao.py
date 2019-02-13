@@ -130,8 +130,7 @@ class DirectMinLCAO(DirectLCAO):
             #
             # if the energy functional is unitary invariant
             # then A_1 = 0
-            # (see Hutter J., Parrinelo M and Vogel S.,
-            #  J. Chem. Phys. 101, 3862 (1994))
+            # (see Hutter J et. al, J. Chem. Phys. 101, 3862 (1994))
             #
             # We will keep A_1 as we would like to work with metals,
             # SIC, and molecules with different occupation numbers.
@@ -149,30 +148,30 @@ class DirectMinLCAO(DirectLCAO):
             # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
-            # let's take all upper triangular indices of A_BigMatrix
-            ind_up = np.triu_indices(M, 1)
             self.ind_up = {}
-            for kpt in wfs.kpt_u:
-                n_occ = get_n_occ(kpt)
-                u = self.n_kps * kpt.s + kpt.q
-                if self.representation['name'] == 'sparse':
-                    # and then delete indices from ind_up
-                    # which correspond to 0 matrix in in A_BigMatrix.
+            if self.representation['name'] == 'sparse':
+                # let's take all upper triangular indices
+                # of A_BigMatrix and then delete indices from ind_up
+                # which correspond to 0 matrix in in A_BigMatrix.
+                ind_up = np.triu_indices(M, 1)
+                for kpt in wfs.kpt_u:
+                    n_occ = get_n_occ(kpt)
+                    u = self.n_kps * kpt.s + kpt.q
                     zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
                     self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
                                       ind_up[1][:-zero_ind].copy())
-
-                else:
-                    # take indices of A_2 only
-                    i1 = []
-                    i2 = []
+                del ind_up
+            else:
+                # take indices of A_2 only
+                for kpt in wfs.kpt_u:
+                    n_occ = get_n_occ(kpt)
+                    u = self.n_kps * kpt.s + kpt.q
+                    i1, i2 = [], []
                     for i in range(n_occ):
                         for j in range(n_occ, M):
                             i1.append(i)
                             i2.append(j)
-                    self.ind_up[u] = (np.asarray(i1),
-                                      np.asarray(i2))
-            del  ind_up
+                    self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
