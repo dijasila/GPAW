@@ -1,6 +1,5 @@
 from gpaw import GPAW, ConvergenceError, restart
 from gpaw.mixer import MixerSum
-from gpaw.test import equal
 from ase.build import bulk
 
 # bulk Fe with k-point, band, and domain parallelization
