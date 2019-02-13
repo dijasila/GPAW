@@ -1,7 +1,7 @@
-from __future__ import print_function, division
 import optparse
 import sys
 import traceback
+from pathlib import Path
 
 import numpy as np
 import ase.db
@@ -32,7 +32,7 @@ def check(con, name):
         a = 16 * h
         atoms = Atoms(symbol, cell=(a, a, 2 * a), pbc=True)
         atoms.calc = GPAW(h=h,
-                          txt='{0}-eggbox-{1:.2f}.txt'.format(name, h),
+                          txt='{}-eggbox-{:.2f}.txt'.format(name, h),
                           **params)
         energies = []
         for i in range(4):
@@ -50,7 +50,7 @@ def check(con, name):
         if id is None:
             continue
         atoms.calc = GPAW(mode=PW(ecut),
-                          txt='{0}-pw-{1:04}.txt'.format(name, ecut),
+                          txt='{}-pw-{:04}.txt'.format(name, ecut),
                           **params)
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='pw1', ecut=ecut)
@@ -61,7 +61,7 @@ def check(con, name):
         if id is None:
             continue
         atoms.calc = GPAW(gpts=(g, g, g),
-                          txt='{0}-fd-{1}.txt'.format(name, g),
+                          txt='{}-fd-{}.txt'.format(name, g),
                           **params)
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='fd1', gpts=g)
@@ -73,7 +73,7 @@ def check(con, name):
             continue
         atoms.calc = GPAW(gpts=(g, g, g),
                           mode='lcao', basis='dzp',
-                          txt='{0}-lcao-{1}.txt'.format(name, g),
+                          txt='{}-lcao-{}.txt'.format(name, g),
                           **params)
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='lcao1', gpts=g)
@@ -88,7 +88,7 @@ def check(con, name):
         if id is None:
             continue
         atoms.calc = GPAW(mode=PW(ecut),
-                          txt='{0}2-pw-{1:04}.txt'.format(name, ecut),
+                          txt='{}2-pw-{:04}.txt'.format(name, ecut),
                           **params)
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='pw2', ecut=ecut)
@@ -98,7 +98,7 @@ def check(con, name):
         id = con.reserve(name=name, test='relax')
         if id is not None:
             atoms.calc = GPAW(mode=PW(1500),
-                              txt='{0}2-relax.txt'.format(name),
+                              txt='{}2-relax.txt'.format(name),
                               **params)
             BFGS(atoms).run(fmax=0.02)
             con.write(atoms, name=name, test='relax')
@@ -109,7 +109,7 @@ def check(con, name):
         if id is None:
             continue
         atoms.calc = GPAW(gpts=(g, g, 2 * g),
-                          txt='{0}2-fd-{1}.txt'.format(name, g),
+                          txt='{}2-fd-{}.txt'.format(name, g),
                           **params)
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='fd2', gpts=g)
@@ -121,7 +121,7 @@ def check(con, name):
             continue
         atoms.calc = GPAW(gpts=(g, g, 2 * g),
                           mode='lcao', basis='dzp',
-                          txt='{0}2-lcao-{1}.txt'.format(name, g),
+                          txt='{}2-lcao-{}.txt'.format(name, g),
                           **params)
         atoms.get_potential_energy()
         con.write(atoms, name=name, test='lcao2', gpts=g)
@@ -200,13 +200,15 @@ def main():
     parser.add_option('-v', '--verbose', action='store_true')
     parser.add_option('-p', '--plot', action='store_true')
     parser.add_option('-d', '--database', default='check.db')
-    parser.add_option('--datasets')
+    parser.add_option('--datasets', default='.')
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
     opts, names = parser.parse_args()
+    if not names:
+        names = [Path.cwd().name]
     con = ase.db.connect(opts.database)
     if opts.datasets:
         from gpaw import setup_paths
-        setup_paths[:0] = opts.datasets.split(',')
+        setup_paths[:] = opts.datasets.split(',')
     if opts.summary:
         for name in names:
             try:
@@ -217,16 +219,16 @@ def main():
                     print(name)
                     traceback.print_exc()
                 else:
-                    print('{0} {1}: {2}'.format(name,
-                                                ex.__class__.__name__, ex))
+                    print('{} {}: {}'.format(name,
+                                             ex.__class__.__name__, ex))
             else:
                 print('{0:5} {1:6.1f} {2:6.1f} {2:6.1f}'
                       .format(name, ecut, decut),
-                      ''.join('{0:7.4f}'.format(e) for e in eegg),
-                      ''.join('{0:7.3f}'.format(e) for e in eg),
-                      ''.join('{0:7.3f}'.format(e) for e in deg),
-                      ''.join('{0:7.3f}'.format(e) for e in eL),
-                      ''.join('{0:7.3f}'.format(e) for e in deL))
+                      ''.join('{:7.4f}'.format(e) for e in eegg),
+                      ''.join('{:7.3f}'.format(e) for e in eg),
+                      ''.join('{:7.3f}'.format(e) for e in deg),
+                      ''.join('{:7.3f}'.format(e) for e in eL),
+                      ''.join('{:7.3f}'.format(e) for e in deL))
     if opts.plot:
         for name in names:
             E, dE, eegg, ecut, decut, eg, deg, eL, deL = summary(
