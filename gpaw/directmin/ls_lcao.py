@@ -394,7 +394,7 @@ class StrongWolfeConditions(UnitStepLength):
                     alpha_1 = 1.0
             else:
                 alpha_1 = 1.0
-        elif self.method is 'BFGS' or 'LBFGS':
+        elif self.method in ['BFGS', 'LBFGS', 'LBFGS_P']:
             alpha_1 = 1.0
         else:
             alpha_1 = 1.0
