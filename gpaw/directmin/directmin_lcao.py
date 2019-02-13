@@ -99,8 +99,9 @@ class DirectMinLCAO(DirectLCAO):
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
 
-        self.n_dim = {}  # dimensionality of the problem.
-                         # this implementation rotates among all bands
+        # dimensionality of the problem.
+        # this implementation rotates among all bands
+        self.n_dim = {}
         for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.n_dim[u] = wfs.bd.nbands
@@ -550,10 +551,9 @@ class DirectMinLCAO(DirectLCAO):
                                 if abs(hess[i]) < 1.0e-4:
                                     self.precond[k][i] = 1.0 + 1.0j
                                 else:
-                                    self.precond[k][i] = 1.0 / \
-                                                         hess[i].real + \
-                                                         1.0j / \
-                                                         hess[i].imag
+                                    self.precond[k][i] = \
+                                        1.0 / hess[i].real + \
+                                        1.0j / hess[i].imag
                     return self.precond
                 else:
                     return self.precond
@@ -806,4 +806,4 @@ def get_n_occ(kpt):
     n_occ = 0
     while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
         n_occ += 1
-    return  n_occ
+    return n_occ
