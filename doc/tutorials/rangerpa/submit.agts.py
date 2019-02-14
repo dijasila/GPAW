@@ -1,6 +1,9 @@
-def create_tasks():
-    return []
+# Creates: Ec_rpa.png
+from myqueue.task import task
 
-    si_gs = queue.add('si.groundstate.py', ncpus=1, walltime=2)
-    si_rRPA = queue.add('si.range_rpa.py', deps=si_gs, ncpus=8, walltime=30)
-    queue.add('si.compare.py', deps=si_rRPA, ncpus=1, walltime=1)
+
+def create_tasks():
+    return [task('si.groundstate.py'),
+            task('si.range_rpa.py@8:30m', deps='si.groundstate.py'),
+            task('si.compare.py', deps='si.range_rpa.py'),
+            task('plot_ec.py', deps='si.range_rpa.py')]

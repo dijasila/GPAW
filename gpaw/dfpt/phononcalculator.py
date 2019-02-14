@@ -94,7 +94,7 @@ class PhononCalculator:
         # Boundary conditions
         pbc_c = self.calc.atoms.get_pbc()
 
-        if np.all(pbc_c == False):
+        if not pbc_c.any():
             self.gamma = True
             self.dtype = float
             kpts = None

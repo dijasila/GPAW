@@ -9,6 +9,7 @@ def calculate_forces(wfs, dens, ham, log=None):
     """Return the atomic forces."""
 
     assert not isinstance(ham.xc, HybridXCBase)
+    assert not ham.xc.name.startswith('GLLB')
 
     if hasattr(wfs.eigensolver, 'odd'):
         odd_name = getattr(wfs.eigensolver.odd, "name", None)

@@ -50,7 +50,7 @@ class Kmatrix:
 
     def read_values(self):
         """ Read K-matrix (not the Casida form) ready for 2D ScaLapack array"""
-        nrow = len(self.ks_singles.kss_list)  # total rows
+        # nrow = len(self.ks_singles.kss_list)  # total rows
         nlrow = 0 # local rows
         nlcol = 0 # local cols
 
@@ -62,7 +62,7 @@ class Kmatrix:
                 nlrow += 1
             if self.lr_comms.get_local_dd_index(ip) is not None:
                 nlcol += 1
-        
+
         # ready rows list for different procs (read by this proc)
         elem_lists = {}
         for proc in range(self.lr_comms.parent_comm.size):
@@ -76,7 +76,7 @@ class Kmatrix:
             # read every "parent comm size"th file, starting from parent comm rank
             if k % self.lr_comms.parent_comm.size != self.lr_comms.parent_comm.rank:
                 continue
-            
+
 
             # for each file
             for line in open(K_fn, 'r', 1024 * 1024).read().splitlines():
@@ -121,7 +121,7 @@ class Kmatrix:
         #    for proc in range(self.parent_comm.size):
         #        print len(elem_lists[proc]),
         #    print
-                
+
 
         #self.timer.start('Read K-matrix: join')
         for proc in range(self.lr_comms.parent_comm.size):
@@ -152,8 +152,8 @@ class Kmatrix:
         #if self.parent_comm.rank == 0:
         #    print '-------------- communicating K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         #    print 'local elem list size: ', len(local_elem_list)
-        
-        
+
+
         #local_elem_list = ''
         #for sending_proc in range(self.parent_comm.size):
         #    for receiving_proc in range(self.parent_comm.size):
@@ -176,9 +176,9 @@ class Kmatrix:
         #sys.exit(0)
 
         #self.timer.stop('Communicate K-matrix')
-        
+
         #self.timer.start('Build matrix')
-        
+
         # Matrix build
         K_matrix = np.zeros((nlrow,nlcol))
         K_matrix[:,:] = np.NAN # fill with NaNs to detect problems
@@ -225,23 +225,23 @@ class Kmatrix:
 
         # ready for garbage collection
         del local_elem_list
-                
+
         #self.timer.stop('Build matrix')
 
         #if self.parent_comm.rank == 0:
         #    print '-------------- building K-MATRIX done --------------------', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
- 
+
         #print K_matrix
 
-        
+
         #for ((i,p), ip) in self.index_map.items():
         #    for ((j,q), jq) in self.index_map.items():
         #        lip = self.get_local_eh_index(ip)
         #        ljq = self.get_local_dd_index(jq)
         #        if ( lip is not None and ljq is not None ):
         #            print 'proc #', self.parent_comm.rank, ' dd #', self.dd_comm.rank, ' eh #', self.eh_comm.rank, ': ',ip,'(', i, ',', p,') ',jq,'(', j, ',', q,')  = ', K_matrix[lip,ljq]
-                    
+
 
         # If any NaNs found, we did not read all matrix elements... BAD
         if np.isnan(np.sum(np.sum(K_matrix))):
@@ -249,10 +249,6 @@ class Kmatrix:
 
         self.values = K_matrix
 
-
-
-
-    ############################################################################
     # FIXME: implement spin polarized
     def calculate(self):
         # Check if already done before allocating
@@ -318,7 +314,7 @@ class Kmatrix:
         #self.timer.stop('Initialize')
         # Init ETA
         self.matrix_eta = QuadraticETA()
-        
+
         #################################################################
         # Outer loop over KS singles
         for (ip,kss_ip) in enumerate(self.ks_singles.kss_list):
@@ -346,7 +342,7 @@ class Kmatrix:
             drhot_gip[:] = 0.0
             kss_ip.calculate_pair_density(dnt_Gip, dnt_gip, drhot_gip)
             #self.timer.stop('Pair density')
-            
+
 
             # Smooth Hartree "pair" potential
             # for compensated pair density drhot_gip
@@ -404,7 +400,7 @@ class Kmatrix:
 
                 # Total integral
                 Itot = Ig + Ia
-                
+
 
                 # K_ip,jq += <ip|fHxc|jq>
                 K.append( [i,p,j,q, Itot] )
@@ -415,7 +411,7 @@ class Kmatrix:
             #self.timer.start('Write K')
             # Write only on dd_comm root
             if self.lr_comms.dd_comm.rank == 0:
-                
+
                 # Write only lower triangle of K-matrix
                 for [i,p,j,q,Kipjq] in K:
                     self.Kfile.write("%5d %5d %5d %5d %22.16lf\n" % (i,p,j,q,Kipjq))
@@ -425,7 +421,7 @@ class Kmatrix:
                 self.ready_file.write("%d %d\n" % (kss_ip.occ_ind,
                                                    kss_ip.unocc_ind))
                 self.ready_file.flush()
-                
+
             #self.timer.stop('Write K')
 
             # Update ready rows before continuing
@@ -476,18 +472,18 @@ class Kmatrix:
         i = kss_ip.occ_ind
         p = kss_ip.unocc_ind
 
-        s = kss_ip.spin_ind
+        # s = kss_ip.spin_ind
 
         # FIXME, only spin unpolarized works
         #self.timer.start('Atomic XC')
         for a, P_ni in self.calc.wfs.kpt_u[kss_ip.kpt_ind].P_ani.items():
             I_sp = np.zeros_like(self.calc.density.D_asp[a])
             I_sp_2 = np.zeros_like(self.calc.density.D_asp[a])
-            
+
             Pip_ni = self.calc.wfs.kpt_u[kss_ip.spin_ind].P_ani[a]
             Dip_ii = np.outer(Pip_ni[i], Pip_ni[p])
             Dip_p  = pack(Dip_ii)
-            
+
             # finite difference plus
             D_sp = self.calc.density.D_asp[a].copy()
             D_sp[kss_ip.spin_ind] += self.deriv_scale * Dip_p
@@ -532,7 +528,7 @@ class Kmatrix:
             # 2 sum_prst      P   P   C     P   P
             #                  ip  jr  prst  ks  qt
             Ia += self.fH_pre * 2.0 * np.dot(Djq_p, np.dot(C_pp, Dip_p))
-        
+
             # XC part, CHECK THIS JQ EVERWHERE!!!
             Ia += self.fxc_pre * np.dot(I_asp[a][kss_jq.spin_ind], Djq_p)
 

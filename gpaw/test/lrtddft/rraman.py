@@ -33,8 +33,7 @@ H2.get_potential_energy()
 gsname = exname = 'rraman'
 exkwargs={'eps':0.0, 'jend':1}
 pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,
-             exkwargs=exkwargs,
-)
+             exkwargs=exkwargs)
 pz.run()
 
 # ---------------------------------------------------
@@ -45,7 +44,7 @@ kss = KSSingles('rraman-d0.010.eq.ex.gz')
 assert(len(kss) == 1)
 
 om = 5
-pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname, 
+pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,
                    verbose=True,)
 ai = pz.absolute_intensity(omega=om)[-1]
 equal(ai, 301.659994669, 1e-3) # earlier obtained value

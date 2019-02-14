@@ -1,7 +1,7 @@
 from ase import Atoms
 from gpaw.tddft import photoabsorption_spectrum
 from gpaw import PoissonSolver
-from gpaw.lcaotddft.tddfpt import TDDFPT, DensityCollector
+from gpaw.lcaotddft.tddfpt import DensityCollector
 from gpaw.lcaotddft import LCAOTDDFT
 
 atoms = Atoms('Na8', positions=[[i * 3.0, 0, 0] for i in range(8)])

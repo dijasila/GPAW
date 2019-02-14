@@ -18,6 +18,8 @@ def calculate_stress(calc):
                                   'implemented for orbital-dependent ' +
                                   'XC functionals such as ' + ham.xc.name)
 
+    assert not ham.xc.name.startswith('GLLB')
+
     calc.timer.start('Stress tensor')
 
     s_vv = wfs.get_kinetic_stress().real

@@ -163,11 +163,11 @@ class LCAOWaveFunctions(WaveFunctions):
         mynao = Mstop - Mstart
 
         #if self.ksl.using_blacs:  # XXX
-            # S and T have been distributed to a layout with blacs, so
-            # discard them to force reallocation from scratch.
-            #
-            # TODO: evaluate S and T when they *are* distributed, thus saving
-            # memory and avoiding this problem
+        #     S and T have been distributed to a layout with blacs, so
+        #     discard them to force reallocation from scratch.
+        #
+        #     TODO: evaluate S and T when they *are* distributed, thus saving
+        #     memory and avoiding this problem
         for kpt in self.kpt_u:
             kpt.S_MM = None
             kpt.T_MM = None
@@ -264,7 +264,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         #if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
         #    nao > 0 and not self.ksl.using_blacs):
-            # S and T are summed only on comm master, so check only there
+        #    S and T are summed only on comm master, so check only there
         #    from numpy.linalg import eigvalsh
         #    self.timer.start('Check positive definiteness')
         #    for S_MM in S_qMM:
@@ -522,7 +522,7 @@ class LCAOWaveFunctions(WaveFunctions):
                         d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
                                         dtype=kpt.C_nM.dtype)
                         for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                                d_nn += ne * np.outer(c_n.conj(), c_n)
+                            d_nn += ne * np.outer(c_n.conj(), c_n)
                         rhoT_MM += ksl.get_transposed_density_matrix_delta(
                             d_nn, kpt.C_nM)
                         ET_MM += ksl.get_transposed_density_matrix_delta(

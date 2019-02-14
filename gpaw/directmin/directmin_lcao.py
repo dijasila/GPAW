@@ -1,7 +1,7 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import D_matrix, expm_ed
+from gpaw.directmin.tools import D_matrix, expm_ed, expm_ed_unit_inv
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
@@ -21,10 +21,11 @@ class DirectMinLCAO(DirectLCAO):
                  linesearch_algo='SwcAwc',
                  initial_orbitals=None,
                  initial_rotation='zero',  # not used right now
-                 update_ref_orbs_counter=15,
+                 update_ref_orbs_counter=20,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
-                 sparse=True, odd_parameters='Zero'):
+                 representation='sparse',
+                 odd_parameters='Zero'):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -37,7 +38,7 @@ class DirectMinLCAO(DirectLCAO):
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
-        self.sparse = sparse
+        self.representation = representation
         self.iters = 0
         self.name = 'direct_min'
 
@@ -55,12 +56,22 @@ class DirectMinLCAO(DirectLCAO):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
 
+        if isinstance(self.representation, basestring):
+            assert self.representation in ['sparse', 'u_invar', 'full'], \
+                'Value Error'
+            self.representation = \
+                xc_string_to_dict(self.representation)
+
         if self.odd_parameters['name'] == 'PZ_SIC':
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'W'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
-            raise Exception('Use LBFGS_P with use_prec=True')
+            raise ValueError('Use LBFGS_P with use_prec=True')
+
+        if matrix_exp == 'egdecomp2':
+            assert self.representation['name'] == 'u_invar', \
+                'Use u_invar representation with egdecomp2'
 
     def __repr__(self):
 
@@ -101,8 +112,9 @@ class DirectMinLCAO(DirectLCAO):
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
 
-        self.n_dim = {}  # dimensionality of the problem.
-                         # this implementation rotates among all bands
+        # dimensionality of the problem.
+        # this implementation rotates among all bands
+        self.n_dim = {}
         for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.n_dim[u] = wfs.bd.nbands
@@ -116,10 +128,7 @@ class DirectMinLCAO(DirectLCAO):
         self.evals = {}
         self.ind_up = None
 
-        if self.sparse:
-            # we may want to use different shapes for different
-            # kpts, for example metals or sic, but later..
-
+        if self.representation['name'] in ['sparse', 'u_invar']:
             # Matrices are sparse and Skew-Hermitian.
             # They have this structure:
             #  A_BigMatrix =
@@ -136,38 +145,53 @@ class DirectMinLCAO(DirectLCAO):
             #
             # if the energy functional is unitary invariant
             # then A_1 = 0
-            # (see Hutter J., Parrinelo M and Vogel S.,
-            #  J. Chem. Phys. 101, 3862 (1994))
+            # (see Hutter J et. al, J. Chem. Phys. 101, 3862 (1994))
             #
             # We will keep A_1 as we would like to work with metals,
             # SIC, and molecules with different occupation numbers.
+            # this corresponds to 'sparse' representation
             #
-            # Thus, we need to store upper triangular part of A_1,
-            # and matrix A_2, so in total
+            # Thus, for the 'sparse' we need to store upper
+            # triangular part of A_1, and matrix A_2, so in total
             # (M-N) * N + N * (N - 1)/2 = N * (M - (N + 1)/2) elements
             #
             # we will store these elements as a vector and
             # also will store indices of the A_BigMatrix
             # which correspond to these elements.
+            #
+            # 'u_invar' corresponds to the case when we want to
+            # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
-            # let's take all upper triangular indices of A_BigMatrix
-            ind_up = np.triu_indices(M, 1)
-            # and then delete indices from ind_up
-            # which correspond to 0 matrix in A_BigMatrix
-            # N_e - number of valence electrons
-            N_e = self.nvalence = wfs.nvalence
-            # remember spin degeneracy.
-            N_deg = N_e // (3 - wfs.nspins) + N_e % (3 - wfs.nspins)
-            zero_ind = (M - N_deg) * (M - N_deg - 1) // 2
-            self.ind_up = (ind_up[0][:-zero_ind].copy(),
-                           ind_up[1][:-zero_ind].copy())
-            del ind_up
+            self.ind_up = {}
+            if self.representation['name'] == 'sparse':
+                # let's take all upper triangular indices
+                # of A_BigMatrix and then delete indices from ind_up
+                # which correspond to 0 matrix in in A_BigMatrix.
+                ind_up = np.triu_indices(M, 1)
+                for kpt in wfs.kpt_u:
+                    n_occ = get_n_occ(kpt)
+                    u = self.n_kps * kpt.s + kpt.q
+                    zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
+                    self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
+                                      ind_up[1][:-zero_ind].copy())
+                del ind_up
+            else:
+                # take indices of A_2 only
+                for kpt in wfs.kpt_u:
+                    n_occ = get_n_occ(kpt)
+                    u = self.n_kps * kpt.s + kpt.q
+                    i1, i2 = [], []
+                    for i in range(n_occ):
+                        for j in range(n_occ, M):
+                            i1.append(i)
+                            i2.append(j)
+                    self.ind_up[u] = (np.asarray(i1), np.asarray(i2))
 
         for kpt in wfs.kpt_u:
             u = self.n_kps * kpt.s + kpt.q
-            if self.sparse:
-                shape_of_arr = len(self.ind_up[0])
+            if self.representation['name'] in ['sparse', 'u_invar']:
+                shape_of_arr = len(self.ind_up[u][0])
             else:
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
 
@@ -187,6 +211,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.iters = 1
         self.nvalence = wfs.nvalence
+        self.nbands = wfs.bd.nbands
         self.kd_comm = wfs.kd.comm
         self.hess = {}  # hessian for LBFGS-P
         self.precond = {}  # precondiner for other methods
@@ -310,7 +335,7 @@ class DirectMinLCAO(DirectLCAO):
         # recalculate derivative with new search direction
         der_phi_2i[0] = 0.0
         for k in g_mat_u.keys():
-            if self.sparse:
+            if self.representation['name'] in ['sparse', 'u_invar']:
                 der_phi_2i[0] += np.dot(g_mat_u[k].conj(),
                                         p_mat_u[k]).real
             else:
@@ -369,64 +394,7 @@ class DirectMinLCAO(DirectLCAO):
         :return:
         """
 
-        wfs.timer.start('Unitary rotation')
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            if n_dim[k] == 0:
-                continue
-
-            if self.gd.comm.rank == 0:
-                if self.sparse:
-                    a = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                 dtype=self.dtype)
-                    a[self.ind_up] = a_mat_u[k]
-                    a += -a.T.conj()
-                else:
-                    a = a_mat_u[k]
-
-                if self.matrix_exp == 'pade_approx':
-                    # this function takes a lot of memory
-                    # for large matrices... what can we do?
-                    wfs.timer.start('Pade Approximants')
-                    u_nn = expm(a)
-                    wfs.timer.stop('Pade Approximants')
-                elif self.matrix_exp == 'eigendecomposition':
-                    # this method is based on diagonalisation
-                    wfs.timer.start('Eigendecomposition')
-                    u_nn, evecs, evals =\
-                        expm_ed(a, evalevec=True)
-                    wfs.timer.stop('Eigendecomposition')
-                else:
-                    raise ValueError('Check the keyword '
-                                     'for matrix_exp. \n'
-                                     'Must be '
-                                     '\'pade_approx\' or '
-                                     '\'eigendecomposition\'')
-
-                kpt.C_nM[:n_dim[k]] = np.dot(u_nn.T,
-                                             c_nm_ref[k][:n_dim[k]])
-                del u_nn
-                del a
-
-            wfs.timer.start('Broadcast coefficients')
-            self.gd.comm.broadcast(kpt.C_nM, 0)
-            wfs.timer.stop('Broadcast coefficients')
-
-            if self.matrix_exp == 'eigendecomposition':
-                wfs.timer.start('Broadcast evecs and evals')
-                if self.gd.comm.rank != 0:
-                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
-                                     dtype=complex)
-                    evals = np.zeros(shape=n_dim[k],
-                                     dtype=float)
-
-                self.gd.comm.broadcast(evecs, 0)
-                self.gd.comm.broadcast(evals, 0)
-                self.evecs[k], self.evals[k] = evecs, evals
-                wfs.timer.stop('Broadcast evecs and evals')
-
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
-        wfs.timer.stop('Unitary rotation')
+        self.rotate_wavefunctions(wfs, a_mat_u, n_dim, c_nm_ref)
 
         e_total = self.update_ks_energy(ham, wfs, dens, occ)
 
@@ -515,7 +483,7 @@ class DirectMinLCAO(DirectLCAO):
         # continue with gradients
         timer.start('Construct Gradient Matrix')
         h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
-        if self.matrix_exp == 'pade_approx':
+        if self.matrix_exp in ['pade_approx', 'egdecomp2']:
             # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
@@ -526,7 +494,7 @@ class DirectMinLCAO(DirectLCAO):
             # grad = grad @ u.T.conj()
             # timer.stop('Frechet derivative')
             grad = np.ascontiguousarray(h_mm)
-        elif self.matrix_exp == 'eigendecomposition':
+        elif self.matrix_exp == 'egdecomp':
             timer.start('Use Eigendecomposition')
             grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
             grad = grad * D_matrix(evals)
@@ -539,19 +507,20 @@ class DirectMinLCAO(DirectLCAO):
                              'for matrix_exp. \n'
                              'Must be '
                              '\'pade_approx\' or '
-                             '\'eigendecomposition\'')
+                             '\'egdecomp\'')
 
         if self.dtype == float:
             grad = grad.real
-        if self.sparse:
-            grad = grad[self.ind_up]
+        if self.representation['name'] in ['sparse', 'u_invar']:
+            u = self.n_kps * kpt.s + kpt.q
+            grad = grad[self.ind_up[u]]
         timer.stop('Construct Gradient Matrix')
 
         return 2.0 * grad, error
 
     def get_search_direction(self, a_mat_u, g_mat_u, precond, wfs):
 
-        if self.sparse:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             p_mat_u = self.search_direction.update_data(wfs, a_mat_u,
                                                         g_mat_u,
                                                         precond)
@@ -602,7 +571,7 @@ class DirectMinLCAO(DirectLCAO):
             pass
 
         der_phi = 0.0
-        if self.sparse:
+        if self.representation['name'] in ['sparse', 'u_invar']:
             for k in p_mat_u.keys():
                 der_phi += np.dot(g_mat_u[k].conj(),
                                   p_mat_u[k]).real
@@ -665,10 +634,9 @@ class DirectMinLCAO(DirectLCAO):
                                 if abs(hess[i]) < 1.0e-4:
                                     self.precond[k][i] = 1.0 + 1.0j
                                 else:
-                                    self.precond[k][i] = 1.0 / \
-                                                         hess[i].real + \
-                                                         1.0j / \
-                                                         hess[i].imag
+                                    self.precond[k][i] = \
+                                        1.0 / hess[i].real + \
+                                        1.0j / hess[i].imag
                     return self.precond
                 else:
                     return self.precond
@@ -699,8 +667,9 @@ class DirectMinLCAO(DirectLCAO):
 
         f_n = kpt.f_n
         eps_n = kpt.eps_n
-        if self.sparse:
-            il1 = list(self.ind_up)
+        if self.representation['name'] in ['sparse', 'u_invar']:
+            u = self.n_kps * kpt.s + kpt.q
+            il1 = list(self.ind_up[u])
         else:
             il1 = get_indices(eps_n.shape[0], self.dtype)
             il1 = list(il1)
@@ -800,20 +769,21 @@ class DirectMinLCAO(DirectLCAO):
 
     def todict(self):
         return {'name': 'direct_min_lcao',
-                'search_direction_algorithm': self.sda,
-                'line_search_algorithm': self.lsa,
+                'searchdir_algo': self.sda,
+                'linesearch_algo': self.lsa,
                 'initial_orbitals': self.initial_orbitals,
                 'initial_rotation': 'zero',
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
-                'sparse': self.sparse,
+                'representation': self.representation,
                 'odd_parameters': self.odd_parameters}
 
     def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
                                 c_nm_ref, eps=1.0e-7):
-        assert not self.sparse
+
+        assert not self.representation['name'] in ['sparse', 'u_invar']
         a_m = {}
         g_n = {}
         if self.matrix_exp == 'pade_approx':
@@ -829,7 +799,7 @@ class DirectMinLCAO(DirectLCAO):
             if self.matrix_exp == 'pade_approx':
                 a_m[u] = np.zeros_like(self.a_mat_u[u])
                 c_nm_ref[u] = np.dot(u_nn.T, kpt.C_nM[:u_nn.shape[0]])
-            elif self.matrix_exp == 'eigendecomposition':
+            elif self.matrix_exp == 'egdecomp':
                 a_m[u] = a
 
         g_a = self.get_energy_and_gradients(a_m, n_dim, ham, wfs,
@@ -877,6 +847,83 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_a, g_n
 
+    def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
+
+        wfs.timer.start('Unitary rotation')
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            if n_dim[k] == 0:
+                continue
+
+            if self.gd.comm.rank == 0:
+                if self.representation['name'] in ['sparse', 'u_invar']:
+                    if self.matrix_exp == 'egdecomp2' and \
+                            self.representation['name'] == 'u_invar':
+                        n_occ = get_n_occ(kpt)
+                        n_v = self.nbands - n_occ
+                        a = a_mat_u[k].reshape(n_occ, n_v)
+                    else:
+                        a = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=self.dtype)
+                        a[self.ind_up[k]] = a_mat_u[k]
+                        a += -a.T.conj()
+                else:
+                    a = a_mat_u[k]
+
+                if self.matrix_exp == 'pade_approx':
+                    # this function takes a lot of memory
+                    # for large matrices... what can we do?
+                    wfs.timer.start('Pade Approximants')
+                    u_nn = expm(a)
+                    wfs.timer.stop('Pade Approximants')
+                elif self.matrix_exp == 'egdecomp':
+                    # this method is based on diagonalisation
+                    wfs.timer.start('Eigendecomposition')
+                    u_nn, evecs, evals = \
+                        expm_ed(a, evalevec=True)
+                    wfs.timer.stop('Eigendecomposition')
+                elif self.matrix_exp == 'egdecomp2':
+                    assert self.representation['name'] == 'u_invar'
+                    wfs.timer.start('Eigendecomposition')
+                    u_nn = expm_ed_unit_inv(a, oo_vo_blockonly=False)
+                    wfs.timer.stop('Eigendecomposition')
+
+                else:
+                    raise ValueError('Check the keyword '
+                                     'for matrix_exp. \n'
+                                     'Must be '
+                                     '\'pade_approx\' or '
+                                     '\'egdecomp\'')
+
+                dimens1 = u_nn.shape[0]
+                dimens2 = u_nn.shape[1]
+                kpt.C_nM[:dimens2] = np.dot(u_nn.T,
+                                             c_nm_ref[k][:dimens1])
+
+                del u_nn
+                del a
+
+            wfs.timer.start('Broadcast coefficients')
+            self.gd.comm.broadcast(kpt.C_nM, 0)
+            wfs.timer.stop('Broadcast coefficients')
+
+            if self.matrix_exp == 'egdecomp':
+                wfs.timer.start('Broadcast evecs and evals')
+                if self.gd.comm.rank != 0:
+                    evecs = np.zeros(shape=(n_dim[k], n_dim[k]),
+                                     dtype=complex)
+                    evals = np.zeros(shape=n_dim[k],
+                                     dtype=float)
+
+                self.gd.comm.broadcast(evecs, 0)
+                self.gd.comm.broadcast(evals, 0)
+                self.evecs[k], self.evals[k] = evecs, evals
+                wfs.timer.stop('Broadcast evecs and evals')
+
+            wfs.atomic_correction.calculate_projections(wfs, kpt)
+
+        wfs.timer.stop('Unitary rotation')
+
 def get_indices(dimens, dtype):
 
     if dtype == complex:
@@ -885,3 +932,11 @@ def get_indices(dimens, dtype):
         il1 = np.tril_indices(dimens, -1)
 
     return il1
+
+
+def get_n_occ(kpt):
+    nbands = len(kpt.f_n)
+    n_occ = 0
+    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+        n_occ += 1
+    return n_occ
