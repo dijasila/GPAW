@@ -64,14 +64,59 @@ class SternheimerResponse:
 
                                 
 
-        return solutions                                        
-                                
+        return solutions                                   
+
+
+
+    def inner_product(self, deltapsi1_qnG, deltapsi2_qnG):
+        fine_delta_tilde_n1_G = self.get_fine_delta_tilde_n(deltapsi1_qnG)
+        fine_delta_tilde_n2_G = self.get_fine_delta_tilde_n(deltapsi2_qnG)
+
+        comp_charge1_G = self.get_compensation_charges(deltapsi1_qnG)
+        comp_charge2_G = self.get_compensation_charges(deltapsi2_qnG)
+
+        poisson_G = self.solve_poisson(fine_delta_tilde_n1_G + comp_charge1_G)
+
+        P12 = (fine_delta_tilde_n2_G + comp_charge2_G).dot(poisson_G)
+
+        DeltaD1_aii = self.get_density_matrix(delta_psi1_nG)
+        DeltaD2_aii = self.get_density_matrix(delta_psi2_nG)
+
+        C_app = {a : 2*setup.M_pp for a, setup in enumerate(self.wfs.setups)}
+
+        Pd = 0
+        for a, C_pp in C_app.items():
+            DeltaD1_p = pack(DeltaD1_aii[a])
+            DeltaD2_p = pack(DeltaD2_aii[a])
+            Pd = DeltaD1_p.dot(C_pp.dot(DeltaD2_p))
+
+        return P12 + Pd
+
+
+    def get_density_matrix(self, deltapsi_qnG):
+        D_aii = {}
+        for q_index, deltapsi_nG in deltapsi_qnG.items():
+            c_axi = pt.integrate(deltapsi_nG, q=q_index)
+            p_overlaps[q_index] = c_axi
+
+            kpt = self.wfs.mykpts[q_index]
+            for a, c_xi in c_axi.items():
+                P_ni = kpt.P[a]
+                if a in D_aii:
+                    D_aii[a] += np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
+                else:
+                    D_aii[a] = np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
+        return D_aii
+        
+
+
+            
 
     def epsilon_potential_from_deltawfs_wfs(self, deltawfs_wfs):
                 
 
         #delta_tilde_n = self.get_delta_tilde_n(deltawfs_wfs)
-        fine_delta_tilde_n = self.get_fine_delta_tild_n(deltawfs_wfs)
+        fine_delta_tilde_n = self.get_fine_delta_tilde_n(deltawfs_wfs)
 
        
         #Comp charges is dict: atom -> charge
@@ -196,11 +241,11 @@ class SternheimerResponse:
         for a, glm_int_L in coulomb_factors_aL.items():
             W_ap[a] = setups[a].Delta_pL.dot(glm_int_L)
 
-            
+                
 
         for a, setup in enumerate(self.wfs.setups):
             D_p = pack(self.D_aii[a])
-            W_ap[a] += setup.M_pp.dot(D_p)
+            W_ap[a] += (2*setup.M_pp).dot(D_p)
 
 
         return W_ap
@@ -213,18 +258,23 @@ class SternheimerResponse:
         return (eigenvalue, new_density)
 
 
-    def _sc_iteration(self, start_vector, potential_generator_function, qvector, eigenpair_extractor, found_eigenvectors):
+    def _sc_iteration(self, start_array, potential_generator_function, qvector, eigenpair_extractor, found_eigenvectors):
         error_threshold = 1e-10
         iter_max = 500
-        current_vector = start_vector
+        current_deltawfs_qnG = start_array
         current_density = -np.ones(start_vector.shape)
 
         for num_iter in range(iter_max):
-            potential = potential_generator_function(current_vector)
+            apply_potential = potential_generator_function(current_deltawfs_qnG)
 
             #Multiply potential by sqrt(v_c)
 
-            deltawfs_wfs = self.solve_sternheimer(potential, qvector)
+            sternheimer_deltawfs_qnG = self.solve_sternheimer(apply_potential, qvector)
+
+            new_deltawfs_qnG = self.minimization_step(current_deltawfs_qnG, sternheimer_deltawfs_qnG, eigenguess)
+
+            
+            
 
             new_density = self._density_from_wf_pairs(deltawfs_wfs)              
             
@@ -243,6 +293,14 @@ class SternheimerResponse:
 
         raise ValueError("Self-consistent iteration did not converge. Final error was {}".format(error))
                 
+
+
+
+    def minimization_step(self, current_deltawfs_qnG, sternheimer_deltawfs_qnG, eigenguess):
+        stepsize = 0.1
+        preconditioning = 1.0
+
+        return {qindex : current_deltawfs_qnG[qindex] + stepsize*preconditioning*(-sternheimer_deltawfs_qnG[qindex] - eigenguess*current_deltawfs_qnG[qindex]}
 
 
     def orthogonalize(out_vector, list_of_vectors):
@@ -292,11 +350,12 @@ class SternheimerResponse:
 
 
 
-    def solve_sternheimer(self, potential, qvector):
-        solution_pairs = {}
+    def solve_sternheimer(self, apply_potential, qvector):
+        delta_wf_knG = {}
 
-        for index, kpt in enumerate(self.wfs.mykpts):            
-            solution_pairs[index] = []
+        for index, kpt in enumerate(self.wfs.mykpts):
+            number_of_valence_states = kpt.psit.array.shape[0]
+            delta_wf_knG[index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=index)
 
 
             k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [index])
@@ -309,9 +368,9 @@ class SternheimerResponse:
             potential_at_k = self._get_potential_at_kpt(potential, kpt)
 
 
-            for energy, psi in zip(kpt.eps_n, kpt.psit.array):
+            for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
                 linop = self._get_LHS_linear_operator(k_plus_q_object, energy)
-                RHS = self._get_RHS(k_plus_q_object, psi, potential_at_k)
+                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential)
                 
 
                 delta_wf, info = bicgstab(linop, RHS)
@@ -320,11 +379,11 @@ class SternheimerResponse:
                     print(f"bicgstab did not converge. Info: {info}")
 
 
-                solution_pairs[index].append((delta_wf, psi))
+                delta_wf_knG[index][state_index] = delta_wf
                 #Solve Sternheimer for given n, q
                 #
             #print("Looking at kpt")
-        return solution_pairs
+        return delta_wf_knG
 
     def _get_potential_at_kpt(self, potential, kpt):
         #TODO fix this, how does this couple to potential higher up?
@@ -357,13 +416,13 @@ class SternheimerResponse:
         
         result = result + self._apply_hamiltonian(wavefunction, kpt)
         
-        result = result - (np.eye(result.shape[0])*energy).dot(wavefunction)
+        result = result - energy*wavefunction
 
         return result
 
     def _apply_valence_projector(self, wavefunction, kpt):
         result = np.zeros_like(wavefunction)
-        f_n = kpt.f_n/kpt.f_n.max()
+        f_n = kpt.f_n/kpt.f_n.max() #TODO ask JJ
 
         for index, wvf in enumerate(kpt.psit.array):
             result = result + wvf*(wvf.conj().dot(wavefunction)*f_n[index])
@@ -373,21 +432,24 @@ class SternheimerResponse:
 
 
     def _apply_hamiltonian(self, wavefunction, kpt):
-        kpt.psit.read_from_file()
+        #This function mimics this approach in eigensolver.subspace_diagonalize
+        kpt.psit.read_from_file() #This is to ensure everything is initialized
+
         H_partial = partial(self.wfs.apply_pseudo_hamiltonian, kpt, self.calc.hamiltonian)
         psit = kpt.psit
-        #print(len(psit))
-        #print("Len of work", len(self.wfs.work_array))
+
         tmp = psit.new(buf=self.wfs.work_array)
         H = self.wfs.work_matrix_nn
         P2 = kpt.P.new()
 
         psit.matrix_elements(operator=H_partial, result=tmp, out=H,
                      symmetric=True, cc=True) ##!! Is cc=True correct here?
+
+        #Add corrections (? Ask JJ)
         self.calc.hamiltonian.dH(kpt.P, out = P2)
         
-        a = mmm(1.0, kpt.P, "N", P2, "C", 1.0, H,  symmetric=True)
-        #print("Type of a", type(a))
+        mmm(1.0, kpt.P, "N", P2, "C", 1.0, H,  symmetric=True) #H is out-variable
+
         self.calc.hamiltonian.xc.correct_hamiltonian_matrix(kpt, a.array)
         
         result = np.zeros_like(wavefunction)
@@ -395,14 +457,15 @@ class SternheimerResponse:
         for index1, wvf1 in enumerate(psit.array):
             for index2, wvf2, in enumerate(psit.array):
                 inner_prod = wvf2.conj().dot(wavefunction)
-                matrix_element = a.array[index1, index2]
+                matrix_element = H.array[index1, index2]
                 result = result + wvf1*matrix_element*inner_prod
 
         return result
         
-    def _get_RHS(self, kpt, psi, potential):
+    def _get_RHS(self, kpt, psi, apply_potential):
         RHS = np.zeros_like(kpt.psit.array[0])
-        RHS = -(potential.dot(psi) - self._apply_valence_projector(potential.dot(psi), kpt))
+        v_psi = apply_potential(psi)
+        RHS = -(v_psi - self._apply_valence_projector(v_psi, kpt))
 
         return RHS
         
