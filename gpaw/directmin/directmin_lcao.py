@@ -126,7 +126,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.evecs = {}   # eigendecomposition for a
         self.evals = {}
-        self.ind_up = None
+        self.ind_up = {}
 
         if self.representation['name'] in ['sparse', 'u_invar']:
             # Matrices are sparse and Skew-Hermitian.
@@ -163,7 +163,6 @@ class DirectMinLCAO(DirectLCAO):
             # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
-            self.ind_up = {}
             if self.representation['name'] == 'sparse':
                 # let's take all upper triangular indices
                 # of A_BigMatrix and then delete indices from ind_up
@@ -193,6 +192,7 @@ class DirectMinLCAO(DirectLCAO):
             if self.representation['name'] in ['sparse', 'u_invar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
+                self.ind_up[u] = None
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
 
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr,
@@ -304,6 +304,9 @@ class DirectMinLCAO(DirectLCAO):
                 occ.calculate(wfs)
 
             self.update_ks_energy(ham, wfs, dens, occ)
+            # FIXME: not sure this is good.
+            #  you need to probably run loop over sort_wfs
+            #  with update ov energy
             for kpt in wfs.kpt_u:
                 self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
@@ -417,8 +420,8 @@ class DirectMinLCAO(DirectLCAO):
                                                        kpt, wfs,
                                                        wfs.timer,
                                                        self.matrix_exp,
-                                                       self.sparse,
-                                                       self.ind_up)
+                                                       self.representation['name'],
+                                                       self.ind_up[k])
             if hasattr(self.odd, 'e_sic_by_orbitals'):
                 self.e_sic += self.odd.e_sic_by_orbitals[k].sum()
 

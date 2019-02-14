@@ -88,7 +88,7 @@ class PzCorrectionsLcao:
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt,
-                      wfs, timer, matrix_exp, sparse,
+                      wfs, timer, matrix_exp, repr_name,
                       ind_up, occupied_only=False):
         """
         :param C_nM: coefficients of orbitals
@@ -134,7 +134,7 @@ class PzCorrectionsLcao:
         grad = f * (h_mm[:nbs, :nbs] + l_odd) - \
             f[:, np.newaxis] * (h_mm[:nbs, :nbs] + l_odd.T.conj())
 
-        if matrix_exp == 'pade_approx':
+        if matrix_exp in ['pade_approx', 'egdecomp2']:
             # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
@@ -145,7 +145,7 @@ class PzCorrectionsLcao:
             # grad = grad @ u.T.conj()
             # timer.stop('Frechet derivative')
             grad = np.ascontiguousarray(grad)
-        elif matrix_exp == 'eigendecomposition':
+        elif matrix_exp == 'egdecomp':
             timer.start('Use Eigendecomposition')
             grad = np.dot(evec.T.conj(), np.dot(grad, evec))
             grad = grad * D_matrix(evals)
@@ -158,10 +158,10 @@ class PzCorrectionsLcao:
                                       'for matrix_exp. \n'
                                       'Must be '
                                       '\'pade_approx\' or '
-                                      '\'eigendecomposition\'')
+                                      '\'egdecomp\'')
         if self.dtype == float:
             grad = grad.real
-        if sparse:
+        if repr_name in ['sparse', 'u_invar']:
             grad = grad[ind_up]
 
         timer.stop('Construct Gradient Matrix')

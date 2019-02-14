@@ -16,7 +16,7 @@ class ZeroCorrectionsLcao:
 
     def get_gradients(self, h_mm, c_nm, f_n,
                       evec, evals, kpt, wfs, timer, matrix_exp,
-                      sparse, ind_up,
+                      repr_name, ind_up,
                       occupied_only=False):
         # FIXME: what to do with occupied only here?
         #  also wfs is not used, but wfs is needed in other
@@ -64,7 +64,7 @@ class ZeroCorrectionsLcao:
         # continue with gradients
         timer.start('Construct Gradient Matrix')
         h_mm = f_n * h_mm - f_n[:, np.newaxis] * h_mm
-        if matrix_exp == 'pade_approx':
+        if matrix_exp in ['pade_approx', 'egdecomp2']:
             # timer.start('Frechet derivative')
             # frechet derivative, unfortunately it calculates unitary
             # matrix which we already calculated before. Could it be used?
@@ -75,7 +75,7 @@ class ZeroCorrectionsLcao:
             # grad = grad @ u.T.conj()
             # timer.stop('Frechet derivative')
             grad = np.ascontiguousarray(h_mm)
-        elif matrix_exp == 'eigendecomposition':
+        elif matrix_exp == 'egdecomp':
             timer.start('Use Eigendecomposition')
             grad = np.dot(evec.T.conj(), np.dot(h_mm, evec))
             grad = grad * D_matrix(evals)
@@ -88,10 +88,10 @@ class ZeroCorrectionsLcao:
                                       'for matrix_exp. \n'
                                       'Must be '
                                       '\'pade_approx\' or '
-                                      '\'eigendecomposition\'')
+                                      '\'egdecomp\'')
         if self.dtype == float:
             grad = grad.real
-        if sparse:
+        if repr_name in ['sparse', 'u_invar']:
             grad = grad[ind_up]
         timer.stop('Construct Gradient Matrix')
 
