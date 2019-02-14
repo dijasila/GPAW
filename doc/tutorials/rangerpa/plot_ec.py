@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-A = np.loadtxt('range_results.safe.dat')  # full range_RPA
+A = np.loadtxt('range_results.dat')  # full range_RPA
 plt.plot(A[:, 0], A[:, 1] / 2, '-o', label='RPA')
 
 B = np.empty_like(A)

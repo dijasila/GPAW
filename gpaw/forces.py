@@ -9,6 +9,7 @@ def calculate_forces(wfs, dens, ham, log=None):
     """Return the atomic forces."""
 
     assert not isinstance(ham.xc, HybridXCBase)
+    assert not ham.xc.name.startswith('GLLB')
 
     natoms = len(wfs.setups)
 

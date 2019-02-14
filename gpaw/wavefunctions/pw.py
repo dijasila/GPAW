@@ -503,6 +503,9 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        if (pd.gd.N_c <= self.gd.N_c).any():
+            raise ValueError('Too few points in target grid!')
+
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:

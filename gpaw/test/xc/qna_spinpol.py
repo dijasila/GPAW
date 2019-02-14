@@ -27,5 +27,5 @@ atoms.get_potential_energy()
 magmoms = atoms.get_magnetic_moments()
 
 tol = 0.003
-equal(2.243, magmoms[0], tol)
-equal(2.243, magmoms[1], tol)
+equal(2.248, magmoms[0], tol)
+equal(2.248, magmoms[1], tol)
