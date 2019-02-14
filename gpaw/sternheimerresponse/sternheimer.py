@@ -14,58 +14,9 @@ class SternheimerResponse:
         #TODO Check that all info is in file
         self.wfs = self.calc.wfs
     
-
-        npts = self.wfs.kpt_u[0].psit.array.shape[1]
-        #print("psit array shape", self.wfs.kpt_u[0].psit.array.shape)
-        trial_potential = np.zeros((npts,npts))
-
-        self.solve_sternheimer(trial_potential, 0)
-    
-        #test_wave = self.wfs.kpt_u[0].psit_nG[0]
-        #self._apply_hamiltonian(test_wave, self.wfs.kpt_u[0])
-        return
-
-    def epsilon_response(self, qvectors, num_eigs):
-        '''
-        Input:
-        qvectors: List of qvectors
-        num_eigs: Number of eigenvalue-eigenvector pairs to find at each qvector
+        qvector = np.array([0,0,0])
+        self.calculate([qvector], 1)
         
-        
-        Returns:
-        A dictionary with key: qvector -> Value: List of num_eigs eigenvalue-eigenvector pairs
-        '''
-        #TODO only allow certain qvectors, namely only those that are given by a difference of two k-vectors in the BZ
-        start_vectors = self._get_trial_vectors(num_eigs)
-        solutions = self.epsilon_iteration(start_vectors, qvectors, num_eigs)
-    
-        return solutions
-
-                
-
-
-    def epsilon_iteration(self, start_vectors, qvectors, num_eigs):           
-        solutions = {} #Dict from qvector (array) -> list of num_eigs eigenpairs
-        
-        for qvec in qvectors:
-            found_eigenvectors = []
-            for start_vec in start_vectors:                
-                eigen_pair = self._sc_iteration(start_vec,
-                                                self.epsilon_potential_from_deltawfs_wfs,
-                                                qvec,
-                                                self._epsilon_eigenpair_extractor,
-                                                found_eigenvectors)
-
-                if qvec not in solutions:
-                    solutions[qvec] = [eigen_pair]
-                else:
-                    solutions[qvec].append(eigen_pair)
-                    found_eigenvectors = [pair[1] for pair in solutions[qvec]]
-
-                                
-
-        return solutions                                   
-
 
     def calculate(self, qvectors, num_eigs):
         qvector = qvectors[0]
@@ -169,7 +120,7 @@ class SternheimerResponse:
 
             kpt = self.wfs.mykpts[q_index]
             for a, c_xi in c_axi.items():
-                P_ni = kpt.P[a]
+                P_ni = kpt.projections[a]
                 if a in D_aii:
                     D_aii[a] += np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
                 else:
@@ -259,12 +210,12 @@ class SternheimerResponse:
         pd2 = self.calc.density.pd2
         pd3 = self.calc.density.pd3
         delta_n_R = pd2.gd.zeros()
-        for q_index, sol_list in deltawfs_wfs.items():
-            for deltawf, wf in sol_list:
-                deltawf_R = pd.ifft(deltawf)
+        for q_index, deltapsi_nG in deltapsi_qnG.items():
+            for deltapsi_G in deltapsi_nG:
+                deltapsi_R = pd.ifft(deltapsi_G)
                 wf_R = pd.ifft(wf)
 
-                delta_n_R += deltawf_R*wf_R
+                delta_n_R += deltapsi_R*wf_R
             
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
 
@@ -391,15 +342,15 @@ class SternheimerResponse:
 
         tmp = psit.new(buf=self.wfs.work_array)
         H = self.wfs.work_matrix_nn
-        P2 = kpt.P.new()
+        P2 = kpt.projections.new()
 
         psit.matrix_elements(operator=H_partial, result=tmp, out=H,
                      symmetric=True, cc=True) ##!! Is cc=True correct here?
 
         #Add corrections (? Ask JJ)
-        self.calc.hamiltonian.dH(kpt.P, out = P2)
+        self.calc.hamiltonian.dH(kpt.projections, out = P2)
         
-        mmm(1.0, kpt.P, "N", P2, "C", 1.0, H,  symmetric=True) #H is out-variable
+        mmm(1.0, kpt.projections, "N", P2, "C", 1.0, H,  symmetric=True) #H is out-variable
 
         self.calc.hamiltonian.xc.correct_hamiltonian_matrix(kpt, a.array)
         
