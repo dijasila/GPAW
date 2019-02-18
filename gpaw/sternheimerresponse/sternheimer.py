@@ -13,7 +13,7 @@ class SternheimerResponse:
         self.calc = GPAW(filename, txt=None)
         #TODO Check that all info is in file
         self.wfs = self.calc.wfs
-    
+        self.calc.initialize_positions()
         qvector = np.array([0,0,0])
         self.calculate([qvector], 1)
         
@@ -32,7 +32,8 @@ class SternheimerResponse:
             return deltapsi_qnG
         stepsize = 0.1
 
-        for _ in range(num_iter):
+        for niter in range(num_iter):
+            print(f"Iteration number: {niter}")
             #Calculate residual
             new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
             residual_qnG = {q : new_deltapsi_qnG[q] - eigval*deltapsi_nG for q, deltapsi_nG in deltapsi_qnG.itesm()}
@@ -66,7 +67,7 @@ class SternheimerResponse:
         
         for index, kpt in enumerate(self.wfs.mykpts):
             ##Replace this with better start guess probably
-            deltapsi_qnG[index] = np.ones(kpt.psit.array.shape)
+            deltapsi_qnG[index] = np.ones(kpt.psit.array.shape, dtype=np.complex128)
 
             
         ##Replace this with guess dependent on other guess/found values to speed up convergence
@@ -113,10 +114,11 @@ class SternheimerResponse:
 
 
     def get_density_matrix(self, deltapsi_qnG):
+        pt = self.wfs.pt
         D_aii = {}
         for q_index, deltapsi_nG in deltapsi_qnG.items():
             c_axi = pt.integrate(deltapsi_nG, q=q_index)
-            p_overlaps[q_index] = c_axi
+
 
             kpt = self.wfs.mykpts[q_index]
             for a, c_xi in c_axi.items():
@@ -141,6 +143,7 @@ class SternheimerResponse:
     def epsilon_potential(self, deltapsi_qnG):
         #Should add qvector to args to construct potential suitable for individual kpt?
 
+
         #delta_tilde_n = self.get_delta_tilde_n(deltawfs_wfs)
         fine_delta_tilde_n = self.get_fine_delta_tilde_n(deltapsi_qnG)
 
@@ -153,8 +156,7 @@ class SternheimerResponse:
 
         poisson_term = self.solve_poisson(fine_delta_tilde_n + total_delta_comp_charge)
         soft_term_G = self.transform_to_coarse_grid_operator(poisson_term)
-        soft_term_R = self.wfs.pd2.ifft(soft_term_G)
-
+        soft_term_R = self.calc.density.pd2.ifft(soft_term_G)
 
 
         W_ap = self.get_charge_derivative_terms(poisson_term, DeltaD_aii)
@@ -164,12 +166,11 @@ class SternheimerResponse:
         def apply_potential(wvf_G, q_index):
             wvf_R = self.wfs.pd.ifft(wvf_G)
             pt = self.wfs.pt
-
             c_ai = pt.integrate(wvf_G, q=q_index)
             
             for a, c_i in c_ai.items():
                 W_ii = unpack(W_ap[a])
-                c_i[:] = W_ii.dot(c_i)
+                c_i[:] = W_ii.dot(c_i.T).T ##TODO ask JJ about these transposes
 
             V1 = self.wfs.pd.fft(soft_term_R*wvf_R)
             pt.add(V1, c_ai, q=q_index)
@@ -182,14 +183,15 @@ class SternheimerResponse:
 
 
     def get_compensation_charges(self, deltapsi_qnG, DeltaD_aii):                        
+
         setups = self.wfs.setups
         Q_aL = {}
-        for a in D_aii:
+        for a in DeltaD_aii:
             setup = setups[a]
             DeltaD_ii = DeltaD_aii[a]
             Delta_iiL = setup.Delta_iiL
-            Q_L = np.einsum("ij, ij", DeltaD_ii, Delta_iiL)
-            Q_aL[a] = Q_L
+            Q_L = np.einsum("ij, ij...", DeltaD_ii, Delta_iiL)
+            Q_aL[a] = np.real(Q_L) ##TODO ask JJ about this real part
 
 
                 
@@ -211,22 +213,22 @@ class SternheimerResponse:
         pd3 = self.calc.density.pd3
         delta_n_R = pd2.gd.zeros()
         for q_index, deltapsi_nG in deltapsi_qnG.items():
-            for deltapsi_G in deltapsi_nG:
+            for state_index, deltapsi_G in enumerate(deltapsi_nG):
                 deltapsi_R = pd.ifft(deltapsi_G)
-                wf_R = pd.ifft(wf)
+                wf_R = pd.ifft(self.wfs.mykpts[q_index].psit.array[state_index])
+                delta_n_R += 2*np.real(deltapsi_R*wf_R)
 
-                delta_n_R += deltapsi_R*wf_R
-            
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
 
-        return fine_delta_n_G
+        return pd3.fft(fine_delta_n_R)
 
-    def solve_poisson(self, charge_G, pd):
+    def solve_poisson(self, charge_G):
         #charge(q)
+        pd3 = self.calc.density.pd3
         G2 = pd3.G2_qG[0].copy()
         G2[0] = 1.0
         
-        return charge_G * 4 * pi/G2
+        return charge_G * 4 * np.pi/G2
         
     def transform_to_coarse_grid_operator(self, fine_grid_operator):        
         dens = self.calc.density
@@ -242,22 +244,20 @@ class SternheimerResponse:
 
 
     def get_charge_derivative_terms(self, poisson_term, DeltaD_aii):
-        #For each atom get partial wave, smooth partial waves and PAW projectors
-        #Calculate some stuff
-        #return stuff*projection_matrix
         setups = self.wfs.setups
 
         coulomb_factors_aL = self.calc.density.ghat.integrate(poisson_term)
         W_ap = {}
         
         for a, glm_int_L in coulomb_factors_aL.items():
-            W_ap[a] = setups[a].Delta_pL.dot(glm_int_L)
+            W_ap[a] = setups[a].Delta_pL.dot(glm_int_L.T).astype(np.complex128) ##TODO ask JJ about transpose
 
                 
 
         for a, setup in enumerate(self.wfs.setups):
-            D_p = pack(self.DeltaD_aii[a])
-            W_ap[a] += (2*setup.M_pp).dot(D_p)
+            D_p = pack(DeltaD_aii[a])
+            val = ((2*setup.M_pp).dot(D_p))
+            W_ap[a] = W_ap[a] + val
 
         return W_ap
                 
@@ -275,19 +275,21 @@ class SternheimerResponse:
             #Get kpt object for k+q
             k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [index])
             assert len(k_plus_q_index) == 1
-            k_plus_q_object = self.wfs.mykpts[k_plus_q_index[0]]
+            k_plus_q_index = k_plus_q_index[0]
+            k_plus_q_object = self.wfs.mykpts[k_plus_q_index]
 
 
 
             for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
-                linop = self._get_LHS_linear_operator(k_plus_q_object, energy)
-                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential)
+                linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
+                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, k_plus_q_index)
                 
-
-                deltapsi_G, info = bicgstab(linop, RHS)
+                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000)
 
                 if info != 0:
-                    print("bicgstab did not converge. Info: {}".format(info))
+                    print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
+                    raise ValueError("bicgstab did not converge. Info: {}".format(info))
+                    
 
 
                 deltapsi_qnG[index][state_index] = deltapsi_G
@@ -295,45 +297,53 @@ class SternheimerResponse:
         return deltapsi_qnG
 
 
-    def _get_LHS_linear_operator(self, kpt, energy):
+    def _get_LHS_linear_operator(self, kpt, energy, k_index):
         def mv(v):
-            return self._apply_LHS_Sternheimer(v, kpt, energy)
+            return self._apply_LHS_Sternheimer(v, kpt, energy, k_index)
 
 
         shape_tuple = (kpt.psit.array[0].shape[0], kpt.psit.array[0].shape[0])
-        linop = LinearOperator(shape_tuple, matvec = mv)
+        linop = LinearOperator(dtype=np.complex128, shape=shape_tuple, matvec=mv)
 
         return linop
 
 
-    def _apply_LHS_Sternheimer(self, deltapsi_G, kpt, energy):
+    def _apply_LHS_Sternheimer(self, deltapsi_G, kpt, energy, k_index):
         result_G = np.zeros_like(deltapsi_G)
         
         alpha = 1
         
-        result_G = alpha*self._apply_valence_projector(deltapsi_G, kpt)
+        result_G = alpha*self._apply_valence_projector(self._apply_overlap(deltapsi_G, k_index), kpt, k_index)
         
         result_G = result_G + self._apply_hamiltonian(deltapsi_G, kpt)
         
-        result_G = result_G - energy*deltapsi_G
+        result_G = result_G - energy*self._apply_overlap(deltapsi_G, k_index)
 
         return result_G
 
-    def _apply_valence_projector(self, deltapsi_G, kpt):
+    def _apply_valence_projector(self, deltapsi_G, kpt, k_index):
         result_G = np.zeros_like(deltapsi_G)
         f_n = kpt.f_n/kpt.f_n.max() #TODO ask JJ
         num_occ = f_n.sum()
 
         for index, psi_G in enumerate(kpt.psit.array):
-            if index >= num_occ:
+            if index >= num_occ: #We assume here that the array is ordered according to energy
                 break
-            result_G = result_G + psi_G*(psi_G.conj().dot(psi_G)*f_n[index])
+            result_G = result_G + psi_G*(psi_G.conj().dot(deltapsi_G)*f_n[index]) 
 
 
         return result_G
 
+    def _apply_overlap(self, wvf_G, q_index):
+        pt = self.wfs.pt
+        c_ai = pt.integrate(wvf_G, q=q_index)
+        result_G = self.wfs.pd.zeros()
+        pt.add(result_G, c_ai, q=q_index)
+        return result_G
+
 
     def _apply_hamiltonian(self, deltapsi_G, kpt):
+        #TODO ask JJ about this function
         #This function mimics this approach in eigensolver.subspace_diagonalize
         kpt.psit.read_from_file() #This is to ensure everything is initialized
 
@@ -345,14 +355,14 @@ class SternheimerResponse:
         P2 = kpt.projections.new()
 
         psit.matrix_elements(operator=H_partial, result=tmp, out=H,
-                     symmetric=True, cc=True) ##!! Is cc=True correct here?
+                     symmetric=True, cc=True) ##TODO ask JJ about whether cc=True is correct here
 
         #Add corrections (? Ask JJ)
         self.calc.hamiltonian.dH(kpt.projections, out = P2)
         
         mmm(1.0, kpt.projections, "N", P2, "C", 1.0, H,  symmetric=True) #H is out-variable
 
-        self.calc.hamiltonian.xc.correct_hamiltonian_matrix(kpt, a.array)
+        self.calc.hamiltonian.xc.correct_hamiltonian_matrix(kpt, H.array)
         
         result_G = np.zeros_like(deltapsi_G)
 
@@ -364,10 +374,10 @@ class SternheimerResponse:
 
         return result_G
         
-    def _get_RHS(self, kpt, psi_G, apply_potential):
+    def _get_RHS(self, kpt, psi_G, apply_potential, k_index):
         RHS_G = np.zeros_like(kpt.psit.array[0])
-        v_psi_G = apply_potential(psi_G)
-        RHS_G = -(v_psi_G - self._apply_valence_projector(v_psi_G, kpt))
+        v_psi_G = apply_potential(psi_G, k_index)
+        RHS_G = -(v_psi_G - self._apply_overlap(self._apply_valence_projector(v_psi_G, kpt, k_index), k_index))
 
         return RHS_G
         
@@ -379,7 +389,7 @@ class SternheimerResponse:
 if __name__=="__main__":
     filen = "test.gpw"
     import os
-    if os.path.isfile(filen):
+    if False and os.path.isfile(filen):
         print("Reading file")
         respObj = SternheimerResponse(filen)
     else:
@@ -393,9 +403,9 @@ if __name__=="__main__":
         #atoms = Atoms("H2", positions=([c-d/2, c, c], [c+d/2, c,c]),
         #       cell = (a,a,a))
         atoms = bulk("Si", "diamond", 5.43)
-        calc = GPAW(mode=PW(100),
-                xc ="PBE",
-                kpts=(8,8,8),
+        calc = GPAW(mode=PW(50, force_complex_dtype=True),
+                xc ="PBE",                
+                kpts=(1,1,1),
                 random=True,
                 #symmetry=False,
                 occupations=FermiDirac(0.01),
@@ -404,7 +414,7 @@ if __name__=="__main__":
         atoms.set_calculator(calc)
         energy = atoms.get_potential_energy()
         calc.write(filen, mode = "all")
- 
+        exit()
         respObj = SternheimerResponse(filen)
         
 
