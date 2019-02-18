@@ -29,6 +29,7 @@ import sys
 
 
 cmds = """\
+pip install --upgrade pip
 touch gpaw-tests.lock
 cd ase; git pull -q; pip install -U .
 cd gpaw; git clean -fdx; git pull -q
