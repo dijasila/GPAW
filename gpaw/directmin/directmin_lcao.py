@@ -791,6 +791,7 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.stop('Unitary rotation')
 
+
 def get_indices(dimens, dtype):
 
     if dtype == complex:
