@@ -48,6 +48,9 @@ class ExternalPotential:
     def calculate_potential(self, gd):
         raise NotImplementedError
 
+    def get_name(self):
+        return self.__class__.__name__
+
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
@@ -64,9 +67,6 @@ class ConstantPotential(ExternalPotential):
     def todict(self):
         return {'name': self.name,
                 'constant': self.constant * Hartree}
-
-    def get_name(self):
-        return self.name
 
 
 class ConstantElectricField(ExternalPotential):
@@ -159,9 +159,6 @@ class PointChargePotential(ExternalPotential):
                         self.rc * Bohr,
                         (self.rc2 - self.width) * Bohr,
                         self.rc2 * Bohr))
-
-    def get_name(self):
-        return self.__class__.__name__
 
     def set_positions(self, R_pv, com_pv=None):
         """Update positions."""
