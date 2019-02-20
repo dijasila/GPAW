@@ -160,6 +160,9 @@ class PointChargePotential(ExternalPotential):
                         (self.rc2 - self.width) * Bohr,
                         self.rc2 * Bohr))
 
+    def get_name(self):
+        return self.__class__.__name__
+
     def set_positions(self, R_pv, com_pv=None):
         """Update positions."""
         if com_pv is not None:
