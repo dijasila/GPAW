@@ -87,7 +87,7 @@ class CG(Eigensolver):
 
         psit = kpt.psit
         R = psit.new(buf=wfs.work_array)
-        P = kpt.P
+        P = kpt.projections
         P2 = P.new()
 
         self.subspace_diagonalize(ham, wfs, kpt)

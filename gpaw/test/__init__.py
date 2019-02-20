@@ -96,6 +96,7 @@ tests = [
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
+    'pd_occ.py',
     'lfc/lf.py',
     'maths/fsbt.py',
     'parallel/compare.py',
@@ -197,6 +198,7 @@ tests = [
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'response/graphene_refined_response.py',  # ~3s
+    'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s

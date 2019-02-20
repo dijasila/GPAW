@@ -113,7 +113,12 @@ class PAW:
         return self.wfs.setups.Eref * Ha
 
     def get_homo_lumo(self, spin=None):
-        """Return HOMO and LUMO eigenvalues."""
+        """Return HOMO and LUMO eigenvalues.
+
+        By default, return the true HOMO-LUMO eigenvalues (spin=None).
+
+        If spin is 0 or 1, return HOMO-LUMO eigenvalues taken among
+        only those states with the given spin."""
         return self.wfs.get_homo_lumo(spin) * Ha
 
     def estimate_memory(self, mem):

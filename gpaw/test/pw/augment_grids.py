@@ -33,6 +33,6 @@ for xc in ['LDA', 'PBE']:
     serr = np.abs(s2 - s1).max()
     if atoms.calc.wfs.world.rank == 0:
         print('errs', eerr, ferr, serr)
-    assert eerr < 1e-12, 'bad {} energy: err={}'.format(xc, eerr)
-    assert ferr < 1e-12, 'bad {} forces: err={}'.format(xc, ferr)
-    assert serr < 1e-12, 'bad {} stress: err={}'.format(xc, serr)
+    assert eerr < 5e-12, 'bad {} energy: err={}'.format(xc, eerr)
+    assert ferr < 5e-12, 'bad {} forces: err={}'.format(xc, ferr)
+    assert serr < 5e-12, 'bad {} stress: err={}'.format(xc, serr)

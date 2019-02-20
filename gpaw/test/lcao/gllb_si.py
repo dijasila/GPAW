@@ -16,6 +16,8 @@ calc = GPAW(mode=LCAO(interpolation=2),
 
 def stopcalc():
     calc.scf.converged = True
+
+
 calc.attach(stopcalc, 1)
 
 si.set_calculator(calc)
@@ -24,7 +26,7 @@ si.get_potential_energy()
 response = calc.hamiltonian.xc.xcs['RESPONSE']
 response.calculate_delta_xc()
 EKs, Dxc = response.calculate_delta_xc_perturbation()
-refgap = 3.02346995277145
+refgap = 3.02333
 gap = EKs + Dxc
 print('GAP', gap)
 err = abs(gap - refgap)

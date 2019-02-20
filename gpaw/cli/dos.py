@@ -111,7 +111,7 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
             plt.plot(dos.energies, y, label=label)
         plt.legend()
         plt.ylabel(ylabel)
-        plt.xlabel('$\epsilon-\epsilon_F$ [eV]')
+        plt.xlabel(r'$\epsilon-\epsilon_F$ [eV]')
         plt.show()
 
 

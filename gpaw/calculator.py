@@ -6,6 +6,7 @@ from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.utils import basestring, plural
 from ase.utils.timing import Timer
+from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
@@ -347,10 +348,15 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
+        efermi = self.occupations.fermilevel
+        self.hamiltonian.summary(efermi, self.log)
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
+        try:
+            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+        except ValueError:
+            pass
         self.log.fd.flush()
 
     def set(self, **kwargs):
@@ -618,8 +624,10 @@ class GPAW(PAW, Calculator):
                 nbands = nbandsmax
             if mode.name == 'lcao' and nbands > nao:
                 nbands = nao
+        elif nbands <= 0:
+            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
-        elif nbands > nao and mode.name == 'lcao':
+        if nbands > nao and mode.name == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -628,9 +636,6 @@ class GPAW(PAW, Calculator):
             raise ValueError(
                 'Charge %f is not possible - not enough valence electrons' %
                 par.charge)
-
-        if nbands <= 0:
-            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -802,10 +807,10 @@ class GPAW(PAW, Calculator):
         self.log(self.occupations)
 
     def create_scf(self, nvalence, mode):
-        #if mode.name == 'lcao':
-        #    niter_fixdensity = 0
-        #else:
-        #    niter_fixdensity = 2
+        # if mode.name == 'lcao':
+        #     niter_fixdensity = 0
+        # else:
+        #     niter_fixdensity = 2
 
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
@@ -933,7 +938,6 @@ class GPAW(PAW, Calculator):
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
                 xc_redistributor=xc_redist,
                 **kwargs)
-            #xc.set_grid_descriptor(self.hamiltonian.xc_gd)
             xc.set_grid_descriptor(self.hamiltonian.xc_gd)
 
         self.hamiltonian.soc = self.parameters.experimental.get('soc')
