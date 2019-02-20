@@ -36,8 +36,10 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
             out.array[:, I1:I2] = np.dot(P.array[:, I1:I2], dH_ii)
         else:
             dH_xp = dH_asp[a]
-            dH_ii = unpack(dH_xp[0])
-            dH_vii = [unpack(dH_p) for dH_p in dH_xp[1:]]
+            # We need the transpose because
+            # we are dotting from the left
+            dH_ii = unpack(dH_xp[0]).T
+            dH_vii = [unpack(dH_p).T for dH_p in dH_xp[1:]]
             out.array[:, 0, I1:I2] = (np.dot(P.array[:, 0, I1:I2],
                                              dH_ii + dH_vii[2]) +
                                       np.dot(P.array[:, 1, I1:I2],
@@ -158,13 +160,17 @@ class Hamiltonian:
                 # zero boundary conditions
                 vacuum = 0.0
             else:
-                axes = (c, (c + 1) % 3, (c + 2) % 3)
-                v_g = self.pd3.ifft(self.vHt_q).transpose(axes)
-                vacuum = v_g[0].mean()
+                v_q = self.pd3.gather(self.vHt_q)
+                if self.pd3.comm.rank == 0:
+                    axes = (c, (c + 1) % 3, (c + 2) % 3)
+                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                    vacuum = v_g[0].mean()
+                else:
+                    vacuum = np.nan
 
             wf1 = (vacuum - fermilevel + correction) * Ha
             wf2 = (vacuum - fermilevel - correction) * Ha
-            log('Dipole-layer corrected work functions: {0}, {1} eV'
+            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
                 .format(wf1, wf2))
             log()
 
@@ -281,7 +287,7 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                assert self.collinear
+                #assert self.collinear
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp

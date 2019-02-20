@@ -43,6 +43,7 @@ Specialized tutorials
    jellium/jellium
    hydrogen/h
    muonsites/mnsi
+   defects/defects
    stm/stm
    bader/bader
    all-electron/all_electron_density
@@ -60,5 +61,6 @@ Specialized tutorials
    H2/ensembles
    continuum_solvent_model/continuum_solvent_model
    ofdft/ofdft
+   berry/berry_tutorial
    wannier90/wannier90_tutorial
    sjm/solvated_jellium_method.rst

@@ -37,7 +37,7 @@ def main():
         f'#PBS -N {args.script}',
         f'#PBS -l nodes={nodes}:ppn={ppn}',
         f'#PBS -l walltime={args.time}:00:00',
-        '#PBS -l feature=XeonX5550',
+        # '#PBS -l feature=XeonX5550',
         'cd $PBS_O_WORKDIR',
         f'OMP_NUM_THREADS=1 mpiexec {cmd}']
     script = '\n'.join(lines) + '\n'

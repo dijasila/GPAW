@@ -89,6 +89,8 @@ class NonLocalFunctional(XCFunctional):
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
+        if setup.xc_correction is None:
+            return 0.0
         Exc = 0.0
         # We are supposed to add to H_sp, not write directly
         H0_sp = H_sp
@@ -143,7 +145,7 @@ class NonLocalFunctional(XCFunctional):
         self.xcs[contribution.get_name()] = contribution
 
     def print_functional(self):
-        if world.rank is not 0:
+        if world.rank != 0:
             return
         print()
         print("Functional being used consists of")

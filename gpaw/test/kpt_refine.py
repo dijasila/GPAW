@@ -19,7 +19,7 @@ kpt_refine = {
 #             "reduce_symmetry":True}
 
 calc = GPAW(mode=PW(ecut=400),
-            xc='PBE',
+            xc=dict(name='PBE', stencil=1),
             kpts={'size': [9, 9, 1], 'gamma': True},
             experimental={'kpt_refine': kpt_refine},
             occupations=FermiDirac(0.026))
@@ -29,4 +29,4 @@ energy = system.get_potential_energy()
 
 parprint('Energy', energy)
 
-assert abs(energy - -18.256972163) < 1e-4
+assert abs(energy - -18.25666) < 1e-4

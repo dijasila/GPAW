@@ -1,6 +1,6 @@
 import numpy as np
 from gpaw.utilities.blas import \
-     gemm, axpy, r2k, rk, gemmdot, dotc
+    gemm, axpy, r2k, rk, gemmdot, dotc
 from gpaw.utilities.tools import tri2full
 
 a = np.arange(5 * 7).reshape(5, 7) + 4.

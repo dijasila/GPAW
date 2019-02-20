@@ -1,6 +1,4 @@
 # Creates: sf_3x3_defect.png
-import pickle
-from ase.units import Hartree
 from gpaw import GPAW
 from gpaw.unfold import plot_spectral_function
 

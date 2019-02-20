@@ -42,6 +42,7 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
         wfs.timer.stop('LCAO eigensolver')
 
     def iterate_one_k_point(self, ham, wfs, kpt, Vt_xdMM):
+        assert wfs.gd.comm.size == 1, 'No quite sure this works!'
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 

@@ -45,29 +45,38 @@ def pad(array, N):
 class PW(Mode):
     name = 'pw'
 
-    def __init__(self, ecut=340, fftwflags=fftw.ESTIMATE, cell=None,
+    def __init__(self, ecut=340, fftwflags=fftw.MEASURE, cell=None,
+                 gammacentered=False,
                  pulay_stress=None, dedecut=None,
                  force_complex_dtype=False):
         """Plane-wave basis mode.
 
         ecut: float
             Plane-wave cutoff in eV.
+        gammacentered: bool
+            Center the grid of chosen plane waves around the
+            gamma point or q/k-vector
         dedecut: float or None or 'estimate'
             Estimate of derivative of total energy with respect to
             plane-wave cutoff.  Used to calculate pulay_stress.
         pulay_stress: float or None
             Pulay-stress correction.
         fftwflags: int
-            Flags for making FFTW plan (default is ESTIMATE).
+            Flags for making an FFTW plan.  There are 4 possibilities
+            (default is MEASURE)::
+
+                from gpaw.fftw import ESTIMATE, MEASURE, PATIENT, EXHAUSTIVE
+
         cell: 3x3 ndarray
             Use this unit cell to chose the planewaves.
 
         Only one of dedecut and pulay_stress can be used.
         """
 
+        self.gammacentered = gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
-        self.fftwflags = fftwflags if not dry_run else fftw.ESTIMATE
+        self.fftwflags = fftwflags if not dry_run else fftw.MEASURE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None
@@ -100,7 +109,8 @@ class PW(Mode):
             else:
                 dedepsilon = self.dedecut * 2 / 3 * ecut
 
-        wfs = PWWaveFunctions(ecut, self.fftwflags, dedepsilon,
+        wfs = PWWaveFunctions(ecut, self.gammacentered,
+                              self.fftwflags, dedepsilon,
                               parallel, initksl, gd=gd,
                               **kwargs)
 
@@ -109,6 +119,8 @@ class PW(Mode):
     def todict(self):
         dct = Mode.todict(self)
         dct['ecut'] = self.ecut * Ha
+        dct['gammacentered'] = self.gammacentered
+
         if self.cell_cv is not None:
             dct['cell'] = self.cell_cv * Bohr
         if self.pulay_stress is not None:
@@ -122,7 +134,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.ESTIMATE):
+                 fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
 
@@ -151,6 +163,7 @@ class PWDescriptor:
             else:
                 dtype = complex
         self.dtype = dtype
+        self.gammacentered = gammacentered
 
         if dtype == float:
             Nr_c = N_c.copy()
@@ -193,7 +206,11 @@ class PWDescriptor:
         self.ng_q = []
         for q, K_v in enumerate(self.K_qv):
             G2_Q = ((self.G_Qv + K_v)**2).sum(axis=1)
-            mask_Q = (G2_Q <= 2 * ecut)
+            if gammacentered:
+                mask_Q = ((self.G_Qv**2).sum(axis=1) <= 2 * ecut)
+            else:
+                mask_Q = (G2_Q <= 2 * ecut)
+
             if self.dtype == float:
                 mask_Q &= ((i_Qc[:, 2] > 0) |
                            (i_Qc[:, 1] > 0) |
@@ -486,6 +503,9 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        if (pd.gd.N_c <= self.gd.N_c).any():
+            raise ValueError('Too few points in target grid!')
+
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -677,19 +697,19 @@ class Preconditioner:
         if psit_xG.ndim == 1:
             return self.calculate_kinetic_energy(psit_xG[np.newaxis], kpt)[0]
         G2_G = self.G2_qG[kpt.q]
-        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G)
+        return np.array([self.pd.integrate(0.5 * G2_G * psit_G, psit_G).real
                          for psit_G in psit_xG])
 
-    def __call__(self, R_xG, kpt, ekin_x):
-        if R_xG.ndim == 1:
-            return self.__call__(R_xG[np.newaxis], kpt, [ekin_x])[0]
+    def __call__(self, R_xG, kpt, ekin_x, out=None):
+        if out is None:
+            out = np.empty_like(R_xG)
         G2_G = self.G2_qG[kpt.q]
-        PR_xG = np.empty_like(R_xG)
-        for PR_G, R_G, ekin in zip(PR_xG, R_xG, ekin_x):
-            x_G = 1 / ekin / 3 * G2_G
-            a_G = 27.0 + x_G * (18.0 + x_G * (12.0 + x_G * 8.0))
-            PR_G[:] = -4.0 / 3 / ekin * R_G * a_G / (a_G + 16.0 * x_G**4)
-        return PR_xG
+        if R_xG.ndim == 1:
+            _gpaw.pw_precond(G2_G, R_xG, ekin_x, out)
+        else:
+            for PR_G, R_G, ekin in zip(out, R_xG, ekin_x):
+                _gpaw.pw_precond(G2_G, R_G, ekin, PR_G)
+        return out
 
 
 class NonCollinearPreconditioner(Preconditioner):
@@ -699,19 +719,20 @@ class NonCollinearPreconditioner(Preconditioner):
             self, psit_xsG.reshape((-1, shape[-1])), kpt)
         return ekin_xs.reshape(shape[:-1]).sum(-1)
 
-    def __call__(self, R_sG, kpt, ekin):
-        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin])
+    def __call__(self, R_sG, kpt, ekin, out=None):
+        return Preconditioner.__call__(self, R_sG, kpt, [ekin, ekin], out)
 
 
 class PWWaveFunctions(FDPWWaveFunctions):
     mode = 'pw'
 
-    def __init__(self, ecut, fftwflags, dedepsilon,
+    def __init__(self, ecut, gammacentered, fftwflags, dedepsilon,
                  parallel, initksl,
                  reuse_wfs_method, collinear,
                  gd, nvalence, setups, bd, dtype,
                  world, kd, kptband_comm, timer):
         self.ecut = ecut
+        self.gammacentered = gammacentered
         self.fftwflags = fftwflags
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
 
@@ -745,7 +766,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def set_setups(self, setups):
         self.timer.start('PWDescriptor')
         self.pd = PWDescriptor(self.ecut, self.gd, self.dtype, self.kd,
-                               self.fftwflags)
+                               self.fftwflags, self.gammacentered)
         self.timer.stop('PWDescriptor')
 
         # Build array of number of plane wave coefficiants for all k-points
@@ -765,7 +786,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             self.dedepsilon = dedecut * 2 / 3 * self.ecut
 
     def get_pseudo_partial_waves(self):
-        return PWLFC([setup.get_actual_atomic_orbitals()
+        return PWLFC([setup.get_partial_waves_for_atomic_orbitals()
                       for setup in self.setups], self.pd)
 
     def __str__(self):
@@ -1358,7 +1379,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}  # type: Dict[Spline, int]
+        splines = {}  # Dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
@@ -1374,7 +1395,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()  # type: Set[Spline]
+        done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
@@ -1389,7 +1410,8 @@ class PWLFC(BaseLFC):
                 self.s_J[J] = s
                 J += 1
 
-        self.lmax = max(self.l_s)
+        # self.lmax = max(self.l_s, default=-1)  # needs Python 3.4
+        self.lmax = max(self.l_s) if len(self.l_s) > 0 else -1
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
@@ -1508,14 +1530,21 @@ class PWLFC(BaseLFC):
 
         return f_GI
 
-    def block(self, q=-1):
+    def block(self, q=-1, ensure_same_number_of_blocks=False):
         nG = self.Y_qGL[q].shape[0]
-        if self.blocksize:
+        B = self.blocksize
+        if B:
             G1 = 0
             while G1 < nG:
-                G2 = min(G1 + self.blocksize, nG)
+                G2 = min(G1 + B, nG)
                 yield G1, G2
                 G1 = G2
+            if ensure_same_number_of_blocks:
+                # Make sure we yield the same number of times:
+                nb = (self.pd.maxmyng + B - 1) // B
+                mynb = (nG + B - 1) // B
+                if mynb < nb:
+                    yield nG, nG  # empty block
         else:
             yield 0, nG
 
@@ -1663,7 +1692,7 @@ class PWLFC(BaseLFC):
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
             Z_LvG = np.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])
@@ -1692,8 +1721,9 @@ class PWLFC(BaseLFC):
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        x = np.prod(c_xI.shape[:-1], dtype=int)
+        b_xI = c_xI.reshape((x, self.nI))
+        a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:

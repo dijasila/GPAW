@@ -53,7 +53,7 @@ Implementaion notes
    integrals between derivatives of localized functions wrt atomic
    displacements and functions defined on the grid, the signs of the calculated
    integrals come out incorrectly (see doc string of the ``derivative``
-   method). All files in this ``dfpt`` package follows the prescription:: 
+   method). All files in this ``dfpt`` package follows the prescription::
 
         X_niv = -1 * X_aniv[a] ,
 
@@ -77,6 +77,7 @@ Implementaion notes
 
 """
 
+# flake8: noqa
 # __version__ = "0.1"
 
 # Import things specified in the __all__ attributes

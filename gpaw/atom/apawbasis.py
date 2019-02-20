@@ -115,7 +115,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
 
     #rpol = None
     for l in range(3):
-        if not l in ldict:
+        if l not in ldict:
             lpol = l
             source_bf = ldict[lpol - 1]
             break

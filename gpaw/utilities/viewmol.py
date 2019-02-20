@@ -1,4 +1,4 @@
-"""Trajectory module with viewmol support.""" 
+"""Trajectory module with viewmol support."""
 from __future__ import print_function
 
 from math import sqrt
@@ -39,7 +39,7 @@ class Trajectory(PickleTrajectory):
 
     def __del__(self):
         pass # overwrite PickleTrajectory.__del__
-        
+
     def __getitem__(self, i=-1):
         if hasattr(self, 'offsets'):
             return PickleTrajectory.__getitem__(self, i)
@@ -63,13 +63,13 @@ class Trajectory(PickleTrajectory):
             images = [images]
         for image in images:
             self.images.append(image)
-        
+
     def read(self, filename, filetype=None):
         """Read from a file"""
 
         ftfe = filetype_from_ending(filename)
         aft = ase_filetype(filename)
-        
+
         if ftfe == 'vmol':
             self.read_viewmol(filename)
         elif aft == 'traj':
@@ -95,7 +95,7 @@ class Trajectory(PickleTrajectory):
             self.write_viewmol(filename)
         else:
             raise NotImplementedError
-    
+
     def write_viewmol(self, filename, mode='w'):
         """Write yourself in viewmol style."""
 
@@ -109,7 +109,7 @@ class Trajectory(PickleTrajectory):
 
         for i, atoms in enumerate(self):
             self.write_viewmol_atoms(f, atoms, i)
-            
+
         f.close()
 
     def write_viewmol_atoms(self, file, atoms, index):
@@ -159,7 +159,7 @@ class Trajectory(PickleTrajectory):
                     # we assume this is a coordinate entry
                     coo = (float(w[0]),  float(w[1]), float(w[2]))
                     loa.append(Atom(w[3], coo))
- 
+
         # get the iterations
         cycle = False
         for line in f:
@@ -200,7 +200,7 @@ class ViewmolTrajectory(Trajectory):
     def __init__(self, atoms, filename='trajectory.vmol',mode='w'):
         self.Ha = 1.0 / Hartree
         self.Ang = Angstrom
-        
+
         self.n = 0
         self.atoms = atoms
         if mpi.rank == MASTER:
@@ -210,7 +210,7 @@ class ViewmolTrajectory(Trajectory):
         print(' $coord', 1. / Angstrom, file=self.file)
         self.write_viewmol_positions(self.file, self.atoms)
         print(' $grad', file=self.file)
-    
+
     def __del__(self):
         print(' $end', file=self.file)
         self.file.close()
@@ -232,7 +232,7 @@ class ViewmolTrajectory(Trajectory):
         for atom, f in zip(self.atoms, forces):
             print('%10.4g %10.4g %10.4g' % (f[0],f[1],f[2]), file=self.file)
         self.file.flush()
-       
+
     def read(self, filename='trajectory.vmol', position=0):
         """Read atom configurations of step position"""
         self.file = None
@@ -243,9 +243,9 @@ class ViewmolTrajectory(Trajectory):
         for l in f.readlines():
             if coords:
                 w = l.split()
-                loa.append(Atom(w[3].replace ("\n", "" ),
+                loa.append(Atom(w[3].replace("\n", ""),
                                 (float(w[0]), float(w[1]), float(w[2]))))
-                
+
 def write_viewmol(pt, filename, mode='w'):
     """Write PickleTrajectory as viewmol file."""
     atoms = pt[0]
@@ -253,4 +253,4 @@ def write_viewmol(pt, filename, mode='w'):
     for atoms in pt:
         vt.add(atoms)
     del(vt)
-    
+
