@@ -135,7 +135,7 @@ class BasePoissonSolver(_PoissonSolver):
         return '\n'.join(lines)
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
-              zero_initial_phi=False, timer=NullTimer(), PB=False):
+              zero_initial_phi=False, timer=NullTimer()):
         self._init()
         assert np.all(phi.shape == self.gd.n_c)
         assert np.all(rho.shape == self.gd.n_c)
@@ -143,8 +143,6 @@ class BasePoissonSolver(_PoissonSolver):
         if eps is None:
             eps = self.eps
         actual_charge = self.gd.integrate(rho)
-        if PB:
-            charge = charge
         background = (actual_charge / self.gd.dv /
                       self.gd.get_size_of_global_array().prod())
 
@@ -168,8 +166,7 @@ class BasePoissonSolver(_PoissonSolver):
             return niter
         if charge is None:
             charge = actual_charge
-        if abs(charge) <= maxcharge and not PB:
-            # System is charge neutral and no PoissonBoltzmann. Use standard solver
+        if abs(charge) <= maxcharge:
             return self.solve_neutral(phi, rho - background, eps=eps, timer=timer)
 
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
