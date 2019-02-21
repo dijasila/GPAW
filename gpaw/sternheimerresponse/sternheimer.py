@@ -1,9 +1,6 @@
 from gpaw import GPAW
-from functools import partial
-from gpaw.matrix import matrix_matrix_multiply as mmm
 import numpy as np
 from scipy.sparse.linalg import LinearOperator, bicgstab
-from functools import reduce
 from gpaw.utilities import pack, unpack
 
 
@@ -21,44 +18,71 @@ class SternheimerResponse:
     def calculate(self, qvectors, num_eigs):
         qvector = qvectors[0]
         
-        deltapsi_qnG, eigval = self.initial_guess()
-
-        
+        deltapsi_qnG1, eigval1 = self.initial_guess()
+        deltapsi_qnG2, eigval2 = self.initial_guess()
+        eigvals = [eigval1, eigval2]
+        deltapsis = [deltapsi_qnG1, deltapsi_qnG2]
 
         error_threshold = 1e-9
         error = 100
         num_iter = 200
         def Precondition(deltapsi_qnG):
             return deltapsi_qnG
-        stepsize = 0.1
+        stepsize = 0.4
 
         for niter in range(num_iter):
             print(f"Iteration number: {niter}")
+            print(f"Eigenvalues: {eigvals}")#. Error: {error}")
+                
             #Calculate residual
-            new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
-            residual_qnG = {q : new_deltapsi_qnG[q] - eigval*deltapsi_nG for q, deltapsi_nG in deltapsi_qnG.itesm()}
+            for k, deltapsi_qnG in enumerate(deltapsis):
+                eigval = eigvals[k]
+                new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
+                residual_qnG = {q : new_deltapsi_qnG[q] - eigval*deltapsi_nG for q, deltapsi_nG in deltapsi_qnG.items()}
 
 
 
-            error = self.calculate_error(residual_qnG)
-            if error < error_threshold:
-                return eigval, deltapsi_qnG
+                error = self.calculate_error(residual_qnG)
+                print(f"Index#-#Error = {k}#-#{error}")
+                if error < error_threshold:
+                    return eigval, deltapsi_qnG
 
 
 
 
             
-            #Precondition and step
-            deltapsi_qnG = {q : deltapsi_nG + stepsize*Precondition(residual_qnG[q]) for q, deltapsi_nG in deltapsi_qnG.items()}
+                #Precondition and step
+                for q, deltapsi_nG in deltapsi_qnG.items():
+                    deltapsi_qnG[q] = deltapsi_nG + stepsize*Precondition(residual_qnG[q])
+                    #deltapsi_qnG = {q : deltapsi_nG + stepsize*Precondition(residual_qnG[q]) for q, deltapsi_nG in deltapsi_qnG.items()}
             
             
-            #Orthonormalize ##Replace this with Gram-Schmidt if solving for more eigenvectors
-            norm = np.sqrt(self.inner_product(deltapsi_qnG, deltapsi_qnG))
-            deltapsi_qnG = {q : deltapsi_nG/norm for q, deltapsi_nG in deltapsi_qnG.items()}
+                    #Orthonormalize ##Replace this with Gram-Schmidt if solving for more eigenvectors
+            #for deltapsi_qnG in deltapsis[1:]:
+            deltapsis[1] = {q: deltapsi_nG - deltapsis[0][q]*self.inner_product(deltapsis[0], deltapsis[1]) for q, deltapsi_nG in deltapsis[1].items()}
+            norm = np.sqrt(self.inner_product(deltapsis[0], deltapsis[0]))
+            deltapsis[0] = {q : deltapsi_nG/norm for q, deltapsi_nG in deltapsis[0].items()}
+            norm = np.sqrt(self.inner_product(deltapsis[1], deltapsis[1]))
+            deltapsis[1] = {q : deltapsi_nG/norm for q, deltapsi_nG in deltapsis[1].items()}
+            #norm = np.sqrt(self.inner_product(deltapsi_qnG, deltapsi_qnG))
+            #deltapsi_qnG = {q : deltapsi_nG/norm for q, deltapsi_nG in deltapsi_qnG.items()}
 
 
             ##Replace this with subspace diagonalization if solving for more eigenvectors concurrently
-            eigval = self.inner_product(deltapsi_qnG, self.apply_K(deltapsi_qnG))
+            #eigval = self.inner_product(deltapsi_qnG, self.apply_K(deltapsi_qnG, qvector))
+            matrix = np.zeros((2,2), dtype=np.complex128)
+            for i in range(2):
+                for j in range(2):
+                    matrix[i,j] = self.inner_product(deltapsis[i], self.apply_K(deltapsis[j], qvector))
+
+            eigvals, eigvecs = np.linalg.eig(matrix)
+            #{q : val*multiplier for q, val in dic.items()}
+            n = {q: delta*eigvecs[0,0] + deltapsis[1][q]*eigvecs[1,0] for q, delta in deltapsis[0].items()}
+            #deltapsis[0]*eigvecs[0][0] + deltapsis[1]*eigvecs[0][1]
+            deltapsis[1] = {q: delta*eigvecs[0, 1] + deltapsis[1][q]*eigvecs[1,1] for q, delta in deltapsis[0].items()}
+            #deltapsis[1] = deltapsis[0]*eigvecs[1][0] + deltapsis[1]*eigvecs[1][1]
+            deltapsis[0] = n
+
         raise ValueError("Calculation did not converge")
 
 
@@ -66,8 +90,10 @@ class SternheimerResponse:
         deltapsi_qnG = {}
         
         for index, kpt in enumerate(self.wfs.mykpts):
-            ##Replace this with better start guess probably
-            deltapsi_qnG[index] = np.ones(kpt.psit.array.shape, dtype=np.complex128)
+            ##TODO Replace this with better start guess probably
+            
+            deltapsi_qnG[index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=index) + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
+
 
             
         ##Replace this with guess dependent on other guess/found values to speed up convergence
@@ -90,17 +116,19 @@ class SternheimerResponse:
         fine_delta_tilde_n1_G = self.get_fine_delta_tilde_n(deltapsi1_qnG)
         fine_delta_tilde_n2_G = self.get_fine_delta_tilde_n(deltapsi2_qnG)
 
-        DeltaD1_aii = self.get_density_matrix(delta_psi1_nG)
-        DeltaD2_aii = self.get_density_matrix(delta_psi2_nG)
+        DeltaD1_aii = self.get_density_matrix(deltapsi1_qnG)
+        DeltaD2_aii = self.get_density_matrix(deltapsi2_qnG)
 
 
         comp_charge1_G = self.get_compensation_charges(deltapsi1_qnG, DeltaD1_aii)
         comp_charge2_G = self.get_compensation_charges(deltapsi2_qnG, DeltaD2_aii)
 
         poisson_G = self.solve_poisson(fine_delta_tilde_n1_G + comp_charge1_G)
+        poisson_R = self.calc.density.pd3.ifft(poisson_G.T)
+        charge2_R = self.calc.density.pd3.ifft(fine_delta_tilde_n2_G.T + comp_charge2_G.T)
 
-        P12 = (fine_delta_tilde_n2_G + comp_charge2_G).dot(poisson_G)
-
+        P12 = np.einsum("ijk, ijk", charge2_R, poisson_R) #(fine_delta_tilde_n2_G + comp_charge2_G).dot(poisson_G)
+        
 
         #C_app = {a : 2*setup.M_pp for a, setup in enumerate(self.wfs.setups)}
 
@@ -116,27 +144,29 @@ class SternheimerResponse:
     def get_density_matrix(self, deltapsi_qnG):
         pt = self.wfs.pt
         D_aii = {}
+        nvalence = self.wfs.setups.nvalence//2
         for q_index, deltapsi_nG in deltapsi_qnG.items():
-            c_axi = pt.integrate(deltapsi_nG, q=q_index)
+            c_ani = pt.integrate(deltapsi_nG, q=q_index)
 
 
             kpt = self.wfs.mykpts[q_index]
-            for a, c_xi in c_axi.items():
-                P_ni = kpt.projections[a]
+            for a, c_ni in c_ani.items():
+                P_ni = kpt.projections[a][:nvalence]
+                U_ij = np.dot(P_ni.T.conj()*kpt.f_n[:nvalence], c_ni)
                 if a in D_aii:
-                    D_aii[a] += np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
+                    D_aii[a] += U_ij + U_ij.conj().T
                 else:
-                    D_aii[a] = np.dot(P_ni.T.conj()*kpt.f_n, c_xi)
+                    D_aii[a] = U_ij + U_ij.conj().T
         return D_aii
         
 
 
     def apply_K(self, deltapsi_qnG, qvector):
         potential_function = self.epsilon_potential(deltapsi_qnG)
-        
+
         new_deltapsi_qnG = self.solve_sternheimer(potential_function, qvector)
 
-        return {q: -val for q, vel in new_deltapsi_qnG.items()}
+        return {q: -val for q, val in new_deltapsi_qnG.items()}
 
             
 
@@ -146,7 +176,6 @@ class SternheimerResponse:
 
         #delta_tilde_n = self.get_delta_tilde_n(deltawfs_wfs)
         fine_delta_tilde_n = self.get_fine_delta_tilde_n(deltapsi_qnG)
-
 
        
         #Comp charges is dict: atom -> charge
@@ -164,15 +193,15 @@ class SternheimerResponse:
 
 
         def apply_potential(wvf_G, q_index):
-            wvf_R = self.wfs.pd.ifft(wvf_G)
+            wvf_R = self.wfs.pd.ifft(wvf_G, q_index)
             pt = self.wfs.pt
             c_ai = pt.integrate(wvf_G, q=q_index)
             
             for a, c_i in c_ai.items():
                 W_ii = unpack(W_ap[a])
-                c_i[:] = W_ii.dot(c_i.T).T ##TODO ask JJ about these transposes
+                c_i[:] = c_i.dot(W_ii)
 
-            V1 = self.wfs.pd.fft(soft_term_R*wvf_R)
+            V1 = self.wfs.pd.fft(soft_term_R*wvf_R, q=q_index)
             pt.add(V1, c_ai, q=q_index)
             return V1   
 
@@ -191,7 +220,7 @@ class SternheimerResponse:
             DeltaD_ii = DeltaD_aii[a]
             Delta_iiL = setup.Delta_iiL
             Q_L = np.einsum("ij, ij...", DeltaD_ii, Delta_iiL)
-            Q_aL[a] = np.real(Q_L) ##TODO ask JJ about this real part
+            Q_aL[a] = np.real(Q_L)
 
 
                 
@@ -207,15 +236,14 @@ class SternheimerResponse:
         #Interpolate delta psi
         #Use wavefunctions/pw.py
         #calc.density.pd2 (fine G grid)
-        
         pd = self.wfs.pd
         pd2 = self.calc.density.pd2
         pd3 = self.calc.density.pd3
         delta_n_R = pd2.gd.zeros()
         for q_index, deltapsi_nG in deltapsi_qnG.items():
             for state_index, deltapsi_G in enumerate(deltapsi_nG):
-                deltapsi_R = pd.ifft(deltapsi_G)
-                wf_R = pd.ifft(self.wfs.mykpts[q_index].psit.array[state_index])
+                deltapsi_R = pd.ifft(deltapsi_G, q=q_index)
+                wf_R = pd.ifft(self.wfs.mykpts[q_index].psit.array[state_index], q=q_index)
                 delta_n_R += 2*np.real(deltapsi_R*wf_R)
 
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
@@ -250,7 +278,7 @@ class SternheimerResponse:
         W_ap = {}
         
         for a, glm_int_L in coulomb_factors_aL.items():
-            W_ap[a] = setups[a].Delta_pL.dot(glm_int_L.T).astype(np.complex128) ##TODO ask JJ about transpose
+            W_ap[a] = setups[a].Delta_pL.dot(glm_int_L.T)#.astype(np.complex128) 
 
                 
 
@@ -266,9 +294,9 @@ class SternheimerResponse:
 
     def solve_sternheimer(self, apply_potential, qvector):
         deltapsi_qnG = {}
-
+        nvalence = self.wfs.setups.nvalence/2
         for index, kpt in enumerate(self.wfs.mykpts):
-            number_of_valence_states = kpt.psit.array.shape[0]
+            number_of_valence_states = self.wfs.setups.nvalence//2  #kpt.psit.array.shape[0]
             deltapsi_qnG[index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=index)
 
 
@@ -279,11 +307,18 @@ class SternheimerResponse:
             k_plus_q_object = self.wfs.mykpts[k_plus_q_index]
 
 
-
+            #print(f"array shape: {kpt.psit.array.shape}")
+            #print(f"object shape: {kpt.psit.array.shape}")
+            #print(f"deltapsi shape: {deltapsi_qnG[index].shape}")
             for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
+                if state_index >= nvalence:
+                    break
                 linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
+                #print(f"state index: {state_index}, index: {index}")
+                #print(f"psi shape: {psi.shape}")
                 RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, k_plus_q_index)
-                
+                #print("got RHS")
+
                 deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000)
 
                 if info != 0:
@@ -309,73 +344,63 @@ class SternheimerResponse:
 
 
     def _apply_LHS_Sternheimer(self, deltapsi_G, kpt, energy, k_index):
-        result_G = np.zeros_like(deltapsi_G)
         
         alpha = 1
         
         result_G = alpha*self._apply_valence_projector(self._apply_overlap(deltapsi_G, k_index), kpt, k_index)
         
-        result_G = result_G + self._apply_hamiltonian(deltapsi_G, kpt)
+        result_G += self._apply_hamiltonian(deltapsi_G, kpt, k_index)
         
-        result_G = result_G - energy*self._apply_overlap(deltapsi_G, k_index)
+        result_G -= energy*self._apply_overlap(deltapsi_G, k_index)
 
         return result_G
 
     def _apply_valence_projector(self, deltapsi_G, kpt, k_index):
         result_G = np.zeros_like(deltapsi_G)
-        f_n = kpt.f_n/kpt.f_n.max() #TODO ask JJ
-        num_occ = f_n.sum()
-
+        num_occ = self.wfs.setups.nvalence//2
+        pd = self.wfs.pd
+        #print(f"K index: {k_index}")
+        #print(f"array shape: {kpt.psit.array.shape}")
         for index, psi_G in enumerate(kpt.psit.array):
             if index >= num_occ: #We assume here that the array is ordered according to energy
                 break
-            result_G = result_G + psi_G*(psi_G.conj().dot(deltapsi_G)*f_n[index]) 
-
+            #print(f"index: {index}")
+            #print(f"shape psi: {psi_G.shape}, shape delta: {deltapsi_G.shape}")
+            result_G += psi_G*(pd.integrate(psi_G, deltapsi_G)) 
 
         return result_G
 
     def _apply_overlap(self, wvf_G, q_index):
         pt = self.wfs.pt
         c_ai = pt.integrate(wvf_G, q=q_index)
-        result_G = self.wfs.pd.zeros()
+
+        for a, c_i in c_ai.items():
+            dO_ii = self.wfs.setups[a].dO_ii
+            c_i[:] = c_i.dot(dO_ii)
+
+        result_G = wvf_G.copy()
         pt.add(result_G, c_ai, q=q_index)
         return result_G
 
 
-    def _apply_hamiltonian(self, deltapsi_G, kpt):
-        #TODO ask JJ about this function
-        #This function mimics this approach in eigensolver.subspace_diagonalize
+    def _apply_hamiltonian(self, deltapsi_G, kpt, k_index):
         kpt.psit.read_from_file() #This is to ensure everything is initialized
 
-        H_partial = partial(self.wfs.apply_pseudo_hamiltonian, kpt, self.calc.hamiltonian)
-        psit = kpt.psit
+        result_G = deltapsi_G.copy()
+        self.wfs.apply_pseudo_hamiltonian(kpt, self.calc.hamiltonian, deltapsi_G[None], result_G[np.newaxis])
 
-        tmp = psit.new(buf=self.wfs.work_array)
-        H = self.wfs.work_matrix_nn
-        P2 = kpt.projections.new()
+        pt = self.wfs.pt
+        c_ai = pt.integrate(deltapsi_G, q=k_index)
 
-        psit.matrix_elements(operator=H_partial, result=tmp, out=H,
-                     symmetric=True, cc=True) ##TODO ask JJ about whether cc=True is correct here
+        for a, c_i in c_ai.items():
+            dH_ii = unpack(self.calc.hamiltonian.dH_asp[a][0])
+            c_i[:] = c_i.dot(dH_ii)
 
-        #Add corrections (? Ask JJ)
-        self.calc.hamiltonian.dH(kpt.projections, out = P2)
-        
-        mmm(1.0, kpt.projections, "N", P2, "C", 1.0, H,  symmetric=True) #H is out-variable
-
-        self.calc.hamiltonian.xc.correct_hamiltonian_matrix(kpt, H.array)
-        
-        result_G = np.zeros_like(deltapsi_G)
-
-        for index1, wvf1_G in enumerate(psit.array):
-            for index2, wvf2_G, in enumerate(psit.array):
-                inner_prod = wvf2_G.conj().dot(deltapsi_G)
-                matrix_element = H.array[index1, index2]
-                result_G = result_G + wvf1_G*matrix_element*inner_prod
-
+        pt.add(result_G, c_ai, q=k_index)
         return result_G
+
         
-    def _get_RHS(self, kpt, psi_G, apply_potential, k_index):
-        RHS_G = np.zeros_like(kpt.psit.array[0])
+    def _get_RHS(self, kpt, psi_G, apply_potential, k_index):        
         v_psi_G = apply_potential(psi_G, k_index)
         RHS_G = -(v_psi_G - self._apply_overlap(self._apply_valence_projector(v_psi_G, kpt, k_index), k_index))
 
@@ -394,7 +419,6 @@ if __name__=="__main__":
         respObj = SternheimerResponse(filen)
     else:
         print("Generating new test file")
-        from ase import Atoms
         from ase.build import bulk
         from gpaw import PW, FermiDirac
         a = 10
@@ -403,9 +427,9 @@ if __name__=="__main__":
         #atoms = Atoms("H2", positions=([c-d/2, c, c], [c+d/2, c,c]),
         #       cell = (a,a,a))
         atoms = bulk("Si", "diamond", 5.43)
-        calc = GPAW(mode=PW(50, force_complex_dtype=True),
+        calc = GPAW(mode=PW(150, force_complex_dtype=True),
                 xc ="PBE",                
-                kpts=(1,1,1),
+                kpts=(4,4,4),
                 random=True,
                 #symmetry=False,
                 occupations=FermiDirac(0.01),
