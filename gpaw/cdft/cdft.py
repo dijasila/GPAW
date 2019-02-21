@@ -135,7 +135,7 @@ class CDFT(Calculator):
                 Zn = np.zeros(self.n_charge_regions)
                 for j in range(len(Zn)):
                     for atom in atoms[self.charge_regions[j]]:
-                            Zn[j] += atom.number
+                        Zn[j] += atom.number
 
                 # combined spin and charge constraints
                 self.constraints = Zn - self.charge_i
@@ -242,7 +242,7 @@ class CDFT(Calculator):
             # very simple step size control
             diff = v_i - self.old_v_i
 
-            if np.any ( np.abs(diff) >= self.max_step/Hartree):
+            if np.any (np.abs(diff) >= self.max_step/Hartree):
                 v_i = self.old_v_i + np.sign(v_i - self.old_v_i)*self.max_step/Hartree
 
             self.ext.set_levels(v_i)
@@ -304,7 +304,6 @@ class CDFT(Calculator):
                         (np.array(total_electrons)-self.n_core_electrons))
 
             if self.iteration == 0:
-                n = 7 * len(self.v_i)
                 p('Optimizer: {n}'.format(n=self.method))
                 p('Optimizer setups:{n}'.format(n=self.options))
 
@@ -467,8 +466,8 @@ class CDFT(Calculator):
         for i in [0,1]:
             for a, D_sp in self.calc.density.D_asp.items():
                 self.dn_s[i,a] += np.sqrt(4.*np.pi)*(np.dot(D_sp[i],
-                                  self.calc.wfs.setups[a].Delta_pL)[i]\
-                                + self.calc.wfs.setups[a].Delta0/2)
+                    self.calc.wfs.setups[a].Delta_pL)[i]\
+                    + self.calc.wfs.setups[a].Delta0/2)
 
         self.gd.comm.sum(self.dn_s)
         for a in range(len(self.atoms)):
@@ -545,10 +544,10 @@ class CDFT(Calculator):
     def save_parameters(self, name = 'initial',save_weight=True, save_wfs=True):
         if self.gd.comm.rank == 0:
             file = open(name+'.txt','w')
-            file.write('NA = %f ,\n'%(self.constraints))
-            file.write('FA = %f , \n'%(self.Ecdft))
-            file.write('EA = %f , \n'%(self.Edft))
-            file.write('Va = %f , \n'% (self.v_i * Hartree))
+            file.write('NA = %f ,\n' % (self.constraints))
+            file.write('FA = %f , \n' % (self.Ecdft))
+            file.write('EA = %f , \n' % (self.Edft))
+            file.write('Va = %f , \n' % (self.v_i * Hartree))
             file.write('N_charge_regions_A = %d ,\n'  %self.n_charge_regions)
             file.close()
 
@@ -1022,7 +1021,6 @@ class WeightFunc:
         for atom in self.atoms:
             wc = self.gd.zeros()
             ws = self.gd.zeros()
-            a_pos = atom.position / Bohr
 
             for i in range(n_charge_regions):
                 # build V_i [sum_k rho_k + sum_{j in i}rho_i]
