@@ -15,7 +15,7 @@ from gpaw.cdft.cdft import (WeightFunc, get_ks_energy_wo_external,
                     get_all_weight_functions)
 from ase.units import kB as kb
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
-from ase.units import Hartree, Bohr
+from ase.units import Bohr
 from ase.parallel import rank
 import warnings
 #from gpaw.utilities.blas import gemm
@@ -310,9 +310,6 @@ class CouplingParameters:
         if self.specific_bands_A or self.specific_bands_B or self.spin:
             self.save_matrix = True
 
-        # diagonal elements of hamiltonian
-        ham = self.calc_A.hamiltonian
-
         self.H_AA = self.EA
         self.H_BB = self.EB
 
@@ -453,15 +450,10 @@ class CouplingParameters:
            raise ValueError(nab_missing_error)
 
         # pseudo wfs to all-electron wfs
-
         psi_A = PS2AE(self.calc_A, h=self.h)
         psi_B = PS2AE(self.calc_B, h=self.h)
 
-        n_spin_regionsA = len(self.Va) - self.n_charge_regionsA
-        n_spin_regionsB = len(self.Vb) - self.n_charge_regionsB
-
         ns = self.calc_A.wfs.nspins
-        nk = len(self.calc_A.wfs.kd.weight_k)
 
         # weight functions sum_c VcWc
         wa = []
@@ -506,11 +498,6 @@ class CouplingParameters:
                 I = np.identity(inv_S.shape[0])
                 C_ab = np.transpose(np.dot(inv_S, (det_S*I)))
 
-                inv_S = np.linalg.inv(np.transpose(self.n_ab[k]).conj())
-                det_S = np.linalg.det(np.transpose(self.n_ab[k]))
-                I = np.identity(inv_S.shape[0])
-                C_ba = np.transpose(np.dot(inv_S, (det_S*I)))
-
                 nAa, nAb, nBa, nBb = self.check_bands(n_occup_A, n_occup_B, k)
                 nas, n_occup, n_occup_s = self.check_spin_and_occupations(nAa,
                                                                 nAb, nBa, nBb)
@@ -530,9 +517,6 @@ class CouplingParameters:
                 w_kA = kd.weight_k[k]
                 kd = self.calc_B.wfs.kd
                 w_kB = kd.weight_k[k]
-                # weights for bands
-                f_A = self.calc_A.get_occupation_numbers(kpt=k, spin=spin)/w_kA
-                f_B = self.calc_B.get_occupation_numbers(kpt=k, spin=spin)/w_kB
 
                 for i in range(n_occup_s[spin]):
                     for j in range(n_occup_s[spin]):
@@ -584,12 +568,6 @@ class CouplingParameters:
 
         if not hasattr(self, 'n_ab'):
             raise ValueError(nab_missing_error)
-
-        n_spin_regionsA = len(self.Va) - self.n_charge_regionsA
-        n_spin_regionsB = len(self.Vb) - self.n_charge_regionsB
-
-        ns = self.calc_A.wfs.nspins
-        nk = len(self.calc_A.wfs.kd.weight_k)
 
         # check number of occupied and total number of bands
         n_occup_A = self.get_n_occupied_bands(self.calc_A) # total of filled a and b bands
@@ -719,16 +697,10 @@ class CouplingParameters:
         psi_B = PS2AE(calc_B, h=self.h)
 
         ns = calc_A.wfs.nspins
-        nk = len(calc_A.wfs.kd.weight_k)
 
         # total of filled a and b bands for each spin and kpt
         n_occup_A = self.get_n_occupied_bands(calc_A)
         n_occup_B = self.get_n_occupied_bands(calc_B)
-        # total a or b bands
-        n_bands_A = calc_A.get_number_of_bands()
-        n_bands_B = calc_B.get_number_of_bands()
-
-        n_bands = np.max((n_bands_A,n_bands_B))
 
         # list to store k-dependent pair density
         n_AB = []
@@ -793,17 +765,11 @@ class CouplingParameters:
 
     def get_pair_density_matrix(self, calc_A, calc_B, matrix_name=None):
         # <Psi_A|Psi_B> using pseudo wave functions and atomic corrections
-
-        ns = calc_A.wfs.nspins
         assert calc_A.wfs.kd.nibzkpts == calc_B.wfs.kd.nibzkpts
-        nk = calc_A.wfs.kd.nibzkpts
 
         # total of filled a and b bands for each spin and kpt
         n_occup_A = self.get_n_occupied_bands(calc_A)
         n_occup_B = self.get_n_occupied_bands(calc_B)
-        # total a or b bands
-        n_bands_A = calc_A.get_number_of_bands()
-        n_bands_B = calc_B.get_number_of_bands()
 
         # list to store k-dependent pair density
         n_AB = []
@@ -843,16 +809,11 @@ class CouplingParameters:
             kd = calc_B.wfs.kd
             w_kB = kd.weight_k[k]
 
-            psita_nG = kpt_a.psit_nG
-            Pa_ani = kpt_a.P_ani
-            psitb_nG = kpt_b.psit_nG
-            Pb_ani = kpt_b.P_ani
-
             self.get_matrix_element(kpt_b.psit_nG, kpt_b.P_ani,
-                               kpt_a.psit_nG, kpt_a.P_ani,
-                               n_occup_s, n_occup_s,
-                               n_AB, None,
-                               k, spin, nas)
+                            kpt_a.psit_nG, kpt_a.P_ani,
+                            n_occup_s, n_occup_s,
+                            n_AB, None,
+                            k, spin, nas)
 
             if spin == 0:
                 w_k[k] = (w_kA + w_kB)/2.
@@ -864,7 +825,7 @@ class CouplingParameters:
             if matrix_name is None:
                 np.save(self.S_matrix+'final', self.n_ab)
             else:
-                np.save('%s_final'%matrix_name, self.n_ab)
+                np.save('%s_final' % matrix_name, self.n_ab)
 
         return self.n_ab, self.w_k
 
@@ -898,7 +859,7 @@ class CouplingParameters:
             self.S[1][0] = S_BA
 
             if save:
-                np.save('%s'%name,self.S)
+                np.save('%s' % name,self.S)
             return self.S
 
     def get_migliore_wf_overlaps(self, calc_A, calc_B, calc_gs):
@@ -915,7 +876,7 @@ class CouplingParameters:
         return S, A, B, w_AB, w_AC, w_BC
 
     def get_matrix_element(self, psit1_nG, P1_ani, psit2_nG, P2_ani,
-        n_occup_1 ,n_occup_2, vw, region, k, s, nas, V=1., W=1., C12=None):
+            n_occup_1 ,n_occup_2, vw, region, k, s, nas, V=1., W=1., C12=None):
         # weight: V*W acting on psitb_nG: VW_ij = <psita_nG_i|VW|psitb_nG_j> or
         # overlap <psita_nG_i|psitb_nG_j>
         # includes occupation dependency and only states with filled
@@ -1016,7 +977,7 @@ class CouplingParameters:
         # is the reaction diabatic or adiabatic?
         P_lz = self.get_landau_zener()
         dE = self.EA - self.EB
-        if  dE >= -self.reorg:
+        if dE >= -self.reorg:
             # normal
             kappa = 2. * P_lz / (1 + P_lz)
         else:
@@ -1037,11 +998,11 @@ class CouplingParameters:
         barrier = 1. / (4. * self.reorg) * \
                    (self.reorg + dE)**2
         if self.use_adiabatic_correction:
-        # adiabatic correction
+            # adiabatic correction
             correction = np.abs(self.ct) + \
-                    (self.reorg + dE) / 2. -\
-                   np.sqrt((1. / 4. * (self.reorg +self.reorg))**2 + \
-                    (np.abs(self.ct))**2)
+                (self.reorg + dE) / 2. -\
+                np.sqrt((1. / 4. * (self.reorg +self.reorg))**2 + \
+                (np.abs(self.ct))**2)
 
             return barrier - correction
         else:
