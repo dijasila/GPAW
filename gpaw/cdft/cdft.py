@@ -81,6 +81,7 @@ class CDFT(Calculator):
 
 
         self.calc = calc
+
         self.log = convert_string_to_fd(txt)
         self.method = method
         self.forces = forces
@@ -169,6 +170,9 @@ class CDFT(Calculator):
         # initialise without v_ext
         atoms.set_calculator(self.calc)
         atoms.get_potential_energy()
+
+        assert atoms.calc.wfs.nspins == 2
+
         self.cdft_initialised = False
 
         self.atoms = atoms
