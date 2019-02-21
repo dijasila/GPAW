@@ -366,7 +366,7 @@ class CouplingParameters:
         self.make_hamiltonian_matrix()
         if rank == 0:
             H_orth = self.lowdin_orthogonalize_cdft_hamiltonian()
-            self.ct = 1./2.*np.real(H_orth [0][1] + H_orth [1][0])
+            self.ct = 1./2.*np.real(H_orth[0][1] + H_orth[1][0])
             return self.ct
 
     def lowdin_orthogonalize_cdft_hamiltonian(self):
@@ -504,8 +504,8 @@ class CouplingParameters:
 
                 # check that a and b cDFT states have similar spin state
                 if np.sign(nAa-nAb) != np.sign(nBa-nBb):
-                     warning= UserWarning(spin_state_error)
-                     warnings.warn(warning)
+                    warning= UserWarning(spin_state_error)
+                    warnings.warn(warning)
                 # form overlap matrices of correct size for each kpt
 
                 if spin == 0:
@@ -610,8 +610,8 @@ class CouplingParameters:
 
             # check that a and b cDFT states have similar spin state
             if np.sign(nAa-nAb) != np.sign(nBa-nBb):
-                 warning= UserWarning(spin_state_error)
-                 warnings.warn(warning)
+                warning= UserWarning(spin_state_error)
+                warnings.warn(warning)
             # form overlap matrices of correct size for each kpt
 
             if spin == 0:
@@ -729,11 +729,11 @@ class CouplingParameters:
 
                 # check that a and b cDFT states have similar spin state
                 if np.sign(nAa-nAb) != np.sign(nBa-nBb):
-                     warning= UserWarning('The cDFT wave functions have\n'
-                     'different spin states! Similar\n'
-                     'spin states are required for coupling constant\n'
-                     'calculation!')
-                     warnings.warn(warning)
+                    warning= UserWarning('The cDFT wave functions have\n'
+                        'different spin states! Similar\n'
+                        'spin states are required for coupling constant\n'
+                        'calculation!')
+                    warnings.warn(warning)
                 # form overlap matrices of correct size for each kpt
                 if spin == 0:
                     n_AB.append(np.zeros((n_occup,n_occup),dtype = np.complex))
@@ -760,7 +760,7 @@ class CouplingParameters:
             if matrix_name is None:
                 np.save(self.S_matrix+'final', self.n_ab)
             else:
-                np.save('%s_final'%matrix_name, self.n_ab)
+                np.save('%s_final' % matrix_name, self.n_ab)
         return self.n_ab, self.w_k
 
     def get_pair_density_matrix(self, calc_A, calc_B, matrix_name=None):
@@ -795,11 +795,11 @@ class CouplingParameters:
 
             # check that a and b cDFT states have similar spin state
             if np.sign(nAa-nAb) != np.sign(nBa-nBb):
-                     warning= UserWarning('The cDFT wave functions have\n'
-                     'different spin states! Similar\n'
-                     'spin states are required for coupling constant\n'
-                     'calculation!')
-                     warnings.warn(warning)
+                    warning= UserWarning('The cDFT wave functions have\n'
+                        'different spin states! Similar\n'
+                        'spin states are required for coupling constant\n'
+                        'calculation!')
+                    warnings.warn(warning)
             # form overlap matrices of correct size for each kpt
             if spin == 0:
                 n_AB.append(np.zeros((n_occup,n_occup), dtype=np.complex))

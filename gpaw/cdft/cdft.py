@@ -242,7 +242,7 @@ class CDFT(Calculator):
             # very simple step size control
             diff = v_i - self.old_v_i
 
-            if np.any (np.abs(diff) >= self.max_step/Hartree):
+            if np.any(np.abs(diff) >= self.max_step/Hartree):
                 v_i = self.old_v_i + np.sign(v_i - self.old_v_i)*self.max_step/Hartree
 
             self.ext.set_levels(v_i)
