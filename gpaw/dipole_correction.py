@@ -157,17 +157,3 @@ def dipole_correction(c, gd, rhot_g, center=False, origin_c=None):
     phifactor = factor * (np.pi / alpha)**1.5 * cellsize**2 / 4.0
     dphi_g = -phifactor * erf(sr_g * np.sqrt(alpha))
     return drho_g, dphi_g, phifactor
-
-def dirichlet_sawtooth(gd, c):
-
-    L = gd.cell_cv[c, c]
-    step = gd.h_cv[c, c] / L
-
-    saw = np.zeros((int(L / gd.h_cv[c, c])))
-    saw[0] = -1.
-    for i, eps in enumerate(saw):
-        saw[i+1] = saw[i] + step
-    saw -= saw[-1]
-    saw /= saw[-1] + step - saw[0]
-    saw /= 2.
-    return saw
