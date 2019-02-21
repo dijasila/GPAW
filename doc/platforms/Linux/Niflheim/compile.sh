@@ -7,9 +7,15 @@ if [[ -z $GPAW_TOOLCHAIN ]]; then
     GPAW_TOOLCHAIN=foss
 fi
 
+ICMD=""
+for INPUT in "$@"
+do
+    ICMD="$ICMD && $INPUT"
+done
+
 nh=doc/platforms/Linux/Niflheim
 rm -rf build
-cmd="cd $PWD && python setup.py --remove-default-flags build_ext --customize=$nh/el7-${GPAW_TOOLCHAIN}.py"
+cmd="cd $PWD$ICMD && python setup.py --remove-default-flags build_ext --customize=$nh/el7-${GPAW_TOOLCHAIN}.py"
 echo "Compiling on slid: $cmd"
 ssh slid "$cmd > broadwell-el7-${GPAW_TOOLCHAIN}.log 2>&1"
 mv configuration.log configuration-broadwell-el7-${GPAW_TOOLCHAIN}.log
