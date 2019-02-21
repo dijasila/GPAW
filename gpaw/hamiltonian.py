@@ -298,7 +298,7 @@ class Hamiltonian:
                 # cDFT atomic hamiltonian, eq. 25
                 # energy correction added in cDFT main
                 h_cdft_a, h_cdft_b = self.vext.get_atomic_hamiltonians(
-                                        setups=setup.Delta_pL[:,0], atom = a)
+                    setups=setup.Delta_pL[:,0], atom = a)
 
                 dH_sp[0] += h_cdft_a
                 dH_sp[1] += h_cdft_b
@@ -312,7 +312,7 @@ class Hamiltonian:
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
-                                                     dH_asp[a], a=a)
+                    dH_asp[a], a=a)
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
