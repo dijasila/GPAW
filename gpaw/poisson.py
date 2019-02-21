@@ -102,7 +102,7 @@ class _PoissonSolver(object):
 
 class BasePoissonSolver(_PoissonSolver):
     def __init__(self, eps=None, remove_moment=None, use_charge_center=False,
-        metallic_electrodes=False):
+            metallic_electrodes=False):
         # metallic electrodes: mirror image method to allow calculation of
         # charged, partly periodic systems
         self.gd = None

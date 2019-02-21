@@ -591,7 +591,7 @@ class GridDescriptor(Domain):
             assert origin_c is None
             r_cz = [r_cz[c] - 0.5 * self.N_c[c] for c in range(3)]
         elif origin_c is not None:
-             r_cz = [r_cz[c] - origin_c[c] for c in range(3)]
+            r_cz = [r_cz[c] - origin_c[c] for c in range(3)]
 
         rho_01 = rho_g.sum(axis=2)
         rho_02 = rho_g.sum(axis=1)

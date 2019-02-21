@@ -1,5 +1,4 @@
 from gpaw import GPAW
-from ase.build import molecule
 from ase.build import bcc111
 from gpaw.poisson import PoissonSolver
 
