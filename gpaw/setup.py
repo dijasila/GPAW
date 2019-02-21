@@ -183,7 +183,7 @@ class BaseSetup:
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
 
-        if hasattr(self.data, 'eps_j'):
+        if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
             eps_j = np.array(self.data.eps_j)
         else:
             eps_j = np.arange(len(l_j))
