@@ -548,7 +548,7 @@ class CDFT(Calculator):
             file.write('NA = %f ,\n'%(self.constraints))
             file.write('FA = %f , \n'%(self.Ecdft))
             file.write('EA = %f , \n'%(self.Edft))
-            file.write('Va = %f , \n'%(self.v_i * Hartree))
+            file.write('Va = %f , \n'% (self.v_i * Hartree))
             file.write('N_charge_regions_A = %d ,\n'  %self.n_charge_regions)
             file.close()
 
@@ -572,7 +572,7 @@ class CDFT(Calculator):
     def get_coarse_grid(self, save=True):
 
         if save:
-            w_s = self.calc.density.gd.collect(gd, broadcast=True)
+            w_s = self.calc.density.gd.collect(self.gd, broadcast=True)
             if self.calc.density.gd.comm.rank == 0:
                 np.save('coarse_grid', w_s)
 
@@ -699,8 +699,7 @@ class CDFTPotential(ExternalPotential):
         p('Atom      Width[A]      Rc[A]')
         for a in self.mu:
             p('  {atom}       {width:.3f}        {Rc:.3f}'.format(atom=a,
-                   width=self.mu[a]*Bohr,
-                   Rc=self.Rc[a]*Bohr))
+                   width=self.mu[a]*Bohr, Rc=self.Rc[a]*Bohr))
         print(file=self.log)
         self.log.flush()
 
@@ -912,8 +911,7 @@ class WeightFunc:
 
     def construct_weight_function(self):
         # Grab atomic / molecular density
-        dens_n = self.construct_total_density(
-                          self.atoms[self.indices_i])
+        dens_n = self.construct_total_density(self.atoms[self.indices_i])
         # Grab total density
         dens = self.construct_total_density(self.atoms)
         # Check zero elements
@@ -1059,10 +1057,8 @@ class WeightFunc:
 
         # MAKE AN EXTENDED ARRAY
         for atom in self.atoms:
-            wc = self.gd.zeros()
-            ws = self.gd.zeros()
+
             a_pos = atom.position / Bohr
-            a_index = atom.index
             a_symbol = atom.symbol
             a_charge = atom.number
 
