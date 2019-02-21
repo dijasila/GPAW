@@ -795,11 +795,11 @@ class CouplingParameters:
 
             # check that a and b cDFT states have similar spin state
             if np.sign(nAa-nAb) != np.sign(nBa-nBb):
-                    warning= UserWarning('The cDFT wave functions have\n'
-                        'different spin states! Similar\n'
-                        'spin states are required for coupling constant\n'
-                        'calculation!')
-                    warnings.warn(warning)
+                warning= UserWarning('The cDFT wave functions have\n'
+                    'different spin states! Similar\n'
+                    'spin states are required for coupling constant\n'
+                    'calculation!')
+                warnings.warn(warning)
             # form overlap matrices of correct size for each kpt
             if spin == 0:
                 n_AB.append(np.zeros((n_occup,n_occup), dtype=np.complex))

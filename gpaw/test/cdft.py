@@ -1,16 +1,9 @@
-from ase import *
-import numpy as np
 from ase import Atoms
-from gpaw import *
-from gpaw.cdft.cdft import *
-from gpaw import Mixer
-from ase.io import *
-from ase.optimize import *
-from gpaw.cdft.cdft_coupling import *
-from ase.units import Bohr
-from gpaw.utilities.ps2ae import PS2AE
-from gpaw.utilities.blas import gemm
-from gpaw.mpi import rank, size
+import numpy as np
+from gpaw import GPAW, FermiDirac, Davidson, Mixer
+from gpaw.cdft.cdft import CDFT
+from gpaw.cdft.cdft_coupling import CouplingParameters
+from gpaw.mpi import size
 
 distance = 2.5
 sys = Atoms('He2', positions = ([0.,0.,0.],[0.,0.,distance]))
@@ -28,7 +21,7 @@ calc_b = GPAW(h = 0.2,
               spinpol = True,
               nbands = 4,
               mixer = Mixer(beta=0.25, nmaxold=3, weight=100.0),
-              txt='He2+_final_%3.2f.txt'%distance,
+              txt='He2+_final_%3.2f.txt' % distance,
               convergence={'eigenstates':1.0e-4,'density':1.0e-1, 'energy':1e-1,'bands':4})
 
 
@@ -38,7 +31,7 @@ cdft_b = CDFT(calc = calc_b,
               charges = [1],
               charge_coefs = [2.7],
               method = 'L-BFGS-B',
-              txt = 'He2+_final_%3.2f.cdft'%distance,
+              txt = 'He2+_final_%3.2f.cdft' % distance,
               minimizer_options={'gtol':0.01})
 sys.set_calculator(cdft_b)
 sys.get_potential_energy()
