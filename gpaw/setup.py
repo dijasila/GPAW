@@ -98,18 +98,10 @@ def create_setup(symbol, xc='LDA', lmax=0,
 
 def correct_occ_numbers(f_j,
                         degeneracy_j,
-                        eps_j,
+                        jsorted,
                         correction: float,
                         eps=1e-12) -> None:
     """Correct f_j ndarray in-place."""
-
-    # Sort after open shells (d - f) and eigenvalues (e):
-    states = sorted([(d - f, e, j)
-                     for j, (f, d, e)
-                     in enumerate(zip(f_j, degeneracy_j, eps_j))])
-
-    # Skip unbound states:
-    jsorted = [j for _, e, j in states if e < 0.0]
 
     if correction > 0:
         # Add electrons to the lowest eigenstates:
@@ -195,21 +187,31 @@ class BaseSetup:
         if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
             eps_j = np.array(self.data.eps_j)
         else:
-            eps_j = np.arange(len(l_j))
+            eps_j = np.ones(len(l_j))
+            # Bound states:
+            for j, n in enumerate(self.n_j):
+                if n > 0:
+                    eps_j[j] = -1.0
 
-        # Unbound states:
-        eps_j[[n <= 0 for n in self.n_j]] = np.inf
+        deg_j = 2 * (2 * l_j + 1)
 
-        deg_j = 2 * l_j + 1
-        if len(l_j) == 0:
-            l_j = np.ones(1)
+        # Sort after open shells (d - f) and eigenvalues (e):
+        states = []
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+            if e < 0.0:
+                states.append((d - f, e, j))
+        states.sort()
+        jsorted = [j for _, _, j in states]
+
+        # if len(l_j) == 0:
+        #     l_j = np.ones(1)
 
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
             if not self.orbital_free:
-                correct_occ_numbers(f_sj[0], 2 * deg_j, eps_j, -charge)
+                correct_occ_numbers(f_sj[0], deg_j, jsorted, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
                 f_sj[0] += -charge
@@ -222,8 +224,9 @@ class BaseSetup:
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
             ndn = 0.5 * (nval - magmom)
-            correct_occ_numbers(f_sj[0], deg_j, eps_j, nup - f_sj[0].sum())
-            correct_occ_numbers(f_sj[1], deg_j, eps_j, ndn - f_sj[1].sum())
+            deg_j //= 2
+            correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
+            correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
