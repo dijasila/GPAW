@@ -102,9 +102,18 @@ def correct_occ_numbers(f_j,
                         correction: float,
                         eps=1e-12) -> None:
     """Correct f_j ndarray in-place."""
+
+    # Sort after open shells (d - f) and eigenvalues (e):
+    states = sorted([(d - f, e, j)
+                     for j, (f, d, e)
+                     in enumerate(zip(f_j, degeneracy_j, eps_j))])
+
+    # Skip unbound states:
+    jsorted = [j for _, e, j in states if e < 0.0]
+
     if correction > 0:
         # Add electrons to the lowest eigenstates:
-        for j in eps_j.argsort():
+        for j in jsorted:
             c = min(correction, degeneracy_j[j] - f_j[j])
             f_j[j] += c
             correction -= c
@@ -112,7 +121,7 @@ def correct_occ_numbers(f_j,
                 break
     elif correction < 0:
         # Add electrons to the highest eigenstates:
-        for j in eps_j.argsort()[::-1]:
+        for j in jsorted[::-1]:
             c = min(-correction, f_j[j])
             f_j[j] -= c
             correction += c
@@ -187,6 +196,9 @@ class BaseSetup:
             eps_j = np.array(self.data.eps_j)
         else:
             eps_j = np.arange(len(l_j))
+
+        # Unbound states:
+        eps_j[[n <= 0 for n in self.n_j]] = np.inf
 
         deg_j = 2 * l_j + 1
         if len(l_j) == 0:
