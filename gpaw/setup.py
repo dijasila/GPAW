@@ -187,7 +187,7 @@ class BaseSetup:
         if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
             eps_j = np.array(self.data.eps_j)
         else:
-            eps_j = np.ones(len(l_j))
+            eps_j = np.ones(len(self.n_j))
             # Bound states:
             for j, n in enumerate(self.n_j):
                 if n > 0:
