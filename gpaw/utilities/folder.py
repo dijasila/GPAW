@@ -1,6 +1,29 @@
 import numpy as np
 
-from gpaw.gauss import Gauss, Lorentz
+from gpaw.gauss import Gauss
+
+
+class Lorentz:
+    """Normalized Lorentzian distribution"""
+    def __init__(self, width=0.08):
+        self.dtype = float
+        self.set_width(width)
+
+    def get(self, x, x0=0):
+        return self.norm / ((x - x0)**2 + self.width2)
+
+    def set_width(self, width=0.08):
+        self.norm = width / np.pi
+        self.width2 = width**2
+        self._fwhm = 2. * width
+
+    @property
+    def fwhm(self):
+        return self._fwhm
+
+    @fwhm.setter
+    def fwhm(self, value):
+        self.set_width(value / 2.)
 
 
 class Voigt:

@@ -1,9 +1,9 @@
 from math import exp, pi, sqrt
 import numpy as np
 
-from gpaw.gauss import Gauss, Lorentz
+from gpaw.gauss import Gauss
 from gpaw.test import equal
-from gpaw.utilities.folder import Folder, Voigt  # noqa
+from gpaw.utilities.folder import Folder, Lorentz, Voigt  # noqa
 
 # Gauss and Lorentz functions
 
