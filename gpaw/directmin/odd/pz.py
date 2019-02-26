@@ -551,13 +551,12 @@ class PzCorrectionsLcao:
         Fhart_av = np.zeros_like(F_av)
 
         # spos_ac = wfs.tci.atoms.get_scaled_positions() % 1.0
-
-        spos_ac = wfs.spos_ac
+        # spos_ac = wfs.spos_ac
 
         ksl = wfs.ksl
         nao = ksl.nao
         mynao = ksl.mynao
-        nq = len(wfs.kd.ibzk_qc)
+        # nq = len(wfs.kd.ibzk_qc)
         dtype = wfs.dtype
         # tci = wfs.tci
         # newtci = wfs.newtci
@@ -756,10 +755,10 @@ class PzCorrectionsLcao:
                                         wfs.P_aqMi[b][
                                             kpt.q].T.conj()))
                     for v in range(3):
-                        dPdR_Mi = dPdR_aqvMi[b][kpt.q][v][
-                                  Mstart:Mstop]
-                        ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) *
-                                    rho_xMM.T).real
+                        dPdR_Mi = \
+                            dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop]
+                        ArhoT_MM = \
+                            (gemmdot(dPdR_Mi, HP_iM) * rho_xMM.T).real
                         for a, M1, M2 in slices():
                             dE = 2 * ArhoT_MM[M1:M2].sum()
                             Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
