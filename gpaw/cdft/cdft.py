@@ -789,7 +789,7 @@ class CDFTPotential(ExternalPotential):
         diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
-        return np.dot(Vi, diff/size)
+        return np.dot(Vi, diff/size)[0]
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
