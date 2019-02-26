@@ -19,14 +19,14 @@ from ase.units import Bohr
 
 # Cut-offs: [Ang]
 Rc = {'Fe': 3.762,
-      'O' : 3.762,
-      #'H' : 3.762
+      'O': 3.762,
+      # 'H' : 3.762
       }
 
 # Gauss-width: [Ang]
 mu = {'Fe': 1.0,
-      'O' : 0.6,
-      #'H' : 0.6
+      'O': 0.6,
+      # 'H' : 0.6
       }
 
 
@@ -38,8 +38,8 @@ class WeightFunc:
 
         """
 
-        self.gd      = gd # Grid descriptor
-        self.atoms   = atoms
+        self.gd = gd  # Grid descriptor
+        self.atoms = atoms
         self.indexes = indexes
 
         # Construct Rc dict
@@ -71,7 +71,7 @@ class WeightFunc:
         check = abs(dis) <= Rc / Bohr
         # Make gaussian
         gauss = 1.0 / (mu * np.sqrt(2.0 * pi)) * \
-                np.exp(- dis**2 / (2.0 * mu))
+                np.exp(- dis ** 2 / (2.0 * mu))
         # Apply cut-off and send
         return (gauss * check)
 
@@ -80,9 +80,9 @@ class WeightFunc:
         # grid-points (gpts) - employ MIC where appropriate.
 
         # Scaled positions of gpts on some cpu, relative to all
-        s_G = (np.indices(self.gd.n_c, float).T + \
+        s_G = (np.indices(self.gd.n_c, float).T +
                self.gd.beg_c) / self.gd.N_c
-        #print self.gd.n_c, self.gd.beg_c
+        # print self.gd.n_c, self.gd.beg_c
         # Subtract scaled distance from atom to box boundary
         s_G -= np.linalg.solve(self.gd.cell_cv.T, pos)
         # MIC
@@ -92,7 +92,7 @@ class WeightFunc:
         # x,y,z distances
         xyz = np.dot(s_G, self.gd.cell_cv).T.copy()
         #
-        return np.sqrt((xyz**2).sum(axis=0))
+        return np.sqrt((xyz ** 2).sum(axis=0))
 
     def construct_total_density(self, atoms):
         # Add to empty grid
@@ -106,7 +106,7 @@ class WeightFunc:
 
             dis = self.get_distance_vectors(pos)
 
-            empty += charge *\
+            empty += charge * \
                      self.truncated_gaussian(dis,
                                              self.mu[symbol],
                                              self.Rc[symbol])
@@ -116,7 +116,7 @@ class WeightFunc:
     def construct_weight_function(self):
         # Grab atomic / molecular density
         dens_n = self.construct_total_density(
-                          self.atoms[self.indexes])
+            self.atoms[self.indexes])
         # Grab total density
         dens = self.construct_total_density(self.atoms)
         # Check zero elements
@@ -150,7 +150,7 @@ class WignerSeitz:
         # grid-points (gpts) - employ MIC where appropriate.
 
         # Scaled positions of gpts on some cpu, relative to all
-        s_G = (np.indices(self.gd.n_c, float).T + \
+        s_G = (np.indices(self.gd.n_c, float).T +
                self.gd.beg_c) / self.gd.N_c
         #
         # Subtract scaled distance from atom to box boundary
@@ -162,18 +162,18 @@ class WignerSeitz:
         # x,y,z distances
         xyz = np.dot(s_G, self.gd.cell_cv).T.copy()
         #
-        return np.sqrt((xyz**2).sum(axis=0))
+        return np.sqrt((xyz ** 2).sum(axis=0))
 
     def construct_weight_function(self):
         # Grab distances of A to all gpts
         pos = self.atoms[self.index].position / Bohr
         dis_n = self.get_distance_vectors(pos)
         #
-        empty  = self.gd.zeros()
-        norm   = self.gd.zeros()
+        empty = self.gd.zeros()
+        norm = self.gd.zeros()
         #
         empty += 1
-        norm  += 1
+        norm += 1
         #
         for i, atom in enumerate(self.atoms):
             #
@@ -181,13 +181,13 @@ class WignerSeitz:
                 continue
             else:
                 #
-                pos   = atom.position / Bohr
+                pos = atom.position / Bohr
                 dis_b = self.get_distance_vectors(pos)
                 #
-                check = dis_n <= dis_b #
-                n_c   = dis_n == dis_b # 
+                check = dis_n <= dis_b  #
+                n_c = dis_n == dis_b  #
                 # 0 if longer, 1 if shorter, 1/no.(Ra=Ra') if same
-                empty   *= check
-                norm    += n_c * 1.0
+                empty *= check
+                norm += n_c * 1.0
 
         return empty / norm
