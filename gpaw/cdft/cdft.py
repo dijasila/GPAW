@@ -752,7 +752,6 @@ class CDFTPotential(ExternalPotential):
     def get_cdft_external_energy(self, dens, nspins, vext_g,
                                 vt_g, vbar_g, vt_sg):
         # cDFT works with all-electron (spin)density
-
         # First the potential
         # spin dependent external potential, array of Vi*wi
         #vext_g = self.calculate_potential(self.gd).copy()
@@ -789,7 +788,7 @@ class CDFTPotential(ExternalPotential):
         diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
-        return np.dot(Vi, diff/size)
+        return np.dot(Vi, diff/size)[0]
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
