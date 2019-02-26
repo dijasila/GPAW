@@ -2,7 +2,6 @@ import numpy as np
 
 from gpaw.gauss import Gauss
 
-
 class Lorentz:
     """Normalized Lorentzian distribution"""
     def __init__(self, width=0.08):
@@ -164,7 +163,6 @@ class Folder:
             self.func = Voigt(width)
         else:
             raise RuntimeError('unknown folding "' + folding + '"')
-        self.fwhm = self.func.fwhm
 
     def fold(self, x, y, dx=None, xmin=None, xmax=None):
         X = np.array(x)
