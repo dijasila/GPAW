@@ -306,9 +306,9 @@ class DirectMinLCAO(DirectLCAO):
             self.update_ks_energy(ham, wfs, dens, occ)
             # FIXME: not sure this is good.
             #  you need to probably run loop over sort_wfs
-            #  with update ov energy
-            for kpt in wfs.kpt_u:
-                self.sort_wavefunctions(ham, wfs, kpt)
+            #  with update of energy
+            # for kpt in wfs.kpt_u:
+            #     self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
 
         wfs.timer.start('Preconditioning:')
