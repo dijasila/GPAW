@@ -205,42 +205,23 @@ class QuickMin(SteepestDescent):
         if precond is not None:
             g_k1 = self.apply_prec(precond, g_k1, 1.0)
 
+        dt = self.dt
+        m = self.m
+
         if self.iters == 0:
-
-            dt = self.dt
-            m = self.m
-
-            x = copy.deepcopy(x_k1)
-            self.v = self.zeros(x)
-
-            dot_gv = self.dot_all_k_and_b(g_k1, self.v, wfs)
-            dot_gg = self.dot_all_k_and_b(g_k1, g_k1, wfs)
-
-            alpha = (-dot_gv / dot_gg + dt / m)
-            v_new = self.multiply(g_k1, -alpha)
-            p = self.multiply(v_new, dt)
+            self.v = self.multiply(g_k1, -dt / m)
+            p = self.multiply(self.v, dt)
             self.iters += 1
-            self.v = copy.deepcopy(v_new)
-
             return p
-
         else:
-
-            dt = self.dt
-            m = self.m
-
             dot_gv = self.dot_all_k_and_b(g_k1, self.v, wfs)
             dot_gg = self.dot_all_k_and_b(g_k1, g_k1, wfs)
-
             if dot_gv > 0.0:
                 dot_gv = 0.0
-
-            alpha = (-dot_gv / dot_gg + dt / m)
-            v_new = self.multiply(g_k1, -alpha)
-            p = self.multiply(v_new, dt)
+            gamma = (dt / m - dot_gv / dot_gg)
+            self.v = self.multiply(g_k1, -gamma)
+            p = self.multiply(self.v, dt)
             self.iters += 1
-            self.v = copy.deepcopy(v_new)
-
             return p
 
 
