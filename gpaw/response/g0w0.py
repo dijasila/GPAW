@@ -658,7 +658,7 @@ class G0W0(PairDensity):
             assert e < 1e-12
 
     @timer('Sigma')
-    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG):
+    def calculate_sigma(self, n_mG, deps_m, f_m, C_swGG, full_sigma=False):
         """Calculates a contribution to the self-energy and its derivative for
         a given (k, k-q)-pair from its corresponding pair-density and
         energy."""
@@ -691,9 +691,13 @@ class G0W0(PairDensity):
             C2_GG = C_swGG[s][w + 1]
             p = x * sgn
             myn_G = n_G[self.Ga:self.Gb]
-
-            sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
-            sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
+            
+            if full_sigma:
+                sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj())
+                sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj())
+            else:
+                sigma1 = p * np.dot(np.dot(myn_G, C1_GG), n_G.conj()).imag
+                sigma2 = p * np.dot(np.dot(myn_G, C2_GG), n_G.conj()).imag
             sigma += ((o - o1) * sigma2 + (o2 - o) * sigma1) / (o2 - o1)
             dsigma += sgn * (sigma2 - sigma1) / (o2 - o1)
 
