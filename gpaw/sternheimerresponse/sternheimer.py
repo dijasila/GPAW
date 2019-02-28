@@ -13,8 +13,16 @@ class SternheimerResponse:
         self.calc.initialize_positions()
         self.c_qani = {}
         self.c_qnai = {}
-        qvector = np.array([0,0,0])
-        self.calculate([qvector], 1)
+
+
+        ind1 = self.wfs.mykpts[1].q
+        ind0 = self.wfs.mykpts[0].q
+        print(f"My k vecs: {[self.wfs.kd.bzk_kc[ind.q] for ind in self.wfs.mykpts]}")
+        qvector = self.wfs.kd.bzk_kc[ind1] - self.wfs.kd.bzk_kc[ind0]
+
+        #qvector = np.array([0,0,0])
+        #self.calculate([qvector], 1)
+        self.deltapsi_qnG = None
         #self.powercalculate([qvector], 1)
 
 
@@ -23,20 +31,23 @@ class SternheimerResponse:
         qvector = qvectors[0]
 
         deltapsi_qnG, eigval = self.initial_guess()
+        if self.deltapsi_qnG is not None:
+            print("Using previously calculated deltapsi")
+            deltapsi_qnG = self.deltapsi_qnG
 
         error_threshold = 1e-9
         error = 100
 
-        max_iter = 100
-        
+        max_iter = 10
+        new_norm = 0
+        old_norm = 0
         for niter in range(max_iter):
             print(f"Iteration number: {niter}")
             print(f"Eigenvalue: {eigval}. Error: {error}")
 
             new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
             new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
-
-            eigval = np.sqrt(new_norm/self.inner_product(deltapsi_qnG, deltapsi_qnG))
+            eigval = np.sqrt(new_norm)
             new_deltapsi_qnG = {q: deltapsi_qnG[q] + 0.4*val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
             new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
             new_deltapsi_qnG = {q: val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
@@ -44,11 +55,12 @@ class SternheimerResponse:
 
             if error < error_threshold:
                 print(f"Converged. Value: {eigval}")
+                self.deltapsi_qnG = deltapsi_qnG
                 return
 
             deltapsi_qnG = new_deltapsi_qnG
 
-            
+        self.deltapsi_qnG = deltapsi_qnG
 
             
         print("Not converged")
@@ -383,17 +395,22 @@ class SternheimerResponse:
     def solve_sternheimer(self, apply_potential, qvector):
         deltapsi_qnG = {}
         nvalence = self.wfs.setups.nvalence//2
-        for index, kpt in enumerate(self.wfs.mykpts):
+        for index, kpt in enumerate(self.wfs.kd.bzk_kc):
+            kpt = self.wfs.kd.what_is(kpt)
             number_of_valence_states = self.wfs.setups.nvalence//2  #kpt.psit.array.shape[0]
-            deltapsi_qnG[index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=index)
+            kpt.psit.read_from_file()
 
 
             #Get kpt object for k+q
             k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [index])
             assert len(k_plus_q_index) == 1
             k_plus_q_index = k_plus_q_index[0]
+            if k_plus_q_index >= len(self.wfs.mykpts):
+                print(f"k_plus_q_index: {k_plus_q_index}")
+                print(f"Len of mykpts: {len(self.wfs.mykpts)}. Len of bzk_kc: {len(self.wfs.kd.bzk_kc)}.")
+                raise ValueError("index too large")
             k_plus_q_object = self.wfs.mykpts[k_plus_q_index]
-
+            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
 
             #print(f"array shape: {kpt.psit.array.shape}")
             #print(f"object shape: {kpt.psit.array.shape}")
@@ -418,18 +435,24 @@ class SternheimerResponse:
                 linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
                 #print(f"state index: {state_index}, index: {index}")
                 #print(f"psi shape: {psi.shape}")
-                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index)
+                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, index)
+                assert RHS.shape[0] == linop.shape[1]
                 #print("got RHS")
 
                 deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000)
-
+                
                 if info != 0:
                     print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
                     raise ValueError("bicgstab did not converge. Info: {}".format(info))
                     
+                    
 
+                # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
+                # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
+                # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
+                # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
 
-                deltapsi_qnG[index][state_index] = deltapsi_G
+                deltapsi_qnG[k_plus_q_index][state_index] = deltapsi_G
 
         return deltapsi_qnG
 
@@ -604,9 +627,18 @@ class SternheimerResponse:
         return result_nG.reshape(-1)
 
 
-    def _get_RHS(self, kpt, psi_G, apply_potential, level_index, k_index):        
-        v_psi_G = apply_potential(psi_G, level_index, k_index)
-        RHS_G = -(v_psi_G - self._apply_overlap(self._apply_valence_projector(v_psi_G, kpt, k_index), k_index))
+    def _get_RHS(self, k_plus_q_pt, psi_G, apply_potential, level_index, k_plus_q_index, kpt, k_index): 
+        v_psi_G = self.wfs.pd.zeros(q=k_plus_q_index)
+        vpsi = apply_potential(psi_G, level_index, k_index)
+
+
+        if len(v_psi_G) > len(vpsi):
+            v_psi_G[:len(vpsi)] = vpsi
+        else:
+            v_psi_G = vpsi[:len(v_psi_G)]
+
+        RHS_G = -(v_psi_G - self._apply_overlap(self._apply_valence_projector(v_psi_G, k_plus_q_pt, k_plus_q_index), k_plus_q_index))
+
 
         return RHS_G
         
@@ -627,7 +659,11 @@ if __name__=="__main__":
         print("Reading file")
         respObj = SternheimerResponse(filen)
     else:
+        from time import time
+        t1 = time()
         ro = SternheimerResponse(filen)
+        t2 = time()
+        print(f"Calculation took {t2 - t1} seconds")
         exit()
         print("Generating new test file")
         from ase.build import bulk
