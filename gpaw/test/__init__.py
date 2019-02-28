@@ -96,7 +96,7 @@ tests = [
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
-    'pd_occ.py',
+    'initial_occs.py',
     'lfc/lf.py',
     'maths/fsbt.py',
     'parallel/compare.py',
@@ -411,7 +411,8 @@ tests = [
     'sic/nscfsic.py',                       # duration unknown
     'coreeig.py',                           # duration unknown
     'response/bse_MoS2_cut.py',             # duration unknown
-    'parallel/scalapack_mpirecv_crash.py']  # duration unknown
+    'parallel/scalapack_mpirecv_crash.py',  # duration unknown
+    'cdft.py']                              # 40s
 
 # 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
