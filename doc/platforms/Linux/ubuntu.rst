@@ -8,14 +8,15 @@ Install these Ubuntu_ packages::
 
 Then install ASE_, Numpy and SciPy::
 
-    $ python3 -m pip install ase
+    $ python3 -m pip install ase --user
 
-And finally, GPAW with ScaLAPACK::
+And finally, GPAW with ScaLAPACK and FFTW::
 
-    $ wget https://pypi.org/packages/source/g/gpaw/gpaw-1.4.0.tar.gz
-    $ tar -xf gpaw-1.4.0.tar.gz
+    $ wget https://pypi.org/packages/source/g/gpaw/gpaw-1.5.1.tar.gz
+    $ tar -xf gpaw-1.5.1.tar.gz
     $ cd gpaw
     $ sed -i "s/scalapack = False/scalapack = True/" customize.py
+    $ sed -i "s/fftw = False/fftw = True/" customize.py
     $ python3 setup.py install --user
 
 

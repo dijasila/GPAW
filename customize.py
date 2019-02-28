@@ -45,14 +45,14 @@ To append use the form
 # mpilinker = 'mpicc'
 # platform_id = ''
 
-# Use FFTW3:
-if 0:
-    fftw = True
+# FFTW3:
+fftw = False
+if fftw:
     libraries += ['fftw3']
 
-# Use ScaLAPACK (version 2.0.1+ required):
-if 0:
-    scalapack = True
+# ScaLAPACK (version 2.0.1+ required):
+scalapack = False
+if scalapack:
     libraries += ['scalapack-openmpi',
                   'blacsCinit-openmpi',
                   'blacs-openmpi']
