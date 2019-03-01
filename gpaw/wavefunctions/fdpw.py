@@ -12,7 +12,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
 
 
 class NullWfsMover:
-    description = 'Wavefunctions reused if atoms move'
+    description = 'Wavefunctions kept unchanged if atoms move'
 
     def initialize(self, lcaowfs):
         pass
@@ -45,24 +45,25 @@ class PseudoPartialWaveWfsMover:
         for a in range(len(wfs.setups)):
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
-                   for phit in setup.get_actual_atomic_orbitals()]
-            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+                   for phit in setup.get_partial_waves_for_atomic_orbitals()]
+            #assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
         phit.set_positions(wfs.spos_ac, wfs.atom_partition)
 
         # XXX See also wavefunctions.lcao.update_phases
-        phase_qa = np.exp(2j * np.pi *
-                          np.dot(wfs.kd.ibzk_qc,
-                                 (spos_ac - wfs.spos_ac).T.round()))
+        if wfs.dtype == complex:
+            phase_qa = np.exp(2j * np.pi *
+                              np.dot(wfs.kd.ibzk_qc,
+                                     (spos_ac - wfs.spos_ac).T.round()))
 
         def add_phit_to_wfs(multiplier):
             for kpt in wfs.kpt_u:
                 P_ani = {}
                 for a in kpt.P_ani:
                     P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
-                    if multiplier > 0:
+                    if multiplier > 0 and wfs.dtype == complex:
                         P_ani[a] *= phase_qa[kpt.q, a]
                 phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
@@ -148,7 +149,7 @@ class LCAOWfsMover:
             with wfs.timer('wfs overlap'):
                 opsit = kpt.psit.new()
                 opsit.array[:] = kpt.psit.array
-                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.P))
+                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.projections))
 
             with wfs.timer('bfs integrate'):
                 bfs.integrate2(opsit.array, c_xM=X_nM, q=kpt.q)
@@ -194,7 +195,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.scalapack_parameters = parallel
 
         self.initksl = initksl
-        if reuse_wfs_method is None:
+        if reuse_wfs_method is None or reuse_wfs_method == 'keep':
             wfs_mover = NullWfsMover()
         elif hasattr(reuse_wfs_method, 'cut_wfs'):
             wfs_mover = reuse_wfs_method
@@ -232,8 +233,11 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def __str__(self):
         comm, r, c, b = self.scalapack_parameters
-        return ('  ScaLapack parameters: grid={}x{}, blocksize={}'
-                .format(r, c, b))
+        L1 = ('  ScaLapack parameters: grid={}x{}, blocksize={}'
+              .format(r, c, b))
+        L2 = ('  Wavefunction extrapolation:\n    {}'
+              .format(self.wfs_mover.description))
+        return '\n'.join([L1, L2])
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
@@ -380,7 +384,7 @@ class FDPWWaveFunctions(WaveFunctions):
             return
 
         psit = kpt.psit
-        P = kpt.P
+        P = kpt.projections
 
         with self.timer('projections'):
             psit.matrix_elements(self.pt, out=P)
@@ -402,7 +406,7 @@ class FDPWWaveFunctions(WaveFunctions):
             mmm(1.0, S, 'N', psit, 'N', 0.0, psit2)
             mmm(1.0, S, 'N', P, 'N', 0.0, P2)
             psit[:] = psit2
-            kpt.P = P2
+            kpt.projections = P2
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
@@ -424,7 +428,7 @@ class FDPWWaveFunctions(WaveFunctions):
                     dH_ssii = np.array(
                         [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
                          [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
-                    P_nsi = kpt.P[a]
+                    P_nsi = kpt.projections[a]
                     F_v = np.einsum('nsiv,stij,ntj', F_nsiv, dH_ssii, P_nsi)
                     F_nsiv *= kpt.eps_n[:, np.newaxis, np.newaxis, np.newaxis]
                     dO_ii = self.setups[a].dO_ii

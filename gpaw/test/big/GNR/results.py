@@ -2,6 +2,7 @@
 # It needs 'ZGNR12.traj', 'ZGNR12_H.traj' and 'H2.traj'
 
 from ase.io import read
+from ase.test import equal
 
 reference = {'e_ads':-1.5,    #Reference from rev
              'magmom_C':0.5,
@@ -11,7 +12,7 @@ magmom = {}
 for name in ['ZGNR12', 'ZGNR12_H', 'H2']:
     atoms = read(name+'.traj')
     en[name] = atoms.get_potential_energy()
-    
+
 e_ads = en['ZGNR12_H'] - en['ZGNR12'] - en['H2']
 equal(e_ads ,reference['e_ads'], 0.001)
 

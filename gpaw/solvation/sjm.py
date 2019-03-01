@@ -60,11 +60,11 @@ class SJM(SolvationGPAW):
                 Upper boundary of the counter charge region in terms of
                 coordinate in Anfstrom (default: z). The default is
                 atoms.cell[2][2] - 5.
-        verbose: bool or 'cube' 
-            True: 
+        verbose: bool or 'cube'
+            True:
                 Write final electrostatic potential, background charge and
                 and cavity into ASCII files.
-            'cube': 
+            'cube':
                 In addition to 'True', also write the cavity on the
                 3D-grid into a cube file.
 
@@ -144,8 +144,8 @@ class SJM(SolvationGPAW):
 
         major_changes = False
         if kwargs:
-                SolvationGPAW.set(self, **kwargs)
-                major_changes = True
+            SolvationGPAW.set(self, **kwargs)
+            major_changes = True
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
@@ -162,8 +162,8 @@ class SJM(SolvationGPAW):
                             self.log('New Target electrode potential: %1.4f V'
                                      % self.potential)
                     else:
-                            self.log('Potential equilibration has been '
-                                     'turned off')
+                        self.log('Potential equilibration has been '
+                                 'turned off')
 
                 if key == 'doublelayer':
                     self.dl = SJM_changes[key]
@@ -174,8 +174,8 @@ class SJM(SolvationGPAW):
                          % SJM_changes[key])
                 potint = self.get_electrode_potential()
                 if abs(potint - self.potential) > SJM_changes[key]:
-                        self.results = {}
-                        self.log('Recalculating...\n')
+                    self.results = {}
+                    self.log('Recalculating...\n')
                 else:
                     self.log('Potential already reached the criterion.\n')
                 self.dpot = SJM_changes[key]
@@ -540,7 +540,7 @@ class SJMPower12Potential(Power12Potential):
                 water_oxygen_ind = []
                 for i in range(self.H2O_layer):
                     water_oxygen_ind.append(
-                            allwater_oxygen_ind[indizes_water_ox_ind[-1-i]])
+                        allwater_oxygen_ind[indizes_water_ox_ind[-1-i]])
 
             else:
                 water_oxygen_ind = allwater_oxygen_ind
@@ -549,7 +549,7 @@ class SJMPower12Potential(Power12Potential):
             if len(water_oxygen_ind) > 1:
                 for windex in water_oxygen_ind[1:]:
                     oxygen = np.concatenate(
-                            (oxygen, self.pos_aav[windex] * Bohr))
+                        (oxygen, self.pos_aav[windex] * Bohr))
 
             O_layer = []
             if self.H2O_layer == 'plane':
@@ -562,7 +562,7 @@ class SJMPower12Potential(Power12Potential):
                 # sometimes if this scheme is used
 
                 plane_rel_oxygen = -1.5 * self.atomic_radii_output[
-                        water_oxygen_ind[0]]
+                    water_oxygen_ind[0]]
                 plane_z = oxygen[:, 2].min() + plane_rel_oxygen
 
                 r_diff_zg = self.r_vg[2, :, :, :] - plane_z / Bohr
@@ -602,31 +602,31 @@ class SJMPower12Potential(Power12Potential):
             # of water which frees the interface in case of corrugated
             # water layers
             for ox in oxygen / Bohr:
-                    O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
-                                    self.atomic_radii_output[
-                                        water_oxygen_ind[0]] / Bohr])
+                O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
+                                self.atomic_radii_output[
+                                    water_oxygen_ind[0]] / Bohr])
 
             r12_add = []
             for i in range(len(O_layer)):
-                    self.pos_aav[len(atoms) + i] = [O_layer[i]]
-                    r12_add.append(self.r12_a[water_oxygen_ind[0]])
+                self.pos_aav[len(atoms) + i] = [O_layer[i]]
+                r12_add.append(self.r12_a[water_oxygen_ind[0]])
             r12_add = np.array(r12_add)
             # r12_a must have same dimensions as pos_aav items
             self.r12_a = np.concatenate((self.r12_a, r12_add))
 
         for index, pos_av in self.pos_aav.items():
-                pos_av = np.array(pos_av)
-                r12 = self.r12_a[index]
-                for pos_v in pos_av:
-                    origin_vg = pos_v[:, na, na, na]
-                    r_diff_vg = self.r_vg - origin_vg
-                    r_diff2_g = (r_diff_vg ** 2).sum(0)
-                    r_diff2_g[r_diff2_g < self.tiny] = self.tiny
-                    u_g = r12 / r_diff2_g ** 6
-                    self.u_g += u_g
-                    u_g /= r_diff2_g
-                    r_diff_vg *= u_g[na, ...]
-                    self.grad_u_vg += r_diff_vg
+            pos_av = np.array(pos_av)
+            r12 = self.r12_a[index]
+            for pos_v in pos_av:
+                origin_vg = pos_v[:, na, na, na]
+                r_diff_vg = self.r_vg - origin_vg
+                r_diff2_g = (r_diff_vg ** 2).sum(0)
+                r_diff2_g[r_diff2_g < self.tiny] = self.tiny
+                u_g = r12 / r_diff2_g ** 6
+                self.u_g += u_g
+                u_g /= r_diff2_g
+                r_diff_vg *= u_g[na, ...]
+                self.grad_u_vg += r_diff_vg
 
         self.u_g *= self.u0 / Hartree
         self.grad_u_vg *= -12. * self.u0 / Hartree
@@ -684,10 +684,10 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
         self.gradient = None
 
         RealSpaceHamiltonian.__init__(
-                self,
-                gd, finegd, nspins, collinear, setups, timer, xc, world,
-                vext=vext, psolver=psolver,
-                stencil=stencil, redistributor=redistributor)
+            self,
+            gd, finegd, nspins, collinear, setups, timer, xc, world,
+            vext=vext, psolver=psolver,
+            stencil=stencil, redistributor=redistributor)
 
         for ia in interactions:
             setattr(self, 'e_' + ia.subscript, None)
@@ -868,7 +868,7 @@ class SJMDipoleCorrection(DipoleCorrection):
         saw = np.zeros((int(L / gd.h_cv[c, c])))
         saw[0] = -0.5
         for i, eps in enumerate(eps_z):
-                saw[i+1] = saw[i] + step / eps
+            saw[i+1] = saw[i] + step / eps
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
         saw -= (saw[0] + saw[-1] + step / eps_z[-1])/2.
         return saw

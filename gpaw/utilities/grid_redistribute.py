@@ -599,9 +599,9 @@ def test(N_c, gd, gd2, reduce_dir, distribute_dir, verbose=True):
     src = gd.zeros(dtype=complex)
     src[:] = gd.comm.rank
 
-    #if gd.comm.rank == 0:
-    #    print(gd)
-        #print('hmmm', gd, gd2)
+    # if gd.comm.rank == 0:
+    #     print(gd)
+    #     print('hmmm', gd, gd2)
 
     src_global = gd.collect(src)
     if gd.comm.rank == 0:

@@ -14,6 +14,7 @@ from ase.utils import devnull
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
+from gpaw.utilities.elpa import LibElpa
 from gpaw import setup_paths
 from gpaw import mpi
 import gpaw
@@ -73,7 +74,6 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
 
 
 tests = [
-    'electronphonon.py',
     'linalg/gemm_complex.py',
     'ase_features/ase3k_version.py',
     'kpt.py',
@@ -96,6 +96,7 @@ tests = [
     'xc/pbe_pw91.py',
     'fd_ops/gradient.py',
     'maths/erf.py',
+    'initial_occs.py',
     'lfc/lf.py',
     'maths/fsbt.py',
     'parallel/compare.py',
@@ -105,6 +106,7 @@ tests = [
     'fd_ops/gd.py',
     'pw/interpol.py',
     'poisson/screened_poisson.py',
+    'electronphonon.py',
     'xc/xc.py',
     'xc/XC2.py',
     'radial/yukawa_radial.py',
@@ -124,7 +126,6 @@ tests = [
     'poisson/poisson.py',
     'poisson/fastpoisson.py',
     'poisson/poisson_asym.py',
-    # 'rsf_yukawa/lrtddft.py',
     'parallel/arraydict_redist.py',
     'parallel/scalapack.py',
     'gauss_wave.py',
@@ -136,6 +137,7 @@ tests = [
     'atoms_mismatch.py',
     'setup_basis_spec.py',
     'pw/direct.py',
+    'libelpa.py',
     'vdw/libvdwxc_spin.py',                 # ~1s
     'timing.py',                            # ~1s
     'parallel/ut_parallel.py',              # ~1s
@@ -155,6 +157,7 @@ tests = [
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
+    'reuse_wfs_celldisp.py',                # ~1s
     'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
@@ -195,6 +198,7 @@ tests = [
     'solvation/vacuum.py',                  # ~3s
     'vdw/libvdwxc_mbeef.py',                # ~3s
     'response/graphene_refined_response.py',  # ~3s
+    'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
     'generic/move_across_cell.py',          # ~4s
@@ -216,6 +220,8 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
     'generic/proton.py',                    # ~4s
+    'parallel/lcao_elpa_kpts.py',           # ~4s
+    'parallel/lcao_elpa.py',                # ~5s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -256,6 +262,7 @@ tests = [
     'lcao/force.py',                        # ~7s
     'xc/pplda.py',                          # ~7s
     'response/test_unit_sphere_area.py',    # ~7s
+    'rsf_yukawa/lrtddft_short.py',          # ~7s
     'fileio/restart_density.py',            # ~8s
     'rpa/rpa_energy_Ni.py',                 # ~8s
     'tddft/be_nltd_ip.py',                  # ~8s
@@ -290,6 +297,7 @@ tests = [
     'lrtddft/kssingles_Be.py',              # ~11s
     'generic/relax.py',                     # ~11s
     'solvation/adm12.py',                   # ~11s
+    'rsf_yukawa/rsf_ivo_sing_mg.py',        # ~11s
     'solvation/lrtddft.py',                 # ~12s
     'dscf/dscf_lcao.py',                    # ~12s
     'generic/8Si.py',                       # ~12s
@@ -305,6 +313,8 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
+    'response/iron_sf_ALDA_gridrep.py',     # ~15s
+    'response/iron_sf_gssALDA_gridrep.py',  # ~15s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
@@ -378,6 +388,7 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
+    'response/iron_sf_ALDA.py',             # ~86s
     'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
@@ -400,7 +411,8 @@ tests = [
     'sic/nscfsic.py',                       # duration unknown
     'coreeig.py',                           # duration unknown
     'response/bse_MoS2_cut.py',             # duration unknown
-    'parallel/scalapack_mpirecv_crash.py']  # duration unknown
+    'parallel/scalapack_mpirecv_crash.py',  # duration unknown
+    'cdft.py']                              # 40s
 
 # 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
@@ -439,7 +451,8 @@ if mpi.size > 1:
 if mpi.size > 2:
     exclude += ['ase_features/neb.py',
                 'poisson/poisson_restart.py',
-                'response/pair.py']
+                'response/pair.py',
+                'electronphonon.py']
 
 if mpi.size > 4:
     exclude += ['poisson/poisson_extravacuum.py']
@@ -454,6 +467,7 @@ if mpi.size < 4:
                 'exx/AA_enthalpy.py',
                 'exx/exx_scf.py',
                 'response/bse_aluminum.py',
+                'response/iron_sf_ALDA.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
@@ -499,6 +513,12 @@ if not compiled_with_libvdwxc():
     exclude.append('vdw/libvdwxc_h2.py')
     exclude.append('vdw/libvdwxc_mbeef.py')
     exclude.append('vdw/libvdwxc_spin.py')
+
+if not LibElpa.have_elpa():
+    exclude += ['libelpa.py',
+                'parallel/lcao_elpa_kpts.py',
+                'parallel/lcao_elpa.py']
+
 
 if LooseVersion(np.__version__) < '1.6.0':
     exclude.append('response/chi0.py')

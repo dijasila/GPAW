@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""
+r"""
 Real-valued spherical harmonics
 
 
@@ -33,11 +33,12 @@ Gaunt coefficients::
 """
 
 
-from math import pi, sqrt
+from math import pi, sqrt  # noqa
 
 from gpaw import debug
 from _gpaw import spherical_harmonics as Yl
 
+__all__ = ['Y', 'YL', 'nablarlYL', 'Yl', 'gam']
 
 # Computer generated tables - do not touch!
 YL = [# s:

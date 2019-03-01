@@ -208,8 +208,8 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
-        chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
-                    intraband=False, hilbert=False,
+        chi0 = Chi0(self.calc, frequencies=1j * Hartree * self.omega_w,
+                    eta=0.0, intraband=False, hilbert=False,
                     txt='chi0.txt', timer=self.timer, world=self.world,
                     nblocks=self.nblocks)
 

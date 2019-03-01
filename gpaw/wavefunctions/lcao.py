@@ -41,6 +41,11 @@ def update_phases(C_unM, q_u, ibzk_qc, spos_ac, oldspos_ac, setups, Mstart):
 
     # We don't want to apply any phase shift unless we crossed a cell
     # boundary.  So we round the shift to either 0 or 1.
+    #
+    # Example: spos_ac goes from 0.01 to 0.99 -- this rounds to 1 and
+    # we apply the phase.  If someone moves an atom by half a cell
+    # without crossing a boundary, then we are out of luck.  But they
+    # should have reinitialized from LCAO anyway.
     phase_qa = np.exp(2j * np.pi *
                       np.dot(ibzk_qc, (spos_ac - oldspos_ac).T.round()))
 
@@ -156,11 +161,11 @@ class LCAOWaveFunctions(WaveFunctions):
         mynao = Mstop - Mstart
 
         #if self.ksl.using_blacs:  # XXX
-            # S and T have been distributed to a layout with blacs, so
-            # discard them to force reallocation from scratch.
-            #
-            # TODO: evaluate S and T when they *are* distributed, thus saving
-            # memory and avoiding this problem
+        #     S and T have been distributed to a layout with blacs, so
+        #     discard them to force reallocation from scratch.
+        #
+        #     TODO: evaluate S and T when they *are* distributed, thus saving
+        #     memory and avoiding this problem
         for kpt in self.kpt_u:
             kpt.S_MM = None
             kpt.T_MM = None
@@ -257,7 +262,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         #if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
         #    nao > 0 and not self.ksl.using_blacs):
-            # S and T are summed only on comm master, so check only there
+        #    S and T are summed only on comm master, so check only there
         #    from numpy.linalg import eigvalsh
         #    self.timer.start('Check positive definiteness')
         #    for S_MM in S_qMM:
@@ -296,6 +301,12 @@ class LCAOWaveFunctions(WaveFunctions):
             kpt.T_MM = newT_qMM[q]
         self.S_qMM = newS_qMM
         self.T_qMM = newT_qMM
+
+        # Elpa wants to reuse the decomposed form of S_qMM.
+        # We need to keep track of the existence of that object here,
+        # since this is where we change S_qMM.  Hence, expect this to
+        # become arrays after the first diagonalization:
+        self.decomposed_S_qMM = [None] * len(self.S_qMM)
 
     def initialize(self, density, hamiltonian, spos_ac):
         # Note: The above line exists also in set_positions.
@@ -509,7 +520,7 @@ class LCAOWaveFunctions(WaveFunctions):
                         d_nn = np.zeros((self.bd.mynbands, self.bd.mynbands),
                                         dtype=kpt.C_nM.dtype)
                         for ne, c_n in zip(kpt.ne_o, kpt.c_on):
-                                d_nn += ne * np.outer(c_n.conj(), c_n)
+                            d_nn += ne * np.outer(c_n.conj(), c_n)
                         rhoT_MM += ksl.get_transposed_density_matrix_delta(
                             d_nn, kpt.C_nM)
                         ET_MM += ksl.get_transposed_density_matrix_delta(

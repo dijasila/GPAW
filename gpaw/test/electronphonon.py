@@ -1,8 +1,16 @@
-﻿from gpaw.elph.electronphonon import ElectronPhononCoupling
+from distutils.version import LooseVersion
+
 from ase.phonons import Phonons
-from ase import Atoms
-from gpaw import GPAW
+from ase import Atoms, __version__
 import numpy as np
+
+from gpaw import GPAW
+from gpaw.elph.electronphonon import ElectronPhononCoupling
+
+if LooseVersion(__version__) < '3.18':
+    from unittest import SkipTest
+    raise SkipTest
+
 
 a = 0.90
 atoms = Atoms('H',

@@ -11,7 +11,7 @@ if GS:
     cluster.set_cell((6, 6, 6), scale_atoms=False)
     cluster.center()
     calc = GPAW(mode=PW(force_complex_dtype=True),
-                xc='RPBE',
+                xc={'name': 'RPBE', 'stencil': 1},
                 nbands=16,
                 eigensolver='rmm-diis',
                 parallel={'domain': 1},

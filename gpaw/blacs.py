@@ -351,7 +351,9 @@ class BlacsDescriptor(MatrixDescriptor):
             # inactive blacsgrid should be. This seemed reasonable to me
             # at the time.
             locN, locM = 0, 0
-            self.lld = 0
+            # This applies only to empty matrices.  Some functions will
+            # complain about lld<1, so lld=1 will make those happy.
+            self.lld = 1
 
         # locM, locN is not allowed to be negative. This will cause the
         # redistributor to fail. This could happen on active blacsgrid

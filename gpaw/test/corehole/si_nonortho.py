@@ -16,9 +16,9 @@ c = b / 2
 d = b + c
 
 si_nonortho = Atoms([Atom('Si', (0, 0, 0)),
-            Atom('Si', (a/4, a/4, a/4))],
-            cell=[(a/2,a/2,0),(a/2,0,a/2),(0,a/2,a/2)],
-            pbc=True)
+                     Atom('Si', (a/4, a/4, a/4))],
+                    cell=[(a/2,a/2,0),(a/2,0,a/2),(0,a/2,a/2)],
+                    pbc=True)
 
 # calculation with full symmetry
 calc = GPAW(nbands=-10,
@@ -69,7 +69,7 @@ if mpi.size == 1:
 #r2 = RecursionMethod(calc1)
 #r2.run(40)
 #
-#if mpi.size == 1:                                                                                                                                                                                                  
+#if mpi.size == 1:
 #    y1 = r1.get_spectra(x)
 #    y2 = r2.get_spectra(x)
 #

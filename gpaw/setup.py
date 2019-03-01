@@ -96,6 +96,31 @@ def create_setup(symbol, xc='LDA', lmax=0,
         return setupdata
 
 
+def correct_occ_numbers(f_j,
+                        degeneracy_j,
+                        jsorted,
+                        correction: float,
+                        eps=1e-12) -> None:
+    """Correct f_j ndarray in-place."""
+
+    if correction > 0:
+        # Add electrons to the lowest eigenstates:
+        for j in jsorted:
+            c = min(correction, degeneracy_j[j] - f_j[j])
+            f_j[j] += c
+            correction -= c
+            if correction < eps:
+                break
+    elif correction < 0:
+        # Add electrons to the highest eigenstates:
+        for j in jsorted[::-1]:
+            c = min(-correction, f_j[j])
+            f_j[j] -= c
+            correction += c
+            if correction > -eps:
+                break
+
+
 class LocalCorrectionVar:
     """Class holding data for local the calculation of local corr."""
     def __init__(self, s=None):
@@ -125,16 +150,21 @@ class BaseSetup:
     def get_basis_description(self):
         return self.basis.get_description()
 
-    def get_actual_atomic_orbitals(self):
+    def get_partial_waves_for_atomic_orbitals(self):
         """Get those states phit that represent a real atomic state.
 
         This typically corresponds to the (truncated) partial waves (PAW) or
         a single-zeta basis."""
-        phit_j = []
+
+        # XXX ugly hack for pseudopotentials:
+        if not hasattr(self, 'pseudo_partial_waves_j'):
+            return []
+
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        for n, phit in zip(self.n_j, self.phit_j):
+        phit_j = []
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
             if n > 0:
                 phit_j.append(phit)
         return phit_j
@@ -153,44 +183,40 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
-        if len(l_j) == 0:
-            l_j = np.ones(1)
 
-        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
-            nj = len(f_j)
-            # correct for the charge
-            if charge >= 0:
-                # reduce the higher levels first
-                for j in range(nj - 1, -1, -1):
-                    f = f_j[j]
-                    if use_complete or f < degeneracy_j[j]:
-                        c = min(f, charge)
-                        f_j[j] -= c
-                        charge -= c
-            else:
-                # add to the lower levels first
-                for j in range(nj):
-                    f = f_j[j]
-                    if use_complete or f > 0:
-                        c = min(degeneracy_j[j] - f, -charge)
-                        f_j[j] += c
-                        charge += c
-            if charge != 0 and c != 0:
-                correct_for_charge(f_j, charge, degeneracy_j, True)
-            elif charge != 0 and c == 0:
-                # print('Stopping electron distribution, ran out of '
-                #       'projector functions to fill.')
-                # Then there are more electrons in the
-                # calculation than can be distributed over the
-                # atomic projector functions. Leave remaining density
-                # undistributed.
-                return
+        if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
+            eps_j = np.array(self.data.eps_j)
+        else:
+            eps_j = np.ones(len(self.n_j))
+            # Bound states:
+            for j, n in enumerate(self.n_j):
+                if n > 0:
+                    eps_j[j] = -1.0
+
+        deg_j = 2 * (2 * l_j + 1)
+
+        # Sort after:
+        #
+        # 1) empty state (f == 0)
+        # 2) open shells (d - f)
+        # 3) eigenvalues (e)
+
+        states = []
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+            if e < 0.0:
+                states.append((f == 0, d - f, e, j))
+        states.sort()
+        jsorted = [j for _, _, _, j in states]
+
+        # if len(l_j) == 0:
+        #     l_j = np.ones(1)
+
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
             if not self.orbital_free:
-                correct_for_charge(f_sj[0], charge, 2 * (2 * l_j + 1))
+                correct_occ_numbers(f_sj[0], deg_j, jsorted, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
                 f_sj[0] += -charge
@@ -202,11 +228,10 @@ class BaseSetup:
                                    (magmom, nval))
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
-            ndown = 0.5 * (nval - magmom)
-            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
-                               2 * l_j + 1, False)
-            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
-                               2 * l_j + 1, False)
+            ndn = 0.5 * (nval - magmom)
+            deg_j //= 2
+            correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
+            correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
@@ -251,7 +276,7 @@ class BaseSetup:
                              % (magmom, self.symbol))
         assert i == nao
 
-#        print "fsi=", f_si
+        # print('fsi=', f_si)
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
@@ -605,6 +630,12 @@ class LeanSetup(BaseSetup):
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
         self.basis = s.basis  # we don't need nao if we use this instead
+
+        # XXX figure out better way to store these.
+        # Refactoring: We should delete this and use psit_j.  However
+        # the code depends on psit_j being the *basis* functions sometimes.
+        if hasattr(s, 'pseudo_partial_waves_j'):
+            self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
         # Can also get rid of the phit_j splines if need be
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
@@ -849,9 +880,14 @@ class Setup(BaseSetup):
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
+        partial_waves = self.create_basis_functions(phit_jg, rcut2, gcut2)
+        self.pseudo_partial_waves_j = partial_waves.tosplines()
+
         if basis is None:
-            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
-        phit_j = basis.tosplines()
+            phit_j = self.pseudo_partial_waves_j
+            basis = partial_waves
+        else:
+            phit_j = basis.tosplines()
         self.phit_j = phit_j
         self.basis = basis
 

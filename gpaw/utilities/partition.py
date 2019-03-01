@@ -175,9 +175,14 @@ class EvenPartitioning:
 
 # Interface for things that can be redistributed with general_redistribute
 class Redistributable:
-    def get_recvbuffer(self, a): raise NotImplementedError
-    def get_sendbuffer(self, a): raise NotImplementedError
-    def assign(self, a): raise NotImplementedError
+    def get_recvbuffer(self, a):
+        raise NotImplementedError
+
+    def get_sendbuffer(self, a):
+        raise NotImplementedError
+
+    def assign(self, a):
+        raise NotImplementedError
 
 
 # Let's keep this as an independent function for now in case we change the
@@ -260,19 +265,23 @@ class AtomPartition:
             class Redist:
                 def get_recvbuffer(self, a):
                     return get_empty(a)
+
                 def assign(self, a, b_x):
                     for u, d_ax in enumerate(atomdict_ax):
                         assert a not in d_ax
                         atomdict_ax[u][a] = b_x[u]
+
                 def get_sendbuffer(self, a):
                     return np.array([d_ax.data.pop(a) for d_ax in atomdict_ax])
         else:
             class Redist:
                 def get_recvbuffer(self, a):
                     return get_empty(a)
+
                 def assign(self, a, b_x):
                     assert a not in atomdict_ax
                     atomdict_ax[a] = b_x
+
                 def get_sendbuffer(self, a):
                     return atomdict_ax.data.pop(a)
 

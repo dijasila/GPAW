@@ -5,7 +5,6 @@ __all__ = ["ElectronPhononCoupling"]
 import numpy as np
 import numpy.fft as fft
 
-from gpaw.mpi import serial_comm
 
 class ElectronPhononCoupling:
     """..."""
@@ -30,7 +29,7 @@ class ElectronPhononCoupling:
         dmatrix: DynamicalMatrix
             The dynamical matrix. Used to obtain the phonon polarization
             vectors which appears in the coupling elements.
-    
+
         """
 
         self.atoms = atoms
@@ -39,12 +38,12 @@ class ElectronPhononCoupling:
         self.calc = calc
         self.dmatrix = dmatrix
         self.dtype = dtype
-        
+
         # List for effective-potential derivatives
         self.v1_eff_qavG = []
         self.v1_eff_kavG = None
 
-    def __getstate__(self): 
+    def __getstate__(self):
         """Method used to pickle an instance of this object.
 
         Bound method attributes cannot be pickled and must therefore be deleted
@@ -59,10 +58,10 @@ class ElectronPhononCoupling:
         # state['atoms'].__dict__.pop('calc')
 
         return state
-    
+
     def set_calculator(self, calc):
         """Set ground-state calculator."""
-        
+
         self.calc = calc
 
     def collect(self):
@@ -71,7 +70,7 @@ class ElectronPhononCoupling:
         N = self.atoms.get_number_of_atoms()
         n_c = tuple(self.gd.n_c)
         mynks = self.kd.mynks
-        
+
         # Collect from slaves
         if self.kd.comm.rank == 0:
             # Global array
@@ -81,7 +80,7 @@ class ElectronPhononCoupling:
             v1_eff_qavG.shape = (mynks, N, 3) + n_c
             uslice = self.kd.get_slice()
             self.v1_eff_kavG[uslice] = v1_eff_qavG
-            
+
             for slave_rank in range(1, self.kd.comm.size):
                 uslice = self.kd.get_slice(rank=slave_rank)
                 nks = uslice.stop - uslice.start
@@ -92,13 +91,13 @@ class ElectronPhononCoupling:
             v1_eff_qavG = np.asarray(self.v1_eff_qavG)
             v1_eff_qavG.shape = (mynks, N, 3) + n_c
             self.kd.comm.send(v1_eff_qavG, 0, tag=123)
-            
+
     def evaluate_integrals(self, kpts=None, bands=[4,5]):
         """Calculate matrix elements of the potential derivatives.
 
         Start by evaluating the integrals between the already calculated
         wave-functions.
-        
+
         Parameters
         ----------
         kpts: ???
@@ -130,7 +129,7 @@ class ElectronPhononCoupling:
             kpts[np.where(kpts > 0.5)] -= 1.
             kpts[np.where(kpts <= -0.5)] += 1.
             self.calc.set(kpts=kpts)
-            
+
         # Do a single-shot calculation to get the required wave-functions
 ##         self.calc.set(fixdensity=True,
 ##                       nbands=10,
@@ -139,7 +138,7 @@ class ElectronPhononCoupling:
 ##                       eigensolver='cg',
 ##                       symmetry='off')
 ##         self.calc.get_potential_energy()
-        
+
         # Electronic k-point descriptor
         kd_e = self.calc.wfs.kd
 
@@ -180,7 +179,7 @@ class ElectronPhononCoupling:
                         a_n = psit_kplusq_nG.conj() * v1_eff_G
 
                         for n, psit_G in enumerate(psit_k_nG):
-                            
+
                             g_n = gd.integrate(a_n * psit_G)
                             # XXX Squared elements
                             g_qavknn[q, a, v, k, n] = (g_n * g_n.conj()).real
@@ -192,14 +191,14 @@ class ElectronPhononCoupling:
 
         # Shape of q-point grid
         N_c = tuple(self.kd.N_c)
-        
+
         # Reshape before Fourier transforming
         shape = g_qavknn.shape
         gq_cccavknn = g_qavknn.reshape(N_c + shape[1:])
 
         gm_cccavknn = fft.ifftn(fft.ifftshift(gq_cccavknn, axes=(0, 1, 2)),
                                 axes=(0, 1, 2))
-            
+
         # Reshape for the evaluation of the fourier sums
         g_mavknn = gm_cccavknn.reshape(shape)
 
@@ -211,7 +210,7 @@ class ElectronPhononCoupling:
         R_cm -= N1_c // 2
 
         return g_mavknn, R_cm
-            
+
     def fourier_interpolate(self, g_mavknn, N=2**5):
         """Fourier interpolate the real-space matrix elements."""
 
@@ -224,7 +223,7 @@ class ElectronPhononCoupling:
         # Insert existing values
         i, j, k = self.kd.N_c / 2 + 1
         gm_cccavknn_[:i, :j, :k] = gm_cccavknn[:i, :j, :k]
-        i, j, k = - self.kd.N_c / 2 
+        i, j, k = - self.kd.N_c / 2
         gm_cccavknn_[i:, j:, k:] = gm_cccavknn[i:, j:, k:]
 
         # Fourier transform

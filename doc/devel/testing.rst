@@ -94,17 +94,19 @@ Adding new tests
 ----------------
 
 To add a new test, create a script somewhere in the file hierarchy ending with
-``agts.py`` (e.g. ``submit.agts.py``). ``AGTS`` is short for Advanced GPAW Test
-System (or Another Great Time Sink). This script defines how a number of
-scripts should be submitted to niflheim and how they depend on each other.
-Consider an example where one script, calculate.py, calculates something and
-saves a .gpw file and another script, analyse.py, analyses this output. Then
-the submit script should look something like::
+``agts.py`` (e.g. ``submit.agts.py`` or just ``agts.py``). ``AGTS`` is short
+for Advanced GPAW Test System (or Another Great Time Sink). This script
+defines how a number of scripts should be submitted to niflheim and how they
+depend on each other. Consider an example where one script, ``calculate.py``,
+calculates something and saves a ``.gpw`` file and another script,
+``analyse.py``, analyses this output. Then the submit script should look
+something like::
 
-    def workflow():
-        from myqueue.job import Job
-        return [Job('calculate.py', cores=8, tmax='25m'),
-                Job('analyse.py', cores=1, tmax='5m', deps=['calculate.py'])
+    def create_tasks():
+        from myqueue.task import task
+        return [task('calculate.py', cores=8, tmax='25m'),
+                task('analyse.py', cores=1, tmax='5m',
+                     deps=['calculate.py'])]
 
 As shown, this script has to contain the definition of the function
-``workflow()``.  See https://gitlab.com/jensj/myqueue for more details.
+``create_tasks()``.  See https://myqueue.readthedocs.io/ for more details.

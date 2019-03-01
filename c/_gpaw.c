@@ -9,6 +9,7 @@
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+#include <xc.h>
 
 #define PY3 (PY_MAJOR_VERSION >= 3)
 
@@ -114,6 +115,18 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
+#if defined(GPAW_WITH_ELPA)
+#include <elpa/elpa.h>
+PyObject* pyelpa_allocate(PyObject *self, PyObject *args);
+PyObject* pyelpa_set(PyObject *self, PyObject *args);
+PyObject* pyelpa_set_comm(PyObject *self, PyObject *args);
+PyObject* pyelpa_setup(PyObject *self, PyObject *args);
+PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_hermitian_multiply(PyObject *self, PyObject *args);
+PyObject* pyelpa_constants(PyObject *self, PyObject *args);
+PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
+#endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL and PARALLEL
 
 #ifdef GPAW_PAPI
@@ -241,6 +254,17 @@ static PyMethodDef functions[] = {
     {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
+#if defined(GPAW_WITH_ELPA)
+    {"pyelpa_allocate", pyelpa_allocate, METH_VARARGS, 0},
+    {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
+    {"pyelpa_setup", pyelpa_setup, METH_VARARGS, 0},
+    {"pyelpa_set_comm", pyelpa_set_comm, METH_VARARGS, 0},
+    {"pyelpa_diagonalize", pyelpa_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_general_diagonalize", pyelpa_general_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_hermitian_multiply", pyelpa_hermitian_multiply, METH_VARARGS, 0},
+    {"pyelpa_constants", pyelpa_constants, METH_VARARGS, 0},
+    {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
+#endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL && PARALLEL
 #ifdef GPAW_HPM
     {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
@@ -376,6 +400,10 @@ static PyObject* moduleinit(void)
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
+    PyObject_SetAttrString(m,
+                           "libxc_version",
+                           PyUnicode_FromString(xc_version_string()));
+
     Py_INCREF(&LFCType);
     Py_INCREF(&LocalizedFunctionsType);
     Py_INCREF(&OperatorType);
@@ -481,13 +509,27 @@ main(int argc, char **argv)
     Py_SetProgramName(wargv[0]);
     PyImport_AppendInittab("_gpaw", &moduleinit0);
     Py_Initialize();
-
     PySys_SetArgvEx(argc, wargv, 0);
+
+#ifdef GPAW_WITH_ELPA
+    // Globally initialize Elpa library if present:
+    if (elpa_init(20171201) != ELPA_OK) {
+        // What API versions do we support?
+        PyErr_SetString(PyExc_RuntimeError, "Elpa >= 20171201 required");
+        PyErr_Print();
+        return 1;
+    }
+#endif
+
     int status = gpaw_main();
 
     if(status != 0) {
         PyErr_Print();
     }
+
+#ifdef GPAW_WITH_ELPA
+    elpa_uninit();
+#endif
 
     Py_Finalize();
     MPI_Finalize();

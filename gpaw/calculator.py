@@ -6,6 +6,7 @@ from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.utils import basestring, plural
 from ase.utils.timing import Timer
+from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
@@ -66,7 +67,8 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
-        'experimental': {'reuse_wfs_method': None,
+        'experimental': {'reuse_wfs_method': 'paw',
+                         'niter_fixdensity': 0,
                          'magmoms': None,
                          'soc': None,
                          'kpt_refine': None},
@@ -102,6 +104,8 @@ class GPAW(PAW, Calculator):
         'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
         'sl_lcao': gpaw.sl_lcao,
         'sl_lrtddft': gpaw.sl_lrtddft,
+        'use_elpa': False,
+        'elpasolver': '2stage',
         'buffer_size': gpaw.buffer_size}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
@@ -345,10 +349,15 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
+        efermi = self.occupations.fermilevel
+        self.hamiltonian.summary(efermi, self.log)
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
+        try:
+            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+        except ValueError:
+            pass
         self.log.fd.flush()
 
     def set(self, **kwargs):
@@ -365,8 +374,8 @@ class GPAW(PAW, Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
-                                                                 dict):
+            if key in ['convergence', 'symmetry',
+                       'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
                 for subkey in kwargs[key]:
@@ -418,7 +427,7 @@ class GPAW(PAW, Calculator):
                 for key2 in changed_parameters2:
                     if key2 in ['kpt_refine', 'magmoms', 'soc']:
                         self.wfs = None
-                    elif key2 in ['reuse_wfs_method']:
+                    elif key2 in ['reuse_wfs_method', 'niter_fixdensity']:
                         continue
                     else:
                         raise TypeError('Unknown keyword argument:', key2)
@@ -620,8 +629,10 @@ class GPAW(PAW, Calculator):
                 nbands = nbandsmax
             if mode.name == 'lcao' and nbands > nao:
                 nbands = nao
+        elif nbands <= 0:
+            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
-        elif nbands > nao and mode.name == 'lcao':
+        if nbands > nao and mode.name == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -630,9 +641,6 @@ class GPAW(PAW, Calculator):
             raise ValueError(
                 'Charge %f is not possible - not enough valence electrons' %
                 par.charge)
-
-        if nbands <= 0:
-            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -804,10 +812,10 @@ class GPAW(PAW, Calculator):
         self.log(self.occupations)
 
     def create_scf(self, nvalence, mode):
-        if mode.name in {'lcao', 'tb'}:
-            niter_fixdensity = 0
-        else:
-            niter_fixdensity = 2
+        # if mode.name in {'lcao', 'tb'}:
+        #     niter_fixdensity = 0
+        # else:
+        #     niter_fixdensity = 2
 
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
@@ -817,8 +825,13 @@ class GPAW(PAW, Calculator):
             cc.get('density', 1.0e-4) * nv,
             cc.get('forces', np.inf) / (Ha / Bohr),
             self.parameters.maxiter,
-            niter_fixdensity, nv)
-        if mode.name == 'tb':
+            # XXX make sure niter_fixdensity value is *always* set from default
+            # Subdictionary defaults seem to not be set when user provides
+            # e.g. {}.  We should change that so it works like the ordinary
+            # parameters.
+            self.parameters.experimental.get('niter_fixdensity', 0),
+            nv)
+        if mode.name == 'tb':  # TBXXX
             self.scf.max_errors['energy'] = np.inf
         self.log(self.scf)
 
@@ -940,7 +953,6 @@ class GPAW(PAW, Calculator):
                 pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
                 xc_redistributor=xc_redist,
                 **kwargs)
-            #xc.set_grid_descriptor(self.hamiltonian.xc_gd)
             xc.set_grid_descriptor(self.hamiltonian.xc_gd)
 
         self.hamiltonian.soc = self.parameters.experimental.get('soc')
@@ -1059,9 +1071,14 @@ class GPAW(PAW, Calculator):
             sl_lcao = self.parallel['sl_lcao']
             if sl_lcao is None:
                 sl_lcao = sl_default
+
+            elpasolver = None
+            if self.parallel['use_elpa']:
+                elpasolver = self.parallel['elpasolver']
             lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                            gd, bd, domainband_comm, dtype,
-                                           nao=nao, timer=self.timer)
+                                           nao=nao, timer=self.timer,
+                                           elpasolver=elpasolver)
 
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
@@ -1085,7 +1102,7 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            reuse_wfs_method = par.experimental.get('reuse_wfs_method')
+            reuse_wfs_method = par.experimental.get('reuse_wfs_method', 'paw')
             sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
                                        sl_default or
                                        (1, 1, None))

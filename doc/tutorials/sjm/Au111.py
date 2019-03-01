@@ -2,12 +2,10 @@ from gpaw.solvation.sjm import SJM, SJMPower12Potential
 
 from ase.build import fcc111
 from gpaw import FermiDirac
-from ase.io import read
 
 # Import solvation modules
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
-    SolvationGPAW,
     EffectivePotentialCavity,
     LinearDielectric,
     GradientSurface,
@@ -18,7 +16,11 @@ u0 = 0.180  # eV
 epsinf = 78.36  # Dielectric constant of water at 298 K
 gamma = 0.00114843767916  # 18.4*1e-3 * Pascal* m
 T = 298.15   # K
-atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
+
+def atomic_radii(atoms):
+    return [vdw_radii[n] for n in atoms.numbers]
+
 
 # Structure is created
 atoms = fcc111('Au', size=(1, 1, 3))

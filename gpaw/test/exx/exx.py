@@ -21,13 +21,16 @@ ref_1871 = {  # Values from revision 1871. Not true reference values
     'EXX': (-785.5837828306236, -7.16802337336, -2.72602997017)
     }
 
+def xc(name):
+    return dict(name=name, stencil=1)
+
 from gpaw.xc import XC
 from gpaw.xc.hybrid import HybridXC
 current = {}  # Current revision
-for xc in [XC('PBE'),
-           HybridXC('PBE0', finegrid=True),
-           HybridXC('EXX', finegrid=True),
-           XC('PBE')]:  # , 'oldPBE', 'LDA']:
+for xc in [XC(xc('PBE')),
+           HybridXC('PBE0', stencil=1, finegrid=True),
+           HybridXC('EXX', stencil=1, finegrid=True),
+           XC(xc('PBE'))]:  # , 'oldPBE', 'LDA']:
     # Generate setup
     #g = Generator('Be', setup, scalarrel=True, nofiles=True, txt=None)
     #g.run(exx=True, **parameters['Be'])
