@@ -74,10 +74,9 @@ class QuadrupoleMomentWriter(TDDFTObserver):
         self.density_type = m.group('density')
 
     def _write_kick(self, paw):
-        time = paw.time
-        kick = paw.kick_strength
-        line = '# Kick = [%22.12le, %22.12le, %22.12le]; ' % tuple(kick)
-        line += 'Time = %.8lf\n' % time
+        line = '# Time = %.8lf' % paw.time
+        line += '; Kick: %s' % paw.kick_ext
+        line += '\n'
         self._write(line)
 
     def _write_dm(self, paw):

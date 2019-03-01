@@ -15,7 +15,9 @@ class LCAOTDDFT(GPAW):
                  fxc=None, td_potential=None, **kwargs):
         self.time = 0.0
         self.niter = 0
+        # TODO: deprecate kick keywords (and store them as td_potential)
         self.kick_strength = np.zeros(3)
+        self.kick_ext = None
         self.tddft_initialized = False
         self.action = None
         tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential)
@@ -123,6 +125,8 @@ class LCAOTDDFT(GPAW):
 
         self.log('----  Applying kick')
         self.log('----  %s' % ext)
+
+        self.kick_ext = ext
 
         # Propagate kick
         self.propagator.kick(ext, self.time)
