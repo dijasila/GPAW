@@ -472,10 +472,15 @@ class OrbitalLayouts(KohnShamLayouts):
         # XXX Should not conjugate, but call gemm(..., 'c')
         # Although that requires knowing C_Mn and not C_nM.
         # that also conforms better to the usual conventions in literature
+
+        # TODO: check that it doesn't break parallel calculations
+        n_occ = get_n_occ(f_n)
+
         if C2_nM is None:
             C2_nM = C_nM
-        Cf_Mn = np.ascontiguousarray(C2_nM.T.conj() * f_n)
-        gemm(1.0, C_nM, Cf_Mn, 0.0, rho_MM, 'n')
+        Cf_Mn = \
+            np.ascontiguousarray(C2_nM[:n_occ].T.conj() * f_n[:n_occ])
+        gemm(1.0, C_nM[:n_occ], Cf_Mn, 0.0, rho_MM, 'n')
         return rho_MM
 
     def get_transposed_density_matrix(self, f_n, C_nM, rho_MM=None):
@@ -517,3 +522,11 @@ class OrbitalLayouts(KohnShamLayouts):
 
     def get_transposed_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         return self.calculate_density_matrix_delta(d_nn, C_nM, rho_MM).T.copy()
+
+
+def get_n_occ(f_n):
+    nbands = len(f_n)
+    n_occ = 0
+    while n_occ < nbands and f_n[n_occ] > 1e-10:
+        n_occ += 1
+    return n_occ

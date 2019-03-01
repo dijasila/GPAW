@@ -649,19 +649,20 @@ class DirectMinLCAO(DirectLCAO):
                 precond = {}
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
+                    w = kpt.weight / (3.0 - wfs.nspins)
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
                     hess = self.hess[k]
                     if self.dtype is float:
                         precond[k] = \
                             1.0 / (0.75 * hess +
-                                   0.25 * self.search_direction.beta_0 ** (-1))
+                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
                     else:
                         precond[k] = \
                             1.0 / (0.75 * hess.real +
-                                   0.25 * self.search_direction.beta_0 ** (-1)) + \
+                                   w * 0.25 * self.search_direction.beta_0 ** (-1)) + \
                             1.0j / (0.75 * hess.imag +
-                                    0.25 * self.search_direction.beta_0 ** (-1))
+                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
                 return precond
         else:
             return None
@@ -699,33 +700,45 @@ class DirectMinLCAO(DirectLCAO):
     def get_canonical_representation(self, ham, wfs, dens, occ):
 
         # choose canonical orbitals which diagonalise
-        # lagrange matrix. need to do subspace rotation with equally
-        # occupied states?
-        # I tried to call function below, but due to instability
-        # of eigensolvers
-        # for some systems, it can 'mess' the solution.
-        # this usually happens in metals,
-        # the so-called charge-sloshing problem..
-        wfs.timer.start('Get Canonical Representation')
-        if self.odd.name == 'PZ_SIC':
-            for kpt in wfs.kpt_u:
-                h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
-                tri2full(h_mm)
+        # lagrange matrix. it's probably necessary
+        # to do subspace rotation with equally
+        # occupied states.
+        # In this case, the total energy remains the same,
+        # as it's unitary invariant within equally occupied subspaces.
+        wfs.timer.start('Get canonical representation')
+
+        for kpt in wfs.kpt_u:
+            h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+            tri2full(h_mm)
+            if self.odd.name == 'Zero':
+                n_init = 0
+                while True:
+                    n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
+                    kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
+                        rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                    n_init += n_fin
+                    if n_init == len(kpt.f_n):
+                        break
+                    elif n_init > len(kpt.f_n):
+                        raise SystemExit('Bug is here!')
+                    # this function rotates occpuied subspace
+                    # n_occ = 0
+                    # nbands = len(kpt.f_n)
+                    # while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+                    #     n_occ += 1
+                    # n_unocc = len(kpt.f_n) - n_occ
+                    #
+                    # for x in [0, n_occ]:
+                    #     y = (x // n_occ) * (n_unocc - n_occ) + n_occ
+                    #     kpt.C_nM[x:x + y, :], kpt.eps_n[x:x + y] = \
+                    #         rotate_subspace(h_mm, kpt.C_nM[x:x + y, :])
+
+            elif self.odd.name == 'PZ_SIC':
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
-        elif self.odd.name == 'Zero':
-            super(DirectMinLCAO, self).iterate(ham, wfs)
-            occ.calculate(wfs)
-            self.initialize_2(wfs, dens, ham)
-            self.update_ks_energy(ham, wfs, dens, occ)
-
-        for kpt in wfs.kpt_u:
-            u = kpt.s * self.n_kps + kpt.q
-            self.c_nm_ref[u] = kpt.C_nM.copy()
-            self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-
-        wfs.timer.stop('Get Canonical Representation')
+        self.initialize_2(wfs, dens, ham)
+        wfs.timer.stop('Get canonical representation')
 
     def reset(self):
         super(DirectMinLCAO, self).reset()
@@ -927,6 +940,7 @@ class DirectMinLCAO(DirectLCAO):
 
         wfs.timer.stop('Unitary rotation')
 
+
 def get_indices(dimens, dtype):
 
     if dtype == complex:
@@ -943,3 +957,21 @@ def get_n_occ(kpt):
     while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
         n_occ += 1
     return n_occ
+
+
+def find_equally_occupied_subspace(f_n, index=0):
+    n_occ = 0
+    f1 = f_n[index]
+    for f2 in f_n[index:]:
+        if abs(f1 - f2) < 1.0e-8:
+            n_occ += 1
+        else:
+            return n_occ
+    return n_occ
+
+
+def rotate_subspace(h_mm, c_nm):
+    l_nn = np.dot(np.dot(c_nm, h_mm), c_nm.conj().T).conj()
+    # check if diagonal then don't rotate? it could save a bit of time
+    eps, w = np.linalg.eigh(l_nn)
+    return w.T.conj() @ c_nm, eps
