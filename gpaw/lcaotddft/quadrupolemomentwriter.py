@@ -19,7 +19,6 @@ def calculate_quadrupole_moments(gd, rho_g, center_v):
     return qm_i
 
 
-
 class QuadrupoleMomentWriter(TDDFTObserver):
     version = 1
 
@@ -52,7 +51,7 @@ class QuadrupoleMomentWriter(TDDFTObserver):
         if paw.niter != 0:
             return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
-        line += '(center=[%.4f, %.4f, %.4f]' % tuple(self.center_v)
+        line += '(center=[%.6f, %.6f, %.6f]' % tuple(self.center_v)
         line += ', density=%s)\n' % repr(self.density_type)
         line += ('# %15s %15s %22s %22s %22s %22s %22s %22s\n' %
                  ('time', 'norm', 'x^2', 'xy', 'xz', 'y^2', 'yz', 'z^2'))
@@ -61,11 +60,11 @@ class QuadrupoleMomentWriter(TDDFTObserver):
     def read_header(self, filename):
         with open(filename, 'r') as f:
             line = f.readline()
-        regexp = ("^(?P<name>\w+)\[version=(?P<version>\d+)\]\(center=\["
-                  "(?P<center0>[-+0-9\.]+), "
-                  "(?P<center1>[-+0-9\.]+), "
-                  "(?P<center2>[-+0-9\.]+)\], "
-                  "density='(?P<density>\w+)'\)$")
+        regexp = (r"^(?P<name>\w+)\[version=(?P<version>\d+)\]\(center=\["
+                  r"(?P<center0>[-+0-9\.]+), "
+                  r"(?P<center1>[-+0-9\.]+), "
+                  r"(?P<center2>[-+0-9\.]+)\], "
+                  r"density='(?P<density>\w+)'\)$")
         m = re.match(regexp, line[2:])
         assert m is not None, 'Unknown fileformat'
         assert m.group('name') == self.__class__.__name__
@@ -74,8 +73,8 @@ class QuadrupoleMomentWriter(TDDFTObserver):
         self.density_type = m.group('density')
 
     def _write_kick(self, paw):
-        line = '# Time = %.8lf' % paw.time
-        line += '; Kick: %s' % paw.kick_ext
+        line = '# Kick: %s' % paw.kick_ext
+        line = '; Time = %.8lf' % paw.time
         line += '\n'
         self._write(line)
 
