@@ -78,6 +78,7 @@ class SetupData:
         self.nct_g = None
         self.nvt_g = None
         self.vbar_g = None
+        self.vt_g = None
 
         # Kinetic energy densities of core electrons
         self.tauc_g = None
@@ -360,6 +361,12 @@ class SetupData:
                     print('%r' % x, end=' ', file=xml)
                 print('\n  </%s>' % name, file=xml)
 
+        if self.vt_g is not None:
+            xml.write('  <pseudo_potential grid="g1">\n')
+            for x in self.vt_g:
+                print('%r' % x, end=' ', file=xml)
+            print('\n  </pseudo_potential>', file=xml)
+
         print('  <kinetic_energy_differences>', end=' ', file=xml)
         nj = len(self.e_kin_jj)
         for j1 in range(nj):
@@ -524,7 +531,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
-                      'pseudo_core_kinetic_energy_density']:
+                      'pseudo_core_kinetic_energy_density',
+                      'pseudo_potential']:
             self.data = []
         elif name.startswith('GLLB_'):
             self.data = []
@@ -589,6 +597,8 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.tauct_g = x_g
         elif name in ['localized_potential', 'zero_potential']:  # XXX
             setup.vbar_g = x_g
+        elif name == 'pseudo_potential':
+            setup.vt_g = x_g
         elif name.startswith('GLLB_'):
             # Add setup tags starting with GLLB_ to extra_xc_data. Remove
             # GLLB_ from front of string:

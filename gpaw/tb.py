@@ -1,12 +1,14 @@
+from math import pi
+
 import numpy as np
 
-from gpaw.density import Density
-from gpaw.hamiltonian import Hamiltonian
-from gpaw.lcao.eigensolver import DirectLCAO
-from gpaw.lcao.tci import TCIExpansions
+from .density import Density
+from .hamiltonian import Hamiltonian
+from .lcao.eigensolver import DirectLCAO
+from .lcao.tci import TCIExpansions
 from .spline import Spline
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
-from gpaw.wavefunctions.mode import Mode
+from .wavefunctions.lcao import LCAOWaveFunctions
+from .wavefunctions.mode import Mode
 
 
 class TB(Mode):
@@ -29,11 +31,12 @@ class TBWaveFunctions(LCAOWaveFunctions):
 
         vtphit = {}  # Dict[Setup, List[Spline]]
         for setup in self.setups.setups.values():
+            vt = setup.vt
             vtphit_j = []
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
-                vt_g = -0.2 * np.exp(-r_g)
+                vt_g = vt.map(r_g) / (4 * pi)**0.5
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit.map(r_g)))
             vtphit[setup] = vtphit_j
 
@@ -50,6 +53,7 @@ class TBWaveFunctions(LCAOWaveFunctions):
         my_atom_indices = self.basis_functions.my_atom_indices
         self.Vt_qMM = [Vt_MM.toarray()
                        for Vt_MM in manytci.P_qIM(my_atom_indices)]
+        print(self.Vt_qMM[0]);asdf
 
 
 class TBEigenSolver(DirectLCAO):
@@ -115,12 +119,3 @@ class TBHamiltonian(Hamiltonian):
             W_L[:] = 0.0
 
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
-
-
-if __name__ == '__main__':
-    from ase import Atoms
-    from gpaw import GPAW
-    # a = Atoms('H')
-    a = Atoms('H2', positions=[[0, 0, 0], [0, 0, 0.75]])
-    a.calc = GPAW(mode='tb')
-    a.get_potential_energy()

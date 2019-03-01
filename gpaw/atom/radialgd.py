@@ -423,7 +423,7 @@ class RadialGridDescriptor:
             g = len(a_g) - 1
             while a_g[g] == 0.0:
                 g -= 1
-            rcut = self.r_g[g + 1]
+            rcut = self.r_g[min(g + 1, len(a_g) - 1)]
 
         b_g = a_g.copy()
         N = len(b_g)

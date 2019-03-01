@@ -101,6 +101,7 @@ class DirectLCAO(object):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
+        print(Vt_xMM)
         H_MM = self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt, Vt_xMM,
                                                  root=0)
 
@@ -123,6 +124,7 @@ class DirectLCAO(object):
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         # May overwrite S_MM (so the results will be stored as decomposed)
+        print(H_MM, S_MM)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM,
                                       is_already_decomposed)
         wfs.timer.stop(diagonalization_string)

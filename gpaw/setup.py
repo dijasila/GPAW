@@ -587,7 +587,6 @@ class LeanSetup(BaseSetup):
 
         self.pt_j = s.pt_j
         self.phit_j = s.phit_j  # basis functions
-
         self.Nct = s.Nct
         self.nct = s.nct
 
@@ -595,6 +594,7 @@ class LeanSetup(BaseSetup):
         self.ghat_l = s.ghat_l
         self.rcgauss = s.rcgauss
         self.vbar = s.vbar
+        self.vt = getattr(s, 'vt', None)
 
         self.Delta_pL = s.Delta_pL
         self.Delta0 = s.Delta0
@@ -869,6 +869,10 @@ class Setup(BaseSetup):
 
         # Construct splines:
         self.vbar = rgd.spline(vbar_g, rcutfilter)
+        if data.vt_g is not None:
+            self.vt = rgd.spline(data.vt_g, points=200)
+        else:
+            self.vt = None
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore
