@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.lcao.eigensolver import DirectLCAO
+from gpaw.lcao.tci import TCIExpansions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 
@@ -22,13 +23,34 @@ class TB(Mode):
 class TBWaveFunctions(LCAOWaveFunctions):
     mode = 'tb'
 
+    def __init__(self, *args, **kwargs):
+        LCAOWaveFunctions.__init__(self, *args, **kwargs)
+        vtphit = {}  # Dict[Setup, List[Spline]]
+        for setup in self.setups.setups:
+            print(setup.phit_j)
+        asdf
+        self.vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
+                                            [s.pt_j for s in self.setups],
+                                            self.tciexpansions.I_a)
+
+    def set_positions(self, spos_ac, *args, **kwargs):
+        LCAOWaveFunctions.set_positions(self, spos_ac, *args, **kwargs)
+        manytci = self.vtciexpansions.get_manytci_calculator(
+            self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
+            self.timer)
+        Mstop = self.ksl.Mstop
+        Mstart = self.ksl.Mstart
+        Vt_qMM, _ = manytci.O_qMM_T_qMM(self.gd.comm,
+                                        Mstart, Mstop,
+                                        self.ksl.using_blacs)
+        self.Vt_qMM = self.ksl.distribute_overlap_matrix(Vt_qMM, root=-1)
+        print(self.Vt_qMM)
+
 
 class TBEigenSolver(DirectLCAO):
     def iterate(self, ham, wfs):
-        Vt_xMM = np.array([[[-0.2]]])
         for kpt in wfs.kpt_u:
-            assert kpt.s == 0
-            self.iterate_one_k_point(ham, wfs, kpt, Vt_xMM)
+            self.iterate_one_k_point(ham, wfs, kpt, [wfs.Vt_qMM[kpt.q]])
 
 
 class TBDensity(Density):
@@ -101,9 +123,11 @@ class TBHamiltonian(Hamiltonian):
 
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
 
+
 if __name__ == '__main__':
     from ase import Atoms
     from gpaw import GPAW
-    a = Atoms('H')
+    # a = Atoms('H')
+    a = Atoms('H2', positions=[[0, 0, 0], [0, 0, 0.75]])
     a.calc = GPAW(mode='tb')
     a.get_potential_energy()
