@@ -2,10 +2,9 @@ import re
 import numpy as np
 
 from gpaw.lcaotddft.observer import TDDFTObserver
-from gpaw.lcaotddft.dipolemomentwriter import convert_repr
 
 
-def calculate_quadrupole_moment(gd, rho_g, center_v):
+def calculate_quadrupole_moments(gd, rho_g, center_v):
     # Center relative to the cell center
     # center_v += 0.5 * gd.cell_cv.sum(0)
     r_vg = gd.get_grid_point_coordinates()
@@ -30,7 +29,11 @@ class QuadrupoleMomentWriter(TDDFTObserver):
         self.master = paw.world.rank == 0
         if paw.niter == 0:
             # Initialize
-            self.center_v = center
+            if isinstance(center, str) and center == 'center':
+                self.center_v = 0.5 * paw.density.finegd.cell_cv.sum(0)
+            else:
+                assert len(center) == 3
+                self.center_v = center
             self.density_type = density
             if self.master:
                 self.fd = open(filename, 'w')
@@ -49,8 +52,8 @@ class QuadrupoleMomentWriter(TDDFTObserver):
         if paw.niter != 0:
             return
         line = '# %s[version=%s]' % (self.__class__.__name__, self.version)
-        line += ('(center=%s, density=%s)\n' %
-                 (repr(self.center_v), repr(self.density_type)))
+        line += '(center=[%.4f, %.4f, %.4f]' % tuple(self.center_v)
+        line += ', density=%s)\n' % repr(self.density_type)
         line += ('# %15s %15s %22s %22s %22s %22s %22s %22s\n' %
                  ('time', 'norm', 'x^2', 'xy', 'xz', 'y^2', 'yz', 'z^2'))
         self._write(line)
@@ -58,19 +61,17 @@ class QuadrupoleMomentWriter(TDDFTObserver):
     def read_header(self, filename):
         with open(filename, 'r') as f:
             line = f.readline()
-        m_i = re.split("[^a-zA-Z0-9_=']+", line[2:])
-        assert m_i.pop(0) == self.__class__.__name__
-        for m in m_i:
-            if '=' not in m:
-                continue
-            k, v = m.split('=')
-            v = convert_repr(v)
-            if k == 'version':
-                assert v == self.version
-                continue
-            # Translate key
-            k = {'center': 'center_v', 'density': 'density_type'}[k]
-            setattr(self, k, v)
+        regexp = ("^(?P<name>\w+)\[version=(?P<version>\d+)\]\(center=\["
+                  "(?P<center0>[-+0-9\.]+), "
+                  "(?P<center1>[-+0-9\.]+), "
+                  "(?P<center2>[-+0-9\.]+)\], "
+                  "density='(?P<density>\w+)'\)$")
+        m = re.match(regexp, line[2:])
+        assert m is not None, 'Unknown fileformat'
+        assert m.group('name') == self.__class__.__name__
+        assert int(m.group('version')) == self.version
+        self.center_v = [float(m.group('center%d' % v)) for v in range(3)]
+        self.density_type = m.group('density')
 
     def _write_kick(self, paw):
         time = paw.time
@@ -95,7 +96,7 @@ class QuadrupoleMomentWriter(TDDFTObserver):
             raise RuntimeError('Unknown density type: %s' % self.density_type)
 
         norm = gd.integrate(rho_g)
-        qm = calculate_quadrupole_moment(gd, rho_g, center_v=self.center_v)
+        qm = calculate_quadrupole_moments(gd, rho_g, center_v=self.center_v)
         line = (('%20.8lf %20.8le' + ' %22.12le' * len(qm) + '\n') %
                 ((time, norm) + tuple(qm)))
         self._write(line)
