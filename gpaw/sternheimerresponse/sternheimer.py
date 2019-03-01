@@ -4,6 +4,76 @@ from scipy.sparse.linalg import LinearOperator, bicgstab
 from gpaw.utilities import pack, unpack
 
 
+
+class CustomLinearOperator:
+    def __init__(self, matvec):
+        self.matvec = matvec
+
+
+def custombicgstab(A_nGG, b_nG, max_iter = 200, tol=1e-8):
+    '''
+    See wikipedia page on Unpreconditioned BiCGStab method for variable defs
+    
+    '''
+    error_threshold = tol    
+    x0_nG = np.zeros_like(b_nG)
+    r0_nG = b_nG
+
+    rhat0_nG = r0_nG.copy()
+
+    rho0_n = np.ones(len(b_nG))
+    alpha_n = np.ones(len(b_nG))
+    w0_n = np.ones(len(b_nG))
+
+    nu0_nG = np.zeros_like(b_nG)
+    p0_nG = np.zeros_like(b_nG)
+    for niter in range(max_iter):
+        rhoi_n = np.einsum("ij, ij -> i", rhat0_nG, r0_nG)
+
+        beta_n = (rhoi_n/rho0_n)*(alpha_n/w0_n)
+
+        pi_nG = r0_nG + np.einsum("i, ij->ij", beta_n, p0_nG) - np.einsum("i, i, ij -> ij", beta_n, w0_n, nu0_nG)
+
+        nui_nG = A_nGG.matvec(pi_nG)#np.einsum("ijk, ik -> ij", A_nGG, pi_nG)
+
+        thing_n = np.einsum("ij, ij->i", rhat0_nG, nui_nG)
+        alpha_n = rhoi_n/thing_n
+
+
+        h_nG = x0_nG + np.einsum("i, ij->ij", alpha_n, pi_nG)
+        dotprod_nG = A_nGG.matvec(pi_nG)#np.einsum("ijk, ik->ij", A_nGG, h_nG)
+        if np.allclose(dotprod_nG, b_nG, atol=error_threshold):
+            return h_nG, niter
+
+        s_nG = r0_nG - np.einsum("i, ij->ij", alpha_n, nui_nG)
+    
+        t_nG = A_nGG.matvec(s_nG)#np.einsum("ijk, ik->ij", A_nGG, s_nG)        
+        norm_n = np.einsum("ij, ij->i", t_nG, t_nG)
+        wi_n = np.einsum("ij, ij->i", t_nG, s_nG)/norm_n
+
+
+        xi_nG = h_nG + np.einsum("i, ij->ij", wi_n, s_nG)
+        dotprod_nG = A_nGG.matvec(xi_nG)#np.einsum("ijk, ik->ij", A_nGG, xi_nG)
+        if np.allclose(dotprod_nG, b_nG, atol=error_threshold):
+            return xi_nG, niter
+        ri_nG = s_nG - np.einsum("i, ij->ij", wi_n, t_nG)
+
+
+        rho0_n = rhoi_n.copy()
+        nu0_nG = nui_nG.copy()
+        w0_n = wi_n.copy()
+        x0_nG = xi_nG.copy()
+        r0_nG = ri_nG.copy()
+        p0_nG = pi_nG.copy()
+
+
+    raise ValueError(f"BiCGStab did not converge. Iter: {niter}. Error: {np.max(np.abs(A_nGG.matvec(x0_nG) - b_nG))}")
+
+
+
+
+
+
 class SternheimerResponse:
     def __init__(self, filename):
         self.restart_filename = filename
@@ -13,32 +83,45 @@ class SternheimerResponse:
         self.calc.initialize_positions()
         self.c_qani = {}
         self.c_qnai = {}
-
-
-        ind1 = self.wfs.mykpts[1].q
-        ind0 = self.wfs.mykpts[0].q
-        print(f"My k vecs: {[self.wfs.kd.bzk_kc[ind.q] for ind in self.wfs.mykpts]}")
-        qvector = self.wfs.kd.bzk_kc[ind1] - self.wfs.kd.bzk_kc[ind0]
-
-        #qvector = np.array([0,0,0])
+        bz_to_ibz = self.calc.get_bz_to_ibz_map()
+        ntotal_kpts = len(bz_to_ibz)
+        spin_factor = 2
+        self.kpt_weight = spin_factor*np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*self.wfs.kd.weight_k
+        #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
+        #ind1 = self.wfs.mykpts[1].q
+        #ind0 = self.wfs.mykpts[0].q
+        #print(f"My k vecs: {[self.wfs.kd.bzk_kc[ind.q] for ind in self.wfs.mykpts]}")
+        #qvector = self.wfs.kd.ibzk_kc[1] - self.wfs.kd.ibzk_kc[0]
+        self.t1s = []
+        self.t2s = []
+        qvector = np.array([0,0,0])
         #self.calculate([qvector], 1)
         self.deltapsi_qnG = None
-        #self.powercalculate([qvector], 1)
+        from time import time
+        t1 = time()
+        self.powercalculate([qvector], 1)
+        t2 = time()
+        print(f"Calculation took {t2 - t1} seconds.")
+        print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
+        print(f"Performed {len(self.t1s)} BiCGStab calls")
+        print(f"Get LHS+RHS took {np.mean(self.t2s)} seconds on avg.")
+        print(f"Performed {len(self.t2s)} LHS+RHS calls")
 
 
     def powercalculate(self, qvectors, num_eigs):
         print("POWERCALCULATE")
         qvector = qvectors[0]
+        self.calculate_kplusq(qvector)
 
-        deltapsi_qnG, eigval = self.initial_guess()
+        deltapsi_qnG, eigval = self.initial_guess(qvector)
         if self.deltapsi_qnG is not None:
             print("Using previously calculated deltapsi")
             deltapsi_qnG = self.deltapsi_qnG
 
-        error_threshold = 1e-9
+        error_threshold = 1e-4
         error = 100
 
-        max_iter = 10
+        max_iter = 100
         new_norm = 0
         old_norm = 0
         for niter in range(max_iter):
@@ -46,8 +129,13 @@ class SternheimerResponse:
             print(f"Eigenvalue: {eigval}. Error: {error}")
 
             new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
+
+            #new_deltapsi_qnG = {q: np.random.rand(*deltapsi_qnG[q].shape).astype(np.complex128) for q in deltapsi_qnG}
+
+
             new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
             eigval = np.sqrt(new_norm)
+            #eigval = self.inner_product(deltapsi_qnG, self.apply_K(deltapsi_qnG, qvector))
             new_deltapsi_qnG = {q: deltapsi_qnG[q] + 0.4*val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
             new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
             new_deltapsi_qnG = {q: val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
@@ -147,15 +235,25 @@ class SternheimerResponse:
         #raise ValueError("Calculation did not converge")
 
 
-    def initial_guess(self):
+    def initial_guess(self, qvector):
         deltapsi_qnG = {}
-        
+        np.random.seed(123)
         for index, kpt in enumerate(self.wfs.mykpts):
             ##TODO Replace this with better start guess probably
+
+            bzk_index = self.wfs.kd.ibz2bz_k[index]
+            #Get kpt object for k+q
+            k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [bzk_index])
+            assert len(k_plus_q_index) == 1
+            k_plus_q_index = k_plus_q_index[0]
+            k_plus_q_index = self.wfs.kd.bz2ibz_k[k_plus_q_index]
             
-            deltapsi_qnG[index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=index) + 1# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
-            numgs = deltapsi_qnG[index][0].shape[0]
-            deltapsi_qnG[index][:, np.random.randint(numgs)] = 2
+            
+            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index) + 1# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
+            print("Initial shape: ", deltapsi_qnG[k_plus_q_index].shape)
+            
+            numgs = deltapsi_qnG[k_plus_q_index][0].shape[0]
+            deltapsi_qnG[k_plus_q_index][:, np.random.randint(numgs)] = 2
             # numns = deltapsi_qnG[index].shape[0]
             # deltapsi_qnG[index][np.random.randint(numns), np.random.randint(numgs)] = 1
             # deltapsi_qnG[index][np.random.randint(numns), np.random.randint(numgs)] = 1
@@ -195,7 +293,14 @@ class SternheimerResponse:
         poisson_R = self.calc.density.pd3.ifft(poisson_G.T)
         charge2_R = self.calc.density.pd3.ifft(fine_delta_tilde_n2_G.T + comp_charge2_G.T)
 
-        P12 = np.einsum("ijk, ijk", charge2_R, poisson_R) #(fine_delta_tilde_n2_G + comp_charge2_G).dot(poisson_G)
+
+        product_G = self.calc.density.pd3.fft(charge2_R*poisson_R)
+        P12 = self.calc.density.pd3.integrate(product_G)
+        
+
+        
+        #fakeP12 = np.einsum("ijk, ijk", charge2_R, poisson_R) #(fine_delta_tilde_n2_G + comp_charge2_G).dot(poisson_G)
+
         
 
         #C_app = {a : 2*setup.M_pp for a, setup in enumerate(self.wfs.setups)}
@@ -204,7 +309,7 @@ class SternheimerResponse:
         for a, DeltaD1_ii in DeltaD1_aii.items():
             DeltaD1_p = pack(DeltaD1_ii)
             DeltaD2_p = pack(DeltaD2_aii[a])
-            Pd = DeltaD1_p.dot((2*self.wfs.setups[a].M_pp).dot(DeltaD2_p))
+            Pd += DeltaD1_p.dot((2*self.wfs.setups[a].M_pp).dot(DeltaD2_p))
 
         return P12 + Pd
 
@@ -289,13 +394,17 @@ class SternheimerResponse:
 
 
         def apply_potential(wvf_G, level_index, q_index):
-            wvf_R = self.wfs.pd.ifft(wvf_G, q_index)
+            kpt = self.wfs.mykpts[q_index]
+            num_gs = kpt.psit.array.shape[1]
+            if num_gs != len(wvf_G):
+                raise ValueError("Number of G-vectors does not match length of vector")
+            wvf_R = self.wfs.pd.ifft(wvf_G, q=q_index)
             pt = self.wfs.pt
             if (q_index, level_index) in self.c_qnai:
                 c_ai = self.c_qnai[(q_index, level_index)]
             else:
                 c_ai = pt.integrate(wvf_G, q=q_index)
-                self.c_qani[(q_index, level_index)] = c_ai
+                self.c_qnai[(q_index, level_index)] = c_ai
             
             for a, c_i in c_ai.items():
                 W_ii = unpack(W_ap[a])
@@ -306,7 +415,7 @@ class SternheimerResponse:
             return V1   
 
 
-        return apply_potential
+        return apply_potential2
 
 
 
@@ -390,28 +499,46 @@ class SternheimerResponse:
         return W_ap
                 
 
-
-
-    def solve_sternheimer(self, apply_potential, qvector):
-        deltapsi_qnG = {}
-        nvalence = self.wfs.setups.nvalence//2
-        for index, kpt in enumerate(self.wfs.kd.bzk_kc):
-            kpt = self.wfs.kd.what_is(kpt)
-            number_of_valence_states = self.wfs.setups.nvalence//2  #kpt.psit.array.shape[0]
+    def calculate_kplusq(self, qvector):
+        self.k_plus_q = {}
+        for index, kpt in enumerate(self.wfs.mykpts):
             kpt.psit.read_from_file()
 
-
+            
+            bzk_index = self.wfs.kd.ibz2bz_k[index]
             #Get kpt object for k+q
-            k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [index])
+            k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [bzk_index])
             assert len(k_plus_q_index) == 1
             k_plus_q_index = k_plus_q_index[0]
-            if k_plus_q_index >= len(self.wfs.mykpts):
+            ibz_k_plus_q_index = self.wfs.kd.bz2ibz_k[k_plus_q_index]
+            k_plus_q_index = ibz_k_plus_q_index
+            if ibz_k_plus_q_index >= len(self.wfs.mykpts):
                 print(f"k_plus_q_index: {k_plus_q_index}")
                 print(f"Len of mykpts: {len(self.wfs.mykpts)}. Len of bzk_kc: {len(self.wfs.kd.bzk_kc)}.")
                 raise ValueError("index too large")
-            k_plus_q_object = self.wfs.mykpts[k_plus_q_index]
-            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
+            k_plus_q_object = self.wfs.mykpts[ibz_k_plus_q_index]
+            k_plus_q_object.psit.read_from_file()
 
+            self.k_plus_q[index] = (k_plus_q_index, k_plus_q_object)
+
+
+    def solve_sternheimer(self, apply_potential, qvector):
+        from time import time
+        deltapsi_qnG = {}
+        nvalence = self.wfs.setups.nvalence//2
+        for index, kpt in enumerate(self.wfs.mykpts):
+
+            number_of_valence_states = self.wfs.setups.nvalence//2  #kpt.psit.array.shape[0]
+            
+            k_plus_q_index, k_plus_q_object = self.k_plus_q[index]
+            if k_plus_q_index not in deltapsi_qnG:
+                numgs = k_plus_q_object.psit.array.shape[1]
+                
+                deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
+            # else:
+            #     pass
+                #raise ValueError("Shouldnt go here")
+                #print("Shouldnt go here")
             #print(f"array shape: {kpt.psit.array.shape}")
             #print(f"object shape: {kpt.psit.array.shape}")
             #print(f"deltapsi shape: {deltapsi_qnG[index].shape}")
@@ -419,41 +546,59 @@ class SternheimerResponse:
             psi_nG = kpt.psit.array[:nvalence]
 
 
-            # linop = self._get_LHS_linear_operator2(k_plus_q_object, eps_n, k_plus_q_index)
+            linop = self._get_LHS_linear_operator2(k_plus_q_object, eps_n, k_plus_q_index)
 
-            # RHS_nG = self._get_RHS2(k_plus_q_object, psi_nG, apply_potential, k_plus_q_index)
-            # deltapsi_nG, info = bicgstab(linop, RHS_nG.reshape(-1), maxiter=1000)
-            # if info != 0:
-            #     raise ValueError("bicgstab did not converge. Info: {}".format(info))
+            RHS_nG = self._get_RHS2(k_plus_q_object, psi_nG, apply_potential, k_plus_q_index)
+            deltapsi_nG, info = custombicgstab(linop, RHS_nG, max_iter=1000, tol=1e-2)
+            #if info != 0:
+            #    raise ValueError("bicgstab did not converge. Info: {}".format(info))
 
-            # deltapsi_qnG[index] = deltapsi_nG.reshape(RHS_nG.shape)
+            deltapsi_qnG[k_plus_q_index] += deltapsi_nG*self.kpt_weight[index]
+
             
 
-            for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
-                if state_index >= nvalence:
-                    break
-                linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
-                #print(f"state index: {state_index}, index: {index}")
-                #print(f"psi shape: {psi.shape}")
-                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, index)
-                assert RHS.shape[0] == linop.shape[1]
-                #print("got RHS")
+            
 
-                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000)
+            # for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
+            #     if state_index >= nvalence:
+            #         break
+            #     t3 = time()
+            #     linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
+
+            #     #print(f"state index: {state_index}, index: {index}")
+            #     #print(f"psi shape: {psi.shape}")
+
+
+            #     #print(index, state_index, k_plus_q_object.psit.array.shape, kpt.psit.array.shape)
+
+
+
+
+            #     RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, index)
+            #     t4 = time()
+            #     assert RHS.shape[0] == linop.shape[1]
+            #     #print("got RHS")
+            #     t1 = time()
+            #     deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-2)
+            #     t2 = time()
+            #     #deltapsi_G = 0
                 
-                if info != 0:
-                    print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
-                    raise ValueError("bicgstab did not converge. Info: {}".format(info))
+            #     if info != 0:
+            #         print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
+            #         raise ValueError("bicgstab did not converge. Info: {}".format(info))
                     
                     
 
-                # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
-                # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
-                # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
-                # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
+            #     # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
+            #     # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
+            #     # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
+            #     # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
 
-                deltapsi_qnG[k_plus_q_index][state_index] = deltapsi_G
+            #     deltapsi_qnG[k_plus_q_index][state_index] += deltapsi_G*self.kpt_weight[index]
 
+            #     self.t2s.append(t4-t3)
+
+            #     self.t1s.append(t2-t1)
         return deltapsi_qnG
 
 
@@ -471,16 +616,18 @@ class SternheimerResponse:
         nvalence = self.wfs.setups.nvalence//2
         numGs = len(kpt.psit.array[0])
 
-        def mv(v):
+        def mv(v_nG):
             #result = np.zeros(nvalence*numGs, dtype=np.complex128)
             #for n in range(nvalence):
             #    result[n*numGs:(n+1)*numGs] = self._apply_LHS_Sternheimer(v[n*numGs:(n+1)*numGs], kpt, eps_n[n], k_index)
             #return result
-            return self._apply_LHS_Sternheimer2(v, kpt, eps_n, k_index)
-        
-        shape_tuple = (nvalence*numGs, nvalence*numGs)
 
-        linop = LinearOperator(dtype=np.complex128, shape=shape_tuple, matvec=mv)
+            return self._apply_LHS_Sternheimer2(v_nG, kpt, eps_n, k_index)
+        
+        #shape_tuple = (nvalence*numGs, nvalence*numGs)
+
+        #linop = LinearOperator(dtype=np.complex128, shape=shape_tuple, matvec=mv)
+        linop = CustomLinearOperator(matvec=mv)
         return linop
 
 
@@ -490,6 +637,7 @@ class SternheimerResponse:
       
         result_G = alpha*self._apply_valence_projector(self._apply_overlap(deltapsi_G, k_index), kpt, k_index)
         result_G += self._apply_hamiltonian(deltapsi_G, kpt, k_index)
+
         result_G -= energy*self._apply_overlap(deltapsi_G, k_index)
         return result_G
 
@@ -501,7 +649,8 @@ class SternheimerResponse:
         result_nG += self._apply_hamiltonian2(deltapsi_nG, kpt, k_index)
         num_occ = self.wfs.setups.nvalence//2
         num_gs = len(deltapsi_nG)//num_occ
-        result_nG -= np.kron(np.diag(eps_n), np.eye(num_gs)).dot(self._apply_LHS_overlap2(deltapsi_nG, k_index))
+        result_nG -= np.einsum("i, ij -> ij", eps_n, self._apply_LHS_overlap2(deltapsi_nG, k_index))
+
         return result_nG
 
 
@@ -510,11 +659,14 @@ class SternheimerResponse:
         result_G = np.zeros_like(deltapsi_G)
         num_occ = self.wfs.setups.nvalence//2
         pd = self.wfs.pd
+        kpt.psit.read_from_file()
         #print(f"K index: {k_index}")
         #print(f"array shape: {kpt.psit.array.shape}")
         for index, psi_G in enumerate(kpt.psit.array):
             if index >= num_occ: #We assume here that the array is ordered according to energy
                 break
+            if len(psi_G) != len(result_G):
+                raise ValueError("HEY")
             #print(f"index: {index}")
             #print(f"shape psi: {psi_G.shape}, shape delta: {deltapsi_G.shape}")
             result_G += psi_G*(pd.integrate(psi_G, deltapsi_G)) 
@@ -530,9 +682,9 @@ class SternheimerResponse:
         psi_nG = kpt.psit.array[:num_occ]
 
 
-        intt = np.diag(pd.integrate(psi_nG, deltapsi_nG.reshape(num_occ, -1)))
+        intt_n = np.einsum("ii->i", pd.integrate(psi_nG, deltapsi_nG))
 
-        result_nG = ((psi_nG.T*(intt)).T).reshape(result_nG.shape)
+        result_nG = np.einsum("ij, i -> ij", psi_nG, intt_n)
 
         return result_nG
 
@@ -556,6 +708,7 @@ class SternheimerResponse:
 
     def _apply_overlap(self, wvf_G, q_index):
         pt = self.wfs.pt
+        pt.initialize()
         c_ai = pt.integrate(wvf_G, q=q_index)
 
         for a, c_i in c_ai.items():
@@ -564,6 +717,7 @@ class SternheimerResponse:
 
         result_G = wvf_G.copy()
         pt.add(result_G, c_ai, q=q_index)
+
         return result_G
 
         
@@ -582,15 +736,15 @@ class SternheimerResponse:
     def _apply_LHS_overlap2(self, wvf_nG, q_index):
         num_occ = self.wfs.setups.nvalence//2
         pt = self.wfs.pt
-        c_ani = pt.integrate(wvf_nG.reshape(num_occ, -1), q=q_index)
+        c_ani = pt.integrate(wvf_nG, q=q_index)
 
         for a, c_ni in c_ani.items():
             dO_ii = self.wfs.setups[a].dO_ii
             c_ni[:, :] = c_ni.dot(dO_ii)
 
-        result_nG = wvf_nG.copy().reshape(num_occ,-1)
+        result_nG = wvf_nG.copy()
         pt.add(result_nG, c_ani, q=q_index)
-        return result_nG.reshape(-1)
+        return result_nG
         
 
     def _apply_hamiltonian(self, deltapsi_G, kpt, k_index):
@@ -613,8 +767,8 @@ class SternheimerResponse:
         kpt.psit.read_from_file()
         num_occ = self.wfs.setups.nvalence//2
         
-        result_nG = deltapsi_nG.copy().reshape(num_occ, -1)
-        dpsi_nG = deltapsi_nG.reshape(num_occ, -1)
+        result_nG = deltapsi_nG.copy()
+        dpsi_nG = deltapsi_nG
         self.wfs.apply_pseudo_hamiltonian(kpt, self.calc.hamiltonian, dpsi_nG, result_nG)
 
         pt = self.wfs.pt
@@ -624,20 +778,29 @@ class SternheimerResponse:
             dH_ii = unpack(self.calc.hamiltonian.dH_asp[a][0])
             c_ni[:] = c_ni.dot(dH_ii)
         pt.add(result_nG, c_ani, q=k_index)
-        return result_nG.reshape(-1)
+        return result_nG
 
 
     def _get_RHS(self, k_plus_q_pt, psi_G, apply_potential, level_index, k_plus_q_index, kpt, k_index): 
         v_psi_G = self.wfs.pd.zeros(q=k_plus_q_index)
         vpsi = apply_potential(psi_G, level_index, k_index)
 
-
+        s1 = v_psi_G.shape
         if len(v_psi_G) > len(vpsi):
             v_psi_G[:len(vpsi)] = vpsi
         else:
-            v_psi_G = vpsi[:len(v_psi_G)]
+            v_psi_G[:] = vpsi[:len(v_psi_G)]
 
-        RHS_G = -(v_psi_G - self._apply_overlap(self._apply_valence_projector(v_psi_G, k_plus_q_pt, k_plus_q_index), k_plus_q_index))
+        s2 = v_psi_G.shape
+
+        if s1 != s2:
+            raise ValueError("Why did the shape change?")
+
+        X = self._apply_overlap(self._apply_valence_projector(v_psi_G, k_plus_q_pt, k_plus_q_index), k_plus_q_index)
+
+        if X.shape != s2:
+            raise ValueError("Why doesnt X have the same shape")
+        RHS_G = -(v_psi_G - X)
 
 
         return RHS_G
@@ -646,7 +809,6 @@ class SternheimerResponse:
     def _get_RHS2(self, kpt, psi_nG, apply_potential, k_index):
 
         v_psi_nG = apply_potential(psi_nG, k_index)
-
         RHS_nG = -(v_psi_nG - self._apply_overlap2(self._apply_valence_projector2(v_psi_nG, kpt, k_index), k_index))
         return RHS_nG
 
@@ -660,10 +822,10 @@ if __name__=="__main__":
         respObj = SternheimerResponse(filen)
     else:
         from time import time
-        t1 = time()
+        
         ro = SternheimerResponse(filen)
-        t2 = time()
-        print(f"Calculation took {t2 - t1} seconds")
+        
+        
         exit()
         print("Generating new test file")
         from ase.build import bulk
@@ -674,11 +836,11 @@ if __name__=="__main__":
         #atoms = Atoms("H2", positions=([c-d/2, c, c], [c+d/2, c,c]),
         #       cell = (a,a,a))
         atoms = bulk("Si", "diamond", 5.43)
-        calc = GPAW(mode=PW(150, force_complex_dtype=True),
+        calc = GPAW(mode=PW(250, force_complex_dtype=True),
                 xc ="PBE",                
-                kpts=(4,4,4),
+                    kpts=(4,4,4),
                 random=True,
-                #symmetry=False,
+                #symmetry={"point_group": False},
                 occupations=FermiDirac(0.01),
                 txt = "test.out")
         
