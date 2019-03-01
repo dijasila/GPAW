@@ -563,19 +563,20 @@ class DirectMinLCAO(DirectLCAO):
                 precond = {}
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
+                    w = kpt.weight / (3.0 - wfs.nspins)
                     if self.iters % counter == 0 or self.iters == 1:
                         self.hess[k] = self.get_hessian(kpt)
                     hess = self.hess[k]
                     if self.dtype is float:
                         precond[k] = \
                             1.0 / (0.75 * hess +
-                                   0.25 * self.search_direction.beta_0 ** (-1))
+                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
                     else:
                         precond[k] = \
                             1.0 / (0.75 * hess.real +
-                                   0.25 * self.search_direction.beta_0 ** (-1)) + \
+                                   w * 0.25 * self.search_direction.beta_0 ** (-1)) + \
                             1.0j / (0.75 * hess.imag +
-                                    0.25 * self.search_direction.beta_0 ** (-1))
+                                   w * 0.25 * self.search_direction.beta_0 ** (-1))
                 return precond
         else:
             return None
