@@ -31,7 +31,7 @@ calc = prepare({0: 'paw', 1: 'ghost'})
 system.set_calculator(calc)
 e_bsse = system.get_potential_energy()
 niter_bsse = calc.get_number_of_iterations()
-
+print('XXX', niter_bsse)
 c_nM = calc.wfs.kpt_u[0].C_nM
 print('coefs')
 print(c_nM)

@@ -333,10 +333,13 @@ class Density:
                 f_si = self.get_initial_occupations(a)
             self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
 
+        self.initialize_density_from_atomic_densities(basis_functions, f_asi)
+        self.calculate_normalized_charges_and_mix()
+
+    def initialize_density_from_atomic_densities(self, basis_functions, f_asi):
         self.nt_xG = self.gd.zeros(self.ncomponents)
         basis_functions.add_to_density(self.nt_xG, f_asi)
         self.nt_sG[:] += self.nct_G
-        self.calculate_normalized_charges_and_mix()
 
     def initialize_from_wavefunctions(self, wfs):
         """Initialize D_asp, nt_sG and Q_aL from wave functions."""

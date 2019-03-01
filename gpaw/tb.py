@@ -4,6 +4,7 @@ from gpaw.density import Density
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.lcao.tci import TCIExpansions
+from .spline import Spline
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.wavefunctions.mode import Mode
 
@@ -25,12 +26,19 @@ class TBWaveFunctions(LCAOWaveFunctions):
 
     def __init__(self, *args, **kwargs):
         LCAOWaveFunctions.__init__(self, *args, **kwargs)
+
         vtphit = {}  # Dict[Setup, List[Spline]]
-        for setup in self.setups.setups:
-            print(setup.phit_j)
-        asdf
+        for setup in self.setups.setups.values():
+            vtphit_j = []
+            for phit in setup.phit_j:
+                rc = phit.get_cutoff()
+                r_g = np.linspace(0, rc, 150)
+                vt_g = -0.2 * np.exp(-r_g)
+                vtphit_j.append(Spline(phit.l, rc, vt_g * phit.map(r_g)))
+            vtphit[setup] = vtphit_j
+
         self.vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
-                                            [s.pt_j for s in self.setups],
+                                            [vtphit[s] for s in self.setups],
                                             self.tciexpansions.I_a)
 
     def set_positions(self, spos_ac, *args, **kwargs):
@@ -38,13 +46,10 @@ class TBWaveFunctions(LCAOWaveFunctions):
         manytci = self.vtciexpansions.get_manytci_calculator(
             self.setups, self.gd, spos_ac, self.kd.ibzk_qc, self.dtype,
             self.timer)
-        Mstop = self.ksl.Mstop
-        Mstart = self.ksl.Mstart
-        Vt_qMM, _ = manytci.O_qMM_T_qMM(self.gd.comm,
-                                        Mstart, Mstop,
-                                        self.ksl.using_blacs)
-        self.Vt_qMM = self.ksl.distribute_overlap_matrix(Vt_qMM, root=-1)
-        print(self.Vt_qMM)
+        manytci.Pindices = manytci.Mindices
+        my_atom_indices = self.basis_functions.my_atom_indices
+        self.Vt_qMM = [Vt_MM.toarray()
+                       for Vt_MM in manytci.P_qIM(my_atom_indices)]
 
 
 class TBEigenSolver(DirectLCAO):
@@ -57,33 +62,16 @@ class TBDensity(Density):
     def set_positions(self, spos_ac, atom_partition):
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
 
-    def initialize_from_atomic_densities(self, basis_functions):
-        """Initialize D_asp and Q_aL from atomic densities."""
-
-        self.log('Density initialized from atomic densities')
-
-        self.update_atomic_density_matrices(
-            self.setups.empty_atomic_matrix(self.ncomponents,
-                                            self.atom_partition))
-
-        f_asi = {}
-        for a in basis_functions.atom_indices:
-            f_asi[a] = self.get_initial_occupations(a)
-
-        # D_asp does not have the same distribution as the basis functions,
-        # so we have to loop over atoms separately.
-        for a in self.D_asp:
-            f_si = f_asi.get(a)
-            if f_si is None:
-                f_si = self.get_initial_occupations(a)
-            self.D_asp[a][:] = self.setups[a].initialize_density_matrix(f_si)
-
-        self.calculate_normalized_charges_and_mix()
+    def initialize_density_from_atomic_densities(self, basis_functions, f_asi):
+        pass
 
     def mix(self, comp_charge):
         self.error = 0.0
 
     def normalize(self, comp_charge):
+        pass
+
+    def calculate_pseudo_density(self, wfs):
         pass
 
     def calculate_dipole_moment(self):
@@ -95,17 +83,22 @@ class TBPoissonSolver:
         return 'TB'
 
 
+class LFC:
+    def set_positions(self, spos_ac, atom_partition):
+        pass
+
+
 class TBHamiltonian(Hamiltonian):
     poisson = TBPoissonSolver()
     npoisson = 0
 
-    def set_positions(self, spos_ac, atom_partition):
-        self.xc.set_positions(spos_ac)
-        self.set_positions_without_ruining_everything(spos_ac, atom_partition)
-        self.positions_set = True
+    def __init__(self, *args, **kwargs):
+        Hamiltonian.__init__(self, *args, **kwargs)
+        self.vbar = LFC()
 
     def update_pseudo_potential(self, dens):
-        energies = np.array([0.0, 0.0, 0.0, 0.0])
+        e_coulomb = 0.0
+        energies = np.array([e_coulomb, 0.0, 0.0, 0.0])
         return energies
 
     def calculate_kinetic_energy(self, density):

@@ -831,8 +831,6 @@ class GPAW(PAW, Calculator):
             # parameters.
             self.parameters.experimental.get('niter_fixdensity', 0),
             nv)
-        if mode.name == 'tb':  # TBXXX
-            self.scf.max_errors['energy'] = np.inf
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv):
