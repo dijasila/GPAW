@@ -113,9 +113,24 @@ class LCAOTDDFT(GPAW):
         # Call observers after kick
         self.action = 'kick'
         self.call_observers(self.niter)
-
         self.niter += 1
+        self.timer.stop('Kick')
 
+    def kick(self, ext):
+        self.tddft_init()
+
+        self.timer.start('Kick')
+
+        self.log('----  Applying kick')
+        self.log('----  %s' % ext)
+
+        # Propagate kick
+        self.propagator.kick(ext, self.time)
+
+        # Call observers after kick
+        self.action = 'kick'
+        self.call_observers(self.niter)
+        self.niter += 1
         self.timer.stop('Kick')
 
     def propagate(self, time_step=10, iterations=2000):
