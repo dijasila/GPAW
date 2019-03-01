@@ -74,7 +74,7 @@ class QuadrupoleMomentWriter(TDDFTObserver):
 
     def _write_kick(self, paw):
         line = '# Kick: %s' % paw.kick_ext
-        line = '; Time = %.8lf' % paw.time
+        line += '; Time = %.8lf' % paw.time
         line += '\n'
         self._write(line)
 
