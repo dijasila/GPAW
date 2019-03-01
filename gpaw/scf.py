@@ -87,9 +87,7 @@ class SCFLoop:
                 self.converged = True
                 if egs_name == 'direct_min':
                     wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs,
-                                                                 dens,
-                                                                 occ)
+                                                                 wfs)
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
