@@ -106,7 +106,7 @@ def test_derivatives(R, a, b, alpha, beta, i):
 class Gauss:
     """Normalised Gauss distribution
 
-    from gauss import Gauss
+    from gpaw.gauss import Gauss
 
     width=0.4
     gs = Gauss(width)
@@ -124,18 +124,12 @@ class Gauss:
     def set_width(self, width=0.08):
         self.norm = 1. / width / np.sqrt(2 * np.pi)
         self.wm1 = np.sqrt(.5) / width
+        self._fwhm = np.sqrt(8 * np.log(2)) * width
 
+    @property
+    def fwhm(self):
+        return self._fwhm
 
-class Lorentz:
-    """Normalised Lorentz distribution"""
-    def __init__(self, width=0.08):
-        self.dtype = float
-        self.set_width(width)
-
-    def get(self, x, x0=0):
-        return self.norm / ((x - x0)**2 + self.width2)
-
-    def set_width(self, width=0.08):
-        self.norm = width / np.pi
-        self.width2 = width**2
-
+    @fwhm.setter
+    def fwhm(self, value):
+        self.set_width(value / np.sqrt(8 * np.log(2)))
