@@ -7,10 +7,10 @@ from time import time
 class SpectralFunction:
     def __init__(self, gw_object):
         self.gw_object = gw_object
+        self.gw_object.ite = 0
 
 
-
-    def calculate(self, domegas):
+    def calculate(self, domegas, k_index=None):
         gw = self.gw_object
 
         kd = gw.calc.wfs.kd
@@ -35,6 +35,7 @@ class SpectralFunction:
             gw.previous_dsigma = 0.0
         gw.fd.flush()
 
+
         self.sigma_wskn = np.zeros((len(domegas),) + gw.shape, dtype=np.complex128)
         
         
@@ -54,24 +55,18 @@ class SpectralFunction:
                 
         mykpts = [gw.get_k_point(s, K, n1, n2)
                   for s, K, n1, n2 in gw.mysKn1n2]
-
-
-        nQ = 0
+        if k_index is not None:
+            mykpts = [kpt for kpt in mykpts if gw.kpts.index(kd.bz2ibz_k[kpt.K]) == k_index]
+            print("Number of kpts: ", len(mykpts))
 
         for ie, pd0, W0, q_c, m2, W0_GW in gw.calculate_screened_potential():
-            if nQ == 0:
-                print("Summing all q:", file=gw.fd)
-                #pb = ProgressBar(gw.fd)
             for u, kpt1 in enumerate(mykpts):
-                #pb.update((nQ+1)*u/nkpt/len(gw.qd))
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                 kpt2 = gw.get_k_point(kpt1.s, K2, 0, m2, block=True)
                 
                 k1 = kd.bz2ibz_k[kpt1.K]
                 i = gw.kpts.index(k1)
                 self.calculate_q(domegas, ie, i, kpt1, kpt2, pd0, W0, W0_GW)
-            nQ += 1
-        #pb.finish()
 
         gw.world.sum(self.sigma_wskn)
 
@@ -127,7 +122,7 @@ class SpectralFunction:
         
             f_m = kpt2.f_n
             deps_wm = np.array([eps1 + dw - kpt2.eps_n for dw in domegas])
-
+            assert np.allclose(deps_wm[0], eps1 - kpt2.eps_n)
             
             nn = kpt1.n1 + n - gw.bands[0]
 
@@ -141,9 +136,9 @@ class SpectralFunction:
     def calculate_sigma(self, n_mG, deps_wm, f_m, C_swGG):
         gw = self.gw_object
         sigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
-        for w_index, deps_m in enumerate(deps_wm):            
+        for w_index, deps_m in enumerate(deps_wm):
             sigma, _ = gw.calculate_sigma(n_mG, deps_m, f_m, C_swGG, full_sigma=True)
-            sigma_w[w_index] = np.real(sigma)*1j + np.imag(sigma)
+            sigma_w[w_index] += -np.real(sigma)*1j + np.imag(sigma)
         return sigma_w
 
     
