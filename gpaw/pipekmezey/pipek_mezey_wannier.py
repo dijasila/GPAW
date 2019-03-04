@@ -55,7 +55,7 @@ from ase.transport.tools import dagger
 from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
-from ase.parallel import parprint
+# from ase.parallel import parprint
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
     if verbose:
@@ -255,7 +255,7 @@ class PipekMezey:
         if self.mode == 'lcao' and self.wfs.kpt_u[0].psit_nG is None:
             self.wfs.initialize_wave_functions_from_lcao()
 
-        a = time()
+        # a = time()
 
         for d, dG in enumerate(self.Gd):
             #
@@ -305,9 +305,8 @@ class PipekMezey:
         self.Qadk_nm = Qadk_nm.copy()
         self.Qadk_nn = np.zeros_like(self.Qadk_nm)
         #
-        b = time()
-
-        parprint('Time spent initializing', b - a)
+        # b = time()
+        # parprint('Time spent initializing', b - a)
 
         # Initial W_k: Start from random WW*=I
         for k in range(self.Nk):
