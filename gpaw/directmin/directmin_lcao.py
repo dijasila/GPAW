@@ -25,7 +25,8 @@ class DirectMinLCAO(DirectLCAO):
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
-                 odd_parameters='Zero'):
+                 odd_parameters='Zero',
+                 init_from_ks_eigsolver=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -47,6 +48,7 @@ class DirectMinLCAO(DirectLCAO):
         self.c_nm_ref = None  # reference orbitals to be rotated
 
         self.odd_parameters = odd_parameters
+        self.init_from_ks_eigsolver = init_from_ks_eigsolver
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = xc_string_to_dict(self.odd_parameters)
@@ -897,41 +899,17 @@ class DirectMinLCAO(DirectLCAO):
 
     def init_wave_functions(self, wfs, ham, occ, log):
 
-        if not wfs.coefficients_read_from_file and \
-                self.c_nm_ref is None:
+        # if it is the first use of the scf then initialize
+        # coefficient matrix using eigensolver
+        # and then localise orbitals
+        if (not wfs.coefficients_read_from_file and
+                self.c_nm_ref is None) or self.init_from_ks_eigsolver:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
-            if self.odd_parameters['name'] == 'PZ_SIC':
-                log("Initial Localization: ...", flush=True)
-                wfs.timer.start('Initial Localization')
-                for kpt in wfs.kpt_u:
-                    if sum(kpt.f_n) < 1.0e-3:
-                        continue
-                    if self.initial_orbitals == 'KS' or \
-                            self.initial_orbitals is None:
-                        continue
-                    elif self.initial_orbitals == 'PM':
-                        lf_obj = pm(wfs=wfs, spin=kpt.s,
-                                    dtype=wfs.dtype)
-                    elif self.initial_orbitals == 'W':
-                        lf_obj = wl(wfs=wfs, spin=kpt.s)
-                    else:
-                        raise ValueError('Check initial orbitals.')
-                    lf_obj.localize(tolerance=1.0e-5)
-                    if self.initial_orbitals == 'PM':
-                        U = np.ascontiguousarray(
-                            lf_obj.W_k[kpt.q].T)
-                    else:
-                        U = np.ascontiguousarray(
-                            lf_obj.U_kww[kpt.q].T)
-                        if kpt.C_nM.dtype == float:
-                            U = U.real
-                    wfs.gd.comm.broadcast(U, 0)
-                    dim = U.shape[0]
-                    kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
-                    del lf_obj
-                wfs.timer.stop('Initial Localization')
-                log("Done", flush=True)
+            self.localize_wfs(wfs, log)
+
+        # if one want to use coefficients saved in gpw file
+        # or to use coefficients from the previous scf circle
         else:
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
@@ -942,6 +920,39 @@ class DirectMinLCAO(DirectLCAO):
                 kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
+
+    def localize_wfs(self, wfs, log):
+
+        log("Initial Localization: ...", flush=True)
+        wfs.timer.start('Initial Localization')
+        for kpt in wfs.kpt_u:
+            if sum(kpt.f_n) < 1.0e-3:
+                continue
+            if self.initial_orbitals == 'KS' or \
+                    self.initial_orbitals is None:
+                continue
+            elif self.initial_orbitals == 'PM':
+                lf_obj = pm(wfs=wfs, spin=kpt.s,
+                            dtype=wfs.dtype)
+            elif self.initial_orbitals == 'W':
+                lf_obj = wl(wfs=wfs, spin=kpt.s)
+            else:
+                raise ValueError('Check initial orbitals.')
+            lf_obj.localize(tolerance=1.0e-5)
+            if self.initial_orbitals == 'PM':
+                U = np.ascontiguousarray(
+                    lf_obj.W_k[kpt.q].T)
+            else:
+                U = np.ascontiguousarray(
+                    lf_obj.U_kww[kpt.q].T)
+                if kpt.C_nM.dtype == float:
+                    U = U.real
+            wfs.gd.comm.broadcast(U, 0)
+            dim = U.shape[0]
+            kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
+            del lf_obj
+        wfs.timer.stop('Initial Localization')
+        log("Done", flush=True)
 
 
 def get_indices(dimens, dtype):
