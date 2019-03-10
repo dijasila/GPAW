@@ -99,8 +99,8 @@ def create_setup(symbol, xc='LDA', lmax=0,
 def correct_occ_numbers(f_j,
                         degeneracy_j,
                         jsorted,
-                        correction: float,
-                        eps=1e-12) -> None:
+                        correction,
+                        eps=1e-12):
     """Correct f_j ndarray in-place."""
 
     if correction > 0:
