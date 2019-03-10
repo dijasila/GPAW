@@ -119,6 +119,8 @@ class SJM(SolvationGPAW):
 
         self.log(self.hamiltonian)
 
+        xc.set_grid_descriptor(self.hamiltonian.finegd)
+
     def set_atoms(self, atoms):
         self.atoms = atoms
         self.spos_ac = atoms.get_scaled_positions() % 1.0
@@ -287,7 +289,8 @@ class SJM(SolvationGPAW):
                                              atoms=self.atoms,
                                              name='cavity')
 
-        self.write_parallel_func_in_z(self.density.background_charge.mask_g,
+        if abs(self.ne) > self.tiny:
+            self.write_parallel_func_in_z(self.density.background_charge.mask_g,
                                       name='background_charge_')
 
     def summary(self):
