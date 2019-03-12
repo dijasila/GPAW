@@ -2,7 +2,7 @@ from gpaw import GPAW
 import numpy as np
 from scipy.sparse.linalg import LinearOperator, bicgstab
 from gpaw.utilities import pack, unpack
-
+from time import time
 
 
 class CustomLinearOperator:
@@ -49,6 +49,7 @@ def custombicgstab(A_nGG, b_nG, max_iter = 200, tol=1e-8):
     
         t_nG = A_nGG.matvec(s_nG)#np.einsum("ijk, ik->ij", A_nGG, s_nG)        
         norm_n = np.einsum("ij, ij->i", t_nG, t_nG)
+        assert norm_n.all()
         wi_n = np.einsum("ij, ij->i", t_nG, s_nG)/norm_n
 
 
@@ -97,15 +98,339 @@ class SternheimerResponse:
         qvector = np.array([0,0,0])
         #self.calculate([qvector], 1)
         self.deltapsi_qnG = None
-        from time import time
+        
         t1 = time()
-        self.powercalculate([qvector], 1)
+        self.deflatedarnoldicalculate([qvector], 1)
+        #self.powercalculate([qvector], 1)
         t2 = time()
         print(f"Calculation took {t2 - t1} seconds.")
         print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
         print(f"Performed {len(self.t1s)} BiCGStab calls")
         print(f"Get LHS+RHS took {np.mean(self.t2s)} seconds on avg.")
         print(f"Performed {len(self.t2s)} LHS+RHS calls")
+
+
+
+
+    def deflatedarnoldicalculate(self, qvectors, num_eigs):
+        print("DEFLATEDARNOLDICALCULATE")
+        qvector = qvectors[0]
+        self.calculate_kplusq(qvector)
+
+        deltapsi_qnG, eigval = self.initial_guess(qvector)
+        if self.deltapsi_qnG is not None:
+            print("Using previously calculated deltapsi")
+            deltapsi_qnG = self.deltapsi_qnG
+        norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
+        deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        error_threshold = 1e-4
+        error = 100
+
+        max_iter = 100
+        new_norm = 0
+        old_norm = 0
+
+        Kv_SqnG = [] #S is a step-number index
+        v_SqnG = [deltapsi_qnG]
+        init_ip = self.inner_product(v_SqnG[0], self.apply_K(v_SqnG[0], qvector))
+        K_ij = np.array([[0]]) #Initial Krylov space is empty, so matrix is zero
+        check = False
+
+        
+
+        krylov_size = 5
+        max_iter = 10 
+        num_eigenpairs = 5
+        
+        K_ij = np.zeros((krylov_size, krylov_size), dtype=np.complex128)
+
+        k = 0
+
+        c = 0
+        while c <= max_iter:
+            c = c + 1
+            print(f"Iteration number: {c}")
+            t1 = time()
+
+
+            for j in range(k, krylov_size):
+                print(f"Subloop index: {j}")
+                vj_qnG = v_SqnG[j]
+                
+                w_qnG = self.apply_K(vj_qnG, qvector)
+                
+                for i in range(j+1):
+                    K_ij[i,j] = self.inner_product(v_SqnG[i], w_qnG)
+                    w_qnG = {q: val - K_ij[i,j]*v_SqnG[i][q] for q, val in w_qnG.items()}
+                norm = np.sqrt(self.inner_product(w_qnG, w_qnG))
+                w_qnG = {q: val/norm for q, val in w_qnG.items()}
+
+                if j != krylov_size-1:
+                    K_ij[j+1, j] = norm
+                    if len(v_SqnG) < krylov_size:
+                        v_SqnG.append(w_qnG)
+                    else:
+                        v_SqnG[j+1] = w_qnG
+                # else:
+                #     v_SqnG[0] = w_qnG
+                
+            heigs, hvecs = np.linalg.eig(K_ij)
+
+            pairs = sorted(zip(np.real(heigs), hvecs.T), key=lambda t: t[0])
+            
+            eigval, vec = pairs[-1]
+
+            eigen_qnG = {q: val*vec[0] for q, val in v_SqnG[0].items()}
+
+            for S, v_qnG in enumerate(v_SqnG[1:]):
+                eigen_qnG = {q: val + vec[S]*v_qnG[q] for q, val in eigen_qnG.items()}
+                
+
+
+            residual_qnG = self.apply_K(eigen_qnG, qvector)
+            residual_qnG = {q: val - eigval*eigen_qnG[q] for q, val in residual_qnG.items()}
+            
+            residual_norm = np.sqrt(self.inner_product(residual_qnG, residual_qnG))
+            print(f"Estimated eigval: {eigval}")
+            print(f"Residual norm was: {residual_norm}")
+
+            for S, v_qnG in enumerate(v_SqnG[:k]):
+                ip = self.inner_product(eigen_qnG, v_qnG)
+                eigen_qnG = {q: val - ip*v_qnG[q] for q, val in eigen_qnG.items()}
+                
+            eigen_norm = np.sqrt(self.inner_product(eigen_qnG, eigen_qnG))
+            eigen_qnG = {q: val/eigen_norm for q, val in eigen_qnG.items()}
+            
+            v_SqnG = v_SqnG[:k+1]
+            v_SqnG[k] = eigen_qnG
+            
+
+            if residual_norm < 1e+1:
+                for i in range(k+1):
+                    K_ij[i, k] = self.inner_product(v_SqnG[i], self.apply_K(eigen_qnG, qvector))
+
+                for i in range(k+1, krylov_size):
+                    K_ij[i,k] = 0
+
+                k = k + 1
+                if k >= num_eigenpairs:
+                    break
+                print("Incremented k")
+                print(f"Used {c} iterations to converge vector")
+                c = 0
+
+                new_start, _ = self.initial_guess(qvector)
+                new_norm = np.sqrt(self.inner_product(new_start, new_start))
+                new_start = {q: val/new_norm for q, val in new_start.items()}
+                v_SqnG.append(new_start)
+                
+                
+        eigvals, eigvecs = np.linalg.eig(K_ij)
+        print(f"Final eigs: {np.sort(np.real(eigvals))}")
+        print("Converged")
+        return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    def residualkrylovcalculate(self, qvectors, num_eigs):
+        print("RESIDUALKRYLOVCALCULATE")
+        qvector = qvectors[0]
+        self.calculate_kplusq(qvector)
+
+        deltapsi_qnG, eigval = self.initial_guess(qvector)
+        if self.deltapsi_qnG is not None:
+            print("Using previously calculated deltapsi")
+            deltapsi_qnG = self.deltapsi_qnG
+        norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
+        deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        error_threshold = 1e-4
+        error = 100
+        stepsize = 0.2
+
+        max_iter = 100
+        new_norm = 0
+        old_norm = 0
+        leading_eig = 14
+        Kv_SqnG = [] #S is a step-number index
+        v_SqnG = [deltapsi_qnG]
+        new_deltapsi_qnG = self.apply_K(v_SqnG[0], qvector)
+        init_ip = self.inner_product(v_SqnG[0], new_deltapsi_qnG)
+        K_ij = np.array([[init_ip]]) #Initial Krylov space is empty, so matrix is zero
+        check = False
+        for niter in range(max_iter):
+            print(f"Iteration number: {niter}")
+            t1 = time()
+            if check:
+                for j, jvec in enumerate(v_SqnG):
+                    for k, kvec in enumerate(v_SqnG):
+                        if k == j:
+                            b = np.allclose(self.inner_product(jvec, kvec), 1)
+                            if not b:
+                                print(f"Not-one IP for index: {j}")
+                                print(f"Inner product: {self.inner_product(jvec, kvec)}")
+                            assert b
+                        else:
+                            b = np.allclose(self.inner_product(jvec, kvec), 0)
+                            if not b:
+                                print(f"Non-zero IP for pair: {j}-{k}")
+                                print(f"Inner product: {self.inner_product(jvec, kvec)}")
+                            assert b
+
+
+            ##new_deltapsi_qnG = self.apply_K(v_SqnG[niter], qvector)
+            Kv_SqnG.append(new_deltapsi_qnG.copy())
+            ##Step in direction of residual
+            ##Could also be any operator
+            new_deltapsi_qnG = {q: v_SqnG[niter][q] +stepsize*(val - leading_eig*v_SqnG[niter][q]) for q, val in new_deltapsi_qnG.items()}
+
+
+            #Change matrix dims from m x m to (m+1) x (m+1)
+            new_shape = tuple(np.array(K_ij.shape) + np.array((1,1)))
+            new_K_ij = np.zeros(new_shape, dtype=np.complex128)
+            new_K_ij[:-1, :-1] = K_ij
+            
+            #Gram-Schmidt 
+            for Sindex, v_qnG in enumerate(v_SqnG):
+                innerprod = self.inner_product(v_qnG, new_deltapsi_qnG)                
+                new_deltapsi_qnG = {q : val - innerprod*v_qnG[q] for q, val in new_deltapsi_qnG.items()}
+
+            norm = np.sqrt(self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
+
+            new_v_qnG = {q: val/norm for q, val in new_deltapsi_qnG.items()}
+
+            new_deltapsi_qnG = self.apply_K(new_v_qnG, qvector)
+
+            for Sindex, v_qnG in enumerate(v_SqnG):
+                new_K_ij[Sindex, niter+1] = self.inner_product(v_qnG, new_deltapsi_qnG)
+                new_K_ij[niter+1, Sindex] = self.inner_product(Kv_SqnG[Sindex], v_qnG)
+            new_K_ij[niter+1, niter+1] = self.inner_product(new_v_qnG, new_deltapsi_qnG)
+
+            ##Then append the orthonormalized vector v_SqnG
+            v_SqnG.append(new_v_qnG.copy())
+
+            # for i in range(new_shape[0]):
+            #     new_K_ij[-1, i] = self.inner_product(v_SqnG[-1], Kv_SqnG[i])
+            #     new_K_ij[i, -1] = self.inner_product(v_SqnG[i], Kv_SqnG[-1])
+
+            K_ij = new_K_ij            
+
+            eigvals, eigvecs = np.linalg.eig(K_ij)
+            leading_eig = np.sort(np.real(eigvals))[-1]
+            print(f"Eigvals: {np.sort(np.real(eigvals))}")
+            t2 = time()
+            print(f"Iteration took: {t2 - t1} seconds")
+
+        self.deltapsi_qnG = deltapsi_qnG
+
+            
+        print("Not converged")
+        return
+
+
+
+
+
+
+    def krylovcalculate(self, qvectors, num_eigs):
+        print("KRYLOVCALCULATE")
+        qvector = qvectors[0]
+        self.calculate_kplusq(qvector)
+
+        deltapsi_qnG, eigval = self.initial_guess(qvector)
+        if self.deltapsi_qnG is not None:
+            print("Using previously calculated deltapsi")
+            deltapsi_qnG = self.deltapsi_qnG
+        norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
+        deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        error_threshold = 1e-4
+        error = 100
+
+        max_iter = 100
+        new_norm = 0
+        old_norm = 0
+
+        Kv_SqnG = [] #S is a step-number index
+        v_SqnG = [deltapsi_qnG]
+        init_ip = self.inner_product(v_SqnG[0], self.apply_K(v_SqnG[0], qvector))
+        K_ij = np.array([[0]]) #Initial Krylov space is empty, so matrix is zero
+        check = True
+        for niter in range(max_iter):
+            print(f"Iteration number: {niter}")
+            t1 = time()
+            if check:
+                for j, jvec in enumerate(v_SqnG):
+                    for k, kvec in enumerate(v_SqnG):
+                        if k == j:
+                            continue
+                        else:
+                            b = np.allclose(self.inner_product(jvec, kvec), 0)
+                            if not b:
+                                print(f"Inner product: {self.inner_product(jvec, kvec)}")
+                            assert b
+
+
+            new_deltapsi_qnG = self.apply_K(v_SqnG[niter], qvector)
+
+
+
+
+            Kv_SqnG.append(new_deltapsi_qnG.copy())
+            #Some code to orthonormalize            
+            #if (niter % 2) == 0: ##Does not work. Eigenvalues of subspace matrix is incorrect b/c basis vectors are not linearly independent
+            new_shape = tuple(np.array(K_ij.shape) + np.array((1,1)))
+            new_K_ij = np.zeros(new_shape, dtype=np.complex128)
+            new_K_ij[:-1, :-1] = K_ij
+            ##Update orthonormalization. Can apparently be done in less steps, see wikipedia
+            for Sindex, v_qnG in enumerate(v_SqnG):
+                innerprod = self.inner_product(v_qnG, new_deltapsi_qnG)
+                new_K_ij[Sindex, niter] = innerprod
+                new_deltapsi_qnG = {q : val - innerprod*v_qnG[q] for q, val in new_deltapsi_qnG.items()}
+
+            norm = np.sqrt(self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
+            new_K_ij[niter+1, niter] = norm
+
+
+            new_deltapsi_qnG = {q: val/norm for q, val in new_deltapsi_qnG.items()}
+            ##Then append the orthonormalized vector v_SqnG
+            v_SqnG.append(new_deltapsi_qnG.copy())
+
+            #Update K matrix
+            # for b, vec in enumerate(v_SqnG):
+            #     for c, vecc in enumerate(v_SqnG):
+            #         new_K_ij[b,c] = self.inner_product(vec, self.apply_K(vecc, qvector))
+
+
+            # for i in range(new_shape[0]):
+            #     new_K_ij[-1, i] = self.inner_product(v_SqnG[-1], Kv_SqnG[i])
+            #     new_K_ij[i, -1] = self.inner_product(v_SqnG[i], Kv_SqnG[-1])
+
+            K_ij = new_K_ij            
+
+            eigvals, eigvecs = np.linalg.eig(K_ij)
+            print(f"Eigvals: {np.sort(np.real(eigvals))}")
+            t2 = time()
+            print(f"Iteration took: {t2 - t1} seconds")
+
+        self.deltapsi_qnG = deltapsi_qnG
+
+            
+        print("Not converged")
+        return
+
+
 
 
     def powercalculate(self, qvectors, num_eigs):
@@ -118,7 +443,7 @@ class SternheimerResponse:
             print("Using previously calculated deltapsi")
             deltapsi_qnG = self.deltapsi_qnG
 
-        error_threshold = 1e-4
+        error_threshold = 1e-3
         error = 100
 
         max_iter = 100
@@ -161,8 +486,9 @@ class SternheimerResponse:
 
     def calculate(self, qvectors, num_eigs):
         qvector = qvectors[0]
+        self.calculate_kplusq(qvector)
         
-        deltapsi_qnG1, eigval1 = self.initial_guess()
+        deltapsi_qnG1, eigval1 = self.initial_guess(qvector)
         #deltapsi_qnG2, eigval2 = self.initial_guess()
         eigvals = [eigval1]#, eigval2]
         deltapsis = [deltapsi_qnG1]#, deltapsi_qnG2]
@@ -237,7 +563,7 @@ class SternheimerResponse:
 
     def initial_guess(self, qvector):
         deltapsi_qnG = {}
-        np.random.seed(123)
+        #np.random.seed(123)
         for index, kpt in enumerate(self.wfs.mykpts):
             ##TODO Replace this with better start guess probably
 
@@ -250,7 +576,7 @@ class SternheimerResponse:
             
             
             deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index) + 1# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
-            print("Initial shape: ", deltapsi_qnG[k_plus_q_index].shape)
+
             
             numgs = deltapsi_qnG[k_plus_q_index][0].shape[0]
             deltapsi_qnG[k_plus_q_index][:, np.random.randint(numgs)] = 2
@@ -339,7 +665,7 @@ class SternheimerResponse:
 
         new_deltapsi_qnG = self.solve_sternheimer(potential_function, qvector)
 
-        return {q: -val for q, val in new_deltapsi_qnG.items()}
+        return {q:  -val for q, val in new_deltapsi_qnG.items()}
 
             
 
@@ -400,11 +726,11 @@ class SternheimerResponse:
                 raise ValueError("Number of G-vectors does not match length of vector")
             wvf_R = self.wfs.pd.ifft(wvf_G, q=q_index)
             pt = self.wfs.pt
-            if (q_index, level_index) in self.c_qnai:
-                c_ai = self.c_qnai[(q_index, level_index)]
+            if (q_index, level_index) in self.c_qnai and False:
+                c_ai = self.c_qnai[(q_index, level_index)] ##TODO there seems to be an error here. Is q_index properly defined?
             else:
                 c_ai = pt.integrate(wvf_G, q=q_index)
-                self.c_qnai[(q_index, level_index)] = c_ai
+                self.c_qnai[(q_index, level_index)] = c_ai.copy()
             
             for a, c_i in c_ai.items():
                 W_ii = unpack(W_ap[a])
@@ -415,7 +741,7 @@ class SternheimerResponse:
             return V1   
 
 
-        return apply_potential2
+        return apply_potential
 
 
 
@@ -523,14 +849,44 @@ class SternheimerResponse:
 
 
     def solve_sternheimer(self, apply_potential, qvector):
-        from time import time
+        
         deltapsi_qnG = {}
         nvalence = self.wfs.setups.nvalence//2
         for index, kpt in enumerate(self.wfs.mykpts):
 
             number_of_valence_states = self.wfs.setups.nvalence//2  #kpt.psit.array.shape[0]
             
-            k_plus_q_index, k_plus_q_object = self.k_plus_q[index]
+            ##k_plus_q_index, k_plus_q_object = self.k_plus_q[index]
+
+
+
+            ######################
+            kpt.psit.read_from_file()
+
+            
+            bzk_index = self.wfs.kd.ibz2bz_k[index]
+            #Get kpt object for k+q
+            k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [bzk_index])
+            assert len(k_plus_q_index) == 1
+            k_plus_q_index = k_plus_q_index[0]
+            ibz_k_plus_q_index = self.wfs.kd.bz2ibz_k[k_plus_q_index]
+            k_plus_q_index = ibz_k_plus_q_index
+            if ibz_k_plus_q_index >= len(self.wfs.mykpts):
+                print(f"k_plus_q_index: {k_plus_q_index}")
+                print(f"Len of mykpts: {len(self.wfs.mykpts)}. Len of bzk_kc: {len(self.wfs.kd.bzk_kc)}.")
+                raise ValueError("index too large")
+            k_plus_q_object = self.wfs.mykpts[ibz_k_plus_q_index]
+            k_plus_q_object.psit.read_from_file()
+
+            
+
+
+
+
+
+
+            ########################
+
             if k_plus_q_index not in deltapsi_qnG:
                 numgs = k_plus_q_object.psit.array.shape[1]
                 
@@ -542,63 +898,66 @@ class SternheimerResponse:
             #print(f"array shape: {kpt.psit.array.shape}")
             #print(f"object shape: {kpt.psit.array.shape}")
             #print(f"deltapsi shape: {deltapsi_qnG[index].shape}")
-            eps_n = kpt.eps_n[:nvalence]
-            psi_nG = kpt.psit.array[:nvalence]
+            # eps_n = kpt.eps_n[:nvalence]
+            # psi_nG = kpt.psit.array[:nvalence]
 
 
-            linop = self._get_LHS_linear_operator2(k_plus_q_object, eps_n, k_plus_q_index)
+            # linop = self._get_LHS_linear_operator2(k_plus_q_object, eps_n, k_plus_q_index)
 
-            RHS_nG = self._get_RHS2(k_plus_q_object, psi_nG, apply_potential, k_plus_q_index)
-            deltapsi_nG, info = custombicgstab(linop, RHS_nG, max_iter=1000, tol=1e-2)
-            #if info != 0:
-            #    raise ValueError("bicgstab did not converge. Info: {}".format(info))
+            # RHS_nG = self._get_RHS2(k_plus_q_object, psi_nG, apply_potential, k_plus_q_index)
+            # deltapsi_nG, info = custombicgstab(linop, RHS_nG, max_iter=1000, tol=1e-2)
+            # error = np.max(np.abs(linop.matvec(deltapsi_nG) - RHS_nG))
+            # if error > 0:
+            #     print(f"Error = {error}")
+            # #if info != 0:
+            # #    raise ValueError("bicgstab did not converge. Info: {}".format(info))
 
-            deltapsi_qnG[k_plus_q_index] += deltapsi_nG*self.kpt_weight[index]
+            # deltapsi_qnG[k_plus_q_index] += deltapsi_nG*self.kpt_weight[index]
+
+
 
             
 
-            
+            for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
+                if state_index >= nvalence:
+                    break
+                t3 = time()
+                linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
 
-            # for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
-            #     if state_index >= nvalence:
-            #         break
-            #     t3 = time()
-            #     linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
-
-            #     #print(f"state index: {state_index}, index: {index}")
-            #     #print(f"psi shape: {psi.shape}")
+                #print(f"state index: {state_index}, index: {index}")
+                #print(f"psi shape: {psi.shape}")
 
 
-            #     #print(index, state_index, k_plus_q_object.psit.array.shape, kpt.psit.array.shape)
+                #print(index, state_index, k_plus_q_object.psit.array.shape, kpt.psit.array.shape)
 
 
 
 
-            #     RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, index)
-            #     t4 = time()
-            #     assert RHS.shape[0] == linop.shape[1]
-            #     #print("got RHS")
-            #     t1 = time()
-            #     deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-2)
-            #     t2 = time()
-            #     #deltapsi_G = 0
+                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, index)
+                t4 = time()
+                assert RHS.shape[0] == linop.shape[1]
+                #print("got RHS")
+                t1 = time()
+                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-2)
+                t2 = time()
+                #deltapsi_G = 0
                 
-            #     if info != 0:
-            #         print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
-            #         raise ValueError("bicgstab did not converge. Info: {}".format(info))
+                if info != 0:
+                    print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
+                    raise ValueError("bicgstab did not converge. Info: {}".format(info))
+                
                     
-                    
 
-            #     # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
-            #     # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
-            #     # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
-            #     # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
+                # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
+                # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
+                # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
+                # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
 
-            #     deltapsi_qnG[k_plus_q_index][state_index] += deltapsi_G*self.kpt_weight[index]
+                deltapsi_qnG[k_plus_q_index][state_index] += deltapsi_G*self.kpt_weight[index]
 
-            #     self.t2s.append(t4-t3)
+                self.t2s.append(t4-t3)
 
-            #     self.t1s.append(t2-t1)
+                self.t1s.append(t2-t1)
         return deltapsi_qnG
 
 
@@ -821,7 +1180,7 @@ if __name__=="__main__":
         print("Reading file")
         respObj = SternheimerResponse(filen)
     else:
-        from time import time
+        
         
         ro = SternheimerResponse(filen)
         
@@ -837,12 +1196,13 @@ if __name__=="__main__":
         #       cell = (a,a,a))
         atoms = bulk("Si", "diamond", 5.43)
         calc = GPAW(mode=PW(250, force_complex_dtype=True),
-                xc ="PBE",                
+                    xc ="PBE",                
                     kpts=(4,4,4),
-                random=True,
-                #symmetry={"point_group": False},
-                occupations=FermiDirac(0.01),
-                txt = "test.out")
+                    random=True,
+                    #symmetry={"point_group": False},
+                    occupations=FermiDirac(0.01),
+                    basis="dzp",
+                    txt = "test.out")
         
         atoms.set_calculator(calc)
         energy = atoms.get_potential_energy()
