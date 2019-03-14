@@ -156,7 +156,10 @@ class EXX(PairDensity):
 
                 self.calculate_paw_exx_corrections(i, kpt1)
 
-        self.world.sum(self.exxvv_sin)
+                self.world.sum(self.exxvv_sin[s, i])
+
+                if restart:
+
 
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and
