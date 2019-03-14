@@ -4,9 +4,36 @@ from time import time
 
 
 
+
+
+#for W_q in calc W
+##for state in kpt2.n
+###for w in ws
+####sigma += dsigma
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class SpectralFunction:
-    def __init__(self, gw_object):
+    def __init__(self, gw_object, fxc_mode="GW", xc="RPA"):
         self.gw_object = gw_object
+        self.fxc_mode = fxc_mode
+        gw_object.fxc_mode = fxc_mode
+        gw_object.xc = xc
         self.gw_object.ite = 0
 
 
@@ -50,7 +77,8 @@ class SpectralFunction:
                 gw.eps_skn[s, i] = kpt.eps_n[b1:b2]
                 gw.f_skn[s, i] = kpt.f_n[b1:b2]/kpt.weight
 
-
+        gw.qp_skn = gw.eps_skn.copy()
+        gw.qp_iskn = np.array([gw.qp_skn])
 
                 
         mykpts = [gw.get_k_point(s, K, n1, n2)
@@ -122,7 +150,6 @@ class SpectralFunction:
         
             f_m = kpt2.f_n
             deps_wm = np.array([eps1 + dw - kpt2.eps_n for dw in domegas])
-            assert np.allclose(deps_wm[0], eps1 - kpt2.eps_n)
             
             nn = kpt1.n1 + n - gw.bands[0]
 
