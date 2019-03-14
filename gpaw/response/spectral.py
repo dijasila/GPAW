@@ -29,11 +29,11 @@ from time import time
 
 
 class SpectralFunction:
-    def __init__(self, gw_object, fxc_mode="GW", xc="RPA"):
+    def __init__(self, gw_object):
         self.gw_object = gw_object
         self.fxc_mode = fxc_mode
-        gw_object.fxc_mode = fxc_mode
-        gw_object.xc = xc
+        #gw_object.fxc_mode = fxc_mode
+        #gw_object.xc = xc
         self.gw_object.ite = 0
 
 
@@ -46,6 +46,7 @@ class SpectralFunction:
         gw.calculate_exact_exchange()
 
         if gw.restartfile is not None:
+            assert False
             loaded = gw.load_restart_file()
             if not loaded:
                 gw.last_q = -1
@@ -149,7 +150,12 @@ class SpectralFunction:
                 n_mG = n_mG.conj()
         
             f_m = kpt2.f_n
-            deps_wm = np.array([eps1 + dw - kpt2.eps_n for dw in domegas])
+            deps_wm = np.zeros((len(domegas), len(kpt2.eps_n)))
+            for index, dw in enumerate(domegas):
+                deps_wm[index] = eps1 + dw - kpt2.eps_n
+                
+                               
+            #deps_wm = np.array([eps1 + dw - kpt2.eps_n for dw in domegas])
             
             nn = kpt1.n1 + n - gw.bands[0]
 
