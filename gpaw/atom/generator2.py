@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
 import sys
 from math import pi, exp, sqrt, log
 from distutils.version import LooseVersion
@@ -299,6 +297,9 @@ class PAWWaves:
                                             self.phi_ng *
                                             vr_g, -1) / (4 * pi) +
                          self.dH_nn)
+        print(self.rgd.integrate(self.phit_ng[:, None] *
+                                 self.phit_ng *
+                                 vtr_g, -1) / (4 * pi))
 
 
 class PAWSetupGenerator:

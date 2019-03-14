@@ -516,7 +516,7 @@ class GPAW(PAW, Calculator):
         if number_of_lattice_vectors < 3:
             if mode.name == 'tb':
                 from ase.geometry.cell import complete_cell
-                cell_cv = complete_cell(cell_cv)
+                cell_cv = complete_cell(atoms.cell) / Bohr
             else:
                 raise ValueError(
                     'GPAW requires 3 lattice vectors.  Your system has {}.'

@@ -11,18 +11,6 @@ from .wavefunctions.lcao import LCAOWaveFunctions
 from .wavefunctions.mode import Mode
 
 
-class TB(Mode):
-    name = 'tb'
-    interpolation = 1
-    force_complex_dtype = False
-
-    def __init__(self) -> None:
-        pass
-
-    def __call__(self, ksl, **kwargs) -> 'TBWaveFunctions':
-        return TBWaveFunctions(ksl, **kwargs)
-
-
 class TBWaveFunctions(LCAOWaveFunctions):
     mode = 'tb'
 
@@ -53,11 +41,23 @@ class TBWaveFunctions(LCAOWaveFunctions):
         my_atom_indices = self.basis_functions.my_atom_indices
         self.Vt_qMM = [Vt_MM.toarray()
                        for Vt_MM in manytci.P_qIM(my_atom_indices)]
-        print(self.Vt_qMM[0]);asdf
+        #print(self.Vt_qMM[0]);asdf
+
+
+class TB(Mode):
+    name = 'tb'
+    interpolation = 1
+    force_complex_dtype = False
+
+    def __init__(self) -> None:
+        pass
+
+    def __call__(self, ksl, **kwargs) -> TBWaveFunctions:
+        return TBWaveFunctions(ksl, **kwargs)
 
 
 class TBEigenSolver(DirectLCAO):
-    def iterate(self, ham, wfs):
+    def iterate(self, ham, wfs) -> None:
         for kpt in wfs.kpt_u:
             self.iterate_one_k_point(ham, wfs, kpt, [wfs.Vt_qMM[kpt.q]])
 
