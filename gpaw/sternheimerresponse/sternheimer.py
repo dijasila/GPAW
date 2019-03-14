@@ -87,7 +87,8 @@ class SternheimerResponse:
         bz_to_ibz = self.calc.get_bz_to_ibz_map()
         ntotal_kpts = len(bz_to_ibz)
         spin_factor = 2
-        self.kpt_weight = spin_factor*np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*self.wfs.kd.weight_k
+        self.kpt_weight = spin_factor*self.wfs.kd.weight_k
+        #np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*
         #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
         #ind1 = self.wfs.mykpts[1].q
         #ind0 = self.wfs.mykpts[0].q
@@ -100,8 +101,8 @@ class SternheimerResponse:
         self.deltapsi_qnG = None
         
         t1 = time()
-        self.deflatedarnoldicalculate([qvector], 1)
-        #self.powercalculate([qvector], 1)
+        #self.deflatedarnoldicalculate([qvector], 1)
+        self.powercalculate([qvector], 1)
         t2 = time()
         print(f"Calculation took {t2 - t1} seconds.")
         print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -443,7 +444,7 @@ class SternheimerResponse:
             print("Using previously calculated deltapsi")
             deltapsi_qnG = self.deltapsi_qnG
 
-        error_threshold = 1e-3
+        error_threshold = 1e-5
         error = 100
 
         max_iter = 100
@@ -563,7 +564,7 @@ class SternheimerResponse:
 
     def initial_guess(self, qvector):
         deltapsi_qnG = {}
-        #np.random.seed(123)
+        np.random.seed(123)
         for index, kpt in enumerate(self.wfs.mykpts):
             ##TODO Replace this with better start guess probably
 
@@ -575,18 +576,18 @@ class SternheimerResponse:
             k_plus_q_index = self.wfs.kd.bz2ibz_k[k_plus_q_index]
             
             
-            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index) + 1# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
-
+            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index)# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
+            if np.allclose(self.wfs.kd.bzk_kc[bzk_index], [0, 0, 0]):
+                deltapsi_qnG[k_plus_q_index] += 1
             
             numgs = deltapsi_qnG[k_plus_q_index][0].shape[0]
-            deltapsi_qnG[k_plus_q_index][:, np.random.randint(numgs)] = 2
+            #deltapsi_qnG[k_plus_q_index][:, np.random.randint(numgs)] = 2
             # numns = deltapsi_qnG[index].shape[0]
             # deltapsi_qnG[index][np.random.randint(numns), np.random.randint(numgs)] = 1
             # deltapsi_qnG[index][np.random.randint(numns), np.random.randint(numgs)] = 1
             # deltapsi_qnG[index][np.random.randint(numns), np.random.randint(numgs)] = 1
 
 
-            
         ##Replace this with guess dependent on other guess/found values to speed up convergence
         eigval = 2
 
@@ -616,12 +617,11 @@ class SternheimerResponse:
         comp_charge2_G = self.get_compensation_charges(deltapsi2_qnG, DeltaD2_aii)
 
         poisson_G = self.solve_poisson(fine_delta_tilde_n1_G + comp_charge1_G)
-        poisson_R = self.calc.density.pd3.ifft(poisson_G.T)
-        charge2_R = self.calc.density.pd3.ifft(fine_delta_tilde_n2_G.T + comp_charge2_G.T)
+        poisson_R = self.calc.density.pd3.ifft(poisson_G)
+        charge2_R = self.calc.density.pd3.ifft(fine_delta_tilde_n2_G + comp_charge2_G)
 
 
-        product_G = self.calc.density.pd3.fft(charge2_R*poisson_R)
-        P12 = self.calc.density.pd3.integrate(product_G)
+        P12 = self.calc.hamiltonian.finegd.integrate(charge2_R, poisson_R)
         
 
         
@@ -641,21 +641,32 @@ class SternheimerResponse:
 
 
     def get_density_matrix(self, deltapsi_qnG):
+        pr = True
         pt = self.wfs.pt
         D_aii = {}
         nvalence = self.wfs.setups.nvalence//2
+        fn = 0
         for q_index, deltapsi_nG in deltapsi_qnG.items():
             c_ani = pt.integrate(deltapsi_nG, q=q_index)
 
 
             kpt = self.wfs.mykpts[q_index]
+
+            #if np.allclose(self.wfs.kd.ibzk_kc[kpt.k], np.array([0, 0, 0])):
+                #print("c_ani:", c_ani[0][0])
+                #pr = False
             for a, c_ni in c_ani.items():
                 P_ni = kpt.projections[a][:nvalence]
+                #if pr and np.allclose(self.wfs.kd.ibzk_kc[kpt.k], np.array([0.125, 0.125, -0.125])):
+                    #print("P_ni", P_ni[0])
+                    #pr = False
                 U_ij = np.dot(P_ni.T.conj()*kpt.f_n[:nvalence], c_ni)
+                fn += kpt.f_n
                 if a in D_aii:
                     D_aii[a] += U_ij + U_ij.conj().T
                 else:
                     D_aii[a] = U_ij + U_ij.conj().T
+
         return D_aii
         
 
@@ -679,6 +690,8 @@ class SternheimerResponse:
        
         #Comp charges is dict: atom -> charge
         DeltaD_aii = self.get_density_matrix(deltapsi_qnG)
+        print(DeltaD_aii[0][:2,:2])
+        exit()
         total_delta_comp_charge = self.get_compensation_charges(deltapsi_qnG, DeltaD_aii)
 
 
@@ -877,13 +890,6 @@ class SternheimerResponse:
                 raise ValueError("index too large")
             k_plus_q_object = self.wfs.mykpts[ibz_k_plus_q_index]
             k_plus_q_object.psit.read_from_file()
-
-            
-
-
-
-
-
 
             ########################
 
@@ -1143,22 +1149,14 @@ class SternheimerResponse:
     def _get_RHS(self, k_plus_q_pt, psi_G, apply_potential, level_index, k_plus_q_index, kpt, k_index): 
         v_psi_G = self.wfs.pd.zeros(q=k_plus_q_index)
         vpsi = apply_potential(psi_G, level_index, k_index)
-
-        s1 = v_psi_G.shape
+        
         if len(v_psi_G) > len(vpsi):
             v_psi_G[:len(vpsi)] = vpsi
         else:
             v_psi_G[:] = vpsi[:len(v_psi_G)]
 
-        s2 = v_psi_G.shape
-
-        if s1 != s2:
-            raise ValueError("Why did the shape change?")
-
         X = self._apply_overlap(self._apply_valence_projector(v_psi_G, k_plus_q_pt, k_plus_q_index), k_plus_q_index)
 
-        if X.shape != s2:
-            raise ValueError("Why doesnt X have the same shape")
         RHS_G = -(v_psi_G - X)
 
 
@@ -1175,6 +1173,9 @@ class SternheimerResponse:
 
 if __name__=="__main__":
     filen = "test.gpw"
+    import sys
+    filen = sys.argv[1] + ".gpw"
+    outname = sys.argv[1] + ".out"
     import os
     if False and os.path.isfile(filen):
         print("Reading file")
@@ -1197,17 +1198,18 @@ if __name__=="__main__":
         atoms = bulk("Si", "diamond", 5.43)
         calc = GPAW(mode=PW(250, force_complex_dtype=True),
                     xc ="PBE",                
-                    kpts=(4,4,4),
+                    kpts={"size":(4,4,4), "gamma":True},
                     random=True,
-                    #symmetry={"point_group": False},
+                    #symmetry="off",#{"point_group": False},
                     occupations=FermiDirac(0.01),
                     basis="dzp",
-                    txt = "test.out")
+                    txt = outname)
         
         atoms.set_calculator(calc)
         energy = atoms.get_potential_energy()
         calc.write(filen, mode = "all")
-        #exit()
+
+        exit()
         respObj = SternheimerResponse(filen)
         
 
