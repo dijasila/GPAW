@@ -54,7 +54,8 @@ def select_kpts(kpts, calc):
         d_Kc -= d_Kc.round()
         K = abs(d_Kc).sum(1).argmin()
         if not np.allclose(d_Kc[K], 0):
-            raise ValueError('Could not find k-point: {0}'.format(k_c))
+            raise ValueError('Could not find k-point: {k_c}'
+                             .format(k_c=k_c))
         k = calc.wfs.kd.bz2ibz_k[K]
         indices.append(k)
     return indices
@@ -64,6 +65,29 @@ class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
+        """Non self-consistent hybrid functional calculations.
+
+        Eigenvalues and total energy can be calculated.
+
+        calc: str or PAW object
+            GPAW calculator object or filename of saved calculator object.
+        xc: str
+            Name of functional.  Use one of EXX, PBE0, HSE03, HSE06 or B3LYP.
+            Default is EXX.
+        kpts: list of in or list of list of int
+            List of indices of the IBZ k-points to calculate the quasi particle
+            energies for.  Default is all k-points.  One can also specify the
+            coordiantes of the k-point.  As an example, Gamma and X for an
+            FCC crystal would be: kpts=[[0, 0, 0], [1 / 2, 1 / 2, 0]].
+        bands: tuple of two ints
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+            Default is all occupied bands.
+        ecut: float
+            Plane wave cut-off energy in eV.  Default it the same as was used
+            for the ground-state calculations.
+        """
 
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
@@ -192,9 +216,10 @@ class EXX(PairDensity):
                 self.world.sum(self.exxvv_sin[s, i])
 
                 if restart and self.world.rank == 0:
-                    data.append((self.f_sin[s, i],
-                                 self.exxvc_sin[s, i],
-                                 self.exxvv_sin[s, i]))
+                    data.append([x_n.tolist()
+                                 for x_n in [self.f_sin[s, i],
+                                             self.exxvc_sin[s, i],
+                                             self.exxvv_sin[s, i]]])
                     tmp = restart.with_name(restart.name + '.tmp')
                     tmp.write_text(json.dumps(data))
                     # Overwrite restart-file in in almost atomic step that
