@@ -143,7 +143,7 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self, restart_filename: str = None) -> None:
+    def calculate(self, restart: str = None) -> None:
         """Do the calculation.
 
         restart_filename: str or Path
@@ -153,21 +153,29 @@ class EXX(PairDensity):
         kd = self.calc.wfs.kd
         nspins = self.calc.wfs.nspins
 
-        if restart_filename:
-            if isinstance(restart_filename, str):
-                restart_filename = Path(restart_filename)
+        if restart:
+            if isinstance(restart, str):
+                restart = Path(restart)
 
-            data = json.loads(restart_filename.read_text())
+            if restart.is_file():
+                data = json.loads(restart.read_text())
+                print('Restarting from {restart}\n'.format(**locals()),
+                      'Read {} spin+k-point pairs'.format(len(data)),
+                      file=self.fd)
+            else:
+                data = []
         else:
-            data = {}
+            data = []
 
+        n = 0
         for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
-                if (s, i) in data:
-                    f_n, exxvv_n, exxvc_n = data[(s, i)]
+                if n < len(data):
+                    f_n, exxvv_n, exxvc_n = data[n]
                     self.f_sin[s, i] = f_n
                     self.exxvc_sin[s, i] = exxvc_n
                     self.exxvv_sin[s, i] = exxvv_n
+                    n += 1
                     continue
 
                 K1 = kd.ibz2bz_k[k1]
@@ -181,16 +189,17 @@ class EXX(PairDensity):
 
                 self.world.sum(self.exxvv_sin[s, i])
 
-                if restart_filename and self.world.rank == 0:
-                    data[(s, i)] = (self.f_sin[s, i],
-                                    self.exxvc_sin[s, i],
-                                    self.exxvv_sin[s, i])
-                    tmp = restart_filename.with_name(
-                        restart_filename.name + '.tmp')
+                if restart and self.world.rank == 0:
+                    data.append((self.f_sin[s, i],
+                                 self.exxvc_sin[s, i],
+                                 self.exxvv_sin[s, i]))
+                    tmp = restart.with_name(restart.name + '.tmp')
                     tmp.write_text(json.dumps(data))
                     # Overwrite restart-file in in almost atomic step that
                     # hopefully does not crash due to job running out of time:
-                    tmp.rename(restart_filename)
+                    tmp.rename(restart)
+
+                n += 1
 
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and
