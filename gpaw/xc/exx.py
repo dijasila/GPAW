@@ -159,8 +159,10 @@ class EXX(PairDensity):
 
             if restart.is_file():
                 data = json.loads(restart.read_text())
-                print('Restarting from {restart}\n'.format(**locals()),
-                      'Read {} spin+k-point pairs'.format(len(data)),
+                n = len(data)
+                print('Restarting from {restart}.  '
+                      'Read {n} spin+k-point pairs.'
+                      .format(**locals()),
                       file=self.fd)
             else:
                 data = []
