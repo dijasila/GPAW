@@ -83,6 +83,15 @@ for i, arg in enumerate(sys.argv):
         customize = sys.argv.pop(i).split('=')[1]
         break
 
+# check for environment
+# up to now LIBRARY_PATH only
+try:
+    for directory in os.environ['LIBRARY_PATH'].split(os.pathsep):
+        if directory not in library_dirs:
+            library_dirs.append(directory)
+except KeyError:
+    pass
+
 get_system_config(define_macros, undef_macros,
                   include_dirs, libraries, library_dirs,
                   extra_link_args, extra_compile_args,
