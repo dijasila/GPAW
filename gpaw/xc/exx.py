@@ -1,7 +1,9 @@
 from __future__ import division, print_function
 
+import json
 import sys
 from math import pi
+from pathlib import Path
 
 import numpy as np
 from ase.units import Hartree
@@ -141,12 +143,33 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self):
+    def calculate(self, restart_filename: str = None) -> None:
+        """Do the calculation.
+
+        restart_filename: str or Path
+            Name of restart json-file.  Allows for incremental calculation
+            of eigenvalues.
+        """
         kd = self.calc.wfs.kd
         nspins = self.calc.wfs.nspins
 
+        if restart_filename:
+            if isinstance(restart_filename, str):
+                restart_filename = Path(restart_filename)
+
+            data = json.loads(restart_filename.read_text())
+        else:
+            data = {}
+
         for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
+                if (s, i) in data:
+                    f_n, exxvv_n, exxvc_n = data[(s, i)]
+                    self.f_sin[s, i] = f_n
+                    self.exxvc_sin[s, i] = exxvc_n
+                    self.exxvv_sin[s, i] = exxvv_n
+                    continue
+
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
                 self.f_sin[s, i] = kpt1.f_n
@@ -158,8 +181,16 @@ class EXX(PairDensity):
 
                 self.world.sum(self.exxvv_sin[s, i])
 
-                if restart:
-
+                if restart_filename and self.world.rank == 0:
+                    data[(s, i)] = (self.f_sin[s, i],
+                                    self.exxvc_sin[s, i],
+                                    self.exxvv_sin[s, i])
+                    tmp = restart_filename.with_name(
+                        restart_filename.name + '.tmp')
+                    tmp.write_text(json.dumps(data))
+                    # Overwrite restart-file in in almost atomic step that
+                    # hopefully does not crash due to job running out of time:
+                    tmp.rename(restart_filename)
 
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and
