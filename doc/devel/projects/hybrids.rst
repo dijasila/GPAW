@@ -16,4 +16,3 @@ Things to work on:
 
 * Implement forces.
 * Self-consistent k-point calculations.
-* Hybrids with range separated Coulomb interaction (HSE).
