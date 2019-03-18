@@ -427,18 +427,22 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
-    def find_local_potential(self, r0, P):
+    def find_local_potential(self, r0, P, dv0=None):
         self.r0 = r0
         self.nderiv0 = P
         if self.l0 is None:
-            self.find_polynomial_potential(r0, P)
+            self.find_polynomial_potential(r0, P, dv0)
         else:
             self.match_local_potential(r0, P)
 
-    def find_polynomial_potential(self, r0, P):
+    def find_polynomial_potential(self, r0, P, dv0):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        if dv0:
+            x = self.rgd.r_g[:g0] / r0
+            dv_g = dv0 * (1 - 3 * x**2 + 2 * x**3)
+            self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
         l0 = self.l0
@@ -1265,7 +1269,7 @@ def get_parameters(symbol, args):
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=args.scalar_relativistic, alpha=args.alpha,
-                r0=r0, nderiv0=nderiv0,
+                r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
                 output=args.output,
@@ -1275,7 +1279,7 @@ def get_parameters(symbol, args):
 def generate(symbol,
              projectors,
              radii,
-             r0,
+             r0, v0,
              nderiv0,
              xc='LDA',
              scalar_relativistic=False,
@@ -1294,7 +1298,7 @@ def generate(symbol,
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.find_local_potential(r0, nderiv0)
+    gen.find_local_potential(r0, nderiv0, v0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors(rcore)
