@@ -74,10 +74,8 @@ class SJM(SolvationGPAW):
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
-                 write_grandcanonical_energy = True, dpot=0.01,
+                 write_grandcanonical_energy=True, dpot=0.01,
                  tiny=1e-8, verbose=False, **gpaw_kwargs):
-
-
 
         SolvationGPAW.__init__(self, **gpaw_kwargs)
 
@@ -313,13 +311,12 @@ class SJM(SolvationGPAW):
             self.get_electrode_potential()*self.ne
 
         if self.write_grandcanonical:
-             self.results['energy'] = omega_extra
-             self.results['free_energy'] = omega_free
+            self.results['energy'] = omega_extra
+            self.results['free_energy'] = omega_free
         else:
-             self.results['energy'] = Hartree * self.hamiltonian.e_el_extrapolated
-             self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
-
-
+            self.results['energy'] = Hartree * \
+                self.hamiltonian.e_el_extrapolated
+            self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
 
         self.results['ne'] = self.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
