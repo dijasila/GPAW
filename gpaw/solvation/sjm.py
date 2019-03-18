@@ -197,9 +197,12 @@ class SJM(SolvationGPAW):
                             self.density.finegd)
 
                         self.spos_ac = self.atoms.get_scaled_positions() % 1.0
-                        self.initialize_positions(self.atoms)
+
+                        self.density.mixer.reset()
+
                         self.wfs.initialize(self.density, self.hamiltonian,
                                             self.spos_ac)
+
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
@@ -233,7 +236,10 @@ class SJM(SolvationGPAW):
         """
 
         if self.potential:
-            for dummy in range(10):
+            for equil_iter in range(10):
+                if equil_iter == 1:
+                    self.timer.start('Potential equilibration loop')
+
                 self.set_jellium(atoms)
 
                 SolvationGPAW.calculate(self, atoms, ['energy'],
@@ -247,6 +253,8 @@ class SJM(SolvationGPAW):
                 if abs(pot_int - self.potential) < self.dpot:
                     self.previous_pot = pot_int
                     self.previous_ne = self.ne
+                    if equil_iter > 0:
+                        self.timer.stop('Potential equilibration loop')
                     break
 
                 if self.previous_pot is not None:
@@ -290,8 +298,9 @@ class SJM(SolvationGPAW):
                                              name='cavity')
 
         if abs(self.ne) > self.tiny:
-            self.write_parallel_func_in_z(self.density.background_charge.mask_g,
-                                      name='background_charge_')
+            self.write_parallel_func_in_z(
+                self.density.background_charge.mask_g,
+                name='background_charge_')
 
     def summary(self):
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
