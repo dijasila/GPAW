@@ -3,7 +3,7 @@ from gpaw.mpi import world
 
 
 def test():
-    G = generate('Li', '2s,2p,s', [2.1, 2.1], 2.0, 2, 'PBE', True)
+    G = generate('Li', '2s,2p,s', [2.1, 2.1], 2.0, 0.0, 2, 'PBE', True)
     assert G.check_all()
     basis = G.create_basis_set()
     basis.write_xml()
