@@ -19,7 +19,7 @@ from config import (get_system_config, check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
-assert sys.version_info >= (2, 7)
+assert sys.version_info >= (3, 4)
 
 # Get the current version number:
 with open('gpaw/__init__.py', 'rb') as fd:
