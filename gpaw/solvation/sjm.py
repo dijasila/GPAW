@@ -74,7 +74,8 @@ class SJM(SolvationGPAW):
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
-                 dpot=0.01, tiny=1e-8, verbose=False, **gpaw_kwargs):
+                 write_grandcanonical_energy=True, dpot=0.01,
+                 tiny=1e-8, verbose=False, **gpaw_kwargs):
 
         SolvationGPAW.__init__(self, **gpaw_kwargs)
 
@@ -89,6 +90,7 @@ class SJM(SolvationGPAW):
         self.dl = doublelayer
         self.verbose = verbose
         self.previous_ne = 0
+        self.write_grandcanonical = write_grandcanonical_energy
         self.previous_pot = None
         self.slope = None
 
@@ -118,6 +120,8 @@ class SJM(SolvationGPAW):
             stencil=mode.interpolation)
 
         self.log(self.hamiltonian)
+
+        xc.set_grid_descriptor(self.hamiltonian.finegd)
 
     def set_atoms(self, atoms):
         self.atoms = atoms
@@ -195,9 +199,12 @@ class SJM(SolvationGPAW):
                             self.density.finegd)
 
                         self.spos_ac = self.atoms.get_scaled_positions() % 1.0
-                        self.initialize_positions(self.atoms)
+
+                        self.density.mixer.reset()
+
                         self.wfs.initialize(self.density, self.hamiltonian,
                                             self.spos_ac)
+
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
@@ -231,7 +238,10 @@ class SJM(SolvationGPAW):
         """
 
         if self.potential:
-            for dummy in range(10):
+            for equil_iter in range(10):
+                if equil_iter == 1:
+                    self.timer.start('Potential equilibration loop')
+
                 self.set_jellium(atoms)
 
                 SolvationGPAW.calculate(self, atoms, ['energy'],
@@ -245,6 +255,8 @@ class SJM(SolvationGPAW):
                 if abs(pot_int - self.potential) < self.dpot:
                     self.previous_pot = pot_int
                     self.previous_ne = self.ne
+                    if equil_iter > 0:
+                        self.timer.stop('Potential equilibration loop')
                     break
 
                 if self.previous_pot is not None:
@@ -287,8 +299,10 @@ class SJM(SolvationGPAW):
                                              atoms=self.atoms,
                                              name='cavity')
 
-        self.write_parallel_func_in_z(self.density.background_charge.mask_g,
-                                      name='background_charge_')
+        if abs(self.ne) > self.tiny:
+            self.write_parallel_func_in_z(
+                self.density.background_charge.mask_g,
+                name='background_charge_')
 
     def summary(self):
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
@@ -296,8 +310,14 @@ class SJM(SolvationGPAW):
         omega_free = Hartree * self.hamiltonian.e_el_free + \
             self.get_electrode_potential()*self.ne
 
-        self.results['energy'] = omega_extra
-        self.results['free_energy'] = omega_free
+        if self.write_grandcanonical:
+            self.results['energy'] = omega_extra
+            self.results['free_energy'] = omega_free
+        else:
+            self.results['energy'] = Hartree * \
+                self.hamiltonian.e_el_extrapolated
+            self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
+
         self.results['ne'] = self.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
@@ -307,6 +327,10 @@ class SJM(SolvationGPAW):
         self.log('Extrpol:    %s' % omega_extra)
         self.log('Free:    %s' % omega_free)
         self.log('-----------------------------------------------------------')
+        if self.write_grandcanonical:
+            self.log("Grand canonical energy will be written into results\n")
+        else:
+            self.log("Canonical energy will be written to results\n")
 
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
