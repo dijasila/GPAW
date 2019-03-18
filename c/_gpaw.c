@@ -129,6 +129,12 @@ PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL and PARALLEL
 
+#ifdef GPAW_WITH_FFTW
+PyObject * FFTWPlan(PyObject *self, PyObject *args);
+PyObject * FFTWExecute(PyObject *self, PyObject *args);
+PyObject * FFTWDestroy(PyObject *self, PyObject *args);
+#endif
+
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
@@ -266,6 +272,11 @@ static PyMethodDef functions[] = {
     {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL && PARALLEL
+#ifdef GPAW_WITH_FFTW
+    {"FFTWPlan", FFTWPlan, METH_VARARGS, 0},
+    {"FFTWExecute", FFTWExecute, METH_VARARGS, 0},
+    {"FFTWDestroy", FFTWDestroy, METH_VARARGS, 0},
+#endif
 #ifdef GPAW_HPM
     {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
     {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},

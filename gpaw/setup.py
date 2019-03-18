@@ -195,13 +195,18 @@ class BaseSetup:
 
         deg_j = 2 * (2 * l_j + 1)
 
-        # Sort after open shells (d - f) and eigenvalues (e):
+        # Sort after:
+        #
+        # 1) empty state (f == 0)
+        # 2) open shells (d - f)
+        # 3) eigenvalues (e)
+
         states = []
         for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
             if e < 0.0:
-                states.append((d - f, e, j))
+                states.append((f == 0, d - f, e, j))
         states.sort()
-        jsorted = [j for _, _, j in states]
+        jsorted = [j for _, _, _, j in states]
 
         # if len(l_j) == 0:
         #     l_j = np.ones(1)
