@@ -64,8 +64,8 @@ platform_id = ''
 
 packages = []
 for dirname, dirnames, filenames in os.walk('gpaw'):
-        if '__init__.py' in filenames:
-            packages.append(dirname.replace('/', '.'))
+    if '__init__.py' in filenames:
+        packages.append(dirname.replace('/', '.'))
 
 import_numpy = True
 if '--ignore-numpy' in sys.argv:
