@@ -408,97 +408,6 @@ class AdiabaticKernelCalculator:
 
             self.world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
-
-        if self.RSrep == 'GPAW':  # XXX old stuff, to be removed
-            print("\tCalculating PAW corrections to the kernel", file=self.fd)
-            
-            G_Gv = pd.get_reciprocal_vectors()
-            R_av = calc.atoms.positions / Bohr
-            setups = calc.wfs.setups
-            D_asp = calc.density.D_asp
-            
-            KxcPAW_GG = np.zeros_like(Kxc_GG)
-            dG_GGv = np.zeros((npw, npw, 3))
-            for v in range(3):
-                dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
-
-            # Distribute computation of PAW correction equally among processes
-            p_r = self.distribute_correction(setups, self.world.size)
-            apdone = 0
-            npdone = 0
-            pdone = 0
-            pdonebefore = np.sum(p_r[:self.world.rank])
-            pdonenow = pdonebefore + p_r[self.world.rank]
-            
-            for a, setup in enumerate(setups):
-                # PAW correction is evaluated on a radial grid
-                Y_nL = setup.xc_correction.Y_nL
-                rgd = setup.xc_correction.rgd
-
-                # Continue if computation has been done already
-                nn = len(Y_nL)
-                ng = len(rgd.r_g)
-                apdone += nn * ng
-                if pdonebefore >= apdone or pdone >= pdonenow:
-                    npdone += nn * ng
-                    pdone += nn * ng
-                    continue
-                
-                n_qg = setup.xc_correction.n_qg
-                nt_qg = setup.xc_correction.nt_qg
-                nc_g = setup.xc_correction.nc_g
-                nct_g = setup.xc_correction.nct_g
-                dv_g = rgd.dv_g
-
-                D_sp = D_asp[a]
-                B_pqL = setup.xc_correction.B_pqL
-                D_sLq = np.inner(D_sp, B_pqL.T)
-                nspins = len(D_sp)
-
-                f_g = rgd.zeros()
-                ft_g = rgd.zeros()
-
-                n_sLg = np.dot(D_sLq, n_qg)
-                nt_sLg = np.dot(D_sLq, nt_qg)
-
-                # Add core density
-                n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
-                nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
-
-                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                
-                for n, Y_L in enumerate(Y_nL):
-                    # Continue if computation has been done already
-                    npdone += ng
-                    if pdonebefore >= npdone or pdone >= pdonenow:
-                        pdone += ng
-                        continue
-                    
-                    w = weight_n[n]
-
-                    f_g[:] = 0.
-                    n_sg = np.dot(Y_L, n_sLg)
-                    add_fxc(rgd, n_sg, f_g)
-
-                    ft_g[:] = 0.
-                    nt_sg = np.dot(Y_L, nt_sLg)
-                    add_fxc(rgd, nt_sg, ft_g)
-
-                    dG_GG = np.inner(dG_GGv, R_nv[n])
-                    for i in range(len(rgd.r_g)):
-                        # Continue if previous ranks already did computation
-                        pdone += 1
-                        if pdonebefore >= pdone:
-                            continue
-                        # Do computation if needed
-                        if pdone <= pdonenow:
-                            coef_GG = np.exp(-1j * dG_GG * rgd.r_g[i])
-                            KxcPAW_GG += w * coefatoms_GG\
-                                * np.dot(coef_GG, (f_g[i] - ft_g[i])
-                                         * dv_g[i])
-            
-            self.world.sum(KxcPAW_GG)
-            Kxc_GG += KxcPAW_GG
         
         return Kxc_GG / vol
 
@@ -562,29 +471,6 @@ class AdiabaticKernelCalculator:
         rsheconv_g[self.dfmask_g] /= self.dfSns_g[self.dfmask_g]
 
         self.rsheconvmin = np.min(rsheconv_g)
-        
-    def distribute_correction(self, setups, size):  # XXX old stuff, tbr
-        """ Make every process work an equal amount """
-        # Figure out the total number of grid points
-        tp = 0
-        for a, setup in enumerate(setups):
-            Y_nL = setup.xc_correction.Y_nL
-            r_g = setup.xc_correction.rgd.r_g
-            tp += len(Y_nL) * len(r_g)
-        
-        # How many points should each process compute
-        ppr = tp // size
-        p_r = []
-        pdone = 0
-        for rr in range(size):
-            if pdone + ppr * (size - rr) > tp:
-                ppr -= 1
-            elif pdone + ppr * (size - rr) < tp:
-                ppr += 1
-            p_r.append(ppr)
-            pdone += ppr
-
-        return p_r
     
     def add_fxc(self, gd, n_sg, fxc_g):
         raise NotImplementedError
