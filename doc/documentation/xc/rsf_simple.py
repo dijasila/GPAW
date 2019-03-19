@@ -1,5 +1,6 @@
 """First example for using RSF."""
 from ase import Atoms
+from gpaw import GPAW
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.occupations import FermiDirac
 

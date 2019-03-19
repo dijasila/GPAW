@@ -317,8 +317,9 @@ class ElectronPhononCouplingMatrix:
 def get_grid_dP_aMix(spos_ac, wfs, q, timer=nulltimer): # XXXXXX q
     nao = wfs.setups.nao
     C_MM = np.identity(nao, dtype=wfs.dtype)
-    dP_aMix = {} # XXX In the future use the New Two-Center integrals
-                 # to evaluate this
+    # XXX In the future use the New Two-Center integrals
+    # to evaluate this
+    dP_aMix = {}
     for a, setup in enumerate(wfs.setups):
         ni = 0
         dP_Mix = np.zeros((nao, setup.ni, 3))
@@ -363,7 +364,7 @@ def get_tci_dP_aMix(spos_ac, wfs, q, *args, **kwargs):
     # container for spline expansions of basis function-projector pairs
     # (note to self: remember to conjugate/negate because of that)
     from gpaw.lcao.overlap import ManySiteDictionaryWrapper,\
-         TwoCenterIntegralCalculator, NewTwoCenterIntegrals
+        TwoCenterIntegralCalculator, NewTwoCenterIntegrals
 
     if not isinstance(wfs.tci, NewTwoCenterIntegrals):
         raise RuntimeError('Please remember --gpaw=usenewtci=True')

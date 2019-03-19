@@ -87,10 +87,10 @@ mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_mw1 = 247.45900031014196  # meV
-test_Ipeak1 = 69.03459765802732  # a.u.
-test_mw2 = 249.07170917738293  # meV
-test_Ipeak2 = 66.2462879760728  # a.u.
+test_mw1 = 247.46  # meV
+test_mw2 = 249.07  # meV
+test_Ipeak1 = 69.03  # a.u.
+test_Ipeak2 = 66.25  # a.u.
 
 # Magnon peak:
 equal(test_mw1, mw1, eta * 100)

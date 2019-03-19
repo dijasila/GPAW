@@ -60,7 +60,7 @@ def get_bz_transitions(filename, q_c, bzk_kc,
     Get transitions in the Brillouin zone from kpoints bzk_kv
     contributing to the linear response at wave vector q_c.
     """
-    
+
     pair = PairDensity(filename, ecut=ecut, response=response, txt=txt)
     pd = get_pw_descriptor(q_c, pair.calc, pair.ecut)
 
@@ -82,7 +82,7 @@ def get_bz_transitions(filename, q_c, bzk_kc,
         for domain_l, index in zip(domain_dl, unravelled_d):
             arg.append(domain_l[index])
         domainarg_td.append(tuple(arg))
-    
+
     return pair, pd, domainarg_td
 
 
@@ -92,7 +92,7 @@ def get_chi0_integrand(pair, pd, n_n, m_m, k_v, s):
     and energy differences of transitions from certain kpoint
     and spin.
     """
-    
+
     k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
 
     kptpair = pair.get_kpoint_pair(pd, s, k_c, n_n[0], n_n[-1] + 1,
@@ -148,7 +148,7 @@ def find_peaks(x, y, threshold=None):
 
     if threshold is None:
         threshold = (x.min(), x.max(), y.min(), y.max())
-        
+
     if not isinstance(threshold, tuple):
         threshold = (threshold, )
 
@@ -178,7 +178,7 @@ def find_peaks(x, y, threshold=None):
     peakarray = np.zeros([npeak, 2])
     for i in range(npeak):
         peakarray[i] = peak[i]
-        
+
     return peakarray
 
 
@@ -203,11 +203,11 @@ def lorz_fit(x, y, npeak=1, initpara=None):
         Parameters for curving fitting function. [A, x0, y0, w]
     p0: ndarray
         Parameters for initial guessing. similar to p
-    
+
     """
 
     def residual(p, x, y):
-        
+
         err = y - lorz(x, p, npeak)
         return err
 
@@ -228,7 +228,7 @@ def lorz_fit(x, y, npeak=1, initpara=None):
             initpara = np.array([1., 0., 0., 0.1,
                                  3., 0., 0., 0.1])
     p0 = initpara
-    
+
     result = leastsq(residual, p0, args=(x, y), maxfev=2000)
 
     yfit = lorz(x, result[0], npeak)
@@ -237,7 +237,6 @@ def lorz_fit(x, y, npeak=1, initpara=None):
 
 
 def linear_fit(x, y, initpara=None):
-    
     def residual(p, x, y):
         err = y - linear(x, p)
         return err
@@ -278,7 +277,7 @@ def plot_setticks(x=True, y=True):
         ax.xaxis.set_minor_locator(pl.MultipleLocator(dx_minor))
     else:
         pl.minorticks_off()
-        
+
     if y:
         ax.yaxis.set_major_locator(pl.AutoLocator())
         y_major = ax.yaxis.get_majorticklocs()

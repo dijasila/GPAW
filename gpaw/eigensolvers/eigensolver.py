@@ -143,7 +143,7 @@ class Eigensolver:
         psit = kpt.psit
         tmp = psit.new(buf=wfs.work_array)
         H = wfs.work_matrix_nn
-        P2 = kpt.P.new()
+        P2 = kpt.projections.new()
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
@@ -153,8 +153,8 @@ class Eigensolver:
             # our matrices.
             psit.matrix_elements(operator=Ht, result=tmp, out=H,
                                  symmetric=True, cc=True)
-            ham.dH(kpt.P, out=P2)
-            mmm(1.0, kpt.P, 'N', P2, 'C', 1.0, H, symmetric=True)
+            ham.dH(kpt.projections, out=P2)
+            mmm(1.0, kpt.projections, 'N', P2, 'C', 1.0, H, symmetric=True)
             ham.xc.correct_hamiltonian_matrix(kpt, H.array)
 
         with wfs.timer('diagonalize'):
@@ -178,8 +178,8 @@ class Eigensolver:
                 mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)
             mmm(1.0, H, 'N', psit, 'N', 0.0, tmp)
             psit[:] = tmp
-            mmm(1.0, H, 'N', kpt.P, 'N', 0.0, P2)
-            kpt.P.matrix = P2.matrix
+            mmm(1.0, H, 'N', kpt.projections, 'N', 0.0, P2)
+            kpt.projections.matrix = P2.matrix
             # Rotate orbital dependent XC stuff:
             ham.xc.rotate(kpt, H.array.T)
 

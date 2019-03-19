@@ -221,7 +221,7 @@ class ReciprocalMetric:
         self.q1 = (weight - 1) * k2_min
 
     def __call__(self, R_Q, mR_Q):
-            mR_Q[:] = R_Q * (1.0 + self.q1 / self.k2_Q)
+        mR_Q[:] = R_Q * (1.0 + self.q1 / self.k2_Q)
 
 
 class FFTBaseMixer(BaseMixer):

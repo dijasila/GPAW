@@ -1,5 +1,4 @@
 import sys
-import numpy as np
 from ase.parallel import world
 from ase.optimize import BFGS
 from ase.visualize import view
@@ -87,8 +86,8 @@ else:
     ne_img = [ne_IS]
 
     for i in range(nimg):
-            images.append(initial.copy())
-            ne_img.append(ne_IS + (ne_FS - ne_IS) * (i+1) / float(nimg + 1))
+        images.append(initial.copy())
+        ne_img.append(ne_IS + (ne_FS - ne_IS) * (i+1) / float(nimg + 1))
 
     images.append(final)
     ne_img.append(ne_FS)

@@ -10,8 +10,10 @@ for i in range(12):
     mol.center(vacuum=1.5)
     calc = GPAW(h=0.3, nbands=2, mode='lcao', txt=None, basis='sz(dzp)',
                 poissonsolver=PoissonSolver(eps=17.), xc='oldLDA')
+
     def stop():
         calc.scf.converged = True
+
     calc.attach(stop, 1)
     mol.set_calculator(calc)
     e = mol.get_potential_energy()

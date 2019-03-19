@@ -8,7 +8,6 @@ try:
     mpl.use('Agg')  # force the antigrain backend
     from matplotlib.figure import Figure
     from matplotlib.backends.backend_agg import FigureCanvasAgg
-    import os
     import warnings
     # silence matplotlib.use() warning
     warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
@@ -19,7 +18,7 @@ from scipy.optimize import leastsq
 from ase.units import second
 from ase.io import Trajectory
 
-# Dimer oscillation model used for least-squares fit 
+# Dimer oscillation model used for least-squares fit
 def f(p, t):
     return p[0] * np.cos(p[1] * (t - p[2])) + p[3]
 

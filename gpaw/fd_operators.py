@@ -130,10 +130,10 @@ if debug:
 
 
 def Laplace(gd, scale=1.0, n=1, dtype=float):
-        if n == 9:
-            return FTLaplace(gd, scale, dtype)
-        else:
-            return GUCLaplace(gd, scale, n, dtype)
+    if n == 9:
+        return FTLaplace(gd, scale, dtype)
+    else:
+        return GUCLaplace(gd, scale, n, dtype)
 
 
 class GUCLaplace(FDOperator):

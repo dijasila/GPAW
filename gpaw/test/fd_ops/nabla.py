@@ -29,6 +29,7 @@ class TestSetup(Setup):
     l_j = range(lmax + 1)
     nj = lmax + 1
     ni = m
+
     def __init__(self):
         pass
 rgd = EquidistantRadialGridDescriptor(r[1], len(r))

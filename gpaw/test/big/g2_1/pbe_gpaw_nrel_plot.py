@@ -45,7 +45,7 @@ def containatom(atom, formulas, data):
             molecules.append(f)
     return list(set(molecules))
 
-    
+
 def get_statistics(result, reference):
     skeys = sorted(result.keys())
     res1 = []
@@ -153,7 +153,7 @@ def plot(xdata, ydata, std,
     pylab.figure(num=num, figsize=(9.5, 9))
     pylab.gca().set_position([0.10, 0.20, 0.85, 0.60])
     # let the plot have fixed y-axis scale
-    ywindow = maxy - miny
+    # ywindow = maxy - miny
     #pylab.gca().set_ylim(miny, maxy+ywindow/5.0)
     pylab.gca().set_ylim(miny, maxy)
     #pylab.plot(xdata, ydata, 'b.', label=label, color=color)
@@ -178,7 +178,7 @@ def plot_save(directory_name, out_prefix):
 
 import matplotlib
 matplotlib.use('Agg')
-from matplotlib import pylab, ticker
+from matplotlib import pylab
 # print scaling results
 
 num=1

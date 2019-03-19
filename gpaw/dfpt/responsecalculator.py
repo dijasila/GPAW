@@ -36,7 +36,7 @@ class ResponseCalculator:
         Length of history for the mixer.
     weight: int
         Weight for the mixer metric (=1 -> no metric used).
-        
+
     """
 
     parameters = {'verbose':               False,
@@ -50,7 +50,7 @@ class ResponseCalculator:
                   'nmaxold':               6,
                   'weight':                50
                   }
-    
+
     def __init__(self, calc, wfs, poisson_solver=None, dtype=float, **kwargs):
         """Store calculator etc.
 
@@ -68,9 +68,9 @@ class ResponseCalculator:
             function).
         dtype: ...
             dtype of the density response.
-            
+
         """
-        
+
         # Store ground-state quantities
         self.hamiltonian = calc.hamiltonian
         self.density = calc.density
@@ -88,7 +88,7 @@ class ResponseCalculator:
         else:
             self.poisson = poisson_solver
             self.solve_poisson = self.poisson.solve_neutral
-       
+
         # Store grid-descriptors
         self.gd = calc.density.gd
         self.finegd = calc.density.finegd
@@ -97,7 +97,7 @@ class ResponseCalculator:
         self.gs_dtype = calc.wfs.dtype
         # dtype for the perturbing potential and density
         self.dtype = dtype
-        
+
         # Grid transformer -- convert array from coarse to fine grid
         self.interpolator = Transformer(self.gd, self.finegd, nn=3,
                                         dtype=self.dtype)
@@ -123,12 +123,12 @@ class ResponseCalculator:
 
         # Perturbation
         self.perturbation = None
-        
+
         # Number of occupied bands
         nvalence = calc.wfs.nvalence
         self.nbands = nvalence // 2 + nvalence % 2
         assert self.nbands <= calc.wfs.bd.nbands
-                                  
+
         self.initialized = False
 
         self.parameters = {}
@@ -144,7 +144,7 @@ class ResponseCalculator:
         self.vHXC1_G = None
         self.nt1_g = None
         self.vH1_g = None
-        
+
     def __call__(self, perturbation):
         """Calculate density response (derivative) to perturbation.
 
@@ -154,13 +154,13 @@ class ResponseCalculator:
             Class implementing the perturbing potential. Must provide an
             ``apply`` member function implementing the multiplication of the
             perturbing potential to a (set of) state vector(s).
-            
+
         """
-        
+
         assert self.initialized, ("Linear response calculator "
                                   "not initizalized.")
         self.clean()
-        
+
         if self.poisson is None:
             assert hasattr(perturbation, 'solve_poisson')
             self.solve_poisson = perturbation.solve_poisson
@@ -179,7 +179,7 @@ class ResponseCalculator:
         p = self.parameters
         max_iter = p['max_iter']
         tolerance = p['tolerance_sc']
-        
+
         for iter in range(max_iter):
 
             if iter == 0:
@@ -191,22 +191,22 @@ class ResponseCalculator:
                 print(("integrated density response (abs): % 5.2e (%5.2e) "
                        % (self.gd.integrate(self.nt1_G.real),
                           self.gd.integrate(np.absolute(self.nt1_G)))))
-                       
+
                 if norm < tolerance:
                     print(("self-consistent loop converged in %i iterations"
                            % iter))
                     break
-                
+
             if iter == max_iter:
                 raise RuntimeError("self-consistent loop did not converge "
                                      "in %i iterations" % iter)
-   
+
     def set(self, **kwargs):
         """Set parameters for calculation."""
 
         # Check for legal input parameters
         for key, value in kwargs.items():
-            if not key in ResponseCalculator.parameters:
+            if key not in ResponseCalculator.parameters:
                 raise TypeError("Unknown keyword argument: '%s'" % key)
 
         # Insert default values if not given
@@ -215,7 +215,7 @@ class ResponseCalculator:
                 kwargs[key] = value
 
         self.parameters.update(kwargs)
-            
+
     def initialize(self, spos_ac):
         """Make the object ready for a calculation."""
 
@@ -224,20 +224,20 @@ class ResponseCalculator:
         beta = p['beta']
         nmaxold = p['nmaxold']
         weight = p['weight']
-        use_pc = p['use_pc']
+        # use_pc = p['use_pc']
         tolerance_sternheimer = p['tolerance_sternheimer']
         max_iter_krylov = p['max_iter_krylov']
         krylov_solver = p['krylov_solver']
-                
+
         # Initialize WaveFunctions attribute
         self.wfs.initialize(spos_ac)
-        
+
         # Initialize mixer
         # weight = 1 -> no metric is used
         self.mixer = BaseMixer(beta=beta, nmaxold=nmaxold,
                                weight=weight, dtype=self.dtype)
         self.mixer.initialize_metric(self.gd)
-        
+
         # Linear operator in the Sternheimer equation
         self.sternheimer_operator = \
             SternheimerOperator(self.hamiltonian, self.wfs, self.gd,
@@ -268,7 +268,7 @@ class ResponseCalculator:
         self.density_response()
         self.mixer.mix(self.nt1_G, [], phase_cd=self.phase_cd)
         self.interpolate_density()
-        
+
     def iteration(self):
         """Perform iteration."""
 
@@ -282,7 +282,7 @@ class ResponseCalculator:
         norm = self.mixer.mix(self.nt1_G, [], phase_cd=self.phase_cd)
 
         self.interpolate_density()
-       
+
         return norm
 
     def interpolate_density(self):
@@ -290,7 +290,7 @@ class ResponseCalculator:
 
         self.nt1_g = self.finegd.zeros(dtype=self.dtype)
         self.interpolator.apply(self.nt1_G, self.nt1_g, phases=self.phase_cd)
-        
+
     def effective_potential_variation(self):
         """Calculate derivative of the effective potential (Hartree + XC)."""
 
@@ -299,7 +299,7 @@ class ResponseCalculator:
         self.solve_poisson(vHXC1_g, self.nt1_g)
         # Store for evaluation of second order derivative
         self.vH1_g = vHXC1_g.copy()
-        
+
         # XC part
         nt_sg = self.density.nt_sg
         fxct_sg = np.zeros_like(nt_sg)
@@ -309,7 +309,7 @@ class ResponseCalculator:
         # Transfer to coarse grid
         self.vHXC1_G = self.gd.zeros(dtype=self.dtype)
         self.restrictor.apply(vHXC1_g, self.vHXC1_G, phases=self.phase_cd)
-    
+
     def wave_function_variations(self):
         """Calculate variation in the wave-functions.
 
@@ -338,7 +338,7 @@ class ResponseCalculator:
 
             if verbose:
                 print("k-point %2.1i" % k)
-            
+
             # Index of k+q vector
             if kplusq_k is None:
                 kplusq = k
@@ -357,7 +357,7 @@ class ResponseCalculator:
             if self.pc is not None:
                 # k+q
                 self.pc.set_kpt(kplusqpt)
-                
+
             # Right-hand side of Sternheimer equations
             # k and k+q
             # XXX should only be done once for all k-points but maybe too cheap
@@ -368,7 +368,7 @@ class ResponseCalculator:
                 rhs_nG += self.vHXC1_G * psit_nG
             # Project out occupied subspace
             self.sternheimer_operator.project(rhs_nG)
-              
+
             # Loop over occupied bands
             for n in range(self.nbands):
 
@@ -378,14 +378,14 @@ class ResponseCalculator:
                 psit1_G = psit1_nG[n]
                 # Rhs of Sternheimer equation
                 rhs_G = -1 * rhs_nG[n]
-               
+
                 # Solve Sternheimer equation
                 iter, info = self.linear_solver.solve(self.sternheimer_operator,
                                                       psit1_G, rhs_G)
-                
+
                 if verbose:
                     print("\tBand %2.1i -" % n, end=' ')
-                    
+
                 if info == 0:
                     if verbose:
                         print("linear solver converged in %i iterations" % iter)

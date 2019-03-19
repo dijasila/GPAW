@@ -11,7 +11,7 @@ z = data['z'] * Bohr
 V_diff = data['V_X'] - data['V_0']
 # plt.plot(z, dV.real, '-', label=r'$\Delta V(z)$')
 # plt.plot(z, V_model.real, '-', label='$V(z)$')
-plt.plot(z, V_diff.real, '-',
+plt.plot(z, V_diff.real[0], '-',
          label=(r'$[V^{V_\mathrm{Ga}^{-3}}_\mathrm{el}(z) -'
                 r'V^{0}_\mathrm{el}(z) ]$'))
 

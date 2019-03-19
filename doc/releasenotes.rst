@@ -18,6 +18,9 @@ Git master branch
 
 * How to do :ref:`ehrenfest` has now been documented.
 
+* Non self-consistent hybrid functional calculations can now be continued if
+  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+
 
 Version 1.5.1
 =============

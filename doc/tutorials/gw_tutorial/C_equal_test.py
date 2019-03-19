@@ -2,12 +2,9 @@ import pickle
 import numpy as np
 
 from ase.parallel import paropen
-from ase.build import bulk
 
 from gpaw.test import equal
-from gpaw import GPAW, FermiDirac
-from gpaw.wavefunctions.pw import PW
-from gpaw.response.g0w0 import G0W0
+
 
 ecut_equal = np.array([[19.157, 18.639, 18.502],[11.814, 11.165, 10.974]])
 for i, ecut in enumerate([100,200,300]):

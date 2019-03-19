@@ -20,7 +20,6 @@ from gpaw.solvation import (
     SSS09Density,
     # dielectric
     LinearDielectric,
-    CMDielectric,  # not used any more
     # non-el interactions
     SurfaceInteraction,
     VolumeInteraction,

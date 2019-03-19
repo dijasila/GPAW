@@ -1,4 +1,6 @@
 import numpy as np
+from pathlib import Path
+from gpaw.mpi import world
 from gpaw.response.bse import BSE
 from gpaw.response.df import DielectricFunction
 
@@ -8,7 +10,7 @@ eta = 0.2
 
 df = DielectricFunction('gs_Si.gpw',
                         ecut=ecut,
-                        frequencies=np.linspace(0., 10., 1001),
+                        frequencies=np.linspace(0, 10, 1001),
                         nbands=8,
                         intraband=False,
                         hilbert=False,
@@ -33,3 +35,6 @@ bse.get_dielectric_function(filename='eps_bse_Si.csv',
                             eta=eta,
                             write_eig='bse_Si_eig.dat',
                             w_w=np.linspace(0.0, 10.0, 10001))
+
+if world.rank == 0:
+    Path('v_TS.ulm').unlink()

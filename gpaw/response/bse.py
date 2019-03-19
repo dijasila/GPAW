@@ -132,7 +132,7 @@ class BSE:
             if self.spinors:
                 self.spinors = False
                 print('***WARNING*** Presently the spinor version' +
-                      'does not work for spin-polarized calculations.' + 
+                      'does not work for spin-polarized calculations.' +
                       'Performing scalar calculation', file=self.fd)
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
@@ -161,7 +161,7 @@ class BSE:
             for n in self.val_sn[1]:
                 if n in self.con_sn[1]:
                     self.td = False
-            
+
         self.nv = len(self.val_sn[0])
         self.nc = len(self.con_sn[0])
         if eshift is not None:
@@ -191,11 +191,11 @@ class BSE:
     def calculate(self, optical=True, ac=1.0):
 
         if self.spinors:
-            """Calculate spinors. Here m is index of eigenvalues with SOC 
-            and n is the basis of eigenstates withour SOC. Below m is used 
-            for unoccupied states and n is used for occupied states so be 
+            """Calculate spinors. Here m is index of eigenvalues with SOC
+            and n is the basis of eigenstates withour SOC. Below m is used
+            for unoccupied states and n is used for occupied states so be
             careful!"""
-        
+
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
             param = self.calc.parameters
             if not param['symmetry'] == 'off':
@@ -210,8 +210,9 @@ class BSE:
                     calc_so.density = self.calc.density
                     calc_so.get_potential_energy()
                     calc_so.write('gs_nosym.gpw')
-                calc_so = GPAW('gs_nosym.gpw', txt=None, communicator=serial_comm)
-                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so, 
+                calc_so = GPAW('gs_nosym.gpw', txt=None,
+                               communicator=serial_comm)
+                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so,
                                                         return_wfs=True,
                                                         scale=self.scale)
                 del calc_so
@@ -254,7 +255,7 @@ class BSE:
         Nv, Nc = so * self.nv, so * self.nc
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
-        rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
+        # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
         df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float) # -(ev - ec)
         deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float) # -(fv - fc)
         if np.allclose(self.q_c, 0.0):
@@ -309,7 +310,7 @@ class BSE:
                 if self.spinors:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
-                        rho_mnG[:, :, 0] *= deps0_mn 
+                        rho_mnG[:, :, 0] *= deps0_mn
                     df_Ksmn[iK, s, ::2, ::2] = df_mn
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
@@ -421,7 +422,7 @@ class BSE:
         if not self.td:
             self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
         # multiply by 2 when spin-paired and no SOC
-        self.df_S *= 2.0 / nK / Ns / so 
+        self.df_S *= 2.0 / nK / Ns / so
         self.deps_s = np.reshape(deps_ksmn, -1)
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
@@ -1103,7 +1104,7 @@ class BSE:
         p('Valence electrons              :', self.calc.wfs.setups.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.calc.wfs.bd.nbands)
-        p('Number of spins                :', self.calc.wfs.nspins)        
+        p('Number of spins                :', self.calc.wfs.nspins)
         p('Number of k-points             :', self.kd.nbzkpts)
         p('Number of irreducible k-points :', self.kd.nibzkpts)
         p('Number of q-points             :', self.qd.nbzkpts)
