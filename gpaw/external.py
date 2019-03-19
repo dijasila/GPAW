@@ -113,7 +113,7 @@ class ProductPotential(ExternalPotential):
         self.ext_i = ext_i
 
     def calculate_potential(self, gd):
-        self.vext_g = self.ext_i[0].get_potential(gd)
+        self.vext_g = self.ext_i[0].get_potential(gd).copy()
         for ext in self.ext_i[1:]:
             self.vext_g *= ext.get_potential(gd)
 
