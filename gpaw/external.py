@@ -108,6 +108,24 @@ class ConstantElectricField(ExternalPotential):
                 'direction': self.field_v / strength}
 
 
+class ProductPotential(ExternalPotential):
+    def __init__(self, ext_i):
+        self.ext_i = ext_i
+
+    def calculate_potential(self, gd):
+        self.vext_g = self.ext_i[0].get_potential(gd)
+        for ext in self.ext_i[1:]:
+            self.vext_g *= ext.get_potential(gd)
+
+    def __str__(self):
+        return '\n'.join(['Product of potentials:'] +
+                         [ext.__str__() for ext in self.ext_i])
+
+    def todict(self):
+        return {'name': self.__class__.__name__,
+                'ext_i': [ext.todict() for ext in self.ext_i]}
+
+
 class PointChargePotential(ExternalPotential):
     def __init__(self, charges, positions=None,
                  rc=0.2, rc2=np.inf, width=1.0):
