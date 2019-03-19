@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.17.1b1
 
+* The angular part of the PAW correction to the ALDA kernel is now calculated
+  analytically by expanding the correction in spherical harmonics.
+
 * Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
   for how to use it to calculate spontaneous polarization, Born effective
   charges and other physical properties.
