@@ -1,7 +1,7 @@
 from gpaw import GPAW
 import numpy as np
 from scipy.sparse.linalg import LinearOperator, bicgstab
-from gpaw.utilities import pack, unpack
+from gpaw.utilities import pack, unpack, unpack2
 from time import time
 
 
@@ -84,9 +84,9 @@ class SternheimerResponse:
         self.calc.initialize_positions()
         self.c_qani = {}
         self.c_qnai = {}
-        bz_to_ibz = self.calc.get_bz_to_ibz_map()
-        ntotal_kpts = len(bz_to_ibz)
-        spin_factor = 2
+        #bz_to_ibz = self.calc.get_bz_to_ibz_map()
+        #ntotal_kpts = len(bz_to_ibz)
+        spin_factor = 1
         self.kpt_weight = spin_factor*self.wfs.kd.weight_k
         #np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*
         #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
@@ -444,7 +444,7 @@ class SternheimerResponse:
             print("Using previously calculated deltapsi")
             deltapsi_qnG = self.deltapsi_qnG
 
-        error_threshold = 1e-5
+        error_threshold = 1e-6
         error = 100
 
         max_iter = 100
@@ -576,9 +576,10 @@ class SternheimerResponse:
             k_plus_q_index = self.wfs.kd.bz2ibz_k[k_plus_q_index]
             
             
-            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index)# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
+
+            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index)+1# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
             if np.allclose(self.wfs.kd.bzk_kc[bzk_index], [0, 0, 0]):
-                deltapsi_qnG[k_plus_q_index] += 1
+                deltapsi_qnG[k_plus_q_index][:][1:] += 1
             
             numgs = deltapsi_qnG[k_plus_q_index][0].shape[0]
             #deltapsi_qnG[k_plus_q_index][:, np.random.randint(numgs)] = 2
@@ -645,28 +646,42 @@ class SternheimerResponse:
         pt = self.wfs.pt
         D_aii = {}
         nvalence = self.wfs.setups.nvalence//2
-        fn = 0
         for q_index, deltapsi_nG in deltapsi_qnG.items():
+
             c_ani = pt.integrate(deltapsi_nG, q=q_index)
-
-
             kpt = self.wfs.mykpts[q_index]
 
-            #if np.allclose(self.wfs.kd.ibzk_kc[kpt.k], np.array([0, 0, 0])):
-                #print("c_ani:", c_ani[0][0])
-                #pr = False
             for a, c_ni in c_ani.items():
                 P_ni = kpt.projections[a][:nvalence]
-                #if pr and np.allclose(self.wfs.kd.ibzk_kc[kpt.k], np.array([0.125, 0.125, -0.125])):
-                    #print("P_ni", P_ni[0])
-                    #pr = False
-                U_ij = np.dot(P_ni.T.conj()*kpt.f_n[:nvalence], c_ni)
-                fn += kpt.f_n
-                if a in D_aii:
-                    D_aii[a] += U_ij + U_ij.conj().T
-                else:
-                    D_aii[a] = U_ij + U_ij.conj().T
 
+                U_ij = np.dot(P_ni.conj().T*kpt.f_n[:nvalence], c_ni)
+
+                if a in D_aii:
+                    D_aii[a] +=  U_ij + U_ij.conj().T# + U_ij.conj().T
+                else:
+                    D_aii[a] = U_ij + U_ij.conj().T# + U_ij.conj().T
+
+
+        oldD_aii = D_aii.copy()
+        D_asp = {a : np.array([ pack(D_aii[a]).real ]) for a in D_aii} 
+
+        a_sa = self.wfs.kd.symmetry.a_sa
+
+        for s in range(self.wfs.nspins):
+            D_aii = [unpack2(D_asp[a][s])
+                     for a in range(len(D_asp))]
+            for a, D_ii in enumerate(D_aii):
+                setup = self.wfs.setups[a]
+                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+
+
+        print(f"Size of D_ii: {D_aii[0].shape}")
+        D_aii = {a: unpack2(D_asp[a][0]) for a in D_asp}
+        print("Delta D:")
+        print(D_aii[0][:4, :4])
+        print("Old Delta D:")
+        print(oldD_aii[0][:4, :4].real)
+        exit()
         return D_aii
         
 
@@ -690,7 +705,8 @@ class SternheimerResponse:
        
         #Comp charges is dict: atom -> charge
         DeltaD_aii = self.get_density_matrix(deltapsi_qnG)
-        print(DeltaD_aii[0][:2,:2])
+        print("Delta D:")
+        print(DeltaD_aii[0][:4, :4])
         exit()
         total_delta_comp_charge = self.get_compensation_charges(deltapsi_qnG, DeltaD_aii)
 
@@ -1172,7 +1188,7 @@ class SternheimerResponse:
 
 
 if __name__=="__main__":
-    filen = "test.gpw"
+    #filen = "test.gpw"
     import sys
     filen = sys.argv[1] + ".gpw"
     outname = sys.argv[1] + ".out"
@@ -1200,7 +1216,7 @@ if __name__=="__main__":
                     xc ="PBE",                
                     kpts={"size":(4,4,4), "gamma":True},
                     random=True,
-                    #symmetry="off",#{"point_group": False},
+                    symmetry="off",#{"point_group": False},
                     occupations=FermiDirac(0.01),
                     basis="dzp",
                     txt = outname)
