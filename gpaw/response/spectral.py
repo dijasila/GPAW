@@ -3,35 +3,10 @@ import numpy as np
 from time import time
 
 
-
-
-
-#for W_q in calc W
-##for state in kpt2.n
-###for w in ws
-####sigma += dsigma
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class SpectralFunction:
     def __init__(self, gw_object):
         self.gw_object = gw_object
-        self.fxc_mode = fxc_mode
+        #self.fxc_mode = fxc_mode
         #gw_object.fxc_mode = fxc_mode
         #gw_object.xc = xc
         self.gw_object.ite = 0
