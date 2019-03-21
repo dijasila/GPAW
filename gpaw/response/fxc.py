@@ -66,7 +66,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     elif functional[0] == 'r':
         # Renormalized kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kxc_sGG = calculate_renormalized_kernel(pd, calc, functional, fd)
+        Kxc_sGG = calculate_renormalized_kernel(pd, calc, functional, fd, density_cut=density_cut)
     elif functional[:2] == 'LR':
         print('Calculating LR kernel with alpha = %s' % functional[2:],
               file=fd)
@@ -530,7 +530,7 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             return fx_G + fc_G
 
 
-def calculate_renormalized_kernel(pd, calc, functional, fd):
+def calculate_renormalized_kernel(pd, calc, functional, fd, density_cut=None):
     """Renormalized kernel"""
     
     from gpaw.xc.fxc import KernelDens
@@ -539,13 +539,13 @@ def calculate_renormalized_kernel(pd, calc, functional, fd):
                         [pd.kd.bzk_kc[0]],
                         fd,
                         calc.wfs.kd.N_c,
-                        None,
+                        density_cut,
                         ecut=pd.ecut * Ha,
                         tag='',
                         timer=Timer())
     
     kernel.calculate_fhxc()
-    r = Reader('fhxc_%s_%s_%s_%s.gpw' %
+    r = Reader('fhxc_%s_%s_%s_%s.ulm' %
                ('', functional, pd.ecut * Ha, 0))
     Kxc_sGG = np.array([r.get('fhxc_sGsG')])
     

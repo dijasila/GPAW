@@ -472,7 +472,7 @@ class FXCCorrelation(RPACorrelation):
 class KernelWave:
 
     def __init__(self, calc, xc, ibzq_qc, fd, l_l, q_empty,
-                 omega_w, Eg, ecut, tag, timer):
+                 omega_w, Eg, ecut, tag, timer, file_prefix=""):
 
         self.calc = calc
         self.gd = calc.density.gd
@@ -487,6 +487,7 @@ class KernelWave:
         self.ecut = ecut
         self.tag = tag
         self.timer = timer
+        self.file_prefix = file_prefix
 
         if l_l is None:  # -> Kernel is linear in coupling strength
             self.l_l = [1.0]
@@ -556,7 +557,7 @@ class KernelWave:
                 self.s2_g[poskern_ind] = 0.0
 
     def calculate_fhxc(self):
-
+        prefix = self.file_prefix
         print('Calculating %s kernel at %d eV cutoff' %
               (self.xc, self.ecut), file=self.fd)
         self.fd.flush()
@@ -733,7 +734,7 @@ class KernelWave:
             # Write to disk
             if mpi.rank == 0:
 
-                w = ulm.open('fhxc_%s_%s_%s_%s.ulm' %
+                w = ulm.open(prefix + 'fhxc_%s_%s_%s_%s.ulm' %
                              (self.tag, self.xc, self.ecut, iq), 'w')
 
                 if calc_spincorr:

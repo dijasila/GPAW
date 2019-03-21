@@ -6,8 +6,14 @@ from gpaw.xc.fxc import KernelWave
 from ase.io.aff import affopen
 
 def calculate_kernel(self, nG, ns, iq, cut_G=None):
+    prefix = self.kernel_file_prefix or ""
     self.unit_cells = self.calc.wfs.kd.N_c
-    self.tag = self.calc.atoms.get_chemical_formula(mode='hill')
+
+    
+    ## 4x4x4
+    kgrid = f"{self.unit_cells[0]}x{self.unit_cells[1]}x{self.unit_cells[2]}"
+    self.tag = self.calc.atoms.get_chemical_formula(mode='hill') + kgrid
+
 
     if self.av_scheme is not None:
         self.tag += '_' + self.av_scheme + '_nspins' + str(self.nspins)
@@ -25,7 +31,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
 
     q_empty = None
 
-    if not os.path.isfile('fhxc_%s_%s_%s_%s.ulm'
+    if not os.path.isfile(prefix + 'fhxc_%s_%s_%s_%s.ulm'
                           % (self.tag, self.xc,
                              self.ecut_max, iq)):
         q_empty = iq
@@ -45,7 +51,8 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                                     self.Eg,
                                     self.ecut_max,
                                     self.tag,
-                                    self.timer)
+                                    self.timer,
+                                    prefix)
 
             elif not self.dyn_kernel:
                 kernel = KernelWave(self.calc,
@@ -58,7 +65,8 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                                     self.Eg,
                                     self.ecut_max,
                                     self.tag,
-                                    self.timer)
+                                    self.timer,
+                                    prefix)
 
             else:
                 kernel = KernelWave(self.calc,
@@ -71,7 +79,8 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                                     self.Eg,
                                     self.ecut_max,
                                     self.tag,
-                                    self.timer)
+                                    self.timer,
+                                    prefix)
 
             kernel.calculate_fhxc()
             del kernel
@@ -79,7 +88,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
         mpi.world.barrier()
 
         if self.spin_kernel:
-            r = affopen('fhxc_%s_%s_%s_%s.ulm' %
+            r = affopen(prefix + 'fhxc_%s_%s_%s_%s.ulm' %
                         (self.tag, self.xc, self.ecut_max, iq))
             fv = r.fhxc_sGsG
         
@@ -96,7 +105,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
 #                    fv = np.exp(-0.25 * (G_G * self.range_rc) ** 2.0)
 
             elif self.linear_kernel:
-                r = affopen('fhxc_%s_%s_%s_%s.ulm' %
+                r = affopen(prefix + 'fhxc_%s_%s_%s_%s.ulm' %
                             (self.tag, self.xc, self.ecut_max, iq))
                 fv = r.fhxc_sGsG
                 
@@ -106,7 +115,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
             elif not self.dyn_kernel:
                 # static kernel which does not scale with lambda
                 
-                r = affopen('fhxc_%s_%s_%s_%s.ulm' %
+                r = affopen(prefix + 'fhxc_%s_%s_%s_%s.ulm' %
                             (self.tag, self.xc, self.ecut_max, iq))
                 fv = r.fhxc_lGG
             
@@ -114,7 +123,7 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
                     fv = fv.take(cut_G, 1).take(cut_G, 2)
 
             else:  # dynamical kernel
-                r = affopen('fhxc_%s_%s_%s_%s.ulm' %
+                r = affopen(prefix + 'fhxc_%s_%s_%s_%s.ulm' %
                             (self.tag, self.xc, self.ecut_max, iq))
                 fv = r.fhxc_lwGG
                         

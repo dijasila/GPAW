@@ -556,7 +556,7 @@ class DielectricFunction:
         return eps0, eps
 
     def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
-                          direction='x', filename='eels.csv'):
+                          direction='x', filename='eels.csv', density_cut=0):
         """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
 
         EELS spectrum is obtained from the imaginary part of the
@@ -568,7 +568,7 @@ class DielectricFunction:
         
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                               direction=direction)
+                                               direction=direction, density_cut=density_cut)
         Nw = self.omega_w.shape[0]
 
         # Calculate eels = -Im 4 \pi / q^2  \chi

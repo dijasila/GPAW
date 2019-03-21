@@ -32,6 +32,7 @@ from gpaw.xc.tools import vxc
 from gpaw.utilities.progressbar import ProgressBar
 
 
+
 class G0W0(PairDensity):
     def __init__(self, calc, filename='gw', restartfile=None,
                  kpts=None, bands=None, relbands=None, nbands=None, ppa=False,
@@ -44,7 +45,7 @@ class G0W0(PairDensity):
                  nblocks=1, savew=False, savepckl=True,
                  maxiter=1, method='G0W0', mixing=0.2,
                  world=mpi.world, ecut_extrapolation=False,
-                 nblocksmax=False, gate_voltage=None):
+                 nblocksmax=False, gate_voltage=None, kernel_file_prefix=None):
 
         """G0W0 calculator.
 
@@ -150,6 +151,10 @@ class G0W0(PairDensity):
             iteration's eigenvalues to mix with.
         ecut_extrapolation: bool
             Carries out the extrapolation to infinite cutoff automatically.
+        kernel_file_prefix: str
+            Only relevant if doing GW with vertex corrections.
+            A prefix for the kernel file (see fxckernel_calc.py).
+            Use to distinguish different kernel files or place them in separate folders.
         """
 
         if world.rank != 0:
@@ -246,6 +251,7 @@ class G0W0(PairDensity):
             self.Eg = Eg
 
         set_flags(self)
+        self.kernel_file_prefix = kernel_file_prefix
 
         self.filename = filename
         self.restartfile = restartfile
@@ -449,6 +455,7 @@ class G0W0(PairDensity):
             nQ = 0
             for ie, pd0, W0, q_c, m2, W0_GW in \
                     self.calculate_screened_potential():
+
                 if nQ == 0:
                     print('Summing all q:', file=self.fd)
                     pb = ProgressBar(self.fd)
@@ -835,6 +842,7 @@ class G0W0(PairDensity):
                                  '.w.q%d.pckl' % iq)
                     fd = opencew(wfilename)
                 if self.savew and fd is None:
+                    raise ValueError("Not this")
                     # Read screened potential from file
                     with open(wfilename, 'rb') as fd:
                         pdi, W = pickleload(fd)
@@ -1075,6 +1083,7 @@ class G0W0(PairDensity):
                         e_GG = np.eye(nG) - np.dot(chi0_GG * sqrV_G *
                                                    sqrV_G[:, np.newaxis], fv)
 
+
                     einv_GG += np.linalg.inv(e_GG) * weight_q[iqf]
 
                     if self.do_GW_too:
@@ -1214,7 +1223,8 @@ class G0W0(PairDensity):
             vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            np.save(fd, self.vxc_skn)
+            if (type(fd) in [str, bytes, os.PathLike]):
+                np.save(fd, self.vxc_skn)
 
     @timer('EXX')
     def calculate_exact_exchange(self):
@@ -1226,7 +1236,8 @@ class G0W0(PairDensity):
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-            np.save(fd, self.exx_skn)
+            if (type(fd) in [str, bytes, os.PathLike]):
+                np.save(fd, self.exx_skn)
 
     def read_contribution(self, filename):
         fd = opencew(filename)  # create, exclusive, write
