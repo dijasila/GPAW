@@ -775,7 +775,6 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
                &i_work, &querywork, &info);
       lwork = (int)(c_work);
       lrwork = (int)(d_work);
-      assert(0);
     }
 
   if (info != 0)
