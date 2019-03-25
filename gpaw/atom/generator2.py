@@ -305,13 +305,16 @@ class PAWSetupGenerator:
     def __init__(self, aea, projectors,
                  scalar_relativistic=False,
                  core_hole=None,
-                 fd=None):
+                 fd=None, yukawa_gamma=0.0):
         """fd: stream
-            Text output."""
+            Text output.
+
+           yukawa_gamma: separation parameter for RSF"""
 
         self.aea = aea
 
         self.fd = fd or sys.stdout
+        self.yukawa_gamma = yukawa_gamma
 
         if core_hole:
             state, occ = core_hole.split(',')
@@ -372,7 +375,7 @@ class PAWSetupGenerator:
         self.alpha = alpha
 
         if self.alpha is None:
-            if isinstance(rc, list):
+            if not isinstance(rc, (float, int)):
                 rc = min(rc)
             rc = 1.5 * rc
 
@@ -424,18 +427,22 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
-    def find_local_potential(self, r0, P):
+    def find_local_potential(self, r0, P, dv0=None):
         self.r0 = r0
         self.nderiv0 = P
         if self.l0 is None:
-            self.find_polynomial_potential(r0, P)
+            self.find_polynomial_potential(r0, P, dv0)
         else:
             self.match_local_potential(r0, P)
 
-    def find_polynomial_potential(self, r0, P):
+    def find_polynomial_potential(self, r0, P, dv0):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        if dv0:
+            x = self.rgd.r_g[:g0] / r0
+            dv_g = dv0 * (1 - 3 * x**2 + 2 * x**3)
+            self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
         l0 = self.l0
@@ -479,7 +486,7 @@ class PAWSetupGenerator:
         if isinstance(rc, float):
             radii = [rc]
         else:
-            radii = rc
+            radii = list(rc)
 
         if self.lmax >= 0:
             radii += [radii[-1]] * (self.lmax + 1 - len(radii))
@@ -760,7 +767,8 @@ class PAWSetupGenerator:
         plt.plot(r_g[1:], self.vHtr_g[1:] / r_g[1:], label='H')
         plt.plot(r_g[1:], self.vtr_g[1:] / r_g[1:], label='ps')
         plt.plot(r_g[1:], self.aea.vr_sg[0, 1:] / r_g[1:], label='ae')
-        plt.axis(xmax=2 * self.rcmax,
+        plt.axis(xmin=0,
+                 xmax=2 * self.rcmax,
                  ymin=self.vtr_g[1] / r_g[1],
                  ymax=max(0, (self.v0r_g[1:] / r_g[1:]).max()))
         plt.xlabel('radius [Bohr]')
@@ -782,7 +790,7 @@ class PAWSetupGenerator:
                          label=name)
                 plt.plot(r_g[:gc], (phit_g * r_g)[:gc], '--', color=colors[i])
                 i += 1
-        plt.axis(xmax=3 * self.rcmax)
+        plt.axis(xmin=0, xmax=3 * self.rcmax)
         plt.xlabel('radius [Bohr]')
         plt.ylabel(r'$r\phi_{n\ell}(r)$')
         plt.legend()
@@ -797,7 +805,7 @@ class PAWSetupGenerator:
                     name = '%d%s (%.2f Ha)' % (n, 'spdf'[l], e)
                 plt.plot(r_g, pt_g * r_g, color=colors[i], label=name)
                 i += 1
-        plt.axis(xmax=self.rcmax)
+        plt.axis(xmin=0, xmax=self.rcmax)
         plt.legend()
 
     def create_basis_set(self, tailnorm=0.0005, scale=200.0, splitnorm=0.16):
@@ -1073,6 +1081,9 @@ class PAWSetupGenerator:
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
         setup.X_p = pack2(self.exxcv_ii[I][:, I])
+        if self.yukawa_gamma > 0.0:
+            self.calculate_yukawa_integrals()
+            setup.X_pg = pack2(self.exxgcv_ii[I][:, I])
 
         setup.tauc_g = self.tauc_g * (4 * pi)**0.5
         setup.tauct_g = self.tauct_g * (4 * pi)**0.5
@@ -1104,7 +1115,7 @@ class PAWSetupGenerator:
 
         return setup
 
-    def calculate_exx_integrals(self):
+    def find_core_states(self):
         # Find core states:
         core = []
         lmax = 0
@@ -1119,6 +1130,11 @@ class PAWSetupGenerator:
 
         lmax = max(lmax, len(self.waves_l) - 1)
         G_LLL = gaunt(lmax)
+
+        return lmax, core, G_LLL
+
+    def calculate_exx_integrals(self):
+        (lmax, core, G_LLL) = self.find_core_states()
 
         # Calculate core contribution to EXX energy:
         self.exxcc = 0.0
@@ -1143,7 +1159,20 @@ class PAWSetupGenerator:
         ni = sum(len(waves) * (2 * l + 1)
                  for l, waves in enumerate(self.waves_l))
 
-        self.exxcv_ii = np.zeros((ni, ni))
+        self.exxcv_ii = self.calculate_exx_cv_integrals(ni)
+
+    def calculate_yukawa_integrals(self):
+        """Wrapper to calculate the rsf core-valence contribution."""
+        ni = sum(len(waves) * (2 * l + 1)
+                 for l, waves in enumerate(self.waves_l))
+
+        self.exxgcv_ii = self.calculate_exx_cv_integrals(ni,
+                                                         self.yukawa_gamma)
+
+    def calculate_exx_cv_integrals(self, ni, yukawa_gamma=0.0):
+        """Calculate exx (and rsf) core-valences."""
+        (lmax, core, G_LLL) = self.find_core_states()
+        cv_ii = np.zeros((ni, ni))
 
         i1 = 0
         for l1, waves1 in enumerate(self.waves_l):
@@ -1151,14 +1180,21 @@ class PAWSetupGenerator:
                 i2 = 0
                 for l2, waves2 in enumerate(self.waves_l):
                     for phi2_g in waves2.phi_ng:
-                        X_mm = self.exxcv_ii[i1:i1 + 2 * l1 + 1,
-                                             i2:i2 + 2 * l2 + 1]
+                        X_mm = cv_ii[i1:i1 + 2 * l1 + 1,
+                                     i2:i2 + 2 * l2 + 1]
                         if (l1 + l2) % 2 == 0:
                             for lc, phi_g in core:
                                 n_g = phi1_g * phi_g
                                 for l in range((l1 + lc) % 2,
                                                max(l1, l2) + lc + 1, 2):
-                                    vr_g = self.rgd.poisson(phi2_g * phi_g, l)
+                                    n2c = phi2_g * phi_g
+                                    if yukawa_gamma > 0.0:
+                                        vr_g = \
+                                            self.rgd.yukawa(n2c, l,
+                                                            yukawa_gamma)
+                                    else:
+                                        vr_g = \
+                                            self.rgd.poisson(n2c, l)
                                     e = (self.rgd.integrate(vr_g * n_g, -1) /
                                          (4 * pi))
                                     for mc in range(2 * lc + 1):
@@ -1171,6 +1207,7 @@ class PAWSetupGenerator:
                                                 G_L[l2**2:(l2 + 1)**2]) * e
                         i2 += 2 * l2 + 1
                 i1 += 2 * l1 + 1
+        return cv_ii
 
 
 def get_parameters(symbol, args):
@@ -1232,25 +1269,36 @@ def get_parameters(symbol, args):
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=args.scalar_relativistic, alpha=args.alpha,
-                r0=r0, nderiv0=nderiv0,
+                r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
-                output=args.output)
+                output=args.output,
+                yukawa_gamma=args.gamma)
 
 
-def _generate(symbol, xc, configuration, projectors, radii,
-              scalar_relativistic, alpha,
-              r0, nderiv0,
-              pseudize, rcore, core_hole, output):
+def generate(symbol,
+             projectors,
+             radii,
+             r0, v0,
+             nderiv0,
+             xc='LDA',
+             scalar_relativistic=False,
+             pseudize=('poly', 4),
+             configuration=None,
+             alpha=None,
+             rcore=None,
+             core_hole=None,
+             output=None,
+             yukawa_gamma=0.0):
     if isinstance(output, str):
         output = open(output, 'w')
     aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
-                            fd=output)
+                            fd=output, yukawa_gamma=yukawa_gamma)
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.find_local_potential(r0, nderiv0)
+    gen.find_local_potential(r0, nderiv0, v0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors(rcore)
@@ -1278,7 +1326,7 @@ def generate_all():
 
 
 class CLICommand:
-    short_description = 'Create PAW dataset'
+    """Create PAW dataset."""
 
     @staticmethod
     def add_arguments(parser):
@@ -1317,6 +1365,7 @@ class CLICommand:
         add('-n', '--no-check', action='store_true')
         add('-t', '--tag', type=str)
         add('-a', '--alpha', type=float)
+        add('-g', '--gamma', type=float, default=0.0)
         add('-b', '--create-basis-set', action='store_true')
         add('--nlcc', action='store_true',
             help='Use NLCC-style pseudo core density '
@@ -1332,16 +1381,15 @@ class CLICommand:
 
 def main(args):
     kwargs = get_parameters(args.symbol, args)
-    gen = _generate(**kwargs)
+    gen = generate(**kwargs)
 
     if not args.no_check:
         if not gen.check_all():
             raise DatasetGenerationError
 
     if args.create_basis_set or args.write:
-        basis = gen.create_basis_set()
-
         if args.create_basis_set:
+            basis = gen.create_basis_set()
             basis.write_xml()
 
         if args.write:

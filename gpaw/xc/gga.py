@@ -170,7 +170,7 @@ def get_gradient_ops(gd, nn):
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
@@ -183,6 +183,10 @@ class GGA(XCFunctional):
         d = super(GGA, self).todict()
         d['stencil'] = self.stencil_range
         return d
+
+    def get_description(self):
+        return ('{} with {} nearest neighbor stencil'
+                .format(self.name, self.stencil_range))
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
@@ -214,6 +218,7 @@ class GGA(XCFunctional):
             P -= integrate(v_g, n_g)
         for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
             P -= 2 * integrate(sigma_g, dedsigma_g)
+
         stress_vv = P * np.eye(3)
         for v1 in range(3):
             for v2 in range(3):
@@ -227,6 +232,7 @@ class GGA(XCFunctional):
                     stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
+        self.gd.comm.sum(stress_vv)
         return stress_vv
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
@@ -351,7 +357,7 @@ def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
         dFxds2 = mu * x
     else:
         raise NotImplementedError
-        
+
     ds2drs = 8.0 * c * a2 / rs
     dexdrs = dexdrs * Fx + ex * dFxds2 * ds2drs
     dexda2 = ex * dFxds2 * c
@@ -487,7 +493,7 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
         Y = GAMMA * phi3
         decdbeta_g[:] = Y / X * t2 / GAMMA
         decdbeta_g *= (1 + 2*At2) / (1+At2+At2**2) - (1+At2)*(At2+2*At2**2) / (1+At2+At2**2)**2
-        
+
     return ec, rs, decdrs, decda2, decdzeta
 
 

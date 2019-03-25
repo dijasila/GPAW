@@ -1,3 +1,4 @@
+# Creates: 2d.png, 2d_I.png, line.png, dIdV.png
 from ase.dft.stm import STM
 from gpaw import GPAW
 calc = GPAW('al111.gpw')
@@ -9,7 +10,6 @@ c = stm.get_averaged_current(bias, z)
 x, y, h = stm.scan(bias, c, repeat=(3, 5))
 # plot1
 import matplotlib.pyplot as plt
-import numpy as np
 plt.gca(aspect='equal')
 plt.contourf(x, y, h, 40)
 plt.colorbar()

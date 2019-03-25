@@ -10,6 +10,112 @@ Git master branch
 
 :git:`master <>`.
 
+* Corresponding ASE release: ASE-3.17.1b1
+
+* Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
+  for how to use it to calculate spontaneous polarization, Born effective
+  charges and other physical properties.
+
+* How to do :ref:`ehrenfest` has now been documented.
+
+* Non self-consistent hybrid functional calculations can now be continued if
+  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+
+
+Version 1.5.1
+=============
+
+23 Jan 2019: :git:`1.5.1 <../1.5.1>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* Small bug fixes related to latest versions of Python, Numpy and Libxc.
+
+
+Version 1.5.0
+=============
+
+11 Jan 2019: :git:`1.5.0 <../1.5.0>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* Last release to support Python 2.7.
+
+* The default finite-difference stencils used for gradients in GGA and MGGA
+  calculations have been changed.
+
+  * The range of the stencil has been increased
+    from 1 to 2 thereby decreasing the error from `O(h^2)` to `O(h^4)`
+    (where `h` is the grid spacing).  Use ``xc={'name': 'PBE', 'stencil': 1}``
+    to get the old, less accurate, stencil.
+
+  * The stencils are now symmetric also for non-orthorhombic
+    unit cells.  Before, the stencils would only have weight on the
+    nighboring grid-points in the 6 directions along the lattice vectors.
+    Now, grid-points along all nearest neighbor directions can have a weight
+    in the  stencils.  This allows for creating stencils that have all the
+    crystal symmetries.
+
+* PW-mode calculations can now be parallelized over plane-wave coefficients.
+
+* The PW-mode code is now much faster.  The "hot spots" have been moved
+  from Python to C-code.
+
+* Wavefunctions are now updated when the atomic positions change by
+  default, improving the initial wavefunctions across geometry steps.
+  Corresponds to ``GPAW(experimental={'reuse_wfs_method': 'paw'})``.
+  To get the old behaviour, set the option to ``'keep'`` instead.
+  The option is disabled for TDDFT/Ehrenfest.
+
+* Add interface to Elpa eigensolver for LCAO mode.
+  Using Elpa is strongly recommended for large calculations.
+  Use::
+
+      GPAW(mode='lcao',
+           basis='dzp',
+           parallel={'sl_auto': True, 'use_elpa': True})
+
+  See also documentation on the :ref:`parallel keyword <manual_parallel>`.
+
+* Default eigensolver is now ``Davidson(niter=2)``.
+
+* Default number of bands is now `1.2 \times N_{\text{occ}} + 4`, where
+  `N_{\text{occ}}` is the number of occupied bands.
+
+* Solvated jellium method has been implemented, see
+  :ref:`the documentation <solvated_jellium_method>`.
+
+* Added FastPoissonSolver which is faster and works well for any cell.
+  This replaces the old Poisson solver as default Poisson solver.
+
+* :ref:`rsf` and improved virtual orbitals, the latter from Hartree-Fock
+  theory.
+
+* New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
+  cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
+  :ref:`photovoltaics`, :ref:`batteries` and :ref:`intro`.
+
+* New experimental local **k**-point refinement feature:
+  :git:`gpaw/test/kpt_refine.py`.
+
+* A module and tutorial have been added for calculating electrostatic
+  corrections to DFT total energies for charged systems involving localised
+  defects: :ref:`defects`.
+
+* Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
+  See :class:`gpaw.wavefunctions.pw.PW`.
+
+
+Version 1.4.0
+=============
+
+29 May 2018: :git:`1.4.0 <../1.4.0>`
+
+* Corresponding ASE release: ASE-3.16.0.
+
+* Improved parallelization of operations with localized functions in
+  PW mode.  This solves the current size bottleneck in PW mode.
+
 * Added QNA XC functional.
 
 * Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
@@ -21,7 +127,7 @@ Git master branch
 * Experimental support for calculations with non-collinear spins
   (plane-wave mode only).
   Use ``GPAW(experimental={'magmoms': magmoms})``, where ``magmoms``
-  is an array magnetic moment vectors of shape ``(len(atoms), 3)``.
+  is an array of magnetic moment vectors of shape ``(len(atoms), 3)``.
 
 * Number of bands no longer needs to be divisible by band parallelization
   group size.  Number of bands will no longer be automatically adjusted

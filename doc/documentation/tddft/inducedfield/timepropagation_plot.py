@@ -1,13 +1,14 @@
+# Creates: na2_td_Ffe.png, na2_td_Frho.png, na2_td_Fphi.png
 # -*- coding: utf-8 -*-
 from gpaw.mpi import world
-assert world.size == 1, 'This script should be run in serial mode (with one process).'
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
-from gpaw.tddft.units import (attosec_to_autime, autime_to_attosec,
-                              eV_to_aufrequency, aufrequency_to_eV)
+from gpaw.tddft.units import aufrequency_to_eV
+
+assert world.size == 1, 'Script should be run in serial mode (one process).'
 
 
 # Helper function
@@ -18,7 +19,7 @@ def do_plot(d_g, ng, box, atoms):
     ylabel = u'x / Å'
     x = np.linspace(0, box[2], ng[2])
     xlabel = u'z / Å'
-    
+
     # Plot
     plt.figure()
     ax = plt.subplot(1, 1, 1)

@@ -1,21 +1,14 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+# FIXME: This code used to be used in dfpt/phononcalculator.py in replacement
+#        for the original FFTPoissonSolver. This code should be dead.
+
 from math import pi
 
-import numpy as np
-from numpy.fft import fftn, ifftn, fft2, ifft2
+from numpy.fft import fftn, ifftn
 
-from ase.parallel import parprint
-from gpaw.transformers import Transformer
-from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
-from gpaw import PoissonConvergenceError
-from gpaw.utilities.blas import axpy
-from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
-import _gpaw
-
 from gpaw import poisson
 
 class PoissonSolver(poisson.FDPoissonSolver):
@@ -41,6 +34,9 @@ class FFTPoissonSolver(poisson.FFTPoissonSolver):
         """
 
         if self.gd.comm.rank == 0:
+            if self.gd.comm.size > 1:
+                raise RuntimeError("This solver is obsolete:" +
+                    "domain decomposition support has been removed")
             self.k2_Q, self.N3 = construct_reciprocal(self.gd, q_c=q_c)
 
     def solve_neutral(self, phi_g, rho_g, eps=None):

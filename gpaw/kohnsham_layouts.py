@@ -4,16 +4,19 @@
 import numpy as np
 
 from gpaw.matrix_descriptor import MatrixDescriptor
+from gpaw.mpi import broadcast_exception
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k
 from gpaw.utilities.lapack import general_diagonalize
-from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_tran
+from gpaw.utilities.scalapack import (pblas_simple_gemm, pblas_tran,
+                                      scalapack_tri2full)
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import nulltimer
 
 
-def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
+def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype,
+                         elpasolver=None, **kwargs):
     """Create Kohn-Sham layouts object."""
     # Not needed for AtomPAW special mode, as usual we just provide whatever
     # happens to make the code not crash
@@ -25,14 +28,18 @@ def get_KohnSham_layouts(sl, mode, gd, bd, block_comm, dtype, **kwargs):
         name = 'Blacs' + name
         assert len(sl) == 3
         args += tuple(sl)
+        if elpasolver is not None:
+            kwargs['elpasolver'] = elpasolver
     ksl = {'BlacsOrbitalLayouts': BlacsOrbitalLayouts,
-           'OrbitalLayouts': OrbitalLayouts}[name](*args, **kwargs)
+           'OrbitalLayouts': OrbitalLayouts}[name](*args,
+                                                   **kwargs)
     return ksl
 
 
 class KohnShamLayouts:
     using_blacs = False  # This is only used by a regression test
     matrix_descriptor_class = None
+    accepts_decomposed_overlap_matrix = False
 
     def __init__(self, gd, bd, block_comm, dtype, timer=nulltimer):
         assert gd.comm.parent is bd.comm.parent  # must have same parent comm
@@ -109,12 +116,11 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
     # This class 'describes' all the LCAO Blacs-related layouts
     def __init__(self, gd, bd, block_comm, dtype, mcpus, ncpus,
-                 blocksize, nao, timer=nulltimer):
+                 blocksize, nao, elpasolver=None, timer=nulltimer):
         BlacsLayouts.__init__(self, gd, bd, block_comm, dtype,
                               mcpus, ncpus, blocksize, timer)
         nbands = bd.nbands
         self.blocksize = blocksize
-        self.mynbands = mynbands = bd.mynbands
 
         self.orbital_comm = self.bd.comm
         self.naoblocksize = naoblocksize = -((-nao) // self.orbital_comm.size)
@@ -122,7 +128,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         # Range of basis functions for BLACS distribution of matrices:
         self.Mmax = nao
-        self.Mstart = bd.comm.rank * naoblocksize
+        self.Mstart = min(bd.comm.rank * naoblocksize, self.Mmax)
         self.Mstop = min(self.Mstart + naoblocksize, self.Mmax)
         self.mynao = self.Mstop - self.Mstart
 
@@ -131,7 +137,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.mMdescriptor = self.columngrid.new_descriptor(nao, nao,
                                                            naoblocksize, nao)
         self.nMdescriptor = self.columngrid.new_descriptor(nbands, nao,
-                                                           mynbands, nao)
+                                                           bd.maxmynbands, nao)
 
         # parallelprint(world, (mynao, self.mMdescriptor.shape))
 
@@ -159,7 +165,19 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.mm2nM = Redistributor(self.block_comm, self.mmdescriptor,
                                    self.nM_unique_descriptor)
 
-    def diagonalize(self, H_mm, C_nM, eps_n, S_mm):
+        self.libelpa = None
+        if elpasolver is not None:
+            # XXX forward solver to libelpa
+            from gpaw.utilities.elpa import LibElpa
+            self.libelpa = LibElpa(self.mmdescriptor, solver=elpasolver,
+                                   nev=nbands)
+
+    @property
+    def accepts_decomposed_overlap_matrix(self):
+        return self.libelpa is not None
+
+    def diagonalize(self, H_mm, C_nM, eps_n, S_mm,
+                    is_already_decomposed=False):
         # C_nM needs to be simultaneously compatible with:
         # 1. outdescriptor
         # 2. broadcast with gd.comm
@@ -178,8 +196,18 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         # blockdescriptor.general_diagonalize_ex(H_mm, S_mm.copy(), C_mm,
         #                                        eps_M,
         #                                        UL='L', iu=self.bd.nbands)
-        blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm, eps_M,
-                                               UL='L')
+        if self.libelpa is not None:
+            assert blockdescriptor is self.libelpa.desc
+            scalapack_tri2full(blockdescriptor, H_mm)
+
+            # elpa will write decomposed form of S_mm into S_mm.
+            # Other KSL diagonalization functions do *not* overwrite S_mm.
+            self.libelpa.general_diagonalize(
+                H_mm, S_mm, C_mm, eps_M[:self.bd.nbands],
+                is_already_decomposed=is_already_decomposed)
+        else:
+            blockdescriptor.general_diagonalize_dc(H_mm, S_mm.copy(), C_mm,
+                                                   eps_M, UL='L')
         self.timer.stop('General diagonalize')
 
         # Make C_nM compatible with the redistributor
@@ -218,8 +246,9 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         self.timer.stop('blocked summation')
 
         xshape = S_qmM.shape[:-2]
-        nm, nM = S_qmM.shape[-2:]
-        S_qmM = S_qmM.reshape(-1, nm, nM)
+        if len(xshape) == 0:
+            S_qmM = S_qmM[np.newaxis]
+        assert S_qmM.ndim == 3
 
         blockdesc = self.mmdescriptor
         coldesc = self.mM_unique_descriptor
@@ -236,6 +265,13 @@ class BlacsOrbitalLayouts(BlacsLayouts):
                     pblas_tran(1.0, S_mm.copy(), 1.0, S_mm,
                                blockdesc, blockdesc)
 
+            if self.libelpa is not None:
+                # Elpa needs the full H_mm, but apparently does not
+                # need the full S_mm.  However that fact is not documented,
+                # and hence we stay on the safe side, tri2full-ing the
+                # matrix.
+                scalapack_tri2full(blockdesc, S_mm)
+
         self.timer.stop('Scalapack redistribute')
         return S_qmm.reshape(xshape + blockdesc.shape)
 
@@ -249,7 +285,7 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         self.nMdescriptor.checkassert(C_nM)
         if self.gd.rank == 0:
-            Cf_nM = (C_nM * f_n[:, None]).conj()
+            Cf_nM = (C_nM * f_n[:, None])
         else:
             C_nM = self.nM_unique_descriptor.zeros(dtype=dtype)
             Cf_nM = self.nM_unique_descriptor.zeros(dtype=dtype)
@@ -267,10 +303,36 @@ class BlacsOrbitalLayouts(BlacsLayouts):
 
         rho_mm = self.mmdescriptor.zeros(dtype=dtype)
 
-        pblas_simple_gemm(self.mmdescriptor,
-                          self.mmdescriptor,
-                          self.mmdescriptor,
-                          Cf_mm, C_mm, rho_mm, transa='T')
+        if 1:  # if self.libelpa is None:
+            pblas_simple_gemm(self.mmdescriptor,
+                              self.mmdescriptor,
+                              self.mmdescriptor,
+                              Cf_mm, C_mm, rho_mm, transa='C')
+        else:
+            # elpa_hermitian_multiply was not faster than the ordinary
+            # multiplication in the test.  The way we have things distributed,
+            # we need to transpose things at the moment.
+            #
+            # Rather than enabling this, we should store the coefficients
+            # in an appropriate 2D block cyclic format (c_nm) and not the
+            # current C_nM format.  This makes it possible to avoid
+            # redistributing the coefficients at all.  But we don't have time
+            # to implement this at the moment.
+            mul = self.libelpa.hermitian_multiply
+            desc = self.mmdescriptor
+            from gpaw.utilities.scalapack import pblas_tran
+
+            def T(array):
+                tmp = array.copy()
+                pblas_tran(alpha=1.0, a_MN=tmp,
+                           beta=0.0, c_NM=array,
+                           desca=desc, descc=desc)
+            T(C_mm)
+            T(Cf_mm)
+            mul(C_mm, Cf_mm, rho_mm,
+                desc, desc, desc,
+                uplo_a='X', uplo_c='X')
+
         return rho_mm
 
     def calculate_density_matrix(self, f_n, C_nM, rho_mM=None):
@@ -343,7 +405,11 @@ class BlacsOrbitalLayouts(BlacsLayouts):
         bg = self.blockgrid
         desc = self.mmdescriptor
         s = template % (bg.nprow, bg.npcol, desc.mb, desc.nb)
-        return ' '.join([title, s])
+        if self.libelpa is not None:
+            solver = self.libelpa.description
+        else:
+            solver = 'ScaLAPACK'
+        return ''.join([title, ' / ', solver, ', ', s])
 
 
 class OrbitalLayouts(KohnShamLayouts):
@@ -361,14 +427,17 @@ class OrbitalLayouts(KohnShamLayouts):
         self.nao = nao
         self.orbital_comm = bd.comm
 
-    def diagonalize(self, H_MM, C_nM, eps_n, S_MM):
+    def diagonalize(self, H_MM, C_nM, eps_n, S_MM,
+                    overwrite_S=False):
+        assert not overwrite_S
         eps_M = np.empty(C_nM.shape[-1])
         self.block_comm.broadcast(H_MM, 0)
         self.block_comm.broadcast(S_MM, 0)
         # The result on different processor is not necessarily bit-wise
         # identical, so only domain master performs computation
-        if self.gd.comm.rank == 0:
-            self._diagonalize(H_MM, S_MM.copy(), eps_M)
+        with broadcast_exception(self.gd.comm):
+            if self.gd.comm.rank == 0:
+                self._diagonalize(H_MM, S_MM.copy(), eps_M)
         self.gd.comm.broadcast(H_MM, 0)
         self.gd.comm.broadcast(eps_M, 0)
         eps_n[:] = eps_M[self.bd.get_slice()]

@@ -7,8 +7,8 @@
 
 from ase.build import molecule
 from gpaw import GPAW, LCAO, PoissonSolver
-from gpaw.lcao.atomic_correction import DenseAtomicCorrection, \
-    DistributedAtomicCorrection, ScipyAtomicCorrection
+from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
+                                         ScipyAtomicCorrection)
 from gpaw.mpi import world
 
 # Use a cell large enough that some overlaps are zero.
@@ -20,15 +20,8 @@ system = system.repeat((1, 1, 2))
 # Break symmetries so we don't get funny degeneracy effects.
 system.rattle(stdev=0.05)
 
-corrections = [DenseAtomicCorrection(), DistributedAtomicCorrection()]
+corrections = [DenseAtomicCorrection(), ScipyAtomicCorrection(tolerance=0.0)]
 
-#corrections.pop() # XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-try:
-    import scipy  # noqa
-except ImportError:
-    pass
-else:
-    corrections.append(ScipyAtomicCorrection(tolerance=0.0))
 
 energies = []
 for correction in corrections:
@@ -41,11 +34,13 @@ for correction in corrections:
                 basis='sz(dzp)',
                 #kpts=(1, 1, 4),
                 #spinpol=True,
-                poissonsolver=PoissonSolver(relax='J', eps=1e100, nn=1),
+                poissonsolver=PoissonSolver('fd', relax='J', eps=1e100, nn=1),
                 parallel=parallel,
                 h=0.35)
+
     def stopcalc():
         calc.scf.converged = True
+
     calc.attach(stopcalc, 2)
     system.set_calculator(calc)
     energy = system.get_potential_energy()

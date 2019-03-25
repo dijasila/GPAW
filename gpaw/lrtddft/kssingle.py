@@ -8,6 +8,7 @@ from math import pi, sqrt
 import numpy as np
 from ase.units import Bohr, Hartree, alpha
 from ase.parallel import paropen
+from ase.utils import basestring
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -55,7 +56,7 @@ class KSSingles(ExcitationList):
         self.world = mpi.world
 
         self.calculator = None
-        if isinstance(calculator, str):
+        if isinstance(calculator, basestring):
             self.read(calculator)
             return self.select(eps=eps, istart=istart, jend=jend,
                                energy_range=energy_range)
@@ -203,19 +204,30 @@ class KSSingles(ExcitationList):
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
+        def fail(f):
+            raise RuntimeError(f.name + ' does not contain ' +
+                               self.__class__.__name__ + ' data')
         if fh is None:
             if filename.endswith('.gz'):
                 import gzip
                 f = gzip.open(filename, 'rt')
             else:
                 f = open(filename, 'r')
+
+            # there can be other information, i.e. the LrTDDFT header
+            try:
+                content = f.read()
+                f.seek(content.index('# KSSingles'))
+                del(content)
+                f.readline()
+            except ValueError:
+                fail(f)
         else:
             f = fh
+            # we assume to be at the right place and read the header
+            if not f.readline().strip() == '# KSSingles':
+                fail(f)
 
-        if not f.readline().startswith('# KSSingles'):
-            raise RuntimeError(f.name + ' is not a ' +
-                               self.__class__.__name__ + ' data file')
-        
         words = f.readline().split()
         n = int(words[0])
         if len(words) == 1:
@@ -318,19 +330,21 @@ class KSSingles(ExcitationList):
             f.close()
 
     def overlap(self, ov_nn, other):
-        """Matrix element overlap determined from wave function overlaps.
+        """Matrix element overlaps determined from wave function overlaps.
 
         Parameters
         ----------
         ov_nn: array
             Wave function overlap factors from a displaced calculator.
-            Index 0 corresponds to our own wavefunctions and
-            index 1 to the displaced wavefunctions
+            Index 0 corresponds to our own wavefunctions conjugated and
+            index 1 to the others' wavefunctions
 
         Returns
         -------
         ov_pp: array
-            Overlap corresponding to matrix elements
+            Overlap corresponding to matrix elements.
+            Index 0 corresponds to our own matrix elements conjugated and
+            index 1 to the others' matrix elements
         """
         n0 = len(self)
         n1 = len(other)
@@ -338,7 +352,7 @@ class KSSingles(ExcitationList):
         i1_p = [ex.i for ex in other]
         j1_p = [ex.j for ex in other]
         for p0, ex0 in enumerate(self):
-            ov_pp[p0,:] = ov_nn[ex0.i, i1_p] * ov_nn[ex0.j, j1_p].conj()
+            ov_pp[p0, :] = ov_nn[ex0.i, i1_p].conj() * ov_nn[ex0.j, j1_p]
         return ov_pp
 
 

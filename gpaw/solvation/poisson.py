@@ -76,7 +76,7 @@ class WeightedFDPoissonSolver(SolvationPoissonSolver):
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
-              zero_initial_phi=False):
+              zero_initial_phi=False, timer=None):
         self._init()
         if self.gd.pbc_c.all():
             actual_charge = self.gd.integrate(rho)
@@ -148,7 +148,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
-              zero_initial_phi=False):
+              zero_initial_phi=False, timer=None):
         self._init()
         if self.phi_tilde is None:
             self.phi_tilde = self.gd.zeros()
@@ -175,7 +175,7 @@ class PolarizationPoissonSolver(SolvationPoissonSolver):
 
         niter = FDPoissonSolver.solve(
             self, phi, rho_and_pol, None, eps,
-            maxcharge, zero_initial_phi)
+            maxcharge, zero_initial_phi, timer=timer)
         return niter_tilde + niter
 
     def load_gauss(self, center=None):
@@ -238,7 +238,7 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
 
     def solve(self, phi, rho, charge=None, eps=None,
               maxcharge=1e-6,
-              zero_initial_phi=False):
+              zero_initial_phi=False, timer=None):
         self._init()
         if self.gd.pbc_c.all():
             actual_charge = self.gd.integrate(rho)
@@ -246,9 +246,9 @@ class ADM12PoissonSolver(SolvationPoissonSolver):
                 raise NotImplementedError(
                     'charged periodic systems are not implemented')
         return FDPoissonSolver.solve(
-            self, phi, rho, charge, eps, maxcharge, zero_initial_phi)
+            self, phi, rho, charge, eps, maxcharge, zero_initial_phi, timer=timer)
 
-    def solve_neutral(self, phi, rho, eps=2e-10):
+    def solve_neutral(self, phi, rho, eps=2e-10, timer=None):
         self._init()
         self.rho = rho
         return SolvationPoissonSolver.solve_neutral(self, phi, rho, eps)

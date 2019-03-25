@@ -1,4 +1,4 @@
-from __future__ import print_function
+from pathlib import Path
 import numpy as np
 from gpaw import GPAW
 from gpaw.spinorbit import get_anisotropy
@@ -9,3 +9,4 @@ for theta in theta_i:
     E_so = get_anisotropy(calc, theta=theta, phi=0.0)
     with open('anisotropy.dat', 'a') as f:
         print(theta, E_so, file=f)
+Path('gs_Co.gpw').unlink()  # remove very large file

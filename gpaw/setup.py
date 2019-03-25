@@ -96,6 +96,43 @@ def create_setup(symbol, xc='LDA', lmax=0,
         return setupdata
 
 
+def correct_occ_numbers(f_j,
+                        degeneracy_j,
+                        jsorted,
+                        correction: float,
+                        eps=1e-12) -> None:
+    """Correct f_j ndarray in-place."""
+
+    if correction > 0:
+        # Add electrons to the lowest eigenstates:
+        for j in jsorted:
+            c = min(correction, degeneracy_j[j] - f_j[j])
+            f_j[j] += c
+            correction -= c
+            if correction < eps:
+                break
+    elif correction < 0:
+        # Add electrons to the highest eigenstates:
+        for j in jsorted[::-1]:
+            c = min(-correction, f_j[j])
+            f_j[j] -= c
+            correction += c
+            if correction > -eps:
+                break
+
+
+class LocalCorrectionVar:
+    """Class holding data for local the calculation of local corr."""
+    def __init__(self, s=None):
+        """Initialize our data."""
+        for work_key in ('nq', 'lcut', 'n_qg', 'nt_qg', 'nc_g', 'nct_g',
+                         'rgd2', 'Delta_lq', 'T_Lqp'):
+            if s is None or not hasattr(s, work_key):
+                setattr(self, work_key, None)
+            else:
+                setattr(self, work_key, getattr(s, work_key))
+
+
 class BaseSetup:
     """Mixin-class for setups.
 
@@ -113,16 +150,21 @@ class BaseSetup:
     def get_basis_description(self):
         return self.basis.get_description()
 
-    def get_actual_atomic_orbitals(self):
+    def get_partial_waves_for_atomic_orbitals(self):
         """Get those states phit that represent a real atomic state.
 
         This typically corresponds to the (truncated) partial waves (PAW) or
         a single-zeta basis."""
-        phit_j = []
+
+        # XXX ugly hack for pseudopotentials:
+        if not hasattr(self, 'pseudo_partial_waves_j'):
+            return []
+
         # The zip may cut off part of phit_j if there are more states than
         # projectors.  This should be the correct behaviour for all the
         # currently supported PAW/pseudopotentials.
-        for n, phit in zip(self.n_j, self.phit_j):
+        phit_j = []
+        for n, phit in zip(self.n_j, self.pseudo_partial_waves_j):
             if n > 0:
                 phit_j.append(phit)
         return phit_j
@@ -141,44 +183,40 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
-        if len(l_j) == 0:
-            l_j = np.ones(1)
 
-        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
-            nj = len(f_j)
-            # correct for the charge
-            if charge >= 0:
-                # reduce the higher levels first
-                for j in range(nj - 1, -1, -1):
-                    f = f_j[j]
-                    if use_complete or f < degeneracy_j[j]:
-                        c = min(f, charge)
-                        f_j[j] -= c
-                        charge -= c
-            else:
-                # add to the lower levels first
-                for j in range(nj):
-                    f = f_j[j]
-                    if use_complete or f > 0:
-                        c = min(degeneracy_j[j] - f, -charge)
-                        f_j[j] += c
-                        charge += c
-            if charge != 0 and c != 0:
-                correct_for_charge(f_j, charge, degeneracy_j, True)
-            elif charge != 0 and c == 0:
-                # print('Stopping electron distribution, ran out of '
-                #       'projector functions to fill.')
-                # Then there are more electrons in the
-                # calculation than can be distributed over the
-                # atomic projector functions. Leave remaining density
-                # undistributed.
-                return
+        if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
+            eps_j = np.array(self.data.eps_j)
+        else:
+            eps_j = np.ones(len(self.n_j))
+            # Bound states:
+            for j, n in enumerate(self.n_j):
+                if n > 0:
+                    eps_j[j] = -1.0
+
+        deg_j = 2 * (2 * l_j + 1)
+
+        # Sort after:
+        #
+        # 1) empty state (f == 0)
+        # 2) open shells (d - f)
+        # 3) eigenvalues (e)
+
+        states = []
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+            if e < 0.0:
+                states.append((f == 0, d - f, e, j))
+        states.sort()
+        jsorted = [j for _, _, _, j in states]
+
+        # if len(l_j) == 0:
+        #     l_j = np.ones(1)
+
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
             if not self.orbital_free:
-                correct_for_charge(f_sj[0], charge, 2 * (2 * l_j + 1))
+                correct_occ_numbers(f_sj[0], deg_j, jsorted, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
                 f_sj[0] += -charge
@@ -190,11 +228,10 @@ class BaseSetup:
                                    (magmom, nval))
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
-            ndown = 0.5 * (nval - magmom)
-            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
-                               2 * l_j + 1, False)
-            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
-                               2 * l_j + 1, False)
+            ndn = 0.5 * (nval - magmom)
+            deg_j //= 2
+            correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
+            correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
@@ -239,7 +276,7 @@ class BaseSetup:
                              % (magmom, self.symbol))
         assert i == nao
 
-#        print "fsi=", f_si
+        # print('fsi=', f_si)
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
@@ -438,6 +475,92 @@ class BaseSetup:
         return sum([2 * l + 1 for (l, n) in zip(self.l_orb_j, self.n_j)
                     if n > 0])
 
+    def calculate_coulomb_corrections(self, wn_lqg, wnt_lqg, wg_lg, wnc_g,
+                                      wmct_g):
+        """Calculate "Coulomb" energies."""
+        # Can we reduce the excessive parameter passing?
+        # Seems so ....
+        # Added instance variables
+        # T_Lqp = self.local_corr.T_Lqp
+        # n_qg = self.local_corr.n_qg
+        # Delta_lq = self.local_corr.Delta_lq
+        # nt_qg = self.local_corr.nt_qg
+        # Local variables derived from instance variables
+        _np = self.ni * (self.ni + 1) // 2  # change to inst. att.?
+        mct_g = self.local_corr.nct_g + self.Delta0 * self.g_lg[0]  # s.a.
+        rdr_g = self.local_corr.rgd2.r_g * \
+            self.local_corr.rgd2.dr_g  # change to inst. att.?
+
+        A_q = 0.5 * (np.dot(wn_lqg[0], self.local_corr.nc_g) + np.dot(
+            self.local_corr.n_qg, wnc_g))
+        A_q -= sqrt(4 * pi) * self.Z * np.dot(self.local_corr.n_qg, rdr_g)
+        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) +
+                      np.dot(self.local_corr.nt_qg, wmct_g))
+        A_q -= 0.5 * (np.dot(mct_g, wg_lg[0]) +
+                      np.dot(self.g_lg[0], wmct_g)) * \
+            self.local_corr.Delta_lq[0]
+        M_p = np.dot(A_q, self.local_corr.T_Lqp[0])
+
+        A_lqq = []
+        for l in range(2 * self.local_corr.lcut + 1):
+            A_qq = 0.5 * np.dot(self.local_corr.n_qg, np.transpose(wn_lqg[l]))
+            A_qq -= 0.5 * np.dot(self.local_corr.nt_qg,
+                                 np.transpose(wnt_lqg[l]))
+            if l <= self.lmax:
+                A_qq -= 0.5 * np.outer(self.local_corr.Delta_lq[l],
+                                       np.dot(wnt_lqg[l], self.g_lg[l]))
+                A_qq -= 0.5 * np.outer(np.dot(self.local_corr.nt_qg,
+                                              wg_lg[l]),
+                                       self.local_corr.Delta_lq[l])
+                A_qq -= 0.5 * np.dot(self.g_lg[l], wg_lg[l]) * \
+                    np.outer(self.local_corr.Delta_lq[l],
+                             self.local_corr.Delta_lq[l])
+            A_lqq.append(A_qq)
+
+        M_pp = np.zeros((_np, _np))
+        L = 0
+        for l in range(2 * self.local_corr.lcut + 1):
+            for m in range(2 * l + 1):  # m?
+                M_pp += np.dot(np.transpose(self.local_corr.T_Lqp[L]),
+                               np.dot(A_lqq[l], self.local_corr.T_Lqp[L]))
+                L += 1
+
+        return M_p, M_pp
+
+    def calculate_integral_potentials(self, func):
+        """Calculates a set of potentials using func."""
+        wg_lg = [func(self, self.g_lg[l], l)
+                 for l in range(self.lmax + 1)]
+        wn_lqg = [np.array([func(self, self.local_corr.n_qg[q], l)
+                            for q in range(self.local_corr.nq)])
+                  for l in range(2 * self.local_corr.lcut + 1)]
+        wnt_lqg = [np.array([func(self, self.local_corr.nt_qg[q], l)
+                             for q in range(self.local_corr.nq)])
+                   for l in range(2 * self.local_corr.lcut + 1)]
+        wnc_g = func(self, self.local_corr.nc_g, l=0)
+        wnct_g = func(self, self.local_corr.nct_g, l=0)
+        wmct_g = wnct_g + self.Delta0 * wg_lg[0]
+        return wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g
+
+    def calculate_yukawa_interaction(self, gamma):
+        """Calculate and return the Yukawa based interaction."""
+        if self._Mg_pp is not None and gamma == self._gamma:
+            return self._Mg_pp  # Cached
+
+        # Solves the radial screened poisson equation for density n_g
+        def Yuk(self, n_g, l):
+            """Solve radial screened poisson for density n_g."""
+            gamma = self._gamma
+            return self.local_corr.rgd2.yukawa(n_g, l, gamma) * \
+                self.local_corr.rgd2.r_g * self.local_corr.rgd2.dr_g
+
+        self._gamma = gamma
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+            self.calculate_integral_potentials(Yuk)
+        self._Mg_pp = self.calculate_coulomb_corrections(
+            wn_lqg, wnt_lqg, wg_lg, wnc_g, wmct_g)[1]
+        return self._Mg_pp
+
 
 class LeanSetup(BaseSetup):
     """Setup class with minimal attribute set.
@@ -507,6 +630,12 @@ class LeanSetup(BaseSetup):
         self.rcutfilter = s.rcutfilter
         self.rcore = s.rcore
         self.basis = s.basis  # we don't need nao if we use this instead
+
+        # XXX figure out better way to store these.
+        # Refactoring: We should delete this and use psit_j.  However
+        # the code depends on psit_j being the *basis* functions sometimes.
+        if hasattr(s, 'pseudo_partial_waves_j'):
+            self.pseudo_partial_waves_j = s.pseudo_partial_waves_j
         # Can also get rid of the phit_j splines if need be
 
         self.N0_p = s.N0_p  # req. by estimate_magnetic_moments
@@ -534,6 +663,10 @@ class LeanSetup(BaseSetup):
         self.X_p = s.X_p
         self.ExxC = s.ExxC
 
+        # Required by yukawa rsf
+        self.X_pg = s.X_pg
+        self.X_gamma = s.X_gamma
+
         # Required by electrostatic correction
         self.dEH0 = s.dEH0
         self.dEH_p = s.dEH_p
@@ -545,6 +678,15 @@ class LeanSetup(BaseSetup):
         self.extra_xc_data = s.extra_xc_data
 
         self.orbital_free = s.orbital_free
+
+        # Stuff required by Yukawa RSF to calculate Mg_pp at runtime
+        # the calcualtion of Mg_pp at rt is needed for dscf
+        if hasattr(s, 'local_corr'):
+            self.local_corr = s.local_corr
+        else:
+            self.local_corr = LocalCorrectionVar(s)
+        self._Mg_pp = None
+        self._gamma = 0
 
 
 class Setup(BaseSetup):
@@ -635,6 +777,9 @@ class Setup(BaseSetup):
         self.ExxC = data.ExxC
         self.X_p = data.X_p
 
+        self.X_gamma = data.X_gamma
+        self.X_pg = data.X_pg
+
         self.orbital_free = data.orbital_free
 
         pt_jg = data.pt_jg
@@ -649,6 +794,11 @@ class Setup(BaseSetup):
         dr_g = rgd.dr_g
 
         self.lmax = lmax
+
+        self._Mg_pp = None  # Yukawa based corrections
+        self._gamma = 0
+        # Attributes for run-time calculation of _Mg_pp
+        self.local_corr = LocalCorrectionVar(data)
 
         rcutmax = max(rcut_j)
         rcut2 = 2 * rcutmax
@@ -700,12 +850,12 @@ class Setup(BaseSetup):
         self.ni = ni
 
         _np = ni * (ni + 1) // 2
-        self.nq = nq = nj * (nj + 1) // 2
+        self.local_corr.nq = nj * (nj + 1) // 2
 
         lcut = max(l_j)
         if 2 * lcut < lmax:
             lcut = (lmax + 1) // 2
-        self.lcut = lcut
+        self.local_corr.lcut = lcut
 
         self.B_ii = self.calculate_projector_overlaps(pt_jg)
 
@@ -728,11 +878,16 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         self.tauct = rgd.spline(tauct_g, self.rcore)
 
-        self.pt_j = self.create_projectors(rcutfilter)
+        self.pt_j = self.create_projectors(pt_jg, rcutfilter)
+
+        partial_waves = self.create_basis_functions(phit_jg, rcut2, gcut2)
+        self.pseudo_partial_waves_j = partial_waves.tosplines()
 
         if basis is None:
-            basis = self.create_basis_functions(phit_jg, rcut2, gcut2)
-        phit_j = basis.tosplines()
+            phit_j = self.pseudo_partial_waves_j
+            basis = partial_waves
+        else:
+            phit_j = basis.tosplines()
         self.phit_j = phit_j
         self.basis = basis
 
@@ -741,13 +896,14 @@ class Setup(BaseSetup):
             l = phit.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
-        rgd2 = self.rgd2 = AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        rgd2 = self.local_corr.rgd2 = \
+            AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
         phit_jg = np.array([phit_g[:gcut2].copy() for phit_g in phit_jg])
-        self.nc_g = nc_g = nc_g[:gcut2].copy()
-        self.nct_g = nct_g = nct_g[:gcut2].copy()
+        self.local_corr.nc_g = nc_g = nc_g[:gcut2].copy()
+        self.local_corr.nct_g = nct_g = nct_g[:gcut2].copy()
         vbar_g = vbar_g[:gcut2].copy()
 
         extra_xc_data = dict(data.extra_xc_data)
@@ -761,39 +917,33 @@ class Setup(BaseSetup):
         if self.phicorehole_g is not None:
             self.phicorehole_g = self.phicorehole_g[:gcut2].copy()
 
-        T_Lqp = self.calculate_T_Lqp(lcut, nq, _np, nj, jlL_i)
-        (g_lg, n_qg, nt_qg, Delta_lq, self.Lmax, self.Delta_pL, Delta0,
+        self.local_corr.T_Lqp = self.calculate_T_Lqp(lcut, _np, nj, jlL_i)
+        #  set the attributes directly?
+        (self.g_lg, self.local_corr.n_qg, self.local_corr.nt_qg,
+         self.local_corr.Delta_lq, self.Lmax, self.Delta_pL, self.Delta0,
          self.N0_p) = self.get_compensation_charges(phi_jg, phit_jg, _np,
-                                                    T_Lqp)
-        self.Delta0 = Delta0
-        self.g_lg = g_lg
+                                                    self.local_corr.T_Lqp)
 
         # Solves the radial poisson equation for density n_g
-        def H(n_g, l):
+        def H(self, n_g, l):
             return rgd2.poisson(n_g, l) * r_g * dr_g
 
-        wnc_g = H(nc_g, l=0)
-        wnct_g = H(nct_g, l=0)
-
-        self.wg_lg = wg_lg = [H(g_lg[l], l) for l in range(lmax + 1)]
-
-        wn_lqg = [np.array([H(n_qg[q], l) for q in range(nq)])
-                  for l in range(2 * lcut + 1)]
-        wnt_lqg = [np.array([H(nt_qg[q], l) for q in range(nq)])
-                   for l in range(2 * lcut + 1)]
+        (wg_lg, wn_lqg, wnt_lqg, wnc_g, wnct_g, wmct_g) = \
+            self.calculate_integral_potentials(H)
+        self.wg_lg = wg_lg
 
         rdr_g = r_g * dr_g
         dv_g = r_g * rdr_g
         A = 0.5 * np.dot(nc_g, wnc_g)
         A -= sqrt(4 * pi) * self.Z * np.dot(rdr_g, nc_g)
-        mct_g = nct_g + Delta0 * g_lg[0]
-        wmct_g = wnct_g + Delta0 * wg_lg[0]
+        mct_g = nct_g + self.Delta0 * self.g_lg[0]
+        # wmct_g = wnct_g + self.Delta0 * wg_lg[0]
         A -= 0.5 * np.dot(mct_g, wmct_g)
         self.M = A
         self.MB = -np.dot(dv_g * nct_g, vbar_g)
 
-        AB_q = -np.dot(nt_qg, dv_g * vbar_g)
-        self.MB_p = np.dot(AB_q, T_Lqp[0])
+        AB_q = -np.dot(self.local_corr.nt_qg, dv_g * vbar_g)
+        self.MB_p = np.dot(AB_q, self.local_corr.T_Lqp[0])
 
         # Correction for average electrostatic potential:
         #
@@ -802,16 +952,11 @@ class Setup(BaseSetup):
         self.dEH0 = sqrt(4 * pi) * (wnc_g - wmct_g -
                                     sqrt(4 * pi) * self.Z * r_g * dr_g).sum()
         dEh_q = (wn_lqg[0].sum(1) - wnt_lqg[0].sum(1) -
-                 Delta_lq[0] * wg_lg[0].sum())
-        self.dEH_p = np.dot(dEh_q, T_Lqp[0]) * sqrt(4 * pi)
+                 self.local_corr.Delta_lq[0] * wg_lg[0].sum())
+        self.dEH_p = np.dot(dEh_q, self.local_corr.T_Lqp[0]) * sqrt(4 * pi)
 
-        M_p, M_pp = self.calculate_coulomb_corrections(lcut, n_qg, wn_lqg,
-                                                       lmax, Delta_lq,
-                                                       wnt_lqg, g_lg,
-                                                       wg_lg, nt_qg,
-                                                       _np, T_Lqp, nc_g,
-                                                       wnc_g, rdr_g, mct_g,
-                                                       wmct_g)
+        M_p, M_pp = self.calculate_coulomb_corrections(wn_lqg, wnt_lqg,
+                                                       wg_lg, wnc_g, wmct_g)
         self.M_p = M_p
         self.M_pp = M_pp
 
@@ -841,8 +986,8 @@ class Setup(BaseSetup):
         for L in range(self.Lmax):
             self.Delta_iiL[:, :, L] = unpack(self.Delta_pL[:, L].copy())
 
-        self.Nct = data.get_smooth_core_density_integral(Delta0)
-        self.K_p = data.get_linear_kinetic_correction(T_Lqp[0])
+        self.Nct = data.get_smooth_core_density_integral(self.Delta0)
+        self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
         alpha = data.rcgauss**-2
@@ -859,43 +1004,9 @@ class Setup(BaseSetup):
         except NotImplementedError:
             self.rxnabla_iiv = None
 
-    def calculate_coulomb_corrections(self, lcut, n_qg, wn_lqg,
-                                      lmax, Delta_lq, wnt_lqg,
-                                      g_lg, wg_lg, nt_qg, _np, T_Lqp,
-                                      nc_g, wnc_g, rdr_g, mct_g, wmct_g):
-        # Can we reduce the excessive parameter passing?
-        A_q = 0.5 * (np.dot(wn_lqg[0], nc_g) + np.dot(n_qg, wnc_g))
-        A_q -= sqrt(4 * pi) * self.Z * np.dot(n_qg, rdr_g)
-        A_q -= 0.5 * (np.dot(wnt_lqg[0], mct_g) + np.dot(nt_qg, wmct_g))
-        A_q -= 0.5 * (np.dot(mct_g, wg_lg[0]) +
-                      np.dot(g_lg[0], wmct_g)) * Delta_lq[0]
-        M_p = np.dot(A_q, T_Lqp[0])
-
-        A_lqq = []
-        for l in range(2 * lcut + 1):
-            A_qq = 0.5 * np.dot(n_qg, np.transpose(wn_lqg[l]))
-            A_qq -= 0.5 * np.dot(nt_qg, np.transpose(wnt_lqg[l]))
-            if l <= lmax:
-                A_qq -= 0.5 * np.outer(Delta_lq[l],
-                                       np.dot(wnt_lqg[l], g_lg[l]))
-                A_qq -= 0.5 * np.outer(np.dot(nt_qg, wg_lg[l]), Delta_lq[l])
-                A_qq -= 0.5 * (np.dot(g_lg[l], wg_lg[l]) *
-                               np.outer(Delta_lq[l], Delta_lq[l]))
-            A_lqq.append(A_qq)
-
-        M_pp = np.zeros((_np, _np))
-        L = 0
-        for l in range(2 * lcut + 1):
-            for m in range(2 * l + 1):
-                M_pp += np.dot(np.transpose(T_Lqp[L]),
-                               np.dot(A_lqq[l], T_Lqp[L]))
-                L += 1
-
-        return M_p, M_pp
-
-    def create_projectors(self, rcut):
+    def create_projectors(self, pt_jg, rcut):
         pt_j = []
-        for j, pt_g in enumerate(self.data.pt_jg):
+        for j, pt_g in enumerate(pt_jg):
             l = self.l_j[j]
             pt_j.append(self.rgd.spline(pt_g, rcut, l))
         return pt_j
@@ -905,10 +1016,10 @@ class Setup(BaseSetup):
         xO_ii = np.dot(B_ii, dO_ii)
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
-    def calculate_T_Lqp(self, lcut, nq, _np, nj, jlL_i):
+    def calculate_T_Lqp(self, lcut, _np, nj, jlL_i):
         G_LLL = gaunt(max(self.l_j))
         Lcut = (2 * lcut + 1)**2
-        T_Lqp = np.zeros((Lcut, nq, _np))
+        T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:
@@ -945,7 +1056,7 @@ class Setup(BaseSetup):
     def get_compensation_charges(self, phi_jg, phit_jg, _np, T_Lqp):
         lmax = self.lmax
         gcut2 = self.gcut2
-        nq = self.nq
+        nq = self.local_corr.nq
 
         g_lg = self.data.create_compensation_charge_functions(lmax)
 
@@ -959,8 +1070,8 @@ class Setup(BaseSetup):
                 q += 1
 
         gcutmin = self.gcutmin
-        r_g = self.rgd2.r_g
-        dr_g = self.rgd2.dr_g
+        r_g = self.local_corr.rgd2.r_g
+        dr_g = self.local_corr.rgd2.dr_g
         self.lq = np.dot(n_qg[:, :gcutmin], r_g[:gcutmin]**2 * dr_g[:gcutmin])
 
         Delta_lq = np.zeros((lmax + 1, nq))
@@ -975,7 +1086,7 @@ class Setup(BaseSetup):
                 delta_p = np.dot(Delta_lq[l], T_Lqp[L + m])
                 Delta_pL[:, L + m] = delta_p
 
-        Delta0 = np.dot(self.nc_g - self.nct_g,
+        Delta0 = np.dot(self.local_corr.nc_g - self.local_corr.nct_g,
                         r_g**2 * dr_g) - self.Z / sqrt(4 * pi)
 
         # Electron density inside augmentation sphere.  Used for estimating
@@ -999,8 +1110,8 @@ class Setup(BaseSetup):
 
         and similar for y and z."""
 
-        G_LLL = gaunt(max(self.l_j))
-        Y_LLv = nabla(max(self.l_j))
+        G_LLL = gaunt(max(1, max(self.l_j)))
+        Y_LLv = nabla(max(1, max(self.l_j)))
 
         r_g = rgd.r_g
         dr_g = rgd.dr_g
@@ -1075,10 +1186,12 @@ class Setup(BaseSetup):
                             try:
                                 G += np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
                                                     1 + v1],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2, v2])
+                                              Y_LLv[L3, l2**2:l2**2 + nm2,
+                                                    v2])
                                 G -= np.outer(G_LLL[L3, l1**2:l1**2 + nm1,
                                                     1 + v2],
-                                              Y_LLv[L3, l2**2:l2**2 + nm2, v1])
+                                              Y_LLv[L3, l2**2:l2**2 + nm2,
+                                                    v1])
                             except IndexError:
                                 pass  # L3 might be too large, ignore
                     rnabla_iiv[i1:i1 + nm1, i2:i2 + nm2, v] += f1f2or * G
@@ -1311,6 +1424,26 @@ class Setups(list):
             dedecut += e[id]
         return dedecut
 
+    def basis_indices(self):
+        return FunctionIndices([setup.phit_j for setup in self])
+
+    def projector_indices(self):
+        return FunctionIndices([setup.pt_j for setup in self])
+
+
+class FunctionIndices:
+    def __init__(self, f_aj):
+        nm_a = [0]
+        for f_j in f_aj:
+            nm = sum([2 * f.get_angular_momentum_number() + 1 for f in f_j])
+            nm_a.append(nm)
+        self.M_a = np.cumsum(nm_a)
+        self.nm_a = np.array(nm_a[1:])
+        self.max = self.M_a[-1]
+
+    def __getitem__(self, a):
+        return self.M_a[a], self.M_a[a + 1]
+
 
 def types2atomtypes(symbols, types, default):
     """Map a types identifier to a list with a type id for each atom.
@@ -1328,7 +1461,8 @@ def types2atomtypes(symbols, types, default):
     if isinstance(types, basestring):
         return [types] * natoms
 
-    # If present, None will map to the default type, else use the input default
+    # If present, None will map to the default type,
+    # else use the input default
     type_a = [types.get('default', default)] * natoms
 
     # First symbols ...

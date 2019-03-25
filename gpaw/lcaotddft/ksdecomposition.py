@@ -420,8 +420,6 @@ class KohnShamDecomposition(object):
         assert weight_p.dtype == float
         u = 0  # TODO
 
-        absweight_p = np.absolute(weight_p)
-
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
@@ -458,18 +456,22 @@ class KohnShamDecomposition(object):
         def is_between(x, xmin, xmax):
             return xmin <= x and x <= xmax
 
-        tcm_ou = np.zeros((len(energy_o), len(energy_u)), dtype=weight_p.dtype)
-        p_s = np.argsort(absweight_p)[::-1]
-        for s, p in enumerate(p_s):
+        flt_p = []
+        buf = 4 * sigma
+        for p, weight in enumerate(weight_p):
             i, a = self.ia_p[p]
+            if (is_between(eig_n[i],
+                           occ_energy_min - buf,
+                           occ_energy_max + buf) and
+                is_between(eig_n[a],
+                           unocc_energy_min - buf,
+                           unocc_energy_max + buf)):
+                flt_p.append(p)
 
-            # TODO: add some extra to these limits based on the Gaussian sigma
-            if not is_between(eig_n[i], occ_energy_min, occ_energy_max):
-                continue
-            if not is_between(eig_n[a], unocc_energy_min, unocc_energy_max):
-                continue
+        weight_f = weight_p[flt_p]
+        G_fo = G_no[self.ia_p[flt_p, 0]]
+        G_fu = G_nu[self.ia_p[flt_p, 1]]
+        G_of = G_fo.T
+        tcm_ou = np.dot(G_of * weight_f, G_fu)
 
-            weight = weight_p[p]
-            G_ou = np.outer(G_no[i], G_nu[a])
-            tcm_ou += weight * G_ou
         return energy_o, energy_u, dos_o, dos_u, tcm_ou, fermilevel

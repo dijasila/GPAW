@@ -44,7 +44,7 @@ for formula in systems:
                 parallel=dict(kpt=1),
                 mixer=Mixer(0.5, 5),
                 nbands=-2,
-                poissonsolver=PoissonSolver(relax='GS'),
+                poissonsolver=PoissonSolver('fd', relax='GS'),
                 xc='oldPBE',
                 #fixmom=True,
                 txt=formula + '.txt')
@@ -88,7 +88,7 @@ for formula in tpss_de.keys():
         mae_exp += abs(de_tpss-exp_bonds_dE[formula][1])
         mae_pbe += abs(de_pbe-exp_bonds_dE[formula][1])
         count += 1
-        out = "%s\t%.1f\t%.1f\t%.1f\t%.1f kcal/mol"%(formula,de_tpss,tpss_de[formula],
+        out = "%s\t%.1f\t%.1f\t%.1f\t%.1f kcal/mol" % (formula,de_tpss,tpss_de[formula],
                                             de_tpss-tpss_de[formula],de_tpss-exp_bonds_dE[formula][1])
         print(out, file=file)
         file.flush()

@@ -1,7 +1,7 @@
-def agts(queue):
-    molecules = [queue.add('molecules.py %d' % i,
-                           ncpus=1,
-                           walltime=3*60)
-                 for i in range(2)]
-    queue.add('check.py', deps=molecules)
- 
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('molecules.py@1:1h'),
+        task('check.py', deps='molecules.py')]

@@ -4,11 +4,7 @@ import fnmatch
 from io import BytesIO
 import tarfile
 import re
-try:
-    from urllib2 import urlopen
-    input = raw_input
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 
 
 sources = [('gpaw', 'official GPAW setups releases [default]'),
@@ -37,16 +33,20 @@ available at the expected URL:
 
 Or maybe there it is just a temporary problem or timeout.  Please try
 again, or rummage around the GPAW web page until a solution is found.
-Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
+Writing e-mails to gpaw-users@listserv.fysik.dtu.dk or reporting
+an issue on https://gitlab.com/gpaw/gpaw/issues is also
 likely to help."""
 
 
 class CLICommand:
-    short_description = 'Install PAW datasets, pseudopotential or basis sets'
-    description = ('Without a directory, show available setups and GPAW '
-                   'setup paths. '
-                   'With a directory, download and install gpaw-setups into '
-                   'INSTALLDIR/[setups-package-name-and-version].')
+    """Install PAW datasets, pseudopotential or basis sets.
+
+    Without a directory, show available setups and GPAW
+    setup paths.
+
+    With a directory, download and install gpaw-setups into
+    INSTALLDIR/[setups-package-name-and-version].
+    """
 
     @staticmethod
     def add_arguments(parser):

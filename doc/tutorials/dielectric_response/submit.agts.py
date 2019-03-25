@@ -1,22 +1,17 @@
-def agts(queue):
-    queue.add('plot_freq.py', creates='nl_freq_grid.png')
+from myqueue.task import task
 
-    simple_si = queue.add('silicon_ABS_simpleversion.py')
-    queue.add('plot_silicon_ABS_simple.py', creates='si_abs.png',
-              deps=simple_si)
 
-    si = queue.add('silicon_ABS.py', creates='mac_eps.csv',
-                   ncpus=16, walltime=100)
-    queue.add('plot_ABS.py', deps=si, creates='silicon_ABS.png')
-
-    al = queue.add('aluminum_EELS.py', ncpus=8, walltime=100)
-    queue.add('plot_aluminum_EELS_simple.py', deps=al,
-              creates=['aluminum_EELS.png'])
-
-    GR = queue.add('graphite_EELS.py', ncpus=8, walltime=100)
-    queue.add('plot_EELS.py', deps=GR, creates='graphite_EELS.png')
-
-    queue.add('tas2_dielectric_function.py', ncpus=8, creates='tas2_eps.png')
-
-    queue.add('graphene_dielectric_function.py', ncpus=8,
-              creates='graphene_eps.png')
+def create_tasks():
+    return [
+        task('plot_freq.py'),
+        task('silicon_ABS_simpleversion.py'),
+        task('plot_silicon_ABS_simple.py',
+             deps='silicon_ABS_simpleversion.py'),
+        task('silicon_ABS.py@16:1h'),
+        task('plot_ABS.py', deps='silicon_ABS.py'),
+        task('aluminum_EELS.py@8:1h'),
+        task('plot_aluminum_EELS_simple.py', deps='aluminum_EELS.py'),
+        task('graphite_EELS.py@8:1h'),
+        task('plot_EELS.py', deps='graphite_EELS.py'),
+        task('tas2_dielectric_function.py@8:15m'),
+        task('graphene_dielectric_function.py@8:15m')]

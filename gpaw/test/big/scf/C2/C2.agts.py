@@ -1,2 +1,5 @@
-def agts(queue):
-    run = queue.add('C2.py', ncpus=4, walltime=60, deps=[])
+from myqueue.task import task
+
+
+def create_tasks():
+    return [task('C2.py@4:1h')]

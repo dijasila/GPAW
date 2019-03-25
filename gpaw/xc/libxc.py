@@ -21,8 +21,10 @@ short_names = {
 
 
 class LibXC(XCKernel):
+    """Functionals from libxc."""
     def __init__(self, name):
         self.name = name
+        self.omega = None
         self.initialize(nspins=1)
 
     def initialize(self, nspins):
@@ -50,8 +52,9 @@ class LibXC(XCKernel):
             c = _gpaw.lxcXCFuncNum(c)
             if x is None or c is None:
                 raise NameError('Unknown functional: "%s".' % name)
-                
+
         self.xc = _gpaw.lxcXCFunctional(xc, x, c, nspins)
+        self.set_omega()
 
         if self.xc.is_mgga():
             self.type = 'MGGA'
@@ -73,3 +76,11 @@ class LibXC(XCKernel):
         self.xc.calculate(e_g.ravel(), n_sg, dedn_sg,
                           sigma_xg, dedsigma_xg,
                           tau_sg, dedtau_sg)
+
+    def set_omega(self, omega=None):
+        """Set the value of gamma/omega in RSF."""
+        if omega is not None:
+            self.omega = omega
+        if self.omega is not None:
+            if not self.xc.set_omega(self.omega):
+                raise ValueError('Tried setting omega on non RSF hybrid.')

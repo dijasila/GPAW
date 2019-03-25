@@ -7,23 +7,8 @@ class MatrixInFile:
     def __init__(self, M, N, dtype, data, dist):
         self.shape = (M, N)
         self.dtype = dtype
-        self.array = data
+        self.array = data  # pointer to data in a file
         self.dist = create_distribution(M, N, *dist)
-
-    def read(self, gd, shape):
-        matrix = Matrix(*self.shape, dtype=self.dtype, dist=self.dist)
-        # Read band by band to save memory
-        rows = self.dist.rows
-        blocksize = (self.shape[0] + rows - 1) // rows
-        for myn, psit_G in enumerate(matrix.array):
-            n = self.dist.comm.rank * blocksize + myn
-            if gd.comm.rank == 0:
-                big_psit_G = np.asarray(self.array[n], self.dtype)
-            else:
-                big_psit_G = None
-            gd.distribute(big_psit_G, psit_G.reshape(shape))
-
-        return matrix
 
 
 class ArrayWaveFunctions:
@@ -42,10 +27,6 @@ class ArrayWaveFunctions:
 
     def __len__(self):
         return len(self.matrix)
-
-    def read_from_file(self):
-        self.matrix = self.matrix.read(self.gd, self.myshape[1:])
-        self.in_memory = True
 
     def multiply(self, alpha, opa, b, opb, beta, c, symmetric):
         self.matrix.multiply(alpha, opa, b.matrix, opb, beta, c, symmetric)
@@ -97,6 +78,27 @@ class ArrayWaveFunctions:
     def eval(self, matrix):
         matrix.array[:] = self.matrix.array
 
+    def read_from_file(self):
+        """Read wave functions from file into memory."""
+        matrix = Matrix(*self.matrix.shape,
+                        dtype=self.dtype, dist=self.matrix.dist)
+        # Read band by band to save memory
+        rows = matrix.dist.rows
+        blocksize = (matrix.shape[0] + rows - 1) // rows
+        for myn, psit_G in enumerate(matrix.array):
+            n = matrix.dist.comm.rank * blocksize + myn
+            if self.comm.rank == 0:
+                big_psit_G = self.array[n]
+                if big_psit_G.dtype == complex and self.dtype == float:
+                    big_psit_G = big_psit_G.view(float)
+                elif big_psit_G.dtype == float and self.dtype == complex:
+                    big_psit_G = np.asarray(big_psit_G, complex)
+            else:
+                big_psit_G = None
+            self._distribute(big_psit_G, psit_G)
+        self.matrix = matrix
+        self.in_memory = True
+
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
@@ -123,6 +125,9 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
             return self.matrix.array.reshape(self.myshape)
         else:
             return self.matrix.array
+
+    def _distribute(self, big_psit_R, psit_R):
+        self.gd.distribute(big_psit_R, psit_R.reshape(self.gd.n_c))
 
     def __repr__(self):
         s = ArrayWaveFunctions.__repr__(self).split('(')[1][:-1]
@@ -156,18 +161,19 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
                  spin=0, collinear=True):
-        ng = ng0 = len(pd.Q_qG[kpt])
+        ng = ng0 = pd.myng_q[kpt]
         if data is not None:
-            assert ng == data.shape[-1] or ng == data.length_of_last_dimension
             assert data.dtype == complex
         if dtype == float:
             ng *= 2
-            if data is not None:
+            if isinstance(data, np.ndarray):
                 data = data.view(float)
+
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
                                     collinear)
         self.pd = pd
         self.gd = pd.gd
+        self.comm = pd.gd.comm
         self.dv = pd.gd.dv / pd.gd.N_c.prod()
         self.kpt = kpt
         self.spin = spin
@@ -184,6 +190,18 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             return self.matrix.array.view(complex)
         else:
             return self.matrix.array.reshape(self.myshape)
+
+    def _distribute(self, big_psit_G, psit_G):
+        if self.collinear:
+            if self.dtype == float:
+                if big_psit_G is not None:
+                    big_psit_G = big_psit_G.view(complex)
+                psit_G = psit_G.view(complex)
+            psit_G[:] = self.pd.scatter(big_psit_G, self.kpt)
+        else:
+            psit_sG = psit_G.reshape((2, -1))
+            psit_sG[0] = self.pd.scatter(big_psit_G[0], self.kpt)
+            psit_sG[1] = self.pd.scatter(big_psit_G[1], self.kpt)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
                         operator=None, result=None, serial=False):
@@ -205,12 +223,16 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                 self.matrix.multiply(self.dv, 'N', other.matrix, 'C',
                                      0.0, out, symmetric)
             else:
-                tmp_G = self.matrix.array[:, 0].copy()
-                x = 0.5**0.5 if self is other else 0.5
-                self.matrix.array[:, 0] *= x
                 self.matrix.multiply(2 * self.dv, 'N', other.matrix, 'T',
                                      0.0, out, symmetric)
-                self.matrix.array[:, 0] = tmp_G
+                if self.gd.comm.rank == 0:
+                    correction = np.outer(self.matrix.array[:, 0],
+                                          other.matrix.array[:, 0])
+                    if symmetric:
+                        out.array -= 0.5 * self.dv * (correction +
+                                                      correction.T)
+                    else:
+                        out.array -= self.dv * correction
         else:
             assert not cc
             P_ani = {a: P_ni for a, P_ni in out.items()}

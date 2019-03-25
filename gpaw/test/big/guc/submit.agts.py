@@ -1,2 +1,5 @@
-def agts(queue):
-    queue.add('graphene.py', walltime=15, ncpus=8)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [task('graphene.py@8:15m')]

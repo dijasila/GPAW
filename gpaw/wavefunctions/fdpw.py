@@ -8,11 +8,11 @@ from gpaw.matrix import Matrix, matrix_matrix_multiply as mmm
 from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
-from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
 
 
 class NullWfsMover:
-    description = 'Wavefunctions reused if atoms move'
+    description = 'Wavefunctions kept unchanged if atoms move'
 
     def initialize(self, lcaowfs):
         pass
@@ -45,24 +45,32 @@ class PseudoPartialWaveWfsMover:
         for a in range(len(wfs.setups)):
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
-                   for phit in setup.get_actual_atomic_orbitals()]
-            assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+                   for phit in setup.get_partial_waves_for_atomic_orbitals()]
+            #assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
-        phit.set_positions(wfs.spos_ac)
+        phit.set_positions(wfs.spos_ac, wfs.atom_partition)
+
+        # XXX See also wavefunctions.lcao.update_phases
+        if wfs.dtype == complex:
+            phase_qa = np.exp(2j * np.pi *
+                              np.dot(wfs.kd.ibzk_qc,
+                                     (spos_ac - wfs.spos_ac).T.round()))
 
         def add_phit_to_wfs(multiplier):
             for kpt in wfs.kpt_u:
                 P_ani = {}
                 for a in kpt.P_ani:
                     P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
+                    if multiplier > 0 and wfs.dtype == complex:
+                        P_ani[a] *= phase_qa[kpt.q, a]
                 phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
         add_phit_to_wfs(-1.0)
 
         def paste():
-            phit.set_positions(spos_ac)
+            phit.set_positions(spos_ac, wfs.atom_partition)
             add_phit_to_wfs(1.0)
 
         return paste
@@ -97,11 +105,12 @@ class LCAOWfsMover:
 
     def initialize(self, lcaowfs):
         self.bfs = lcaowfs.basis_functions
-        self.tci = lcaowfs.tci
+        # self.tci = lcaowfs.tci
+        self.tciexpansions = lcaowfs.tciexpansions
         self.atomic_correction = lcaowfs.atomic_correction
-        self.S_qMM = lcaowfs.S_qMM
-        self.T_qMM = lcaowfs.T_qMM  # Get rid of this
-        self.P_aqMi = lcaowfs.P_aqMi
+        # self.S_qMM = lcaowfs.S_qMM
+        # self.T_qMM = lcaowfs.T_qMM  # Get rid of this
+        # self.P_aqMi = lcaowfs.P_aqMi
 
     def cut_wfs(self, wfs, spos_ac):
         # XXX Must forward vars from LCAO initialization object
@@ -110,18 +119,23 @@ class LCAOWfsMover:
         # we can rely on those parallelization settings without danger.
         bfs = self.bfs
 
-        P_aqMi = self.P_aqMi
-        S_qMM = self.S_qMM
+        # P_aqMi = self.P_aqMi
+        # S_qMM = self.S_qMM
 
         # We can inherit S_qMM and P_aqMi from the initialization in the
         # first step, then recalculate them for subsequent steps.
         wfs.timer.start('reuse wfs')
         wfs.timer.start('tci calculate')
-        self.tci.calculate(wfs.spos_ac, S_qMM, self.T_qMM, P_aqMi)  # kill T
+        tciex = self.tciexpansions
+        manytci = tciex.get_manytci_calculator(wfs.setups, wfs.gd,
+                                               spos_ac, wfs.kd.ibzk_qc,
+                                               wfs.dtype, wfs.timer)
+        P_aqMi = manytci.P_aqMi(bfs.my_atom_indices)
+        # Avoid calculating T
+        Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
+        S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
         wfs.timer.stop('tci calculate')
-        self.atomic_correction.initialize(P_aqMi,
-                                          wfs.initksl.Mstart,
-                                          wfs.initksl.Mstop)
+        self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
         self.atomic_correction.add_overlap_correction(wfs, S_qMM)
@@ -135,7 +149,7 @@ class LCAOWfsMover:
             with wfs.timer('wfs overlap'):
                 opsit = kpt.psit.new()
                 opsit.array[:] = kpt.psit.array
-                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.P))
+                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.projections))
 
             with wfs.timer('bfs integrate'):
                 bfs.integrate2(opsit.array, c_xM=X_nM, q=kpt.q)
@@ -154,6 +168,10 @@ class LCAOWfsMover:
                 bfs.lcao_to_grid(C_xM=-c_nM, psit_xG=kpt.psit_nG, q=kpt.q)
 
             c_unM.append(c_nM)
+
+        if wfs.dtype == complex:
+            update_phases(c_unM, [kpt.q for kpt in wfs.kpt_u], wfs.kd.ibzk_qc,
+                          spos_ac, wfs.spos_ac, wfs.setups, wfs.initksl.Mstart)
 
         del opsit
 
@@ -177,7 +195,7 @@ class FDPWWaveFunctions(WaveFunctions):
         self.scalapack_parameters = parallel
 
         self.initksl = initksl
-        if reuse_wfs_method is None:
+        if reuse_wfs_method is None or reuse_wfs_method == 'keep':
             wfs_mover = NullWfsMover()
         elif hasattr(reuse_wfs_method, 'cut_wfs'):
             wfs_mover = reuse_wfs_method
@@ -215,99 +233,17 @@ class FDPWWaveFunctions(WaveFunctions):
 
     def __str__(self):
         comm, r, c, b = self.scalapack_parameters
-        return ('  ScaLapack parameters: grid={}x{}, blocksize={}'
-                .format(r, c, b))
+        L1 = ('  ScaLapack parameters: grid={}x{}, blocksize={}'
+              .format(r, c, b))
+        L2 = ('  Wavefunction extrapolation:\n    {}'
+              .format(self.wfs_mover.description))
+        return '\n'.join([L1, L2])
 
     def set_setups(self, setups):
         WaveFunctions.set_setups(self, setups)
 
     def set_orthonormalized(self, flag):
         self.orthonormalized = flag
-
-    def add_pseudo_partial_waves(self, lfc, spos_ac, multiplier=1.0):
-        """Add localized functions times current projections (P_ani).
-
-        Effectively "cut and paste" wavefunctions when moving the atoms.
-        This should yield better initial wavefunctions at each step in
-        relaxations.  Use multiplier -1 to subtract and +1 to add."""
-        # XXX this will only work with 'single-zeta type' basis functions.
-        # We should pick the correct ones to use.  In fact it should be
-        # strictly phit_j because those are orthonormal to projectors.
-
-        # This is not a real 'basis' functions object because those
-        # enumerate their states differently.  We could construct a
-        # better guess by using a larger basis for this, but that would
-        # require explicit calculation of the coefficients.
-
-        # We want to ignore projectors for fictional unbound states.
-        # That means always picking only some of the lowest functions, i.e.
-        # a lower number of 'i' indices:
-        # ni_a = {}
-
-        # for a, P_ni in self.kpt_u[0].P_ani.items():
-        #     setup = self.setups[a]
-        #     l_j = [phit.get_angular_momentum_number()
-        #            for phit in setup.phit_j]#get_actual_atomic_orbitals()]
-        #     assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
-        #     ni_a[a] = sum(2 * l + 1 for l in l_j)
-
-        nq = len(self.kd.ibzk_qc)
-        nao = self.setups.nao
-        S_qMM = np.empty((nq, nao, nao), self.dtype)  # XXX distrib
-        T_qMM = np.empty((nq, nao, nao), self.dtype)
-        P_aqMi = {}
-        for a in lfc.my_atom_indices:
-            ni = self.setups[a].ni
-            P_aqMi[a] = np.empty((nq, nao, ni), self.dtype)
-
-        from gpaw.lcao.atomic_correction import get_atomic_correction
-        corr = get_atomic_correction('dense')
-        from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
-        tci = NewTCI(self.gd.cell_cv, self.gd.pbc_c, self.setups,
-                     self.kd.ibzk_qc, self.kd.gamma)
-
-        # self.tci.set_matrix_distribution(Mstart, mynao)
-        tci.calculate(spos_ac, S_qMM, T_qMM, P_aqMi)
-        corr.initialize(P_aqMi, self.initksl.Mstart, self.initksl.Mstop)
-        # corr.add_overlap_correction(self, S_qMM)
-        assert len(S_qMM) == 1
-
-        # coefs = []
-        # for kpt in self.kpt_u:
-        kpt = self.kpt_u[0]
-        S_MM = S_qMM[0]
-        from gpaw.utilities.tools import tri2full
-        tri2full(S_MM)
-        X_nM = np.zeros((self.bd.mynbands, self.setups.nao), self.dtype)
-        lfc.integrate2(kpt.psit_nG, c_xM=X_nM, q=kpt.q)
-        # coefs.append(X_nM)
-
-        if multiplier == -1.0:
-            self.X_nM = X_nM
-        else:
-            X_nM = self.X_nM
-
-        # for u, kpt in enumerate(self.kpt_u):
-        #     if multiplier == -1.0:
-
-        #     else:
-        # invS_MM = np.linalg.inv(S_MM)
-        # c_nM = np.dot(invS_MM.T, X_nM.T).T.copy()
-        c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
-        if multiplier == -1.0:
-            self.prev_c = c_nM
-        else:
-            c_nM = self.prev_c
-        # c_nM = np.linalg.solve(S_MM.T, X_nM.T).T.copy()
-        lfc.lcao_to_grid(C_xM=c_nM * multiplier,
-                         psit_xG=kpt.psit_nG, q=kpt.q)
-
-        # if 0:  # Using projections
-        #     for kpt in self.kpt_u:
-        #         P_ani = {}
-        #         for a in kpt.P_ani:
-        #             P_ani[a] =  multiplier * kpt.P_ani[a][:, :ni_a[a]]
-        #         lfc.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
 
     def set_positions(self, spos_ac, atom_partition=None):
         move_wfs = (self.kpt_u[0].psit_nG is not None and
@@ -325,7 +261,7 @@ class FDPWWaveFunctions(WaveFunctions):
             paste_wfs()
 
         self.set_orthonormalized(False)
-        self.pt.set_positions(spos_ac)
+        self.pt.set_positions(spos_ac, atom_partition)
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
         self.positions_set = True
 
@@ -360,7 +296,7 @@ class FDPWWaveFunctions(WaveFunctions):
         hamiltonian.update(density)
 
         if self.mykpts[0].psit is None:
-            if 1:#self.collinear:
+            if 1:  # self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
             else:
@@ -427,6 +363,14 @@ class FDPWWaveFunctions(WaveFunctions):
             # less than the desired number of bands, then extra random
             # wave functions are added.
             self.random_wave_functions(lcaobd.mynbands)
+            # IMPORTANT: This intersperses random wavefunctions
+            # with those from LCAO depending on band parallelization.
+            # This is presumably okay as long as the FD/PW eigensolver
+            # is called again before using the wavefunctions/occupations.
+            #
+            # Indeed as of writing this, the initialization appears to
+            # call these things in the correct order, but there is no
+            # telling when this will break due to some unrelated change.
         self.timer.stop('LCAO initialization')
 
         return lcaobd.nbands
@@ -440,7 +384,7 @@ class FDPWWaveFunctions(WaveFunctions):
             return
 
         psit = kpt.psit
-        P = kpt.P
+        P = kpt.projections
 
         with self.timer('projections'):
             psit.matrix_elements(self.pt, out=P)
@@ -462,7 +406,7 @@ class FDPWWaveFunctions(WaveFunctions):
             mmm(1.0, S, 'N', psit, 'N', 0.0, psit2)
             mmm(1.0, S, 'N', P, 'N', 0.0, P2)
             psit[:] = psit2
-            kpt.P = P2
+            kpt.projections = P2
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
@@ -484,7 +428,7 @@ class FDPWWaveFunctions(WaveFunctions):
                     dH_ssii = np.array(
                         [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
                          [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
-                    P_nsi = kpt.P[a]
+                    P_nsi = kpt.projections[a]
                     F_v = np.einsum('nsiv,stij,ntj', F_nsiv, dH_ssii, P_nsi)
                     F_nsiv *= kpt.eps_n[:, np.newaxis, np.newaxis, np.newaxis]
                     dO_ii = self.setups[a].dO_ii

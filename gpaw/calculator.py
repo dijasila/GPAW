@@ -6,6 +6,7 @@ from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
 from ase.utils import basestring, plural
 from ase.utils.timing import Timer
+from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
@@ -21,6 +22,7 @@ from gpaw.io.logger import GPAWLogger
 from gpaw.io import Reader, Writer
 from gpaw.jellium import create_background_charge
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
 from gpaw.occupations import create_occupation_number_object
@@ -31,6 +33,7 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
+from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor
 from gpaw.utilities.partition import AtomPartition
@@ -63,8 +66,11 @@ class GPAW(PAW, Calculator):
         'mixer': None,
         'eigensolver': None,
         'background_charge': None,
-        'experimental': {'reuse_wfs_method': None,
-                         'magmoms': None},
+        'experimental': {'reuse_wfs_method': 'paw',
+                         'niter_fixdensity': 0,
+                         'magmoms': None,
+                         'soc': None,
+                         'kpt_refine': None},
         'external': None,
         'random': False,
         'hund': False,
@@ -97,6 +103,8 @@ class GPAW(PAW, Calculator):
         'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
         'sl_lcao': gpaw.sl_lcao,
         'sl_lrtddft': gpaw.sl_lrtddft,
+        'use_elpa': False,
+        'elpasolver': '2stage',
         'buffer_size': gpaw.buffer_size}
 
     def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
@@ -178,6 +186,7 @@ class GPAW(PAW, Calculator):
         return writer
 
     def _set_atoms(self, atoms):
+        check_atoms_too_close(atoms)
         self.atoms = atoms
         # GPAW works in terms of the scaled positions.  We want to
         # extract the scaled positions in only one place, and that is
@@ -339,10 +348,15 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
+        efermi = self.occupations.fermilevel
+        self.hamiltonian.summary(efermi, self.log)
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
+        try:
+            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+        except ValueError:
+            pass
         self.log.fd.flush()
 
     def set(self, **kwargs):
@@ -359,8 +373,8 @@ class GPAW(PAW, Calculator):
             if key != 'txt' and key not in self.default_parameters:
                 raise TypeError('Unknown GPAW parameter: {}'.format(key))
 
-            if key in ['convergence', 'symmetry'] and isinstance(kwargs[key],
-                                                                 dict):
+            if key in ['convergence', 'symmetry',
+                       'experimental'] and isinstance(kwargs[key], dict):
                 # For values that are dictionaries, verify subkeys, too.
                 default_dict = self.default_parameters[key]
                 for subkey in kwargs[key]:
@@ -400,10 +414,22 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof', 'experimental']:
+                       'eigensolver', 'idiotproof']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
+                continue
+
+            # Check nested arguments
+            if key in ['experimental']:
+                changed_parameters2 = changed_parameters[key]
+                for key2 in changed_parameters2:
+                    if key2 in ['kpt_refine', 'magmoms', 'soc']:
+                        self.wfs = None
+                    elif key2 in ['reuse_wfs_method', 'niter_fixdensity']:
+                        continue
+                    else:
+                        raise TypeError('Unknown keyword argument:', key2)
                 continue
 
             # More drastic changes:
@@ -583,25 +609,25 @@ class GPAW(PAW, Calculator):
             if nbands == 'nao':
                 nbands = nao
             elif nbands[-1] == '%':
-                basebands = int(nvalence + M + 0.5) // 2
-                nbands = int((float(nbands[:-1]) / 100) * basebands)
+                basebands = (nvalence + M) / 2
+                nbands = int(np.ceil(float(nbands[:-1]) / 100 * basebands))
             else:
                 raise ValueError('Integer expected: Only use a string '
                                  'if giving a percentage of occupied bands')
 
         if nbands is None:
-            nbands = 0
-            for setup in self.setups:
-                nbands_from_atom = setup.get_default_nbands()
+            # Number of bound partial waves:
+            nbandsmax = sum(setup.get_default_nbands()
+                            for setup in self.setups)
+            nbands = int(np.ceil((1.2 * (nvalence + M) / 2))) + 4
+            if nbands > nbandsmax:
+                nbands = nbandsmax
+            if mode.name == 'lcao' and nbands > nao:
+                nbands = nao
+        elif nbands <= 0:
+            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
-                # Any obscure setup errors?
-                if nbands_from_atom < -(-setup.Nv // 2):
-                    raise ValueError('Bad setup: This setup requests %d'
-                                     ' bands but has %d electrons.'
-                                     % (nbands_from_atom, setup.Nv))
-                nbands += nbands_from_atom
-            nbands = min(nao, nbands)
-        elif nbands > nao and mode.name == 'lcao':
+        if nbands > nao and mode.name == 'lcao':
             raise ValueError('Too many bands for LCAO calculation: '
                              '%d bands and only %d atomic orbitals!' %
                              (nbands, nao))
@@ -610,9 +636,6 @@ class GPAW(PAW, Calculator):
             raise ValueError(
                 'Charge %f is not possible - not enough valence electrons' %
                 par.charge)
-
-        if nbands <= 0:
-            nbands = max(1, int(nvalence + M + 0.5) // 2 + (-nbands))
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -688,7 +711,7 @@ class GPAW(PAW, Calculator):
 
         self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
 
-        print_parallelization_details(self.wfs, self.density, self.log)
+        print_parallelization_details(self.wfs, self.hamiltonian, self.log)
 
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
@@ -784,10 +807,10 @@ class GPAW(PAW, Calculator):
         self.log(self.occupations)
 
     def create_scf(self, nvalence, mode):
-        if mode.name == 'lcao':
-            niter_fixdensity = 0
-        else:
-            niter_fixdensity = 2
+        # if mode.name == 'lcao':
+        #     niter_fixdensity = 0
+        # else:
+        #     niter_fixdensity = 2
 
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
@@ -797,7 +820,12 @@ class GPAW(PAW, Calculator):
             cc.get('density', 1.0e-4) * nv,
             cc.get('forces', np.inf) / (Ha / Bohr),
             self.parameters.maxiter,
-            niter_fixdensity, nv)
+            # XXX make sure niter_fixdensity value is *always* set from default
+            # Subdictionary defaults seem to not be set when user provides
+            # e.g. {}.  We should change that so it works like the ordinary
+            # parameters.
+            self.parameters.experimental.get('niter_fixdensity', 0),
+            nv)
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv):
@@ -840,7 +868,8 @@ class GPAW(PAW, Calculator):
         # (Actually it depends on stencils!  But let the user deal with it)
         N_c = big_gd.get_size_of_global_array(pad=True)
         too_small = np.any(N_c / big_gd.parsize_c < 8)
-        if self.parallel['augment_grids'] and not too_small:
+        if (self.parallel['augment_grids'] and not too_small and
+            mode.name != 'pw'):
             aux_gd = big_gd
         else:
             aux_gd = gd
@@ -885,28 +914,70 @@ class GPAW(PAW, Calculator):
         if realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)
-            xc.set_grid_descriptor(self.hamiltonian.finegd)  # XXX
+            xc.set_grid_descriptor(self.hamiltonian.finegd)
         else:
+            # This code will work if dens.redistributor uses
+            # ordinary density.gd as aux_gd
+            gd = dens.finegd
+
+            xc_redist = None
+            if self.parallel['augment_grids']:
+                from gpaw.grid_descriptor import BadGridError
+                try:
+                    aux_gd = gd.new_descriptor(comm=self.world)
+                except BadGridError as err:
+                    import warnings
+                    warnings.warn('Ignoring augment_grids: {}'
+                                  .format(err))
+                else:
+                    bcast_comm = dens.redistributor.broadcast_comm
+                    xc_redist = GridRedistributor(self.world, bcast_comm,
+                                                  gd, aux_gd)
+
             self.hamiltonian = pw.ReciprocalSpaceHamiltonian(
-                pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc, **kwargs)
-            xc.set_grid_descriptor(dens.xc_redistributor.aux_gd)  # XXX
+                pd2=dens.pd2, pd3=dens.pd3, realpbc_c=self.atoms.pbc,
+                xc_redistributor=xc_redist,
+                **kwargs)
+            xc.set_grid_descriptor(self.hamiltonian.xc_gd)
 
         self.hamiltonian.soc = self.parameters.experimental.get('soc')
         self.log(self.hamiltonian, '\n')
+
+    def create_kpoint_descriptor(self, nspins):
+        par = self.parameters
+
+        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        kpt_refine = par.experimental.get('kpt_refine')
+        if kpt_refine is None:
+            kd = KPointDescriptor(bzkpts_kc, nspins)
+
+            self.timer.start('Set symmetry')
+            kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
+            self.timer.stop('Set symmetry')
+
+        else:
+            self.timer.start('Set k-point refinement')
+            kd = create_kpoint_descriptor_with_refinement(
+                kpt_refine,
+                bzkpts_kc, nspins, self.atoms,
+                self.symmetry, comm=self.world,
+                timer=self.timer)
+            self.timer.stop('Set k-point refinement')
+            # Update quantities which might have changed, if symmetry
+            # was changed
+            self.symmetry = kd.symmetry
+            self.setups.set_symmetry(kd.symmetry)
+
+        self.log(kd)
+
+        return kd
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
                               setups, cell_cv, pbc_c):
         par = self.parameters
 
-        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
-        kd = KPointDescriptor(bzkpts_kc, nspins)
-
-        self.timer.start('Set symmetry')
-        kd.set_symmetry(self.atoms, self.symmetry, comm=self.world)
-        self.timer.stop('Set symmetry')
-
-        self.log(kd)
+        kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
                                               nspins * kd.nibzkpts)
@@ -918,11 +989,6 @@ class GPAW(PAW, Calculator):
         ndomains = None
         if parsize_domain is not None:
             ndomains = np.prod(parsize_domain)
-        if mode.name == 'pw':
-            if ndomains is not None and ndomains > 1:
-                raise ValueError('Planewave mode does not support '
-                                 'domain decomposition.')
-            ndomains = 1
         parallelization.set(kpt=parsize_kpt,
                             domain=ndomains,
                             band=parsize_bands)
@@ -990,9 +1056,14 @@ class GPAW(PAW, Calculator):
             sl_lcao = self.parallel['sl_lcao']
             if sl_lcao is None:
                 sl_lcao = sl_default
+
+            elpasolver = None
+            if self.parallel['use_elpa']:
+                elpasolver = self.parallel['elpasolver']
             lcaoksl = get_KohnSham_layouts(sl_lcao, 'lcao',
                                            gd, bd, domainband_comm, dtype,
-                                           nao=nao, timer=self.timer)
+                                           nao=nao, timer=self.timer,
+                                           elpasolver=elpasolver)
 
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
@@ -1016,7 +1087,7 @@ class GPAW(PAW, Calculator):
                                                dtype, nao=nao,
                                                timer=self.timer)
 
-            reuse_wfs_method = par.experimental.get('reuse_wfs_method')
+            reuse_wfs_method = par.experimental.get('reuse_wfs_method', 'paw')
             sl = (domainband_comm,) + (self.parallel['sl_diagonalize'] or
                                        sl_default or
                                        (1, 1, None))

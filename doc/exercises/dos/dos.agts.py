@@ -1,9 +1,10 @@
-def agts(queue):
-    queue.add('dos.agts.py', ncpus=1,
-              deps=['../iron/PBE.py',
-                    '../wavefunctions/CO.py',
-                    '../wannier/si.py',
-                    '../aluminium/Al_fcc.py'])
+def create_tasks():
+    from myqueue.task import task
+    return [
+        task('dos.agts.py',
+             deps=['../iron/PBE.py', '../wavefunctions/CO.py',
+                   '../wannier/si.py', '../aluminium/Al_fcc.py'])]
+
 
 if __name__ == '__main__':
     import os

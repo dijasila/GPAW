@@ -41,6 +41,12 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* :ref:`GPAW version 1.5.1 <releasenotes>` released (23 Jan 2019).
+
+* :ref:`GPAW version 1.5.0 <releasenotes>` released (11 Jan 2019).
+
+* :ref:`GPAW version 1.4.0 <releasenotes>` released (29 May 2018).
+
 * :ref:`GPAW version 1.3.0 <releasenotes>` released (2 October 2017).
 
 * Supported by NOMAD_ (Mar 1 2017)
@@ -133,7 +139,7 @@ News
 
 * The `code sprint 2007`_ was successfully finished (Nov 16 2007)
 
-* The source code is now in the hands of SVN and Trac_ (Okt 22 2007)
+* The source code is now in the hands of SVN and Trac (Okt 22 2007)
 
 * A GPAW Sprint will be held on November 16 in Lyngby (Okt 18 2007)
 
@@ -142,7 +148,6 @@ News
 .. _numpy: http://numpy.scipy.org/
 .. _CSC: http://www.csc.fi
 .. _GPAW course: http://www.csc.fi/english/csc/courses/archive/gpaw-2008-01
-.. _Trac: https://trac.fysik.dtu.dk/projects/gpaw
 .. _Sphinx: http://www.sphinx-doc.org
 .. _CAMd summer school 2008: http://www.camd.dtu.dk/English/Events/CAMD_Summer_School_2008/Programme.aspx
 .. _code sprint 2007: http://www.dtu.dk/Nyheder/Nyt_fra_Institutterne.aspx?guid={38B92D63-FB09-4DFA-A074-504146A2D678}

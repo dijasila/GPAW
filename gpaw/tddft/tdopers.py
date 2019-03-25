@@ -45,7 +45,7 @@ class TimeDependentHamiltonian:
 
         # Increase the accuracy of Poisson solver
         poisson = self.hamiltonian.poisson
-        if hasattr(poisson, 'eps') and poisson.eps > 1e-12:
+        if getattr(poisson, 'eps', None) and poisson.eps > 1e-12:
             poisson.eps = 1e-12
 
         # external potential
@@ -534,16 +534,19 @@ class TimeDependentOverlap(Overlap):
         from gpaw.utilities.blas import dotu, axpy
         #from gpaw.tddft.cscg import multi_zdotu, multi_scale, multi_zaxpy
         #initialization
-          # Multivector dot product, a^T b, where ^T is transpose
+        # Multivector dot product, a^T b, where ^T is transpose
+
         def multi_zdotu(s, x,y, nvec):
             for i in range(nvec):
                 s[i] = dotu(x[i],y[i])
             wfs.gd.comm.sum(s)
             return s
+
         # Multivector ZAXPY: a x + y => y
         def multi_zaxpy(a,x,y, nvec):
             for i in range(nvec):
                 axpy(a[i]*(1+0J), x[i], y[i])
+
         # Multiscale: a x => x
         def multi_scale(a,x, nvec):
             for i in range(nvec):

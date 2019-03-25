@@ -268,6 +268,7 @@ class TDDFT(GPAW):
 
     def initialize(self, reading=False):
         self.parameters.mixer = DummyMixer()
+        self.parameters.experimental['reuse_wfs_method'] = None
         GPAW.initialize(self, reading=reading)
 
     def _write(self, writer, mode):

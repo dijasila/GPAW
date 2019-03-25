@@ -119,10 +119,10 @@ class WaveFunctions:
             D_sii[kpt.s] += D_ii.real
         else:
             if self.collinear:
-                P_ni = kpt.P[a]
+                P_ni = kpt.projections[a]
                 D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
             else:
-                P_nsi = kpt.P[a]
+                P_nsi = kpt.projections[a]
                 D_ssii = np.einsum('nsi,n,nzj->szij',
                                    P_nsi.conj(), f_n, P_nsi)
                 D_sii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
@@ -188,22 +188,23 @@ class WaveFunctions:
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             with self.timer('Redistribute'):
                 for kpt in self.mykpts:
-                    assert self.atom_partition == kpt.P.atom_partition
-                    kpt.P = kpt.P.redist(atom_partition)
-                    assert atom_partition == kpt.P.atom_partition
+                    P = kpt.projections
+                    assert self.atom_partition == P.atom_partition
+                    kpt.projections = P.redist(atom_partition)
+                    assert atom_partition == kpt.projections.atom_partition
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.mykpts[0].P is not None:
+        if not self.positions_set and self.mykpts[0].projections is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
             for kpt in self.mykpts:
-                kpt.P = Projections(
+                kpt.projections = Projections(
                     self.bd.nbands, nproj_a,
                     self.atom_partition,
                     self.bd.comm,
@@ -305,13 +306,15 @@ class WaveFunctions:
 
         if self.kd.comm.rank == kpt_rank:
             kpt = self.mykpts[u]
-            P_nI = kpt.P.collect()
+            P_nI = kpt.projections.collect()
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
                 self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
+            if not self.collinear:
+                nproj *= 2
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
             self.kd.comm.receive(P_nI, kpt_rank)
             return P_nI
@@ -354,7 +357,8 @@ class WaveFunctions:
 
         if rank == 0:
             # allocate full wave function and receive
-            psit_G = self.empty(global_array=True,
+            shape = () if self.collinear else (2,)
+            psit_G = self.empty(shape, global_array=True,
                                 realspace=realspace)
             # XXX this will fail when using non-standard nesting
             # of communicators.
@@ -420,7 +424,7 @@ class WaveFunctions:
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
                 P_nI = self.collect_projections(k, s)
-                if not self.collinear:
+                if not self.collinear and P_nI is not None:
                     P_nI.shape = (self.bd.nbands, 2, nproj)
                 writer.fill(P_nI)
 
@@ -436,6 +440,7 @@ class WaveFunctions:
                 writer.fill(self.collect_eigenvalues(k, s) * Hartree)
 
     def write_occupations(self, writer):
+
         if self.collinear:
             shape = (self.nspins, self.kd.nibzkpts, self.bd.nbands)
         else:
@@ -471,7 +476,7 @@ class WaveFunctions:
                 index = (kpt.s, kpt.k)
             else:
                 index = (kpt.k,)
-            kpt.P = Projections(
+            kpt.projections = Projections(
                 self.bd.nbands, nproj_a,
                 atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
@@ -479,7 +484,7 @@ class WaveFunctions:
                 P_nI = reader.proxy('projections', *index)[nslice]
                 if not self.collinear:
                     P_nI.shape = (self.bd.mynbands, -1)
-                kpt.P.matrix.array[:] = P_nI
+                kpt.projections.matrix.array[:] = P_nI
 
     def read_eigenvalues(self, reader, old=False):
         nslice = self.bd.get_slice()
@@ -557,7 +562,7 @@ def eigenvalue_string(wfs, comment=' '):
         return ''.join(tokens)
 
     if len(wfs.kd.ibzk_kc) > 2:
-        add('Warning: Showing only first 2 kpts')
+        add('Showing only first 2 kpts')
         print_range = 2
     else:
         add('Showing all kpts')
