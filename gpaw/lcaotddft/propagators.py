@@ -96,7 +96,7 @@ class ReplayPropagator(LCAOPropagator):
         self.wfs.read_occupations(r)
         self.read_index += 1
 
-    def kick(self, hamiltonian, time):
+    def kick(self, ext, time):
         self._align_read_index(time)
         # Check that this is the step after kick
         assert not equal(self.reader[self.read_index].time,
