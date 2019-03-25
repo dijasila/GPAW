@@ -11,7 +11,7 @@ atoms.center(vacuum=5.0)
 td_calc = LCAOTDDFT(
     basis='dzp', setups={'Na': '1'}, xc='LDA', h=0.3, nbands=4,
     convergence={'density': 1e-7},
-    poissonsolver=PoissonSolver(eps=1e-14, remove_moment=1 + 3 + 5))
+    poissonsolver=PoissonSolver(remove_moment=1 + 3 + 5))
 atoms.set_calculator(td_calc)
 atoms.get_potential_energy()
 td_calc.write('Na8_gs.gpw', mode='all')

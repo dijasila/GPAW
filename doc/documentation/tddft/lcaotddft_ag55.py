@@ -10,31 +10,31 @@ from gpaw import setup_paths
 # Set the path for the created basis set
 setup_paths.insert(0, '.')
 
-# Read the clusterm from the xyz file
+# Read the cluster from the xyz file
 atoms = read('ag55.xyz')
 atoms.center(vacuum=5.0)
 
 # Increase the accuracy of density for ground state
 convergence = {'density': 1e-8}
 
-# Increase the accuracy of PoissonSolver and
-# apply multipole corrections for monopole and dipoles
-poissonsolver = PoissonSolver(eps=1e-16, remove_moment=1 + 3)
+# Apply multipole corrections for monopole and dipoles
+poissonsolver = PoissonSolver(remove_moment=1 + 3)
+
+parallel = {'sl_auto': True, 'band': 2, 'augment_grids': True}
 
 # Calculate ground state in LCAO mode
 calc = GPAW(xc='GLLBSC', basis='GLLBSC.dz', h=0.3, nbands=352, mode='lcao',
             convergence=convergence, poissonsolver=poissonsolver,
-            occupations=FermiDirac(0.1),
-            parallel={'sl_default': (8, 6, 32), 'band': 2})
+            occupations=FermiDirac(0.1), parallel=parallel)
 atoms.set_calculator(calc)
 # Relax the ground state
 atoms.get_potential_energy()
 # Save the intermediate ground state result to a file
 calc.write('ag55_gs.gpw', mode='all')
 
+
 # Time propagation
-td_calc = LCAOTDDFT('ag55_gs.gpw',
-                    parallel={'sl_default': (8, 6, 32), 'band': 2})
+td_calc = LCAOTDDFT('ag55_gs.gpw', parallel=parallel)
 DipoleMomentWriter(td_calc, 'ag55.dm')
 td_calc.absorption_kick([1e-5, 0.0, 0.0])
 td_calc.propagate(20, 500)
