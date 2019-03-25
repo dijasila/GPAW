@@ -15,9 +15,8 @@ mixer = Mixer(0.02, 5, 1.0)
 # Parallelzation settings
 parallel = {'sl_auto': True, 'domain': 2, 'augment_grids': True}
 
-# Increase the accuracy of PoissonSolver and
-# apply multipole corrections for monopole and dipoles
-poissonsolver = PoissonSolver(eps=1e-16, remove_moment=1 + 3)
+# Apply multipole corrections for monopole and dipoles
+poissonsolver = PoissonSolver(remove_moment=1 + 3)
 
 # Ground-state calculation
 calc = GPAW(mode='lcao', xc='GLLBSC', h=0.3, nbands=360,
