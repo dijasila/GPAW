@@ -759,11 +759,11 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
                DOUBLEP(a), &one, &one, INTP(desca),
                DOUBLEP(w),
                DOUBLEP(z), &one,  &one, INTP(desca),
-               &d_work, &querywork, &i_work, &one, &info);
+               &d_work, &querywork, &i_work, &querywork, &info);
       lwork = (int)(d_work);
       // Sometimes lwork is not large enough.  Found this formula on
       // the internet:
-      lwork = (int) 1.5 * lwork * lwork / (lwork + 1024) + 1024;
+      lwork = MAX(131072, 2 * (int) lwork + 1);
     }
   else
     {
@@ -785,7 +785,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     }
 
   // Computation part
-  liwork = i_work;
+  liwork = MAX(8 * n, i_work + 1);
   iwork = GPAW_MALLOC(int, liwork);
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
