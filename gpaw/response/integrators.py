@@ -209,7 +209,6 @@ class PointIntegrator(Integrator):
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None,
                spin=1, intrab=False):
         """Update chi."""
-        
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:

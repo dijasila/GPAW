@@ -647,7 +647,7 @@ class Chi0:
                                  # Arguments for integrand functions
                                  out_wxx=A_wxx,  # Output array
                                  **extraargs)
-
+            print('A_wxx:', A_wxx[0, 0, 0], file=self.fd)  # rm XXX
             print('Integrating fully occupied bands with partially'
                   + ' unoccupied bands', file=self.fd)
             bandsum = {'n1': 0, 'n2': self.nocc1,
@@ -663,7 +663,7 @@ class Chi0:
                                  # Arguments for integrand functions
                                  out_wxx=A_wxx,  # Output array
                                  **extraargs)
-
+            print('A_wxx:', A_wxx[0, 0, 0], file=self.fd)  # rm XXX
             print('Integrating partially occupied bands with partially '
                   + 'unoccupied bands', file=self.fd)
             for n1 in range(self.nocc1, self.nocc2):
@@ -681,7 +681,7 @@ class Chi0:
                                      # Arguments for integrand functions
                                      out_wxx=A_wxx,  # Output array
                                      **extraargs)
-
+                print('A_wxx:', A_wxx[0, 0, 0], file=self.fd)  # rm XXX
                 extraargs['intrab'] = False
                 bandsum = {'n1': n1, 'n2': n1 + 1,
                            'm1': n1 + 1, 'm2': self.nocc2}
@@ -696,7 +696,7 @@ class Chi0:
                                      # Arguments for integrand functions
                                      out_wxx=A_wxx,  # Output array
                                      **extraargs)
-
+            print('A_wxx:', A_wxx[0, 0, 0], file=self.fd)  # rm XXX
             extraargs.pop('intrab')
             
         '''  # rm XXX
