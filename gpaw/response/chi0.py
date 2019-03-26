@@ -366,10 +366,14 @@ class Chi0:
                 assert spin in range(wfs.nspins)
                 spins = [spin]
         else:
+            '''  # rm XXX
             if self.response == '+-':
                 spins = [0]
             elif self.response == '-+':
                 spins = [1]
+            '''
+            if self.response in ['+-', '-+']:
+                spins = [0, 1]
             else:
                 raise ValueError('Invalid response %s' % self.response)
 
@@ -408,13 +412,15 @@ class Chi0:
             chi0_wvv = None
             self.plasmafreq_vv = None
 
+        '''  # rm XXX
         if self.response == 'density':
             # Do all empty bands:
             m1 = self.nocc1
         else:
             # Do all bands
             m1 = 0
-        
+        '''
+        m1 = self.nocc1  # where should these band summation parameters go?
         m2 = self.nbands
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
@@ -448,8 +454,7 @@ class Chi0:
             Upper band cutoff for band summation
         spins : str or list(ints)
             If 'all' then include all spins.
-            If [0] or [1], only include this specific spin (and flip it,
-            if calculating the transverse magnetic response).
+            If [0] or [1], only include this specific spin.
         extend_head : bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
@@ -460,13 +465,17 @@ class Chi0:
         """
         
         # Parse spins
-        wfs = self.calc.wfs
-        if spins == 'all':
-            spins = range(wfs.nspins)
+        '''  # rm
         elif spins == 'pm':
             spins = [0]
         elif spins == 'mp':
             spins = [1]
+        '''
+        wfs = self.calc.wfs
+        if spins == 'all':
+            spins = range(wfs.nspins)
+        elif spins in ['+-, -+']:
+            spins = [0, 1]
         else:
             for spin in spins:
                 assert spin in range(wfs.nspins)
@@ -550,6 +559,7 @@ class Chi0:
         # which the integrator class accepts through the use of the
         # kwargs keyword.
         kd = self.calc.wfs.kd
+        '''  # rm XXX
         mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
                       'm1': m1, 'm2': m2,
                       'symmetry': PWSA,
@@ -562,6 +572,11 @@ class Chi0:
         else:
             mat_kwargs['n2'] = self.nbands
             eig_kwargs['n2'] = self.nbands
+        '''
+        mat_kwargs = {'kd': kd, 'pd': pd,
+                      'symmetry': PWSA,
+                      'integrationmode': self.integrationmode}
+        eig_kwargs = {'kd': kd, 'pd': pd}
         
         if not extend_head:
             mat_kwargs['extend_head'] = False
@@ -601,6 +616,90 @@ class Chi0:
         
         # Integrate response function
         print('Integrating response function.', file=self.fd)
+        if self.response == 'density':  # do as before XXX
+            # Define band summation
+            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+            mat_kwargs.update(bandsum)
+            eig_kwargs.update(bandsum)
+            integrator.integrate(kind=kind,  # Kind of integral
+                                 domain=domain,  # Integration domain
+                                 integrand=(self.get_matrix_element,
+                                            self.get_eigenvalues),
+                                 x=self.wd,  # Frequency Descriptor
+                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 # Arguments for integrand functions
+                                 out_wxx=A_wxx,  # Output array
+                                 **extraargs)
+        else:  # Maybe more parameters could be fixed in integrator?
+            extraargs['intrab'] = False  # fix intraband terminology XXX
+            print('Integrating at least partially occupied bands '
+                  + 'with unoccupied bands', file=self.fd)
+            bandsum = {'n1': 0, 'n2': self.nocc2,
+                       'm1': self.nocc2, 'm2': self.nbands}
+            mat_kwargs.update(bandsum)
+            eig_kwargs.update(bandsum)
+            integrator.integrate(kind=kind,  # Kind of integral
+                                 domain=domain,  # Integration domain
+                                 integrand=(self.get_matrix_element,
+                                            self.get_eigenvalues),
+                                 x=self.wd,  # Frequency Descriptor
+                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 # Arguments for integrand functions
+                                 out_wxx=A_wxx,  # Output array
+                                 **extraargs)
+
+            print('Integrating fully occupied bands with partially'
+                  + ' unoccupied bands', file=self.fd)
+            bandsum = {'n1': 0, 'n2': self.nocc1,
+                       'm1': self.nocc1, 'm2': self.nocc2}
+            mat_kwargs.update(bandsum)
+            eig_kwargs.update(bandsum)
+            integrator.integrate(kind=kind,  # Kind of integral
+                                 domain=domain,  # Integration domain
+                                 integrand=(self.get_matrix_element,
+                                            self.get_eigenvalues),
+                                 x=self.wd,  # Frequency Descriptor
+                                 kwargs=(mat_kwargs, eig_kwargs),
+                                 # Arguments for integrand functions
+                                 out_wxx=A_wxx,  # Output array
+                                 **extraargs)
+
+            print('Integrating partially occupied bands with partially '
+                  + 'unoccupied bands', file=self.fd)
+            for n1 in range(self.nocc1, self.nocc2):
+                extraargs['intrab'] = True
+                bandsum = {'n1': n1, 'n2': n1 + 1,
+                           'm1': n1, 'm2': n1 + 1}
+                mat_kwargs.update(bandsum)
+                eig_kwargs.update(bandsum)
+                integrator.integrate(kind=kind,  # Kind of integral
+                                     domain=domain,  # Integration domain
+                                     integrand=(self.get_matrix_element,
+                                                self.get_eigenvalues),
+                                     x=self.wd,  # Frequency Descriptor
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     # Arguments for integrand functions
+                                     out_wxx=A_wxx,  # Output array
+                                     **extraargs)
+
+                extraargs['intrab'] = False
+                bandsum = {'n1': n1, 'n2': n1 + 1,
+                           'm1': n1 + 1, 'm2': self.nocc2}
+                mat_kwargs.update(bandsum)
+                eig_kwargs.update(bandsum)
+                integrator.integrate(kind=kind,  # Kind of integral
+                                     domain=domain,  # Integration domain
+                                     integrand=(self.get_matrix_element,
+                                                self.get_eigenvalues),
+                                     x=self.wd,  # Frequency Descriptor
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     # Arguments for integrand functions
+                                     out_wxx=A_wxx,  # Output array
+                                     **extraargs)
+
+            extraargs.pop('intrab')
+            
+        '''  # rm XXX
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(self.get_matrix_element,  # Integrand
@@ -611,6 +710,8 @@ class Chi0:
                              out_wxx=A_wxx,  # Output array
                              **extraargs)
         # extraargs: Extra arguments to integration method
+        '''
+
         if wings:
             mat_kwargs['extend_head'] = True
             mat_kwargs['block'] = False

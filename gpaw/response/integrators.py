@@ -185,7 +185,8 @@ class PointIntegrator(Integrator):
                 self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           **extraargs)
             else:
-                self.update(n_MG, deps_M, x, out_wxx, **extraargs)
+                self.update(n_MG, deps_M, x, out_wxx,
+                            spin=arguments[1], **extraargs)
 
         # Sum over
         self.kncomm.sum(out_wxx)
@@ -205,7 +206,8 @@ class PointIntegrator(Integrator):
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
-    def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
+    def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None,
+               spin=1, intrab=False):
         """Update chi."""
         
         omega_w = wd.get_data()
@@ -221,7 +223,18 @@ class PointIntegrator(Integrator):
             if self.response == 'density':
                 x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             else:
-                x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
+                if (self.response == '+-' and spin == 0)\
+                   or (self.response == '-+' and spin == 1):
+                    S1, S2 = 1., 0.
+                elif (self.response == '+-' and spin == 1)\
+                        or (self.response == '-+' and spin == 0):
+                    S1, S2 = 0., 1.
+                else:
+                    raise Exception('Something went wrong')  # fix XXX
+                if intrab:
+                    S2 *= 0.
+                x_m = - np.sign(deps_m) * (S1 / (omega + deps1_m)
+                                           - S2 / (omega - deps2_m))
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
