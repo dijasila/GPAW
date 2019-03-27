@@ -1,4 +1,5 @@
 from collections import defaultdict
+from math import pi
 
 import numpy as np
 
@@ -60,14 +61,58 @@ def find_kpt_pairs(kd: KPointDescriptor
 
 
 class BlockOfStates:
-    def __init__(self, pd, kpt):
-        self.pd = pd
-        self.projections = kpt.projections
-        self.u_nR = [pd.ifft(psit_G)
-                     for psit_G in kpt.psit.array]
+    def __init__(self, projections, u_nR, bz_index):
+        self.projections = projections
+        self.u_nR = u_nR
+        self.bz_index = bz_index
 
     def __len__(self):
         return len(self.u_nR)
+
+    @staticmethod
+    def from_kpt(kpt, pd):
+        u_nR = pd.gd.empty(len(kpt.f_n), pd.dtype)
+        for psit_G, u_R in zip(kpt.psit.array, u_nR):
+            u_R[:] = pd.ifft(psit_G)
+        return BlockOfStates(kpt.projections, u_nR, pd.kd.ibz2bz_k[kpt.k])
+
+    def apply_symmetry(self, s, kd, setups, spos_ac):
+        u_nR = np.empty_like(self.u_nR)
+        projections = self.projections.new()
+
+        bz_index2 = kd.bz2bz_ks[self.bz_index, s]
+        assert bz_index2 >= 0
+
+        k_c = kd.bzk_kc[self.bz_index]
+        k2_c = kd.bzk_kc[bz_index2]
+
+        time_reversal = kd.time_reversal_k[bz_index2]
+        sign = 1 - 2 * time_reversal
+
+        U_cc = kd.symmetry.op_scc[s]
+
+        shift_c = sign * U_cc.dot(k_c) - k2_c
+        ishift_c = shift_c.round().astype(int)
+        assert np.allclose(ishift_c, shift_c)
+        assert not ishift_c.any()
+
+        N_c = u_nR.shape[1:]
+        i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
+        i = np.ravel_multi_index(i_cr, N_c, 'wrap')
+        for u1_R, u2_R in zip(self.u_nR, u_nR):
+            u1_R[:] = u2_R.ravel()[i].reshape(N_c)
+
+        for a, id in enumerate(setups.id_a):
+            b = kd.symmetry.a_sa[s, a]
+            S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
+            x = np.exp(2j * pi * np.dot(k_c, S_c))
+            U_ii = setups[a].R_sii[s].T * x
+            projections[a][:] = self.projections[b].dot(U_ii)
+
+        if time_reversal:
+            np.conj(u_nR, out=u_nR)
+            np.conj(projections.array, out=projections.array)
+        return BlockOfStates(projections, u_nR, bz_index2)
 
 
 def exx(b1: BlockOfStates,
@@ -75,22 +120,24 @@ def exx(b1: BlockOfStates,
         Delta_aiiL,
         ghat,
         v_G):  # -> float
-    Q_anni = [np.einsum('mi,ijL,nj->mnL',
+    Q_annL = [np.einsum('mi,ijL,nj->mnL',
                         b1.projections[a].conj(),
                         Delta_iiL,
                         b2.projections[a])
               for a, Delta_iiL in enumerate(Delta_aiiL)]
 
     exx_nn = np.empty((len(b1), len(b2)))
+    rho_nG = ghat.pd.empty(len(b2), b1.u_nR.dtype)
     for n1, u1_R in enumerate(b1.u_nR):
+        u1cc_R = u1_R.conj()
         n0 = n1 if b1 is b2 else 0
-        u2_nR = b2.u_nR[n0:]
-        rho_nR = u1_R.conj() * u2_nR
-        ghat.add(rho_nR,
-                 {a: Q_nni[n1, n0:]
-                  for a, Q_nni in enumerate(Q_anni)})
-        for n2, rho_R in enumerate(rho_nR, n0):
-            rho_G = ghat.pd.fft(rho_R)
+        for n2, rho_G in enumerate(rho_nG[n0:], n0):
+            rho_G[:] = ghat.pd.fft(u1cc_R * b2.u_nR[n2])
+        ghat.add(rho_nG[n0:],
+                 {a: Q_nnL[n1, n0:]
+                  for a, Q_nnL in enumerate(Q_annL)})
+        for n2, rho_G in enumerate(rho_nG, n0):
+            print(n1,n2,rho_G[0] * ghat.pd.gd.dv)
             e = ghat.pd.integrate(rho_G, v_G * rho_G).real
             exx_nn[n1, n2] = e
             if b1 is b2:
@@ -109,14 +156,14 @@ def hf(calc, coulomb):
         kpt1 = kpts[i1]
         kpt2 = kpts[i2]
         if i1 != i0:
-            b1 = BlockOfStates(wfs.pd, kpt1)
+            b1 = BlockOfStates.from_kpt(kpt1, wfs.pd)
             i0 = i1
         if i2 == i1:
             b2 = b1
         else:
-            b2 = BlockOfStates(wfs.pd, kpt2)
+            b2 = BlockOfStates.from_kpt(kpt2, wfs.pd)
         if s != 0:
-            b2 = b2.apply_symmetry(s)
+            b2 = b2.apply_symmetry(s, kd, wfs.setups, calc.spos_ac)
 
         k1_c = kd.ibzk_kc[i1]
         k2 = kd.ibz2bz_k[i2]
@@ -128,6 +175,7 @@ def hf(calc, coulomb):
         ghat = PWLFC([pawdata.ghat_l for pawdata in wfs.setups], pd)
         ghat.set_positions(calc.spos_ac)
         v_G = coulomb.get_potential(pd)
+        print(i1, i2, s, k1_c, k2_c)
         exx(b1, b2, Delta_aiiL, ghat, v_G)
 
 
@@ -163,6 +211,8 @@ if __name__ == '__main__':
     wstc = WignerSeitzTruncatedCoulomb(h.calc.wfs.gd.cell_cv,
                                        h.calc.wfs.kd.N_c)
     hf(h.calc, wstc)
+
+    EXX(calc)
     kd = h.calc.wfs.kd
     print(kd.ibz2bz_k)
     print(kd.bz2ibz_k)
