@@ -22,6 +22,25 @@ void lfc_reduce_dealloc_cuda();
 struct cudaDeviceProp _gpaw_cuda_dev_prop;
 int _gpaw_cuda_dev;
 
+void _gpaw_cuda_setdevice(int gpuid)
+{
+    gpaw_cuSCall(cudaSetDevice(gpuid));
+}
+
+PyObject* gpaw_cuda_setdevice(PyObject *self, PyObject *args)
+{
+    int gpuid;
+    if (!PyArg_ParseTuple(args, "i", &gpuid))
+        return NULL;
+
+    _gpaw_cuda_setdevice(gpuid);
+
+    if (PyErr_Occurred())
+        return NULL;
+    else
+        Py_RETURN_NONE;
+}
+
 void gpaw_cuda_init_c()
 {
     gpaw_cuSCall(cudaGetDevice(&_gpaw_cuda_dev));

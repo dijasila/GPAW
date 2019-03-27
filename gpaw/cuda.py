@@ -46,6 +46,7 @@ def init(rank=0):
     cuda_ctx.push()
 
     cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)
+    _gpaw.gpaw_cuda_setdevice(devno)
     _gpaw.gpaw_cuda_init()
     if debug:
         print('[{0}] GPU device {1} initialised (on host {2}).'.format(

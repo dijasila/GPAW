@@ -12,6 +12,7 @@
 #include <cuda_runtime_api.h>
 #include "cuda/gpaw-cuda-common.h"
 
+void gpaw_cuda_setdevice(int gpuid);
 void gpaw_cuda_init_c();
 #endif
 
@@ -135,6 +136,7 @@ PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args);
 PyObject* mlsqr(PyObject *self, PyObject *args);
 
 #ifdef GPAW_CUDA
+PyObject* gpaw_cuda_setdevice(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_init(PyObject *self, PyObject *args);
 PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
@@ -270,6 +272,7 @@ static PyMethodDef functions[] = {
 #endif // GPAW_WITH_LIBVDWXC
     {"mlsqr", mlsqr, METH_VARARGS, 0},
 #ifdef GPAW_CUDA
+    {"gpaw_cuda_setdevice", gpaw_cuda_setdevice, METH_VARARGS, 0},
     {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
     {"gpaw_cuda_delete", gpaw_cuda_delete, METH_VARARGS, 0},
     {"csign_gpu", csign_gpu, METH_VARARGS, 0},
@@ -446,6 +449,7 @@ main(int argc, char **argv)
         }
         PyRun_SimpleString("cuda_ctx.push()");
         PyRun_SimpleString("cuda_ctx.set_cache_config(drv.func_cache.PREFER_L1)");
+        _gpaw_cuda_setdevice(cuda_dev);
         gpaw_cuda_init_c();
     }
 #endif
