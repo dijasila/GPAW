@@ -2,6 +2,7 @@ from collections import defaultdict
 from math import pi
 
 import numpy as np
+from ase.units import Ha
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
@@ -180,7 +181,7 @@ def hf(calc, coulomb, spin=0):
                                                       calc.density.D_asp)
 
     exxvv = 0.0
-    deps_kn = np.zeros()
+    deps_kn = np.zeros((kd.nibzkpts, wfs.bd.nbands))
     k0 = -1
     for k1, k2, s, weight in sorted(pairs):
         kpt1 = kpts[k1]
@@ -248,7 +249,8 @@ if __name__ == '__main__':
     from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
     wstc = WignerSeitzTruncatedCoulomb(h.calc.wfs.gd.cell_cv,
                                        h.calc.wfs.kd.N_c)
-    hf(h.calc, wstc)
+    e, e_kn = hf(h.calc, wstc)
+    print(e * Ha, e_kn * Ha)
 
     from gpaw.xc.exx import EXX
     EXX(h.calc).calculate()
