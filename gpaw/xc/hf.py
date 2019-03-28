@@ -61,9 +61,10 @@ def find_kpt_pairs(kd: KPointDescriptor
 
 
 class BlockOfStates:
-    def __init__(self, projections, u_nR, bz_index):
-        self.projections = projections
+    def __init__(self, u_nR, projections, f_n, bz_index):
         self.u_nR = u_nR
+        self.projections = projections
+        self.f_n = f_n
         self.bz_index = bz_index
 
     def __len__(self):
@@ -74,7 +75,10 @@ class BlockOfStates:
         u_nR = pd.gd.empty(len(kpt.f_n), pd.dtype)
         for psit_G, u_R in zip(kpt.psit.array, u_nR):
             u_R[:] = pd.ifft(psit_G)
-        return BlockOfStates(kpt.projections, u_nR, pd.kd.ibz2bz_k[kpt.k])
+        return BlockOfStates(u_nR,
+                             kpt.projections,
+                             kpt.f_n / kpt.weight,
+                             pd.kd.ibz2bz_k[kpt.k])
 
     def apply_symmetry(self, s, kd, setups, spos_ac):
         u_nR = np.empty_like(self.u_nR)
@@ -112,7 +116,7 @@ class BlockOfStates:
         if time_reversal:
             np.conj(u_nR, out=u_nR)
             np.conj(projections.array, out=projections.array)
-        return BlockOfStates(projections, u_nR, bz_index2)
+        return BlockOfStates(u_nR, projections, self.f_n, bz_index2)
 
 
 def exx(b1: BlockOfStates,
@@ -137,9 +141,9 @@ def exx(b1: BlockOfStates,
                  {a: Q_nnL[n1, n0:]
                   for a, Q_nnL in enumerate(Q_annL)})
         for n2, rho_G in enumerate(rho_nG, n0):
-            print(n1,n2,rho_G[0] * ghat.pd.gd.dv)
             e = ghat.pd.integrate(rho_G, v_G * rho_G).real
             exx_nn[n1, n2] = e
+            print(e, rho_G[0], ghat.pd.gd.dv)
             if b1 is b2:
                 exx_nn[n2, n1] = e
     return exx_nn
@@ -150,11 +154,15 @@ def hf(calc, coulomb):
     kd = wfs.kd
     pairs = find_kpt_pairs(kd)
     kpts = calc.wfs.mykpts
+
     Delta_aiiL = [pawdata.Delta_iiL for pawdata in wfs.setups]
+
+    energy = 0.0
     i0 = -1
     for i1, i2, s, weight in sorted(pairs):
         kpt1 = kpts[i1]
         kpt2 = kpts[i2]
+
         if i1 != i0:
             b1 = BlockOfStates.from_kpt(kpt1, wfs.pd)
             i0 = i1
@@ -169,23 +177,26 @@ def hf(calc, coulomb):
         k2 = kd.ibz2bz_k[i2]
         k2 = kd.bz2bz_ks[k2, s]
         k2_c = kd.bzk_kc[k2]
+
         q_c = k1_c - k2_c
         qd = KPointDescriptor([q_c])
+
         pd = PWDescriptor(wfs.ecut, wfs.gd, wfs.dtype, kd=qd)
+
         ghat = PWLFC([pawdata.ghat_l for pawdata in wfs.setups], pd)
         ghat.set_positions(calc.spos_ac)
+
         v_G = coulomb.get_potential(pd)
-        print(i1, i2, s, k1_c, k2_c)
-        exx(b1, b2, Delta_aiiL, ghat, v_G)
 
-
-def all2all():
-    pass
+        e_nn = exx(b1, b2, Delta_aiiL, ghat, v_G)
+        energy += 0.5 * weight * b1.f_n.dot(e_nn).dot(b2.f_n)
+        print(i1, i2, s, k1_c, k2_c, weight, energy)
 
 
 def run(c1, c2):
     import threading
     thread = None
+    all2all = ...
     while True:
         array1 = c1.next()
         if thread:
@@ -202,8 +213,8 @@ if __name__ == '__main__':
     from ase import Atoms
     from gpaw import GPAW, PW
     h = Atoms('H', cell=(3, 3, 7), pbc=(1, 1, 0))
-    h.calc = GPAW(mode=PW(100),
-                  kpts=(4, 4, 1),
+    h.calc = GPAW(mode=PW(100, force_complex_dtype=True),
+                  kpts=(1, 1, 1),
                   txt=None)
     h.get_potential_energy()
     # print('Using Wigner-Seitz truncated Coulomb interaction.')
@@ -212,15 +223,17 @@ if __name__ == '__main__':
                                        h.calc.wfs.kd.N_c)
     hf(h.calc, wstc)
 
-    EXX(calc)
-    kd = h.calc.wfs.kd
-    print(kd.ibz2bz_k)
-    print(kd.bz2ibz_k)
-    print(kd.bz2bz_ks)
-    print(kd.time_reversal_k)
-    print(kd.symmetry.op_scc)
-    # create_symmetry_map(kd)
-    pairs = find_kpt_pairs(kd)
-    print(pairs)
-    print(len(pairs), sum(f for _, _, _, f in pairs))
-    
+    from gpaw.xc.exx import EXX
+    EXX(h.calc).calculate()
+
+    if 0:
+        kd = h.calc.wfs.kd
+        print(kd.ibz2bz_k)
+        print(kd.bz2ibz_k)
+        print(kd.bz2bz_ks)
+        print(kd.time_reversal_k)
+        print(kd.symmetry.op_scc)
+        # create_symmetry_map(kd)
+        pairs = find_kpt_pairs(kd)
+        print(pairs)
+        print(len(pairs), sum(f for _, _, _, f in pairs))
