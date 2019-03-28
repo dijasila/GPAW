@@ -21,6 +21,11 @@ Git master branch
 * Non self-consistent hybrid functional calculations can now be continued if
   they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
 
+* The ``customize.py`` file has been renamed to :git:`customize_template.py`
+  and added to :git:`.gitignore`.  The idea is that you copy the template file
+  to ``customize.py`` and edit that file.  The advantage is that Git does not
+  know about ``customize.py`` and will ignore it.
+
 
 Version 1.5.1
 =============

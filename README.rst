@@ -20,10 +20,11 @@ Requirements
 * BLAS
 * LAPACK
 
-Optional:
+Optional (highly recommended):
 
 * MPI
 * ScaLAPACK
+* FFTW
 
 
 Installation
@@ -31,7 +32,7 @@ Installation
 
 Do this::
 
-    $ python setup.py install --user
+    $ python3 setup.py install --user
 
 and make sure you have ``~/.local/bin`` in your $PATH.
 
@@ -86,6 +87,7 @@ BFGS:   3  09:08:13       -6.630429       0.0003
 >>> write('H2.xyz', h2)
 >>> h2.get_potential_energy()  # ASE's units are eV and Å
 -6.6304292169392784
+
 
 Getting started
 ---------------
