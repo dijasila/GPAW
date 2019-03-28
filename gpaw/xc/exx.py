@@ -283,10 +283,10 @@ class EXX(PairDensity):
                       for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, Q_G)
-            e = self.calculate_n(pd, n, n_mG, kpt2)
+            e = self.calculate_n(pd, n_mG, kpt2)
             self.exxvv_sin[kpt1.s, i, n] += e
 
-    def calculate_n(self, pd, n, n_mG, kpt2):
+    def calculate_n(self, pd, n_mG, kpt2):
         iG_G = self.get_coulomb_kernel(pd)
         x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
 
@@ -294,6 +294,7 @@ class EXX(PairDensity):
         for f, n_G in zip(kpt2.f_n, n_mG):
             x_G = n_G * iG_G
             e -= x * f * pd.integrate(x_G, x_G).real
+            print(x * pd.integrate(x_G, x_G).real)
 
         return e
 
