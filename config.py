@@ -470,12 +470,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if glob(libpl + '/libpython*mpi*'):
         libs += ' -lpython%s_mpi' % cfgDict['VERSION']
     else:
-        pylib = os.path.join(*[cfgDict[k] for k in 'LIBDIR INSTSONAME'.split()])
-        if os.path.exists(pylib):
-            libs += ' ' + pylib
-        else:
-            libs += ' ' + cfgDict.get('BLDLIBRARY',
-                                      '-lpython%s' % cfgDict['VERSION'])
+        # LIBDIR/INSTSONAME always points to libpython (dynamic or static)
+        libs += ' %s' % os.path.join(cfgDict['LIBDIR'], cfgDict['INSTSONAME'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
