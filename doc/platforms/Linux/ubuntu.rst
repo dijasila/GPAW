@@ -15,6 +15,7 @@ And finally, GPAW with ScaLAPACK and FFTW::
     $ wget https://pypi.org/packages/source/g/gpaw/gpaw-1.5.1.tar.gz
     $ tar -xf gpaw-1.5.1.tar.gz
     $ cd gpaw
+    $ cp customize_template.py customize.py
     $ sed -i "s/scalapack = False/scalapack = True/" customize.py
     $ sed -i "s/fftw = False/fftw = True/" customize.py
     $ python3 setup.py install --user

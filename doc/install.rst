@@ -27,11 +27,12 @@ that has MPI_ functionality built in.
 
 There are several ways to install GPAW:
 
-* On a lucky day it's as simple as ``pip3 install -U gpaw`` as
+* On a lucky day it's as simple as ``python3 -m pip install -U gpaw`` as
   described :ref:`below <installation using pip>`.
 
 * Alternatively, you can :ref:`download <download>` the source code,
-  edit :git:`customize.py` to tell the install script which libraries you
+  copy the :git:`customize_template.py` file to ``customize.py`` and
+  edit it to tell the install script which libraries you
   want to link to and where they
   can be found (see :ref:`customizing installation`) and then install with a
   ``python3 setup.py install --user`` as described :ref:`here <install
@@ -97,11 +98,11 @@ Installation using ``pip``
 The simplest way to install GPAW is using pip_ and the GPAW package from
 the Python package index (PyPI_)::
 
-    $ pip3 install --upgrade --user gpaw
+    $ python3 -m pip install --upgrade --user gpaw
 
 This will compile and install GPAW (both ``_gpaw.so`` and all the Python
 files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
-Python can automatically find it.  The ``pip3`` command will also place
+Python can automatically find it.  The ``pip install`` command will also place
 the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
 make sure you have that in your :envvar:`PATH` environment variable.  If
 you have an ``mpicc`` command on your system then there will also be a
@@ -209,18 +210,19 @@ Customizing installation
 The install script does its best when trying to guess proper libraries
 and commands to build GPAW. However, if the standard procedure fails
 or user wants to override default values it is possible to customize
-the setup with :git:`customize.py` file which is located in the GPAW base
-directory. As an example, :git:`customize.py` might contain the following
-lines::
+the setup with a ``customize.py`` file which is located in the GPAW base
+directory.  Distributed with GPAW is a :git:`customize_template.py` file
+that one can copy and edit as needed.  As an example, ``customize.py``
+might contain the following lines::
 
   libraries = ['myblas', 'mylapack']
   library_dirs = ['path_to_myblas']
 
 Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas
--lmylapack``" linker flags. Look at the file :git:`customize.py`
-itself for more possible options.  :ref:`platforms and architectures`
-provides examples of :file:`customize.py` for different platforms.
-After editing :git:`customize.py`, follow the instructions for the
+-lmylapack``" linker flags. Look at the file :git:`customize_template.py`
+for more possible options.  :ref:`platforms and architectures`
+provides examples of ``customize.py`` for different platforms.
+After editing ``customize.py``, follow the instructions for the
 :ref:`developer installation`.
 
 
@@ -242,10 +244,10 @@ Parallel installation
 
 By default, setup looks if :program:`mpicc` is available, and if setup
 finds one, a parallel version is build. If the setup does not find
-mpicc, a user can specify one in the :git:`customize.py` file.
+mpicc, a user can specify one in the ``customize.py`` file.
 
 Additionally a user may want to enable ScaLAPACK, setting in
-:git:`customize.py`::
+``customize.py`` (see also :git:`customize_template.py`)::
 
     scalapack = True
 
@@ -262,6 +264,11 @@ FFTW
 Older versions of GPAW would link FFTW using ctypes, based on library
 paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
 1.5.1, FFTW is linked from customize.py like all other libraries.
+
+Add the this line to ``customize.py`` (see :git:`customize_template.py`)::
+
+    fftw = True
+
 
 .. _libxc installation:
 
