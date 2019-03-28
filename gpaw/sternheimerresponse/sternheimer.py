@@ -456,7 +456,7 @@ class SternheimerResponse:
             print(f"Iteration number: {niter}")
             print(f"Eigenvalue: {eigval}. Error: {error}")
             print(f"Error2: {error2}")
-            if niter == 20:
+            if niter == 3:
                 self.print = True
             new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
 
@@ -663,11 +663,11 @@ class SternheimerResponse:
                 P_ni = kpt.projections[a][:nvalence]
 
                 U_ij = np.dot(P_ni.conj().T*kpt.f_n[:nvalence], c_ni)
-                U_ij += np.dot(c_ni.conj().T*kpt.f_n[:nvalence], P_ni)
+                #U_ij += np.dot(c_ni.conj().T*kpt.f_n[:nvalence], P_ni)
                 if a in D_aii:
-                    D_aii[a] +=  U_ij# + U_ij.conj().T# + U_ij.conj().T
+                    D_aii[a] +=  U_ij + U_ij.conj().T# + U_ij.conj().T
                 else:
-                    D_aii[a] = U_ij# + U_ij.conj().T# + U_ij.conj().T
+                    D_aii[a] = U_ij + U_ij.conj().T# + U_ij.conj().T
 
 
 
@@ -684,20 +684,20 @@ class SternheimerResponse:
         #Only the unsymmetrized density matrix in the symmetric system matches the correct
 
         # oldD_aii = D_aii.copy()
-        # D_asp = {a : np.array([ pack(D_aii[a]).real ]) for a in D_aii} 
+        D_asp = {a : np.array([ pack(D_aii[a]).real ]) for a in D_aii} 
 
-        # a_sa = self.wfs.kd.symmetry.a_sa
+        a_sa = self.wfs.kd.symmetry.a_sa
 
-        # for s in range(self.wfs.nspins):
-        #     D_aii = [unpack2(D_asp[a][s])
-        #              for a in range(len(D_asp))]
-        #     for a, D_ii in enumerate(D_aii):
-        #         setup = self.wfs.setups[a]
-        #         D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+        for s in range(self.wfs.nspins):
+            D_aii = [unpack2(D_asp[a][s])
+                     for a in range(len(D_asp))]
+            for a, D_ii in enumerate(D_aii):
+                setup = self.wfs.setups[a]
+                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
 
 
         # #print(f"Size of D_ii: {D_aii[0].shape}")
-        # D_aii = {a: unpack2(D_asp[a][0]) for a in D_asp}
+        D_aii = {a: unpack2(D_asp[a][0]) for a in D_asp}
         # print("Delta D:")
         # print(D_aii[0][:4, :4])
         # print("Delta D sum")
@@ -758,6 +758,9 @@ class SternheimerResponse:
             exit()
        
 
+        q = fine_delta_tilde_n_G + total_delta_comp_charge_G
+        print("total fine charge", fine_delta_tilde_n_G[0])
+        print("total compensated charge", q[0])
         poisson_term_G = self.solve_poisson(fine_delta_tilde_n_G + total_delta_comp_charge_G)
         if self.print and False:
             import matplotlib.pyplot as plt
@@ -822,28 +825,10 @@ class SternheimerResponse:
                 raise ValueError("Number of G-vectors does not match length of vector")
             wvf_R = self.wfs.pd.ifft(wvf_G, q=q_index)
             pt = self.wfs.pt
-            #print(f"q,level: {(q_index, level_index)}")
-            if q_index in self.c_qnai and False:
-                if level_index in self.c_qnai[q_index]:
-                    c_ai = self.c_qnai[q_index][level_index].copy()
-                else:
-                    c_ai = pt.integrate(wvf_G, q=q_index)
-                    self.c_qnai[q_index][level_index] = c_ai.copy()
-                #c_ai = self.c_qnai[(q_index, level_index)].copy() ##TODO there seems to be an error here. Is q_index properly defined?
-                # other_c_ai = pt.integrate(wvf_G, q=q_index)
-                # c_ai = other_c_ai
-                # for a, c_i in c_ai.items():
-                #     b = np.allclose(c_i, other_c_ai[a])
-                #     if not b:
-                #         print("error: ", np.mean(np.abs(c_i/other_c_ai[a])))#np.max(np.abs(c_i, other_c_ai[a]))/np.mean(np.abs(c_i)))
-                #assert b
-            else:
-                c_ai = {a: val[level_index, :] for a, val in kpt.projections.items()}
-                #c_ai = pt.integrate(wvf_G, q=q_index)
-                #for a, c_i in c_ai.items():
-                #    c_ai[a] = c_i[0, :]
-                #self.c_qnai[q_index] = {level_index: c_ai.copy()}
-
+            
+            c_ai = {a: val[level_index, :] for a, val in kpt.projections.items()}
+                
+            
             for a, c_i in c_ai.items():
                 W_ii = unpack(W_ap[a])
                 c_i[:] = W_ii.dot(c_i)#c_i.dot(W_ii) 
@@ -882,7 +867,7 @@ class SternheimerResponse:
         for a in DeltaD_aii:
             setup = setups[a]
             DeltaD_ii = DeltaD_aii[a]
-            Delta_iiL = setup.Delta_iiL
+            Delta_iiL = setup.Delta_iiL            
             Q_L = np.einsum("ij, ij...", DeltaD_ii, Delta_iiL)
             Q_aL[a] = np.real(Q_L)
 
@@ -908,9 +893,12 @@ class SternheimerResponse:
             for state_index, deltapsi_G in enumerate(deltapsi_nG):
                 deltapsi_R = pd.ifft(deltapsi_G, q=q_index)
                 wf_R = pd.ifft(self.wfs.mykpts[q_index].psit.array[state_index], q=q_index)
+                if self.print:
+                    assert np.allclose(deltapsi_R, wf_R)
                 delta_n_R += 2*np.real(deltapsi_R*wf_R.conj())
 
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
+
 
         return pd3.fft(fine_delta_n_R)
 
@@ -919,7 +907,7 @@ class SternheimerResponse:
         pd3 = self.calc.density.pd3
         G2 = pd3.G2_qG[0].copy()
         G2[0] = 1.0
-        
+
         return charge_G* 4 * np.pi/G2
         
     def transform_to_coarse_grid_operator(self, fine_grid_operator):        
@@ -1066,7 +1054,7 @@ class SternheimerResponse:
                 assert RHS.shape[0] == linop.shape[1]
                 #print("got RHS")
                 t1 = time()
-                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-2)
+                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-5)
                 t2 = time()
                 #deltapsi_G = 0
                 
@@ -1074,14 +1062,14 @@ class SternheimerResponse:
                     print(f"Final error: {np.linalg.norm(linop.matvec(deltapsi_G) - RHS)}")
                     raise ValueError("bicgstab did not converge. Info: {}".format(info))
                 
-                    
+                #deltapsi_G = psi.copy()
 
                 # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
                 # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
                 # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
                 # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
 
-                deltapsi_qnG[k_plus_q_index][state_index] += deltapsi_G*self.kpt_weight[index]
+                deltapsi_qnG[k_plus_q_index][state_index] += deltapsi_G#*self.kpt_weight[index]
 
                 self.t2s.append(t4-t3)
 
@@ -1327,6 +1315,7 @@ if __name__=="__main__":
                     symmetry="off",#{"point_group": False},
                     occupations=FermiDirac(0.01),
                     basis="dzp",
+                    #setups="ah"/"AH",
                     txt = outname)
         
         atoms.set_calculator(calc)
