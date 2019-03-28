@@ -159,6 +159,7 @@ PyObject* ax2py_gpu(PyObject *self, PyObject *args);
 PyObject* multi_ax2py_gpu(PyObject *self, PyObject *args);
 PyObject* axpbyz_gpu(PyObject *self, PyObject *args);
 PyObject* axpbz_gpu(PyObject *self, PyObject *args);
+PyObject* fill_gpu(PyObject *self, PyObject *args);
 #endif
 
 static PyMethodDef functions[] = {
@@ -299,6 +300,7 @@ static PyMethodDef functions[] = {
     {"multi_ax2py_gpu", multi_ax2py_gpu, METH_VARARGS, 0},
     {"axpbyz_gpu", axpbyz_gpu, METH_VARARGS, 0},
     {"axpbz_gpu", axpbz_gpu, METH_VARARGS, 0},
+    {"fill_gpu", fill_gpu, METH_VARARGS, 0},
 #endif
     {0, 0, 0, 0}
 };

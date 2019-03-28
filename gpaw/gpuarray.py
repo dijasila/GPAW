@@ -116,6 +116,11 @@ class GPUArray(pycuda_GPUArray):
         axpbz(selffac, self, other, out)
         return out
 
+    def fill(self, value, stream=None):
+        """fills the array with the specified value"""
+        _gpaw.fill_gpu(value, self.gpudata, self.shape, self.dtype)
+        return self
+
 def axpbyz(a, x, b, y, z):
     _gpaw.axpbyz_gpu(a, x.gpudata, b, y.gpudata, z.gpudata, x.shape, x.dtype)
     return z
