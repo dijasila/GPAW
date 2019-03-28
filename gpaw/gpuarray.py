@@ -3,6 +3,8 @@ import numpy as np
 import pycuda.driver as drv
 from pycuda.gpuarray import GPUArray as pycuda_GPUArray
 
+import _gpaw
+
 
 class GPUArray(pycuda_GPUArray):
     """GPUArray that supports slicing in the 1st dimension.
@@ -96,6 +98,31 @@ class GPUArray(pycuda_GPUArray):
                 base=self,
                 gpudata=int(self.gpudata) + start * self.dtype.itemsize)
 
+    def _axpbyz(self, selffac, other, otherfac, out, add_timer=None, stream=None):
+        """Compute ``out = selffac * self + otherfac*other``,
+        where `other` is a vector.."""
+        assert self.shape == other.shape
+        if not self.flags.forc or not other.flags.forc:
+            raise RuntimeError("only contiguous arrays may "
+                    "be used as arguments to this operation")
+        axpbyz(selffac, self, otherfac, other, out)
+        return out
+
+    def _axpbz(self, selffac, other, out, stream=None):
+        """Compute ``out = selffac * self + other``, where `other` is a scalar."""
+        if not self.flags.forc:
+            raise RuntimeError("only contiguous arrays may "
+                    "be used as arguments to this operation")
+        axpbz(selffac, self, other, out)
+        return out
+
+def axpbyz(a, x, b, y, z):
+    _gpaw.axpbyz_gpu(a, x.gpudata, b, y.gpudata, z.gpudata, x.shape, x.dtype)
+    return z
+
+def axpbz(a, x, b, z):
+    _gpaw.axpbz_gpu(a, x.gpudata, b, z.gpudata, x.shape, x.dtype)
+    return z
 
 def to_gpu(ary, allocator=drv.mem_alloc):
     """converts a numpy array to a GPUArray"""
