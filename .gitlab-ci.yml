@@ -5,6 +5,7 @@ master:
     - apt-get install -qy libopenblas-dev liblapack-dev libscalapack-mpi-dev libxc-dev > apt-get.output
     - pip install flake8
     - pip install git+https://gitlab.com/ase/ase.git@3.17.0 > ase-install.output
+    - cp customize_template.py customize.py
     - sed -i "s/scalapack = False/scalapack = True/" customize.py
     - python setup.py install > gpaw-install.output
     - useradd -m user
