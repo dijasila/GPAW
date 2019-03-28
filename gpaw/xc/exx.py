@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import json
 import sys
 from math import pi
@@ -294,7 +292,6 @@ class EXX(PairDensity):
         for f, n_G in zip(kpt2.f_n, n_mG):
             x_G = n_G * iG_G
             e -= x * f * pd.integrate(x_G, x_G).real
-            print(x * pd.integrate(x_G, x_G).real)
 
         return e
 

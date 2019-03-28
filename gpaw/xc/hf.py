@@ -5,6 +5,8 @@ import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.xc.exx import pawexxvv
+from gpaw.utilities import unpack, unpack2
 
 
 def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
@@ -143,40 +145,61 @@ def exx(b1: BlockOfStates,
         for n2, rho_G in enumerate(rho_nG, n0):
             e = ghat.pd.integrate(rho_G, v_G * rho_G).real
             exx_nn[n1, n2] = e
-            print(e, rho_G[0], ghat.pd.gd.dv)
             if b1 is b2:
                 exx_nn[n2, n1] = e
     return exx_nn
 
 
-def hf(calc, coulomb):
+def extract_exx_things(setups, D_asp):
+    D_aiiL = []
+    V_asii = []
+    C_aii = []
+    exxcc = 0.0
+    for a, pawdata in enumerate(setups):
+        D_aiiL.append(pawdata.Delta_iiL)
+        V_sii = []
+        for D_p in D_asp[a]:
+            D_ii = unpack2(D_p)
+            V_ii = pawexxvv(pawdata, D_ii)
+            V_sii.append(V_ii)
+        V_asii.append(V_sii)
+        C_ii = unpack(pawdata.X_p)
+        C_aii.append(C_ii)
+        exxcc += pawdata.ExxC
+
+    return D_aiiL, V_asii, C_aii, exxcc
+
+
+def hf(calc, coulomb, spin=0):
     wfs = calc.wfs
     kd = wfs.kd
     pairs = find_kpt_pairs(kd)
     kpts = calc.wfs.mykpts
 
-    Delta_aiiL = [pawdata.Delta_iiL for pawdata in wfs.setups]
+    D_aiiL, V_asii, C_aii, exxcc = extract_exx_things(wfs.setups,
+                                                      calc.density.D_asp)
 
-    energy = 0.0
-    i0 = -1
-    for i1, i2, s, weight in sorted(pairs):
-        kpt1 = kpts[i1]
-        kpt2 = kpts[i2]
+    exxvv = 0.0
+    deps_kn = np.zeros()
+    k0 = -1
+    for k1, k2, s, weight in sorted(pairs):
+        kpt1 = kpts[k1]
+        kpt2 = kpts[k2]
 
-        if i1 != i0:
+        if k1 != k0:
             b1 = BlockOfStates.from_kpt(kpt1, wfs.pd)
-            i0 = i1
-        if i2 == i1:
+            k0 = k1
+        if k2 == k1:
             b2 = b1
         else:
             b2 = BlockOfStates.from_kpt(kpt2, wfs.pd)
         if s != 0:
             b2 = b2.apply_symmetry(s, kd, wfs.setups, calc.spos_ac)
 
-        k1_c = kd.ibzk_kc[i1]
-        k2 = kd.ibz2bz_k[i2]
-        k2 = kd.bz2bz_ks[k2, s]
-        k2_c = kd.bzk_kc[k2]
+        k1_c = kd.ibzk_kc[k1]
+        bzk2 = kd.ibz2bz_k[k2]
+        bzk2 = kd.bz2bz_ks[bzk2, s]
+        k2_c = kd.bzk_kc[bzk2]
 
         q_c = k1_c - k2_c
         qd = KPointDescriptor([q_c])
@@ -188,9 +211,13 @@ def hf(calc, coulomb):
 
         v_G = coulomb.get_potential(pd)
 
-        e_nn = exx(b1, b2, Delta_aiiL, ghat, v_G)
-        energy += 0.5 * weight * b1.f_n.dot(e_nn).dot(b2.f_n)
-        print(i1, i2, s, k1_c, k2_c, weight, energy)
+        e_nn = exx(b1, b2, D_aiiL, ghat, v_G)
+        exxvv += 0.5 * weight * b1.f_n.dot(e_nn).dot(b2.f_n)
+        deps_kn[k1] += weight * e_nn.dot(b2.f_n)
+        deps_kn[k2] += weight * b1.f_n.dot(e_nn)
+        print(k1, k2, s, k1_c, k2_c, weight)
+
+    return exxcc + exxvv, deps_kn
 
 
 def run(c1, c2):
