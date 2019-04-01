@@ -98,6 +98,8 @@ class BlockOfStates:
 
         U_cc = kd.symmetry.op_scc[s]
 
+        print('Sym:', sign, U_cc)
+
         shift_c = sign * U_cc.dot(k_c) - k2_c
         ishift_c = shift_c.round().astype(int)
         assert np.allclose(ishift_c, shift_c)
@@ -107,7 +109,7 @@ class BlockOfStates:
         i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
         i = np.ravel_multi_index(i_cr, N_c, 'wrap')
         for u1_R, u2_R in zip(self.u_nR, u_nR):
-            u1_R[:] = u2_R.ravel()[i].reshape(N_c)
+            u2_R[:] = u1_R.ravel()[i].reshape(N_c)
 
         for a, id in enumerate(setups.id_a):
             b = kd.symmetry.a_sa[s, a]
@@ -119,14 +121,15 @@ class BlockOfStates:
         if time_reversal:
             np.conj(u_nR, out=u_nR)
             np.conj(projections.array, out=projections.array)
+
         return BlockOfStates(u_nR, projections, self.f_n, bz_index2)
 
 
-def exx(b1: BlockOfStates,
-        b2: BlockOfStates,
-        Delta_aiiL,
-        ghat,
-        v_G):  # -> float
+def exx_kpt_pair(b1: BlockOfStates,
+                 b2: BlockOfStates,
+                 Delta_aiiL,
+                 ghat,
+                 v_G):  # -> float
     Q_annL = [np.einsum('mi,ijL,nj->mnL',
                         b1.projections[a].conj(),
                         Delta_iiL,
@@ -135,67 +138,69 @@ def exx(b1: BlockOfStates,
 
     exx_nn = np.empty((len(b1), len(b2)))
     rho_nG = ghat.pd.empty(len(b2), b1.u_nR.dtype)
+
     for n1, u1_R in enumerate(b1.u_nR):
         u1cc_R = u1_R.conj()
+
         n0 = n1 if b1 is b2 else 0
+
         for n2, rho_G in enumerate(rho_nG[n0:], n0):
             rho_G[:] = ghat.pd.fft(u1cc_R * b2.u_nR[n2])
+
         ghat.add(rho_nG[n0:],
                  {a: Q_nnL[n1, n0:]
                   for a, Q_nnL in enumerate(Q_annL)})
+
         for n2, rho_G in enumerate(rho_nG, n0):
-            e = ghat.pd.integrate(rho_G, v_G * rho_G).real
+            e = -ghat.pd.integrate(rho_G, v_G * rho_G).real
             exx_nn[n1, n2] = e
             if b1 is b2:
                 exx_nn[n2, n1] = e
+
     return exx_nn
 
 
 def extract_exx_things(setups, D_asp):
     D_aiiL = []
-    V_asii = []
-    C_aii = []
+    VV_asii = []
+    VC_aii = []
     exxcc = 0.0
     for a, pawdata in enumerate(setups):
         D_aiiL.append(pawdata.Delta_iiL)
-        V_sii = []
-        for D_p in D_asp[a]:
-            D_ii = unpack2(D_p)
-            V_ii = pawexxvv(pawdata, D_ii)
-            V_sii.append(V_ii)
-        V_asii.append(V_sii)
-        C_ii = unpack(pawdata.X_p)
-        C_aii.append(C_ii)
+        VV_sii = []
+        D_sp = D_asp[a]
+        for D_p in D_sp:
+            D_ii = unpack2(D_p) * (len(D_sp) / 2)
+            VV_ii = pawexxvv(pawdata, D_ii)
+            VV_sii.append(VV_ii)
+        VV_asii.append(VV_sii)
+        VC_ii = unpack(pawdata.X_p)
+        VC_aii.append(VC_ii)
         exxcc += pawdata.ExxC
 
-    return D_aiiL, V_asii, C_aii, exxcc
+    return D_aiiL, VV_asii, VC_aii, exxcc
 
 
-def hf(calc, coulomb, spin=0):
-    wfs = calc.wfs
-    kd = wfs.kd
-    pairs = find_kpt_pairs(kd)
-    kpts = calc.wfs.mykpts
+def hf(pairs, kpts, kd, pd, coulomb, setups, spos_ac,
+       D_aiiL, VV_aii, VC_aii, out):
+    exx = 0.0
+    eig_kn = out
+    eig_kn[:] = 0.0
 
-    D_aiiL, V_asii, C_aii, exxcc = extract_exx_things(wfs.setups,
-                                                      calc.density.D_asp)
-
-    exxvv = 0.0
-    deps_kn = np.zeros((kd.nibzkpts, wfs.bd.nbands))
     k0 = -1
     for k1, k2, s, weight in sorted(pairs):
         kpt1 = kpts[k1]
         kpt2 = kpts[k2]
 
         if k1 != k0:
-            b1 = BlockOfStates.from_kpt(kpt1, wfs.pd)
+            b1 = BlockOfStates.from_kpt(kpt1, pd)
             k0 = k1
         if k2 == k1:
             b2 = b1
         else:
-            b2 = BlockOfStates.from_kpt(kpt2, wfs.pd)
+            b2 = BlockOfStates.from_kpt(kpt2, pd)
         if s != 0:
-            b2 = b2.apply_symmetry(s, kd, wfs.setups, calc.spos_ac)
+            b2 = b2.apply_symmetry(s, kd, setups, spos_ac)
 
         k1_c = kd.ibzk_kc[k1]
         bzk2 = kd.ibz2bz_k[k2]
@@ -203,22 +208,30 @@ def hf(calc, coulomb, spin=0):
         k2_c = kd.bzk_kc[bzk2]
 
         q_c = k1_c - k2_c
-        qd = KPointDescriptor([q_c])
+        qd = KPointDescriptor([-q_c])
 
-        pd = PWDescriptor(wfs.ecut, wfs.gd, wfs.dtype, kd=qd)
+        print(q_c)
+        pd12 = PWDescriptor(pd.ecut, pd.gd, pd.dtype, kd=qd)
 
-        ghat = PWLFC([pawdata.ghat_l for pawdata in wfs.setups], pd)
-        ghat.set_positions(calc.spos_ac)
+        ghat = PWLFC([pawdata.ghat_l for pawdata in setups], pd12)
+        ghat.set_positions(spos_ac)
 
-        v_G = coulomb.get_potential(pd)
+        v_G = coulomb.get_potential(pd12)
 
-        e_nn = exx(b1, b2, D_aiiL, ghat, v_G)
-        exxvv += 0.5 * weight * b1.f_n.dot(e_nn).dot(b2.f_n)
-        deps_kn[k1] += weight * e_nn.dot(b2.f_n)
-        deps_kn[k2] += weight * b1.f_n.dot(e_nn)
-        print(k1, k2, s, k1_c, k2_c, weight)
+        e_nn = exx_kpt_pair(b1, b2, D_aiiL, ghat, v_G) * weight
+        print(k1_c, k2_c, weight, e_nn)
 
-    return exxcc + exxvv, deps_kn
+        if k1 == k2 and s == 0:
+            for a, P_ni in b1.projections.items():
+                A_ii = VV_aii[a] + VC_aii[a]
+                e_nn -= 4 * P_ni.conj().dot(A_ii).dot(P_ni.T).real
+
+        exx += 0.5 * b1.f_n.dot(e_nn).dot(b2.f_n)
+
+        eig_kn[k1] += 0.5 * e_nn.dot(b2.f_n)
+        eig_kn[k2] += 0.5 * b1.f_n.dot(e_nn)
+
+    return exx
 
 
 def run(c1, c2):
@@ -237,24 +250,56 @@ def run(c1, c2):
         thread.start()
 
 
+def one_shot_exx(calc):
+    from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
+    # print('Using Wigner-Seitz truncated Coulomb interaction.')
+    wstc = WignerSeitzTruncatedCoulomb(h.calc.wfs.gd.cell_cv,
+                                       h.calc.wfs.kd.N_c)
+    wfs = calc.wfs
+    kd = wfs.kd
+
+    assert kd.comm.size == 1
+    assert wfs.bd.comm.size == 1
+
+    pairs = find_kpt_pairs(kd)
+
+    D_aiiL, VV_asii, VC_aii, exxcc = extract_exx_things(wfs.setups,
+                                                        calc.density.D_asp)
+
+    exx = exxcc
+    eig_skn = np.empty((wfs.nspins, kd.nibzkpts, wfs.bd.nbands))
+
+    deg = 2 / wfs.nspins
+
+    for spin in range(wfs.nspins):
+        kpts = wfs.mykpts[spin * kd.nibzkpts:(spin + 1) * kd.nibzkpts]
+        VV_aii = [VV_sii[spin] for VV_sii in VV_asii]
+
+        exx += hf(pairs, kpts, kd, wfs.pd, wstc, wfs.setups, calc.spos_ac,
+                  D_aiiL, VV_aii, VC_aii,
+                  out=eig_skn[spin])
+
+    return exx * deg, eig_skn
+
+
 if __name__ == '__main__':
     from ase import Atoms
     from gpaw import GPAW, PW
     h = Atoms('H', cell=(3, 3, 7), pbc=(1, 1, 0))
     h.calc = GPAW(mode=PW(100, force_complex_dtype=True),
-                  kpts=(1, 1, 1),
+                  kpts=(2, 1, 1),
+                  # spinpol=True,
                   txt=None)
     h.get_potential_energy()
-    # print('Using Wigner-Seitz truncated Coulomb interaction.')
-    from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-    wstc = WignerSeitzTruncatedCoulomb(h.calc.wfs.gd.cell_cv,
-                                       h.calc.wfs.kd.N_c)
-    e, e_kn = hf(h.calc, wstc)
+    e, e_kn = one_shot_exx(h.calc)
     print(e * Ha, e_kn * Ha)
 
     from gpaw.xc.exx import EXX
-    EXX(h.calc).calculate()
-
+    xx = EXX(h.calc)
+    xx.calculate()
+    e0 = xx.get_exx_energy()
+    eps0 = xx.get_eigenvalue_contributions()
+    print(e * Ha - e0, e_kn * Ha - eps0)
     if 0:
         kd = h.calc.wfs.kd
         print(kd.ibz2bz_k)
