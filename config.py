@@ -10,6 +10,7 @@ from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 from glob import glob
 from os.path import join
+from pathlib import Path
 from stat import ST_MTIME
 
 
@@ -470,8 +471,14 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if glob(libpl + '/libpython*mpi*'):
         libs += ' -lpython%s_mpi' % cfgDict['VERSION']
     else:
-        # LIBDIR/INSTSONAME always points to libpython (dynamic or static)
-        libs += ' %s' % os.path.join(cfgDict['LIBDIR'], cfgDict['INSTSONAME'])
+        # LIBDIR/INSTSONAME will point at the static library if that is how
+        # Python was compiled:
+        lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
+        if lib.is_file():
+            libs += ' {}'.format(lib)
+        else:
+            libs += ' ' + cfgDict.get('BLDLIBRARY',
+                                      '-lpython%s' % cfgDict['VERSION'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
