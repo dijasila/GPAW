@@ -49,7 +49,7 @@ def get_system_config(define_macros, undef_macros,
         f.write('int main(){}\n')
         f.close()
         stderr = os.popen3('cc cc-test.c -fast')[2].read()
-        arch = re.findall('-xarch=(\S+)', stderr)
+        arch = re.findall(r'-xarch=(\S+)', stderr)
         os.remove('cc-test.c')
         if len(arch) > 0:
             extra_compile_args += ['-xarch=%s' % arch[-1]]
@@ -344,7 +344,7 @@ def mtime(path, name, mtimes):
     This function fails if two include files with the same name
     are present in different directories."""
 
-    include = re.compile('^#\s*include "(\S+)"', re.MULTILINE)
+    include = re.compile(r'^#\s*include "(\S+)"', re.MULTILINE)
 
     if name in mtimes:
         return mtimes[name]
@@ -466,19 +466,14 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
 
     libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
-    # See if there is "scalable" libpython available
-    libpl = cfgDict['LIBPL']
-    if glob(libpl + '/libpython*mpi*'):
-        libs += ' -lpython%s_mpi' % cfgDict['VERSION']
+    # LIBDIR/INSTSONAME will point at the static library if that is how
+    # Python was compiled:
+    lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
+    if lib.is_file():
+        libs += ' {}'.format(lib)
     else:
-        # LIBDIR/INSTSONAME will point at the static library if that is how
-        # Python was compiled:
-        lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
-        if lib.is_file():
-            libs += ' {}'.format(lib)
-        else:
-            libs += ' ' + cfgDict.get('BLDLIBRARY',
-                                      '-lpython%s' % cfgDict['VERSION'])
+        libs += ' ' + cfgDict.get('BLDLIBRARY',
+                                  '-lpython%s' % cfgDict['VERSION'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
