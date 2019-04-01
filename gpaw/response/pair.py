@@ -221,7 +221,7 @@ class PWSymmetryAnalyzer:
 
     @timer('Analyze symmetries.')
     def analyze_symmetries(self):
-        """Determine allowed symmetries.
+        r"""Determine allowed symmetries.
 
         An direct symmetry U must fulfill::
 
@@ -571,11 +571,13 @@ class PWSymmetryAnalyzer:
 
         reds = s % self.nU
         if self.timereversal(s):
-            TR = lambda x: x.conj()
+            TR = np.conj
             sign = -1
         else:
             sign = 1
-            TR = lambda x: x
+
+            def TR(x):
+                return x
 
         return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
 
@@ -643,7 +645,7 @@ class PairDensity:
 
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
-        
+
         self.response = response
         self.ecut = ecut
         self.ftol = ftol
@@ -680,7 +682,7 @@ class PairDensity:
         self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
-        
+
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
         else:
@@ -827,7 +829,7 @@ class PairDensity:
             'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
-        
+
         if not load_wfs:
             return KPoint(s, K, n1, n2, blocksize, na, nb,
                           None, eps_n, f_n, None, shift_c)
@@ -1096,7 +1098,7 @@ class PairDensity:
 
     @timer('get_pair_momentum')
     def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
-        """Calculate matrix elements of the momentum operator.
+        r"""Calculate matrix elements of the momentum operator.
 
         Calculates::
 
@@ -1195,7 +1197,6 @@ class PairDensity:
             n_R = ut1cc_R * ut_R
             with self.timer('fft'):
                 n_G[:] = pd.fft(n_R, 0, Q_G) * dv
-
         # PAW corrections:
         with self.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
@@ -1275,8 +1276,8 @@ class PairDensity:
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
             n_n = np.arange(na, nb)
-        assert np.max(n_n) < nb, print('This is too many bands')
-        assert np.min(n_n) >= na, print('This is too few bands')
+        assert np.max(n_n) < nb, 'This is too many bands'
+        assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
         kd = self.calc.wfs.kd
@@ -1417,16 +1418,21 @@ class PairDensity:
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
-            T = lambda f_R: f_R
+            def T(f_R):
+                return f_R
         else:
             N_c = self.calc.wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            T = lambda f_R: f_R.ravel()[i].reshape(N_c)
+
+            def T(f_R):
+                return f_R.ravel()[i].reshape(N_c)
 
         if time_reversal:
             T0 = T
-            T = lambda f_R: T0(f_R).conj()
+
+            def T(f_R):
+                return T0(f_R).conj()
             shift_c *= -1
 
         a_a = []
