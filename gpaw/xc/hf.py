@@ -261,7 +261,7 @@ def one_shot_exx(calc):  # -> Tuple[float, float, float, np.ndarray]
     wfs = calc.wfs
     kd = wfs.kd
 
-    assert kd.comm.size == 1
+    assert kd.comm.size == 1 or kd.comm.size == 2 and wfs.nspins == 2
     assert wfs.bd.comm.size == 1
 
     pairs = find_kpt_pairs(kd)
@@ -276,15 +276,33 @@ def one_shot_exx(calc):  # -> Tuple[float, float, float, np.ndarray]
     K = kd.nibzkpts
     deg = 2 / wfs.nspins
 
-    for spin in range(wfs.nspins):
-        kpts = [(kpt.psit, kpt.projections, kpt.f_n / kpt.weight)
-                for kpt in wfs.mykpts[spin * K:(spin + 1) * K]]
-        VV_aii = [VV_sii[spin] for VV_sii in VV_asii]
+    spin = kd.comm.rank  # 0 or 1
+    k1 = 0
+    k2 = K
+    while True:
+        kpts = [(kpt.psit,
+                 kpt.projections,
+                 kpt.f_n / kpt.weight)  # scale to [0:1] range
+                for kpt in wfs.mykpts[k1:k2]]
+
+        VV_aii = [VV_sii[spin] for VV_sii in VV_asii]  # PAW corrections
+
         e1, e2 = hf(pairs, kpts, kd, wstc, wfs.setups, calc.spos_ac,
                     D_aiiL, VV_aii, VC_aii,
                     out=eig_skn[spin])
         exxvv += e1 * deg
         exxvc += e2 * deg
+
+        if len(wfs.mykpts) == K:
+            break
+        # Next spin:
+        k1 = K
+        k2 = 2 * K
+        spin = 1
+
+    exxvv = kd.comm.sum(exxvv)
+    exxvc = kd.comm.sum(exxvc)
+    kd.comm.sum(eig_skn)
 
     return exxvv, exxvc, exxcc, eig_skn
 
