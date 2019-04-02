@@ -11,7 +11,7 @@ from gpaw.tddft.units import attosec_to_autime
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator=None,
+    def __init__(self, filename=None, propagator=None, scale=None,
                  fxc=None, td_potential=None, **kwargs):
         self.time = 0.0
         self.niter = 0
@@ -20,7 +20,8 @@ class LCAOTDDFT(GPAW):
         self.kick_ext = None
         self.tddft_initialized = False
         self.action = None
-        tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential)
+        tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential,
+                                       scale=scale)
         self.td_hamiltonian = tdh
 
         self.propagator = propagator
