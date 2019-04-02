@@ -343,6 +343,7 @@ class PWDescriptor:
         If local=True, all cores will do an iFFT without any
         gather/distribute.
         """
+        assert q is not None or self.only_one_k_point
         q = q or 0
         if not local:
             c_G = self.gather(c_G, q)
@@ -1555,6 +1556,7 @@ class PWLFC(BaseLFC):
             assert q == -1 and a_xG.ndim == 1
             c_xI[:] = c_axi
         else:
+            assert q != -1 or self.pd.only_one_k_point
             if self.comm.size != 1:
                 c_xI[:] = 0.0
             for a, I1, I2 in self.my_indices:
