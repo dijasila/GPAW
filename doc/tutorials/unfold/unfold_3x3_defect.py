@@ -6,10 +6,9 @@ from gpaw.unfold import Unfold, find_K_from_k
 
 a = 3.184
 PC = mx2(a=a).get_cell(complete=True)
-points = PC.cell.bravais().get_special_points()
+points = PC.bravais()[0].get_special_points()
 path = [points[k] for k in 'MKG']
 kpts, x, X = bandpath(path, PC, 48)
-
 M = [[3, 0, 0], [0, 3, 0], [0, 0, 1]]
 
 Kpts = []
