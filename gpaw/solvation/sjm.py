@@ -248,9 +248,9 @@ class SJM(SolvationGPAW):
                 if self.atoms == None:
                     self.atoms=atoms
 
-                self.log('\n\n\n #############\n')
-                self.log(properties,system_changes)
-                self.log('#############\n')
+#                self.log('\n\n\n #############\n')
+#                self.log(properties,system_changes)
+#                self.log('#############\n')
 
 #                if self.equil_iters > 1 or 'positions' in system_changes:
 #                 if self.occupations:
@@ -273,12 +273,13 @@ class SJM(SolvationGPAW):
 #
 #                    self.previous_pot = pot_int
 
-                self.set_jellium(atoms)
+                if self.equil_iters > 1 or 'positions' in system_changes:
+                    self.set_jellium(atoms)
 
-#                if self.equil_iters == 1:
-#                    SolvationGPAW.calculate(self, atoms, properties,
-#                                        system_changes)
-#                else:
+                #if self.equil_iters == 1:
+                #    SolvationGPAW.calculate(self, atoms, properties,
+                #                        system_changes)
+                #else:
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
 
@@ -305,8 +306,8 @@ class SJM(SolvationGPAW):
                             self.timer.stop('Potential equilibration loop')
                         break
 
-                #if self.equil_iters > 1 or 'positions' in system_changes:
-                if 1:
+                if self.equil_iters > 1 or 'positions' in system_changes:
+                #if 1:
                     if self.previous_pot is not None:
                         if abs(self.previous_ne - self.ne) > 2*self.tiny:
                             self.slope = (pot_int-self.previous_pot) / \
@@ -338,9 +339,9 @@ class SJM(SolvationGPAW):
                 self.write_cavity_and_bckcharge()
             self.previous_ne = self.ne
 
-        if properties != ['energy']:
+        if properties != ['energy']:# and self.equil_iters > 1:
             SolvationGPAW.calculate(self, atoms, properties, [])
-        self.log('Total number of electrons in the unit cell:', self.occupations.nvalence)
+ #       self.log('Total number of electrons in the unit cell:', self.occupations.nvalence)
 
     def write_cavity_and_bckcharge(self):
         self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
