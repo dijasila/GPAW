@@ -165,6 +165,7 @@ corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
     assert is_contiguous(M)
+    assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = np.zeros((n, n), M.dtype.char)
     if M.dtype == complex:
