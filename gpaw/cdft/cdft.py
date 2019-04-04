@@ -92,6 +92,7 @@ class CDFT(Calculator):
         self.mu = mu
         # set charge constraints and lagrangians
         self.v_i = np.empty(shape=(0,0))
+
         self.constraints = np.empty(shape=(0,0))
 
         self.charge_regions = charge_regions
@@ -300,8 +301,9 @@ class CDFT(Calculator):
             self.Edft = E_KS
             # pseudo free energy, neglecting core electrons as done for coupling constant calculation
             if not self.difference:
+
                 self.Ecdft = E_KS + np.dot(self.v_i*Hartree,
-                        (np.array(total_electrons)-self.n_core_electrons))
+                        (total_electrons-self.n_core_electrons)[0])
 
             if self.iteration == 0:
                 p('Optimizer: {n}'.format(n=self.method))
@@ -621,7 +623,6 @@ class CDFTPotential(ExternalPotential):
         self.gd = gd
         self.log = convert_string_to_fd(txt)
         self.atoms = atoms
-        self.v_i = None
         self.pos_av = None
         self.Z_a = None
         self.w_ig = None
@@ -706,8 +707,10 @@ class CDFTPotential(ExternalPotential):
         # return v_ext^{\sigma} = sum_i V_i*w_i^{\sigma}
         if self.w_ig is None:
             self.initialize_partitioning(self.gd)
+        pot = np.empty(self.w_ig.shape)
 
-        pot = self.v_i[:, None] * self.w_ig
+        for i in range(len(self.v_i)):
+            pot[i] = self.v_i[i] * self.w_ig[i]
 
         #first alpha spin
         vext_sga = np.sum(np.asarray(pot), axis=0)
@@ -789,7 +792,8 @@ class CDFTPotential(ExternalPotential):
         diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
-        return np.dot(Vi, diff/size)[0]
+
+        return np.multiply(Vi, diff[:]/size).sum()
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
