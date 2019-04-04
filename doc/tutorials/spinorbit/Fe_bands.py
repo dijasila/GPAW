@@ -6,7 +6,7 @@ from gpaw import GPAW
 layer = GPAW('Fe_gs.gpw', txt=None).atoms
 
 points = ibz_points['bcc']
-G = points['Gamma']
+G = points['G']
 H = points['H']
 P = points['P']
 N = points['N']
