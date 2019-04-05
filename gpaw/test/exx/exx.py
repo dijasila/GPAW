@@ -3,6 +3,8 @@ from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
+from gpaw.xc import XC
+from gpaw.xc.hybrid import HybridXC
 
 be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
 be2.center(vacuum=2.0)
@@ -18,22 +20,21 @@ ref_1871 = {  # Values from revision 1871. Not true reference values
     # xc         Energy          eigenvalue 0    eigenvalue 1
     'PBE': (5.424066548470926, -3.84092, -0.96192),
     'PBE0': (-790.919942, -4.92321, -1.62948),
-    'EXX': (-785.5837828306236, -7.16802337336, -2.72602997017)
-    }
+    'EXX': (-785.5837828306236, -7.16802337336, -2.72602997017)}
+
 
 def xc(name):
     return dict(name=name, stencil=1)
 
-from gpaw.xc import XC
-from gpaw.xc.hybrid import HybridXC
+
 current = {}  # Current revision
 for xc in [XC(xc('PBE')),
            HybridXC('PBE0', stencil=1, finegrid=True),
            HybridXC('EXX', stencil=1, finegrid=True),
            XC(xc('PBE'))]:  # , 'oldPBE', 'LDA']:
     # Generate setup
-    #g = Generator('Be', setup, scalarrel=True, nofiles=True, txt=None)
-    #g.run(exx=True, **parameters['Be'])
+    # g = Generator('Be', setup, scalarrel=True, nofiles=True, txt=None)
+    # g.run(exx=True, **parameters['Be'])
 
     # switch to new xc functional
     calc.set(xc=xc)
