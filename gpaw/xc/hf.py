@@ -8,6 +8,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc.exx import pawexxvv
 from gpaw.utilities import unpack, unpack2
+from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 
 KPoint = namedtuple(
@@ -33,79 +34,33 @@ RSKPoint = namedtuple(
 class EXX:
     def __init__(self,
                  kd: KPointDescriptor,
-                 setups):  # List[Setup]
+                 setups,  # List[Setup]
+                 spos_ac):
         """Exact exchange operator."""
         self.kd = kd
         self.setups = setups
-
-        self.spos_ac = None  # will be set later
+        self.spos_ac = spos_ac
 
         # PAW-correction stuff:
         self.Delta_aiiL = []
         self.VC_aii = []
-        self.exxcc = 0.0
+        self.ecc = 0.0
         for a, data in enumerate(setups):
             self.Delta_aiiL.append(data.Delta_iiL)
             self.VC_aii.append(unpack(data.X_p))
-            self.exxcc += data.ExxC
+            self.ecc += data.ExxC
 
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-    def one_shot_calculation(self, wfs, D_asp, coulomb):
-        self.spos_ac = wfs.spos_ac
-
-        kd = self.kd
-
-        assert kd.comm.size == 1 or kd.comm.size == 2 and wfs.nspins == 2
-        assert wfs.bd.comm.size == 1
-
-        VV_asii = self.calculate_valence_valence_paw_corrections(D_asp)
-
-        exxvv = 0.0
-        exxvc = 0.0
-        eig_skn = np.zeros((wfs.nspins, kd.nibzkpts, wfs.bd.nbands))
-
-        K = kd.nibzkpts
-        deg = 2 / wfs.nspins
-
-        spin = kd.comm.rank  # 0 or 1
-        k1 = 0
-        k2 = K
-        while True:
-            kpts = [KPoint(kpt.psit,
-                           kpt.projections,
-                           kpt.f_n / kpt.weight,  # scale to [0:1] range
-                           kd.ibzk_kc[kpt.k],
-                           kd.weight_k[kpt.k])
-                    for kpt in wfs.mykpts[k1:k2]]
-
-            VV_aii = [VV_sii[spin] for VV_sii in VV_asii]  # PAW corrections
-
-            e1, e2 = self.calculate(kpts, kpts, coulomb, VV_aii,
-                                    eig_skn[spin])
-            exxvv += e1 * deg
-            exxvc += e2 * deg
-
-            if len(wfs.mykpts) == k2:
-                break
-
-            # Next spin:
-            k1 = K
-            k2 = 2 * K
-            spin = 1
-
-        exxvv = kd.comm.sum(exxvv)
-        exxvc = kd.comm.sum(exxvc)
-        kd.comm.sum(eig_skn)
-
-        return exxvv, exxvc, eig_skn
-
-    def calculate(self, kpts1, kpts2, coulomb, VV_aii, eig_kn=None):
+    def calculate(self, kpts1, kpts2, coulomb, VV_aii,
+                  e_kn=None,
+                  vpsit_knG=None):
         exxvv = 0.0
         exxvc = 0.0
 
         pd = kpts1[0].psit.pd
+        vpsit_nG = None
 
         for k1, k2, count in self.ipairs(kpts1, kpts2):
             q_c = k2.k_c - k1.k_c
@@ -117,15 +72,19 @@ class EXX:
 
             v_G = coulomb.get_potential(pd12)
 
-            e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G)
+            if vpsit_knG is not None:
+                vpsit_nG = vpsit_knG[k1.index]
+
+            e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
+                                               pd, k1.index, k2.f_n, vpsit_nG)
             # e_nn *= k1.weight * count / self.kd.nbzkpts
             e_nn *= count / self.kd.nbzkpts**2
             print(k1.index, k2.index, count, q_c, e_nn)
             exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
 
-            if eig_kn is not None:
-                eig_kn[k1.index] -= 0.5 * e_nn.dot(k2.f_n)
-                eig_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
+            if e_kn is not None:
+                e_kn[k1.index] -= 0.5 * e_nn.dot(k2.f_n)
+                e_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
 
         for psit, proj, f_n, k_c, weight in kpts1:
             for a, P_ni in proj.items():
@@ -135,9 +94,9 @@ class EXX:
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 exxvv -= vv_n.dot(f_n) * weight
                 exxvc -= vc_n.dot(f_n) * weight
-                eig_kn[psit.kpt] -= (2 * vv_n + vc_n) * weight
+                e_kn[psit.kpt] -= (2 * vv_n + vc_n) * weight
 
-        eig_kn /= self.kd.weight_k[:, np.newaxis]
+        e_kn /= self.kd.weight_k[:, np.newaxis]
 
         return exxvv, exxvc
 
@@ -145,7 +104,11 @@ class EXX:
                                k1,
                                k2,
                                ghat,
-                               v_G):  # -> float
+                               v_G,  # -> float
+                               pd,
+                               index,
+                               f2_n,
+                               vpsit_nG):
         Q_annL = [np.einsum('mi,ijL,nj->mnL',
                             k1.proj[a].conj(),
                             Delta_iiL,
@@ -170,7 +133,11 @@ class EXX:
                       for a, Q_nnL in enumerate(Q_annL)})
 
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
-                e = ghat.pd.integrate(rho_G, v_G * rho_G).real
+                vrho_G = v_G * rho_G
+                if vpsit_nG is not None:
+                    vpsit_nG[n1] += f2_n[n2] * pd.fft(
+                        ghat.pd.ifft(vrho_G).conj() * k2.u_nR[n2], index)
+                e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
                 if k1 is k2:
                     exx_nn[n2, n1] = e
@@ -221,18 +188,6 @@ class EXX:
 
             lasti1 = i1
             lasti2 = i2
-
-    def calculate_valence_valence_paw_corrections(self, D_asp):
-        VV_asii = []
-        for a, data in enumerate(self.setups):
-            VV_sii = []
-            D_sp = D_asp[a]
-            for D_p in D_sp:
-                D_ii = unpack2(D_p) * (len(D_sp) / 2)
-                VV_ii = pawexxvv(data, D_ii)
-                VV_sii.append(VV_ii)
-            VV_asii.append(VV_sii)
-        return VV_asii
 
     def apply_symmetry(self, s: int, rsk):
         if s == 0:
@@ -306,16 +261,137 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
 
 
 class Hybrid:
-    def calculate(self, calc):
-        from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-        # print('Using Wigner-Seitz truncated Coulomb interaction.')
+    orbital_dependent = True
+    type = 'LDA'
+    name = 'EXX'
 
-        wfs = calc.wfs
-        wstc = WignerSeitzTruncatedCoulomb(wfs.gd.cell_cv,
-                                           wfs.kd.N_c)
-        x = EXX(wfs.kd, wfs.setups)
-        evv, evc, e_skn = x.one_shot_calculation(wfs, calc.density.D_asp, wstc)
-        return evv, evc, x.exxcc, e_skn
+    def __init__(self):
+        self.hybrid = 1.0
+        self.initialized = False
+        self.dens = None
+        self.wfs = None
+        self.exx = None
+        self.coulomb = None
+        self.cache = {}
+        self.evv = None
+        self.evc = None
+
+    def get_setup_name(self):
+        return 'LDA'
+
+    def initialize(self, dens, ham, wfs, occupations):
+        self.wfs = wfs
+        self.dens = dens
+
+    def get_description(self):
+        return '*****\n' * 4
+
+    def set_grid_descriptor(self, gd):
+        pass
+
+    def set_positions(self, spos_ac):
+        pass
+
+    def calculate(self, gd, nt_sg, vxct_sg=None):
+        return self.exx.ecc + self.evc + self.evv
+
+    def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
+        return 0.0
+
+    def get_kinetic_energy_correction(self):
+        return 0.0
+
+    def _initialize(self):
+        if self.initialized:
+            return
+
+        wfs = self.wfs
+        kd = wfs.kd
+
+        assert kd.comm.size == 1 or kd.comm.size == 2 and wfs.nspins == 2
+        assert wfs.bd.comm.size == 1
+
+        # print('Using Wigner-Seitz truncated Coulomb interaction.')
+        self.coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
+        self.exx = EXX(wfs.kd, wfs.setups, wfs.spos_ac)
+
+        self.initialized = True
+
+    def calculate_valence_valence_paw_corrections(self, spin):
+        VV_aii = []
+        for a, data in enumerate(self.wfs.setups):
+            D_p = self.dens.D_asp[a][spin]
+            D_ii = unpack2(D_p) * (self.wfs.nspins / 2)
+            VV_ii = pawexxvv(data, D_ii)
+            VV_aii.append(VV_ii)
+        return VV_aii
+
+    def calculate_exx(self):
+        self._initialize()
+
+        wfs = self.wfs
+        kd = wfs.kd
+        rank = kd.comm.rank
+        size = kd.comm.size
+
+        evv = 0.0
+        evc = 0.0
+        self.e_skn = np.zeros((wfs.nspins, kd.nibzkpts, wfs.bd.nbands))
+
+        for spin in range(rank, rank + wfs.nspins // size):
+            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+            K = kd.nibzkpts
+            k1 = (spin - rank) * K
+            k2 = k1 + K
+            kpts = [KPoint(kpt.psit,
+                           kpt.projections,
+                           kpt.f_n / kpt.weight,  # scale to [0, 1]
+                           kd.ibzk_kc[kpt.k],
+                           kd.weight_k[kpt.k])
+                    for kpt in wfs.mykpts[k1:k2]]
+            e1, e2 = self.exx.calculate(kpts, kpts,
+                                        self.coulomb,
+                                        VV_aii,
+                                        self.e_skn[spin])
+            evv += e1
+            evc += e2
+
+        kd.comm.sum(self.e_skn)
+        deg = 2 / wfs.nspins
+        self.evv = kd.comm.sum(evv) * deg
+        self.evc = kd.comm.sum(evc) * deg
+
+    def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
+                                            Htpsit_xG=None, dH_asp=None):
+        self._initialize()
+
+        kd = self.kd
+
+        if kpt.psit.array.base is psit_xG.base:
+            if (kpt.spin, kpt.k) not in self.cache:
+                spin = kpt.spin
+                VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+                K = kd.nibzkpts
+                k1 = (spin - kd.comm.rank) * K
+                k2 = k1 + K
+                kpts = self.wfs.mykpts[k1:k2]
+                for k in kpts:
+                    self.cache[(spin, k.k)] = np.zeros_like(k.psit.array)
+                kpts = [KPoint(kpt.psit,
+                               kpt.projections,
+                               kpt.f_n / kpt.weight,  # scale to [0, 1]
+                               kd.ibzk_kc[kpt.k],
+                               kd.weight_k[kpt.k])
+                        for kpt in kpts]
+                self.exx.calculate(kpts, kpts,
+                                   self.coulomb,
+                                   VV_aii,
+                                   vpsit_knG=[self.cache[(spin, k)]
+                                              for k in range(len(kpts))])
+            Htpsit_xG += self.cache.pop((spin, kpt.k))
+
+    def correct_hamiltonian_matrix(self, kpt, H_nn):
+        1 / 0
 
 
 if __name__ == '__main__':
@@ -324,13 +400,13 @@ if __name__ == '__main__':
     h = Atoms('Li', cell=(3, 3, 7), pbc=(1, 1, 0))
     h.calc = GPAW(mode=PW(100, force_complex_dtype=True),
                   kpts=(3, 1, 1),
-                  # spinpol=True,
+                  spinpol=True,
                   txt=None)
     h.get_potential_energy()
-
-    evv, evc, ecc, e_kn = Hybrid().calculate(h.calc)
-    e = evv + evc + ecc
-    print(e * Ha, e_kn * Ha)
+    exx = Hybrid()
+    h.calc.get_xc_difference(exx)
+    e = exx.evv + exx.evc + exx.exx.ecc
+    print(e * Ha, exx.e_skn * Ha)
 
     from gpaw.xc.exx import EXX as EXX0
     xx = EXX0(h.calc, bands=(0, 4))
@@ -338,4 +414,4 @@ if __name__ == '__main__':
     e0 = xx.get_exx_energy()
     eps0 = xx.get_eigenvalue_contributions()
     print(e0, eps0)
-    print(e * Ha - e0, e_kn * Ha - eps0)
+    print(e * Ha - e0, exx.e_skn * Ha - eps0)
