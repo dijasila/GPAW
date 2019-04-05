@@ -77,12 +77,10 @@ class EXX:
 
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
                                                pd, k1.index, k2.f_n, vpsit_nG)
-            # e_nn *= k1.weight * count / self.kd.nbzkpts
-            e_nn *= count / self.kd.nbzkpts**2
-            print(k1.index, k2.index, count, q_c, e_nn)
-            exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
 
             if e_kn is not None:
+                e_nn *= count / self.kd.nbzkpts**2
+                exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
                 e_kn[k1.index] -= 0.5 * e_nn.dot(k2.f_n)
                 e_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
 
@@ -94,9 +92,11 @@ class EXX:
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 exxvv -= vv_n.dot(f_n) * weight
                 exxvc -= vc_n.dot(f_n) * weight
-                e_kn[psit.kpt] -= (2 * vv_n + vc_n) * weight
+                if e_kn is not None:
+                    e_kn[psit.kpt] -= (2 * vv_n + vc_n) * weight
 
-        e_kn /= self.kd.weight_k[:, np.newaxis]
+        if e_kn is not None:
+            e_kn /= self.kd.weight_k[:, np.newaxis]
 
         return exxvv, exxvc
 
@@ -154,6 +154,9 @@ class EXX:
             sindices = (kd.sym_k[indices] +
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
+
+        if kpts1 is kpts2:
+            ggggggggggg
 
         pairs = defaultdict(int)
         for i1 in range(kd.nibzkpts):
@@ -293,7 +296,7 @@ class Hybrid:
         pass
 
     def calculate(self, gd, nt_sg, vxct_sg=None):
-        return self.exx.ecc + self.evc + self.evv
+        return 0.0  # self.exx.ecc + self.evc + self.evv
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         return 0.0
@@ -363,13 +366,16 @@ class Hybrid:
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):
+        if kpt.f_n is None:
+            return
+
         self._initialize()
 
-        kd = self.kd
+        kd = self.wfs.kd
+        spin = kpt.s
 
         if kpt.psit.array.base is psit_xG.base:
-            if (kpt.spin, kpt.k) not in self.cache:
-                spin = kpt.spin
+            if (spin, kpt.k) not in self.cache:
                 VV_aii = self.calculate_valence_valence_paw_corrections(spin)
                 K = kd.nibzkpts
                 k1 = (spin - kd.comm.rank) * K
@@ -379,7 +385,7 @@ class Hybrid:
                     self.cache[(spin, k.k)] = np.zeros_like(k.psit.array)
                 kpts = [KPoint(kpt.psit,
                                kpt.projections,
-                               kpt.f_n / kpt.weight,  # scale to [0, 1]
+                               kpt.f_n / kpt.weight,  # scale to [0, 1] range
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
                         for kpt in kpts]
@@ -389,17 +395,42 @@ class Hybrid:
                                    vpsit_knG=[self.cache[(spin, k)]
                                               for k in range(len(kpts))])
             Htpsit_xG += self.cache.pop((spin, kpt.k))
+        else:
+            assert len(self.cache) == 0
+            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+            K = kd.nibzkpts
+            k1 = (spin - kd.comm.rank) * K
+            k2 = k1 + K
+            kpts2 = [KPoint(kpt.psit,
+                            kpt.projections,
+                            kpt.f_n / kpt.weight,  # scale to [0, 1] range
+                            kd.ibzk_kc[kpt.k],
+                            kd.weight_k[kpt.k])
+                     for kpt in self.wfs.mykpts[k1:k2]]
+            kpts1 = [psit, kpt.projections, None, None, 42]
+            self.exx.calculate(kpts1, kpts2,
+                               self.coulomb,
+                               VV_aii,
+                               vpsit_knG=Htpsit_xG[np.newaxis])
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
-        1 / 0
+        pass  # 1 / 0
+
+    def rotate(self, kpt, U_nn):
+        pass
+
+    def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
+                       calculate_change=False):
+        pass
 
 
 if __name__ == '__main__':
     from ase import Atoms
     from gpaw import GPAW, PW
-    h = Atoms('Li', cell=(3, 3, 7), pbc=(1, 1, 0))
+    h = Atoms('H', cell=(3, 3, 3), pbc=(1, 1, 1))
     h.calc = GPAW(mode=PW(100, force_complex_dtype=True),
-                  kpts=(3, 1, 1),
+                  setups='ae',
+                  kpts=(1, 1, 1),
                   spinpol=True,
                   txt=None)
     h.get_potential_energy()
@@ -409,7 +440,7 @@ if __name__ == '__main__':
     print(e * Ha, exx.e_skn * Ha)
 
     from gpaw.xc.exx import EXX as EXX0
-    xx = EXX0(h.calc, bands=(0, 4))
+    xx = EXX0(h.calc, bands=(0, 1))
     xx.calculate()
     e0 = xx.get_exx_energy()
     eps0 = xx.get_eigenvalue_contributions()
