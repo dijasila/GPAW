@@ -294,7 +294,7 @@ class BaseSetup:
 
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
-        nj = len(self.l_j)
+        nj = len(self.pt_j)
         j = 0
         i = 0
         ib = 0
