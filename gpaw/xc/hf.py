@@ -84,18 +84,17 @@ class EXX:
                 e_kn[k1.index] -= 0.5 * e_nn.dot(k2.f_n)
                 e_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
 
-        for psit, proj, f_n, k_c, weight in kpts1:
-            for a, P_ni in proj.items():
-                vv_n = np.einsum('ni,ij,nj->n',
-                                 P_ni.conj(), VV_aii[a], P_ni).real
-                vc_n = np.einsum('ni,ij,nj->n',
-                                 P_ni.conj(), self.VC_aii[a], P_ni).real
-                exxvv -= vv_n.dot(f_n) * weight
-                exxvc -= vc_n.dot(f_n) * weight
-                if e_kn is not None:
+        if e_kn is not None:
+            for psit, proj, f_n, k_c, weight in kpts1:
+                for a, P_ni in proj.items():
+                    vv_n = np.einsum('ni,ij,nj->n',
+                                     P_ni.conj(), VV_aii[a], P_ni).real
+                    vc_n = np.einsum('ni,ij,nj->n',
+                                     P_ni.conj(), self.VC_aii[a], P_ni).real
+                    exxvv -= vv_n.dot(f_n) * weight
+                    exxvc -= vc_n.dot(f_n) * weight
                     e_kn[psit.kpt] -= (2 * vv_n + vc_n) * weight
 
-        if e_kn is not None:
             e_kn /= self.kd.weight_k[:, np.newaxis]
 
         return exxvv, exxvc
@@ -155,23 +154,29 @@ class EXX:
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
 
-        if kpts1 is kpts2:
-            ggggggggggg
+        # pairs: Dict[Tuple[int, int, int], int]
 
-        pairs = defaultdict(int)
-        for i1 in range(kd.nibzkpts):
-            for s1 in symmetries_k[i1]:
+        if kpts1 is kpts2:
+            pairs = defaultdict(int)
+            for i1 in range(kd.nibzkpts):
+                for s1 in symmetries_k[i1]:
+                    for i2 in range(kd.nibzkpts):
+                        for s2 in symmetries_k[i2]:
+                            s3 = self.symmetry_map_ss[s1, s2]
+                            if i1 < i2:
+                                pairs[(i1, i2, s3)] += 1
+                            else:
+                                s4 = self.inverse_s[s3]
+                                if i1 == i2:
+                                    pairs[(i1, i1, min(s3, s4))] += 1
+                                else:
+                                    pairs[(i2, i1, s4)] += 1
+        else:
+            pairs = {}
+            for i1 in range(kd.nibzkpts):
                 for i2 in range(kd.nibzkpts):
                     for s2 in symmetries_k[i2]:
-                        s3 = self.symmetry_map_ss[s1, s2]
-                        if i1 < i2:
-                            pairs[(i1, i2, s3)] += 1
-                        else:
-                            s4 = self.inverse_s[s3]
-                            if i1 == i2:
-                                pairs[(i1, i1, min(s3, s4))] += 1
-                            else:
-                                pairs[(i2, i1, s4)] += 1
+                        pairs[(i1, i2, s2)] = 1
 
         lasti1 = None
         lasti2 = None
@@ -278,6 +283,7 @@ class Hybrid:
         self.cache = {}
         self.evv = None
         self.evc = None
+        self.vt_sR = None
 
     def get_setup_name(self):
         return 'LDA'
@@ -366,13 +372,29 @@ class Hybrid:
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):
-        if kpt.f_n is None:
-            return
-
         self._initialize()
 
         kd = self.wfs.kd
         spin = kpt.s
+
+        if kpt.f_n is None:
+            if self.vt_sR is None:
+                from gpaw.xc import XC
+                lda = XC('LDA')
+                nt_sr = self.dens.nt_sg
+                vt_sr = np.zeros_like(nt_sr)
+                self.vt_sR = self.dens.gd.zeros(self.wfs.nspins)
+                lda.calculate(self.dens.finegd, nt_sr, vt_sr)
+                for vt_R, vt_r in zip(self.vt_sR, vt_sr):
+                    vt_R[:], _ = self.dens.pd3.restrict(vt_r, self.dens.pd2)
+
+            pd = kpt.psit.pd
+            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+                Htpsit_G += pd.fft(self.vt_sR[kpt.s] *
+                                   pd.ifft(psit_G, kpt.k), kpt.q)
+            return
+
+        self.vt_sR = None
 
         if kpt.psit.array.base is psit_xG.base:
             if (spin, kpt.k) not in self.cache:
@@ -407,7 +429,13 @@ class Hybrid:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in self.wfs.mykpts[k1:k2]]
-            kpts1 = [psit, kpt.projections, None, None, 42]
+
+            psit = kpt.psit.new(buf=psit_xG)
+            kpts1 = [KPoint(psit,
+                            kpt.projections,
+                            None,
+                            kd.ibzk_kc[kpt.k],
+                            42)]
             self.exx.calculate(kpts1, kpts2,
                                self.coulomb,
                                VV_aii,
