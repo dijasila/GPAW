@@ -2,7 +2,7 @@ from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.xc.hf import Hybrid
 
-L = 3.5
+L = 2.5
 a = Atoms('H',
           magmoms=[1],
           cell=[L, L, L],
