@@ -1,14 +1,8 @@
-#from g0w0 import G0W0
 import numpy as np
-from time import time
-
 
 class SpectralFunction:
     def __init__(self, gw_object):
         self.gw_object = gw_object
-        #self.fxc_mode = fxc_mode
-        #gw_object.fxc_mode = fxc_mode
-        #gw_object.xc = xc
         self.gw_object.ite = 0
 
 
@@ -124,17 +118,12 @@ class SpectralFunction:
             if gw.sign == 1:
                 n_mG = n_mG.conj()
         
-            f_m = kpt2.f_n
-            deps_wm = np.zeros((len(domegas), len(kpt2.eps_n)))
-            for index, dw in enumerate(domegas):
-                deps_wm[index] = eps1 + dw - kpt2.eps_n
-                
+            f_m = kpt2.f_n                
                                
-            #deps_wm = np.array([eps1 + dw - kpt2.eps_n for dw in domegas])
+            deps_wm = np.array([eps1 + dw - kpt2.eps_n for dw in domegas])
             
             nn = kpt1.n1 + n - gw.bands[0]
 
-            #for jj, W in enumerate(Ws):
             W = Ws[0]
             sigma_w = self.calculate_sigma(n_mG, deps_wm, f_m, W)
             self.sigma_wskn[:, kpt1.s, k, nn] += sigma_w
@@ -148,5 +137,3 @@ class SpectralFunction:
             sigma, _ = gw.calculate_sigma(n_mG, deps_m, f_m, C_swGG, full_sigma=True)
             sigma_w[w_index] += -np.real(sigma)*1j + np.imag(sigma)
         return sigma_w
-
-    
