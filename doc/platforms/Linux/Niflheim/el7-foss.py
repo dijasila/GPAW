@@ -1,9 +1,10 @@
 scalapack = True
+fftw = True
 platform_id = os.environ['CPU_ARCH'] + '-el7'
 
 # Clean out any autodetected things, we only want the EasyBuild
 # definitions to be used.
-libraries = ['openblas', 'readline', 'gfortran']
+libraries = ['openblas', 'fftw3', 'readline', 'gfortran']
 mpi_libraries = []
 include_dirs = []
 

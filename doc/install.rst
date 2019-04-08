@@ -57,7 +57,7 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.7, 3.4-
+* Python_ 3.4 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.17.0 or later (atomic simulation environment)
@@ -259,13 +259,9 @@ Instructions for running parallel calculations can be found in the
 FFTW
 ====
 
-The FFTW library is linked at runtime using :mod:`ctypes`.  By default, the
-following shared library names are searched for: ``libmkl_rt.so``,
-``libmkl_intel_lp64.so`` and ``libfftw3.so``.  First one found will be
-loaded.  If no library is found, the :mod:`numpy.fft` library will be used
-instead.  The name of the FFTW shared library can also be set via the
-``$GPAW_FFTWSO`` environment variable.
-
+Older versions of GPAW would link FFTW using ctypes, based on library
+paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
+1.5.1, FFTW is linked from customize.py like all other libraries.
 
 .. _libxc installation:
 

@@ -46,7 +46,9 @@ def info():
         have_sl = have_elpa = 'no (MPI unavailable)'
     results.append(('scalapack', have_sl))
     results.append(('Elpa', have_elpa))
-    results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
+
+    have_fftw = fftw.have_fftw()
+    results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
     paths = ['{0}: {1}'.format(i + 1, path)
              for i, path in enumerate(gpaw.setup_paths)]
