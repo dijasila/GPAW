@@ -76,7 +76,7 @@ def custombicgstab(A_nGG, b_nG, max_iter = 200, tol=1e-8):
 
 
 class SternheimerResponse:
-    def __init__(self, filename):
+    def __init__(self, filename, runstuff=True):
         self.restart_filename = filename
         self.calc = GPAW(filename, txt=None)
         #TODO Check that all info is in file
@@ -87,7 +87,7 @@ class SternheimerResponse:
         #bz_to_ibz = self.calc.get_bz_to_ibz_map()
         #ntotal_kpts = len(bz_to_ibz)
         spin_factor = 1
-        self.kpt_weight = spin_factor*self.wfs.kd.weight_k
+        self.kpt_weight = 1#spin_factor*self.wfs.kd.weight_k
         #np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*
         #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
         #ind1 = self.wfs.mykpts[1].q
@@ -102,14 +102,15 @@ class SternheimerResponse:
         self.print = False
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
-        self.powercalculate([qvector], 1)
+        if runstuff:
+            self.powercalculate([qvector], 1)
         #self.krylovcalculate([qvector], 1)
         t2 = time()
-        print(f"Calculation took {t2 - t1} seconds.")
-        print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
-        print(f"Performed {len(self.t1s)} BiCGStab calls")
-        print(f"Get LHS+RHS took {np.mean(self.t2s)} seconds on avg.")
-        print(f"Performed {len(self.t2s)} LHS+RHS calls")
+        # print(f"Calculation took {t2 - t1} seconds.")
+        # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
+        # print(f"Performed {len(self.t1s)} BiCGStab calls")
+        # print(f"Get LHS+RHS took {np.mean(self.t2s)} seconds on avg.")
+        #print(f"Performed {len(self.t2s)} LHS+RHS calls")
 
 
 
@@ -473,7 +474,7 @@ class SternheimerResponse:
             new_deltapsi_qnG = {q: val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
             error = np.abs(1 - self.inner_product(deltapsi_qnG, new_deltapsi_qnG))
             error2 = np.abs(1- self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
-            error = 100
+            #error = 100
             if error < error_threshold:
                 print(f"Converged. Value: {eigval}")
                 self.deltapsi_qnG = deltapsi_qnG
@@ -712,6 +713,26 @@ class SternheimerResponse:
 
 
     def apply_K(self, deltapsi_qnG, qvector):
+        from gpaw.response.df import DielectricFunction
+        df = DielectricFunction(self.restart_filename, ecut=250, eta=5)
+        eps_GG = df.get_dielectric_matrix(symmetric=False)[0]
+        
+        #self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
+        test_vector_nG = self.wfs.pd.zeros(x = (4,), q=0)
+        test_vector_nG[0,3] = 1
+        potential = self.epsilon_potential({0: test_vector_nG})
+        sternheimer_result = self.solve_sternheimer(potential, 0)[0][0]
+        exact_result = np.dot(eps_GG, test_vector_nG[0])
+        if not np.allclose(sternheimer_result, exact_result):
+            import matplotlib.pyplot as plt
+            plt.plot(sternheimer_result, label="Sternheimer")
+            plt.plot(exact_result, label="Exact")
+            plt.legend()
+            plt.show()
+            raise ValueError()
+        exit()
+        
+
         potential_function = self.epsilon_potential(deltapsi_qnG)
 
         new_deltapsi_qnG = self.solve_sternheimer(potential_function, qvector)
@@ -758,9 +779,7 @@ class SternheimerResponse:
             exit()
        
 
-        q = fine_delta_tilde_n_G + total_delta_comp_charge_G
-        print("total fine charge", fine_delta_tilde_n_G[0])
-        print("total compensated charge", q[0])
+        q = fine_delta_tilde_n_G + total_delta_comp_charge_G        
         poisson_term_G = self.solve_poisson(fine_delta_tilde_n_G + total_delta_comp_charge_G)
         if self.print and False:
             import matplotlib.pyplot as plt
@@ -839,7 +858,8 @@ class SternheimerResponse:
             V1 = self.wfs.pd.fft(soft_term_R*wvf_R, q=q_index)
             pt.add(V1, c_ai, q=q_index)
 
-            if self.print:
+
+            if self.print and False:
                 import matplotlib.pyplot as plt
                 #soft = self.calc.density.pd3.ifft(soft_term_R)
                 soft = self.wfs.pd.ifft(V1) 
@@ -893,8 +913,6 @@ class SternheimerResponse:
             for state_index, deltapsi_G in enumerate(deltapsi_nG):
                 deltapsi_R = pd.ifft(deltapsi_G, q=q_index)
                 wf_R = pd.ifft(self.wfs.mykpts[q_index].psit.array[state_index], q=q_index)
-                if self.print:
-                    assert np.allclose(deltapsi_R, wf_R)
                 delta_n_R += 2*np.real(deltapsi_R*wf_R.conj())
 
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
@@ -1054,7 +1072,7 @@ class SternheimerResponse:
                 assert RHS.shape[0] == linop.shape[1]
                 #print("got RHS")
                 t1 = time()
-                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-5)
+                deltapsi_G, info = bicgstab(linop, RHS, maxiter=1000, tol=1e-8)
                 t2 = time()
                 #deltapsi_G = 0
                 
@@ -1068,7 +1086,6 @@ class SternheimerResponse:
                 # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
                 # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
                 # print(f"Shape of kplusq.array: {k_plus_q_object.psit.array.shape}")
-
                 deltapsi_qnG[k_plus_q_index][state_index] += deltapsi_G#*self.kpt_weight[index]
 
                 self.t2s.append(t4-t3)
@@ -1189,12 +1206,16 @@ class SternheimerResponse:
         pt.initialize()
         c_ai = pt.integrate(wvf_G, q=q_index)
 
+        newc = {}
         for a, c_i in c_ai.items():
             dO_ii = self.wfs.setups[a].dO_ii
-            c_i[:] = c_i.dot(dO_ii)
+            assert np.allclose(dO_ii, dO_ii.T)
+            c_i[:] = np.sqrt(4*np.pi)*dO_ii.dot(c_i.T).T ##TODO ASK JJ about sqrt 4pi
+            newc[a] = np.sqrt(4*np.pi)*dO_ii.dot(c_i.T).T ##TODO ASK JJ why newc doesnt give same answer as c_i
+
 
         result_G = wvf_G.copy()
-        pt.add(result_G, c_ai, q=q_index)
+        pt.add(result_G, newc, q=q_index)
         return result_G
 
         
@@ -1283,11 +1304,80 @@ class SternheimerResponse:
 
 
 
+
+
+def tests(ro):
+    ###Overlap tests
+    for kind, kpt in enumerate(ro.wfs.mykpts):
+        for i1, wf1 in enumerate(kpt.psit.array):
+            for i2, wf2 in enumerate(kpt.psit.array):
+                if i1 == i2:
+                    continue
+                inner_prod = wf1.dot(ro._apply_overlap(wf2, kind))
+                b = np.allclose(inner_prod, 0)
+                if not b:
+                    print(f"Overlap test failed for: kind: {kind}, i1: {i1}, i2: {i2}")
+                    print(f"Inner product was: {inner_prod}")
+                assert b
+
+
+    ###Valence projector tests
+    kindex = 0
+    kpt = ro.wfs.mykpts[kindex]
+    wf = kpt.psit.array[2]
+    overlap_wf = ro._apply_overlap(wf, kindex)
+    valence_overlap_wf = ro._apply_valence_projector(overlap_wf, kpt, kindex)
+    overlap_valence_overlap_wf = ro._apply_overlap(valence_overlap_wf, kindex)
+    valence_overlap_valence_overlap_wf = ro._apply_valence_projector(overlap_valence_overlap_wf, kpt, kindex)
+    assert np.allclose(valence_overlap_valence_overlap_wf, valence_overlap_wf)
+
+    
+
+
+    ### Hamiltonian tests
+    kindex = 0
+    kpt = ro.wfs.mykpts[kindex]
+    wf0 = kpt.psit.array[0]
+    wf1 = kpt.psit.array[1]
+    Hwf0 = ro._apply_hamiltonian(wf0, kpt, kindex)
+    ratios = []
+    for index, entry in enumerate(Hwf0):
+        if wf0[index] != 0 and entry != 0:
+            ratio = wf0[index]/entry
+            ratios.append(ratio)
+        elif wf0[index] == 0 and entry == 0:
+            continue
+        else:
+            print(f"Hamiltonian test failed.")
+            assert False
+        
+    ratios = np.array(ratios).real
+    b = not (ratios-np.mean(ratios)).any()
+    if not b:
+        print(f"Hamiltonian test failed.")
+        print(f"Number of wrong ratios: \n {((ratios-np.mean(ratios))!=0).sum()}")
+    assert b
+            
+
+
+
+
+    print("Passed all tests")
+    pass
+
+
+
+
 if __name__=="__main__":
     #filen = "test.gpw"
     import sys
     filen = sys.argv[1] + ".gpw"
     outname = sys.argv[1] + ".out"
+    if len(sys.argv) > 2 and sys.argv[2] == "runtests":
+        ro = SternheimerResponse(filen, runstuff=False)
+        tests(ro)
+        exit()
+    
     import os
     if False and os.path.isfile(filen):
         print("Reading file")
@@ -1310,7 +1400,7 @@ if __name__=="__main__":
         atoms = bulk("Si", "diamond", 5.43)
         calc = GPAW(mode=PW(250, force_complex_dtype=True),
                     xc ="PBE",                
-                    kpts={"size":(4,4,4), "gamma":True},
+                    kpts={"size":(1,1,1), "gamma":True},
                     random=True,
                     symmetry="off",#{"point_group": False},
                     occupations=FermiDirac(0.01),
