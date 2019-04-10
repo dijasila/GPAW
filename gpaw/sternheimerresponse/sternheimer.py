@@ -1215,7 +1215,7 @@ class SternheimerResponse:
 
 
         result_G = wvf_G.copy()
-        pt.add(result_G, newc, q=q_index)
+        pt.add(result_G, c_i, q=q_index)
         return result_G
 
         
