@@ -718,11 +718,16 @@ class SternheimerResponse:
         eps_GG = df.get_dielectric_matrix(symmetric=False)[0]
         
         #self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
+
+
+
         test_vector_nG = self.wfs.pd.zeros(x = (4,), q=0)
         test_vector_nG[0,3] = 1
         potential = self.epsilon_potential({0: test_vector_nG})
         sternheimer_result = self.solve_sternheimer(potential, 0)[0][0]
         exact_result = np.dot(eps_GG, test_vector_nG[0])
+        ##Actually these two things should not be equal. One is epsV other is eps*wvf
+
         if not np.allclose(sternheimer_result, exact_result):
             import matplotlib.pyplot as plt
             plt.plot(sternheimer_result, label="Sternheimer")
@@ -1081,7 +1086,7 @@ class SternheimerResponse:
                     raise ValueError("bicgstab did not converge. Info: {}".format(info))
                 
                 #deltapsi_G = psi.copy()
-
+                
                 # print(f"Shape of deltapsi_nG: {deltapsi_qnG[k_plus_q_index].shape}. Shape of bicgstab result: {deltapsi_G.shape}")
                 # print(f"kpt index: {index}, kplusqindex: {k_plus_q_index}, state_index: {state_index}")
                 # print(f"Shape of kpt.psit.array: {kpt.psit.array.shape}")
@@ -1210,12 +1215,14 @@ class SternheimerResponse:
         for a, c_i in c_ai.items():
             dO_ii = self.wfs.setups[a].dO_ii
             assert np.allclose(dO_ii, dO_ii.T)
-            c_i[:] = np.sqrt(4*np.pi)*dO_ii.dot(c_i.T).T ##TODO ASK JJ about sqrt 4pi
-            newc[a] = np.sqrt(4*np.pi)*dO_ii.dot(c_i.T).T ##TODO ASK JJ why newc doesnt give same answer as c_i
+            ccopy = c_i.copy()
+            c_i[:] = dO_ii.dot(c_i.T).T ##TODO ASK JJ about sqrt 4pi
+            newc[a] = dO_ii.dot(ccopy.T).T ##TODO ASK JJ why newc doesnt give same answer as c_i
+
 
 
         result_G = wvf_G.copy()
-        pt.add(result_G, c_i, q=q_index)
+        pt.add(result_G, c_ai, q=q_index)
         return result_G
 
         
@@ -1308,13 +1315,15 @@ class SternheimerResponse:
 
 def tests(ro):
     ###Overlap tests
+    pd = ro.wfs.pd
     for kind, kpt in enumerate(ro.wfs.mykpts):
         for i1, wf1 in enumerate(kpt.psit.array):
             for i2, wf2 in enumerate(kpt.psit.array):
+                inner_prod = pd.integrate(wf1, ro._apply_overlap(wf2,kind), kind) #wf1.dot(ro._apply_overlap(wf2, kind))
                 if i1 == i2:
-                    continue
-                inner_prod = wf1.dot(ro._apply_overlap(wf2, kind))
-                b = np.allclose(inner_prod, 0)
+                    b = np.allclose(inner_prod, 1)
+                else:
+                    b = np.allclose(inner_prod, 0)
                 if not b:
                     print(f"Overlap test failed for: kind: {kind}, i1: {i1}, i2: {i2}")
                     print(f"Inner product was: {inner_prod}")
@@ -1337,28 +1346,46 @@ def tests(ro):
     ### Hamiltonian tests
     kindex = 0
     kpt = ro.wfs.mykpts[kindex]
-    wf0 = kpt.psit.array[0]
-    wf1 = kpt.psit.array[1]
+    wfindex = 0
+    wf0 = kpt.psit.array[wfindex]
     Hwf0 = ro._apply_hamiltonian(wf0, kpt, kindex)
     ratios = []
-    for index, entry in enumerate(Hwf0):
-        if wf0[index] != 0 and entry != 0:
-            ratio = wf0[index]/entry
-            ratios.append(ratio)
-        elif wf0[index] == 0 and entry == 0:
-            continue
-        else:
-            print(f"Hamiltonian test failed.")
-            assert False
-        
-    ratios = np.array(ratios).real
-    b = not (ratios-np.mean(ratios)).any()
-    if not b:
-        print(f"Hamiltonian test failed.")
-        print(f"Number of wrong ratios: \n {((ratios-np.mean(ratios))!=0).sum()}")
-    assert b
-            
+    pd = ro.wfs.pd
 
+    overlap_wf0 = ro._apply_overlap(wf0, kindex)
+    energy = kpt.eps_n[wfindex]
+    b = np.allclose(Hwf0, energy*overlap_wf0)
+    if not b:
+        print(f"Hamiltonian test failed")
+        print(f"Max abs size: {np.max(np.abs(Hwf0-energy*overlap_wf0))}")
+    assert b
+
+
+    ###Solve Sternheimer tests
+    qvector = np.array([0,0,0])
+    kindex = 0
+    bandindex = 0
+    nvalence = ro.wfs.setups.nvalence//2
+    deltapsi_nG = ro.wfs.pd.zeros(x=(nvalence,), q=kindex)
+    deltapsi_nG[bandindex,4] = 1
+    deltapsi_qnG = {index: ro.wfs.pd.zeros(x=(nvalence,), q=index) for index, _ in enumerate(ro.wfs.mykpts)}
+    deltapsi_qnG[kindex] = deltapsi_nG
+
+    
+    apply_potential = ro.epsilon_potential(deltapsi_qnG)
+
+    solution_qnG = ro.solve_sternheimer(apply_potential, qvector)
+
+    ##Hmm SternheimerResponse.epsilon_potential is tightly coupled to solve Sternheimer - and these are both huge functions. Can we modularize it for easier testing and reading?
+
+    kpt = ro.wfs.mykpts[kindex]
+    should_be_zeros = ro._apply_valence_projector(ro._apply_overlap(solution_qnG[kindex][bandindex], kindex), kpt, kindex)
+    b = np.allclose(should_be_zeros, 0)
+    if not b:
+        print("Solve Sternheimer test failed")
+        print(f"Max abs size (should be zero): {np.max(np.abs(should_be_zeros))}")
+    assert b
+    
 
 
 
@@ -1385,10 +1412,10 @@ if __name__=="__main__":
     else:
         
         
-        ro = SternheimerResponse(filen)
+        #ro = SternheimerResponse(filen)
         
         
-        exit()
+        #exit()
         print("Generating new test file")
         from ase.build import bulk
         from gpaw import PW, FermiDirac
@@ -1403,8 +1430,9 @@ if __name__=="__main__":
                     kpts={"size":(1,1,1), "gamma":True},
                     random=True,
                     symmetry="off",#{"point_group": False},
-                    occupations=FermiDirac(0.01),
+                    occupations=FermiDirac(0.0001),
                     basis="dzp",
+                    convergence={"eigenstates": 4e-14},
                     #setups="ah"/"AH",
                     txt = outname)
         
