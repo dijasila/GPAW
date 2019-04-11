@@ -7,11 +7,15 @@ Install these CentOS_ packages::
     $ yum install libxc-devel openblas-devel openmpi-devel fftw-devel
     $ yum install blacs-openmpi-devel scalapack-openmpi-devel
 
+Adjust your ``$PATH``:
+
+    $ echo "export PATH=/usr/lib64/openmpi/bin/:$PATH" >> ~/.bashrc
+
 Make sure you have the latest pip::
 
     $ python3 -m ensurepip --user
     $ python3 -m pip install pip --user
-    # update to latests pip
+
 Then install ASE_, Numpy and SciPy::
 
     $ python3 -m pip install ase --user
