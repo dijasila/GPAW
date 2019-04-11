@@ -123,6 +123,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.qna import QNA
             return QNA(atoms, kernel['parameters'], kernel['setup_name'],
                        alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
+        elif name == 'WLDA':
+            from gpaw.xc.wlda import WLDA
+            return WLDA(kernel=LibXC('LDA'))
         else:
             kernel = LibXC(name)
 
