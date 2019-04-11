@@ -82,6 +82,8 @@ class SternheimerResponse:
         #TODO Check that all info is in file
         self.wfs = self.calc.wfs
         self.calc.initialize_positions()
+        self.nbands = self.wfs.bd.nbands
+
         self.c_qani = {}
         self.c_qnai = {}
         #bz_to_ibz = self.calc.get_bz_to_ibz_map()
@@ -575,6 +577,8 @@ class SternheimerResponse:
         deltapsi_qnG = {}
         np.random.seed(123)
         for index, kpt in enumerate(self.wfs.mykpts):
+            if kpt.s == 1:
+                continue
             ##TODO Replace this with better start guess probably
 
             bzk_index = self.wfs.kd.ibz2bz_k[index]
@@ -586,9 +590,10 @@ class SternheimerResponse:
             
             
 
-            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.wfs.setups.nvalence//2, q=k_plus_q_index)# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
+            deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.nbands, q=k_plus_q_index)# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
+            print(f"{deltapsi_qnG[k_plus_q_index].shape}")
             if np.allclose(self.wfs.kd.bzk_kc[bzk_index], [0, 0, 0]):
-                deltapsi_qnG[k_plus_q_index][:][1] += 1
+                deltapsi_qnG[k_plus_q_index][:, 1] += 1
             
             numgs = deltapsi_qnG[k_plus_q_index][0].shape[0]
             deltapsi_qnG[k_plus_q_index][:, np.random.randint(numgs)] = 5
@@ -654,16 +659,16 @@ class SternheimerResponse:
         pr = True
         pt = self.wfs.pt
         D_aii = {}
-        nvalence = self.wfs.setups.nvalence//2
+        nbands = self.nbands
         for q_index, deltapsi_nG in deltapsi_qnG.items():
 
             c_ani = pt.integrate(deltapsi_nG, q=q_index)
             kpt = self.wfs.mykpts[q_index]
 
             for a, c_ni in c_ani.items():
-                P_ni = kpt.projections[a][:nvalence]
+                P_ni = kpt.projections[a][:nbands]
 
-                U_ij = np.dot(P_ni.conj().T*kpt.f_n[:nvalence], c_ni)
+                U_ij = np.dot(P_ni.conj().T*kpt.f_n[:nbands], c_ni)
                 #U_ij += np.dot(c_ni.conj().T*kpt.f_n[:nvalence], P_ni)
                 if a in D_aii:
                     D_aii[a] +=  U_ij + U_ij.conj().T# + U_ij.conj().T
@@ -713,29 +718,29 @@ class SternheimerResponse:
 
 
     def apply_K(self, deltapsi_qnG, qvector):
-        from gpaw.response.df import DielectricFunction
-        df = DielectricFunction(self.restart_filename, ecut=250, eta=5)
-        eps_GG = df.get_dielectric_matrix(symmetric=False)[0]
+        # from gpaw.response.df import DielectricFunction
+        # df = DielectricFunction(self.restart_filename, ecut=250, eta=5)
+        # eps_GG = df.get_dielectric_matrix(symmetric=False)[0]
         
-        #self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
+        # #self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
 
 
 
-        test_vector_nG = self.wfs.pd.zeros(x = (4,), q=0)
-        test_vector_nG[0,3] = 1
-        potential = self.epsilon_potential({0: test_vector_nG})
-        sternheimer_result = self.solve_sternheimer(potential, 0)[0][0]
-        exact_result = np.dot(eps_GG, test_vector_nG[0])
-        ##Actually these two things should not be equal. One is epsV other is eps*wvf
+        # test_vector_nG = self.wfs.pd.zeros(x = (4,), q=0)
+        # test_vector_nG[0,3] = 1
+        # potential = self.epsilon_potential({0: test_vector_nG})
+        # sternheimer_result = self.solve_sternheimer(potential, 0)[0][0]
+        # exact_result = np.dot(eps_GG, test_vector_nG[0])
+        # ##Actually these two things should not be equal. One is epsV other is eps*wvf
 
-        if not np.allclose(sternheimer_result, exact_result):
-            import matplotlib.pyplot as plt
-            plt.plot(sternheimer_result, label="Sternheimer")
-            plt.plot(exact_result, label="Exact")
-            plt.legend()
-            plt.show()
-            raise ValueError()
-        exit()
+        # if not np.allclose(sternheimer_result, exact_result):
+        #     import matplotlib.pyplot as plt
+        #     plt.plot(sternheimer_result, label="Sternheimer")
+        #     plt.plot(exact_result, label="Exact")
+        #     plt.legend()
+        #     plt.show()
+        #     raise ValueError()
+        #exit()
         
 
         potential_function = self.epsilon_potential(deltapsi_qnG)
@@ -931,7 +936,11 @@ class SternheimerResponse:
         G2 = pd3.G2_qG[0].copy()
         G2[0] = 1.0
 
-        return charge_G* 4 * np.pi/G2
+        R = self.calc.atoms.cell[0,0]/2
+        from ase.units import Bohr
+        R /= Bohr
+
+        return charge_G* 4 * np.pi/G2*(1-np.cos(np.sqrt(G2)*R)) #charge_G* 4 * np.pi/G2
         
     def transform_to_coarse_grid_operator(self, fine_grid_operator):        
         dens = self.calc.density
@@ -992,12 +1001,12 @@ class SternheimerResponse:
     def solve_sternheimer(self, apply_potential, qvector):
         
         deltapsi_qnG = {}
-        nvalence = self.wfs.setups.nvalence//2
+        nbands = self.nbands
 
         for index, kpt in enumerate(self.wfs.mykpts):
 
 
-            number_of_valence_states = self.wfs.setups.nvalence//2  #kpt.psit.array.shape[0]
+            
             
             ##k_plus_q_index, k_plus_q_object = self.k_plus_q[index]
 
@@ -1030,7 +1039,7 @@ class SternheimerResponse:
             if k_plus_q_index not in deltapsi_qnG:
                 numgs = k_plus_q_object.psit.array.shape[1]
                 
-                deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
+                deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(x=(nbands,), q=k_plus_q_index)
             # else:
             #     pass
                 #raise ValueError("Shouldnt go here")
@@ -1059,7 +1068,7 @@ class SternheimerResponse:
             
 
             for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
-                if state_index >= nvalence:
+                if state_index >= nbands:
                     break
                 t3 = time()
                 linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
@@ -1110,7 +1119,7 @@ class SternheimerResponse:
         return linop
 
     def _get_LHS_linear_operator2(self, kpt, eps_n, k_index):
-        nvalence = self.wfs.setups.nvalence//2
+
         numGs = len(kpt.psit.array[0])
 
         def mv(v_nG):
@@ -1144,7 +1153,7 @@ class SternheimerResponse:
         
         result_nG = alpha*self._apply_LHS_valence_projector2(self._apply_LHS_overlap2(deltapsi_nG, k_index), kpt, k_index)
         result_nG += self._apply_hamiltonian2(deltapsi_nG, kpt, k_index)
-        num_occ = self.wfs.setups.nvalence//2
+        num_occ = self.nbands
         num_gs = len(deltapsi_nG)//num_occ
         result_nG -= np.einsum("i, ij -> ij", eps_n, self._apply_LHS_overlap2(deltapsi_nG, k_index))
 
@@ -1154,7 +1163,7 @@ class SternheimerResponse:
 
     def _apply_valence_projector(self, deltapsi_G, kpt, k_index):
         result_G = np.zeros_like(deltapsi_G)
-        num_occ = self.wfs.setups.nvalence//2
+        num_occ = self.nbands
         pd = self.wfs.pd
         kpt.psit.read_from_file()
         #print(f"K index: {k_index}")
@@ -1211,13 +1220,12 @@ class SternheimerResponse:
         pt.initialize()
         c_ai = pt.integrate(wvf_G, q=q_index)
 
-        newc = {}
         for a, c_i in c_ai.items():
             dO_ii = self.wfs.setups[a].dO_ii
             assert np.allclose(dO_ii, dO_ii.T)
             ccopy = c_i.copy()
             c_i[:] = dO_ii.dot(c_i.T).T ##TODO ASK JJ about sqrt 4pi
-            newc[a] = dO_ii.dot(ccopy.T).T ##TODO ASK JJ why newc doesnt give same answer as c_i
+
 
 
 
@@ -1418,24 +1426,33 @@ if __name__=="__main__":
         #exit()
         print("Generating new test file")
         from ase.build import bulk
+        from ase import Atoms
         from gpaw import PW, FermiDirac
         a = 10
         c = 5
         d = 0.74
         #atoms = Atoms("H2", positions=([c-d/2, c, c], [c+d/2, c,c]),
         #       cell = (a,a,a))
-        atoms = bulk("Si", "diamond", 5.43)
-        calc = GPAW(mode=PW(250, force_complex_dtype=True),
-                    xc ="PBE",                
-                    kpts={"size":(1,1,1), "gamma":True},
-                    random=True,
-                    symmetry="off",#{"point_group": False},
-                    occupations=FermiDirac(0.0001),
-                    basis="dzp",
-                    convergence={"eigenstates": 4e-14},
-                    #setups="ah"/"AH",
-                    txt = outname)
+        # atoms = bulk("Si", "diamond", 5.43)
+        # calc = GPAW(mode=PW(250, force_complex_dtype=True),
+        #             xc ="PBE",                
+        #             kpts={"size":(1,1,1), "gamma":True},
+        #             random=True,
+        #             symmetry="off",#{"point_group": False},
+        #             occupations=FermiDirac(0.0001),
+        #             basis="dzp",
+        #             convergence={"eigenstates": 4e-14},
+        #             #setups="ah"/"AH",
+        #            txt = outname)
         
+        
+        atoms = Atoms("H", cell=(5, 5, 5), magmoms=[1])
+        calc = GPAW(mode=PW(250, force_complex_dtype=True),
+                    xc="LDA",
+                    setups='ae'
+        )
+                    
+
         atoms.set_calculator(calc)
         energy = atoms.get_potential_energy()
         calc.write(filen, mode = "all")
