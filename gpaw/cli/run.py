@@ -5,7 +5,7 @@ from ase.cli.run import Runner, str2dict, CLICommand as ASECLICommand
 
 from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
-from gpaw.occupations import (FermiDirac, MethfesselPaxton
+from gpaw.occupations import (FermiDirac, MethfesselPaxton,
                               MarzariVanderbilt)
 from gpaw.wavefunctions.pw import PW
 
