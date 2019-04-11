@@ -105,7 +105,7 @@ class GPAWLogger(object):
         # Explicitly deleting SciPy seems to remove garbage collection
         # problem of unknown cause
         del sp
-        self('libxc: ', _gpaw.libxc_version)
+        self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
         self('cores:  %d' % world.size)
 

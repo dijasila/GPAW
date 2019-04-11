@@ -10,7 +10,7 @@ Linux:
    :maxdepth: 1
 
    gbar/gbar
-   Linux/CentOS
+   Linux/centos
    Linux/Fedora
    Linux/openSUSE
    Linux/ubuntu
