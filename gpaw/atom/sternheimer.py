@@ -7,6 +7,8 @@ from gpaw.utilities.clebschgordan import ClebschGordanCalculator
 from scipy.sparse.linalg import bicgstab
 import math
 import scipy
+
+
 def fermi_function(energy, temperature, chemical_potential):
     if temperature != 0:
         raise NotImplementedError
@@ -18,23 +20,20 @@ def fermi_function(energy, temperature, chemical_potential):
 
 
 class AllElectronResponse:
-    def __init__(self, all_electron_atom, nspins):
+    def __init__(self, all_electron_atom, nspins, calc_epsilon=False):
         if nspins != 1:
             raise NotImplementedError
+        self.calc_epsilon = calc_epsilon
         self.all_electron_atom = all_electron_atom #Main calculation object in aeatom.py
         self.nspins = nspins
         self.initialize()
-
-        ang_num = min(3, len(all_electron_atom.channels)-1)
- #       print("Testing for angular number: {}".format(ang_num))
+        self.log = all_electron_atom.log
+        ang_num = len(all_electron_atom.channels)-1
         chempot = (all_electron_atom.channels[ang_num].e_n[1] + all_electron_atom.channels[ang_num].e_n[0])/2
         self.chemical_potential = chempot
 
 
-    def initialize(self):
-        self.theta_grid = np.linspace(0, np.pi, 200)
-        self.phi_grid = np.linspace(0, 2*np.pi, 400)
-        self.radial_grid = self.all_electron_atom.rgd.r_g
+    def initialize(self):        
         self.cg_calculator = ClebschGordanCalculator()
         self.bicgstab_tol = 1e-5
         
@@ -42,6 +41,9 @@ class AllElectronResponse:
 
 
     def calculate_analytical_chi_channel(self, angular_number, num_levels, omega = 0, temp = 0, chemical_potential = None, eta = 0.0001):
+        '''
+        Calculate chi_l using the analytical solutions for Hydrogen
+        '''
 
         if chemical_potential is None:
             chemical_potential = self.chemical_potential
@@ -55,11 +57,8 @@ class AllElectronResponse:
             (wf1, en1), (wf2, en2) = pair
             if np.allclose(en1, en2):
                 return 0
-
             d = np.outer(wf1.conj(), wf1).astype(np.complex128)
             d *= np.outer(wf2, wf2.conj())
-            #assert not np.allclose(d, np.zeros_like(d))
-
             d *= fermi_function(en1, temp, chemical_potential) - fermi_function(en2, temp, chemical_potential)
             d *= 1/(en1 - en2 + omega + 1j*eta)
 
@@ -68,6 +67,7 @@ class AllElectronResponse:
 
         angular_factor = self._get_chi_angular_factor(angular_number)
         chi_channel *= angular_factor
+
         return chi_channel
 
 
@@ -87,33 +87,9 @@ class AllElectronResponse:
 
 
             radial_wf = prefactor*exp*rl*lag
-            import matplotlib.pyplot as plt
-            plt.plot(rgd.r_g, radial_wf, label = str(n))
-            
-            norm = np.sqrt(self.integrate(radial_wf**2))
-            assert norm.ndim == 0
-            #radial_wf = radial_wf/norm
-            b = np.allclose(self.integrate(radial_wf**2), 1, atol =1e-3)
-            if not b or True:
-                #print("Norm of radial: ", self.integrate(radial_wf**2))
-                print("Norm: ", scipy.integrate.cumtrapz(radial_wf**2*rgd.r_g**2, rgd.r_g)[-1])
-            #assert b
-
             energy = -1/2*1/n**2
 
             wfs_ens.append((radial_wf, energy))
-
-        plt.legend()
-        plt.savefig("radii.png")
-        for k1, (wf1, en1) in enumerate(wfs_ens):
-            for k2, (wf2, en2) in enumerate(wfs_ens):
-                if k1 != k2:
-                    b = np.allclose(self.integrate(wf1*wf2), 0, atol = 1e-2)
-                    #if not b:# or not b2:
-                    #    print(self.integrate(wf1*wf2))
-
-                    #assert b
-
 
         return wfs_ens
 
@@ -123,123 +99,87 @@ class AllElectronResponse:
             raise NotImplementedError
         return 1/(4*np.pi)
 
-    def calculate_exact_chi_channel(self, angular_number, omega = 0, temp = 0, chemical_potential = None, eta = 0.001):
-        '''
-        This function returns chi (the response function) projected to the angular number (total angular momentum number) specified, i.e. returns chi(r,r')_l where
-
-        chi(r, r')_l = \int d\Omega d\Omega' Y_{lm}(\Omega)^* chi(r\Omega, r'\Omega') Y_{lm}(\Omega')
-
-        (independent of m due to spherical symmetry)
-
-        '''
-        if chemical_potential is None:
-            chemical_potential = self.chemical_potential
-        #TODO can be made more efficient by only summing over pairs where n_1 < n_2 and then using symmetries of chi to get the rest.
-        radial_wfs, energies = self._get_radial_modes(angular_number)
-        wf_en_tups = list(zip(radial_wfs, energies))
-
-        combos = list(itertools.product(wf_en_tups, wf_en_tups))
-        def delta(pair):
-            (wf1, en1), (wf2, en2) = pair
-            if np.allclose(en1, en2):
-                return 0
-
-            d = np.outer(wf1.conj(), wf1).astype(np.complex128)
-            d *= np.outer(wf2, wf2.conj())
-            assert not np.allclose(d, np.zeros_like(d))
-
-            d *= fermi_function(en1, temp, chemical_potential) - fermi_function(en2, temp, chemical_potential)
-            d *= 1/(en1 - en2 + omega + 1j*eta)
-
-            return d
             
-        ##TODO Need Clebsch Gordan factors, see eq. 5.1.2 in notes
-        ##Problem with this because we do not sum over all excited states.
-        ##These are not found in the aeaatom code: we need for all nl pairs and aeaatom only finds for occupied ones -- For any external perturbation with angular momentum LM there will be infinitely many terms in the sum over nlm that contribute. No, no quite, because one term has to be occupied and the other has to be unoccupied. 
-        ##Is there another way to test the Sternheimer result?
-        chi_channel = reduce(lambda a, b : a + delta(b), combos, 0)
-        return chi_channel
 
-
-    def _get_radial_modes(self, angular_number):
-        channel = self.all_electron_atom.channels[angular_number]
-
-        states = [channel.basis.expand(C) for C in channel.C_nb]
-        energies = channel.e_n
-
-        return states, energies
-        
-
-
-    def sternheimer_calculation(self, omega = 0, angular_momenta = [0], return_only_eigenvalues = True):
-        #trial_potentials = self._get_random_trial_potentials(num_eig_vecs, len(self.radial_grid))
-        
-
-        #channel_number = min(3, len(all_electron_atom.channels)-1)
-        start_vec = self.all_electron_atom.channels[0].phi_ng[0]
-        total_angular_momenta = [(l, start_vec) for l in angular_momenta]
-        vals, vecs = self._iterative_solve(omega, total_angular_momenta)
-        print("Done")
-        #From output of iterative solver reconstruct epsilon/chi or just return eigvals
+    def sternheimer_calculation(self, omega = 0, angular_momenta=[0], num_eigs=1, return_only_eigenvalues=True):
+        start_vecs_ln = self._get_random_trial_vectors(num_eigs, angular_momenta)
+        #start_vecs_ln = {l: [self.all_electron_atom.channels[l].phi_ng[k] for k in range(num_eigs)] for l in angular_momenta}
+        found_vals_vecs_ln = self._iterative_solve(omega, start_vecs_ln, num_eigs)
+        self.log("Sternheimer calculation finished")
+        l = 0
+        vals = [val_vec[0] for val_vec in found_vals_vecs_ln[l]]
+        vecs = [val_vec[1] for val_vec in found_vals_vecs_ln[l]]
         if return_only_eigenvalues:
             return np.sort(np.real(vals))
 
         else:
-            response = self._construct_response(vals, vecs)
-            return response
-        
+            if self.calc_epsilon:
+                chi = self._construct_response(vals, vecs)
+                
+            return vals, vecs
+            #response = self._construct_response(vals, vecs)
+            #return response
+
+    
+    def _get_random_trial_vectors(self, num_eigs, angular_momenta):
+        start_vecs_ln = {}
+
+        for l in angular_momenta:
+            size = len(self.all_electron_atom.channels[l].phi_ng[0])
+            start_vecs_ln[l] = []
+            for n in range(num_eigs):
+                start = np.sin((n+1)*self.all_electron_atom.rgd.r_g*np.pi/max(self.all_electron_atom.rgd.r_g))
+                start = start/np.linalg.norm(start)
+                start_vecs_ln[l].append(start)
+
+        return start_vecs_ln
+
+                
+
         
     def _get_random_trial_potentials(self, num_eig_vecs, size_of_response_matrix):
         vecs = ortho_group.rvs(size_of_response_matrix).T[:num_eig_vecs]
-
         vecs = [vec/np.sqrt(self.dot(vec.conj(), vec)) for vec in vecs]
         return vecs
 
 
-    def _iterative_solve(self, omega, angular_momenta_trials):#total_angular_momenta): #num eigs, trial, resp ang
+    def _iterative_solve(self, omega, start_vecs_ln, num_eigs):#total_angular_momenta): #num eigs, trial, resp ang
         '''
-        Uses the power method (see wikipedia) plus the sternheimer equation to calculate num_eig_vecs of the eigenvector-eigenvalue pairs of the response matrix
+        Uses the power method plus the sternheimer equation to calculate num_eig_vecs of the eigenvector-eigenvalue pairs of the response matrix
         '''
         error_threshold = 1e-12
         ok_error_threshold = 1e-5
         max_iter = 100
         mixing = 0.5
         errors = []
-        found_vals_vecs = []
-        for l2, trial in angular_momenta_trials:
-   #     for l2 in total_angular_momenta:
-            for m in [0]:#range(-l2, l2+1):
-                        
-                current_trial = trial
+        found_vals_vecs_ln = {}
+        for l2, trial_vectors in start_vecs_ln.items():
+            found_vals_vecs = []
+            for trial_vector in trial_vectors:
+                current_trial = trial_vector
                 current_eigval = 1
                 num_iter = 0
 
-    
                 while True:
-                ##Main calculation
-                    if (num_iter % 10) == 0 or True:
-                        print("Iteration number:       {}".format(num_iter), end = "\r")
+                    ##Main calculation
+                
+                    self.log("Iteration number:       {}".format(num_iter), end = "\r")
 
                     num_iter += 1
                     
-                    #trial = self._orthonormalize(trial, list(map(lambda a : a[1], found_vals_vecs)))
-                    
-                    #Not necessary, use aeatom module methods
-                    #gaussian_trial = self._get_gaussian_potential(trial, channel_number)
-                    
-                    new_trial = self._solve_sternheimer(omega, current_trial, (l2, m))
-                    
-                    #new_trial = 2*np.real(np.sum([t[0].conj()*t[1] for t in delta_wfs_wfs]))
-                    
-                    #Minus because eigvals of chi are negative
+                    new_trial = self._solve_sternheimer(omega, current_trial, l2)
+                
+                
+                    #The eigenvalue estimate here is negative because eigvals of chi are negative
                     current_eigval = -np.sqrt(self.dot(new_trial, new_trial)/self.dot(current_trial, current_trial))
                     new_trial = -new_trial/np.sqrt(self.dot(new_trial, new_trial))
-
-
+                
+                
                     ##Check for convergence
                     error = np.abs(1 - self.dot(new_trial, current_trial))
                     errors.append(error)
                     current_trial = (1-mixing)*current_trial + mixing*new_trial
+                    current_trial = self._orthonormalize(current_trial, [val_vec[1] for val_vec in found_vals_vecs])
                     current_trial = current_trial/np.sqrt(self.dot(current_trial, current_trial))
                     assert np.allclose(self.dot(current_trial, current_trial), 1)
 
@@ -260,12 +200,12 @@ class AllElectronResponse:
                         else:
                             print("")
                             np.savetxt("errors.txt", errors)
-                            raise ValueError("Sternheimer iteration did not converge")
-                            
-        if len(found_vals_vecs) != len(angular_momenta_trials):
-            raise ValueError("Not enough eigenpairs was found")
+                            raise ValueError(f"Sternheimer iteration did not converge. Final error: {error}")
+            found_vals_vecs_ln[l2] = found_vals_vecs
+        #if len(found_vals_vecs) != len(angular_momenta_trials):
+            #raise ValueError("Not enough eigenpairs was found")
 
-        return zip(*found_vals_vecs)
+        return found_vals_vecs_ln
 
 
     def _construct_response(self, vals, vecs):
@@ -301,9 +241,17 @@ class AllElectronResponse:
         Returns delta wfs and wfs in position basis
         '''
         assert np.real(omega) == 0
-        response_l2, response_m = response_angular_momentum
+        response_l2 = response_angular_momentum
         delta_n = 0
         for l, channel in enumerate(self.all_electron_atom.channels):
+
+            if self.calc_epsilon:
+                rgd = self.all_electron_atom.rgd
+                coulomb_matrix = rgd.r_g.copy()
+                coulomb_matrix[0] = coulomb_matrix[1]
+                coulomb_matrix = 1/coulomb_matrix
+                trial = trial
+                raise NotImplementedError
 
             gaussian_trial = self.get_trial_matrix(channel, trial)
                     
@@ -335,7 +283,7 @@ class AllElectronResponse:
                             LHS = (alpha*valence_projector + hamiltonian - en*np.eye(hamiltonian.shape[0]))
 
                             cg_coeff = self.cg_calculator.calculate(response_l2, 0, l, m, combined_ang_momentum, 0)
-                            cg_coeff *= self.cg_calculator.calculate(response_l2, response_m, l, m, combined_ang_momentum, M)
+                            cg_coeff *= self.cg_calculator.calculate(response_l2, 0, l, m, combined_ang_momentum, M)
                             cg_coeff *= np.sqrt((2*l+1)*(2*response_l2+1)/(4*np.pi*(2*combined_ang_momentum + 1)))
 
                             
@@ -379,7 +327,7 @@ class AllElectronResponse:
                 delta_n += 2*np.real(wf.conj()*delta_wf*cg_coeff)
             
 
-        assert not np.allclose(self.dot(delta_n, delta_n), 0)
+        #assert not np.allclose(self.dot(delta_n, delta_n), 0)
         return delta_n
 
 

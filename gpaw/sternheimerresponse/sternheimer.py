@@ -105,8 +105,8 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            self.powercalculate([qvector], 1)
-        #self.krylovcalculate([qvector], 1)
+            #self.powercalculate([qvector], 1)
+            self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
         # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -591,7 +591,7 @@ class SternheimerResponse:
             
 
             deltapsi_qnG[k_plus_q_index] = self.wfs.pd.zeros(self.nbands, q=k_plus_q_index)# + index*np.random.rand() #np.ones(kpt.psit.array.shape, dtype=np.complex128)
-            print(f"{deltapsi_qnG[k_plus_q_index].shape}")
+
             if np.allclose(self.wfs.kd.bzk_kc[bzk_index], [0, 0, 0]):
                 deltapsi_qnG[k_plus_q_index][:, 1] += 1
             
@@ -669,27 +669,13 @@ class SternheimerResponse:
                 P_ni = kpt.projections[a][:nbands]
 
                 U_ij = np.dot(P_ni.conj().T*kpt.f_n[:nbands], c_ni)
-                #U_ij += np.dot(c_ni.conj().T*kpt.f_n[:nvalence], P_ni)
+
                 if a in D_aii:
                     D_aii[a] +=  U_ij + U_ij.conj().T# + U_ij.conj().T
                 else:
                     D_aii[a] = U_ij + U_ij.conj().T# + U_ij.conj().T
-
-
-
-
-        #There is some error: Density matrix with symmetry turned off is not same as with symmetry turned on
-
-        #There is some kind of sign error that makes the density matrix for the symmetric system equal to -1 times the density matrix for the non-symmetric system
-        #At least we have that Old density matrix for the symmetric system seems to be equal to -1*density matrix from symmetry="off" system
-        #Maybe it isnt a problem. Projectors are only defined up to a phase - but if we add a phase to a projector the corresponding partial wave must get the same phase to keep orthogonality relations intact
-
-
-        #Symmetrization definitely does something and it seems it does something that is wrong.
-        #The correct result should be the density matrix from the system with symmetry=off.
-        #Only the unsymmetrized density matrix in the symmetric system matches the correct
-
-        # oldD_aii = D_aii.copy()
+        #print(D_aii)
+        return D_aii
         D_asp = {a : np.array([ pack(D_aii[a]).real ]) for a in D_aii} 
 
         a_sa = self.wfs.kd.symmetry.a_sa
@@ -1004,7 +990,8 @@ class SternheimerResponse:
         nbands = self.nbands
 
         for index, kpt in enumerate(self.wfs.mykpts):
-
+            if kpt.s == 1:
+                continue
 
             
             
@@ -1420,10 +1407,10 @@ if __name__=="__main__":
     else:
         
         
-        #ro = SternheimerResponse(filen)
+        ro = SternheimerResponse(filen)
         
         
-        #exit()
+        exit()
         print("Generating new test file")
         from ase.build import bulk
         from ase import Atoms

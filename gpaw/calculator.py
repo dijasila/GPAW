@@ -355,7 +355,7 @@ class GPAW(PAW, Calculator):
         self.wfs.summary(self.log)
         try:
             bandgap(self, output=self.log.fd, efermi=efermi * Ha)
-        except ValueError:
+        except (ValueError, IndexError):
             pass
         self.log.fd.flush()
 

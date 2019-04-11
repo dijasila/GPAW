@@ -902,12 +902,18 @@ def main(args):
         import time
         from .sternheimer import AllElectronResponse       
         aee = AllElectronResponse(aea, 1)
-        t1 = time.time()
-        exact_chi = aee.calculate_analytical_chi_channel(0,50)
-        t2 = time.time()
-        print("Calculating analytical chi took {} seconds".format(t2-t1))
-        chi_dr = exact_chi*aea.rgd.dr_g
-        eigs, vecs = np.linalg.eigh(chi_dr)
-        print("Max abs exact: ", np.max(np.abs(eigs)))
-        vals = aee.sternheimer_calculation()
+        #t1 = time.time()
+        #exact_chi = aee.calculate_analytical_chi_channel(0,50)
+        #t2 = time.time()
+        #print("Calculating analytical chi took {} seconds".format(t2-t1))
+        #chi_dr = exact_chi*aea.rgd.dr_g
+        #eigs, vecs = np.linalg.eigh(chi_dr)
+        #print("Max abs exact: ", np.max(np.abs(eigs)))
+        vals, vecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=5, return_only_eigenvalues=False)
+        ##Fix Sternheimer to also calc epsilon eigenvalues
         print("Sternheimer: ", vals)
+        # import matplotlib.pyplot as plt
+        # for k, vec in enumerate(vecs):
+        #     plt.plot(vec, label=str(k))
+        # plt.legend()
+        # plt.show()
