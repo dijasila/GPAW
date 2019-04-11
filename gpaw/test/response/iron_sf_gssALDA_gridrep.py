@@ -91,19 +91,17 @@ mw2 = (wpeak2 + d2[0, 0]) * 1000
 # Part 4: compare new results to test values
 test_fxcs = 1.038135552
 test_mw1 = -0.0289017263039  # meV
-test_mw2 = 177.9  # meV
+test_mw2 = 175.8  # meV
 test_Ipeak1 = 71.2146329824  # a.u.
 test_Ipeak2 = 43.1361567126  # a.u.
 
-# print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
-
 # fxc_scaling:
-equal(test_fxcs, fxc_scaling[1], 2e-3)
+equal(fxc_scaling[1], test_fxcs, 2e-3)
 
 # Magnon peak:
-equal(test_mw1, mw1, 0.01)
-equal(test_mw2, mw2, eta * 700)
+equal(mw1, test_mw1, 0.01)
+equal(mw2, test_mw2, eta * 100)
 
 # Scattering function intensity:
-equal(test_Ipeak1, Ipeak1, 5)
-equal(test_Ipeak2, Ipeak2, 5)
+equal(Ipeak1, test_Ipeak1, 5)
+equal(Ipeak2, test_Ipeak2, 5)
