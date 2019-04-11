@@ -30,7 +30,7 @@ def info():
                 githash = '-{:.10}'.format(githash)
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
-    results.append(('libxc-' + _gpaw.libxc_version, ''))
+    results.append(('libxc-' + getattr(_gpaw, 'libxc_version', '2.x.y'), ''))
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())
