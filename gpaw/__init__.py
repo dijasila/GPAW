@@ -30,6 +30,7 @@ __all__ = ['GPAW',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
+           'MarzariVanderbilt',
            'PW', 'LCAO', 'restart', 'FD']
 
 
@@ -266,7 +267,8 @@ with broadcast_imports:
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
-    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                                  MarzariVanderbilt)
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD

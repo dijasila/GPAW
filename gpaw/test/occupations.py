@@ -1,7 +1,8 @@
 from __future__ import print_function
 import numpy as np
 from ase.units import Hartree
-from gpaw.occupations import FermiDirac, MethfesselPaxton, occupation_numbers
+from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                              MarzariVanderbilt, occupation_numbers)
 
 
 class KPoint:
@@ -39,6 +40,7 @@ for w in [0.1, 0.5]:
     test(FermiDirac(w))
     for n in range(4):
         test(MethfesselPaxton(w, n))
+    test(MarzariVanderbilt(w))
 
 
 occ = {'name': 'fermi-dirac', 'width': 0.1}
