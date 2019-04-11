@@ -38,7 +38,7 @@ for setup in ['10', '10:d,6.0']:
     gap, _, _ = bandgap(calc)
     print(name, gap)
     if name == 'ni2o2':
-        equal(gap, 0.9, 0.1)
+        equal(gap, 0.8, 0.1)
     else:
         equal(gap, 4.7, 0.2)
     name += '+U'

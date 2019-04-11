@@ -96,4 +96,4 @@ equal(test_mw2, mw2, eta * 900)
 
 # Scattering function intensity:
 equal(test_Ipeak1, Ipeak1, 5.5)
-equal(test_Ipeak2, Ipeak2, 4.0)
+equal(test_Ipeak2, Ipeak2, 6.0)

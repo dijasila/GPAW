@@ -206,7 +206,7 @@ def main():
     parser.add_option('-e', '--energy-difference', type=float, default=0.01)
     opts, names = parser.parse_args()
     if not names:
-        names = [Path.cwd().name]
+        names = [Path.cwd().name.split('.')[0]]
     con = ase.db.connect(opts.database)
     if opts.datasets:
         from gpaw import setup_paths

@@ -7,9 +7,15 @@ if [[ -z $GPAW_TOOLCHAIN ]]; then
     GPAW_TOOLCHAIN=foss
 fi
 
+ICMD=""
+for INPUT in "$@"
+do
+    ICMD="$ICMD$INPUT && "
+done
+
 nh=doc/platforms/Linux/Niflheim
 rm -rf build
-cmd="cd $PWD && python setup.py --remove-default-flags build_ext --customize=$nh/el7-${GPAW_TOOLCHAIN}.py"
+cmd="${ICMD} cd $PWD && python setup.py --remove-default-flags build_ext --customize=$nh/el7-${GPAW_TOOLCHAIN}.py"
 echo "Compiling on slid: $cmd"
 ssh slid "$cmd > broadwell-el7-${GPAW_TOOLCHAIN}.log 2>&1"
 mv configuration.log configuration-broadwell-el7-${GPAW_TOOLCHAIN}.log
@@ -19,6 +25,9 @@ mv configuration.log configuration-sandybridge-el7-${GPAW_TOOLCHAIN}.log
 echo "Compiling on fjorm: $cmd"
 ssh fjorm "$cmd > nehalem-el7-${GPAW_TOOLCHAIN}.log 2>&1"
 mv configuration.log configuration-nehalem-el7-${GPAW_TOOLCHAIN}.log
+echo "Compiling on svol: $cmd"
+ssh svol "$cmd > skylake-el7-${GPAW_TOOLCHAIN}.log 2>&1"
+mv configuration.log configuration-skylake-el7-${GPAW_TOOLCHAIN}.log
 
 (cd build && ln -sf bin.linux-x86_64-{sandybridge,ivybridge}-el7-3.6)
 (cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-el7-3.6)

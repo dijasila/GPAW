@@ -62,6 +62,8 @@ def create_poisson_solver(name='fast', **kwargs):
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
+    elif name == 'nointeraction':
+        return NoInteractionPoissonSolver()
     else:
         raise ValueError('Unknown poisson solver: %s' % name)
 
