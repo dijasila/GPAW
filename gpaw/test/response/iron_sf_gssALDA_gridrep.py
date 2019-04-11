@@ -66,7 +66,7 @@ for q in range(2):
                                            ecut=ecut)
 
     chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
-                                                     RSrep='grid',
+                                                     rshe=None,
                                                      fxc_scaling=fxc_scaling,
                                                      filename='iron_dsus'
                                                      + '_%d.csv' % (q + 1))
