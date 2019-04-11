@@ -377,7 +377,7 @@ class Hybrid:
         kd = self.wfs.kd
         spin = kpt.s
 
-        if kpt.f_n is None:
+        if 1:#kpt.f_n is None:
             if self.vt_sR is None:
                 from gpaw.xc import XC
                 lda = XC('LDA')
@@ -450,6 +450,9 @@ class Hybrid:
     def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
                        calculate_change=False):
         pass
+
+    def summary(self, log):
+        log('????????????\n'* 4)
 
 
 if __name__ == '__main__':
