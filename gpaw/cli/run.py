@@ -1,6 +1,3 @@
-import sys
-import optparse  # noqa
-
 from ase.cli.run import Runner, str2dict, CLICommand as ASECLICommand
 
 from gpaw import GPAW
