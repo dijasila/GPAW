@@ -7,9 +7,11 @@ Install these CentOS_ packages::
     $ yum install libxc-devel openblas-devel openmpi-devel fftw-devel
     $ yum install blacs-openmpi-devel scalapack-openmpi-devel
 
-Adjust your ``$PATH``:
+Add this to your ``~/.bashrc``::
 
-    $ echo "export PATH=/usr/lib64/openmpi/bin/:$PATH" >> ~/.bashrc
+    $ OPENMPI=/usr/lib64/openmpi
+    $ export PATH=$OPENMPI/bin/:$PATH
+    $ export LD_LIBRARY_PATH=$OPENMPI/lib:$LD_LIBRARY_PATH
 
 Make sure you have the latest pip::
 
