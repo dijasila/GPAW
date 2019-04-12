@@ -64,8 +64,8 @@ platform_id = ''
 
 packages = []
 for dirname, dirnames, filenames in os.walk('gpaw'):
-        if '__init__.py' in filenames:
-            packages.append(dirname.replace('/', '.'))
+    if '__init__.py' in filenames:
+        packages.append(dirname.replace('/', '.'))
 
 import_numpy = True
 if '--ignore-numpy' in sys.argv:
@@ -82,6 +82,15 @@ for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize'):
         customize = sys.argv.pop(i).split('=')[1]
         break
+
+# check for environment
+# up to now LIBRARY_PATH only
+try:
+    for directory in os.environ['LIBRARY_PATH'].split(os.pathsep):
+        if directory not in library_dirs:
+            library_dirs.append(directory)
+except KeyError:
+    pass
 
 get_system_config(define_macros, undef_macros,
                   include_dirs, libraries, library_dirs,

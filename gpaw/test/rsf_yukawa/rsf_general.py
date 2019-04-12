@@ -6,6 +6,12 @@ from gpaw.eigensolvers import RMMDIIS
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
 from gpaw.test import equal, gen
+import _gpaw
+
+libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
+if int(libxc_version.split('.')[0]) < 3:
+    from unittest import SkipTest
+    raise SkipTest
 
 if setup_paths[0] != '.':
     setup_paths.insert(0, '.')

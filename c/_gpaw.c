@@ -411,9 +411,11 @@ static PyObject* moduleinit(void)
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
+#if XC_MAJOR_VERSION >= 3
     PyObject_SetAttrString(m,
                            "libxc_version",
                            PyUnicode_FromString(xc_version_string()));
+#endif
 
     Py_INCREF(&LFCType);
     Py_INCREF(&LocalizedFunctionsType);
