@@ -55,14 +55,18 @@ class SJM(SolvationGPAW):
             'thickness': float
                 Thickness of the counter charge region in Angstrom.
                 Can only be used if start is not 'cavity_like' and will
-                be overwritten by 'upper_limit'
+                be overwritten by 'upper_limit'.
             'upper_limit': float
                 Upper boundary of the counter charge region in terms of
                 coordinate in Anfstrom (default: z). The default is
                 atoms.cell[2][2] - 5.
-        verbose: bool
-            Write final electrostatic potential, background charge and
-            and cavity into ASCII file.
+        verbose: bool or 'cube'
+            True:
+                Write final electrostatic potential, background charge and
+                and cavity into ASCII files.
+            'cube':
+                In addition to 'True', also write the cavity on the
+                3D-grid into a cube file.
 
 
     """
@@ -140,8 +144,8 @@ class SJM(SolvationGPAW):
 
         major_changes = False
         if kwargs:
-                SolvationGPAW.set(self, **kwargs)
-                major_changes = True
+            SolvationGPAW.set(self, **kwargs)
+            major_changes = True
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
@@ -150,22 +154,28 @@ class SJM(SolvationGPAW):
                 self.results = {}
                 if key == 'potential':
                     self.potential = SJM_changes[key]
-                    if self.wfs is None:
-                        self.log('Target electrode potential: %1.4f V'
-                                 % self.potential)
+                    if self.potential is not None:
+                        if self.wfs is None:
+                            self.log('Target electrode potential: %1.4f V'
+                                     % self.potential)
+                        else:
+                            self.log('New Target electrode potential: %1.4f V'
+                                     % self.potential)
                     else:
-                        self.log('New Target electrode potential: %1.4f V'
-                                 % self.potential)
+                        self.log('Potential equilibration has been '
+                                 'turned off')
+
                 if key == 'doublelayer':
-                    self.doublelayer = SJM_changes[key]
+                    self.dl = SJM_changes[key]
+                    self.set(background_charge=self.define_jellium(self.atoms))
 
             if key in ['dpot']:
                 self.log('Potential tolerance has been changed to %1.4f V'
                          % SJM_changes[key])
                 potint = self.get_electrode_potential()
                 if abs(potint - self.potential) > SJM_changes[key]:
-                        self.results = {}
-                        self.log('Recalculating...\n')
+                    self.results = {}
+                    self.log('Recalculating...\n')
                 else:
                     self.log('Potential already reached the criterion.\n')
                 self.dpot = SJM_changes[key]
@@ -192,12 +202,15 @@ class SJM(SolvationGPAW):
                         self.scf.reset()
 
                         self.log('\n------------')
-                        self.log('Charge on atomic system is changed!')
+                        self.log('Jellium properties changed!')
 
                     if abs(self.ne) < self.tiny:
                         self.ne = self.tiny
                     self.wfs.nvalence += self.ne - self.previous_ne
-                self.log('Current number of Excess Electrons: %1.4f' % self.ne)
+                self.log('Current number of Excess Electrons: %1.5f' % self.ne)
+                self.log('Jellium size parameters:')
+                self.log('  Lower boundary: %s' % self.dl['start'])
+                self.log('  Upper boundary: %s' % self.dl['upper_limit'])
                 self.log('------------\n')
 
             if key in ['ne']:
@@ -220,6 +233,7 @@ class SJM(SolvationGPAW):
         if self.potential:
             for dummy in range(10):
                 self.set_jellium(atoms)
+
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
 
@@ -258,19 +272,23 @@ class SJM(SolvationGPAW):
             self.set_jellium(atoms)
             SolvationGPAW.calculate(self, atoms, ['energy'],
                                     system_changes)
+            if self.verbose:
+                self.write_cavity_and_bckcharge()
             self.previous_ne = self.ne
 
         if properties != ['energy']:
             SolvationGPAW.calculate(self, atoms, properties, [])
 
     def write_cavity_and_bckcharge(self):
-        write_parallel_func_in_z(self.density.finegd,
-                                 self.hamiltonian.cavity.g_g,
-                                 name='cavity.out')
+        self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
+                                      name='cavity_')
+        if self.verbose == 'cube':
+            self.write_parallel_func_on_grid(self.hamiltonian.cavity.g_g,
+                                             atoms=self.atoms,
+                                             name='cavity')
 
-        write_parallel_func_in_z(self.density.finegd,
-                                 self.density.background_charge.mask_g,
-                                 name='background_charge.out')
+        self.write_parallel_func_in_z(self.density.background_charge.mask_g,
+                                      name='background_charge_')
 
     def summary(self):
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
@@ -295,10 +313,9 @@ class SJM(SolvationGPAW):
         self.wfs.summary(self.log)
         self.log.fd.flush()
         if self.verbose:
-            write_parallel_func_in_z(self.density.finegd,
-                                     self.hamiltonian.vHt_g * Hartree -
-                                     self.get_fermi_level(),
-                                     'elstat_potential.out')
+            self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Hartree -
+                                          self.get_fermi_level(),
+                                          'elstat_potential_')
 
     def define_jellium(self, atoms):
         """Module for the definition of the explicit and counter charge
@@ -381,6 +398,33 @@ class SJM(SolvationGPAW):
                 self.ne = self.tiny
             self.set(background_charge=self.define_jellium(atoms))
 
+    """Various tools for writing global functions"""
+
+    def write_parallel_func_in_z(self, g, name='g_z.out'):
+        gd = self.density.finegd
+        from gpaw.mpi import world
+        G = gd.collect(g, broadcast=False)
+        if world.rank == 0:
+            G_z = G.mean(0).mean(0)
+            out = open(name + self.log.fd.name.split('.')[0] + '.out', 'w')
+            for i, val in enumerate(G_z):
+                out.writelines('%f  %1.8f\n' % ((i + 1) * gd.h_cv[2][2] * Bohr,
+                               val))
+            out.close()
+
+    def write_parallel_func_on_grid(self, g, atoms=None, name='func.cube',
+                                    outstyle='cube'):
+        from ase.io import write
+        gd = self.density.finegd
+        G = gd.collect(g, broadcast=False)
+        if outstyle == 'cube':
+            write(name + '.cube', atoms, data=G)
+        elif outstyle == 'pckl':
+            import pickle
+            out = open(name, 'wb')
+            pickle.dump(G, out)
+            out.close()
+
 
 class SJMPower12Potential(Power12Potential):
     """Inverse power law potential.
@@ -398,7 +442,7 @@ class SJMPower12Potential(Power12Potential):
                  H2O_layer=False, unsolv_backside=True):
         """Constructor for the SJMPower12Potential class.
         In SJM one also has the option of removing the solvent from the
-        electrode backside and adding ghost atoms to remove the solvent
+        electrode backside and adding ghost plane/atoms to remove the solvent
         from the electrode-water interface.
 
         Parameters
@@ -411,9 +455,15 @@ class SJMPower12Potential(Power12Potential):
         pbc_cutoff : float
             Cutoff in eV for including neighbor cells in a calculation with
             periodic boundary conditions.
-        H2O_layer: bool or 'plane'
-            Exclude the implicit solvent from the interface region between
-            electrode and water,
+        H2O_layer: bool,int or 'plane' (default: False)
+            True: Exclude the implicit solvent from the interface region
+                between electrode and water. Ghost atoms will be added below
+                the water layer.
+            int: Explicitly account for the given number of water molecules
+                above electrode. This is handy if H2O is directly adsorbed
+                and a water layer is present in the unit cell at the same time.
+            'plane': Use a plane instead of ghost atoms for freeing the
+                surface.
         unsolv_backside: bool
             Exclude implicit solvent from the region behind the electrode
 
@@ -458,29 +508,62 @@ class SJMPower12Potential(Power12Potential):
                               if atom.symbol == 'O']
 
             # Disregard oxygens that don't belong to the water layer
-            water_oxygen_ind = []
+            allwater_oxygen_ind = []
             for ox in all_oxygen_ind:
                 nH = 0
 
-                for atm in atoms:
-                    dist = atm.position - atoms[ox].position
-                    if np.linalg.norm(dist) < 1.1 and atm.symbol == 'H':
-                        nH += 1
+                for i, atm in enumerate(atoms):
+                    for period_atm in self.pos_aav[i]:
+                        dist = period_atm * Bohr - atoms[ox].position
+                        if np.linalg.norm(dist) < 1.1 and atm.symbol == 'H':
+                            nH += 1
 
                 if nH >= 2:
-                    water_oxygen_ind.append(ox)
+                    allwater_oxygen_ind.append(ox)
 
-            oxygen = atoms[water_oxygen_ind]
+            # If the number of waters in the water layer is given as an input
+            # (H2O_layer=i) then only the uppermost i water molecules are
+            # regarded for unsolvating the interface (this is relevant if
+            # water is adsorbed on the surface)
+            if not isinstance(self.H2O_layer, (bool, str)):
+                if self.H2O_layer % 1 < self.tiny:
+                    self.H2O_layer = int(self.H2O_layer)
+                else:
+                    raise AttributeError('Only an integer number of water'
+                                         'molecules is possible in the water'
+                                         'layer')
 
-            # Add the virtual plane
+                allwaters = atoms[allwater_oxygen_ind]
+                indizes_water_ox_ind = np.argsort(allwaters.positions[:, 2],
+                                                  axis=0)
 
+                water_oxygen_ind = []
+                for i in range(self.H2O_layer):
+                    water_oxygen_ind.append(
+                        allwater_oxygen_ind[indizes_water_ox_ind[-1-i]])
+
+            else:
+                water_oxygen_ind = allwater_oxygen_ind
+
+            oxygen = self.pos_aav[water_oxygen_ind[0]] * Bohr
+            if len(water_oxygen_ind) > 1:
+                for windex in water_oxygen_ind[1:]:
+                    oxygen = np.concatenate(
+                        (oxygen, self.pos_aav[windex] * Bohr))
+
+            O_layer = []
             if self.H2O_layer == 'plane':
-                # The value -2.25, being the position of the plane relative to
-                # the oxygens in the water layer, is an empirical one and maybe
-                # should be interchangable
+                # Add a virtual plane
+                # XXX:The value -1.5, being the amount of vdW radii of O in
+                # distance of the plane relative to the oxygens in the water
+                # layer, is an empirical one and should perhaps be
+                # interchangable.
+                # For some reason the poissonsolver has trouble converging
+                # sometimes if this scheme is used
 
-                plane_rel_oxygen = -2.25
-                plane_z = oxygen.positions[:, 2].min() + plane_rel_oxygen
+                plane_rel_oxygen = -1.5 * self.atomic_radii_output[
+                    water_oxygen_ind[0]]
+                plane_z = oxygen[:, 2].min() + plane_rel_oxygen
 
                 r_diff_zg = self.r_vg[2, :, :, :] - plane_z / Bohr
                 r_diff_zg[r_diff_zg < self.tiny] = self.tiny
@@ -492,41 +575,58 @@ class SJMPower12Potential(Power12Potential):
                 self.grad_u_vg[2, :, :, :] += r_diff_zg
 
             else:
-                # Ghost atoms instead of a plane
-                O_layer = []
-                for i in np.linspace(0, atoms.cell[0].max() / Bohr, num=10):
-                    for j in np.linspace(0, atoms.cell[1].max() /
-                                         Bohr, num=10):
-                        for k in (np.linspace((oxygen.positions[:, 2].min() -
-                                  5.) / Bohr, (oxygen.positions[:, 2].min() -
-                                  2.7) / Bohr, num=10)):
-                            O_layer.append([i, j, k])
+                # Ghost atoms are added below the explicit water layer
+                cell = atoms.cell.copy() / Bohr
+                cell[2][2] = 1.
+                natoms_in_plane = [round(np.linalg.norm(cell[0]) * 1.5),
+                                   round(np.linalg.norm(cell[1]) * 1.5)]
 
-                for ox in oxygen.positions:
-                    O_layer.append((ox[0], ox[1], ox[2] - 2. *
-                                    self.r12_a[water_oxygen_ind[0]]))
+                plane_z = (oxygen[:, 2].min() - 1.75 *
+                           self.atomic_radii_output[water_oxygen_ind[0]])
+                nghatoms_z = int(round(oxygen[:, 2].min() -
+                                 atoms.positions[:, 2].min()))
 
-                r12_add = []
-                for i in range(len(O_layer)):
-                    self.pos_aav[len(atoms) + i] = [O_layer[i]]
-                    r12_add.append(self.r12_a[water_oxygen_ind[0]])
-                r12_add = np.array(r12_add)
-                # r12_a must have same dimensions as pos_aav items
-                self.r12_a = np.concatenate((self.r12_a, r12_add))
+                for i in range(int(natoms_in_plane[0])):
+                    for j in range(int(natoms_in_plane[1])):
+                        for k in np.linspace(atoms.positions[:, 2].min(),
+                                             plane_z, num=nghatoms_z):
+
+                            O_layer.append(np.dot(np.array(
+                                [(1.5*i - natoms_in_plane[0]/4.) /
+                                 natoms_in_plane[0],
+                                 (1.5*j - natoms_in_plane[1]/4.) /
+                                 natoms_in_plane[1],
+                                 k / Bohr]), cell))
+
+            # Add additional ghost O-atoms below the actual water O atoms
+            # of water which frees the interface in case of corrugated
+            # water layers
+            for ox in oxygen / Bohr:
+                O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
+                                self.atomic_radii_output[
+                                    water_oxygen_ind[0]] / Bohr])
+
+            r12_add = []
+            for i in range(len(O_layer)):
+                self.pos_aav[len(atoms) + i] = [O_layer[i]]
+                r12_add.append(self.r12_a[water_oxygen_ind[0]])
+            r12_add = np.array(r12_add)
+            # r12_a must have same dimensions as pos_aav items
+            self.r12_a = np.concatenate((self.r12_a, r12_add))
 
         for index, pos_av in self.pos_aav.items():
-                pos_av = np.array(pos_av)
-                r12 = self.r12_a[index]
-                for pos_v in pos_av:
-                    origin_vg = pos_v[:, na, na, na]
-                    r_diff_vg = self.r_vg - origin_vg
-                    r_diff2_g = (r_diff_vg ** 2).sum(0)
-                    r_diff2_g[r_diff2_g < self.tiny] = self.tiny
-                    u_g = r12 / r_diff2_g ** 6
-                    self.u_g += u_g
-                    u_g /= r_diff2_g
-                    r_diff_vg *= u_g[na, ...]
-                    self.grad_u_vg += r_diff_vg
+            pos_av = np.array(pos_av)
+            r12 = self.r12_a[index]
+            for pos_v in pos_av:
+                origin_vg = pos_v[:, na, na, na]
+                r_diff_vg = self.r_vg - origin_vg
+                r_diff2_g = (r_diff_vg ** 2).sum(0)
+                r_diff2_g[r_diff2_g < self.tiny] = self.tiny
+                u_g = r12 / r_diff2_g ** 6
+                self.u_g += u_g
+                u_g /= r_diff2_g
+                r_diff_vg *= u_g[na, ...]
+                self.grad_u_vg += r_diff_vg
 
         self.u_g *= self.u0 / Hartree
         self.grad_u_vg *= -12. * self.u0 / Hartree
@@ -584,10 +684,10 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
         self.gradient = None
 
         RealSpaceHamiltonian.__init__(
-                self,
-                gd, finegd, nspins, collinear, setups, timer, xc, world,
-                vext=vext, psolver=psolver,
-                stencil=stencil, redistributor=redistributor)
+            self,
+            gd, finegd, nspins, collinear, setups, timer, xc, world,
+            vext=vext, psolver=psolver,
+            stencil=stencil, redistributor=redistributor)
 
         for ia in interactions:
             setattr(self, 'e_' + ia.subscript, None)
@@ -768,36 +868,7 @@ class SJMDipoleCorrection(DipoleCorrection):
         saw = np.zeros((int(L / gd.h_cv[c, c])))
         saw[0] = -0.5
         for i, eps in enumerate(eps_z):
-                saw[i+1] = saw[i] + step / eps
+            saw[i+1] = saw[i] + step / eps
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
         saw -= (saw[0] + saw[-1] + step / eps_z[-1])/2.
         return saw
-
-"""Various tools for writing global functions"""
-
-
-def write_parallel_func_in_z(gd, g, name='g_z.out'):
-        from gpaw.mpi import world
-        G = gd.collect(g, broadcast=False)
-        # G = gd.zero_pad(G,global_array=False)
-        if world.rank == 0:
-            G_z = G.mean(0).mean(0)
-            out = open(name, 'w')
-            for i, val in enumerate(G_z):
-                out.writelines('%f  %1.8f\n' % ((i + 1) * gd.h_cv[2][2] * Bohr,
-                               val))
-            out.close()
-
-
-def write_parallel_func_on_grid(gd, g, atoms=None, name='func.cube',
-                                outstyle='cube'):
-        from ase.io import write
-        G = gd.collect(g, broadcast=False)
-        # G = gd.zero_pad(G)
-        if outstyle == 'cube':
-            write(name, atoms, data=G)
-        elif outstyle == 'pckl':
-            import pickle
-            out = open(name, 'wb')
-            pickle.dump(G, out)
-            out.close()

@@ -113,7 +113,12 @@ class PAW:
         return self.wfs.setups.Eref * Ha
 
     def get_homo_lumo(self, spin=None):
-        """Return HOMO and LUMO eigenvalues."""
+        """Return HOMO and LUMO eigenvalues.
+
+        By default, return the true HOMO-LUMO eigenvalues (spin=None).
+
+        If spin is 0 or 1, return HOMO-LUMO eigenvalues taken among
+        only those states with the given spin."""
         return self.wfs.get_homo_lumo(spin) * Ha
 
     def estimate_memory(self, mem):
@@ -252,7 +257,7 @@ class PAW:
             else:
                 nt_G = nt_sG[spin]
 
-        nt_G = gd.collect(nt_G, broadcast)
+        nt_G = gd.collect(nt_G, broadcast=broadcast)
 
         if nt_G is None:
             return None
@@ -323,7 +328,7 @@ class PAW:
                 n_G = n_sG[spin]
 
         if collect:
-            n_G = gd.collect(n_G, broadcast)
+            n_G = gd.collect(n_G, broadcast=broadcast)
 
         if n_G is None:
             return None
@@ -552,7 +557,7 @@ class PAW:
         return f_n
 
     def get_xc_difference(self, xc):
-        if isinstance(xc, str):
+        if isinstance(xc, (str, dict)):
             xc = XC(xc)
         xc.set_grid_descriptor(self.density.finegd)
         xc.initialize(self.density, self.hamiltonian, self.wfs,

@@ -1,5 +1,5 @@
 from ase.build import molecule
-from gpaw import GPAW, PoissonSolver, Mixer, Davidson
+from gpaw import GPAW, Mixer, Davidson
 
 # Move atom infinitesimally across cell border and test that SCF loop is still
 # well converged afterwards.  If it is /not/ well converged, then the code
@@ -33,11 +33,10 @@ def test(calc):
 
 kwargs = lambda: dict(xc='oldLDA', mixer=Mixer(0.7), kpts=[1, 1, 2])
 
-test(GPAW(mode='lcao', basis='sz(dzp)', h=0.3,
-          poissonsolver=PoissonSolver(relax='GS')))
+test(GPAW(mode='lcao', basis='sz(dzp)', h=0.3))
 test(GPAW(mode='pw', eigensolver=Davidson(3),
           experimental={'reuse_wfs_method': 'paw'}, **kwargs()))
-test(GPAW(mode='fd', h=0.3, poissonsolver=PoissonSolver(relax='GS'),
+test(GPAW(mode='fd', h=0.3,
           experimental={'reuse_wfs_method': 'lcao'}, **kwargs()))
 
 # pw + lcao extrapolation is currently broken (PWLFC lacks integrate2):

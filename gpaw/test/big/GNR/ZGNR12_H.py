@@ -3,7 +3,6 @@
 
 from ase.io import read
 from ase import Atom
-from ase.build import graphene_nanoribbon
 from ase.optimize import QuasiNewton
 from gpaw import GPAW
 

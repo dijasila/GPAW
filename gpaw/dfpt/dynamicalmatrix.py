@@ -19,12 +19,12 @@ class DynamicalMatrix:
     displacements (for periodic systems collective atomic displacemnts
     characterized by a q-vector) can be obtained from an expression involving
     the first-order derivatives of the density and the wave-functions.
-    
+
     Each of the various contributions to the second order derivative of the
     total energy are implemented in separate functions.
-    
+
     """
-    
+
     def __init__(self, atoms, kd, dtype=float):
         """Inititialize class with a list of atoms.
 
@@ -43,20 +43,20 @@ class DynamicalMatrix:
         self.dtype = dtype
         self.masses = atoms.get_masses()
         # Array with inverse sqrt of masses repeated to match shape of mode
-        # arrays        
+        # arrays
         self.m_inv_av = None
-        
+
         # String template for files with force constants
         self.name = None
         # Path to directory with force constant files
         self.path = None
-        
+
         # List of atomic indices to be included (default is all atoms)
         self.indices = range(len(self.atoms))
-        
+
         # Index of the gamma point -- for the acoustic sum-rule
         self.gamma_index = None
-        
+
         if self.kd.gamma:
             self.gamma_index = 0
             assert dtype == float
@@ -66,23 +66,23 @@ class DynamicalMatrix:
                     self.gamma_index = k
 
         assert self.gamma_index is not None
-        
+
         # Matrix of force constants -- dict of dicts in atomic indices
         # Only q-vectors in the irreducible BZ stored here
         self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=dtype))
                                         for a_ in self.indices]))
                               for a in self.indices])
                         for q in range(self.kd.nibzkpts)]
-        
+
         # Force constants and dynamical matrix attributes
         # Irreducible zone -- list with array entrances C_avav
         self.C_q = None
         # Full BZ (ndarray)
         self.D_k = None
-        
+
         self.assembled = False
 
-    def __getstate__(self): 
+    def __getstate__(self):
         """Method used to pickle an instance of ``DynamicalMatrix``.
 
         Bound method attributes cannot be pickled and must therefore be deleted
@@ -111,10 +111,10 @@ class DynamicalMatrix:
         """Return indices of included atoms."""
 
         return self.indices
-    
+
     def set_indices(self, indices):
         """Set indices of atoms to be included in the calculation."""
-        
+
         self.indices = indices
         self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=self.dtype))
                                         for a_ in self.indices]))
@@ -129,24 +129,24 @@ class DynamicalMatrix:
             of force constants are written to.
         path: str
             Path specifying the directory with the files.
-            
+
         """
-        
+
         self.name = name
         self.path = path
-        
+
     def write(self, fd, q, a, v):
         """Write force constants for specified indices to file."""
-        
+
         C_qav_a = [self.C_qaavv[q][a][a_][v] for a_ in self.indices]
         pickle.dump(C_qav_a, fd)
-        
+
     def read(self):
         """Read the force constants from files."""
 
         assert self.name is not None
         assert self.path is not None
-        
+
         for q in range(self.kd.nibzkpts):
             for a in self.indices:
                 for v in [0, 1, 2]:
@@ -167,7 +167,7 @@ class DynamicalMatrix:
         The elements of the dynamical matrix are given by::
 
             D_ij(q) = 1/(M_i + M_j) * C_ij(q) ,
-                      
+
         where i and j are collective atomic and cartesian indices.
 
         During the assembly, various symmetries of the dynamical matrix are
@@ -182,7 +182,7 @@ class DynamicalMatrix:
         acoustic: bool
             When True, the diagonal of the matrix of force constants is
             corrected to ensure that the acoustic sum-rule is fulfilled.
-            
+
         """
 
         # Read force constants from files
@@ -190,13 +190,13 @@ class DynamicalMatrix:
 
         # Number of atoms included
         N = len(self.indices)
-        
+
         # Assemble matrix of force constants
         self.C_q = []
         for q, C_aavv in enumerate(self.C_qaavv):
 
             C_avav = np.zeros((3*N, 3*N), dtype=self.dtype)
-    
+
             for i, a in enumerate(self.indices):
                 for j, a_ in enumerate(self.indices):
                     C_avav[3*i : 3*i + 3, 3*j : 3*j + 3] += C_aavv[a][a_]
@@ -213,22 +213,22 @@ class DynamicalMatrix:
         C_gamma = self.C_q[self.gamma_index].real
         # Make Gamma-component real
         self.C_q[self.gamma_index] = C_gamma.copy()
-            
+
         # Apply acoustic sum-rule if requested
         if acoustic:
             # Correct atomic diagonal for each q-vector
             for C in self.C_q:
                 for a in range(N):
                     for a_ in range(N):
-                        C[3*a : 3*a + 3, 3*a : 3*a + 3] -= \
-                              C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
+                        C[3*a:3*a + 3, 3*a:3*a + 3] -= \
+                            C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
 
             # Check sum-rule for Gamma-component in debug mode
             if debug:
                 C = self.C_q[self.gamma_index]
                 assert np.all(np.sum(C.reshape((3*N, N, 3)), axis=1) < 1e-15)
 
-        
+
         # Move this bit to an ``unfold`` member function
         # XXX Time-reversal symmetry
         C_q = np.asarray(self.C_q)
@@ -237,7 +237,7 @@ class DynamicalMatrix:
         else:
             self.D_k = 0.5 * C_q
             self.D_k += self.D_k[::-1].conjugate()
-            
+
         # Mass prefactor for the dynamical matrix
         self.m_inv_av = np.repeat(self.masses[self.indices]**-0.5, 3)
         M_avav = self.m_inv_av[:, np.newaxis] * self.m_inv_av
@@ -246,7 +246,7 @@ class DynamicalMatrix:
             C *= M_avav
 
         self.assembled = True
-       
+
     def real_space(self):
         """Fourier transform the dynamical matrix to real-space."""
 
@@ -264,12 +264,12 @@ class DynamicalMatrix:
         if debug:
             # Check that D_R is real enough
             assert np.all(DR_lmn.imag < 1e-8)
-            
+
         DR_lmn = DR_lmn.real
 
         # Corresponding R_m vectors in units of the lattice vectors
         R_cm = np.indices(N_c).reshape(3, -1)
-        N1_c = np.array(N_c)[:, np.newaxis]        
+        N1_c = np.array(N_c)[:, np.newaxis]
         R_cm += N1_c // 2
         R_cm %= N1_c
         R_cm -= N1_c // 2
@@ -293,12 +293,12 @@ class DynamicalMatrix:
         response_calc: ResponseCalculator
             Calculator with the corresponding derivatives of the density and
             the wave-functions.
-            
+
         """
 
         self.density_derivative(perturbation, response_calc)
         self.wfs_derivative(perturbation, response_calc)
-        
+
     def density_ground_state(self, calc):
         """Contributions involving ground-state density.
 
@@ -312,7 +312,7 @@ class DynamicalMatrix:
         vbar = calc.hamiltonian.vbar
         # Compensation charge coefficients
         Q_aL = calc.density.Q_aL
-        
+
         # Integral of Hartree potential times the second derivative of ghat
         vH_g = calc.hamiltonian.vHt_g
         d2ghat_aLvv = dict([(atom.index, np.zeros((3, 3)))
@@ -341,21 +341,20 @@ class DynamicalMatrix:
         pt = calc.wfs.pt
         # Projector coefficients
         dH_asp = calc.hamiltonian.dH_asp
-      
+
         # K-point
         kpt_u = response_calc.wfs.kpt_u
         nbands = response_calc.nbands
-        
+
         for kpt in kpt_u:
 
             # Index of k
-            k = kpt.k
             P_ani = kpt.P_ani
             dP_aniv = kpt.dP_aniv
-            
+
             # Wave functions
             psit_nG = kpt.psit_nG
-            psit1_nG = kpt.psit1_nG
+            # psit1_nG = kpt.psit1_nG
 
             # Calculate d2P_anivv coefficients
             # d2P_anivv = self.calculate_d2P_anivv()
@@ -367,34 +366,34 @@ class DynamicalMatrix:
             # -- no extra dims
             d2P_avv = dict([(atom.index, np.zeros((3, 3)))
                             for atom in self.atoms])
-         
+
             for n in range(nbands):
                 pt.second_derivative(psit_nG[n], d2P_avv)
                 # Insert in other dict
                 for atom in self.atoms:
                     a = atom.index
                     d2P_anivv[a][n, 0] = d2P_avv[a]
-            
+
             for a in self.indices:
-    
+
                 H_ii = unpack(dH_asp[a][0])
                 P_ni = P_ani[a]
                 dP_niv = -1 * dP_aniv[a]
                 d2P_nivv = d2P_anivv[a]
-                
+
                 # Term with second-order derivative of projector
                 HP_ni = np.dot(P_ni, H_ii)
                 d2PHP_nvv = (d2P_nivv.conj() *
                              HP_ni[:, :, np.newaxis, np.newaxis]).sum(1)
                 d2PHP_nvv *= kpt.weight
                 A_vv = d2PHP_nvv.sum(0)
-    
+
                 # Term with first-order derivative of the projectors
                 HdP_inv = np.dot(H_ii, dP_niv.conj())
                 HdP_niv = np.swapaxes(HdP_inv, 0, 1)
                 HdP_niv *= kpt.weight
-    
-                B_vv = (dP_niv[:, :, np.newaxis, :] * 
+
+                B_vv = (dP_niv[:, :, np.newaxis, :] *
                         HdP_niv[:, :, :, np.newaxis]).sum(0).sum(0)
 
                 for C_aavv in self.C_qaavv:
@@ -404,7 +403,7 @@ class DynamicalMatrix:
         """Contribution from the derivative of the core density."""
 
         raise NotImplementedError
-    
+
     def density_derivative(self, perturbation, response_calc):
         """Contributions involving the first-order density derivative."""
 
@@ -416,8 +415,8 @@ class DynamicalMatrix:
 
         # Matrix of force constants to be updated; q=-1 for Gamma calculation!
         C_aavv = self.C_qaavv[q]
-        
-        # Localized functions 
+
+        # Localized functions
         ghat = perturbation.ghat
         vbar = perturbation.vbar
         # Compensation charge coefficients
@@ -425,7 +424,7 @@ class DynamicalMatrix:
 
         # Density derivative
         nt1_g = response_calc.nt1_g
-        
+
         # Hartree potential derivative including compensation charges
         vH1_g = response_calc.vH1_g.copy()
         vH1_g += perturbation.vghat1_g
@@ -434,7 +433,7 @@ class DynamicalMatrix:
         dghat_aLv = ghat.dict(derivative=True)
         # Integral of density derivative times vbar derivative
         dvbar_av = vbar.dict(derivative=True)
-        
+
         # Evaluate integrals
         ghat.derivative(vH1_g, dghat_aLv, q=q)
         vbar.derivative(nt1_g, dvbar_av, q=q)
@@ -455,12 +454,12 @@ class DynamicalMatrix:
 
         # Matrix of force constants to be updated
         C_aavv = self.C_qaavv[q]
-           
+
         # Projector functions
         pt = response_calc.wfs.pt
         # Projector coefficients
         dH_asp = perturbation.dH_asp
-        
+
         # K-point
         kpt_u = response_calc.wfs.kpt_u
         nbands = response_calc.nbands
@@ -471,7 +470,7 @@ class DynamicalMatrix:
             kplusq_k = response_calc.wfs.kd.find_k_plus_q(q_c)
         else:
             kplusq_k = range(len(kpt_u))
-            
+
         for kpt in kpt_u:
 
             # Indices of k and k+q
@@ -481,8 +480,8 @@ class DynamicalMatrix:
             # Projector coefficients
             P_ani = kpt.P_ani
             dP_aniv = kpt.dP_aniv
-            
-            psit_nG = kpt.psit_nG
+
+            # psit_nG = kpt.psit_nG
             psit1_nG = kpt.psit1_nG
 
             # Overlap between wave-function derivative and projectors
@@ -500,13 +499,13 @@ class DynamicalMatrix:
                 H_ii = unpack(dH_asp[a_][0])
                 P_ni = P_ani[a_]
                 dP_niv = -1 * dP_aniv[a_]
-                
+
                 # Term with dPdpsi and P coefficients
                 HP_ni = np.dot(P_ni, H_ii)
                 dPdpsiHP_nv = (dPdpsi_niv.conj() * HP_ni[:, :, np.newaxis]).sum(1)
                 dPdpsiHP_nv *= kpt.weight
                 A_v = dPdpsiHP_nv.sum(0)
-    
+
                 # Term with dP and Pdpsi coefficients
                 HPdpsi_ni = np.dot(Pdpsi_ni.conj(), H_ii)
                 dPHPdpsi_nv = (dP_niv * HPdpsi_ni[:, :, np.newaxis]).sum(1)

@@ -10,7 +10,7 @@ from gpaw.utilities.dos import raw_orbital_LDOS, delta
 
 
 class CLICommand:
-    short_description = 'Calculate (projected) density of states from gpw-file'
+    """Calculate (projected) density of states from gpw-file."""
 
     @staticmethod
     def add_arguments(parser):
@@ -111,7 +111,7 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
             plt.plot(dos.energies, y, label=label)
         plt.legend()
         plt.ylabel(ylabel)
-        plt.xlabel('$\epsilon-\epsilon_F$ [eV]')
+        plt.xlabel(r'$\epsilon-\epsilon_F$ [eV]')
         plt.show()
 
 

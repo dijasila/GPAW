@@ -1,13 +1,11 @@
-import sys
-
 from ase import Atoms
-from ase.data.s22 import data, s22
+from ase.data.s22 import data
 from ase.calculators.vdwcorrection import vdWTkatchenko09prl
 from ase.parallel import parprint
 
 from gpaw import GPAW, FermiDirac
 from gpaw.cluster import Cluster
-from gpaw.analyse.hirshfeld import HirshfeldDensity, HirshfeldPartitioning
+from gpaw.analyse.hirshfeld import HirshfeldPartitioning
 from gpaw.analyse.vdwradii import vdWradii
 
 h = 0.25
@@ -21,19 +19,19 @@ Energy = {
     'TS09': []}
 
 for molecule in ['Adenine-thymine_complex_stack']:
-    ss = Cluster(Atoms(data[molecule]['symbols'], 
+    ss = Cluster(Atoms(data[molecule]['symbols'],
                        data[molecule]['positions']))
-    
+
     # split the structures
     s1 = ss.find_connected(0)
     s2 = ss.find_connected(-1)
     assert len(ss) == len(s1) + len(s2)
-    
+
     c = GPAW(xc='PBE', h=h, nbands=-6,
              occupations=FermiDirac(width=0.1), txt=None)
     cdf = GPAW(xc='vdW-DF', h=h, nbands=-6, occupations=FermiDirac(width=0.1),
                txt=None)
-    
+
     for s in [s1, s2, ss]:
         s.set_calculator(c)
         s.minimal_box(box, h=h)

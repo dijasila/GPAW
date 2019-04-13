@@ -61,7 +61,7 @@ class AtomPoissonSolver:
     def get_stencil(self):
         return 'Exact'
 
-    def solve(self, vHt_g, rhot_g, charge=0):
+    def solve(self, vHt_g, rhot_g, charge=0, timer=None):
         r = self.gd.r_g
         dp = rhot_g * r * self.gd.dr_g
         dq = dp * r
@@ -112,7 +112,7 @@ class AtomEigensolver:
         for kpt in wfs.kpt_u:
             kpt.eps_n = np.empty(wfs.bd.nbands)
             kpt.psit = AtomWaveFunctionsArray(self.gd.empty(wfs.bd.nbands))
-            kpt.P = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
+            kpt.projections = {0: np.zeros((wfs.bd.nbands, len(dS_ii)))}
 
         self.initialized = True
 
@@ -167,7 +167,7 @@ class AtomLocalizedFunctionsCollection:
         self.nfunctions = sum(2 * spline.get_angular_momentum_number() + 1
                               for spline in spline_aj[0])
 
-    def set_positions(self, spos_ac):
+    def set_positions(self, spos_ac, atom_partition=None):
         pass
 
     def add(self, a_xG, c_axi=1.0, q=-1):

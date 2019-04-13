@@ -7,13 +7,15 @@ from ase.units import Bohr, Hartree
 
 import _gpaw
 
-__all__ = ['ConstantPotential', 'ConstantElectricField']
+__all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential']
 
 
 def create_external_potential(name, **kwargs):
     """Construct potential from dict."""
     if name not in __all__:
         raise ValueError
+    if name == 'CDFTPotential':
+        return None
     return globals()[name](**kwargs)
 
 
@@ -28,6 +30,7 @@ class ExternalPotential:
 
         if self.vext_g is None:
             self.calculate_potential(gd)
+            self.vext_g.flags.writeable = False
         return self.vext_g
 
     def get_potentialq(self, gd, pd3):
@@ -38,17 +41,22 @@ class ExternalPotential:
         if self.vext_q is None:
             vext_g = self.get_potential(gd)
             self.vext_q = pd3.fft(vext_g)
+            self.vext_q.flags.writeable = False
 
         return self.vext_q
 
     def calculate_potential(self, gd):
         raise NotImplementedError
 
+    def get_name(self):
+        return self.__class__.__name__
+
 
 class ConstantPotential(ExternalPotential):
     """Constant potential for tests."""
     def __init__(self, constant=1.0):
         self.constant = constant / Hartree
+        self.name = 'ConstantPotential'
 
     def __str__(self):
         return 'Constant potential: {:.3f} V'.format(self.constant * Hartree)
@@ -57,7 +65,7 @@ class ConstantPotential(ExternalPotential):
         self.vext_g = gd.zeros() + self.constant
 
     def todict(self):
-        return {'name': 'ConstantPotential',
+        return {'name': self.name,
                 'constant': self.constant * Hartree}
 
 
@@ -73,6 +81,7 @@ class ConstantElectricField(ExternalPotential):
         d_v = np.asarray(direction)
         self.field_v = strength * d_v / (d_v**2).sum()**0.5 * Bohr / Hartree
         self.tolerance = tolerance
+        self.name = 'ConstantElectricField'
 
     def __str__(self):
         return ('Constant electric field: '
@@ -80,13 +89,13 @@ class ConstantElectricField(ExternalPotential):
                 .format(*(self.field_v * Hartree / Bohr)))
 
     def calculate_potential(self, gd):
-        d_v = self.field_v / (self.field_v**2).sum()**0.5
         # Currently skipped, PW mode is periodic in all directions
-        #for axis_v in gd.cell_cv[gd.pbc_c]:
-        #    if abs(np.dot(d_v, axis_v)) > self.tolerance:
-        #        raise ValueError(
-        #            'Field not perpendicular to periodic axis: {}'
-        #            .format(axis_v))
+        # d_v = self.field_v / (self.field_v**2).sum()**0.5
+        # for axis_v in gd.cell_cv[gd.pbc_c]:
+        #     if abs(np.dot(d_v, axis_v)) > self.tolerance:
+        #         raise ValueError(
+        #             'Field not perpendicular to periodic axis: {}'
+        #             .format(axis_v))
 
         center_v = 0.5 * gd.cell_cv.sum(0)
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
@@ -94,7 +103,7 @@ class ConstantElectricField(ExternalPotential):
 
     def todict(self):
         strength = (self.field_v**2).sum()**0.5
-        return {'name': 'ConstantElectricField',
+        return {'name': self.name,
                 'strength': strength * Hartree / Bohr,
                 'direction': self.field_v / strength}
 
@@ -189,3 +198,8 @@ class PointChargePotential(ExternalPotential):
                            self.vext_g, dcom_pv, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
+
+class CDFTPotential(ExternalPotential):
+    # Dummy class to make cDFT compatible with new external potential class ClassName(object):
+    def __init__(self):
+        self.name = 'CDFTPotential'

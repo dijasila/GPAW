@@ -20,7 +20,7 @@ def f0(xc, rs, s):
 
 def f1(xc, rs, s):
     n = 3 / (4 * pi * rs**3)
-    na = 2 * n
+    # na = 2 * n
     third = 1.0 / 3.0
     kF = (3 * pi**2 * n)**third
     a2 = (2 * kF * n * s)**2

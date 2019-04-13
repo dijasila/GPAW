@@ -4,11 +4,7 @@ import fnmatch
 from io import BytesIO
 import tarfile
 import re
-try:
-    from urllib2 import urlopen
-    input = raw_input
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 
 
 sources = [('gpaw', 'official GPAW setups releases [default]'),
@@ -43,11 +39,14 @@ likely to help."""
 
 
 class CLICommand:
-    short_description = 'Install PAW datasets, pseudopotential or basis sets'
-    description = ('Without a directory, show available setups and GPAW '
-                   'setup paths. '
-                   'With a directory, download and install gpaw-setups into '
-                   'INSTALLDIR/[setups-package-name-and-version].')
+    """Install PAW datasets, pseudopotential or basis sets.
+
+    Without a directory, show available setups and GPAW
+    setup paths.
+
+    With a directory, download and install gpaw-setups into
+    INSTALLDIR/[setups-package-name-and-version].
+    """
 
     @staticmethod
     def add_arguments(parser):

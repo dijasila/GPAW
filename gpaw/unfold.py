@@ -30,7 +30,7 @@ class Unfold:
         self.gd = self.calc.wfs.gd.new_descriptor()
 
         self.kd = self.calc.wfs.kd
-        if self.calc.wfs.mode is 'pw':
+        if self.calc.wfs.mode == 'pw':
             self.pd = self.calc.wfs.pd
         else:
             self.pd = PWDescriptor(ecut=None, gd=self.gd, kd=self.kd,

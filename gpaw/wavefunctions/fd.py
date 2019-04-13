@@ -13,6 +13,7 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
 from gpaw.wavefunctions.mode import Mode
+import _gpaw
 
 
 class FD(Mode):
@@ -86,20 +87,16 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.timer.stop('Apply hamiltonian')
 
     def get_pseudo_partial_waves(self):
-        phit_aj = [setup.get_actual_atomic_orbitals()
+        phit_aj = [setup.get_partial_waves_for_atomic_orbitals()
                    for setup in self.setups]
         return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
 
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]
-        if self.dtype == float:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G**2, nt_G)
-        else:
-            for f, psit_G in zip(f_n, kpt.psit_nG):
-                axpy(f, psit_G.real**2, nt_G)
-                axpy(f, psit_G.imag**2, nt_G)
+        for f, psit_G in zip(f_n, kpt.psit_nG):
+            # Same as nt_G += f * abs(psit_G)**2, but much faster:
+            _gpaw.add_to_density(f, psit_G, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):
@@ -192,13 +189,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
                 # Calculate PAW projections:
                 nproj_a = [setup.ni for setup in self.setups]
-                kpt2.P = Projections(
+                kpt2.projections = Projections(
                     self.bd.nbands, nproj_a,
-                    kpt.P.atom_partition,
+                    kpt.projections.atom_partition,
                     self.bd.comm,
                     collinear=True, spin=s, dtype=self.dtype)
 
-                kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
+                kpt2.psit.matrix_elements(self.pt, out=kpt2.projections)
                 kpt_u.append(kpt2)
 
         self.kd = kd

@@ -26,13 +26,15 @@ N2.set_cell([L, L, L])
 #N2.set_pbc(True)
 N2.center()
 
-try:
-    calc = GPAW('N2_wfs.gpw',
-                txt=txt,
-                parallel={'domain': world.size})
-    calc.converge_wave_functions()
-except:
+#try:
+#    calc = GPAW('N2_wfs.gpw',
+#                txt=txt,
+#                parallel={'domain': world.size})
+#    calc.converge_wave_functions()
+#except:
+if 1:
     calc = GPAW(h=0.25,
+                experimental={'niter_fixdensity': 2},
                 nbands=-5,
                 spinpol=True,
                 xc='PBE',

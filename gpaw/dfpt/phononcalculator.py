@@ -94,12 +94,12 @@ class PhononCalculator:
         # Boundary conditions
         pbc_c = self.calc.atoms.get_pbc()
 
-        if np.all(pbc_c == False):
+        if not pbc_c.any():
             self.gamma = True
             self.dtype = float
             kpts = None
             # Multigrid Poisson solver
-            poisson_solver = PoissonSolver()
+            poisson_solver = PoissonSolver('fd')
         else:
             if gamma:
                 self.gamma = True

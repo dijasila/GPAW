@@ -11,30 +11,30 @@ from gpaw.mpi import rank
 
 class BiCGStab:
     """Biconjugate gradient stabilized method
-    
-    This class solves a set of linear equations A.x = b using biconjugate 
-    gradient stabilized method (BiCGStab). The matrix A is a general, 
-    non-singular matrix, e.g., it can be nonsymmetric, complex, and 
-    indefinite. The method requires only access to matrix-vector product 
-    A.x = b, which is called A.dot(x). Thus A must provide the member 
-    function dot(self,x,b), where x and b are complex arrays 
-    (numpy.array([], complex), and x is the known vector, and 
+
+    This class solves a set of linear equations A.x = b using biconjugate
+    gradient stabilized method (BiCGStab). The matrix A is a general,
+    non-singular matrix, e.g., it can be nonsymmetric, complex, and
+    indefinite. The method requires only access to matrix-vector product
+    A.x = b, which is called A.dot(x). Thus A must provide the member
+    function dot(self,x,b), where x and b are complex arrays
+    (numpy.array([], complex), and x is the known vector, and
     b is the result.
 
     Now x and b are multivectors, i.e., list of vectors.
-    """ 
-    
+    """
+
     def __init__( self, gd, timer = None,
                   tolerance = 1e-15, max_iterations = 1000, eps=1e-15 ):
         """Create the BiCGStab-object.
-        
-        Tolerance should not be smaller than attainable accuracy, which is 
-        order of kappa(A) * eps, where kappa(A) is the (spectral) condition 
-        number of the matrix. The maximum number of iterations should be 
-        significantly less than matrix size, approximately 
+
+        Tolerance should not be smaller than attainable accuracy, which is
+        order of kappa(A) * eps, where kappa(A) is the (spectral) condition
+        number of the matrix. The maximum number of iterations should be
+        significantly less than matrix size, approximately
         .5 sqrt(kappa) ln(2/tolerance). A small number is treated as zero
         if it's magnitude is smaller than argument eps.
-        
+
         Parameters
         ----------
         gd: GridDescriptor
@@ -46,11 +46,11 @@ class BiCGStab:
         max_iterations: integer
             maximum number of iterations
         eps: float
-            if abs(rho) or (omega) < eps, it's regarded as zero 
+            if abs(rho) or (omega) < eps, it's regarded as zero
             and the method breaks down
 
         """
-        
+
         self.tol = tolerance
         self.max_iter = max_iterations
         if ( eps <= tolerance ):
@@ -59,14 +59,14 @@ class BiCGStab:
             raise RuntimeError("BiCGStab method got invalid tolerance (tol = %le < eps = %le)." % (tolerance,eps))
 
         self.iterations = -1
-        
+
         self.gd = gd
         self.timer = timer
-        
+
 
     def solve(self, A, x, b):
         """Solve a set of linear equations A.x = b.
-        
+
         Parameters:
         A           matrix A
         x           initial guess x_0 (on entry) and the result (on exit)
@@ -91,12 +91,12 @@ class BiCGStab:
         v = self.gd.zeros(nvec, dtype=complex)
         t = self.gd.zeros(nvec, dtype=complex)
         m = self.gd.zeros(nvec, dtype=complex)
-        alpha = np.zeros((nvec,), dtype=complex) 
-        rho  = np.zeros((nvec,), dtype=complex) 
-        rhop  = np.zeros((nvec,), dtype=complex) 
-        omega = np.zeros((nvec,), dtype=complex) 
-        scale = np.zeros((nvec,), dtype=complex) 
-        tmp = np.zeros((nvec,), dtype=complex) 
+        alpha = np.zeros((nvec,), dtype=complex)
+        rho  = np.zeros((nvec,), dtype=complex)
+        rhop  = np.zeros((nvec,), dtype=complex)
+        omega = np.zeros((nvec,), dtype=complex)
+        scale = np.zeros((nvec,), dtype=complex)
+        tmp = np.zeros((nvec,), dtype=complex)
 
         rhop[:] = 1.
         omega[:] = 1.
@@ -107,10 +107,12 @@ class BiCGStab:
                 s[i] = dotc(x[i],y[i])
             self.gd.comm.sum(s)
             return s
+
         # Multivector ZAXPY: a x + y => y
         def multi_zaxpy(a,x,y, nvec):
             for i in range(nvec):
                 axpy(a[i]*(1+0J), x[i], y[i])
+
         # Multiscale: a x => x
         def multi_scale(a,x, nvec):
             for i in range(nvec):

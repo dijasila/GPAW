@@ -1,5 +1,5 @@
 from ase.build import bulk
-from gpaw import GPAW, Mixer, PW, Davidson, PoissonSolver
+from gpaw import GPAW, Mixer, PW
 
 atoms0 = bulk('Si')
 atoms0.rattle(stdev=0.01, seed=17)  # Break symmetry
@@ -15,13 +15,10 @@ for mode in ['fd', 'pw']:
             if method == 'lcao':
                 continue  # Not implemented yet
             kwargs.update(mode=PW(400.0))
-        else:
-            kwargs.update(poissonsolver=PoissonSolver(relax='GS'))
 
         calc = GPAW(mixer=Mixer(0.4, 5, 20.0),
                     basis='dzp' if method == 'lcao' else {},
                     experimental={'reuse_wfs_method': method},
-                    eigensolver=Davidson(2),
                     xc='oldLDA',
                     kpts=[2, 2, 2],
                     **kwargs)

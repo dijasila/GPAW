@@ -9,12 +9,14 @@ Linux:
 .. toctree::
    :maxdepth: 1
 
+   gbar/gbar
    Linux/CentOS
    Linux/Fedora
    Linux/openSUSE
-   Linux/Ubuntu_ppa
-   Linux/Ubuntu
+   Linux/ubuntu
    Linux/Niflheim/Niflheim
+   Linux/Niflheim/load
+   Linux/Niflheim/build
    Linux/SUNCAT/SUNCAT
    Linux/akka
    Linux/armageddon
@@ -117,4 +119,3 @@ Solaris:
    :maxdepth: 1
 
    Solaris/corona
-   Solaris/bohr

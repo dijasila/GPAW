@@ -1,12 +1,12 @@
 from gpaw.fdtd.poisson_fdtd import QSFDTD
 from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, \
-                                           PolarizableSphere, PolarizableBox, \
-                                           PolarizableEllipsoid, PolarizableRod, \
-                                           PolarizableTetrahedron
+    PolarizableSphere, PolarizableBox, \
+    PolarizableEllipsoid, PolarizableRod, \
+    PolarizableTetrahedron
 from gpaw.test import equal
 
 # Whole simulation cell (Angstroms)
-cell = [40, 40, 20];
+cell = [40, 40, 20]
 
 # Classical subsystem
 classical_material = PolarizableMaterial()

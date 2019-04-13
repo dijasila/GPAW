@@ -14,4 +14,7 @@ def energy(N, k, a=4.05):
     calc.write('slab-%d.gpw' % N)
     return e
 
+
+N = ...
+k = ...
 e = energy(N, k)
