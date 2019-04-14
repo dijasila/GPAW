@@ -547,7 +547,7 @@ class Hamiltonian:
     def calculate_kinetic_energy_using_kin_en_matrix(self, density,
                                                      wfs):
         """
-        E_k = \sum_{M'M} \rho_MM' T_M'M
+        E_k = sum_{M'M} rho_MM' T_M'M
         better agreement between gradients of energy and
         the total energy during the direct minimisation.
         This is important when the line search is used.
