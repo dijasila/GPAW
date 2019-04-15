@@ -898,20 +898,30 @@ def main(args):
         aea.plot_wave_functions()
 
     if args.sternheimer:
-        print("testing atom sternheimer cli")
+        print("")
+        print("----------------------------------------")
+        print("Running Sternheimer response calculation")
+        print("")
         import time
         from .sternheimer import AllElectronResponse       
-        aee = AllElectronResponse(aea, 1)
-        #t1 = time.time()
-        #exact_chi = aee.calculate_analytical_chi_channel(0,50)
-        #t2 = time.time()
-        #print("Calculating analytical chi took {} seconds".format(t2-t1))
+        aee = AllElectronResponse(aea, nspins=1, calc_epsilon=True)
+        # t1 = time.time()
+        # exact_chi = aee.calculate_analytical_chi_channel(0,30)
+        # t2 = time.time()
+        # print("Calculating analytical chi took {} seconds".format(t2-t1))
         #chi_dr = exact_chi*aea.rgd.dr_g
         #eigs, vecs = np.linalg.eigh(chi_dr)
         #print("Max abs exact: ", np.max(np.abs(eigs)))
-        vals, vecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=5, return_only_eigenvalues=False)
+        num_eigs = 5
+        vals, vecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=num_eigs, return_only_eigenvalues=False)
+        ovals = aee.chi_vals
         ##Fix Sternheimer to also calc epsilon eigenvalues
-        print("Sternheimer: ", vals)
+        print("Sternheimer: ", vals[-num_eigs:])
+        print("Chi vals: ", ovals)
+        if np.allclose(vals[-num_eigs:], 1):
+            import matplotlib.pyplot as plt
+            plt.plot(vals)
+            plt.show()
         # import matplotlib.pyplot as plt
         # for k, vec in enumerate(vecs):
         #     plt.plot(vec, label=str(k))

@@ -63,6 +63,7 @@ class AllElectronResponse:
             d *= 1/(en1 - en2 + omega + 1j*eta)
 
             return d
+        #mapped = map(lambda x : delta(x), combos)
         chi_channel = reduce(lambda a, b : a + delta(b), combos, 0)
 
         angular_factor = self._get_chi_angular_factor(angular_number)
@@ -109,13 +110,22 @@ class AllElectronResponse:
         l = 0
         vals = [val_vec[0] for val_vec in found_vals_vecs_ln[l]]
         vecs = [val_vec[1] for val_vec in found_vals_vecs_ln[l]]
+
+        self.chi_vals = vals
         if return_only_eigenvalues:
             return np.sort(np.real(vals))
 
         else:
             if self.calc_epsilon:
                 chi = self._construct_response(vals, vecs)
-                
+                #Use Laplace expansion for Coulomb potential
+                laplace_coulomb = self.get_laplace_coulomb()
+                rgd = self.all_electron_atom.rgd
+                drs = np.diag(rgd.dr_g)
+                integral = laplace_coulomb.dot(drs.dot(chi))*4*np.pi
+                eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs) + integral.dot(drs))
+                vals, vecs = np.linalg.eig(eps)
+                return np.sort(np.real(vals)), vecs.T
             return vals, vecs
             #response = self._construct_response(vals, vecs)
             #return response
@@ -134,6 +144,17 @@ class AllElectronResponse:
 
         return start_vecs_ln
 
+
+    def get_laplace_coulomb(self):
+        r_g = self.all_electron_atom.rgd.r_g
+        nrs = len(r_g)
+
+        cutoff = min(self.all_electron_atom.rgd.dr_g)
+        lapcoul = np.array([
+            [1/max(r, rp, cutoff) for rp in r_g]
+            for r in r_g])
+
+        return lapcoul
                 
 
         
@@ -245,13 +266,13 @@ class AllElectronResponse:
         delta_n = 0
         for l, channel in enumerate(self.all_electron_atom.channels):
 
-            if self.calc_epsilon:
-                rgd = self.all_electron_atom.rgd
-                coulomb_matrix = rgd.r_g.copy()
-                coulomb_matrix[0] = coulomb_matrix[1]
-                coulomb_matrix = 1/coulomb_matrix
-                trial = trial
-                raise NotImplementedError
+            # if self.calc_epsilon:
+            #     rgd = self.all_electron_atom.rgd
+            #     coulomb_matrix = rgd.r_g.copy()
+            #     coulomb_matrix[0] = coulomb_matrix[1]
+            #     coulomb_matrix = 1/coulomb_matrix
+            #     trial = trial
+            #     raise NotImplementedError
 
             gaussian_trial = self.get_trial_matrix(channel, trial)
                     
@@ -313,7 +334,6 @@ class AllElectronResponse:
                 ##For every total momentum LM that can be reached when combining channel ang mom and resp ang mom:
                 ##Solve sternheimer eq
                 ##See notes 4.3.18
-            
 
             assert len(sol_dict.keys()) != 0
 
