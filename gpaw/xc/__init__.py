@@ -125,7 +125,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
                        alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
         elif name == 'WLDA':
             from gpaw.xc.wlda import WLDA
-            return WLDA(kernel=LibXC('LDA'))
+            return WLDA()
         else:
             kernel = LibXC(name)
 
