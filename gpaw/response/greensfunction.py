@@ -1,6 +1,6 @@
 import numpy as np
 
-class SpectralFunction:
+class GreensFunction:
     def __init__(self, gw_object):
         self.gw_object = gw_object
         self.gw_object.ite = 0
@@ -68,7 +68,10 @@ class SpectralFunction:
 
         gw.world.sum(self.sigma_wskn)
 
-        return self.sigma_wskn
+        na = np.newaxis
+        G_wskn = 1/(domegas[na, na, na].T - self.sigma_wskn)
+
+        return G_wskn, self.sigma_wskn
 
     def calculate_q(self, domegas, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None):
         gw = self.gw_object
