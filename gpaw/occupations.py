@@ -645,26 +645,23 @@ class MarzariVanderbilt(SmoothDistribution):
         x = (kpt.eps_n - fermilevel) / self.width
         x = x.clip(-100, 100)
 
-        sqrt2inv = 1. / np.sqrt(2)
-        expterm = np.exp(-(x - sqrt2inv)**2)
+        expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
 
-        z = 1. - 0.5 * (expterm * np.sqrt(2 / np.pi) + 1 - erf(sqrt2inv - x))
-
+        z = expterm / np.sqrt(2 * np.pi) + 0.5 * (1 - erf(1. / np.sqrt(2) + x))
         kpt.f_n[:] = kpt.weight * z
         n = kpt.f_n.sum()
 
-        dnde = (expterm * (2 - np.sqrt(2.) * x)) / np.sqrt(np.pi)
-        dnde = dnde.sum()
-        dnde *= kpt.weight / self.width
+        dnde = expterm * (2 + np.sqrt(2) * x) / np.sqrt(np.pi)
+        dnde = dnde.sum() * kpt.weight / self.width
 
-        e_entropy = 0.5 * expterm * (1 - np.sqrt(2.) * x) / np.sqrt(np.pi)
-        e_entropy = -kpt.weight * e_entropy.sum() * self.width
+        s = expterm * (1 + np.sqrt(2) * x) / np.sqrt(np.pi)
+        e_entropy = -kpt.weight * s.sum() * self.width
 
         sign = 1 - kpt.s * 2
         return np.array([n, dnde, n * sign, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):
-        return E - self.e_entropy / 2
+        return E - self.e_entropy
 
 
 class FixedOccupations(ZeroKelvin):
