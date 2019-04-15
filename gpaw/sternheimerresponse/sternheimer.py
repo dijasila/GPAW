@@ -82,14 +82,14 @@ class SternheimerResponse:
         #TODO Check that all info is in file
         self.wfs = self.calc.wfs
         self.calc.initialize_positions()
-        self.nbands = self.wfs.bd.nbands
+        self.nbands = self.wfs.bd.nbands//2
 
         self.c_qani = {}
         self.c_qnai = {}
         #bz_to_ibz = self.calc.get_bz_to_ibz_map()
         #ntotal_kpts = len(bz_to_ibz)
         spin_factor = 1
-        self.kpt_weight = 1#spin_factor*self.wfs.kd.weight_k
+        self.kpt_weight = spin_factor*self.wfs.kd.weight_k
         #np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*
         #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
         #ind1 = self.wfs.mykpts[1].q
@@ -105,8 +105,8 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            #self.powercalculate([qvector], 1)
-            self.krylovcalculate([qvector], 1)
+            self.powercalculate([qvector], 1)
+            #self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
         # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -839,6 +839,7 @@ class SternheimerResponse:
             if num_gs != len(wvf_G):
                 raise ValueError("Number of G-vectors does not match length of vector")
             wvf_R = self.wfs.pd.ifft(wvf_G, q=q_index)
+
             pt = self.wfs.pt
             
             c_ai = {a: val[level_index, :] for a, val in kpt.projections.items()}
@@ -990,8 +991,8 @@ class SternheimerResponse:
         nbands = self.nbands
 
         for index, kpt in enumerate(self.wfs.mykpts):
-            if kpt.s == 1:
-                continue
+            #if kpt.s == 1:
+            #    continue
 
             
             
@@ -1093,6 +1094,48 @@ class SternheimerResponse:
 
                 self.t1s.append(t2-t1)
         return deltapsi_qnG
+
+
+
+
+    def modular_solve_sternheimer(self, apply_potential, qvector):
+        deltapsi_qnG = {}
+        nbands = self.nbands
+
+        for kpt_index, kpt in enumerate(self.wfs.mykpts):
+            #if kpt.s == 1:
+            #    continue
+            kpq_index, kpq_object = self.get_k_plus_q(kpt_index, qvector)
+
+            self.init_sternheimer_sol(deltapsi_qnG, kpq_index)
+
+            self.solve_sternheimer_for_bands(deltapsi_qnG, (kpt_index, kpt), (kpq_indx, kpq_object), apply_potential)
+        return deltapsi_qnG
+
+
+    def get_k_plus_q(self, kpt_index, qvector):
+        bzk_i = self.wfs.kd.ibz2bz_k[kpt_index]
+        kpq_index = self.wfs.kd.find_k_plus_q(qvector, [bzk_i])[0]
+        ibz_kpq_i = self.wfs.kd.bz2ibz_k[kpq_index]
+        kpq_object = self.wfs.mykpts[ibz_kpq_i]
+
+        return ibz_kpq_i, kpq_object
+
+    def init_sternheimer_sol(self, deltapsi_qnG, kpq_index):
+        #Set intial solution guess for this kpq equal to zero
+        nbands = self.nbands
+        deltapsi_qnG[kpq_index] = self.wfs.pd.zeros(x=(nbands,), q=kpq_index)
+        
+
+
+    def solve_sternheimer_for_bands(self, deltapsi_qnG, kpt_tuple, kpq_tuple, apply_potential):
+        #Solve the Sternheimer equation for the given potential at the given kpt
+
+        
+        raise NotImplementedError
+
+
+
 
 
     def _get_LHS_linear_operator(self, kpt, energy, k_index):
@@ -1323,7 +1366,7 @@ def tests(ro):
                     print(f"Overlap test failed for: kind: {kind}, i1: {i1}, i2: {i2}")
                     print(f"Inner product was: {inner_prod}")
                 assert b
-
+    print("Passed overlap test")
 
     ###Valence projector tests
     kindex = 0
@@ -1334,7 +1377,7 @@ def tests(ro):
     overlap_valence_overlap_wf = ro._apply_overlap(valence_overlap_wf, kindex)
     valence_overlap_valence_overlap_wf = ro._apply_valence_projector(overlap_valence_overlap_wf, kpt, kindex)
     assert np.allclose(valence_overlap_valence_overlap_wf, valence_overlap_wf)
-
+    print("Passed projector test")
     
 
 
@@ -1355,6 +1398,7 @@ def tests(ro):
         print(f"Max abs size: {np.max(np.abs(Hwf0-energy*overlap_wf0))}")
     assert b
 
+    print("Passed Hamiltonian test")
 
     ###Solve Sternheimer tests
     qvector = np.array([0,0,0])
@@ -1381,6 +1425,75 @@ def tests(ro):
         print(f"Max abs size (should be zero): {np.max(np.abs(should_be_zeros))}")
     assert b
     
+
+    ##Need to test that the result is correct
+
+    print("Passed Solve Sternheimer test")
+
+
+
+
+
+
+    ##Test get_k_plus_q
+    #Input k_index: (int), q: (array)
+    
+    index = min(len(ro.wfs.kd.bzk_kc)-1, 1)
+    q = ro.wfs.kd.bzk_kc[index] - ro.wfs.kd.bzk_kc[0]
+    k_index = 0
+    
+    kpq_i, kpq_o = ro.get_k_plus_q(k_index, q)
+    
+    #b = kpq_i == self.wfs.kd.find_k_plus_q(q, [k_index])[0]
+    b = np.allclose(ro.wfs.kd.ibzk_kc[kpq_o.k], q + ro.wfs.kd.bzk_kc[0])
+    if not b:
+        print("Get k plus q failed")
+    assert b
+    print("Passed get k plus q test")
+
+
+
+    ##Test init solution
+    deltapsi_qnG = {}
+    kpq_index = 0
+    ro.init_sternheimer_sol(deltapsi_qnG, kpq_index)
+    
+    b = np.allclose(deltapsi_qnG[kpq_index], 0)
+    if not b:
+        print("Init Sternheimer solution test failed")
+    assert b
+    print("Passed Init Sternheimer solution")
+
+
+
+
+
+    ##Test solve sternheimer for bands
+    nbands = ro.nbands
+    perturb = ro.wfs.pd.zeros(x=(nbands,), q=0)
+    perturb[0] = ro.wfs.mykpts[0].psit.array[0]
+    in_qnG = {0: perturb}
+    apply_potential = ro.epsilon_potential(in_qnG)
+
+
+    deltapsi_qnG = {}
+    kpt_index = 0
+    kpt_o = ro.wfs.mykpts[kpt_index]
+    qvector = np.array([0,0,0])
+    kpq_i, kpq_o = ro.get_k_plus_q(kpt_index, qvector)
+
+
+    ro.init_sternheimer_sol(deltapsi_qnG, kpt_index)
+    ro.solve_sternheimer_for_bands(deltapsi_qnG, (kpt_index, kpt_o), (kpq_i, kpq_o), apply_potential)
+    
+
+
+
+
+
+
+
+
 
 
 
