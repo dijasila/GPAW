@@ -169,7 +169,7 @@ class CDWriter(TDDFTObserver):
 
         self.timer.stop('CD')
 
-        rtots = rxnabla_g  + Rxnabla_a + rxnabla_a #  summaa eri r-termit ja tarvittaessa PAW off
+        rtots = rxnabla_g #  + Rxnabla_a + rxnabla_a #  summaa eri r-termit ja tarvittaessa PAW off
         
         # paw.wfs.gd.comm.sum(rtots)
 

@@ -961,12 +961,9 @@ class Setup(BaseSetup):
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
         self.rnabla_iiv = self.get_magnetic_integrals(rgd2, phi_jg, phit_jg)
-        try:
-            from gpaw.lrtddft2.rxnabla import get_magnetic_integrals_new
-            self.rxnabla_iiv = get_magnetic_integrals_new(self, rgd2,
+        from gpaw.lrtddft2.rxnabla import get_magnetic_integrals_new
+        self.rxnabla_iiv = get_magnetic_integrals_new(self, rgd2,
                                                           phi_jg, phit_jg)
-        except NotImplementedError:
-            self.rxnabla_iiv = None
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
@@ -1105,6 +1102,14 @@ class Setup(BaseSetup):
                         Y_LLv[l1**2:l1**2 + nm1, l2**2:l2**2 + nm2, v])
                 i2 += nm2
             i1 += nm1
+
+        def skew(a):
+            return (a-a.T)/2
+
+        for c in range(3):
+            nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
+
+
         return nabla_iiv
 
     def get_magnetic_integrals(self, rgd, phi_jg, phit_jg):
