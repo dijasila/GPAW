@@ -13,7 +13,7 @@ class WLDA(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         #Fermi wavelength is given by k_f^3 = 3*pi^2 n
-        self.apply_weighting(gd, n_sg)
+        #self.apply_weighting(gd, n_sg)
 
 
         from gpaw.xc.lda import lda_c
@@ -60,67 +60,78 @@ class WLDA(XCFunctional):
         n_sg[0, :] = wn_g
                     
                     
-
-
-        return
-        K_G = self._get_K_G(gd, n_sg[0].shape)
-
-        fn_G = np.fft.fftn(n_sg[0])
-
-
-
-
-        #assert (Nx, Ny, Nz) == fn_G.shape This is not true
-
-        k_F = K_G[5,5,5]
-        
-        self.weight(k_F, K_G, fn_G)
-        
-        q = np.fft.ifftn(fn_G)
-        b = np.allclose(q, q.real)
-        if not b:
-            print(q.imag)
-        assert b
-        n_sg[0,:] = q.real
         
                     
+    def _get_ni_vector(self, n):
+        #Find best superposition of nis to interpolate to n
+        nis = self.nis
+        ni_vector = np.zeros_like(nis)
+        nlesser = (nis <= n).sum()
+        ngreater = (nis > n).sum()
+        if ngreater == 0:
+            d = n - nis[-1]
+            m1 = 1 + d/(nis[-1]-nis[-2])
+            m2 = -d/(nis[-1]-nis[-2])
+            ni_vector[-1] = m1
+            ni_vector[-2] = m2
+            return ni_vector
+        
+        if ngreater == len(nis):
+            d = n - nis[0]
+            m1 = 1 - d/(nis[1]-nis[0])
+            m2 = d/(nis[1]-nis[0])
+            ni_vector[0] = m1
+            ni_vector[1] = m2
+            return ni_vector
+
+        vallesser = nis[nlesser - 1]
+        valgreater = nis[-ngreater]
+        
+        partlesser = (valgreater-n)/(valgreater-vallesser)
+        partgreater = (n - vallesser)/(valgreater-vallesser)
 
 
+        ni_vector[nlesser-1] = partlesser
+        ni_vector[-ngreater] = partgreater
 
-    def _get_K_G(self, gd, shape):
-        dx, dy, dz = gd.coords(0)[1] - gd.coords(0)[0], gd.coords(1)[1] - gd.coords(1)[0], gd.coords(2)[1] - gd.coords(2)[0]
+        return ni_vector
+
+        
+
+
+    def _get_K_G(self, shape):
+        #dx, dy, dz = gd.coords(0)[1] - gd.coords(0)[0], gd.coords(1)[1] - gd.coords(1)[0], gd.coords(2)[1] - gd.coords(2)[0]
         
         Nx, Ny, Nz = shape #len(gd.coords(0)), len(gd.coords(1)), len(gd.coords(2)) doesnt work, not same shape as density
-        kxs = np.array([2*np.pi/Nx*i if i < Nx//2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])
-        kys = np.array([2*np.pi/Ny*i if i < Ny//2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])
-        kzs = np.array([2*np.pi/Nz*i if i < Nz//2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])
+        kxs = np.array([2*np.pi/Nx*i if i < Nx/2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])
+        kys = np.array([2*np.pi/Ny*i if i < Ny/2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])
+        kzs = np.array([2*np.pi/Nz*i if i < Nz/2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])
         K_G = np.array([[[np.linalg.norm([kx, ky, kz]) for kz in kzs] for ky in kys] for kx in kxs])
 
         return K_G
 
     def _theta_filter(self, k_F, K_G, n_G):
         
-        Theta_G = (K_G**2 < 2*k_F**2).astype(np.complex128)
+        Theta_G = (K_G**2 <= 4*k_F**2).astype(np.complex128)
 
         return n_G*Theta_G
 
     def tabulate_weights(self, n_g):
         nis = np.arange(0, 5, 0.1)
-        K_G = self._get_K_G(gd, n_g.shape)
+        K_G = self._get_K_G(n_g.shape)
         self.nis = nis
-        self.weight_table = np.zeros((len(nis),)+n_g.shape)
-        n_G = np.fft.fftn(n_G)
+        self.weight_table = np.zeros(n_g.shape+(len(nis),))
+        n_G = np.fft.fftn(n_g)
 
         for i, ni in enumerate(nis):
             k_F = (3*np.pi**2*ni)**(1/3)
             fil_n_G = self._theta_filter(k_F, K_G, n_G)
-            self.weight_table[i] = np.fft.ifftn(fil_n_G)
+            x = np.fft.ifftn(fil_n_G)
+            assert np.allclose(x, x.real)
+            self.weight_table[:,:,:,i] = x.real
 
-        self.weight_table = self.weight_table.T
-
-    def step_filter(self, n_g):
-        pass
-
+        
+       
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         from gpaw.xc.lda import calculate_paw_correction
