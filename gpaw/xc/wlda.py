@@ -38,9 +38,9 @@ class WLDA(XCFunctional):
             e_g[:] = n*ex
             v_sg[0] += ex - rs*dexdrs/3
             
-            #e_g[:] = prefactor*(np.abs(n_sg[0])**(4/3))
+            
             zeta = 0
-            #lda_x(0, e_g, n, v_sg[0])
+            
             lda_c(0, e_g, n, v_sg[0], zeta)
 
     def apply_weighting(self, gd, n_sg):
@@ -57,14 +57,6 @@ class WLDA(XCFunctional):
 
         wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
 
-
-        # for ix, n_yz in enumerate(n_g):
-        #     for iy, n_z in enumerate(n_yz):
-        #         for iz, n in enumerate(n_z):
-        #             ni_vector = self._get_ni_vector(n)
-        #             weighted_density = ni_vector.dot(self.weight_table[ix, iy, iz])
-        #             wn_g[ix, iy, iz] = weighted_density
-
         n_sg[0, :] = wn_g
                     
                     
@@ -76,20 +68,6 @@ class WLDA(XCFunctional):
         n_gi = np.array([self._get_ni_vector(n) for n in n_g.reshape(-1)]).reshape(n_g.shape + (len(self.nis),))
         #ASK JJ is this fast? List comprehension evals immediately? 
         return n_gi
-        # nx, ny, nz = n_g.shape
-        # n_ig = np.array(
-        #     (
-        #         (
-        #             (
-        #                 self._get_ni_vector(n_g[ix, iy, iz]) for iz in range(nz)
-        #                 )
-        #             for iy in range(ny)
-        #             )
-        #         for ix in range(nx)
-        #         )
-        #     )
-        # for n in flatn_g:
-        #     weight_vector = self._get_ni_vector(n)
             
         
                     
