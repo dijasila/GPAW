@@ -45,6 +45,7 @@ class CDWriter(TDDFTObserver):
         # Create Gradient operator
         gd = paw.wfs.gd
         grad = []
+                    Ra = (paw.atoms[a].position /Bohr) - R0
         for c in range(3):
             grad.append(Gradient(gd, c, dtype=complex, n=2))
         self.grad = grad
@@ -67,26 +68,56 @@ class CDWriter(TDDFTObserver):
          
         #print(self.A_cMM)
     
-        self.A_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
+        self.A_cMM[:]=0.0
 
 
         paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[1], self.A_cMM, 0)
         self.E_cMM[0]+=self.A_cMM[2]
         self.E_cMM[2]-=self.A_cMM[0]
  
-        self.A_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
+        self.A_cMM[:]=0.0
 
 
         paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[2], self.A_cMM, 0)
         self.E_cMM[0]-=self.A_cMM[1]
         self.E_cMM[1]+=self.A_cMM[0]
         
-        self.E_cMM=-self.E_cMM.T
-        
+        for kpt in paw.wfs.kpt_u:
+            assert kpt.k == 0
+            dH_casp = []
+
+            for a, dH_sp in paw.hamiltonian.dH_asp.items():
+
+                Ra = (paw.atoms[a].position /Bohr) - R0
+
+                rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
+                nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy() 
+     
+                def skew(a):
+                    return (a-a.T)/2
+                for c in range(3):
+                    rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
+                    nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
+
+                ac = paw.wfs.atomic_corrections
+                assert ac.name == 'dense'
+
+                P_Mi = ac.P_aqMi[a][kpt.q]
+                
+                dX0_ii = -1j * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla[:,:,0] )
+                dX1_ii = -1j * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla[:,:,1] )
+                dX2_ii = -1j * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla[:,:,2] )
+
+                for c, dX_ii in enumerate( [ dX0_ii, dX1_ii, dX2_ii ]):
+                    dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), np.complex)
+                    # (ATLAS can't handle uninitialized output array)
+                    gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
+                    gemm(1.0, dXP_iM, P_Mi[ac.Mstart:ac.Mstop], 1.0, self.E_cMM[c])
+
+        print(self.E_cMM, "before asy")
+        self.E_cMM=-self.E_cMM.T    
         self.E_cMM=self.E_cMM/2
-
-
-        print(self.E_cMM)
+        print(self.E_cMM, "after asy")
 
 
     def _write(self, line):

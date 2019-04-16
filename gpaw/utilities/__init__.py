@@ -204,7 +204,20 @@ def pack(A):
 
 
 def pack2(M2, tolerance=1e-10):
-    """Pack a 2D array to 1D, averaging offdiagonal terms."""
+    """Pack a 2D array to 1D, averaging offdiagonal terms.
+
+    The matrix::
+
+           / a00 a01 a02 \
+       A = | a10 a11 a12 |
+           \ a20 a21 a22 /
+
+    is transformed to the vector::
+
+      (a00, [a01 + a10]/2, [a02 + a20]/2, a11, [a12 + a21]/2, a22)
+
+
+    """
     if M2.ndim == 3:
         return np.array([pack2(m2) for m2 in M2])
     n = len(M2)
