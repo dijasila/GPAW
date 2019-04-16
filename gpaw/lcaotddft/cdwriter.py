@@ -6,6 +6,7 @@ from gpaw.utilities.tools import coordinates
 from gpaw.fd_operators import Gradient
 from gpaw.lcaotddft.observer import TDDFTObserver
 # from gpaw.lcaotddft.dipolemomentwriter import repr
+from gpaw.utilities.blas import gemm, mmm
 
 
 def convert_repr(r):
@@ -45,7 +46,7 @@ class CDWriter(TDDFTObserver):
         # Create Gradient operator
         gd = paw.wfs.gd
         grad = []
-                    Ra = (paw.atoms[a].position /Bohr) - R0
+
         for c in range(3):
             grad.append(Gradient(gd, c, dtype=complex, n=2))
         self.grad = grad
@@ -82,6 +83,8 @@ class CDWriter(TDDFTObserver):
         self.E_cMM[0]-=self.A_cMM[1]
         self.E_cMM[1]+=self.A_cMM[0]
         
+        print(self.E_cMM,"E ennen PAW")
+
         for kpt in paw.wfs.kpt_u:
             assert kpt.k == 0
             dH_casp = []
@@ -99,14 +102,14 @@ class CDWriter(TDDFTObserver):
                     rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
                     nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
 
-                ac = paw.wfs.atomic_corrections
+                ac = paw.wfs.atomic_correction
                 assert ac.name == 'dense'
 
                 P_Mi = ac.P_aqMi[a][kpt.q]
                 
-                dX0_ii = -1j * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla[:,:,0] )
-                dX1_ii = -1j * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla[:,:,1] )
-                dX2_ii = -1j * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla[:,:,2] )
+                dX0_ii = -1j * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
+                dX1_ii = -1j * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
+                dX2_ii = -1j * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
 
                 for c, dX_ii in enumerate( [ dX0_ii, dX1_ii, dX2_ii ]):
                     dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), np.complex)
@@ -115,8 +118,10 @@ class CDWriter(TDDFTObserver):
                     gemm(1.0, dXP_iM, P_Mi[ac.Mstart:ac.Mstop], 1.0, self.E_cMM[c])
 
         print(self.E_cMM, "before asy")
-        self.E_cMM=-self.E_cMM.T    
-        self.E_cMM=self.E_cMM/2
+        
+        for c in range(3):       
+            self.E_cMM[c]-=self.E_cMM[c].T    
+            self.E_cMM[c]=self.E_cMM[c]/2
         print(self.E_cMM, "after asy")
 
 
