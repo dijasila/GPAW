@@ -12,7 +12,6 @@ class WLDA(XCFunctional):
 
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        #Fermi wavelength is given by k_f^3 = 3*pi^2 n
         #self.apply_weighting(gd, n_sg)
 
 
@@ -109,9 +108,7 @@ class WLDA(XCFunctional):
 
 
     def _get_K_G(self, shape):
-        #dx, dy, dz = gd.coords(0)[1] - gd.coords(0)[0], gd.coords(1)[1] - gd.coords(1)[0], gd.coords(2)[1] - gd.coords(2)[0]
-        
-        Nx, Ny, Nz = shape #len(gd.coords(0)), len(gd.coords(1)), len(gd.coords(2)) doesnt work, not same shape as density
+        Nx, Ny, Nz = shape
         kxs = np.array([2*np.pi/Nx*i if i < Nx/2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])
         kys = np.array([2*np.pi/Ny*i if i < Ny/2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])
         kzs = np.array([2*np.pi/Nz*i if i < Nz/2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])
@@ -152,20 +149,5 @@ class WLDA(XCFunctional):
                                         setup, D_sp, dEdD_sp,
                                         True, a)
         return corr
-
         
 
-    def simple(self, gd, n_sg):
-        n_g = n_sg[0]
-        K_G = self._get_K_G(gd, n_g.shape)
-        filteredn_g = n_g.copy()
-        n_G = np.fft.fftn(n_g)
-        for ix, nyz in enumerate(n_g):
-            for iy, nz in enumerate(nyz):
-                for iz, n in enumerate(nz):
-                    k_F = (3*np.pi**2*n_g[ix,iy,iz])**(1/3)
-                    filtered = self._theta_filter(k_F, K_G, n_G)[ix, iy, iz]
-                    filteredn_G[ix,iy,iz] = filtered
-
-        return filteredn_G
-                      
