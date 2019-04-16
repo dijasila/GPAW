@@ -53,7 +53,7 @@ class CDWriter(TDDFTObserver):
         R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
         r_cG, r2_G = coordinates(paw.wfs.gd, origin=R0)
 
-
+        
         Mstart = paw.wfs.ksl.Mstart
         Mstop = paw.wfs.ksl.Mstop
         self.E_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
@@ -65,7 +65,8 @@ class CDWriter(TDDFTObserver):
         self.E_cMM[1]-=self.A_cMM[2]
         self.E_cMM[2]+=self.A_cMM[1]
          
-        #print(self.A_cMM)    
+        #print(self.A_cMM)
+    
         self.A_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
 
 
@@ -79,6 +80,11 @@ class CDWriter(TDDFTObserver):
         paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[2], self.A_cMM, 0)
         self.E_cMM[0]-=self.A_cMM[1]
         self.E_cMM[1]+=self.A_cMM[0]
+        
+        self.E_cMM=-self.E_cMM.T
+        
+        self.E_cMM=self.E_cMM/2
+
 
         print(self.E_cMM)
 
@@ -126,7 +132,7 @@ class CDWriter(TDDFTObserver):
         #grad = self.grad
         #gd = paw.wfs.gd
                
-        self.timer.start('CD')
+        #self.timer.start('CD')
 
 
 
