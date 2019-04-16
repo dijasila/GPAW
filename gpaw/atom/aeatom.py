@@ -431,7 +431,7 @@ class AllElectronAtom:
         self.log('Name:           ', atomic_names[self.Z])
         self.log('Symbol:         ', symbol)
         self.log('XC-functional:  ', self.xc.name)
-        self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
+        self.log('Equation:       ', ['Schrodinger', 'Dirac'][self.dirac])
 
         self.method = 'Gaussian basis-set'
 
@@ -598,9 +598,9 @@ class AllElectronAtom:
         if self.dirac:
             equation = 'Dirac'
         elif self.scalar_relativistic:
-            equation = 'scalar-relativistic Schrödinger'
+            equation = 'scalar-relativistic Schrodinger'
         else:
-            equation = 'non-relativistic Schrödinger'
+            equation = 'non-relativistic Schrodinger'
         self.log('\nSolving %s equation using %s:' % (equation, self.method))
 
         dn = self.Z

@@ -82,14 +82,14 @@ class SternheimerResponse:
         #TODO Check that all info is in file
         self.wfs = self.calc.wfs
         self.calc.initialize_positions()
-        self.nbands = self.wfs.bd.nbands//2
+        self.nbands = self.wfs.bd.nbands#//2
 
         self.c_qani = {}
         self.c_qnai = {}
         #bz_to_ibz = self.calc.get_bz_to_ibz_map()
         #ntotal_kpts = len(bz_to_ibz)
         spin_factor = 1
-        self.kpt_weight = spin_factor*self.wfs.kd.weight_k
+        self.kpt_weight = 1#spin_factor*self.wfs.kd.weight_k
         #np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*
         #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
         #ind1 = self.wfs.mykpts[1].q
@@ -105,8 +105,8 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            self.powercalculate([qvector], 1)
-            #self.krylovcalculate([qvector], 1)
+            #self.powercalculate([qvector], 1)
+            self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
         # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -352,7 +352,7 @@ class SternheimerResponse:
     def krylovcalculate(self, qvectors, num_eigs):
         print("KRYLOVCALCULATE")
         qvector = qvectors[0]
-        self.calculate_kplusq(qvector)
+        #self.calculate_kplusq(qvector)
 
         deltapsi_qnG, eigval = self.initial_guess(qvector)
         if self.deltapsi_qnG is not None:
@@ -991,8 +991,8 @@ class SternheimerResponse:
         nbands = self.nbands
 
         for index, kpt in enumerate(self.wfs.mykpts):
-            #if kpt.s == 1:
-            #    continue
+            if kpt.s == 1:
+                continue
 
             
             
@@ -1109,7 +1109,8 @@ class SternheimerResponse:
 
             self.init_sternheimer_sol(deltapsi_qnG, kpq_index)
 
-            self.solve_sternheimer_for_bands(deltapsi_qnG, (kpt_index, kpt), (kpq_indx, kpq_object), apply_potential)
+            deltapsi_qnG = self.solve_sternheimer_for_bands(deltapsi_qnG, (kpt_index, kpt), (kpq_indx, kpq_object), apply_potential)
+
         return deltapsi_qnG
 
 
@@ -1129,11 +1130,25 @@ class SternheimerResponse:
 
 
     def solve_sternheimer_for_bands(self, deltapsi_qnG, kpt_tuple, kpq_tuple, apply_potential):
-        #Solve the Sternheimer equation for the given potential at the given kpt
+        #Solve the Sternheimer equations for the given potential at the given kpt
+        kpt_i, kpt_o = kpt_tuple
+        kpq_i, kpq_o = kpq_tuple
 
-        
-        raise NotImplementedError
+        eps_n = kpt_o.eps_n
+        psi_nG = kpt_o.psit.array
 
+        for n, (eps, psi_G) in enumerate(zip(eps_n, psi_nG)):
+            if n >= self.nbands:
+                break
+            
+            LHS = self._get_LHS_linear_operator(kpq_o, eps, kpq_i)
+
+            RHS = self._get_RHS(kpq_o, psi_G, apply_potential, n, kpq_i, kpt_o, kpt_i)
+            
+            deltapsi_G, info = bicgstab(LHS, RHS, maxiter=1000, tol=1e-8)
+
+            deltapsi_qnG[kpq_i][n] = deltapsi_G
+        return deltapsi_qnG
 
 
 
@@ -1167,9 +1182,9 @@ class SternheimerResponse:
         return linop
 
 
-    def _apply_LHS_Sternheimer(self, deltapsi_G, kpt, energy, k_index):
+    def _apply_LHS_Sternheimer(self, deltapsi_G, kpt, energy, k_index, custom_alpha=None):
         
-        alpha = 1
+        alpha = custom_alpha or 1
       
         result_G = alpha*self._apply_valence_projector(self._apply_overlap(deltapsi_G, k_index), kpt, k_index)
         result_G += self._apply_hamiltonian(deltapsi_G, kpt, k_index)
@@ -1327,7 +1342,7 @@ class SternheimerResponse:
     def _get_RHS(self, k_plus_q_pt, psi_G, apply_potential, level_index, k_plus_q_index, kpt, k_index): 
         v_psi_G = self.wfs.pd.zeros(q=k_plus_q_index)
         vpsi = apply_potential(psi_G, level_index, k_index)
-        
+
         if len(v_psi_G) > len(vpsi):
             v_psi_G[:len(vpsi)] = vpsi
         else:
@@ -1467,6 +1482,53 @@ def tests(ro):
 
 
 
+    ##Test get RHS
+    kpt_o = ro.wfs.mykpts[0]
+    kpt_i = 0
+    kpq_o = kpt_o
+    kpq_i = kpt_i
+    psi_G = kpt.psit.array[0]
+    n = 0
+    apply_potential = lambda a, b, c : a
+    RHS_G = ro._get_RHS(kpq_o, psi_G, apply_potential, n, kpq_i, kpt_o, kpt_i)
+    
+    pRHS_G = ro._apply_valence_projector(RHS_G, kpq_o, kpq_i)
+    assert np.allclose(ro.wfs.pd.integrate(psi_G, RHS_G), 0)
+    assert np.allclose(pRHS_G, 0)
+
+
+    print("Passed get RHS test")
+    
+
+
+
+
+    ##Test apply LHS
+    kpt_o = ro.wfs.mykpts[0]
+    kpt_i = 0
+    eps = kpt_o.eps_n[0]
+    deltapsi_G = kpt_o.psit.array[0]+1
+    overlapped = ro._apply_overlap(deltapsi_G, k_index)
+    deltapsi_G = deltapsi_G - ro._apply_valence_projector(overlapped, kpt_o, kpt_i)
+    result_G = ro._apply_LHS_Sternheimer(deltapsi_G, kpt_o, eps, kpt_i)
+
+    results = []
+    for alpha in [1,2,10]:
+        res = ro._apply_LHS_Sternheimer(deltapsi_G, kpt_o, eps, kpt_i, custom_alpha=alpha)
+        results.append(res)
+
+    for res in results:
+        for res2 in results:
+            assert np.allclose(res, res2)
+    
+
+    print("Passed apply LHS test")
+        
+
+
+
+
+
 
     ##Test solve sternheimer for bands
     nbands = ro.nbands
@@ -1474,7 +1536,7 @@ def tests(ro):
     perturb[0] = ro.wfs.mykpts[0].psit.array[0]
     in_qnG = {0: perturb}
     apply_potential = ro.epsilon_potential(in_qnG)
-
+    apply_potential = lambda a, b, c : a
 
     deltapsi_qnG = {}
     kpt_index = 0
@@ -1484,9 +1546,19 @@ def tests(ro):
 
 
     ro.init_sternheimer_sol(deltapsi_qnG, kpt_index)
-    ro.solve_sternheimer_for_bands(deltapsi_qnG, (kpt_index, kpt_o), (kpq_i, kpq_o), apply_potential)
+    deltapsi_qnG = ro.solve_sternheimer_for_bands(deltapsi_qnG, (kpt_index, kpt_o), (kpq_i, kpq_o), apply_potential)
     
-
+    for q, deltapsi_nG in deltapsi_qnG.items():
+        for n, deltapsi_G in enumerate(deltapsi_nG):
+            overlapped = ro._apply_overlap(deltapsi_G, 0)
+            val = ro.wfs.pd.integrate(kpt_o.psit.array[0], overlapped, 0)
+            target = 0
+            b = np.allclose(val, target)
+            if not b:
+                print(f"Max abs: {np.max(np.abs(val))}")
+            assert b
+                
+    print("Passed solve sternheimer for all bands")
 
 
 

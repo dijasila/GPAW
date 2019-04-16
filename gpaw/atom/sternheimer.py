@@ -122,8 +122,10 @@ class AllElectronResponse:
                 laplace_coulomb = self.get_laplace_coulomb()
                 rgd = self.all_electron_atom.rgd
                 drs = np.diag(rgd.dr_g)
+                r2s = np.diag(rgd.r_g**2)
                 integral = laplace_coulomb.dot(drs.dot(chi))*4*np.pi
-                eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs) + integral.dot(drs))
+                #eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs) + integral.dot(drs))
+                eps = np.eye(chi.shape[0]).dot(drs).dot(r2s) - integral.dot(drs).dot(r2s)
                 vals, vecs = np.linalg.eig(eps)
                 return np.sort(np.real(vals)), vecs.T
             return vals, vecs
