@@ -45,37 +45,56 @@ class WLDA(XCFunctional):
 
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
-
             raise NotImplementedError
-        K_G = self._get_K_G(gd, n_sg)
+        self.tabulate_weights(n_sg[0])
+
+        n_g = n_sg[0]
+        wn_g = np.zeros_like(n_g)
+        for ix, n_yz in enumerate(n_g):
+            for iy, n_z in enumerate(n_yz):
+                for iz, n in enumerate(n_z):
+                    ni_vector = self._get_ni_vector(n)
+                    weighted_density = ni_vector.dot(self.weight_table[ix, iy, iz])
+                    wn_g[ix, iy, iz] = weighted_density
+
+        n_sg[0, :] = wn_g
+                    
+                    
+
+
+        return
+        K_G = self._get_K_G(gd, n_sg[0].shape)
 
         fn_G = np.fft.fftn(n_sg[0])
 
 
+
+
         #assert (Nx, Ny, Nz) == fn_G.shape This is not true
+
         k_F = K_G[5,5,5]
         
-        self.weight(k_F, n_sg, K_G, fn_G)
+        self.weight(k_F, K_G, fn_G)
         
         q = np.fft.ifftn(fn_G)
         b = np.allclose(q, q.real)
-        #if not b:
-        #    print(q.imag)
-        #assert b
+        if not b:
+            print(q.imag)
+        assert b
         n_sg[0,:] = q.real
+        
+                    
 
 
 
-
-    def _get_K_G(self, gd, n_sg):
-        dKx, dKy, dKz = 2*np.pi/np.diag(gd.cell_cv)
+    def _get_K_G(self, gd, shape):
         dx, dy, dz = gd.coords(0)[1] - gd.coords(0)[0], gd.coords(1)[1] - gd.coords(1)[0], gd.coords(2)[1] - gd.coords(2)[0]
-        Nx, Ny, Nz = n_sg[0].shape #len(gd.coords(0)), len(gd.coords(1)), len(gd.coords(2)) doesnt work, not same shape as density
-        ##But then dx,dy,dz is inconsistent with Nx,Ny,Nz
         
-        reciprocal_vecs = gd.icell_cv.T #get dKs from this
-        
-        K_G = np.indices((Nx, Ny, Nz)).T.dot(2*np.pi/np.array([dx*Nx, dy*Ny, dz*Nz])).T
+        Nx, Ny, Nz = shape #len(gd.coords(0)), len(gd.coords(1)), len(gd.coords(2)) doesnt work, not same shape as density
+        kxs = np.array([2*np.pi/Nx*i if i < Nx//2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])
+        kys = np.array([2*np.pi/Ny*i if i < Ny//2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])
+        kzs = np.array([2*np.pi/Nz*i if i < Nz//2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])
+        K_G = np.array([[[np.linalg.norm([kx, ky, kz]) for kz in kzs] for ky in kys] for kx in kxs])
 
         return K_G
 
@@ -84,6 +103,23 @@ class WLDA(XCFunctional):
         Theta_G = (K_G**2 < 2*k_F**2).astype(np.complex128)
 
         return n_G*Theta_G
+
+    def tabulate_weights(self, n_g):
+        nis = np.arange(0, 5, 0.1)
+        K_G = self._get_K_G(gd, n_g.shape)
+        self.nis = nis
+        self.weight_table = np.zeros((len(nis),)+n_g.shape)
+        n_G = np.fft.fftn(n_G)
+
+        for i, ni in enumerate(nis):
+            k_F = (3*np.pi**2*ni)**(1/3)
+            fil_n_G = self._theta_filter(k_F, K_G, n_G)
+            self.weight_table[i] = np.fft.ifftn(fil_n_G)
+
+        self.weight_table = self.weight_table.T
+
+    def step_filter(self, n_g):
+        pass
 
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
@@ -99,4 +135,17 @@ class WLDA(XCFunctional):
 
         
 
+    def simple(self, gd, n_sg):
+        n_g = n_sg[0]
+        K_G = self._get_K_G(gd, n_g.shape)
+        filteredn_g = n_g.copy()
+        n_G = np.fft.fftn(n_g)
+        for ix, nyz in enumerate(n_g):
+            for iy, nz in enumerate(nyz):
+                for iz, n in enumerate(nz):
+                    k_F = (3*np.pi**2*n_g[ix,iy,iz])**(1/3)
+                    filtered = self._theta_filter(k_F, K_G, n_G)[ix, iy, iz]
+                    filteredn_G[ix,iy,iz] = filtered
+
+        return filteredn_G
                       
