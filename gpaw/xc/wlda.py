@@ -8,11 +8,10 @@ class WLDA(XCFunctional):
         if kernel is None:
             kernel = PurePythonLDAKernel()
         self.kernel = kernel
-        self.weight = self._theta_filter
 
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        #self.apply_weighting(gd, n_sg)
+        self.apply_weighting(gd, n_sg)
 
 
         from gpaw.xc.lda import lda_c
