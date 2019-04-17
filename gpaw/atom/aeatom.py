@@ -76,7 +76,7 @@ class GaussianBasis:
         self.T_bb = np.dot(np.dot(Q_Bb.T, T_BB), Q_Bb)
         self.D_bb = np.dot(np.dot(Q_Bb.T, D_BB), Q_Bb)
         self.K_bb = np.dot(np.dot(Q_Bb.T, K_BB), Q_Bb)
-
+        
         r_g = rgd.r_g
         with seterr(divide='ignore'):
             # Avoid errors in debug mode from division by zero:
@@ -898,30 +898,40 @@ def main(args):
         aea.plot_wave_functions()
 
     if args.sternheimer:
-        print("")
-        print("----------------------------------------")
-        print("Running Sternheimer response calculation")
-        print("")
         import time
         from .sternheimer import AllElectronResponse       
-        aee = AllElectronResponse(aea, nspins=1, calc_epsilon=True)
-        # t1 = time.time()
-        # exact_chi = aee.calculate_analytical_chi_channel(0,30)
-        # t2 = time.time()
-        # print("Calculating analytical chi took {} seconds".format(t2-t1))
-        #chi_dr = exact_chi*aea.rgd.dr_g
-        #eigs, vecs = np.linalg.eigh(chi_dr)
+        aee = AllElectronResponse(aea, nspins=1, calc_epsilon=False)
+        num_chi = aee.calculate_numerical_chi_channel(symbol)
+        chi = num_chi.dot(np.diag(aea.rgd.dr_g)).dot(np.diag(aea.rgd.r_g**2))
+        eigs, vecs = np.linalg.eig(chi)
+        assert np.allclose(eigs, eigs.real)
+
+        eigs_vecs = sorted(list(zip(eigs, vecs.T)), key=lambda t: t[0].real)
+        eigs = [t[0].real for t in eigs_vecs]
+        vecs = np.array([t[1].real for t in eigs_vecs])
+        #exact_chi = aee.calculate_analytical_chi_channel(0,30)
+        #chi_drr2 = exact_chi.dot(np.diag(aea.rgd.dr_g)).dot(np.diag(aea.rgd.r_g**2))
+
         #print("Max abs exact: ", np.max(np.abs(eigs)))
         num_eigs = 5
-        vals, vecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=num_eigs, return_only_eigenvalues=False)
+        vals, svecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=num_eigs, return_only_eigenvalues=False)
         ovals = aee.chi_vals
         ##Fix Sternheimer to also calc epsilon eigenvalues
-        print("Sternheimer: ", vals[-num_eigs:])
-        print("Chi vals: ", ovals)
-        if np.allclose(vals[-num_eigs:], 1):
-            import matplotlib.pyplot as plt
-            plt.plot(vals)
-            plt.show()
+        print("Numerical eigs: ", eigs[:num_eigs])
+        print("Sternheimer eigs: ", vals[-num_eigs:])
+
+
+        import matplotlib.pyplot as plt
+        for i in range(num_eigs):
+            v = svecs[i]
+            sign = np.sign(v[0]/vecs[i,0])
+            v = v/np.linalg.norm(v)*(sign)
+            plt.figure()
+            plt.plot(v, label="Sternheimer mode")
+            plt.plot(vecs[i], label="Numerical mode")
+            plt.legend()
+            
+        plt.show()
         # import matplotlib.pyplot as plt
         # for k, vec in enumerate(vecs):
         #     plt.plot(vec, label=str(k))

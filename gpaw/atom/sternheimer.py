@@ -37,6 +37,44 @@ class AllElectronResponse:
         self.cg_calculator = ClebschGordanCalculator()
         self.bicgstab_tol = 1e-5
         
+
+
+    def calculate_numerical_chi_channel(self, atom):
+        '''
+        Calculate chi for 1 electron from numerical solutions
+        
+        '''
+        if atom != "H":
+            raise NotImplementedError("This function is only implemented for Hydrogen")
+        
+        channel = self.all_electron_atom.channels[0]
+
+        wf_nb = channel.C_nb
+        e_n = channel.e_n
+
+        e0 = e_n[0]
+        wf0 = channel.basis.expand(wf_nb[0])
+        outer = np.outer(wf0.conj(), wf0)
+        outer2 = np.outer(wf0, wf0.conj())
+
+        chi = np.zeros_like(outer)
+        for n, wf_b in enumerate(wf_nb[1:]):
+            e = e_n[n+1]
+
+            wf_g = channel.basis.expand(wf_b)
+
+            d = np.outer(wf_g.conj(), wf_g)
+            chi += outer*d/(e0 - e)
+
+
+
+            d2 = np.outer(wf_g, wf_g.conj())
+            chi += -outer2*d2/(e - e0)
+
+            
+        return chi
+            
+        
    
 
 
@@ -103,13 +141,20 @@ class AllElectronResponse:
             
 
     def sternheimer_calculation(self, omega = 0, angular_momenta=[0], num_eigs=1, return_only_eigenvalues=True):
+        print("")
+        print("----------------------------------------")
+        print("Running Sternheimer response calculation")
+        print("")
+        print("There is a sqrt(4*pi) missing somewhere")
+
+
         start_vecs_ln = self._get_random_trial_vectors(num_eigs, angular_momenta)
         #start_vecs_ln = {l: [self.all_electron_atom.channels[l].phi_ng[k] for k in range(num_eigs)] for l in angular_momenta}
         found_vals_vecs_ln = self._iterative_solve(omega, start_vecs_ln, num_eigs)
         self.log("Sternheimer calculation finished")
         l = 0
         vals = [val_vec[0] for val_vec in found_vals_vecs_ln[l]]
-        vecs = [val_vec[1] for val_vec in found_vals_vecs_ln[l]]
+        vecs = np.array([val_vec[1] for val_vec in found_vals_vecs_ln[l]])
 
         self.chi_vals = vals
         if return_only_eigenvalues:
@@ -117,13 +162,15 @@ class AllElectronResponse:
 
         else:
             if self.calc_epsilon:
+                # channel = self.all_electron_atom.channels[0]
+                # gvecs = channel.expand(vecs)
                 chi = self._construct_response(vals, vecs)
                 #Use Laplace expansion for Coulomb potential
                 laplace_coulomb = self.get_laplace_coulomb()
                 rgd = self.all_electron_atom.rgd
                 drs = np.diag(rgd.dr_g)
                 r2s = np.diag(rgd.r_g**2)
-                integral = laplace_coulomb.dot(drs.dot(chi))*4*np.pi
+                integral = laplace_coulomb.dot(drs.dot(chi))
                 #eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs) + integral.dot(drs))
                 eps = np.eye(chi.shape[0]).dot(drs).dot(r2s) - integral.dot(drs).dot(r2s)
                 vals, vecs = np.linalg.eig(eps)
@@ -194,7 +241,8 @@ class AllElectronResponse:
                 
                 
                     #The eigenvalue estimate here is negative because eigvals of chi are negative
-                    current_eigval = -np.sqrt(self.dot(new_trial, new_trial)/self.dot(current_trial, current_trial))
+                    #current_eigval = -np.sqrt(self.dot(new_trial, new_trial)/self.dot(current_trial, current_trial))
+                    current_eigval = new_trial[0]/current_trial[0] if current_trial[0] != 0 else 1
                     new_trial = -new_trial/np.sqrt(self.dot(new_trial, new_trial))
                 
                 
@@ -208,7 +256,7 @@ class AllElectronResponse:
 
 
 
-
+                    #current_eigval = current_eigval*np.sqrt(4*np.pi)
                     if error < error_threshold:
                         print("")
                         found_vals_vecs.append((current_eigval, new_trial))
@@ -265,7 +313,7 @@ class AllElectronResponse:
         '''
         assert np.real(omega) == 0
         response_l2 = response_angular_momentum
-        delta_n = 0
+        delta_n = np.zeros_like(trial)
         for l, channel in enumerate(self.all_electron_atom.channels):
 
             # if self.calc_epsilon:
@@ -275,7 +323,8 @@ class AllElectronResponse:
             #     coulomb_matrix = 1/coulomb_matrix
             #     trial = trial
             #     raise NotImplementedError
-
+            #trial -> v_g
+            #gauss -> v_b
             gaussian_trial = self.get_trial_matrix(channel, trial)
                     
             hamiltonian = self.get_hamiltonian(channel)
@@ -345,7 +394,8 @@ class AllElectronResponse:
                 wf = channel.basis.expand(wf)
                 delta_wf = channel.basis.expand(delta_wf)
             
-                #cg_coeff = self.cg_calculator.calculate(l, -m, L, M, response_l2, response_m)
+                cg_coeff = self.cg_calculator.calculate(l, -m, L, M, response_l2,0)#response_l2, response_m)
+                #cg_coeff = np.sqrt(4*np.pi)
                 delta_n += 2*np.real(wf.conj()*delta_wf*cg_coeff)
             
 
