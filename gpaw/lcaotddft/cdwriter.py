@@ -88,30 +88,31 @@ class CDWriter(TDDFTObserver):
         for kpt in paw.wfs.kpt_u:
             assert kpt.k == 0
             dH_casp = []
-
+        
             for a, dH_sp in paw.hamiltonian.dH_asp.items():
-
+        
                 Ra = (paw.atoms[a].position /Bohr) - R0
-
+        
                 rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
                 nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy() 
-     
+        
                 def skew(a):
                     return (a-a.T)/2
                 for c in range(3):
                     rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
                     nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
-
+        
                 ac = paw.wfs.atomic_correction
                 assert ac.name == 'dense'
-
+        
                 P_Mi = ac.P_aqMi[a][kpt.q]
                 
-                dX0_ii = -1j * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
-                dX1_ii = -1j * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
-                dX2_ii = -1j * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
-
+                dX0_ii = -1 * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
+                dX1_ii = -1 * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
+                dX2_ii = -1 * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
+        
                 for c, dX_ii in enumerate( [ dX0_ii, dX1_ii, dX2_ii ]):
+                    dX_ii=np.array(dX_ii,dtype=complex)
                     dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), np.complex)
                     # (ATLAS can't handle uninitialized output array)
                     gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
@@ -122,6 +123,7 @@ class CDWriter(TDDFTObserver):
         for c in range(3):       
             self.E_cMM[c]-=self.E_cMM[c].T    
             self.E_cMM[c]=self.E_cMM[c]/2
+        
         print(self.E_cMM, "after asy")
 
 
