@@ -58,11 +58,23 @@ class SCFLoop:
 
     def run(self, wfs, ham, dens, occ, log, callback):
         self.niter = 1
-        while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
-            occ.calculate(wfs)
+        egs_name = getattr(wfs.eigensolver, "name", None)
 
-            energy = ham.get_energy(occ)
+        while self.niter <= self.maxiter:
+            if egs_name == 'direct_min':
+                wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
+                occ.calculate(wfs)
+                if hasattr(wfs.eigensolver, 'e_sic'):
+                    e_sic = wfs.eigensolver.e_sic
+                else:
+                    e_sic = 0.0
+                energy = ham.get_energy(occ, kin_en_using_band=False,
+                                        e_sic=e_sic)
+            else:
+                wfs.eigensolver.iterate(ham, wfs)
+                occ.calculate(wfs)
+                energy = ham.get_energy(occ)
+
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
 
@@ -73,6 +85,9 @@ class SCFLoop:
                     break
             else:
                 self.converged = True
+                if egs_name == 'direct_min':
+                    wfs.eigensolver.get_canonical_representation(ham,
+                                                                 wfs)
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
@@ -81,8 +96,11 @@ class SCFLoop:
                 break
 
             if self.niter > self.niter_fixdensity and not dens.fixed:
-                dens.update(wfs)
-                ham.update(dens)
+                if egs_name == 'direct_min':
+                    pass
+                else:
+                    dens.update(wfs)
+                    ham.update(dens)
             else:
                 ham.npoisson = 0
             self.niter += 1
