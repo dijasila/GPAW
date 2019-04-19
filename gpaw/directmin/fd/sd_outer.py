@@ -466,7 +466,6 @@ class LBFGS(SteepestDescent):
                 self.k += 1
                 self.p += 1
                 self.kp[self.k] = self.p
-                print('BO!')
                 p = self.multiply(g_k1, -1.0)
 
                 return p
