@@ -8,7 +8,7 @@ from gpaw.utilities import unpack
 from gpaw.directmin.fd import sd_outer, ls_outer
 from gpaw.utilities.lapack import diagonalize
 import time
-
+# from gpaw.utilities.memory import maxrss
 
 class DirectMinFD(Eigensolver):
 
@@ -246,16 +246,17 @@ class DirectMinFD(Eigensolver):
         """
 
         if phi is None or grad_k is None:
-            x_knG = {k: psit_k[k] +
-                      alpha * search_dir[k] for k in psit_k.keys()}
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                kpt.psit_nG[:] = psit_k[k] + alpha * search_dir[k]
+
             phi, grad_k = \
                 self.get_energy_and_tangent_gradients(ham, wfs, dens,
-                                                      occ, x_knG)
+                                                      occ)
 
         der_phi = 0.0
-        n_kps = self.n_kps
         for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
+            k = self.n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_k[k]):
                 if kpt.f_n[i] > 1.0e-10:
                     der_phi += self.dot(wfs,
@@ -386,7 +387,7 @@ class DirectMinFD(Eigensolver):
         new_psi_nG = psit_nG.copy()
         wfs.pt.add(new_psi_nG, s_axi, kpt.q)
 
-        return new_psi_nG.copy()
+        return new_psi_nG
 
     def dot(self, wfs, psi_1, psi_2, kpt):
 
