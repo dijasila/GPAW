@@ -57,24 +57,18 @@ class SCFLoop:
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
-        self.niter = 1
+
         egs_name = getattr(wfs.eigensolver, "name", None)
+        if egs_name == 'direct_min':
+            self.run_dm(wfs, ham, dens, occ, log, callback)
+            return
 
+        self.niter = 1
         while self.niter <= self.maxiter:
-            if egs_name == 'direct_min':
-                wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
-                occ.calculate(wfs)
-                if hasattr(wfs.eigensolver, 'e_sic'):
-                    e_sic = wfs.eigensolver.e_sic
-                else:
-                    e_sic = 0.0
-                energy = ham.get_energy(occ, kin_en_using_band=False,
-                                        e_sic=e_sic)
-            else:
-                wfs.eigensolver.iterate(ham, wfs)
-                occ.calculate(wfs)
-                energy = ham.get_energy(occ)
+            wfs.eigensolver.iterate(ham, wfs)
+            occ.calculate(wfs)
 
+            energy = ham.get_energy(occ)
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
 
@@ -85,9 +79,6 @@ class SCFLoop:
                     break
             else:
                 self.converged = True
-                if egs_name == 'direct_min':
-                    wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs)
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
@@ -96,11 +87,8 @@ class SCFLoop:
                 break
 
             if self.niter > self.niter_fixdensity and not dens.fixed:
-                if egs_name == 'direct_min':
-                    pass
-                else:
-                    dens.update(wfs)
-                    ham.update(dens)
+                dens.update(wfs)
+                ham.update(dens)
             else:
                 ham.npoisson = 0
             self.niter += 1
@@ -207,6 +195,47 @@ class SCFLoop:
 
         log(flush=True)
 
+    def run_dm(self, wfs, ham, dens, occ, log, callback):
+
+        self.niter = 1
+
+        while self.niter <= self.maxiter:
+            wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
+            # occ.calculate(wfs)
+            energy = ham.get_energy(occ, kin_en_using_band=False)
+
+            self.old_energies.append(energy)
+            errors = self.collect_errors(dens, ham, wfs)
+
+            # Converged?
+            for kind, error in errors.items():
+                if error > self.max_errors[kind]:
+                    self.converged = False
+                    break
+            else:
+                self.converged = True
+
+            callback(self.niter)
+            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+
+            if self.converged:
+                log('\nOccupied states converged after {:d}'.format(self.niter))
+                log('Converge LUMO:')
+                max_er = self.max_errors['eigenstates']
+                max_er *= Hartree ** 2 / wfs.nvalence
+                wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
+                                         max_er, log)
+                wfs.eigensolver.get_canonical_representation(ham,
+                                                             wfs,
+                                                             occ)
+                break
+            ham.npoisson = 0
+            self.niter += 1
+
+        if not self.converged:
+            log(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
 
 oops = """
 Did not converge!

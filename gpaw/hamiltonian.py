@@ -22,7 +22,6 @@ from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
 from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
 
-
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
@@ -212,7 +211,7 @@ class Hamiltonian:
         self.vt_sG = self.vt_xG[:self.nspins]
         self.vt_vG = self.vt_xG[self.nspins:]
 
-    def update(self, density):
+    def update(self, density, wfs=None, kin_en_using_band=True):
         """Calculate effective potential.
 
         The XC-potential and the Hartree potential are evaluated on
@@ -242,6 +241,12 @@ class Hamiltonian:
 
         with self.timer('Communicate'):  # time possible load imbalance
             self.world.sum(energies)
+        if not kin_en_using_band:
+            assert wfs is not None
+            with self.timer('New Kinetic Energy'):
+                energies[0] = \
+                    self.calculate_kinetic_energy_directly(density,
+                                                           wfs)
 
         (self.e_kinetic0, self.e_coulomb, self.e_zero,
          self.e_external, self.e_xc) = energies
@@ -327,8 +332,12 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
+    def get_energy(self, occ, kin_en_using_band=True):
+        if kin_en_using_band:
+            self.e_kinetic = self.e_kinetic0 + occ.e_band
+        else:
+            self.e_kinetic = self.e_kinetic0
+
         self.e_entropy = occ.e_entropy
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
@@ -533,6 +542,47 @@ class Hamiltonian:
         if hasattr(self.poisson, 'read'):
             self.poisson.read(reader)
             self.poisson.set_grid_descriptor(self.finegd)
+
+    def calculate_kinetic_energy_directly(self, density, wfs):
+
+        """
+        Calculate kinetic energy as 1/2 (nable psi)^2
+        it gives better estimate of kinetic energy during the SCF.
+        Important for direct min.
+
+        'calculate_kinetic_energy' method gives a correct
+        value of kinetic energy only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
+        # pseudo-part
+        e_kin = 0.0
+
+        def Lapl(psit_G, kpt):
+            Lpsit_G = np.zeros_like(psit_G)
+            wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
+            return Lpsit_G
+
+        for kpt in wfs.kpt_u:
+            for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                if f > 1.0e-10:
+                    e_kin += f * wfs.gd.integrate(Lapl(psit_G, kpt),
+                                                  psit_G, False)
+
+        e_kin = wfs.kd.comm.sum(e_kin)  # ?
+        e_kin = density.gd.comm.sum(e_kin)
+
+        # paw corrections
+        e_kin_paw = 0.0
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+        e_kin_paw = density.gd.comm.sum(e_kin_paw)
+
+        return e_kin.real + e_kin_paw
 
 
 class RealSpaceHamiltonian(Hamiltonian):

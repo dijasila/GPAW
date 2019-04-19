@@ -300,8 +300,10 @@ class GPAW(PAW, Calculator):
                              self.density, self.occupations,
                              self.log, self.call_observers)
 
-            self.log('\nConverged after {} iterations.\n'
-                     .format(self.scf.niter))
+            egs_name = getattr(self.wfs.eigensolver, "name", None)
+            if egs_name != 'direct_min':
+                self.log('\nConverged after {} iterations.\n'
+                         .format(self.scf.niter))
 
             e_free = self.hamiltonian.e_total_free
             e_extrapolated = self.hamiltonian.e_total_extrapolated

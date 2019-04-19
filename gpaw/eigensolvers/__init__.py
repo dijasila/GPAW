@@ -9,8 +9,11 @@ from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
 from gpaw.directmin.directmin_fd import DirectMinFD
 
+
 def get_eigensolver(eigensolver, mode, convergence=None):
+
     """Create eigensolver object."""
+
     if eigensolver is None:
         if mode.name == 'lcao':
             eigensolver = 'lcao'
@@ -35,6 +38,5 @@ def get_eigensolver(eigensolver, mode, convergence=None):
         eigensolver.tolerance = convergence.get('eigenstates', 4.0e-8)
 
     assert isinstance(eigensolver, DirectLCAO) == (mode.name == 'lcao')
-    assert isinstance(eigensolver, DirectMinFD) == (mode.name == 'fd')
 
     return eigensolver
