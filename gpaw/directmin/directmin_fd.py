@@ -147,7 +147,7 @@ class DirectMinFD(Eigensolver):
     def iterate(self, ham, wfs, dens, occ, log):
 
         assert dens.mixer.driver.name == 'dummy', \
-            'Please, use: mixer=DummyMixer()'
+            'Please, use: mixer={\'method\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
         assert occ.width < 1.0e-5, \

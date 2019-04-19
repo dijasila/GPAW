@@ -535,7 +535,6 @@ class TwoStepParabolaCubicAwc:
             a_star = parabola_interpolation(0.0, 1.0,
                                             phi_0, phi_i,
                                             der_phi_0)
-            print('hi!', a_star)
             if a_star < 0.0:
                 a_star = 0.3
             phi_star, der_phi_star, g_star = \
@@ -556,4 +555,3 @@ class TwoStepParabolaCubicAwc:
                                                   a_star, *args)
 
                 return a_star, phi_star, der_phi_star, g_star
-
