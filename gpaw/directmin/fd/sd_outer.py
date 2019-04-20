@@ -18,16 +18,9 @@ class SteepestDescent:
 
     def update_data(self, psi, g, wfs, prec):
 
-        if prec is None:
-            p = {}
-            for k in psi.keys():
-                p[k] = - g[k].copy()
-        else:
-            p = self.apply_prec(wfs, g, prec, -1.0)
+        self.apply_prec(wfs, g, prec, 1.0)
 
-        self.iters += 1
-
-        return p
+        return self.minus(wfs, g)
 
     def dot(self, psi_1, psi_2, kpt, wfs):
 
@@ -116,16 +109,11 @@ class SteepestDescent:
         return y
 
     def apply_prec(self, wfs, x, prec, const=1.0):
-        z = {}
         deg = (3.0 - wfs.kd.nspins)
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            z[k] = np.zeros_like(x[k])
             for i, y in enumerate(x[k]):
-                z[k][i] = - const * prec(y, kpt, None) / deg
-
-        return z
-
+                x[k][i] = - const * prec(y, kpt, None) / deg
 
 class HZcg(SteepestDescent):
 
@@ -148,7 +136,7 @@ class HZcg(SteepestDescent):
     def update_data(self, psi, g_k1, wfs, prec):
 
         if prec is not None:
-            g_k1 = self.apply_prec(wfs, g_k1, prec, 1.0)
+            self.apply_prec(wfs, g_k1, prec, 1.0)
 
         if self.iters == 0:
 
@@ -227,7 +215,7 @@ class FRcg(SteepestDescent):
     def update_data(self, psi, g_k1, wfs, prec):
 
         if prec is not None:
-            g_k1 = self.apply_prec(wfs, g_k1, prec, 1.0)
+            self.apply_prec(wfs, g_k1, prec, 1.0)
 
         if self.iters == 0:
             self.p_k = self.minus(wfs, g_k1)
@@ -273,7 +261,7 @@ class PRcg(SteepestDescent):
     def update_data(self, psi, g_k1, wfs, prec):
 
         if prec is not None:
-            g_k1 = self.apply_prec(wfs, g_k1, prec, 1.0)
+            self.apply_prec(wfs, g_k1, prec, 1.0)
 
         if self.iters == 0:
             self.p_k = self.minus(wfs, g_k1)
@@ -317,7 +305,7 @@ class PRpcg(SteepestDescent):
     def update_data(self, psi, g_k1, wfs, prec):
 
         if prec is not None:
-            g_k1 = self.apply_prec(wfs, g_k1, prec, 1.0)
+            self.apply_prec(wfs, g_k1, prec, 1.0)
 
         if self.iters == 0:
             self.p_k = self.minus(wfs, g_k1)
@@ -361,7 +349,7 @@ class QuickMin(SteepestDescent):
     def update_data(self, psi, g_k1, wfs, prec):
 
         if prec is not None:
-            g_k1 = self.apply_prec(wfs, g_k1, prec, 1.0)
+            self.apply_prec(wfs, g_k1, prec, 1.0)
 
         dt = self.dt
         m = self.m
@@ -408,13 +396,13 @@ class LBFGS(SteepestDescent):
     def update_data(self, psi, g_k1, wfs, prec):
 
         if prec is not None:
-            g_k1 = self.apply_prec(wfs, g_k1, prec, 1.0)
+            self.apply_prec(wfs, g_k1, prec, 1.0)
 
         if self.k == 0:
 
             self.kp[self.k] = self.p
-            self.x_k = copy.deepcopy(psi)
-            self.g_k = copy.deepcopy(g_k1)
+            self.x_k = psi
+            self.g_k = g_k1
             self.s_k[self.kp[self.k]] = self.zeros(g_k1)
             self.y_k[self.kp[self.k]] = self.zeros(g_k1)
             self.k += 1
@@ -459,8 +447,8 @@ class LBFGS(SteepestDescent):
                 # we could call self.update,
                 # but we already applied prec to g
                 self.kp[self.k] = self.p
-                self.x_k = copy.deepcopy(x_k1)
-                self.g_k = copy.deepcopy(g_k1)
+                self.x_k = x_k1
+                self.g_k = g_k1
                 self.s_k[self.kp[self.k]] = self.zeros(g_k1)
                 self.y_k[self.kp[self.k]] = self.zeros(g_k1)
                 self.k += 1
@@ -513,8 +501,8 @@ class LBFGS(SteepestDescent):
                 # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
 
             # save this step:
-            self.x_k = copy.deepcopy(x_k1)
-            self.g_k = copy.deepcopy(g_k1)
+            self.x_k = x_k1
+            self.g_k = g_k1
 
             self.k += 1
             self.p += 1
