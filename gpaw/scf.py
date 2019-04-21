@@ -198,11 +198,18 @@ class SCFLoop:
     def run_dm(self, wfs, ham, dens, occ, log, callback):
 
         self.niter = 1
+        self.inner_update = 4
+        self.nouter = 1
 
         while self.niter <= self.maxiter:
+
             wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
-            # occ.calculate(wfs)
-            energy = ham.get_energy(occ, kin_en_using_band=False)
+            if hasattr(wfs.eigensolver, 'e_sic'):
+                e_sic = wfs.eigensolver.e_sic
+            else:
+                e_sic = 0.0
+            energy = ham.get_energy(occ, kin_en_using_band=False,
+                                    e_sic=e_sic)
 
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
@@ -218,6 +225,14 @@ class SCFLoop:
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
+            if self.nouter % self.inner_update == 0:
+                self.niter = wfs.eigensolver.run_inner_loop(ham, wfs, occ, self.niter)
+                wfs.eigensolver.reset(need_init_odd=False)
+
+            ham.npoisson = 0
+            self.niter += 1
+            self.nouter += 1
+
             if self.converged:
                 log('\nOccupied states converged after {:d}'.format(self.niter))
                 log('Converge LUMO:')
@@ -225,12 +240,14 @@ class SCFLoop:
                 max_er *= Hartree ** 2 / wfs.nvalence
                 wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
                                          max_er, log)
-                wfs.eigensolver.get_canonical_representation(ham,
-                                                             wfs,
-                                                             occ)
+                rewrite_psi = True
+                if wfs.eigensolver.odd_parameters['name'] == 'PZ_SIC':
+                    rewrite_psi = False
+                wfs.eigensolver.get_canonical_representation(
+                    ham, wfs, occ, rewrite_psi)
                 break
-            ham.npoisson = 0
-            self.niter += 1
+
+
 
         if not self.converged:
             log(oops)

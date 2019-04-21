@@ -85,6 +85,7 @@ class Hamiltonian:
         self.e_external = None
         self.e_xc = None
         self.e_entropy = None
+        self.e_sic = None
 
         self.e_total_free = None
         self.e_total_extrapolated = None
@@ -138,7 +139,8 @@ class Hamiltonian:
                     ('External:     ', self.e_external),
                     ('XC:           ', self.e_xc),
                     ('Entropy (-ST):', self.e_entropy),
-                    ('Local:        ', self.e_zero)]
+                    ('Local:        ', self.e_zero),
+                    ('SIC:        ', self.e_sic)]
 
         for name, e in energies:
             log('%-14s %+11.6f' % (name, Ha * e))
@@ -332,7 +334,7 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ, kin_en_using_band=True):
+    def get_energy(self, occ, kin_en_using_band=True, e_sic=0.0):
         if kin_en_using_band:
             self.e_kinetic = self.e_kinetic0 + occ.e_band
         else:
@@ -340,9 +342,11 @@ class Hamiltonian:
 
         self.e_entropy = occ.e_entropy
 
+        self.e_sic = e_sic
+
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
-                             self.e_entropy)
+                             self.e_entropy + self.e_sic)
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
             self.e_total_free)
 

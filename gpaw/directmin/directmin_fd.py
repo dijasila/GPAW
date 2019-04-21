@@ -7,6 +7,9 @@ from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fd import sd_outer, ls_outer
 from gpaw.utilities.lapack import diagonalize
+from gpaw.directmin.odd import odd_corrections
+from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.fd.inner_loop import InnerLoop
 import time
 # from gpaw.utilities.memory import maxrss
 
@@ -16,6 +19,8 @@ class DirectMinFD(Eigensolver):
                  searchdir_algo='LBFGS',
                  linesearch_algo='TSPCAWC',
                  use_prec=True,
+                 odd_parameters='Zero',
+                 inner_loop=None,
                  blocksize=1):
 
         super(DirectMinFD, self).__init__(keep_htpsit=False,
@@ -25,13 +30,18 @@ class DirectMinFD(Eigensolver):
         self.lsa = linesearch_algo
         self.name = 'direct_min'
         self.use_prec = use_prec
+        self.odd_parameters = odd_parameters
+        self.inner_loop = inner_loop
 
+        if isinstance(self.odd_parameters, basestring):
+            self.odd_parameters = xc_string_to_dict(self.odd_parameters)
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
 
+        self.need_init_odd = True
         self.initialized = False
 
     def __repr__(self):
@@ -78,14 +88,16 @@ class DirectMinFD(Eigensolver):
 
         return repr_string
 
-    def reset(self):
+    def reset(self, need_init_odd=True):
         self.initialized = False
+        self.need_init_odd = need_init_odd
 
     def todict(self):
         return {'name': 'direct_min_fd',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
-                'use_prec': self.use_prec
+                'use_prec': self.use_prec,
+                'odd_parameters': self.odd_parameters
                 }
 
     def initialize_super(self, wfs, occ):
@@ -101,7 +113,8 @@ class DirectMinFD(Eigensolver):
         Eigensolver.initialize(self, wfs)
         occ.calculate(wfs)  # fill occ numbers
 
-    def initialize_dm(self, wfs, obj_func=None, lumo=False):
+    def initialize_dm(self, wfs, dens, ham, log=None,
+                      obj_func=None, lumo=False):
 
         if obj_func is None:
             obj_func = self.evaluate_phi_and_der_phi
@@ -142,6 +155,26 @@ class DirectMinFD(Eigensolver):
         self.der_phi_2i = [None, None]  # energy gradient w.r.t. alpha
         self.grad_knG = None
 
+        # odd corrections
+        # self.iloop = None
+        # self.odd = None
+        if self.need_init_odd:
+            if isinstance(self.odd_parameters, (basestring, dict)):
+                self.odd = odd_corrections(self.odd_parameters, wfs,
+                                           dens, ham)
+            else:
+                raise Exception('Check ODD Parameters')
+            self.e_sic = 0.0
+
+            iloop = (self.inner_loop is None and
+                     self.odd_parameters['name'] == 'PZ_SIC') or \
+                self.inner_loop is True
+
+            if iloop:
+                self.iloop = InnerLoop(self.odd, wfs, log)
+            else:
+                self.iloop = None
+
         self.initialized = True
 
     def iterate(self, ham, wfs, dens, occ, log):
@@ -157,7 +190,7 @@ class DirectMinFD(Eigensolver):
             if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
             self.initialize_super(wfs, occ)
-            self.initialize_dm(wfs)
+            self.initialize_dm(wfs, dens, ham, log)
 
         n_kps = self.n_kps
         psi_copy = {}
@@ -172,7 +205,7 @@ class DirectMinFD(Eigensolver):
             phi_2i[0], grad_knG = \
                 self.get_energy_and_tangent_gradients(ham, wfs, dens,
                                                       occ)
-            self.error = self.error_eigv(wfs, grad_knG)
+            # self.error = self.error_eigv(wfs, grad_knG)
         else:
             grad_knG = self.grad_knG
 
@@ -209,10 +242,11 @@ class DirectMinFD(Eigensolver):
                                                 alpha_max=3.0,
                                                 alpha_old=alpha)
         # calculate new wfs:
-        for kpt in wfs.kpt_u:
-            k = n_kps * kpt.s + kpt.q
-            kpt.psit_nG[:] = psi_copy[k] + alpha * p_knG[k]
-            wfs.orthonormalize(kpt)
+        # do we actually need to do this?
+        # for kpt in wfs.kpt_u:
+        #     k = n_kps * kpt.s + kpt.q
+        #     kpt.psit_nG[:] = psi_copy[k] + alpha * p_knG[k]
+        # wfs.orthonormalize()
 
         self.alpha = alpha
         self.grad_knG = grad_knG
@@ -252,6 +286,7 @@ class DirectMinFD(Eigensolver):
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 kpt.psit_nG[:] = psit_k[k] + alpha * search_dir[k]
+            wfs.orthonormalize()
 
             phi, grad_k = \
                 self.get_energy_and_tangent_gradients(ham, wfs, dens,
@@ -284,12 +319,14 @@ class DirectMinFD(Eigensolver):
         energy = self.update_ks_energy(ham, wfs, dens, occ)
         grad = self.get_gradients_2(ham, wfs)
 
-        # if self.odd == 'PZ_SIC':
-        #     self.e_sic = 0.0
-        #     for kpt in wfs.kpt_u:
-        #         self.e_sic += self.pot.get_energy_and_gradients_kpt(kpt, grad)
-        #     self.e_sic = wfs.kd.comm.sum(self.e_sic)
-        #     energy += self.e_sic
+        if self.odd_parameters['name'] == 'PZ_SIC':
+            self.e_sic = 0.0
+            for kpt in wfs.kpt_u:
+                self.e_sic +=\
+                    self.odd.get_energy_and_gradients_kpt(
+                        wfs, kpt, grad)
+            self.e_sic = wfs.kd.comm.sum(self.e_sic)
+            energy += self.e_sic
 
         self.project_search_direction_2(wfs, grad)
         self.error = self.error_eigv(wfs, grad)
@@ -453,12 +490,13 @@ class DirectMinFD(Eigensolver):
                                      rewrite_psi=True):
 
         grad_knG = self.get_gradients_2(ham, wfs)
-        # if self.odd == 'PZ_SIC':
-        #     for kpt in self.wfs.kpt_u:
-        #         self.pot.get_energy_and_gradients_kpt(kpt, grad_knG)
+        if self.odd_parameters['name'] == 'PZ_SIC':
+            for kpt in wfs.kpt_u:
+                self.odd.get_energy_and_gradients_kpt(
+                    wfs, kpt, grad_knG)
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            n_occ =get_n_occ(kpt)
+            n_occ = get_n_occ(kpt)
             if n_occ == 0:
                 continue
             grad_knG[k][n_occ:n_occ + 1] = \
@@ -469,6 +507,12 @@ class DirectMinFD(Eigensolver):
             lamb = (lamb + lamb.T.conj()) / 2.0
             lamb = np.ascontiguousarray(lamb)
             wfs.gd.comm.sum(lamb)
+            if self.odd_parameters['name'] == 'PZ_SIC':
+                n_unocc = len(kpt.f_n) - (n_occ + 1)
+                self.odd.lagr_diag_s[k] = \
+                    np.append(np.diagonal(lamb).real,
+                              np.ones(shape=(n_unocc)) * np.inf)
+                self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
             evals = np.empty(lamb.shape[0])
             diagonalize(lamb, evals)
             wfs.gd.comm.broadcast(evals, 0)
@@ -708,7 +752,9 @@ class DirectMinFD(Eigensolver):
 
     def run_lumo(self, ham, wfs, dens, occ, max_err, log):
 
-        self.initialize_dm(wfs,
+
+        self.need_init_odd = False
+        self.initialize_dm(wfs, dens, ham,
                            obj_func=self.evaluate_phi_and_der_phi_lumo,
                            lumo=True)
         max_iter = 3000
@@ -721,6 +767,27 @@ class DirectMinFD(Eigensolver):
                 break
         log('\nLUMO converged after {:d} iterations'.format(self.iters))
         self.initialized = False
+
+    def run_inner_loop(self, ham, wfs, occ, niter=0):
+
+        if self.iloop is None:
+            return 0
+
+        psi_copy = {}
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            psi_copy[k] = kpt.psit_nG[:].copy()
+
+        e_total = ham.get_energy(occ,
+                                 kin_en_using_band=False,
+                                 e_sic=self.e_sic)
+
+        counter = self.iloop.run(
+            e_total - self.e_sic, psi_copy, wfs, niter)
+
+        del psi_copy
+
+        return counter
 
 
 def log_f(niter, e_total, eig_error, log):
@@ -742,12 +809,3 @@ def log_f(niter, e_total, eig_error, log):
         (Hartree * e_total, eig_error), end='')
 
     log(flush=True)
-
-
-def get_n_occ(kpt):
-
-    nbands = len(kpt.f_n)
-    n_occ = 0
-    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-        n_occ += 1
-    return n_occ
