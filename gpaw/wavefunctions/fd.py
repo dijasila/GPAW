@@ -52,6 +52,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype)
 
         self.taugrad_v = None  # initialized by MGGA functional
+        self.read_from_file = False
 
     def empty(self, n=(), global_array=False, realspace=False, q=-1):
         return self.gd.empty(n, self.dtype, global_array)
