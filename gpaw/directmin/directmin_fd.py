@@ -13,6 +13,7 @@ from gpaw.directmin.fd.inner_loop import InnerLoop
 import time
 # from gpaw.utilities.memory import maxrss
 
+
 class DirectMinFD(Eigensolver):
 
     def __init__(self,
@@ -34,7 +35,8 @@ class DirectMinFD(Eigensolver):
         self.inner_loop = inner_loop
 
         if isinstance(self.odd_parameters, basestring):
-            self.odd_parameters = xc_string_to_dict(self.odd_parameters)
+            self.odd_parameters = \
+                xc_string_to_dict(self.odd_parameters)
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
@@ -123,7 +125,7 @@ class DirectMinFD(Eigensolver):
         # dimensionality, number of state to be converged:
         self.dimensions = {}
         for kpt in wfs.kpt_u:
-            if lumo :
+            if lumo:
                 dim = 1
             else:
                 dim = get_n_occ(kpt)
@@ -232,15 +234,12 @@ class DirectMinFD(Eigensolver):
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
-            self.line_search.step_length_update(psi_copy,
-                                                p_knG,
-                                                ham, wfs, dens, occ,
-                                                phi_0=phi_2i[0],
-                                                der_phi_0=der_phi_2i[0],
-                                                phi_old=phi_2i[1],
-                                                der_phi_old=der_phi_2i[1],
-                                                alpha_max=3.0,
-                                                alpha_old=alpha)
+            self.line_search.step_length_update(
+                psi_copy, p_knG, ham, wfs, dens, occ,
+                phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
+                phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
+                alpha_max=3.0, alpha_old=alpha)
+
         # calculate new wfs:
         # do we actually need to do this?
         # for kpt in wfs.kpt_u:
@@ -278,7 +277,7 @@ class DirectMinFD(Eigensolver):
                                  phi=None, grad_k=None):
         """
         phi = E(x_k + alpha_k*p_k)
-        der_phi = \grad_alpha E(x_k + alpha_k*p_k) \cdot p_k
+        der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
         :return:  phi, der_phi # floats
         """
 
@@ -380,10 +379,11 @@ class DirectMinFD(Eigensolver):
         n_kps = self.n_kps
         for kpt in wfs.kpt_u:
             kpoint = n_kps * kpt.s + kpt.q
-            self.project_search_direction_for_one_k_point_2(wfs,
-                p_knG[kpoint], kpt)
+            self.project_search_direction_for_one_k_point_2(
+                wfs, p_knG[kpoint], kpt)
 
-    def project_search_direction_for_one_k_point_2(self, wfs, p_nG, kpt):
+    def project_search_direction_for_one_k_point_2(self, wfs, p_nG,
+                                                   kpt):
 
         def dot_2(psi_1, psi_2, wfs):
             dot_prod = wfs.gd.integrate(psi_1, psi_2, False)
@@ -452,7 +452,8 @@ class DirectMinFD(Eigensolver):
                 paw_dot_prod = np.array([[0.0]])
 
             for a in P1_ai.keys():
-                paw_dot_prod += np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
+                paw_dot_prod += \
+                    np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
             if len(psi_1.shape) == 4:
                 sum_dot = dot_prod + paw_dot_prod
             else:
@@ -461,7 +462,8 @@ class DirectMinFD(Eigensolver):
         else:
             paw_dot_prod = np.zeros_like(dot_prod)
             for a in P1_ai.keys():
-                paw_dot_prod += np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
+                paw_dot_prod += \
+                    np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
             sum_dot = dot_prod + paw_dot_prod
         sum_dot = np.ascontiguousarray(sum_dot)
         wfs.gd.comm.sum(sum_dot)
@@ -511,7 +513,7 @@ class DirectMinFD(Eigensolver):
                 n_unocc = len(kpt.f_n) - (n_occ + 1)
                 self.odd.lagr_diag_s[k] = \
                     np.append(np.diagonal(lamb).real,
-                              np.ones(shape=(n_unocc)) * np.inf)
+                              np.ones(shape=n_unocc) * np.inf)
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
             evals = np.empty(lamb.shape[0])
             diagonalize(lamb, evals)
@@ -554,8 +556,8 @@ class DirectMinFD(Eigensolver):
             c_axi[a] = c_xi
         # not sure about this:
         ham.xc.add_correction(kpt, psi, Hpsi_nG,
-                                   P1_ai, c_axi, n_x=None,
-                                   calculate_change=False)
+                              P1_ai, c_axi, n_x=None,
+                              calculate_change=False)
         # add projectors to the H|psi_i>
         wfs.pt.add(Hpsi_nG, c_axi, kpt.q)
 
@@ -567,7 +569,7 @@ class DirectMinFD(Eigensolver):
 
         """
         phi = E(x_k + alpha_k*p_k)
-        der_phi = \grad_alpha E(x_k + alpha_k*p_k) \cdot p_k
+        der_phi = grad_alpha E(x_k + alpha_k*p_k) cdot p_k
         :return:  phi, der_phi # floats
         """
 
@@ -575,8 +577,9 @@ class DirectMinFD(Eigensolver):
         #  ..._lumo and skip if kpt.f_n[i] > 1.0e-10:
 
         if phi is None or grad_k is None:
-            x_knG = {k: psit_k[k] +
-                      alpha * search_dir[k] for k in psit_k.keys()}
+            x_knG = \
+                {k: psit_k[k] +
+                    alpha * search_dir[k] for k in psit_k.keys()}
             phi, grad_k = \
                 self.get_energy_and_tangent_gradients_lumo(ham,
                                                            wfs, x_knG)
@@ -585,9 +588,8 @@ class DirectMinFD(Eigensolver):
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             for i, g in enumerate(grad_k[k]):
-                    der_phi += self.dot(wfs,
-                                        g, search_dir[k][i],
-                                        kpt).item().real
+                der_phi += self.dot(
+                    wfs, g, search_dir[k][i], kpt).item().real
         der_phi = wfs.kd.comm.sum(der_phi)
 
         return phi, der_phi, grad_k
@@ -601,11 +603,7 @@ class DirectMinFD(Eigensolver):
             for kpt in wfs.kpt_u:
                 k = n_kps * kpt.s + kpt.q
                 # find lumo
-                n_occ = 0
-                for f in kpt.f_n:
-                    if f > 1.0e-10:
-                        n_occ += 1
-
+                n_occ = get_n_occ(kpt)
                 kpt.psit_nG[n_occ:n_occ+1] = psit_knG[k].copy()
                 wfs.orthonormalize(kpt)
         elif not wfs.orthonormalized:
@@ -626,8 +624,7 @@ class DirectMinFD(Eigensolver):
             P1_ai = wfs.pt.dict(shape=1)
             wfs.pt.integrate(psi, P1_ai, kpt.q)
             Hpsi_nG = wfs.empty(1, q=kpt.q)
-            wfs.apply_pseudo_hamiltonian(kpt, ham,
-                                              psi, Hpsi_nG)
+            wfs.apply_pseudo_hamiltonian(kpt, ham, psi, Hpsi_nG)
             c_axi = {}
             for a, P_xi in P1_ai.items():
                 dH_ii = unpack(ham.dH_asp[a][kpt.s])
@@ -642,35 +639,36 @@ class DirectMinFD(Eigensolver):
             grad[k] = Hpsi_nG.copy()
 
             # calculate energy
-            # if self.odd == 'Zero':
-            #     energy = self.wfs.gd.integrate(psi, Hpsi_nG,
-            #                                    global_integral=True).item().real
-            #     kpt.eps_n[n_occ:n_occ + 1] = energy
-            #     # project gradients:
-            #     s_axi = {}
-            #     for a, P_xi in P1_ai.items():
-            #         dO_ii = self.setups[a].dO_ii
-            #         s_xi = np.dot(P_xi, dO_ii)
-            #         s_axi[a] = s_xi
-            #     self.wfs.pt.add(psi, s_axi, kpt.q)
-            #     grad[k] -= energy * psi
-            # else:
-            lamb = np.zeros(shape=n_occ+1, dtype=self.dtype)
-            pic = kpt.psit_nG[:n_occ + 1].copy()
-            for z, zeta in enumerate(pic):
-                lamb[z] = \
-                    wfs.gd.integrate(zeta, Hpsi_nG,
-                                     global_integral=True).item()
-                wfs.pt.integrate(zeta, P1_ai, kpt.q)
+            if self.odd_parameters['name'] == 'Zero':
+                energy = wfs.gd.integrate(
+                    psi, Hpsi_nG, global_integral=True).item().real
+
+                kpt.eps_n[n_occ:n_occ + 1] = energy
+                # project gradients:
                 s_axi = {}
                 for a, P_xi in P1_ai.items():
                     dO_ii = wfs.setups[a].dO_ii
                     s_xi = np.dot(P_xi, dO_ii)
                     s_axi[a] = s_xi
-                wfs.pt.add(zeta, s_axi, kpt.q)
-                x = lamb[z]
-                grad[k] -= x * zeta
-            energy = lamb[-1]
+                wfs.pt.add(psi, s_axi, kpt.q)
+                grad[k] -= energy * psi
+            else:
+                lamb = np.zeros(shape=n_occ+1, dtype=self.dtype)
+                pic = kpt.psit_nG[:n_occ + 1].copy()
+                for z, zeta in enumerate(pic):
+                    lamb[z] = \
+                        wfs.gd.integrate(zeta, Hpsi_nG,
+                                         global_integral=True).item()
+                    wfs.pt.integrate(zeta, P1_ai, kpt.q)
+                    s_axi = {}
+                    for a, P_xi in P1_ai.items():
+                        dO_ii = wfs.setups[a].dO_ii
+                        s_xi = np.dot(P_xi, dO_ii)
+                        s_axi[a] = s_xi
+                    wfs.pt.add(zeta, s_axi, kpt.q)
+                    x = lamb[z]
+                    grad[k] -= x * zeta
+                energy = lamb[-1]
             # kpt.eps_n[n_occ:n_occ + 1] = energy.real
 
             norm = self.dot(wfs, grad[k], grad[k], kpt).item().real
@@ -722,15 +720,11 @@ class DirectMinFD(Eigensolver):
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
         alpha, phi_alpha, der_phi_alpha, grad_knG = \
-            self.line_search.step_length_update(psi_copy,
-                                                p_knG,
-                                                ham, wfs, dens,
-                                                phi_0=phi_2i[0],
-                                                der_phi_0=der_phi_2i[0],
-                                                phi_old=phi_2i[1],
-                                                der_phi_old=der_phi_2i[1],
-                                                alpha_max=3.0,
-                                                alpha_old=alpha)
+            self.line_search.step_length_update(
+                psi_copy, p_knG, ham, wfs, dens,
+                phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
+                phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
+                alpha_max=3.0, alpha_old=alpha)
         # calculate new wfs:
         for kpt in wfs.kpt_u:
             n_occ = get_n_occ(kpt)
@@ -752,11 +746,11 @@ class DirectMinFD(Eigensolver):
 
     def run_lumo(self, ham, wfs, dens, occ, max_err, log):
 
-
         self.need_init_odd = False
-        self.initialize_dm(wfs, dens, ham,
-                           obj_func=self.evaluate_phi_and_der_phi_lumo,
-                           lumo=True)
+        self.initialize_dm(
+            wfs, dens, ham,
+            obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
+
         max_iter = 3000
         while self.iters < max_iter:
             en, er = self.iterate_lumo(ham, wfs, dens)
@@ -765,13 +759,14 @@ class DirectMinFD(Eigensolver):
             # accuaracy as occupaied states.
             if er < max_err * 10.:
                 break
-        log('\nLUMO converged after {:d} iterations'.format(self.iters))
+        log('\nLUMO converged after'
+            ' {:d} iterations'.format(self.iters))
         self.initialized = False
 
     def run_inner_loop(self, ham, wfs, occ, niter=0):
 
         if self.iloop is None:
-            return 0
+            return niter, False
 
         psi_copy = {}
         for kpt in wfs.kpt_u:
@@ -787,7 +782,7 @@ class DirectMinFD(Eigensolver):
 
         del psi_copy
 
-        return counter
+        return counter, True
 
 
 def log_f(niter, e_total, eig_error, log):

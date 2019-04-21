@@ -226,8 +226,11 @@ class SCFLoop:
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
             if self.nouter % self.inner_update == 0:
-                self.niter = wfs.eigensolver.run_inner_loop(ham, wfs, occ, self.niter)
-                wfs.eigensolver.reset(need_init_odd=False)
+                self.niter, need_reset = \
+                    wfs.eigensolver.run_inner_loop(
+                        ham, wfs, occ, self.niter)
+                if need_reset:
+                    wfs.eigensolver.reset(need_init_odd=False)
 
             ham.npoisson = 0
             self.niter += 1
@@ -246,8 +249,6 @@ class SCFLoop:
                 wfs.eigensolver.get_canonical_representation(
                     ham, wfs, occ, rewrite_psi)
                 break
-
-
 
         if not self.converged:
             log(oops)

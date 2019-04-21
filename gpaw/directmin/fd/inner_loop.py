@@ -9,7 +9,7 @@ import time
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, log, g_tol=1.0e-4):
+    def __init__(self, odd_pot, wfs, log, g_tol=1.0e-5):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins

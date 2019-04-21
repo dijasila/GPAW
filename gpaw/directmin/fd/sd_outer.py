@@ -1,5 +1,4 @@
 import numpy as np
-from ase.parallel import parprint
 import copy
 
 
@@ -41,19 +40,17 @@ class SteepestDescent:
         paw_dot_prod = 0.0
 
         for a in P1_ai.keys():
-            paw_dot_prod += np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())[0][0]
+            paw_dot_prod += \
+                np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())[0][0]
 
         sum_dot = dot_prod + paw_dot_prod
         sum_dot = wfs.gd.comm.sum(sum_dot)
 
         return sum_dot
 
-    def dot_2(self, psi_1, psi_2, kpt, wfs):
+    def dot_2(self, psi_1, psi_2, wfs):
 
-        def S(psit_G):
-            return psit_G
-
-        dot_prod = wfs.gd.integrate(S(psi_1), psi_2, False)
+        dot_prod = wfs.gd.integrate(psi_1, psi_2, False)
         dot_prod = wfs.gd.comm.sum(dot_prod)
 
         return dot_prod
@@ -115,6 +112,7 @@ class SteepestDescent:
             for i, y in enumerate(x[k]):
                 x[k][i] = - const * prec(y, kpt, None) / deg
 
+
 class HZcg(SteepestDescent):
 
     """
@@ -147,7 +145,7 @@ class HZcg(SteepestDescent):
                     - g_k1[self.n_kps * kpt.s + kpt.q].copy()
 
             self.p_k = p
-            #save the step
+            # save the step
             self.g_k = g_k1
             self.iters += 1
             return self.p_k
@@ -219,7 +217,7 @@ class FRcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(wfs, g_k1)
-            #save the step
+            # save the step
             self.g_k = g_k1
             self.iters += 1
             return self.p_k
@@ -265,7 +263,7 @@ class PRcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(wfs, g_k1)
-            #save the step
+            # save the step
             self.g_k = g_k1
             self.iters += 1
             return self.p_k
@@ -309,7 +307,7 @@ class PRpcg(SteepestDescent):
 
         if self.iters == 0:
             self.p_k = self.minus(wfs, g_k1)
-            #save the step
+            # save the step
             self.g_k = g_k1
             self.iters += 1
             return self.p_k
