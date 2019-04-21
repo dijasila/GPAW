@@ -97,6 +97,7 @@ class PzCorrections:
 
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG):
 
+        wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
 
@@ -134,6 +135,8 @@ class PzCorrections:
         e_total_sic = e_total_sic.reshape(e_total_sic.shape[0] //
                                           2, 2)
         self.e_sic_by_orbitals[k] = np.copy(e_total_sic)
+        wfs.timer.stop('SIC e/g grid calculations')
+
         return e_total_sic.sum()
 
     def get_pseudo_pot(self, nt, Q_aL, i, kpoint=None):
@@ -246,6 +249,8 @@ class PzCorrections:
         grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
 
         e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad)
+
+        wfs.timer.start('Unitary gradients')
         l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
                                    grad[k][:n_occ], False)
         l_odd = np.ascontiguousarray(l_odd)
@@ -255,6 +260,7 @@ class PzCorrections:
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
 
         if a_mat is None:
+            wfs.timer.stop('Unitary gradients')
             return l_odd.T, e_sic
         else:
             g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
@@ -263,6 +269,8 @@ class PzCorrections:
 
             for i in range(g_mat.shape[0]):
                 g_mat[i][i] *= 0.5
+
+            wfs.timer.stop('Unitary gradients')
 
             if a_mat.dtype == float:
                 return 2.0 * g_mat.real, e_sic

@@ -44,7 +44,10 @@ class InnerLoop:
             if n_occ == 0:
                 g_k[k] = np.zeros_like(a_k[k])
                 continue
+            wfs.timer.start('Unitary matrix')
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
+            wfs.timer.stop('Unitary matrix')
+
             kpt.psit_nG[:n_occ] = \
                 np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
                              axes=1)
@@ -53,9 +56,12 @@ class InnerLoop:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             del u_mat
+            wfs.timer.start('Energy and gradients')
             g_k[k], e_sic = \
                 self.odd_pot.get_energy_and_gradients_inner_loop(
                     wfs, kpt, a_k[k], evals, evecs)
+            wfs.timer.stop('Energy and gradients')
+
             e_total += e_sic
         e_total = wfs.kd.comm.sum(e_total)
 
