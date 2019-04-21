@@ -9,12 +9,11 @@ import time
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, log, g_tol=1.0e-5):
+    def __init__(self, odd_pot, wfs, g_tol=1.0e-5):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.g_tol = g_tol / Hartree
-        self.log = log
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
         self.method = 'LBFGS'
@@ -117,7 +116,7 @@ class InnerLoop:
 
         return p_k
 
-    def run(self, e_ks, psit_knG, wfs, outer_counter=0):
+    def run(self, e_ks, psit_knG, wfs, log, outer_counter=0):
         self.run_count += 1
 
         counter = 0
@@ -161,7 +160,7 @@ class InnerLoop:
         der_phi_old_2 = None
 
         outer_counter += 1
-        log_f(self.log, counter, g_max, e_ks, e_total, outer_counter)
+        log_f(log, counter, g_max, e_ks, e_total, outer_counter)
 
         alpha = 1.0
         # not_converged = True
@@ -221,13 +220,13 @@ class InnerLoop:
                 if outer_counter is not None:
                     outer_counter += 1
 
-                log_f(self.log, counter, g_max, e_ks, phi_0, outer_counter)
+                log_f(log, counter, g_max, e_ks, phi_0, outer_counter)
                 not_converged = g_max > self.g_tol and \
                                 counter < self.n_counter
             else:
                 break
 
-        self.log('INNER LOOP FINISHED.\n')
+        log('INNER LOOP FINISHED.\n')
         del self.psit_knG
         if outer_counter is None:
 
@@ -235,15 +234,15 @@ class InnerLoop:
         else:
             return outer_counter
 
-    def get_numerical_gradients(self, A_s, wfs, eps=1.0e-5,
+    def get_numerical_gradients(self, A_s, wfs, log, eps=1.0e-5,
                                 dtype=complex):
         h = [eps, -eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
         Gr_n_y = {}
         E_0, G = self.get_energy_and_gradients(A_s)
-        self.log("Estimating gradients using finite differences..")
-        self.log(flush=True)
+        log("Estimating gradients using finite differences..")
+        log(flush=True)
         if dtype == complex:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
@@ -253,8 +252,8 @@ class InnerLoop:
                                     dtype=self.dtype)
                     for i in range(dim):
                         for j in range(dim):
-                            self.log(k, z, i, j)
-                            self.log(flush=True)
+                            log(k, z, i, j)
+                            log(flush=True)
                             A = A_s[k][i][j]
                             for l in range(2):
                                 if z == 1:
@@ -300,8 +299,8 @@ class InnerLoop:
                 grad = np.zeros(shape=(dim * dim), dtype=self.dtype)
                 for i in range(dim):
                     for j in range(dim):
-                        self.log(k, i, j)
-                        self.log(flush=True)
+                        log(k, i, j)
+                        log(flush=True)
                         A = A_s[k][i][j]
                         for l in range(2):
                             if i == j:

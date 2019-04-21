@@ -173,7 +173,7 @@ class DirectMinFD(Eigensolver):
                 self.inner_loop is True
 
             if iloop:
-                self.iloop = InnerLoop(self.odd, wfs, log)
+                self.iloop = InnerLoop(self.odd, wfs)
             else:
                 self.iloop = None
 
@@ -763,10 +763,12 @@ class DirectMinFD(Eigensolver):
             ' {:d} iterations'.format(self.iters))
         self.initialized = False
 
-    def run_inner_loop(self, ham, wfs, occ, niter=0):
+    def run_inner_loop(self, ham, wfs, occ, log, niter=0):
 
         if self.iloop is None:
             return niter, False
+
+        wfs.timer.start('Inner loop')
 
         psi_copy = {}
         for kpt in wfs.kpt_u:
@@ -778,9 +780,10 @@ class DirectMinFD(Eigensolver):
                                  e_sic=self.e_sic)
 
         counter = self.iloop.run(
-            e_total - self.e_sic, psi_copy, wfs, niter)
-
+            e_total - self.e_sic, psi_copy, wfs, log, niter)
         del psi_copy
+
+        wfs.timer.stop('Inner loop')
 
         return counter, True
 

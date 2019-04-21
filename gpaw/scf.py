@@ -228,7 +228,7 @@ class SCFLoop:
             if self.nouter % self.inner_update == 0:
                 self.niter, need_reset = \
                     wfs.eigensolver.run_inner_loop(
-                        ham, wfs, occ, self.niter)
+                        ham, wfs, occ, log, self.niter)
                 if need_reset:
                     wfs.eigensolver.reset(need_init_odd=False)
 
