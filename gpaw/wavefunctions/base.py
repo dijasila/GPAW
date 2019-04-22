@@ -67,7 +67,9 @@ class WaveFunctions:
         log(eigenvalue_string(self))
         if hasattr(self.eigensolver, 'odd'):
             odd = getattr(self.eigensolver.odd, "name", None)
-            if 'SIC' in odd:
+            if odd is None:
+                pass
+            elif 'SIC' in odd:
                 self.summury_odd(log)
 
     def set_setups(self, setups):
