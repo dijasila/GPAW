@@ -701,13 +701,14 @@ class WaveFunctions:
                     log('band: %3d ' %
                         (i), end='')
                     log('%11.6f%11.6f%11.6f %8.3f%7.3f' %
-                        (-Hartree * u/f[0],
-                         -Hartree * xc/f[1],
-                         -Hartree * (u/f[0] + xc/f[1]), f[0], f[1]
-                         ), end='')
+                        (-Hartree * u / (f[0] * f_sn[s][i]),
+                         -Hartree * xc / (f[1] * f_sn[s][i]),
+                         -Hartree * (u / (f[0] * f_sn[s][i]) +
+                                     xc/(f[1] * f_sn[s][i])),
+                         f[0], f[1]), end='')
                     log(flush=True)
-                    u_s += u/f[0]
-                    xc_s += xc/f[1]
+                    u_s += u / (f[0] * f_sn[s][i])
+                    xc_s += xc / (f[1] * f_sn[s][i])
                 log('--------------------------------'
                     '-------------------------')
                 log('Total     ', end='')

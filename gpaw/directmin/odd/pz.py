@@ -95,7 +95,8 @@ class PzCorrections:
 
         return nt_G, Q_aL, D_ap
 
-    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG):
+    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
+                                     dens=None):
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
@@ -132,8 +133,8 @@ class PzCorrections:
             # add projectors to
             wfs.pt.add(grad_knG[k][i], c_axi, kpt.q)
 
-        e_total_sic = e_total_sic.reshape(e_total_sic.shape[0] //
-                                          2, 2)
+        e_total_sic = e_total_sic.reshape(
+            e_total_sic.shape[0] // 2, 2)
         self.e_sic_by_orbitals[k] = np.copy(e_total_sic)
         wfs.timer.stop('SIC e/g grid calculations')
 
@@ -238,7 +239,7 @@ class PzCorrections:
         return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
 
     def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
-                                            evals, evec):
+                                            evals, evec, dens):
 
         n_occ = 0
         for f in kpt.f_n:
@@ -248,7 +249,7 @@ class PzCorrections:
         k = self.n_kps * kpt.s + kpt.q
         grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
 
-        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad)
+        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad, dens)
 
         wfs.timer.start('Unitary gradients')
         l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],

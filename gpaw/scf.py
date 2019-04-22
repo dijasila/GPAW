@@ -228,7 +228,7 @@ class SCFLoop:
             if self.nouter % self.inner_update == 0:
                 self.niter, need_reset = \
                     wfs.eigensolver.run_inner_loop(
-                        ham, wfs, occ, log, self.niter)
+                        ham, wfs, occ, dens, log, self.niter)
                 if need_reset:
                     wfs.eigensolver.reset(need_init_odd=False)
 
@@ -247,7 +247,7 @@ class SCFLoop:
                 if wfs.eigensolver.odd_parameters['name'] == 'PZ_SIC':
                     rewrite_psi = False
                 wfs.eigensolver.get_canonical_representation(
-                    ham, wfs, occ, rewrite_psi)
+                    ham, wfs, occ, dens, rewrite_psi)
                 break
 
         if not self.converged:

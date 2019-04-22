@@ -28,7 +28,7 @@ class InnerLoop:
             k = self.n_kps * kpt.s + kpt.q
             self.n_occ[k] = get_n_occ(kpt)
 
-    def get_energy_and_gradients(self, wfs, a_k):
+    def get_energy_and_gradients(self, a_k, wfs, dens):
         """
         Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
         Returns E[A] and G[A] at psi = exp(A).T kpt.psi
@@ -59,7 +59,7 @@ class InnerLoop:
             wfs.timer.start('Energy and gradients')
             g_k[k], e_sic = \
                 self.odd_pot.get_energy_and_gradients_inner_loop(
-                    wfs, kpt, a_k[k], evals, evecs)
+                    wfs, kpt, a_k[k], evals, evecs, dens)
             wfs.timer.stop('Energy and gradients')
 
             e_total += e_sic
@@ -69,7 +69,7 @@ class InnerLoop:
 
         return e_total, g_k
 
-    def evaluate_phi_and_der_phi(self, a_k, p_k, alpha, wfs,
+    def evaluate_phi_and_der_phi(self, a_k, p_k, alpha, wfs, dens,
                                  phi=None, g_k=None):
         """
         phi = f(x_k + alpha_k*p_k)
@@ -79,7 +79,7 @@ class InnerLoop:
         if phi is None or g_k is None:
             x_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
             phi, g_k = \
-                self.get_energy_and_gradients(wfs, x_k)
+                self.get_energy_and_gradients(x_k, wfs, dens)
             del x_k
         else:
             pass
@@ -122,7 +122,7 @@ class InnerLoop:
 
         return p_k
 
-    def run(self, e_ks, psit_knG, wfs, log, outer_counter=0):
+    def run(self, e_ks, psit_knG, wfs, dens, log, outer_counter=0):
         self.run_count += 1
 
         counter = 0
@@ -148,7 +148,7 @@ class InnerLoop:
             max_iter=self.max_iter_line_search)
 
         # get initial energy and gradients
-        e_total, g_k = self.get_energy_and_gradients(wfs, a_k)
+        e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
 
         # get maximum of gradients
         max_norm = []
@@ -181,7 +181,7 @@ class InnerLoop:
             # calculate derivative along the search direction
             phi_0, der_phi_0, g_k = \
                 self.evaluate_phi_and_der_phi(a_k, p_k,
-                                              0.0, wfs,
+                                              0.0, wfs, dens,
                                               phi=phi_0, g_k=g_k)
             if counter > 1:
                 phi_old = phi_0
@@ -191,7 +191,8 @@ class InnerLoop:
             # also get energy and gradients for optimal step
             alpha, phi_0, der_phi_0, g_k = \
                 self.ls.step_length_update(
-                    a_k, p_k, wfs, phi_0=phi_0, der_phi_0=der_phi_0,
+                    a_k, p_k, wfs, dens,
+                    phi_0=phi_0, der_phi_0=der_phi_0,
                     phi_old=phi_old_2, der_phi_old=der_phi_old_2,
                     alpha_max=3.0, alpha_old=alpha)
 
@@ -240,13 +241,13 @@ class InnerLoop:
         else:
             return outer_counter
 
-    def get_numerical_gradients(self, A_s, wfs, log, eps=1.0e-5,
+    def get_numerical_gradients(self, A_s, wfs, dens, log, eps=1.0e-5,
                                 dtype=complex):
         h = [eps, -eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
         Gr_n_y = {}
-        E_0, G = self.get_energy_and_gradients(A_s)
+        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens)
         log("Estimating gradients using finite differences..")
         log(flush=True)
         if dtype == complex:
@@ -279,8 +280,9 @@ class InnerLoop:
                                         A_s[k][j][i] = -np.conjugate(
                                             A + h[l])
 
-                                E = self.get_energy_and_gradients(A_s)[
-                                    0]
+                                E =\
+                                    self.get_energy_and_gradients(
+                                        A_s, wfs, dens)[0]
                                 grad[i * dim + j] += E * coef[l]
                             grad[i * dim + j] *= 1.0 / (2.0 * eps)
                             if i == j:
@@ -314,7 +316,8 @@ class InnerLoop:
                             else:
                                 A_s[k][i][j] = A + h[l]
                                 A_s[k][j][i] = -(A + h[l])
-                            E = self.get_energy_and_gradients(A_s)[0]
+                            E = self.get_energy_and_gradients(
+                                A_s, wfs, dens)[0]
                             grad[i * dim + j] += E * coef[l]
                         grad[i * dim + j] *= 1.0 / (2.0 * eps)
                         if i == j:

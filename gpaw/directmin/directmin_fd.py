@@ -47,7 +47,7 @@ class DirectMinFD(Eigensolver):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
 
-        if self.odd_parameters['name'] == 'PZ_SIC':
+        if 'SIC' in self.odd_parameters['name']:
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'W'
 
@@ -91,11 +91,18 @@ class DirectMinFD(Eigensolver):
                        'search: {}\n'.format(lss[self.lsa['name']])
         repr_string += '       ' \
                        'Preconditioning: {}\n'.format(self.use_prec)
+
+        repr_string += '       '\
+                       'Orbital-density self-interaction ' \
+                       'corrections: {}\n'.format(
+            self.odd_parameters['name'])
+
         repr_string += '       ' \
                        'WARNING: do not use it for metals as ' \
                        'occupation numbers are\n' \
                        '                ' \
                        'not found variationally\n'
+
 
         return repr_string
 
@@ -178,7 +185,7 @@ class DirectMinFD(Eigensolver):
             self.e_sic = 0.0
 
             iloop = (self.inner_loop is None and
-                     self.odd_parameters['name'] == 'PZ_SIC') or \
+                     'SIC' in self.odd_parameters['name']) or \
                 self.inner_loop is True
 
             if iloop:
@@ -328,12 +335,12 @@ class DirectMinFD(Eigensolver):
         energy = self.update_ks_energy(ham, wfs, dens, occ)
         grad = self.get_gradients_2(ham, wfs)
 
-        if self.odd_parameters['name'] == 'PZ_SIC':
+        if 'SIC' in self.odd_parameters['name']:
             self.e_sic = 0.0
             for kpt in wfs.kpt_u:
                 self.e_sic +=\
                     self.odd.get_energy_and_gradients_kpt(
-                        wfs, kpt, grad)
+                        wfs, kpt, grad, dens)
             self.e_sic = wfs.kd.comm.sum(self.e_sic)
             energy += self.e_sic
 
@@ -498,14 +505,14 @@ class DirectMinFD(Eigensolver):
 
         return error.real
 
-    def get_canonical_representation(self, ham, wfs, occ,
+    def get_canonical_representation(self, ham, wfs, occ, dens,
                                      rewrite_psi=True):
 
         grad_knG = self.get_gradients_2(ham, wfs)
-        if self.odd_parameters['name'] == 'PZ_SIC':
+        if 'SIC' in self.odd_parameters['name']:
             for kpt in wfs.kpt_u:
                 self.odd.get_energy_and_gradients_kpt(
-                    wfs, kpt, grad_knG)
+                    wfs, kpt, grad_knG, dens)
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)
@@ -519,7 +526,7 @@ class DirectMinFD(Eigensolver):
             lamb = (lamb + lamb.T.conj()) / 2.0
             lamb = np.ascontiguousarray(lamb)
             wfs.gd.comm.sum(lamb)
-            if self.odd_parameters['name'] == 'PZ_SIC':
+            if 'SIC' in self.odd_parameters['name']:
                 n_unocc = len(kpt.f_n) - (n_occ + 1)
                 self.odd.lagr_diag_s[k] = \
                     np.append(np.diagonal(lamb).real,
@@ -773,7 +780,7 @@ class DirectMinFD(Eigensolver):
             ' {:d} iterations'.format(self.iters))
         self.initialized = False
 
-    def run_inner_loop(self, ham, wfs, occ, log, niter=0):
+    def run_inner_loop(self, ham, wfs, occ, dens, log, niter=0):
 
         if self.iloop is None:
             return niter, False
@@ -790,7 +797,7 @@ class DirectMinFD(Eigensolver):
                                  e_sic=self.e_sic)
 
         counter = self.iloop.run(
-            e_total - self.e_sic, psi_copy, wfs, log, niter)
+            e_total - self.e_sic, psi_copy, wfs, dens, log, niter)
         del psi_copy
 
         wfs.timer.stop('Inner loop')
