@@ -67,7 +67,7 @@ class WaveFunctions:
         log(eigenvalue_string(self))
         if hasattr(self.eigensolver, 'odd'):
             odd = getattr(self.eigensolver.odd, "name", None)
-            if odd == 'PZ_SIC':
+            if 'SIC' in odd:
                 self.summury_odd(log)
 
     def set_setups(self, setups):
@@ -525,55 +525,6 @@ class WaveFunctions:
     def summury_odd(self, log):
 
         pot = self.eigensolver.odd
-        sic_n = pot.e_sic_by_orbitals
-
-        log('Orbital-density corrections by Perdew-Zunger SIC scaled'
-            ' by {} and {}:\n'.format(pot.beta_c, pot.beta_x))
-
-        if self.nspins == 2 and self.kd.comm.size > 1:
-            if self.kd.comm.rank == 0:
-                size = np.array([0])
-                self.kd.comm.receive(size, 1)
-                sic_n2 = np.zeros(shape=(int(size[0]), 2),
-                                  dtype=float)
-                self.kd.comm.receive(sic_n2, 1)
-                sic_n[1] = sic_n2
-            else:
-                size = np.array([sic_n[1].shape[0]])
-                self.kd.comm.send(size, 0)
-                self.kd.comm.send(sic_n[1], 0)
-
-        if self.kd.comm.rank == 0:
-            for s in range(self.nspins):
-                log('Spin: %3d ' % (s))
-                header = """\
-            Hartree    XC        Hartree + XC
-            energy:    energy:   energy:    """
-                log(header)
-                i = 0
-                u_s = 0.0
-                xc_s = 0.0
-                for u, xc in sic_n[s]:
-                    log('band: %3d ' %
-                        (i), end='')
-                    i += 1
-                    log('%11.6f%11.6f%11.6f' %
-                        (-Hartree * u,
-                         -Hartree * xc,
-                         -Hartree * (u + xc)
-                         ), end='')
-                    log(flush=True)
-                    u_s += u
-                    xc_s += xc
-                log('---------------------------------------------')
-                log('Total     ', end='')
-                log('%11.6f%11.6f%11.6f' %
-                    (-Hartree * u_s,
-                     -Hartree * xc_s,
-                     -Hartree * (u_s + xc_s)
-                     ), end='')
-                log("\n")
-                log(flush=True)
 
         # evals = {}
         f_sn = {}
@@ -697,6 +648,77 @@ class WaveFunctions:
                 #          Hartree * evals[1][n]))
         log("\n")
         log(flush=True)
+
+        sic_n = pot.e_sic_by_orbitals
+        if pot.name == 'PZ_SIC':
+            log('Perdew-Zunger SIC')
+        elif pot.name == 'SPZ_SIC':
+            log('Self-Interaction Corrections:\n')
+            sf = pot.scalingf
+        else:
+            raise NotImplementedError
+
+        if self.nspins == 2 and self.kd.comm.size > 1:
+            if self.kd.comm.rank == 0:
+                size = np.array([0])
+                self.kd.comm.receive(size, 1)
+                sic_n2 = np.zeros(shape=(int(size[0]), 2),
+                                  dtype=float)
+                self.kd.comm.receive(sic_n2, 1)
+                sic_n[1] = sic_n2
+
+                if pot.name == 'SPZ_SIC':
+                    sf_2 = np.zeros(shape=(int(size[0]), 1),
+                                    dtype=float)
+                    self.kd.comm.receive(sf_2, 1)
+                    sf[1] = sf_2
+            else:
+                size = np.array([sic_n[1].shape[0]])
+                self.kd.comm.send(size, 0)
+                self.kd.comm.send(sic_n[1], 0)
+
+                if pot.name == 'SPZ_SIC':
+                    self.kd.comm.send(sf[1], 0)
+
+        if self.kd.comm.rank == 0:
+            for s in range(self.nspins):
+                log('Spin: %3d ' % (s))
+                header = """\
+            Self-Har.  Self-XC   Hartree + XC  Scaling
+            energy:    energy:   energy:       Factors:"""
+                log(header)
+                u_s = 0.0
+                xc_s = 0.0
+                for i in range(len(sic_n[s])):
+
+                    u = sic_n[s][i][0]
+                    xc = sic_n[s][i][1]
+                    if pot.name == 'SPZ_SIC':
+                        f = (sf[s][i], sf[s][i])
+                    else:
+                        f = (pot.beta_c, pot.beta_x)
+
+                    log('band: %3d ' %
+                        (i), end='')
+                    log('%11.6f%11.6f%11.6f %8.3f%7.3f' %
+                        (-Hartree * u/f[0],
+                         -Hartree * xc/f[1],
+                         -Hartree * (u/f[0] + xc/f[1]), f[0], f[1]
+                         ), end='')
+                    log(flush=True)
+                    u_s += u/f[0]
+                    xc_s += xc/f[1]
+                log('--------------------------------'
+                    '-------------------------')
+                log('Total     ', end='')
+                log('%11.6f%11.6f%11.6f' %
+                    (-Hartree * u_s,
+                     -Hartree * xc_s,
+                     -Hartree * (u_s + xc_s)
+                     ), end='')
+                log("\n")
+                log(flush=True)
+
 
 
 def eigenvalue_string(wfs, comment=' '):
