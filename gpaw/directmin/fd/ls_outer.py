@@ -19,7 +19,7 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
         return False
 
 
-def descent(phi_0, phi_j, eps=1.0e-2):
+def descent(phi_0, phi_j, eps=1.0e-4):
     if phi_j <= phi_0 + eps * abs(phi_0):
         return True
     else:
@@ -555,3 +555,59 @@ class TwoStepParabolaCubicAwc:
                                                   a_star, *args)
 
                 return a_star, phi_star, der_phi_star, g_star
+
+
+class TwoStepParabolaCubicDescent:
+
+    """
+    phi = f (x_k + a_k*p_k)
+    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
+    g = \grad f(x_k + a_k p_k)
+    """
+
+    def __init__(self, evaluate_phi_and_der_phi):
+        """
+        :param evaluate_phi_and_der_phi: function which calculate
+        phi, der_phi and g for given A_s, P_s, n_dim and alpha
+        A_s[s] is skew-hermitian matrix, P_s[s] is matrix direction
+        """
+        self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
+        # self.log = log
+
+    def step_length_update(self, A_s, P_s,
+                           *args, **kwargs):
+
+        phi_0 = kwargs['phi_0']
+        der_phi_0 = kwargs['der_phi_0']
+
+        phi_i, der_phi_i, g_i = \
+            self.evaluate_phi_and_der_phi(A_s, P_s,
+                                          1.0,
+                                          *args)
+        if descent(phi_0, phi_i):
+            return 1.0, phi_i, der_phi_i, g_i
+        else:
+            a_star = parabola_interpolation(0.0, 1.0,
+                                            phi_0, phi_i,
+                                            der_phi_0)
+            if a_star < 0.0:
+                a_star = 0.3
+            phi_star, der_phi_star, g_star = \
+                self.evaluate_phi_and_der_phi(A_s, P_s,
+                                              a_star, *args)
+
+            if descent(phi_0, phi_star):
+                return a_star, phi_star, der_phi_star, g_star
+            else:
+                a_star = cubic_interpolation_2(0.0, a_star, 1.0,
+                                               phi_0, der_phi_0,
+                                               phi_star, phi_i)
+
+                if a_star < 0.00:
+                    a_star = 0.001
+                phi_star, der_phi_star, g_star = \
+                    self.evaluate_phi_and_der_phi(A_s, P_s,
+                                                  a_star, *args)
+
+                return a_star, phi_star, der_phi_star, g_star
+

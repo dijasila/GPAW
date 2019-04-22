@@ -4,7 +4,8 @@ from gpaw.directmin.fd.sd_outer import SteepestDescent, FRcg, HZcg, \
     PRcg, PRpcg, QuickMin, LBFGS
 from gpaw.directmin.fd.ls_outer import UnitStepLength, \
     StrongWolfeConditions, Parabola, TwoStepParabola, \
-    TwoStepParabolaAwc, TwoStepParabolaCubicAwc
+    TwoStepParabolaAwc, TwoStepParabolaCubicAwc, \
+    TwoStepParabolaCubicDescent
 
 
 def sd_outer(method, wfs, dim):
@@ -51,6 +52,8 @@ def ls_outer(method, objective_function):
             return TwoStepParabolaAwc(objective_function)
         elif name == 'TSPCAWC':
             return TwoStepParabolaCubicAwc(objective_function)
+        elif name == 'TSPCD':
+            return TwoStepParabolaCubicDescent(objective_function)
         elif name == 'SwcAwc':
             return StrongWolfeConditions(objective_function,
                                          **kwargs

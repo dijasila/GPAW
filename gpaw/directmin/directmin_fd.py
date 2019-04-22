@@ -76,6 +76,10 @@ class DirectMinFD(Eigensolver):
                           'line search with\n'
                           '                   '
                          ' approximate Wolfe conditions',
+               'TSPCD': 'Parabolic and Cubic two-step '
+                          'line search with\n'
+                          '                   '
+                          'descent condition',
                'SwcAwc': 'Inexact line search based '
                          'on cubic interpolation,\n'
                          '                    strong'
