@@ -522,8 +522,8 @@ class DirectMinFD(Eigensolver):
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)
-            if n_occ == 0:
-                continue
+            # if n_occ == 0:
+            #     continue
             grad_knG[k][n_occ:n_occ + 1] = \
                 self.get_gradients_lumo(ham, wfs, kpt)
             lamb = wfs.gd.integrate(kpt.psit_nG[:n_occ + 1],
@@ -538,9 +538,9 @@ class DirectMinFD(Eigensolver):
                     np.diagonal(lamb).real,
                     np.ones(shape=n_unocc) *
                     np.absolute(lamb[n_occ, n_occ] * 5.))
-                    # np.ones(shape=n_unocc) * np.inf)
-                    # inf is not a good
-                     # for example for ase get gap
+                # np.ones(shape=n_unocc) * np.inf)
+                # inf is not a good
+                # for example for ase get gap
 
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
             evals = np.empty(lamb.shape[0])
@@ -864,6 +864,7 @@ class DirectMinFD(Eigensolver):
         self.need_init_orbs = False
         wfs.timer.stop('Initial Localization')
         log("Done", flush=True)
+
 
 def log_f(niter, e_total, eig_error, log):
 

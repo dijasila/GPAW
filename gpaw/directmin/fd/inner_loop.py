@@ -154,6 +154,8 @@ class InnerLoop:
         max_norm = []
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
+            if self.n_occ[k] == 0:
+                continue
             max_norm.append(np.max(np.absolute(g_k[k])))
         max_norm = np.max(np.asarray(max_norm))
         g_max = wfs.world.max(max_norm)
@@ -206,6 +208,8 @@ class InnerLoop:
                 der_phi_0 = alpha_phi_der_phi[2]
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
+                    if self.n_occ[k] == 0:
+                        continue
                     wfs.gd.comm.broadcast(g_k[k], 0)
 
             phi_old_2 = phi_old
@@ -219,6 +223,8 @@ class InnerLoop:
                 max_norm = []
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
+                    if self.n_occ[k] == 0:
+                        continue
                     max_norm.append(np.max(np.absolute(g_k[k])))
                 max_norm = np.max(np.asarray(max_norm))
                 g_max = wfs.world.max(max_norm)
