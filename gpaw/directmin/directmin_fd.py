@@ -133,8 +133,8 @@ class DirectMinFD(Eigensolver):
                 self.blocksize = 10
 
         Eigensolver.initialize(self, wfs)
-        # for kpt in wfs.kpt_u:
-        #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
+        for kpt in wfs.kpt_u:
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
         occ.calculate(wfs)  # fill occ numbers
 
     def initialize_dm(self, wfs, dens, ham, log=None,
