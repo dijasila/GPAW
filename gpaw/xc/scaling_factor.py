@@ -145,7 +145,7 @@ class SF(XCFunctional):
 
         from gpaw.xc.noncollinear import NonCollinearLDAKernel
         collinear = not isinstance(self.kernel, NonCollinearLDAKernel)
-        assert collinear == True
+        assert collinear is True
         rcalc = SFRadialCalculator(self.kernel)
         expansion = SFRadialExpansion(rcalc, collinear)
         return calculate_paw_correction(expansion,
