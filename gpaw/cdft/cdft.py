@@ -773,8 +773,7 @@ class CDFTPotential(ExternalPotential):
 
         diff = []
 
-        print('constraints', constraints)
-        print('w', w.shape)
+
         if self.n_charge_regions != 0:
             # pseudo density
             nt_g = dens.nt_sg[0] + dens.nt_sg[1]
@@ -782,22 +781,20 @@ class CDFTPotential(ExternalPotential):
                            nt_g, global_integral=True) \
                          - constraints[0:self.n_charge_regions]
             diff.append(charge_diff)
-        print('diff', diff)
+
         #constrained spins
         if len(constraints) - self.n_charge_regions != 0:
             Delta_nt_g =  dens.nt_sg[0] - dens.nt_sg[1] # pseudo spin difference density
             spin_diff = self.gd.integrate(w[self.n_charge_regions:],
                     Delta_nt_g, global_integral=True) - constraints[self.n_charge_regions:]
             diff.append(spin_diff)
-        print('diff', diff)
+
         diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
         e = np.multiply(Vi, diff[:]).sum()
         e /= size
-        print('Vi',Vi)
-        print('diff', diff)
-        print('cdft energy',e)
+
         return e
 
 class WeightFunc:
