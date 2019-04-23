@@ -122,7 +122,7 @@ class DirectMinFD(Eigensolver):
                 'odd_parameters': self.odd_parameters
                 }
 
-    def initialize_super(self, wfs, occ):
+    def initialize_super(self, wfs):
 
         if self.blocksize is None:
             if wfs.mode == 'pw':
@@ -132,10 +132,7 @@ class DirectMinFD(Eigensolver):
             else:
                 self.blocksize = 10
 
-        Eigensolver.initialize(self, wfs)
-        for kpt in wfs.kpt_u:
-            wfs.gd.comm.broadcast(kpt.eps_n, 0)
-        occ.calculate(wfs)  # fill occ numbers
+        super(DirectMinFD, self).initialize(wfs)
 
     def initialize_dm(self, wfs, dens, ham, log=None,
                       obj_func=None, lumo=False):
@@ -213,9 +210,9 @@ class DirectMinFD(Eigensolver):
         if not self.initialized:
             if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
-            self.initialize_super(wfs, occ)
+            self.initialize_super(wfs)
+            self.init_wfs(wfs, ham, occ, log)
             self.initialize_dm(wfs, dens, ham, log)
-            self.init_wfs(wfs, log)
 
         n_kps = self.n_kps
         psi_copy = {}
@@ -819,7 +816,7 @@ class DirectMinFD(Eigensolver):
 
         return counter, True
 
-    def init_wfs(self, wfs, log):
+    def init_wfs(self, wfs, ham, occ, log):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
@@ -828,6 +825,15 @@ class DirectMinFD(Eigensolver):
 
         log("Initial Localization: ...", flush=True)
         wfs.timer.start('Initial Localization')
+
+        # we need to fill also eps_n
+        for kpt in wfs.kpt_u:
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            super(DirectMinFD, self).subspace_diagonalize(
+                ham, wfs, kpt, True)
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
+        occ.calculate(wfs)  # fill occ numbers
+
 
         for kpt in wfs.kpt_u:
             if sum(kpt.f_n) < 1.0e-3:
@@ -846,7 +852,7 @@ class DirectMinFD(Eigensolver):
                     wfs=wfs, spin=kpt.s)
             else:
                 raise ValueError('Check initial orbitals.')
-            lf_obj.localize(tolerance=1.0e-5)
+            lf_obj.localize(tolerance=1.0e-8)
             if self.initial_orbitals == 'PM':
                 U = np.ascontiguousarray(
                     lf_obj.W_k[kpt.q].T)

@@ -117,7 +117,7 @@ class Eigensolver:
         wfs.pt.add(R.array, {a: C_ni for a, C_ni in C.items()}, kpt.q)
 
     @timer('Subspace diag')
-    def subspace_diagonalize(self, ham, wfs, kpt):
+    def subspace_diagonalize(self, ham, wfs, kpt, rotate_psi=True):
         """Diagonalize the Hamiltonian in the subspace of kpt.psit_nG
 
         *Htpsit_nG* is a work array of same size as psit_nG which contains
@@ -173,6 +173,8 @@ class Eigensolver:
             kpt.eps_n = eps_n[wfs.bd.get_slice()]
 
         with self.timer('rotate_psi'):
+            if not rotate_psi:
+                return
             if self.keep_htpsit:
                 Htpsit = psit.new(buf=self.Htpsit_nG)
                 mmm(1.0, H, 'N', tmp, 'N', 0.0, Htpsit)
