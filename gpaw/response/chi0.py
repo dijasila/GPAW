@@ -607,6 +607,8 @@ class Chi0:
             kind = 'response function'
             extraargs['eta'] = self.eta
             extraargs['timeordered'] = self.timeordered
+            extraargs['disable_spin_cons_time_reversal'] \
+                = self.disable_spin_cons_time_reversal
         
         # Integrate response function
         print('Integrating response function.', file=self.fd)
@@ -628,7 +630,7 @@ class Chi0:
                                  out_wxx=A_wxx,  # Output array
                                  **extraargs)
         else:  # Maybe more parameters could be fixed in integrator?
-            if self.disable_spin_conserving_time_reversal:
+            if self.disable_spin_cons_time_reversal:
                 bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
                 mat_kwargs.update(bandsum)
                 eig_kwargs.update(bandsum)
