@@ -533,8 +533,14 @@ class DirectMinFD(Eigensolver):
             if 'SIC' in self.odd_parameters['name']:
                 n_unocc = len(kpt.f_n) - (n_occ + 1)
                 self.odd.lagr_diag_s[k] = \
-                    np.append(np.diagonal(lamb).real,
-                              np.ones(shape=n_unocc) * np.inf)
+                    np.append(
+                        np.diagonal(lamb).real,
+                        np.ones(shape=n_unocc) *
+                        np.absolute(lamb[n_occ, n_occ] * 5.))
+                        # np.ones(shape=n_unocc) * np.inf)
+                        # inf is not a good
+                        # for example for ase get gap
+
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
             evals = np.empty(lamb.shape[0])
             diagonalize(lamb, evals)
@@ -542,7 +548,11 @@ class DirectMinFD(Eigensolver):
             wfs.gd.comm.broadcast(lamb, 0)
             kpt.eps_n[:n_occ + 1] = evals
             kpt.eps_n[:n_occ] = kpt.eps_n[:n_occ] / kpt.f_n[:n_occ]
-            kpt.eps_n[n_occ + 1:] = +np.inf
+            # kpt.eps_n[n_occ + 1:] = +np.inf
+            # inf is not a good for example for ase get gap
+            kpt.eps_n[n_occ + 1:] *= 0.0
+            kpt.eps_n[n_occ + 1:] +=\
+                np.absolute(5.0 * kpt.eps_n[n_occ])
             if rewrite_psi:
                 # TODO:
                 # Do we need sort wfs according to eps_n
