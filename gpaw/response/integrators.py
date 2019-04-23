@@ -125,7 +125,7 @@ class PointIntegrator(Integrator):
 
     def response_function_integration(self, domain=None, integrand=None,
                                       x=None, kwargs=None, out_wxx=None,
-                                      disable_spin_cons_time_reversal=False,
+                                      disable_spincons_time_reversal=False,
                                       timeordered=False, hermitian=False,
                                       intraband=False, hilbert=False,
                                       wings=False, **extraargs):
@@ -210,7 +210,7 @@ class PointIntegrator(Integrator):
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, wd, chi0_wGG,
-               disable_spin_cons_time_reversal=False, timeordered=False,
+               disable_spincons_time_reversal=False, timeordered=False,
                eta=None, spin=1, intrab=False):
         """Update chi."""
         omega_w = wd.get_data()
@@ -222,7 +222,7 @@ class PointIntegrator(Integrator):
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
 
-        if disable_spin_cons_time_reversal:
+        if disable_spincons_time_reversal:
             S1, S2 = 1., 0.
         elif self.response == 'density':
             S1, S2 = 1., 1.

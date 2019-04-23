@@ -127,7 +127,7 @@ class Chi0:
                  nblocks=1, gate_voltage=None,
                  disable_point_group=False,
                  disable_time_reversal=False,
-                 disable_spin_cons_time_reversal=False,
+                 disable_spincons_time_reversal=False,
                  disable_non_symmorphic=True,
                  scissor=None, integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0):
@@ -189,8 +189,8 @@ class Chi0:
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
             Do not use time reversal symmetry.
-        disable_spin_cons_time_reversal : bool
-            Do not use spin conserving time reversal symmetry.
+        disable_spincons_time_reversal : bool
+            Do not use spin-conserving time reversal symmetry.
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
         scissor : tuple ([bands], shift [eV])
@@ -223,7 +223,7 @@ class Chi0:
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
-        self.disable_spin_cons_time_reversal = disable_spin_cons_time_reversal
+        self.disable_spincons_time_reversal = disable_spincons_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
         self.eshift = eshift / Hartree
@@ -373,7 +373,7 @@ class Chi0:
                 spins = [spin]
         else:
             assert self.response in ['+-', '-+']
-            if self.disable_spin_cons_time_reversal:
+            if self.disable_spincons_time_reversal:
                 if self.response == '+-':
                     spins = [0]
                 else:
@@ -417,7 +417,7 @@ class Chi0:
             self.plasmafreq_vv = None
 
         # XXX should be defined by domain?
-        if self.disable_spin_cons_time_reversal:
+        if self.disable_spincons_time_reversal:
             # Do all bands
             m1 = 0
         else:
@@ -607,14 +607,14 @@ class Chi0:
             kind = 'response function'
             extraargs['eta'] = self.eta
             extraargs['timeordered'] = self.timeordered
-            extraargs['disable_spin_cons_time_reversal'] \
-                = self.disable_spin_cons_time_reversal
+            extraargs['disable_spincons_time_reversal'] \
+                = self.disable_spincons_time_reversal
         
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         if self.response == 'density':  # do as before XXX
             # Define band summation
-            if self.disable_spin_cons_time_reversal:
+            if self.disable_spincons_time_reversal:
                 bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
             else:
                 bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
@@ -630,7 +630,7 @@ class Chi0:
                                  out_wxx=A_wxx,  # Output array
                                  **extraargs)
         else:  # Maybe more parameters could be fixed in integrator?
-            if self.disable_spin_cons_time_reversal:
+            if self.disable_spincons_time_reversal:
                 bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
                 mat_kwargs.update(bandsum)
                 eig_kwargs.update(bandsum)
