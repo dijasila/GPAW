@@ -834,7 +834,6 @@ class DirectMinFD(Eigensolver):
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
         occ.calculate(wfs)  # fill occ numbers
 
-
         for kpt in wfs.kpt_u:
             if sum(kpt.f_n) < 1.0e-3:
                 continue
