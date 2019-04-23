@@ -710,6 +710,7 @@ class Chi0:
                                          out_wxx=A_wxx,  # Output array
                                          **extraargs)
 
+                '''
                 # No symmetry (do all interbands in reverse)
                 print('Integrating unoccupied bands with at least '
                       + 'partially occupied bands ', file=self.fd)
@@ -759,6 +760,7 @@ class Chi0:
                                          # Arguments for integrand functions
                                          out_wxx=A_wxx,  # Output array
                                          **extraargs)
+                '''
 
                 extraargs.pop('intrab')
             
