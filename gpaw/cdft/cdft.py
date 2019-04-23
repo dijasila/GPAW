@@ -272,8 +272,10 @@ class CDFT(Calculator):
 
                 n_electrons = (self.gd.integrate(self.ext.w_ig[0:self.n_charge_regions]*n_gt,
                    global_integral=True))
+                print(n_electrons)
                 # corrections
                 n_electrons += Delta_n[0:self.n_charge_regions]
+                print(n_electrons)
                 # constraint
                 diff = n_electrons - self.constraints[0:self.n_charge_regions]
                 total_electrons.append(n_electrons)
@@ -368,9 +370,6 @@ class CDFT(Calculator):
             self.calc.wfs.world.broadcast(f_cdft, 0)
             self.ext.set_forces(f_cdft)
             self.results['forces'] = self.atoms.get_forces()
-
-        print('cdft converged')
-        print('forces, ', f_cdft)
 
     def get_weight(self, save=True, name='weight', pad=False):
         if not pad:
@@ -527,8 +526,8 @@ class CDFT(Calculator):
 
         for atom in self.atoms:
             # weight function with one atom
-            f = WeightFunc(self.gd,
-                    self.atoms, [atom.index], self.Rc, self.mu)
+            f = WeightFunc(self.gd, 
+                    self.atoms, [atom.index], self.Rc, self.mu, new=False)
 
             w = f.construct_weight_function()
             n_el = (self.gd.integrate(w*dens,
@@ -1101,7 +1100,6 @@ class WeightFunc:
             dGa_dRay = dGa_drRa * drRa_dy
             dGa_dRaz = dGa_drRa * drRa_dz
 
-
             dGa_dRav = [dGa_dRax, dGa_dRay, dGa_dRaz]
             dG_dRav[atom.index] = dGa_dRav
 
@@ -1123,13 +1121,11 @@ def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu,
 
         if not difference:
             w.append(weig)
-
         else: # for charge difference constraint
             if i==0:
                 w.append(weig)
             else:
                 w[0] -= weig # negative for acceptor
-    print('w from get all wfs', np.asarray(w).shape)
     if return_Rc_mu:
         Rc, mu = wf.get_Rc_and_mu()
         return w, Rc, mu
