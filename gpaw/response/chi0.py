@@ -125,7 +125,9 @@ class Chi0:
                  real_space_derivatives=False, intraband=True,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1, gate_voltage=None,
-                 disable_point_group=False, disable_time_reversal=False,
+                 disable_point_group=False,
+                 disable_time_reversal=False,
+                 disable_spin_cons_time_reversal=False,
                  disable_non_symmorphic=True,
                  scissor=None, integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0):
@@ -187,6 +189,8 @@ class Chi0:
             Do not use the point group symmetry operators.
         disable_time_reversal : bool
             Do not use time reversal symmetry.
+        disable_spin_cons_time_reversal : bool
+            Do not use spin conserving time reversal symmetry.
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
         scissor : tuple ([bands], shift [eV])
@@ -219,6 +223,7 @@ class Chi0:
 
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
+        self.disable_spin_cons_time_reversal = disable_spin_cons_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
         self.integrationmode = integrationmode
         self.eshift = eshift / Hartree
@@ -359,6 +364,7 @@ class Chi0:
         """
         wfs = self.calc.wfs
 
+        # Get spins to be used for s1  # XXX should be defined by domain?
         if self.response == 'density':
             if spin == 'all':
                 spins = range(wfs.nspins)
@@ -366,20 +372,14 @@ class Chi0:
                 assert spin in range(wfs.nspins)
                 spins = [spin]
         else:
-            # No symmetry
-            if self.response == '+-':
-                spins = [0]
-            elif self.response == '-+':
-                spins = [1]
+            assert self.reponse in ['+-', '-+']
+            if self.disable_spin_cons_time_reversal:
+                if self.response == '+-':
+                    spins = [0]
+                else:
+                    spins = [1]
             else:
-                raise ValueError('Invalid response %s' % self.response)
-            '''
-            # Spin-conserving time-reversal symmetry
-            if self.response in ['+-', '-+']:
                 spins = [0, 1]
-            else:
-                raise ValueError('Invalid response %s' % self.response)
-            '''
 
         q_c = np.asarray(q_c, dtype=float)
         optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
@@ -416,15 +416,13 @@ class Chi0:
             chi0_wvv = None
             self.plasmafreq_vv = None
 
-        '''  # rm XXX
-        if self.response == 'density':
-            # Do all empty bands:
-            m1 = self.nocc1
-        else:
+        # XXX should be defined by domain?
+        if self.disable_spin_cons_time_reversal:
             # Do all bands
             m1 = 0
-        '''
-        m1 = self.nocc1  # where should these band summation parameters go?
+        else:
+            # Do all empty bands:
+            m1 = self.nocc1
         m2 = self.nbands
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
@@ -468,34 +466,23 @@ class Chi0:
             RPA total energy and RALDA.
         """
         
-        # Parse spins
-        # No symmetry
         wfs = self.calc.wfs
         if spins == 'all':
             spins = range(wfs.nspins)
-        elif spins == 'pm':
-            spins = [0]
-        elif spins == 'mp':
-            spins = [1]
         else:
             for spin in spins:
                 assert spin in range(wfs.nspins)
-        '''
-        # Spin-conserving time-reversal symmetry
-        wfs = self.calc.wfs
-        if spins == 'all':
-            spins = range(wfs.nspins)
-        elif spins in ['+-, -+']:
-            spins = [0, 1]
-        else:
-            for spin in spins:
-                assert spin in range(wfs.nspins)
-        '''
 
         # Are we calculating the optical limit.
         optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
             self.response == 'density'
 
+        # Use wings in optical limit, if head cannot be extended
+        if optical_limit and not extend_head:
+            wings = True
+        else:
+            wings = False
+        
         # Reset PAW correction in case momentum has change
         self.Q_aGii = self.pair.initialize_paw_corrections(pd)
         A_wxx = chi0_wGG  # Change notation
@@ -566,6 +553,11 @@ class Chi0:
                 nbzkpts = self.calc.wfs.kd.nbzkpts
             prefactor *= len(bzk_kv) / nbzkpts
 
+        A_wxx /= prefactor
+        if wings:
+            chi0_wxvG /= prefactor
+            chi0_wvv /= prefactor
+        
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
@@ -615,22 +607,15 @@ class Chi0:
             kind = 'response function'
             extraargs['eta'] = self.eta
             extraargs['timeordered'] = self.timeordered
-
-        if optical_limit and not extend_head:
-            wings = True
-        else:
-            wings = False
-
-        A_wxx /= prefactor
-        if wings:
-            chi0_wxvG /= prefactor
-            chi0_wvv /= prefactor
         
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         if self.response == 'density':  # do as before XXX
             # Define band summation
-            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+            if self.disable_spin_cons_time_reversal:
+                bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
+            else:
+                bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
             mat_kwargs.update(bandsum)
             eig_kwargs.update(bandsum)
             integrator.integrate(kind=kind,  # Kind of integral
@@ -643,45 +628,25 @@ class Chi0:
                                  out_wxx=A_wxx,  # Output array
                                  **extraargs)
         else:  # Maybe more parameters could be fixed in integrator?
-            extraargs['intrab'] = False  # fix intraband terminology XXX
-            print('Integrating at least partially occupied bands '
-                  + 'with unoccupied bands', file=self.fd)
-            bandsum = {'n1': 0, 'n2': self.nocc2,
-                       'm1': self.nocc2, 'm2': self.nbands}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
-            integrator.integrate(kind=kind,  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,
-                                            self.get_eigenvalues),
-                                 x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 # Arguments for integrand functions
-                                 out_wxx=A_wxx,  # Output array
-                                 **extraargs)
-
-            print('Integrating fully occupied bands with partially'
-                  + ' unoccupied bands', file=self.fd)
-            bandsum = {'n1': 0, 'n2': self.nocc1,
-                       'm1': self.nocc1, 'm2': self.nocc2}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
-            integrator.integrate(kind=kind,  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,
-                                            self.get_eigenvalues),
-                                 x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 # Arguments for integrand functions
-                                 out_wxx=A_wxx,  # Output array
-                                 **extraargs)
-
-            print('Integrating partially occupied bands with partially '
-                  + 'unoccupied bands', file=self.fd)
-            for n1 in range(self.nocc1, self.nocc2):
-                extraargs['intrab'] = True
-                bandsum = {'n1': n1, 'n2': n1 + 1,
-                           'm1': n1, 'm2': n1 + 1}
+            if self.disable_spin_conserving_time_reversal:
+                bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
+                mat_kwargs.update(bandsum)
+                eig_kwargs.update(bandsum)
+                integrator.integrate(kind=kind,  # Kind of integral
+                                     domain=domain,  # Integration domain
+                                     integrand=(self.get_matrix_element,
+                                                self.get_eigenvalues),
+                                     x=self.wd,  # Frequency Descriptor
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     # Arguments for integrand functions
+                                     out_wxx=A_wxx,  # Output array
+                                     **extraargs)
+            else:
+                extraargs['intrab'] = False  # fix intraband terminology XXX
+                print('Integrating at least partially occupied bands '
+                      + 'with unoccupied bands', file=self.fd)
+                bandsum = {'n1': 0, 'n2': self.nocc2,
+                           'm1': self.nocc2, 'm2': self.nbands}
                 mat_kwargs.update(bandsum)
                 eig_kwargs.update(bandsum)
                 integrator.integrate(kind=kind,  # Kind of integral
@@ -694,9 +659,10 @@ class Chi0:
                                      out_wxx=A_wxx,  # Output array
                                      **extraargs)
 
-                extraargs['intrab'] = False
-                bandsum = {'n1': n1, 'n2': n1 + 1,
-                           'm1': n1 + 1, 'm2': self.nocc2}
+                print('Integrating fully occupied bands with partially'
+                      + ' unoccupied bands', file=self.fd)
+                bandsum = {'n1': 0, 'n2': self.nocc1,
+                           'm1': self.nocc1, 'm2': self.nocc2}
                 mat_kwargs.update(bandsum)
                 eig_kwargs.update(bandsum)
                 integrator.integrate(kind=kind,  # Kind of integral
@@ -709,44 +675,44 @@ class Chi0:
                                      out_wxx=A_wxx,  # Output array
                                      **extraargs)
 
-            # No symmetry (do all interbands in reverse)
-            print('Integrating unoccupied bands with at least '
-                  + 'partially occupied bands ', file=self.fd)
-            bandsum = {'m1': 0, 'm2': self.nocc2,
-                       'n1': self.nocc2, 'n2': self.nbands}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
-            integrator.integrate(kind=kind,  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,
-                                            self.get_eigenvalues),
-                                 x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 # Arguments for integrand functions
-                                 out_wxx=A_wxx,  # Output array
-                                 **extraargs)
+                print('Integrating partially occupied bands with partially '
+                      + 'unoccupied bands', file=self.fd)
+                for n1 in range(self.nocc1, self.nocc2):
+                    extraargs['intrab'] = True
+                    bandsum = {'n1': n1, 'n2': n1 + 1,
+                               'm1': n1, 'm2': n1 + 1}
+                    mat_kwargs.update(bandsum)
+                    eig_kwargs.update(bandsum)
+                    integrator.integrate(kind=kind,  # Kind of integral
+                                         domain=domain,  # Integration domain
+                                         integrand=(self.get_matrix_element,
+                                                    self.get_eigenvalues),
+                                         x=self.wd,  # Frequency Descriptor
+                                         kwargs=(mat_kwargs, eig_kwargs),
+                                         # Arguments for integrand functions
+                                         out_wxx=A_wxx,  # Output array
+                                         **extraargs)
 
-            print('Integrating partially unoccupied bands with fully '
-                  + 'occupied bands', file=self.fd)
-            bandsum = {'m1': 0, 'm2': self.nocc1,
-                       'n1': self.nocc1, 'n2': self.nocc2}
-            mat_kwargs.update(bandsum)
-            eig_kwargs.update(bandsum)
-            integrator.integrate(kind=kind,  # Kind of integral
-                                 domain=domain,  # Integration domain
-                                 integrand=(self.get_matrix_element,
-                                            self.get_eigenvalues),
-                                 x=self.wd,  # Frequency Descriptor
-                                 kwargs=(mat_kwargs, eig_kwargs),
-                                 # Arguments for integrand functions
-                                 out_wxx=A_wxx,  # Output array
-                                 **extraargs)
+                    extraargs['intrab'] = False
+                    bandsum = {'n1': n1, 'n2': n1 + 1,
+                               'm1': n1 + 1, 'm2': self.nocc2}
+                    mat_kwargs.update(bandsum)
+                    eig_kwargs.update(bandsum)
+                    integrator.integrate(kind=kind,  # Kind of integral
+                                         domain=domain,  # Integration domain
+                                         integrand=(self.get_matrix_element,
+                                                    self.get_eigenvalues),
+                                         x=self.wd,  # Frequency Descriptor
+                                         kwargs=(mat_kwargs, eig_kwargs),
+                                         # Arguments for integrand functions
+                                         out_wxx=A_wxx,  # Output array
+                                         **extraargs)
 
-            print('Integrating partially unoccupied bands with partially '
-                  + 'occupied bands', file=self.fd)
-            for n1 in range(self.nocc1, self.nocc2):
-                bandsum = {'m1': n1, 'm2': n1 + 1,
-                           'n1': n1 + 1, 'n2': self.nocc2}
+                # No symmetry (do all interbands in reverse)
+                print('Integrating unoccupied bands with at least '
+                      + 'partially occupied bands ', file=self.fd)
+                bandsum = {'m1': 0, 'm2': self.nocc2,
+                           'n1': self.nocc2, 'n2': self.nbands}
                 mat_kwargs.update(bandsum)
                 eig_kwargs.update(bandsum)
                 integrator.integrate(kind=kind,  # Kind of integral
@@ -758,8 +724,41 @@ class Chi0:
                                      # Arguments for integrand functions
                                      out_wxx=A_wxx,  # Output array
                                      **extraargs)
-            
-            extraargs.pop('intrab')
+
+                print('Integrating partially unoccupied bands with fully '
+                      + 'occupied bands', file=self.fd)
+                bandsum = {'m1': 0, 'm2': self.nocc1,
+                           'n1': self.nocc1, 'n2': self.nocc2}
+                mat_kwargs.update(bandsum)
+                eig_kwargs.update(bandsum)
+                integrator.integrate(kind=kind,  # Kind of integral
+                                     domain=domain,  # Integration domain
+                                     integrand=(self.get_matrix_element,
+                                                self.get_eigenvalues),
+                                     x=self.wd,  # Frequency Descriptor
+                                     kwargs=(mat_kwargs, eig_kwargs),
+                                     # Arguments for integrand functions
+                                     out_wxx=A_wxx,  # Output array
+                                     **extraargs)
+
+                print('Integrating partially unoccupied bands with partially '
+                      + 'occupied bands', file=self.fd)
+                for n1 in range(self.nocc1, self.nocc2):
+                    bandsum = {'m1': n1, 'm2': n1 + 1,
+                               'n1': n1 + 1, 'n2': self.nocc2}
+                    mat_kwargs.update(bandsum)
+                    eig_kwargs.update(bandsum)
+                    integrator.integrate(kind=kind,  # Kind of integral
+                                         domain=domain,  # Integration domain
+                                         integrand=(self.get_matrix_element,
+                                                    self.get_eigenvalues),
+                                         x=self.wd,  # Frequency Descriptor
+                                         kwargs=(mat_kwargs, eig_kwargs),
+                                         # Arguments for integrand functions
+                                         out_wxx=A_wxx,  # Output array
+                                         **extraargs)
+
+                extraargs.pop('intrab')
             
         '''  # rm XXX
         integrator.integrate(kind=kind,  # Kind of integral

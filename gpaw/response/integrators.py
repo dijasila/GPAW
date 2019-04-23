@@ -219,23 +219,29 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
+
+        if self.disable_spin_cons_time_reversal:
+            S1, S2 = 1., 0.
+        elif self.response == 'density':
+            S1, S2 = 1., 1.
+        elif (self.response == '+-' and spin == 0)\
+                or (self.response == '-+' and spin == 1):
+            S1, S2 = 1., 0.
+        elif (self.response == '+-' and spin == 1)\
+                or (self.response == '-+' and spin == 0):
+            S1, S2 = 0., 1.
+        else:
+            raise Exception('Something went wrong')  # fix XXX
+        if intrab:
+            S2 *= 0.
         
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
+            '''
             if self.response == 'density':
                 x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
-            else:
-                if (self.response == '+-' and spin == 0)\
-                   or (self.response == '-+' and spin == 1):
-                    S1, S2 = 1., 0.
-                elif (self.response == '+-' and spin == 1)\
-                        or (self.response == '-+' and spin == 0):
-                    S1, S2 = 0., 1.
-                else:
-                    raise Exception('Something went wrong')  # fix XXX
-                if intrab:
-                    S2 *= 0.
-                x_m = - np.sign(deps_m) * (S1 / (omega + deps1_m)
-                                           - S2 / (omega - deps2_m))
+            '''
+            x_m = - np.sign(deps_m) * (S1 / (omega + deps1_m)
+                                       - S2 / (omega - deps2_m))
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
