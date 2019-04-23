@@ -346,7 +346,7 @@ class Chi0:
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-            (not used in transverse reponse functions)
+            (not used in transverse response functions)
         A_x : ndarray
             Output array. If None, the output array is created.
 
@@ -372,7 +372,7 @@ class Chi0:
                 assert spin in range(wfs.nspins)
                 spins = [spin]
         else:
-            assert self.reponse in ['+-', '-+']
+            assert self.response in ['+-', '-+']
             if self.disable_spin_cons_time_reversal:
                 if self.response == '+-':
                     spins = [0]
@@ -1000,7 +1000,7 @@ class Chi0:
 
         where s and s' are spins, n and m are band indices, k is
         the kpoint and q is the momentum transfer. For dielectric
-        reponse s'=s, for the transverse magnetic reponse
+        response s'=s, for the transverse magnetic response
         s' is flipped with respect to s.
         
         Parameters
