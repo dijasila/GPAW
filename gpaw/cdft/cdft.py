@@ -333,13 +333,11 @@ class CDFT(Calculator):
             else:
                 return np.abs(self.dn_i), -self.dn_i # return negative because maximising wrt v_i
 
-        def hessian(v_i):
-            # Hessian approximated with BFGS
-            self.hess = self.update_hessian(v_i)
-            return self.hess
+#        def hessian(v_i):
+#            # Hessian approximated with BFGS
+#            self.hess = self.update_hessian(v_i)
+#            return self.hess
 
-        #m = minimize(f, self.v_i, jac=True, bounds=self.bounds, tol = self.tol,method = self.method,
-        #             hess = hessian, options=self.options)
 
         m = minimize(f, self.v_i, jac=True, bounds=self.bounds, tol=self.tol,
                     method=self.method, options=self.options)
@@ -347,7 +345,6 @@ class CDFT(Calculator):
         p(str(m.message) + '\n')
 
         self.density = self.calc.density # TS09-vdw needs this
-
         self.results['energy'] = self.Edft
 
         # print to log
@@ -372,10 +369,12 @@ class CDFT(Calculator):
             self.ext.set_forces(f_cdft)
             self.results['forces'] = self.atoms.get_forces()
 
+        print('cdft converged')
+        print('forces, ', f_cdft)
+
     def get_weight(self, save=True, name='weight', pad=False):
         if not pad:
             w_g = self.w
-
         else:
             c = CDFTPotential(regions=self.regions, gd=self.gd,
                 atoms=self.atoms, constraints=self.constraints,
@@ -468,7 +467,7 @@ class CDFT(Calculator):
         for i in [0,1]:
             for a, D_sp in self.calc.density.D_asp.items():
                 self.dn_s[i,a] += np.sqrt(4.*np.pi)*(np.dot(D_sp[i],
-                    self.calc.wfs.setups[a].Delta_pL)[i]\
+                    self.calc.wfs.setups[a].Delta_pL)[0]\
                     + self.calc.wfs.setups[a].Delta0/2)
 
         self.gd.comm.sum(self.dn_s)
@@ -774,6 +773,8 @@ class CDFTPotential(ExternalPotential):
 
         diff = []
 
+        print('constraints', constraints)
+        print('w', w.shape)
         if self.n_charge_regions != 0:
             # pseudo density
             nt_g = dens.nt_sg[0] + dens.nt_sg[1]
@@ -781,19 +782,23 @@ class CDFTPotential(ExternalPotential):
                            nt_g, global_integral=True) \
                          - constraints[0:self.n_charge_regions]
             diff.append(charge_diff)
-
+        print('diff', diff)
         #constrained spins
         if len(constraints) - self.n_charge_regions != 0:
             Delta_nt_g =  dens.nt_sg[0] - dens.nt_sg[1] # pseudo spin difference density
             spin_diff = self.gd.integrate(w[self.n_charge_regions:],
                     Delta_nt_g, global_integral=True) - constraints[self.n_charge_regions:]
             diff.append(spin_diff)
-
+        print('diff', diff)
         diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
-
-        return np.multiply(Vi, diff[:]/size).sum()
+        e = np.multiply(Vi, diff[:]).sum()
+        e /= size
+        print('Vi',Vi)
+        print('diff', diff)
+        print('cdft energy',e)
+        return e
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
@@ -1112,9 +1117,9 @@ def get_ks_energy_wo_external(calc):
         calc.hamiltonian.e_xc -
         calc.hamiltonian.e_entropy)*Hartree
 
-def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[],
+def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu,
                 new=False, return_Rc_mu = False):
-
+    w=[]
     for i in range(len(indices_i)):
         wf = WeightFunc(gd, atoms, indices_i[i], Rc, mu, new)
         weig = wf.construct_weight_function()
@@ -1127,6 +1132,7 @@ def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[],
                 w.append(weig)
             else:
                 w[0] -= weig # negative for acceptor
+    print('w from get all wfs', np.asarray(w).shape)
     if return_Rc_mu:
         Rc, mu = wf.get_Rc_and_mu()
         return w, Rc, mu
