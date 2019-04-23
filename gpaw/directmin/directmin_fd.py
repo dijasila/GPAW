@@ -133,6 +133,8 @@ class DirectMinFD(Eigensolver):
                 self.blocksize = 10
 
         Eigensolver.initialize(self, wfs)
+        # for kpt in wfs.kpt_u:
+        #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
         occ.calculate(wfs)  # fill occ numbers
 
     def initialize_dm(self, wfs, dens, ham, log=None,
@@ -532,14 +534,13 @@ class DirectMinFD(Eigensolver):
             wfs.gd.comm.sum(lamb)
             if 'SIC' in self.odd_parameters['name']:
                 n_unocc = len(kpt.f_n) - (n_occ + 1)
-                self.odd.lagr_diag_s[k] = \
-                    np.append(
-                        np.diagonal(lamb).real,
-                        np.ones(shape=n_unocc) *
-                        np.absolute(lamb[n_occ, n_occ] * 5.))
-                        # np.ones(shape=n_unocc) * np.inf)
-                        # inf is not a good
-                        # for example for ase get gap
+                self.odd.lagr_diag_s[k] = np.append(
+                    np.diagonal(lamb).real,
+                    np.ones(shape=n_unocc) *
+                    np.absolute(lamb[n_occ, n_occ] * 5.))
+                    # np.ones(shape=n_unocc) * np.inf)
+                    # inf is not a good
+                     # for example for ase get gap
 
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
             evals = np.empty(lamb.shape[0])
