@@ -288,7 +288,9 @@ class DirectMinFD(Eigensolver):
 
         wfs.timer.start('Update Kohn-Sham energy')
 
-        self.run_inner_loop(ham, wfs, occ, dens, log=None)
+        error = self.error * Hartree**2 / wfs.nvalence
+        if error > 1.0e-6 and self.iters > 0:
+            self.run_inner_loop(ham, wfs, occ, dens, log=None)
 
         # calc projectors
         for kpt in wfs.kpt_u:
@@ -512,7 +514,8 @@ class DirectMinFD(Eigensolver):
                                          grad_knG[k][i] / f,
                                          kpt).item() * f)
 
-        error = sum(norm) * Hartree**2 / wfs.nvalence
+        # error = sum(norm) * Hartree**2 / wfs.nvalence
+        error = sum(norm)
         error = wfs.kd.comm.sum(error)
 
         return error.real
