@@ -136,7 +136,7 @@ class CDWriter(TDDFTObserver):
                     def skew(a):
                         return (a-a.T)/2
 
-                    print(world.rank,a,n)
+                    #print(world.rank,a,n)
            
                     rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
                     nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
@@ -169,7 +169,7 @@ class CDWriter(TDDFTObserver):
 
         self.timer.stop('CD')
 
-        rtots = rxnabla_g #  + Rxnabla_a + rxnabla_a #  summaa eri r-termit ja tarvittaessa PAW off
+        rtots = rxnabla_g + Rxnabla_a + rxnabla_a #  summaa eri r-termit ja tarvittaessa PAW off
         
         # paw.wfs.gd.comm.sum(rtots)
 
@@ -187,7 +187,7 @@ class CDWriter(TDDFTObserver):
         
 
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
-          (time, cd[0], cd[1], cd[2]))
+          (time, cd[0].real, cd[1].real, cd[2].real))
 
 
         self._write(line)
