@@ -141,6 +141,58 @@ class PzCorrections:
 
         return e_total_sic.sum()
 
+
+    def get_energy_and_gradients_kpt_2(self, wfs, kpt, grad_knG,
+                                       dens=None, U=None):
+
+        wfs.timer.start('SIC e/g grid calculations')
+        k = self.n_kps * kpt.s + kpt.q
+        n_occ = get_n_occ(kpt)
+
+        e_total_sic = np.array([])
+
+        grad = np.zeros_like(kpt.psit_nG[:n_occ])
+
+        for i in range(n_occ):
+            nt_G, Q_aL, D_ap = \
+                self.get_orbdens_compcharge_dm_kpt(kpt, i)
+
+            # calculate sic energy, sic pseudo-potential and Hartree
+            e_sic, vt_G, v_ht_g = \
+                self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
+
+            # calculate PAW corrections
+            e_sic_paw_m, dH_ap = \
+                self.get_paw_corrections(D_ap, v_ht_g)
+
+            # total sic:
+            e_sic += e_sic_paw_m
+
+            e_total_sic = np.append(e_total_sic,
+                                    kpt.f_n[i] * e_sic, axis=0)
+
+            grad[i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+            # grad_knG[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+
+            c_axi = {}
+            for a in kpt.P_ani.keys():
+                dH_ii = unpack(dH_ap[a])
+                c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
+                c_axi[a] = c_xi * kpt.f_n[i]
+
+            # add projectors to
+            wfs.pt.add(grad[i], c_axi, kpt.q)
+
+        grad_knG[k][:n_occ] += np.einsum(
+            'ij,jkml->ikml', U.conj(), grad)
+
+        e_total_sic = e_total_sic.reshape(
+            e_total_sic.shape[0] // 2, 2)
+        self.e_sic_by_orbitals[k] = np.copy(e_total_sic)
+        wfs.timer.stop('SIC e/g grid calculations')
+
+        return e_total_sic.sum()
+
     def get_pseudo_pot(self, nt, Q_aL, i, kpoint=None):
 
         if self.sic_coarse_grid is False:

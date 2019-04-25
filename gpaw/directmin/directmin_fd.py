@@ -13,7 +13,7 @@ from gpaw.directmin.fd.inner_loop import InnerLoop
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import time
-# from ase.parallel import parprint
+from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
 
 
@@ -61,6 +61,7 @@ class DirectMinFD(Eigensolver):
         self.need_init_odd = True
         self.initialized = False
         self.need_init_orbs = True
+        self.U_k = {}
 
     def __repr__(self):
 
@@ -157,6 +158,9 @@ class DirectMinFD(Eigensolver):
                 dim = get_n_occ(kpt)
             k = self.n_kps * kpt.s + kpt.q
             self.dimensions[k] = dim
+            if 'SIC' in self.odd_parameters['name']:
+                self.U_k[k] = np.eye(dim, dtype=self.dtype)
+
             if not lumo and self.dimensions[k] == len(kpt.f_n):
                 raise Exception('Please add one more empty band '
                                 'in order to converge LUMO.')
@@ -288,10 +292,6 @@ class DirectMinFD(Eigensolver):
 
         wfs.timer.start('Update Kohn-Sham energy')
 
-        error = self.error * Hartree**2 / wfs.nvalence
-        if error > 1.0e-6 and self.iters > 0:
-            self.run_inner_loop(ham, wfs, occ, dens, log=None)
-
         # calc projectors
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
@@ -350,13 +350,32 @@ class DirectMinFD(Eigensolver):
         grad = self.get_gradients_2(ham, wfs)
 
         if 'SIC' in self.odd_parameters['name']:
+            temp = {}
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                temp[k] = kpt.psit_nG[:].copy()
+                n_occ=get_n_occ(kpt)
+                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k].copy()
+                kpt.psit_nG[:n_occ] = \
+                    np.tensordot(
+                        self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
+
+            self.e_sic = 0.0
+            error = self.error * Hartree ** 2 / wfs.nvalence
+            if error > 1.0e-8 and self.iters > 0:
+                self.run_inner_loop(ham, wfs, occ, dens, log=None)
             self.e_sic = 0.0
             for kpt in wfs.kpt_u:
+                k = n_kps * kpt.s + kpt.q
                 self.e_sic +=\
-                    self.odd.get_energy_and_gradients_kpt(
-                        wfs, kpt, grad, dens)
+                    self.odd.get_energy_and_gradients_kpt_2(
+                        wfs, kpt, grad, dens,
+                        U = self.U_k[k] @ self.iloop.U_k[k])
             self.e_sic = wfs.kd.comm.sum(self.e_sic)
             energy += self.e_sic
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                kpt.psit_nG[:] = temp[k]
 
         self.project_search_direction_2(wfs, grad)
         self.error = self.error_eigv(wfs, grad)
@@ -819,6 +838,7 @@ class DirectMinFD(Eigensolver):
         e_total = ham.get_energy(occ,
                                  kin_en_using_band=False,
                                  e_sic=self.e_sic)
+        log = parprint
 
         counter = self.iloop.run(
             e_total - self.e_sic, psi_copy, wfs, dens, log, niter)

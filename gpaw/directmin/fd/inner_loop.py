@@ -22,11 +22,13 @@ class InnerLoop:
         self.n_counter = 15
         self.eg_count = 0
         self.run_count = 0
+        self.U_k = {}
 
         self.n_occ = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             self.n_occ[k] = get_n_occ(kpt)
+            self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
 
     def get_energy_and_gradients(self, a_k, wfs, dens):
         """
@@ -47,6 +49,7 @@ class InnerLoop:
             wfs.timer.start('Unitary matrix')
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
+            self.U_k[k] = u_mat.copy()
 
             kpt.psit_nG[:n_occ] = \
                 np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
