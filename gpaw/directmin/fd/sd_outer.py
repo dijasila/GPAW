@@ -233,7 +233,7 @@ class FRcg(SteepestDescent):
             self.g_k = g_k1
             self.iters += 1
 
-            if self.iters > 3:
+            if self.iters > 10:
                 self.iters = 0
 
             return self.p_k

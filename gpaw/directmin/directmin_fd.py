@@ -13,13 +13,14 @@ from gpaw.directmin.fd.inner_loop import InnerLoop
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import time
+# from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
 
 
 class DirectMinFD(Eigensolver):
 
     def __init__(self,
-                 searchdir_algo='LBFGS',
+                 searchdir_algo=None,
                  linesearch_algo='TSPCAWC',
                  use_prec=True,
                  odd_parameters='Zero',
@@ -41,15 +42,21 @@ class DirectMinFD(Eigensolver):
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
                 xc_string_to_dict(self.odd_parameters)
+
+        if 'SIC' in self.odd_parameters['name']:
+            if self.sda is None:
+                self.sda = 'FRcg'
+            if self.initial_orbitals is None:
+                self.initial_orbitals = 'W'
+        else:
+            if self.sda is None:
+                self.sda = 'LBFGS'
+
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
             self.lsa = xc_string_to_dict(self.lsa)
             self.lsa['method'] = self.sda['name']
-
-        if 'SIC' in self.odd_parameters['name']:
-            if self.initial_orbitals is None:
-                self.initial_orbitals = 'W'
 
         self.need_init_odd = True
         self.initialized = False
@@ -280,6 +287,8 @@ class DirectMinFD(Eigensolver):
     def update_ks_energy(self, ham, wfs, dens, occ):
 
         wfs.timer.start('Update Kohn-Sham energy')
+
+        self.run_inner_loop(ham, wfs, occ, dens, log=None)
 
         # calc projectors
         for kpt in wfs.kpt_u:

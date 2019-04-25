@@ -198,8 +198,6 @@ class SCFLoop:
     def run_dm(self, wfs, ham, dens, occ, log, callback):
 
         self.niter = 1
-        self.inner_update = 4
-        self.nouter = 1
 
         while self.niter <= self.maxiter:
 
@@ -225,16 +223,8 @@ class SCFLoop:
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
-            if self.nouter % self.inner_update == 0:
-                self.niter, need_reset = \
-                    wfs.eigensolver.run_inner_loop(
-                        ham, wfs, occ, dens, log, self.niter)
-                if need_reset:
-                    wfs.eigensolver.reset(need_init_odd=False)
-
             ham.npoisson = 0
             self.niter += 1
-            self.nouter += 1
 
             if self.converged:
                 log('\nOccupied states converged after {:d}'.format(self.niter))

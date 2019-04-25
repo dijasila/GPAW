@@ -9,7 +9,7 @@ import time
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, g_tol=1.0e-5):
+    def __init__(self, odd_pot, wfs, g_tol=5.0e-4):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -168,12 +168,17 @@ class InnerLoop:
         der_phi_old_2 = None
 
         outer_counter += 1
-        log_f(log, counter, g_max, e_ks, e_total, outer_counter)
+        if log is not None:
+            log_f(log, counter, g_max, e_ks, e_total, outer_counter)
 
         alpha = 1.0
-        # not_converged = True
-        not_converged = \
-            g_max > self.g_tol and counter < self.n_counter
+        if g_max < 1.0e-8:
+            not_converged = False
+        else:
+            not_converged = True
+
+        # not_converged = \
+        #     g_max > self.g_tol and counter < self.n_counter
 
         while not_converged:
 
@@ -232,14 +237,21 @@ class InnerLoop:
                 counter += 1
                 if outer_counter is not None:
                     outer_counter += 1
+                if log is not None:
+                    log_f(
+                        log, counter, g_max, e_ks, phi_0,
+                        outer_counter)
 
-                log_f(log, counter, g_max, e_ks, phi_0, outer_counter)
                 not_converged = g_max > self.g_tol and \
                                 counter < self.n_counter
+                if not not_converged and counter < 2:
+                    not_converged = True
+
             else:
                 break
 
-        log('INNER LOOP FINISHED.\n')
+        if log is not None:
+            log('INNER LOOP FINISHED.\n')
         del self.psit_knG
         if outer_counter is None:
 
