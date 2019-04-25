@@ -255,6 +255,7 @@ class DirectMinFD(Eigensolver):
         # as we used preconditiner before
         # here we project search direction on prec. gradients,
         # but should be just grad. But, it seems also works fine
+
         der_phi_2i[0] = 0.0
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
