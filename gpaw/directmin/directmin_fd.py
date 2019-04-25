@@ -45,7 +45,7 @@ class DirectMinFD(Eigensolver):
 
         if 'SIC' in self.odd_parameters['name']:
             if self.sda is None:
-                self.sda = 'FRcg'
+                self.sda = 'LBFGS'
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'W'
         else:
