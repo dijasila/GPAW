@@ -63,13 +63,13 @@ class AllElectronResponse:
 
             wf_g = channel.basis.expand(wf_b)
 
-            d = np.outer(wf_g.conj(), wf_g)
+            d = np.outer(wf_g.conj(), wf_g)/(4*np.pi)
             chi += outer*d/(e0 - e)
 
 
 
             d2 = np.outer(wf_g, wf_g.conj())
-            chi += -outer2*d2/(e - e0)
+            chi += -outer2*d2/(e - e0)/(4*np.pi)
 
             
         return chi
@@ -140,12 +140,11 @@ class AllElectronResponse:
 
             
 
-    def sternheimer_calculation(self, omega = 0, angular_momenta=[0], num_eigs=1, return_only_eigenvalues=True):
+    def sternheimer_calculation(self, omega = 0, angular_momenta=[0], num_eigs=1, return_only_eigenvalues=True, calc_epsilon=False):
         print("")
-        print("----------------------------------------")
+        print("########################################")
         print("Running Sternheimer response calculation")
         print("")
-        print("There is a sqrt(4*pi) missing somewhere")
 
 
         start_vecs_ln = self._get_random_trial_vectors(num_eigs, angular_momenta)
@@ -161,7 +160,9 @@ class AllElectronResponse:
             return np.sort(np.real(vals))
 
         else:
-            if self.calc_epsilon:
+            if calc_epsilon:
+                print("----------------------------------------")
+                print("Calculating epsilon")
                 # channel = self.all_electron_atom.channels[0]
                 # gvecs = channel.expand(vecs)
                 chi = self._construct_response(vals, vecs)
@@ -170,14 +171,38 @@ class AllElectronResponse:
                 rgd = self.all_electron_atom.rgd
                 drs = np.diag(rgd.dr_g)
                 r2s = np.diag(rgd.r_g**2)
-                integral = laplace_coulomb.dot(drs.dot(chi))
-                #eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs) + integral.dot(drs))
-                eps = np.eye(chi.shape[0]).dot(drs).dot(r2s) - integral.dot(drs).dot(r2s)
+                integral = laplace_coulomb.dot(drs.dot(r2s).dot(chi))
+                assert not np.allclose(integral, 0)
+                #eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs).dot(r2s) + integral.dot(drs).dot(r2s))
+                #eps = np.eye(chi.shape[0]).dot(drs).dot(r2s) - integral.dot(drs).dot(r2s)
+                #eps = np.eye(chi.shape[0]) - integral
+                #eps = - integral.dot(drs).dot(r2s)
+                #assert not np.allclose(eps, np.eye(chi.shape[0]).dot(drs).dot(r2s))
+                #eps = np.eye(chi.shape[0]).dot(drs).dot(r2s)
+                eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
                 vals, vecs = np.linalg.eig(eps)
+                b = np.allclose(vals, vals.real)
+                if not b:
+                    print("Max abs diff: {}".format(np.max(np.abs(vals-vals.real))))
+                    # import matplotlib.pyplot as plt
+                    # plt.plot(vals.real, label="real")
+                    # plt.plot(vals.imag, label="imag")
+                    # plt.legend()
+                    # plt.show()
+                assert b
                 return np.sort(np.real(vals)), vecs.T
             return vals, vecs
             #response = self._construct_response(vals, vecs)
             #return response
+
+    def _construct_response(self, vals, vecs):
+        response = 0
+        for val, vec in zip(vals,vecs):
+            response += val*np.outer(vec, vec.conj())
+
+        return response
+
+
 
     
     def _get_random_trial_vectors(self, num_eigs, angular_momenta):
@@ -201,7 +226,8 @@ class AllElectronResponse:
         cutoff = min(self.all_electron_atom.rgd.dr_g)
         lapcoul = np.array([
             [1/max(r, rp, cutoff) for rp in r_g]
-            for r in r_g])
+            for r in r_g])*4*np.pi#/np.sqrt(4*np.pi)
+
 
         return lapcoul
                 
@@ -265,8 +291,9 @@ class AllElectronResponse:
                     elif num_iter >= max_iter:
                         if error < ok_error_threshold:
                             found_vals_vecs.append((current_eigval, new_trial))
-                            print("")
-                            print("Warning: error in Sternheimer iterations was {} for eigenvalue {}".format(error, current_eigval))
+                            print("Iteration number:       {}     (Final error: {})".format(num_iter, error))
+                            #print("")
+                            #print("Warning: error in Sternheimer iterations was {} for eigenvalue {}".format(error, current_eigval))
                             break
                         else:
                             print("")
@@ -277,14 +304,6 @@ class AllElectronResponse:
             #raise ValueError("Not enough eigenpairs was found")
 
         return found_vals_vecs_ln
-
-
-    def _construct_response(self, vals, vecs):
-        response = 0
-        for val, vec in zip(vals,vecs):
-            response += val*np.outer(vec, vec.conj())
-
-        return response
 
 
     def _orthonormalize(self, vector, ortho_space):
@@ -396,7 +415,7 @@ class AllElectronResponse:
             
                 cg_coeff = self.cg_calculator.calculate(l, -m, L, M, response_l2,0)#response_l2, response_m)
                 #cg_coeff = np.sqrt(4*np.pi)
-                delta_n += 2*np.real(wf.conj()*delta_wf*cg_coeff)
+                delta_n += 2*np.real(wf.conj()*delta_wf*cg_coeff)/np.sqrt(4*np.pi)
             
 
         #assert not np.allclose(self.dot(delta_n, delta_n), 0)

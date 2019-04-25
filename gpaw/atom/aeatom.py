@@ -900,38 +900,39 @@ def main(args):
     if args.sternheimer:
         import time
         from .sternheimer import AllElectronResponse       
-        aee = AllElectronResponse(aea, nspins=1, calc_epsilon=False)
-        num_chi = aee.calculate_numerical_chi_channel(symbol)
-        chi = num_chi.dot(np.diag(aea.rgd.dr_g)).dot(np.diag(aea.rgd.r_g**2))
-        eigs, vecs = np.linalg.eig(chi)
-        assert np.allclose(eigs, eigs.real)
+        aee = AllElectronResponse(aea, nspins=1)
+        # num_chi = aee.calculate_numerical_chi_channel(symbol)
+        # chi = num_chi.dot(np.diag(aea.rgd.dr_g)).dot(np.diag(aea.rgd.r_g**2))
+        # eigs, vecs = np.linalg.eig(chi)
+        # assert np.allclose(eigs, eigs.real)
 
-        eigs_vecs = sorted(list(zip(eigs, vecs.T)), key=lambda t: t[0].real)
-        eigs = [t[0].real for t in eigs_vecs]
-        vecs = np.array([t[1].real for t in eigs_vecs])
+        # eigs_vecs = sorted(list(zip(eigs, vecs.T)), key=lambda t: t[0].real)
+        # eigs = [t[0].real for t in eigs_vecs]
+        #vecs = np.array([t[1].real for t in eigs_vecs])
         #exact_chi = aee.calculate_analytical_chi_channel(0,30)
         #chi_drr2 = exact_chi.dot(np.diag(aea.rgd.dr_g)).dot(np.diag(aea.rgd.r_g**2))
-
+        eigs = np.array([-1.550763,3 -0.30069, -0.13814, -0.0802081, -0.0527860238])/(4*np.pi)
         #print("Max abs exact: ", np.max(np.abs(eigs)))
         num_eigs = 5
-        vals, svecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=num_eigs, return_only_eigenvalues=False)
+        vals, svecs = aee.sternheimer_calculation(angular_momenta=[0], num_eigs=num_eigs, return_only_eigenvalues=False, calc_epsilon=True)
+        vals = sorted(vals.real)[-1::-1]
         ovals = aee.chi_vals
         ##Fix Sternheimer to also calc epsilon eigenvalues
         print("Numerical eigs: ", eigs[:num_eigs])
-        print("Sternheimer eigs: ", vals[-num_eigs:])
+        print("Sternheimer eigs: ", vals[:num_eigs])
 
 
-        import matplotlib.pyplot as plt
-        for i in range(num_eigs):
-            v = svecs[i]
-            sign = np.sign(v[0]/vecs[i,0])
-            v = v/np.linalg.norm(v)*(sign)
-            plt.figure()
-            plt.plot(v, label="Sternheimer mode")
-            plt.plot(vecs[i], label="Numerical mode")
-            plt.legend()
+        # import matplotlib.pyplot as plt
+        # for i in range(num_eigs):
+        #     v = svecs[i]
+        #     sign = np.sign(v[0]/vecs[i,0])
+        #     v = v/np.linalg.norm(v)*(sign)
+        #     plt.figure()
+        #     plt.plot(v, label="Sternheimer mode")
+        #     plt.plot(vecs[i], label="Numerical mode")
+        #     plt.legend()
             
-        plt.show()
+        # plt.show()
         # import matplotlib.pyplot as plt
         # for k, vec in enumerate(vecs):
         #     plt.plot(vec, label=str(k))

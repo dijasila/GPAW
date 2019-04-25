@@ -105,8 +105,8 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            #self.powercalculate([qvector], 1)
-            self.krylovcalculate([qvector], 1)
+            self.powercalculate([qvector], 1)
+            #self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
         # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -1592,10 +1592,10 @@ if __name__=="__main__":
     else:
         
         
-        ro = SternheimerResponse(filen)
+        #ro = SternheimerResponse(filen)
         
         
-        exit()
+        #exit()
         print("Generating new test file")
         from ase.build import bulk
         from ase import Atoms
@@ -1618,7 +1618,7 @@ if __name__=="__main__":
         #            txt = outname)
         
         
-        atoms = Atoms("H", cell=(5, 5, 5), magmoms=[1])
+        atoms = Atoms("H", cell=(10, 10, 10), magmoms=[1])
         calc = GPAW(mode=PW(250, force_complex_dtype=True),
                     xc="LDA",
                     setups='ae'
