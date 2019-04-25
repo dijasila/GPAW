@@ -141,7 +141,6 @@ class PzCorrections:
 
         return e_total_sic.sum()
 
-
     def get_energy_and_gradients_kpt_2(self, wfs, kpt, grad_knG,
                                        dens=None, U=None):
 
@@ -183,8 +182,7 @@ class PzCorrections:
             # add projectors to
             wfs.pt.add(grad[i], c_axi, kpt.q)
 
-        grad_knG[k][:n_occ] += np.einsum(
-            'ij,jkml->ikml', U.conj(), grad)
+        grad_knG[k][:n_occ] += np.tensordot(U.conj(), grad, axes=1)
 
         e_total_sic = e_total_sic.reshape(
             e_total_sic.shape[0] // 2, 2)

@@ -501,6 +501,58 @@ class SPzCorrectionsLcao:
                 F_v = np.dot(np.dot(dP_vi, dH_ii), P_i)
                 F_av[a] += kpt.f_n[m] * 2.0 * F_v.real
 
+    def get_energy_and_gradients_kpt_2(self, wfs, kpt, grad_knG,
+                                       dens=None, U=None):
+
+        wfs.timer.start('SIC e/g grid calculations')
+        k = self.n_kps * kpt.s + kpt.q
+        n_occ = get_n_occ(kpt)
+        grad = np.zeros_like(kpt.psit_nG[:n_occ])
+        self.v_com = self.cgd.zeros(dtype=self.dtype)
+        self.dH_ap_com = {}
+        for a in dens.D_asp.keys():
+            p = dens.D_asp[a][kpt.s].shape[0]
+            self.dH_ap_com[a] = np.zeros(shape=p, dtype=self.dtype)
+
+        e_total_sic = np.array([])
+        sf = []
+
+        for i in range(n_occ):
+            # this values are scaled with i-th occupation numbers
+            # but not e_sf
+            v_m, dH_ap, e_sic, e_sf = self.get_pot_en_dh_and_sf_i_kpt(
+                wfs, kpt, dens, i)
+            e_total_sic = np.append(e_total_sic, e_sic, axis=0)
+            sf.append(e_sf)
+
+            grad[i] = kpt.psit_nG[i] * v_m
+            c_axi = {}
+            for a in kpt.P_ani.keys():
+                dH_ii = unpack(dH_ap[a])
+                c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
+                c_axi[a] = c_xi  # * kpt.f_n[i]
+            # add projectors to
+            wfs.pt.add(grad[i], c_axi, kpt.q)
+
+        # common potential:
+        for i in range(n_occ):
+            grad[i] += kpt.psit_nG[i] * self.v_com
+            c_axi = {}
+            for a in kpt.P_ani.keys():
+                dH_ii = unpack(self.dH_ap_com[a])
+                c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
+                c_axi[a] = c_xi  # * kpt.f_n[i]
+            # add projectors to
+            wfs.pt.add(grad[i], c_axi, kpt.q)
+
+        grad_knG[k][:n_occ] += np.tensordot(U.conj(), grad, axes=1)
+
+        self.e_sic_by_orbitals[k] = \
+            e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
+        self.scalingf[k] = np.asarray(sf)
+
+        wfs.timer.stop('SIC e/g grid calculations')
+        return e_total_sic.sum()
 
 
 # def F(n, n_tot):
