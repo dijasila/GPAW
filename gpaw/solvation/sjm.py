@@ -74,8 +74,9 @@ class SJM(SolvationGPAW):
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
-                 write_grandcanonical_energy=True, dpot=0.01,potential_equilibration_mode=None,
-                 tiny=1e-8, verbose=False, **gpaw_kwargs):
+                 write_grandcanonical_energy=True, dpot=0.01,
+                 potential_equilibration_mode=None, tiny=1e-8,
+                 verbose=False, **gpaw_kwargs):
 
         SolvationGPAW.__init__(self, **gpaw_kwargs)
 
@@ -93,8 +94,8 @@ class SJM(SolvationGPAW):
         self.write_grandcanonical = write_grandcanonical_energy
         self.previous_pot = None
         self.slope = None
-        self.equil_iters=10
-        self.equil_mode=potential_equilibration_mode
+        self.equil_iters = 10
+        self.equil_mode = potential_equilibration_mode
 
         self.log('-----------\nGPAW SJM module in %s\n----------\n'
                  % (os.path.abspath(__file__)))
@@ -139,10 +140,12 @@ class SJM(SolvationGPAW):
 
         """
 
+        SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
+                    'doublelayer', 'potential_equilibration_mode']
+
         SJM_changes = {}
         for key in kwargs:
-            if key in ['background_charge', 'ne', 'potential', 'dpot',
-                       'doublelayer','potential_equilibration_mode']:
+            if key in SJM_keys:
                 SJM_changes[key] = None
 
         for key in SJM_changes:
@@ -153,8 +156,18 @@ class SJM(SolvationGPAW):
             SolvationGPAW.set(self, **kwargs)
             major_changes = True
 
+        if any(key in SJM_keys[1:] for key in SJM_changes):
+            if self.equil_mode == 'simultanious':
+                    self.log("Preequilibrating the potential",
+                             "after manual change of",
+                             list(SJM_changes.keys()))
+                    self.equil_iters = 10
+
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
+
+            if key in ['potential_equilibration_mode']:
+                self.equil_mode = SJM_changes[key]
 
             if key in ['potential', 'doublelayer']:
                 self.results = {}
@@ -178,17 +191,20 @@ class SJM(SolvationGPAW):
             if key in ['dpot']:
                 self.log('Potential tolerance has been changed to %1.4f V'
                          % SJM_changes[key])
-                potint = self.get_electrode_potential()
-                if abs(potint - self.potential) > SJM_changes[key]:
-                    self.results = {}
-                    self.log('Recalculating...\n')
+                try:
+                    potint = self.get_electrode_potential()
+                except AttributeError:
+                    pass
                 else:
-                    self.log('Potential already reached the criterion.\n')
+                    if abs(potint - self.potential) > SJM_changes[key]:
+                        self.results = {}
+                        self.log('Recalculating...\n')
+                    else:
+                        self.log('Potential already reached the criterion.\n')
                 self.dpot = SJM_changes[key]
 
             if key in ['background_charge']:
                 self.parameters[key] = SJM_changes[key]
-                self.log('------------')
                 if self.wfs is not None:
                     if major_changes:
                         self.density = None
@@ -226,8 +242,11 @@ class SJM(SolvationGPAW):
                 self.results = {}
                 if abs(SJM_changes['ne']) < self.tiny:
                     self.ne = self.tiny
+                    self.log('Number of Excess electron manually changed to 0')
                 else:
                     self.ne = SJM_changes['ne']
+                    self.log('Number of Excess electron manually changed ',
+                             'to %1.8f' % (self.ne))
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell'], ):
@@ -240,13 +259,14 @@ class SJM(SolvationGPAW):
         """
 
         if self.potential:
-            for equil_iter in range(self.equil_iters):
+            equil_iter = 0
+            while equil_iter < self.equil_iters:
                 if equil_iter == 1:
                     self.timer.start('Potential equilibration loop')
                     system_changes = []
 
-                if self.atoms == None:
-                    self.atoms=atoms
+                if self.atoms is None:
+                    self.atoms = atoms
 
 #                self.log('\n\n\n #############\n')
 #                self.log(properties,system_changes)
@@ -276,54 +296,44 @@ class SJM(SolvationGPAW):
                 if self.equil_iters > 1 or 'positions' in system_changes:
                     self.set_jellium(atoms)
 
-                #if self.equil_iters == 1:
-                #    SolvationGPAW.calculate(self, atoms, properties,
-                #                        system_changes)
-                #else:
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
 
                 if self.verbose:
                     self.write_cavity_and_bckcharge()
 
-
                 pot_int = self.get_electrode_potential()
                 if self.equil_iters > 1:
-                #if 1:
                     if abs(pot_int - self.potential) < self.dpot:
                         self.previous_pot = pot_int
                         self.previous_ne = self.ne
 
-                        if self.equil_mode == 'simultanious' and self.equil_iters > 1:
-                            self.log("Changing to simultanious potential "
-                                     "equilibration\n")
-                            self.equil_iters=1
+                        if self.equil_mode == 'simultanious':
+                            if self.equil_iters > 1:
+                                self.log("Changing to simultanious potential "
+                                         "equilibration\n")
+                                self.equil_iters = 1
                         elif self.equil_mode and self.equil_iters > 1:
                             raise ValueError("Check the spelling for "
-                                    "potential equilibration mode!")
+                                             "potential equilibration mode!")
 
                         if equil_iter > 0:
                             self.timer.stop('Potential equilibration loop')
+
+                        if self.slope is not None:
+                            self.log("Slope of potential versus ne "
+                                     "(unchanged): %1.8f V/e\n"
+                                     % (self.slope))
+
                         break
 
                 if self.equil_iters > 1 or 'positions' in system_changes:
-                #if 1:
-                    if self.previous_pot is not None:
-                        if abs(self.previous_ne - self.ne) > 2*self.tiny:
-                            self.slope = (pot_int-self.previous_pot) / \
-                                (self.ne-self.previous_ne)
-#
-                    if self.slope is not None:
-                        d = (pot_int-self.potential) - (self.slope*self.ne)
-                        self.previous_ne = self.ne
-                        self.ne = - d / self.slope
-                    else:
-                        self.previous_ne = self.ne
-                        self.ne += (
-                            pot_int - self.potential) / \
-                            abs(pot_int - self.potential) * self.dpot
-#
-                    self.previous_pot = pot_int
+                    self.change_ne(pot_int)
+
+                if abs(pot_int - self.potential) > 0.5:
+                    self.equil_iters = 10
+
+                equil_iter += 1
 
             if self.equil_iters > 1:
                 if abs(pot_int - self.potential) > self.dpot:
@@ -339,9 +349,26 @@ class SJM(SolvationGPAW):
                 self.write_cavity_and_bckcharge()
             self.previous_ne = self.ne
 
-        if properties != ['energy']:# and self.equil_iters > 1:
+        if properties != ['energy']:
             SolvationGPAW.calculate(self, atoms, properties, [])
- #       self.log('Total number of electrons in the unit cell:', self.occupations.nvalence)
+
+    def change_ne(self, pot_int):
+        if self.previous_pot is not None:
+            if abs(self.previous_ne - self.ne) > 2*self.tiny:
+                self.slope = (pot_int-self.previous_pot) / \
+                    (self.ne-self.previous_ne)
+                self.log("Slope of potential versus ne: "
+                         "%1.8f V/e\n" % (self.slope))
+
+        if self.slope is None:
+            self.previous_ne = self.ne
+            self.ne += np.sign(pot_int - self.potential) * self.dpot
+        else:
+            d = (pot_int-self.potential) - (self.slope*self.ne)
+            self.previous_ne = self.ne
+            self.ne = - d / self.slope
+
+        self.previous_pot = pot_int
 
     def write_cavity_and_bckcharge(self):
         self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
@@ -554,7 +581,6 @@ class SJMPower12Potential(Power12Potential):
         self.pos_aav = None
         self.del_u_del_r_vg = None
         self.atomic_radii_output = None
-        self.symbols = None
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
 
@@ -620,9 +646,6 @@ class SJMPower12Potential(Power12Potential):
 
             else:
                 water_oxygen_ind = allwater_oxygen_ind
-            from gpaw.mpi import rank
-            #if rank == 0:
-            #    print( water_oxygen_ind)
 
             oxygen = self.pos_aav[water_oxygen_ind[0]] * Bohr
             if len(water_oxygen_ind) > 1:
