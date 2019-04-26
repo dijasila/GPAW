@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.17.1b1
 
+* The angular part of the PAW correction to the ALDA kernel is now calculated
+  analytically by expanding the correction in spherical harmonics.
+
 * Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
   for how to use it to calculate spontaneous polarization, Born effective
   charges and other physical properties.
@@ -20,6 +23,11 @@ Git master branch
 
 * Non self-consistent hybrid functional calculations can now be continued if
   they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+
+* When using a convergence criteria on the accuracy of the forces
+  (see :ref:`manual_convergence`), the foceces will only be calculated when the
+  other convergence criteria (energy, eigenstates and density) are fulfilled.
+  This can save a bit of time.
 
 
 Version 1.5.1
