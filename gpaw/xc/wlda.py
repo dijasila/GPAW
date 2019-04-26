@@ -60,11 +60,46 @@ class WLDA(XCFunctional):
                     
 
 
+
+    def get_ni_weights(self, n_g):
+        nis = self.nis
+        bign_g = np.zeros(n_g.shape + nis.shape)
+        for i in range(len(nis)):
+            bign_g[..., i] = n_g
+        lesser_g = bign_g <= nis
+        nlesser_g = lesser_g.astype(int).sum(axis=-1)
+
+        greater_g = bign_g > nis
+        ngreater_g = greater_g.sum(axis=-1)
+
+        vallesser_g = nis.take(nlesser_g-1)
+        valgreater_g = nis.take(-ngreater_g)
+
+        print("")
+        print(nis)
+        print("################################")
+        print(lesser_g)
+        print("################################")
+        print(nlesser_g)
+        print("################################")
+        print(n_g)
+        print("################################")
+        print(vallesser_g)
+
+        #partlesser_g = 
+
+        n_gi = np.zeros_like(bign_g)
+        
+        
+        return n_gi
+
+
     def _get_ni_weights(self, n_g):
         flatn_g = n_g.reshape(-1)
 
         n_gi = np.array([self._get_ni_vector(n) for n in n_g.reshape(-1)]).reshape(n_g.shape + (len(self.nis),))
-        #ASK JJ is this fast? List comprehension evals immediately? 
+
+
         return n_gi
             
         
@@ -122,7 +157,7 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def tabulate_weights(self, n_g):
-        nis = np.arange(0, 5, 0.1)
+        nis = np.arange(0, max(np.max(n_g), 5), 0.1)
         K_G = self._get_K_G(n_g.shape)
         self.nis = nis
         self.weight_table = np.zeros(n_g.shape+(len(nis),))
