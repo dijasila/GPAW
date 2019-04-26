@@ -152,9 +152,9 @@ class AllElectronResponse:
         found_vals_vecs_ln = self._iterative_solve(omega, start_vecs_ln, num_eigs)
         self.log("Sternheimer calculation finished")
         l = 0
-        vals = [val_vec[0] for val_vec in found_vals_vecs_ln[l]]
+        vals = np.array([val_vec[0] for val_vec in found_vals_vecs_ln[l]])
         vecs = np.array([val_vec[1] for val_vec in found_vals_vecs_ln[l]])
-
+        assert np.allclose(vecs, vecs.real)
         self.chi_vals = vals
         if return_only_eigenvalues:
             return np.sort(np.real(vals))
@@ -172,25 +172,31 @@ class AllElectronResponse:
                 drs = np.diag(rgd.dr_g)
                 r2s = np.diag(rgd.r_g**2)
                 integral = laplace_coulomb.dot(drs.dot(r2s).dot(chi))
+                #integral = laplace_coulomb.dot(chi)
+
                 assert not np.allclose(integral, 0)
-                #eps = np.linalg.inv(np.eye(chi.shape[0]).dot(drs).dot(r2s) + integral.dot(drs).dot(r2s))
-                #eps = np.eye(chi.shape[0]).dot(drs).dot(r2s) - integral.dot(drs).dot(r2s)
-                #eps = np.eye(chi.shape[0]) - integral
-                #eps = - integral.dot(drs).dot(r2s)
-                #assert not np.allclose(eps, np.eye(chi.shape[0]).dot(drs).dot(r2s))
-                #eps = np.eye(chi.shape[0]).dot(drs).dot(r2s)
-                eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
+
+                #eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
+                eps = -integral.dot(drs).dot(r2s)
                 vals, vecs = np.linalg.eig(eps)
                 b = np.allclose(vals, vals.real)
                 if not b:
-                    print("Max abs diff: {}".format(np.max(np.abs(vals-vals.real))))
+                    print("Vals not real. Max abs diff: {}".format(np.max(np.abs(vals-vals.real))))
                     # import matplotlib.pyplot as plt
                     # plt.plot(vals.real, label="real")
                     # plt.plot(vals.imag, label="imag")
                     # plt.legend()
                     # plt.show()
                 assert b
-                return np.sort(np.real(vals)), vecs.T
+                b = np.allclose(vecs, vecs.real)
+                if not b:
+                    print("Vectors not real. Max abs diff: {}".format(np.max(np.abs(vecs - vecs.real))))
+                assert b
+
+                sorted_states = list(zip(vals, vecs.T))
+                sorted_states = sorted(sorted_states, key=lambda t: t[0].real)
+                vals, vecs = zip(*sorted_states)
+                return np.array(vals), np.array(vecs)
             return vals, vecs
             #response = self._construct_response(vals, vecs)
             #return response
@@ -223,12 +229,16 @@ class AllElectronResponse:
         r_g = self.all_electron_atom.rgd.r_g
         nrs = len(r_g)
 
-        cutoff = min(self.all_electron_atom.rgd.dr_g)
+        #cutoff = min(self.all_electron_atom.rgd.dr_g)
+        #cutoff = r_g[1]
+        cutoff = 0.1
         lapcoul = np.array([
             [1/max(r, rp, cutoff) for rp in r_g]
             for r in r_g])*4*np.pi#/np.sqrt(4*np.pi)
 
+        #lapcoul = np.array([[1/max(cutoff, np.abs(r-rp)) for rp in r_g] for r in r_g])
 
+        assert np.allclose(lapcoul, lapcoul.T)
         return lapcoul
                 
 
