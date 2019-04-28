@@ -154,15 +154,35 @@ class AllElectronResponse:
         l = 0
         vals = np.array([val_vec[0] for val_vec in found_vals_vecs_ln[l]])
         vecs = np.array([val_vec[1] for val_vec in found_vals_vecs_ln[l]])
+        assert (vals <= 0).all()
         assert np.allclose(vecs, vecs.real)
+        for i1, v1 in enumerate(vecs):
+            for i2, v2 in enumerate(vecs):
+                if i1 == i2:
+                    target = 1
+                else:
+                    target = 0
+
+                ip = self.dot(v1, v2)
+                b = np.allclose(ip, target, atol=1e-4)
+                if not b:
+                    print(f"Target was: {target}. IP was {ip}. Pair was: {i1}-{i2}")
+                assert b
+
         self.chi_vals = vals
         if return_only_eigenvalues:
             return np.sort(np.real(vals))
 
         else:
             if calc_epsilon:
+                print("Chi eigenvals found:")
+                print(vals)
                 print("----------------------------------------")
                 print("Calculating epsilon")
+
+                ##There is a serious problem: Some chi eigenvalues are positive. This seems to indicate that the Sternheimer equation is not correctly implemented
+
+
                 # channel = self.all_electron_atom.channels[0]
                 # gvecs = channel.expand(vecs)
                 chi = self._construct_response(vals, vecs)
@@ -172,12 +192,13 @@ class AllElectronResponse:
                 drs = np.diag(rgd.dr_g)
                 r2s = np.diag(rgd.r_g**2)
                 integral = laplace_coulomb.dot(drs.dot(r2s).dot(chi))
-                #integral = laplace_coulomb.dot(chi)
 
+                
                 assert not np.allclose(integral, 0)
 
-                #eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
-                eps = -integral.dot(drs).dot(r2s)
+                eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
+                #eps = -integral.dot(drs).dot(r2s)
+                #eps = chi.dot(drs).dot(r2s)
                 vals, vecs = np.linalg.eig(eps)
                 b = np.allclose(vals, vals.real)
                 if not b:
@@ -191,7 +212,9 @@ class AllElectronResponse:
                 b = np.allclose(vecs, vecs.real)
                 if not b:
                     print("Vectors not real. Max abs diff: {}".format(np.max(np.abs(vecs - vecs.real))))
-                assert b
+                    svals = sorted(vals.real)
+                    print("Eigenvalues were: {}".format(svals[-10:]))
+                #assert b
 
                 sorted_states = list(zip(vals, vecs.T))
                 sorted_states = sorted(sorted_states, key=lambda t: t[0].real)
@@ -265,7 +288,6 @@ class AllElectronResponse:
                 current_trial = trial_vector
                 current_eigval = 1
                 num_iter = 0
-
                 while True:
                     ##Main calculation
                 
@@ -279,15 +301,23 @@ class AllElectronResponse:
                     #The eigenvalue estimate here is negative because eigvals of chi are negative
                     #current_eigval = -np.sqrt(self.dot(new_trial, new_trial)/self.dot(current_trial, current_trial))
                     current_eigval = new_trial[0]/current_trial[0] if current_trial[0] != 0 else 1
-                    new_trial = -new_trial/np.sqrt(self.dot(new_trial, new_trial))
+                    new_trial = np.sign(current_eigval)*new_trial/np.sqrt(self.dot(new_trial, new_trial))
                 
                 
                     ##Check for convergence
                     error = np.abs(1 - self.dot(new_trial, current_trial))
                     errors.append(error)
                     current_trial = (1-mixing)*current_trial + mixing*new_trial
+                    #current_trial = current_trial/np.sqrt(self.dot(current_trial, current_trial))
                     current_trial = self._orthonormalize(current_trial, [val_vec[1] for val_vec in found_vals_vecs])
                     current_trial = current_trial/np.sqrt(self.dot(current_trial, current_trial))
+                    for val, vec in found_vals_vecs:
+                        b = np.allclose(self.dot(current_trial, vec), 0, atol=1e-6)
+                        if not b:
+                            print(f"IP was: {self.dot(current_trial, vec)}")
+                            
+                        assert b
+                    #current_trial = current_trial/np.sqrt(self.dot(current_trial, current_trial))
                     assert np.allclose(self.dot(current_trial, current_trial), 1)
 
 
@@ -295,12 +325,12 @@ class AllElectronResponse:
                     #current_eigval = current_eigval*np.sqrt(4*np.pi)
                     if error < error_threshold:
                         print("")
-                        found_vals_vecs.append((current_eigval, new_trial))
+                        found_vals_vecs.append((current_eigval, current_trial))
                         np.savetxt("errors.txt", errors)
                         break
                     elif num_iter >= max_iter:
                         if error < ok_error_threshold:
-                            found_vals_vecs.append((current_eigval, new_trial))
+                            found_vals_vecs.append((current_eigval, current_trial))
                             print("Iteration number:       {}     (Final error: {})".format(num_iter, error))
                             #print("")
                             #print("Warning: error in Sternheimer iterations was {} for eigenvalue {}".format(error, current_eigval))
@@ -317,8 +347,9 @@ class AllElectronResponse:
 
 
     def _orthonormalize(self, vector, ortho_space):
+        
         for other_vec in ortho_space:
-            vector = vector - self.dot(other_vec.conj(), vector)*other_vec
+            vector = vector - self.dot(other_vec, vector)*other_vec
 
         return vector
 
@@ -344,7 +375,8 @@ class AllElectronResponse:
         response_l2 = response_angular_momentum
         delta_n = np.zeros_like(trial)
         for l, channel in enumerate(self.all_electron_atom.channels):
-
+            if channel.s != 0: ##TODO This will only work for hydrogen where the s == 1 channel should be unoccupied. We need to account for state occupancy in general
+                continue
             # if self.calc_epsilon:
             #     rgd = self.all_electron_atom.rgd
             #     coulomb_matrix = rgd.r_g.copy()
