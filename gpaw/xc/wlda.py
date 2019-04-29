@@ -11,8 +11,13 @@ class WLDA(XCFunctional):
 
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        norm_s = gd.integrate(n_sg)
         self.apply_weighting(gd, n_sg)
+        newnorm_s = gd.integrate(n_sg)
+        n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
+        n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
 
+        
 
         from gpaw.xc.lda import lda_c
         C0I, C1, CC1, CC2, IF2 = lda_constants()
@@ -42,6 +47,7 @@ class WLDA(XCFunctional):
             lda_c(0, e_g, n, v_sg[0], zeta)
 
     def apply_weighting(self, gd, n_sg):
+        return n_sg
         if n_sg.shape[0] > 1:
             raise NotImplementedError
         self.tabulate_weights(n_sg[0])
@@ -157,7 +163,7 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def tabulate_weights(self, n_g):
-        nis = np.arange(0, max(np.max(n_g), 5), 0.1)
+        nis = np.arange(0, max(np.max(n_g), 5), 0.01)
         K_G = self._get_K_G(n_g.shape)
         self.nis = nis
         self.weight_table = np.zeros(n_g.shape+(len(nis),))
