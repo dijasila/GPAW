@@ -3,74 +3,91 @@ from gpaw import GPAW
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.mpi import world
 
-def getcalc(**kwargs):
-    return calc
-
-kwargs = []
-energies = []
-eerrs = []
-forces = []
-ferrs = []
-
-
 def ikwargs():
-    for spinpol in [False, True]:
-        for augment_grids in [False, True]:
-            for atomic_correction in ['dense', 'scipy']:
-                mode = LCAO(atomic_correction=atomic_correction)
-                for sl_auto in [False, True]:
-                    for kpt in [1, 2, 4]:
-                        if kpt == 4:
-                            continue
-                        for band in [1, 2, 4]:
-                            for domain in [1, 2, 4]:
-                                if kpt * band * domain != world.size:
-                                    continue
-                                parallel = dict(kpt=kpt,
-                                                band=band,
-                                                domain=domain,
-                                                sl_auto=sl_auto,
-                                                augment_grids=augment_grids)
-                                yield dict(parallel=parallel,
-                                           mode=mode,
-                                           spinpol=spinpol)
+    for augment_grids in [False, True]:
+        for atomic_correction in ['dense', 'scipy']:
+            mode = LCAO(atomic_correction=atomic_correction)
+            for sl_auto in [False, True]:
+                if world.size == 8:
+                    parsizes = [[2, 2, 2]]  # Check 4 as well
+                elif world.size == 4:
+                    parsizes = [[2, 2, 1], [1, 2, 2], [2, 1, 2]]
+                elif world.size == 2:
+                    parsizes = [[2, 1, 1], [1, 2, 1], [1, 1, 2]]
+                else:
+                    assert world.size == 1
+                    parsizes = [1, 1, 1]
+                for kpt, band, domain in parsizes:
+                    parallel = dict(kpt=kpt,
+                                    band=band,
+                                    domain=domain,
+                                    sl_auto=sl_auto,
+                                    augment_grids=augment_grids)
+                    yield dict(parallel=parallel,
+                               mode=mode)
 
 
-# We want a non-trivial cell:
-atoms = bulk('Ti') * (2, 2, 1)
-atoms.cell[0] *= 1.04
-# We want most arrays to be different so we can detect ordering/shape trouble:
-atoms.symbols = 'Ti2HFeCAuPbO'
-atoms.rattle(stdev=0.1)
 
 
-for i, kwargs in enumerate(ikwargs()):
-    if world.rank == 0:
-        print(i, kwargs)
-    calc = GPAW(basis='szp(dzp)', xc='oldPBE', h=0.3,
-                txt='gpaw.{:02d}.txt'.format(i),
-                kpts=(4, 1, 1), **kwargs)
-    def stopcalc():
-        calc.scf.converged = True
-    calc.attach(stopcalc, 3)
-    atoms.calc = calc
-    e = atoms.get_potential_energy()
-    f = atoms.get_forces()
-    energies.append(e)
-    forces.append(f)
+for spinpol in [False, True]:
+    # We want a non-trivial cell:
+    atoms0 = bulk('Ti') * (2, 1, 1)
+    atoms0.cell *= 1.2
+    # We want most arrays to be different so we can detect ordering/shape
+    # trouble:
+    atoms0.symbols = 'HOFePb'
+    atoms0.rattle(stdev=0.1)
 
-    if energies:
-        eerr = abs(e - energies[0])
-        ferr = abs(f - forces[0]).max()
-        eerrs.append(eerr)
-        ferrs.append(ferr)
+    if spinpol:
+        atoms.set_initial_magnetic_moments([1.0] * len(atoms))
+
+    kwargs = []
+    energies = []
+    eerrs = []
+    forces = []
+    ferrs = []
+
+
+    from time import time
+    for i, kwargs in enumerate(ikwargs()):
         if world.rank == 0:
-            print('Eerr {} Ferr {}'.format(eerr, ferr))
-            print()
+            print(i, kwargs)
+        calc = GPAW(basis='sz(dzp)',
+                    xc='oldPBE', h=0.3,
+                    symmetry={'point_group': False},  # No symmetry here anyway
+                    txt='gpaw.{:02d}.txt'.format(i),
+                    kpts=(4,1,1),
+                    **kwargs)
+        def stopcalc():
+            calc.scf.converged = True
+        calc.attach(stopcalc, 2)
+        atoms = atoms0.copy()
+        t1 = time()
+        atoms.calc = calc
+        e = atoms.get_potential_energy()
+        f = atoms.get_forces()
+        t2 = time()
+        if world.rank == 0:
+            print('T', t2 - t1)
+        energies.append(e)
+        forces.append(f)
 
-if world.rank == 0:
-    print('eerrs', eerrs)
-    print('ferrs', ferrs)
+        if energies:
+            eerr = abs(e - energies[0])
+            ferr = abs(f - forces[0]).max()
+            eerrs.append(eerr)
+            ferrs.append(ferr)
+            if world.rank == 0:
+                print('Eerr {} Ferr {}'.format(eerr, ferr))
+                print()
 
-    print('maxeerr', max(eerrs))
-    print('maxferr', max(ferrs))
+    if world.rank == 0:
+        print('eerrs', eerrs)
+        print('ferrs', ferrs)
+
+        maxeerr = max(eerrs)
+        maxferr = max(ferrs)
+        print('maxeerr', maxeerr)
+        print('maxferr', maxferr)
+        assert maxeerr < 1e-10, maxeerr
+        assert maxferr < 1e-10, maxferr

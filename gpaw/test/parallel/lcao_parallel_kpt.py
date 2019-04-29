@@ -18,6 +18,7 @@ parallel = dict()
 basekwargs = dict(mode=LCAO(atomic_correction='dense'),
                   maxiter=3,
                   nbands=6,
+                  h=0.3,
                   kpts=(4, 4, 4),  # 8 kpts in the IBZ
                   parallel=parallel)
 
@@ -25,7 +26,7 @@ Eref = None
 Fref_av = None
 
 
-def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
+def run(formula='H2O', vacuum=1.0, cell=None, pbc=1, **morekwargs):
     print(formula, parallel)
     system = molecule(formula)
     kwargs = dict(basekwargs)
@@ -114,10 +115,10 @@ if compiled_with_sl():
 # perform spin polarization test
 parallel = dict()
 
-basekwargs = dict(mode=LCAO(atomic_correction='dense'),#mode='lcao',
+basekwargs = dict(mode=LCAO(atomic_correction='scipy'),
                   maxiter=3,
                   nbands=6,
-                  kpts=(4, 4, 4),  # 8 kpts in the IBZ
+                  kpts=(4, 1, 1),
                   parallel=parallel)
 
 Eref = None
