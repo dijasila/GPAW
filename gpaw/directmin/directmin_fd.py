@@ -13,7 +13,7 @@ from gpaw.directmin.fd.inner_loop import InnerLoop
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
 import time
-from ase.parallel import parprint
+# from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
 
 
@@ -839,7 +839,9 @@ class DirectMinFD(Eigensolver):
         e_total = ham.get_energy(occ,
                                  kin_en_using_band=False,
                                  e_sic=self.e_sic)
-        log = parprint
+        # log = parprint
+
+        log = None
 
         counter = self.iloop.run(
             e_total - self.e_sic, psi_copy, wfs, dens, log, niter)
