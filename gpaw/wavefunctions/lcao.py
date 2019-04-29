@@ -27,6 +27,9 @@ class LCAO(Mode):
                                  atomic_correction=self.atomic_correction,
                                  **kwargs)
 
+    def __repr__(self):
+        return 'LCAO({})'.format(self.todict())
+
     def todict(self):
         dct = Mode.todict(self)
         dct['interpolation'] = self.interpolation
@@ -246,10 +249,7 @@ class LCAOWaveFunctions(WaveFunctions):
         if self.debug_tci:
             self.atomic_correction.add_overlap_correction(self, oldS_qMM)
 
-        if self.atomic_correction.implements_distributed_projections():
-            my_atom_indices = self.atomic_correction.get_a_values()
-        else:
-            my_atom_indices = self.basis_functions.my_atom_indices
+        my_atom_indices = self.atomic_correction.get_a_values()
         self.allocate_arrays_for_projections(my_atom_indices)
 
         #S_MM = None  # allow garbage collection of old S_qMM after redist
@@ -394,17 +394,17 @@ class LCAOWaveFunctions(WaveFunctions):
             tri2full(rho_MM)
 
     def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
-        ac = self.atomic_correction
-        if ac.implements_distributed_projections():
-            D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
-            WaveFunctions.calculate_atomic_density_matrices_with_occupation(
-                self, D2_asp, f_un)
-            D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
-            for a in D_asp:
-                D_asp[a][:] = D3_asp[a]
-        else:
-            WaveFunctions.calculate_atomic_density_matrices_with_occupation(
-                self, D_asp, f_un)
+        #ac = self.atomic_correction
+        #if ac.implements_distributed_projections():
+        #    D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
+        #    WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+        #        self, D2_asp, f_un)
+        #    D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
+        #    for a in D_asp:
+        #        D_asp[a][:] = D3_asp[a]
+        #else:
+        WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+            self, D_asp, f_un)
 
     def calculate_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         self.timer.start('Calculate density matrix')
