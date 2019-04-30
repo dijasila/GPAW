@@ -15,14 +15,6 @@ class BaseAtomicCorrection:
     name = 'base'
     description = 'base class for atomic corrections with LCAO'
 
-    def __init__(self):
-        self.nops = 0
-
-    def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
-        assert hasattr(dX_asp, 'redistribute'), dX_asp
-        assert op in ['back', 'forth']
-        return dX_asp
-
     def calculate_hamiltonian(self, wfs, kpt, dH_asp, H_MM, yy):
         avalues = self.get_a_values()
 
@@ -81,7 +73,6 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
 
     def calculate(self, wfs, q, dX_aii, X_MM):
         dtype = X_MM.dtype
-        nops = 0
 
         # P_aqMi is distributed over domains (a) and bands (M).
         # Hence the correction X_MM = sum(P dX P) includes contributions
@@ -95,10 +86,7 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
             dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), dtype)
             # (ATLAS can't handle uninitialized output array)
             gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
-            nops += dXP_iM.size * dX_ii.shape[0]
             gemm(1.0, dXP_iM, P_Mi[self.Mstart:self.Mstop], 1.0, X_MM)
-            nops += X_MM.size * dXP_iM.shape[0]
-        self.nops = nops
 
 
 class SparseAtomicCorrection(BaseAtomicCorrection):
@@ -119,31 +107,6 @@ class SparseAtomicCorrection(BaseAtomicCorrection):
     def get_a_values(self):
         return self.orig_partition.my_indices  # XXXXXXXXXX
 
-    def redistribute(self, wfs, dX_asp, type='asp', op='forth'):
-        if type not in ['asp', 'aii']:
-            raise ValueError('Unknown matrix type "%s"' % type)
-
-        # just distributed over gd comm.  It's not the most aggressive
-        # we can manage but we want to make band parallelization
-        # a bit easier and it won't really be a problem.  I guess
-        #
-        # Also: This call is blocking, but we could easily do a
-        # non-blocking version as we only need this stuff after
-        # doing tons of real-space work.
-
-        # XXXXXXXXXXXXXXXXXX
-        if 1:
-            return dX_asp.copy()
-
-        dX_asp = dX_asp.copy()
-        if op == 'forth':
-            even = self.orig_partition.as_even_partition()
-            dX_asp.redistribute(even)
-        else:
-            assert op == 'back'
-            dX_asp.redistribute(self.orig_partition)
-        return dX_asp
-
     def gobble_data(self, wfs):
         self.orig_partition = wfs.atom_partition
         evenpart = EvenPartitioning(self.orig_partition.comm,
@@ -153,8 +116,8 @@ class SparseAtomicCorrection(BaseAtomicCorrection):
 
         I_a = [0]
         I_a.extend(np.cumsum([setup.ni for setup in wfs.setups[:-1]]))
-        I = I_a[-1] + wfs.setups[-1].ni
-        self.I = I
+        nI = I_a[-1] + wfs.setups[-1].ni
+        self.nI = nI
         self.I_a = I_a
 
         self.Psparse_qIM = wfs.P_qIM
@@ -185,7 +148,8 @@ class SparseAtomicCorrection(BaseAtomicCorrection):
 
         Psparse_IM = self.Psparse_qIM[q]
 
-        dXsparse_II = self.sparse.lil_matrix((self.I, self.I), dtype=wfs.dtype)
+        dXsparse_II = self.sparse.lil_matrix((self.nI, self.nI),
+                                             dtype=wfs.dtype)
         avalues = sorted(dX_aii.keys())
         for a in avalues:
             I1 = self.I_a[a]

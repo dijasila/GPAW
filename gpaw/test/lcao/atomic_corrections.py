@@ -51,10 +51,9 @@ def test(system, **kwargs):
     errs = []
     for energy, c in zip(energies, corrections):
         err = abs(energy - eref)
-        nops = calc.wfs.world.sum(c.nops)
         errs.append(err)
         if master:
-            print('err=%e :: name=%s :: nops=%d' % (err, c.name, nops))
+            print('err=%e :: name=%s' % (err, c.name))
 
     maxerr = max(errs)
     assert maxerr < 1e-11, maxerr
