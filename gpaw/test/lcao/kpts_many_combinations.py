@@ -2,11 +2,12 @@ from ase.build import bulk
 from gpaw import GPAW
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.mpi import world
-
+from gpaw.utilities import compiled_with_sl
 
 def ikwargs():
     for augment_grids in [False, True]:
-        for sl_auto in [False, True]:
+        sl_autos = [False]
+        for sl_auto in [0, 1] if compiled_with_sl() else [0]:
             if world.size == 8:
                 parsizes = [[2, 2, 2]] # We need also [4, 2, 2]]
             elif world.size == 4:
