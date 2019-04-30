@@ -101,7 +101,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         if atomic_correction is None:
             if ksl.using_blacs:
-                atomic_correction = 'scipy'
+                atomic_correction = 'sparse'
             else:
                 atomic_correction = 'dense'
         if isinstance(atomic_correction, str):
