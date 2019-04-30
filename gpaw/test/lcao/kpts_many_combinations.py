@@ -3,36 +3,36 @@ from gpaw import GPAW
 from gpaw.wavefunctions.lcao import LCAO
 from gpaw.mpi import world
 
+
 def ikwargs():
     for augment_grids in [False, True]:
-        for atomic_correction in ['dense', 'scipy']:
-            mode = LCAO(atomic_correction=atomic_correction)
-            for sl_auto in [False, True]:
-                if world.size == 8:
-                    parsizes = [[2, 2, 2]]  # Check 4 as well
-                elif world.size == 4:
-                    parsizes = [[2, 2, 1], [1, 2, 2], [2, 1, 2]]
-                elif world.size == 2:
-                    parsizes = [[2, 1, 1], [1, 2, 1], [1, 1, 2]]
-                else:
-                    assert world.size == 1
-                    parsizes = [1, 1, 1]
-                for kpt, band, domain in parsizes:
-                    parallel = dict(kpt=kpt,
-                                    band=band,
-                                    domain=domain,
-                                    sl_auto=sl_auto,
-                                    augment_grids=augment_grids)
-                    yield dict(parallel=parallel,
-                               mode=mode)
+        for sl_auto in [False, True]:
+            if world.size == 8:
+                parsizes = [[2, 2, 2]] # We need also [4, 2, 2]]
+            elif world.size == 4:
+                parsizes = [[2, 2, 1], [1, 2, 2]]
+            elif world.size == 2:
+                parsizes = [[1, 2, 1], [1, 1, 2]]
+            else:
+                assert world.size == 1
+                parsizes = [[1, 1, 1]]
+            for kpt, band, domain in parsizes:
+                parallel = dict(kpt=kpt,
+                                band=band,
+                                domain=domain,
+                                sl_auto=sl_auto,
+                                augment_grids=augment_grids)
+                yield dict(parallel=parallel)
 
 
+from itertools import count
+counter = count()
 
 
 for spinpol in [False, True]:
     # We want a non-trivial cell:
     atoms0 = bulk('Ti') * (2, 1, 1)
-    atoms0.cell *= 1.2
+    atoms0.cell[0] *= 1.2
     # We want most arrays to be different so we can detect ordering/shape
     # trouble:
     atoms0.symbols = 'HOFePb'
@@ -49,15 +49,20 @@ for spinpol in [False, True]:
 
 
     from time import time
-    for i, kwargs in enumerate(ikwargs()):
+    for kwargs in ikwargs():
+        i = next(counter)
+
         if world.rank == 0:
             print(i, kwargs)
-        calc = GPAW(basis='sz(dzp)',
-                    xc='oldPBE', h=0.3,
+
+        calc = GPAW(mode='lcao',
+                    basis='sz(dzp)',
+                    xc='PBE', h=0.3,
                     symmetry={'point_group': False},  # No symmetry here anyway
-                    txt='gpaw.{:02d}.txt'.format(i),
+                    txt='gpaw.{:02d}.spin{}.txt'.format(int(spinpol), i),
                     kpts=(4,1,1),
                     **kwargs)
+
         def stopcalc():
             calc.scf.converged = True
         calc.attach(stopcalc, 2)
@@ -71,6 +76,11 @@ for spinpol in [False, True]:
             print('T', t2 - t1)
         energies.append(e)
         forces.append(f)
+        corrname = calc.wfs.atomic_correction.name
+        if kwargs['parallel']['sl_auto']:
+            assert corrname == 'scipy', corrname
+        else:
+            assert corrname == 'dense'
 
         if energies:
             eerr = abs(e - energies[0])
