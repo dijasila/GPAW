@@ -78,7 +78,7 @@ for spinpol in [False, True]:
         forces.append(f)
         corrname = calc.wfs.atomic_correction.name
         if kwargs['parallel']['sl_auto']:
-            assert corrname == 'scipy', corrname
+            assert corrname == 'sparse'
         else:
             assert corrname == 'dense'
 

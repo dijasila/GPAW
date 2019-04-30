@@ -7,8 +7,7 @@ from gpaw.utilities.partition import EvenPartitioning
 
 def get_atomic_correction(name):
     cls = dict(dense=DenseAtomicCorrection,
-               distributed=DistributedAtomicCorrection,
-               scipy=ScipyAtomicCorrection)[name]
+               sparse=SparseAtomicCorrection)[name]
     return cls()
 
 
@@ -248,9 +247,9 @@ class DistributedAtomicCorrection(BaseAtomicCorrection):
         self.outer = outer
 
 
-class ScipyAtomicCorrection(DistributedAtomicCorrection):
-    name = 'scipy'
-    description = 'distributed and sparse using scipy'
+class SparseAtomicCorrection(DistributedAtomicCorrection):
+    name = 'sparse'
+    description = 'sparse using scipy'
 
     def __init__(self, tolerance=1e-12):
         DistributedAtomicCorrection.__init__(self)

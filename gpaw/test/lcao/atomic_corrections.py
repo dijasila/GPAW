@@ -8,7 +8,7 @@
 from ase.build import molecule, bulk
 from gpaw import GPAW, LCAO, PoissonSolver
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
-                                         ScipyAtomicCorrection)
+                                         SparseAtomicCorrection)
 from gpaw.mpi import world
 from itertools import count
 
@@ -16,7 +16,7 @@ from itertools import count
 
 def test(system, **kwargs):
     corrections = [DenseAtomicCorrection(),
-                   ScipyAtomicCorrection(tolerance=0.0)]
+                   SparseAtomicCorrection(tolerance=0.0)]
 
     counter = count()
     energies = []
