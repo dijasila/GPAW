@@ -16,7 +16,8 @@ class TransverseMagneticSusceptibility(DielectricFunction):
                  ecut=400, nbands=None, eta=0.02,
                  ftol=1e-6, threshold=1, gammacentered=True,
                  nblocks=1, world=mpi.world, txt=sys.stdout,
-                 gate_voltage=None, integrationmode=None, pbc=None, rate=0.0,
+                 gate_voltage=None, disable_spincons_time_reversal=False,
+                 integrationmode=None, pbc=None, rate=0.0,
                  omegacutlower=None, omegacutupper=None, eshift=0.0):
 
         assert response in ['+-', '-+']
