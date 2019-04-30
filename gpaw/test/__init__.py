@@ -335,10 +335,10 @@ tests = [
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
     'corehole/si.py',                       # ~18s
-    'response/band_summation.py',           # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
     'lrtddft/1.py',                         # ~20s
+    'response/band_summation.py',           # ~21s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'generic/Cu.py',                        # ~21s

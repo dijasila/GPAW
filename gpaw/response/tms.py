@@ -21,7 +21,7 @@ class TransverseMagneticSusceptibility(DielectricFunction):
                  omegacutlower=None, omegacutupper=None, eshift=0.0):
 
         assert response in ['+-', '-+']
-        
+
         hilbert = False
         disable_point_group = True
         disable_time_reversal = True

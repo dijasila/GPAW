@@ -128,6 +128,7 @@ calc = GPAW(xc=ironxc,
             kpts=monkhorst_pack((ironkpts, ironkpts, ironkpts)),
             nbands=ironnb,
             idiotproof=False,
+            symmetry={'point_group': False},
             parallel={'band': 1})
 
 Febcc.set_calculator(calc)
