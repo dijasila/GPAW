@@ -343,6 +343,7 @@ tests = [
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
+    'lcao/kpts_many_combinations.py',       # ~23s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
     'symmetry/kpoint_mapping.py',           # ~23s

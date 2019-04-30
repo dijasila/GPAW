@@ -68,7 +68,7 @@ class DenseAtomicCorrection(BaseAtomicCorrection):
 
     def gobble_data(self, wfs):
         self.initialize(wfs.P_aqMi, wfs.ksl.Mstart, wfs.ksl.Mstop)
-        self.orig_partition = wfs.atom_partition  # XXXXXXXXXXXXXXXXXXXXX
+        self.orig_partition = wfs.atom_partition
         assert set(self.orig_partition.my_indices) == set(wfs.P_aqMi)
 
     def initialize(self, P_aqMi, Mstart, Mstop):
@@ -109,6 +109,11 @@ class SparseAtomicCorrection(BaseAtomicCorrection):
         BaseAtomicCorrection.__init__(self)
         from scipy import sparse
         self.sparse = sparse
+        # We currently don't use tolerance although we could speed things
+        # up that way.
+        #
+        # Tolerance is for zeroing elements very close to zero, which
+        # often increases sparsity somewhat, even for very small values.
         self.tolerance = tolerance
 
     def get_a_values(self):
