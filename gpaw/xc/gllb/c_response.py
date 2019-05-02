@@ -344,10 +344,9 @@ class C_Response(Contribution):
                 gaps.append(E - lumo)
 
         method2_dxc = -self.kpt_comm.max(-min(gaps))
-        Ha = 27.2116
-        Ksgap *= Ha
-        method1_dxc *= Ha
-        method2_dxc *= Ha
+        Ksgap *= Hartree
+        method1_dxc *= Hartree
+        method2_dxc *= Hartree
         if world.rank != 0:
             return (Ksgap, method2_dxc)
 

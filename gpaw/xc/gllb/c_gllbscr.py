@@ -6,6 +6,7 @@ from math import sqrt, pi, exp
 from gpaw.utilities import erf
 from gpaw.sphere.lebedev import weight_n
 import numpy as np
+from ase.units import Hartree
 
 K_G = 0.382106112167171
 
@@ -20,8 +21,8 @@ class C_GLLBScr(Contribution):
         self.damp = damp
         self.metallic = metallic
         if width is not None:
-            width = width / 27.21
-        self.eps = eps / 27.21
+            width = width / Hartree
+        self.eps = eps / Hartree
         self.width = width
 
     def get_name(self):
@@ -133,23 +134,21 @@ class C_GLLBScr(Contribution):
 
         # The parameter ee might sometimes be set to small thereshold value to
         # achieve convergence on small systems with degenerate HOMO.
+        # XXX This parameter ee is not to used anywhere
         # if len(kpt_u) > nspins:
         #     ee = 0.0
         # else:
-        #     ee = 0.05 / 27.21
+        #     ee = 0.05 / Hartree
 
         if lumo_perturbation:
             return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
                                          -self.f(eref_s[kpt.s]-e))
                               for e, f in zip(kpt.eps_n, kpt.f_n) ])
                     for kpt in kpt_u]
-
-
         else:
             coeff = [ np.array([ f * K_G * self.f(eref_s[kpt.s] - e)
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
-            #print coeff
             return coeff
 
 
