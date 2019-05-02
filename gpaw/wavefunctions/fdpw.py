@@ -134,11 +134,17 @@ class LCAOWfsMover:
         # Avoid calculating T
         Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
         S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
+
+        oldcorr = self.atomic_correction
+        from gpaw.lcao.atomic_correction import DenseAtomicCorrection
+        corr = DenseAtomicCorrection(P_aqMi, oldcorr.dS_aii, Mstart, Mstop)
+
         wfs.timer.stop('tci calculate')
-        self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
+        #self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
-        self.atomic_correction.add_overlap_correction(wfs, S_qMM)
+        corr.add_overlap_correction(S_qMM)
+        #self.atomic_correction.add_overlap_correction(S_qMM)
         wfs.timer.stop('lcao overlap correction')
         wfs.gd.comm.sum(S_qMM)
         c_unM = []

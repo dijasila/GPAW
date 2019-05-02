@@ -6,7 +6,7 @@
 # This is done by invoking GPAW once for each type of calculation.
 
 from ase.build import molecule, bulk
-from gpaw import GPAW, LCAO, PoissonSolver
+from gpaw import GPAW, LCAO
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.mpi import world
@@ -15,8 +15,7 @@ from itertools import count
 
 
 def test(system, **kwargs):
-    corrections = [DenseAtomicCorrection(),
-                   SparseAtomicCorrection(tolerance=0.0)]
+    corrections = ['dense', 'sparse']
 
     counter = count()
     energies = []
@@ -53,7 +52,7 @@ def test(system, **kwargs):
         err = abs(energy - eref)
         errs.append(err)
         if master:
-            print('err=%e :: name=%s' % (err, c.name))
+            print('err=%e :: name=%s' % (err, correction))
 
     maxerr = max(errs)
     assert maxerr < 1e-11, maxerr

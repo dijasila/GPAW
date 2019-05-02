@@ -1,12 +1,10 @@
 from ase.build import bulk
 from gpaw import GPAW
-from gpaw.wavefunctions.lcao import LCAO
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 
 def ikwargs():
     for augment_grids in [False, True]:
-        sl_autos = [False]
         for sl_auto in [0, 1] if compiled_with_sl() else [0]:
             if world.size == 8:
                 parsizes = [[2, 2, 2]] # We need also [4, 2, 2]]
@@ -40,7 +38,7 @@ for spinpol in [False, True]:
     atoms0.rattle(stdev=0.1)
 
     if spinpol:
-        atoms.set_initial_magnetic_moments([1.0] * len(atoms))
+        atoms0.set_initial_magnetic_moments([1.0] * len(atoms0))
 
     kwargs = []
     energies = []
