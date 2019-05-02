@@ -353,6 +353,7 @@ class WaveFunctions:
 
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
+                psit_G = np.ascontiguousarray(psit_G)
                 self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
