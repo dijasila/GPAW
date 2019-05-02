@@ -62,8 +62,8 @@ def scaling_factor(n, a2, n_tot, nspins, c0):
     h = h_sf(s2, c0)
     f = 1. - (1. - g2) * h
 
-    eps = n * g1* f
-    dedn = f + u * (dg2 * h * g1 + dg1 * f) - \
+    eps = n * g1 * f
+    dedn = g1 * f + u * (dg2 * h * g1 + dg1 * f) - \
         g1 * (1. - g2) * h**2. * s2 * const2
     dedn_t = - u**2.0 * (dg1 * f + g1 * dg2 * h )
     deda2 = c0 * g1 * (1. - g2) * h**2 * n / tkfn2
@@ -76,15 +76,15 @@ def g1_sf(u, eps):
 
 
 def dg1_sf(u, eps):
-    return eps * u ** (eps - 1.)
+    return eps * (u ** (eps - 1.))
 
 
 def g2_sf(u, eps):
-    return u**eps
+    return u**(1.0 - eps)
 
 
 def dg2_sf(u, eps):
-    return eps * u ** (eps - 1.)
+    return (1.0 - eps) * (u ** (- eps))
 
 
 def h_sf(s2, a):
