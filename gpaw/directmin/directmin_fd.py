@@ -158,7 +158,7 @@ class DirectMinFD(Eigensolver):
                 dim = get_n_occ(kpt)
             k = self.n_kps * kpt.s + kpt.q
             self.dimensions[k] = dim
-            if 'SIC' in self.odd_parameters['name']:
+            if 'SIC' in self.odd_parameters['name'] and not lumo:
                 self.U_k[k] = np.eye(dim, dtype=self.dtype)
 
             if not lumo and self.dimensions[k] == len(kpt.f_n):
@@ -356,7 +356,7 @@ class DirectMinFD(Eigensolver):
                 k = self.n_kps * kpt.s + kpt.q
                 temp[k] = kpt.psit_nG[:].copy()
                 n_occ=get_n_occ(kpt)
-                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k].copy()
+                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
                 kpt.psit_nG[:n_occ] = \
                     np.tensordot(
                         self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
@@ -675,10 +675,7 @@ class DirectMinFD(Eigensolver):
         error_t = 0.0
 
         for kpt in wfs.kpt_u:
-            n_occ = 0
-            for f in kpt.f_n:
-                if f > 1.0e-10:
-                    n_occ += 1
+            n_occ = get_n_occ(kpt)
             k = n_kps * kpt.s + kpt.q
             # calculate gradients:
             psi = kpt.psit_nG[n_occ:n_occ+1].copy()
@@ -904,6 +901,18 @@ class DirectMinFD(Eigensolver):
         self.need_init_orbs = False
         wfs.timer.stop('Initial Localization')
         log("Done", flush=True)
+
+    def choose_optimal_orbitals(self, wfs, ham, occ, dens):
+        if 'SIC' in self.odd_parameters['name']:
+            # choose optimal orbitals and store them in wfs.kpt_u
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                n_occ=get_n_occ(kpt)
+                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
+                kpt.psit_nG[:n_occ] = \
+                    np.tensordot(
+                        self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
+            self.run_inner_loop(ham, wfs, occ, dens, log=None)
 
 
 def log_f(niter, e_total, eig_error, log):

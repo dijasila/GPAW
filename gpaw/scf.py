@@ -227,6 +227,10 @@ class SCFLoop:
             self.niter += 1
 
             if self.converged:
+                if 'SIC' in wfs.eigensolver.odd_parameters['name']:
+                    wfs.eigensolver.choose_optimal_orbitals(
+                        wfs, ham, occ, dens)
+
                 log('\nOccupied states converged after {:d}'.format(self.niter))
                 log('Converge LUMO:')
                 max_er = self.max_errors['eigenstates']
@@ -234,7 +238,7 @@ class SCFLoop:
                 wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
                                          max_er, log)
                 rewrite_psi = True
-                if wfs.eigensolver.odd_parameters['name'] == 'PZ_SIC':
+                if 'SIC' in wfs.eigensolver.odd_parameters['name']:
                     rewrite_psi = False
                 wfs.eigensolver.get_canonical_representation(
                     ham, wfs, occ, dens, rewrite_psi)
