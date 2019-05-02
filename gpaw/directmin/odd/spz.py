@@ -11,6 +11,7 @@ from gpaw.directmin.tools import get_n_occ
 
 # from gpaw.xc.scaling_factor import SF, PurePythonSFKernel
 from gpaw.xc.scaling_factor_gga import SFG, PurePythonSFGKernel
+from gpaw.xc.scaling_factor_gga_2 import PurePythonSFG2Kernel
 
 
 class SPzCorrectionsLcao:
@@ -21,7 +22,7 @@ class SPzCorrectionsLcao:
     """
     def __init__(self, wfs, dens, ham, scaling_factor=(1.0, 1.0),
                  sic_coarse_grid=True, store_potentials=False,
-                 poisson_solver='FPS'):
+                 poisson_solver='FPS', sftype='I'):
 
         self.name = 'SPZ_SIC'
         # what we need from wfs
@@ -48,7 +49,10 @@ class SPzCorrectionsLcao:
 
         # initialize scaling function xc.
         # self.sf_xc = SF(PurePythonSFKernel(F, dFu, dFv))
-        self.sf_xc = SFG(PurePythonSFGKernel())
+        if sftype == 'I':
+            self.sf_xc = SFG(PurePythonSFGKernel())
+        elif sftype == 'II':
+            self.sf_xc = SFG(PurePythonSFG2Kernel())
 
         if poisson_solver == 'FPS':
             self.poiss = PoissonSolver(eps=1.0e-16,
