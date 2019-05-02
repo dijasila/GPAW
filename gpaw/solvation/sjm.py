@@ -268,31 +268,6 @@ class SJM(SolvationGPAW):
                 if self.atoms is None:
                     self.atoms = atoms
 
-#                self.log('\n\n\n #############\n')
-#                self.log(properties,system_changes)
-#                self.log('#############\n')
-
-#                if self.equil_iters > 1 or 'positions' in system_changes:
-#                 if self.occupations:
-#
-#                    pot_int = self.get_electrode_potential()
-#                    if self.previous_pot is not None:
-#                        if abs(self.previous_ne - self.ne) > 2*self.tiny:
-#                            self.slope = (pot_int-self.previous_pot) / \
-#                                (self.ne-self.previous_ne)
-#
-#                    if self.slope is not None:
-#                        d = (pot_int-self.potential) - (self.slope*self.ne)
-#                        self.previous_ne = self.ne
-#                        self.ne = - d / self.slope
-#                    else:
-#                        self.previous_ne = self.ne
-#                        self.ne += (
-#                            pot_int - self.potential) / \
-#                            abs(pot_int - self.potential) * self.dpot
-#
-#                    self.previous_pot = pot_int
-
                 if self.equil_iters > 1 or 'positions' in system_changes:
                     self.set_jellium(atoms)
 
@@ -303,6 +278,7 @@ class SJM(SolvationGPAW):
                     self.write_cavity_and_bckcharge()
 
                 pot_int = self.get_electrode_potential()
+
                 if self.equil_iters > 1:
                     if abs(pot_int - self.potential) < self.dpot:
                         self.previous_pot = pot_int
