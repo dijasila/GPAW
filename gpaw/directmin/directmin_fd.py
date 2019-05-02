@@ -362,8 +362,8 @@ class DirectMinFD(Eigensolver):
                         self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
 
             self.e_sic = 0.0
-            error = self.error * Hartree ** 2 / wfs.nvalence
-            if error > 1.0e-8 and self.iters > 0:
+            # error = self.error * Hartree ** 2 / wfs.nvalence
+            if self.iters > 0:
                 self.run_inner_loop(ham, wfs, occ, dens, log=None)
             self.e_sic = 0.0
             for kpt in wfs.kpt_u:
@@ -839,9 +839,15 @@ class DirectMinFD(Eigensolver):
         # log = parprint
 
         log = None
-
+        if wfs.read_from_file:
+            intital_random = False
+        else:
+            intital_random = True
         counter = self.iloop.run(
-            e_total - self.e_sic, psi_copy, wfs, dens, log, niter)
+            e_total - self.e_sic, psi_copy,
+            wfs, dens, log, niter,
+            small_random=intital_random)
+
         del psi_copy
 
         wfs.timer.stop('Inner loop')
@@ -913,6 +919,11 @@ class DirectMinFD(Eigensolver):
                     np.tensordot(
                         self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
             self.run_inner_loop(ham, wfs, occ, dens, log=None)
+
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                self.U_k[k] = np.eye(self.U_k[k].shape[0])
+                self.iloop.U_k[k] = np.eye(self.iloop.U_k[k].shape[0])
 
 
 def log_f(niter, e_total, eig_error, log):

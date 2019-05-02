@@ -125,7 +125,8 @@ class InnerLoop:
 
         return p_k
 
-    def run(self, e_ks, psit_knG, wfs, dens, log, outer_counter=0):
+    def run(self, e_ks, psit_knG, wfs, dens, log, outer_counter=0,
+            small_random=True):
         self.run_count += 1
 
         counter = 0
@@ -136,7 +137,8 @@ class InnerLoop:
             k = self.n_kps * kpt.s + kpt.q
             d = self.n_occ[k]
             # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
-            if self.run_count == 1 and self.dtype is complex:
+            if self.run_count == 1 and self.dtype is complex\
+                    and small_random:
                 a = 0.01 * np.random.rand(d, d) * 1.0j
                 # a = np.zeros(shape=(d, d), dtype=self.dtype)
                 wfs.gd.comm.broadcast(a, 0)
@@ -255,6 +257,22 @@ class InnerLoop:
 
         if log is not None:
             log('INNER LOOP FINISHED.\n')
+        # for kpt in wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     n_occ = self.n_occ[k]
+        #     if n_occ == 0:
+        #         g_k[k] = np.zeros_like(a_k[k])
+        #         continue
+        #     wfs.timer.start('Unitary matrix')
+        #     u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
+        #     wfs.timer.stop('Unitary matrix')
+        #     self.U_k[k] = u_mat.copy()
+        #     kpt.psit_nG[:n_occ] = \
+        #         np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
+        #                      axes=1)
+        #     # calc projectors
+        #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
         del self.psit_knG
         if outer_counter is None:
 
