@@ -1392,7 +1392,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()  # type: Set[Spline]
+        done = set()
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
