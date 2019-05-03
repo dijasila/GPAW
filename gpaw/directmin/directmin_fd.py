@@ -314,9 +314,12 @@ class DirectMinFD(Eigensolver):
         """
 
         if phi is None or grad_k is None:
+            alpha = wfs.world.broadcast(alpha, 0)
+
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 kpt.psit_nG[:] = psit_k[k] + alpha * search_dir[k]
+
             wfs.orthonormalize()
 
             phi, grad_k = \
@@ -638,6 +641,7 @@ class DirectMinFD(Eigensolver):
         #  ..._lumo and skip if kpt.f_n[i] > 1.0e-10:
 
         if phi is None or grad_k is None:
+            alpha = wfs.world.broadcast(alpha, 0)
             x_knG = \
                 {k: psit_k[k] +
                     alpha * search_dir[k] for k in psit_k.keys()}
