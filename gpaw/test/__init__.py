@@ -313,8 +313,7 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
-    'response/iron_sf_ALDA_gridrep.py',     # ~15s
-    'response/iron_sf_gssALDA_gridrep.py',  # ~15s
+    'response/iron_sf_gssALDA.py',          # ~15s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
@@ -338,7 +337,6 @@ tests = [
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
     'lrtddft/1.py',                         # ~20s
-    'response/band_summation.py',           # ~21s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'generic/Cu.py',                        # ~21s
@@ -352,7 +350,6 @@ tests = [
     'jellium.py',                           # ~24s
     'utilities/ldos.py',                    # ~25s
     'solvation/swap_atoms.py',              # ~25s
-    'response/iron_sf_ALDA.py',             # ~25s
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'parallel/lcao_parallel_kpt.py',        # ~29s
@@ -366,6 +363,7 @@ tests = [
     'gllb/diamond.py',                      # ~33s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
+    'response/iron_sf_ALDA.py',             # ~37s
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s
