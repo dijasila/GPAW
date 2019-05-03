@@ -432,27 +432,31 @@ class KohnShamDecomposition(object):
 
         absweight_p = np.absolute(weight_p)
         tot_weight = weight_p.sum()
+        propweight_p = weight_p / tot_weight * 100
+        tot_propweight = propweight_p.sum()
         rest_weight = tot_weight
+        rest_propweight = tot_propweight
         eig_n = self.eig_un[u].copy()
         if zero_fermilevel:
             eig_n -= self.fermilevel
 
         txt = ''
-        txt += ('# %6s %3s(%8s)    %3s(%8s)  %12s %14s\n' %
-                ('p', 'i', 'eV', 'a', 'eV', 'Ediff (eV)', 'weight'))
+        txt += ('# %6s %4s(%8s)    %4s(%8s)  %12s %14s %8s\n' %
+                ('p', 'i', 'eV', 'a', 'eV', 'Ediff (eV)', 'weight', '%'))
         p_s = np.argsort(absweight_p)[::-1]
         for s, p in enumerate(p_s):
             i, a = self.ia_p[p]
             if absweight_p[p] < minweight:
                 break
-            txt += ('  %6s %3d(%8.3f) -> %3d(%8.3f): %12.4f %+14.4f\n' %
+            txt += ('  %6s %4d(%8.3f) -> %4d(%8.3f): %12.4f %14.4f %8.1f\n' %
                     (p, i, eig_n[i] * Hartree, a, eig_n[a] * Hartree,
-                     self.w_p[p] * Hartree, weight_p[p]))
+                     self.w_p[p] * Hartree, weight_p[p], propweight_p[p]))
             rest_weight -= weight_p[p]
-        txt += ('  %37s: %12s %+14.4f\n' %
-                ('rest', '', rest_weight))
-        txt += ('  %37s: %12s %+14.4f\n' %
-                ('total', '', tot_weight))
+            rest_propweight -= propweight_p[p]
+        txt += ('  %39s: %12s %+14.4f %8.1f\n' %
+                ('rest', '', rest_weight, rest_propweight))
+        txt += ('  %39s: %12s %+14.4f %8.1f\n' %
+                ('total', '', tot_weight, tot_propweight))
         return txt
 
     def plot_TCM(self, weight_p, energy_o, energy_u, sigma,
