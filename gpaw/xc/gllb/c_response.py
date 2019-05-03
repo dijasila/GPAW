@@ -348,7 +348,7 @@ class C_Response(Contribution):
         Ksgap *= Ha
         method1_dxc *= Ha
         method2_dxc *= Ha
-        if world.rank is not 0:
+        if world.rank != 0:
             return (Ksgap, method2_dxc)
 
         if 0:  # TODO print properly, not to stdout!
