@@ -1,7 +1,7 @@
 """
-Calculate the magnetic response in iron using ALDA
-scaled to satisfy the Goldstone theorem.
-The kernel is represented on a grid in real-space.
+Calculate the magnetic response in iron using ALDA.
+
+Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
 """
 
 # Workflow modules
@@ -30,7 +30,7 @@ a = 2.867
 mm = 2.21
 
 # Part 2: magnetic response calculation
-q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5 / 2.]]  # Two q-points along G-N path
+q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N path
 frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
 Kxc = 'ALDA'
 fxc_scaling = [True, None]
@@ -50,6 +50,7 @@ calc = GPAW(xc=xc,
             mode=PW(pw),
             kpts=monkhorst_pack((kpts, kpts, kpts)),
             nbands=nb,
+            symmetry={'point_group': False},
             idiotproof=False,
             parallel={'band': 1})
 
@@ -89,18 +90,18 @@ mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_fxcs = 1.038135552
-test_mw1 = -0.0289017263039  # meV
-test_mw2 = 175.8  # meV
-test_Ipeak1 = 71.2146329824  # a.u.
-test_Ipeak2 = 43.1361567126  # a.u.
+test_fxcs = 1.037
+test_mw1 = -0.03  # meV
+test_mw2 = 171.33  # meV
+test_Ipeak1 = 71.14  # a.u.
+test_Ipeak2 = 46.54  # a.u.
 
 # fxc_scaling:
-equal(fxc_scaling[1], test_fxcs, 2e-3)
+equal(fxc_scaling[1], test_fxcs, 0.005)
 
 # Magnon peak:
-equal(mw1, test_mw1, 0.01)
-equal(mw2, test_mw2, eta * 100)
+equal(mw1, test_mw1, 0.1)
+equal(mw2, test_mw2, eta * 750)
 
 # Scattering function intensity:
 equal(Ipeak1, test_Ipeak1, 5)
