@@ -2,7 +2,6 @@ import numpy as np
 
 from gpaw.utilities.blas import gemm, mmm
 from gpaw.utilities import unpack
-from gpaw.utilities.partition import EvenPartitioning
 
 
 class BaseAtomicCorrection:
@@ -23,7 +22,6 @@ class BaseAtomicCorrection:
         return dO_aii
 
     def calculate_hamiltonian(self, kpt, dH_asp, H_MM, yy):
-        dtype = H_MM.dtype
         dH_aii = dH_asp.partition.arraydict(self.dS_aii.shapes_a)
 
         for a in dH_asp:

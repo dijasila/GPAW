@@ -7,8 +7,6 @@
 
 from ase.build import molecule, bulk
 from gpaw import GPAW, LCAO
-from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
-                                         SparseAtomicCorrection)
 from gpaw.mpi import world
 from itertools import count
 
