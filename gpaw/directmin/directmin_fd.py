@@ -314,6 +314,11 @@ class DirectMinFD(Eigensolver):
         """
 
         if phi is None or grad_k is None:
+            # cannot broadcast float
+            # alpha = wfs.world.broadcast(alpha, 0)
+            alpha1 = np.array([alpha])
+            wfs.world.broadcast(alpha1, 0)
+            alpha = alpha1[0]
 
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
@@ -639,6 +644,9 @@ class DirectMinFD(Eigensolver):
         #  ..._lumo and skip if kpt.f_n[i] > 1.0e-10:
 
         if phi is None or grad_k is None:
+            alpha1 = np.array([alpha])
+            wfs.world.broadcast(alpha1, 0)
+            alpha = alpha1[0]
             x_knG = \
                 {k: psit_k[k] +
                     alpha * search_dir[k] for k in psit_k.keys()}
