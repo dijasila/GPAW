@@ -129,6 +129,7 @@ calc = GPAW(xc=ironxc,
             nbands=ironnb,
             idiotproof=False,
             symmetry={'point_group': False},
+            convergence={'forces': 1.e-9},
             parallel={'band': 1})
 
 Febcc.set_calculator(calc)
@@ -178,5 +179,5 @@ mw1 = (wpeak1 + d1[0, 0]) * 1000  # meV
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 # Part 1.4: compare magnon peaks
-
+print(mw1, mw2)
 equal(mw1, mw2, ironeta * 100)
