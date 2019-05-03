@@ -8,7 +8,7 @@ from gpaw.sphere.lebedev import weight_n
 import numpy as np
 from ase.units import Hartree
 
-K_G = 0.382106112167171
+K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
 
 class C_GLLBScr(Contribution):
