@@ -71,6 +71,7 @@ class C_GLLBScr(Contribution):
             else:
                 return 0.0
         else:
+            width = self.width
             if f > 0:
                 K = sqrt(f) + 0.5 * sqrt(pi * width) * erfcx(sqrt(f / width))
             else:
