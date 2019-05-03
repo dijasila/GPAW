@@ -1,13 +1,14 @@
 # flake8: noqa
-from gpaw.xc.gllb.contribution import Contribution
-from gpaw.xc import XC
+import numpy as np
 from math import sqrt, pi, exp
 from scipy.special import erfcx
-import numpy as np
 
 from ase.units import Hartree
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from gpaw.sphere.lebedev import weight_n
+from gpaw.xc import XC
+from gpaw.xc.gllb.contribution import Contribution
+
 
 K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
