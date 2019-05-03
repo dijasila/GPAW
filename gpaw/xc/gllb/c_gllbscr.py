@@ -1,12 +1,13 @@
 # flake8: noqa
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
-from gpaw.xc.pawcorrection import rnablaY_nLv
 from math import sqrt, pi, exp
-from gpaw.utilities import erf
-from gpaw.sphere.lebedev import weight_n
+from scipy.special import erfcx
 import numpy as np
+
 from ase.units import Hartree
+from gpaw.xc.pawcorrection import rnablaY_nLv
+from gpaw.sphere.lebedev import weight_n
 
 K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
@@ -69,16 +70,11 @@ class C_GLLBScr(Contribution):
             else:
                 return 0.0
         else:
-            dEH = -f
-            w = self.width
-            if dEH / w < -100:
-                return sqrt(f)
-            Knew = -0.5 * erf(sqrt((max(0.0,dEH)-dEH)/w)) * \
-                    sqrt(w*pi) * exp(-dEH/w)
-            Knew += 0.5 * sqrt(w*pi)*exp(-dEH/w)
-            Knew += sqrt(max(0.0,dEH)-dEH)*exp(max(0.0,dEH)/w)
-            #print dEH, w, dEH/w, Knew, f**0.5
-            return Knew
+            if f > 0:
+                K = sqrt(f) + 0.5 * sqrt(pi * width) * erfcx(sqrt(f / width))
+            else:
+                K = 0.5 * sqrt(pi * width) * exp(f / width)
+            return K
 
     def get_coefficients(self, e_j, f_j):
         homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(f_j, e_j)] )
