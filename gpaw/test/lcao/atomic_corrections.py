@@ -6,7 +6,7 @@
 # This is done by invoking GPAW once for each type of calculation.
 
 from ase.build import molecule, bulk
-from gpaw import GPAW, LCAO, PoissonSolver
+from gpaw import GPAW, LCAO
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
 from gpaw.mpi import world
