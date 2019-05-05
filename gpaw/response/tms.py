@@ -26,7 +26,7 @@ class TransverseMagneticSusceptibility(DielectricFunction):
         disable_time_reversal = True
         loc = locals().copy()
         loc.pop('self')
-        DielectricFunction.__init__(self, loc)
+        DielectricFunction.__init__(self, **loc)
 
         assert self.chi0.eta > 0.0
         assert not self.chi0.timeordered
