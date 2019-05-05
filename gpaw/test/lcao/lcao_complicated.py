@@ -38,7 +38,7 @@ system.rattle(stdev=0.2, seed=17)
 from gpaw import FermiDirac, LCAO
 
 def calculate(parallel, comm=world, Eref=None, Fref=None):
-    calc = GPAW(mode=LCAO(atomic_correction='scipy'),
+    calc = GPAW(mode=LCAO(atomic_correction='sparse'),
                 basis=dict(O='dzp', Au='sz(dzp)'),
                 occupations=FermiDirac(0.1),
                 kpts=(4, 1, 1),

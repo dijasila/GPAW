@@ -107,9 +107,9 @@ def get_lcao_projections_HSP(calc, bfs=None, spin=0, projectionsonly=True):
     tci.calculate(calc.spos_ac, S_qMM, T_qMM, P_aqMi)
 
     from gpaw.lcao.atomic_correction import DenseAtomicCorrection
-    atomic_correction = DenseAtomicCorrection()
-    atomic_correction.initialize(P_aqMi, 0, nao)
-    atomic_correction.add_overlap_correction(calc.wfs, S_qMM)
+    dS_aii = {a: calc.wfs.setups[a].dO_ii for a in bfs.my_atom_indices}
+    atomic_correction = DenseAtomicCorrection(P_aqMi, dS_aii, 0, nao)
+    atomic_correction.add_overlap_correction(S_qMM)
     # calc.wfs.P_aqMi = P_aqMi
     # for q, S_MM in enumerate(S_qMM):
     #     atomic_correction.calculate_manual(wfs, q,
