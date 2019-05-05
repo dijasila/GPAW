@@ -5,7 +5,6 @@
 """Main gpaw module."""
 
 import sys
-
 from gpaw.broadcast_imports import broadcast_imports
 
 with broadcast_imports:

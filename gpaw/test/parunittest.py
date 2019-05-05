@@ -304,7 +304,7 @@ class ParallelTextTestRunner(TextTestRunner):
             stream = devnull
         elif isinstance(stream, str):
             self.logfile = stream
-            stream = open(self.logfile, 'w', buffering=0)
+            stream = open(self.logfile, 'w')
         TextTestRunner.__init__(self, stream=stream, **kwargs)
 
     def _makeResult(self):

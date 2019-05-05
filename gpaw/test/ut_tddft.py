@@ -20,7 +20,6 @@ from gpaw.test.ut_common import TestCase, \
 
 mpl = None
 
-
 class UTGroundStateSetup(TestCase):
     """
     Setup a simple calculation starting from ground state."""
@@ -76,7 +75,7 @@ class UTGroundStateSetup(TestCase):
         #XXX DEBUG END
 
         self.atoms.set_calculator(self.gscalc)
-        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.0621, 4)
+        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.06198, 4)
         self.gscalc.write(self.gsname + '.gpw', mode='all')
         self.assertTrue(os.path.isfile(self.gsname + '.gpw'))
 
@@ -226,13 +225,16 @@ def UTStaticPropagatorFactory(timesteps, propagator):
 
 # -------------------------------------------------------------------
 
-if __name__ in ['__main__', '__builtin__']:
+if __name__ in ['__main__', '__builtin__', 'builtins']:
+    # XXX Not sure whether we should use the CustomTextTestRunner sometimes.
+    #   --askhl
+    #
     # We may have been imported by test.py, if so we should redirect to logfile
-    if __name__ == '__builtin__':
-        testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
-    else:
-        stream = (world.rank == 0) and sys.stdout or devnull
-        testrunner = TextTestRunner(stream=stream, verbosity=2)
+    # if 0: #__name__ in ['__builtin__', 'builtins']:
+    #     testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
+    # else:
+    stream = (world.rank == 0) and sys.stdout or devnull
+    testrunner = TextTestRunner(stream=stream, verbosity=2)
 
     parinfo = []
     for test in [UTGroundStateSetup]:
