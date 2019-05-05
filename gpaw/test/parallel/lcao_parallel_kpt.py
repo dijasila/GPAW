@@ -115,7 +115,7 @@ if compiled_with_sl():
 # perform spin polarization test
 parallel = dict()
 
-basekwargs = dict(mode=LCAO(atomic_correction='scipy'),
+basekwargs = dict(mode=LCAO(atomic_correction='sparse'),
                   maxiter=3,
                   nbands=6,
                   kpts=(4, 1, 1),
