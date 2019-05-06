@@ -1592,10 +1592,10 @@ if __name__=="__main__":
     else:
         
         
-        ro = SternheimerResponse(filen)
+        #ro = SternheimerResponse(filen)
         
         
-        exit()
+        #exit()
         print("Generating new test file")
         from ase.build import bulk
         from ase import Atoms
@@ -1618,9 +1618,9 @@ if __name__=="__main__":
         #            txt = outname)
         
         
-        atoms = Atoms("H", cell=(20, 20, 20), magmoms=[1])
+        atoms = Atoms("H", cell=(15, 15, 15), magmoms=[1])
 
-        calc = GPAW(mode=PW(700, force_complex_dtype=True),
+        calc = GPAW(mode=PW(500, force_complex_dtype=True),
                     xc="LDA",
                     setups="ae"
         )
@@ -1631,6 +1631,6 @@ if __name__=="__main__":
         calc.write(filen, mode = "all")
 
         #exit()
-        #respObj = SternheimerResponse(filen)
+        respObj = SternheimerResponse(filen)
         
 

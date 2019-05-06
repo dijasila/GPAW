@@ -1,12 +1,11 @@
 import numpy as np
-from scipy.special import sph_harm, genlaguerre
+from scipy.special import genlaguerre
 import itertools
 from functools import reduce
 from scipy.stats import ortho_group 
 from gpaw.utilities.clebschgordan import ClebschGordanCalculator
 from scipy.sparse.linalg import bicgstab
 import math
-import scipy
 
 
 def fermi_function(energy, temperature, chemical_potential):
@@ -112,7 +111,6 @@ class AllElectronResponse:
 
     def _get_analytical_levels(self, num_levels, angular_number):
         wfs_ens = []
-        lags = []
         rgd = self.all_electron_atom.rgd
         assert angular_number == 0
         for n in range(1, num_levels+1):
@@ -180,25 +178,42 @@ class AllElectronResponse:
                 print("----------------------------------------")
                 print("Calculating epsilon")
 
-                ##There is a serious problem: Some chi eigenvalues are positive. This seems to indicate that the Sternheimer equation is not correctly implemented
-
+                
+                ##Some problem we expressing chi in gaussian basis. When we express chi eigenvectors in gaussian basis they are no longer orthonormal
 
                 # channel = self.all_electron_atom.channels[0]
                 # gvecs = channel.expand(vecs)
-                chi = self._construct_response(vals, vecs)
+                chi = self._construct_response(vals, vecs, gaussian_basis=True)
+                assert np.allclose(chi, chi.T.conj())
+                es, vs = np.linalg.eigh(chi)
+                print("OOOOOOOOOOOOOOO")
+                print("After reconstruction: ", es)
+                print("OOOOOOOOOOOOOOO")
+                vr_g = self.all_electron_atom.vr_sg[0]
+                V_bb = self.all_electron_atom.channels[0].basis.calculate_potential_matrix(vr_g)
+
+                eps = np.eye(chi.shape[0]) - V_bb.dot(chi)
+
+
+
+                ###POSITION SPACE STUFF
+
                 #Use Laplace expansion for Coulomb potential
-                laplace_coulomb = self.get_laplace_coulomb()
-                rgd = self.all_electron_atom.rgd
-                drs = np.diag(rgd.dr_g)
-                r2s = np.diag(rgd.r_g**2)
-                integral = laplace_coulomb.dot(drs.dot(r2s).dot(chi))
+                # laplace_coulomb = self.get_laplace_coulomb()
+                # rgd = self.all_electron_atom.rgd
+                # drs = np.diag(rgd.dr_g)
+                # r2s = np.diag(rgd.r_g**2)
+                # integral = laplace_coulomb.dot(drs.dot(r2s).dot(chi))
 
                 
-                assert not np.allclose(integral, 0)
+                # assert not np.allclose(integral, 0)
 
-                eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
+                # eps = np.eye(chi.shape[0]) - integral.dot(drs).dot(r2s)
                 #eps = -integral.dot(drs).dot(r2s)
                 #eps = chi.dot(drs).dot(r2s)
+
+                ###END POSITION SPACE STUFF
+
                 vals, vecs = np.linalg.eig(eps)
                 b = np.allclose(vals, vals.real)
                 if not b:
@@ -224,21 +239,35 @@ class AllElectronResponse:
             #response = self._construct_response(vals, vecs)
             #return response
 
-    def _construct_response(self, vals, vecs):
+    def _construct_response(self, vals, vecs, gaussian_basis=False):
         response = 0
         for val, vec in zip(vals,vecs):
-            response += val*np.outer(vec, vec.conj())
+            if not gaussian_basis:            
+                response += val*np.outer(vec, vec.conj())
+            else:
+                channel = self.all_electron_atom.channels[0]
+                basis = channel.basis
+                gvec, err = np.linalg.lstsq(basis.basis_bg.T, vec, rcond=-1)[:2]
+                #gvec /= np.linalg.norm(gvec)
+                b = np.allclose(np.linalg.norm(gvec), 1)
+                if not b:
+                    print("BEFORENORM WAS: ", self.dot(vec, vec))
+                    print("NORM WAS: ", np.linalg.norm(gvec))
+                    reup = basis.expand(gvec)
+                    print("REUP ALLCLOSE: ", np.allclose(reup, vec))
+                    print("LSTSQ ERR: ", err)
+                #assert b
+                response += val*np.outer(gvec, gvec.conj())
+            
+            
+
 
         return response
-
-
-
     
     def _get_random_trial_vectors(self, num_eigs, angular_momenta):
         start_vecs_ln = {}
 
         for l in angular_momenta:
-            size = len(self.all_electron_atom.channels[l].phi_ng[0])
             start_vecs_ln[l] = []
             for n in range(num_eigs):
                 start = np.sin((n+1)*self.all_electron_atom.rgd.r_g*np.pi/max(self.all_electron_atom.rgd.r_g))
@@ -250,7 +279,6 @@ class AllElectronResponse:
 
     def get_laplace_coulomb(self):
         r_g = self.all_electron_atom.rgd.r_g
-        nrs = len(r_g)
 
         #cutoff = min(self.all_electron_atom.rgd.dr_g)
         #cutoff = r_g[1]
