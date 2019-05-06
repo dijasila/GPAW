@@ -554,25 +554,37 @@ class DirectMinFD(Eigensolver):
             for kpt in wfs.kpt_u:
                 self.odd.get_energy_and_gradients_kpt(
                     wfs, kpt, grad_knG, dens)
+
         for kpt in wfs.kpt_u:
+
+            # TODO: if homo-lumo is around zero then
+            #  it is not good to do diagonalization
+            #  of occupied and unoccupied states
+
             k = self.n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)
             # if n_occ == 0:
             #     continue
             grad_knG[k][n_occ:n_occ + 1] = \
                 self.get_gradients_lumo(ham, wfs, kpt)
-            lamb = wfs.gd.integrate(kpt.psit_nG[:n_occ + 1],
-                                    grad_knG[k][:n_occ + 1],
+            lamb = wfs.gd.integrate(kpt.psit_nG[:n_occ],
+                                    grad_knG[k][:n_occ],
                                     False)
             lamb = (lamb + lamb.T.conj()) / 2.0
             lamb = np.ascontiguousarray(lamb)
+
+            lumo = wfs.gd.integrate(kpt.psit_nG[n_occ:n_occ + 1],
+                                    grad_knG[k][n_occ:n_occ + 1],
+                                    False)
             wfs.gd.comm.sum(lamb)
+            wfs.gd.comm.sum(lumo)
             if 'SIC' in self.odd_parameters['name']:
-                n_unocc = len(kpt.f_n) - (n_occ + 1)
+                n_unocc = len(kpt.f_n) - n_occ
                 self.odd.lagr_diag_s[k] = np.append(
                     np.diagonal(lamb).real,
                     np.ones(shape=n_unocc) *
                     np.absolute(lamb[n_occ, n_occ] * 5.))
+                self.odd.lagr_diag_s[k][n_occ] = lumo.real
                 # np.ones(shape=n_unocc) * np.inf)
                 # inf is not a good
                 # for example for ase get gap
@@ -582,8 +594,8 @@ class DirectMinFD(Eigensolver):
             diagonalize(lamb, evals)
             wfs.gd.comm.broadcast(evals, 0)
             wfs.gd.comm.broadcast(lamb, 0)
-            kpt.eps_n[:n_occ + 1] = evals
-            kpt.eps_n[:n_occ] = kpt.eps_n[:n_occ] / kpt.f_n[:n_occ]
+            kpt.eps_n[n_occ:n_occ + 1] = lumo.real
+            kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
             # kpt.eps_n[n_occ + 1:] = +np.inf
             # inf is not a good for example for ase get gap
             kpt.eps_n[n_occ + 1:] *= 0.0
@@ -593,13 +605,13 @@ class DirectMinFD(Eigensolver):
                 # TODO:
                 # Do we need sort wfs according to eps_n
                 # or they will be automatically sorted?
-                kpt.psit_nG[:n_occ + 1] = \
-                    np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ + 1],
+                kpt.psit_nG[:n_occ] = \
+                    np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
                                  axes=1)
                 for a in kpt.P_ani.keys():
-                    kpt.P_ani[a][:n_occ + 1] = \
+                    kpt.P_ani[a][:n_occ] = \
                         np.dot(lamb.conj(),
-                               kpt.P_ani[a][:n_occ + 1])
+                               kpt.P_ani[a][:n_occ ])
 
         # update fermi level?
         occ.calculate(wfs)
