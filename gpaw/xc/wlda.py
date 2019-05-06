@@ -10,8 +10,10 @@ class WLDA(XCFunctional):
         self.kernel = kernel
         self.stepsize = 0.01
         self.nalpha = 50
+        self.alpha_n = None
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        self.alpha_n = None #Reset alpha grid for each calc
         #norm_s = gd.integrate(n_sg)
         self.apply_weighting(gd, n_sg)
         #newnorm_s = gd.integrate(n_sg)
@@ -251,9 +253,10 @@ class WLDA(XCFunctional):
 
     def _get_K_G(self, shape, gd):
         Nx, Ny, Nz = shape
-        dx = gd.coords(0)[1]-gd.coords(0)[0]
-        dy = gd.coords(1)[1]-gd.coords(1)[0]
-        dz = gd.coords(2)[1]-gd.coords(2)[0]
+        grid_vg = gd.get_grid_point_coordinates()
+        dx = grid_vg[0,1,0,0] - grid_vg[0,0,0,0]
+        dy = grid_vg[1,0,1,0] - grid_vg[1,0,0,0]
+        dz = grid_vg[2,0,0,1] - grid_vg[2,0,0,0]
         kxs = np.array([2*np.pi/Nx*i if i < Nx/2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])/dx
         kys = np.array([2*np.pi/Ny*i if i < Ny/2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])/dy
         kzs = np.array([2*np.pi/Nz*i if i < Nz/2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])/dz
@@ -291,6 +294,9 @@ class WLDA(XCFunctional):
 
 
     def get_alpha_grid(self, n_g):
+        if self.alpha_n is not None:
+            return self.alpha_n
+        
         alpha_n = np.linspace(0, np.max(n_g), self.nalpha)
 
         self.alpha_n = alpha_n
@@ -372,8 +378,46 @@ class WLDA(XCFunctional):
         alpha = alpha_n[nlesser - 1]
 
         return a + b*(x-alpha) + c*(x-alpha)**2 + d*(x-alpha)**3
+
+
+
+    def get_weight_alphaG(self, gd):
+        alpha_n = self.get_alpha_grid(None)
+        _, nx, ny, nz = gd.get_grid_point_coordinates().shape
+        K_G = self._get_K_G((nx, ny, nz), gd)
+        w_alphaG = np.zeros((len(alpha_n), *K_G.shape), dtype=np.complex128)
+
+        for ia, alpha in enumerate(alpha_n):
+            k_F = self.get_kF(alpha)
+            step_fct_G = (K_G**2 <= 4*k_F**2).astype(np.complex128)
+            w_alphaG[ia, :, :, :] = step_fct_G
         
+        # norm_alpha = np.array([gd.integrate(np.fft.ifftn(w_G)) for w_G in w_alphaG])
+        # w_alphaG = np.array([w_G/norm_alpha[a] for a, w_G in enumerate(w_alphaG)])
+        #norm = gd.integrate(np.fft.ifftn(w_alphaG[0]))
+        w_alphaG /= gd.dv
+        return w_alphaG
+    
+
+    def calculate_nstar(self, n_g, gd):
+        C_nsc = self.construct_cubic_splines(n_g)
+        C_alphag = self.get_spline_values(C_nsc, n_g, gd)
+        product_alphag = np.array([C_g*n_g for C_g in C_alphag])
+        
+        product_alphaG = np.array([np.fft.fftn(product_g) for product_g in product_alphag])
+        w_alphaG = self.get_weight_alphaG(gd)
+        
+        integrand_alphaG = np.array([w_G*product_alphaG[ia] for ia, w_G in enumerate(w_alphaG)])
+        integrand_G = np.sum(integrand_alphaG, axis=0)
+        nstar_g = np.fft.ifftn(integrand_G)
+
+
+        return nstar_g
        
+
+    def get_kF(self, density):
+        return (3*np.pi**2*density)**(1/3)
+
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         from gpaw.xc.lda import calculate_paw_correction
