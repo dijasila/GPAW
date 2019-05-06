@@ -1,7 +1,7 @@
 from gpaw.xc.functional import XCFunctional
 import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
-from gpaw.utilities import construct_reciprocal
+from gpaw.utilities.tools import construct_reciprocal
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None):
@@ -16,9 +16,10 @@ class WLDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.alpha_n = None #Reset alpha grid for each calc
         #norm_s = gd.integrate(n_sg)
-        #self.apply_weighting(gd, n_sg)
-        n_g = self.calculate_nstar(n_sg[0], gd)
-        n_sg[0, :] = n_g
+
+        self.apply_weighting(gd, n_sg)
+        #n_g = self.calculate_nstar(n_sg[0], gd)
+        #n_sg[0, :] = n_g
         #newnorm_s = gd.integrate(n_sg)
         #n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
         #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
@@ -258,7 +259,7 @@ class WLDA(XCFunctional):
         assert gd.comm.size == 1 #Construct_reciprocal doesnt work in parallel
         k2_Q, _ = construct_reciprocal(gd)
         k2_Q[0,0,0] = 0
-        return np.sqrt(k2_Q)
+        return k2_Q**(1/2)
         
 
 
@@ -287,7 +288,9 @@ class WLDA(XCFunctional):
             k_F = (3*np.pi**2*ni)**(1/3)
             fil_n_G = self._theta_filter(k_F, K_G, n_G)
             x = np.fft.ifftn(fil_n_G)
-            assert np.allclose(x, x.real)
+            if (n_g >= 0).all():
+                assert np.allclose(x, x.real)
+
             self.weight_table[:,:,:,i] = x.real
 
 
