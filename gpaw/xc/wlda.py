@@ -1,6 +1,7 @@
 from gpaw.xc.functional import XCFunctional
 import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
+from gpaw.utilities import construct_reciprocal
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None):
@@ -15,7 +16,9 @@ class WLDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.alpha_n = None #Reset alpha grid for each calc
         #norm_s = gd.integrate(n_sg)
-        self.apply_weighting(gd, n_sg)
+        #self.apply_weighting(gd, n_sg)
+        n_g = self.calculate_nstar(n_sg[0], gd)
+        n_sg[0, :] = n_g
         #newnorm_s = gd.integrate(n_sg)
         #n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
         #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
@@ -252,17 +255,12 @@ class WLDA(XCFunctional):
 
 
     def _get_K_G(self, shape, gd):
-        Nx, Ny, Nz = shape
-        grid_vg = gd.get_grid_point_coordinates()
-        dx = grid_vg[0,1,0,0] - grid_vg[0,0,0,0]
-        dy = grid_vg[1,0,1,0] - grid_vg[1,0,0,0]
-        dz = grid_vg[2,0,0,1] - grid_vg[2,0,0,0]
-        kxs = np.array([2*np.pi/Nx*i if i < Nx/2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])/dx
-        kys = np.array([2*np.pi/Ny*i if i < Ny/2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])/dy
-        kzs = np.array([2*np.pi/Nz*i if i < Nz/2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])/dz
-        K_G = np.array([[[np.linalg.norm([kx, ky, kz]) for kz in kzs] for ky in kys] for kx in kxs])
+        assert gd.comm.size == 1 #Construct_reciprocal doesnt work in parallel
+        k2_Q, _ = construct_reciprocal(gd)
+        k2_Q[0,0,0] = 0
+        return np.sqrt(k2_Q)
+        
 
-        return K_G
 
     def _theta_filter(self, k_F, K_G, n_G):
         
