@@ -8,14 +8,15 @@ class WLDA(XCFunctional):
         if kernel is None:
             kernel = PurePythonLDAKernel()
         self.kernel = kernel
-
+        self.stepsize = 0.01
+        self.nalpha = 50
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        norm_s = gd.integrate(n_sg)
+        #norm_s = gd.integrate(n_sg)
         self.apply_weighting(gd, n_sg)
-        newnorm_s = gd.integrate(n_sg)
-        n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
-        n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
+        #newnorm_s = gd.integrate(n_sg)
+        #n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
+        #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
 
         
 
@@ -47,10 +48,9 @@ class WLDA(XCFunctional):
             lda_c(0, e_g, n, v_sg[0], zeta)
 
     def apply_weighting(self, gd, n_sg):
-        return n_sg
         if n_sg.shape[0] > 1:
             raise NotImplementedError
-        self.tabulate_weights(n_sg[0])
+        self.tabulate_weights(n_sg[0], gd)
 
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
@@ -63,8 +63,110 @@ class WLDA(XCFunctional):
 
         n_sg[0, :] = wn_g
                     
-                    
+         
+    def apply_other_weighting(self, gd, n_sg):
+        if n_sg.shape[0] > 1:
+            raise NotImplementedError
 
+        n_g = n_sg[0]
+        
+        weight_function_gg = self.get_other_weightfunction(gd, n_g)
+
+        n_g = gd.integrate(weight_function_gg, n_g)
+        n_sg[0, :] = n_g
+
+
+    def get_weightslice(self, gd, n_g, pos, num_cells=5):
+        grid_vg = gd.get_grid_point_coordinates()
+
+        _, Nx, Ny, Nz = grid_vg.shape
+
+        cell_cv = gd.cell_cv
+        
+        w_g = np.zeros((Nx, Ny, Nz))
+        for ix in range(Nx):
+            for iy in range(Ny):
+                w_g[ix, iy, :] = np.array([self.get_weightslice_value(grid_vg[:, ix, iy, iz]-pos, (3*np.pi**2*n_g[ix, iy, iz])**(1/3), gd, num_cells) for iz in range(Nz)])
+                # for iz in range(Nz):
+                #     kF = (3*np.pi**2*n_g[ix, iy, iz])**(1/3)
+
+
+
+                #     r_v = grid_vg[:, ix, iy, iz] - pos                            
+                #     w_g[ix, iy, iz] = self.get_weightslice_value(r_v, kF, gd, num_cells)
+        
+
+                #     for n in range(1, num_cells):
+                #         for c, R_v in enumerate(cell_cv):
+                #             R = n*R_v
+                #             r_v = grid_vg[:, ix, iy, iz] + R - pos
+                            
+                #             w_g[ix, iy, iz] += self.get_weightslice_value(r_v, kF, gd, num_cells)
+        
+        return w_g
+
+
+    def get_weightslice_value(self, r_v, kF, gd, num_cells):
+        val = 0
+        r = np.linalg.norm(r_v)
+        if np.allclose(r, 0):
+            val = 0
+        else:
+            val = (1/(2*np.pi**2))*(np.sin(2*kF*r)-2*kF*r*np.cos(2*kF*r))/(r**3)
+
+        for n in range(1, num_cells):
+            for c, R_v in enumerate(gd.cell_cv):
+                R = n*R_v
+                r_v = r_v + R
+                r = np.linalg.norm(r_v)
+                val += (1/(2*np.pi**2))*(np.sin(2*kF*r)-2*kF*r*np.cos(2*kF*r))/(r**3)
+                    
+        return val
+
+
+    def get_other_weightfunction(self, gd, n_g):
+        #grid = gd.get_grid_point_coordinates()
+        #_, Nx, Ny, Nz = grid.shape
+        Nx, Ny, Nz = n_g.shape
+        #assert n_g.shape == grid_gv[:,:,:,0].shape
+        grid = self._get_grid(gd)
+
+
+        dists = np.array([np.linalg.norm(grid[:,ix,iy,iz]-grid[:,ix2,iy2,iz2]) for ix in range(Nx) for iy in range(Ny) for iz in range(Nz) for ix2 in range(Nx) for iy2 in range(Ny) for iz2 in range(Nz)])
+        dists = [d for d in dists if not np.allclose(d, 0)]
+        cutoff = min(dists)
+        weight_function_gg = np.zeros((Nx, Ny, Nz, Nx, Ny, Nz))
+        for ix in range(Nx):
+            for iy in range(Ny):
+                for iz in range(Nz):
+                    for ix2 in range(Nx):
+                        for iy2 in range(Ny):
+                            for iz2 in range(Nz):
+                                diffVec = grid[:, ix, iy, iz] - grid[:, ix2, iy2, iz2]
+                                dist = np.linalg.norm(diffVec)
+                                #dist = max(dist, cutoff)
+                                if np.allclose(dist, 0):
+                                    weight_function_gg[ix, iy, iz, ix2, iy2, iz2] = 0
+                                else:
+                                    dens = 2*(3*np.pi**2*n_g[ix2, iy2, iz2])**(1/3)
+                                    weight_function_gg[ix, iy, iz, ix2, iy2, iz2] = (1/(2*np.pi**2))*(np.sin(dist*dens)-dist*dens*np.cos(dist*dens))/dist**3
+
+        return weight_function_gg
+
+    def _get_grid(self, gd):
+        xs, ys, zs = gd.coords(0), gd.coords(1), gd.coords(2)
+        Nx, Ny, Nz = len(xs), len(ys), len(zs)
+
+        grid = np.zeros((3, Nx, Ny, Nz))
+
+        na = np.newaxis
+        grid[0, :, :, :] = xs[:, na, na]
+        grid[1, :, :, :] = ys[na, :, na]
+        grid[2, :, :, :] = zs[na, na, :]
+
+        return grid
+        
+        
 
 
     def get_ni_weights(self, n_g):
@@ -147,11 +249,14 @@ class WLDA(XCFunctional):
         
 
 
-    def _get_K_G(self, shape):
+    def _get_K_G(self, shape, gd):
         Nx, Ny, Nz = shape
-        kxs = np.array([2*np.pi/Nx*i if i < Nx/2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])
-        kys = np.array([2*np.pi/Ny*i if i < Ny/2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])
-        kzs = np.array([2*np.pi/Nz*i if i < Nz/2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])
+        dx = gd.coords(0)[1]-gd.coords(0)[0]
+        dy = gd.coords(1)[1]-gd.coords(1)[0]
+        dz = gd.coords(2)[1]-gd.coords(2)[0]
+        kxs = np.array([2*np.pi/Nx*i if i < Nx/2 else 2*np.pi/Nx*(i-Nx) for i in range(Nx)])/dx
+        kys = np.array([2*np.pi/Ny*i if i < Ny/2 else 2*np.pi/Ny*(i-Ny) for i in range(Ny)])/dy
+        kzs = np.array([2*np.pi/Nz*i if i < Nz/2 else 2*np.pi/Nz*(i-Nz) for i in range(Nz)])/dz
         K_G = np.array([[[np.linalg.norm([kx, ky, kz]) for kz in kzs] for ky in kys] for kx in kxs])
 
         return K_G
@@ -162,9 +267,17 @@ class WLDA(XCFunctional):
 
         return n_G*Theta_G
 
-    def tabulate_weights(self, n_g):
-        nis = np.arange(0, max(np.max(n_g), 5), 0.01)
-        K_G = self._get_K_G(n_g.shape)
+    def tabulate_weights(self, n_g, gd):
+        '''
+        Calculate \int  w(r-r', ni)n(r') dr'
+        for various values of ni.
+
+        This is later used to calculate nstar(r) = \int w(r-r', n(r))n(r')
+        by interpolating the values at the ni to the value at n(r).
+
+        '''
+        nis = np.arange(0, max(np.max(n_g), 5), self.stepsize)
+        K_G = self._get_K_G(n_g.shape, gd)
         self.nis = nis
         self.weight_table = np.zeros(n_g.shape+(len(nis),))
         n_G = np.fft.fftn(n_g)
@@ -176,6 +289,89 @@ class WLDA(XCFunctional):
             assert np.allclose(x, x.real)
             self.weight_table[:,:,:,i] = x.real
 
+
+    def get_alpha_grid(self, n_g):
+        alpha_n = np.linspace(0, np.max(n_g), self.nalpha)
+
+        self.alpha_n = alpha_n
+        return alpha_n
+
+
+    
+    def construct_cubic_splines(self, n_g):
+        '''
+        This construct cubic spline interpolations for the indicator functions f_alpha.
+        See http://en.wikipedia.org/wiki/Spline_(mathematics) (subsection Algorithm for computing natural cubic splines)
+
+        We here calculate the splines for all the indicator functions simultaneously, so our arrays have an extra index. The row-index enumerates the different splines making up and indicator, while the column index enumerates the different indicators
+
+        f_alpha(x) should be 1 in x = alpha and zero otherwise. But this is too strict so we to interpolation instead.
+        '''
+        alpha_n = self.get_alpha_grid(n_g)
+        nalpha = self.nalpha #~n+1 in algo on wikipedia
+
+        y = np.eye(nalpha) #Target values for the indicator functions
+        a = y 
+        h = alpha_n[1:] - alpha_n[:-1]
+        
+        beta_k = 3*(a[2:] - a[1:-1])/h[1:, np.newaxis] - 3*(a[1:-1] - a[:-2])/h[:-1, np.newaxis]
+
+        l = np.ones((nalpha, nalpha))
+        mu = np.zeros((nalpha, nalpha))
+        z = np.zeros((nalpha, nalpha))
+        
+        for i in range(1, nalpha-1):
+            l[i] = 2*(alpha_n[i+1] - alpha_n[i-1]) - h[i-1]*mu[i-1]
+            mu[i] = h[i]/l[i]
+            z[i] = (beta_k[i-1] - h[i-1]*z[i-1])/l[i]
+        
+        b = np.zeros((nalpha, nalpha))
+        c = np.zeros((nalpha, nalpha))
+        d = np.zeros((nalpha, nalpha))
+        
+        for i in range(nalpha-2, -1, -1):
+            c[i] = z[i] - mu[i]*c[i+1]
+            b[i] = (a[i+1]-a[i])/h[i] - (h[i]*(c[i+1] + 2*c[i]))/3
+            d[i] = (c[i+1] - c[i])/(3*h[i])
+
+            
+        #Now we switch the order, so the first index is the indicator, the second is the spline, the third is the coefficient
+        #We also add an extra spline for every indicator. This is just set to be constant
+        self.C_nsc = np.zeros((nalpha, nalpha, 4))
+        self.C_nsc[:, :-1, 0] = a[:-1].T
+        self.C_nsc[:, :-1, 1] = b[:-1].T
+        self.C_nsc[:, :-1, 2] = c[:-1].T
+        self.C_nsc[:, :-1, 3] = d[:-1].T
+        self.C_nsc[-1, -1, 0] = 1.0 #The last indicator should be one at the last alpha-pt, therefore the extra spline should have value 1
+
+        return self.C_nsc
+                                         
+        
+    
+
+    def get_spline_values(self, C_nsc, n_g, gd):
+        grid_vg = gd.get_grid_point_coordinates()
+        
+        grid_vx = grid_vg.reshape(3, -1)
+
+        n_x = n_g.reshape(-1)
+        gridshape = n_g.shape
+        C_ng = np.array([[self.expand_spline(n, C_sc) for n in n_x] for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
+
+
+        return C_ng
+
+
+    def expand_spline(self, x, C_sc):
+        alpha_n = self.alpha_n
+
+        val = 0
+        nlesser = (alpha_n <= x).astype(int).sum()
+        assert nlesser >= 1
+        a, b, c, d = C_sc[nlesser - 1]
+        alpha = alpha_n[nlesser - 1]
+
+        return a + b*(x-alpha) + c*(x-alpha)**2 + d*(x-alpha)**3
         
        
 
