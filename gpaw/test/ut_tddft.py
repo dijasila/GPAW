@@ -15,7 +15,7 @@ from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
 from gpaw.test.ut_common import TestCase, \
-    TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
+    TextTestRunner, defaultTestLoader, \
     initialTestLoader, create_parsize_maxbands
 
 mpl = None
