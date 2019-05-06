@@ -123,9 +123,14 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.qna import QNA
             return QNA(atoms, kernel['parameters'], kernel['setup_name'],
                        alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
-        elif name == 'WLDA':
+        elif 'WLDA' in name:
             from gpaw.xc.wlda import WLDA
-            return WLDA()
+            splt = name.split("_")
+            if len(splt) > 1:
+                mode = splt[-1]
+            else:
+                mode = ""
+            return WLDA(mode=mode)
         else:
             kernel = LibXC(name)
 

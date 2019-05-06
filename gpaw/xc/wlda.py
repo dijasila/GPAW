@@ -4,7 +4,7 @@ from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
 
 class WLDA(XCFunctional):
-    def __init__(self, kernel=None):
+    def __init__(self, kernel=None, mode=""):
         XCFunctional.__init__(self, 'WLDA','LDA')
         if kernel is None:
             kernel = PurePythonLDAKernel()
@@ -12,16 +12,28 @@ class WLDA(XCFunctional):
         self.stepsize = 0.01
         self.nalpha = 50
         self.alpha_n = None
+        self.mode = mode
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         self.alpha_n = None #Reset alpha grid for each calc
-        #norm_s = gd.integrate(n_sg)
 
-        self.apply_weighting(gd, n_sg)
-        #n_g = self.calculate_nstar(n_sg[0], gd)
-        #n_sg[0, :] = n_g
-        #newnorm_s = gd.integrate(n_sg)
-        #n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
+        if self.mode == "":
+            #norm_s = gd.integrate(n_sg)
+            self.apply_weighting(gd, n_sg)
+            #newnorm_s = gd.integrate(n_sg)
+            #n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
+        elif self.mode.lower() == "altcenter":
+            
+            n_g = self.calculate_nstar(n_sg[0], gd)
+            n_sg[0, :] = n_g
+        elif self.mode.lower() == "renorm":
+            norm_s = gd.integrate(n_sg)
+            self.apply_weighting(gd, n_sg)
+            newnorm_s = gd.integrate(n_sg)
+            n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
+        else:
+            raise ValueError("WLDA mode not recognized")
+
         #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
 
         
