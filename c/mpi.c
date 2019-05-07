@@ -827,7 +827,11 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   int root;
   if (!PyArg_ParseTuple(args, "Oi:broadcast", &buf, &root))
     return NULL;
-  CHK_ARRAY(buf);
+  if (root == self->rank)
+      CHK_ARRAY_RO(b);
+  else
+      CHK_ARRAY(buf);
+
   CHK_PROC(root);
   int n = PyArray_DESCR(buf)->elsize;
   for (int d = 0; d < PyArray_NDIM(buf); d++)
