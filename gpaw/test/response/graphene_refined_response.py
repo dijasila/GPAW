@@ -35,7 +35,7 @@ if not os.path.exists('graphene.gpw'):
 pbc = system.pbc
 
 df = DielectricFunction('graphene.gpw', eta=25e-3, domega0=0.01)
-alpha0x_w, alphax_w = df.get_polarizability(q_c=[1 / (nk * nkrefine), 0, 0])
+alpha0x_w, alphax_w = df.get_polarizability(q_c=[1. / (nk * nkrefine), 0, 0])
 omega_w = df.get_frequencies()
 analyticalalpha_w = 1j / (8 * omega_w[1:] / Hartree)
 
