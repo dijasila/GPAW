@@ -73,17 +73,19 @@ class WLDA(XCFunctional):
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
-        self.tabulate_weights(n_sg[0], gd)
-
+        print("1")
+        self.tabulate_weights2(n_sg[0], gd)
+        print("2")
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
 
-        
-        n_gi = self._get_ni_weights(n_g)
+        print("3")
+        n_gi = self.get_ni_weights(n_g)
+        print("4")
         wtable_gi = self.weight_table
 
         wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
-
+        print("5")
         n_sg[0, :] = wn_g
                     
          
@@ -194,33 +196,40 @@ class WLDA(XCFunctional):
 
     def get_ni_weights(self, n_g):
         nis = self.nis
-        bign_g = np.zeros(n_g.shape + nis.shape)
-        for i in range(len(nis)):
-            bign_g[..., i] = n_g
-        lesser_g = bign_g <= nis
-        nlesser_g = lesser_g.astype(int).sum(axis=-1)
-
-        greater_g = bign_g > nis
-        ngreater_g = greater_g.sum(axis=-1)
+        nlesser_g = (n_g[:, :, :, np.newaxis] <= nis).sum(axis=-1)
+        ngreater_g = (n_g[:, :, :, np.newaxis] > nis).sum(axis=-1)
 
         vallesser_g = nis.take(nlesser_g-1)
         valgreater_g = nis.take(-ngreater_g)
-
-        print("")
-        print(nis)
-        print("################################")
-        print(lesser_g)
-        print("################################")
-        print(nlesser_g)
-        print("################################")
-        print(n_g)
-        print("################################")
-        print(vallesser_g)
-
-        #partlesser_g = 
-
-        n_gi = np.zeros_like(bign_g)
         
+        # vallesser_g2 = np.zeros_like(n_g)
+        # valgreater_g2 = np.zeros_like(n_g)
+
+        # for ix, n_yz in enumerate(nlesser_g):
+        #     for iy, n_z in enumerate(n_yz):
+        #         for iz, n in enumerate(n_z):
+        #             vallesser_g2[ix, iy, iz] = nis[n-1]
+        #             ng = ngreater_g[ix, iy, iz]
+        #             valgreater_g2[ix, iy, iz] = nis[-ng]
+                    
+        # assert np.allclose(vallesser_g, vallesser_g2) ##This is true
+        # assert np.allclose(valgreater_g, valgreater_g2) ##This is also true
+
+
+        partlesser_g = (valgreater_g-n_g)/(valgreater_g-vallesser_g)
+        partgreater_g = (n_g - vallesser_g)/(valgreater_g-vallesser_g)
+
+        n_gi = np.zeros(n_g.shape + nis.shape)
+        for ix, p_yz in enumerate(partlesser_g):
+            for iy, p_z in enumerate(p_yz):
+                for iz, p in enumerate(p_z):
+                    nl = nlesser_g[ix, iy, iz]
+                    n_gi[ix, iy, iz, nl-1] = p
+                    ng = ngreater_g[ix, iy, iz]
+                    pg = partgreater_g[ix, iy, iz]
+                    n_gi[ix, iy, iz, -ng] = pg
+
+                
         
         return n_gi
 
@@ -295,7 +304,7 @@ class WLDA(XCFunctional):
         by interpolating the values at the ni to the value at n(r).
 
         '''
-        nis = np.arange(0, max(np.max(n_g), 5), self.stepsize)
+        nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
         K_G = self._get_K_G(n_g.shape, gd)
         self.nis = nis
         self.weight_table = np.zeros(n_g.shape+(len(nis),))
@@ -309,6 +318,21 @@ class WLDA(XCFunctional):
                 assert np.allclose(x, x.real)
 
             self.weight_table[:,:,:,i] = x.real
+
+    
+    def tabulate_weights2(self, n_g, gd):
+        n_g = np.abs(n_g)
+        nis = np.arange(0, max(np.max(n_g), 5), self.stepsize)
+        K_G = self._get_K_G(n_g.shape, gd)
+        self.nis = nis
+        #self.weight_table = np.zeros(n_g.shape + (len(nis),))
+        n_G = np.fft.fftn(n_g)
+        k_Fi = (3*np.pi**2*nis)**(1/3)
+        theta_Gi = ((K_G**2)[:, :, :, np.newaxis] <= 4*k_Fi**2).astype(np.complex128)
+        filn_Gi = n_G[:,:, :, np.newaxis]*theta_Gi
+        filn_gi = np.fft.ifftn(filn_Gi, axes=[0,1,2])
+        self.weight_table = filn_gi.real
+
 
 
     def get_alpha_grid(self, n_g):
@@ -446,21 +470,13 @@ class WLDA(XCFunctional):
     
 
     def calculate_nstar(self, n_g, gd):
-        print("1")
         C_nsc = self.construct_cubic_splines(n_g)
-        print("2")
         C_alphag = self.get_spline_values(C_nsc, n_g, gd)
-        print("3")
         product_alphag = np.array([C_g*n_g for C_g in C_alphag])
-        print("4")
         product_alphaG = np.array([np.fft.fftn(product_g) for product_g in product_alphag])
-        print("5")
         w_alphaG = self.get_weight_alphaG(gd)
-        print("6")
         integrand_alphaG = np.array([w_G*product_alphaG[ia] for ia, w_G in enumerate(w_alphaG)])
-        print("7")
         integrand_G = np.sum(integrand_alphaG, axis=0)
-        print("8")
         nstar_g = np.fft.ifftn(integrand_G)
 
 
