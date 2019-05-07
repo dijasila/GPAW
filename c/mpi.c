@@ -828,7 +828,7 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   if (!PyArg_ParseTuple(args, "Oi:broadcast", &buf, &root))
     return NULL;
   if (root == self->rank)
-      CHK_ARRAY_RO(b);
+      CHK_ARRAY_RO(buf);
   else
       CHK_ARRAY(buf);
 
