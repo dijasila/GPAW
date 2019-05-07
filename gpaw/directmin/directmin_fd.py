@@ -152,10 +152,10 @@ class DirectMinFD(Eigensolver):
         # dimensionality, number of state to be converged:
         self.dimensions = {}
         for kpt in wfs.kpt_u:
+            dim = get_n_occ(kpt)
             if lumo:
-                dim = 1
-            else:
-                dim = get_n_occ(kpt)
+                dim = self.bd.nbands - dim
+
             k = self.n_kps * kpt.s + kpt.q
             self.dimensions[k] = dim
             if 'SIC' in self.odd_parameters['name'] and not lumo:
@@ -166,7 +166,12 @@ class DirectMinFD(Eigensolver):
                                 'in order to converge LUMO.')
         # choose search direction and line search algorithm
         if isinstance(self.sda, (basestring, dict)):
-            self.search_direction = sd_outer(self.sda, wfs,
+            if lumo:
+                sda = xc_string_to_dict('FRcg')
+            else:
+                sda = self.sda
+
+            self.search_direction = sd_outer(sda, wfs,
                                              self.dimensions)
         else:
             raise Exception('Check Search Direction Parameters')
@@ -563,9 +568,8 @@ class DirectMinFD(Eigensolver):
 
             k = self.n_kps * kpt.s + kpt.q
             n_occ = get_n_occ(kpt)
-            # if n_occ == 0:
-            #     continue
-            grad_knG[k][n_occ:n_occ + 1] = \
+            dim = self.bd.nbands - n_occ
+            grad_knG[k][n_occ:n_occ + dim] = \
                 self.get_gradients_lumo(ham, wfs, kpt)
             lamb = wfs.gd.integrate(kpt.psit_nG[:n_occ],
                                     grad_knG[k][:n_occ],
@@ -573,34 +577,41 @@ class DirectMinFD(Eigensolver):
             lamb = (lamb + lamb.T.conj()) / 2.0
             lamb = np.ascontiguousarray(lamb)
 
-            lumo = wfs.gd.integrate(kpt.psit_nG[n_occ:n_occ + 1],
-                                    grad_knG[k][n_occ:n_occ + 1],
+            lumo = wfs.gd.integrate(kpt.psit_nG[n_occ:n_occ + dim],
+                                    grad_knG[k][n_occ:n_occ + dim],
                                     False)
+            lumo = (lumo + lumo.T.conj()) / 2.0
+            lumo = np.ascontiguousarray(lumo)
+
             wfs.gd.comm.sum(lamb)
             wfs.gd.comm.sum(lumo)
             if 'SIC' in self.odd_parameters['name']:
-                n_unocc = len(kpt.f_n) - n_occ
                 self.odd.lagr_diag_s[k] = np.append(
-                    np.diagonal(lamb).real,
-                    np.ones(shape=n_unocc) *
-                    np.absolute(lumo.real * 5.))
-                self.odd.lagr_diag_s[k][n_occ] = lumo.real
+                    np.diagonal(lamb).real, np.diagonal(lumo).real)
+                # self.odd.lagr_diag_s[k][n_occ] = lumo.real
                 # np.ones(shape=n_unocc) * np.inf)
                 # inf is not a good
                 # for example for ase get gap
 
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
+
             evals = np.empty(lamb.shape[0])
             diagonalize(lamb, evals)
             wfs.gd.comm.broadcast(evals, 0)
             wfs.gd.comm.broadcast(lamb, 0)
-            kpt.eps_n[n_occ:n_occ + 1] = lumo.real
+
+            evals_lumo = np.empty(lumo.shape[0])
+            diagonalize(lumo, evals_lumo)
+            wfs.gd.comm.broadcast(evals, 0)
+            wfs.gd.comm.broadcast(lumo, 0)
+
+            kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
             kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
             # kpt.eps_n[n_occ + 1:] = +np.inf
             # inf is not a good for example for ase get gap
-            kpt.eps_n[n_occ + 1:] *= 0.0
-            kpt.eps_n[n_occ + 1:] +=\
-                np.absolute(5.0 * kpt.eps_n[n_occ])
+            kpt.eps_n[n_occ + dim:] *= 0.0
+            kpt.eps_n[n_occ + dim:] +=\
+                np.absolute(5.0 * kpt.eps_n[n_occ+dim - 1])
             if rewrite_psi:
                 # TODO:
                 # Do we need sort wfs according to eps_n
@@ -618,15 +629,14 @@ class DirectMinFD(Eigensolver):
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
-        n_occ = 0
-        for f in kpt.f_n:
-            if f > 1.0e-10:
-                n_occ += 1
+        k = self.n_kps * kpt.s + kpt.q
+        n_occ = get_n_occ(kpt)
+        dim = self.dimensions[k]
         # calculate gradients:
-        psi = kpt.psit_nG[n_occ:n_occ+1].copy()
-        P1_ai = wfs.pt.dict(shape=1)
+        psi = kpt.psit_nG[n_occ:n_occ + dim].copy()
+        P1_ai = wfs.pt.dict(shape=dim)
         wfs.pt.integrate(psi, P1_ai, kpt.q)
-        Hpsi_nG = wfs.empty(1, q=kpt.q)
+        Hpsi_nG = wfs.empty(dim, q=kpt.q)
         wfs.apply_pseudo_hamiltonian(kpt, ham, psi, Hpsi_nG)
         c_axi = {}
         for a, P_xi in P1_ai.items():
@@ -686,7 +696,8 @@ class DirectMinFD(Eigensolver):
                 k = n_kps * kpt.s + kpt.q
                 # find lumo
                 n_occ = get_n_occ(kpt)
-                kpt.psit_nG[n_occ:n_occ+1] = psit_knG[k].copy()
+                dim = self.dimensions[k]
+                kpt.psit_nG[n_occ:n_occ + dim] = psit_knG[k].copy()
                 wfs.orthonormalize(kpt)
         elif not wfs.orthonormalized:
             wfs.orthonormalize()
@@ -698,20 +709,21 @@ class DirectMinFD(Eigensolver):
         for kpt in wfs.kpt_u:
             n_occ = get_n_occ(kpt)
             k = n_kps * kpt.s + kpt.q
+            dim = self.dimensions[k]
             # calculate gradients:
-            psi = kpt.psit_nG[n_occ:n_occ+1].copy()
-            P1_ai = wfs.pt.dict(shape=1)
-            wfs.pt.integrate(psi, P1_ai, kpt.q)
-            Hpsi_nG = wfs.empty(1, q=kpt.q)
+            psi = kpt.psit_nG[n_occ:n_occ + dim].copy()
+            P1_ani = wfs.pt.dict(shape=dim)
+            wfs.pt.integrate(psi, P1_ani, kpt.q)
+            Hpsi_nG = wfs.empty(dim, q=kpt.q)
             wfs.apply_pseudo_hamiltonian(kpt, ham, psi, Hpsi_nG)
             c_axi = {}
-            for a, P_xi in P1_ai.items():
+            for a, P_xi in P1_ani.items():
                 dH_ii = unpack(ham.dH_asp[a][kpt.s])
                 c_xi = np.dot(P_xi, dH_ii)
                 c_axi[a] = c_xi
             # not sure about this:
             ham.xc.add_correction(kpt, psi, Hpsi_nG,
-                                  P1_ai, c_axi, n_x=None,
+                                  P1_ani, c_axi, n_x=None,
                                   calculate_change=False)
             # add projectors to the H|psi_i>
             wfs.pt.add(Hpsi_nG, c_axi, kpt.q)
@@ -719,41 +731,44 @@ class DirectMinFD(Eigensolver):
 
             # calculate energy
             if self.odd_parameters['name'] == 'Zero':
-                energy = wfs.gd.integrate(
-                    psi, Hpsi_nG, global_integral=True).item().real
-
-                kpt.eps_n[n_occ:n_occ + 1] = energy
-                # project gradients:
+                for i in range(dim):
+                    energy = wfs.gd.integrate(
+                        psi[i], Hpsi_nG[i], global_integral=True).real
+                    kpt.eps_n[n_occ + i] = energy
+                    # project gradients:
                 s_axi = {}
-                for a, P_xi in P1_ai.items():
+                for a, P_xi in P1_ani.items():
                     dO_ii = wfs.setups[a].dO_ii
                     s_xi = np.dot(P_xi, dO_ii)
                     s_axi[a] = s_xi
                 wfs.pt.add(psi, s_axi, kpt.q)
-                grad[k] -= energy * psi
+                for i in range(dim):
+                    grad[k][i] -= kpt.eps_n[n_occ + i] * psi[i]
+                energy = sum(kpt.eps_n[n_occ:n_occ + dim])
             else:
-                lamb = np.zeros(shape=n_occ+1, dtype=self.dtype)
-                pic = kpt.psit_nG[:n_occ + 1].copy()
-                for z, zeta in enumerate(pic):
-                    lamb[z] = \
-                        wfs.gd.integrate(zeta, Hpsi_nG,
-                                         global_integral=True).item()
-                    wfs.pt.integrate(zeta, P1_ai, kpt.q)
-                    s_axi = {}
-                    for a, P_xi in P1_ai.items():
-                        dO_ii = wfs.setups[a].dO_ii
-                        s_xi = np.dot(P_xi, dO_ii)
-                        s_axi[a] = s_xi
-                    wfs.pt.add(zeta, s_axi, kpt.q)
-                    x = lamb[z]
-                    grad[k] -= x * zeta
-                energy = lamb[-1]
-            # kpt.eps_n[n_occ:n_occ + 1] = energy.real
+                psi = kpt.psit_nG[:n_occ + dim].copy()
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                lamb = wfs.gd.integrate(
+                        psi, Hpsi_nG, global_integral=True)
+                s_axi = {}
+                for a, P_xi in kpt.P_ani.items():
+                    dO_ii = wfs.setups[a].dO_ii
+                    s_xi = np.dot(P_xi, dO_ii)
+                    s_axi[a] = s_xi
+                wfs.pt.add(psi, s_axi, kpt.q)
 
-            norm = self.dot(wfs, grad[k], grad[k], kpt).item().real
-            error = norm * Hartree ** 2
+                grad[k] -= np.tensordot(lamb.T, psi, axes=1)
+                energy = np.sum(np.diagonal(lamb, offset=-n_occ)).real
+
+            norm = []
+            for i in range(dim):
+                norm.append(self.dot(wfs,
+                                     grad[k][i],
+                                     grad[k][i],
+                                     kpt).item())
+            error = sum(norm).real * Hartree ** 2 / len(norm)
             error_t += error
-            energy_t += energy.real
+            energy_t += energy
 
         error_t = wfs.kd.comm.sum(error_t)
         energy_t = wfs.kd.comm.sum(energy_t)
@@ -781,9 +796,10 @@ class DirectMinFD(Eigensolver):
 
         wfs.timer.start('Get Search Direction')
         for kpt in wfs.kpt_u:
-            n_occ = get_n_occ(kpt)
             k = n_kps * kpt.s + kpt.q
-            psi_copy[k] = kpt.psit_nG[n_occ:n_occ + 1].copy()
+            n_occ = get_n_occ(kpt)
+            dim = self.dimensions[k]
+            psi_copy[k] = kpt.psit_nG[n_occ:n_occ + dim].copy()
         p_knG = self.search_direction.update_data(psi_copy, grad_knG,
                                                   wfs, self.prec)
         # self.project_search_direction(wfs, p_knG)
@@ -806,9 +822,10 @@ class DirectMinFD(Eigensolver):
                 alpha_max=3.0, alpha_old=alpha)
         # calculate new wfs:
         for kpt in wfs.kpt_u:
-            n_occ = get_n_occ(kpt)
             k = n_kps * kpt.s + kpt.q
-            kpt.psit_nG[n_occ:n_occ + 1] = \
+            n_occ = get_n_occ(kpt)
+            dim = self.dimensions[k]
+            kpt.psit_nG[n_occ:n_occ + dim] = \
                 psi_copy[k] + alpha * p_knG[k]
             wfs.orthonormalize(kpt)
 
@@ -838,7 +855,7 @@ class DirectMinFD(Eigensolver):
             # accuaracy as occupaied states.
             if er < max_err * 10.:
                 break
-        log('\nLUMO converged after'
+        log('\nUnoccupied states converged after'
             ' {:d} iterations'.format(self.iters))
         self.initialized = False
 

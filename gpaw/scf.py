@@ -232,7 +232,7 @@ class SCFLoop:
                         wfs, ham, occ, dens)
 
                 log('\nOccupied states converged after {:d}'.format(self.niter))
-                log('Converge LUMO:')
+                log('Converge unoccupied states:')
                 max_er = self.max_errors['eigenstates']
                 max_er *= Hartree ** 2 / wfs.nvalence
                 wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
