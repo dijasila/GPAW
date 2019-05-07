@@ -583,7 +583,7 @@ class DirectMinFD(Eigensolver):
                 self.odd.lagr_diag_s[k] = np.append(
                     np.diagonal(lamb).real,
                     np.ones(shape=n_unocc) *
-                    np.absolute(lamb[n_occ, n_occ] * 5.))
+                    np.absolute(lumo.real * 5.))
                 self.odd.lagr_diag_s[k][n_occ] = lumo.real
                 # np.ones(shape=n_unocc) * np.inf)
                 # inf is not a good
