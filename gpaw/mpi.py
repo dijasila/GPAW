@@ -848,11 +848,11 @@ def broadcast_bytes(b=None, root=0, comm=world):
         n = np.zeros(1, int)
     comm.broadcast(n, root)
     if comm.rank == root:
-        b = np.fromstring(b, np.int8)
+        b = np.frombuffer(b, np.int8)
     else:
         b = np.zeros(n, np.int8)
     comm.broadcast(b, root)
-    return b.tostring()
+    return b.tobytes()
 
 
 def send_string(string, rank, comm=world):
