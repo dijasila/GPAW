@@ -2,6 +2,7 @@ from gpaw.xc.functional import XCFunctional
 import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
+import gpaw.mpi as mpi
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None, mode=""):
@@ -10,30 +11,34 @@ class WLDA(XCFunctional):
             kernel = PurePythonLDAKernel()
         self.kernel = kernel
         self.stepsize = 0.01
-        self.nalpha = 50
+        self.nalpha = 20
         self.alpha_n = None
         self.mode = mode
 
+
+        self.gd1 = None
+
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        if self.gd1 is None:
+            self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.alpha_n = None #Reset alpha grid for each calc
+        n1_sg = gd.collect(n_sg)
+        if gd.comm.rank == 0:
+            if self.mode == "":                
+                self.apply_weighting(self.gd1, n1_sg)
 
-        if self.mode == "":
-            #norm_s = gd.integrate(n_sg)
-            self.apply_weighting(gd, n_sg)
-            #newnorm_s = gd.integrate(n_sg)
-            #n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
-        elif self.mode.lower() == "altcenter":
-            
-            n_g = self.calculate_nstar(n_sg[0], gd)
-            n_sg[0, :] = n_g
-        elif self.mode.lower() == "renorm":
-            norm_s = gd.integrate(n_sg)
-            self.apply_weighting(gd, n_sg)
-            newnorm_s = gd.integrate(n_sg)
-            n_sg[0, :] = n_sg[0,:]*norm_s[0]/newnorm_s[0]
-        else:
-            raise ValueError("WLDA mode not recognized")
-
+            elif self.mode.lower() == "altcenter":
+                n1_g = self.calculate_nstar(n1_sg[0], self.gd1)
+                n1_sg[0, :] = n1_g
+        
+            elif self.mode.lower() == "renorm":
+                norm_s = gd.integrate(n_sg)
+                self.apply_weighting(self.gd1, n1_sg)
+                newnorm_s = gd.integrate(n1_sg)
+                n1_sg[0, :] = n1_sg[0,:]*norm_s[0]/newnorm_s[0]
+            else:
+                raise ValueError("WLDA mode not recognized")
+        gd.distribute(n1_sg, n_sg)
         #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
 
         
@@ -375,13 +380,41 @@ class WLDA(XCFunctional):
 
         n_x = n_g.reshape(-1)
         gridshape = n_g.shape
-        C_ng = np.array([[self.expand_spline(n, C_sc) for n in n_x] for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
-
+        # C_ng = np.array([[self.expand_spline(n, C_sc) for n in n_x] for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
+        # C_ng = np.array([self.expand_spline2(n_x, C_sc) for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
+        C_ng = self.expand_spline3(n_x, C_nsc).reshape(len(C_nsc), *gridshape)
 
         return C_ng
 
 
+    def expand_spline3(self, n_x, C_nsc):
+        n_x = np.abs(n_x)
+        alpha_i = self.alpha_n
+        nlesser_x = (n_x[:, np.newaxis] >= alpha_i).sum(axis=1)
+        assert (nlesser_x >= 1).all()
+        coeff_nsc = C_nsc[:, nlesser_x - 1]
+        a_xn, b_xn, c_xn, d_xn = coeff_nsc.T
+        alpha_x = alpha_i[nlesser_x - 1]
+        a_nx, b_nx, c_nx, d_nx = a_xn.T, b_xn.T, c_xn.T, d_xn.T
+
+        C_nx = a_nx + b_nx*(n_x-alpha_x) + c_nx*(n_x-alpha_x)**2 + d_nx*(n_x-alpha_x)**3
+
+        return C_nx
+
+    def expand_spline2(self, x, C_sc):
+        x = np.abs(x)
+        alpha_n = self.alpha_n
+        nlessers = np.array([(alpha_n <= xval).astype(int).sum() for xval in x])
+        assert (nlessers >= 1).all()
+        a, b, c, d = C_sc[nlessers - 1].T
+        alphas = alpha_n[nlessers - 1]
+
+        return a + b*(x-alphas) + c*(x-alphas)**2 + d*(x-alphas)**3
+
+
+
     def expand_spline(self, x, C_sc):
+        x = np.abs(x)
         alpha_n = self.alpha_n
 
         val = 0
@@ -413,15 +446,21 @@ class WLDA(XCFunctional):
     
 
     def calculate_nstar(self, n_g, gd):
+        print("1")
         C_nsc = self.construct_cubic_splines(n_g)
+        print("2")
         C_alphag = self.get_spline_values(C_nsc, n_g, gd)
+        print("3")
         product_alphag = np.array([C_g*n_g for C_g in C_alphag])
-        
+        print("4")
         product_alphaG = np.array([np.fft.fftn(product_g) for product_g in product_alphag])
+        print("5")
         w_alphaG = self.get_weight_alphaG(gd)
-        
+        print("6")
         integrand_alphaG = np.array([w_G*product_alphaG[ia] for ia, w_G in enumerate(w_alphaG)])
+        print("7")
         integrand_G = np.sum(integrand_alphaG, axis=0)
+        print("8")
         nstar_g = np.fft.ifftn(integrand_G)
 
 
