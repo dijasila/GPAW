@@ -40,20 +40,24 @@ class SJM(SolvationGPAW):
             calculation. If set to "None" (default) a constant charge charge
             calculation based on the value of `ne` is performed.
         potential_equilibration_mode: str
-            The mode for potential relaxation:
-            'seq' (Default): Sequential mode. In a geometry optimization, the
+            The mode for potential relaxation (only relevant for structure
+            optimizations):
+
+            'seq' (Default): Sequential mode.
+                             In a geometry optimization, the
                              potential will be fully equilibrated after each
                              ionic step, if outside of dpot.
-            'sim':  Simultaneous mode. After each ionic step only ne is
+            'sim':  Simultaneous mode.
+                    After each ionic step only ne is
                     adjusted and the geometry optimization continues.
         dpot: float
-            Tolerance for the deviation of the input `potential` in sequential
+            Tolerance for the deviation of the target potential in sequential
             mode. If the potential is outside the defined range `ne` will be
-            changed in order to get inside again.
+            changed in order to get inside again. Default: 0.01V.
         max_pot_deviation: float
             Maximum tolerance for the deviation in the potential from target
-            potential. If the tolerance is surpassed a complete potential
-            equilibration is triggered.
+            potential in simultaneous mode. If the tolerance is surpassed a
+            complete potential equilibration is triggered. Default: 0.2 V.
         doublelayer: dict
             Parameters regarding the shape of the counter charge region
             Implemented keys:
@@ -79,6 +83,9 @@ class SJM(SolvationGPAW):
             'cube':
                 In addition to 'True', also write the cavity on the
                 3D-grid into a cube file.
+        write_grandcanonical_energy: bool
+            Write the constant potential energy into output files such as
+            trajectory files. Default: True
 
 
     """
