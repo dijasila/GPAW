@@ -24,7 +24,9 @@ class TransverseMagneticSusceptibility(DielectricFunction):
         hilbert = False
         disable_point_group = True
         disable_time_reversal = True
-        DielectricFunction.__init__(**locals())
+        loc = locals().copy()
+        loc.pop('self')
+        DielectricFunction.__init__(self, **loc)
 
         assert self.chi0.eta > 0.0
         assert not self.chi0.timeordered

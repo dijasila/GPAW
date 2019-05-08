@@ -52,6 +52,7 @@ def check(reuse):
         print('logerr2', logerr2)
         gain = logerr2 - logerr1
         print('gain', gain)
+    calc.observers = []  # for garbage collection since we added a cyclic ref
     return logerr2
 
 

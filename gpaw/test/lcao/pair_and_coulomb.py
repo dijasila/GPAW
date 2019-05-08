@@ -50,8 +50,14 @@ makeV('lcao_pair.gpw',
       False)
 
 world.barrier()
-V_qq = np.load('lcao_pair_V_qq.pckl')
-eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl')
+
+try:
+    V_qq = np.load('lcao_pair_V_qq.pckl', allow_pickle=True)
+    eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl', allow_pickle=True)
+except TypeError:  # numpy 1.9 does not have allow_pickle; needs 1.10.
+    V_qq = np.load('lcao_pair_V_qq.pckl')
+    eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl')
+
 assert U_pq.flags.contiguous
 Usq_pq = U_pq * np.sqrt(eps_q)
 V_pp = np.dot(np.dot(Usq_pq, V_qq), Usq_pq.T.conj())

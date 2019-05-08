@@ -5,7 +5,6 @@
 """Main gpaw module."""
 
 import sys
-
 from gpaw.broadcast_imports import broadcast_imports
 
 with broadcast_imports:
@@ -22,7 +21,7 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.5.1'
+__version__ = '1.5.2'
 __ase_version_required__ = '3.17.0'
 
 __all__ = ['GPAW',

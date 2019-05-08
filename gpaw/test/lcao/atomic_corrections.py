@@ -5,56 +5,67 @@
 #
 # This is done by invoking GPAW once for each type of calculation.
 
-from ase.build import molecule
-from gpaw import GPAW, LCAO, PoissonSolver
+from ase.build import molecule, bulk
+from gpaw import GPAW, LCAO
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
-                                         ScipyAtomicCorrection)
+                                         SparseAtomicCorrection)
 from gpaw.mpi import world
+from itertools import count
+
+
+
+def test(system, **kwargs):
+    corrections = [DenseAtomicCorrection(),
+                   SparseAtomicCorrection(tolerance=0.0)]
+
+    counter = count()
+    energies = []
+    for correction in corrections:
+        parallel = {}
+        if world.size >= 4:
+            parallel['band'] = 2
+            #if correction.name != 'dense':
+            parallel['sl_auto'] = True
+        calc = GPAW(mode=LCAO(atomic_correction=correction),
+                    basis='sz(dzp)',
+                    #spinpol=True,
+                    parallel=parallel,
+                    txt='gpaw.{}.txt'.format(next(counter)),
+                    h=0.35, **kwargs)
+
+        def stopcalc():
+            calc.scf.converged = True
+
+        calc.attach(stopcalc, 2)
+        system.set_calculator(calc)
+        energy = system.get_potential_energy()
+        energies.append(energy)
+        if calc.world.rank == 0:
+            print('e', energy)
+
+    master = calc.wfs.world.rank == 0
+    if master:
+        print('energies', energies)
+
+    eref = energies[0]
+    errs = []
+    for energy, c in zip(energies, corrections):
+        err = abs(energy - eref)
+        nops = calc.wfs.world.sum(c.nops)
+        errs.append(err)
+        if master:
+            print('err=%e :: name=%s :: nops=%d' % (err, c.name, nops))
+
+    maxerr = max(errs)
+    assert maxerr < 1e-11, maxerr
 
 # Use a cell large enough that some overlaps are zero.
 # Thus the matrices will have at least some sparsity.
-system = molecule('H2O')
+system = molecule('CH3CH2OH')
 system.center(vacuum=3.0)
-system.pbc = (0, 0, 1)
+system.pbc = (0, 1, 1)
 system = system.repeat((1, 1, 2))
-# Break symmetries so we don't get funny degeneracy effects.
 system.rattle(stdev=0.05)
 
-corrections = [DenseAtomicCorrection(), ScipyAtomicCorrection(tolerance=0.0)]
-
-
-energies = []
-for correction in corrections:
-    parallel = {}
-    if world.size >= 4:
-        parallel['band'] = 2
-    if correction.name != 'dense':
-        parallel['sl_auto'] = True
-    calc = GPAW(mode=LCAO(atomic_correction=correction),
-                basis='sz(dzp)',
-                #kpts=(1, 1, 4),
-                #spinpol=True,
-                poissonsolver=PoissonSolver('fd', relax='J', eps=1e100, nn=1),
-                parallel=parallel,
-                h=0.35)
-    def stopcalc():
-        calc.scf.converged = True
-    calc.attach(stopcalc, 2)
-    system.set_calculator(calc)
-    energy = system.get_potential_energy()
-    energies.append(energy)
-
-master = calc.wfs.world.rank == 0
-if master:
-    print('energies', energies)
-
-eref = energies[0]
-errs = []
-for energy, c in zip(energies, corrections):
-    err = abs(energy - eref)
-    nops = calc.wfs.world.sum(c.nops)
-    errs.append(err)
-    if master:
-        print('err=%e :: name=%s :: nops=%d' % (err, c.name, nops))
-
-assert max(errs) < 1e-11
+system2 = bulk('Cu', orthorhombic=True) * (2, 1, 2)
+test(system2, kpts=[2, 3, 4])
