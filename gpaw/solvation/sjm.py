@@ -39,10 +39,21 @@ class SJM(SolvationGPAW):
             The potential that should be reached or kept in the course of the
             calculation. If set to "None" (default) a constant charge charge
             calculation based on the value of `ne` is performed.
+        potential_equilibration_mode: str
+            The mode for potential relaxation:
+            'seq' (Default): Sequential mode. In a geometry optimization, the
+                             potential will be fully equilibrated after each
+                             ionic step, if outside of dpot.
+            'sim':  Simultaneous mode. After each ionic step only ne is
+                    adjusted and the geometry optimization continues.
         dpot: float
-            Tolerance for the deviation of the input `potential`. If the
-            potential is outside the defined range `ne` will be changed in
-            order to get inside again.
+            Tolerance for the deviation of the input `potential` in sequential
+            mode. If the potential is outside the defined range `ne` will be
+            changed in order to get inside again.
+        max_pot_deviation: float
+            Maximum tolerance for the deviation in the potential from target
+            potential. If the tolerance is surpassed a complete potential
+            equilibration is triggered.
         doublelayer: dict
             Parameters regarding the shape of the counter charge region
             Implemented keys:
@@ -58,8 +69,9 @@ class SJM(SolvationGPAW):
                 be overwritten by 'upper_limit'.
             'upper_limit': float
                 Upper boundary of the counter charge region in terms of
-                coordinate in Anfstrom (default: z). The default is
+                coordinate in Angstrom (default: z). The default is
                 atoms.cell[2][2] - 5.
+
         verbose: bool or 'cube'
             True:
                 Write final electrostatic potential, background charge and
@@ -75,8 +87,8 @@ class SJM(SolvationGPAW):
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
-                 potential_equilibration_mode=None, tiny=1e-8,
-                 verbose=False, **gpaw_kwargs):
+                 potential_equilibration_mode='seq', tiny=1e-8,
+                 max_pot_deviation=0.2, verbose=False, **gpaw_kwargs):
 
         SolvationGPAW.__init__(self, **gpaw_kwargs)
 
@@ -95,7 +107,14 @@ class SJM(SolvationGPAW):
         self.previous_pot = None
         self.slope = None
         self.equil_iters = 10
-        self.equil_mode = potential_equilibration_mode
+
+        if potential_equilibration_mode in ['seq', 'sim']:
+            self.equil_mode = potential_equilibration_mode
+        else:
+            raise ValueError("Potential equilibration mode not recognized."
+                             "Implemented modes are 'seq' and 'sim'")
+
+        self.pot_tol = max_pot_deviation
 
         self.log('-----------\nGPAW SJM module in %s\n----------\n'
                  % (os.path.abspath(__file__)))
@@ -141,7 +160,8 @@ class SJM(SolvationGPAW):
         """
 
         SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
-                    'doublelayer', 'potential_equilibration_mode']
+                    'doublelayer', 'potential_equilibration_mode',
+                    'max_pot_deviation']
 
         SJM_changes = {}
         for key in kwargs:
@@ -157,7 +177,7 @@ class SJM(SolvationGPAW):
             major_changes = True
 
         if any(key in SJM_keys[1:] for key in SJM_changes):
-            if self.equil_mode == 'simultanious':
+            if self.equil_mode == 'sim':
                     self.log("Preequilibrating the potential",
                              "after manual change of",
                              list(SJM_changes.keys()))
@@ -168,6 +188,8 @@ class SJM(SolvationGPAW):
 
             if key in ['potential_equilibration_mode']:
                 self.equil_mode = SJM_changes[key]
+            if key in ['max_pot_deviation']:
+                self.pot_tol = SJM_changes[key]
 
             if key in ['potential', 'doublelayer']:
                 self.results = {}
@@ -232,6 +254,7 @@ class SJM(SolvationGPAW):
                     if abs(self.ne) < self.tiny:
                         self.ne = self.tiny
                     self.wfs.nvalence += self.ne - self.previous_ne
+
                 self.log('Current number of Excess Electrons: %1.5f' % self.ne)
                 self.log('Jellium size parameters:')
                 self.log('  Lower boundary: %s' % self.dl['start'])
@@ -284,14 +307,11 @@ class SJM(SolvationGPAW):
                         self.previous_pot = pot_int
                         self.previous_ne = self.ne
 
-                        if self.equil_mode == 'simultanious':
+                        if self.equil_mode == 'sim':
                             if self.equil_iters > 1:
-                                self.log("Changing to simultanious potential "
-                                         "equilibration\n")
+                                self.log("Changing to simultaneous potential "
+                                         "and geometry equilibration\n")
                                 self.equil_iters = 1
-                        elif self.equil_mode and self.equil_iters > 1:
-                            raise ValueError("Check the spelling for "
-                                             "potential equilibration mode!")
 
                         if equil_iter > 0:
                             self.timer.stop('Potential equilibration loop')
@@ -306,7 +326,9 @@ class SJM(SolvationGPAW):
                 if self.equil_iters > 1 or 'positions' in system_changes:
                     self.change_ne(pot_int)
 
-                if abs(pot_int - self.potential) > 0.5:
+                if abs(pot_int - self.potential) > self.pot_tol:
+                    self.log('Deviation from target potential outside'
+                             'of threshold, equilibrating potential')
                     self.equil_iters = 10
 
                 equil_iter += 1
