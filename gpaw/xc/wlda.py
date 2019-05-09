@@ -10,7 +10,7 @@ class WLDA(XCFunctional):
         if kernel is None:
             kernel = PurePythonLDAKernel()
         self.kernel = kernel
-        self.stepsize = 0.01
+        self.stepsize = 0.05
         self.nalpha = 20
         self.alpha_n = None
         self.mode = mode
@@ -74,7 +74,7 @@ class WLDA(XCFunctional):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
         print("1")
-        self.tabulate_weights2(n_sg[0], gd)
+        self.tabulate_weights(n_sg[0], gd)
         print("2")
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
@@ -195,9 +195,12 @@ class WLDA(XCFunctional):
 
 
     def get_ni_weights(self, n_g):
+        n_g = np.abs(n_g)
         nis = self.nis
-        nlesser_g = (n_g[:, :, :, np.newaxis] <= nis).sum(axis=-1)
-        ngreater_g = (n_g[:, :, :, np.newaxis] > nis).sum(axis=-1)
+        nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
+        ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
+        assert (nlesser_g >= 1).all()
+        assert (ngreater_g >= 0).all()
 
         vallesser_g = nis.take(nlesser_g-1)
         valgreater_g = nis.take(-ngreater_g)
@@ -224,7 +227,7 @@ class WLDA(XCFunctional):
             for iy, p_z in enumerate(p_yz):
                 for iz, p in enumerate(p_z):
                     nl = nlesser_g[ix, iy, iz]
-                    n_gi[ix, iy, iz, nl-1] = p
+                    n_gi[ix, iy, iz, nl - 1] = p
                     ng = ngreater_g[ix, iy, iz]
                     pg = partgreater_g[ix, iy, iz]
                     n_gi[ix, iy, iz, -ng] = pg
@@ -238,6 +241,13 @@ class WLDA(XCFunctional):
         flatn_g = n_g.reshape(-1)
 
         n_gi = np.array([self._get_ni_vector(n) for n in n_g.reshape(-1)]).reshape(n_g.shape + (len(self.nis),))
+
+#np.transpose(np.array([self._get_ni_vector(n) for n in n_g.reshape(-1)]).reshape((len(self.nis),) + n_g.shape), (1, 2, 3, 0))
+
+#.reshape(n_g.shape + (len(self.nis),))
+
+#.reshape((len(self.nis),) + n_g.shape), (1, 2, 3, 0))
+        
 
 
         return n_gi
@@ -295,6 +305,9 @@ class WLDA(XCFunctional):
 
         return n_G*Theta_G
 
+    def get_nis(self, n_g):
+        return np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+
     def tabulate_weights(self, n_g, gd):
         '''
         Calculate \int  w(r-r', ni)n(r') dr'
@@ -304,7 +317,8 @@ class WLDA(XCFunctional):
         by interpolating the values at the ni to the value at n(r).
 
         '''
-        nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        n_g = np.abs(n_g)
+        nis = self.get_nis(n_g)
         K_G = self._get_K_G(n_g.shape, gd)
         self.nis = nis
         self.weight_table = np.zeros(n_g.shape+(len(nis),))
@@ -322,7 +336,7 @@ class WLDA(XCFunctional):
     
     def tabulate_weights2(self, n_g, gd):
         n_g = np.abs(n_g)
-        nis = np.arange(0, max(np.max(n_g), 5), self.stepsize)
+        nis = self.get_nis(n_g)
         K_G = self._get_K_G(n_g.shape, gd)
         self.nis = nis
         #self.weight_table = np.zeros(n_g.shape + (len(nis),))
