@@ -63,27 +63,6 @@ class CDWriter(TDDFTObserver):
 
         #print(self.E_cMM[1])    
 
-        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[0], self.A_cMM, 0)
-        self.E_cMM[1]-=self.A_cMM[2]
-        self.E_cMM[2]+=self.A_cMM[1]
-         
-        #print(self.A_cMM)
-    
-        self.A_cMM[:]=0.0
-
-
-        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[1], self.A_cMM, 0)
-        self.E_cMM[0]+=self.A_cMM[2]
-        self.E_cMM[2]-=self.A_cMM[0]
- 
-        self.A_cMM[:]=0.0
-
-
-        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[2], self.A_cMM, 0)
-        self.E_cMM[0]-=self.A_cMM[1]
-        self.E_cMM[1]+=self.A_cMM[0]
-        
-        print(self.E_cMM,"E ennen PAW")
 
         for kpt in paw.wfs.kpt_u:
             assert kpt.k == 0
@@ -106,6 +85,8 @@ class CDWriter(TDDFTObserver):
                 assert ac.name == 'dense'
         
                 P_Mi = ac.P_aqMi[a][kpt.q]
+
+                #P_Mi = paw.wfs.atomic_correction.P_aqMi[a][kpt.q]
                 
                 dX0_ii = -1 * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
                 dX1_ii = -1 * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
@@ -117,14 +98,46 @@ class CDWriter(TDDFTObserver):
                     # (ATLAS can't handle uninitialized output array)
                     gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
                     gemm(1.0, dXP_iM, P_Mi[ac.Mstart:ac.Mstop], 1.0, self.E_cMM[c])
+                    # gemm(1.0, dXP_iM, P_Mi[paw.wfs.atomic_correction.Mstart:paw.wfs.atomic_correction.Mstop], 1.0, self.E_cMM[c])
 
-        print(self.E_cMM, "before asy")
+
+        # gd.comm.sum(self.E_cMM) 
+
+        # print(self.E_cMM,"E only PAW")
+
+
+        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[0], self.A_cMM, 0)
+        self.E_cMM[1]-=self.A_cMM[2]
+        self.E_cMM[2]+=self.A_cMM[1]
+         
+        #print(self.A_cMM)
+    
+        self.A_cMM[:]=0.0
+
+
+        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[1], self.A_cMM, 0)
+        self.E_cMM[0]+=self.A_cMM[2]
+        self.E_cMM[2]-=self.A_cMM[0]
+ 
+        self.A_cMM[:]=0.0
+
+
+        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[2], self.A_cMM, 0)
+        self.E_cMM[0]-=self.A_cMM[1]
+        self.E_cMM[1]+=self.A_cMM[0]
         
-        for c in range(3):       
-            self.E_cMM[c]-=self.E_cMM[c].T    
-            self.E_cMM[c]=self.E_cMM[c]/2
+        #print(self.E_cMM,"PAW + rxnabla")
+
+        gd.comm.sum(self.E_cMM)
+
+
+        #print(self.E_cMM, "summaus PAW + rxnabla")
         
-        print(self.E_cMM, "after asy")
+        #for c in range(3):       
+        #    self.E_cMM[c]-=self.E_cMM[c].T    
+        #    self.E_cMM[c]=self.E_cMM[c]/2
+        #
+        #print(self.E_cMM, "after asy")
 
 
     def _write(self, line):
