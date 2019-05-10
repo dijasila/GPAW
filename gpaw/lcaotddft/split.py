@@ -1,7 +1,6 @@
 from __future__ import print_function
 from gpaw.mpi import world
 import numpy as np
-import time
 from gpaw.lfc import LFC
 from gpaw.analyse.observers import Observer
 from math import sqrt, pi
@@ -19,8 +18,8 @@ class VRespCollector(Observer):
         x_sg = self.lcao.density.gd.collect(x_sg, broadcast=False)
         iter = self.niter
         if world.rank==0:
-             fname = self.filename+"."+str(iter)+".vresp"
-             x_sg.astype(np.float32).tofile(fname)
+            fname = self.filename+"."+str(iter)+".vresp"
+            x_sg.astype(np.float32).tofile(fname)
 
 class DensityCollector(Observer):
     def __init__(self, filename, lcao, ranges_str='full'):
@@ -56,7 +55,7 @@ class DensityCollector(Observer):
                 print(N_c[0], N_c[1], N_c[2], file=f)
                 print("# This header is 10 lines long, then double precision binary data starts.", file=f)
                 for i in range(7):
-                     print("#", file=f)
+                    print("#", file=f)
                 f.close()
 
         #self.lcao.timer.start('Dump density')
@@ -66,7 +65,7 @@ class DensityCollector(Observer):
             for n in range(self.lcao.wfs.bd.nbands):
                 band_rank, myn = self.lcao.wfs.bd.who_has(n)
                 if self.lcao.wfs.bd.rank == band_rank:
-                    if not n in rng:
+                    if n not in rng:
                         f_un[0][myn] = 0.0
             n_sG = self.lcao.wfs.gd.zeros(1)
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG,
@@ -96,7 +95,8 @@ class DensityCollector(Observer):
                 print(s[0],s[1],s[2], file=f)
                 f.close()
 
-#TODO: Remove
+# TODO: Remove
+"""
 class ObsoleteSplitDensityCollector(Observer):
     def __init__(self, filename, lcao, splitstr):
         Observer.__init__(self)
@@ -164,7 +164,6 @@ class ObsoleteSplitDensityCollector(Observer):
         self.lcao.timer.stop('Split density dump')
 
 
-"""
 atoms = read('../geometries/ag13.traj')
 atoms.center(vacuum=5)
 

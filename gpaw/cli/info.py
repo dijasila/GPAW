@@ -6,6 +6,7 @@ from ase.utils import import_module
 from ase.utils import search_current_git_hash
 
 import gpaw
+import _gpaw
 import gpaw.fftw as fftw
 from gpaw.mpi import rank, have_mpi
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
@@ -29,6 +30,7 @@ def info():
                 githash = '-{:.10}'.format(githash)
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
+    results.append(('libxc-' + getattr(_gpaw, 'libxc_version', '2.x.y'), ''))
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())
@@ -44,7 +46,9 @@ def info():
         have_sl = have_elpa = 'no (MPI unavailable)'
     results.append(('scalapack', have_sl))
     results.append(('Elpa', have_elpa))
-    results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
+
+    have_fftw = fftw.have_fftw()
+    results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
     paths = ['{0}: {1}'.format(i + 1, path)
              for i, path in enumerate(gpaw.setup_paths)]

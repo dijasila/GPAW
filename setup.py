@@ -19,7 +19,7 @@ from config import (get_system_config, check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
-assert sys.version_info >= (2, 7)
+assert sys.version_info >= (3, 4)
 
 # Get the current version number:
 with open('gpaw/__init__.py', 'rb') as fd:
@@ -64,8 +64,8 @@ platform_id = ''
 
 packages = []
 for dirname, dirnames, filenames in os.walk('gpaw'):
-        if '__init__.py' in filenames:
-            packages.append(dirname.replace('/', '.'))
+    if '__init__.py' in filenames:
+        packages.append(dirname.replace('/', '.'))
 
 import_numpy = True
 if '--ignore-numpy' in sys.argv:
@@ -83,6 +83,15 @@ for i, arg in enumerate(sys.argv):
         customize = sys.argv.pop(i).split('=')[1]
         break
 
+# check for environment
+# up to now LIBRARY_PATH only
+try:
+    for directory in os.environ['LIBRARY_PATH'].split(os.pathsep):
+        if directory not in library_dirs:
+            library_dirs.append(directory)
+except KeyError:
+    pass
+
 get_system_config(define_macros, undef_macros,
                   include_dirs, libraries, library_dirs,
                   extra_link_args, extra_compile_args,
@@ -97,6 +106,7 @@ else:
 mpilinker = mpicompiler
 
 compiler = None
+fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
@@ -139,6 +149,9 @@ if libvdwxc:
 
 if elpa:
     define_macros.append(('GPAW_WITH_ELPA', '1'))
+
+if fftw:
+    define_macros.append(('GPAW_WITH_FFTW', '1'))
 
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
@@ -254,8 +267,6 @@ setup(name='gpaw',
           'License :: OSI Approved :: '
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',

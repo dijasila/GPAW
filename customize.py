@@ -6,13 +6,23 @@ and gpaw-python (parallel).
 Here are all the lists that can be modified:
 
 * libraries
+  List of libraries to link: -l<lib1> -l<lib2> ...
 * library_dirs
+  Library search directories: -L<dir1> -L<dir2> ...
 * include_dirs
+  Header search directories: -I<dir1> -I<dir2> ...
 * extra_link_args
+  Arguments forwarded directly to linker
 * extra_compile_args
+  Arguments forwarded directly to compiler
 * runtime_library_dirs
+  Runtime library search directories: -Wl,-rpath=<dir1> -Wl,-rpath=<dir2> ...
 * extra_objects
 * define_macros
+
+The following lists work like above, but are only linked when compiling
+the parallel interpreter:
+
 * mpi_libraries
 * mpi_library_dirs
 * mpi_include_dirs
@@ -28,15 +38,20 @@ To append use the form
     libraries += ['somelib', 'otherlib']
 """
 
-compiler = 'gcc4.9'
-mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
-mpilinker = 'mpicc'
-# extra_link_args += ['-v']
-# extra_compile_args += ['-v']
-# platform_id = ''
-scalapack = False
+# flake8: noqa
 
-# Use ScaLAPACK (version 2.0.1+ required):
+# compiler = 'gcc'
+# mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
+# mpilinker = 'mpicc'
+# platform_id = ''
+
+# FFTW3:
+fftw = False
+if fftw:
+    libraries += ['fftw3']
+
+# ScaLAPACK (version 2.0.1+ required):
+scalapack = False
 if scalapack:
     libraries += ['scalapack-openmpi',
                   'blacsCinit-openmpi',

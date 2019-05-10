@@ -340,12 +340,12 @@ PyObject* pblas_tran(PyObject *self, PyObject *args)
     Py_complex beta;
     PyArrayObject *a, *c;
     PyArrayObject *desca, *descc;
-  
+
     if (!PyArg_ParseTuple(args, "iiDODOOO", &m, &n, &alpha,
                           &a, &beta, &c,
                           &desca, &descc))
         return NULL;
- 
+
     int one = 1;
     if (PyArray_DESCR(c)->type_num == NPY_DOUBLE)
         pdtran_(&m, &n,
@@ -372,7 +372,7 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
   int one = 1;
-  
+
   if (!PyArg_ParseTuple(args, "iiiDOODOOOOss", &m, &n, &k, &alpha,
                         &a, &b, &beta, &c,
                         &desca, &descb, &descc,
@@ -456,7 +456,7 @@ PyObject* pblas_gemv(PyObject *self, PyObject *args)
                         &descy, &transa)) {
     return NULL;
   }
-  
+
   // ydesc
   // int y_ConTxt = INTP(descy)[1];
 
@@ -490,7 +490,7 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args)
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
   int one = 1;
-  
+
   if (!PyArg_ParseTuple(args, "iiDOODOOOOs", &n, &k, &alpha,
                         &a, &b, &beta, &c,
                         &desca, &descb, &descc,
@@ -531,7 +531,7 @@ PyObject* pblas_rk(PyObject *self, PyObject *args)
   PyArrayObject *a, *c;
   PyArrayObject *desca, *descc;
   int one = 1;
-  
+
   if (!PyArg_ParseTuple(args, "iiDODOOOs", &n, &k, &alpha,
                         &a, &beta, &c,
                         &desca, &descc,
@@ -576,11 +576,11 @@ PyObject* new_blacs_context(PyObject *self, PyObject *args)
 
   // Create blacs grid on this communicator
   MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
-  
+
   // Get my id and nprocs. This is for debugging purposes only
   Cblacs_pinfo_(&iam, &nprocs);
   MPI_Comm_size(comm, &nprocs);
-  
+
   // Create blacs grid on this communicator continued
   ConTxt = Csys2blacs_handle_(comm);
   Cblacs_gridinit_(&ConTxt, order, nprow, npcol);
@@ -592,7 +592,7 @@ PyObject* get_blacs_gridinfo(PyObject *self, PyObject *args)
 {
   int ConTxt, nprow, npcol;
   int myrow, mycol;
-  
+
   if (!PyArg_ParseTuple(args, "iii", &ConTxt, &nprow, &npcol)) {
     return NULL;
   }
@@ -707,7 +707,7 @@ PyObject* scalapack_redist(PyObject *self, PyObject *args)
                    (void*)COMPLEXP(b), ib, jb, INTP(descb),
                    c_ConTxt);
     }
-    
+
   Py_RETURN_NONE;
 }
 
@@ -761,6 +761,9 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
                DOUBLEP(z), &one,  &one, INTP(desca),
                &d_work, &querywork, &i_work, &querywork, &info);
       lwork = (int)(d_work);
+      // Sometimes lwork is not large enough.  Found this formula on
+      // the internet:
+      lwork = MAX(131072, 2 * (int) lwork + 1);
     }
   else
     {
@@ -782,7 +785,7 @@ PyObject* scalapack_diagonalize_dc(PyObject *self, PyObject *args)
     }
 
   // Computation part
-  liwork = i_work;
+  liwork = MAX(8 * n, i_work + 1);
   iwork = GPAW_MALLOC(int, liwork);
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     {
@@ -862,7 +865,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   // char cmach = 'S'; // most acccurate eigenvalues
   // double abstol = pdlamch_(&a_ConTxt, &cmach);     // most orthogonal eigenvectors
   // double abstol = 2.0*pdlamch_(&a_ConTxt, &cmach); // most accurate eigenvalues
-  
+
   double orfac = -1.0;
 
   // Query part, need to find the optimal size of a number of work arrays
@@ -950,7 +953,7 @@ PyObject* scalapack_diagonalize_ex(PyObject *self, PyObject *args)
   free(gap);
   free(iclustr);
   free(ifail);
-  
+
   // If this fails, fewer eigenvalues than requested were computed.
   assert (eigvalm == iu);
   PyObject* returnvalue = Py_BuildValue("i", info);
@@ -1032,14 +1035,14 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
       lwork = (int)(c_work);
       lrwork = (int)(d_work[0]);
     }
-  
+
   if (info != 0) {
     printf ("info = %d", info);
     PyErr_SetString(PyExc_RuntimeError,
                     "scalapack_diagonalize_evr error in query.");
     return NULL;
   }
-  
+
   // Computation part
   liwork = i_work;
   iwork = GPAW_MALLOC(int, liwork);
@@ -1072,7 +1075,7 @@ PyObject* scalapack_diagonalize_mr3(PyObject *self, PyObject *args)
       free(work);
     }
   free(iwork);
-  
+
   // If this fails, fewer eigenvalues than requested were computed.
   assert (eigvalm == iu);
   PyObject* returnvalue = Py_BuildValue("i", info);
@@ -1323,7 +1326,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   // char cmach = 'S'; // most acccurate eigenvalues
   // double abstol = pdlamch_(&a_ConTxt, &cmach);     // most orthogonal eigenvectors
   // double abstol = 2.0*pdlamch_(&a_ConTxt, &cmach); // most accurate eigenvalues
-  
+
   double orfac = -1.0;
 
   // Query part, need to find the optimal size of a number of work arrays
@@ -1374,7 +1377,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
                     "scalapack_general_diagonalize_ex error in query.");
     return NULL;
   }
-  
+
   // Computation part
   // lwork = lwork + (n-1)*n; // this is a ridiculous amount of workspace
   liwork = i_work;
@@ -1412,7 +1415,7 @@ PyObject* scalapack_general_diagonalize_ex(PyObject *self, PyObject *args)
   free(gap);
   free(iclustr);
   free(ifail);
-  
+
   // If this fails, fewer eigenvalues than requested were computed.
   assert (eigvalm == iu);
   PyObject* returnvalue = Py_BuildValue("i", info);
@@ -1658,7 +1661,7 @@ PyObject* scalapack_inverse_cholesky(PyObject *self, PyObject *args)
   assert (a_m == a_n);
   int n = a_n;
   int p = a_n - 1;
-  
+
   // If process not on BLACS grid, then return.
   // if (a_ConTxt == -1) Py_RETURN_NONE;
 
@@ -1814,16 +1817,16 @@ PyObject* scalapack_solve(PyObject *self, PyObject *args) {
    *          This array contains the pivoting information.
    *          IPIV(i) -> The global row local row i was swapped with.
    *          This array is tied to the distributed matrix A.
-   
+
    *  An upper bound for these quantities may be computed by:
    *          LOCr( M ) <= ceil( ceil(M/MB_A)/NPROW )*MB_A
-   
+
    *  M_A    (global) DESCA( M_ )    The number of rows in the global
    *                                 array A.
-   
+
    *  MB_A   (global) DESCA( MB_ )   The blocking factor used to distribute
    *                                 the rows of the array.
-   
+
    *  NPROW   (global input) INTEGER
    *          NPROW specifies the number of process rows in the grid
    *          to be created.

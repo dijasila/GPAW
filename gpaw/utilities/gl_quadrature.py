@@ -381,7 +381,7 @@ def gaussLog(xmin, xmax, funct, ng=10):
     """
     ng = max(min(ng, _NGMAX), _NGMIN)
     ns = _nodesLog[ng-1]
-    ws = _weightsLog[ng-1];
+    ws = _weightsLog[ng-1]
     dx = xmax - xmin
     xs = [(dx*y + xmin) for y in ns]
     return dx*sum(funct(x)*w for x,w in zip(xs,ws))

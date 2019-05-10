@@ -23,4 +23,7 @@ e = system.get_potential_energy()
 ref = -60.557653422801671
 err = abs(e - ref)
 print('e=%r ref=%r err=%r' % (e, ref, err))
-assert err < 1e-6, err
+# It would be reasonable to put 1e-6 as tolerance,
+# but the value changes by 4e-4 depending on libxc version.
+# See https://gitlab.com/gpaw/gpaw/issues/161 .
+assert err < 1e-3, err

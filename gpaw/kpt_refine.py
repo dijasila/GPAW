@@ -277,7 +277,7 @@ def prune_symmetries_kpoints(kd, symmetry):
 
     nsyms = len(symmetry.op_scc)
 
-    where = np.where(np.any(kd.bz2bz_ks[:, 0:nsyms] == -1, 0) == False)
+    where = np.where(~np.any(kd.bz2bz_ks[:, 0:nsyms] == -1, 0))
 
     new_symmetry.op_scc = new_symmetry.op_scc[where]
     new_symmetry.ft_sc = new_symmetry.ft_sc[where]
