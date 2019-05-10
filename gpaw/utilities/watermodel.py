@@ -43,8 +43,11 @@ class TIP3PWaterModel(TIP3P):
         energy = 0.0
         forces = np.zeros((3 * nh2o, 3))
 
+        cellmat = np.zeros((3, 3))
+        np.fill_diagonal(cellmat, diagcell)   # c code wants 3x3 cell ...
+
         energy += calculate_forces_H2O(np.array(atoms.pbc, dtype=np.uint8),
-                                       atoms.cell, A, B, self.rc, self.width,
+                                       cellmat, A, B, self.rc, self.width,
                                        charges, self.atoms.get_positions(),
                                        forces)
 

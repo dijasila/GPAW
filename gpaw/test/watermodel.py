@@ -30,7 +30,7 @@ atoms = atoms.repeat((N, N, N))
 atoms.set_pbc(True)
 
 pairs = [(3 * i + j, 3 * i + (j + 1) % 3)
-           for i in range(len(atoms) / 3)
+           for i in range(len(atoms) // 3)
            for j in [0, 1, 2]]
 
 # Create atoms object with old constraints for reference
@@ -53,7 +53,7 @@ start = time.time()
 md.run(NSTEPS)
 end = time.time()
 Cversion = end-start
-print "%d steps of C-MD took %.3fs (%.0f ms/step)" % (NSTEPS, Cversion, Cversion/NSTEPS*1000)
+print("%d steps of C-MD took %.3fs (%.0f ms/step)" % (NSTEPS, Cversion, Cversion/NSTEPS*1000))
 traj.close()
 
 np.random.seed(123)
@@ -65,7 +65,7 @@ start = time.time()
 md_ref.run(NSTEPS / SCALE)
 end = time.time()
 Pyversion = (end-start) * SCALE
-print "%d steps of Py-MD took %.3fs (%.0f ms/step)" % (NSTEPS/SCALE, Pyversion/SCALE, Pyversion/NSTEPS*1000)
+print("%d steps of Py-MD took %.3fs (%.0f ms/step)" % (NSTEPS/SCALE, Pyversion/SCALE, Pyversion/NSTEPS*1000))
 traj_ref.close()
 
 # Compare trajectories
@@ -73,8 +73,8 @@ images = read('C.traj@:')
 images_ref = read('ref.traj@:')
 for img1, img2 in zip(images, images_ref):
     norm = np.linalg.norm(img1.get_positions() - img2.get_positions())
-    print norm
+    print(norm)
     assert norm <1e-11
 
-print "Speedup", Pyversion / Cversion
+print("Speedup", Pyversion / Cversion)
 
