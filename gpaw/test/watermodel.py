@@ -9,7 +9,7 @@ import numpy as np
 import time
 from ase.io import read
 
-NSTEPS = 1000
+NSTEPS = 600
 SCALE = 200
 
 cutoff = 4.0
