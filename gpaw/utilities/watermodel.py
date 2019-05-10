@@ -15,7 +15,6 @@ class TIP3PWaterModel(TIP3P):
     def calculate(self, atoms=None,
                   properties=['energy'],
                   system_changes=all_changes):
-        start = time.time()
 
         Calculator.calculate(self, atoms, properties, system_changes)
 
