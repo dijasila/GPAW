@@ -318,6 +318,7 @@ tests = [
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
+    'watermodel.py',                        # ~15s
     'generic/IP_oxygen.py',                 # ~15s
     'rpa/rpa_energy_Na.py',                 # ~15s
     'parallel/fd_parallel.py',              # ~15s
