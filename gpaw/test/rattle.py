@@ -1,6 +1,5 @@
 import numpy as np
-import ase.units as units
-from ase.calculators.tip3p import TIP3P, epsilon0, sigma0, rOH, angleHOH
+from ase.calculators.tip3p import TIP3P, rOH, angleHOH
 from ase.optimize import FIRE
 from ase.constraints import FixBondLengths
 from gpaw.utilities.watermodel import FixBondLengthsWaterModel
