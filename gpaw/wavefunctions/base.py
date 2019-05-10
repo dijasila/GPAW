@@ -654,7 +654,7 @@ class WaveFunctions:
         sic_n = pot.e_sic_by_orbitals
         if pot.name == 'PZ_SIC':
             log('Perdew-Zunger SIC')
-        elif pot.name == 'SPZ_SIC':
+        elif 'SPZ' in pot.name:
             log('Self-Interaction Corrections:\n')
             sf = pot.scalingf
         else:
@@ -669,7 +669,7 @@ class WaveFunctions:
                 self.kd.comm.receive(sic_n2, 1)
                 sic_n[1] = sic_n2
 
-                if pot.name == 'SPZ_SIC':
+                if 'SPZ' in pot.name:
                     sf_2 = np.zeros(shape=(int(size[0]), 1),
                                     dtype=float)
                     self.kd.comm.receive(sf_2, 1)
@@ -679,7 +679,7 @@ class WaveFunctions:
                 self.kd.comm.send(size, 0)
                 self.kd.comm.send(sic_n[1], 0)
 
-                if pot.name == 'SPZ_SIC':
+                if 'SPZ' in pot.name:
                     self.kd.comm.send(sf[1], 0)
 
         if self.kd.comm.rank == 0:
@@ -695,7 +695,7 @@ class WaveFunctions:
 
                     u = sic_n[s][i][0]
                     xc = sic_n[s][i][1]
-                    if pot.name == 'SPZ_SIC':
+                    if 'SPZ' in pot.name:
                         f = (sf[s][i], sf[s][i])
                     else:
                         f = (pot.beta_c, pot.beta_x)
@@ -721,7 +721,6 @@ class WaveFunctions:
                      ), end='')
                 log("\n")
                 log(flush=True)
-
 
 
 def eigenvalue_string(wfs, comment=' '):

@@ -2,7 +2,7 @@ from gpaw.xc.__init__ import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.odd.pz import PzCorrections
 from gpaw.directmin.odd.spz import SPzCorrectionsLcao
-
+from gpaw.directmin.odd.spz_2 import SPzCorrectionsLcao2
 
 def odd_corrections(odd, wfs, dens, ham):
 
@@ -16,6 +16,8 @@ def odd_corrections(odd, wfs, dens, ham):
             return PzCorrections(wfs, dens, ham, **kwargs)
         elif name == 'SPZ_SIC':
             return SPzCorrectionsLcao(wfs, dens, ham, **kwargs)
+        elif name == 'SPZ_SIC2':
+            return SPzCorrectionsLcao2(wfs, dens, ham, **kwargs)
         elif name == 'Zero':
             return None
         else:

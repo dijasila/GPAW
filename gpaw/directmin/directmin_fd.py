@@ -366,7 +366,7 @@ class DirectMinFD(Eigensolver):
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 temp[k] = kpt.psit_nG[:].copy()
-                n_occ=get_n_occ(kpt)
+                n_occ = get_n_occ(kpt)
                 self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
                 kpt.psit_nG[:n_occ] = \
                     np.tensordot(
@@ -377,13 +377,22 @@ class DirectMinFD(Eigensolver):
             if self.iters > 0:
                 self.run_inner_loop(ham, wfs, occ, dens, log=None)
             self.e_sic = 0.0
-            for kpt in wfs.kpt_u:
-                k = n_kps * kpt.s + kpt.q
-                self.e_sic +=\
-                    self.odd.get_energy_and_gradients_kpt_2(
-                        wfs, kpt, grad, dens,
-                        U = self.U_k[k] @ self.iloop.U_k[k])
-            self.e_sic = wfs.kd.comm.sum(self.e_sic)
+
+            if self.odd_parameters['name'] == 'SPZ_SIC2':
+                U_k = {}
+                for kpt in wfs.kpt_u:
+                    k = n_kps * kpt.s + kpt.q
+                    U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
+                self.e_sic = self.odd.get_energy_and_gradients(
+                    wfs, dens, grad, U_k)
+            else:
+                for kpt in wfs.kpt_u:
+                    k = n_kps * kpt.s + kpt.q
+                    self.e_sic +=\
+                        self.odd.get_energy_and_gradients_kpt_2(
+                            wfs, kpt, grad, dens,
+                            U=self.U_k[k] @ self.iloop.U_k[k])
+                self.e_sic = wfs.kd.comm.sum(self.e_sic)
             energy += self.e_sic
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
@@ -556,9 +565,12 @@ class DirectMinFD(Eigensolver):
 
         grad_knG = self.get_gradients_2(ham, wfs)
         if 'SIC' in self.odd_parameters['name']:
-            for kpt in wfs.kpt_u:
-                self.odd.get_energy_and_gradients_kpt(
-                    wfs, kpt, grad_knG, dens)
+            if self.odd.name == 'SPZ_SIC2':
+                self.odd.get_energy_and_gradients(wfs, dens, grad_knG)
+            else:
+                for kpt in wfs.kpt_u:
+                    self.odd.get_energy_and_gradients_kpt(
+                        wfs, kpt, grad_knG, dens)
 
         for kpt in wfs.kpt_u:
 

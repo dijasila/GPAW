@@ -37,6 +37,10 @@ class InnerLoop:
         :param a_k: A
         :return:
         """
+
+        if self.odd_pot.name == 'SPZ_SIC2':
+            return self.get_energy_and_gradients2(a_k, wfs, dens)
+
         g_k = {}
         e_total = 0.0
 
@@ -369,6 +373,48 @@ class InnerLoop:
                     int(np.sqrt(grad.shape[0])))
             Gr_n = {k: (Gr_n_x[k]) for k in Gr_n_x.keys()}
         return G, Gr_n
+
+    def get_energy_and_gradients2(self, a_k, wfs, dens):
+
+        """
+        Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
+        Returns E[A] and G[A] at psi = exp(A).T kpt.psi
+        :param a_k: A
+        :return:
+        """
+
+        g_k = {}
+        evals_k = {}
+        evecs_k = {}
+
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            n_occ = self.n_occ[k]
+            if n_occ == 0:
+                g_k[k] = np.zeros_like(a_k[k])
+                continue
+            wfs.timer.start('Unitary matrix')
+            u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
+            wfs.timer.stop('Unitary matrix')
+            self.U_k[k] = u_mat.copy()
+
+            kpt.psit_nG[:n_occ] = \
+                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
+                             axes=1)
+            # calc projectors
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            evals_k[k] = evals
+            evecs_k[k] = evecs
+            del u_mat
+
+        wfs.timer.start('Energy and gradients')
+        e_sic, g_k = \
+            self.odd_pot.get_energy_and_gradients_inner_loop2(
+                wfs, a_k, evals_k, evecs_k, dens)
+        self.eg_count += 1
+        wfs.timer.stop('Energy and gradients')
+
+        return e_sic, g_k
 
 
 def log_f(log, niter, g_max, e_ks, e_sic, outer_counter=None):
