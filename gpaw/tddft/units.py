@@ -2,7 +2,9 @@
 
 from math import pi
 
-from ase.units import _hbar, _eps0, _me, _e, Hartree
+from ase.units import _hbar, _eps0, _me, _e, _c, Bohr, Hartree
+
+_a0 = Bohr * 1e-10
 
 _autime = _hbar**3*(4*pi*_eps0)**2/(_me*_e**4) # 1 autime ~ 2.42e-17 s
 
@@ -29,3 +31,7 @@ au_to_eV = aufrequency_to_eV
 as_to_au = attosec_to_autime
 au_to_as = autime_to_attosec
 au_to_fs = au_to_as / 1e3
+
+# Rotatory strength
+rot_au_to_SI = _e**2 * _hbar / _me * _a0  # 1 au = 1.6e-52 J C m / T
+rot_au_to_cgs = rot_au_to_SI / (1e-6 / _c)  # 1 au = 4.7e-38 erg esu cm / gauss
