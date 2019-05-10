@@ -7,7 +7,6 @@ B = -4 * epsilon0 * sigma0**6
 
 from _gpaw import adjust_positions, adjust_momenta, calculate_forces_H2O
 from ase.calculators.calculator import Calculator, all_changes
-import time
 
 import numpy as np
 
