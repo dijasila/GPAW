@@ -107,7 +107,7 @@ potential_equilibration_mode = 'sim':
 Usage Example: Running a constant potential NEB calculation
 ===========================================================
 
-A complete automatized script for performing an NEB calculation can be downloaded here:
+A complete automatized script for performing a NEB calculation can be downloaded here:
 :download:`run_SJM_NEB.py<run_SJM_NEB.py>`. It can, of course, be substituted
 by a simpler, more manual script as can be found in
 :ref:`the NEB tutorial<neb>`

@@ -271,10 +271,11 @@ class SJM(SolvationGPAW):
                 self.results = {}
                 if abs(SJM_changes['ne']) < self.tiny:
                     self.ne = self.tiny
-                    self.log('Number of Excess electron manually changed to 0')
+                    self.log('Number of Excess electrons manually changed ',
+                             'to 0')
                 else:
                     self.ne = SJM_changes['ne']
-                    self.log('Number of Excess electron manually changed ',
+                    self.log('Number of Excess electrons manually changed ',
                              'to %1.8f' % (self.ne))
 
     def calculate(self, atoms=None, properties=['energy'],
