@@ -37,8 +37,6 @@ Energy
 
 .. math:: \Omega = E_{tot} + \Phi_e N_e
 
-.. autoclass:: gpaw.solvation.sjm.SJM
-
 Usage Example: A simple Au(111) slab
 ====================================
 
@@ -96,25 +94,23 @@ potential_equilibration_mode = 'seq':
 
 potential_equilibration_mode = 'sim':
  Simultaneous mode. In this mode :literal:`ne` is constantly optimized together
- with the geometry. It is generally reliable, with few exceptions. However,
- after convergence it is adviced to check the final potential, since there is
- no guarantee for it to be within :literal:`dpot`. During the optimization the
+ with the geometry. It is generally reliable (with few exceptions) and does not
+ lead to a significant performance penalty compared to constant charge
+ relaxations. However, after convergence it is adviced to check the final
+ potential, since there is no guarantee for it to be within :literal:`dpot`.
+ During the optimization the
  potential can oscillate, which mostly calms down close to convergence. One
  can, however, control the oscillation via :literal:`max_pot_deviation`. This
  keyword automatically triggers a tight and complete potential equilibration
  to the target, if the current potential is outside the given threshold.
 
-.. Note:: For CI-NEBs if :literal:`climb = True`, we advice to either set
-         :literal:`max_pot_deviation` to a tighter value (e.g. 0.05) or use
-         the sequential mode.
-
-
 Usage Example: Running a constant potential NEB calculation
 ===========================================================
 
-A complete script for performing an NEB calculation can be downloaded here:
-
-.. literalinclude:: run_SJM_NEB.py
+A complete automatized script for performing an NEB calculation can be downloaded here:
+:download:`run_SJM_NEB.py<run_SJM_NEB.py>`. It can, of course, be substituted
+by a simpler, more manual script as can be found in
+:ref:`the NEB tutorial<neb>`
 
 
 .. Note:: In this example the keyword 'H2O_layer = True' in the 'SJM_Power12Potential'
@@ -123,7 +119,15 @@ A complete script for performing an NEB calculation can be downloaded here:
     high distance between the two subsystems would lead to partial solvation
     of the interface region, therefore screening the electric field in the
     most interesting area.
+.. Note:: For paralle NEB runs :literal:`potential_equilibration_mode = 'sim'`
+          should be used for efficiency, since not every image triggers
+          a potential equilibration step in sequential mode. Such a run would
+          lead to unnecessary idle time on some cores.
+.. Note:: For CI-NEBs (with :literal:`climb = True`), we advice to either set
+         :literal:`max_pot_deviation` to a tighter value (e.g. 0.05) in
+         simultaneous mode or use the sequential mode.
 
+.. autoclass:: gpaw.solvation.sjm.SJM
 
 
 References

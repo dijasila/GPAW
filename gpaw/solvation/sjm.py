@@ -42,14 +42,15 @@ class SJM(SolvationGPAW):
         potential_equilibration_mode: str
             The mode for potential relaxation (only relevant for structure
             optimizations):
-
             'seq' (Default): Sequential mode.
                              In a geometry optimization, the
                              potential will be fully equilibrated after each
                              ionic step, if outside of dpot.
             'sim':  Simultaneous mode.
-                    After each ionic step only ne is
-                    adjusted and the geometry optimization continues.
+                    After each ionic step only ne is adjusted and the geometry
+                    optimization continues. If potential deviation from target
+                    is higher than `max_pot_deviation` one complete potential
+                    equilibration at constant geometry is triggered.
         dpot: float
             Tolerance for the deviation of the target potential in sequential
             mode. If the potential is outside the defined range `ne` will be
@@ -61,7 +62,6 @@ class SJM(SolvationGPAW):
         doublelayer: dict
             Parameters regarding the shape of the counter charge region
             Implemented keys:
-
             'start': float or 'cavity_like'
                 If a float is given it corresponds to the lower
                 boundary coordinate (default: z), where the counter charge
@@ -75,7 +75,6 @@ class SJM(SolvationGPAW):
                 Upper boundary of the counter charge region in terms of
                 coordinate in Angstrom (default: z). The default is
                 atoms.cell[2][2] - 5.
-
         verbose: bool or 'cube'
             True:
                 Write final electrostatic potential, background charge and
