@@ -184,10 +184,10 @@ class SJM(SolvationGPAW):
 
         if any(key in SJM_keys[1:] for key in SJM_changes):
             if self.equil_mode == 'sim':
-                    self.log("Preequilibrating the potential",
-                             "after manual change of",
-                             list(SJM_changes.keys()))
-                    self.equil_iters = 10
+                self.log("Preequilibrating the potential",
+                         "after manual change of",
+                         list(SJM_changes.keys()))
+                self.equil_iters = 10
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
