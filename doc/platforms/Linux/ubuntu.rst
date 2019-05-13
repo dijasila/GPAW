@@ -1,6 +1,6 @@
-====================================
-Manual installation on Ubuntu 18.04+
-====================================
+=============
+Ubuntu 18.04+
+=============
 
 Install these Ubuntu_ packages::
 
