@@ -646,6 +646,10 @@ class SPzCorrectionsLcao2:
         g_mat_k = {}
         for kpt in wfs.kpt_u:
             n_occ = get_n_occ(kpt)
+            if n_occ == 0:
+                g_mat_k[k] = np.zeros_like(a_mat_k[k])
+                continue
+
             k = self.n_kps * kpt.s + kpt.q
             l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
                                        grad_knG[k][:n_occ], False)

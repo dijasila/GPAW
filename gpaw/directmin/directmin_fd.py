@@ -607,18 +607,19 @@ class DirectMinFD(Eigensolver):
 
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
 
-            evals = np.empty(lamb.shape[0])
-            diagonalize(lamb, evals)
-            wfs.gd.comm.broadcast(evals, 0)
-            wfs.gd.comm.broadcast(lamb, 0)
+            if n_occ != 0:
+                evals = np.empty(lamb.shape[0])
+                diagonalize(lamb, evals)
+                wfs.gd.comm.broadcast(evals, 0)
+                wfs.gd.comm.broadcast(lamb, 0)
+                kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
 
             evals_lumo = np.empty(lumo.shape[0])
             diagonalize(lumo, evals_lumo)
-            wfs.gd.comm.broadcast(evals, 0)
+            wfs.gd.comm.broadcast(evals_lumo, 0)
             wfs.gd.comm.broadcast(lumo, 0)
 
             kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-            kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
             # kpt.eps_n[n_occ + 1:] = +np.inf
             # inf is not a good for example for ase get gap
             kpt.eps_n[n_occ + dim:] *= 0.0
@@ -859,16 +860,20 @@ class DirectMinFD(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
 
-        max_iter = 3000
+        max_iter = 500
         while self.iters < max_iter:
             en, er = self.iterate_lumo(ham, wfs, dens)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
             if er < max_err * 10.:
+                log('\nUnoccupied states converged after'
+                    ' {:d} iterations'.format(self.iters))
                 break
-        log('\nUnoccupied states converged after'
-            ' {:d} iterations'.format(self.iters))
+            if self.iters >= max_iter:
+                log('\nUnoccupied states did not converged after'
+                    ' {:d} iterations'.format(self.iters))
+
         self.initialized = False
 
     def run_inner_loop(self, ham, wfs, occ, dens, log, niter=0):
