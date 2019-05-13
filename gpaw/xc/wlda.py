@@ -73,19 +73,19 @@ class WLDA(XCFunctional):
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
-        print("1")
+
         self.tabulate_weights(n_sg[0], gd)
-        print("2")
+
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
 
-        print("3")
+
         n_gi = self.get_ni_weights(n_g)
-        print("4")
+
         wtable_gi = self.weight_table
 
         wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
-        print("5")
+
         n_sg[0, :] = wn_g
                     
          
