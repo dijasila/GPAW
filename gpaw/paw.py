@@ -179,7 +179,8 @@ class PAW:
         self.calculate(system_changes=[])
         self.density.fixed = fixed
 
-    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None, scalapack=None,
+    def diagonalize_full_hamiltonian(self, nbands=None, ecut=None,
+                                     scalapack=None,
                                      expert=False):
         if not self.initialized:
             self.initialize()
@@ -530,9 +531,10 @@ class PAW:
         psit_G = self.wfs.get_wave_function_array(band, kpt, spin,
                                                   periodic=periodic)
         if broadcast:
-            if not self.wfs.world.rank == 0:
+            if self.wfs.world.rank != 0:
                 psit_G = self.wfs.gd.empty(dtype=self.wfs.dtype,
                                            global_array=True)
+            psit_G = np.ascontiguousarray(psit_G)
             self.wfs.world.broadcast(psit_G, 0)
             return psit_G / Bohr**1.5
         elif self.wfs.world.rank == 0:
@@ -632,9 +634,9 @@ class PAW:
         return Z_nn
 
     def add_wannier_correction(self, Z_nn, G_c, u, u1, nbands=None):
-        """
-        Calculate the correction to the wannier integrals Z,
-        given by (Eq. 27 ref1)::
+        r"""Calculate the correction to the wannier integrals.
+
+        See: (Eq. 27 ref1)::
 
                           -i G.r
             Z   = <psi | e      |psi >

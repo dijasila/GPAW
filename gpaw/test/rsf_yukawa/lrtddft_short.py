@@ -8,6 +8,12 @@ from gpaw.occupations import FermiDirac
 from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
+import _gpaw
+
+libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
+if int(libxc_version.split('.')[0]) < 3:
+    from unittest import SkipTest
+    raise SkipTest
 
 o_plus = Cluster(Atoms('Be', positions=[[0, 0, 0]]))
 o_plus.set_initial_magnetic_moments([1.0])
