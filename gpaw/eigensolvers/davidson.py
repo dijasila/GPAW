@@ -84,7 +84,6 @@ class Davidson(Eigensolver):
             return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
                        for b_G in a_G)
 
-        print('SD')
         self.subspace_diagonalize(ham, wfs, kpt)
 
         psit = kpt.psit
