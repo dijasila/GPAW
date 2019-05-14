@@ -134,8 +134,9 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
-                    vpsit_nG[n1] += f2_n[n2] * pd.fft(
-                        ghat.pd.ifft(vrho_G).conj() * k2.u_nR[n2], index)
+                    vrho_R = ghat.pd.ifft(vrho_G)
+                    vpsit_nG[n1] -= f2_n[n2] * pd.fft(
+                        vrho_R.conj() * k2.u_nR[n2], index)
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
                 if k1 is k2:
@@ -379,7 +380,6 @@ class Hybrid:
 
         if kpt.f_n is None:
             if self.vt_sR is None:
-                print(1, spin)
                 from gpaw.xc import XC
                 lda = XC('LDA')
                 nt_sr = self.dens.nt_sg
@@ -389,7 +389,6 @@ class Hybrid:
                 for vt_R, vt_r in zip(self.vt_sR, vt_sr):
                     vt_R[:], _ = self.dens.pd3.restrict(vt_r, self.dens.pd2)
 
-            print(2, spin)
             pd = kpt.psit.pd
             for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
                 Htpsit_G += pd.fft(self.vt_sR[kpt.s] *
@@ -400,7 +399,6 @@ class Hybrid:
 
         if kpt.psit.array.base is psit_xG.base:
             if (spin, kpt.k) not in self.cache:
-                print(3, spin)
                 VV_aii = self.calculate_valence_valence_paw_corrections(spin)
                 K = kd.nibzkpts
                 k1 = (spin - kd.comm.rank) * K
@@ -421,7 +419,6 @@ class Hybrid:
                                               for k in range(len(kpts))])
             Htpsit_xG += self.cache.pop((spin, kpt.k))
         else:
-            print(4, spin)
             assert len(self.cache) == 0
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
             K = kd.nibzkpts
