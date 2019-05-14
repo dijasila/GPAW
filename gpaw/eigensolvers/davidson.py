@@ -84,6 +84,7 @@ class Davidson(Eigensolver):
             return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
                        for b_G in a_G)
 
+        print('SD')
         self.subspace_diagonalize(ham, wfs, kpt)
 
         psit = kpt.psit
@@ -128,6 +129,7 @@ class Davidson(Eigensolver):
             # Calculate projections
             psit2.matrix_elements(wfs.pt, out=P2)
 
+            print('H1')
             psit2.apply(Ht, out=R)
 
             def copy(M, C_nn):
