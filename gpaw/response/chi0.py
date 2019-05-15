@@ -116,7 +116,8 @@ def frequency_grid(domega0, omega2, omegamax):
 
 
 class Chi0:
-    """Class for calculating non-interacting response functions."""
+    """Class for calculating non-interacting response functions.
+    Corresponds to calculating Kohn-Sham susceptibilities."""
 
     def __init__(self, calc, response='density',
                  frequencies=None, domega0=0.1, omega2=10.0, omegamax=None,
