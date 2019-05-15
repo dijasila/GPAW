@@ -96,60 +96,24 @@ class PzCorrections:
 
         return nt_G, Q_aL, D_ap
 
+    def get_energy_and_gradients(self, wfs, grad_knG,
+                                 dens=None, U_k=None):
+
+        e_sic = 0.0
+        for kpt in wfs.kpt_u:
+            e_sic += self.get_energy_and_gradients_kpt(
+                wfs, kpt, grad_knG, dens, U_k)
+        e_sic = wfs.kd.comm.sum(e_sic)
+
+        return e_sic
+
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
-                                     dens=None):
+                                     dens=None, U_k=None):
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
-
         e_total_sic = np.array([])
-
-        for i in range(n_occ):
-            nt_G, Q_aL, D_ap = \
-                self.get_orbdens_compcharge_dm_kpt(kpt, i)
-
-            # calculate sic energy, sic pseudo-potential and Hartree
-            e_sic, vt_G, v_ht_g = \
-                self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
-
-            # calculate PAW corrections
-            e_sic_paw_m, dH_ap = \
-                self.get_paw_corrections(D_ap, v_ht_g)
-
-            # total sic:
-            e_sic += e_sic_paw_m
-
-            e_total_sic = np.append(e_total_sic,
-                                    kpt.f_n[i] * e_sic, axis=0)
-
-            grad_knG[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
-
-            c_axi = {}
-            for a in kpt.P_ani.keys():
-                dH_ii = unpack(dH_ap[a])
-                c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
-                c_axi[a] = c_xi * kpt.f_n[i]
-
-            # add projectors to
-            wfs.pt.add(grad_knG[k][i], c_axi, kpt.q)
-
-        e_total_sic = e_total_sic.reshape(
-            e_total_sic.shape[0] // 2, 2)
-        self.e_sic_by_orbitals[k] = np.copy(e_total_sic)
-        wfs.timer.stop('SIC e/g grid calculations')
-
-        return e_total_sic.sum()
-
-    def get_energy_and_gradients_kpt_2(self, wfs, kpt, grad_knG,
-                                       dens=None, U=None):
-
-        wfs.timer.start('SIC e/g grid calculations')
-        k = self.n_kps * kpt.s + kpt.q
-        n_occ = get_n_occ(kpt)
-
-        e_total_sic = np.array([])
-
         grad = np.zeros_like(kpt.psit_nG[:n_occ])
 
         for i in range(n_occ):
@@ -157,32 +121,27 @@ class PzCorrections:
                 self.get_orbdens_compcharge_dm_kpt(kpt, i)
 
             # calculate sic energy, sic pseudo-potential and Hartree
-            e_sic, vt_G, v_ht_g = \
-                self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
-
-            # calculate PAW corrections
-            e_sic_paw_m, dH_ap = \
-                self.get_paw_corrections(D_ap, v_ht_g)
-
-            # total sic:
-            e_sic += e_sic_paw_m
+            e_sic, vt_G, dH_ap = \
+                self.get_pz_sic_ith_kpt(
+                    nt_G, Q_aL, D_ap, i, k, wfs.timer)
 
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
 
             grad[i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
-            # grad_knG[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
-
             c_axi = {}
             for a in kpt.P_ani.keys():
                 dH_ii = unpack(dH_ap[a])
                 c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
                 c_axi[a] = c_xi * kpt.f_n[i]
-
             # add projectors to
             wfs.pt.add(grad[i], c_axi, kpt.q)
 
-        grad_knG[k][:n_occ] += np.tensordot(U.conj(), grad, axes=1)
+        if U_k is not None:
+            grad_knG[k][:n_occ] += \
+                np.tensordot(U_k[k].conj(), grad, axes=1)
+        else:
+            grad_knG[k][:n_occ] += grad
 
         e_total_sic = e_total_sic.reshape(
             e_total_sic.shape[0] // 2, 2)
@@ -360,3 +319,37 @@ class PzCorrections:
                 F_v = np.dot(np.dot(dP_vi, dH_ii), P_i)
                 F_av[a] += kpt.f_n[m] * 2.0 * F_v.real
 
+    def get_pz_sic_ith_kpt(self, nt_G, Q_aL, D_ap, i, k, timer):
+
+        """
+        :param nt_G: one-electron orbital density
+        :param Q_aL: its compensation charge
+        :param D_ap: its density matrix
+        :param i: number of orbital
+        :param k: k-point number, k = n_kperspin * kpt.s + kpt.q
+        :param timer:
+        :return: E, v and dH
+            E = -(beta_c * E_Hartree[n_i] + beta_x * E_xc[n_i])
+            v = dE / dn_i
+            dH - paw corrections
+
+        """
+
+        # calculate sic energy,
+        # sic pseudo-potential and Hartree
+        timer.start('Get Pseudo Potential')
+        # calculate sic energy, sic pseudo-potential and Hartree
+        e_pz, vt_G, v_ht_g = \
+            self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
+        timer.stop('Get Pseudo Potential')
+
+        # calculate PAW corrections
+        timer.start('PAW')
+        # calculate PAW corrections
+        e_pz_paw_m, dH_ap = self.get_paw_corrections(D_ap, v_ht_g)
+        timer.stop('PAW')
+
+        # total sic:
+        e_pz += e_pz_paw_m
+
+        return e_pz, vt_G, dH_ap

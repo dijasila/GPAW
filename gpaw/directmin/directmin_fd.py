@@ -367,7 +367,6 @@ class DirectMinFD(Eigensolver):
                 k = self.n_kps * kpt.s + kpt.q
                 temp[k] = kpt.psit_nG[:].copy()
                 n_occ = get_n_occ(kpt)
-                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
                 kpt.psit_nG[:n_occ] = \
                     np.tensordot(
                         self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
@@ -378,20 +377,20 @@ class DirectMinFD(Eigensolver):
                 self.run_inner_loop(ham, wfs, occ, dens, log=None)
             self.e_sic = 0.0
 
-            if self.odd_parameters['name'] == 'SPZ_SIC2':
-                U_k = {}
+            if self.odd_parameters['name'] in ['SPZ_SIC2', 'PZ_SIC']:
                 for kpt in wfs.kpt_u:
                     k = n_kps * kpt.s + kpt.q
-                    U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
+                    self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
                 self.e_sic = self.odd.get_energy_and_gradients(
-                    wfs, dens, grad, U_k)
+                    wfs, grad, dens, self.U_k)
             else:
                 for kpt in wfs.kpt_u:
                     k = n_kps * kpt.s + kpt.q
+                    self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
                     self.e_sic +=\
                         self.odd.get_energy_and_gradients_kpt_2(
                             wfs, kpt, grad, dens,
-                            U=self.U_k[k] @ self.iloop.U_k[k])
+                            U=self.U_k)
                 self.e_sic = wfs.kd.comm.sum(self.e_sic)
             energy += self.e_sic
             for kpt in wfs.kpt_u:
