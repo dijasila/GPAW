@@ -445,8 +445,6 @@ class SternheimerResponse:
         eigs = sorted(eigs)
         eigvals, eigvecs = zip(*eigs)
 
-        fdnt_R = self.get_fine_delta_tilde_n(deltapsi_qnG, return_real_space=True)
-
         def expand(vec):
             res_qnG = {}
             for ind, val in enumerate(vec):
