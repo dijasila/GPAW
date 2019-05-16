@@ -105,8 +105,8 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            self.eigval, self.fdnt_R = self.powercalculate([qvector], 1)
-            #self.krylovcalculate([qvector], 1)
+            #self.eigval, self.fdnt_R = self.powercalculate([qvector], 1)
+            self.eigval_S, self.fdnt_SR = self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
         # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -360,17 +360,25 @@ class SternheimerResponse:
             deltapsi_qnG = self.deltapsi_qnG
         norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
         deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
+        deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
+        if not np.allclose(norm, 1):
+            deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
+        if not np.allclose(norm, 1):
+            raise ValueError
         error_threshold = 1e-4
         error = 100
 
-        max_iter = 100
+        max_iter = 5
         new_norm = 0
         old_norm = 0
 
         Kv_SqnG = [] #S is a step-number index
         v_SqnG = [deltapsi_qnG]
-        init_ip = self.inner_product(v_SqnG[0], self.apply_K(v_SqnG[0], qvector))
         K_ij = np.array([[0]]) #Initial Krylov space is empty, so matrix is zero
+        K_ij = np.zeros((max_iter+1, max_iter+1))
         check = True
         for niter in range(max_iter):
             print(f"Iteration number: {niter}")
@@ -383,7 +391,7 @@ class SternheimerResponse:
                         else:
                             b = np.allclose(self.inner_product(jvec, kvec), 0)
                             if not b:
-                                print(f"Inner product: {self.inner_product(jvec, kvec)}")
+                                print(f"Inner product between {j}-{k}: {self.inner_product(jvec, kvec)}")
                             assert b
 
 
@@ -394,19 +402,21 @@ class SternheimerResponse:
 
             Kv_SqnG.append(new_deltapsi_qnG.copy())
             #Some code to orthonormalize            
-            #if (niter % 2) == 0: ##Does not work. Eigenvalues of subspace matrix is incorrect b/c basis vectors are not linearly independent
-            new_shape = tuple(np.array(K_ij.shape) + np.array((1,1)))
-            new_K_ij = np.zeros(new_shape, dtype=np.complex128)
-            new_K_ij[:-1, :-1] = K_ij
+
+            # new_shape = tuple(np.array(K_ij.shape) + np.array((1,1)))
+            # new_K_ij = np.zeros(new_shape, dtype=np.complex128)
+            # new_K_ij[:-1, :-1] = K_ij
             ##Update orthonormalization. Can apparently be done in less steps, see wikipedia
             for Sindex, v_qnG in enumerate(v_SqnG):
                 innerprod = self.inner_product(v_qnG, new_deltapsi_qnG)
-                new_K_ij[Sindex, niter] = innerprod
+                #new_K_ij[Sindex, niter] = innerprod
+                K_ij[Sindex, niter] = innerprod
                 new_deltapsi_qnG = {q : val - innerprod*v_qnG[q] for q, val in new_deltapsi_qnG.items()}
 
-            norm = np.sqrt(self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
-            new_K_ij[niter+1, niter] = norm
 
+            norm = np.sqrt(self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
+            #new_K_ij[niter+1, niter] = norm
+            K_ij[niter+1, niter] = norm
 
             new_deltapsi_qnG = {q: val/norm for q, val in new_deltapsi_qnG.items()}
             ##Then append the orthonormalized vector v_SqnG
@@ -422,7 +432,7 @@ class SternheimerResponse:
             #     new_K_ij[-1, i] = self.inner_product(v_SqnG[-1], Kv_SqnG[i])
             #     new_K_ij[i, -1] = self.inner_product(v_SqnG[i], Kv_SqnG[-1])
 
-            K_ij = new_K_ij            
+            #K_ij = new_K_ij            
 
             eigvals, eigvecs = np.linalg.eig(K_ij)
             print(f"Eigvals: {np.sort(np.real(eigvals))}")
@@ -430,12 +440,36 @@ class SternheimerResponse:
             print(f"Iteration took: {t2 - t1} seconds")
 
         self.deltapsi_qnG = deltapsi_qnG
+        
+        eigs = list(zip(eigvals, eigvecs))
+        eigs = sorted(eigs)
+        eigvals, eigvecs = zip(*eigs)
 
-            
-        print("Not converged")
-        return
+        fdnt_R = self.get_fine_delta_tilde_n(deltapsi_qnG, return_real_space=True)
 
+        def expand(vec):
+            res_qnG = {}
+            for ind, val in enumerate(vec):
+                to_add = v_SqnG[ind]
+                for q, deltapsi_nG in to_add.items():
+                    if q in res_qnG:
+                        res_qnG[q] = res_qnG[q] + val*deltapsi_nG
+                    else:
+                        res_qnG[q] = val*deltapsi_nG
 
+            return res_qnG
+
+        eigs_SqnG = np.array([expand(vec) for vec in eigvecs])
+        fdnt_SR = np.array([self.get_fine_delta_tilde_n(delta_qnG, return_real_space=True) for delta_qnG in eigs_SqnG])
+        # import matplotlib.pyplot as plt
+        # plt.plot(fdnt_R[:,0,0], label="x")
+        # plt.plot(fdnt_R[0,:,0], label="y")
+        # plt.plot(fdnt_R[0,0,:], label="z")
+        # plt.legend()
+        # plt.show()
+        
+        #print("Not converged")
+        return eigvals, fdnt_SR
 
 
     def powercalculate(self, qvectors, num_eigs):
@@ -661,7 +695,8 @@ class SternheimerResponse:
             DeltaD2_p = pack(DeltaD2_aii[a])
             Pd += DeltaD1_p.dot((2*self.wfs.setups[a].M_pp).dot(DeltaD2_p))
 
-        return P12 + Pd
+        assert np.allclose(P12 + Pd, (P12 + Pd).real)
+        return (P12 + Pd).real
 
 
     def get_density_matrix(self, deltapsi_qnG):
@@ -680,64 +715,39 @@ class SternheimerResponse:
                 U_ij = np.dot(P_ni.conj().T*kpt.f_n[:nbands], c_ni)
 
                 if a in D_aii:
-                    D_aii[a] +=  U_ij + U_ij.conj().T# + U_ij.conj().T
+                    D_aii[a] +=  U_ij + U_ij.conj().T
                 else:
-                    D_aii[a] = U_ij + U_ij.conj().T# + U_ij.conj().T
-        #print(D_aii)
+                    D_aii[a] = U_ij + U_ij.conj().T
         return D_aii
-        D_asp = {a : np.array([ pack(D_aii[a]).real ]) for a in D_aii} 
 
-        a_sa = self.wfs.kd.symmetry.a_sa
+        # D_asp = {a : np.array([ pack(D_aii[a]).real ]) for a in D_aii} 
 
-        for s in range(self.wfs.nspins):
-            D_aii = [unpack2(D_asp[a][s])
-                     for a in range(len(D_asp))]
-            for a, D_ii in enumerate(D_aii):
-                setup = self.wfs.setups[a]
-                D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
+        # a_sa = self.wfs.kd.symmetry.a_sa
+
+        # for s in range(self.wfs.nspins):
+        #     D_aii = [unpack2(D_asp[a][s])
+        #              for a in range(len(D_asp))]
+        #     for a, D_ii in enumerate(D_aii):
+        #         setup = self.wfs.setups[a]
+        #         D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
 
 
-        # #print(f"Size of D_ii: {D_aii[0].shape}")
-        D_aii = {a: unpack2(D_asp[a][0]) for a in D_asp}
-        # print("Delta D:")
-        # print(D_aii[0][:4, :4])
-        # print("Delta D sum")
-        # print(D_aii[0].sum().sum())
-        # print("Old Delta D:")
-        # print(oldD_aii[0][:4, :4])
-        # print("Old Delta D sum")
-        # print(oldD_aii[0].sum().sum())
-        # exit()
-        return D_aii
+        # # #print(f"Size of D_ii: {D_aii[0].shape}")
+        # D_aii = {a: unpack2(D_asp[a][0]) for a in D_asp}
+        # # print("Delta D:")
+        # # print(D_aii[0][:4, :4])
+        # # print("Delta D sum")
+        # # print(D_aii[0].sum().sum())
+        # # print("Old Delta D:")
+        # # print(oldD_aii[0][:4, :4])
+        # # print("Old Delta D sum")
+        # # print(oldD_aii[0].sum().sum())
+        # # exit()
+        # return D_aii
         
 
 
     def apply_K(self, deltapsi_qnG, qvector):
-        # from gpaw.response.df import DielectricFunction
-        # df = DielectricFunction(self.restart_filename, ecut=250, eta=5)
-        # eps_GG = df.get_dielectric_matrix(symmetric=False)[0]
-        
-        # #self.wfs.pd.zeros(x=(number_of_valence_states,), q=k_plus_q_index)
-
-
-
-        # test_vector_nG = self.wfs.pd.zeros(x = (4,), q=0)
-        # test_vector_nG[0,3] = 1
-        # potential = self.epsilon_potential({0: test_vector_nG})
-        # sternheimer_result = self.solve_sternheimer(potential, 0)[0][0]
-        # exact_result = np.dot(eps_GG, test_vector_nG[0])
-        # ##Actually these two things should not be equal. One is epsV other is eps*wvf
-
-        # if not np.allclose(sternheimer_result, exact_result):
-        #     import matplotlib.pyplot as plt
-        #     plt.plot(sternheimer_result, label="Sternheimer")
-        #     plt.plot(exact_result, label="Exact")
-        #     plt.legend()
-        #     plt.show()
-        #     raise ValueError()
-        #exit()
-        
-
         potential_function = self.epsilon_potential(deltapsi_qnG)
 
         new_deltapsi_qnG = self.solve_sternheimer(potential_function, qvector)
@@ -823,7 +833,9 @@ class SternheimerResponse:
 
             pt = self.wfs.pt
             
-            c_ai = {a: val[level_index, :] for a, val in kpt.projections.items()}
+            # Very spooky bug: Didnt have .copy() here and
+            # kpt.projections was seemingly modified later
+            c_ai = {a: val[level_index, :].copy() for a, val in kpt.projections.items()}
                 
             
             for a, c_i in c_ai.items():
@@ -918,7 +930,7 @@ class SternheimerResponse:
         pd2 = self.calc.density.pd2
         G2 = pd2.G2_qG[0].copy()
         G2[0] = 1.0
-        R = self.calc.atoms.cell[0, 0] / 2
+        R = (self.calc.atoms.cell[0, 0] / 2).copy()
         from ase.units import Bohr
         R /= Bohr
         
@@ -930,7 +942,7 @@ class SternheimerResponse:
         G2 = pd3.G2_qG[0].copy()
         G2[0] = 1.0
 
-        R = self.calc.atoms.cell[0,0]/2
+        R = (self.calc.atoms.cell[0,0]/2).copy()
         from ase.units import Bohr
         R /= Bohr
 
@@ -1601,33 +1613,35 @@ if __name__=="__main__":
     from ase.build import bulk
     from ase import Atoms
     from gpaw import PW, FermiDirac
-    
-    
-    atoms = Atoms(sys.argv[1], cell=(10, 10, 10), magmoms=[1])
-
     setup = sys.argv[3]
-    if setup != "paw":
-        calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
-                    xc="LDA",
-                    setups=setup)
-    else:
-        calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
-                    xc="LDA")
-
-    atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
-
-
-
     prefix = setup + "_" + str(int(cutoff)) + "_"
     filen = prefix + filen
-    calc.write(filen, mode = "all")
+    if not os.path.isfile(filen):
+    
+        atoms = Atoms(sys.argv[1], cell=(10, 10, 10), magmoms=[1])
 
+        if setup != "paw":
+            calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
+                    xc="LDA",
+                    setups=setup)
+        else:
+            calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
+                    xc="LDA")
+
+        atoms.set_calculator(calc)
+        energy = atoms.get_potential_energy()
+
+        calc.write(filen, mode = "all")
+
+
+
+    
     respObj = SternheimerResponse(filen)
-    eigval, eigmode_R = respObj.eigval, respObj.fdnt_R
+    eigval_S, eigmode_SR = respObj.eigval_S, respObj.fdnt_SR
+    savemode_SR = np.array([eigmode_R[:,0,0] for eigmode_R in eigmode_SR])
     np.save(prefix + "grid", respObj.wfs.gd.get_grid_point_coordinates()[0, :, 0, 0])
-    np.save(prefix + "eigmode_x", eigmode_R[:,0,0])
-    np.save(prefix + "eigval", eigval)
+    np.save(prefix + "eigmodes_x", savemode_SR)
+    np.save(prefix + "eigvals", eigval_S)
     os.remove(filen)
 
 
