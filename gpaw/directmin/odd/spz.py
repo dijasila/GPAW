@@ -2,13 +2,9 @@
 Potentials for orbital density dependent energy functionals
 """
 import numpy as np
-from gpaw.utilities import pack, unpack
-from gpaw.lfc import LFC
-from gpaw.transformers import Transformer
+from gpaw.utilities import unpack
 from gpaw.directmin.fd.tools import d_matrix
-from gpaw.poisson import PoissonSolver
 from gpaw.directmin.tools import get_n_occ
-
 # from gpaw.xc.scaling_factor import SF, PurePythonSFKernel
 from gpaw.xc.scaling_factor_gga import SFG, PurePythonSFGKernel
 from gpaw.xc.scaling_factor_gga_2 import PurePythonSFG2Kernel
@@ -291,6 +287,7 @@ class SPzCorrections(PzCorrections):
     def get_odd_corrections_to_forces(self, F_av, wfs, kpt):
 
         raise NotImplementedError
+
 
 # def F(n, n_tot):
 #
