@@ -664,6 +664,22 @@ class PairDensity(PairMatrixElement):
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
                  nblocks=1, gate_voltage=None, **unused):
+        """Density matrix elements
+
+        Parameters
+        ----------
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        gate_voltage : float
+            Shift the fermi level by gate_voltage [Hartree].
+        """
 
         PairMatrixElement.__init__(self, calc,
                                    world=world, txt=txt, timer=timer)

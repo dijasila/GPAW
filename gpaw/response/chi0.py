@@ -130,7 +130,7 @@ class Chi0:
                  disable_time_reversal=False,
                  disable_spincons_time_reversal=False,
                  disable_non_symmorphic=True,
-                 scissor=None, integrationmode=None,
+                 integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0):
         """Construct Chi0 object.
         
@@ -194,8 +194,6 @@ class Chi0:
             Do not use spin-conserving time reversal symmetry.
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
-        scissor : tuple ([bands], shift [eV])
-            Use scissor operator on bands.
         integrationmode : str
             Integrator for the kpoint integration.
             If == 'tetrahedron integration' then the kpoint integral is
@@ -254,12 +252,6 @@ class Chi0:
             self.kncomm = self.world.new_communicator(ranks)
 
         self.nblocks = nblocks
-
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.fd = txt
 
         if ecut is not None:
             ecut /= Hartree
