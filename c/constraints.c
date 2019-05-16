@@ -546,7 +546,7 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args)
     return NULL;
   }
 
-  char *pbc = (char*) PyArray_DATA(arraypbc);
+  unsigned char *pbc = (unsigned char*) PyArray_DATA(arraypbc);
   //printf("Boundary conditions %u %u %u \n", pbc[0], pbc[1], pbc[2]);
 
   unsigned int NW = NA / 3;
