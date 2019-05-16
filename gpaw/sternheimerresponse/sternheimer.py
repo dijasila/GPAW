@@ -83,13 +83,13 @@ class SternheimerResponse:
         self.wfs = self.calc.wfs
         self.calc.initialize_positions()
         self.nbands = self.wfs.bd.nbands#//2
-
+        print("nbands=", self.nbands)
         self.c_qani = {}
         self.c_qnai = {}
         #bz_to_ibz = self.calc.get_bz_to_ibz_map()
         #ntotal_kpts = len(bz_to_ibz)
         spin_factor = 1
-        self.kpt_weight = 1#spin_factor*self.wfs.kd.weight_k
+        self.kpt_weight = spin_factor*self.wfs.kd.weight_k
         #np.array([(bz_to_ibz == k).sum() for k in list(set(bz_to_ibz))])*
         #self.kpt_weight = np.zeros_like(self.kpt_weight) + 1
         #ind1 = self.wfs.mykpts[1].q
@@ -105,7 +105,7 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            self.powercalculate([qvector], 1)
+            self.eigval, self.fdnt_R = self.powercalculate([qvector], 1)
             #self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
@@ -480,15 +480,24 @@ class SternheimerResponse:
             if error < error_threshold:
                 print(f"Converged. Value: {eigval}")
                 self.deltapsi_qnG = deltapsi_qnG
-                return
+                #return
+                deltapsi_qnG = new_deltapsi_qnG
+                break
 
             deltapsi_qnG = new_deltapsi_qnG
 
         self.deltapsi_qnG = deltapsi_qnG
-
-            
-        print("Not converged")
-        return
+        
+        fdnt_R = self.get_fine_delta_tilde_n(deltapsi_qnG, return_real_space=True)
+        # import matplotlib.pyplot as plt
+        # plt.plot(fdnt_R[:,0,0], label="x")
+        # plt.plot(fdnt_R[0,:,0], label="y")
+        # plt.plot(fdnt_R[0,0,:], label="z")
+        # plt.legend()
+        # plt.show()
+        
+        #print("Not converged")
+        return eigval, fdnt_R
 
 
             
@@ -738,70 +747,38 @@ class SternheimerResponse:
             
 
     def epsilon_potential(self, deltapsi_qnG):
-        #Should add qvector to args to construct potential suitable for individual kpt?
+        # Should add qvector to args to construct potential suitable for individual kpt?
 
-
-        #delta_tilde_n = self.get_delta_tilde_n(deltawfs_wfs)
-        fine_delta_tilde_n_G = self.get_fine_delta_tilde_n(deltapsi_qnG)
-        if self.print and False:
-            zeroth = 0
-            for q, deltapsi_nG in deltapsi_qnG.items():
-                for n, deltapsi_G in enumerate(deltapsi_nG):
-                    zeroth += deltapsi_G[0]
-            print(f"Zeroth: {zeroth}")
-            import matplotlib.pyplot as plt
-            soft = self.calc.density.pd3.ifft(fine_delta_tilde_n_G)
-            plt.plot(soft[:,0,0], label="x")
-            plt.plot(soft[0,:,0], label="y")
-            plt.plot(soft[0,0,:], label="z")
-            plt.legend()
-            plt.show()
-            exit()
+        
+        # ## Compensation charge on fine grid
+        # # delta_tilde_n = self.get_delta_tilde_n(deltawfs_wfs)
+        # fine_delta_tilde_n_G = self.get_fine_delta_tilde_n(deltapsi_qnG)
        
-        #Comp charges is dict: atom -> charge
+        # # Comp charges is dict: atom -> charge
+        # DeltaD_aii = self.get_density_matrix(deltapsi_qnG)
+        # # print("Delta D:")
+        # # print(DeltaD_aii[0][:4, :4])
+        # # exit()
+        # total_delta_comp_charge_G = self.get_compensation_charges(deltapsi_qnG, DeltaD_aii)
+       
+       
+        # poisson_term_G = self.solve_poisson(fine_delta_tilde_n_G + total_delta_comp_charge_G)
+
+        # soft_term_G = self.transform_to_coarse_grid_operator(poisson_term_G)
+        # soft_term_R = self.calc.density.pd2.ifft(soft_term_G)
+        # W_ap = self.get_charge_derivative_terms(poisson_term_G, DeltaD_aii)
+        # ## END Compensation charge on fine grid
+
+        # ## Compensation charge on coarse grid
+        delta_tilde_n_G = self.get_delta_tilde_n(deltapsi_qnG)
         DeltaD_aii = self.get_density_matrix(deltapsi_qnG)
-        #print("Delta D:")
-        #print(DeltaD_aii[0][:4, :4])
-        #exit()
-        total_delta_comp_charge_G = self.get_compensation_charges(deltapsi_qnG, DeltaD_aii)
-        if self.print and False:
-            import matplotlib.pyplot as plt
-            soft = self.calc.density.pd3.ifft(total_delta_comp_charge_G)
-            plt.plot(soft[:,0,0], label="x")
-            plt.plot(soft[0,:,0], label="y")
-            plt.plot(soft[0,0,:], label="z")
-            plt.legend()
-            plt.show()
-            exit()
-       
+        comp_charge_G = self.get_comp_charges(deltapsi_qnG, DeltaD_aii)
+        soft_term_G = self.solve_poisson_eq(delta_tilde_n_G + comp_charge_G)
+        soft_term_R=  self.calc.density.pd2.ifft(soft_term_G)
+        
 
-        q = fine_delta_tilde_n_G + total_delta_comp_charge_G        
-        poisson_term_G = self.solve_poisson(fine_delta_tilde_n_G + total_delta_comp_charge_G)
-        if self.print and False:
-            import matplotlib.pyplot as plt
-            soft = self.calc.density.pd3.ifft(poisson_term_G)
-            plt.plot(soft[:,0,0], label="x")
-            plt.plot(soft[0,:,0], label="y")
-            plt.plot(soft[0,0,:], label="z")
-            plt.legend()
-            plt.show()
-            exit()
-
-        soft_term_G = self.transform_to_coarse_grid_operator(poisson_term_G)
-        soft_term_R = self.calc.density.pd2.ifft(soft_term_G)
-        if self.print and False:
-            import matplotlib.pyplot as plt
-            #soft = self.calc.density.pd3.ifft(poisson_term_G)
-            soft = soft_term_R
-            plt.plot(soft[:,0,0], label="x")
-            plt.plot(soft[0,:,0], label="y")
-            plt.plot(soft[0,0,:], label="z")
-            plt.legend()
-            plt.show()
-            exit()
-
-        W_ap = self.get_charge_derivative_terms(poisson_term_G, DeltaD_aii)
-
+        W_ap = self.get_charge_derivative_terms(soft_term_G, DeltaD_aii)
+        # ## END Compensation charge on coarse grid
 
         def apply_potential2(wvf_nG, q_index):
             #wvf_nR = self.wfs.pd.zeros(x = len(wvf_nG), q=q_index)
@@ -838,7 +815,11 @@ class SternheimerResponse:
             num_gs = kpt.psit.array.shape[1]
             if num_gs != len(wvf_G):
                 raise ValueError("Number of G-vectors does not match length of vector")
-            wvf_R = self.wfs.pd.ifft(wvf_G, q=q_index)
+            try:
+                wvf_R = self.wfs.pd.ifft(wvf_G, q=q_index)
+            except Exception as e:
+                print("q=", q_index)
+                raise e
 
             pt = self.wfs.pt
             
@@ -854,20 +835,6 @@ class SternheimerResponse:
 
             V1 = self.wfs.pd.fft(soft_term_R*wvf_R, q=q_index)
             pt.add(V1, c_ai, q=q_index)
-
-
-            if self.print and False:
-                import matplotlib.pyplot as plt
-                #soft = self.calc.density.pd3.ifft(soft_term_R)
-                soft = self.wfs.pd.ifft(V1) 
-                print(f"Zeroth: {soft.sum().sum().sum()}") #Check that total charge is zero
-                #soft = wvf_R
-                plt.plot(soft[:,0,0],  label="x")
-                plt.plot(soft[0,:,0],  label="y")
-                plt.plot(soft[0,0,:],  label="z")
-                plt.legend()
-                plt.show()
-                exit()
 
             return V1   
 
@@ -897,8 +864,36 @@ class SternheimerResponse:
         return comp_charge_G
 
 
+    def get_comp_charges(self, deltapsi_qnG, DeltaD_aii):
+        setups = self.wfs.setups
+        Q_aL = {}
+        for a in DeltaD_aii:
+            setup = setups[a]
+            DeltaD_ii = DeltaD_aii[a]
+            Delta_iiL = setup.Delta_iiL
+            Q_L = np.einsum("ij, ij...", DeltaD_ii, Delta_iiL)
+            Q_aL[a] = np.real(Q_L)
 
-    def get_fine_delta_tilde_n(self, deltapsi_qnG):
+        comp_charge_G = self.calc.density.pd2.zeros()
+
+        self.calc.density.ghat.add(comp_charge_G, Q_aL)
+        
+        return comp_charge_G
+
+
+    def get_delta_tilde_n(self, deltapsi_qnG):
+        pd = self.wfs.pd
+        pd2 = self.calc.density.pd2
+        delta_n_R = pd2.gd.zeros()
+        for q_index, deltapsi_nG in deltapsi_qnG.items():
+            for state_index, deltapsi_G in enumerate(deltapsi_nG):
+                deltapsi_R = pd.ifft(deltapsi_G, q=q_index)
+                wf_R = pd.ifft(self.wfs.mykpts[q_index].psit.array[state_index], q=q_index)
+                delta_n_R += 2*np.real(deltapsi_R*wf_R.conj())
+        return pd2.fft(delta_n_R)
+
+
+    def get_fine_delta_tilde_n(self, deltapsi_qnG, return_real_space=False):
         #Interpolate delta psi
         #Use wavefunctions/pw.py
         #calc.density.pd2 (fine G grid)
@@ -914,8 +909,20 @@ class SternheimerResponse:
 
         fine_delta_n_R, fine_delta_n_G = pd2.interpolate(delta_n_R, pd3)
 
+        if return_real_space:
+            return fine_delta_n_R
 
         return pd3.fft(fine_delta_n_R)
+
+    def solve_poisson_eq(self, charge_G):
+        pd2 = self.calc.density.pd2
+        G2 = pd2.G2_qG[0].copy()
+        G2[0] = 1.0
+        R = self.calc.atoms.cell[0, 0] / 2
+        from ase.units import Bohr
+        R /= Bohr
+        
+        return charge_G * 4 * np.pi / G2 * (1 - np.cos(np.sqrt(G2) * R))
 
     def solve_poisson(self, charge_G):
         #charge(q)
@@ -937,10 +944,6 @@ class SternheimerResponse:
 
         return coarse_potential
         
-
-
-
-
 
     def get_charge_derivative_terms(self, poisson_term, DeltaD_aii):
         setups = self.wfs.setups
@@ -991,8 +994,8 @@ class SternheimerResponse:
         nbands = self.nbands
 
         for index, kpt in enumerate(self.wfs.mykpts):
-            if kpt.s == 1:
-                continue
+            #if kpt.s == 1:
+            #    continue
 
             
             
@@ -1004,7 +1007,8 @@ class SternheimerResponse:
             kpt.psit.read_from_file()
 
             
-            bzk_index = self.wfs.kd.ibz2bz_k[index]
+            #bzk_index = self.wfs.kd.ibz2bz_k[index]
+            bzk_index = kpt.k ##TODO ASK JJ is this correct
             #Get kpt object for k+q
             k_plus_q_index = self.wfs.kd.find_k_plus_q(qvector, [bzk_index])
             assert len(k_plus_q_index) == 1
@@ -1017,7 +1021,7 @@ class SternheimerResponse:
                 print(f"Len of mykpts: {len(self.wfs.mykpts)}. Len of bzk_kc: {len(self.wfs.kd.bzk_kc)}.")
                 raise ValueError("index too large")
                 
-            k_plus_q_object = self.wfs.mykpts[ibz_k_plus_q_index]
+            k_plus_q_object = self.wfs.mykpts[ibz_k_plus_q_index + kpt.s]
             #assert k_plus_q_object == kpt
             #k_plus_q_object = kpt
             k_plus_q_object.psit.read_from_file()
@@ -1058,6 +1062,10 @@ class SternheimerResponse:
             for state_index, (energy, psi) in enumerate(zip(kpt.eps_n, kpt.psit.array)):
                 if state_index >= nbands:
                     break
+                if kpt.f_n[state_index] < 0.01:
+                    break
+
+
                 t3 = time()
                 linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
 
@@ -1069,7 +1077,7 @@ class SternheimerResponse:
 
 
 
-                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, index)
+                RHS = self._get_RHS(k_plus_q_object, psi, apply_potential, state_index, k_plus_q_index, kpt, kpt.k)
                 t4 = time()
                 assert RHS.shape[0] == linop.shape[1]
                 #print("got RHS")
@@ -1343,6 +1351,7 @@ class SternheimerResponse:
         v_psi_G = self.wfs.pd.zeros(q=k_plus_q_index)
         vpsi = apply_potential(psi_G, level_index, k_index)
 
+
         if len(v_psi_G) > len(vpsi):
             v_psi_G[:len(vpsi)] = vpsi
         else:
@@ -1584,53 +1593,72 @@ if __name__=="__main__":
         ro = SternheimerResponse(filen, runstuff=False)
         tests(ro)
         exit()
-    
+
+    cutoff = float(sys.argv[2])
+
     import os
-    if False and os.path.isfile(filen):
-        print("Reading file")
-        respObj = SternheimerResponse(filen)
-    else:
-        
-        
-        #ro = SternheimerResponse(filen)
-        
-        
-        #exit()
-        print("Generating new test file")
-        from ase.build import bulk
-        from ase import Atoms
-        from gpaw import PW, FermiDirac
-        a = 10
-        c = 5
-        d = 0.74
-        #atoms = Atoms("H2", positions=([c-d/2, c, c], [c+d/2, c,c]),
-        #       cell = (a,a,a))
-        # atoms = bulk("Si", "diamond", 5.43)
-        # calc = GPAW(mode=PW(250, force_complex_dtype=True),
-        #             xc ="PBE",                
-        #             kpts={"size":(1,1,1), "gamma":True},
-        #             random=True,
-        #             symmetry="off",#{"point_group": False},
-        #             occupations=FermiDirac(0.0001),
-        #             basis="dzp",
-        #             convergence={"eigenstates": 4e-14},
-        #             #setups="ah"/"AH",
-        #            txt = outname)
-        
-        
-        atoms = Atoms("H", cell=(15, 15, 15), magmoms=[1])
 
-        calc = GPAW(mode=PW(500, force_complex_dtype=True),
+    from ase.build import bulk
+    from ase import Atoms
+    from gpaw import PW, FermiDirac
+    
+    
+    atoms = Atoms(sys.argv[1], cell=(10, 10, 10), magmoms=[1])
+
+    setup = sys.argv[3]
+    if setup != "paw":
+        calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
                     xc="LDA",
-                    setups="ae"
-        )
-                    
+                    setups=setup)
+    else:
+        calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
+                    xc="LDA")
 
-        atoms.set_calculator(calc)
-        energy = atoms.get_potential_energy()
-        calc.write(filen, mode = "all")
+    atoms.set_calculator(calc)
+    energy = atoms.get_potential_energy()
 
-        #exit()
-        respObj = SternheimerResponse(filen)
-        
 
+
+    prefix = setup + "_" + str(int(cutoff)) + "_"
+    filen = prefix + filen
+    calc.write(filen, mode = "all")
+
+    respObj = SternheimerResponse(filen)
+    eigval, eigmode_R = respObj.eigval, respObj.fdnt_R
+    np.save(prefix + "grid", respObj.wfs.gd.get_grid_point_coordinates()[0, :, 0, 0])
+    np.save(prefix + "eigmode_x", eigmode_R[:,0,0])
+    np.save(prefix + "eigval", eigval)
+    os.remove(filen)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # a = 10
+    # c = 5
+    # d = 0.74
+    #     #atoms = Atoms("H2", positions=([c-d/2, c, c], [c+d/2, c,c]),
+    #     #       cell = (a,a,a))
+    #     # atoms = bulk("Si", "diamond", 5.43)
+    #     # calc = GPAW(mode=PW(250, force_complex_dtype=True),
+    #     #             xc ="PBE",                
+    #     #             kpts={"size":(1,1,1), "gamma":True},
+    #     #             random=True,
+    #     #             symmetry="off",#{"point_group": False},
+    #     #             occupations=FermiDirac(0.0001),
+    #     #             basis="dzp",
+    #     #             convergence={"eigenstates": 4e-14},
+    #     #             #setups="ah"/"AH",
+    #     #            txt = outname)
