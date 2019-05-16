@@ -106,4 +106,3 @@ if 0:
     compiler = 'mpicc'
     define_macros += [('PARALLEL', '1')]
     mpicompiler = None
-
