@@ -143,9 +143,9 @@ class PzCorrections:
         else:
             grad_knG[k][:n_occ] += grad
 
-        e_total_sic = e_total_sic.reshape(
-            e_total_sic.shape[0] // 2, 2)
-        self.e_sic_by_orbitals[k] = np.copy(e_total_sic)
+        self.e_sic_by_orbitals[k] = \
+            e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
+
         wfs.timer.stop('SIC e/g grid calculations')
 
         return e_total_sic.sum()

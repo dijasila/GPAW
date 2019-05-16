@@ -115,7 +115,6 @@ class DirectMinFD(Eigensolver):
                        '                ' \
                        'not found variationally\n'
 
-
         return repr_string
 
     def reset(self, need_init_odd=True):
@@ -377,21 +376,12 @@ class DirectMinFD(Eigensolver):
                 self.run_inner_loop(ham, wfs, occ, dens, log=None)
             self.e_sic = 0.0
 
-            if self.odd_parameters['name'] in ['SPZ_SIC2', 'PZ_SIC']:
-                for kpt in wfs.kpt_u:
-                    k = n_kps * kpt.s + kpt.q
-                    self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
-                self.e_sic = self.odd.get_energy_and_gradients(
-                    wfs, grad, dens, self.U_k)
-            else:
-                for kpt in wfs.kpt_u:
-                    k = n_kps * kpt.s + kpt.q
-                    self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
-                    self.e_sic +=\
-                        self.odd.get_energy_and_gradients_kpt_2(
-                            wfs, kpt, grad, dens,
-                            U=self.U_k)
-                self.e_sic = wfs.kd.comm.sum(self.e_sic)
+            for kpt in wfs.kpt_u:
+                k = n_kps * kpt.s + kpt.q
+                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
+
+            self.e_sic = self.odd.get_energy_and_gradients(
+                wfs, grad, dens, self.U_k)
             energy += self.e_sic
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
@@ -399,9 +389,7 @@ class DirectMinFD(Eigensolver):
 
         self.project_search_direction_2(wfs, grad)
         self.error = self.error_eigv(wfs, grad)
-
         # self.eg_counter += 1
-
         return energy, grad
 
     def get_gradients_2(self, ham, wfs):
@@ -564,12 +552,7 @@ class DirectMinFD(Eigensolver):
 
         grad_knG = self.get_gradients_2(ham, wfs)
         if 'SIC' in self.odd_parameters['name']:
-            if self.odd.name == 'SPZ_SIC2':
-                self.odd.get_energy_and_gradients(wfs, dens, grad_knG)
-            else:
-                for kpt in wfs.kpt_u:
-                    self.odd.get_energy_and_gradients_kpt(
-                        wfs, kpt, grad_knG, dens)
+            self.odd.get_energy_and_gradients(wfs, grad_knG, dens)
 
         for kpt in wfs.kpt_u:
 
