@@ -19,16 +19,24 @@ class WLDA(XCFunctional):
         self.gd1 = None
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.alpha_n = None #Reset alpha grid for each calc
+        v_hg = np.zeros_like(n_sg[0]) ##Hartree potential correction
+        #Eh_corr = None
         n1_sg = gd.collect(n_sg)
+        v1_hg = gd.collect(v_hg)
         if gd.comm.rank == 0:
+            pren1_sg = n1_sg.copy()
             if self.mode == "":                
                 self.apply_weighting(self.gd1, n1_sg)
 
             elif self.mode.lower() == "altcenter":
+                prenorm = self.gd1.integrate(n1_sg[0])
                 n1_g = self.calculate_nstar(n1_sg[0], self.gd1)
+                postnorm = self.gd1.integrate(n1_g)
+                assert np.allclose(prenorm, postnorm)
                 n1_sg[0, :] = n1_g
         
             elif self.mode.lower() == "renorm":
@@ -36,8 +44,25 @@ class WLDA(XCFunctional):
                 self.apply_weighting(self.gd1, n1_sg)
                 newnorm_s = gd.integrate(n1_sg)
                 n1_sg[0, :] = n1_sg[0,:]*norm_s[0]/newnorm_s[0]
+            elif self.mode.lower() == "constant":
+                self.apply_const_weighting(self.gd1, n1_sg)
+            elif self.mode.lower() == "function":
+                norm_s = self.gd1.integrate(n1_sg)
+                fct = np.exp
+                fn_sg = fct(n1_sg)
+                self.apply_weighting(self.gd1, fn_sg)
+                newnorm_s = self.gd1.integrate(fn_sg)
+                n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
             else:
                 raise ValueError("WLDA mode not recognized")
+
+            ##HARTREE CORRECTION##
+            #v1_hg = self.calc_hartree_potential_correction(n1_sg[0], pren1_sg[0], self.gd1)
+            #Eh_corr = self.calc_hartree_energy_correction(n1_sg[0], pren1_sg[0], self.gd1)
+        
+        #mpi.broadcast(Eh_corr)
+        #gd.distribute(v1_hg, v_hg)
+        ##END HARTREE CORRECTION##
         gd.distribute(n1_sg, n_sg)
         #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
 
@@ -56,6 +81,8 @@ class WLDA(XCFunctional):
             lda_x(1, e_g, na, v_sg[0])
             lda_x(1, e_g, nb, v_sg[1])
             lda_c(1, e_g, n, v_sg, zeta)
+
+            ##TODO HARTREE CORRECTION
         else:
             n = n_sg[0]
             n[n < 1e-20] = 1e-40
@@ -69,6 +96,9 @@ class WLDA(XCFunctional):
             zeta = 0
             
             lda_c(0, e_g, n, v_sg[0], zeta)
+
+            #v_sg[0] += v_hg
+            #e_g[:] = e_g[:] + n*Eh_corr
 
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
@@ -87,7 +117,21 @@ class WLDA(XCFunctional):
         wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
 
         n_sg[0, :] = wn_g
-                    
+
+    def apply_const_weighting(self, gd, n_sg):
+        if n_sg.shape[0] > 1:
+            raise NotImplementedError
+        n_g = np.abs(n_sg[0])
+        prenorm = gd.integrate(n_g)
+        avg_dens = np.mean(n_g)
+        effective_kF = (3*np.pi**2*avg_dens)**(1/3)
+        K_G = self._get_K_G(gd)
+        n_G = np.fft.fftn(n_g)
+        filn_G = self._theta_filter(effective_kF, K_G, n_G)
+        filn_g = np.fft.ifftn(filn_G)
+        assert np.allclose(filn_g, filn_g.real)
+        postnorm = gd.integrate(filn_g)
+        n_sg[0, :] = filn_g*prenorm/postnorm
          
     def apply_other_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
@@ -291,7 +335,7 @@ class WLDA(XCFunctional):
         
 
 
-    def _get_K_G(self, shape, gd):
+    def _get_K_G(self, gd):
         assert gd.comm.size == 1 #Construct_reciprocal doesnt work in parallel
         k2_Q, _ = construct_reciprocal(gd)
         k2_Q[0,0,0] = 0
@@ -319,7 +363,7 @@ class WLDA(XCFunctional):
         '''
         n_g = np.abs(n_g)
         nis = self.get_nis(n_g)
-        K_G = self._get_K_G(n_g.shape, gd)
+        K_G = self._get_K_G(gd)
         self.nis = nis
         self.weight_table = np.zeros(n_g.shape+(len(nis),))
         n_G = np.fft.fftn(n_g)
@@ -337,7 +381,7 @@ class WLDA(XCFunctional):
     def tabulate_weights2(self, n_g, gd):
         n_g = np.abs(n_g)
         nis = self.get_nis(n_g)
-        K_G = self._get_K_G(n_g.shape, gd)
+        K_G = self._get_K_G(gd)
         self.nis = nis
         #self.weight_table = np.zeros(n_g.shape + (len(nis),))
         n_G = np.fft.fftn(n_g)
@@ -418,10 +462,10 @@ class WLDA(XCFunctional):
 
         n_x = n_g.reshape(-1)
         gridshape = n_g.shape
-        # C_ng = np.array([[self.expand_spline(n, C_sc) for n in n_x] for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
+        #C_ng2 = np.array([[self.expand_spline(n, C_sc) for n in n_x] for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
         # C_ng = np.array([self.expand_spline2(n_x, C_sc) for C_sc in C_nsc]).reshape(len(C_nsc), *gridshape)
         C_ng = self.expand_spline3(n_x, C_nsc).reshape(len(C_nsc), *gridshape)
-
+        #assert np.allclose(C_ng2, C_ng)
         return C_ng
 
 
@@ -468,7 +512,7 @@ class WLDA(XCFunctional):
     def get_weight_alphaG(self, gd):
         alpha_n = self.get_alpha_grid(None)
         _, nx, ny, nz = gd.get_grid_point_coordinates().shape
-        K_G = self._get_K_G((nx, ny, nz), gd)
+        K_G = self._get_K_G(gd)
         w_alphaG = np.zeros((len(alpha_n), *K_G.shape), dtype=np.complex128)
 
         for ia, alpha in enumerate(alpha_n):
@@ -479,7 +523,7 @@ class WLDA(XCFunctional):
         # norm_alpha = np.array([gd.integrate(np.fft.ifftn(w_G)) for w_G in w_alphaG])
         # w_alphaG = np.array([w_G/norm_alpha[a] for a, w_G in enumerate(w_alphaG)])
         #norm = gd.integrate(np.fft.ifftn(w_alphaG[0]))
-        w_alphaG /= gd.dv
+        #w_alphaG /= gd.dv
         return w_alphaG
     
 
@@ -499,6 +543,43 @@ class WLDA(XCFunctional):
 
     def get_kF(self, density):
         return (3*np.pi**2*density)**(1/3)
+
+
+
+    def solve_poisson(self, n_g, gd):
+        K_G = self._get_K_G(gd)
+        K2_G = K_G**2
+        K2_G[0,0,0] = 1.0 ##This only works if the norm of nstar is the same as the original density
+        n_G = np.fft.fftn(n_g)
+        
+        v_G = n_G/K2_G
+        
+        return np.fft.ifftn(v_G)
+
+    
+    def calc_hartree_energy(self, n_g, gd):
+        v_g = self.solve_poisson(n_g, gd)
+
+        E_H = gd.integrate(n_g*v_g)/2
+        
+        return E_H.real
+
+    def calc_hartree_potential_correction(self, nstar_g, n_g, gd):
+        vstar_g = self.solve_poisson(nstar_g, gd)
+        v_g = self.solve_poisson(n_g, gd)
+        
+        return (vstar_g - v_g).real
+
+    
+    def calc_hartree_energy_correction(self, nstar_g, n_g, gd):
+        Estar_H = self.calc_hartree_energy(nstar_g, gd)
+        E_H = self.calc_hartree_energy(n_g, gd)
+        
+        return Estar_H - E_H
+
+        
+
+
 
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
