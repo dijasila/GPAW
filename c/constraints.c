@@ -281,7 +281,7 @@ PyObject* adjust_positions(PyObject *self, PyObject *args)
   double* R_niv = DOUBLEP(arrayR_niv);
   double* newR_niv = DOUBLEP(arraynewR_niv);
 
-  for (int n=0; n<NW; n++) // For each water molecule
+  for (unsigned int n=0; n<NW; n++) // For each water molecule
   {
       #ifdef FF_DEBUG
       vec9_print("R_iv", newR_niv+n*9);
@@ -408,7 +408,7 @@ PyObject* adjust_momenta(PyObject *self, PyObject *args)
   double* R_niv = DOUBLEP(arrayR_niv);
   double* newP_niv = DOUBLEP(arraynewP_niv);
 
-  for (int n=0; n<NW; n++) // For each water molecule
+  for (unsigned int n=0; n<NW; n++) // For each water molecule
   {
       #ifdef FF_DEBUG_M
       vec9_print("R_iv", newP_niv+n*9);
