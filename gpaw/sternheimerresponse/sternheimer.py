@@ -105,8 +105,9 @@ class SternheimerResponse:
         t1 = time()
         #self.deflatedarnoldicalculate([qvector], 1)
         if runstuff:
-            #self.eigval, self.fdnt_R = self.powercalculate([qvector], 1)
-            self.eigval_S, self.fdnt_SR = self.krylovcalculate([qvector], 1)
+            self.omegas = [0, 0.1j, 0.5j, 1.0j, 5.0j]
+            self.eigvals_w, self.fdnt_wR = self.powercalculate([qvector], 1, self.omegas)
+            #self.eigval_S, self.fdnt_SR = self.krylovcalculate([qvector], 1)
         t2 = time()
         # print(f"Calculation took {t2 - t1} seconds.")
         # print(f"BiCGStab took {np.mean(self.t1s)} seconds on avg.")
@@ -470,7 +471,7 @@ class SternheimerResponse:
         return eigvals, fdnt_SR
 
 
-    def powercalculate(self, qvectors, num_eigs):
+    def powercalculate(self, qvectors, num_eigs, omegas=[0]):
         print("POWERCALCULATE")
         qvector = qvectors[0]
         #self.calculate_kplusq(qvector)
@@ -484,52 +485,48 @@ class SternheimerResponse:
         error = 100
         error2 = 100
 
+        eigenvals_w = []
+        eigenmodes_wqnG = []
         max_iter = 100
-        new_norm = 0
-        old_norm = 0
-        for niter in range(max_iter):
-            print(f"Iteration number: {niter}")
-            print(f"Eigenvalue: {eigval}. Error: {error}")
-            print(f"Error2: {error2}")
-            if niter == 3:
-                self.print = True
-            new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector)
+        for omega in omegas:
+            print(f"Calculating for frequency: {omega}")
+            for niter in range(max_iter):
+                print(f"Iteration number: {niter}")
+                print(f"Eigenvalue: {eigval}. Error: {error}")
+                print(f"Error2: {error2}")
+                if niter == 3:
+                    self.print = True
+                new_deltapsi_qnG = self.apply_K(deltapsi_qnG, qvector, omega)
+                
+                #new_deltapsi_qnG = {q: np.random.rand(*deltapsi_qnG[q].shape).astype(np.complex128) for q in deltapsi_qnG}
 
-            #new_deltapsi_qnG = {q: np.random.rand(*deltapsi_qnG[q].shape).astype(np.complex128) for q in deltapsi_qnG}
 
+                new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
+                eigval = np.sqrt(new_norm)
+                #eigval = self.inner_product(deltapsi_qnG, self.apply_K(deltapsi_qnG, qvector))
+                new_deltapsi_qnG = {q: 0*deltapsi_qnG[q] + 1*val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
+                new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
 
-            new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
-            nn2 = new_norm
-            eigval = np.sqrt(new_norm)
-            #eigval = self.inner_product(deltapsi_qnG, self.apply_K(deltapsi_qnG, qvector))
-            new_deltapsi_qnG = {q: 0*deltapsi_qnG[q] + 1*val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
-            new_norm = self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG)
+                new_deltapsi_qnG = {q: val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
+                error = np.abs(1 - self.inner_product(deltapsi_qnG, new_deltapsi_qnG))
+                error2 = np.abs(1- self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
+                #error = 100
+                if error < error_threshold:
+                    print(f"Converged. Value: {eigval}")
+                    self.deltapsi_qnG = deltapsi_qnG
+                    #return
+                    deltapsi_qnG = new_deltapsi_qnG
+                    break
 
-            new_deltapsi_qnG = {q: val/np.sqrt(new_norm) for q, val in new_deltapsi_qnG.items()}
-            error = np.abs(1 - self.inner_product(deltapsi_qnG, new_deltapsi_qnG))
-            error2 = np.abs(1- self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
-            #error = 100
-            if error < error_threshold:
-                print(f"Converged. Value: {eigval}")
-                self.deltapsi_qnG = deltapsi_qnG
-                #return
                 deltapsi_qnG = new_deltapsi_qnG
-                break
+                
+            eigenvals_w.append(eigval)
+            eigenmodes_wqnG.append(deltapsi_qnG)
 
-            deltapsi_qnG = new_deltapsi_qnG
 
-        self.deltapsi_qnG = deltapsi_qnG
-        
-        fdnt_R = self.get_fine_delta_tilde_n(deltapsi_qnG, return_real_space=True)
-        # import matplotlib.pyplot as plt
-        # plt.plot(fdnt_R[:,0,0], label="x")
-        # plt.plot(fdnt_R[0,:,0], label="y")
-        # plt.plot(fdnt_R[0,0,:], label="z")
-        # plt.legend()
-        # plt.show()
-        
-        #print("Not converged")
-        return eigval, fdnt_R
+        eigenmodes_wR = np.array([self.get_fine_delta_tilde_n(delta_qnG, return_real_space=True) for delta_qnG in eigenmodes_wqnG])
+
+        return eigenvals_w, eigenmodes_wR
 
 
             
@@ -745,10 +742,10 @@ class SternheimerResponse:
         
 
 
-    def apply_K(self, deltapsi_qnG, qvector):
+    def apply_K(self, deltapsi_qnG, qvector, omega):
         potential_function = self.epsilon_potential(deltapsi_qnG)
 
-        new_deltapsi_qnG = self.solve_sternheimer(potential_function, qvector)
+        new_deltapsi_qnG = self.solve_sternheimer(potential_function, qvector, omega)
 
         return {q:  -val for q, val in new_deltapsi_qnG.items()}
 
@@ -998,8 +995,8 @@ class SternheimerResponse:
             self.k_plus_q[index] = (k_plus_q_index, k_plus_q_object)
 
 
-    def solve_sternheimer(self, apply_potential, qvector):
-        
+    def solve_sternheimer(self, apply_potential, qvector, omega=0):
+        assert np.allclose(omega.real, 0), "Omega must be imaginary"
         deltapsi_qnG = {}
         nbands = self.nbands
 
@@ -1077,7 +1074,7 @@ class SternheimerResponse:
 
 
                 t3 = time()
-                linop = self._get_LHS_linear_operator(k_plus_q_object, energy, k_plus_q_index)
+                linop = self._get_LHS_linear_operator(k_plus_q_object, energy + omega, k_plus_q_index)
 
                 #print(f"state index: {state_index}, index: {index}")
                 #print(f"psi shape: {psi.shape}")
@@ -1635,11 +1632,17 @@ if __name__=="__main__":
 
     
     respObj = SternheimerResponse(filen)
-    eigval_S, eigmode_SR = respObj.eigval_S, respObj.fdnt_SR
-    savemode_SR = np.array([eigmode_R[:,0,0] for eigmode_R in eigmode_SR])
+    # eigval_S, eigmode_SR = respObj.eigval_S, respObj.fdnt_SR
+    # savemode_SR = np.array([eigmode_R[:,0,0] for eigmode_R in eigmode_SR])
+    # np.save(prefix + "grid", respObj.wfs.gd.get_grid_point_coordinates()[0, :, 0, 0])
+    # np.save(prefix + "eigmodes_x", savemode_SR)
+    # np.save(prefix + "eigvals", eigval_S)
+    omegas_w, eigvals_w, eigmodes_wR = respObj.omegas, respObj.eigvals_w, respObj.fdnt_wR
+    savemode_wR = np.array([eig_R[:,0,0] for eig_R in eigmodes_wR])
     np.save(prefix + "grid", respObj.wfs.gd.get_grid_point_coordinates()[0, :, 0, 0])
-    np.save(prefix + "eigmodes_x", savemode_SR)
-    np.save(prefix + "eigvals", eigval_S)
+    np.save(prefix + "omegas", omegas_w)
+    np.save(prefix + "eigmodes_wx", savemode_wR)
+    np.save(prefix + "eigvals_w", eigvals_w)
     os.remove(filen)
 
 
