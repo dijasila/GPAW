@@ -42,12 +42,15 @@ class ChiKS:
         timer : func
             gpaw.utilities.timing.timer wrapper instance
 
-        Note: Any parameter you want to pass to PairMatrixElement,
-              ex. gate_voltage to PairDensity, you can pass as a kwarg.
+        Note: Any parameter you want to pass to PairMatrixElement (ex.
+              gate_voltage to PairDensity) or to set up a specific response
+              or calculation mode (ex. frequencies to setup_pw_calculator),
+              you can pass as a kwarg.
+              
 
         Callables
         ---------
-        self.calculate(**kwargs) : func
+        self.calculate(*args, **kwargs) : func
             Runs the ChiKS calculation, returning the response function.
             Returned format can varry depending on response and mode.
         """
@@ -203,16 +206,12 @@ class ChiKS:
 
         """
         self.spin = self.get_unique_spin_str(spin)
-
-        if self.spin == '00':
-            self.setup_pw_chi00(**self.extraargs)
-        else:
-            self.setup_pw_chimunu()
+        self.pw_setup_spin()
 
         q_c = np.asarray(q_c, dtype=float)
         pd = self.get_PWDescriptor(q_c, self.gammacentered)
 
-        # Print information about the calculation with the parameters
+        # Print information about the set up calculation
         self.print_pw_chi(pd)
         if extra_parameters.get('df_dry_run'):  # Exit after setting up
             print('    Dry run exit', file=self.fd)
@@ -236,15 +235,20 @@ class ChiKS:
                 return 'dd'
         raise ValueError(spin)
 
-    def setup_pw_chimunu(self):
-        """Disable stuff, that has been tested for chi00 only"""
-        self.disable_point_group = True
-        self.disable_time_reversal = True
-        self.disable_non_symmorphic = True
-        self.integrationmode = None
-        print('Using integration method: PointIntegrator', file=self.fd)
+    def pw_setup_spin(self):
+        """Set up chiKS to calculate a spicific spin susceptibility."""
+        assert self.spin in ['00', 'uu', 'dd', '+-', '-+']
+        self._setup_spin = self.get_pw_setup_spin()
+        self._setup_spin(**self.extraargs)
+
+    def get_pw_setup_spin(self):
+        """Creator component deciding how to set up spin susceptibility."""
+        if self.spin == '00':
+            return self.pw_setup_chi00
+        else:
+            return self.pw_setup_chimunu
     
-    def setup_pw_chi00(self, hilbert=True, timeordered=False, intraband=True,
+    def pw_setup_chi00(self, hilbert=True, timeordered=False, intraband=True,
                        disable_point_group=False,
                        disable_time_reversal=False,
                        disable_non_symmorphic=True,
@@ -312,6 +316,14 @@ class ChiKS:
             self.rate = rate / Hartree
 
         self.eshift = eshift / Hartree
+
+    def pw_setup_chimunu(self, **unused):
+        """Disable stuff, that has been developed for chi00 only"""
+        self.disable_point_group = True
+        self.disable_time_reversal = True
+        self.disable_non_symmorphic = True
+        self.integrationmode = None
+        print('Using integration method: PointIntegrator', file=self.fd)
 
     def get_PWDescriptor(self, q_c, gammacentered=False):
         """Get the planewave descriptor of q_c."""
