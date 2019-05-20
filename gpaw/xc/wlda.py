@@ -14,15 +14,23 @@ class WLDA(XCFunctional):
         self.nalpha = 20
         self.alpha_n = None
         self.mode = mode
-
+        self.lmax = 1
 
         self.gd1 = None
+
+        
+    def initialize(self, density, hamiltonian, wfs, occupations):
+        self.density = density #.D_asp
+        self.hamiltonian = hamiltonian
+        self.wfs = wfs
+        self.occupations = occupations
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.alpha_n = None #Reset alpha grid for each calc
+        self.n_gi = None
         v_hg = np.zeros_like(n_sg[0]) ##Hartree potential correction
         #Eh_corr = None
         n1_sg = gd.collect(n_sg)
@@ -96,6 +104,7 @@ class WLDA(XCFunctional):
             zeta = 0
             
             lda_c(0, e_g, n, v_sg[0], zeta)
+            self.potential_correction(v_sg)
 
             #v_sg[0] += v_hg
             #e_g[:] = e_g[:] + n*Eh_corr
@@ -239,6 +248,8 @@ class WLDA(XCFunctional):
 
 
     def get_ni_weights(self, n_g):
+        if self.n_gi is not None:
+            return self.n_gi
         n_g = np.abs(n_g)
         nis = self.nis
         nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
@@ -277,7 +288,7 @@ class WLDA(XCFunctional):
                     n_gi[ix, iy, iz, -ng] = pg
 
                 
-        
+        self.n_gi = n_gi
         return n_gi
 
 
@@ -579,10 +590,34 @@ class WLDA(XCFunctional):
 
         
 
+    def calc_corrected_density(self, n_sg, num_l=1):
+        # from gpaw.gaunt import gaunt
+        # from gpaw.utilities import unpack2
+        # D_asp = self.density.D_asp
+        # wfs = self.wfs
+        # lmax = self.lmax
+        # G_LLL = gaunt(lmax=lmax)
+        # dn_aj = []
+
+        # for a, setup in enumerate(wfs.setups):
+        #     rcut = max(setup.rcut_j)
+        #     gcut = setup.rgd.ceil(rcut)
+        #     D_p = D_asp[a][0]
+        #     D_ii = unpack2(D_p)
+        #     dn_j = []
+        #     for i, (l, phi_g, phit_g) in enumerate(zip(setup.l_j, setup.data.phi_jg, setup.data.phit_jg)):
+        #         for j, (l2, phi2_g, phit2_g) in enumerate(zip(setup.l_j, setup.data.phi_jg, setup.data.phit_jg)):
+        #             dn = G_LLL[l, l2, 0] * (phi_g * phi2_g - phit_g * phit2_g) * D_ii[i, j]
+
+        #     dn_aj.append(
+            
+            
+        raise NotImplementedError
 
 
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
+        return 0
         from gpaw.xc.lda import calculate_paw_correction
         from gpaw.xc.lda import LDARadialCalculator, LDARadialExpansion
         collinear = True
@@ -593,4 +628,15 @@ class WLDA(XCFunctional):
                                         True, a)
         return corr
         
-
+    def potential_correction(self, v_sg, gd):
+        if self.mode.lower() == "":
+            kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.nis])
+            K_G = self._get_K_G(gd)
+            w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_sg[0])) for k_F in kF_i]).transpose(1, 2, 3, 0)
+            n_gi = self.get_ni_weights(n_g)
+            v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
+            v_sg[0, :] = v_g
+            
+        else:
+            raise NotImplementedError
+                
