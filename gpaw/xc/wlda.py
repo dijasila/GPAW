@@ -15,6 +15,7 @@ class WLDA(XCFunctional):
         self.alpha_n = None
         self.mode = mode
         self.lmax = 1
+        self.n_gi = None
 
         self.gd1 = None
 
@@ -31,13 +32,12 @@ class WLDA(XCFunctional):
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.alpha_n = None #Reset alpha grid for each calc
         self.n_gi = None
-        v_hg = np.zeros_like(n_sg[0]) ##Hartree potential correction
-        #Eh_corr = None
+
         n1_sg = gd.collect(n_sg)
-        v1_hg = gd.collect(v_hg)
+        v1_sg = gd.collect(v_sg)
         if gd.comm.rank == 0:
             pren1_sg = n1_sg.copy()
-            if self.mode == "":                
+            if self.mode == "":
                 self.apply_weighting(self.gd1, n1_sg)
 
             elif self.mode.lower() == "altcenter":
@@ -50,8 +50,9 @@ class WLDA(XCFunctional):
             elif self.mode.lower() == "renorm":
                 norm_s = gd.integrate(n_sg)
                 self.apply_weighting(self.gd1, n1_sg)
+                unnormed_n_sg = n1_sg.copy()
                 newnorm_s = gd.integrate(n1_sg)
-                n1_sg[0, :] = n1_sg[0,:]*norm_s[0]/newnorm_s[0]
+                n1_sg[0, :] = n1_sg[0,:] * norm_s[0] / newnorm_s[0]
             elif self.mode.lower() == "constant":
                 self.apply_const_weighting(self.gd1, n1_sg)
             elif self.mode.lower() == "function":
@@ -64,50 +65,54 @@ class WLDA(XCFunctional):
             else:
                 raise ValueError("WLDA mode not recognized")
 
-            ##HARTREE CORRECTION##
-            #v1_hg = self.calc_hartree_potential_correction(n1_sg[0], pren1_sg[0], self.gd1)
-            #Eh_corr = self.calc_hartree_energy_correction(n1_sg[0], pren1_sg[0], self.gd1)
         
-        #mpi.broadcast(Eh_corr)
-        #gd.distribute(v1_hg, v_hg)
-        ##END HARTREE CORRECTION##
+
+        
+
+            from gpaw.xc.lda import lda_c
+            C0I, C1, CC1, CC2, IF2 = lda_constants()
+            if len(n_sg) == 2:
+                na = 2. * n1_sg[0]
+                na[na < 1e-20] = 1e-40
+                nb = 2. * n_sg[1]
+                nb[nb < 1e-20] = 1e-40
+                n = 0.5 * (na + nb)
+                zeta = 0.5 * (na - nb) / n
+                lda_x(1, e_g, na, v_sg[0])
+                lda_x(1, e_g, nb, v_sg[1])
+                lda_c(1, e_g, n, v_sg, zeta)
+                print("H")
+            else:
+                n = n1_sg[0]
+                n[n < 1e-20] = 1e-40
+                rs = (C0I/n)**(1/3)
+                ex = C1/rs
+                dexdrs = -ex/rs
+                e_g[:] = n*ex
+                v1_sg[0] += ex - rs*dexdrs/3
+            
+            
+                zeta = 0
+            
+                lda_c(0, e_g, n, v1_sg, zeta)
+                uncorr = v1_sg.copy()
+                if self.mode.lower() == "":
+                    v_g = self.potential_correction(v1_sg, self.gd1, n1_sg)
+                    v1_sg = np.array([v_g])
+                elif self.mode.lower() == "renorm":
+                    v_g = self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0], unnormed_n_sg)
+                    v1_sg = np.array([v_g])
+                assert v1_sg.shape == uncorr.shape
+                import matplotlib.pyplot as plt
+                plt.plot(uncorr[0, :, 0, 0], label="Uncorrected")
+                plt.legend()
+                plt.figure()
+                plt.plot(v1_sg[0, :, 0, 0], label="Corrected")
+                plt.legend()
+                plt.show()
+                    
+        gd.distribute(v1_sg, v_sg)
         gd.distribute(n1_sg, n_sg)
-        #n_sg[1, :] = n_sg[1,:]*norm_s[1]/newnorm_s[1]
-
-        
-
-        from gpaw.xc.lda import lda_c
-        C0I, C1, CC1, CC2, IF2 = lda_constants()
-
-        if len(n_sg) == 2:
-            na = 2. * n_sg[0]
-            na[na < 1e-20] = 1e-40
-            nb = 2. * n_sg[1]
-            nb[nb < 1e-20] = 1e-40
-            n = 0.5 * (na + nb)
-            zeta = 0.5 * (na - nb) / n
-            lda_x(1, e_g, na, v_sg[0])
-            lda_x(1, e_g, nb, v_sg[1])
-            lda_c(1, e_g, n, v_sg, zeta)
-
-            ##TODO HARTREE CORRECTION
-        else:
-            n = n_sg[0]
-            n[n < 1e-20] = 1e-40
-            rs = (C0I/n)**(1/3)
-            ex = C1/rs
-            dexdrs = -ex/rs
-            e_g[:] = n*ex
-            v_sg[0] += ex - rs*dexdrs/3
-            
-            
-            zeta = 0
-            
-            lda_c(0, e_g, n, v_sg[0], zeta)
-            self.potential_correction(v_sg)
-
-            #v_sg[0] += v_hg
-            #e_g[:] = e_g[:] + n*Eh_corr
 
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
@@ -251,7 +256,7 @@ class WLDA(XCFunctional):
         if self.n_gi is not None:
             return self.n_gi
         n_g = np.abs(n_g)
-        nis = self.nis
+        nis = self.get_nis(n_g)
         nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
         ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
         assert (nlesser_g >= 1).all()
@@ -361,7 +366,11 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def get_nis(self, n_g):
-        return np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        if hasattr(self, "nis") and self.nis is not None:
+            return self.nis
+        else:
+            self.nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+            return self.nis
 
     def tabulate_weights(self, n_g, gd):
         '''
@@ -628,15 +637,31 @@ class WLDA(XCFunctional):
                                         True, a)
         return corr
         
-    def potential_correction(self, v_sg, gd):
-        if self.mode.lower() == "":
-            kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.nis])
-            K_G = self._get_K_G(gd)
-            w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_sg[0])) for k_F in kF_i]).transpose(1, 2, 3, 0)
-            n_gi = self.get_ni_weights(n_g)
-            v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
-            v_sg[0, :] = v_g
-            
-        else:
-            raise NotImplementedError
-                
+    def potential_correction(self, v_sg, gd, n_sg):
+        _, nx, ny, nz = gd.get_grid_point_coordinates().shape
+        kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.get_nis(n_sg[0])])
+        K_G = self._get_K_G(gd)
+        v_G = np.fft.fftn(v_sg[0])
+        w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
+        n_gi = self.get_ni_weights(None)
+        v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
+        assert np.allclose(v_g, v_g.real)
+        v_sg[0, :] = v_g.real
+        return v_g.real
+        
+    def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm, unnormed_n_sg):
+        _, nx, ny, nz = gd.get_grid_point_coordinates().shape
+        N = 1 / newnorm - norm / newnorm**2
+        kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
+        K_G = self._get_K_G(gd)
+        v_G = np.fft.fftn(v_sg[0])
+        w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
+        w_gi = N * w_gi
+        n_gi = self.get_ni_weights(None)
+        w_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
+        w_g = w_g + unnormed_n_sg[0] * gd.integrate(v_sg[0]) * N
+        v_sg[0, :] = w_g.real
+        return w_g.real
+        
+        
+    
