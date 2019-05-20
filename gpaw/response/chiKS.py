@@ -76,11 +76,11 @@ class ChiKS:
         self._setup_calculator(**kwargs)
 
     def create_calculator(self):
-        """Creator component deciding how to calculate chi"""
-        if self.mode == 'pw':
-            return self.setup_pw_calculator, self.pw_calculate
+        """Creator component deciding how and what to calculate."""
+        if self.mode == 'pw' and self.response == 'susceptibility':
+            return self.setup_pw_calculator, self.pw_calculate_susceptibility
         else:
-            raise ValueError(self.mode)
+            raise ValueError(self.response, self.mode)
 
     def setup_pw_calculator(self, frequencies=None, eta=0.2,
                             ecut=50, gammacentered=False,
@@ -160,8 +160,8 @@ class ChiKS:
             ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-    def pw_calculate(self, q_c, spin='all', A_x=None):
-        """Calculate the response function in plane wave mode.
+    def pw_calculate_susceptibility(self, q_c, spin='all', A_x=None):
+        """Calculate spin susceptibility in plane wave mode.
 
         Parameters
         ----------
@@ -192,8 +192,9 @@ class ChiKS:
             Head of the density response function.
 
         """
+        # Maybe spin should be passed through __init__? XXX
         self.spin = get_unique_spin_str(spin)
-        self.pw_setup_spin(self.spin)
+        self.pw_setup_susceptibility(self.spin)
 
         q_c = np.asarray(q_c, dtype=float)
         pd = get_PWDescriptor(self.ecut, self.calc.wfs.gd, q_c,
@@ -209,13 +210,13 @@ class ChiKS:
 
         return
 
-    def pw_setup_spin(self, spin):
+    def pw_setup_susceptibility(self, spin):
         """Set up chiKS to calculate a spicific spin susceptibility."""
         assert spin in ['00', 'uu', 'dd', '+-', '-+']
-        self._pw_setup_spin = self.create_pw_setup_spin(spin)
-        self._pw_setup_spin(**self.extraargs)
+        self._pw_setup_sus = self.create_pw_setup_susceptibility(spin)
+        self._pw_setup_sus(**self.extraargs)
 
-    def create_pw_setup_spin(self, spin):
+    def create_pw_setup_susceptibility(self, spin):
         """Creator component deciding how to set up spin susceptibility."""
         if spin == '00':
             return self.pw_setup_chi00
@@ -353,7 +354,7 @@ class ChiKS:
         spins, flip = get_spin_summation_domain(self.bandsummation, self.spin,
                                                 self.calc.wfs.nspins)
 
-        bzk_kv, self.PWSA = self.get_kpoints(pd)
+        bzk_kv, self.PWSA = self.get_kpoint_integration_domain(pd)
         ksdomain = (bzk_kv, spins)
 
         return n_M, m_M, ksdomain, flip
