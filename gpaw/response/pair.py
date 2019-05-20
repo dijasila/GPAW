@@ -650,12 +650,12 @@ class PairMatrixElement:  # Maybe separate "pairing" and calculation? XXX
         self.calc = calc
 
 
-def get_PairMatrixElement(response):
+def create_PairMatrixElement(response):
     """Creator component deciding what matrix element to calculate"""
     if response == 'susceptibility':
         return PairDensity
     else:
-        ValueError(response)
+        raise ValueError(response)
 
 
 class PairDensity(PairMatrixElement):

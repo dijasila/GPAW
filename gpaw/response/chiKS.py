@@ -12,7 +12,7 @@ from gpaw.utilities.memory import maxrss
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
-from gpaw.response.pair import get_PairMatrixElement
+from gpaw.response.pair import create_PairMatrixElement
 
 
 class ChiKS:
@@ -60,7 +60,7 @@ class ChiKS:
         self.world = world
 
         # Initialize the PairMatrixElement object
-        PME = get_PairMatrixElement(response)
+        PME = create_PairMatrixElement(response)
         self.pair = PME(gs, world=self.world, txt=txt, timer=timer, **kwargs)
 
         # Extract ground state calculator, timer and filehandle for output
@@ -72,18 +72,18 @@ class ChiKS:
         self.setup_calculator(**kwargs)
 
     def setup_calculator(self, **kwargs):
-        self._setup_calculator, self.calculate = self.get_calculator()
+        self._setup_calculator, self.calculate = self.create_calculator()
         self._setup_calculator(**kwargs)
 
-    def get_calculator(self):
+    def create_calculator(self):
         """Creator component deciding how to calculate chi"""
         if self.mode == 'pw':
             return self.setup_pw_calculator, self.pw_calculate
         else:
-            ValueError(self.mode)
+            raise ValueError(self.mode)
 
     def setup_pw_calculator(self, frequencies=None, eta=0.2,
-                            ecut=50, gammacentered=False, pbc=None,
+                            ecut=50, gammacentered=False,
                             nbands=None, bandsummation='pairwise',
                             nblocks=1, **extraargs):
         """Initialize the plane wave calculator mode.
@@ -102,8 +102,6 @@ class ChiKS:
             Energy cutoff for the plane wave representation.
         gammacentered : bool
             Center the grid of plane waves around the gamma point or q-vector.
-        pbc : list
-            Periodic directions of the system. Defaults to [True, True, True].
         nbands : int
             Maximum band index to include.
         bandsummation : str
@@ -114,6 +112,9 @@ class ChiKS:
         nblocks : int
             Divide the response function storage into nblocks. Useful when the
             response function is large and memory requirements are restrictive.
+
+        extraargs : dict
+            Extra arguments, that are not used for all spin susceptibilities
         """
 
         self.nbands = nbands or self.calc.wfs.bd.nbands
@@ -125,8 +126,6 @@ class ChiKS:
         
         self.ecut = None if ecut is None else ecut / Hartree
         self.gammacentered = gammacentered
-
-        self.setup_pbc(pbc)
         
         self.bandsummation = bandsummation
         
@@ -147,18 +146,6 @@ class ChiKS:
                                                 fd=self.fd, **kwargs)
         else:
             return ArrayDescriptor(np.asarray(frequencies) / Hartree)
-
-    def setup_pbc(self, pbc):
-        if pbc is not None:
-            self.pbc = np.array(pbc)
-        else:
-            self.pbc = np.array([True, True, True])
-
-        if self.pbc is not None and (~self.pbc).any():
-            assert np.sum((~self.pbc).astype(int)) == 1, \
-                print('Only one non-periodic direction supported atm.')
-            print('Nonperiodic BC\'s: ', (~self.pbc),
-                  file=self.fd)
 
     def setup_memory_distribution(self, nblocks):
         """Set up distribution of memory"""
@@ -205,11 +192,12 @@ class ChiKS:
             Head of the density response function.
 
         """
-        self.spin = self.get_unique_spin_str(spin)
-        self.pw_setup_spin()
+        self.spin = get_unique_spin_str(spin)
+        self.pw_setup_spin(self.spin)
 
         q_c = np.asarray(q_c, dtype=float)
-        pd = self.get_PWDescriptor(q_c, self.gammacentered)
+        pd = get_PWDescriptor(self.ecut, self.calc.wfs.gd, q_c,
+                              gammacentered=self.gammacentered)
 
         # Print information about the set up calculation
         self.print_pw_chi(pd)
@@ -221,39 +209,25 @@ class ChiKS:
 
         return
 
-    def get_unique_spin_str(self, spin):
-        """Convert all supported input to chiKS standard."""
-        if isinstance(spin, str):
-            if spin in ['00', 'uu', 'dd', '+-', '-+']:
-                return spin
-            elif spin == 'all':
-                return '00'
-        elif isinstance(spin, int):
-            if spin == 0:
-                return 'uu'
-            elif spin == 1:
-                return 'dd'
-        raise ValueError(spin)
-
-    def pw_setup_spin(self):
+    def pw_setup_spin(self, spin):
         """Set up chiKS to calculate a spicific spin susceptibility."""
-        assert self.spin in ['00', 'uu', 'dd', '+-', '-+']
-        self._setup_spin = self.get_pw_setup_spin()
-        self._setup_spin(**self.extraargs)
+        assert spin in ['00', 'uu', 'dd', '+-', '-+']
+        self._pw_setup_spin = self.create_pw_setup_spin(spin)
+        self._pw_setup_spin(**self.extraargs)
 
-    def get_pw_setup_spin(self):
+    def create_pw_setup_spin(self, spin):
         """Creator component deciding how to set up spin susceptibility."""
-        if self.spin == '00':
+        if spin == '00':
             return self.pw_setup_chi00
         else:
             return self.pw_setup_chimunu
     
     def pw_setup_chi00(self, hilbert=True, timeordered=False, intraband=True,
+                       integrationmode=None,
                        disable_point_group=False,
                        disable_time_reversal=False,
                        disable_non_symmorphic=True,
-                       integrationmode=None,
-                       rate=0.0, eshift=0.0, **unused):
+                       rate=0.0, eshift=0.0, **extraargs):
         """Set up additional parameters for plane wave chi00 calculation
         The chi00 calculation could use further refactorization XXX
 
@@ -277,9 +251,9 @@ class ChiKS:
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
         integrationmode : str
-            Integrator for the kpoint integration.
-            If == 'tetrahedron integration' then the kpoint integral is
-            performed using the linear tetrahedron method.
+            Integrator for the kpoint integration. Setting up the integrator,
+            extra arguments are passed through **extra_args
+            choices: 'point integration', 'tetrahedron integration'
         rate : float
             Unknown parameter for intraband calculation in optical limit
         eshift : float
@@ -299,16 +273,10 @@ class ChiKS:
 
         self.include_intraband = intraband
         
-        self.disable_point_group = disable_point_group
-        self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
-        
-        self.integrationmode = integrationmode
-        if self.integrationmode is not None:
-            print('Using integration method: ' + self.integrationmode,
-                  file=self.fd)
-        else:
-            print('Using integration method: PointIntegrator', file=self.fd)
+        self.setup_kpoint_integration(integrationmode,
+                                      disable_point_group,
+                                      disable_time_reversal,
+                                      disable_non_symmorphic, **extraargs)
         
         if rate == 'eta':
             self.rate = self.eta
@@ -319,162 +287,79 @@ class ChiKS:
 
     def pw_setup_chimunu(self, **unused):
         """Disable stuff, that has been developed for chi00 only"""
-        self.disable_point_group = True
-        self.disable_time_reversal = True
-        self.disable_non_symmorphic = True
-        self.integrationmode = None
-        print('Using integration method: PointIntegrator', file=self.fd)
+        self.setup_kpoint_integration('point integration',
+                                      True, True, True,  # disable symmetry
+                                      **unused)
 
-    def get_PWDescriptor(self, q_c, gammacentered=False):
-        """Get the planewave descriptor of q_c."""
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd, gammacentered=gammacentered)
-        return pd
+    def setup_kpoint_integration(self, integrationmode,
+                                 disable_point_group,
+                                 disable_time_reversal,
+                                 disable_non_symmorphic, **extraargs):
+        if integrationmode is None:
+            self.integrationmode == 'point integration'
+        else:
+            self.integrationmode = integrationmode
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal
+        self.disable_non_symmorphic = disable_non_symmorphic
+
+        _setup_integrationmode = self.create_setup_integrationmode()
+        _setup_integrationmode(**extraargs)
+
+    def create_setup_integrationmode(self):
+        """Creator component deciding how to set up kpoint integration."""
+        if self.integrationmode == 'point integration':
+            print('Using integration method: PointIntegrator',
+                  file=self.fd)
+            return self.setup_point_integrator
+        elif self.integrationmode == 'tetrahedron integration':
+            print('Using integration method: TetrahedronIntegrator',
+                  file=self.fd)
+            return self.setup_tetrahedron_integrator
+        raise ValueError(self.integrationmode)
+
+    def setup_point_integrator(self, **unused):
+        self._get_kpoint_int_domain = partial(get_kpoint_pointint_domain,
+                                              calc=self.calc)
+
+    def setup_tetrahedron_integrator(self, pbc=None, **unused):
+        """
+        Parameters
+        ----------
+        pbc : list
+            Periodic directions of the system. Defaults to [True, True, True].
+        """
+        self.setup_pbc(pbc)
+        self._get_kpoint_int_domain = partial(get_kpoint_tetrahint_domain,
+                                              pbc=self.pbc)
+
+    def setup_pbc(self, pbc):
+        if pbc is not None:
+            self.pbc = np.array(pbc)
+        else:
+            self.pbc = np.array([True, True, True])
+
+        if self.pbc is not None and (~self.pbc).any():
+            assert np.sum((~self.pbc).astype(int)) == 1, \
+                print('Only one non-periodic direction supported atm.')
+            print('Nonperiodic BC\'s: ', (~self.pbc),
+                  file=self.fd)
 
     def get_summation_domain(self, pd):
         """Find the relevant (n, k, s) -> (m, k + q, s') domain to sum over"""
-        _get_band_summation_domain = self.get_band_summation_domain()
-        n_M, m_M = _get_band_summation_domain(self)
-
-        _get_spin_summation_domain = self.get_spin_summation_domain()
-        spins, flip = _get_spin_summation_domain(self)
+        n_M, m_M = get_band_summation_domain(self.bandsummation, self.nbands,
+                                             nocc1=self.nocc1,
+                                             nocc2=self.nocc2)
+        spins, flip = get_spin_summation_domain(self.bandsummation, self.spin,
+                                                self.calc.wfs.nspins)
 
         bzk_kv, self.PWSA = self.get_kpoints(pd)
         ksdomain = (bzk_kv, spins)
 
         return n_M, m_M, ksdomain, flip
 
-    def get_band_summation_domain(self):
-        """Creator component deciding how to carry out band summation
-        
-        Returns
-        -------
-        _get_band_summation_domain : func
-            method that Returns:
-            n_M : ndarray
-                band index 1, M = combined index
-            m_M : ndarray
-                band index 2, M = combined index
-        """
-        if self.bandsummation == 'pairwise':
-            return self.get_pairwise_band_summation_domain
-        elif self.bandsummation == 'double':
-            return self.get_double_band_summation_domain
-        else:
-            ValueError(self.bandsummation)
-
-    def get_double_band_summation_domain(self):
-        """Make a simple double sum and remove null-transitions"""
-        n_n = np.arange(0, self.nbands)
-        m_m = np.arange(0, self.nbands)
-        n_nm, m_nm = np.meshgrid(n_n, m_m)
-        n_M, m_M = n_nm.flatten(), m_nm.flatten()
-
-        return self.remove_null_transitions(n_M, m_M)
-
-    def get_pairwise_band_summation_domain(self):
-        """Make a sum over all pairs and remove null-transitions"""
-        n_n = range(0, self.nbands)
-        n_M = []
-        m_M = []
-        for n in n_n:
-            m_m = range(n, self.nbands)
-            n_M += [n] * len(m_m)
-            m_M += m_m
-
-        return self.remove_null_transitions(n_M, m_M)
-
-    def remove_null_transitions(self, n_M, m_M):
-        """Remove pairs of bands, between which transitions are impossible"""
-        n_newM = []
-        m_newM = []
-        for n, m in zip(n_M, m_M):
-            if n < self.nocc1 and m < self.nocc1:
-                continue  # both bands are fully occupied
-            elif n >= self.nocc2 and m >= self.nocc2:
-                continue  # both bands are completely unoccupied
-            n_newM.append(n)
-            m_newM.append(m)
-
-        return np.array(n_newM), np.array(m_newM)
-
-    def get_spin_summation_domain(self):
-        """Creator component deciding how to carry out spin summation
-        
-        Returns
-        -------
-        _get_spin_summation_domain : func
-            method that Returns:
-            spins : list
-                list of start spins (s)
-            flip : bool
-                does the transition flip the spin (s' = 1 - s)?
-        """
-        if self.bandsummation == 'pairwise':
-            return self.get_pairwise_spin_summation_domain
-        elif self.bandsummation == 'double':
-            return self.get_double_spin_summation_domain
-        else:
-            ValueError(self.bandsummation)
-
-    def get_double_spin_summation_domain(self):
-        """Transitions forward in time"""
-        if self.spin == '00':
-            spins = range(self.calc.wfs.nspins)
-            flip = False
-        elif self.spin == 'uu':
-            spins = [0]
-            flip = False
-        elif self.spin == 'dd':
-            spins = [1]
-            flip = False
-        elif self.spin == '+-':
-            spins = [0]
-            flip = True
-        elif self.spin == '-+':
-            spins = [1]
-            flip = True
-        else:
-            raise ValueError(self.spin)
-
-        if flip:
-            assert self.calc.wfs.nspins == 2
-        else:
-            assert max(spins) < self.calc.wfs.nspins
-
-        return spins, flip
-
-    def get_pairwise_spin_summation_domain(self):
-        """Transitions forward in time"""
-        if self.spin == '00':
-            spins = range(self.calc.wfs.nspins)
-            flip = False
-        elif self.spin == 'uu':
-            spins = [0]
-            flip = False
-        elif self.spin == 'dd':
-            spins = [1]
-            flip = False
-        elif self.spin == '+-':
-            spins = [0, 1]
-            flip = True
-        elif self.spin == '-+':
-            spins = [0, 1]
-            flip = True
-        else:
-            raise ValueError(self.spin)
-
-        if flip:
-            assert self.calc.wfs.nspins == 2
-        else:
-            assert max(spins) < self.calc.wfs.nspins
-
-        return spins, flip
-
-    @timer('Get kpoints')
-    def get_kpoints(self, pd):
-        """Get the integration domain."""
+    @timer('Get kpoint integration domain')
+    def get_kpoint_integration_domain(self, pd):
         # Use symmetries
         PWSA = PWSymmetryAnalyzer
         PWSA = PWSA(self.calc.wfs.kd, pd,
@@ -483,20 +368,13 @@ class ChiKS:
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
 
-        if self.integrationmode is None:
-            K_gK = PWSA.group_kpoints()
-            bzk_kc = np.array([self.calc.wfs.kd.bzk_kc[K_K[0]] for
-                               K_K in K_gK])
-        elif self.integrationmode == 'tetrahedron integration':
-            bzk_kc = PWSA.get_reduced_kd(pbc_c=self.pbc).bzk_kc
-            if (~self.pbc).any():
-                bzk_kc = np.append(bzk_kc,
-                                   bzk_kc + (~self.pbc).astype(int),
-                                   axis=0)
-
+        bzk_kc = self._get_kpoint_int_domain(PWSA, pd)
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
 
         return bzk_kv, PWSA
+
+    def _get_kpoint_int_domain(PWSA, pd):
+        raise NotImplementedError('Please set up integrator before calling')
 
     def print_pw_chi(self, pd):
         calc = self.calc
@@ -667,3 +545,205 @@ def get_nonlinear_frequency_grid(calc, nbands, fd=None,
         print('Using nonlinear frequency grid from 0 to %.3f eV' %
               (omegamax * Hartree), file=fd)
     return FrequencyDescriptor(domega0, omega2, omegamax)
+
+
+def get_unique_spin_str(spin):
+    """Convert all supported input to chiKS standard."""
+    if isinstance(spin, str):
+        if spin in ['00', 'uu', 'dd', '+-', '-+']:
+            return spin
+        elif spin == 'all':
+            return '00'
+    elif isinstance(spin, int):
+        if spin == 0:
+            return 'uu'
+        elif spin == 1:
+            return 'dd'
+    raise ValueError(spin)
+
+
+def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
+    """Get the planewave descriptor of q_c."""
+    qd = KPointDescriptor([q_c])
+    pd = PWDescriptor(ecut, gd,
+                      complex, qd, gammacentered=gammacentered)
+    return pd
+
+
+def get_band_summation_domain(bandsummation, nbands, nocc1=None, nocc2=None):
+    """Get all pairs of bands to sum over
+
+    Parameters
+    ----------
+    bandsummation : str
+        Band summation method
+    nbands : int
+        number of bands
+    nocc1 : int
+        number of completely filled bands
+    nocc2 : int
+        number of non-empty bands
+
+    Returns
+    -------
+    n_M : ndarray
+        band index 1, M = combined index
+    m_M : ndarray
+        band index 2, M = combined index
+    """
+    _get_band_sum_domain = create_get_band_sum_domain(bandsummation)
+    n_M, m_M = _get_band_sum_domain(nbands)
+    
+    return remove_null_transitions(n_M, m_M, nocc1=nocc1, nocc2=nocc2)
+
+
+def create_get_band_sum_domain(bandsummation):
+    """Creator component deciding how to carry out band summation."""
+    if bandsummation == 'pairwise':
+        return get_pairwise_band_sum_domain
+    elif bandsummation == 'double':
+        return get_double_band_sum_domain
+    raise ValueError(bandsummation)
+
+
+def remove_null_transitions(n_M, m_M, nocc1=None, nocc2=None):
+    """Remove pairs of bands, between which transitions are impossible"""
+    n_newM = []
+    m_newM = []
+    for n, m in zip(n_M, m_M):
+        if nocc1 is not None and (n < nocc1 and m < nocc1):
+            continue  # both bands are fully occupied
+        elif nocc2 is not None and (n >= nocc2 and m >= nocc2):
+            continue  # both bands are completely unoccupied
+        n_newM.append(n)
+        m_newM.append(m)
+
+    return np.array(n_newM), np.array(m_newM)
+
+
+def get_double_band_sum_domain(nbands):
+    """Make a simple double sum"""
+    n_n = np.arange(0, nbands)
+    m_m = np.arange(0, nbands)
+    n_nm, m_nm = np.meshgrid(n_n, m_m)
+    n_M, m_M = n_nm.flatten(), m_nm.flatten()
+
+    return n_M, m_M
+
+
+def get_pairwise_band_sum_domain(nbands):
+    """Make a sum over all pairs"""
+    n_n = range(0, nbands)
+    n_M = []
+    m_M = []
+    for n in n_n:
+        m_m = range(n, nbands)
+        n_M += [n] * len(m_m)
+        m_M += m_m
+
+    return np.array(n_M), np.array(n_M)
+
+
+def get_spin_summation_domain(bandsummation, spin, nspins):
+    """Get structure of the sum over spins
+
+    Parameters
+    ----------
+    bandsummation : str
+        Band summation method
+    spin : str
+        spin transition in chiKS standard
+    nspins : int
+        number of spin channels in ground state calculation
+
+    Returns
+    -------
+    spins : list
+        list of start spins (s)
+    flip : bool
+        does the transition flip the spin (s' = 1 - s)?
+    """
+    _get_spin_sum_domain = create_get_spin_sum_domain(bandsummation)
+    spins, flip = _get_spin_sum_domain(spin, nspins)
+
+    if flip:
+        assert nspins == 2
+    else:
+        assert max(spins) < nspins
+
+    return spins, flip
+
+
+def create_get_spin_sum_domain(bandsummation):
+    """Creator component deciding how to carry out spin summation."""
+    if bandsummation == 'pairwise':
+        return get_pairwise_spin_sum_domain
+    elif bandsummation == 'double':
+        return get_double_spin_sum_domain
+    raise ValueError(bandsummation)
+
+
+def get_double_spin_sum_domain(spin, nspins):
+    """Transitions forward in time"""
+    if spin == '00':
+        spins = range(nspins)
+        flip = False
+    elif spin == 'uu':
+        spins = [0]
+        flip = False
+    elif spin == 'dd':
+        spins = [1]
+        flip = False
+    elif spin == '+-':
+        spins = [0]
+        flip = True
+    elif spin == '-+':
+        spins = [1]
+        flip = True
+    else:
+        raise ValueError(spin)
+
+    return spins, flip
+
+
+def get_pairwise_spin_sum_domain(spin, nspins):
+    """Transitions forward in time"""
+    if spin == '00':
+        spins = range(nspins)
+        flip = False
+    elif spin == 'uu':
+        spins = [0]
+        flip = False
+    elif spin == 'dd':
+        spins = [1]
+        flip = False
+    elif spin == '+-':
+        spins = [0, 1]
+        flip = True
+    elif spin == '-+':
+        spins = [0, 1]
+        flip = True
+    else:
+        raise ValueError(spin)
+
+    return spins, flip
+
+
+def get_kpoint_pointint_domain(PWSA, pd, calc):
+    # Could use documentation XXX
+    K_gK = PWSA.group_kpoints()
+    bzk_kc = np.array([calc.wfs.kd.bzk_kc[K_K[0]] for
+                       K_K in K_gK])
+
+    return bzk_kc
+
+
+def get_kpoint_tetrahint_domain(PWSA, pd, pbc):
+    # Could use documentation XXX
+    bzk_kc = PWSA.get_reduced_kd(pbc_c=pbc).bzk_kc
+    if (~pbc).any():
+        bzk_kc = np.append(bzk_kc,
+                           bzk_kc + (~pbc).astype(int),
+                           axis=0)
+
+    return bzk_kc
