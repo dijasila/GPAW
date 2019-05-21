@@ -8,6 +8,8 @@ from ase.utils.timing import timer
 
 from gpaw import extra_parameters
 import gpaw.mpi as mpi
+from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
+                        DryRunBlacsGrid)
 from gpaw.utilities.memory import maxrss
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -18,7 +20,7 @@ from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 
 
 class ChiKS:
-    """Class for calculating response functions in the Kohn-Sham system"""
+    """For calculating linear response functions in the Kohn-Sham system"""
 
     def __init__(self, gs, response='susceptibility', mode='pw',
                  world=mpi.world, txt='-', timer=None, **kwargs):
@@ -140,7 +142,13 @@ class ChiKS:
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
 
-        self.Q_aGii = None
+        self.extraintargs = {}  # Extra arguments for the integration method.
+
+        # Properties of plane wave susceptibility, given to self.calculate()
+        self.pd = None  # Plane wave descriptor for given momentum transfer q
+        self.spin = None  # Given spin rotation matrix
+        self.PWSA = None  # Plane wave symmetry analyzer for given q
+        self.Q_aGii = None  # PAW corrections for given q
 
         self.extraargs = extraargs
 
@@ -188,42 +196,61 @@ class ChiKS:
             The response function.
         """
         q_c = np.asarray(q_c, dtype=float)
-        pd = get_PWDescriptor(self.ecut, self.calc.wfs.gd, q_c,
-                              gammacentered=self.gammacentered)
+        self.pd = get_PWDescriptor(self.ecut, self.calc.wfs.gd, q_c,
+                                   gammacentered=self.gammacentered)
 
-        # Maybe spin should be passed through __init__? XXX
         self.spin = get_unique_spin_str(spin)
 
         # Set up stuff that depends on q_c and spin
-        self.pw_setup_susceptibility(pd, self.spin)
+        self.PWSA = self.pw_setup_susceptibility(self.pd, self.spin)
+        # Reset PAW correction
+        self.Q_aGii = self.pair.initialize_paw_corrections(self.pd)
 
         # Print information about the set up calculation
-        self.print_pw_chi(pd)
+        self.print_pw_chi()
         if extra_parameters.get('df_dry_run'):  # Exit after setting up
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
         chi_wGG = self.setup_chi_wGG(A_x)  # set up output array
 
-        n_M, m_M, bzk_kv, spins, flip = self.get_summation_domain(pd)
+        n_M, m_M, bzk_kv, spins, flip = self.get_summation_domain()
 
-        return self._pw_calculate_susceptibility(pd, chi_wGG,
+        return self._pw_calculate_susceptibility(chi_wGG,
                                                  n_M, m_M, bzk_kv, spins, flip)
 
     @timer('Calculate Kohn-Sham susceptibility')
-    def _pw_calculate_susceptibility(self, pd, chi_wGG,
+    def _pw_calculate_susceptibility(self, chi_wGG,
                                      n_M, m_M, bzk_kv, spins, flip):
         """In-place calculation of the KS susceptibility in plane wave mode."""
 
-        # Reset PAW correction
-        self.Q_aGii = self.pair.initialize_paw_corrections(pd)
-
-        prefactor = self._calculate_kpoint_integration_prefactor(self.calc,
-                                                                 self.PWSA,
-                                                                 bzk_kv)
+        prefactor = self._calculate_kpoint_integration_prefactor(bzk_kv)
         chi_wGG /= prefactor
 
-        
+        self.integrator.integrate(kind=self.integration_kind,
+                                  banddomain=(n_M, m_M),
+                                  ksdomain=(bzk_kv, spins),
+                                  integrand=(self._get_matrix_element,
+                                             self._get_eigenvalues),
+                                  x=self.wd,  # Frequency Descriptor
+                                  # Arguments for integrand functions
+                                  out_wxx=chi_wGG,  # Output array
+                                  **self.extraintargs)
+
+        # The response function is integrated only over the IBZ. The
+        # chi calculated above must therefore be extended to include the
+        # response from the full BZ. This extension can be performed as a
+        # simple post processing of the response function that makes
+        # sure that the response function fulfills the symmetries of the little
+        # group of q. Due to the specific details of the implementation the chi
+        # calculated above is normalized by the number of symmetries (as seen
+        # below) and then symmetrized.
+        chi_wGG *= prefactor
+        tmpchi_wGG = self.redistribute(chi_wGG)  # distribute over frequencies
+        self.PWSA.symmetrize_wGG(tmpchi_wGG)
+        self.redistribute(tmpchi_wGG, chi_wGG)
+
+        return self.pd, chi_wGG
 
     def pw_setup_susceptibility(self, pd, spin):
         """Set up chiKS to calculate a spicific spin susceptibility."""
@@ -275,22 +302,38 @@ class ChiKS:
         """
 
         self.hilbert = hilbert
-        if self.frequencies is not None:
-            assert not hilbert
-
         self.timeordered = bool(timeordered)
             
-        if self.eta == 0.0:
+        if self.eta == 0.0:  # Refacor using factory method XXX
+            # If eta is 0 then we must be working with imaginary frequencies.
+            # In this case chi is hermitian and it is therefore possible to
+            # reduce the computational costs by a only computing half of the
+            # response function.
             assert not self.hilbert
             assert not self.timeordered
             assert not self.omega_w.real.any()
+            
+            self.integration_kind = 'hermitian response function'
+        elif self.hilbert:
+            # The spectral function integrator assumes that the form of the
+            # integrand is a function (a matrix element) multiplied by
+            # a delta function and should return a function of at user defined
+            # x's (frequencies). Thus the integrand is tuple of two functions
+            # and takes an additional argument (x).
+            assert self.frequencies is None
+            self.integration_kind = 'spectral function'
+        else:
+            self.extraintargs['eta'] = self.eta
+            self.extraintargs['timeordered'] = self.timeordered
+            self.integration_kind = 'response function'
 
         self.include_intraband = intraband
         
-        self.setup_kpoint_integration(integrationmode, pd,
-                                      disable_point_group,
-                                      disable_time_reversal,
-                                      disable_non_symmorphic, **extraargs)
+        PWSA = self.setup_kpoint_integration(integrationmode, pd,
+                                             disable_point_group,
+                                             disable_time_reversal,
+                                             disable_non_symmorphic,
+                                             **extraargs)
         
         if rate == 'eta':
             self.rate = self.eta
@@ -299,12 +342,21 @@ class ChiKS:
 
         self.eshift = eshift / Hartree
 
+        return PWSA
+
     def pw_setup_chimunu(self, pd, **unused):
         """Disable stuff, that has been developed for chi00 only"""
-        self.setup_kpoint_integration('point integration', pd,
-                                      True, True, True,  # disable symmetry
-                                      **unused)
+
+        self.extraintargs['eta'] = self.eta
+        self.extraintargs['timeordered'] = False
+        self.integration_kind = 'response function'
+
+        PWSA = self.setup_kpoint_integration('point integration', pd,
+                                             True, True, True,  # disable sym
+                                             **unused)
         self.eshift = 0.0
+
+        return PWSA
 
     def setup_kpoint_integration(self, integrationmode, pd,
                                  disable_point_group,
@@ -315,19 +367,26 @@ class ChiKS:
         else:
             self.integrationmode = integrationmode
 
-        # Use symmetries
+        # The integration domain is reduced to the irreducible zone
+        # of the little group of q.
         PWSA = PWSymmetryAnalyzer
-        self.PWSA = PWSA(self.calc.wfs.kd, pd,
-                         timer=self.timer, txt=self.fd,
-                         disable_point_group=disable_point_group,
-                         disable_time_reversal=disable_time_reversal,
-                         disable_non_symmorphic=disable_non_symmorphic)
+        PWSA = PWSA(self.calc.wfs.kd, pd,
+                    timer=self.timer, txt=self.fd,
+                    disable_point_group=disable_point_group,
+                    disable_time_reversal=disable_time_reversal,
+                    disable_non_symmorphic=disable_non_symmorphic)
 
         self._setup_integrator = self.create_setup_integrator()
         self._setup_integrator(**extraargs)
 
+        return PWSA
+
     def create_setup_integrator(self):
-        """Creator component deciding how to set up kpoint integration."""
+        """Creator component deciding how to set up kpoint integrator.
+        The integrator class is a general class for brillouin zone
+        integration that can integrate user defined functions over user
+        defined domains and sum over bands.
+        """
         
         if self.integrationmode == 'point integration':
             print('Using integration method: PointIntegrator',
@@ -388,6 +447,7 @@ class ChiKS:
 
     def setup_chi_wGG(self, nG, A_x=None):
         """Initialize the output array in blocks"""
+        # Could use some more documentation XXX
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = min(self.blockcomm.rank * mynG, nG)
@@ -404,7 +464,7 @@ class ChiKS:
 
         return chi_wGG
 
-    def get_summation_domain(self, pd):
+    def get_summation_domain(self):
         """Find the relevant (n, k, s) -> (m, k + q, s') domain to sum over"""
         n_M, m_M = get_band_summation_domain(self.bandsummation, self.nbands,
                                              nocc1=self.nocc1,
@@ -412,20 +472,178 @@ class ChiKS:
         spins, flip = get_spin_summation_domain(self.bandsummation, self.spin,
                                                 self.calc.wfs.nspins)
 
-        bzk_kv = self.get_kpoint_integration_domain(pd)
+        bzk_kv = self.get_kpoint_integration_domain(self.pd)
 
         return n_M, m_M, bzk_kv, spins, flip
 
     @timer('Get kpoint integration domain')
-    def get_kpoint_integration_domain(self, pd):
-        bzk_kc = self._get_kpoint_int_domain(self.PWSA, pd)
-        bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+    def get_kpoint_integration_domain(self):
+        bzk_kc = self._get_kpoint_int_domain(self.pd, self.PWSA)
+        bzk_kv = np.dot(bzk_kc, self.pd.gd.icell_cv) * 2 * np.pi
         return bzk_kv
 
     def _get_kpoint_int_domain(pd):
         raise NotImplementedError('Please set up integrator before calling')
 
-    def print_pw_chi(self, pd):
+    @timer('Get pair density')
+    def get_pw_pair_density(self, k_v, s, n_M, m_M, block=True):
+        """A function that returns pair-densities.
+
+        A pair density is defined as::
+
+         <nks| e^(-i (q + G) r) |mk+qs'> = <mk+qs'| e^(i (q + G) r |nks>,
+
+        where s and s' are spins, n and m are band indices, k is
+        the kpoint and q is the momentum transfer.
+
+        Parameters
+        ----------
+        k_v : ndarray
+            Kpoint coordinate in cartesian coordinates.
+        s : int
+            Spin index.
+
+        Return
+        ------
+        n_MG : ndarray
+            Pair densities.
+        """
+        pd = self.pd
+        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
+
+        q_c = pd.kd.bzk_kc[0]
+
+        extrapolate_q = False  # SHOULD THIS ONLY BE USED IN OPTICAL LIM? XXX
+        if self.calc.wfs.kd.refine_info is not None:
+            K1 = self.pair.find_kpoint(k_c)
+            label = self.calc.wfs.kd.refine_info.label_k[K1]
+            if label == 'zero':
+                return None
+            elif (self.calc.wfs.kd.refine_info.almostoptical
+                  and label == 'mh'):
+                if not hasattr(self, 'pd0'):
+                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
+                pd = self.pd0
+                extrapolate_q = True
+
+        if self.Q_aGii is None:
+            self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+
+        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, block=block)
+
+        n_MG = self.pair.get_pair_density(pd, kptpair, n_M, m_M,
+                                          Q_aGii=self.Q_aGii, block=block)
+        
+        if self.integrationmode == 'point integration':
+            n_MG *= np.sqrt(self.PWSA.get_kpoint_weight(k_c) /
+                            self.PWSA.how_many_symmetries())
+        
+        df_M = kptpair.get_occupation_differences(n_M, m_M)
+        df_M[np.abs(df_M) <= 1e-20] = 0.0
+
+        '''  # Change integrator stuff correspondingly XXX
+        if self.bandsummation == 'double':
+            df_nm = np.abs(df_nm)
+        df_nm[df_nm <= 1e-20] = 0.0
+        
+        n_nmG *= df_nm[..., np.newaxis]**0.5
+        '''
+
+        if extrapolate_q:  # SHOULD THIS ONLY BE USED IN OPTICAL LIM? XXX
+            q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
+            nq_M = np.dot(n_MG[:, :, :3], q_v)
+            n_MG = n_MG[:, :, 2:]
+            n_MG[:, :, 0] = nq_M
+
+        return n_MG, df_M
+
+    @timer('redist')
+    def redistribute(self, in_wGG, out_x=None):
+        """Redistribute array.
+
+        Switch between two kinds of parallel distributions:
+
+        1) parallel over G-vectors (second dimension of in_wGG)
+        2) parallel over frequency (first dimension of in_wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+
+        comm = self.blockcomm
+
+        if comm.size == 1:
+            return in_wGG
+
+        nw = len(self.omega_w)
+        nG = in_wGG.shape[2]
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
+
+        if len(in_wGG) == nw:
+            mdin = md2
+            mdout = md1
+        else:
+            mdin = md1
+            mdout = md2
+
+        r = Redistributor(comm, mdin, mdout)
+
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        if out_x is None:
+            out_wGG = np.empty(outshape, complex)
+        else:
+            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+
+        r.redistribute(in_wGG.reshape(mdin.shape),
+                       out_wGG.reshape(mdout.shape))
+
+        return out_wGG
+
+    @timer('dist freq')
+    def distribute_frequencies(self, chi0_wGG):
+        """Distribute frequencies to all cores."""
+
+        world = self.world
+        comm = self.blockcomm
+
+        if world.size == 1:
+            return chi0_wGG
+
+        nw = len(self.omega_w)
+        nG = chi0_wGG.shape[2]
+        mynw = (nw + world.size - 1) // world.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        wa = min(world.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
+
+        if self.blockcomm.size == 1:
+            return chi0_wGG[wa:wb].copy()
+
+        if self.kncomm.rank == 0:
+            bg1 = BlacsGrid(comm, 1, comm.size)
+            in_wGG = chi0_wGG.reshape((nw, -1))
+        else:
+            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            in_wGG = np.zeros((0, 0), complex)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
+
+        bg2 = BlacsGrid(world, world.size, 1)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
+
+        r = Redistributor(world, md1, md2)
+        shape = (wb - wa, nG, nG)
+        out_wGG = np.empty(shape, complex)
+        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
+
+        return out_wGG
+    
+    def print_pw_chi(self):
         calc = self.calc
         gd = calc.wfs.gd
 
@@ -436,14 +654,14 @@ class ChiKS:
         else:
             world = self.world
 
-        q_c = pd.kd.bzk_kc[0]
+        q_c = self.pd.kd.bzk_kc[0]
         nw = len(self.omega_w)
         ecut = self.ecut * Hartree
         ns = calc.wfs.nspins
         nbands = self.nbands
         nk = calc.wfs.kd.nbzkpts
         nik = calc.wfs.kd.nibzkpts
-        ngmax = pd.ngmax
+        ngmax = self.pd.ngmax
         eta = self.eta * Hartree
         wsize = world.size
         knsize = self.kncomm.size
@@ -453,7 +671,7 @@ class ChiKS:
         nstat = (ns * npocc + world.size - 1) // world.size
         occsize = nstat * ngridpoints * 16. / 1024**2
         bsize = self.blockcomm.size
-        chisize = nw * pd.ngmax**2 * 16. / 1024**2 / bsize
+        chisize = nw * self.pd.ngmax**2 * 16. / 1024**2 / bsize
 
         p = partial(print, file=self.fd)
 
@@ -778,7 +996,7 @@ def get_pairwise_spin_sum_domain(spin, nspins):
     return spins, flip
 
 
-def get_kpoint_pointint_domain(PWSA, pd, calc):
+def get_kpoint_pointint_domain(pd, PWSA, calc):
     # Could use documentation XXX
     K_gK = PWSA.group_kpoints()
     bzk_kc = np.array([calc.wfs.kd.bzk_kc[K_K[0]] for
@@ -798,7 +1016,7 @@ def calculate_kpoint_pointint_prefactor(calc, PWSA, bzk_kv):
             (calc.wfs.nspins * (2 * np.pi)**3))
 
 
-def get_kpoint_tetrahint_domain(PWSA, pd, pbc):
+def get_kpoint_tetrahint_domain(pd, PWSA, pbc):
     # Could use documentation XXX
     bzk_kc = PWSA.get_reduced_kd(pbc_c=pbc).bzk_kc
     if (~pbc).any():
@@ -810,7 +1028,12 @@ def get_kpoint_tetrahint_domain(PWSA, pd, pbc):
 
 
 def calculate_kpoint_tetrahint_prefactor(calc, PWSA, bzk_kv):
-    # Could use documentation XXX
+    """If there are non-periodic directions it is possible that the
+    integration domain is not compatible with the symmetry operations
+    which essentially means that too large domains will be
+    integrated. We normalize by vol(BZ) / vol(domain) to make
+    sure that to fix this.
+    """
     vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
     domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
     bzvol = (2 * np.pi)**3 / vol
