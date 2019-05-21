@@ -34,7 +34,7 @@ class WLDA(XCFunctional):
         self.n_gi = None
 
         n1_sg = gd.collect(n_sg)
-        v1_sg = gd.collect(v_sg)
+        #v1_sg = gd.collect(v_sg)
         if gd.comm.rank == 0:
             pren1_sg = n1_sg.copy()
             if self.mode == "":
@@ -65,53 +65,43 @@ class WLDA(XCFunctional):
             else:
                 raise ValueError("WLDA mode not recognized")
 
-        
+        gd.distribute(n1_sg, n_sg)        
 
         
 
-            from gpaw.xc.lda import lda_c
-            C0I, C1, CC1, CC2, IF2 = lda_constants()
-            if len(n_sg) == 2:
-                na = 2. * n1_sg[0]
-                na[na < 1e-20] = 1e-40
-                nb = 2. * n_sg[1]
-                nb[nb < 1e-20] = 1e-40
-                n = 0.5 * (na + nb)
-                zeta = 0.5 * (na - nb) / n
-                lda_x(1, e_g, na, v_sg[0])
-                lda_x(1, e_g, nb, v_sg[1])
-                lda_c(1, e_g, n, v_sg, zeta)
-            else:
-                n = n1_sg[0]
-                n[n < 1e-20] = 1e-40
-                rs = (C0I/n)**(1/3)
-                ex = C1/rs
-                dexdrs = -ex/rs
-                e_g[:] = n*ex
-                v1_sg[0] += ex - rs*dexdrs/3
+        from gpaw.xc.lda import lda_c
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        if len(n_sg) == 2:
+            na = 2. * n1_sg[0]
+            na[na < 1e-20] = 1e-40
+            nb = 2. * n_sg[1]
+            nb[nb < 1e-20] = 1e-40
+            n = 0.5 * (na + nb)
+            zeta = 0.5 * (na - nb) / n
+            lda_x(1, e_g, na, v_sg[0])
+            lda_x(1, e_g, nb, v_sg[1])
+            lda_c(1, e_g, n, v_sg, zeta)
+        else:
+            n = n_sg[0]
+            n[n < 1e-20] = 1e-40
+            rs = (C0I/n)**(1/3)
+            ex = C1/rs
+            dexdrs = -ex/rs
+            e_g[:] = n*ex
+            v_sg[0] += ex - rs*dexdrs/3
             
             
-                zeta = 0
+            zeta = 0
             
-                lda_c(0, e_g, n, v1_sg, zeta)
-                uncorr = v1_sg.copy()
-                if self.mode.lower() == "":
-                    v_g = self.potential_correction(v1_sg, self.gd1, n1_sg)
-                    v1_sg = np.array([v_g])
-                elif self.mode.lower() == "renorm":
-                    v_g = self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0], unnormed_n_sg)
-                    v1_sg = np.array([v_g])
-                assert v1_sg.shape == uncorr.shape
-                import matplotlib.pyplot as plt
-                plt.plot(uncorr[0, :, 0, 0], label="Uncorrected")
-                plt.legend()
-                plt.figure()
-                plt.plot(v1_sg[0, :, 0, 0], label="Corrected")
-                plt.legend()
-                plt.show()
+            lda_c(0, e_g, n, v_sg, zeta)
+                #if self.mode.lower() == "":
+                #    self.potential_correction(v1_sg, self.gd1, n1_sg)
                     
-        gd.distribute(v1_sg, v_sg)
-        gd.distribute(n1_sg, n_sg)
+                #elif self.mode.lower() == "renorm":
+                #    self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0], unnormed_n_sg)
+                    
+        #gd.distribute(v1_sg, v_sg)
+
 
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
@@ -365,11 +355,8 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def get_nis(self, n_g):
-        if hasattr(self, "nis") and self.nis is not None:
-            return self.nis
-        else:
-            self.nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
-            return self.nis
+        return np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+
 
     def tabulate_weights(self, n_g, gd):
         '''
@@ -641,12 +628,16 @@ class WLDA(XCFunctional):
         kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
-        w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
-        n_gi = self.get_ni_weights(None)
-        v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
-        assert np.allclose(v_g, v_g.real)
-        v_sg[0, :] = v_g.real
-        return v_g.real
+        #w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
+        n_gi = self.get_ni_weights(n_sg[0])
+        w_g = np.zeros_like(v_sg[0])
+        for i, k_F in enumerate(kF_i):
+            w_g += n_gi[:, :, :, i] * np.fft.ifftn(self._theta_filter(k_F, k_G, v_G))
+            
+        #v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
+        assert np.allclose(w_g, w_g.real)
+        v_sg[0, :] = w_g.real
+        #return v_g.real
         
     def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm, unnormed_n_sg):
         _, nx, ny, nz = gd.get_grid_point_coordinates().shape
@@ -656,11 +647,11 @@ class WLDA(XCFunctional):
         v_G = np.fft.fftn(v_sg[0])
         w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
         w_gi = N * w_gi
-        n_gi = self.get_ni_weights(None)
+        n_gi = self.get_ni_weights(n_sg[0])
         w_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
         w_g = w_g + unnormed_n_sg[0] * gd.integrate(v_sg[0]) * N
         v_sg[0, :] = w_g.real
-        return w_g.real
+        #return w_g.real
         
         
     
