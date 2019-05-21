@@ -107,15 +107,21 @@ class WLDA(XCFunctional):
             raise NotImplementedError
 
         self.tabulate_weights(n_sg[0], gd)
-
         n_g = n_sg[0]
-        wn_g = np.zeros_like(n_g)
 
+        take_g, weight_g = self.get_take_weight_array(n_g)
         wtable_gi = self.weight_table
-        n_gi = self.get_ni_weights(n_g)
-        wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
-
+        wn_g = wtable_gi.take(take_g) * weight_g + wtable_gi.take(take_g + 1) * (1 - weight_g)
         n_sg[0, :] = wn_g
+
+
+        # nx, ny, nz = n_g.shape
+        # wn_g = np.zeros_like(n_g)
+        # wtable_gi = self.weight_table
+        # n_gi = self.get_ni_weights(copy_g)
+        # wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
+
+        # n_sg[0, :] = wn_g
 
 
     def apply_const_weighting(self, gd, n_sg):
@@ -234,9 +240,25 @@ class WLDA(XCFunctional):
         grid[2, :, :, :] = zs[na, na, :]
 
         return grid
-        
-        
 
+
+    def get_take_weight_array(self, n_g):
+        n_g = np.abs(n_g)
+        nis = self.get_nis(n_g)
+        nx, ny, nz = n_g.shape
+        take_g = np.array([j * len(nis) for j in range(nx * ny * nz)]).reshape(nx, ny, nz) + (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1).astype(int) - 1
+        # test_gi = np.zeros((nx, ny, nz, len(nis)))
+        # test_gi[:, :, :, 0] = n_g
+        # take2 = np.array([j * len(nis) for j in range(nx * ny * nz)]).reshape(nx, ny, nz)
+        # assert np.allclose(test_gi.take(take2), n_g)
+        nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
+        ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
+        vallesser_g = nis.take(nlesser_g-1)
+        valgreater_g = nis.take(-ngreater_g)
+        weight_g = (valgreater_g-n_g)/(valgreater_g-vallesser_g)
+
+        return take_g.astype(int), weight_g
+        
 
     def get_ni_weights(self, n_g):
         n_g = np.abs(n_g)
@@ -248,20 +270,6 @@ class WLDA(XCFunctional):
 
         vallesser_g = nis.take(nlesser_g-1)
         valgreater_g = nis.take(-ngreater_g)
-        
-        # vallesser_g2 = np.zeros_like(n_g)
-        # valgreater_g2 = np.zeros_like(n_g)
-
-        # for ix, n_yz in enumerate(nlesser_g):
-        #     for iy, n_z in enumerate(n_yz):
-        #         for iz, n in enumerate(n_z):
-        #             vallesser_g2[ix, iy, iz] = nis[n-1]
-        #             ng = ngreater_g[ix, iy, iz]
-        #             valgreater_g2[ix, iy, iz] = nis[-ng]
-                    
-        # assert np.allclose(vallesser_g, vallesser_g2) ##This is true
-        # assert np.allclose(valgreater_g, valgreater_g2) ##This is also true
-
 
         partlesser_g = (valgreater_g-n_g)/(valgreater_g-vallesser_g)
         partgreater_g = (n_g - vallesser_g)/(valgreater_g-vallesser_g)
@@ -277,6 +285,21 @@ class WLDA(XCFunctional):
                     n_gi[ix, iy, iz, -ng] = pg
 
         return n_gi
+
+
+        # vallesser_g2 = np.zeros_like(n_g)
+        # valgreater_g2 = np.zeros_like(n_g)
+
+        # for ix, n_yz in enumerate(nlesser_g):
+        #     for iy, n_z in enumerate(n_yz):
+        #         for iz, n in enumerate(n_z):
+        #             vallesser_g2[ix, iy, iz] = nis[n-1]
+        #             ng = ngreater_g[ix, iy, iz]
+        #             valgreater_g2[ix, iy, iz] = nis[-ng]
+                    
+        # assert np.allclose(vallesser_g, vallesser_g2) ##This is true
+        # assert np.allclose(valgreater_g, valgreater_g2) ##This is also true
+
 
 
     def _get_ni_weights(self, n_g):
@@ -307,7 +330,28 @@ class WLDA(XCFunctional):
         
         weight = (valgreater-n)/(valgreater-vallesser)
 
-        return index, weight
+        return int(index), weight
+
+    def get_niindex_niweight(self, n_g):
+        nis = self.get_nis(n_g)
+        nx, ny, nz = n_g.shape
+        
+
+        # niindex_g = np.zeros(len(n_g.reshape(-1)), dtype=int)
+        # niweight_g = np.zeros(len(n_g.reshape(-1)), dtype=np.float)
+        # for index, n in enumerate(n_g.reshape(-1)):
+        #     t = self.get_ni_index_weight(n, nis)
+        #     niindex_g[index] = t[0]
+        #     niweight_g[index] = t[1]
+        from time import time
+        t1 = time()
+        ind_w_g = np.array([self.get_ni_index_weight(n, nis) for n in n_g.reshape(-1)])
+        niindex_g = np.array([t[0] for t in ind_w_g], dtype=int)
+        niweight_g = np.array([t[1] for t in ind_w_g])
+        t2 = time()
+        print("This took: {} s".format(t2 - t1))
+        assert (niindex_g < len(nis) - 1).all()
+        return niindex_g.reshape(nx, ny, nz), niweight_g.reshape(nx, ny, nz)
         
                     
     def _get_ni_vector(self, n):
