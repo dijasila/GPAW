@@ -82,7 +82,7 @@ class WLDA(XCFunctional):
                 lda_x(1, e_g, nb, v_sg[1])
                 lda_c(1, e_g, n, v_sg, zeta)
             else:
-                if self.mode.lower8) == "renorm":
+                if self.mode.lower() == "renorm":
                     
                     n = n1_sg[0]
                     n[n < 1e-20] = 1e-40
