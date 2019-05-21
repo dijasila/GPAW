@@ -111,41 +111,12 @@ class WLDA(XCFunctional):
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
 
-        from time import time
-        t1 = time()
         wtable_gi = self.weight_table
         n_gi = self.get_ni_weights(n_g)
         wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
-        t2 = time()
-        print("Weighting density took: {} s".format(t2 - t1))
-        n_sg[0, :] = wn_g
-        return
-        nis = self.get_nis(n_g)
-        Nx, Ny, Nz = n_g.shape
 
-        def get_is(index):
-            iz = (index % Nz)
-            assert np.allclose(iz, int(iz))
-            iy = ((index % (Ny * Nz)) - iz) / Ny
-            assert np.allclose(iy, int(iy))
-            ix = (index - iy * Nz - iz) / (Ny * Nz)
-            assert np.allclose(ix, int(ix)) 
-            return int(ix), int(iy), int(iz)
-
-        from time import time
-        print("Num iters:", len(n_g.reshape(-1)))
-        print("Grid shape:", n_g.shape)
-        t1 = time()
-        for i, n in enumerate(n_g.reshape(-1)):
-            if (i % 100) == 0:
-                print("Iter: {}".format(i), end="\r")
-            ix, iy, iz = get_is(i)
-            index, weight = self.get_ni_index_weight(n, nis)
-            wn_g[ix, iy, iz] = wtable_gi[ix, iy, iz, index] * weight + wtable_gi[ix, iy, iz, index + 1] * (1 - weight)
-        t2 = time()
-        print("")
-        print("Weighting density took: {} s".format(t2 - t1))
         n_sg[0, :] = wn_g
+
 
     def apply_const_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
