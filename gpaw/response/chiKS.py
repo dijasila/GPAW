@@ -11,8 +11,10 @@ import gpaw.mpi as mpi
 from gpaw.utilities.memory import maxrss
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.bztools import convex_hull_volume
 from gpaw.response.pair import PWSymmetryAnalyzer
 from gpaw.response.pair import create_PairMatrixElement
+from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 
 
 class ChiKS:
@@ -72,13 +74,16 @@ class ChiKS:
         self.setup_calculator(**kwargs)
 
     def setup_calculator(self, **kwargs):
-        self._setup_calculator, self.calculate = self.create_calculator()
+        (self._setup_calculator,
+         self.calculate, self._calculate) = self.create_calculator()
         self._setup_calculator(**kwargs)
 
     def create_calculator(self):
         """Creator component deciding how and what to calculate."""
         if self.mode == 'pw' and self.response == 'susceptibility':
-            return self.setup_pw_calculator, self.pw_calculate_susceptibility
+            return (self.setup_pw_calculator,
+                    self.pw_calculate_susceptibility,
+                    self._pw_calculate_susceptibility)
         else:
             raise ValueError(self.response, self.mode)
 
@@ -134,7 +139,7 @@ class ChiKS:
 
         self.nocc1 = self.pair.nocc1  # number of completely filled bands
         self.nocc2 = self.pair.nocc2  # number of non-empty bands
-        self.vol = abs(np.linalg.det(self.calc.wfs.gd.cell_cv))
+
         self.Q_aGii = None
 
         self.extraargs = extraargs
@@ -179,26 +184,18 @@ class ChiKS:
         -------
         pd : Planewave descriptor
             Planewave descriptor for q_c.
-        chi0_wGG : ndarray
+        chi_wGG : ndarray
             The response function.
-        
-        Note
-        ----
-        When running a '00'='all' calculation and q_c = [0., 0., 0.],
-        there may be additional outputs:
-        chi0_wxvG : ndarray or None
-            Wings of the density response function.
-        chi0_wvv : ndarray or None
-            Head of the density response function.
-
         """
-        # Maybe spin should be passed through __init__? XXX
-        self.spin = get_unique_spin_str(spin)
-        self.pw_setup_susceptibility(self.spin)
-
         q_c = np.asarray(q_c, dtype=float)
         pd = get_PWDescriptor(self.ecut, self.calc.wfs.gd, q_c,
                               gammacentered=self.gammacentered)
+
+        # Maybe spin should be passed through __init__? XXX
+        self.spin = get_unique_spin_str(spin)
+
+        # Set up stuff that depends on q_c and spin
+        self.pw_setup_susceptibility(pd, self.spin)
 
         # Print information about the set up calculation
         self.print_pw_chi(pd)
@@ -206,15 +203,33 @@ class ChiKS:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
-        n_M, m_M, ksdomain, flip = self.get_summation_domain(pd)
+        chi_wGG = self.setup_chi_wGG(A_x)  # set up output array
 
-        return
+        n_M, m_M, bzk_kv, spins, flip = self.get_summation_domain(pd)
 
-    def pw_setup_susceptibility(self, spin):
+        return self._pw_calculate_susceptibility(pd, chi_wGG,
+                                                 n_M, m_M, bzk_kv, spins, flip)
+
+    @timer('Calculate Kohn-Sham susceptibility')
+    def _pw_calculate_susceptibility(self, pd, chi_wGG,
+                                     n_M, m_M, bzk_kv, spins, flip):
+        """In-place calculation of the KS susceptibility in plane wave mode."""
+
+        # Reset PAW correction
+        self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+
+        prefactor = self._calculate_kpoint_integration_prefactor(self.calc,
+                                                                 self.PWSA,
+                                                                 bzk_kv)
+        chi_wGG /= prefactor
+
+        
+
+    def pw_setup_susceptibility(self, pd, spin):
         """Set up chiKS to calculate a spicific spin susceptibility."""
         assert spin in ['00', 'uu', 'dd', '+-', '-+']
         self._pw_setup_sus = self.create_pw_setup_susceptibility(spin)
-        self._pw_setup_sus(**self.extraargs)
+        self._pw_setup_sus(pd, **self.extraargs)
 
     def create_pw_setup_susceptibility(self, spin):
         """Creator component deciding how to set up spin susceptibility."""
@@ -223,8 +238,8 @@ class ChiKS:
         else:
             return self.pw_setup_chimunu
     
-    def pw_setup_chi00(self, hilbert=True, timeordered=False, intraband=True,
-                       integrationmode=None,
+    def pw_setup_chi00(self, pd, hilbert=True, timeordered=False,
+                       intraband=True, integrationmode=None,
                        disable_point_group=False,
                        disable_time_reversal=False,
                        disable_non_symmorphic=True,
@@ -252,9 +267,7 @@ class ChiKS:
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
         integrationmode : str
-            Integrator for the kpoint integration. Setting up the integrator,
-            extra arguments are passed through **extra_args
-            choices: 'point integration', 'tetrahedron integration'
+            Integrator for the kpoint integration.
         rate : float
             Unknown parameter for intraband calculation in optical limit
         eshift : float
@@ -274,7 +287,7 @@ class ChiKS:
 
         self.include_intraband = intraband
         
-        self.setup_kpoint_integration(integrationmode,
+        self.setup_kpoint_integration(integrationmode, pd,
                                       disable_point_group,
                                       disable_time_reversal,
                                       disable_non_symmorphic, **extraargs)
@@ -286,13 +299,14 @@ class ChiKS:
 
         self.eshift = eshift / Hartree
 
-    def pw_setup_chimunu(self, **unused):
+    def pw_setup_chimunu(self, pd, **unused):
         """Disable stuff, that has been developed for chi00 only"""
-        self.setup_kpoint_integration('point integration',
+        self.setup_kpoint_integration('point integration', pd,
                                       True, True, True,  # disable symmetry
                                       **unused)
+        self.eshift = 0.0
 
-    def setup_kpoint_integration(self, integrationmode,
+    def setup_kpoint_integration(self, integrationmode, pd,
                                  disable_point_group,
                                  disable_time_reversal,
                                  disable_non_symmorphic, **extraargs):
@@ -300,28 +314,45 @@ class ChiKS:
             self.integrationmode == 'point integration'
         else:
             self.integrationmode = integrationmode
-        self.disable_point_group = disable_point_group
-        self.disable_time_reversal = disable_time_reversal
-        self.disable_non_symmorphic = disable_non_symmorphic
 
-        _setup_integrationmode = self.create_setup_integrationmode()
-        _setup_integrationmode(**extraargs)
+        # Use symmetries
+        PWSA = PWSymmetryAnalyzer
+        self.PWSA = PWSA(self.calc.wfs.kd, pd,
+                         timer=self.timer, txt=self.fd,
+                         disable_point_group=disable_point_group,
+                         disable_time_reversal=disable_time_reversal,
+                         disable_non_symmorphic=disable_non_symmorphic)
 
-    def create_setup_integrationmode(self):
+        self._setup_integrator = self.create_setup_integrator()
+        self._setup_integrator(**extraargs)
+
+    def create_setup_integrator(self):
         """Creator component deciding how to set up kpoint integration."""
+        
         if self.integrationmode == 'point integration':
             print('Using integration method: PointIntegrator',
                   file=self.fd)
             return self.setup_point_integrator
+
         elif self.integrationmode == 'tetrahedron integration':
             print('Using integration method: TetrahedronIntegrator',
                   file=self.fd)
             return self.setup_tetrahedron_integrator
+
         raise ValueError(self.integrationmode)
 
     def setup_point_integrator(self, **unused):
         self._get_kpoint_int_domain = partial(get_kpoint_pointint_domain,
                                               calc=self.calc)
+        self.integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
+                                          response=self.response,  # should be removed XXX
+                                          comm=self.world,
+                                          timer=self.timer,
+                                          txt=self.fd,
+                                          eshift=self.eshift,
+                                          nblocks=self.nblocks)
+        self._calculate_kpoint_integration_prefactor =\
+            calculate_kpoint_pointint_prefactor
 
     def setup_tetrahedron_integrator(self, pbc=None, **unused):
         """
@@ -333,6 +364,15 @@ class ChiKS:
         self.setup_pbc(pbc)
         self._get_kpoint_int_domain = partial(get_kpoint_tetrahint_domain,
                                               pbc=self.pbc)
+        self.integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
+                                                response=self.response,  # should be removed XXX
+                                                comm=self.world,
+                                                timer=self.timer,
+                                                eshift=self.eshift,
+                                                txt=self.fd,
+                                                nblocks=self.nblocks)
+        self._calculate_kpoint_integration_prefactor =\
+            calculate_kpoint_tetrahint_prefactor
 
     def setup_pbc(self, pbc):
         if pbc is not None:
@@ -346,6 +386,24 @@ class ChiKS:
             print('Nonperiodic BC\'s: ', (~self.pbc),
                   file=self.fd)
 
+    def setup_chi_wGG(self, nG, A_x=None):
+        """Initialize the output array in blocks"""
+        nw = len(self.omega_w)
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
+        self.Gb = min(self.Ga + mynG, nG)
+        # if self.blockcomm.rank == 0:
+        #     assert self.Gb - self.Ga >= 3
+        # assert mynG * (self.blockcomm.size - 1) < nG
+        if A_x is not None:
+            nx = nw * (self.Gb - self.Ga) * nG
+            chi_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+            chi_wGG[:] = 0.0
+        else:
+            chi_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+
+        return chi_wGG
+
     def get_summation_domain(self, pd):
         """Find the relevant (n, k, s) -> (m, k + q, s') domain to sum over"""
         n_M, m_M = get_band_summation_domain(self.bandsummation, self.nbands,
@@ -354,27 +412,17 @@ class ChiKS:
         spins, flip = get_spin_summation_domain(self.bandsummation, self.spin,
                                                 self.calc.wfs.nspins)
 
-        bzk_kv, self.PWSA = self.get_kpoint_integration_domain(pd)
-        ksdomain = (bzk_kv, spins)
+        bzk_kv = self.get_kpoint_integration_domain(pd)
 
-        return n_M, m_M, ksdomain, flip
+        return n_M, m_M, bzk_kv, spins, flip
 
     @timer('Get kpoint integration domain')
     def get_kpoint_integration_domain(self, pd):
-        # Use symmetries
-        PWSA = PWSymmetryAnalyzer
-        PWSA = PWSA(self.calc.wfs.kd, pd,
-                    timer=self.timer, txt=self.fd,
-                    disable_point_group=self.disable_point_group,
-                    disable_time_reversal=self.disable_time_reversal,
-                    disable_non_symmorphic=self.disable_non_symmorphic)
-
-        bzk_kc = self._get_kpoint_int_domain(PWSA, pd)
+        bzk_kc = self._get_kpoint_int_domain(self.PWSA, pd)
         bzk_kv = np.dot(bzk_kc, pd.gd.icell_cv) * 2 * np.pi
+        return bzk_kv
 
-        return bzk_kv, PWSA
-
-    def _get_kpoint_int_domain(PWSA, pd):
+    def _get_kpoint_int_domain(pd):
         raise NotImplementedError('Please set up integrator before calling')
 
     def print_pw_chi(self, pd):
@@ -410,7 +458,7 @@ class ChiKS:
         p = partial(print, file=self.fd)
 
         p('%s' % ctime())
-        p('Called response.chi0.calculate with')
+        p('Called response.chi.calculate with')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
         p('    Number of frequency points: %d' % nw)
         p('    Planewave cutoff: %f' % ecut)
@@ -427,7 +475,7 @@ class ChiKS:
         p('    Number of partially occupied states: %d' % npocc)
         p()
         p('    Memory estimate of potentially large arrays:')
-        p('        chi0_wGG: %f M / cpu' % chisize)
+        p('        chi_wGG: %f M / cpu' % chisize)
         p('        Occupied states: %f M / cpu' % occsize)
         p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
                                                                   1024**2))
@@ -739,6 +787,17 @@ def get_kpoint_pointint_domain(PWSA, pd, calc):
     return bzk_kc
 
 
+def calculate_kpoint_pointint_prefactor(calc, PWSA, bzk_kv):
+    # Could use documentation XXX
+    if calc.wfs.kd.refine_info is not None:
+        nbzkpts = calc.wfs.kd.refine_info.mhnbzkpts
+    else:
+        nbzkpts = calc.wfs.kd.nbzkpts
+    frac = len(bzk_kv) / nbzkpts
+    return (2 * frac * PWSA.how_many_symmetries() /
+            (calc.wfs.nspins * (2 * np.pi)**3))
+
+
 def get_kpoint_tetrahint_domain(PWSA, pd, pbc):
     # Could use documentation XXX
     bzk_kc = PWSA.get_reduced_kd(pbc_c=pbc).bzk_kc
@@ -748,3 +807,13 @@ def get_kpoint_tetrahint_domain(PWSA, pd, pbc):
                            axis=0)
 
     return bzk_kc
+
+
+def calculate_kpoint_tetrahint_prefactor(calc, PWSA, bzk_kv):
+    # Could use documentation XXX
+    vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+    domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
+    bzvol = (2 * np.pi)**3 / vol
+    frac = bzvol / domainvol
+    return (2 * frac * PWSA.how_many_symmetries() /
+            (calc.wfs.nspins * (2 * np.pi)**3))
