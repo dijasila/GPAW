@@ -51,6 +51,8 @@ class WLDA(XCFunctional):
                 self.apply_weighting(self.gd1, n1_sg)
                 # unnormed_n_sg = n1_sg.copy()
                 newnorm_s = gd.integrate(n1_sg)
+                # Dont renorm because we would have to save another copy of the unnormed array for the corrections.
+                # Instead manually multiply by the renorm factor where needed
                 # n1_sg[0, :] = n1_sg[0,:]
             elif self.mode.lower() == "constant":
                 self.apply_const_weighting(self.gd1, n1_sg)
