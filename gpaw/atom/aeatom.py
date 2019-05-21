@@ -647,12 +647,12 @@ class AllElectronAtom:
         states = []
         for ch in self.channels:
             for n, f in enumerate(ch.f_n):
-                states.append((ch.e_n[n], ch, n))
+                states.append((ch.e_n[n], n, ch.s, ch))
         states.sort()
-        for e, ch, n in states:
+        for e, n, s, ch in states:
             name = str(n + ch.l + 1) + ch.name
             if self.nspins == 2:
-                name += '(%s)' % '+-'[ch.s]
+                name += '(%s)' % '+-'[s]
             n_g = ch.calculate_density(n)
             rave = self.rgd.integrate(n_g, 1)
             self.log(' %-7s  %6.3f %13.6f  %13.5f %6.3f' %
