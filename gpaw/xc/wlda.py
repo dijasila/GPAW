@@ -696,7 +696,7 @@ class WLDA(XCFunctional):
         kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
-        take_g, weight_g = self.get_take_weight_array(n_g)
+        take_g, weight_g = self.get_take_weight_array(n_sg[0])
         # kF_g = kF_i.take(take_g)
         # kF2_g = kF_i.take(take_g + 1)
         # nx, ny, nz = kF_g.shape
