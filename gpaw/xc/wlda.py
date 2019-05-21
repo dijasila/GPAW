@@ -35,7 +35,6 @@ class WLDA(XCFunctional):
         n1_sg = gd.collect(n_sg)
         v1_sg = gd.collect(v_sg)
         if gd.comm.rank == 0:
-            pren1_sg = n1_sg.copy()
             if self.mode == "":
                 self.apply_weighting(self.gd1, n1_sg)
 
