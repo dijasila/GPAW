@@ -31,10 +31,9 @@ class WLDA(XCFunctional):
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.alpha_n = None #Reset alpha grid for each calc
-        self.n_gi = None
 
         n1_sg = gd.collect(n_sg)
-        #v1_sg = gd.collect(v_sg)
+        v1_sg = gd.collect(v_sg)
         if gd.comm.rank == 0:
             pren1_sg = n1_sg.copy()
             if self.mode == "":
@@ -65,42 +64,42 @@ class WLDA(XCFunctional):
             else:
                 raise ValueError("WLDA mode not recognized")
 
-        gd.distribute(n1_sg, n_sg)        
 
         
 
-        from gpaw.xc.lda import lda_c
-        C0I, C1, CC1, CC2, IF2 = lda_constants()
-        if len(n_sg) == 2:
-            na = 2. * n1_sg[0]
-            na[na < 1e-20] = 1e-40
-            nb = 2. * n_sg[1]
-            nb[nb < 1e-20] = 1e-40
-            n = 0.5 * (na + nb)
-            zeta = 0.5 * (na - nb) / n
-            lda_x(1, e_g, na, v_sg[0])
-            lda_x(1, e_g, nb, v_sg[1])
-            lda_c(1, e_g, n, v_sg, zeta)
-        else:
-            n = n_sg[0]
-            n[n < 1e-20] = 1e-40
-            rs = (C0I/n)**(1/3)
-            ex = C1/rs
-            dexdrs = -ex/rs
-            e_g[:] = n*ex
-            v_sg[0] += ex - rs*dexdrs/3
+            from gpaw.xc.lda import lda_c
+            C0I, C1, CC1, CC2, IF2 = lda_constants()
+            if len(n_sg) == 2:
+                na = 2. * n_sg[0]
+                na[na < 1e-20] = 1e-40
+                nb = 2. * n_sg[1]
+                nb[nb < 1e-20] = 1e-40
+                n = 0.5 * (na + nb)
+                zeta = 0.5 * (na - nb) / n
+                lda_x(1, e_g, na, v_sg[0])
+                lda_x(1, e_g, nb, v_sg[1])
+                lda_c(1, e_g, n, v_sg, zeta)
+            else:
+                n = n1_sg[0]
+                n[n < 1e-20] = 1e-40
+                rs = (C0I/n)**(1/3)
+                ex = C1/rs
+                dexdrs = -ex/rs
+                e_g[:] = n*ex
+                v1_sg[0] += ex - rs*dexdrs/3
             
             
-            zeta = 0
+                zeta = 0
             
-            lda_c(0, e_g, n, v_sg, zeta)
-                #if self.mode.lower() == "":
-                #    self.potential_correction(v1_sg, self.gd1, n1_sg)
+                lda_c(0, e_g, n, v1_sg, zeta)
+                if self.mode.lower() == "":
+                    self.potential_correction(v1_sg, self.gd1, n1_sg)
                     
-                #elif self.mode.lower() == "renorm":
-                #    self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0], unnormed_n_sg)
+                elif self.mode.lower() == "renorm":
+                    self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0], unnormed_n_sg)
                     
-        #gd.distribute(v1_sg, v_sg)
+        gd.distribute(v1_sg, v_sg)
+        gd.distribute(n1_sg, n_sg)        
 
 
     def apply_weighting(self, gd, n_sg):
@@ -112,13 +111,35 @@ class WLDA(XCFunctional):
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
 
-
-        n_gi = self.get_ni_weights(n_g)
+        # n_gi = self.get_ni_weights(n_g)
+        # wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
 
         wtable_gi = self.weight_table
+        nis = self.get_nis(n_g)
+        Nx, Ny, Nz = n_g.shape
 
-        wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
+        def get_is(index):
+            iz = (index % Nz)
+            assert np.allclose(iz, int(iz))
+            iy = ((index % (Ny * Nz)) - iz) / Ny
+            assert np.allclose(iy, int(iy))
+            ix = (index - iy * Nz - iz) / (Ny * Nz)
+            assert np.allclose(ix, int(ix)) 
+            return int(ix), int(iy), int(iz)
 
+        from time import time
+        print("Num iters:", len(n_g.reshape(-1)))
+        print("Grid shape:", n_g.shape)
+        t1 = time()
+        for i, n in enumerate(n_g.reshape(-1)):
+            if (i % 100) == 0:
+                print("Iter: {}".format(i), end="\r")
+            ix, iy, iz = get_is(i)
+            index, weight = self.get_ni_index_weight(n, nis)
+            wn_g[ix, iy, iz] = wtable_gi[ix, iy, iz, index] * weight + wtable_gi[ix, iy, iz, index + 1] * (1 - weight)
+        t2 = time()
+        print("")
+        print("Weighting density took: {} s".format(t2 - t1))
         n_sg[0, :] = wn_g
 
     def apply_const_weighting(self, gd, n_sg):
@@ -242,8 +263,6 @@ class WLDA(XCFunctional):
 
 
     def get_ni_weights(self, n_g):
-        if self.n_gi is not None:
-            return self.n_gi
         n_g = np.abs(n_g)
         nis = self.get_nis(n_g)
         nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
@@ -281,8 +300,6 @@ class WLDA(XCFunctional):
                     pg = partgreater_g[ix, iy, iz]
                     n_gi[ix, iy, iz, -ng] = pg
 
-                
-        self.n_gi = n_gi
         return n_gi
 
 
@@ -300,7 +317,21 @@ class WLDA(XCFunctional):
 
 
         return n_gi
-            
+
+    def get_ni_index_weight(self, n, nis):
+        n = np.abs(n)
+        assert np.min(nis) <= n
+        assert np.max(nis) > n
+        index = (nis <= n).sum()
+        assert index >= 1
+        
+        ngreater = (nis > n).sum()
+        vallesser = nis[index - 1]
+        valgreater = nis[-ngreater]
+        
+        weight = (valgreater-n)/(valgreater-vallesser)
+
+        return index, weight
         
                     
     def _get_ni_vector(self, n):
@@ -629,10 +660,10 @@ class WLDA(XCFunctional):
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
         #w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
-        n_gi = self.get_ni_weights(n_sg[0])
-        w_g = np.zeros_like(v_sg[0])
+        n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
+        w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            w_g += n_gi[:, :, :, i] * np.fft.ifftn(self._theta_filter(k_F, k_G, v_G))
+            w_g += n_gi[:, :, :, i] * np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
             
         #v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
         assert np.allclose(w_g, w_g.real)
