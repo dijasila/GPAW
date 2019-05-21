@@ -3,6 +3,8 @@ import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
+from time import time
+
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None, mode=""):
@@ -10,7 +12,8 @@ class WLDA(XCFunctional):
         if kernel is None:
             kernel = PurePythonLDAKernel()
         self.kernel = kernel
-        self.stepsize = 0.05
+        self.stepsize = 0.1
+        self.stepfactor = 1.1
         self.nalpha = 20
         self.alpha_n = None
         self.mode = mode
@@ -27,6 +30,8 @@ class WLDA(XCFunctional):
         self.occupations = occupations
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        print("Starting WLDA calculation")
+
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -35,6 +40,7 @@ class WLDA(XCFunctional):
         n1_sg = gd.collect(n_sg)
         v1_sg = gd.collect(v_sg)
         if gd.comm.rank == 0:
+            t1 = time()
             if self.mode == "":
                 self.apply_weighting(self.gd1, n1_sg)
 
@@ -64,10 +70,11 @@ class WLDA(XCFunctional):
                 n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
             else:
                 raise ValueError("WLDA mode not recognized")
-
-
+            t2 = time()
+            
+            print("First part took: {} s".format(t2 - t1))
         
-
+            t1 = time()
             from gpaw.xc.lda import lda_c
             C0I, C1, CC1, CC2, IF2 = lda_constants()
             if len(n_sg) == 2:
@@ -113,7 +120,8 @@ class WLDA(XCFunctional):
                     
                 elif self.mode.lower() == "renorm":
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
-                    
+            t2 = time()
+            print("Second part took: {} s".format(t2 - t1))
         gd.distribute(v1_sg, v_sg)
         gd.distribute(n1_sg, n_sg)        
 
@@ -121,20 +129,21 @@ class WLDA(XCFunctional):
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
-
+#        t1 = time()
         self.tabulate_weights(n_sg[0], gd)
         n_g = n_sg[0]
 
         take_g, weight_g = self.get_take_weight_array(n_g)
         wtable_gi = self.weight_table
         wn_g = wtable_gi.take(take_g) * weight_g + wtable_gi.take(take_g + 1) * (1 - weight_g)
+
         n_sg[0, :] = wn_g
 
 
         # nx, ny, nz = n_g.shape
         # wn_g = np.zeros_like(n_g)
         # wtable_gi = self.weight_table
-        # n_gi = self.get_ni_weights(copy_g)
+        # n_gi = self.get_ni_weights(n_g)
         # wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
 
         # n_sg[0, :] = wn_g
@@ -422,7 +431,10 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def get_nis(self, n_g):
-        return np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
+        deltaLog = np.log(self.stepfactor)
+        return np.exp(np.arange(0, maxLogVal, deltaLog)) - 1
+        #return np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
 
 
     def tabulate_weights(self, n_g, gd):
