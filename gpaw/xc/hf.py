@@ -1,6 +1,6 @@
 from collections import namedtuple, defaultdict
 from math import pi
-
+from typing import List
 import numpy as np
 from ase.units import Ha
 
@@ -34,7 +34,7 @@ RSKPoint = namedtuple(
 class EXX:
     def __init__(self,
                  kd: KPointDescriptor,
-                 setups,  # List[Setup]
+                 setups: List['Setup'],
                  spos_ac):
         """Exact exchange operator."""
         self.kd = kd
@@ -103,12 +103,12 @@ class EXX:
                                k1,
                                k2,
                                ghat,
-                               v_G,  # -> float
+                               v_G,
                                pd,
                                index,
                                f2_n,
                                vpsit_nG):
-        Q_annL = [np.einsum('mi,ijL,nj->mnL',
+        Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                             k1.proj[a].conj(),
                             Delta_iiL,
                             k2.proj[a])
