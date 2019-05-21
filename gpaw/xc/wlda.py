@@ -696,10 +696,20 @@ class WLDA(XCFunctional):
         kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
+        take_g, weight_g = self.get_take_weight_array(n_g)
+        # kF_g = kF_i.take(take_g)
+        # kF2_g = kF_i.take(take_g + 1)
+        # nx, ny, nz = kF_g.shape
+        # w_g = np.array([np.fft.ifftn(self._theta_filter(kF, K_G, v_G)) for kF in kF_g.reshape(-1)]).reshape(nx, ny, nz)
+        
+
+
         w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
         w_gi = N * w_gi
-        n_gi = self.get_ni_weights(n_sg[0])
-        w_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
+        
+        w_g = w_gi.take(take_g) * weight_g + w_gi.take(take_g + 1) * (1 - weight_g)
+        #n_gi = self.get_ni_weights(n_sg[0])
+        #w_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
         w_g = w_g + unnormed_n_sg[0] * gd.integrate(v_sg[0]) * N
         v_sg[0, :] = w_g.real
         #return w_g.real
