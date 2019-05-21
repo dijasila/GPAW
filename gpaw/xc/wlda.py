@@ -49,9 +49,9 @@ class WLDA(XCFunctional):
             elif self.mode.lower() == "renorm":
                 norm_s = gd.integrate(n_sg)
                 self.apply_weighting(self.gd1, n1_sg)
-                unnormed_n_sg = n1_sg.copy()
+                # unnormed_n_sg = n1_sg.copy()
                 newnorm_s = gd.integrate(n1_sg)
-                n1_sg[0, :] = n1_sg[0,:] * norm_s[0] / newnorm_s[0]
+                # n1_sg[0, :] = n1_sg[0,:]
             elif self.mode.lower() == "constant":
                 self.apply_const_weighting(self.gd1, n1_sg)
             elif self.mode.lower() == "function":
@@ -80,23 +80,38 @@ class WLDA(XCFunctional):
                 lda_x(1, e_g, nb, v_sg[1])
                 lda_c(1, e_g, n, v_sg, zeta)
             else:
-                n = n1_sg[0]
-                n[n < 1e-20] = 1e-40
-                rs = (C0I/n)**(1/3)
-                ex = C1/rs
-                dexdrs = -ex/rs
-                e_g[:] = n*ex
-                v1_sg[0] += ex - rs*dexdrs/3
+                if self.mode.lower8) == "renorm":
+                    
+                    n = n1_sg[0]
+                    n[n < 1e-20] = 1e-40
+                    rs = (C0I/n)**(1/3) * (newnorm_s[0] / norm_s[0])**(1/3)
+                    ex = C1/rs
+                    dexdrs = -ex/rs
+                    e_g[:] = n * ex * norm_s[0] / newnorm_s[0]
+                    v1_sg[0] += ex - rs*dexdrs/3
             
             
-                zeta = 0
+                    zeta = 0
             
-                lda_c(0, e_g, n, v1_sg, zeta)
+                    lda_c(0, e_g, n * norm_s[0] / newnorm_s[0], v1_sg, zeta)
+                else:
+                    n = n1_sg[0]
+                    n[n < 1e-20] = 1e-40
+                    rs = (C0I/n)**(1/3)
+                    ex = C1/rs
+                    dexdrs = -ex/rs
+                    e_g[:] = n*ex
+                    v1_sg[0] += ex - rs*dexdrs/3
+            
+            
+                    zeta = 0
+            
+                    lda_c(0, e_g, n, v1_sg, zeta)
                 if self.mode.lower() == "":
                     self.potential_correction(v1_sg, self.gd1, n1_sg)
                     
                 elif self.mode.lower() == "renorm":
-                    self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0], unnormed_n_sg)
+                    self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
                     
         gd.distribute(v1_sg, v_sg)
         gd.distribute(n1_sg, n_sg)        
@@ -690,13 +705,13 @@ class WLDA(XCFunctional):
         v_sg[0, :] = w_g.real
         #return v_g.real
         
-    def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm, unnormed_n_sg):
+    def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm):
         _, nx, ny, nz = gd.get_grid_point_coordinates().shape
         N = 1 / newnorm - norm / newnorm**2
         kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
-        take_g, weight_g = self.get_take_weight_array(n_sg[0])
+        take_g, weight_g = self.get_take_weight_array(n_sg[0] * norm / newnorm)
         # kF_g = kF_i.take(take_g)
         # kF2_g = kF_i.take(take_g + 1)
         # nx, ny, nz = kF_g.shape
@@ -710,7 +725,7 @@ class WLDA(XCFunctional):
         w_g = w_gi.take(take_g) * weight_g + w_gi.take(take_g + 1) * (1 - weight_g)
         #n_gi = self.get_ni_weights(n_sg[0])
         #w_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
-        w_g = w_g + unnormed_n_sg[0] * gd.integrate(v_sg[0]) * N
+        w_g = w_g + n_sg[0] * gd.integrate(v_sg[0]) * N
         v_sg[0, :] = w_g.real
         #return w_g.real
         
