@@ -111,10 +111,15 @@ class WLDA(XCFunctional):
         n_g = n_sg[0]
         wn_g = np.zeros_like(n_g)
 
-        # n_gi = self.get_ni_weights(n_g)
-        # wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
-
+        from time import time
+        t1 = time()
         wtable_gi = self.weight_table
+        n_gi = self.get_ni_weights(n_g)
+        wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
+        t2 = time()
+        print("Weighting density took: {} s".format(t2 - t1))
+        n_sg[0, :] = wn_g
+        return
         nis = self.get_nis(n_g)
         Nx, Ny, Nz = n_g.shape
 
