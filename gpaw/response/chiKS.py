@@ -222,7 +222,7 @@ class KohnShamLinearResponseFunction:
         p('')
 
 
-def get_band_summation_domain(bandsummation, nbands, nocc1=None, nocc2=None):
+def get_band_transitions_domain(bandsummation, nbands, nocc1=None, nocc2=None):
     """Get all pairs of bands to sum over
 
     Parameters
@@ -238,42 +238,28 @@ def get_band_summation_domain(bandsummation, nbands, nocc1=None, nocc2=None):
 
     Returns
     -------
-    n_M : ndarray
-        band index 1, M = combined index
-    m_M : ndarray
-        band index 2, M = combined index
+    n1_M : ndarray
+        band index 1, M = (n1, n2) composite index
+    n2_M : ndarray
+        band index 2, M = (n1, n2) composite index
     """
-    _get_band_sum_domain = create_get_band_sum_domain(bandsummation)
-    n_M, m_M = _get_band_sum_domain(nbands)
+    _get_band_transitions_domain =\
+        create_get_band_transitions_domain(bandsummation)
+    n1_M, n2_M = _get_band_transitions_domain(nbands)
     
-    return remove_null_transitions(n_M, m_M, nocc1=nocc1, nocc2=nocc2)
+    return remove_null_transitions(n1_M, n2_M, nocc1=nocc1, nocc2=nocc2)
 
 
-def create_get_band_sum_domain(bandsummation):
+def create_get_band_transitions_domain(bandsummation):
     """Creator component deciding how to carry out band summation."""
     if bandsummation == 'pairwise':
-        return get_pairwise_band_sum_domain
+        return get_pairwise_band_transitions_domain
     elif bandsummation == 'double':
-        return get_double_band_sum_domain
+        return get_double_band_transitions_domain
     raise ValueError(bandsummation)
 
 
-def remove_null_transitions(n_M, m_M, nocc1=None, nocc2=None):
-    """Remove pairs of bands, between which transitions are impossible"""
-    n_newM = []
-    m_newM = []
-    for n, m in zip(n_M, m_M):
-        if nocc1 is not None and (n < nocc1 and m < nocc1):
-            continue  # both bands are fully occupied
-        elif nocc2 is not None and (n >= nocc2 and m >= nocc2):
-            continue  # both bands are completely unoccupied
-        n_newM.append(n)
-        m_newM.append(m)
-
-    return np.array(n_newM), np.array(m_newM)
-
-
-def get_double_band_sum_domain(nbands):
+def get_double_band_transitions_domain(nbands):
     """Make a simple double sum"""
     n_n = np.arange(0, nbands)
     m_m = np.arange(0, nbands)
@@ -283,7 +269,7 @@ def get_double_band_sum_domain(nbands):
     return n_M, m_M
 
 
-def get_pairwise_band_sum_domain(nbands):
+def get_pairwise_band_transitions_domain(nbands):
     """Make a sum over all pairs"""
     n_n = range(0, nbands)
     n_M = []
@@ -293,7 +279,22 @@ def get_pairwise_band_sum_domain(nbands):
         n_M += [n] * len(m_m)
         m_M += m_m
 
-    return np.array(n_M), np.array(n_M)
+    return np.array(n_M), np.array(m_M)
+
+
+def remove_null_transitions(n1_M, n2_M, nocc1=None, nocc2=None):
+    """Remove pairs of bands, between which transitions are impossible"""
+    n1_newM = []
+    n2_newM = []
+    for n1, n2 in zip(n1_M, n2_M):
+        if nocc1 is not None and (n1 < nocc1 and n2 < nocc1):
+            continue  # both bands are fully occupied
+        elif nocc2 is not None and (n1 >= nocc2 and n2 >= nocc2):
+            continue  # both bands are completely unoccupied
+        n1_newM.append(n1)
+        n2_newM.append(n2)
+
+    return np.array(n1_newM), np.array(n2_newM)
 
 
 def get_spin_summation_domain(bandsummation, spin, nspins):
