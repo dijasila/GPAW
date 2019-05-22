@@ -428,8 +428,10 @@ class WLDA(XCFunctional):
         # assert len(nis) > 1
         # return nis
         nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        stepsize = self.stepsize
         while len(nis) > 25:
-            nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), 2 * self.stepsize)
+            stepsize *= 1.2
+            nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), stepsize)
         return nis
 
 
