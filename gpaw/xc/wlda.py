@@ -3,8 +3,6 @@ import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
-from time import time
-
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None, mode=""):
@@ -30,8 +28,6 @@ class WLDA(XCFunctional):
         self.occupations = occupations
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        print("Starting WLDA calculation")
-
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -40,7 +36,6 @@ class WLDA(XCFunctional):
         n1_sg = gd.collect(n_sg)
         v1_sg = gd.collect(v_sg)
         if gd.comm.rank == 0:
-            t1 = time()
             if self.mode == "":
                 self.apply_weighting(self.gd1, n1_sg)
 
@@ -70,11 +65,7 @@ class WLDA(XCFunctional):
                 n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
             else:
                 raise ValueError("WLDA mode not recognized")
-            t2 = time()
-            
-            print("First part took: {} s".format(t2 - t1))
         
-            t1 = time()
             from gpaw.xc.lda import lda_c
             C0I, C1, CC1, CC2, IF2 = lda_constants()
             if len(n_sg) == 2:
@@ -120,8 +111,7 @@ class WLDA(XCFunctional):
                     
                 elif self.mode.lower() == "renorm":
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
-            t2 = time()
-            print("Second part took: {} s".format(t2 - t1))
+
         gd.distribute(v1_sg, v_sg)
         gd.distribute(n1_sg, n_sg)        
 
@@ -431,10 +421,16 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def get_nis(self, n_g):
-        maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
-        deltaLog = np.log(self.stepfactor)
-        return np.exp(np.arange(0, maxLogVal, deltaLog)) - 1
-        #return np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        n_g = np.abs(n_g)
+        # maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
+        # deltaLog = np.log(self.stepfactor)
+        # nis = np.exp(np.arange(0, maxLogVal, deltaLog)) - 1
+        # assert len(nis) > 1
+        # return nis
+        nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        while len(nis) > 25:
+            nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), 2 * self.stepsize)
+        return nis
 
 
     def tabulate_weights(self, n_g, gd):
@@ -711,7 +707,9 @@ class WLDA(XCFunctional):
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            w_g += n_gi[:, :, :, i] * np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
+            filv_g = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
+            assert np.allclose(filv_g, filv_g.real), "Filtered potential was not real for kF: {}".format(k_F)
+            w_g += n_gi[:, :, :, i] * filv_g
             
         #v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
         assert np.allclose(w_g, w_g.real)
