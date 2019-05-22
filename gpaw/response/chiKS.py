@@ -1,4 +1,3 @@
-import numbers
 import numpy as np
 from functools import partial
 from time import ctime
@@ -11,22 +10,45 @@ import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
                         DryRunBlacsGrid)
 from gpaw.utilities.memory import maxrss
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.bztools import convex_hull_volume
-from gpaw.response.pair import PWSymmetryAnalyzer
-from gpaw.response.pair import create_PairMatrixElement
-from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 
 
-class ChiKS:
-    """For calculating linear response functions in the Kohn-Sham system"""
+class KohnShamLinearResponseFunction:
+    """Class calculating linear response functions in the Kohn-Sham system
 
-    def __init__(self, gs, response='susceptibility', mode='pw',
-                 world=mpi.world, txt='-', timer=None, **kwargs):
-        """Construct the ChiKS object
+    Any linear response function can be calculated as a sum over transitions
+    between the ground state and excited energy eigenstates.
 
-        Currently only collinear Kohn-Sham systems are supported.
+    In the Kohn-Sham system this approach is particularly simple, as only
+    excited states, for which a single electron has been moved from an occupied
+    single-particle Kohn-Sham orbital to an unoccupied one, contribute.
+
+    Resultantly, any linear response function in the Kohn-Sham system can be
+    written as a sum over transitions between pairs of occupied and unoccupied
+    Kohn-Sham orbitals.
+
+    Currently, only collinear Kohn-Sham systems are supported. That is, all
+    transitions can be written in terms of band indexes, k-points and spins:
+
+    T (composit transition index): (n, k, s) -> (n', k', s')
+
+    The sum over transitions is an integral over k-points in the 1st Brillouin
+    Zone and a sum over all bands and spins. Sums over bands and spins can be
+    handled together:
+
+    t (composit transition index): (n, s) -> (n', s')
+    
+    __               __   __               __
+    \      //        \    \      //        \
+    /   =  ||dk dk'  /    /   =  ||dk dk'  /
+    ‾‾     //        ‾‾   ‾‾     //        ‾‾
+    T               n,n' s,s'              t
+    """
+
+    def __init__(self, gs, response=None, mode=None,
+                 bandsummation='pairwise', nbands=None, kpointintegration=None,
+                 world=mpi.world, nblocks=1, txt='-', timer=None):
+        """Construct the KSLRF object
 
         Parameters
         ----------
@@ -39,129 +61,72 @@ class ChiKS:
         mode: str
             Calculation mode.
             Currently, only a plane wave mode is implemented.
+        bandsummation : str
+            Band summation for pairs of Kohn-Sham orbitals
+            'pairwise': sum over pairs of bands
+            'double': double sum over band indices.
+        nbands : int
+            Maximum band index to include.
+        kpointintegration : str
+            Brillouin Zone integration for the Kohn-Sham orbital wave vector.
         world : obj
             MPI communicator.
+        nblocks : int
+            Divide the response function storage into nblocks. Useful when the
+            response function is large and memory requirements are restrictive.
         txt : str
             Output file.
         timer : func
             gpaw.utilities.timing.timer wrapper instance
 
-        Note: Any parameter you want to pass to PairMatrixElement (ex.
-              gate_voltage to PairDensity) or to set up a specific response
-              or calculation mode (ex. frequencies to setup_pw_calculator),
-              you can pass as a kwarg.
-              
+        Attributes
+        ----------
+        KSPair : gpaw.response.pair.KohnShamPair instance
+            Class for handling pairs of Kohn-Sham orbitals
+        PME : gpaw.response.pair.PairMatrixElement instance
+            Class for calculating transition matrix elements for pairs of
+            Kohn-Sham orbitals
+        integrator : gpaw.response.integrators.Integrator instance
+            The integrator class is a general class for Brillouin Zone
+            integration. The user defined integrand is integrated over k-points
+            and a user defined sum over possible band and spin domains is
+            carried out.
 
         Callables
         ---------
         self.calculate(*args, **kwargs) : func
-            Runs the ChiKS calculation, returning the response function.
+            Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
         """
 
+        self.KSPair = KohnShamPair(gs, world=world, txt=txt, timer=timer)  # KohnShamPair object missing XXX
+        self.calc = self.KSPair.calc
+
         self.response = response
         self.mode = mode
-        self.world = world
 
-        # Initialize the PairMatrixElement object
-        PME = create_PairMatrixElement(response)
-        self.pair = PME(gs, world=self.world, txt=txt, timer=timer, **kwargs)
-
-        # Extract ground state calculator, timer and filehandle for output
-        calc = self.pair.calc
-        self.calc = calc
-        self.timer = self.pair.timer
-        self.fd = self.pair.fd
-
-        self.setup_calculator(**kwargs)
-
-    def setup_calculator(self, **kwargs):
-        (self._setup_calculator,
-         self.calculate, self._calculate) = self.create_calculator()
-        self._setup_calculator(**kwargs)
-
-    def create_calculator(self):
-        """Creator component deciding how and what to calculate."""
-        if self.mode == 'pw' and self.response == 'susceptibility':
-            return (self.setup_pw_calculator,
-                    self.pw_calculate_susceptibility,
-                    self._pw_calculate_susceptibility)
-        else:
-            raise ValueError(self.response, self.mode)
-
-    def setup_pw_calculator(self, frequencies=None, eta=0.2,
-                            ecut=50, gammacentered=False,
-                            nbands=None, bandsummation='pairwise',
-                            nblocks=1, **extraargs):
-        """Initialize the plane wave calculator mode.
-
-        Parameters
-        ----------
-        frequencies : ndarray or None
-            Array of frequencies to evaluate the response function at.
-            If None, a nonlinear frequency grid is used:
-            domega0, omega2, omegamax : float
-                Input parameters for nonlinear frequency grid.
-                Passed through kwargs
-        eta : float
-            Energy broadening of spectra.
-        ecut : float
-            Energy cutoff for the plane wave representation.
-        gammacentered : bool
-            Center the grid of plane waves around the gamma point or q-vector.
-        nbands : int
-            Maximum band index to include.
-        bandsummation : str
-            Band summation for transition matrix elements.
-            'pairwise': sum over pairs of bands (uses spin-conserving
-            time-reversal symmetry to reduce number of matrix elements).
-            'double': double sum over band indices.
-        nblocks : int
-            Divide the response function storage into nblocks. Useful when the
-            response function is large and memory requirements are restrictive.
-
-        extraargs : dict
-            Extra arguments, that are not used for all spin susceptibilities
-        """
-
-        self.nbands = nbands or self.calc.wfs.bd.nbands
-
-        self.frequencies = frequencies
-        self.wd = self.get_pw_frequencies(frequencies, **extraargs)
-        self.omega_w = self.wd.get_data()
-        self.eta = eta / Hartree
-        
-        self.ecut = None if ecut is None else ecut / Hartree
-        self.gammacentered = gammacentered
-        
         self.bandsummation = bandsummation
-        
-        self.setup_memory_distribution(nblocks)
+        self.nbands = nbands or self.calc.wfs.bd.nbands
+        self.nocc1 = self.KSPair.nocc1  # number of completely filled bands
+        self.nocc2 = self.KSPair.nocc2  # number of non-empty bands
+
+        self.kpointintegration = kpointintegration
+        self.integrator = None  # Mode specific (kpoint) Integrator class
+
+        self.initialize_distributed_memory(nblocks)
         self.nblocks = nblocks
 
-        self.nocc1 = self.pair.nocc1  # number of completely filled bands
-        self.nocc2 = self.pair.nocc2  # number of non-empty bands
+        # Extract world, timer and filehandle for output
+        self.world = self.KSPair.world
+        self.timer = self.KSPair.timer
+        self.fd = self.KSPair.fd
 
-        self.extraintargs = {}  # Extra arguments for the integration method.
-
-        # Properties of plane wave susceptibility, given to self.calculate()
-        self.pd = None  # Plane wave descriptor for given momentum transfer q
-        self.spin = None  # Given spin rotation matrix
-        self.PWSA = None  # Plane wave symmetry analyzer for given q
-        self.Q_aGii = None  # PAW corrections for given q
-
-        self.extraargs = extraargs
-
-    def get_pw_frequencies(self, frequencies, **kwargs):
-        """Frequencies to evaluate response function at in GPAW units"""
-        if frequencies is None:
-            return get_nonlinear_frequency_grid(self.calc, self.nbands,
-                                                fd=self.fd, **kwargs)
-        else:
-            return ArrayDescriptor(np.asarray(frequencies) / Hartree)
-
-    def setup_memory_distribution(self, nblocks):
-        """Set up distribution of memory"""
+        # Attributes related to the specific response function
+        self.PME = None
+    
+    def initialize_distributed_memory(self, nblocks):
+        """Set up MPI communicators to allow each process to store
+        only a fraction (a block) of the response function."""
         if nblocks == 1:
             self.blockcomm = self.world.new_communicator([self.world.rank])
             self.kncomm = self.world
@@ -173,13 +138,296 @@ class ChiKS:
             ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-    def pw_calculate_susceptibility(self, q_c, spin='all', A_x=None):
+    def calculate(self, spin=None):
+        """
+        Parameters
+        ----------
+        spin : str
+            Select spin rotation.
+            Choices: 'uu', 'dd', 'I' (= 'uu' + 'dd'), '-'= and '+'
+            All rotations are included for spin=None ('I' + '+' + '-').
+        """
+        # Prepare to sum over bands and spins
+        n1_t, n2_t, s1_t, s2_t = self.get_transitions_sum_domain()
+
+        # Print information about the prepared calculation
+        self.print_information(len(n1_t))
+        if extra_parameters.get('df_dry_run'):  # Exit after setting up
+            print('    Dry run exit', file=self.fd)
+            raise SystemExit
+
+        return self._calculate(n1_t, n2_t, s1_t, s2_t)
+
+    def get_transitions_sum_domain(self, spin=None):
+        """Generate all allowed band and spin transitions.
+        
+        If only a subset of possible spin rotations are considered
+        (examples: s1 = s2 or s2 = 1 - s1), do not include others
+        in the sum over transitions.
+        """
+        n1_M, n2_M = get_band_transitions_domain(self.bandsummation,
+                                                 self.nbands,
+                                                 nocc1=self.nocc1,
+                                                 nocc2=self.nocc2)
+        s1_S, s2_S = get_spin_transitions_domain(self.bandsummation,
+                                                 spin, self.calc.wfs.nspins)
+
+        return get_bandspin_transitions_domain(n1_M, n2_M, s1_S, s2_S)
+
+    def _calculate(self, n1_t, n2_t, s1_t, s2_t):
+        raise NotImplementedError('This is a parent class')
+
+    def print_information(self, nt):
+        """Basic information about input ground state and parallelization"""
+        ns = self.calc.wfs.nspins
+        nbands = self.nbands
+        nocc = self.nocc1
+        npocc = self.nocc2
+        nk = self.calc.wfs.kd.nbzkpts
+        nik = self.calc.wfs.kd.nibzkpts
+
+        if extra_parameters.get('df_dry_run'):
+            from gpaw.mpi import DryRunCommunicator
+            size = extra_parameters['df_dry_run']
+            world = DryRunCommunicator(size)
+        else:
+            world = self.world
+        wsize = world.size
+        knsize = self.kncomm.size
+        bsize = self.blockcomm.size
+
+        p = partial(print, file=self.fd)
+
+        p('%s' % ctime())
+        p('Called a response.lrf.KohnShamLinearResponseFunction.calculate()')
+        p('using a Kohn-Sham ground state with:')
+        p('    Number of spins: %d' % ns)
+        p('    Number of bands: %d' % nbands)
+        p('    Number of completely occupied states: %d' % nocc)
+        p('    Number of partially occupied states: %d' % npocc)
+        p('    Number of kpoints: %d' % nk)
+        p('    Number of irredicible kpoints: %d' % nik)
+        p('')
+        p('The response function calculation is performed in parallel with:')
+        p('    world.size: %d' % wsize)
+        p('    kncomm.size: %d' % knsize)
+        p('    blockcomm.size: %d' % bsize)
+        p('')
+
+
+class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
+    """Class for doing KS-LRF calculations in plane wave mode"""
+
+    def __init__(self, *args, frequencies=None, eta=0.2,
+                 ecut=50, gammacentered=False, disable_point_group=True,
+                 disable_time_reversal=True, disable_non_symmorphic=True,
+                 kpointintegration='point integration', **kwargs):
+        """Initialize the plane wave calculator mode.
+        In plane wave mode, the linear response function is calculated
+        in the frequency domain. The spatial part is expanded in plane waves
+        for a given momentum transfer q within the first Brillouin Zone.
+
+        Parameters
+        ----------
+        frequencies : ndarray or None
+            Array of frequencies to evaluate the response function at.
+        eta : float
+            Energy broadening of spectra.
+        ecut : float
+            Energy cutoff for the plane wave representation.
+        gammacentered : bool
+            Center the grid of plane waves around the gamma point or q-vector.
+        disable_point_group : bool
+            Do not use the point group symmetry operators.
+        disable_time_reversal : bool
+            Do not use time reversal symmetry.
+        disable_non_symmorphic : bool
+            Do no use non symmorphic symmetry operators.
+        """
+        # Avoid any mode ambiguity
+        if 'mode' in kwargs.keys():
+            mode = kwargs.pop('mode')
+            assert mode == 'pw'
+
+        KSLRF = KohnShamLinearResponseFunction
+        KSLRF.__init__(self, *args, mode='pw',
+                       kpointintegration=kpointintegration, **kwargs)
+
+        self.wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
+        self.omega_w = self.wd.get_data()
+        self.eta = eta / Hartree
+
+        self.ecut = None if ecut is None else ecut / Hartree
+        self.gammacentered = gammacentered
+
+        self.disable_point_group = disable_point_group
+        self.disable_time_reversal = disable_time_reversal
+        self.disable_non_symmorphic = disable_non_symmorphic
+
+        self.integrator = create_integrator(self.mode, self.kpointintegration)  # Write me XXX
+
+        # Attributes related to specific q, given to self.calculate()
+        self.pd = None  # Plane wave descriptor for given momentum transfer q
+        self.PWSA = None  # Plane wave symmetry analyzer for given q
+
+    def calculate(self, q_c, A_x=None):
+        """
+        Parameters
+        ----------
+        q_c : list or ndarray
+            Momentum transfer.
+        A_x : ndarray
+            Output array. If None, the output array is created.
+
+        Returns
+        -------
+        pd : Planewave descriptor
+            Planewave descriptor for q_c.
+        A_wGG : ndarray
+            The linear response function.
+        """
+        # Set up plane wave description with the gived momentum transfer q
+        q_c = np.asarray(q_c, dtype=float)
+        self.pd = self.get_PWDescriptor(q_c)
+        self.PWSA = self.get_PWSymmetryAnalyzer(self.pd)
+
+        # Print information about the prepared calculation
+        self.print_information()  # Print more/less information XXX
+        if extra_parameters.get('df_dry_run'):  # Exit after setting up
+            print('    Dry run exit', file=self.fd)
+            raise SystemExit
+
+        A_wGG = self.setup_output_array(A_x)
+
+        n_M, m_M, s1_M, s2_M = self.get_summation_domain()
+
+        return self._calculate(A_wGG, n_M, m_M, s1_S, s2_S)
+
+    def _calculate(self, A_wGG, n_M, m_M, s1_S, s2_S):
+        raise NotImplementedError('This is a parent class')
+
+    def get_PWDescriptor(self, q_c):
+        """Get the planewave descriptor for a certain momentum transfer q_c."""
+        from gpaw.kpt_descriptor import KPointDescriptor
+        from gpaw.wavefunctions.pw import PWDescriptor
+        
+        qd = KPointDescriptor([q_c])
+        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
+                          complex, qd, gammacentered=self.gammacentered)
+        return pd
+
+    def get_PWSymmetryAnalyzer(self, pd):
+        from gpaw.response.integrators import PWSymmetryAnalyzer as PWSA  # Write me XXX
+        
+        return PWSA(self.calc.wfs.kd, pd,
+                    timer=self.timer, txt=self.fd,
+                    disable_point_group=self.disable_point_group,
+                    disable_time_reversal=self.disable_time_reversal,
+                    disable_non_symmorphic=self.disable_non_symmorphic)
+
+    def setup_output_array(self, nG, A_x=None):
+        """Initialize the output array in blocks"""
+        # Could use some more documentation XXX
+        nw = len(self.omega_w)
+        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
+        self.Ga = min(self.blockcomm.rank * mynG, nG)
+        self.Gb = min(self.Ga + mynG, nG)
+        # if self.blockcomm.rank == 0:
+        #     assert self.Gb - self.Ga >= 3
+        # assert mynG * (self.blockcomm.size - 1) < nG
+        if A_x is not None:
+            nx = nw * (self.Gb - self.Ga) * nG
+            A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+            A_wGG[:] = 0.0
+        else:
+            A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+
+        return A_wGG
+
+    def get_summation_domain(self):
+        return
+
+    def print_information(self):
+        calc = self.calc
+        gd = calc.wfs.gd
+
+        if extra_parameters.get('df_dry_run'):
+            from gpaw.mpi import DryRunCommunicator
+            size = extra_parameters['df_dry_run']
+            world = DryRunCommunicator(size)
+        else:
+            world = self.world
+
+        q_c = self.pd.kd.bzk_kc[0]
+        nw = len(self.omega_w)
+        ecut = self.ecut * Hartree
+        ns = calc.wfs.nspins
+        nbands = self.nbands
+        nk = calc.wfs.kd.nbzkpts
+        nik = calc.wfs.kd.nibzkpts
+        ngmax = self.pd.ngmax
+        eta = self.eta * Hartree
+        wsize = world.size
+        knsize = self.kncomm.size
+        nocc = self.nocc1
+        npocc = self.nocc2
+        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
+        nstat = (ns * npocc + world.size - 1) // world.size
+        occsize = nstat * ngridpoints * 16. / 1024**2
+        bsize = self.blockcomm.size
+        chisize = nw * self.pd.ngmax**2 * 16. / 1024**2 / bsize
+
+        p = partial(print, file=self.fd)
+
+        p('%s' % ctime())
+        p('Called response.lrf.PlaneWaveKSLRF.calculate() with')
+        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
+        p('    Number of frequency points: %d' % nw)
+        p('    Planewave cutoff: %f' % ecut)
+        p('    Number of spins: %d' % ns)
+        p('    Number of bands: %d' % nbands)
+        p('    Number of kpoints: %d' % nk)
+        p('    Number of irredicible kpoints: %d' % nik)
+        p('    Number of planewaves: %d' % ngmax)
+        p('    Broadening (eta): %f' % eta)
+        p('    world.size: %d' % wsize)
+        p('    kncomm.size: %d' % knsize)
+        p('    blockcomm.size: %d' % bsize)
+        p('    Number of completely occupied states: %d' % nocc)
+        p('    Number of partially occupied states: %d' % npocc)
+        p()
+        p('    Memory estimate of potentially large arrays:')
+        p('        A_wGG: %f M / cpu' % chisize)
+        p('        Occupied states: %f M / cpu' % occsize)
+        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
+                                                                  1024**2))
+        p()
+
+
+class chiKS(PlaneWaveKSLRF):
+    """Class calculating the four-component Kohn-Sham susceptibility tensor."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize the chiKS object in plane wave mode.
+        
+        INSERT: Description of the matrix elements XXX
+        """
+        PlaneWaveKSLRF.__init__(self, *args, **kwargs)
+
+        # INSERT: some attachment of PairDensity object XXX
+
+        # The class is calculating one spin component at a time
+        self.spin = None
+        # PAW correction might change with spin component and momentum transfer
+        self.Q_aGii = None
+
+    def calculate(self, q_c, spin='all', A_x=None):
         """Calculate spin susceptibility in plane wave mode.
 
         Parameters
         ----------
         q_c : list or ndarray
-            Momentum vector.
+            Momentum transfer.
         spin : str or int
             What susceptibility should be calculated?
             Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented
@@ -195,24 +443,22 @@ class ChiKS:
         chi_wGG : ndarray
             The response function.
         """
+        # Set up plane wave description with the gived momentum transfer q
         q_c = np.asarray(q_c, dtype=float)
-        self.pd = get_PWDescriptor(self.ecut, self.calc.wfs.gd, q_c,
-                                   gammacentered=self.gammacentered)
+        self.pd = self.get_PWDescriptor(q_c)
+        self.PWSA = self.get_PWSymmetryAnalyzer(self.pd)
+        self.Q_aGii = self.pairdensity.initialize_paw_corrections(self.pd)  # PairDensity object missing XXX
 
-        self.spin = get_unique_spin_str(spin)
-
-        # Set up stuff that depends on q_c and spin
-        self.PWSA = self.pw_setup_susceptibility(self.pd, self.spin)
-        # Reset PAW correction
-        self.Q_aGii = self.pair.initialize_paw_corrections(self.pd)
+        # Analyze the requested spin component
+        self.spin = get_unique_spin_component(spin)
 
         # Print information about the set up calculation
-        self.print_pw_chi()
+        self.print_information()  # Print more/less information XXX
         if extra_parameters.get('df_dry_run'):  # Exit after setting up
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
-        chi_wGG = self.setup_chi_wGG(A_x)  # set up output array
+        chi_wGG = self.setup_output_array(A_x)
 
         n_M, m_M, bzk_kv, spins, flip = self.get_summation_domain()
 
@@ -251,112 +497,6 @@ class ChiKS:
         self.redistribute(tmpchi_wGG, chi_wGG)
 
         return self.pd, chi_wGG
-
-    def pw_setup_susceptibility(self, pd, spin):
-        """Set up chiKS to calculate a spicific spin susceptibility."""
-        assert spin in ['00', 'uu', 'dd', '+-', '-+']
-        self._pw_setup_sus = self.create_pw_setup_susceptibility(spin)
-        self._pw_setup_sus(pd, **self.extraargs)
-
-    def create_pw_setup_susceptibility(self, spin):
-        """Creator component deciding how to set up spin susceptibility."""
-        if spin == '00':
-            return self.pw_setup_chi00
-        else:
-            return self.pw_setup_chimunu
-    
-    def pw_setup_chi00(self, pd, hilbert=True, timeordered=False,
-                       intraband=True, integrationmode=None,
-                       disable_point_group=False,
-                       disable_time_reversal=False,
-                       disable_non_symmorphic=True,
-                       rate=0.0, eshift=0.0, **extraargs):
-        """Set up additional parameters for plane wave chi00 calculation
-        The chi00 calculation could use further refactorization XXX
-
-        Parameters
-        ----------
-        hilbert : bool
-            Switch for hilbert transform. If True, the full density
-            response is determined from a hilbert transform of its spectral
-            function. This is typically much faster, but does not work for
-            imaginary frequencies.
-        timeordered : bool
-            Calculate the time ordered density response function.
-            In this case the hilbert transform cannot be used.
-        intraband : bool
-            Switch for including the intraband contribution to the density
-            response function.
-        disable_point_group : bool
-            Do not use the point group symmetry operators.
-        disable_time_reversal : bool
-            Do not use time reversal symmetry.
-        disable_non_symmorphic : bool
-            Do no use non symmorphic symmetry operators.
-        integrationmode : str
-            Integrator for the kpoint integration.
-        rate : float
-            Unknown parameter for intraband calculation in optical limit
-        eshift : float
-            Shift unoccupied bands
-        """
-
-        self.hilbert = hilbert
-        self.timeordered = bool(timeordered)
-            
-        if self.eta == 0.0:  # Refacor using factory method XXX
-            # If eta is 0 then we must be working with imaginary frequencies.
-            # In this case chi is hermitian and it is therefore possible to
-            # reduce the computational costs by a only computing half of the
-            # response function.
-            assert not self.hilbert
-            assert not self.timeordered
-            assert not self.omega_w.real.any()
-            
-            self.integration_kind = 'hermitian response function'
-        elif self.hilbert:
-            # The spectral function integrator assumes that the form of the
-            # integrand is a function (a matrix element) multiplied by
-            # a delta function and should return a function of at user defined
-            # x's (frequencies). Thus the integrand is tuple of two functions
-            # and takes an additional argument (x).
-            assert self.frequencies is None
-            self.integration_kind = 'spectral function'
-        else:
-            self.extraintargs['eta'] = self.eta
-            self.extraintargs['timeordered'] = self.timeordered
-            self.integration_kind = 'response function'
-
-        self.include_intraband = intraband
-        
-        PWSA = self.setup_kpoint_integration(integrationmode, pd,
-                                             disable_point_group,
-                                             disable_time_reversal,
-                                             disable_non_symmorphic,
-                                             **extraargs)
-        
-        if rate == 'eta':
-            self.rate = self.eta
-        else:
-            self.rate = rate / Hartree
-
-        self.eshift = eshift / Hartree
-
-        return PWSA
-
-    def pw_setup_chimunu(self, pd, **unused):
-        """Disable stuff, that has been developed for chi00 only"""
-
-        self.extraintargs['eta'] = self.eta
-        self.extraintargs['timeordered'] = False
-        self.integration_kind = 'response function'
-
-        PWSA = self.setup_kpoint_integration('point integration', pd,
-                                             True, True, True,  # disable sym
-                                             **unused)
-        self.eshift = 0.0
-
-        return PWSA
 
     def setup_kpoint_integration(self, integrationmode, pd,
                                  disable_point_group,
@@ -403,7 +543,7 @@ class ChiKS:
     def setup_point_integrator(self, **unused):
         self._get_kpoint_int_domain = partial(get_kpoint_pointint_domain,
                                               calc=self.calc)
-        self.integrator = PointIntegrator(self.pair.calc.wfs.gd.cell_cv,
+        self.integrator = PointIntegrator(self.calc.wfs.gd.cell_cv,
                                           response=self.response,  # should be removed XXX
                                           comm=self.world,
                                           timer=self.timer,
@@ -423,7 +563,7 @@ class ChiKS:
         self.setup_pbc(pbc)
         self._get_kpoint_int_domain = partial(get_kpoint_tetrahint_domain,
                                               pbc=self.pbc)
-        self.integrator = TetrahedronIntegrator(self.pair.calc.wfs.gd.cell_cv,
+        self.integrator = TetrahedronIntegrator(self.calc.wfs.gd.cell_cv,
                                                 response=self.response,  # should be removed XXX
                                                 comm=self.world,
                                                 timer=self.timer,
@@ -444,25 +584,6 @@ class ChiKS:
                 print('Only one non-periodic direction supported atm.')
             print('Nonperiodic BC\'s: ', (~self.pbc),
                   file=self.fd)
-
-    def setup_chi_wGG(self, nG, A_x=None):
-        """Initialize the output array in blocks"""
-        # Could use some more documentation XXX
-        nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
-        self.Gb = min(self.Ga + mynG, nG)
-        # if self.blockcomm.rank == 0:
-        #     assert self.Gb - self.Ga >= 3
-        # assert mynG * (self.blockcomm.size - 1) < nG
-        if A_x is not None:
-            nx = nw * (self.Gb - self.Ga) * nG
-            chi_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
-            chi_wGG[:] = 0.0
-        else:
-            chi_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
-
-        return chi_wGG
 
     def get_summation_domain(self):
         """Find the relevant (n, k, s) -> (m, k + q, s') domain to sum over"""
@@ -515,7 +636,7 @@ class ChiKS:
 
         extrapolate_q = False  # SHOULD THIS ONLY BE USED IN OPTICAL LIM? XXX
         if self.calc.wfs.kd.refine_info is not None:
-            K1 = self.pair.find_kpoint(k_c)
+            K1 = self.KSPair.find_kpoint(k_c)
             label = self.calc.wfs.kd.refine_info.label_k[K1]
             if label == 'zero':
                 return None
@@ -527,12 +648,12 @@ class ChiKS:
                 extrapolate_q = True
 
         if self.Q_aGii is None:
-            self.Q_aGii = self.pair.initialize_paw_corrections(pd)
+            self.Q_aGii = self.KSPair.initialize_paw_corrections(pd)
 
-        kptpair = self.pair.get_kpoint_pair(pd, s, k_c, block=block)
+        kptpair = self.KSPair.get_kpoint_pair(pd, s, k_c, block=block)
 
-        n_MG = self.pair.get_pair_density(pd, kptpair, n_M, m_M,
-                                          Q_aGii=self.Q_aGii, block=block)
+        n_MG = self.KSPair.get_pair_density(pd, kptpair, n_M, m_M,
+                                            Q_aGii=self.Q_aGii, block=block)
         
         if self.integrationmode == 'point integration':
             n_MG *= np.sqrt(self.PWSA.get_kpoint_weight(k_c) /
@@ -642,66 +763,10 @@ class ChiKS:
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
 
         return out_wGG
-    
-    def print_pw_chi(self):
-        calc = self.calc
-        gd = calc.wfs.gd
-
-        if extra_parameters.get('df_dry_run'):
-            from gpaw.mpi import DryRunCommunicator
-            size = extra_parameters['df_dry_run']
-            world = DryRunCommunicator(size)
-        else:
-            world = self.world
-
-        q_c = self.pd.kd.bzk_kc[0]
-        nw = len(self.omega_w)
-        ecut = self.ecut * Hartree
-        ns = calc.wfs.nspins
-        nbands = self.nbands
-        nk = calc.wfs.kd.nbzkpts
-        nik = calc.wfs.kd.nibzkpts
-        ngmax = self.pd.ngmax
-        eta = self.eta * Hartree
-        wsize = world.size
-        knsize = self.kncomm.size
-        nocc = self.nocc1
-        npocc = self.nocc2
-        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
-        nstat = (ns * npocc + world.size - 1) // world.size
-        occsize = nstat * ngridpoints * 16. / 1024**2
-        bsize = self.blockcomm.size
-        chisize = nw * self.pd.ngmax**2 * 16. / 1024**2 / bsize
-
-        p = partial(print, file=self.fd)
-
-        p('%s' % ctime())
-        p('Called response.chi.calculate with')
-        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p('    Number of frequency points: %d' % nw)
-        p('    Planewave cutoff: %f' % ecut)
-        p('    Number of spins: %d' % ns)
-        p('    Number of bands: %d' % nbands)
-        p('    Number of kpoints: %d' % nk)
-        p('    Number of irredicible kpoints: %d' % nik)
-        p('    Number of planewaves: %d' % ngmax)
-        p('    Broadening (eta): %f' % eta)
-        p('    world.size: %d' % wsize)
-        p('    kncomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
-        p('    Number of completely occupied states: %d' % nocc)
-        p('    Number of partially occupied states: %d' % npocc)
-        p()
-        p('    Memory estimate of potentially large arrays:')
-        p('        chi_wGG: %f M / cpu' % chisize)
-        p('        Occupied states: %f M / cpu' % occsize)
-        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
-                                                                  1024**2))
-        p()
 
 
-class ArrayDescriptor:
-    """Describes a single dimensional array."""
+class FrequencyDescriptor:
+    """Describes a one-dimensional array of frequencies."""
 
     def __init__(self, data_x):
         self.data_x = np.array(np.sort(data_x))
@@ -713,108 +778,8 @@ class ArrayDescriptor:
     def get_data(self):
         return self.data_x
 
-    def get_closest_index(self, scalars_w):
-        """Get closest index.
 
-        Get closest index approximating scalars from below."""
-        diff_xw = self.data_x[:, np.newaxis] - scalars_w[np.newaxis]
-        return np.argmin(diff_xw, axis=0)
-
-    def get_index_range(self, lim1_m, lim2_m):
-        """Get index range. """
-
-        i0_m = np.zeros(len(lim1_m), int)
-        i1_m = np.zeros(len(lim2_m), int)
-
-        for m, (lim1, lim2) in enumerate(zip(lim1_m, lim2_m)):
-            i_x = np.logical_and(lim1 <= self.data_x,
-                                 lim2 >= self.data_x)
-            if i_x.any():
-                inds = np.argwhere(i_x)
-                i0_m[m] = inds.min()
-                i1_m[m] = inds.max() + 1
-
-        return i0_m, i1_m
-
-
-class FrequencyDescriptor(ArrayDescriptor):
-
-    def __init__(self, domega0, omega2, omegamax):
-        beta = (2**0.5 - 1) * domega0 / omega2
-        wmax = int(omegamax / (domega0 + beta * omegamax))
-        w = np.arange(wmax + 2)  # + 2 is for buffer
-        omega_w = w * domega0 / (1 - beta * w)
-
-        ArrayDescriptor.__init__(self, omega_w)
-
-        self.domega0 = domega0
-        self.omega2 = omega2
-        self.omegamax = omegamax
-        self.omegamin = 0
-
-        self.beta = beta
-        self.wmax = wmax
-        self.omega_w = omega_w
-        self.wmax = wmax
-        self.nw = len(omega_w)
-
-    def get_closest_index(self, o_m):
-        beta = self.beta
-        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
-        if isinstance(w_m, np.ndarray):
-            w_m[w_m >= self.wmax] = self.wmax - 1
-        elif isinstance(w_m, numbers.Integral):
-            if w_m >= self.wmax:
-                w_m = self.wmax - 1
-        else:
-            raise TypeError
-        return w_m
-
-    def get_index_range(self, omega1_m, omega2_m):
-        omega1_m = omega1_m.copy()
-        omega2_m = omega2_m.copy()
-        omega1_m[omega1_m < 0] = 0
-        omega2_m[omega2_m < 0] = 0
-        w1_m = self.get_closest_index(omega1_m)
-        w2_m = self.get_closest_index(omega2_m)
-        o1_m = self.omega_w[w1_m]
-        o2_m = self.omega_w[w2_m]
-        w1_m[o1_m < omega1_m] += 1
-        w2_m[o2_m < omega2_m] += 1
-        return w1_m, w2_m
-
-
-def find_maximum_frequency(calc, nbands, fd=None):
-    """Determine the maximum electron-hole pair transition energy."""
-    epsmin = 10000.0
-    epsmax = -10000.0
-    for kpt in calc.wfs.kpt_u:
-        epsmin = min(epsmin, kpt.eps_n[0])
-        epsmax = max(epsmax, kpt.eps_n[nbands - 1])
-
-    if fd is not None:
-        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree), file=fd)
-        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Hartree), file=fd)
-
-        return epsmax - epsmin
-
-
-def get_nonlinear_frequency_grid(calc, nbands, fd=None,
-                                 domega0=0.1, omega2=10.0, omegamax=None,
-                                 **unused):
-    domega0 = domega0 / Hartree
-    omega2 = omega2 / Hartree
-    omegamax = None if omegamax is None else omegamax / Hartree
-    if omegamax is None:
-        omegamax = find_maximum_frequency(calc, nbands)
-
-    if fd is not None:
-        print('Using nonlinear frequency grid from 0 to %.3f eV' %
-              (omegamax * Hartree), file=fd)
-    return FrequencyDescriptor(domega0, omega2, omegamax)
-
-
-def get_unique_spin_str(spin):
+def get_unique_spin_component(spin):
     """Convert all supported input to chiKS standard."""
     if isinstance(spin, str):
         if spin in ['00', 'uu', 'dd', '+-', '-+']:
@@ -827,14 +792,6 @@ def get_unique_spin_str(spin):
         elif spin == 1:
             return 'dd'
     raise ValueError(spin)
-
-
-def get_PWDescriptor(ecut, gd, q_c, gammacentered=False):
-    """Get the planewave descriptor of q_c."""
-    qd = KPointDescriptor([q_c])
-    pd = PWDescriptor(ecut, gd,
-                      complex, qd, gammacentered=gammacentered)
-    return pd
 
 
 def get_band_summation_domain(bandsummation, nbands, nocc1=None, nocc2=None):
@@ -1040,3 +997,122 @@ def calculate_kpoint_tetrahint_prefactor(calc, PWSA, bzk_kv):
     frac = bzvol / domainvol
     return (2 * frac * PWSA.how_many_symmetries() /
             (calc.wfs.nspins * (2 * np.pi)**3))
+
+
+'''
+class ArrayDescriptor:
+    """Describes a single dimensional array."""
+
+    def __init__(self, data_x):
+        self.data_x = np.array(np.sort(data_x))
+        self._data_len = len(data_x)
+
+    def __len__(self):
+        return self._data_len
+
+    def get_data(self):
+        return self.data_x
+
+    def get_closest_index(self, scalars_w):
+        """Get closest index.
+
+        Get closest index approximating scalars from below."""
+        diff_xw = self.data_x[:, np.newaxis] - scalars_w[np.newaxis]
+        return np.argmin(diff_xw, axis=0)
+
+    def get_index_range(self, lim1_m, lim2_m):
+        """Get index range. """
+
+        i0_m = np.zeros(len(lim1_m), int)
+        i1_m = np.zeros(len(lim2_m), int)
+
+        for m, (lim1, lim2) in enumerate(zip(lim1_m, lim2_m)):
+            i_x = np.logical_and(lim1 <= self.data_x,
+                                 lim2 >= self.data_x)
+            if i_x.any():
+                inds = np.argwhere(i_x)
+                i0_m[m] = inds.min()
+                i1_m[m] = inds.max() + 1
+
+        return i0_m, i1_m
+
+
+import numbers
+
+
+class FrequencyDescriptor(ArrayDescriptor):
+
+    def __init__(self, domega0, omega2, omegamax):
+        beta = (2**0.5 - 1) * domega0 / omega2
+        wmax = int(omegamax / (domega0 + beta * omegamax))
+        w = np.arange(wmax + 2)  # + 2 is for buffer
+        omega_w = w * domega0 / (1 - beta * w)
+
+        ArrayDescriptor.__init__(self, omega_w)
+
+        self.domega0 = domega0
+        self.omega2 = omega2
+        self.omegamax = omegamax
+        self.omegamin = 0
+
+        self.beta = beta
+        self.wmax = wmax
+        self.omega_w = omega_w
+        self.wmax = wmax
+        self.nw = len(omega_w)
+
+    def get_closest_index(self, o_m):
+        beta = self.beta
+        w_m = (o_m / (self.domega0 + beta * o_m)).astype(int)
+        if isinstance(w_m, np.ndarray):
+            w_m[w_m >= self.wmax] = self.wmax - 1
+        elif isinstance(w_m, numbers.Integral):
+            if w_m >= self.wmax:
+                w_m = self.wmax - 1
+        else:
+            raise TypeError
+        return w_m
+
+    def get_index_range(self, omega1_m, omega2_m):
+        omega1_m = omega1_m.copy()
+        omega2_m = omega2_m.copy()
+        omega1_m[omega1_m < 0] = 0
+        omega2_m[omega2_m < 0] = 0
+        w1_m = self.get_closest_index(omega1_m)
+        w2_m = self.get_closest_index(omega2_m)
+        o1_m = self.omega_w[w1_m]
+        o2_m = self.omega_w[w2_m]
+        w1_m[o1_m < omega1_m] += 1
+        w2_m[o2_m < omega2_m] += 1
+        return w1_m, w2_m
+
+
+def find_maximum_frequency(calc, nbands, fd=None):
+    """Determine the maximum electron-hole pair transition energy."""
+    epsmin = 10000.0
+    epsmax = -10000.0
+    for kpt in calc.wfs.kpt_u:
+        epsmin = min(epsmin, kpt.eps_n[0])
+        epsmax = max(epsmax, kpt.eps_n[nbands - 1])
+
+    if fd is not None:
+        print('Minimum eigenvalue: %10.3f eV' % (epsmin * Hartree), file=fd)
+        print('Maximum eigenvalue: %10.3f eV' % (epsmax * Hartree), file=fd)
+
+        return epsmax - epsmin
+
+
+def get_nonlinear_frequency_grid(calc, nbands, fd=None,
+                                 domega0=0.1, omega2=10.0, omegamax=None,
+                                 **unused):
+    domega0 = domega0 / Hartree
+    omega2 = omega2 / Hartree
+    omegamax = None if omegamax is None else omegamax / Hartree
+    if omegamax is None:
+        omegamax = find_maximum_frequency(calc, nbands)
+
+    if fd is not None:
+        print('Using nonlinear frequency grid from 0 to %.3f eV' %
+              (omegamax * Hartree), file=fd)
+    return FrequencyDescriptor(domega0, omega2, omegamax)
+'''
