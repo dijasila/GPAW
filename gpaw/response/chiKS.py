@@ -138,17 +138,18 @@ class KohnShamLinearResponseFunction:
             ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-    def calculate(self, spin=None):
+    def calculate(self, spinrot=None):
         """
         Parameters
         ----------
-        spin : str
+        spinrot : str
             Select spin rotation.
             Choices: 'uu', 'dd', 'I' (= 'uu' + 'dd'), '-'= and '+'
-            All rotations are included for spin=None ('I' + '+' + '-').
+            All rotations are included for spinrot=None ('I' + '+' + '-').
         """
+        self.spinrot = spinrot
         # Prepare to sum over bands and spins
-        n1_t, n2_t, s1_t, s2_t = self.get_transitions_sum_domain()
+        n1_t, n2_t, s1_t, s2_t = self.get_transitions_sum_domain(spinrot)
 
         # Print information about the prepared calculation
         self.print_information(len(n1_t))
@@ -158,7 +159,7 @@ class KohnShamLinearResponseFunction:
 
         return self._calculate(n1_t, n2_t, s1_t, s2_t)
 
-    def get_transitions_sum_domain(self, spin=None):
+    def get_transitions_sum_domain(self, spinrot=None):
         """Generate all allowed band and spin transitions.
         
         If only a subset of possible spin rotations are considered
@@ -170,7 +171,7 @@ class KohnShamLinearResponseFunction:
                                                  nocc1=self.nocc1,
                                                  nocc2=self.nocc2)
         s1_S, s2_S = get_spin_transitions_domain(self.bandsummation,
-                                                 spin, self.calc.wfs.nspins)
+                                                 spinrot, self.calc.wfs.nspins)
 
         return get_bandspin_transitions_domain(n1_M, n2_M, s1_S, s2_S)
 
@@ -196,6 +197,8 @@ class KohnShamLinearResponseFunction:
         knsize = self.kncomm.size
         bsize = self.blockcomm.size
 
+        spinrot = self.spinrot
+
         p = partial(print, file=self.fd)
 
         p('%s' % ctime())
@@ -212,6 +215,10 @@ class KohnShamLinearResponseFunction:
         p('    world.size: %d' % wsize)
         p('    kncomm.size: %d' % knsize)
         p('    blockcomm.size: %d' % bsize)
+        p('')
+        p('The sum over band and spin transitions is perform using:')
+        p('    Spin rotation: %s' % spinrot)
+        p('    Total number of composite band and spin transitions: %d' % nt)
         p('')
 
 
