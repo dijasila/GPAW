@@ -149,7 +149,7 @@ class KohnShamLinearResponseFunction:
         """
         self.spinrot = spinrot
         # Prepare to sum over bands and spins
-        n1_t, n2_t, s1_t, s2_t = self.get_transitions_sum_domain(spinrot)
+        n1_t, n2_t, s1_t, s2_t = self.get_band_spin_transitions_domain()
 
         # Print information about the prepared calculation
         self.print_information(len(n1_t))
@@ -159,7 +159,7 @@ class KohnShamLinearResponseFunction:
 
         return self._calculate(n1_t, n2_t, s1_t, s2_t)
 
-    def get_transitions_sum_domain(self, spinrot=None):
+    def get_band_spin_transitions_domain(self):
         """Generate all allowed band and spin transitions.
         
         If only a subset of possible spin rotations are considered
@@ -171,9 +171,10 @@ class KohnShamLinearResponseFunction:
                                                  nocc1=self.nocc1,
                                                  nocc2=self.nocc2)
         s1_S, s2_S = get_spin_transitions_domain(self.bandsummation,
-                                                 spinrot, self.calc.wfs.nspins)
+                                                 self.spinrot,
+                                                 self.calc.wfs.nspins)
 
-        return get_bandspin_transitions_domain(n1_M, n2_M, s1_S, s2_S)
+        return transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S)
 
     def _calculate(self, n1_t, n2_t, s1_t, s2_t):
         raise NotImplementedError('This is a parent class')
@@ -297,89 +298,87 @@ def remove_null_transitions(n1_M, n2_M, nocc1=None, nocc2=None):
     return np.array(n1_newM), np.array(n2_newM)
 
 
-def get_spin_summation_domain(bandsummation, spin, nspins):
+def get_spin_transitions_domain(bandsummation, spinrot, nspins):
     """Get structure of the sum over spins
 
     Parameters
     ----------
     bandsummation : str
         Band summation method
-    spin : str
-        spin transition in chiKS standard
+    spinrot : str
+        spin rotation
     nspins : int
         number of spin channels in ground state calculation
 
     Returns
     -------
-    spins : list
-        list of start spins (s)
-    flip : bool
-        does the transition flip the spin (s' = 1 - s)?
+    s1_s : ndarray
+        spin index 1, S = (s1, s2) composite index
+    s2_S : ndarray
+        spin index 2, S = (s1, s2) composite index
     """
-    _get_spin_sum_domain = create_get_spin_sum_domain(bandsummation)
-    spins, flip = _get_spin_sum_domain(spin, nspins)
-
-    if flip:
-        assert nspins == 2
-    else:
-        assert max(spins) < nspins
-
-    return spins, flip
+    _get_spin_transitions_domain =\
+        create_get_spin_transitions_domain(bandsummation)
+    return _get_spin_transitions_domain(spinrot, nspins)
 
 
-def create_get_spin_sum_domain(bandsummation):
+def create_get_spin_transitions_domain(bandsummation):
     """Creator component deciding how to carry out spin summation."""
     if bandsummation == 'pairwise':
-        return get_pairwise_spin_sum_domain
+        return get_pairwise_spin_transitions_domain
     elif bandsummation == 'double':
-        return get_double_spin_sum_domain
+        return get_double_spin_transitions_domain
     raise ValueError(bandsummation)
 
 
-def get_double_spin_sum_domain(spin, nspins):
-    """Transitions forward in time"""
-    if spin == '00':
-        spins = range(nspins)
-        flip = False
-    elif spin == 'uu':
-        spins = [0]
-        flip = False
-    elif spin == 'dd':
-        spins = [1]
-        flip = False
-    elif spin == '+-':
-        spins = [0]
-        flip = True
-    elif spin == '-+':
-        spins = [1]
-        flip = True
+def get_double_spin_transitions_domain(spinrot, nspins):
+    """Usual spin rotations forward in time"""
+    if nspins == 1:
+        if spinrot is None or spinrot == 'I':
+            s1_S = [0]
+            s2_S = [0]
+        else:
+            raise ValueError(spinrot, nspins)
     else:
-        raise ValueError(spin)
+        if spinrot is None:
+            s1_S = [0, 0, 1, 1]
+            s2_S = [0, 1, 0, 1]
+        elif spinrot == 'I':
+            s1_S = [0, 1]
+            s2_S = [0, 1]
+        elif spinrot == 'uu':
+            s1_S = [0]
+            s2_S = [0]
+        elif spinrot == 'dd':
+            s1_S = [1]
+            s2_S = [1]
+        elif spinrot == '-':
+            s1_S = [0]  # spin up
+            s2_S = [1]  # spin down
+        elif spinrot == '+':
+            s1_S = [1]  # spin down
+            s2_S = [0]  # spin up
+        else:
+            raise ValueError(spinrot)
 
-    return spins, flip
+    return np.array(s1_S), np.array(s2_S)
 
 
-def get_pairwise_spin_sum_domain(spin, nspins):
-    """Transitions forward in time"""
-    if spin == '00':
-        spins = range(nspins)
-        flip = False
-    elif spin == 'uu':
-        spins = [0]
-        flip = False
-    elif spin == 'dd':
-        spins = [1]
-        flip = False
-    elif spin == '+-':
-        spins = [0, 1]
-        flip = True
-    elif spin == '-+':
-        spins = [0, 1]
-        flip = True
+def get_pairwise_spin_transitions_domain(spinrot, nspins):
+    """In a sum over pairs, transitions including a spin rotation may have to
+    include terms, propagating backwards in time."""
+    if spinrot in ['+', '-']:
+        assert nspins == 2
+        return np.array([0, 1]), np.array([1, 0])
     else:
-        raise ValueError(spin)
+        return get_double_spin_transitions_domain(spinrot, nspins)
 
-    return spins, flip
+
+def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
+    """Use a composite index t for transitions (n, s) -> (n', s')."""
+    n1_MS, s1_MS = np.meshgrid(n1_M, s1_S)
+    n2_MS, s2_MS = np.meshgrid(n2_M, s2_S)
+    return n1_MS.flatten(), n2_MS.flatten(), s1_MS.flatten(), s2_MS.flatten()
 
 
 class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
