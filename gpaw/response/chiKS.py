@@ -7,10 +7,8 @@ from ase.utils.timing import timer
 
 from gpaw import extra_parameters
 import gpaw.mpi as mpi
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
-                        DryRunBlacsGrid)
+from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
-from gpaw.bztools import convex_hull_volume
 
 
 class KohnShamLinearResponseFunction:
@@ -112,6 +110,10 @@ class KohnShamLinearResponseFunction:
 
         self.kpointintegration = kpointintegration
         self.integrator = None  # Mode specific (kpoint) Integrator class
+        # Each integrator might support different integration strategies:
+        self.integration_kind = None
+        # Each integrator might take some extra input kwargs
+        self.extraintargs = {}
 
         self.initialize_distributed_memory(nblocks)
         self.nblocks = nblocks
@@ -138,14 +140,20 @@ class KohnShamLinearResponseFunction:
             ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-    def calculate(self, spinrot=None):
-        """
+    def calculate(self, spinrot=None, A_x=None):
+        return self._calculate(spinrot, A_x)
+
+    def _calculate(self, spinrot, A_x):
+        """In-place calculation of the response function
+
         Parameters
         ----------
         spinrot : str
             Select spin rotation.
             Choices: 'uu', 'dd', 'I' (= 'uu' + 'dd'), '-'= and '+'
             All rotations are included for spinrot=None ('I' + '+' + '-').
+        A_x : ndarray
+            Output array. If None, the output array is created.
         """
         self.spinrot = spinrot
         # Prepare to sum over bands and spins
@@ -157,7 +165,15 @@ class KohnShamLinearResponseFunction:
             print('    Dry run exit', file=self.fd)
             raise SystemExit
 
-        return self._calculate(n1_t, n2_t, s1_t, s2_t)
+        A_x = self.setup_output_array(A_x)
+
+        self.integrator.integrate(kind=self.integration_kind,
+                                  bsdomain=(n1_t, n2_t, s1_t, s2_t),
+                                  get_integrand=self.get_integrand,
+                                  out_x=A_x,
+                                  **self.extraintargs)
+
+        return self.post_process(A_x)
 
     def get_band_spin_transitions_domain(self):
         """Generate all allowed band and spin transitions.
@@ -176,11 +192,18 @@ class KohnShamLinearResponseFunction:
 
         return transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S)
 
-    def _calculate(self, n1_t, n2_t, s1_t, s2_t):
-        raise NotImplementedError('This is a parent class')
+    def setup_output_array(self, A_x):
+        raise NotImplementedError('Output array depends on mode')
+
+    def get_integrand(self, *args, **kwargs):
+        raise NotImplementedError('Integrand depends on response and mode')
+
+    def post_process(self, A_x):
+        raise NotImplementedError('Post processing depends on mode')
 
     def print_information(self, nt):
-        """Basic information about input ground state and parallelization"""
+        """Basic information about the input ground state, parallelization
+        and sum over states"""
         ns = self.calc.wfs.nspins
         nbands = self.nbands
         nocc = self.nocc1
@@ -217,7 +240,7 @@ class KohnShamLinearResponseFunction:
         p('    kncomm.size: %d' % knsize)
         p('    blockcomm.size: %d' % bsize)
         p('')
-        p('The sum over band and spin transitions is perform using:')
+        p('The sum over band and spin transitions is performed using:')
         p('    Spin rotation: %s' % spinrot)
         p('    Total number of composite band and spin transitions: %d' % nt)
         p('')
@@ -389,8 +412,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                  disable_time_reversal=True, disable_non_symmorphic=True,
                  kpointintegration='point integration', **kwargs):
         """Initialize the plane wave calculator mode.
-        In plane wave mode, the linear response function is calculated
-        in the frequency domain. The spatial part is expanded in plane waves
+        In plane wave mode, the linear response function is calculated for a
+        given set of frequencies. The spatial part is expanded in plane waves
         for a given momentum transfer q within the first Brillouin Zone.
 
         Parameters
@@ -436,14 +459,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.PWSA = None  # Plane wave symmetry analyzer for given q
 
-    def calculate(self, q_c, A_x=None):
+    def calculate(self, q_c, spinrot=None, A_x=None):
         """
         Parameters
         ----------
         q_c : list or ndarray
             Momentum transfer.
-        A_x : ndarray
-            Output array. If None, the output array is created.
 
         Returns
         -------
@@ -456,21 +477,10 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         q_c = np.asarray(q_c, dtype=float)
         self.pd = self.get_PWDescriptor(q_c)
         self.PWSA = self.get_PWSymmetryAnalyzer(self.pd)
+        self.extraintargs['PWSA'] = self.PWSA
 
-        # Print information about the prepared calculation
-        self.print_information()  # Print more/less information XXX
-        if extra_parameters.get('df_dry_run'):  # Exit after setting up
-            print('    Dry run exit', file=self.fd)
-            raise SystemExit
-
-        A_wGG = self.setup_output_array(A_x)
-
-        n_M, m_M, s1_M, s2_M = self.get_summation_domain()
-
-        return self._calculate(A_wGG, n_M, m_M, s1_S, s2_S)
-
-    def _calculate(self, A_wGG, n_M, m_M, s1_S, s2_S):
-        raise NotImplementedError('This is a parent class')
+        # In-place calculation
+        return self._calculate(spinrot, A_x)
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
@@ -483,13 +493,40 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return pd
 
     def get_PWSymmetryAnalyzer(self, pd):
-        from gpaw.response.integrators import PWSymmetryAnalyzer as PWSA  # Write me XXX
+        from gpaw.response.pair import PWSymmetryAnalyzer as PWSA
         
         return PWSA(self.calc.wfs.kd, pd,
                     timer=self.timer, txt=self.fd,
                     disable_point_group=self.disable_point_group,
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
+
+    def print_information(self, nt):
+        """Basic information about the input ground state, parallelization,
+        sum over states and calculated response function array."""
+        KohnShamLinearResponseFunction.print_information(self, nt)
+
+        q_c = self.pd.kd.bzk_kc[0]
+        nw = len(self.omega_w)
+        eta = self.eta * Hartree
+        ecut = self.ecut * Hartree
+        ngmax = self.pd.ngmax
+        Asize = nw * self.pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
+
+        p = partial(print, file=self.fd)
+
+        p('The response function is calculated in the PlaneWave mode, using:')
+        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
+        p('    Number of frequency points: %d' % nw)
+        p('    Broadening (eta): %f' % eta)
+        p('    Planewave cutoff: %f' % ecut)
+        p('    Number of planewaves: %d' % ngmax)
+        p('')
+        p('    Memory estimates:')
+        p('        A_wGG: %f M / cpu' % Asize)
+        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
+                                                                  1024**2))
+        p('')
 
     def setup_output_array(self, nG, A_x=None):
         """Initialize the output array in blocks"""
@@ -510,64 +547,94 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         return A_wGG
 
-    def get_summation_domain(self):
-        return
+    def post_process(self, A_wGG):
+        tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
+        self.PWSA.symmetrize_wGG(tmpA_wGG)
+        self.redistribute(tmpA_wGG, A_wGG)
 
-    def print_information(self):
-        calc = self.calc
-        gd = calc.wfs.gd
+        return self.pd, A_wGG
 
-        if extra_parameters.get('df_dry_run'):
-            from gpaw.mpi import DryRunCommunicator
-            size = extra_parameters['df_dry_run']
-            world = DryRunCommunicator(size)
-        else:
-            world = self.world
+    @timer('redist')
+    def redistribute(self, in_wGG, out_x=None):
+        """Redistribute array.
 
-        q_c = self.pd.kd.bzk_kc[0]
+        Switch between two kinds of parallel distributions:
+
+        1) parallel over G-vectors (second dimension of in_wGG)
+        2) parallel over frequency (first dimension of in_wGG)
+
+        Returns new array using the memory in the 1-d array out_x.
+        """
+
+        comm = self.blockcomm
+
+        if comm.size == 1:
+            return in_wGG
+
         nw = len(self.omega_w)
-        ecut = self.ecut * Hartree
-        ns = calc.wfs.nspins
-        nbands = self.nbands
-        nk = calc.wfs.kd.nbzkpts
-        nik = calc.wfs.kd.nibzkpts
-        ngmax = self.pd.ngmax
-        eta = self.eta * Hartree
-        wsize = world.size
-        knsize = self.kncomm.size
-        nocc = self.nocc1
-        npocc = self.nocc2
-        ngridpoints = gd.N_c[0] * gd.N_c[1] * gd.N_c[2]
-        nstat = (ns * npocc + world.size - 1) // world.size
-        occsize = nstat * ngridpoints * 16. / 1024**2
-        bsize = self.blockcomm.size
-        chisize = nw * self.pd.ngmax**2 * 16. / 1024**2 / bsize
+        nG = in_wGG.shape[2]
+        mynw = (nw + comm.size - 1) // comm.size
+        mynG = (nG + comm.size - 1) // comm.size
 
-        p = partial(print, file=self.fd)
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
 
-        p('%s' % ctime())
-        p('Called response.lrf.PlaneWaveKSLRF.calculate() with')
-        p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
-        p('    Number of frequency points: %d' % nw)
-        p('    Planewave cutoff: %f' % ecut)
-        p('    Number of spins: %d' % ns)
-        p('    Number of bands: %d' % nbands)
-        p('    Number of kpoints: %d' % nk)
-        p('    Number of irredicible kpoints: %d' % nik)
-        p('    Number of planewaves: %d' % ngmax)
-        p('    Broadening (eta): %f' % eta)
-        p('    world.size: %d' % wsize)
-        p('    kncomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
-        p('    Number of completely occupied states: %d' % nocc)
-        p('    Number of partially occupied states: %d' % npocc)
-        p()
-        p('    Memory estimate of potentially large arrays:')
-        p('        A_wGG: %f M / cpu' % chisize)
-        p('        Occupied states: %f M / cpu' % occsize)
-        p('        Memory usage before allocation: %f M / cpu' % (maxrss() /
-                                                                  1024**2))
-        p()
+        if len(in_wGG) == nw:
+            mdin = md2
+            mdout = md1
+        else:
+            mdin = md1
+            mdout = md2
+
+        r = Redistributor(comm, mdin, mdout)
+
+        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
+        if out_x is None:
+            out_wGG = np.empty(outshape, complex)
+        else:
+            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
+
+        r.redistribute(in_wGG.reshape(mdin.shape),
+                       out_wGG.reshape(mdout.shape))
+
+        return out_wGG
+
+
+class FrequencyDescriptor:
+    """Describes a one-dimensional array of frequencies."""
+
+    def __init__(self, data_x):
+        self.data_x = np.array(np.sort(data_x))
+        self._data_len = len(data_x)
+
+    def __len__(self):
+        return self._data_len
+
+    def get_data(self):
+        return self.data_x
+
+
+# These thing should be moved to integrator XXX
+def get_kpoint_pointint_domain(pd, PWSA, calc):
+    # Could use documentation XXX
+    K_gK = PWSA.group_kpoints()
+    bzk_kc = np.array([calc.wfs.kd.bzk_kc[K_K[0]] for
+                       K_K in K_gK])
+
+    return bzk_kc
+
+
+def calculate_kpoint_pointint_prefactor(calc, PWSA, bzk_kv):
+    # Could use documentation XXX
+    if calc.wfs.kd.refine_info is not None:
+        nbzkpts = calc.wfs.kd.refine_info.mhnbzkpts
+    else:
+        nbzkpts = calc.wfs.kd.nbzkpts
+    frac = len(bzk_kv) / nbzkpts
+    return (2 * frac * PWSA.how_many_symmetries() /
+            (calc.wfs.nspins * (2 * np.pi)**3))
 
 
 class chiKS(PlaneWaveKSLRF):
@@ -844,106 +911,6 @@ class chiKS(PlaneWaveKSLRF):
 
         return n_MG, df_M
 
-    @timer('redist')
-    def redistribute(self, in_wGG, out_x=None):
-        """Redistribute array.
-
-        Switch between two kinds of parallel distributions:
-
-        1) parallel over G-vectors (second dimension of in_wGG)
-        2) parallel over frequency (first dimension of in_wGG)
-
-        Returns new array using the memory in the 1-d array out_x.
-        """
-
-        comm = self.blockcomm
-
-        if comm.size == 1:
-            return in_wGG
-
-        nw = len(self.omega_w)
-        nG = in_wGG.shape[2]
-        mynw = (nw + comm.size - 1) // comm.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        bg1 = BlacsGrid(comm, comm.size, 1)
-        bg2 = BlacsGrid(comm, 1, comm.size)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, mynw, nG**2)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, nw, mynG * nG)
-
-        if len(in_wGG) == nw:
-            mdin = md2
-            mdout = md1
-        else:
-            mdin = md1
-            mdout = md2
-
-        r = Redistributor(comm, mdin, mdout)
-
-        outshape = (mdout.shape[0], mdout.shape[1] // nG, nG)
-        if out_x is None:
-            out_wGG = np.empty(outshape, complex)
-        else:
-            out_wGG = out_x[:np.product(outshape)].reshape(outshape)
-
-        r.redistribute(in_wGG.reshape(mdin.shape),
-                       out_wGG.reshape(mdout.shape))
-
-        return out_wGG
-
-    @timer('dist freq')
-    def distribute_frequencies(self, chi0_wGG):
-        """Distribute frequencies to all cores."""
-
-        world = self.world
-        comm = self.blockcomm
-
-        if world.size == 1:
-            return chi0_wGG
-
-        nw = len(self.omega_w)
-        nG = chi0_wGG.shape[2]
-        mynw = (nw + world.size - 1) // world.size
-        mynG = (nG + comm.size - 1) // comm.size
-
-        wa = min(world.rank * mynw, nw)
-        wb = min(wa + mynw, nw)
-
-        if self.blockcomm.size == 1:
-            return chi0_wGG[wa:wb].copy()
-
-        if self.kncomm.rank == 0:
-            bg1 = BlacsGrid(comm, 1, comm.size)
-            in_wGG = chi0_wGG.reshape((nw, -1))
-        else:
-            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
-            in_wGG = np.zeros((0, 0), complex)
-        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
-
-        bg2 = BlacsGrid(world, world.size, 1)
-        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
-
-        r = Redistributor(world, md1, md2)
-        shape = (wb - wa, nG, nG)
-        out_wGG = np.empty(shape, complex)
-        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
-
-        return out_wGG
-
-
-class FrequencyDescriptor:
-    """Describes a one-dimensional array of frequencies."""
-
-    def __init__(self, data_x):
-        self.data_x = np.array(np.sort(data_x))
-        self._data_len = len(data_x)
-
-    def __len__(self):
-        return self._data_len
-
-    def get_data(self):
-        return self.data_x
-
 
 def get_unique_spin_component(spin):
     """Convert all supported input to chiKS standard."""
@@ -958,50 +925,3 @@ def get_unique_spin_component(spin):
         elif spin == 1:
             return 'dd'
     raise ValueError(spin)
-
-
-def get_kpoint_pointint_domain(pd, PWSA, calc):
-    # Could use documentation XXX
-    K_gK = PWSA.group_kpoints()
-    bzk_kc = np.array([calc.wfs.kd.bzk_kc[K_K[0]] for
-                       K_K in K_gK])
-
-    return bzk_kc
-
-
-def calculate_kpoint_pointint_prefactor(calc, PWSA, bzk_kv):
-    # Could use documentation XXX
-    if calc.wfs.kd.refine_info is not None:
-        nbzkpts = calc.wfs.kd.refine_info.mhnbzkpts
-    else:
-        nbzkpts = calc.wfs.kd.nbzkpts
-    frac = len(bzk_kv) / nbzkpts
-    return (2 * frac * PWSA.how_many_symmetries() /
-            (calc.wfs.nspins * (2 * np.pi)**3))
-
-
-def get_kpoint_tetrahint_domain(pd, PWSA, pbc):
-    # Could use documentation XXX
-    bzk_kc = PWSA.get_reduced_kd(pbc_c=pbc).bzk_kc
-    if (~pbc).any():
-        bzk_kc = np.append(bzk_kc,
-                           bzk_kc + (~pbc).astype(int),
-                           axis=0)
-
-    return bzk_kc
-
-
-def calculate_kpoint_tetrahint_prefactor(calc, PWSA, bzk_kv):
-    """If there are non-periodic directions it is possible that the
-    integration domain is not compatible with the symmetry operations
-    which essentially means that too large domains will be
-    integrated. We normalize by vol(BZ) / vol(domain) to make
-    sure that to fix this.
-    """
-    vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
-    domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
-    bzvol = (2 * np.pi)**3 / vol
-    frac = bzvol / domainvol
-    return (2 * frac * PWSA.how_many_symmetries() /
-            (calc.wfs.nspins * (2 * np.pi)**3))
-

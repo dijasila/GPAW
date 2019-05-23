@@ -186,6 +186,45 @@ class Chi0(ChiKS):
 
         return PWSA
 
+    @timer('dist freq')
+    def distribute_frequencies(self, chi0_wGG):
+        """Distribute frequencies to all cores."""
+
+        world = self.world
+        comm = self.blockcomm
+
+        if world.size == 1:
+            return chi0_wGG
+
+        nw = len(self.omega_w)
+        nG = chi0_wGG.shape[2]
+        mynw = (nw + world.size - 1) // world.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        wa = min(world.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
+
+        if self.blockcomm.size == 1:
+            return chi0_wGG[wa:wb].copy()
+
+        if self.kncomm.rank == 0:
+            bg1 = BlacsGrid(comm, 1, comm.size)
+            in_wGG = chi0_wGG.reshape((nw, -1))
+        else:
+            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            in_wGG = np.zeros((0, 0), complex)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
+
+        bg2 = BlacsGrid(world, world.size, 1)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
+
+        r = Redistributor(world, md1, md2)
+        shape = (wb - wa, nG, nG)
+        out_wGG = np.empty(shape, complex)
+        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
+
+        return out_wGG
+
 
 class ArrayDescriptor:
     """Describes a single dimensional array."""
@@ -302,3 +341,30 @@ def get_nonlinear_frequency_grid(calc, nbands, fd=None,
         print('Using nonlinear frequency grid from 0 to %.3f eV' %
               (omegamax * Hartree), file=fd)
     return FrequencyDescriptor(domega0, omega2, omegamax)
+
+
+
+def get_kpoint_tetrahint_domain(pd, PWSA, pbc):
+    # Could use documentation XXX
+    bzk_kc = PWSA.get_reduced_kd(pbc_c=pbc).bzk_kc
+    if (~pbc).any():
+        bzk_kc = np.append(bzk_kc,
+                           bzk_kc + (~pbc).astype(int),
+                           axis=0)
+
+    return bzk_kc
+
+
+def calculate_kpoint_tetrahint_prefactor(calc, PWSA, bzk_kv):
+    """If there are non-periodic directions it is possible that the
+    integration domain is not compatible with the symmetry operations
+    which essentially means that too large domains will be
+    integrated. We normalize by vol(BZ) / vol(domain) to make
+    sure that to fix this.
+    """
+    vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
+    domainvol = convex_hull_volume(bzk_kv) * PWSA.how_many_symmetries()
+    bzvol = (2 * np.pi)**3 / vol
+    frac = bzvol / domainvol
+    return (2 * frac * PWSA.how_many_symmetries() /
+            (calc.wfs.nspins * (2 * np.pi)**3))
