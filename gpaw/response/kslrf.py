@@ -143,6 +143,7 @@ class KohnShamLinearResponseFunction:
     def calculate(self, spinrot=None, A_x=None):
         return self._calculate(spinrot, A_x)
 
+    @timer('Calculate Kohn-Sham linear response function')
     def _calculate(self, spinrot, A_x):
         """In-place calculation of the response function
 

@@ -186,6 +186,149 @@ class Chi0(ChiKS):
 
         return PWSA
 
+    @timer('Calculate Kohn-Sham susceptibility')
+    def _pw_calculate_susceptibility(self, chi_wGG,
+                                     n_M, m_M, bzk_kv, spins, flip):
+        """In-place calculation of the KS susceptibility in plane wave mode."""
+
+        prefactor = self._calculate_kpoint_integration_prefactor(bzk_kv)
+        chi_wGG /= prefactor
+
+        self.integrator.integrate(kind=self.integration_kind,
+                                  banddomain=(n_M, m_M),
+                                  ksdomain=(bzk_kv, spins),
+                                  integrand=(self._get_matrix_element,
+                                             self._get_eigenvalues),
+                                  x=self.wd,  # Frequency Descriptor
+                                  # Arguments for integrand functions
+                                  out_wxx=chi_wGG,  # Output array
+                                  **self.extraintargs)
+
+        # The response function is integrated only over the IBZ. The
+        # chi calculated above must therefore be extended to include the
+        # response from the full BZ. This extension can be performed as a
+        # simple post processing of the response function that makes
+        # sure that the response function fulfills the symmetries of the little
+        # group of q. Due to the specific details of the implementation the chi
+        # calculated above is normalized by the number of symmetries (as seen
+        # below) and then symmetrized.
+        chi_wGG *= prefactor
+        tmpchi_wGG = self.redistribute(chi_wGG)  # distribute over frequencies
+        self.PWSA.symmetrize_wGG(tmpchi_wGG)
+        self.redistribute(tmpchi_wGG, chi_wGG)
+
+        return self.pd, chi_wGG
+
+
+    
+    def setup_kpoint_integration(self, integrationmode, pd,
+                                 disable_point_group,
+                                 disable_time_reversal,
+                                 disable_non_symmorphic, **extraargs):
+        if integrationmode is None:
+            self.integrationmode == 'point integration'
+        else:
+            self.integrationmode = integrationmode
+
+        # The integration domain is reduced to the irreducible zone
+        # of the little group of q.
+        PWSA = PWSymmetryAnalyzer
+        PWSA = PWSA(self.calc.wfs.kd, pd,
+                    timer=self.timer, txt=self.fd,
+                    disable_point_group=disable_point_group,
+                    disable_time_reversal=disable_time_reversal,
+                    disable_non_symmorphic=disable_non_symmorphic)
+
+        self._setup_integrator = self.create_setup_integrator()
+        self._setup_integrator(**extraargs)
+
+        return PWSA
+
+    def create_setup_integrator(self):
+        """Creator component deciding how to set up kpoint integrator.
+        The integrator class is a general class for brillouin zone
+        integration that can integrate user defined functions over user
+        defined domains and sum over bands.
+        """
+        
+        if self.integrationmode == 'point integration':
+            print('Using integration method: PointIntegrator',
+                  file=self.fd)
+            return self.setup_point_integrator
+
+        elif self.integrationmode == 'tetrahedron integration':
+            print('Using integration method: TetrahedronIntegrator',
+                  file=self.fd)
+            return self.setup_tetrahedron_integrator
+
+        raise ValueError(self.integrationmode)
+
+    def setup_point_integrator(self, **unused):
+        self._get_kpoint_int_domain = partial(get_kpoint_pointint_domain,
+                                              calc=self.calc)
+        self.integrator = PointIntegrator(self.calc.wfs.gd.cell_cv,
+                                          response=self.response,  # should be removed XXX
+                                          comm=self.world,
+                                          timer=self.timer,
+                                          txt=self.fd,
+                                          eshift=self.eshift,
+                                          nblocks=self.nblocks)
+        self._calculate_kpoint_integration_prefactor =\
+            calculate_kpoint_pointint_prefactor
+
+    def setup_tetrahedron_integrator(self, pbc=None, **unused):
+        """
+        Parameters
+        ----------
+        pbc : list
+            Periodic directions of the system. Defaults to [True, True, True].
+        """
+        self.setup_pbc(pbc)
+        self._get_kpoint_int_domain = partial(get_kpoint_tetrahint_domain,
+                                              pbc=self.pbc)
+        self.integrator = TetrahedronIntegrator(self.calc.wfs.gd.cell_cv,
+                                                response=self.response,  # should be removed XXX
+                                                comm=self.world,
+                                                timer=self.timer,
+                                                eshift=self.eshift,
+                                                txt=self.fd,
+                                                nblocks=self.nblocks)
+        self._calculate_kpoint_integration_prefactor =\
+            calculate_kpoint_tetrahint_prefactor
+
+    def setup_pbc(self, pbc):
+        if pbc is not None:
+            self.pbc = np.array(pbc)
+        else:
+            self.pbc = np.array([True, True, True])
+
+        if self.pbc is not None and (~self.pbc).any():
+            assert np.sum((~self.pbc).astype(int)) == 1, \
+                print('Only one non-periodic direction supported atm.')
+            print('Nonperiodic BC\'s: ', (~self.pbc),
+                  file=self.fd)
+
+    def get_summation_domain(self):
+        """Find the relevant (n, k, s) -> (m, k + q, s') domain to sum over"""
+        n_M, m_M = get_band_summation_domain(self.bandsummation, self.nbands,
+                                             nocc1=self.nocc1,
+                                             nocc2=self.nocc2)
+        spins, flip = get_spin_summation_domain(self.bandsummation, self.spin,
+                                                self.calc.wfs.nspins)
+
+        bzk_kv = self.get_kpoint_integration_domain(self.pd)
+
+        return n_M, m_M, bzk_kv, spins, flip
+
+    @timer('Get kpoint integration domain')
+    def get_kpoint_integration_domain(self):
+        bzk_kc = self._get_kpoint_int_domain(self.pd, self.PWSA)
+        bzk_kv = np.dot(bzk_kc, self.pd.gd.icell_cv) * 2 * np.pi
+        return bzk_kv
+
+    def _get_kpoint_int_domain(pd):
+        raise NotImplementedError('Please set up integrator before calling')
+
     @timer('dist freq')
     def distribute_frequencies(self, chi0_wGG):
         """Distribute frequencies to all cores."""
@@ -368,3 +511,24 @@ def calculate_kpoint_tetrahint_prefactor(calc, PWSA, bzk_kv):
     frac = bzvol / domainvol
     return (2 * frac * PWSA.how_many_symmetries() /
             (calc.wfs.nspins * (2 * np.pi)**3))
+
+
+def get_unique_spin_component(spincomponent):
+    """Convert all supported input to chiKS standard.
+    spincomponent : str or int
+        What susceptibility should be calculated?
+        Currently, '00', 'uu', 'dd', '+-' and '-+' are implemented.
+        'all' is an alias for '00', kept for backwards compability
+        Likewise 0 or 1, can be used for 'uu' or 'dd'
+    """
+    if isinstance(spincomponent, str):
+        if spincomponent in ['00', 'uu', 'dd', '+-', '-+']:
+            return spincomponent
+        elif spincomponent == 'all':
+            return '00'
+    elif isinstance(spincomponent, int):
+        if spincomponent == 0:
+            return 'uu'
+        elif spincomponent == 1:
+            return 'dd'
+    raise ValueError(spincomponent)
