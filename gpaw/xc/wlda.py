@@ -38,7 +38,7 @@ class WLDA(XCFunctional):
         if gd.comm.rank == 0:
             if self.mode == "":
                 self.apply_weighting(self.gd1, n1_sg)
-
+            
             elif self.mode.lower() == "altcenter":
                 prenorm = self.gd1.integrate(n1_sg[0])
                 n1_g = self.calculate_nstar(n1_sg[0], self.gd1)
@@ -65,7 +65,7 @@ class WLDA(XCFunctional):
                 n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
             else:
                 raise ValueError("WLDA mode not recognized")
-        
+
             from gpaw.xc.lda import lda_c
             C0I, C1, CC1, CC2, IF2 = lda_constants()
             if len(n_sg) == 2:
@@ -106,6 +106,7 @@ class WLDA(XCFunctional):
                     zeta = 0
             
                     lda_c(0, e_g, n, v1_sg, zeta)
+
                 if self.mode.lower() == "":
                     self.potential_correction(v1_sg, self.gd1, n1_sg)
                     
@@ -119,7 +120,7 @@ class WLDA(XCFunctional):
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
-#        t1 = time()
+
         self.tabulate_weights(n_sg[0], gd)
         n_g = n_sg[0]
 
@@ -129,14 +130,6 @@ class WLDA(XCFunctional):
 
         n_sg[0, :] = wn_g
 
-
-        # nx, ny, nz = n_g.shape
-        # wn_g = np.zeros_like(n_g)
-        # wtable_gi = self.weight_table
-        # n_gi = self.get_ni_weights(n_g)
-        # wn_g = np.einsum("ijkl, ijkl -> ijk", n_gi, wtable_gi)
-
-        # n_sg[0, :] = wn_g
 
 
     def apply_const_weighting(self, gd, n_sg):
@@ -262,10 +255,7 @@ class WLDA(XCFunctional):
         nis = self.get_nis(n_g)
         nx, ny, nz = n_g.shape
         take_g = np.array([j * len(nis) for j in range(nx * ny * nz)]).reshape(nx, ny, nz) + (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1).astype(int) - 1
-        # test_gi = np.zeros((nx, ny, nz, len(nis)))
-        # test_gi[:, :, :, 0] = n_g
-        # take2 = np.array([j * len(nis) for j in range(nx * ny * nz)]).reshape(nx, ny, nz)
-        # assert np.allclose(test_gi.take(take2), n_g)
+
         nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
         ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
         vallesser_g = nis.take(nlesser_g-1)
@@ -724,23 +714,17 @@ class WLDA(XCFunctional):
         kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
-        take_g, weight_g = self.get_take_weight_array(n_sg[0] * norm / newnorm)
-        # kF_g = kF_i.take(take_g)
-        # kF2_g = kF_i.take(take_g + 1)
-        # nx, ny, nz = kF_g.shape
-        # w_g = np.array([np.fft.ifftn(self._theta_filter(kF, K_G, v_G)) for kF in kF_g.reshape(-1)]).reshape(nx, ny, nz)
-        
+        n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
+        w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
+        for i, k_F in enumerate(kF_i):
+            filv_G = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
+            assert np.allclose(filv_G, filv_G.real)
+            w_g += n_gi[:, :, :, i] * filv_G
+        w_g = w_g * norm / newnorm + n_sg[0] * gd.integrate(v_sg[0]) * N
+            
+        assert np.allclose(w_g, w_g.real)
 
-
-        w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
-        w_gi = N * w_gi
-        
-        w_g = w_gi.take(take_g) * weight_g + w_gi.take(take_g + 1) * (1 - weight_g)
-        #n_gi = self.get_ni_weights(n_sg[0])
-        #w_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
-        w_g = w_g + n_sg[0] * gd.integrate(v_sg[0]) * N
         v_sg[0, :] = w_g.real
-        #return w_g.real
         
         
     
