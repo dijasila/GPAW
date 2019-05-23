@@ -110,8 +110,6 @@ class KohnShamLinearResponseFunction:
 
         self.kpointintegration = kpointintegration
         self.integrator = None  # Mode specific (kpoint) Integrator class
-        # Each integrator might support different integration strategies:
-        self.integration_kind = None
         # Each integrator might take some extra input kwargs
         self.extraintargs = {}
 
@@ -168,8 +166,7 @@ class KohnShamLinearResponseFunction:
 
         A_x = self.setup_output_array(A_x)
 
-        self.integrator.integrate(kind=self.integration_kind,
-                                  bsdomain=(n1_t, n2_t, s1_t, s2_t),
+        self.integrator.integrate(bsdomain=(n1_t, n2_t, s1_t, s2_t),
                                   get_integrand=self.get_integrand,
                                   out_x=A_x,
                                   **self.extraintargs)
@@ -411,7 +408,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def __init__(self, *args, frequencies=None, eta=0.2,
                  ecut=50, gammacentered=False, disable_point_group=True,
                  disable_time_reversal=True, disable_non_symmorphic=True,
-                 kpointintegration='point integration', **kwargs):
+                 kpointintegration='point integration',
+                 **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a
         given set of frequencies. The spatial part is expanded in plane waves
