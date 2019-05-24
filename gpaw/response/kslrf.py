@@ -151,8 +151,8 @@ class KohnShamLinearResponseFunction:
         ----------
         spinrot : str
             Select spin rotation.
-            Choices: 'uu', 'dd', 'I' (= 'uu' + 'dd'), '-'= and '+'
-            All rotations are included for spinrot=None ('I' + '+' + '-').
+            Choices: 'u', 'd', '0' (= 'u' + 'd'), '-'= and '+'
+            All rotations are included for spinrot=None ('0' + '+' + '-').
         A_x : ndarray
             Output array. If None, the output array is created.
         """
@@ -355,7 +355,7 @@ def create_get_spin_transitions_domain(bandsummation):
 def get_double_spin_transitions_domain(spinrot, nspins):
     """Usual spin rotations forward in time"""
     if nspins == 1:
-        if spinrot is None or spinrot == 'I':
+        if spinrot is None or spinrot == '0':
             s1_S = [0]
             s2_S = [0]
         else:
@@ -364,13 +364,13 @@ def get_double_spin_transitions_domain(spinrot, nspins):
         if spinrot is None:
             s1_S = [0, 0, 1, 1]
             s2_S = [0, 1, 0, 1]
-        elif spinrot == 'I':
+        elif spinrot == '0':
             s1_S = [0, 1]
             s2_S = [0, 1]
-        elif spinrot == 'uu':
+        elif spinrot == 'u':
             s1_S = [0]
             s2_S = [0]
-        elif spinrot == 'dd':
+        elif spinrot == 'd':
             s1_S = [1]
             s2_S = [1]
         elif spinrot == '-':

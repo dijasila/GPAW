@@ -114,8 +114,15 @@ class chiKS(PlaneWaveKSLRF):
         x_wt = ----------------------------------
                hw - (eps_n'k's'-eps_nks) + ih eta
         """
-        # Some spin things
-        return
+        # Get the right spin components
+        scomps_t = get_smat_components(self.spincomponent, s1_t, s2_t)
+        # Calculate nominator
+        nom_t = scomps_t * df_t
+        # Calculate denominator
+        denom_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
+            + 1j * self.eta
+        
+        return nom_t[np.newaxis, :] / denom_wt
 
     def get_pairwise_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get:
@@ -130,17 +137,58 @@ class chiKS(PlaneWaveKSLRF):
                         hw + (eps_n'k's'-eps_nks) + ih eta |
                                                            /
         """
-        # Some spin things
-        return
+        # Dirac delta
+        delta_t = np.ones(len(n1_t))
+        delta_t[n2_t <= n1_t] = 0
+        # Get the right spin components
+        scomps1_t = get_smat_components(self.spincomponent, s1_t, s2_t)
+        scomps2_t = get_smat_components(self.spincomponent, s2_t, s1_t)
+        # Calculate nominators
+        nom1_t = scomps1_t * df_t
+        nom2_t = delta_t * scomps2_t * df_t
+        # Calculate denominators
+        denom1_wt = self.omega_w[:, np.newaxis] - deps_t[np.newaxis, :]\
+            + 1j * self.eta
+        denom2_wt = self.omega_w[:, np.newaxis] + deps_t[np.newaxis, :]\
+            + 1j * self.eta
+        
+        return nom1_t[np.newaxis, :] / denom1_wt\
+            - nom2_t[np.newaxis, :] / denom2_wt
 
 
 def get_spin_rotation(spincomponent):
     """Get the spin rotation corresponding to the given spin component."""
-    if spincomponent == '00':
-        return 'I'
-    elif spincomponent in ['uu', 'dd']:
-        return spincomponent
-    elif spincomponent in ['+-', '-+']:
+    if spincomponent is None or spincomponent == '00':
+        return '0'
+    elif spincomponent in ['uu', 'dd', '+-', '-+']:
         return spincomponent[-1]
     else:
         raise ValueError(spincomponent)
+
+
+def get_smat_components(spincomponent, s1_t, s2_t):
+    """For s1=s and s2=s', get:
+    smu_ss' snu_s's
+    """
+    if spincomponent is None:
+        spincomponent = '00'
+
+    smatmu = smat(spincomponent[0])
+    smatnu = smat(spincomponent[1])
+
+    return smatmu[s1_t, s2_t] * smatnu[s2_t, s1_t]
+
+
+def smat(spinrot):
+    if spinrot == '0':
+        return np.array([[1, 0], [0, 1]])
+    elif spinrot == 'u':
+        return np.array([[1, 0], [0, 0]])
+    elif spinrot == 'd':
+        return np.array([[0, 0], [0, 1]])
+    elif spinrot == '-':
+        return np.array([[0, 0], [1, 0]])
+    elif spinrot == '+':
+        return np.array([[0, 1], [0, 0]])
+    else:
+        raise ValueError(spinrot)
