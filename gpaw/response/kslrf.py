@@ -84,13 +84,15 @@ class KohnShamLinearResponseFunction:
         PME : gpaw.response.pair.PairMatrixElement instance
             Class for calculating transition matrix elements for pairs of
             Kohn-Sham orbitals
-        integrator : gpaw.response.versatile_integrators.Integrator instance
+        integrator : Integrator instance
             The integrator class is a general class for Brillouin Zone
             integration. The user defined integrand is integrated over k-points
             and summed over a given band and spin domain.
 
         Callables
         ---------
+        self.get_integrand(*args, **kwargs) : func
+            Return the integrand for a given part of the domain  # Better description XXX
         self.calculate(*args, **kwargs) : func
             Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
@@ -165,10 +167,8 @@ class KohnShamLinearResponseFunction:
 
         A_x = self.setup_output_array(A_x)
 
-        self.integrator.integrate(bsdomain=(n1_t, n2_t, s1_t, s2_t),
-                                  get_integrand=self.get_integrand,
-                                  out_x=A_x,
-                                  **self.extraintargs)
+        self.integrator.integrate(n1_t, n2_t, s1_t, s2_t,
+                                  out_x=A_x, **self.extraintargs)
 
         return self.post_process(A_x)
 
@@ -192,7 +192,7 @@ class KohnShamLinearResponseFunction:
     def setup_output_array(self, A_x):
         raise NotImplementedError('Output array depends on mode')
 
-    def get_integrand(self, *args, **kwargs):
+    def get_integrand(self, *args, **kwargs):  # Some fixed arguments?  XXX
         raise NotImplementedError('Integrand depends on response and mode')
 
     def post_process(self, A_x):
@@ -612,6 +612,42 @@ class FrequencyDescriptor:
 
     def get_data(self):
         return self.data_x
+
+
+class Integrator:
+    """Baseclass for integrating over k-points in the first Brillouin Zone
+    and summing over bands and spin.
+    """
+    def __init__(self, kslrf):
+        """
+        Parameters
+        ----------
+        kslrf : KohnShamLinearResponseFunction instance
+        """
+        
+        self.kslrf = kslrf
+
+    def distribute_kpoint_domain(self, bzk_kv):
+        """Let each process calculate contributions from different k-points."""
+        nk = bzk_kv.shape[0]
+        size = self.kslrf.kncomm.size
+        rank = self.kslrf.kncomm.rank
+
+        mynk = (nk + size - 1) // size
+        i1 = rank * mynk
+        i2 = min(i1 + mynk, nk)
+        return bzk_kv[i1:i2]
+
+    def integrate(self, n1_t, n2_t, s1_t, s2_t,
+                  out_x=None, **kwargs):
+        if out_x is None:
+            raise NotImplementedError
+
+        prefactor
+        kdomain
+        _integrate
+        prefactor
+        return result
 
 
 # These thing should be moved to integrator XXX
