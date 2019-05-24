@@ -1,6 +1,7 @@
 import numpy as np
 
 from gpaw.response.kslrf import PlaneWaveKSLRF
+from gpaw.utilities.blas import gemm
 
 
 class chiKS(PlaneWaveKSLRF):
@@ -55,16 +56,16 @@ class chiKS(PlaneWaveKSLRF):
 
         bandsummation: pairwise (using spin-conserving time-reversal symmetry)
 
-                      __ __
+                      __ /
                       \  | smu_ss' snu_s's (f_n'k's' - f_nks)
         chiKSmunu =   /  | ----------------------------------
                       ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
-                      T  ‾‾
-                                                         __
+                      T  \
+                                                          \
                        smu_s's snu_ss' (f_n'k's' - f_nks) |
            -delta_n'>n ---------------------------------- | n_T*(q+G) n_T(q+G')
                        hw + (eps_n'k's'-eps_nks) + ih eta |
-                                                         ‾‾
+                                                          /
         """
         # Get all pairs of Kohn-Sham transitions:
         # (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
@@ -79,83 +80,58 @@ class chiKS(PlaneWaveKSLRF):
         # Calculate the pair densities
         n_tG = self.pme(kspairs, self.pd)  # Should this include some extrapolate_q? XXX
 
-        # In-place calculation of the integrand (depends on bandsummation):
-        self._add_integrand(s1_t, s2_t, df_t, deps_t, n_tG, A_wGG)
+        self._add_integrand(n1_t, n2_t, s1_t, s2_t,
+                            df_t, deps_t, n_tG, A_wGG)
 
-    def _add_integrand(self, s1_t, s2_t, df_t, deps_t, n_tG, A_wGG):
-        pass
+    def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,
+                       df_t, deps_t, n_tG, A_wGG):
+        """In-place calculation of the integrand (depends on bandsummation)"""
+        x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
-    @timer('Get pair density')  # old stuff XXX
-    def get_pair_density(self, k_v, s, n_M, m_M, block=True):
-        """A function that returns pair-densities.
+        for x_t, A_GG in zip(x_wt, A_wGG):  # Why in a for-loop? XXX
+            # Multiply temporal part with n_t(q+G'), divide summation in blocks
+            nx_tG = n_tG[:, self.Ga:self.Gb] * x_t[:, np.newaxis]
+            # Multiply with n_t*(q+G) and sum over transitions t:
+            gemm(1.0, n_tG.conj(), np.ascontiguousarray(nx_tG.T), 1.0, A_wGG)
 
-        A pair density is defined as::
+    def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
+        """Get the temporal part of the susceptibility integrand."""
+        _get_temporal_part = self.create_get_temporal_part()
+        return _get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
-         <nks| e^(-i (q + G) r) |mk+qs'> = <mk+qs'| e^(i (q + G) r |nks>,
-
-        where s and s' are spins, n and m are band indices, k is
-        the kpoint and q is the momentum transfer.
-
-        Parameters
-        ----------
-        k_v : ndarray
-            Kpoint coordinate in cartesian coordinates.
-        s : int
-            Spin index.
-
-        Return
-        ------
-        n_MG : ndarray
-            Pair densities.
-        """
-        pd = self.pd
-        k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
-
-        q_c = pd.kd.bzk_kc[0]
-
-        extrapolate_q = False  # SHOULD THIS ONLY BE USED IN OPTICAL LIM? XXX
-        if self.calc.wfs.kd.refine_info is not None:
-            K1 = self.KSPair.find_kpoint(k_c)
-            label = self.calc.wfs.kd.refine_info.label_k[K1]
-            if label == 'zero':
-                return None
-            elif (self.calc.wfs.kd.refine_info.almostoptical
-                  and label == 'mh'):
-                if not hasattr(self, 'pd0'):
-                    self.pd0 = self.get_PWDescriptor([0, ] * 3)
-                pd = self.pd0
-                extrapolate_q = True
-
-        if self.Q_aGii is None:
-            self.Q_aGii = self.KSPair.initialize_paw_corrections(pd)
-
-        kptpair = self.KSPair.get_kpoint_pair(pd, s, k_c, block=block)
-
-        n_MG = self.KSPair.get_pair_density(pd, kptpair, n_M, m_M,
-                                            Q_aGii=self.Q_aGii, block=block)
-        
-        if self.integrationmode == 'point integration':
-            n_MG *= np.sqrt(self.PWSA.get_kpoint_weight(k_c) /
-                            self.PWSA.how_many_symmetries())
-        
-        df_M = kptpair.get_occupation_differences(n_M, m_M)
-        df_M[np.abs(df_M) <= 1e-20] = 0.0
-
-        '''  # Change integrator stuff correspondingly XXX
+    def create_get_temporal_part(self):
+        """Creator component, deciding how to calculate the temporal part"""
         if self.bandsummation == 'double':
-            df_nm = np.abs(df_nm)
-        df_nm[df_nm <= 1e-20] = 0.0
+            return self.get_double_temporal_part
+        elif self.bandsummation == 'pairwise':
+            return self.get_pairwise_temporal_part
+        raise ValueError(self.bandsummation)
+
+    def get_double_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
+        """Get:
         
-        n_nmG *= df_nm[..., np.newaxis]**0.5
-        '''
+               smu_ss' snu_s's (f_n'k's' - f_nks)
+        x_wt = ----------------------------------
+               hw - (eps_n'k's'-eps_nks) + ih eta
+        """
+        # Some spin things
+        return
 
-        if extrapolate_q:  # SHOULD THIS ONLY BE USED IN OPTICAL LIM? XXX
-            q_v = np.dot(q_c, pd.gd.icell_cv) * (2 * np.pi)
-            nq_M = np.dot(n_MG[:, :, :3], q_v)
-            n_MG = n_MG[:, :, 2:]
-            n_MG[:, :, 0] = nq_M
-
-        return n_MG, df_M
+    def get_pairwise_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
+        """Get:
+               /
+               | smu_ss' snu_s's (f_n'k's' - f_nks)
+        x_wt = | ----------------------------------
+               | hw - (eps_n'k's'-eps_nks) + ih eta
+               \
+                                                           \
+                        smu_s's snu_ss' (f_n'k's' - f_nks) |
+            -delta_n'>n ---------------------------------- |
+                        hw + (eps_n'k's'-eps_nks) + ih eta |
+                                                           /
+        """
+        # Some spin things
+        return
 
 
 def get_spin_rotation(spincomponent):
