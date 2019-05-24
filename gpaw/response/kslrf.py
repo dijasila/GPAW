@@ -643,11 +643,23 @@ class Integrator:
         if out_x is None:
             raise NotImplementedError
 
-        prefactor
-        kdomain
-        _integrate
-        prefactor
-        return result
+        bzk_kv = self.get_kpoint_domain()
+        prefactor = self.get_bzint_prefactor(bzk_kv)
+        out_x /= prefactor
+        out_x = self._integrate(bzk_kv, n1_t, n2_t, s1_t, s2_t,
+                                out_x, **kwargs)
+        out_x *= prefactor
+        
+        return out_x
+
+    def get_kpoint_domain(self):
+        raise NotImplementedError('Domain depends on integration method')
+
+    def get_bzint_prefactor(self, bzk_kv):
+        raise NotImplementedError('Prefactor depends on integration method')
+
+    def _integrate(self, bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+        raise NotImplementedError('Integration method is defined by subclass')
 
 
 # These thing should be moved to integrator XXX
