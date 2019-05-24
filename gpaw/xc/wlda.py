@@ -720,7 +720,7 @@ class WLDA(XCFunctional):
             filv_g = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
             assert np.allclose(filv_g, filv_g.real)
             w_g += n_gi[:, :, :, i] * filv_g
-        w_g = w_g * norm / newnorm + n_sg[0] * gd.integrate(v_sg[0]) * N
+        w_g = w_g * norm / newnorm +  gd.integrate(n_sg[0] * v_sg[0]) * N
         assert np.allclose(gd.integrate(n_sg[0]), newnorm)
         assert np.allclose(w_g, w_g.real)
 
