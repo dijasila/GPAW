@@ -1,3 +1,5 @@
+import numpy as np
+
 from gpaw.response.kslrf import PlaneWaveKSLRF
 
 
@@ -11,7 +13,7 @@ class chiKS(PlaneWaveKSLRF):
         """
         PlaneWaveKSLRF.__init__(self, *args, **kwargs)
 
-        self.PME = PairDensity(*someargs, **somekwargs)  # Write this
+        self.pme = PairDensity(*someargs, **somekwargs)  # Write this (maybe creator method XXX)
 
         # The class is calculating one spin component at a time
         self.spincomponent = None
@@ -31,12 +33,58 @@ class chiKS(PlaneWaveKSLRF):
         self.spincomponent = spincomponent
         spinrot = get_spin_rotation(spincomponent)
 
+        # Reset PAW correction in case momentum has changed
+        self.pme.Q_aGii = None
+
         return PlaneWaveKSLRF.calculate(self, q_c, spinrot=spinrot, A_x=A_x)
 
-    def get_integrand(self, *args, **kwargs):  # Write me XXX
-        """Use PairDensity object to calculate the integrand"""  # Make good description XXX
-        return self.get_pair_density(*args, **kwargs)
+    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_wGG):  # Write me XXX
+        """Use PairDensity object to calculate the integrand for all relevant
+        transitions of the given k-point.
+
+        Depending on the bandsummation, the collinear four-component Kohn-Sham
+        susceptibility tensor as:
+
+        bandsummation: double
+
+                      __
+                      \  smu_ss' snu_s's (f_n'k's' - f_nks)
+        chiKSmunu =   /  ---------------------------------- n_T*(q+G) n_T(q+G')
+                      ‾‾ hw - (eps_n'k's'-eps_nks) + ih eta
+                      T
+
+        bandsummation: pairwise (using spin-conserving time-reversal symmetry)
+
+                      __ __
+                      \  | smu_ss' snu_s's (f_n'k's' - f_nks)
+        chiKSmunu =   /  | ----------------------------------
+                      ‾‾ | hw - (eps_n'k's'-eps_nks) + ih eta
+                      T  ‾‾
+                                                         __
+                       smu_s's snu_ss' (f_n'k's' - f_nks) |
+           -delta_n'>n ---------------------------------- | n_T*(q+G) n_T(q+G')
+                       hw + (eps_n'k's'-eps_nks) + ih eta |
+                                                         ‾‾
+        """
+        # Get all pairs of Kohn-Sham transitions:
+        # (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
+        k_c = np.dot(self.pd.gd.cell_cv, k_v) / (2 * np.pi)
+        kspairs = self.kspair.get_pairs(k_c, self.pd, n1_t, n2_t, s1_t, s2_t)
+
+        # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
+        df_t = kspairs.get_occupation_differences()
+        df_t[np.abs(df_t) <= 1e-20] = 0.0
+        deps_t = kspairs.get_energy_differences()
         
+        # Calculate the pair densities
+        n_tG = self.pme(kspairs, self.pd)  # Should this include some extrapolate_q? XXX
+
+        # In-place calculation of the integrand (depends on bandsummation):
+        self._add_integrand(s1_t, s2_t, df_t, deps_t, n_tG, A_wGG)
+
+    def _add_integrand(self, s1_t, s2_t, df_t, deps_t, n_tG, A_wGG):
+        pass
+
     @timer('Get pair density')  # old stuff XXX
     def get_pair_density(self, k_v, s, n_M, m_M, block=True):
         """A function that returns pair-densities.

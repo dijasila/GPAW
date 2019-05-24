@@ -80,9 +80,9 @@ class KohnShamLinearResponseFunction:
 
         Attributes
         ----------
-        KSPair : gpaw.response.pair.KohnShamPair instance
+        kspair : gpaw.response.pair.KohnShamPair instance
             Class for handling pairs of Kohn-Sham orbitals
-        PME : gpaw.response.pair.PairMatrixElement instance
+        pme : gpaw.response.pair.PairMatrixElement instance
             Class for calculating transition matrix elements for pairs of
             Kohn-Sham orbitals
         integrator : Integrator instance
@@ -99,16 +99,16 @@ class KohnShamLinearResponseFunction:
             Returned format can varry depending on response and mode.
         """
 
-        self.KSPair = KohnShamPair(gs, world=world, txt=txt, timer=timer)  # KohnShamPair object missing XXX
-        self.calc = self.KSPair.calc
+        self.kspair = KohnShamPair(gs, world=world, txt=txt, timer=timer)  # KohnShamPair object missing XXX
+        self.calc = self.kspair.calc
 
         self.response = response
         self.mode = mode
 
         self.bandsummation = bandsummation
         self.nbands = nbands or self.calc.wfs.bd.nbands
-        self.nocc1 = self.KSPair.nocc1  # number of completely filled bands
-        self.nocc2 = self.KSPair.nocc2  # number of non-empty bands
+        self.nocc1 = self.kspair.nocc1  # number of completely filled bands
+        self.nocc2 = self.kspair.nocc2  # number of non-empty bands
 
         self.kpointintegration = kpointintegration
         self.integrator = create_integrator(self)
@@ -119,12 +119,12 @@ class KohnShamLinearResponseFunction:
         self.nblocks = nblocks
 
         # Extract world, timer and filehandle for output
-        self.world = self.KSPair.world
-        self.timer = self.KSPair.timer
-        self.fd = self.KSPair.fd
+        self.world = self.kspair.world
+        self.timer = self.kspair.timer
+        self.fd = self.kspair.fd
 
         # Attributes related to the specific response function
-        self.PME = None
+        self.pme = None
     
     def initialize_distributed_memory(self, nblocks):
         """Set up MPI communicators to allow each process to store
@@ -454,7 +454,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
-        self.PWSA = None  # Plane wave symmetry analyzer for given q
+        self.pwsa = None  # Plane wave symmetry analyzer for given q
 
     def calculate(self, q_c, spinrot=None, A_x=None):
         """
@@ -473,7 +473,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # Set up plane wave description with the gived momentum transfer q
         q_c = np.asarray(q_c, dtype=float)
         self.pd = self.get_PWDescriptor(q_c)
-        self.PWSA = self.get_PWSymmetryAnalyzer(self.pd)
+        self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
@@ -545,7 +545,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     def post_process(self, A_wGG):
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
-        self.PWSA.symmetrize_wGG(tmpA_wGG)
+        self.pwsa.symmetrize_wGG(tmpA_wGG)
         self.redistribute(tmpA_wGG, A_wGG)
 
         return self.pd, A_wGG
@@ -665,7 +665,7 @@ class PWPointIntegrator(Integrator):
 
     def get_kpoint_domain(self):
         # Could use documentation XXX
-        K_gK = self.kslrf.PWSA.group_kpoints()
+        K_gK = self.kslrf.pwsa.group_kpoints()
         bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
                            K_K in K_gK])
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
@@ -680,7 +680,7 @@ class PWPointIntegrator(Integrator):
             nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
         frac = len(bzk_kv) / nbzkpts
         
-        return (2 * frac * self.kslrf.PWSA.how_many_symmetries() /
+        return (2 * frac * self.kslrf.pwsa.how_many_symmetries() /
                 (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
 
     def _integrate(self, bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
