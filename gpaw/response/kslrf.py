@@ -84,11 +84,10 @@ class KohnShamLinearResponseFunction:
         PME : gpaw.response.pair.PairMatrixElement instance
             Class for calculating transition matrix elements for pairs of
             Kohn-Sham orbitals
-        integrator : gpaw.response.integrators.Integrator instance
+        integrator : gpaw.response.versatile_integrators.Integrator instance
             The integrator class is a general class for Brillouin Zone
             integration. The user defined integrand is integrated over k-points
-            and a user defined sum over possible band and spin domains is
-            carried out.
+            and summed over a given band and spin domain.
 
         Callables
         ---------
