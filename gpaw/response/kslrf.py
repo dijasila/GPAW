@@ -9,6 +9,7 @@ from gpaw import extra_parameters
 import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
+from gpaw.utilities.progressbar import ProgressBar
 
 
 class KohnShamLinearResponseFunction:
@@ -91,8 +92,8 @@ class KohnShamLinearResponseFunction:
 
         Callables
         ---------
-        self.get_integrand(*args, **kwargs) : func
-            Return the integrand for a given part of the domain  # Better description XXX
+        self.add_integrand(*args, **kwargs) : func
+            Add the integrand for a given part of the domain to output array # Better description XXX
         self.calculate(*args, **kwargs) : func
             Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
@@ -192,7 +193,7 @@ class KohnShamLinearResponseFunction:
     def setup_output_array(self, A_x):
         raise NotImplementedError('Output array depends on mode')
 
-    def get_integrand(self, *args, **kwargs):  # Some fixed arguments?  XXX
+    def add_integrand(self, *args, **kwargs):  # Some fixed arguments?  XXX
         raise NotImplementedError('Integrand depends on response and mode')
 
     def post_process(self, A_x):
@@ -475,7 +476,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         q_c = np.asarray(q_c, dtype=float)
         self.pd = self.get_PWDescriptor(q_c)
         self.PWSA = self.get_PWSymmetryAnalyzer(self.pd)
-        self.extraintargs['PWSA'] = self.PWSA
 
         # In-place calculation
         return self._calculate(spinrot, A_x)
@@ -662,22 +662,51 @@ class Integrator:
         raise NotImplementedError('Integration method is defined by subclass')
 
 
-# These thing should be moved to integrator XXX
-def get_kpoint_pointint_domain(pd, PWSA, calc):
-    # Could use documentation XXX
-    K_gK = PWSA.group_kpoints()
-    bzk_kc = np.array([calc.wfs.kd.bzk_kc[K_K[0]] for
-                       K_K in K_gK])
+class PointIntegrator(Integrator):
+    """A simple point integrator for the plane wave mode."""
 
-    return bzk_kc
+    def get_kpoint_domain(self):
+        # Could use documentation XXX
+        K_gK = self.kslrf.PWSA.group_kpoints()
+        bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
+                           K_K in K_gK])
+        bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
+        
+        return bzk_kv
 
+    def calculate_bzint_prefactor(self, bzk_kv):
+        # Could use documentation XXX
+        if self.kslrf.calc.wfs.kd.refine_info is not None:
+            nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
+        else:
+            nbzkpts = self.kslrf.calc.wfs.kd.nbzkpts
+        frac = len(bzk_kv) / nbzkpts
+        
+        return (2 * frac * self.kslrf.PWSA.how_many_symmetries() /
+                (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
 
-def calculate_kpoint_pointint_prefactor(calc, PWSA, bzk_kv):
-    # Could use documentation XXX
-    if calc.wfs.kd.refine_info is not None:
-        nbzkpts = calc.wfs.kd.refine_info.mhnbzkpts
-    else:
-        nbzkpts = calc.wfs.kd.nbzkpts
-    frac = len(bzk_kv) / nbzkpts
-    return (2 * frac * PWSA.how_many_symmetries() /
-            (calc.wfs.nspins * (2 * np.pi)**3))
+    def _integrate(self, bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+        """Do a simple sum over k-points in the first Brillouin Zone,
+        adding the integrand (summed over bands and spin) for each k-point."""
+
+        # Let each process do its own k-points
+        mybzk_kv = self.distribute_kpoint_domain(bzk_kv)
+
+        nk = bzk_kv.shape[0]
+        vol = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
+
+        kpointvol = (2 * np.pi)**3 / vol / nk
+        out_x /= kpointvol
+
+        # Sum over kpoints
+        tmp_x = np.zeros_like(out_x)
+        pb = ProgressBar(self.kslrf.fd)
+        for _, k_v in pb.enumerate(mybzk_kv):
+            self.kslrf.add_integrand(k_v, n1_t, n2_t, s1_t, s2_t,
+                                     tmp_x, **kwargs)
+
+        # Sum over processes
+        self.kncomm.sum(tmp_x)
+
+        out_x += tmp_x
+        out_x *= kpointvol
