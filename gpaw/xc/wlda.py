@@ -419,7 +419,7 @@ class WLDA(XCFunctional):
         # return nis
         nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
         stepsize = self.stepsize
-        while len(nis) > 25:
+        while len(nis) > 30:
             stepsize *= 1.2
             nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), stepsize)
         return nis
@@ -717,11 +717,11 @@ class WLDA(XCFunctional):
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            filv_G = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
-            assert np.allclose(filv_G, filv_G.real)
-            w_g += n_gi[:, :, :, i] * filv_G
+            filv_g = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
+            assert np.allclose(filv_g, filv_g.real)
+            w_g += n_gi[:, :, :, i] * filv_g
         w_g = w_g * norm / newnorm + n_sg[0] * gd.integrate(v_sg[0]) * N
-            
+        assert np.allclose(gd.integrate(n_sg[0]), newnorm)
         assert np.allclose(w_g, w_g.real)
 
         v_sg[0, :] = w_g.real
