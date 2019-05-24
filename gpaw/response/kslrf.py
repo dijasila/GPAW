@@ -111,7 +111,7 @@ class KohnShamLinearResponseFunction:
         self.nocc2 = self.KSPair.nocc2  # number of non-empty bands
 
         self.kpointintegration = kpointintegration
-        self.integrator = None  # Mode specific (kpoint) Integrator class
+        self.integrator = create_integrator(self)
         # Each integrator might take some extra input kwargs
         self.extraintargs = {}
 
@@ -452,8 +452,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
 
-        self.integrator = create_integrator(self.mode, self.kpointintegration)  # Write me XXX
-
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.PWSA = None  # Plane wave symmetry analyzer for given q
@@ -662,7 +660,7 @@ class Integrator:
         raise NotImplementedError('Integration method is defined by subclass')
 
 
-class PointIntegrator(Integrator):
+class PWPointIntegrator(Integrator):
     """A simple point integrator for the plane wave mode."""
 
     def get_kpoint_domain(self):
@@ -710,3 +708,13 @@ class PointIntegrator(Integrator):
 
         out_x += tmp_x
         out_x *= kpointvol
+
+
+def create_integrator(kslrf):
+    """Creator component for the integrator"""
+    if kslrf.mode == 'pw':
+        if kslrf.kpointintegration is None or \
+           kslrf.kpointintegration == 'point integration':
+            return PWPointIntegrator(kslrf)
+
+    raise ValueError(kslrf.mode, kslrf.kpointintegration)
