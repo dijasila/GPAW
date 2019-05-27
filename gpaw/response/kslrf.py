@@ -99,7 +99,8 @@ class KohnShamLinearResponseFunction:
             Returned format can varry depending on response and mode.
         """
 
-        self.kspair = KohnShamPair(gs, world=world, txt=txt, timer=timer)  # KohnShamPair object missing XXX
+        self.kspair = KohnShamPair(gs, world=world, nblocks=nblocks,
+                                   txt=txt, timer=timer)  # KohnShamPair object missing XXX
         self.calc = self.kspair.calc
 
         self.response = response
@@ -115,30 +116,16 @@ class KohnShamLinearResponseFunction:
         # Each integrator might take some extra input kwargs
         self.extraintargs = {}
 
-        self.initialize_distributed_memory(nblocks)
-        self.nblocks = nblocks
-
-        # Extract world, timer and filehandle for output
+        # Extract communicators, timer and filehandle for output
         self.world = self.kspair.world
+        self.blockcomm = self.kspair.blockcomm
+        self.kncomm = self.kspair.kncomm
+        self.nblocks = self.blockcomm.size
         self.timer = self.kspair.timer
         self.fd = self.kspair.fd
 
         # Attributes related to the specific response function
         self.pme = None
-    
-    def initialize_distributed_memory(self, nblocks):
-        """Set up MPI communicators to allow each process to store
-        only a fraction (a block) of the response function."""
-        if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([self.world.rank])
-            self.kncomm = self.world
-        else:
-            assert self.world.size % nblocks == 0, self.world.size
-            rank1 = self.world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
 
     def calculate(self, spinrot=None, A_x=None):
         return self._calculate(spinrot, A_x)
