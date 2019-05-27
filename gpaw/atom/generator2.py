@@ -1112,7 +1112,11 @@ class PAWSetupGenerator:
             setup.fcorehole = occ
             setup.phicorehole_g = phi_g
             setup.has_corehole = True
-
+            ch = self.aea.channels[l]
+            eig = ch.e_n[n - 1 - l]
+            setup.core_hole_e = eig
+            setup.core_hole_e_kin = eig - self.rgd.integrate(
+                ch.calculate_density(n - 1 - l) * self.aea.vr_sg[0], -1)
         return setup
 
     def find_core_states(self):
