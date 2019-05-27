@@ -70,15 +70,17 @@ class chiKS(PlaneWaveKSLRF):
         # Get all pairs of Kohn-Sham transitions:
         # (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
         k_c = np.dot(self.pd.gd.cell_cv, k_v) / (2 * np.pi)
-        kspairs = self.kspair.get_pairs(k_c, self.pd, n1_t, n2_t, s1_t, s2_t)
+        q_c = self.pd.kd.bzk_kc[0]
+        kskptpairs = self.kspair.get_kpoint_pairs(n1_t, n2_t, k_c, k_c + q_c,
+                                                  s1_t, s2_t)
 
         # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
-        df_t = kspairs.get_occupation_differences()
+        df_t = kskptpairs.get_occupation_differences()
         df_t[np.abs(df_t) <= 1e-20] = 0.0
-        deps_t = kspairs.get_energy_differences()
+        deps_t = kskptpairs.get_energy_differences()
         
         # Calculate the pair densities
-        n_tG = self.pme(kspairs, self.pd)  # Should this include some extrapolate_q? XXX
+        n_tG = self.pme(kskptpairs, self.pd)  # Should this include some extrapolate_q? XXX
 
         self._add_integrand(n1_t, n2_t, s1_t, s2_t,
                             df_t, deps_t, n_tG, A_wGG)
