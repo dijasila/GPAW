@@ -262,7 +262,7 @@ class ZeroKelvin(OccupationNumbers):
         f = ne - n
         f_n[:n] = weight
         assert n < N
-        f_n[n] = f
+        f_n[n] = f * weight
         f_n[n + 1:] = 0.0
         if f > 0.0:
             return eps_n[n], eps_n[n]
@@ -368,7 +368,6 @@ class ZeroKelvin(OccupationNumbers):
                 f_n = wfs.bd.empty(global_array=True)
                 hom, lum = self.occupy(f_n, eps_n,
                                        ne, kpt.weight)
-                print(eps_n[223:225], ne, hom, lum)
                 homo = max(homo, hom)
                 lumo = min(lumo, lum)
             else:
@@ -380,7 +379,6 @@ class ZeroKelvin(OccupationNumbers):
             homo = wfs.kd.comm.max(homo)
             lumo = wfs.kd.comm.min(lumo)
             self.fermilevel = 0.5 * (homo + lumo)
-            print(self.fermilevel, homo, lumo)
 
         self.magmom = 0.0
 
