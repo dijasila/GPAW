@@ -29,6 +29,11 @@ Git master branch
   other convergence criteria (energy, eigenstates and density) are fulfilled.
   This can save a bit of time.
 
+* Experimental support for JTH_ PAW-datasets.
+
+
+.. _JTH: https://www.abinit.org/psp-tables
+
 
 Version 1.5.2
 =============
