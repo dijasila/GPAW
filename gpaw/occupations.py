@@ -653,4 +653,4 @@ class TFOccupations(FermiDirac):
 
         return HOMO and LUMO energies."""
         # Same as occupy in FermiDirac expect one band: weight = ne
-        return FermiDirac.occupy(self, f_n, eps_n, ne, ne)
+        return FermiDirac.occupy(self, f_n, eps_n, 1, ne * weight)
