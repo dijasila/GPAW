@@ -876,7 +876,8 @@ class Setup(BaseSetup):
 
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
-        self.tauct = rgd.spline(tauct_g, self.rcore)
+        if tauct_g is not None:
+            self.tauct = rgd.spline(tauct_g, self.rcore)
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
