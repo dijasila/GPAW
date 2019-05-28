@@ -365,9 +365,9 @@ class SJM(SolvationGPAW):
 
     def change_ne(self, pot_int):
         if self.previous_pot is not None:
-            if abs(self.previous_ne - self.ne) > 2*self.tiny:
-                self.slope = (pot_int-self.previous_pot) / \
-                    (self.ne-self.previous_ne)
+            if abs(self.previous_ne - self.ne) > 2 * self.tiny:
+                self.slope = (pot_int - self.previous_pot) / \
+                    (self.ne - self.previous_ne)
                 self.log("Slope of potential versus ne: "
                          "%1.8f V/e\n" % (self.slope))
 
@@ -375,7 +375,7 @@ class SJM(SolvationGPAW):
             self.previous_ne = self.ne
             self.ne += np.sign(pot_int - self.potential) * self.dpot
         else:
-            d = (pot_int-self.potential) - (self.slope*self.ne)
+            d = (pot_int - self.potential) - (self.slope * self.ne)
             self.previous_ne = self.ne
             self.ne = - d / self.slope
 
@@ -398,7 +398,7 @@ class SJM(SolvationGPAW):
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
             self.get_electrode_potential() * self.ne
         omega_free = Hartree * self.hamiltonian.e_el_free + \
-            self.get_electrode_potential()*self.ne
+            self.get_electrode_potential() * self.ne
 
         if self.write_grandcanonical:
             self.results['energy'] = omega_extra
@@ -462,7 +462,7 @@ class SJM(SolvationGPAW):
                 self.dl['upper_limit'] = self.dl['start'] + \
                     self.dl['thickness']
         else:
-            self.dl['upper_limit'] = self.atoms.cell[2][2]-5.
+            self.dl['upper_limit'] = self.atoms.cell[2][2] - 5.0
 
         if self.dl['start'] == 'cavity_like':
 
@@ -507,7 +507,7 @@ class SJM(SolvationGPAW):
         return wf2  # refpot-E_f
 
     def set_jellium(self, atoms):
-        if abs(self.previous_ne - self.ne) > 2*self.tiny:
+        if abs(self.previous_ne - self.ne) > 2 * self.tiny:
             if abs(self.ne) < self.tiny:
                 self.ne = self.tiny
             self.set(background_charge=self.define_jellium(atoms))
@@ -653,7 +653,7 @@ class SJMPower12Potential(Power12Potential):
                 water_oxygen_ind = []
                 for i in range(self.H2O_layer):
                     water_oxygen_ind.append(
-                        allwater_oxygen_ind[indizes_water_ox_ind[-1-i]])
+                        allwater_oxygen_ind[indizes_water_ox_ind[-1 - i]])
 
             else:
                 water_oxygen_ind = allwater_oxygen_ind
@@ -705,9 +705,9 @@ class SJMPower12Potential(Power12Potential):
                                              plane_z, num=nghatoms_z):
 
                             O_layer.append(np.dot(np.array(
-                                [(1.5*i - natoms_in_plane[0]/4.) /
+                                [(1.5 * i - natoms_in_plane[0] / 4) /
                                  natoms_in_plane[0],
-                                 (1.5*j - natoms_in_plane[1]/4.) /
+                                 (1.5 * j - natoms_in_plane[1] / 4) /
                                  natoms_in_plane[1],
                                  k / Bohr]), cell))
 
@@ -983,5 +983,5 @@ class SJMDipoleCorrection(DipoleCorrection):
             saw.append(saw[i] + step / eps)
         saw = np.array(saw)
         saw /= saw[-1] + step / eps_z[-1] - saw[0]
-        saw -= (saw[0] + saw[-1] + step / eps_z[-1])/2.
+        saw -= (saw[0] + saw[-1] + step / eps_z[-1]) / 2.
         return saw
