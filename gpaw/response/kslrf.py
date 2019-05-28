@@ -108,6 +108,7 @@ class KohnShamLinearResponseFunction:
 
         self.bandsummation = bandsummation
         self.nbands = nbands or self.calc.wfs.bd.nbands
+        assert nbands <= self.calc.wfs.bd.nbands
         self.nocc1 = self.kspair.nocc1  # number of completely filled bands
         self.nocc2 = self.kspair.nocc2  # number of non-empty bands
 

@@ -131,10 +131,12 @@ class KohnShamPair:
         myn_t = n_t[ta:tb]
         mys_t = s_t[ta:tb]
 
-        (U_cc, T, a_a, U_aii, shift_c,
+        (U_cc, T, a_a, U_aii, shift_c,  # U_cc is unused for now XXX
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
-        ut_tR, eps_t, f_t, P_ati = self.extract_orbitals(K, myn_t, mys_t)
+        ut_tR, eps_t, f_t, P_ati = self.extract_orbitals(K, myn_t, mys_t,
+                                                         T, a_a, U_aii,
+                                                         time_reversal)
         
         return KohnShamKPoint(K, myn_t, mys_t, blocksize, ta, tb,
                               ut_tR, eps_t, f_t, P_ati, shift_c)
@@ -228,29 +230,38 @@ class KohnShamPair:
 
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
-    def extract_orbitals(self, K, n_t, s_t):
-        # Documentation XXX
+    def extract_orbitals(self, K, n_t, s_t, T, a_a, U_aii, time_reversal):
+        """Get information about Kohn-Sham orbitals."""
         wfs = self.calc.wfs
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
-        assert n2 <= len(kpt.eps_n), \
-            'Increase GS-nbands or decrease chi0-nbands!'
-        eps_n = kpt.eps_n[n1:n2]
-        f_n = kpt.f_n[n1:n2] / kpt.weight
+        # Find array shapes
+        nt = len(n_t)
+        ni_a = [U_ii.shape[0] for U_ii in U_aii]
 
-        with self.timer('load wfs'):
-            psit_nG = kpt.psit_nG
-            ut_nR = wfs.gd.empty(nb - na, wfs.dtype)
-            for n in range(na, nb):
-                ut_nR[n - na] = T(wfs.pd.ifft(psit_nG[n], ik))
+        t_t = np.arange(0, nt)
+        ut_tR = wfs.gd.empty(nt, wfs.dtype)
+        eps_t = np.zeros(nt)
+        f_t = np.zeros(nt)
+        P_ati = [np.zeros((nt, ni), dtype=complex) for ni in ni_a]
 
-        with self.timer('Load projections'):
-            P_ani = []
-            for b, U_ii in zip(a_a, U_aii):
-                P_ni = np.dot(kpt.P_ani[b][na:nb], U_ii)
-                if time_reversal:
-                    P_ni = P_ni.conj()
-                P_ani.append(P_ni)
+        for s in set(s_t):  # In the ground state, kpts are indexes by u=(s, k)
+            myt = s_t == s
+            kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+
+            eps_t[myt] = kpt.eps_n[n_t[myt]]
+            f_t[myt] = kpt.f_n[n_t[myt]] / kpt.weight
+
+            with self.timer('load wfs'):
+                psit_nG = kpt.psit_nG
+                for t, n in zip(t_t[myt], n_t[myt]):  # Can be vectorized? XXX
+                    ut_tR[t] = T(wfs.pd.ifft(psit_nG[n], ik))
+
+            with self.timer('Load projections'):
+                for a, U_ii in zip(a_a, U_aii):  # Can be vectorized? XXX
+                    P_myti = np.dot(kpt.P_ani[a][n_t[myt]], U_ii)
+                    if time_reversal:
+                        P_myti = P_myti.conj()
+                    P_ati[a][myt, :] = P_myti
 
         return ut_tR, eps_t, f_t, P_ati
