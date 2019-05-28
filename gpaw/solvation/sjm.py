@@ -19,73 +19,79 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 class SJM(SolvationGPAW):
     """Subclass of the SolvationGPAW class which includes the
-       Solvated Jellium method.
+    Solvated Jellium method.
 
-       The method allows the simulation of an electrochemical environment
-       by calculating constant potential quantities on the basis of constant
-       charge DFT runs. For this purpose, it allows the usage of non-neutral
-       periodic slab systems. Cell neutrality is achieved by adding a
-       background charge in the solvent region above the slab
+    The method allows the simulation of an electrochemical environment
+    by calculating constant potential quantities on the basis of constant
+    charge DFT runs. For this purpose, it allows the usage of non-neutral
+    periodic slab systems. Cell neutrality is achieved by adding a
+    background charge in the solvent region above the slab
 
-       Further detail are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+    Further detail are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
 
-       Parameters:
-        ne: float
-            Number of electrons added in the atomic system and (with opposite
-            sign) in the background charge region. At the start it can be an
-            initial guess for the needed number of electrons and will be
-            changed to the current number in the course of the calculation
-        potential: float
-            The potential that should be reached or kept in the course of the
-            calculation. If set to "None" (default) a constant charge charge
-            calculation based on the value of `ne` is performed.
-        potential_equilibration_mode: str
-            The mode for potential relaxation (only relevant for structure
-            optimizations):
-            'seq' (Default): Sequential mode.
-                             In a geometry optimization, the
-                             potential will be fully equilibrated after each
-                             ionic step, if outside of dpot.
-            'sim':  Simultaneous mode.
-                    After each ionic step only ne is adjusted and the geometry
-                    optimization continues. If potential deviation from target
-                    is higher than `max_pot_deviation` one complete potential
-                    equilibration at constant geometry is triggered.
-        dpot: float
-            Tolerance for the deviation of the target potential in sequential
-            mode. If the potential is outside the defined range `ne` will be
-            changed in order to get inside again. Default: 0.01V.
-        max_pot_deviation: float
-            Maximum tolerance for the deviation in the potential from target
-            potential in simultaneous mode. If the tolerance is surpassed a
-            complete potential equilibration is triggered. Default: 0.2 V.
-        doublelayer: dict
-            Parameters regarding the shape of the counter charge region
-            Implemented keys:
-            'start': float or 'cavity_like'
-                If a float is given it corresponds to the lower
-                boundary coordinate (default: z), where the counter charge
-                starts. If 'cavity_like' is given the counter charge will
-                take the form of the cavity up to the 'upper_limit'.
-            'thickness': float
-                Thickness of the counter charge region in Angstrom.
-                Can only be used if start is not 'cavity_like' and will
-                be overwritten by 'upper_limit'.
-            'upper_limit': float
-                Upper boundary of the counter charge region in terms of
-                coordinate in Angstrom (default: z). The default is
-                atoms.cell[2][2] - 5.
-        verbose: bool or 'cube'
-            True:
-                Write final electrostatic potential, background charge and
-                and cavity into ASCII files.
-            'cube':
-                In addition to 'True', also write the cavity on the
-                3D-grid into a cube file.
-        write_grandcanonical_energy: bool
-            Write the constant potential energy into output files such as
-            trajectory files. Default: True
+    Parameters:
 
+    ne: float
+        Number of electrons added in the atomic system and (with opposite
+        sign) in the background charge region. At the start it can be an
+        initial guess for the needed number of electrons and will be
+        changed to the current number in the course of the calculation
+    potential: float
+        The potential that should be reached or kept in the course of the
+        calculation. If set to "None" (default) a constant charge charge
+        calculation based on the value of `ne` is performed.
+    potential_equilibration_mode: str
+        The mode for potential relaxation (only relevant for structure
+        optimizations):
+
+        'seq' (Default):
+            Sequential mode.
+            In a geometry optimization, the
+            potential will be fully equilibrated after each
+            ionic step, if outside of dpot.
+
+        'sim':
+            Simultaneous mode.
+            After each ionic step only ne is adjusted and the geometry
+            optimization continues. If potential deviation from target
+            is higher than `max_pot_deviation` one complete potential
+            equilibration at constant geometry is triggered.
+
+    dpot: float
+        Tolerance for the deviation of the target potential in sequential
+        mode. If the potential is outside the defined range `ne` will be
+        changed in order to get inside again. Default: 0.01V.
+    max_pot_deviation: float
+        Maximum tolerance for the deviation in the potential from target
+        potential in simultaneous mode. If the tolerance is surpassed a
+        complete potential equilibration is triggered. Default: 0.2 V.
+    doublelayer: dict
+        Parameters regarding the shape of the counter charge region
+        Implemented keys:
+
+        'start': float or 'cavity_like'
+            If a float is given it corresponds to the lower
+            boundary coordinate (default: z), where the counter charge
+            starts. If 'cavity_like' is given the counter charge will
+            take the form of the cavity up to the 'upper_limit'.
+        'thickness': float
+            Thickness of the counter charge region in Angstrom.
+            Can only be used if start is not 'cavity_like' and will
+            be overwritten by 'upper_limit'.
+        'upper_limit': float
+            Upper boundary of the counter charge region in terms of
+            coordinate in Angstrom (default: z). The default is
+            atoms.cell[2][2] - 5.
+    verbose: bool or 'cube'
+        True:
+            Write final electrostatic potential, background charge and
+            and cavity into ASCII files.
+        'cube':
+            In addition to 'True', also write the cavity on the
+            3D-grid into a cube file.
+    write_grandcanonical_energy: bool
+        Write the constant potential energy into output files such as
+        trajectory files. Default: True
 
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
