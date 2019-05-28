@@ -219,13 +219,25 @@ class SetupData:
         K_p = sqrt(4 * pi) * np.dot(K_q, T0_qp)
         return K_p
 
-    def get_ghat(self, lmax, alpha, r, rcut):
-        d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
-               for l in range(lmax + 1)]
-        g = alpha**1.5 * np.exp(-alpha * r**2)
-        g[-1] = 0.0
-        ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
-                  for l in range(lmax + 1)]
+    def get_ghat(self, lmax, rc, r, rcut):
+        if rc > 0:
+            alpha = rc**-2
+            d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
+                   for l in range(lmax + 1)]
+            g = alpha**1.5 * np.exp(-alpha * r**2)
+            g[-1] = 0.0
+            ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
+                      for l in range(lmax + 1)]
+        else:
+            rc = -rc
+            g = np.sinc(r / rc)**2
+            dr = r[1]
+            g[int(rc / dr) + 1:] = 0.0
+            ghat_l = []
+            for l in range(lmax + 1):
+                norm = (g * r**(l * 2 + 2)).sum() * dr
+                ghat_l.append(Spline(l, rcut, g / norm))
+
         return ghat_l
 
     def find_core_density_cutoff(self, nc_g):
@@ -256,8 +268,8 @@ class SetupData:
             self.e_xc,
             phicorehole_g,
             self.fcorehole,
-            self.tauc_g[:gcut2].copy(),
-            self.tauct_g[:gcut2].copy())
+            None if self.tauc_g is None else self.tauc_g[:gcut2].copy(),
+            None if self.tauct_g is None else self.tauct_g[:gcut2].copy())
 
         return xc_correction
 

@@ -878,6 +878,8 @@ class Setup(BaseSetup):
         tauct_g = data.tauct_g
         if tauct_g is not None:
             self.tauct = rgd.spline(tauct_g, self.rcore)
+        else:
+            self.tauct = None
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
@@ -897,8 +899,7 @@ class Setup(BaseSetup):
             l = phit.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
-        rgd2 = self.local_corr.rgd2 = \
-            AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
@@ -991,8 +992,7 @@ class Setup(BaseSetup):
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
         r = 0.02 * rcut2 * np.arange(51, dtype=float)
-        alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
+        self.ghat_l = data.get_ghat(lmax, data.rcgauss, r, rcut2)
         self.rcgauss = data.rcgauss
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
