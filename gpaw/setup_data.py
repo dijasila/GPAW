@@ -4,7 +4,6 @@ from __future__ import print_function
 import hashlib
 import os
 import re
-import sys
 import xml.sax
 from glob import glob
 from math import sqrt, pi, factorial as fac

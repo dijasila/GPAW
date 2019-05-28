@@ -17,7 +17,6 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.utilities.ekin import ekin, dekindecut
 from gpaw.rotation import rotation
-from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 
 
