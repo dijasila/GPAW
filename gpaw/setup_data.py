@@ -4,7 +4,6 @@ from __future__ import print_function
 import hashlib
 import os
 import re
-import sys
 import xml.sax
 from glob import glob
 from math import sqrt, pi, factorial as fac
@@ -18,7 +17,8 @@ from gpaw import setup_paths, extra_parameters
 from gpaw.spline import Spline
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.atom.radialgd import (AERadialGridDescriptor,
+                                AbinitRadialGridDescriptor)
 
 try:
     import gzip
@@ -183,12 +183,20 @@ class SetupData:
 
     def create_compensation_charge_functions(self, lmax):
         """Create Gaussians used to expand compensation charges."""
-        rcgauss = self.rcgauss
         g_lg = self.rgd.zeros(lmax + 1)
         r_g = self.rgd.r_g
-        g_lg[0] = 4 / rcgauss**3 / sqrt(pi) * np.exp(-(r_g / rcgauss)**2)
-        for l in range(1, lmax + 1):
-            g_lg[l] = 2.0 / (2 * l + 1) / rcgauss**2 * r_g * g_lg[l - 1]
+        rc = self.rcgauss
+
+        if rc > 0:
+            g_lg[0] = 4 / rc**3 / sqrt(pi) * np.exp(-(r_g / rc)**2)
+            for l in range(1, lmax + 1):
+                g_lg[l] = 2.0 / (2 * l + 1) / rc**2 * r_g * g_lg[l - 1]
+        else:
+            rc = -rc
+            g_lg[0] = np.sinc(r_g / rc)**2
+            g_lg[0, self.rgd.ceil(rc):] = 0.0
+            for l in range(1, lmax + 1):
+                g_lg[l] = r_g * g_lg[l - 1]
 
         for l in range(lmax + 1):
             g_lg[l] /= self.rgd.integrate(g_lg[l], l) / (4 * pi)
@@ -210,13 +218,25 @@ class SetupData:
         K_p = sqrt(4 * pi) * np.dot(K_q, T0_qp)
         return K_p
 
-    def get_ghat(self, lmax, alpha, r, rcut):
-        d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
-               for l in range(lmax + 1)]
-        g = alpha**1.5 * np.exp(-alpha * r**2)
-        g[-1] = 0.0
-        ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
-                  for l in range(lmax + 1)]
+    def get_ghat(self, lmax, rc, r, rcut):
+        if rc > 0:
+            alpha = rc**-2
+            d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
+                   for l in range(lmax + 1)]
+            g = alpha**1.5 * np.exp(-alpha * r**2)
+            g[-1] = 0.0
+            ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
+                      for l in range(lmax + 1)]
+        else:
+            rc = -rc
+            g = np.sinc(r / rc)**2
+            dr = r[1]
+            g[int(rc / dr) + 1:] = 0.0
+            ghat_l = []
+            for l in range(lmax + 1):
+                norm = (g * r**(l * 2 + 2)).sum() * dr
+                ghat_l.append(Spline(l, rcut, g / norm))
+
         return ghat_l
 
     def find_core_density_cutoff(self, nc_g):
@@ -247,8 +267,8 @@ class SetupData:
             self.e_xc,
             phicorehole_g,
             self.fcorehole,
-            self.tauc_g[:gcut2].copy(),
-            self.tauct_g[:gcut2].copy())
+            None if self.tauc_g is None else self.tauc_g[:gcut2].copy(),
+            None if self.tauct_g is None else self.tauct_g[:gcut2].copy())
 
         return xc_correction
 
@@ -464,17 +484,18 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             setup.e_xc = 0.0
 
     def startElement(self, name, attrs):
-        if sys.version_info[0] < 3:
-            attrs.__contains__ = attrs.has_key
-
         setup = self.setup
-        if name == 'paw_setup':
+        if name == 'paw_setup' or name == 'paw_dataset':
             setup.version = attrs['version']
             assert LooseVersion(setup.version) >= '0.4'
         if name == 'atom':
-            setup.Z = int(attrs['Z'])
+            Z = float(attrs['Z'])
+            setup.Z = int(Z)
+            assert setup.Z == Z
             setup.Nc = float(attrs['core'])
-            setup.Nv = int(attrs['valence'])
+            Nv = float(attrs['valence'])
+            setup.Nv = int(Nv)
+            assert setup.Nv == Nv
         elif name == 'xc_functional':
             if attrs['type'] == 'LDA':
                 setup.xcname = 'LDA'
@@ -511,10 +532,19 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                 b = float(attrs['b'])
                 N = int(attrs['n'])
                 setup.rgd = AERadialGridDescriptor(a, b, N)
+            elif attrs['eq'] == 'r=a*(exp(d*i)-1)':
+                a = float(attrs['a'])
+                d = float(attrs['d'])
+                istart = int(attrs['istart'])
+                iend = int(attrs['iend'])
+                assert istart == 0
+                setup.rgd = AbinitRadialGridDescriptor(a, d, iend + 1)
             else:
                 raise ValueError('Unknown grid:' + attrs['eq'])
         elif name == 'shape_function':
-            if 'rc' in attrs:
+            if attrs['type'] == 'sinc':
+                setup.rcgauss = -float(attrs['rc'])
+            elif 'rc' in attrs:
                 assert attrs['type'] == 'gauss'
                 setup.rcgauss = float(attrs['rc'])
             else:
