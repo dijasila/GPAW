@@ -609,8 +609,7 @@ class Integrator:
         Parameters
         ----------
         kslrf : KohnShamLinearResponseFunction instance
-        """
-        
+        """        
         self.kslrf = kslrf
 
     def distribute_kpoint_domain(self, bzk_kv):

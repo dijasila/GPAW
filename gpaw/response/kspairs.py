@@ -281,7 +281,23 @@ class KohnShamPair:
         return ut_tR, eps_t, f_t, P_ati
 
 
-class PlaneWavePairDensity:
+class PairMatrixElement:
+    """Class for calculating matrix elements for transitions in Kohn-Sham
+    linear response functions."""
+    def __init__(self, kslrf):
+        """
+        Parameters
+        ----------
+        kslrf : KohnShamLinearResponseFunction instance
+        """
+        self.kslrf = kslrf
+
+    def __call__(self, kskptpairs, *args, **kwargs):
+        """Calculate the matrix element for all transitions in kskptpairs."""
+        raise NotImplementedError('Define specific matrix element')
+
+
+class PlaneWavePairDensity(PairMatrixElement):
     """Class for calculating pair densities:
 
     n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
@@ -293,7 +309,7 @@ class PlaneWavePairDensity:
         ----------
         pwkslrf : PlaneWaveKSLRF instance
         """
-        self.pwkslrf = pwkslrf
+        PairMatrixElement.__init__(self, pwkslrf)
 
         # Save PAW correction for all calls with same q_c
         self.Q_aGii = None
@@ -339,7 +355,7 @@ class PlaneWavePairDensity:
 
         return n_tG
         '''  # I do not see, why we need this XXX
-        if self.pwkslrf.blockcomm.size == 1:
+        if self.kslrf.blockcomm.size == 1:
             return n_tG
         else:
             n_alltG = pd.empty(kpt2.blocksize * self.blockcomm.size)
@@ -356,8 +372,8 @@ class PlaneWavePairDensity:
 
     @timer('Initialize PAW corrections')
     def _initialize_paw_corrections(self, pd):
-        wfs = self.pwkslrf.calc.wfs
-        spos_ac = self.pwkslrf.calc.spos_ac
+        wfs = self.kslrf.calc.wfs
+        spos_ac = self.kslrf.calc.spos_ac
         G_Gv = pd.get_reciprocal_vectors()
 
         pos_av = np.dot(spos_ac, pd.gd.cell_cv)
@@ -384,7 +400,7 @@ class PlaneWavePairDensity:
         """Get indices for G-vectors inside cutoff sphere."""
         kpt1 = kskptpairs.kpt1
         kpt2 = kskptpairs.kpt2
-        kd = self.pwkslrf.calc.wfs.kd
+        kd = self.kslrf.calc.wfs.kd
         q_c = pd.kd.bzk_kc[0]
 
         N_G = pd.Q_qG[0]
