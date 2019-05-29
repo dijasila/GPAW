@@ -10,6 +10,7 @@ import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
+from gpaw.response.kspair import KohnShamPair
 
 
 class KohnShamLinearResponseFunction:
@@ -93,14 +94,14 @@ class KohnShamLinearResponseFunction:
         Callables
         ---------
         self.add_integrand(*args, **kwargs) : func
-            Add the integrand for a given part of the domain to output array # Better description XXX
+            Add the integrand for a given part of the domain to output array
         self.calculate(*args, **kwargs) : func
             Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
         """
 
         self.kspair = KohnShamPair(gs, world=world, nblocks=nblocks,
-                                   txt=txt, timer=timer)  # KohnShamPair object missing XXX
+                                   txt=txt, timer=timer)
         self.calc = self.kspair.calc
 
         self.response = response
@@ -181,7 +182,7 @@ class KohnShamLinearResponseFunction:
     def setup_output_array(self, A_x):
         raise NotImplementedError('Output array depends on mode')
 
-    def add_integrand(self, *args, **kwargs):  # Some fixed arguments?  XXX
+    def add_integrand(self, *args, **kwargs):
         raise NotImplementedError('Integrand depends on response and mode')
 
     def post_process(self, A_x):
@@ -531,6 +532,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         return A_wGG
 
+    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
+        raise NotImplementedError('Integrand depends on response')
+    
     def post_process(self, A_wGG):
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
         self.pwsa.symmetrize_wGG(tmpA_wGG)
@@ -609,7 +613,7 @@ class Integrator:
         Parameters
         ----------
         kslrf : KohnShamLinearResponseFunction instance
-        """        
+        """
         self.kslrf = kslrf
 
     def distribute_kpoint_domain(self, bzk_kv):
