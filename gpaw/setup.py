@@ -807,9 +807,10 @@ class Setup(BaseSetup):
 
         vbar_g = data.vbar_g
 
-        if data.generator_version < 2:
+        if float(data.version) < 0.7 and data.generator_version < 2:
             # Find Fourier-filter cutoff radius:
             gcutfilter = rgd.get_cutoff(pt_jg[0])
+
         elif filter:
             rc = rcutmax
             vbar_g = vbar_g.copy()

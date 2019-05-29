@@ -6,7 +6,7 @@ import os
 import re
 import xml.sax
 from glob import glob
-from math import sqrt, pi, factorial as fac
+from math import sqrt, pi
 from distutils.version import LooseVersion
 
 import numpy as np
@@ -14,7 +14,6 @@ from ase.data import atomic_names
 from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths, extra_parameters
-from gpaw.spline import Spline
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast
 from gpaw.atom.radialgd import (AERadialGridDescriptor,
@@ -163,11 +162,11 @@ class SetupData:
             text('  Hubbard U: %f eV (l=%d, scale=%s)' %
                  (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
         text('  file:', self.filename)
-        text('  compensation charges: {}, rc={:.2}, lmax={}'
+        text('  compensation charges: {}, rc={:.2f}, lmax={}'
              .format(self.shape_function['type'],
                      self.shape_function['rc'] * Bohr,
                      setup.lmax))
-        text(('  cutoffs: %4.2f(filt), %4.2f(core),'
+        text(('  cutoffs: {:.2f}(filt), {:.2f}(core),'
               .format(setup.rcutfilter * Bohr,
                       setup.rcore * Bohr)))
         text('  valence states:')
@@ -244,7 +243,7 @@ class SetupData:
         xml = open(self.stdfilename, 'w')
 
         print('<?xml version="1.0"?>', file=xml)
-        print('<paw_setup version="0.6">', file=xml)
+        print('<paw_dataset version="0.6">', file=xml)
         name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
@@ -369,7 +368,7 @@ class SetupData:
                 print('%r' % x, end=' ', file=xml)
             print('\n  </yukawa_exchange_X_matrix>', file=xml)
             print('  <yukawa_exchange gamma="%r"/>' % self.X_gamma, file=xml)
-        print('</paw_setup>', file=xml)
+        print('</paw_dataset>', file=xml)
 
     def build(self, xcfunc, lmax, basis, filter=None):
         from gpaw.setup import Setup
