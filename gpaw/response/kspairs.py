@@ -36,14 +36,6 @@ class KohnShamKPointPairs:
         self.kpt1 = kpt1
         self.kpt2 = kpt2
 
-    def get_k1(self):  # Which of these methods are actually used? XXX
-        """ Return KPoint object 1."""
-        return self.kpt1
-
-    def get_k2(self):
-        """ Return KPoint object 2."""
-        return self.kpt2
-
     def get_transition_energies(self):
         """Return the energy differences between orbitals."""
         return self.kpt2.eps_t - self.kpt1.eps_t
@@ -54,10 +46,14 @@ class KohnShamKPointPairs:
 
     def get_t_distribution(self):
         """Get what transitions are included compared to the total picture."""
-        assert kpt1.blocksize == kpt2.blocksize
-        assert kpt1.nt == kpt2.nt
-        assert kpt1.ta == kpt2.ta
-        assert kpt1.tb == kpt2.tb
+        blocksize = self.kpt1.blocksize
+        nt = self.kpt1.nt
+        ta = self.kpt1.ta
+        tb = self.kpt1.tb
+        assert blocksize == self.kpt2.blocksize
+        assert nt == self.kpt2.nt
+        assert ta == self.kpt2.ta
+        assert tb == self.kpt2.tb
 
         return blocksize, nt, ta, tb
 
@@ -322,7 +318,7 @@ class PlaneWavePairDensity(PairMatrixElement):
                  = <snk| e^(-i (q + G) r) |s'n'k+q>
         """
         Q_aGii = self.initialize_paw_corrections(pd)
-        Q_G = self.get_fft_indices(kskptpairs, pd)  # write me XXX
+        Q_G = self.get_fft_indices(kskptpairs, pd)
         blocksize, nt, ta, tb = kskptpairs.get_t_distribution()
         
         n_tG = pd.empty(blocksize)
