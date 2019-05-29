@@ -1,20 +1,19 @@
 import numpy as np
 
-from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.utilities.blas import gemm
+from gpaw.response.kslrf import PlaneWaveKSLRF
+from gpaw.response.kspair import PlaneWavePairDensity
 
 
 class chiKS(PlaneWaveKSLRF):
     """Class calculating the four-component Kohn-Sham susceptibility tensor."""
 
     def __init__(self, *args, **kwargs):
-        """Initialize the chiKS object in plane wave mode.
-        
-        INSERT: Description of the matrix elements XXX
-        """
+        """Initialize the chiKS object in plane wave mode."""
         PlaneWaveKSLRF.__init__(self, *args, **kwargs)
 
-        self.pme = PairDensity(*someargs, **somekwargs)  # Write this (maybe creator method XXX)
+        # Susceptibilities use pair densities as matrix elements
+        self.pme = PlaneWavePairDensity(self)
 
         # The class is calculating one spin component at a time
         self.spincomponent = None
@@ -34,12 +33,9 @@ class chiKS(PlaneWaveKSLRF):
         self.spincomponent = spincomponent
         spinrot = get_spin_rotation(spincomponent)
 
-        # Reset PAW correction in case momentum has changed
-        self.pme.Q_aGii = None
-
         return PlaneWaveKSLRF.calculate(self, q_c, spinrot=spinrot, A_x=A_x)
 
-    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_wGG):  # Write me XXX
+    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_wGG):
         """Use PairDensity object to calculate the integrand for all relevant
         transitions of the given k-point.
 
