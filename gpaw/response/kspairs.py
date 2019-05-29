@@ -7,6 +7,7 @@ from ase.utils.timing import Timer, timer
 from gpaw import GPAW
 import gpaw.mpi as mpi
 # gpaw.utilities.blas import gemm
+from gpaw.response.math_func import two_phi_planewave_integrals
 
 
 class KohnShamKPoint:
@@ -304,7 +305,7 @@ class PlaneWavePairDensity:
         n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
                  = <snk| e^(-i (q + G) r) |s'n'k+q>
         """
-        Q_aGii = self.initialize_paw_corrections(pd)  # write me XXX -> do _init if new q or None
+        Q_aGii = self.initialize_paw_corrections(pd)
         Q_G = self.get_fft_indices(kskptpairs, pd)  # write me XXX
         blocksize, nt, ta, tb = kskptpairs.get_t_distribution()
         
@@ -345,3 +346,54 @@ class PlaneWavePairDensity:
             self.blockcomm.all_gather(n_mG, n_MG)
             return n_MG[:kpt2.n2 - kpt2.n1]
         '''
+    def initialize_paw_corrections(self, pd):
+        """Initialize PAW corrections, if not done already, for the given q"""
+        q_c = pd.kd.bzk_kc[0]
+        if self.Q_aGii is None or np.allclose(q_c - self.currentq_c, 0.):
+            self.Q_aGii = self._initialize_paw_corrections(pd)
+            self.currentq_c = q_c
+        return self.Q_aGii
+
+    @timer('Initialize PAW corrections')
+    def _initialize_paw_corrections(self, pd):
+        wfs = self.pwkslrf.calc.wfs
+        spos_ac = self.pwkslrf.calc.spos_ac
+        G_Gv = pd.get_reciprocal_vectors()
+
+        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
+
+        # Collect integrals for all species:
+        Q_xGii = {}
+        for id, atomdata in wfs.setups.setups.items():
+            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+            ni = atomdata.ni
+            Q_Gii.shape = (-1, ni, ni)
+
+            Q_xGii[id] = Q_Gii
+
+        Q_aGii = []
+        for a, atomdata in enumerate(wfs.setups):
+            id = wfs.setups.id_a[a]
+            Q_Gii = Q_xGii[id]
+            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
+            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
+
+        return Q_aGii
+
+    def get_fft_indices(self, kskptpairs, pd):
+        """Get indices for G-vectors inside cutoff sphere."""
+        kpt1 = kskptpairs.kpt1
+        kpt2 = kskptpairs.kpt2
+        kd = self.pwkslrf.calc.wfs.kd
+        q_c = pd.kd.bzk_kc[0]
+
+        N_G = pd.Q_qG[0]
+
+        shift_c = kpt1.shift_c - kpt2.shift_c
+        shift_c += (q_c - kd.bzk_kc[kpt2.K]
+                    + kd.bzk_kc[kpt1.K]).round().astype(int)
+        if shift_c.any():
+            n_cG = np.unravel_index(N_G, pd.gd.N_c)
+            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
+            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+        return N_G
