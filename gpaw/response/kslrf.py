@@ -69,6 +69,7 @@ class KohnShamLinearResponseFunction:
             Maximum band index to include.
         kpointintegration : str
             Brillouin Zone integration for the Kohn-Sham orbital wave vector.
+            Currently, only point integration is supported
         world : obj
             MPI communicator.
         nblocks : int

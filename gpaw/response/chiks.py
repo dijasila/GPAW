@@ -5,12 +5,18 @@ from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
 
 
-class chiKS(PlaneWaveKSLRF):
+class ChiKS(PlaneWaveKSLRF):
     """Class calculating the four-component Kohn-Sham susceptibility tensor."""
 
     def __init__(self, *args, **kwargs):
         """Initialize the chiKS object in plane wave mode."""
-        PlaneWaveKSLRF.__init__(self, *args, **kwargs)
+        # Avoid any response ambiguity
+        if 'response' in kwargs.keys():
+            response = kwargs.pop('response')
+            assert response == 'susceptibility'
+
+        PlaneWaveKSLRF.__init__(self, *args, response='susceptibility',
+                                **kwargs)
 
         # Susceptibilities use pair densities as matrix elements
         self.pme = PlaneWavePairDensity(self)
