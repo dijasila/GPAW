@@ -6,18 +6,20 @@ from ase.utils.timing import Timer, timer
 
 from gpaw import GPAW
 import gpaw.mpi as mpi
+# gpaw.utilities.blas import gemm
 
 
 class KohnShamKPoint:
     """Kohn-Sham orbitals participating in transitions for a given k-point."""
-    def __init__(self, K, n_t, s_t, blocksize, ta, tb,
+    def __init__(self, K, n_t, s_t, blocksize, nt, ta, tb,
                  ut_tR, eps_t, f_t, P_ati, shift_c):
         self.K = K      # BZ k-point index
         self.n_t = n_t  # Band index for each transition
         self.s_t = s_t  # Spin index for each transition
         self.blocksize = blocksize
-        self.ta = ta    # first transition index of this block
-        self.tb = tb    # first transition index of this block not included
+        self.nt = nt    # Total number of transitions between all blocks
+        self.ta = ta    # First transition index of this block
+        self.tb = tb    # First transition index of this block not included
         self.ut_tR = ut_tR      # periodic part of wave functions in real-space
         self.eps_t = eps_t      # eigenvalues
         self.f_t = f_t          # occupation numbers
@@ -48,6 +50,15 @@ class KohnShamKPointPairs:
     def get_occupation_differences(self):
         """Get difference in occupation factor between orbitals."""
         return self.kpt2.f_t - self.kpt1.f_t
+
+    def get_t_distribution(self):
+        """Get what transitions are included compared to the total picture."""
+        assert kpt1.blocksize == kpt2.blocksize
+        assert kpt1.nt == kpt2.nt
+        assert kpt1.ta == kpt2.ta
+        assert kpt1.tb == kpt2.tb
+
+        return blocksize, nt, ta, tb
 
 
 class KohnShamPair:
@@ -97,12 +108,13 @@ class KohnShamPair:
         """Count number of occupied and unoccupied bands in ground state
         calculation. Can be used to omit null-transitions between two occupied
         bands or between two unoccupied bands."""
+        ftol = 1.e-9  # Could be given as input XXX
         self.nocc1 = 9999999
         self.nocc2 = 0
         for kpt in self.calc.wfs.kpt_u:
             f_n = kpt.f_n / kpt.weight
-            self.nocc1 = min((f_n > 1 - self.ftol).sum(), self.nocc1)
-            self.nocc2 = max((f_n > self.ftol).sum(), self.nocc2)
+            self.nocc1 = min((f_n > 1 - ftol).sum(), self.nocc1)
+            self.nocc2 = max((f_n > ftol).sum(), self.nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
         print('Number of partially filled bands:', self.nocc2, file=self.fd)
         print('Total number of bands:', self.calc.wfs.bd.nbands,
@@ -127,7 +139,8 @@ class KohnShamPair:
         # Parse kpoint to index
         K = self.find_kpoint(k_c)
 
-        blocksize, ta, tb = self.distribute_transitions(len(n_t))
+        nt = len(n_t)
+        blocksize, ta, tb = self.distribute_transitions(nt)
         myn_t = n_t[ta:tb]
         mys_t = s_t[ta:tb]
 
@@ -138,7 +151,7 @@ class KohnShamPair:
                                                          T, a_a, U_aii,
                                                          time_reversal)
         
-        return KohnShamKPoint(K, myn_t, mys_t, blocksize, ta, tb,
+        return KohnShamKPoint(K, myn_t, mys_t, blocksize, nt, ta, tb,
                               ut_tR, eps_t, f_t, P_ati, shift_c)
 
     def find_kpoint(self, k_c):
@@ -265,3 +278,70 @@ class KohnShamPair:
                     P_ati[a][myt, :] = P_myti
 
         return ut_tR, eps_t, f_t, P_ati
+
+
+class PlaneWavePairDensity:
+    """Class for calculating pair densities:
+
+    n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
+
+    in the plane wave mode"""
+    def __init__(self, pwkslrf):
+        """
+        Parameters
+        ----------
+        pwkslrf : PlaneWaveKSLRF instance
+        """
+        self.pwkslrf = pwkslrf
+
+        # Save PAW correction for all calls with same q_c
+        self.Q_aGii = None
+        self.currentq_c = None
+
+    @timer('Calculate pair density')
+    def __call__(self, kskptpairs, pd):
+        """Calculate the pair densities for all transitions:
+        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
+                 = <snk| e^(-i (q + G) r) |s'n'k+q>
+        """
+        Q_aGii = self.initialize_paw_corrections(pd)  # write me XXX -> do _init if new q or None
+        Q_G = self.get_fft_indices(kskptpairs, pd)  # write me XXX
+        blocksize, nt, ta, tb = kskptpairs.get_t_distribution()
+        
+        n_tG = pd.empty(blocksize)
+
+        # Calculate smooth part of the pair densities:
+        # Note: maybe code is slower or just not ready for numpy vectorization
+        # Check speed with old and new stuff
+        ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
+        n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
+        n_tG = pd.fft(n_tR, 0, Q_G) * pd.gd.dv  # Maybe pd.fft is not geared for this XXX
+        '''
+        # Unvectorized, but using gemm
+        for t in range(ta, tb):  # Could be vectorized? XXX
+            # Multiply periodic parts of Kohn-Sham orbitals in transition
+            ut1cc_R = kskptpairs.kpt1.ut_tR[t - ta].conj()
+            n_R = ut1cc_R * kskptpairs.kpt2.ut_tR[t - ta]
+            n_tG[t, :] += pd.fft(n_R, 0, Q_G) * pd.gd.dv
+
+            # Calculate PAW corrections
+            C1_aGi = [np.dot(Q_Gii, P1_ti[t - ta].conj())
+                      for Q_Gii, P1_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati)]
+            for C1_Gi, P2_ti in zip(C1_aGi, kskptpairs.kpt2.P_ati):
+                gemm(1.0, C1_Gi, P2_ti[t - ta], 1.0, n_tG[t], 't')
+        '''
+        # Calculate PAW corrections with numpy
+        for Q_Gii, P1_ti, P2_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati,
+                                       kskptpairs.kpt2.P_ati):
+            C1_Git = np.tensordot(Q_Gii, P1_ti.conj(), axes=([1, 1]))  # right i index? XXX
+            n_tG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
+
+        return n_tG
+        '''  # I do not see, why we need this XXX
+        if self.pwkslrf.blockcomm.size == 1:
+            return n_tG
+        else:
+            n_alltG = pd.empty(kpt2.blocksize * self.blockcomm.size)
+            self.blockcomm.all_gather(n_mG, n_MG)
+            return n_MG[:kpt2.n2 - kpt2.n1]
+        '''

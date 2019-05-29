@@ -77,7 +77,7 @@ class chiKS(PlaneWaveKSLRF):
         # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
         df_t = kskptpairs.get_occupation_differences()
         df_t[np.abs(df_t) <= 1e-20] = 0.0
-        deps_t = kskptpairs.get_energy_differences()
+        deps_t = kskptpairs.get_transition_energies()
         
         # Calculate the pair densities
         n_tG = self.pme(kskptpairs, self.pd)  # Should this include some extrapolate_q? XXX
