@@ -592,7 +592,6 @@ class LeanSetup(BaseSetup):
 
         self.lmax = s.lmax
         self.ghat_l = s.ghat_l
-        self.rcgauss = s.rcgauss
         self.vbar = s.vbar
 
         self.Delta_pL = s.Delta_pL
@@ -990,9 +989,8 @@ class Setup(BaseSetup):
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        r = 0.02 * rcut2 * np.arange(51, dtype=float)
-        self.ghat_l = data.get_ghat(lmax, data.rcgauss, r, rcut2)
-        self.rcgauss = data.rcgauss
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 51)
+                       for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
