@@ -62,7 +62,7 @@ pes.save_folded_pes(filename=out, folding='Gauss')
 parprint('Linear response:')
 pes.save_folded_pes(filename=None, folding=None)
 
-energy_tolerance = 0.0001
+energy_tolerance = 0.001
 niter_tolerance = 1
 equal(e_H2, -3.90059, energy_tolerance)
 equal(e_H2_plus, 10.5659703, energy_tolerance)

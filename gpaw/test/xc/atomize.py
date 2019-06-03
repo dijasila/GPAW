@@ -68,7 +68,7 @@ equal(PBEM06Ldifference, -0.169, 0.01)
 equal(PBEEXXdifference, 0.91, 0.005)
 equal(PBEEXXbdifference, 0.91, 0.005)
 
-energy_tolerance = 0.0002
+energy_tolerance = 0.002
 niter_tolerance = 0
 equal(e1, -1.081638, energy_tolerance)
 equal(e2, -6.726356, energy_tolerance)

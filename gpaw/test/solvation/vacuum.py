@@ -7,7 +7,7 @@ from gpaw.test import equal
 from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
                             Power12Potential, LinearDielectric)
 
-SKIP_REF_CALC = not not True
+SKIP_REF_CALC = True
 
 energy_eps = 0.0005 / 8.
 forces_eps = 2e-5
@@ -41,12 +41,12 @@ if not SKIP_REF_CALC:
     print(Fref)
 else:
     # setups: 0.9.11271, same settings as above
-    Eref = -11.9879852185
+    Eref = -11.983812417411938
 
     Fref = np.array(
-        [[1.77087917e-12, -2.38046360e-12, -6.05015925e+00],
-         [7.91317656e-14, 1.61479184e+00, 6.87595580e-02],
-         [2.62581472e-13, -1.61479184e+00, 6.87595580e-02]])
+        [[1.95122040e-12, -1.17770462e-12, -6.04993798e+00],
+         [6.61270337e-14, 1.58227909e+00, 6.06605145e-02],
+         [1.35947527e-13, -1.58227909e+00, 6.06605145e-02]])
 
 atoms.calc = SolvationGPAW(
     xc='LDA', h=h, convergence=convergence,

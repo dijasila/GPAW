@@ -45,8 +45,7 @@ print("E PBE, TPSS=", E_PBE_no_wfs, E_2)
 print("diff=", E_1 - E_2)
 assert abs(E_1 - E_2) < 0.005
 
-energy_tolerance = 0.00008
-niter_tolerance = 0
+energy_tolerance = 0.001
 equal(E_PBE, -5.33901, energy_tolerance)
 equal(E_PBE_no_wfs, -5.33901, energy_tolerance)
 equal(E_1, -5.57685, energy_tolerance)
