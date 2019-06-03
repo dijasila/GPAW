@@ -35,39 +35,43 @@ class FourComponentSusceptibilityTensor:
             spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
             fxc, fxckwargs : see gpaw.response.fxc
             filename : str
-                Save chiKS_w and chi_w to file of given name.
+                Save chiks_w and chi_w to file of given name.
                 Defaults to:
                 'chi%s_q«%+d-%+d-%+d».csv' % (spincomponent,
                                               *tuple((q_c * kd.N_c).round()))
 
             Returns
             -------
-            omega_w, chiKS_w, chi_w : nd.array, nd.array, nd.array
+            omega_w, chiks_w, chi_w : nd.array, nd.array, nd.array
                 omega_w: frequencies in eV
-                chiKS_w: macroscopic dynamic susceptibility (Kohn-Sham system)
+                chiks_w: macroscopic dynamic susceptibility (Kohn-Sham system)
                 chi_w: macroscopic(to be generalized?) dynamic susceptibility
             """
             omega_w = self.chiks.omega_w * Hartree
-            (pd, chiKS_wGG,
+            (pd, chiks_wGG,
              chi_wGG) = self._calculate_chi_component(spincomponent, q_c,
                                                       fxc=fxc, **fxckwargs)
 
             # Macroscopic component
-            chiKS_w = chiKS_wGG[:, 0, 0]
+            chiks_w = chiks_wGG[:, 0, 0]
             chi_w = chi_wGG[:, 0, 0]
 
-            self.write_component(omega_w, chiKS_w, chi_w, filename=filename)
+            self.write_component(omega_w, chiks_w, chi_w, filename=filename)
 
-            return omega_w, chiKS_w, chi_w
+            return omega_w, chiks_w, chi_w
 
         def _calculate_chi_component(self, spincomponent, q_c, fxc='ALDA',
                                      **fxckwargs):
+            xckernel = create_xckernel(self, fxc, **fxckwargs)  # write me XXX
+
+            pd, chiks_wGG = self._calculate_chiks_component(spincomponent, q_c)
+            Kxc_GG = xckernel(pd)
             raise NotImplementedError()
 
-        def _calculate_chiKS_component(self, spincomponent, q_c):
+        def _calculate_chiks_component(self, spincomponent, q_c):
             raise NotImplementedError()
 
-        def write_component(self, omega_w, chiKS_w, chi_w, filename=None):
+        def write_component(self, omega_w, chiks_w, chi_w, filename=None):
             """Write macroscopic dynamic susceptibility component to a file
             with an appropriate filename"""
             raise NotImplementedError
