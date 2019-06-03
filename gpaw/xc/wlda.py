@@ -5,7 +5,7 @@ from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
 
 class WLDA(XCFunctional):
-    def __init__(self, kernel=None, mode=""):
+    def __init__(self, kernel=None, mode="", filter_kernel=""):
         XCFunctional.__init__(self, 'WLDA','LDA')
         if kernel is None:
             kernel = PurePythonLDAKernel()
@@ -20,6 +20,14 @@ class WLDA(XCFunctional):
 
         self.gd1 = None
 
+        if filter_kernel.lower() == "fermikinetic":
+            self.filter_kernel = self._fermi_kinetic
+        elif filter_kernel.lower() == "fermicoulomb":
+            self.filter_kernel = self._fermi_coulomb
+        else:
+            self.filter_kernel = self._theta_filter
+
+        print("Using kernel: {}".format(filter_kernel))
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -35,6 +43,7 @@ class WLDA(XCFunctional):
 
         n1_sg = gd.collect(n_sg)
         v1_sg = gd.collect(v_sg)
+        e1_g = gd.collect(e_g)
         if gd.comm.rank == 0:
             if self.mode == "":
                 self.apply_weighting(self.gd1, n1_sg)
@@ -86,7 +95,7 @@ class WLDA(XCFunctional):
                     rs = (C0I/n)**(1/3) * (newnorm_s[0] / norm_s[0])**(1/3)
                     ex = C1/rs
                     dexdrs = -ex/rs
-                    e_g[:] = n * ex * norm_s[0] / newnorm_s[0]
+                    e1_g[:] = n * ex * norm_s[0] / newnorm_s[0]
                     v1_sg[0] += ex - rs*dexdrs/3
             
             
@@ -99,13 +108,13 @@ class WLDA(XCFunctional):
                     rs = (C0I/n)**(1/3)
                     ex = C1/rs
                     dexdrs = -ex/rs
-                    e_g[:] = n*ex
+                    e1_g[:] = n*ex
                     v1_sg[0] += ex - rs*dexdrs/3
             
             
                     zeta = 0
             
-                    lda_c(0, e_g, n, v1_sg, zeta)
+                    lda_c(0, e1_g, n, v1_sg, zeta)
 
                 if self.mode.lower() == "":
                     self.potential_correction(v1_sg, self.gd1, n1_sg)
@@ -114,8 +123,8 @@ class WLDA(XCFunctional):
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
 
         gd.distribute(v1_sg, v_sg)
-        gd.distribute(n1_sg, n_sg)        
-
+        #gd.distribute(n1_sg, n_sg)        
+        gd.distribute(e1_g, e_g)
 
     def apply_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
@@ -141,7 +150,7 @@ class WLDA(XCFunctional):
         effective_kF = (3*np.pi**2*avg_dens)**(1/3)
         K_G = self._get_K_G(gd)
         n_G = np.fft.fftn(n_g)
-        filn_G = self._theta_filter(effective_kF, K_G, n_G)
+        filn_G = self.filter_kernel(effective_kF, K_G, n_G)
         filn_g = np.fft.ifftn(filn_G)
         assert np.allclose(filn_g, filn_g.real)
         postnorm = gd.integrate(filn_g)
@@ -410,6 +419,22 @@ class WLDA(XCFunctional):
 
         return n_G*Theta_G
 
+    def _fermi_kinetic(self, k_F, K_G, n_G):
+
+        rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
+        
+        filter_G = 1 / (np.exp( (K_G**2 - 4 * k_F**2) / (2 * 1 / rs**2)) + 1)
+
+        return n_G * filter_G
+
+    def _fermi_coulomb(self, k_F, K_G, n_G):
+
+        rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
+
+        filter_G = 1 / (np.exp( (K_G - 2 * k_F) / (1 / rs)) - 1)
+
+        return n_G * filter_G
+
     def get_nis(self, n_g):
         n_g = np.abs(n_g)
         # maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
@@ -443,7 +468,7 @@ class WLDA(XCFunctional):
 
         for i, ni in enumerate(nis):
             k_F = (3*np.pi**2*ni)**(1/3)
-            fil_n_G = self._theta_filter(k_F, K_G, n_G)
+            fil_n_G = self.filter_kernel(k_F, K_G, n_G)
             x = np.fft.ifftn(fil_n_G)
             if (n_g >= 0).all():
                 assert np.allclose(x, x.real)
@@ -695,11 +720,10 @@ class WLDA(XCFunctional):
         kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
         v_G = np.fft.fftn(v_sg[0])
-        #w_gi = np.array([np.fft.ifftn(self._theta_filter(k_F, K_G, v_G)) for k_F in kF_i]).transpose(1, 2, 3, 0)
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            filv_g = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
+            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, v_G))
             assert np.allclose(filv_g, filv_g.real), "Filtered potential was not real for kF: {}".format(k_F)
             w_g += n_gi[:, :, :, i] * filv_g
             
@@ -717,11 +741,10 @@ class WLDA(XCFunctional):
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            filv_g = np.fft.ifftn(self._theta_filter(k_F, K_G, v_G))
+            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, v_G))
             assert np.allclose(filv_g, filv_g.real)
             w_g += n_gi[:, :, :, i] * filv_g
         w_g = w_g * norm / newnorm +  gd.integrate(n_sg[0] * v_sg[0]) * N
-        assert np.allclose(gd.integrate(n_sg[0]), newnorm)
         assert np.allclose(w_g, w_g.real)
 
         v_sg[0, :] = w_g.real

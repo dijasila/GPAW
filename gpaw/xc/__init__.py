@@ -127,10 +127,15 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.wlda import WLDA
             splt = name.split("_")
             if len(splt) > 1:
-                mode = splt[-1]
+                mode = splt[1]
+                if len(splt) > 2:
+                    filter_kernel = splt[2]
+                else:
+                    filter_kernel = ""
             else:
                 mode = ""
-            return WLDA(mode=mode)
+                filter_kernel = ""
+            return WLDA(mode=mode, filter_kernel=filter_kernel)
         else:
             kernel = LibXC(name)
 
