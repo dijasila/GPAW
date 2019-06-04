@@ -184,7 +184,7 @@ class SetupData:
         text()
 
     def create_compensation_charge_functions(self, lmax):
-        """Create Gaussians used to expand compensation charges."""
+        """Create shape functions used to expand compensation charges."""
         g_lg = shape_functions(self.rgd, **self.shape_function, lmax=lmax,
                                normalize=True)
         return g_lg
@@ -289,8 +289,8 @@ class SetupData:
 
         print(self.rgd.xml('g1'), file=xml)
 
-        print(('  <shape_function type="gauss" rc="%r"/>' %
-               self.rcgauss), file=xml)
+        print('  <shape_function type="{type}" rc="{rc}"/>'
+              .format(**self.shape_function), file=xml)
 
         if self.r0 is None:
             # Old setups:
