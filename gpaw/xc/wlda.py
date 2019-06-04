@@ -25,6 +25,7 @@ class WLDA(XCFunctional):
         elif filter_kernel.lower() == "fermicoulomb":
             self.filter_kernel = self._fermi_coulomb
         else:
+            filter_kernel = "step function filter"
             self.filter_kernel = self._theta_filter
 
         print("Using kernel: {}".format(filter_kernel))
@@ -695,10 +696,11 @@ class WLDA(XCFunctional):
 
     def calc_corrected_density(self, n_sg, num_l=1):
         # import matplotlib.pyplot as plt
-        # before = n_sg[0, :, 0, 0].copy()
+        # before = n_sg.copy()
         # grid_vg = self.wfs.gd.get_grid_point_coordinates()
 
-        # plt.plot( n_sg[0, :, 0,0].copy(), label="before")
+        # _, nx, ny, nz = n_sg.shape
+        # plt.plot( n_sg[0, :, ny//2,nz//2].copy(), label="before")
         setups = self.wfs.setups
         # print("BEFOREDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
         for a, setup in enumerate(setups):
@@ -708,11 +710,12 @@ class WLDA(XCFunctional):
             t = setup.calculate_pseudized_atomic_density(self.rcut, spos_ac)
             t.add(n_sg[0]) # setup.pseudized_atomic_density.add(n_sg[0], 1)
 
-        # plt.plot(n_sg[0, :, 0, 0].copy(), label="after")
-        # plt.plot(n_sg[0, :, 0, 0] - before, label="difference")
+        # plt.plot(n_sg[0, :, ny//2, nz//2].copy(), label="after")
+        # plt.plot(n_sg[0, :, ny//2, nz//2] - before[0, :, ny//2, nz//2], label="difference")
         # plt.legend()
         # print("AFTERDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
         # plt.show()
+        # assert not np.allclose(n_sg-before, 0)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
@@ -730,18 +733,20 @@ class WLDA(XCFunctional):
         _, nx, ny, nz = gd.get_grid_point_coordinates().shape
         kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
-        v_G = np.fft.fftn(v_sg[0])
+        # v_G = np.fft.fftn(v_sg[0])
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, v_G))
+            one_G = np.fft.fftn(v_sg[0] * n_gi[:, :, :, i])
+            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, one_G))
             assert np.allclose(filv_g, filv_g.real), "Filtered potential was not real for kF: {}".format(k_F)
-            w_g += n_gi[:, :, :, i] * filv_g
+            w_g += filv_g
             
         #v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
         assert np.allclose(w_g, w_g.real)
         v_sg[0, :] = w_g.real
         #return v_g.real
+
         
     def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm):
         _, nx, ny, nz = gd.get_grid_point_coordinates().shape
