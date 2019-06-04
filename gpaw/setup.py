@@ -1004,6 +1004,11 @@ class Setup(BaseSetup):
         except NotImplementedError:
             self.rxnabla_iiv = None
 
+            #self.pseudized_atomic_dens
+        if xc.name == "WLDA":
+            self.pseudized_atomic_density = self.calculate_pseudized_atomic_density()
+        
+
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
         for j, pt_g in enumerate(pt_jg):
@@ -1275,6 +1280,40 @@ class Setup(BaseSetup):
             else:
                 i += 2 * l + 1
         assert i == self.ni
+
+    def calculate_pseudized_atomic_density(self, rcut):
+        if self.pseudized_atomic_density is not None:
+            return self.pseudized_atomic_density
+        atomic_Deltan_g = self.calculate_atomic_density()
+
+        pseudn_g = self.calculate_pseudo_density(atomic_Deltan_g, rcut)
+
+        rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
+        rcore = max(rcore, max(self.rcut_j))
+        gcut = self.rgd.ceil(rcore)
+        l = 0
+
+        spline = self.rgd.spline(pseudn_g[:gcut], rcore, 0, points=200)
+
+        self.pseudized_atomic_density = LFC(self.xc.wfs.gd, [spline], kd=self.xc.wfs.kd, dtype=float)
+        return self.pseudized_atomic_density
+        
+    def calculate_atomic_density(self):
+        phi_j = self.phi_j
+        phit_j = self.phit_j
+        nc_g = self.nc_g
+
+        n_g = f_j.dot(phi_j**2 - phit_j**2) + nc_g
+
+        return n_g
+
+    def calculate_pseudo_density(self, atomic_Deltan_g, rcut):
+        gcut = self.rgd.ceil(rcut)
+
+        pseudo, _ = self.rgd.pseudize(atomic_Deltan_g, gcut)
+
+        return pseudo
+        
 
 
 class Setups(list):

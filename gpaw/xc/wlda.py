@@ -28,6 +28,9 @@ class WLDA(XCFunctional):
             self.filter_kernel = self._theta_filter
 
         print("Using kernel: {}".format(filter_kernel))
+
+
+        self.rcut = 1 # In Bohr
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -45,7 +48,7 @@ class WLDA(XCFunctional):
         v1_sg = gd.collect(v_sg)
         e1_g = gd.collect(e_g)
         if gd.comm.rank == 0:
-            if self.mode == "":
+            if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
             
             elif self.mode.lower() == "altcenter":
@@ -406,7 +409,7 @@ class WLDA(XCFunctional):
 
 
     def _get_K_G(self, gd):
-        assert gd.comm.size == 1 #Construct_reciprocal doesnt work in parallel
+        assert gd.comm.size == 1 # Construct_reciprocal doesnt work in parallel
         k2_Q, _ = construct_reciprocal(gd)
         k2_Q[0,0,0] = 0
         return k2_Q**(1/2)
@@ -422,16 +425,20 @@ class WLDA(XCFunctional):
     def _fermi_kinetic(self, k_F, K_G, n_G):
 
         rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
+        if 1/rs < 1e-3:
+            return self._theta_filter(k_F, K_G, n_G)
         
-        filter_G = 1 / (np.exp( (K_G**2 - 4 * k_F**2) / (2 * 1 / rs**2)) + 1)
+        filter_G = 1 / (np.exp( (K_G**2 - 4 * k_F**2) / (1 / (2 * rs**2))) + 1)
 
         return n_G * filter_G
 
     def _fermi_coulomb(self, k_F, K_G, n_G):
 
         rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
+        if 1/rs < 1e-3:
+            return self._theta_filter(k_F, K_G, n_G)
 
-        filter_G = 1 / (np.exp( (K_G - 2 * k_F) / (1 / rs)) - 1)
+        filter_G = 1 / (np.exp( (K_G - 2 * k_F) / (1 / rs)) + 1)
 
         return n_G * filter_G
 
@@ -470,8 +477,8 @@ class WLDA(XCFunctional):
             k_F = (3*np.pi**2*ni)**(1/3)
             fil_n_G = self.filter_kernel(k_F, K_G, n_G)
             x = np.fft.ifftn(fil_n_G)
-            if (n_g >= 0).all():
-                assert np.allclose(x, x.real)
+            #if (n_g >= 0).all():
+            #    assert np.allclose(x, x.real)
 
             self.weight_table[:,:,:,i] = x.real
 
@@ -678,30 +685,11 @@ class WLDA(XCFunctional):
         
 
     def calc_corrected_density(self, n_sg, num_l=1):
-        # from gpaw.gaunt import gaunt
-        # from gpaw.utilities import unpack2
-        # D_asp = self.density.D_asp
-        # wfs = self.wfs
-        # lmax = self.lmax
-        # G_LLL = gaunt(lmax=lmax)
-        # dn_aj = []
+        setups = self.wfs.setups
 
-        # for a, setup in enumerate(wfs.setups):
-        #     rcut = max(setup.rcut_j)
-        #     gcut = setup.rgd.ceil(rcut)
-        #     D_p = D_asp[a][0]
-        #     D_ii = unpack2(D_p)
-        #     dn_j = []
-        #     for i, (l, phi_g, phit_g) in enumerate(zip(setup.l_j, setup.data.phi_jg, setup.data.phit_jg)):
-        #         for j, (l2, phi2_g, phit2_g) in enumerate(zip(setup.l_j, setup.data.phi_jg, setup.data.phit_jg)):
-        #             dn = G_LLL[l, l2, 0] * (phi_g * phi2_g - phit_g * phit2_g) * D_ii[i, j]
-
-        #     dn_aj.append(
-            
-            
-        raise NotImplementedError
-
-
+        for setup in setups:
+            n_sg[0, :] = setup.calculate_pseudized_atomic_density(self.rcut) # setup.pseudized_atomic_density.add(n_sg[0], 1)
+        
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
