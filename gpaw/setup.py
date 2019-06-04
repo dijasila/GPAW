@@ -831,11 +831,13 @@ class Setup(BaseSetup):
                     pt_jg[j] = pt_ng[n]
             gcutfilter = rgd.get_cutoff(pt_jg[0])
         else:
-            rcutfilter = max(rcut_j)
-            gcutfilter = rgd.ceil(rcutfilter)
+            gcutfilter = rgd.ceil(max(rcut_j))
+
+        if (vbar_g[gcutfilter:] != 0.0).any():
+            gcutfilter = rgd.get_cutoff(vbar_g)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (abs(vbar_g[gcutfilter:]) < 1e-6).all()
+        assert rcutfilter < 1.5 * max(rcut_j)
 
         ni = 0
         i = 0
