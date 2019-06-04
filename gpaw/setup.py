@@ -835,9 +835,9 @@ class Setup(BaseSetup):
 
         if (vbar_g[gcutfilter:] != 0.0).any():
             gcutfilter = rgd.get_cutoff(vbar_g)
+            assert r_g[gcutfilter] < 2.0 * max(rcut_j)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert rcutfilter < 2.5 * max(rcut_j)
 
         ni = 0
         i = 0
