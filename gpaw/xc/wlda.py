@@ -695,6 +695,8 @@ class WLDA(XCFunctional):
         
 
     def calc_corrected_density(self, n_sg, num_l=1):
+        if not hasattr(self.wfs.setups[0], "calculate_pseudized_atomic_density"):
+            return
         # import matplotlib.pyplot as plt
         # before = n_sg.copy()
         # grid_vg = self.wfs.gd.get_grid_point_coordinates()
