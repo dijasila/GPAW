@@ -756,11 +756,18 @@ class WLDA(XCFunctional):
         v_G = np.fft.fftn(v_sg[0])
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
+        ofunc_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
-            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, v_G))
+            one_G = np.fft.fftn(v_sg[0] * n_gi[:, :, :, i])
+            filv_g = np.fft.ifftn(self.filter_kernel(k_F, K_G, one_G))
             assert np.allclose(filv_g, filv_g.real)
-            w_g += n_gi[:, :, :, i] * filv_g
-        w_g = w_g * norm / newnorm +  gd.integrate(n_sg[0] * v_sg[0]) * N
+            w_g += filv_g
+
+            fi_G = np.fft.ifftn(n_gi[:, :, :, i])
+            ofunc_g += np.fft.ifftn(self.filter_kernel(k_F, K_G, fi_G))
+
+        
+        w_g = w_g * norm / newnorm +  ofunc_g * gd.integrate(n_sg[0] * v_sg[0]) * N
         assert np.allclose(w_g, w_g.real)
 
         v_sg[0, :] = w_g.real
