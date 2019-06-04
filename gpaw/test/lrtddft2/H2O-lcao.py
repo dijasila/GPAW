@@ -25,7 +25,7 @@ lr = LrTDDFT2(name, calc, fxc='LDA')
 lr.calculate()
 results = lr.get_transitions()[0:2]
 
-if 1:
+if 0:
     np.set_printoptions(precision=10)
     refstr = repr(results)
     refstr = refstr.replace('array', 'np.array')

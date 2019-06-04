@@ -7,7 +7,7 @@ from gpaw.test import equal
 from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
                             Power12Potential, LinearDielectric)
 
-SKIP_REF_CALC = not True
+SKIP_REF_CALC = True
 
 energy_eps = 0.0005 / 8.
 forces_eps = 1e-3

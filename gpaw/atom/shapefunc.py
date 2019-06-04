@@ -5,8 +5,8 @@ from .radialgd import RadialGridDescriptor
 def shape_functions(rgd: RadialGridDescriptor,
                     type: str,
                     rc: float,
-                    lmax: int,
-                    normalize=True) -> np.ndarray:
+                    lmax: int) -> np.ndarray:
+    """Shape functions for compensation charges."""
     g_lg = rgd.zeros(lmax + 1)
     r_g = rgd.r_g
 
@@ -32,9 +32,8 @@ def shape_functions(rgd: RadialGridDescriptor,
     else:
         1 / 0
 
-    if normalize:
-        for l in range(lmax + 1):
-            g_lg[l] /= rgd.integrate(g_lg[l], l) / (4 * np.pi)
+    for l in range(lmax + 1):
+        g_lg[l] /= rgd.integrate(g_lg[l], l) / (4 * np.pi)
 
     return g_lg
 
@@ -48,6 +47,7 @@ if __name__ == '__main__':
     r = np.linspace(0, 1.2, 200)
 
     if 0:
+        # Find roots of spherical Bessel functions:
         for l in range(3):
             for i, x0 in enumerate([3, 6]):
                 result = root(lambda x: jn(l, x), x0 + 1.5 * l)

@@ -185,8 +185,7 @@ class SetupData:
 
     def create_compensation_charge_functions(self, lmax):
         """Create shape functions used to expand compensation charges."""
-        g_lg = shape_functions(self.rgd, **self.shape_function, lmax=lmax,
-                               normalize=True)
+        g_lg = shape_functions(self.rgd, **self.shape_function, lmax=lmax)
         return g_lg
 
     def get_smooth_core_density_integral(self, Delta0):
