@@ -1293,7 +1293,7 @@ class Setup(BaseSetup):
         gcut = self.rgd.ceil(rcore)
         l = 0
 
-        spline = self.rgd.spline(pseudn_g[:gcut], rcore, 0, points=200)
+        spline = self.rgd.spline(pseudn_g[:gcut], rcore, l, points=200)
 
         self.pseudized_atomic_density = LFC(self.xc.wfs.gd, [spline], kd=self.xc.wfs.kd, dtype=float)
         return self.pseudized_atomic_density
