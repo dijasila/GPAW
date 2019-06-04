@@ -16,7 +16,9 @@ import os
 Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
 
-default_ehmasses = {'H-CrO2-NM': {'emass1': 0.875, 'hmass1': 1.442},
+default_ehmasses = {'BPx': {'emass1': 0.17, 'hmass1': 0.15},
+                    'BPy': {'emass1': 1.12, 'hmass1': 6.35},
+                    'H-CrO2-NM': {'emass1': 0.875, 'hmass1': 1.442},
                     'H-CrS2-NM': {'emass1': 0.872, 'hmass1': 0.883},
                     'H-CrSe2-NM': {'emass1': 0.936, 'hmass1': 0.955},
                     'H-CrTe2-NM': {'emass1': 0.855, 'hmass1': 0.9},
@@ -25,6 +27,7 @@ default_ehmasses = {'H-CrO2-NM': {'emass1': 0.875, 'hmass1': 1.442},
                     'H-HfTe2-NM': {'emass1': 1.722, 'hmass1': 0.612},
                     'H-MoO2-NM': {'emass1': 0.419, 'hmass1': 0.764},
                     'H-MoS2-NM': {'emass1': 0.427, 'hmass1': 0.53},
+                    'MoSSe': {'emass1': 0.48, 'hmass1': 0.60},
                     'H-MoSe2-NM': {'emass1': 0.492, 'hmass1': 0.583},
                     'H-MoTe2-NM': {'emass1': 0.493, 'hmass1': 0.597},
                     'H-PbS2-NM': {'emass1': 0.386, 'hmass1': 0.618},
@@ -109,6 +112,10 @@ default_thicknesses = {'H-MoS2-icsd-644245': 6.1511,
                        'T-ZrSe2-icsd-652236': 6.128,
                        'T-PtSe2-icsd-649589': 5.0813,
                        'T-NiTe2-icsd-159382': 5.266,
+                       'BPx': 5.26,
+                       'BPy': 5.26,
+                       'MoSSe': 6.32,
+                       'MoSSePrime': 6.32,
                        'graphene': 3.35,  # Wiki
                        'BN': 3.33}  # ioffe.ru/SVA/NSM/Semicond/BN/basic.html}
 
@@ -124,9 +131,9 @@ class Heterostructure:
     """This class defines dielectric function of heterostructures
         and related physical quantities."""
 
-    def __init__(self, structure, d,
+    def __init__(self, structure, d, thicknesses=None,
                  include_dipole=True, d0=None,
-                 wmax=10, qmax=None, timer=None):
+                 wmax=10, qmax=None, timer=None, substrate=None):
         """Creates a Heterostructure object.
 
         structure: list of str
@@ -134,6 +141,9 @@ class Heterostructure:
             layers + chemical formula.
             For example: ['3H-MoS2', graphene', '10H-WS2'] gives 3 layers of
             H-MoS2, 1 layer of graphene and 10 layers of H-WS2.
+        thicknesses: array of floats
+            Layers thicknesses in Ang.
+            Length of array = number of layers
         d: array of floats
             Interlayer distances for neighboring layers in Ang.
             Length of array = number of layers - 1
@@ -147,10 +157,21 @@ class Heterostructure:
             Cutoff for frequency grid (eV)
         qmax: float
             Cutoff for wave-vector grid (1/Ang)
+        substrate: dictionary {'eps': eps_w,
+                               'omega': omega_w,
+                               'd': d,
+                               'isotropic': Bool}
+            eps: Dielectric function of the substrate (frequency dependent)
+                (epsx and epsz in the anisotropic case)
+            omega: Fequency grid of the eps (eV)
+            d: Distance of the substrate to the middle of the
+                first layer (Ang)
+            isotropic: includes the out-of-plane dielectric function in
+                the substrate if True
         """
 
         self.timer = timer or Timer()
-
+        self.substrate = substrate
         chi_monopole = []
         drho_monopole = []
         if include_dipole:
@@ -237,10 +258,15 @@ class Heterostructure:
         self.d = np.array(d) / Bohr  # interlayer distances
         if self.n_layers > 1:
             # space around each layer
-            self.s = (np.insert(self.d, 0, self.d[0]) +
-                      np.append(self.d, self.d[-1])) / 2.
+            if thicknesses is not None:
+                self.s = thicknesses / Bohr
+            else:
+                self.s = (np.insert(self.d, 0, self.d[0]) +
+                          np.append(self.d, self.d[-1])) / 2.
+
         else:  # Monolayer calculation
             self.s = [d0 / Bohr]  # Width of single layer
+        self.d0 = d0 / Bohr
 
         self.dim = np.copy(self.n_layers)
         if include_dipole:
@@ -249,11 +275,11 @@ class Heterostructure:
         # Grid stuff
         edgesize = 50
         system_size = np.sum(self.d) + edgesize
-        self.poisson_lim = 500  # above this limit use potential model
+        self.poisson_lim = 1000  # above this limit use potential model
         assert system_size < self.poisson_lim
 
         self.z_lim = system_size
-        self.dz = 0.01
+        self.dz = 0.05
         # master grid
         self.z_big = np.arange(0, self.z_lim, self.dz) - edgesize / 2.
         self.z0 = np.append(np.array([0]), np.cumsum(self.d))
@@ -267,6 +293,9 @@ class Heterostructure:
 
         self.dphi_array = self.get_induced_potentials()
         self.kernel_qij = None
+
+        if self.substrate is not None:
+            self.kernelsub_qwij = None
 
     @timer('Arange basis')
     def arange_basis(self, drhom, drhod=None):
@@ -366,7 +395,7 @@ class Heterostructure:
                             fd2(z_big[i_1: i_2 + 1])
 
         return dphi_array
-
+    
     def get_z_grid(self, z, z_lim=None):
         dz = z[1] - z[0]
         if z_lim is None:
@@ -419,7 +448,7 @@ class Heterostructure:
         f_z[:] = - 4 * np.pi * drho[:]
         f_z[0] = bc_v0
         f_z[Nint] = bc_vN
-
+                                                  
         ab = np.zeros((3, Nint + 1), complex)
         ab[0, 2:] = 1. / dz**2
         ab[1, 1:-1] = -2 / dz**2 - q**2
@@ -433,6 +462,7 @@ class Heterostructure:
     def get_Coulomb_Kernel(self, step_potential=False):
         kernel_qij = np.zeros([self.mynq, self.dim, self.dim],
                               dtype=complex)
+
         for iq in range(self.mynq):
             if np.isclose(self.myq_abs[iq], 0):
                 # Special treatment of q=0 limit
@@ -442,11 +472,73 @@ class Heterostructure:
                     # Use step-function average for monopole contribution
                     kernel_qij[iq] = np.dot(self.basis_array[:, iq],
                                             self.dphi_array[:, iq].T) * self.dz
-                else:  # Normal kernel
+                else:
                     kernel_qij[iq] = np.dot(self.drho_array[:, iq],
                                             self.dphi_array[:, iq].T) * self.dz
-
         return kernel_qij
+
+    @timer('Get substrate coulomb kernel')
+    def get_substrate_Coulomb_Kernel(self, step_potential=False):
+        from scipy.interpolate import interp1d
+        kernelsub_qij = np.zeros([self.mynq, self.dim, self.dim],
+                                 dtype=complex)
+
+        subw_w = self.substrate['omega']
+        if self.substrate['isotropic']:
+            subeps_w = self.substrate['eps']
+            fsubreal_w = interp1d(subw_w, np.real(subeps_w),
+                                  bounds_error=False, fill_value='extrapolate')
+            fsubimag_w = interp1d(subw_w, np.imag(subeps_w),
+                                  bounds_error=False, fill_value='extrapolate')
+            newsubeps_w = fsubreal_w(self.frequencies * Hartree) + \
+                1j * fsubimag_w(self.frequencies * Hartree)
+        else:
+            subepsx_w = self.substrate['epsx']
+            subepsz_w = self.substrate['epsz']
+            fsubxreal_w = interp1d(subw_w, np.real(subepsx_w),
+                                   bounds_error=False,
+                                   fill_value='extrapolate')
+            fsubximag_w = interp1d(subw_w, np.imag(subepsx_w),
+                                   bounds_error=False,
+                                   fill_value='extrapolate')
+            fsubzreal_w = interp1d(subw_w, np.real(subepsz_w),
+                                   bounds_error=False,
+                                   fill_value='extrapolate')
+            fsubzimag_w = interp1d(subw_w, np.imag(subepsz_w),
+                                   bounds_error=False,
+                                   fill_value='extrapolate')
+            newsubepsx_w = fsubxreal_w(self.frequencies * Hartree) + \
+                1j * fsubximag_w(self.frequencies * Hartree)
+            newsubepsz_w = fsubzreal_w(self.frequencies * Hartree) + \
+                1j * fsubzimag_w(self.frequencies * Hartree)
+            newsubeps_w = np.sqrt(newsubepsx_w * newsubepsz_w)
+
+        fphi_real = interp1d(self.z_big, np.real(self.dphi_array),
+                             bounds_error=False, fill_value=0, axis=-1)
+        fphi_imag = interp1d(self.z_big, np.imag(self.dphi_array),
+                             bounds_error=False, fill_value=0, axis=-1)
+
+        if self.substrate['d']:
+            subdist = self.substrate['d'][0] / Bohr
+        else:
+            subdist = self.d0 / 2
+
+        dphi_sub = (fphi_real(self.z_big - 2 * subdist) +
+                    1j * fphi_imag(self.z_big - 2 * subdist))[:, :, ::-1]
+
+        for iq in range(self.mynq):
+            if step_potential:
+                kernelsub_qij[iq] = np.dot(self.basis_array[:, iq],
+                                           dphi_sub[:, iq].T)
+            else:
+                kernelsub_qij[iq] = np.dot(self.drho_array[:, iq],
+                                           dphi_sub[:, iq].T)
+
+        kernelsub_qwij = (-((newsubeps_w - 1) / (newsubeps_w + 1))[None, :,
+                                                                   None, None]
+                          * self.dz) * kernelsub_qij[:, None]
+
+        return kernelsub_qwij.real
 
     @timer('Solve chi dyson equation')
     def get_chi_matrix(self):
@@ -461,9 +553,14 @@ class Heterostructure:
 
         if self.kernel_qij is None:
             self.kernel_qij = self.get_Coulomb_Kernel()
+
+        if self.substrate is not None:
+            if self.kernelsub_qwij is None:
+                self.kernelsub_qwij = self.get_substrate_Coulomb_Kernel()
+
         chi_qwij = np.zeros((self.mynq, len(self.frequencies),
                              self.dim, self.dim), dtype=complex)
-
+        
         dot = np.dot
         inv = np.linalg.inv
         eye = np.eye(self.dim)
@@ -474,6 +571,12 @@ class Heterostructure:
 
             kernel_ij = self.kernel_qij[iq].copy()
             np.fill_diagonal(kernel_ij, 0)  # Diagonal is set to zero
+
+            if self.chi_dipole is not None:
+                for j in range(self.n_layers):
+                    kernel_ij[2 * j, 2 * j + 1] = 0
+                    kernel_ij[2 * j + 1, 2 * j] = 0
+
             chi_intra_wij = np.zeros((len(self.frequencies), self.dim,
                                       self.dim),
                                      dtype=complex)
@@ -485,7 +588,15 @@ class Heterostructure:
                                                       iq, iw])
                 chi_intra_wij[iw] = np.diag(chi_intra_i)
 
-            chi_qwij[iq] = inv(eye - dot(chi_intra_wij, kernel_ij))
+                if self.substrate is not None:
+                    kernelsub_ij = self.kernelsub_qwij[iq, iw].copy()
+                    newkernel_ij = kernel_ij + kernelsub_ij
+
+                    chi_qwij[iq, iw] = inv(eye - dot(chi_intra_wij[iw],
+                                                     newkernel_ij))
+
+            if self.substrate is None:
+                chi_qwij[iq] = inv(eye - dot(chi_intra_wij, kernel_ij))
 
             for chi_ij, chi_intra_ij in zip(chi_qwij[iq], chi_intra_wij):
                 chi_ij[:, :] = dot(chi_ij, chi_intra_ij)
@@ -510,6 +621,11 @@ class Heterostructure:
             sp = step_potential
             self.kernel_qij = self.get_Coulomb_Kernel(step_potential=sp)
 
+            if self.substrate is not None:
+                if self.kernelsub_qwij is None:
+                    self.kernelsub_qwij = \
+                        self.get_substrate_Coulomb_Kernel(step_potential=sp)
+
             chi_qwij = self.get_chi_matrix()
             self.chi_qwij = chi_qwij
         else:
@@ -520,17 +636,27 @@ class Heterostructure:
 
         for i, iq in enumerate(iq_q):
             kernel_ij = self.kernel_qij[iq]
-            for j, iw in enumerate(iw_w):
-                eps_qwij[i, j, :, :] = np.linalg.inv(
-                    np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
-                                                        chi_qwij[iq, iw,
-                                                                 :, :]))
+            if self.substrate is not None:
+                for j, iw in enumerate(iw_w):
+                    newkernel_ij = kernel_ij + self.kernelsub_qwij[iq, iw]
+                    eps_qwij[i, j, :, :] = np.linalg.inv(
+                        np.eye(newkernel_ij.shape[0]) + np.dot(newkernel_ij,
+                                                               chi_qwij[iq, iw,
+                                                                        :, :]))
+
+            else:
+                for j, iw in enumerate(iw_w):
+                    eps_qwij[i, j, :, :] = np.linalg.inv(
+                        np.eye(kernel_ij.shape[0]) + np.dot(kernel_ij,
+                                                            chi_qwij[iq, iw,
+                                                                     :, :]))
 
         return eps_qwij
 
     @timer('Get screened potential')
-    def get_screened_potential(self, layer=0):
-        """
+    def get_screened_potential(self, layer=0, step_potential=False,
+                               subtract_bare_coulomb=False):
+        r"""
         get the screened interaction averaged over layer "k":
         W_{kk}(q, w) = \sum_{ij} V_{ki}(q) \chi_{ij}(q, w) V_{jk}(q)
 
@@ -541,31 +667,47 @@ class Heterostructure:
         returns: W(q,w)
         """
         self.kernel_qij =\
-            self.get_Coulomb_Kernel(step_potential=True)
+            self.get_Coulomb_Kernel(step_potential=step_potential)
+
+        if self.substrate is not None:
+            sp = step_potential
+            self.kernelsub_qwij = \
+                self.get_substrate_Coulomb_Kernel(step_potential=sp)
 
         chi_qwij = self.get_chi_matrix()
         W_qw = np.zeros((self.mynq, len(self.frequencies)),
                         dtype=complex)
 
-        W0_qw = np.zeros((self.mynq, len(self.frequencies)),
-                         dtype=complex)
         k = layer
         if self.chi_dipole is not None:
             k *= 2
         for iq in range(self.mynq):
-            kernel_ij = self.kernel_qij[iq]
-            if np.isclose(self.myq_abs[iq], 0):
-                kernel_ij = 2 * np.pi * np.ones([self.dim, self.dim])
+            kernel_ij = self.kernel_qij[iq].copy()
 
-            if self.chi_dipole is not None:
-                for j in range(self.n_layers):
-                    kernel_ij[2 * j, 2 * j + 1] = 0
-                    kernel_ij[2 * j + 1, 2 * j] = 0
+            # if np.isclose(self.myq_abs[iq], 0):
+            #     kernel_ij = 2 * np.pi * np.ones([self.dim, self.dim])
+
+            # if self.chi_dipole is not None:
+            #     for j in range(self.n_layers):
+            #         kernel_ij[2 * j, 2 * j + 1] = 0
+            #         kernel_ij[2 * j + 1, 2 * j] = 0
 
             for iw in range(0, len(self.frequencies)):
-                W_qw[iq, iw] = np.dot(np.dot(kernel_ij[k], chi_qwij[iq, iw]),
-                                      kernel_ij[:, k])
-                W0_qw[iq, iw] = kernel_ij[k, k]**2 * chi_qwij[iq, iw, k, k]
+                if self.substrate is not None:
+                    newkernel_ij = kernel_ij + \
+                        self.kernelsub_qwij[iq, iw].copy()
+                    W_qw[iq, iw] = np.dot(np.dot(newkernel_ij[k],
+                                                 chi_qwij[iq, iw]),
+                                          newkernel_ij[:, k])
+                    V0 = newkernel_ij[k, k]
+                else:
+                    W_qw[iq, iw] = np.dot(np.dot(kernel_ij[k],
+                                                 chi_qwij[iq, iw]),
+                                          kernel_ij[:, k])
+                    V0 = kernel_ij[k, k]
+
+                if subtract_bare_coulomb is False:
+                    W_qw[iq, iw] += V0
 
         W_qw = self.collect_qw(W_qw)
 
@@ -578,12 +720,20 @@ class Heterostructure:
         h_distr = h_distr.transpose()
         kernel_qij = self.get_Coulomb_Kernel()
 
+        if self.substrate is not None:
+            if self.kernelsub_qwij is None:
+                self.kernelsub_qwij = self.get_substrate_Coulomb_Kernel()
+            kernel_qij += self.kernelsub_qwij[:, 0]
+
         for iq in range(0, self.mynq):
             ext_pot = np.dot(kernel_qij[iq], h_distr)
             v_screened_q[iq] =\
                 np.dot(e_distr,
                        np.dot(np.linalg.inv(eps_qwij[iq, 0, :, :]),
                               ext_pot)).real
+
+        if self.substrate is not None:
+            kernel_qij -= self.kernelsub_qwij[:, 0]
 
         v_screened_q = self.collect_q(v_screened_q[:])
 
@@ -597,7 +747,7 @@ class Heterostructure:
         else:
             q_temp, W_q, xxx = self.get_exciton_screened_potential(e_distr,
                                                                    h_distr)
-
+ 
         from scipy.special import jn
 
         inter = False
@@ -701,8 +851,7 @@ class Heterostructure:
         ev = ev[:, index_sort]
         return ee * Hartree, ev
 
-    def get_macroscopic_dielectric_function(self, static=True, layers=None,
-                                            direction='x'):
+    def get_macroscopic_dielectric_function(self, static=True, direction='x'):
         """
         Calculates the averaged dielectric function over the structure.
 
@@ -711,22 +860,15 @@ class Heterostructure:
         static: bool
             If True only include w=0
 
-        layers: array of integers
-            list with index of specific layers to include in the average.
-
         direction: str 'x' or 'z'
             'x' for in plane dielectric function
             'z' for out of plane dielectric function
 
         Returns list of q-points, frequencies, dielectric function(q, w).
         """
-        layer_weight = self.s / np.sum(self.s) * self.n_layers
-
-        if self.chi_dipole is not None:
-            layer_weight = np.insert(layer_weight,
-                                     np.arange(self.n_layers) + 1,
-                                     layer_weight)
-
+        assert self.substrate is None, \
+            print('get_macroscopic_dielectric_function does not '
+                  'apply for structures with substrate')
         if direction == 'x':
             const_per = np.ones([self.n_layers])
             if self.chi_dipole is not None:
@@ -739,34 +881,24 @@ class Heterostructure:
             const_per = np.insert(const_per, np.arange(self.n_layers) + 1,
                                   np.ones([self.n_layers]))
 
-        if layers is None:  # average over entire structure
-            N = self.n_layers
-            potential = const_per
-        else:  # average over selected layers
-            N = len(layers)
-            potential = np.zeros([self.dim])
-            index = layers * self.dim / self.n_layers
-            if direction == 'z':
-                index += 1
-            potential[index] = 1.
-
         if static:
             Nw = 1
         else:
             Nw = len(self.frequencies)
 
         eps_qwij = self.get_eps_matrix(step_potential=True)[:, :Nw]
-
+        
+        N = self.n_layers
         Nq = self.mynq
         epsM_qw = np.zeros([Nq, Nw], dtype=complex)
-
+        
         for iw in range(Nw):
             for iq in range(Nq):
                 eps_ij = eps_qwij[iq, iw]
                 epsinv_ij = np.linalg.inv(eps_ij)
-                epsinvM = 1. / N * np.dot(np.array(potential) * layer_weight,
-                                          np.dot(epsinv_ij,
-                                                 np.array(const_per)))
+                epsinvM = 1 / N * np.dot(np.array(const_per),
+                                         np.dot(epsinv_ij,
+                                                np.array(const_per)))
 
                 epsM_qw[iq, iw] = 1. / epsinvM
 
@@ -774,8 +906,31 @@ class Heterostructure:
 
         return self.q_abs / Bohr, self.frequencies[:Nw] * Hartree, epsM_qw
 
-    def get_eels(self, dipole_contribution=False):
+    def get_dielectric_function(self, layer=0):
         """
+        Calculates the dielectric function of the chosen layer
+
+        Parameters:
+        layer: int
+            index of layer to calculate the dielectric function for.
+
+        Returns list of q-points, frequencies, dielectric function(q, w).
+        """
+
+        W_qw = self.get_screened_potential(layer=layer)
+        kernel_qij = self.get_Coulomb_Kernel()
+
+        k = layer
+        if self.chi_dipole is not None:
+            k *= 2
+
+        kernel_qw = kernel_qij[:, None, k, k]
+        eps_qw = kernel_qw / W_qw
+            
+        return self.q_abs / Bohr, self.frequencies * Hartree, eps_qw
+
+    def get_eels(self, dipole_contribution=False):
+        r"""
         Calculates Electron energy loss spectrum, defined as:
 
         EELS(q, w) = - Im 4 \pi / q**2 \chiM(q, w)
@@ -819,7 +974,7 @@ class Heterostructure:
             - (Bohr * eels_qw).imag
 
     def get_absorption_spectrum(self, dipole_contribution=False):
-        """
+        r"""
         Calculates absorption spectrum, defined as:
 
         ABS(q, w) = - Im 2 / q \epsM(q, w)
@@ -862,7 +1017,7 @@ class Heterostructure:
             (Bohr * abs_qw).imag
 
     def get_sum_eels(self, V_beam=100, include_z=False):
-        """
+        r"""
         Calculates the q- averaged Electron energy loss spectrum usually
         obtained in scanning transmission electron microscopy (TEM).
 
@@ -975,7 +1130,7 @@ class Heterostructure:
         return self.frequencies * Hartree, - (Bohr**5 * eels_w * vol).imag
 
     def get_response(self, iw=0, dipole=False):
-        """
+        r"""
         Get the induced density and potential due to constant perturbation
         obtained as: rho_ind(r) = \int chi(r,r') dr'
         """
@@ -1041,7 +1196,7 @@ class Heterostructure:
 
             eps_qwij = self.get_eps_matrix(iq_q=[iq])
             if iq == 0:
-                print('Calculate plasmon modes')
+                print('Calculating plasmon modes')
 
             eig[iq], vec_wij = np.linalg.eig(eps_qwij[0])
             abseps[iq, :] = np.linalg.det(eps_qwij[0])
@@ -1109,7 +1264,7 @@ class Heterostructure:
                     'abseps': abseps}
             np.savez_compressed(filename, **data)
 
-        return eig, z, rho_z, phi_z, np.array(omega0), abseps
+        return eig, z, rho_z, phi_z, freqs_qm, abseps
 
     def collect_q(self, a_q):
         """ Collect arrays of dim (q)"""
@@ -1637,7 +1792,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
 
 def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
                filenames=None, name=None):
-    """Calculate the monopole and dipole contribution to the
+    r"""Calculate the monopole and dipole contribution to the
     2D susceptibillity chi_2D, defined as
 
     ::
@@ -1777,7 +1932,9 @@ def read_chi_wGG(name):
 def plot_plasmons(hs, output,
                   plot_eigenvalues=False,
                   plot_density=False,
-                  plot_potential=False):
+                  plot_potential=False,
+                  save_plots=False,
+                  show=True):
     eig, z, rho_z, phi_z, omega0, abseps = output
 
     import matplotlib.pyplot as plt
@@ -1792,40 +1949,53 @@ def plot_plasmons(hs, output,
         plt.plot([q_q[iq], ] * len(freqs), freqs, 'k.')
         plt.ylabel(r'$\hbar\omega$ (eV)')
         plt.xlabel(r'q (Å$^{-1}$)')
+    if save_plots is not None:
+        plt.savefig('Plasmon_Modes_' + str(save_plots))
 
     plt.figure()
-    plt.title('1 / |Det(Dielectric Matrix)|')
-    plt.pcolor(q_q, omega_w, np.log10(1 / np.abs(abseps)).T)
+    plt.title('Loss Function')
+    loss_qw = np.sum(-np.imag(eig**(-1)), axis=-1)
+    plt.pcolor(q_q, omega_w, loss_qw.T, vmax=10)
     plt.ylabel(r'$\hbar\omega$ (eV)')
     plt.xlabel(r'q (Å$^{-1}$)')
     plt.colorbar()
+    if save_plots is not None:
+        plt.savefig('Loss_' + str(save_plots))
 
     if plot_eigenvalues:
         plt.figure()
         for iq in range(0, nq, nq // 10):
             plt.plot(omega_w, eig[iq].real)
             plt.plot(omega_w, eig[iq].imag, '--')
+        if save_plots is not None:
+            plt.savefig('Eigenvalues_' + str(save_plots))
+
     if plot_potential:
         plt.figure()
         plt.title('Induced potential')
-        q = nq // 10
+        q = nq // 5
         pots = np.array(phi_z[q]).real
         plt.plot(z, pots.T)
-        plt.xlabel('z (Å)')
+        plt.xlabel(r'z $(\AA)$')
+        if save_plots is not None:
+            plt.savefig('Potential_' + str(save_plots))
 
     if plot_density:
         plt.figure()
         plt.title('Induced density')
-        q = nq // 10
+        q = nq // 5
         dens = np.array(rho_z[q]).real
         plt.plot(z, dens.T)
-        plt.xlabel('z (Å)')
+        plt.xlabel(r'z $(\AA)$')
+        if save_plots is not None:
+            plt.savefig('Density_' + str(save_plots))
 
 
 def make_heterostructure(layers,
-                         frequencies=[0.001, 5, 5000],
-                         momenta=[0.0001, 5, 1000],
-                         thicknesses=None):
+                         frequencies=[0.001, 5.0, 5000],
+                         momenta=[0.0001, 5.0, 2000],
+                         thicknesses=None,
+                         substrate=None):
     """Easy function for making a heterostructure based on some layers"""
 
     # Copy for internal handling
@@ -1861,6 +2031,7 @@ def make_heterostructure(layers,
                     break
             else:
                 raise NotImplementedError
+                print('define the thickness of all layers')
 
     q_q = np.linspace(*momenta)
     omega_w = np.linspace(*frequencies)
@@ -1964,9 +2135,13 @@ def make_heterostructure(layers,
 
     # Print summary of structure
     print('Structure:')
+    if substrate is not None:
+        print('    Substrate d = {} Å'.format(substrate['d'][0]))
     for thickness, layer in zip(thicknesses, layers):
         print('    {} d = {} Å'.format(layer, thickness))
-    het = Heterostructure(structure=layers, d=d, d0=d0)
+    het = Heterostructure(structure=layers, d=d,
+                          thicknesses=thicknesses, d0=d0,
+                          substrate=substrate)
     return het
 
 
@@ -2052,17 +2227,26 @@ def main(args=None):
     help = ("Save plots to file")
     parser.add_argument('--saveplots', type=str, default=None, help=help)
 
+    help = ("Add a substrate to the structure."
+            "A file '-sub.npz' that contains the dielectric function of the "
+            "substrate, (in x and z direction in the anisotropic case)"
+            "the omega grid where the epsilon is defined, the distance"
+            "of the substrate to the bottom most layer must to be given"
+            "and a True or False 'isotropic' argument."
+            "E. g.: --substrate SiO2")
+    parser.add_argument('--substrate', type=str, default=None, help=help)
+
     help = ("Custom frequencies to represent quantities on (in eV). "
             "The format is: min. frequency, max. frequency, "
-            "number of frequencies. E. g.: 0.1 1.0 100")
-    parser.add_argument('--omega', default=[0.001, 5, 5000],
+            "number of frequencies. E. g.: 0.001 1.0 500")
+    parser.add_argument('--omega', default=[0.001, 1.0, 500],
                         nargs=3,
                         help=help, type=float)
 
     help = ("Custom momentas to respresent quantities on (in AA^-1). "
             "The format is: min. q, max. q, number of q's. "
-            "E. g.: 0.001 0.1 100")
-    parser.add_argument('--q', default=[0.0001, 5, 1000],
+            "E. g.: 0.0001 0.15 100")
+    parser.add_argument('--q', default=[0.0001, 0.15, 200],
                         nargs=3,
                         help=help, type=float)
 
@@ -2130,24 +2314,34 @@ def main(args=None):
         dest = str(phonons.name)
         if src != dest:
             shutil.copy(src, dest)
+            
+    if args.substrate:
+        substrate = np.load('{}-sub.npz'.format(str(args.substrate)))
+    else:
+        substrate = None
 
     # Make QEH calculation
     print('Initializing heterostructure')
     hs = make_heterostructure(layers,
                               thicknesses=args.thicknesses,
                               momenta=args.q,
-                              frequencies=args.omega)
+                              frequencies=args.omega,
+                              substrate=substrate)
 
     if args.plot:
         import matplotlib.pyplot as plt
 
     if args.plasmons:
-        print('Calculating plasmon spectrum')
+        print('Calculate plasmon spectrum')
         tmp = hs.get_plasmon_eigenmodes(filename=args.plasmonfile)
         if args.plot:
             plot_plasmons(hs, tmp, plot_eigenvalues=args.eigenvalues,
                           plot_potential=args.potential,
-                          plot_density=args.density)
+                          plot_density=args.density,
+                          save_plots=args.saveplots,
+                          show=False)
+    if args.eels:
+        q_abs, frequencies, eels_qw = hs.get_eels(dipole_contribution=True)
 
     hs.timer.write()
 
