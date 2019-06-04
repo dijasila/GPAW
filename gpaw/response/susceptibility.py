@@ -1,8 +1,12 @@
 import sys
 
+import numpy as np
+
 from ase.units import Hartree
 
 import gpaw.mpi as mpi
+from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
+                        Redistributor, DryRunBlacsGrid)
 from gpaw.response.chiks import ChiKS
 
 
@@ -42,7 +46,15 @@ class FourComponentSusceptibilityTensor:
                            bandsummation=bandsummation, nbands=nbands,
                            world=world, nblocks=nblocks, txt=txt)
         self.calc = self.chiks.calc  # calc should be loaded here XXX
-        self.fxc = create_fxc(self, fxc, fxckwargs)  # Write me XXX
+        self.fxc = create_fxc(fxc, response='susceptibility', mode='pw',
+                              **fxckwargs, **someotherstuff)  # Write me XXX
+
+        # This should be initiated with G-parallelization, in this script! XXX
+        nw = len(self.chiks.omega_w)
+        world = self.chi0.world
+        self.mynw = (nw + world.size - 1) // world.size
+        self.w1 = min(self.mynw * world.rank, nw)
+        self.w2 = min(self.w1 + self.mynw, nw)
 
     def get_macroscopic_component(self, spincomponent, q_c, filename=None):
         """Calculates the spatially averaged (macroscopic) component of the
@@ -89,29 +101,126 @@ class FourComponentSusceptibilityTensor:
             chiks_w: macroscopic dynamic susceptibility (Kohn-Sham system)
             chi_w: macroscopic(to be generalized?) dynamic susceptibility
         """
-        (pd, omega_w,
-         chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c)
+        (pd, chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c)
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
         chi_w = chi_wGG[:, 0, 0]
 
+        # Collect data for all frequencies
+        omega_w = self.chiks.omega_w * Hartree
+        chiks_w = self.collect(chiks_w)
+        chi_w = self.collect(chi_w)
+
         return omega_w, chiks_w, chi_w
 
     def calculate_component(self, spincomponent, q_c):
-        # Some documentation needed XXX
-        pd, omega_w, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)
-        Kxc_GG = self._calculate_Kxc(spincomponent, pd, chiks_wGG=chiks_wGG)
+        """Calculate a single component of the susceptibility tensor.
+
+        Parameters
+        ----------
+        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+
+        Returns
+        -------
+        pd : PWDescriptor
+            Descriptor object for the plane wave basis
+        chiks_wGG : ndarray
+            The process' block of the Kohn-Sham susceptibility component
+        chi_wGG : ndarray
+            The process' block of the full susceptibility component
+        """
+        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)
+        Kxc_GG = self.calculate_Kxc(spincomponent, q_c,
+                                    pd, chiks_wGG=chiks_wGG)
 
         # Initiate chi_wGG
         # Invert Dyson
 
-        return pd, omega_w, chiks_wGG, chi_wGG
+        return pd, chiks_wGG, chi_wGG
 
-    def _calculate_ks_component(self, spincomponent, q_c):
-        # Some documentation needed XXX
-        # see also df.py XXX
-        omega_w = self.chiks.omega_w * Hartree
+    def calculate_ks_component(self, spincomponent, q_c):  # Rename to "get" at some point XXX see xckernel
+        """Calculate a single component of the Kohn-Sham susceptibility tensor.
+
+        Parameters
+        ----------
+        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+
+        Returns
+        -------
+        pd : PWDescriptor
+            Descriptor object for the plane wave basis
+        chiks_wGG : ndarray
+            The process' block of the Kohn-Sham susceptibility component
+        """
+        # ChiKS calculates the susceptibility distributed over plane waves
         pd, chiks_wGG = self.chiks.calculate(q_c, spincomponent=spincomponent)
 
-        return pd, omega_w, chiks_wGG
+        # Redistribute memory, so each block has its own frequencies, but all
+        # plane waves (for easy invertion of the Dyson-like equation)
+        chiks_wGG = self.distribute_frequencies(chiks_wGG)
+
+        return pd, chiks_wGG
+
+    '''
+    def get_xckernel(self, spincomponent, q_c, pd, chiks_wGG=None):
+        """Check if the exchange correlation kernel has been calculated,
+        if not, calculate it."""
+        # Implement write/read/check functionality XXX
+        if self.fxc.is_calculated(spincomponent, q_c):
+            return self.fxc.read(spincomponent, q_c)
+        else:
+            Kxc_GG = self.fxc.calculate(spincomponent, q_c, pd,
+                                        chiks_wGG=chiks_wGG)
+            self.fxc.write(Kxc_GG, spincomponent, q_c)
+            return Kxc_GG
+    '''
+
+    def collect(self, a_w):
+        """Collect frequencies from all blocks"""
+        # More documentation is needed! XXX
+        world = self.chiks.world
+        b_w = np.zeros(self.mynw, a_w.dtype)
+        b_w[:self.w2 - self.w1] = a_w
+        nw = len(self.omega_w)
+        A_w = np.empty(world.size * self.mynw, a_w.dtype)
+        world.all_gather(b_w, A_w)
+        return A_w[:nw]
+
+    def distribute_frequencies(self, chiks_wGG):
+        """Distribute frequencies to all cores."""
+        # More documentation is needed! XXX
+        world = self.chiks.world
+        comm = self.chiks.blockcomm
+
+        if world.size == 1:
+            return chiks_wGG
+
+        nw = len(self.chiks.omega_w)
+        nG = chiks_wGG.shape[2]
+        mynw = (nw + world.size - 1) // world.size
+        mynG = (nG + comm.size - 1) // comm.size
+
+        wa = min(world.rank * mynw, nw)
+        wb = min(wa + mynw, nw)
+
+        if self.chiks.blockcomm.size == 1:
+            return chiks_wGG[wa:wb].copy()
+
+        if self.chiks.kncomm.rank == 0:
+            bg1 = BlacsGrid(comm, 1, comm.size)
+            in_wGG = chiks_wGG.reshape((nw, -1))
+        else:
+            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            in_wGG = np.zeros((0, 0), complex)
+        md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
+
+        bg2 = BlacsGrid(world, world.size, 1)
+        md2 = BlacsDescriptor(bg2, nw, nG**2, mynw, nG**2)
+
+        r = Redistributor(world, md1, md2)
+        shape = (wb - wa, nG, nG)
+        out_wGG = np.empty(shape, complex)
+        r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
+
+        return out_wGG

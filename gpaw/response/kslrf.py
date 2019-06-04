@@ -161,7 +161,14 @@ class KohnShamLinearResponseFunction:
         self.integrator.integrate(n1_t, n2_t, s1_t, s2_t,
                                   out_x=A_x, **self.extraintargs)
 
-        return self.post_process(A_x)
+        # Different calculation modes might want the response function output
+        # in different formats
+        out = self.post_process(A_x)
+
+        # Write calculation time
+        self.timer.write(self.fd)
+
+        return out
 
     def get_band_spin_transitions_domain(self):
         """Generate all allowed band and spin transitions.
@@ -446,6 +453,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.pwsa = None  # Plane wave symmetry analyzer for given q
 
+    # SOME GET METHOD, THAT INVOLVES READ/WRITE? XXX
+    
     def calculate(self, q_c, spinrot=None, A_x=None):
         """
         Parameters
