@@ -688,6 +688,9 @@ class LeanSetup(BaseSetup):
         self._Mg_pp = None
         self._gamma = 0
 
+        self.pseudized_atomic_density = None
+        self.calculate_pseudized_atomic_density = s.calculate_pseudized_atomic_density
+
 
 class Setup(BaseSetup):
     """Attributes:
@@ -900,6 +903,8 @@ class Setup(BaseSetup):
             AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
+
+
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
         phit_jg = np.array([phit_g[:gcut2].copy() for phit_g in phit_jg])
         self.local_corr.nc_g = nc_g = nc_g[:gcut2].copy()
@@ -1004,10 +1009,11 @@ class Setup(BaseSetup):
         except NotImplementedError:
             self.rxnabla_iiv = None
 
-            #self.pseudized_atomic_dens
-        if xc.name == "WLDA":
-            self.pseudized_atomic_density = self.calculate_pseudized_atomic_density()
-        
+        self.pphi_j = phi_jg
+        self.pphit_j = phit_jg
+        self.nc_g = nc_g
+        self.xc = xc
+        self.pseudized_atomic_density = None
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []
@@ -1281,28 +1287,40 @@ class Setup(BaseSetup):
                 i += 2 * l + 1
         assert i == self.ni
 
-    def calculate_pseudized_atomic_density(self, rcut):
+    def calculate_pseudized_atomic_density(self, rcut, spos_ac):
+        from gpaw.lfc import LFC
         if self.pseudized_atomic_density is not None:
             return self.pseudized_atomic_density
         atomic_Deltan_g = self.calculate_atomic_density()
 
         pseudn_g = self.calculate_pseudo_density(atomic_Deltan_g, rcut)
 
-        rcore = self.data.find_core_density_cutoff(setupdata.nc_g)
+        rcore = self.data.find_core_density_cutoff(self.data.nc_g)
         rcore = max(rcore, max(self.rcut_j))
         gcut = self.rgd.ceil(rcore)
         l = 0
 
-        spline = self.rgd.spline(pseudn_g[:gcut], rcore, l, points=200)
+        spline = self.rgd.spline(pseudn_g, rcore, l, points=200)
 
-        self.pseudized_atomic_density = LFC(self.xc.wfs.gd, [spline], kd=self.xc.wfs.kd, dtype=float)
+        # import matplotlib.pyplot as plt
+        # plt.plot(self.rgd.r_g[:self.gcut2], [spline(r) for r in self.rgd.r_g[:self.gcut2]], label="spline")
+        # plt.plot(self.rgd.r_g[:self.gcut2], atomic_Deltan_g, label="atomic")
+        # plt.plot(self.rgd.r_g[:self.gcut2], pseudn_g, label="pseudo")
+        # plt.plot(self.rgd.r_g[:self.gcut2], pseudn_g-[spline(r) for r in self.rgd.r_g[:self.gcut2]], label="pseudo minus spline")
+        # plt.plot([rcut, rcut], [0, 1], color="black", label="Cutoff for Pseudized density")
+        # plt.plot([self.rgd.r_g[gcut], self.rgd.r_g[gcut]], [0, 1], color="black", linestyle="dashed", label="Cutoff for spline")
+        # plt.title("Densities")
+        # plt.legend()
+        # plt.show()
+        self.pseudized_atomic_density = LFC(self.xc.wfs.gd, [[self.rgd.spline(pseudn_g, rcore, l, points=200)] for _ in range(len(spos_ac))], kd=self.xc.wfs.kd, dtype=float)
+        self.pseudized_atomic_density.set_positions(spos_ac)
         return self.pseudized_atomic_density
         
     def calculate_atomic_density(self):
-        phi_j = self.phi_j
-        phit_j = self.phit_j
+        phi_j = self.pphi_j
+        phit_j = self.pphit_j
         nc_g = self.nc_g
-
+        f_j = np.array(self.f_j)
         n_g = f_j.dot(phi_j**2 - phit_j**2) + nc_g
 
         return n_g

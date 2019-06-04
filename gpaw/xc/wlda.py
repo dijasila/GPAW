@@ -30,7 +30,7 @@ class WLDA(XCFunctional):
         print("Using kernel: {}".format(filter_kernel))
 
 
-        self.rcut = 1 # In Bohr
+        self.rcut = 0.0625 # In Bohr
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -48,6 +48,7 @@ class WLDA(XCFunctional):
         v1_sg = gd.collect(v_sg)
         e1_g = gd.collect(e_g)
         if gd.comm.rank == 0:
+            self.calc_corrected_density(n1_sg)
             if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
             
@@ -449,11 +450,19 @@ class WLDA(XCFunctional):
         # nis = np.exp(np.arange(0, maxLogVal, deltaLog)) - 1
         # assert len(nis) > 1
         # return nis
-        nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
+        def maxit(a, b):
+            if np.isnan(a):
+                return b
+            if np.isnan(b):
+                return a
+            else:
+                return max(a, b)
+
+        nis = np.arange(0, maxit(np.max(n_g)+2*self.stepsize, 5), self.stepsize)
         stepsize = self.stepsize
         while len(nis) > 30:
             stepsize *= 1.2
-            nis = np.arange(0, max(np.max(n_g)+2*self.stepsize, 5), stepsize)
+            nis = np.arange(0, maxit(np.max(n_g)+2*self.stepsize, 5), stepsize)
         return nis
 
 
@@ -685,11 +694,25 @@ class WLDA(XCFunctional):
         
 
     def calc_corrected_density(self, n_sg, num_l=1):
-        setups = self.wfs.setups
+        # import matplotlib.pyplot as plt
+        # before = n_sg[0, :, 0, 0].copy()
+        # grid_vg = self.wfs.gd.get_grid_point_coordinates()
 
-        for setup in setups:
-            n_sg[0, :] = setup.calculate_pseudized_atomic_density(self.rcut) # setup.pseudized_atomic_density.add(n_sg[0], 1)
-        
+        # plt.plot( n_sg[0, :, 0,0].copy(), label="before")
+        setups = self.wfs.setups
+        # print("BEFOREDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
+        for a, setup in enumerate(setups):
+            spos_ac_indices = list(filter(lambda x : x[1] == setup, enumerate(setups)))
+            spos_ac_indices = [x[0] for x in spos_ac_indices]
+            spos_ac = self.wfs.spos_ac[spos_ac_indices]
+            t = setup.calculate_pseudized_atomic_density(self.rcut, spos_ac)
+            t.add(n_sg[0]) # setup.pseudized_atomic_density.add(n_sg[0], 1)
+
+        # plt.plot(n_sg[0, :, 0, 0].copy(), label="after")
+        # plt.plot(n_sg[0, :, 0, 0] - before, label="difference")
+        # plt.legend()
+        # print("AFTERDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
+        # plt.show()
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
