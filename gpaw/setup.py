@@ -835,7 +835,7 @@ class Setup(BaseSetup):
             gcutfilter = rgd.ceil(rcutfilter)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (vbar_g[gcutfilter:] == 0).all()
+        assert (abs(vbar_g[gcutfilter:]) < 1e-6).all()
 
         ni = 0
         i = 0
