@@ -52,7 +52,7 @@ assert abs(e_bsse - e0) < 2e-3
 
 energy_tolerance = 0.0002
 niter_tolerance = 3
-equal(e_bsse, 0.0287208853911, energy_tolerance)  # svnversion 5252
+equal(e_bsse, 0.02914, energy_tolerance)  # svnversion 5252
 equal(niter_bsse, 7, niter_tolerance)  # svnversion 5252
-equal(e0, 0.0299220702846, energy_tolerance)  # svnversion 5252
+equal(e0, 0.03038, energy_tolerance)  # svnversion 5252
 equal(niter0, 6, niter_tolerance)  # svnversion 5252

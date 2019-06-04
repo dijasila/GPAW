@@ -753,7 +753,8 @@ class Generator(AllElectron):
 
         setup.rgd = self.rgd
 
-        setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
+        setup.shape_function = {'type': 'gauss',
+                                'rc': self.rcutcomp / sqrt(self.gamma)}
         setup.e_kin_jj = self.dK_jj
         setup.ExxC = ExxC
         setup.phi_jg = divide_all_by_r(vu_j)
@@ -788,6 +789,7 @@ class Generator(AllElectron):
         setup.generatorattrs = attrs
         setup.generatordata = data
         setup.orbital_free = self.orbital_free
+        setup.version = '0.6'
 
         self.id_j = []
         for l, n in zip(vl_j, vn_j):

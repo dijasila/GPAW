@@ -9,7 +9,7 @@ c = a / 2
 #d = 1.8
 
 elements = ['C', 'Be']
-results = [0.245393619863, 9.98114719239]
+results = [0.2385, 9.9773]
 electrons = [6, 3]
 charges = [0,1]
 

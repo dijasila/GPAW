@@ -47,14 +47,14 @@ fd = 0
 
 # Values taken from FD calculation below
 # (Symmetry means only z-component may be nonzero)
-ref = array([[0.0, 0.0,  4.61734874],
-             [0.0, 0.0, -2.74398046],
-             [0.0, 0.0,  2.74398027],
-             [0.0, 0.0, -4.61734856]])
+ref = array([[0, 0, 4.611833046113678],
+             [0, 0, -2.731387815142816],
+             [0, 0, 2.7313858296763582],
+             [0, 0, -4.611832059726484]])
 
 if fd:
-    from ase.calculators.test import numeric_forces
-    ref = numeric_forces(system, axes=[2], d=0.002)
+    from ase.calculators.test import numeric_force
+    ref = [[0, 0, numeric_force(system, a, 2, d=0.002)] for a in range(4)]
     print('Calced')
     print(F_ac)
     print('FD')

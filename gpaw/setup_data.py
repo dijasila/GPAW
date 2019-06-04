@@ -6,7 +6,7 @@ import os
 import re
 import xml.sax
 from glob import glob
-from math import sqrt, pi, factorial as fac
+from math import sqrt, pi
 from distutils.version import LooseVersion
 
 import numpy as np
@@ -14,11 +14,11 @@ from ase.data import atomic_names
 from ase.units import Bohr, Hartree
 
 from gpaw import setup_paths, extra_parameters
-from gpaw.spline import Spline
 from gpaw.xc.pawcorrection import PAWXCCorrection
 from gpaw.mpi import broadcast
 from gpaw.atom.radialgd import (AERadialGridDescriptor,
                                 AbinitRadialGridDescriptor)
+from gpaw.atom.shapefunc import shape_functions
 
 try:
     import gzip
@@ -61,7 +61,9 @@ class SetupData:
         self.e_kin_jj = None  # <phi | T | phi> - <phit | T | phit>
 
         self.rgd = None
-        self.rcgauss = None  # For compensation charge expansion functions
+
+        # Parameters for compensation charge expansion functions:
+        self.shape_function = {'type': 'undefined', 'rc': np.nan}
 
         # State identifier, like "X-2s" or "X-p1", where X is chemical symbol,
         # for bound and unbound states
@@ -160,13 +162,13 @@ class SetupData:
             text('  Hubbard U: %f eV (l=%d, scale=%s)' %
                  (setup.HubU * Hartree, setup.Hubl, bool(setup.Hubs)))
         text('  file:', self.filename)
-        text(('  cutoffs: %4.2f(comp), %4.2f(filt), %4.2f(core),'
-              ' lmax=%d' % (sqrt(10) * self.rcgauss * Bohr,
-                            # XXX is this really true?  I don't think this is
-                            # actually the cutoff of the compensation charges
-                            setup.rcutfilter * Bohr,
-                            setup.rcore * Bohr,
-                            setup.lmax)))
+        text('  compensation charges: {}, rc={:.2f}, lmax={}'
+             .format(self.shape_function['type'],
+                     self.shape_function['rc'] * Bohr,
+                     setup.lmax))
+        text(('  cutoffs: {:.2f}(filt), {:.2f}(core),'
+              .format(setup.rcutfilter * Bohr,
+                      setup.rcore * Bohr)))
         text('  valence states:')
         text('                energy  radius')
         j = 0
@@ -182,24 +184,8 @@ class SetupData:
         text()
 
     def create_compensation_charge_functions(self, lmax):
-        """Create Gaussians used to expand compensation charges."""
-        g_lg = self.rgd.zeros(lmax + 1)
-        r_g = self.rgd.r_g
-        rc = self.rcgauss
-
-        if rc > 0:
-            g_lg[0] = 4 / rc**3 / sqrt(pi) * np.exp(-(r_g / rc)**2)
-            for l in range(1, lmax + 1):
-                g_lg[l] = 2.0 / (2 * l + 1) / rc**2 * r_g * g_lg[l - 1]
-        else:
-            rc = -rc
-            g_lg[0] = np.sinc(r_g / rc)**2
-            g_lg[0, self.rgd.ceil(rc):] = 0.0
-            for l in range(1, lmax + 1):
-                g_lg[l] = r_g * g_lg[l - 1]
-
-        for l in range(lmax + 1):
-            g_lg[l] /= self.rgd.integrate(g_lg[l], l) / (4 * pi)
+        """Create shape functions used to expand compensation charges."""
+        g_lg = shape_functions(self.rgd, **self.shape_function, lmax=lmax)
         return g_lg
 
     def get_smooth_core_density_integral(self, Delta0):
@@ -217,27 +203,6 @@ class SetupData:
                 K_q.append(e_kin_jj[j1, j2])
         K_p = sqrt(4 * pi) * np.dot(K_q, T0_qp)
         return K_p
-
-    def get_ghat(self, lmax, rc, r, rcut):
-        if rc > 0:
-            alpha = rc**-2
-            d_l = [fac(l) * 2**(2 * l + 2) / sqrt(pi) / fac(2 * l + 1)
-                   for l in range(lmax + 1)]
-            g = alpha**1.5 * np.exp(-alpha * r**2)
-            g[-1] = 0.0
-            ghat_l = [Spline(l, rcut, d_l[l] * alpha**l * g)
-                      for l in range(lmax + 1)]
-        else:
-            rc = -rc
-            g = np.sinc(r / rc)**2
-            dr = r[1]
-            g[int(rc / dr) + 1:] = 0.0
-            ghat_l = []
-            for l in range(lmax + 1):
-                norm = (g * r**(l * 2 + 2)).sum() * dr
-                ghat_l.append(Spline(l, rcut, g / norm))
-
-        return ghat_l
 
     def find_core_density_cutoff(self, nc_g):
         if self.Nc == 0:
@@ -277,7 +242,9 @@ class SetupData:
         xml = open(self.stdfilename, 'w')
 
         print('<?xml version="1.0"?>', file=xml)
-        print('<paw_setup version="0.6">', file=xml)
+        print('<paw_dataset version="{version}">'
+              .format(version=self.version),
+              file=xml)
         name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'
@@ -323,8 +290,8 @@ class SetupData:
 
         print(self.rgd.xml('g1'), file=xml)
 
-        print(('  <shape_function type="gauss" rc="%r"/>' %
-               self.rcgauss), file=xml)
+        print('  <shape_function type="{type}" rc="{rc}"/>'
+              .format(**self.shape_function), file=xml)
 
         if self.r0 is None:
             # Old setups:
@@ -402,7 +369,7 @@ class SetupData:
                 print('%r' % x, end=' ', file=xml)
             print('\n  </yukawa_exchange_X_matrix>', file=xml)
             print('  <yukawa_exchange gamma="%r"/>' % self.X_gamma, file=xml)
-        print('</paw_setup>', file=xml)
+        print('</paw_dataset>', file=xml)
 
     def build(self, xcfunc, lmax, basis, filter=None):
         from gpaw.setup import Setup
@@ -542,14 +509,9 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
             else:
                 raise ValueError('Unknown grid:' + attrs['eq'])
         elif name == 'shape_function':
-            if attrs['type'] == 'sinc':
-                setup.rcgauss = -float(attrs['rc'])
-            elif 'rc' in attrs:
-                assert attrs['type'] == 'gauss'
-                setup.rcgauss = float(attrs['rc'])
-            else:
-                # Old style: XXX
-                setup.rcgauss = max(setup.rcut_j) / sqrt(float(attrs['alpha']))
+            assert attrs['type'] in {'gauss', 'sinc', 'bessel'}
+            setup.shape_function = {'type': attrs['type'],
+                                    'rc': float(attrs['rc'])}
         elif name in ['ae_core_density', 'pseudo_core_density',
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',

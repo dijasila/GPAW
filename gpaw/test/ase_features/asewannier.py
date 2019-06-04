@@ -36,6 +36,6 @@ equal(np.linalg.norm(eig - calc.get_eigenvalues()[:2]), 0, 1e-4)
 
 wan.write_cube(0, 'H2.cube')
 
-energy_tolerance = 0.00005
+energy_tolerance = 0.001
 niter_tolerance = 0
 equal(e, -6.65064, energy_tolerance)
