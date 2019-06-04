@@ -243,7 +243,9 @@ class SetupData:
         xml = open(self.stdfilename, 'w')
 
         print('<?xml version="1.0"?>', file=xml)
-        print('<paw_dataset version="0.6">', file=xml)
+        print('<paw_dataset version="{version}">'
+              .format(version=self.version),
+              file=xml)
         name = atomic_names[self.Z].title()
         comment1 = name + ' setup for the Projector Augmented Wave method.'
         comment2 = 'Units: Hartree and Bohr radii.'

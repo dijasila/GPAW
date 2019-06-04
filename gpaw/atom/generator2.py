@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import sys
 from math import pi, exp, sqrt, log
-from distutils.version import LooseVersion
 
 import numpy as np
 from scipy.optimize import fsolve
-from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
 
@@ -387,10 +384,7 @@ class PAWSetupGenerator:
             def f(alpha):
                 return log(spillage(alpha)) - log(eps)
 
-            if LooseVersion(scipy_version) < '0.8':
-                self.alpha = fsolve(f, 7.0)
-            else:
-                self.alpha = fsolve(f, 7.0)[0]
+            self.alpha = fsolve(f, 7.0)[0]
 
             self.alpha = round(self.alpha, 1)
 
@@ -1076,7 +1070,8 @@ class PAWSetupGenerator:
         setup.e_electrostatic = aea.eH + aea.eZ
         setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
         setup.rgd = self.rgd
-        setup.rcgauss = 1 / sqrt(self.alpha)
+        setup.shape_function = {'type': 'gauss',
+                                'rc': 1 / sqrt(self.alpha)}
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
@@ -1096,6 +1091,7 @@ class PAWSetupGenerator:
                  ('version', 2),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
+        setup.version = '0.7'
 
         setup.l0 = self.l0
         setup.e0 = 0.0
