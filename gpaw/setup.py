@@ -17,7 +17,6 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.utilities.ekin import ekin, dekindecut
 from gpaw.rotation import rotation
-from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 
 
@@ -593,7 +592,6 @@ class LeanSetup(BaseSetup):
 
         self.lmax = s.lmax
         self.ghat_l = s.ghat_l
-        self.rcgauss = s.rcgauss
         self.vbar = s.vbar
 
         self.Delta_pL = s.Delta_pL
@@ -809,9 +807,11 @@ class Setup(BaseSetup):
 
         vbar_g = data.vbar_g
 
-        if data.generator_version < 2:
+        if float(data.version) < 0.7 and data.generator_version < 2:
+            # Old-style Fourier-filtered datatsets.
             # Find Fourier-filter cutoff radius:
             gcutfilter = rgd.get_cutoff(pt_jg[0])
+
         elif filter:
             rc = rcutmax
             vbar_g = vbar_g.copy()
@@ -831,11 +831,13 @@ class Setup(BaseSetup):
                     pt_jg[j] = pt_ng[n]
             gcutfilter = rgd.get_cutoff(pt_jg[0])
         else:
-            rcutfilter = max(rcut_j)
-            gcutfilter = rgd.ceil(rcutfilter)
+            gcutfilter = rgd.ceil(max(rcut_j))
+
+        if (vbar_g[gcutfilter:] != 0.0).any():
+            gcutfilter = rgd.get_cutoff(vbar_g)
+            assert r_g[gcutfilter] < 2.0 * max(rcut_j)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (vbar_g[gcutfilter:] == 0).all()
 
         ni = 0
         i = 0
@@ -876,7 +878,10 @@ class Setup(BaseSetup):
 
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
-        self.tauct = rgd.spline(tauct_g, self.rcore)
+        if tauct_g is not None:
+            self.tauct = rgd.spline(tauct_g, self.rcore)
+        else:
+            self.tauct = None
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
@@ -896,8 +901,7 @@ class Setup(BaseSetup):
             l = phit.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
-        rgd2 = self.local_corr.rgd2 = \
-            AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
@@ -989,10 +993,8 @@ class Setup(BaseSetup):
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        r = 0.02 * rcut2 * np.arange(51, dtype=float)
-        alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
-        self.rcgauss = data.rcgauss
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 51)
+                       for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)

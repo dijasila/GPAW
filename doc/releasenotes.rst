@@ -29,6 +29,30 @@ Git master branch
   other convergence criteria (energy, eigenstates and density) are fulfilled.
   This can save a bit of time.
 
+* Experimental support for JTH_ PAW-datasets.
+
+
+.. _JTH: https://www.abinit.org/psp-tables
+
+
+Version 1.5.2
+=============
+
+8 May 2019: :git:`1.5.2 <../1.5.2>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* **Important bugfix release**:
+
+  There was a bug which was triggered when combining
+  ScaLAPACK, LCAO and k-points in GPAW 1.5.0/1.5.1 from January.  The
+  projections were calculated incorrectly which affected the SCF
+  loop.
+
+  If you use ScaLAPACK+LCAO+kpoints and see the line "Atomic Correction:
+  distributed and sparse using scipy" in the output, then please rerun
+  after updating.
+
 
 Version 1.5.1
 =============

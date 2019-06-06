@@ -83,7 +83,7 @@ fname = 'ldbe.dat'
 ldos.by_element_to_file(fname, shift=False)
 ldos.by_element_to_file(fname, 2.0, shift=False)
 
-energy_tolerance = 0.00006
+energy_tolerance = 0.0006
 niter_tolerance = 0
 equal(e_Hnospin, 0.153991, energy_tolerance)
 equal(e_Hspin,  -0.782309, energy_tolerance)

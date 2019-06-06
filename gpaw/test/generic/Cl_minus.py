@@ -12,6 +12,5 @@ e = s.get_potential_energy()
 niter = c.get_number_of_iterations()
 
 print(e, niter)
-energy_tolerance = 0.0003
-niter_tolerance = 0
-equal(e, -2.89336, energy_tolerance)
+energy_tolerance = 0.004
+equal(e, -2.8967, energy_tolerance)

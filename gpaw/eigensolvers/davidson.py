@@ -128,8 +128,6 @@ class Davidson(Eigensolver):
             # Calculate projections
             psit2.matrix_elements(wfs.pt, out=P2)
 
-            psit2.apply(Ht, out=R)
-
             def copy(M, C_nn):
                 comm.sum(M.array, 0)
                 if comm.rank == 0:

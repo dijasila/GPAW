@@ -27,7 +27,7 @@ e_ref = [-1.8677343236247692, -1.8690343169380492, -1.8654175796625045,
 niter_ref = [6, 6, 6, 6, 6]
 
 print(e)
-energy_tolerance = 0.00003
+energy_tolerance = 0.0003
 niter_tolerance = 0
 
 for i in range(len(A)):

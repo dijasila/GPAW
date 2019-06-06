@@ -18,7 +18,7 @@ niter1 = calc.get_number_of_iterations()
 print(e1 - e0)
 assert abs(e1 - e0 - 13.989) < 0.04
 
-energy_tolerance = 0.0002
+energy_tolerance = 0.004
 niter_tolerance = 5
 equal(e0, -1.88477, energy_tolerance)
 equal(e1, 12.11080, energy_tolerance)
