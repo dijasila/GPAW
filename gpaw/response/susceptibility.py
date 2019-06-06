@@ -8,6 +8,7 @@ import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
                         Redistributor, DryRunBlacsGrid)
 from gpaw.response.chiks import ChiKS
+from gpaw.response.fxc import get_fxc
 
 
 class FourComponentSusceptibilityTensor:
@@ -46,12 +47,13 @@ class FourComponentSusceptibilityTensor:
                            bandsummation=bandsummation, nbands=nbands,
                            world=world, nblocks=nblocks, txt=txt)
         self.calc = self.chiks.calc  # calc should be loaded here XXX
-        self.fxc = create_fxc(fxc, response='susceptibility', mode='pw',
-                              **fxckwargs, **someotherstuff)  # Write me XXX
+        self.fxc = get_fxc(fxc, self.calc, self.chiks.fd, self.chiks.world,
+                           response='susceptibility', mode='pw',
+                           ecut=self.chiks.ecut, **fxckwargs)
 
         # This should be initiated with G-parallelization, in this script! XXX
         nw = len(self.chiks.omega_w)
-        world = self.chi0.world
+        world = self.chiks.world
         self.mynw = (nw + world.size - 1) // world.size
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
@@ -130,9 +132,8 @@ class FourComponentSusceptibilityTensor:
         chi_wGG : ndarray
             The process' block of the full susceptibility component
         """
-        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)
-        Kxc_GG = self.calculate_Kxc(spincomponent, q_c,
-                                    pd, chiks_wGG=chiks_wGG)
+        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)  # pd elsewhere XXX
+        Kxc_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
 
         # Initiate chi_wGG
         # Invert Dyson
@@ -162,19 +163,17 @@ class FourComponentSusceptibilityTensor:
 
         return pd, chiks_wGG
 
-    '''
-    def get_xckernel(self, spincomponent, q_c, pd, chiks_wGG=None):
+    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
         """Check if the exchange correlation kernel has been calculated,
         if not, calculate it."""
         # Implement write/read/check functionality XXX
-        if self.fxc.is_calculated(spincomponent, q_c):
-            return self.fxc.read(spincomponent, q_c)
+        if self.fxc.is_calculated(spincomponent, pd):
+            Kxc_GG = self.fxc.read(spincomponent, pd)
         else:
-            Kxc_GG = self.fxc.calculate(spincomponent, q_c, pd,
+            Kxc_GG = self.fxc.calculate(spincomponent, pd,
                                         chiks_wGG=chiks_wGG)
-            self.fxc.write(Kxc_GG, spincomponent, q_c)
-            return Kxc_GG
-    '''
+            self.fxc.write(Kxc_GG, spincomponent, pd)
+        return Kxc_GG
 
     def collect(self, a_w):
         """Collect frequencies from all blocks"""

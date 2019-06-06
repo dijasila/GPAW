@@ -16,6 +16,88 @@ from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
+def get_fxc(fxc, calc, fd, world,
+            response='susceptibility', mode='pw', **kwargs):
+    """Factory function getting an initiated version of the fxc class."""
+    functional = fxc
+    fxc = create_fxc(functional, response, mode)
+    return fxc(functional, calc, fd, world, **kwargs)
+
+
+def create_fxc(functional, response, mode):
+    """Creator component for the FXC classes."""
+    # Only one kind of response and mode is supported for now
+    if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
+        if response == 'susceptibility' and mode == 'pw':
+            return AdiabaticSusceptibilityFXC
+    raise ValueError(functional, response, mode)
+
+
+class FXC:
+    """General class to calculate exchange-correlation kernels."""
+
+    def __init__(self, functional, calc, fd, world):
+        """
+        Parameters
+        ----------
+        functional : str
+            xc-functional
+        calc : obj
+            GPAW calculator object of ground state calculation
+        fd : filehandle
+        world : mpi.world
+        """
+        self.functional = functional
+        self.calc = calc
+        self.fd = fd
+        self.world = world
+
+    def calculate(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def is_calculated(self, *args, **kwargs):
+        # Read/write has not been implemented
+        return False
+
+    def read(self, *args, **kwargs):
+        raise NotImplementedError
+
+    def write(self, *args, **kwargs):
+        # Not implemented
+        pass
+
+
+class AdiabaticSusceptibilityFXC(FXC):
+    """Class for calculating adiabatic exchange correlation kernels for
+    susceptibility calculations."""
+
+    def __init__(self, functional, calc, fd, world, **kwargs):
+        FXC.__init__(self, functional, calc, fd, world)
+
+        # The two calculators might be merged into one?
+        # It would be much easier, if all spincomponents could be evaluated
+        # by a single calculator class also supporting Goldstone scaling.
+        # For now, we will use the existing code and make a hack.
+        self.dcalculator = AdiabaticDensityKernelCalculator(fd, world,
+                                                            **kwargs)
+        self.tcalculator = AdiabaticTransverseKernelCalculator(fd, world,
+                                                               **kwargs)
+
+    def calculate(self, spincomponent, pd, chiks_wGG=None):
+        """Goldstone scaling is not yet implemented."""
+        calculator = self.create_calculator(spincomponent)
+        return calculator(pd, self.calc, self.functional)
+
+    def create_calculator(self, spincomponent):
+        """Creator component."""
+        if spincomponent in ['00', 'uu', 'dd']:
+            return self.dcalculator
+        elif spincomponent in ['+-', '-+']:
+            return self.tcalculator
+        else:
+            raise ValueError(spincomponent)
+
+
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
                   rshe=0.99,
                   chi0_wGG=None,
@@ -186,7 +268,7 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
 
-    def __init__(self, fd, world, rshe=0.99, ecut=None):
+    def __init__(self, fd, world, rshe=0.99, ecut=None, **unused):
         """
         rshe : float or None
             Expand kernel in real spherical harmonics inside augmentation
@@ -459,7 +541,8 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
     def __init__(self, fd, world,
                  rshe=0.99,
                  ecut=None,
-                 density_cut=None):
+                 density_cut=None,
+                 **unused):
         """
         density_cut : float
             cutoff density below which f_xc is set to zero
@@ -522,7 +605,8 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
                  rshe=0.99,
                  ecut=None,
                  density_cut=None,
-                 spinpol_cut=None):
+                 spinpol_cut=None,
+                 **unused):
         """
         density_cut : float
             cutoff density below which f_xc is set to zero
