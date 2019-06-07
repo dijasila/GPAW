@@ -161,6 +161,7 @@ class Symmetry:
         """Remove symmetries that are not satisfied by the atoms."""
 
         if len(spos_ac) == 0:
+            self.a_sa = np.zeros((len(self.op_scc), 0), int)
             return
 
         # Build lists of atom numbers for each type of atom - one
