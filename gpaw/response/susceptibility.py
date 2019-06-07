@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -53,7 +54,7 @@ class FourComponentSusceptibilityTensor:
 
         # This should be initiated with G-parallelization, in this script! XXX
         nw = len(self.chiks.omega_w)
-        world = self.chiks.world
+        self.world = self.chiks.world
         self.mynw = (nw + world.size - 1) // world.size
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
@@ -77,14 +78,16 @@ class FourComponentSusceptibilityTensor:
         """
 
         if filename is None:
-            tup = (spincomponent, *tuple((q_c * kd.N_c).round()))  # fix me XXX
+            tup = (spincomponent,
+                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
             filename = 'chi%s_q«%+d-%+d-%+d».csv' % tup
 
         (omega_w,
          chiks_w,
          chi_w) = self.calculate_macroscopic_component(spincomponent, q_c)
 
-        write_macroscopic_component(omega_w, chiks_w, chi_w, filename)  # write me XXX
+        write_macroscopic_component(omega_w, chiks_w, chi_w,
+                                    filename, self.world)
 
         return omega_w, chiks_w, chi_w
 
@@ -135,8 +138,7 @@ class FourComponentSusceptibilityTensor:
         pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)  # pd elsewhere XXX
         Kxc_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
 
-        # Initiate chi_wGG
-        # Invert Dyson
+        chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
 
         return pd, chiks_wGG, chi_wGG
 
@@ -174,6 +176,21 @@ class FourComponentSusceptibilityTensor:
                                         chiks_wGG=chiks_wGG)
             self.fxc.write(Kxc_GG, spincomponent, pd)
         return Kxc_GG
+
+    def invert_dyson(self, chiks_wGG, Kxc_GG):
+        """Invert the Dyson-like equation:
+
+        chi = chi_ks + chi_ks Kxc chi
+        """
+        chi_wGG = []
+        for chiks_GG in chiks_wGG:
+            chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) -
+                                          np.dot(chiks_GG, Kxc_GG)),
+                            chiks_GG)
+
+            chi_wGG.append(chi_GG)
+
+        return np.array(chi_wGG)
 
     def collect(self, a_w):
         """Collect frequencies from all blocks"""
@@ -223,3 +240,14 @@ class FourComponentSusceptibilityTensor:
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
 
         return out_wGG
+
+
+def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
+    """Write the spatially averaged dynamic susceptibility."""
+    assert isinstance(filename, str)
+    if world.rank == 0:
+        with Path(filename).open('w') as fd:
+            for omega, chiks, chi in zip(omega_w * Hartree, chiks_w, chi_w):
+                print('%.6f, %.6f, %.6f, %.6f, %.6f' %
+                      (omega, chiks.real, chiks.imag, chi.real, chi.imag),
+                      file=fd)
