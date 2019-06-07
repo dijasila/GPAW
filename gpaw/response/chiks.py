@@ -92,11 +92,18 @@ class ChiKS(PlaneWaveKSLRF):
         """In-place calculation of the integrand (depends on bandsummation)"""
         x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
+        '''  # Numpy version
+        n_tGG = n_tG[:, :, np.newaxis].conj() * n_tG[:, np.newaxis, :]
+        A_wGG += np.sum(x_wt[:, :, np.newaxis, np.newaxis]
+                        * n_tGG[np.newaxis, :, :, :], axis=1)
+        '''
+        # gemm version is not vectorized. How fast is it really?
         for x_t, A_GG in zip(x_wt, A_wGG):  # Why in a for-loop? XXX
             # Multiply temporal part with n_t(q+G'), divide summation in blocks
             nx_tG = n_tG[:, self.Ga:self.Gb] * x_t[:, np.newaxis]
             # Multiply with n_t*(q+G) and sum over transitions t:
-            gemm(1.0, n_tG.conj(), np.ascontiguousarray(nx_tG.T), 1.0, A_wGG)
+            # this gemm statement is currently not working as intended XXX
+            gemm(1.0, n_tG.conj(), np.ascontiguousarray(nx_tG.T), 1.0, A_GG)
 
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get the temporal part of the susceptibility integrand."""

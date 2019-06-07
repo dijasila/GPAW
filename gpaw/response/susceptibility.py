@@ -86,7 +86,7 @@ class FourComponentSusceptibilityTensor:
          chiks_w,
          chi_w) = self.calculate_macroscopic_component(spincomponent, q_c)
 
-        write_macroscopic_component(omega_w, chiks_w, chi_w,
+        write_macroscopic_component(omega_w / Hartree, chiks_w, chi_w,
                                     filename, self.world)
 
         return omega_w, chiks_w, chi_w
@@ -198,7 +198,7 @@ class FourComponentSusceptibilityTensor:
         world = self.chiks.world
         b_w = np.zeros(self.mynw, a_w.dtype)
         b_w[:self.w2 - self.w1] = a_w
-        nw = len(self.omega_w)
+        nw = len(self.chiks.omega_w)
         A_w = np.empty(world.size * self.mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]

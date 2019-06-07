@@ -110,7 +110,7 @@ class KohnShamLinearResponseFunction:
 
         self.bandsummation = bandsummation
         self.nbands = nbands or self.calc.wfs.bd.nbands
-        assert nbands <= self.calc.wfs.bd.nbands
+        assert self.nbands <= self.calc.wfs.bd.nbands
         self.nocc1 = self.kspair.nocc1  # number of completely filled bands
         self.nocc2 = self.kspair.nocc2  # number of non-empty bands
 
@@ -523,9 +523,10 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                                                                   1024**2))
         p('')
 
-    def setup_output_array(self, nG, A_x=None):
+    def setup_output_array(self, A_x=None):
         """Initialize the output array in blocks"""
         # Could use some more documentation XXX
+        nG = self.pd.ngmax
         nw = len(self.omega_w)
         mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
         self.Ga = min(self.blockcomm.rank * mynG, nG)
@@ -643,10 +644,9 @@ class Integrator:
             raise NotImplementedError
 
         bzk_kv = self.get_kpoint_domain()
-        prefactor = self.get_bzint_prefactor(bzk_kv)
+        prefactor = self.calculate_bzint_prefactor(bzk_kv)
         out_x /= prefactor
-        out_x = self._integrate(bzk_kv, n1_t, n2_t, s1_t, s2_t,
-                                out_x, **kwargs)
+        self._integrate(bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
         out_x *= prefactor
         
         return out_x
@@ -654,7 +654,7 @@ class Integrator:
     def get_kpoint_domain(self):
         raise NotImplementedError('Domain depends on integration method')
 
-    def get_bzint_prefactor(self, bzk_kv):
+    def calculate_bzint_prefactor(self, bzk_kv):
         raise NotImplementedError('Prefactor depends on integration method')
 
     def _integrate(self, bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
@@ -705,7 +705,7 @@ class PWPointIntegrator(Integrator):
                                      tmp_x, **kwargs)
 
         # Sum over processes
-        self.kncomm.sum(tmp_x)
+        self.kslrf.kncomm.sum(tmp_x)
 
         out_x += tmp_x
         out_x *= kpointvol

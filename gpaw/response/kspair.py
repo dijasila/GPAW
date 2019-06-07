@@ -229,7 +229,7 @@ class KohnShamPair:
         U_aii = []
         for a, id in enumerate(self.calc.wfs.setups.id_a):
             b = kd.symmetry.a_sa[s, a]
-            S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
+            S_c = np.dot(self.calc.spos_ac[a], U_cc) - self.calc.spos_ac[b]
             x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
             U_ii = wfs.setups[a].R_sii[s].T * x
             a_a.append(b)
@@ -287,6 +287,7 @@ class PairMatrixElement:
         kslrf : KohnShamLinearResponseFunction instance
         """
         self.kslrf = kslrf
+        self.timer = kslrf.timer
 
     def __call__(self, kskptpairs, *args, **kwargs):
         """Calculate the matrix element for all transitions in kskptpairs."""
@@ -328,7 +329,8 @@ class PlaneWavePairDensity(PairMatrixElement):
         # Check speed with old and new stuff
         ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
         n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
-        n_tG = pd.fft(n_tR, 0, Q_G) * pd.gd.dv  # Maybe pd.fft is not geared for this XXX
+        n_tG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
+                         for t in range(blocksize)])  # Could be vectorized XXX
         '''
         # Unvectorized, but using gemm
         for t in range(ta, tb):  # Could be vectorized? XXX
@@ -361,7 +363,7 @@ class PlaneWavePairDensity(PairMatrixElement):
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
         q_c = pd.kd.bzk_kc[0]
-        if self.Q_aGii is None or np.allclose(q_c - self.currentq_c, 0.):
+        if self.Q_aGii is None or not np.allclose(q_c - self.currentq_c, 0.):
             self.Q_aGii = self._initialize_paw_corrections(pd)
             self.currentq_c = q_c
         return self.Q_aGii

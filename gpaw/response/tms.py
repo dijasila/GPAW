@@ -28,6 +28,5 @@ class TransverseMagneticSusceptibility(FourComponentSusceptibilityTensor):
         assert spincomponent in ['+-', '-+']
 
         FCST = FourComponentSusceptibilityTensor
-
         return FCST.get_macroscopic_component(self, spincomponent, q_c,
                                               filename=filename)
