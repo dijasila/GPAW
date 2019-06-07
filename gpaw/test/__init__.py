@@ -341,6 +341,7 @@ tests = [
     'parallel/fd_parallel_kpt.py',          # ~21s
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
+    'response/iron_sf_ALDA.py',             # ~22s
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
@@ -363,7 +364,6 @@ tests = [
     'gllb/diamond.py',                      # ~33s
     'vdw/quick_spin.py',                    # ~37s
     'pw/expert_diag.py',                    # ~37s
-    'response/iron_sf_ALDA.py',             # ~37s
     'pathological/LDA_unstable.py',         # ~42s
     'response/bse_aluminum.py',             # ~42s
     'response/au02_absorption.py',          # ~44s

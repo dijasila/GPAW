@@ -110,17 +110,12 @@ mw3 = (wpeak3 + d3[0, 0]) * 1000
 mw4 = (wpeak4 + d4[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-print(mw1, Ipeak1)
-print(mw2, Ipeak2)
-print(mw3, Ipeak3)
-print(mw4, Ipeak4)
-
-test_mw1 = 242.53  # meV
-test_mw2 = 399.83  # meV
-test_mw3 = 400.62  # meV
-test_Ipeak1 = 57.19  # a.u.
-test_Ipeak2 = 59.50  # a.u.
-test_Ipeak3 = 59.10  # a.u.
+test_mw1 = 245.59  # meV
+test_mw2 = 401.01  # meV
+test_mw3 = 402.38  # meV
+test_Ipeak1 = 57.56  # a.u.
+test_Ipeak2 = 58.46  # a.u.
+test_Ipeak3 = 56.15  # a.u.
 
 # Different kernel strategies should remain the same
 # Magnon peak:
