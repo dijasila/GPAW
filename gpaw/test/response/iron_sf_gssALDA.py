@@ -32,7 +32,7 @@ mm = 2.21
 # Part 2: magnetic response calculation
 q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N path
 frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
-Kxc = 'ALDA'
+fxc = 'ALDA'
 fxc_scaling = [True, None]
 ecut = 300
 eta = 0.01
@@ -60,17 +60,17 @@ calc.write('Fe', 'all')
 t2 = time.time()
 
 # Part 2: magnetic response calculation
+fxckwargs = {'rshe': None, 'fxc_scaling': fxc_scaling}
 for q in range(2):
-    tms = TransverseMagneticSusceptibility(calc='Fe',
+    tms = TransverseMagneticSusceptibility('Fe',
                                            frequencies=frq_qw[q],
+                                           fxc=fxc,
                                            eta=eta,
-                                           ecut=ecut)
+                                           ecut=ecut,
+                                           fxckwargs=fxckwargs)
 
-    chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
-                                                     rshe=None,
-                                                     fxc_scaling=fxc_scaling,
-                                                     filename='iron_dsus'
-                                                     + '_%d.csv' % (q + 1))
+    tms.get_macroscopic_component('+-', q_c=q_qc[q],
+                                  filename='iron_dsus' + '_%d.csv' % (q + 1))
 
 t3 = time.time()
 
@@ -83,8 +83,8 @@ world.barrier()
 d1 = np.loadtxt('iron_dsus_1.csv', delimiter=', ')
 d2 = np.loadtxt('iron_dsus_2.csv', delimiter=', ')
 
-wpeak1, Ipeak1 = findpeak(d1[:, 0], - d1[:, 4])
-wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
+wpeak1, Ipeak1 = findpeak(d1[:, 0], d1[:, 4])
+wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
 
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000

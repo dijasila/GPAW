@@ -173,7 +173,7 @@ class FourComponentSusceptibilityTensor:
             Kxc_GG = self.fxc.read(spincomponent, pd)
         else:
             Kxc_GG = self.fxc.calculate(spincomponent, pd,
-                                        chiks_wGG=chiks_wGG)
+                                        kslrf=self.chiks, chiks_wGG=chiks_wGG)
             self.fxc.write(Kxc_GG, spincomponent, pd)
         return Kxc_GG
 

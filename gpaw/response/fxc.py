@@ -42,6 +42,7 @@ class FXC:
         ----------
         functional : str
             xc-functional
+        kslrf : KohnShamLinearResponseFunction instance
         calc : obj
             GPAW calculator object of ground state calculation
         fd : filehandle
@@ -80,13 +81,17 @@ class AdiabaticSusceptibilityFXC(FXC):
         # For now, we will use the existing code and make a hack.
         self.dcalculator = AdiabaticDensityKernelCalculator(fd, world,
                                                             **kwargs)
+        '''
         self.tcalculator = AdiabaticTransverseKernelCalculator(fd, world,
                                                                **kwargs)
+        '''
+        self.tcalculator = ATKCHack(fd, world, **kwargs)
 
-    def calculate(self, spincomponent, pd, chiks_wGG=None):
+    def calculate(self, spincomponent, pd, kslrf=None, chiks_wGG=None):
         """Goldstone scaling is not yet implemented."""
         calculator = self.create_calculator(spincomponent)
-        return calculator(pd, self.calc, self.functional)
+        return calculator(pd, self.calc, self.functional,
+                          kslrf=kslrf, chiks_wGG=chiks_wGG)  # Goldstone stuff should be rewritten XXX
 
     def create_calculator(self, spincomponent):
         """Creator component."""
@@ -295,7 +300,7 @@ class AdiabaticKernelCalculator:
 
             self.rsheL_M = None
 
-    def __call__(self, pd, calc, functional):
+    def __call__(self, pd, calc, functional, **unused):
         assert functional in self.permitted_functionals
         self.functional = functional
         add_fxc = self.add_fxc  # class methods not within the scope of call
@@ -707,6 +712,32 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             fc_G = 2. * ac_G / n_G
 
             return fx_G + fc_G
+
+
+class ATKCHack(AdiabaticTransverseKernelCalculator):
+    """Hack to enable Goldstone scaling. Should go into
+    AdiabaticTransverseKernelCalculator, when old format is removed."""
+    def __init__(self, *args, fxc_scaling=None, **kwargs):
+        AdiabaticTransverseKernelCalculator.__init__(self, *args, **kwargs)
+        self.fxc_scaling = fxc_scaling
+
+    def __call__(self, pd, calc, functional, kslrf=None, chiks_wGG=None):
+        Kxc_GG = AdiabaticTransverseKernelCalculator.__call__(self, pd, calc,
+                                                              functional)
+        fxc_scaling = self.fxc_scaling
+
+        if fxc_scaling is not None:
+            assert isinstance(fxc_scaling[0], bool)
+            if fxc_scaling[0]:
+                if fxc_scaling[1] is None:
+                    # Correct with new sign convention XXX
+                    fxc_scaling[1] = find_Goldstone_scaling(pd, kslrf,
+                                                            -chiks_wGG, Kxc_GG)
+
+                assert isinstance(fxc_scaling[1], float)
+                Kxc_GG *= fxc_scaling[1]
+
+        return Kxc_GG
 
 
 def calculate_renormalized_kernel(pd, calc, functional, fd):
