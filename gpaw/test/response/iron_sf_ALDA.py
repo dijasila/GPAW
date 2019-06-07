@@ -99,10 +99,10 @@ d2 = np.loadtxt('iron_dsus_G2.csv', delimiter=', ')
 d3 = np.loadtxt('iron_dsus_G3.csv', delimiter=', ')
 d4 = np.loadtxt('iron_dsus_G4.csv', delimiter=', ')
 
-wpeak1, Ipeak1 = findpeak(d1[:, 0], - d1[:, 4])
-wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
-wpeak3, Ipeak3 = findpeak(d3[:, 0], - d3[:, 4])
-wpeak4, Ipeak4 = findpeak(d4[:, 0], - d4[:, 4])
+wpeak1, Ipeak1 = findpeak(d1[:, 0], d1[:, 4])
+wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
+wpeak3, Ipeak3 = findpeak(d3[:, 0], d3[:, 4])
+wpeak4, Ipeak4 = findpeak(d4[:, 0], d4[:, 4])
 
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000

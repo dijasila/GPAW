@@ -180,11 +180,13 @@ class FourComponentSusceptibilityTensor:
     def invert_dyson(self, chiks_wGG, Kxc_GG):
         """Invert the Dyson-like equation:
 
-        chi = chi_ks + chi_ks Kxc chi
+        chi = chi_ks - chi_ks Kxc chi
+
+        # The sign convention in the Dyson equation needs to be examined XXX
         """
         chi_wGG = []
         for chiks_GG in chiks_wGG:
-            chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) -
+            chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) +
                                           np.dot(chiks_GG, Kxc_GG)),
                             chiks_GG)
 
