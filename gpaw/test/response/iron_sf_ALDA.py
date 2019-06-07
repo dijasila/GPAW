@@ -36,15 +36,15 @@ mm = 2.21
 
 # Part 2: magnetic response calculation
 q_c = [0.0, 0.0, 1 / 4.]
-Kxc = 'ALDA'
+fxc = 'ALDA'
 ecut = 300
 eta = 0.01
 
 # Test different kernel and summation strategies
-strat_sd = [(None, False),  # rshe, dsctrs
-            (0.99, False),
-            (0.999, False),
-            (0.999, True)]
+strat_sd = [(None, 'pairwise'),  # rshe, bandsummation
+            (0.99, 'pairwise'),
+            (0.999, 'pairwise'),
+            (0.999, 'double')]
 frq_sw = [np.linspace(0.160, 0.320, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
@@ -75,16 +75,16 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 
-for s, ((rshe, dsctrs), frq_w) in enumerate(zip(strat_sd, frq_sw)):
-    tms = TransverseMagneticSusceptibility(calc='Fe',
+for s, ((rshe, bandsummation), frq_w) in enumerate(zip(strat_sd, frq_sw)):
+    tms = TransverseMagneticSusceptibility('Fe',
                                            frequencies=frq_w,
+                                           fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
-                                           disable_spincons_time_reversal=dsctrs)
-    chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_c, xc=Kxc,
-                                                     rshe=rshe,
-                                                     filename='iron_dsus'
-                                                     + '_G%d.csv' % (s + 1))
+                                           bandsummation=bandsummation)
+    chiM0_w, chiM_w = tms.get_macroscopic_component('+-', q_c,
+                                                    filename='iron_dsus'
+                                                    + '_G%d.csv' % (s + 1))
 
 t3 = time.time()
 
