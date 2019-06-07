@@ -81,7 +81,8 @@ for s, ((rshe, bandsummation), frq_w) in enumerate(zip(strat_sd, frq_sw)):
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
-                                           bandsummation=bandsummation)
+                                           bandsummation=bandsummation,
+                                           fxckwargs={'rshe': rshe})
     tms.get_macroscopic_component('+-', q_c,
                                   filename='iron_dsus' + '_G%d.csv' % (s + 1))
 
@@ -109,6 +110,11 @@ mw3 = (wpeak3 + d3[0, 0]) * 1000
 mw4 = (wpeak4 + d4[0, 0]) * 1000
 
 # Part 4: compare new results to test values
+print(mw1, Ipeak1)
+print(mw2, Ipeak2)
+print(mw3, Ipeak3)
+print(mw4, Ipeak4)
+
 test_mw1 = 242.53  # meV
 test_mw2 = 399.83  # meV
 test_mw3 = 400.62  # meV
