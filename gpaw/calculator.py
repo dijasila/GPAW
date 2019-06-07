@@ -553,6 +553,8 @@ class GPAW(PAW, Calculator):
 
         realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 
+        self.create_setups(mode, xc)
+
         if not realspace:
             pbc_c = np.ones(3, bool)
 
@@ -584,8 +586,6 @@ class GPAW(PAW, Calculator):
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
 
-        self.create_setups(mode, xc)
-
         self.create_symmetry(magmom_av, cell_cv)
 
         if par.gpts is not None:
@@ -599,7 +599,13 @@ class GPAW(PAW, Calculator):
             N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
                                             self.symmetry)
 
-        self.symmetry.prune_symmetries_grid(N_c)
+        n = self.symmetry.prune_symmetries_grid(N_c)
+        if n > 0:
+            self.log(
+                'Symmetries removed (not comensurate with {}x{}x{} grid): {}'
+                .format(*N_c, n) +
+                '\n')
+
         self.setups.set_symmetry(self.symmetry)
 
         if isinstance(par.background_charge, dict):

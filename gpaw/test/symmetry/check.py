@@ -4,7 +4,6 @@ https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2016-January/003864.html
 """
 from __future__ import division
 from ase import Atoms
-from ase.test import must_raise
 from gpaw.symmetry import atoms2symmetry
 
 a = 3.9
@@ -18,5 +17,5 @@ atoms = Atoms('Ge2Si4',
                                 [7 / 12, 1 / 12, 1 / 6]],
               pbc=True)
 sym = atoms2symmetry(atoms)
-with must_raise(ValueError):
-    sym.check_grid((20, 20, 40))
+nsymremoved = sym.prune_symmetries_grid((20, 20, 40))
+assert nsymremoved > 0
