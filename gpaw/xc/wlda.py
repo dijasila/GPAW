@@ -77,6 +77,12 @@ class WLDA(XCFunctional):
                 self.apply_weighting(self.gd1, fn_sg)
                 newnorm_s = self.gd1.integrate(fn_sg)
                 n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
+            elif self.mode.lower() == "new":
+                real_n_sg = n1_sg.copy()
+                self.apply_weighting(self.gd1, n1_sg)
+            elif self.mode.lower() == "newrenorm":
+                real_n_sg = n1_sg.copy()
+                self.apply_weighting(self.gd1, n1_sg)
             else:
                 raise ValueError("WLDA mode not recognized")
 
@@ -107,6 +113,17 @@ class WLDA(XCFunctional):
                     zeta = 0
             
                     lda_c(0, e_g, n * norm_s[0] / newnorm_s[0], v1_sg, zeta)
+                elif self.mode.lower() == "new":
+                    n = n1_sg[0]
+                    n[n < 1e-20] = 1e-40
+                    rs = (C0I/n)**(1/3)
+                    ex = C1/rs
+                    dexdrs = -ex/rs
+                    e1_g[:] = real_n_sg[0] * ex
+                    raise NotImplementedError
+                    #v1_sg[0] = ex - 
+                elif self.mode.lower() == "newrenorm":
+                    raise NotImplementedError
                 else:
                     n = n1_sg[0]
                     n[n < 1e-20] = 1e-40
@@ -425,7 +442,8 @@ class WLDA(XCFunctional):
         return n_G*Theta_G
 
     def _fermi_kinetic(self, k_F, K_G, n_G):
-
+        if np.allclose(k_F, 0):
+            return self._theta_filter(k_F, K_G, n_G)
         rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
         if 1/rs < 1e-3:
             return self._theta_filter(k_F, K_G, n_G)
@@ -435,7 +453,8 @@ class WLDA(XCFunctional):
         return n_G * filter_G
 
     def _fermi_coulomb(self, k_F, K_G, n_G):
-
+        if np.allclose(k_F, 0):
+            return self._theta_filter(k_F, K_G, n_G)
         rs = (9 * np.pi / 4)**(1/3) * 1 / (k_F)
         if 1/rs < 1e-3:
             return self._theta_filter(k_F, K_G, n_G)
@@ -721,15 +740,6 @@ class WLDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
-        from gpaw.xc.lda import calculate_paw_correction
-        from gpaw.xc.lda import LDARadialCalculator, LDARadialExpansion
-        collinear = True
-        rcalc = LDARadialCalculator(self.kernel)
-        expansion = LDARadialExpansion(rcalc, collinear)
-        corr = calculate_paw_correction(expansion,
-                                        setup, D_sp, dEdD_sp,
-                                        True, a)
-        return corr
         
     def potential_correction(self, v_sg, gd, n_sg):
         _, nx, ny, nz = gd.get_grid_point_coordinates().shape
