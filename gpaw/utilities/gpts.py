@@ -31,5 +31,5 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
         else:
             N_c = np.array([get_efficient_fft_size(N, n)
                             for N, n in zip(N_c, symmetry.gcd_c)])
-    
+
     return N_c

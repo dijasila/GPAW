@@ -79,8 +79,7 @@ class GPAW(PAW, Calculator):
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
-                     'tolerance': 1e-7,
-                     'do_not_symmetrize_the_density': False},
+                     'tolerance': 1e-7},
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
@@ -557,8 +556,6 @@ class GPAW(PAW, Calculator):
         if not realspace:
             pbc_c = np.ones(3, bool)
 
-        self.create_setups(mode, xc)
-
         if par.hund:
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
@@ -586,6 +583,24 @@ class GPAW(PAW, Calculator):
             self.log('Non-collinear calculation.')
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
+
+        self.create_setups(mode, xc)
+
+        self.create_symmetry(magmom_av, cell_cv)
+
+        if par.gpts is not None:
+            if par.h is not None:
+                raise ValueError("""You can't use both "gpts" and "h"!""")
+            N_c = np.array(par.gpts)
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                            self.symmetry)
+
+        self.symmetry.prune_symmetries_grid(N_c)
+        self.setups.set_symmetry(self.symmetry)
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -646,8 +661,6 @@ class GPAW(PAW, Calculator):
         if self.scf is None:
             self.create_scf(nvalence, mode)
 
-        self.create_symmetry(magmom_av, cell_cv)
-
         if not collinear:
             nbands *= 2
 
@@ -655,7 +668,7 @@ class GPAW(PAW, Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c)
+                                       cell_cv, pbc_c, N_c)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -836,7 +849,6 @@ class GPAW(PAW, Calculator):
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
         self.symmetry.analyze(self.spos_ac)
-        self.setups.set_symmetry(self.symmetry)
 
     def create_eigensolver(self, xc, nbands, mode):
         # Number of bands to converge:
@@ -974,7 +986,7 @@ class GPAW(PAW, Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c):
+                              setups, cell_cv, pbc_c, N_c):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1000,19 +1012,6 @@ class GPAW(PAW, Calculator):
         domainband_comm = comms['K']
 
         self.comms = comms
-
-        if par.gpts is not None:
-            if par.h is not None:
-                raise ValueError("""You can't use both "gpts" and "h"!""")
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            kd.symmetry)
-
-        self.symmetry.check_grid(N_c)
 
         kd.set_communicator(kpt_comm)
 

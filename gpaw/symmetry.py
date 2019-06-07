@@ -39,7 +39,6 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 do_not_symmetrize_the_density=False,
                  rotate_aperiodic_directions=False,
                  translate_aperiodic_directions=False):
         """Construct symmetry object.
@@ -85,7 +84,6 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
-        self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
         self.rotate_aperiodic_directions = rotate_aperiodic_directions
         self.translate_aperiodic_directions = translate_aperiodic_directions
 
@@ -315,24 +313,25 @@ class Symmetry:
         return (bzk_kc[ibz2bz_k], weight_k,
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
-    def check_grid(self, N_c):
-        """Check that symmetries are comensurate with grid."""
-        if self.do_not_symmetrize_the_density:
-            return
-        for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
+    def prune_symmetries_grid(self, N_c) -> int:
+        """Remove symmetries not comensurate with grid."""
+        ok_s = np.ones(len(self.op_scc), bool)
+        for s, (U_cc, ft_c) in enumerate(zip(self.op_scc, self.ft_sc)):
             t_c = ft_c * N_c
             # Make sure all grid-points map onto another grid-point:
             if (((N_c * U_cc).T % N_c).any() or
                 not np.allclose(t_c, t_c.round())):
-                raise ValueError(
-                    'Real space grid not compatible with symmetry operation. '
-                    'Use:\n\n   '
-                    "GPAW(symmetry={'do_not_symmetrize_the_density': True})")
+                ok_s[s] = False
+
+        self.op_scc = self.op_scc[ok_s]
+        self.ft_sc = self.ft_sc[ok_s]
+        self.a_sa = self.a_sa[ok_s]
+
+        return len(ok_s) - len(self.op_scc)
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""
-        if not self.do_not_symmetrize_the_density:
-            gd.symmetrize(a, self.op_scc, self.ft_sc)
+        gd.symmetrize(a, self.op_scc, self.ft_sc)
 
     def symmetrize_positions(self, spos_ac):
         """Symmetrizes the atomic positions."""
