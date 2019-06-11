@@ -705,6 +705,8 @@ class PWPointIntegrator(Integrator):
                                      tmp_x, **kwargs)
 
         # Sum over processes
+        # self.kslrf.blockcomm.sum(tmp_x)  # needed or not? XXX
+        # kncomm is not used at present? XXX
         self.kslrf.kncomm.sum(tmp_x)
 
         out_x += tmp_x

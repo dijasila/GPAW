@@ -352,14 +352,15 @@ class PlaneWavePairDensity(PairMatrixElement):
             n_tG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
 
         return n_tG
-        '''  # I do not see, why we need this XXX
-        if self.kslrf.blockcomm.size == 1:
+        '''  # still don't see why we need this XXX
+        if blocksize == nt:
             return n_tG
         else:
-            n_alltG = pd.empty(kpt2.blocksize * self.blockcomm.size)
-            self.blockcomm.all_gather(n_mG, n_MG)
-            return n_MG[:kpt2.n2 - kpt2.n1]
+            alln_tG = pd.empty(blocksize * self.kslrf.blockcomm.size)
+            self.kslrf.blockcomm.all_gather(n_tG, alln_tG)
+            return alln_tG[:tb - ta]
         '''
+
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
         q_c = pd.kd.bzk_kc[0]
