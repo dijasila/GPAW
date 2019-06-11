@@ -471,6 +471,7 @@ if mpi.size < 4:
                 'parallel/diamond_gllb.py',
                 'parallel/lcao_parallel_kpt.py',
                 'parallel/fd_parallel_kpt.py',
+                'response/iron_sf_ALDA.py',
                 'response/na_plasmons.py',
                 'response/na_plasmons_tetrahedron.py']
 

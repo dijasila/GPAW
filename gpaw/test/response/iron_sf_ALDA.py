@@ -82,7 +82,8 @@ for s, ((rshe, bandsummation), frq_w) in enumerate(zip(strat_sd, frq_sw)):
                                            eta=eta,
                                            ecut=ecut,
                                            bandsummation=bandsummation,
-                                           fxckwargs={'rshe': rshe})
+                                           fxckwargs={'rshe': rshe},
+                                           nblocks=2)
     tms.get_macroscopic_component('+-', q_c,
                                   filename='iron_dsus' + '_G%d.csv' % (s + 1))
 
