@@ -156,12 +156,19 @@ class KohnShamPair:
 
     def distribute_transitions(self, nt):
         """Distribute transitions between processes."""
+        # Simple hack
+        blocksize = nt
+        ta = 0
+        tb = nt
+
+        '''
         nblocks = self.blockcomm.size
         rank = self.blockcomm.rank
 
         blocksize = (nt + nblocks - 1) // nblocks
         ta = min(rank * blocksize, nt)
         tb = min(ta + blocksize, nt)
+        '''
 
         return blocksize, ta, tb
 
