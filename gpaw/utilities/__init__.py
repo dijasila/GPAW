@@ -271,8 +271,8 @@ def divrl(a_g, l, r_g):
     if l > 0:
         b_g[1:] /= r_g[1:]**l
         b1, b2 = b_g[1:3]
-        r0, r1, r2 = r_g[0:3]
-        b_g[0] = b2 + (b1 - b2) * (r0 - r2) / (r1 - r2)
+        r12, r22 = r_g[1:3]**2
+        b_g[0] = (b1 * r22 - b2 * r12) / (r22 - r12)
     return b_g
 
 
