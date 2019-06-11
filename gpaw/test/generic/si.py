@@ -35,5 +35,5 @@ print('Fixdensity', eigs2)
 print('Difference', eigs2 - eigs)
 
 assert np.fabs(eigs2 - eigs)[:-1].max() < 3e-5
-equal(e1, -36.770097, 0.001)
+equal(e1, -36.767, 0.003)
 equal(e1, e2, 1e-4)
