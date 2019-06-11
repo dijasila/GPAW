@@ -76,6 +76,12 @@ class ChiKS(PlaneWaveKSLRF):
         kskptpairs = self.kspair.get_kpoint_pairs(n1_t, n2_t, k_c, k_c + q_c,
                                                   s1_t, s2_t)
 
+        # Find out what transitions this process is calculating
+        myn1_t = kskptpairs.kpt1.n_t
+        myn2_t = kskptpairs.kpt2.n_t
+        mys1_t = kskptpairs.kpt1.s_t
+        mys2_t = kskptpairs.kpt2.s_t
+
         # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
         df_t = kskptpairs.get_occupation_differences()
         df_t[np.abs(df_t) <= 1e-20] = 0.0
@@ -84,7 +90,7 @@ class ChiKS(PlaneWaveKSLRF):
         # Calculate the pair densities
         n_tG = self.pme(kskptpairs, self.pd)  # Should this include some extrapolate_q? XXX
 
-        self._add_integrand(n1_t, n2_t, s1_t, s2_t,
+        self._add_integrand(myn1_t, myn2_t, mys1_t, mys2_t,
                             df_t, deps_t, n_tG, A_wGG)
 
     def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,

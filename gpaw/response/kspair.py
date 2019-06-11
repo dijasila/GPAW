@@ -330,7 +330,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
         n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
         n_tG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
-                         for t in range(blocksize)])  # Could be vectorized XXX
+                         for t in range(tb - ta)])  # Could be vectorized XXX
         '''
         # Unvectorized, but using gemm
         for t in range(ta, tb):  # Could be vectorized? XXX
