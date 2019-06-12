@@ -21,7 +21,7 @@ e0 = H.get_potential_energy()
 H = read('H.txt')
 equal(H.get_potential_energy(), e0, 1e-6)
 
-energy_tolerance = 0.0007
-equal(e0, -6.55685, energy_tolerance)
+energy_tolerance = 0.001
+equal(e0, -6.5577, energy_tolerance)
 
 print(calc.get_xc_functional())

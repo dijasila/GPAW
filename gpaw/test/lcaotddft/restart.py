@@ -102,5 +102,5 @@ ref = [0.000000000000e+00,
 print('result')
 print(data.tolist())
 
-tol = 1e-12
+tol = 1e-9
 equal(data, ref, tol)

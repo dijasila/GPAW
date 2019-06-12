@@ -82,8 +82,8 @@ wpeak, Ipeak = findpeak(d[:, 0], - d[:, 4])
 mw = (wpeak + d[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_mw = 79.65  # meV
-test_Ipeak = 71.05  # a.u.
+test_mw = 78  # meV
+test_Ipeak = 69  # a.u.
 
 # Magnon peak:
 equal(mw, test_mw, eta * 100)

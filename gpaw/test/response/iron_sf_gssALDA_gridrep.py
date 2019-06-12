@@ -91,7 +91,7 @@ mw2 = (wpeak2 + d2[0, 0]) * 1000
 # Part 4: compare new results to test values
 test_fxcs = 1.038135552
 test_mw1 = -0.0289017263039  # meV
-test_mw2 = 178.4  # meV
+test_mw2 = 172  # meV
 test_Ipeak1 = 71.2146329824  # a.u.
 test_Ipeak2 = 43.1361567126  # a.u.
 
