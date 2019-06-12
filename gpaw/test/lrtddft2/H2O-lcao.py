@@ -65,6 +65,6 @@ ref = (np.array([6.0832418565,
                  7.9561718249e-02,
                  1.0625830362e-02]))
 
-tol = 1e-8
+tol = 1e-4
 for r0, r1 in zip(results, ref):
     equal(r0, r1, tol)

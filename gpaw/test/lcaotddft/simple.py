@@ -54,7 +54,7 @@ ref_i = [-9.383700894739e-16,
          5.371491974534e-05,
          5.385046706407e-05]
 
-tol = 1e-12
+tol = 1e-10
 equal(data_i, ref_i, tol)
 
 # Test spectrum
