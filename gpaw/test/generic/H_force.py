@@ -24,10 +24,10 @@ for i in range(3):
     print(f1[i], f2i)
     equal(f1[i], f2i, 0.00025)
 
-energy_tolerance = 0.0006
-force_tolerance = 0.0002
+energy_tolerance = 0.001
+force_tolerance = 0.004
 niter_tolerance = 0
-equal(e1, -0.531042, energy_tolerance)
-f1_ref = [-0.29138, -0.31398, -0.35323]
+equal(e1, -0.5318, energy_tolerance)
+f1_ref = [-0.29138, -0.3060, -0.3583]
 for i in range(3):
     equal(f1[i], f1_ref[i], force_tolerance)

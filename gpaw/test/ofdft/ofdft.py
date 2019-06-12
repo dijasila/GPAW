@@ -6,12 +6,12 @@ from gpaw.test import gen
 
 a = 6.0
 c = a / 2
-#d = 1.8
+# d = 1.8
 
 elements = ['C', 'Be']
-results = [0.2385, 9.9773]
+results = [0.243, 9.9773]
 electrons = [6, 3]
-charges = [0,1]
+charges = [0, 1]
 
 
 for symbol in elements:
@@ -39,4 +39,4 @@ for element, result, e, charge in zip(elements, results, electrons, charges):
     I = n.sum() * dv / 2**3
 
     equal(I, e, 1.0e-6)
-    equal(result, E, 1.0e-3)
+    equal(result, E, 1.0e-2)

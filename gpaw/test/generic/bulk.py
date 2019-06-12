@@ -29,7 +29,7 @@ fit = np.polyfit(a, e, 2)
 a0 = np.roots(np.polyder(fit, 1))[0]
 e0 = np.polyval(fit, a0)
 print('a,e =', a0, e0)
-equal(a0, 2.64124, 0.0001)
+equal(a0, 2.641, 0.001)
 equal(e0, -1.98357, 0.0002)
 
 energy_tolerance = 0.0002

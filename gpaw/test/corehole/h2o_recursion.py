@@ -37,4 +37,4 @@ else:
 print(e, niter)
 energy_tolerance = 0.002
 niter_tolerance = 0
-equal(e, -17.97095, energy_tolerance)
+equal(e, -17.980, energy_tolerance)
