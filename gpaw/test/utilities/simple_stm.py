@@ -98,7 +98,7 @@ print(me + 'Integrals(unocc): 2 * wf, bias=', end=' ')
 print(2 * wf, stmp.gd.integrate(stmp.ldos))
 equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
 
-energy_tolerance = 0.0007
+energy_tolerance = 0.007
 niter_tolerance = 0
 equal(e1, -2.54026, energy_tolerance)
 equal(e2, -1.51101, energy_tolerance)
