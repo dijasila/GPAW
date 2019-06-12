@@ -67,7 +67,7 @@ equal(e1He + de12tHe, -0.409972893501, 0.005)
 equal(e1He + de12mHe, -0.487249688866, 0.005)
 equal(e1He + de12rHe, -0.447232286813, 0.005)
 
-energy_tolerance = 0.0005
+energy_tolerance = 0.001
 niter_tolerance = 0
-equal(e1, -1.123322, energy_tolerance)
+equal(e1, -1.124, energy_tolerance)
 equal(e1He, 0.0100192, energy_tolerance)

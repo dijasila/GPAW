@@ -10,7 +10,7 @@ from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
 SKIP_REF_CALC = True
 
 energy_eps = 0.0005 / 8.
-forces_eps = 1e-3
+forces_eps = 3e-2
 
 h = 0.3
 vac = 3.0
