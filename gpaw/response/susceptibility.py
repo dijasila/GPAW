@@ -184,7 +184,7 @@ class FourComponentSusceptibilityTensor:
 
         # The sign convention in the Dyson equation needs to be examined XXX
         """
-        chi_wGG = np.zeros(chiks_wGG.shape)
+        chi_wGG = np.asarray(chiks_wGG)
         for w, chiks_GG in enumerate(chiks_wGG):
             chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) +
                                           np.dot(chiks_GG, Kxc_GG)),
