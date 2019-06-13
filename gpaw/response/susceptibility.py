@@ -184,15 +184,15 @@ class FourComponentSusceptibilityTensor:
 
         # The sign convention in the Dyson equation needs to be examined XXX
         """
-        chi_wGG = []
-        for chiks_GG in chiks_wGG:
+        chi_wGG = np.zeros(chiks_wGG.shape)
+        for w, chiks_GG in enumerate(chiks_wGG):
             chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) +
                                           np.dot(chiks_GG, Kxc_GG)),
                             chiks_GG)
 
-            chi_wGG.append(chi_GG)
+            chi_wGG[w] = chi_GG
 
-        return np.array(chi_wGG)
+        return chi_wGG
 
     def collect(self, a_w):
         """Collect frequencies from all blocks"""
