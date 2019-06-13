@@ -79,7 +79,8 @@ class GPAW(PAW, Calculator):
         'symmetry': {'point_group': True,
                      'time_reversal': True,
                      'symmorphic': True,
-                     'tolerance': 1e-7},
+                     'tolerance': 1e-7,
+                     'do_not_symmetrize_the_density': False},
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
@@ -851,6 +852,11 @@ class GPAW(PAW, Calculator):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
+        if 'do_not_symmetrize_the_density' in symm:
+            symm = symm.copy()
+            del symm['do_not_symmetrize_the_density']
+            warnings.warn('Ignoring your "do_not_symmetrize_the_density" '
+                          'keyword!  Please remove it.')
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
