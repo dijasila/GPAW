@@ -29,4 +29,4 @@ energy = system.get_potential_energy()
 
 parprint('Energy', energy)
 
-assert abs(energy - -18.256) < 2e-3
+assert abs(energy - -18.27) < 0.02
