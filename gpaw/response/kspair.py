@@ -271,6 +271,20 @@ class KohnShamPair:
             f_t[myt] = kpt.f_n[n_t[myt]] / kpt.weight
 
             with self.timer('load wfs'):
+                '''
+                # Extracting psit_tG is slow, so extract after n and sort back
+                t_myt, n_myt = t_t[myt], n_t[myt]
+                myt_myn = np.argsort(n_myt)
+                n_myn = n_myt[myt_myn]
+                for t, n in zip(t_myt[myt_myn], n_myn):
+                    ut_tR[t] = T(wfs.pd.ifft(kpt.psit_nG[n], ik))
+                '''
+                '''
+                psit_mytG = np.array(kpt.psit_nG)[n_t[myt]]
+                for t, psit_G in zip(t_t[myt], psit_mytG):
+                    with self.timer('doing transform'):
+                        ut_tR[t] = T(wfs.pd.ifft(psit_G, ik))
+                '''
                 psit_nG = kpt.psit_nG
                 for t, n in zip(t_t[myt], n_t[myt]):  # Can be vectorized? XXX
                     ut_tR[t] = T(wfs.pd.ifft(psit_nG[n], ik))
