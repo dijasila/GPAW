@@ -3,6 +3,7 @@ import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
+from plotter import Plotter
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None, mode="", filter_kernel=""):
@@ -19,6 +20,9 @@ class WLDA(XCFunctional):
         self.n_gi = None
 
         self.gd1 = None
+
+        self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
+        self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
 
         if filter_kernel.lower() == "fermikinetic":
             self.filter_kernel = self._fermi_kinetic
@@ -77,16 +81,22 @@ class WLDA(XCFunctional):
                 self.apply_weighting(self.gd1, fn_sg)
                 newnorm_s = self.gd1.integrate(fn_sg)
                 n1_sg[0, :] = fn_sg[0, :] * norm_s[0]/newnorm_s[0]
-            elif self.mode.lower() == "new":
+            elif self.mode.lower() == "new" or self.mode.lower() == "newrenorm":
                 real_n_sg = n1_sg.copy()
                 self.apply_weighting(self.gd1, n1_sg)
-            elif self.mode.lower() == "newrenorm":
-                real_n_sg = n1_sg.copy()
-                self.apply_weighting(self.gd1, n1_sg)
+            elif self.mode.lower() == "lda":
+                from gpaw.xc.lda import lda_x, lda_c
+                n = n1_sg[0]
+                n[n < 1e-20] = 1e-40
+
+                # exchange
+                lda_x(0, e1_g, n, v1_sg[0])
+                # correlation
+                lda_c(0, e1_g, n, v1_sg[0], 0)
             else:
                 raise ValueError("WLDA mode not recognized")
 
-            from gpaw.xc.lda import lda_c
+            from gpaw.xc.lda import lda_c, lda_x
             C0I, C1, CC1, CC2, IF2 = lda_constants()
             if len(n_sg) == 2:
                 na = 2. * n_sg[0]
@@ -101,37 +111,86 @@ class WLDA(XCFunctional):
             else:
                 if self.mode.lower() == "renorm":
                     
+
                     n = n1_sg[0]
                     n[n < 1e-20] = 1e-40
-                    rs = (C0I/n)**(1/3) * (newnorm_s[0] / norm_s[0])**(1/3)
-                    ex = C1/rs
-                    dexdrs = -ex/rs
-                    e1_g[:] = n * ex * norm_s[0] / newnorm_s[0]
-                    v1_sg[0] += ex - rs*dexdrs/3
-            
-            
+                    n = n * norm_s[0] / newnorm_s[0]
+                    lda_x(0, e1_g, n, v1_sg[0])
+
+    
                     zeta = 0
-            
-                    lda_c(0, e_g, n * norm_s[0] / newnorm_s[0], v1_sg, zeta)
+                    lda_c(0, e_g, n, v1_sg, zeta)
+
+
+                    # rs = (C0I/n)**(1/3) * (newnorm_s[0] / norm_s[0])**(1/3)
+                    # ex = C1/rs
+                    # dexdrs = -ex/rs
+                    # e1_g[:] = n * ex * norm_s[0] / newnorm_s[0]
+                    # v1_sg[0] += ex - rs*dexdrs/3            
                 elif self.mode.lower() == "new":
+                    # Exchange 
                     n = n1_sg[0]
                     n[n < 1e-20] = 1e-40
                     rs = (C0I/n)**(1/3)
-                    ex = C1/rs
-                    dexdrs = -ex/rs
+                    ex = C1 / rs
+                    dexdrs = -ex / rs
                     e1_g[:] = real_n_sg[0] * ex
-                    raise NotImplementedError
-                    #v1_sg[0] = ex - 
+                    
+                    # a is defined by a = de_xc / dn* * n
+                    a_x = rs * dexdrs / 3 * real_n_sg[0] / n1_sg[0]
+                    self.potential_correction(np.array([a_x]), self.gd1, n1_sg)
+                    v1_sg[0] += ex - a_x
+
+                    # Correlation
+                    from gpaw.xc.lda import G
+                    ec, decdrs_0 = G(rs ** 0.5,
+                                     0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+
+                    e1_g[:] += real_n_sg[0] * ec
+                    a_c = rs * decdrs_0 / 3. * real_n_sg[0] / n1_sg[0]
+                    self.potential_correction(np.array([a_c]), self.gd1, n1_sg)
+                    v += ec - a_c
                 elif self.mode.lower() == "newrenorm":
-                    raise NotImplementedError
+                    norm = self.gd1.integrate(real_n_sg[0])
+                    newnorm = self.gd1.integrate(n1_sg[0])
+
+                    # Exchange
+                    n = n1_sg[0] *  norm / newnorm
+                    n[n < 1e-20] = 1e-40
+                    rs = (C0I/n)**(1/3)
+                    ex = C1/rs
+                    e1_g[:] = real_n_sg[0] * ex
+
+                    dexdrs = -ex / rs
+
+                    # a is defined by a = de_xc / dn* * n
+                    a = rs * dexdrs / 3 * real_n_sg[0] / n1_sg[0]
+                    self.renorm_potential_correction(np.array([a]), self.gd1, n1_sg, norm, newnorm)
+                    v1_sg[0] += ex - a
+
+                    # Correlation
+                    from gpaw.xc.lda import G
+                    ec, decdrs_0 = G(rs ** 0.5,
+                                     0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+
+                    e1_g[:] += real_n_sg[0] * ec
+                    a_c = rs * decdrs_0 / 3.0 * real_n_sg[0] / n1_sg[0]
+                    self.renorm_potential_correction(np.array([a_c]), self.gd1, n1_sg, norm, newnorm)
+                    v += ec - a_c
+
+                elif self.mode.lower() == "lda":
+                    pass                    
                 else:
                     n = n1_sg[0]
                     n[n < 1e-20] = 1e-40
-                    rs = (C0I/n)**(1/3)
-                    ex = C1/rs
-                    dexdrs = -ex/rs
-                    e1_g[:] = n*ex
-                    v1_sg[0] += ex - rs*dexdrs/3
+                    
+                    lda_x(0, e1_g, n, v1_sg)
+                    
+                    # rs = (C0I/n)**(1/3)
+                    # ex = C1/rs
+                    # dexdrs = -ex/rs
+                    # e1_g[:] = n*ex
+                    # v1_sg[0] += ex - rs*dexdrs/3
             
             
                     zeta = 0
@@ -144,6 +203,10 @@ class WLDA(XCFunctional):
                 elif self.mode.lower() == "renorm":
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
 
+                _, nx, ny, nz = n1_sg.shape
+                self.dens_plotter.plot(n1_sg[0, :, :, nz//2])
+                self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
+                
         gd.distribute(v1_sg, v_sg)
         #gd.distribute(n1_sg, n_sg)        
         gd.distribute(e1_g, e_g)
@@ -166,7 +229,7 @@ class WLDA(XCFunctional):
     def apply_const_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
-        n_g = np.abs(n_sg[0])
+        n_g[n_g < 1e-20] = 1e-40
         prenorm = gd.integrate(n_g)
         avg_dens = np.mean(n_g)
         effective_kF = (3*np.pi**2*avg_dens)**(1/3)
@@ -282,7 +345,7 @@ class WLDA(XCFunctional):
 
 
     def get_take_weight_array(self, n_g):
-        n_g = np.abs(n_g)
+        n_g[n_g < 1e-20] = 1e-40
         nis = self.get_nis(n_g)
         nx, ny, nz = n_g.shape
         take_g = np.array([j * len(nis) for j in range(nx * ny * nz)]).reshape(nx, ny, nz) + (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1).astype(int) - 1
@@ -297,7 +360,7 @@ class WLDA(XCFunctional):
         
 
     def get_ni_weights(self, n_g):
-        n_g = np.abs(n_g)
+        n_g[n_g < 1e-20] = 1e-40
         nis = self.get_nis(n_g)
         nlesser_g = (n_g[:, :, :, np.newaxis] >= nis).sum(axis=-1)
         ngreater_g = (n_g[:, :, :, np.newaxis] < nis).sum(axis=-1)
@@ -354,7 +417,7 @@ class WLDA(XCFunctional):
         return n_gi
 
     def get_ni_index_weight(self, n, nis):
-        n = np.abs(n)
+        n[n < 1e-20] = 1e-40
         assert np.min(nis) <= n
         assert np.max(nis) > n
         index = (nis <= n).sum()
@@ -464,7 +527,7 @@ class WLDA(XCFunctional):
         return n_G * filter_G
 
     def get_nis(self, n_g):
-        n_g = np.abs(n_g)
+        n_g[n_g < 1e-20] = 1e-40
         # maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
         # deltaLog = np.log(self.stepfactor)
         # nis = np.exp(np.arange(0, maxLogVal, deltaLog)) - 1
@@ -495,7 +558,7 @@ class WLDA(XCFunctional):
         by interpolating the values at the ni to the value at n(r).
 
         '''
-        n_g = np.abs(n_g)
+        n_g[n_g < 1e-20] = 1e-40
         nis = self.get_nis(n_g)
         K_G = self._get_K_G(gd)
         self.nis = nis
@@ -513,7 +576,7 @@ class WLDA(XCFunctional):
 
     
     def tabulate_weights2(self, n_g, gd):
-        n_g = np.abs(n_g)
+        n_g[n_g < 1e-20] = 1e-40
         nis = self.get_nis(n_g)
         K_G = self._get_K_G(gd)
         self.nis = nis
@@ -604,7 +667,8 @@ class WLDA(XCFunctional):
 
 
     def expand_spline3(self, n_x, C_nsc):
-        n_x = np.abs(n_x)
+
+        n_x[n_x < 1e-20] = 1e-40
         alpha_i = self.alpha_n
         nlesser_x = (n_x[:, np.newaxis] >= alpha_i).sum(axis=1)
         assert (nlesser_x >= 1).all()
@@ -618,7 +682,7 @@ class WLDA(XCFunctional):
         return C_nx
 
     def expand_spline2(self, x, C_sc):
-        x = np.abs(x)
+        x[x < 1e-20] = 1e-40
         alpha_n = self.alpha_n
         nlessers = np.array([(alpha_n <= xval).astype(int).sum() for xval in x])
         assert (nlessers >= 1).all()
@@ -630,7 +694,7 @@ class WLDA(XCFunctional):
 
 
     def expand_spline(self, x, C_sc):
-        x = np.abs(x)
+        x[x < 1e-20] = 1e-40
         alpha_n = self.alpha_n
 
         val = 0
