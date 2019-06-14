@@ -248,19 +248,6 @@ def get_gpaw_python_path():
 setup_paths = []
 
 
-def initialize_data_paths():
-    try:
-        setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
-    except KeyError:
-        if os.pathsep == ';':
-            setup_paths[:] = [r'C:\gpaw-setups']
-        else:
-            setup_paths[:] = ['/usr/local/share/gpaw-setups',
-                              '/usr/share/gpaw-setups']
-
-
-initialize_data_paths()
-
 with broadcast_imports:
     from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
@@ -323,4 +310,17 @@ def read_rc_file():
                 exec(fd.read())
 
 
+def initialize_data_paths():
+    try:
+        setup_paths[:0] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+    except KeyError:
+        if len(setup_paths) == 0:
+            if os.pathsep == ';':
+                setup_paths[:] = [r'C:\gpaw-setups']
+            else:
+                setup_paths[:] = ['/usr/local/share/gpaw-setups',
+                                  '/usr/share/gpaw-setups']
+
+
 read_rc_file()
+initialize_data_paths()
