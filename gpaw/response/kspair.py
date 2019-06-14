@@ -123,9 +123,9 @@ class KohnShamPair:
         (n1_t, k1, s1_t) -> (n2_t, k2, s2_t)
         Here, t is a composite band and spin transition index."""
         assert len(n1_t) == len(n2_t)
-        with self.timer('get k-points'):
-            kpt1 = self.get_kpoint(k1_c, n1_t, s1_t)
-            kpt2 = self.get_kpoint(k2_c, n2_t, s2_t)
+        kpt1 = self.get_kpoint(k1_c, n1_t, s1_t)
+        kpt2 = self.get_kpoint(k2_c, n2_t, s2_t)
+
         return KohnShamKPointPairs(kpt1, kpt2)
 
     @timer('Get Kohn-Sham orbitals with given k-point')
@@ -247,6 +247,7 @@ class KohnShamPair:
 
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
+    @timer('Extract orbitals from ground state')
     def extract_orbitals(self, K, n_t, s_t, T, a_a, U_aii, time_reversal):
         """Get information about Kohn-Sham orbitals."""
         wfs = self.calc.wfs
@@ -334,10 +335,11 @@ class PlaneWavePairDensity(PairMatrixElement):
         # Calculate smooth part of the pair densities:
         # Note: maybe code is slower or just not ready for numpy vectorization
         # Check speed with old and new stuff
-        ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
-        n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
-        n_tG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
-                         for t in range(tb - ta)])  # Could be vectorized XXX
+        with self.timer('Calculate smooth part'):
+            ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
+            n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
+            n_tG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
+                             for t in range(tb - ta)])  # Vectorized? XXX
         '''
         # Unvectorized, but using gemm
         for t in range(ta, tb):  # Could be vectorized? XXX
@@ -353,10 +355,11 @@ class PlaneWavePairDensity(PairMatrixElement):
                 gemm(1.0, C1_Gi, P2_ti[t - ta], 1.0, n_tG[t], 't')
         '''
         # Calculate PAW corrections with numpy
-        for Q_Gii, P1_ti, P2_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati,
-                                       kskptpairs.kpt2.P_ati):
-            C1_Git = np.tensordot(Q_Gii, P1_ti.conj(), axes=([1, 1]))  # right i index? XXX
-            n_tG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
+        with self.timer('PAW corrections'):
+            for Q_Gii, P1_ti, P2_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati,
+                                           kskptpairs.kpt2.P_ati):
+                C1_Git = np.tensordot(Q_Gii, P1_ti.conj(), axes=([1, 1]))
+                n_tG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
 
         return n_tG
         '''  # still don't see why we need this XXX
@@ -402,6 +405,7 @@ class PlaneWavePairDensity(PairMatrixElement):
 
         return Q_aGii
 
+    @timer('Get G-vector indices')
     def get_fft_indices(self, kskptpairs, pd):
         """Get indices for G-vectors inside cutoff sphere."""
         kpt1 = kskptpairs.kpt1

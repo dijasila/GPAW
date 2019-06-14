@@ -83,9 +83,10 @@ class ChiKS(PlaneWaveKSLRF):
         mys2_t = kskptpairs.kpt2.s_t
 
         # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
-        df_t = kskptpairs.get_occupation_differences()
-        df_t[np.abs(df_t) <= 1e-20] = 0.0
-        deps_t = kskptpairs.get_transition_energies()
+        with self.timer('Get occupation differences and transition energies'):
+            df_t = kskptpairs.get_occupation_differences()
+            df_t[np.abs(df_t) <= 1e-20] = 0.0
+            deps_t = kskptpairs.get_transition_energies()
         
         # Calculate the pair densities
         n_tG = self.pme(kskptpairs, self.pd)  # Should this include some extrapolate_q? XXX
@@ -93,6 +94,7 @@ class ChiKS(PlaneWaveKSLRF):
         self._add_integrand(myn1_t, myn2_t, mys1_t, mys2_t,
                             df_t, deps_t, n_tG, A_wGG)
 
+    @timer('Add integrand to chiks_wGG')
     def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,
                        df_t, deps_t, n_tG, A_wGG):
         """In-place calculation of the integrand (depends on bandsummation)"""
@@ -111,6 +113,7 @@ class ChiKS(PlaneWaveKSLRF):
             # this gemm statement is currently not working as intended XXX
             gemm(1.0, n_tG.conj(), np.ascontiguousarray(nx_tG.T), 1.0, A_GG)
 
+    @timer('Get temporal part')
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
         """Get the temporal part of the susceptibility integrand."""
         _get_temporal_part = self.create_get_temporal_part()

@@ -487,6 +487,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                           complex, qd, gammacentered=self.gammacentered)
         return pd
 
+    @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
         from gpaw.response.pair import PWSymmetryAnalyzer as PWSA
         
@@ -553,7 +554,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         return self.pd, A_wGG
 
-    @timer('redist')
+    @timer('Redistribute memory')
     def redistribute(self, in_wGG, out_x=None):
         """Redistribute array.
 
@@ -626,6 +627,7 @@ class Integrator:
         kslrf : KohnShamLinearResponseFunction instance
         """
         self.kslrf = kslrf
+        self.timer = self.kslrf.timer
 
     def distribute_kpoint_domain(self, bzk_kv):
         """Let each process calculate contributions from different k-points."""
@@ -664,6 +666,7 @@ class Integrator:
 class PWPointIntegrator(Integrator):
     """A simple point integrator for the plane wave mode."""
 
+    @timer('Get k-point domain')
     def get_kpoint_domain(self):
         # Could use documentation XXX
         K_gK = self.kslrf.pwsa.group_kpoints()
