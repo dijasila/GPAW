@@ -18,6 +18,9 @@ Git master branch
 
 * How to do :ref:`ehrenfest` has now been documented.
 
+* New "metallic boundary conditions" have been added to the for PoissonSolver. 
+  This enables simulating charged 2D systems without counter charges.
+  See: :git:`gpaw/test/poisson/metallic_poisson.py` 
 
 Version 1.5.1
 =============
