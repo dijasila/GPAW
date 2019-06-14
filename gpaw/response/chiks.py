@@ -1,5 +1,7 @@
 import numpy as np
 
+from ase.utils.timing import timer
+
 from gpaw.utilities.blas import gemm
 from gpaw.response.kslrf import PlaneWaveKSLRF
 from gpaw.response.kspair import PlaneWavePairDensity
