@@ -314,21 +314,15 @@ class Symmetry:
         return (bzk_kc[ibz2bz_k], weight_k,
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
-    def prune_symmetries_grid(self, N_c) -> int:
-        """Remove symmetries not comensurate with grid."""
-        ok_s = np.ones(len(self.op_scc), bool)
+    def check_grid(self, N_c) -> bool:
+        """Check that symmetries are comensurate with grid."""
         for s, (U_cc, ft_c) in enumerate(zip(self.op_scc, self.ft_sc)):
             t_c = ft_c * N_c
             # Make sure all grid-points map onto another grid-point:
             if (((N_c * U_cc).T % N_c).any() or
                 not np.allclose(t_c, t_c.round())):
-                ok_s[s] = False
-
-        self.op_scc = self.op_scc[ok_s]
-        self.ft_sc = self.ft_sc[ok_s]
-        self.a_sa = self.a_sa[ok_s]
-
-        return len(ok_s) - len(self.op_scc)
+                return False
+        return True
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""

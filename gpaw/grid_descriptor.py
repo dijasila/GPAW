@@ -458,11 +458,11 @@ class GridDescriptor(Domain):
             for s, op_cc in enumerate(op_scc):
                 # Make sure all grid-points map onto another grid-point:
                 if ((N_c * op_cc).T % N_c).any():
-                    continue
+                    1 / 0  # continue
                 if ft_sc is not None:
                     t_c = ft_sc[s] * N_c
                     if not np.allclose(t_c, t_c.round()):
-                        continue
+                        1 / 0  # continue
 
                 if ft_sc is None:
                     _gpaw.symmetrize(A_g, B_g, op_cc)
