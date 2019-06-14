@@ -457,7 +457,7 @@ class GridDescriptor(Domain):
             nsym = 0
             for s, op_cc in enumerate(op_scc):
                 # Make sure all grid-points map onto another grid-point:
-                if ((N_c * U_cc).T % N_c).any():
+                if ((N_c * op_cc).T % N_c).any():
                     continue
                 if ft_sc is not None:
                     t_c = ft_sc[s] * N_c
