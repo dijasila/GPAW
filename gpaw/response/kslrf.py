@@ -114,11 +114,6 @@ class KohnShamLinearResponseFunction:
         self.nocc1 = self.kspair.nocc1  # number of completely filled bands
         self.nocc2 = self.kspair.nocc2  # number of non-empty bands
 
-        self.kpointintegration = kpointintegration
-        self.integrator = create_integrator(self)
-        # Each integrator might take some extra input kwargs
-        self.extraintargs = {}
-
         # Extract communicators, timer and filehandle for output
         self.world = self.kspair.world
         self.blockcomm = self.kspair.blockcomm
@@ -126,6 +121,11 @@ class KohnShamLinearResponseFunction:
         self.nblocks = self.blockcomm.size
         self.timer = self.kspair.timer
         self.fd = self.kspair.fd
+
+        self.kpointintegration = kpointintegration
+        self.integrator = create_integrator(self)
+        # Each integrator might take some extra input kwargs
+        self.extraintargs = {}
 
         # Attributes related to the specific response function
         self.pme = None
