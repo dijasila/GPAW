@@ -274,11 +274,13 @@ class BasePoissonSolver(_PoissonSolver):
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
+                 remove_moment=None, use_charge_center=False,
+                 metallic_electrodes=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
-            use_charge_center=use_charge_center)
+            use_charge_center=use_charge_center,
+            metallic_electrodes=metallic_electrodes)
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None
