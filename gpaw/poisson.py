@@ -110,6 +110,7 @@ class BasePoissonSolver(_PoissonSolver):
         self.use_charge_center = use_charge_center
         self.eps = eps
         self.metallic_electrodes = metallic_electrodes
+        assert self.metallic_electrodes in [False, None, 'single','both']
 
     def todict(self):
         d = {'name': 'basepoisson'}
@@ -119,6 +120,9 @@ class BasePoissonSolver(_PoissonSolver):
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
             d['use_charge_center'] = self.use_charge_center
+        if self.metallic_electrodes:
+            d['metallic_electrodes'] = self.metallic_electrodes
+
         return d
 
     def get_description(self):
