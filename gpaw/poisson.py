@@ -238,10 +238,10 @@ class BasePoissonSolver(_PoissonSolver):
         else:
             # System is charged with mixed boundaryconditions
             if self.metallic_electrodes == 'single':
-                c = 2
+                self.c = 2
                 origin_c=[0,0,0]
-                origin_c[c] = self.gd.N_c[c]
-                drhot_g, dvHt_g, self.correction = dipole_correction(c,
+                origin_c[self.c] = self.gd.N_c[self.c]
+                drhot_g, dvHt_g, self.correction = dipole_correction(self.c,
                                                     self.gd,
                                                     rho,
                                                     origin_c=origin_c)
