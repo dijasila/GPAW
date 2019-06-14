@@ -149,7 +149,7 @@ class WLDA(XCFunctional):
                     e1_g[:] += real_n_sg[0] * ec
                     a_c = rs * decdrs_0 / 3. * real_n_sg[0] / n1_sg[0]
                     self.potential_correction(np.array([a_c]), self.gd1, n1_sg)
-                    v += ec - a_c
+                    v1_sg[0] += ec - a_c
                 elif self.mode.lower() == "newrenorm":
                     norm = self.gd1.integrate(real_n_sg[0])
                     newnorm = self.gd1.integrate(n1_sg[0])
@@ -176,7 +176,7 @@ class WLDA(XCFunctional):
                     e1_g[:] += real_n_sg[0] * ec
                     a_c = rs * decdrs_0 / 3.0 * real_n_sg[0] / n1_sg[0]
                     self.renorm_potential_correction(np.array([a_c]), self.gd1, n1_sg, norm, newnorm)
-                    v += ec - a_c
+                    v1_sg[0] += ec - a_c
 
                 elif self.mode.lower() == "lda":
                     pass                    
@@ -229,6 +229,7 @@ class WLDA(XCFunctional):
     def apply_const_weighting(self, gd, n_sg):
         if n_sg.shape[0] > 1:
             raise NotImplementedError
+        n_g = n_sg[0]
         n_g[n_g < 1e-20] = 1e-40
         prenorm = gd.integrate(n_g)
         avg_dens = np.mean(n_g)
