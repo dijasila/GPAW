@@ -31,6 +31,11 @@ Git master branch
 
 * Experimental support for JTH_ PAW-datasets.
 
+* Fast C implementation of bond-length constraints and associated hidden
+  constraints for water models. This allows efficient explicit solvent QMMM
+  calculations for GPAW up to tens of thousands of solvent molecules with
+  watermodels such as SPC, TIPnP etc.  See :git:`gpaw/test/watermodel.py`
+  and :git:`gpaw/test/rattle.py` for examples.
 
 .. _JTH: https://www.abinit.org/psp-tables
 

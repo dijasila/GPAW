@@ -166,6 +166,13 @@ PyObject* githash(PyObject* self, PyObject* args)
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args);
 
+// Holonomic constraints
+PyObject* adjust_positions(PyObject *self, PyObject *args);
+PyObject* adjust_momenta(PyObject *self, PyObject *args);
+// TIP3P forces
+PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
+
+
 static PyMethodDef functions[] = {
     {"symmetrize", symmetrize, METH_VARARGS, 0},
     {"symmetrize_ft", symmetrize_ft, METH_VARARGS, 0},
@@ -301,6 +308,9 @@ static PyMethodDef functions[] = {
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
 #endif // GPAW_WITH_LIBVDWXC
     {"mlsqr", mlsqr, METH_VARARGS, 0},
+    {"adjust_positions", adjust_positions, METH_VARARGS, 0},
+    {"adjust_momenta", adjust_momenta, METH_VARARGS, 0},
+    {"calculate_forces_H2O", calculate_forces_H2O, METH_VARARGS, 0},
 #ifdef GPAW_GITHASH
     {"githash", githash, METH_VARARGS, 0},
 #endif // GPAW_GITHASH
