@@ -272,10 +272,10 @@ class CDFT(Calculator):
 
                 n_electrons = (self.gd.integrate(self.ext.w_ig[0:self.n_charge_regions]*n_gt,
                    global_integral=True))
-                print(n_electrons)
+                
                 # corrections
                 n_electrons += Delta_n[0:self.n_charge_regions]
-                print(n_electrons)
+                
                 # constraint
                 diff = n_electrons - self.constraints[0:self.n_charge_regions]
                 total_electrons.append(n_electrons)
