@@ -37,6 +37,10 @@ Git master branch
   watermodels such as SPC, TIPnP etc.  See :git:`gpaw/test/watermodel.py`
   and :git:`gpaw/test/rattle.py` for examples.
 
+* New "metallic boundary conditions" have been added to the for PoissonSolver.
+  This enables simulating charged 2D systems without counter charges.
+  See: :git:`gpaw/test/poisson/metallic_poisson.py`
+
 .. _JTH: https://www.abinit.org/psp-tables
 
 

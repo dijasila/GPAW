@@ -276,6 +276,7 @@ tests = [
     'vdw/quick.py',                         # ~9s
     'pathological/lcao_spos_derivative.py',  # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
+    'poisson/metallic_poisson.py',          # ~10s
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
     'lcaotddft/restart.py',                 # ~10s
