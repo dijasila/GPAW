@@ -600,13 +600,6 @@ class GPAW(PAW, Calculator):
             N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
                                             self.symmetry)
 
-        # n = self.symmetry.prune_symmetries_grid(N_c)
-        # if n > 0:
-        #     self.log(
-        #         'Symmetries removed (not comensurate with {}x{}x{} grid): {}'
-        #         .format(*N_c, n) +
-        #         '\n')
-
         self.setups.set_symmetry(self.symmetry)
 
         if isinstance(par.background_charge, dict):

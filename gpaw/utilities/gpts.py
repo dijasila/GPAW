@@ -35,6 +35,7 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
     if symmetry is not None:
         ok = symmetry.check_grid(N_c)
         if not ok:
+            # Choose more symmetric number of grid points:
             S_cc = symmetry.op_scc.any(axis=0)
             if S_cc[0, 1] and S_cc[1, 2]:
                 assert S_cc[1, 2]
