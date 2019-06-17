@@ -11,8 +11,6 @@
 #endif
 #include <xc.h>
 
-#define PY3 (PY_MAJOR_VERSION >= 3)
-
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -365,7 +363,6 @@ PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
 }
 
 
-#if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_gpaw",
@@ -377,7 +374,6 @@ static struct PyModuleDef moduledef = {
     NULL,
     NULL
 };
-#endif
 
 static PyObject* moduleinit(void)
 {
@@ -405,12 +401,7 @@ static PyObject* moduleinit(void)
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
 
-#if PY3
     PyObject* m = PyModule_Create(&moduledef);
-#else
-    PyObject* m = Py_InitModule3("_gpaw", functions,
-                                 "C-extension for GPAW\n\n...\n");
-#endif
 
     if (m == NULL)
         return NULL;
@@ -446,26 +437,12 @@ static PyObject* moduleinit(void)
 #ifndef GPAW_INTERPRETER
 
 
-#if PY3
 PyMODINIT_FUNC PyInit__gpaw(void)
 {
     return moduleinit();
 }
-#else
-PyMODINIT_FUNC init_gpaw(void)
-{
-    moduleinit();
-}
-#endif
 
 #else // ifndef GPAW_INTERPRETER
-
-#if PY3
-#define moduleinit0 moduleinit
-#else
-void moduleinit0(void) { moduleinit(); }
-#endif
-
 
 int
 gpaw_main()
@@ -514,7 +491,6 @@ main(int argc, char **argv)
         exit(1);
 #endif // GPAW_OMP
 
-#if PY3
 #define PyChar wchar_t
     wchar_t* wargv[argc];
     wchar_t* wargv2[argc];
@@ -524,13 +500,9 @@ main(int argc, char **argv)
         wargv2[i] = wargv[i];
         mbstowcs(wargv[i], argv[i], n);
     }
-#else
-#define PyChar char
-    char** wargv = argv;
-#endif
 
     Py_SetProgramName(wargv[0]);
-    PyImport_AppendInittab("_gpaw", &moduleinit0);
+    PyImport_AppendInittab("_gpaw", &moduleinit);
     Py_Initialize();
     PySys_SetArgvEx(argc, wargv, 0);
 
@@ -557,10 +529,8 @@ main(int argc, char **argv)
     Py_Finalize();
     MPI_Finalize();
 
-#if PY3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);
-#endif
 
     return status;
 }
