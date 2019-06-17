@@ -14,12 +14,13 @@ from distutils.command.build_scripts import build_scripts as _build_scripts
 from distutils.command.sdist import sdist as _sdist
 from distutils.core import setup, Extension
 from glob import glob
+from pathlib import Path
 
 from config import (get_system_config, check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
-assert sys.version_info >= (3, 4)
+assert sys.version_info >= (3, 5)
 
 # Get the current version number:
 with open('gpaw/__init__.py', 'rb') as fd:
@@ -77,10 +78,15 @@ if '--remove-default-flags' in sys.argv:
     remove_default_flags = True
     sys.argv.remove('--remove-default-flags')
 
-customize = 'customize.py'
+customize = Path('customize.py')
 for i, arg in enumerate(sys.argv):
-    if arg.startswith('--customize'):
-        customize = sys.argv.pop(i).split('=')[1]
+    if arg.startswith('--customize='):
+        del sys.argv[i]
+        customize = Path(arg.split('=')[1]).expanduser()
+        break
+    if arg == '--customize':
+        del sys.argv[i]
+        customize = Path(sys.argv.pop(i)).expanduser()
         break
 
 # check for environment
@@ -112,7 +118,7 @@ libvdwxc = False
 elpa = False
 
 # User provided customizations:
-exec(open(customize).read())
+exec(customize.read_text())
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
