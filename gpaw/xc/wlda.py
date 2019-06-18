@@ -172,7 +172,7 @@ class WLDA(XCFunctional):
                     dexdrs = -ex / rs
 
                     # a is defined by a = de_xc / dn* * n
-                    a = rs * dexdrs / 3 * real_n_sg[0] / n1_sg[0]
+                    a = rs * dexdrs / 3 * real_n_sg[0] / (n1_sg[0] * norm / newnorm)
                     self.renorm_potential_correction(np.array([a]), self.gd1, n1_sg, norm, newnorm)
                     v1_sg[0] += ex - a
 
@@ -182,7 +182,7 @@ class WLDA(XCFunctional):
                                      0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
 
                     e1_g[:] += real_n_sg[0] * ec
-                    a_c = rs * decdrs_0 / 3.0 * real_n_sg[0] / n1_sg[0]
+                    a_c = rs * decdrs_0 / 3.0 * real_n_sg[0] / (n1_sg[0] * norm / newnorm)
                     self.renorm_potential_correction(np.array([a_c]), self.gd1, n1_sg, norm, newnorm)
                     v1_sg[0] += ec - a_c
 
@@ -212,8 +212,8 @@ class WLDA(XCFunctional):
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
 
                 _, nx, ny, nz = n1_sg.shape
-                self.dens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
-                self.pot_plotter.plot(v1_sg[0, :, ny//2, nz//2])
+                self.dens_plotter.plot(n1_sg[0, :, :, nz//2])
+                self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
                 
         gd.distribute(v1_sg, v_sg)
         #gd.distribute(n1_sg, n_sg)        
@@ -806,11 +806,7 @@ class WLDA(XCFunctional):
             t.add(dens) # setup.pseudized_atomic_density.add(n_sg[0], 1)
             # n_sg[0] += t
         n_sg[0] = dens
-        import matplotlib.pyplot as plt
-        nx, ny, nz = awd.shape
-        plt.imshow(awd[:, :, nz//2])
-        plt.savefig("raw_correction")
-        plt.close()
+
 
         #print(np.argmax(np.abs(awd)))
         # print(awd[:10, :10, nz//2])
