@@ -822,10 +822,8 @@ class WLDA(XCFunctional):
         return 0
         
     def potential_correction(self, v_sg, gd, n_sg):
-        _, nx, ny, nz = gd.get_grid_point_coordinates().shape
         kF_i = np.array([(3*np.pi**2*ni)**(1/3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
-        # v_G = np.fft.fftn(v_sg[0])
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         for i, k_F in enumerate(kF_i):
@@ -834,18 +832,13 @@ class WLDA(XCFunctional):
             assert np.allclose(filv_g, filv_g.real), "Filtered potential was not real for kF: {}".format(k_F)
             w_g += filv_g
             
-        #v_g = np.einsum("ijkl, ijkl -> ijk", n_gi, w_gi)
         assert np.allclose(w_g, w_g.real)
         v_sg[0, :] = w_g.real
-        #return v_g.real
-
         
     def renorm_potential_correction(self, v_sg, gd, n_sg, norm, newnorm):
-        _, nx, ny, nz = gd.get_grid_point_coordinates().shape
         N = 1 / newnorm - norm / newnorm**2
         kF_i = np.array([(3 * np.pi**2 * ni)**(1 / 3) for ni in self.get_nis(n_sg[0])])
         K_G = self._get_K_G(gd)
-        v_G = np.fft.fftn(v_sg[0])
         n_gi = self.get_ni_weights(n_sg[0]).astype(np.complex128)
         w_g = np.zeros_like(v_sg[0], dtype=np.complex128)
         ofunc_g = np.zeros_like(v_sg[0], dtype=np.complex128)
