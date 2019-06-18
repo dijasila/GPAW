@@ -19,33 +19,19 @@ data and will crash or deadlock if master sends anything else.
 """
 
 
-from __future__ import print_function
 import sys
 import marshal
+import importlib
+import importlib.util
+from importlib.machinery import PathFinder, ModuleSpec
+import ctypes
 
-py_lessthan_35 = sys.version_info < (3, 5)
-
-if not py_lessthan_35:
-    import importlib
-    import importlib.util
-    from importlib.machinery import PathFinder, ModuleSpec
+import _gpaw
 
 
-try:
-    import _gpaw
-except ImportError:
-    we_are_gpaw_python = False
-else:
-    # When running in parallel, the _gpaw module exists right from the
-    # start.  Else it may not yet be defined.  So if we have _gpaw, *and*
-    # _gpaw defines the Communicator, then this is truly parallel.
-    # Otherwise, nothing matters anymore.
-    we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
-
-if we_are_gpaw_python:
-    world = _gpaw.Communicator()
-else:
-    world = None
+ctypes.CDLL('libmpi.so', ctypes.RTLD_GLOBAL)
+world = _gpaw.Communicator()
+we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
 
 
 paths = {}

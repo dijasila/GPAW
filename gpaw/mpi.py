@@ -695,12 +695,8 @@ class SerialCommunicator:
 serial_comm = SerialCommunicator()
 
 libmpi = os.environ.get('GPAW_MPI')
-if libmpi:
-    import ctypes
-    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-    world = _gpaw.Communicator()
-    if world.size == 1:
-        world = serial_comm
+if 0:#libmpi:
+    pass
 else:
     try:
         world = _gpaw.Communicator()
