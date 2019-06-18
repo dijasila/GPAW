@@ -23,6 +23,8 @@ class WLDA(XCFunctional):
 
         self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
         self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
+        self.inputdens_plotter = Plotter("inputdensity" + mode + filter_kernel, "")
+        self.corrdens_plotter = Plotter("corrdensity" + mode + filter_kernel, "")
 
         if filter_kernel.lower() == "fermikinetic":
             self.filter_kernel = self._fermi_kinetic
@@ -35,7 +37,7 @@ class WLDA(XCFunctional):
         print("Using kernel: {}".format(filter_kernel))
 
 
-        self.rcut = 0.0625 # In Bohr
+        self.rcut = 0.0625*5 # In Bohr
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -53,7 +55,12 @@ class WLDA(XCFunctional):
         v1_sg = gd.collect(v_sg)
         e1_g = gd.collect(e_g)
         if gd.comm.rank == 0:
+            _, nx, ny, nz = n1_sg.shape
+            pre = n1_sg.copy()
+            self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
             self.calc_corrected_density(n1_sg)
+            assert not np.allclose(pre, n1_sg)
+            self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
             if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
             
@@ -150,6 +157,7 @@ class WLDA(XCFunctional):
                     a_c = rs * decdrs_0 / 3. * real_n_sg[0] / n1_sg[0]
                     self.potential_correction(np.array([a_c]), self.gd1, n1_sg)
                     v1_sg[0] += ec - a_c
+
                 elif self.mode.lower() == "newrenorm":
                     norm = self.gd1.integrate(real_n_sg[0])
                     newnorm = self.gd1.integrate(n1_sg[0])
@@ -204,8 +212,8 @@ class WLDA(XCFunctional):
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
 
                 _, nx, ny, nz = n1_sg.shape
-                self.dens_plotter.plot(n1_sg[0, :, :, nz//2])
-                self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
+                self.dens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+                self.pot_plotter.plot(v1_sg[0, :, ny//2, nz//2])
                 
         gd.distribute(v1_sg, v_sg)
         #gd.distribute(n1_sg, n_sg)        
@@ -789,13 +797,24 @@ class WLDA(XCFunctional):
         # plt.plot( n_sg[0, :, ny//2,nz//2].copy(), label="before")
         setups = self.wfs.setups
         # print("BEFOREDensity norm is: {}".format(self.gd1.integrate(n_sg[0])))
+        dens = n_sg[0].copy()
         for a, setup in enumerate(setups):
             spos_ac_indices = list(filter(lambda x : x[1] == setup, enumerate(setups)))
             spos_ac_indices = [x[0] for x in spos_ac_indices]
             spos_ac = self.wfs.spos_ac[spos_ac_indices]
             t = setup.calculate_pseudized_atomic_density(self.rcut, spos_ac)
-            t.add(n_sg[0]) # setup.pseudized_atomic_density.add(n_sg[0], 1)
+            t.add(dens) # setup.pseudized_atomic_density.add(n_sg[0], 1)
+            # n_sg[0] += t
+        n_sg[0] = dens
+        import matplotlib.pyplot as plt
+        nx, ny, nz = awd.shape
+        plt.imshow(awd[:, :, nz//2])
+        plt.savefig("raw_correction")
+        plt.close()
 
+        #print(np.argmax(np.abs(awd)))
+        # print(awd[:10, :10, nz//2])
+        
         # plt.plot(n_sg[0, :, ny//2, nz//2].copy(), label="after")
         # plt.plot(n_sg[0, :, ny//2, nz//2] - before[0, :, ny//2, nz//2], label="difference")
         # plt.legend()
