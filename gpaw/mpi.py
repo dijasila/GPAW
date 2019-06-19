@@ -1,7 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
 import sys
 import time
 import traceback
@@ -13,6 +12,7 @@ import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
+from .broadcast_imports import world
 
 import _gpaw
 
@@ -694,8 +694,6 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-from .broadcast_imports import world
-print('hmm', world)
 if world is None:
     world = serial_comm
 
@@ -1106,9 +1104,7 @@ class Parallelization:
 
 
 def cleanup():
-    print('CLEANUP')
     error = getattr(sys, 'last_type', None)
-    print(error, parallel)
     if error is not None:  # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()

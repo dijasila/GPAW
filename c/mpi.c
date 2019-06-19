@@ -1100,7 +1100,6 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
     static char *kwlist[] = {NULL};
     MPIObject* self;
 
-    printf("OK1\n");
     if (! PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
         return NULL;
 
@@ -1108,12 +1107,7 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
     if (self == NULL)
         return NULL;
 
-    printf("OK2\n");
     mpi_ensure_initialized();
-#   ifndef GPAW_INTERPRETER
-//        MPI_Init(NULL, NULL);
-#   endif
-    printf("OK3\n");
 
     MPI_Comm_size(MPI_COMM_WORLD, &(self->size));
     MPI_Comm_rank(MPI_COMM_WORLD, &(self->rank));

@@ -26,12 +26,10 @@ import importlib
 import importlib.util
 from importlib.machinery import PathFinder, ModuleSpec
 
-print('importing _gpaw')
 import _gpaw
 
 
 libmpi = os.environ.get('GPAW_MPI')
-print('libmpi:', libmpi)
 if libmpi:
     import ctypes
     ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
@@ -40,9 +38,7 @@ if hasattr(_gpaw, 'Communicator'):
     world = _gpaw.Communicator()
 else:
     world = None
-#if world.size == 1:
-#    world = None
-print('world:', world)
+
 paths = {}
 sources = {}
 
