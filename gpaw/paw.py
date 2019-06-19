@@ -542,6 +542,7 @@ class PAW:
 
     def get_eigenvalues(self, kpt=0, spin=0, broadcast=True):
         """Return eigenvalue array."""
+        assert 0 <= kpt < self.wfs.kd.nibzkpts, kpt
         eps_n = self.wfs.collect_eigenvalues(kpt, spin)
         if broadcast:
             if self.wfs.world.rank != 0:
