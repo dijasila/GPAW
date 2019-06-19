@@ -29,12 +29,12 @@ from importlib.machinery import PathFinder, ModuleSpec
 import _gpaw
 
 
-libmpi = os.environ.get('GPAW_MPI')
-if libmpi:
-    import ctypes
-    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-
 if hasattr(_gpaw, 'Communicator'):
+    if '_gpaw' not in sys.builtin_module_names:
+        libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
+        import ctypes
+        ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
+
     world = _gpaw.Communicator()
 else:
     world = None
