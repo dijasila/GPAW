@@ -5,6 +5,16 @@
 """Main gpaw module."""
 
 import sys
+from sysconfig import get_platform
+from os.path import join, isfile
+
+build_path = join(__path__[0], '..', 'build')
+arch = '%s-%s' % (get_platform(), sys.version[0:3])
+
+# If we are running the code from the source directory, then we will
+# want to use the extension from the distutils build directory:
+sys.path.insert(0, join(build_path, 'lib.' + arch))
+
 
 from gpaw.broadcast_imports import broadcast_imports
 
@@ -12,8 +22,6 @@ with broadcast_imports:
     import os
     import runpy
     import warnings
-    from sysconfig import get_platform
-    from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import numpy as np
@@ -225,14 +233,6 @@ if debug:
             a.fill(-1000000)
         return a
     np.empty = empty
-
-
-build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (get_platform(), sys.version[0:3])
-
-# If we are running the code from the source directory, then we will
-# want to use the extension from the distutils build directory:
-sys.path.insert(0, join(build_path, 'lib.' + arch))
 
 
 def get_gpaw_python_path():
