@@ -21,7 +21,7 @@ class ChiKS(PlaneWaveKSLRF):
                                 **kwargs)
 
         # Susceptibilities use pair densities as matrix elements
-        self.pme = PlaneWavePairDensity(self)
+        self.pme = PlaneWavePairDensity(self.kspair)
 
         # The class is calculating one spin component at a time
         self.spincomponent = None

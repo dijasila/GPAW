@@ -12,12 +12,12 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbitals participating in transitions for a given k-point."""
-    def __init__(self, K, n_t, s_t, blocksize, nt, ta, tb,
+    def __init__(self, K, n_t, s_t, mynt, nt, ta, tb,
                  ut_tR, eps_t, f_t, P_ati, shift_c):
         self.K = K      # BZ k-point index
         self.n_t = n_t  # Band index for each transition
         self.s_t = s_t  # Spin index for each transition
-        self.blocksize = blocksize
+        self.mynt = mynt  # Number of transitions in this block
         self.nt = nt    # Total number of transitions between all blocks
         self.ta = ta    # First transition index of this block
         self.tb = tb    # First transition index of this block not included
@@ -46,23 +46,30 @@ class KohnShamKPointPairs:
 
     def get_t_distribution(self):
         """Get what transitions are included compared to the total picture."""
-        blocksize = self.kpt1.blocksize
+        mynt = self.kpt1.mynt
         nt = self.kpt1.nt
         ta = self.kpt1.ta
         tb = self.kpt1.tb
-        assert blocksize == self.kpt2.blocksize
+        assert mynt == self.kpt2.mynt
         assert nt == self.kpt2.nt
         assert ta == self.kpt2.ta
         assert tb == self.kpt2.tb
 
-        return blocksize, nt, ta, tb
+        return mynt, nt, ta, tb
 
 
 class KohnShamPair:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
-    def __init__(self, gs, world=mpi.world, txt='-', timer=None):
-        # Output .txt filehandle and timer
+    def __init__(self, gs, world=mpi.world, transitionblockscomm=None,
+                 txt='-', timer=None):
+        """
+        Parameters
+        ----------
+        transitionblockscomm : gpaw.mpi.Communicator
+            Communicator for distributing the transitions among processes
+        """
+        # Output .txt filehandle
         self.fd = convert_string_to_fd(txt, world)
         self.timer = timer or Timer()
 
@@ -70,6 +77,8 @@ class KohnShamPair:
             print('Reading ground state calculation:\n  %s' % gs,
                   file=self.fd)
             self.calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+
+        self.transitionblockscomm = transitionblockscomm
 
         # Prepare to find k-point data from vector
         kd = self.calc.wfs.kd
@@ -116,7 +125,7 @@ class KohnShamPair:
         K = self.find_kpoint(k_c)
 
         nt = len(n_t)
-        blocksize, ta, tb = self.distribute_transitions(nt)
+        mynt, ta, tb = self.distribute_transitions(nt)
         myn_t = n_t[ta:tb]
         mys_t = s_t[ta:tb]
 
@@ -127,29 +136,27 @@ class KohnShamPair:
                                                          T, a_a, U_aii,
                                                          time_reversal)
         
-        return KohnShamKPoint(K, myn_t, mys_t, blocksize, nt, ta, tb,
+        return KohnShamKPoint(K, myn_t, mys_t, mynt, nt, ta, tb,
                               ut_tR, eps_t, f_t, P_ati, shift_c)
 
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     def distribute_transitions(self, nt):
-        """Distribute transitions between processes."""
-        # Simple hack
-        blocksize = nt
-        ta = 0
-        tb = nt
+        """Distribute transitions between processes in block communicator"""
+        if self.transitionblockscomm is None:
+            mynt = nt
+            ta = 0
+            tb = nt
+        else:
+            nblocks = self.transitionblockscomm.size
+            rank = self.transitionblockscomm.rank
 
-        '''
-        nblocks = self.interblockcomm.size
-        rank = self.interblockcomm.rank
+            mynt = (nt + nblocks - 1) // nblocks
+            ta = min(rank * mynt, nt)
+            tb = min(ta + mynt, nt)
 
-        blocksize = (nt + nblocks - 1) // nblocks
-        ta = min(rank * blocksize, nt)
-        tb = min(ta + blocksize, nt)
-        '''
-
-        return blocksize, ta, tb
+        return mynt, ta, tb
 
     def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
@@ -281,14 +288,16 @@ class KohnShamPair:
 class PairMatrixElement:
     """Class for calculating matrix elements for transitions in Kohn-Sham
     linear response functions."""
-    def __init__(self, kslrf):
+    def __init__(self, kspair):
         """
         Parameters
         ----------
         kslrf : KohnShamLinearResponseFunction instance
         """
-        self.kslrf = kslrf
-        self.timer = kslrf.timer
+        self.calc = kspair.calc
+        self.fd = kspair.fd
+        self.timer = kspair.timer
+        self.transitionblockscomm = kspair.transitionblockscomm
 
     def __call__(self, kskptpairs, *args, **kwargs):
         """Calculate the matrix element for all transitions in kskptpairs."""
@@ -301,13 +310,8 @@ class PlaneWavePairDensity(PairMatrixElement):
     n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
 
     in the plane wave mode"""
-    def __init__(self, pwkslrf):
-        """
-        Parameters
-        ----------
-        pwkslrf : PlaneWaveKSLRF instance
-        """
-        PairMatrixElement.__init__(self, pwkslrf)
+    def __init__(self, kspair):
+        PairMatrixElement.__init__(self, kspair)
 
         # Save PAW correction for all calls with same q_c
         self.Q_aGii = None
@@ -321,9 +325,9 @@ class PlaneWavePairDensity(PairMatrixElement):
         """
         Q_aGii = self.initialize_paw_corrections(pd)
         Q_G = self.get_fft_indices(kskptpairs, pd)
-        blocksize, nt, ta, tb = kskptpairs.get_t_distribution()
+        mynt, nt, ta, tb = kskptpairs.get_t_distribution()
         
-        n_tG = pd.empty(blocksize)
+        n_mytG = pd.empty(mynt)
 
         # Calculate smooth part of the pair densities:
         # Note: maybe code is slower or just not ready for numpy vectorization
@@ -331,38 +335,35 @@ class PlaneWavePairDensity(PairMatrixElement):
         with self.timer('Calculate smooth part'):
             ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
             n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
-            n_tG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
-                             for t in range(tb - ta)])  # Vectorized? XXX
+            n_mytG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
+                               for t in range(tb - ta)])  # Vectorized? XXX
         '''
         # Unvectorized, but using gemm
         for t in range(ta, tb):  # Could be vectorized? XXX
             # Multiply periodic parts of Kohn-Sham orbitals in transition
             ut1cc_R = kskptpairs.kpt1.ut_tR[t - ta].conj()
             n_R = ut1cc_R * kskptpairs.kpt2.ut_tR[t - ta]
-            n_tG[t, :] += pd.fft(n_R, 0, Q_G) * pd.gd.dv
+            n_mytG[t, :] += pd.fft(n_R, 0, Q_G) * pd.gd.dv
 
             # Calculate PAW corrections
             C1_aGi = [np.dot(Q_Gii, P1_ti[t - ta].conj())
                       for Q_Gii, P1_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati)]
             for C1_Gi, P2_ti in zip(C1_aGi, kskptpairs.kpt2.P_ati):
-                gemm(1.0, C1_Gi, P2_ti[t - ta], 1.0, n_tG[t], 't')
+                gemm(1.0, C1_Gi, P2_ti[t - ta], 1.0, n_mytG[t], 't')
         '''
         # Calculate PAW corrections with numpy
         with self.timer('PAW corrections'):
             for Q_Gii, P1_ti, P2_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati,
                                            kskptpairs.kpt2.P_ati):
                 C1_Git = np.tensordot(Q_Gii, P1_ti.conj(), axes=([1, 1]))
-                n_tG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
+                n_mytG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
 
-        return n_tG
-        '''  # still don't see why we need this XXX
-        if blocksize == nt:
-            return n_tG
+        if mynt == nt or self.transitionblockscomm is None:
+            return n_mytG
         else:
-            alln_tG = pd.empty(blocksize * self.kslrf.interblockcomm.size)
-            self.kslrf.interblockcomm.all_gather(n_tG, alln_tG)
-            return alln_tG[:tb - ta]
-        '''
+            n_tG = pd.empty(mynt * self.transitionblockscomm.size)
+            self.transitionblockscomm.all_gather(n_mytG, n_tG)
+            return n_tG[:nt]
 
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
@@ -374,8 +375,8 @@ class PlaneWavePairDensity(PairMatrixElement):
 
     @timer('Initialize PAW corrections')
     def _initialize_paw_corrections(self, pd):
-        wfs = self.kslrf.calc.wfs
-        spos_ac = self.kslrf.calc.spos_ac
+        wfs = self.calc.wfs
+        spos_ac = self.calc.spos_ac
         G_Gv = pd.get_reciprocal_vectors()
 
         pos_av = np.dot(spos_ac, pd.gd.cell_cv)
@@ -403,7 +404,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         """Get indices for G-vectors inside cutoff sphere."""
         kpt1 = kskptpairs.kpt1
         kpt2 = kskptpairs.kpt2
-        kd = self.kslrf.calc.wfs.kd
+        kd = self.calc.wfs.kd
         q_c = pd.kd.bzk_kc[0]
 
         N_G = pd.Q_qG[0]

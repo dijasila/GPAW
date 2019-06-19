@@ -125,12 +125,6 @@ class KohnShamLinearResponseFunction:
         self.intrablockcomm = None
         self.initialize_communicators(nblocks)
         self.nblocks = self.interblockcomm.size
-        '''
-        # Extract communicators, timer and filehandle for output
-        self.world = self.kspair.world
-        self.blockcomm = self.kspair.blockcomm
-        self.kncomm = self.kspair.kncomm
-        '''
 
         self.kpointintegration = kpointintegration
         self.integrator = create_integrator(self)
@@ -144,16 +138,16 @@ class KohnShamLinearResponseFunction:
         """Set up MPI communicators to distribute the memory needed to store
         large arrays and parallelize calculations when possible.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         nblocks : int
             Separate large arrays into n different blocks. Each process
             allocates memory for the large arrays. By allocating only a
             fraction/block of the total arrays, the memory requirements are
             eased.
 
-        Sets:
-        -----
+        Sets
+        ----
         interblockcomm : gpaw.mpi.Communicator
             Communicate between processes belonging to different memory blocks.
             In every communicator, there is one process for each block of
