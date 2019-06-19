@@ -36,10 +36,13 @@ if libmpi:
     import ctypes
     ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
 
-world = getattr(_gpaw, 'Communicator', None)
+if hasattr(_gpaw, 'Communicator'):
+    world = _gpaw.Communicator()
+else:
+    world = None
 #if world.size == 1:
 #    world = None
-print('world:', world.size)
+print('world:', world)
 paths = {}
 sources = {}
 
