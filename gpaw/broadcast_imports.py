@@ -26,6 +26,7 @@ import importlib
 import importlib.util
 from importlib.machinery import PathFinder, ModuleSpec
 
+print('importing _gpaw')
 import _gpaw
 
 
@@ -36,7 +37,9 @@ if libmpi:
     ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
 
 world = getattr(_gpaw, 'Communicator', None)
-
+#if world.size == 1:
+#    world = None
+print('world:', world.size)
 paths = {}
 sources = {}
 
