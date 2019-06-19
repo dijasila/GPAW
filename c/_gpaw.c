@@ -426,7 +426,7 @@ static PyObject* moduleinit(void)
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
-#ifndef PARALLEL
+#ifndef GPAW_INTERPRETER
     // gpaw-python needs to import arrays at the right time, so this is
     // done in gpaw_main().  In serial, we just do it here:
     import_array1(0);

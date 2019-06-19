@@ -201,13 +201,54 @@ static GPAW_MPI_Request *NewMPIRequest(void)
   return self;
 }
 
+
+static void mpi_ensure_finalized(void)
+{
+    int already_finalized = 1;
+    int ierr = MPI_SUCCESS;
+
+    MPI_Finalized(&already_finalized);
+    if (!already_finalized)
+    {
+        ierr = MPI_Finalize();
+    }
+    if (ierr != MPI_SUCCESS)
+        PyErr_SetString(PyExc_RuntimeError, "MPI_Finalize error occurred");
+}
+
+
+// MPI initialization
+static void mpi_ensure_initialized(void)
+{
+    int already_initialized = 1;
+    int ierr = MPI_SUCCESS;
+
+    // Check whether MPI is already initialized
+    MPI_Initialized(&already_initialized);
+    if (!already_initialized)
+    {
+        // if not, let's initialize it
+        ierr = MPI_Init(NULL, NULL);
+        if (ierr == MPI_SUCCESS)
+        {
+            // No problem: register finalization when at Python exit
+            Py_AtExit(*mpi_ensure_finalized);
+        }
+        else
+        {
+            // We have a problem: raise an exception
+            char err[MPI_MAX_ERROR_STRING];
+            int resultlen;
+            MPI_Error_string(ierr, err, &resultlen);
+            PyErr_SetString(PyExc_RuntimeError, err);
+        }
+    }
+}
+
+
 static void mpi_dealloc(MPIObject *obj)
 {
-    if (obj->comm == MPI_COMM_WORLD) {
-#       ifndef GPAW_INTERPRETER
-            MPI_Finalize();
-#       endif
-    } else
+    if (obj->comm != MPI_COMM_WORLD)
         MPI_Comm_free(&(obj->comm));
     Py_XDECREF(obj->parent);
     free(obj->members);
@@ -1059,6 +1100,7 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
     static char *kwlist[] = {NULL};
     MPIObject* self;
 
+    printf("OK1\n");
     if (! PyArg_ParseTupleAndKeywords(args, kwds, "", kwlist))
         return NULL;
 
@@ -1066,9 +1108,12 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
     if (self == NULL)
         return NULL;
 
+    printf("OK2\n");
+    mpi_ensure_initialized();
 #   ifndef GPAW_INTERPRETER
-        MPI_Init(NULL, NULL);
+//        MPI_Init(NULL, NULL);
 #   endif
+    printf("OK3\n");
 
     MPI_Comm_size(MPI_COMM_WORLD, &(self->size));
     MPI_Comm_rank(MPI_COMM_WORLD, &(self->rank));

@@ -17,8 +17,8 @@ with broadcast_imports:
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import numpy as np
+    print('DONE')
     from ase.cli.run import str2dict
-
 
 assert not np.version.version.startswith('1.6.0')
 

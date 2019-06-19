@@ -694,9 +694,9 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-try:
-    world = _gpaw.Communicator()
-except AttributeError:
+from .broadcast_imports import world
+print('hmm', world)
+if world is None:
     world = serial_comm
 
 
@@ -1106,7 +1106,9 @@ class Parallelization:
 
 
 def cleanup():
+    print('CLEANUP')
     error = getattr(sys, 'last_type', None)
+    print(error, parallel)
     if error is not None:  # else: Python script completed or raise SystemExit
         if parallel and not (dry_run_size > 1):
             sys.stdout.flush()
