@@ -12,19 +12,21 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbitals participating in transitions for a given k-point."""
-    def __init__(self, K, n_t, s_t, mynt, nt, ta, tb,
-                 ut_tR, eps_t, f_t, P_ati, shift_c):
-        self.K = K      # BZ k-point index
-        self.n_t = n_t  # Band index for each transition
-        self.s_t = s_t  # Spin index for each transition
-        self.mynt = mynt  # Number of transitions in this block
-        self.nt = nt    # Total number of transitions between all blocks
-        self.ta = ta    # First transition index of this block
-        self.tb = tb    # First transition index of this block not included
-        self.ut_tR = ut_tR      # periodic part of wave functions in real-space
-        self.eps_t = eps_t      # eigenvalues
-        self.f_t = f_t          # occupation numbers
-        self.P_ati = P_ati      # PAW projections
+    def __init__(self, K, n_t, s_t, eps_t, f_t,
+                 mynt, nt, ta, tb, ut_mytR, P_amyti, shift_c):
+        self.K = K          # BZ k-point index
+        self.n_t = n_t      # Band index for each transition
+        self.s_t = s_t      # Spin index for each transition
+        self.eps_t = eps_t  # All eigenvalues
+        self.f_t = f_t      # All occupation numbers
+
+        self.mynt = mynt    # Number of transitions in this block
+        self.nt = nt        # Total number of transitions between all blocks
+        self.ta = ta        # First transition index of this block
+        self.tb = tb        # First transition index of this block not included
+        self.ut_mytR = ut_mytR  # Periodic part of wave functions in this block
+        self.P_amyti = P_amyti  # PAW projections in this block
+
         self.shift_c = shift_c  # long story - see the
         # PairDensity.construct_symmetry_operators() method
 
@@ -124,20 +126,25 @@ class KohnShamPair:
         # Parse kpoint to index
         K = self.find_kpoint(k_c)
 
+        # Extract eigenvalues and occupations for all transitions
+        eps_t, f_t = self.extract_eigenvalues_and_occupations(K, n_t, s_t)
+
+        # Distribute transitions and extract orbitals only for transitions in
+        # this process' block
         nt = len(n_t)
         mynt, ta, tb = self.distribute_transitions(nt)
-        myn_t = n_t[ta:tb]
-        mys_t = s_t[ta:tb]
+        n_myt = n_t[ta:tb]
+        s_myt = s_t[ta:tb]
 
         (U_cc, T, a_a, U_aii, shift_c,  # U_cc is unused for now XXX
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
-        ut_tR, eps_t, f_t, P_ati = self.extract_orbitals(K, myn_t, mys_t,
-                                                         T, a_a, U_aii,
-                                                         time_reversal)
+        ut_mytR, P_amyti = self.extract_orbitals(K, n_myt, s_myt,
+                                                 T, a_a, U_aii,
+                                                 time_reversal)
         
-        return KohnShamKPoint(K, myn_t, mys_t, mynt, nt, ta, tb,
-                              ut_tR, eps_t, f_t, P_ati, shift_c)
+        return KohnShamKPoint(K, n_t, s_t, eps_t, f_t,
+                              mynt, nt, ta, tb, ut_mytR, P_amyti, shift_c)
 
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
@@ -157,6 +164,24 @@ class KohnShamPair:
             tb = min(ta + mynt, nt)
 
         return mynt, ta, tb
+
+    def extract_eigenvalues_and_occupations(self, K, n_t, s_t):
+        """Get the (n, k, s) Kohn-Sham eigenvalues and occupations."""
+        wfs = self.calc.wfs
+        ik = wfs.kd.bz2ibz_k[K]
+        
+        nt = len(n_t)
+        eps_t = np.zeros(nt)
+        f_t = np.zeros(nt)
+
+        for s in set(s_t):  # In the ground state, kpts are indexes by u=(s, k)
+            myt = s_t == s
+            kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+
+            eps_t[myt] = kpt.eps_n[n_t[myt]]
+            f_t[myt] = kpt.f_n[n_t[myt]] / kpt.weight
+
+        return eps_t, f_t
 
     def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
@@ -245,44 +270,39 @@ class KohnShamPair:
 
         t_t = np.arange(0, nt)
         ut_tR = wfs.gd.empty(nt, wfs.dtype)
-        eps_t = np.zeros(nt)
-        f_t = np.zeros(nt)
         P_ati = [np.zeros((nt, ni), dtype=complex) for ni in ni_a]
 
         for s in set(s_t):  # In the ground state, kpts are indexes by u=(s, k)
-            myt = s_t == s
+            thisspin_t = s_t == s
             kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
-
-            eps_t[myt] = kpt.eps_n[n_t[myt]]
-            f_t[myt] = kpt.f_n[n_t[myt]] / kpt.weight
 
             with self.timer('load wfs'):
                 '''
                 # Extracting psit_tG is slow, so extract after n and sort back
-                t_myt, n_myt = t_t[myt], n_t[myt]
-                myt_myn = np.argsort(n_myt)
-                n_myn = n_myt[myt_myn]
-                for t, n in zip(t_myt[myt_myn], n_myn):
+                t_thist, n_thist = t_t[thisspin_t], n_t[thisspin_t]
+                thist_thisn = np.argsort(n_thist)
+                n_thisn = n_thist[thist_thisn]
+                for t, n in zip(t_thist[thist_thisn], n_thisn):
                     ut_tR[t] = T(wfs.pd.ifft(kpt.psit_nG[n], ik))
                 '''
                 '''
-                psit_mytG = np.array(kpt.psit_nG)[n_t[myt]]
-                for t, psit_G in zip(t_t[myt], psit_mytG):
+                psit_thistG = np.array(kpt.psit_nG)[n_t[thisspin_t]]
+                for t, psit_G in zip(t_t[thisspin_t], psit_thistG):
                     with self.timer('doing transform'):
                         ut_tR[t] = T(wfs.pd.ifft(psit_G, ik))
                 '''
                 psit_nG = kpt.psit_nG
-                for t, n in zip(t_t[myt], n_t[myt]):  # Can be vectorized? XXX
+                for t, n in zip(t_t[thisspin_t], n_t[thisspin_t]):  # Can be vectorized? XXX
                     ut_tR[t] = T(wfs.pd.ifft(psit_nG[n], ik))
 
             with self.timer('Load projections'):
                 for a, U_ii in zip(a_a, U_aii):  # Can be vectorized? XXX
-                    P_myti = np.dot(kpt.P_ani[a][n_t[myt]], U_ii)
+                    P_thisti = np.dot(kpt.P_ani[a][n_t[thisspin_t]], U_ii)
                     if time_reversal:
-                        P_myti = P_myti.conj()
-                    P_ati[a][myt, :] = P_myti
+                        P_thisti = P_thisti.conj()
+                    P_ati[a][thisspin_t, :] = P_thisti
 
-        return ut_tR, eps_t, f_t, P_ati
+        return ut_tR, P_ati
 
 
 class PairMatrixElement:
@@ -333,10 +353,10 @@ class PlaneWavePairDensity(PairMatrixElement):
         # Note: maybe code is slower or just not ready for numpy vectorization
         # Check speed with old and new stuff
         with self.timer('Calculate smooth part'):
-            ut1cc_tR = kskptpairs.kpt1.ut_tR.conj()
-            n_tR = ut1cc_tR * kskptpairs.kpt2.ut_tR
-            n_mytG = np.array([pd.fft(n_tR[t], 0, Q_G) * pd.gd.dv
-                               for t in range(tb - ta)])  # Vectorized? XXX
+            ut1cc_mytR = kskptpairs.kpt1.ut_mytR.conj()
+            n_mytR = ut1cc_mytR * kskptpairs.kpt2.ut_mytR
+            n_mytG = np.array([pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
+                               for myt in range(mynt)])  # Vectorized? XXX
         '''
         # Unvectorized, but using gemm
         for t in range(ta, tb):  # Could be vectorized? XXX
@@ -353,10 +373,11 @@ class PlaneWavePairDensity(PairMatrixElement):
         '''
         # Calculate PAW corrections with numpy
         with self.timer('PAW corrections'):
-            for Q_Gii, P1_ti, P2_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati,
-                                           kskptpairs.kpt2.P_ati):
-                C1_Git = np.tensordot(Q_Gii, P1_ti.conj(), axes=([1, 1]))
-                n_mytG += np.sum(C1_Git * P2_ti.T[np.newaxis, :, :], axis=1).T
+            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpairs.kpt1.P_amyti,
+                                               kskptpairs.kpt2.P_amyti):
+                C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
+                n_mytG += np.sum(C1_Gimyt * P2_myti.T[np.newaxis, :, :],
+                                 axis=1).T
 
         if mynt == nt or self.transitionblockscomm is None:
             return n_mytG
