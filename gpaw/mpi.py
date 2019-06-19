@@ -694,14 +694,10 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-libmpi = os.environ.get('GPAW_MPI')
-if 0:#libmpi:
-    pass
-else:
-    try:
-        world = _gpaw.Communicator()
-    except AttributeError:
-        world = serial_comm
+try:
+    world = _gpaw.Communicator()
+except AttributeError:
+    world = serial_comm
 
 
 class DryRunCommunicator(SerialCommunicator):

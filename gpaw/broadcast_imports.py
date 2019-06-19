@@ -4,7 +4,7 @@ This reduces file system strain.
 
 Use:
 
-  with globally_broadcast_imports():
+  with broadcast_imports():
       <execute import statements>
 
 This temporarily overrides the Python import mechanism so that
@@ -19,20 +19,22 @@ data and will crash or deadlock if master sends anything else.
 """
 
 
+import os
 import sys
 import marshal
 import importlib
 import importlib.util
 from importlib.machinery import PathFinder, ModuleSpec
-import ctypes
 
 import _gpaw
 
 
-ctypes.CDLL('libmpi.so', ctypes.RTLD_GLOBAL)
-world = _gpaw.Communicator()
-we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
+libmpi = os.environ.get('GPAW_MPI')
+if libmpi:
+    import ctypes
+    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
 
+world = getattr(_gpaw, 'Communicator', None)
 
 paths = {}
 sources = {}
@@ -139,7 +141,7 @@ class BroadcastImporter:
             # print('recv {} modules'.format(len(self.module_cache)))
 
     def enable(self):
-        if world is None or py_lessthan_35:
+        if world is None:
             return
 
         # There is the question of whether we lose anything by inserting
@@ -150,7 +152,7 @@ class BroadcastImporter:
             self.broadcast()
 
     def disable(self):
-        if world is None or py_lessthan_35:
+        if world is None:
             return
 
         if world.rank == 0:
