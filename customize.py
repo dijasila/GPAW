@@ -102,7 +102,8 @@ if 0:
 
 
 # Build MPI-interface into _gpaw.so:
-if 0:
+parallel_python = True
+if not parallel_python:
     compiler = 'mpicc'
     define_macros += [('PARALLEL', '1')]
     mpicompiler = None
