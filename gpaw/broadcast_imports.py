@@ -30,6 +30,7 @@ import _gpaw
 
 
 libmpi = os.environ.get('GPAW_MPI')
+print('libmpi:', libmpi)
 if libmpi:
     import ctypes
     ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
