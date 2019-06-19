@@ -355,8 +355,8 @@ class PlaneWavePairDensity(PairMatrixElement):
         with self.timer('Calculate smooth part'):
             ut1cc_mytR = kskptpairs.kpt1.ut_mytR.conj()
             n_mytR = ut1cc_mytR * kskptpairs.kpt2.ut_mytR
-            n_mytG = np.array([pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
-                               for myt in range(tb - ta)])  # Vectorized? XXX
+            for myt in range(tb - ta):
+                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv  # Vectorized? XXX
         '''
         # Unvectorized, but using gemm
         for t in range(ta, tb):  # Could be vectorized? XXX
