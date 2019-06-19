@@ -121,10 +121,10 @@ class KohnShamLinearResponseFunction:
 
         # Communicators for parallelization
         self.world = world
-        self.blockcomm = None
-        self.kcomm = None
+        self.interblockcomm = None
+        self.intrablockcomm = None
         self.initialize_communicators(nblocks)
-        self.nblocks = self.blockcomm.size
+        self.nblocks = self.interblockcomm.size
         '''
         # Extract communicators, timer and filehandle for output
         self.world = self.kspair.world
@@ -141,18 +141,42 @@ class KohnShamLinearResponseFunction:
         self.pme = None
 
     def initialize_communicators(self, nblocks):
-        """Set up MPI communicators to avoid each process storing the same
-        arrays."""
+        """Set up MPI communicators to distribute the memory needed to store
+        large arrays and parallelize calculations when possible.
+
+        Parameters:
+        -----------
+        nblocks : int
+            Separate large arrays into n different blocks. Each process
+            allocates memory for the large arrays. By allocating only a
+            fraction/block of the total arrays, the memory requirements are
+            eased.
+
+        Sets:
+        -----
+        interblockcomm : gpaw.mpi.Communicator
+            Communicate between processes belonging to different memory blocks.
+            In every communicator, there is one process for each block of
+            memory, so that all blocks are represented.
+            If nblocks < world.size, there will be size // nblocks different
+            processes that allocate memory for the same block of the large
+            arrays. Thus, there will be also size // nblocks different inter
+            block communicators, grouping the processes into sets that allocate
+            the entire arrays between them.
+        intrablockcomm : gpaw.mpi.Communicator
+            Communicate between processes belonging to the same memory block.
+            There will be size // nblocks processes per memory block.
+        """
         if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([self.world.rank])
-            self.kcomm = self.world
+            self.interblockcomm = self.world.new_communicator([self.world.rank])
+            self.intrablockcomm = self.world
         else:
             assert self.world.size % nblocks == 0, self.world.size
             rank1 = self.world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
+            self.interblockcomm = self.world.new_communicator(range(rank1, rank2))
             ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
-            self.kcomm = self.world.new_communicator(ranks)
+            self.intrablockcomm = self.world.new_communicator(ranks)
         print('Number of blocks:', nblocks, file=self.fd)
 
     def calculate(self, spinrot=None, A_x=None):
@@ -238,8 +262,8 @@ class KohnShamLinearResponseFunction:
         else:
             world = self.world
         wsize = world.size
-        knsize = self.kcomm.size
-        bsize = self.blockcomm.size
+        knsize = self.intrablockcomm.size
+        bsize = self.interblockcomm.size
 
         spinrot = self.spinrot
 
@@ -257,8 +281,8 @@ class KohnShamLinearResponseFunction:
         p('')
         p('The response function calculation is performed in parallel with:')
         p('    world.size: %d' % wsize)
-        p('    kcomm.size: %d' % knsize)
-        p('    blockcomm.size: %d' % bsize)
+        p('    intrablockcomm.size: %d' % knsize)
+        p('    interblockcomm.size: %d' % bsize)
         p('')
         p('The sum over band and spin transitions is performed using:')
         p('    Spin rotation: %s' % spinrot)
@@ -532,7 +556,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         eta = self.eta * Hartree
         ecut = self.ecut * Hartree
         ngmax = self.pd.ngmax
-        Asize = nw * self.pd.ngmax**2 * 16. / 1024**2 / self.blockcomm.size
+        Asize = nw * self.pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
 
         p = partial(print, file=self.fd)
 
@@ -554,12 +578,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # Could use some more documentation XXX
         nG = self.pd.ngmax
         nw = len(self.omega_w)
-        mynG = (nG + self.blockcomm.size - 1) // self.blockcomm.size
-        self.Ga = min(self.blockcomm.rank * mynG, nG)
+        mynG = (nG + self.interblockcomm.size - 1) // self.interblockcomm.size
+        self.Ga = min(self.interblockcomm.rank * mynG, nG)
         self.Gb = min(self.Ga + mynG, nG)
-        # if self.blockcomm.rank == 0:
+        # if self.interblockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
-        # assert mynG * (self.blockcomm.size - 1) < nG
+        # assert mynG * (self.interblockcomm.size - 1) < nG
         if A_x is not None:
             nx = nw * (self.Gb - self.Ga) * nG
             A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
@@ -591,7 +615,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         Returns new array using the memory in the 1-d array out_x.
         """
 
-        comm = self.blockcomm
+        comm = self.interblockcomm
 
         if comm.size == 1:
             return in_wGG
@@ -657,8 +681,8 @@ class Integrator:
     def distribute_kpoint_domain(self, bzk_kv):
         """Let each process calculate contributions from different k-points."""
         nk = bzk_kv.shape[0]
-        size = self.kslrf.kcomm.size
-        rank = self.kslrf.kcomm.rank
+        size = self.kslrf.intrablockcomm.size
+        rank = self.kslrf.intrablockcomm.rank
 
         mynk = (nk + size - 1) // size
         i1 = rank * mynk
@@ -733,9 +757,9 @@ class PWPointIntegrator(Integrator):
                                      tmp_x, **kwargs)
 
         # Sum over processes
-        # self.kslrf.blockcomm.sum(tmp_x)  # needed or not? XXX
-        # kcomm is not used at present? XXX
-        self.kslrf.kcomm.sum(tmp_x)
+        # self.kslrf.interblockcomm.sum(tmp_x)  # needed or not? XXX
+        # intrablockcomm is not used at present? XXX
+        self.kslrf.intrablockcomm.sum(tmp_x)
 
         out_x += tmp_x
         out_x *= kpointvol

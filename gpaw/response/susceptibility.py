@@ -209,7 +209,7 @@ class FourComponentSusceptibilityTensor:
         """Distribute frequencies to all cores."""
         # More documentation is needed! XXX
         world = self.chiks.world
-        comm = self.chiks.blockcomm
+        comm = self.chiks.interblockcomm
 
         if world.size == 1:
             return chiks_wGG
@@ -222,10 +222,10 @@ class FourComponentSusceptibilityTensor:
         wa = min(world.rank * mynw, nw)
         wb = min(wa + mynw, nw)
 
-        if self.chiks.blockcomm.size == 1:
+        if self.chiks.interblockcomm.size == 1:
             return chiks_wGG[wa:wb].copy()
 
-        if self.chiks.kcomm.rank == 0:
+        if self.chiks.intrablockcomm.rank == 0:
             bg1 = BlacsGrid(comm, 1, comm.size)
             in_wGG = chiks_wGG.reshape((nw, -1))
         else:

@@ -141,8 +141,8 @@ class KohnShamPair:
         tb = nt
 
         '''
-        nblocks = self.blockcomm.size
-        rank = self.blockcomm.rank
+        nblocks = self.interblockcomm.size
+        rank = self.interblockcomm.rank
 
         blocksize = (nt + nblocks - 1) // nblocks
         ta = min(rank * blocksize, nt)
@@ -359,8 +359,8 @@ class PlaneWavePairDensity(PairMatrixElement):
         if blocksize == nt:
             return n_tG
         else:
-            alln_tG = pd.empty(blocksize * self.kslrf.blockcomm.size)
-            self.kslrf.blockcomm.all_gather(n_tG, alln_tG)
+            alln_tG = pd.empty(blocksize * self.kslrf.interblockcomm.size)
+            self.kslrf.interblockcomm.all_gather(n_tG, alln_tG)
             return alln_tG[:tb - ta]
         '''
 
