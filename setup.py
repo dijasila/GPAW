@@ -86,7 +86,7 @@ for i, arg in enumerate(sys.argv):
         break
     if arg == '--customize':
         del sys.argv[i]
-        customize = Path(sys.argv.pop(i)).expanduser()
+        customize = Path(sys.argv.pop(i))
         break
 
 # check for environment
