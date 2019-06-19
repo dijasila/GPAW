@@ -61,16 +61,10 @@ class KohnShamKPointPairs:
 class KohnShamPair:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
-    def __init__(self, gs, world=mpi.world, nblocks=1, txt='-', timer=None):
+    def __init__(self, gs, world=mpi.world, txt='-', timer=None):
         # Output .txt filehandle and timer
         self.fd = convert_string_to_fd(txt, world)
         self.timer = timer or Timer()
-
-        # Communicators
-        self.world = world
-        self.blockcomm = None
-        self.kncomm = None
-        self.initialize_communicators(nblocks)
 
         with self.timer('Read ground state'):
             print('Reading ground state calculation:\n  %s' % gs,
@@ -81,25 +75,10 @@ class KohnShamPair:
         kd = self.calc.wfs.kd
         self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
 
-        # Count bands to remove null-transitions
+        # Count bands so it is possible to remove null transitions
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
-
-    def initialize_communicators(self, nblocks):
-        """Set up MPI communicators to avoid each process storing the same
-        arrays."""
-        if nblocks == 1:
-            self.blockcomm = self.world.new_communicator([self.world.rank])
-            self.kncomm = self.world
-        else:
-            assert self.world.size % nblocks == 0, self.world.size
-            rank1 = self.world.rank // nblocks * nblocks
-            rank2 = rank1 + nblocks
-            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
-            self.kncomm = self.world.new_communicator(ranks)
-        print('Number of blocks:', nblocks, file=self.fd)
 
     def count_occupied_bands(self):
         """Count number of occupied and unoccupied bands in ground state

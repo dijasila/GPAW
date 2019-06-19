@@ -3,7 +3,8 @@ from functools import partial
 from time import ctime
 
 from ase.units import Hartree
-from ase.utils.timing import timer
+from ase.utils import convert_string_to_fd
+from ase.utils.timing import Timer, timer
 
 from gpaw import extra_parameters
 import gpaw.mpi as mpi
@@ -100,9 +101,13 @@ class KohnShamLinearResponseFunction:
             Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
         """
+        # Output .txt filehandle and timer
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
 
-        self.kspair = KohnShamPair(gs, world=world, nblocks=nblocks,
-                                   txt=txt, timer=timer)
+        # The KohnShamPair class handles data extraction from ground state
+        self.kspair = KohnShamPair(gs, world=world,
+                                   txt=self.fd, timer=self.timer)
         self.calc = self.kspair.calc
 
         self.response = response
@@ -114,13 +119,18 @@ class KohnShamLinearResponseFunction:
         self.nocc1 = self.kspair.nocc1  # number of completely filled bands
         self.nocc2 = self.kspair.nocc2  # number of non-empty bands
 
+        # Communicators for parallelization
+        self.world = world
+        self.blockcomm = None
+        self.kcomm = None
+        self.initialize_communicators(nblocks)
+        self.nblocks = self.blockcomm.size
+        '''
         # Extract communicators, timer and filehandle for output
         self.world = self.kspair.world
         self.blockcomm = self.kspair.blockcomm
         self.kncomm = self.kspair.kncomm
-        self.nblocks = self.blockcomm.size
-        self.timer = self.kspair.timer
-        self.fd = self.kspair.fd
+        '''
 
         self.kpointintegration = kpointintegration
         self.integrator = create_integrator(self)
@@ -129,6 +139,21 @@ class KohnShamLinearResponseFunction:
 
         # Attributes related to the specific response function
         self.pme = None
+
+    def initialize_communicators(self, nblocks):
+        """Set up MPI communicators to avoid each process storing the same
+        arrays."""
+        if nblocks == 1:
+            self.blockcomm = self.world.new_communicator([self.world.rank])
+            self.kcomm = self.world
+        else:
+            assert self.world.size % nblocks == 0, self.world.size
+            rank1 = self.world.rank // nblocks * nblocks
+            rank2 = rank1 + nblocks
+            self.blockcomm = self.world.new_communicator(range(rank1, rank2))
+            ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
+            self.kcomm = self.world.new_communicator(ranks)
+        print('Number of blocks:', nblocks, file=self.fd)
 
     def calculate(self, spinrot=None, A_x=None):
         return self._calculate(spinrot, A_x)
@@ -213,7 +238,7 @@ class KohnShamLinearResponseFunction:
         else:
             world = self.world
         wsize = world.size
-        knsize = self.kncomm.size
+        knsize = self.kcomm.size
         bsize = self.blockcomm.size
 
         spinrot = self.spinrot
@@ -232,7 +257,7 @@ class KohnShamLinearResponseFunction:
         p('')
         p('The response function calculation is performed in parallel with:')
         p('    world.size: %d' % wsize)
-        p('    kncomm.size: %d' % knsize)
+        p('    kcomm.size: %d' % knsize)
         p('    blockcomm.size: %d' % bsize)
         p('')
         p('The sum over band and spin transitions is performed using:')
@@ -632,8 +657,8 @@ class Integrator:
     def distribute_kpoint_domain(self, bzk_kv):
         """Let each process calculate contributions from different k-points."""
         nk = bzk_kv.shape[0]
-        size = self.kslrf.kncomm.size
-        rank = self.kslrf.kncomm.rank
+        size = self.kslrf.kcomm.size
+        rank = self.kslrf.kcomm.rank
 
         mynk = (nk + size - 1) // size
         i1 = rank * mynk
@@ -709,8 +734,8 @@ class PWPointIntegrator(Integrator):
 
         # Sum over processes
         # self.kslrf.blockcomm.sum(tmp_x)  # needed or not? XXX
-        # kncomm is not used at present? XXX
-        self.kslrf.kncomm.sum(tmp_x)
+        # kcomm is not used at present? XXX
+        self.kslrf.kcomm.sum(tmp_x)
 
         out_x += tmp_x
         out_x *= kpointvol

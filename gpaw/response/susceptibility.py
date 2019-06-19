@@ -225,7 +225,7 @@ class FourComponentSusceptibilityTensor:
         if self.chiks.blockcomm.size == 1:
             return chiks_wGG[wa:wb].copy()
 
-        if self.chiks.kncomm.rank == 0:
+        if self.chiks.kcomm.rank == 0:
             bg1 = BlacsGrid(comm, 1, comm.size)
             in_wGG = chiks_wGG.reshape((nw, -1))
         else:
