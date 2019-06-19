@@ -101,12 +101,27 @@ class KohnShamLinearResponseFunction:
             Runs the calculation, returning the response function.
             Returned format can varry depending on response and mode.
         """
-        # Output .txt filehandle and timer
+        # Output .txt filehandle
         self.fd = convert_string_to_fd(txt, world)
+
+        # Communicators for parallelization
+        self.world = world
+        self.interblockcomm = None
+        self.intrablockcomm = None
+        self.initialize_communicators(nblocks)
+        self.nblocks = self.interblockcomm.size
+
+        # Timer
         self.timer = timer or Timer()
 
         # The KohnShamPair class handles data extraction from ground state
         self.kspair = KohnShamPair(gs, world=world,
+                                   # Let each process handle slow steps only
+                                   # for a fraction of all transitions.
+                                   # t-transitions are distributed through
+                                   # interblockcomm, k-points through
+                                   # intrablockcomm.
+                                   transitionblockscomm=self.interblockcomm,
                                    txt=self.fd, timer=self.timer)
         self.calc = self.kspair.calc
 
@@ -118,13 +133,6 @@ class KohnShamLinearResponseFunction:
         assert self.nbands <= self.calc.wfs.bd.nbands
         self.nocc1 = self.kspair.nocc1  # number of completely filled bands
         self.nocc2 = self.kspair.nocc2  # number of non-empty bands
-
-        # Communicators for parallelization
-        self.world = world
-        self.interblockcomm = None
-        self.intrablockcomm = None
-        self.initialize_communicators(nblocks)
-        self.nblocks = self.interblockcomm.size
 
         self.kpointintegration = kpointintegration
         self.integrator = create_integrator(self)
@@ -673,7 +681,8 @@ class Integrator:
         self.timer = self.kslrf.timer
 
     def distribute_kpoint_domain(self, bzk_kv):
-        """Let each process calculate contributions from different k-points."""
+        """Distribute the k-point integration over processes that are
+        allocating memory for the same fraction of large arrays."""
         nk = bzk_kv.shape[0]
         size = self.kslrf.intrablockcomm.size
         rank = self.kslrf.intrablockcomm.rank

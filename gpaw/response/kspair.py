@@ -379,6 +379,8 @@ class PlaneWavePairDensity(PairMatrixElement):
                 n_mytG += np.sum(C1_Gimyt * P2_myti.T[np.newaxis, :, :],
                                  axis=1).T
 
+        # Each process has calculated its own block of transitions.
+        # Now gather them all.
         if mynt == nt or self.transitionblockscomm is None:
             return n_mytG
         else:
