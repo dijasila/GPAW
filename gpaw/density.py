@@ -143,8 +143,8 @@ class Density:
 
     def __str__(self):
         s = 'Densities:\n'
-        s += '  Coarse grid: {0}*{1}*{2} grid\n'.format(*self.gd.N_c)
-        s += '  Fine grid: {0}*{1}*{2} grid\n'.format(*self.finegd.N_c)
+        s += '  Coarse grid: {0}*{1}*{2} points\n'.format(*self.gd.N_c)
+        s += '  Fine grid: {0}*{1}*{2} points\n'.format(*self.finegd.N_c)
         s += '  Total Charge: {0:.6f}'.format(self.charge)
         if self.fixed:
             s += '\n  Fixed'

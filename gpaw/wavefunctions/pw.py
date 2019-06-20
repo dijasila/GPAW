@@ -148,7 +148,7 @@ class PWDescriptor:
         M_ic = (np.indices((3, 3, 3)).reshape((3, -3)).T - 1) * N_c
         B_iv = M_ic.dot(B_cv)
 
-        ecut0 = 0.5 * (B_iv[:13]**2).sum(1).min()
+        ecut0 = 0.125 * (B_iv[:13]**2).sum(1).min()
 
         if ecut is None:
             print(ecut0)
@@ -190,9 +190,8 @@ class PWDescriptor:
         i_Qc.shape = (-1, 3)
         self.G_Qv = np.dot(i_Qc, B_cv)
         for Q, G_v in enumerate(self.G_Qv):
-            if 0:#(G_v**2).sum() > 2 * ecut:
+            if (G_v**2).sum() > 2 * ecut:
                 imin = ((G_v + B_iv)**2).sum(1).argmin()
-                assert imin == 13, (imin, G_v, (2*ecut)**.5, B_iv)
                 self.G_Qv[Q] += B_iv[imin]
 
         self.kd = kd
@@ -1771,6 +1770,14 @@ class ReciprocalSpaceDensity(Density):
         self.nct_q = None
         self.nt_Q = None
         self.rhot_q = None
+
+    def __str__(self):
+        lines = Density.__str__(self).splitlines()
+        e2 = self.pd2.ecut * Ha
+        e3 = self.pd3.ecut * Ha
+        lines[3:3] = ['  Energy cutoffs: {e2:.3f} and {e3:.3f} eV'
+                      .format(e2=e2, e3=e3)]
+        return '\n'.join(lines)
 
     def initialize(self, setups, timer, magmom_av, hund):
         Density.initialize(self, setups, timer, magmom_av, hund)
