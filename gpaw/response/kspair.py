@@ -376,8 +376,9 @@ class PlaneWavePairDensity(PairMatrixElement):
             for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpairs.kpt1.P_amyti,
                                                kskptpairs.kpt2.P_amyti):
                 C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
-                n_mytG += np.sum(C1_Gimyt * P2_myti.T[np.newaxis, :, :],
-                                 axis=1).T
+                n_mytG[:tb - ta] += np.sum(C1_Gimyt
+                                           * P2_myti.T[np.newaxis, :, :],
+                                           axis=1).T
 
         # Each process has calculated its own block of transitions.
         # Now gather them all.
