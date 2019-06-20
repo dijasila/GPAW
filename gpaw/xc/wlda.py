@@ -57,10 +57,10 @@ class WLDA(XCFunctional):
         if gd.comm.rank == 0:
             _, nx, ny, nz = n1_sg.shape
             pre = n1_sg.copy()
-            self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+            self.inputdens_plotter.plot(n1_sg[0, :, :, nz//2])
             self.calc_corrected_density(n1_sg)
             assert not np.allclose(pre, n1_sg)
-            self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+            self.corrdens_plotter.plot(n1_sg[0, :, :, nz//2])
             if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
             
@@ -802,7 +802,7 @@ class WLDA(XCFunctional):
             spos_ac_indices = list(filter(lambda x : x[1] == setup, enumerate(setups)))
             spos_ac_indices = [x[0] for x in spos_ac_indices]
             spos_ac = self.wfs.spos_ac[spos_ac_indices]
-            t = setup.calculate_pseudized_atomic_density(self.rcut, spos_ac)
+            t = setup.calculate_pseudized_atomic_density(spos_ac)
             t.add(dens) # setup.pseudized_atomic_density.add(n_sg[0], 1)
             # n_sg[0] += t
         n_sg[0] = dens
