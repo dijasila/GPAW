@@ -151,6 +151,7 @@ class PWDescriptor:
         ecut0 = 0.5 * (B_iv[:13]**2).sum(1).min()
 
         if ecut is None:
+            print(ecut0)
             ecut = ecut0 * 0.9999
         else:
             assert ecut <= ecut0
@@ -189,8 +190,9 @@ class PWDescriptor:
         i_Qc.shape = (-1, 3)
         self.G_Qv = np.dot(i_Qc, B_cv)
         for Q, G_v in enumerate(self.G_Qv):
-            if (G_v**2).sum() > 2 * ecut:
+            if 0:#(G_v**2).sum() > 2 * ecut:
                 imin = ((G_v + B_iv)**2).sum(1).argmin()
+                assert imin == 13, (imin, G_v, (2*ecut)**.5, B_iv)
                 self.G_Qv[Q] += B_iv[imin]
 
         self.kd = kd
