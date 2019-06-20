@@ -17,5 +17,5 @@ atoms = Atoms('Ge2Si4',
                                 [7 / 12, 1 / 12, 1 / 6]],
               pbc=True)
 sym = atoms2symmetry(atoms)
-nsymremoved = sym.prune_symmetries_grid((20, 20, 40))
-assert nsymremoved > 0
+ok = sym.check_grid((20, 20, 40))
+assert not ok
