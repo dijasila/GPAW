@@ -13,7 +13,7 @@ class WLDA(XCFunctional):
         self.kernel = kernel
         self.stepsize = 0.1
         self.stepfactor = 1.1
-        self.nalpha = 20
+        self.nalpha = 5
         self.alpha_n = None
         self.mode = mode
         self.lmax = 1
@@ -36,8 +36,7 @@ class WLDA(XCFunctional):
 
         print("Using kernel: {}".format(filter_kernel))
 
-
-        self.rcut = 0.0625*5 # In Bohr
+        self.num_nis = 20
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -46,6 +45,9 @@ class WLDA(XCFunctional):
         self.occupations = occupations
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
+        if self.mode.lower() == "parallel":
+            self.parallel_calc_impl(gd, n_sg, v_sg, e_g)
+            return
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -59,7 +61,6 @@ class WLDA(XCFunctional):
             pre = n1_sg.copy()
             self.inputdens_plotter.plot(n1_sg[0, :, :, nz//2])
             self.calc_corrected_density(n1_sg)
-            assert not np.allclose(pre, n1_sg)
             self.corrdens_plotter.plot(n1_sg[0, :, :, nz//2])
             if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
@@ -126,7 +127,7 @@ class WLDA(XCFunctional):
 
     
                     zeta = 0
-                    lda_c(0, e_g, n, v1_sg, zeta)
+                    lda_c(0, e1_g, n, v1_sg, zeta)
 
 
                     # rs = (C0I/n)**(1/3) * (newnorm_s[0] / norm_s[0])**(1/3)
@@ -859,3 +860,182 @@ class WLDA(XCFunctional):
         
         
     
+    def parallel_calc_impl(self, gd, n_sg, v_sg, e_g):
+        assert len(n_sg) == 1
+        import gpaw.mpi as mpi
+        world = mpi.world
+        self.world = world
+        self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)        
+
+        n1_sg = gd.collect(n_sg)
+        self.calc_corrected_density(n1_sg)
+        n1norm_s = gd.integrate(n_sg)
+        
+        my_nis, my_lower, my_upper = self.get_my_nis(n1_sg)
+
+        my_f_sig = self.get_my_weights(n1_sg, my_nis, my_lower, my_upper)
+
+        nustar_sg = self.apply_filter_kernel(n1_sg, my_nis, my_f_sig)
+        nunorm_s = self.gd1.integrate(nustar_sg)
+
+        world.sum(nustar_sg)
+
+        # Calculate LDA evaluated on weighted density
+        from gpaw.xc.lda import lda_x, lda_c
+        v_lda_sg = np.zeros_like(n1_sg)
+        e1_g = np.zeros_like(n1_sg[0])
+        v1_sg = np.zeros_like(n1_sg)
+        self.do_lda(v_lda_sg, v1_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s)
+        
+        # Apply corrections
+        if gd.comm.rank != 0:
+            v1_sg = self.fold_pot_with_weights(v_lda_sg, my_nis, my_f_sig, n1norm_s / nunorm_s)
+        else:
+            v1_sg = self.fold_pot_with_weights(v_lda_sg, my_nis, my_f_sig, n1norm_s / nunorm_s)
+            v1_sg += self.final_pot_correction(v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s)
+            
+        
+        world.sum(v1_sg)
+        gd.distribute(e1_g, e_g)
+        gd.distribute(v1_sg, v_sg)
+
+    def get_my_nis(self, full_density_sg):
+        assert len(full_density_sg) == 1
+
+        size = self.world.size
+        
+        nis = [0] * size
+
+        num_per_bin = self.num_nis // size
+        left_over = self.num_nis % size
+
+        nis = [num_per_bin] * size
+        nis[0] = num_per_bin + left_over
+        assert np.sum(nis) == self.num_nis
+
+        my_number_of_nis = int(nis[self.world.rank])
+
+        my_start_ni_index = np.sum(nis[:self.world.rank])
+        assert np.allclose(my_start_ni_index, int(my_start_ni_index))
+        my_start_ni_index = int(my_start_ni_index)
+
+        total_nis = np.linspace(0, np.max(np.abs(full_density_sg)), self.num_nis, dtype=float)
+        assert (total_nis >= 0).all()
+
+        
+        lower_boundary = total_nis[my_start_ni_index - 1] if my_start_ni_index != 0 else 0
+        upper_boundary = total_nis[my_start_ni_index + my_number_of_nis] if my_start_ni_index + my_number_of_nis != len(total_nis) else total_nis[-1]
+
+        return total_nis[my_start_ni_index:my_start_ni_index + my_number_of_nis], lower_boundary, upper_boundary
+
+    def get_my_weights(self, full_density_sg, my_nis, my_lower, my_upper):
+        assert len(full_density_sg) == 1
+        _, nx, ny, nz = full_density_sg.shape
+        
+        my_num_nis = len(my_nis)
+        my_f_ig = np.zeros((my_num_nis, nx, ny, nz))
+
+        n_xyz = full_density_sg[0]
+
+        for ini, ni in enumerate(my_nis):
+            for ix, n_yz in enumerate(n_xyz):
+                for iy, n_z in enumerate(n_yz):
+                    for iz, n in enumerate(n_z):
+                        if n <= my_lower or n >= my_upper:
+                            weight = 0
+                        else:
+                            nlesser = (my_nis <= n).sum()
+                            ngreater = (my_nis > n).sum()
+                            vallesser = my_nis[nlesser - 1]
+                            valgreater = my_nis[ngreater]
+                            weight = (valgreater - n) / (valgreater - vallesser)
+                        my_f_ig[ini, ix, iy, iz] = weight
+
+        return np.array([my_f_ig])
+
+    def do_lda(self, v_lda_sg, v1_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s):
+        if self.mode.lower() == "renorm" or self.mode.lower() == "parallel":    
+            n = nustar_sg[0]
+            n[n < 1e-20] = 1e-40
+            n = n * n1norm_s[0] / nunorm_s[0]
+            lda_x(0, e1_g, n, v1_sg[0])
+            zeta = 0
+            lda_c(0, e1_g, n, v1_sg, zeta)
+        else:
+            raise NotImplementedError
+
+    def apply_filter_kernel(self, full_density_sg, my_nis, my_f_sig):
+        assert len(full_density_sg) == 1
+        
+        n = full_density_sg[0]
+        n[n <= 1e-20] = 1e-40
+        
+        n_G = np.fft.fftn(n)
+
+        shape = n_G.shape
+
+        nustar_ig = np.zeros((len(my_nis), ) + shape)
+        K_G = self._get_K_G(self.gd1)
+
+        for ini, ni in enumerate(my_nis):
+            k_F = (3*np.pi**2*ni)**(1/3)
+            a = np.fft.ifftn(self.filter_kernel(k_F, K_G, n_G))
+            assert np.allclose(a, a.real)
+            nustar_ig[ini] += a.real
+
+        return np.array([np.einsum("iabc, iabc -> abc", my_f_sig[0], nustar_ig)])
+            
+    def fold_pot_with_weights(self, v_lda_sg, my_nis, my_f_sig, norm_factor):
+        assert len(v_lda_sg) == 1
+        v = v_lda_sg[0]
+        f_ig = my_f_sig[0]
+        K_G = self._get_K_G(self.gd1)
+
+        v_result = np.zeros_like(v)
+        for ini, ni in enumerate(my_nis):
+            integrand_G = np.fft.fftn(v * f_ig[ini])
+            k_F = (3 * np.pi**2 * ni)**(1/3)
+            q = np.fft.ifftn(self.filter_kernel(k_F, K_G, integrand_G))
+            assert np.allclose(q, q.real)
+            v_result += q.real
+
+        v_result *= norm_factor * v_result
+
+        return v_result
+
+    def final_pot_correction(self, v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s):
+        assert len(nustar_sg) == 1
+        
+        prefactor = (1 / nunorm_s[0] - n1norm_s[0] / nunorm_s[0]**2)
+
+        energy_factor = self.gd1.integrate(v_lda_sg[0] * nustar_sg[0] * n1norm_s[0]/nunorm_s[0])
+
+        v_g = np.zeros_like(v_lda_sg[0])
+        
+        K_G = self._get_K_G(self.gd1)
+        for ini, ni in enumerate(my_nis):
+            k_F = (3 * np.pi**2 * ni)**(1/3)
+            f_G = np.fft.fftn(my_f_sig[0, ini])
+            q = np.fft.ifftn(self.filter_kernel(k_F, K_G, f_G))
+            assert np.allclose(q, q.real)
+            v_g += q.real
+        
+        return v_g * prefactor * energy_factor
+
+                    
+
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
