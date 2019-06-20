@@ -59,9 +59,9 @@ class WLDA(XCFunctional):
         if gd.comm.rank == 0:
             _, nx, ny, nz = n1_sg.shape
             pre = n1_sg.copy()
-            self.inputdens_plotter.plot(n1_sg[0, :, :, nz//2])
+            self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
             self.calc_corrected_density(n1_sg)
-            self.corrdens_plotter.plot(n1_sg[0, :, :, nz//2])
+            self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
             if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
             
@@ -867,9 +867,21 @@ class WLDA(XCFunctional):
         self.world = world
         self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)        
 
-        n1_sg = gd.collect(n_sg)
+        n1_sg = gd.collect(n_sg, broadcast=True)
+
+        ##PLOT
+        _, nx, ny, nz = n1_sg.shape
+        if world.rank == 0:
+            self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+        ##ENDPLOT
+        
         self.calc_corrected_density(n1_sg)
         n1norm_s = gd.integrate(n_sg)
+
+        ##PLOT
+        if world.rank == 0:
+            self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+        ##ENDPLOT            
         
         my_nis, my_lower, my_upper = self.get_my_nis(n1_sg)
 
@@ -896,6 +908,11 @@ class WLDA(XCFunctional):
             
         
         world.sum(v1_sg)
+        ##PLOT
+        if world.rank == 0:
+            self.dens_plotter.plot((nustar_sg[0] *n1norm_s[0]/nunorm_s[0])[:, :, nz//2])
+            self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
+        ##ENDPLOT
         gd.distribute(e1_g, e_g)
         gd.distribute(v1_sg, v_sg)
 
@@ -937,6 +954,7 @@ class WLDA(XCFunctional):
 
         n_xyz = full_density_sg[0]
 
+        # TODO: Make this more efficient by using list comp/numpy stuff by flattening and reshaping array
         for ini, ni in enumerate(my_nis):
             for ix, n_yz in enumerate(n_xyz):
                 for iy, n_z in enumerate(n_yz):
@@ -1001,7 +1019,7 @@ class WLDA(XCFunctional):
 
         v_result *= norm_factor * v_result
 
-        return v_result
+        return np.array([v_result])
 
     def final_pot_correction(self, v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s):
         assert len(nustar_sg) == 1
@@ -1020,7 +1038,7 @@ class WLDA(XCFunctional):
             assert np.allclose(q, q.real)
             v_g += q.real
         
-        return v_g * prefactor * energy_factor
+        return np.array([v_g * prefactor * energy_factor])
 
                     
 
