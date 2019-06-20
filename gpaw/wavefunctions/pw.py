@@ -144,16 +144,16 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        B_cv = 2.0 * pi * gd.icell_cv
+        M_ic = (np.indices((3, 3, 3)).reshape((3, -3)).T - 1) * N_c
+        B_iv = M_ic.dot(B_cv)
+
+        ecut0 = 0.5 * (B_iv[:13]**2).sum(1).min()
 
         if ecut is None:
-            ecut = ecutmax * 0.9999
+            ecut = ecut0 * 0.9999
         else:
-            if ecut > ecutmax:
-                raise ValueError(
-                    'You have a weird unit cell!  '
-                    'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.build.niggli_reduce() function.')
+            assert ecut <= ecut0
 
         self.ecut = ecut
 
@@ -186,9 +186,12 @@ class PWDescriptor:
         self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
-        B_cv = 2.0 * pi * gd.icell_cv
         i_Qc.shape = (-1, 3)
         self.G_Qv = np.dot(i_Qc, B_cv)
+        for Q, G_v in enumerate(self.G_Qv):
+            if (G_v**2).sum() > 2 * ecut:
+                imin = ((G_v + B_iv)**2).sum(1).argmin()
+                self.G_Qv[Q] += B_iv[imin]
 
         self.kd = kd
         if kd is None:
