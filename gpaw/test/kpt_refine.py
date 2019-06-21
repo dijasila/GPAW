@@ -1,9 +1,8 @@
-from __future__ import division
 from gpaw import GPAW
 from gpaw import PW
 from gpaw import FermiDirac
+from gpaw.test import equal
 from ase.lattice.hexagonal import Graphene
-from ase.parallel import parprint
 
 system = Graphene(symbol='C',
                   latticeconstant={'a': 2.467710, 'c': 1.0},
@@ -26,7 +25,4 @@ calc = GPAW(mode=PW(ecut=400),
 
 system.set_calculator(calc)
 energy = system.get_potential_energy()
-
-parprint('Energy', energy)
-
-assert abs(energy - -18.27) < 0.02
+equal(energy, -18.29, 0.02)
