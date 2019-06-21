@@ -2,8 +2,6 @@
 # Copyright (C) 2014 R. Warmbier Materials for Energy Research Group,
 # Wits University
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, division
-
 from ase.io import read
 from ase.utils import gcd
 import numpy as np
@@ -211,7 +209,8 @@ class Symmetry:
                     if a_a is not None:
                         ftsymmetries.append((op_cc, ft_c, a_a))
                         for c, d in enumerate(denom_c):
-                            self.gcd_c[c] = gcd(self.gcd_c[c] * d, d)
+                            if self.gcd_c[c] % d != 0:
+                                self.gcd_c[c] *= d
 
         # Add symmetry operations with fractional translations at the end:
         symmetries.extend(ftsymmetries)
