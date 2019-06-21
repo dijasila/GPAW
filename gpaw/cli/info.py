@@ -36,8 +36,10 @@ def info():
         githash = '-{:.10}'.format(module.githash())
     results.append(('_gpaw' + githash,
                     op.normpath(getattr(module, '__file__', 'built-in'))))
-    p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
-    results.append(('parallel', p.communicate()[0].strip().decode() or False))
+    if '_gpaw' in sys.builtin_module_names or not have_mpi:
+        p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
+        results.append(('parallel',
+                        p.communicate()[0].strip().decode() or False))
     results.append(('MPI enabled', have_mpi))
     if have_mpi:
         have_sl = compiled_with_sl()

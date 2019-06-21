@@ -59,6 +59,13 @@ if scalapack:
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 
+# Build MPI-interface into _gpaw.so:
+parallel_python = True
+if not parallel_python:
+    compiler = 'mpicc'
+    define_macros += [('PARALLEL', '1')]
+    mpicompiler = None
+
 # Use Elpa (requires ScaLAPACK and Elpa API 20171201):
 if 0:
     elpa = True
@@ -99,10 +106,3 @@ if 0:
     library_dirs += ['%s/lib' % path]
     include_dirs += ['%s/include' % path]
     libraries += ['vdwxc']
-
-
-# Build MPI-interface into _gpaw.so:
-if 0:
-    compiler = 'mpicc'
-    define_macros += [('PARALLEL', '1')]
-    mpicompiler = None

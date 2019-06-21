@@ -1,7 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
 import sys
 import time
 import traceback
@@ -13,6 +12,7 @@ import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
+from .broadcast_imports import world
 
 import _gpaw
 
@@ -694,18 +694,8 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-libmpi = os.environ.get('GPAW_MPI')
-if libmpi:
-    import ctypes
-    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-    world = _gpaw.Communicator()
-    if world.size == 1:
-        world = serial_comm
-else:
-    try:
-        world = _gpaw.Communicator()
-    except AttributeError:
-        world = serial_comm
+if world is None:
+    world = serial_comm
 
 
 class DryRunCommunicator(SerialCommunicator):
