@@ -7,7 +7,6 @@ master:
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - sed -i "s/scalapack = False/scalapack = True/" customize.py
     - sed -i "s/parallel_python = True/parallel_python = False/" customize.py
-    - export GPAW_MPI=libmpi.so
     - python setup.py install > gpaw-install.output
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'
