@@ -42,7 +42,7 @@ def hook(parser, args):
             py = ''
 
         if py:
-            # Start again using gpaw-python in parallel:
+            # Start again in parallel:
             arguments = ['mpiexec', '-np', str(args.parallel), py]
             if args.command == 'python':
                 arguments += args.arguments
