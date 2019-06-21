@@ -149,6 +149,7 @@ class PWDescriptor:
         B_iv = M_ic.dot(B_cv)
 
         ecut0 = 0.125 * (B_iv[:13]**2).sum(1).min()
+        #ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         if ecut is None:
             print(ecut0)
