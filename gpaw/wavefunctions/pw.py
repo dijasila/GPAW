@@ -134,7 +134,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.MEASURE, gammacentered=False):
+                 fftwflags=fftw.MEASURE, gammacentered=False, debug=0):
 
         assert gd.pbc_c.all()
 
@@ -149,7 +149,7 @@ class PWDescriptor:
         B_iv = M_ic.dot(B_cv)
 
         ecut0 = 0.125 * (B_iv[:13]**2).sum(1).min()
-        #ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        # ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         if ecut is None:
             print(ecut0)
@@ -194,6 +194,9 @@ class PWDescriptor:
             if (G_v**2).sum() > 2 * ecut:
                 imin = ((G_v + B_iv)**2).sum(1).argmin()
                 self.G_Qv[Q] += B_iv[imin]
+                i_Qc[Q] += M_ic[imin]
+            else:
+                assert ((G_v + B_iv)**2).sum(1).argmin() == 13
 
         self.kd = kd
         if kd is None:
@@ -220,6 +223,7 @@ class PWDescriptor:
                 mask_Q &= ((i_Qc[:, 2] > 0) |
                            (i_Qc[:, 1] > 0) |
                            ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
+
             Q_G = Q_Q[mask_Q]
             self.Q_qG.append(Q_G)
             G2_qG.append(G2_Q[Q_G])
@@ -253,6 +257,8 @@ class PWDescriptor:
             self.tmp_G = np.empty(self.maxmyng * S, complex)
         else:
             self.tmp_G = None
+
+        self.i_Qc = i_Qc
 
     def get_reciprocal_vectors(self, q=0, add_q=True):
         """Returns reciprocal lattice vectors plus q, G + q,
@@ -613,19 +619,30 @@ class PWMapping:
         Q1_Gc = np.empty((len(Q1_G), 3), int)
         Q1_Gc[:, 0], r_G = divmod(Q1_G, N_c[1] * N_c[2])
         Q1_Gc.T[1:] = divmod(r_G, N_c[2])
+
         if pd1.dtype == float:
             C = 2
         else:
             C = 3
+            1 / 0
+
         Q1_Gc[:, :C] += N_c[:C] // 2
         Q1_Gc[:, :C] %= N_c[:C]
         Q1_Gc[:, :C] -= N_c[:C] // 2
         Q1_Gc[:, :C] %= N2_c[:C]
+
+        Q1_Gc = pd1.i_Qc[pd1.Q_qG[0]]
+        Q1_Gc[:, :C] %= N2_c[:C]
+
         Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
         G2_Q = np.empty(N2_c, int).ravel()
         G2_Q[:] = -1
         G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
         G2_G1 = G2_Q[Q2_G]
+
+        for G1, G2 in enumerate(G2_G1):
+            assert np.allclose(pd1.G2_qG[0][G1],
+                               pd2.G2_qG[0][G2])
 
         if pd1.gd.comm.size == 1:
             self.G2_G1 = G2_G1
