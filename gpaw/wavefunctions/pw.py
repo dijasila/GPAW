@@ -152,7 +152,6 @@ class PWDescriptor:
         # ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         if ecut is None:
-            print(ecut0)
             ecut = ecut0 * 0.9999
         else:
             assert ecut <= ecut0
