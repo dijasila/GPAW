@@ -639,11 +639,11 @@ class PWMapping:
         G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
         G2_G1 = G2_Q[Q2_G]
 
-        for G1, G2 in enumerate(G2_G1):
-            assert np.allclose(pd1.G2_qG[0][G1],
-                               pd2.G2_qG[0][G2])
-
         if pd1.gd.comm.size == 1:
+            for G1, G2 in enumerate(G2_G1):
+                assert np.allclose(pd1.G2_qG[0][G1],
+                                   pd2.G2_qG[0][G2]), (pd1.G2_qG[0][G1],
+                                                       pd2.G2_qG[0][G2])
             self.G2_G1 = G2_G1
             self.G1 = None
         else:
