@@ -134,7 +134,7 @@ class PWDescriptor:
     ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
-                 fftwflags=fftw.MEASURE, gammacentered=False, debug=0):
+                 fftwflags=fftw.MEASURE, gammacentered=False):
 
         assert gd.pbc_c.all()
 
@@ -149,7 +149,6 @@ class PWDescriptor:
         B_iv = M_ic.dot(B_cv)
 
         ecut0 = 0.125 * (B_iv[:13]**2).sum(1).min()
-        # ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
 
         if ecut is None:
             ecut = ecut0 * 0.9999
@@ -170,13 +169,15 @@ class PWDescriptor:
             Nr_c = N_c.copy()
             Nr_c[2] = N_c[2] // 2 + 1
             i_Qc = np.indices(Nr_c).transpose((1, 2, 3, 0))
-            i_Qc[..., :2] += N_c[:2] // 2
-            i_Qc[..., :2] %= N_c[:2]
-            i_Qc[..., :2] -= N_c[:2] // 2
+            i_Qc.shape = (-1, 3)
+            i_Qc[:, :2] += N_c[:2] // 2
+            i_Qc[:, :2] %= N_c[:2]
+            i_Qc[:, :2] -= N_c[:2] // 2
             self.tmp_Q = fftw.empty(Nr_c, complex)
             self.tmp_R = self.tmp_Q.view(float)[:, :, :N_c[2]]
         else:
             i_Qc = np.indices(N_c).transpose((1, 2, 3, 0))
+            i_Qc.shape = (-1, 3)
             i_Qc += N_c // 2
             i_Qc %= N_c
             i_Qc -= N_c // 2
@@ -187,7 +188,6 @@ class PWDescriptor:
         self.ifftplan = fftw.FFTPlan(self.tmp_Q, self.tmp_R, 1, fftwflags)
 
         # Calculate reciprocal lattice vectors:
-        i_Qc.shape = (-1, 3)
         self.G_Qv = np.dot(i_Qc, B_cv)
         for Q, G_v in enumerate(self.G_Qv):
             if (G_v**2).sum() > 2 * ecut:
@@ -218,10 +218,14 @@ class PWDescriptor:
             else:
                 mask_Q = (G2_Q <= 2 * ecut)
 
+            print(mask_Q.sum(), N_c)
             if self.dtype == float:
-                mask_Q &= ((i_Qc[:, 2] > 0) |
-                           (i_Qc[:, 1] > 0) |
-                           ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0)))
+                mask0_Q = ((i_Qc[:, 2] >= 0) &
+                           ((i_Qc[:, 2] != 0) |
+                            (i_Qc[:, 1] > 0) |
+                            ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0))))
+                mask_Q &= mask0_Q
+                print(mask0_Q.sum(), mask_Q.sum())
 
             Q_G = Q_Q[mask_Q]
             self.Q_qG.append(Q_G)
@@ -612,23 +616,13 @@ class PWDescriptor:
 class PWMapping:
     def __init__(self, pd1, pd2):
         """Mapping from pd1 to pd2."""
-        N_c = np.array(pd1.tmp_Q.shape)
         N2_c = pd2.tmp_Q.shape
-        Q1_G = pd1.Q_qG[0]
-        Q1_Gc = np.empty((len(Q1_G), 3), int)
-        Q1_Gc[:, 0], r_G = divmod(Q1_G, N_c[1] * N_c[2])
-        Q1_Gc.T[1:] = divmod(r_G, N_c[2])
 
         if pd1.dtype == float:
             C = 2
         else:
             C = 3
             1 / 0
-
-        Q1_Gc[:, :C] += N_c[:C] // 2
-        Q1_Gc[:, :C] %= N_c[:C]
-        Q1_Gc[:, :C] -= N_c[:C] // 2
-        Q1_Gc[:, :C] %= N2_c[:C]
 
         Q1_Gc = pd1.i_Qc[pd1.Q_qG[0]]
         Q1_Gc[:, :C] %= N2_c[:C]
@@ -642,8 +636,10 @@ class PWMapping:
         if pd1.gd.comm.size == 1:
             for G1, G2 in enumerate(G2_G1):
                 assert np.allclose(pd1.G2_qG[0][G1],
-                                   pd2.G2_qG[0][G2]), (pd1.G2_qG[0][G1],
-                                                       pd2.G2_qG[0][G2])
+                                   pd2.G2_qG[0][G2])
+                assert np.allclose(pd1.G_Qv[pd1.Q_qG[0][G1]],
+                                   pd2.G_Qv[pd2.Q_qG[0][G2]])
+
             self.G2_G1 = G2_G1
             self.G1 = None
         else:
@@ -1780,7 +1776,9 @@ class ReciprocalSpaceDensity(Density):
                          background_charge=background_charge)
 
         self.pd2 = PWDescriptor(None, gd)
+        assert PWDescriptor(None, gd, dtype=complex).ngmax == 2 * self.pd2.ngmax - 1
         self.pd3 = PWDescriptor(None, finegd)
+        assert PWDescriptor(None, finegd, dtype=complex).ngmax == 2 * self.pd3.ngmax - 1
 
         self.map23 = PWMapping(self.pd2, self.pd3)
 

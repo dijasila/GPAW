@@ -152,7 +152,7 @@ class GridDescriptor(Domain):
 
         # Sanity check for grid spacings:
         h_c = self.get_grid_spacings()
-        if max(h_c) / min(h_c) > 1.6:
+        if max(h_c) / min(h_c) > 1.7:
             raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
 
     def __repr__(self):
