@@ -1,5 +1,4 @@
 from __future__ import print_function
-import numpy as np
 from gpaw.pgs import GPAWULMSymmetryCalculator
 from gpaw.pgs import tools
 import gpaw.mpi
