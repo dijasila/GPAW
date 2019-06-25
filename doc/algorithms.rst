@@ -28,7 +28,7 @@ Quick links to all features:
       - :ref:`BSE <bse theory>`
     * - :ref:`Parallelization <parallel_runs>`
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
-      -
+      - :ref:`Point Group Symmetry Analysis <pgs>`
 
 This Page gives a quick overview of the algorithms used.  We have
 written some :ref:`papers <gpaw_publications>` about the implementation,
