@@ -220,10 +220,11 @@ class PWDescriptor:
 
             print(mask_Q.sum(), N_c)
             if self.dtype == float:
-                mask0_Q = ((i_Qc[:, 2] >= 0) &
-                           ((i_Qc[:, 2] != 0) |
-                            (i_Qc[:, 1] > 0) |
-                            ((i_Qc[:, 0] >= 0) & (i_Qc[:, 1] == 0))))
+                i0_Q, i1_Q, i2_Q = i_Qc.T
+                mask0_Q = (
+                    ((i2_Q > 0) | (i2_Q <= -(N_c[2] // 2 + 1))) |
+                    (i2_Q == 0) & ((i1_Q > 0) |
+                                   ((i0_Q >= 0) & (i1_Q == 0))))
                 mask_Q &= mask0_Q
                 print(mask0_Q.sum(), mask_Q.sum())
 
@@ -616,6 +617,7 @@ class PWDescriptor:
 class PWMapping:
     def __init__(self, pd1, pd2):
         """Mapping from pd1 to pd2."""
+        N_c = pd1.gd.N_c
         N2_c = pd2.tmp_Q.shape
 
         if pd1.dtype == float:
@@ -625,6 +627,7 @@ class PWMapping:
             1 / 0
 
         Q1_Gc = pd1.i_Qc[pd1.Q_qG[0]]
+        Q1_Gc[:, 2] %= N_c[2]
         Q1_Gc[:, :C] %= N2_c[:C]
 
         Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
