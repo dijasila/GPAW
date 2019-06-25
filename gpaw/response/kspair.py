@@ -276,7 +276,7 @@ class KohnShamPair:
             thisspin_t = s_t == s
             kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
-            with self.timer('load wfs'):
+            with self.timer('Load wave functions'):
                 '''
                 # Extracting psit_tG is slow, so extract after n and sort back
                 t_thist, n_thist = t_t[thisspin_t], n_t[thisspin_t]

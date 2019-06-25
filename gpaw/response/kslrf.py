@@ -182,7 +182,12 @@ class KohnShamLinearResponseFunction:
         print('Number of blocks:', nblocks, file=self.fd)
 
     def calculate(self, spinrot=None, A_x=None):
-        return self._calculate(spinrot, A_x)
+        out = self._calculate(spinrot, A_x)
+
+        # Write calculation timer
+        self.timer.write(self.fd)
+
+        return out
 
     @timer('Calculate Kohn-Sham linear response function')
     def _calculate(self, spinrot, A_x):
@@ -215,9 +220,6 @@ class KohnShamLinearResponseFunction:
         # Different calculation modes might want the response function output
         # in different formats
         out = self.post_process(A_x)
-
-        # Write calculation time
-        self.timer.write(self.fd)
 
         return out
 
@@ -526,7 +528,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # In-place calculation
-        return self._calculate(spinrot, A_x)
+        out = self._calculate(spinrot, A_x)
+
+        # Write calculation timer
+        self.timer.write(self.fd)
+
+        return out
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
@@ -597,10 +604,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
         raise NotImplementedError('Integrand depends on response')
-    
+
+    @timer('Post processing')
     def post_process(self, A_wGG):
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
-        self.pwsa.symmetrize_wGG(tmpA_wGG)
+        with self.timer('Symmetrizing Kohn-Sham linear response function'):
+            self.pwsa.symmetrize_wGG(tmpA_wGG)
         self.redistribute(tmpA_wGG, A_wGG)
 
         return self.pd, A_wGG
@@ -692,6 +701,7 @@ class Integrator:
         i2 = min(i1 + mynk, nk)
         return bzk_kv[i1:i2]
 
+    @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t,
                   out_x=None, **kwargs):
         if out_x is None:
@@ -759,10 +769,9 @@ class PWPointIntegrator(Integrator):
             self.kslrf.add_integrand(k_v, n1_t, n2_t, s1_t, s2_t,
                                      tmp_x, **kwargs)
 
-        # Sum over processes
-        # self.kslrf.interblockcomm.sum(tmp_x)  # needed or not? XXX
-        # intrablockcomm is not used at present? XXX
-        self.kslrf.intrablockcomm.sum(tmp_x)
+        # Sum over the k-points that have been distributed between processes
+        with self.timer('Sum over distributed k-points'):
+            self.kslrf.intrablockcomm.sum(tmp_x)
 
         out_x += tmp_x
         out_x *= kpointvol

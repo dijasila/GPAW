@@ -137,13 +137,13 @@ class ChiKS(PlaneWaveKSLRF):
         # gemm part: [61, 52, 62, 53, 55, 59, 63, 57, 60]    avg: 58
         # setup nx and ncc: [6, 7, 6, 6, 6, 7, 6, 7, 6]      avg: 6.3
         # total: [67, 59, 68, 59, 61, 66, 69, 64, 66]        avg: 64.3
-        with self.timer('set up nx and ncc'):
+        with self.timer('Set up ncc and nx'):
             ncc_tG = n_tG.conj()
             nx_wGt = x_wt[:, np.newaxis, :]\
                 * np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)[np.newaxis,
                                                                    :, :]
-        with self.timer('gemm part'):
-            for x_t, nx_Gt, A_GG in zip(x_wt, nx_wGt, A_wGG):
+        with self.timer('Perform sum over t-transitions of ncc * nx'):
+            for nx_Gt, A_GG in zip(nx_wGt, A_wGG):
                 gemm(1.0, ncc_tG, nx_Gt, 1.0, A_GG)
         '''
         # Vectorized numpy version (about a factor 1.4 slower)
