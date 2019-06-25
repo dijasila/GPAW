@@ -458,7 +458,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def __init__(self, *args, frequencies=None, eta=0.2,
                  ecut=50, gammacentered=False, disable_point_group=True,
                  disable_time_reversal=True, disable_non_symmorphic=True,
-                 kpointintegration='point integration',
+                 kpointintegration='point integration', memory_safe=False,
                  **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a
@@ -481,6 +481,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             Do not use time reversal symmetry.
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
+        memory_safe : bool
+            Run in memory safe mode to split large matrix multiplications into
+            one step for each frequency
         """
         # Avoid any mode ambiguity
         if 'mode' in kwargs.keys():
@@ -501,6 +504,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.disable_point_group = disable_point_group
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
+
+        self.memory_safe = memory_safe
 
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
@@ -593,20 +598,37 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # if self.interblockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.interblockcomm.size - 1) < nG
-        if A_x is not None:
-            nx = nw * (self.Gb - self.Ga) * nG
-            A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
-            A_wGG[:] = 0.0
-        else:
-            A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+        if self.memory_safe:
+            # Setup A_wGG
+            if A_x is not None:
+                nx = nw * (self.Gb - self.Ga) * nG
+                A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+                A_wGG[:] = 0.0
+            else:
+                A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
 
-        return A_wGG
+            return A_wGG
+        else:
+            # Setup A_GwG
+            if A_x is not None:
+                nx = nw * (self.Gb - self.Ga) * nG
+                A_GwG = A_x[:nx].reshape((nG, nw, self.Gb - self.Ga))
+                A_GwG[:] = 0.0
+            else:
+                A_GwG = np.zeros((nG, nw, self.Gb - self.Ga), complex)
+
+            return A_GwG
 
     def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
         raise NotImplementedError('Integrand depends on response')
 
     @timer('Post processing')
-    def post_process(self, A_wGG):
+    def post_process(self, A_x):
+        if self.memory_safe:
+            A_wGG = A_x
+        else:  # A_x = A_GwG
+            A_wGG = A_x.transpose((1, 2, 0))
+
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
         with self.timer('Symmetrizing Kohn-Sham linear response function'):
             self.pwsa.symmetrize_wGG(tmpA_wGG)

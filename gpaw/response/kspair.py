@@ -350,27 +350,12 @@ class PlaneWavePairDensity(PairMatrixElement):
         n_mytG = pd.empty(mynt)
 
         # Calculate smooth part of the pair densities:
-        # Note: maybe code is slower or just not ready for numpy vectorization
-        # Check speed with old and new stuff
         with self.timer('Calculate smooth part'):
             ut1cc_mytR = kskptpairs.kpt1.ut_mytR.conj()
             n_mytR = ut1cc_mytR * kskptpairs.kpt2.ut_mytR
-            for myt in range(tb - ta):
-                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv  # Vectorized? XXX
-        '''
-        # Unvectorized, but using gemm
-        for t in range(ta, tb):  # Could be vectorized? XXX
-            # Multiply periodic parts of Kohn-Sham orbitals in transition
-            ut1cc_R = kskptpairs.kpt1.ut_tR[t - ta].conj()
-            n_R = ut1cc_R * kskptpairs.kpt2.ut_tR[t - ta]
-            n_mytG[t, :] += pd.fft(n_R, 0, Q_G) * pd.gd.dv
+            for myt in range(tb - ta):  # Vectorize? XXX
+                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
 
-            # Calculate PAW corrections
-            C1_aGi = [np.dot(Q_Gii, P1_ti[t - ta].conj())
-                      for Q_Gii, P1_ti in zip(Q_aGii, kskptpairs.kpt1.P_ati)]
-            for C1_Gi, P2_ti in zip(C1_aGi, kskptpairs.kpt2.P_ati):
-                gemm(1.0, C1_Gi, P2_ti[t - ta], 1.0, n_mytG[t], 't')
-        '''
         # Calculate PAW corrections with numpy
         with self.timer('PAW corrections'):
             for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpairs.kpt1.P_amyti,

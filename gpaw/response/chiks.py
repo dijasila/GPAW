@@ -43,7 +43,7 @@ class ChiKS(PlaneWaveKSLRF):
 
         return PlaneWaveKSLRF.calculate(self, q_c, spinrot=spinrot, A_x=A_x)
 
-    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_wGG):
+    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_x):
         """Use PairDensity object to calculate the integrand for all relevant
         transitions of the given k-point.
 
@@ -88,11 +88,11 @@ class ChiKS(PlaneWaveKSLRF):
         n_tG = self.pme(kskptpairs, self.pd)  # Should this include some extrapolate_q? XXX
 
         self._add_integrand(n1_t, n2_t, s1_t, s2_t,
-                            df_t, deps_t, n_tG, A_wGG)
+                            df_t, deps_t, n_tG, A_x)
 
     @timer('Add integrand to chiks_wGG')
     def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,
-                       df_t, deps_t, n_tG, A_wGG):
+                       df_t, deps_t, n_tG, A_x):
         """In-place calculation of the integrand (depends on bandsummation)"""
         x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
@@ -137,42 +137,45 @@ class ChiKS(PlaneWaveKSLRF):
         # gemm part: [61, 52, 62, 53, 55, 59, 63, 57, 60]    avg: 58
         # setup nx and ncc: [6, 7, 6, 6, 6, 7, 6, 7, 6]      avg: 6.3
         # total: [67, 59, 68, 59, 61, 66, 69, 64, 66]        avg: 64.3
-        with self.timer('Set up ncc and nx'):
-            ncc_tG = n_tG.conj()
-            nx_wGt = x_wt[:, np.newaxis, :]\
-                * np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)[np.newaxis,
-                                                                   :, :]
-        with self.timer('Perform sum over t-transitions of ncc * nx'):
-            for nx_Gt, A_GG in zip(nx_wGt, A_wGG):
-                gemm(1.0, ncc_tG, nx_Gt, 1.0, A_GG)
-        '''
-        # Vectorized numpy version (about a factor 1.4 slower)
-        nx_wGt = x_wt[:, np.newaxis, :]\
-            * n_tG[:, self.Ga:self.Gb].T[np.newaxis, :, :]
-        A_wGG += np.matmul(nx_wGt, n_tG.conj())
-        '''
-        '''
+        if self.memory_safe:
+            # Specify notation
+            A_wmyGG = A_x
+
+            with self.timer('Set up ncc and nx'):
+                ncc_tG = n_tG.conj()
+                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
+                nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
+
+            with self.timer('Perform sum over t-transitions of ncc * nx'):
+                for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
+                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)
         # THIS VERSION SHOULD BE IMPLEMENTED AS DEFAULT OPTION XXX
         # Vectorized gemm version without contiguous on large arrays
         # Calc times (a factor 0.79 improvement):
         # gemm part: [50, 50, 54, 51, 49, 48, 53, 50, 49]    avg: 50.4
         # setup nx and ncc: [7, 12, 12, 11, 10, 8, 9, 11, 9] avg: 9.9
         # total: [57, 62, 66, 62, 59, 56, 62, 61, 58]        avg: 60.3
-        with self.timer('array transpose'):
-            # Fake a different array structure
-            nw, nG1, nG2 = A_wGG.shape
-            tmp_GwG = np.zeros((nG2, nw, nG1), dtype=complex)
-            # Fake different input structure
+        else:
+            # Specify notation
+            A_GwmyG = A_x
+
             x_tw = np.ascontiguousarray(x_wt.T)
-            n_Gt = np.ascontiguousarray(n_tG.T)
-        with self.timer('set up nx and ncc'):
-            nx_twG = x_tw[:, :, np.newaxis] * \
-                np.ascontiguousarray(n_Gt[self.Ga:self.Gb, :].T)[:, np.newaxis, :]
-            ncc_Gt = n_Gt.conj()
-        with self.timer('gemm part'):
-            gemm(1.0, nx_twG, ncc_Gt, 1.0, tmp_GwG)
-        with self.timer('array transpose'):
-            A_wGG += tmp_GwG.transpose((1, 2, 0))
+            n_Gt = np.ascontiguousarray(n_tG.T)  # remove one contiguousarray XXX
+
+            with self.timer('Set up ncc and nx'):
+                ncc_Gt = n_Gt.conj()
+                n_tmyG = np.ascontiguousarray(n_Gt[self.Ga:self.Gb, :].T)
+                nx_twmyG = x_tw[:, :, np.newaxis] * n_tmyG[:, np.newaxis, :]
+                    
+            with self.timer('Perform sum over t-transitions of ncc * nx'):
+                # gemm(1.0, nx_twmyG, ncc_Gt, 1.0, tmp_GwG)
+                gemm(1.0, nx_twmyG, ncc_Gt, 1.0, A_GwmyG)
+
+        '''
+        # Vectorized numpy version (about a factor 1.4 slower)
+        nx_wGt = x_wt[:, np.newaxis, :]\
+            * n_tG[:, self.Ga:self.Gb].T[np.newaxis, :, :]
+        A_wGG += np.matmul(nx_wGt, n_tG.conj())
         '''
         '''
         # Vectorized gemm version (about a factor 1.08 slower)
