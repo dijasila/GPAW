@@ -1592,11 +1592,7 @@ class Oh(Pointgroup):
 # Create the dictionary of point groups:
 list_of_pointgroups = {}
 g = globals().copy()
-<<<<<<< HEAD
 for name, obj in g.items():
-=======
-for name, obj in g.iteritems():
->>>>>>> 93e31804fac404f73c30a402f152f9c4405b0ab8
     if inspect.isclass(obj):
         list_of_pointgroups.update({name: obj})
 
