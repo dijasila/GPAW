@@ -662,7 +662,7 @@ class Ih(Pointgroup):
             return do_it
         return do_it(data)
 
-class I(Pointgroup):
+class Ico(Pointgroup):
     #main axis should be the z-axis!
     def __init__(self):
         #some geometric math:
@@ -782,7 +782,7 @@ class I(Pointgroup):
         self.Tz_i = 1
 
     def __str__(self):
-        return 'I'
+        return 'Ico'
 
     def rotate_othermainaxis(self, numberofcap, angle, data = None):
         angle = angle
