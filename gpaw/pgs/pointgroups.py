@@ -866,7 +866,7 @@ class Td(Pointgroup):
     #main axis should be the z-axis!
     def __init__(self):
         #some geometric math:
-        a = 1.
+        #a = 1.
         #r_cap = np.sqrt(3/8.) * a
         #r_face = r_cap/3.
         #r_edge = np.sqrt(r_cap * r_face)
@@ -1019,7 +1019,7 @@ class Th(Pointgroup):
     #main axis should be the z-axis!
     def __init__(self):
         #some geometric math:
-        a = 1.
+        #a = 1.
         #r_cap = np.sqrt(3/8.) * a
         #r_face = r_cap/3.
         #r_edge = np.sqrt(r_cap * r_face)
