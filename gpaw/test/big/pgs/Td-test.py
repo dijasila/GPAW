@@ -3,7 +3,6 @@ from gpaw.pgs import tools
 
 import gpaw.mpi
 from gpaw import GPAW
-from ase.build import molecule
 
 from gpaw.test import equal
 from ase import Atom, Atoms
