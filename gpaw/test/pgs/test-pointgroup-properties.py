@@ -166,14 +166,14 @@ for pgname in pglib:
                                      [0], 
                                      str(pg), 
                                      mpi=gpaw.mpi, 
-                                     symmetryfile='sym-%s-x.txt'%str(pg))
+                                     symmetryfile='sym-%s-x.txt' % str(pg))
     symcalc.initialize(px)
     symcalc.calculate()
     symcalc = TestSymmetryCalculator('none',
                                      [0], 
                                      str(pg), 
                                      mpi=gpaw.mpi, 
-                                     symmetryfile='sym-%s-y.txt'%str(pg))
+                                     symmetryfile='sym-%s-y.txt' % str(pg))
     symcalc.initialize(py)
     symcalc.calculate()
 
@@ -181,7 +181,7 @@ for pgname in pglib:
                                      [0], 
                                      str(pg), 
                                      mpi=gpaw.mpi, 
-                                     symmetryfile='sym-%s-z.txt'%str(pg))
+                                     symmetryfile='sym-%s-z.txt' % str(pg))
     symcalc.initialize(pz)
     symcalc.calculate()
 

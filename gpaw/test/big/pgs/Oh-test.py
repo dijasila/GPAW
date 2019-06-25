@@ -41,12 +41,13 @@ calc.write('%s.gpw' % name, mode='all')
 
 # Symmetry analysis:
 
-symcalc = GPAWULMSymmetryCalculator(filename='%s.gpw'%name,
+symcalc = GPAWULMSymmetryCalculator(filename='%s.gpw' % name,
                                     statelist=range(24),
                                     pointgroup='Oh',
                                     mpi=gpaw.mpi,
-                                    overlapfile='overlaps_%s.txt'%name,
-                                    symmetryfile='symmetries_%s.txt'%name)
+                                    overlapfile='overlaps_%s.txt' % name,
+                                    symmetryfile='symmetries_%s.txt' % 
+name)
 
 symcalc.initialize()
 

@@ -54,12 +54,12 @@ calc.write('%s.gpw' % name, mode='all')
 # Symmetry analysis:
 
 # Test also single processor option: mpi=None
-symcalc = GPAWULMSymmetryCalculator(filename='%s.gpw'%name,
+symcalc = GPAWULMSymmetryCalculator(filename='%s.gpw' % name,
                                     statelist=range(4),
                                     pointgroup='C3v',
                                     mpi=None,
-                                    overlapfile='overlaps_%s.txt'%name,
-                                    symmetryfile='symmetries_%s.txt'%name)
+                                    overlapfile='overlaps_%s.txt' % name,
+                                    symmetryfile='symmetries_%s.txt' % name)
 
 symcalc.initialize()
 
