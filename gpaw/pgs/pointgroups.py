@@ -55,9 +55,11 @@ class Pointgroup():
 
     def rotate_mainaxis(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             return self.rotate(angle=angle,data=data,axis='z')
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def rotate(self, angle, data=None, axis='z'):
@@ -73,6 +75,7 @@ class Pointgroup():
         """
         axes = {'x': (1, 2), 'y': (0, 2), 'z':(0, 1) }[axis]
         angle = angle
+
         def do_it(data):
             return rotate_array(input=data,
                                 angle=angle,
@@ -161,9 +164,11 @@ class D5(Pointgroup):
 
     def C2(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             return self.C2prime(data, angle)
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 
@@ -215,6 +220,7 @@ class D5h(Pointgroup):
 
     def C2(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             return self.C2prime(data, angle)
         if data is None:    
@@ -226,6 +232,7 @@ class D5h(Pointgroup):
 
     def S5(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             return self.S(angle=angle, data=data)
         if data is None:    
@@ -234,6 +241,7 @@ class D5h(Pointgroup):
 
     def S53(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             data = self.S(angle=angle, data=data)
             data = self.S(angle=angle, data=data)
@@ -246,12 +254,14 @@ class D5h(Pointgroup):
     def sigma_v(self, angle, data=None):
         #first rotate so that the plane is xz plane, flip, and rotate back
         angle = angle
+
         def do_it(data):
             first = self.rotate(data=data, angle=angle)
             second = self.mirror_xz(first)
             third = self.rotate(data=second, angle=-angle)
             return third
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 class Ih(Pointgroup):
@@ -451,6 +461,7 @@ class Ih(Pointgroup):
     def rotate_othermainaxis(self, numberofcap, angle, data=None):
         angle = angle
         numberofcap = numberofcap
+
         def do_it(data):
             # first, bring another cap to z-axis:
             data = self.rotate(angle=numberofcap*72., data=data, axis='z')
@@ -473,8 +484,11 @@ class Ih(Pointgroup):
         n_is_even = (numberofside % 2 == 0)
         # first, bring a face center to z-axis:
         angle1 = int((numberofside + 1e-4) / 2.) * 72.
-        if n_is_even:    angle2 = -(self.angle_captoside + self.angle_sidetoside)
-        else:         angle2 = -self.angle_captoside
+        if n_is_even:
+            angle2 = -(self.angle_captoside + self.angle_sidetoside)
+        else:
+            angle2 = -self.angle_captoside
+
         def do_it(data):
             data = self.rotate(angle=angle1, data=data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -506,6 +520,7 @@ class Ih(Pointgroup):
         else:
             angle2 = 18.
             angle3 = -90.
+
         def do_it(data):
             data = self.rotate(angle=angle1+angle2, data=data, axis='z')
             data = self.rotate(angle=angle3, data=data, axis='y')
@@ -526,6 +541,7 @@ class Ih(Pointgroup):
 
     def S10(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             return self.S(data=data, angle=angle)
         if data is None:
@@ -535,6 +551,7 @@ class Ih(Pointgroup):
     def S10_othercap(self, numberofcap, angle, data=None):
         angle = angle
         numberofcap = numberofcap
+
         def do_it(data):
             #first, bring another cap to z-axis:
             data = self.rotate(angle=numberofcap*72., data=data, axis='z')
@@ -553,6 +570,7 @@ class Ih(Pointgroup):
 
     def S10_3(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             first = self.S(data=data, angle=angle)
             second = self.S(data=first, angle=angle)
@@ -565,6 +583,7 @@ class Ih(Pointgroup):
     def S10_3_othercap(self, numberofcap, angle, data=None):
         angle = angle
         numberofcap = numberofcap
+
         def do_it(data):
             #first, bring another cap to z-axis:
             data = self.rotate(angle=numberofcap*72., data=data, axis='z')
@@ -591,6 +610,7 @@ class Ih(Pointgroup):
         angle1 = int((numberofside + 1e-4) / 2.) * 72.
         if n_is_even:    angle2 = (self.angle_captoside+self.angle_sidetoside)
         else:         angle2 = self.angle_captoside
+
         def do_it(data):
             data = self.rotate(angle=angle1, data=data, axis='z')
             data = self.rotate(angle=-angle2, data=data, axis='y')
@@ -624,6 +644,7 @@ class Ih(Pointgroup):
             angle2 = 18.
             angle3 = 90.
             angle4 = self.angle_captoedge
+
         def do_it(data):
             data = self.rotate(angle=angle1+angle2, data=data, axis='z')
             data = self.rotate(angle=-angle3, data=data, axis='y')
@@ -766,6 +787,7 @@ class I(Pointgroup):
     def rotate_othermainaxis(self, numberofcap, angle, data = None):
         angle = angle
         numberofcap = numberofcap
+
         def do_it(data):
             #first, bring another cap to z-axis:
             data = self.rotate(angle=numberofcap*72., data = data, axis='z')
@@ -778,17 +800,21 @@ class I(Pointgroup):
             data = self.rotate(angle=-self.angle_captocap, data=data, axis='y')
             data = self.rotate(angle=-numberofcap*72., data = data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def rotate_C3(self, numberofside, angle, data = None):
         angle = angle
         numberofside = numberofside
-        n_is_even = (numberofside%2 == 0)
+        n_is_even = (numberofside % 2 == 0)
         #first, bring a face center to z-axis:
         angle1 = int((numberofside+1e-4)/2.)*72.
-        if n_is_even:    angle2 = -(self.angle_captoside+self.angle_sidetoside)
-        else:   angle2 = -self.angle_captoside
+        if n_is_even:
+            angle2 = -(self.angle_captoside+self.angle_sidetoside)
+        else:
+            angle2 = -self.angle_captoside
+
         def do_it(data):
             data = self.rotate(angle=angle1, data = data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -800,14 +826,15 @@ class I(Pointgroup):
             data = self.rotate(angle=-angle2, data=data, axis='y')
             data = self.rotate(angle=-angle1, data = data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C2(self, numberofedge, angle=180., data = None):
         angle = angle
         numberofedge = numberofedge
-        n_is_g1 = (numberofedge%3 == 0)
-        n_is_g2 = (numberofedge%3 == 1)
+        n_is_g1 = (numberofedge % 3 == 0)
+        n_is_g2 = (numberofedge % 3 == 1)
         #first, bring an edge center to z-axis:
         angle1 = int((numberofedge+1e-4)/3.)*72.+36.
         if n_is_g1:    
@@ -819,6 +846,7 @@ class I(Pointgroup):
         else:
             angle2 = 18.
             angle3 = -90.
+
         def do_it(data):
             data = self.rotate(angle=angle1+angle2, data = data, axis='z')
             data = self.rotate(angle=angle3, data=data, axis='y')
@@ -830,7 +858,8 @@ class I(Pointgroup):
             data = self.rotate(angle=-angle3, data=data, axis='y')
             data = self.rotate(angle=-(angle1+angle2), data = data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 class Td(Pointgroup):
@@ -838,12 +867,12 @@ class Td(Pointgroup):
     def __init__(self):
         #some geometric math:
         a = 1.
-        r_cap = np.sqrt(3/8.) * a
-        r_face = r_cap/3.
-        r_edge = np.sqrt(r_cap * r_face)
-        r_captoside = 1/np.sqrt(3) * a
-        r_captoedge = 0.5*a
-        r_height = np.sqrt(3)/2. * a
+        #r_cap = np.sqrt(3/8.) * a
+        #r_face = r_cap/3.
+        #r_edge = np.sqrt(r_cap * r_face)
+        #r_captoside = 1/np.sqrt(3) * a
+        #r_captoedge = 0.5*a
+        #r_height = np.sqrt(3)/2. * a
         self.angle_captoedge = np.arctan(np.sqrt(2)) *180./np.pi
         self.angle_captocap  = 2*self.angle_captoedge
         self.angle_captoface = np.arctan(2.*np.sqrt(2)) *180./np.pi
@@ -900,6 +929,7 @@ class Td(Pointgroup):
     def rotate_othermainaxis(self, numberofcap, angle, data = None):
         angle = angle
         numberofcap = numberofcap
+
         def do_it(data):
             #first, bring another cap to z-axis:
             data = self.rotate(angle=numberofcap*120., data = data, axis='z')
@@ -912,7 +942,8 @@ class Td(Pointgroup):
             data = self.rotate(angle=-self.angle_captocap, data=data, axis='y')
             data = self.rotate(angle=-numberofcap*120., data = data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C2(self, numberofedge, angle=180., data = None):
@@ -921,6 +952,7 @@ class Td(Pointgroup):
         #first, bring an edge center to z-axis:
         angle1 = numberofedge*120.
         angle2 = self.angle_captoedge
+
         def do_it(data):
             data = self.rotate(angle=angle1, data = data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -932,7 +964,8 @@ class Td(Pointgroup):
             data = self.rotate(angle=-angle2, data = data, axis='y')
             data = self.rotate(angle=-angle1, data=data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def S4(self, numberofside, angle, data = None):
@@ -941,6 +974,7 @@ class Td(Pointgroup):
         #first, bring an edge center to z-axis:
         angle1 = numberofside*120.
         angle2 = self.angle_captoedge
+
         def do_it(data):
             data = self.rotate(angle=angle1, data = data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -952,15 +986,17 @@ class Td(Pointgroup):
             data = self.rotate(angle=-angle2, data=data, axis='y')
             data = self.rotate(angle=-angle1, data = data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma(self, numberofedge, data = None):
         numberofedge = numberofedge
         #first, bring an edge center to z-axis:
-        angle1 = (numberofedge%3)*120.
+        angle1 = (numberofedge % 3)*120.
         angle2 = self.angle_captoedge
-        angle3 = (numberofedge%2)*90.
+        angle3 = (numberofedge % 2)*90.
+
         def do_it(data):
             data = self.rotate(angle=angle1, data = data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -974,7 +1010,8 @@ class Td(Pointgroup):
             data = self.rotate(angle=-angle2, data=data, axis='y')
             data = self.rotate(angle=-angle1, data=data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 
@@ -983,12 +1020,12 @@ class Th(Pointgroup):
     def __init__(self):
         #some geometric math:
         a = 1.
-        r_cap = np.sqrt(3/8.) * a
-        r_face = r_cap/3.
-        r_edge = np.sqrt(r_cap * r_face)
-        r_captoside = 1/np.sqrt(3) * a
-        r_captoedge = 0.5*a
-        r_height = np.sqrt(3)/2. * a
+        #r_cap = np.sqrt(3/8.) * a
+        #r_face = r_cap/3.
+        #r_edge = np.sqrt(r_cap * r_face)
+        #r_captoside = 1/np.sqrt(3) * a
+        #r_captoedge = 0.5*a
+        #r_height = np.sqrt(3)/2. * a
         self.angle_captoedge = np.arctan(np.sqrt(2)) *180./np.pi
         self.angle_captocap  = 2*self.angle_captoedge
         self.angle_captoface = np.arctan(2.*np.sqrt(2)) *180./np.pi
@@ -1052,6 +1089,7 @@ class Th(Pointgroup):
     def rotate_othermainaxis(self, numberofcap, angle, data = None):
         angle = angle
         numberofcap = numberofcap
+
         def do_it(data):
             #first, bring another cap to z-axis:
             data = self.rotate(angle=numberofcap*120., data = data, axis='z')
@@ -1064,7 +1102,8 @@ class Th(Pointgroup):
             data = self.rotate(angle=-self.angle_captocap, data=data, axis='y')
             data = self.rotate(angle=-numberofcap*120., data = data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C2(self, numberofedge, angle=180., data = None):
@@ -1073,6 +1112,7 @@ class Th(Pointgroup):
         #first, bring an edge center to z-axis:
         angle1 = numberofedge*120.
         angle2 = self.angle_captoedge
+
         def do_it(data):
             data = self.rotate(angle=angle1, data = data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -1084,7 +1124,8 @@ class Th(Pointgroup):
             data = self.rotate(angle=-angle2, data = data, axis='y')
             data = self.rotate(angle=-angle1, data=data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def inversion(self,data=None):
@@ -1092,10 +1133,12 @@ class Th(Pointgroup):
 
     def S6(self, angle, data=None):
         angle = angle
+
         def do_it(data):
             data = self.S(angle=angle,data=data)
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def S6_othercap(self, numberofcap, angle, data=None):
@@ -1113,15 +1156,17 @@ class Th(Pointgroup):
             data = self.rotate(angle=-self.angle_captocap, data=data, axis='y')
             data = self.rotate(angle=-numberofcap*120, data=data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma(self, numberofedge, data = None):
         numberofedge = numberofedge
         #first, bring an edge center to z-axis:
-        angle1 = (numberofedge%3)*120.
+        angle1 = (numberofedge % 3)*120.
         angle2 = self.angle_captoedge
         angle3 = 45.
+
         def do_it(data):
             data = self.rotate(angle=angle1, data=data, axis='z')
             data = self.rotate(angle=angle2, data=data, axis='y')
@@ -1135,7 +1180,8 @@ class Th(Pointgroup):
             data = self.rotate(angle=-angle2, data=data, axis='y')
             data = self.rotate(angle=-angle1, data=data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 
@@ -1162,20 +1208,24 @@ class C2v(Pointgroup):
 
     def C2(self,angle, data = None):
         angle = angle
+
         def do_it(data):
             return self.C2prime(data, angle)
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma_v(self,angle, data = None):
         #first rotate so that the plane is xz plane, flip, and rotate back
         angle = angle
+
         def do_it(data):
             first = self.rotate(data=data,angle=angle)
             second = self.mirror_xz(first)
             third = self.rotate(data=second,angle=-angle)
             return third
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 class C3v(Pointgroup):
@@ -1203,12 +1253,14 @@ class C3v(Pointgroup):
     def sigma_v(self,angle, data = None):
         #first rotate so that the plane is xz plane, flip, and rotate back
         angle = angle
+
         def do_it(data):
             first = self.rotate(data=data,angle=angle)
             second = self.mirror_xz(first)
             third = self.rotate(data=second,angle=-angle)
             return third
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 class D3h(Pointgroup):
@@ -1244,9 +1296,11 @@ class D3h(Pointgroup):
 
     def C2(self,angle, data = None):
         angle = angle
+
         def do_it(data):
             return self.C2prime(data, angle)
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma_h(self,data=None):
@@ -1254,30 +1308,36 @@ class D3h(Pointgroup):
 
     def S3(self,angle, data = None):
         angle = angle
+
         def do_it(data):
             return self.S(data=data, angle=angle)
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def S53(self,angle, data = None):
         angle = angle
+
         def do_it(data):
             first = self.S(data=data,angle=angle)
             second = self.S(data=first,angle=angle)
             third = self.S(data=second,angle=angle)
             return third
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma_v(self,angle, data = None):
         #first rotate so that the plane is xz plane, flip, and rotate back
         angle = angle
+
         def do_it(data):
             first = self.rotate(data=data,angle=angle)
             second = self.mirror_xz(first)
             third = self.rotate(data=second,angle=-angle)
             return third
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 class D2d(Pointgroup):
@@ -1312,23 +1372,28 @@ class D2d(Pointgroup):
 
     def S4(self, angle, data = None):
         angle = angle
-        #first, bring an edge center to z-axis:
+        # first, bring an edge center to z-axis:
+
         def do_it(data):
             #do the actual rotation:
             data = self.S(angle=angle,data=data)
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C2(self,angle, data = None):
         angle = angle
+
         def do_it(data):
             return self.rotate(angle=angle,data=data,axis='z')
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C2p(self, angle=90., data = None):
         angle = angle
+
         def do_it(data):
             data = self.rotate(angle=angle, data = data, axis='z')
             data = self.rotate(angle=90., data=data, axis='x')
@@ -1340,18 +1405,21 @@ class D2d(Pointgroup):
             data = self.rotate(angle=-90., data = data, axis='x')
             data = self.rotate(angle=-angle, data=data, axis='z')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma_d(self,angle, data = None):
         #first rotate so that the plane is xz plane, flip, and rotate back
         angle = angle
+
         def do_it(data):
             first = self.rotate(data=data,angle=angle)
             second = self.mirror_xz(first)
             third = self.rotate(data=second,angle=-angle)
             return third
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
 
@@ -1470,7 +1538,8 @@ class Oh(Pointgroup):
             data = self.rotate(angle = -angle2, data = data, axis='x')
             data = self.rotate(angle = -angle1, data = data, axis='y')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C2(self, edge, data = None):
@@ -1478,6 +1547,7 @@ class Oh(Pointgroup):
         t1,t2 = divmod(edge, 3)
         angle1 = t1*90.
         set2 = [[45.,'x'], [45., 'y'], [-45.,'x']][t2]
+        
         def do_it(data):
             data = self.rotate(angle = angle1, data = data, axis='y')
             data = self.rotate(angle = set2[0], data = data, axis=set2[1])
@@ -1487,7 +1557,8 @@ class Oh(Pointgroup):
             data = self.rotate(angle = -set2[0], data = data, axis=set2[1])
             data = self.rotate(angle = -angle1, data = data, axis='y')            
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def C4(self, face, data = None):
@@ -1495,6 +1566,7 @@ class Oh(Pointgroup):
         t1,t2 = divmod(face, 3)
         axis = ['x','y','z'][t2]
         angle = (-1)**t1 * 90.
+
         def do_it(data):
             data = self.rotate(angle = 90., data = data, axis=axis)
 
@@ -1502,7 +1574,8 @@ class Oh(Pointgroup):
 
             data = self.rotate(angle = -90., data = data, axis=axis)
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def faceC2(self,face,data=None):
@@ -1510,6 +1583,7 @@ class Oh(Pointgroup):
         t1,t2 = divmod(face, 3)
         axis = ['x','y','z'][t2]
         angle = 180.
+
         def do_it(data):
             data = self.rotate(angle = 90., data = data, axis=axis)
 
@@ -1517,7 +1591,8 @@ class Oh(Pointgroup):
 
             data = self.rotate(angle = -90., data = data, axis=axis)
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def inversion(self,data=None):
@@ -1528,6 +1603,7 @@ class Oh(Pointgroup):
         t1,t2 = divmod(face, 3)
         axis = ['x','y','z'][t2]
         angle = (-1)**t1 * 90.
+
         def do_it(data):
             data = self.rotate(angle = 90., data = data, axis=axis)
 
@@ -1535,7 +1611,8 @@ class Oh(Pointgroup):
 
             data = self.rotate(angle = -90., data = data, axis=axis)
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def S6(self, corner, data=None):
@@ -1554,13 +1631,15 @@ class Oh(Pointgroup):
             data = self.rotate(angle = -angle2, data = data, axis='x')
             data = self.rotate(angle = -angle1, data = data, axis='y')
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma_h(self, face, data=None):
         face = face
         t1,t2 = divmod(face, 3)
         axis = ['x','y','z'][t2]
+
         def do_it(data):
             data = self.rotate(angle = 90., data = data, axis=axis)
 
@@ -1568,7 +1647,8 @@ class Oh(Pointgroup):
 
             data = self.rotate(angle = -90., data = data, axis=axis)
             return data
-        if data is None:    return do_it
+        if data is None:
+            return do_it
         return do_it(data)
 
     def sigma_d(self, face, data=None):
@@ -1576,6 +1656,7 @@ class Oh(Pointgroup):
         t1,t2 = divmod(face, 3)
         axis = ['x','y','z'][t2]
         angle2 = (-1)**t1 * 45.
+
         def do_it(data):
             data = self.rotate(angle = 90., data = data, axis=axis)
             data = self.rotate(angle = angle2, data = data, axis='z')
@@ -1585,7 +1666,9 @@ class Oh(Pointgroup):
             data = self.rotate(angle = -angle2, data = data, axis='z')
             data = self.rotate(angle = -90., data = data, axis=axis)
             return data
-        if data is None:    return do_it
+
+        if data is None:
+            return do_it
         return do_it(data)
 
 

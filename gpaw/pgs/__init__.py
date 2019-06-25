@@ -304,8 +304,8 @@ class SymmetryCalculator:
         # Format the analysis file:
         f = open(tofile, 'w')
         try:
-            f.write('%s %s\n'%('# INPUTFILE ', self.filename))
-            f.write('%s %s\n'%('# POINTGROUP', str(self.pointgroup)))
+            f.write('%s %s\n' % ('# INPUTFILE ', self.filename))
+            f.write('%s %s\n' % ('# POINTGROUP', str(self.pointgroup)))
             f.write('# REPRESENTATIONS ')
             for s in self.pointgroup.symmetries:
                 f.write('%6s' % s)
