@@ -131,7 +131,7 @@ class PW(Mode):
 
 
 class PWDescriptor:
-    ndim = 1  # all 3d G-vectors are stored in a 1d ndarray
+    ndim = 1  # all 3d G-vectors are stored in a 1-d ndarray
 
     def __init__(self, ecut, gd, dtype=None, kd=None,
                  fftwflags=fftw.MEASURE, gammacentered=False):
