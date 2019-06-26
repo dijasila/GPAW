@@ -6,7 +6,7 @@ Point group symmetry representations
 
 In the chemist's point of view, group theory is a long-known approach to
 assign symmetry representations to molecular vibrations and wave
-functions [1]_[2]_. For larger but still symmetric molecules (eg.
+functions [1]_ [2]_. For larger but still symmetric molecules (eg.
 nanoclusters [3]_), assignment of the representations by hand for each
 electron band becomes tedious. This tool is an automatic routine to
 resolve the representations.
