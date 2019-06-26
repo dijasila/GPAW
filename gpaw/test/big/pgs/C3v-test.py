@@ -89,10 +89,11 @@ symcalc.set_shiftvector(tools.calculate_shiftvector(atoms=symcalc.atoms,
                                                 coreatoms=coreatoms,
                                                 gridspacing=h))
 
-# Calculate the symmetry representation weights of the wave functions:
-symcalc.calculate(analyze=True)
-
+# Since mpi=None in symmetry calculator, lets use a single processor:
 if gpaw.mpi.rank == 0:
+    # Calculate the symmetry representation weights of the wave functions:
+    symcalc.calculate(analyze=True)
+
     f = open('symmetries_%s.txt' % name, 'r')
     results = []
     for line in f:

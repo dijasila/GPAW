@@ -185,7 +185,9 @@ for pgname in pglib:
     symcalc.initialize(pz)
     symcalc.calculate()
 
-
+    # Proceed with master processor:
+    if gpaw.mpi.rank != 0:
+        continue
 
     # Check that the representation indices Tx_i, Ty_i, Tz_i are correct
     # for each group:
