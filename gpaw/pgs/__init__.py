@@ -157,6 +157,7 @@ class SymmetryCalculator:
             for index, state in enumerate(self.statelist):
 
                 wf = self.get_wf(state)
+                self.calculate_fullnorm(index, wf)
 
                 if self.cutarea is not None:
                     wf *= self.cutarea
@@ -201,6 +202,7 @@ class SymmetryCalculator:
                     if index % mpisize == self.mpi.rank:
 
                         wf = self.get_wf(state)
+                        self.calculate_fullnorm(k*mpisize+index, wf)
 
                         if self.cutarea is not None:
                             wf *= self.cutarea
