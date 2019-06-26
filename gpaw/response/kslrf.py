@@ -103,6 +103,7 @@ class KohnShamLinearResponseFunction:
         """
         # Output .txt filehandle
         self.fd = convert_string_to_fd(txt, world)
+        print('Initializing KohnShamLinearResponseFunction', file=self.fd)
 
         # Communicators for parallelization
         self.world = world
@@ -112,7 +113,12 @@ class KohnShamLinearResponseFunction:
         self.nblocks = self.interblockcomm.size
 
         # Timer
-        self.timer = timer or Timer()
+        if timer is None:
+            self.timer = Timer()
+            self.write_timer = True
+        else:
+            self.timer = timer
+            self.write_timer = False
 
         # The KohnShamPair class handles data extraction from ground state
         self.kspair = KohnShamPair(gs, world=world,
@@ -184,8 +190,8 @@ class KohnShamLinearResponseFunction:
     def calculate(self, spinrot=None, A_x=None):
         out = self._calculate(spinrot, A_x)
 
-        # Write calculation timer
-        self.timer.write(self.fd)
+        if self.write_timer:
+            self.timer.write(self.fd)
 
         return out
 
@@ -273,9 +279,9 @@ class KohnShamLinearResponseFunction:
 
         p = partial(print, file=self.fd)
 
+        p('Called a response.kslrf.KohnShamLinearResponseFunction.calculate()')
         p('%s' % ctime())
-        p('Called a response.lrf.KohnShamLinearResponseFunction.calculate()')
-        p('using a Kohn-Sham ground state with:')
+        p('Using a Kohn-Sham ground state with:')
         p('    Number of spins: %d' % ns)
         p('    Number of bands: %d' % nbands)
         p('    Number of completely occupied states: %d' % nocc)
@@ -535,8 +541,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # In-place calculation
         out = self._calculate(spinrot, A_x)
 
-        # Write calculation timer
-        self.timer.write(self.fd)
+        if self.write_timer:
+            self.timer.write(self.fd)
 
         return out
 

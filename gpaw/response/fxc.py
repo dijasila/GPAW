@@ -303,7 +303,10 @@ class AdiabaticKernelCalculator:
     def __call__(self, pd, calc, functional, **unused):
         assert functional in self.permitted_functionals
         self.functional = functional
-        add_fxc = self.add_fxc  # class methods not within the scope of call
+        print('', file=self.fd)
+        print('Excecuting a response.fxc.AdiabaticKernelCalculator.__call__()',
+              file=self.fd)
+        add_fxc = self.add_fxc
 
         vol = pd.gd.volume
         npw = pd.ngmax
@@ -312,24 +315,24 @@ class AdiabaticKernelCalculator:
             nt_sG = calc.density.nt_sG
             gd, lpd = pd.gd, pd
 
-            print("\tCalculating fxc on real space grid using smooth density",
-                  file=self.fd)
+            print("    Calculating fxc on real space grid using "
+                  + "smooth density", file=self.fd)
             fxc_G = np.zeros(np.shape(nt_sG[0]))
             add_fxc(gd, nt_sG, fxc_G)
         else:
-            print("\tFinding all-electron density", file=self.fd)
+            print("    Finding all-electron density", file=self.fd)
             n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms,
                                                              gridrefinement=1)
             qd = pd.kd
             lpd = PWDescriptor(self.ecut, gd, complex, qd,
                                gammacentered=pd.gammacentered)
 
-            print("\tCalculating fxc on real space grid using"
+            print("    Calculating fxc on real space grid using"
                   + " all-electron density", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
             add_fxc(gd, n_sG, fxc_G)
 
-        print("\tFourier transforming into reciprocal space", file=self.fd)
+        print("    Fourier transforming into reciprocal space", file=self.fd)
         nG = gd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
 
@@ -345,7 +348,8 @@ class AdiabaticKernelCalculator:
                     Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
 
         if self.rshe:
-            print("\tCalculating PAW corrections to the kernel", file=self.fd)
+            print("    Calculating PAW corrections to the kernel",
+                  file=self.fd)
 
             G_Gv = pd.get_reciprocal_vectors()
             R_av = calc.atoms.positions / Bohr
@@ -438,7 +442,7 @@ class AdiabaticKernelCalculator:
                     self._add_rshe_coefficients(df_ng, df_gL, Y_nL, l)
                     self._evaluate_rshe_convergence(df_gL)
 
-                    print('\tAt least a fraction of '
+                    print('    At least a fraction of '
                           + '%.8f' % self.rsheconvmin
                           + ' of the PAW correction to atom %d could be ' % a
                           + 'expanded in spherical harmonics up to l=%d' % l,

@@ -4,6 +4,8 @@ from pathlib import Path
 import numpy as np
 
 from ase.units import Hartree
+from ase.utils import convert_string_to_fd
+from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
@@ -42,13 +44,18 @@ class FourComponentSusceptibilityTensor:
         world, nblocks, txt : SHOULD BE LOADED/INITIATED IN THIS SCRIPT XXX
             for now see gpaw.response.chiks, gpaw.response.kslrf
         """
+        # Initiate output file and timer
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = Timer()
+        
         self.chiks = ChiKS(gs, frequencies=frequencies, eta=eta, ecut=ecut,
                            gammacentered=gammacentered,
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
-                           memory_safe=memory_safe,
-                           world=world, nblocks=nblocks, txt=txt)
+                           memory_safe=memory_safe, world=world,
+                           nblocks=nblocks, txt=self.fd, timer=self.timer)
         self.calc = self.chiks.calc  # calc should be loaded here XXX
         self.fxc = get_fxc(fxc, self.calc, self.chiks.fd, self.chiks.world,
                            response='susceptibility', mode='pw',
@@ -56,7 +63,6 @@ class FourComponentSusceptibilityTensor:
 
         # This should be initiated with G-parallelization, in this script! XXX
         nw = len(self.chiks.omega_w)
-        self.world = self.chiks.world
         self.mynw = (nw + world.size - 1) // world.size
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
@@ -142,6 +148,9 @@ class FourComponentSusceptibilityTensor:
 
         chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
 
+        print('', file=self.fd)
+        self.timer.write(self.fd)
+
         return pd, chiks_wGG, chi_wGG
 
     def calculate_ks_component(self, spincomponent, q_c):  # Rename to "get" at some point XXX see xckernel
@@ -167,6 +176,7 @@ class FourComponentSusceptibilityTensor:
 
         return pd, chiks_wGG
 
+    @timer('Get xc kernel')
     def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
         """Check if the exchange correlation kernel has been calculated,
         if not, calculate it."""
@@ -179,6 +189,7 @@ class FourComponentSusceptibilityTensor:
             self.fxc.write(Kxc_GG, spincomponent, pd)
         return Kxc_GG
 
+    @timer('Invert dyson-like equation')
     def invert_dyson(self, chiks_wGG, Kxc_GG):
         """Invert the Dyson-like equation:
 
@@ -207,6 +218,7 @@ class FourComponentSusceptibilityTensor:
         world.all_gather(b_w, A_w)
         return A_w[:nw]
 
+    @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
         """Distribute frequencies to all cores."""
         # More documentation is needed! XXX
