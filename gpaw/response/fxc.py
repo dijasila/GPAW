@@ -14,16 +14,16 @@ from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spherical_harmonics import Yarr
 
 from ase.utils import convert_string_to_fd
-from ase.utils.timing import Timer
+from ase.utils.timing import Timer, timer
 from ase.units import Bohr, Ha
 
 
 def get_fxc(fxc, calc, response='susceptibility', mode='pw',
-            world=mpi.world, txt='-', **kwargs):
+            world=mpi.world, txt='-', timer=None, **kwargs):
     """Factory function getting an initiated version of the fxc class."""
     functional = fxc
     fxc = create_fxc(functional, response, mode)
-    return fxc(functional, calc, world=world, txt=txt, **kwargs)
+    return fxc(functional, calc, world=world, txt=txt, timer=timer, **kwargs)
 
 
 def create_fxc(functional, response, mode):
@@ -38,7 +38,7 @@ def create_fxc(functional, response, mode):
 class FXC:
     """General class to calculate exchange-correlation kernels."""
 
-    def __init__(self, functional, calc, world=mpi.world, txt='-'):
+    def __init__(self, functional, calc, world=mpi.world, txt='-', timer=None):
         """
         Parameters
         ----------
@@ -53,8 +53,17 @@ class FXC:
         """
         self.functional = functional
         self.calc = calc
+
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
+
+        # Timer
+        if timer is None:
+            self.timer = Timer()
+            self.write_timer = True
+        else:
+            self.timer = timer
+            self.write_timer = False
 
     def calculate(self, *args, **kwargs):
         raise NotImplementedError
@@ -75,27 +84,32 @@ class AdiabaticSusceptibilityFXC(FXC):
     """Class for calculating adiabatic exchange correlation kernels for
     susceptibility calculations."""
 
-    def __init__(self, functional, calc, world=mpi.world, txt='-', **kwargs):
-        FXC.__init__(self, functional, calc, world=world, txt=txt)
+    def __init__(self, functional, calc, world=mpi.world, txt='-', timer=None,
+                 **kwargs):
+        FXC.__init__(self, functional, calc, world=world, txt=txt, timer=timer)
 
         # The two calculators might be merged into one?
         # It would be much easier, if all spincomponents could be evaluated
         # by a single calculator class also supporting Goldstone scaling.
         # For now, we will use the existing code and make a hack.
-        self.dcalculator = AdiabaticDensityKernelCalculator(world=world,
-                                                            txt=txt,
+        self.dcalculator = AdiabaticDensityKernelCalculator(world=self.world,
+                                                            txt=self.fd,
+                                                            timer=self.timer,
                                                             **kwargs)
-        '''
-        self.tcalculator = AdiabaticTransverseKernelCalculator(fd, world,
-                                                               **kwargs)
-        '''
-        self.tcalculator = ATKCHack(world=world, txt=txt, **kwargs)
+
+        self.tcalculator = ATKCHack(world=self.world, txt=self.fd,
+                                    timer=self.timer, **kwargs)
 
     def calculate(self, spincomponent, pd, kslrf=None, chiks_wGG=None):
         """Goldstone scaling is not yet implemented."""
         calculator = self.create_calculator(spincomponent)
-        return calculator(pd, self.calc, self.functional,
-                          kslrf=kslrf, chiks_wGG=chiks_wGG)  # Goldstone stuff should be rewritten XXX
+        Kxc_GG = calculator(pd, self.calc, self.functional,
+                            kslrf=kslrf, chiks_wGG=chiks_wGG)  # Goldstone stuff should be rewritten XXX
+
+        if self.write_timer:
+            self.timer.write(self.fd)
+
+        return Kxc_GG
 
     def create_calculator(self, spincomponent):
         """Creator component."""
@@ -276,7 +290,7 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
 
-    def __init__(self, world=mpi.world, txt='-',
+    def __init__(self, world=mpi.world, txt='-', timer=None,
                  rshe=0.99, ecut=None, **unused):
         """
         rshe : float or None
@@ -287,6 +301,14 @@ class AdiabaticKernelCalculator:
         """
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
+
+        # Timer
+        if timer is None:
+            self.timer = Timer()
+            self.write_timer = True
+        else:
+            self.timer = timer
+            self.write_timer = False
 
         self.ecut = ecut
 
@@ -304,6 +326,7 @@ class AdiabaticKernelCalculator:
 
             self.rsheL_M = None
 
+    @timer('Calculate XC kernel')
     def __call__(self, pd, calc, functional, **unused):
         assert functional in self.permitted_functionals
         self.functional = functional
@@ -482,6 +505,9 @@ class AdiabaticKernelCalculator:
             self.world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
 
+        if self.write_timer:
+            self.timer.write(self.fd)
+
         return Kxc_GG / vol
 
     def _ang_int(self, f_nA):
@@ -551,7 +577,7 @@ class AdiabaticKernelCalculator:
 
 class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
-    def __init__(self, world=mpi.world, txt='-',
+    def __init__(self, world=mpi.world, txt='-', timer=None,
                  rshe=0.99, ecut=None,
                  density_cut=None, **unused):
         """
@@ -559,6 +585,7 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
             cutoff density below which f_xc is set to zero
         """
         AdiabaticKernelCalculator.__init__(self, world=world, txt=txt,
+                                           timer=timer,
                                            rshe=rshe, ecut=ecut)
 
         self.density_cut = density_cut
@@ -612,7 +639,7 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
 class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
 
-    def __init__(self, world=mpi.world, txt='-',
+    def __init__(self, world=mpi.world, txt='-', timer=None,
                  rshe=0.99, ecut=None,
                  density_cut=None, spinpol_cut=None, **unused):
         """
@@ -622,6 +649,7 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             cutoff spin polarization. Below, f_xc is evaluated in zeta=0 limit
         """
         AdiabaticKernelCalculator.__init__(self, world=world, txt=txt,
+                                           timer=timer,
                                            rshe=rshe, ecut=ecut)
 
         self.density_cut = density_cut

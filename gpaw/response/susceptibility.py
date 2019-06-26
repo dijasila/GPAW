@@ -60,6 +60,7 @@ class FourComponentSusceptibilityTensor:
         self.fxc = get_fxc(fxc, self.calc,
                            response='susceptibility', mode='pw',
                            world=self.chiks.world, txt=self.chiks.fd,
+                           timer=self.timer,
                            ecut=self.chiks.ecut, **fxckwargs)
 
         # This should be initiated with G-parallelization, in this script! XXX
@@ -177,7 +178,6 @@ class FourComponentSusceptibilityTensor:
 
         return pd, chiks_wGG
 
-    @timer('Get xc kernel')
     def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
         """Check if the exchange correlation kernel has been calculated,
         if not, calculate it."""
