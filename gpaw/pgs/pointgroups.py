@@ -131,7 +131,8 @@ class Pointgroup():
 
     def get_normalized_table(self):
         self.D = [row[0] for row in self.character_table] # degeneracies
-        self.normalized_table = map(lambda x,y: list(np.array(x) / y), self.character_table, self.D)
+        self.normalized_table = list(map(lambda x,y: list(np.array(x) / y), 
+                                     self.character_table, self.D))
         return self.normalized_table
 
     
