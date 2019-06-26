@@ -48,8 +48,8 @@ The bands have very distinct representations as expected.
 .. [1] K. C. Molloy. Group Theory for Chemists: Fundamental Theory and
                      Applications. Woodhead Publishing 2011
 
-.. [2] J. F. Cornwell. Group Theory in Physics: An Introduction. Elsevier Sci-
-ence and Technology (1997)
+.. [2] J. F. Cornwell. Group Theory in Physics: An Introduction. Elsevier 
+       Science and Technology (1997)
 
 .. [3] Kaappa, Malola, Häkkinen; Point Group Symmetry Analysis of the
        Electronic Structure of Bare and Protected Metal Nanocrystals 
