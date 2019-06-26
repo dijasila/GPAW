@@ -341,7 +341,6 @@ tests = [
     'parallel/fd_parallel_kpt.py',          # ~21s
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
-    'response/iron_sf_ALDA.py',             # ~22s
     'response/na_plasmon.py',               # ~22s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
@@ -349,6 +348,7 @@ tests = [
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
+    'response/iron_sf_ALDA.py',             # ~25s
     'utilities/ldos.py',                    # ~25s
     'solvation/swap_atoms.py',              # ~25s
     'xc/revPBE_Li.py',                      # ~26s
