@@ -57,8 +57,9 @@ class FourComponentSusceptibilityTensor:
                            memory_safe=memory_safe, world=world,
                            nblocks=nblocks, txt=self.fd, timer=self.timer)
         self.calc = self.chiks.calc  # calc should be loaded here XXX
-        self.fxc = get_fxc(fxc, self.calc, self.chiks.fd, self.chiks.world,
+        self.fxc = get_fxc(fxc, self.calc,
                            response='susceptibility', mode='pw',
+                           world=self.chiks.world, txt=self.chiks.fd,
                            ecut=self.chiks.ecut, **fxckwargs)
 
         # This should be initiated with G-parallelization, in this script! XXX

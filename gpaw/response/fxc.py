@@ -6,22 +6,24 @@ from __future__ import print_function
 import numpy as np
 from scipy.special import spherical_jn
 
+import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spherical_harmonics import Yarr
 
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
-def get_fxc(fxc, calc, fd, world,
-            response='susceptibility', mode='pw', **kwargs):
+def get_fxc(fxc, calc, response='susceptibility', mode='pw',
+            world=mpi.world, txt='-', **kwargs):
     """Factory function getting an initiated version of the fxc class."""
     functional = fxc
     fxc = create_fxc(functional, response, mode)
-    return fxc(functional, calc, fd, world, **kwargs)
+    return fxc(functional, calc, world=world, txt=txt, **kwargs)
 
 
 def create_fxc(functional, response, mode):
@@ -36,7 +38,7 @@ def create_fxc(functional, response, mode):
 class FXC:
     """General class to calculate exchange-correlation kernels."""
 
-    def __init__(self, functional, calc, fd, world):
+    def __init__(self, functional, calc, world=mpi.world, txt='-'):
         """
         Parameters
         ----------
@@ -45,13 +47,14 @@ class FXC:
         kslrf : KohnShamLinearResponseFunction instance
         calc : obj
             GPAW calculator object of ground state calculation
-        fd : filehandle
         world : mpi.world
+        txt : str or filehandle
+            defines output file through ase.utils.convert_string_to_fd
         """
         self.functional = functional
         self.calc = calc
-        self.fd = fd
         self.world = world
+        self.fd = convert_string_to_fd(txt, world)
 
     def calculate(self, *args, **kwargs):
         raise NotImplementedError
@@ -72,20 +75,21 @@ class AdiabaticSusceptibilityFXC(FXC):
     """Class for calculating adiabatic exchange correlation kernels for
     susceptibility calculations."""
 
-    def __init__(self, functional, calc, fd, world, **kwargs):
-        FXC.__init__(self, functional, calc, fd, world)
+    def __init__(self, functional, calc, world=mpi.world, txt='-', **kwargs):
+        FXC.__init__(self, functional, calc, world=world, txt=txt)
 
         # The two calculators might be merged into one?
         # It would be much easier, if all spincomponents could be evaluated
         # by a single calculator class also supporting Goldstone scaling.
         # For now, we will use the existing code and make a hack.
-        self.dcalculator = AdiabaticDensityKernelCalculator(fd, world,
+        self.dcalculator = AdiabaticDensityKernelCalculator(world=world,
+                                                            txt=txt,
                                                             **kwargs)
         '''
         self.tcalculator = AdiabaticTransverseKernelCalculator(fd, world,
                                                                **kwargs)
         '''
-        self.tcalculator = ATKCHack(fd, world, **kwargs)
+        self.tcalculator = ATKCHack(world=world, txt=txt, **kwargs)
 
     def calculate(self, spincomponent, pd, kslrf=None, chiks_wGG=None):
         """Goldstone scaling is not yet implemented."""
@@ -148,9 +152,8 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world,
-                                                 rshe=rshe,
-                                                 ecut=chi0.ecut,
+        Kcalc = AdiabaticDensityKernelCalculator(world=chi0.world, txt=fd,
+                                                 rshe=rshe, ecut=chi0.ecut,
                                                  density_cut=density_cut)
         Kxc_sGG = np.array([Kcalc(pd, calc, functional)])
     elif functional[0] == 'r':
@@ -193,7 +196,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating transverse %s kernel" % functional, file=fd)
-        Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world,
+        Kcalc = AdiabaticTransverseKernelCalculator(world=chi0.world, txt=fd,
                                                     rshe=rshe,
                                                     ecut=chi0.ecut,
                                                     density_cut=density_cut,
@@ -273,7 +276,8 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
 
-    def __init__(self, fd, world, rshe=0.99, ecut=None, **unused):
+    def __init__(self, world=mpi.world, txt='-',
+                 rshe=0.99, ecut=None, **unused):
         """
         rshe : float or None
             Expand kernel in real spherical harmonics inside augmentation
@@ -281,9 +285,9 @@ class AdiabaticKernelCalculator:
             augmentation. The value of rshe (0<rshe<1) sets a convergence
             criteria for the expansion in real spherical harmonics.
         """
-
-        self.fd = fd
         self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+
         self.ecut = ecut
 
         self.permitted_functionals = []
@@ -547,19 +551,17 @@ class AdiabaticKernelCalculator:
 
 class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
-    def __init__(self, fd, world,
-                 rshe=0.99,
-                 ecut=None,
-                 density_cut=None,
-                 **unused):
+    def __init__(self, world=mpi.world, txt='-',
+                 rshe=0.99, ecut=None,
+                 density_cut=None, **unused):
         """
         density_cut : float
             cutoff density below which f_xc is set to zero
         """
+        AdiabaticKernelCalculator.__init__(self, world=world, txt=txt,
+                                           rshe=rshe, ecut=ecut)
 
         self.density_cut = density_cut
-
-        AdiabaticKernelCalculator.__init__(self, fd, world, rshe, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -610,23 +612,20 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
 class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
 
-    def __init__(self, fd, world,
-                 rshe=0.99,
-                 ecut=None,
-                 density_cut=None,
-                 spinpol_cut=None,
-                 **unused):
+    def __init__(self, world=mpi.world, txt='-',
+                 rshe=0.99, ecut=None,
+                 density_cut=None, spinpol_cut=None, **unused):
         """
         density_cut : float
             cutoff density below which f_xc is set to zero
         spinpol_cut : float
             cutoff spin polarization. Below, f_xc is evaluated in zeta=0 limit
         """
+        AdiabaticKernelCalculator.__init__(self, world=world, txt=txt,
+                                           rshe=rshe, ecut=ecut)
 
         self.density_cut = density_cut
         self.spinpol_cut = spinpol_cut
-
-        AdiabaticKernelCalculator.__init__(self, fd, world, rshe, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
 
