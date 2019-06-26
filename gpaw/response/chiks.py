@@ -160,11 +160,11 @@ class ChiKS(PlaneWaveKSLRF):
             A_GwmyG = A_x
 
             x_tw = np.ascontiguousarray(x_wt.T)
-            n_Gt = np.ascontiguousarray(n_tG.T)  # remove one contiguousarray XXX
+            n_Gt = np.ascontiguousarray(n_tG.T)
 
             with self.timer('Set up ncc and nx'):
                 ncc_Gt = n_Gt.conj()
-                n_tmyG = np.ascontiguousarray(n_Gt[self.Ga:self.Gb, :].T)
+                n_tmyG = n_tG[:, self.Ga:self.Gb]
                 nx_twmyG = x_tw[:, :, np.newaxis] * n_tmyG[:, np.newaxis, :]
                     
             with self.timer('Perform sum over t-transitions of ncc * nx'):
