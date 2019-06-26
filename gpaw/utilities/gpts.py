@@ -40,21 +40,25 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
             S_cc = S_cc + S_cc.T
             if S_cc[0, 1] and S_cc[1, 2]:
                 assert S_cc[1, 2]
-                N = N_c.max()
+                gcd = symmetry.gcd_c.max()
+                N = get_efficient_fft_size(N_c.max(), gcd)
                 N_c = np.array([N, N, N])
             elif S_cc[0, 1]:
                 N = N_c[:2].max()
-                N_c[:2] = N
+                gcd = symmetry.gcd_c[:2].max()
+                N_c[:2] = get_efficient_fft_size(N, gcd)
                 assert not S_cc[0, 2]
                 assert not S_cc[1, 2]
             elif S_cc[1, 2]:
                 N = N_c[1:].max()
-                N_c[1:] = N
+                gcd = symmetry.gcd_c[1:].max()
+                N_c[1:] = get_efficient_fft_size(N, gcd)
                 assert not S_cc[0, 1]
                 assert not S_cc[0, 2]
             elif S_cc[0, 2]:
                 N = N_c[::2].max()
-                N_c[::2] = N
+                gcd = symmetry.gcd_c[::2].max()
+                N_c[::2] = get_efficient_fft_size(N, gcd)
                 assert not S_cc[0, 1]
                 assert not S_cc[1, 2]
             else:
