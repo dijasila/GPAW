@@ -19,7 +19,7 @@ class FourComponentSusceptibilityTensor:
                  fxc='ALDA', fxckwargs={},
                  eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
-                 bandsummation='pairwise', nbands=None,
+                 bandsummation='pairwise', nbands=None, memory_safe=False,
                  world=mpi.world, nblocks=1, txt=sys.stdout):
         """
         Currently, everything is in plane wave mode.
@@ -36,7 +36,8 @@ class FourComponentSusceptibilityTensor:
         eta, ecut, gammacentered
         disable_point_group,
         disable_time_reversal,
-        bandsummation, nbands : see gpaw.response.chiks, gpaw.response.kslrf
+        bandsummation, nbands,
+        memory_safe : see gpaw.response.chiks, gpaw.response.kslrf
 
         world, nblocks, txt : SHOULD BE LOADED/INITIATED IN THIS SCRIPT XXX
             for now see gpaw.response.chiks, gpaw.response.kslrf
@@ -46,6 +47,7 @@ class FourComponentSusceptibilityTensor:
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
+                           memory_safe=memory_safe,
                            world=world, nblocks=nblocks, txt=txt)
         self.calc = self.chiks.calc  # calc should be loaded here XXX
         self.fxc = get_fxc(fxc, self.calc, self.chiks.fd, self.chiks.world,
