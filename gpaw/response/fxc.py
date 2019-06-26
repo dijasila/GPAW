@@ -10,7 +10,6 @@ import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.io.tar import Reader
-from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spherical_harmonics import Yarr
 
 from ase.utils import convert_string_to_fd
@@ -335,16 +334,16 @@ class AdiabaticKernelCalculator:
         assert functional in self.permitted_functionals
         self.functional = functional
         
-        # Get the (spin-)density we need and allocate fxc
-        n_sG, gd, lpd = self.get_density_on_grid(calc, pd)
+        # Get the spin density we need and allocate fxc
+        n_sG = self.get_density_on_grid(calc, pd)
         fxc_G = np.zeros(np.shape(n_sG[0]))
 
         with self.timer('Calculate fxc on real space grid'):
             print('    Calculating fxc on real space grid', file=self.fd)
-            self.add_fxc(gd, n_sG, fxc_G)
+            self.add_fxc(pd.gd, n_sG, fxc_G)
 
         # Fourier transform to reciprocal space
-        Kxc_GG = self.ft_from_grid(fxc_G, gd, lpd, pd)
+        Kxc_GG = self.ft_from_grid(fxc_G, pd)
 
         if self.rshe:  # Do PAW correction to Fourier transformed kernel
             KxcPAW_GG = self.calculate_kernel_paw_correction(calc, pd)
@@ -356,57 +355,35 @@ class AdiabaticKernelCalculator:
         return Kxc_GG / pd.gd.volume
             
     def get_density_on_grid(self, calc, pd):
-        """Get the (spin-)density on real-space grid and corresponding
-        grid descriptors.
+        """Get the spin density on coarse real-space grid.
         
-        RETURN doc? XXX maybe lpd can be removed because we only use coarse grid
-        """
-        if self.rshe:  # PAW correction later, to Fourier transformed kernel
-            # Use smooth density nt_sG
-            n_sG, gd = self._get_density_on_grid(calc, pd)
-            lpd = pd
-        else:  # Do PAW correction now, to (spin-)density
-            # Use all-electron density
-            n_sG, gd = self._get_density_on_grid(calc, pd, all_electron=True)
-            lpd = PWDescriptor(self.ecut, gd, complex, pd.kd,
-                               gammacentered=pd.gammacentered)
-
-        return n_sG, gd, lpd
-
-    def _get_density_on_grid(self, calc, pd, all_electron=False):
-        """Get the (spin-)density on the real-space grid
-
-        Parameters
-        ----------
-        all_electron : bool
-            return all electron density
-
         Returns
         -------
-        n_sG or nt_sG : (spin-)density on coarse real-space grid
-        gd : GridDescriptor
+        nt_sG or n_sG : nd.array
+            Spin density on coarse real-space grid. If not self.rshe, use
+            the PAW corrected all-electron spin density.
         """
-        if all_electron:
-            print('    Calculating all-electron density', file=self.fd)
-            with self.timer('Calculating all-electron density'):
-                return calc.density.get_all_electron_density(atoms=calc.atoms,
-                                                             gridrefinement=1)
-        else:
-            return calc.density.nt_sG, pd.gd  # smooth density
+        if self.rshe:
+            return calc.density.nt_sG  # smooth density
+        
+        print('    Calculating all-electron density', file=self.fd)
+        with self.timer('Calculating all-electron density'):
+            return calc.density.get_all_electron_density(atoms=calc.atoms,
+                                                         gridrefinement=1)[0]
 
     @timer('Fourier transform of kernel from real-space grid')
-    def ft_from_grid(self, fxc_G, gd, lpd, pd):
+    def ft_from_grid(self, fxc_G, pd):
         print('    Fourier transforming kernel from real-space grid',
               file=self.fd)
-        nG = gd.N_c
+        nG = pd.gd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
 
         tmp_g = np.fft.fftn(fxc_G) * pd.gd.volume / nG0
 
         Kxc_GG = np.zeros((pd.ngmax, pd.ngmax), dtype=complex)
-        for iG, iQ in enumerate(lpd.Q_qG[0]):
+        for iG, iQ in enumerate(pd.Q_qG[0]):
             iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
-            for jG, jQ in enumerate(lpd.Q_qG[0]):
+            for jG, jQ in enumerate(pd.Q_qG[0]):
                 jQ_c = (np.unravel_index(jQ, nG) + nG // 2) % nG - nG // 2
                 ijQ_c = (iQ_c - jQ_c)
                 if (abs(ijQ_c) < nG // 2).all():
