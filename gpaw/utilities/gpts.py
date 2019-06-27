@@ -7,7 +7,7 @@ from gpaw.wavefunctions.fd import FD
 
 
 def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
-                              symmetry=None):
+                              symmetry=None, log=None):
     if mode is None:
         mode = FD()
 
@@ -35,35 +35,36 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
     if symmetry is not None:
         ok = symmetry.check_grid(N_c)
         if not ok:
-            # Choose more symmetric number of grid points:
-            S_cc = symmetry.op_scc.any(axis=0)
-            S_cc = S_cc + S_cc.T
-            if S_cc[0, 1] and S_cc[1, 2]:
-                assert S_cc[1, 2]
-                gcd = symmetry.gcd_c.max()
-                N = get_efficient_fft_size(N_c.max(), gcd)
-                N_c = np.array([N, N, N])
-            elif S_cc[0, 1]:
-                N = N_c[:2].max()
-                gcd = symmetry.gcd_c[:2].max()
-                N_c[:2] = get_efficient_fft_size(N, gcd)
-                assert not S_cc[0, 2]
-                assert not S_cc[1, 2]
-            elif S_cc[1, 2]:
-                N = N_c[1:].max()
-                gcd = symmetry.gcd_c[1:].max()
-                N_c[1:] = get_efficient_fft_size(N, gcd)
-                assert not S_cc[0, 1]
-                assert not S_cc[0, 2]
-            elif S_cc[0, 2]:
-                N = N_c[::2].max()
-                gcd = symmetry.gcd_c[::2].max()
-                N_c[::2] = get_efficient_fft_size(N, gcd)
-                assert not S_cc[0, 1]
-                assert not S_cc[1, 2]
-            else:
-                1 / 0
+            if log is not None:
+                log('Initial realspace grid '
+                    '({},{},{}) inconsistent with symmetries.'.format(*N_c))
+            # The grid is not symmetric enough. The essential problem
+            # is that we should start at some other Nmin_c and possibly with
+            # other gcd_c when getting the most efficient fft grids
+            gcd_c = symmetry.gcd_c.copy()
+            Nmin_c = N_c.copy()
+            for i in range(3):
+                for op_cc in symmetry.op_scc:
+                    for i, o in enumerate((op_cc.T).flat):
+                        i1, i2 = np.unravel_index(i, (3, 3))
+                        if i1 == i2:
+                            continue
+                        if o:
+                            # The axes are related and therefore they share
+                            # lowest common multiple of gcd
+                            gcd = np.lcm.reduce(gcd_c[[i1, i2]])
+                            gcd_c[[i1, i2]] = gcd
+                            # We just take the maximum of the two axes to make
+                            # sure that they are divisible always
+                            Nmin = np.max([Nmin_c[i1], Nmin_c[i2]])
+                            Nmin_c[i1] = Nmin
+                            Nmin_c[i2] = Nmin
+
+            N_c = np.array([get_efficient_fft_size(N, n)
+                            for N, n in zip(Nmin_c, gcd_c)])
+            log('Using symmetrized grid: ({},{},{}).\n'.format(*N_c))
             ok = symmetry.check_grid(N_c)
-            assert ok, N_c
+            assert ok, ('Grid still not constistent with symmetries '
+                        '({},{},{})'.format(*N_c))
 
     return N_c
