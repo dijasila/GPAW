@@ -25,7 +25,7 @@ def get_number_of_grid_points(cell_cv, h=None, mode=None, realspace=None,
     if realspace or mode.name == 'fd':
         N_c = h2gpts(h, cell_cv, 4)
     else:
-        N_c = h2gpts(h, cell_cv, 1)
+        N_c = np.ceil((cell_cv**2).sum(1)**0.5 / h).astype(int)
         if symmetry is None:
             N_c = np.array([get_efficient_fft_size(N) for N in N_c])
         else:
