@@ -144,8 +144,11 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-        assert ecut <= ecutmax
+        ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
+        if ecut is None:
+            ecut = 0.9999 * ecut0
+        else:
+            assert ecut <= ecut0
 
         self.ecut = ecut
 
