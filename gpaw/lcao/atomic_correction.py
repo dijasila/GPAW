@@ -22,7 +22,8 @@ class BaseAtomicCorrection:
         return dO_aii
 
     def calculate_hamiltonian(self, kpt, dH_asp, H_MM, yy):
-        dH_aii = dH_asp.partition.arraydict(self.dS_aii.shapes_a)
+        dH_aii = dH_asp.partition.arraydict(self.dS_aii.shapes_a,
+                                            dtype=dH_asp.dtype)
 
         for a in dH_asp:
             dH_aii[a] = yy * unpack(dH_asp[a][kpt.s])
