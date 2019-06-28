@@ -1,4 +1,5 @@
 import sys
+from time import ctime
 from pathlib import Path
 
 import numpy as np
@@ -257,6 +258,10 @@ class FourComponentSusceptibilityTensor:
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
 
         return out_wGG
+
+    def close(self):
+        print('\nClosing, %s' % ctime(), file=self.fd)
+        self.fd.close()
 
 
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
