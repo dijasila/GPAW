@@ -268,6 +268,7 @@ tests = [
     'tddft/be_nltd_ip.py',                  # ~8s
     'ibzqpt.py',                            # ~8s
     'noncollinear/o2.py',
+    'noncollinear/soc.py',
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
