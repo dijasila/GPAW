@@ -40,7 +40,7 @@ omega_w = df.get_frequencies()
 analyticalalpha_w = 1j / (8 * omega_w[1:] / Hartree)
 
 # Just some hardcoded test for alpha at omega=0
-equal(alphax_w[0].real, 6.74, tolerance=0.04,
+equal(alphax_w[0].real, 6.69, tolerance=0.04,
       msg='Polarizability at omega=0 is wrong')
 
 if 0:
