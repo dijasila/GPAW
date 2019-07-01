@@ -379,6 +379,8 @@ class AdiabaticKernelCalculator:
 
         tmp_g = np.fft.fftn(fxc_G) * pd.gd.volume / nG0
 
+        # The unfolding procedure could use vectorization and parallelization.
+        # This remains a slow step for now. XXX
         Kxc_GG = np.zeros((pd.ngmax, pd.ngmax), dtype=complex)
         for iG, iQ in enumerate(pd.Q_qG[0]):
             iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
@@ -707,7 +709,12 @@ class AdiabaticKernelCalculator:
                        for a in np.meshgrid(r_g, l_M, dG_myGG.flatten(),
                                             indexing='ij')]
 
-        with self.timer('Compute spherical bessel functions'):  # Slow step
+        with self.timer('Compute spherical bessel functions'):
+            # Slow step. If it ever gets too slow, one can use the same
+            # philosophy as _ft_from_grid, where dG=(G-G') results are
+            # "unfolded" from a fourier transform to all unique K=dG
+            # reciprocal lattice vectors. It should be possible to vectorize
+            # the unfolding procedure to make it fast.
             j_gMmyGG = spherical_jn(l_gMmyGG, dG_gMmyGG * r_gMmyGG)
 
         Y_MmyGG = Yarr(L_M, dGn_myGGv)
