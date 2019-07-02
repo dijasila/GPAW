@@ -36,7 +36,7 @@ if '--remove-default-flags' in sys.argv:
     sys.argv.remove('--remove-default-flags')
 
 config = Path(os.environ.get('GPAW_CONFIG_FILE',
-                             Path.home() / '.gpaw/configuration.py'))
+                             Path.home() / '.gpaw/config.py'))
 
 for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
@@ -182,7 +182,7 @@ class build_ext(_build_ext):
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
-         'gpaw-setup', 'gpaw-upfplot', 'gpaw']
+         'gpaw-setup', 'gpaw-upfplot']
 scripts = [Path('tools') / script for script in files]
 
 if parallel_python_interpreter:
