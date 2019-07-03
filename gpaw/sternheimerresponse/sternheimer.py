@@ -350,7 +350,7 @@ class SternheimerResponse:
 
 
 
-    def krylovcalculate(self, qvectors, num_eigs):
+    def krylovcalculate(self, qvectors, num_eigs, omegas=[0]):
         print("KRYLOVCALCULATE")
         qvector = qvectors[0]
         #self.calculate_kplusq(qvector)
@@ -362,89 +362,96 @@ class SternheimerResponse:
         norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
         deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
         norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
-        deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+        start_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
         norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
         if not np.allclose(norm, 1):
-            deltapsi_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
+            start_qnG = {q: val/np.sqrt(norm) for q, val in deltapsi_qnG.items()}
         norm = self.inner_product(deltapsi_qnG, deltapsi_qnG)
         if not np.allclose(norm, 1):
             raise ValueError
         error_threshold = 1e-4
         error = 100
 
-        max_iter = 5
+        max_iter = num_eigs * 2
         new_norm = 0
         old_norm = 0
 
-        Kv_SqnG = [] #S is a step-number index
-        v_SqnG = [deltapsi_qnG]
-        K_ij = np.array([[0]]) #Initial Krylov space is empty, so matrix is zero
-        K_ij = np.zeros((max_iter+1, max_iter+1))
-        check = True
-        for niter in range(max_iter):
-            print(f"Iteration number: {niter}")
-            t1 = time()
-            if check:
-                for j, jvec in enumerate(v_SqnG):
-                    for k, kvec in enumerate(v_SqnG):
-                        if k == j:
-                            continue
-                        else:
-                            b = np.allclose(self.inner_product(jvec, kvec), 0)
-                            if not b:
-                                print(f"Inner product between {j}-{k}: {self.inner_product(jvec, kvec)}")
-                            assert b
 
 
-            new_deltapsi_qnG = self.apply_K(v_SqnG[niter], qvector)
+        eigvals_wS = []
+        eigvecs_wS = []
+        for omega in omegas:
+            print("OMEGA: ", omega)
+            Kv_SqnG = [] #S is a step-number index
+            v_SqnG = [start_qnG.copy()]
+            K_ij = np.array([[0]]) #Initial Krylov space is empty, so matrix is zero
+            K_ij = np.zeros((max_iter+1, max_iter+1))
+            check = True
+            for niter in range(max_iter):
+                print(f"Iteration number: {niter}")
+                t1 = time()
+                if check:
+                    for j, jvec in enumerate(v_SqnG):
+                        for k, kvec in enumerate(v_SqnG):
+                            if k == j:
+                                continue
+                            else:
+                                b = np.allclose(self.inner_product(jvec, kvec), 0)
+                                if not b:
+                                    print(f"Inner product between {j}-{k}: {self.inner_product(jvec, kvec)}")
+                                assert b
+
+
+                new_deltapsi_qnG = self.apply_K(v_SqnG[niter], qvector, omega)
 
 
 
 
-            Kv_SqnG.append(new_deltapsi_qnG.copy())
-            #Some code to orthonormalize            
+                Kv_SqnG.append(new_deltapsi_qnG.copy())
+                # Some code to orthonormalize            
 
-            # new_shape = tuple(np.array(K_ij.shape) + np.array((1,1)))
-            # new_K_ij = np.zeros(new_shape, dtype=np.complex128)
-            # new_K_ij[:-1, :-1] = K_ij
-            ##Update orthonormalization. Can apparently be done in less steps, see wikipedia
-            for Sindex, v_qnG in enumerate(v_SqnG):
-                innerprod = self.inner_product(v_qnG, new_deltapsi_qnG)
-                #new_K_ij[Sindex, niter] = innerprod
-                K_ij[Sindex, niter] = innerprod
-                new_deltapsi_qnG = {q : val - innerprod*v_qnG[q] for q, val in new_deltapsi_qnG.items()}
-
-
-            norm = np.sqrt(self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
-            #new_K_ij[niter+1, niter] = norm
-            K_ij[niter+1, niter] = norm
-
-            new_deltapsi_qnG = {q: val/norm for q, val in new_deltapsi_qnG.items()}
-            ##Then append the orthonormalized vector v_SqnG
-            v_SqnG.append(new_deltapsi_qnG.copy())
-
-            #Update K matrix
-            # for b, vec in enumerate(v_SqnG):
-            #     for c, vecc in enumerate(v_SqnG):
-            #         new_K_ij[b,c] = self.inner_product(vec, self.apply_K(vecc, qvector))
+                # new_shape = tuple(np.array(K_ij.shape) + np.array((1,1)))
+                # new_K_ij = np.zeros(new_shape, dtype=np.complex128)
+                # new_K_ij[:-1, :-1] = K_ij
+                # #Update orthonormalization. Can apparently be done in less steps, see wikipedia
+                for Sindex, v_qnG in enumerate(v_SqnG):
+                    innerprod = self.inner_product(v_qnG, new_deltapsi_qnG)
+                    # new_K_ij[Sindex, niter] = innerprod
+                    K_ij[Sindex, niter] = innerprod
+                    new_deltapsi_qnG = {q : val - innerprod*v_qnG[q] for q, val in new_deltapsi_qnG.items()}
 
 
-            # for i in range(new_shape[0]):
-            #     new_K_ij[-1, i] = self.inner_product(v_SqnG[-1], Kv_SqnG[i])
-            #     new_K_ij[i, -1] = self.inner_product(v_SqnG[i], Kv_SqnG[-1])
+                norm = np.sqrt(self.inner_product(new_deltapsi_qnG, new_deltapsi_qnG))
+                # new_K_ij[niter+1, niter] = norm
+                K_ij[niter+1, niter] = norm
 
-            #K_ij = new_K_ij            
+                new_deltapsi_qnG = {q: val/norm for q, val in new_deltapsi_qnG.items()}
+                # #Then append the orthonormalized vector v_SqnG
+                v_SqnG.append(new_deltapsi_qnG.copy())
 
+                # Update K matrix
+                # for b, vec in enumerate(v_SqnG):
+                #     for c, vecc in enumerate(v_SqnG):
+                #         new_K_ij[b,c] = self.inner_product(vec, self.apply_K(vecc, qvector))
+
+
+                # for i in range(new_shape[0]):
+                #     new_K_ij[-1, i] = self.inner_product(v_SqnG[-1], Kv_SqnG[i])
+                #     new_K_ij[i, -1] = self.inner_product(v_SqnG[i], Kv_SqnG[-1])
+
+                # K_ij = new_K_ij            
+
+                # eigvals, eigvecs = np.linalg.eig(K_ij)
+                # print(f"Eigvals: {np.sort(np.real(eigvals))}")
+                t2 = time()
+                print(f"Iteration took: {t2 - t1} seconds")
             eigvals, eigvecs = np.linalg.eig(K_ij)
-            print(f"Eigvals: {np.sort(np.real(eigvals))}")
-            t2 = time()
-            print(f"Iteration took: {t2 - t1} seconds")
-
-        self.deltapsi_qnG = deltapsi_qnG
         
-        eigs = list(zip(eigvals, eigvecs))
-        eigs = sorted(eigs)
-        eigvals, eigvecs = zip(*eigs)
+            eigs = list(zip(eigvals, eigvecs))
+            eigs = sorted(eigs)[-num_eigs:]
+            eigvals, eigvecs = zip(*eigs)
+            eigvals_wS.append(eigvals)
+            eigvecs_wS.append(eigvecs)
 
         def expand(vec):
             res_qnG = {}
@@ -458,17 +465,12 @@ class SternheimerResponse:
 
             return res_qnG
 
-        eigs_SqnG = np.array([expand(vec) for vec in eigvecs])
-        fdnt_SR = np.array([self.get_fine_delta_tilde_n(delta_qnG, return_real_space=True) for delta_qnG in eigs_SqnG])
-        # import matplotlib.pyplot as plt
-        # plt.plot(fdnt_R[:,0,0], label="x")
-        # plt.plot(fdnt_R[0,:,0], label="y")
-        # plt.plot(fdnt_R[0,0,:], label="z")
-        # plt.legend()
-        # plt.show()
-        
-        #print("Not converged")
-        return eigvals, fdnt_SR
+        eigs_wSqnG = np.array([[expand(vec) for vec in eigvecs_S] for eigvecs_S in eigvecs_wS])
+        fdnt_wSR = np.array([[self.get_fine_delta_tilde_n(delta_qnG, return_real_space=True) for delta_qnG in eigs_SqnG] for eigs_SqnG in eigs_wSqnG])
+
+        self.eigvals_wS = eigvals_wS
+        self.fdnt_wSR = fdnt_wSR
+        return eigvals_wS, fdnt_wSR
 
 
     def powercalculate(self, qvectors, num_eigs, omegas=[0]):
@@ -1592,6 +1594,10 @@ def tests(ro):
 
 
 if __name__=="__main__":
+    # 1: Atom
+    # 2: Cutoff
+    # 3: Setup
+    # 4: number of eigenvalues
     #filen = "test.gpw"
     import sys
     filen = sys.argv[1] + ".gpw"
@@ -1609,11 +1615,18 @@ if __name__=="__main__":
     from ase import Atoms
     from gpaw import PW, FermiDirac
     setup = sys.argv[3]
-    prefix = setup + "_" + str(int(cutoff)) + "_"
+    num_eigs = int(sys.argv[4])
+    prefix = setup + "_" + str(int(cutoff)) + "_" + str(num_eigs) + "_" + sys.argv[1] + "_"
     filen = prefix + filen
     if not os.path.isfile(filen):
     
-        atoms = Atoms(sys.argv[1], cell=(10, 10, 10), magmoms=[1])
+        if sys.argv[1] == "N2":
+            from ase.build import molecule
+            atoms = molecule("N2")
+            atoms.cell = (10, 10, 10)
+            atoms.center()
+        else:
+            atoms = Atoms(sys.argv[1], cell=(10, 10, 10), magmoms=[1])
 
         if setup != "paw":
             calc = GPAW(mode=PW(cutoff, force_complex_dtype=True),
@@ -1631,18 +1644,25 @@ if __name__=="__main__":
 
 
     
-    respObj = SternheimerResponse(filen)
+    respObj = SternheimerResponse(filen, runstuff=False)
     # eigval_S, eigmode_SR = respObj.eigval_S, respObj.fdnt_SR
     # savemode_SR = np.array([eigmode_R[:,0,0] for eigmode_R in eigmode_SR])
     # np.save(prefix + "grid", respObj.wfs.gd.get_grid_point_coordinates()[0, :, 0, 0])
     # np.save(prefix + "eigmodes_x", savemode_SR)
     # np.save(prefix + "eigvals", eigval_S)
-    omegas_w, eigvals_w, eigmodes_wR = respObj.omegas, respObj.eigvals_w, respObj.fdnt_wR
-    savemode_wR = np.array([eig_R[:,0,0] for eig_R in eigmodes_wR])
+    #omegas_w = np.arange(0, 10, 0.1) * 1j
+    omegas_w = list(np.arange(0, 1, 0.1) * 1j)
+    omegas_w = omegas_w + list(np.logspace(0, 1, 10) * 1j)
+    omegas_w = np.array(omegas_w)
+    # omegas_w = np.logspace(-10, 1, 20) * 1j
+
+    q = np.array([0,0,0])
+    eigvals_wS, fdnt_wSR = respObj.krylovcalculate(q, num_eigs, omegas_w)
+    savemode_wSR = np.array([[eig_R[:,0,0] for eig_R in eigmodes_SR] for eigmodes_SR in fdnt_wSR])
     np.save(prefix + "grid", respObj.wfs.gd.get_grid_point_coordinates()[0, :, 0, 0])
     np.save(prefix + "omegas", omegas_w)
-    np.save(prefix + "eigmodes_wx", savemode_wR)
-    np.save(prefix + "eigvals_w", eigvals_w)
+    np.save(prefix + "eigmodes_wSx", savemode_wSR)
+    np.save(prefix + "eigvals_wS", eigvals_wS)
     os.remove(filen)
 
 
