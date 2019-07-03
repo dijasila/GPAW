@@ -2,6 +2,7 @@
 build/
 /dist
 MANIFEST
+_gpaw*.so
 .DS_Store
 */.DS_Store
 
