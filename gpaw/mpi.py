@@ -856,8 +856,9 @@ def broadcast_bytes(b=None, root=0, comm=world):
 
 
 def send_string(string, rank, comm=world):
-    comm.send(np.array(len(string)), rank)
-    comm.send(np.fromstring(string, np.int8), rank)
+    b = string.encode()
+    comm.send(np.array(len(b)), rank)
+    comm.send(np.frombuffer(b, np.int8), rank)
 
 
 def receive_string(rank, comm=world):
@@ -865,7 +866,7 @@ def receive_string(rank, comm=world):
     comm.receive(n, rank)
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
-    return string.tostring().decode()
+    return string.tobytes().decode()
 
 
 def alltoallv_string(send_dict, comm=world):
