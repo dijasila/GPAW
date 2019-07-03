@@ -23,7 +23,7 @@
                          || !PyArray_ISCARRAY(a) || !PyArray_ISNUMBER(a)) { \
     PyErr_SetString(PyExc_TypeError,                                        \
                     "Not a proper NumPy array for MPI communication.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that array is well-behaved, read-only  and contains data that
 // can be sent.
@@ -32,7 +32,7 @@
                          || !PyArray_ISNUMBER(a)) {                         \
     PyErr_SetString(PyExc_TypeError,                                        \
                     "Not a proper NumPy array for MPI communication.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that two arrays have the same type, and the size of the
 // second is a given multiple of the size of the first
@@ -41,22 +41,22 @@
       || (PyArray_SIZE(b) != PyArray_SIZE(a) * n)) {                    \
     PyErr_SetString(PyExc_ValueError,                                   \
                     "Incompatible array types or sizes.");              \
-      return NULL; }
+      return NULL; } else
 
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that a processor number is valid or is -1
 #define CHK_PROC_DEF(n) if (n < -1 || n >= self->size) {\
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that a processor number is valid and is not this processor
 #define CHK_OTHER_PROC(n) if (n < 0 || n >= self->size || n == self->rank) { \
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
-    return NULL; }
+    return NULL; } else
 
 // MPI request object, so we can store a reference to the buffer,
 // preventing its early deallocation.
@@ -868,7 +868,11 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   int root;
   if (!PyArg_ParseTuple(args, "Oi:broadcast", &buf, &root))
     return NULL;
-  CHK_ARRAY(buf);
+  if (root == self->rank)
+      CHK_ARRAY_RO(buf);
+  else
+      CHK_ARRAY(buf);
+
   CHK_PROC(root);
   int n = PyArray_DESCR(buf)->elsize;
   for (int d = 0; d < PyArray_NDIM(buf); d++)
