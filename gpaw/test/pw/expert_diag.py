@@ -30,14 +30,12 @@ for i, expert in enumerate([True, False]):
 
 ref_revision = 133324
 # Test against values from reference revision
-epsn_n = np.array([-0.21085849, 0.05657015, 0.17660243, 0.17666839,
-                   0.26447421])
-wfsold_G = np.array([3.85175274 + 3.21007601e-14j,
-                     27.98532488 + 1.29272207e-14j,
-                     -1.95106508 + 5.82750026e-15j,
-                     -0.07363332 - 1.81147014e-15j,
-                     -0.32384668 + 2.21494790e-15j])
-
+epsn_n = np.array([-0.21071688, 0.05652139,
+                   0.17630221, 0.17630234,
+                   0.26460894])
+wfsold_G = np.array([7.51949548, 54.64611462,
+                     -3.81324175, -0.14783339,
+                     -0.64661614])
 
 kpt_u = wfs_e[0].kpt_u
 for kpt in kpt_u:

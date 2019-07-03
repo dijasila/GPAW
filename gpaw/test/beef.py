@@ -11,7 +11,7 @@ newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
 gen('Si', xcname='PBEsol')
 
-results = {'mBEEF': (5.450319626557848, 0.056),
+results = {'mBEEF': (5.449, 0.056),
            'BEEF-vdW': (5.483, 0.071),
            'mBEEF-vdW': (5.426, 0.025)}
 
