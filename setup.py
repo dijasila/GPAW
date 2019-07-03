@@ -35,9 +35,6 @@ if '--remove-default-flags' in sys.argv:
     remove_default_flags = True
     sys.argv.remove('--remove-default-flags')
 
-config = Path(os.environ.get('GPAW_CONFIG_FILE',
-                             Path.home() / '.gpaw/config.py'))
-
 for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
@@ -89,9 +86,20 @@ try:
 except ImportError:
     print('ASE not found. GPAW git hash not written.')
 
-if config.is_file():
-    # User provided customizations:
-    exec(config.read_text())
+# User provided customizations:
+if 'GPAW_CONFIG' in os.environ:
+    config = os.environ['GPAW_CONFIG']
+    if Path(config).is_file():
+        config = config.read_text()
+else:
+    config = Path.home() / '.gpaw/config.py'
+    if config.is_file():
+        config = config.read_text()
+    else:
+        config = None
+
+if config:
+    exec(config)
 else:
     libraries += ['blas', 'lapack']
 
