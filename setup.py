@@ -12,8 +12,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
-
 from config import check_dependencies, write_configuration, build_interpreter
 
 
@@ -44,7 +42,7 @@ for i, arg in enumerate(sys.argv):
 
 libraries = ['xc']
 library_dirs = []
-include_dirs = [np.get_include()]
+include_dirs = []
 extra_link_args = []
 extra_compile_args = ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 runtime_library_dirs = []
@@ -174,7 +172,11 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 class build_ext(_build_ext):
     def run(self):
+        import numpy as np
+        self.include_dirs.append(np.get_include())
+
         _build_ext.run(self)
+
         if parallel_python_interpreter:
             # Also build gpaw-python:
             error = build_interpreter(
@@ -209,7 +211,8 @@ setup(name='gpaw',
       platforms=['unix'],
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
-      install_requires=['ase>=3.17.0'],
+      setup_requires=['numpy'],
+      install_requires=['ase>=3.18.0'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'build_ext': build_ext},
