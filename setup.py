@@ -183,7 +183,7 @@ class build_ext(_build_ext):
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-upfplot']
-scripts = [Path('tools') / script for script in files]
+scripts = [str(Path('tools') / script) for script in files]
 
 if parallel_python_interpreter:
     major, minor = sys.version_info[:2]
