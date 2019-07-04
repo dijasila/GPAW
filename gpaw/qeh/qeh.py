@@ -16,8 +16,8 @@ import os
 Hartree = ase.units.Hartree
 Bohr = ase.units.Bohr
 
-default_ehmasses = {'BPx': {'emass1': 0.17, 'hmass1': 0.15},
-                    'BPy': {'emass1': 1.12, 'hmass1': 6.35},
+default_ehmasses = {'BPx': {'emass1': [0.17, 1.12], 'hmass1': [0.15, 6.35]},
+                    'BPy': {'emass1': [0.17, 1.12], 'hmass1': [0.15, 6.35]},
                     'H-CrO2-NM': {'emass1': 0.875, 'hmass1': 1.442},
                     'H-CrS2-NM': {'emass1': 0.872, 'hmass1': 0.883},
                     'H-CrSe2-NM': {'emass1': 0.936, 'hmass1': 0.955},
@@ -117,7 +117,8 @@ default_thicknesses = {'H-MoS2-icsd-644245': 6.1511,
                        'MoSSe': 6.32,
                        'MoSSePrime': 6.32,
                        'graphene': 3.35,  # Wiki
-                       'BN': 3.33}  # ioffe.ru/SVA/NSM/Semicond/BN/basic.html}
+                       'BN': 3.33, # ioffe.ru/SVA/NSM/Semicond/BN/basic.html
+                       'GaSe': 9.3} 
 
 
 def load(fd):
@@ -2076,7 +2077,8 @@ def make_heterostructure(layers,
                 subargs = modifier.split(',')
                 kwargs = {'doping': 0,
                           'temperature': 0,
-                          'eta': 1e-4}
+                          'eta': 1e-4,
+                          'direction': 'x'}
 
                 # Try to find emass in default values
                 for key, val in default_ehmasses.items():
@@ -2090,6 +2092,12 @@ def make_heterostructure(layers,
                         key = 'temperature'
                     elif key == 'em':
                         key = 'effectivemass'
+                    elif key == 'direction':
+                        try:
+                            kwargs[key] = float(value)
+                        except ValueError:
+                            kwargs[key] = value
+                        continue
                     kwargs[key] = float(value)
 
                 mod = ['{}={}'.format(str(key), str(val))
@@ -2106,6 +2114,7 @@ def make_heterostructure(layers,
                 else:
                     bb = dopedsemiconductor(bb, **kwargs)
 
+
             if 'phonons' in modifier:
                 phonons = Path(origin[:-4] + '-phonons.npz')
 
@@ -2120,6 +2129,7 @@ def make_heterostructure(layers,
                                                      dct['cell'])
                 bb = phonon_polarizability(bb, Z_avv, freqs, modes,
                                            masses, cell)
+                
 
         # Save modified building block
         newlayer = '{}+{}'.format(origin, '+'.join(modifiers))

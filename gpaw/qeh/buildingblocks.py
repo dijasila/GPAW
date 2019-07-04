@@ -18,7 +18,7 @@ def phononbuildingblock(atoms, Z_avv, freqs, modes):
     return phbb
 
 
-def dopedsemiconductor(block, effectivemass, doping, temperature, eta):
+def dopedsemiconductor(block, effectivemass, doping, temperature, eta, direction='x'):
     # Chi0 for zero temperature
     def chi0T0(q_qwm, w_qwm, me, mup_qwm):
         kf = np.sqrt(2 * me * mup_qwm)
@@ -65,11 +65,27 @@ def dopedsemiconductor(block, effectivemass, doping, temperature, eta):
         return np.trapz(arg(q_qwm, w_qwm, me, T, mu, mup_qwm), mup_qwm, axis=2)
 
     # Polarizability in the relaxation time approximation
-    def Pgamma(q_q, w_w, me=None, efermi=None, T=0.0,
+    def Pgamma(qgrid_q, w_w, direction, me=None, efermi=None, T=0.0,
                mupmax=None, N=1000, gamma=1e-4):
         assert efermi is not None, print('You have to set a fermi energy!')
         assert me is not None, \
             print('You have to set an effective electron mass!')
+
+        if len(me) > 1: # Anisotropic 
+            if direction == 'x':
+                theta = 0
+            elif direction == 'y':
+                theta = 90
+            else:
+                theta = direction
+
+            theta_minmax = [0, 90]
+            m = [(me[1] / me[0])**(1 / 4), (me[0] / me[1])**(1 / 4)]
+            mnew = np.interp(theta, theta_minmax, m)
+            q_q = mnew * qgrid_q
+            me = np.sqrt(me[0] * me[1])
+        else:
+            q_q = qgrid_q
 
         gamma = gamma / Hartree
         efermi = efermi / Hartree
@@ -94,17 +110,18 @@ def dopedsemiconductor(block, effectivemass, doping, temperature, eta):
 
     # Reading old file
     chiM_qw = block['chiM_qw']
-    q_q = block['q_abs']
+    qgrid_q = block['q_abs']
     omega_w = block['omega_w']
 
-    V_q = 2 * np.pi / q_q
-    chi0Mnew_qw = Pgamma(q_q, omega_w, me=effectivemass,
-                         efermi=doping, T=temperature, gamma=eta)
+    V_q = 2 * np.pi / qgrid_q
+    chi0Mnew_qw = Pgamma(qgrid_q, omega_w, me=effectivemass,
+                         efermi=doping, T=temperature, 
+                         gamma=eta, direction=direction)
     chi0Mnew_qw += chiM_qw / (1 + V_q[:, None] * chiM_qw)
     dopedchiM_qw = chi0Mnew_qw / (1 - chi0Mnew_qw * V_q[:, None])
 
     data = {'isotropic_q': True,
-            'q_abs': q_q,
+            'q_abs': qgrid_q,
             'omega_w': omega_w,
             'chiM_qw': dopedchiM_qw,
             'chiD_qw': block['chiD_qw'],
