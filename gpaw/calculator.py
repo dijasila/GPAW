@@ -593,12 +593,13 @@ class GPAW(PAW, Calculator):
             if par.h is not None:
                 raise ValueError("""You can't use both "gpts" and "h"!""")
             N_c = np.array(par.gpts)
+            h = None
         else:
             h = par.h
             if h is not None:
                 h /= Bohr
             N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            self.symmetry)
+                                            self.symmetry, self.log)
 
         self.setups.set_symmetry(self.symmetry)
 
@@ -690,7 +691,7 @@ class GPAW(PAW, Calculator):
             self.hamiltonian = None
 
         if self.density is None:
-            self.create_density(realspace, mode, background)
+            self.create_density(realspace, mode, background, h)
 
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
@@ -876,7 +877,7 @@ class GPAW(PAW, Calculator):
 
         self.log('Eigensolver\n  ', self.wfs.eigensolver, '\n')
 
-    def create_density(self, realspace, mode, background):
+    def create_density(self, realspace, mode, background, h):
         gd = self.wfs.gd
 
         big_gd = gd.new_descriptor(comm=self.world)
@@ -911,7 +912,12 @@ class GPAW(PAW, Calculator):
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
         else:
-            self.density = pw.ReciprocalSpaceDensity(**kwargs)
+            if h is None:
+                ecut = 2 * self.wfs.pd.ecut
+            else:
+                ecut = 0.5 * (np.pi / h)**2
+            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
+                                                     **kwargs)
 
         self.log(self.density, '\n')
 

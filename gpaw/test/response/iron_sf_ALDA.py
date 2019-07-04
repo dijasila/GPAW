@@ -86,15 +86,15 @@ mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_mw1 = 246.3  # meV
-test_mw2 = 247.3  # meV
-test_Ipeak1 = 71  # a.u.
+test_mw1 = 242  # meV
+test_mw2 = 244  # meV
+test_Ipeak1 = 66  # a.u.
 test_Ipeak2 = 69  # a.u.
 
 # Magnon peak:
-equal(mw1, test_mw1, eta * 100)
-equal(mw2, test_mw2, eta * 100)
+equal(mw1, test_mw1, eta * 200)
+equal(mw2, test_mw2, eta * 200)
 
 # Scattering function intensity:
-equal(Ipeak1, test_Ipeak1, 1.5)
-equal(Ipeak2, test_Ipeak2, 1.5)
+equal(Ipeak1, test_Ipeak1, 3.5)
+equal(Ipeak2, test_Ipeak2, 3.5)

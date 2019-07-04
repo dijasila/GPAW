@@ -150,11 +150,6 @@ class GridDescriptor(Domain):
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
 
-        # Sanity check for grid spacings:
-        h_c = self.get_grid_spacings()
-        if max(h_c) / min(h_c) > 1.3:
-            raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
-
     def __repr__(self):
         if self.orthogonal:
             cellstring = np.diag(self.cell_cv).tolist()
