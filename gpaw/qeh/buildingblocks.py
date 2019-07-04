@@ -240,6 +240,30 @@ def GrapheneBB(block, doping, eta):
     return data
 
 
+def get_phonon_pol(omega_w, Z_avv, freqs, modes, m_a, cell_cv, eta=0.1e-3):
+    # Get phonons at q=0
+    Z_vx = Z_avv.swapaxes(0, 1).reshape((3, -1))
+    f2_w, D_xw = freqs**2, modes
+
+    alpha_wvv = np.zeros((len(omega_w), 3, 3), dtype=complex)
+    m_x = np.repeat(m_a, 3)**0.5
+    eta = eta / Hartree
+    for f2, D_x in zip(f2_w, D_xw.T):
+        if f2 < (1e-3 / Hartree)**2:
+            continue
+        DM_x = D_x / m_x
+        Z_v = np.dot(Z_vx, DM_x)
+
+        alpha_wvv += (np.outer(Z_v, Z_v)[np.newaxis] /
+                      ((f2 - omega_w**2) -
+                       1j * eta * omega_w)[:, np.newaxis, np.newaxis])
+
+    vol = abs(np.linalg.det(cell_cv))
+    alpha_wvv *= 1 / vol
+
+    return alpha_wvv
+
+
 def phonon_polarizability(bb, Z_avv, freqs, modes, m_a, cell_cv):
     Hartree = units.Hartree
 
