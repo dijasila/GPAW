@@ -62,4 +62,4 @@ while len(data_s):
         for dat1, dat2 in zip(data1, data2):
             if dat1 is not None:
                 equal(np.abs(dat1 - dat2).max(),
-                      0, 0.0003, msg=msg)
+                      0, 0.0005, msg=msg)
