@@ -435,7 +435,7 @@ class PAWSetupGenerator:
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         if dv0:
             x = self.rgd.r_g[:g0] / r0
-            dv_g = dv0 * (1 - 3 * x**2 + 2 * x**3)
+            dv_g = dv0 * (1 - 2 * x**2 + x**4)
             self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
