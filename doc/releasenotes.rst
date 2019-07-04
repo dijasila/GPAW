@@ -12,6 +12,11 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.17.1b1
 
+* The ``"You have a weird unit cell"`` and
+  ``"Real space grid not compatible with symmetry operation"``
+  errors are now gone.  GPAW now handles these cases by
+  choosing the number of real-space grid-points in a more clever way.
+
 * The angular part of the PAW correction to the ALDA kernel is now calculated
   analytically by expanding the correction in spherical harmonics.
 
