@@ -387,6 +387,14 @@ class PAWSetupGenerator:
             self.alpha = fsolve(f, 7.0)[0]
 
             self.alpha = round(self.alpha, 1)
+        elif alpha < 0:
+            rc = min(rc)
+            self.log('Shape function: (sin(pi*r/rc)/r)^2, rc={rc:.2f} Bohr'
+                     .format(rc=rc))
+            self.ghat_g = np.sinc(self.rgd.r_g / rc)**2 * (pi / 2 / rc**3)
+            self.ghat_g[self.rgd.ceil(rc):] = 0.0
+            self.alpha = -rc
+            return
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
@@ -1070,8 +1078,12 @@ class PAWSetupGenerator:
         setup.e_electrostatic = aea.eH + aea.eZ
         setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
         setup.rgd = self.rgd
-        setup.shape_function = {'type': 'gauss',
-                                'rc': 1 / sqrt(self.alpha)}
+        if self.alpha > 0:
+            setup.shape_function = {'type': 'gauss',
+                                    'rc': 1 / sqrt(self.alpha)}
+        else:
+            setup.shape_function = {'type': 'sinc',
+                                    'rc': -self.alpha}
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
