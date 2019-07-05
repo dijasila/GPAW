@@ -100,7 +100,7 @@ equal(fxc_scaling[1], test_fxcs, 2e-3)
 
 # Magnon peak:
 equal(mw1, test_mw1, 0.01)
-equal(mw2, test_mw2, eta * 200)
+equal(mw2, test_mw2, eta * 300)
 
 # Scattering function intensity:
 equal(Ipeak1, test_Ipeak1, 5)
