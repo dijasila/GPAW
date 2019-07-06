@@ -848,7 +848,7 @@ def broadcast_bytes(b=None, root=0, comm=world):
 def send_string(string, rank, comm=world):
     b = string.encode()
     comm.send(np.array(len(b)), rank)
-    comm.send(np.frombuffer(b, np.int8), rank)
+    comm.send(np.frombuffer(b, np.int8).copy(), rank)
 
 
 def receive_string(rank, comm=world):
