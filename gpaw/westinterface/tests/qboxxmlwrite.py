@@ -57,7 +57,7 @@ for n1 in [18]: #range(60, 65):
             #v.append(fun(float(x),float(y),float(z)))
             #v.append(i*18*18 + j * 18 + k)
             #v.append(0.05*(i-18)**2)
-            v.append((i-18)*0.1)
+            v.append((i-9)*0.1)
       #print x,y,z,f float(x),float(y),float(z))
       with open(fname, "w+") as f:
         print('<?xml version="1.0" encoding="UTF-8"?>', file=f)

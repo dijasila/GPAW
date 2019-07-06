@@ -23,7 +23,13 @@ class GPAWServer:
     Class that handles the calculation-loop with the WEST code and the GPAW calculation itself
 
     '''
-    def __init__(self, input_file, output_file, atoms, calc, should_log=True, log_folder="GPAWServerLogsFolder"):
+    def __init__(self, input_file, output_file, calc_file, should_log=True, log_folder="GPAWServerLogsFolder", atoms=None, calc=None, lock_disabled=False):
+        from gpaw import GPAW
+        if calc_file is not None:
+            print("READING GPW FILE: '{}'".format(calc_file))
+            calc = GPAW(calc_file, txt=None)
+            atoms = calc.atoms
+            atoms.set_calculator(calc)
         from gpaw.westinterface import XMLReaderWriter
         self.xmlrw = XMLReaderWriter()
         self.input_file = input_file
@@ -35,10 +41,13 @@ class GPAWServer:
         self.log_folder = log_folder
         self.loopcount = 0
         self.sleep_period = 3
+        self.lock_disabled = lock_disabled
 
     def main_loop(self, maxruns=-1, maxloops=-1):
         # Init stuff in Calc
-        self.atoms.get_potential_energy()
+        success = self.get_potential_energy()
+        if not success:
+            return
         self.calc.set(convergence={"density":1e-8})
         self.init_logging()
         self.count = 0
@@ -55,28 +64,36 @@ class GPAWServer:
                 time.sleep(self.sleep_period)
                 continue
 
-
             self.count += 1
             if maxruns >= 0 and self.count > maxruns:
                 break
+
+            mpi.world.barrier()
 
             data = self.xmlrw.read(self.input_file)
             
             
             # +V calculation
-            if self.should_log:
+            if self.should_log and mpi.rank == 0:
                 self.calc.set(txt=self.log_folder + "/" + "gpaw_plusV_{}.txt".format(self.count))
             self.init_hamiltonian(data.array, data.domain)
-            self.atoms.get_potential_energy()
+            
+            success = self.get_potential_energy()
+            if not success:
+                break
 
             domain = self.atoms.get_cell()
             densityp = self.calc.get_pseudo_density()
 
             # -V calculation
-            if self.should_log:
+            if self.should_log and mpi.rank == 0:
                 self.calc.set(txt=self.log_folder + "/" + "gpaw_minusV_{}.txt".format(self.count))
             self.init_hamiltonian(data.array, data.domain)
-            self.atoms.get_potential_energy()
+
+            success = self.get_potential_energy()
+            if not success:
+                break
+
             densitym = self.calc.get_pseudo_density()
 
             density = (densityp - densitym) / 2.0
@@ -87,8 +104,16 @@ class GPAWServer:
             
             self.log("GPAW Server run {} complete".format(self.count))
 
+            self.write_lock()
+
+            # Barrier to ensure some ranks dont start next loop
+            mpi.world.barrier()
+
     def init_logging(self):
         import os
+        if mpi.rank != 0:
+            return
+
         if not self.should_log:
             self.calc.set(txt=None)
             return
@@ -102,12 +127,28 @@ class GPAWServer:
         self.calc.parameters.external = external
         self.calc.initialize()
 
+    def get_potential_energy(self):
+        # Apply retry logic to GPAW calculation
+        try:
+            self.atoms.get_potential_energy()
+            return True
+        except Exception as e:
+            if mpi.rank == 0:
+                fname = self.output_file.split(".")[0] + ".FAILED"
+                with open(fname, "w+") as f:
+                    f.write(str(e))
+            return False
+            
+
     def should_kill(self):
         from pathlib import Path
-        fname = self.input_file.split(".")[0] + ".kill"
+        fname = self.input_file.split(".")[0] + ".KILL"
         p = Path(fname)
         shouldkill = p.exists()
-        return shouldkill
+        fname2 = self.input_file.split(".")[0] + ".DONE"
+        p2 = Path(fname2)
+        isdone = p2.exists()
+        return shouldkill or isdone
 
     def is_locked(self):
         from pathlib import Path
@@ -117,10 +158,25 @@ class GPAWServer:
     def log(self, msg):
         if not self.should_log:
             return
-        if not mpi.rank == 0:
+        if mpi.rank != 0:
             return
 
         from pathlib import Path
         fname = "GPAWServerLog.txt"
         with open(fname, "a") as f:
             f.write(msg + "\n")
+
+    def write_lock(self):
+        if self.lock_disabled or mpi.rank != 0:
+            return
+        fname = self.input_file.split(".")[0] + ".lock"
+        with open(fname, "w+") as f:
+            f.write("Locked")
+        
+
+
+if __name__ == "__main__":
+    import sys
+    infile, outfile, calcfile = sys.argv[1:4]
+    server = GPAWServer(infile, outfile, calcfile)
+    server.main_loop()

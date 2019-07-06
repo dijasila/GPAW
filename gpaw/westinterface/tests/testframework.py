@@ -10,7 +10,7 @@ def colored(msg, color):
         raise ValueError("Color option not recognized")
     return pre + msg + end
 
-def test_method(f):
+def test_method(f, completions):
     @wraps(f)
     def wrapped(*args, **kwargs):
         msg = f"Running {f.__name__}".ljust(50) + "..."
@@ -18,9 +18,13 @@ def test_method(f):
         try:
             res = f(*args, **kwargs)
             print(colored("success", "ok"))
+            for compl in completions:
+                compl()
             return res
         except Exception as e:
             print(colored("failure", "fail"))
+            for compl in completions:
+                compl()
             raise e
     return wrapped
 
@@ -29,8 +33,12 @@ def test_method(f):
 class BaseTester:
     def __init__(self):
         pass
-    def run_tests(self):
+    def run_tests(self, number=None):
+        cleanups = [m for m in dir(self) if callable(getattr(self, m)) and m.startswith("cleanup_")]
         my_test_methods = [m for m in dir(self) if callable(getattr(self, m)) and m.startswith("test_")]
+        if number is not None:
+            my_test_methods = [m for m in my_test_methods if str(number) in m]
+        completions = [getattr(self, m) for m in cleanups]
         for mname in my_test_methods:
             m = getattr(self, mname)
-            test_method(m)()
+            test_method(m, completions)()

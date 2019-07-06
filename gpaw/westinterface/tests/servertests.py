@@ -3,12 +3,27 @@ from testframework import BaseTester
 from ase import Atoms
 from gpaw import GPAW, PW
 import numpy as np
+
 class DummyAtoms:
     def __init__(self):
         self.has_run = False
         pass
 
     def get_potential_energy(self):
+        self.has_run = True
+        return 0
+
+    def get_cell(self):
+        return np.zeros((3,3))
+
+class DummyFailAtoms:
+    def __init__(self):
+        self.has_run = False
+        pass
+
+    def get_potential_energy(self):
+        if self.has_run:
+            raise ValueError("FAILED")
         self.has_run = True
         return 0
 
@@ -44,7 +59,10 @@ class DummyCalc:
 atoms = Atoms("H2", positions=[[0, 0, 0], [0, 0, 0.7]], cell=(4,4,4))
 calc = GPAW(mode=PW(100), txt="testout.txt")
 atoms.set_calculator(calc)
-server = GPAWServer("servertest.xml", "serverout", atoms, calc)
+atoms.get_potential_energy()
+calcfilename = "servercalc.gpw"
+calc.write(calcfilename, mode="all")
+server = GPAWServer("servertest.xml", "serverout", calcfilename, lock_disabled=True)
 
 class Tester(BaseTester):
     def __init__(self):
@@ -55,7 +73,7 @@ class Tester(BaseTester):
         server.main_loop(maxruns=maxruns)
         
     def test_02_readsfromfile(self):
-        lserver = GPAWServer("servertest.xml", "tmpserverout", atoms, calc)
+        lserver = GPAWServer("servertest.xml", "tmpserverout", calcfilename, lock_disabled=True)
         maxruns = 1
         lserver.main_loop(maxruns=maxruns)
         try:
@@ -68,7 +86,7 @@ class Tester(BaseTester):
     def test_03_dummycalculation(self):
         latoms = DummyAtoms()
         lcalc = DummyCalc()
-        lserver = GPAWServer("servertest.xml", "tmpserverout", latoms, lcalc)
+        lserver = GPAWServer("servertest.xml", "tmpserverout", None, atoms=latoms, calc=lcalc, lock_disabled=True)
         lserver.main_loop(maxruns=1)
         assert latoms.has_run
 
@@ -78,7 +96,7 @@ class Tester(BaseTester):
 
     def test_05_externalpotvalues(self):
         import numpy as np
-        lserver = GPAWServer("servervaluetest.xml", "tmpserverout", atoms, calc)
+        lserver = GPAWServer("servervaluetest.xml", "tmpserverout", calcfilename, lock_disabled=True)
         data = lserver.xmlrw.read("servervaluetest.xml")
         lserver.init_hamiltonian(data.array, data.domain)
         lserver.atoms.get_potential_energy()
@@ -95,7 +113,7 @@ class Tester(BaseTester):
         assert os.path.exists(filename)
 
     def test_07_outdenszeroforpotzero(self):
-        lserver = GPAWServer("zerovalserver.xml", "zero", atoms, calc)
+        lserver = GPAWServer("zerovalserver.xml", "zero", calcfilename, lock_disabled=True)
         data = lserver.xmlrw.read("zerovalserver.xml")
         assert np.allclose(data.array, 0)
         lserver.main_loop(maxruns=1)
@@ -104,12 +122,18 @@ class Tester(BaseTester):
 
     def test_08_iskillable(self):
         fname = server.input_file.split(".")[0]
-        with open(fname + ".kill", "w+") as f:
+        with open(fname + ".KILL", "w+") as f:
             f.write("Kill")
         server.main_loop(maxruns=2)
         assert server.count == 0
         import os
-        os.remove(fname + ".kill")
+        os.remove(fname + ".KILL")
+
+        with open(fname + ".DONE", "w+") as f:
+            f.write("DONE")
+        server.main_loop(maxruns=2)
+        assert server.count == 0
+        os.remove(fname + ".DONE")
 
     def test_09_centrallog(self):
         import os
@@ -126,7 +150,7 @@ class Tester(BaseTester):
 
     def test_10_gpawlogs(self):
         logfolder = "Testlogfolder"
-        lserver = GPAWServer("servertest.xml", "tmpout.xml", atoms, calc, log_folder=logfolder)
+        lserver = GPAWServer("servertest.xml", "tmpout.xml", calcfilename, log_folder=logfolder, lock_disabled=True)
         import os
         if os.path.exists(logfolder):
             for p in os.listdir(logfolder):
@@ -142,7 +166,7 @@ class Tester(BaseTester):
         
     def test_11_disablelogging(self):
         logfolder = "NewTestlogfolder"
-        lserver = GPAWServer("servertest.xml", "tmpout.xml", atoms, calc, should_log=False, log_folder=logfolder)
+        lserver = GPAWServer("servertest.xml", "tmpout.xml", calcfilename, should_log=False, log_folder=logfolder, lock_disabled=True)
         import os
         if os.path.exists(logfolder):
             for p in os.listdir(logfolder):
@@ -157,7 +181,7 @@ class Tester(BaseTester):
 
     def test_12_canpause(self):
         import os
-        lserver = GPAWServer("servertest.xml", "tmpout.xml", atoms, calc, should_log=False)
+        lserver = GPAWServer("servertest.xml", "tmpout.xml", calcfilename, should_log=False, lock_disabled=True)
         lockfile = lserver.input_file.split(".")[0] + ".lock"
         if not os.path.exists(lockfile):
             with open(lockfile, "w+") as f:
@@ -168,7 +192,7 @@ class Tester(BaseTester):
         os.remove(lockfile)
 
     def test_13_densityhassym(self):
-        lserver = GPAWServer("serversymtest.xml", "tmpout.xml", atoms, calc, should_log=False)
+        lserver = GPAWServer("serversymtest.xml", "tmpout.xml", calcfilename, should_log=False, lock_disabled=True)
         lserver.main_loop(maxruns=1)
         data = lserver.xmlrw.read("tmpout.xml")
 
@@ -180,19 +204,44 @@ class Tester(BaseTester):
             assert np.allclose(array[i, :, :], array[-i, :, :])
         
     def test_14_densitysym2(self):
-        lserver = GPAWServer("serversymtest2.xml", "tmpout.xml", atoms, calc, should_log=False)
+        lserver = GPAWServer("serversymtest2.xml", "tmpout2.xml", calcfilename, should_log=False, lock_disabled=True)
         lserver.main_loop(maxruns=1)
-        data = lserver.xmlrw.read("tmpout.xml")
+        data = lserver.xmlrw.read("tmpout2.xml")
         array = data.array
         nx, ny, nz = array.shape
 
         for i in  range(nx//2):
-            assert np.allclose(array[i, :, :], -array[-i, :, :])
+            assert np.allclose(array[i, :, :], -array[-i, :, :], atol=1e-5, rtol=1e-2)
 
-# TODO Calculations with non-zero potentials; check output
+    def test_15_retrylogic(self):
+        latoms = DummyFailAtoms()
+        lserver = GPAWServer("servertest.xml", "tmpout.xml", None, atoms=latoms, calc=calc, should_log=False, lock_disabled=True)
+        lserver.main_loop(maxruns=1)
+        import os
+        failname = "tmpout.FAILED"
+        assert os.path.exists(failname)
+        os.remove(failname)
 
+    def test_16_writeslock(self):
+        lserver = GPAWServer("servertest.xml", "tmpout.xml", "servercalc.gpw")
+        lserver.main_loop(maxruns=1, maxloops=1)
+        import os
+        lock_file = lserver.input_file.split(".")[0] + ".lock"
+        assert os.path.exists(lock_file)
+
+    def cleanup_lockfile(self):
+        import os
+        locks = [fname for fname in os.listdir() if fname.endswith(".lock")]
+        for lock in locks:
+            os.remove(lock)
+        
 # TODO? Parallel test?
 
 if __name__ == "__main__":
+    import sys
     tester = Tester()
-    tester.run_tests()
+    if len(sys.argv) > 1:
+        number = int(sys.argv[1])
+        tester.run_tests(number=number)
+    else:
+        tester.run_tests()
