@@ -298,10 +298,10 @@ class LBFGS(SteepestDescent):
             dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
                                           s_k[kp[k]],
                                           wfs)
-            if abs(dot_ys) > 0.0:
+            if abs(dot_ys) > 1.0e-20:
                 rho_k[kp[k]] = 1.0 / dot_ys
             else:
-                rho_k[kp[k]] = 1.0e12
+                rho_k[kp[k]] = 1.0e20
 
             # try:
             #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
@@ -336,10 +336,13 @@ class LBFGS(SteepestDescent):
             t = k
             dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
                                           y_k[kp[t]], wfs)
-            if abs(dot_yy) < 1.0e-10:
-                r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+
+            rhoyy = rho_k[kp[t]] * dot_yy
+
+            if abs(rhoyy) > 1.0e-20:
+                r = self.multiply(q, 1.0 / (rhoyy))
             else:
-                r = self.multiply(q, 1.0)
+                r = self.multiply(q, 1.0 * 1.0e20)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
                 dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
