@@ -54,6 +54,31 @@ therefore, conventional unconstrained minimisation algorithms
 can be applied to minimise energy
 with respect to `A`.
 
+Example
+~~~~~~~~
+First of all, it is necessary to ensure that the number of bands used
+in calculations is equal to the number of atomic orbitals.
+Secondly, one need to use 'dummy' mixer which does not mix.
+Here is example of how to run calculations:
+
+.. literalinclude:: directmin_ch4.py
+
+Not only can direct minimisation be applied to Kohn-Sham functionals
+but also to :ref:`self-interaction corrected functionals <sic>`.
+
+Performance. G2 molecular set
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The number of energy and gradient evaluations in direct minimisation
+and the number of iterations in the scf algorithm employing default density-mixing are shown below.
+Figure (a) shows several examples of molecules.
+Figure (b) shows the results of the direct minimisation for molecules for which scf
+with default density-mixing fails to converge.
+
+|scf_vs_dm|
+
+.. |scf_vs_dm| image:: scf_vs_dm.png
+
 Implementation
 ~~~~~~~~~~~~~~~
 
@@ -115,33 +140,6 @@ calculate matrix exponential:
      \end{pmatrix},
 
    where :math:`P = A_{ov}A_{ov}^{\dagger}`.
-
-Example
-~~~~~~~~
-First of all, it is necessary to ensure that the number of bands used in calculations is equal to the number of atomic orbitals.
-Secondly, as the inexact line search method is used
-in order to find an optimal step length during the minimisation,
-it is important to reduce error in the energy due to inaccuracies in the Poisson solver.
-
-Here is example:
-
-.. literalinclude:: directmin_ch4.py
-
-Not only can direct minimisation be applied to Kohn-Sham functionals
-but also to :ref:`self-interaction corrected functionals <sic>`.
-
-Performance. G2 molecular set
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The number of energy and gradient evaluations in direct minimisation
-and the number of iterations in the scf algorithm employing default density-mixing are shown below.
-Figure (a) shows several examples of molecules.
-Figure (b) shows the results of the direct minimisation for molecules for which scf
-with default density-mixing fails to converge.
-
-|scf_vs_dm|
-
-.. |scf_vs_dm| image:: scf_vs_dm.png
 
 References
 ----------
