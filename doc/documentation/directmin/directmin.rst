@@ -11,8 +11,9 @@ diagonalisation of the Kohn-Sham hamiltonian.
 LCAO mode.
 ----------
 
-Exponential Transformation.
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Minimisation via Exponential Transformation. [#Douady]_ [#Rico]_ [#Gordon]_ [#Hutter]_ [#Voorhis]_
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the localized basis set approach,
 the orbitals are expanded onto a finite basis set:
@@ -61,26 +62,74 @@ in calculations is equal to the number of atomic orbitals.
 Secondly, one need to use 'dummy' mixer which does not mix.
 Here is example of how to run calculations:
 
-.. literalinclude:: directmin_ch4.py
+.. literalinclude:: h2o.py
 
 Not only can direct minimisation be applied to Kohn-Sham functionals
 but also to :ref:`self-interaction corrected functionals <sic>`.
 
-Performance. G2 molecular set
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**Important:** Exponential matrix here is calculated here using
+scipy function *expm*. In order to obtain a good performance,
+please be sure that your scipy library uses Math Kernel Library (MKL).
+Otherwise see `Implementation Details`_.
+
+.. _Performance:
+
+Performance.
+~~~~~~~~~~~~~
+
+G2 molecular set
+`````````````````
 
 The number of energy and gradient evaluations in direct minimisation
-and the number of iterations in the scf algorithm employing default density-mixing are shown below.
+and the number of iterations in the SCF algorithm employing default
+density-mixing are shown below.
 Figure (a) shows several examples of molecules.
-Figure (b) shows the results of the direct minimisation for molecules for which scf
-with default density-mixing fails to converge.
+Figure (b) shows the results of the direct minimisation for molecules
+for which SCF with default density-mixing fails to converge.
+SCF fails to converge for 5 molecules,
+while direct minimisation shows stable performance.
 
-|scf_vs_dm|
+.. image:: g2.png
 
-.. |scf_vs_dm| image:: scf_vs_dm.png
+Ionic Solids
+`````````````````
 
-Implementation
-~~~~~~~~~~~~~~~
+A cubic unit cell is chosen which consists of 8 atoms,
+and :math:`\Gamma`- centered 3x3x3 Monkhorst-Pack meshes are used
+for  the  Brillouin-zone  sampling. As can be seen from figure below,
+direct minimisation performs as well as the defualt SCF algrotihm.
+
+.. image:: solids.png
+  :width: 70%
+  :align: center
+
+32-576 Water molecules.
+```````````````````````
+In this example the ground state of 32, 64, 128, 256, 384 and 576
+water molecules is calculated respectively. The geometries are taken
+from `here <https://wiki.fysik.dtu.dk/gpaw/devel/benchmarks.html>`_
+The GPAW parameters used in this test include the PBE functional,
+the DZP basis set, grid spacing h = 0.2,
+8-core domain decomposition, and
+the ’eingensolver’ convergence criterion 1.0e-10.
+The ratio of the elapsed times spent by the default eigensolver and
+the direct minimisation methods as a function of
+water molecules is shown below.
+On the picture ‘ss’ refers to the scaling and squaring method [#AlMoly]_ for
+the calculation of the matrix exponential,
+‘uinv’ refers to the method for the calculation of
+the matrix exponential which takes into account the unitary invariance
+of the KS functional [#Hutter]_ (see `Implementation Details`_).
+As can be seen, direct minimisation converges faster
+by a factor of 1.5 for 32 molecules and a factor of 2 for 512 molecules
+using 'uinv' method. 'ss' outperforms the SCF by a factor 1.2.
+
+.. image:: water.png
+  :width: 70%
+  :align: center
+
+Implementation Details
+~~~~~~~~~~~~~~~~~~~~~~
 
 The iteratives are:
 
@@ -89,9 +138,10 @@ The iteratives are:
 Here `Q` is the search direction and `\gamma` is step length.
 The search direction is calculated according L-BFGS algorithm
 with preconditioning, and the step length satisfies
-the Strong Wolfe Conditions and/or approximate Wolfe Conditions.
+the Strong Wolfe Conditions [#Nocedal]_ and/or
+approximate Wolfe Conditions [#Hager]_.
 The last two conditions are important as they guarantee stability
-and fast convergence of the LBFGS algorithm.
+and fast convergence of the L-BFGS algorithm [#Nocedal]_.
 
 Three different algorithms are available to
 calculate matrix exponential:
@@ -141,11 +191,50 @@ calculate matrix exponential:
 
    where :math:`P = A_{ov}A_{ov}^{\dagger}`.
 
+The first method is default. If one would like to use
+the second algorithm then do:
+
+.. code-block:: python
+
+    from gpaw.directmin.directmin_lcao import DirectMinLCAO
+    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp'),
+                ...)
+
+To use the third method first please ensure that your functional
+is unitary invariant and then do:
+
+.. code-block:: python
+
+    from gpaw.directmin.directmin_lcao import DirectMinLCAO
+    calc = GPAW(eigensolver=DirectMinLCAO(matrix_exp='egdecomp2',
+                                          representation='u_invar'),
+                ...)
+
+For all three algorithms, the unitary invariant representation can be used.
+
 References
 ----------
 
-.. [#AlMoly] A. H. Al-Moly, and N. J. Higham,
-           *SIAM J. Matrix Anal. Appl.*, **31(3)**, 970–989, (2009).
+.. [#Douady] J. Douady, Y. Ellinger, R. Subra, and B. Levy
+        *The Journal of Chemical Physics* **72**, 1452 (1980)
+
+.. [#Rico] J. Fernandez Rico, M. Paniagua, J. I. Fern Alonso, and P. Fantucci,
+           *Journal of Computational Chemistry* **4**, 41-47 (1983).
+
+.. [#Gordon] M. Head-Gordon and J. Pople,
+           *Journal of Physical Chemistry*, **92**, 3063 (1988)
 
 .. [#Hutter] J. Hutter, M. Parrinello, and S. Vogel,
              *J. Chem. Phys.* **101**, 3862 (1994)
+
+.. [#Voorhis] T. Van Voorhis and M. Head-Gordon,
+             *Molecular Physics* **100**, 1713 (2002)
+
+.. [#Nocedal] J. Nocedal and S. J. Wright, *Numerical Optimization*,
+              2nd ed. (Springer, New York, NY, USA, 2006).
+
+.. [#Hager] W. W. Hager and H. Zhang,
+            *SIAM Journal on Optimization* **16**, 170 (2006).
+
+.. [#AlMoly] A. H. Al-Moly, and N. J. Higham,
+           *SIAM J. Matrix Anal. Appl.*, **31(3)**, 970–989, (2009).
