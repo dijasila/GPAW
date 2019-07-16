@@ -418,8 +418,9 @@ tests = [
     'coreeig.py',                           # duration unknown
     'response/bse_MoS2_cut.py',             # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
-    'cdft.py']                              # 40s
-
+    'cdft.py',                              # 40s
+    'directmin_lcao.py'                     # ~6s
+    ]
 # 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
 
