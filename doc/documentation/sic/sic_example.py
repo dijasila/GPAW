@@ -1,25 +1,26 @@
-from gpaw import GPAW, LCAO
-from gpaw import PoissonSolver as PS
-from gpaw.utilities import h2gpts
-from gpaw.occupations import FermiDirac
-from ase.build import molecule
-from gpaw.odd.lcao.oddvar import ODDvarLcao as ODD
+from gpaw import GPAW, LCAO, FermiDirac
+from ase import Atoms
+import numpy as np
+from gpaw.directmin.directmin_lcao import DirectMinLCAO
 
+# Water molecule:
+d = 0.9575
+t = np.pi / 180 * 104.51
+H2O = Atoms('OH2',
+            positions=[(0, 0, 0),
+                       (d, 0, 0),
+                       (d * np.cos(t), d * np.sin(t), 0)])
+H2O.center(vacuum=5.0)
 
-sys = molecule('CH4')
-sys.center(vacuum=5.0)
-
-calc = GPAW(xc='PBE', basis='dzp',
-            poissonsolver=PS(relax='GS', eps=1.0e-16),  # important to use good eps
-            mode=LCAO(force_complex_dtype=True),  # need complex wfs for SIC
+calc = GPAW(mode=LCAO(force_complex_dtype=True),
+            basis='dzp',
             occupations=FermiDirac(width=0.0, fixmagmom=True),
-            spinpol=False, gpts=h2gpts(0.2, sys.get_cell(), idiv=8),
-            nbands='nao' # important to use all bands
+            eigensolver=DirectMinLCAO(
+                odd_parameters={'name': 'PZ_SIC',  # half-SIC
+                                'scaling_factor': (0.5, 0.5)}),
+            mixer={'method': 'dummy'},
+            nbands='nao'
             )
-
-opt = ODD(calc, odd='PZ_SIC',
-          initial_orbitals='KS_PM',  # use Pipek-Mezey localization for initial guess
-          g_tol=1.0e-3, beta=(0.5, 0.5))  # beta is a scaling factor
-
-sys.set_calculator(opt)
-e = sys.get_potential_energy()
+H2O.set_calculator(calc)
+H2O.get_potential_energy()
+H2O.get_forces()
