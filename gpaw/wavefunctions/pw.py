@@ -144,16 +144,11 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-
+        ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
         if ecut is None:
-            ecut = ecutmax * 0.9999
+            ecut = 0.9999 * ecut0
         else:
-            if ecut > ecutmax:
-                raise ValueError(
-                    'You have a weird unit cell!  '
-                    'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.build.niggli_reduce() function.')
+            assert ecut <= ecut0
 
         self.ecut = ecut
 
@@ -1752,14 +1747,15 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, ecut,
+                 gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
 
-        self.pd2 = PWDescriptor(None, gd)
-        self.pd3 = PWDescriptor(None, finegd)
+        self.pd2 = PWDescriptor(ecut, gd)
+        self.pd3 = PWDescriptor(4 * ecut, finegd)
 
         self.map23 = PWMapping(self.pd2, self.pd3)
 

@@ -12,7 +12,7 @@ Webpage: http://wiki.fysik.dtu.dk/gpaw
 Requirements
 ------------
 
-* Python_ 2.7, 3.4-
+* Python_ 3.4 or later
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
 * SciPy_ (library for scientific computing)
@@ -86,7 +86,6 @@ BFGS:   3  09:08:13       -6.630429       0.0003
 >>> write('H2.xyz', h2)
 >>> h2.get_potential_energy()  # ASE's units are eV and Å
 -6.6304292169392784
-
 
 Getting started
 ---------------

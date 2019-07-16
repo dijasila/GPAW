@@ -25,6 +25,9 @@ mv configuration.log configuration-sandybridge-el7-${GPAW_TOOLCHAIN}.log
 echo "Compiling on fjorm: $cmd"
 ssh fjorm "$cmd > nehalem-el7-${GPAW_TOOLCHAIN}.log 2>&1"
 mv configuration.log configuration-nehalem-el7-${GPAW_TOOLCHAIN}.log
+echo "Compiling on svol: $cmd"
+ssh svol "$cmd > skylake-el7-${GPAW_TOOLCHAIN}.log 2>&1"
+mv configuration.log configuration-skylake-el7-${GPAW_TOOLCHAIN}.log
 
 (cd build && ln -sf bin.linux-x86_64-{sandybridge,ivybridge}-el7-3.6)
 (cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-el7-3.6)

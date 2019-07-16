@@ -29,7 +29,7 @@ gw = G0W0('BN_bulk_k2_ecut400_allbands.gpw',
 
 result = gw.calculate()
 
-gaps = [3.256, 4.746, 4.937, 4.952, 4.948, 4.946]
+gaps = [3.28, 4.77, 4.97, 4.98, 4.98, 4.98]
 
 for i in range(result['iqp'].shape[0]):
     equal(np.min(result['iqp'][i, 0, :, 1]) -
