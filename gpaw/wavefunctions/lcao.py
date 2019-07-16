@@ -9,7 +9,8 @@ from gpaw.utilities.tools import tri2full
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
-from gpaw.lcao.atomic_correction import get_atomic_correction
+from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
+                                         SparseAtomicCorrection)
 from gpaw.wavefunctions.mode import Mode
 
 
@@ -26,6 +27,9 @@ class LCAO(Mode):
         return LCAOWaveFunctions(*args,
                                  atomic_correction=self.atomic_correction,
                                  **kwargs)
+
+    def __repr__(self):
+        return 'LCAO({})'.format(self.todict())
 
     def todict(self):
         dct = Mode.todict(self)
@@ -97,13 +101,13 @@ class LCAOWaveFunctions(WaveFunctions):
         self.debug_tci = False
 
         if atomic_correction is None:
-            if ksl.using_blacs:
-                atomic_correction = 'scipy'
-            else:
-                atomic_correction = 'dense'
-        if isinstance(atomic_correction, str):
-            atomic_correction = get_atomic_correction(atomic_correction)
-        self.atomic_correction = atomic_correction
+            atomic_correction = 'sparse' if ksl.using_blacs else 'dense'
+
+        if atomic_correction == 'sparse':
+            self.atomic_correction_cls = SparseAtomicCorrection
+        else:
+            assert atomic_correction == 'dense'
+            self.atomic_correction_cls = DenseAtomicCorrection
 
         #self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
         with self.timer('TCI: Evaluate splines'):
@@ -133,7 +137,8 @@ class LCAOWaveFunctions(WaveFunctions):
     def __str__(self):
         s = 'Wave functions: LCAO\n'
         s += '  Diagonalizer: %s\n' % self.ksl.get_description()
-        s += '  Atomic Correction: %s\n' % self.atomic_correction.description
+        s += ('  Atomic Correction: %s\n'
+              % self.atomic_correction_cls.description)
         s += '  Datatype: %s\n' % self.dtype.__name__
         return s
 
@@ -224,6 +229,8 @@ class LCAOWaveFunctions(WaveFunctions):
         self.P_aqMi = newP_aqMi = manytci.P_aqMi(my_atom_indices)
         self.P_qIM = P_qIM  # XXX atomic correction
 
+        self.atomic_correction = self.atomic_correction_cls.new_from_wfs(self)
+
         # TODO
         #   OK complex/conj, periodic images
         #   OK scalapack
@@ -235,7 +242,6 @@ class LCAOWaveFunctions(WaveFunctions):
         #if self.atomic_correction.name != 'dense':
         #from gpaw.lcao.newoverlap import newoverlap
         #self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
-        self.atomic_correction.gobble_data(self)
 
         #if self.atomic_correction.name == 'scipy':
         #    Pold_qIM = self.atomic_correction.Psparse_qIM
@@ -244,14 +250,10 @@ class LCAOWaveFunctions(WaveFunctions):
         #        print('sparse maxerr', maxerr)
         #        assert maxerr == 0
 
-        self.atomic_correction.add_overlap_correction(self, newS_qMM)
+        self.atomic_correction.add_overlap_correction(newS_qMM)
         if self.debug_tci:
-            self.atomic_correction.add_overlap_correction(self, oldS_qMM)
+            self.atomic_correction.add_overlap_correction(oldS_qMM)
 
-        if self.atomic_correction.implements_distributed_projections():
-            my_atom_indices = self.atomic_correction.get_a_values()
-        else:
-            my_atom_indices = self.basis_functions.my_atom_indices
         self.allocate_arrays_for_projections(my_atom_indices)
 
         #S_MM = None  # allow garbage collection of old S_qMM after redist
@@ -396,17 +398,17 @@ class LCAOWaveFunctions(WaveFunctions):
             tri2full(rho_MM)
 
     def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
-        ac = self.atomic_correction
-        if ac.implements_distributed_projections():
-            D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
-            WaveFunctions.calculate_atomic_density_matrices_with_occupation(
-                self, D2_asp, f_un)
-            D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
-            for a in D_asp:
-                D_asp[a][:] = D3_asp[a]
-        else:
-            WaveFunctions.calculate_atomic_density_matrices_with_occupation(
-                self, D_asp, f_un)
+        #ac = self.atomic_correction
+        #if ac.implements_distributed_projections():
+        #    D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
+        #    WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+        #        self, D2_asp, f_un)
+        #    D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
+        #    for a in D_asp:
+        #        D_asp[a][:] = D3_asp[a]
+        #else:
+        WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+            self, D_asp, f_un)
 
     def calculate_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         self.timer.start('Calculate density matrix')

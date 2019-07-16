@@ -75,7 +75,7 @@ class DirectLCAO(object):
         #
         name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_asp, H_MM, yy)
+        wfs.atomic_correction.calculate_hamiltonian(kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')

@@ -1,4 +1,5 @@
 scalapack = True
+fftw = True
 platform_id = os.environ['CPU_ARCH'] + '-el7'
 
 # Clean out any autodetected things, we only want the EasyBuild
@@ -8,7 +9,7 @@ mpi_libraries = []
 include_dirs = []
 
 # Use Intel MKL
-libraries += ['fftw3xc_intel','mkl_intel_lp64','mkl_sequential','mkl_core']
+libraries += ['mkl_sequential','mkl_core', 'fftw3xc_intel_pic', 'mkl_rt', ]
 
 # Use EasyBuild scalapack from the active toolchain
 mpi_libraries += ['mkl_scalapack_lp64','mkl_blacs_intelmpi_lp64']

@@ -11,8 +11,6 @@
 #endif
 #include <xc.h>
 
-#define PY3 (PY_MAJOR_VERSION >= 3)
-
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -129,6 +127,12 @@ PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL and PARALLEL
 
+#ifdef GPAW_WITH_FFTW
+PyObject * FFTWPlan(PyObject *self, PyObject *args);
+PyObject * FFTWExecute(PyObject *self, PyObject *args);
+PyObject * FFTWDestroy(PyObject *self, PyObject *args);
+#endif
+
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
@@ -159,6 +163,13 @@ PyObject* githash(PyObject* self, PyObject* args)
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args);
+
+// Holonomic constraints
+PyObject* adjust_positions(PyObject *self, PyObject *args);
+PyObject* adjust_momenta(PyObject *self, PyObject *args);
+// TIP3P forces
+PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
+
 
 static PyMethodDef functions[] = {
     {"symmetrize", symmetrize, METH_VARARGS, 0},
@@ -266,6 +277,11 @@ static PyMethodDef functions[] = {
     {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL && PARALLEL
+#ifdef GPAW_WITH_FFTW
+    {"FFTWPlan", FFTWPlan, METH_VARARGS, 0},
+    {"FFTWExecute", FFTWExecute, METH_VARARGS, 0},
+    {"FFTWDestroy", FFTWDestroy, METH_VARARGS, 0},
+#endif
 #ifdef GPAW_HPM
     {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
     {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
@@ -290,6 +306,9 @@ static PyMethodDef functions[] = {
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
 #endif // GPAW_WITH_LIBVDWXC
     {"mlsqr", mlsqr, METH_VARARGS, 0},
+    {"adjust_positions", adjust_positions, METH_VARARGS, 0},
+    {"adjust_momenta", adjust_momenta, METH_VARARGS, 0},
+    {"calculate_forces_H2O", calculate_forces_H2O, METH_VARARGS, 0},
 #ifdef GPAW_GITHASH
     {"githash", githash, METH_VARARGS, 0},
 #endif // GPAW_GITHASH
@@ -344,7 +363,6 @@ PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
 }
 
 
-#if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_gpaw",
@@ -356,7 +374,6 @@ static struct PyModuleDef moduledef = {
     NULL,
     NULL
 };
-#endif
 
 static PyObject* moduleinit(void)
 {
@@ -384,12 +401,7 @@ static PyObject* moduleinit(void)
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
 
-#if PY3
     PyObject* m = PyModule_Create(&moduledef);
-#else
-    PyObject* m = Py_InitModule3("_gpaw", functions,
-                                 "C-extension for GPAW\n\n...\n");
-#endif
 
     if (m == NULL)
         return NULL;
@@ -400,9 +412,11 @@ static PyObject* moduleinit(void)
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
+#if XC_MAJOR_VERSION >= 3
     PyObject_SetAttrString(m,
                            "libxc_version",
                            PyUnicode_FromString(xc_version_string()));
+#endif
 
     Py_INCREF(&LFCType);
     Py_INCREF(&LocalizedFunctionsType);
@@ -412,7 +426,7 @@ static PyObject* moduleinit(void)
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
-#ifndef PARALLEL
+#ifndef GPAW_INTERPRETER
     // gpaw-python needs to import arrays at the right time, so this is
     // done in gpaw_main().  In serial, we just do it here:
     import_array1(0);
@@ -423,26 +437,12 @@ static PyObject* moduleinit(void)
 #ifndef GPAW_INTERPRETER
 
 
-#if PY3
 PyMODINIT_FUNC PyInit__gpaw(void)
 {
     return moduleinit();
 }
-#else
-PyMODINIT_FUNC init_gpaw(void)
-{
-    moduleinit();
-}
-#endif
 
 #else // ifndef GPAW_INTERPRETER
-
-#if PY3
-#define moduleinit0 moduleinit
-#else
-void moduleinit0(void) { moduleinit(); }
-#endif
-
 
 int
 gpaw_main()
@@ -491,7 +491,6 @@ main(int argc, char **argv)
         exit(1);
 #endif // GPAW_OMP
 
-#if PY3
 #define PyChar wchar_t
     wchar_t* wargv[argc];
     wchar_t* wargv2[argc];
@@ -501,13 +500,9 @@ main(int argc, char **argv)
         wargv2[i] = wargv[i];
         mbstowcs(wargv[i], argv[i], n);
     }
-#else
-#define PyChar char
-    char** wargv = argv;
-#endif
 
     Py_SetProgramName(wargv[0]);
-    PyImport_AppendInittab("_gpaw", &moduleinit0);
+    PyImport_AppendInittab("_gpaw", &moduleinit);
     Py_Initialize();
     PySys_SetArgvEx(argc, wargv, 0);
 
@@ -534,10 +529,8 @@ main(int argc, char **argv)
     Py_Finalize();
     MPI_Finalize();
 
-#if PY3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);
-#endif
 
     return status;
 }

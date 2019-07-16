@@ -14,7 +14,6 @@ from ase.io import jsonio
 
 def get_wavefunctions(atoms, name, params):
     params['symmetry'] = {'point_group': False,
-                          'do_not_symmetrize_the_density': True,
                           'time_reversal': False}
     tmp = splitext(name)[0]
     atoms.calc = GPAW(txt=tmp + '.txt', **params)
