@@ -49,7 +49,7 @@ gw = G0W0('hBN.gpw',
 
 e_qp = gw.calculate()['qp'][0, 0]
 
-ev = -4.38194812
+ev = -4.381
 ec = 3.71013806
 equal(e_qp[0], ev, 0.01)
 equal(e_qp[1], ec, 0.01)

@@ -50,7 +50,8 @@ calc = GPAW(xc=xc,
             mode=PW(pw),
             kpts=monkhorst_pack((kpts, kpts, kpts)),
             nbands=nb,
-            txt=None)
+            idiotproof=False,
+            parallel={'band': 1})
 
 Febcc.set_calculator(calc)
 Febcc.get_potential_energy()
@@ -62,11 +63,10 @@ for q in range(2):
     tms = TransverseMagneticSusceptibility(calc='Fe',
                                            frequencies=frq_qw[q],
                                            eta=eta,
-                                           ecut=ecut,
-                                           txt='iron_dsus_%d.out' % (q + 1))
+                                           ecut=ecut)
 
     chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
-                                                     RSrep='grid',
+                                                     rshe=None,
                                                      fxc_scaling=fxc_scaling,
                                                      filename='iron_dsus'
                                                      + '_%d.csv' % (q + 1))
@@ -78,7 +78,7 @@ parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 
-# Part 3: identify peaks in scattering function and compare to test values
+# Part 3: identify magnon peaks in scattering function
 d1 = np.loadtxt('iron_dsus_1.csv', delimiter=', ')
 d2 = np.loadtxt('iron_dsus_2.csv', delimiter=', ')
 
@@ -88,21 +88,20 @@ wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
-test_fxcs = 1.038135552
+# Part 4: compare new results to test values
+test_fxcs = 1.033
 test_mw1 = -0.0289017263039  # meV
-test_mw2 = 177.9  # meV
+test_mw2 = 176  # meV
 test_Ipeak1 = 71.2146329824  # a.u.
 test_Ipeak2 = 43.1361567126  # a.u.
 
-# print(fxc_scaling[1], mw1, mw2, Ipeak1, Ipeak2)
-
 # fxc_scaling:
-equal(test_fxcs, fxc_scaling[1], 2e-3)
+equal(fxc_scaling[1], test_fxcs, 2e-3)
 
 # Magnon peak:
-equal(test_mw1, mw1, 0.01)
-equal(test_mw2, mw2, eta * 700)
+equal(mw1, test_mw1, 0.01)
+equal(mw2, test_mw2, eta * 300)
 
 # Scattering function intensity:
-equal(test_Ipeak1, Ipeak1, 5)
-equal(test_Ipeak2, Ipeak2, 5)
+equal(Ipeak1, test_Ipeak1, 5)
+equal(Ipeak2, test_Ipeak2, 5)

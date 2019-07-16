@@ -57,7 +57,7 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.7, 3.4-
+* Python_ 3.4 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.17.0 or later (atomic simulation environment)
@@ -166,13 +166,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.5.1.tar.gz_) or the latest
+    latest stable release (gpaw-1.5.2.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.5.1.tar.gz
-        $ ln -s gpaw-1.5.1 gpaw
+        $ tar -xf gpaw-1.5.2.tar.gz
+        $ ln -s gpaw-1.5.2 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -181,7 +181,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 1.5.1 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 1.5.2 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -197,8 +197,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.5.1.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-1.5.1.tar.gz
+.. _gpaw-1.5.2.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.5.2.tar.gz
 
 
 .. _customizing installation:
@@ -259,13 +259,9 @@ Instructions for running parallel calculations can be found in the
 FFTW
 ====
 
-The FFTW library is linked at runtime using :mod:`ctypes`.  By default, the
-following shared library names are searched for: ``libmkl_rt.so``,
-``libmkl_intel_lp64.so`` and ``libfftw3.so``.  First one found will be
-loaded.  If no library is found, the :mod:`numpy.fft` library will be used
-instead.  The name of the FFTW shared library can also be set via the
-``$GPAW_FFTWSO`` environment variable.
-
+Older versions of GPAW would link FFTW using ctypes, based on library
+paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
+1.5.1, FFTW is linked from customize.py like all other libraries.
 
 .. _libxc installation:
 

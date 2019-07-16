@@ -5,6 +5,16 @@
 """Main gpaw module."""
 
 import sys
+from sysconfig import get_platform
+from os.path import join, isfile
+
+build_path = join(__path__[0], '..', 'build')
+arch = '%s-%s' % (get_platform(), sys.version[0:3])
+
+# If we are running the code from the source directory, then we will
+# want to use the extension from the distutils build directory:
+sys.path.insert(0, join(build_path, 'lib.' + arch))
+
 
 from gpaw.broadcast_imports import broadcast_imports
 
@@ -12,17 +22,14 @@ with broadcast_imports:
     import os
     import runpy
     import warnings
-    from sysconfig import get_platform
-    from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import numpy as np
     from ase.cli.run import str2dict
 
-
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.5.2b1'
+__version__ = '1.5.3b1'
 __ase_version_required__ = '3.17.1b1'
 
 __all__ = ['GPAW',
@@ -228,14 +235,6 @@ if debug:
     np.empty = empty
 
 
-build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (get_platform(), sys.version[0:3])
-
-# If we are running the code from the source directory, then we will
-# want to use the extension from the distutils build directory:
-sys.path.insert(0, join(build_path, 'lib.' + arch))
-
-
 def get_gpaw_python_path():
     paths = os.environ['PATH'].split(os.pathsep)
     paths.insert(0, join(build_path, 'bin.' + arch))
@@ -247,19 +246,6 @@ def get_gpaw_python_path():
 
 setup_paths = []
 
-
-def initialize_data_paths():
-    try:
-        setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
-    except KeyError:
-        if os.pathsep == ';':
-            setup_paths[:] = [r'C:\gpaw-setups']
-        else:
-            setup_paths[:] = ['/usr/local/share/gpaw-setups',
-                              '/usr/share/gpaw-setups']
-
-
-initialize_data_paths()
 
 with broadcast_imports:
     from gpaw.calculator import GPAW
@@ -323,4 +309,17 @@ def read_rc_file():
                 exec(fd.read())
 
 
+def initialize_data_paths():
+    try:
+        setup_paths[:0] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+    except KeyError:
+        if len(setup_paths) == 0:
+            if os.pathsep == ';':
+                setup_paths[:] = [r'C:\gpaw-setups']
+            else:
+                setup_paths[:] = ['/usr/local/share/gpaw-setups',
+                                  '/usr/share/gpaw-setups']
+
+
 read_rc_file()
+initialize_data_paths()

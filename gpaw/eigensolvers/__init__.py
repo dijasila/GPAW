@@ -7,7 +7,7 @@ from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
-
+from gpaw.directmin.directmin_lcao import DirectMinLCAO
 
 def get_eigensolver(eigensolver, mode, convergence=None):
     """Create eigensolver object."""
@@ -27,7 +27,8 @@ def get_eigensolver(eigensolver, mode, convergence=None):
                        'cg': CG,
                        'dav': Davidson,
                        'lcao': DirectLCAO,
-                       'direct': DirectPW
+                       'direct': DirectPW,
+                       'direct_min_lcao': DirectMinLCAO,
                        }[name](**eigensolver)
 
     if isinstance(eigensolver, CG):
