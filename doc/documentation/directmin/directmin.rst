@@ -64,8 +64,8 @@ Here is example of how to run calculations:
 
 .. literalinclude:: h2o.py
 
-Not only can direct minimisation be applied to Kohn-Sham functionals
-but also to :ref:`self-interaction corrected functionals <sic>`.
+.. Not only can direct minimisation be applied to Kohn-Sham functionals
+.. but also to :ref:`self-interaction corrected functionals <sic>`.
 
 **Important:** Exponential matrix here is calculated here using
 scipy function *expm*. In order to obtain a good performance,

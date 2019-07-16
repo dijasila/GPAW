@@ -8,7 +8,7 @@ file_pathes = glob.glob('is_*data')
 x = {}
 y = {}
 for i in range(len(file_pathes)):
-    name = file_pathes[i][3:-9]
+    name = file_pathes[i][3:-5]
     a = open(file_pathes[i], 'r')
     a = a.read().split('\n')
     x[name] = []
