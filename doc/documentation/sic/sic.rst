@@ -41,8 +41,8 @@ To evaluate these potentials on a fine grid, use:
 
 **Important:** Firstly, please be aware that unoccupied orbitals
 are not affected by SIC directly in the LCAO mode.
-Secondly, the implementation relies on the SciPy library.
-In order to ensure efficient performance,
+Secondly, the implementation relies on the SciPy library, and
+in order to ensure efficient performance,
 please be sure that your SciPy library uses the Math Kernel Library (MKL).
 Otherwise you can use
 
