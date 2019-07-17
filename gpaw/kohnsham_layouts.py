@@ -524,9 +524,12 @@ class OrbitalLayouts(KohnShamLayouts):
         return self.calculate_density_matrix_delta(d_nn, C_nM, rho_MM).T.copy()
 
 
-def get_n_occ(f_n):
-    nbands = len(f_n)
+def get_n_occ(f):
+    # sometimes f can be f_n * eps,
+    # for example when we calculate forces
+    # and therefore, we use here abs(f_n)
+    nbands = len(f)
     n_occ = 0
-    while n_occ < nbands and f_n[n_occ] > 1e-10:
+    while n_occ < nbands and abs(f[n_occ]) > 1e-10:
         n_occ += 1
     return n_occ
