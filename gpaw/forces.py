@@ -11,6 +11,15 @@ def calculate_forces(wfs, dens, ham, log=None):
     assert not isinstance(ham.xc, HybridXCBase)
     assert not ham.xc.name.startswith('GLLB')
 
+    if hasattr(wfs.eigensolver, 'odd'):
+        odd_name = getattr(wfs.eigensolver.odd, "name", None)
+    else:
+        odd_name = None
+    if odd_name == 'PZ_SIC':
+        for kpt in wfs.kpt_u:
+            kpt.rho_MM = \
+                wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+
     natoms = len(wfs.setups)
 
     # Force from projector functions (and basis set):
@@ -32,6 +41,16 @@ def calculate_forces(wfs, dens, ham, log=None):
 
     F_av = F_ham_av + F_wfs_av
     wfs.world.broadcast(F_av, 0)
+
+    if odd_name == 'PZ_SIC':
+        F_av += wfs.eigensolver.odd.get_odd_corrections_to_forces(wfs,
+                                                                  dens)
+
+        for kpt in wfs.kpt_u:
+            # need to re-set rho_MM otherwise it will be used
+            # it's probably better to in wfs.reset, but
+            # when position changes wfs.reset is not called
+            kpt.rho_MM = None
 
     F_av = wfs.kd.symmetry.symmetrize_forces(F_av)
 

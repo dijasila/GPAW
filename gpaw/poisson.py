@@ -78,6 +78,7 @@ def FDPoissonSolverWrapper(dipolelayer=None, **kwargs):
         return DipoleCorrection(FDPoissonSolver(**kwargs), dipolelayer)
     return FDPoissonSolver(**kwargs)
 
+
 class _PoissonSolver(object):
     """Abstract PoissonSolver class
 
@@ -103,13 +104,18 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, eps=None, remove_moment=None, use_charge_center=False,
-            metallic_electrodes=False):
+    def __init__(self, eps=None, remove_moment=None,
+                 use_charge_center=False,
+                 use_charged_periodic_corrections=False,
+                 metallic_electrodes=False):
         # metallic electrodes: mirror image method to allow calculation of
         # charged, partly periodic systems
         self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
+        self.use_charged_periodic_corrections = \
+            use_charged_periodic_corrections
+        self.charged_periodic_correction = None
         self.eps = eps
         self.metallic_electrodes = metallic_electrodes
         assert self.metallic_electrodes in [False, None, 'single','both']
@@ -122,6 +128,9 @@ class BasePoissonSolver(_PoissonSolver):
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
             d['use_charge_center'] = self.use_charge_center
+        if self.use_charged_periodic_corrections:
+            d['use_charged_periodic_corrections'] = \
+                self.use_charged_periodic_corrections
         if self.metallic_electrodes:
             d['metallic_electrodes'] = self.metallic_electrodes
 
@@ -138,6 +147,10 @@ class BasePoissonSolver(_PoissonSolver):
         if self.use_charge_center:
             lines.append('    Compensate for charged system using center of '
                          'majority charge')
+        if self.use_charged_periodic_corrections:
+            lines.append('    Subtract potential of homogeneous background')
+
+
         return '\n'.join(lines)
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
@@ -184,6 +197,12 @@ class BasePoissonSolver(_PoissonSolver):
                 phi[:] = 0.0
 
             iters = self.solve_neutral(phi, rho - background, eps=eps, timer=timer)
+            if self.use_charged_periodic_corrections:
+                if self.charged_periodic_correction is None:
+                    self.charged_periodic_correction = madelung(
+                        self.gd.cell_cv)
+                phi += actual_charge * self.charged_periodic_correction
+
             return iters
 
         elif abs(charge) > maxcharge and not self.gd.pbc_c.any():
@@ -273,15 +292,16 @@ class BasePoissonSolver(_PoissonSolver):
             self.phi_gauss = gauss.get_gauss_pot(0)
 
 
-
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False,
+                 use_charged_periodic_corrections=False,
                  metallic_electrodes=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
+            use_charged_periodic_corrections=use_charged_periodic_corrections,
             metallic_electrodes=metallic_electrodes)
         self.relax = relax
         self.nn = nn

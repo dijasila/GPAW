@@ -62,9 +62,14 @@ class SCFLoop:
 
         while self.niter <= self.maxiter:
             if egs_name == 'direct_min':
-                wfs.eigensolver.iterate(ham, wfs, dens, occ)
+                wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
                 occ.calculate(wfs)
-                energy = ham.get_energy(occ, kin_en_using_band=False)
+                if hasattr(wfs.eigensolver, 'e_sic'):
+                    e_sic = wfs.eigensolver.e_sic
+                else:
+                    e_sic = 0.0
+                energy = ham.get_energy(occ, kin_en_using_band=False,
+                                        e_sic=e_sic)
             else:
                 wfs.eigensolver.iterate(ham, wfs)
                 occ.calculate(wfs)
@@ -82,9 +87,7 @@ class SCFLoop:
                 self.converged = True
                 if egs_name == 'direct_min':
                     wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs,
-                                                                 dens,
-                                                                 occ)
+                                                                 wfs)
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)

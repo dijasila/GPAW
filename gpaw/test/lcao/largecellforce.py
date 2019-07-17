@@ -31,7 +31,8 @@ system.center(vacuum=2.5)
 calc = GPAW(h=0.23,
             mode='lcao',
             basis=basis,
-            convergence={'density':1e-4, 'energy': 1e-7},
+            convergence={'density':1e-4, 'energy': 1e-7,
+                         'eigenstates': 1.0e8},
             )
 
 system.set_calculator(calc)

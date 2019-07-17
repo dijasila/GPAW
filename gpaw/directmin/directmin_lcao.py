@@ -8,6 +8,10 @@ from gpaw.utilities.tools import tri2full
 from gpaw.directmin import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
+from gpaw.directmin.odd import odd_corrections
+from gpaw.directmin.tools import loewdin
+from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
+from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 
 
 class DirectMinLCAO(DirectLCAO):
@@ -15,12 +19,14 @@ class DirectMinLCAO(DirectLCAO):
     def __init__(self, diagonalizer=None, error=np.inf,
                  searchdir_algo='LBFGS_P',
                  linesearch_algo='SwcAwc',
-                 initial_orbitals='KS',  # not used right now
+                 initial_orbitals=None,
                  initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=20,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
-                 representation='sparse'):
+                 representation='sparse',
+                 odd_parameters='Zero',
+                 init_from_ks_eigsolver=False):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -41,6 +47,11 @@ class DirectMinLCAO(DirectLCAO):
         self.g_mat_u = None  # gradient matrix
         self.c_nm_ref = None  # reference orbitals to be rotated
 
+        self.odd_parameters = odd_parameters
+        self.init_from_ks_eigsolver = init_from_ks_eigsolver
+
+        if isinstance(self.odd_parameters, basestring):
+            self.odd_parameters = xc_string_to_dict(self.odd_parameters)
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
@@ -52,6 +63,10 @@ class DirectMinLCAO(DirectLCAO):
                 'Value Error'
             self.representation = \
                 xc_string_to_dict(self.representation)
+
+        if self.odd_parameters['name'] == 'PZ_SIC':
+            if self.initial_orbitals is None:
+                self.initial_orbitals = 'W'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
@@ -67,7 +82,8 @@ class DirectMinLCAO(DirectLCAO):
                'HZcg': 'Hager-Zhang conj. grad. method',
                'QuickMin': 'Molecular-dynamics based algorithm',
                'LBFGS': 'LBFGS algorithm',
-               'LBFGS_P': 'LBFGS algorithm with preconditioning'}
+               'LBFGS_P': 'LBFGS algorithm with preconditioning',
+               'LBFGS_P2': 'LBFGS algorithm with preconditioning'}
 
         lss = {'UnitStep': 'step size equals one',
                'Parabola': 'Parabolic line search',
@@ -94,7 +110,7 @@ class DirectMinLCAO(DirectLCAO):
 
         return repr_string
 
-    def initialize_2(self, wfs):
+    def initialize_2(self, wfs, dens, ham):
 
         self.dtype = wfs.dtype
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -113,6 +129,7 @@ class DirectMinLCAO(DirectLCAO):
 
         self.evecs = {}   # eigendecomposition for a
         self.evals = {}
+        self.ind_up = {}
 
         if self.representation['name'] in ['sparse', 'u_invar']:
             # Matrices are sparse and Skew-Hermitian.
@@ -149,7 +166,6 @@ class DirectMinLCAO(DirectLCAO):
             # store only A_2, that is this representaion is sparser
 
             M = wfs.bd.nbands  # M - one dimension of the A_BigMatrix
-            self.ind_up = {}
             if self.representation['name'] == 'sparse':
                 # let's take all upper triangular indices
                 # of A_BigMatrix and then delete indices from ind_up
@@ -179,6 +195,7 @@ class DirectMinLCAO(DirectLCAO):
             if self.representation['name'] in ['sparse', 'u_invar']:
                 shape_of_arr = len(self.ind_up[u][0])
             else:
+                self.ind_up[u] = None
                 shape_of_arr = (self.n_dim[u], self.n_dim[u])
 
             self.a_mat_u[u] = np.zeros(shape=shape_of_arr,
@@ -215,7 +232,17 @@ class DirectMinLCAO(DirectLCAO):
         else:
             raise Exception('Check Search Direction Parameters')
 
-    def iterate(self, ham, wfs, dens, occ):
+        # odd corrections
+        if isinstance(self.odd_parameters, (basestring, dict)):
+            self.odd = odd_corrections(self.odd_parameters, wfs,
+                                       dens, ham)
+        elif self.odd is None:
+            pass
+        else:
+            raise Exception('Check ODD Parameters')
+        self.e_sic = 0.0
+
+    def iterate(self, ham, wfs, dens, occ, log):
 
         assert dens.mixer.driver.name == 'dummy', \
             'Please, use: mixer=DummyMixer()'
@@ -230,15 +257,24 @@ class DirectMinLCAO(DirectLCAO):
 
         if self.iters == 0:
             # need to initialize c_nm, eps, f_n and so on.
-            # first iteration is diagonilisation using super class
-            super(DirectMinLCAO, self).iterate(ham, wfs)
-            occ.calculate(wfs)
-            self.initialize_2(wfs)
+            self.init_wave_functions(wfs, ham, occ, log)
+            self.update_ks_energy(ham, wfs, dens, occ)
+            # not sure sort wfs is good here,
+            # you need to probably run loop over sort_wfs
+            # with update of energy. So, don't use it for now.
+            # for kpt in wfs.kpt_u:
+            #     self.sort_wavefunctions(ham, wfs, kpt)
+            self.initialize_2(wfs, dens, ham)
 
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
-        self.update_ref_orbitals(wfs)  #, ham)
         wfs.timer.stop('Preconditioning:')
+        self.update_ref_orbitals(wfs, ham)
+
+        if str(self.search_direction) == 'LBFGS_P2':
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                self.c_nm_ref[u] = kpt.C_nM.copy()
 
         a_mat_u = self.a_mat_u
         n_dim = self.n_dim
@@ -272,6 +308,11 @@ class DirectMinLCAO(DirectLCAO):
                 # der_phi_c += dotc(g[k][il1], p[k][il1]).real
         der_phi_2i[0] = wfs.kd.comm.sum(der_phi_2i[0])
 
+        if str(self.search_direction) == 'LBFGS_P2':
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                a_mat_u[u] = np.zeros_like(a_mat_u[u])
+
         alpha, phi_alpha, der_phi_alpha, g_mat_u = \
             self.line_search.step_length_update(a_mat_u, p_mat_u,
                                                 n_dim, ham, wfs, dens,
@@ -298,7 +339,10 @@ class DirectMinLCAO(DirectLCAO):
 
         # calculate new matrices for optimal step length
         for k in a_mat_u.keys():
-            a_mat_u[k] += alpha * p_mat_u[k]
+            if str(self.search_direction) == 'LBFGS_P2':
+                a_mat_u[k] = alpha * p_mat_u[k]
+            else:
+                a_mat_u[k] += alpha * p_mat_u[k]
         self.alpha = alpha
         self.g_mat_u = g_mat_u
         self.iters += 1
@@ -328,6 +372,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.start('Calculate gradients')
         g_mat_u = {}
         self._error = 0.0
+        self.e_sic = 0.0  # this is odd energy
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             if n_dim[k] == 0:
@@ -336,18 +381,26 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             # make matrix hermitian
             tri2full(h_mm)
-            g_mat_u[k], error = self.get_gradients(h_mm, kpt.C_nM,
-                                                   kpt.f_n,
-                                                   self.evecs[k],
-                                                   self.evals[k],
-                                                   kpt, wfs.timer)
+            g_mat_u[k], error = self.odd.get_gradients(h_mm, kpt.C_nM,
+                                                       kpt.f_n,
+                                                       self.evecs[k],
+                                                       self.evals[k],
+                                                       kpt, wfs,
+                                                       wfs.timer,
+                                                       self.matrix_exp,
+                                                       self.representation['name'],
+                                                       self.ind_up[k])
+            if hasattr(self.odd, 'e_sic_by_orbitals'):
+                self.e_sic += self.odd.e_sic_by_orbitals[k].sum()
+
             self._error += error
         self._error = self.kd_comm.sum(self._error)
+        self.e_sic = self.kd_comm.sum(self.e_sic)
         wfs.timer.stop('Calculate gradients')
 
         self.get_en_and_grad_iters += 1
 
-        return e_total, g_mat_u
+        return e_total + self.e_sic, g_mat_u
 
     def update_ks_energy(self, ham, wfs, dens, occ):
 
@@ -507,11 +560,15 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs):  # , ham):
+    def update_ref_orbitals(self, wfs, ham):
+        if str(self.search_direction) == 'LBFGS_P2':
+            return 0
+
         counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 and self.iters > 1:
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
+                self.sort_wavefunctions(ham, wfs, kpt)
                 self.c_nm_ref[u] = kpt.C_nM.copy()
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
                 # self.sort_wavefunctions(ham, wfs, kpt)
@@ -611,7 +668,7 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs, dens, occ):
+    def get_canonical_representation(self, ham, wfs):
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. it's probably necessary
@@ -624,62 +681,94 @@ class DirectMinLCAO(DirectLCAO):
         for kpt in wfs.kpt_u:
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             tri2full(h_mm)
-            n_init = 0
-            while True:
-                n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
-                kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
-                    rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                n_init += n_fin
-                if n_init == len(kpt.f_n):
-                    break
-                elif n_init > len(kpt.f_n):
-                    raise SystemExit('Bug is here!')
-            # this function rotates occpuied subspace
-            # n_occ = 0
-            # nbands = len(kpt.f_n)
-            # while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-            #     n_occ += 1
-            # n_unocc = len(kpt.f_n) - n_occ
-            #
-            # for x in [0, n_occ]:
-            #     y = (x // n_occ) * (n_unocc - n_occ) + n_occ
-            #     kpt.C_nM[x:x + y, :], kpt.eps_n[x:x + y] = \
-            #         rotate_subspace(h_mm, kpt.C_nM[x:x + y, :])
+            if self.odd.name == 'Zero':
+                n_init = 0
+                while True:
+                    n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
+                    kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
+                        rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                    n_init += n_fin
+                    if n_init == len(kpt.f_n):
+                        break
+                    elif n_init > len(kpt.f_n):
+                        raise SystemExit('Bug is here!')
+                    # this function rotates occpuied subspace
+                    # n_occ = 0
+                    # nbands = len(kpt.f_n)
+                    # while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+                    #     n_occ += 1
+                    # n_unocc = len(kpt.f_n) - n_occ
+                    #
+                    # for x in [0, n_occ]:
+                    #     y = (x // n_occ) * (n_unocc - n_occ) + n_occ
+                    #     kpt.C_nM[x:x + y, :], kpt.eps_n[x:x + y] = \
+                    #         rotate_subspace(h_mm, kpt.C_nM[x:x + y, :])
+            elif self.odd.name == 'PZ_SIC':
+                self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
+                                               kpt.f_n, kpt, wfs,
+                                               update_eigenvalues=True)
+            for kpt in wfs.kpt_u:
+                u = kpt.s * self.n_kps + kpt.q
+                self.c_nm_ref[u] = kpt.C_nM.copy()
+                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
-        # occ.calculate(wfs)
-        self.initialize_2(wfs)
-        # self.update_ks_energy(ham, wfs, dens, occ)
         wfs.timer.stop('Get canonical representation')
-        return
-        # I tried to call function below, but due to instability
-        # of eigensolvers
-        # for some systems, it can 'mess' the solution.
-        # this usually happens in metals,
-        # the so-called charge-sloshing problem, or in systems
-        # with degenerate occupied-unnocupied orbitals
-
-        super(DirectMinLCAO, self).iterate(ham, wfs)
-        occ.calculate(wfs)
-        self.initialize_2(wfs)
-        self.update_ks_energy(ham, wfs, dens, occ)
 
     def reset(self):
         super(DirectMinLCAO, self).reset()
         self._error = np.inf
         self.iters = 0
 
-    def todict(self):
+    def sort_wavefunctions(self, ham, wfs, kpt):
+        """
+        this function sorts wavefunctions according
+        it's orbitals energies, not eigenvalues.
+        :return:
+        """
+        wfs.timer.start('Sort WFS')
+        h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
+        tri2full(h_mm)
+        hc_mn = np.zeros(shape=(kpt.C_nM.shape[1], kpt.C_nM.shape[0]),
+                         dtype=kpt.C_nM.dtype)
+        mmm(1.0, h_mm.conj(), 'N', kpt.C_nM, 'T', 0.0, hc_mn)
+        mmm(1.0, kpt.C_nM.conj(), 'N', hc_mn, 'N', 0.0, h_mm)
+        orbital_energies = h_mm.diagonal().real.copy()
+        # label each orbital energy
+        # add some noise to get rid off degeneracy
+        orbital_energies += \
+            np.random.rand(len(orbital_energies)) * 1.0e-8
+        oe_labeled = {}
+        for i, lamb in enumerate(orbital_energies):
+            oe_labeled[str(round(lamb, 12))] = i
+        # now sort orb energies
+        oe_sorted = np.sort(orbital_energies)
+        # run over sorted orbital energies and get their label
+        ind = []
+        for x in oe_sorted:
+            i = oe_labeled[str(round(x, 12))]
+            ind.append(i)
+        # check if it is necessary to sort
+        x = np.max(abs(np.array(ind) - np.arange(len(ind))))
+        if x > 0:
+            # now sort wfs according to orbital energies
+            kpt.C_nM[np.arange(len(ind)),:] = kpt.C_nM[ind,:]
+            kpt.eps_n[:] = np.sort(h_mm.diagonal().real.copy())
+        wfs.timer.stop('Sort WFS')
 
+        return
+
+    def todict(self):
         return {'name': 'direct_min_lcao',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
-                'initial_orbitals': 'KS',
-                'initial_rotation':'zero',
+                'initial_orbitals': self.initial_orbitals,
+                'initial_rotation': 'zero',
                 'update_ref_orbs_counter': self.update_ref_orbs_counter,
                 'update_precond_counter': self.update_precond_counter,
                 'use_prec': self.use_prec,
                 'matrix_exp': self.matrix_exp,
-                'representation': self.representation}
+                'representation': self.representation,
+                'odd_parameters': self.odd_parameters}
 
     def get_numerical_gradients(self, n_dim, ham, wfs, dens, occ,
                                 c_nm_ref, eps=1.0e-7):
@@ -824,6 +913,63 @@ class DirectMinLCAO(DirectLCAO):
             wfs.atomic_correction.calculate_projections(wfs, kpt)
 
         wfs.timer.stop('Unitary rotation')
+
+    def init_wave_functions(self, wfs, ham, occ, log):
+
+        # if it is the first use of the scf then initialize
+        # coefficient matrix using eigensolver
+        # and then localise orbitals
+        if (not wfs.coefficients_read_from_file and
+                self.c_nm_ref is None) or self.init_from_ks_eigsolver:
+            super(DirectMinLCAO, self).iterate(ham, wfs)
+            occ.calculate(wfs)
+            self.localize_wfs(wfs, log)
+
+        # if one want to use coefficients saved in gpw file
+        # or to use coefficients from the previous scf circle
+        else:
+            for kpt in wfs.kpt_u:
+                u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
+                if self.c_nm_ref is not None:
+                    C = self.c_nm_ref[u]
+                else:
+                    C = kpt.C_nM
+                kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+            wfs.coefficients_read_from_file = False
+            occ.calculate(wfs)
+
+    def localize_wfs(self, wfs, log):
+
+        log("Initial Localization: ...", flush=True)
+        wfs.timer.start('Initial Localization')
+        for kpt in wfs.kpt_u:
+            if sum(kpt.f_n) < 1.0e-3:
+                continue
+            if self.initial_orbitals == 'KS' or \
+                    self.initial_orbitals is None:
+                continue
+            elif self.initial_orbitals == 'PM':
+                lf_obj = pm(wfs=wfs, spin=kpt.s,
+                            dtype=wfs.dtype)
+            elif self.initial_orbitals == 'W':
+                lf_obj = wl(wfs=wfs, spin=kpt.s)
+            else:
+                raise ValueError('Check initial orbitals.')
+            lf_obj.localize(tolerance=1.0e-5)
+            if self.initial_orbitals == 'PM':
+                U = np.ascontiguousarray(
+                    lf_obj.W_k[kpt.q].T)
+            else:
+                U = np.ascontiguousarray(
+                    lf_obj.U_kww[kpt.q].T)
+                if kpt.C_nM.dtype == float:
+                    U = U.real
+            wfs.gd.comm.broadcast(U, 0)
+            dim = U.shape[0]
+            kpt.C_nM[:dim] = np.dot(U, kpt.C_nM[:dim])
+            del lf_obj
+        wfs.timer.stop('Initial Localization')
+        log("Done", flush=True)
 
 
 def get_indices(dimens, dtype):

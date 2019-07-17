@@ -39,3 +39,4 @@ GPAW calculator:
    ../devel/grids
    ../setups/generation_of_setups
    directmin/directmin
+   sic/sic

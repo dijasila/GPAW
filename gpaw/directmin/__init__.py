@@ -1,7 +1,7 @@
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.sd_lcao import SteepestDescent, FRcg, HZcg, \
-    QuickMin, LBFGS, LBFGS_P
+    QuickMin, LBFGS, LBFGS_P, LBFGS_P2
 from gpaw.directmin.ls_lcao import UnitStepLength, \
     StrongWolfeConditions, Parabola
 
@@ -25,6 +25,8 @@ def search_direction(method, wfs):
             return LBFGS(wfs, **kwargs)
         elif name == 'LBFGS_P':
             return LBFGS_P(wfs, **kwargs)
+        elif name == 'LBFGS_P2':
+            return LBFGS_P2(wfs, **kwargs)
         else:
             raise ValueError('Check keyword for search direction!')
     else:
