@@ -14,8 +14,7 @@ H2O = Atoms('OH2',
 H2O.center(vacuum=5.0)
 
 calc = GPAW(mode=LCAO(force_complex_dtype=True),
-            basis='dzp',
-            convergence={'eigenstates': 1.0e-5},
+            h=0.25,
             occupations=FermiDirac(width=0.0, fixmagmom=True),
             eigensolver=DirectMinLCAO(
                 odd_parameters={'name': 'PZ_SIC',  # half-SIC
@@ -27,11 +26,11 @@ H2O.set_calculator(calc)
 e = H2O.get_potential_energy()
 f = H2O.get_forces()
 
-equal(e, -16.357, 2e-3)
+equal(e, -11.856260, 1e-5)
 
-f2 = np.array([[-0.254, 0.017, 0.010],
-               [0.258, -0.094, -0.004],
-               [-0.188, 0.219, -0.004]])
+f2 = np.array([[-3.27136, -5.34168, -0.00001],
+               [5.13882, -0.17066, 0.00001],
+               [-1.40629, 5.05699, -0.00001]])
 equal(f2, f, 3e-2)
 
 calc.write('h2o.gpw', mode='all')
@@ -40,5 +39,5 @@ H2O, calc = restart('h2o.gpw')
 H2O.positions += 1.0e-6
 f3 = H2O.get_forces()
 niter = calc.get_number_of_iterations()
-equal(niter, 5, 5)
+equal(niter, 4, 3)
 equal(f2, f, 3e-2)
