@@ -37,7 +37,7 @@ class BaseTester:
         cleanups = [m for m in dir(self) if callable(getattr(self, m)) and m.startswith("cleanup_")]
         my_test_methods = [m for m in dir(self) if callable(getattr(self, m)) and m.startswith("test_")]
         if number is not None:
-            my_test_methods = [m for m in my_test_methods if str(number) in m]
+            my_test_methods = [m for m in my_test_methods if "_" + str(number) + "_" in m]
         completions = [getattr(self, m) for m in cleanups]
         for mname in my_test_methods:
             m = getattr(self, mname)

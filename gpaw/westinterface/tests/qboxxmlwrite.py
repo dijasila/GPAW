@@ -20,16 +20,17 @@ b=[ 0.0, 4.0,  0.0]
 c=[ 0.0,  0.0, 4.0]
 
 
-for n1 in [18]: #range(60, 65):
-  for n2 in [18]:#[64, 23, 10]:
-    for n3 in [18]:#[20, 30, 64]:
+for n1 in [28]: #range(60, 65):
+  for n2 in [28]:#[64, 23, 10]:
+    for n3 in [28]:#[20, 30, 64]:
       #fname = "test_{}_{}_{}.xml".format(n1, n2, n3)
       #fname = "test.xml"
       # fname = "ordered.xml"
       #fname = "domtest_2.xml"
-      #fname = "servervaluetest.xml"
-      fname = "serversymtest2.xml"
+      fname = "servervaluetest.xml"
+      #fname = "serversymtest2.xml"
       #fname = "zerovalserver.xml"
+      #fname = "servertest.xml"
       n=[n1, n2, n3]
 
       h=[1.0/n[0],1.0/n[1],1.0/n[2]]
@@ -55,9 +56,10 @@ for n1 in [18]: #range(60, 65):
             y = fa * a[1] + fb * b[1] + fc *c[1]
             z = fa * a[2] + fb * b[2] + fc *c[2]
             #v.append(fun(float(x),float(y),float(z)))
-            #v.append(i*18*18 + j * 18 + k)
+            v.append((i*n2*n3+ j * n3 + k)*0.001)
+            #v.append(0)
             #v.append(0.05*(i-18)**2)
-            v.append((i-9)*0.1)
+            #v.append((i-9)*0.1)
       #print x,y,z,f float(x),float(y),float(z))
       with open(fname, "w+") as f:
         print('<?xml version="1.0" encoding="UTF-8"?>', file=f)

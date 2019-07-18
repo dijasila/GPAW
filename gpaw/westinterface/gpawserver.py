@@ -26,8 +26,10 @@ class GPAWServer:
     def __init__(self, input_file, output_file, calc_file, should_log=True, log_folder="GPAWServerLogsFolder", atoms=None, calc=None, lock_disabled=False):
         from gpaw import GPAW
         if calc_file is not None:
-            print("READING GPW FILE: '{}'".format(calc_file))
-            calc = GPAW(calc_file, txt=None)
+            try:
+                calc = GPAW(calc_file, txt=None)
+            except Exception as e:
+                self.send_signal("FAILED", str(e))
             atoms = calc.atoms
             atoms.set_calculator(calc)
         from gpaw.westinterface import XMLReaderWriter
@@ -48,7 +50,7 @@ class GPAWServer:
         success = self.get_potential_energy()
         if not success:
             return
-        self.calc.set(convergence={"density":1e-8})
+        self.calc.set(convergence={"density":1e-7})
         self.init_logging()
         self.count = 0
         self.loopcount = 0
@@ -58,20 +60,16 @@ class GPAWServer:
             self.loopcount += 1
             if maxloops >= 0 and self.loopcount > maxloops:
                 break
-
             if self.is_locked():
                 import time
                 time.sleep(self.sleep_period)
                 continue
-
             self.count += 1
             if maxruns >= 0 and self.count > maxruns:
                 break
-
             mpi.world.barrier()
 
             data = self.xmlrw.read(self.input_file)
-            
             
             # +V calculation
             if self.should_log and mpi.rank == 0:
@@ -104,8 +102,10 @@ class GPAWServer:
             
             self.log("GPAW Server run {} complete".format(self.count))
 
-            self.write_lock()
 
+            if not self.lock_disabled:
+                self.send_signal("lock")
+            
             # Barrier to ensure some ranks dont start next loop
             mpi.world.barrier()
 
@@ -133,21 +133,22 @@ class GPAWServer:
             self.atoms.get_potential_energy()
             return True
         except Exception as e:
-            if mpi.rank == 0:
-                fname = self.output_file.split(".")[0] + ".FAILED"
-                with open(fname, "w+") as f:
-                    f.write(str(e))
+            self.send_signal("FAILED", str(e))
             return False
             
 
     def should_kill(self):
         from pathlib import Path
-        fname = self.input_file.split(".")[0] + ".KILL"
+        base = self.input_file.split(".")[0]
+        fname = base + ".KILL"
         p = Path(fname)
         shouldkill = p.exists()
-        fname2 = self.input_file.split(".")[0] + ".DONE"
+        
+        fname2 = base + ".DONE"
         p2 = Path(fname2)
         isdone = p2.exists()
+        
+
         return shouldkill or isdone
 
     def is_locked(self):
@@ -165,15 +166,15 @@ class GPAWServer:
         fname = "GPAWServerLog.txt"
         with open(fname, "a") as f:
             f.write(msg + "\n")
-
-    def write_lock(self):
-        if self.lock_disabled or mpi.rank != 0:
+    
+    def send_signal(self, msg, extra=None):
+        if mpi.rank != 0:
             return
-        fname = self.input_file.split(".")[0] + ".lock"
+        extra = extra or msg
+        msg = msg if msg.startswith(".") else "." + msg
+        fname = self.input_file.split(".")[0] + msg
         with open(fname, "w+") as f:
-            f.write("Locked")
-        
-
+            f.write(extra)
 
 if __name__ == "__main__":
     import sys

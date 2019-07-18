@@ -57,11 +57,11 @@ class DummyCalc:
 
 
 atoms = Atoms("H2", positions=[[0, 0, 0], [0, 0, 0.7]], cell=(4,4,4))
-calc = GPAW(mode=PW(100), txt="testout.txt")
+calc = GPAW(mode=PW(200), txt="testout.txt")
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calcfilename = "servercalc.gpw"
-calc.write(calcfilename, mode="all")
+calc.write(calcfilename)
 server = GPAWServer("servertest.xml", "serverout", calcfilename, lock_disabled=True)
 
 class Tester(BaseTester):
@@ -76,6 +76,10 @@ class Tester(BaseTester):
         lserver = GPAWServer("servertest.xml", "tmpserverout", calcfilename, lock_disabled=True)
         maxruns = 1
         lserver.main_loop(maxruns=maxruns)
+        import os
+        fname = lserver.input_file.split(".")[0] + ".lock"
+        if os.path.exists(fname):
+            os.remove(fname)
         try:
             lserver.input_file = "doesnexists.xml"
             lserver.main_loop(maxruns=maxruns)
@@ -103,8 +107,9 @@ class Tester(BaseTester):
         ext_g = lserver.calc.hamiltonian.vext.vext_g
        
         nx, ny, nz = ext_g.shape
-        expected = np.arange(nx*ny*nz).reshape(nx, ny, nz)
+        expected = np.arange(nx*ny*nz).reshape(nx, ny, nz)*0.001
         assert np.allclose(expected, ext_g)
+        assert not np.allclose(ext_g, 0)
 
     def test_06_writesoutfile(self):
         server.main_loop(maxruns=1)
@@ -218,7 +223,7 @@ class Tester(BaseTester):
         lserver = GPAWServer("servertest.xml", "tmpout.xml", None, atoms=latoms, calc=calc, should_log=False, lock_disabled=True)
         lserver.main_loop(maxruns=1)
         import os
-        failname = "tmpout.FAILED"
+        failname = "servertest.FAILED"
         assert os.path.exists(failname)
         os.remove(failname)
 
@@ -234,14 +239,18 @@ class Tester(BaseTester):
         locks = [fname for fname in os.listdir() if fname.endswith(".lock")]
         for lock in locks:
             os.remove(lock)
+    
+    def cleanup_failfile(self):
+        import os
+        fails = [fname for fname in os.listdir() if fname.endswith(".FAILED")]
+        for fail in fails:
+            os.remove(fail)
         
-# TODO? Parallel test?
-
 if __name__ == "__main__":
     import sys
     tester = Tester()
     if len(sys.argv) > 1:
-        number = int(sys.argv[1])
+        number = sys.argv[1]
         tester.run_tests(number=number)
     else:
         tester.run_tests()

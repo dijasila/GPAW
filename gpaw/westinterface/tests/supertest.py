@@ -9,20 +9,26 @@ calc = GPAW(mode=PW(100), txt="supertestout.txt")
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 
+calc_file = "supercalc.gpw"
+calc.write(calc_file)
 
-wi = WESTInterface(calc, atoms=atoms, use_dummywest=True)
+wi = WESTInterface(calc_file, atoms=atoms, use_dummywest=True)
 
 class Tester(BaseTester):
 
     def test_01_instancefrompurecalc(self):
-        lwi = WESTInterface(calc)
+        lwi = WESTInterface(calc_file)
         assert lwi.atoms is not None
         assert lwi.calc is not None
 
     def test_02_noatomsfails(self):
         try:
             lcalc = GPAW(mode=PW(100), txt=None)
-            lwi = WESTInterface(lcalc)
+            latoms = Atoms("H2", positions=[[0, 0, 0], [0, 0, 0.7]], cell=(4,4,4))
+            latoms.set_calculator(lcalc)
+            latoms.get_potential_energy()
+            lcalc.write("localtest.gpw")
+            lwi = WESTInterface("localtest.gpw")
             raise ValueError("Instantiation should have failed")
         except:
             pass
@@ -38,7 +44,7 @@ class Tester(BaseTester):
         # Check that submit strings are correct for various params
         # Prints to console and/or returns
 
-        lwi = WESTInterface(calc, atoms=atoms, computer="gbar", use_dummywest=True)
+        lwi = WESTInterface(calc_file, atoms=atoms, computer="gbar", use_dummywest=True)
 
         opt_opts = [{'Time': '05:00:00',
                      'GPAWNodes': 5,
@@ -81,7 +87,7 @@ class Tester(BaseTester):
             assert cmd == expected_cmd
             
     def test_05_dryrunsniflheim(self):
-        lwi = WESTInterface(calc, atoms=atoms, computer="niflheim", use_dummywest=True)
+        lwi = WESTInterface(calc_file, atoms=atoms, computer="niflheim", use_dummywest=True)
 
         opt_opts = [{'Time': '05:00:00',
                      'GPAWNodes': 5,
@@ -135,10 +141,8 @@ class Tester(BaseTester):
                         break
             assert b, expected_cmd[-5:] + "---" + cmd[-5:]
 
-    def test_06_instancefromnokw(self):
-        lwi = WESTInterface(calc, atoms)
 
-    def test_07_writesinputfiles(self):
+    def test_06_writesinputfiles(self):
         opts = {'Time': '05:00:00',
                      'GPAWNodes': 5,
                      'WESTNodes': 5,
@@ -151,6 +155,9 @@ class Tester(BaseTester):
         wi.run(opts, dry_run=True)
         import os
         assert os.path.exists(opts["Input"])
+
+
+# TODO Fails when not enough info
  
 
 if __name__ == "__main__":
