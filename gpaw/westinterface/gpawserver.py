@@ -1,5 +1,6 @@
 from gpaw.external import ExternalPotential
 from gpaw import mpi
+import numpy as np
 
 class ExternalField(ExternalPotential):
     def __init__(self, array, domain):
@@ -30,6 +31,7 @@ class GPAWServer:
                 calc = GPAW(calc_file, txt=None)
             except Exception as e:
                 self.send_signal("FAILED", str(e))
+                raise e
             atoms = calc.atoms
             atoms.set_calculator(calc)
         from gpaw.westinterface import XMLReaderWriter
@@ -70,7 +72,8 @@ class GPAWServer:
             mpi.world.barrier()
 
             data = self.xmlrw.read(self.input_file)
-            
+            data = self.downscale_potential(data)
+
             # +V calculation
             if self.should_log and mpi.rank == 0:
                 self.calc.set(txt=self.log_folder + "/" + "gpaw_plusV_{}.txt".format(self.count))
@@ -95,7 +98,7 @@ class GPAWServer:
             densitym = self.calc.get_pseudo_density()
 
             density = (densityp - densitym) / 2.0
-
+            density = self.upscale_density(density)
             
             # Write to output file
             self.xmlrw.write(density, domain, self.output_file)
@@ -175,6 +178,17 @@ class GPAWServer:
         fname = self.input_file.split(".")[0] + msg
         with open(fname, "w+") as f:
             f.write(extra)
+
+    def downscale_potential(self, xmldata):
+        maxval = 1e-3
+        maxval_data = np.max(np.abs(xmldata.array))
+        self.scale_factor = maxval / maxval_data if not np.allclose(maxval_data, 0) else 1
+        xmldata.array = xmldata.array * self.scale_factor
+        return xmldata
+
+    def upscale_density(self, density):
+        density /= self.scale_factor
+        return density
 
 if __name__ == "__main__":
     import sys

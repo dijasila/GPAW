@@ -13,16 +13,16 @@ class Tester(BaseTester):
         pass
     
     
-    def test_1_data_isnotnone(self):
+    def test_01_data_isnotnone(self):
         assert data is not None
 
-    def test_2_data_isnumpyarray(self):
+    def test_02_data_isnumpyarray(self):
         assert isinstance(data, XMLData)
 
-    def test_3_data_hasrightshape(self):
+    def test_03_data_hasrightshape(self):
         assert data.array.shape == (64, 64, 64)
 
-    def test_4_variousshapes(self):
+    def test_04_variousshapes(self):
         import os
         maxcount = 10
         count = 0
@@ -40,7 +40,7 @@ class Tester(BaseTester):
             expected = (int(nx), int(ny), int(nz))
             assert ldata.shape == expected
 
-    def test_5_datahasrightorder(self):
+    def test_05_datahasrightorder(self):
         ldata = xmlrw.read("ordered.xml").array
         nx, ny, nz = ldata.shape
         expected = np.zeros_like(ldata)
@@ -50,13 +50,13 @@ class Tester(BaseTester):
                     expected[ix, iy, iz] = ix * ny * nz + iy * nz + iz
         assert np.allclose(expected, ldata)
 
-    def test_6_domainisread(self):
+    def test_06_domainisread(self):
         expected = np.array([[16.0, 0., 0.],
                              [0., 16.0, 0.],
                              [0., 0., 16.0]])
         assert np.allclose(expected, data.domain)
 
-    def test_7_varietyofdomains(self):
+    def test_07_varietyofdomains(self):
         import os
         testruns = 0
         for fname in os.listdir():
@@ -86,7 +86,7 @@ class Tester(BaseTester):
             
         assert testruns == 3
 
-    def test_8_writtenequalsmanual(self):
+    def test_08_writtenequalsmanual(self):
         data = np.arange(10*10*10).reshape(10,10,10)
         domain = np.array([[16.0, 0.0, 0.0],
                            [0., 16.0, 0.0],
@@ -101,7 +101,7 @@ class Tester(BaseTester):
         
         assert actual == expected
 
-    def test_9_readwriteisidentity(self):
+    def test_09_readwriteisidentity(self):
         ldata = xmlrw.read("test.xml")
         xmlrw.write(ldata.array, ldata.domain, "readwrite.xml")
         with open("readwrite.xml", "r") as f:
@@ -110,7 +110,7 @@ class Tester(BaseTester):
             expected = f.read()
         assert actual == expected
 
-    def test_x10_writereadisidentity(self):
+    def test_10_writereadisidentity(self):
         array = np.random.rand(10, 10, 12)
         domain = np.random.rand(3, 3)
         xmlrw.write(array, domain, "writeread.xml")
@@ -119,6 +119,15 @@ class Tester(BaseTester):
         assert np.allclose(ldata.array, array)
         assert np.allclose(ldata.domain, domain)
         
+    def test_11_canreadrealdata(self):
+        ldata = xmlrw.read("vext.xml")
+
 if __name__ == "__main__":
     tester = Tester()
-    tester.run_tests()
+    import sys
+    if len(sys.argv) > 1:
+        number = sys.argv[1]
+        tester.run_tests(number=number)
+    else:
+        tester.run_tests()
+    

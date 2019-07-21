@@ -1,4 +1,5 @@
 from functools import wraps
+import sys
 
 def colored(msg, color):
     end = "\033[0m"
@@ -15,6 +16,7 @@ def test_method(f, completions):
     def wrapped(*args, **kwargs):
         msg = f"Running {f.__name__}".ljust(50) + "..."
         print(msg, end="")
+        sys.stdout.flush()
         try:
             res = f(*args, **kwargs)
             print(colored("success", "ok"))
