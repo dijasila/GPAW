@@ -1,4 +1,3 @@
-from xml.dom import minidom
 import numpy as np
 from xml.etree import cElementTree as elTree
 
