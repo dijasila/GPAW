@@ -78,12 +78,6 @@ class XMLReaderWriter:
         except Exception as e:
             print("Failed: ", vec)
             raise e
-    def _read_domain_vec(self, tag, vec_id):
-        vec_string = tag.attributes[vec_id].value
-        x = vec_string.split(" ")
-        return np.array([float(y) for y in x])
-
-
 
     def write(self, data, domain, file_name):
         if not file_name.endswith(".xml"):
