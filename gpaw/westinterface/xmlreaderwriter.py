@@ -25,16 +25,22 @@ class XMLReaderWriter:
             xml_file_path = xml_file_path + ".xml"
         if not os.path.exists(xml_file_path):
             raise ValueError("File does not exist: {}".format(xml_file_path))
-       
+
+        found_grid = False
+        found_vals = False
+        found_domain = False
         for event, elem in elTree.iterparse(xml_file_path):
             if elem.tag == "grid":
                 nx, ny, nz = self._process_grid(elem)
+                found_grid = True
             elif elem.tag == "grid_function":
                 func_vals = self._process_grid_function(elem)
+                found_vals = True
             elif elem.tag == "domain":
                 a, b, c = self._process_domain(elem)
+                found_domain = True
             elem.clear()
-        
+        assert found_grid and found_vals and found_domain
         # Final processing of data
         # Data from WEST is in Fortran style therefore shape: nz, ny, nx + transpose
         array = np.array(func_vals).reshape(nz, ny, nx).T
@@ -68,11 +74,12 @@ class XMLReaderWriter:
         return result
 
     def _process_vec(self, elem, tag):
+        bohr2A = 0.529177
         vec_string = elem.attrib[tag]
         vec = vec_string.split(" ")
         vec = [d for d in vec if d != ""]
         try:
-            res = np.array([float(y) for y in vec])
+            res = np.array([float(y) * bohr2A for y in vec])
             return res
         except Exception as e:
             print("Failed: ", vec)
@@ -83,9 +90,11 @@ class XMLReaderWriter:
             file_name = file_name + ".xml"
         import base64
         import struct
+        bohr2A = 0.529177
         nx, ny, nz = data.shape
+        domain = [d / bohr2A for d in domain]
         a, b, c = domain[0], domain[1], domain[2]
-
+        
         v = data.T.flatten()
         
         with open(file_name, "w+") as f:

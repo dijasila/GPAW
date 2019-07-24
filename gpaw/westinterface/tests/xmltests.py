@@ -51,14 +51,16 @@ class Tester(BaseTester):
         assert np.allclose(expected, ldata)
 
     def test_06_domainisread(self):
+        bohr2A = 0.529177
         expected = np.array([[16.0, 0., 0.],
                              [0., 16.0, 0.],
-                             [0., 0., 16.0]])
+                             [0., 0., 16.0]]) * bohr2A
         assert np.allclose(expected, data.domain)
 
     def test_07_varietyofdomains(self):
         import os
         testruns = 0
+        bohr2A = 0.529177
         for fname in os.listdir():
             if not fname.endswith(".xml") or not fname.startswith("domtest"):
                 continue
@@ -69,28 +71,29 @@ class Tester(BaseTester):
                 testruns += 1
                 expected = np.array([[16.0, 0.0, 5.0],
                                      [0.0, 16.0, 0.0],
-                                     [0., 0., 16.0]])
+                                     [0., 0., 16.0]]) * bohr2A
                 assert np.allclose(expected, ldata.domain)
             elif num == "2":
                 testruns += 1
                 expected = np.array([[16.0, 0.0, 3.0],
                                      [0.0, 16.0, 0.0],
-                                     [0., 0.05, 16.0]])
+                                     [0., 0.05, 16.0]]) * bohr2A
                 assert np.allclose(expected, ldata.domain)
             elif num == "3":
                 testruns += 1
                 expected = np.array([[16.0, 0.0, 3.0],
                                      [0.0, 13.0, 3.0],
-                                     [17., 0., 12.0]])
+                                     [17., 0., 12.0]]) * bohr2A
                 assert np.allclose(expected, ldata.domain)
             
         assert testruns == 3
 
     def test_08_writtenequalsmanual(self):
         data = np.arange(10*10*10).reshape(10,10,10)
+        bohr2A = 0.529177
         domain = np.array([[16.0, 0.0, 0.0],
                            [0., 16.0, 0.0],
-                           [0., 0., 16.0]])
+                           [0., 0., 16.0]]) * bohr2A
         fname = "unittest.xml"
         xmlrw.write(data, domain, fname)
         

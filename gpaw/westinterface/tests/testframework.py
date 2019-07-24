@@ -19,7 +19,10 @@ def test_method(f, completions):
         sys.stdout.flush()
         try:
             res = f(*args, **kwargs)
-            print(colored("success", "ok"))
+            if res is not None and res.lower() == "skipped":
+                print("SKIPPED")
+            else:
+                print(colored("success", "ok"))
             for compl in completions:
                 compl()
             return res
