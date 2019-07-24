@@ -12,7 +12,7 @@ import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
                         Redistributor, DryRunBlacsGrid)
 from gpaw.response.chiks import ChiKS
-from gpaw.response.fxc import get_fxc
+from gpaw.response.kxc import get_fxc
 
 
 class FourComponentSusceptibilityTensor:
@@ -58,11 +58,10 @@ class FourComponentSusceptibilityTensor:
                            memory_safe=memory_safe, world=world,
                            nblocks=nblocks, txt=self.fd, timer=self.timer)
         self.calc = self.chiks.calc  # calc should be loaded here XXX
-        self.fxc = get_fxc(fxc, self.calc,
+        self.fxc = get_fxc(self.calc, fxc,
                            response='susceptibility', mode='pw',
                            world=self.chiks.world, txt=self.chiks.fd,
-                           timer=self.timer,
-                           ecut=self.chiks.ecut, **fxckwargs)
+                           timer=self.timer, **fxckwargs)
 
         # This should be initiated with G-parallelization, in this script! XXX
         nw = len(self.chiks.omega_w)
@@ -186,8 +185,7 @@ class FourComponentSusceptibilityTensor:
         if self.fxc.is_calculated(spincomponent, pd):
             Kxc_GG = self.fxc.read(spincomponent, pd)
         else:
-            Kxc_GG = self.fxc.calculate(spincomponent, pd,
-                                        kslrf=self.chiks, chiks_wGG=chiks_wGG)
+            Kxc_GG = self.fxc.calculate(spincomponent, pd)
             self.fxc.write(Kxc_GG, spincomponent, pd)
         return Kxc_GG
 

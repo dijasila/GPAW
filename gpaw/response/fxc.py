@@ -4,19 +4,23 @@
 from __future__ import print_function
 
 import numpy as np
+'''
 from scipy.special import spherical_jn
 
 import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
+'''
 from gpaw.io.tar import Reader
+'''
 from gpaw.spherical_harmonics import Yarr
 
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 from ase.units import Bohr, Ha
+'''
 
-
+'''
 def get_fxc(fxc, calc, response='susceptibility', mode='pw',
             world=mpi.world, txt='-', timer=None, **kwargs):
     """Factory function getting an initiated version of the fxc class."""
@@ -118,6 +122,7 @@ class AdiabaticSusceptibilityFXC(FXC):
             return self.tcalculator
         else:
             raise ValueError(spincomponent)
+'''
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
@@ -190,6 +195,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     return Kxc_sGG[0]
 
 
+'''
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                              rshe=0.99,
                              chi0_wGG=None,
@@ -230,6 +236,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
             Kxc_GG *= fxc_scaling[1]
 
     return Kxc_GG
+'''
 
 
 def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
@@ -286,6 +293,7 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     return fxcs
 
 
+'''
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
 
@@ -922,6 +930,7 @@ class ATKCHack(AdiabaticTransverseKernelCalculator):
                 Kxc_GG *= fxc_scaling[1]
 
         return Kxc_GG
+'''
 
 
 def calculate_renormalized_kernel(pd, calc, functional, fd):
