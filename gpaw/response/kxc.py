@@ -76,11 +76,13 @@ class FXC:
             # Swap timers to use supplied one
             self.timer, timer = timer, self.timer
 
-        self.calculate(*args, **kwargs)
+        Kxc_GG = self.calculate(*args, **kwargs)
 
         if timer is not None:
             # Swap timers back
             self.timer, timer = timer, self.timer
+
+        return Kxc_GG
 
     def calculate(self, *args, **kwargs):
         raise NotImplementedError

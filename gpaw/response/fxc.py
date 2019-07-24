@@ -4,6 +4,9 @@
 from __future__ import print_function
 
 import numpy as np
+
+from ase.utils.timing import Timer
+from ase.units import Ha
 '''
 from scipy.special import spherical_jn
 
@@ -19,6 +22,9 @@ from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 from ase.units import Bohr, Ha
 '''
+
+from gpaw.response.kxc import AdiabaticSusceptibilityFXC
+
 
 '''
 def get_fxc(fxc, calc, response='susceptibility', mode='pw',
@@ -170,10 +176,16 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticDensityKernelCalculator(world=chi0.world, txt=fd,
-                                                 rshe=rshe, ecut=chi0.ecut,
-                                                 density_cut=density_cut)
-        Kxc_sGG = np.array([Kcalc(calc, pd, functional)])
+        Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
+                                           world=chi0.world, txt=fd,
+                                           timer=chi0.timer,
+                                           rshe=rshe,
+                                           density_cut=density_cut)
+        Kxc_GG = Kcalc('00', pd)
+        if pd.kd.gamma:
+            Kxc_GG[0, :] = 0.0
+            Kxc_GG[:, 0] = 0.0
+        Kxc_sGG = np.array([Kxc_GG])
     elif functional[0] == 'r':
         # Renormalized kernel
         print('Calculating %s kernel' % functional, file=fd)
@@ -195,7 +207,6 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     return Kxc_sGG[0]
 
 
-'''
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
                              rshe=0.99,
                              chi0_wGG=None,
@@ -215,28 +226,28 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating transverse %s kernel" % functional, file=fd)
-        Kcalc = AdiabaticTransverseKernelCalculator(world=chi0.world, txt=fd,
-                                                    rshe=rshe,
-                                                    ecut=chi0.ecut,
-                                                    density_cut=density_cut,
-                                                    spinpol_cut=spinpol_cut)
+        Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
+                                           world=chi0.world, txt=fd,
+                                           timer=chi0.timer,
+                                           rshe=rshe,
+                                           density_cut=density_cut,
+                                           spinpol_cut=spinpol_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
 
-    Kxc_GG = Kcalc(calc, pd, functional)
+    Kxc_GG = Kcalc('+-', pd)
 
     if fxc_scaling is not None:
         assert isinstance(fxc_scaling[0], bool)
         if fxc_scaling[0]:
             if fxc_scaling[1] is None:
-                fxc_scaling[1] = find_Goldstone_scaling(pd, chi0,
+                fxc_scaling[1] = find_Goldstone_scaling(pd, chi0,  # remember to fix inputs XXX
                                                         chi0_wGG, Kxc_GG)
 
             assert isinstance(fxc_scaling[1], float)
             Kxc_GG *= fxc_scaling[1]
 
     return Kxc_GG
-'''
 
 
 def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
