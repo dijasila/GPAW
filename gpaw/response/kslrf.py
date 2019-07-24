@@ -187,6 +187,7 @@ class KohnShamLinearResponseFunction:
             self.intrablockcomm = self.world.new_communicator(ranks)
         print('Number of blocks:', nblocks, file=self.fd)
 
+    @timer('Calculate Kohn-Sham linear response function')
     def calculate(self, spinrot=None, A_x=None):
         out = self._calculate(spinrot, A_x)
 
@@ -195,7 +196,6 @@ class KohnShamLinearResponseFunction:
 
         return out
 
-    @timer('Calculate Kohn-Sham linear response function')
     def _calculate(self, spinrot, A_x):
         """In-place calculation of the response function
 
@@ -518,7 +518,8 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pwsa = None  # Plane wave symmetry analyzer for given q
 
     # SOME GET METHOD, THAT INVOLVES READ/WRITE? XXX
-    
+
+    @timer('Calculate Kohn-Sham linear response function in plane wave mode')
     def calculate(self, q_c, spinrot=None, A_x=None):
         """
         Parameters

@@ -26,6 +26,7 @@ class ChiKS(PlaneWaveKSLRF):
         # The class is calculating one spin component at a time
         self.spincomponent = None
 
+    @timer('Calculate the Kohn-Sham susceptibility')
     def calculate(self, q_c, spincomponent='all', A_x=None):
         """Calculate a component of the susceptibility tensor.
 
@@ -40,6 +41,10 @@ class ChiKS(PlaneWaveKSLRF):
         # Analyze the requested spin component
         self.spincomponent = spincomponent
         spinrot = get_spin_rotation(spincomponent)
+
+        # Initialize the PAW corrections before integration
+        pd = self.get_PWDescriptor(np.asarray(q_c))
+        self.pme.initialize_paw_corrections(pd)
 
         return PlaneWaveKSLRF.calculate(self, q_c, spinrot=spinrot, A_x=A_x)
 
