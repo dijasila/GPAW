@@ -186,7 +186,7 @@ class FourComponentSusceptibilityTensor:
         if self.fxc.is_calculated(spincomponent, pd):
             Kxc_GG = self.fxc.read(spincomponent, pd)
         else:
-            Kxc_GG = self.fxc.calculate(spincomponent, pd)
+            Kxc_GG = self.fxc(spincomponent, pd)
             self.fxc.write(Kxc_GG, spincomponent, pd)
         return Kxc_GG
 
