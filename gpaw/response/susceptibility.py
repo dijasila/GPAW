@@ -1,3 +1,4 @@
+
 import sys
 from time import ctime
 from pathlib import Path
@@ -146,7 +147,7 @@ class FourComponentSusceptibilityTensor:
             The process' block of the full susceptibility component
         """
         pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)  # pd elsewhere XXX
-        Kxc_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
+        Kxc_GG = self.get_xc_kernel(spincomponent, pd)  # move up, once pd is elsewhere XXX
 
         chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
 
@@ -178,7 +179,7 @@ class FourComponentSusceptibilityTensor:
 
         return pd, chiks_wGG
 
-    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
+    def get_xc_kernel(self, spincomponent, pd):
         """Check if the exchange correlation kernel has been calculated,
         if not, calculate it."""
         # Implement write/read/check functionality XXX

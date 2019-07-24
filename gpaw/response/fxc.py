@@ -24,6 +24,7 @@ from ase.units import Bohr, Ha
 '''
 
 from gpaw.response.kxc import AdiabaticSusceptibilityFXC
+from gpaw.response.tms import find_goldstone_scaling
 
 
 '''
@@ -241,8 +242,12 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
         assert isinstance(fxc_scaling[0], bool)
         if fxc_scaling[0]:
             if fxc_scaling[1] is None:
-                fxc_scaling[1] = find_Goldstone_scaling(pd, chi0,  # remember to fix inputs XXX
-                                                        chi0_wGG, Kxc_GG)
+                assert pd.kd.gamma
+                print('Finding rescaling of kernel to fulfill the '
+                      'Goldstone theorem', file=chi0.fd)
+                fxc_scaling[1] = find_goldstone_scaling(chi0.omega_w,
+                                                        -chi0_wGG, Kxc_GG,
+                                                        world=chi0.world)
 
             assert isinstance(fxc_scaling[1], float)
             Kxc_GG *= fxc_scaling[1]
@@ -250,6 +255,7 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     return Kxc_GG
 
 
+'''
 def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     """ Find a scaling of the kernel to move the magnon peak to omeaga=0. """
     # q should be gamma - scale to hit Goldstone
@@ -302,6 +308,7 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     fxcs = fxcsbuf[0]
 
     return fxcs
+'''
 
 
 '''

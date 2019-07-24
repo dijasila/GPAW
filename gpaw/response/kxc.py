@@ -106,7 +106,7 @@ class PlaneWaveAdiabaticFXC(FXC):
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
     def __init__(self, gs, functional,
-                 world=mpi.world, txt='-', timer=None, rshe=0.99):
+                 world=mpi.world, txt='-', timer=None, rshe=0.99, **ignored):
         """
         Parameters
         ----------
@@ -534,7 +534,7 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
-                 rshe=0.99, density_cut=None, spinpol_cut=None):
+                 rshe=0.99, density_cut=None, spinpol_cut=None, **ignored):
         """
         gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
         functional, rshe : see PlaneWaveAdiabaticFXC
