@@ -1,4 +1,3 @@
-
 import sys
 from time import ctime
 from pathlib import Path
@@ -49,6 +48,7 @@ class FourComponentSusceptibilityTensor:
         # Initiate output file and timer
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
+        self.cfd = self.fd
         self.timer = Timer()
         
         self.chiks = ChiKS(gs, frequencies=frequencies, eta=eta, ecut=ecut,
@@ -70,7 +70,8 @@ class FourComponentSusceptibilityTensor:
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
 
-    def get_macroscopic_component(self, spincomponent, q_c, filename=None):
+    def get_macroscopic_component(self, spincomponent, q_c,
+                                  filename=None, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
         susceptibility tensor and writes it to a file.
 
@@ -82,6 +83,9 @@ class FourComponentSusceptibilityTensor:
             Defaults to:
             'chi%s_q«%+d-%+d-%+d».csv' % (spincomponent,
                                           *tuple((q_c * kd.N_c).round()))
+        txt : str
+            Save output of the calculation of this specific component into
+            a file with the filename of the given input.
 
         Returns
         -------
@@ -95,14 +99,15 @@ class FourComponentSusceptibilityTensor:
 
         (omega_w,
          chiks_w,
-         chi_w) = self.calculate_macroscopic_component(spincomponent, q_c)
+         chi_w) = self.calculate_macroscopic_component(spincomponent, q_c,
+                                                       txt=txt)
 
         write_macroscopic_component(omega_w / Hartree, chiks_w, chi_w,
                                     filename, self.world)
 
         return omega_w, chiks_w, chi_w
 
-    def calculate_macroscopic_component(self, spincomponent, q_c):
+    def calculate_macroscopic_component(self, spincomponent, q_c, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
         susceptibility tensor.
 
@@ -117,7 +122,8 @@ class FourComponentSusceptibilityTensor:
             chiks_w: macroscopic dynamic susceptibility (Kohn-Sham system)
             chi_w: macroscopic(to be generalized?) dynamic susceptibility
         """
-        (pd, chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c)
+        pd, chiks_wGG, chi_wGG = self.calculate_component(spincomponent,
+                                                          q_c, txt=txt)
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
@@ -130,7 +136,7 @@ class FourComponentSusceptibilityTensor:
 
         return omega_w, chiks_w, chi_w
 
-    def calculate_component(self, spincomponent, q_c):
+    def calculate_component(self, spincomponent, q_c, txt=None):
         """Calculate a single component of the susceptibility tensor.
 
         Parameters
@@ -146,17 +152,42 @@ class FourComponentSusceptibilityTensor:
         chi_wGG : ndarray
             The process' block of the full susceptibility component
         """
-        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)  # pd elsewhere XXX
-        Kxc_GG = self.get_xc_kernel(spincomponent, pd)  # move up, once pd is elsewhere XXX
+        # Initiate new call-output file, if supplied
+        if txt is not None:
+            # Store timer and close old call-output file
+            self.write_timer()
+            if str(self.fd) != str(self.cfd):
+                print('\nClosing, %s' % ctime(), file=self.cfd)
+                self.cfd.close()
+            # Initiate new output file
+            self.cfd = convert_string_to_fd(txt, self.world)
+        # Print to output file
+        if str(self.fd) != str(self.cfd) or txt is not None:
+            print('---------------', file=self.fd)
+            print(f'Calculating susceptibility spincomponent={spincomponent}'
+                  f'with q_c={q_c}', file=self.fd)
+
+        pd, chiks_wGG = self.calculate_ks_component(spincomponent,   # pd elsewhere XXX
+                                                    q_c, txt=self.cfd)
+        Kxc_GG = self.get_xc_kernel(spincomponent, pd, txt=self.cfd)  # move up, once pd is elsewhere XXX
 
         chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
 
-        print('', file=self.fd)
-        self.timer.write(self.fd)
-
         return pd, chiks_wGG, chi_wGG
 
-    def calculate_ks_component(self, spincomponent, q_c):  # Rename to "get" at some point XXX see xckernel
+    def write_timer(self):
+        """Write timer to call-output file and initiate a new."""
+        self.timer.write(self.cfd)
+        self.timer = Timer()
+
+        # Update all other class instance timers
+        self.chiks.timer = self.timer
+        self.chiks.integrator.timer = self.timer
+        self.chiks.kspair.timer = self.timer
+        self.chiks.pme.timer = self.timer
+        self.fxc.timer = self.timer
+
+    def calculate_ks_component(self, spincomponent, q_c, txt=None):  # Rename to "get" at some point XXX see xckernel
         """Calculate a single component of the Kohn-Sham susceptibility tensor.
 
         Parameters
@@ -171,7 +202,8 @@ class FourComponentSusceptibilityTensor:
             The process' block of the Kohn-Sham susceptibility component
         """
         # ChiKS calculates the susceptibility distributed over plane waves
-        pd, chiks_wGG = self.chiks.calculate(q_c, spincomponent=spincomponent)
+        pd, chiks_wGG = self.chiks.calculate(q_c, spincomponent=spincomponent,
+                                             txt=txt)
 
         # Redistribute memory, so each block has its own frequencies, but all
         # plane waves (for easy invertion of the Dyson-like equation)
@@ -179,14 +211,14 @@ class FourComponentSusceptibilityTensor:
 
         return pd, chiks_wGG
 
-    def get_xc_kernel(self, spincomponent, pd):
+    def get_xc_kernel(self, spincomponent, pd, txt=None):
         """Check if the exchange correlation kernel has been calculated,
         if not, calculate it."""
         # Implement write/read/check functionality XXX
         if self.fxc.is_calculated(spincomponent, pd):
             Kxc_GG = self.fxc.read(spincomponent, pd)
         else:
-            Kxc_GG = self.fxc(spincomponent, pd)
+            Kxc_GG = self.fxc(spincomponent, pd, txt=txt)
             self.fxc.write(Kxc_GG, spincomponent, pd)
         return Kxc_GG
 
@@ -259,6 +291,9 @@ class FourComponentSusceptibilityTensor:
         return out_wGG
 
     def close(self):
+        self.timer.write(self.cfd)
+        print('\nClosing, %s' % ctime(), file=self.cfd)
+        self.cfd.close()
         print('\nClosing, %s' % ctime(), file=self.fd)
         self.fd.close()
 

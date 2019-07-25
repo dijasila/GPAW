@@ -103,6 +103,7 @@ class KohnShamLinearResponseFunction:
         """
         # Output .txt filehandle
         self.fd = convert_string_to_fd(txt, world)
+        self.cfd = self.fd
         print('Initializing KohnShamLinearResponseFunction', file=self.fd)
 
         # Communicators for parallelization
@@ -113,12 +114,7 @@ class KohnShamLinearResponseFunction:
         self.nblocks = self.interblockcomm.size
 
         # Timer
-        if timer is None:
-            self.timer = Timer()
-            self.write_timer = True
-        else:
-            self.timer = timer
-            self.write_timer = False
+        self.timer = timer or Timer()
 
         # The KohnShamPair class handles data extraction from ground state
         self.kspair = KohnShamPair(gs, world=world,
@@ -129,7 +125,7 @@ class KohnShamLinearResponseFunction:
                                    # intrablockcomm.
                                    transitionblockscomm=self.interblockcomm,
                                    txt=self.fd, timer=self.timer)
-        self.calc = self.kspair.calc
+        self.calc = self.kspair.calc  # XXX
 
         self.response = response
         self.mode = mode
@@ -189,12 +185,7 @@ class KohnShamLinearResponseFunction:
 
     @timer('Calculate Kohn-Sham linear response function')
     def calculate(self, spinrot=None, A_x=None):
-        out = self._calculate(spinrot, A_x)
-
-        if self.write_timer:
-            self.timer.write(self.fd)
-
-        return out
+        return self._calculate(spinrot, A_x)
 
     def _calculate(self, spinrot, A_x):
         """In-place calculation of the response function
@@ -226,6 +217,8 @@ class KohnShamLinearResponseFunction:
         # Different calculation modes might want the response function output
         # in different formats
         out = self.post_process(A_x)
+
+        print('', file=self.cfd)
 
         return out
 
@@ -277,7 +270,7 @@ class KohnShamLinearResponseFunction:
 
         spinrot = self.spinrot
 
-        p = partial(print, file=self.fd)
+        p = partial(print, file=self.cfd)
 
         p('Called a response.kslrf.KohnShamLinearResponseFunction.calculate()')
         p('%s' % ctime())
@@ -540,12 +533,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # In-place calculation
-        out = self._calculate(spinrot, A_x)
-
-        if self.write_timer:
-            self.timer.write(self.fd)
-
-        return out
+        return self._calculate(spinrot, A_x)
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
@@ -579,7 +567,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         ngmax = self.pd.ngmax
         Asize = nw * self.pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
 
-        p = partial(print, file=self.fd)
+        p = partial(print, file=self.cfd)
 
         p('The response function is calculated in the PlaneWave mode, using:')
         p('    q_c: [%f, %f, %f]' % (q_c[0], q_c[1], q_c[2]))
@@ -793,7 +781,7 @@ class PWPointIntegrator(Integrator):
 
         # Sum over kpoints
         tmp_x = np.zeros_like(out_x)
-        pb = ProgressBar(self.kslrf.fd)
+        pb = ProgressBar(self.kslrf.cfd)
         for _, k_v in pb.enumerate(mybzk_kv):
             self.kslrf.add_integrand(k_v, n1_t, n2_t, s1_t, s2_t,
                                      tmp_x, **kwargs)

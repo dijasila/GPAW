@@ -1,5 +1,7 @@
 import numpy as np
+from time import ctime
 
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer
 
 from gpaw.utilities.blas import gemm
@@ -27,7 +29,7 @@ class ChiKS(PlaneWaveKSLRF):
         self.spincomponent = None
 
     @timer('Calculate the Kohn-Sham susceptibility')
-    def calculate(self, q_c, spincomponent='all', A_x=None):
+    def calculate(self, q_c, spincomponent='all', A_x=None, txt=None):
         """Calculate a component of the susceptibility tensor.
 
         Parameters
@@ -38,6 +40,15 @@ class ChiKS(PlaneWaveKSLRF):
             'all' is an alias for '00', kept for backwards compability
             Likewise 0 or 1, can be used for 'uu' or 'dd'
         """
+        # Initiate new call-output file, if supplied
+        if txt is not None:
+            self.cfd = convert_string_to_fd(txt, self.world)
+        # Print to output file(s)
+        if str(self.fd) != str(self.cfd) or txt is not None:
+            print('Calculating Kohn-Sham susceptibility with '
+                  f'q_c={q_c} and spincomponent={spincomponent}', file=self.fd)
+            print(ctime(), file=self.fd)
+
         # Analyze the requested spin component
         self.spincomponent = spincomponent
         spinrot = get_spin_rotation(spincomponent)

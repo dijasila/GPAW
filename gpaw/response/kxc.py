@@ -51,6 +51,7 @@ class FXC:
         # Output .txt filehandle and timer
         self.world = world
         self.fd = convert_string_to_fd(txt, world)
+        self.cfd = self.fd
         self.timer = timer or Timer()
         
         if isinstance(gs, GPAW):
@@ -61,10 +62,9 @@ class FXC:
                   file=self.fd)
             self.calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
 
-        # Specific output files may be specified in individual calls
-        self.cfd = None
-
     def __call__(self, *args, txt=None, timer=None, **kwargs):
+        if str(self.fd) != str(self.cfd) or txt is not None:
+            print('Calculating fxc', file=self.fd)
         # A specific output file can be supplied for each individual call
         if txt is not None:
             self.cfd = convert_string_to_fd(txt, self.world)
@@ -97,9 +97,6 @@ class FXC:
     def write(self, *args, **kwargs):
         # Not implemented
         pass
-
-    def write_timer(self):
-        self.timer.write(self.fd)
 
 
 class PlaneWaveAdiabaticFXC(FXC):
@@ -136,7 +133,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     @timer('Calculate XC kernel')
     def calculate(self, pd):
-        
+        print('Calculating fxc', file=self.cfd)
         # Get the spin density we need and allocate fxc
         n_sG = self.get_density_on_grid()
         fxc_G = np.zeros(np.shape(n_sG[0]))
@@ -150,6 +147,8 @@ class PlaneWaveAdiabaticFXC(FXC):
         if self.rshe:  # Do PAW correction to Fourier transformed kernel
             KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
             Kxc_GG += KxcPAW_GG
+
+        print('', file=self.cfd)
 
         return Kxc_GG / pd.gd.volume
             

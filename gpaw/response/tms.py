@@ -1,4 +1,8 @@
 import numpy as np
+from time import ctime
+
+from ase.utils import convert_string_to_fd
+from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
@@ -21,7 +25,8 @@ class TransverseMagneticSusceptibility(FCST):
 
         FCST.__init__(self, *args, **kwargs)
 
-    def get_macroscopic_component(self, spincomponent, q_c, filename=None):
+    def get_macroscopic_component(self, spincomponent, q_c,
+                                  filename=None, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
         transverse magnetic susceptibility and writes it to a file.
         
@@ -29,7 +34,7 @@ class TransverseMagneticSusceptibility(FCST):
         ----------
         spincomponent : str
             '+-': calculate chi+-, '-+: calculate chi-+
-        q_c, filename : see gpaw.response.susceptibility
+        q_c, filename, txt : see gpaw.response.susceptibility
 
         Returns
         -------
@@ -38,28 +43,42 @@ class TransverseMagneticSusceptibility(FCST):
         assert spincomponent in ['+-', '-+']
 
         return FCST.get_macroscopic_component(self, spincomponent, q_c,
-                                              filename=filename)
+                                              filename=filename, txt=txt)
 
-    def calculate_component(self, spincomponent, q_c):
+    def calculate_component(self, spincomponent, q_c, txt=None):
         """Calculate a transverse magnetic susceptibility element.
 
         Returns
         -------
         pd, chiks_wGG, chi_wGG : see gpaw.response.susceptibility
         """
-        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c)  # pd elsewhere XXX
-        Kxc_GG = self.get_xc_kernel(spincomponent, pd, chiks_wGG=chiks_wGG)
+        # Initiate new call-output file, if supplied
+        if txt is not None:
+            # Store timer and close old call-output file
+            self.write_timer()
+            if str(self.fd) != str(self.cfd):
+                print('\nClosing, %s' % ctime(), file=self.cfd)
+                self.cfd.close()
+            # Initiate new output file
+            self.cfd = convert_string_to_fd(txt, self.world)
+        # Print to output file
+        if str(self.fd) != str(self.cfd) or txt is not None:
+            print('---------------', file=self.fd)
+            print(f'Calculating susceptibility spincomponent={spincomponent} '
+                  f'with q_c={q_c}', file=self.fd)
+
+        pd, chiks_wGG = self.calculate_ks_component(spincomponent,  # pd elsewhere XXX
+                                                    q_c, txt=self.cfd)
+        Kxc_GG = self.get_xc_kernel(spincomponent, pd,
+                                    chiks_wGG=chiks_wGG, txt=self.cfd)
 
         chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
 
-        print('', file=self.fd)
-        self.timer.write(self.fd)
-
         return pd, chiks_wGG, chi_wGG
 
-    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None):
+    def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None, txt=None):
         """Get the exchange correlation kernel."""
-        Kxc_GG = FCST.get_xc_kernel(self, spincomponent, pd)
+        Kxc_GG = FCST.get_xc_kernel(self, spincomponent, pd, txt=txt)
 
         fxc_scaling = self.fxc_scaling
 
