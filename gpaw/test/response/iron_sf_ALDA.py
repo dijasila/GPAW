@@ -90,6 +90,7 @@ for s, ((rshe, bandsummation, memory_safe), frq_w) in enumerate(zip(strat_sd,
                                            nblocks=2)
     tms.get_macroscopic_component('+-', q_c,
                                   filename='iron_dsus' + '_G%d.csv' % (s + 1))
+    tms.write_timer()
 
 t3 = time.time()
 

@@ -71,6 +71,7 @@ for q in range(2):
 
     tms.get_macroscopic_component('+-', q_c=q_qc[q],
                                   filename='iron_dsus' + '_%d.csv' % (q + 1))
+    tms.write_timer()
 
 t3 = time.time()
 
