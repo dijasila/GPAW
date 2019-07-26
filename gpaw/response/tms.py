@@ -42,21 +42,21 @@ class TransverseMagneticSusceptibility(FCST):
                                               frequencies, filename=filename,
                                               txt=txt)
 
-    def _calculate_component(self, spincomponent, q_c, frequencies):
+    def _calculate_component(self, spincomponent, pd, wd):
         """Calculate a transverse magnetic susceptibility element.
 
         Returns
         -------
-        pd, chiks_wGG, chi_wGG : see gpaw.response.susceptibility
+        pd, wd, chiks_wGG, chi_wGG : see gpaw.response.susceptibility
         """
-        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c,  # pd elsewhere XXX
-                                                    frequencies, txt=self.cfd)
+        chiks_wGG = self.calculate_ks_component(spincomponent, pd,
+                                                wd, txt=self.cfd)
         Kxc_GG = self.get_xc_kernel(spincomponent, pd,
                                     chiks_wGG=chiks_wGG, txt=self.cfd)
 
         chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
 
-        return pd, chiks_wGG, chi_wGG
+        return pd, wd, chiks_wGG, chi_wGG
 
     def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None, txt=None):
         """Get the exchange correlation kernel."""

@@ -55,7 +55,7 @@ class ChiKS(PlaneWaveKSLRF):
         spinrot = get_spin_rotation(spincomponent)
 
         # Initialize the PAW corrections before integration
-        pd = self.get_PWDescriptor(np.asarray(q_c))
+        pd = self.get_PWDescriptor(q_c)
         self.pme.initialize_paw_corrections(pd)
 
         return PlaneWaveKSLRF.calculate(self, q_c, frequencies,

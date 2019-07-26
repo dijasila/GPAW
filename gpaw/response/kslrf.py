@@ -513,10 +513,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         """
         Parameters
         ----------
-        q_c : list or ndarray
-            Momentum transfer.
-        frequencies : ndarray
-            Array of frequencies to evaluate the response function at.
+        q_c : list or ndarray or PWDescriptor
+            Momentum transfer (and possibly plane wave basis)
+        frequencies : ndarray or FrequencyDescriptor
+            Array of frequencies to evaluate the response function at or
+            descriptor of those frequencies.
 
         Returns
         -------
@@ -526,12 +527,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             The linear response function.
         """
         # Set up plane wave description with the gived momentum transfer q
-        q_c = np.asarray(q_c, dtype=float)
-        self.pd = self.get_PWDescriptor(q_c)  # pd elsewhere XXX
+        self.pd = self.get_PWDescriptor(q_c)
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
 
         # Set up frequency descriptor for the given frequencies
-        self.wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
+        self.wd = self.get_FreqDescriptor(frequencies)
         self.omega_w = self.wd.get_data()
 
         # In-place calculation
@@ -539,13 +539,16 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     def get_PWDescriptor(self, q_c):
         """Get the planewave descriptor for a certain momentum transfer q_c."""
-        from gpaw.kpt_descriptor import KPointDescriptor
         from gpaw.wavefunctions.pw import PWDescriptor
-        
-        qd = KPointDescriptor([q_c])
-        pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
-                          complex, qd, gammacentered=self.gammacentered)
-        return pd
+        if isinstance(q_c, PWDescriptor):
+            return q_c
+        else:
+            from gpaw.kpt_descriptor import KPointDescriptor
+            q_c = np.asarray(q_c, dtype=float)
+            qd = KPointDescriptor([q_c])
+            pd = PWDescriptor(self.ecut, self.calc.wfs.gd,
+                              complex, qd, gammacentered=self.gammacentered)
+            return pd
 
     @timer('Get PW symmetry analyser')
     def get_PWSymmetryAnalyzer(self, pd):
@@ -556,6 +559,13 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                     disable_point_group=self.disable_point_group,
                     disable_time_reversal=self.disable_time_reversal,
                     disable_non_symmorphic=self.disable_non_symmorphic)
+
+    def get_FreqDescriptor(self, frequencies):
+        """Get the frequency descriptor for a certain input frequencies."""
+        if isinstance(frequencies, FrequencyDescriptor):
+            return frequencies
+        else:
+            return FrequencyDescriptor(np.asarray(frequencies) / Hartree)
 
     def print_information(self, nt):
         """Basic information about the input ground state, parallelization,
