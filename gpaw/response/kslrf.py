@@ -11,7 +11,7 @@ import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor)
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.progressbar import ProgressBar
-from gpaw.response.kspair import KohnShamPair
+from gpaw.response.kspair import KohnShamPair, get_calc
 
 
 class KohnShamLinearResponseFunction:
@@ -116,8 +116,11 @@ class KohnShamLinearResponseFunction:
         # Timer
         self.timer = timer or Timer()
 
+        # Load ground state calculation
+        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+
         # The KohnShamPair class handles data extraction from ground state
-        self.kspair = KohnShamPair(gs, world=world,
+        self.kspair = KohnShamPair(self.calc, world=world,
                                    # Let each process handle slow steps only
                                    # for a fraction of all transitions.
                                    # t-transitions are distributed through
@@ -125,7 +128,6 @@ class KohnShamLinearResponseFunction:
                                    # intrablockcomm.
                                    transitionblockscomm=self.interblockcomm,
                                    txt=self.fd, timer=self.timer)
-        self.calc = self.kspair.calc  # XXX
 
         self.response = response
         self.mode = mode

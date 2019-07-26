@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 from scipy.spatial import cKDTree
 
@@ -74,11 +76,7 @@ class KohnShamPair:
         # Output .txt filehandle
         self.fd = convert_string_to_fd(txt, world)
         self.timer = timer or Timer()
-
-        with self.timer('Read ground state'):
-            print('Reading ground state calculation:\n  %s' % gs,
-                  file=self.fd)
-            self.calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
 
         self.transitionblockscomm = transitionblockscomm
 
@@ -303,6 +301,27 @@ class KohnShamPair:
                     P_ati[a][thisspin_t, :] = P_thisti
 
         return ut_tR, P_ati
+
+
+def get_calc(gs, fd=None, timer=None):
+    """Get ground state calculation object."""
+    if isinstance(gs, GPAW):
+        return gs
+    else:
+        if timer is None:
+            def timer(*unused):
+                def __enter__(self):
+                    pass
+
+                def __exit__(self):
+                    pass
+
+        with timer('Read ground state'):
+            assert Path(gs).is_file()
+            if fd is not None:
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=fd)
+            return GPAW(gs, txt=None, communicator=mpi.serial_comm)
 
 
 class PairMatrixElement:

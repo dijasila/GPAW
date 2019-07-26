@@ -11,6 +11,7 @@ from ase.utils.timing import Timer, timer
 import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
                         Redistributor, DryRunBlacsGrid)
+from gpaw.response.kslrf import get_calc
 from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
 
@@ -30,11 +31,8 @@ class FourComponentSusceptibilityTensor:
 
         Parameters
         ----------
-        gs : SHOULD BE LOADED/INITIATED IN THIS SCRIPT XXX
-            for now see gpaw.response.chiks, gpaw.response.kslrf
-
+        gs : see gpaw.response.chiks, gpaw.response.kslrf
         fxc, fxckwargs : see gpaw.response.fxc
-
         eta, ecut, gammacentered
         disable_point_group,
         disable_time_reversal,
@@ -49,14 +47,18 @@ class FourComponentSusceptibilityTensor:
         self.fd = convert_string_to_fd(txt, world)
         self.cfd = self.fd
         self.timer = Timer()
-        
-        self.chiks = ChiKS(gs, eta=eta, ecut=ecut, gammacentered=gammacentered,
+
+        # Load ground state calculation
+        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+
+        # Initiate Kohn-Sham susceptibility and fxc objects
+        self.chiks = ChiKS(self.calc, eta=eta, ecut=ecut,
+                           gammacentered=gammacentered,
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
                            memory_safe=memory_safe, world=world,
                            nblocks=nblocks, txt=self.fd, timer=self.timer)
-        self.calc = self.chiks.calc  # calc should be loaded here XXX
         self.fxc = get_fxc(self.calc, fxc,
                            response='susceptibility', mode='pw',
                            world=self.chiks.world, txt=self.chiks.fd,

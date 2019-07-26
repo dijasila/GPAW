@@ -15,6 +15,7 @@ import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
+from gpaw.response.kslrf import get_calc
 
 
 def get_fxc(gs, fxc, response='susceptibility', mode='pw',
@@ -53,14 +54,7 @@ class FXC:
         self.fd = convert_string_to_fd(txt, world)
         self.cfd = self.fd
         self.timer = timer or Timer()
-        
-        if isinstance(gs, GPAW):
-            self.calc = gs
-        else:
-            assert Path(gs).is_file()
-            print('Reading ground state calculation:\n  %s' % gs,
-                  file=self.fd)
-            self.calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
 
     def __call__(self, *args, txt=None, timer=None, **kwargs):
         if str(self.fd) != str(self.cfd) or txt is not None:

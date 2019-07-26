@@ -1,8 +1,4 @@
 import numpy as np
-from time import ctime
-
-from ase.utils import convert_string_to_fd
-from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
