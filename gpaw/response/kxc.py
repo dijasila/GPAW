@@ -65,16 +65,21 @@ class FXC:
         else:
             self.cfd = self.fd
 
-        # A specific timer may also be supplied
-        if timer is not None:
-            # Swap timers to use supplied one
-            self.timer, timer = timer, self.timer
+        if self.is_calculated():
+            Kxc_GG = self.read(*args, **kwargs)
+        else:
+            # A specific timer may also be supplied
+            if timer is not None:
+                # Swap timers to use supplied one
+                self.timer, timer = timer, self.timer
 
-        Kxc_GG = self.calculate(*args, **kwargs)
+            Kxc_GG = self.calculate(*args, **kwargs)
 
-        if timer is not None:
-            # Swap timers back
-            self.timer, timer = timer, self.timer
+            if timer is not None:
+                # Swap timers back
+                self.timer, timer = timer, self.timer
+
+            self.write(Kxc_GG)
 
         return Kxc_GG
 
@@ -88,7 +93,7 @@ class FXC:
     def read(self, *args, **kwargs):
         raise NotImplementedError
 
-    def write(self, *args, **kwargs):
+    def write(self, Kxc_GG):
         # Not implemented
         pass
 
@@ -97,7 +102,8 @@ class PlaneWaveAdiabaticFXC(FXC):
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
     def __init__(self, gs, functional,
-                 world=mpi.world, txt='-', timer=None, rshe=0.99, **ignored):
+                 world=mpi.world, txt='-', timer=None,
+                 rshe=0.99, filename=None, **ignored):
         """
         Parameters
         ----------
@@ -124,6 +130,20 @@ class PlaneWaveAdiabaticFXC(FXC):
             self.rsheconvmin = None
 
             self.rsheL_M = None
+
+        self.filename = filename
+
+    def is_calculated(self):
+        if self.filename is None:
+            return False
+        return Path(self.filename).is_file()
+
+    def write(self, Kxc_GG):
+        if self.filename is not None:
+            np.save(self.filename, Kxc_GG)
+
+    def read(self, *unused, **ignored):
+        return np.load(self.filename)
 
     @timer('Calculate XC kernel')
     def calculate(self, pd):
@@ -527,10 +547,11 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
-                 rshe=0.99, density_cut=None, spinpol_cut=None, **ignored):
+                 rshe=0.99, filename=None,
+                 density_cut=None, spinpol_cut=None, **ignored):
         """
         gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
-        functional, rshe : see PlaneWaveAdiabaticFXC
+        functional, rshe, filename : see PlaneWaveAdiabaticFXC
         density_cut : float
             cutoff density below which f_xc is set to zero
         spinpol_cut : float
@@ -539,8 +560,9 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
         """
         assert functional in ['ALDA_x', 'ALDA_X', 'ALDA']
 
-        PlaneWaveAdiabaticFXC.__init__(self, gs, functional, world=world,
-                                       txt=txt, timer=timer, rshe=rshe)
+        PlaneWaveAdiabaticFXC.__init__(self, gs, functional,
+                                       world=world, txt=txt, timer=timer,
+                                       rshe=rshe, filename=filename)
 
         self.density_cut = density_cut
         self.spinpol_cut = spinpol_cut

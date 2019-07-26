@@ -60,7 +60,7 @@ class TransverseMagneticSusceptibility(FCST):
 
     def get_xc_kernel(self, spincomponent, pd, chiks_wGG=None, txt=None):
         """Get the exchange correlation kernel."""
-        Kxc_GG = FCST.get_xc_kernel(self, spincomponent, pd, txt=txt)
+        Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
 
         fxc_scaling = self.fxc_scaling
 

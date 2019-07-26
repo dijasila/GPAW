@@ -202,7 +202,7 @@ class FourComponentSusceptibilityTensor:
 
     def _calculate_component(self, spincomponent, pd, wd):
         """In-place calculation of the given spin-component."""
-        Kxc_GG = self.get_xc_kernel(spincomponent, pd, txt=self.cfd)
+        Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
         chiks_wGG = self.calculate_ks_component(spincomponent, pd,
                                                 wd, txt=self.cfd)
 
@@ -244,17 +244,6 @@ class FourComponentSusceptibilityTensor:
         chiks_wGG = self.distribute_frequencies(chiks_wGG)
 
         return chiks_wGG
-
-    def get_xc_kernel(self, spincomponent, pd, txt=None):
-        """Check if the exchange correlation kernel has been calculated,
-        if not, calculate it."""
-        # Implement write/read/check functionality XXX
-        if self.fxc.is_calculated(spincomponent, pd):
-            Kxc_GG = self.fxc.read(spincomponent, pd)
-        else:
-            Kxc_GG = self.fxc(spincomponent, pd, txt=txt)
-            self.fxc.write(Kxc_GG, spincomponent, pd)
-        return Kxc_GG
 
     @timer('Invert dyson-like equation')
     def invert_dyson(self, chiks_wGG, Kxc_GG):
