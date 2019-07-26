@@ -454,11 +454,10 @@ def transitions_in_composite_index(n1_M, n2_M, s1_S, s2_S):
 class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     """Class for doing KS-LRF calculations in plane wave mode"""
 
-    def __init__(self, *args, frequencies=None, eta=0.2,
-                 ecut=50, gammacentered=False, disable_point_group=True,
-                 disable_time_reversal=True, disable_non_symmorphic=True,
-                 kpointintegration='point integration', memory_safe=False,
-                 **kwargs):
+    def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
+                 disable_point_group=True, disable_time_reversal=True,
+                 disable_non_symmorphic=True, memory_safe=False,
+                 kpointintegration='point integration', **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a
         given set of frequencies. The spatial part is expanded in plane waves
@@ -466,8 +465,6 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
         Parameters
         ----------
-        frequencies : ndarray or None
-            Array of frequencies to evaluate the response function at.
         eta : float
             Energy broadening of spectra.
         ecut : float
@@ -493,10 +490,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         KSLRF.__init__(self, *args, mode='pw',
                        kpointintegration=kpointintegration, **kwargs)
 
-        self.wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
-        self.omega_w = self.wd.get_data()
         self.eta = eta / Hartree
-
         self.ecut = None if ecut is None else ecut / Hartree
         self.gammacentered = gammacentered
 
@@ -509,16 +503,18 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
         self.pwsa = None  # Plane wave symmetry analyzer for given q
-
-    # SOME GET METHOD, THAT INVOLVES READ/WRITE? XXX
+        self.wd = None  # Frequency descriptor for the given frequencies
+        self.omega_w = None  # Frequencies in code units
 
     @timer('Calculate Kohn-Sham linear response function in plane wave mode')
-    def calculate(self, q_c, spinrot=None, A_x=None):
+    def calculate(self, q_c, frequencies, spinrot=None, A_x=None):
         """
         Parameters
         ----------
         q_c : list or ndarray
             Momentum transfer.
+        frequencies : ndarray
+            Array of frequencies to evaluate the response function at.
 
         Returns
         -------
@@ -529,8 +525,12 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         """
         # Set up plane wave description with the gived momentum transfer q
         q_c = np.asarray(q_c, dtype=float)
-        self.pd = self.get_PWDescriptor(q_c)
+        self.pd = self.get_PWDescriptor(q_c)  # pd elsewhere XXX
         self.pwsa = self.get_PWSymmetryAnalyzer(self.pd)
+
+        # Set up frequency descriptor for the given frequencies
+        self.wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
+        self.omega_w = self.wd.get_data()
 
         # In-place calculation
         return self._calculate(spinrot, A_x)

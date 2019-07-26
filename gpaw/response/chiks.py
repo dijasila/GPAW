@@ -29,7 +29,8 @@ class ChiKS(PlaneWaveKSLRF):
         self.spincomponent = None
 
     @timer('Calculate the Kohn-Sham susceptibility')
-    def calculate(self, q_c, spincomponent='all', A_x=None, txt=None):
+    def calculate(self, q_c, frequencies, spincomponent='all',
+                  A_x=None, txt=None):
         """Calculate a component of the susceptibility tensor.
 
         Parameters
@@ -57,7 +58,8 @@ class ChiKS(PlaneWaveKSLRF):
         pd = self.get_PWDescriptor(np.asarray(q_c))
         self.pme.initialize_paw_corrections(pd)
 
-        return PlaneWaveKSLRF.calculate(self, q_c, spinrot=spinrot, A_x=A_x)
+        return PlaneWaveKSLRF.calculate(self, q_c, frequencies,
+                                        spinrot=spinrot, A_x=A_x)
 
     def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_x):
         """Use PairDensity object to calculate the integrand for all relevant

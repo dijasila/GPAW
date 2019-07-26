@@ -80,7 +80,6 @@ t2 = time.time()
 for s, ((rshe, bandsummation, memory_safe), frq_w) in enumerate(zip(strat_sd,
                                                                     frq_sw)):
     tms = TransverseMagneticSusceptibility('Fe',
-                                           frequencies=frq_w,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
@@ -88,7 +87,7 @@ for s, ((rshe, bandsummation, memory_safe), frq_w) in enumerate(zip(strat_sd,
                                            fxckwargs={'rshe': rshe},
                                            memory_safe=memory_safe,
                                            nblocks=2)
-    tms.get_macroscopic_component('+-', q_c,
+    tms.get_macroscopic_component('+-', q_c, frq_w,
                                   filename='iron_dsus' + '_G%d.csv' % (s + 1))
     tms.write_timer()
 

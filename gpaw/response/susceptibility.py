@@ -18,8 +18,7 @@ from gpaw.response.kxc import get_fxc
 class FourComponentSusceptibilityTensor:
     """Class calculating the full four-component susceptibility tensor"""
 
-    def __init__(self, gs, frequencies=None,  # frequencies to __call__ XXX
-                 fxc='ALDA', fxckwargs={},
+    def __init__(self, gs, fxc='ALDA', fxckwargs={},
                  eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
                  bandsummation='pairwise', nbands=None, memory_safe=False,
@@ -31,7 +30,7 @@ class FourComponentSusceptibilityTensor:
 
         Parameters
         ----------
-        gs, frequencies : SHOULD BE LOADED/INITIATED IN THIS SCRIPT XXX
+        gs : SHOULD BE LOADED/INITIATED IN THIS SCRIPT XXX
             for now see gpaw.response.chiks, gpaw.response.kslrf
 
         fxc, fxckwargs : see gpaw.response.fxc
@@ -51,8 +50,7 @@ class FourComponentSusceptibilityTensor:
         self.cfd = self.fd
         self.timer = Timer()
         
-        self.chiks = ChiKS(gs, frequencies=frequencies, eta=eta, ecut=ecut,
-                           gammacentered=gammacentered,
+        self.chiks = ChiKS(gs, eta=eta, ecut=ecut, gammacentered=gammacentered,
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
@@ -64,20 +62,20 @@ class FourComponentSusceptibilityTensor:
                            world=self.chiks.world, txt=self.chiks.fd,
                            timer=self.timer, **fxckwargs)
 
-        # This should be initiated with G-parallelization, in this script! XXX
-        nw = len(self.chiks.omega_w)
-        self.mynw = (nw + world.size - 1) // world.size
-        self.w1 = min(self.mynw * world.rank, nw)
-        self.w2 = min(self.w1 + self.mynw, nw)
+        # Parallelization over frequencies depends on the frequency input
+        self.mynw = None
+        self.w1 = None
+        self.w2 = None
 
-    def get_macroscopic_component(self, spincomponent, q_c,
+    def get_macroscopic_component(self, spincomponent, q_c, frequencies,
                                   filename=None, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
         susceptibility tensor and writes it to a file.
 
         Parameters
         ----------
-        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
         filename : str
             Save chiks_w and chi_w to file of given name.
             Defaults to:
@@ -100,6 +98,7 @@ class FourComponentSusceptibilityTensor:
         (omega_w,
          chiks_w,
          chi_w) = self.calculate_macroscopic_component(spincomponent, q_c,
+                                                       frequencies,
                                                        txt=txt)
 
         write_macroscopic_component(omega_w / Hartree, chiks_w, chi_w,
@@ -107,13 +106,15 @@ class FourComponentSusceptibilityTensor:
 
         return omega_w, chiks_w, chi_w
 
-    def calculate_macroscopic_component(self, spincomponent, q_c, txt=None):
+    def calculate_macroscopic_component(self, spincomponent,
+                                        q_c, frequencies, txt=None):
         """Calculates the spatially averaged (macroscopic) component of the
         susceptibility tensor.
 
         Parameters
         ----------
-        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
 
         Returns
         -------
@@ -122,8 +123,8 @@ class FourComponentSusceptibilityTensor:
             chiks_w: macroscopic dynamic susceptibility (Kohn-Sham system)
             chi_w: macroscopic(to be generalized?) dynamic susceptibility
         """
-        pd, chiks_wGG, chi_wGG = self.calculate_component(spincomponent,
-                                                          q_c, txt=txt)
+        pd, chiks_wGG, chi_wGG = self.calculate_component(spincomponent, q_c,
+                                                          frequencies, txt=txt)
 
         # Macroscopic component
         chiks_w = chiks_wGG[:, 0, 0]
@@ -136,12 +137,13 @@ class FourComponentSusceptibilityTensor:
 
         return omega_w, chiks_w, chi_w
 
-    def calculate_component(self, spincomponent, q_c, txt=None):
+    def calculate_component(self, spincomponent, q_c, frequencies, txt=None):
         """Calculate a single component of the susceptibility tensor.
 
         Parameters
         ----------
-        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
 
         Returns
         -------
@@ -167,8 +169,19 @@ class FourComponentSusceptibilityTensor:
             print(f'Calculating susceptibility spincomponent={spincomponent}'
                   f'with q_c={q_c}', file=self.fd)
 
-        pd, chiks_wGG = self.calculate_ks_component(spincomponent,   # pd elsewhere XXX
-                                                    q_c, txt=self.cfd)
+        # This should be initiated with G-parallelization, in this script! XXX
+        nw = len(frequencies)
+        self.mynw = (nw + self.world.size - 1) // self.world.size
+        self.w1 = min(self.mynw * self.world.rank, nw)
+        self.w2 = min(self.w1 + self.mynw, nw)
+
+        return self._calculate_component(spincomponent, q_c, frequencies)
+
+    def _calculate_component(self, spincomponent, q_c, frequencies):
+        """In-place calculation of the given spin-component."""
+        
+        pd, chiks_wGG = self.calculate_ks_component(spincomponent, q_c,  # pd elsewhere XXX 
+                                                    frequencies, txt=self.cfd)
         Kxc_GG = self.get_xc_kernel(spincomponent, pd, txt=self.cfd)  # move up, once pd is elsewhere XXX
 
         chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
@@ -187,12 +200,14 @@ class FourComponentSusceptibilityTensor:
         self.chiks.pme.timer = self.timer
         self.fxc.timer = self.timer
 
-    def calculate_ks_component(self, spincomponent, q_c, txt=None):  # Rename to "get" at some point XXX see xckernel
+    def calculate_ks_component(self, spincomponent, q_c,
+                               frequencies, txt=None):
         """Calculate a single component of the Kohn-Sham susceptibility tensor.
 
         Parameters
         ----------
-        spincomponent, q_c : see gpaw.response.chiks, gpaw.response.kslrf
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
 
         Returns
         -------
@@ -202,8 +217,8 @@ class FourComponentSusceptibilityTensor:
             The process' block of the Kohn-Sham susceptibility component
         """
         # ChiKS calculates the susceptibility distributed over plane waves
-        pd, chiks_wGG = self.chiks.calculate(q_c, spincomponent=spincomponent,
-                                             txt=txt)
+        pd, chiks_wGG = self.chiks.calculate(q_c, frequencies,  # pd elsewhere XXX
+                                             spincomponent=spincomponent, txt=txt)
 
         # Redistribute memory, so each block has its own frequencies, but all
         # plane waves (for easy invertion of the Dyson-like equation)
