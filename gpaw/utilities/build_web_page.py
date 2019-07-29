@@ -38,7 +38,7 @@ cd ../ase; git checkout web-page -q; git pull -q; pip install .
 git clean -fdx
 git checkout web-page -q > /dev/null 2>&1
 git pull -q > /dev/null 2>&1
-python setup.py install
+python setup.py install {opts}
 cd doc; sphinx-build -b html -d build/doctrees . build/html
 mv doc/build/html gpaw-web-page
 cd gpaw-web-page/_sources/setups; cp setups.rst.txt setups.txt
@@ -47,19 +47,20 @@ git clean -fdx doc
 rm -r build
 git checkout master -q > /dev/null 2>&1
 git pull -q > /dev/null 2>&1
-python setup.py install
+python setup.py install {opts}
 cd doc; sphinx-build -b html -d build/doctrees . build/html
 mv doc/build/html gpaw-web-page/dev
 python setup.py sdist
 cp dist/gpaw-*.tar.gz gpaw-web-page/
 cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
-find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{0}/g
+find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{tar}/g
 tar -czf gpaw-web-page.tar.gz gpaw-web-page
-cp gpaw-web-page.tar.gz {1}/tmp-gpaw-web-page.tar.gz
-mv {1}/tmp-gpaw-web-page.tar.gz {1}/gpaw-web-page.tar.gz"""
+cp gpaw-web-page.tar.gz {dir}/tmp-gpaw-web-page.tar.gz
+mv {dir}/tmp-gpaw-web-page.tar.gz {fir}/gpaw-web-page.tar.gz"""
 
-cmds = cmds.format('gpaw-' + __version__ + '.tar.gz',
-                   os.environ['WEB_PAGE_FOLDER'])
+cmds = cmds.format(opts=os.environ.get('GPAW_COMPILE_OPTIONS', ''),
+                   tar='gpaw-' + __version__ + '.tar.gz',
+                   dor=os.environ['WEB_PAGE_FOLDER'])
 
 
 def build():
