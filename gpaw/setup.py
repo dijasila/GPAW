@@ -690,7 +690,8 @@ class LeanSetup(BaseSetup):
 
         self.pseudized_atomic_density = None
         self.calculate_pseudized_atomic_density = s.calculate_pseudized_atomic_density
-
+        self.calculate_atomic_density = s.calculate_atomic_density
+        self.calculate_pseudo_density = s.calculate_pseudo_density
 
 class Setup(BaseSetup):
     """Attributes:
@@ -1300,28 +1301,10 @@ class Setup(BaseSetup):
 
         rcore = self.data.find_core_density_cutoff(self.data.nc_g)
         rcore = max(rcore, max(self.rcut_j))
-        gcut = self.rgd.ceil(rcore)
         l = 0
 
-        spline = self.rgd.spline(pseudn_g, rcore, l, points=200)
-
-        import matplotlib.pyplot as plt
-        plt.plot(self.rgd.r_g[:self.gcut2], [spline(r) for r in self.rgd.r_g[:self.gcut2]], label="spline")
-        plt.plot(self.rgd.r_g[:self.gcut2], atomic_Deltan_g, label="atomic")
-        plt.plot(self.rgd.r_g[:self.gcut2], pseudn_g, label="pseudo")
-        plt.plot(self.rgd.r_g[:self.gcut2], pseudn_g-[spline(r) for r in self.rgd.r_g[:self.gcut2]], label="pseudo minus spline")
-        plt.plot([rcut, rcut], [0, np.max(atomic_Deltan_g)], color="black", linestyle="dotted", label="Cutoff for Pseudized density")
-        plt.plot([self.rgd.r_g[gcut], self.rgd.r_g[gcut]], [0, np.max(atomic_Deltan_g)], color="black", linestyle="dashed", label="Cutoff for spline")
-        plt.legend()
-        plt.savefig("spline_plot")
-        plt.close()
-        # plt.title("Densities")
-        # plt.legend()
-        # plt.show()
         self.pseudized_atomic_density = LFC(self.xc.density.finegd, [[self.rgd.spline(pseudn_g, rcore, l, points=200)] for _ in range(len(spos_ac))], dtype=float)
-        print("Calling set_pos")
         self.pseudized_atomic_density.set_positions(spos_ac)
-        print("After call set_pos")
         return self.pseudized_atomic_density
         
     def calculate_atomic_density(self):
@@ -1332,29 +1315,12 @@ class Setup(BaseSetup):
         f_j = np.array(self.f_j)
         n_g = f_j.dot(phi_j**2 - phit_j**2) + nc_g - nct_g
 
-        import matplotlib.pyplot as plt
-        a = f_j.dot(phit_j**2) + nct_g
-        plt.plot(self.local_corr.rgd2.r_g, a)
-        plt.savefig("Pseudo_atomic_density")
-        plt.close()
-        a = f_j.dot(phi_j**2) + nc_g
-        plt.plot(self.local_corr.rgd2.r_g, a)
-        plt.savefig("Atomic_density")
-        plt.close()
-        plt.plot(self.local_corr.rgd2.r_g, n_g)
-        plt.savefig("Atomic_correction")
-        plt.close()
-
         return n_g
 
     def calculate_pseudo_density(self, atomic_Deltan_g, rcut):
         gcut = self.rgd.ceil(rcut)
 
         pseudo, _ = self.rgd.pseudize(atomic_Deltan_g, gcut)
-        import matplotlib.pyplot as plt
-        plt.plot(self.local_corr.rgd2.r_g, pseudo)
-        plt.savefig("Pseudized_atomic_correction")
-        plt.close()
 
         return pseudo
         

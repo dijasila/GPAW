@@ -21,10 +21,10 @@ class WLDA(XCFunctional):
 
         self.gd1 = None
 
-        self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
-        self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
-        self.inputdens_plotter = Plotter("inputdensity" + mode + filter_kernel, "")
-        self.corrdens_plotter = Plotter("corrdensity" + mode + filter_kernel, "")
+        # self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
+        # self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
+        # self.inputdens_plotter = Plotter("inputdensity" + mode + filter_kernel, "")
+        # self.corrdens_plotter = Plotter("corrdensity" + mode + filter_kernel, "")
 
         if filter_kernel.lower() == "fermikinetic":
             self.filter_kernel = self._fermi_kinetic
@@ -33,8 +33,6 @@ class WLDA(XCFunctional):
         else:
             filter_kernel = "step function filter"
             self.filter_kernel = self._theta_filter
-
-        print("Using kernel: {}".format(filter_kernel))
 
         self.num_nis = 20
         
@@ -59,9 +57,9 @@ class WLDA(XCFunctional):
         if gd.comm.rank == 0:
             _, nx, ny, nz = n1_sg.shape
             pre = n1_sg.copy()
-            self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+            # self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
             self.calc_corrected_density(n1_sg)
-            self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+            # self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
             if self.mode == "" or self.mode == "normal":
                 self.apply_weighting(self.gd1, n1_sg)
             
@@ -213,8 +211,8 @@ class WLDA(XCFunctional):
                     self.renorm_potential_correction(v1_sg, self.gd1, n1_sg, norm_s[0], newnorm_s[0])
 
                 _, nx, ny, nz = n1_sg.shape
-                self.dens_plotter.plot(n1_sg[0, :, :, nz//2])
-                self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
+                # self.dens_plotter.plot(n1_sg[0, :, :, nz//2])
+                # self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
                 
         gd.distribute(v1_sg, v_sg)
         #gd.distribute(n1_sg, n_sg)        
@@ -871,16 +869,16 @@ class WLDA(XCFunctional):
 
         ##PLOT
         _, nx, ny, nz = n1_sg.shape
-        if world.rank == 0:
-            self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+        # if world.rank == 0:
+        #     self.inputdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
         ##ENDPLOT
         
         self.calc_corrected_density(n1_sg)
-        n1norm_s = gd.integrate(n_sg)
+        n1norm_s = self.gd1.integrate(n1_sg)
 
         ##PLOT
-        if world.rank == 0:
-            self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
+        # if world.rank == 0:
+        #     self.corrdens_plotter.plot(n1_sg[0, :, ny//2, nz//2])
         ##ENDPLOT            
         
         my_nis, my_lower, my_upper = self.get_my_nis(n1_sg)
@@ -888,30 +886,27 @@ class WLDA(XCFunctional):
         my_f_sig = self.get_my_weights(n1_sg, my_nis, my_lower, my_upper)
 
         nustar_sg = self.apply_filter_kernel(n1_sg, my_nis, my_f_sig)
+        
+        world.sum(nustar_sg)
         nunorm_s = self.gd1.integrate(nustar_sg)
 
-        world.sum(nustar_sg)
-
         # Calculate LDA evaluated on weighted density
-        from gpaw.xc.lda import lda_x, lda_c
         v_lda_sg = np.zeros_like(n1_sg)
         e1_g = np.zeros_like(n1_sg[0])
         v1_sg = np.zeros_like(n1_sg)
-        self.do_lda(v_lda_sg, v1_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s)
+        self.do_lda(v_lda_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s)
         
         # Apply corrections
-        if gd.comm.rank != 0:
-            v1_sg = self.fold_pot_with_weights(v_lda_sg, my_nis, my_f_sig, n1norm_s / nunorm_s)
-        else:
-            v1_sg = self.fold_pot_with_weights(v_lda_sg, my_nis, my_f_sig, n1norm_s / nunorm_s)
-            v1_sg += self.final_pot_correction(v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s)
+        v1_sg = self.fold_pot_with_weights(v_lda_sg, my_nis, my_f_sig, n1norm_s / nunorm_s)
+        v1_sg += self.final_pot_correction(v_lda_sg, my_nis, my_f_sig, nustar_sg, n1norm_s, nunorm_s)
             
         
         world.sum(v1_sg)
+        world.sum(e1_g)
         ##PLOT
-        if world.rank == 0:
-            self.dens_plotter.plot((nustar_sg[0] *n1norm_s[0]/nunorm_s[0])[:, :, nz//2])
-            self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
+        # if world.rank == 0:
+        #     self.dens_plotter.plot((nustar_sg[0] *n1norm_s[0]/nunorm_s[0])[:, :, nz//2])
+        #     self.pot_plotter.plot(v1_sg[0, :, :, nz//2])
         ##ENDPLOT
         gd.distribute(e1_g, e_g)
         gd.distribute(v1_sg, v_sg)
@@ -921,8 +916,6 @@ class WLDA(XCFunctional):
 
         size = self.world.size
         
-        nis = [0] * size
-
         num_per_bin = self.num_nis // size
         left_over = self.num_nis % size
 
@@ -971,14 +964,15 @@ class WLDA(XCFunctional):
 
         return np.array([my_f_ig])
 
-    def do_lda(self, v_lda_sg, v1_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s):
+    def do_lda(self, v_lda_sg, e1_g, n1_sg, nustar_sg, n1norm_s, nunorm_s):
+        from gpaw.xc.lda import lda_x, lda_c
         if self.mode.lower() == "renorm" or self.mode.lower() == "parallel":    
             n = nustar_sg[0]
             n[n < 1e-20] = 1e-40
             n = n * n1norm_s[0] / nunorm_s[0]
-            lda_x(0, e1_g, n, v1_sg[0])
+            lda_x(0, e1_g, n, v_lda_sg[0])
             zeta = 0
-            lda_c(0, e1_g, n, v1_sg, zeta)
+            lda_c(0, e1_g, n, v_lda_sg, zeta)
         else:
             raise NotImplementedError
 
@@ -1001,7 +995,17 @@ class WLDA(XCFunctional):
             assert np.allclose(a, a.real)
             nustar_ig[ini] += a.real
 
-        return np.array([np.einsum("iabc, iabc -> abc", my_f_sig[0], nustar_ig)])
+        nustar_g = np.zeros(shape)
+        for ini, ni in enumerate(my_nis):
+            k_F = (3*np.pi**2*ni)**(1/3)
+            a = np.fft.ifftn(self.filter_kernel(k_F, K_G, n_G))
+            assert np.allclose(a, a.real)
+            nustar_g += a.real * my_f_sig[0, ini]
+        
+        result_g = np.einsum("iabc, iabc -> abc", my_f_sig[0], nustar_ig)    
+        assert np.allclose(result_g, nustar_g)
+
+        return np.array([result_g])
             
     def fold_pot_with_weights(self, v_lda_sg, my_nis, my_f_sig, norm_factor):
         assert len(v_lda_sg) == 1
@@ -1026,7 +1030,8 @@ class WLDA(XCFunctional):
         
         prefactor = (1 / nunorm_s[0] - n1norm_s[0] / nunorm_s[0]**2)
 
-        energy_factor = self.gd1.integrate(v_lda_sg[0] * nustar_sg[0] * n1norm_s[0]/nunorm_s[0])
+        energy_factor = self.gd1.integrate(v_lda_sg[0] * nustar_sg[0])
+        assert energy_factor.ndim == 0
 
         v_g = np.zeros_like(v_lda_sg[0])
         
@@ -1042,15 +1047,144 @@ class WLDA(XCFunctional):
 
                     
 
-            
+    
+    def renorm_mode(self, gd, n_sg, v_sg, e_g):
+
+        # Get AE density
+        nae_sg = self.get_ae_density(gd, n_sg)
+
+        # Set up and distribute n_i grid
+        ni_j, ni_lower, ni_upper = self.get_ni_grid(mpi.rank, mpi.size, nae_sg)
+
+        # Calculate f_is based on AE density
+        f_isg = self.get_f_isg(ni_j, ni_lower, ni_upper, nae_sg)
+        
+        # Calculate w_is
+        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        w_isg = self.get_w_isg(ni_j, nae_sg, gd1)
+
+        # Calculate unnormed, weighted density
+
+        # Calculate WLDA energy based on overleaf notes
+
+        # Calculate WLDA potential based on overleaf notes
+        
+
+    def get_ae_density(self, gd, n_sg):
+        # Every rank needs the density
+        n1_sg = gd.collect(n_sg, broadcast=True)
+        n1_sg[n1_sg < 1e-7] = 1e-8
+        nae_sg = self.correct_density(n1_sg)
+        return nae_sg
+
+    def correct_density(self, n1_sg):
+        if not hasattr(self.wfs.setups[0], "calculate_pseudized_atomic_density"):
+            return
+        
+        if len(n1_sg) != 1:
+            raise NotImplementedError
+
+        dens = n1_sg[0].copy()
+
+        for a, setup in enumerate(self.wfs.setups):
+            spos_ac_indices = list(filter(lambda x: x[1] == setup, enumerate(self.wfs.setups)))
+            spos_ac_indices = [x[0] for x in spos_ac_indices]
+            spos_ac = self.wfs.spos_ac[spos_ac_indices]
+            t = setup.calculate_pseudized_atomic_density(spos_ac)
+            t.add(dens)
+
+        return np.array([dens])
+
+    def get_ni_grid(self, my_rank, world_size, n_sg):
+        # Make an interface that allows for testing
+        
+        # Algo:
+        # Define a global grid. We want a grid such that each rank has not too many
+        pts_per_rank = 10
+        num_pts = pts_per_rank * world_size
+        fulln_i = np.linspace(0, np.max(n_sg), num_pts)
+ 
+        # Split it up evenly
+        my_start = my_rank * pts_per_rank
+        my_n_i = fulln_i[my_start:my_start+pts_per_rank]
+
+        # Each ranks needs to know the closest pts outside its own range
+        if my_rank == 0:
+            my_lower = 0
+            my_upper = fulln_i[min(num_pts - 1, pts_per_rank)]
+        elif my_rank == world_size - 1:
+            my_lower = fulln_i[my_start - 1]
+            my_upper = fulln_i[-1]
+        else:
+            my_lower = fulln_i[my_start - 1]
+            my_upper = fulln_i[my_start + pts_per_rank]
+        
+        return my_n_i, my_lower, my_upper 
 
 
+    def get_f_isg(self, ni_j, ni_lower, ni_upper, n_sg):
+        # We want to construct an array f_isg where f_isg[a,b,c]
+        # gives the weight at n_i[a] for spin b at grid point c
+        # The weights are determined by linear interpolation:
+        # n_i--n----n_i+1 -> f_i: 2/3, f_i+1: 1/3
+                            
+        if ni_upper != ni_j[-1]:
+            augmented = np.hstack([ni_j, [ni_upper]])
+        else:
+            augmented = ni_j
 
+        if len(n_sg) != 1:
+            raise NotImplementedError
+        
+        f_isg = np.zeros((len(ni_j),) + n_sg.shape)
+        for ix, n_yz in enumerate(n_sg[0]):
+            for iy, n_z in enumerate(n_yz):
+                for iz, n in enumerate(n_z):
+                    if n < ni_lower or n > ni_upper:
+                        weights = np.zeros(len(ni_j))
+                    else:
+                        nlesser = (ni_j <= n).sum()
+                        weights = np.zeros(len(ni_j))
+                        
+                        if nlesser != 0:
+                            if nlesser != len(ni_j):
+                                weight_lesser = (ni_j[nlesser] - n) / (ni_j[nlesser] - ni_j[nlesser-1])
+                                weights[nlesser-1] = weight_lesser
+                                weights[nlesser] = 1 - weight_lesser
+                            else:
+                                if ni_j[-1] == ni_upper:
+                                    weights[nlesser-1] = 1
+                                else:
+                                    weights[nlesser-1] = (ni_upper - n) / (ni_upper - ni_j[-1])
+                        else:
+                            if ni_j[0] != ni_lower:
+                                weight_lesser = (ni_j[0] - n) / (ni_j[0] - ni_lower)
+                                weights[0] = 1 - weight_lesser
+                            else:
+                                weights[0] = 1
 
+                    f_isg[:, 0, ix, iy, iz] = weights
+        return f_isg
+        
+    def get_w_isg(self, ni_j, n_sg, gd):
+        if len(n_sg) != 1:
+            raise NotImplementedError
+        # Calculate convolution of n_sg with the kernel K(r-r; ni_j)
+      
+        K_G = self._get_K_G(gd)
 
+        # Set up kernel in fourier space for each ni
+        w_isg = np.zeros((len(ni_j),) + n_sg.shape)
+        for j, ni in enumerate(ni_j):
+            k_F = (3 * np.pi**2) * (ni)**(1/3)
+            n_G = np.fft.fftn(n_sg[0])
+            # Calculate convolution via convolution theorem
+            fn_G = self.filter_kernel(k_F, K_G, n_G)
+            fn_g = np.fft.ifftn(fn_G)
+            assert np.allclose(fn_g, fn_g.real)
+            w_isg[j, ...] = fn_g.real
 
-
-
+        return w_isg
 
 
 
