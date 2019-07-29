@@ -173,16 +173,17 @@ class KohnShamLinearResponseFunction:
             Communicate between processes belonging to the same memory block.
             There will be size // nblocks processes per memory block.
         """
+        world = self.world
         if nblocks == 1:
-            self.interblockcomm = self.world.new_communicator([self.world.rank])
-            self.intrablockcomm = self.world
+            self.interblockcomm = world.new_communicator([world.rank])
+            self.intrablockcomm = world
         else:
-            assert self.world.size % nblocks == 0, self.world.size
-            rank1 = self.world.rank // nblocks * nblocks
+            assert world.size % nblocks == 0, world.size
+            rank1 = world.rank // nblocks * nblocks
             rank2 = rank1 + nblocks
-            self.interblockcomm = self.world.new_communicator(range(rank1, rank2))
-            ranks = range(self.world.rank % nblocks, self.world.size, nblocks)
-            self.intrablockcomm = self.world.new_communicator(ranks)
+            self.interblockcomm = world.new_communicator(range(rank1, rank2))
+            ranks = range(world.rank % nblocks, world.size, nblocks)
+            self.intrablockcomm = world.new_communicator(ranks)
         print('Number of blocks:', nblocks, file=self.fd)
 
     @timer('Calculate Kohn-Sham linear response function')
@@ -572,12 +573,13 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         sum over states and calculated response function array."""
         KohnShamLinearResponseFunction.print_information(self, nt)
 
-        q_c = self.pd.kd.bzk_kc[0]
+        pd = self.pd
+        q_c = pd.kd.bzk_kc[0]
         nw = len(self.omega_w)
         eta = self.eta * Hartree
         ecut = self.ecut * Hartree
-        ngmax = self.pd.ngmax
-        Asize = nw * self.pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
+        ngmax = pd.ngmax
+        Asize = nw * pd.ngmax**2 * 16. / 1024**2 / self.interblockcomm.size
 
         p = partial(print, file=self.cfd)
 
