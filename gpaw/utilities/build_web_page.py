@@ -56,11 +56,11 @@ cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
 find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{tar}/g
 tar -czf gpaw-web-page.tar.gz gpaw-web-page
 cp gpaw-web-page.tar.gz {dir}/tmp-gpaw-web-page.tar.gz
-mv {dir}/tmp-gpaw-web-page.tar.gz {fir}/gpaw-web-page.tar.gz"""
+mv {dir}/tmp-gpaw-web-page.tar.gz {dir}/gpaw-web-page.tar.gz"""
 
 cmds = cmds.format(opts=os.environ.get('GPAW_COMPILE_OPTIONS', ''),
                    tar='gpaw-' + __version__ + '.tar.gz',
-                   dor=os.environ['WEB_PAGE_FOLDER'])
+                   dir=os.environ['WEB_PAGE_FOLDER'])
 
 
 def build():
