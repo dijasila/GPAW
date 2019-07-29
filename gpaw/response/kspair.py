@@ -93,7 +93,7 @@ class KohnShamPair:
         """Count number of occupied and unoccupied bands in ground state
         calculation. Can be used to omit null-transitions between two occupied
         bands or between two unoccupied bands."""
-        ftol = 1.e-9  # Could be given as input XXX
+        ftol = 1.e-9  # Could be given as input
         self.nocc1 = 9999999
         self.nocc2 = 0
         for kpt in self.calc.wfs.kpt_u:
@@ -134,7 +134,7 @@ class KohnShamPair:
         n_myt = n_t[ta:tb]
         s_myt = s_t[ta:tb]
 
-        (U_cc, T, a_a, U_aii, shift_c,  # U_cc is unused for now XXX
+        (_, T, a_a, U_aii, shift_c,
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
         ut_mytR, P_amyti = self.extract_orbitals(K, n_myt, s_myt,
@@ -290,11 +290,13 @@ class KohnShamPair:
                         ut_tR[t] = T(wfs.pd.ifft(psit_G, ik))
                 '''
                 psit_nG = kpt.psit_nG
-                for t, n in zip(t_t[thisspin_t], n_t[thisspin_t]):  # Can be vectorized? XXX
+                # Unvectorized
+                for t, n in zip(t_t[thisspin_t], n_t[thisspin_t]):
                     ut_tR[t] = T(wfs.pd.ifft(psit_nG[n], ik))
 
             with self.timer('Load projections'):
-                for a, U_ii in zip(a_a, U_aii):  # Can be vectorized? XXX
+                # Unvectorized
+                for a, U_ii in zip(a_a, U_aii):
                     P_thisti = np.dot(kpt.P_ani[a][n_t[thisspin_t]], U_ii)
                     if time_reversal:
                         P_thisti = P_thisti.conj()
@@ -372,7 +374,8 @@ class PlaneWavePairDensity(PairMatrixElement):
         with self.timer('Calculate smooth part'):
             ut1cc_mytR = kskptpairs.kpt1.ut_mytR.conj()
             n_mytR = ut1cc_mytR * kskptpairs.kpt2.ut_mytR
-            for myt in range(tb - ta):  # Vectorize? XXX
+            # Unvectorized
+            for myt in range(tb - ta):
                 n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
 
         # Calculate PAW corrections with numpy

@@ -10,7 +10,6 @@ from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 from ase.units import Bohr
 
-from gpaw import GPAW
 import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
@@ -193,7 +192,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         tmp_g = np.fft.fftn(fxc_G) * pd.gd.volume / nG0
 
         # The unfolding procedure could use vectorization and parallelization.
-        # This remains a slow step for now. XXX
+        # This remains a slow step for now.
         Kxc_GG = np.zeros((pd.ngmax, pd.ngmax), dtype=complex)
         for iG, iQ in enumerate(pd.Q_qG[0]):
             iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2

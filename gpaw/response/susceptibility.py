@@ -37,10 +37,8 @@ class FourComponentSusceptibilityTensor:
         disable_point_group,
         disable_time_reversal,
         bandsummation, nbands,
-        memory_safe : see gpaw.response.chiks, gpaw.response.kslrf
-
-        world, nblocks, txt : SHOULD BE LOADED/INITIATED IN THIS SCRIPT XXX
-            for now see gpaw.response.chiks, gpaw.response.kslrf
+        memory_safe, world,
+        nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
         """
         # Initiate output file and timer
         self.world = world
@@ -250,8 +248,6 @@ class FourComponentSusceptibilityTensor:
         """Invert the Dyson-like equation:
 
         chi = chi_ks - chi_ks Kxc chi
-
-        # The sign convention in the Dyson equation needs to be examined XXX
         """
         chi_wGG = np.empty_like(chiks_wGG)
         for w, chiks_GG in enumerate(chiks_wGG):

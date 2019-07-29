@@ -759,7 +759,7 @@ class PWPointIntegrator(Integrator):
 
     @timer('Get k-point domain')
     def get_kpoint_domain(self):
-        # Could use documentation XXX
+        # Could use some more documentation XXX
         K_gK = self.kslrf.pwsa.group_kpoints()
         bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
                            K_K in K_gK])
@@ -768,7 +768,7 @@ class PWPointIntegrator(Integrator):
         return bzk_kv
 
     def calculate_bzint_prefactor(self, bzk_kv):
-        # Could use documentation XXX
+        # Could use some more documentation XXX
         if self.kslrf.calc.wfs.kd.refine_info is not None:
             nbzkpts = self.kslrf.calc.wfs.kd.refine_info.mhnbzkpts
         else:
