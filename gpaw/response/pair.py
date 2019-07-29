@@ -631,35 +631,8 @@ class PWSymmetryAnalyzer:
         return K_k
 
 
-class PairMatrixElement:  # Maybe separate "pairing" and calculation? XXX
-    """Class for calculating matrix elements for pairs of Kohn-Sham orbitals"""
-    def __init__(self, gs, world=mpi.world, txt='-', timer=None):
-        self.world = world
-        self.fd = convert_string_to_fd(txt, world)
-        self.timer = timer or Timer()
-
-        with self.timer('Read ground state'):
-            if isinstance(gs, str):
-                print('Reading ground state calculation:\n  %s' % gs,
-                      file=self.fd)
-                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
-            else:
-                calc = gs
-                assert calc.wfs.world.size == 1
-
-        self.calc = calc
-
-
-def create_PairMatrixElement(response):
-    """Creator component deciding what matrix element to calculate"""
-    if response == 'susceptibility':
-        return PairDensity
-    else:
-        raise ValueError(response)
-
-
-class PairDensity(PairMatrixElement):
-    def __init__(self, calc, ecut=50, response='density',
+class PairDensity:
+    def __init__(self, gs, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
@@ -680,10 +653,21 @@ class PairDensity(PairMatrixElement):
         gate_voltage : float
             Shift the fermi level by gate_voltage [Hartree].
         """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
 
-        PairMatrixElement.__init__(self, calc,
-                                   world=world, txt=txt, timer=timer)
-        assert self.calc.wfs.kd.symmetry.symmorphic
+        with self.timer('Read ground state'):
+            if isinstance(gs, str):
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=self.fd)
+                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            else:
+                calc = gs
+                assert calc.wfs.world.size == 1
+
+        assert calc.wfs.kd.symmetry.symmorphic
+        self.calc = calc
         
         if ecut is not None:
             ecut /= Hartree
@@ -716,7 +700,7 @@ class PairDensity(PairMatrixElement):
         else:
             self.add_gate_voltage(gate_voltage=0)
 
-        self.spos_ac = self.calc.spos_ac
+        self.spos_ac = calc.spos_ac
 
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
@@ -724,7 +708,7 @@ class PairDensity(PairMatrixElement):
 
         self.ut_sKnvR = None  # gradient of wave functions for optical limit
 
-        self.vol = abs(np.linalg.det(self.calc.wfs.gd.cell_cv))
+        self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
         kd = self.calc.wfs.kd
         self.KDTree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
