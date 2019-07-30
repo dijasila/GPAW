@@ -10,21 +10,6 @@ class Communicator:
         self.parent = parent  # XXX check C-object against comm.parent?
 
     def new_communicator(self, ranks):
-        """Create a new MPI communicator for a subset of ranks in a group.
-        Must be called with identical arguments by all relevant processes.
-
-        Note that a valid communicator is only returned to the processes
-        which are included in the new group; other ranks get None returned.
-
-        Parameters:
-
-        ranks: ndarray (type int)
-            List of integers of the ranks to include in the new group.
-            Note that these ranks correspond to indices in the current
-            group whereas the rank attribute in the new communicators
-            correspond to their respective index in the subset.
-
-        """
         comm = self.comm.Create(self.comm.group.Incl(ranks))
         if self.comm.rank in ranks:
             return Communicator(comm, parent=self)
