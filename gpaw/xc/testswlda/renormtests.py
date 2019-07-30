@@ -13,6 +13,7 @@ xc = calc.hamiltonian.xc
 class Tester(BaseTester):
     def __init__(self):
         self.gd = xc.gd
+        self.default_filter = xc._theta_filter
     
 
     def get_a_density(self):
@@ -20,12 +21,29 @@ class Tester(BaseTester):
         grid = gd.get_grid_point_coordinates()
         dens = np.zeros(grid.shape[1:])
         densf = np.fft.fftn(dens)
-        densf[:2, :np.random.randint(4), :2] = np.random.rand()
+        densf = np.random.rand(*densf.shape) + 0.1
+        densf[0,0,0] = densf[0,0,0] + 1.0
         res = np.array([np.fft.ifftn(densf).real])
         res = res + np.min(res)
         res[res < 1e-7] = 1e-8
         assert (res >= 0).all()
+        assert res.ndim == 4
+        assert not np.allclose(res, 0)
         return res
+
+    def get_a_sym_density(self, dir=0):
+        n_sg = self.get_a_density()
+        if dir == 0:
+            n_sg = (n_sg[:, :, :, :] + n_sg[:, ::-1, :, :]) / 2
+        elif dir == 1:
+            n_sg = (n_sg[:, :, :, :] + n_sg[:, :, ::-1, :]) / 2
+        elif dir == 2:
+            n_sg = (n_sg[:, :, :, :] + n_sg[:, :, :, ::-1]) / 2
+        else:
+            raise ValueError("Direction '{}' not recognized. Must be 0, 1, or 2.".format(dir))
+
+        return n_sg
+
     def test_01_cangetaedensity(self):
         n_sg = self.get_a_density()
         nae_sg = xc.get_ae_density(self.gd, n_sg)
@@ -180,7 +198,102 @@ class Tester(BaseTester):
         n_sg = self.get_a_density()
         ni_j, _, _, = xc.get_ni_grid(0, 1, n_sg)
         gd = xc.gd.new_descriptor(comm=mpi.serial_comm)
-        w_isg = xc.get_w_isg(ni_j, n_sg, gd) 
+        w_isg = xc.get_w_isg(ni_j, n_sg, gd, self.default_filter) 
+
+    def calc_wisg(self, gd, ni, n_sg):
+        # Wouldnt work, need to integrate over all of space if we work in real space
+        raise ValueError("Dont use this function")
+
+    def test_14_wisg_value(self):
+        for i in range(3):
+            n_sg = 0
+            count = 0
+            maxcount = 10
+            while np.allclose(n_sg, 0) and count < maxcount:
+                n_sg = self.get_a_sym_density(dir=i)
+            assert not np.allclose(n_sg, 0)
+            ni_j, lower, upper = xc.get_ni_grid(0, 1, n_sg)
+            w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, self.default_filter)
+            assert np.allclose(w_isg, np.flip(w_isg, i + 2))
+
+    def test_15_wisg_zerokF(self):
+        n_sg = self.get_a_density()
+        if np.allclose(n_sg.sum(), 0):
+            n_sg += 1.0
+        else:
+            n_sg /= n_sg.sum()
+        ni_j, lower, upper = xc.get_ni_grid(0, 1, n_sg)
+        assert np.allclose(ni_j[0], 0)
+        w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, self.default_filter)
+        
+        # Assert constant but not killed
+        assert not np.allclose(w_isg[0, ...], 0)
+        assert np.allclose(w_isg[0, :, 0, 0, 0], w_isg[0, :, :, :, :]), "Max abs diff: {}, Mean val w_isg: {}".format(np.max(np.abs(w_isg[0]-w_isg[0, :, 0, 0, 0])), np.mean(w_isg[0]))
+        
+        # Assert sum conserved
+        assert np.allclose(1.0, w_isg[0].sum(axis=(1,2,3)))
+
+    def test_16_wisg_largekF(self):
+        # Should be no change
+        n_sg = self.get_a_density()
+        K_G = xc._get_K_G(xc.gd)
+        ni_j, _, _ = xc.get_ni_grid(0, 1, n_sg*100*np.max(K_G)/np.max(n_sg))
+        kernels = [xc._theta_filter, xc._fermi_kinetic]
+        for i, kernel in enumerate(kernels):
+            w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, kernel)
+        
+            assert np.allclose(w_isg[-1, :, :, :, :], n_sg), "Failed for kernel {}".format(i)
+
+    def test_17_wisg_positivityconserved(self):
+        # Filtered should always be positive
+        # This was not automatically assured. Interesting.
+        n_sg = self.get_a_density()*10
+        assert (n_sg >= 0).all()
+        ni_j, _, _ = xc.get_ni_grid(0, 1, n_sg)
+        
+        
+        w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, xc._gaussian_filter)
+        
+        assert (w_isg >= 0).all(), "Min: {}, mean: {}".format(np.min(w_isg), np.mean(w_isg))
+
+    def test_18_wisg_parallelget(self):
+        n_sg = self.get_a_density()
+
+        size = np.random.randint(10) + 2
+        for i in range(size):
+            ni_j, lower, upper = xc.get_ni_grid(i, size, n_sg)
+            w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, self.default_filter)
+
+    def test_19_wisg_parallel_tests(self):
+        n_sg = self.get_a_density()
+        n_sum = n_sg.sum()
+        size = np.random.randint(10) + 2
+        for i in range(size):
+            ni_j, _, _ = xc.get_ni_grid(i, size, n_sg)
+            w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, self.default_filter)
+
+            # Only rank 0 has the constant weighted density
+            if i == 0:
+                assert not np.allclose(w_isg[0, ...], 0)
+                assert np.allclose(w_isg[0, :, 0,0,0], w_isg[0, :, :, :, :])
+            else:
+                assert not np.allclose(w_isg[0, :, 0,0,0], w_isg[0, :, :, :, :])
+            
+            # No weighted densities are all zero
+            for j in range(len(ni_j)):
+                assert not np.allclose(w_isg[j], 0)
+            # Sums are conserved
+            assert np.allclose(w_isg.sum(axis=(1,2,3,4)), n_sum)
+
+
+            # No loss of positivity for gaussian filter
+            w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, xc._gaussian_filter)
+            assert (w_isg >= 0).all()
+
+
+
+
+
 
 if __name__ == "__main__":
     import sys

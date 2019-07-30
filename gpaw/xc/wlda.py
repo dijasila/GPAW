@@ -534,6 +534,37 @@ class WLDA(XCFunctional):
 
         return n_G * filter_G
 
+    def _gaussian_filter(self, k_F, K_G, n_G):
+        if np.allclose(k_F, 0):
+            gauss_G = np.zeros_like(K_G).astype(np.complex128)
+            assert np.allclose(K_G[0,0,0], 0)
+            gauss_G[0,0,0] = 1.0
+        else:
+            # If the prefactor becomes too large, the positivity of the weighted
+            # density is no longer conserved
+            # I think this is due to the function no longer being numerically
+            # close enough to a gaussian on the discreet, finite grid.
+            # This leads to the fourier transform of the kernel having negative values in some
+            # regions.
+            # We can enforce positivity of the kernel in real space as below
+            # or do something else...
+            # The problem with enforcing positivity is that the analytical expression for the kernel
+            # is no longer so easy to express
+            # Or we can take another approach and define the kernel in realspace XX Nope.
+            # This doesnt work because we will effectively get a periodic function like
+            # this, and we need a gaussian
+
+            prefactor = 1.0
+            norm = 1.0
+            gauss_G = (np.exp(-K_G**2 / (prefactor * k_F**2)) / norm).astype(np.complex128)
+            gauss_g = np.fft.ifftn(gauss_G).real
+            gauss_g[gauss_g < 1e-8] = 1e-10
+            gauss_G = np.fft.fftn(gauss_g)
+            # This kernel does not preserve the integral..
+
+        res = gauss_G*n_G
+        return res     
+
     def get_nis(self, n_g):
         n_g[n_g < 1e-20] = 1e-40
         # maxLogVal = np.log(np.max(n_g) * 1.1 + 1)
@@ -1061,12 +1092,17 @@ class WLDA(XCFunctional):
         
         # Calculate w_is
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        w_isg = self.get_w_isg(ni_j, nae_sg, gd1)
+        w_isg = self.get_w_isg(ni_j, nae_sg, gd1, self.filter_kernel)
 
         # Calculate unnormed, weighted density
+        nu_sg = self.weight_density(f_isg, w_isg)
 
+        mpi.world.sum(nu_sg)
+        weighted_norm = gd1.integrate(nu_sg)
+        ae_norm = gd1.integrate(nae_sg)
+        
         # Calculate WLDA energy based on overleaf notes
-
+        # How do we handle the fact the density is not positive definite?
         # Calculate WLDA potential based on overleaf notes
         
 
@@ -1096,6 +1132,7 @@ class WLDA(XCFunctional):
         return np.array([dens])
 
     def get_ni_grid(self, my_rank, world_size, n_sg):
+        assert my_rank >= 0 and my_rank < world_size
         # Make an interface that allows for testing
         
         # Algo:
@@ -1166,7 +1203,7 @@ class WLDA(XCFunctional):
                     f_isg[:, 0, ix, iy, iz] = weights
         return f_isg
         
-    def get_w_isg(self, ni_j, n_sg, gd):
+    def get_w_isg(self, ni_j, n_sg, gd, kernel):
         if len(n_sg) != 1:
             raise NotImplementedError
         # Calculate convolution of n_sg with the kernel K(r-r; ni_j)
@@ -1176,18 +1213,23 @@ class WLDA(XCFunctional):
         # Set up kernel in fourier space for each ni
         w_isg = np.zeros((len(ni_j),) + n_sg.shape)
         for j, ni in enumerate(ni_j):
-            k_F = (3 * np.pi**2) * (ni)**(1/3)
+            k_F = (3 * np.pi**2 * ni)**(1/3)
             n_G = np.fft.fftn(n_sg[0])
             # Calculate convolution via convolution theorem
-            fn_G = self.filter_kernel(k_F, K_G, n_G)
+            fn_G = kernel(k_F, K_G, n_G)
             fn_g = np.fft.ifftn(fn_G)
             assert np.allclose(fn_g, fn_g.real)
-            w_isg[j, ...] = fn_g.real
+            w_isg[j, 0, ...] = fn_g.real
 
+        # This calculation does not exactly preserve the norm.
+        # Do we want to fix that manually?
         return w_isg
 
+    def weight_density(self, f_isg, w_isg):
+        nu_sg = (f_isg*w_isg).sum(axis=0)
+        assert nu_sg.ndim == 4
 
-
+        return nu_sg
 
 
         
