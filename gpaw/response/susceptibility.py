@@ -161,6 +161,8 @@ class FourComponentSusceptibilityTensor:
         chi_wGG : ndarray
             The process' block of the full susceptibility component
         """
+        pd = self.get_PWDescriptor(q_c)
+
         # Initiate new call-output file, if supplied
         if txt is not None:
             # Store timer and close old call-output file
@@ -174,9 +176,8 @@ class FourComponentSusceptibilityTensor:
         if str(self.fd) != str(self.cfd) or txt is not None:
             print('---------------', file=self.fd)
             print(f'Calculating susceptibility spincomponent={spincomponent}'
-                  f'with q_c={q_c}', file=self.fd)
+                  f'with q_c={pd.kd.bzk_kc[0]}', file=self.fd)
 
-        pd = self.get_PWDescriptor(q_c)
         wd = FrequencyDescriptor(np.asarray(frequencies) / Hartree)
 
         # Initialize parallelization over frequencies

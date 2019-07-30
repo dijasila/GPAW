@@ -56,8 +56,6 @@ class FXC:
         self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
 
     def __call__(self, *args, txt=None, timer=None, **kwargs):
-        if str(self.fd) != str(self.cfd) or txt is not None:
-            print('Calculating fxc', file=self.fd)
         # A specific output file can be supplied for each individual call
         if txt is not None:
             self.cfd = convert_string_to_fd(txt, self.world)
@@ -71,6 +69,9 @@ class FXC:
             if timer is not None:
                 # Swap timers to use supplied one
                 self.timer, timer = timer, self.timer
+
+            if str(self.fd) != str(self.cfd):
+                print('Calculating fxc', file=self.fd)
 
             Kxc_GG = self.calculate(*args, **kwargs)
 
