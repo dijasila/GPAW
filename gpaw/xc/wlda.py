@@ -34,7 +34,7 @@ class WLDA(XCFunctional):
             filter_kernel = "step function filter"
             self.filter_kernel = self._theta_filter
 
-        self.num_nis = 20
+        self.num_nis = 10
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -1090,21 +1090,35 @@ class WLDA(XCFunctional):
         # Calculate f_is based on AE density
         f_isg = self.get_f_isg(ni_j, ni_lower, ni_upper, nae_sg)
         
-        # Calculate w_is
+        # Calculate w_isg = \int dr' w(r-r', n_i)n(r')
+        # We need a gd with the full grid
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         w_isg = self.get_w_isg(ni_j, nae_sg, gd1, self.filter_kernel)
 
         # Calculate unnormed, weighted density
         nu_sg = self.weight_density(f_isg, w_isg)
-
+        # Each rank has only a part of the density
+        # but later each rank needs the full density, so sum it
         mpi.world.sum(nu_sg)
+
+        # Norms are needed for later calculations
         weighted_norm = gd1.integrate(nu_sg)
         ae_norm = gd1.integrate(nae_sg)
         
-        # Calculate WLDA energy based on overleaf notes
+        # Calculate WLDA energy, E_WLDA = E_LDA[n^*]
         # How do we handle the fact the density is not positive definite?
-        # Calculate WLDA potential based on overleaf notes
+        # The energy is the correct energy, hence the WLDA suffix.
+        # The potential needs modification hence LDA suffix.
+        EWLDA_g, vLDA_sg = self.calculate_lda_energy_and_potential(nu_sg * ae_norm / weighted_norm)
+
+        # Calculate WLDA potential
+        vWLDA_sg = self.calculate_wlda_potential(f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd)
+        mpi.world.sum(vWLDA_sg)
         
+        # Put calculated quantities into arrays
+        gd.distribute(vWLDA_sg, v_sg)
+        gd.distribute(ELDA_g, e_g)
+
 
     def get_ae_density(self, gd, n_sg):
         # Every rank needs the density
@@ -1137,7 +1151,7 @@ class WLDA(XCFunctional):
         
         # Algo:
         # Define a global grid. We want a grid such that each rank has not too many
-        pts_per_rank = 10
+        pts_per_rank = self.num_nis
         num_pts = pts_per_rank * world_size
         fulln_i = np.linspace(0, np.max(n_sg), num_pts)
  
@@ -1231,5 +1245,38 @@ class WLDA(XCFunctional):
 
         return nu_sg
 
-
+    def calculate_lda_energy_and_potential(self, n_sg):
+        v_sg = np.zeros_like(n_sg)
+        e_g = np.zeros_like(n_sg[0])
+        if len(n_sg) == 1:
+            lda_x(0, e_g, n_sg[0], v_sg[0])
+            lda_c(0, e_g, n_sg[0], v_sg[0], 0)
+        else:
+            raise NotImplementedError
+        return e_g, v_sg
         
+    def calculate_wlda_potential(self, f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd):
+        energy_factor = gd.integrate(nu_sg * vLDA_sg)
+        pre_factor = (1 / weighted_norm - ae_norm / weighted_norm**2)
+        w1_sg = self.calculate_integral_with_w_isg(f_isg, w_isg)
+        w2_sg = self.calculate_integral_with_F_sg_f_isg_w_isg(vLDA_sg, f_isg, w_isg)
+
+        vWLDA_sg = ae_norm / weighted_norm * w2_sg + pre_factor * energy_factor * w1_sg
+        return vWLDA_sg
+
+    def calculate_integral_with_w_isg(self, f_isg, w_isg):
+        F_isG = np.fft.fftn(f_isg, axes=(2,3,4))
+        W_isG = np.fft.fftn(w_isg, axes=(2,3,4))
+        res_isg = np.fft.ifftn(W_isG*F_isG, axes=(2,3,4))
+        assert np.allclose(res_isg, res_isg.real)
+        return res_isg.sum(axis=0).real
+
+    def calculate_integral_with_F_sg_f_isg_w_isg(self, F_sg, f_isg, w_isg):
+        F_isg = f_isg * F_sg[np.newaxis, :, :]
+        F_isG = np.fft.fftn(F_isg, axes=(2,3,4))
+        w_isG = np.fft.fftn(w_isg, axes=(2,3,4))
+        
+        res_isg = np.fft.ifftn(w_isG*F_isG, axes=(2,3,4))
+        assert np.allclose(res_isg, res_isg.real)
+        return res_isg.sum(axis=0).real
+

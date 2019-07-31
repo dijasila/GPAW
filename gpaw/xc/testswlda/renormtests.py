@@ -290,9 +290,58 @@ class Tester(BaseTester):
             w_isg = xc.get_w_isg(ni_j, n_sg, xc.gd, xc._gaussian_filter)
             assert (w_isg >= 0).all()
 
+    def test_20_calc_int_w_wisg(self):
+        # This integral should be calculated via the convolution theorem
+        # It should then take the sum over the first dimension
+        # Therefore, we should be able to test that it is correct
+        # res_sg = \sum_i f_isg[i] * w_isg[i]
+        sgsh = self.get_a_density().shape
+        f_isg = (np.random.rand(*((10,) + sgsh)) - 0.5) * 100
+        w_isg = (np.random.rand(*((10,) + sgsh)) - 0.5) * 100
+        exp_sg = np.zeros(sgsh, dtype=np.complex128)
+        for i in range(len(f_isg)):
+            f1 = np.fft.fftn(f_isg[i])
+            f2 = np.fft.fftn(w_isg[i])
+            exp_sg += np.fft.ifftn(f1*f2)
+        
+        assert np.allclose(exp_sg, exp_sg.real)
+        exp_sg = exp_sg.real
+        res_sg = xc.calculate_integral_with_w_isg(f_isg, w_isg)
+        assert np.allclose(res_sg, exp_sg)
+        assert res_sg.dtype == exp_sg.dtype
 
+    def test_21_calc_int_Fsg_fisg_wisg(self):
+        # Same as above, but now with an extra function that doesnt
+        # have the first dimension
+        # res_sg = \sum_i (F_sg f_isg[i]) * w_isg[i]
+        sgsh = self.get_a_density().shape
+        F_sg = (np.random.rand(*sgsh) - 0.5) * 120
+        f_isg = (np.random.rand(*((10,) + sgsh)) - 0.5) * 100
+        w_isg = (np.random.rand(*((10,) + sgsh)) - 0.5) * 100
+        exp_sg = np.zeros(sgsh, dtype=np.complex128)
+        for i in range(len(f_isg)):
+            f1 = np.fft.fftn(f_isg[i] * F_sg)
+            f2 = np.fft.fftn(w_isg[i])
+            exp_sg += np.fft.ifftn(f1*f2)
+        assert np.allclose(exp_sg, exp_sg.real)
+        exp_sg = exp_sg.real
+        res_sg = xc.calculate_integral_with_F_sg_f_isg_w_isg(F_sg, f_isg, w_isg)
+        assert np.allclose(res_sg, exp_sg)
+        assert res_sg.dtype == exp_sg.dtype
 
-
+    def test_22_error_corr_density_small(self):
+        latoms = Atoms("H", cell=3*np.identity(3), magmoms=[0])
+        lcalc = GPAW(mode=PW(100), xc="WLDA_renorm", txt=None)
+        latoms.set_calculator(lcalc)
+        latoms.get_potential_energy()
+        n_g = lcalc.get_pseudo_density()
+        n_sg = np.array([n_g])
+        ae_exp_g = lcalc.get_all_electron_density()
+        lxc = lcalc.hamiltonian.xc
+        nae_sg = lxc.correct_density(n_sg)
+     
+        assert np.allclose(nae_sg, ae_exp_g[::2, ::2, ::2]), "Max abs error: {}".format(np.max(np.abs(nae_sg - ae_exp_g[::2, ::2, ::2])))
+        
 
 
 if __name__ == "__main__":
