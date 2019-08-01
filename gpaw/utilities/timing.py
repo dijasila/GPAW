@@ -12,14 +12,6 @@ from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 
-wrap = 1e-6 * 2**32
-
-# Global variables:
-c0 = time.clock()
-t0 = time.time()
-cputime = 0.0
-trouble = False
-
 
 class NullTimer:
     """Compatible with Timer and StepTimer interfaces.  Does nothing."""
