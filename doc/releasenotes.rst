@@ -46,6 +46,9 @@ Git master branch
   This enables simulating charged 2D systems without counter charges.
   See: :git:`gpaw/test/poisson/metallic_poisson.py`
 
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
+
 .. _JTH: https://www.abinit.org/psp-tables
 
 
