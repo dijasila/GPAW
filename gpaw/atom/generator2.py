@@ -1,12 +1,9 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import sys
 from math import pi, exp, sqrt, log
-from distutils.version import LooseVersion
 
 import numpy as np
 from scipy.optimize import fsolve
-from scipy import __version__ as scipy_version
 from ase.units import Hartree
 from ase.data import atomic_numbers
 
@@ -387,12 +384,17 @@ class PAWSetupGenerator:
             def f(alpha):
                 return log(spillage(alpha)) - log(eps)
 
-            if LooseVersion(scipy_version) < '0.8':
-                self.alpha = fsolve(f, 7.0)
-            else:
-                self.alpha = fsolve(f, 7.0)[0]
+            self.alpha = fsolve(f, 7.0)[0]
 
             self.alpha = round(self.alpha, 1)
+        elif alpha < 0:
+            rc = min(rc)
+            self.log('Shape function: (sin(pi*r/rc)/r)^2, rc={rc:.2f} Bohr'
+                     .format(rc=rc))
+            self.ghat_g = np.sinc(self.rgd.r_g / rc)**2 * (pi / 2 / rc**3)
+            self.ghat_g[self.rgd.ceil(rc):] = 0.0
+            self.alpha = -rc
+            return
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
@@ -427,18 +429,22 @@ class PAWSetupGenerator:
         self.log('Core electrons:', self.ncore)
         self.log('Valence electrons:', self.nvalence)
 
-    def find_local_potential(self, r0, P):
+    def find_local_potential(self, r0, P, dv0=None):
         self.r0 = r0
         self.nderiv0 = P
         if self.l0 is None:
-            self.find_polynomial_potential(r0, P)
+            self.find_polynomial_potential(r0, P, dv0)
         else:
             self.match_local_potential(r0, P)
 
-    def find_polynomial_potential(self, r0, P):
+    def find_polynomial_potential(self, r0, P, dv0):
         self.log('Constructing smooth local potential for r < %.3f' % r0)
         g0 = self.rgd.ceil(r0)
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
+        if dv0:
+            x = self.rgd.r_g[:g0] / r0
+            dv_g = dv0 * (1 - 2 * x**2 + x**4)
+            self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
         l0 = self.l0
@@ -1072,7 +1078,12 @@ class PAWSetupGenerator:
         setup.e_electrostatic = aea.eH + aea.eZ
         setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
         setup.rgd = self.rgd
-        setup.rcgauss = 1 / sqrt(self.alpha)
+        if self.alpha > 0:
+            setup.shape_function = {'type': 'gauss',
+                                    'rc': 1 / sqrt(self.alpha)}
+        else:
+            setup.shape_function = {'type': 'sinc',
+                                    'rc': -self.alpha}
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc
@@ -1092,6 +1103,7 @@ class PAWSetupGenerator:
                  ('version', 2),
                  ('name', 'gpaw-%s' % version)]
         setup.generatorattrs = attrs
+        setup.version = '0.7'
 
         setup.l0 = self.l0
         setup.e0 = 0.0
@@ -1108,7 +1120,11 @@ class PAWSetupGenerator:
             setup.fcorehole = occ
             setup.phicorehole_g = phi_g
             setup.has_corehole = True
-
+            ch = self.aea.channels[l]
+            eig = ch.e_n[n - 1 - l]
+            setup.core_hole_e = eig
+            setup.core_hole_e_kin = eig - self.rgd.integrate(
+                ch.calculate_density(n - 1 - l) * self.aea.vr_sg[0], -1)
         return setup
 
     def find_core_states(self):
@@ -1265,7 +1281,7 @@ def get_parameters(symbol, args):
                 projectors=projectors,
                 radii=radii,
                 scalar_relativistic=args.scalar_relativistic, alpha=args.alpha,
-                r0=r0, nderiv0=nderiv0,
+                r0=r0, v0=None, nderiv0=nderiv0,
                 pseudize=pseudize, rcore=rcore,
                 core_hole=args.core_hole,
                 output=args.output,
@@ -1275,7 +1291,7 @@ def get_parameters(symbol, args):
 def generate(symbol,
              projectors,
              radii,
-             r0,
+             r0, v0,
              nderiv0,
              xc='LDA',
              scalar_relativistic=False,
@@ -1294,7 +1310,7 @@ def generate(symbol,
 
     gen.construct_shape_function(alpha, radii, eps=1e-10)
     gen.calculate_core_density()
-    gen.find_local_potential(r0, nderiv0)
+    gen.find_local_potential(r0, nderiv0, v0)
     gen.add_waves(radii)
     gen.pseudize(pseudize[0], pseudize[1], rcore=rcore)
     gen.construct_projectors(rcore)

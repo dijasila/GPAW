@@ -88,7 +88,7 @@ class Davidson(Eigensolver):
 
         psit = kpt.psit
         psit2 = psit.new(buf=wfs.work_array)
-        P = kpt.P
+        P = kpt.projections
         P2 = P.new()
         P3 = P.new()
         M = wfs.work_matrix_nn
@@ -127,8 +127,6 @@ class Davidson(Eigensolver):
 
             # Calculate projections
             psit2.matrix_elements(wfs.pt, out=P2)
-
-            psit2.apply(Ht, out=R)
 
             def copy(M, C_nn):
                 comm.sum(M.array, 0)
@@ -195,7 +193,7 @@ class Davidson(Eigensolver):
                 mmm(1.0, M, 'N', P2, 'N', 1.0, P3)
                 psit[:] = R
                 P, P3 = P3, P
-                kpt.P = P
+                kpt.projections = P
 
             if nit < self.niter - 1:
                 psit.apply(Ht, out=R)

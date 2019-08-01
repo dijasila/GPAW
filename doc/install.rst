@@ -57,12 +57,12 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 2.7, 3.4-
+* Python_ 3.5 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
-* ASE_ 3.17.0 or later (atomic simulation environment)
+* ASE_ 3.18.0 or later (atomic simulation environment)
 * a C-compiler
-* LibXC_ 2.0.1 or later
+* LibXC_ 3.x or 4.x
 * BLAS_ and LAPACK_ libraries
 
 Optional, but highly recommended:
@@ -75,7 +75,7 @@ Optional, but highly recommended:
 .. _Python: http://www.python.org/
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _LibXC: http://www.tddft.org/programs/octopus/wiki/index.php/Libxc
+.. _LibXC: http://www.tddft.org/programs/libxc/
 .. _MPI: http://www.mpi-forum.org/
 .. _BLAS: http://www.netlib.org/blas/
 .. _BLACS: http://www.netlib.org/blacs/
@@ -166,13 +166,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.5.2.tar.gz_) or the latest
+    latest stable release (gpaw-19.8.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-1.5.2.tar.gz
-        $ ln -s gpaw-1.5.2 gpaw
+        $ tar -xf gpaw-19.8.0.tar.gz
+        $ ln -s gpaw-19.8.0 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -181,7 +181,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 1.5.2 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 19.8.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -197,8 +197,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.5.2.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-1.5.2.tar.gz
+.. _gpaw-19.8.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-19.8.0.tar.gz
 
 
 .. _customizing installation:
@@ -259,22 +259,18 @@ Instructions for running parallel calculations can be found in the
 FFTW
 ====
 
-The FFTW library is linked at runtime using :mod:`ctypes`.  By default, the
-following shared library names are searched for: ``libmkl_rt.so``,
-``libmkl_intel_lp64.so`` and ``libfftw3.so``.  First one found will be
-loaded.  If no library is found, the :mod:`numpy.fft` library will be used
-instead.  The name of the FFTW shared library can also be set via the
-``$GPAW_FFTWSO`` environment variable.
-
+Older versions of GPAW would link FFTW using ctypes, based on library
+paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
+1.5.1, FFTW is linked from customize.py like all other libraries.
 
 .. _libxc installation:
 
 Libxc Installation
 ==================
 
-If you OS does not have a LibXC_ package you can use then you can download
-and install LibXC_ as described `here
-<http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`_.  A
+If you OS does not have a LibXC package you can use then you can download
+and install LibXC as described `here
+<http://www.tddft.org/programs/libxc/>`_.  A
 few extra tips:
 
 * Libxc installation requires both a C compiler and a fortran compiler.
@@ -289,29 +285,30 @@ few extra tips:
 * Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/4.0.1/install/lib']
-    include_dirs += ['/my/path/to/libxc/4.0.1/install/include']
+    library_dirs += ['/my/path/to/libxc/4.2.3/install/lib']
+    include_dirs += ['/my/path/to/libxc/4.2.3/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
 
-    export C_INCLUDE_PATH=/my/path/to/libxc/4.0.1/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
+    export C_INCLUDE_PATH=/my/path/to/libxc/4.2.3/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
 
 Example::
 
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-4.0.1.tar.gz -O libxc-4.0.1.tar.gz
-    tar -xf libxc-4.0.1.tar.gz
-    cd libxc-4.0.1
-    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.0.1
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/4.2.3/libxc-4.2.3.tar.gz -O libxc-4.2.3.tar.gz
+    tar -xf libxc-4.2.3.tar.gz
+    cd libxc-4.2.3
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.2.3
     make
     make install
 
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/libxc-4.0.1/include
-    export LIBRARY_PATH=~/libxc-4.0.1/lib
-    export LD_LIBRARY_PATH=~/libxc-4.0.1/lib
+    XC=~/libxc-4.2.3
+    export C_INCLUDE_PATH=$XC/include
+    export LIBRARY_PATH=$XC/lib
+    export LD_LIBRARY_PATH=$XC/lib
 
 
 .. _envvars:

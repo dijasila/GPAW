@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""
+r"""
 Real-valued spherical harmonics
 
 
@@ -32,12 +32,14 @@ Gaunt coefficients::
 
 """
 
+import numpy as np
 
-from math import pi, sqrt
+from math import pi, sqrt  # noqa
 
 from gpaw import debug
 from _gpaw import spherical_harmonics as Yl
 
+__all__ = ['Y', 'YL', 'nablarlYL', 'Yl', 'gam']
 
 # Computer generated tables - do not touch!
 YL = [# s:
@@ -189,6 +191,18 @@ def Y(L, x, y, z):
     for c, n in YL[L]:
         result += c * x**n[0] * y**n[1] * z**n[2]
     return result
+
+
+def Yarr(L_M, R_Av):
+    """
+    Calculate spherical harmonics L_M at positions R_Av, where
+    A is some array like index.
+    """
+    Y_MA = np.zeros((len(L_M), *R_Av.shape[:-1]))
+    for M, L in enumerate(L_M):
+        for c, n in YL[L]:  # could be vectorized further
+            Y_MA[M] += c * np.prod(np.power(R_Av, n), axis=-1)
+    return Y_MA
 
 
 def nablarlYL(L, R):

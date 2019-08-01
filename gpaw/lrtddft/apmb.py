@@ -78,7 +78,6 @@ class ApmB(OmegaMatrix):
             ivo_l = homo - self.xc.excited - 1
         else:
             ivo_l = None
-        
 
         for ij in range(nij):
             print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)

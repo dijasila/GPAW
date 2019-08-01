@@ -1,4 +1,3 @@
-from __future__ import print_function
 import time
 import numpy as np
 
@@ -138,7 +137,8 @@ phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
 compare(phi_g, phiref_g, 1.2980906205e-03)
 
 # Test with cascaded single coarsenings
-poisson1 = ExtraVacuumPoissonSolver(gpts / 2, PoissonSolver('fd', eps=poissoneps),
+poisson1 = ExtraVacuumPoissonSolver(gpts / 2,
+                                    PoissonSolver('fd', eps=poissoneps),
                                     PoissonSolver('fd', eps=poissoneps), 1)
 poisson = ExtraVacuumPoissonSolver(gpts / 2, poisson1,
                                    PoissonSolver('fd', eps=poissoneps), 1)
@@ -163,7 +163,7 @@ for coarses in [1, 2, 3]:
                            use_aux_grid=True,
                            nn_refine=nn_refine, nn_laplace=nn_laplace)
             phi_g, npoisson = poisson_init_solve(gd, rho_g, poisson)
-            compare(phi_g, phiref_g, 0.0, 1e-24)
+            compare(phi_g, phiref_g, 0.0, 1e-14)
 
 if do_plot:
     if gd.comm.rank == 0:

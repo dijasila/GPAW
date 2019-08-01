@@ -271,16 +271,18 @@ def divrl(a_g, l, r_g):
     if l > 0:
         b_g[1:] /= r_g[1:]**l
         b1, b2 = b_g[1:3]
-        r0, r1, r2 = r_g[0:3]
-        b_g[0] = b2 + (b1 - b2) * (r0 - r2) / (r1 - r2)
+        r12, r22 = r_g[1:3]**2
+        b_g[0] = (b1 * r22 - b2 * r12) / (r22 - r12)
     return b_g
 
 
 def compiled_with_sl():
     return hasattr(_gpaw, 'new_blacs_context')
 
+
 def compiled_with_libvdwxc():
     return hasattr(_gpaw, 'libvdwxc_create')
+
 
 def load_balance(paw, atoms):
     try:
@@ -304,8 +306,9 @@ def load_balance(paw, atoms):
     print("Average number of atoms/CPU:", ave_atoms)
     print("    standard deviation:     %5.1f" % stddev_atoms)
 
+
 if not debug:
-    hartree = _gpaw.hartree
+    hartree = _gpaw.hartree  # noqa
     pack = _gpaw.pack
 
 

@@ -144,16 +144,11 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-
+        ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
         if ecut is None:
-            ecut = ecutmax * 0.9999
+            ecut = 0.9999 * ecut0
         else:
-            if ecut > ecutmax:
-                raise ValueError(
-                    'You have a weird unit cell!  '
-                    'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.build.niggli_reduce() function.')
+            assert ecut <= ecut0
 
         self.ecut = ecut
 
@@ -503,6 +498,9 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        if (pd.gd.N_c <= self.gd.N_c).any():
+            raise ValueError('Too few points in target grid!')
+
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -1376,7 +1374,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}
+        splines = {}  # Dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
@@ -1392,7 +1390,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()
+        done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
@@ -1749,14 +1747,15 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, ecut,
+                 gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
 
-        self.pd2 = PWDescriptor(None, gd)
-        self.pd3 = PWDescriptor(None, finegd)
+        self.pd2 = PWDescriptor(ecut, gd)
+        self.pd3 = PWDescriptor(4 * ecut, finegd)
 
         self.map23 = PWMapping(self.pd2, self.pd3)
 

@@ -158,11 +158,21 @@ def rotatory_spectrum(exlist=None,
 
 
 class Writer(Folder):
+    """Object to write data to a file"""
+    def __init__(self, folding=None, width=0.08):
+        """Evaluate the polarizability from sum over states.
 
-    def __init__(self, folding=None, width=0.08,  # Gauss/Lorentz width
-                 ):
+        Parameters
+        ----------
+        folding : string or None(default)
+          Name of the folding function, see gpaw/folder.py for options.
+          None means do not fold at all.
+        width : float
+          The width to be transferred to the folding function. 
+        """
         self.folding = folding
-        Folder.__init__(self, width, folding)
+        if folding is not None:
+            Folder.__init__(self, width, folding)
 
     def write(self, filename=None,
               emin=None, emax=None, de=None,
@@ -179,10 +189,13 @@ class Writer(Folder):
         if self.folding is not None:
             print('# %s folded, width=%g [eV]' % (self.folding,
                                                   self.width), file=out)
+            energies, values = self.fold(self.energies, self.values,
+                                         de, emin, emax)
+        else:
+            energies, values = self.energies, self.values
+
         print('#', self.fields, file=out)
 
-        energies, values = self.fold(self.energies, self.values,
-                                     de, emin, emax)
         for e, val in zip(energies, values):
             string = '%10.5f' % e
             for vf in val:

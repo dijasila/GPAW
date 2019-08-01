@@ -119,10 +119,10 @@ class WaveFunctions:
             D_sii[kpt.s] += D_ii.real
         else:
             if self.collinear:
-                P_ni = kpt.P[a]
+                P_ni = kpt.projections[a]
                 D_sii[kpt.s] += np.dot(P_ni.T.conj() * f_n, P_ni).real
             else:
-                P_nsi = kpt.P[a]
+                P_nsi = kpt.projections[a]
                 D_ssii = np.einsum('nsi,n,nzj->szij',
                                    P_nsi.conj(), f_n, P_nsi)
                 D_sii[0] += (D_ssii[0, 0] + D_ssii[1, 1]).real
@@ -188,22 +188,23 @@ class WaveFunctions:
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             with self.timer('Redistribute'):
                 for kpt in self.mykpts:
-                    assert self.atom_partition == kpt.P.atom_partition
-                    kpt.P = kpt.P.redist(atom_partition)
-                    assert atom_partition == kpt.P.atom_partition
+                    P = kpt.projections
+                    assert self.atom_partition == P.atom_partition
+                    kpt.projections = P.redist(atom_partition)
+                    assert atom_partition == kpt.projections.atom_partition
 
         self.atom_partition = atom_partition
         self.kd.symmetry.check(spos_ac)
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.mykpts[0].P is not None:
+        if not self.positions_set and self.mykpts[0].projections is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
             for kpt in self.mykpts:
-                kpt.P = Projections(
+                kpt.projections = Projections(
                     self.bd.nbands, nproj_a,
                     self.atom_partition,
                     self.bd.comm,
@@ -305,7 +306,7 @@ class WaveFunctions:
 
         if self.kd.comm.rank == kpt_rank:
             kpt = self.mykpts[u]
-            P_nI = kpt.P.collect()
+            P_nI = kpt.projections.collect()
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
@@ -352,6 +353,7 @@ class WaveFunctions:
 
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
+                psit_G = np.ascontiguousarray(psit_G)
                 self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
@@ -475,7 +477,7 @@ class WaveFunctions:
                 index = (kpt.s, kpt.k)
             else:
                 index = (kpt.k,)
-            kpt.P = Projections(
+            kpt.projections = Projections(
                 self.bd.nbands, nproj_a,
                 atom_partition, self.bd.comm,
                 collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
@@ -483,7 +485,7 @@ class WaveFunctions:
                 P_nI = reader.proxy('projections', *index)[nslice]
                 if not self.collinear:
                     P_nI.shape = (self.bd.mynbands, -1)
-                kpt.P.matrix.array[:] = P_nI
+                kpt.projections.matrix.array[:] = P_nI
 
     def read_eigenvalues(self, reader, old=False):
         nslice = self.bd.get_slice()

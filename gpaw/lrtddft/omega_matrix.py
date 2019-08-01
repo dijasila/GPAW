@@ -569,7 +569,7 @@ class OmegaMatrix:
         else:
             try:
                 emin, emax = energy_range
-            except:
+            except TypeError:
                 emax = energy_range
                 emin = 0.
             emin /= Hartree

@@ -502,6 +502,9 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         beta = self.a / self.b
         return ng * r / (beta + r)
 
+    def new(self, N):
+        return AERadialGridDescriptor(self.a, self.b, N)
+
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
@@ -534,3 +537,6 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
 
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d
+
+    def new(self, N):
+        return AbinitRadialGridDescriptor(self.a, self.d, N)

@@ -6,12 +6,15 @@ from gpaw.utilities import compiled_with_sl
 def ikwargs():
     for augment_grids in [False, True]:
         for sl_auto in [0, 1] if compiled_with_sl() else [0]:
-            if world.size == 8:
-                parsizes = [[2, 2, 2]] # We need also [4, 2, 2]]
+            if world.size == 16:
+                # This won't happen in ordinary test suite
+                parsizes = [[4, 2, 2], [2, 4, 2], [2, 2, 4]]
+            elif world.size == 8:
+                parsizes = [[2, 2, 2]]
             elif world.size == 4:
-                parsizes = [[2, 2, 1], [1, 2, 2]]
+                parsizes = [[1, 2, 2]]
             elif world.size == 2:
-                parsizes = [[1, 2, 1], [1, 1, 2]]
+                parsizes = [[1, 1, 2]]
             else:
                 assert world.size == 1
                 parsizes = [[1, 1, 1]]
@@ -53,6 +56,9 @@ for spinpol in [False, True]:
 
         if world.rank == 0:
             print(i, kwargs)
+
+        if kwargs['parallel']['kpt'] == 4 and not spinpol:
+            continue  # Core without kpoints
 
         calc = GPAW(mode='lcao',
                     basis='sz(dzp)',

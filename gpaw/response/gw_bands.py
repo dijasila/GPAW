@@ -20,22 +20,22 @@ class GWBands:
                  kpoints=None,
                  bandrange=None):
 
-            self.calc = GPAW(calc, communicator=comm, txt=None)
-            if gw_file is not None:
-                self.gw_file = pickle.load(open(gw_file, 'rb'),encoding='bytes')
-            self.kpoints = kpoints
-            if bandrange is None:
-                self.bandrange = np.arange(self.calc.get_number_of_bands())
-            else:
-                self.bandrange = bandrange
+        self.calc = GPAW(calc, communicator=comm, txt=None)
+        if gw_file is not None:
+            self.gw_file = pickle.load(open(gw_file, 'rb'),encoding='bytes')
+        self.kpoints = kpoints
+        if bandrange is None:
+            self.bandrange = np.arange(self.calc.get_number_of_bands())
+        else:
+            self.bandrange = bandrange
 
-            self.gd = self.calc.wfs.gd.new_descriptor()
-            self.kd = self.calc.wfs.kd
+        self.gd = self.calc.wfs.gd.new_descriptor()
+        self.kd = self.calc.wfs.kd
 
-            self.acell_cv = self.gd.cell_cv
-            self.bcell_cv = 2 * np.pi * self.gd.icell_cv
-            self.vol = self.gd.volume
-            self.BZvol = (2 * np.pi)**3 / self.vol
+        self.acell_cv = self.gd.cell_cv
+        self.bcell_cv = 2 * np.pi * self.gd.icell_cv
+        self.vol = self.gd.volume
+        self.BZvol = (2 * np.pi)**3 / self.vol
 
     def find_k_along_path(self, plot_BZ=True):
         """Finds the k-points along the bandpath present in the

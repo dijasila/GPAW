@@ -1,10 +1,8 @@
-from __future__ import print_function
 """Test of BLACS Redistributor.
 
 Requires at least 8 MPI tasks.
 """
 
-import sys
 
 import numpy as np
 
@@ -12,8 +10,8 @@ from gpaw.band_descriptor import BandDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world, distribute_cpus
 from gpaw.utilities import compiled_with_sl
-from gpaw.utilities.scalapack import scalapack_set, scalapack_zero 
-from gpaw.blacs import BlacsGrid, Redistributor, parallelprint
+from gpaw.utilities.scalapack import scalapack_set
+from gpaw.blacs import parallelprint
 from gpaw.kohnsham_layouts import BlacsBandLayouts
 
 G = 120  # number of grid points (G x G x G)
@@ -48,7 +46,7 @@ gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize_c=D)
 mcpus, ncpus, blocksize = 2, 2, 6
 
 def blacs_diagonalize(ksl, H_Nn, U_nN, eps_n):
-    # H_Nn must be lower triangular or symmetric, 
+    # H_Nn must be lower triangular or symmetric,
     # but not upper triangular.
     # U_nN will be symmetric
 
@@ -64,7 +62,7 @@ def blacs_diagonalize(ksl, H_Nn, U_nN, eps_n):
     U_nN[:] = bmd.redistribute_input(U_nn)
 
 def blacs_inverse_cholesky(ksl, S_Nn, C_nN):
-    # S_Nn must be upper triangular or symmetric, 
+    # S_Nn must be upper triangular or symmetric,
     # but not lower triangular.
     # C_nN will be upper triangular.
 
@@ -99,17 +97,17 @@ def main(seed=42, dtype=float):
 
     print("H_Nn")
     parallelprint(world, H_Nn)
-    
+
     eps_n = np.zeros(bd.mynbands)
     blacs_diagonalize(ksl, H_Nn, U_nN, eps_n)
     print("U_nN")
     parallelprint(world, U_nN)
     print("eps_n")
     parallelprint(world, eps_n)
-    
+
     # Inverse Cholesky
     S_Nn = np.zeros((nbands, mynbands), dtype=dtype)
-    C_nN = np.empty((mynbands, nbands), dtype=dtype) 
+    C_nN = np.empty((mynbands, nbands), dtype=dtype)
 
     if ksl.Nndescriptor: # hack
         scalapack_set(ksl.Nndescriptor, S_Nn, 0.1, 75.0, 'L')

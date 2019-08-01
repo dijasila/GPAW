@@ -8,6 +8,12 @@ from gpaw.test import equal, gen
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.cluster import Cluster
 from gpaw.lrtddft import LrTDDFT
+import _gpaw
+
+libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
+if int(libxc_version.split('.')[0]) < 3:
+    from unittest import SkipTest
+    raise SkipTest
 
 h = 0.35  # Gridspacing
 e_singlet = 4.61

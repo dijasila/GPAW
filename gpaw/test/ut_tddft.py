@@ -1,5 +1,7 @@
 from __future__ import print_function
-import os, sys, time
+import os
+import sys
+import time
 import numpy as np
 
 from ase.build import molecule
@@ -211,6 +213,7 @@ def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'
     classname = 'UTStaticPropagatorSetup' \
     + sep + propagator
+
     class MetaPrototype(UTStaticPropagatorSetup, object):
         __doc__ = UTStaticPropagatorSetup.__doc__
         timesteps = timesteps

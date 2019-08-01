@@ -127,17 +127,16 @@ class C_GLLBScr(Contribution):
 
         # The parameter ee might sometimes be set to small thereshold value to
         # achieve convergence on small systems with degenerate HOMO.
-        if len(kpt_u) > nspins:
-            ee = 0.0
-        else:
-            ee = 0.05 / 27.21
+        # if len(kpt_u) > nspins:
+        #     ee = 0.0
+        # else:
+        #     ee = 0.05 / 27.21
 
         if lumo_perturbation:
-            return [np.array([
-                f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
-                          -self.f(eref_s[kpt.s]-e))
-                     for e, f in zip(kpt.eps_n, kpt.f_n) ])
-                     for kpt in kpt_u ]
+            return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
+                                         -self.f(eref_s[kpt.s]-e))
+                              for e, f in zip(kpt.eps_n, kpt.f_n) ])
+                    for kpt in kpt_u]
 
 
         else:
@@ -174,82 +173,82 @@ class C_GLLBScr(Contribution):
 
         E = 0
         for D_p, dEdD_p in zip(D_sp, H_sp):
-                D_Lq = np.dot(c.B_pqL.T, nspins*D_p)
-                n_Lg = np.dot(D_Lq, c.n_qg)
-                if addcoredensity:
-                     n_Lg[0] += c.nc_g * sqrt(4 * pi)
-                nt_Lg = np.dot(D_Lq, c.nt_qg)
-                if addcoredensity:
-                     nt_Lg[0] += c.nct_g * sqrt(4 * pi)
-                dndr_Lg = np.zeros((c.Lmax, c.ng))
-                dntdr_Lg = np.zeros((c.Lmax, c.ng))
-                for L in range(c.Lmax):
-                    c.rgd.derivative(n_Lg[L], dndr_Lg[L])
-                    c.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
-                vt_g = np.zeros(c.ng)
-                v_g = np.zeros(c.ng)
-                e_g = np.zeros(c.ng)
-                deda2_g = np.zeros(c.ng)
-                for y, (w, Y_L) in enumerate(zip(weight_n, c.Y_nL)):
-                    # Cut gradient releated coefficient to match the setup's Lmax
-                    A_Li = rnablaY_nLv[y, :c.Lmax]
+            D_Lq = np.dot(c.B_pqL.T, nspins*D_p)
+            n_Lg = np.dot(D_Lq, c.n_qg)
+            if addcoredensity:
+                n_Lg[0] += c.nc_g * sqrt(4 * pi)
+            nt_Lg = np.dot(D_Lq, c.nt_qg)
+            if addcoredensity:
+                nt_Lg[0] += c.nct_g * sqrt(4 * pi)
+            dndr_Lg = np.zeros((c.Lmax, c.ng))
+            dntdr_Lg = np.zeros((c.Lmax, c.ng))
+            for L in range(c.Lmax):
+                c.rgd.derivative(n_Lg[L], dndr_Lg[L])
+                c.rgd.derivative(nt_Lg[L], dntdr_Lg[L])
+            vt_g = np.zeros(c.ng)
+            v_g = np.zeros(c.ng)
+            e_g = np.zeros(c.ng)
+            deda2_g = np.zeros(c.ng)
+            for y, (w, Y_L) in enumerate(zip(weight_n, c.Y_nL)):
+                # Cut gradient releated coefficient to match the setup's Lmax
+                A_Li = rnablaY_nLv[y, :c.Lmax]
 
-                    # Expand pseudo density
-                    nt_g = np.dot(Y_L, nt_Lg)
+                # Expand pseudo density
+                nt_g = np.dot(Y_L, nt_Lg)
 
-                    # Expand pseudo density gradient
-                    a1x_g = np.dot(A_Li[:, 0], nt_Lg)
-                    a1y_g = np.dot(A_Li[:, 1], nt_Lg)
-                    a1z_g = np.dot(A_Li[:, 2], nt_Lg)
-                    a2_g = a1x_g**2 + a1y_g**2 + a1z_g**2
-                    a2_g[1:] /= c.rgd.r_g[1:]**2
-                    a2_g[0] = a2_g[1]
-                    a1_g = np.dot(Y_L, dntdr_Lg)
-                    a2_g += a1_g**2
+                # Expand pseudo density gradient
+                a1x_g = np.dot(A_Li[:, 0], nt_Lg)
+                a1y_g = np.dot(A_Li[:, 1], nt_Lg)
+                a1z_g = np.dot(A_Li[:, 2], nt_Lg)
+                a2_g = a1x_g**2 + a1y_g**2 + a1z_g**2
+                a2_g[1:] /= c.rgd.r_g[1:]**2
+                a2_g[0] = a2_g[1]
+                a1_g = np.dot(Y_L, dntdr_Lg)
+                a2_g += a1_g**2
 
-                    vt_g[:] = 0.0
-                    e_g[:] = 0.0
-                    # Calculate pseudo GGA energy density (potential is discarded)
-                    self.xc.kernel.calculate(e_g, nt_g.reshape((1, -1)),
-                                             vt_g.reshape((1, -1)),
+                vt_g[:] = 0.0
+                e_g[:] = 0.0
+                # Calculate pseudo GGA energy density (potential is discarded)
+                self.xc.kernel.calculate(e_g, nt_g.reshape((1, -1)),
+                                         vt_g.reshape((1, -1)),
+                                     a2_g.reshape((1, -1)),
+                                     deda2_g.reshape((1, -1)))
+
+                # Calculate pseudo GLLB-potential from GGA-energy density
+                vt_g[:] = 2 * e_g / (nt_g + self.damp)
+
+                dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
+                                      np.dot(c.nt_qg, vt_g * c.rgd.dv_g))
+
+                E -= w * np.dot(e_g, c.rgd.dv_g) / nspins
+
+                # Expand density
+                n_g = np.dot(Y_L, n_Lg)
+
+                # Expand density gradient
+                a1x_g = np.dot(A_Li[:, 0], n_Lg)
+                a1y_g = np.dot(A_Li[:, 1], n_Lg)
+                a1z_g = np.dot(A_Li[:, 2], n_Lg)
+                a2_g = a1x_g**2 + a1y_g**2 + a1z_g**2
+                a2_g[1:] /= c.rgd.r_g[1:]**2
+                a2_g[0] = a2_g[1]
+                a1_g = np.dot(Y_L, dndr_Lg)
+                a2_g += a1_g**2
+
+                v_g[:] = 0.0
+                e_g[:] = 0.0
+                # Calculate GGA energy density (potential is discarded)
+                self.xc.kernel.calculate(e_g, n_g.reshape((1, -1)),
+                                         v_g.reshape((1, -1)),
                                          a2_g.reshape((1, -1)),
                                          deda2_g.reshape((1, -1)))
 
-                    # Calculate pseudo GLLB-potential from GGA-energy density
-                    vt_g[:] = 2 * e_g / (nt_g + self.damp)
+                # Calculate GLLB-potential from GGA-energy density
+                v_g[:] = 2 * e_g / (n_g + self.damp)
 
-                    dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
-                                          np.dot(c.nt_qg, vt_g * c.rgd.dv_g))
-
-                    E -= w * np.dot(e_g, c.rgd.dv_g) / nspins
-
-                    # Expand density
-                    n_g = np.dot(Y_L, n_Lg)
-
-                    # Expand density gradient
-                    a1x_g = np.dot(A_Li[:, 0], n_Lg)
-                    a1y_g = np.dot(A_Li[:, 1], n_Lg)
-                    a1z_g = np.dot(A_Li[:, 2], n_Lg)
-                    a2_g = a1x_g**2 + a1y_g**2 + a1z_g**2
-                    a2_g[1:] /= c.rgd.r_g[1:]**2
-                    a2_g[0] = a2_g[1]
-                    a1_g = np.dot(Y_L, dndr_Lg)
-                    a2_g += a1_g**2
-
-                    v_g[:] = 0.0
-                    e_g[:] = 0.0
-                    # Calculate GGA energy density (potential is discarded)
-                    self.xc.kernel.calculate(e_g, n_g.reshape((1, -1)),
-                                             v_g.reshape((1, -1)),
-                                             a2_g.reshape((1, -1)),
-                                             deda2_g.reshape((1, -1)))
-
-                    # Calculate GLLB-potential from GGA-energy density
-                    v_g[:] = 2 * e_g / (n_g + self.damp)
-
-                    dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
-                                          np.dot(c.n_qg, v_g * c.rgd.dv_g))
-                    E += w * np.dot(e_g, c.rgd.dv_g) / nspins
+                dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
+                                      np.dot(c.n_qg, v_g * c.rgd.dv_g))
+                E += w * np.dot(e_g, c.rgd.dv_g) / nspins
 
         return E * self.weight
 

@@ -19,8 +19,8 @@ def run(atoms, symm, name):
     e = atoms.get_potential_energy()
     scalapack = atoms.calc.wfs.bd.comm.size
     atoms.calc.diagonalize_full_hamiltonian(nbands=8, scalapack=scalapack)
-    atoms.calc.write(name, mode='all')
-    gw = G0W0(name, 'gw-' + name,
+    atoms.calc.write(name + '.gpw', mode='all')
+    gw = G0W0(name + '.gpw', 'gw-' + name,
               nbands=8,
               integrate_gamma=0,
               kpts=[(0, 0, 0), (0.5, 0.5, 0)],  # Gamma, X
@@ -52,4 +52,4 @@ equal(abs(np.array(results[0]) -
           [-9.25,
            5.44, 2.39, 0.40, 0,
            6.26, 3.57, 1.32, 0]).max(), 0, 0.025)
-equal(np.ptp(results, 0).max(), 0, 0.004)
+equal(np.ptp(results, 0).max(), 0, 0.005)

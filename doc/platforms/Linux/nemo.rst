@@ -54,29 +54,29 @@ the directory where you want to install
 
  mkdir -p $MYLIBXCDIR
  cd $MYLIBXCDIR
- wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.2.0.tar.gz -O libxc-2.2.0.tar.gz
- tar xzf libxc-2.2.0.tar.gz
- cd libxc-2.2.0
+ wget http://www.tddft.org/programs/octopus/down.php?file=libxc/4.3.4/libxc-4.3.4.tar.gz -O libxc-4.3.4.tar.gz
+ tar xvzf libxc-4.3.4.tar.gz
+ cd libxc-4.3.4
  mkdir install
  ./configure CFLAGS="-fPIC" --prefix=$PWD/install -enable-shared
  make |tee make.log
  make install
 
-This will have installed the libs ``$MYLIBXCDIR/libxc-2.0.2/install/lib`` 
+This will have installed the libs ``$MYLIBXCDIR/libxc-4.3.4/install/lib`` 
 and the C header
-files to ``$MYLIBXCDIR/libxc-2.0.2/install/include``.
+files to ``$MYLIBXCDIR/libxc-4.3.4/install/include``.
 We create a module for libxc::
 
   cd	
   mkdir modulefiles/libxc
   cd modulefiles/libxc
 
-and edit the module file  :file:`2.2.0` that should read::
+and edit the module file  :file:`4.3.4` that should read::
 
   #%Module1.0
 
   #                                    change this to your path
-  set             libxchome            /home/fr/fr_fr/fr_mw767/source/libxc/libxc-2.2.0/install
+  set             libxchome            /home/fr/fr_fr/fr_mw767/source/libxc/libxc-4.3.4/install
   prepend-path    C_INCLUDE_PATH       $libxchome/include
   prepend-path    LIBRARY_PATH         $libxchome/lib
   prepend-path    LD_LIBRARY_PATH      $libxchome/lib
@@ -90,7 +90,7 @@ You might want to install a stable version of ASE::
   ASE_SOURCE=$PWD/source/ase
   mkdir -p $ASE_SOURCE
   cd $ASE_SOURCE
-  git clone -b 3.13.0 https://gitlab.com/ase/ase.git 3.13.0
+  git clone -b 3.17.0 https://gitlab.com/ase/ase.git 3.17.0
 
 We add our installation to the module environment::
 
@@ -98,14 +98,14 @@ We add our installation to the module environment::
   mkdir -p modulefiles/ase
   cd modulefiles/ase
   
-Edit the module file  :file:`3.13.0` that should read::
+Edit the module file  :file:`3.17.0` that should read::
 
   #%Module1.0
 
   module load devel/python/3.6.0
 
   #           change this to your path
-  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.13.0
+  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.17.0
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
@@ -165,11 +165,6 @@ A specific tag can be loaded by::
  git tag
  # load version 1.2.0
  git checkout 1.2.0
-
-We have to modify the file :file:`customize.py` to
-:download:`customize_nemo.py`
-
-.. literalinclude:: customize_nemo.py
 
 To build GPAW use::
 

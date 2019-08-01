@@ -94,7 +94,6 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
     gd = paw.wfs.gd
     kd = paw.wfs.kd
     operator = MatrixOperator(paw.wfs.orthoksl, hermitian=False)
-    atoms = paw.get_atoms()
 
     # Find the kpoint with lowest kpt.k_c (closest to gamma point)
     k0 = np.argmin(np.sum(paw.wfs.kd.ibzk_kc**2,axis=1)**0.5)
@@ -406,7 +405,7 @@ def dscf_reconstruct_orbitals_k_point(paw, norbitals, mol, kpt):
 
 def dscf_save_band(filename, paw, n):
     """Extract and save all information for band `n` to a tar file."""
-    world, bd, gd, kd = paw.wfs.world, paw.wfs.bd, paw.wfs.gd, paw.wfs.kd
+    world, gd, kd = paw.wfs.world, paw.wfs.gd, paw.wfs.kd
     if world.rank == 0:
         # Minimal amount of information needed:
         w = Writer(filename)
@@ -452,7 +451,7 @@ def dscf_load_band(filename, paw, molecule=None):
     """Load and distribute all information for a band from a tar file."""
     if not paw.wfs:
         paw.initialize()
-    world, bd, gd, kd = paw.wfs.world, paw.wfs.bd, paw.wfs.gd, paw.wfs.kd
+    bd, gd, kd = paw.wfs.bd, paw.wfs.gd, paw.wfs.kd
     if bd.comm.size != 1:
         raise NotImplementedError('Undefined action for band parallelization.')
 

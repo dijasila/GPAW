@@ -67,7 +67,7 @@ class RMMDIIS(Eigensolver):
 
         psit = kpt.psit
         # psit2 = psit.new(buf=wfs.work_array)
-        P = kpt.P
+        P = kpt.projections
         P2 = P.new()
         # dMP = P.new()
         # M_nn = wfs.work_matrix_nn
