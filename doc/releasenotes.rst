@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.17.1b1
+* Corresponding ASE release: ASE-3.18.1b1
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
 
 * The ``"You have a weird unit cell"`` and
   ``"Real space grid not compatible with symmetry operation"``
