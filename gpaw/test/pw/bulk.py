@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW
@@ -7,7 +6,11 @@ from gpaw.test import equal
 
 bulk = Atoms('Li', pbc=True)
 k = 4
-calc = GPAW(mode=PW(200), kpts=(k, k, k), eigensolver='rmm-diis')
+calc = GPAW(mode=PW(200),
+            kpts=(k, k, k),
+            # parallel={'domain': world.size},
+            eigensolver='rmm-diis')
+
 bulk.set_calculator(calc)
 e = []
 niter = []

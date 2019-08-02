@@ -306,11 +306,11 @@ PyObject* rk(PyObject *self, PyObject *args)
         k = PyArray_DIMS(a)[1];
         for (int d = 2; d < PyArray_NDIM(a); d++)
             k *= PyArray_DIMS(a)[d];
-        lda = k;
+        lda = MAX(k, 1);
     }
     else {
         k = PyArray_DIMS(a)[0];
-        lda = n;
+        lda = MAX(n, 1);
     }
 
     int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];

@@ -228,7 +228,7 @@ class PWDescriptor:
         self.maxmyng = (self.ngmax + S - 1) // S
         ng1 = gd.comm.rank * self.maxmyng
         ng2 = ng1 + self.maxmyng
-        assert ng1 <= self.ngmin
+        # assert ng1 <= self.ngmin
 
         self.G2_qG = []
         self.myQ_qG = []
@@ -1250,12 +1250,13 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
             psit_nG = kpt.psit.array
-            for n, psit_G in enumerate(psit_nG.reshape((-1,
-                                                        psit_nG.shape[-1]))):
+            if psit_nG.ndim == 3:
+                1 / 0
+            for n, psit_G in enumerate(psit_nG):
                 psit_nR[:] = 0.0
-                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1], psit_nR, kpt.q)
+                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
+                                             psit_nR, kpt.q)
                 psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
-
             kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
@@ -1578,8 +1579,9 @@ class PWLFC(BaseLFC):
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        b_xI = c_xI.reshape((nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
