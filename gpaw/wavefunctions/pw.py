@@ -406,11 +406,11 @@ class PWDescriptor:
         ssize_r[:N] = self.myng_q[q]
         soffset_r = np.arange(comm.size) * self.myng_q[q]
         soffset_r[N:] = 0
+        roffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
         rsize_r = np.zeros(comm.size, int)
         if comm.rank < N:
-            rsize_r[:-1] = self.maxmyng
-            rsize_r[-1] = ng - self.maxmyng * (comm.size - 1)
-        roffset_r = np.arange(0, ng, self.maxmyng)
+            rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
+            rsize_r[-1] = ng - roffset_r[-1]
         b_G = self.tmp_G[:ng]
         comm.alltoallv(a_rG, ssize_r, soffset_r, b_G, rsize_r, roffset_r)
         if comm.rank < N:
@@ -428,11 +428,11 @@ class PWDescriptor:
         rsize_r[:N] = self.myng_q[q]
         roffset_r = np.arange(comm.size) * self.myng_q[q]
         roffset_r[N:] = 0
+        soffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
         ssize_r = np.zeros(comm.size, int)
         if comm.rank < N:
-            ssize_r[:-1] = self.maxmyng
-            ssize_r[-1] = ng - self.maxmyng * (comm.size - 1)
-        soffset_r = np.arange(0, ng, self.maxmyng)
+            ssize_r[:-1] = soffset_r[1:] - soffset_r[:-1]
+            ssize_r[-1] = ng - soffset_r[-1]
         tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
         comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
         b_rG += tmp_rG
