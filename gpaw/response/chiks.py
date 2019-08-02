@@ -91,12 +91,14 @@ class ChiKS(PlaneWaveKSLRF):
                        hw + (eps_n'k's'-eps_nks) + ih eta |
                                                           /
         """
+        '''  # remove XXX
         # Get all pairs of Kohn-Sham transitions:
         # (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
         k_c = np.dot(self.pd.gd.cell_cv, k_v) / (2 * np.pi)
         q_c = self.pd.kd.bzk_kc[0]
         kskptpairs = self.kspair.get_kpoint_pairs(n1_t, n2_t, k_c, k_c + q_c,
                                                   s1_t, s2_t)
+        '''
 
         # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
         with self.timer('Get occupation differences and transition energies'):

@@ -245,7 +245,15 @@ class KohnShamLinearResponseFunction:
     def setup_output_array(self, A_x):
         raise NotImplementedError('Output array depends on mode')
 
-    def add_integrand(self, *args, **kwargs):
+    def get_ks_kpoint_pairs(self, k_pv, *args, **kwargs):
+        raise NotImplementedError('Integrated pairs of states depend on'
+                                  'response and mode')
+
+    def calculate_pme(self, kskptpair, *args, **kwargs):
+        raise NotImplementedError('Calculator method for matrix elements '
+                                  'depend on response and mode')
+
+    def add_integrand(self, kskptpair, tmp_x, *args, **kwargs):
         raise NotImplementedError('Integrand depends on response and mode')
 
     def post_process(self, A_x):
@@ -628,7 +636,23 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
             return A_GwG
 
-    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, tmp_x, **kwargs):
+    def get_ks_kpoint_pairs(self, k_pv, n1_t, n2_t, s1_t, s2_t):
+        """Get all pairs of Kohn-Sham transitions:
+
+        (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
+
+        for each process with its own k-point.
+        """
+        k_pc = np.array([np.dot(self.pd.gd.cell_cv, k_v) / (2 * np.pi)
+                         for k_v in k_pv])
+        q_c = self.pd.kd.bzk_kc[0]
+        return self.kspair.get_kpoint_pairs(n1_t, n2_t, k_pc, k_pc + q_c,
+                                            s1_t, s2_t)
+
+    def calculate_pme(self, kskptpair):
+        self.pme(kskptpair, self.pd)
+
+    def add_integrand(self, kskptpair, tmp_x, **kwargs):
         raise NotImplementedError('Integrand depends on response')
 
     @timer('Post processing')
@@ -720,6 +744,7 @@ class Integrator:
         self.kslrf = kslrf
         self.timer = self.kslrf.timer
 
+    '''  # remove XXX
     def distribute_kpoint_domain(self, bzk_kv):
         """Distribute the k-point integration over processes that are
         allocating memory for the same fraction of large arrays."""
@@ -731,6 +756,22 @@ class Integrator:
         i1 = rank * mynk
         i2 = min(i1 + mynk, nk)
         return bzk_kv[i1:i2]
+    '''
+    def slice_kpoint_domain(self, bzk_kv):
+        """When integrating over k-points, slice the domain in pieces with one
+        k-point per process each.
+
+        Returns
+        -------
+        bzk_ipv : nd.array
+            k-points coordinates for each process for each iteration
+        """
+        nk = bzk_kv.shape[0]
+        np = self.kslrf.intrablockcomm.size
+        ni = (nk + np - 1) // np
+        bzk_ipv = np.array([bzk_kv[i * nk:(i + 1) * nk] for i in range(ni)])
+
+        return bzk_ipv
 
     @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t,
@@ -784,9 +825,6 @@ class PWPointIntegrator(Integrator):
         """Do a simple sum over k-points in the first Brillouin Zone,
         adding the integrand (summed over bands and spin) for each k-point."""
 
-        # Let each process do its own k-points
-        mybzk_kv = self.distribute_kpoint_domain(bzk_kv)
-
         nk = bzk_kv.shape[0]
         vol = abs(np.linalg.det(self.kslrf.calc.wfs.gd.cell_cv))
 
@@ -794,11 +832,27 @@ class PWPointIntegrator(Integrator):
         out_x /= kpointvol
 
         # Sum over kpoints
+        '''  # remove XXX
+        mybzk_kv = self.distribute_kpoint_domain(bzk_kv)
+
         tmp_x = np.zeros_like(out_x)
         pb = ProgressBar(self.kslrf.cfd)
         for _, k_v in pb.enumerate(mybzk_kv):
             self.kslrf.add_integrand(k_v, n1_t, n2_t, s1_t, s2_t,
                                      tmp_x, **kwargs)
+        '''
+
+        # Each process will do its own k-points, but it has to follow the
+        # others, as it may have to send them information about its partition
+        # of the ground state
+        bzk_ipv = self.slice_kpoint_domain(bzk_kv)
+        tmp_x = np.zeros_like(out_x)
+        pb = ProgressBar(self.kslrf.cfd)
+        for _, k_pv in pb.enumerate(bzk_ipv):
+            kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
+                                                       s1_t, s2_t)  # fix kspair XXX
+            self.kslrf.calculate_pme(kskptpair)  # fix kspair XXX
+            self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)  # fix chiks XXX
 
         # Sum over the k-points that have been distributed between processes
         with self.timer('Sum over distributed k-points'):

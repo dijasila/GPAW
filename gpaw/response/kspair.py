@@ -13,6 +13,81 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 
 class KohnShamKPoint:
+    """Kohn-Sham orbital information for a given k-point."""
+    def __init__(self, K, n_t, s_t, eps_t, f_t, ut_tR, P_ati,
+                 shift_c):
+        self.K = K          # BZ k-point index
+        self.n_t = n_t      # Band index for each transition
+        self.s_t = s_t      # Spin index for each transition
+        self.eps_t = eps_t  # Eigenvalues
+        self.f_t = f_t      # Occupation numbers
+        self.ut_tR = ut_tR  # Periodic part of wave functions
+        self.P_ati = P_ati  # PAW projections
+
+        self.shift_c = shift_c  # long story - see the
+        # PairDensity.construct_symmetry_operators() method
+
+
+class KohnShamKPointPair:
+    """Object containing all transitions between Kohn-Sham orbitals from a
+    specified k-point to another."""
+
+    def __init__(self, kpt1, kpt2, nt, comm=None):
+        self.kpt1 = kpt1
+        self.kpt2 = kpt2
+        self.nt = nt      # Total number of transitions between all blocks
+        self.comm = comm  # MPI communicator between blocks of transitions
+
+    def get_all(self, A_mytx):
+        """Get a certain data array with all transitions"""
+        if self.comm is None or A_mytx is None:
+            return A_mytx
+
+        size = self.comm.size
+        mynt = (self.nt + size - 1) // size * size
+
+        A_tx = np.empty((mynt,) + A_mytx.shape[1:], dtype=A_mytx.dtype)
+        self.comm.all_gather(A_mytx, A_tx)
+
+        return A_tx[:self.nt]
+
+    @property
+    def deps_t(self):
+        return self.get_all(self.kpt2.eps_t) - self.get_all(self.kpt1.eps_t)
+
+    @property
+    def df_t(self):
+        return self.get_all(self.kpt2.f_t) - self.get_all(self.kpt1.f_myt)
+
+    @classmethod
+    def add_transitions_array(cls, _key, key):
+        """Add a A_tx data array class attribute.
+        Handles the fact, that the transitions are distributed in blocks.
+
+        Parameters
+        ----------
+        _key : str
+            attribute name for the A_mytx data array
+        key : str
+            attribute name for the A_tx data array
+        """
+        # In general, the data array has not been specified to instances of
+        # the class. As a result, set the _key to None
+        setattr(cls, _key, None)
+        # self.key should return full data array
+        setattr(cls, key,
+                property(lambda self: self.get_all(self.__dict__[_key])))
+
+    def attach(self, _key, key, A_mytx):
+        """Attach a data array to the k-point pair.
+        Used by PairMatrixElement to attach matrix elements calculated
+        between the k-points for the different transitions."""
+        self.add_transitions_array(_key, key)
+        setattr(self, _key, A_mytx)
+
+
+'''
+class KohnShamKPoint:
     """Kohn-Sham orbitals participating in transitions for a given k-point."""
     def __init__(self, K, n_t, s_t, eps_t, f_t,
                  mynt, nt, ta, tb, ut_mytR, P_amyti, shift_c):
@@ -60,6 +135,7 @@ class KohnShamKPointPairs:
         assert tb == self.kpt2.tb
 
         return mynt, nt, ta, tb
+'''
 
 
 class KohnShamPair:
