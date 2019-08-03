@@ -46,6 +46,10 @@ class WLDA(XCFunctional):
         if self.mode.lower() == "parallel":
             self.parallel_calc_impl(gd, n_sg, v_sg, e_g)
             return
+        if self.mode.lower() == "renorm":
+            self.renorm_mode(gd, n_sg, v_sg, e_g)
+            return
+    
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -1117,60 +1121,16 @@ class WLDA(XCFunctional):
         
         # Put calculated quantities into arrays
         gd.distribute(vWLDA_sg, v_sg)
-        gd.distribute(ELDA_g, e_g)
+        gd.distribute(EWLDA_g, e_g)
 
 
     def get_ae_density(self, gd, n_sg):
-        # Every rank needs the density
-        n1_sg = gd.collect(n_sg, broadcast=True)
-        n1_sg[n1_sg < 1e-7] = 1e-8
-        nae_sg = self.correct_density(n1_sg)
-        return nae_sg
-
-    def correct_density(self, n1_sg):
-        if not hasattr(self.wfs.setups[0], "calculate_pseudized_atomic_density"):
-            return
-        
-        if len(n1_sg) != 1:
-            raise NotImplementedError
-
-        dens = n1_sg[0].copy()
-
-        for a, setup in enumerate(self.wfs.setups):
-            spos_ac_indices = list(filter(lambda x: x[1] == setup, enumerate(self.wfs.setups)))
-            spos_ac_indices = [x[0] for x in spos_ac_indices]
-            spos_ac = self.wfs.spos_ac[spos_ac_indices]
-            t = setup.calculate_pseudized_atomic_density(spos_ac)
-            t.add(dens)
-
-        return np.array([dens])
+        from gpaw.xc.WDAUtils import correct_density
+        return correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac)
 
     def get_ni_grid(self, my_rank, world_size, n_sg):
-        assert my_rank >= 0 and my_rank < world_size
-        # Make an interface that allows for testing
-        
-        # Algo:
-        # Define a global grid. We want a grid such that each rank has not too many
-        pts_per_rank = self.num_nis
-        num_pts = pts_per_rank * world_size
-        fulln_i = np.linspace(0, np.max(n_sg), num_pts)
- 
-        # Split it up evenly
-        my_start = my_rank * pts_per_rank
-        my_n_i = fulln_i[my_start:my_start+pts_per_rank]
-
-        # Each ranks needs to know the closest pts outside its own range
-        if my_rank == 0:
-            my_lower = 0
-            my_upper = fulln_i[min(num_pts - 1, pts_per_rank)]
-        elif my_rank == world_size - 1:
-            my_lower = fulln_i[my_start - 1]
-            my_upper = fulln_i[-1]
-        else:
-            my_lower = fulln_i[my_start - 1]
-            my_upper = fulln_i[my_start + pts_per_rank]
-        
-        return my_n_i, my_lower, my_upper 
+        from gpaw.xc.WDAUtils import get_ni_grid
+        return get_ni_grid(my_rank, world_size, n_sg, self.num_nis)
 
 
     def get_f_isg(self, ni_j, ni_lower, ni_upper, n_sg):
