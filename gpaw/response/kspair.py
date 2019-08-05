@@ -313,8 +313,10 @@ class KohnShamPair:
                                                          T, a_a, U_aii,
                                                          time_reversal)
 
-        return KohnShamKPoint(K, n_myt, s_myt, eps_myt, f_myt,
-                              ut_mytR, P_amyti, shift_c)
+                kpt = KohnShamKPoint(K, n_myt, s_myt, eps_myt, f_myt,
+                                     ut_mytR, P_amyti, shift_c)
+
+        return kpt
 
     '''  # remove XXX
     @timer('Get Kohn-Sham pairs')
