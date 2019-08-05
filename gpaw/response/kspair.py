@@ -266,8 +266,6 @@ class KohnShamPair:
         assert nt == len(n2_t)
 
         if self.transitionblockscomm is None:
-            nblocks = 1
-
             mynt = nt
             ta = 0
             tb = nt
@@ -282,13 +280,13 @@ class KohnShamPair:
         self.ta = ta
         self.tb = tb
 
-        n1_myt = np.empty(mynt * nblocks, dtype=n1_t.dtype)
+        n1_myt = np.empty(mynt, dtype=n1_t.dtype)
         n1_myt[:tb - ta] = n1_t[ta:tb]
-        n2_myt = np.empty(mynt * nblocks, dtype=n2_t.dtype)
+        n2_myt = np.empty(mynt, dtype=n2_t.dtype)
         n2_myt[:tb - ta] = n2_t[ta:tb]
-        s1_myt = np.empty(mynt * nblocks, dtype=s1_t.dtype)
+        s1_myt = np.empty(mynt, dtype=s1_t.dtype)
         s1_myt[:tb - ta] = s1_t[ta:tb]
-        s2_myt = np.empty(mynt * nblocks, dtype=s2_t.dtype)
+        s2_myt = np.empty(mynt, dtype=s2_t.dtype)
         s2_myt[:tb - ta] = s2_t[ta:tb]
 
         return mynt, nt, ta, tb, n1_myt, n2_myt, s1_myt, s2_myt
