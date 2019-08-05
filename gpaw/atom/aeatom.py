@@ -809,6 +809,8 @@ class CLICommand:
             help='Plot logarithmic derivatives. ' +
             'Example: -l spdf,-1:1:0.05,1.3. ' +
             'Energy range and/or radius can be left out.')
+        add('-n', '--ngrid', help='Specify number of grid points')
+        add('-R', '--rcut', help='Radial cutoff')
         add('-r', '--refine', action='store_true')
         add('-s', '--scalar-relativistic', action='store_true')
         add('--no-ee-interaction', action='store_true',
@@ -870,6 +872,11 @@ def main(args):
 
     for n, l, f, s in nlfs:
         aea.add(n, l, f, s)
+
+    if args.ngrid:
+        kwargs['ngpts'] = int(args.ngrid)
+    if args.rcut:
+        kwargs['rcut'] = float(args.rcut)
 
     aea.initialize(**kwargs)
     aea.run()
