@@ -257,6 +257,12 @@ class KohnShamPair:
         kpt1 = self.get_kpoints(k1_pc, n1_myt, s1_myt)
         kpt2 = self.get_kpoints(k2_pc, n2_myt, s2_myt)
 
+        # The process might not have more k-point pairs to evaluate
+        if kpt1 is None:
+            assert kpt2 is None
+            return None
+        assert kpt2 is not None
+
         return KohnShamKPointPair(kpt1, kpt2, mynt, nt, ta, tb,
                                   comm=self.transitionblockscomm)
 
@@ -297,6 +303,7 @@ class KohnShamPair:
         assert len(n_myt) == len(s_myt)
         assert len(k_pc) <= self.kptblockcomm.size
 
+        kpt = None
         for p, k_c in enumerate(k_pc):
             # Parse kpoint to index
             K = self.find_kpoint(k_c)

@@ -853,8 +853,9 @@ class PWPointIntegrator(Integrator):
         for _, k_pv in pb.enumerate(bzk_ipv):
             kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
                                                        s1_t, s2_t)
-            self.kslrf.calculate_pme(kskptpair)
-            self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)
+            if kskptpair is not None:
+                self.kslrf.calculate_pme(kskptpair)
+                self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)
 
         # Sum over the k-points that have been distributed between processes
         with self.timer('Sum over distributed k-points'):
