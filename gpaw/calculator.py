@@ -598,8 +598,11 @@ class GPAW(PAW, Calculator):
             h = par.h
             if h is not None:
                 h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            self.symmetry, self.log)
+            if h is None and reading:
+                N_c = np.array(self.reader.density.proxy('density').shape[-3:])
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
 
         self.setups.set_symmetry(self.symmetry)
 
