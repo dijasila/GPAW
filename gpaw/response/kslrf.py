@@ -95,7 +95,7 @@ class KohnShamLinearResponseFunction:
 
         Callables
         ---------
-        self.add_integrand(*args, **kwargs) : func
+        self.add_integrand(kskptpair, tmp_x, *args, **kwargs) : func
             Add the integrand for a given part of the domain to output array
         self.calculate(*args, **kwargs) : func
             Runs the calculation, returning the response function.
@@ -127,6 +127,7 @@ class KohnShamLinearResponseFunction:
                                    # interblockcomm, k-points through
                                    # intrablockcomm.
                                    transitionblockscomm=self.interblockcomm,
+                                   kptblockcomm=self.intrablockcomm,
                                    txt=self.fd, timer=self.timer)
 
         self.response = response
@@ -850,9 +851,9 @@ class PWPointIntegrator(Integrator):
         pb = ProgressBar(self.kslrf.cfd)
         for _, k_pv in pb.enumerate(bzk_ipv):
             kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
-                                                       s1_t, s2_t)  # fix kspair XXX
-            self.kslrf.calculate_pme(kskptpair)  # fix kspair XXX
-            self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)  # fix chiks XXX
+                                                       s1_t, s2_t)  # fix kspair XXX all myt same length
+            self.kslrf.calculate_pme(kskptpair)
+            self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)
 
         # Sum over the k-points that have been distributed between processes
         with self.timer('Sum over distributed k-points'):

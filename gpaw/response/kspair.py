@@ -167,6 +167,39 @@ class KohnShamKPointPairs:
 class KohnShamPair:
     """Class for extracting pairs of Kohn-Sham orbitals from a ground
     state calculation."""
+
+    def __init__(self, gs, world=mpi.world, transitionblockscomm=None,
+                 kptblockcomm=None, txt='-', timer=None):
+        """
+        Parameters
+        ----------
+        transitionblockscomm : gpaw.mpi.Communicator
+            Communicator for distributing the transitions among processes
+        kptblockcomm : gpaw.mpi.Communicator
+            Communicator for distributing k-points among processes
+        """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
+        self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+
+        self.transitionblockscomm = transitionblockscomm
+        self.kptblockcomm = kptblockcomm
+
+        # Prepare to distribute transitions
+        self.ta = None
+        self.tb = None
+
+        # Prepare to find k-point data from vector
+        kd = self.calc.wfs.kd
+        self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
+
+        # Count bands so it is possible to remove null transitions
+        self.nocc1 = None  # number of completely filled bands
+        self.nocc2 = None  # number of non-empty bands
+        self.count_occupied_bands()
+
+    '''  # remove XXX
     def __init__(self, gs, world=mpi.world, transitionblockscomm=None,
                  txt='-', timer=None):
         """
@@ -190,6 +223,7 @@ class KohnShamPair:
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
+    '''
 
     def count_occupied_bands(self):
         """Count number of occupied and unoccupied bands in ground state
@@ -207,6 +241,84 @@ class KohnShamPair:
         print('Total number of bands:', self.calc.wfs.bd.nbands,
               file=self.fd)
 
+    @timer('Get Kohn-Sham pairs')
+    def get_kpoint_pairs(self, n1_t, n2_t, k1_pc, k2_pc, s1_t, s2_t):
+        """Get all pairs of Kohn-Sham orbitals for transitions:
+        (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
+        Here, t is a composite band and spin transition index
+        and p is indexing the different k-points to be distributed."""
+
+        # Distribute transitions and extract orbitals only for transitions in
+        # this process' block
+        (mynt, nt, ta, tb,
+         n1_myt, n2_myt,
+         s1_myt, s2_myt) = self.distribute_transitions(n1_t, n2_t, s1_t, s2_t)
+
+        kpt1 = self.get_kpoints(k1_pc, n1_myt, s1_myt)
+        kpt2 = self.get_kpoints(k2_pc, n2_myt, s2_myt)
+
+        return KohnShamKPointPair(kpt1, kpt2, mynt, nt, ta, tb,
+                                  comm=self.transitionblockscomm)
+
+    def distribute_transitions(self, n1_t, n2_t, s1_t, s2_t):
+        """Distribute transitions between processes in block communicator"""
+        nt = len(n1_t)
+        assert nt == len(n2_t)
+
+        if self.transitionblockscomm is None:
+            nblocks = 1
+
+            mynt = nt
+            ta = 0
+            tb = nt
+        else:
+            nblocks = self.transitionblockscomm.size
+            rank = self.transitionblockscomm.rank
+
+            mynt = (nt + nblocks - 1) // nblocks
+            ta = min(rank * mynt, nt)
+            tb = min(ta + mynt, nt)
+
+        self.ta = ta
+        self.tb = tb
+
+        n1_myt = np.empty(mynt * nblocks, dtype=n1_t.dtype)
+        n1_myt[:tb - ta] = n1_t[ta:tb]
+        n2_myt = np.empty(mynt * nblocks, dtype=n2_t.dtype)
+        n2_myt[:tb - ta] = n2_t[ta:tb]
+        s1_myt = np.empty(mynt * nblocks, dtype=s1_t.dtype)
+        s1_myt[:tb - ta] = s1_t[ta:tb]
+        s2_myt = np.empty(mynt * nblocks, dtype=s2_t.dtype)
+        s2_myt[:tb - ta] = s2_t[ta:tb]
+
+        return mynt, nt, ta, tb, n1_myt, n2_myt, s1_myt, s2_myt
+
+    @timer('Get Kohn-Sham orbitals with given k-point')
+    def get_kpoints(self, k_pc, n_myt, s_myt):
+        """Get KohnShamKPoint and help other processes extract theirs"""
+        assert len(n_myt) == len(s_myt)
+        assert len(k_pc) == self.kptblockcomm.size
+
+        for p, k_c in enumerate(k_pc):
+            # Parse kpoint to index
+            K = self.find_kpoint(k_c)
+
+            # Extract or help extract orbitals if it is the process' k-point or
+            # the wavefunctions are stored in the memory of the process.
+            if p == self.kptblockcomm.rank:
+                eps_myt, f_myt = self.extract_eig_and_occ(K, n_myt, s_myt)
+
+                (_, T, a_a, U_aii, shift_c,
+                 time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
+
+                ut_mytR, P_amyti = self.extract_orbitals(K, n_myt, s_myt,
+                                                         T, a_a, U_aii,
+                                                         time_reversal)
+
+        return KohnShamKPoint(K, n_myt, s_myt, eps_myt, f_myt,
+                              ut_mytR, P_amyti, shift_c)
+
+    '''  # remove XXX
     @timer('Get Kohn-Sham pairs')
     def get_kpoint_pairs(self, n1_t, n2_t, k1_c, k2_c, s1_t, s2_t):
         """Get all pairs of Kohn-Sham orbitals for transitions:
@@ -245,26 +357,32 @@ class KohnShamPair:
         
         return KohnShamKPoint(K, n_t, s_t, eps_t, f_t,
                               mynt, nt, ta, tb, ut_mytR, P_amyti, shift_c)
+    '''
 
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
-    def distribute_transitions(self, nt):
-        """Distribute transitions between processes in block communicator"""
-        if self.transitionblockscomm is None:
-            mynt = nt
-            ta = 0
-            tb = nt
-        else:
-            nblocks = self.transitionblockscomm.size
-            rank = self.transitionblockscomm.rank
+    def extract_eigenvalues_and_occupations(self, K, n_myt, s_myt):
+        """Get the (n, k, s) Kohn-Sham eigenvalues and occupations."""
+        wfs = self.calc.wfs
+        ik = wfs.kd.bz2ibz_k[K]
+        
+        mynt = len(n_myt)
+        eps_myt = np.zeros(mynt)
+        f_myt = np.zeros(mynt)
 
-            mynt = (nt + nblocks - 1) // nblocks
-            ta = min(rank * mynt, nt)
-            tb = min(ta + mynt, nt)
+        # In the ground state, kpts are indexes by u=(s, k)
+        for s in set(s_myt[:self.tb - self.ta]):
+            thiss_myt = np.zeros(mynt, dtype=bool)
+            thiss_myt[:self.tb - self.ta] = s_myt[:self.tb - self.ta] == s
+            kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
-        return mynt, ta, tb
+            eps_myt[thiss_myt] = kpt.eps_n[n_myt[thiss_myt]]
+            f_myt[thiss_myt] = kpt.f_n[n_myt[thiss_myt]] / kpt.weight
 
+        return eps_myt, f_myt
+
+    '''  # remove XXX
     def extract_eigenvalues_and_occupations(self, K, n_t, s_t):
         """Get the (n, k, s) Kohn-Sham eigenvalues and occupations."""
         wfs = self.calc.wfs
@@ -282,7 +400,8 @@ class KohnShamPair:
             f_t[myt] = kpt.f_n[n_t[myt]] / kpt.weight
 
         return eps_t, f_t
-
+    '''
+    
     def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
 
@@ -359,6 +478,56 @@ class KohnShamPair:
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
     @timer('Extract orbitals from ground state')
+    def extract_orbitals(self, K, n_myt, s_myt, T, a_a, U_aii, time_reversal):
+        """Get information about Kohn-Sham orbitals."""
+        wfs = self.calc.wfs
+        ik = wfs.kd.bz2ibz_k[K]
+
+        # Find array shapes
+        mynt = len(n_myt)
+        ni_a = [U_ii.shape[0] for U_ii in U_aii]
+
+        myt_myt = np.arange(0, mynt)
+        ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
+        P_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
+
+        # In the ground state, kpts are indexes by u=(s, k)
+        for s in set(s_myt[:self.tb - self.ta]):
+            thiss_myt = np.zeros(mynt, dtype=bool)
+            thiss_myt[:self.tb - self.ta] = s_myt[:self.tb - self.ta] == s
+            kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+
+            with self.timer('Load wave functions'):
+                """
+                # Extracting psit_tG is slow, so extract after n and sort back
+                t_thist, n_thist = t_t[thiss_myt], n_t[thiss_myt]
+                thist_thisn = np.argsort(n_thist)
+                n_thisn = n_thist[thist_thisn]
+                for t, n in zip(t_thist[thist_thisn], n_thisn):
+                    ut_tR[t] = T(wfs.pd.ifft(kpt.psit_nG[n], ik))
+
+                psit_thistG = np.array(kpt.psit_nG)[n_t[thiss_myt]]
+                for t, psit_G in zip(t_t[thiss_myt], psit_thistG):
+                    with self.timer('doing transform'):
+                        ut_tR[t] = T(wfs.pd.ifft(psit_G, ik))
+                """
+                psit_nG = kpt.psit_nG
+                # Unvectorized
+                for myt, n in zip(myt_myt[thiss_myt], n_myt[thiss_myt]):
+                    ut_mytR[myt] = T(wfs.pd.ifft(psit_nG[n], ik))
+
+            with self.timer('Load projections'):
+                # Unvectorized
+                for a, U_ii in zip(a_a, U_aii):
+                    P_thisti = np.dot(kpt.P_ani[a][n_myt[thiss_myt]], U_ii)
+                    if time_reversal:
+                        P_thisti = P_thisti.conj()
+                    P_amyti[a][thiss_myt, :] = P_thisti
+
+        return ut_mytR, P_amyti
+
+    '''  # remove XXX
+    @timer('Extract orbitals from ground state')
     def extract_orbitals(self, K, n_t, s_t, T, a_a, U_aii, time_reversal):
         """Get information about Kohn-Sham orbitals."""
         wfs = self.calc.wfs
@@ -377,20 +546,19 @@ class KohnShamPair:
             kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
 
             with self.timer('Load wave functions'):
-                '''
+                """
                 # Extracting psit_tG is slow, so extract after n and sort back
                 t_thist, n_thist = t_t[thisspin_t], n_t[thisspin_t]
                 thist_thisn = np.argsort(n_thist)
                 n_thisn = n_thist[thist_thisn]
                 for t, n in zip(t_thist[thist_thisn], n_thisn):
                     ut_tR[t] = T(wfs.pd.ifft(kpt.psit_nG[n], ik))
-                '''
-                '''
+
                 psit_thistG = np.array(kpt.psit_nG)[n_t[thisspin_t]]
                 for t, psit_G in zip(t_t[thisspin_t], psit_thistG):
                     with self.timer('doing transform'):
                         ut_tR[t] = T(wfs.pd.ifft(psit_G, ik))
-                '''
+                """
                 psit_nG = kpt.psit_nG
                 # Unvectorized
                 for t, n in zip(t_t[thisspin_t], n_t[thisspin_t]):
@@ -405,6 +573,7 @@ class KohnShamPair:
                     P_ati[a][thisspin_t, :] = P_thisti
 
         return ut_tR, P_ati
+        '''
 
 
 def get_calc(gs, fd=None, timer=None):
