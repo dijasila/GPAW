@@ -768,8 +768,8 @@ class Integrator:
             k-points coordinates for each process for each iteration
         """
         nk = bzk_kv.shape[0]
-        np = self.kslrf.intrablockcomm.size
-        ni = (nk + np - 1) // np
+        nproc = self.kslrf.intrablockcomm.size
+        ni = (nk + nproc - 1) // nproc
         bzk_ipv = np.array([bzk_kv[i * nk:(i + 1) * nk] for i in range(ni)])
 
         return bzk_ipv
