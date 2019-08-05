@@ -362,7 +362,7 @@ class KohnShamPair:
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
-    def extract_eigenvalues_and_occupations(self, K, n_myt, s_myt):
+    def extract_eig_and_occ(self, K, n_myt, s_myt):
         """Get the (n, k, s) Kohn-Sham eigenvalues and occupations."""
         wfs = self.calc.wfs
         ik = wfs.kd.bz2ibz_k[K]
