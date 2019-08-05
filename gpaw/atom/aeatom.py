@@ -781,7 +781,7 @@ class CLICommand:
 
     Example:
 
-        gpaw Li -f PBE -p  # plot wave functions for a lithium atom
+        gpaw atom Li -f PBE -p  # plot wave functions for a lithium atom
     """
 
     @staticmethod
