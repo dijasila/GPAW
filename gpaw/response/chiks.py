@@ -63,7 +63,8 @@ class ChiKS(PlaneWaveKSLRF):
         return PlaneWaveKSLRF.calculate(self, q_c, frequencies,
                                         spinrot=spinrot, A_x=A_x)
 
-    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_x):
+    @timer('Add integrand to chiks_wGG')
+    def add_integrand(self, kskptpair, A_x):
         """Use PairDensity object to calculate the integrand for all relevant
         transitions of the given k-point.
 
@@ -99,23 +100,20 @@ class ChiKS(PlaneWaveKSLRF):
         kskptpairs = self.kspair.get_kpoint_pairs(n1_t, n2_t, k_c, k_c + q_c,
                                                   s1_t, s2_t)
         '''
+        # Get data, distributed in memory
+        # Get bands and spins of the transitions
+        n1_t, n2_t, s1_t, s2_t = kskptpair.get_transitions()
+        # Get (f_n'k's' - f_nks), (eps_n'k's' - eps_nks) and the pair densities
+        df_t, deps_t, n_tG = kskptpair.df_t, kskptpair.dept_t, kskptpair.n_tG
 
-        # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
-        with self.timer('Get occupation differences and transition energies'):
-            df_t = kskptpairs.get_occupation_differences()
-            df_t[np.abs(df_t) <= 1e-20] = 0.0
-            deps_t = kskptpairs.get_transition_energies()
-        
-        # Calculate the pair densities
-        n_tG = self.pme(kskptpairs, self.pd)
-
+        '''  # remove XXX
         self._add_integrand(n1_t, n2_t, s1_t, s2_t,
                             df_t, deps_t, n_tG, A_x)
-
-    @timer('Add integrand to chiks_wGG')
     def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,
                        df_t, deps_t, n_tG, A_x):
         """In-place calculation of the integrand (depends on bandsummation)"""
+        '''
+
         x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
         if self.memory_safe:

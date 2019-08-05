@@ -46,6 +46,9 @@ class KohnShamKPointPair:
         """Get the distribution of transitions."""
         return self.mynt, self.nt, self.ta, self.tb
 
+    def get_transitions(self):
+        return self.n1_t, self.n2_t, self.s1_t, self.s2_t
+
     def get_all(self, A_mytx):
         """Get a certain data array with all transitions"""
         if self.comm is None or A_mytx is None:
@@ -56,6 +59,22 @@ class KohnShamKPointPair:
         self.comm.all_gather(A_mytx, A_tx)
 
         return A_tx[:self.nt]
+
+    @property
+    def n1_t(self):
+        return self.get_all(self.kpt1.n_myt)
+
+    @property
+    def n2_t(self):
+        return self.get_all(self.kpt2.n_myt)
+
+    @property
+    def s1_t(self):
+        return self.get_all(self.kpt1.s_myt)
+
+    @property
+    def s2_t(self):
+        return self.get_all(self.kpt2.s_myt)
 
     @property
     def deps_t(self):
@@ -93,7 +112,7 @@ class KohnShamKPointPair:
         setattr(self, _key, A_mytx)
 
 
-'''
+'''  # remove XXX
 class KohnShamKPoint:
     """Kohn-Sham orbitals participating in transitions for a given k-point."""
     def __init__(self, K, n_t, s_t, eps_t, f_t,
@@ -526,7 +545,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         return N_G
 
 
-'''
+'''  # remove XXX
 class PlaneWavePairDensity(PairMatrixElement):
     """Class for calculating pair densities:
 
