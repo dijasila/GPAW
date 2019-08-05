@@ -7,6 +7,9 @@
 import re
 import sys
 from math import sqrt, exp
+from contextlib import contextmanager
+from typing import Union
+from pathlib import Path
 
 import numpy as np
 from numpy import linalg
@@ -381,3 +384,55 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     c = linalg.solve(X2, y2)
     a = np.dot(b(dg_c), c)
     return a
+
+
+def unlink(path: Union[str, Path], world=None):
+    """Safely unlink path (delete file or symbolic link)."""
+
+    if isinstance(path, str):
+        path = Path(path)
+    if world is None:
+        world = parallel.world
+
+    # Remove file:
+    if world.rank == 0:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+    else:
+        while path.is_file():
+            time.sleep(1.0)
+    world.barrier()
+
+
+@contextmanager
+def file_barrier(path: Union[str, Path], world=None):
+    """Context manager for writing a file.
+
+    After the with-block all cores will be able to read the file.
+
+    >>> with file_barrier('something.txt'):
+    ...     <write file>
+    ...
+
+    This will remove the file, write the file and wait for the file.
+    """
+    
+    import time
+    import ase.parallel as parallel    
+    
+    if isinstance(path, str):
+        path = Path(path)
+    if world is None:
+        world = parallel.world
+
+    # Remove file:
+    unlink(path, world)
+
+    yield
+
+    # Wait for file:
+    while not path.is_file():
+        time.sleep(1.0)
+    world.barrier()
