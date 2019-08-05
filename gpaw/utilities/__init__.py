@@ -188,7 +188,7 @@ def unpack2(M):
 
 
 def pack(A):
-    """Pack a 2D array to 1D, adding offdiagonal terms.
+    r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
 
@@ -348,15 +348,18 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     """
 
     # Define the weight function
-    lsqr_weight = lambda r2: exp(-r2)
+    def lsqr_weight(r2):
+        return exp(-r2)
 
     # Define the polynomial basis
     if order == 1:
-        b = lambda x: np.array([1, x[0], x[1], x[2]])
+        def b(x):
+            return np.array([1, x[0], x[1], x[2]])
     elif order == 2:
-        b = lambda x: np.array([1, x[0], x[1], x[2],
-                                x[0] * x[1], x[1] * x[2], x[2] * x[0],
-                                x[0]**2, x[1]**2, x[2]**2])
+        def b(x):
+            return np.array([1, x[0], x[1], x[2],
+                             x[0] * x[1], x[1] * x[2], x[2] * x[0],
+                             x[0]**2, x[1]**2, x[2]**2])
     else:
         raise NotImplementedError
 
