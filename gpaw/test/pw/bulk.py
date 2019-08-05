@@ -3,13 +3,11 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.test import equal
-from gpaw.mpi import world
 
 bulk = Atoms('Li', pbc=True)
 k = 4
 calc = GPAW(mode=PW(200),
             kpts=(k, k, k),
-            parallel={'domain': world.size},
             eigensolver='rmm-diis')
 
 bulk.set_calculator(calc)

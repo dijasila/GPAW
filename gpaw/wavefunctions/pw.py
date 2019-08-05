@@ -228,7 +228,6 @@ class PWDescriptor:
         self.maxmyng = (self.ngmax + S - 1) // S
         ng1 = gd.comm.rank * self.maxmyng
         ng2 = ng1 + self.maxmyng
-        # assert ng1 <= self.ngmin
 
         self.G2_qG = []
         self.myQ_qG = []
@@ -458,8 +457,14 @@ class PWDescriptor:
             assert self.dtype == float and self.gd.comm.size == 1
             return a_xg[..., 0].real * self.gd.dv
 
-        A_xg = a_xg.reshape((-1, a_xg.shape[-1]))
-        B_yg = b_yg.reshape((-1, b_yg.shape[-1]))
+        if a_xg.ndim == 1:
+            A_xg = a_xg.reshape((1, len(a_xg)))
+        else:
+            A_xg = a_xg
+        if b_yg.ndim == 1:
+            B_yg = b_yg.reshape((1, len(b_yg)))
+        else:
+            B_yg = b_yg
 
         alpha = self.gd.dv / self.gd.N_c.prod()
 
@@ -1558,8 +1563,9 @@ class PWLFC(BaseLFC):
             if self.comm.size != 1:
                 self.comm.sum(c_xI)
 
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        c_xI = c_xI.reshape((nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
 
         for G1, G2 in self.block(q):
             if f0_IG is None:
