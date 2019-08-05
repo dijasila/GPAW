@@ -104,7 +104,7 @@ class ChiKS(PlaneWaveKSLRF):
         # Get bands and spins of the transitions
         n1_t, n2_t, s1_t, s2_t = kskptpair.get_transitions()
         # Get (f_n'k's' - f_nks), (eps_n'k's' - eps_nks) and the pair densities
-        df_t, deps_t, n_tG = kskptpair.df_t, kskptpair.dept_t, kskptpair.n_tG
+        df_t, deps_t, n_tG = kskptpair.df_t, kskptpair.deps_t, kskptpair.n_tG
 
         '''  # remove XXX
         self._add_integrand(n1_t, n2_t, s1_t, s2_t,

@@ -108,7 +108,7 @@ class KohnShamKPointPair:
         """Attach a data array to the k-point pair.
         Used by PairMatrixElement to attach matrix elements calculated
         between the k-points for the different transitions."""
-        self.add_transitions_array(_key, key)
+        self.add_mytransitions_array(_key, key)
         setattr(self, _key, A_mytx)
 
 
@@ -659,6 +659,7 @@ class PlaneWavePairDensity(PairMatrixElement):
         # Attach the calculated pair density to the KohnShamKPointPair object
         kskptpair.attach('n_mytG', 'n_tG', n_mytG)
 
+    @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd):
         """Initialize PAW corrections, if not done already, for the given q"""
         q_c = pd.kd.bzk_kc[0]

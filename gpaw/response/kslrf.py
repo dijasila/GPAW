@@ -852,7 +852,7 @@ class PWPointIntegrator(Integrator):
         pb = ProgressBar(self.kslrf.cfd)
         for _, k_pv in pb.enumerate(bzk_ipv):
             kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
-                                                       s1_t, s2_t)  # fix kspair XXX all myt same length
+                                                       s1_t, s2_t)
             self.kslrf.calculate_pme(kskptpair)
             self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)
 
