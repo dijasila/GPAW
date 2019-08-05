@@ -297,7 +297,7 @@ class KohnShamPair:
     def get_kpoints(self, k_pc, n_myt, s_myt):
         """Get KohnShamKPoint and help other processes extract theirs"""
         assert len(n_myt) == len(s_myt)
-        assert len(k_pc) == self.kptblockcomm.size
+        assert len(k_pc) <= self.kptblockcomm.size
 
         for p, k_c in enumerate(k_pc):
             # Parse kpoint to index
