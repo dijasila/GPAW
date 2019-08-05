@@ -1256,7 +1256,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 spin=kpt.s, collinear=self.collinear)
             psit_nG = kpt.psit.array
             if psit_nG.ndim == 3:
-                1 / 0
+                N, S, G = psit_nG.shape
+                psit_nG = psit_nG.reshape((N * S, G))
             for n, psit_G in enumerate(psit_nG):
                 psit_nR[:] = 0.0
                 basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
