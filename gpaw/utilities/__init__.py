@@ -6,18 +6,20 @@
 
 import re
 import sys
+import time
 from math import sqrt, exp
 from contextlib import contextmanager
 from typing import Union
 from pathlib import Path
 
+from ase.utils import devnull
 import numpy as np
 from numpy import linalg
 
 import _gpaw
+import gpaw.mpi as mpi
 from gpaw import debug
 
-from ase.utils import devnull
 
 utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
@@ -392,7 +394,7 @@ def unlink(path: Union[str, Path], world=None):
     if isinstance(path, str):
         path = Path(path)
     if world is None:
-        world = parallel.world
+        world = mpi.world
 
     # Remove file:
     if world.rank == 0:
@@ -418,14 +420,11 @@ def file_barrier(path: Union[str, Path], world=None):
 
     This will remove the file, write the file and wait for the file.
     """
-    
-    import time
-    import ase.parallel as parallel    
-    
+
     if isinstance(path, str):
         path = Path(path)
     if world is None:
-        world = parallel.world
+        world = mpi.world
 
     # Remove file:
     unlink(path, world)
