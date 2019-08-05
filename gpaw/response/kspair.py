@@ -14,15 +14,15 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, K, n_t, s_t, eps_t, f_t, ut_tR, P_ati,
+    def __init__(self, K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, P_amyti,
                  shift_c):
         self.K = K          # BZ k-point index
-        self.n_t = n_t      # Band index for each transition
-        self.s_t = s_t      # Spin index for each transition
-        self.eps_t = eps_t  # Eigenvalues
-        self.f_t = f_t      # Occupation numbers
-        self.ut_tR = ut_tR  # Periodic part of wave functions
-        self.P_ati = P_ati  # PAW projections
+        self.n_myt = n_myt      # Band index for each transition
+        self.s_myt = s_myt      # Spin index for each transition
+        self.eps_myt = eps_myt  # Eigenvalues
+        self.f_myt = f_myt      # Occupation numbers
+        self.ut_mytR = ut_mytR  # Periodic part of wave functions
+        self.P_amyti = P_amyti  # PAW projections
 
         self.shift_c = shift_c  # long story - see the
         # PairDensity.construct_symmetry_operators() method
@@ -32,35 +32,42 @@ class KohnShamKPointPair:
     """Object containing all transitions between Kohn-Sham orbitals from a
     specified k-point to another."""
 
-    def __init__(self, kpt1, kpt2, nt, comm=None):
+    def __init__(self, kpt1, kpt2, mynt, nt, ta, tb, comm=None):
         self.kpt1 = kpt1
         self.kpt2 = kpt2
+
+        self.mynt = mynt  # Number of transitions in this block
         self.nt = nt      # Total number of transitions between all blocks
+        self.ta = ta      # First transition index of this block
+        self.tb = tb      # First transition index of this block not included
         self.comm = comm  # MPI communicator between blocks of transitions
+
+    def transition_distribution(self):
+        """Get the distribution of transitions."""
+        return self.mynt, self.nt, self.ta, self.tb
 
     def get_all(self, A_mytx):
         """Get a certain data array with all transitions"""
         if self.comm is None or A_mytx is None:
             return A_mytx
 
-        size = self.comm.size
-        mynt = (self.nt + size - 1) // size * size
-
-        A_tx = np.empty((mynt,) + A_mytx.shape[1:], dtype=A_mytx.dtype)
+        A_tx = np.empty((self.mynt * self.comm.size,) + A_mytx.shape[1:],
+                        dtype=A_mytx.dtype)
         self.comm.all_gather(A_mytx, A_tx)
 
         return A_tx[:self.nt]
 
     @property
     def deps_t(self):
-        return self.get_all(self.kpt2.eps_t) - self.get_all(self.kpt1.eps_t)
+        get_all = self.get_all
+        return get_all(self.kpt2.eps_myt) - get_all(self.kpt1.eps_myt)
 
     @property
     def df_t(self):
-        return self.get_all(self.kpt2.f_t) - self.get_all(self.kpt1.f_myt)
+        return self.get_all(self.kpt2.f_myt) - self.get_all(self.kpt1.f_myt)
 
     @classmethod
-    def add_transitions_array(cls, _key, key):
+    def add_mytransitions_array(cls, _key, key):
         """Add a A_tx data array class attribute.
         Handles the fact, that the transitions are distributed in blocks.
 
@@ -416,11 +423,110 @@ class PairMatrixElement:
         self.timer = kspair.timer
         self.transitionblockscomm = kspair.transitionblockscomm
 
-    def __call__(self, kskptpairs, *args, **kwargs):
+    def __call__(self, kskptpair, *args, **kwargs):
         """Calculate the matrix element for all transitions in kskptpairs."""
         raise NotImplementedError('Define specific matrix element')
 
 
+class PlaneWavePairDensity(PairMatrixElement):
+    """Class for calculating pair densities:
+
+    n_T(q+G) = <s'n'k'| e^(i (q + G) r) |snk>
+
+    in the plane wave mode"""
+    def __init__(self, kspair):
+        PairMatrixElement.__init__(self, kspair)
+
+        # Save PAW correction for all calls with same q_c
+        self.Q_aGii = None
+        self.currentq_c = None
+
+    @timer('Calculate pair density')
+    def __call__(self, kskptpair, pd):
+        """Calculate the pair densities for all transitions:
+        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
+                 = <snk| e^(-i (q + G) r) |s'n'k+q>
+        """
+        Q_aGii = self.initialize_paw_corrections(pd)
+        Q_G = self.get_fft_indices(kskptpair, pd)
+        mynt, nt, ta, tb = kskptpair.transition_distribution()
+
+        n_mytG = pd.empty(mynt)
+
+        # Calculate smooth part of the pair densities:
+        with self.timer('Calculate smooth part'):
+            ut1cc_mytR = kskptpair.kpt1.ut_mytR.conj()
+            n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_mytR
+            # Unvectorized
+            for myt in range(tb - ta):
+                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
+
+        # Calculate PAW corrections with numpy
+        with self.timer('PAW corrections'):
+            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpair.kpt1.P_amyti,
+                                               kskptpair.kpt2.P_amyti):
+                C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
+                n_mytG[:tb - ta] += np.sum(C1_Gimyt
+                                           * P2_myti.T[np.newaxis, :, :],
+                                           axis=1).T
+
+        # Attach the calculated pair density to the KohnShamKPointPair object
+        kskptpair.attach('n_mytG', 'n_tG', n_mytG)
+
+    def initialize_paw_corrections(self, pd):
+        """Initialize PAW corrections, if not done already, for the given q"""
+        q_c = pd.kd.bzk_kc[0]
+        if self.Q_aGii is None or not np.allclose(q_c - self.currentq_c, 0.):
+            self.Q_aGii = self._initialize_paw_corrections(pd)
+            self.currentq_c = q_c
+        return self.Q_aGii
+
+    def _initialize_paw_corrections(self, pd):
+        wfs = self.calc.wfs
+        spos_ac = self.calc.spos_ac
+        G_Gv = pd.get_reciprocal_vectors()
+
+        pos_av = np.dot(spos_ac, pd.gd.cell_cv)
+
+        # Collect integrals for all species:
+        Q_xGii = {}
+        for id, atomdata in wfs.setups.setups.items():
+            Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
+            ni = atomdata.ni
+            Q_Gii.shape = (-1, ni, ni)
+
+            Q_xGii[id] = Q_Gii
+
+        Q_aGii = []
+        for a, atomdata in enumerate(wfs.setups):
+            id = wfs.setups.id_a[a]
+            Q_Gii = Q_xGii[id]
+            x_G = np.exp(-1j * np.dot(G_Gv, pos_av[a]))
+            Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
+
+        return Q_aGii
+
+    @timer('Get G-vector indices')
+    def get_fft_indices(self, kskptpair, pd):
+        """Get indices for G-vectors inside cutoff sphere."""
+        kpt1 = kskptpair.kpt1
+        kpt2 = kskptpair.kpt2
+        kd = self.calc.wfs.kd
+        q_c = pd.kd.bzk_kc[0]
+
+        N_G = pd.Q_qG[0]
+
+        shift_c = kpt1.shift_c - kpt2.shift_c
+        shift_c += (q_c - kd.bzk_kc[kpt2.K]
+                    + kd.bzk_kc[kpt1.K]).round().astype(int)
+        if shift_c.any():
+            n_cG = np.unravel_index(N_G, pd.gd.N_c)
+            n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
+            N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
+        return N_G
+
+
+'''
 class PlaneWavePairDensity(PairMatrixElement):
     """Class for calculating pair densities:
 
@@ -524,3 +630,4 @@ class PlaneWavePairDensity(PairMatrixElement):
             n_cG = [n_G + shift for n_G, shift in zip(n_cG, shift_c)]
             N_G = np.ravel_multi_index(n_cG, pd.gd.N_c, 'wrap')
         return N_G
+'''
