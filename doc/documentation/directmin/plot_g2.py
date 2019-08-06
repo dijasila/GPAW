@@ -99,4 +99,3 @@ plt.text(-6.3, 75.5, '(a)')
 plt.text(-0.7, 75.5, '(b)')
 # f.savefig("conv.eps", bbox_inches='tight')
 f.savefig("g2.png", bbox_inches='tight')
-
