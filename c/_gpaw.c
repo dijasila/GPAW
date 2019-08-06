@@ -115,6 +115,7 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_ELPA)
 #include <elpa/elpa.h>
+PyObject* pyelpa_version(PyObject *self, PyObject *args);
 PyObject* pyelpa_allocate(PyObject *self, PyObject *args);
 PyObject* pyelpa_set(PyObject *self, PyObject *args);
 PyObject* pyelpa_set_comm(PyObject *self, PyObject *args);
@@ -266,6 +267,7 @@ static PyMethodDef functions[] = {
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #if defined(GPAW_WITH_ELPA)
+    {"pyelpa_version", pyelpa_version, METH_VARARGS, 0},
     {"pyelpa_allocate", pyelpa_allocate, METH_VARARGS, 0},
     {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
     {"pyelpa_setup", pyelpa_setup, METH_VARARGS, 0},
@@ -523,8 +525,15 @@ main(int argc, char **argv)
     }
 
 #ifdef GPAW_WITH_ELPA
+
+#ifdef ELPA_API_VERSION
+    // Newer Elpas define their version but older ones don't.
     int elpa_err;
     elpa_uninit(&elpa_err);
+#else
+    elpa_uninit();  // 2018.05.001: no errcode
+#endif
+
 #endif
 
     Py_Finalize();

@@ -44,6 +44,11 @@ def info():
     if have_mpi:
         have_sl = compiled_with_sl()
         have_elpa = LibElpa.have_elpa()
+        if have_elpa:
+            version = LibElpa.api_version()
+            if version is None:
+                version = 'unknown, at most 2018.xx'
+            have_elpa = 'yes; version: {}'.format(version)
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
     results.append(('scalapack', have_sl))

@@ -27,6 +27,19 @@ PyObject* checkerr(int err)
     Py_RETURN_NONE;
 }
 
+PyObject* pyelpa_version(PyObject *self, PyObject *args)
+{
+    if (!PyArg_ParseTuple(args, "")) {
+        return NULL;
+    }
+#ifdef ELPA_API_VERSION
+    int version = ELPA_API_VERSION;
+    return Py_BuildValue("i", version);
+#else
+    Py_RETURN_NONE;  // This means 'old', e.g. 2018.05.001
+#endif
+}
+
 PyObject* pyelpa_set(PyObject *self, PyObject *args)
 {
     PyObject *handle_obj;
@@ -209,10 +222,17 @@ PyObject *pyelpa_deallocate(PyObject *self, PyObject *args)
     if(!PyArg_ParseTuple(args, "O", &handle_obj)) {
         return NULL;
     }
-    int err;
+
     elpa_t handle = unpack_handle(handle_obj);
+
+#ifdef ELPA_API_VERSION
+    int err;
     elpa_deallocate(handle, &err);
     return checkerr(err);
+#else
+    // This function provides no error checking in older Elpas
+    Py_RETURN_NONE;
+#endif
 }
 
 #endif
