@@ -297,7 +297,6 @@ class KohnShamPair:
 
         return mynt, nt, ta, tb, n1_myt, n2_myt, s1_myt, s2_myt
 
-    @timer('Get Kohn-Sham orbitals with given k-point')
     def get_kpoints(self, k_pc, n_myt, s_myt):
         """Get KohnShamKPoint and help other processes extract theirs"""
         assert len(n_myt) == len(s_myt)
@@ -317,8 +316,7 @@ class KohnShamPair:
 
         return kpt
 
-    @timer('Extracting data from the ground state')
-    def extract_data(self, k_pc, n_myt, s_myt):  # fix me XXX
+    def extract_data(self, k_pc, n_myt, s_myt):
         """Returns:
         K, eps_myt, f_myt, ut_mytR, P_amyti, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
@@ -328,10 +326,8 @@ class KohnShamPair:
         # the ground state.
         _extract_data = self.create_extract_data()
         # Do data extraction
-        data = _extract_data(k_pc, n_myt, s_myt)
-        # Be sure all data has been received  # move me to parallel part only  XXX
-        # Can this be done in a smarter way?                                   XXX
-        self.world.barrier()
+        with self.timer('Extracting data from the ground state'):
+            data = _extract_data(k_pc, n_myt, s_myt)
 
         # Unpack and apply symmetry operations
         if self.kptblockcomm.rank in range(len(k_pc)):
@@ -343,12 +339,16 @@ class KohnShamPair:
 
     def create_extract_data(self):
         """Creator component of the extract data factory."""
-        # Implement me                                                         XXX
-        return self.extract_serial_data
+        from gpaw.mpi import SerialCommunicator
+        cworld = self.calc.world
+        if isinstance(cworld, SerialCommunicator) or cworld.size == 1:
+            return self.extract_serial_data
+        else:
+            return self.extract_parallel_data
 
     def extract_serial_data(self, k_pc, n_myt, s_myt):
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
-        and Kohn-Sham orbitals."""
+        and Kohn-Sham orbitals from ground state with serial communicator."""
         if self.kptblockcomm.rank in range(len(k_pc)):
             k_c = k_pc[self.kptblockcomm.rank]
             # Parse kpoint to index
@@ -387,6 +387,15 @@ class KohnShamPair:
                 utuns_mytR[myt] = wfs.pd.ifft(psit_G, wfs.kd.bz2ibz_k[K])
 
             return K, k_c, eps_myt, f_myt, utuns_mytR, Puns_amyti
+
+    def extract_parallel_data(self, k_pc, n_myt, s_myt):
+        """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
+        and Kohn-Sham orbitals from ground state with distributed memory."""
+        # Implement me                                                         XXX
+        # Be sure all data has been received
+        # Can this be done in a smarter way?                                   XXX
+        self.world.barrier()
+        raise NotImplementedError('Parallel data extraction not yet supported')
 
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
