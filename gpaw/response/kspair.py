@@ -391,11 +391,56 @@ class KohnShamPair:
     def extract_parallel_data(self, k_pc, n_myt, s_myt):
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
         and Kohn-Sham orbitals from ground state with distributed memory."""
+        raise NotImplementedError('Parallel data extraction not yet supported')
         # Implement me                                                         XXX
+        wfs = self.calc.wfs
+        data = None
+        # allocate data arrays                                                 XXX
+        for p, k_c in enumerate(k_pc):
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+
+            # Loop over all possible transitions                               XXX
+            for myt, (n, s) in enumerate(zip(n_myt[:self.tb - self.ta],
+                                             s_myt[:self.tb - self.ta])):
+                u = wfs.kd.where_is(s, ik)
+                kpt_rank, myu = wfs.kd.who_has(u)
+                band_rank, myn = wfs.bd.who_has(n)
+
+                if (wfs.kd.comm.rank == kpt_rank
+                    and wfs.bd.comm.rank == band_rank):
+                    eps, f, psit_R, P_I = self._get_orbital_data(myu, myn)
+                    if p != self.kptblockcomm.rank:  # is this the right logic?XXX
+                        # send data                                            XXX
+                        pass
+                elif p == self.kptblockcomm.rank:
+                    # receive data                                             XXX
+                    pass
+
+                if p == self.kptblockcomm.rank:
+                    # store data                                               XXX
+                    pass
+
+            # pack data                                                        XXX
+
         # Be sure all data has been received
         # Can this be done in a smarter way?                                   XXX
         self.world.barrier()
-        raise NotImplementedError('Parallel data extraction not yet supported')
+
+        return data
+
+    def _get_orbital_data(self, myu, myn):
+        """Get the data from a single Kohn-Sham orbital."""
+        kpt = self.calc.wfs.kpt_u[myu]
+        # Get eig, occ and smooth wave function
+        eps, f, psit_G = kpt.eps_n[myn], kpt.f_n[myn], kpt.psit_nG[myn]
+        # Fourier transform to real space
+        psit_R = self.calc.wfs.pd.ifft(psit_G, kpt.q)
+        # Get projections
+        assert kpt.projections.atoms_partition.comm.size == 1
+        P_I = kpt.projections.array[myn]
+
+        return eps, f, psit_R, P_I
 
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
