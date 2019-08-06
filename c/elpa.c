@@ -209,10 +209,10 @@ PyObject *pyelpa_deallocate(PyObject *self, PyObject *args)
     if(!PyArg_ParseTuple(args, "O", &handle_obj)) {
         return NULL;
     }
+    int err;
     elpa_t handle = unpack_handle(handle_obj);
-    elpa_deallocate(handle);
-    // This function provides no error checking
-    Py_RETURN_NONE;
+    elpa_deallocate(handle, &err);
+    return checkerr(err);
 }
 
 #endif

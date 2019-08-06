@@ -523,7 +523,8 @@ main(int argc, char **argv)
     }
 
 #ifdef GPAW_WITH_ELPA
-    elpa_uninit();
+    int elpa_err;
+    elpa_uninit(&elpa_err);
 #endif
 
     Py_Finalize();
