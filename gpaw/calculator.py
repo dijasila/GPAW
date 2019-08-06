@@ -80,14 +80,14 @@ class GPAW(PAW, Calculator):
                      'time_reversal': True,
                      'symmorphic': True,
                      'tolerance': 1e-7,
-                     'do_not_symmetrize_the_density': False},
+                     'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'dtype': None,  # Deprecated
-        'width': None,  # Deprecated
+        'dtype': None,  # deprecated
+        'width': None,  # deprecated
         'verbose': 0}
 
     default_parallel = {
@@ -554,10 +554,10 @@ class GPAW(PAW, Calculator):
 
         realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 
+        self.create_setups(mode, xc)
+
         if not realspace:
             pbc_c = np.ones(3, bool)
-
-        self.create_setups(mode, xc)
 
         if par.hund:
             if natoms != 1:
@@ -586,6 +586,26 @@ class GPAW(PAW, Calculator):
             self.log('Non-collinear calculation.')
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
+
+        self.create_symmetry(magmom_av, cell_cv, reading)
+
+        if par.gpts is not None:
+            if par.h is not None:
+                raise ValueError("""You can't use both "gpts" and "h"!""")
+            N_c = np.array(par.gpts)
+            h = None
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            if h is None and reading:
+                shape = self.reader.density.proxy('density').shape[-3:]
+                N_c = 1 - pbc_c + shape
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
+
+        self.setups.set_symmetry(self.symmetry)
 
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
@@ -646,8 +666,6 @@ class GPAW(PAW, Calculator):
         if self.scf is None:
             self.create_scf(nvalence, mode)
 
-        self.create_symmetry(magmom_av, cell_cv)
-
         if not collinear:
             nbands *= 2
 
@@ -655,7 +673,7 @@ class GPAW(PAW, Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c)
+                                       cell_cv, pbc_c, N_c)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -677,7 +695,7 @@ class GPAW(PAW, Calculator):
             self.hamiltonian = None
 
         if self.density is None:
-            self.create_density(realspace, mode, background)
+            self.create_density(realspace, mode, background, h)
 
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
@@ -828,15 +846,23 @@ class GPAW(PAW, Calculator):
             nv)
         self.log(self.scf)
 
-    def create_symmetry(self, magmom_av, cell_cv):
+    def create_symmetry(self, magmom_av, cell_cv, reading):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
+        if 'do_not_symmetrize_the_density' in symm:
+            symm = symm.copy()
+            dnstd = symm.pop('do_not_symmetrize_the_density')
+            if dnstd is not None:
+                info = 'Ignoring your "do_not_symmetrize_the_density" keyword!'
+                if reading:
+                    self.log(info)
+                else:
+                    warnings.warn(info + ' Please remove it.')
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
         self.symmetry.analyze(self.spos_ac)
-        self.setups.set_symmetry(self.symmetry)
 
     def create_eigensolver(self, xc, nbands, mode):
         # Number of bands to converge:
@@ -859,7 +885,7 @@ class GPAW(PAW, Calculator):
 
         self.log('Eigensolver\n  ', self.wfs.eigensolver, '\n')
 
-    def create_density(self, realspace, mode, background):
+    def create_density(self, realspace, mode, background, h):
         gd = self.wfs.gd
 
         big_gd = gd.new_descriptor(comm=self.world)
@@ -894,7 +920,12 @@ class GPAW(PAW, Calculator):
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
         else:
-            self.density = pw.ReciprocalSpaceDensity(**kwargs)
+            if h is None:
+                ecut = 2 * self.wfs.pd.ecut
+            else:
+                ecut = 0.5 * (np.pi / h)**2
+            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
+                                                     **kwargs)
 
         self.log(self.density, '\n')
 
@@ -974,7 +1005,7 @@ class GPAW(PAW, Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c):
+                              setups, cell_cv, pbc_c, N_c):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1000,19 +1031,6 @@ class GPAW(PAW, Calculator):
         domainband_comm = comms['K']
 
         self.comms = comms
-
-        if par.gpts is not None:
-            if par.h is not None:
-                raise ValueError("""You can't use both "gpts" and "h"!""")
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            kd.symmetry)
-
-        self.symmetry.check_grid(N_c)
 
         kd.set_communicator(kpt_comm)
 

@@ -36,9 +36,9 @@ calc = GPAW(gpts=(24, 24, 24), occupations=FermiDirac(width=0, fixmagmom=True),
 Hspin.set_calculator(calc)
 e_Hspin = Hspin.get_potential_energy()
 niter_Hspin = calc.get_number_of_iterations()
-energies,sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
+energies, sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 
-calc = GPAW(gpts=(32, 32, 40), nbands=2, #eigensolver='dav',
+calc = GPAW(gpts=(32, 32, 40), nbands=2,
             poissonsolver=PoissonSolver('fd'),
             communicator=comm)
 LiH.set_calculator(calc)
@@ -56,24 +56,24 @@ print(Li_wzweight)
 print(H_wzweight)
 print(n_a)
 
-equal(sweight[0], 1., .06)
-equal(pdfweight[0], 0., .0001)
-equal(sweight_spin[0], 1.14, .06)
-assert ((Li_wzweight - [.13, .93]).round(2) == 0).all()
-assert ((H_wzweight - [.87, .07]).round(2) == 0).all()
+equal(sweight[0], 1.0, 0.06)
+equal(pdfweight[0], 0.0, 0.0001)
+equal(sweight_spin[0], 1.14, 0.06)
+assert ((Li_wzweight - [.13, 0.93]).round(2) == 0).all()
+assert ((H_wzweight - [0.87, 0.07]).round(2) == 0).all()
 assert ((Li_wzweight + H_wzweight).round(5) == 1).all()
-equal(n_a.sum(), 0., 1e-5)
-equal(n_a[1], .737, .001)
+equal(n_a.sum(), 0.0, 1e-5)
+equal(n_a[1], 0.737, 0.001)
 
 print(Li_orbitalweight)
 print(H_orbitalweight)
 #               HOMO    s   py  pz  px  *s
 Li_orbitalweight[0] -= [.5, .0, .6, .0, .0]
-H_orbitalweight[0]  -= [.7, .0, .0, .0, .0]
+H_orbitalweight[0] -= [.7, .0, .0, .0, .0]
 
 #              LUMO       s  py   pz  px  *s
 Li_orbitalweight[1] -= [1.0, .0, 0.9, .0, .0]
-H_orbitalweight[1]  -= [0.1, .0, 0.0, .0, .0]
+H_orbitalweight[1] -= [0.1, .0, 0.0, .0, .0]
 
 assert not Li_orbitalweight.round(1).any()
 assert not H_orbitalweight.round(1).any()
@@ -83,8 +83,8 @@ fname = 'ldbe.dat'
 ldos.by_element_to_file(fname, shift=False)
 ldos.by_element_to_file(fname, 2.0, shift=False)
 
-energy_tolerance = 0.00006
+energy_tolerance = 0.001
 niter_tolerance = 0
 equal(e_Hnospin, 0.153991, energy_tolerance)
-equal(e_Hspin,  -0.782309, energy_tolerance)
+equal(e_Hspin, -0.782309, energy_tolerance)
 equal(e_LiH, -3.74582, energy_tolerance)

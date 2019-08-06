@@ -24,13 +24,12 @@ Then install ASE_, Numpy and SciPy::
 
 And finally, GPAW with ScaLAPACK and FFTW::
 
-    $ wget https://pypi.org/packages/source/g/gpaw/gpaw-1.5.1.tar.gz
-    $ tar -xf gpaw-1.5.1.tar.gz
+    $ git clone git@gitlab.com:gpaw/gpaw.git
     $ cd gpaw
     $ cat > customize.py
     fftw = True
     scalapack = True
-    libraries = ['fftw3', 'scalapack', 'mpiblacs']
+    libraries += ['fftw3', 'scalapack', 'mpiblacs']
     library_dirs.append('/usr/lib64/openmpi/lib/')
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]

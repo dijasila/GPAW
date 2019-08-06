@@ -8,7 +8,7 @@ import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, fft, ifft
 
 from gpaw import PoissonConvergenceError
-from gpaw.dipole_correction import DipoleCorrection
+from gpaw.dipole_correction import DipoleCorrection, dipole_correction
 from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
@@ -103,11 +103,16 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
+    def __init__(self, eps=None, remove_moment=None, use_charge_center=False,
+            metallic_electrodes=False):
+        # metallic electrodes: mirror image method to allow calculation of
+        # charged, partly periodic systems
         self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
         self.eps = eps
+        self.metallic_electrodes = metallic_electrodes
+        assert self.metallic_electrodes in [False, None, 'single','both']
 
     def todict(self):
         d = {'name': 'basepoisson'}
@@ -117,6 +122,9 @@ class BasePoissonSolver(_PoissonSolver):
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
             d['use_charge_center'] = self.use_charge_center
+        if self.metallic_electrodes:
+            d['metallic_electrodes'] = self.metallic_electrodes
+
         return d
 
     def get_description(self):
@@ -165,7 +173,6 @@ class BasePoissonSolver(_PoissonSolver):
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
-            # System is charge neutral. Use standard solver
             return self.solve_neutral(phi, rho - background, eps=eps, timer=timer)
 
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
@@ -232,9 +239,32 @@ class BasePoissonSolver(_PoissonSolver):
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            msg = ('Charged systems with mixed periodic/zero'
-                   ' boundary conditions')
-            raise NotImplementedError(msg)
+            if self.metallic_electrodes == 'single':
+                self.c = 2
+                origin_c=[0,0,0]
+                origin_c[self.c] = self.gd.N_c[self.c]
+                drhot_g, dvHt_g, self.correction = dipole_correction(self.c,
+                                                    self.gd,
+                                                    rho,
+                                                    origin_c=origin_c)
+                #self.correction *=-1.
+                phi -= dvHt_g
+                iters = self.solve_neutral(phi, rho + drhot_g, eps=eps, timer=timer)
+                phi += dvHt_g
+                phi -= self.correction
+                self.correction = 0.0
+
+                return iters
+
+            elif self.metallic_electrodes == 'both':
+                iters = self.solve_neutral(phi, rho, eps=eps, timer=timer)
+                return iters
+
+            else:
+                # System is charged with mixed boundaryconditions
+                msg = ('Charged systems with mixed periodic/zero'
+                       ' boundary conditions')
+                raise NotImplementedError(msg)
 
     def load_gauss(self, center=None):
         if not hasattr(self, 'rho_gauss') or center is not None:
@@ -246,11 +276,13 @@ class BasePoissonSolver(_PoissonSolver):
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
+                 remove_moment=None, use_charge_center=False,
+                 metallic_electrodes=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
-            use_charge_center=use_charge_center)
+            use_charge_center=use_charge_center,
+            metallic_electrodes=metallic_electrodes)
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None

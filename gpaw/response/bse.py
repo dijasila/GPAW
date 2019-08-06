@@ -16,7 +16,7 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-
+from gpaw.utilities import file_barrier
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm
 from gpaw.response.chi0 import Chi0
@@ -209,7 +209,9 @@ class BSE:
                     calc_so.atoms = self.calc.atoms
                     calc_so.density = self.calc.density
                     calc_so.get_potential_energy()
-                    calc_so.write('gs_nosym.gpw')
+                    with file_barrier('gs_nosym.gpw'):
+                        calc_so.write('gs_nosym.gpw')
+
                 calc_so = GPAW('gs_nosym.gpw', txt=None,
                                communicator=serial_comm)
                 e_mk, v_knm = get_spinorbit_eigenvalues(calc_so,

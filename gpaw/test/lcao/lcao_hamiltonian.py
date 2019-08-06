@@ -31,7 +31,7 @@ if world.rank == 0:
                                                      H_skMM[0, 2])).real)
     assert abs(sum(eigs - eigs2)) < 1e-8
 
-    energy_tolerance = 0.00003
+    energy_tolerance = 0.0003
     niter_tolerance = 0
     equal(e, -1.82847, energy_tolerance)
     equal(niter, 5, niter_tolerance)

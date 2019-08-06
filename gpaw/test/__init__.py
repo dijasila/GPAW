@@ -177,6 +177,7 @@ tests = [
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
+    'pw/smallanglecell.py',
     'gllbghost.py',                         # ~3s
     'fileio/file_reference.py',             # ~3s
     'fileio/restart.py',                    # ~3s
@@ -201,6 +202,7 @@ tests = [
     'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'fileio/read_old_gpw.py',
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'pw/augment_grids.py',
@@ -268,6 +270,7 @@ tests = [
     'tddft/be_nltd_ip.py',                  # ~8s
     'ibzqpt.py',                            # ~8s
     'noncollinear/o2.py',
+    'noncollinear/soc.py',
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
@@ -276,6 +279,7 @@ tests = [
     'vdw/quick.py',                         # ~9s
     'pathological/lcao_spos_derivative.py',  # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
+    'poisson/metallic_poisson.py',          # ~10s
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
     'lcaotddft/restart.py',                 # ~10s
@@ -318,6 +322,8 @@ tests = [
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
+    'watermodel.py',                        # ~15s
+    'rattle.py',                            # ~15s
     'generic/IP_oxygen.py',                 # ~15s
     'rpa/rpa_energy_Na.py',                 # ~15s
     'parallel/fd_parallel.py',              # ~15s

@@ -252,7 +252,9 @@ class FDPWWaveFunctions(WaveFunctions):
         self.orthonormalized = flag
 
     def set_positions(self, spos_ac, atom_partition=None):
-        move_wfs = (self.kpt_u[0].psit_nG is not None and
+        # We don't move the wave functions if psit_nG is None or an
+        # NDArrayReader instance (and we need positions also):
+        move_wfs = (isinstance(self.kpt_u[0].psit_nG, np.ndarray) and
                     self.spos_ac is not None)
 
         if move_wfs:
