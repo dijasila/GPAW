@@ -202,6 +202,7 @@ tests = [
     'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'fileio/read_old_gpw.py',
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'pw/augment_grids.py',
