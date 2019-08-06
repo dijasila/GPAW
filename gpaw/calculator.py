@@ -80,14 +80,14 @@ class GPAW(PAW, Calculator):
                      'time_reversal': True,
                      'symmorphic': True,
                      'tolerance': 1e-7,
-                     'do_not_symmetrize_the_density': None},
+                     'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'dtype': None,  # Deprecated
-        'width': None,  # Deprecated
+        'dtype': None,  # deprecated
+        'width': None,  # deprecated
         'verbose': 0}
 
     default_parallel = {
@@ -587,7 +587,7 @@ class GPAW(PAW, Calculator):
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
 
-        self.create_symmetry(magmom_av, cell_cv)
+        self.create_symmetry(magmom_av, cell_cv, reading)
 
         if par.gpts is not None:
             if par.h is not None:
@@ -598,8 +598,12 @@ class GPAW(PAW, Calculator):
             h = par.h
             if h is not None:
                 h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            self.symmetry, self.log)
+            if h is None and reading:
+                shape = self.reader.density.proxy('density').shape[-3:]
+                N_c = 1 - pbc_c + shape
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
 
         self.setups.set_symmetry(self.symmetry)
 
@@ -842,15 +846,19 @@ class GPAW(PAW, Calculator):
             nv)
         self.log(self.scf)
 
-    def create_symmetry(self, magmom_av, cell_cv):
+    def create_symmetry(self, magmom_av, cell_cv, reading):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
         if 'do_not_symmetrize_the_density' in symm:
             symm = symm.copy()
-            if symm.pop('do_not_symmetrize_the_density') is not None:
-                warnings.warn('Ignoring your "do_not_symmetrize_the_density" '
-                              'keyword!  Please remove it.')
+            dnstd = symm.pop('do_not_symmetrize_the_density')
+            if dnstd is not None:
+                info = 'Ignoring your "do_not_symmetrize_the_density" keyword!'
+                if reading:
+                    self.log(info)
+                else:
+                    warnings.warn(info + ' Please remove it.')
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)

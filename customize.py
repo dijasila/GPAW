@@ -53,9 +53,7 @@ if fftw:
 # ScaLAPACK (version 2.0.1+ required):
 scalapack = False
 if scalapack:
-    libraries += ['scalapack-openmpi',
-                  'blacsCinit-openmpi',
-                  'blacs-openmpi']
+    libraries += ['scalapack-openmpi']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
     define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
 

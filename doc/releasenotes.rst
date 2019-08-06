@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.17.1b1
+* Corresponding ASE release: ASE-3.18.1b1
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
 
 * The ``"You have a weird unit cell"`` and
   ``"Real space grid not compatible with symmetry operation"``
@@ -45,6 +53,9 @@ Git master branch
 * New "metallic boundary conditions" have been added to the for PoissonSolver.
   This enables simulating charged 2D systems without counter charges.
   See: :git:`gpaw/test/poisson/metallic_poisson.py`
+
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
 
 .. _JTH: https://www.abinit.org/psp-tables
 

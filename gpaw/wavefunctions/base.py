@@ -468,8 +468,8 @@ class WaveFunctions:
         if 'version' not in r:
             r.version = reader.version
         self.read_projections(r)
-        self.read_eigenvalues(r, r.version == 0)
-        self.read_occupations(r, r.version == 0)
+        self.read_eigenvalues(r, r.version <= 0)
+        self.read_occupations(r, r.version <= 0)
 
     def read_projections(self, reader):
         nslice = self.bd.get_slice()

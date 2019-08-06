@@ -92,6 +92,7 @@ class CDFT(Calculator):
         self.mu = mu
         # set charge constraints and lagrangians
         self.v_i = np.empty(shape=(0,0))
+
         self.constraints = np.empty(shape=(0,0))
 
         self.charge_regions = charge_regions
@@ -271,8 +272,10 @@ class CDFT(Calculator):
 
                 n_electrons = (self.gd.integrate(self.ext.w_ig[0:self.n_charge_regions]*n_gt,
                    global_integral=True))
+                
                 # corrections
                 n_electrons += Delta_n[0:self.n_charge_regions]
+                
                 # constraint
                 diff = n_electrons - self.constraints[0:self.n_charge_regions]
                 total_electrons.append(n_electrons)
@@ -300,8 +303,9 @@ class CDFT(Calculator):
             self.Edft = E_KS
             # pseudo free energy, neglecting core electrons as done for coupling constant calculation
             if not self.difference:
+
                 self.Ecdft = E_KS + np.dot(self.v_i*Hartree,
-                        (np.array(total_electrons)-self.n_core_electrons))
+                        (total_electrons-self.n_core_electrons)[0])
 
             if self.iteration == 0:
                 p('Optimizer: {n}'.format(n=self.method))
@@ -331,13 +335,11 @@ class CDFT(Calculator):
             else:
                 return np.abs(self.dn_i), -self.dn_i # return negative because maximising wrt v_i
 
-        def hessian(v_i):
-            # Hessian approximated with BFGS
-            self.hess = self.update_hessian(v_i)
-            return self.hess
+#        def hessian(v_i):
+#            # Hessian approximated with BFGS
+#            self.hess = self.update_hessian(v_i)
+#            return self.hess
 
-        #m = minimize(f, self.v_i, jac=True, bounds=self.bounds, tol = self.tol,method = self.method,
-        #             hess = hessian, options=self.options)
 
         m = minimize(f, self.v_i, jac=True, bounds=self.bounds, tol=self.tol,
                     method=self.method, options=self.options)
@@ -345,7 +347,6 @@ class CDFT(Calculator):
         p(str(m.message) + '\n')
 
         self.density = self.calc.density # TS09-vdw needs this
-
         self.results['energy'] = self.Edft
 
         # print to log
@@ -373,7 +374,6 @@ class CDFT(Calculator):
     def get_weight(self, save=True, name='weight', pad=False):
         if not pad:
             w_g = self.w
-
         else:
             c = CDFTPotential(regions=self.regions, gd=self.gd,
                 atoms=self.atoms, constraints=self.constraints,
@@ -466,7 +466,7 @@ class CDFT(Calculator):
         for i in [0,1]:
             for a, D_sp in self.calc.density.D_asp.items():
                 self.dn_s[i,a] += np.sqrt(4.*np.pi)*(np.dot(D_sp[i],
-                    self.calc.wfs.setups[a].Delta_pL)[i]\
+                    self.calc.wfs.setups[a].Delta_pL)[0]\
                     + self.calc.wfs.setups[a].Delta0/2)
 
         self.gd.comm.sum(self.dn_s)
@@ -526,8 +526,8 @@ class CDFT(Calculator):
 
         for atom in self.atoms:
             # weight function with one atom
-            f = WeightFunc(self.gd,
-                    self.atoms, [atom.index], self.Rc, self.mu)
+            f = WeightFunc(self.gd, 
+                    self.atoms, [atom.index], self.Rc, self.mu, new=False)
 
             w = f.construct_weight_function()
             n_el = (self.gd.integrate(w*dens,
@@ -621,7 +621,6 @@ class CDFTPotential(ExternalPotential):
         self.gd = gd
         self.log = convert_string_to_fd(txt)
         self.atoms = atoms
-        self.v_i = None
         self.pos_av = None
         self.Z_a = None
         self.w_ig = None
@@ -706,8 +705,10 @@ class CDFTPotential(ExternalPotential):
         # return v_ext^{\sigma} = sum_i V_i*w_i^{\sigma}
         if self.w_ig is None:
             self.initialize_partitioning(self.gd)
+        pot = np.empty(self.w_ig.shape)
 
-        pot = self.v_i[:, None] * self.w_ig
+        for i in range(len(self.v_i)):
+            pot[i] = self.v_i[i] * self.w_ig[i]
 
         #first alpha spin
         vext_sga = np.sum(np.asarray(pot), axis=0)
@@ -771,6 +772,7 @@ class CDFTPotential(ExternalPotential):
 
         diff = []
 
+
         if self.n_charge_regions != 0:
             # pseudo density
             nt_g = dens.nt_sg[0] + dens.nt_sg[1]
@@ -789,7 +791,10 @@ class CDFTPotential(ExternalPotential):
         diff = np.asarray(diff)
         # number of domains
         size = self.gd.comm.size
-        return np.dot(Vi, diff/size)[0]
+        e = np.multiply(Vi, diff[:]).sum()
+        e /= size
+
+        return e
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
@@ -1095,7 +1100,6 @@ class WeightFunc:
             dGa_dRay = dGa_drRa * drRa_dy
             dGa_dRaz = dGa_drRa * drRa_dz
 
-
             dGa_dRav = [dGa_dRax, dGa_dRay, dGa_dRaz]
             dG_dRav[atom.index] = dGa_dRav
 
@@ -1108,16 +1112,15 @@ def get_ks_energy_wo_external(calc):
         calc.hamiltonian.e_xc -
         calc.hamiltonian.e_entropy)*Hartree
 
-def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu, w=[],
+def get_all_weight_functions(atoms, gd, indices_i, difference, Rc, mu,
                 new=False, return_Rc_mu = False):
-
+    w=[]
     for i in range(len(indices_i)):
         wf = WeightFunc(gd, atoms, indices_i[i], Rc, mu, new)
         weig = wf.construct_weight_function()
 
         if not difference:
             w.append(weig)
-
         else: # for charge difference constraint
             if i==0:
                 w.append(weig)
