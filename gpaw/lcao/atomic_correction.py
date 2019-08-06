@@ -102,7 +102,7 @@ class SparseAtomicCorrection(BaseAtomicCorrection):
         nI = P_indices.max
 
         import scipy.sparse as sparse
-        dXsparse_II = sparse.lil_matrix((nI, nI), dtype=X_MM.dtype)
+        dXsparse_II = sparse.dok_matrix((nI, nI), dtype=X_MM.dtype)
         for a in dX_aii:
             I1, I2 = P_indices[a]
             dXsparse_II[I1:I2, I1:I2] = dX_aii[a]
