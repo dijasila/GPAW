@@ -11,7 +11,7 @@ class MPI4PYWrapper:
     def new_communicator(self, ranks):
         comm = self.comm.Create(self.comm.group.Incl(ranks))
         if self.comm.rank in ranks:
-            return Communicator(comm, parent=self)
+            return MPI4PYWrapper(comm, parent=self)
         else:
             # This cpu is not in the new communicator:
             return None
@@ -67,9 +67,9 @@ class MPI4PYWrapper:
 
     def receive(self, a, src, tag=123, block=True):
         if block:
-            self.comm.Receive(a, src, tag)
+            self.comm.Recv(a, src, tag)
         else:
-            return self.comm.Ireceive(a, src, tag)
+            return self.comm.Irecv(a, src, tag)
 
     def test(self, request):
         return request.test()
@@ -161,15 +161,7 @@ class MPI4PYWrapper:
         return self.comm.get_members()
 
     def get_c_object(self):
-        """Return the C-object wrapped by this debug interface.
-
-        Whenever a communicator object is passed to C code, that object
-        must be a proper C-object - *not* e.g. this debug wrapper.  For
-        this reason.  The C-communicator object has a get_c_object()
-        implementation which returns itself; thus, always call
-        comm.get_c_object() and pass the resulting object to the C code.
-        """
-        1 / 0
+        return self.comm
 
 
 serial_comm = MPI4PYWrapper(mpi.COMM_SELF)

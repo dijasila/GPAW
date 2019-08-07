@@ -5,16 +5,8 @@
 
 #include "spline.h"
 #include <stdlib.h>
-#ifdef PARALLEL
-#  include <mpi.h>
-#else
-   typedef int* MPI_Request; // !!!!!!!???????????
-   typedef int* MPI_Comm;
-#  define MPI_COMM_NULL 0
-#  define MPI_Comm_rank(comm, rank) *(rank) = 0
-#  define MPI_Bcast(buff, count, datatype, root, comm) 0
-#endif
-
+#include "extensions.h"
+#include "bc.h"
 #include "mympi.h"
 #include "localized_functions.h"
 
@@ -372,7 +364,7 @@ static PyObject * localized_functions_broadcast(LocalizedFunctionsObject*
   if (!PyArg_ParseTuple(args, "Oi", &comm_obj, &root))
     return NULL;
 
-  MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
+  MPI_Comm comm = *PyMPIComm_Get(comm_obj);
   MPI_Bcast(self->f, self->ng0 * (self->nf + self->nfd),
             MPI_DOUBLE, root, comm);
   Py_RETURN_NONE;

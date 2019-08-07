@@ -580,7 +580,7 @@ PyObject* NewWOperatorObject(PyObject *obj, PyObject *args)
 
   MPI_Comm comm = MPI_COMM_NULL;
   if (comm_obj != Py_None)
-    comm = ((MPIObject*)comm_obj)->comm;
+    comm = *PyMPIComm_Get(comm_obj);
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
 

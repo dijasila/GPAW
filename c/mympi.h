@@ -1,6 +1,7 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Please see the accompanying LICENSE file for further information. */
 
+#ifdef XXXXXXXXXX
 typedef struct
 {
   PyObject_HEAD
@@ -10,3 +11,4 @@ typedef struct
   PyObject* parent;
   int* members;
 } MPIObject;
+#endif

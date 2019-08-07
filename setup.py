@@ -181,6 +181,7 @@ sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 sources = sources + glob('c/xc/*.c')
 # Make build process deterministic (for "reproducible build" in debian)
 sources.sort()
+sources.remove('c/mpi.c')
 
 check_dependencies(sources)
 

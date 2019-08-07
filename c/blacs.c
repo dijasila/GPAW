@@ -575,7 +575,7 @@ PyObject* new_blacs_context(PyObject *self, PyObject *args)
   }
 
   // Create blacs grid on this communicator
-  MPI_Comm comm = ((MPIObject*)comm_obj)->comm;
+  MPI_Comm comm = PyMPIComm_Get(comm_obj);
 
   // Get my id and nprocs. This is for debugging purposes only
   Cblacs_pinfo_(&iam, &nprocs);

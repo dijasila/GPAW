@@ -4,6 +4,7 @@ from gpaw import debug
 from gpaw.mpi import world, serial_comm, _Communicator, SerialCommunicator
 
 even_comm = world.new_communicator(np.arange(0, world.size, 2))
+print(world.rank, even_comm)
 if world.size > 1:
     odd_comm = world.new_communicator(np.arange(1, world.size, 2))
 else:
