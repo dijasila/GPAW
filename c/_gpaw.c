@@ -315,7 +315,7 @@ static PyMethodDef functions[] = {
     {0, 0, 0, 0}
 };
 
-#ifdef PARALLEL
+#ifdef XXXPARALLEL
 extern PyTypeObject MPIType;
 extern PyTypeObject GPAW_MPI_Request_type;
 #endif
@@ -377,7 +377,7 @@ static struct PyModuleDef moduledef = {
 
 static PyObject* moduleinit(void)
 {
-#ifdef PARALLEL
+#ifdef XXXPARALLEL
     if (PyType_Ready(&MPIType) < 0)
         return NULL;
     if (PyType_Ready(&GPAW_MPI_Request_type) < 0)
@@ -406,7 +406,7 @@ static PyObject* moduleinit(void)
     if (m == NULL)
         return NULL;
 
-#ifdef PARALLEL
+#ifdef XXXPARALLEL
     Py_INCREF(&MPIType);
     Py_INCREF(&GPAW_MPI_Request_type);
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);

@@ -5,11 +5,13 @@
 #include "bmgs/bmgs.h"
 #ifdef PARALLEL
 #include <mpi.h>
+#include <mpi4py/mpi4py.h>
 #else
 typedef int* MPI_Request; // !!!!!!!???????????
 typedef int* MPI_Comm;
 #define MPI_COMM_NULL 0
 #define MPI_Comm_rank(comm, rank) *(rank) = 0
+#define PyMPIComm_Get(obj) (MPI_Comm*)NULL
 #endif
 
 

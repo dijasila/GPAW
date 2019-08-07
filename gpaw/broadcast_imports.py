@@ -19,7 +19,7 @@ data and will crash or deadlock if master sends anything else.
 """
 
 
-import os
+# import os
 import sys
 import marshal
 import importlib
@@ -28,16 +28,14 @@ from importlib.machinery import PathFinder, ModuleSpec
 
 import _gpaw
 
-
-if hasattr(_gpaw, 'Communicator'):
-    if '_gpaw' not in sys.builtin_module_names:
-        libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
-        import ctypes
-        ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-
-    world = _gpaw.Communicator()
-else:
+try:
+    import mpi4py.MPI as mpi
+except ImportError:
     world = None
+else:
+    world = mpi.COMM_WORLD
+    if world.size == 1:
+        world = None
 
 paths = {}
 sources = {}

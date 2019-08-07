@@ -24,10 +24,6 @@
    typedef double complex double_complex;
 #endif
 
-#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 4
-#  define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
-#endif
-
 #define INLINE inline
 
 static INLINE void* gpaw_malloc(size_t n)

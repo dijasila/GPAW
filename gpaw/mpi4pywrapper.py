@@ -1,7 +1,7 @@
 import mpi4py.MPI as mpi
 
 
-class Communicator:
+class MPI4PYWrapper:
     def __init__(self, comm, parent=None):
         self.comm = comm
         self.size = comm.size
@@ -172,4 +172,4 @@ class Communicator:
         1 / 0
 
 
-serial_comm = Communicator(mpi.COMM_SELF)
+serial_comm = MPI4PYWrapper(mpi.COMM_SELF)

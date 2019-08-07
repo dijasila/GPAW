@@ -10,4 +10,3 @@ typedef struct
   PyObject* parent;
   int* members;
 } MPIObject;
-

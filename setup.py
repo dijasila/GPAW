@@ -104,14 +104,18 @@ get_system_config(define_macros, undef_macros,
                   runtime_library_dirs, extra_objects,
                   import_numpy)
 
-error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
-if error:
-    mpicompiler = None
+try:
+    import mpi4py
+except ImportError:
+    compiler = None
 else:
-    mpicompiler = 'mpicc'
+    compiler = 'mpicc'
+    define_macros.append(('PARALLEL', '1'))
+    include_dirs.append(mpi4py.get_include())
+
+mpicompiler = None
 mpilinker = mpicompiler
 
-compiler = None
 fftw = False
 scalapack = False
 libvdwxc = False
@@ -164,14 +168,14 @@ if fftw:
 plat = distutils.util.get_platform()
 plat = plat + '-' + sys.version[0:3]
 gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
-gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
+# gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
 if 'clean' in sys.argv:
     if op.isfile(gpawso):
         print('removing ', gpawso)
         os.remove(gpawso)
-    if op.isfile(gpawbin):
-        print('removing ', gpawbin)
-        os.remove(gpawbin)
+#    if op.isfile(gpawbin):
+#        print('removing ', gpawbin)
+#        os.remove(gpawbin)
 
 sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
 sources = sources + glob('c/xc/*.c')
@@ -250,8 +254,8 @@ class build_scripts(_build_scripts):
         return outfiles, updated_files
 
 
-if mpicompiler:
-    scripts.append('build/bin.%s/' % plat + 'gpaw-python')
+# if mpicompiler:
+#     scripts.append('build/bin.%s/' % plat + 'gpaw-python')
 
 setup(name='gpaw',
       version=version,
@@ -266,8 +270,8 @@ setup(name='gpaw',
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'sdist': sdist,
-                'build_ext': build_ext,
-                'build_scripts': build_scripts},
+                },  # 'build_ext': build_ext,
+      # 'build_scripts': build_scripts},
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '

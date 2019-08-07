@@ -696,6 +696,9 @@ serial_comm = SerialCommunicator()
 
 if world is None:
     world = serial_comm
+else:
+    from .mpi4pywrapper import MPI4PYWrapper
+    world = MPI4PYWrapper(world)
 
 
 class DryRunCommunicator(SerialCommunicator):
@@ -726,8 +729,8 @@ size = world.size
 rank = world.rank
 parallel = (size > 1)
 try:
-    world.get_c_object()
-except NotImplementedError:
+    import mpi4py
+except ImportError:
     have_mpi = False
 else:
     have_mpi = True
@@ -1143,8 +1146,8 @@ def print_mpi_stack_trace(type, value, tb):
         sys.stderr.write('rank=%s L%s: %s\n' % (rankstring, lineno, line))
 
 
-if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
-    sys.excepthook = print_mpi_stack_trace
+# if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
+#     sys.excepthook = print_mpi_stack_trace
 
 
 def exit(error='Manual exit'):
@@ -1161,4 +1164,4 @@ def exit(error='Manual exit'):
     sys.exit()  # quit for serial case, return to _gpaw.c for parallel case
 
 
-atexit.register(cleanup)
+# atexit.register(cleanup)
