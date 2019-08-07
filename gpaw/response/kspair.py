@@ -322,6 +322,7 @@ class KohnShamPair:
         # Unpack and apply symmetry operations
         if self.kptblockcomm.rank in range(len(k_pc)):
             assert data is not None
+            # Change projections data format                                   XXX
             K, k_c, eps_myt, f_myt, utuns_mytR, Puns_amyti = data
             ut_mytR, P_amyti, shift_c = self.apply_symmetry(K, k_c, utuns_mytR,
                                                             Puns_amyti)
@@ -394,41 +395,87 @@ class KohnShamPair:
         # Implement me                                                         XXX
         wfs = self.calc.wfs
         data = None
-        # allocate data arrays                                                 XXX
+        # Allocate data arrays.
+        # Each process only has a single k-point to evaluate.
+        mynt = self.mynt
+        eps_myt = np.empty(mynt)
+        f_myt = np.empty(mynt)
+        ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
+        P = wfs.kpt_u[0].projections.new(bands=mynt)
+
+        # Extract and send/receive all data
+        requests = []
         for p, k_c in enumerate(k_pc):
             K = self.find_kpoint(k_c)
             ik = wfs.kd.bz2ibz_k[K]
+            # Store data, if the process is supposed to handle this k-point
+            if self.kptblockcomm.rank == p:
+                data = (K, k_c)
 
-            # Loop over all possible transitions                               XXX
+            # Loop over all transitions
             for t, (n, s) in enumerate(zip(n_t, s_t)):
                 u = wfs.kd.where_is(s, ik)
                 kpt_rank, myu = wfs.kd.who_has(u)
                 band_rank, myn = wfs.bd.who_has(n)
+                data_rank, myt = self.who_has(p, t)
 
                 if (wfs.kd.comm.rank == kpt_rank
                     and wfs.bd.comm.rank == band_rank):
-                    eps, f, psit_R, P_I = self._get_orbital_data(myu, myn)
-                    if p != self.kptblockcomm.rank:  # is this the right logic?XXX
-                        # send data                                            XXX
+                    eps, f, ut_R, P_I = self._get_orbital_data(myu, myn)
+                    # Send data, if it belongs to another process
+                    if self.world.rank != data_rank:
+                        eps = np.array([eps])
+                        self.world.send(eps, data_rank,
+                                        tag=201, block=False)
+                        f = np.array([f])
+                        self.world.send(f, data_rank,
+                                        tag=202, block=False)
+                        self.world.send(ut_R, data_rank,
+                                        tag=203, block=False)
+                        self.world.send(P_I, data_rank,
+                                        tag=204, block=False)
+                    else:
+                        # store data                                           XXX
                         pass
-                elif p == self.kptblockcomm.rank:
-                    # receive data                                             XXX
-                    pass
+                elif self.world.rank == data_rank:
+                    # XXX this will fail when using non-standard nesting
+                    # of communicators.
+                    # make sure self.world == wfs.world                        XXX
+                    world_rank = (kpt_rank * wfs.gd.comm.size *
+                                  wfs.bd.comm.size +
+                                  band_rank * wfs.gd.comm.size)
+                    r1 = self.world.receive(eps_myt[myt], world_rank,
+                                            tag=201, block=False)
+                    r2 = self.world.receive(f_myt[myt], world_rank,
+                                            tag=202, block=False)
+                    r3 = self.world.receive(ut_mytR[myt], world_rank,
+                                            tag=203, block=False)
+                    r4 = self.world.receive(P.array[myt], world_rank,
+                                            tag=204, block=False)
+                    requests += [r1, r2, r3, r4]
 
-                if p == self.kptblockcomm.rank:
-                    # store data                                               XXX
-                    pass
-
-            # pack data                                                        XXX
-
-        # Be sure all data has been received
-        # Can this be done in a smarter way?                                   XXX
-        self.world.barrier()
+        # Pack data, if any
+        if data is not None:
+            # Be sure all data has been received
+            for request in requests:
+                self.world.wait(request)
+            # This is stupid, change projections format                        XXX
+            ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
+            Pl_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
+            P_amyti = P.toarraydict()
+            for a in P_amyti:
+                Pl_amyti[a] = P_amyti[a]
+            data += (eps_myt, f_myt, ut_mytR, Pl_amyti)
 
         return data
 
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
+
+    def who_has(self, p, t):
+        """Convert k-point and transition index to global world rank 
+        and local transition index"""
+        raise NotImplementedError  #                                           XXX
 
     def _get_orbital_data(self, myu, myn):
         """Get the data from a single Kohn-Sham orbital."""
@@ -436,12 +483,12 @@ class KohnShamPair:
         # Get eig, occ and smooth wave function
         eps, f, psit_G = kpt.eps_n[myn], kpt.f_n[myn], kpt.psit_nG[myn]
         # Fourier transform to real space
-        psit_R = self.calc.wfs.pd.ifft(psit_G, kpt.q)
+        ut_R = self.calc.wfs.pd.ifft(psit_G, kpt.q)
         # Get projections
         assert kpt.projections.atoms_partition.comm.size == 1
         P_I = kpt.projections.array[myn]
 
-        return eps, f, psit_R, P_I
+        return eps, f, ut_R, P_I
 
     @timer('Symmetrizing wavefunctions')
     def apply_symmetry(self, K, k_c, utuns_mytR, Puns_amyti):
