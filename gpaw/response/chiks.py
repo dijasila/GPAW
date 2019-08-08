@@ -92,27 +92,11 @@ class ChiKS(PlaneWaveKSLRF):
                        hw + (eps_n'k's'-eps_nks) + ih eta |
                                                           /
         """
-        '''  # remove XXX
-        # Get all pairs of Kohn-Sham transitions:
-        # (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
-        k_c = np.dot(self.pd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = self.pd.kd.bzk_kc[0]
-        kskptpairs = self.kspair.get_kpoint_pairs(n1_t, n2_t, k_c, k_c + q_c,
-                                                  s1_t, s2_t)
-        '''
         # Get data, distributed in memory
         # Get bands and spins of the transitions
         n1_t, n2_t, s1_t, s2_t = kskptpair.get_transitions()
         # Get (f_n'k's' - f_nks), (eps_n'k's' - eps_nks) and the pair densities
         df_t, deps_t, n_tG = kskptpair.df_t, kskptpair.deps_t, kskptpair.n_tG
-
-        '''  # remove XXX
-        self._add_integrand(n1_t, n2_t, s1_t, s2_t,
-                            df_t, deps_t, n_tG, A_x)
-    def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,
-                       df_t, deps_t, n_tG, A_x):
-        """In-place calculation of the integrand (depends on bandsummation)"""
-        '''
 
         x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 

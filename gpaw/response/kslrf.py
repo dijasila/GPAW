@@ -745,19 +745,6 @@ class Integrator:
         self.kslrf = kslrf
         self.timer = self.kslrf.timer
 
-    '''  # remove XXX
-    def distribute_kpoint_domain(self, bzk_kv):
-        """Distribute the k-point integration over processes that are
-        allocating memory for the same fraction of large arrays."""
-        nk = bzk_kv.shape[0]
-        size = self.kslrf.intrablockcomm.size
-        rank = self.kslrf.intrablockcomm.rank
-
-        mynk = (nk + size - 1) // size
-        i1 = rank * mynk
-        i2 = min(i1 + mynk, nk)
-        return bzk_kv[i1:i2]
-    '''
     def slice_kpoint_domain(self, bzk_kv):
         """When integrating over k-points, slice the domain in pieces with one
         k-point per process each.
@@ -834,16 +821,6 @@ class PWPointIntegrator(Integrator):
         out_x /= kpointvol
 
         # Sum over kpoints
-        '''  # remove XXX
-        mybzk_kv = self.distribute_kpoint_domain(bzk_kv)
-
-        tmp_x = np.zeros_like(out_x)
-        pb = ProgressBar(self.kslrf.cfd)
-        for _, k_v in pb.enumerate(mybzk_kv):
-            self.kslrf.add_integrand(k_v, n1_t, n2_t, s1_t, s2_t,
-                                     tmp_x, **kwargs)
-        '''
-
         # Each process will do its own k-points, but it has to follow the
         # others, as it may have to send them information about its partition
         # of the ground state
