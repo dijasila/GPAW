@@ -35,8 +35,8 @@ html_title = 'GPAW'
 html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
-dev_version = '19.8.1b1'  # This line auto-edited by newrelease script
-stable_version = '19.8.0'  # This line auto-edited by newrelease script
+dev_version = '19.8.2b1'  # This line auto-edited by newrelease script
+stable_version = '19.8.1'  # This line auto-edited by newrelease script
 html_context = {
     'current_version': __version__,
     'versions':
