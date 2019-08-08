@@ -295,7 +295,7 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         self.timer.stop('Update two-center overlap')
 
     def get_rotated_coefficients(self, X_aa):
-        """Rotate two-center projector expansion coefficients with
+        r"""Rotate two-center projector expansion coefficients with
         the projector-projector overlap integrals as basis.
 
         Performs the following operation and returns the result::

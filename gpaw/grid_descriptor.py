@@ -36,7 +36,7 @@ class BadGridError(ValueError):
 
 
 class GridDescriptor(Domain):
-    """Descriptor-class for uniform 3D grid
+    r"""Descriptor-class for uniform 3D grid
 
     A ``GridDescriptor`` object holds information on how functions, such
     as wave functions and electron densities, are discreticed in a
