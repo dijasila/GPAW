@@ -73,14 +73,13 @@ calc = GPAW(xc=xc,
 
 Febcc.set_calculator(calc)
 Febcc.get_potential_energy()
-# calc.write('Fe', 'all')  # remove XXX
 t2 = time.time()
 
 # Part 2: magnetic response calculation
 
 for s, ((rshe, bandsummation, memory_safe), frq_w) in enumerate(zip(strat_sd,
                                                                     frq_sw)):
-    tms = TransverseMagneticSusceptibility(calc,  # 'Fe',  # remove me XXX
+    tms = TransverseMagneticSusceptibility(calc,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,

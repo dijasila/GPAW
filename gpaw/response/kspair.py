@@ -471,15 +471,15 @@ class KohnShamPair:
                                             tag=204, block=False)
                     rrequests += [r1, r2, r3, r4]
 
+        # Be sure all data is sent
         for request in srequests:
             self.world.wait(request)
-        self.world.barrier()
+        # Be sure all data has been received
+        for request in rrequests:
+            self.world.wait(request)
+
         # Pack data, if any
         if data is not None:
-            # Be sure all data has been received
-            for request in rrequests:
-                self.world.wait(request)
-            self.world.barrier()
             # This is stupid, change projections format                        XXX
             ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
             Pl_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
