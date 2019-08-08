@@ -56,6 +56,7 @@ class KohnShamKPointPair:
 
         A_tx = np.empty((self.mynt * self.comm.size,) + A_mytx.shape[1:],
                         dtype=A_mytx.dtype)
+
         self.comm.all_gather(A_mytx, A_tx)
 
         return A_tx[:self.nt]
@@ -232,12 +233,18 @@ class KohnShamPair:
         calculation. Can be used to omit null-transitions between two occupied
         bands or between two unoccupied bands."""
         ftol = 1.e-9  # Could be given as input
-        self.nocc1 = 9999999
-        self.nocc2 = 0
+        nocc1 = 9999999
+        nocc2 = 0
         for kpt in self.calc.wfs.kpt_u:
             f_n = kpt.f_n / kpt.weight
-            self.nocc1 = min((f_n > 1 - ftol).sum(), self.nocc1)
-            self.nocc2 = max((f_n > ftol).sum(), self.nocc2)
+            nocc1 = min((f_n > 1 - ftol).sum(), nocc1)
+            nocc2 = max((f_n > ftol).sum(), nocc2)
+        nocc1 = np.int(nocc1)
+        nocc2 = np.int(nocc2)
+        nocc1 = self.world.min(nocc1)
+        nocc2 = self.world.max(nocc2)
+        self.nocc1 = int(nocc1)
+        self.nocc2 = int(nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
         print('Number of partially filled bands:', self.nocc2, file=self.fd)
         print('Total number of bands:', self.calc.wfs.bd.nbands,
@@ -272,7 +279,6 @@ class KohnShamPair:
 
     def distribute_transitions(self, nt):
         """Distribute transitions between processes in block communicator"""
-
         if self.transitionblockscomm is None:
             mynt = nt
             ta = 0
@@ -391,9 +397,9 @@ class KohnShamPair:
     def extract_parallel_kptdata(self, k_pc, n_t, s_t):
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
         and Kohn-Sham orbitals from ground state with distributed memory."""
-        raise NotImplementedError('Parallel data extraction not yet supported')
-        # Implement me                                                         XXX
         wfs = self.calc.wfs
+        # Make sure self.world == wfs.world in get_calc                        XXX
+        assert self.world.rank == wfs.world.rank
         data = None
         # Allocate data arrays.
         # Each process only has a single k-point to evaluate.
@@ -401,10 +407,11 @@ class KohnShamPair:
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
         ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
-        P = wfs.kpt_u[0].projections.new(bands=mynt)
+        P = wfs.kpt_u[0].projections.new(nbands=mynt)
 
         # Extract and send/receive all data
-        requests = []
+        rrequests = []
+        srequests = []
         for p, k_c in enumerate(k_pc):
             K = self.find_kpoint(k_c)
             ik = wfs.kd.bz2ibz_k[K]
@@ -422,43 +429,57 @@ class KohnShamPair:
                 if (wfs.kd.comm.rank == kpt_rank
                     and wfs.bd.comm.rank == band_rank):
                     eps, f, ut_R, P_I = self._get_orbital_data(myu, myn)
-                    # Send data, if it belongs to another process
-                    if self.world.rank != data_rank:
-                        eps = np.array([eps])
-                        self.world.send(eps, data_rank,
-                                        tag=201, block=False)
-                        f = np.array([f])
-                        self.world.send(f, data_rank,
-                                        tag=202, block=False)
-                        self.world.send(ut_R, data_rank,
-                                        tag=203, block=False)
-                        self.world.send(P_I, data_rank,
-                                        tag=204, block=False)
+                    if self.world.rank == data_rank:
+                        # Store data
+                        # print(self.world.rank, 'Storing', p, t, file=self.fd)  # remove me XXX
+                        # self.fd.flush()  # remove me XXX
+                        eps_myt[myt] = eps
+                        f_myt[myt] = f
+                        ut_mytR[myt] = ut_R
+                        P.array[myt] = P_I
                     else:
-                        # store data                                           XXX
-                        pass
+                        # Send data, if it belongs to another process
+                        # print(self.world.rank, 'Sending', p, t, 'to', data_rank, flush=True)  # remove me XXX
+                        eps = np.array([eps])
+                        s1 = self.world.send(eps, data_rank,
+                                             tag=201, block=False)
+                        f = np.array([f])
+                        s2 = self.world.send(f, data_rank,
+                                             tag=202, block=False)
+                        s3 = self.world.send(ut_R, data_rank,
+                                             tag=203, block=False)
+                        s4 = self.world.send(P_I, data_rank,
+                                             tag=204, block=False)
+                        srequests += [s1, s2, s3, s4]
+
                 elif self.world.rank == data_rank:
                     # XXX this will fail when using non-standard nesting
                     # of communicators.
-                    # make sure self.world == wfs.world                        XXX
+                    assert wfs.gd.comm.size == 1
                     world_rank = (kpt_rank * wfs.gd.comm.size *
                                   wfs.bd.comm.size +
                                   band_rank * wfs.gd.comm.size)
-                    r1 = self.world.receive(eps_myt[myt], world_rank,
+                    # print(self.world.rank, 'Receiving', p, t, 'from',
+                    #       world_rank, flush=Tru)  # remove me XXX
+                    r1 = self.world.receive(eps_myt[myt:myt + 1], world_rank,
                                             tag=201, block=False)
-                    r2 = self.world.receive(f_myt[myt], world_rank,
+                    r2 = self.world.receive(f_myt[myt:myt + 1], world_rank,
                                             tag=202, block=False)
                     r3 = self.world.receive(ut_mytR[myt], world_rank,
                                             tag=203, block=False)
                     r4 = self.world.receive(P.array[myt], world_rank,
                                             tag=204, block=False)
-                    requests += [r1, r2, r3, r4]
+                    rrequests += [r1, r2, r3, r4]
 
+        for request in srequests:
+            self.world.wait(request)
+        self.world.barrier()
         # Pack data, if any
         if data is not None:
             # Be sure all data has been received
-            for request in requests:
+            for request in rrequests:
                 self.world.wait(request)
+            self.world.barrier()
             # This is stupid, change projections format                        XXX
             ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
             Pl_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
@@ -473,19 +494,35 @@ class KohnShamPair:
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     def who_has(self, p, t):
-        """Convert k-point and transition index to global world rank 
+        """Convert k-point and transition index to global world rank
         and local transition index"""
-        raise NotImplementedError  #                                           XXX
+        assert isinstance(p, int) and p in range(self.kptblockcomm.size)
+        assert isinstance(t, int) and t >= 0
+        krank = p
+        trank = None
+
+        ta = 0
+        i = 0
+        while trank is None:
+            if t in range(ta, ta + self.mynt):
+                trank = i
+            else:
+                ta += self.mynt
+                i += 1
+
+        return krank * self.transitionblockscomm.size + trank, t - ta
 
     def _get_orbital_data(self, myu, myn):
         """Get the data from a single Kohn-Sham orbital."""
         kpt = self.calc.wfs.kpt_u[myu]
-        # Get eig, occ and smooth wave function
-        eps, f, psit_G = kpt.eps_n[myn], kpt.f_n[myn], kpt.psit_nG[myn]
+        # Get eig and occ
+        eps, f = kpt.eps_n[myn], kpt.f_n[myn] / kpt.weight
+        # Smooth wave function
+        psit_G = kpt.psit_nG[myn]
         # Fourier transform to real space
         ut_R = self.calc.wfs.pd.ifft(psit_G, kpt.q)
         # Get projections
-        assert kpt.projections.atoms_partition.comm.size == 1
+        assert kpt.projections.atom_partition.comm.size == 1
         P_I = kpt.projections.array[myn]
 
         return eps, f, ut_R, P_I
