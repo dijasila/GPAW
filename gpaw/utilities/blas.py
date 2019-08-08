@@ -267,7 +267,7 @@ def r2k(alpha, a, b, beta, c):
 
 
 def dotc(a, b):
-    """Dot product, conjugating the first vector with complex arguments.
+    r"""Dot product, conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
 
@@ -332,11 +332,11 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         else:
             return alpha * _gpaw.dotu(a, b)
 
-##     # Use gemv if a or b is a vector, and the other is a matrix??
-##     if a.ndim == 1 and trans == 'n':
-##         gemv(alpha, b, a, beta, out, trans='n')
-##     if b.ndim == 1 and trans == 'n':
-##         gemv(alpha, a, b, beta, out, trans='t')
+#     # Use gemv if a or b is a vector, and the other is a matrix??
+#     if a.ndim == 1 and trans == 'n':
+#         gemv(alpha, b, a, beta, out, trans='n')
+#     if b.ndim == 1 and trans == 'n':
+#         gemv(alpha, a, b, beta, out, trans='t')
 
     # Map all arrays to 2D arrays
     a = a.reshape(-1, a.shape[-1])
