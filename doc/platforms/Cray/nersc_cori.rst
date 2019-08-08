@@ -5,7 +5,7 @@ cori.nersc.gov (XC40)
 =====================
 
 .. note::
-   These instructions are up-to-date as of July 2018.
+   These instructions are up-to-date as of August 2019.
 
 GPAW
 ====
@@ -22,7 +22,7 @@ Load the GNU programming environment and set Cray environment for dynamic
 linking::
 
   export CRAYPE_LINK_TYPE=dynamic
-  module swap ${PE_ENV,,} PrgEnv-gnu
+  module swap PrgEnv-${PE_ENV,,} PrgEnv-gnu
   module load python
 
 Create a conda environment for gpaw::
@@ -41,7 +41,7 @@ Build and install GPAW::
 
 To setup the environment::
 
-  module swap ${PE_ENV,,} PrgEnv-gnu
+  module swap PrgEnv-${PE_ENV,,} PrgEnv-gnu
   module load python
   source activate gpaw
   export OMP_NUM_THREADS=1

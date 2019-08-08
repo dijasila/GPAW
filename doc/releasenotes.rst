@@ -13,6 +13,16 @@ Git master branch
 * Corresponding ASE release: ASE-3.18.1b1
 
 
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
+
 Version 19.8.0
 ==============
 

@@ -6,15 +6,20 @@
 
 import re
 import sys
+import time
 from math import sqrt, exp
+from contextlib import contextmanager
+from typing import Union
+from pathlib import Path
 
+from ase.utils import devnull
 import numpy as np
 from numpy import linalg
 
 import _gpaw
+import gpaw.mpi as mpi
 from gpaw import debug
 
-from ase.utils import devnull
 
 utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
@@ -183,7 +188,7 @@ def unpack2(M):
 
 
 def pack(A):
-    """Pack a 2D array to 1D, adding offdiagonal terms.
+    r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
 
@@ -343,15 +348,18 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     """
 
     # Define the weight function
-    lsqr_weight = lambda r2: exp(-r2)
+    def lsqr_weight(r2):
+        return exp(-r2)
 
     # Define the polynomial basis
     if order == 1:
-        b = lambda x: np.array([1, x[0], x[1], x[2]])
+        def b(x):
+            return np.array([1, x[0], x[1], x[2]])
     elif order == 2:
-        b = lambda x: np.array([1, x[0], x[1], x[2],
-                                x[0] * x[1], x[1] * x[2], x[2] * x[0],
-                                x[0]**2, x[1]**2, x[2]**2])
+        def b(x):
+            return np.array([1, x[0], x[1], x[2],
+                             x[0] * x[1], x[1] * x[2], x[2] * x[0],
+                             x[0]**2, x[1]**2, x[2]**2])
     else:
         raise NotImplementedError
 
@@ -381,3 +389,52 @@ def interpolate_mlsqr(dg_c, vt_g, order):
     c = linalg.solve(X2, y2)
     a = np.dot(b(dg_c), c)
     return a
+
+
+def unlink(path: Union[str, Path], world=None):
+    """Safely unlink path (delete file or symbolic link)."""
+
+    if isinstance(path, str):
+        path = Path(path)
+    if world is None:
+        world = mpi.world
+
+    # Remove file:
+    if world.rank == 0:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+    else:
+        while path.is_file():
+            time.sleep(1.0)
+    world.barrier()
+
+
+@contextmanager
+def file_barrier(path: Union[str, Path], world=None):
+    """Context manager for writing a file.
+
+    After the with-block all cores will be able to read the file.
+
+    >>> with file_barrier('something.txt'):
+    ...     <write file>
+    ...
+
+    This will remove the file, write the file and wait for the file.
+    """
+
+    if isinstance(path, str):
+        path = Path(path)
+    if world is None:
+        world = mpi.world
+
+    # Remove file:
+    unlink(path, world)
+
+    yield
+
+    # Wait for file:
+    while not path.is_file():
+        time.sleep(1.0)
+    world.barrier()
