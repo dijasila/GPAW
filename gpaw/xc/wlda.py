@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.xc.lda import PurePythonLDAKernel, lda_c, lda_x, lda_constants
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
-from plotter import Plotter
+
 
 class WLDA(XCFunctional):
     def __init__(self, kernel=None, mode="", filter_kernel=""):
@@ -1130,7 +1130,7 @@ class WLDA(XCFunctional):
 
     def get_ni_grid(self, my_rank, world_size, n_sg):
         from gpaw.xc.WDAUtils import get_ni_grid
-        return get_ni_grid(my_rank, world_size, n_sg, self.num_nis)
+        return get_ni_grid(my_rank, world_size, np.max(n_sg), self.num_nis)
 
 
     def get_f_isg(self, ni_j, ni_lower, ni_upper, n_sg):

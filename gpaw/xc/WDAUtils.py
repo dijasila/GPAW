@@ -26,15 +26,17 @@ def correct_density(n_sg, gd, setups, spos_ac):
     return np.array([dens])
 
 
-def get_ni_grid(rank, size, n_sg, pts_per_rank):
+def get_ni_grid(rank, size, endval, pts_per_rank, grid_fct=None):
     assert rank >= 0 and rank < size
     # Make an interface that allows for testing
     
     # Algo:
     # Define a global grid. We want a grid such that each rank has not too many
     num_pts = pts_per_rank *size
-    fulln_i = np.linspace(0, np.max(n_sg), num_pts)
-    
+    if grid_fct is None:
+        fulln_i = np.linspace(0, endval, num_pts)
+    else:
+        fulln_i = grid_fct(0, endval, num_pts)
     # Split it up evenly
     my_start = rank * pts_per_rank
     my_n_i = fulln_i[my_start:my_start+pts_per_rank]
