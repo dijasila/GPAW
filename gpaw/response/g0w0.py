@@ -1222,6 +1222,15 @@ class G0W0(PairDensity):
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             self.exx_skn = exx.get_eigenvalue_contributions() / Ha
+            from gpaw.xc.hf import Hybrid
+            h = Hybrid()
+            c = self.calc
+            h.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
+            h.set_positions(c.spos_ac)
+            h.calculate_exx(*self.bands, self.kpts)
+            print(h.e_skn)
+            print(self.exx_skn)
+            assert np.allclose(h.e_skn, self.exx_skn)
             np.save(fd, self.exx_skn)
 
     def read_contribution(self, filename):

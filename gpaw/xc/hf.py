@@ -27,7 +27,7 @@ RSKPoint = namedtuple(
      'f_n',   # ...
      'k_c',
      'weight',
-     'index'  # IBZ k-point index
+     # 'index'  # IBZ k-point index
      ])
 
 
@@ -62,7 +62,7 @@ class EXX:
         pd = kpts1[0].psit.pd
         vpsit_nG = None
 
-        for k1, k2, count in self.ipairs(kpts1, kpts2):
+        for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
             q_c = k2.k_c - k1.k_c
             qd = KPointDescriptor([q_c])
 
@@ -73,29 +73,29 @@ class EXX:
             v_G = coulomb.get_potential(pd12)
 
             if vpsit_knG is not None:
-                vpsit_nG = vpsit_knG[k1.index]
+                vpsit_nG = vpsit_knG[i1]
 
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                               pd, k1.index, k2.f_n, vpsit_nG)
+                                               pd, i1, k2.f_n, vpsit_nG)
 
             if e_kn is not None:
-                e_nn *= count / self.kd.nbzkpts**2
+                e_nn *= count / self.kd.nbzkpts**1
                 exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
-                e_kn[k1.index] -= 0.5 * e_nn.dot(k2.f_n)
-                e_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
+                e_kn[i1] -= e_nn.dot(k2.f_n)
+                # e_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
 
         if e_kn is not None:
-            for psit, proj, f_n, k_c, weight in kpts1:
-                for a, P_ni in proj.items():
+            for i, kpt in enumerate(kpts1):
+                for a, P_ni in kpt.proj.items():
                     vv_n = np.einsum('ni,ij,nj->n',
                                      P_ni.conj(), VV_aii[a], P_ni).real
                     vc_n = np.einsum('ni,ij,nj->n',
                                      P_ni.conj(), self.VC_aii[a], P_ni).real
-                    exxvv -= vv_n.dot(f_n) * weight
-                    exxvc -= vc_n.dot(f_n) * weight
-                    e_kn[psit.kpt] -= (2 * vv_n + vc_n) * weight
+                    exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
+                    exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
+                    e_kn[i] -= (2 * vv_n + vc_n)
 
-            e_kn /= self.kd.weight_k[:, np.newaxis]
+        # e_kn /= self.kd.weight_k[indices, np.newaxis]
 
         return exxvv, exxvc
 
@@ -148,6 +148,8 @@ class EXX:
         kd = self.kd
         nsym = len(kd.symmetry.op_scc)
 
+        assert len(kpts2) == kd.nibzkpts
+
         symmetries_k = []
         for k in range(kd.nibzkpts):
             indices = np.where(kd.bz2ibz_k == k)[0]
@@ -174,26 +176,26 @@ class EXX:
                                     pairs[(i2, i1, s4)] += 1
         else:
             pairs = {}
-            for i1 in range(kd.nibzkpts):
+            for i1 in range(len(kpts1)):
                 for i2 in range(kd.nibzkpts):
                     for s2 in symmetries_k[i2]:
                         pairs[(i1, i2, s2)] = 1
 
-        lasti1 = None
-        lasti2 = None
+        lasti1 = -1
+        lasti2 = -1
         for (i1, i2, s), count in sorted(pairs.items()):
             if i1 is not lasti1:
                 k1 = kpts1[i1]
                 u1_nR = to_real_space(k1.psit)
                 rsk1 = RSKPoint(u1_nR, k1.proj, k1.f_n, k1.k_c,
-                                k1.weight, k1.psit.kpt)
+                                k1.weight)  # , k1.psit.kpt)
             if i2 is not lasti2:
                 k2 = kpts2[i2]
                 u2_nR = to_real_space(k2.psit)
                 rsk2 = RSKPoint(u2_nR, k2.proj, k2.f_n, k2.k_c,
-                                k2.weight, k2.psit.kpt)
+                                k2.weight)  # , k2.psit.kpt)
 
-            yield rsk1, self.apply_symmetry(s, rsk2), count
+            yield i1, rsk1, self.apply_symmetry(s, rsk2), count
 
             lasti1 = i1
             lasti2 = i2
@@ -202,7 +204,7 @@ class EXX:
         if s == 0:
             return rsk
 
-        u1_nR, proj1, f_n, k1_c, weight, ibz_index = rsk
+        u1_nR, proj1, f_n, k1_c, weight = rsk
 
         u2_nR = np.empty_like(u1_nR)
         proj2 = proj1.new()
@@ -231,7 +233,7 @@ class EXX:
             np.conj(u2_nR, out=u2_nR)
             np.conj(proj2.array, out=proj2.array)
 
-        return RSKPoint(u2_nR, proj2, f_n, k2_c, weight, ibz_index)
+        return RSKPoint(u2_nR, proj2, f_n, k2_c, weight)
 
 
 def to_real_space(psit):
@@ -273,6 +275,7 @@ class Hybrid:
     orbital_dependent = True
     type = 'LDA'
     name = 'EXX'
+    ftol = 1e-9
 
     def __init__(self):
         self.hybrid = 1.0
@@ -285,6 +288,7 @@ class Hybrid:
         self.evv = None
         self.evc = None
         self.vt_sR = None
+        self.spos_ac = None
 
     def get_setup_name(self):
         return 'LDA'
@@ -300,7 +304,7 @@ class Hybrid:
         pass
 
     def set_positions(self, spos_ac):
-        pass
+        self.spos_ac = spos_ac
 
     def calculate(self, gd, nt_sg, vxct_sg=None):
         return 0.0  # self.exx.ecc + self.evc + self.evv
@@ -323,7 +327,7 @@ class Hybrid:
 
         # print('Using Wigner-Seitz truncated Coulomb interaction.')
         self.coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
-        self.exx = EXX(wfs.kd, wfs.setups, wfs.spos_ac)
+        self.exx = EXX(wfs.kd, wfs.setups, self.spos_ac)
 
         self.initialized = True
 
@@ -336,30 +340,40 @@ class Hybrid:
             VV_aii.append(VV_ii)
         return VV_aii
 
-    def calculate_exx(self):
+    def calculate_exx(self, n1, n2, kpts):
         self._initialize()
 
         wfs = self.wfs
         kd = wfs.kd
-        rank = kd.comm.rank
-        size = kd.comm.size
+        # rank = kd.comm.rank
+        # size = kd.comm.size
+
+        nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
+                   for kpt in wfs.mykpts)
 
         evv = 0.0
         evc = 0.0
-        self.e_skn = np.zeros((wfs.nspins, kd.nibzkpts, wfs.bd.nbands))
+        self.e_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1))
 
-        for spin in range(rank, rank + wfs.nspins // size):
+        for spin in range(wfs.nspins):
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
             K = kd.nibzkpts
-            k1 = (spin - rank) * K
+            k1 = spin * K
             k2 = k1 + K
-            kpts = [KPoint(kpt.psit,
-                           kpt.projections,
-                           kpt.f_n / kpt.weight,  # scale to [0, 1]
-                           kd.ibzk_kc[kpt.k],
-                           kd.weight_k[kpt.k])
-                    for kpt in wfs.mykpts[k1:k2]]
-            e1, e2 = self.exx.calculate(kpts, kpts,
+            print(k1, k2, K, n1, n2, kpts)
+            kpts1 = [KPoint(kpt.psit.view(n1, n2),
+                            kpt.projections.view(n1, n2),
+                            kpt.f_n[n1:n2] / kpt.weight,  # scale to [0, 1]
+                            kd.ibzk_kc[kpt.k],
+                            kd.weight_k[kpt.k])
+                     for kpt in (wfs.mykpts[k] for k in kpts)]
+            kpts2 = [KPoint(kpt.psit.view(0, nocc),
+                            kpt.projections.view(0, nocc),
+                            kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
+                            kd.ibzk_kc[kpt.k],
+                            kd.weight_k[kpt.k])
+                     for kpt in wfs.mykpts[k1:k2]]
+            e1, e2 = self.exx.calculate(kpts1, kpts2,
                                         self.coulomb,
                                         VV_aii,
                                         self.e_skn[spin])
