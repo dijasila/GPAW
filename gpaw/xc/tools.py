@@ -12,6 +12,10 @@ def vxc(paw, xc=None, coredensity=True):
     dens = paw.density
     wfs = paw.wfs
 
+    return _vxc(xc, ham, dens, wfs, paw, coredensity)
+
+
+def _vxc(xc, ham, dens, wfs, paw=None, coredensity=True):
     if xc is None:
         xc = ham.xc
     elif isinstance(xc, str):

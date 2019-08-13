@@ -6,7 +6,9 @@ from ase.units import Ha
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.xc import XC
 from gpaw.xc.exx import pawexxvv
+from gpaw.xc.tools import _vxc
 from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
@@ -156,6 +158,7 @@ class EXX:
             sindices = (kd.sym_k[indices] +
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
+        print(nsym, kd.bz2ibz_k)
 
         # pairs: Dict[Tuple[int, int, int], int]
 
@@ -210,9 +213,10 @@ class EXX:
         proj2 = proj1.new()
 
         nsym = len(self.kd.symmetry.op_scc)
-        time_reversal = s > nsym
+        time_reversal = s >= nsym
+        s %= nsym
         sign = 1 - 2 * int(time_reversal)
-        U_cc = self.kd.symmetry.op_scc[s % nsym]
+        U_cc = self.kd.symmetry.op_scc[s]
 
         k2_c = sign * U_cc.dot(k1_c)
 
@@ -248,7 +252,7 @@ def to_real_space(psit):
 def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
     sym = kd.symmetry
     U_scc = sym.op_scc
-    assert (U_scc[0] == np.eye(3)).all()
+    assert (U_scc[0] == np.eye(3)).all(), U_scc
     nsym = len(U_scc)
     compconj_s = np.zeros(nsym, bool)
     if sym.time_reversal and not sym.has_inversion:
@@ -271,16 +275,44 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
     return map_ss
 
 
+def parse_name(name):
+    if name == 'EXX':
+        return None, 1.0, None
+    if name == 'PBE0':
+        return 'HYB_GGA_XC_PBEH', 0.25, None
+    if name == 'HSE03':
+        return 'HYB_GGA_XC_HSE03', 0.25, 0.106
+    if name == 'HSE06':
+        return 'HYB_GGA_XC_HSE06', 0.25, 0.11
+    if name == 'B3LYP':
+        return 'HYB_GGA_XC_B3LYP', 0.2, None
+
+
 class Hybrid:
-    orbital_dependent = True
-    type = 'LDA'
-    name = 'EXX'
+    # orbital_dependent = True
+    # type = 'LDA'
     ftol = 1e-9
 
-    def __init__(self):
-        self.hybrid = 1.0
+    def __init__(self,
+                 name: str = None,
+                 xc=None,
+                 exx_fraction: float = None,
+                 omega: float = None):
+
+        if name is not None:
+            assert xc is None and exx_fraction is None and omega is None
+            xc, exx_fraction, omega = parse_name(name)
+
+        if isinstance(xc, (str, dict)):
+            xc = XC(xc)
+
+        self.xc = xc
+        self.exx_fraction = exx_fraction
+        self.omega = omega
+
         self.initialized = False
         self.dens = None
+        self.ham = None
         self.wfs = None
         self.exx = None
         self.coulomb = None
@@ -294,8 +326,9 @@ class Hybrid:
         return 'LDA'
 
     def initialize(self, dens, ham, wfs, occupations):
-        self.wfs = wfs
         self.dens = dens
+        self.ham = ham
+        self.wfs = wfs
 
     def get_description(self):
         return '*****\n' * 4
@@ -326,10 +359,19 @@ class Hybrid:
         assert wfs.bd.comm.size == 1
 
         # print('Using Wigner-Seitz truncated Coulomb interaction.')
-        self.coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
         self.exx = EXX(wfs.kd, wfs.setups, self.spos_ac)
 
         self.initialized = True
+
+        if self.omega is None:
+            # Wigner-Seitz truncated Coulomb:
+            self.coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
+        else:
+            def coulomb(pd):
+                G2_G = pd.G2_qG[0]
+                x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
+                return 4 * np.pi * x_G / G2_G
+            self.coulomb = coulomb
 
     def calculate_valence_valence_paw_corrections(self, spin):
         VV_aii = []
@@ -384,6 +426,12 @@ class Hybrid:
         deg = 2 / wfs.nspins
         self.evv = kd.comm.sum(evv) * deg
         self.evc = kd.comm.sum(evc) * deg
+
+        self.e_skn * self.exx_fraction
+
+        if self.xc:
+            vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs)
+            self.e_skn += vxc_skn[:, kpts, n1:n2] / Ha
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):

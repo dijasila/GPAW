@@ -66,9 +66,6 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
                       kpts=kpts,
                       txt='%s.txt' % name)
 
-    if name in ['MgO', 'NaCl']:
-        atoms.calc.set(eigensolver='dav')
-
     atoms.get_potential_energy()
     atoms.calc.write(name + '.gpw', mode='all')
 
