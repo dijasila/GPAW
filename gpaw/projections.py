@@ -6,7 +6,7 @@ from gpaw.mpi import serial_comm
 
 class Projections:
     def __init__(self, nbands, nproj_a, atom_partition, bcomm,
-                 collinear=True, spin=0, dtype=float):
+                 collinear=True, spin=0, dtype=float, data=None):
         self.nproj_a = np.asarray(nproj_a)
         self.atom_partition = atom_partition
         self.bcomm = bcomm
@@ -28,7 +28,7 @@ class Projections:
         if not collinear:
             I1 *= 2
 
-        self.matrix = Matrix(nbands, I1, dtype, dist=(bcomm, bcomm.size, 1))
+        self.matrix = Matrix(nbands, I1, dtype, data, dist=(bcomm, bcomm.size, 1))
 
         if collinear:
             self.myshape = self.matrix.array.shape
@@ -52,6 +52,12 @@ class Projections:
             nbands or self.nbands, self.nproj_a,
             self.atom_partition if atom_partition is None else atom_partition,
             bcomm, self.collinear, self.spin, self.matrix.dtype)
+
+    def view(self, n1: int, n2: int) -> 'Projections':
+        return Projections(n2 - n1, self.nproj_a,
+                           self.atom_partition,
+                           self.bcomm, self.collinear, self.spin,
+                           self.matrix.dtype, self.matrix.array[n1:n2])
 
     def items(self):
         for a, I1, I2 in self.indices:
