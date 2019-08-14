@@ -49,7 +49,10 @@ class WLDA(XCFunctional):
         if self.mode.lower() == "renorm":
             self.renorm_mode(gd, n_sg, v_sg, e_g)
             return
-    
+        if self.mode.lower() == "normal":
+            self.normal_mode(gd, n_sg, v_sg, e_g)
+            return
+        
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -1104,11 +1107,13 @@ class WLDA(XCFunctional):
         # Each rank has only a part of the density
         # but later each rank needs the full density, so sum it
         mpi.world.sum(nu_sg)
+        nu_sg[nu_sg < 1e-20] = 1e-40
 
         # Norms are needed for later calculations
         weighted_norm = gd1.integrate(nu_sg)
         ae_norm = gd1.integrate(nae_sg)
-        
+        assert (weighted_norm > 0).all()
+        assert (ae_norm > 0).all()
         # Calculate WLDA energy, E_WLDA = E_LDA[n^*]
         # How do we handle the fact the density is not positive definite?
         # The energy is the correct energy, hence the WLDA suffix.
@@ -1116,13 +1121,12 @@ class WLDA(XCFunctional):
         EWLDA_g, vLDA_sg = self.calculate_lda_energy_and_potential(nu_sg * ae_norm / weighted_norm)
 
         # Calculate WLDA potential
-        vWLDA_sg = self.calculate_wlda_potential(f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd)
+        vWLDA_sg = self.calculate_wlda_potential(f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd1)
         mpi.world.sum(vWLDA_sg)
         
         # Put calculated quantities into arrays
         gd.distribute(vWLDA_sg, v_sg)
         gd.distribute(EWLDA_g, e_g)
-
 
     def get_ae_density(self, gd, n_sg):
         from gpaw.xc.WDAUtils import correct_density
@@ -1131,7 +1135,6 @@ class WLDA(XCFunctional):
     def get_ni_grid(self, my_rank, world_size, n_sg):
         from gpaw.xc.WDAUtils import get_ni_grid
         return get_ni_grid(my_rank, world_size, np.max(n_sg), self.num_nis)
-
 
     def get_f_isg(self, ni_j, ni_lower, ni_upper, n_sg):
         # We want to construct an array f_isg where f_isg[a,b,c]
@@ -1206,20 +1209,33 @@ class WLDA(XCFunctional):
         return nu_sg
 
     def calculate_lda_energy_and_potential(self, n_sg):
-        v_sg = np.zeros_like(n_sg)
-        e_g = np.zeros_like(n_sg[0])
+        assert n_sg.dtype == np.float64
+        assert (n_sg >= 0).all()
+        n_sg[n_sg < 1e-20] = 1e-40
+        v_sg = np.zeros_like(n_sg).astype(np.float64)
+        e_g = np.zeros_like(n_sg[0]).astype(np.float64)
         if len(n_sg) == 1:
             lda_x(0, e_g, n_sg[0], v_sg[0])
             lda_c(0, e_g, n_sg[0], v_sg[0], 0)
         else:
             raise NotImplementedError
+        e_g[np.isnan(e_g)] = 0
+        v_sg[np.isnan(v_sg)] = 0
+        assert np.allclose(e_g, e_g.real)
+        assert not np.isnan(v_sg).any()
+        assert np.allclose(v_sg, v_sg.real), "Mean abs imag: {}. Max val n_sg: {}".format(np.mean(np.abs(v_sg.imag)), np.max(np.abs(n_sg)))
         return e_g, v_sg
         
     def calculate_wlda_potential(self, f_isg, w_isg, nu_sg, ae_norm, weighted_norm, vLDA_sg, gd):
+        vWLDA_sg = np.zeros_like(vLDA_sg)
         energy_factor = gd.integrate(nu_sg * vLDA_sg)
+        assert energy_factor.ndim == 0 or energy_factor.ndim == 1, "Ndim was: {}".format(energy_factor.ndim)
         pre_factor = (1 / weighted_norm - ae_norm / weighted_norm**2)
+        assert pre_factor.ndim == 0 or pre_factor.ndim == 1, pre_factor.ndim
         w1_sg = self.calculate_integral_with_w_isg(f_isg, w_isg)
         w2_sg = self.calculate_integral_with_F_sg_f_isg_w_isg(vLDA_sg, f_isg, w_isg)
+        assert w1_sg.shape == w2_sg.shape
+
 
         vWLDA_sg = ae_norm / weighted_norm * w2_sg + pre_factor * energy_factor * w1_sg
         return vWLDA_sg
@@ -1228,15 +1244,58 @@ class WLDA(XCFunctional):
         F_isG = np.fft.fftn(f_isg, axes=(2,3,4))
         W_isG = np.fft.fftn(w_isg, axes=(2,3,4))
         res_isg = np.fft.ifftn(W_isG*F_isG, axes=(2,3,4))
-        assert np.allclose(res_isg, res_isg.real)
-        return res_isg.sum(axis=0).real
+        # assert np.allclose(res_isg, res_isg.real)
+        return res_isg.sum(axis=0).real.copy()
 
     def calculate_integral_with_F_sg_f_isg_w_isg(self, F_sg, f_isg, w_isg):
-        F_isg = f_isg * F_sg[np.newaxis, :, :]
+        F_isg = f_isg * F_sg[np.newaxis, ...]
         F_isG = np.fft.fftn(F_isg, axes=(2,3,4))
         w_isG = np.fft.fftn(w_isg, axes=(2,3,4))
         
         res_isg = np.fft.ifftn(w_isG*F_isG, axes=(2,3,4))
-        assert np.allclose(res_isg, res_isg.real)
-        return res_isg.sum(axis=0).real
+        # assert np.allclose(res_isg, res_isg.real)
+        return res_isg.sum(axis=0).real.copy()
 
+
+
+    def normal_mode(self, gd, n_sg, v_sg, e_g):
+
+        nae_sg = self.get_ae_density(gd, n_sg)
+        
+        ni_j, ni_lower, ni_upper = self.get_ni_grid(mpi.rank, mpi.size, nae_sg)
+
+        f_isg = self.get_f_isg(ni_j, ni_lower, ni_upper, nae_sg)
+
+        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        w_isg = self.get_w_isg(ni_j, nae_sg, gd1, self.filter_kernel)
+
+        nu_sg = self.weight_density(f_isg, w_isg)
+        mpi.world.sum(nu_sg)
+
+        nu_sg[nu_sg < 1e-20] = 1e-40
+
+        EWLDA_g, vLDA_sg = self.calculate_lda_energy_and_potential(nu_sg)
+
+        vWLDA_sg = self.calculate_unnormed_wlda_pot(f_isg, w_isg, vLDA_sg)
+        mpi.world.sum(vWLDA_sg)
+
+        gd.distribute(vWLDA_sg, v_sg)
+        gd.distribute(EWLDA_g, e_g)
+
+    def calculate_unnormed_wlda_pot(self, f_isg, w_isg, vLDA_sg):
+        # Fold f_isg * vLDA_sg with w_isg
+        # Use convolution theorem
+
+        result_sg = np.zeros(f_isg.shape[1:])
+
+        assert np.allclose(f_isg, f_isg.real)
+        assert np.allclose(w_isg, w_isg.real)
+        assert np.allclose(vLDA_sg, vLDA_sg.real)
+
+        for i, f_sg in enumerate(f_isg):
+            F1_sG = np.fft.fftn(f_sg * vLDA_sg, axes=(1,2,3))
+            F2_sG = np.fft.fftn(w_isg[i], axes=(1,2,3))
+            
+            result_sg += np.fft.ifftn(F1_sG * F2_sG, axes=(1,2,3)).real
+
+        return result_sg

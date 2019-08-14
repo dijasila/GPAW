@@ -17,6 +17,8 @@ class WDA(XCFunctional):
         else:
             self.get_Zs = self.standardmode_Zs
         
+        self.mode = mode
+        self.densitymode = densitymode
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
@@ -43,19 +45,38 @@ class WDA(XCFunctional):
         Z_ig, Z_lower_g, Z_upper_g = self.get_Zs(wn_sg, ni_grid, lower, upper, grid, spin, gd1)
 
         # Get alphas
-        # alpha_i = self.get_alphas(Z_i, Z_lower, Z_upper)
+        alpha_ig = self.get_alphas(Z_i, Z_lower, Z_upper)
 
         # Calculate Vs
+        V_sg = self.calculate_V1(alpha_ig, wn_sg)
+        V_sg += self.calculate_V1p(alpha_ig, wn_sg)
+
+        dalpha_ig = self.get_dalpha_ig()
+        V_sg += self.calculate_V2(alpha_ig, dalpha_ig, wn_sg)
+
         # Add correction if symmetric mode
+        if self.mode.lower() == "symmetric":
+            V_sg += self.calculate_sym_pot_correction(alpha_ig, wn_sg)
+        mpi.world.sum(V_sg)
+
 
         # Calculate energy
+        eWDA_g = self.calculate_energy(alpha_ig, wn_sg)
+
         # Add correction if symmetric mode
+        if self.mode.lower() == "symmetric":
+            eWDA_g += self.calculate_sym_energy_correction(alpha_ig, wn_sg)
 
-        
+        # Correct if we want to use WDA for valence density only
+        if self.densitymode.lower() == "valence":
+            eWDA_g += self.calculate_energy_correction_valence_mode(wn_sg, n_sg)
 
-        pass
+        mpi.world.sum(eWDA_g)
 
-    
+
+        gd.distribute(eWDA_g, e_g)
+        gd.distribute(V_sg, v_sg)
+
     def get_corrected_density(self, n_sg, gd):
         from gpaw.xc.WDAUtils import correct_density
         return correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac)
@@ -213,22 +234,25 @@ class WDA(XCFunctional):
 
     def interpolate_this(self, val_i, lower, upper, target):
         inter_i = np.zeros_like(val_i)
+        count = 0
         for i, val in enumerate(val_i):
             if i == 0:
-                next = val_i[1]
+                nextv = val_i[1]
                 prev = lower
             elif i == len(val_i)-1:
-                next = upper
+                nextv = upper
                 prev = val_i[i-1]
             else:
-                next = val_i[i+1]
+                nextv = val_i[i+1]
                 prev = val_i[i-1]
 
-            if (val <= target and next >= target) or (val >= target and next <= target):
-                inter_i[i] = (next - target) / (next - val)
+            if (val <= target and nextv >= target) or (val >= target and nextv <= target):
+                inter_i[i] = (nextv - target) / (nextv - val)
+                count += 1
             elif (val <= target and prev >= target) or (val >= target and prev <= target):
                 inter_i[i] = (prev - target) / (prev - val)
-
+                count += 1
+        
         return inter_i
 
     def get_alphas(self, Z_isg, Z_lower_sg, Z_upper_sg):
@@ -246,4 +270,44 @@ class WDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
+
+    def calculate_V1(self, alpha_ig, n_sg):
+        # Convolve n_sg and G/v_C
+        # Multiply alpha_ig to result
+        raise NotImplementedError
+
+    def calculate_V1p(self, alpha_ig, n_sg):
+        # Convolve n_sg*alpha_ig and G/v_C
+        raise NotImplementedError
+
+    def get_dalpha_ig(self):
+        raise NotImplementedError
+
+    def calculate_V2(self, alpha_ig, dalpha_ig, n_sg):
+        # Convolve n_sg and G/v_C
+        # Multiply n_sg to result -> res
+        # Convolve res and dalpha/dn
+        raise NotImplementedError
+
+    def calculate_sym_pot_correction(self, alpha_ig, n_sg):
+        # Two corrections: dV1, dV1p
+        # dV1: Convolve n_sg*alpha_ig and G/v_C
+        # dV1p: Convolve n_sg and G/v_c and multiply alpha_ig to result
+        raise NotImplementedError
+
+    def calculate_energy(self, alpha_ig, n_sg, gd):
+        # Convolve n_sg with G/v_C (overleaf notes say g, but this is incorrect, should be G)
+        # Sum over i, i.e. mpi.world.sum
+        # Multiply alpha_ig*n_sg to result
+        # Integrate over space
+        raise NotImplementedError
+
+    def calculate_sym_energy_correction(self, alpha_ig, n_sg, gd):
+        # Convolve n_sg*alpha_ig with g/v_C (small g!)
+        # Multiply result with n_sg and integrate
+        raise NotImplementedError
+
+    def calculate_energy_correction_valence_mode(self, nae_sg, n_sg):
+        # Calculate ELDA for ae dens and subtract ELDA for other dens
+        raise NotImplementedError
 

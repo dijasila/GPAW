@@ -36,6 +36,15 @@ class Tester(BaseTester):
         assert not np.allclose(res, 0)
         return res
 
+    def get_initial_stuff(self):
+        n_sg = self.get_a_density()
+        ni_j, nilower, niupper = xc.get_ni_grid(0, 1, n_sg)
+        grid = self.gd.get_grid_point_coordinates()
+        Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd)
+        alpha_ig = xc.get_alphas(Z_ig, Zlower_g, Zupper_g)
+
+        return alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg
+
     def get_a_sym_density(self, dir=0):
         n_sg = self.get_a_density()
         if dir == 0:
@@ -300,11 +309,14 @@ class Tester(BaseTester):
     def test_17_get_alphas(self):
         Z_ig, Z_lowerg, Z_upperg = self.get_some_Zs(xc.standardmode_Zs)
         alpha_ig = xc.get_alphas(Z_ig, Z_lowerg, Z_upperg)
-        
+
         alpha_ir = alpha_ig.reshape(len(alpha_ig), -1)
         assert np.allclose(alpha_ir.sum(axis=0), 1)
         assert (alpha_ir >= 0).all()
-        
+        not_zeros = np.logical_not(np.isclose(alpha_ir, 0))
+        count_notzeros = not_zeros.sum(axis=0)
+        assert np.logical_or(np.isclose(count_notzeros, 1), np.isclose(count_notzeros, 2)).all()
+
     def test_18_get_symalphas(self):
         Z_ig, Z_lowerg, Z_upperg = self.get_some_Zs(xc.symmetricmode_Zs)
         alpha_ig = xc.get_alphas(Z_ig, Z_lowerg, Z_upperg)
@@ -312,6 +324,9 @@ class Tester(BaseTester):
         alpha_ir = alpha_ig.reshape(len(alpha_ig), -1)
         assert np.allclose(alpha_ir.sum(axis=0), 1)
         assert (alpha_ir >= 0).all()
+        not_zeros = np.logical_not(np.isclose(alpha_ir, 0))
+        count_notzeros = not_zeros.sum(axis=0)
+        assert np.logical_or(np.isclose(count_notzeros, 1), np.isclose(count_notzeros, 2)).all()
 
     def test_19_alphaval(self):
         Z_isg = np.array([[[[np.linspace(-1, 0, 10)]]]]).T
@@ -322,23 +337,124 @@ class Tester(BaseTester):
         expected[0, 0, 0, 0, 0] = 1
         
         assert np.allclose(alpha_i, expected)
+        notzero = np.logical_not(np.isclose(alpha_i, 0))
+        assert notzero.sum() == 1 or notzero.sum() == 2
 
-    def test_20_alphaval2(self):
+    def test_20_alphaval2_nonmonotonic(self):
+        return "skipped"
         Z_i = np.zeros((100, 1, 1, 1, 1))
         index = np.random.randint(99)
         delta = 0.1
         relweight = np.random.rand()
         Z_i[index, 0, 0, 0, 0] = -1 - delta * relweight
         Z_i[index+1, 0, 0, 0, 0] = -1 + delta * (1 - relweight)
-        Z_lower = np.array([[[[Z_i[index, 0, 0, 0, 0]]]]])
-        Z_upper = np.array([[[[0]]]])
+        Z_lower = np.array([[[[Z_i[0, 0, 0, 0, 0]]]]])
+        Z_upper = np.array([[[[Z_i[-1, -1, -1, -1, -1]]]]])
+        assert Z_lower.shape == Z_i.shape[1:]
         alpha_i = xc.get_alphas(Z_i, Z_lower, Z_upper)
         expected = np.zeros_like(Z_i)
         expected[index, 0, 0, 0, 0] = 1 - relweight
         expected[index+1, 0, 0, 0, 0] = relweight
         
         assert not np.allclose(expected, 0)
+        notzeros = np.logical_not(np.isclose(alpha_i, 0))
+        countnotzero = notzeros.sum()
+        assert countnotzero == 1 or countnotzero == 2, countnotzero
         assert np.allclose(alpha_i, expected)
+
+    def test_21_alphaval2(self):
+        Z_i = np.zeros((100, 1, 1, 1, 1))
+        index = np.random.randint(99)
+        delta = 0.1
+        relweight = np.random.rand()
+        Z_i[:index, 0, 0, 0, 0] = -2
+        Z_i[index, 0, 0, 0, 0] = -1 - delta * relweight
+        Z_i[index+1:, 0, 0, 0, 0] = -1 + delta * (1 - relweight)
+        Z_lower = np.array([[[[Z_i[0, 0, 0, 0, 0]]]]])
+        Z_upper = np.array([[[[Z_i[-1, -1, -1, -1, -1]]]]])
+        assert Z_lower.shape == Z_i.shape[1:]
+        alpha_i = xc.get_alphas(Z_i, Z_lower, Z_upper)
+        expected = np.zeros_like(Z_i)
+        expected[index, 0, 0, 0, 0] = 1 - relweight
+        expected[index+1, 0, 0, 0, 0] = relweight
+        
+        assert not np.allclose(expected, 0)
+        notzeros = np.logical_not(np.isclose(alpha_i, 0))
+        countnotzero = notzeros.sum()
+        assert countnotzero == 1 or countnotzero == 2, countnotzero
+        assert np.allclose(alpha_i, expected)
+
+    def test_22_alphapara(self):
+        n_sg = self.get_a_density()
+        grid = self.gd.get_grid_point_coordinates()
+        def local_test(rank, size):
+            
+            ni_j, nilower, niupper = xc.get_ni_grid(rank, size, n_sg)
+            Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd)
+            alpha_ig = xc.get_alphas(Z_ig, Zlower_g, Zupper_g)
+
+            return alpha_ig
+
+        def global_test(size, global_data):
+            alpha_ig = np.vstack(global_data)
+            alpha_ir = alpha_ig.reshape(len(alpha_ig), -1)
+            assert np.allclose(alpha_ir.sum(axis=0), 1)
+            notzeros = np.logical_not(np.isclose(alpha_ir, 0))
+            countnotzeros_r = notzeros.sum(axis=0)
+            assert (countnotzeros_r >= 1).all()
+            assert (countnotzeros_r <= 2).all()
+        self.execute_test_for_random_mpiworld(local_test, global_test)
+
+    def test_23_calculateV1(self):
+        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        
+        V1_sg = xc.calculate_V1(alpha_ig, n_sg)
+        self.isgoodnum(V1_sg)
+
+    def isgoodnum(self, arr):
+        assert np.allclose(arr, arr.real)
+        assert not np.isnan(arr).any()
+        assert not np.isinf(arr).any()
+
+    def test_24_calculateV1p(self):
+        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        
+        V1p_sg = xc.calculate_V1p(alpha_ig, n_sg)
+        self.isgoodnum(V1p_sg)
+
+    def test_25_calculateV2(self):
+        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        dalpha_ig = xc.get_dalpha_ig()
+        V2_sg = xc.calculate_V2(alpha_ig, dalpha_ig, n_sg)
+        self.isgoodnum(V2_sg)
+    
+    def test_26_calculate_sympot(self):
+        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        
+        Vsympot_sg = xc.calculate_sym_pot_correction(alpha_ig, n_sg)
+        self.isgoodnum(Vsympot_sg)
+
+    def test_27_calculate_energy(self):
+        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        
+        e_g = self.calculate_energy(alpha_ig, n_sg, self.gd)
+        self.isgoodnum(e_g)
+
+    def test_28_calculate_symene(self):
+        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        
+        esym_g = self.calculate_sym_energy_correction(alpha_ig, n_sg, self.gd)
+        self.isgoodnum(esym_g)
+
+    def test_29_calculate_valence_corr(self):
+        n1_sg = self.get_a_density()
+        n2_sg = self.get_a_density()
+        
+        eval_g = self.calculate_energy:correction_valence_mode(n1_sg, n2_sg)
+        self.isgoodnum(eval_g)
+
+        expected = None
+        assert np.allclose(eval_g, expected)
 
 
 if __name__ == "__main__":
