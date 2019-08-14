@@ -1,6 +1,6 @@
 from collections import namedtuple, defaultdict
 from math import pi
-from typing import List
+from typing import List, Optional, Tuple
 import numpy as np
 from ase.units import Ha
 
@@ -158,7 +158,6 @@ class EXX:
             sindices = (kd.sym_k[indices] +
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
-        print(nsym, kd.bz2ibz_k)
 
         # pairs: Dict[Tuple[int, int, int], int]
 
@@ -275,7 +274,7 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
     return map_ss
 
 
-def parse_name(name):
+def parse_name(name: str) -> Tuple[Optional[str], float, Optional[float]]:
     if name == 'EXX':
         return None, 1.0, None
     if name == 'PBE0':
@@ -302,6 +301,8 @@ class Hybrid:
         if name is not None:
             assert xc is None and exx_fraction is None and omega is None
             xc, exx_fraction, omega = parse_name(name)
+        else:
+            assert xc is not None and exx_fraction is not None
 
         if isinstance(xc, (str, dict)):
             xc = XC(xc)
@@ -427,11 +428,11 @@ class Hybrid:
         self.evv = kd.comm.sum(evv) * deg
         self.evc = kd.comm.sum(evc) * deg
 
-        self.e_skn * self.exx_fraction
+        self.e_skn *= self.exx_fraction
 
         if self.xc:
-            vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs)
-            self.e_skn += vxc_skn[:, kpts, n1:n2] / Ha
+            vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
+            self.e_skn += vxc_skn[:, kpts, n1:n2]
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):
