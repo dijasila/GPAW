@@ -55,14 +55,43 @@ class EXX:
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-    def calculate(self, kpts1, kpts2, coulomb, VV_aii,
-                  e_kn=None,
-                  vpsit_knG=None):
-        exxvv = 0.0
-        exxvc = 0.0
+    def calculate_energy(self, kpts, coulomb, VV_aii, v_knG=None):
+        pd = kpts[0].psit.pd
+        v_nG = None
 
+        exxvv = 0.0
+        for i1, k1, k2, count in self.ipairs(kpts, kpts):
+            q_c = k2.k_c - k1.k_c
+            qd = KPointDescriptor([q_c])
+
+            pd12 = PWDescriptor(pd.ecut, pd.gd, pd.dtype, kd=qd)
+            ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
+            ghat.set_positions(self.spos_ac)
+
+            if v_knG is not None:
+                v_nG = v_knG[i1]
+
+            v_G = coulomb.get_potential(pd12)
+            e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
+                                               pd, i1, k2.f_n, v_nG)
+            e_nn *= count / self.kd.nbzkpts**2
+            exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
+
+        exxvc = 0.0
+        for i, kpt in enumerate(kpts):
+            for a, P_ni in kpt.proj.items():
+                vv_n = np.einsum('ni,ij,nj->n',
+                                 P_ni.conj(), VV_aii[a], P_ni).real
+                vc_n = np.einsum('ni,ij,nj->n',
+                                 P_ni.conj(), self.VC_aii[a], P_ni).real
+                exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
+                exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
+
+        return exxvv, exxvc
+
+    def calculate_eigenvalues(self, kpts1, kpts2, coulomb, VV_aii,
+                              e_kn, v_nG=None):
         pd = kpts1[0].psit.pd
-        vpsit_nG = None
 
         for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
             q_c = k2.k_c - k1.k_c
@@ -73,33 +102,19 @@ class EXX:
             ghat.set_positions(self.spos_ac)
 
             v_G = coulomb.get_potential(pd12)
-
-            if vpsit_knG is not None:
-                vpsit_nG = vpsit_knG[i1]
-
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                               pd, i1, k2.f_n, vpsit_nG)
+                                               pd, i1, k2.f_n, v_nG)
 
-            if e_kn is not None:
-                e_nn *= count / self.kd.nbzkpts**1
-                exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
-                e_kn[i1] -= e_nn.dot(k2.f_n)
-                # e_kn[k2.index] -= 0.5 * k1.f_n.dot(e_nn)
+            e_nn *= count / self.kd.nbzkpts
+            e_kn[i1] -= e_nn.dot(k2.f_n)
 
-        if e_kn is not None:
-            for i, kpt in enumerate(kpts1):
-                for a, P_ni in kpt.proj.items():
-                    vv_n = np.einsum('ni,ij,nj->n',
-                                     P_ni.conj(), VV_aii[a], P_ni).real
-                    vc_n = np.einsum('ni,ij,nj->n',
-                                     P_ni.conj(), self.VC_aii[a], P_ni).real
-                    exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
-                    exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
-                    e_kn[i] -= (2 * vv_n + vc_n)
-
-        # e_kn /= self.kd.weight_k[indices, np.newaxis]
-
-        return exxvv, exxvc
+        for i, kpt in enumerate(kpts1):
+            for a, P_ni in kpt.proj.items():
+                vv_n = np.einsum('ni,ij,nj->n',
+                                 P_ni.conj(), VV_aii[a], P_ni).real
+                vc_n = np.einsum('ni,ij,nj->n',
+                                 P_ni.conj(), self.VC_aii[a], P_ni).real
+                e_kn[i] -= (2 * vv_n + vc_n)
 
     def calculate_exx_for_pair(self,
                                k1,
@@ -109,7 +124,7 @@ class EXX:
                                pd,
                                index,
                                f2_n,
-                               vpsit_nG):
+                               vpsit_nG=None):
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                             k1.proj[a].conj(),
                             Delta_iiL,
@@ -203,19 +218,20 @@ class EXX:
             lasti2 = i2
 
     def apply_symmetry(self, s: int, rsk):
-        if s == 0:
+        U_scc = self.kd.symmetry.op_scc
+        nsym = len(U_scc)
+        time_reversal = s >= nsym
+        s %= nsym
+        sign = 1 - 2 * int(time_reversal)
+        U_cc = U_scc[s]
+
+        if (U_cc == np.eye(3)).all() and not time_reversal:
             return rsk
 
         u1_nR, proj1, f_n, k1_c, weight = rsk
 
         u2_nR = np.empty_like(u1_nR)
         proj2 = proj1.new()
-
-        nsym = len(self.kd.symmetry.op_scc)
-        time_reversal = s >= nsym
-        s %= nsym
-        sign = 1 - 2 * int(time_reversal)
-        U_cc = self.kd.symmetry.op_scc[s]
 
         k2_c = sign * U_cc.dot(k1_c)
 
@@ -251,7 +267,6 @@ def to_real_space(psit):
 def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
     sym = kd.symmetry
     U_scc = sym.op_scc
-    assert (U_scc[0] == np.eye(3)).all(), U_scc
     nsym = len(U_scc)
     compconj_s = np.zeros(nsym, bool)
     if sym.time_reversal and not sym.has_inversion:
@@ -288,8 +303,8 @@ def parse_name(name: str) -> Tuple[Optional[str], float, Optional[float]]:
 
 
 class Hybrid:
-    # orbital_dependent = True
-    # type = 'LDA'
+    orbital_dependent = True
+    type = 'HYB'
     ftol = 1e-9
 
     def __init__(self,
@@ -301,6 +316,7 @@ class Hybrid:
         if name is not None:
             assert xc is None and exx_fraction is None and omega is None
             xc, exx_fraction, omega = parse_name(name)
+            self.name = name
         else:
             assert xc is not None and exx_fraction is not None
 
@@ -383,7 +399,7 @@ class Hybrid:
             VV_aii.append(VV_ii)
         return VV_aii
 
-    def calculate_exx(self, n1, n2, kpts):
+    def calculate_energy(self):
         self._initialize()
 
         wfs = self.wfs
@@ -396,6 +412,44 @@ class Hybrid:
 
         evv = 0.0
         evc = 0.0
+
+        for spin in range(wfs.nspins):
+            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+            K = kd.nibzkpts
+            k1 = spin * K
+            k2 = k1 + K
+            kpts = [KPoint(kpt.psit.view(0, nocc),
+                           kpt.projections.view(0, nocc),
+                           kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
+                           kd.ibzk_kc[kpt.k],
+                           kd.weight_k[kpt.k])
+                    for kpt in wfs.mykpts[k1:k2]]
+            e1, e2 = self.exx.calculate_energy(kpts,
+                                               self.coulomb,
+                                               VV_aii)
+            evv += e1
+            evc += e2
+
+        deg = 2 / wfs.nspins
+        evv = kd.comm.sum(evv) * deg
+        evc = kd.comm.sum(evc) * deg
+
+        if self.xc:
+            pass
+
+        return evv * Ha, evc * Ha
+
+    def calculate_eigenvalues(self, n1, n2, kpts):
+        self._initialize()
+
+        wfs = self.wfs
+        kd = wfs.kd
+        # rank = kd.comm.rank
+        # size = kd.comm.size
+
+        nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
+                   for kpt in wfs.mykpts)
+
         self.e_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1))
 
         for spin in range(wfs.nspins):
@@ -403,7 +457,6 @@ class Hybrid:
             K = kd.nibzkpts
             k1 = spin * K
             k2 = k1 + K
-            print(k1, k2, K, n1, n2, kpts)
             kpts1 = [KPoint(kpt.psit.view(n1, n2),
                             kpt.projections.view(n1, n2),
                             kpt.f_n[n1:n2] / kpt.weight,  # scale to [0, 1]
@@ -416,23 +469,19 @@ class Hybrid:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in wfs.mykpts[k1:k2]]
-            e1, e2 = self.exx.calculate(kpts1, kpts2,
-                                        self.coulomb,
-                                        VV_aii,
-                                        self.e_skn[spin])
-            evv += e1
-            evc += e2
+            self.exx.calculate(kpts1, kpts2,
+                               self.coulomb,
+                               VV_aii,
+                               self.e_skn[spin])
 
         kd.comm.sum(self.e_skn)
-        deg = 2 / wfs.nspins
-        self.evv = kd.comm.sum(evv) * deg
-        self.evc = kd.comm.sum(evc) * deg
-
         self.e_skn *= self.exx_fraction
 
         if self.xc:
             vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
             self.e_skn += vxc_skn[:, kpts, n1:n2]
+
+        return self.e_skn * Ha
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):
@@ -475,11 +524,11 @@ class Hybrid:
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
                         for kpt in kpts]
-                self.exx.calculate(kpts, kpts,
-                                   self.coulomb,
-                                   VV_aii,
-                                   vpsit_knG=[self.cache[(spin, k)]
-                                              for k in range(len(kpts))])
+                self.exx.calculate_energy(
+                    kpts,
+                    self.coulomb,
+                    VV_aii,
+                    v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
             Htpsit_xG += self.cache.pop((spin, kpt.k))
         else:
             assert len(self.cache) == 0
@@ -499,11 +548,13 @@ class Hybrid:
                             kpt.projections,
                             None,
                             kd.ibzk_kc[kpt.k],
-                            42)]
-            self.exx.calculate(kpts1, kpts2,
-                               self.coulomb,
-                               VV_aii,
-                               vpsit_knG=Htpsit_xG[np.newaxis])
+                            None)]
+            self.exx.calculate_eigenvalues(
+                kpts1, kpts2,
+                self.coulomb,
+                VV_aii,
+                np.zeros((1, self.wfs.bd.nbands)),
+                v_nG=Htpsit_xG)
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         pass  # 1 / 0

@@ -9,5 +9,5 @@ a = Atoms('H',
           pbc=1)
 a.calc = GPAW(mode=PW(200, force_complex_dtype=True),
               setups='ae',
-              xc=Hybrid())
+              xc=Hybrid('EXX'))
 a.get_potential_energy()

@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import functools
 import itertools
 import os
@@ -1227,7 +1225,7 @@ class G0W0(PairDensity):
             c = self.calc
             h.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
             h.set_positions(c.spos_ac)
-            h.calculate_exx(*self.bands, self.kpts)
+            h.calculate_eigenvalues(*self.bands, self.kpts)
             print(h.e_skn)
             print(self.exx_skn)
             assert np.allclose(h.e_skn, self.exx_skn)
