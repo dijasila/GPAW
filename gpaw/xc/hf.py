@@ -469,10 +469,11 @@ class Hybrid:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in wfs.mykpts[k1:k2]]
-            self.exx.calculate(kpts1, kpts2,
-                               self.coulomb,
-                               VV_aii,
-                               self.e_skn[spin])
+            self.exx.calculate_eigenvalues(
+                kpts1, kpts2,
+                self.coulomb,
+                VV_aii,
+                self.e_skn[spin])
 
         kd.comm.sum(self.e_skn)
         self.e_skn *= self.exx_fraction
