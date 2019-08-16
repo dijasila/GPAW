@@ -422,7 +422,7 @@ class Hybrid:
         self.vt_sR = None
 
         if kpt.psit.array.base is psit_xG.base:
-            print(f'1 {spin}');ASdf
+            print(f'1 {spin}')
             if (spin, kpt.k) not in self.cache:
                 VV_aii = self.calculate_valence_valence_paw_corrections(spin)
                 K = kd.nibzkpts
@@ -445,6 +445,7 @@ class Hybrid:
             Htpsit_xG += self.cache.pop((spin, kpt.k))
         else:
             assert len(self.cache) == 0
+            print(f'2 {spin}')
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
             K = kd.nibzkpts
             k1 = (spin - kd.comm.rank) * K
