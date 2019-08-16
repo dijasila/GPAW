@@ -450,8 +450,9 @@ class GridDescriptor(Domain):
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc)
+                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
+                    sdfg
                     _gpaw.symmetrize_ft(A_g, B_g, op_cc, ft_sc[s])
         else:
             B_g = None

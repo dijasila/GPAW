@@ -37,8 +37,8 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 rotate_aperiodic_directions=False,
-                 translate_aperiodic_directions=False):
+                 rotate_aperiodic_directions=not False,
+                 translate_aperiodic_directions=not False):
         """Construct symmetry object.
 
         Parameters:
