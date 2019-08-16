@@ -356,8 +356,12 @@ class Hybrid:
     def set_positions(self, spos_ac):
         self.spos_ac = spos_ac
 
-    def calculate(self, gd, nt_sg, vxct_sg=None):
-        return 0.0  # self.exx.ecc + self.evc + self.evv
+    def calculate(self, gd, nt_sr, vt_sr):
+        if self.xc is None:
+            return 0.0
+        e_r = gd.empty()
+        self.xc.calculate(gd, nt_sr, vt_sr, e_r)
+        return gd.integrate(e_r)
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         return 0.0
@@ -389,6 +393,91 @@ class Hybrid:
                 x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
                 return 4 * np.pi * x_G / G2_G
             self.coulomb = coulomb
+
+    def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
+                                            Htpsit_xG=None, dH_asp=None):
+        self._initialize()
+
+        kd = self.wfs.kd
+        spin = kpt.s
+
+        if kpt.f_n is None:
+            print(f'F0 {spin}')
+            if self.vt_sR is None:
+                from gpaw.xc import XC
+                lda = XC('LDA')
+                nt_sr = self.dens.nt_sg
+                vt_sr = np.zeros_like(nt_sr)
+                self.vt_sR = self.dens.gd.zeros(self.wfs.nspins)
+                lda.calculate(self.dens.finegd, nt_sr, vt_sr)
+                for vt_R, vt_r in zip(self.vt_sR, vt_sr):
+                    vt_R[:], _ = self.dens.pd3.restrict(vt_r, self.dens.pd2)
+
+            pd = kpt.psit.pd
+            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
+                Htpsit_G += pd.fft(self.vt_sR[kpt.s] *
+                                   pd.ifft(psit_G, kpt.k), kpt.q)
+            return
+
+        self.vt_sR = None
+
+        if kpt.psit.array.base is psit_xG.base:
+            print(f'1 {spin}');ASdf
+            if (spin, kpt.k) not in self.cache:
+                VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+                K = kd.nibzkpts
+                k1 = (spin - kd.comm.rank) * K
+                k2 = k1 + K
+                kpts = self.wfs.mykpts[k1:k2]
+                for k in kpts:
+                    self.cache[(spin, k.k)] = np.zeros_like(k.psit.array)
+                kpts = [KPoint(kpt.psit,
+                               kpt.projections,
+                               kpt.f_n / kpt.weight,  # scale to [0, 1] range
+                               kd.ibzk_kc[kpt.k],
+                               kd.weight_k[kpt.k])
+                        for kpt in kpts]
+                self.exx.calculate_energy(
+                    kpts,
+                    self.coulomb,
+                    VV_aii,
+                    v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
+            Htpsit_xG += self.cache.pop((spin, kpt.k))
+        else:
+            assert len(self.cache) == 0
+            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+            K = kd.nibzkpts
+            k1 = (spin - kd.comm.rank) * K
+            k2 = k1 + K
+            kpts2 = [KPoint(kpt.psit,
+                            kpt.projections,
+                            kpt.f_n / kpt.weight,  # scale to [0, 1] range
+                            kd.ibzk_kc[kpt.k],
+                            kd.weight_k[kpt.k])
+                     for kpt in self.wfs.mykpts[k1:k2]]
+
+            psit = kpt.psit.new(buf=psit_xG)
+            kpts1 = [KPoint(psit,
+                            kpt.projections,
+                            None,
+                            kd.ibzk_kc[kpt.k],
+                            None)]
+            self.exx.calculate_eigenvalues(
+                kpts1, kpts2,
+                self.coulomb,
+                VV_aii,
+                np.zeros((1, self.wfs.bd.nbands)),
+                v_nG=Htpsit_xG)
+
+    def correct_hamiltonian_matrix(self, kpt, H_nn):
+        pass  # 1 / 0
+
+    def rotate(self, kpt, U_nn):
+        pass  # 1 / 0
+
+    def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
+                       calculate_change=False):
+        pass  # 1 / 0
 
     def calculate_valence_valence_paw_corrections(self, spin):
         VV_aii = []
@@ -483,89 +572,6 @@ class Hybrid:
             self.e_skn += vxc_skn[:, kpts, n1:n2]
 
         return self.e_skn * Ha
-
-    def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
-                                            Htpsit_xG=None, dH_asp=None):
-        self._initialize()
-
-        kd = self.wfs.kd
-        spin = kpt.s
-
-        if kpt.f_n is None:
-            if self.vt_sR is None:
-                from gpaw.xc import XC
-                lda = XC('LDA')
-                nt_sr = self.dens.nt_sg
-                vt_sr = np.zeros_like(nt_sr)
-                self.vt_sR = self.dens.gd.zeros(self.wfs.nspins)
-                lda.calculate(self.dens.finegd, nt_sr, vt_sr)
-                for vt_R, vt_r in zip(self.vt_sR, vt_sr):
-                    vt_R[:], _ = self.dens.pd3.restrict(vt_r, self.dens.pd2)
-
-            pd = kpt.psit.pd
-            for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-                Htpsit_G += pd.fft(self.vt_sR[kpt.s] *
-                                   pd.ifft(psit_G, kpt.k), kpt.q)
-            return
-
-        self.vt_sR = None
-
-        if kpt.psit.array.base is psit_xG.base:
-            if (spin, kpt.k) not in self.cache:
-                VV_aii = self.calculate_valence_valence_paw_corrections(spin)
-                K = kd.nibzkpts
-                k1 = (spin - kd.comm.rank) * K
-                k2 = k1 + K
-                kpts = self.wfs.mykpts[k1:k2]
-                for k in kpts:
-                    self.cache[(spin, k.k)] = np.zeros_like(k.psit.array)
-                kpts = [KPoint(kpt.psit,
-                               kpt.projections,
-                               kpt.f_n / kpt.weight,  # scale to [0, 1] range
-                               kd.ibzk_kc[kpt.k],
-                               kd.weight_k[kpt.k])
-                        for kpt in kpts]
-                self.exx.calculate_energy(
-                    kpts,
-                    self.coulomb,
-                    VV_aii,
-                    v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
-            Htpsit_xG += self.cache.pop((spin, kpt.k))
-        else:
-            assert len(self.cache) == 0
-            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
-            K = kd.nibzkpts
-            k1 = (spin - kd.comm.rank) * K
-            k2 = k1 + K
-            kpts2 = [KPoint(kpt.psit,
-                            kpt.projections,
-                            kpt.f_n / kpt.weight,  # scale to [0, 1] range
-                            kd.ibzk_kc[kpt.k],
-                            kd.weight_k[kpt.k])
-                     for kpt in self.wfs.mykpts[k1:k2]]
-
-            psit = kpt.psit.new(buf=psit_xG)
-            kpts1 = [KPoint(psit,
-                            kpt.projections,
-                            None,
-                            kd.ibzk_kc[kpt.k],
-                            None)]
-            self.exx.calculate_eigenvalues(
-                kpts1, kpts2,
-                self.coulomb,
-                VV_aii,
-                np.zeros((1, self.wfs.bd.nbands)),
-                v_nG=Htpsit_xG)
-
-    def correct_hamiltonian_matrix(self, kpt, H_nn):
-        pass  # 1 / 0
-
-    def rotate(self, kpt, U_nn):
-        pass
-
-    def add_correction(self, kpt, psit_xG, Htpsit_xG, P_axi, c_axi, n_x,
-                       calculate_change=False):
-        pass
 
     def summary(self, log):
         log('????????????\n' * 4)
