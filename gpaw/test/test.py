@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import tempfile
 import warnings
@@ -56,7 +55,9 @@ class CLICommand:
 
     @staticmethod
     def run(args):
-        main(args)
+        failed = main(args)
+        if failed:
+            raise SystemExit(1)
 
 
 def main(args):
