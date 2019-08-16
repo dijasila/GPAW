@@ -437,7 +437,7 @@ class Hybrid:
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
                         for kpt in kpts]
-                self.exx.calculate_energy(
+                exxvv, exxvc = self.exx.calculate_energy(
                     kpts,
                     self.coulomb,
                     VV_aii,
