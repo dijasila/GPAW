@@ -435,11 +435,11 @@ class GPAW(PAW, Calculator):
             # More drastic changes:
             if self.wfs:
                 self.wfs.set_orthonormalized(False)
-            if key in ['external', 'xc', 'poissonsolver']:
+            if key in ['xc', 'poissonsolver']:
                 self.hamiltonian = None
             elif key in ['occupations', 'width']:
                 pass
-            elif key in ['charge', 'background_charge']:
+            elif key in ['external', 'charge', 'background_charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = None
@@ -850,6 +850,7 @@ class GPAW(PAW, Calculator):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
+
         if 'do_not_symmetrize_the_density' in symm:
             symm = symm.copy()
             dnstd = symm.pop('do_not_symmetrize_the_density')
@@ -859,6 +860,11 @@ class GPAW(PAW, Calculator):
                     self.log(info)
                 else:
                     warnings.warn(info + ' Please remove it.')
+
+        if self.parameters.external is not None:
+            symm = symm.copy()
+            symm['point_group'] = False
+
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
