@@ -84,7 +84,9 @@ class GPAW(PAW, Calculator):
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
-                        'bands': 'occupied',
+                        'bands': {'occupied': True,
+                                  'energy': None,
+                                  'number': None},
                         'forces': np.inf},  # eV / Ang
         'dtype': None,  # deprecated
         'width': None,  # deprecated
@@ -734,15 +736,15 @@ class GPAW(PAW, Calculator):
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
-        self.log('Bands to converge: ', end='')
-        n = par.convergence.get('bands', 'occupied')
-        if n == 'occupied':
-            self.log('occupied states only')
-        elif n == 'all':
-            self.log('all')
-        else:
-            self.log('%d lowest bands' % n)
         self.log('Number of valence electrons:', self.wfs.nvalence)
+        self.log('Bands to converge: ', end='')
+        p = par.convergence.get('bands', {'occupied': True})
+        if p == 'occupied':
+            p = {'occupied': True}
+        elif p == 'all':
+            {'number': 'all'}
+        elif isinstance(p, int):
+            ...
 
         self.log(flush=True)
 
