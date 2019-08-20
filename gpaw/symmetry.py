@@ -36,9 +36,7 @@ class Symmetry:
     wavefunctions and forces.
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
-                 point_group=True, time_reversal=True, symmorphic=True,
-                 rotate_aperiodic_directions=False,
-                 translate_aperiodic_directions=False):
+                 point_group=True, time_reversal=True, symmorphic=True):
         """Construct symmetry object.
 
         Parameters:
@@ -82,12 +80,6 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
-        self.rotate_aperiodic_directions = rotate_aperiodic_directions
-        self.translate_aperiodic_directions = translate_aperiodic_directions
-
-        # Disable fractional translations for non-periodic boundary conditions:
-        if not (self.translate_aperiodic_directions or self.pbc_c.all()):
-            self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
         self.ft_sc = np.zeros((1, 3))
@@ -121,7 +113,7 @@ class Symmetry:
         # Generate all possible 3x3 symmetry matrices using base-3 integers
         power = (6561, 2187, 729, 243, 81, 27, 9, 3, 1)
 
-        # operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
+        # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
         for base3id in range(19683):
             op_cc = np.empty((3, 3), dtype=int)
@@ -137,19 +129,12 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if (not self.rotate_aperiodic_directions and
-                op_cc[~(pbc_cc | np.identity(3, bool))].any()):
-                # Operation must not swap axes that are not both periodic
+            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+            if op_cc[pbc_cc].any():
+                # Operation must not swap axes that don't have same PBC
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if (not self.rotate_aperiodic_directions and
-                not (op_cc[np.diag(~self.pbc_c)] == 1).all()):
-                # Operation must not invert axes that are not periodic
-                continue
-
-            # operation is a valid symmetry of the unit cell
+            # Operation is a valid symmetry of the unit cell
             self.op_scc.append(op_cc)
 
         self.op_scc = np.array(self.op_scc)

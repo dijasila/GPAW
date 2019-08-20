@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
 
 Version 19.8.1
 ==============
