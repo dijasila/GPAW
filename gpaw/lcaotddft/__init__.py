@@ -24,6 +24,7 @@ class LCAOTDDFT(GPAW):
         self.propagator = propagator
         if filename is None:
             kwargs['mode'] = kwargs.get('mode', 'lcao')
+        self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['symmetry'] = {'point_group': False}
         GPAW.__init__(self, filename, **kwargs)
 

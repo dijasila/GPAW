@@ -129,9 +129,9 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if op_cc[~(pbc_cc | np.identity(3, bool))].any():
-                # Operation must not swap axes that are not both periodic
+            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+            if op_cc[pbc_cc].any():
+                # Operation must not swap axes that don't have same PBC
                 continue
 
             # Operation is a valid symmetry of the unit cell
