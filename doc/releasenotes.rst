@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
+* New convergence criterium: Converge bands up to conduction band minimum
+  plus 2.5 eV: ``convergence={'bands': 'CBM+2.5'}``.
+
 
 Version 19.8.1
 ==============

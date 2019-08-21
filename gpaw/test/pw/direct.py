@@ -5,7 +5,8 @@ from gpaw.mpi import world
 if world.size == 1:
     atoms = Atoms('H', cell=(2, 2, 2), pbc=True)
     atoms.calc = GPAW(mode=PW(300, force_complex_dtype=True),
-                      eigensolver='direct')
+                      eigensolver='direct',
+                      nbands=10)
     atoms.get_potential_energy()
 
 if world.size == 2:

@@ -59,7 +59,7 @@ class SCFLoop:
     def run(self, wfs, ham, dens, occ, log, callback):
         self.niter = 1
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
+            wfs.eigensolver.iterate(ham, wfs, occ)
             occ.calculate(wfs)
 
             energy = ham.get_energy(occ)
@@ -147,13 +147,14 @@ class SCFLoop:
                 header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
-        if eigerr == 0.0:
+        if eigerr == 0.0 or np.isinf(eigerr):
             eigerr = ''
         else:
             eigerr = '%+.2f' % (ln(eigerr) / ln(10))
 
         denserr = errors['density']
-        if denserr is None or denserr == 0 or nvalence == 0:
+        assert denserr is not None
+        if denserr is None or np.isinf(denserr) or denserr == 0 or nvalence == 0:
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))

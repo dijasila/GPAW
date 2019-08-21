@@ -2,6 +2,8 @@
 from functools import partial
 
 import numpy as np
+from ase.dft.bandgap import _bandgap
+from ase.units import Ha
 from ase.utils.timing import timer
 
 from gpaw.matrix import matrix_matrix_multiply as mmm
@@ -51,21 +53,48 @@ class Eigensolver:
     def reset(self):
         self.initialized = False
 
-    def weights(self, kpt):
+    def weights(self, wfs, occ):
+        weight_un = np.zeros((len(wfs.mykpts), self.bd.mynbands))
         if self.nbands_converge == 'occupied':
-            if kpt.f_n is None:
-                weights = np.empty(self.bd.mynbands)
-                weights[:] = kpt.weight
-            else:
-                weights = kpt.f_n
-        else:
-            weights = np.zeros(self.bd.mynbands)
+            for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                if kpt.f_n is None:
+                    weight_n[:] = kpt.weight
+                else:
+                    weight_n[:] = kpt.f_n
+        elif isinstance(self.nbands_converge, int):
             n = self.nbands_converge - self.bd.beg
             if n > 0:
-                weights[:n] = kpt.weight
-        return weights
+                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                    weight_n[:n] = kpt.weight
+        else:
+            assert self.nbands_converge.startswith('CBM+')
+            if wfs.mykpts[0].f_n is None:
+                weight_un[:] = np.inf
+            else:
+                delta = float(self.nbands_converge[4:]) / Ha
+                efermi = occ.fermilevel
+                eps_skn = np.array(
+                    [[wfs.collect_eigenvalues(k, spin) - efermi
+                      for k in range(wfs.kd.nibzkpts)]
+                     for spin in range(wfs.nspins)])
+                if wfs.world.rank > 0:
+                    eps_skn = np.empty((wfs.nspins,
+                                        wfs.kd.nibzkpts,
+                                        wfs.bd.nbands))
+                wfs.world.broadcast(eps_skn, 0)
+                gap, _, (s, k, n) = _bandgap(eps_skn, spin=None, direct=False)
+                if gap == 0.0:
+                    ecut = efermi + delta
+                else:
+                    ecut = efermi + eps_skn[s, k, n] + delta
+                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                    weight_n[kpt.eps_n < ecut] = kpt.weight
+                if (eps_skn[:, :, -1] < ecut).any():
+                    weight_un[:] = np.inf
 
-    def iterate(self, ham, wfs):
+        return weight_un
+
+    def iterate(self, ham, wfs, occ):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -78,11 +107,13 @@ class Eigensolver:
                 self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
+        weight_un = self.weights(wfs, occ)
+
         error = 0.0
-        for kpt in wfs.kpt_u:
+        for kpt, weights in zip(wfs.mykpts, weight_un):
             if not wfs.orthonormalized:
                 wfs.orthonormalize(kpt)
-            e = self.iterate_one_k_point(ham, wfs, kpt)
+            e = self.iterate_one_k_point(ham, wfs, kpt, weights)
             error += e
             if self.orthonormalization_required:
                 wfs.orthonormalize(kpt)
