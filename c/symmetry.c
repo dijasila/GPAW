@@ -67,7 +67,7 @@ PyObject* symmetrize_ft(PyObject *self, PyObject *args)
                           &offset_c_obj))
         return NULL;
 
-    const long* t_c = (const double*)PyArray_DATA(t_c_obj);
+    const long* t_c = (const long*)PyArray_DATA(t_c_obj);
     const long* C = (const long*)PyArray_DATA(op_cc_obj);
     const long* o_c = (const long*)PyArray_DATA(offset_c_obj);
 
