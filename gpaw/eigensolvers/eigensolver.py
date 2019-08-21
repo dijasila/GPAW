@@ -54,24 +54,31 @@ class Eigensolver:
         self.initialized = False
 
     def weights(self, wfs, occ):
+        """Calculate convergence weights for all eigenstates."""
         weight_un = np.zeros((len(wfs.mykpts), self.bd.mynbands))
-        if self.nbands_converge == 'occupied':
+
+        if isinstance(self.nbands_converge, int):
+            # Converge fixed number of bands:
             for weight_n, kpt in zip(weight_un, wfs.mykpts):
-                if kpt.f_n is None:
-                    weight_n[:] = kpt.weight
+                if kpt.f_n is None:  # no eigenvalues yet
+                    weight_n[:] = np.inf
                 else:
                     weight_n[:] = kpt.f_n
-        elif isinstance(self.nbands_converge, int):
+        elif self.nbands_converge == 'occupied':
+            # Conveged occupied bands:
             n = self.nbands_converge - self.bd.beg
             if n > 0:
                 for weight_n, kpt in zip(weight_un, wfs.mykpts):
                     weight_n[:n] = kpt.weight
         else:
+            # Converge state with energy up to CBM + delta:
             assert self.nbands_converge.startswith('CBM+')
+            delta = float(self.nbands_converge[4:]) / Ha
+
             if wfs.mykpts[0].f_n is None:
-                weight_un[:] = np.inf
+                weight_un[:] = np.inf  # no eigenvalues yet
             else:
-                delta = float(self.nbands_converge[4:]) / Ha
+                # Collect all eigenvalues and calculate band gap:
                 efermi = occ.fermilevel
                 eps_skn = np.array(
                     [[wfs.collect_eigenvalues(k, spin) - efermi
@@ -83,13 +90,19 @@ class Eigensolver:
                                         wfs.bd.nbands))
                 wfs.world.broadcast(eps_skn, 0)
                 gap, _, (s, k, n) = _bandgap(eps_skn, spin=None, direct=False)
+
                 if gap == 0.0:
-                    ecut = efermi + delta
+                    cbm = efermi
                 else:
-                    ecut = efermi + eps_skn[s, k, n] + delta
+                    cbm = efermi + eps_skn[s, k, n]
+
+                ecut = cbm + delta
+
                 for weight_n, kpt in zip(weight_un, wfs.mykpts):
                     weight_n[kpt.eps_n < ecut] = kpt.weight
+
                 if (eps_skn[:, :, -1] < ecut).any():
+                    # We don't have enough bands!
                     weight_un[:] = np.inf
 
         return weight_un
