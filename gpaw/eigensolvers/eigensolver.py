@@ -59,17 +59,17 @@ class Eigensolver:
 
         if isinstance(self.nbands_converge, int):
             # Converge fixed number of bands:
+            n = self.nbands_converge - self.bd.beg
+            if n > 0:
+                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                    weight_n[:n] = kpt.weight
+        elif self.nbands_converge == 'occupied':
+            # Conveged occupied bands:
             for weight_n, kpt in zip(weight_un, wfs.mykpts):
                 if kpt.f_n is None:  # no eigenvalues yet
                     weight_n[:] = np.inf
                 else:
                     weight_n[:] = kpt.f_n
-        elif self.nbands_converge == 'occupied':
-            # Conveged occupied bands:
-            n = self.nbands_converge - self.bd.beg
-            if n > 0:
-                for weight_n, kpt in zip(weight_un, wfs.mykpts):
-                    weight_n[:n] = kpt.weight
         else:
             # Converge state with energy up to CBM + delta:
             assert self.nbands_converge.startswith('CBM+')
