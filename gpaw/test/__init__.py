@@ -343,6 +343,9 @@ tests = [
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
+    'symmetry/fractional_translations.py',
+    'symmetry/fractional_translations_med.py',
+    'symmetry/fractional_translations_big.py',
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
@@ -421,11 +424,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cdft.py']                              # 40s
 
-# 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
-
-# 'symmetry/fractional_translations_med.py',
-# 'symmetry/fractional_translations_big.py',
 
 # 'linalg/eigh_perf.py', # Requires LAPACK 3.2.1 or later
 # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
