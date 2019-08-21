@@ -104,17 +104,20 @@ class CDWriter(TDDFTObserver):
         Rxnabla_a2 = np.zeros(3, dtype=complex)
 
         rxnabla_g = np.zeros(3, dtype=complex)
-        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
+        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv) # + [0.0, 0.0, 2.0]
+
+        print(R0)
         r_cG, r2_G = coordinates(paw.wfs.gd, origin=R0)
 
         for kpt in paw.wfs.kpt_u:
-            paw.wfs.atomic_correction.calculate_projections(paw.wfs, kpt)
+            #paw.wfs.atomic_correction.calculate_projections(paw.wfs, kpt)
 
-            for n, (f, C_M) in enumerate(zip(kpt.f_n, kpt.C_nM)):
-                psit_G[:] = 0.0
-                paw.wfs.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
+            for n, (f, psit_G) in enumerate(zip(kpt.f_n, kpt.psit_nG)):
+                #psit_G[:] = 0.0
+                #paw.wfs.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
                 for c in range(3): 
                      grad[c].apply(psit_G, grad_psit_G[c],kpt.phase_cd)
+
                 rxnabla_g[0] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
                                                         (r_cG[1] * grad_psit_G[2] -
                                                          r_cG[2] * grad_psit_G[1]))
@@ -193,10 +196,10 @@ class CDWriter(TDDFTObserver):
         self._write(line)
 
     def _update(self, paw):
-        if paw.action == 'init':
-            self._write_header(paw)
-        elif paw.action == 'kick':
-            self._write_kick(paw)
+        #if paw.action == 'init':
+        #    self._write_header(paw)
+        #elif paw.action == 'kick':
+        #    self._write_kick(paw)
         self._write_cd(paw)
 
     def __del__(self):
