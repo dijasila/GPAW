@@ -100,7 +100,6 @@ class CDWriter(TDDFTObserver):
         self.timer.start('CD')
 
         grad_psit_G = gd.empty(3, dtype=complex)
-        psit_G=gd.empty(dtype=complex)
         rxnabla_a = np.zeros(3,dtype=complex)
         # Ra x <psi1| nabla |psi2>
         Rxnabla_a = np.zeros(3, dtype=complex)
