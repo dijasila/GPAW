@@ -91,6 +91,10 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if not self.converged:
+            if not np.isfinite(errors['eigenstates']):
+                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+                log(msg)
+                raise KohnShamConvergenceError(msg)
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
