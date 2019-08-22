@@ -69,7 +69,7 @@ class Davidson(Eigensolver):
         mem.subnode('eps_2n', 2 * nbands * mem.floatsize)
 
     @timer('Davidson')
-    def iterate_one_k_point(self, ham, wfs, kpt):
+    def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do Davidson iterations for the kpoint"""
         bd = wfs.bd
         B = bd.nbands
@@ -114,7 +114,6 @@ class Davidson(Eigensolver):
 
         self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
 
-        weights = self.weights(kpt)
         precond = self.preconditioner
 
         for nit in range(self.niter):
