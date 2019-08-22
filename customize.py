@@ -45,6 +45,11 @@ To append use the form
 # mpilinker = 'mpicc'
 # platform_id = ''
 
+# For my Mac:
+include_dirs += ['/usr/local/include']
+library_dirs += ['/usr/local/lib']
+
+
 # FFTW3:
 fftw = False
 if fftw:
