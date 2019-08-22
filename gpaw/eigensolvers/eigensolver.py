@@ -89,7 +89,12 @@ class Eigensolver:
                                         wfs.kd.nibzkpts,
                                         wfs.bd.nbands))
                 wfs.world.broadcast(eps_skn, 0)
-                gap, _, (s, k, n) = _bandgap(eps_skn, spin=None, direct=False)
+                try:
+                    # Find bandgap + positions of CBM:
+                    gap, _, (s, k, n) = _bandgap(eps_skn,
+                                                 spin=None, direct=False)
+                except ValueError:
+                    gap = 0.0
 
                 if gap == 0.0:
                     cbm = efermi
