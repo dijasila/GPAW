@@ -5,7 +5,6 @@ from ase.units import Hartree, alpha, Bohr
 from gpaw.utilities.tools import coordinates
 from gpaw.fd_operators import Gradient
 from gpaw.lcaotddft.observer import TDDFTObserver
-# from gpaw.lcaotddft.dipolemomentwriter import repr
 
 
 def convert_repr(r):
@@ -23,6 +22,11 @@ def convert_repr(r):
     if repr(s) == r:
         return s
     raise RuntimeError('Unknown value: %s' % r)
+
+
+def skew(a):
+    return (a - a.T) / 2
+
 
 class CDWriter(TDDFTObserver):
     version=1
@@ -81,7 +85,7 @@ class CDWriter(TDDFTObserver):
             # Translate key
             k = {'center': 'do_center'}[k]
             setattr(self, k, v)
-   
+
     def _write_kick(self, paw):
         time = paw.time
         kick = paw.kick_strength
@@ -92,9 +96,8 @@ class CDWriter(TDDFTObserver):
     def calculate_cd_moment(self, paw, center=True):
         grad = self.grad
         gd = paw.wfs.gd
-               
-        self.timer.start('CD')
 
+        self.timer.start('CD')
 
         grad_psit_G = gd.empty(3, dtype=complex)
         psit_G=gd.empty(dtype=complex)
@@ -104,18 +107,15 @@ class CDWriter(TDDFTObserver):
         Rxnabla_a2 = np.zeros(3, dtype=complex)
 
         rxnabla_g = np.zeros(3, dtype=complex)
-        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv) # + [0.0, 0.0, 2.0]
+        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
 
-        print(R0)
         r_cG, r2_G = coordinates(paw.wfs.gd, origin=R0)
 
         for kpt in paw.wfs.kpt_u:
             #paw.wfs.atomic_correction.calculate_projections(paw.wfs, kpt)
 
             for n, (f, psit_G) in enumerate(zip(kpt.f_n, kpt.psit_nG)):
-                #psit_G[:] = 0.0
-                #paw.wfs.basis_functions.lcao_to_grid(C_M, psit_G, kpt.q)
-                for c in range(3): 
+                for c in range(3):
                      grad[c].apply(psit_G, grad_psit_G[c],kpt.phase_cd)
 
                 rxnabla_g[0] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
@@ -136,19 +136,13 @@ class CDWriter(TDDFTObserver):
                 # <psi1| (r-Ra) x nabla |psi2>
                 for a, P_ni in kpt.P_ani.items():
                     P_i = P_ni[n]
-                    def skew(a):
-                        return (a-a.T)/2
 
-                    #print(world.rank,a,n)
-           
                     rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
                     nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
 
                     for c in range(3):
-                        rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
-                        nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])     
-
-
+                        rxnabla_iiv[:,:,c] = skew(rxnabla_iiv[:,:,c])
+                        nabla_iiv[:,:,c] = skew(nabla_iiv[:,:,c])
 
                     Rxnabla_a2[0] += np.dot(P_i,np.dot(nabla_iiv[:,:,0],P_i.T.conjugate()))
                     Ra = (paw.atoms[a].position /Bohr) - R0
@@ -161,37 +155,27 @@ class CDWriter(TDDFTObserver):
                             Rxnabla_a[0] +=-1j*f* P1.conjugate() * P2 * ( Ra[1] * nabla_iiv[i1, i2, 2] - Ra[2] * nabla_iiv[i1, i2, 1] )
                             Rxnabla_a[1] +=-1j*f* P1.conjugate() * P2 * ( Ra[2] * nabla_iiv[i1, i2, 0] - Ra[0] * nabla_iiv[i1, i2, 2] )
                             Rxnabla_a[2] +=-1j*f* P1.conjugate() * P2 * ( Ra[0] * nabla_iiv[i1, i2, 1] - Ra[1] * nabla_iiv[i1, i2, 0] )
-                               
-        paw.wfs.bd.comm.sum(rxnabla_a) # sum up from different procs  
-        paw.wfs.gd.comm.sum(rxnabla_a) # sum up from different procs  
 
-        paw.wfs.bd.comm.sum(Rxnabla_a) # sum up from different procs
-        paw.wfs.gd.comm.sum(Rxnabla_a) # sum up from different procs
+        paw.wfs.bd.comm.sum(rxnabla_a)
+        paw.wfs.gd.comm.sum(rxnabla_a)
 
-        paw.wfs.bd.comm.sum(rxnabla_g) # sum up from different procs
+        paw.wfs.bd.comm.sum(Rxnabla_a)
+        paw.wfs.gd.comm.sum(Rxnabla_a)
+
+        paw.wfs.bd.comm.sum(rxnabla_g)
+
+        rtots = rxnabla_g + Rxnabla_a + rxnabla_a
 
         self.timer.stop('CD')
 
-        rtots = rxnabla_g + Rxnabla_a + rxnabla_a #  summaa eri r-termit ja tarvittaessa PAW off
-        
-        # paw.wfs.gd.comm.sum(rtots)
-
-        # return rxnabla_g + Rxnabla_a + rxnabla_a # 
-
         return rtots
-
 
     def _write_cd(self, paw):
         time = paw.time
 
-        cd = self.calculate_cd_moment(paw,center=self.do_center)
-        #line = ('%20.8lf %22.12le %22.12le %22.12le %22.12le %22.12le %22.12le\n' %
-        # (time, rxnabla_g[0].real, Rxnabla_a[0].real, rxnabla_a[0].real, rxnabla_g[0].imag, Rxnabla_a[0].imag, rxnabla_a[0].imag))
-        
-
+        cd = self.calculate_cd_moment(paw, center=self.do_center)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
           (time, cd[0].real, cd[1].real, cd[2].real))
-
 
         self._write(line)
 
