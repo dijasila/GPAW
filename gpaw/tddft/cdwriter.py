@@ -108,7 +108,11 @@ class CDWriter(TDDFTObserver):
         rxnabla_g = np.zeros(3, dtype=complex)
         R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
 
-        r_cG, r2_G = coordinates(paw.wfs.gd, origin=R0)
+        if hasattr(self, 'r_cG'):
+            r_cG = self.r_cG
+        else:
+            r_cG, _ = coordinates(paw.wfs.gd, origin=R0)
+            self.r_cG = r_cG
 
         for kpt in paw.wfs.kpt_u:
             #paw.wfs.atomic_correction.calculate_projections(paw.wfs, kpt)
@@ -136,12 +140,17 @@ class CDWriter(TDDFTObserver):
                 for a, P_ni in kpt.P_ani.items():
                     P_i = P_ni[n]
 
-                    rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
-                    nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
-
-                    for c in range(3):
-                        rxnabla_iiv[:,:,c] = skew(rxnabla_iiv[:,:,c])
-                        nabla_iiv[:,:,c] = skew(nabla_iiv[:,:,c])
+                    if hasattr(self, 'rxnabla_iiv'):
+                        rxnabla_iiv = self.rxnabla_iiv
+                        nabla_iiv = self.nabla_iiv
+                    else:
+                        rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
+                        nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
+                        for c in range(3):
+                            rxnabla_iiv[:,:,c] = skew(rxnabla_iiv[:,:,c])
+                            nabla_iiv[:,:,c] = skew(nabla_iiv[:,:,c])
+                        self.rxnabla_iiv = rxnabla_iiv
+                        self.nabla_iiv = nabla_iiv
 
                     Rxnabla_a2[0] += np.dot(P_i,np.dot(nabla_iiv[:,:,0],P_i.T.conjugate()))
                     Ra = (paw.atoms[a].position /Bohr) - R0
