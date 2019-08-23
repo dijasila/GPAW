@@ -1,6 +1,6 @@
 """GPAW command-line tool."""
-from __future__ import print_function
 import os
+import subprocess
 import sys
 
 
@@ -48,7 +48,11 @@ def hook(parser, args):
                 arguments += args.arguments
             else:
                 arguments += ['-m', 'gpaw'] + sys.argv[1:]
-            os.execvp('mpiexec', arguments)
+
+            # Use a clean set of environment variables without any MPI
+            # stuff:
+            subprocess.run(arguments, check=True, env=os.environ)
+            sys.exit()
 
     return args
 
