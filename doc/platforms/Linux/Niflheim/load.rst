@@ -66,9 +66,9 @@ I am a normal user
 I am reckless
   You can just load the default version with ``module load GPAW``.
 
-  You will have *no control* over when the default version change.  From
-  midt September 2019 it will typically be the latest version.  *We do
-  not recommend being reckless!*
+  You will have *no control* over when the default version change.
+  From Tuesday 3. September 2019 it will typically be the latest
+  version.  *We do not recommend being reckless!*
 
 **IMPORTANT:**  You do *not* need to load Python, ASE, matplotlib etc.
 Loading GPAW pulls all that stuff in, in versions consistent with the
