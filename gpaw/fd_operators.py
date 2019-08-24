@@ -78,9 +78,16 @@ class FDOperator:
         self.comm = comm
         self.cfd = cfd
 
+        from gpaw.mpi import world
+        print(world.get_c_object())
+        print(coef_p, offset_p, n_c, mp,
+              neighbor_cd, dtype == float,
+              comm, cfd, comm.rank, comm.size)
+        from mpi4py.MPI import COMM_WORLD as comm
         self.operator = _gpaw.Operator(coef_p, offset_p, n_c, mp,
                                        neighbor_cd, dtype == float,
                                        comm, cfd)
+        1 / 0
 
         if description is None:
             description = '%d point finite-difference stencil' % self.npoints

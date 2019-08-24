@@ -599,7 +599,7 @@ class _Communicator:
         comm.get_c_object() and pass the resulting object to the C code.
         """
         c_obj = self.comm.get_c_object()
-        assert isinstance(c_obj, _gpaw.Communicator)
+        # assert isinstance(c_obj, _gpaw.Communicator)
         return c_obj
 
 

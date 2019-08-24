@@ -486,10 +486,16 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
                              {range, range},
                              {range, range}};
 
-  MPI_Comm comm = MPI_COMM_NULL;
-  if (comm_obj != Py_None)
-    comm = *PyMPIComm_Get(comm_obj);
-
-  self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
+  MPI_Comm* comm;// = &MPI_COMM_NULL;
+  if (comm_obj != Py_None){
+    printf("Hej\n");
+    comm = PyMPIComm_Get(comm_obj);
+    printf("%d\n", comm == NULL);
+    int r, s;
+    MPI_Comm_rank(*comm, &r);
+    MPI_Comm_size(*comm, &s);
+    printf("%d %d\n", r, s);
+    }
+  self->bc = bc_init(LONGP(size), padding, padding, nb, *comm, real, cfd);
   return (PyObject*)self;
 }
