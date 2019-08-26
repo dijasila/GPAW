@@ -4,17 +4,21 @@
 
 """Main gpaw module."""
 
+import os
 import sys
 from sysconfig import get_platform
 from os.path import join, isfile
 
+plat = get_platform()
+platform_id = os.getenv('CPU_ARCH')
+if platform_id:
+    plat += '-' + platform_id
 build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (get_platform(), sys.version[0:3])
+arch = '%s-%s' % (plat, sys.version[0:3])
 
 # If we are running the code from the source directory, then we will
 # want to use the extension from the distutils build directory:
 sys.path.insert(0, join(build_path, 'lib.' + arch))
-
 
 from gpaw.broadcast_imports import broadcast_imports
 

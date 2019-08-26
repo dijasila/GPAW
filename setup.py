@@ -64,7 +64,6 @@ fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
-platform_id = ''
 mpicompiler = 'mpicc'
 mpilinker = 'mpicc'
 
@@ -107,7 +106,8 @@ if not parallel_python_interpreter and mpicompiler:
     define_macros += [('PARALLEL', '1')]
 
 plat = distutils.util.get_platform()
-if platform_id != '':
+platform_id = os.getenv('CPU_ARCH')
+if platform_id:
     plat += '-' + platform_id
 
     def my_get_platform():
