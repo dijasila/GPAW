@@ -87,7 +87,7 @@ except ImportError:
 if 'GPAW_CONFIG' in os.environ:
     config = os.environ['GPAW_CONFIG']
     if Path(config).is_file():
-        config = config.read_text()
+        config = Path(config).read_text()
 else:
     config = Path.home() / '.gpaw/config.py'
     if config.is_file():
