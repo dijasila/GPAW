@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import functools
 from time import time, ctime
 from datetime import timedelta
@@ -16,7 +14,7 @@ from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-
+from gpaw.utilities import file_barrier
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm
 from gpaw.response.chi0 import Chi0
@@ -209,7 +207,9 @@ class BSE:
                     calc_so.atoms = self.calc.atoms
                     calc_so.density = self.calc.density
                     calc_so.get_potential_energy()
-                    calc_so.write('gs_nosym.gpw')
+                    with file_barrier('gs_nosym.gpw'):
+                        calc_so.write('gs_nosym.gpw')
+
                 calc_so = GPAW('gs_nosym.gpw', txt=None,
                                communicator=serial_comm)
                 e_mk, v_knm = get_spinorbit_eigenvalues(calc_so,
@@ -256,8 +256,8 @@ class BSE:
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
         # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
-        df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float) # -(ev - ec)
-        deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float) # -(fv - fc)
+        df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float)  # -(ev - ec)
+        deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float)  # -(fv - fc)
         if np.allclose(self.q_c, 0.0):
             optical_limit = True
         else:
@@ -354,7 +354,7 @@ class BSE:
                                               cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
-                #rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
+                # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
                 rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
@@ -407,8 +407,8 @@ class BSE:
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
-        #if self.mode == 'BSE':
-        #    del self.Q_qaGii, self.W_qGG, self.pd_q
+        # if self.mode == 'BSE':
+        #     del self.Q_qaGii, self.W_qGG, self.pd_q
 
         H_ksmnKsmn /= self.vol
 
@@ -737,7 +737,7 @@ class BSE:
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  direction=0, ac=1.0, readfile=None, optical=True,
                  write_eig=None):
-        """Returns v * \chi where v is the bare Coulomb interaction"""
+        """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
                             readfile=readfile, optical=optical,
@@ -906,7 +906,7 @@ class BSE:
                            q_c=[0.0, 0.0, 0.0], direction=0,
                            filename='pol_bse.csv', readfile=None, pbc=None,
                            write_eig='eig.dat'):
-        """Calculate the polarizability alpha.
+        r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
         with reduced dimensionality the converged value of alpha is
@@ -957,7 +957,7 @@ class BSE:
                           q_c=[0.0, 0.0, 0.0], direction=0,
                           filename='abs_bse.csv', readfile=None, pbc=None,
                           write_eig='eig.dat'):
-        """Calculate the dimensionless absorption for 2d materials.
+        r"""Calculate the dimensionless absorption for 2d materials.
         It is essentially related to the 2D polarizability \alpha_2d as
 
               ABS = 4 * np.pi * \omega * \alpha_2d / c

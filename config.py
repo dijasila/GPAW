@@ -6,9 +6,7 @@ import sys
 import re
 import distutils.util
 from distutils.sysconfig import get_config_vars
-from distutils.version import LooseVersion
 from glob import glob
-from os.path import join
 from pathlib import Path
 from stat import ST_MTIME
 

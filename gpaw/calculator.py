@@ -80,14 +80,14 @@ class GPAW(PAW, Calculator):
                      'time_reversal': True,
                      'symmorphic': True,
                      'tolerance': 1e-7,
-                     'do_not_symmetrize_the_density': None},
+                     'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'dtype': None,  # Deprecated
-        'width': None,  # Deprecated
+        'dtype': None,  # deprecated
+        'width': None,  # deprecated
         'verbose': 0}
 
     default_parallel = {
@@ -435,11 +435,11 @@ class GPAW(PAW, Calculator):
             # More drastic changes:
             if self.wfs:
                 self.wfs.set_orthonormalized(False)
-            if key in ['external', 'xc', 'poissonsolver']:
+            if key in ['xc', 'poissonsolver']:
                 self.hamiltonian = None
             elif key in ['occupations', 'width']:
                 pass
-            elif key in ['charge', 'background_charge']:
+            elif key in ['external', 'charge', 'background_charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = None
@@ -587,18 +587,23 @@ class GPAW(PAW, Calculator):
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
 
-        self.create_symmetry(magmom_av, cell_cv)
+        self.create_symmetry(magmom_av, cell_cv, reading)
 
         if par.gpts is not None:
             if par.h is not None:
                 raise ValueError("""You can't use both "gpts" and "h"!""")
             N_c = np.array(par.gpts)
+            h = None
         else:
             h = par.h
             if h is not None:
                 h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            self.symmetry)
+            if h is None and reading:
+                shape = self.reader.density.proxy('density').shape[-3:]
+                N_c = 1 - pbc_c + shape
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
 
         self.setups.set_symmetry(self.symmetry)
 
@@ -690,7 +695,7 @@ class GPAW(PAW, Calculator):
             self.hamiltonian = None
 
         if self.density is None:
-            self.create_density(realspace, mode, background)
+            self.create_density(realspace, mode, background, h)
 
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
@@ -729,15 +734,12 @@ class GPAW(PAW, Calculator):
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
-        self.log('Bands to converge: ', end='')
-        n = par.convergence.get('bands', 'occupied')
-        if n == 'occupied':
-            self.log('occupied states only')
-        elif n == 'all':
-            self.log('all')
-        else:
-            self.log('%d lowest bands' % n)
         self.log('Number of valence electrons:', self.wfs.nvalence)
+
+        n = par.convergence.get('bands', 'occupied')
+        if isinstance(n, int) and n < 0:
+            n += self.wfs.bd.nbands
+        self.log('Bands to converge:', n)
 
         self.log(flush=True)
 
@@ -841,15 +843,25 @@ class GPAW(PAW, Calculator):
             nv)
         self.log(self.scf)
 
-    def create_symmetry(self, magmom_av, cell_cv):
+    def create_symmetry(self, magmom_av, cell_cv, reading):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
+
         if 'do_not_symmetrize_the_density' in symm:
             symm = symm.copy()
-            if symm.pop('do_not_symmetrize_the_density') is not None:
-                warnings.warn('Ignoring your "do_not_symmetrize_the_density" '
-                              'keyword!  Please remove it.')
+            dnstd = symm.pop('do_not_symmetrize_the_density')
+            if dnstd is not None:
+                info = 'Ignoring your "do_not_symmetrize_the_density" keyword!'
+                if reading:
+                    self.log(info)
+                else:
+                    warnings.warn(info + ' Please remove it.')
+
+        if self.parameters.external is not None:
+            symm = symm.copy()
+            symm['point_group'] = False
+
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
@@ -860,8 +872,7 @@ class GPAW(PAW, Calculator):
         nbands_converge = self.parameters.convergence.get('bands', 'occupied')
         if nbands_converge == 'all':
             nbands_converge = nbands
-        elif nbands_converge != 'occupied':
-            assert isinstance(nbands_converge, int)
+        elif isinstance(nbands_converge, int):
             if nbands_converge < 0:
                 nbands_converge += nbands
         eigensolver = get_eigensolver(self.parameters.eigensolver, mode,
@@ -876,7 +887,7 @@ class GPAW(PAW, Calculator):
 
         self.log('Eigensolver\n  ', self.wfs.eigensolver, '\n')
 
-    def create_density(self, realspace, mode, background):
+    def create_density(self, realspace, mode, background, h):
         gd = self.wfs.gd
 
         big_gd = gd.new_descriptor(comm=self.world)
@@ -911,7 +922,12 @@ class GPAW(PAW, Calculator):
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
         else:
-            self.density = pw.ReciprocalSpaceDensity(**kwargs)
+            if h is None:
+                ecut = 2 * self.wfs.pd.ecut
+            else:
+                ecut = 0.5 * (np.pi / h)**2
+            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
+                                                     **kwargs)
 
         self.log(self.density, '\n')
 

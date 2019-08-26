@@ -339,7 +339,7 @@ def md5_array(data, numeric=False):
         data.dtype not in [bool, np.bool, np.bool_]):
         raise TypeError('MD5 hex digest only accepts numeric/boolean arrays.')
 
-    datahash = hashlib.md5(data.tostring())
+    datahash = hashlib.md5(data.tobytes())
 
     if numeric:
         def xor(a, b):

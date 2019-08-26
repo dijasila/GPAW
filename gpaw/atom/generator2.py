@@ -387,6 +387,14 @@ class PAWSetupGenerator:
             self.alpha = fsolve(f, 7.0)[0]
 
             self.alpha = round(self.alpha, 1)
+        elif alpha < 0:
+            rc = min(rc)
+            self.log('Shape function: (sin(pi*r/rc)/r)^2, rc={rc:.2f} Bohr'
+                     .format(rc=rc))
+            self.ghat_g = np.sinc(self.rgd.r_g / rc)**2 * (pi / 2 / rc**3)
+            self.ghat_g[self.rgd.ceil(rc):] = 0.0
+            self.alpha = -rc
+            return
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
@@ -435,7 +443,7 @@ class PAWSetupGenerator:
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         if dv0:
             x = self.rgd.r_g[:g0] / r0
-            dv_g = dv0 * (1 - 3 * x**2 + 2 * x**3)
+            dv_g = dv0 * (1 - 2 * x**2 + x**4)
             self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
@@ -1070,8 +1078,12 @@ class PAWSetupGenerator:
         setup.e_electrostatic = aea.eH + aea.eZ
         setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
         setup.rgd = self.rgd
-        setup.shape_function = {'type': 'gauss',
-                                'rc': 1 / sqrt(self.alpha)}
+        if self.alpha > 0:
+            setup.shape_function = {'type': 'gauss',
+                                    'rc': 1 / sqrt(self.alpha)}
+        else:
+            setup.shape_function = {'type': 'sinc',
+                                    'rc': -self.alpha}
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc

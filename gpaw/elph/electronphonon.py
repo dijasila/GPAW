@@ -1,4 +1,4 @@
-"""Module for calculating electron-phonon couplings.
+r"""Module for calculating electron-phonon couplings.
 
 Electron-phonon interaction::
 
@@ -606,7 +606,7 @@ class ElectronPhononCoupling(Displacement):
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
                      omega_ql=None, kpts_from=None):
-        """Calculate el-ph coupling in the Bloch basis for the electrons.
+        r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
         specified Bloch states, i.e.::

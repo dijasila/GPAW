@@ -177,6 +177,7 @@ tests = [
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
+    'pw/smallanglecell.py',
     'gllbghost.py',                         # ~3s
     'fileio/file_reference.py',             # ~3s
     'fileio/restart.py',                    # ~3s
@@ -201,6 +202,7 @@ tests = [
     'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'fileio/read_old_gpw.py',
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'pw/augment_grids.py',
@@ -341,6 +343,9 @@ tests = [
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
+    'symmetry/fractional_translations.py',
+    'symmetry/fractional_translations_med.py',
+    'symmetry/fractional_translations_big.py',
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
@@ -419,11 +424,7 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cdft.py']                              # 40s
 
-# 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
-
-# 'symmetry/fractional_translations_med.py',
-# 'symmetry/fractional_translations_big.py',
 
 # 'linalg/eigh_perf.py', # Requires LAPACK 3.2.1 or later
 # XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230

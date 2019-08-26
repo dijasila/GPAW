@@ -225,25 +225,25 @@ class CouplingParameters:
                 self.mu = mu
             else:
                 # get mu and Rc the long way
-                w_temp = WeightFunc(gd=self.gd, atoms=self.calc_a.atoms,
+                w_temp = WeightFunc(gd=self.gd, atoms=self.calc_A.atoms,
                     indices=self.regionsA, Rc=Rc, mu=mu)
                 self.Rc, self.mu = w_temp.get_Rc_and_mu()
                 del w_temp
 
             if self.AE:
-                self.fineweightA = get_all_weight_functions(self.calc_a.atoms,
+                self.fineweightA = get_all_weight_functions(self.calc_A.atoms,
                             self.gd, self.regionsA, self.charge_difference,
                             self.Rc, self.mu)
 
-                self.fineweightB = get_all_weight_functions(self.calc_b.atoms,
+                self.fineweightB = get_all_weight_functions(self.calc_B.atoms,
                             self.gd, self.regionsB, self.charge_difference,
                             self.Rc, self.mu)
 
             else:
-                self.coarseweightA = get_all_weight_functions(self.calc_a.atoms,
+                self.coarseweightA = get_all_weight_functions(self.calc_A.atoms,
                             self.gd, self.regionsA, self.charge_difference,
                             self.Rc, self.mu)
-                self.coarseweightB = get_all_weight_functions(self.calc_b.atoms,
+                self.coarseweightB = get_all_weight_functions(self.calc_B.atoms,
                             self.gd, self.regionsB, self.charge_difference,
                             self.Rc, self.mu)
 

@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import warnings
 # silence matplotlib.use() warning
-warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
+warnings.filterwarnings('ignore', r'.*This call to matplotlib\.use.*',)
 
 import numpy as np
 

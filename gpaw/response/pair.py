@@ -221,7 +221,7 @@ class PWSymmetryAnalyzer:
 
     @timer('Analyze symmetries.')
     def analyze_symmetries(self):
-        """Determine allowed symmetries.
+        r"""Determine allowed symmetries.
 
         An direct symmetry U must fulfill::
 
@@ -643,7 +643,7 @@ class PairDensity:
 
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
-        
+
         self.response = response
         self.ecut = ecut
         self.ftol = ftol
@@ -680,7 +680,7 @@ class PairDensity:
         self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
-        
+
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
         else:
@@ -827,7 +827,7 @@ class PairDensity:
             'Increase GS-nbands or decrease chi0-nbands!'
         eps_n = kpt.eps_n[n1:n2]
         f_n = kpt.f_n[n1:n2] / kpt.weight
-        
+
         if not load_wfs:
             return KPoint(s, K, n1, n2, blocksize, na, nb,
                           None, eps_n, f_n, None, shift_c)
@@ -1096,7 +1096,7 @@ class PairDensity:
 
     @timer('get_pair_momentum')
     def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
-        """Calculate matrix elements of the momentum operator.
+        r"""Calculate matrix elements of the momentum operator.
 
         Calculates::
 

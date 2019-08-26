@@ -191,7 +191,7 @@ def gausspot_L(a, L, x, y, z, r, r2, erf_sar, exp_ar2):
 
 
 class Gaussian:
-    """Class offering several utilities related to the generalized gaussians.
+    r"""Class offering several utilities related to the generalized gaussians.
 
     Generalized gaussians are defined by::
 
@@ -260,7 +260,7 @@ class Gaussian:
 
 def gaussian_wave(r_vG, r0_v, sigma, k_v=None, A=None, dtype=float,
                   out_G=None):
-    """Generates function values for atom-centered Gaussian waves.
+    r"""Generates function values for atom-centered Gaussian waves.
 
     ::
 

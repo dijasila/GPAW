@@ -36,7 +36,7 @@ class BadGridError(ValueError):
 
 
 class GridDescriptor(Domain):
-    """Descriptor-class for uniform 3D grid
+    r"""Descriptor-class for uniform 3D grid
 
     A ``GridDescriptor`` object holds information on how functions, such
     as wave functions and electron densities, are discreticed in a
@@ -149,11 +149,6 @@ class GridDescriptor(Domain):
 
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
-
-        # Sanity check for grid spacings:
-        h_c = self.get_grid_spacings()
-        if max(h_c) / min(h_c) > 1.3:
-            raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
 
     def __repr__(self):
         if self.orthogonal:
@@ -455,9 +450,11 @@ class GridDescriptor(Domain):
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc)
+                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
-                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, ft_sc[s])
+                    t_c = (ft_sc[s] * self.N_c).round().astype(int)
+                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
+                                        1 - self.pbc_c)
         else:
             B_g = None
         self.distribute(B_g, a_g)

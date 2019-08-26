@@ -53,9 +53,7 @@ if fftw:
 # ScaLAPACK (version 2.0.1+ required):
 scalapack = False
 if scalapack:
-    libraries += ['scalapack-openmpi',
-                  'blacsCinit-openmpi',
-                  'blacs-openmpi']
+    libraries += ['scalapack-openmpi']
 
 # Use Elpa (requires ScaLAPACK and Elpa API 20171201):
 if 0:

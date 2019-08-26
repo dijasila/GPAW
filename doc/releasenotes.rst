@@ -10,7 +10,36 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.17.1b1
+* Corresponding ASE release: ASE-3.18.1b1
+
+* New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
+  will converge bands up to conduction band minimum plus 2.5 eV.
+
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
+
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* The ``"You have a weird unit cell"`` and
+  ``"Real space grid not compatible with symmetry operation"``
+  errors are now gone.  GPAW now handles these cases by
+  choosing the number of real-space grid-points in a more clever way.
 
 * The angular part of the PAW correction to the ALDA kernel is now calculated
   analytically by expanding the correction in spherical harmonics.
@@ -40,6 +69,9 @@ Git master branch
 * New "metallic boundary conditions" have been added to the for PoissonSolver.
   This enables simulating charged 2D systems without counter charges.
   See: :git:`gpaw/test/poisson/metallic_poisson.py`
+
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
 
 .. _JTH: https://www.abinit.org/psp-tables
 
