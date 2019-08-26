@@ -12,6 +12,7 @@ http://www.netlib.org/lapack/lug/node145.html
 """
 
 import numpy as np
+import scipy.linalg.blas as blas
 
 from gpaw.utilities import is_contiguous
 from gpaw import debug
@@ -48,10 +49,14 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     if a.dtype == float:
         assert not isinstance(alpha, complex)
         assert not isinstance(beta, complex)
+        blas.dgemm(alpha, b.T, a.T, beta, c.T,
+                     'NTC'.index(opb), 'NTC'.index(opa), 1)
     else:
         assert a.dtype == complex
+        blas.zgemm(alpha, b.T, a.T, beta, c.T,
+                   'NTC'.index(opb), 'NTC'.index(opa), 1)
 
-    _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
+    # _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
 
 
 def scal(alpha, x):
@@ -391,7 +396,7 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
 
 
 if not debug:
-    mmm = _gpaw.mmm  # noqa
+    # mmm = _gpaw.mmm  # noqa
     scal = _gpaw.scal  # noqa
     gemm = _gpaw.gemm  # noqa
     gemv = _gpaw.gemv  # noqa
