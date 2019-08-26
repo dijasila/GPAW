@@ -17,17 +17,17 @@ nh=doc/platforms/Linux/Niflheim
 rm -rf build
 cmd="${ICMD} cd $PWD && GPAW_CONFIG=$nh/el7-${GPAW_TOOLCHAIN}.py python setup.py build_ext"
 echo "Compiling on slid: $cmd"
-ssh slid "$cmd > broadwell-el7-${GPAW_TOOLCHAIN}.log 2>&1"
-mv configuration.log configuration-broadwell-el7-${GPAW_TOOLCHAIN}.log
+ssh slid "$cmd > broadwell-${GPAW_TOOLCHAIN}.log 2>&1"
+mv configuration.log configuration-broadwell-${GPAW_TOOLCHAIN}.log
 echo "Compiling on thul: $cmd"
-ssh thul "$cmd > sandybridge-el7-${GPAW_TOOLCHAIN}.log 2>&1"
-mv configuration.log configuration-sandybridge-el7-${GPAW_TOOLCHAIN}.log
+ssh thul "$cmd > sandybridge-${GPAW_TOOLCHAIN}.log 2>&1"
+mv configuration.log configuration-sandybridge-${GPAW_TOOLCHAIN}.log
 echo "Compiling on fjorm: $cmd"
-ssh fjorm "$cmd > nehalem-el7-${GPAW_TOOLCHAIN}.log 2>&1"
-mv configuration.log configuration-nehalem-el7-${GPAW_TOOLCHAIN}.log
+ssh fjorm "$cmd > nehalem-${GPAW_TOOLCHAIN}.log 2>&1"
+mv configuration.log configuration-nehalem-${GPAW_TOOLCHAIN}.log
 echo "Compiling on svol: $cmd"
-ssh svol "$cmd > skylake-el7-${GPAW_TOOLCHAIN}.log 2>&1"
-mv configuration.log configuration-skylake-el7-${GPAW_TOOLCHAIN}.log
+ssh svol "$cmd > skylake-${GPAW_TOOLCHAIN}.log 2>&1"
+mv configuration.log configuration-skylake-${GPAW_TOOLCHAIN}.log
 
-(cd build && ln -sf bin.linux-x86_64-{sandybridge,ivybridge}-el7-3.6)
-(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-el7-3.6)
+(cd build && ln -sf bin.linux-x86_64-{sandybridge,ivybridge}-3.6)
+(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.6)

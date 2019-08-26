@@ -25,8 +25,8 @@ if [[ -z $GPAW_SETUP_PATH ]]; then
 fi
 
 export GPAW_MPI_OPTIONS=""
-PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.6
-export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
-export PYTHONPATH=$GPAW:$GPAW/build/lib.$PLATFORM:$PYTHONPATH
+PLATFORM=linux-x86_64-$CPU_ARCH-3.6
+export PATH=$GPAW/tools:$PATH
+export PYTHONPATH=$GPAW:$PYTHONPATH
 export PATH=$ASE/bin:$PATH
 export PYTHONPATH=$ASE:$PYTHONPATH
