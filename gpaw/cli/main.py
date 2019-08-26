@@ -51,8 +51,8 @@ def hook(parser, args):
 
             # Use a clean set of environment variables without any MPI
             # stuff:
-            subprocess.run(arguments, check=True, env=os.environ)
-            sys.exit()
+            p = subprocess.run(arguments, check=True, env=os.environ)
+            sys.exit(p.returncode)
 
     return args
 
