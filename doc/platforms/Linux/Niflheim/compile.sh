@@ -15,7 +15,7 @@ done
 
 nh=doc/platforms/Linux/Niflheim
 rm -rf build
-cmd="${ICMD} cd $PWD && python setup.py --remove-default-flags build_ext --customize=$nh/el7-${GPAW_TOOLCHAIN}.py"
+cmd="${ICMD} cd $PWD && GPAW_CONFIG=$nh/el7-${GPAW_TOOLCHAIN}.py python setup.py build_ext"
 echo "Compiling on slid: $cmd"
 ssh slid "$cmd > broadwell-el7-${GPAW_TOOLCHAIN}.log 2>&1"
 mv configuration.log configuration-broadwell-el7-${GPAW_TOOLCHAIN}.log
