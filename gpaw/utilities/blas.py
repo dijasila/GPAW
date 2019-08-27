@@ -46,6 +46,7 @@ def mmm(alpha, a, opa, b, opb, beta, c):
 
     assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
     assert a.dtype == b.dtype == c.dtype
+    cc = c.copy()
     if a.dtype == float:
         assert not isinstance(alpha, complex)
         assert not isinstance(beta, complex)
@@ -56,7 +57,14 @@ def mmm(alpha, a, opa, b, opb, beta, c):
         blas.zgemm(alpha, b.T, a.T, beta, c.T,
                    'NTC'.index(opb), 'NTC'.index(opa), 1)
 
-    # _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
+    _gpaw.mmm(alpha, a, opa, b, opb, beta, cc)
+    e = abs(c - cc).max()
+    if e > 1e-13:
+        print(a.flags, b.flags, c.flags)
+        print(c.strides)
+        print(e,alpha, a.shape,opa, b.shape, opb, beta, c.shape)
+        print(c,cc)
+        sdfg
 
 
 def scal(alpha, x):
