@@ -13,7 +13,7 @@ import scipy.linalg as linalg
 from gpaw import debug
 
 
-def diagonalize(a, w):
+def diagonalize0000000000(a, w):
     """Diagonalize a symmetric/hermitian matrix.
 
     Uses dsyevd/zheevd to diagonalize symmetric/hermitian matrix
@@ -41,7 +41,7 @@ def diagonalize(a, w):
     #    raise RuntimeError('diagonalize error: %d' % info)
 
 
-def general_diagonalize(a, w, b, iu=None):
+def general_diagonalize00000000000000(a, w, b, iu=None):
     """Diagonalize a generalized symmetric/hermitian matrix
 
     A * x = (lambda) * B * x,

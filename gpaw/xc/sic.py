@@ -38,9 +38,9 @@ from math import pi
 import numpy as np
 from ase.units import Bohr, Hartree
 from ase.utils import basestring
+from scipy.linalg import eigh
 
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 from gpaw.xc.functional import XCFunctional
 from gpaw.poisson import PoissonSolver
@@ -72,14 +72,14 @@ def matrix_exponential(G_nn, dlt):
     else:
         V_nn = 1j * G_nn.real
 
-    diagonalize(V_nn, w_n)
+    w_n, V_nn = eigh(V_nn)
 
     O_nn = np.diag(np.exp(1j * dlt * w_n))
 
     if G_nn.dtype == complex:
-        U_nn = np.dot(V_nn.T.conj(), np.dot(O_nn, V_nn)).copy()
+        U_nn = np.dot(V_nn, np.dot(O_nn, V_nn.T.conj())).copy()
     else:
-        U_nn = np.dot(V_nn.T.conj(), np.dot(O_nn, V_nn)).real.copy()
+        U_nn = np.dot(V_nn, np.dot(O_nn, V_nn.T.conj())).real.copy()
 
     return U_nn
 
@@ -109,8 +109,7 @@ def ortho(W_nn, maxerr=1E-10):
     else:
         # diagonalization
         n_n = np.zeros(ndim, dtype=float)
-        diagonalize(O_nn, n_n)
-        U_nn = O_nn.T.conj().copy()
+        n_n, U_nn = eigh(O_nn)
         nsqrt_n = np.diag(1.0 / np.sqrt(n_n))
         X_nn = np.dot(np.dot(U_nn, nsqrt_n), U_nn.T.conj())
 

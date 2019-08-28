@@ -7,7 +7,7 @@ from ase.units import Hartree
 from ase.utils.timing import Timer
 import numpy as np
 from numpy.linalg import inv
-import scipy.linalg as linalg
+from scipy.linalg import eigh
 
 from gpaw import debug
 import gpaw.mpi as mpi
@@ -15,7 +15,6 @@ from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
 from gpaw.helmholtz import HelmholtzSolver
 from gpaw.utilities.blas import gemm
-from gpaw.utilities.lapack import diagonalize
 
 
 class ApmB(OmegaMatrix):
@@ -301,9 +300,8 @@ class ApmB(OmegaMatrix):
 
         if TDA:
             # Tamm-Dancoff approximation (B=0)
-            self.eigenvectors = 0.5 * (ApB + AmB)
-            eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, eigenvalues)
+            eigenvalues, evecs = eihg(0.5 * (ApB + AmB))
+            self.eigenvectors = evecs.T
             self.eigenvalues = eigenvalues ** 2
         else:
             # the occupation matrix
@@ -320,8 +318,7 @@ class ApmB(OmegaMatrix):
             self.eigenvectors = np.zeros(ApB.shape)
             gemm(1.0, S, M, 0.0, self.eigenvectors)
 
-            self.eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, self.eigenvalues)
+            self.eigenvalues, self.eigenvectors.T[:] = eigh(self.eigenvectors)
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -411,7 +408,7 @@ def sqrt_matrix(a, preserve=False):
     # diagonalize to get the form b = Z * D * Z^T
     # where D is diagonal
     D = np.empty((n,))
-    D, b.T[:] = linalg.eigh(b, lower=True)
+    D, b.T[:] = eigh(b, lower=True)
     ZT = b.copy()
     Z = np.transpose(b)
 

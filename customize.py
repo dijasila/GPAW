@@ -46,12 +46,12 @@ To append use the form
 # platform_id = ''
 
 # FFTW3:
-fftw = False
+fftw = not False
 if fftw:
     libraries += ['fftw3']
 
 # ScaLAPACK (version 2.0.1+ required):
-scalapack = False
+scalapack = not False
 if scalapack:
     libraries += ['scalapack-openmpi']
     define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]

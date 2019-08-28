@@ -18,6 +18,9 @@ Git master branch
 * Point-group symmetries now also used for non-periodic systems.
   Use ``symmetry={'point_group': False}`` if you don't want that.
 
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
 
 Version 19.8.1
 ==============

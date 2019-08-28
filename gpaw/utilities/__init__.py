@@ -7,14 +7,13 @@
 import re
 import sys
 import time
-from math import sqrt, exp
+from math import sqrt
 from contextlib import contextmanager
 from typing import Union
 from pathlib import Path
 
 from ase.utils import devnull
 import numpy as np
-from numpy import linalg
 
 import _gpaw
 import gpaw.mpi as mpi
