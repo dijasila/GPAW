@@ -300,7 +300,7 @@ class ApmB(OmegaMatrix):
 
         if TDA:
             # Tamm-Dancoff approximation (B=0)
-            eigenvalues, evecs = eihg(0.5 * (ApB + AmB))
+            eigenvalues, evecs = eigh(0.5 * (ApB + AmB))
             self.eigenvectors = evecs.T
             self.eigenvalues = eigenvalues ** 2
         else:

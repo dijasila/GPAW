@@ -6,7 +6,7 @@ master:
     - pip install flake8
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - sed -i "s/scalapack = False/scalapack = True/" customize.py
-    - python setup.py install # > gpaw-install.output
+    - python setup.py install > gpaw-install.output
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'
     - su user -c 'gpaw -P 1 info'
