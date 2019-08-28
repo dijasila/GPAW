@@ -43,17 +43,7 @@ PyObject* dotc(PyObject *self, PyObject *args);
 PyObject* dotu(PyObject *self, PyObject *args);
 PyObject* multi_dotu(PyObject *self, PyObject *args);
 PyObject* multi_axpy(PyObject *self, PyObject *args);
-PyObject* diagonalize(PyObject *self, PyObject *args);
-PyObject* diagonalize_mr3(PyObject *self, PyObject *args);
-PyObject* general_diagonalize(PyObject *self, PyObject *args);
-PyObject* inverse_cholesky(PyObject *self, PyObject *args);
-PyObject* banded_cholesky(PyObject* self, PyObject* args);
-PyObject* solve_banded_cholesky(PyObject* self, PyObject* args);
-PyObject* inverse_symmetric(PyObject *self, PyObject *args);
-PyObject* inverse_general(PyObject *self, PyObject *args);
-PyObject* linear_solve_band(PyObject *self, PyObject *args);
 PyObject* linear_solve_tridiag(PyObject *self, PyObject *args);
-PyObject* right_eigenvectors(PyObject *self, PyObject *args);
 PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
@@ -192,17 +182,7 @@ static PyMethodDef functions[] = {
     {"dotu", dotu, METH_VARARGS, 0},
     {"multi_dotu", multi_dotu, METH_VARARGS, 0},
     {"multi_axpy", multi_axpy, METH_VARARGS, 0},
-    {"diagonalize", diagonalize, METH_VARARGS, 0},
-    {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
-    {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
-    {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
-    {"banded_cholesky", banded_cholesky, METH_VARARGS, 0},
-    {"solve_banded_cholesky", solve_banded_cholesky, METH_VARARGS, 0},
-    {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
-    {"inverse_general", inverse_general, METH_VARARGS, 0},
-    {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},
     {"linear_solve_tridiag", linear_solve_tridiag, METH_VARARGS, 0},
-    {"right_eigenvectors", right_eigenvectors, METH_VARARGS, 0},
     {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
