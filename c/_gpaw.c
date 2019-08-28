@@ -43,7 +43,6 @@ PyObject* dotc(PyObject *self, PyObject *args);
 PyObject* dotu(PyObject *self, PyObject *args);
 PyObject* multi_dotu(PyObject *self, PyObject *args);
 PyObject* multi_axpy(PyObject *self, PyObject *args);
-PyObject* linear_solve_tridiag(PyObject *self, PyObject *args);
 PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
@@ -152,9 +151,6 @@ PyObject* githash(PyObject* self, PyObject* args)
 #undef STR
 #endif // GPAW_GITHASH
 
-// Moving least squares interpolation
-PyObject* mlsqr(PyObject *self, PyObject *args);
-
 // Holonomic constraints
 PyObject* adjust_positions(PyObject *self, PyObject *args);
 PyObject* adjust_momenta(PyObject *self, PyObject *args);
@@ -182,7 +178,6 @@ static PyMethodDef functions[] = {
     {"dotu", dotu, METH_VARARGS, 0},
     {"multi_dotu", multi_dotu, METH_VARARGS, 0},
     {"multi_axpy", multi_axpy, METH_VARARGS, 0},
-    {"linear_solve_tridiag", linear_solve_tridiag, METH_VARARGS, 0},
     {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
@@ -287,7 +282,6 @@ static PyMethodDef functions[] = {
     {"libvdwxc_init_mpi", libvdwxc_init_mpi, METH_VARARGS, 0},
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
 #endif // GPAW_WITH_LIBVDWXC
-    {"mlsqr", mlsqr, METH_VARARGS, 0},
     {"adjust_positions", adjust_positions, METH_VARARGS, 0},
     {"adjust_momenta", adjust_momenta, METH_VARARGS, 0},
     {"calculate_forces_H2O", calculate_forces_H2O, METH_VARARGS, 0},
