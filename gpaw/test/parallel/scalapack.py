@@ -6,16 +6,15 @@ are redistributed to a mprocs-by-nprocs BLACS grid,
 diagonalized in parallel, and eigenvalues are compared
 against LAPACK. Eigenvectors are not compared.
 """
-from __future__ import print_function
 
 import numpy as np
 from numpy.linalg import inv
+from scipy.linalg import eigh, inv, cholesky
+
 from gpaw.mpi import world, rank
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities.tools import tri2full
 from gpaw.utilities import compiled_with_sl
-from gpaw.utilities.lapack import diagonalize, general_diagonalize, \
-    inverse_cholesky
 from gpaw.utilities.blas import rk
 from gpaw.utilities.scalapack import scalapack_general_diagonalize_dc, \
     scalapack_diagonalize_dc, \
@@ -60,15 +59,19 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
     W0_g = np.empty((N),dtype=float)
 
     # Calculate eigenvalues / other serial results
+    print(rank, C0.shape, C0.dtype)
     if rank == 0:
-        diagonalize(H0.copy(), W0)
-        general_diagonalize(H0.copy(), W0_g, S0.copy())
-        inverse_cholesky(C0) # result returned in lower triangle
+        W0 = eigh(H0, eigvals_only=True)
+        W0_g = eigh(H0, S0, eigvals_only=True)
+        C0 = inv(cholesky(C0, lower=True)).copy()  # result returned in lower triangle
         tri2full(S0_inv, 'L')
         S0_inv = inv(S0_inv)
         # tri2full(C0) # symmetrize
 
-    assert glob.check(H0) and glob.check(S0) and glob.check(C0)
+    print(rank, C0.shape, C0.dtype)
+    assert glob.check(H0)
+    assert glob.check(S0)
+    assert glob.check(C0)
 
     # Create distributed destriptors with various block sizes:
     dist = grid.new_descriptor(N, N, 8, 8)
@@ -126,6 +129,8 @@ def main(N=72, seed=42, mprocs=2, nprocs=2, dtype=float):
         ## general_diag_ex_err = abs(W_g - W0_g).max()
         general_diag_dc_err = abs(W_g_dc - W0_g).max()
         ## general_diag_mr3_err = abs(W_g_mr3 - W0_g).max()
+        print(C_test[:2,:2])
+        print(C0[:2,:2])
         inverse_chol_err = abs(C_test-C0).max()
 
         tri2full(Sinv_test,'L')
@@ -174,6 +179,3 @@ if __name__ in ['__main__', '__builtin__']:
     else:
         main(dtype=complex)
         main(dtype=float)
-
-
-
