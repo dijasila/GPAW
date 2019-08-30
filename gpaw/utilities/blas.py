@@ -146,6 +146,7 @@ def czher(alpha, x, a):
     assert x.ndim == 1 and a.ndim == 2
     assert x.shape[0] == a.shape[0]
 
+    Use zherk instead
     _gpaw.czher(alpha, x, a)
 
 
@@ -285,8 +286,6 @@ if not debug:
     # axpy = _gpaw.axpy  # noqa
     rk = _gpaw.rk  # noqa
     r2k = _gpaw.r2k  # noqa
-    dotc = _gpaw.dotc  # noqa
-    dotu = _gpaw.dotu  # noqa
     gemmdot = _gemmdot
 else:
     def gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
