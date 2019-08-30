@@ -1,16 +1,15 @@
-from __future__ import print_function
 from math import sqrt
 
 import numpy as np
 from ase.units import Hartree
 from ase.utils import convert_string_to_fd, basestring
 from ase.utils.timing import Timer
+from scipy.linalg import eigh
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
-from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 
 """This module defines a Omega Matrix class."""
@@ -605,10 +604,9 @@ class OmegaMatrix:
                     evec[ij, kq] = self.full[map[ij], map[kq]]
         assert(len(evec) > 0)
 
-        self.eigenvectors = evec
-        self.eigenvalues = np.zeros((len(kss)))
+        self.eigenvalues, v = eigh(evec)
+        self.eigenvectors = v.T
         self.kss = kss
-        diagonalize(self.eigenvectors, self.eigenvalues)
 
     @property
     def kss(self):

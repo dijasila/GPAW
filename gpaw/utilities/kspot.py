@@ -55,7 +55,6 @@ class AllElectronPotential:
       xccorr = setup.xc_correction
 
       radf_g = np.zeros(xccorr.ng)
-      target_g = np.zeros(xccorr.ng)
 
       for w, p in zip(weight_n, R_nv):
          scaled_nc = []
@@ -69,7 +68,7 @@ class AllElectronPotential:
 
          scaled_nc = np.array(scaled_nc)
 
-         gd.interpolate_grid_points(scaled_nc, f_g, target_g, use_mlsqr=True)
+         target_g = gd.interpolate_grid_points(scaled_nc, f_g)
          radf_g += w * target_g
 
       return radf_g
