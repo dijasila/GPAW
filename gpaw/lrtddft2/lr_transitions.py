@@ -1,9 +1,8 @@
 import numpy as np
-
 import ase.units
+from scipy.linalg import eigh
 
-import gpaw.utilities.lapack
-
+from gpaw.mpi import world
 from gpaw.lrtddft2.lr_layouts import LrDiagonalizeLayout
 
 
@@ -76,7 +75,6 @@ class LrtddftTransitions:
         #    print omega_matrix
 
         # solve eigensystem
-        self.eigenvalues = np.zeros(nrows)
 
         # debug
         #omega_matrix[:] = 0
@@ -85,11 +83,7 @@ class LrtddftTransitions:
         #        if i == j: omega_matrix[i,j] = -2.
         #        if i+1 == j: omega_matrix[i,j] = omega_matrix[j,i] = 1.
 
-
-        gpaw.utilities.lapack.diagonalize(omega_matrix, self.eigenvalues)
-
-        # make columns have eigenvectors (not rows)
-        omega_matrix = np.transpose(omega_matrix)
+        self.eigenvalues, omega_matrix = eigh(omega_matrix)
 
         # convert eigenvector back to local version
         nlrows = self.K_matrix.values.shape[0]
@@ -454,7 +448,7 @@ class LrtddftTransitions:
         Sz = np.array(Sz)
 
 
-        if filename is not None and gpaw.mpi.world.rank == 0:
+        if filename is not None and world.rank == 0:
             sfile = open(filename,'w')
             sfile.write("# %12s  %12s  %12s     %12s  %12s  %12s    %s\n" % ('energy','osc str','rot str','osc str x', 'osc str y', 'osc str z', 'units: ' + units))
             for (ww,SS,RR,SSx,SSy,SSz) in zip(w,S,R,Sx,Sy,Sz):
@@ -530,7 +524,7 @@ class LrtddftTransitions:
             R += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) )
 
 
-        if filename is not None and gpaw.mpi.world.rank == 0:
+        if filename is not None and world.rank == 0:
             sfile = open(filename,'w')
             sfile.write("# %12s  %12s  %12s     %12s  %12s  %12s    %s\n" % ('energy','osc str','rot str','osc str x','osc str y','osc str z', 'units: ' + units))
             for (ww,SS,RR,SSx,SSy,SSz) in zip(w,S,R,Sx,Sy,Sz):

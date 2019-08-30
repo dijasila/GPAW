@@ -2,7 +2,7 @@ master:
   image: python:3
   script:
     - apt-get update -qy
-    - apt-get install -qy libopenblas-dev liblapack-dev libscalapack-mpi-dev libxc-dev > apt-get.output
+    - apt-get install -qy libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
     - pip install flake8
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - sed -i "s/scalapack = False/scalapack = True/" customize.py
