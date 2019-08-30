@@ -6,7 +6,6 @@ gradient stabilized method. Requires Numpy and GPAW's own BLAS."""
 import numpy as np
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotc
 from gpaw.mpi import rank
 
 class BiCGStab:
@@ -104,7 +103,7 @@ class BiCGStab:
         # Multivector dot product, a^H b, where ^H is conjugate transpose
         def multi_zdotc(s, x,y, nvec):
             for i in range(nvec):
-                s[i] = dotc(x[i],y[i])
+                s[i] = np.vdot(x[i],y[i])
             self.gd.comm.sum(s)
             return s
 
