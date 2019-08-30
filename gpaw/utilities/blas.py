@@ -67,23 +67,6 @@ def mmm(alpha, a, opa, b, opb, beta, c):
         sdfg
 
 
-def scal(alpha, x):
-    """alpha x
-
-    Performs the operation::
-
-      x <- alpha * x
-
-    """
-    if isinstance(alpha, complex):
-        assert is_contiguous(x, complex)
-    else:
-        assert isinstance(alpha, float)
-        assert x.dtype in [float, complex]
-        assert x.flags.contiguous
-    _gpaw.scal(alpha, x)
-
-
 def gemm(alpha, a, b, beta, c, transa='n'):
     """General Matrix Multiply.
 
@@ -131,45 +114,6 @@ def gemm(alpha, a, b, beta, c, transa='n'):
     _gpaw.gemm(alpha, a, b, beta, c, transa)
 
 
-def gemv(alpha, a, x, beta, y, trans='t'):
-    """General Matrix Vector product.
-
-    Performs the operation::
-
-      y <- alpha * a.x + beta * y
-
-    ``a.x`` denotes matrix multiplication, where the product-sum is
-    over the entire length of the vector x and
-    the first dimension of a (for trans='n'), or
-    the last dimension of a (for trans='t' or 'c').
-
-    If trans='c', the complex conjugate of a is used. The default is
-    trans='t', i.e. behaviour like np.dot with a 2D matrix and a vector.
-
-    Example::
-
-      >>> y_m = np.dot(A_mn, x_n)
-      >>> # or better yet
-      >>> y_m = np.zeros(A_mn.shape[0], A_mn.dtype)
-      >>> gemv(1.0, A_mn, x_n, 0.0, y_m)
-
-    """
-    assert (a.dtype == float and x.dtype == float and y.dtype == float and
-            isinstance(alpha, float) and isinstance(beta, float) or
-            a.dtype == complex and x.dtype == complex and y.dtype == complex)
-    assert a.flags.contiguous
-    assert y.flags.contiguous
-    assert x.ndim == 1
-    assert y.ndim == a.ndim - 1
-    if trans == 'n':
-        assert a.shape[0] == x.shape[0]
-        assert a.shape[1:] == y.shape
-    else:
-        assert a.shape[-1] == x.shape[0]
-        assert a.shape[:-1] == y.shape
-    _gpaw.gemv(alpha, a, x, beta, y, trans)
-
-
 def axpy(alpha, x, y):
     """alpha x plus y.
 
@@ -178,15 +122,11 @@ def axpy(alpha, x, y):
       y <- alpha * x + y
 
     """
-    if isinstance(alpha, complex):
-        assert is_contiguous(x, complex) and is_contiguous(y, complex)
+    if x.dtype == float:
+        z = blas.daxpy(x, y, a=alpha)
     else:
-        assert isinstance(alpha, float)
-        assert x.dtype in [float, complex]
-        assert x.dtype == y.dtype
-        assert x.flags.contiguous and y.flags.contiguous
-    assert x.shape == y.shape
-    _gpaw.axpy(alpha, x, y)
+        z = blas.zaxpy(x, y, a=alpha)
+    assert z is y
 
 
 def czher(alpha, x, a):
