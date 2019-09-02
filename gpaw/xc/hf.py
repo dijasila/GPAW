@@ -289,17 +289,17 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
     return map_ss
 
 
-def parse_name(name: str) -> Tuple[Optional[str], float, Optional[float]]:
+def parse_name(name: str) -> Tuple[str, float, float]:
     if name == 'EXX':
-        return None, 1.0, None
+        return '', 1.0, np.nan
     if name == 'PBE0':
-        return 'HYB_GGA_XC_PBEH', 0.25, None
+        return 'HYB_GGA_XC_PBEH', 0.25, np.nan
     if name == 'HSE03':
         return 'HYB_GGA_XC_HSE03', 0.25, 0.106
     if name == 'HSE06':
         return 'HYB_GGA_XC_HSE06', 0.25, 0.11
     if name == 'B3LYP':
-        return 'HYB_GGA_XC_B3LYP', 0.2, None
+        return 'HYB_GGA_XC_B3LYP', 0.2, np.nan
 
 
 class Hybrid:
