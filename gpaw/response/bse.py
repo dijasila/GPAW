@@ -9,6 +9,7 @@ import numpy as np
 from ase.units import Hartree, Bohr
 from ase.utils import devnull
 from ase.dft import monkhorst_pack
+from scipy.linalg import eigh
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -383,8 +384,10 @@ class BSE:
                                 rho_1mnG = np.dot(vec1_nm.T.conj(),
                                                   np.dot(vec3_nm.T, rho3_mmG))
                                 rho3_mmG = rho_0mnG + rho_1mnG
-                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf, mci:mcf]
-                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,mci:mcf]
+                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf,
+                                                                 mci:mcf]
+                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,
+                                                                  mci:mcf]
                                 vec2_nm = v_knm[ikq][::2][ni:nf, mci:mcf]
                                 vec3_nm = v_knm[ikq][1::2][ni:nf, mci:mcf]
                                 rho_0mnG = np.dot(vec0_nm.T.conj(),
@@ -414,10 +417,10 @@ class BSE:
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
-            iS0 = myKrange[0] *  Nv * Nc * Ns
+            iS0 = myKrange[0] * Nv * Nc * Ns
 
-        #world.sum(rhoG0_Ksmn)
-        #self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
+        # world.sum(rhoG0_Ksmn)
+        # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
         self.df_S = np.reshape(df_Ksmn, -1)
         if not self.td:
             self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
@@ -502,7 +505,7 @@ class BSE:
                 self.pd_q = data['pd']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
-            except:
+            except FileNotFoundError:
                 self.calculate_screened_potential(ac)
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
@@ -675,16 +678,14 @@ class BSE:
         else:
             if world.size == 1:
                 print('  Using lapack...', file=self.fd)
-                from gpaw.utilities.lapack import diagonalize
-                self.w_T = np.zeros(self.nS)
-                diagonalize(self.H_sS, self.w_T)
-                self.v_St = self.H_sS.conj().T
+                self.w_T, self.v_St = eigh(self.H_sS)
             else:
                 print('  Using scalapack...', file=self.fd)
                 nS = self.nS
-                ns = -(-self.kd.nbzkpts // world.size) * (self.nv * self.nc *
-                                                          self.spins *
-                                                          (self.spinors + 1)**2)
+                ns = -(-self.kd.nbzkpts // world.size) * (
+                    self.nv * self.nc *
+                    self.spins *
+                    (self.spinors + 1)**2)
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, nS, ns, nS)
 
@@ -1121,8 +1122,10 @@ class BSE:
             p('Valence bands                  :', self.val_sn[0])
             p('Conduction bands               :', self.con_sn[0])
         else:
-            p('Valence bands                  :', self.val_sn[0],self.val_sn[1])
-            p('Conduction bands               :', self.con_sn[0],self.con_sn[1])
+            p('Valence bands                  :', self.val_sn[0],
+              self.val_sn[1])
+            p('Conduction bands               :', self.con_sn[0],
+              self.con_sn[1])
         if eshift is not None:
             p('Scissors operator              :', eshift * Hartree, 'eV')
         p('Tamm-Dancoff approximation     :', td)

@@ -1,20 +1,20 @@
 """Omega matrix for functionals with Hartree-Fock exchange.
 
 """
-from __future__ import print_function
 from math import sqrt
-
-import numpy as np
-from numpy.linalg import inv
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
+import numpy as np
+from numpy.linalg import inv
+from scipy.linalg import eigh
 
+from gpaw import debug
 import gpaw.mpi as mpi
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
 from gpaw.helmholtz import HelmholtzSolver
-from gpaw.utilities.lapack import diagonalize, gemm, sqrt_matrix
+from gpaw.utilities.blas import gemm
 
 
 class ApmB(OmegaMatrix):
@@ -300,9 +300,8 @@ class ApmB(OmegaMatrix):
 
         if TDA:
             # Tamm-Dancoff approximation (B=0)
-            self.eigenvectors = 0.5 * (ApB + AmB)
-            eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, eigenvalues)
+            eigenvalues, evecs = eigh(0.5 * (ApB + AmB))
+            self.eigenvectors = evecs.T
             self.eigenvalues = eigenvalues ** 2
         else:
             # the occupation matrix
@@ -319,8 +318,7 @@ class ApmB(OmegaMatrix):
             self.eigenvectors = np.zeros(ApB.shape)
             gemm(1.0, S, M, 0.0, self.eigenvectors)
 
-            self.eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, self.eigenvalues)
+            self.eigenvalues, self.eigenvectors.T[:] = eigh(self.eigenvectors)
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -392,3 +390,31 @@ class ApmB(OmegaMatrix):
             for ev in self.eigenvalues:
                 string += ' ' + ('%f' % (sqrt(ev) * Hartree))
         return string
+
+
+def sqrt_matrix(a, preserve=False):
+    """Get the sqrt of a symmetric matrix a (diagonalize is used).
+    The matrix is kept if preserve=True, a=sqrt(a) otherwise."""
+    n = len(a)
+    if debug:
+        assert a.flags.contiguous
+        assert a.dtype == float
+        assert a.shape == (n, n)
+    if preserve:
+        b = a.copy()
+    else:
+        b = a
+
+    # diagonalize to get the form b = Z * D * Z^T
+    # where D is diagonal
+    D = np.empty((n,))
+    D, b.T[:] = eigh(b, lower=True)
+    ZT = b.copy()
+    Z = np.transpose(b)
+
+    # c = Z * sqrt(D)
+    c = Z * np.sqrt(D)
+
+    # sqrt(b) = c * Z^T
+    gemm(1., ZT, np.ascontiguousarray(c), 0., b)
+    return b
