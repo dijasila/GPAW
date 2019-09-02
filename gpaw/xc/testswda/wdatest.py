@@ -18,7 +18,8 @@ assert xc is not None
 
 class Tester(BaseTester):
     def __init__(self):
-        self.gd = xc.gd
+        self.gd = xc.gd.new_descriptor(comm=mpi.serial_comm)
+        self.grid = self.gd.get_grid_point_coordinates()
     
 
     def get_a_density(self):
@@ -42,7 +43,7 @@ class Tester(BaseTester):
         grid = self.gd.get_grid_point_coordinates()
         Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd)
         alpha_ig = xc.get_alphas(Z_ig, Zlower_g, Zupper_g)
-
+        
         return alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg
 
     def get_a_sym_density(self, dir=0):
@@ -408,7 +409,7 @@ class Tester(BaseTester):
     def test_23_calculateV1(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
-        V1_sg = xc.calculate_V1(alpha_ig, n_sg)
+        V1_sg = xc.calculate_V1(alpha_ig, n_sg, self.grid, ni_j)
         self.isgoodnum(V1_sg)
 
     def isgoodnum(self, arr):
@@ -419,13 +420,13 @@ class Tester(BaseTester):
     def test_24_calculateV1p(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
-        V1p_sg = xc.calculate_V1p(alpha_ig, n_sg)
+        V1p_sg = xc.calculate_V1p(alpha_ig, n_sg, self.grid, ni_j)
         self.isgoodnum(V1p_sg)
 
-    def test_25_calculateV2(self):
-        alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
-        dalpha_ig = xc.get_dalpha_ig()
-        V2_sg = xc.calculate_V2(alpha_ig, dalpha_ig, n_sg)
+    def test_25_calculateV2_normal(self):
+        alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        dalpha_isg = xc.get_dalpha_isg_normal(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg))
+        V2_sg = xc.calculate_V2(dalpha_isg, n_sg, self.grid, ni_j)
         self.isgoodnum(V2_sg)
     
     def test_26_calculate_sympot(self):
@@ -450,12 +451,20 @@ class Tester(BaseTester):
         n1_sg = self.get_a_density()
         n2_sg = self.get_a_density()
         
-        eval_g = self.calculate_energy:correction_valence_mode(n1_sg, n2_sg)
+        eval_g = self.calculate_energy_correction_valence_mode(n1_sg, n2_sg)
         self.isgoodnum(eval_g)
 
         expected = None
         assert np.allclose(eval_g, expected)
 
+    def test_30_get_dalpha_normal(self):
+        raise NotImplementedError
+
+    def test_31_get_dalpha_symmetric(self):
+        raise NotImplementedError
+
+    def test_32_calculateV2_symmetric(self):
+        raise NotImplementedError
 
 if __name__ == "__main__":
     import sys

@@ -14,9 +14,11 @@ class WDA(XCFunctional):
 
         if mode is not None and mode.lower() == "symmetric":
             self.get_Zs = self.symmetricmode_Zs
+            self.get_dalpha_isg = self.get_dalpha_isg_symmetric
         else:
             self.get_Zs = self.standardmode_Zs
-        
+            self.get_dalpha_isg = self.get_dalpha_isg_normal
+
         self.mode = mode
         self.densitymode = densitymode
 
@@ -42,30 +44,30 @@ class WDA(XCFunctional):
 
 
         # Get Zs
-        Z_ig, Z_lower_g, Z_upper_g = self.get_Zs(wn_sg, ni_grid, lower, upper, grid, spin, gd1)
+        Z_isg, Z_lower_sg, Z_upper_sg = self.get_Zs(wn_sg, ni_grid, lower, upper, grid, spin, gd1)
 
         # Get alphas
-        alpha_ig = self.get_alphas(Z_i, Z_lower, Z_upper)
-
+        alpha_isg = self.get_alphas(Z_isg, Z_lower_sg, Z_upper_sg)
+        return
         # Calculate Vs
-        V_sg = self.calculate_V1(alpha_ig, wn_sg)
-        V_sg += self.calculate_V1p(alpha_ig, wn_sg)
+        V_sg = self.calculate_V1(alpha_isg, wn_sg)
+        V_sg += self.calculate_V1p(alpha_isg, wn_sg)
 
-        dalpha_ig = self.get_dalpha_ig()
-        V_sg += self.calculate_V2(alpha_ig, dalpha_ig, wn_sg)
+        dalpha_isg = self.get_dalpha_isg()
+        V_sg += self.calculate_V2(dalpha_isg, wn_sg, grid, ni_j)
 
         # Add correction if symmetric mode
         if self.mode.lower() == "symmetric":
-            V_sg += self.calculate_sym_pot_correction(alpha_ig, wn_sg)
+            V_sg += self.calculate_sym_pot_correction(alpha_isg, wn_sg)
         mpi.world.sum(V_sg)
 
 
         # Calculate energy
-        eWDA_g = self.calculate_energy(alpha_ig, wn_sg)
+        eWDA_g = self.calculate_energy(alpha_isg, wn_sg)
 
         # Add correction if symmetric mode
         if self.mode.lower() == "symmetric":
-            eWDA_g += self.calculate_sym_energy_correction(alpha_ig, wn_sg)
+            eWDA_g += self.calculate_sym_energy_correction(alpha_isg, wn_sg)
 
         # Correct if we want to use WDA for valence density only
         if self.densitymode.lower() == "valence":
@@ -198,14 +200,15 @@ class WDA(XCFunctional):
 
         return Z_isg, Z_lower_sg, Z_upper_sg
 
-    def fold(self, f, g):
-        assert np.allclose(f, f.real)
-        assert np.allclose(g, g.real)
-        assert f.shape == g.shape
-        F = np.fft.fftn(f)
-        G = np.fft.fftn(g)
+    def fold(self, f_sg, g_sg):
+        assert np.allclose(f_sg, f_sg.real)
+        assert np.allclose(g_sg, g_sg.real)
+        assert f_sg.shape == g_sg.shape
+        assert f_sg.ndim == 4
+        F = np.fft.fftn(f_sg, axes=(1,2,3))
+        G = np.fft.fftn(g_sg, axes=(1,2,3))
 
-        res = np.fft.ifftn(F*G)
+        res = np.fft.ifftn(F*G, axes=(1,2,3))
         return res.real
 
     def symmetricmode_Zs(self, n_sg, ni_grid, lower_ni, upper_ni, grid, spin, gd):
@@ -271,27 +274,107 @@ class WDA(XCFunctional):
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
 
-    def calculate_V1(self, alpha_ig, n_sg):
+    def fold_with_vC(self, f_sg, g_sg, grid_vg):
+        distances_sg = np.array([np.linalg.norm(grid_vg, axis=0)])
+        distances_sg[distances_sg < 1e-20] = 1e-20
+
+        res_sg = self.fold(f_sg, g_sg/distances_sg)
+
+        return res_sg
+    
+    def get_G_isg(self, grid_vg, ni_j, numspins):
+        return np.array([[self.get_pairdist_g(grid_vg, ni, spin) - 1 for spin in range(numspins)] for ni in ni_j])
+
+    def calculate_V1(self, alpha_isg, n_sg, grid_vg, ni_j):
         # Convolve n_sg and G/v_C
         # Multiply alpha_ig to result
-        raise NotImplementedError
+        G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
+        folded_isg = np.array([self.fold_with_vC(n_sg, G_sg, grid_vg) for G_sg in G_isg])
 
-    def calculate_V1p(self, alpha_ig, n_sg):
+        res_isg = alpha_isg * folded_isg
+
+        return res_isg.sum(axis=0)
+
+    def calculate_V1p(self, alpha_ig, n_sg, grid_vg, ni_j):
         # Convolve n_sg*alpha_ig and G/v_C
+
+        G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
+        folded_isg = np.array([self.fold_with_vC(n_sg*alpha_g, G_isg[i], grid_vg) for i, alpha_g in enumerate(alpha_ig)])
+        
+        return folded_isg.sum(axis=0)
+
+    def get_dalpha_isg_normal(self, alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, grid_vg, ni_j, ni_lower, ni_upper, numspins):
+        dalpha_isr = np.zeros_like(alpha_isg.reshape(len(alpha_isg), len(alpha_isg[0]), -1))
+
+        G_isr = self.get_G_isg(grid_vg, ni_j, numspins).reshape(*dalpha_isr.shape)
+
+        npand = np.logical_and
+        npor = np.logical_or
+        npnot = np.logical_not
+        npcl = np.isclose
+        Z_isr = Z_isg.reshape(len(Z_isg), len(Z_isg[0]), -1)
+        Z_lower_sr = Z_lower_sg.reshape(len(Z_lower_sg), -1)
+        Z_upper_sr = Z_upper_sg.reshape(*Z_lower_sr.shape)
+
+        def gZ(i, s):
+            if i < 0:
+                return Z_lower_sr[s]
+            elif i >= len(Z_isr):
+                return Z_upper_sr[s]
+            else:
+                return Z_isr[i, s]
+
+        def gG(i, s):
+            if i < 0:
+                return (self.get_pairdist_g(grid_vg, ni_lower, s) - 1).reshape(-1)
+            elif i >= len(G_isr):
+                return (self.get_pairdist_g(grid_vg, ni_upper, s) - 1).reshape(-1)
+            else:
+                return G_isr[i, s]
+
+        for i, alpha_sr in enumerate(alpha_isg.reshape(*dalpha_isr.shape)):
+            for s, alpha_r in enumerate(alpha_sr):
+                if not np.allclose(gZ(i+1,s), gZ(i,s)):
+                    denom0 = gZ(i+1, s) - gZ(i, s)
+                    
+                    # At +0 branch if 
+                    # Z[i] >= -1 and Z[i+1] < -1
+                    # OR
+                    # Z[i] <= -1 and Z[i+1] > -1
+                    factor0_r = npor(npand(gZ(i, s) >= -1, gZ(i+1, s) < -1), npand(gZ(i, s) <= -1, gZ(i+1, s) > -1))
+                    dalpha_isr[i, s] += factor0_r * (gG(i+1, s) / denom0 - alpha_r / denom0 * (gG(i+1, s) - gG(i, s)))
+
+                if not np.allclose(gZ(i, s), gZ(i-1, s)):
+                    # At +1 branch if
+                    # Z[i-1] >= -1 and Z[i] < -1
+                    # OR
+                    # Z[i-1] <= -1 and Z[i] > -1
+                    factor1_r = npor(npand(gZ(i-1, s) >= -1, gZ(i, s) < -1), npand(gZ(i-1, s) <= -1, gZ(i, s) > -1))
+                    denom1 = gZ(i, s) - gZ(i-1, s)
+                    dalpha_isr[i, s] += factor1_r * (-gG(i-1, s) / denom1 - alpha_r / denom1 * (gG(i, s) - gG(i, s)))
+
+        return dalpha_isr.reshape(*alpha_isg.shape)
+    
+    def get_dalpha_isg_symmetric(self):
         raise NotImplementedError
 
-    def get_dalpha_ig(self):
-        raise NotImplementedError
-
-    def calculate_V2(self, alpha_ig, dalpha_ig, n_sg):
+    def calculate_V2(self, dalpha_isg, n_sg, grid_vg, ni_j):
         # Convolve n_sg and G/v_C
         # Multiply n_sg to result -> res
         # Convolve res and dalpha/dn
-        raise NotImplementedError
+
+        G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
+        folded_isg = np.array([self.fold_with_vC(n_sg, G_sg, grid_vg) for G_sg in G_isg])
+        res_isg = n_sg[np.newaxis, ...] * folded_isg
+        
+        final_isg = np.array([self.fold(dalpha_sg, res_isg[i]) for i, dalpha_sg in enumerate(dalpha_isg)])
+
+        return final_isg.sum(axis=0)
 
     def calculate_sym_pot_correction(self, alpha_ig, n_sg):
         # Two corrections: dV1, dV1p
         # dV1: Convolve n_sg*alpha_ig and G/v_C
+
         # dV1p: Convolve n_sg and G/v_c and multiply alpha_ig to result
         raise NotImplementedError
 
