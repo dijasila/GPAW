@@ -1,14 +1,14 @@
-from __future__ import print_function
+from time import time
+
 import numpy as np
+from scipy.linalg import eigh
 
 # Set-up a simple matrix in parallel, diagonalize using ScaLAPACK
 # D&C driver then compare *eigenvalues* with serial LAPACK diagonlize
-from time import time
 
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.scalapack import scalapack_set, \
     scalapack_zero
 
@@ -53,7 +53,7 @@ def main(nbands=1000, mprocs=2, mb=64):
     E0 = np.empty((nbands), dtype=float)
 
     t1 = time()
-    diagonalize(H0,E0)
+    E0 = eigh(H0, eigvals_only=True)
     t2 = time()
 
     if rank == 0:

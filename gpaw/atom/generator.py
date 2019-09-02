@@ -5,12 +5,12 @@ from math import pi, sqrt
 
 import numpy as np
 from numpy.linalg import solve, inv
+from scipy.linalg import eigh
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
 from gpaw import __version__ as version
 from gpaw.atom.all_electron import AllElectron, shoot
-from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import hartree
 from gpaw.xc.hybrid import constructX, atomic_exact_exchange
 from gpaw.atom.filter import Filter
@@ -842,8 +842,7 @@ class Generator(AllElectron):
             H.ravel()[1::ng + 1] -= 0.5 / h**2
             H.ravel()[ng::ng + 1] -= 0.5 / h**2
             S.ravel()[::ng + 1] += 1.0
-            e_n = np.zeros(ng)
-            general_diagonalize(H, e_n, S)
+            e_n, _ = eigh(H, S)
             ePAW = e_n[0]
             if l <= self.lmax and self.n_ln[l][0] > 0:
                 eAE = self.e_ln[l][0]

@@ -82,7 +82,6 @@ tests = [
     'eigen/cg2.py',
     'fd_ops/laplace.py',
     'linalg/lapack.py',
-    'linalg/eigh.py',
     'parallel/submatrix_redist.py',
     'lfc/second_derivative.py',
     'parallel/parallel_eigh.py',
@@ -426,8 +425,6 @@ tests = [
 
 # 'response/graphene_EELS.py', disabled while work is in progress
 
-# 'linalg/eigh_perf.py', # Requires LAPACK 3.2.1 or later
-# XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 # 'parallel/scalapack_pdlasrt_hang.py',
 # 'dscf/dscf_forces.py',
 # 'ext_potential/stark_shift.py',
@@ -679,10 +676,7 @@ class TestRunner:
         except SkipTest:
             skip = True
         except ImportError as ex:
-            if sys.version_info[0] >= 3:
-                module = ex.name
-            else:
-                module = ex.args[0].split()[-1].split('.')[0]
+            module = ex.name
             if module == 'scipy':
                 skip = True
             else:

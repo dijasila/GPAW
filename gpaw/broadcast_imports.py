@@ -253,12 +253,7 @@ if 0:
             if module_data.code is None:
                 return self.load_as_normal(name)
 
-            if sys.version_info[0] == 2:
-                # Load, ignoring checksum and time stamp.
-                # 8 is header length (12 in py3, if we need that someday)
-                code = marshal.loads(module_data.code[8:])
-            else:
-                code = module_data.code
+            code = module_data.code
 
             imp.acquire_lock()  # Required in threaded applications
 
