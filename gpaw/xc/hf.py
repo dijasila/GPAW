@@ -328,14 +328,18 @@ class Hybrid:
         self.omega = omega
 
         self.initialized = False
+
         self.dens = None
         self.ham = None
         self.wfs = None
-        self.exx = None
+
+        self.xx = None
         self.coulomb = None
         self.cache = {}
-        self.evv = None
-        self.evc = None
+
+        self.evv = np.nan
+        self.evc = np.nan
+
         self.vt_sR = None
         self.spos_ac = None
 
@@ -358,16 +362,16 @@ class Hybrid:
 
     def calculate(self, gd, nt_sr, vt_sr):
         if self.xc is None:
-            return 0.0
+            return self.evv + self.evc
         e_r = gd.empty()
         self.xc.calculate(gd, nt_sr, vt_sr, e_r)
-        return gd.integrate(e_r)
+        return self.evv + self.evc + gd.integrate(e_r)
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         return 0.0
 
     def get_kinetic_energy_correction(self):
-        return 0.0
+        return -2 * self.evv
 
     def _initialize(self):
         if self.initialized:
@@ -380,7 +384,7 @@ class Hybrid:
         assert wfs.bd.comm.size == 1
 
         # print('Using Wigner-Seitz truncated Coulomb interaction.')
-        self.exx = EXX(wfs.kd, wfs.setups, self.spos_ac)
+        self.xx = EXX(wfs.kd, wfs.setups, self.spos_ac)
 
         self.initialized = True
 
@@ -420,10 +424,14 @@ class Hybrid:
             return
 
         self.vt_sR = None
+        deg = 2 / self.wfs.nspins
 
         if kpt.psit.array.base is psit_xG.base:
             print(f'1 {spin}')
             if (spin, kpt.k) not in self.cache:
+                if spin == 0:
+                    self.evv = 0.0
+                    self.evc = 0.0
                 VV_aii = self.calculate_valence_valence_paw_corrections(spin)
                 K = kd.nibzkpts
                 k1 = (spin - kd.comm.rank) * K
@@ -437,11 +445,13 @@ class Hybrid:
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
                         for kpt in kpts]
-                exxvv, exxvc = self.exx.calculate_energy(
+                evv, evc = self.xx.calculate_energy(
                     kpts,
                     self.coulomb,
                     VV_aii,
                     v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
+                self.evv += evv * deg
+                self.evc += evc * deg
             Htpsit_xG += self.cache.pop((spin, kpt.k))
         else:
             assert len(self.cache) == 0
@@ -463,7 +473,7 @@ class Hybrid:
                             None,
                             kd.ibzk_kc[kpt.k],
                             None)]
-            self.exx.calculate_eigenvalues(
+            self.xx.calculate_eigenvalues(
                 kpts1, kpts2,
                 self.coulomb,
                 VV_aii,
@@ -514,9 +524,9 @@ class Hybrid:
                            kd.ibzk_kc[kpt.k],
                            kd.weight_k[kpt.k])
                     for kpt in wfs.mykpts[k1:k2]]
-            e1, e2 = self.exx.calculate_energy(kpts,
-                                               self.coulomb,
-                                               VV_aii)
+            e1, e2 = self.xx.calculate_energy(kpts,
+                                              self.coulomb,
+                                              VV_aii)
             evv += e1
             evc += e2
 
@@ -559,7 +569,7 @@ class Hybrid:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in wfs.mykpts[k1:k2]]
-            self.exx.calculate_eigenvalues(
+            self.xx.calculate_eigenvalues(
                 kpts1, kpts2,
                 self.coulomb,
                 VV_aii,

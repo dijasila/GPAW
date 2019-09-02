@@ -232,6 +232,10 @@ class Hamiltonian:
 
         atomic_energies = self.update_corrections(density, W_aL)
 
+        print(finegrid_energies)
+        print(coarsegrid_e_kinetic)
+        print(atomic_energies)
+
         # Make energy contributions summable over world:
         finegrid_energies *= self.finegd.comm.size / self.world.size
         coarsegrid_e_kinetic *= self.gd.comm.size / self.world.size
