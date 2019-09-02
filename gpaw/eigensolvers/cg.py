@@ -144,8 +144,7 @@ class CG(Eigensolver):
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
-                phi_G.view(wfs.dtype)[:] -= overlap_n.dot(
-                    psit.array[:N].view(wfs.dtype))
+                phi_G -= psit.array[:N].T.dot(overlap_n).T
 
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
