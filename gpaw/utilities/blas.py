@@ -46,20 +46,21 @@ def mmm(alpha, a, opa, b, opb, beta, c):
 
     assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
     assert a.dtype == b.dtype == c.dtype
-    cc = c.copy()
+    # cc = c.copy()
     if a.dtype == float:
         assert not isinstance(alpha, complex)
         assert not isinstance(beta, complex)
-        blas.dgemm(alpha, b.T, a.T, beta, c.T,
-                     'NTC'.index(opb), 'NTC'.index(opa), 1)
+        #blas.dgemm(alpha, b.T, a.T, beta, c.T,
+        #             'NTC'.index(opb), 'NTC'.index(opa), 1)
     else:
         assert a.dtype == complex
-        blas.zgemm(alpha, b.T, a.T, beta, c.T,
-                   'NTC'.index(opb), 'NTC'.index(opa), 1)
+        #blas.zgemm(alpha, b.T, a.T, beta, c.T,
+        #           'NTC'.index(opb), 'NTC'.index(opa), 1)
 
-    _gpaw.mmm(alpha, a, opa, b, opb, beta, cc)
-    e = abs(c - cc).max()
-    if e > 1e-13:
+    _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
+    #_gpaw.mmm(alpha, a, opa, b, opb, beta, cc)
+    #e = abs(c - cc).max()
+    if 0:#e > 1e-13:
         print(a.flags, b.flags, c.flags)
         print(c.strides)
         print(e,alpha, a.shape,opa, b.shape, opb, beta, c.shape)
@@ -122,11 +123,13 @@ def axpy(alpha, x, y):
       y <- alpha * x + y
 
     """
+    x = x.ravel()
+    y = y.ravel()
     if x.dtype == float:
         z = blas.daxpy(x, y, a=alpha)
     else:
         z = blas.zaxpy(x, y, a=alpha)
-    assert z is y
+    assert z is y, (x,y,x.shape, y.shape)
 
 
 def czher(alpha, x, a):
@@ -146,7 +149,7 @@ def czher(alpha, x, a):
     assert x.ndim == 1 and a.ndim == 2
     assert x.shape[0] == a.shape[0]
 
-    Use zherk instead
+    #Use zherk instead
     _gpaw.czher(alpha, x, a)
 
 
