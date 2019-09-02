@@ -14,7 +14,7 @@ platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat += '-' + platform_id
 build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (plat, sys.version[0:3])
+arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
 # want to use the extension from the distutils build directory:
