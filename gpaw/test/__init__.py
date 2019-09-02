@@ -676,10 +676,7 @@ class TestRunner:
         except SkipTest:
             skip = True
         except ImportError as ex:
-            if sys.version_info[0] >= 3:
-                module = ex.name
-            else:
-                module = ex.args[0].split()[-1].split('.')[0]
+            module = ex.name
             if module == 'scipy':
                 skip = True
             else:

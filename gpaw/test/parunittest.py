@@ -23,7 +23,6 @@ PARTICULAR PURPOSE.  THE CODE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS,
 AND THERE IS NO OBLIGATION WHATSOEVER TO PROVIDE MAINTENANCE,
 SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 """
-from __future__ import print_function
 import sys
 import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
