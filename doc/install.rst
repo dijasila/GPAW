@@ -47,6 +47,7 @@ There are several ways to install GPAW:
 
     * Using :ref:`homebrew` on MacOSX.
     * Using :ref:`anaconda`.
+    * This `docker image`_.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
@@ -85,6 +86,7 @@ Optional, but highly recommended:
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
+.. _docker image: https://hub.docker.com/r/marcindulak/gpaw-openmpi
 
 
 .. _installation using pip:
@@ -262,6 +264,7 @@ FFTW
 Older versions of GPAW would link FFTW using ctypes, based on library
 paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
 1.5.1, FFTW is linked from customize.py like all other libraries.
+
 
 .. _libxc installation:
 
