@@ -12,7 +12,8 @@ from gpaw.utilities.blas import gemm, mmm
 def skew(a):
     return 0.5 * (a - a.T)
 
-def get_dX0(kpt, Ra_a, paw, wfs, setups, partition, dH_asp):
+
+def get_dX0(Ra_a, setups, partition):
     dX0_caii = []
     for _ in range(3):
         def shape(a):
@@ -23,10 +24,7 @@ def get_dX0(kpt, Ra_a, paw, wfs, setups, partition, dH_asp):
             arr[:] = 0
         dX0_caii.append(dX0_aii)
 
-    assert kpt.k == 0
-
-    for a, dH_sp in dH_asp.items():
-
+    for a in partition.my_indices:
         Ra = Ra_a[a]
 
         rxnabla_iiv = setups[a].rxnabla_iiv.copy()
@@ -102,8 +100,10 @@ class CDWriter(TDDFTObserver):
 
         Ra_a = paw.atoms.positions / Bohr - R0[None, :]
 
-        for kpt in paw.wfs.kpt_u:
-            dX0_caii = get_dX0(kpt, Ra_a, paw, paw.wfs, setups, partition, dH_asp)
+        kpt_u = paw.wfs.kpt_u
+        dX0_caii = get_dX0(Ra_a, setups, partition)
+        for kpt in kpt_u:
+            assert kpt.k == 0
             ac = paw.wfs.atomic_correction
             Mstart = self.ksl.Mstart
             Mstop = self.ksl.Mstop
