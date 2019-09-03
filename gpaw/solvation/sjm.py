@@ -18,11 +18,11 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 
 class SJM(SolvationGPAW):
-    """Subclass of the SolvationGPAW class which includes the
-    Solvated Jellium method.
+    """Solvated Jellium method.
+    (Implemented as a subclass of the SolvationGPAW class.)
 
     The method allows the simulation of an electrochemical environment
-    by calculating constant potential quantities on the basis of constant
+    by calculating constant-potential quantities on the basis of constant-
     charge DFT runs. For this purpose, it allows the usage of non-neutral
     periodic slab systems. Cell neutrality is achieved by adding a
     background charge in the solvent region above the slab
@@ -99,44 +99,63 @@ class SJM(SolvationGPAW):
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
-                 potential_equilibration_mode='seq', tiny=1e-8,
+                 potential_equilibration_mode='seq',
                  max_pot_deviation=0.2, verbose=False, **gpaw_kwargs):
 
         SolvationGPAW.__init__(self, **gpaw_kwargs)
 
-        self.tiny = tiny
-        if abs(ne) < self.tiny:
-            self.ne = self.tiny
-        else:
-            self.ne = ne
-
+        self.ne = ne
         self.potential = potential
         self.dpot = dpot
         self.dl = doublelayer
         self.verbose = verbose
-        self.previous_ne = 0
         self.write_grandcanonical = write_grandcanonical_energy
-        self.previous_pot = None
-        self.slope = None
-        self.equil_iters = 10  # FIXME: What exactly is this? max?
-        # FIXME: It is getting changed later in the code.
-
+        self.pot_tol = max_pot_deviation
         if potential_equilibration_mode in ['seq', 'sim']:
             self.equil_mode = potential_equilibration_mode
         else:
             raise ValueError("Potential equilibration mode not recognized."
                              "Implemented modes are 'seq' and 'sim'")
 
-        self.pot_tol = max_pot_deviation
+        self.previous_ne = 0  # FIXME: Why this 0 but previous_pot=None?
+        self.previous_pot = None
+        self.slope = None
+        self.equil_iters = 10  # FIXME: What exactly is this? max?
+        # FIXME: It is getting changed later in the code.
 
-        self.log('-----------\nGPAW SJM module in %s\n----------\n'
-                 % (os.path.abspath(__file__)))
+        self.sog('Solvated jellium method (SJM) parameters:')
+        self.sog(' Using the solvated jellium method (SJM) from:\n {:s}\n'
+                 .format(os.path.abspath(__file__)))
+        # FIXME: Probably should dump the SJM parameters to the log file
+        # here; might want a separate method for this.
+        mode = ('Constant-charge' if self.potential is None
+                else 'Constant-potential')
+        self.sog(' Mode: {:s}.'.format(mode))
+        if mode == 'Constant-potential':
+            self.sog(' Target potential: {:.5f} +/- {:.5f}'
+                     .format(self.potential, self.dpot))
+            self.sog(' Current excess electrons: {:.5f}' .format(self.ne))
+        else:
+            self.sog(' Excess electrons: {:.5f}' .format(self.ne))
+        if self.write_grandcanonical is True:
+            self.sog(' Grand canonical energy will be returned.')
+        else:
+            self.sog(' Canonical energy will be returned.')
+        # FIXME: These init messages are being written to stdout, not to
+        # the GPAW log file. Why is this? I think this is an artifact of
+        # the script Per gave me that set txt outside of the init loop,
+        # so it will probably work after I changed that.
+
+    def sog(self, message):
+        # FIXME: Delete after all is set up.
+        message = 'SJ: ' + message
+        self.log(message)
 
     def create_hamiltonian(self, realspace, mode, xc):
         if not realspace:
             raise NotImplementedError(
-                'SJM does not support '
-                'calculations in reciprocal space yet.')
+                'SJM does not support calculations in reciprocal space yet'
+                ' due to a lack of an implicit solvent module.')
 
         dens = self.density
 
@@ -158,10 +177,6 @@ class SJM(SolvationGPAW):
 
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
-    def set_atoms(self, atoms):
-        self.atoms = atoms
-        self.spos_ac = atoms.get_scaled_positions() % 1.0
-
     def set(self, **kwargs):
         """Change parameters for calculator.
 
@@ -177,9 +192,9 @@ class SJM(SolvationGPAW):
                     'max_pot_deviation']
 
         SJM_changes = {}
-        self.log('SJ: set received the keys:')
+        self.sog('"set" received the keys:')
         for key in kwargs:
-            self.log('SJ:    {:s}'.format(key))
+            self.sog('    {:s}'.format(key))
             if key in SJM_keys:
                 SJM_changes[key] = None
 
@@ -190,7 +205,7 @@ class SJM(SolvationGPAW):
         if kwargs:
             SolvationGPAW.set(self, **kwargs)
             major_changes = True
-        self.log('SJ: Density to be reset: {:s}'
+        self.sog(' Density to be reset: {:s}'
                  .format(str(major_changes)))
 
         if any(key in SJM_keys[1:] for key in SJM_changes):
@@ -270,8 +285,6 @@ class SJM(SolvationGPAW):
                         # self.log('\n------------')
                         # self.log('Jellium properties changed!')
 
-                    if abs(self.ne) < self.tiny:
-                        self.ne = self.tiny
                     self.log('SJ: wfs nvalence changed by {:.5f}'
                              .format(self.ne - self.previous_ne))
                     self.wfs.nvalence += self.ne - self.previous_ne
@@ -283,14 +296,9 @@ class SJM(SolvationGPAW):
             if key in ['ne']:
                 self.log('SJ: ne changed')
                 self.results = {}
-                if abs(SJM_changes['ne']) < self.tiny:
-                    self.ne = self.tiny
-                    self.log('SJ: Number of Excess electrons manually changed '
-                             'to 0')
-                else:
-                    self.ne = SJM_changes['ne']
-                    self.log('SJ: Number of Excess electrons manually changed '
-                             'to %1.8f' % (self.ne))
+                self.ne = SJM_changes['ne']
+                self.log('SJ: Number of Excess electrons manually changed '
+                         'to %1.8f' % (self.ne))
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell'], ):
@@ -302,12 +310,12 @@ class SJM(SolvationGPAW):
 
         """
 
-        self.log('SJ: *****************************')
-        self.log('SJ: Solvated jellium calculation.')
-        self.log('SJ: *****************************')
+        self.sog('*****************************')
+        self.sog('Solvated jellium calculation.')
+        self.sog('*****************************')
         if self.potential:
-            self.log('SJ:  Constant-potential calculation targeting {:.3f} '
-                     '+/- {:.3f} V.'
+            self.sog('Starting constant-potential calculation targeting {:.3f}'
+                     ' +/- {:.3f} V.'
                      .format(self.potential, self.dpot))
             equil_iter = 0
             # FIXME: This might be clearer as `while not equilibrated:`
@@ -441,11 +449,23 @@ class SJM(SolvationGPAW):
         self.log('SJ: Changing the number of electrons:')
         # FIXME: Add some documentation of what this method does!
         if self.previous_pot is not None:
-            if abs(self.previous_ne - self.ne) > 2 * self.tiny:
-                self.slope = (pot_int - self.previous_pot) / \
+            # FIXME: This is duplicate code of what's also in calculate.
+            # Figure out how to get it down to one version.
+            if abs(pot_int - self.previous_pot) > self.dpot:
+                slope = (pot_int - self.previous_pot) / \
                     (self.ne - self.previous_ne)
-                self.log("SJ: Slope of potential versus ne: "
-                         "%1.8f V/e\n" % (self.slope))
+                self.slope = slope
+                self.log('SJ: Setting slope to new value of '
+                         '{:8f} V/e.'.format(self.slope))
+            else:
+                self.log('SJ: Not setting slope because '
+                         'potential change of {:4f} V was '
+                         'less than dpot={:4f} V (trying to'
+                         ' avoid noise. Slope would have '
+                         'been {:4f} V/e.'
+                         .format(abs(pot_int -
+                                     self.previous_pot),
+                                 self.dpot, slope))
 
         if self.slope is None:
             self.log('SJ: Changing ne with no slope information.')
@@ -470,10 +490,9 @@ class SJM(SolvationGPAW):
                                              atoms=self.atoms,
                                              name='cavity')
 
-        if abs(self.ne) > self.tiny:
-            self.write_parallel_func_in_z(
-                self.density.background_charge.mask_g,
-                name='background_charge_')
+        self.write_parallel_func_in_z(
+            self.density.background_charge.mask_g,
+            name='background_charge_')
 
     def summary(self):
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
@@ -588,10 +607,7 @@ class SJM(SolvationGPAW):
         return wf2  # refpot-E_f
 
     def set_jellium(self, atoms):
-        if abs(self.previous_ne - self.ne) > 2 * self.tiny:
-            if abs(self.ne) < self.tiny:
-                self.ne = self.tiny
-            self.set(background_charge=self.define_jellium(atoms))
+        self.set(background_charge=self.define_jellium(atoms))
 
     """Various tools for writing global functions"""
 
