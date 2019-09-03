@@ -1,6 +1,6 @@
 from collections import namedtuple, defaultdict
-from math import pi
-from typing import List, Optional, Tuple
+from math import pi, nan
+from typing import List, Tuple
 import numpy as np
 from ase.units import Ha
 
@@ -59,8 +59,8 @@ class EXX:
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-    def calculate_energy(self, kpts, VV_aii, v_knG=None):
-        pd = kpts[0].psit.pd
+    def calculate_energy(self, kpts1, kpts2, VV_aii, v_knG=None, e_kn=None):
+        pd = kpts1[0].psit.pd
 
         if v_knG is not None:
             nbands = len(v_knG[0])
@@ -73,7 +73,7 @@ class EXX:
             v_kani = None
 
         exxvv = 0.0
-        for i1, k1, k2, count in self.ipairs(kpts, kpts):
+        for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
             q_c = k2.k_c - k1.k_c
             qd = KPointDescriptor([q_c])
 
@@ -88,21 +88,27 @@ class EXX:
             v_G = self.coulomb.get_potential(pd12)
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
                                                pd, i1, k2.f_n, v_nG, v_ani)
-            e_nn *= count / self.kd.nbzkpts**2
-            exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
+            e_nn *= count / self.kd.nbzkpts
+            exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
+            if e_kn is not None:
+                e_kn[i1] -= e_nn.dot(k2.f_n)
 
         exxvc = 0.0
-        for i, kpt in enumerate(kpts):
+        for i, kpt in enumerate(kpts1):
             for a, P_ni in kpt.proj.items():
-                vv_n = np.einsum('ni,ij,nj->n',
+                vv_n = np.einsum('ni, ij, nj -> n',
                                  P_ni.conj(), VV_aii[a], P_ni).real
-                vc_n = np.einsum('ni,ij,nj->n',
+                vc_n = np.einsum('ni, ij, nj -> n',
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
                 exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
+                if e_kn is not None:
+                    e_kn[i] -= (2 * vv_n + vc_n)
 
         if v_knG is not None:
             for v_nG, v_ani in zip(v_knG, v_kani):
+                for a, P_ni in kpt.proj.items():
+                    v_ani[a] -= P_ni.dot(self.VC_aii[a] + VV_aii[a])
                 self.pt.add(v_nG, v_ani)
 
         return exxvv, exxvc
@@ -128,7 +134,7 @@ class EXX:
 
         for i, kpt in enumerate(kpts1):
             for a, P_ni in kpt.proj.items():
-                vv_n = np.einsum('ni,ij,nj->n',
+                vv_n = np.einsum('ni, ij, nj -> n',
                                  P_ni.conj(), VV_aii[a], P_ni).real
                 vc_n = np.einsum('ni,ij,nj->n',
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
@@ -313,15 +319,15 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
 
 def parse_name(name: str) -> Tuple[str, float, float]:
     if name == 'EXX':
-        return '', 1.0, np.nan
+        return 'null', 1.0, nan
     if name == 'PBE0':
-        return 'HYB_GGA_XC_PBEH', 0.25, np.nan
+        return 'HYB_GGA_XC_PBEH', 0.25, nan
     if name == 'HSE03':
         return 'HYB_GGA_XC_HSE03', 0.25, 0.106
     if name == 'HSE06':
         return 'HYB_GGA_XC_HSE06', 0.25, 0.11
     if name == 'B3LYP':
-        return 'HYB_GGA_XC_B3LYP', 0.2, np.nan
+        return 'HYB_GGA_XC_B3LYP', 0.2, nan
 
 
 class Hybrid:
@@ -393,7 +399,7 @@ class Hybrid:
         return 0.0
 
     def get_kinetic_energy_correction(self):
-        return -2 * self.evv
+        return -2 * self.evv#???? Compare with ekin from nabla^2
 
     def _initialize(self):
         if self.initialized:
@@ -405,20 +411,18 @@ class Hybrid:
         assert kd.comm.size == 1 or kd.comm.size == 2 and wfs.nspins == 2
         assert wfs.bd.comm.size == 1
 
-        # print('Using Wigner-Seitz truncated Coulomb interaction.')
-        self.xx = EXX(wfs.kd, wfs.setups, self.spos_ac)
-
-        self.initialized = True
-
         if self.omega is None:
             # Wigner-Seitz truncated Coulomb:
-            self.coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
+            coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
         else:
             def coulomb(pd):
                 G2_G = pd.G2_qG[0]
                 x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
                 return 4 * np.pi * x_G / G2_G
-            self.coulomb = coulomb
+
+        self.xx = EXX(wfs.kd, wfs.setups, wfs.pt, coulomb, self.spos_ac)
+
+        self.initialized = True
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):
@@ -467,9 +471,8 @@ class Hybrid:
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
                         for kpt in kpts]
-                evv, evc = self.xx.calculate_energy(
-                    kpts,
-                    self.coulomb,
+                evv, evc = self.xx.calculate(
+                    kpts, kpts,
                     VV_aii,
                     v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
                 self.evv += evv * deg
@@ -495,12 +498,10 @@ class Hybrid:
                             None,
                             kd.ibzk_kc[kpt.k],
                             None)]
-            self.xx.calculate_eigenvalues(
+            self.xx.calculate(
                 kpts1, kpts2,
-                self.coulomb,
                 VV_aii,
-                np.zeros((1, self.wfs.bd.nbands)),
-                v_nG=Htpsit_xG)
+                v_knG=[Htpsit_xG])
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         pass  # 1 / 0
@@ -546,9 +547,7 @@ class Hybrid:
                            kd.ibzk_kc[kpt.k],
                            kd.weight_k[kpt.k])
                     for kpt in wfs.mykpts[k1:k2]]
-            e1, e2 = self.xx.calculate_energy(kpts,
-                                              self.coulomb,
-                                              VV_aii)
+            e1, e2 = self.xx.calculate(kpts, kpts, VV_aii)
             evv += e1
             evc += e2
 
@@ -591,11 +590,10 @@ class Hybrid:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in wfs.mykpts[k1:k2]]
-            self.xx.calculate_eigenvalues(
+            self.xx.calculate(
                 kpts1, kpts2,
-                self.coulomb,
                 VV_aii,
-                self.e_skn[spin])
+                e_kn=self.e_skn[spin])
 
         kd.comm.sum(self.e_skn)
         self.e_skn *= self.exx_fraction
