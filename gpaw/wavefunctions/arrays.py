@@ -159,7 +159,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 
 
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
-    def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
+    def __init__(self, nbands, pd, dtype=None, data=None, kpt=0, dist=None,
                  spin=0, collinear=True):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:

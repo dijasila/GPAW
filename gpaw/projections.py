@@ -28,7 +28,8 @@ class Projections:
         if not collinear:
             I1 *= 2
 
-        self.matrix = Matrix(nbands, I1, dtype, data, dist=(bcomm, bcomm.size, 1))
+        self.matrix = Matrix(nbands, I1, dtype, data,
+                             dist=(bcomm, bcomm.size, 1))
 
         if collinear:
             self.myshape = self.matrix.array.shape

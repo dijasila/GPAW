@@ -37,10 +37,14 @@ class EXX:
     def __init__(self,
                  kd: KPointDescriptor,
                  setups: List['Setup'],
+                 pt,
+                 coulomb,
                  spos_ac):
         """Exact exchange operator."""
         self.kd = kd
         self.setups = setups
+        self.pt = pt
+        self.coulomb = coulomb
         self.spos_ac = spos_ac
 
         # PAW-correction stuff:
@@ -55,9 +59,18 @@ class EXX:
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-    def calculate_energy(self, kpts, coulomb, VV_aii, v_knG=None):
+    def calculate_energy(self, kpts, VV_aii, v_knG=None):
         pd = kpts[0].psit.pd
-        v_nG = None
+
+        if v_knG is not None:
+            nbands = len(v_knG[0])
+            shapes = [(nbands, len(VV_ii)) for VV_ii in VV_aii]
+            v_kani = [{a: np.zeros(shape, complex)
+                       for a, shape in enumerate(shapes)}
+                      for _ in range(len(v_knG))]
+        else:
+            v_nG = None
+            v_kani = None
 
         exxvv = 0.0
         for i1, k1, k2, count in self.ipairs(kpts, kpts):
@@ -70,10 +83,11 @@ class EXX:
 
             if v_knG is not None:
                 v_nG = v_knG[i1]
+                v_ani = v_kani[i1]
 
-            v_G = coulomb.get_potential(pd12)
+            v_G = self.coulomb.get_potential(pd12)
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                               pd, i1, k2.f_n, v_nG)
+                                               pd, i1, k2.f_n, v_nG, v_ani)
             e_nn *= count / self.kd.nbzkpts**2
             exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n)
 
@@ -86,6 +100,10 @@ class EXX:
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
                 exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
+
+        if v_knG is not None:
+            for v_nG, v_ani in zip(v_knG, v_kani):
+                self.pt.add(v_nG, v_ani)
 
         return exxvv, exxvc
 
@@ -124,7 +142,8 @@ class EXX:
                                pd,
                                index,
                                f2_n,
-                               vpsit_nG=None):
+                               vpsit_nG=None,
+                               v_ani=None):
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                             k1.proj[a].conj(),
                             Delta_iiL,
@@ -151,6 +170,9 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
+                    for a, v_L in ghat.integrate(vrho_G).items():
+                        v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_L[0])
+                        v_ani[a][n1] += v_ii.dot(k2.proj[a][n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
                         vrho_R.conj() * k2.u_nR[n2], index)
