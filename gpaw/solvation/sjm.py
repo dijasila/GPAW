@@ -38,7 +38,7 @@ class SJM(SolvationGPAW):
         changed to the current number in the course of the calculation
     potential: float
         The potential that should be reached or kept in the course of the
-        calculation. If set to "None" (default) a constant charge charge
+        calculation. If set to "None" (default) a constant-charge
         calculation based on the value of `ne` is performed.
     potential_equilibration_mode: str
         The mode for potential relaxation (only relevant for structure
@@ -118,7 +118,8 @@ class SJM(SolvationGPAW):
         self.write_grandcanonical = write_grandcanonical_energy
         self.previous_pot = None
         self.slope = None
-        self.equil_iters = 10
+        self.equil_iters = 10  # FIXME: What exactly is this? max?
+        # FIXME: It is getting changed later in the code.
 
         if potential_equilibration_mode in ['seq', 'sim']:
             self.equil_mode = potential_equilibration_mode
@@ -176,7 +177,9 @@ class SJM(SolvationGPAW):
                     'max_pot_deviation']
 
         SJM_changes = {}
+        self.log('SJ: set received the keys:')
         for key in kwargs:
+            self.log('SJ:    {:s}'.format(key))
             if key in SJM_keys:
                 SJM_changes[key] = None
 
@@ -187,16 +190,19 @@ class SJM(SolvationGPAW):
         if kwargs:
             SolvationGPAW.set(self, **kwargs)
             major_changes = True
+        self.log('SJ: Density to be reset: {:s}'
+                 .format(str(major_changes)))
 
         if any(key in SJM_keys[1:] for key in SJM_changes):
             if self.equil_mode == 'sim':
-                self.log("Preequilibrating the potential",
+                self.log("Pre-equilibrating the potential",
                          "after manual change of",
                          list(SJM_changes.keys()))
                 self.equil_iters = 10
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
+            self.log('SJ: processing key "{:s}"'.format(key))
 
             if key in ['potential_equilibration_mode']:
                 self.equil_mode = SJM_changes[key]
@@ -238,6 +244,7 @@ class SJM(SolvationGPAW):
                 self.dpot = SJM_changes[key]
 
             if key in ['background_charge']:
+                self.log('SJ: background_charge changed')
                 self.parameters[key] = SJM_changes[key]
                 if self.wfs is not None:
                     if major_changes:
@@ -260,28 +267,29 @@ class SJM(SolvationGPAW):
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
-                        self.log('\n------------')
-                        self.log('Jellium properties changed!')
+                        # self.log('\n------------')
+                        # self.log('Jellium properties changed!')
 
                     if abs(self.ne) < self.tiny:
                         self.ne = self.tiny
+                    self.log('SJ: wfs nvalence changed by {:.5f}'
+                             .format(self.ne - self.previous_ne))
                     self.wfs.nvalence += self.ne - self.previous_ne
-
-                self.log('Current number of Excess Electrons: %1.5f' % self.ne)
-                self.log('Jellium size parameters:')
-                self.log('  Lower boundary: %s' % self.dl['start'])
-                self.log('  Upper boundary: %s' % self.dl['upper_limit'])
-                self.log('------------\n')
+                    self.log('SJ: wfs nvalence now {:.5f}'
+                             .format(self.wfs.nvalence))
+                    # FIXME: background_charge not always called when ne
+                    # changes? Doesn't this screw up nvalence in wfs?
 
             if key in ['ne']:
+                self.log('SJ: ne changed')
                 self.results = {}
                 if abs(SJM_changes['ne']) < self.tiny:
                     self.ne = self.tiny
-                    self.log('Number of Excess electrons manually changed ',
+                    self.log('SJ: Number of Excess electrons manually changed '
                              'to 0')
                 else:
                     self.ne = SJM_changes['ne']
-                    self.log('Number of Excess electrons manually changed ',
+                    self.log('SJ: Number of Excess electrons manually changed '
                              'to %1.8f' % (self.ne))
 
     def calculate(self, atoms=None, properties=['energy'],
@@ -294,9 +302,31 @@ class SJM(SolvationGPAW):
 
         """
 
+        self.log('SJ: *****************************')
+        self.log('SJ: Solvated jellium calculation.')
+        self.log('SJ: *****************************')
         if self.potential:
+            self.log('SJ:  Constant-potential calculation targeting {:.3f} '
+                     '+/- {:.3f} V.'
+                     .format(self.potential, self.dpot))
             equil_iter = 0
+            # FIXME: This might be clearer as `while not equilibrated:`
+            # FIXME: to get rid of the break statement.
             while equil_iter < self.equil_iters:
+                self.log('SJ:  --')
+                self.log('SJ:  Potential equlibration attempt {:d}'
+                         .format(equil_iter))
+                self.log('SJ:  Equilibrating potential to {:.3f} '
+                         '+/- {:.3f} V.'
+                         .format(self.potential, self.dpot))
+                self.log('SJ:  Current number of excess electrons: {:.5f}'
+                         .format(self.ne))
+                if self.dl is not None:
+                    self.log('SJ:  Jellium size parameters:')
+                    self.log('SJ:     Lower boundary: %s'
+                             % self.dl['start'])
+                    self.log('SJ:     Upper boundary: %s'
+                             % self.dl['upper_limit'])
                 if equil_iter == 1:
                     self.timer.start('Potential equilibration loop')
                     system_changes = []
@@ -314,11 +344,16 @@ class SJM(SolvationGPAW):
                     self.write_cavity_and_bckcharge()
 
                 pot_int = self.get_electrode_potential()
+                self.log('SJ: Potential found to be {:.5f} V'
+                         .format(pot_int))
 
+                self.log('SJ:    [self.equil_iters: {:d}]'
+                         .format(self.equil_iters))
                 if self.equil_iters > 1:
+                    self.log('SJ:  Entering self.equil_iters > 1 if.')
                     if abs(pot_int - self.potential) < self.dpot:
-                        self.previous_pot = pot_int
-                        self.previous_ne = self.ne
+                        self.log('SJ: Potential is within tolerance. '
+                                 'Equilibrated.')
 
                         if self.equil_mode == 'sim':
                             if self.equil_iters > 1:
@@ -328,20 +363,55 @@ class SJM(SolvationGPAW):
 
                         if equil_iter > 0:
                             self.timer.stop('Potential equilibration loop')
+                            self.log('SJ: equil_iter was {:d}.'
+                                     .format(equil_iter))
+                            # FIXME: Here I should set the slope, I think.
+                            # Because it would have at least two points.
+                            # I might only change it if d(potential) > dpot
+                            # to avoid noise?
+                            slope = (pot_int - self.previous_pot) / \
+                                (self.ne - self.previous_ne)
+                            if abs(pot_int - self.previous_pot) > self.dpot:
+                                self.slope = slope
+                                self.log('SJ: Setting slope to new value of '
+                                         '{:8f} V/e.'.format(self.slope))
+                            else:
+                                self.log('SJ: Not setting slope because '
+                                         'potential change of {:4f} V was '
+                                         'less than dpot={:4f} V (trying to'
+                                         ' avoid noise. Slope would have '
+                                         'been {:4f} V/e.'
+                                         .format(abs(pot_int -
+                                                     self.previous_pot),
+                                                 self.dpot, slope))
 
-                        if self.slope is not None:
-                            self.log("Slope of potential versus ne "
+                        else:
+                            self.log("SJ: Slope of potential versus ne "
                                      "(unchanged): %1.8f V/e\n"
                                      % (self.slope))
 
+                        self.previous_pot = pot_int
+                        self.previous_ne = self.ne
+
+                        if False:
+                            if self.slope is not None:
+                                # FIXME: Pick up here.
+                                # FIXME: Why is it unchanged?
+                                self.log("SJ: But if we did calculate it: "
+                                         "%1.8f V/e\n" % (slope))
+
+                        # FIXME: I think this break statement exits the
+                        # while. Would be better with an equilibrated =
+                        # True statement? This wouldn't be totally
+                        # equivalent.
                         break
 
                 if self.equil_iters > 1 or 'positions' in system_changes:
                     self.change_ne(pot_int)
 
                 if abs(pot_int - self.potential) > self.pot_tol:
-                    self.log('Deviation from target potential outside'
-                             'of threshold, equilibrating potential')
+                    self.log('SJ: Deviation from target potential outside '
+                             'of threshold, equilibrating potential.')
                     self.equil_iters = 10
 
                 equil_iter += 1
@@ -353,6 +423,8 @@ class SJM(SolvationGPAW):
                         'Aborting!')
 
         else:
+            self.log('SJ:  Constant-charge calculation with {:.5f} excess '
+                     'electrons'.format(self.ne))
             self.set_jellium(atoms)
             SolvationGPAW.calculate(self, atoms, ['energy'],
                                     system_changes)
@@ -361,20 +433,29 @@ class SJM(SolvationGPAW):
             self.previous_ne = self.ne
 
         if properties != ['energy']:
+
+            self.log('SJ: Calculating non-energy properties.')
             SolvationGPAW.calculate(self, atoms, properties, [])
 
     def change_ne(self, pot_int):
+        self.log('SJ: Changing the number of electrons:')
+        # FIXME: Add some documentation of what this method does!
         if self.previous_pot is not None:
             if abs(self.previous_ne - self.ne) > 2 * self.tiny:
                 self.slope = (pot_int - self.previous_pot) / \
                     (self.ne - self.previous_ne)
-                self.log("Slope of potential versus ne: "
+                self.log("SJ: Slope of potential versus ne: "
                          "%1.8f V/e\n" % (self.slope))
 
         if self.slope is None:
+            self.log('SJ: Changing ne with no slope information.')
             self.previous_ne = self.ne
+            # FIXME: It's changing number of electrons by something
+            # that has units of V???
             self.ne += np.sign(pot_int - self.potential) * self.dpot
         else:
+            self.log('SJ: Changing ne based on slope of {:.8f} V/e'
+                     .format(self.slope))
             d = (pot_int - self.potential) - (self.slope * self.ne)
             self.previous_ne = self.ne
             self.ne = - d / self.slope
@@ -750,7 +831,8 @@ class SJMPower12Potential(Power12Potential):
 
 
 class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
-    """Realspace Hamiltonian with continuum solvent model in the context of SJM.
+    """Realspace Hamiltonian with continuum solvent model in the context of
+    SJM.
 
     See also Section III of
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
