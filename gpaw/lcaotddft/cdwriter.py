@@ -9,6 +9,10 @@ from gpaw.lcaotddft.utilities import distribute_MM
 from gpaw.utilities.blas import gemm, mmm
 
 
+def skew(a):
+    return 0.5 * (a - a.T)
+
+
 def debug_msg(msg):
     print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
 
@@ -58,27 +62,42 @@ class CDWriter(TDDFTObserver):
         self.E_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
         self.A_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
 
+        dH_asp = paw.hamiltonian.dH_asp
+        partition = dH_asp.partition
+
+        setups = paw.setups
+
+        dX0_caii = []
+        for i in range(3):
+            def shape(a):
+                ni = setups[a].ni
+                return ni, ni
+            dX0_aii = partition.arraydict(shapes=shape, dtype=complex)
+            for arr in dX0_aii.values():
+                arr[:] = 0
+            dX0_caii.append(dX0_aii)
+
         for kpt in paw.wfs.kpt_u:
             assert kpt.k == 0
-            dH_casp = []
 
-            for a, dH_sp in paw.hamiltonian.dH_asp.items():
+            for a, dH_sp in dH_asp.items():
 
                 Ra = (paw.atoms[a].position /Bohr) - R0
 
                 rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
                 nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
 
-                def skew(a):
-                    return (a-a.T)/2
                 for c in range(3):
                     rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
                     nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
 
-                ac = paw.wfs.atomic_correction
-                assert ac.name == 'dense'
+                
+                #assert ac.name == 'dense'
 
-                P_Mi = ac.P_aqMi[a][kpt.q]
+                P_Mi = paw.wfs.P_aqMi[a][kpt.q]
+
+                ac = paw.wfs.atomic_correction
+                #P_Mi = ac.P_aqMi[a][kpt.q]
 
                 #P_Mi = paw.wfs.atomic_correction.P_aqMi[a][kpt.q]
 
@@ -86,13 +105,15 @@ class CDWriter(TDDFTObserver):
                 dX1_ii = -1 * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
                 dX2_ii = -1 * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
 
-                for c, dX_ii in enumerate( [ dX0_ii, dX1_ii, dX2_ii ]):
-                    dX_ii=np.array(dX_ii,dtype=complex)
-                    dXP_iM = np.zeros((dX_ii.shape[1], P_Mi.shape[0]), np.complex)
-                    # (ATLAS can't handle uninitialized output array)
-                    gemm(1.0, P_Mi, dX_ii, 0.0, dXP_iM, 'c')
-                    gemm(1.0, dXP_iM, P_Mi[ac.Mstart:ac.Mstop], 1.0, self.E_cMM[c])
-                    # gemm(1.0, dXP_iM, P_Mi[paw.wfs.atomic_correction.Mstart:paw.wfs.atomic_correction.Mstop], 1.0, self.E_cMM[c])
+                for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
+                    assert not dX0_caii[c][a].any()
+                    dX0_caii[c][a][:] = dX_ii
+
+            ac = paw.wfs.atomic_correction
+            Mstart = self.ksl.Mstart
+            Mstop = self.ksl.Mstop
+            for c in range(3):
+                ac.calculate(kpt.q, dX0_caii[c], self.E_cMM[c], Mstart, Mstop)
 
         paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[0], self.A_cMM, 0)
         self.E_cMM[1]-=self.A_cMM[2]
@@ -175,6 +196,7 @@ class CDWriter(TDDFTObserver):
     def _write_cd(self, paw):
         time = paw.time
         cd = self.calculate_cd_moment(paw,center=self.do_center)
+        print('cd', cd)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
           (time, cd[0], cd[1], cd[2]))
         self._write(line)
