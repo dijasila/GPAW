@@ -57,7 +57,7 @@ class WDA(XCFunctional):
         V_sg += self.calculate_V1p(alpha_isg, wn_sg, grid, ni_grid)
 
         dalpha_isg = self.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, grid, ni_grid, ni_lower, ni_upper, len(n_sg), self.dZFunc)
-        V_sg += self.calculate_V2(dalpha_isg, wn_sg, grid, ni_j)
+        V_sg += self.calculate_V2(dalpha_isg, wn_sg, grid, ni_grid)
 
         # Add correction if symmetric mode
         if self.mode.lower() == "symmetric":
@@ -69,11 +69,11 @@ class WDA(XCFunctional):
         eWDA_g = self.calculate_energy(alpha_isg, wn_sg, gd, grid, ni_grid)
 
         # Add correction if symmetric mode
-        if self.mode.lower() == "symmetric":
+        if self.mode is not None and self.mode.lower() == "symmetric":
             eWDA_g += self.calculate_sym_energy_correction(alpha_isg, wn_sg, gd, grid, ni_grid)
 
         # Correct if we want to use WDA for valence density only
-        if self.densitymode.lower() == "valence":
+        if self.densitymode is not None and self.densitymode.lower() == "valence":
             eWDA_g += self.calculate_energy_correction_valence_mode(wn_sg, n_sg)
 
         mpi.world.sum(eWDA_g)
