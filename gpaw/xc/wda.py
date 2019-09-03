@@ -16,9 +16,11 @@ class WDA(XCFunctional):
         if mode is not None and mode.lower() == "symmetric":
             self.get_Zs = self.symmetricmode_Zs
             self.get_dalpha_isg = self.get_dalpha_isg_symmetric
+            self.dZFunc = self.symmetric_dZ
         else:
             self.get_Zs = self.standardmode_Zs
             self.get_dalpha_isg = self.get_dalpha_isg_normal
+            self.dZFunc = self.normal_dZ
 
         self.mode = mode
         self.densitymode = densitymode
@@ -42,20 +44,19 @@ class WDA(XCFunctional):
         wn_sg = self.get_working_density(n_sg, gd1)
     
         # Get ni_grid
-        ni_grid, lower, upper = self.get_ni_grid(mpi.rank, mpi.size, wn_sg)
+        ni_grid, ni_lower, ni_upper = self.get_ni_grid(mpi.rank, mpi.size, wn_sg)
 
 
         # Get Zs
-        Z_isg, Z_lower_sg, Z_upper_sg = self.get_Zs(wn_sg, ni_grid, lower, upper, grid, spin, gd1)
+        Z_isg, Z_lower_sg, Z_upper_sg = self.get_Zs(wn_sg, ni_grid, ni_lower, ni_upper, grid, spin, gd1)
 
         # Get alphas
         alpha_isg = self.get_alphas(Z_isg, Z_lower_sg, Z_upper_sg)
-        return
         # Calculate Vs
-        V_sg = self.calculate_V1(alpha_isg, wn_sg)
-        V_sg += self.calculate_V1p(alpha_isg, wn_sg)
+        V_sg = self.calculate_V1(alpha_isg, wn_sg, grid, ni_grid)
+        V_sg += self.calculate_V1p(alpha_isg, wn_sg, grid, ni_grid)
 
-        dalpha_isg = self.get_dalpha_isg()
+        dalpha_isg = self.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, grid, ni_grid, ni_lower, ni_upper, len(n_sg), self.dZFunc)
         V_sg += self.calculate_V2(dalpha_isg, wn_sg, grid, ni_j)
 
         # Add correction if symmetric mode
@@ -65,11 +66,11 @@ class WDA(XCFunctional):
 
 
         # Calculate energy
-        eWDA_g = self.calculate_energy(alpha_isg, wn_sg)
+        eWDA_g = self.calculate_energy(alpha_isg, wn_sg, gd, grid, ni_grid)
 
         # Add correction if symmetric mode
         if self.mode.lower() == "symmetric":
-            eWDA_g += self.calculate_sym_energy_correction(alpha_isg, wn_sg)
+            eWDA_g += self.calculate_sym_energy_correction(alpha_isg, wn_sg, gd, grid, ni_grid)
 
         # Correct if we want to use WDA for valence density only
         if self.densitymode.lower() == "valence":
