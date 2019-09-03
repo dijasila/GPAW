@@ -34,15 +34,43 @@ def get_dX0(Ra_a, setups, partition):
             rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
             nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
 
-        dX0_ii = -1 * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
-        dX1_ii = -1 * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
-        dX2_ii = -1 * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
+        dX0_ii = -(Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0])
+        dX1_ii = -(Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1])
+        dX2_ii = -(Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2])
 
         for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
             assert not dX0_caii[c][a].any()
             dX0_caii[c][a][:] = dX_ii
 
     return dX0_caii
+
+
+def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
+    nao = bfs.Mmax
+    E_cMM = np.zeros((3, nao, nao), dtype=complex)
+    A_cMM = np.zeros((3, nao, nao), dtype=complex)
+
+    for c in range(3):
+        for kpt in kpt_u:
+            assert kpt.k == 0
+            correction.calculate(kpt.q, dX0_caii[c], E_cMM[c],
+                                 correction.Mstart, correction.Mstop)
+
+    bfs.calculate_potential_matrix_derivative(r_cG[0], A_cMM, 0)
+    E_cMM[1]-=A_cMM[2]
+    E_cMM[2]+=A_cMM[1]
+    A_cMM[:]=0.0
+
+    bfs.calculate_potential_matrix_derivative(r_cG[1], A_cMM, 0)
+    E_cMM[0]+=A_cMM[2]
+    E_cMM[2]-=A_cMM[0]
+    A_cMM[:]=0.0
+
+    bfs.calculate_potential_matrix_derivative(r_cG[2], A_cMM, 0)
+    E_cMM[0]-=A_cMM[1]
+    E_cMM[1]+=A_cMM[0]
+    return E_cMM
+
 
 def debug_msg(msg):
     print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
@@ -86,52 +114,23 @@ class CDWriter(TDDFTObserver):
         self.timer=paw.timer
 
         R0 = 0.5 * np.diag(gd.cell_cv)
+        Ra_a = paw.atoms.positions / Bohr - R0[None, :]
         r_cG, r2_G = coordinates(gd, origin=R0)
 
-        Mstart = paw.wfs.ksl.Mstart
-        Mstop = paw.wfs.ksl.Mstop
-        self.E_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
-        self.A_cMM=np.zeros((3,Mstop,Mstop),dtype=complex)
+        dX0_caii = get_dX0(Ra_a, paw.setups, paw.hamiltonian.dH_asp.partition)
 
-        dH_asp = paw.hamiltonian.dH_asp
-        partition = dH_asp.partition
-
-        setups = paw.setups
-
-        Ra_a = paw.atoms.positions / Bohr - R0[None, :]
-
-        kpt_u = paw.wfs.kpt_u
-        dX0_caii = get_dX0(Ra_a, setups, partition)
-        for kpt in kpt_u:
-            assert kpt.k == 0
-            ac = paw.wfs.atomic_correction
-            Mstart = self.ksl.Mstart
-            Mstop = self.ksl.Mstop
-            for c in range(3):
-                ac.calculate(kpt.q, dX0_caii[c], self.E_cMM[c], Mstart, Mstop)
-
-        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[0], self.A_cMM, 0)
-        self.E_cMM[1]-=self.A_cMM[2]
-        self.E_cMM[2]+=self.A_cMM[1]
-        self.A_cMM[:]=0.0
-
-        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[1], self.A_cMM, 0)
-        self.E_cMM[0]+=self.A_cMM[2]
-        self.E_cMM[2]-=self.A_cMM[0]
-        self.A_cMM[:]=0.0
-
-        paw.wfs.basis_functions.calculate_potential_matrix_derivative(r_cG[2], self.A_cMM, 0)
-        self.E_cMM[0]-=self.A_cMM[1]
-        self.E_cMM[1]+=self.A_cMM[0]
-
-        gd.comm.sum(self.E_cMM)
+        E_cMM = calculate_E(dX0_caii, paw.wfs.kpt_u,
+                            paw.wfs.basis_functions,
+                            paw.wfs.atomic_correction, r_cG)
+        gd.comm.sum(E_cMM)
 
         if self.ksl.using_blacs:
             E_cmm = []
             for c in range(3):
-                E_mm = distribute_MM(paw.wfs, self.E_cMM[c])
+                E_mm = distribute_MM(paw.wfs, E_cMM[c])
                 E_cmm.append(E_mm)
-            self.E_cMM = np.array(E_cmm)
+            E_cMM = np.array(E_cmm)
+        self.E_cMM = E_cMM
 
     def _write(self, line):
         if self.master:
