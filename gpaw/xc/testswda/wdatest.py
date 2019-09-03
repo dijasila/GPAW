@@ -425,46 +425,52 @@ class Tester(BaseTester):
 
     def test_25_calculateV2_normal(self):
         alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
-        dalpha_isg = xc.get_dalpha_isg_normal(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg))
+        dalpha_isg = xc.get_dalpha_isg_normal(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg), xc.normal_dZ)
         V2_sg = xc.calculate_V2(dalpha_isg, n_sg, self.grid, ni_j)
         self.isgoodnum(V2_sg)
     
     def test_26_calculate_sympot(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
-        Vsympot_sg = xc.calculate_sym_pot_correction(alpha_ig, n_sg)
+        Vsympot_sg = xc.calculate_sym_pot_correction(alpha_ig, n_sg, self.grid, ni_j)
         self.isgoodnum(Vsympot_sg)
 
     def test_27_calculate_energy(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
-        e_g = self.calculate_energy(alpha_ig, n_sg, self.gd)
+        e_g = xc.calculate_energy(alpha_ig, n_sg, self.gd, self.grid, ni_j)
         self.isgoodnum(e_g)
 
     def test_28_calculate_symene(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
-        esym_g = self.calculate_sym_energy_correction(alpha_ig, n_sg, self.gd)
+        esym_g = xc.calculate_sym_energy_correction(alpha_ig, n_sg, self.gd, self.grid, ni_j)
         self.isgoodnum(esym_g)
 
     def test_29_calculate_valence_corr(self):
         n1_sg = self.get_a_density()
         n2_sg = self.get_a_density()
         
-        eval_g = self.calculate_energy_correction_valence_mode(n1_sg, n2_sg)
+        eval_g = xc.calculate_energy_correction_valence_mode(n1_sg, n2_sg)
         self.isgoodnum(eval_g)
 
-        expected = None
-        assert np.allclose(eval_g, expected)
+        # expected = None
+        # assert np.allclose(eval_g, expected)
 
-    def test_30_get_dalpha_normal(self):
-        raise NotImplementedError
+    def test_30_calculateV2_normal(self):
+        alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+        dalpha_isg = xc.get_dalpha_isg_normal(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg), xc.symmetric_dZ)
+        V2_sg = xc.calculate_V2(dalpha_isg, n_sg, self.grid, ni_j)
+        self.isgoodnum(V2_sg)
 
-    def test_31_get_dalpha_symmetric(self):
-        raise NotImplementedError
+    # def test_30_get_dalpha_normal(self):
+    #     raise NotImplementedError
 
-    def test_32_calculateV2_symmetric(self):
-        raise NotImplementedError
+    # def test_31_get_dalpha_symmetric(self):
+    #     raise NotImplementedError
+
+    # def test_32_calculateV2_symmetric(self):
+    #     raise NotImplementedError
 
 if __name__ == "__main__":
     import sys
