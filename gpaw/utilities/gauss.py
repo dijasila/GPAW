@@ -10,7 +10,7 @@ from gpaw.utilities import erf, is_contiguous
 # computer generated code:
 # use c/bmgs/sharmonic.py::construct_gauss_code(lmax) to generate more
 Y_L = [
-  '0.28209479177387814',
+  '0.28209479177387814',  # noqa
   '0.48860251190291992 * y',
   '0.48860251190291992 * z',
   '0.48860251190291992 * x',
@@ -48,7 +48,7 @@ Y_L = [
   '0.65638205684017015 * (-10*x*x*x*y*y+5*x*y*y*y*y+x*x*x*x*x)',
 ]
 gauss_L = [
-  'sqrt(a**3*4)/pi * exp(-a*r2)',
+  'sqrt(a**3*4)/pi * exp(-a*r2)',  # noqa
   'sqrt(a**5*5.333333333333333)/pi * y * exp(-a*r2)',
   'sqrt(a**5*5.333333333333333)/pi * z * exp(-a*r2)',
   'sqrt(a**5*5.333333333333333)/pi * x * exp(-a*r2)',
@@ -86,7 +86,7 @@ gauss_L = [
   'sqrt(a**13*0.00020522687189353857)/pi * (-10*x*x*x*y*y+5*x*y*y*y*y+x*x*x*x*x) * exp(-a*r2)',
 ]
 gausspot_L = [
-  '2.0*1.7724538509055159*erf(sqrt(a)*r)/r',
+  '2.0*1.7724538509055159*erf(sqrt(a)*r)/r',  # noqa
   '1.1547005383792515*(1.7724538509055159*erf(sqrt(a)*r)-(2)*sqrt(a)*r*exp(-a*r2))/r/r2*y',
   '1.1547005383792515*(1.7724538509055159*erf(sqrt(a)*r)-(2)*sqrt(a)*r*exp(-a*r2))/r/r2*z',
   '1.1547005383792515*(1.7724538509055159*erf(sqrt(a)*r)-(2)*sqrt(a)*r*exp(-a*r2))/r/r2*x',
@@ -191,7 +191,7 @@ def gausspot_L(a, L, x, y, z, r, r2, erf_sar, exp_ar2):
 
 
 class Gaussian:
-    """Class offering several utilities related to the generalized gaussians.
+    r"""Class offering several utilities related to the generalized gaussians.
 
     Generalized gaussians are defined by::
 
@@ -260,7 +260,7 @@ class Gaussian:
 
 def gaussian_wave(r_vG, r0_v, sigma, k_v=None, A=None, dtype=float,
                   out_G=None):
-    """Generates function values for atom-centered Gaussian waves.
+    r"""Generates function values for atom-centered Gaussian waves.
 
     ::
 

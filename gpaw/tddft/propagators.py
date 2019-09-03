@@ -21,14 +21,14 @@ class DummyKPoint(object):
 ###############################################################################
 class DummyPropagator:
     """Time propagator
-    
+
     The DummyPropagator-class is the VIRTUAL base class for all propagators.
-    
+
     """
     def __init__(self, td_density, td_hamiltonian, td_overlap,
                 solver, preconditioner, gd, timer):
         """Create the DummyPropagator-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -45,7 +45,7 @@ class DummyPropagator:
             coarse (/wavefunction) grid descriptor
         timer: Timer
             timer
-        
+
         """
         self.td_density = td_density
         self.td_hamiltonian = td_hamiltonian
@@ -63,14 +63,14 @@ class DummyPropagator:
     # Solve M psin = psi
     def apply_preconditioner(self, psi, psin):
         """Solves preconditioner equation.
-        
+
         Parameters
         ----------
         psi: List of coarse grids
             the known wavefunctions
         psin: List of coarse grids
             the result
-        
+
         """
         self.timer.start('Solve TDDFT preconditioner')
         if self.preconditioner is not None:
@@ -81,15 +81,15 @@ class DummyPropagator:
 
 
     def propagate(self, time, time_step):
-        """Propagate wavefunctions once. 
-        
+        """Propagate wavefunctions once.
+
         Parameters
         ----------
         time: float
             the current time
         time_step: float
             the time step
-        
+
         """
         raise RuntimeError('Error in DummyPropagator: '
                             'Member function propagate is virtual.')
@@ -100,18 +100,18 @@ class DummyPropagator:
 ###############################################################################
 class ExplicitCrankNicolson(DummyPropagator):
     """Explicit Crank-Nicolson propagator
-    
+
     Crank-Nicolson propagator, which approximates the time-dependent
     Hamiltonian to be unchanged during one iteration step.
-    
+
     (S(t) + .5j dt H(t) / hbar) psi(t+dt) = (S(t) - .5j dt H(t) / hbar) psi(t)
-    
+
     """
-    
+
     def __init__(self, td_density, td_hamiltonian, td_overlap,
                  solver, preconditioner, gd, timer):
         """Create ExplicitCrankNicolson-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -128,7 +128,7 @@ class ExplicitCrankNicolson(DummyPropagator):
             coarse (/wavefunction) grid descriptor
         timer: Timer
             timer
-        
+
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                  solver, preconditioner, gd, timer)
@@ -137,18 +137,18 @@ class ExplicitCrankNicolson(DummyPropagator):
         self.hpsit = None
         self.spsit = None
         self.sinvhpsit = None
-        
+
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def propagate(self, time, time_step):
-        """Propagate wavefunctions. 
-        
+        """Propagate wavefunctions.
+
         Parameters
         ----------
         time: float
             the current time
         time_step: float
             time step
-        
+
         """
         self.niter = 0
 
@@ -269,22 +269,22 @@ class ExplicitCrankNicolson(DummyPropagator):
 ###############################################################################
 class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator
-    
+
     Crank-Nicolson propagator, which first approximates the time-dependent
     Hamiltonian to be unchanged during one iteration step to predict future
     wavefunctions. Then the approximations for the future wavefunctions are
     used to approximate the Hamiltonian at the middle of the time step.
-    
+
     (S(t) + .5j dt H(t) / hbar) psi(t+dt) = (S(t) - .5j dt H(t) / hbar) psi(t)
-    (S(t) + .5j dt H(t+dt/2) / hbar) psi(t+dt) 
+    (S(t) + .5j dt H(t+dt/2) / hbar) psi(t+dt)
     = (S(t) - .5j dt H(t+dt/2) / hbar) psi(t)
-    
+
     """
-    
-    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+
+    def __init__(self, td_density, td_hamiltonian, td_overlap,
                  solver, preconditioner, gd, timer):
         """Create SemiImplicitCrankNicolson-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -301,7 +301,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             coarse (wavefunction) grid descriptor
         timer: Timer
             timer
-        
+
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
                           td_overlap, solver, preconditioner, gd, timer)
@@ -311,7 +311,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
-        
+
         Parameters
         ----------
         time: float
@@ -393,7 +393,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.timer.stop('Update time-dependent operators')
 
         # Corrector step
-        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
+        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
@@ -406,10 +406,10 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
             self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
- 
+
         # update projections before exiting
         self.td_overlap.update(self.wfs)
-       
+
         return self.niter
 
 
@@ -477,18 +477,18 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
         """
         ExplicitCrankNicolson.dot(self, psi, psin)
-        # Apply shift -i eps S t/2 
+        # Apply shift -i eps S t/2
         #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 class EhrenfestPAWSICN(ExplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
        TODO: merge this with the ordinary SICN
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+    def __init__(self, td_density, td_hamiltonian, td_overlap,
                  solver, preconditioner, gd, timer, corrector_guess = True,
                  predictor_guess = (True,False), use_cg = (False,False)):
         """Create SemiImplicitCrankNicolson-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -513,7 +513,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         use_cg: (Bool, Bool)
             use CG for calculating the inverse overlap (predictor, corrector)
             default is (False, False)
-        
+
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
                           td_overlap, solver, preconditioner, gd, timer)
@@ -533,7 +533,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
     def propagate(self, time, time_step, v_a):
         """Propagate wavefunctions once.
-        
+
         Parameters
         ----------
         time: float
@@ -624,7 +624,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         self.timer.stop('Update time-dependent operators')
 
         # Corrector step
-        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
+        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
@@ -638,10 +638,10 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                 self.mblas.multi_zaxpy(-.5j*time_step, self.sinvhpsit, kpt.psit_nG, nvec)
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
- 
+
         # update projections before exiting
         self.td_overlap.update(self.wfs)
-       
+
         return self.niter
 
 
@@ -660,7 +660,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
                                   calculate_P_ani=False)
         self.td_hamiltonian.calculate_paw_correction(rhs_kpt.psit_nG, self.hpsit, self.wfs, kpt, self.v_at, calculate_P_ani=False)
-            
+
         self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
                               calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
@@ -691,7 +691,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=self.use_cg[0])
             #assert not self.use_cg[0]
             #self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
-            
+
             self.mblas.multi_zaxpy(-1.0j*time_step, self.sinvhpsit,
                                    kpt.psit_nG, nvec)
             #print 'using guess for P step'
@@ -703,7 +703,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
                 self.td_overlap.apply_inverse(self.sinvh2psit, self.sinvh2psit, self.wfs, kpt, use_cg=self.use_cg[0])
                 self.mblas.multi_zaxpy(-.5 * time_step*time_step, self.sinvh2psit,
                                    kpt.psit_nG, nvec)
-                
+
 
         # Information needed by solver.solve -> self.dot
         self.kpt = kpt
@@ -739,18 +739,18 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
         # psin[:] = self.spsit + .5J * self.time_step * self.hpsit
         psin[:] = self.spsit
         self.mblas.multi_zaxpy(.5j*self.time_step, self.hpsit, psin, len(psi))
-        # Apply shift -i eps S t/2 
+        # Apply shift -i eps S t/2
         #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 class EhrenfestHGHSICN(ExplicitCrankNicolson):
     """Semi-implicit Crank-Nicolson propagator for Ehrenfest dynamics
        using HGH pseudopotentials
-    
+
     """
-    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+    def __init__(self, td_density, td_hamiltonian, td_overlap,
                  solver, preconditioner, gd, timer):
         """Create SemiImplicitCrankNicolson-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -767,7 +767,7 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
             coarse (wavefunction) grid descriptor
         timer: Timer
             timer
-        
+
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
                           td_overlap, solver, preconditioner, gd, timer)
@@ -776,7 +776,7 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
 
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
-        
+
         Parameters
         ----------
         time: float
@@ -861,15 +861,15 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         self.timer.stop('Update time-dependent operators')
 
         # Corrector step
-        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
+        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
 
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
- 
+
         # update projections before exiting
         self.td_overlap.update(self.wfs)
-       
+
         return self.niter
 
 
@@ -886,7 +886,7 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         # Store H psi(t) as hpsit and S psit(t) as spsit
         self.td_overlap.update_k_point_projections(self.wfs, kpt, rhs_kpt.psit_nG)
         self.td_hamiltonian.apply(kpt, rhs_kpt.psit_nG, self.hpsit,
-                                  calculate_P_ani=False)          
+                                  calculate_P_ani=False)
         self.td_overlap.apply(rhs_kpt.psit_nG, self.spsit, self.wfs, kpt,
                               calculate_P_ani=False)
         self.timer.stop('Apply time-dependent operators')
@@ -932,22 +932,22 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
 ###############################################################################
 class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
     """Enforced time-reversal symmetry Crank-Nicolson propagator
-    
+
     Crank-Nicolson propagator, which first approximates the time-dependent
     Hamiltonian to be unchanged during one iteration step to predict future
     wavefunctions. Then the approximations for the future wavefunctions are
     used to approximate the Hamiltonian in the future.
-    
+
     (S(t) + .5j dt H(t) / hbar) psi(t+dt) = (S(t) - .5j dt H(t) / hbar) psi(t)
-    (S(t) + .5j dt H(t+dt) / hbar) psi(t+dt) 
+    (S(t) + .5j dt H(t+dt) / hbar) psi(t+dt)
     = (S(t) - .5j dt H(t) / hbar) psi(t)
-    
+
     """
-    
-    def __init__(self, td_density, td_hamiltonian, td_overlap, 
+
+    def __init__(self, td_density, td_hamiltonian, td_overlap,
                  solver, preconditioner, gd, timer):
         """Create SemiImplicitCrankNicolson-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -964,7 +964,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
             coarse (wavefunction) grid descriptor
         timer: Timer
             timer
-        
+
         """
         ExplicitCrankNicolson.__init__(self, td_density, td_hamiltonian,
                           td_overlap, solver, preconditioner, gd, timer)
@@ -974,7 +974,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
     def propagate(self, time, time_step, update_callback=None):
         """Propagate wavefunctions once.
-        
+
         Parameters
         ----------
         time: float
@@ -1037,8 +1037,8 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         if update_callback is not None:
             update_callback()
 
-            
-        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):            
+
+        for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
 
@@ -1062,14 +1062,14 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
         self.timer.stop('Update time-dependent operators')
 
         # Corrector step
-        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old 
+        # Use predicted psit_nG in kpt_u as an initial guess, whereas the old
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             self.solve_propagation_equation(kpt, rhs_kpt, time_step)
 
         # update projections before exiting
         self.td_overlap.update(self.wfs)
-        
+
         return self.niter
 
     # Create RHS
@@ -1121,7 +1121,7 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 
         """
         ExplicitCrankNicolson.dot(self, psi, psin)
-        # Apply shift -i eps S t/2 
+        # Apply shift -i eps S t/2
         #self.mblas.multi_zaxpy(.5j * self.time_step * (-self.shift), self.spsit, psin, len(psi))
 
 
@@ -1134,20 +1134,20 @@ class EnforcedTimeReversalSymmetryCrankNicolson(ExplicitCrankNicolson):
 ###############################################################################
 class AbsorptionKick(ExplicitCrankNicolson):
     """Absorption kick propagator
-    
+
     Absorption kick propagator::
 
       (S(t) + .5j dt p.r / hbar) psi(0+) = (S(t) - .5j dt p.r / hbar) psi(0-)
 
     where ``|p| = (eps e / hbar)``, and eps is field strength, e is elementary
     charge.
-    
+
     """
-    
+
     def __init__(self, wfs, abs_kick_hamiltonian, td_overlap,
                  solver, preconditioner, gd, timer):
         """Create AbsorptionKick-object.
-        
+
         Parameters
         ----------
         wfs: FDWaveFunctions
@@ -1173,7 +1173,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
 
     def kick(self):
         """Excite all possible frequencies.
-        
+
         """
 
         # if rank == 0:
@@ -1185,7 +1185,7 @@ class AbsorptionKick(ExplicitCrankNicolson):
             #     self.text('.')
         # if rank == 0:
         #     print ''
-        
+
 
 
 
@@ -1195,15 +1195,15 @@ class AbsorptionKick(ExplicitCrankNicolson):
 # SemiImpicitTaylorExponential
 ###############################################################################
 class SemiImplicitTaylorExponential(DummyPropagator):
-    """Semi-implicit Taylor exponential propagator 
+    """Semi-implicit Taylor exponential propagator
     exp(-i S^-1 H t) = 1 - i S^-1 H t + (1/2) (-i S^-1 H t)^2 + ...
-    
+
     """
-    
+
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
                  preconditioner, gd, timer, degree=4):
         """Create SemiImplicitTaylorExponential-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -1222,7 +1222,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             timer
         degree: integer
             Degree of the Taylor polynomial (default is 4)
-        
+
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                  solver, preconditioner, gd, timer)
@@ -1232,11 +1232,11 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         self.tmp_kpt_u = None
         self.psin = None
         self.hpsit = None
-        
-        
+
+
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
-        
+
         Parameters
         ----------
         time: float
@@ -1262,7 +1262,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
             self.psin = self.gd.zeros(nvec, dtype=complex)
         if self.hpsit is None:
             self.hpsit = self.gd.zeros(nvec, dtype=complex)
-        
+
 
         self.timer.start('Update time-dependent operators')
 
@@ -1314,7 +1314,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         # correct for each k-point
         for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
-        
+
         # update projections before exiting
         self.td_overlap.update(self.wfs)
 
@@ -1329,7 +1329,7 @@ class SemiImplicitTaylorExponential(DummyPropagator):
         # Information needed by solver.solve -> self.dot
         self.kpt = kpt
         self.time_step = time_step
-            
+
         # psin = psi(0)
         self.psin[:] = kpt.psit_nG
         for k in range(self.degree,0,-1):
@@ -1356,14 +1356,14 @@ class SemiImplicitTaylorExponential(DummyPropagator):
 ###############################################################################
 class SemiImplicitKrylovExponential(DummyPropagator):
     """Semi-implicit Krylov exponential propagator
-    
-    
+
+
     """
-    
+
     def __init__(self, td_density, td_hamiltonian, td_overlap, solver,
                  preconditioner, gd, timer, degree=4):
         """Create SemiImplicitKrylovExponential-object.
-        
+
         Parameters
         ----------
         td_density: TimeDependentDensity
@@ -1382,13 +1382,13 @@ class SemiImplicitKrylovExponential(DummyPropagator):
             timer
         degree: integer
             Degree of the Krylov subspace (default is 4)
-        
+
         """
         DummyPropagator.__init__(self, td_density, td_hamiltonian, td_overlap,
                                  solver, preconditioner, gd, timer)
 
         self.kdim = degree + 1
-        
+
         self.tmp_kpt_u = None
         self.lm = None
         self.em = None
@@ -1399,11 +1399,11 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         self.Hqm = None
         self.Sqm = None
         self.rqm = None
-        
-        
+
+
     def propagate(self, time, time_step):
         """Propagate wavefunctions once.
-        
+
         Parameters
         ----------
         time: float
@@ -1445,20 +1445,20 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         if self.xm is None:
             self.xm = np.zeros((nvec, self.kdim, self.kdim), complex)
 
-        # qm = (degree, wfs, nx, ny, nz) 
+        # qm = (degree, wfs, nx, ny, nz)
         if self.qm is None:
             self.qm = self.gd.zeros((self.kdim, nvec), dtype=complex)
-        # H qm = (degree, wfs, nx, ny, nz) 
+        # H qm = (degree, wfs, nx, ny, nz)
         if self.Hqm is None:
             self.Hqm = self.gd.zeros((self.kdim, nvec), dtype=complex)
-        # S qm = (degree, wfs, nx, ny, nz) 
+        # S qm = (degree, wfs, nx, ny, nz)
         if self.Sqm is None:
             self.Sqm = self.gd.zeros((self.kdim, nvec), dtype=complex)
-        # rqm = (wfs, nx, ny, nz) 
+        # rqm = (wfs, nx, ny, nz)
         if self.rqm is None:
             self.rqm = self.gd.zeros((nvec,), dtype=complex)
 
-        
+
         self.time_step = time_step
 
 
@@ -1512,12 +1512,12 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         # correct for each k-point
         for kpt in self.wfs.kpt_u:
             self.solve_propagation_equation(kpt, time_step)
-        
+
         # update projections before exiting
         self.td_overlap.update(self.wfs)
 
         return self.niter
-    
+
     # psi(t) = exp(-i t S^-1 H) psi(0)
     def solve_propagation_equation(self, kpt, time_step):
 
@@ -1586,15 +1586,15 @@ class SemiImplicitKrylovExponential(DummyPropagator):
         for k in range(nvec):
             for i in range(self.kdim):
                 #print 'Xm_tmp[',k,'][',i,'] = ', xm_tmp[k][i]
-                axpy(xm_tmp[k][i] / scale[k], 
+                axpy(xm_tmp[k][i] / scale[k],
                      self.qm[i][k], kpt.psit_nG[k])
 
         #print self.qm
         #print kpt.psit_nG
 
-
     # Create Krylov subspace
     #    K_v = { psi, S^-1 H psi, (S^-1 H)^2 psi, ... }
+
     def create_krylov_subspace(self, kpt, h, s, qm, Hqm, Sqm):
         nvec = len(kpt.psit_nG)
         # tmp = (wfs)

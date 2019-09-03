@@ -12,7 +12,7 @@ from gpaw.spherical_harmonics import nablarlYL
 from gpaw.sphere.lebedev import Y_nL, R_nv, weight_n
 
 
-"""
+r"""
                            3
              __   dn       __   __    dY
    __  2    \       L  2  \    \        L  2
@@ -60,7 +60,7 @@ class PAWXCCorrection:
         self.ng = ng = len(nc_g)
         self.phi_jg = w_jg
         self.phit_jg = wt_jg
-        
+
         self.jlL = [(j, l, l**2 + m) for j, l in jl for m in range(2 * l + 1)]
         self.ni = ni = len(self.jlL)
         self.nj = nj = len(jl)

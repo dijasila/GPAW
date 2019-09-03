@@ -1,7 +1,9 @@
 from __future__ import division, print_function
 
+import json
 import sys
 from math import pi
+from pathlib import Path
 
 import numpy as np
 from ase.units import Hartree
@@ -52,7 +54,8 @@ def select_kpts(kpts, calc):
         d_Kc -= d_Kc.round()
         K = abs(d_Kc).sum(1).argmin()
         if not np.allclose(d_Kc[K], 0):
-            raise ValueError('Could not find k-point: {0}'.format(k_c))
+            raise ValueError('Could not find k-point: {k_c}'
+                             .format(k_c=k_c))
         k = calc.wfs.kd.bz2ibz_k[K]
         indices.append(k)
     return indices
@@ -60,28 +63,55 @@ def select_kpts(kpts, calc):
 
 class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
+                 stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
+        """Non self-consistent hybrid functional calculations.
+
+        Eigenvalues and total energy can be calculated.
+
+        calc: str or PAW object
+            GPAW calculator object or filename of saved calculator object.
+        xc: str
+            Name of functional.  Use one of EXX, PBE0, HSE03, HSE06 or B3LYP.
+            Default is EXX.
+        kpts: list of in or list of list of int
+            List of indices of the IBZ k-points to calculate the quasi particle
+            energies for.  Default is all k-points.  One can also specify the
+            coordiantes of the k-point.  As an example, Gamma and X for an
+            FCC crystal would be: kpts=[[0, 0, 0], [1 / 2, 1 / 2, 0]].
+        bands: tuple of two ints
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+            Default is all occupied bands.
+        ecut: float
+            Plane wave cut-off energy in eV.  Default it the same as was used
+            for the ground-state calculations.
+        """
 
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
+
+        def _xc(name):
+            return {'name': name, 'stencil': stencil}
 
         if xc is None or xc == 'EXX':
             self.exx_fraction = 1.0
             xc = XC(XCNull())
         elif xc == 'PBE0':
             self.exx_fraction = 0.25
-            xc = XC('HYB_GGA_XC_PBEH')
+            xc = XC(_xc('HYB_GGA_XC_PBEH'))
         elif xc == 'HSE03':
             omega = 0.106
             self.exx_fraction = 0.25
-            xc = XC('HYB_GGA_XC_HSE03')
+            xc = XC(_xc('HYB_GGA_XC_HSE03'))
         elif xc == 'HSE06':
             omega = 0.11
             self.exx_fraction = 0.25
-            xc = XC('HYB_GGA_XC_HSE06')
+            xc = XC(_xc('HYB_GGA_XC_HSE06'))
         elif xc == 'B3LYP':
             self.exx_fraction = 0.2
-            xc = XC('HYB_GGA_XC_B3LYP')
+            xc = XC(_xc('HYB_GGA_XC_B3LYP'))
 
         self.xc = xc
         self.omega = omega
@@ -137,12 +167,43 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self):
+    def calculate(self, restart: str = None) -> None:
+        """Do the calculation.
+
+        restart_filename: str or Path
+            Name of restart json-file.  Allows for incremental calculation
+            of eigenvalues.
+        """
         kd = self.calc.wfs.kd
         nspins = self.calc.wfs.nspins
 
+        if restart:
+            if isinstance(restart, str):
+                restart = Path(restart)
+
+            if restart.is_file():
+                data = json.loads(restart.read_text())
+                n = len(data)
+                print('Restarting from {restart}.  '
+                      'Read {n} spin+k-point pairs.'
+                      .format(**locals()),
+                      file=self.fd)
+            else:
+                data = []
+        else:
+            data = []
+
+        n = 0
         for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
+                if n < len(data):
+                    f_n, exxvv_n, exxvc_n = data[n]
+                    self.f_sin[s, i] = f_n
+                    self.exxvc_sin[s, i] = exxvc_n
+                    self.exxvv_sin[s, i] = exxvv_n
+                    n += 1
+                    continue
+
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
                 self.f_sin[s, i] = kpt1.f_n
@@ -152,7 +213,20 @@ class EXX(PairDensity):
 
                 self.calculate_paw_exx_corrections(i, kpt1)
 
-        self.world.sum(self.exxvv_sin)
+                self.world.sum(self.exxvv_sin[s, i])
+
+                if restart and self.world.rank == 0:
+                    data.append([x_n.tolist()
+                                 for x_n in [self.f_sin[s, i],
+                                             self.exxvc_sin[s, i],
+                                             self.exxvv_sin[s, i]]])
+                    tmp = restart.with_name(restart.name + '.tmp')
+                    tmp.write_text(json.dumps(data))
+                    # Overwrite restart-file in in almost atomic step that
+                    # hopefully does not crash due to job running out of time:
+                    tmp.rename(restart)
+
+                n += 1
 
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and

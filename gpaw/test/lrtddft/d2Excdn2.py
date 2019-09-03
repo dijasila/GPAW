@@ -7,7 +7,7 @@ ddn=np.array([.2,.005])
 
 def equiv(xl,yl):
     for x,y in zip(xl,yl):
-#        print x,y
+        #        print x,y
         assert abs(x-y) < 1e-8
 
 out=0

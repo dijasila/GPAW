@@ -1,9 +1,8 @@
 import numpy as np
-
 import ase.units
+from scipy.linalg import eigh
 
-import gpaw.utilities.lapack
-
+from gpaw.mpi import world
 from gpaw.lrtddft2.lr_layouts import LrDiagonalizeLayout
 
 
@@ -40,18 +39,16 @@ class LrtddftTransitions:
         else:
             self.diagonalize_scalapack()
 
-        # now self.eigenvectors[iploc,kloc] 
+        # now self.eigenvectors[iploc,kloc]
         # is the "iploc"th local element of
         # the "kloc"th local eigenvector
 
-
-    ############################################################################
     def diagonalize_serial(self):
         nrows = len(self.ks_singles.kss_list)
 
         # build local part of the full omega matrix
         omega_matrix = np.zeros((nrows,nrows), dtype=float)
-        for (ip, kss_ip) in enumerate(self.ks_singles.kss_list):                
+        for (ip, kss_ip) in enumerate(self.ks_singles.kss_list):
             for (jq, kss_jq) in enumerate(self.ks_singles.kss_list):
                 lip = self.lr_comms.get_local_eh_index(ip)
                 ljq = self.lr_comms.get_local_dd_index(jq)
@@ -70,7 +67,7 @@ class LrtddftTransitions:
 
                 if ( ip == jq ):
                     omega_matrix[ip,jq] += kss_ip.energy_diff * kss_jq.energy_diff
-                    
+
         # full omega matrix to each process
         self.lr_comms.parent_comm.sum(omega_matrix)
 
@@ -78,7 +75,6 @@ class LrtddftTransitions:
         #    print omega_matrix
 
         # solve eigensystem
-        self.eigenvalues = np.zeros(nrows)
 
         # debug
         #omega_matrix[:] = 0
@@ -87,11 +83,7 @@ class LrtddftTransitions:
         #        if i == j: omega_matrix[i,j] = -2.
         #        if i+1 == j: omega_matrix[i,j] = omega_matrix[j,i] = 1.
 
-
-        gpaw.utilities.lapack.diagonalize(omega_matrix, self.eigenvalues)
-
-        # make columns have eigenvectors (not rows)
-        omega_matrix = np.transpose(omega_matrix)
+        self.eigenvalues, omega_matrix = eigh(omega_matrix)
 
         # convert eigenvector back to local version
         nlrows = self.K_matrix.values.shape[0]
@@ -105,7 +97,7 @@ class LrtddftTransitions:
         # 30 31 32 33
 
         self.eigenvectors = np.zeros((nlrows,nlcols), dtype=float)
-        for (ip, kss) in enumerate(self.ks_singles.kss_list):                
+        for (ip, kss) in enumerate(self.ks_singles.kss_list):
             for (jq, kss) in enumerate(self.ks_singles.kss_list):
                 lip = self.lr_comms.get_local_eh_index(ip)
                 ljq = self.lr_comms.get_local_dd_index(jq)
@@ -123,12 +115,9 @@ class LrtddftTransitions:
         #                for j in range(self.eigenvectors.shape[1]):
         #                    print '%02d' % int(self.eigenvectors[i,j]),
         #                print
-                    
 
-
-    ############################################################################
-    def diagonalize_scalapack(self): 
-        # total rows       
+    def diagonalize_scalapack(self):
+        # total rows
         nrows = len(self.ks_singles.kss_list)
         # local
         nlrows = self.K_matrix.values.shape[0]
@@ -139,9 +128,9 @@ class LrtddftTransitions:
         if ( nrows < np.max([layout.mprocs,layout.nprocs]) * layout.block_size ):
             raise RuntimeError('Linear response matrix is not large enough for the given number of processes (or block size) in sl_lrtddft. Please, use less processes (or smaller block size).')
 
-        # build local part 
+        # build local part
         omega_matrix = np.zeros((nlrows,nlcols), dtype=float)
-        for (ip, kss_ip) in enumerate(self.ks_singles.kss_list):                
+        for (ip, kss_ip) in enumerate(self.ks_singles.kss_list):
             for (jq, kss_jq) in enumerate(self.ks_singles.kss_list):
                 lip = self.lr_comms.get_local_eh_index(ip)
                 ljq = self.lr_comms.get_local_dd_index(jq)
@@ -167,8 +156,6 @@ class LrtddftTransitions:
         omega_matrix[:,:] = np.transpose(self.eigenvectors)
         self.eigenvectors = omega_matrix
 
-
-    ############################################################################
     def calculate_properties(self):
         if self.custom_axes is not None:
             self.custom_axes = np.array(self.custom_axes)
@@ -178,8 +165,8 @@ class LrtddftTransitions:
         #                                 [0.0,0.0,1.0]])
 
         self.lr_comms.parent_comm.barrier()
-        
-        nlrows = self.eigenvectors.shape[0]
+
+        # nlrows = self.eigenvectors.shape[0]
         nleigs = self.eigenvectors.shape[1]
 
         sqrtwloc = np.zeros(nleigs)
@@ -191,7 +178,7 @@ class LrtddftTransitions:
         magnzloc = np.zeros(nleigs)
         cloc_dm = np.zeros(nleigs)
         cloc_magn = np.zeros(nleigs)
-        
+
         #print self.lr_comms.parent_comm.rank, self.lr_comms.eh_comm.rank, self.lr_comms.dd_comm.rank, nlrows, nlcols
 
 
@@ -206,10 +193,10 @@ class LrtddftTransitions:
         #      = sum_jq sqrt(ediff_jq / omega_k) sqrt(fdiff_jq) * F^(k)_jq mu_jq
         # m_k  = sum_jq c2_k / c1_k * m_jq
         #      = sum_jq sqrt(fdiff_jq) sqrt(omega_k / ediff_jq) * F^(k)_jq m_jq
-        # 
+        #
         # c1 =  sqrt(ediff_jq / omega_k)
         #    =  np.sqrt(kss_jq.energy_diff / self.get_excitation_energy(k))
-        #    
+        #
         # c2 = sqrt(fdiff_jq) * F^(k)_jq
         #    = np.sqrt(kss_jq.pop_diff) * self.get_local_eig_coeff(k,self.index_map[(i,p)])
         #
@@ -242,11 +229,11 @@ class LrtddftTransitions:
             if lip is None:
                 continue
 
-            # now self.eigenvectors[iploc,kloc] 
+            # now self.eigenvectors[iploc,kloc]
             # is the "iploc"th local element of
             # the "kloc"th local eigenvector
             #
-            # init local mu and m sums with 
+            # init local mu and m sums with
             # a continuous copy of ROW of eigenvectors
             # i.e. a "ip"th element of each eigenvector
             # (NOT the "jq"th eigenvector)
@@ -258,7 +245,7 @@ class LrtddftTransitions:
             # c1 * c2 * F = sqrt(fdiff_ip * ediff_ip) / sqrt(omega_k) F^(k)_ip
             cloc_dm   *= np.sqrt(kss_ip.pop_diff * kss_ip.energy_diff)
             cloc_dm   /= sqrtwloc
-            
+
             # c2 / c1 * F = sqrt(fdiff_ip / ediff_ip) * sqrt(omega_k) F^(k)_ip
             cloc_magn *= np.sqrt(kss_ip.pop_diff / kss_ip.energy_diff)
             cloc_magn *= sqrtwloc
@@ -287,7 +274,7 @@ class LrtddftTransitions:
                            magnxloc, magnyloc, magnzloc ])
         self.lr_comms.eh_comm.sum(props.ravel())
         [ dmxloc,   dmyloc,   dmzloc,
-          magnxloc, magnyloc, magnzloc ] = props     
+          magnxloc, magnyloc, magnzloc ] = props
 
 
         # global properties and eigs
@@ -296,9 +283,9 @@ class LrtddftTransitions:
         self.transition_properties = np.zeros([nrows,1+3+3])
         for k in range(nrows):
             kloc = self.lr_comms.get_local_dd_index(k)
-            if kloc is None: 
+            if kloc is None:
                 continue
-            self.transition_properties[k,0] = sqrtwloc[kloc] * sqrtwloc[kloc] 
+            self.transition_properties[k,0] = sqrtwloc[kloc] * sqrtwloc[kloc]
             self.transition_properties[k,1] = dmxloc[kloc]
             self.transition_properties[k,2] = dmyloc[kloc]
             self.transition_properties[k,3] = dmzloc[kloc]
@@ -320,7 +307,6 @@ class LrtddftTransitions:
         #    print self.transition_properties[:,3]**2 * 2 * self.transition_properties[:,0]
 
         self.trans_prop_ready = True
-
 
     # omega_k = sqrt(lambda_k)
     def get_excitation_energy(self, k, units='au'):
@@ -387,7 +373,7 @@ class LrtddftTransitions:
         if not self.trans_prop_ready:
             self.calculate()
 
-        omega = self.transition_properties[k][0]
+        # omega = self.transition_properties[k][0]
         dmx = self.transition_properties[k][1]
         dmy = self.transition_properties[k][2]
         dmz = self.transition_properties[k][3]
@@ -407,14 +393,12 @@ class LrtddftTransitions:
             #
             # FIX ME: why?
             # 64604.8164/471.43 = 137.040
-            # is the inverse of fine-structure constant 
+            # is the inverse of fine-structure constant
             # OR it must be speed of light in atomic units
             return - 64604.8164 * ( dmx * magnx + dmy * magny + dmz * magnz )
         else:
             raise RuntimeError('Unknown units.')
 
-
-    ###################################################################################
     def get_transitions(self, filename=None, min_energy=0.0, max_energy=30.0, units='eVcgs'):
         """Get transitions: energy, dipole strength and rotatory strength.
 
@@ -425,7 +409,7 @@ class LrtddftTransitions:
         Input parameters:
 
         min_energy
-          Minimum energy 
+          Minimum energy
 
         min_energy
           Maximum energy
@@ -445,8 +429,8 @@ class LrtddftTransitions:
 
         for (k, omega) in enumerate(self.eigenvalues):
             ww = self.get_excitation_energy(k, units)
-            if ww < min_energy or ww > max_energy: 
-                continue           
+            if ww < min_energy or ww > max_energy:
+                continue
 
             w.append(ww)
             St, Sc = self.get_oscillator_strength(k)
@@ -464,7 +448,7 @@ class LrtddftTransitions:
         Sz = np.array(Sz)
 
 
-        if filename is not None and gpaw.mpi.world.rank == 0:
+        if filename is not None and world.rank == 0:
             sfile = open(filename,'w')
             sfile.write("# %12s  %12s  %12s     %12s  %12s  %12s    %s\n" % ('energy','osc str','rot str','osc str x', 'osc str y', 'osc str z', 'units: ' + units))
             for (ww,SS,RR,SSx,SSy,SSz) in zip(w,S,R,Sx,Sy,Sz):
@@ -472,9 +456,7 @@ class LrtddftTransitions:
             sfile.close()
 
         return (w,S,R,Sx,Sy,Sz)
-        
 
-    ###################################################################################
     def get_spectrum(self, filename=None, min_energy=0.0, max_energy=30.0,
                      energy_step=0.01, width=0.1, units='eVcgs'):
         """Get spectrum for dipole and rotatory strength.
@@ -486,7 +468,7 @@ class LrtddftTransitions:
         Input parameters:
 
         min_energy
-          Minimum energy 
+          Minimum energy
 
         min_energy
           Maximum energy
@@ -509,12 +491,12 @@ class LrtddftTransitions:
                                                            units=units)
 
         if units == 'eVcgs':
-            convf = 1/ase.units.Hartree
+            pass  # convf = 1/ase.units.Hartree
         elif units == 'au':
-            convf = 1.
+            assert 0  # convf = 1.
         else:
             raise RuntimeError('Invalid units')
-            
+
         w = np.arange(min_energy, max_energy, energy_step)
         S  = np.zeros_like(w)
         Sx = np.zeros_like(w)
@@ -524,25 +506,25 @@ class LrtddftTransitions:
 
 
         for (k, www) in enumerate(ww):
-            
+
             c = SS[k] / width / np.sqrt(2*np.pi)
-            S += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+            S += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) )
 
             c = SSx[k] / width / np.sqrt(2*np.pi)
-            Sx += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+            Sx += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) )
 
             c = SSy[k] / width / np.sqrt(2*np.pi)
-            Sy += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+            Sy += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) )
 
             c = SSz[k] / width / np.sqrt(2*np.pi)
-            Sz += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+            Sz += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) )
 
 
             c = RR[k] / width / np.sqrt(2*np.pi)
-            R += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) ) 
+            R += c * np.exp( (-.5/width/width) * np.power(w-ww[k],2) )
 
 
-        if filename is not None and gpaw.mpi.world.rank == 0:
+        if filename is not None and world.rank == 0:
             sfile = open(filename,'w')
             sfile.write("# %12s  %12s  %12s     %12s  %12s  %12s    %s\n" % ('energy','osc str','rot str','osc str x','osc str y','osc str z', 'units: ' + units))
             for (ww,SS,RR,SSx,SSy,SSz) in zip(w,S,R,Sx,Sy,Sz):
@@ -586,12 +568,12 @@ class LrtddftTransitions:
                 if lip is None:
                     continue
 
-                # self.eigenvectors[iploc,kloc] 
+                # self.eigenvectors[iploc,kloc]
                 # is the "iploc"th local element of
                 # the "kloc"th local eigenvector
                 f2[ip] = self.eigenvectors[lip,kloc] * self.eigenvectors[lip,kloc] * kss_ip.pop_diff
 
         self.lr_comms.parent_comm.sum(f2)
-        
+
         return f2
-        
+

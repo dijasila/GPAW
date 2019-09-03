@@ -14,6 +14,7 @@ s.minimal_box(box, h=h)
 s.set_initial_magnetic_moments([-1])
 
 c = GPAW(xc='LDA', nbands=-3,
+         basis='dzp',
          hund=True,
          charge=q, spinpol=spin, h=h,
          mixer=MixerDif(beta=0.05, nmaxold=5, weight=50.0),

@@ -1,15 +1,15 @@
-from __future__ import print_function
+from time import time
+
 import numpy as np
+from scipy.linalg import eigh
 
 # Set-up a simple matrix in parallel, diagonalize using ScaLAPACK
 # D&C driver then compare *eigenvalues* with serial LAPACK diagonlize
-from time import time
 
-from gpaw.blacs import BlacsGrid, parallelprint
-from gpaw.mpi import world, rank, size
+from gpaw.blacs import BlacsGrid
+from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from gpaw.utilities.lapack import diagonalize
-from gpaw.utilities.scalapack import scalapack_diagonalize_dc, scalapack_set, \
+from gpaw.utilities.scalapack import scalapack_set, \
     scalapack_zero
 
 switch_uplo = {'U': 'L', 'L': 'U'}
@@ -27,7 +27,7 @@ def main(nbands=1000, mprocs=2, mb=64):
     nndesc = grid.new_descriptor(nbands, nbands, mb, mb)
     H_nn = nndesc.empty(dtype=float) # outside the BlacsGrid these are size zero
     C_nn = nndesc.empty(dtype=float) # outside the BlacsGrid these are size zero
-    eps_N  = np.empty((nbands), dtype=float) # replicated array on all MPI tasks 
+    eps_N  = np.empty((nbands), dtype=float) # replicated array on all MPI tasks
     # Fill ScaLAPACK array
     alpha = 0.1 # off-diagonal
     beta = 75.0 # diagonal
@@ -38,7 +38,7 @@ def main(nbands=1000, mprocs=2, mb=64):
     t1 = time()
     # either interface will work, we recommend use the latter interface
     # scalapack_diagonalize_dc(nndesc, H_nn.copy(), C_nn, eps_N, 'L')
-    nndesc.diagonalize_dc(H_nn.copy(), C_nn, eps_N) 
+    nndesc.diagonalize_dc(H_nn.copy(), C_nn, eps_N)
     t2 = time()
     world.broadcast(eps_N, 0) # all MPI tasks now have eps_N
     world.barrier() # wait for everyone to finish
@@ -46,14 +46,14 @@ def main(nbands=1000, mprocs=2, mb=64):
     if rank == 0:
         print('ScaLAPACK diagonalize_dc', t2-t1)
 
-    # Create replicated NumPy array    
+    # Create replicated NumPy array
     diagonal = np.eye(nbands,dtype=float)
     offdiagonal = np.tril(np.ones((nbands,nbands)), -1)
     H0 = beta*diagonal + alpha*offdiagonal
     E0 = np.empty((nbands), dtype=float)
 
     t1 = time()
-    diagonalize(H0,E0)
+    E0 = eigh(H0, eigvals_only=True)
     t2 = time()
 
     if rank == 0:

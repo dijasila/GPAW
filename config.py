@@ -10,6 +10,7 @@ from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 from glob import glob
 from os.path import join
+from pathlib import Path
 from stat import ST_MTIME
 
 
@@ -48,7 +49,7 @@ def get_system_config(define_macros, undef_macros,
         f.write('int main(){}\n')
         f.close()
         stderr = os.popen3('cc cc-test.c -fast')[2].read()
-        arch = re.findall('-xarch=(\S+)', stderr)
+        arch = re.findall(r'-xarch=(\S+)', stderr)
         os.remove('cc-test.c')
         if len(arch) > 0:
             extra_compile_args += ['-xarch=%s' % arch[-1]]
@@ -171,7 +172,7 @@ def get_system_config(define_macros, undef_macros,
                     libraries += ['satlas']
                     library_dirs += [libdir]
                 else:
-                    libraries += ['blas', 'lapack']
+                    libraries += ['blas']
 
     elif machine == 'ia64':
 
@@ -329,11 +330,6 @@ def get_system_config(define_macros, undef_macros,
             else:
                 libraries += ['blas', 'lapack']
 
-    # https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2012-May/001473.html
-    p = platform.dist()
-    if p[0].lower() in ['redhat', 'centos'] and p[1].startswith('6.'):
-        define_macros.append(('_GNU_SOURCE', '1'))
-
 
 def mtime(path, name, mtimes):
     """Return modification time.
@@ -343,7 +339,7 @@ def mtime(path, name, mtimes):
     This function fails if two include files with the same name
     are present in different directories."""
 
-    include = re.compile('^#\s*include "(\S+)"', re.MULTILINE)
+    include = re.compile(r'^#\s*include "(\S+)"', re.MULTILINE)
 
     if name in mtimes:
         return mtimes[name]
@@ -438,6 +434,7 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
+               'c/elpa.c',
                'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
@@ -464,10 +461,11 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     lib_dirs = ' '.join(['-L' + lib for lib in library_dirs])
 
     libs = ' '.join(['-l' + lib for lib in libraries if lib.strip()])
-    # See if there is "scalable" libpython available
-    libpl = cfgDict['LIBPL']
-    if glob(libpl + '/libpython*mpi*'):
-        libs += ' -lpython%s_mpi' % cfgDict['VERSION']
+    # LIBDIR/INSTSONAME will point at the static library if that is how
+    # Python was compiled:
+    lib = Path(cfgDict['LIBDIR']) / cfgDict['INSTSONAME']
+    if lib.is_file():
+        libs += ' {}'.format(lib)
     else:
         libs += ' ' + cfgDict.get('BLDLIBRARY',
                                   '-lpython%s' % cfgDict['VERSION'])

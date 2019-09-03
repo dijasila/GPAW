@@ -273,7 +273,7 @@ class ManyTCICalculator:
     def P_qIM(self, my_atom_indices):
         nq = self.nq
         P = self.tci.P
-        P_qIM = [sparse.lil_matrix((self.Pindices.max, self.Mindices.max),
+        P_qIM = [sparse.dok_matrix((self.Pindices.max, self.Mindices.max),
                                    dtype=self.dtype)
                  for _ in range(nq)]
 

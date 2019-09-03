@@ -29,8 +29,7 @@ gsname = exname = 'rraman'
 exkwargs={'eps':0.0, 'jend':1}
 pz = ResonantRaman(H2, KSSingles, gsname=gsname, exname=exname,
                     exkwargs=exkwargs,
-                   overlap=lambda x, y: Overlap(x).pseudo(y),
-)
+                   overlap=lambda x, y: Overlap(x).pseudo(y))
 pz.run()
 
 # check size

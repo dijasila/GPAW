@@ -1,19 +1,20 @@
 """Omega matrix for functionals with Hartree-Fock exchange.
 
 """
-from __future__ import print_function
 from math import sqrt
-
-import numpy as np
-from numpy.linalg import inv
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
+import numpy as np
+from numpy.linalg import inv
+from scipy.linalg import eigh
 
+from gpaw import debug
 import gpaw.mpi as mpi
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
-from gpaw.utilities.lapack import diagonalize, gemm, sqrt_matrix
+from gpaw.helmholtz import HelmholtzSolver
+from gpaw.utilities.blas import gemm
 
 
 class ApmB(OmegaMatrix):
@@ -31,6 +32,10 @@ class ApmB(OmegaMatrix):
             raise RuntimeError('Does not work spin-unpolarized ' +
                                'with hybrids (use nspins=2)')
 
+        if hasattr(self.xc, 'rsf') and (self.xc.rsf == 'Yukawa'):
+            self.screened_poissonsolver = HelmholtzSolver(
+                k2=-self.xc.omega**2, eps=1e-11, nn=3)
+            self.screened_poissonsolver.set_grid_descriptor(self.gd)
         self.paw.timer.start('ApmB RPA')
         self.ApB = self.Om
         self.AmB = self.get_rpa()
@@ -47,6 +52,7 @@ class ApmB(OmegaMatrix):
         # shorthands
         kss = self.fullkss
         finegrid = self.finegrid
+        yukawa = hasattr(self.xc, 'rsf') and (self.xc.rsf == 'Yukawa')
 
         # calculate omega matrix
         nij = len(kss)
@@ -57,6 +63,21 @@ class ApmB(OmegaMatrix):
 
         # storage place for Coulomb integrals
         integrals = {}
+        if yukawa:
+            rsf_integrals = {}
+        # setup things for IVOs
+        if self.xc.excitation is not None or self.xc.excited != 0:
+            sin_tri_weight = 1
+            if self.xc.excitation is not None:
+                ex_type = self.xc.excitation.lower()
+                if ex_type == 'singlet':
+                    sin_tri_weight = 2
+                elif ex_type == 'triplet':
+                    sin_tri_weight = 0
+            homo = int(self.paw.get_number_of_electrons() // 2)
+            ivo_l = homo - self.xc.excited - 1
+        else:
+            ivo_l = None
 
         for ij in range(nij):
             print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
@@ -68,7 +89,7 @@ class ApmB(OmegaMatrix):
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -94,7 +115,7 @@ class ApmB(OmegaMatrix):
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
                 pre = self.weight_Kijkq(ij, kq)
 
@@ -141,6 +162,11 @@ class ApmB(OmegaMatrix):
                     q = kss[kq].j
                     ikjq = self.Coulomb_integral_ijkq(i, k, j, q, s, integrals)
                     iqkj = self.Coulomb_integral_ijkq(i, q, k, j, s, integrals)
+                    if yukawa:  # Yukawa integrals might be caches
+                        ikjq -= self.Coulomb_integral_ijkq(
+                            i, k, j, q, s, rsf_integrals, yukawa)
+                        iqkj -= self.Coulomb_integral_ijkq(
+                            i, q, k, j, s, rsf_integrals, yukawa)
                     ApB[ij, kq] -= weight * (ikjq + iqkj)
                     AmB[ij, kq] -= weight * (ikjq - iqkj)
 
@@ -152,6 +178,34 @@ class ApmB(OmegaMatrix):
                 print('HF estimated time left',
                       self.time_left(timer, t0, ij, nij), file=self.txt)
 
+        if ivo_l is not None:
+            # IVO RPA after Berman, Kaldor, Chem. Phys. 43 (3) 1979
+            # doi: 10.1016/0301-0104(79)85205-2
+            l = ivo_l
+            for ij in range(nij):
+                i = kss[ij].i
+                j = kss[ij].j
+                s = kss[ij].spin
+                for kq in range(ij, nij):
+                    if kss[kq].i == i and kss[ij].pspin == kss[kq].pspin:
+                        k = kss[kq].i
+                        q = kss[kq].j
+                        jqll = self.Coulomb_integral_ijkq(j, q, l, l, s,
+                                                          integrals)
+                        jllq = self.Coulomb_integral_ijkq(j, l, l, q, s,
+                                                          integrals)
+                        if yukawa:
+                            jqll -= self.Coulomb_integral_ijkq(j, q, l, l, s,
+                                                               rsf_integrals,
+                                                               yukawa)
+                            jllq -= self.Coulomb_integral_ijkq(j, l, l, q, s,
+                                                               rsf_integrals,
+                                                               yukawa)
+                        jllq *= sin_tri_weight
+                        ApB[ij, kq] += weight * (jqll - jllq)
+                        AmB[ij, kq] += weight * (jqll - jllq)
+                        ApB[kq, ij] = ApB[ij, kq]
+                        AmB[kq, ij] = AmB[ij, kq]
         return AmB
 
     def Coulomb_integral_name(self, i, j, k, l, spin):
@@ -167,7 +221,8 @@ class ApmB(OmegaMatrix):
             base = ij_name(k, l) + ' ' + ij_name(i, j)
         return base + ' ' + str(spin)
 
-    def Coulomb_integral_ijkq(self, i, j, k, q, spin, integrals):
+    def Coulomb_integral_ijkq(self, i, j, k, q, spin, integrals,
+                              yukawa=False):
         name = self.Coulomb_integral_name(i, j, k, q, spin)
         if name in integrals:
             return integrals[name]
@@ -179,9 +234,12 @@ class ApmB(OmegaMatrix):
         kss_kq.initialize(self.paw.wfs.kpt_u[spin], k, q)
 
         rhot_p = kss_ij.with_compensation_charges(
-            self.finegrid is not 0)
+            self.finegrid != 0)
         phit_p = np.zeros(rhot_p.shape, rhot_p.dtype)
-        self.poisson.solve(phit_p, rhot_p, charge=None)
+        if yukawa:
+            self.screened_poissonsolver.solve(phit_p, rhot_p, charge=None)
+        else:
+            self.poisson.solve(phit_p, rhot_p, charge=None)
 
         if self.finegrid == 1:
             phit = self.gd.zeros()
@@ -190,10 +248,11 @@ class ApmB(OmegaMatrix):
             phit = phit_p
 
         rhot = kss_kq.with_compensation_charges(
-            self.finegrid is 2)
+            self.finegrid == 2)
 
         integrals[name] = self.Coulomb_integral_kss(kss_ij, kss_kq,
-                                                    phit, rhot)
+                                                    phit, rhot,
+                                                    yukawa=yukawa)
         return integrals[name]
 
     def timestring(self, t):
@@ -241,9 +300,8 @@ class ApmB(OmegaMatrix):
 
         if TDA:
             # Tamm-Dancoff approximation (B=0)
-            self.eigenvectors = 0.5 * (ApB + AmB)
-            eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, eigenvalues)
+            eigenvalues, evecs = eigh(0.5 * (ApB + AmB))
+            self.eigenvectors = evecs.T
             self.eigenvalues = eigenvalues ** 2
         else:
             # the occupation matrix
@@ -260,8 +318,7 @@ class ApmB(OmegaMatrix):
             self.eigenvectors = np.zeros(ApB.shape)
             gemm(1.0, S, M, 0.0, self.eigenvectors)
 
-            self.eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, self.eigenvalues)
+            self.eigenvalues, self.eigenvectors.T[:] = eigh(self.eigenvectors)
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -333,3 +390,31 @@ class ApmB(OmegaMatrix):
             for ev in self.eigenvalues:
                 string += ' ' + ('%f' % (sqrt(ev) * Hartree))
         return string
+
+
+def sqrt_matrix(a, preserve=False):
+    """Get the sqrt of a symmetric matrix a (diagonalize is used).
+    The matrix is kept if preserve=True, a=sqrt(a) otherwise."""
+    n = len(a)
+    if debug:
+        assert a.flags.contiguous
+        assert a.dtype == float
+        assert a.shape == (n, n)
+    if preserve:
+        b = a.copy()
+    else:
+        b = a
+
+    # diagonalize to get the form b = Z * D * Z^T
+    # where D is diagonal
+    D = np.empty((n,))
+    D, b.T[:] = eigh(b, lower=True)
+    ZT = b.copy()
+    Z = np.transpose(b)
+
+    # c = Z * sqrt(D)
+    c = Z * np.sqrt(D)
+
+    # sqrt(b) = c * Z^T
+    gemm(1., ZT, np.ascontiguousarray(c), 0., b)
+    return b

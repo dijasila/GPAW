@@ -1,7 +1,7 @@
 # Creates: atomization.txt
 from __future__ import print_function
 
-from ase import Atoms, Atom
+from ase import Atoms
 from ase.parallel import paropen as open
 from gpaw import GPAW, PW, FermiDirac
 
@@ -15,11 +15,11 @@ atom = Atoms('H',
              cell=(a, a + 0.0001, a + 0.0002))  # Break cell symmetry
 
 # gpaw calculator:
-calc = GPAW(mode=PW(), 
-            xc='PBE', 
-            hund=True, 
+calc = GPAW(mode=PW(),
+            xc='PBE',
+            hund=True,
             eigensolver='rmm-diis',  # This solver can parallelize over bands
-            occupations=FermiDirac(0.0, fixmagmom=True), 
+            occupations=FermiDirac(0.0, fixmagmom=True),
             txt='H.out',
             )
 atom.set_calculator(calc)

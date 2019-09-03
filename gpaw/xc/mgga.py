@@ -14,7 +14,7 @@ from gpaw.sphere.lebedev import weight_n
 class MGGA(XCFunctional):
     orbital_dependent = True
 
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         """Meta GGA functional."""
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
@@ -26,6 +26,12 @@ class MGGA(XCFunctional):
 
     def get_setup_name(self):
         return 'PBE'
+
+    # This method exists on GGA class as well.  Try to solve this
+    # kind of problem when refactoring MGGAs one day.
+    def get_description(self):
+        return ('{} with {} nearest neighbor stencil'
+                .format(self.name, self.stencil))
 
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
@@ -53,7 +59,7 @@ class MGGA(XCFunctional):
         if taut_sG is None:
             taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
-        if 0: #taut_sG is None:
+        if 0:  # taut_sG is None:
             # Below code disabled because it produces garbage in at least
             # some cases.
             #
@@ -187,7 +193,7 @@ class MGGA(XCFunctional):
 
 
 def create_kinetic(xcc, ny, phi_jg, tau_ypg):
-    """Short title here.
+    r"""Short title here.
 
     kinetic expression is::
 
@@ -334,7 +340,7 @@ def LegendreFx2(n, rs, sigma, tau,
 
     # product exchange enhancement factor
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
-    #print(Fx_i);asdf
+    # print(Fx_i);asdf
     Fx_j = legendre_polynomial(x_j, orders_j, coefs_j)
     Fx = Fx_i * Fx_j
     return Fx

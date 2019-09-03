@@ -78,7 +78,7 @@ def bondlengths(Ea, dE):
         bref = diatomic[formula][1]
         b = np.linspace(0.96 * bref, 1.04 * bref, 5)
         e = np.polyfit(b, energies, 3)
-        if not formula in Ea:
+        if formula not in Ea:
             continue
         ea, eavasp = Ea[formula]
         dedb = np.polyder(e, 1)

@@ -4,7 +4,7 @@ This reduces file system strain.
 
 Use:
 
-  with globally_broadcast_imports():
+  with broadcast_imports():
       <execute import statements>
 
 This temporarily overrides the Python import mechanism so that
@@ -19,34 +19,25 @@ data and will crash or deadlock if master sends anything else.
 """
 
 
-from __future__ import print_function
+import os
 import sys
 import marshal
+import importlib
+import importlib.util
+from importlib.machinery import PathFinder, ModuleSpec
 
-py_lessthan_35 = sys.version_info < (3, 5)
-
-if not py_lessthan_35:
-    import importlib
-    import importlib.util
-    from importlib.machinery import PathFinder, ModuleSpec
+import _gpaw
 
 
-try:
-    import _gpaw
-except ImportError:
-    we_are_gpaw_python = False
-else:
-    # When running in parallel, the _gpaw module exists right from the
-    # start.  Else it may not yet be defined.  So if we have _gpaw, *and*
-    # _gpaw defines the Communicator, then this is truly parallel.
-    # Otherwise, nothing matters anymore.
-    we_are_gpaw_python = hasattr(_gpaw, 'Communicator')
+if hasattr(_gpaw, 'Communicator'):
+    if '_gpaw' not in sys.builtin_module_names:
+        libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
+        import ctypes
+        ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
 
-if we_are_gpaw_python:
     world = _gpaw.Communicator()
 else:
     world = None
-
 
 paths = {}
 sources = {}
@@ -114,6 +105,9 @@ class BroadcastImporter:
             if spec is None:
                 return None
 
+            if spec.loader is None:
+                raise ImportError
+
             code = spec.loader.get_code(fullname)
             if code is None:  # C extensions
                 return None
@@ -150,7 +144,7 @@ class BroadcastImporter:
             # print('recv {} modules'.format(len(self.module_cache)))
 
     def enable(self):
-        if world is None or py_lessthan_35:
+        if world is None:
             return
 
         # There is the question of whether we lose anything by inserting
@@ -161,7 +155,7 @@ class BroadcastImporter:
             self.broadcast()
 
     def disable(self):
-        if world is None or py_lessthan_35:
+        if world is None:
             return
 
         if world.rank == 0:
@@ -265,12 +259,7 @@ if 0:
             if module_data.code is None:
                 return self.load_as_normal(name)
 
-            if sys.version_info[0] == 2:
-                # Load, ignoring checksum and time stamp.
-                # 8 is header length (12 in py3, if we need that someday)
-                code = marshal.loads(module_data.code[8:])
-            else:
-                code = module_data.code
+            code = module_data.code
 
             imp.acquire_lock()  # Required in threaded applications
 

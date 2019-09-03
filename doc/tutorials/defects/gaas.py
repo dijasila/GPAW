@@ -1,6 +1,7 @@
+import sys
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
-import sys
+
 # Script to get the total energies of a supercell
 # of GaAs with and without a Ga vacancy
 
@@ -43,7 +44,7 @@ calc = GPAW(mode='fd',
 GaAsdef.set_calculator(calc)
 Edef = GaAsdef.get_potential_energy()
 
-calc.write('GaAs{0}{0}{0}.Ga_vac.gpw'.format(N))
+calc.write('GaAs{0}{0}{0}.Ga_vac_charged.gpw'.format(N))
 
 # Now for the pristine case
 
