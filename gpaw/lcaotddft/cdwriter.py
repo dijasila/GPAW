@@ -12,6 +12,39 @@ from gpaw.utilities.blas import gemm, mmm
 def skew(a):
     return 0.5 * (a - a.T)
 
+def get_dX0(kpt, Ra_a, paw, wfs, setups, partition, dH_asp):
+    dX0_caii = []
+    for _ in range(3):
+        def shape(a):
+            ni = setups[a].ni
+            return ni, ni
+        dX0_aii = partition.arraydict(shapes=shape, dtype=complex)
+        for arr in dX0_aii.values():
+            arr[:] = 0
+        dX0_caii.append(dX0_aii)
+
+    assert kpt.k == 0
+
+    for a, dH_sp in dH_asp.items():
+
+        Ra = Ra_a[a]
+
+        rxnabla_iiv = setups[a].rxnabla_iiv.copy()
+        nabla_iiv = setups[a].nabla_iiv.copy()
+
+        for c in range(3):
+            rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
+            nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
+
+        dX0_ii = -1 * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
+        dX1_ii = -1 * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
+        dX2_ii = -1 * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
+
+        for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
+            assert not dX0_caii[c][a].any()
+            dX0_caii[c][a][:] = dX_ii
+
+    return dX0_caii
 
 def debug_msg(msg):
     print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
@@ -67,48 +100,10 @@ class CDWriter(TDDFTObserver):
 
         setups = paw.setups
 
-        dX0_caii = []
-        for i in range(3):
-            def shape(a):
-                ni = setups[a].ni
-                return ni, ni
-            dX0_aii = partition.arraydict(shapes=shape, dtype=complex)
-            for arr in dX0_aii.values():
-                arr[:] = 0
-            dX0_caii.append(dX0_aii)
+        Ra_a = paw.atoms.positions / Bohr - R0[None, :]
 
         for kpt in paw.wfs.kpt_u:
-            assert kpt.k == 0
-
-            for a, dH_sp in dH_asp.items():
-
-                Ra = (paw.atoms[a].position /Bohr) - R0
-
-                rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
-                nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
-
-                for c in range(3):
-                    rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
-                    nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
-
-                
-                #assert ac.name == 'dense'
-
-                P_Mi = paw.wfs.P_aqMi[a][kpt.q]
-
-                ac = paw.wfs.atomic_correction
-                #P_Mi = ac.P_aqMi[a][kpt.q]
-
-                #P_Mi = paw.wfs.atomic_correction.P_aqMi[a][kpt.q]
-
-                dX0_ii = -1 * ( Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0] )
-                dX1_ii = -1 * ( Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1] )
-                dX2_ii = -1 * ( Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2] )
-
-                for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
-                    assert not dX0_caii[c][a].any()
-                    dX0_caii[c][a][:] = dX_ii
-
+            dX0_caii = get_dX0(kpt, Ra_a, paw, paw.wfs, setups, partition, dH_asp)
             ac = paw.wfs.atomic_correction
             Mstart = self.ksl.Mstart
             Mstop = self.ksl.Mstop
