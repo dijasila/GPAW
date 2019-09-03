@@ -18,7 +18,7 @@ a.get_potential_energy()
 w1 = a.calc.get_pseudo_wave_function(0, 1)
 e1 = a.calc.get_eigenvalues(1)
 
-a.calc.write('H')
+a.calc.write('H.gpw')
 
 if world.size <= 2:
     scalapack = None
@@ -30,14 +30,14 @@ a.calc.diagonalize_full_hamiltonian(nbands=100, scalapack=scalapack)
 w2 = a.calc.get_pseudo_wave_function(0, 1)
 e2 = a.calc.get_eigenvalues(1)
 
-calc = GPAW('H', txt=None, parallel={'domain': 1})
+calc = GPAW('H.gpw', txt=None, parallel={'domain': 1})
 calc.diagonalize_full_hamiltonian(nbands=100, scalapack=scalapack)
 w3 = calc.get_pseudo_wave_function(0, 1)
 e3 = calc.get_eigenvalues(1)
 
-calc.write('Hwf', 'all')
+calc.write('Hwf.gpw', 'all')
 
-calc = GPAW('Hwf', txt=None, communicator=serial_comm)
+calc = GPAW('Hwf.gpw', txt=None, communicator=serial_comm)
 w4 = calc.get_pseudo_wave_function(0, 1)
 e4 = calc.get_eigenvalues(1)
 
@@ -50,3 +50,15 @@ for e in [e2, e3, e4]:
     assert err < 2e-9, err
     err = abs(e[-1] - e2[-1])
     assert err < 1e-10, err
+
+a.calc = GPAW(mode='pw',
+              h=0.15,
+              kpts=(4, 1, 1),
+              convergence={'bands': 'CBM+10'},
+              nbands=4)
+a.get_potential_energy()
+
+e5 = a.calc.get_eigenvalues(0)
+de = e5 - calc.get_eigenvalues(0)[:4]
+cbm = calc.get_fermi_level()
+assert abs(de[e5 < cbm + 10]).max() < 0.001

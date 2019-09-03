@@ -6,7 +6,7 @@ from gpaw.test import equal
 from gpaw.xc import XC
 from gpaw.mpi import world
 
-N = 8
+N = 10
 a = 2.0
 gd = GridDescriptor((N, N, N), (a, a, a))
 
@@ -46,7 +46,8 @@ def polarized():
     E2 -= xc.calculate(gd, n2, v)
     x2 = E2 / 0.00004
     print(i, x, x2, x - x2, x / x2)
-    equal(x, x2, 1e-10)
+    equal(x, x2, 2e-10)
+
 
 if world.size == 1:
     polarized()

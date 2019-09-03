@@ -14,7 +14,7 @@ molecule = Atoms('H2',
                   (c + d / 2, c, c)],
                  cell=(a, a, a),
                  pbc=False)
-calc = GPAW(h=0.2, nbands=1, xc='PBE', txt=None,
+calc = GPAW(h=0.2, nbands=1, xc={'name': 'PBE', 'stencil': 1}, txt=None,
             poissonsolver={'name': 'fd'})
 molecule.set_calculator(calc)
 e1 = molecule.get_potential_energy()
@@ -98,7 +98,7 @@ world.barrier()  # syncronize before reading text output file
 f = read('H2.txt').get_forces()
 assert abs(f - f0).max() < 5e-6  # 5 digits in txt file
 
-energy_tolerance = 0.00005
+energy_tolerance = 0.002
 niter_tolerance = 0
 equal(e1, -6.287873, energy_tolerance)
 equal(e2, -6.290744, energy_tolerance)

@@ -267,7 +267,7 @@ def r2k(alpha, a, b, beta, c):
 
 
 def dotc(a, b):
-    """Dot product, conjugating the first vector with complex arguments.
+    r"""Dot product, conjugating the first vector with complex arguments.
 
     Returns the value of the operation::
 
@@ -332,11 +332,11 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         else:
             return alpha * _gpaw.dotu(a, b)
 
-##     # Use gemv if a or b is a vector, and the other is a matrix??
-##     if a.ndim == 1 and trans == 'n':
-##         gemv(alpha, b, a, beta, out, trans='n')
-##     if b.ndim == 1 and trans == 'n':
-##         gemv(alpha, a, b, beta, out, trans='t')
+#     # Use gemv if a or b is a vector, and the other is a matrix??
+#     if a.ndim == 1 and trans == 'n':
+#         gemv(alpha, b, a, beta, out, trans='n')
+#     if b.ndim == 1 and trans == 'n':
+#         gemv(alpha, a, b, beta, out, trans='t')
 
     # Map all arrays to 2D arrays
     a = a.reshape(-1, a.shape[-1])
@@ -391,15 +391,15 @@ def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
 
 
 if not debug:
-    mmm = _gpaw.mmm
-    scal = _gpaw.scal
-    gemm = _gpaw.gemm
-    gemv = _gpaw.gemv
-    axpy = _gpaw.axpy
-    rk = _gpaw.rk
-    r2k = _gpaw.r2k
-    dotc = _gpaw.dotc
-    dotu = _gpaw.dotu
+    mmm = _gpaw.mmm  # noqa
+    scal = _gpaw.scal  # noqa
+    gemm = _gpaw.gemm  # noqa
+    gemv = _gpaw.gemv  # noqa
+    axpy = _gpaw.axpy  # noqa
+    rk = _gpaw.rk  # noqa
+    r2k = _gpaw.r2k  # noqa
+    dotc = _gpaw.dotc  # noqa
+    dotu = _gpaw.dotu  # noqa
     gemmdot = _gemmdot
     rotate = _rotate
 else:

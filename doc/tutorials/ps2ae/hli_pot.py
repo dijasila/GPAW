@@ -17,7 +17,7 @@ x = t.gd.coords(2) * Bohr
 plt.plot(x, ps[i, i], '--', label=r'$\tilde v$')
 plt.plot(x, ae[i, i], '-', label=r'$v$')
 
-# Raw PS wfs:
+# Raw PS potential:
 ps0 = calc.get_electrostatic_potential()
 gd = calc.hamiltonian.finegd
 i = ps0.shape[0] // 2
@@ -27,6 +27,6 @@ plt.plot(X, ps0[i, i], 'o')
 plt.plot(x, 0 * x, 'k')
 plt.xlabel('z [Ang]')
 plt.ylabel('potential [eV]')
-plt.ylim(ymin=-100, ymax=10)
+plt.ylim(bottom=-100, top=10)
 plt.legend()
 plt.savefig('hli-pot.png')

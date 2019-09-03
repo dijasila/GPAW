@@ -21,7 +21,7 @@ class State:
         return self.grid_g
 
     def set_grid(self, grid_g):
-#        assert(grid_g.shape == self.gd.empty().shape)
+        #        assert(grid_g.shape == self.gd.empty().shape)
         self.grid_g = grid_g
 
     def get_energy(self):

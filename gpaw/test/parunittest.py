@@ -23,12 +23,11 @@ PARTICULAR PURPOSE.  THE CODE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS,
 AND THERE IS NO OBLIGATION WHATSOEVER TO PROVIDE MAINTENANCE,
 SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
 """
-from __future__ import print_function
 import sys
 import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
-                     _TextTestResult, TextTestRunner, TestLoader, \
-                     FunctionTestCase, TestProgram
+    _TextTestResult, TextTestRunner, TestLoader, \
+    FunctionTestCase, TestProgram
 
 from ase.utils import devnull
 
@@ -60,6 +59,7 @@ else:
 # User interface should at least comply with Unittest version 1.56 rev. 34209
 if unittest_version < (1,56):
     _TestCase = TestCase
+
     class TestCase(_TestCase):
         assertTrue = _TestCase.assertTrue
         assertFalse = _TestCase.assertFalse

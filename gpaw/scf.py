@@ -2,7 +2,7 @@ import time
 from math import log as ln
 
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Ha, Bohr
 
 from gpaw import KohnShamConvergenceError
 from gpaw.forces import calculate_forces
@@ -33,13 +33,13 @@ class SCFLoop:
         s = 'Convergence criteria:\n'
         for name, val in [
             ('total energy change: {0:g} eV / electron',
-             cc['energy'] * Hartree / self.nvalence),
+             cc['energy'] * Ha / self.nvalence),
             ('integral of absolute density change: {0:g} electrons',
              cc['density'] / self.nvalence),
             ('integral of absolute eigenstate change: {0:g} eV^2',
-             cc['eigenstates'] * Hartree**2 / self.nvalence),
+             cc['eigenstates'] * Ha**2 / self.nvalence),
             ('change in atomic force: {0:g} eV / Ang',
-             cc['force'] * Hartree / Bohr),
+             cc['force'] * Ha / Bohr),
             ('number of iterations: {0}', self.maxiter)]:
             if val < np.inf:
                 s += '  Maximum {0}\n'.format(name.format(val))
@@ -59,7 +59,7 @@ class SCFLoop:
     def run(self, wfs, ham, dens, occ, log, callback):
         self.niter = 1
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
+            wfs.eigensolver.iterate(ham, wfs, occ)
             occ.calculate(wfs)
 
             energy = ham.get_energy(occ)
@@ -91,6 +91,10 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if not self.converged:
+            if not np.isfinite(errors['eigenstates']):
+                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+                log(msg)
+                raise KohnShamConvergenceError(msg)
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
@@ -100,7 +104,6 @@ class SCFLoop:
 
         errors = {'eigenstates': wfs.eigensolver.error,
                   'density': dens.error,
-                  'force': np.inf,
                   'energy': np.inf}
 
         if dens.fixed:
@@ -109,8 +112,15 @@ class SCFLoop:
         if len(self.old_energies) >= 3:
             errors['energy'] = np.ptp(self.old_energies[-3:])
 
-        if self.max_errors['force'] < np.inf:
-            F_av = calculate_forces(wfs, dens, ham)
+        # We only want to calculate the (expensive) forces if we have to:
+        check_forces = (self.max_errors['force'] < np.inf and
+                        all(error <= self.max_errors[kind]
+                            for kind, error in errors.items()))
+
+        errors['force'] = np.inf
+        if check_forces:
+            with wfs.timer('Forces'):
+                F_av = calculate_forces(wfs, dens, ham)
             if self.old_F_av is not None:
                 errors['force'] = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
             self.old_F_av = F_av
@@ -122,7 +132,7 @@ class SCFLoop:
 
         nvalence = wfs.nvalence
         if nvalence > 0:
-            eigerr = errors['eigenstates'] * Hartree**2 / nvalence
+            eigerr = errors['eigenstates'] * Ha**2 / nvalence
         else:
             eigerr = 0.0
 
@@ -141,13 +151,14 @@ class SCFLoop:
                 header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
-        if eigerr == 0.0:
+        if eigerr == 0.0 or np.isinf(eigerr):
             eigerr = ''
         else:
             eigerr = '%+.2f' % (ln(eigerr) / ln(10))
 
         denserr = errors['density']
-        if denserr is None or denserr == 0 or nvalence == 0:
+        assert denserr is not None
+        if denserr is None or np.isinf(denserr) or denserr == 0 or nvalence == 0:
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
@@ -170,14 +181,14 @@ class SCFLoop:
              denserr), end='')
 
         if self.max_errors['force'] < np.inf:
-            if errors['force'] is not None:
+            if errors['force'] < np.inf:
                 log('  %+.2f' %
-                    (ln(errors['force']) / ln(10)), end='')
+                    (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
             else:
                 log('       ', end='')
 
         log('%11.6f    %-5s  %-7s' %
-            (Hartree * ham.e_total_extrapolated,
+            (Ha * ham.e_total_extrapolated,
              niterocc,
              niterpoisson), end='')
 

@@ -55,7 +55,6 @@ class AllElectronPotential:
       xccorr = setup.xc_correction
 
       radf_g = np.zeros(xccorr.ng)
-      target_g = np.zeros(xccorr.ng)
 
       for w, p in zip(weight_n, R_nv):
          scaled_nc = []
@@ -69,7 +68,7 @@ class AllElectronPotential:
 
          scaled_nc = np.array(scaled_nc)
 
-         gd.interpolate_grid_points(scaled_nc, f_g, target_g, use_mlsqr=True)
+         target_g = gd.interpolate_grid_points(scaled_nc, f_g)
          radf_g += w * target_g
 
       return radf_g
@@ -152,7 +151,6 @@ class AllElectronPotential:
       radvxct_g = self.grid_to_radial(a, gd, vxct_sg[0])
 
       # Arrays for evaluating radial xc potential slice
-      e_g = np.zeros((xccorr.ng,))
       vxc_sg = np.zeros((len(D_sp), xccorr.ng))
 
       for n, Y_L in enumerate(xccorr.Y_nL):
@@ -183,7 +181,6 @@ class CoreEigenvalues(AllElectronPotential):
 
       # Get xccorr for atom a
       setup = self.paw.density.setups[a]
-      xccorr = setup.xc_correction
       symbol = setup.symbol
 
       # Create AllElectron object for eigensolver

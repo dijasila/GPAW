@@ -12,29 +12,41 @@ from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
 
-wrap = 1e-6 * 2**32
-
-# Global variables:
-c0 = time.clock()
-t0 = time.time()
-cputime = 0.0
-trouble = False
-
 
 class NullTimer:
     """Compatible with Timer and StepTimer interfaces.  Does nothing."""
-    def __init__(self): pass
-    def print_info(self, calc): pass
-    def start(self, name): pass
-    def stop(self, name=None): pass
-    def get_time(self, name): return 0.0
-    def write(self, out=sys.stdout): pass
-    def write_now(self, mark=''): pass
-    def add(self, timer): pass
+    def __init__(self):
+        pass
+
+    def print_info(self, calc):
+        pass
+
+    def start(self, name):
+        pass
+
+    def stop(self, name=None):
+        pass
+
+    def get_time(self, name):
+        return 0.0
+
+    def write(self, out=sys.stdout):
+        pass
+
+    def write_now(self, mark=''):
+        pass
+
+    def add(self, timer):
+        pass
+
     def __call__(self, name):
         return self
-    def __enter__(self): pass
-    def __exit__(self, *args): pass
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        pass
 
 
 nulltimer = NullTimer()
@@ -86,7 +98,7 @@ class ParallelTimer(DebugTimer):
         fd = open('%s.metadata.txt' % self.prefix, 'w')
         DebugTimer.print_info(self, calc)
         wfs = calc.wfs
-        
+
         # We won't have to type a lot if everyone just sends all their numbers.
         myranks = np.array([wfs.world.rank, wfs.kd.comm.rank,
                             wfs.bd.comm.rank, wfs.gd.comm.rank])
@@ -102,7 +114,7 @@ class ParallelTimer(DebugTimer):
 
 class StepTimer(Timer):
     """Step timer to print out timing used in computation steps.
-    
+
     Use it like this::
 
       from gpaw.utilities.timing import StepTimer
@@ -115,7 +127,7 @@ class StepTimer(Timer):
     The parameter write_as_master_only can be used to force the timer to
     print from processess that are not the mpi master process.
     """
-    
+
     def __init__(self, out=sys.stdout, name=None, write_as_master_only=True):
         Timer.__init__(self)
         if name is None:
@@ -158,7 +170,7 @@ class TAUTimer(Timer):
         Timer.start(self, name)
         self.tau_timers[name] = self.pytau.profileTimer(name)
         self.pytau.start(self.tau_timers[name])
-        
+
     def stop(self, name=None):
         Timer.stop(self, name)
         self.pytau.stop(self.tau_timers[name])
@@ -170,7 +182,7 @@ class TAUTimer(Timer):
         else:
             self.pytau.stop(self.tau_timers[self.top_level])
 
-        
+
 class HPMTimer(Timer):
     """HPMTimer requires installation of the IBM BlueGene/P HPM
     middleware interface to the low-level UPC library. This will
@@ -180,7 +192,7 @@ class HPMTimer(Timer):
     interface. Timer must be called on all ranks in node, otherwise
     HPM will hang. Hence, we only call HPM_start/stop on a list
     subset of timers."""
-    
+
     top_level = 'GPAW.calculator'  # HPM needs top level timer
     compatible = ['Initialization', 'SCF-cycle']
 
@@ -195,7 +207,7 @@ class HPMTimer(Timer):
         Timer.start(self, name)
         if name in self.compatible:
             self.hpm_start(name)
-        
+
     def stop(self, name=None):
         Timer.stop(self, name)
         if name in self.compatible:
@@ -205,7 +217,7 @@ class HPMTimer(Timer):
         Timer.write(self, out)
         self.hpm_stop(self.top_level)
 
-        
+
 class CrayPAT_timer(Timer):
     """Interface to CrayPAT API. In addition to regular timers,
     the corresponding regions are profiled by CrayPAT. The gpaw-python has

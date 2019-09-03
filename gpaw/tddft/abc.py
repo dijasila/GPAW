@@ -178,7 +178,7 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
                     if r > self.abc_r:
                         if r < self.abc_r+self.width:
                             self.v_imag[i][j][k] = (0+1j) \
-                             * ((np.sqrt(self.abc_strength) -
+                                * ((np.sqrt(self.abc_strength) -
                                  np.sqrt(self.abc_strength)/self.width**2
                                  * (r-self.abc_r)**2)**2 - self.abc_strength)
                         else:

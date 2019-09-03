@@ -196,6 +196,8 @@ The default value corresponds to this Python dictionary::
    'sl_inverse_cholesky': None,
    'sl_lcao':             None,
    'sl_lrtddft':          None,
+   'use_elpa':            False,
+   'elpasolver':          '2stage',
    'buffer_size':         None}
 
 In words:
@@ -241,6 +243,17 @@ In words:
   ``'sl_default'``. Presently, ``'sl_inverse_cholesky'`` must equal
   ``'sl_diagonalize'``.
 
+* If the Elpa library is installed, enable it by setting ``use_elpa``
+  to ``True``.  Elpa will be used to diagonalize the Hamiltonian.  The
+  Elpa distribution relies on BLACS and ScaLAPACK, and hence can only
+  be used alongside ``sl_auto``, ``sl_default``, or a similar keyword.
+  Enabling Elpa is highly recommended as it significantly
+  speeds up the diagonalization step.  See also :ref:`lcao`.
+
+* ``elpasolver`` indicates which solver to use with Elpa.  By default
+  it uses the two-stage solver, ``'2stage'``.  The other allowed value
+  is ``'1stage'``.  This setting will only have effect if Elpa is enabled.
+
 * The ``'buffer_size'``  is specified as an integer and corresponds to
   the size of the buffer in KiB used in the 1D systolic parallel
   matrix multiply algorithm. The default value corresponds to sending all
@@ -278,7 +291,7 @@ where ``n`` is the total number of boxes.
    ``parallel={'domain': world.size}`` will force all parallelization to be
    carried out solely in terms of domain decomposition, and will in general
    be much more efficient than e.g. ``parallel={'domain': (1,1,world.size)}``.
-   You might have to add ``from gpaw.mpi import wold`` to the script to
+   You might have to add ``from gpaw.mpi import world`` to the script to
    define ``world``.
 
 There is also a command line argument ``--domain-decomposition`` which allows

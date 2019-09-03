@@ -14,6 +14,11 @@ from os.path import exists
 
 data = {}
 
+
+def _xc(name):
+    return {'name': name, 'stencil': 1}
+
+
 # data (from tables.pdf of 10.1063/1.1626543)
 data['N'] = { # intermolecular distance (A),
               #formation enthalpy(298) (kcal/mol) on B3LYP geometry
@@ -101,7 +106,8 @@ def calculate(element, h, vacuum, xc, magmom):
         mixer = MixerSum(0.4, nmaxold=1, weight=100)
         atom.set_positions(atom.get_positions()+[0.0, 0.0, 0.0001])
 
-    calc_atom = GPAW(h=h, xc=data[element][xc][2],
+    calc_atom = GPAW(h=h, xc=_xc(data[element][xc][2]),
+                     experimental={'niter_fixdensity': 2},
                      eigensolver='rmm-diis',
                      occupations=FermiDirac(0.0, fixmagmom=True),
                      mixer=mixer,
@@ -117,7 +123,8 @@ def calculate(element, h, vacuum, xc, magmom):
         mms = [1.0 for i in range(len(compound))]
         compound.set_initial_magnetic_moments(mms)
 
-    calc = GPAW(h=h, xc=data[element][xc][2],
+    calc = GPAW(h=h, xc=_xc(data[element][xc][2]),
+                experimental={'niter_fixdensity': 2},
                 eigensolver='rmm-diis',
                 mixer=mixer,
                 parallel=dict(augment_grids=True),
@@ -131,8 +138,8 @@ def calculate(element, h, vacuum, xc, magmom):
         e_atom = atom.get_potential_energy()
         e_compound = compound.get_potential_energy()
 
-        calc_atom.set(xc=xc)
-        calc.set(xc=xc)
+        calc_atom.set(xc=_xc(xc))
+        calc.set(xc=_xc(xc))
 
     e_atom = atom.get_potential_energy()
     e_compound = compound.get_potential_energy()

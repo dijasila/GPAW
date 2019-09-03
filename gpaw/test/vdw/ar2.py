@@ -16,7 +16,7 @@ def test():
     L = 3.0 + 2 * 4.0
     dimer = Atoms('Ar2', [(0, 0, 0), (x, x, x)], cell=(L, L, L))
     dimer.center()
-    calc = GPAW(h=0.2, xc='revPBE',
+    calc = GPAW(h=0.2, xc=dict(name='revPBE', stencil=1),
                 mixer=Mixer(0.8, 7, 50.0),
                 eigensolver=Davidson(5))
     dimer.set_calculator(calc)
@@ -33,11 +33,12 @@ def test():
     E = 2 * e - e2
     Evdw = E + 2 * evdw - e2vdw
     print(E, Evdw)
-    assert abs(E - -0.0048) < 6e-3, abs(E)
-    assert abs(Evdw - +0.0223) < 3e-2, abs(Evdw)
+    assert abs(E - -0.0048) < 6e-4, abs(E)
+    assert abs(Evdw - +0.0223) < 3e-3, abs(Evdw)
 
     print(e2, e)
-    equal(e2, -0.001581923, energy_tolerance)
-    equal(e, -0.003224226, energy_tolerance)
+    equal(e2, -0.005, energy_tolerance)
+    equal(e, -0.005, energy_tolerance)
+
 
 test()

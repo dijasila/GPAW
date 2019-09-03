@@ -7,6 +7,7 @@ from math import sqrt
 import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
+from ase.utils import basestring
 
 import _gpaw
 import gpaw.mpi as mpi
@@ -75,7 +76,7 @@ class LrTDDFT(ExcitationList):
 
         changed = self.set(**kwargs)
 
-        if isinstance(calculator, str):
+        if isinstance(calculator, basestring):
             ExcitationList.__init__(self, None, self.txt)
             self.filename = calculator
         else:
@@ -111,7 +112,7 @@ class LrTDDFT(ExcitationList):
                 err_txt += 'calculator parameter.'
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':
-                self.xc = calculator.hamiltonian.xc.name
+                self.xc = calculator.hamiltonian.xc
             if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
@@ -178,7 +179,10 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                xc = XC(self.xc)
+                if isinstance(self.xc, basestring):
+                    xc = XC(self.xc)
+                else:
+                    xc = self.xc
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
@@ -247,10 +251,10 @@ class LrTDDFT(ExcitationList):
 
         timer.start('header')
         # get my name
-        s = f.readline().replace('\n', '')
+        s = f.readline().strip()
         self.name = s.split()[1]
 
-        self.xc = f.readline().replace('\n', '').split()[0]
+        self.xc = XC(f.readline().strip().split()[0])
         values = f.readline().split()
         self.eps = float(values[0])
         if len(values) > 1:
@@ -361,7 +365,10 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            xc = self.xc
+            if isinstance(self.xc, basestring):
+                xc = self.xc
+            else:
+                xc = self.xc.tostring()
             if xc is None:
                 xc = 'RPA'
             if self.calculator is not None:

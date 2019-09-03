@@ -99,15 +99,13 @@ class GPAWLogger(object):
 
         self('numpy:  %s (version %s)' %
              (os.path.dirname(np.__file__), np.version.version))
-        try:
-            import scipy as sp
-            self('scipy:  %s (version %s)' %
-                 (os.path.dirname(sp.__file__), sp.version.version))
-            # Explicitly deleting SciPy seems to remove garbage collection
-            # problem of unknown cause
-            del sp
-        except ImportError:
-            self('scipy:  Not available')
+        import scipy as sp
+        self('scipy:  %s (version %s)' %
+             (os.path.dirname(sp.__file__), sp.version.version))
+        # Explicitly deleting SciPy seems to remove garbage collection
+        # problem of unknown cause
+        del sp
+        self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
         self('cores:  %d' % world.size)
 

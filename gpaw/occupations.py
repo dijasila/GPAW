@@ -254,15 +254,15 @@ class ZeroKelvin(OccupationNumbers):
         return HOMO and LUMO energies."""
 
         N = len(f_n)
-        if ne == N * weight:
+        if ne == N:
             f_n[:] = weight
             return eps_n[-1], np.inf
 
-        n, f = divmod(ne, weight)
-        n = int(n)
+        n = int(ne)
+        f = ne - n
         f_n[:n] = weight
         assert n < N
-        f_n[n] = f
+        f_n[n] = f * weight
         f_n[n + 1:] = 0.0
         if f > 0.0:
             return eps_n[n], eps_n[n]
@@ -367,7 +367,7 @@ class ZeroKelvin(OccupationNumbers):
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 hom, lum = self.occupy(f_n, eps_n,
-                                       ne * kpt.weight, kpt.weight)
+                                       ne, kpt.weight)
                 homo = max(homo, hom)
                 lumo = min(lumo, lum)
             else:
@@ -653,4 +653,4 @@ class TFOccupations(FermiDirac):
 
         return HOMO and LUMO energies."""
         # Same as occupy in FermiDirac expect one band: weight = ne
-        return FermiDirac.occupy(self, f_n, eps_n, ne, ne)
+        return FermiDirac.occupy(self, f_n, eps_n, 1, ne * weight)

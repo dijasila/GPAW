@@ -60,14 +60,14 @@ class RMMDIIS(Eigensolver):
                 self.blocksize = 10
         Eigensolver.initialize(self, wfs)
 
-    def iterate_one_k_point(self, ham, wfs, kpt):
+    def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do a single RMM-DIIS iteration for the kpoint"""
 
         self.subspace_diagonalize(ham, wfs, kpt)
 
         psit = kpt.psit
         # psit2 = psit.new(buf=wfs.work_array)
-        P = kpt.P
+        P = kpt.projections
         P2 = P.new()
         # dMP = P.new()
         # M_nn = wfs.work_matrix_nn
@@ -96,8 +96,6 @@ class RMMDIIS(Eigensolver):
         if self.niter > 1:
             psit_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
             R_diis_nxG = wfs.empty(B * self.niter, q=kpt.q)
-
-        weights = self.weights(kpt)
 
         Ht = partial(wfs.apply_pseudo_hamiltonian, kpt, ham)
 
