@@ -53,7 +53,6 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
 
     assert bfs.Mstart == Mstart
     assert bfs.Mstop == Mstop
-    print(Mstart, Mstop)
 
     E_cmM = np.zeros((3, mynao, nao), dtype=complex)
     A_cmM = np.zeros((3, mynao, nao), dtype=complex)
@@ -67,13 +66,13 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
     bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
     E_cmM[1]-=A_cmM[2]
     E_cmM[2]+=A_cmM[1]
-    A_cmM[:]=0.0
 
+    A_cmM[:]=0.0
     bfs.calculate_potential_matrix_derivative(r_cG[1], A_cmM, 0)
     E_cmM[0]+=A_cmM[2]
     E_cmM[2]-=A_cmM[0]
-    A_cmM[:]=0.0
 
+    A_cmM[:]=0.0
     bfs.calculate_potential_matrix_derivative(r_cG[2], A_cmM, 0)
     E_cmM[0]-=A_cmM[1]
     E_cmM[1]+=A_cmM[0]
@@ -81,6 +80,8 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
 
 
 def calculate_cd_from_rho_and_e(rho_xx, E_cxx):
+    # (Can save time by doing imag/real algebra explicitly, but this
+    #  probably doesn't matter.)
     return -(rho_xx[None] * E_cxx).sum(axis=-1).sum(axis=-1).imag
 
 
