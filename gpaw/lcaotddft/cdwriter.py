@@ -97,7 +97,7 @@ class SerialEMatrix:
         self.E_cMM = E_cMM
 
     def calculate_cd(self, rho_MM):
-        return 1j * (rho_MM[None] * self.E_cMM).sum(axis=-1).sum(axis=-1)
+        return -(rho_MM[None] * self.E_cMM).sum(axis=-1).sum(axis=-1).imag
 
 def debug_msg(msg):
     print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
@@ -151,10 +151,10 @@ class CDWriter(TDDFTObserver):
                             paw.wfs.atomic_correction, r_cG)
 
         if self.ksl.using_blacs:
-            self.Ematrix = BlacsEMatrix.redist_from_raw(self.ksl, E_cmM)
+            self.e_matrix = BlacsEMatrix.redist_from_raw(self.ksl, E_cmM)
         else:
             gd.comm.sum(E_cmM)
-            self.Ematrix = SerialEMatrix(E_cmM)
+            self.e_matrix = SerialEMatrix(E_cmM)
 
     def _write(self, line):
         if self.master:
@@ -201,9 +201,10 @@ class CDWriter(TDDFTObserver):
         #debug_msg('rho %s' % str(rho_MM.shape))
         #debug_msg('E %s' % str(self.E_cMM[0].shape))
         #rho_mm = self.ksl.
-
-        cd_c = list(self.Ematrix.calculate_cd(rho_MM))
-        return np.array(cd_c).real
+        cd_c = self.e_matrix.calculate_cd(rho_MM)
+        assert cd_c.shape == (3,)
+        assert cd_c.dtype == float
+        return cd_c
 
 
     def _write_cd(self, paw):
