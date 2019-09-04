@@ -80,6 +80,10 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
     return E_cmM
 
 
+def calculate_cd_from_rho_and_e(rho_xx, E_cxx):
+    return -(rho_xx[None] * E_cxx).sum(axis=-1).sum(axis=-1).imag
+
+
 class BlacsEMatrix:
     def __init__(self, ksl, E_cmm):
         self.ksl = ksl
@@ -88,16 +92,23 @@ class BlacsEMatrix:
     @classmethod
     def redist_from_raw(cls, ksl, E_cmM):
         assert ksl.using_blacs
-        E_cmm = self.ksl.distribute_overlap_matrix(E_cmM)
+        E_cmm = ksl.distribute_overlap_matrix(E_cmM)
         return BlacsEMatrix(ksl, E_cmm)
+
+    def calculate_cd(self, rho_mm):
+        print(rho_mm.shape, self.E_cmm.shape)
+        cd_c = calculate_cd_from_rho_and_e(rho_mm, self.E_cmm)
+        self.ksl.mmdescriptor.blacsgrid.comm.sum(cd_c)
+        return cd_c
 
 
 class SerialEMatrix:
-    def __init__(self, E_cMM):
+    def __init__(self, ksl, E_cMM):
+        self.ksl = ksl
         self.E_cMM = E_cMM
 
     def calculate_cd(self, rho_MM):
-        return -(rho_MM[None] * self.E_cMM).sum(axis=-1).sum(axis=-1).imag
+        return calculate_cd_from_rho_and_e(rho_MM, self.E_cMM)
 
 def debug_msg(msg):
     print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
@@ -154,7 +165,7 @@ class CDWriter(TDDFTObserver):
             self.e_matrix = BlacsEMatrix.redist_from_raw(self.ksl, E_cmM)
         else:
             gd.comm.sum(E_cmM)
-            self.e_matrix = SerialEMatrix(E_cmM)
+            self.e_matrix = SerialEMatrix(self.ksl, E_cmM)
 
     def _write(self, line):
         if self.master:
@@ -197,15 +208,13 @@ class CDWriter(TDDFTObserver):
 
     def calculate_cd_moment(self, paw, center=True):
         u = 0
-        rho_MM = self.dmat.get_density_matrix()[u]
-        #debug_msg('rho %s' % str(rho_MM.shape))
-        #debug_msg('E %s' % str(self.E_cMM[0].shape))
-        #rho_mm = self.ksl.
-        cd_c = self.e_matrix.calculate_cd(rho_MM)
+        kpt = paw.wfs.kpt_u[0]
+        ksl = self.e_matrix.ksl
+        rho_mm = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
+        cd_c = self.e_matrix.calculate_cd(rho_mm)
         assert cd_c.shape == (3,)
         assert cd_c.dtype == float
         return cd_c
-
 
     def _write_cd(self, paw):
         time = paw.time
