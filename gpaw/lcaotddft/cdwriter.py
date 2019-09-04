@@ -186,7 +186,8 @@ class CDWriter(TDDFTObserver):
         with open(filename, 'r') as f:
             line = f.readline()
         m_i = re.split("[^a-zA-Z0-9_=']+", line[2:])
-        assert m_i.pop(0) == self.__class__.__name__
+        name = m_i.pop(0)
+        assert name == self.__class__.__name__
         for m in m_i:
             if '=' not in m:
                 continue
