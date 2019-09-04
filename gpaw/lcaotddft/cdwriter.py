@@ -46,30 +46,38 @@ def get_dX0(Ra_a, setups, partition):
 
 
 def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
+    Mstart = correction.Mstart
+    Mstop = correction.Mstop
+    mynao = Mstop - Mstart
     nao = bfs.Mmax
-    E_cMM = np.zeros((3, nao, nao), dtype=complex)
-    A_cMM = np.zeros((3, nao, nao), dtype=complex)
+
+    assert bfs.Mstart == Mstart
+    assert bfs.Mstop == Mstop
+    print(Mstart, Mstop)
+
+    E_cmM = np.zeros((3, mynao, nao), dtype=complex)
+    A_cmM = np.zeros((3, mynao, nao), dtype=complex)
 
     for c in range(3):
         for kpt in kpt_u:
             assert kpt.k == 0
-            correction.calculate(kpt.q, dX0_caii[c], E_cMM[c],
-                                 correction.Mstart, correction.Mstop)
+            correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
+                                 Mstart, Mstop)
 
-    bfs.calculate_potential_matrix_derivative(r_cG[0], A_cMM, 0)
-    E_cMM[1]-=A_cMM[2]
-    E_cMM[2]+=A_cMM[1]
-    A_cMM[:]=0.0
+    bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
+    E_cmM[1]-=A_cmM[2]
+    E_cmM[2]+=A_cmM[1]
+    A_cmM[:]=0.0
 
-    bfs.calculate_potential_matrix_derivative(r_cG[1], A_cMM, 0)
-    E_cMM[0]+=A_cMM[2]
-    E_cMM[2]-=A_cMM[0]
-    A_cMM[:]=0.0
+    bfs.calculate_potential_matrix_derivative(r_cG[1], A_cmM, 0)
+    E_cmM[0]+=A_cmM[2]
+    E_cmM[2]-=A_cmM[0]
+    A_cmM[:]=0.0
 
-    bfs.calculate_potential_matrix_derivative(r_cG[2], A_cMM, 0)
-    E_cMM[0]-=A_cMM[1]
-    E_cMM[1]+=A_cMM[0]
-    return E_cMM
+    bfs.calculate_potential_matrix_derivative(r_cG[2], A_cmM, 0)
+    E_cmM[0]-=A_cmM[1]
+    E_cmM[1]+=A_cmM[0]
+    return E_cmM
 
 
 def debug_msg(msg):
