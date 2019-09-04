@@ -80,6 +80,25 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
     return E_cmM
 
 
+class BlacsEMatrix:
+    def __init__(self, ksl, E_cmm):
+        self.ksl = ksl
+        self.E_cmm = E_cmm
+
+    @classmethod
+    def redist_from_raw(cls, ksl, E_cmM):
+        assert ksl.using_blacs
+        E_cmm = self.ksl.distribute_overlap_matrix(E_cmM)
+        return BlacsEMatrix(ksl, E_cmm)
+
+
+class SerialEMatrix:
+    def __init__(self, E_cMM):
+        self.E_cMM = E_cMM
+
+    def calculate_cd(self, rho_MM):
+        return 1j * (rho_MM[None] * self.E_cMM).sum(axis=-1).sum(axis=-1)
+
 def debug_msg(msg):
     print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
 
@@ -127,18 +146,15 @@ class CDWriter(TDDFTObserver):
 
         dX0_caii = get_dX0(Ra_a, paw.setups, paw.hamiltonian.dH_asp.partition)
 
-        E_cMM = calculate_E(dX0_caii, paw.wfs.kpt_u,
+        E_cmM = calculate_E(dX0_caii, paw.wfs.kpt_u,
                             paw.wfs.basis_functions,
                             paw.wfs.atomic_correction, r_cG)
-        gd.comm.sum(E_cMM)
 
         if self.ksl.using_blacs:
-            E_cmm = []
-            for c in range(3):
-                E_mm = distribute_MM(paw.wfs, E_cMM[c])
-                E_cmm.append(E_mm)
-            E_cMM = np.array(E_cmm)
-        self.E_cMM = E_cMM
+            self.Ematrix = BlacsEMatrix.redist_from_raw(self.ksl, E_cmM)
+        else:
+            gd.comm.sum(E_cmM)
+            self.Ematrix = SerialEMatrix(E_cmM)
 
     def _write(self, line):
         if self.master:
@@ -182,16 +198,11 @@ class CDWriter(TDDFTObserver):
     def calculate_cd_moment(self, paw, center=True):
         u = 0
         rho_MM = self.dmat.get_density_matrix()[u]
-        debug_msg('rho %s' % str(rho_MM.shape))
-        debug_msg('E %s' % str(self.E_cMM[0].shape))
+        #debug_msg('rho %s' % str(rho_MM.shape))
+        #debug_msg('E %s' % str(self.E_cMM[0].shape))
+        #rho_mm = self.ksl.
 
-        cd_c = []
-        for c in range(3):
-            if self.ksl.using_blacs:
-                cd = self.ksl.block_comm.sum(np.sum(rho_MM * 1j * self.E_cMM[c]))
-            else:
-                cd = np.sum(rho_MM * 1j * self.E_cMM[c])
-            cd_c.append(cd)
+        cd_c = list(self.Ematrix.calculate_cd(rho_MM))
         return np.array(cd_c).real
 
 
