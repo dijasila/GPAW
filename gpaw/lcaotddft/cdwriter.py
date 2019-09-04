@@ -97,7 +97,6 @@ class BlacsEMatrix:
         return BlacsEMatrix(ksl, E_cmm)
 
     def calculate_cd(self, rho_mm):
-        print(rho_mm.shape, self.E_cmm.shape)
         cd_c = calculate_cd_from_rho_and_e(rho_mm, self.E_cmm)
         self.ksl.mmdescriptor.blacsgrid.comm.sum(cd_c)
         return cd_c
