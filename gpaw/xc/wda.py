@@ -44,11 +44,16 @@ class WDA(XCFunctional):
         wn_sg = self.get_working_density(n_sg, gd1)
     
         # Get ni_grid
-        ni_grid, ni_lower, ni_upper = self.get_ni_grid(mpi.rank, mpi.size, wn_sg)
-
+        ni_grid, ni_lower, ni_upper = self.get_ni_grid(mpi.rank,
+                                                       mpi.size, wn_sg)
 
         # Get Zs
-        Z_isg, Z_lower_sg, Z_upper_sg = self.get_Zs(wn_sg, ni_grid, ni_lower, ni_upper, grid, spin, gd1)
+        Z_isg, Z_lower_sg, Z_upper_sg = self.get_Zs(wn_sg,
+                                                    ni_grid,
+                                                    ni_lower,
+                                                    ni_upper,
+                                                    grid, spin,
+                                                    gd1)
 
         # Get alphas
         alpha_isg = self.get_alphas(Z_isg, Z_lower_sg, Z_upper_sg)
@@ -56,28 +61,35 @@ class WDA(XCFunctional):
         V_sg = self.calculate_V1(alpha_isg, wn_sg, grid, ni_grid)
         V_sg += self.calculate_V1p(alpha_isg, wn_sg, grid, ni_grid)
 
-        dalpha_isg = self.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, grid, ni_grid, ni_lower, ni_upper, len(n_sg), self.dZFunc)
+        dalpha_isg = self.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg,
+                                         Z_upper_sg, grid, ni_grid,
+                                         ni_lower, ni_upper,
+                                         len(n_sg), self.dZFunc)
         V_sg += self.calculate_V2(dalpha_isg, wn_sg, grid, ni_grid)
 
         # Add correction if symmetric mode
         if self.mode.lower() == "symmetric":
-            V_sg += self.calculate_sym_pot_correction(alpha_isg, wn_sg, grid, ni_grid)
+            V_sg += self.calculate_sym_pot_correction(alpha_isg,
+                                                      wn_sg, grid, ni_grid)
         mpi.world.sum(V_sg)
-
 
         # Calculate energy
         eWDA_g = self.calculate_energy(alpha_isg, wn_sg, gd, grid, ni_grid)
 
         # Add correction if symmetric mode
         if self.mode is not None and self.mode.lower() == "symmetric":
-            eWDA_g += self.calculate_sym_energy_correction(alpha_isg, wn_sg, gd, grid, ni_grid)
+            eWDA_g += self.calculate_sym_energy_correction(alpha_isg,
+                                                           wn_sg, gd,
+                                                           grid,
+                                                           ni_grid)
 
         # Correct if we want to use WDA for valence density only
-        if self.densitymode is not None and self.densitymode.lower() == "valence":
-            eWDA_g += self.calculate_energy_correction_valence_mode(wn_sg, n_sg)
+        if self.densitymode is not None:
+            if self.densitymode.lower() == "valence":
+                eWDA_g += self.calculate_energy_correction_valence_mode(wn_sg,
+                                                                        n_sg)
 
         mpi.world.sum(eWDA_g)
-
 
         gd.distribute(eWDA_g, e_g)
         gd.distribute(V_sg, v_sg)
@@ -93,14 +105,14 @@ class WDA(XCFunctional):
         from gpaw.xc.WDAUtils import get_ni_grid
         pts_per_rank = self.get_pts_per_rank()
         if not np.allclose(np.max(n_sg), 0):
-            maxval = max(np.max(n_sg), 100/np.mean(n_sg))
+            maxval = max(np.max(n_sg), 100 / np.mean(n_sg))
         else:
             maxval = 10
         
         return get_ni_grid(rank, size, maxval, pts_per_rank)
 
     def get_pts_per_rank(self):
-        return min(10, 100//mpi.size + 1)
+        return min(10, 100 // mpi.size + 1)
 
     def get_pairdist_g(self, grid, ni, spin):
         grid_distances = np.linalg.norm(grid, axis=0)
@@ -109,9 +121,9 @@ class WDA(XCFunctional):
         if np.allclose(exc, 0):
             return np.zeros_like(grid_distances) + 1
 
-        lambd = - 3 * gamma(3/5) / (2 * gamma(2/5) * exc)
+        lambd = - 3 * gamma(3 / 5) / (2 * gamma(2 / 5) * exc)
 
-        C = -3 / (4 * np.pi * gamma(2/5) * ni * lambd**3)
+        C = -3 / (4 * np.pi * gamma(2 / 5) * ni * lambd**3)
 
         g = np.zeros_like(grid_distances)
         exp_val = (lambd / (grid_distances[grid_distances > 0]))**5
@@ -133,13 +145,15 @@ class WDA(XCFunctional):
         zeta = 0
         lda_c(spin, earr, narr, varr, zeta)
         
-        return earr[0] 
+        return earr[0]
 
     def standardmode_Z_derivative(self, grid, ni_value, spin):
         pairdist_g = self.get_pairdist_g(grid, ni_value, spin)
         return pairdist_g - 1
 
-    def symmetricmode_Z_derivative(self, grid, ni_value, spin, indicator_function):
+    def symmetricmode_Z_derivative(self,
+                                   grid,
+                                   ni_value, spin, indicator_function):
         raise NotImplementedError
 
         pairdist_g = self.get_pairdist_g(grid, ni_value, spin)
@@ -163,23 +177,30 @@ class WDA(XCFunctional):
             lower_off = 0
             upper_off = 0
         else:
-            raise ValueError("Could not get augmented grid, lower, upper, grid: {}, {}, {}".format(ni_lower, ni_upper, ni_grid))
+            raise ValueError("Could not get augmented grid," +
+                             "lower, upper, grid:" +
+                             "{}, {}, {}".format(ni_lower, ni_upper, ni_grid))
         return aug, lower_off, upper_off
 
     def build_indicators(self, ni_grid, ni_lower, ni_upper):
         # We use linear indicators for simplicity
-        # This makes it easy to ensure that f <= 1, f >= 0 and that they always sum to 1
-        # The return value of this function is a list of scipy interpolation objects
+        # This makes it easy to ensure that f <= 1, f >= 0 and
+        # that they always sum to 1
+        # The return value of this function is a list of scipy
+        # interpolation objects
         from scipy.interpolate import interp1d
 
-        augmented_ni_grid, lower_off, upper_off = self.get_augmented_ni_grid(ni_grid, ni_lower, ni_upper)
+        gang = self.get_augmented_ni_grid
+        augmented_ni_grid, low_off, upp_off = gang(ni_grid,
+                                                   ni_lower,
+                                                   ni_upper)
 
-        
         def build_an_indicator(target_index, val_grid):
             targets = np.zeros_like(val_grid)
             targets[target_index] = 1
-            return interp1d(val_grid, targets, kind="linear", bounds_error=False, fill_value=0)
-        ni_range = range(lower_off, len(augmented_ni_grid)-upper_off)
+            return interp1d(val_grid, targets, kind="linear",
+                            bounds_error=False, fill_value=0)
+        ni_range = range(low_off, len(augmented_ni_grid) - upp_off)
 
         return [build_an_indicator(j, augmented_ni_grid) for j in ni_range]
 
@@ -191,19 +212,28 @@ class WDA(XCFunctional):
         else:
             return G_isr[i, s]
 
-    def symmetric_dZ(self, i, s, G_isr, grid_vg, ni_lower, ni_upper, alpha_isg):
+    def symmetric_dZ(self, i, s, G_isr, grid_vg,
+                     ni_lower, ni_upper, alpha_isg):
         if i < 0:
-            return (self.get_pairdist_g(grid_vg, ni_lower, s)).reshape(-1) * (1 + alpha_isg[i, s].reshape(-1)) - 1
+            f1 = self.get_pairdist_g(grid_vg,
+                                     ni_lower,
+                                     s).reshape(-1)
+            return f1 * (1 + alpha_isg[i, s].reshape(-1)) - 1
         elif i >= len(G_isr):
-            return (self.get_pairdist_g(grid_vg, ni_upper, s)).reshape(-1) * (1 + alpha_isg[i, s].reshape(-1)) - 1
+            f1 = (self.get_pairdist_g(grid_vg, ni_upper, s)).reshape(-1)
+            return f1 * (1 + alpha_isg[i, s].reshape(-1)) - 1
         else:
             return (G_isr[i, s] + 1) * (1 + alpha_isg[i, s].reshape(-1)) - 1
 
-    def standardmode_Zs(self, n_sg, ni_grid, lower_ni, upper_ni, grid, spin, gd):
+    def standardmode_Zs(self, n_sg,
+                        ni_grid, lower_ni,
+                        upper_ni, grid, spin, gd):
         # Get parametrized pair distribution functions
         # augmented_ni_grid = np.hstack([[lower], ni_grid, [upper]])
         
-        #pairdist_ig = np.array([self.get_pairdist(grid, ni, spin) for ni in augmented_ni_grid])
+        # pairdist_ig
+        # = np.array([self.get_pairdi
+        # st(grid, ni, spin) for ni in augmented_ni_grid])
 
         Z_isg = np.zeros(ni_grid.shape + n_sg.shape)
 
@@ -224,20 +254,26 @@ class WDA(XCFunctional):
         assert np.allclose(g_sg, g_sg.real)
         assert f_sg.shape == g_sg.shape
         assert f_sg.ndim == 4
-        F = np.fft.fftn(f_sg, axes=(1,2,3))
-        G = np.fft.fftn(g_sg, axes=(1,2,3))
+        F = np.fft.fftn(f_sg, axes=(1, 2, 3))
+        G = np.fft.fftn(g_sg, axes=(1, 2, 3))
 
-        res = np.fft.ifftn(F*G, axes=(1,2,3))
+        res = np.fft.ifftn(F * G, axes=(1, 2, 3))
         return res.real
 
-    def symmetricmode_Zs(self, n_sg, ni_grid, lower_ni, upper_ni, grid, spin, gd):
-        augmented_ni_grid, lower_off, upper_off = self.get_augmented_ni_grid(ni_grid, lower_ni, upper_ni)
+    def symmetricmode_Zs(self, n_sg, ni_grid,
+                         lower_ni, upper_ni,
+                         grid, spin, gd):
+        augmented_ni_grid, _, _ = self.get_augmented_ni_grid(ni_grid,
+                                                             lower_ni,
+                                                             upper_ni)
 
         pairdist_sg = np.array([self.get_pairdist_g(grid, lower_ni, spin)])
         ind_i = self.build_indicators(augmented_ni_grid, lower_ni, upper_ni)
         ind_sg = np.array([ind_i[0](n_sg[0])])
+        
         def getZ(pairdist, ind):
-            return self.fold(n_sg, pairdist - 1) + self.fold(n_sg*ind, pairdist)
+            return self.fold(n_sg, pairdist - 1) + self.fold(n_sg * ind,
+                                                             pairdist)
 
         Z_lower_sg = getZ(pairdist_sg, ind_sg)
         Z_isg = []
@@ -253,7 +289,6 @@ class WDA(XCFunctional):
 
         return np.array(Z_isg), Z_lower_sg, Z_upper_sg
 
-
     def interpolate_this(self, val_i, lower, upper, target):
         inter_i = np.zeros_like(val_i)
         count = 0
@@ -261,33 +296,36 @@ class WDA(XCFunctional):
             if i == 0:
                 nextv = val_i[1]
                 prev = lower
-            elif i == len(val_i)-1:
+            elif i == len(val_i) - 1:
                 nextv = upper
-                prev = val_i[i-1]
+                prev = val_i[i - 1]
             else:
-                nextv = val_i[i+1]
-                prev = val_i[i-1]
+                nextv = val_i[i + 1]
+                prev = val_i[i - 1]
 
-            if (val <= target and nextv >= target) or (val >= target and nextv <= target):
+            if (val <= target
+                and nextv >= target) or (val >= target and nextv <= target):
                 inter_i[i] = (nextv - target) / (nextv - val)
                 count += 1
-            elif (val <= target and prev >= target) or (val >= target and prev <= target):
+            elif (val <= target and
+                  prev >= target) or (val >= target and prev <= target):
                 inter_i[i] = (prev - target) / (prev - val)
                 count += 1
         
         return inter_i
 
     def get_alphas(self, Z_isg, Z_lower_sg, Z_upper_sg):
-        alpha_isg = np.zeros_like(Z_isg) 
+        alpha_isg = np.zeros_like(Z_isg)
 
         for iz, Z_yxsi in enumerate(Z_isg.T):
             for iy, Z_xsi in enumerate(Z_yxsi):
                 for ix, Z_si in enumerate(Z_xsi):
                     for inds, Z_i in enumerate(Z_si):
                         assert Z_i.ndim == 1
-                        nlesser = (Z_i <= -1).astype(int).sum()
-                        ngreater = (Z_i > -1).astype(int).sum()
-                        alpha_isg[:, inds, ix, iy, iz] = self.interpolate_this(Z_i, Z_lower_sg[inds, ix, iy, iz], Z_upper_sg[inds, ix, iy, iz], -1)
+                        alpha_isg[:, inds, ix, iy, iz] = self.interpolate_this(
+                            Z_i,
+                            Z_lower_sg[inds, ix, iy, iz],
+                            Z_upper_sg[inds, ix, iy, iz], -1)
         return alpha_isg
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
@@ -297,18 +335,23 @@ class WDA(XCFunctional):
         distances_sg = np.array([np.linalg.norm(grid_vg, axis=0)])
         distances_sg[distances_sg < 1e-20] = 1e-20
 
-        res_sg = self.fold(f_sg, g_sg/distances_sg)
+        res_sg = self.fold(f_sg, g_sg / distances_sg)
 
         return res_sg
     
     def get_G_isg(self, grid_vg, ni_j, numspins):
-        return np.array([[self.get_pairdist_g(grid_vg, ni, spin) - 1 for spin in range(numspins)] for ni in ni_j])
+        return np.array(
+            [[self.get_pairdist_g(grid_vg, ni, spin) - 1
+              for spin in range(numspins)]
+             for ni in ni_j])
 
     def calculate_V1(self, alpha_isg, n_sg, grid_vg, ni_j):
         # Convolve n_sg and G/v_C
         # Multiply alpha_ig to result
         G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
-        folded_isg = np.array([self.fold_with_vC(n_sg, G_sg, grid_vg) for G_sg in G_isg])
+        folded_isg = np.array(
+            [self.fold_with_vC(n_sg, G_sg, grid_vg)
+             for G_sg in G_isg])
 
         res_isg = alpha_isg * folded_isg
 
@@ -318,19 +361,26 @@ class WDA(XCFunctional):
         # Convolve n_sg*alpha_ig and G/v_C
 
         G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
-        folded_isg = np.array([self.fold_with_vC(n_sg*alpha_g, G_isg[i], grid_vg) for i, alpha_g in enumerate(alpha_ig)])
+        folded_isg = np.array(
+            [self.fold_with_vC(n_sg * alpha_g,
+                               G_isg[i],
+                               grid_vg) for i, alpha_g in enumerate(alpha_ig)])
         
         return folded_isg.sum(axis=0)
 
-    def get_dalpha_isg_normal(self, alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, grid_vg, ni_j, ni_lower, ni_upper, numspins, dZFunc):
-        dalpha_isr = np.zeros_like(alpha_isg.reshape(len(alpha_isg), len(alpha_isg[0]), -1))
+    def get_dalpha_isg_normal(self, alpha_isg, Z_isg,
+                              Z_lower_sg, Z_upper_sg,
+                              grid_vg, ni_j, ni_lower,
+                              ni_upper, numspins, dZFunc):
+        dalpha_isr = np.zeros_like(alpha_isg.reshape(len(alpha_isg),
+                                                     len(alpha_isg[0]), -1))
 
-        G_isr = self.get_G_isg(grid_vg, ni_j, numspins).reshape(*dalpha_isr.shape)
+        G_isr = self.get_G_isg(grid_vg,
+                               ni_j,
+                               numspins).reshape(*dalpha_isr.shape)
 
         npand = np.logical_and
         npor = np.logical_or
-        npnot = np.logical_not
-        npcl = np.isclose
         Z_isr = Z_isg.reshape(len(Z_isg), len(Z_isg[0]), -1)
         Z_lower_sr = Z_lower_sg.reshape(len(Z_lower_sg), -1)
         Z_upper_sr = Z_upper_sg.reshape(*Z_lower_sr.shape)
@@ -343,29 +393,39 @@ class WDA(XCFunctional):
             else:
                 return Z_isr[i, s]
 
-
-        dZ = lambda i, s : dZFunc(i, s, G_isr, grid_vg, ni_lower, ni_upper, alpha_isg)
+        def dZ(i, s):
+            return dZFunc(i,
+                          s,
+                          G_isr,
+                          grid_vg, ni_lower, ni_upper, alpha_isg)
 
         for i, alpha_sr in enumerate(alpha_isg.reshape(*dalpha_isr.shape)):
             for s, alpha_r in enumerate(alpha_sr):
-                if not np.allclose(gZ(i+1,s), gZ(i,s)):
-                    denom0 = gZ(i+1, s) - gZ(i, s)
+                if not np.allclose(gZ(i + 1, s), gZ(i, s)):
+                    denom0 = gZ(i + 1, s) - gZ(i, s)
                     
-                    # At +0 branch if 
+                    # At +0 branch if
                     # Z[i] >= -1 and Z[i+1] < -1
                     # OR
                     # Z[i] <= -1 and Z[i+1] > -1
-                    factor0_r = npor(npand(gZ(i, s) >= -1, gZ(i+1, s) < -1), npand(gZ(i, s) <= -1, gZ(i+1, s) > -1))
-                    dalpha_isr[i, s] += factor0_r * (dZ(i+1, s) / denom0 - alpha_r / denom0 * (dZ(i+1, s) - dZ(i, s)))
+                    factor0_r = npor(npand(gZ(i, s) >= -1, gZ(i + 1, s) < -1),
+                                     npand(gZ(i, s) <= -1, gZ(i + 1, s) > -1))
+                    dalpha_isr[i, s] += factor0_r * (dZ(i + 1, s) / denom0
+                                                     - alpha_r / denom0
+                                                     * (dZ(i + 1, s)
+                                                        - dZ(i, s)))
 
-                if not np.allclose(gZ(i, s), gZ(i-1, s)):
+                if not np.allclose(gZ(i, s), gZ(i - 1, s)):
                     # At +1 branch if
                     # Z[i-1] >= -1 and Z[i] < -1
                     # OR
                     # Z[i-1] <= -1 and Z[i] > -1
-                    factor1_r = npor(npand(gZ(i-1, s) >= -1, gZ(i, s) < -1), npand(gZ(i-1, s) <= -1, gZ(i, s) > -1))
-                    denom1 = gZ(i, s) - gZ(i-1, s)
-                    dalpha_isr[i, s] += factor1_r * (-dZ(i-1, s) / denom1 - alpha_r / denom1 * (dZ(i, s) - dZ(i, s)))
+                    factor1_r = npor(npand(gZ(i - 1, s) >= -1, gZ(i, s) < -1),
+                                     npand(gZ(i - 1, s) <= -1, gZ(i, s) > -1))
+                    denom1 = gZ(i, s) - gZ(i - 1, s)
+                    dalpha_isr[i, s] += factor1_r * (-dZ(i - 1, s) / denom1
+                                                     - alpha_r / denom1
+                                                     * (dZ(i, s) - dZ(i, s)))
 
         return dalpha_isr.reshape(*alpha_isg.shape)
     
@@ -381,7 +441,9 @@ class WDA(XCFunctional):
         folded_isg = self.fold_multiple_with_vC(n_sg, G_isg, grid_vg)
         res_isg = n_sg[np.newaxis, ...] * folded_isg
         
-        final_isg = np.array([self.fold(dalpha_sg, res_isg[i]) for i, dalpha_sg in enumerate(dalpha_isg)])
+        final_isg = np.array(
+            [self.fold(dalpha_sg, res_isg[i])
+             for i, dalpha_sg in enumerate(dalpha_isg)])
 
         return final_isg.sum(axis=0)
 
@@ -389,9 +451,12 @@ class WDA(XCFunctional):
         # Two corrections: dV1, dV1p
         # dV1: Convolve n_sg*alpha_ig and G/v_C
         G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
-        dV1_isg = np.array([self.fold_with_vC(n_sg*alpha_isg[i], G_sg, grid_vg) for i, G_sg, in enumerate(G_isg)])
+        dV1_isg = np.array(
+            [self.fold_with_vC(n_sg * alpha_isg[i], G_sg, grid_vg)
+             for i, G_sg, in enumerate(G_isg)])
         # dV1p: Convolve n_sg and G/v_c and multiply alpha_ig to result
-        dV1p_isg = alpha_isg * np.array([self.fold_with_vC(n_sg, G_sg, grid_vg) for G_sg in G_isg])
+        dV1p_isg = alpha_isg * np.array(
+            [self.fold_with_vC(n_sg, G_sg, grid_vg) for G_sg in G_isg])
         
         return (dV1_isg + dV1p_isg).sum(axis=0)
 
@@ -407,9 +472,11 @@ class WDA(XCFunctional):
         return integrand_isg.sum(axis=0).sum(axis=1)
 
     def fold_multiple_with_vC(self, f_sg, F_isg, grid_vg):
-        return np.array([self.fold_with_vC(f_sg, F_sg, grid_vg) for F_sg in F_isg])
+        return np.array(
+            [self.fold_with_vC(f_sg, F_sg, grid_vg) for F_sg in F_isg])
 
-    def calculate_sym_energy_correction(self, alpha_ig, n_sg, gd, grid_vg, ni_j):
+    def calculate_sym_energy_correction(self,
+                                        alpha_ig, n_sg, gd, grid_vg, ni_j):
         # Convolve n_sg*alpha_ig with g/v_C (small g!)
         # Multiply result with n_sg and integrate
         G_isg = self.get_G_isg(grid_vg, ni_j, len(n_sg))
@@ -426,4 +493,3 @@ class WDA(XCFunctional):
         self.lda_kernel.calculate(e_g, n_sg, np.zeros_like(n_sg))
 
         return eae_g - e_g
-
