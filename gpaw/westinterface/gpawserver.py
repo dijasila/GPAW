@@ -67,7 +67,7 @@ class GPAWServer:
         # Get full grid shape for interpolation - WEST and GPAW may use slightly different grids.
         gpaw_shape = self._get_gpaw_shape()
         self.calc.set(convergence={"density":1e-7})
-        # self.calc.set(fixdensity=True)
+        self.calc.set(fixdensity=True)
         self.init_logging()
         self.count = 0
         self.loopcount = 0
@@ -112,18 +112,18 @@ class GPAWServer:
                 break
 
             densitymt = self.calc.get_pseudo_density()
-            densitym = self.calc.get_all_electron_density(skip_core=False)
-            densitymwocore = self.calc.get_all_electron_density(skip_core=True)
+            #densitym = self.calc.get_all_electron_density(skip_core=False)
+            #densitymwocore = self.calc.get_all_electron_density(skip_core=True)
 
 
             # Calculate density integrals
-            dv = self.atoms.get_volume() / self.calc.get_number_of_grid_points().prod()
-            It = densitymt.sum() * dv
-            I2 = densitymwocore.sum() * dv / 2**3
-            I = densitym.sum() * dv / 2**3
-            parprint("Integrated Minus density tilde: ", It)
-            parprint("Integrated Minus density w/o core: ", I2)
-            parprint("Integrated Minus density: ", I)
+            #dv = self.atoms.get_volume() / self.calc.get_number_of_grid_points().prod()
+            #It = densitymt.sum() * dv
+            #I2 = densitymwocore.sum() * dv / 2**3
+            #I = densitym.sum() * dv / 2**3
+            #parprint("Integrated Minus density tilde: ", It)
+            #parprint("Integrated Minus density w/o core: ", I2)
+            #parprint("Integrated Minus density: ", I)
 
             # +V calculation
             if self.should_log and mpi.rank == 0:
@@ -135,17 +135,17 @@ class GPAWServer:
                 break
 
             densitypt = self.calc.get_pseudo_density()
-            densityp = self.calc.get_all_electron_density(skip_core=False)
-            densitypwocore = self.calc.get_all_electron_density(skip_core=True)
+            #densityp = self.calc.get_all_electron_density(skip_core=False)
+            #densitypwocore = self.calc.get_all_electron_density(skip_core=True)
 
             # Calculate density integrals
-            dv = self.atoms.get_volume() / self.calc.get_number_of_grid_points().prod()
-            It = densitypt.sum() * dv
-            I2 = densitypwocore.sum() * dv / 2**3
-            I = densityp.sum() * dv / 2**3
-            parprint("Integrated Plus density tilde: ", It)
-            parprint("Integrated Plus density w/o core: ", I2)
-            parprint("Integrated Plus density: ", I)
+            #dv = self.atoms.get_volume() / self.calc.get_number_of_grid_points().prod()
+            #It = densitypt.sum() * dv
+            #I2 = densitypwocore.sum() * dv / 2**3
+            #I = densityp.sum() * dv / 2**3
+            #parprint("Integrated Plus density tilde: ", It)
+            #parprint("Integrated Plus density w/o core: ", I2)
+            #parprint("Integrated Plus density: ", I)
             
 
             # Scale densities to have same maxabs
@@ -161,11 +161,11 @@ class GPAWServer:
             # densitypwocore *= mdmwoc / mdpwoc
 
             # Density response
-            density = (densityp - densitym) / 2.0
-            density = self.upscale_density(density)
+            #density = (densityp - densitym) / 2.0
+            #density = self.upscale_density(density)
             
-            densitywocore = (densitypwocore - densitymwocore) / 2.0
-            densitywocore = self.upscale_density(densitywocore)
+            #densitywocore = (densitypwocore - densitymwocore) / 2.0
+            #densitywocore = self.upscale_density(densitywocore)
 
             densityt = (densitypt - densitymt) / 2.0
             densityt = self.upscale_density(densityt)
@@ -173,11 +173,11 @@ class GPAWServer:
             
             # Write to output file
             domain = self.atoms.get_cell()
-            density = self.fft_interpolation(density, west_shape)
-            self.xmlrw.write(density, domain, self.output_file)
+            #density = self.fft_interpolation(density, west_shape)
+            #self.xmlrw.write(density, domain, self.output_file)
             
             # Write other calc types
-            self.xmlrw.write(densitywocore, domain, "AEwocore" + self.output_file)
+            #self.xmlrw.write(densitywocore, domain, "AEwocore" + self.output_file)
             self.xmlrw.write(densityt, domain, "Pseudo" + self.output_file)
 
             self.log("GPAW Server run {} complete".format(self.count))

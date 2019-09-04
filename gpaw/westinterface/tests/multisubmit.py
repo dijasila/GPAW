@@ -7,7 +7,7 @@ add = parser.add_argument
 
 add("-t", "--time", type=str, default="02:00:00")
 add("-N", "--name", type=str, default="SiH4")
-add("-n", "--nodes", type=int, default=4)
+add("-n", "--nodes", type=int, default=2)
 
 args = parser.parse_args()
 

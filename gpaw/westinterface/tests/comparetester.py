@@ -42,7 +42,7 @@ atoms = Atoms("SiH4", scaled_positions=[[0.5, 0.5, 0.5],
 atoms.center()
 
 
-calc = GPAW(mode=PW(cutoff), h=0.235, symmetry="off", xc=xc, mixer=Mixer(0.02, 5, 100), nbands=nbands)#, setups="sg15")#, txt=fname+".txt")
+calc = GPAW(mode=PW(cutoff), h=0.235, symmetry="off", xc=xc, mixer=Mixer(0.02, 5, 100), nbands=nbands, setups="sg15")#, txt=fname+".txt")
 # TODO Do diagonalize_full_hamiltonian(nbands=??) in server
 
 atoms.set_calculator(calc)
