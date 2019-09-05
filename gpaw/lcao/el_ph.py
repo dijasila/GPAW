@@ -1,7 +1,7 @@
 import pickle
 import numpy as np
 from os.path import isfile
-from ase.parallel import rank, barrier
+from gpaw.mpi import world
 from gpaw.utilities import unpack2
 from gpaw.lcao.projected_wannier import dots
 from gpaw.utilities.tools import tri2full
@@ -81,15 +81,15 @@ class ElectronPhononCouplingMatrix:
             forces = self.atoms.get_forces()
             self.calc.write('eq.gpw')
 
-            barrier()
-            if rank == 0:
+            world.barrier()
+            if world.rank == 0:
                 vd = open(self.name + '.eq.pckl', 'wb')
                 fd = open('vib.eq.pckl', 'wb')
                 pickle.dump((Vt_G, alldH_asp), vd, 2)
                 pickle.dump(forces, fd)
                 vd.close()
                 fd.close()
-            barrier()
+            world.barrier()
 
         p = self.atoms.positions.copy()
         for a in self.indices:
@@ -119,15 +119,15 @@ class ElectronPhononCouplingMatrix:
                             alldH_asp[a2] = tmpdH_sp
 
                         forces = self.atoms.get_forces()
-                        barrier()
-                        if rank == 0:
+                        world.barrier()
+                        if world.rank == 0:
                             vd = open(self.name + name, 'wb')
                             fd = open('vib' + name, 'wb')
                             pickle.dump((Vt_G, alldH_asp), vd)
                             pickle.dump(forces, fd)
                             vd.close()
                             fd.close()
-                        barrier()
+                        world.barrier()
                         self.atoms.positions[a, j] = p[a, j]
         self.atoms.set_positions(p)
 
