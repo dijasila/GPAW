@@ -29,7 +29,7 @@ for c in range(3):
 
 # minimal box
 b = 4.0
-CO = Cluster('CO', [(1, 0, 0), (1, 0, R)])
+CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
 CO.minimal_box(b)
 cc = CO.get_cell()
 for c in range(3):
