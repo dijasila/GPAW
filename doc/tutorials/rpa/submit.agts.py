@@ -10,5 +10,5 @@ def create_tasks():
         task('plot_w.py', deps='frequency.py,con_freq.py'),
         task('plot_con_freq.py', deps='con_freq.py'),
         task('extrapolate.py', deps='rpa_N2.py'),
-        task('shell:rm N.gpw_N2.gpw',  # clean up
+        task('shell:rm N.gpw N2.gpw',  # clean up
              deps='frequency.py,con_freq.py,rpa_N2.py')]
