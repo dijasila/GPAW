@@ -531,14 +531,15 @@ class TimeDependentOverlap(Overlap):
             return
 
         self.timer.start('Apply exact inverse overlap')
-        from gpaw.utilities.blas import dotu, axpy
+        from gpaw.utilities.blas import axpy
         #from gpaw.tddft.cscg import multi_zdotu, multi_scale, multi_zaxpy
         #initialization
         # Multivector dot product, a^T b, where ^T is transpose
 
         def multi_zdotu(s, x,y, nvec):
             for i in range(nvec):
-                s[i] = dotu(x[i],y[i])
+                s[i] = x[i].ravel().dot(y[i].ravel())
+                # s[i] = dotu(x[i],y[i])
             wfs.gd.comm.sum(s)
             return s
 
