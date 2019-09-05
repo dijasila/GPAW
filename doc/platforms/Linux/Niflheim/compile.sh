@@ -29,5 +29,4 @@ echo "Compiling on svol: $cmd"
 ssh svol "$cmd > skylake-${GPAW_TOOLCHAIN}.log 2>&1"
 mv configuration.log configuration-skylake-${GPAW_TOOLCHAIN}.log
 
-(cd build && ln -sf bin.linux-x86_64-{sandybridge,ivybridge}-3.6)
 (cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.6)
