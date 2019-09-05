@@ -130,7 +130,8 @@ class SJM(SolvationGPAW):
             raise ValueError("Potential equilibration mode not recognized."
                              "Implemented modes are 'seq' and 'sim'")
 
-        p.previous_ne = 0  # FIXME: Why this 0 but previous_pot=None?
+        # p.previous_ne = 0  # FIXME: Why this 0 but previous_pot=None?
+        p.previous_ne = None
         p.previous_pot = None
         p.slope = None
         p.max_iters = 10  # FIXME: What exactly is this? max?
@@ -164,6 +165,7 @@ class SJM(SolvationGPAW):
         # FIXME: Delete after all is set up.
         message = 'SJ: ' + message
         self.log(message)
+        self.log.flush()
 
     def create_hamiltonian(self, realspace, mode, xc):
         """
@@ -274,7 +276,8 @@ class SJM(SolvationGPAW):
                 except AttributeError:
                     pass
                 else:
-                    if abs(true_potential - p.target_potential) > SJM_changes[key]:
+                    if (abs(true_potential - p.target_potential) >
+                        SJM_changes[key]):
                         self.results = {}
                         self.sog('Recalculating...\n')
                     else:
@@ -300,9 +303,12 @@ class SJM(SolvationGPAW):
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
-                    self.sog('wfs nvalence changed by {:.5f}'
-                             .format(p.ne - p.previous_ne))
-                    self.wfs.nvalence += p.ne - p.previous_ne
+                    if p.previous_ne is not None:
+                        self.sog('wfs nvalence changed by {:.5f}'
+                                 .format(p.ne - p.previous_ne))
+                        self.wfs.nvalence += p.ne - p.previous_ne
+                    else:
+                        self.sog('wfs nvalence unchanged')
                     self.sog('wfs nvalence now {:.5f}'
                              .format(self.wfs.nvalence))
                     # FIXME: background_charge not always called when ne
@@ -314,6 +320,9 @@ class SJM(SolvationGPAW):
                 p.ne = SJM_changes['ne']
                 self.sog('Number of Excess electrons manually changed '
                          'to %1.8f' % (p.ne))
+
+            self.sog('returning from self.set')
+            return
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell'], ):
@@ -328,12 +337,18 @@ class SJM(SolvationGPAW):
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
 
-
         self.sog('*****************************')
         self.sog('Solvated jellium calculation.')
         self.sog('*****************************')
+        if self.scf is not None:
+            self.sog('SCF converged? {:s}'.format(str(self.scf.converged)))
+        else:
+            self.sog('SCF is None.')
         p = self.sjm_parameters
+
         if p.target_potential:
+            p.previous_ne = None  # Reset for slope calculations.
+            p.previous_pot = None
             self.sog('Starting constant-potential calculation targeting {:.3f}'
                      ' +/- {:.3f} V.'
                      .format(p.target_potential, p.dpot))
@@ -351,10 +366,12 @@ class SJM(SolvationGPAW):
                          .format(p.ne))
                 if p.dl is not None:
                     self.sog(' Jellium size parameters:')
-                    self.sog('    Lower boundary: %s'
-                             % p.dl['start'])
-                    self.sog('    Upper boundary: %s'
-                             % p.dl['upper_limit'])
+                    if 'start' in p.dl:
+                        self.sog('    Lower boundary: %s'
+                                 % p.dl['start'])
+                    if 'upper_limit' in p.dl:
+                        self.sog('    Upper boundary: %s'
+                                 % p.dl['upper_limit'])
                 if equil_iter == 1:
                     self.timer.start('Potential equilibration loop')
                     system_changes = []
@@ -370,19 +387,30 @@ class SJM(SolvationGPAW):
                         self.atoms = atoms
 
                 if p.max_iters > 1 or 'positions' in system_changes:
+                    self.sog('Calling self.set_jellium(atoms)')
                     self.set_jellium(atoms)
+                else:
+                    self.sog('Not calling self.set_jellium(atoms)')
 
+                self.sog('Calling SolvationGPAW.calculate...')
+                self.log.flush()
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
+                self.sog('...finished SolvationGPAW.calculate.')
+                self.log.flush()
 
                 if p.verbose:
                     self.write_cavity_and_bckcharge()
 
+                self.sog('Calling get_electrode_potential...')
+                self.log.flush()
                 true_potential = self.get_electrode_potential()
-                self.log('SJ: Potential found to be {:.5f} V'
+                self.sog('...finished get_electrode_potential.')
+                self.log.flush()
+                self.sog('Potential found to be {:.5f} V'
                          .format(true_potential))
 
-                self.log('SJ:    [p.max_iters: {:d}]' .format(p.max_iters))
+                self.sog('    [p.max_iters: {:d}]' .format(p.max_iters))
 
                 if p.max_iters > 1:
 
@@ -405,6 +433,16 @@ class SJM(SolvationGPAW):
                             # Because it would have at least two points.
                             # I might only change it if d(potential) > dpot
                             # to avoid noise?
+                            self.sog('Changing slope (calculate):')
+                            self.sog('Values for slope calculation:')
+                            self.sog(' true_potential: {:.5f}'
+                                     .format(true_potential))
+                            self.sog(' previous_pot: {:.5f}'
+                                     .format(p.previous_pot))
+                            self.sog(' p.ne: {:.5f}'
+                                     .format(p.ne))
+                            self.sog(' p.previous_ne: {:.5f}'
+                                     .format(p.previous_ne))
                             slope = (true_potential - p.previous_pot) / \
                                 (p.ne - p.previous_ne)
                             if (abs(true_potential - p.previous_pot) >
@@ -467,6 +505,11 @@ class SJM(SolvationGPAW):
             p.previous_ne = p.ne
 
         if properties != ['energy']:
+            # FIXME: A sequential call to get_potential_energy then
+            # get_forces triggers a whole new (but very fast) SJM
+            # calculation because the above re-sets the jellium
+            # and such. This shouldn't be the case, I believe. Check
+            # how GPAW does it.
 
             self.log('SJ: Calculating non-energy properties.')
             SolvationGPAW.calculate(self, atoms, properties, [])
@@ -478,6 +521,16 @@ class SJM(SolvationGPAW):
         if p.previous_pot is not None:
             # FIXME: This is duplicate code of what's also in calculate.
             # Figure out how to get it down to one version.
+            self.sog('Changing slope (change_ne):')
+            self.sog('Values for slope calculation:')
+            self.sog(' true_potential: {:.5f}'
+                     .format(true_potential))
+            self.sog(' previous_pot: {:.5f}'
+                     .format(p.previous_pot))
+            self.sog(' p.ne: {:.5f}'
+                     .format(p.ne))
+            self.sog(' p.previous_ne: {:.5f}'
+                     .format(p.previous_ne))
             slope = (true_potential - p.previous_pot) / \
                 (p.ne - p.previous_ne)
             if abs(true_potential - p.previous_pot) > p.dpot / 10.:
@@ -638,7 +691,9 @@ class SJM(SolvationGPAW):
         return wf2  # refpot-E_f
 
     def set_jellium(self, atoms):
+        self.sog('in set_jellium method')
         self.set(background_charge=self.define_jellium(atoms))
+        self.sog('out set_jellium method')
 
     """Various tools for writing global functions"""
 
