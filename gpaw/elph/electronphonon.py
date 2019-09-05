@@ -75,7 +75,7 @@ from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
-from ase.parallel import rank
+from gpaw.mpi import rank
 from ase.utils import opencew
 
 
