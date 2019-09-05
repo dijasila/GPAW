@@ -1,8 +1,6 @@
-from __future__ import print_function
+from ase import Atoms
 
-from ase import Atom, Atoms
-from ase.parallel import size, rank
-
+from gpaw.mpi import size, rank
 from gpaw import GPAW, FermiDirac
 from gpaw.analyse.simple_stm import SimpleStm
 from gpaw.test import equal
@@ -16,8 +14,8 @@ me = ''
 if size > 1:
     me += 'rank ' + str(rank) + ': '
 
-BH = Atoms([Atom('B', [.0, .0, .41]),
-            Atom('H', [.0, .0, -1.23])], cell=[5, 6, 6.5])
+BH = Atoms('BH', [[.0, .0, .41], [.0, .0, -1.23]],
+           cell=[5, 6, 6.5])
 BH.center()
 
 f3dname = 'stm3d.plt'
@@ -27,7 +25,7 @@ def testSTM(calc):
     stm = SimpleStm(calc)
     stm.write_3D([1, 0, 0], f3dname)  # single wf
     wf = stm.gd.integrate(stm.ldos)
-##    print "wf=", wf
+#    print "wf=", wf
 
     if size == 1:  # XXXX we have problem with reading plt in parallel
         stm2 = SimpleStm(f3dname)
@@ -36,13 +34,14 @@ def testSTM(calc):
         equal(wf, wf2, 2.e-7)
 
     stm.scan_const_current(0.02, 5)
-##    print eigenvalue_string(calc)
+#    print eigenvalue_string(calc)
     stm.write_3D(3.1, f3dname)
     wf2 = stm.gd.integrate(stm.ldos)
-##    print "wf2=", wf2
+#    print "wf2=", wf2
     equal(wf2, 2, 0.12)
 
     return wf
+
 
 # finite system without spin and width
 fname = 'BH-nospin_wfs.gpw'
