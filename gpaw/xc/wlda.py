@@ -35,6 +35,7 @@ class WLDA(XCFunctional):
             self.filter_kernel = self._theta_filter
 
         self.num_nis = 10
+        self.lda_kernel = PurePythonKernel()
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -781,14 +782,10 @@ class WLDA(XCFunctional):
         integrand_G = np.sum(integrand_alphaG, axis=0)
         nstar_g = np.fft.ifftn(integrand_G)
 
-
         return nstar_g
        
-
     def get_kF(self, density):
         return (3*np.pi**2*density)**(1/3)
-
-
 
     def solve_poisson(self, n_g, gd):
         K_G = self._get_K_G(gd)
@@ -1299,3 +1296,93 @@ class WLDA(XCFunctional):
             result_sg += np.fft.ifftn(F1_sG * F2_sG, axes=(1,2,3)).real
 
         return result_sg
+
+    def alt_method(self, gd, n_sg, v_sg, e_g):
+        self.nindicators = int(1e4)
+        self.setup_indicator_grid()
+
+        my_alpha_indices = self.distribute_alphas()
+        
+        # 0. Collect density, and get grid_descriptor appropriate for collected density
+        wn_sg = gd.collect(n_sg)
+        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+
+        # 1. Correct density
+        wn_sg = wn_sg # Or correct via self.get_ae_density(gd, n_sg)
+
+        # 2. calculate weighted density
+        # This contains contributions for the alphas at this rank, i.e. we need a world.sum to get all contributions
+        nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
+        mpi.world.sum(nstar_sg)
+
+        # 3. Calculate LDA energy 
+        e1_g, v1_sg = self.calculate_lda(wn_sg, nstar_sg)
+        mpi.world.sum(e1_g)
+        mpi.world.sum(v1_sg)
+
+        # 4. Correct potential
+        v2_sg = self.correct_potential(nstar_sg, v1_sg)
+        mpi.world.sum(v2_sg)
+        
+        gd.distribute(e1_g, e_g)
+        gd.distribute(v2_sg, v_sg)
+        
+        # Done
+
+    def distribute_alphas(self):
+        rank = mpi.rank
+        size = mpi.size
+        
+        nalphas = self.nindicators // size
+        nalphas0 = nalphas + (self.nindicators - nalphas * size)
+        assert (nalphas * (size - 1) + nalphas0 == self.nindicators)
+
+        if rank == 0:
+            start = 0
+            end = nalphas0
+        else:
+            start = nalphas0 + (rank - 1) * nalphas
+            end = start + nalphas
+
+        return range(start, end)
+
+    def setup_indicator_grid(self):
+        self.alphas = np.linspace(0, 10, self.nindicators)
+
+    def alt_weight(self, wn_sg, my_alpha_indices, gd):
+        nstar_sg = np.zeros_like(wn_sg)
+        
+        for ia in my_alpha_indices:
+            nstar_sg += self.apply_kernel(wn_sg, ia, gd)
+            
+        return nstar_sg
+        
+    def apply_kernel(self, wn_sg, ia, gd):
+        f_sg = self.get_indicator(wn_sg, ia) * wn_sg
+        
+        f_sG = np.fft.fftn(f_sg, axes(1, 2, 3))
+
+        w_sG = self.get_weight_function(ia, gd)
+        
+        r_sg = np.fft.ifftn(w_sG * f_sG)
+
+        assert np.allclose(r_sg, r_sg.real)
+
+        return r_sg.real
+
+    def get_weight_function(self, ia, gd):
+        alpha = self.alphas[ia]
+
+        kF = (3 * np.pi**2 * alpha)**(1 / 3)
+
+        K_G = self._get_K_G(gd)
+
+        return (K_G**2 <= 4 * kF**2).astype(np.complex128)
+
+    def calculate_lda(self, wn_sg, nstar_sg):
+        raise NotImplementedError
+
+    def correct_potential(self, nstar_sg, v1_sg):
+        raise NotImplementedError
+        
+        
