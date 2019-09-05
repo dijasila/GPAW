@@ -249,8 +249,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         if trans == 'c':
             return alpha * np.vdot(b, a)  # dotc conjugates *first* argument
         else:
-            assert a.dtype == float
-            return alpha * _gpaw.dotu(a, b)
+            return alpha * a.dot(b)
 
 #     # Use gemv if a or b is a vector, and the other is a matrix??
 #     if a.ndim == 1 and trans == 'n':

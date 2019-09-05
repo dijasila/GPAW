@@ -99,7 +99,7 @@ class CSCG:
         # Multivector dot product, a^T b, where ^T is transpose
         def multi_zdotu(s, x,y, nvec):
             for i in range(nvec):
-                s[i] = np.vdot(x[i].astype(float), y[i].astype(float))
+                s[i] = x[i].ravel(float).dot(y[i].ravel(float))
                 # s[i] = dotu(x[i],y[i])
             self.gd.comm.sum(s)
             return s
