@@ -32,8 +32,7 @@ def check(pos_av, rpos_aav, nrepeats_c, cell_cv):
 
 cells = (
     ((10., .0, .0), (.0, 12., .0), (.0, .0, 12.)),  # orthogonal
-    ((10., 1., .0), (.0, 12., 1.), (1., .0, 11.5)),  # non-orthogonal
-    )
+    ((10., 1., .0), (.0, 12., 1.), (1., .0, 11.5)))  # non-orthogonal
 
 for cell in cells:
     atoms = molecule('H2O')
