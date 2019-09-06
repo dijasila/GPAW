@@ -6,6 +6,8 @@ from math import pi
 
 import numpy as np
 from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, fft, ifft
+from scipy.fftpack import dst as scipydst
+
 
 from gpaw import PoissonConvergenceError
 from gpaw.dipole_correction import DipoleCorrection, dipole_correction
@@ -67,16 +69,19 @@ def create_poisson_solver(name='fast', **kwargs):
     else:
         raise ValueError('Unknown poisson solver: %s' % name)
 
+
 def PoissonSolver(name='fast', dipolelayer=None, **kwargs):
     p = create_poisson_solver(name=name, **kwargs)
     if dipolelayer is not None:
         p = DipoleCorrection(p, dipolelayer)
     return p
 
+
 def FDPoissonSolverWrapper(dipolelayer=None, **kwargs):
     if dipolelayer is not None:
         return DipoleCorrection(FDPoissonSolver(**kwargs), dipolelayer)
     return FDPoissonSolver(**kwargs)
+
 
 class _PoissonSolver(object):
     """Abstract PoissonSolver class
@@ -104,7 +109,7 @@ class _PoissonSolver(object):
 
 class BasePoissonSolver(_PoissonSolver):
     def __init__(self, eps=None, remove_moment=None, use_charge_center=False,
-            metallic_electrodes=False):
+                 metallic_electrodes=False):
         # metallic electrodes: mirror image method to allow calculation of
         # charged, partly periodic systems
         self.gd = None
@@ -112,7 +117,7 @@ class BasePoissonSolver(_PoissonSolver):
         self.use_charge_center = use_charge_center
         self.eps = eps
         self.metallic_electrodes = metallic_electrodes
-        assert self.metallic_electrodes in [False, None, 'single','both']
+        assert self.metallic_electrodes in [False, None, 'single', 'both']
 
     def todict(self):
         d = {'name': 'basepoisson'}
@@ -173,7 +178,8 @@ class BasePoissonSolver(_PoissonSolver):
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
-            return self.solve_neutral(phi, rho - background, eps=eps, timer=timer)
+            return self.solve_neutral(phi, rho - background, eps=eps,
+                                      timer=timer)
 
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
             # System is charged and periodic. Subtract a homogeneous
@@ -183,7 +189,8 @@ class BasePoissonSolver(_PoissonSolver):
             if zero_initial_phi:
                 phi[:] = 0.0
 
-            iters = self.solve_neutral(phi, rho - background, eps=eps, timer=timer)
+            iters = self.solve_neutral(phi, rho - background, eps=eps,
+                                       timer=timer)
             return iters
 
         elif abs(charge) > maxcharge and not self.gd.pbc_c.any():
@@ -241,15 +248,17 @@ class BasePoissonSolver(_PoissonSolver):
             # System is charged with mixed boundaryconditions
             if self.metallic_electrodes == 'single':
                 self.c = 2
-                origin_c=[0,0,0]
+                origin_c = [0, 0, 0]
                 origin_c[self.c] = self.gd.N_c[self.c]
-                drhot_g, dvHt_g, self.correction = dipole_correction(self.c,
-                                                    self.gd,
-                                                    rho,
-                                                    origin_c=origin_c)
-                #self.correction *=-1.
+                drhot_g, dvHt_g, self.correction = dipole_correction(
+                    self.c,
+                    self.gd,
+                    rho,
+                    origin_c=origin_c)
+                # self.correction *=-1.
                 phi -= dvHt_g
-                iters = self.solve_neutral(phi, rho + drhot_g, eps=eps, timer=timer)
+                iters = self.solve_neutral(phi, rho + drhot_g, eps=eps,
+                                           timer=timer)
                 phi += dvHt_g
                 phi -= self.correction
                 self.correction = 0.0
@@ -271,7 +280,6 @@ class BasePoissonSolver(_PoissonSolver):
             gauss = Gaussian(self.gd, center=center)
             self.rho_gauss = gauss.get_gauss(0)
             self.phi_gauss = gauss.get_gauss_pot(0)
-
 
 
 class FDPoissonSolver(BasePoissonSolver):
@@ -381,7 +389,6 @@ class FDPoissonSolver(BasePoissonSolver):
         if hasattr(self, 'rho_gauss'):
             del self.rho_gauss
             del self.phi_gauss
-
 
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
@@ -799,6 +806,7 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         else:
             phi_g[:] = phi_g3
 
+
 """def rfst2(A_g, axes=[0,1]):
     assert axes[0] == 0
     assert axes[1] == 1
@@ -822,14 +830,12 @@ def irfst2(A_g, axes=[0,1]):
 """
 
 
-from scipy.fftpack import dst as scipydst
-
 use_scipy_transforms = True
 
 
-def rfst2(A_g, axes=[0,1]):
-    all = set([0,1,2])
-    third = [ all.difference(set(axes)).pop() ]
+def rfst2(A_g, axes=[0, 1]):
+    all = set([0, 1, 2])
+    third = [all.difference(set(axes)).pop()]
 
     if use_scipy_transforms:
         Y = A_g
@@ -839,14 +845,15 @@ def rfst2(A_g, axes=[0,1]):
         return Y
 
     A_g = np.transpose(A_g, axes + third)
-    x,y,z = A_g.shape
-    temp_g = np.zeros((x*2+2, y*2+2, z))
-    temp_g[1:x+1, 1:y+1,:] = A_g
-    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
-    temp_g[1:x+1, y+2:,:] = -A_g[:, ::-1, :]
-    temp_g[x+2:, y+2:,:] = A_g[::-1, ::-1, :]
-    X = -4*rfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :].real
+    x, y, z = A_g.shape
+    temp_g = np.zeros((x * 2 + 2, y * 2 + 2, z))
+    temp_g[1:x + 1, 1:y + 1, :] = A_g
+    temp_g[x + 2:, 1:y + 1, :] = -A_g[::-1, :, :]
+    temp_g[1:x + 1, y + 2:, :] = -A_g[:, ::-1, :]
+    temp_g[x + 2:, y + 2:, :] = A_g[::-1, ::-1, :]
+    X = -4 * rfft2(temp_g, axes=[0, 1])[1:x + 1, 1:y + 1, :].real
     return np.transpose(X, np.argsort(axes + third))
+
 
 def irfst2(A_g, axes=[0,1]):
     if use_scipy_transforms:
@@ -1105,10 +1112,10 @@ class FastPoissonSolver(BasePoissonSolver):
             grid2grid(gd1.comm, gd1, gd2, work1_g, work2_g)
             timer.stop('Communicate fwd %d' % c)
             if c == 0:
-               timer.start('fft2')
-               work1_g = transform2(work2_g, axes=self.axes[:2],
-                                    pbc=gd1.pbc_c[self.axes[:2]])
-               timer.stop('fft2')
+                timer.start('fft2')
+                work1_g = transform2(work2_g, axes=self.axes[:2],
+                                     pbc=gd1.pbc_c[self.axes[:2]])
+                timer.stop('fft2')
             elif c == 1:
                 if len(self.cholesky_axes) == 0:
                     # The remaining problem is 0D dimensional, i.e the
@@ -1136,10 +1143,10 @@ class FastPoissonSolver(BasePoissonSolver):
             gd2 = self.gd_x[c]
 
             if c == 0:
-               timer.start('fft2')
-               work2_g = itransform2(work1_g, axes=self.axes[1::-1],
-                                     pbc=gd1.pbc_c[self.axes[1::-1]])
-               timer.stop('fft2')
+                timer.start('fft2')
+                work2_g = itransform2(work1_g, axes=self.axes[1::-1],
+                                      pbc=gd1.pbc_c[self.axes[1::-1]])
+                timer.stop('fft2')
             elif c == 1:
                 if len(self.cholesky_axes) == 0:
                     # The remaining problem is 0D dimensional, i.e the
@@ -1160,7 +1167,7 @@ class FastPoissonSolver(BasePoissonSolver):
             gd1 = gd2
 
         phi_g[:] = work1_g.real
-        return 1 # Non-iterative method, return 1 iteration
+        return 1  # Non-iterative method, return 1 iteration
 
     def todict(self):
         d = super(FastPoissonSolver, self).todict()
@@ -1176,5 +1183,4 @@ FastPoissonSolver using
     %s stencil;
     FFT axes: %s;
     FST axes: %s.
-""" % (self.stencil_description,
-       self.fft_axes, self.fst_axes)
+""" % (self.stencil_description, self.fft_axes, self.fst_axes)
