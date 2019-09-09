@@ -5,7 +5,7 @@ from gpaw import GPAW, PW, mpi
 
 
 atoms = Atoms("H2", positions=[[0,0,0], [0,0,2]], cell=5*np.identity(3))
-calc = GPAW(mode=PW(200), xc="WLDA_normal", txt=None)
+calc = GPAW(mode=PW(200), xc="WLDA_altmethod", txt=None)
 calc.initialize(atoms=atoms)
 calc.set_positions(atoms)
 xc = calc.hamiltonian.xc
@@ -36,6 +36,8 @@ class Tester(BaseTester):
         # Calc E_X with standard kernel, then div/mult to get WLDA
         # Calc with n = n* in WLDA implementation
         # 
+        my_as = xc.distribute_alphas(xc.nindicators)
+
         from gpaw.xc.lda import PurePythonLDAKernel, lda_x
         lda_kernel = PurePythonLDAKernel()
 
@@ -52,20 +54,47 @@ class Tester(BaseTester):
 
         wldaEX = np.zeros_like(nstar_sg[0])
         vWLDA = np.zeros_like(nstar_sg)
-        
-        xc.lda_x(0, wldaEX, n_sg[0], nstar_sg[0], vWLDA)
+
+        xc.lda_x(0, wldaEX, n_sg[0], nstar_sg[0], vWLDA, my_as)
         
         assert np.allclose(expected, wldaEX)
 
     def test_02_ldaC(self):
         # Calc with n = n* and check against standard kernel
         # Check E_C with div/mult method
+        my_as = xc.distribute_alphas(xc.nindicators)
 
-        raise NotImplementedError
+        from gpaw.xc.lda import PurePythonLDAKernel, lda_c
+        lda_kernel = PurePythonLDAKernel()
+
+        n_sg = self.get_a_density()
+        nstar_sg = self.get_a_density()
+        assert len(n_sg) == 1
+        
+        
+        ldaEC = np.zeros_like(nstar_sg[0])
+        v = np.zeros_like(nstar_sg)
+        lda_c(0, ldaEC, nstar_sg[0], v, 0)
+
+        expected = ldaEC * n_sg / nstar_sg
+
+        wldaEC = np.zeros_like(nstar_sg[0])
+        vWLDA = np.zeros_like(nstar_sg)
+        
+        xc.lda_c(0, wldaEC, n_sg[0], nstar_sg[0], vWLDA, 0, my_as)
+        
+        assert np.allclose(expected, wldaEC)
 
     def test_03_weightednormisunchanged(self):
         # Input density and weighted density have same norm
-        raise NotImplementedError
+        wn_sg = self.get_a_density()
+        myas = xc.distribute_alphas(xc.nindicators)
+        nstar_sg = xc.alt_weight(wn_sg, myas, xc.gd)
+
+        norm1 = xc.gd.integrate(wn_sg)
+        norm2 = xc.gd.integrate(nstar_sg)
+
+        assert np.allclose(norm1, norm2)
 
     def test_04_indicators_parallel(self):
         # Test that range is distributed correctly

@@ -53,8 +53,10 @@ class WLDA(XCFunctional):
         if self.mode.lower() == "normal":
             self.normal_mode(gd, n_sg, v_sg, e_g)
             return
+        if self.mode.lower() == "altmethod":
+            self.alt_method(gd, n_sg, v_sg, e_g)
+            return
             
-        
         assert len(n_sg) == 1
         if self.gd1 is None:
             self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -1299,12 +1301,12 @@ class WLDA(XCFunctional):
         return result_sg
 
     def alt_method(self, gd, n_sg, v_sg, e_g):
-        self.nindicators = int(1e4)
+        self.nindicators = int(1e2)
         alphas = self.setup_indicator_grid(self.nindicators)
         self.alphas = alphas
         self.setup_indicators(alphas)
-        my_alpha_indices = self.distribute_alphas(self.ndindicators)
-        
+        my_alpha_indices = self.distribute_alphas(self.nindicators)
+
         # 0. Collect density, and get grid_descriptor appropriate for collected density
         wn_sg = gd.collect(n_sg)
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
@@ -1316,6 +1318,7 @@ class WLDA(XCFunctional):
 
         # 2. calculate weighted density
         # This contains contributions for the alphas at this rank, i.e. we need a world.sum to get all contributions
+        return
         nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
         mpi.world.sum(nstar_sg)
 
@@ -1353,7 +1356,7 @@ class WLDA(XCFunctional):
 
         return range(start, end)
 
-    def setup_indicator_grid(self, ndindicators):
+    def setup_indicator_grid(self, nindicators):
         return np.linspace(0, 10, nindicators)
 
     def alt_weight(self, wn_sg, my_alpha_indices, gd):
@@ -1362,17 +1365,17 @@ class WLDA(XCFunctional):
         for ia in my_alpha_indices:
             nstar_sg += self.apply_kernel(wn_sg, ia, gd)
             
-        assert (nstar_sg >= 0).all()
+        assert (nstar_sg >= 0).all(), np.sum(nstar_sg[nstar_sg < 0])
         return nstar_sg
         
     def apply_kernel(self, wn_sg, ia, gd):
         f_sg = self.get_indicator_g(wn_sg, ia) * wn_sg
         
-        f_sG = np.fft.fftn(f_sg, axes(1, 2, 3))
+        f_sG = np.fft.fftn(f_sg, axes=(1, 2, 3))
 
-        w_sG = self.get_weight_function(ia, gd)
+        w_sG = self.get_weight_function(ia, gd, self.alphas)
         
-        r_sg = np.fft.ifftn(w_sG * f_sG)
+        r_sg = np.fft.ifftn(w_sG * f_sG, axes=(1, 2, 3))
 
         assert np.allclose(r_sg, r_sg.real)
 
@@ -1407,7 +1410,8 @@ class WLDA(XCFunctional):
                         return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
                     else:
                         return 0
-
+            else:
+                raise ValueError("Asked for index: {} in grid of length: {}".format(ia, len(alphas)))
             return ind
         self.get_indicator_alpha = get_ind_alpha
 
@@ -1417,6 +1421,7 @@ class WLDA(XCFunctional):
 
             return ind_sg
         self.get_indicator_sg = get_ind_sg
+        self.get_indicator_g = get_ind_sg
 
         def get_dind_alpha(ia):
             if ia == 0:
@@ -1452,7 +1457,9 @@ class WLDA(XCFunctional):
             dind_g = np.array([dind_a(v) for v in wn_sg.reshape(-1)]).reshape(wn_sg.shape)
 
             return dind_g
+        self.get_dindicator_sg = get_dind_g
         self.get_dindicator_g = get_dind_g
+
 
     def get_weight_function(self, ia, gd, alphas):
         alpha = alphas[ia]
@@ -1501,6 +1508,7 @@ class WLDA(XCFunctional):
 
     def lda_c(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
         assert spin in [0, 1]
+        from gpaw.xc.lda import lda_constants, G
         C0I, C1, CC1, CC2, IF2 = lda_constants()
         
         rs = (C0I / nstar_g) ** (1 / 3.)
@@ -1508,7 +1516,7 @@ class WLDA(XCFunctional):
                          0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
         
         if spin == 0:
-            e[:] += n * ec
+            e[:] += wn_g * ec
             v += ec - self.fold_with_derivative(rs * decdrs_0 / 3., wn_g, my_alpha_indices)
         else:
             e1, decdrs_1 = G(rs ** 0.5,
