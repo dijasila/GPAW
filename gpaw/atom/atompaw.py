@@ -2,12 +2,12 @@ from math import pi, sqrt
 
 import numpy as np
 from ase.atoms import Atoms
+from scipy.linalg import eigh
 
 from gpaw.calculator import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
-from gpaw.utilities.lapack import general_diagonalize
 from gpaw.occupations import OccupationNumbers
 import gpaw.mpi as mpi
 
@@ -116,7 +116,7 @@ class AtomEigensolver:
 
         self.initialized = True
 
-    def iterate(self, hamiltonian, wfs):
+    def iterate(self, hamiltonian, wfs, occ):
         if not self.initialized:
             self.initialize(wfs)
 
@@ -143,12 +143,12 @@ class AtomEigensolver:
                                   np.outer(pt1 * r, pt2 * r))
                         i2 += 2 * l2 + 1
                     i1 += 2 * l1 + 1
-                general_diagonalize(H, e_n, self.S_l[l].copy())
+                e_n, H = eigh(H, self.S_l[l].copy())
 
                 for n in range(len(self.f_sln[s][l])):
                     N2 = N1 + 2 * l + 1
                     kpt.eps_n[N1:N2] = e_n[n]
-                    kpt.psit_nG[N1:N2] = H[n] / r / sqrt(h)
+                    kpt.psit_nG[N1:N2] = H[:, n] / r / sqrt(h)
                     i1 = 0
                     for pt, ll in zip(self.pt_j, setup.l_j):
                         i2 = i1 + 2 * ll + 1

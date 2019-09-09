@@ -16,7 +16,7 @@ from gpaw.cdft.cdft import (WeightFunc, get_ks_energy_wo_external,
 from ase.units import kB as kb
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
 from ase.units import Bohr
-from ase.parallel import rank
+from gpaw.mpi import rank
 import warnings
 #from gpaw.utilities.blas import gemm
 #from gpaw.utilities.tools import tri2full

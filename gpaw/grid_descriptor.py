@@ -12,11 +12,11 @@ import numbers
 from math import pi
 
 import numpy as np
+from scipy.ndimage import map_coordinates
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities import mlsqr
 from gpaw.utilities.blas import rk, r2k, gemm
 
 
@@ -36,7 +36,7 @@ class BadGridError(ValueError):
 
 
 class GridDescriptor(Domain):
-    """Descriptor-class for uniform 3D grid
+    r"""Descriptor-class for uniform 3D grid
 
     A ``GridDescriptor`` object holds information on how functions, such
     as wave functions and electron densities, are discreticed in a
@@ -450,9 +450,11 @@ class GridDescriptor(Domain):
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc)
+                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
-                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, ft_sc[s])
+                    t_c = (ft_sc[s] * self.N_c).round().astype(int)
+                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
+                                        1 - self.pbc_c)
         else:
             B_g = None
         self.distribute(B_g, a_g)
@@ -671,52 +673,22 @@ class GridDescriptor(Domain):
 
         return np.dot(s_Gc, cell_cv).T.copy()
 
-    def interpolate_grid_points(self, spos_nc, vt_g, target_n, use_mlsqr=True):
+    def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.
 
         Calculate interpolated values from array vt_g based on the
         scaled coordinates on spos_c.
 
-        Uses moving least squares algorithm by default, or otherwise
-        trilinear interpolation.
-
         This doesn't work in parallel, since it would require
-        communication between neighbouring grid.  """
+        communication between neighbouring grids."""
 
         assert self.comm.size == 1
 
-        if use_mlsqr:
-            mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)
-        else:
-            for n, spos_c in enumerate(spos_nc):
-                g_c = self.N_c * spos_c - self.beg_c
-
-                # The begin and end of the array slice
-                bg_c = np.floor(g_c).astype(int)
-                Bg_c = np.ceil(g_c).astype(int)
-
-                # The coordinate within the box (bottom left = 0,
-                # top right = h_c)
-                dg_c = g_c - bg_c
-                Bg_c %= self.N_c
-
-                target_n[n] = (
-                    vt_g[bg_c[0], bg_c[1], bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[Bg_c[0], bg_c[1], bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[bg_c[0], Bg_c[1], bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[Bg_c[0], Bg_c[1], bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[bg_c[0], bg_c[1], Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0], bg_c[1], Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[bg_c[0], Bg_c[1], Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0], Bg_c[1], Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
+        vt_g = self.zero_pad(vt_g)
+        return map_coordinates(vt_g,
+                               (spos_nc * self.N_c).T,
+                               order=3,
+                               mode='wrap')
 
     def __eq__(self, other):
         # XXX Wait, should this not check the global distribution?  This

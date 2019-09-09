@@ -3,7 +3,7 @@ from ase.vibrations import Vibrations
 from gpaw import GPAW
 from gpaw.mpi import world
 
-h2o = GPAW('h2o.gpw', txt=None).get_atoms()
+h2o = GPAW('h2o.gpw', txt=None, symmetry='off').get_atoms()
 
 # Test restart:
 vib = Vibrations(h2o)

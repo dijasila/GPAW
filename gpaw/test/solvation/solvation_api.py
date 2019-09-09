@@ -104,15 +104,12 @@ atoms.calc = SolvationGPAW(
         effective_potential=Power12Potential(atomic_radii=atomic_radii, u0=u0),
         temperature=T,
         surface_calculator=GradientSurface(),
-        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
-        ),
+        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)),
     dielectric=LinearDielectric(epsinf=epsinf),
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(voltage=V_leak)
-        ]
-    )
+        LeakedDensityInteraction(voltage=V_leak)])
 print_results(atoms)
 
 
@@ -124,15 +121,12 @@ atoms.calc = SolvationGPAW(
         rhomin, rhomax, epsinf,
         density=ElDensity(),
         surface_calculator=GradientSurface(),
-        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
-        ),
+        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)),
     dielectric=LinearDielectric(epsinf=epsinf),
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(voltage=V_leak)
-        ]
-    )
+        LeakedDensityInteraction(voltage=V_leak)])
 print_results(atoms)
 
 
@@ -143,15 +137,12 @@ atoms.calc = SolvationGPAW(
         rho0, beta,
         density=ElDensity(),
         surface_calculator=GradientSurface(),
-        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
-        ),
+        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)),
     dielectric=LinearDielectric(epsinf=epsinf),
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(voltage=V_leak)
-        ]
-    )
+        LeakedDensityInteraction(voltage=V_leak)])
 print_results(atoms)
 
 
@@ -162,13 +153,10 @@ atoms.calc = SolvationGPAW(
         rho0_fake, beta_fake,
         density=SSS09Density(atomic_radii=atomic_radii),
         surface_calculator=GradientSurface(),
-        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)
-        ),
+        volume_calculator=KB51Volume(compressibility=kappa_T, temperature=T)),
     dielectric=LinearDielectric(epsinf=epsinf),
     interactions=[
         SurfaceInteraction(surface_tension=gamma),
         VolumeInteraction(pressure=p),
-        LeakedDensityInteraction(voltage=V_leak)
-        ]
-    )
+        LeakedDensityInteraction(voltage=V_leak)])
 print_results(atoms)

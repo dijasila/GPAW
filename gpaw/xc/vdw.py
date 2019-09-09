@@ -13,7 +13,6 @@ XC-functional.  There are two implementations:
 
 from __future__ import print_function
 import os
-import pickle
 import sys
 import time
 from math import sin, cos, exp, pi, log, sqrt, ceil
@@ -126,7 +125,7 @@ def VDWFunctional(name, fft=True, stencil=2, **kwargs):
     else:
         2 / 0
     if fft:
-        return GGAFFTVDWFunctional(name, kernel, stencil,**kwargs)
+        return GGAFFTVDWFunctional(name, kernel, stencil, **kwargs)
     return GGARealSpaceVDWFunctional(name, kernel, stencil, **kwargs)
 
 
@@ -304,16 +303,6 @@ class VDWFunctionalBase:
                 if self.verbose:
                     print('VDW: using', filename)
                 return
-
-        if sys.version_info[0] == 2:
-            oldname = name[:-3] + 'pckl'
-            for dir in dirs:
-                filename = os.path.join(dir, oldname)
-                if os.path.isfile(filename):
-                    self.phi_ij = pickle.load(open(filename, 'rb'))
-                    if self.verbose:
-                        print('VDW: using', filename)
-                    return
 
         print('VDW: Could not find table file:', name)
         self.make_table(name)

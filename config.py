@@ -172,7 +172,7 @@ def get_system_config(define_macros, undef_macros,
                     libraries += ['satlas']
                     library_dirs += [libdir]
                 else:
-                    libraries += ['blas', 'lapack']
+                    libraries += ['blas']
 
     elif machine == 'ia64':
 
