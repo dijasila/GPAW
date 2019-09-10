@@ -201,7 +201,6 @@ class Tester(BaseTester):
         assert (np.array([(Z >= -1).any() for Z in Z_i.T])).all()
         assert (np.array([(Z <= -1).any() for Z in Z_i.T])).all()
 
-
     def test_12_standardZs_lessgreatm1_vsmallmag(self):
         # Test that the Zs have values that are both greater than
         # and less than -1.

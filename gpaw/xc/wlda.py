@@ -1305,7 +1305,7 @@ class WLDA(XCFunctional):
         alphas = self.setup_indicator_grid(self.nindicators)
         self.alphas = alphas
         self.setup_indicators(alphas)
-        my_alpha_indices = self.distribute_alphas(self.nindicators)
+        my_alpha_indices = self.distribute_alphas(self.nindicators, mpi.rank, mpi.size)
 
         # 0. Collect density, and get grid_descriptor appropriate for collected density
         wn_sg = gd.collect(n_sg)
@@ -1339,10 +1339,7 @@ class WLDA(XCFunctional):
         
         # Done
 
-    def distribute_alphas(self, nindicators):
-        rank = mpi.rank
-        size = mpi.size
-        
+    def distribute_alphas(self, nindicators, rank, size):
         nalphas = nindicators // size
         nalphas0 = nalphas + (nindicators - nalphas * size)
         assert (nalphas * (size - 1) + nalphas0 == nindicators)
@@ -1364,22 +1361,37 @@ class WLDA(XCFunctional):
         
         for ia in my_alpha_indices:
             nstar_sg += self.apply_kernel(wn_sg, ia, gd)
-            
-        assert (nstar_sg >= 0).all(), np.sum(nstar_sg[nstar_sg < 0])
+         
+        #assert np.abs(np.mean(nstar_sg[nstar_sg < 0]) / np.mean(nstar_sg)) < 1e-4, np.mean(nstar_sg[nstar_sg < 0]) / np.mean(nstar_sg)
+        assert (nstar_sg >= 0).all(), "{}::{}".format(np.sum(nstar_sg[nstar_sg < 0]), np.mean(nstar_sg[nstar_sg < 0])/np.mean(nstar_sg))
         return nstar_sg
         
     def apply_kernel(self, wn_sg, ia, gd):
         f_sg = self.get_indicator_g(wn_sg, ia) * wn_sg
         
-        f_sG = np.fft.fftn(f_sg, axes=(1, 2, 3))
+        f_sG = np.fft.fftn(f_sg, axes=(1, 2, 3), norm="ortho")
 
         w_sG = self.get_weight_function(ia, gd, self.alphas)
         
-        r_sg = np.fft.ifftn(w_sG * f_sG, axes=(1, 2, 3))
+        r_sg = np.fft.ifftn(w_sG * f_sG, axes=(1, 2, 3), norm="ortho")
 
         assert np.allclose(r_sg, r_sg.real)
 
         return r_sg.real
+
+    def get_weight_function(self, ia, gd, alphas):
+        alpha = alphas[ia]
+
+        kF = (3 * np.pi**2 * alpha)**(1 / 3)
+
+        K_G = self._get_K_G(gd)
+
+        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**20).astype(np.complex128)
+        res = res / res[0, 0, 0]
+        assert not np.isnan(res).any()
+        return res
+
+        #return (K_G**2 <= 4 * kF**2).astype(np.complex128)
 
     def setup_indicators(self, alphas):
         
@@ -1388,28 +1400,64 @@ class WLDA(XCFunctional):
             # and goes smoothly to zero at adjacent points
             if ia > 0 and ia < len(alphas) - 1:
                 def ind(x):
-                    if x < alphas[ia] and x >= alphas[ia - 1]:
-                        return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
-                    elif x >= alphas[ia] and x < alphas[ia + 1]:
-                        return (x - alphas[ia]) / (alphas[ia + 1] - alphas[ia])
+                    if isinstance(x, type(np.array([]))):
+                        copy_x = x.copy()
+                        ind1 = np.logical_and(x < alphas[ia], x >= alphas[ia - 1])
+                        copy_x[ind1] = (x[ind1] - alphas[ia - 1]) / (alphas[ia] - alphas[ia -1])
+
+                        ind2 = np.logical_and(x >= alphas[ia], x < alphas[ia + 1])
+                        copy_x[ind2] = (alphas[ia + 1] - x[ind2]) / (alphas[ia + 1] - alphas[ia])
+
+                        ind3 = np.logical_not(np.logical_or(ind1, ind2))
+                        copy_x[ind3] = 0
+                        return copy_x
                     else:
-                        return 0
+                        if x < alphas[ia] and x >= alphas[ia - 1]:
+                            return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+                        elif x >= alphas[ia] and x < alphas[ia + 1]:
+                            return (alphas[ia + 1] - x) / (alphas[ia + 1] - alphas[ia])
+                        else:
+                            return 0
             elif ia == 0:
                 def ind(x):
-                    if x <= alphas[ia]:
-                        return 1
-                    elif x <= alphas[ia + 1]:
-                        return (x - alphas[ia]) / (alphas[ia + 1] - alphas[ia])
+                    if isinstance(x, type(np.array([]))):
+                        copy_x = x.copy()
+                        ind1 = (x <= alphas[ia])
+                        copy_x[ind1] = 1
+                        
+                        ind2 = np.logical_and((x <= alphas[ia + 1]), np.logical_not(ind1))
+                        copy_x[ind2] = (alphas[ia + 1] - x[ind2]) / (alphas[ia + 1] - alphas[ia])
+
+                        ind3 = np.logical_not(np.logical_or(ind1, ind2))
+                        copy_x[ind3] = 0
+                        return copy_x
                     else:
-                        return 0
+                        if x <= alphas[ia]:
+                            return 1
+                        elif x <= alphas[ia + 1]:
+                            return (alphas[ia + 1] - x) / (alphas[ia + 1] - alphas[ia])
+                        else:
+                            return 0
             elif ia == len(alphas) - 1:
                 def ind(x):
-                    if x >= alphas[ia]:
-                        return 1
-                    elif x >= alphas[ia - 1]:
-                        return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+                    if isinstance(x, type(np.array([]))):
+                        copy_x = x.copy()
+                        ind1 = (x >= alphas[ia])
+                        copy_x[ind1] = 1
+                        
+                        ind2 = np.logical_and((x >= alphas[ia -1]), np.logical_not(ind1))
+                        copy_x[ind2] = (x[ind2] - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+
+                        ind3 = np.logical_not(np.logical_or(ind1, ind2))
+                        copy_x[ind3] = 0
+                        return copy_x
                     else:
-                        return 0
+                        if x >= alphas[ia]:
+                            return 1
+                        elif x >= alphas[ia - 1]:
+                            return (x - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+                        else:
+                            return 0
             else:
                 raise ValueError("Asked for index: {} in grid of length: {}".format(ia, len(alphas)))
             return ind
@@ -1417,7 +1465,8 @@ class WLDA(XCFunctional):
 
         def get_ind_sg(wn_sg, ia):
             ind_a = self.get_indicator_alpha(ia)
-            ind_sg = np.array([ind_a(v) for v in wn_sg.reshape(-1)]).reshape(wn_sg.shape)
+            ind_sg = ind_a(wn_sg).astype(wn_sg.dtype) #FAST
+            # ind_sg = np.array([ind_a(v) for v in wn_sg.reshape(-1)]).reshape(wn_sg.shape) #SLOW
 
             return ind_sg
         self.get_indicator_sg = get_ind_sg
@@ -1459,16 +1508,6 @@ class WLDA(XCFunctional):
             return dind_g
         self.get_dindicator_sg = get_dind_g
         self.get_dindicator_g = get_dind_g
-
-
-    def get_weight_function(self, ia, gd, alphas):
-        alpha = alphas[ia]
-
-        kF = (3 * np.pi**2 * alpha)**(1 / 3)
-
-        K_G = self._get_K_G(gd)
-
-        return (K_G**2 <= 4 * kF**2).astype(np.complex128)
 
     def calculate_wlda(self, wn_sg, nstar_sg, my_alpha_indices):
         # Calculate the XC energy and potential that corresponds
