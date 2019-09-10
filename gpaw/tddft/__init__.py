@@ -116,6 +116,7 @@ class TDDFT(GPAW):
 
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
+        self.default_parameters['symmetry'] = {'point_group': False}
 
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.

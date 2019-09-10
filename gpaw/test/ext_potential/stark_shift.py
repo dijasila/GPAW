@@ -1,11 +1,10 @@
-from __future__ import print_function
 from math import sqrt, pi
 
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Hartree
-from ase.parallel import rank, size
 
+from gpaw.mpi import rank, size
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
 from gpaw.point_charges import PointCharges
@@ -35,7 +34,7 @@ def dipole_op(c, state1, state2, k=0, s=0):
     for i in wfs.kpt_u:
         if i.k == k and i.s == s:
             kpt = i
-    
+
     pd = PairDensity(c)
     pd.initialize(kpt, state1, state2)
 

@@ -16,7 +16,7 @@ itself is written mostly in the Python programming language, but there
 are also some C-code used for:
 
 * performance critical parts
-* allowing Python to talk to external numerical libraries (BLAS_, LAPACK_,
+* allowing Python to talk to external numerical libraries (BLAS_,
   LibXC_, MPI_ and ScaLAPACK_)
 
 So, in order to make GPAW work, you need to compile some C-code.  For serial
@@ -64,7 +64,7 @@ Requirements
 * ASE_ 3.18.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 3.x or 4.x
-* BLAS_ and LAPACK_ libraries
+* BLAS_ library
 
 Optional, but highly recommended:
 
@@ -80,7 +80,6 @@ Optional, but highly recommended:
 .. _MPI: http://www.mpi-forum.org/
 .. _BLAS: http://www.netlib.org/blas/
 .. _BLACS: http://www.netlib.org/blacs/
-.. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
 .. _PyPI: https://pypi.org/project/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
@@ -215,11 +214,11 @@ the setup with :git:`customize.py` file which is located in the GPAW base
 directory. As an example, :git:`customize.py` might contain the following
 lines::
 
-  libraries = ['myblas', 'mylapack']
+  libraries = ['myblas']
   library_dirs = ['path_to_myblas']
 
-Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas
--lmylapack``" linker flags. Look at the file :git:`customize.py`
+Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas``"
+linker flags. Look at the file :git:`customize.py`
 itself for more possible options.  :ref:`platforms and architectures`
 provides examples of :file:`customize.py` for different platforms.
 After editing :git:`customize.py`, follow the instructions for the
