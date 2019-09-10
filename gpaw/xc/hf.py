@@ -70,7 +70,7 @@ class EXX:
                       for _ in range(len(v_knG))]
         else:
             v_nG = None
-            v_kani = None
+            v_ani = None
 
         exxvv = 0.0
         for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
