@@ -340,6 +340,11 @@ class SJM(SolvationGPAW):
         self.sog('*****************************')
         self.sog('Solvated jellium calculation.')
         self.sog('*****************************')
+        self.sog('System changes: {:s}'.format(str(system_changes)))
+        self.sog('Requested properties: {:s}'.format(str(system_changes)))
+        # FIXME: Should results be zerod when set is called? That might be
+        # easiest. Then I can check here if the results are not zero 
+        # and we can calculate things directly.
         if self.scf is not None:
             self.sog('SCF converged? {:s}'.format(str(self.scf.converged)))
         else:
@@ -375,6 +380,8 @@ class SJM(SolvationGPAW):
                 if equil_iter == 1:
                     self.timer.start('Potential equilibration loop')
                     system_changes = []
+                    # FIXME Why is system_changes deleted?
+                    # Doesn't SolvationGPAW.calculate need this?
 
                 if False:
                     # FIXME: I don't think this should be needed here.
@@ -698,6 +705,7 @@ class SJM(SolvationGPAW):
     """Various tools for writing global functions"""
 
     def write_parallel_func_in_z(self, g, name='g_z.out'):
+        # FIXME: This needs some documentation!
         gd = self.density.finegd
         from gpaw.mpi import world
         G = gd.collect(g, broadcast=False)
