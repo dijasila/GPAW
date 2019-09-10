@@ -47,16 +47,16 @@ xx = EXX(kd, [Setup()], pt, coulomb, spos_ac)
 v_nG = pd.zeros(nb)
 VV_aii = [np.zeros((1, 1)) + 0.5]
 psit.matrix_elements(pt, out=proj)
-x = xx.calculate_energy([kpt], [kpt], VV_aii, [v_nG])
+x = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
 v = v_nG[0, 1]
 print(v_nG)
 print(x)
 eps = 0.001
 data[0, 1] = 1 + eps
 psit.matrix_elements(pt, out=proj)
-xp = xx.calculate_energy([kpt], [kpt], VV_aii, [v_nG])
+xp = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
 data[0, 1] = 1 - eps
 psit.matrix_elements(pt, out=proj)
-xm = xx.calculate_energy([kpt], [kpt], VV_aii, [v_nG])
+xm = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
 d = (xp[0] + xp[1] - xm[0] - xm[1]) / (2 * eps) * N**3 * 4
 print(v / d)

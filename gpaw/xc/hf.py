@@ -59,7 +59,7 @@ class EXX:
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-    def calculate_energy(self, kpts1, kpts2, VV_aii, v_knG=None, e_kn=None):
+    def calculate(self, kpts1, kpts2, VV_aii, v_knG=None, e_kn=None):
         pd = kpts1[0].psit.pd
 
         if v_knG is not None:
@@ -319,15 +319,15 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
 
 def parse_name(name: str) -> Tuple[str, float, float]:
     if name == 'EXX':
-        return 'null', 1.0, nan
+        return 'null', 1.0, 0.0
     if name == 'PBE0':
-        return 'HYB_GGA_XC_PBEH', 0.25, nan
+        return 'HYB_GGA_XC_PBEH', 0.25, 0.0
     if name == 'HSE03':
         return 'HYB_GGA_XC_HSE03', 0.25, 0.106
     if name == 'HSE06':
         return 'HYB_GGA_XC_HSE06', 0.25, 0.11
     if name == 'B3LYP':
-        return 'HYB_GGA_XC_B3LYP', 0.2, nan
+        return 'HYB_GGA_XC_B3LYP', 0.2, 0.0
 
 
 class Hybrid:
@@ -348,7 +348,7 @@ class Hybrid:
         else:
             assert xc is not None and exx_fraction is not None
 
-        if isinstance(xc, (str, dict)):
+        if xc:
             xc = XC(xc)
 
         self.xc = xc
@@ -389,7 +389,7 @@ class Hybrid:
         self.spos_ac = spos_ac
 
     def calculate(self, gd, nt_sr, vt_sr):
-        if self.xc is None:
+        if not self.xc:
             return self.evv + self.evc
         e_r = gd.empty()
         self.xc.calculate(gd, nt_sr, vt_sr, e_r)
@@ -411,14 +411,14 @@ class Hybrid:
         assert kd.comm.size == 1 or kd.comm.size == 2 and wfs.nspins == 2
         assert wfs.bd.comm.size == 1
 
-        if self.omega is None:
-            # Wigner-Seitz truncated Coulomb:
-            coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
-        else:
+        if self.omega:
             def coulomb(pd):
                 G2_G = pd.G2_qG[0]
                 x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
                 return 4 * np.pi * x_G / G2_G
+        else:
+            # Wigner-Seitz truncated Coulomb:
+            coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
 
         self.xx = EXX(wfs.kd, wfs.setups, wfs.pt, coulomb, self.spos_ac)
 
@@ -495,9 +495,9 @@ class Hybrid:
             psit = kpt.psit.new(buf=psit_xG)
             kpts1 = [KPoint(psit,
                             kpt.projections,
-                            None,
+                            kpt.f_n + nan,
                             kd.ibzk_kc[kpt.k],
-                            None)]
+                            nan)]
             self.xx.calculate(
                 kpts1, kpts2,
                 VV_aii,

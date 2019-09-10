@@ -111,7 +111,6 @@ class Davidson(Eigensolver):
         if self.keep_htpsit:
             R = psit.new(buf=self.Htpsit_nG)
         else:
-            asdflhg
             R = psit.apply(Ht)
 
         self.calculate_residuals(kpt, wfs, ham, psit, P, kpt.eps_n, R, P2)
@@ -126,6 +125,10 @@ class Davidson(Eigensolver):
             for psit_G, R_G, psit2_G in zip(psit.array, R.array, psit2.array):
                 ekin = precond.calculate_kinetic_energy(psit_G, kpt)
                 precond(R_G, kpt, ekin, out=psit2_G)
+
+            if 1:
+                psit.array[:] += 0.1 * psit2.array
+                return error
 
             # Calculate projections
             psit2.matrix_elements(wfs.pt, out=P2)
