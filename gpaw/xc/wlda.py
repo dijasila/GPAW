@@ -1318,24 +1318,21 @@ class WLDA(XCFunctional):
 
         # 2. calculate weighted density
         # This contains contributions for the alphas at this rank, i.e. we need a world.sum to get all contributions
-        return
         nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
         mpi.world.sum(nstar_sg)
 
         # 3. Calculate LDA energy 
         e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
+        # v1_sg here is v_LDA[n*](s, r)
+        assert not np.allclose(v1_sg, 0)
+        assert not np.allclose(e1_g, 0)
 
-        # These sums should not be necessary.
-        # Only one part of the potential needs to be summed
-        # mpi.world.sum(e1_g)
-        # mpi.world.sum(v1_sg)
+        v1_sg = np.array([self.fold_with_derivative(v1_g, wn_sg[i], my_alpha_indices) for i, v1_g in enumerate(v1_sg)])
+        mpi.world.sum(v1_sg)
+        # v1_sg here is \int v_LDA[n*](s, r') dn*(r')/dn(r) dr'
 
-        # 4. Correct potential
-        v2_sg = self.correct_potential(nstar_sg, v1_sg)
-        mpi.world.sum(v2_sg)
-        
         gd.distribute(e1_g, e_g)
-        gd.distribute(v2_sg, v_sg)
+        gd.distribute(v1_sg, v_sg)
         
         # Done
 
@@ -1369,11 +1366,11 @@ class WLDA(XCFunctional):
     def apply_kernel(self, wn_sg, ia, gd):
         f_sg = self.get_indicator_g(wn_sg, ia) * wn_sg
         
-        f_sG = np.fft.fftn(f_sg, axes=(1, 2, 3), norm="ortho")
+        f_sG = self.fftn(f_sg, axes=(1, 2, 3))
 
         w_sG = self.get_weight_function(ia, gd, self.alphas)
         
-        r_sg = np.fft.ifftn(w_sG * f_sG, axes=(1, 2, 3), norm="ortho")
+        r_sg = self.ifftn(w_sG * f_sG, axes=(1, 2, 3))
 
         assert np.allclose(r_sg, r_sg.real)
 
@@ -1392,6 +1389,12 @@ class WLDA(XCFunctional):
         return res
 
         #return (K_G**2 <= 4 * kF**2).astype(np.complex128)
+
+    def fftn(self, arr, axes=None):
+        return np.fft.fftn(arr, axes=axes, norm="ortho")
+    
+    def ifftn(self, arr, axes=None):
+        return np.fft.ifftn(arr, axes=axes, norm="ortho")
 
     def setup_indicators(self, alphas):
         
@@ -1516,10 +1519,12 @@ class WLDA(XCFunctional):
         exc_g = np.zeros_like(wn_sg[0])
         vxc_sg = np.zeros_like(wn_sg)
 
-        if len(wn_sg) == 0:
+        if len(wn_sg) == 1:
             self.lda_x(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], my_alpha_indices)
-            self.lda_c(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], my_alpha_indices)
+            zeta = 0
+            self.lda_c(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
         else:
+            assert False
             na = 2.0 * nstar_sg[0]
             nb = 2.0 * nstar_sg[1]
             n = 0.5 * (na + nb)
@@ -1528,6 +1533,7 @@ class WLDA(XCFunctional):
             self.lda_x(1, exc_g, na, vxc_sg[0], my_alpha_indices)
             self.lda_x(1, exc_g, nb, vxc_sg[1], my_alpha_indices)
             self.lda_c(1, exc_g, n, vxc_sg, zeta, my_alpha_indices)
+        
         
         return exc_g, vxc_sg
 
@@ -1543,7 +1549,7 @@ class WLDA(XCFunctional):
             e[:] += wn_g * ex
         else:
             e[:] += 0.5 * wn_g * ex
-        v += ex - self.fold_with_derivative(rs * dexdrs / 3., wn_g, my_alpha_indices)
+        v += ex - rs * dexdrs / 3.
 
     def lda_c(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
         assert spin in [0, 1]
@@ -1556,7 +1562,7 @@ class WLDA(XCFunctional):
         
         if spin == 0:
             e[:] += wn_g * ec
-            v += ec - self.fold_with_derivative(rs * decdrs_0 / 3., wn_g, my_alpha_indices)
+            v += ec - rs * decdrs_0 / 3.
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
@@ -1582,13 +1588,13 @@ class WLDA(XCFunctional):
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
             e[:] += wn_g * ec
 
-            fold_g = self.fold_with_derivative(rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta, wn_g, my_alpha_indices)
-            mpi.world.sum(fold_g)
-            v[0] += ec -fold_g
+            # fold_g = self.fold_with_derivative(rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta, wn_g, my_alpha_indices)
+            # mpi.world.sum(fold_g)
+            v[0] += ec - rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta
 
-            fold2_g = self.fold_with_derivative(rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta, wn_g, my_alpha_indices)
-            mpi.world.sum(fold2_g)
-            v[1] += ec - fold2_g
+            # fold2_g = self.fold_with_derivative(rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta, wn_g, my_alpha_indices)
+            # mpi.world.sum(fold2_g)
+            v[1] += ec - rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta
 
     def fold_with_derivative(self, f_g, n_g, my_alpha_indices):
         res_g = np.zeros_like(f_g)
@@ -1598,9 +1604,9 @@ class WLDA(XCFunctional):
             dind_g = self.get_dindicator_g(n_g, ia)
             
             fac_g = ind_g + dind_g * n_g
-            int_G = np.fft.fftn(f_g)
+            int_G = self.fftn(f_g)
             w_G = self.get_weight_function(ia, self.gd, self.alphas)
-            r_g = np.fft.ifftn(w_G * int_G)
+            r_g = self.ifftn(w_G * int_G)
             assert np.allclose(r_g, r_g.real)
             res_g += r_g.real * fac_g
 
