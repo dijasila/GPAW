@@ -94,6 +94,7 @@ class EXX:
                 e_kn[i1] -= e_nn.dot(k2.f_n)
 
         exxvc = 0.0
+
         for i, kpt in enumerate(kpts1):
             for a, P_ni in kpt.proj.items():
                 vv_n = np.einsum('ni, ij, nj -> n',
@@ -109,9 +110,58 @@ class EXX:
             for v_nG, v_ani in zip(v_knG, v_kani):
                 for a, P_ni in kpt.proj.items():
                     v_ani[a] -= P_ni.dot(self.VC_aii[a] + VV_aii[a])
-                self.pt.add(v_nG, v_ani)
+                self.pt.add(v_nG, v_ani)#,k?
 
         return exxvv, exxvc
+
+    def calculate_exx_for_pair(self,
+                               k1,
+                               k2,
+                               ghat,
+                               v_G,
+                               pd,
+                               index,
+                               f2_n,
+                               vpsit_nG=None,
+                               v_ani=None):
+        Q_annL = [np.einsum('mi, ijL, nj -> mnL',
+                            k1.proj[a].conj(),
+                            Delta_iiL,
+                            k2.proj[a])
+                  for a, Delta_iiL in enumerate(self.Delta_aiiL)]
+
+        N1 = len(k1.u_nR)
+        N2 = len(k2.u_nR)
+        exx_nn = np.empty((N1, N2))
+        rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
+
+        for n1, u1_R in enumerate(k1.u_nR):
+            u1cc_R = u1_R.conj()
+
+            n0 = n1 if k1 is k2 else 0
+            n0=0
+            for n2, rho_G in enumerate(rho_nG[n0:], n0):
+                rho_G[:] = ghat.pd.fft(u1cc_R * k2.u_nR[n2])
+
+            ghat.add(rho_nG[n0:],
+                     {a: Q_nnL[n1, n0:]
+                      for a, Q_nnL in enumerate(Q_annL)})
+
+            for n2, rho_G in enumerate(rho_nG[n0:], n0):
+                vrho_G = v_G * rho_G
+                if vpsit_nG is not None:
+                    for a, v_L in ghat.integrate(vrho_G).items():
+                        v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_L[0])
+                        v_ani[a][n1] += v_ii.dot(k2.proj[a][n2])
+                    vrho_R = ghat.pd.ifft(vrho_G)
+                    vpsit_nG[n1] -= f2_n[n2] * pd.fft(
+                        vrho_R.conj() * k2.u_nR[n2], index)
+                e = ghat.pd.integrate(rho_G, vrho_G).real
+                exx_nn[n1, n2] = e
+                #if k1 is k2:
+                #    exx_nn[n2, n1] = e
+
+        return exx_nn
 
     def calculate_eigenvalues(self, kpts1, kpts2, coulomb, VV_aii,
                               e_kn, v_nG=None):
@@ -139,55 +189,6 @@ class EXX:
                 vc_n = np.einsum('ni,ij,nj->n',
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 e_kn[i] -= (2 * vv_n + vc_n)
-
-    def calculate_exx_for_pair(self,
-                               k1,
-                               k2,
-                               ghat,
-                               v_G,
-                               pd,
-                               index,
-                               f2_n,
-                               vpsit_nG=None,
-                               v_ani=None):
-        Q_annL = [np.einsum('mi, ijL, nj -> mnL',
-                            k1.proj[a].conj(),
-                            Delta_iiL,
-                            k2.proj[a])
-                  for a, Delta_iiL in enumerate(self.Delta_aiiL)]
-
-        N1 = len(k1.u_nR)
-        N2 = len(k2.u_nR)
-        exx_nn = np.empty((N1, N2))
-        rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
-
-        for n1, u1_R in enumerate(k1.u_nR):
-            u1cc_R = u1_R.conj()
-
-            n0 = n1 if k1 is k2 else 0
-
-            for n2, rho_G in enumerate(rho_nG[n0:], n0):
-                rho_G[:] = ghat.pd.fft(u1cc_R * k2.u_nR[n2])
-
-            ghat.add(rho_nG[n0:],
-                     {a: Q_nnL[n1, n0:]
-                      for a, Q_nnL in enumerate(Q_annL)})
-
-            for n2, rho_G in enumerate(rho_nG[n0:], n0):
-                vrho_G = v_G * rho_G
-                if vpsit_nG is not None:
-                    for a, v_L in ghat.integrate(vrho_G).items():
-                        v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_L[0])
-                        v_ani[a][n1] += v_ii.dot(k2.proj[a][n2])
-                    vrho_R = ghat.pd.ifft(vrho_G)
-                    vpsit_nG[n1] -= f2_n[n2] * pd.fft(
-                        vrho_R.conj() * k2.u_nR[n2], index)
-                e = ghat.pd.integrate(rho_G, vrho_G).real
-                exx_nn[n1, n2] = e
-                if k1 is k2:
-                    exx_nn[n2, n1] = e
-
-        return exx_nn
 
     def ipairs(self, kpts1, kpts2):
         kd = self.kd
@@ -347,6 +348,7 @@ class Hybrid:
             self.name = name
         else:
             assert xc is not None and exx_fraction is not None
+            self.name = '???'
 
         if xc:
             xc = XC(xc)
@@ -396,7 +398,9 @@ class Hybrid:
         return self.evv + self.evc + gd.integrate(e_r)
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
-        return 0.0
+        if not self.xc:
+            return 0.0
+        return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def get_kinetic_energy_correction(self):
         return -2 * self.evv#???? Compare with ekin from nabla^2
@@ -453,7 +457,7 @@ class Hybrid:
         deg = 2 / self.wfs.nspins
 
         if kpt.psit.array.base is psit_xG.base:
-            print(f'1 {spin}')
+            # print(f'1 {spin}')
             if (spin, kpt.k) not in self.cache:
                 if spin == 0:
                     self.evv = 0.0
@@ -475,9 +479,9 @@ class Hybrid:
                     kpts, kpts,
                     VV_aii,
                     v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
-                self.evv += evv * deg
-                self.evc += evc * deg
-            Htpsit_xG += self.cache.pop((spin, kpt.k))
+                self.evv += evv * deg * self.exx_fraction
+                self.evc += evc * deg * self.exx_fraction
+            Htpsit_xG += self.cache.pop((spin, kpt.k)) * self.exx_fraction
         else:
             assert len(self.cache) == 0
             print(f'2 {spin}')
@@ -504,7 +508,8 @@ class Hybrid:
                 v_knG=[Htpsit_xG])
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
-        pass  # 1 / 0
+        H_nn[1:, :1] = 0.0
+        H_nn[:1, 1:] = 0.0
 
     def rotate(self, kpt, U_nn):
         pass  # 1 / 0

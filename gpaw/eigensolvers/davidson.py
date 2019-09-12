@@ -84,7 +84,6 @@ class Davidson(Eigensolver):
             return sum(np.real(wfs.integrate(b_G, b_G, global_integral=False))
                        for b_G in a_G)
 
-        print('D')
         self.subspace_diagonalize(ham, wfs, kpt)
 
         psit = kpt.psit
@@ -118,7 +117,6 @@ class Davidson(Eigensolver):
         precond = self.preconditioner
 
         for nit in range(self.niter):
-            print('D', nit)
             if nit == self.niter - 1:
                 error = np.dot(weights, [integrate(R_G) for R_G in R.array])
 
@@ -128,6 +126,7 @@ class Davidson(Eigensolver):
 
             if 1:
                 psit.array[:] += 0.1 * psit2.array
+                psit.matrix_elements(wfs.pt, out=P)
                 return error
 
             # Calculate projections
