@@ -1391,10 +1391,10 @@ class WLDA(XCFunctional):
         #return (K_G**2 <= 4 * kF**2).astype(np.complex128)
 
     def fftn(self, arr, axes=None):
-        return np.fft.fftn(arr, axes=axes, norm="ortho")
+        return np.fft.fftn(arr, axes=axes, norm="ortho") * self.gd.dv
     
     def ifftn(self, arr, axes=None):
-        return np.fft.ifftn(arr, axes=axes, norm="ortho")
+        return np.fft.ifftn(arr, axes=axes, norm="ortho") / self.gd.dv
 
     def setup_indicators(self, alphas):
         

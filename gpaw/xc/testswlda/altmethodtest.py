@@ -5,7 +5,7 @@ from gpaw import GPAW, PW, mpi
 
 
 atoms = Atoms("H2", positions=[[0,0,0], [0,0,2]], cell=5*np.identity(3), pbc=True)
-calc = GPAW(mode=PW(400), xc="WLDA_altmethod", txt=None)
+calc = GPAW(mode=PW(350), xc="WLDA_altmethod", txt=None)
 calc.initialize(atoms=atoms)
 calc.set_positions(atoms)
 xc = calc.hamiltonian.xc
@@ -489,13 +489,10 @@ class Tester(BaseTester):
     def test_17_indicator_deriv(self):
         # Test that indicator implementation matches with deriv impl
         # via finite difference
-        np.random.seed(21237)
-        print("")
         n_sg = self.get_a_density()*10
 
         v_sg = np.zeros_like(n_sg)
         e_g = np.zeros_like(n_sg[0])
-        print("ALT 1")
         xc.alt_method(xc.gd, n_sg.copy(), v_sg, e_g)
 
         
@@ -512,13 +509,12 @@ class Tester(BaseTester):
             return ix, iy, iz
 
         ix, iy, iz = randind(n2_sg.shape[1:])
-        dn = 1.0000001 * n_sg[0, ix, iy, iz]
+        dn = 0.0000001 * n_sg[0, ix, iy, iz]
         n2_sg[0, ix, iy, iz] += dn
 
 
         v2_sg = np.zeros_like(n2_sg)
         e2_g = np.zeros_like(n2_sg[0])
-        print("ALT 2")
         xc.alt_method(xc.gd, n2_sg, v2_sg, e2_g)
         E2 = xc.gd.integrate(e2_g)
         
@@ -528,14 +524,10 @@ class Tester(BaseTester):
 
         v3_sg = np.zeros_like(n3_sg)
         e3_g = np.zeros_like(n3_sg[0])
-        print("ALT 3")
         xc.alt_method(xc.gd, n3_sg, v3_sg, e3_g)
 
         E3 = xc.gd.integrate(e3_g)
-
-        de_g = (e2_g - e3_g) / (2*dn)
-
-        dEdn = (E2 - E3) / (2 * dn)
+        dEdn = (E2 - E3) / (2 * dn * xc.gd.dv)
 
         def prod(itera):
             res = 1
@@ -543,11 +535,50 @@ class Tester(BaseTester):
                 res = res * it
             return res
 
-        print("NPTS: {}, sqrt(NPTS): {}, dv: {}, 1/dv: {}".format(prod(n_sg.shape), np.sqrt(prod(n_sg.shape)), xc.gd.dv, 1/xc.gd.dv))
-        assert np.allclose(dEdn, v_sg[0, ix, iy, iz]), "dEdn: {}, v_sg: {}, rel: {}".format(dEdn, v_sg[0, ix, iy, iz], v_sg[0, ix, iy, iz]/dEdn)
+        assert np.allclose(dEdn, v_sg[0, ix, iy, iz], rtol=1e-3), "dEdn: {}, v_sg: {}, rel: {}".format(dEdn, v_sg[0, ix, iy, iz], v_sg[0, ix, iy, iz]/dEdn)
 
-        assert np.allclose(de_g[ix, iy, iz], v_sg[0, ix, iy, iz]), "de_g: {}, v_sg: {}".format(de_g[ix, iy, iz], v_sg[0, ix, iy, iz])
-        print("deg_g: {}, v_sg: {}".format(de_g[ix, iy, iz], v_sg[0, ix, iy, iz]))
+        
+    def test_18_ldadf(self):
+        from gpaw.xc.lda import PurePythonLDAKernel
+
+        kernel = PurePythonLDAKernel()
+
+        n_sg = self.get_a_density()
+
+        e_g = np.zeros_like(n_sg[0])
+        v_sg = np.zeros_like(n_sg)
+
+        kernel.calculate(e_g, n_sg, v_sg)
+        
+        def randind(shape):
+            ix = np.random.randint(0, shape[0])
+            iy = np.random.randint(0, shape[1])
+            iz = np.random.randint(0, shape[2])
+            return ix, iy, iz
+        ix, iy, iz = randind(n_sg[0].shape)
+
+        dn = 0.00001 * n_sg[0, ix, iy, iz]
+
+        n2_sg = n_sg.copy()
+        n2_sg[0, ix, iy, iz] += dn
+
+        n3_sg = n_sg.copy()
+        n3_sg[0, ix, iy, iz] -= dn
+
+        e2_g = np.zeros_like(n2_sg[0])
+        v2_sg = np.zeros_like(n2_sg)
+        e3_g = np.zeros_like(n3_sg[0])
+        v3_sg = np.zeros_like(n3_sg)
+
+        kernel.calculate(e2_g, n2_sg, v2_sg)
+        kernel.calculate(e3_g, n3_sg, v3_sg)
+
+        
+        dEdn = (xc.gd.integrate(e2_g) - xc.gd.integrate(e3_g)) / (2 * dn * xc.gd.dv)
+
+        assert np.allclose(dEdn, v_sg[0, ix, iy, iz])
+
+        
 
 
 if __name__ == "__main__":
