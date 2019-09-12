@@ -1301,14 +1301,14 @@ class WLDA(XCFunctional):
         return result_sg
 
     def alt_method(self, gd, n_sg, v_sg, e_g):
-        self.nindicators = int(1e2)
+        self.nindicators = int(1e3)
         alphas = self.setup_indicator_grid(self.nindicators)
         self.alphas = alphas
         self.setup_indicators(alphas)
         my_alpha_indices = self.distribute_alphas(self.nindicators, mpi.rank, mpi.size)
 
         # 0. Collect density, and get grid_descriptor appropriate for collected density
-        wn_sg = gd.collect(n_sg)
+        wn_sg = gd.collect(n_sg, broadcast=True)
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.gd = gd1
         
