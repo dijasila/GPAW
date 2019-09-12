@@ -144,16 +144,11 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-
+        ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
         if ecut is None:
-            ecut = ecutmax * 0.9999
+            ecut = 0.9999 * ecut0
         else:
-            if ecut > ecutmax:
-                raise ValueError(
-                    'You have a weird unit cell!  '
-                    'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.build.niggli_reduce() function.')
+            assert ecut <= ecut0
 
         self.ecut = ecut
 
@@ -233,7 +228,6 @@ class PWDescriptor:
         self.maxmyng = (self.ngmax + S - 1) // S
         ng1 = gd.comm.rank * self.maxmyng
         ng2 = ng1 + self.maxmyng
-        assert ng1 <= self.ngmin
 
         self.G2_qG = []
         self.myQ_qG = []
@@ -411,11 +405,11 @@ class PWDescriptor:
         ssize_r[:N] = self.myng_q[q]
         soffset_r = np.arange(comm.size) * self.myng_q[q]
         soffset_r[N:] = 0
+        roffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
         rsize_r = np.zeros(comm.size, int)
         if comm.rank < N:
-            rsize_r[:-1] = self.maxmyng
-            rsize_r[-1] = ng - self.maxmyng * (comm.size - 1)
-        roffset_r = np.arange(0, ng, self.maxmyng)
+            rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
+            rsize_r[-1] = ng - roffset_r[-1]
         b_G = self.tmp_G[:ng]
         comm.alltoallv(a_rG, ssize_r, soffset_r, b_G, rsize_r, roffset_r)
         if comm.rank < N:
@@ -433,11 +427,11 @@ class PWDescriptor:
         rsize_r[:N] = self.myng_q[q]
         roffset_r = np.arange(comm.size) * self.myng_q[q]
         roffset_r[N:] = 0
+        soffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
         ssize_r = np.zeros(comm.size, int)
         if comm.rank < N:
-            ssize_r[:-1] = self.maxmyng
-            ssize_r[-1] = ng - self.maxmyng * (comm.size - 1)
-        soffset_r = np.arange(0, ng, self.maxmyng)
+            ssize_r[:-1] = soffset_r[1:] - soffset_r[:-1]
+            ssize_r[-1] = ng - soffset_r[-1]
         tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
         comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
         b_rG += tmp_rG
@@ -463,8 +457,14 @@ class PWDescriptor:
             assert self.dtype == float and self.gd.comm.size == 1
             return a_xg[..., 0].real * self.gd.dv
 
-        A_xg = a_xg.reshape((-1, a_xg.shape[-1]))
-        B_yg = b_yg.reshape((-1, b_yg.shape[-1]))
+        if a_xg.ndim == 1:
+            A_xg = a_xg.reshape((1, len(a_xg)))
+        else:
+            A_xg = a_xg
+        if b_yg.ndim == 1:
+            B_yg = b_yg.reshape((1, len(b_yg)))
+        else:
+            B_yg = b_yg
 
         alpha = self.gd.dv / self.gd.N_c.prod()
 
@@ -503,6 +503,9 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        if (pd.gd.N_c <= self.gd.N_c).any():
+            raise ValueError('Too few points in target grid!')
+
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -783,7 +786,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             self.dedepsilon = dedecut * 2 / 3 * self.ecut
 
     def get_pseudo_partial_waves(self):
-        return PWLFC([setup.get_actual_atomic_orbitals()
+        return PWLFC([setup.get_partial_waves_for_atomic_orbitals()
                       for setup in self.setups], self.pd)
 
     def __str__(self):
@@ -1252,12 +1255,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
             psit_nG = kpt.psit.array
-            for n, psit_G in enumerate(psit_nG.reshape((-1,
-                                                        psit_nG.shape[-1]))):
+            if psit_nG.ndim == 3:
+                N, S, G = psit_nG.shape
+                psit_nG = psit_nG.reshape((N * S, G))
+            for n, psit_G in enumerate(psit_nG):
                 psit_nR[:] = 0.0
-                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1], psit_nR, kpt.q)
+                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
+                                             psit_nR, kpt.q)
                 psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
-
             kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
@@ -1376,7 +1381,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}  # type: Dict[Spline, int]
+        splines = {}  # Dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
@@ -1392,7 +1397,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()  # type: Set[Spline]
+        done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
@@ -1527,14 +1532,21 @@ class PWLFC(BaseLFC):
 
         return f_GI
 
-    def block(self, q=-1):
+    def block(self, q=-1, ensure_same_number_of_blocks=False):
         nG = self.Y_qGL[q].shape[0]
-        if self.blocksize:
+        B = self.blocksize
+        if B:
             G1 = 0
             while G1 < nG:
-                G2 = min(G1 + self.blocksize, nG)
+                G2 = min(G1 + B, nG)
                 yield G1, G2
                 G1 = G2
+            if ensure_same_number_of_blocks:
+                # Make sure we yield the same number of times:
+                nb = (self.pd.maxmyng + B - 1) // B
+                mynb = (nG + B - 1) // B
+                if mynb < nb:
+                    yield nG, nG  # empty block
         else:
             yield 0, nG
 
@@ -1552,8 +1564,9 @@ class PWLFC(BaseLFC):
             if self.comm.size != 1:
                 self.comm.sum(c_xI)
 
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        c_xI = c_xI.reshape((nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
 
         for G1, G2 in self.block(q):
             if f0_IG is None:
@@ -1573,8 +1586,9 @@ class PWLFC(BaseLFC):
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        b_xI = c_xI.reshape((nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
@@ -1682,7 +1696,7 @@ class PWLFC(BaseLFC):
         G0_Gv = self.pd.get_reciprocal_vectors(q=q)
 
         stress_vv = np.zeros((3, 3))
-        for G1, G2 in self.block(q):
+        for G1, G2 in self.block(q, ensure_same_number_of_blocks=True):
             G_Gv = G0_Gv[G1:G2]
             Z_LvG = np.array([nablarlYL(L, G_Gv.T)
                               for L in range((lmax + 1)**2)])
@@ -1711,8 +1725,9 @@ class PWLFC(BaseLFC):
 
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        x = np.prod(c_xI.shape[:-1], dtype=int)
+        b_xI = c_xI.reshape((x, self.nI))
+        a_xG = a_xG.reshape((x, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
@@ -1741,14 +1756,17 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, ecut,
+                 gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
 
-        self.pd2 = PWDescriptor(None, gd)
-        self.pd3 = PWDescriptor(None, finegd)
+        ecut0 = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
+        ecut = min(ecut, ecut0)
+        self.pd2 = PWDescriptor(ecut, gd)
+        self.pd3 = PWDescriptor(4 * ecut, finegd)
 
         self.map23 = PWMapping(self.pd2, self.pd3)
 

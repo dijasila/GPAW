@@ -1,6 +1,3 @@
-import sys
-import optparse  # noqa
-
 from ase.cli.run import Runner, str2dict, CLICommand as ASECLICommand
 
 from gpaw import GPAW
@@ -67,5 +64,4 @@ class CLICommand:
     def run(args):
         runner = GPAWRunner()
         runner.parse(args)
-        if runner.errors:
-            sys.exit(runner.errors)
+        runner.run()

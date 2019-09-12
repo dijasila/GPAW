@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import tempfile
 import warnings
@@ -56,7 +55,9 @@ class CLICommand:
 
     @staticmethod
     def run(args):
-        main(args)
+        failed = main(args)
+        if failed:
+            raise SystemExit(1)
 
 
 def main(args):
@@ -142,6 +143,7 @@ def main(args):
     failed = TestRunner(tests, jobs=args.jobs,
                         show_output=args.show_output).run()
     os.chdir(cwd)
+    mpi.world.barrier()  # syncronize before removing tmpdir
     if mpi.rank == 0:
         if len(failed) > 0:
             open('failed-tests.txt', 'w').write('\n'.join(failed) + '\n')

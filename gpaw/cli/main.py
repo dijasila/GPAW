@@ -1,6 +1,6 @@
 """GPAW command-line tool."""
-from __future__ import print_function
 import os
+import subprocess
 import sys
 
 
@@ -33,16 +33,26 @@ def hook(parser, args):
     args = parser.parse_args()
 
     if args.parallel:
-        from gpaw.mpi import have_mpi
-        if not have_mpi:
-            # Start again using gpaw-python in parallel:
-            arguments = ['mpiexec', '-np', str(args.parallel),
-                         'gpaw-python']
+        from gpaw.mpi import have_mpi, world
+        if have_mpi and world.size == 1 and args.parallel > 1:
+            py = sys.executable
+        elif not have_mpi:
+            py = 'gpaw-python'
+        else:
+            py = ''
+
+        if py:
+            # Start again in parallel:
+            arguments = ['mpiexec', '-np', str(args.parallel), py]
             if args.command == 'python':
                 arguments += args.arguments
             else:
                 arguments += ['-m', 'gpaw'] + sys.argv[1:]
-            os.execvp('mpiexec', arguments)
+
+            # Use a clean set of environment variables without any MPI
+            # stuff:
+            subprocess.run(arguments, check=True, env=os.environ)
+            sys.exit()
 
     return args
 

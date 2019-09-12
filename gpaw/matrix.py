@@ -26,7 +26,7 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
         c.array[:] =  alpha * np.dot(a.array, b.array) + beta * c.array
 
     Replace a.array with a.array.T or a.array.T.conj() for opa='T' and 'C'
-    resprctively (similarly for opb).
+    respectively (similarly for opb).
 
     Use symmetric=True if the result matrix is symmetric/hermetian
     (only lower half of c will be evaluated).

@@ -930,6 +930,7 @@ class Heterostructure:
             
         return self.q_abs / Bohr, self.frequencies * Hartree, eps_qw
 
+
     def get_eels(self, dipole_contribution=False):
         r"""
         Calculates Electron energy loss spectrum, defined as:
@@ -1133,7 +1134,7 @@ class Heterostructure:
     def get_response(self, iw=0, dipole=False):
         r"""
         Get the induced density and potential due to constant perturbation
-        obtained as: rho_ind(r) = \int chi(r,r') dr'
+        obtained as: rho_ind(r) = int chi(r,r') dr'
         """
         const_per = np.ones([self.n_layers])
         if self.chi_dipole is not None:

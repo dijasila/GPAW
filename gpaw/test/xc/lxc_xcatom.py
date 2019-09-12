@@ -10,18 +10,16 @@ if 1:
         'LDA_X', 'LDA_X+LDA_C_PW', 'LDA_X+LDA_C_VWN', 'LDA_X+LDA_C_PZ',
         'GGA_X_PBE+GGA_C_PBE', 'GGA_X_PBE_R+GGA_C_PBE',
         'GGA_X_B88+GGA_C_P86', 'GGA_X_B88+GGA_C_LYP',
-        'GGA_X_FT97_A+GGA_C_LYP'
-        ]:
+        'GGA_X_FT97_A+GGA_C_LYP']:
         gen('N', xcname=functional)
-        
+
 tolerance = 0.000005 # libxc must reproduce old gpaw energies
 # zero Kelvin: in Hartree
 
 reference = { # version 0.9.1
     'LDA_X+LDA_C_PW': 2.28836113207, # 'LDA'
     'GGA_X_PBE+GGA_C_PBE': 2.3366049993, # 'PBE'
-    'GGA_X_PBE_R+GGA_C_PBE': 2.34496288319, # 'revPBE'
-    }
+    'GGA_X_PBE_R+GGA_C_PBE': 2.34496288319}  # 'revPBE'
 
 tolerance_libxc = 0.000001 # libxc must reproduce reference libxc energies
 
@@ -34,15 +32,13 @@ reference_libxc = { # svnversion 5252
     'GGA_X_PBE_R+GGA_C_PBE': 2.29201920843,
     'GGA_X_B88+GGA_C_P86': 2.30508027546,
     'GGA_X_B88+GGA_C_LYP': 2.28183010548,
-    'GGA_X_FT97_A+GGA_C_LYP': 2.26846048873,
-    }
+    'GGA_X_FT97_A+GGA_C_LYP': 2.26846048873}
 
 libxc_set = [
     'LDA_X', 'LDA_X+LDA_C_PW', 'LDA_X+LDA_C_VWN', 'LDA_X+LDA_C_PZ',
     'GGA_X_PBE+GGA_C_PBE', 'GGA_X_PBE_R+GGA_C_PBE',
     'GGA_X_B88+GGA_C_P86', 'GGA_X_B88+GGA_C_LYP',
-    'GGA_X_FT97_A+GGA_C_LYP'
-    ]
+    'GGA_X_FT97_A+GGA_C_LYP']
 
 x = 0.000001
 for xcname in libxc_set:

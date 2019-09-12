@@ -25,9 +25,9 @@ e = calc.get_eigenvalues()
 print(e[1] - e[3])
 equal(e[1], e[3], 9.3e-8)
 
-energy_tolerance = 0.0003
+energy_tolerance = 0.002
 niter_tolerance = 0
-equal(energy, -23.6277, energy_tolerance)
+equal(energy, -23.631, energy_tolerance)
 
 # Calculate non-selfconsistent PBE eigenvalues:
 from gpaw.xc.tools import vxc

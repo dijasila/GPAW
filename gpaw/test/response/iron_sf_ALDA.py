@@ -14,7 +14,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.response.tms import TransverseMagneticSusceptibility
-from gpaw.test import findpeak
+from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 # ------------------- Inputs ------------------- #
@@ -28,11 +28,12 @@ a = 2.867
 mm = 2.21
 
 # Part 2: magnetic response calculation
-q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 0.5 / 2.]]  # Two q-points along G-N path
-frq_qw = [np.linspace(0.150, 0.350, 26), np.linspace(0.300, 0.500, 26)]
+q_c = [0.0, 0.0, 0.0]  # Gamma-point
+frq_w = np.linspace(0.150, 0.350, 26)
 Kxc = 'ALDA'
 ecut = 300
 eta = 0.01
+rshecc_c = [0.99, 0.999]  # test different levels of expansion
 
 # ------------------- Script ------------------- #
 
@@ -47,7 +48,8 @@ calc = GPAW(xc=xc,
             mode=PW(pw),
             kpts=monkhorst_pack((kpts, kpts, kpts)),
             nbands=nb,
-            txt=None)
+            idiotproof=False,
+            parallel={'band': 1})
 
 Febcc.set_calculator(calc)
 Febcc.get_potential_energy()
@@ -55,16 +57,16 @@ calc.write('Fe', 'all')
 t2 = time.time()
 
 # Part 2: magnetic response calculation
-for q in range(2):
-    tms = TransverseMagneticSusceptibility(calc='Fe',
-                                           frequencies=frq_qw[q],
-                                           eta=eta,
-                                           ecut=ecut,
-                                           txt='iron_dsus_%d.out' % (q + 1))
-    
-    chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_qc[q], xc=Kxc,
+tms = TransverseMagneticSusceptibility(calc='Fe',
+                                       frequencies=frq_w,
+                                       eta=eta,
+                                       ecut=ecut)
+
+for c, rshecc in enumerate(rshecc_c):
+    chiM0_w, chiM_w = tms.get_dynamic_susceptibility(q_c=q_c, xc=Kxc,
+                                                     rshe=rshecc,
                                                      filename='iron_dsus'
-                                                     + '_%d.csv' % (q + 1))
+                                                     + '_G%d.csv' % (c + 1))
 
 t3 = time.time()
 
@@ -73,9 +75,9 @@ parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
 
 world.barrier()
 
-# Part 3: identify peaks in scattering function and compare to test values
-d1 = np.loadtxt('iron_dsus_1.csv', delimiter=', ')
-d2 = np.loadtxt('iron_dsus_2.csv', delimiter=', ')
+# Part 3: identify magnon peak in scattering functions
+d1 = np.loadtxt('iron_dsus_G1.csv', delimiter=', ')
+d2 = np.loadtxt('iron_dsus_G2.csv', delimiter=', ')
 
 wpeak1, Ipeak1 = findpeak(d1[:, 0], - d1[:, 4])
 wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
@@ -83,17 +85,16 @@ wpeak2, Ipeak2 = findpeak(d2[:, 0], - d2[:, 4])
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
-test_mw1 = 248.822795658  # meV
-test_mw2 = 400.401723348  # meV
-test_Ipeak1 = 66.5595189306  # a.u.
-test_Ipeak2 = 54.9375540086  # a.u.
+# Part 4: compare new results to test values
+test_mw1 = 242  # meV
+test_mw2 = 244  # meV
+test_Ipeak1 = 66  # a.u.
+test_Ipeak2 = 69  # a.u.
 
-# print(mw1, mw2, Ipeak1, Ipeak2)
+# Magnon peak:
+equal(mw1, test_mw1, eta * 200)
+equal(mw2, test_mw2, eta * 200)
 
-if abs(test_mw1 - mw1) > eta * 100 or abs(test_mw2 - mw2) > eta * 100:
-    print((test_mw1 - mw1, test_mw2 - mw2))
-    raise ValueError('Magnon peak not correct ! ')
-
-if abs(test_Ipeak1 - Ipeak1) > 1 or abs(test_Ipeak2 - Ipeak2) > 1:
-    print((Ipeak1 - test_Ipeak1, Ipeak2 - test_Ipeak2))
-    raise ValueError('Please check scattering function intensity ! ')
+# Scattering function intensity:
+equal(Ipeak1, test_Ipeak1, 3.5)
+equal(Ipeak2, test_Ipeak2, 3.5)

@@ -10,19 +10,153 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.16.1b1
+* Corresponding ASE release: ASE-3.18.1b1
+
+* New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
+  will converge bands up to conduction band minimum plus 2.5 eV.
+
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* The ``"You have a weird unit cell"`` and
+  ``"Real space grid not compatible with symmetry operation"``
+  errors are now gone.  GPAW now handles these cases by
+  choosing the number of real-space grid-points in a more clever way.
+
+* The angular part of the PAW correction to the ALDA kernel is now calculated
+  analytically by expanding the correction in spherical harmonics.
+
+* Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
+  for how to use it to calculate spontaneous polarization, Born effective
+  charges and other physical properties.
+
+* How to do :ref:`ehrenfest` has now been documented.
+
+* Non self-consistent hybrid functional calculations can now be continued if
+  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+
+* When using a convergence criteria on the accuracy of the forces
+  (see :ref:`manual_convergence`), the foceces will only be calculated when the
+  other convergence criteria (energy, eigenstates and density) are fulfilled.
+  This can save a bit of time.
+
+* Experimental support for JTH_ PAW-datasets.
+
+* Fast C implementation of bond-length constraints and associated hidden
+  constraints for water models. This allows efficient explicit solvent QMMM
+  calculations for GPAW up to tens of thousands of solvent molecules with
+  watermodels such as SPC, TIPnP etc.  See :git:`gpaw/test/watermodel.py`
+  and :git:`gpaw/test/rattle.py` for examples.
+
+* New "metallic boundary conditions" have been added to the for PoissonSolver.
+  This enables simulating charged 2D systems without counter charges.
+  See: :git:`gpaw/test/poisson/metallic_poisson.py`
+
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
+
+.. _JTH: https://www.abinit.org/psp-tables
+
+
+Version 1.5.2
+=============
+
+8 May 2019: :git:`1.5.2 <../1.5.2>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* **Important bugfix release**:
+
+  There was a bug which was triggered when combining
+  ScaLAPACK, LCAO and k-points in GPAW 1.5.0/1.5.1 from January.  The
+  projections were calculated incorrectly which affected the SCF
+  loop.
+
+  If you use ScaLAPACK+LCAO+kpoints and see the line "Atomic Correction:
+  distributed and sparse using scipy" in the output, then please rerun
+  after updating.
+
+
+Version 1.5.1
+=============
+
+23 Jan 2019: :git:`1.5.1 <../1.5.1>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* Small bug fixes related to latest versions of Python, Numpy and Libxc.
+
+
+Version 1.5.0
+=============
+
+11 Jan 2019: :git:`1.5.0 <../1.5.0>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* Last release to support Python 2.7.
+
+* The default finite-difference stencils used for gradients in GGA and MGGA
+  calculations have been changed.
+
+  * The range of the stencil has been increased
+    from 1 to 2 thereby decreasing the error from `O(h^2)` to `O(h^4)`
+    (where `h` is the grid spacing).  Use ``xc={'name': 'PBE', 'stencil': 1}``
+    to get the old, less accurate, stencil.
+
+  * The stencils are now symmetric also for non-orthorhombic
+    unit cells.  Before, the stencils would only have weight on the
+    nighboring grid-points in the 6 directions along the lattice vectors.
+    Now, grid-points along all nearest neighbor directions can have a weight
+    in the  stencils.  This allows for creating stencils that have all the
+    crystal symmetries.
+
+* PW-mode calculations can now be parallelized over plane-wave coefficients.
+
+* The PW-mode code is now much faster.  The "hot spots" have been moved
+  from Python to C-code.
+
+* Wavefunctions are now updated when the atomic positions change by
+  default, improving the initial wavefunctions across geometry steps.
+  Corresponds to ``GPAW(experimental={'reuse_wfs_method': 'paw'})``.
+  To get the old behaviour, set the option to ``'keep'`` instead.
+  The option is disabled for TDDFT/Ehrenfest.
 
 * Add interface to Elpa eigensolver for LCAO mode.
-  Use ``GPAW(mode='lcao', basis='dzp', parallel={'sl_auto': True, 'use_elpa': True})``
-  or see further
-  documentation on the :ref:`parallel keyword <manual_parallel>`.
+  Using Elpa is strongly recommended for large calculations.
+  Use::
+
+      GPAW(mode='lcao',
+           basis='dzp',
+           parallel={'sl_auto': True, 'use_elpa': True})
+
+  See also documentation on the :ref:`parallel keyword <manual_parallel>`.
 
 * Default eigensolver is now ``Davidson(niter=2)``.
 
-* Default number of bands is now `1.2 N_{\text{occ}} + 4`, where
+* Default number of bands is now `1.2 \times N_{\text{occ}} + 4`, where
   `N_{\text{occ}}` is the number of occupied bands.
-
-* PW-mode calculations can now be parallelizer over plane-wave coefficients.
 
 * Solvated jellium method has been implemented, see
   :ref:`the documentation <solvated_jellium_method>`.
@@ -30,18 +164,19 @@ Git master branch
 * Added FastPoissonSolver which is faster and works well for any cell.
   This replaces the old Poisson solver as default Poisson solver.
 
-* :ref:`rsf`.
+* :ref:`rsf` and improved virtual orbitals, the latter from Hartree-Fock
+  theory.
 
 * New Jupyter notebooks added for teaching DFT and many-body methods.  Topics
   cover: :ref:`catalysis`, :ref:`magnetism`, :ref:`machinelearning`,
-  :ref:`photovoltaics` :ref:`batteries` and :ref:`intro`.
+  :ref:`photovoltaics`, :ref:`batteries` and :ref:`intro`.
 
 * New experimental local **k**-point refinement feature:
   :git:`gpaw/test/kpt_refine.py`.
 
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
-  :ref:`defects`.
+  defects: :ref:`defects`.
 
 * Default for FFTW planning has been changed from ``ESTIMATE`` to ``MEASURE``.
   See :class:`gpaw.wavefunctions.pw.PW`.

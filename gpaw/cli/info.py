@@ -6,6 +6,7 @@ from ase.utils import import_module
 from ase.utils import search_current_git_hash
 
 import gpaw
+import _gpaw
 import gpaw.fftw as fftw
 from gpaw.mpi import rank, have_mpi
 from gpaw.utilities import compiled_with_sl, compiled_with_libvdwxc
@@ -29,22 +30,32 @@ def info():
                 githash = '-{:.10}'.format(githash)
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
+    results.append(('libxc-' + getattr(_gpaw, 'libxc_version', '2.x.y'), ''))
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())
     results.append(('_gpaw' + githash,
                     op.normpath(getattr(module, '__file__', 'built-in'))))
-    p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
-    results.append(('parallel', p.communicate()[0].strip().decode() or False))
+    if '_gpaw' in sys.builtin_module_names or not have_mpi:
+        p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
+        results.append(('parallel',
+                        p.communicate()[0].strip().decode() or False))
     results.append(('MPI enabled', have_mpi))
     if have_mpi:
         have_sl = compiled_with_sl()
         have_elpa = LibElpa.have_elpa()
+        if have_elpa:
+            version = LibElpa.api_version()
+            if version is None:
+                version = 'unknown, at most 2018.xx'
+            have_elpa = 'yes; version: {}'.format(version)
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
     results.append(('scalapack', have_sl))
     results.append(('Elpa', have_elpa))
-    results.append(('FFTW', fftw.FFTPlan is fftw.FFTWPlan))
+
+    have_fftw = fftw.have_fftw()
+    results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
     paths = ['{0}: {1}'.format(i + 1, path)
              for i, path in enumerate(gpaw.setup_paths)]

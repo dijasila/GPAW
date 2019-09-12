@@ -30,7 +30,8 @@ theme.css
 *.svg
 *.json
 doc/setups/[A-Z]*.rst
-
+*.ipynb
+!*.master.ipynb
 !doc/devel/gpaw-logo.svg
 
 # If you run the tests, these may write out files

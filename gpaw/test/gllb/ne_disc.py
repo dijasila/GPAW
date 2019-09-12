@@ -25,6 +25,7 @@ for xcname in ['GLLB','GLLBSC']:
                cell=(a, a, a), pbc=False)
     Ne.center()
     calc = GPAW(eigensolver=Davidson(4), nbands=10, h=0.18, xc=xcname,
+                basis='dzp',
                 mixer=Mixer(0.6))
     Ne.set_calculator(calc)
     e = Ne.get_potential_energy()

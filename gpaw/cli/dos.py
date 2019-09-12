@@ -2,7 +2,7 @@ from __future__ import print_function
 import sys
 
 import numpy as np
-from ase.dft.dos import DOS, ltidos
+from ase.dft.dos import DOS, linear_tetrahedron_integration as lti
 from ase.units import Ha
 
 from gpaw import GPAW
@@ -111,7 +111,7 @@ def dos(filename, plot=False, output='dos.csv', width=0.1, integrated=False,
             plt.plot(dos.energies, y, label=label)
         plt.legend()
         plt.ylabel(ylabel)
-        plt.xlabel('$\epsilon-\epsilon_F$ [eV]')
+        plt.xlabel(r'$\epsilon-\epsilon_F$ [eV]')
         plt.show()
 
 
@@ -132,5 +132,5 @@ def ldos(calc, a, spin, l, width, energies):
         weights /= kd.weight_k[:, np.newaxis]
         w = weights[kd.bz2ibz_k]
         w.shape = tuple(kd.N_c) + (-1,)
-        dos = ltidos(calc.atoms.cell, eigs, energies, w)
+        dos = lti(calc.atoms.cell, eigs, energies, w)
     return dos

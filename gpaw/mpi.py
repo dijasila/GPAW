@@ -1,7 +1,6 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import os
 import sys
 import time
 import traceback
@@ -13,6 +12,7 @@ import numpy as np
 
 from gpaw import debug
 from gpaw import dry_run as dry_run_size
+from .broadcast_imports import world
 
 import _gpaw
 
@@ -694,18 +694,8 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
-libmpi = os.environ.get('GPAW_MPI')
-if libmpi:
-    import ctypes
-    ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-    world = _gpaw.Communicator()
-    if world.size == 1:
-        world = serial_comm
-else:
-    try:
-        world = _gpaw.Communicator()
-    except AttributeError:
-        world = serial_comm
+if world is None:
+    world = serial_comm
 
 
 class DryRunCommunicator(SerialCommunicator):
@@ -732,8 +722,8 @@ if debug:
     world = _Communicator(world)
 
 
-size = world.size
 rank = world.rank
+size = world.size
 parallel = (size > 1)
 try:
     world.get_c_object()
@@ -848,16 +838,17 @@ def broadcast_bytes(b=None, root=0, comm=world):
         n = np.zeros(1, int)
     comm.broadcast(n, root)
     if comm.rank == root:
-        b = np.fromstring(b, np.int8)
+        b = np.frombuffer(b, np.int8)
     else:
         b = np.zeros(n, np.int8)
     comm.broadcast(b, root)
-    return b.tostring()
+    return b.tobytes()
 
 
 def send_string(string, rank, comm=world):
-    comm.send(np.array(len(string)), rank)
-    comm.send(np.fromstring(string, np.int8), rank)
+    b = string.encode()
+    comm.send(np.array(len(b)), rank)
+    comm.send(np.frombuffer(b, np.int8).copy(), rank)
 
 
 def receive_string(rank, comm=world):
@@ -865,7 +856,7 @@ def receive_string(rank, comm=world):
     comm.receive(n, rank)
     string = np.empty(n, np.int8)
     comm.receive(string, rank)
-    return string.tostring().decode()
+    return string.tobytes().decode()
 
 
 def alltoallv_string(send_dict, comm=world):

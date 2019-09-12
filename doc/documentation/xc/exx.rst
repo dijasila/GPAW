@@ -4,13 +4,20 @@
 Exact exchange
 ==============
 
-**THIS PAGE IS PARTLY OUTDATED**
+Currently we have two implementations of exact exchange:
 
-.. Can one define what is outdated?
-.. Fractional occupations are fixed by now
+1) :git:`~gpaw/xc/hybrid.py`: Can handle Gamma-point only
+   calculations self-consistently (for molecules and large cells).
 
-Inclusion of the non-local Fock operator as an exchange-correclation
-functional is an experimental feature in gpaw.
+2) :git:`~gpaw/xc/exx.py`: Can handle k-points, but not
+   self-consitently.
+
+
+.. contents::
+
+
+Self-consistent finite-difference implementation
+================================================
 
 The current implementation *lacks* the following features:
 
@@ -93,6 +100,26 @@ counted from the HOMO downwards:
 
 Support for IVOs in lrTDDFT is done along the work of Berman and Kaldor
 [BK79]_.
+
+If the number of bands in the calculation exceeds the number of bands delivered
+by the datasets, GPAW initializes the missing bands randomly. Calculations utilizing
+Hartree-Fock exchange can only use the RMM-DIIS eigensolver. Therefore the states
+might not converge to the energetically lowest states. To circumvent this problem
+on can made a calculation using a semi-local functional like PBE and uses this
+wave-functions as a basis for the following calculation utilizing Hartree-Fock exchange
+as shown in the following code snippet which uses PBE0 in conjuncture with
+the IVOs:
+
+.. literalinclude:: rsf_ivo_nacl.py
+
+
+Non self-consistent plane-wave implementation
+=============================================
+
+See this tutorial: :ref:`pbe0_tut`.
+
+.. autoclass:: gpaw.xc.exx.EXX
+   :members:
 
 
 .. [AB98] C. Adamo and V. Barone.

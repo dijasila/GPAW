@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import functools
 from time import time, ctime
 from datetime import timedelta
@@ -11,12 +9,13 @@ import numpy as np
 from ase.units import Hartree, Bohr
 from ase.utils import devnull
 from ase.dft import monkhorst_pack
+from scipy.linalg import eigh
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-
+from gpaw.utilities import file_barrier
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm
 from gpaw.response.chi0 import Chi0
@@ -132,7 +131,7 @@ class BSE:
             if self.spinors:
                 self.spinors = False
                 print('***WARNING*** Presently the spinor version' +
-                      'does not work for spin-polarized calculations.' + 
+                      'does not work for spin-polarized calculations.' +
                       'Performing scalar calculation', file=self.fd)
             assert len(valence_bands[0]) == len(valence_bands[1])
             assert len(conduction_bands[0]) == len(conduction_bands[1])
@@ -161,7 +160,7 @@ class BSE:
             for n in self.val_sn[1]:
                 if n in self.con_sn[1]:
                     self.td = False
-            
+
         self.nv = len(self.val_sn[0])
         self.nc = len(self.con_sn[0])
         if eshift is not None:
@@ -191,11 +190,11 @@ class BSE:
     def calculate(self, optical=True, ac=1.0):
 
         if self.spinors:
-            """Calculate spinors. Here m is index of eigenvalues with SOC 
-            and n is the basis of eigenstates withour SOC. Below m is used 
-            for unoccupied states and n is used for occupied states so be 
+            """Calculate spinors. Here m is index of eigenvalues with SOC
+            and n is the basis of eigenstates withour SOC. Below m is used
+            for unoccupied states and n is used for occupied states so be
             careful!"""
-        
+
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
             param = self.calc.parameters
             if not param['symmetry'] == 'off':
@@ -209,9 +208,12 @@ class BSE:
                     calc_so.atoms = self.calc.atoms
                     calc_so.density = self.calc.density
                     calc_so.get_potential_energy()
-                    calc_so.write('gs_nosym.gpw')
-                calc_so = GPAW('gs_nosym.gpw', txt=None, communicator=serial_comm)
-                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so, 
+                    with file_barrier('gs_nosym.gpw'):
+                        calc_so.write('gs_nosym.gpw')
+
+                calc_so = GPAW('gs_nosym.gpw', txt=None,
+                               communicator=serial_comm)
+                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so,
                                                         return_wfs=True,
                                                         scale=self.scale)
                 del calc_so
@@ -254,9 +256,9 @@ class BSE:
         Nv, Nc = so * self.nv, so * self.nc
         Ns = self.spins
         rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
-        rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
-        df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float) # -(ev - ec)
-        deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float) # -(fv - fc)
+        # rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
+        df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float)  # -(ev - ec)
+        deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float)  # -(fv - fc)
         if np.allclose(self.q_c, 0.0):
             optical_limit = True
         else:
@@ -309,7 +311,7 @@ class BSE:
                 if self.spinors:
                     if optical_limit:
                         deps0_mn = -pair.get_transition_energies(m_m, n_n)
-                        rho_mnG[:, :, 0] *= deps0_mn 
+                        rho_mnG[:, :, 0] *= deps0_mn
                     df_Ksmn[iK, s, ::2, ::2] = df_mn
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
@@ -353,7 +355,7 @@ class BSE:
                                               cf_s[s1])
                 rho1_mnG = rhoex_KsmnG[iK1, s1]
 
-                #rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
+                # rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
                 rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
                 for s2 in range(Ns):
                     for Q_c in self.qd.bzk_kc:
@@ -382,8 +384,10 @@ class BSE:
                                 rho_1mnG = np.dot(vec1_nm.T.conj(),
                                                   np.dot(vec3_nm.T, rho3_mmG))
                                 rho3_mmG = rho_0mnG + rho_1mnG
-                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf, mci:mcf]
-                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,mci:mcf]
+                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf,
+                                                                 mci:mcf]
+                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,
+                                                                  mci:mcf]
                                 vec2_nm = v_knm[ikq][::2][ni:nf, mci:mcf]
                                 vec3_nm = v_knm[ikq][1::2][ni:nf, mci:mcf]
                                 rho_0mnG = np.dot(vec0_nm.T.conj(),
@@ -406,22 +410,22 @@ class BSE:
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
 
-        #if self.mode == 'BSE':
-        #    del self.Q_qaGii, self.W_qGG, self.pd_q
+        # if self.mode == 'BSE':
+        #     del self.Q_qaGii, self.W_qGG, self.pd_q
 
         H_ksmnKsmn /= self.vol
 
         mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
-            iS0 = myKrange[0] *  Nv * Nc * Ns
+            iS0 = myKrange[0] * Nv * Nc * Ns
 
-        #world.sum(rhoG0_Ksmn)
-        #self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
+        # world.sum(rhoG0_Ksmn)
+        # self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
         self.df_S = np.reshape(df_Ksmn, -1)
         if not self.td:
             self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
         # multiply by 2 when spin-paired and no SOC
-        self.df_S *= 2.0 / nK / Ns / so 
+        self.df_S *= 2.0 / nK / Ns / so
         self.deps_s = np.reshape(deps_ksmn, -1)
         H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
@@ -501,7 +505,7 @@ class BSE:
                 self.pd_q = data['pd']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
-            except:
+            except FileNotFoundError:
                 self.calculate_screened_potential(ac)
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
@@ -674,16 +678,14 @@ class BSE:
         else:
             if world.size == 1:
                 print('  Using lapack...', file=self.fd)
-                from gpaw.utilities.lapack import diagonalize
-                self.w_T = np.zeros(self.nS)
-                diagonalize(self.H_sS, self.w_T)
-                self.v_St = self.H_sS.conj().T
+                self.w_T, self.v_St = eigh(self.H_sS)
             else:
                 print('  Using scalapack...', file=self.fd)
                 nS = self.nS
-                ns = -(-self.kd.nbzkpts // world.size) * (self.nv * self.nc *
-                                                          self.spins *
-                                                          (self.spinors + 1)**2)
+                ns = -(-self.kd.nbzkpts // world.size) * (
+                    self.nv * self.nc *
+                    self.spins *
+                    (self.spinors + 1)**2)
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, nS, ns, nS)
 
@@ -736,7 +738,7 @@ class BSE:
     def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
                  direction=0, ac=1.0, readfile=None, optical=True,
                  write_eig=None):
-        """Returns v * \chi where v is the bare Coulomb interaction"""
+        """Returns v * chi where v is the bare Coulomb interaction"""
 
         self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
                             readfile=readfile, optical=optical,
@@ -905,7 +907,7 @@ class BSE:
                            q_c=[0.0, 0.0, 0.0], direction=0,
                            filename='pol_bse.csv', readfile=None, pbc=None,
                            write_eig='eig.dat'):
-        """Calculate the polarizability alpha.
+        r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
         with reduced dimensionality the converged value of alpha is
@@ -956,7 +958,7 @@ class BSE:
                           q_c=[0.0, 0.0, 0.0], direction=0,
                           filename='abs_bse.csv', readfile=None, pbc=None,
                           write_eig='eig.dat'):
-        """Calculate the dimensionless absorption for 2d materials.
+        r"""Calculate the dimensionless absorption for 2d materials.
         It is essentially related to the 2D polarizability \alpha_2d as
 
               ABS = 4 * np.pi * \omega * \alpha_2d / c
@@ -1103,7 +1105,7 @@ class BSE:
         p('Valence electrons              :', self.calc.wfs.setups.nvalence)
         p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.calc.wfs.bd.nbands)
-        p('Number of spins                :', self.calc.wfs.nspins)        
+        p('Number of spins                :', self.calc.wfs.nspins)
         p('Number of k-points             :', self.kd.nbzkpts)
         p('Number of irreducible k-points :', self.kd.nibzkpts)
         p('Number of q-points             :', self.qd.nbzkpts)
@@ -1120,8 +1122,10 @@ class BSE:
             p('Valence bands                  :', self.val_sn[0])
             p('Conduction bands               :', self.con_sn[0])
         else:
-            p('Valence bands                  :', self.val_sn[0],self.val_sn[1])
-            p('Conduction bands               :', self.con_sn[0],self.con_sn[1])
+            p('Valence bands                  :', self.val_sn[0],
+              self.val_sn[1])
+            p('Conduction bands               :', self.con_sn[0],
+              self.con_sn[1])
         if eshift is not None:
             p('Scissors operator              :', eshift * Hartree, 'eV')
         p('Tamm-Dancoff approximation     :', td)

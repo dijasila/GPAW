@@ -15,7 +15,7 @@ mol.set_calculator(calc)
 e = mol.get_potential_energy()
 niter = calc.get_number_of_iterations()
 
-equal(e, -10.266984, 1e-4)
+equal(e, -10.271, 2e-3)
 equal(niter, 8, 1)
 
 # Check that complex wave functions are allowed with gamma point calculations

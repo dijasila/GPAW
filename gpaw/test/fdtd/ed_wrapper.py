@@ -11,7 +11,7 @@ from gpaw.test import equal
 energy_eps = 0.0005
 
 # Whole simulation cell (Angstroms)
-cell = [20, 20, 30];
+cell = [20, 20, 30]
 
 # Quantum subsystem
 atom_center = np.array([10.0, 10.0, 20.0])

@@ -14,12 +14,13 @@ from distutils.command.build_scripts import build_scripts as _build_scripts
 from distutils.command.sdist import sdist as _sdist
 from distutils.core import setup, Extension
 from glob import glob
+from pathlib import Path
 
 from config import (get_system_config, check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
-assert sys.version_info >= (2, 7)
+assert sys.version_info >= (3, 5)
 
 # Get the current version number:
 with open('gpaw/__init__.py', 'rb') as fd:
@@ -64,8 +65,8 @@ platform_id = ''
 
 packages = []
 for dirname, dirnames, filenames in os.walk('gpaw'):
-        if '__init__.py' in filenames:
-            packages.append(dirname.replace('/', '.'))
+    if '__init__.py' in filenames:
+        packages.append(dirname.replace('/', '.'))
 
 import_numpy = True
 if '--ignore-numpy' in sys.argv:
@@ -77,11 +78,25 @@ if '--remove-default-flags' in sys.argv:
     remove_default_flags = True
     sys.argv.remove('--remove-default-flags')
 
-customize = 'customize.py'
+customize = Path('customize.py')
 for i, arg in enumerate(sys.argv):
-    if arg.startswith('--customize'):
-        customize = sys.argv.pop(i).split('=')[1]
+    if arg.startswith('--customize='):
+        del sys.argv[i]
+        customize = Path(arg.split('=')[1]).expanduser()
         break
+    if arg == '--customize':
+        del sys.argv[i]
+        customize = Path(sys.argv.pop(i))
+        break
+
+# check for environment
+# up to now LIBRARY_PATH only
+try:
+    for directory in os.environ['LIBRARY_PATH'].split(os.pathsep):
+        if directory not in library_dirs:
+            library_dirs.append(directory)
+except KeyError:
+    pass
 
 get_system_config(define_macros, undef_macros,
                   include_dirs, libraries, library_dirs,
@@ -97,12 +112,13 @@ else:
 mpilinker = mpicompiler
 
 compiler = None
+fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
 
 # User provided customizations:
-exec(open(customize).read())
+exec(customize.read_text())
 
 if platform_id != '':
     my_platform = distutils.util.get_platform() + '-' + platform_id
@@ -139,6 +155,9 @@ if libvdwxc:
 
 if elpa:
     define_macros.append(('GPAW_WITH_ELPA', '1'))
+
+if fftw:
+    define_macros.append(('GPAW_WITH_FFTW', '1'))
 
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
@@ -254,10 +273,9 @@ setup(name='gpaw',
           'License :: OSI Approved :: '
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
+          'Programming Language :: Python :: 3.7',
           'Topic :: Scientific/Engineering :: Physics'])

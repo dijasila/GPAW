@@ -1,5 +1,4 @@
 #!/usr/bin/env gpaw-python
-# Emacs: treat this as -*- python -*-
 
 from __future__ import print_function
 import os
@@ -184,7 +183,10 @@ if set['mail'] is None and 'GPAW_MAIL' in os.environ:
 
 parameter_ext = ''
 if 'parameters' in set:
-     parameter_ext += '_' + set['parameters'].replace(' ','_')
+    parameters = set['parameters']
+    for replace in [' ', os.sep]:
+        parameters = parameters.replace(replace, '_')
+    parameter_ext += '_' + parameters
 
 # set output files
 if set['out'] is None:

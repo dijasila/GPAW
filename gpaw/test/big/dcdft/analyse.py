@@ -2,10 +2,10 @@ import os
 
 import sys
 
-import urllib.request, urllib.parse, urllib.error
-import urllib.request, urllib.error, urllib.parse
+import urllib.request
+import urllib.parse
+import urllib.error
 
-import tarfile
 import zipfile
 
 import csv
@@ -55,8 +55,7 @@ os.chdir('..')
 
 task = Task(
     tag=tag,
-    use_lock_files=True,
-    )
+    use_lock_files=True)
 
 # header
 h = ['#element', 'V0', 'B0', 'B1']
@@ -122,8 +121,8 @@ for n in task.collection.names:
             b0 = round(data[n]['dcdft B0'], 3)
             b1 = round(data[n]['dcdft B1'], 3)
             row.extend([v, b0, b1])
-        except KeyError: # completely failed to find eos minimum
-                row.extend(['N/A', 'N/A', 'N/A'])
+        except KeyError:  # completely failed to find eos minimum
+            row.extend(['N/A', 'N/A', 'N/A'])
     else:
         # element not calculated
         row.extend(['N/A', 'N/A', 'N/A'])

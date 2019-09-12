@@ -26,7 +26,7 @@ class XAS:
         #         'The core hole is always in spin 0: please use spin=0')
 
         if wfs.nspins == 1:
-            if spin is not 0:
+            if spin != 0:
                 raise RuntimeError(
                     'use spin=0 for a spin paired calculation')
             nocc = wfs.setups.nvalence // 2
@@ -34,7 +34,7 @@ class XAS:
         else:
             self.list_kpts = []
 
-            if spin is not 0 and spin is not 1:
+            if spin != 0 and spin != 1:
                 print('spin', spin)
                 raise RuntimeError(
                     'use either spin=0 or spin=1')

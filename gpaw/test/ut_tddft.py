@@ -1,5 +1,7 @@
 from __future__ import print_function
-import os, sys, time
+import os
+import sys
+import time
 import numpy as np
 
 from ase.build import molecule
@@ -123,7 +125,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
         t0 = time.time()
         f = paropen('%s_%d.log' % (self.tdname, t), 'w')
         print('propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
-            'niter: %d' % (self.propagator, self.duration, timestep, niter), file=f)
+              'niter: %d' %
+              (self.propagator, self.duration, timestep, niter), file=f)
 
         for i in range(1, niter+1):
             # XXX bare bones propagation without all the nonsense
@@ -210,8 +213,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
 def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'
-    classname = 'UTStaticPropagatorSetup' \
-    + sep + propagator
+    classname = 'UTStaticPropagatorSetup' + sep + propagator
+
     class MetaPrototype(UTStaticPropagatorSetup, object):
         __doc__ = UTStaticPropagatorSetup.__doc__
         timesteps = timesteps

@@ -1,20 +1,20 @@
 """Omega matrix for functionals with Hartree-Fock exchange.
 
 """
-from __future__ import print_function
 from math import sqrt
-
-import numpy as np
-from numpy.linalg import inv
 
 from ase.units import Hartree
 from ase.utils.timing import Timer
+import numpy as np
+from numpy.linalg import inv
+from scipy.linalg import eigh
 
+from gpaw import debug
 import gpaw.mpi as mpi
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.pair_density import PairDensity
 from gpaw.helmholtz import HelmholtzSolver
-from gpaw.utilities.lapack import diagonalize, gemm, sqrt_matrix
+from gpaw.utilities.blas import gemm
 
 
 class ApmB(OmegaMatrix):
@@ -78,7 +78,6 @@ class ApmB(OmegaMatrix):
             ivo_l = homo - self.xc.excited - 1
         else:
             ivo_l = None
-        
 
         for ij in range(nij):
             print('RPAhyb kss[' + '%d' % ij + ']=', kss[ij], file=self.txt)
@@ -90,7 +89,7 @@ class ApmB(OmegaMatrix):
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -116,7 +115,7 @@ class ApmB(OmegaMatrix):
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
                 pre = self.weight_Kijkq(ij, kq)
 
@@ -235,7 +234,7 @@ class ApmB(OmegaMatrix):
         kss_kq.initialize(self.paw.wfs.kpt_u[spin], k, q)
 
         rhot_p = kss_ij.with_compensation_charges(
-            self.finegrid is not 0)
+            self.finegrid != 0)
         phit_p = np.zeros(rhot_p.shape, rhot_p.dtype)
         if yukawa:
             self.screened_poissonsolver.solve(phit_p, rhot_p, charge=None)
@@ -249,7 +248,7 @@ class ApmB(OmegaMatrix):
             phit = phit_p
 
         rhot = kss_kq.with_compensation_charges(
-            self.finegrid is 2)
+            self.finegrid == 2)
 
         integrals[name] = self.Coulomb_integral_kss(kss_ij, kss_kq,
                                                     phit, rhot,
@@ -301,9 +300,8 @@ class ApmB(OmegaMatrix):
 
         if TDA:
             # Tamm-Dancoff approximation (B=0)
-            self.eigenvectors = 0.5 * (ApB + AmB)
-            eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, eigenvalues)
+            eigenvalues, evecs = eigh(0.5 * (ApB + AmB))
+            self.eigenvectors = evecs.T
             self.eigenvalues = eigenvalues ** 2
         else:
             # the occupation matrix
@@ -320,8 +318,7 @@ class ApmB(OmegaMatrix):
             self.eigenvectors = np.zeros(ApB.shape)
             gemm(1.0, S, M, 0.0, self.eigenvectors)
 
-            self.eigenvalues = np.zeros((nij))
-            diagonalize(self.eigenvectors, self.eigenvalues)
+            self.eigenvalues, self.eigenvectors.T[:] = eigh(self.eigenvectors)
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -393,3 +390,31 @@ class ApmB(OmegaMatrix):
             for ev in self.eigenvalues:
                 string += ' ' + ('%f' % (sqrt(ev) * Hartree))
         return string
+
+
+def sqrt_matrix(a, preserve=False):
+    """Get the sqrt of a symmetric matrix a (diagonalize is used).
+    The matrix is kept if preserve=True, a=sqrt(a) otherwise."""
+    n = len(a)
+    if debug:
+        assert a.flags.contiguous
+        assert a.dtype == float
+        assert a.shape == (n, n)
+    if preserve:
+        b = a.copy()
+    else:
+        b = a
+
+    # diagonalize to get the form b = Z * D * Z^T
+    # where D is diagonal
+    D = np.empty((n,))
+    D, b.T[:] = eigh(b, lower=True)
+    ZT = b.copy()
+    Z = np.transpose(b)
+
+    # c = Z * sqrt(D)
+    c = Z * np.sqrt(D)
+
+    # sqrt(b) = c * Z^T
+    gemm(1., ZT, np.ascontiguousarray(c), 0., b)
+    return b

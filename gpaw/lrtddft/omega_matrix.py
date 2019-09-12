@@ -1,16 +1,15 @@
-from __future__ import print_function
 from math import sqrt
 
 import numpy as np
 from ase.units import Hartree
 from ase.utils import convert_string_to_fd, basestring
 from ase.utils.timing import Timer
+from scipy.linalg import eigh
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
-from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 
 """This module defines a Omega Matrix class."""
@@ -138,7 +137,7 @@ class OmegaMatrix:
         gd = paw.density.finegd
         eh_comm = self.eh_comm
 
-        fg = self.finegrid is 2
+        fg = self.finegrid == 2
         kss = self.fullkss
         nij = len(kss)
 
@@ -431,7 +430,7 @@ class OmegaMatrix:
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -458,7 +457,7 @@ class OmegaMatrix:
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
 
                 pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
@@ -569,7 +568,7 @@ class OmegaMatrix:
         else:
             try:
                 emin, emax = energy_range
-            except:
+            except TypeError:
                 emax = energy_range
                 emin = 0.
             emin /= Hartree
@@ -605,10 +604,9 @@ class OmegaMatrix:
                     evec[ij, kq] = self.full[map[ij], map[kq]]
         assert(len(evec) > 0)
 
-        self.eigenvectors = evec
-        self.eigenvalues = np.zeros((len(kss)))
+        self.eigenvalues, v = eigh(evec)
+        self.eigenvectors = v.T
         self.kss = kss
-        diagonalize(self.eigenvectors, self.eigenvalues)
 
     @property
     def kss(self):
