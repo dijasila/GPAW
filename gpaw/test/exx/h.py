@@ -4,33 +4,53 @@ from gpaw import GPAW, PW, Davidson
 from gpaw.xc.hf import Hybrid
 from gpaw.xc.hybrid import HybridXC as H1
 
-L = 5.5
+L = 6.5
 a = Atoms('HH',
           #magmoms=[1],
           cell=[L, L, L],
           pbc=1)
 # xc = Hybrid(xc='LDA', exx_fraction=0)
 # xc.name = 'LDA'
-xc = Hybrid('EXX')
 # xc = Hybrid(None, 'LDA', 0.0, 0.0)
-# xc = H1('EXX')
-es = Davidson(1)
-es.keep_htpsit = False
 
-D = np.linspace(0.65, 0.85, 11)
+D = np.linspace(0.7, 0.8, 11)
 E = []
 for d in D:
     a.positions[1, 0] = d
+    es = Davidson(1)
+    es.keep_htpsit = False
+    # xc = Hybrid('EXX')
+    xc = H1('EXX')
     a.calc = GPAW(
-        mode=PW(400, force_complex_dtype=True),
+        #mode=PW(400, force_complex_dtype=True),
+        h=0.12,
         setups='ae',
         nbands=1,
-        eigensolver=es,
-        # eigensolver='rmm-diis',
+        # eigensolver=es,
+        eigensolver='rmm-diis',
+        txt='h2.txt',
         xc=xc)
     e = a.get_potential_energy()
     E.append(e)
+    print(d, e)
 
+a = a[:1]
+a[0].magmom = 1
+es = Davidson(1)
+es.keep_htpsit = False
+# xc = Hybrid('EXX')
+xc = H1('EXX')
+a.calc = GPAW(
+    # mode=PW(500, force_complex_dtype=True),
+    h=0.12,
+    setups='ae',
+    nbands=1,
+    # eigensolver=es,
+    eigensolver='rmm-diis',
+    txt='h.txt',
+    xc=xc)
+e = a.get_potential_energy()
+print(2 * e - min(E))
 if 1:
     import matplotlib.pyplot as plt
     plt.plot(D, E)
