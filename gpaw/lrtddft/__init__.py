@@ -599,6 +599,6 @@ def photoabsorption_spectrum(excitation_list, spectrum_file=None,
 
     spectrum(exlist=excitation_list, filename=spectrum_file,
              emin=e_min, emax=e_max,
-             de=delta_e, energyunit,
+             de=delta_e, energyunit=energyunit,
              folding=folding, width=width,
              comment=comment)
