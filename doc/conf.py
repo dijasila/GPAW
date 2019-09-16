@@ -44,3 +44,9 @@ html_context = {
           'https://wiki.fysik.dtu.dk/gpaw/dev'),
          ('{} (latest stable)'.format(stable_version),
           'https://wiki.fysik.dtu.dk/gpaw')]}
+mathjax_config = {
+    'TeX': {
+        'Macros': {
+            'br': '{\\mathbf r}',
+            'bk': '{\\mathbf k}',
+            'bG': '{\\mathbf G}'}}}
