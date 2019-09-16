@@ -1242,7 +1242,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return nbands
 
     def initialize_from_lcao_coefficients(self, basis_functions):
-        psit_nR = self.gd.empty(1, self.dtype)
+        # psit_nR = self.gd.empty(1, self.dtype)
 
         for kpt in self.mykpts:
             if self.kd.gamma:
@@ -1258,11 +1258,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             if psit_nG.ndim == 3:
                 N, S, G = psit_nG.shape
                 psit_nG = psit_nG.reshape((N * S, G))
+            psit_nR = self.gd.zeros(len(psit_nG), self.dtype)
+            basis_functions.lcao_to_grid(kpt.C_nM, psit_nR, kpt.q)
             for n, psit_G in enumerate(psit_nG):
-                psit_nR[:] = 0.0
-                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
-                                             psit_nR, kpt.q)
-                psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
+                psit_G[:] = self.pd.fft(psit_nR[n] * emikr_R, kpt.q)
             kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
