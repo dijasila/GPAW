@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
 import numbers
-from math import pi
-from math import factorial as fac
+from math import pi, factorial as fac
 
 import numpy as np
 from ase.units import Ha, Bohr

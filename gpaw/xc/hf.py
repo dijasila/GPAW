@@ -73,6 +73,7 @@ class EXX:
             v_ani = None
 
         exxvv = 0.0
+        ekin = 0.0
         for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
             q_c = k2.k_c - k1.k_c
             qd = KPointDescriptor([q_c])
@@ -89,7 +90,9 @@ class EXX:
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
                                                pd, i1, k2.f_n, v_nG, v_ani)
             e_nn *= count / self.kd.nbzkpts
-            exxvv -= 0.5 * k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
+            e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
+            exxvv -= 0.5 * e
+            ekin += e
             if e_kn is not None:
                 e_kn[i1] -= e_nn.dot(k2.f_n)
 
@@ -107,12 +110,17 @@ class EXX:
                     e_kn[i] -= (2 * vv_n + vc_n)
 
         if v_knG is not None:
-            for v_nG, v_ani in zip(v_knG, v_kani):
+            for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 for a, P_ni in kpt.proj.items():
                     v_ani[a] -= P_ni.dot(self.VC_aii[a] + VV_aii[a])
+                    v1_ni = P_ni.dot(self.VC_aii[a] + VV_aii[a])
+                    ekin -= np.einsum('n, ni, ni',
+                                      kpt.f_n, P_ni.conj(), v_ani[a]).real*2
+                    ekin -= np.einsum('n, ni, ni',
+                                      kpt.f_n, P_ni.conj(), v1_ni).real
                 self.pt.add(v_nG, v_ani)#,k?
 
-        return exxvv, exxvc
+        return exxvv, exxvc, ekin
 
     def calculate_exx_for_pair(self,
                                k1,
@@ -369,11 +377,13 @@ class Hybrid:
 
         self.evv = np.nan
         self.evc = np.nan
+        self.ekin = np.nan
 
         self.vt_sR = None
         self.spos_ac = None
 
     def get_setup_name(self):
+        return 'PBE'
         return 'LDA'
 
     def initialize(self, dens, ham, wfs, occupations):
@@ -403,7 +413,7 @@ class Hybrid:
         return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def get_kinetic_energy_correction(self):
-        return -2 * self.evv#???? Compare with ekin from nabla^2
+        return self.ekin#???? Compare with ekin from nabla^2
 
     def _initialize(self):
         if self.initialized:
@@ -462,6 +472,7 @@ class Hybrid:
                 if spin == 0:
                     self.evv = 0.0
                     self.evc = 0.0
+                    self.ekin = 0.0
                 VV_aii = self.calculate_valence_valence_paw_corrections(spin)
                 K = kd.nibzkpts
                 k1 = (spin - kd.comm.rank) * K
@@ -475,12 +486,13 @@ class Hybrid:
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
                         for kpt in kpts]
-                evv, evc = self.xx.calculate(
+                evv, evc, ekin = self.xx.calculate(
                     kpts, kpts,
                     VV_aii,
                     v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
                 self.evv += evv * deg * self.exx_fraction
                 self.evc += evc * deg * self.exx_fraction
+                self.ekin += ekin * deg * self.exx_fraction
             Htpsit_xG += self.cache.pop((spin, kpt.k)) * self.exx_fraction
         else:
             assert len(self.cache) == 0

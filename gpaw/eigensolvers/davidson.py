@@ -125,7 +125,7 @@ class Davidson(Eigensolver):
                 precond(R_G, kpt, ekin, out=psit2_G)
 
             if 1:
-                psit.array[:] += 0.1 * psit2.array
+                psit.array[:] += 0.21 * psit2.array
                 psit.matrix_elements(wfs.pt, out=P)
                 return error
 
