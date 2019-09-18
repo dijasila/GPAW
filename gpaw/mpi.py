@@ -696,6 +696,8 @@ class SerialCommunicator:
 
 serial_comm = SerialCommunicator()
 
+have_mpi = world is not None
+
 if world is None or world.size == 1:
     world = serial_comm
 
@@ -706,12 +708,6 @@ if gpaw.debug:
 rank = world.rank
 size = world.size
 parallel = (size > 1)
-try:
-    world.get_c_object()
-except NotImplementedError:
-    have_mpi = False
-else:
-    have_mpi = True
 
 
 # XXXXXXXXXX for easier transition to Parallelization class
