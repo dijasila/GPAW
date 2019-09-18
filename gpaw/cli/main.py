@@ -29,7 +29,15 @@ commands = [
 
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
-                        help="Run on N CPUs.")
+                        help='Run on N CPUs.')
+    parser.add_argument('--debug', action='store_true')
+    args = args or sys.argv
+    try:
+        i = args.index('python')
+    except ValueError:
+        pass
+    else:
+        args = args[:i + 1] + [' '.join]
     args = parser.parse_args()
 
     if args.parallel:
@@ -43,15 +51,15 @@ def hook(parser, args):
 
         if py:
             # Start again in parallel:
-            arguments = ['mpiexec', '-np', str(args.parallel), py]
-            if args.command == 'python':
-                arguments += args.arguments
-            else:
-                arguments += ['-m', 'gpaw'] + sys.argv[1:]
+            arguments = ['mpiexec',
+                         '-np',
+                         str(args.parallel),
+                         py,
+                         '-m',
+                         'gpaw'] + sys.argv[1:]
 
-            # Use a clean set of environment variables without any MPI
-            # stuff:
-            p = subprocess.run(arguments, check=True, env=os.environ)
+            # Use a clean set of environment variables without any MPI stuff:
+            p = subprocess.run(arguments, check=not True, env=os.environ)
             sys.exit(p.returncode)
 
     return args
