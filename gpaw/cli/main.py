@@ -30,15 +30,16 @@ commands = [
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
                         help='Run on N CPUs.')
-    parser.add_argument('--debug', action='store_true')
-    args = args or sys.argv
-    try:
-        i = args.index('python')
-    except ValueError:
-        pass
-    else:
-        args = args[:i + 1] + [' '.join]
-    args = parser.parse_args()
+    args = parser.parse_args(args)
+
+    if hasattr(args, 'dry_run'):
+        N = int(args.dry_run)
+        if N:
+            import gpaw
+            gpaw.dry_run = N
+            from gpaw.mpi import world
+            world = getattr(world, 'comm', world)
+            world.size = N
 
     if args.parallel:
         from gpaw.mpi import have_mpi, world

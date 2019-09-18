@@ -10,10 +10,8 @@ from contextlib import contextmanager
 
 import numpy as np
 
-from gpaw import debug
-from gpaw import dry_run as dry_run_size
+import gpaw
 from .broadcast_imports import world
-
 import _gpaw
 
 MASTER = 0
@@ -652,7 +650,9 @@ class SerialCommunicator:
     def new_communicator(self, ranks):
         if self.rank not in ranks:
             return None
-        return SerialCommunicator(parent=self)
+        comm = SerialCommunicator(parent=self)
+        comm.size = len(ranks)
+        return comm
 
     def test(self, request):
         return 1
@@ -683,44 +683,25 @@ class SerialCommunicator:
 
     def translate_ranks(self, other, ranks):
         if isinstance(other, SerialCommunicator):
-            assert all(rank == 0 for rank in ranks)
+            assert all(rank == 0 for rank in ranks) or gpaw.dry_run
             return np.zeros(len(ranks), dtype=int)
         raise NotImplementedError(
             'Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
+        if gpaw.dry_run:
+            return None  # won't actually be passed to C
         raise NotImplementedError('Should not get C-object for serial comm')
 
 
 serial_comm = SerialCommunicator()
 
-if world is None:
+if world is None or world.size == 1:
     world = serial_comm
 
-
-class DryRunCommunicator(SerialCommunicator):
-    def __init__(self, size=1, parent=None):
-        self.size = size
-        self.parent = parent
-
-    def new_communicator(self, ranks):
-        return DryRunCommunicator(len(ranks), parent=self)
-
-    def get_c_object(self):
-        return None  # won't actually be passed to C
-
-    def translate_ranks(self, comm, ranks):
-        return np.zeros_like(ranks)
-
-
-if dry_run_size > 1:
-    world = DryRunCommunicator(dry_run_size)
-
-
-if debug:
+if gpaw.debug:
     serial_comm = _Communicator(serial_comm)
     world = _Communicator(world)
-
 
 rank = world.rank
 size = world.size
@@ -808,7 +789,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
     comm.all_gather(my_fail, all_fail)
 
     if all_fail.any():
-        if debug:
+        if gpaw.debug:
             with open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb') as fd:
                 pickle.dump((atoms.positions, atoms.cell,
                              atoms.numbers, atoms.pbc,
@@ -1107,7 +1088,7 @@ class Parallelization:
 def cleanup():
     error = getattr(sys, 'last_type', None)
     if error is not None:  # else: Python script completed or raise SystemExit
-        if parallel and not (dry_run_size > 1):
+        if parallel and not (gpaw.dry_run > 1):
             sys.stdout.flush()
             sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
                               'Calling MPI_Abort!\n') % (world.rank, error))
@@ -1150,7 +1131,7 @@ if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks
     atexit._exithandlers = []  # not needed because we are intentially exiting
-    if parallel and not (dry_run_size > 1):
+    if parallel and not (gpaw.dry_run > 1):
         sys.stdout.flush()
         sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
                           'Calling MPI_Finalize!\n') % (world.rank, error))

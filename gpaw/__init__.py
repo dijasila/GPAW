@@ -3,7 +3,6 @@
 # Please see the accompanying LICENSE file for further information.
 
 """Main gpaw module."""
-
 import os
 import sys
 from sysconfig import get_platform
@@ -216,7 +215,7 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', False)
+debug = extra_parameters.pop('debug', sys.flags.debug)
 
 # Check for typos:
 for p in extra_parameters:

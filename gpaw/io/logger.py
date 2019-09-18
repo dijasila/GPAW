@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import os
 import sys
 import time
@@ -12,7 +11,7 @@ from ase.utils import search_current_git_hash
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
-from gpaw import dry_run, extra_parameters
+from gpaw import extra_parameters
 from gpaw.mpi import world
 
 
@@ -141,7 +140,7 @@ class GPAWLogger(object):
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        if dry_run:
+        if gpaw.dry_run:
             return
 
         try:

@@ -56,6 +56,7 @@ class CLICommand:
     @staticmethod
     def add_arguments(parser):
         ASECLICommand.add_more_arguments(parser)
+        parser.add_argument('--dry-run', type=int, default=0)
         parser.add_argument('-w', '--write', help='Write gpw-file.')
         parser.add_argument('-W', '--write-all',
                             help='Write gpw-file with wave functions.')
