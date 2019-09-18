@@ -8,12 +8,14 @@ class CLICommand:
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument('--dry-run', type=int, default=0)
+        parser.add_argument('--dry-run', type=int, default=0,
+                            metavar='NCPUS',
+                            help='Dry run on NCPUS cpus.')
         group = parser.add_mutually_exclusive_group()
         group.add_argument('--command', '-c', dest='cmd',
-                           help='Pprogram passed in as string.')
+                           help='Program passed in as string.')
         group.add_argument('--module', '-m',
-                           help='run library module as a script.')
+                           help='Run library module as a script.')
         parser.add_argument('arguments', metavar='ARG',
                             help='Arguments passed to program in sys.argv[1:].',
                             nargs=argparse.REMAINDER)
