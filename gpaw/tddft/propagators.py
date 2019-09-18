@@ -199,7 +199,6 @@ class ExplicitCrankNicolson(DummyPropagator):
 
         return self.niter
 
-
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
 
@@ -411,7 +410,6 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         self.td_overlap.update(self.wfs)
 
         return self.niter
-
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
@@ -644,7 +642,6 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
 
         return self.niter
 
-
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, calculate_P_ani=False, guess=False):
 
@@ -871,7 +868,6 @@ class EhrenfestHGHSICN(ExplicitCrankNicolson):
         self.td_overlap.update(self.wfs)
 
         return self.niter
-
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, calculate_P_ani = False, guess=False):

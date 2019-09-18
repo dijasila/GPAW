@@ -448,9 +448,11 @@ class UTGaussianWavefunctionSetup(UTDomainParallelSetup):
 
 def UTGaussianWavefunctionFactory(boundaries, dtype):
     sep = '_'
-    classname = 'UTGaussianWavefunctionSetup' \
-    + sep + {'zero':'Zero', 'periodic':'Periodic', 'mixed':'Mixed'}[boundaries] \
-    + sep + {float:'Float', complex:'Complex'}[dtype]
+    classname = ('UTGaussianWavefunctionSetup' + sep +
+                 {'zero': 'Zero',
+                  'periodic': 'Periodic',
+                  'mixed':'Mixed'}[boundaries] + sep +
+                 {float:'Float', complex:'Complex'}[dtype])
 
     class MetaPrototype(UTGaussianWavefunctionSetup, object):
         __doc__ = UTGaussianWavefunctionSetup.__doc__

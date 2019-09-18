@@ -66,7 +66,7 @@ class Kmatrix:
         # ready rows list for different procs (read by this proc)
         elem_lists = {}
         for proc in range(self.lr_comms.parent_comm.size):
-           elem_lists[proc] = []
+            elem_lists[proc] = []
 
         self.lr_comms.parent_comm.barrier()
 

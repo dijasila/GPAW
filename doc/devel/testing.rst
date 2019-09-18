@@ -109,4 +109,8 @@ something like::
                      deps=['calculate.py'])]
 
 As shown, this script has to contain the definition of the function
-``create_tasks()``.  See https://myqueue.readthedocs.io/ for more details.
+create_tasks_.  Start the workflow with ``mq workflow -p agts.py .``
+(see https://myqueue.readthedocs.io/ for more details).
+
+.. _create_tasks: https://myqueue.readthedocs.io/en/latest/
+    workflows.html#create_tasks

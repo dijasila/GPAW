@@ -12,6 +12,7 @@ from gpaw import debug
 from gpaw.mpi import serial_comm
 from gpaw.utilities import unpack
 
+
 class DynamicalMatrix:
     """Class for assembling the dynamical matrix from first-order responses.
 
@@ -116,8 +117,9 @@ class DynamicalMatrix:
         """Set indices of atoms to be included in the calculation."""
 
         self.indices = indices
-        self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=self.dtype))
-                                        for a_ in self.indices]))
+        self.C_qaavv = [dict([(a,
+                               dict([(a_, np.zeros((3, 3), dtype=self.dtype))
+                                     for a_ in self.indices]))
                               for a in self.indices])
                         for q in range(self.kd.nibzkpts)]
 
@@ -195,11 +197,11 @@ class DynamicalMatrix:
         self.C_q = []
         for q, C_aavv in enumerate(self.C_qaavv):
 
-            C_avav = np.zeros((3*N, 3*N), dtype=self.dtype)
+            C_avav = np.zeros((3 * N, 3 * N), dtype=self.dtype)
 
             for i, a in enumerate(self.indices):
                 for j, a_ in enumerate(self.indices):
-                    C_avav[3*i : 3*i + 3, 3*j : 3*j + 3] += C_aavv[a][a_]
+                    C_avav[3 * i:3 * i + 3, 3 * j:3 * j + 3] += C_aavv[a][a_]
 
             self.C_q.append(C_avav)
 
@@ -220,14 +222,13 @@ class DynamicalMatrix:
             for C in self.C_q:
                 for a in range(N):
                     for a_ in range(N):
-                        C[3*a:3*a + 3, 3*a:3*a + 3] -= \
-                            C_gamma[3*a: 3*a+3, 3*a_: 3*a_+3]
+                        C[3 * a:3 * a + 3, 3 * a:3 * a + 3] -= \
+                            C_gamma[3 * a:3 * a + 3, 3 * a:3 * a_ + 3]
 
             # Check sum-rule for Gamma-component in debug mode
             if debug:
                 C = self.C_q[self.gamma_index]
-                assert np.all(np.sum(C.reshape((3*N, N, 3)), axis=1) < 1e-15)
-
+                assert np.all(np.sum(C.reshape((3 * N, N, 3)), axis=1) < 1e-15)
 
         # Move this bit to an ``unfold`` member function
         # XXX Time-reversal symmetry
@@ -259,7 +260,8 @@ class DynamicalMatrix:
         # Reshape before Fourier transforming
         shape = self.D_k.shape
         Dq_lmn = self.D_k.reshape(N_c + shape[1:])
-        DR_lmn = fft.ifftn(fft.ifftshift(Dq_lmn, axes=(0, 1, 2)), axes=(0, 1, 2))
+        DR_lmn = fft.ifftn(fft.ifftshift(Dq_lmn, axes=(0, 1, 2)),
+                           axes=(0, 1, 2))
 
         if debug:
             # Check that D_R is real enough
@@ -322,7 +324,7 @@ class DynamicalMatrix:
         # Integral of electron density times the second derivative of vbar
         nt_g = calc.density.nt_g
         d2vbar_avv = dict([(atom.index, np.zeros((3, 3)))
-                           for atom in self.atoms ])
+                           for atom in self.atoms])
         vbar.second_derivative(nt_g, d2vbar_avv)
 
         # Matrix of force constants to be updated; q=-1 for Gamma calculation!
@@ -358,11 +360,12 @@ class DynamicalMatrix:
 
             # Calculate d2P_anivv coefficients
             # d2P_anivv = self.calculate_d2P_anivv()
-            d2P_anivv = dict([(atom.index,
-                               np.zeros(
-                (nbands, pt.get_function_count(atom.index), 3, 3)
-                )) for atom in self.atoms])
-            #XXX Temp dict, second_derivative method only takes a_G array
+            d2P_anivv = dict(
+                [(atom.index,
+                  np.zeros(
+                      (nbands, pt.get_function_count(atom.index), 3, 3)))
+                 for atom in self.atoms])
+            # XXX Temp dict, second_derivative method only takes a_G array
             # -- no extra dims
             d2P_avv = dict([(atom.index, np.zeros((3, 3)))
                             for atom in self.atoms])
@@ -410,7 +413,7 @@ class DynamicalMatrix:
         # Get attributes from the phononperturbation
         a = perturbation.a
         v = perturbation.v
-        #XXX careful here, Gamma calculation has q=-1
+        # XXX careful here, Gamma calculation has q=-1
         q = perturbation.q
 
         # Matrix of force constants to be updated; q=-1 for Gamma calculation!
@@ -487,7 +490,8 @@ class DynamicalMatrix:
             # Overlap between wave-function derivative and projectors
             Pdpsi_ani = pt.dict(shape=nbands, zero=True)
             pt.integrate(psit1_nG, Pdpsi_ani, q=kplusq)
-            # Overlap between wave-function derivative and derivative of projectors
+            # Overlap between wave-function derivative and derivative of
+            # projectors
             dPdpsi_aniv = pt.dict(shape=nbands, derivative=True)
             pt.derivative(psit1_nG, dPdpsi_aniv, q=kplusq)
 
@@ -502,7 +506,8 @@ class DynamicalMatrix:
 
                 # Term with dPdpsi and P coefficients
                 HP_ni = np.dot(P_ni, H_ii)
-                dPdpsiHP_nv = (dPdpsi_niv.conj() * HP_ni[:, :, np.newaxis]).sum(1)
+                dPdpsiHP_nv = (dPdpsi_niv.conj() *
+                               HP_ni[:, :, np.newaxis]).sum(1)
                 dPdpsiHP_nv *= kpt.weight
                 A_v = dPdpsiHP_nv.sum(0)
 
