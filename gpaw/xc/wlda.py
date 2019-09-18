@@ -8,8 +8,8 @@ import gpaw.mpi as mpi
 class WLDA(XCFunctional):
     def __init__(self, kernel=None, mode="", filter_kernel=""):
         XCFunctional.__init__(self, 'WLDA','LDA')
-        if kernel is None:
-            kernel = PurePythonLDAKernel()
+        #if kernel is None:
+        #    kernel = PurePythonLDAKernel()
         self.kernel = kernel
         self.stepsize = 0.1
         self.stepfactor = 1.1
@@ -20,6 +20,16 @@ class WLDA(XCFunctional):
         self.n_gi = None
 
         self.gd1 = None
+
+        self.nindicators = int(1e3)
+        if "test" in filter_kernel:
+            self.nindicators = int(1e2)
+
+        if "param" in filter_kernel:
+            alphaw = float(filter_kernel.replace("param", ""))
+            self.alphaw = alphaw
+        else:
+            self.alphaw = 1.0
 
         # self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
         # self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
@@ -35,7 +45,8 @@ class WLDA(XCFunctional):
             self.filter_kernel = self._theta_filter
 
         self.num_nis = 10
-        self.lda_kernel = PurePythonLDAKernel()
+        # self.lda_kernel = PurePythonLDAKernel()
+
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density #.D_asp
@@ -506,17 +517,12 @@ class WLDA(XCFunctional):
 
         return ni_vector
 
-        
-
-
     def _get_K_G(self, gd):
         assert gd.comm.size == 1 # Construct_reciprocal doesnt work in parallel
         k2_Q, _ = construct_reciprocal(gd)
         k2_Q[0,0,0] = 0
         return k2_Q**(1/2)
         
-
-
     def _theta_filter(self, k_F, K_G, n_G):
         
         Theta_G = (K_G**2 <= 4*k_F**2).astype(np.complex128)
@@ -1301,7 +1307,7 @@ class WLDA(XCFunctional):
         return result_sg
 
     def alt_method(self, gd, n_sg, v_sg, e_g):
-        self.nindicators = int(1e3)
+        # self.nindicators = int(1e3)
         alphas = self.setup_indicator_grid(self.nindicators)
         self.alphas = alphas
         self.setup_indicators(alphas)
@@ -1383,7 +1389,7 @@ class WLDA(XCFunctional):
 
         K_G = self._get_K_G(gd)
 
-        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**20).astype(np.complex128)
+        res = (1 / (1 + self.alphaw * (K_G / (kF + 0.0001))**2)**20).astype(np.complex128)
         res = res / res[0, 0, 0]
         assert not np.isnan(res).any()
         return res
@@ -1391,10 +1397,26 @@ class WLDA(XCFunctional):
         #return (K_G**2 <= 4 * kF**2).astype(np.complex128)
 
     def fftn(self, arr, axes=None):
-        return np.fft.fftn(arr, axes=axes, norm="ortho") * self.gd.dv
+        if axes is None:
+            sqrtN = np.sqrt(np.array(arr.shape).prod())
+        else:
+            sqrtN = 1
+            for ax in axes:
+                sqrtN *= arr.shape[ax]
+            sqrtN = np.sqrt(sqrtN)
+
+        return np.fft.fftn(arr, axes=axes, norm="ortho") / sqrtN # * self.gd.dv
     
     def ifftn(self, arr, axes=None):
-        return np.fft.ifftn(arr, axes=axes, norm="ortho") / self.gd.dv
+        if axes is None:
+            sqrtN = np.sqrt(np.array(arr.shape).prod())
+        else:
+            sqrtN = 1
+            for ax in axes:
+                sqrtN *= arr.shape[ax]
+            sqrtN = np.sqrt(sqrtN)
+
+        return np.fft.ifftn(arr, axes=axes, norm="ortho") * sqrtN#/ self.gd.dv
 
     def setup_indicators(self, alphas):
         

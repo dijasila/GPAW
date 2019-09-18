@@ -5,11 +5,10 @@ from gpaw import GPAW, PW, mpi
 
 
 atoms = Atoms("H2", positions=[[0,0,0], [0,0,2]], cell=5*np.identity(3), pbc=True)
-calc = GPAW(mode=PW(350), xc="WLDA_altmethod", txt=None)
+calc = GPAW(mode=PW(350), xc="WLDA_altmethod_test", txt=None)
 calc.initialize(atoms=atoms)
 calc.set_positions(atoms)
 xc = calc.hamiltonian.xc
-
 assert xc is not None
 
 class Tester(BaseTester):
@@ -304,7 +303,7 @@ class Tester(BaseTester):
         current = 10000
         for i, cellsize in enumerate([5, 5.5, 6]):#, 200]:
             latoms = Atoms("H2", positions=[[0,0,0], [0,0,2]], cell=cellsize*np.identity(3), pbc=True)
-            lcalc = GPAW(mode=PW(100), xc="WLDA_altmethod", txt=None)
+            lcalc = GPAW(mode=PW(100), xc="WLDA_altmethod_test", txt=None)
             lcalc.initialize(atoms=latoms)
             lcalc.set_positions(latoms)
             lxc = lcalc.hamiltonian.xc
@@ -423,7 +422,7 @@ class Tester(BaseTester):
         def setup_nonuni(ninds):
             return np.log(np.linspace(1, np.exp(10), ninds))
         latoms = Atoms("H2", positions=[[0,0,0], [0,0,2]], cell=5*np.identity(3), pbc=True)
-        lcalc = GPAW(mode=PW(400), xc="WLDA_altmethod", txt=None)
+        lcalc = GPAW(mode=PW(400), xc="WLDA_altmethod_test", txt=None)
         lcalc.initialize(atoms=latoms)
         lcalc.set_positions(latoms)
         lxc = lcalc.hamiltonian.xc

@@ -1,7 +1,9 @@
 from testframework import BaseTester
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, PW, mpi
+from gpaw import GPAW
+from gpaw import PW
+from gpaw import mpi
 
 
 atoms = Atoms("H2", positions=[[0,0,0], [0,0,2]], cell=5*np.identity(3))
@@ -29,9 +31,20 @@ class Tester(BaseTester):
         densf = np.fft.fftn(dens)
         densf = np.random.rand(*densf.shape) + 0.1
         densf[0,0,0] = densf[0,0,0] + 1.0
-        res = np.array([np.fft.ifftn(densf).real])
-        res = res + np.min(res)
-        res[res < 1e-7] = 1e-8
+
+        dens = np.fft.ifftn(densf).real
+        dens = dens + np.min(dens)
+        dens[dens < 1e-7] = 1e-8
+        norm = self.gd.integrate(dens)
+
+        nelec = 5
+        dens = dens / norm * nelec
+        
+        assert np.allclose(self.gd.integrate(dens), nelec)
+        
+        res = np.array([dens])
+        #res[res < 1e-7] = 1e-8
+        
         assert (res >= 0).all()
         assert res.ndim == 4
         assert not np.allclose(res, 0)
@@ -71,6 +84,7 @@ class Tester(BaseTester):
         Z_i = xc.standardmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, spin, gd)
 
     def test_02_getLDAxc(self):
+        return "skipped"
         # Test for spin = 0 and spin = 1
         n = np.random.rand() * 100
         e_x = - 3 / 4 * (3 / np.pi)**(1/3) * n**(4/3)
@@ -80,7 +94,7 @@ class Tester(BaseTester):
         e_c = np.array([0.])
         lda_c(0, e_c, n, np.array([0.]), 0)
         
-        actual_xc = xc.get_lda_xc(n, 0)
+        actual_xc = xc.get_lda_xc(n, 0) * n
 
         assert np.allclose(e_x + e_c, actual_xc), "Error in xc: {}".format(np.max(np.abs(e_x+e_c - actual_xc)))
 
@@ -161,7 +175,7 @@ class Tester(BaseTester):
         
         def global_test(size, global_data):
             ind_sum_rg = np.array([g.sum(axis=0) for g in global_data])
-            assert np.allclose(ind_sum_rg.sum(axis=0), 1)
+            assert np.allclose(ind_sum_rg.sum(axis=0), 1, atol=1e-3, rtol=1), "MEAN: {}, STD: {}".format(ind_sum_rg.sum(axis=0).mean(), ind_sum_rg.sum(axis=0).std())
             
         self.execute_test_for_random_mpiworld(local_test_fct, global_test)
             
@@ -182,12 +196,50 @@ class Tester(BaseTester):
             
         self.execute_test_for_random_mpiworld(local_test_fct, global_test)
 
-    def test_11_standardZs_lessgreatm1(self):
+        # Need some tests that fourier transforms + folding works as expected
+        # 1. xc.fftn(xc.ifftn) = 1, xc.ifftn(xc.fftn) = 1.
+        # 2. Fold any function with a weight function with w(k=0) = 1, get function with same norm
+        # 3. 
+
+
+    def test_11_fftnifftn_isid(self):
+        n_sg = self.get_a_density()
+        assert np.allclose(xc.fftn(xc.ifftn(n_sg)), n_sg)
+        assert np.allclose(xc.ifftn(xc.fftn(n_sg)), n_sg)
+
+    def test_12_fftfold_normunchanged(self):
+        n_sg = self.get_a_density()
+
+        norm = xc.gd.integrate(n_sg)
+        
+        nnorm = np.random.rand() * 20
+        n_sg = n_sg * nnorm / norm
+
+        assert np.allclose(xc.gd.integrate(n_sg), nnorm)
+
+        w_sg = np.random.rand(*n_sg.shape)
+
+        w_sG = xc.fftn(w_sg)
+        N = np.array(n_sg.shape[1:]).prod()
+        w_sG[:, 0, 0, 0] = 1
+
+        w_sg = xc.ifftn(w_sG)
+
+        nn_sg = xc.fold_w_pair(w_sg, n_sg)
+
+
+        norm1 = xc.gd.integrate(n_sg)
+        norm2 = xc.gd.integrate(nn_sg)
+        assert np.allclose(norm1, norm2), "Norm before fold: {}, norm after fold: {}".format(norm1, norm2)
+        
+
+
+    def test_13_standardZs_lessgreatm1(self):
         # Test that the Zs have values that are both greater than
         # and less than -1.
         # -1 is the target values
         mag = np.random.rand()*100
-        n_sg = self.get_a_density()*mag
+        n_sg = self.get_a_density()
         while np.allclose(np.max(n_sg), 0):
             mag = np.random.rand()*100
             n_sg = self.get_a_density()*mag
@@ -198,10 +250,15 @@ class Tester(BaseTester):
 
         Z_i = Z_i.reshape(len(Z_i), -1)
        
-        assert (np.array([(Z >= -1).any() for Z in Z_i.T])).all()
+        countNoGood = np.array([not (Z >= -1).any() for Z in Z_i.T]).sum()
+        print("No good count: {}. Total count: {}".format(countNoGood, len(Z_i[0])))
+        for index, vals in enumerate(Z_i.T):
+            if not (vals >= -1).any():
+                print("BAD INDEX: ", index)
+        assert (np.array([(Z >= -1).any() for Z in Z_i.T])).all(), "Z_0 mean: {}, Z_last mean: {}".format(Z_i[0].mean(), Z_i[-1].mean())
         assert (np.array([(Z <= -1).any() for Z in Z_i.T])).all()
 
-    def test_12_standardZs_lessgreatm1_vsmallmag(self):
+    def test_14_standardZs_lessgreatm1_vsmallmag(self):
         # Test that the Zs have values that are both greater than
         # and less than -1.
         # -1 is the target values
@@ -221,7 +278,7 @@ class Tester(BaseTester):
         assert (np.array([(Z >= -1).any() for Z in Z_i.T])).all()
         assert (np.array([(Z <= -1).any() for Z in Z_i.T])).all()
 
-    def test_13_standardZs_lessgreatm1_numelec(self):
+    def test_15_standardZs_lessgreatm1_numelec(self):
         # Test that the Zs have values that are both greater than
         # and less than -1.
         # -1 is the target values
@@ -240,7 +297,7 @@ class Tester(BaseTester):
                           
 
 
-    def test_14_symmetricZs_lessgreatm1(self):
+    def test_16_symmetricZs_lessgreatm1(self):
         num_e = np.random.randint(100) + 1
         n_sg = self.get_a_density()
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
@@ -254,7 +311,7 @@ class Tester(BaseTester):
         assert (np.array([(Z >= -1).any() for Z in Z_i.T])).all()
         assert (np.array([(Z <= -1).any() for Z in Z_i.T])).all()
                      
-    def test_15_parastandardZs(self):
+    def test_17_standardZs_parallel(self):
         num_e = np.random.randint(100) + 1
         n_sg = self.get_a_density()
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
@@ -275,7 +332,7 @@ class Tester(BaseTester):
             
         self.execute_test_for_random_mpiworld(local_test, global_test)
 
-    def test_16_parasymmetricZs(self):
+    def test_18_symmetricZs_parallel(self):
         num_e = np.random.randint(100) + 1
         n_sg = self.get_a_density()
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
@@ -306,7 +363,7 @@ class Tester(BaseTester):
         Z_ig, Z_lowerg, Z_upperg = Z_fct(n_sg, ni_grid, lower, upper, grid, 0, xc.gd)
         return Z_ig, Z_lowerg, Z_upperg
         
-    def test_17_get_alphas(self):
+    def test_19_get_alphas(self):
         Z_ig, Z_lowerg, Z_upperg = self.get_some_Zs(xc.standardmode_Zs)
         alpha_ig = xc.get_alphas(Z_ig, Z_lowerg, Z_upperg)
 
@@ -317,7 +374,7 @@ class Tester(BaseTester):
         count_notzeros = not_zeros.sum(axis=0)
         assert np.logical_or(np.isclose(count_notzeros, 1), np.isclose(count_notzeros, 2)).all()
 
-    def test_18_get_symalphas(self):
+    def test_20_get_symalphas(self):
         Z_ig, Z_lowerg, Z_upperg = self.get_some_Zs(xc.symmetricmode_Zs)
         alpha_ig = xc.get_alphas(Z_ig, Z_lowerg, Z_upperg)
         
@@ -328,7 +385,7 @@ class Tester(BaseTester):
         count_notzeros = not_zeros.sum(axis=0)
         assert np.logical_or(np.isclose(count_notzeros, 1), np.isclose(count_notzeros, 2)).all()
 
-    def test_19_alphaval(self):
+    def test_21_alphaval(self):
         Z_isg = np.array([[[[np.linspace(-1, 0, 10)]]]]).T
         Z_lower = np.array([[[[-1]]]])
         Z_upper = np.array([[[[0]]]])
@@ -340,7 +397,7 @@ class Tester(BaseTester):
         notzero = np.logical_not(np.isclose(alpha_i, 0))
         assert notzero.sum() == 1 or notzero.sum() == 2
 
-    def test_20_alphaval2_nonmonotonic(self):
+    def test_22_alphaval2_nonmonotonic(self):
         return "skipped"
         Z_i = np.zeros((100, 1, 1, 1, 1))
         index = np.random.randint(99)
@@ -362,7 +419,7 @@ class Tester(BaseTester):
         assert countnotzero == 1 or countnotzero == 2, countnotzero
         assert np.allclose(alpha_i, expected)
 
-    def test_21_alphaval2(self):
+    def test_23_alphaval2(self):
         Z_i = np.zeros((100, 1, 1, 1, 1))
         index = np.random.randint(99)
         delta = 0.1
@@ -384,7 +441,7 @@ class Tester(BaseTester):
         assert countnotzero == 1 or countnotzero == 2, countnotzero
         assert np.allclose(alpha_i, expected)
 
-    def test_22_alphapara(self):
+    def test_24_alphapara(self):
         n_sg = self.get_a_density()
         grid = self.gd.get_grid_point_coordinates()
         def local_test(rank, size):
@@ -405,7 +462,7 @@ class Tester(BaseTester):
             assert (countnotzeros_r <= 2).all()
         self.execute_test_for_random_mpiworld(local_test, global_test)
 
-    def test_23_calculateV1(self):
+    def test_25_calculateV1(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
         V1_sg = xc.calculate_V1(alpha_ig, n_sg, self.grid, ni_j)
@@ -416,37 +473,37 @@ class Tester(BaseTester):
         assert not np.isnan(arr).any()
         assert not np.isinf(arr).any()
 
-    def test_24_calculateV1p(self):
+    def test_26_calculateV1p(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
         V1p_sg = xc.calculate_V1p(alpha_ig, n_sg, self.grid, ni_j)
         self.isgoodnum(V1p_sg)
 
-    def test_25_calculateV2_normal(self):
+    def test_27_calculateV2_normal(self):
         alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
-        dalpha_isg = xc.get_dalpha_isg_normal(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg), xc.normal_dZ)
+        dalpha_isg = xc.get_dalpha_isg(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg), xc.normal_dZ)
         V2_sg = xc.calculate_V2(dalpha_isg, n_sg, self.grid, ni_j)
         self.isgoodnum(V2_sg)
     
-    def test_26_calculate_sympot(self):
+    def test_28_calculate_sympot(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
         Vsympot_sg = xc.calculate_sym_pot_correction(alpha_ig, n_sg, self.grid, ni_j)
         self.isgoodnum(Vsympot_sg)
 
-    def test_27_calculate_energy(self):
+    def test_29_calculate_energy(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
         e_g = xc.calculate_energy(alpha_ig, n_sg, self.gd, self.grid, ni_j)
         self.isgoodnum(e_g)
 
-    def test_28_calculate_symene(self):
+    def test_30_calculate_symene(self):
         alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
         
         esym_g = xc.calculate_sym_energy_correction(alpha_ig, n_sg, self.gd, self.grid, ni_j)
         self.isgoodnum(esym_g)
 
-    def test_29_calculate_valence_corr(self):
+    def test_31_calculate_valence_corr(self):
         n1_sg = self.get_a_density()
         n2_sg = self.get_a_density()
         
@@ -456,20 +513,102 @@ class Tester(BaseTester):
         # expected = None
         # assert np.allclose(eval_g, expected)
 
-    def test_30_calculateV2_normal(self):
+    def test_32_calculateV2_normal(self):
         alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
-        dalpha_isg = xc.get_dalpha_isg_normal(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg), xc.symmetric_dZ)
+        dalpha_isg = xc.get_dalpha_isg(alpha_isg, Z_isg, Zlower_sg, Zupper_sg, self.grid, ni_j, nilower, niupper, len(n_sg), xc.symmetric_dZ)
         V2_sg = xc.calculate_V2(dalpha_isg, n_sg, self.grid, ni_j)
         self.isgoodnum(V2_sg)
 
-    # def test_30_get_dalpha_normal(self):
-    #     raise NotImplementedError
+    def test_33_get_dalpha(self):
+        # dalpha(r')/dn(r) = 0 for alpha(r') = 0
+        # What to do at left edge i = N - 1? If alpha_i = 0, then return 0.
+        ### If alpha_i != 0, then we are always (hopefully) in +1 branch. Then return +1 expression
+        # What to do at the right edge i = 0? If alpha_i = 0, then return 0.
+        ### If alpha_i != 0, then we are always (hopefully) in +0 branch. Then return +0 expression
 
-    # def test_31_get_dalpha_symmetric(self):
-    #     raise NotImplementedError
+        # We can substitute in any dZ function we want and any Z_i(r) functions we want, so we can control the results
+        n_sg = self.get_a_density()
+        print("NORM HERE: ", self.gd.integrate(n_sg))
+        
+        ni_j, ni_lower, ni_upper = xc.get_ni_grid(0, 1, n_sg)
+        
+        nnis = len(ni_j)
 
-    # def test_32_calculateV2_symmetric(self):
-    #     raise NotImplementedError
+        alpha_isg = np.random.rand(*((nnis,) + n_sg.shape))*1000#np.zeros((nnis,) + n_sg.shape)
+        
+        def my_dZ(i, s, G_isr, grid_vg, ni_lowe2r, ni_uppe2r, alpha_isg):
+            return np.random.rand(*G_isr[i, s].shape)
+
+        Z_isg, Z_lower_sg, Z_upper_sg = xc.get_Zs(n_sg, ni_j, ni_lower, ni_upper, self.grid, 0, self.gd)
+        
+        print("MEAN Z", np.mean(Z_isg))
+        import matplotlib.pyplot as plt
+
+        # for j, ni in enumerate(ni_j):
+        #     g_g = xc.get_pairdist_g(self.grid, ni, 0)
+        #     plt.plot(g_g[:, 0, 0], label=str(ni))
+        # plt.legend()
+        # plt.show()
+
+        print("")
+        print("DV = ", self.gd.dv)
+        print("1/DV = ", 1 / self.gd.dv)
+        npts = np.array(Z_isg[0,0].shape).prod()
+        print("NPTS: ", npts)
+        print("SQRT NPTS: ", np.sqrt(npts))
+
+        print("A Z VAL:" , Z_isg[0, 0, 0, 0, 0])
+
+        D = Z_isg[:, 0, ...]
+        D = D.reshape(len(Z_isg), -1)
+        plt.plot(ni_j, np.mean(D, axis=1))
+        plt.show()
+
+        assert (Z_isg < -1.0).any()
+        assert (Z_isg >= -1.0).any()
+
+        dalpha_isg = xc.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, self.grid, ni_j, ni_lower, ni_upper, 1, my_dZ)
+        
+        assert np.allclose(dalpha_isg, 0)
+
+        
+        ii = np.random.randint(nnis)
+        
+        delta = np.random.rand() + 0.01
+        Z_isg[ii, :, ...] = -1.0
+        Z_isg[:ii, :, ...] = -1.0 + delta
+        Z_isg[ii+1:, :, ...] = -1.0 - delta
+
+    
+        Z_lower_sg[:, ...] = -1.0 + delta
+        Z_upper_sg[:, ...] = -1.0 - delta
+
+        alpha_isg[ii, 0] = 1.0
+
+        def my_dZ2(i, s, G_isr, grid, ni_low, ni_upp, alpha_isg):
+            return np.ones(G_isr[0, s].shape)
+
+        dalpha_isg = xc.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, self.grid, ni_j, ni_lower, ni_upper, 1, my_dZ2)
+
+        assert np.allclose(dalpha_isg[ii, 0], 1 / (-1.0 - delta - (-1.0))), "MEAN: {}, STD: {}, ii: {}".format(dalpha_isg[ii, 0].mean(), dalpha_isg[ii+1, 0].std(), ii)
+        assert np.allclose(dalpha_isg[:ii, 0], 0)
+
+        if ii < nnis - 1:
+            assert np.allclose(dalpha_isg[ii+1,0], -1 / (-1.0 - delta - (-1.0))), "MEAN: {}, STD: {}".format(dalpha_isg[ii+1,0].mean(), dalpha_isg[ii+1,0].std())
+            if ii < nnis - 2:
+                das = dalpha_isg[ii+2,0]
+                assert np.allclose(dalpha_isg[ii+2:, 0], 0), "MEAN: {}, STD: {}".format(das.mean(), das.std())
+
+        # raise NotImplementedError
+
+    def test_34_get_dZ_normal(self):
+        raise NotImplementedError
+
+    def test_35_get_dZ_symmetric(self):
+         raise NotImplementedError
+
+    def test_36_calculateV2_symmetric(self):
+         raise NotImplementedError
 
 if __name__ == "__main__":
     import sys

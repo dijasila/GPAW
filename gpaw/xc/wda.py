@@ -15,16 +15,15 @@ class WDA(XCFunctional):
 
         if mode is not None and mode.lower() == "symmetric":
             self.get_Zs = self.symmetricmode_Zs
-            self.get_dalpha_isg = self.get_dalpha_isg_symmetric
             self.dZFunc = self.symmetric_dZ
         else:
             self.get_Zs = self.standardmode_Zs
-            self.get_dalpha_isg = self.get_dalpha_isg_normal
             self.dZFunc = self.normal_dZ
 
         self.mode = mode
         self.densitymode = densitymode
         self.lda_kernel = PurePythonLDAKernel()
+        print("LDA CORRELATION DISABLED")
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
@@ -38,6 +37,7 @@ class WDA(XCFunctional):
 
         # Get full grid gd
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        self.gd = gd1
         grid = gd1.get_grid_point_coordinates()
         
         # Get density: AE, Corrected or Valence
@@ -105,29 +105,39 @@ class WDA(XCFunctional):
         from gpaw.xc.WDAUtils import get_ni_grid
         pts_per_rank = self.get_pts_per_rank()
         if not np.allclose(np.max(n_sg), 0):
-            maxval = max(np.max(n_sg), 100 / np.mean(n_sg))
+            maxval = max(np.max(n_sg), 100 * np.mean(n_sg))
         else:
             maxval = 10
-        
+        #maxval = np.mean(n_sg)*3
+        maxval = 1.0
         return get_ni_grid(rank, size, maxval, pts_per_rank)
 
     def get_pts_per_rank(self):
-        return min(10, 100 // mpi.size + 1)
+        return 20
+        # return min(10, 100 // mpi.size + 1)
 
     def get_pairdist_g(self, grid, ni, spin):
         grid_distances = np.linalg.norm(grid, axis=0)
         from scipy.special import gamma
         exc = self.get_lda_xc(ni, spin)
+        assert exc <= 0
         if np.allclose(exc, 0):
-            return np.zeros_like(grid_distances) + 1
+            g = np.zeros_like(grid_distances)
+            nni = 0.0000001
+            # nni = 0.001
+            exc = self.get_lda_xc(nni, spin)
+            lambd = -3 * gamma(3/5) / (2 * gamma(2 / 5) * exc)
+            C = -3 / (4 * np.pi * gamma(2 / 5) * nni * lambd**3)
+            g[:] = C
+            g = g + 1
+            return g
 
         lambd = - 3 * gamma(3 / 5) / (2 * gamma(2 / 5) * exc)
 
-        C = -3 / (4 * np.pi * gamma(2 / 5) * ni * lambd**3)
-
+        C = -3 / (4 * np.pi * gamma(2 / 5) * ni * lambd**3) # * 1000000
         g = np.zeros_like(grid_distances)
-        exp_val = (lambd / (grid_distances[grid_distances > 0]))**5
-        g[grid_distances > 0] = 1 + C * (1 - np.exp(-exp_val))
+        exp_val = -(lambd / (grid_distances[grid_distances > 0]))**5
+        g[grid_distances > 0] = 1 + C * (1 - np.exp(exp_val))
         g[np.isclose(grid_distances, 0)] = 1 + C
         
         return g
@@ -143,9 +153,11 @@ class WDA(XCFunctional):
         
         lda_x(spin, earr, n, varr)
         zeta = 0
-        lda_c(spin, earr, narr, varr, zeta)
+        # earr2 = np.zeros_like(earr)
+        # lda_c(spin, earr, narr, varr, zeta)
+        # assert (np.abs(earr2) < np.abs(earr)), "CORRE E: {}, EX E: {}".format(earr2, earr)
         
-        return earr[0]
+        return earr[0] / n
 
     def standardmode_Z_derivative(self, grid, ni_value, spin):
         pairdist_g = self.get_pairdist_g(grid, ni_value, spin)
@@ -238,26 +250,74 @@ class WDA(XCFunctional):
         Z_isg = np.zeros(ni_grid.shape + n_sg.shape)
 
         pairdist_g = self.get_pairdist_g(grid, lower_ni, spin)
-        Z_lower_sg = self.fold(n_sg, np.array([pairdist_g]) - 1)
+        Z_lower_sg = self.fold_w_pair(n_sg, np.array([pairdist_g]) - 1)
         
         pairdist_g = self.get_pairdist_g(grid, upper_ni, spin)
-        Z_upper_sg = self.fold(n_sg, np.array([pairdist_g]) - 1)
+        Z_upper_sg = self.fold_w_pair(n_sg, np.array([pairdist_g]) - 1)
 
         for i, n in enumerate(ni_grid):
             pairdist_g = self.get_pairdist_g(grid, n, spin)
-            Z_isg[i] = self.fold(n_sg, np.array([pairdist_g]) - 1)
+            Z_isg[i] = self.fold_w_pair(n_sg, np.array([pairdist_g]) - 1)
+        # print("NORM ON THE INSIDE", gd.integrate(n_sg))
 
         return Z_isg, Z_lower_sg, Z_upper_sg
+
+
+    def fftn(self, f_sg, axes=None):
+        if axes is None:
+            sqrtN = np.sqrt(np.array(f_sg.shape).prod())
+        else:
+            sqrtN = 1
+            for ax in axes:
+                sqrtN *= f_sg.shape[ax]
+            sqrtN = np.sqrt(sqrtN)
+            
+        # return np.fft.fftn(f_sg, axes=axes)
+        return np.fft.fftn(f_sg, axes=axes, norm="ortho") / sqrtN # This is correct: * sqrtN * (1 / (self.gd.dv * sqrtN**2)) * self.gd.dv # * self.gd.dv
+
+    def ifftn(self, f_sg, axes=None):
+        if axes is None:
+            sqrtN = np.sqrt(np.array(f_sg.shape).prod())
+        else:
+            sqrtN = 1
+            for ax in axes:
+                sqrtN *= f_sg.shape[ax]
+            sqrtN = np.sqrt(sqrtN)
+          
+        # return np.fft.ifftn(f_sg, axes=axes)
+        return np.fft.ifftn(f_sg, axes=axes, norm="ortho") * sqrtN # / self.gd.dv
 
     def fold(self, f_sg, g_sg):
         assert np.allclose(f_sg, f_sg.real)
         assert np.allclose(g_sg, g_sg.real)
         assert f_sg.shape == g_sg.shape
         assert f_sg.ndim == 4
-        F = np.fft.fftn(f_sg, axes=(1, 2, 3))
-        G = np.fft.fftn(g_sg, axes=(1, 2, 3))
 
-        res = np.fft.ifftn(F * G, axes=(1, 2, 3))
+
+        N = np.array(f_sg[0].shape).prod()
+        F = self.fftn(f_sg, axes=(1, 2, 3))
+        G = self.fftn(g_sg, axes=(1, 2, 3))
+
+
+        res = self.ifftn(F * G * N * self.gd.dv, axes=(1, 2, 3))
+        assert np.allclose(res, res.real), "MEAN ABS DIFF: {}, MEAN ABS: {}, N: {}".format(np.mean(np.abs(res - res.real)), np.mean(np.abs(res.real)), N)
+        # assert np.mean(np.abs(res.real)) < 1e2
+        return res.real
+
+    def fold_w_pair(self, f_sg, G_sg):
+        assert np.allclose(f_sg, f_sg.real)
+        assert np.allclose(G_sg, G_sg.real)
+        assert f_sg.shape == G_sg.shape
+        assert f_sg.ndim == 4
+
+
+        N = np.array(f_sg[0].shape).prod()
+        F = self.fftn(f_sg, axes=(1, 2, 3))
+        G = self.fftn(G_sg, axes=(1, 2, 3))
+        
+        res = self.ifftn(F * G * N, axes=(1, 2, 3))
+        assert np.allclose(res, res.real), "MEAN ABS DIFF: {}, MEAN ABS: {}, N: {}".format(np.mean(np.abs(res - res.real)), np.mean(np.abs(res.real)), N)
+
         return res.real
 
     def symmetricmode_Zs(self, n_sg, ni_grid,
@@ -272,7 +332,7 @@ class WDA(XCFunctional):
         ind_sg = np.array([ind_i[0](n_sg[0])])
         
         def getZ(pairdist, ind):
-            return self.fold(n_sg, pairdist - 1) + self.fold(n_sg * ind,
+            return self.fold_w_pair(n_sg, pairdist - 1) + self.fold_w_pair(n_sg * ind,
                                                              pairdist)
 
         Z_lower_sg = getZ(pairdist_sg, ind_sg)
@@ -331,11 +391,30 @@ class WDA(XCFunctional):
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
 
-    def fold_with_vC(self, f_sg, g_sg, grid_vg):
-        distances_sg = np.array([np.linalg.norm(grid_vg, axis=0)])
-        distances_sg[distances_sg < 1e-20] = 1e-20
+    def _get_K_G(self, gd):
+        assert gd.comm.size == 1 # Construct_reciprocal doesnt work in parallel
+        k2_Q, _ = construct_reciprocal(gd)
+        k2_Q[0,0,0] = 0
+        return k2_Q**(1/2)
 
-        res_sg = self.fold(f_sg, g_sg / distances_sg)
+    def fold_with_vC(self, f_sg, g_sg, grid_vg):
+
+        # K_G = self._get_K_G(gd)
+
+        # assert np.allclose(f_sg, f_sg.real)
+        # assert np.allclose(g_sg, g_sg.real)
+        # assert f_sg.shape == g_sg.shape
+        # assert f_sg.ndim == 4
+
+
+        distances_sg = np.array([np.linalg.norm(grid_vg, axis=0)])
+        cutoff = 1e-4
+        distances_sg[distances_sg < cutoff] = cutoff
+        assert (distances_sg >= cutoff).all()
+
+        
+
+        res_sg = self.fold_w_pair(f_sg, g_sg / distances_sg)
 
         return res_sg
     
@@ -368,10 +447,10 @@ class WDA(XCFunctional):
         
         return folded_isg.sum(axis=0)
 
-    def get_dalpha_isg_normal(self, alpha_isg, Z_isg,
-                              Z_lower_sg, Z_upper_sg,
-                              grid_vg, ni_j, ni_lower,
-                              ni_upper, numspins, dZFunc):
+    def get_dalpha_isg(self, alpha_isg, Z_isg,
+                       Z_lower_sg, Z_upper_sg,
+                       grid_vg, ni_j, ni_lower,
+                       ni_upper, numspins, dZFunc):
         dalpha_isr = np.zeros_like(alpha_isg.reshape(len(alpha_isg),
                                                      len(alpha_isg[0]), -1))
 
@@ -399,6 +478,7 @@ class WDA(XCFunctional):
                           G_isr,
                           grid_vg, ni_lower, ni_upper, alpha_isg)
 
+        hitit = False
         for i, alpha_sr in enumerate(alpha_isg.reshape(*dalpha_isr.shape)):
             for s, alpha_r in enumerate(alpha_sr):
                 if not np.allclose(gZ(i + 1, s), gZ(i, s)):
@@ -410,10 +490,12 @@ class WDA(XCFunctional):
                     # Z[i] <= -1 and Z[i+1] > -1
                     factor0_r = npor(npand(gZ(i, s) >= -1, gZ(i + 1, s) < -1),
                                      npand(gZ(i, s) <= -1, gZ(i + 1, s) > -1))
+              
                     dalpha_isr[i, s] += factor0_r * (dZ(i + 1, s) / denom0
                                                      - alpha_r / denom0
                                                      * (dZ(i + 1, s)
                                                         - dZ(i, s)))
+                    hitit = True
 
                 if not np.allclose(gZ(i, s), gZ(i - 1, s)):
                     # At +1 branch if
@@ -426,12 +508,11 @@ class WDA(XCFunctional):
                     dalpha_isr[i, s] += factor1_r * (-dZ(i - 1, s) / denom1
                                                      - alpha_r / denom1
                                                      * (dZ(i, s) - dZ(i, s)))
+                    hitit = True
 
+        # assert hitit
         return dalpha_isr.reshape(*alpha_isg.shape)
     
-    def get_dalpha_isg_symmetric(self):
-        raise NotImplementedError
-
     def calculate_V2(self, dalpha_isg, n_sg, grid_vg, ni_j):
         # Convolve n_sg and G/v_C
         # Multiply n_sg to result -> res
