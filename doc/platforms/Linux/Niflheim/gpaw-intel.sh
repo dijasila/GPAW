@@ -24,8 +24,6 @@ if [[ -z $GPAW_SETUP_PATH ]]; then
     module load GPAW-setups
 fi
 
-export GPAW_MPI_OPTIONS=""
-PLATFORM=linux-x86_64-$CPU_ARCH-3.6
 export PATH=$GPAW/tools:$PATH
 export PYTHONPATH=$GPAW:$PYTHONPATH
 export PATH=$ASE/bin:$PATH

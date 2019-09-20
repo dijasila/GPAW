@@ -21,7 +21,7 @@ gd.distribute(nG_sg, n_sg)
 for mode in ['serial', 'mpi', 'pfft']:
     if mode == 'serial' and gd.comm.size > 1:
         continue
-    if mode == 'mpi' and not libvdwxc_has_mpi():
+    if mode == 'mpi' and not (libvdwxc_has_mpi() and gd.comm.size > 1):
         continue
     if mode == 'pfft' and not libvdwxc_has_pfft():
         continue
