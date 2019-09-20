@@ -110,6 +110,8 @@ def axpy(alpha, x, y):
       y <- alpha * x + y
 
     """
+    if x.size == 0:
+        return
     x = x.ravel()
     y = y.ravel()
     if x.dtype == float:
