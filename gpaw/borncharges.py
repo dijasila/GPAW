@@ -9,7 +9,6 @@ from gpaw.mpi import world
 from gpaw.berryphase import get_polarization_phase
 from ase.parallel import paropen
 from ase.units import Bohr
-from ase.io import jsonio
 
 
 def get_wavefunctions(atoms, name, params):
