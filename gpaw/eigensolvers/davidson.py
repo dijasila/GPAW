@@ -124,7 +124,7 @@ class Davidson(Eigensolver):
                 ekin = precond.calculate_kinetic_energy(psit_G, kpt)
                 precond(R_G, kpt, ekin, out=psit2_G)
 
-            if 1:
+            if 0:
                 psit.array[:] += 0.21 * psit2.array
                 psit.matrix_elements(wfs.pt, out=P)
                 return error

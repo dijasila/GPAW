@@ -158,8 +158,8 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
-                    for a, v_L in ghat.integrate(vrho_G).items():
-                        v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_L[0])
+                    for a, v_xL in ghat.integrate(vrho_G).items():
+                        v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_xL[0])
                         v_ani[a][n1] += v_ii.dot(k2.proj[a][n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
@@ -498,6 +498,7 @@ class Hybrid:
             assert len(self.cache) == 0
             print(f'2 {spin}')
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+
             K = kd.nibzkpts
             k1 = (spin - kd.comm.rank) * K
             k2 = k1 + K
@@ -509,8 +510,11 @@ class Hybrid:
                      for kpt in self.wfs.mykpts[k1:k2]]
 
             psit = kpt.psit.new(buf=psit_xG)
+            P = kpt.projections.new()
+            psit.matrix_elements(self.wfs.pt, out=P)
+
             kpts1 = [KPoint(psit,
-                            kpt.projections,
+                            P,
                             kpt.f_n + nan,
                             kd.ibzk_kc[kpt.k],
                             nan)]

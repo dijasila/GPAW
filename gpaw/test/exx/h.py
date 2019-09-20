@@ -9,6 +9,7 @@ a = Atoms('HH',
           #magmoms=[1],
           cell=[L, L, L],
           pbc=1)
+
 # xc = Hybrid(xc='LDA', exx_fraction=0)
 # xc.name = 'LDA'
 # xc = Hybrid(None, 'LDA', 0.0, 0.0)
@@ -17,20 +18,22 @@ D = np.linspace(0.7, 0.8, 11)
 E = []
 for d in D:
     a.positions[1, 0] = d
+    a.center()#######################
     es = Davidson(1)
     es.keep_htpsit = False
-    # xc = Hybrid('EXX')
-    xc = H1('EXX')
+    xc = Hybrid('EXX')
+    # xc = H1('EXX')
     a.calc = GPAW(
-        #mode=PW(400, force_complex_dtype=True),
-        h=0.12,
-        setups='ae',
+        mode=PW(400, force_complex_dtype=True),
+        # h=0.12,
+        setups='p1',
         nbands=1,
-        # eigensolver=es,
-        eigensolver='rmm-diis',
-        txt='h2.txt',
+        eigensolver=es,
+        # eigensolver='rmm-diis',
+        # txt='h2.txt',
         xc=xc)
     e = a.get_potential_energy()
+    raise SystemExit
     E.append(e)
     print(d, e)
 
