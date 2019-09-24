@@ -112,7 +112,7 @@ class EXX:
         if v_knG is not None:
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 for a, P_ni in kpt.proj.items():
-                    v_ani[a] -= P_ni.dot(self.VC_aii[a] + VV_aii[a])
+                    v_ani[a] -= 2*P_ni.dot(self.VC_aii[a]/2 + VV_aii[a])
                     v1_ni = P_ni.dot(self.VC_aii[a] + VV_aii[a])
                     ekin -= np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ani[a]).real*2
@@ -158,12 +158,13 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
-                    for a, v_xL in ghat.integrate(vrho_G).items():
+                    for a, v_xL in ghat.integrate(vrho_G.conj()).items():
                         v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_xL[0])
-                        v_ani[a][n1] += v_ii.dot(k2.proj[a][n2])
+                        v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
                         vrho_R.conj() * k2.u_nR[n2], index)
+                        # vrho_R * k2.u_nR[n2], index)
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
                 #if k1 is k2:
@@ -446,7 +447,6 @@ class Hybrid:
         spin = kpt.s
 
         if kpt.f_n is None:
-            print(f'F0 {spin}')
             if self.vt_sR is None:
                 from gpaw.xc import XC
                 lda = XC('LDA')
@@ -496,7 +496,6 @@ class Hybrid:
             Htpsit_xG += self.cache.pop((spin, kpt.k)) * self.exx_fraction
         else:
             assert len(self.cache) == 0
-            print(f'2 {spin}')
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
 
             K = kd.nibzkpts
@@ -521,7 +520,8 @@ class Hybrid:
             self.xx.calculate(
                 kpts1, kpts2,
                 VV_aii,
-                v_knG=[Htpsit_xG])
+                v_knG=[Htpsit_xG])# * self.exx_fraction
+            self.wfs.go=1
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         H_nn[1:, :1] = 0.0
