@@ -11,8 +11,8 @@ from gpaw.projections import Projections
 from gpaw.mpi import world
 from gpaw.spline import Spline
 
-N = 4
-L = 2.
+N = 20
+L = 2.5
 nb = 2
 r2 = np.linspace(0, 1, 51)**2
 spos_ac = np.zeros((1, 3)) + 0.25
@@ -25,8 +25,8 @@ x = 0.0
 
 
 class Setup:
-    Delta_iiL = np.zeros((1, 1, 1)) + 0.1# * x
-    X_p = np.zeros(1) + 0.3# * x
+    Delta_iiL = np.zeros((1, 1, 1)) + 0.1
+    X_p = np.zeros(1) + 0.3
     ExxC = -10.0
     ghat_l = [Spline(0, 1.0, 1 - r2 * (1 - 2 * r2))]
 
@@ -55,7 +55,8 @@ xx = EXX(kd, [Setup()], pt, coulomb, spos_ac)
 
 v_nG = pd.zeros(nb)
 psit.matrix_elements(pt, out=proj)
-VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * 0.55
+C = 0.79
+VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
           for a, P_ni in proj.items()]
 
 x = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
@@ -63,17 +64,17 @@ v = v_nG[0, 1]
 print(v_nG)
 print(x)
 
-eps = 0.0001
+eps = 0.00001
 
 data[0, 1] = 3 + eps
 psit.matrix_elements(pt, out=proj)
-VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * 0.55
+VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
           for a, P_ni in proj.items()]
 xp = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
 
 data[0, 1] = 3 - eps
 psit.matrix_elements(pt, out=proj)
-VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * 0.55
+VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
           for a, P_ni in proj.items()]
 xm = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
 

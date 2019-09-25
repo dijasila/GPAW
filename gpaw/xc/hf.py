@@ -133,9 +133,9 @@ class EXX:
                                vpsit_nG=None,
                                v_ani=None):
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
-                            k1.proj[a].conj(),
+                            k1.proj[a],
                             Delta_iiL,
-                            k2.proj[a])
+                            k2.proj[a].conj())
                   for a, Delta_iiL in enumerate(self.Delta_aiiL)]
 
         N1 = len(k1.u_nR)
@@ -144,12 +144,12 @@ class EXX:
         rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
 
         for n1, u1_R in enumerate(k1.u_nR):
-            u1cc_R = u1_R.conj()
+            # u1cc_R = u1_R.conj()
 
             n0 = n1 if k1 is k2 else 0
             n0=0
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
-                rho_G[:] = ghat.pd.fft(u1cc_R * k2.u_nR[n2])
+                rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
             ghat.add(rho_nG[n0:],
                      {a: Q_nnL[n1, n0:]
@@ -158,12 +158,12 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
-                    for a, v_xL in ghat.integrate(vrho_G.conj()).items():
+                    for a, v_xL in ghat.integrate(vrho_G).items():
                         v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_xL[0])
                         v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
-                        vrho_R.conj() * k2.u_nR[n2], index)
+                        vrho_R * k2.u_nR[n2], index)
                         # vrho_R * k2.u_nR[n2], index)
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
