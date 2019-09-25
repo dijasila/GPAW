@@ -125,5 +125,3 @@ def construct_symmetry_operators(wfs, spos_ac, K):
 if __name__ == '__main__':
     import sys
     ibz2bz(sys.argv[1])
-
-

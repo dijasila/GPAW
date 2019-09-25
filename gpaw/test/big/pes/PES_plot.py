@@ -126,4 +126,3 @@ ube_d = np.unique(np.round(be_d,1))[:len(peaks)]
 for t, d, ref in zip(ube_t, ube_d, peaks):
     equal(t, ref, etol)
     equal(t, d, etol)
-

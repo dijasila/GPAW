@@ -144,4 +144,3 @@ else:
 """
 
 mpi_debug('result: %s' % result)
-

@@ -340,4 +340,3 @@ def intYgradY(l1, m1, l2, m2, r_g, dr_g, A_g, B_g, dBdr_g, v=None):
         raise ValueError
     return D * np.vdot(A_g, dBdr_g * r_g**2 * dr_g) \
         + G * np.vdot(A_g, B_g * r_g * dr_g)
-

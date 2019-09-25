@@ -15,7 +15,3 @@ plt.ylabel('Band gap (eV)')
 plt.xlabel('Iteration')
 plt.savefig('BN_GW0.png')
 plt.show()
-
-
-
-

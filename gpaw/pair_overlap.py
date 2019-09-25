@@ -445,8 +445,3 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
             return Q_axi
         else:
             return P_axi
-
-
-
-
-

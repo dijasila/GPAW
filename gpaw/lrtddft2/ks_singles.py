@@ -437,6 +437,3 @@ class LRiPairDensity:
         rhot_g[:] = nt_g[:]
         self.density.ghat.add(rhot_g, Q_aL)
         #print 'dens', self.density.finegd.integrate(rhot_g)
-
-
-

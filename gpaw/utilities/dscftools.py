@@ -609,4 +609,3 @@ def dscf_collapse_orbitals(paw, nbands_max='occupied', f_tol=1e-4,
         if debug: mpi_debug('delta-D_asp: %g' % max([0]+[np.abs(D_sp-old_D_asp[a]).max() for a,D_sp in paw.density.D_asp.items()]))
         for a,D_sp in paw.density.D_asp.items():
             assert np.abs(D_sp-old_D_asp[a]).max() < D_tol, 'Atom %d changed!' % a
-

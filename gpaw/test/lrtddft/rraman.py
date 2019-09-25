@@ -61,4 +61,3 @@ if world.size > 1 and world.rank == 0:
                    comm=comm, verbose=True,)
     isi = pzsi.intensity(omega=om)[-1]
     equal(isi, i, 1e-11)
-
