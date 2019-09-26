@@ -517,15 +517,17 @@ class Hybrid:
                             kpt.f_n + nan,
                             kd.ibzk_kc[kpt.k],
                             nan)]
+            v_xG = np.zeros_like(Htpsit_xG)
             self.xx.calculate(
                 kpts1, kpts2,
                 VV_aii,
-                v_knG=[Htpsit_xG])# * self.exx_fraction
-            self.wfs.go=1
+                v_knG=[v_xG])
+            Htpsit_xG += self.exx_fraction * v_xG
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
-        H_nn[1:, :1] = 0.0
-        H_nn[:1, 1:] = 0.0
+        return;n = 4 - kpt.s * 3
+        H_nn[n:, :n] = 0.0
+        H_nn[:n, n:] = 0.0
 
     def rotate(self, kpt, U_nn):
         pass  # 1 / 0

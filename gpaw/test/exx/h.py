@@ -4,9 +4,9 @@ from gpaw import GPAW, PW, Davidson
 from gpaw.xc.hf import Hybrid
 from gpaw.xc.hybrid import HybridXC as H1
 
-L = 6.5
-a = Atoms('H',
-          magmoms=[1],
+L = 8.5
+a = Atoms('N2',
+          #magmoms=[3],
           cell=[L, L, L],
           pbc=1)
 
@@ -14,30 +14,31 @@ a = Atoms('H',
 # xc.name = 'LDA'
 # xc = Hybrid(None, 'LDA', 0.0, 0.0)
 
-D = np.linspace(0.7, 0.8, 11)
+D = np.linspace(1.005, 1.015, 7)
 E = []
 for d in D:
-    #a.positions[1, 0] = d
+    a.positions[1, 0] = d
     a.center()#######################
     es = Davidson(1)
     es.keep_htpsit = False
-    xc = Hybrid('EXX')
+    #xc = Hybrid('EXX')
+    xc = Hybrid('PBE0')
     # xc = H1('EXX')
     a.calc = GPAW(
         mode=PW(400, force_complex_dtype=True),
         # h=0.12,
-        setups='p1',
+        #setups='p1',
         #setups='ae',
-        nbands=1,
+        nbands=5,
         eigensolver=es,
         # eigensolver='rmm-diis',
         # txt='h2.txt',
         #xc='PBE',
         xc=xc)
     e = a.get_potential_energy()
-    raise SystemExit
-    a.calc.set(xc=xc)
-    e = a.get_potential_energy()
+    #raise SystemExit
+    #a.calc.set(xc=xc)
+    #e = a.get_potential_energy()
     E.append(e)
     print(d, e)
 
