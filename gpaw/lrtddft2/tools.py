@@ -6,9 +6,9 @@ import datetime
 
 ################################################################################
 def write_parallel_cube(basename, data, gd, atoms, rank):
-    hx = gd.h_cv[0,0]
-    hy = gd.h_cv[1,1]
-    hz = gd.h_cv[2,2]
+    hx = gd.h_cv[0, 0]
+    hy = gd.h_cv[1, 1]
+    hz = gd.h_cv[2, 2]
 
     f = open('%s_%06d.cube' % (basename, rank), 'w', 256*1024)
 
@@ -36,12 +36,12 @@ def cubify(out_filename, filenames):
     for fname in filenames:
         f = open(fname,'r', 256*1024)
         line0 = f.readline()
-        elems = re.compile('[\d.e+-]+').findall(line0)
+        elems = re.compile(r'[\d.e+-]+').findall(line0)
         natom = int(elems[0])
         (nx,ny,nz) = [int(n) for n in elems[1:4]]
         (hx,hy,hz) = [float(h) for h in elems[4:7]]
         line = f.readline()
-        (xb,xe,yb,ye,zb,ze) = [int(x) for x in re.compile('\d+').findall(line)]
+        (xb,xe,yb,ye,zb,ze) = [int(x) for x in re.compile(r'\d+').findall(line)]
         sys.stderr.write('%d %d %d %d %d %d\n' % (xb,xe,yb,ye,zb,ze))
 
         line = f.readline()

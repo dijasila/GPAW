@@ -51,4 +51,3 @@ equal(a,b, 1e-5)
 c = MGGA_fail()
 d = MGGA_work()
 equal(c,d, 1e-5)
-

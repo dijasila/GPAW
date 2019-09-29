@@ -14,7 +14,7 @@ class DirectPW(Eigensolver):
 
         Eigensolver.__init__(self, keep_htpsit)
 
-    def iterate_one_k_point(self, ham, wfs, kpt):
+    def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Setup H and S matries and diagonalize for the kpoint"""
 
         self.timer.start('DirectPW')

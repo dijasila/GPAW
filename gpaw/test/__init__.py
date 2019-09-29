@@ -82,7 +82,6 @@ tests = [
     'eigen/cg2.py',
     'fd_ops/laplace.py',
     'linalg/lapack.py',
-    'linalg/eigh.py',
     'parallel/submatrix_redist.py',
     'lfc/second_derivative.py',
     'parallel/parallel_eigh.py',
@@ -202,6 +201,7 @@ tests = [
     'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'fileio/read_old_gpw.py',
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'pw/augment_grids.py',
@@ -342,6 +342,9 @@ tests = [
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
+    'symmetry/fractional_translations.py',
+    'symmetry/fractional_translations_med.py',
+    'symmetry/fractional_translations_big.py',
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
@@ -425,11 +428,6 @@ tests = [
 # 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
 
-# 'symmetry/fractional_translations_med.py',
-# 'symmetry/fractional_translations_big.py',
-
-# 'linalg/eigh_perf.py', # Requires LAPACK 3.2.1 or later
-# XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 # 'parallel/scalapack_pdlasrt_hang.py',
 # 'dscf/dscf_forces.py',
 # 'ext_potential/stark_shift.py',
@@ -681,10 +679,7 @@ class TestRunner:
         except SkipTest:
             skip = True
         except ImportError as ex:
-            if sys.version_info[0] >= 3:
-                module = ex.name
-            else:
-                module = ex.args[0].split()[-1].split('.')[0]
+            module = ex.name
             if module == 'scipy':
                 skip = True
             else:

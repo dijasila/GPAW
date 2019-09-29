@@ -109,8 +109,8 @@ open('data', 'w')``, use:
 Using ``paropen``, you get a real file object on the master node, and dummy
 objects on the slaves.  It is equivalent to this:
 
->>> from ase.parallel import rank
->>> if rank == 0:
+>>> from ase.parallel import world
+>>> if world.rank == 0:
 ...     f = open('data', 'w')
 ... else:
 ...     f = open('/dev/null', 'w')
@@ -118,8 +118,8 @@ objects on the slaves.  It is equivalent to this:
 If you *really* want all nodes to write something to files, you should make
 sure that the files have different names:
 
->>> from ase.parallel import rank
->>> f = open('data.%d' % rank, 'w')
+>>> from ase.parallel import world
+>>> f = open('data.{}'.format(world.rank), 'w')
 
 
 Writing text output
@@ -134,9 +134,9 @@ To avoid this use:
 
 which is equivalent to
 
->>> from ase.parallel import rank
+>>> from ase.parallel import world
 >>> print('This is written by all nodes')
->>> if rank == 0:
+>>> if world.rank == 0:
 ...     print('This is written by the master only')
 
 

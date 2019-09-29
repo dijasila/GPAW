@@ -363,4 +363,3 @@ if __name__ == '__main__':
     e = np.abs(f_g-f0_g).max()
     equal(e, 0, tol, 'lmax=%02d, dR=%g: ' % (lmax, dR))
     del R, dR, npts, tol, r_g, theta_g, phi_g, r_vg, rm_g, thetam_g, phim_g, rm_vg, w_g, f0_g, f_g, e
-

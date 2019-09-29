@@ -124,4 +124,3 @@ def calculate_kernel(self, nG, ns, iq, cut_G=None):
         fv = np.eye(nG)
 
     return fv
-

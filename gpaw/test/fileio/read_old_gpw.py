@@ -6,4 +6,4 @@ dir = os.environ.get('GPW_TEST_FILES')
 if dir:
     for f in Path(dir).glob('*.gpw'):
         print(f)
-        calc = GPAW(f, txt=None)
+        calc = GPAW(str(f), txt=None)

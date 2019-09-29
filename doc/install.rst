@@ -16,7 +16,7 @@ itself is written mostly in the Python programming language, but there
 are also some C-code used for:
 
 * performance critical parts
-* allowing Python to talk to external numerical libraries (BLAS_, LAPACK_,
+* allowing Python to talk to external numerical libraries (BLAS_,
   LibXC_, MPI_ and ScaLAPACK_)
 
 So, in order to make GPAW work, you need to compile some C-code.  For serial
@@ -63,7 +63,7 @@ Requirements
 * ASE_ 3.18.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 3.x or 4.x
-* BLAS_ and LAPACK_ libraries
+* BLAS_ library
 
 Optional, but highly recommended:
 
@@ -79,7 +79,6 @@ Optional, but highly recommended:
 .. _MPI: http://www.mpi-forum.org/
 .. _BLAS: http://www.netlib.org/blas/
 .. _BLACS: http://www.netlib.org/blacs/
-.. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
 .. _PyPI: https://pypi.org/project/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
@@ -166,13 +165,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-19.8.0.tar.gz_) or the latest
+    latest stable release (gpaw-19.8.1.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-19.8.0.tar.gz
-        $ ln -s gpaw-19.8.0 gpaw
+        $ tar -xf gpaw-19.8.1.tar.gz
+        $ ln -s gpaw-19.8.1 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -181,7 +180,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 19.8.0 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 19.8.1 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -197,8 +196,8 @@ folder is).
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-19.8.0.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-19.8.0.tar.gz
+.. _gpaw-19.8.1.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-19.8.1.tar.gz
 
 
 .. _customizing installation:
@@ -213,11 +212,11 @@ the setup with :git:`customize.py` file which is located in the GPAW base
 directory. As an example, :git:`customize.py` might contain the following
 lines::
 
-  libraries = ['myblas', 'mylapack']
+  libraries = ['myblas']
   library_dirs = ['path_to_myblas']
 
-Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas
--lmylapack``" linker flags. Look at the file :git:`customize.py`
+Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas``"
+linker flags. Look at the file :git:`customize.py`
 itself for more possible options.  :ref:`platforms and architectures`
 provides examples of :file:`customize.py` for different platforms.
 After editing :git:`customize.py`, follow the instructions for the

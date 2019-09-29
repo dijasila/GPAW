@@ -125,7 +125,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
         t0 = time.time()
         f = paropen('%s_%d.log' % (self.tdname, t), 'w')
         print('propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
-            'niter: %d' % (self.propagator, self.duration, timestep, niter), file=f)
+              'niter: %d' %
+              (self.propagator, self.duration, timestep, niter), file=f)
 
         for i in range(1, niter+1):
             # XXX bare bones propagation without all the nonsense
@@ -212,8 +213,7 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
 def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'
-    classname = 'UTStaticPropagatorSetup' \
-    + sep + propagator
+    classname = 'UTStaticPropagatorSetup' + sep + propagator
 
     class MetaPrototype(UTStaticPropagatorSetup, object):
         __doc__ = UTStaticPropagatorSetup.__doc__
@@ -264,4 +264,3 @@ if __name__ in ['__main__', '__builtin__']:
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():
             raise SystemExit('Test failed. Check ut_tddft.log for details.')
-

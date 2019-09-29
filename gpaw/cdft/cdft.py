@@ -191,16 +191,16 @@ class CDFT(Calculator):
         self.n_core_electrons = np.zeros((len(self.regions)))
         for a in self.atoms:
             for r in range(len(self.regions[:self.n_charge_regions])):
-               if a.index in self.regions[r] and not self.difference:
-                  n_core = a.number - self.calc.wfs.setups[a.index].Nv
-                  self.n_core_electrons[r] += n_core
-               elif a.index in self.regions[r] and self.difference:
-                   if r == 0:
-                      n_core = a.number - self.calc.wfs.setups[a.index].Nv
-                      self.n_core_electrons[r] += n_core
-                   else:
-                      n_core = a.number - self.calc.wfs.setups[a.index].Nv
-                      self.n_core_electrons[r] -= n_core
+                if a.index in self.regions[r] and not self.difference:
+                    n_core = a.number - self.calc.wfs.setups[a.index].Nv
+                    self.n_core_electrons[r] += n_core
+                elif a.index in self.regions[r] and self.difference:
+                    if r == 0:
+                        n_core = a.number - self.calc.wfs.setups[a.index].Nv
+                        self.n_core_electrons[r] += n_core
+                    else:
+                        n_core = a.number - self.calc.wfs.setups[a.index].Nv
+                        self.n_core_electrons[r] -= n_core
 
         w = WeightFunc(self.gd, self.atoms, None, self.Rc, self.mu)
         self.Rc, self.mu = w.get_Rc_and_mu()
@@ -272,10 +272,10 @@ class CDFT(Calculator):
 
                 n_electrons = (self.gd.integrate(self.ext.w_ig[0:self.n_charge_regions]*n_gt,
                    global_integral=True))
-                
+
                 # corrections
                 n_electrons += Delta_n[0:self.n_charge_regions]
-                
+
                 # constraint
                 diff = n_electrons - self.constraints[0:self.n_charge_regions]
                 total_electrons.append(n_electrons)
@@ -526,7 +526,7 @@ class CDFT(Calculator):
 
         for atom in self.atoms:
             # weight function with one atom
-            f = WeightFunc(self.gd, 
+            f = WeightFunc(self.gd,
                     self.atoms, [atom.index], self.Rc, self.mu, new=False)
 
             w = f.construct_weight_function()
@@ -688,8 +688,9 @@ class CDFTPotential(ExternalPotential):
         p = functools.partial(print, file=self.log)
         p('Number of charge constrained regions: {n}'.format(n=self.n_charge_regions))
         if not self.difference:
-           p('Number of spin constrained regions: {n}'.format(n=len(self.indices_i)
-            -self.n_charge_regions))
+            p('Number of spin constrained regions: {n}'
+              .format(n=len(self.indices_i)
+                      - self.n_charge_regions))
         else:
             p('Number of spin constrained regions: 0')
         p('Charge difference: {n}'.format(n=self.difference))

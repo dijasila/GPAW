@@ -722,8 +722,8 @@ if debug:
     world = _Communicator(world)
 
 
-size = world.size
 rank = world.rank
+size = world.size
 parallel = (size > 1)
 try:
     world.get_c_object()

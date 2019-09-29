@@ -3,7 +3,6 @@
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a Hamiltonian."""
-from __future__ import division
 
 import functools
 
@@ -19,8 +18,8 @@ from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
 from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
-from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
+# from gpaw.utilities.debug import frozen
 
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -51,7 +50,7 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
-@frozen
+# @frozen
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
@@ -298,7 +297,7 @@ class Hamiltonian:
                 dH_sp = np.zeros_like(D_sp)
 
             if setup.HubU is not None:
-                #assert self.collinear
+                # assert self.collinear
                 eU, dHU_sp = hubbard(setup, D_sp)
                 e_xc += eU
                 dH_sp += dHU_sp
@@ -309,7 +308,7 @@ class Hamiltonian:
                 # cDFT atomic hamiltonian, eq. 25
                 # energy correction added in cDFT main
                 h_cdft_a, h_cdft_b = self.vext.get_atomic_hamiltonians(
-                    setups=setup.Delta_pL[:,0], atom = a)
+                    setups=setup.Delta_pL[:, 0], atom=a)
 
                 dH_sp[0] += h_cdft_a
                 dH_sp[1] += h_cdft_b
@@ -323,7 +322,7 @@ class Hamiltonian:
         self.timer.start('XC Correction')
         for a, D_sp in D_asp.items():
             e_xc += self.xc.calculate_paw_correction(self.setups[a], D_sp,
-                    dH_asp[a], a=a)
+                                                     dH_asp[a], a=a)
         self.timer.stop('XC Correction')
 
         for a, D_sp in D_asp.items():
@@ -410,7 +409,7 @@ class Hamiltonian:
         self.gd.comm.sum(F_coarsegrid_av, 0)
         self.finegd.comm.sum(F_av, 0)
         if self.vext:
-            if self.vext.get_name()=='CDFTPotential':
+            if self.vext.get_name() == 'CDFTPotential':
                 F_av += self.vext.get_cdft_forces()
         F_av += F_coarsegrid_av
 
@@ -677,14 +676,15 @@ class RealSpaceHamiltonian(Hamiltonian):
         if self.vext is not None:
             if self.vext.get_name() == 'CDFTPotential':
                 vext_g = self.vext.get_potential(self.finegd).copy()
-                e_external += self.vext.get_cdft_external_energy(dens,
-                        self.nspins, vext_g, vt_g, self.vbar_g, self.vt_sg)
+                e_external += self.vext.get_cdft_external_energy(
+                    dens,
+                    self.nspins, vext_g, vt_g, self.vbar_g, self.vt_sg)
 
             else:
                 vext_g = self.vext.get_potential(self.finegd)
                 vt_g += vext_g
                 e_external = self.finegd.integrate(vext_g, dens.rhot_g,
-                                               global_integral=False)
+                                                   global_integral=False)
 
         if self.nspins == 2:
             self.vt_sg[1] = vt_g

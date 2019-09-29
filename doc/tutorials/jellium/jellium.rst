@@ -1,5 +1,5 @@
 .. _jellium:
-    
+
 =======
 Jellium
 =======
@@ -74,4 +74,3 @@ For other geometries, one will have to subclass
    Phys. Rev. B 1, 4555-4568 (1970),
    *Theory of Metal Surfaces: Charge Density and Surface Energy*,
    DOI: 10.1103/PhysRevB.1.4555
-

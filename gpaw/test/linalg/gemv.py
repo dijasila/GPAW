@@ -171,4 +171,3 @@ performance = numflop*numreps/t
 print('gemvN  : %8.5f s, %8.5f Mflops' % (t,performance/1024**2.))
 assert np.abs(nx0_q-nx4_q).max()<5e-12
 del nT_gq, nx4_q
-

@@ -12,6 +12,25 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
+* New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
+  will converge bands up to conduction band minimum plus 2.5 eV.
+
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
 
 Version 19.8.0
 ==============

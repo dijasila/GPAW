@@ -16,7 +16,7 @@ from gpaw.cdft.cdft import (WeightFunc, get_ks_energy_wo_external,
 from ase.units import kB as kb
 from gpaw.utilities.ps2ae import PS2AE, interpolate_weight
 from ase.units import Bohr
-from ase.parallel import rank
+from gpaw.mpi import rank
 import warnings
 #from gpaw.utilities.blas import gemm
 #from gpaw.utilities.tools import tri2full
@@ -447,7 +447,7 @@ class CouplingParameters:
         if hasattr(self, 'n_ab'):
             pass
         else:
-           raise ValueError(nab_missing_error)
+            raise ValueError(nab_missing_error)
 
         # pseudo wfs to all-electron wfs
         psi_A = PS2AE(self.calc_A, h=self.h)
@@ -691,7 +691,7 @@ class CouplingParameters:
 
     def get_ae_pair_density_matrix(self,calc_A, calc_B, matrix_name=None):
         if calc_A.wfs.kd.nibzkpts != 1:
-           raise ValueError(ae_ibz_error)
+            raise ValueError(ae_ibz_error)
         # <Psi_A|Psi_B> using the all-electron pair density
         psi_A = PS2AE(calc_A, h=self.h)
         psi_B = PS2AE(calc_B, h=self.h)

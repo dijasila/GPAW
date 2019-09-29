@@ -77,4 +77,3 @@ for img1, img2 in zip(images, images_ref):
     assert norm <1e-11
 
 print("Speedup", Pyversion / Cversion)
-

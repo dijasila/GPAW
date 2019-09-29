@@ -71,7 +71,7 @@ class SCFLoop:
                 energy = ham.get_energy(occ, kin_en_using_band=False,
                                         e_sic=e_sic)
             else:
-                wfs.eigensolver.iterate(ham, wfs)
+                wfs.eigensolver.iterate(ham, wfs, occ)
                 occ.calculate(wfs)
                 energy = ham.get_energy(occ)
 
@@ -109,6 +109,10 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if not self.converged:
+            if not np.isfinite(errors['eigenstates']):
+                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+                log(msg)
+                raise KohnShamConvergenceError(msg)
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
@@ -165,13 +169,14 @@ class SCFLoop:
                 header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
-        if eigerr == 0.0:
+        if eigerr == 0.0 or np.isinf(eigerr):
             eigerr = ''
         else:
             eigerr = '%+.2f' % (ln(eigerr) / ln(10))
 
         denserr = errors['density']
-        if denserr is None or denserr == 0 or nvalence == 0:
+        assert denserr is not None
+        if denserr is None or np.isinf(denserr) or denserr == 0 or nvalence == 0:
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))

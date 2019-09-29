@@ -38,6 +38,3 @@ d2 = TestSetup().get_derivative_integrals(rgd, g, np.zeros_like(g))
 if 0 in d1:
     print(abs(d1[0] - d2).max())
     assert abs(d1[0] - d2).max() < 2e-6
-
-
-

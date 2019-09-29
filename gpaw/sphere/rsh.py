@@ -168,7 +168,7 @@ def intYdYdtheta_ex(l1, m1, l2, m2):
                   pi 2pi
                   /  /                           d y(u,v)
            A    = |  |    y (u,v) cos(u)*cos(v) --- l'm'  sin(u) dv du
-            LL'   /  /     lm                    du  
+            LL'   /  /     lm                    du
                   0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
@@ -204,7 +204,7 @@ def intYdYdtheta_ey(l1, m1, l2, m2):
                   pi 2pi
                   /  /                           d y(u,v)
            A    = |  |    y (u,v) cos(u)*sin(v) --- l'm'  sin(u) dv du
-            LL'   /  /     lm                    du  
+            LL'   /  /     lm                    du
                   0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
@@ -240,7 +240,7 @@ def intYdYdtheta_ez(l1, m1, l2, m2):
                      pi 2pi
                      /  /                    d y(u,v)
            A    =  - |  |    y (u,v) sin(u) --- l'm'  sin(u) dv du
-            LL'      /  /     lm             du  
+            LL'      /  /     lm             du
                      0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
@@ -262,7 +262,7 @@ def intYdYdphi_ex(l1, m1, l2, m2):
                      pi 2pi
                      /  /              -1           d y(u,v)
            A    =  - |  |    y (u,v) sin(u)*sin(v) --- l'm'  sin(u) dv du
-            LL'      /  /     lm                    dv  
+            LL'      /  /     lm                    dv
                      0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
@@ -285,7 +285,7 @@ def intYdYdphi_ey(l1, m1, l2, m2):
                   pi 2pi
                   /  /              -1           d y(u,v)
            A    = |  |    y (u,v) sin(u)*cos(v) --- l'm'  sin(u) dv du
-            LL'   /  /     lm                    dv  
+            LL'   /  /     lm                    dv
                   0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
@@ -308,7 +308,7 @@ def intYdYdphi_ez(l1, m1, l2, m2): #XXX this is silly
 # -------------------------------------------------------------------
 
 def intYgradY(l1, m1, l2, m2, r_g, dr_g, A_g, B_g, dBdr_g, v=None):
-    """Calculates::
+    r"""Calculates::
 
                   pi 2pi
                   /  /    *           / __               \  2
@@ -340,4 +340,3 @@ def intYgradY(l1, m1, l2, m2, r_g, dr_g, A_g, B_g, dBdr_g, v=None):
         raise ValueError
     return D * np.vdot(A_g, dBdr_g * r_g**2 * dr_g) \
         + G * np.vdot(A_g, B_g * r_g * dr_g)
-

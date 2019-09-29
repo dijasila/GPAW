@@ -234,4 +234,3 @@ def intYdYdphi_ey(l1, m1, l2, m2):
 
 def intYdYdphi_ez(l1, m1, l2, m2): #XXX this is silly
     return 0.0
-
