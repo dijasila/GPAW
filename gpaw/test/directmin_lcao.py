@@ -17,7 +17,8 @@ calc = GPAW(mode=LCAO(),
             occupations=FermiDirac(width=0.0, fixmagmom=True),
             eigensolver='direct_min_lcao',
             mixer={'method': 'dummy'},
-            nbands='nao'
+            nbands='nao',
+            symmetry='off'
             )
 H2O.set_calculator(calc)
 e = H2O.get_potential_energy()

@@ -5,7 +5,6 @@ from ase.units import Hartree
 import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.utilities.blas import gemm, gemv, gemmdot, mmm
-from gpaw.utilities.lapack import diagonalize
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
@@ -524,14 +523,14 @@ class PzCorrectionsLcao:
         # occupied eigenvalues
         # TODO: fix it, when there is no occ numbers
         if n_occ > 0:
-            eig_occ = np.empty(L_occ.shape[0])
-            diagonalize(L_occ, eig_occ)
+            eig_occ, L_occ = np.linalg.eigh(L_occ)
+            # L_occ = L_occ.T.conj()
             kpt.eps_n[:n_occ] = eig_occ
 
         # unoccupied eigenvalues
         if L_unocc.shape[0] > 0:
-            eig_unocc = np.empty(L_unocc.shape[0])
-            diagonalize(L_unocc, eig_unocc)
+            eig_unocc, L_unocc = np.linalg.eigh(L_unocc)
+            # L_unocc = L_unocc.T.conj()
             kpt.eps_n[n_occ:] = eig_unocc
 
         self.eigv_s[u] = np.copy(kpt.eps_n)
@@ -827,9 +826,9 @@ class PzCorrectionsLcao:
             mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
             del C_conj_nM
 
-            nrm_n = np.empty(L_occ.shape[0])
             L_occ = 0.5 * (L_occ + L_occ.T.conj())
-            diagonalize(L_occ, nrm_n)
+            nrm_n, L_occ = np.linalg.eigh(L_occ)
+            # L_occ = L_occ.T.conj()
             kpt.eps_n[:n_occ] = nrm_n
             # kpt.eps_n[:n_occ] = np.einsum('ii->i', L_occ).real
             del L_occ
@@ -838,8 +837,8 @@ class PzCorrectionsLcao:
                                 C_nM.conj()[n_occ:],
                                 H_MM.conj(), C_nM[n_occ:])
             L_unocc = 0.5 * (L_unocc + L_unocc.T.conj())
-            nrm_n = np.empty(L_unocc.shape[0])
-            diagonalize(L_unocc, nrm_n)
+            nrm_n, L_unocc = np.linalg.eigh(L_unocc)
+            # L_unocc = L_unocc.T.conj()
             kpt.eps_n[n_occ:] = nrm_n
             kpt.eps_n = sorted(kpt.eps_n)
 
@@ -853,8 +852,8 @@ class PzCorrectionsLcao:
             else:
                 mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
 
-            nrm_n = np.empty(L.shape[0])
-            diagonalize(L, nrm_n)
+            nrm_n, L = np.linalg.eigh(L)
+            # L = L.T.conj()
             kpt.eps_n = nrm_n
         elif h_type == 'kinetic':
             HC_Mn = np.zeros_like(H_MM)
@@ -868,8 +867,8 @@ class PzCorrectionsLcao:
             else:
                 mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
 
-            nrm_n = np.empty(L.shape[0])
-            diagonalize(L, nrm_n)
+            nrm_n, L = np.linalg.eigh(L)
+            # L = L.T.conj()
             kpt.eps_n = nrm_n
         else:
             raise NotImplementedError

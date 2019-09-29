@@ -20,7 +20,8 @@ calc = GPAW(mode=LCAO(force_complex_dtype=True),
                 odd_parameters={'name': 'PZ_SIC',  # half-SIC
                                 'scaling_factor': (0.5, 0.5)}),
             mixer={'method': 'dummy'},
-            nbands='nao'
+            nbands='nao',
+            symmetry='off'
             )
 H2O.set_calculator(calc)
 e = H2O.get_potential_energy()

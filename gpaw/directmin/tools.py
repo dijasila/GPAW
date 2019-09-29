@@ -1,8 +1,7 @@
 import numpy as np
-from gpaw.utilities.lapack import diagonalize
 
 
-def expm_ed(a_mat, evalevec=False, use_numpy=True):
+def expm_ed(a_mat, evalevec=False):
 
     """
     calculate matrix exponential
@@ -11,19 +10,11 @@ def expm_ed(a_mat, evalevec=False, use_numpy=True):
     :param a_mat: matrix to be exponented
     :param evalevec: if True then returns eigenvalues
                      and eigenvectors of A
-    :param use_numpy: if True use numpy for eigendecomposition,
-                      otherwise use gpaw's diagonalize
 
     :return:
     """
 
-    if use_numpy:
-        eigval, evec = np.linalg.eigh(1.0j * a_mat)
-    else:
-        evec = 1.0j * a_mat
-        eigval = np.empty(a_mat.shape[0])
-        diagonalize(evec, eigval)
-        evec = evec.T.conj()
+    eigval, evec = np.linalg.eigh(1.0j * a_mat)
 
     product = np.dot(evec * np.exp(-1.0j * eigval), evec.T.conj())
 
@@ -201,12 +192,11 @@ def loewdin(C_nM, S_MM):
 
     S_mn = (C_nM[m].conj(), S_MM C_nM[n])
     """
-    S_overlapp = np.dot(C_nM.conj(), np.dot(S_MM, C_nM.T))
 
-    ev = np.zeros(S_overlapp.shape[0], dtype=float)
-    diagonalize(S_overlapp, ev)
+    ev, S_overlapp = np.linalg.eigh(np.dot(C_nM.conj(),
+                                           np.dot(S_MM, C_nM.T)))
     ev_sqrt = np.diag(1.0 / np.sqrt(ev))
 
-    S = np.dot(np.dot(S_overlapp.T.conj(), ev_sqrt), S_overlapp)
+    S = np.dot(np.dot(S_overlapp, ev_sqrt), S_overlapp.T.conj())
 
     return np.dot(S.T, C_nM)
