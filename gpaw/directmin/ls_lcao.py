@@ -400,4 +400,3 @@ class StrongWolfeConditions(UnitStepLength):
             alpha_1 = 1.0
 
         return alpha_1
-
