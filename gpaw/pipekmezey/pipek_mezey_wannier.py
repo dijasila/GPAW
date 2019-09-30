@@ -4,7 +4,7 @@
 
     Given a spin channel index the objective function is:
            __ __
-           \  \  | A  |p
+           \\ \\  | A  |p
     P(W) = /  /  |Q(W)|           Eq.1
            -- -- | ii |
             A  i
@@ -13,7 +13,7 @@
     (note that p<1 corresponds to minimization)
     and
            __
-     A     \     A
+     A     \\    A
     Q(W) = / W* Q  W              Eq.2
      jj    -- rj rs sj
            rs
@@ -414,7 +414,7 @@ class PipekMezey:
                     k2 = self.invlst_dk[d, k]
                     Qk_nn = self.Qadk_nn[a, d]
                     temp = Qa_ii.T * Qk_nn[k].conj() - \
-                           Qa_ii * Qk_nn[k2].conj()
+                        Qa_ii * Qk_nn[k2].conj()
 
                     Wtemp += wd * (temp - dagger(temp))
             #
