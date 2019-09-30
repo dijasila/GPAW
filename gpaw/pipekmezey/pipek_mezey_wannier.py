@@ -54,6 +54,8 @@ from ase.transport.tools import dagger
 from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
+
+
 # from ase.parallel import parprint
 
 
@@ -412,7 +414,7 @@ class PipekMezey:
                     k2 = self.invlst_dk[d, k]
                     Qk_nn = self.Qadk_nn[a, d]
                     temp = Qa_ii.T * Qk_nn[k].conj() - \
-                        Qa_ii * Qk_nn[k2].conj()
+                           Qa_ii * Qk_nn[k2].conj()
 
                     Wtemp += wd * (temp - dagger(temp))
             #
