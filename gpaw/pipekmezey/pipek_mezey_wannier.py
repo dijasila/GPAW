@@ -1,13 +1,13 @@
-""" 
+"""
     Objective function class for
     Generalized Pipek-Mezey orbital localization.
 
     Given a spin channel index the objective function is:
-           __ __  
+           __ __
            \  \  | A  |p
     P(W) = /  /  |Q(W)|           Eq.1
            -- -- | ii |
-            A  i  
+            A  i
 
     where p is a penalty degree: p>1, p<1, not p=1,
     (note that p<1 corresponds to minimization)
@@ -45,7 +45,6 @@
     with O(r) = 1 if |r-R |>|r-R |, 0 otherwise
 
     All integrals are performed over the course gd.
-
 """
 from time import time
 import numpy as np
@@ -56,6 +55,7 @@ from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 # from ase.parallel import parprint
+
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
     if verbose:
