@@ -4,6 +4,10 @@ import numpy as np
 from gpaw import mpi
 
 
+##TODOS
+# Calculate G(k) on radial grid and implement using this instead
+# Fix indicators/ni-interpolation to handle Z_is not crossing -1
+
 class WDA(XCFunctional):
     def __init__(self, mode=None, densitymode=None):
         XCFunctional.__init__(self, 'WDA', 'LDA')
@@ -109,7 +113,7 @@ class WDA(XCFunctional):
         else:
             maxval = 10
         #maxval = np.mean(n_sg)*3
-        maxval = 1.0
+        maxval = self.gd.integrate(n_sg)[0]*2 #1.0
         return get_ni_grid(rank, size, maxval, pts_per_rank)
 
     def get_pts_per_rank(self):
@@ -117,7 +121,8 @@ class WDA(XCFunctional):
         # return min(10, 100 // mpi.size + 1)
 
     def get_pairdist_g(self, grid, ni, spin):
-        grid_distances = np.linalg.norm(grid, axis=0)
+        from ase.units import Bohr
+        grid_distances = np.linalg.norm(grid, axis=0) * Bohr
         from scipy.special import gamma
         exc = self.get_lda_xc(ni, spin)
         assert exc <= 0
@@ -313,12 +318,34 @@ class WDA(XCFunctional):
 
         N = np.array(f_sg[0].shape).prod()
         F = self.fftn(f_sg, axes=(1, 2, 3))
-        G = self.fftn(G_sg, axes=(1, 2, 3))
+        G = self.fftn(G_sg, axes=(1, 2, 3)) * N # * self.gd.dv
         
-        res = self.ifftn(F * G * N, axes=(1, 2, 3))
+        res = self.ifftn(F * G, axes=(1, 2, 3))
         assert np.allclose(res, res.real), "MEAN ABS DIFF: {}, MEAN ABS: {}, N: {}".format(np.mean(np.abs(res - res.real)), np.mean(np.abs(res.real)), N)
 
         return res.real
+
+    def fold_w_pair2(self, f_sg, G_sG):
+        assert np.allclose(f_sg, f_sg.real)
+        assert np.allclose(G_sg, G_sg.real)
+        assert f_sg.shape == G_sg.shape
+        assert f_sg.ndim == 4
+
+
+        N = np.array(f_sg[0].shape).prod()
+        F = self.fftn(f_sg, axes=(1, 2, 3))
+        
+        res = self.ifftn(F * G_sG, axes=(1, 2, 3))
+        assert np.allclose(res, res.real), "MEAN ABS DIFF: {}, MEAN ABS: {}, N: {}".format(np.mean(np.abs(res - res.real)), np.mean(np.abs(res.real)), N)
+
+        return res.real
+
+    def get_G_sG(inter_iG, i, gd, spin):
+        K_G = self._get_K_G(gd)
+
+        G_G = inter_iG(K_G, i)
+
+        
 
     def symmetricmode_Zs(self, n_sg, ni_grid,
                          lower_ni, upper_ni,
@@ -574,3 +601,42 @@ class WDA(XCFunctional):
         self.lda_kernel.calculate(e_g, n_sg, np.zeros_like(n_sg))
 
         return eae_g - e_g
+
+    def construct_G_splines(self, ni_grid):
+        r_j = np.arange(0.01, 200, 0.01)
+        dr_j = r_j[1:] - r[:-1]
+        
+        G_ir = self.get_G_ir(ni_grid, r_j)
+
+        ks = np.linspace(0.01, 200, 300, endpoint=False)
+    
+        G_iG = np.zeros((len(ni_grid), len(ks)))
+
+        na = np.newaxis
+        for ik, k in enumerate(ks):
+            int_ir = G_ir * 4 * np.pi * np.sin(k * r_j[na, :]) / k * radial_grid[na, :]
+            int_ir = (int_ir[:, 1:] + int_ir[:, :-1]) / 2
+            val_i = np.sum(int_ir * dr_j[na, :], axis=1)
+            G_iG[:, ik] = val_i
+            
+        from scipy.interpolate import spline
+
+        inter_iG = lambda K_G, i: spline(ks, G_iG[i, :], K_G)
+
+        return inter_iG
+
+        
+    def get_G_ir(self, ni_grid, r_j, spin):
+        from scipy.special import gamma
+
+        def get_G_r(ni):
+            exc = self.get_lda_xc(self, ni, spin)
+            lambd = -3 * gamma(3 / 5) / (2 * gamma(2 / 5) * exc)
+            C = -3 / (4 * np.pi * gamma(2 / 5) * ni * lambd**3)
+        
+            G_r = C * (1 - np.exp(-(lambd / r_j)**5))
+            return G_r
+
+        G_ir = np.array([get_G_r(ni) for ni in ni_grid])
+
+        return G_ir

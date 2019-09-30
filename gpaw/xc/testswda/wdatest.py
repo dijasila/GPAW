@@ -207,6 +207,13 @@ class Tester(BaseTester):
         assert np.allclose(xc.fftn(xc.ifftn(n_sg)), n_sg)
         assert np.allclose(xc.ifftn(xc.fftn(n_sg)), n_sg)
 
+
+        n2_sg = np.ones(n_sg.shape)
+
+        fn2_sg = xc.ifftn(n2_sg)
+
+        assert np.allclose(fn2_sg[0,0,0,0], np.sum(n2_sg)), fn2_sg[0,0,0,0]
+
     def test_12_fftfold_normunchanged(self):
         n_sg = self.get_a_density()
 
@@ -221,25 +228,22 @@ class Tester(BaseTester):
 
         w_sG = xc.fftn(w_sg)
         N = np.array(n_sg.shape[1:]).prod()
-        w_sG[:, 0, 0, 0] = 1
+        w_sG[:, 0, 0, 0] = 1 / N
 
         w_sg = xc.ifftn(w_sG)
 
         nn_sg = xc.fold_w_pair(w_sg, n_sg)
 
-
         norm1 = xc.gd.integrate(n_sg)
         norm2 = xc.gd.integrate(nn_sg)
         assert np.allclose(norm1, norm2), "Norm before fold: {}, norm after fold: {}".format(norm1, norm2)
         
-
-
     def test_13_standardZs_lessgreatm1(self):
         # Test that the Zs have values that are both greater than
         # and less than -1.
         # -1 is the target values
         mag = np.random.rand()*100
-        n_sg = self.get_a_density()
+        n_sg = self.get_a_density() / 5
         while np.allclose(np.max(n_sg), 0):
             mag = np.random.rand()*100
             n_sg = self.get_a_density()*mag
@@ -252,9 +256,12 @@ class Tester(BaseTester):
        
         countNoGood = np.array([not (Z >= -1).any() for Z in Z_i.T]).sum()
         print("No good count: {}. Total count: {}".format(countNoGood, len(Z_i[0])))
-        for index, vals in enumerate(Z_i.T):
-            if not (vals >= -1).any():
-                print("BAD INDEX: ", index)
+        # con = 0
+        # for index, vals in enumerate(Z_i.T):
+        #     if not (vals >= -1).any():
+        #         con += 1
+        #         #print("BAD INDEX: ", index)
+        # print("MAN COUNT:", con)
         assert (np.array([(Z >= -1).any() for Z in Z_i.T])).all(), "Z_0 mean: {}, Z_last mean: {}".format(Z_i[0].mean(), Z_i[-1].mean())
         assert (np.array([(Z <= -1).any() for Z in Z_i.T])).all()
 

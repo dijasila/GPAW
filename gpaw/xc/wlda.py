@@ -29,7 +29,7 @@ class WLDA(XCFunctional):
             alphaw = float(filter_kernel.replace("param", ""))
             self.alphaw = alphaw
         else:
-            self.alphaw = 1.0
+            self.alphaw = 20.0
 
         # self.pot_plotter = Plotter("potential" + mode + filter_kernel, "")
         # self.dens_plotter = Plotter("density" + mode + filter_kernel, "")
@@ -1389,7 +1389,7 @@ class WLDA(XCFunctional):
 
         K_G = self._get_K_G(gd)
 
-        res = (1 / (1 + self.alphaw * (K_G / (kF + 0.0001))**2)**20).astype(np.complex128)
+        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**self.alphaw).astype(np.complex128)
         res = res / res[0, 0, 0]
         assert not np.isnan(res).any()
         return res

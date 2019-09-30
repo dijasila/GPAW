@@ -53,3 +53,20 @@ def get_ni_grid(rank, size, endval, pts_per_rank, grid_fct=None):
         my_upper = fulln_i[my_start + pts_per_rank]
     
     return my_n_i, my_lower, my_upper 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
