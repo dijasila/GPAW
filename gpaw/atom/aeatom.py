@@ -366,6 +366,7 @@ class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
                  configuration=None,
                  ee_interaction=True,
+                 Z=None,
                  log=None):
         """All-electron calculation for spherically symmetric atom.
 
@@ -389,7 +390,7 @@ class AllElectronAtom:
         if isinstance(symbol, int):
             symbol = chemical_symbols[symbol]
         self.symbol = symbol
-        self.Z = atomic_numbers[symbol]
+        self.Z = Z or atomic_numbers[symbol]
 
         self.nspins = 1 + int(bool(spinpol))
 
@@ -426,7 +427,7 @@ class AllElectronAtom:
         self.initialize_configuration(self.configuration)
 
         self.log('Z:              ', self.Z)
-        self.log('Name:           ', atomic_names[self.Z])
+        self.log('Name:           ', atomic_names[atomic_numbers[symbol]])
         self.log('Symbol:         ', symbol)
         self.log('XC-functional:  ', self.xc.name)
         self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
