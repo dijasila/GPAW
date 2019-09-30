@@ -93,7 +93,7 @@ class PzCorrectionsLcao:
         :param C_nM: coefficients of orbitals
         :return: matrix G - gradients, and orbital SI energies
 
-        which is G_{ij} = (1 - delta_{ij}/2)*( \int_0^1 e^{tA} L e^{-tA} dt )_{ji}
+        which is G_{ij} = (1 - delta_{ij}/2)*( int_0^1 e^{tA} L e^{-tA} dt )_{ji}
 
         Lambda_ij = (C_i, F_j C_j )
 

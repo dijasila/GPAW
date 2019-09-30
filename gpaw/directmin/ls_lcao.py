@@ -49,8 +49,8 @@ class Parabola(UnitStepLength):
 
     """
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = \\grad f(x_k + a_k p_k) \\cdot p_k
+    g = \\grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi):
@@ -92,13 +92,13 @@ class StrongWolfeConditions(UnitStepLength):
     This call should return a_star, phi_star, der_phi_star, g_star,
     where a_star is step length satisfied the strong Wolfe condts:
 
-    f(x_k + a_k p_k) <= f(x_k) + c_1 a_k \grad f_k \cdot p_k,
+    f(x_k + a_k p_k) <= f(x_k) + c_1 a_k grad f_k cdot p_k,
 
-    |\grad f(x_k + a_k p_k) \cdot p_k | <= c_2 |\grad f_k \cdot p_k|,
+    |grad f(x_k + a_k p_k) cdot p_k | <= c_2 |grad f_k cdot p_k|,
 
     phi = f (x_k + a_k*p_k)
-    der_phi = \grad f(x_k + a_k p_k) \cdot p_k
-    g = \grad f(x_k + a_k p_k)
+    der_phi = grad f(x_k + a_k p_k) cdot p_k
+    g = grad f(x_k + a_k p_k)
     """
 
     def __init__(self, evaluate_phi_and_der_phi,

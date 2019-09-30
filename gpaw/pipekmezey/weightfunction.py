@@ -1,4 +1,5 @@
-""" Class which builds a weight function for each atom 
+"""
+    Class which builds a weight function for each atom
     in a molecule using simple atom centred gaussians.
 
     This is the Hirshfeld scheme:
@@ -6,7 +7,7 @@
      A        p (r)
     w (r) = ---------
              mol
-             \   n
+             \\  n
              /  p (r)
              --
              n

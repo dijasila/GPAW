@@ -526,7 +526,7 @@ class DirectMinLCAO(DirectLCAO):
                                  phi=None, g_mat_u=None):
         """
         phi = f(x_k + alpha_k*p_k)
-        der_phi = \grad f(x_k + alpha_k*p_k) \cdot p_k
+        der_phi = \\grad f(x_k + alpha_k*p_k) \\cdot p_k
         :return:  phi, der_phi # floats
         """
         if phi is None or g_mat_u is None:

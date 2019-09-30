@@ -15,7 +15,7 @@
            __
      A     \\    A
     Q(W) = / W* Q  W              Eq.2
-     jj    -- rj rs sj
+    jj    -- rj rs sj
            rs
 
     rs run over occupied states only.
@@ -28,18 +28,18 @@
 
      A    /    *   A
     Q   = | Phi(r)w(r)Phi(r) dr   Eq.4
-     rs   /    r         s
+    rs   /    r         s
 
           A
     with w(r) a weight function with center on atom A.
-     A
+
     w(r) is constructed from simple and general gaussians.
 
     and Wigner-Seitz scheme: 'W'
 
      A    /    *   A
     Q   = | Phi(r)O(r)Phi(r) dr   Eq.5
-     rs   /    r         s
+    rs   /    r         s
 
           A              A      B
     with O(r) = 1 if |r-R |>|r-R |, 0 otherwise
