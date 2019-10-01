@@ -100,4 +100,3 @@ al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
               approximation='Albrecht BC', txt=txt)
 ali = al.absolute_intensity(omega=om)[-1]
 equal(pri, ali, 3)
-

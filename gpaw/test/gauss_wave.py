@@ -142,4 +142,3 @@ print('+gaussCKA: %8.5f s' % (time.time()-t))
 
 assert np.abs(gs0_G-gs1_G).max() < 1e-12, 'Max error %g' % np.abs(gs0_G-gs1_G).max()
 del gs0_G, gs1_G
-

@@ -14,4 +14,3 @@ sys.stderr = _stderr
 if not result.wasSuccessful():
     print("scipy_test%02d.out" % rank, result.errors, result.failures, file=sys.stderr)
 assert result.wasSuccessful()
-

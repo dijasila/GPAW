@@ -74,4 +74,3 @@ if check and rank == 0:
         if np.abs(A[i,:] - B[i,:]).sum() > 1e-6:
             if np.abs(A[i,:] + B[i,:]).sum() > 1e-6:
                 raise ValueError('Check !')
-

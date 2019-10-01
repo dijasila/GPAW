@@ -14,4 +14,3 @@ gw = G0W0(calc='MoS2_fulldiag.gpw',
           savepckl=True)
 
 gw.calculate()
-

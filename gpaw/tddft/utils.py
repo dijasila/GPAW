@@ -188,4 +188,3 @@ class DynamicOverlapWriter(DynamicOverlapMonitor):
 
     def __del__(self):
         self.fileobj.close()
-

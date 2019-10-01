@@ -126,5 +126,3 @@ if __name__ in ['__main__', '__builtin__']:
     else:
         main(dtype=float)
         main(dtype=complex)
-
-

@@ -198,4 +198,3 @@ class CSCG:
 
         return self.iterations
         #print self.iterations
-

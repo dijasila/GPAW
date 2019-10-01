@@ -53,4 +53,3 @@ if __name__=='__main__':
     print(np.around(H.real, 2))
     print(np.around(V.real ,2))
     print(np.around(ion_shift.diagonal().real, 2))
-

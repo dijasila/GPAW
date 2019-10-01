@@ -176,4 +176,3 @@ if compiled_with_sl():
     # do last test plus buffer_size keyword
     parallel['buffer_size'] = 150
     run(**OH_kwargs)
-

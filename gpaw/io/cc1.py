@@ -22,4 +22,3 @@ def read_cc1(fileobj, index=-1):
         images.append(Atoms(symbols=symbols, positions=positions))
         del lines[:natoms + 1]
     return images[index]
-

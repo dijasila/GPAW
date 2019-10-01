@@ -662,5 +662,3 @@ class LrResponse:
         self.C_im *= 1./np.pi
 
         return (self.C_re,self.C_im)
-
-
