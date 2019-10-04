@@ -828,6 +828,10 @@ class PWPointIntegrator(Integrator):
         out_x /= kpointvol
 
         # Initialize pme
+        print('----------',
+              file=self.kslrf.cfd)
+        print('Initializing PairMatrixElement',
+              file=self.kslrf.cfd, flush=True)
         self.kslrf.initialize_pme()
 
         # Sum over kpoints
@@ -837,6 +841,8 @@ class PWPointIntegrator(Integrator):
         bzk_ipv = self.slice_kpoint_domain(bzk_kv)
         tmp_x = np.zeros_like(out_x)
         pb = ProgressBar(self.kslrf.cfd)
+        print('\nIntegrating response function',
+              file=self.kslrf.cfd, flush=True)
         for _, k_pv in pb.enumerate(bzk_ipv):
             kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
                                                        s1_t, s2_t)
