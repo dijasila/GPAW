@@ -112,12 +112,10 @@ class EXX:
         if v_knG is not None:
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 for a, P_ni in kpt.proj.items():
-                    v_ani[a] -= 2*P_ni.dot(self.VC_aii[a]/2 + VV_aii[a])
-                    v1_ni = P_ni.dot(self.VC_aii[a] + VV_aii[a])
-                    ekin -= np.einsum('n, ni, ni',
-                                      kpt.f_n, P_ni.conj(), v_ani[a]).real*2
-                    ekin -= np.einsum('n, ni, ni',
-                                      kpt.f_n, P_ni.conj(), v1_ni).real
+                    v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_aii[a])
+                    v_ani[a] -= v_ni
+                    ekin += np.einsum('n, ni, ni',
+                                      kpt.f_n, P_ni.conj(), v_ni).real
                 self.pt.add(v_nG, v_ani)#,k?
 
         return exxvv, exxvc, ekin
@@ -525,7 +523,8 @@ class Hybrid:
             Htpsit_xG += self.exx_fraction * v_xG
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
-        return;n = 4 - kpt.s * 3
+        #return;
+        n = 4 - kpt.s * 3
         H_nn[n:, :n] = 0.0
         H_nn[:n, n:] = 0.0
 
