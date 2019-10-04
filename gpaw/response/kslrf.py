@@ -250,6 +250,10 @@ class KohnShamLinearResponseFunction:
         raise NotImplementedError('Integrated pairs of states depend on'
                                   'response and mode')
 
+    def initialize_pme(self, *args, **kwargs):
+        raise NotImplementedError('Calculator method for matrix elements '
+                                  'depend on response and mode')
+
     def calculate_pme(self, kskptpair, *args, **kwargs):
         raise NotImplementedError('Calculator method for matrix elements '
                                   'depend on response and mode')
@@ -650,6 +654,9 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         return self.kspair.get_kpoint_pairs(n1_t, n2_t, k_pc, k_pc + q_c,
                                             s1_t, s2_t)
 
+    def initialize_pme(self):
+        self.pme.initialize(self.pd)
+
     def calculate_pme(self, kskptpair):
         self.pme(kskptpair, self.pd)
 
@@ -819,6 +826,9 @@ class PWPointIntegrator(Integrator):
 
         kpointvol = (2 * np.pi)**3 / vol / nk
         out_x /= kpointvol
+
+        # Initialize pme
+        self.kslrf.initialize_pme()
 
         # Sum over kpoints
         # Each process will do its own k-points, but it has to follow the

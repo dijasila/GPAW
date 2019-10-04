@@ -581,6 +581,11 @@ class PairMatrixElement:
         self.timer = kspair.timer
         self.transitionblockscomm = kspair.transitionblockscomm
 
+    def initialize(self, *args, **kwargs):
+        """Initialize e.g. PAW corrections or other operations
+        ahead in time of integration."""
+        pass
+
     def __call__(self, kskptpair, *args, **kwargs):
         """Calculate the matrix element for all transitions in kskptpairs."""
         raise NotImplementedError('Define specific matrix element')
@@ -599,37 +604,9 @@ class PlaneWavePairDensity(PairMatrixElement):
         self.Q_aGii = None
         self.currentq_c = None
 
-    @timer('Calculate pair density')
-    def __call__(self, kskptpair, pd):
-        """Calculate the pair densities for all transitions:
-        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
-                 = <snk| e^(-i (q + G) r) |s'n'k+q>
-        """
-        Q_aGii = self.initialize_paw_corrections(pd)
-        Q_G = self.get_fft_indices(kskptpair, pd)
-        mynt, nt, ta, tb = kskptpair.transition_distribution()
-
-        n_mytG = pd.empty(mynt)
-
-        # Calculate smooth part of the pair densities:
-        with self.timer('Calculate smooth part'):
-            ut1cc_mytR = kskptpair.kpt1.ut_mytR.conj()
-            n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_mytR
-            # Unvectorized
-            for myt in range(tb - ta):
-                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
-
-        # Calculate PAW corrections with numpy
-        with self.timer('PAW corrections'):
-            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpair.kpt1.P_amyti,
-                                               kskptpair.kpt2.P_amyti):
-                C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
-                n_mytG[:tb - ta] += np.sum(C1_Gimyt
-                                           * P2_myti.T[np.newaxis, :, :],
-                                           axis=1).T
-
-        # Attach the calculated pair density to the KohnShamKPointPair object
-        kskptpair.attach('n_mytG', 'n_tG', n_mytG)
+    def initialize(self, pd):
+        """Initialize PAW corrections ahead in time of integration."""
+        self.initialize_paw_corrections(pd)
 
     @timer('Initialize PAW corrections')
     def initialize_paw_corrections(self, pd):
@@ -638,7 +615,6 @@ class PlaneWavePairDensity(PairMatrixElement):
         if self.Q_aGii is None or not np.allclose(q_c - self.currentq_c, 0.):
             self.Q_aGii = self._initialize_paw_corrections(pd)
             self.currentq_c = q_c
-        return self.Q_aGii
 
     def _initialize_paw_corrections(self, pd):
         wfs = self.calc.wfs
@@ -664,6 +640,44 @@ class PlaneWavePairDensity(PairMatrixElement):
             Q_aGii.append(x_G[:, np.newaxis, np.newaxis] * Q_Gii)
 
         return Q_aGii
+
+    @timer('Calculate pair density')
+    def __call__(self, kskptpair, pd):
+        """Calculate the pair densities for all transitions:
+        n_t(q+G) = <s'n'k+q| e^(i (q + G) r) |snk>
+                 = <snk| e^(-i (q + G) r) |s'n'k+q>
+        """
+        Q_aGii = self.get_paw_projectors(pd)
+        Q_G = self.get_fft_indices(kskptpair, pd)
+        mynt, nt, ta, tb = kskptpair.transition_distribution()
+
+        n_mytG = pd.empty(mynt)
+
+        # Calculate smooth part of the pair densities:
+        with self.timer('Calculate smooth part'):
+            ut1cc_mytR = kskptpair.kpt1.ut_mytR.conj()
+            n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_mytR
+            # Unvectorized
+            for myt in range(tb - ta):
+                n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
+
+        # Calculate PAW corrections with numpy
+        with self.timer('PAW corrections'):
+            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpair.kpt1.P_amyti,
+                                               kskptpair.kpt2.P_amyti):
+                C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
+                n_mytG[:tb - ta] += np.sum(C1_Gimyt
+                                           * P2_myti.T[np.newaxis, :, :],
+                                           axis=1).T
+
+        # Attach the calculated pair density to the KohnShamKPointPair object
+        kskptpair.attach('n_mytG', 'n_tG', n_mytG)
+
+    def get_paw_projectors(self, pd):
+        """Make sure PAW correction has been initialized properly
+        and return projectors"""
+        self.initialize_paw_corrections(pd)
+        return self.Q_aGii
 
     @timer('Get G-vector indices')
     def get_fft_indices(self, kskptpair, pd):
