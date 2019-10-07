@@ -11,6 +11,7 @@ from gpaw.xc.exx import pawexxvv
 from gpaw.xc.tools import _vxc
 from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
+import gpaw.mpi as mpi
 
 
 KPoint = namedtuple(
@@ -47,6 +48,8 @@ class EXX:
         self.coulomb = coulomb
         self.spos_ac = spos_ac
 
+        self.comm = self.pt.comm
+
         # PAW-correction stuff:
         self.Delta_aiiL = []
         self.VC_aii = []
@@ -61,6 +64,8 @@ class EXX:
 
     def calculate(self, kpts1, kpts2, VV_aii, v_knG=None, e_kn=None):
         pd = kpts1[0].psit.pd
+        gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
+        comm = self.comm
 
         if v_knG is not None:
             nbands = len(v_knG[0])
@@ -78,7 +83,7 @@ class EXX:
             q_c = k2.k_c - k1.k_c
             qd = KPointDescriptor([q_c])
 
-            pd12 = PWDescriptor(pd.ecut, pd.gd, pd.dtype, kd=qd)
+            pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
             ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
             ghat.set_positions(self.spos_ac)
 
@@ -110,15 +115,20 @@ class EXX:
                     e_kn[i] -= (2 * vv_n + vc_n)
 
         if v_knG is not None:
+            G1 = comm.rank * pd.maxmyng
+            G2 = (comm.rank + 1) * pd.maxmyng
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
+                comm.sum(v_nG)
+                v_nG = v_nG[:, G1:G2].copy()
                 for a, P_ni in kpt.proj.items():
                     v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_aii[a])
+                    comm.sum(v_ani[a])
                     v_ani[a] -= v_ni
                     ekin += np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ni).real
                 self.pt.add(v_nG, v_ani)#,k?
 
-        return exxvv, exxvc, ekin
+        return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin)
 
     def calculate_exx_for_pair(self,
                                k1,
@@ -143,14 +153,16 @@ class EXX:
 
         for n1, u1_R in enumerate(k1.u_nR):
             n0 = n1 if k1 is k2 else 0
-            for n2, rho_G in enumerate(rho_nG[n0:], n0):
+            n2a = n0 + (N2 - n0) // self.comm.size * self.comm.rank
+            n2b = min(n2a + (N2 - n0) // self.comm.size, N2)
+            for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
-            ghat.add(rho_nG[n0:],
-                     {a: Q_nnL[n1, n0:]
+            ghat.add(rho_nG[n2a:n2b],
+                     {a: Q_nnL[n1, n2a:n2b]
                       for a, Q_nnL in enumerate(Q_annL)})
 
-            for n2, rho_G in enumerate(rho_nG[n0:], n0):
+            for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
                     for a, v_xL in ghat.integrate(vrho_G).items():
@@ -297,10 +309,23 @@ class EXX:
 
 def to_real_space(psit):
     pd = psit.pd
+    comm = pd.comm
+    S = comm.size
+    q = psit.kpt
     nbands = len(psit.array)
-    u_nR = pd.gd.empty(nbands, pd.dtype, psit.kpt)
-    for psit_G, u_R in zip(psit.array, u_nR):
-        u_R[:] = pd.ifft(psit_G, psit.kpt)
+    u_nR = pd.gd.empty(nbands, pd.dtype, global_array=True)
+
+    B = (nbands + S - 1) // S
+    n1 = B * comm.rank
+    n2 = n1 + B
+    for n, u_G in enumerate(psit.array[n1:n2], n1):
+        u_nR[n] = pd.ifft(u_G, local=True, safe=False, q=q)
+
+    for rank in range(S):
+        n1 = rank * B
+        n1 = n1 + B
+        comm.broadcast(u_nR[n1:n2], rank)
+
     return u_nR
 
 
