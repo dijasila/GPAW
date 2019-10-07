@@ -347,7 +347,8 @@ class Hybrid:
                  name: str = None,
                  xc=None,
                  exx_fraction: float = None,
-                 omega: float = None):
+                 omega: float = None,
+                 mix_all: bool = True):
 
         if name is not None:
             assert xc is None and exx_fraction is None and omega is None
@@ -363,6 +364,7 @@ class Hybrid:
         self.xc = xc
         self.exx_fraction = exx_fraction
         self.omega = omega
+        self.mix_all = mix_all
 
         self.initialized = False
 
@@ -376,6 +378,7 @@ class Hybrid:
 
         self.evv = np.nan
         self.evc = np.nan
+        self.ecc = np.nan
         self.ekin = np.nan
 
         self.vt_sR = None
@@ -404,7 +407,7 @@ class Hybrid:
             return self.evv + self.evc
         e_r = gd.empty()
         self.xc.calculate(gd, nt_sr, vt_sr, e_r)
-        return self.evv + self.evc + gd.integrate(e_r)
+        return self.ecc + self.evv + self.evc + gd.integrate(e_r)
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
         if not self.xc:
@@ -434,6 +437,8 @@ class Hybrid:
             coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
 
         self.xx = EXX(wfs.kd, wfs.setups, wfs.pt, coulomb, self.spos_ac)
+
+        self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
 
         self.initialized = True
 
@@ -523,8 +528,9 @@ class Hybrid:
             Htpsit_xG += self.exx_fraction * v_xG
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
-        #return;
-        n = 4 - kpt.s * 3
+        if self.mix_all or kpt.f_n is None:
+            return
+        n = (kpt.f_n > kpt.weight * self.ftol).sum()
         H_nn[n:, :n] = 0.0
         H_nn[:n, n:] = 0.0
 
