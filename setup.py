@@ -84,21 +84,16 @@ except ImportError:
     print('ASE not found. GPAW git hash not written.')
 
 # User provided customizations:
-if 'GPAW_CONFIG' in os.environ:
-    config = os.environ['GPAW_CONFIG']
-    if Path(config).is_file():
-        config = Path(config).read_text()
+for siteconfig in [os.environ.get('GPAW_CONFIG'),
+                   'siteconfig.py',
+                   '~/.gpaw/siteconfig.py']:
+    if siteconfig is not None:
+        path = Path(siteconfig).expanduser()
+        if path.is_file():
+            exec(path.read_text())
+            break
 else:
-    config = Path.home() / '.gpaw/config.py'
-    if config.is_file():
-        config = config.read_text()
-    else:
-        config = None
-
-if config:
-    exec(config)
-else:
-    libraries += ['blas', 'lapack']
+    libraries.append('blas')
 
 if not parallel_python_interpreter and mpicompiler:
     # Build MPI-interface into _gpaw.so:
