@@ -142,10 +142,7 @@ class EXX:
         rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
 
         for n1, u1_R in enumerate(k1.u_nR):
-            # u1cc_R = u1_R.conj()
-
             n0 = n1 if k1 is k2 else 0
-            n0=0
             for n2, rho_G in enumerate(rho_nG[n0:], n0):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
@@ -157,16 +154,22 @@ class EXX:
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
                     for a, v_xL in ghat.integrate(vrho_G).items():
-                        v_ii = f2_n[n1] * self.Delta_aiiL[a].dot(v_xL[0])
-                        v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2])
+                        v_ii = self.Delta_aiiL[a].dot(v_xL[0])
+                        v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2]) * f2_n[n1]
+                        if k1 is k2 and n1 != n2:
+                            v_ani[a][n2] -= (v_ii.conj().dot(k2.proj[a][n1]) *
+                                             f2_n[n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
                         vrho_R * k2.u_nR[n2], index)
-                        # vrho_R * k2.u_nR[n2], index)
+                    if k1 is k2 and n1 != n2:
+                        vpsit_nG[n2] -= f2_n[n1] * pd.fft(
+                            vrho_R.conj() * k2.u_nR[n1], index)
+
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
-                #if k1 is k2:
-                #    exx_nn[n2, n1] = e
+                if k1 is k2:
+                    exx_nn[n2, n1] = e
 
         return exx_nn
 
@@ -237,21 +240,22 @@ class EXX:
         lasti1 = -1
         lasti2 = -1
         for (i1, i2, s), count in sorted(pairs.items()):
-            if i1 is not lasti1:
+            if i1 != lasti1:
                 k1 = kpts1[i1]
                 u1_nR = to_real_space(k1.psit)
                 rsk1 = RSKPoint(u1_nR, k1.proj, k1.f_n, k1.k_c,
                                 k1.weight)  # , k1.psit.kpt)
-            if i2 is not lasti2:
+                lasti1 = i1
+            if i2 == i1 and kpts1 is kpts2:
+                rsk2 = rsk1
+            elif i2 != lasti2:
                 k2 = kpts2[i2]
                 u2_nR = to_real_space(k2.psit)
                 rsk2 = RSKPoint(u2_nR, k2.proj, k2.f_n, k2.k_c,
                                 k2.weight)  # , k2.psit.kpt)
+                lasti2 = i2
 
             yield i1, rsk1, self.apply_symmetry(s, rsk2), count
-
-            lasti1 = i1
-            lasti2 = i2
 
     def apply_symmetry(self, s: int, rsk):
         U_scc = self.kd.symmetry.op_scc
@@ -349,7 +353,6 @@ class Hybrid:
                  exx_fraction: float = None,
                  omega: float = None,
                  mix_all: bool = True):
-
         if name is not None:
             assert xc is None and exx_fraction is None and omega is None
             xc, exx_fraction, omega = parse_name(name)
@@ -415,7 +418,7 @@ class Hybrid:
         return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def get_kinetic_energy_correction(self):
-        return self.ekin#???? Compare with ekin from nabla^2
+        return self.ekin
 
     def _initialize(self):
         if self.initialized:
@@ -470,7 +473,6 @@ class Hybrid:
         deg = 2 / self.wfs.nspins
 
         if kpt.psit.array.base is psit_xG.base:
-            # print(f'1 {spin}')
             if (spin, kpt.k) not in self.cache:
                 if spin == 0:
                     self.evv = 0.0
@@ -530,6 +532,7 @@ class Hybrid:
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         if self.mix_all or kpt.f_n is None:
             return
+
         n = (kpt.f_n > kpt.weight * self.ftol).sum()
         H_nn[n:, :n] = 0.0
         H_nn[:n, n:] = 0.0
