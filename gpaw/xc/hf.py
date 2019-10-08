@@ -117,9 +117,11 @@ class EXX:
         if v_knG is not None:
             G1 = comm.rank * pd.maxmyng
             G2 = (comm.rank + 1) * pd.maxmyng
+            k = 0
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 comm.sum(v_nG)
-                v_nG = v_nG[:, G1:G2].copy()
+                v_knG[k] = v_nG[:, G1:G2].copy()
+                k += 1
                 for a, P_ni in kpt.proj.items():
                     v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_aii[a])
                     comm.sum(v_ani[a])
@@ -314,7 +316,6 @@ def to_real_space(psit):
     q = psit.kpt
     nbands = len(psit.array)
     u_nR = pd.gd.empty(nbands, pd.dtype, global_array=True)
-
     B = (nbands + S - 1) // S
     n1 = B * comm.rank
     n2 = n1 + B
@@ -323,7 +324,7 @@ def to_real_space(psit):
 
     for rank in range(S):
         n1 = rank * B
-        n1 = n1 + B
+        n2 = n1 + B
         comm.broadcast(u_nR[n1:n2], rank)
 
     return u_nR
