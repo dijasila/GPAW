@@ -698,7 +698,7 @@ serial_comm = SerialCommunicator()
 
 have_mpi = world is not None
 
-if world is None or world.size == 1:
+if world is None:
     world = serial_comm
 
 if gpaw.debug:
