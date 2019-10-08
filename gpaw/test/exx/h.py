@@ -33,8 +33,8 @@ for d in D:
         eigensolver=es,
         # eigensolver='rmm-diis',
         # txt='h2.txt',
-        xc='PBE',
-        #xc=xc
+        #xc='PBE',
+        xc=xc
         )
     e = a.get_potential_energy()
     raise SystemExit

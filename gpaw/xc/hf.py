@@ -10,6 +10,7 @@ from gpaw.xc import XC
 from gpaw.xc.exx import pawexxvv
 from gpaw.xc.tools import _vxc
 from gpaw.utilities import unpack, unpack2
+from gpaw.utilities.partition import AtomPartition
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 import gpaw.mpi as mpi
 
@@ -52,30 +53,30 @@ class EXX:
 
         # PAW-correction stuff:
         self.Delta_aiiL = []
-        self.VC_aii = []
-        self.ecc = 0.0
+        self.VC_aii = {}
         for a, data in enumerate(setups):
             self.Delta_aiiL.append(data.Delta_iiL)
-            self.VC_aii.append(unpack(data.X_p))
-            self.ecc += data.ExxC
+            self.VC_aii[a] = unpack(data.X_p)
 
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-    def calculate(self, kpts1, kpts2, VV_aii, v_knG=None, e_kn=None):
+        self.atom_partition = AtomPartition(
+            self.comm, np.zeros(len(setups)) + self.comm.rank)
+
+    def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
         gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
         comm = self.comm
 
-        if v_knG is not None:
-            nbands = len(v_knG[0])
-            shapes = [(nbands, len(VV_ii)) for VV_ii in VV_aii]
+        if derivatives:
+            nbands = len(kpts1[0].psit.array)
+            shapes = [(nbands, len(Delta_iiL))
+                      for Delta_iiL in self.Delta_aiiL]
             v_kani = [{a: np.zeros(shape, complex)
                        for a, shape in enumerate(shapes)}
-                      for _ in range(len(v_knG))]
-        else:
-            v_nG = None
-            v_ani = None
+                      for _ in range(len(kpts1))]
+            v_knG = [np.zeros_like(k.psit.array) for k in kpts1]
 
         exxvv = 0.0
         ekin = 0.0
@@ -87,9 +88,12 @@ class EXX:
             ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
             ghat.set_positions(self.spos_ac)
 
-            if v_knG is not None:
+            if derivatives:
                 v_nG = v_knG[i1]
                 v_ani = v_kani[i1]
+            else:
+                v_nG = None
+                v_ani = None
 
             v_G = self.coulomb.get_potential(pd12)
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
@@ -104,9 +108,10 @@ class EXX:
         exxvc = 0.0
 
         for i, kpt in enumerate(kpts1):
-            for a, P_ni in kpt.proj.items():
+            for a, VV_ii in VV_aii.items():
+                P_ni = kpt.proj[a]
                 vv_n = np.einsum('ni, ij, nj -> n',
-                                 P_ni.conj(), VV_aii[a], P_ni).real
+                                 P_ni.conj(), VV_ii, P_ni).real
                 vc_n = np.einsum('ni, ij, nj -> n',
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
@@ -114,23 +119,25 @@ class EXX:
                 if e_kn is not None:
                     e_kn[i] -= (2 * vv_n + vc_n)
 
-        if v_knG is not None:
+        if derivatives:
             G1 = comm.rank * pd.maxmyng
             G2 = (comm.rank + 1) * pd.maxmyng
-            k = 0
+            w_knG = []
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 comm.sum(v_nG)
-                v_knG[k] = v_nG[:, G1:G2].copy()
-                k += 1
-                for a, P_ni in kpt.proj.items():
-                    v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_aii[a])
-                    comm.sum(v_ani[a])
-                    v_ani[a] -= v_ni
+                w_knG.append(v_nG[:, G1:G2].copy())
+                for v_ni in v_ani.values():
+                    comm.sum(v_ni)
+                v1_ani = {}
+                for a, VV_ii in VV_aii.items():
+                    P_ni = kpt.proj[a]
+                    v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_ii)
+                    v1_ani[a] = v_ani[a] - v_ni
                     ekin += np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ni).real
-                self.pt.add(v_nG, v_ani)#,k?
+                self.pt.add(v_nG, v1_ani)#,k?
 
-        return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin)
+        return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
 
     def calculate_exx_for_pair(self,
                                k1,
@@ -142,6 +149,7 @@ class EXX:
                                f2_n,
                                vpsit_nG=None,
                                v_ani=None):
+        print('B', mpi.world.rank)
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                             k1.proj[a],
                             Delta_iiL,
@@ -152,11 +160,13 @@ class EXX:
         N2 = len(k2.u_nR)
         exx_nn = np.empty((N1, N2))
         rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
+        S = self.comm.size
 
         for n1, u1_R in enumerate(k1.u_nR):
             n0 = n1 if k1 is k2 else 0
-            n2a = n0 + (N2 - n0) // self.comm.size * self.comm.rank
-            n2b = min(n2a + (N2 - n0) // self.comm.size, N2)
+            n2a = n0 + (N2 - n0 + S - 1) // S * self.comm.rank
+            n2b = min(n2a + (N2 - n0 + S - 1) // S, N2)
+            print(n1, n0, n2a,n2b, self.comm.size, self.comm.rank, ghat.pd.comm.size)
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
@@ -168,12 +178,15 @@ class EXX:
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
                     for a, v_xL in ghat.integrate(vrho_G).items():
+                        print(self.comm.rank, n1, n2, a)
                         v_ii = self.Delta_aiiL[a].dot(v_xL[0])
                         v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2]) * f2_n[n1]
                         if k1 is k2 and n1 != n2:
                             v_ani[a][n2] -= (v_ii.conj().dot(k2.proj[a][n1]) *
                                              f2_n[n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
+                    pd = ghat.pd#???
+                    print(vpsit_nG.shape, vrho_R.shape, k2.u_nR.shape, pd.comm.size)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
                         vrho_R * k2.u_nR[n2], index)
                     if k1 is k2 and n1 != n2:
@@ -257,7 +270,8 @@ class EXX:
             if i1 != lasti1:
                 k1 = kpts1[i1]
                 u1_nR = to_real_space(k1.psit)
-                rsk1 = RSKPoint(u1_nR, k1.proj, k1.f_n, k1.k_c,
+                rsk1 = RSKPoint(u1_nR, k1.proj.redist(self.atom_partition),
+                                k1.f_n, k1.k_c,
                                 k1.weight)  # , k1.psit.kpt)
                 lasti1 = i1
             if i2 == i1 and kpts1 is kpts2:
@@ -265,7 +279,8 @@ class EXX:
             elif i2 != lasti2:
                 k2 = kpts2[i2]
                 u2_nR = to_real_space(k2.psit)
-                rsk2 = RSKPoint(u2_nR, k2.proj, k2.f_n, k2.k_c,
+                rsk2 = RSKPoint(u2_nR, k2.proj.redist(self.atom_partition),
+                                k2.f_n, k2.k_c,
                                 k2.weight)  # , k2.psit.kpt)
                 lasti2 = i2
 
@@ -403,7 +418,7 @@ class Hybrid:
 
         self.xx = None
         self.coulomb = None
-        self.cache = {}
+        self.v_knG = None
 
         self.evv = np.nan
         self.evc = np.nan
@@ -499,7 +514,8 @@ class Hybrid:
         deg = 2 / self.wfs.nspins
 
         if kpt.psit.array.base is psit_xG.base:
-            if (spin, kpt.k) not in self.cache:
+            if self.v_knG is None or spin != self.spin:
+                self.spin = spin
                 if spin == 0:
                     self.evv = 0.0
                     self.evc = 0.0
@@ -508,25 +524,23 @@ class Hybrid:
                 K = kd.nibzkpts
                 k1 = (spin - kd.comm.rank) * K
                 k2 = k1 + K
-                kpts = self.wfs.mykpts[k1:k2]
-                for k in kpts:
-                    self.cache[(spin, k.k)] = np.zeros_like(k.psit.array)
                 kpts = [KPoint(kpt.psit,
                                kpt.projections,
                                kpt.f_n / kpt.weight,  # scale to [0, 1] range
                                kd.ibzk_kc[kpt.k],
                                kd.weight_k[kpt.k])
-                        for kpt in kpts]
-                evv, evc, ekin = self.xx.calculate(
+                        for kpt in self.wfs.mykpts[k1:k2]]
+                evv, evc, ekin, self.v_knG = self.xx.calculate(
                     kpts, kpts,
                     VV_aii,
-                    v_knG=[self.cache[(spin, k)] for k in range(len(kpts))])
+                    derivatives=True)
                 self.evv += evv * deg * self.exx_fraction
                 self.evc += evc * deg * self.exx_fraction
                 self.ekin += ekin * deg * self.exx_fraction
-            Htpsit_xG += self.cache.pop((spin, kpt.k)) * self.exx_fraction
+            assert self.spin == spin
+            Htpsit_xG += self.v_knG[kpt.k] * self.exx_fraction
         else:
-            assert len(self.cache) == 0
+            self.v_knG = None
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
 
             K = kd.nibzkpts
@@ -548,12 +562,11 @@ class Hybrid:
                             kpt.f_n + nan,
                             kd.ibzk_kc[kpt.k],
                             nan)]
-            v_xG = np.zeros_like(Htpsit_xG)
-            self.xx.calculate(
+            _, _, _, v_1xG = self.xx.calculate(
                 kpts1, kpts2,
                 VV_aii,
-                v_knG=[v_xG])
-            Htpsit_xG += self.exx_fraction * v_xG
+                derivatives=True)
+            Htpsit_xG += self.exx_fraction * v_1xG[0]
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         if self.mix_all or kpt.f_n is None:
@@ -571,12 +584,13 @@ class Hybrid:
         pass  # 1 / 0
 
     def calculate_valence_valence_paw_corrections(self, spin):
-        VV_aii = []
-        for a, data in enumerate(self.wfs.setups):
-            D_p = self.dens.D_asp[a][spin]
+        VV_aii = {}
+        for a, D_sp in self.dens.D_asp.items():
+            data = self.wfs.setups[a]
+            D_p = D_sp[spin]
             D_ii = unpack2(D_p) * (self.wfs.nspins / 2)
             VV_ii = pawexxvv(data, D_ii)
-            VV_aii.append(VV_ii)
+            VV_aii[a] = VV_ii
         return VV_aii
 
     def calculate_energy(self):
