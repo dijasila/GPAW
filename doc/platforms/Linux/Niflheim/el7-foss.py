@@ -1,3 +1,5 @@
+import os
+
 scalapack = True
 fftw = True
 
