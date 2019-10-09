@@ -8,7 +8,6 @@ from ase.utils.timing import Timer, timer
 
 from gpaw import GPAW
 import gpaw.mpi as mpi
-# gpaw.utilities.blas import gemm
 from gpaw.response.math_func import two_phi_planewave_integrals
 
 
@@ -281,13 +280,14 @@ class KohnShamPair:
         data = None
 
         # For each given k_pc, the process needs to extract at most one k-point
-        # Allocate data arrays
+        # Allocate data arrays for that k-point
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
         ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
         P = wfs.kpt_u[0].projections.new(nbands=mynt)
 
+        # Extract all data
         for p, k_c in enumerate(k_pc):
             K = self.find_kpoint(k_c)
             ik = wfs.kd.bz2ibz_k[K]
@@ -324,15 +324,17 @@ class KohnShamPair:
 
         wfs = self.calc.wfs
 
+        # If there is no more k-points to extract:
         data = None
-        # Allocate data arrays.
+
+        # For each given k_pc, the process needs to extract at most one k-point
+        # Allocate data arrays for that k-point
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
         ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
         P = wfs.kpt_u[0].projections.new(nbands=mynt)
 
-        # Each process only has a single k-point to evaluate.
         # Extract and send/receive all data
         rrequests = []
         srequests = []
@@ -343,7 +345,7 @@ class KohnShamPair:
             if self.kptblockcomm.rank == p:
                 data = (K, k_c)
 
-            # Loop over all transitions
+            # Do k-point data extraction for each transition
             for t, (n, s) in enumerate(zip(n_t, s_t)):
                 u = wfs.kd.where_is(s, ik)
                 kpt_rank, myu = wfs.kd.who_has(u)
