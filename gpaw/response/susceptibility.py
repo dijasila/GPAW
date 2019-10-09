@@ -11,7 +11,8 @@ from ase.utils.timing import Timer, timer
 import gpaw.mpi as mpi
 from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
                         Redistributor, DryRunBlacsGrid)
-from gpaw.response.kslrf import get_calc, FrequencyDescriptor
+from gpaw.response.kspair import get_calc
+from gpaw.response.kslrf import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
 

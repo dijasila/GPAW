@@ -14,7 +14,7 @@ import gpaw.mpi as mpi
 from gpaw.xc import XC
 from gpaw.spherical_harmonics import Yarr
 from gpaw.sphere.lebedev import weight_n, R_nv
-from gpaw.response.kslrf import get_calc
+from gpaw.response.kspair import get_calc
 
 
 def get_fxc(gs, fxc, response='susceptibility', mode='pw',
