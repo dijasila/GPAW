@@ -9,7 +9,7 @@ a = Atoms('H',
           #magmoms=[3],
           cell=[L, L, 1],
           pbc=(0, 0, 1))
-a *= (1, 1, 2)
+#a *= (1, 1, 2)
 # xc = Hybrid(xc='LDA', exx_fraction=0)
 # xc.name = 'LDA'
 # xc = Hybrid(None, 'LDA', 0.0, 0.0)
@@ -29,6 +29,7 @@ for d in D:
         # h=0.12,
         #setups='p1',
         #setups='ae',
+        kpts={'size': (1, 1, 2), 'gamma': True},
         nbands=1,
         eigensolver=es,
         # eigensolver='rmm-diis',

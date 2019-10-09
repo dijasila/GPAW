@@ -10,7 +10,6 @@ from gpaw.xc import XC
 from gpaw.xc.exx import pawexxvv
 from gpaw.xc.tools import _vxc
 from gpaw.utilities import unpack, unpack2
-from gpaw.utilities.partition import AtomPartition
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 import gpaw.mpi as mpi
 
@@ -73,7 +72,8 @@ class EXX:
             v_kani = [{a: np.zeros(shape, complex)
                        for a, shape in enumerate(shapes)}
                       for _ in range(len(kpts1))]
-            v_knG = [k.psit.pd.zeros(nbands, global_array=True) for k in kpts1]
+            v_knG = [k.psit.pd.zeros(nbands, global_array=True, q=k.psit.kpt)
+                     for k in kpts1]
 
         exxvv = 0.0
         ekin = 0.0
@@ -118,14 +118,14 @@ class EXX:
                 if e_kn is not None:
                     e_kn[i] -= (2 * vv_n + vc_n)
 
+        w_knG = {}
         if derivatives:
             G1 = comm.rank * pd.maxmyng
             G2 = (comm.rank + 1) * pd.maxmyng
-            w_knG = []
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 comm.sum(v_nG)
                 w_nG = v_nG[:, G1:G2].copy()
-                w_knG.append(w_nG)
+                w_knG[len(w_knG)] = w_nG
                 for v_ni in v_ani.values():
                     comm.sum(v_ni)
                 v1_ani = {}
@@ -135,7 +135,7 @@ class EXX:
                     v1_ani[a] = v_ani[a] - v_ni
                     ekin += np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ni).real
-                self.pt.add(w_nG, v1_ani)#,k?
+                self.pt.add(w_nG, v1_ani, kpt.psit.kpt)
 
         return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
 
@@ -410,7 +410,8 @@ class Hybrid:
 
         self.xx = None
         self.coulomb = None
-        self.v_knG = None
+        self.v_knG = {}
+        self.spin = -1
 
         self.evv = np.nan
         self.evc = np.nan
@@ -428,6 +429,7 @@ class Hybrid:
         self.dens = dens
         self.ham = ham
         self.wfs = wfs
+        assert wfs.world.size == wfs.gd.comm.size
 
     def get_description(self):
         return '*****\n' * 4
@@ -506,7 +508,7 @@ class Hybrid:
         deg = 2 / self.wfs.nspins
 
         if kpt.psit.array.base is psit_xG.base:
-            if self.v_knG is None or spin != self.spin:
+            if not self.v_knG:
                 self.spin = spin
                 if spin == 0:
                     self.evv = 0.0
@@ -530,9 +532,9 @@ class Hybrid:
                 self.evc += evc * deg * self.exx_fraction
                 self.ekin += ekin * deg * self.exx_fraction
             assert self.spin == spin
-            Htpsit_xG += self.v_knG[kpt.k] * self.exx_fraction
+            Htpsit_xG += self.v_knG.pop(kpt.k) * self.exx_fraction
         else:
-            self.v_knG = None
+            assert not self.v_knG
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
 
             K = kd.nibzkpts
