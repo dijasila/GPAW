@@ -14,15 +14,16 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, P_amyti,
-                 shift_c):
-        self.K = K              # BZ k-point index
-        self.n_myt = n_myt      # Band index for each transition
-        self.s_myt = s_myt      # Spin index for each transition
-        self.eps_myt = eps_myt  # Eigenvalues
-        self.f_myt = f_myt      # Occupation numbers
-        self.ut_mytR = ut_mytR  # Periodic part of wave functions
-        self.P_amyti = P_amyti  # PAW projections
+    def __init__(self, K, n_t, s_t, eps_t, f_t, ut_tR,
+                 projections, shift_c):
+        """K-point data is indexed by a transition index t."""
+        self.K = K                      # BZ k-point index
+        self.n_t = n_t                  # Band index for each transition
+        self.s_t = s_t                  # Spin index for each transition
+        self.eps_t = eps_t              # Eigenvalues
+        self.f_t = f_t                  # Occupation numbers
+        self.ut_tR = ut_tR              # Periodic part of wave functions
+        self.projections = projections  # PAW projections
 
         self.shift_c = shift_c  # long story - see the
         # PairDensity.construct_symmetry_operators() method
