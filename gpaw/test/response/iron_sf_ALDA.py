@@ -41,12 +41,15 @@ ecut = 300
 eta = 0.01
 
 # Test different kernel and summation strategies
-strat_sd = [(None, 'pairwise', True),  # rshe, bandsummation, bundle_integrals
-            (0.99, 'pairwise', True),
-            (0.99, 'pairwise', False),
-            (0.999, 'pairwise', True),
-            (0.999, 'double', True)]
+# rshe, bandsummation, bundle_integrals, bundle_kptpairs
+strat_sd = [(None, 'pairwise', True, True),
+            (0.99, 'pairwise', True, True),
+            (0.99, 'pairwise', False, True),
+            (0.99, 'pairwise', True, False),
+            (0.999, 'pairwise', True, True),
+            (0.999, 'double', True, True)]
 frq_sw = [np.linspace(0.160, 0.320, 21),
+          np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
@@ -77,8 +80,8 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 
-for s, ((rshe, bandsummation,
-         bundle_integrals), frq_w) in enumerate(zip(strat_sd, frq_sw)):
+for s, ((rshe, bandsummation, bundle_integrals, bundle_kptpairs),
+        frq_w) in enumerate(zip(strat_sd, frq_sw)):
     tms = TransverseMagneticSusceptibility(calc,
                                            fxc=fxc,
                                            eta=eta,
@@ -86,6 +89,7 @@ for s, ((rshe, bandsummation,
                                            bandsummation=bandsummation,
                                            fxckwargs={'rshe': rshe},
                                            bundle_integrals=bundle_integrals,
+                                           bundle_kptpairs=bundle_kptpairs,
                                            nblocks=2)
     tms.get_macroscopic_component('+-', q_c, frq_w,
                                   filename='iron_dsus' + '_G%d.csv' % (s + 1))
@@ -104,42 +108,49 @@ d2 = np.loadtxt('iron_dsus_G2.csv', delimiter=', ')
 d3 = np.loadtxt('iron_dsus_G3.csv', delimiter=', ')
 d4 = np.loadtxt('iron_dsus_G4.csv', delimiter=', ')
 d5 = np.loadtxt('iron_dsus_G5.csv', delimiter=', ')
+d6 = np.loadtxt('iron_dsus_G6.csv', delimiter=', ')
 
 wpeak1, Ipeak1 = findpeak(d1[:, 0], d1[:, 4])
 wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
 wpeak3, Ipeak3 = findpeak(d3[:, 0], d3[:, 4])
 wpeak4, Ipeak4 = findpeak(d4[:, 0], d4[:, 4])
 wpeak5, Ipeak5 = findpeak(d5[:, 0], d5[:, 4])
+wpeak6, Ipeak6 = findpeak(d6[:, 0], d6[:, 4])
 
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 mw3 = (wpeak3 + d3[0, 0]) * 1000
 mw4 = (wpeak4 + d4[0, 0]) * 1000
 mw5 = (wpeak5 + d5[0, 0]) * 1000
+mw6 = (wpeak6 + d6[0, 0]) * 1000
 
 # Part 4: compare new results to test values
 test_mw1 = 245.59  # meV
 test_mw2 = 401.01  # meV
-test_mw4 = 402.38  # meV
+test_mw5 = 402.38  # meV
 test_Ipeak1 = 57.56  # a.u.
 test_Ipeak2 = 58.46  # a.u.
-test_Ipeak4 = 56.15  # a.u.
+test_Ipeak5 = 56.15  # a.u.
 
 # Different kernel strategies should remain the same
 # Magnon peak:
 equal(mw1, test_mw1, eta * 100)
 equal(mw2, test_mw2, eta * 100)
-equal(mw4, test_mw4, eta * 100)
+equal(mw5, test_mw5, eta * 100)
 
 # Scattering function intensity:
 equal(Ipeak1, test_Ipeak1, 1.5)
 equal(Ipeak2, test_Ipeak2, 1.5)
-equal(Ipeak4, test_Ipeak4, 1.5)
+equal(Ipeak5, test_Ipeak5, 1.5)
 
-# The vectorized and un-vectorized integration methods should give the same
+# The bundled and unbundled integration methods should give the same
 equal(mw2, mw3, eta * 100)
 equal(Ipeak2, Ipeak3, 1.5)
 
+# The bundled and unbundled data extraction should give the same result
+equal(mw2, mw4, eta * 100)
+equal(Ipeak2, Ipeak4, 1.5)
+
 # The two transitions summation strategies should give identical results
-equal(mw4, mw5, eta * 100)
-equal(Ipeak4, Ipeak5, 1.5)
+equal(mw5, mw6, eta * 100)
+equal(Ipeak5, Ipeak6, 1.5)

@@ -23,7 +23,8 @@ class FourComponentSusceptibilityTensor:
     def __init__(self, gs, fxc='ALDA', fxckwargs={},
                  eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
-                 bandsummation='pairwise', nbands=None, bundle_integrals=True,
+                 bandsummation='pairwise', nbands=None,
+                 bundle_integrals=True, bundle_kptpairs=True,
                  world=mpi.world, nblocks=1, txt=sys.stdout):
         """
         Currently, everything is in plane wave mode.
@@ -38,8 +39,8 @@ class FourComponentSusceptibilityTensor:
         disable_point_group,
         disable_time_reversal,
         bandsummation, nbands,
-        bundle_integrals, world,
-        nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
+        bundle_integrals, bundle_kptpairs,
+        world, nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
         """
         # Initiate output file and timer
         self.world = world
@@ -60,7 +61,8 @@ class FourComponentSusceptibilityTensor:
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
-                           bundle_integrals=bundle_integrals, world=world,
+                           bundle_integrals=bundle_integrals,
+                           bundle_kptpairs=bundle_kptpairs, world=world,
                            nblocks=nblocks, txt=self.fd, timer=self.timer)
         self.fxc = get_fxc(self.calc, fxc,
                            response='susceptibility', mode='pw',
