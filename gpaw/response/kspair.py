@@ -238,7 +238,6 @@ class KohnShamPair:
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
-        Otherwise None is returned
         """
         # Get data extraction method corresponding to the parallelization of
         # the ground state.
@@ -251,7 +250,6 @@ class KohnShamPair:
         if self.kptblockcomm.rank in range(len(k_pc)):
             assert data is not None
             K, k_c, eps_myt, f_myt, ut_mytR, projections = data
-            # Change projections data format in apply_symmetry_operations      XXX
             (ut_mytR, projections,
              shift_c) = self.apply_symmetry_operations(K, k_c,
                                                        ut_mytR, projections)
@@ -297,31 +295,20 @@ class KohnShamPair:
             if self.kptblockcomm.rank == p:
                 data = (K, k_c)
 
-            # Do data extraction for this k-point
-            
-            # All processes can access all data, let the process
-            # extract its own data
-            if self.kptblockcomm.rank == p:
-                myt_myt = np.arange(0, mynt)
+            # Do k-point data extraction for each transition
+            for t, (n, s) in enumerate(zip(n_t, s_t)):
+                u = wfs.kd.where_is(s, ik)
+                data_rank, myt = self.who_has(p, t)
 
-                # In the ground state, kpts are indexes by u=(s, k)
-                for s in set(s_t[self.ta:self.tb]):
-                    kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
-
-                    # Filter transitions so they match s
-                    thiss_t = np.zeros(self.nt, dtype=bool)
-                    thiss_t[self.ta:self.tb] = s_t[self.ta:self.tb] == s
-                    # Get filter in local indices
-                    thiss_myt = np.zeros(mynt, dtype=bool)
-                    thiss_myt[:self.tb - self.ta] = thiss_t[self.ta:self.tb]
-
+                # All processes can access all data, let the process
+                # extract its own data
+                if self.world.rank == data_rank:
+                    eps, f, ut_R, P_I = self._get_orbital_data(u, n)
                     # Store data
-                    # use _get_orbital_data                                    XXX
-                    for n, myt in zip(n_t[thiss_t], myt_myt[thiss_myt]):
-                        eps_myt[myt] = kpt.eps_n[n]
-                        f_myt[myt] = kpt.f_n[n] / kpt.weight
-                        ut_mytR[myt] = wfs.pd.ifft(kpt.psit_nG[n], kpt.q)
-                        P.array[myt] = kpt.projections.array[n]
+                    eps_myt[myt] = eps
+                    f_myt[myt] = f
+                    ut_mytR[myt] = ut_R
+                    P.array[myt] = P_I
             
         # Pack data, if any
         if data is not None:
