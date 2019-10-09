@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
+from gpaw.utilities.partition import AtomPartition
 
 
 class Projections:
@@ -71,8 +72,19 @@ class Projections:
     def __contains__(self, a):
         return a in self.map
 
-    def todicttttt(self):
-        return dict(self.items())
+    def broadcast(self) -> 'Projections':
+        ap = AtomPartition(serial_comm, np.zeros(len(self.nproj_a), int))
+        P = self.new(atom_partition=ap)
+        comm = self.atom_partition.comm
+        for a, rank in enumerate(self.atom_partition.rank_a):
+            P1_ni = P[a]
+            if comm.rank == rank:
+                P_ni = self[a].copy()
+            else:
+                P_ni = np.empty_like(P1_ni)
+            comm.broadcast(P_ni, rank)
+            P1_ni[:] = P_ni
+        return P
 
     def redist(self, atom_partition):
         P = self.new(atom_partition=atom_partition)

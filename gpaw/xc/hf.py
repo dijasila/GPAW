@@ -61,9 +61,6 @@ class EXX:
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
 
-        self.atom_partition = AtomPartition(
-            self.comm, np.zeros(len(setups)) + self.comm.rank)
-
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
         gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
@@ -76,7 +73,7 @@ class EXX:
             v_kani = [{a: np.zeros(shape, complex)
                        for a, shape in enumerate(shapes)}
                       for _ in range(len(kpts1))]
-            v_knG = [np.zeros_like(k.psit.array) for k in kpts1]
+            v_knG = [k.psit.pd.zeros(nbands, global_array=True) for k in kpts1]
 
         exxvv = 0.0
         ekin = 0.0
@@ -97,7 +94,9 @@ class EXX:
 
             v_G = self.coulomb.get_potential(pd12)
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                               pd, i1, k2.f_n, v_nG, v_ani)
+                                               kpts1[i1].psit.pd,
+                                               i1, k2.f_n, v_nG, v_ani)
+
             e_nn *= count / self.kd.nbzkpts
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             exxvv -= 0.5 * e
@@ -125,7 +124,8 @@ class EXX:
             w_knG = []
             for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
                 comm.sum(v_nG)
-                w_knG.append(v_nG[:, G1:G2].copy())
+                w_nG = v_nG[:, G1:G2].copy()
+                w_knG.append(w_nG)
                 for v_ni in v_ani.values():
                     comm.sum(v_ni)
                 v1_ani = {}
@@ -135,7 +135,7 @@ class EXX:
                     v1_ani[a] = v_ani[a] - v_ni
                     ekin += np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ni).real
-                self.pt.add(v_nG, v1_ani)#,k?
+                self.pt.add(w_nG, v1_ani)#,k?
 
         return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
 
@@ -149,7 +149,6 @@ class EXX:
                                f2_n,
                                vpsit_nG=None,
                                v_ani=None):
-        print('B', mpi.world.rank)
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                             k1.proj[a],
                             Delta_iiL,
@@ -158,15 +157,13 @@ class EXX:
 
         N1 = len(k1.u_nR)
         N2 = len(k2.u_nR)
-        exx_nn = np.empty((N1, N2))
+        exx_nn = np.zeros((N1, N2))
         rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
         S = self.comm.size
-
         for n1, u1_R in enumerate(k1.u_nR):
             n0 = n1 if k1 is k2 else 0
             n2a = n0 + (N2 - n0 + S - 1) // S * self.comm.rank
             n2b = min(n2a + (N2 - n0 + S - 1) // S, N2)
-            print(n1, n0, n2a,n2b, self.comm.size, self.comm.rank, ghat.pd.comm.size)
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
@@ -178,20 +175,17 @@ class EXX:
                 vrho_G = v_G * rho_G
                 if vpsit_nG is not None:
                     for a, v_xL in ghat.integrate(vrho_G).items():
-                        print(self.comm.rank, n1, n2, a)
                         v_ii = self.Delta_aiiL[a].dot(v_xL[0])
                         v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2]) * f2_n[n1]
                         if k1 is k2 and n1 != n2:
                             v_ani[a][n2] -= (v_ii.conj().dot(k2.proj[a][n1]) *
                                              f2_n[n2])
                     vrho_R = ghat.pd.ifft(vrho_G)
-                    pd = ghat.pd#???
-                    print(vpsit_nG.shape, vrho_R.shape, k2.u_nR.shape, pd.comm.size)
                     vpsit_nG[n1] -= f2_n[n2] * pd.fft(
-                        vrho_R * k2.u_nR[n2], index)
+                        vrho_R * k2.u_nR[n2], index, local=True)
                     if k1 is k2 and n1 != n2:
                         vpsit_nG[n2] -= f2_n[n1] * pd.fft(
-                            vrho_R.conj() * k2.u_nR[n1], index)
+                            vrho_R.conj() * k2.u_nR[n1], index, local=True)
 
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
@@ -270,7 +264,7 @@ class EXX:
             if i1 != lasti1:
                 k1 = kpts1[i1]
                 u1_nR = to_real_space(k1.psit)
-                rsk1 = RSKPoint(u1_nR, k1.proj.redist(self.atom_partition),
+                rsk1 = RSKPoint(u1_nR, k1.proj.broadcast(),
                                 k1.f_n, k1.k_c,
                                 k1.weight)  # , k1.psit.kpt)
                 lasti1 = i1
@@ -279,7 +273,7 @@ class EXX:
             elif i2 != lasti2:
                 k2 = kpts2[i2]
                 u2_nR = to_real_space(k2.psit)
-                rsk2 = RSKPoint(u2_nR, k2.proj.redist(self.atom_partition),
+                rsk2 = RSKPoint(u2_nR, k2.proj.broadcast(),
                                 k2.f_n, k2.k_c,
                                 k2.weight)  # , k2.psit.kpt)
                 lasti2 = i2
@@ -331,16 +325,14 @@ def to_real_space(psit):
     q = psit.kpt
     nbands = len(psit.array)
     u_nR = pd.gd.empty(nbands, pd.dtype, global_array=True)
-    B = (nbands + S - 1) // S
-    n1 = B * comm.rank
-    n2 = n1 + B
-    for n, u_G in enumerate(psit.array[n1:n2], n1):
-        u_nR[n] = pd.ifft(u_G, local=True, safe=False, q=q)
-
-    for rank in range(S):
-        n1 = rank * B
-        n2 = n1 + B
-        comm.broadcast(u_nR[n1:n2], rank)
+    for n1 in range(0, nbands, S):
+        n2 = min(n1 + S, nbands)
+        u_G = pd.alltoall1(psit.array[n1:n2], q)
+        if u_G is not None:
+            n = n1 + comm.rank
+            u_nR[n] = pd.ifft(u_G, local=True, safe=False, q=q)
+        for n in range(n1, n2):
+            comm.broadcast(u_nR[n], n - n1)
 
     return u_nR
 
