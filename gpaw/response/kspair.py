@@ -266,9 +266,10 @@ class KohnShamPair:
         """Creator component of the extract k-point data factory."""
         from gpaw.mpi import SerialCommunicator
         cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator) or cworld.size == 1:
+        if isinstance(cworld, SerialCommunicator):
             return self.extract_serial_kptdata
         else:
+            assert self.world.rank == self.calc.wfs.world.rank
             return self.extract_parallel_kptdata
 
     def extract_serial_kptdata(self, k_pc, n_t, s_t):
@@ -319,9 +320,6 @@ class KohnShamPair:
     def extract_parallel_kptdata(self, k_pc, n_t, s_t):
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
         and Kohn-Sham orbitals from ground state with distributed memory."""
-        # Make sure self.world == wfs.world in get_calc                        XXX
-        assert self.world.rank == self.calc.wfs.world.rank
-
         wfs = self.calc.wfs
 
         # If there is no more k-points to extract:
