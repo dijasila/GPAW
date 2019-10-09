@@ -20,8 +20,8 @@ spos_ac = np.zeros((1, 3)) + 0.25
 
 class AP:
     my_indices = [0]
-
-x = 0.0
+    comm = world
+    rank_a = [0]
 
 
 class Setup:
@@ -53,30 +53,27 @@ kpt = KPoint(psit, proj, f_n, np.array([0.0, 0.0, 0.0]), 1.0)
 
 xx = EXX(kd, [Setup()], pt, coulomb, spos_ac)
 
-v_nG = pd.zeros(nb)
 psit.matrix_elements(pt, out=proj)
 C = 0.79
-VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
-          for a, P_ni in proj.items()]
+VV_aii = {a: np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
+          for a, P_ni in proj.items()}
 
-x = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
-v = v_nG[0, 1]
-print(v_nG)
-print(x)
+x = xx.calculate([kpt], [kpt], VV_aii, derivatives=True)
+v = x[3][0][0, 1]
 
 eps = 0.00001
 
 data[0, 1] = 3 + eps
 psit.matrix_elements(pt, out=proj)
-VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
-          for a, P_ni in proj.items()]
-xp = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
+VV_aii = {a: np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
+          for a, P_ni in proj.items()}
+xp = xx.calculate([kpt], [kpt], VV_aii)
 
 data[0, 1] = 3 - eps
 psit.matrix_elements(pt, out=proj)
-VV_aii = [np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
-          for a, P_ni in proj.items()]
-xm = xx.calculate([kpt], [kpt], VV_aii, [v_nG])
+VV_aii = {a: np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
+          for a, P_ni in proj.items()}
+xm = xx.calculate([kpt], [kpt], VV_aii)
 
 d = (xp[0] + xp[1] - xm[0] - xm[1]) / (2 * eps) * N**6 / L**3 / 2
 print(v / d)

@@ -95,7 +95,8 @@ class EXX:
             v_G = self.coulomb.get_potential(pd12)
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
                                                kpts1[i1].psit.pd,
-                                               i1, k2.f_n, v_nG, v_ani)
+                                               kpts1[i1].psit.kpt,
+                                               k2.f_n, v_nG, v_ani)
 
             e_nn *= count / self.kd.nbzkpts
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
@@ -534,7 +535,6 @@ class Hybrid:
             assert self.spin == spin
             Htpsit_xG += self.v_knG.pop(kpt.k) * self.exx_fraction
         else:
-            assert not self.v_knG
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
 
             K = kd.nibzkpts
