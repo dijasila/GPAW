@@ -236,7 +236,7 @@ class KohnShamPair:
 
     def extract_kptdata(self, k_pc, n_t, s_t):
         """Returns the input to KohnShamKPoint:
-        K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, P_amyti, shift_c
+        K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
         Otherwise None is returned
         """
@@ -250,10 +250,11 @@ class KohnShamPair:
         # Unpack and apply symmetry operations
         if self.kptblockcomm.rank in range(len(k_pc)):
             assert data is not None
-            # Change projections data format                                   XXX
-            K, k_c, eps_myt, f_myt, utuns_mytR, Puns_amyti = data
-            ut_mytR, P_amyti, shift_c = self.apply_symmetry(K, k_c, utuns_mytR,
-                                                            Puns_amyti)
+            K, k_c, eps_myt, f_myt, ut_mytR, projections = data
+            # Change projections data format in apply_symmetry_operations      XXX
+            (ut_mytR, projections,
+             shift_c) = self.apply_symmetry_operations(K, k_c,
+                                                       ut_mytR, projections)
 
             # Make also local n and s arrays for the KohnShamKPoint object
             n_myt = np.empty(self.mynt, dtype=n_t.dtype)
@@ -261,7 +262,8 @@ class KohnShamPair:
             s_myt = np.empty(self.mynt, dtype=s_t.dtype)
             s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
 
-            return K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, P_amyti, shift_c
+            return (K, n_myt, s_myt, eps_myt, f_myt,
+                    ut_mytR, projections, shift_c)
 
     def create_extract_kptdata(self):
         """Creator component of the extract k-point data factory."""
@@ -275,62 +277,90 @@ class KohnShamPair:
     def extract_serial_kptdata(self, k_pc, n_t, s_t):
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
         and Kohn-Sham orbitals from ground state with serial communicator."""
-        if self.kptblockcomm.rank in range(len(k_pc)):
-            wfs = self.calc.wfs
-
-            # Parse kpoint to indeces
-            k_c = k_pc[self.kptblockcomm.rank]  # take the process' k-point
-            K = self.find_kpoint(k_c)
-            ik = wfs.kd.bz2ibz_k[K]
-
-            # Allocate arrays
-            mynt = self.mynt
-            myt_myt = np.arange(0, mynt)
-            eps_myt = np.zeros(mynt)
-            f_myt = np.zeros(mynt)
-            utuns_mytR = wfs.gd.empty(mynt, wfs.dtype)
-            ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
-            Puns_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
-
-            # In the ground state, kpts are indexes by u=(s, k)
-            for s in set(s_t[self.ta:self.tb]):
-                kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
-
-                # What transitions does this process need to consider?
-                include_t = np.zeros(self.nt, dtype=bool)
-                include_t[self.ta:self.tb] = s_t[self.ta:self.tb] == s
-                # Get filter in local indices
-                include_myt = np.zeros(mynt, dtype=bool)
-                include_myt[:self.tb - self.ta] = include_t[self.ta:self.tb]
-
-                # Extract eigenenergies and occupations
-                eps_myt[include_myt] = kpt.eps_n[n_t[include_t]]
-                f_myt[include_myt] = kpt.f_n[n_t[include_t]] / kpt.weight
-
-                # Extract wave functions and projectors
-                for myt, n in zip(myt_myt[include_myt], n_t[include_t]):
-                    # Fourier transform wave functions to real space
-                    utuns_mytR[myt] = wfs.pd.ifft(kpt.psit_nG[n], ik)
-                for a in kpt.P_ani:
-                    Puns_amyti[a][include_myt] = kpt.P_ani[a][n_t[include_t]]
-
-            return K, k_c, eps_myt, f_myt, utuns_mytR, Puns_amyti
-
-    def extract_parallel_kptdata(self, k_pc, n_t, s_t):
-        """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
-        and Kohn-Sham orbitals from ground state with distributed memory."""
         wfs = self.calc.wfs
-        # Make sure self.world == wfs.world in get_calc                        XXX
-        assert self.world.rank == wfs.world.rank
+
+        # If there is no more k-points to extract:
         data = None
-        # Allocate data arrays.
-        # Each process only has a single k-point to evaluate.
+
+        # For each given k_pc, the process needs to extract at most one k-point
+        # Allocate data arrays
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
         ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
         P = wfs.kpt_u[0].projections.new(nbands=mynt)
 
+        for p, k_c in enumerate(k_pc):
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+            # Store data, if the process is supposed to handle this k-point
+            if self.kptblockcomm.rank == p:
+                data = (K, k_c)
+
+            # Do data extraction for this k-point
+            
+            # All processes can access all data, let the process
+            # extract its own data
+            if self.kptblockcomm.rank == p:
+                myt_myt = np.arange(0, mynt)
+                """
+                ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
+                Puns_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
+                """
+                # In the ground state, kpts are indexes by u=(s, k)
+                for s in set(s_t[self.ta:self.tb]):
+                    kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+
+                    # Filter transitions so they match s
+                    thiss_t = np.zeros(self.nt, dtype=bool)
+                    thiss_t[self.ta:self.tb] = s_t[self.ta:self.tb] == s
+                    # Get filter in local indices
+                    thiss_myt = np.zeros(mynt, dtype=bool)
+                    thiss_myt[:self.tb - self.ta] = thiss_t[self.ta:self.tb]
+
+                    # Store data
+                    # use _get_orbital_data                                    XXX
+                    for n, myt in zip(n_t[thiss_t], myt_myt[thiss_myt]):
+                        eps_myt[myt] = kpt.eps_n[n]
+                        f_myt[myt] = kpt.f_n[n] / kpt.weight
+                        ut_mytR[myt] = wfs.pd.ifft(kpt.psit_nG[n], kpt.q)
+                        P.array[myt] = kpt.projections.array[n]
+
+                    '''
+                    # Extract eigenenergies and occupations
+
+
+                    # Extract wave functions and projectors
+                    for myt, n in zip(myt_myt[include_myt], n_t[include_t]):
+                        # Fourier transform wave functions to real space
+                        ut_mytR[myt] = wfs.pd.ifft(kpt.psit_nG[n], ik)
+                    for a in kpt.P_ani:
+                        Puns_amyti[a][include_myt] = kpt.P_ani[a][n_t[include_t]]
+                    '''
+            
+        # Pack data, if any
+        if data is not None:
+            data += (eps_myt, f_myt, ut_mytR, P)
+
+        return data
+
+    def extract_parallel_kptdata(self, k_pc, n_t, s_t):
+        """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
+        and Kohn-Sham orbitals from ground state with distributed memory."""
+        # Make sure self.world == wfs.world in get_calc                        XXX
+        assert self.world.rank == wfs.world.rank
+
+        wfs = self.calc.wfs
+
+        data = None
+        # Allocate data arrays.
+        mynt = self.mynt
+        eps_myt = np.empty(mynt)
+        f_myt = np.empty(mynt)
+        ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
+        P = wfs.kpt_u[0].projections.new(nbands=mynt)
+
+        # Each process only has a single k-point to evaluate.
         # Extract and send/receive all data
         rrequests = []
         srequests = []
@@ -397,6 +427,7 @@ class KohnShamPair:
 
         # Pack data, if any
         if data is not None:
+            """
             # This is stupid, change projections format                        XXX
             ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
             Pl_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
@@ -404,6 +435,8 @@ class KohnShamPair:
             for a in P_amyti:
                 Pl_amyti[a] = P_amyti[a]
             data += (eps_myt, f_myt, ut_mytR, Pl_amyti)
+            """
+            data += (eps_myt, f_myt, ut_mytR, P)
 
         return data
 
@@ -433,6 +466,7 @@ class KohnShamPair:
         """Get the data from a single Kohn-Sham orbital."""
         kpt = self.calc.wfs.kpt_u[myu]
         # Get eig and occ
+        # Store kpt weight                                                     XXX
         eps, f = kpt.eps_n[myn], kpt.f_n[myn] / kpt.weight
         # Smooth wave function
         psit_G = kpt.psit_nG[myn]
@@ -445,30 +479,32 @@ class KohnShamPair:
         return eps, f, ut_R, P_I
 
     @timer('Symmetrizing wavefunctions')
-    def apply_symmetry(self, K, k_c, utuns_mytR, Puns_amyti):
+    def apply_symmetry_operations(self, K, k_c, ut_mytR, projections):
         """Symmetrize wave functions and projections.
         More documentation needed XXX"""
-        mynt = len(utuns_mytR)
+        mynt = len(ut_mytR)
         wfs = self.calc.wfs
 
-        # Inverse Fourier transform the smooth part of wave functions
-        # and symmetrize it along with projections
         (_, T, a_a, U_aii, shift_c,
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
-        ut_mytR = wfs.gd.empty(mynt, wfs.dtype)
-        for myt, utuns_R in enumerate(utuns_mytR[:self.tb - self.ta]):
-            ut_mytR[myt] = T(utuns_R)
+        # Symmetrize wave functions
+        newut_mytR = wfs.gd.empty(mynt, wfs.dtype)
+        for myt, ut_R in enumerate(ut_mytR[:self.tb - self.ta]):
+            newut_mytR[myt] = T(ut_R)
 
-        ni_a = [U_ii.shape[0] for U_ii in U_aii]
-        P_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
+        # Symmetrize projections
+        newprojections = projections.new()
+        P_amyti = projections.toarraydict()
+        newP_amyti = newprojections.toarraydict()
         for a, U_ii in zip(a_a, U_aii):
-            P_thisti = np.dot(Puns_amyti[a][:self.tb - self.ta], U_ii)
+            P_thisti = np.dot(P_amyti[a][:self.tb - self.ta], U_ii)
             if time_reversal:
                 P_thisti = P_thisti.conj()
-            P_amyti[a][:self.tb - self.ta, :] = P_thisti
+            newP_amyti[a][:self.tb - self.ta, :] = P_thisti
+        newprojections.fromarraydict(newP_amyti)
 
-        return ut_mytR, P_amyti, shift_c
+        return newut_mytR, newprojections, shift_c
     
     def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
@@ -663,8 +699,9 @@ class PlaneWavePairDensity(PairMatrixElement):
 
         # Calculate PAW corrections with numpy
         with self.timer('PAW corrections'):
-            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, kskptpair.kpt1.P_amyti,
-                                               kskptpair.kpt2.P_amyti):
+            P1_amyti = kskptpair.kpt1.projections.toarraydict()
+            P2_amyti = kskptpair.kpt2.projections.toarraydict()
+            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, P1_amyti, P2_amyti):
                 C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
                 n_mytG[:tb - ta] += np.sum(C1_Gimyt
                                            * P2_myti.T[np.newaxis, :, :],
