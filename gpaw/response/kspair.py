@@ -348,7 +348,7 @@ class KohnShamPair:
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
         and Kohn-Sham orbitals from ground state with distributed memory."""
         # Make sure self.world == wfs.world in get_calc                        XXX
-        assert self.world.rank == wfs.world.rank
+        assert self.world.rank == self.calc.wfs.world.rank
 
         wfs = self.calc.wfs
 
@@ -691,17 +691,18 @@ class PlaneWavePairDensity(PairMatrixElement):
 
         # Calculate smooth part of the pair densities:
         with self.timer('Calculate smooth part'):
-            ut1cc_mytR = kskptpair.kpt1.ut_mytR.conj()
-            n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_mytR
+            ut1cc_mytR = kskptpair.kpt1.ut_tR.conj()
+            n_mytR = ut1cc_mytR * kskptpair.kpt2.ut_tR
             # Unvectorized
             for myt in range(tb - ta):
                 n_mytG[myt] = pd.fft(n_mytR[myt], 0, Q_G) * pd.gd.dv
 
         # Calculate PAW corrections with numpy
         with self.timer('PAW corrections'):
-            P1_amyti = kskptpair.kpt1.projections.toarraydict()
-            P2_amyti = kskptpair.kpt2.projections.toarraydict()
-            for Q_Gii, P1_myti, P2_myti in zip(Q_aGii, P1_amyti, P2_amyti):
+            P1 = kskptpair.kpt1.projections
+            P2 = kskptpair.kpt2.projections
+            for (Q_Gii, (a1, P1_myti),
+                 (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
                 C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
                 n_mytG[:tb - ta] += np.sum(C1_Gimyt
                                            * P2_myti.T[np.newaxis, :, :],
