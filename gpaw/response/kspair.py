@@ -303,10 +303,7 @@ class KohnShamPair:
             # extract its own data
             if self.kptblockcomm.rank == p:
                 myt_myt = np.arange(0, mynt)
-                """
-                ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
-                Puns_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
-                """
+
                 # In the ground state, kpts are indexes by u=(s, k)
                 for s in set(s_t[self.ta:self.tb]):
                     kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
@@ -325,18 +322,6 @@ class KohnShamPair:
                         f_myt[myt] = kpt.f_n[n] / kpt.weight
                         ut_mytR[myt] = wfs.pd.ifft(kpt.psit_nG[n], kpt.q)
                         P.array[myt] = kpt.projections.array[n]
-
-                    '''
-                    # Extract eigenenergies and occupations
-
-
-                    # Extract wave functions and projectors
-                    for myt, n in zip(myt_myt[include_myt], n_t[include_t]):
-                        # Fourier transform wave functions to real space
-                        ut_mytR[myt] = wfs.pd.ifft(kpt.psit_nG[n], ik)
-                    for a in kpt.P_ani:
-                        Puns_amyti[a][include_myt] = kpt.P_ani[a][n_t[include_t]]
-                    '''
             
         # Pack data, if any
         if data is not None:
@@ -427,15 +412,6 @@ class KohnShamPair:
 
         # Pack data, if any
         if data is not None:
-            """
-            # This is stupid, change projections format                        XXX
-            ni_a = [wfs.kpt_u[0].P_ani[a].shape[1] for a in wfs.kpt_u[0].P_ani]
-            Pl_amyti = [np.zeros((mynt, ni), dtype=complex) for ni in ni_a]
-            P_amyti = P.toarraydict()
-            for a in P_amyti:
-                Pl_amyti[a] = P_amyti[a]
-            data += (eps_myt, f_myt, ut_mytR, Pl_amyti)
-            """
             data += (eps_myt, f_myt, ut_mytR, P)
 
         return data
@@ -466,7 +442,6 @@ class KohnShamPair:
         """Get the data from a single Kohn-Sham orbital."""
         kpt = self.calc.wfs.kpt_u[myu]
         # Get eig and occ
-        # Store kpt weight                                                     XXX
         eps, f = kpt.eps_n[myn], kpt.f_n[myn] / kpt.weight
         # Smooth wave function
         psit_G = kpt.psit_nG[myn]
@@ -482,14 +457,12 @@ class KohnShamPair:
     def apply_symmetry_operations(self, K, k_c, ut_mytR, projections):
         """Symmetrize wave functions and projections.
         More documentation needed XXX"""
-        mynt = len(ut_mytR)
-        wfs = self.calc.wfs
-
         (_, T, a_a, U_aii, shift_c,
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
         # Symmetrize wave functions
-        newut_mytR = wfs.gd.empty(mynt, wfs.dtype)
+        wfs = self.calc.wfs
+        newut_mytR = wfs.gd.empty(len(ut_mytR), wfs.dtype)
         for myt, ut_R in enumerate(ut_mytR[:self.tb - self.ta]):
             newut_mytR[myt] = T(ut_R)
 
@@ -498,10 +471,10 @@ class KohnShamPair:
         P_amyti = projections.toarraydict()
         newP_amyti = newprojections.toarraydict()
         for a, U_ii in zip(a_a, U_aii):
-            P_thisti = np.dot(P_amyti[a][:self.tb - self.ta], U_ii)
+            P_myti = np.dot(P_amyti[a][:self.tb - self.ta], U_ii)
             if time_reversal:
-                P_thisti = P_thisti.conj()
-            newP_amyti[a][:self.tb - self.ta, :] = P_thisti
+                P_myti = P_myti.conj()
+            newP_amyti[a][:self.tb - self.ta, :] = P_myti
         newprojections.fromarraydict(newP_amyti)
 
         return newut_mytR, newprojections, shift_c
