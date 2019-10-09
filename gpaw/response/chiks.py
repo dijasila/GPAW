@@ -100,19 +100,7 @@ class ChiKS(PlaneWaveKSLRF):
 
         x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
-        if self.memory_safe:
-            # Specify notation
-            A_wmyGG = A_x
-
-            with self.timer('Set up ncc and nx'):
-                ncc_tG = n_tG.conj()
-                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
-                nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
-
-            with self.timer('Perform sum over t-transitions of ncc * nx'):
-                for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
-                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)
-        else:
+        if self.bundle_integrals:
             # Specify notation
             A_GwmyG = A_x
 
@@ -126,6 +114,18 @@ class ChiKS(PlaneWaveKSLRF):
                     
             with self.timer('Perform sum over t-transitions of ncc * nx'):
                 gemm(1.0, nx_twmyG, ncc_Gt, 1.0, A_GwmyG)  # slow step
+        else:
+            # Specify notation
+            A_wmyGG = A_x
+
+            with self.timer('Set up ncc and nx'):
+                ncc_tG = n_tG.conj()
+                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
+                nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
+
+            with self.timer('Perform sum over t-transitions of ncc * nx'):
+                for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
+                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)  # slow step
 
     @timer('Get temporal part')
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):

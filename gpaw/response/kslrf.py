@@ -472,7 +472,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
-                 disable_non_symmorphic=True, memory_safe=False,
+                 disable_non_symmorphic=True, bundle_integrals=True,
                  kpointintegration='point integration', **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a
@@ -493,9 +493,10 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
             Do not use time reversal symmetry.
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
-        memory_safe : bool
-            Run in memory safe mode to split large matrix multiplications into
-            one step for each frequency
+        bundle_integrals : bool
+            Do the k-point integrals (large matrix multiplications)
+            simultaneously for all frequencies.
+            Can be switched of, if this step forces calculations out of memory.
         """
         # Avoid any mode ambiguity
         if 'mode' in kwargs.keys():
@@ -514,7 +515,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         self.disable_time_reversal = disable_time_reversal
         self.disable_non_symmorphic = disable_non_symmorphic
 
-        self.memory_safe = memory_safe
+        self.bundle_integrals = bundle_integrals
 
         # Attributes related to specific q, given to self.calculate()
         self.pd = None  # Plane wave descriptor for given momentum transfer q
@@ -620,17 +621,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
         # if self.interblockcomm.rank == 0:
         #     assert self.Gb - self.Ga >= 3
         # assert mynG * (self.interblockcomm.size - 1) < nG
-        if self.memory_safe:
-            # Setup A_wGG
-            if A_x is not None:
-                nx = nw * (self.Gb - self.Ga) * nG
-                A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
-                A_wGG[:] = 0.0
-            else:
-                A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
-
-            return A_wGG
-        else:
+        if self.bundle_integrals:
             # Setup A_GwG
             if A_x is not None:
                 nx = nw * (self.Gb - self.Ga) * nG
@@ -640,6 +631,16 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
                 A_GwG = np.zeros((nG, nw, self.Gb - self.Ga), complex)
 
             return A_GwG
+        else:
+            # Setup A_wGG
+            if A_x is not None:
+                nx = nw * (self.Gb - self.Ga) * nG
+                A_wGG = A_x[:nx].reshape((nw, self.Gb - self.Ga, nG))
+                A_wGG[:] = 0.0
+            else:
+                A_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
+
+            return A_wGG
 
     def get_ks_kpoint_pairs(self, k_pv, n1_t, n2_t, s1_t, s2_t):
         """Get all pairs of Kohn-Sham transitions:
@@ -665,10 +666,11 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
 
     @timer('Post processing')
     def post_process(self, A_x):
-        if self.memory_safe:
-            A_wGG = A_x
-        else:  # A_x = A_GwG
+        if self.bundle_integrals:
+            # A_x = A_GwG
             A_wGG = A_x.transpose((1, 2, 0))
+        else:
+            A_wGG = A_x
 
         tmpA_wGG = self.redistribute(A_wGG)  # distribute over frequencies
         with self.timer('Symmetrizing Kohn-Sham linear response function'):

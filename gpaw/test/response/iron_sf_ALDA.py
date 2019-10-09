@@ -41,11 +41,11 @@ ecut = 300
 eta = 0.01
 
 # Test different kernel and summation strategies
-strat_sd = [(None, 'pairwise', False),  # rshe, bandsummation, memory_safe
-            (0.99, 'pairwise', False),
+strat_sd = [(None, 'pairwise', True),  # rshe, bandsummation, bundle_integrals
             (0.99, 'pairwise', True),
-            (0.999, 'pairwise', False),
-            (0.999, 'double', False)]
+            (0.99, 'pairwise', False),
+            (0.999, 'pairwise', True),
+            (0.999, 'double', True)]
 frq_sw = [np.linspace(0.160, 0.320, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
@@ -77,15 +77,15 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 
-for s, ((rshe, bandsummation, memory_safe), frq_w) in enumerate(zip(strat_sd,
-                                                                    frq_sw)):
+for s, ((rshe, bandsummation,
+         bundle_integrals), frq_w) in enumerate(zip(strat_sd, frq_sw)):
     tms = TransverseMagneticSusceptibility(calc,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
                                            bandsummation=bandsummation,
                                            fxckwargs={'rshe': rshe},
-                                           memory_safe=memory_safe,
+                                           bundle_integrals=bundle_integrals,
                                            nblocks=2)
     tms.get_macroscopic_component('+-', q_c, frq_w,
                                   filename='iron_dsus' + '_G%d.csv' % (s + 1))
