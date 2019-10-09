@@ -64,28 +64,27 @@ class KohnShamKPointPair:
 
     @property
     def n1_t(self):
-        return self.get_all(self.kpt1.n_myt)
+        return self.get_all(self.kpt1.n_t)
 
     @property
     def n2_t(self):
-        return self.get_all(self.kpt2.n_myt)
+        return self.get_all(self.kpt2.n_t)
 
     @property
     def s1_t(self):
-        return self.get_all(self.kpt1.s_myt)
+        return self.get_all(self.kpt1.s_t)
 
     @property
     def s2_t(self):
-        return self.get_all(self.kpt2.s_myt)
+        return self.get_all(self.kpt2.s_t)
 
     @property
     def deps_t(self):
-        get_all = self.get_all
-        return get_all(self.kpt2.eps_myt) - get_all(self.kpt1.eps_myt)
+        return self.get_all(self.kpt2.eps_t) - self.get_all(self.kpt1.eps_t)
 
     @property
     def df_t(self):
-        return self.get_all(self.kpt2.f_myt) - self.get_all(self.kpt1.f_myt)
+        return self.get_all(self.kpt2.f_t) - self.get_all(self.kpt1.f_t)
 
     @classmethod
     def add_mytransitions_array(cls, _key, key):
