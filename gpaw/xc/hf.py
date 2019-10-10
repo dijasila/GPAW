@@ -1,6 +1,8 @@
 from collections import namedtuple, defaultdict
 from math import pi, nan
 from typing import List, Tuple
+from io import StringIO
+
 import numpy as np
 from ase.units import Ha
 
@@ -422,6 +424,8 @@ class Hybrid:
         self.vt_sR = None
         self.spos_ac = None
 
+        self.description = ''
+
     def get_setup_name(self):
         return 'PBE'
         return 'LDA'
@@ -433,7 +437,7 @@ class Hybrid:
         assert wfs.world.size == wfs.gd.comm.size
 
     def get_description(self):
-        return '*****\n' * 4
+        return self.description
 
     def set_grid_descriptor(self, gd):
         pass
@@ -473,7 +477,9 @@ class Hybrid:
                 return 4 * np.pi * x_G / G2_G
         else:
             # Wigner-Seitz truncated Coulomb:
-            coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c)
+            output = StringIO()
+            coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c, txt=output)
+            self.description += output.getvalue()
 
         self.xx = EXX(wfs.kd, wfs.setups, wfs.pt, coulomb, self.spos_ac)
 
@@ -670,7 +676,7 @@ class Hybrid:
         return self.e_skn * Ha
 
     def summary(self, log):
-        log('????????????\n' * 4)
+        log(self.description)
 
 
 if __name__ == '__main__':

@@ -9,7 +9,6 @@ See:
     Wigner-Seitz truncated interactions: Towards chemical accuracy
     in nontrivial systems
 """
-from __future__ import print_function
 import sys
 from math import pi
 
