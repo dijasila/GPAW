@@ -36,6 +36,20 @@ RSKPoint = namedtuple(
      ])
 
 
+class ShortRangeCoulomb:
+    def __init__(self, omega):
+        self.omega = omega
+
+    def get_potential(self, pd):
+        G2_G = pd.G2_qG[0]
+        x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
+        with np.errstate(divide='ignore'):
+            v_G = 4 * pi * x_G / G2_G
+        if pd.kd.gamma:
+            v_G[0] = pi / self.omega**2
+        return v_G
+
+
 class EXX:
     def __init__(self,
                  kd: KPointDescriptor,
@@ -108,7 +122,6 @@ class EXX:
                 e_kn[i1] -= e_nn.dot(k2.f_n)
 
         exxvc = 0.0
-
         for i, kpt in enumerate(kpts1):
             for a, VV_ii in VV_aii.items():
                 P_ni = kpt.proj[a]
@@ -165,7 +178,7 @@ class EXX:
         S = self.comm.size
         for n1, u1_R in enumerate(k1.u_nR):
             n0 = n1 if k1 is k2 else 0
-            n2a = n0 + (N2 - n0 + S - 1) // S * self.comm.rank
+            n2a = min(n0 + (N2 - n0 + S - 1) // S * self.comm.rank, N2)
             n2b = min(n2a + (N2 - n0 + S - 1) // S, N2)
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
@@ -471,10 +484,7 @@ class Hybrid:
         assert wfs.bd.comm.size == 1
 
         if self.omega:
-            def coulomb(pd):
-                G2_G = pd.G2_qG[0]
-                x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
-                return 4 * np.pi * x_G / G2_G
+            coulomb = ShortRangeCoulomb(self.omega)
         else:
             # Wigner-Seitz truncated Coulomb:
             output = StringIO()
