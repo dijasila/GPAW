@@ -663,10 +663,11 @@ class PlaneWavePairDensity(PairMatrixElement):
             P2 = kskptpair.kpt2.projections
             for (Q_Gii, (a1, P1_myti),
                  (a2, P2_myti)) in zip(Q_aGii, P1.items(), P2.items()):
-                C1_Gimyt = np.tensordot(Q_Gii, P1_myti.conj(), axes=([1, 1]))
-                n_mytG[:tb - ta] += np.sum(C1_Gimyt
-                                           * P2_myti.T[np.newaxis, :, :],
-                                           axis=1).T
+                P1cc_myti = P1_myti[:tb - ta].conj()
+                C1_Gimyt = np.tensordot(Q_Gii, P1cc_myti, axes=([1, 1]))
+                P2_imyt = P2_myti.T[:, :tb - ta]
+                n_mytG[:tb - ta] += np.sum(C1_Gimyt * P2_imyt[np.newaxis,
+                                                              :, :], axis=1).T
 
         # Attach the calculated pair density to the KohnShamKPointPair object
         kskptpair.attach('n_mytG', 'n_tG', n_mytG)
