@@ -33,7 +33,7 @@ There are several ways to install GPAW:
 * Alternatively, you can :ref:`download <download>` the source code,
   edit :git:`customize.py` to tell the install script which libraries you
   want to link to and where they
-  can be found (see :ref:`customizing installation`) and then install with a
+  can be found (see :ref:`siteconfig`) and then install with a
   ``python3 setup.py install --user`` as described :ref:`here <install
   with distutils>`.
 
@@ -200,7 +200,7 @@ folder is).
     https://pypi.org/packages/source/g/gpaw/gpaw-19.8.1.tar.gz
 
 
-.. _customizing installation:
+.. _siteconfig:
 
 Customizing installation
 ========================
