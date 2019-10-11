@@ -43,7 +43,7 @@ class ShortRangeCoulomb:
     def get_potential(self, pd):
         G2_G = pd.G2_qG[0]
         x_G = 1 - np.exp(-G2_G / (4 * self.omega**2))
-        with np.errstate(divide='ignore'):
+        with np.errstate(invalid='ignore'):
             v_G = 4 * pi * x_G / G2_G
         if pd.kd.gamma:
             v_G[0] = pi / self.omega**2
@@ -95,7 +95,7 @@ class EXX:
         ekin = 0.0
         for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
             q_c = k2.k_c - k1.k_c
-            qd = KPointDescriptor([q_c])
+            qd = KPointDescriptor([-q_c])
 
             pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
             ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
@@ -628,7 +628,7 @@ class Hybrid:
                            kd.ibzk_kc[kpt.k],
                            kd.weight_k[kpt.k])
                     for kpt in wfs.mykpts[k1:k2]]
-            e1, e2, _ = self.xx.calculate(kpts, kpts, VV_aii)
+            e1, e2, _, _ = self.xx.calculate(kpts, kpts, VV_aii)
             evv += e1
             evc += e2
 
@@ -693,21 +693,35 @@ if __name__ == '__main__':
     from ase import Atoms
     from gpaw import GPAW, PW
     h = Atoms('H', cell=(3, 3, 3), pbc=(1, 1, 1))
+    h = Atoms('H2', cell=(3, 3, 3), pbc=1, positions=[[0, 0, 0], [0, 0, 0.75]])
     h.calc = GPAW(mode=PW(100, force_complex_dtype=True),
                   setups='ae',
-                  kpts=(1, 1, 1),
-                  spinpol=True,
-                  txt=None)
+                  kpts=(1, 1, 2),
+                  #spinpol=True,
+                  txt=None
+                  )
     h.get_potential_energy()
-    exx = Hybrid()
-    h.calc.get_xc_difference(exx)
-    e = exx.evv + exx.evc + exx.exx.ecc
-    print(e * Ha, exx.e_skn * Ha)
+    x = Hybrid('EXX')
+
+    # h.calc.get_xc_difference(exx)
+    # e = exx.evv + exx.evc + exx.exx.ecc
+    # print(e * Ha, exx.e_skn * Ha)
+
+    c = h.calc
+    x.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
+    x.set_positions(c.spos_ac)
+    e = x.calculate_energy()
+    print(e)
+    x.calculate_eigenvalues(0, 1, [0])
+    print(x.e_skn * Ha)
 
     from gpaw.xc.exx import EXX as EXX0
-    xx = EXX0(h.calc, bands=(0, 1))
+    xx = EXX0(c, bands=(0, 1))
     xx.calculate()
     e0 = xx.get_exx_energy()
     eps0 = xx.get_eigenvalue_contributions()
     print(e0, eps0)
-    print(e * Ha - e0, exx.e_skn * Ha - eps0)
+    print(e0 - e[0] - e[1])
+    print(eps0 - x.e_skn * Ha)
+    #print(e * Ha - e0, xx.e_skn * Ha - eps0)
+    print(x.description)
