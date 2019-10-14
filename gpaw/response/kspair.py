@@ -267,7 +267,8 @@ class KohnShamPair:
         from gpaw.mpi import SerialCommunicator
         cworld = self.calc.world
         if isinstance(cworld, SerialCommunicator):
-            return self.extract_serial_kptdata
+            # return self.extract_serial_kptdata
+            return self._extract_kptdata  # try new functionality              XXX
         else:
             assert self.world.rank == self.calc.wfs.world.rank
             return self.extract_parallel_kptdata
@@ -322,12 +323,12 @@ class KohnShamPair:
         # Figure out what to extract and where to send it
         get_extraction_protocol = self.create_get_extraction_protocol()
         (myu_eu, myn_euen,
-         euen_r2et, myt_r1et) = get_extraction_protocol(k_pc, n_t, s_t)
+         euen_r2iet, myt_r1et) = get_extraction_protocol(k_pc, n_t, s_t)
 
         # Extract data from the ground state
         (eps_euen, f_euen,
          ut_euenR, P_euenI) = self._extract_orbital_data(myu_eu, myn_euen)
-        
+
         # For each given k_pc, the process needs to extract at most one k-point
         if self.kptblockcomm.rank in range(len(k_pc)):
             k_c = k_pc[self.kptblockcomm.rank]
@@ -350,37 +351,39 @@ class KohnShamPair:
         for r1 in range(self.world.size):
             for r2 in range(self.world.size):
                 if r1 == self.world.rank:  # I may have to send some data
-                    euen_et = euen_r2et[r2]  # The data I have to send
-                    if r2 == self.world.rank:
-                        # No need to send data, just store it
-                        myt_et = myt_r1et[r1]
-                        eps_myt[myt_et] = eps_euen[euen_et]
-                        f_myt[myt_et] = f_euen[euen_et]
-                        ut_mytR[myt_et] = ut_euenR[euen_et]
-                        P.array[myt_et] = P_euenI[euen_et]
-                    else:
-                        # Send data
-                        sreq1 = self.world.send(eps_euen[euen_et], r2,
-                                                tag=201, block=False)
-                        sreq2 = self.world.send(f_euen[euen_et], r2,
-                                                tag=202, block=False)
-                        sreq3 = self.world.send(ut_euenR[euen_et], r2,
-                                                tag=203, block=False)
-                        sreq4 = self.world.send(P_euenI[euen_et], r2,
-                                                tag=204, block=False)
-                        srequests += [sreq1, sreq2, sreq3, sreq4]
+                    euen_iet = tuple(euen_r2iet[r2])  # The data I have to send
+                    if any(euen_iet):
+                        if r2 == self.world.rank:
+                            # No need to send data, just store it
+                            myt_et = myt_r1et[r1]
+                            eps_myt[myt_et] = eps_euen[euen_iet]
+                            f_myt[myt_et] = f_euen[euen_iet]
+                            ut_mytR[myt_et] = ut_euenR[euen_iet]
+                            P.array[myt_et] = P_euenI[euen_iet]
+                        else:
+                            # Send data
+                            sreq1 = self.world.send(eps_euen[euen_iet], r2,
+                                                    tag=201, block=False)
+                            sreq2 = self.world.send(f_euen[euen_iet], r2,
+                                                    tag=202, block=False)
+                            sreq3 = self.world.send(ut_euenR[euen_iet], r2,
+                                                    tag=203, block=False)
+                            sreq4 = self.world.send(P_euenI[euen_iet], r2,
+                                                    tag=204, block=False)
+                            srequests += [sreq1, sreq2, sreq3, sreq4]
                 elif r2 == self.world.rank:
-                    # Receive data
                     myt_et = myt_r1et[r1]
-                    rreq1 = self.world.receive(eps_myt[myt_et], r1,
-                                               tag=201, block=False)
-                    rreq2 = self.world.receive(f_myt[myt_et], r1,
-                                               tag=202, block=False)
-                    rreq3 = self.world.receive(ut_mytR[myt_et], r1,
-                                               tag=203, block=False)
-                    rreq4 = self.world.receive(P.array[myt_et], r1,
-                                               tag=204, block=False)
-                    rrequests += [rreq1, rreq2, rreq3, rreq4]
+                    if myt_et:
+                        # Receive data
+                        rreq1 = self.world.receive(eps_myt[myt_et], r1,
+                                                   tag=201, block=False)
+                        rreq2 = self.world.receive(f_myt[myt_et], r1,
+                                                   tag=202, block=False)
+                        rreq3 = self.world.receive(ut_mytR[myt_et], r1,
+                                                   tag=203, block=False)
+                        rreq4 = self.world.receive(P.array[myt_et], r1,
+                                                   tag=204, block=False)
+                        rrequests += [rreq1, rreq2, rreq3, rreq4]
 
         # Be sure all data is sent
         for request in srequests:
@@ -417,8 +420,8 @@ class KohnShamPair:
         myn_euen = []
 
         # Send/receive protocol
-        euen_r2et = [[]] * self.world.size
-        myt_r1et = [[]] * self.world.size
+        euen_r2iet = [list([[], []]) for _ in range(self.world.size)]
+        myt_r1et = [list([]) for _ in range(self.world.size)]
 
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
             ik = wfs.kd.bz2ibz_k[self.find_kpoint(k_c)]
@@ -439,16 +442,19 @@ class KohnShamPair:
                         myu_eu.append(myu)
                         myn_euen.append([myn])
                     else:
-                        myn_euen[myu_eu.index(myu)].append(myn)
+                        eu = myu_eu.index(myu)
+                        if myn not in myn_euen[eu]:
+                            myn_euen[eu].append(myn)
 
                     eu = myu_eu.index(myu)
                     en = myn_euen[eu].index(myn)
-                    euen_r2et[r2].append([eu, en])
+                    euen_r2iet[r2][0].append(eu)
+                    euen_r2iet[r2][1].append(en)
 
                 if self.world.rank == r2:  # I am the data receiver
                     myt_r1et[r1].append(myt)
 
-        return myu_eu, myn_euen, euen_r2et, myt_r1et
+        return myu_eu, myn_euen, euen_r2iet, myt_r1et
 
     def _extract_orbital_data(self, myu_eu, myn_euen):
         """Extract orbital data from wfs object."""
@@ -463,7 +469,7 @@ class KohnShamPair:
             f_euen.append(kpt.f_n[myn_en] / kpt.weight)
 
             # Get smooth wave function
-            psit_enG = kpt.psit_nG[myn_en]
+            psit_enG = [kpt.psit_nG[myn] for myn in myn_en]
             # Fourier transform to real space
             ut_euenR.append(np.array([self.calc.wfs.pd.ifft(psit_G, kpt.q)
                                       for psit_G in psit_enG]))
@@ -475,7 +481,7 @@ class KohnShamPair:
         return (np.array(eps_euen), np.array(f_euen),
                 np.array(ut_euenR), np.array(P_euenI))
 
-    def extract_parallel_kptdata(self, k_pc, n_t, s_t):
+    def extract_parallel_kptdata(self, k_pc, n_t, s_t):  # to be adapted       XXX
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
         and Kohn-Sham orbitals from ground state with distributed memory."""
         wfs = self.calc.wfs
