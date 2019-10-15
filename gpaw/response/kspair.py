@@ -356,10 +356,14 @@ class KohnShamPair:
                         if r2 == self.world.rank:
                             # No need to send data, just store it
                             myt_et = myt_r1et[r1]
-                            eps_myt[myt_et] = eps_euen[euen_iet]
-                            f_myt[myt_et] = f_euen[euen_iet]
-                            ut_mytR[myt_et] = ut_euenR[euen_iet]
-                            P.array[myt_et] = P_euenI[euen_iet]
+                            eps_myt[myt_et] = [eps_euen[eu][en]
+                                               for eu, en in zip(*euen_iet)]
+                            f_myt[myt_et] = [f_euen[eu][en]
+                                             for eu, en in zip(*euen_iet)]
+                            ut_mytR[myt_et] = [ut_euenR[eu][en]
+                                               for eu, en in zip(*euen_iet)]
+                            P.array[myt_et] = [P_euenI[eu][en]
+                                               for eu, en in zip(*euen_iet)]
                         else:
                             # Send data
                             sreq1 = self.world.send(eps_euen[euen_iet], r2,
@@ -478,8 +482,7 @@ class KohnShamPair:
             assert kpt.projections.atom_partition.comm.size == 1
             P_euenI.append(kpt.projections.array[myn_en])
 
-        return (np.array(eps_euen), np.array(f_euen),
-                np.array(ut_euenR), np.array(P_euenI))
+        return eps_euen, f_euen, ut_euenR, P_euenI
 
     def extract_parallel_kptdata(self, k_pc, n_t, s_t):  # to be adapted       XXX
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
