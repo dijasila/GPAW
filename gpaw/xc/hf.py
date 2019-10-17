@@ -114,6 +114,7 @@ class EXX:
                                                kpts1[i1].psit.kpt,
                                                k2.f_n, v_nG, v_ani)
 
+            print(k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count, e_nn, k1.f_n)
             e_nn *= count / self.kd.nbzkpts
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             exxvv -= 0.5 * e
@@ -201,7 +202,7 @@ class EXX:
                         vrho_R * k2.u_nR[n2], index, local=True)
                     if k1 is k2 and n1 != n2:
                         vpsit_nG[n2] -= f2_n[n1] * pd.fft(
-                            vrho_R.conj() * k2.u_nR[n1], index, local=True)
+                            vrho_R * k2.u_nR[n1], index, local=True)
 
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
@@ -463,6 +464,7 @@ class Hybrid:
             return self.evv + self.evc
         e_r = gd.empty()
         self.xc.calculate(gd, nt_sr, vt_sr, e_r)
+        print(self.ecc, self.evv, self.evc, gd.integrate(e_r))
         return self.ecc + self.evv + self.evc + gd.integrate(e_r)
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
@@ -471,6 +473,7 @@ class Hybrid:
         return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def get_kinetic_energy_correction(self):
+        print(self.ekin)
         return self.ekin
 
     def _initialize(self):
@@ -671,10 +674,11 @@ class Hybrid:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in wfs.mykpts[k1:k2]]
-            self.xx.calculate(
+            _, _, _, v_knG = self.xx.calculate(
                 kpts1, kpts2,
                 VV_aii,
-                e_kn=self.e_skn[spin])
+                e_kn=self.e_skn[spin],
+                derivatives=True)
 
         kd.comm.sum(self.e_skn)
         self.e_skn *= self.exx_fraction
@@ -682,6 +686,11 @@ class Hybrid:
         if self.xc:
             vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
             self.e_skn += vxc_skn[:, kpts, n1:n2]
+
+        print(self.e_skn)
+        for kpt, v_nG in zip(kpts1, v_knG.values()):
+            for v_G, psit_G in zip(v_nG, kpt.psit.array):
+                print(kpt.psit.pd.integrate(v_G, psit_G)*0.5)
 
         return self.e_skn * Ha
 

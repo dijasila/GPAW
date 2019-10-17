@@ -39,10 +39,12 @@ def run(symbol, d0, M, ecut, L):
     return 2 * e1 - e2, d
 
 
-if __name__ == '__main__':
+if __name__ == '__main__......':
     for L in [8, 10, 12]:
         run('H', 0.75, 1, 500, L)
         run('N', 1.089, 3, 500, L)
     for ecut in [400, 500, 600, 700]:
         run('H', 0.75, 1, ecut, 8)
         run('N', 1.089, 3, ecut, 8)
+
+run('N', 1.089, 3, 500, 9)
