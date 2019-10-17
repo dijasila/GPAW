@@ -393,7 +393,13 @@ class KohnShamPair:
         return myu_eu, myn_euet, nrt_r2, et_eur2ret, rt_eur2ret, myt_r1rt
 
     def map_who_has(self, p, t_t):
-        return np.array([self.who_has(p, t) for t in t_t])
+        return np.array([self.new_who_has(p, t) for t in t_t])
+
+    def new_who_has(self, p, t):
+        """Convert k-point and transition index to global world rank
+        and local transition index"""
+        trank, myt = divmod(t, self.mynt)  # check speed using //,%            XXX
+        return p * self.transitionblockscomm.size + trank, myt
 
     @timer('Extract orbital data from wfs')
     def _new_extract_orbital_data(self, myu, myn_et):  # rnew                  XXX
@@ -811,13 +817,11 @@ class KohnShamPair:
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
-    @timer('who has')
-    def who_has(self, p, t):
+    def who_has(self, p, t):  # remove                                         XXX
         """Convert k-point and transition index to global world rank
         and local transition index"""
-        with self.timer('assertions who has'):
-            assert isinstance(p, int) and p in range(self.kptblockcomm.size)
-            assert (isinstance(t, int) or isinstance(t, np.int64)) and t >= 0
+        assert isinstance(p, int) and p in range(self.kptblockcomm.size)
+        assert (isinstance(t, int) or isinstance(t, np.int64)) and t >= 0
 
         trank, myt = divmod(t, self.mynt)
         return p * self.transitionblockscomm.size + trank, myt
@@ -861,6 +865,21 @@ class KohnShamPair:
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
         # Symmetrize wave functions
+        for myt in range(len(ut_mytR)):
+            ut_mytR[myt] = T(ut_mytR[myt])
+
+        # Symmetrize projections
+        for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, projections.items()):
+            assert a1 == a2
+            np.dot(P_myti, U_ii, out=P_myti)
+            if time_reversal:
+                np.conj(P_myti, out=P_myti)
+
+        return ut_mytR, projections, shift_c
+
+        # remove                                                               XXX
+        '''
+        # Symmetrize wave functions
         wfs = self.calc.wfs
         newut_mytR = wfs.gd.empty(len(ut_mytR), wfs.dtype)
         for myt, ut_R in enumerate(ut_mytR[:self.tb - self.ta]):
@@ -878,7 +897,8 @@ class KohnShamPair:
         newprojections.fromarraydict(newP_amyti)
 
         return newut_mytR, newprojections, shift_c
-    
+        '''
+
     def construct_symmetry_operators(self, K, k_c=None):
         """Construct symmetry operators for wave function and PAW projections.
 
