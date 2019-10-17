@@ -288,8 +288,12 @@ class KohnShamPair:
         f_r2rt = [np.empty(nrt) if nrt else None for nrt in nrt_r2]
         ut_r2rtR = [wfs.gd.empty(nrt, wfs.dtype) if nrt else None
                     for nrt in nrt_r2]
-        P_r2 = [wfs.kpt_u[0].projections.new(nbands=nrt) if nrt else None
-                for nrt in nrt_r2]
+        Pshape = wfs.kpt_u[0].projections.array.shape
+        Pdtype = wfs.kpt_u[0].projections.matrix.dtype
+        P_r2rtI = [np.empty((nrt,) + Pshape[1:], dtype=Pdtype) if nrt else None
+                   for nrt in nrt_r2]
+        # P_r2 = [wfs.kpt_u[0].projections.new(nbands=nrt) if nrt else None
+        #         for nrt in nrt_r2]  # remove                                 XXX
         for myu, myn_et, et_r2ret, rt_r2ret in zip(myu_eu, myn_euet,
                                                    et_eur2ret, rt_eur2ret):
             (eps_et, f_et,
@@ -300,10 +304,12 @@ class KohnShamPair:
                     eps_r2rt[r2][rt_ret] = eps_et[et_ret]
                     f_r2rt[r2][rt_ret] = f_et[et_ret]
                     ut_r2rtR[r2][rt_ret] = ut_etR[et_ret]
-                    P_r2[r2].array[rt_ret] = P_etI[et_ret]
+                    P_r2rtI[r2][rt_ret] = P_etI[et_ret]
+                    # P_r2[r2].array[rt_ret] = P_etI[et_ret]  # remove         XXX
 
         return self.collect_kptdata(k_pc, myt_r1rt,
-                                    eps_r2rt, f_r2rt, ut_r2rtR, P_r2)
+                                    # eps_r2rt, f_r2rt, ut_r2rtR, P_r2)  # r   XXX
+                                    eps_r2rt, f_r2rt, ut_r2rtR, P_r2rtI)
 
     def create_get_new_extraction_protocol(self):  # rnew                      XXX
         """Creator component of the extract k-point data factory."""
@@ -410,7 +416,8 @@ class KohnShamPair:
 
     @timer('Collecting kptdata')
     def collect_kptdata(self, k_pc, myt_r1rt,
-                        eps_r2rt, f_r2rt, ut_r2rtR, P_r2):
+                        # eps_r2rt, f_r2rt, ut_r2rtR, P_r2):  # remove         XXX
+                        eps_r2rt, f_r2rt, ut_r2rtR, P_r2rtI):
         """From the extracted data, collect the KohnShamKPoint data arrays"""
 
         # For each given k_pc, the process needs to extract at most one k-point
@@ -432,19 +439,25 @@ class KohnShamPair:
             eps_myt[myt_r1rt[rank]] = eps_r2rt[rank]
             f_myt[myt_r1rt[rank]] = f_r2rt[rank]
             ut_mytR[myt_r1rt[rank]] = ut_r2rtR[rank]
-            P.array[myt_r1rt[rank]] = P_r2[rank].array
+            P.array[myt_r1rt[rank]] = P_r2rtI[rank]
+            # P.array[myt_r1rt[rank]] = P_r2[rank].array  # remove             XXX
         else:
             data = None
 
         # Send data
         srequests = []
-        for r2, (eps_rt, f_rt, ut_rtR, Ps) in enumerate(zip(eps_r2rt, f_r2rt,
-                                                            ut_r2rtR, P_r2)):
+        # for r2, (eps_rt, f_rt, ut_rtR, Ps) in enumerate(zip(eps_r2rt, f_r2rt,XXX
+        #                                                     ut_r2rtR, P_r2)):XXX
+        for r2, (eps_rt, f_rt, ut_rtR, P_rtI) in enumerate(zip(eps_r2rt,
+                                                               f_r2rt,
+                                                               ut_r2rtR,
+                                                               P_r2rtI)):
             if r2 != self.world.rank and eps_rt:
                 sreq1 = self.world.send(eps_rt, r2, tag=201, block=False)
                 sreq2 = self.world.send(f_rt, r2, tag=202, block=False)
                 sreq3 = self.world.send(ut_rtR, r2, tag=203, block=False)
-                sreq4 = self.world.send(Ps.array, r2, tag=204, block=False)
+                sreq4 = self.world.send(P_rtI, r2, tag=204, block=False)
+                # sreq4 = self.world.send(Ps.array, r2, tag=204, block=False)  XXX
                 srequests += [sreq1, sreq2, sreq3, sreq4]
 
         # Receive data
