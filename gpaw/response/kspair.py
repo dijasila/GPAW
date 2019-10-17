@@ -274,6 +274,7 @@ class KohnShamPair:
             assert self.world.rank == self.calc.wfs.world.rank
             return self.extract_parallel_kptdata
 
+    @timer('Sorting extracted data based on destination')
     def _new_extract_kptdata(self, k_pc, n_t, s_t):  # rnew                    XXX
         """Do actual extraction"""
         # Figure out what to extract and where to send it
@@ -292,23 +293,24 @@ class KohnShamPair:
         Pdtype = wfs.kpt_u[0].projections.matrix.dtype
         P_r2rtI = [np.empty((nrt,) + Pshape[1:], dtype=Pdtype) if nrt else None
                    for nrt in nrt_r2]
-        # P_r2 = [wfs.kpt_u[0].projections.new(nbands=nrt) if nrt else None
-        #         for nrt in nrt_r2]  # remove                                 XXX
         for myu, myn_et, et_r2ret, rt_r2ret in zip(myu_eu, myn_euet,
                                                    et_eur2ret, rt_eur2ret):
-            (eps_et, f_et,
-             ut_etR, P_etI) = self._new_extract_orbital_data(myu, myn_et)
+            # (eps_et, f_et,  # remove                                         XXX
+            #  ut_etR, P_etI) = self._new_extract_orbital_data(myu, myn_et)
+            eps_et, f_et, P_etI = self.extract_wfs_data(myu, myn_et)
 
             for r2, (et_ret, rt_ret) in enumerate(zip(et_r2ret, rt_r2ret)):
                 if et_ret:
                     eps_r2rt[r2][rt_ret] = eps_et[et_ret]
                     f_r2rt[r2][rt_ret] = f_et[et_ret]
-                    ut_r2rtR[r2][rt_ret] = ut_etR[et_ret]
+                    # ut_r2rtR[r2][rt_ret] = ut_etR[et_ret]  # remove          XXX
                     P_r2rtI[r2][rt_ret] = P_etI[et_ret]
-                    # P_r2[r2].array[rt_ret] = P_etI[et_ret]  # remove         XXX
+
+            # Wavefunctions are heavy objects which can only be extracted
+            # for one band index at a time, handle them seperately
+            self.add_wave_function(myu, myn_et, et_r2ret, rt_r2ret, ut_r2rtR)
 
         return self.collect_kptdata(k_pc, myt_r1rt,
-                                    # eps_r2rt, f_r2rt, ut_r2rtR, P_r2)  # r   XXX
                                     eps_r2rt, f_r2rt, ut_r2rtR, P_r2rtI)
 
     def create_get_new_extraction_protocol(self):  # rnew                      XXX
@@ -347,7 +349,8 @@ class KohnShamPair:
             ik = wfs.kd.bz2ibz_k[self.find_kpoint(k_c)]
 
             # Find out who should store the data in KSKPpoint
-            r2myt_ti = self.map_who_has(p, t_t)
+            # r2myt_ti = self.map_who_has(p, t_t)  # remove                    XXX
+            r2_t, myt_t = self.new_map_who_has(p, t_t)
 
             # Find out how to extract data
             # In the ground state, kpts are indexed by u=(s, k)
@@ -363,14 +366,18 @@ class KohnShamPair:
 
                 # Find out which rank stores data in wfs.
                 # Let the process extract its own data
-                r2myt_cti = r2myt_ti[t_ct]
-                r1myn_cti = [(r2myt_i[0], n_ct[ct])
-                             for ct, r2myt_i in enumerate(r2myt_cti)]
+                r1_ct = r2_t[t_ct]
+                myn_ct = n_ct
+                # r2myt_cti = r2myt_ti[t_ct]  # remove                         XXX
+                # r1myn_cti = [(r2myt_i[0], n_ct[ct])                          XXX
+                #              for ct, r2myt_i in enumerate(r2myt_cti)]        XXX
 
                 myn_et = []
                 et_r2ret = [list([]) for _ in range(self.world.size)]
                 rt_r2ret = [list([]) for _ in range(self.world.size)]
-                for (r1, myn), (r2, myt) in zip(r1myn_cti, r2myt_cti):
+                # for (r1, myn), (r2, myt) in zip(r1myn_cti, r2myt_cti):  # r  XXX
+                for r1, myn, r2, myt in zip(r1_ct, myn_ct,
+                                            r2_t[t_ct], myt_t[t_ct]):
 
                     if self.world.rank == r1:  # process should extract
                         myn_et.append(myn)
@@ -392,16 +399,47 @@ class KohnShamPair:
 
         return myu_eu, myn_euet, nrt_r2, et_eur2ret, rt_eur2ret, myt_r1rt
 
+    def new_map_who_has(self, p, t_t):
+        """Convert k-point and transition index to global world rank
+        and local transition index"""
+        trank_t, myt_t = np.divmod(t_t, self.mynt)
+        return p * self.transitionblockscomm.size + trank_t, myt_t
+
+    @timer('map_who_has')  # remove                                            XXX
     def map_who_has(self, p, t_t):
         return np.array([self.new_who_has(p, t) for t in t_t])
 
-    def new_who_has(self, p, t):
+    def new_who_has(self, p, t):  # remove                                     XXX
         """Convert k-point and transition index to global world rank
         and local transition index"""
         trank, myt = divmod(t, self.mynt)  # check speed using //,%            XXX
         return p * self.transitionblockscomm.size + trank, myt
 
-    @timer('Extract orbital data from wfs')
+    @timer('Extracting eps, f and P_I from wfs')
+    def extract_wfs_data(self, myu, myn_et):
+        wfs = self.calc.wfs
+        kpt = wfs.kpt_u[myu]
+        # Get eig and occ
+        eps_et, f_et = kpt.eps_n[myn_et], kpt.f_n[myn_et] / kpt.weight
+
+        # Get projections
+        assert kpt.projections.atom_partition.comm.size == 1
+        P_etI = kpt.projections.array[myn_et]
+
+        return eps_et, f_et, P_etI
+
+    @timer('Extracting wave function')
+    def add_wave_function(self, myu, myn_et, et_r2ret, rt_r2ret, ut_r2rtR):
+        """Add the smooth part of the wave function to the ut_r2rtR arrays."""
+        wfs = self.calc.wfs
+        kpt = wfs.kpt_u[myu]
+
+        for et_ret, rt_ret, ut_rtR in zip(et_r2ret, rt_r2ret, ut_r2rtR):
+            if et_ret:
+                for et, rt in zip(et_ret, rt_ret):
+                    ut_rtR[rt] = wfs.pd.ifft(kpt.psit_nG[myn_et[et]], kpt.q)
+
+    @timer('Extract orbital data from wfs')  # remove?                         XXX
     def _new_extract_orbital_data(self, myu, myn_et):  # rnew                  XXX
         wfs = self.calc.wfs
         kpt = wfs.kpt_u[myu]
@@ -857,7 +895,7 @@ class KohnShamPair:
 
         return eps, f, ut_R, P_I
 
-    @timer('Symmetrizing wavefunctions')
+    @timer('Apply symmetry operations')
     def apply_symmetry_operations(self, K, k_c, ut_mytR, projections):
         """Symmetrize wave functions and projections.
         More documentation needed XXX"""
@@ -865,8 +903,9 @@ class KohnShamPair:
          time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
         # Symmetrize wave functions
-        for myt in range(len(ut_mytR)):
-            ut_mytR[myt] = T(ut_mytR[myt])
+        with self.timer('Symmetrize wave functions'):
+            for myt in range(len(ut_mytR)):
+                ut_mytR[myt] = T(ut_mytR[myt])
 
         # Symmetrize projections
         for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, projections.items()):
