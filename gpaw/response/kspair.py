@@ -344,7 +344,7 @@ class KohnShamPair:
             r2myt_ti = self.map_who_has(p, t_t)
 
             # Find out how to extract data
-            # In the ground state, kpts are indexes by u=(s, k)
+            # In the ground state, kpts are indexed by u=(s, k)
             for s in set(s_t):
                 thiss_t = s_t == s
                 t_ct = t_t[thiss_t]
@@ -802,9 +802,14 @@ class KohnShamPair:
     def who_has(self, p, t):
         """Convert k-point and transition index to global world rank
         and local transition index"""
-        assert isinstance(p, int) and p in range(self.kptblockcomm.size)
-        assert (isinstance(t, int) or isinstance(t, np.int64)) and t >= 0
+        with self.timer('assertions who has'):
+            assert isinstance(p, int) and p in range(self.kptblockcomm.size)
+            assert (isinstance(t, int) or isinstance(t, np.int64)) and t >= 0
 
+        trank, myt = divmod(t, self.mynt)
+        return p * self.transitionblockscomm.size + trank, myt
+        # remove                                                               XXX
+        '''
         krank = p
         trank = None
 
@@ -818,6 +823,7 @@ class KohnShamPair:
                 i += 1
 
         return krank * self.transitionblockscomm.size + trank, t - ta
+        '''
 
     def _get_orbital_data(self, myu, myn):  # OLD to be removed                XXX
         """Get the data from a single Kohn-Sham orbital."""
