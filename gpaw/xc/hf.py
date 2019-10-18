@@ -1,6 +1,6 @@
 from collections import namedtuple, defaultdict
 from math import pi, nan
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from io import StringIO
 
 import numpy as np
@@ -116,7 +116,7 @@ class EXX:
                                                count / self.kd.nbzkpts,
                                                v_nG, v_ani)
 
-            # print(k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count, e_nn, k1.f_n)
+            print(k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count, e_nn, k1.f_n)
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             exxvv -= 0.5 * e
             ekin += e
@@ -254,9 +254,9 @@ class EXX:
                         kd.time_reversal_k[indices] * nsym)
             symmetries_k.append(sindices)
 
-        # pairs: Dict[Tuple[int, int, int], int]
+        pairs: Dict[Tuple[int, int, int], int]
 
-        if kpts1 is kpts2:
+        if 0:#kpts1 is kpts2:
             pairs = defaultdict(int)
             for i1 in range(kd.nibzkpts):
                 for s1 in symmetries_k[i1]:
