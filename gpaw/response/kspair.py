@@ -184,10 +184,18 @@ class KohnShamPair:
         """Some comment XXX"""
         if self._pd0 is None:
             from gpaw.wavefunctions.pw import PWDescriptor
-            kd0 = self.calc.wfs.kd.copy()
+            wfs = self.calc.wfs
+            kd0 = wfs.kd.copy()
+            pd, gd = wfs.pd, wfs.gd
 
             # Extract stuff from self.calc.wfs.pd                              XXX
+            ecut, dtype = pd.ecut, pd.dtype
+            fftwflags, gammacentered = pd.fftwflags, pd.gammacentered
+
             # Initiate _pd0 with kd0                                           XXX
+            self._pd0 = PWDescriptor(ecut, gd, dtype=dtype,
+                                     kd=kd0, fftwflags=fftwflags,
+                                     gammacentered=gammacentered)
         return self._pd0
 
     @property
@@ -572,7 +580,8 @@ class KohnShamPair:
                 f_r2rt.append(np.empty(nrt))
                 P_r2rtI.append(np.empty((nrt,) + Pshape[1:], dtype=Pdtype))
                 # ng = wfs.pd.ng_q[ik]  # remove                               XXX
-                ng = self.ng_k[ik]
+                # ng = self.ng_k[ik]  # remove?                                XXX
+                ng = self.pd0.ng_q[ik]
                 psit_r2rtG.append(np.empty((nrt, ng), dtype=psitdtype))
             else:
                 eps_r2rt.append(None)
@@ -844,7 +853,8 @@ class KohnShamPair:
             f_myt = np.empty(mynt)
             P = wfs.kpt_u[0].projections.new(nbands=mynt)
             # psit_mytG = np.empty((self.mynt, wfs.pd.ng_q[ik]),  # remove     XXX
-            psit_mytG = np.empty((self.mynt, self.ng_k[ik]),
+            # psit_mytG = np.empty((self.mynt, self.ng_k[ik]),  # remove?      XXX
+            psit_mytG = np.empty((self.mynt, self.pd0.ng_q[ik]),
                                  dtype=wfs.kpt_u[0].psit.array.dtype)
 
             # Store data that the process extracted itself
@@ -1327,7 +1337,8 @@ class KohnShamPair:
         ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
         with self.timer('Fourier transform and symmetrize wave functions'):
             for myt in range(len(psit_mytG)):
-                ut_mytR[myt] = T(wfs.pd.ifft(psit_mytG[myt], ik))
+                # ut_mytR[myt] = T(wfs.pd.ifft(psit_mytG[myt], ik))  # remove? XXX
+                ut_mytR[myt] = T(self.pd0.ifft(psit_mytG[myt], ik))
 
         # Symmetrize projections
         for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, projections.items()):
