@@ -112,10 +112,11 @@ class EXX:
             e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
                                                kpts1[i1].psit.pd,
                                                kpts1[i1].psit.kpt,
-                                               k2.f_n, v_nG, v_ani)
+                                               k2.f_n,
+                                               count / self.kd.nbzkpts,
+                                               v_nG, v_ani)
 
-            print(k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count, e_nn, k1.f_n)
-            e_nn *= count / self.kd.nbzkpts
+            # print(k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count, e_nn, k1.f_n)
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             exxvv -= 0.5 * e
             ekin += e
@@ -164,6 +165,7 @@ class EXX:
                                pd,
                                index,
                                f2_n,
+                               factor,
                                vpsit_nG=None,
                                v_ani=None):
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
@@ -193,23 +195,24 @@ class EXX:
                 if vpsit_nG is not None:
                     for a, v_xL in ghat.integrate(vrho_G).items():
                         v_ii = self.Delta_aiiL[a].dot(v_xL[0])
-                        v_ani[a][n1] -= v_ii.dot(k2.proj[a][n2]) * f2_n[n1]
+                        v_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
+                                         f2_n[n2] * factor)
                         if k1 is k2 and n1 != n2:
                             v_ani[a][n2] -= (v_ii.conj().dot(k2.proj[a][n1]) *
-                                             f2_n[n2])
+                                             f2_n[n1] * factor)
                     vrho_R = ghat.pd.ifft(vrho_G)
-                    vpsit_nG[n1] -= f2_n[n2] * pd.fft(
+                    vpsit_nG[n1] -= f2_n[n2] * factor * pd.fft(
                         vrho_R * k2.u_nR[n2], index, local=True)
                     if k1 is k2 and n1 != n2:
-                        vpsit_nG[n2] -= f2_n[n1] * pd.fft(
-                            vrho_R * k2.u_nR[n1], index, local=True)
+                        vpsit_nG[n2] -= f2_n[n1] * factor * pd.fft(
+                            vrho_R.conj() * k2.u_nR[n1], index, local=True)
 
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
                 if k1 is k2:
                     exx_nn[n2, n1] = e
 
-        return exx_nn
+        return exx_nn * factor
 
     def calculate_eigenvalues(self, kpts1, kpts2, coulomb, VV_aii,
                               e_kn, v_nG=None):
@@ -287,6 +290,7 @@ class EXX:
                 lasti1 = i1
             if i2 == i1 and kpts1 is kpts2:
                 rsk2 = rsk1
+                lasti2 = i2
             elif i2 != lasti2:
                 k2 = kpts2[i2]
                 u2_nR = to_real_space(k2.psit)
@@ -464,7 +468,7 @@ class Hybrid:
             return self.evv + self.evc
         e_r = gd.empty()
         self.xc.calculate(gd, nt_sr, vt_sr, e_r)
-        print(self.ecc, self.evv, self.evc, gd.integrate(e_r))
+        # print(self.ecc, self.evv, self.evc, gd.integrate(e_r))
         return self.ecc + self.evv + self.evc + gd.integrate(e_r)
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
@@ -473,7 +477,7 @@ class Hybrid:
         return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def get_kinetic_energy_correction(self):
-        print(self.ekin)
+        # print(self.ekin)
         return self.ekin
 
     def _initialize(self):
@@ -655,7 +659,11 @@ class Hybrid:
         nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
                    for kpt in wfs.mykpts)
 
+        if kpts is None:
+            kpts = range(len(wfs.mykpts) // wfs.nspins)
+
         self.e_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1))
+        e2_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1), complex)
 
         for spin in range(wfs.nspins):
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
@@ -680,17 +688,19 @@ class Hybrid:
                 e_kn=self.e_skn[spin],
                 derivatives=True)
 
+            for e_n, kpt, v_nG in zip(e2_skn[spin], kpts1, v_knG.values()):
+                e_n[:] = [kpt.psit.pd.integrate(v_G, psit_G) *
+                          self.exx_fraction
+                          for v_G, psit_G in zip(v_nG, kpt.psit.array)]
+
         kd.comm.sum(self.e_skn)
         self.e_skn *= self.exx_fraction
+
+        assert np.allclose(self.e_skn, e2_skn), (self.e_skn, e2_skn)
 
         if self.xc:
             vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
             self.e_skn += vxc_skn[:, kpts, n1:n2]
-
-        print(self.e_skn)
-        for kpt, v_nG in zip(kpts1, v_knG.values()):
-            for v_G, psit_G in zip(v_nG, kpt.psit.array):
-                print(kpt.psit.pd.integrate(v_G, psit_G)*0.5)
 
         return self.e_skn * Ha
 

@@ -1,3 +1,4 @@
+import numpy as np
 from ase import Atoms
 from ase.units import Ha
 from gpaw import GPAW, PW
@@ -25,35 +26,39 @@ def check(atoms, xc):
     xc1.set_positions(c.spos_ac)
     e = xc1.calculate_energy()
     # print(e)
-    xc1.calculate_eigenvalues(0, 1, [0])
-    # print(xc1.e_skn * Ha)
+    xc1.calculate_eigenvalues(0, 2, None)
+    # print('A', xc1.e_skn * Ha)
 
-    xc2 = EXX(c, bands=(0, 1), txt=None)
+    xc2 = EXX(c, xc=xc, bands=(0, 2), txt=None)
     xc2.calculate()
     e0 = xc2.get_exx_energy()
     eps0 = xc2.get_eigenvalue_contributions()
-    # print(e0, eps0)
-    print(e0 - e[0] - e[1])
-    print(eps0 - xc1.e_skn * Ha)
+    # print('B', eps0)
+    # print(e0, e[0] + e[1])
+    assert np.allclose(e0, e[0] + e[1])
+    assert np.allclose(eps0, xc1.e_skn * Ha)
     # print(xc1.description)
 
 
 def main():
-    for spinpol in [False, True]:
-        for setup in ['ae', 'paw']:
+    for spinpol in [#False,
+                    True]:
+        for setup in ['ae',
+                      'paw']:
             for symmetry in ['off', {}]:
-                for kpts in [(1, 1, 1),
-                             (1, 1, 2),
-                             (1, 1, 3),
-                             (1, 1, 4),
-                             (2, 2, 1),
-                             [(0, 0, 0.5)],
-                             [(0, 0, 0), (0, 0, 0.5)]]:
+                for kpts in [
+                    (1, 1, 1),
+                    (1, 1, 2),
+                    (1, 1, 3),
+                    (1, 1, 4),
+                    (2, 2, 1),
+                    [(0, 0, 0.5)],
+                    [(0, 0, 0), (0, 0, 0.5)]]:
                     atoms = test(kpts, setup, spinpol, symmetry)
                     for xc in ['EXX', 'PBE0', 'HSE06']:
-                        print(spinpol, setup, symmetry, kpts, xc)
+                        print(spinpol, setup, symmetry, kpts, xc,
+                              len(atoms.calc.wfs.mykpts))
                         check(atoms, xc)
-                        return
 
 
 main()
