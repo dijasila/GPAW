@@ -144,6 +144,14 @@ class KohnShamPair:
         kd = self.calc.wfs.kd
         self.kdtree = cKDTree(np.mod(np.mod(kd.bzk_kc, 1).round(6), 1))
 
+        # Prepare to use other processes' k-points
+        self._pd0 = None
+        # remove?                                                              XXX
+        '''
+        # Prepare to allocate plane wave coefficients
+        self._ng_k = None
+        '''
+
         # Count bands so it is possible to remove null transitions
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
@@ -170,6 +178,53 @@ class KohnShamPair:
         print('Number of partially filled bands:', self.nocc2, file=self.fd)
         print('Total number of bands:', self.calc.wfs.bd.nbands,
               file=self.fd)
+
+    @property
+    def pd0(self):  # start here                                               XXX
+        """Some comment XXX"""
+        if self._pd0 is None:
+            from gpaw.wavefunctions.pw import PWDescriptor
+            kd0 = self.calc.wfs.kd.copy()
+
+            # Extract stuff from self.calc.wfs.pd                              XXX
+            # Initiate _pd0 with kd0                                           XXX
+        return self._pd0
+
+    @property
+    def ng_k(self):  # remove?                                                 XXX
+        """Return array with number of pw-coefficients for each k-point."""
+        if self._ng_k is None:
+            wfs = self.calc.wfs
+            comm = wfs.kd.comm
+
+            # Get my number of pw-coeff.
+            mynu = (wfs.kd.nks + comm.size - 1) // comm.size
+            ng_myu = np.empty(mynu, dtype=np.int)
+            for myu, kpt in enumerate(wfs.kpt_u):
+                ng_myu[myu] = wfs.pd.ng_q[kpt.q]
+
+            # Gather all
+            ng_u = np.empty(mynu * comm.size, dtype=np.int)
+            comm.all_gather(ng_myu, ng_u)
+
+            # Filter out empty parts of array
+            exu = wfs.kd.nks % comm.size
+            if exu:
+                # Extra us are handled by the last ranks
+                u_u = np.ones(len(ng_u), dtype=np.bool)
+                for r in range(comm.size - exu):
+                    u_u[(r + 1) * mynu - 1] = False
+                ng_u = ng_u[u_u]
+
+            # Remove spin duplicate
+            if wfs.nspins == 1:
+                ng_k = ng_u
+            else:
+                ng_k = ng_u[:wfs.kd.nibzkpts]
+                assert np.allclose(ng_k - ng_u[wfs.kd.nibzkpts:], 0)
+
+            self._ng_k = ng_k
+        return self._ng_k
 
     @timer('Get Kohn-Sham pairs')
     def get_kpoint_pairs(self, n1_t, n2_t, k1_pc, k2_pc, s1_t, s2_t):
@@ -233,7 +288,7 @@ class KohnShamPair:
 
         return kpt
 
-    def extract_kptdata(self, k_pc, n_t, s_t):  # to be removed                XXX
+    def extract_kptdata(self, k_pc, n_t, s_t):  # to be redesigned             XXX
         # Temporary factory method
         from gpaw.mpi import SerialCommunicator
         cworld = self.calc.world
@@ -241,7 +296,8 @@ class KohnShamPair:
             return self.new_extract_kptdata(k_pc, n_t, s_t)
         else:
             assert self.world.rank == self.calc.wfs.world.rank
-            return self.old_extract_kptdata(k_pc, n_t, s_t)
+            # return self.old_extract_kptdata(k_pc, n_t, s_t)
+            return self.new_extract_kptdata(k_pc, n_t, s_t)
 
     def new_extract_kptdata(self, k_pc, n_t, s_t):  # rnew                     XXX
         """Returns the input to KohnShamKPoint:
@@ -272,13 +328,14 @@ class KohnShamPair:
     def _newer_extract_kptdata(self, k_pc, n_t, s_t):
         """Do actual data extraction"""
         get_extraction_protocol = self.create_get_newer_extraction_protocol()  # rnewer XXX
-        (myu_eu, myn_euet,
-         nrt_r2, ik_r2,
+        (K_p, ik_p,  # remove ik_p?                                            XXX
+         myu_eu, myn_euet,
+         nrt_r2, ik_r2,  # remove ik_r2?                                       XXX
          et_eur2ret,
          rt_eur2ret, myt_r1rt) = get_extraction_protocol(k_pc, n_t, s_t)
 
         (eps_r2rt, f_r2rt,
-         P_r2rtI, psit_r2rtG) = self.allocate_transfer_arrays(nrt_r2, ik_r2)
+         P_r2rtI, psit_r2rtG) = self.allocate_transfer_arrays(nrt_r2, ik_r2)  #rik_r2XXX
 
         for myu, myn_et, et_r2ret, rt_r2ret in zip(myu_eu, myn_euet,
                                                    et_eur2ret, rt_eur2ret):
@@ -296,8 +353,8 @@ class KohnShamPair:
             self.new_add_wave_function(myu, myn_et,
                                        et_r2ret, rt_r2ret, psit_r2rtG)  # rnew XXX
 
-        return self.new_collect_kptdata(k_pc, myt_r1rt, eps_r2rt,
-                                        f_r2rt, P_r2rtI, psit_r2rtG)  # rnew   XXX
+        return self.new_collect_kptdata(k_pc, K_p, ik_p, myt_r1rt,  # r ik_p?  XXX
+                                        eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG)  #rnewXXX
 
     def create_get_newer_extraction_protocol(self):  # rnewer                  XXX
         """Creator component of the extract k-point data factory."""
@@ -307,7 +364,7 @@ class KohnShamPair:
             return self.get_newer_serial_extraction_protocol
         else:
             assert self.world.rank == self.calc.wfs.world.rank
-            raise NotImplementedError('Do me, oh please do me')
+            return self.get_parallel_extraction_protocol
 
     @timer('Create data extraction protocol')
     def get_newer_serial_extraction_protocol(self, k_pc, n_t, s_t):  # rnewer  XXX
@@ -316,6 +373,10 @@ class KohnShamPair:
         and resultantly, there is no need to send any data.
         """
         wfs = self.calc.wfs
+
+        # Kpoint data
+        K_p = []
+        ik_p = []
 
         # Extraction protocol
         myu_eu = []
@@ -333,7 +394,10 @@ class KohnShamPair:
         t_t = np.arange(nt)
         rtm_r2 = - np.ones(self.world.size, dtype=np.int)
         for p, k_c in enumerate(k_pc):  # p indicates the receiving process
-            ik = wfs.kd.bz2ibz_k[self.find_kpoint(k_c)]
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+            K_p.append(K)
+            ik_p.append(ik)
             for r2 in range(p * self.transitionblockscomm.size,
                             min((p + 1) * self.transitionblockscomm.size,
                                 self.world.size)):
@@ -348,46 +412,152 @@ class KohnShamPair:
                 thiss_t = s_t == s
                 t_ct = t_t[thiss_t]
                 n_ct = n_t[thiss_t]
+                r2_ct, myt_ct = r2_t[t_ct], myt_t[t_ct]
                 et = 0
 
                 # Find out where data is in wfs
                 u = wfs.kd.where_is(s, ik)
-                myu = u  # The process has access to all data
-
-                # Find out which rank stores data in wfs.
                 # Let the process extract its own data
+                myu = u  # The process has access to all data
                 r1_ct = r2_t[t_ct]
                 myn_ct = n_ct
 
-                myn_et = []
-                et_r2ret = [list([]) for _ in range(self.world.size)]
-                rt_r2ret = [list([]) for _ in range(self.world.size)]
-                for r1, myn, r2, myt in zip(r1_ct, myn_ct,
-                                            r2_t[t_ct], myt_t[t_ct]):
+                """  # parallel stuff
+                # Find out where data is in wfs
+                u = wfs.kd.where_is(s, ik)
+                kptrank, myu = wfs.kd.who_has(u)
+                r1_ct, myn_ct = [], []
+                for n in n_ct:
+                    bandrank, myn = wfs.bd.who_has(n)
+                    # XXX this will fail when using non-standard nesting
+                    # of communicators.
+                    r1 = (kptrank * wfs.gd.comm.size * wfs.bd.comm.size
+                          + bandrank * wfs.gd.comm.size)
+                    r1_ct.append(r1)
+                    myn_ct.append(myn)
+                """
 
-                    if self.world.rank == r1:  # process should extract
-                        myn_et.append(myn)
-                        nrt_r2[r2] += 1
-                        et_r2ret[r2].append(et)
-                        rtm_r2[r2] += 1
-                        rt_r2ret[r2].append(rtm_r2[r2])
+                # If the process is extracting or receiving data,
+                # figure out how to do so
+                if self.world.rank in np.append(r1_ct, r2_ct):
+                    myn_et = []
+                    et_r2ret = [list([]) for _ in range(self.world.size)]
+                    rt_r2ret = [list([]) for _ in range(self.world.size)]
+                    for r1, myn, r2, myt in zip(r1_ct, myn_ct, r2_ct, myt_ct):
 
-                        et += 1
+                        if self.world.rank == r1:  # process should extract
+                            myn_et.append(myn)
+                            nrt_r2[r2] += 1
+                            et_r2ret[r2].append(et)
+                            rtm_r2[r2] += 1
+                            rt_r2ret[r2].append(rtm_r2[r2])
 
-                    if self.world.rank == r2:  # process should receive
-                        myt_r1rt[r1].append(myt)
+                            et += 1
 
-                if myn_et:  # process has something to extract
-                    myu_eu.append(myu)
-                    myn_euet.append(myn_et)
-                    et_eur2ret.append(et_r2ret)
-                    rt_eur2ret.append(rt_r2ret)
+                        if self.world.rank == r2:  # process should receive
+                            myt_r1rt[r1].append(myt)
 
-        return (myu_eu, myn_euet, nrt_r2, ik_r2,
-                et_eur2ret, rt_eur2ret, myt_r1rt)
+                    if myn_et:  # process has something to extract
+                        myu_eu.append(myu)
+                        myn_euet.append(myn_et)
+                        et_eur2ret.append(et_r2ret)
+                        rt_eur2ret.append(rt_r2ret)
+
+        return (K_p, ik_p, myu_eu, myn_euet,  # remove ik_p, ik_r2?            XXX
+                nrt_r2, ik_r2, et_eur2ret, rt_eur2ret, myt_r1rt)
+
+    @timer('Create data extraction protocol')
+    def get_parallel_extraction_protocol(self, k_pc, n_t, s_t):
+        """Figure out how to extract data efficiently and send it to the
+        appropriate processes."""
+        wfs = self.calc.wfs
+        assert wfs.gd.comm.size == 1
+
+        # Kpoint data
+        K_p = []
+        ik_p = []
+
+        # Extraction protocol
+        myu_eu = []
+        myn_euet = []
+
+        # Data distribution protocol
+        nrt_r2 = np.zeros(self.world.size, dtype=np.int)
+        ik_r2 = [None for _ in range(self.world.size)]
+        et_eur2ret = []
+        rt_eur2ret = []
+        myt_r1rt = [list([]) for _ in range(self.world.size)]
+
+        nt = len(n_t)
+        assert nt == len(s_t)
+        t_t = np.arange(nt)
+        rtm_r2 = - np.ones(self.world.size, dtype=np.int)
+        for p, k_c in enumerate(k_pc):  # p indicates the receiving process
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+            K_p.append(K)
+            ik_p.append(ik)
+            for r2 in range(p * self.transitionblockscomm.size,
+                            min((p + 1) * self.transitionblockscomm.size,
+                                self.world.size)):
+                ik_r2[r2] = ik
+
+            # Find out who should store the data in KSKPpoint
+            r2_t, myt_t = self.new_map_who_has(p, t_t)
+
+            # Find out how to extract data
+            # In the ground state, kpts are indexed by u=(s, k)
+            for s in set(s_t):
+                thiss_t = s_t == s
+                t_ct = t_t[thiss_t]
+                n_ct = n_t[thiss_t]
+                r2_ct, myt_ct = r2_t[t_ct], myt_t[t_ct]
+                et = 0
+
+                # Find out where data is in wfs
+                u = wfs.kd.where_is(s, ik)
+                kptrank, myu = wfs.kd.who_has(u)
+                r1_ct, myn_ct = [], []
+                for n in n_ct:
+                    bandrank, myn = wfs.bd.who_has(n)
+                    # XXX this will fail when using non-standard nesting
+                    # of communicators.
+                    r1 = (kptrank * wfs.gd.comm.size * wfs.bd.comm.size
+                          + bandrank * wfs.gd.comm.size)
+                    r1_ct.append(r1)
+                    myn_ct.append(myn)
+
+                # If the process is extracting or receiving data,
+                # figure out how to do so
+                if self.world.rank in np.append(r1_ct, r2_ct):
+                    myn_et = []
+                    et_r2ret = [list([]) for _ in range(self.world.size)]
+                    rt_r2ret = [list([]) for _ in range(self.world.size)]
+                    for r1, myn, r2, myt in zip(r1_ct, myn_ct, r2_ct, myt_ct):
+
+                        if self.world.rank == r1:  # process should extract
+                            myn_et.append(myn)
+                            nrt_r2[r2] += 1
+                            et_r2ret[r2].append(et)
+                            rtm_r2[r2] += 1
+                            rt_r2ret[r2].append(rtm_r2[r2])
+
+                            et += 1
+
+                        if self.world.rank == r2:  # process should receive
+                            myt_r1rt[r1].append(myt)
+
+                    if myn_et:  # process has something to extract
+                        myu_eu.append(myu)
+                        myn_euet.append(myn_et)
+                        et_eur2ret.append(et_r2ret)
+                        rt_eur2ret.append(rt_r2ret)
+
+        return (K_p, ik_p, myu_eu, myn_euet,
+                nrt_r2, ik_r2, et_eur2ret, rt_eur2ret, myt_r1rt)
 
     @timer('Allocate transfer arrays')
-    def allocate_transfer_arrays(self, nrt_r2, ik_r2):
+    def allocate_transfer_arrays(self, nrt_r2, ik_r2):  # remove ik_r2?        XXX
         """Allocate arrays for intermediate storage of data."""
         wfs = self.calc.wfs
         kptex = wfs.kpt_u[0]
@@ -395,14 +565,14 @@ class KohnShamPair:
         Pdtype = kptex.projections.matrix.dtype
         psitdtype = kptex.psit.array.dtype
 
-        # Maybe allocating list seperately is faster                           XXX
         eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG = [], [], [], []
         for nrt, ik in zip(nrt_r2, ik_r2):
             if nrt:
                 eps_r2rt.append(np.empty(nrt))
                 f_r2rt.append(np.empty(nrt))
                 P_r2rtI.append(np.empty((nrt,) + Pshape[1:], dtype=Pdtype))
-                ng = wfs.pd.ng_q[ik]
+                # ng = wfs.pd.ng_q[ik]  # remove                               XXX
+                ng = self.ng_k[ik]
                 psit_r2rtG.append(np.empty((nrt, ng), dtype=psitdtype))
             else:
                 eps_r2rt.append(None)
@@ -453,8 +623,9 @@ class KohnShamPair:
             assert self.world.rank == self.calc.wfs.world.rank
             return self.extract_parallel_kptdata
 
+    '''
     @timer('Sorting extracted data based on destination')
-    def _new_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed           XXX
+    def _new_extract_kptdata(self, k_pc, n_t, s_t):  # remove                  XXX
         """Do actual extraction"""
         # Figure out what to extract and where to send it
         get_extraction_protocol = self.create_get_new_extraction_protocol()
@@ -577,6 +748,7 @@ class KohnShamPair:
                     rt_eur2ret.append(rt_r2ret)
 
         return myu_eu, myn_euet, nrt_r2, et_eur2ret, rt_eur2ret, myt_r1rt
+    '''
 
     def new_map_who_has(self, p, t_t):
         """Convert k-point and transition index to global world rank
@@ -584,6 +756,7 @@ class KohnShamPair:
         trank_t, myt_t = np.divmod(t_t, self.mynt)
         return p * self.transitionblockscomm.size + trank_t, myt_t
 
+    '''
     @timer('map_who_has')  # remove                                            XXX
     def map_who_has(self, p, t_t):
         return np.array([self.new_who_has(p, t) for t in t_t])
@@ -593,6 +766,7 @@ class KohnShamPair:
         and local transition index"""
         trank, myt = divmod(t, self.mynt)  # check speed using //,%            XXX
         return p * self.transitionblockscomm.size + trank, myt
+    '''
 
     @timer('Extracting eps, f and P_I from wfs')
     def extract_wfs_data(self, myu, myn_et):
@@ -607,7 +781,7 @@ class KohnShamPair:
 
         return eps_et, f_et, P_etI
 
-    @timer('Extracting wave function')
+    @timer('Extracting wave function from wfs')
     def new_add_wave_function(self, myu, myn_et,  # rnew                       XXX
                               et_r2ret, rt_r2ret, psit_r2rtG):
         """Add the plane wave coefficients of the smooth part of
@@ -620,6 +794,7 @@ class KohnShamPair:
                 for et, rt in zip(et_ret, rt_ret):
                     psit_rtG[rt] = kpt.psit_nG[myn_et[et]]
 
+    '''
     @timer('Extracting wave function')
     def add_wave_function(self, myu, myn_et, et_r2ret, rt_r2ret, ut_r2rtR):  # rXXX
         """Add the smooth part of the wave function to the ut_r2rtR arrays."""
@@ -631,7 +806,7 @@ class KohnShamPair:
                 for et, rt in zip(et_ret, rt_ret):
                     ut_rtR[rt] = wfs.pd.ifft(kpt.psit_nG[myn_et[et]], kpt.q)
 
-    @timer('Extract orbital data from wfs')  # remove?                         XXX
+    @timer('Extract orbital data from wfs')  # remove                          XXX
     def _new_extract_orbital_data(self, myu, myn_et):  # rnew                  XXX
         wfs = self.calc.wfs
         kpt = wfs.kpt_u[myu]
@@ -649,27 +824,27 @@ class KohnShamPair:
         P_etI = kpt.projections.array[myn_et]
 
         return eps_et, f_et, ut_etR, P_etI
+    '''
 
     @timer('Collecting kptdata')
-    def new_collect_kptdata(self, k_pc, myt_r1rt,
+    def new_collect_kptdata(self, k_pc, K_p, ik_p, myt_r1rt,  # remove ik_p?   XXX
                             eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG):  # rnew    XXX
         """From the extracted data, collect the KohnShamKPoint data arrays"""
 
         # For each given k_pc, the process needs to extract at most one k-point
         if self.kptblockcomm.rank in range(len(k_pc)):
             wfs = self.calc.wfs
-            k_c = k_pc[self.kptblockcomm.rank]
-            K = self.find_kpoint(k_c)
-            ik = wfs.kd.bz2ibz_k[K]
+            p = self.kptblockcomm.rank
+            k_c, K, ik = k_pc[p], K_p[p], ik_p[p]
             data = (K, k_c)
 
             # Allocate data arrays for that k-point
-
             mynt = self.mynt
             eps_myt = np.empty(mynt)
             f_myt = np.empty(mynt)
             P = wfs.kpt_u[0].projections.new(nbands=mynt)
-            psit_mytG = np.empty((self.mynt, wfs.pd.ng_q[ik]),
+            # psit_mytG = np.empty((self.mynt, wfs.pd.ng_q[ik]),  # remove     XXX
+            psit_mytG = np.empty((self.mynt, self.ng_k[ik]),
                                  dtype=wfs.kpt_u[0].psit.array.dtype)
 
             # Store data that the process extracted itself
@@ -687,7 +862,7 @@ class KohnShamPair:
                                                                  f_r2rt,
                                                                  P_r2rtI,
                                                                  psit_r2rtG)):
-            if r2 != self.world.rank and eps_rt:
+            if r2 != self.world.rank and eps_rt is not None:
                 sreq1 = self.world.send(eps_rt, r2, tag=201, block=False)
                 sreq2 = self.world.send(f_rt, r2, tag=202, block=False)
                 sreq3 = self.world.send(P_rtI, r2, tag=203, block=False)
@@ -722,9 +897,10 @@ class KohnShamPair:
 
         return data
 
+    '''
     @timer('Collecting kptdata')
     def collect_kptdata(self, k_pc, myt_r1rt,
-                        eps_r2rt, f_r2rt, ut_r2rtR, P_r2rtI):  # to be removed XXX
+                        eps_r2rt, f_r2rt, ut_r2rtR, P_r2rtI):  # remove        XXX
         """From the extracted data, collect the KohnShamKPoint data arrays"""
 
         # For each given k_pc, the process needs to extract at most one k-point
@@ -885,8 +1061,7 @@ class KohnShamPair:
             assert self.world.rank == self.calc.wfs.world.rank
             raise NotImplementedError('Do me, oh please do me')
 
-    # remove?                                                                  XXX
-    '''
+    # remove                                                                   XXX
     def map_who_has(self, p, t_t):
         """Who has a list of transitions"""
         r2_t = np.zeros(len(t_t))
@@ -904,7 +1079,6 @@ class KohnShamPair:
             myt_r2rt.append(myt_t[thisr_t])
 
         return t_r2rt, myt_r2rt
-    '''
 
     @timer('Create data extraction protocol')
     def get_serial_extraction_protocol(self, k_pc, n_t, s_t):  # remove        XXX
@@ -1024,6 +1198,7 @@ class KohnShamPair:
             data += (eps_myt, f_myt, ut_mytR, P)
 
         return data
+    '''
 
     def extract_parallel_kptdata(self, k_pc, n_t, s_t):  # to be adapted       XXX
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
@@ -1111,10 +1286,11 @@ class KohnShamPair:
 
         return data
 
+    @timer('Identifying k-points')
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
-    def who_has(self, p, t):  # remove                                         XXX
+    def who_has(self, p, t):  # remove?                                        XXX
         """Convert k-point and transition index to global world rank
         and local transition index"""
         assert isinstance(p, int) and p in range(self.kptblockcomm.size)
@@ -1122,24 +1298,8 @@ class KohnShamPair:
 
         trank, myt = divmod(t, self.mynt)
         return p * self.transitionblockscomm.size + trank, myt
-        # remove                                                               XXX
-        '''
-        krank = p
-        trank = None
 
-        ta = 0
-        i = 0
-        while trank is None:
-            if t in range(ta, ta + self.mynt):
-                trank = i
-            else:
-                ta += self.mynt
-                i += 1
-
-        return krank * self.transitionblockscomm.size + trank, t - ta
-        '''
-
-    def _get_orbital_data(self, myu, myn):  # OLD to be removed                XXX
+    def _get_orbital_data(self, myu, myn):  # to be removed                    XXX
         """Get the data from a single Kohn-Sham orbital."""
         kpt = self.calc.wfs.kpt_u[myu]
         # Get eig and occ
@@ -1179,7 +1339,7 @@ class KohnShamPair:
         return projections, ut_mytR, shift_c
 
     @timer('Apply symmetry operations')
-    def apply_symmetry_operations(self, K, k_c, ut_mytR, projections):
+    def apply_symmetry_operations(self, K, k_c, ut_mytR, projections):  # tbr  XXX
         """Symmetrize wave functions and projections.
         More documentation needed XXX"""
         (_, T, a_a, U_aii, shift_c,
@@ -1198,28 +1358,6 @@ class KohnShamPair:
                 np.conj(P_myti, out=P_myti)
 
         return ut_mytR, projections, shift_c
-
-        # remove                                                               XXX
-        '''
-        # Symmetrize wave functions
-        wfs = self.calc.wfs
-        newut_mytR = wfs.gd.empty(len(ut_mytR), wfs.dtype)
-        for myt, ut_R in enumerate(ut_mytR[:self.tb - self.ta]):
-            newut_mytR[myt] = T(ut_R)
-
-        # Symmetrize projections
-        newprojections = projections.new()
-        P_amyti = projections.toarraydict()
-        newP_amyti = newprojections.toarraydict()
-        for a, U_ii in zip(a_a, U_aii):
-            P_myti = np.dot(P_amyti[a][:self.tb - self.ta], U_ii)
-            if time_reversal:
-                P_myti = P_myti.conj()
-            newP_amyti[a][:self.tb - self.ta, :] = P_myti
-        newprojections.fromarraydict(newP_amyti)
-
-        return newut_mytR, newprojections, shift_c
-        '''
 
     @timer('Construct symmetry operators')
     def construct_symmetry_operators(self, K, k_c=None):
