@@ -234,4 +234,3 @@ class BiCGStab:
 
         return self.iterations
         #print self.iterations
-

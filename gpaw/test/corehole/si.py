@@ -63,4 +63,3 @@ calc.attach(stopcalc, 1)
 e = si.get_potential_energy()
 niter = calc.get_number_of_iterations()
 calc.write('si_hch2p.gpw')
-

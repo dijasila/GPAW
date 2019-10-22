@@ -576,4 +576,3 @@ class LrtddftTransitions:
         self.lr_comms.parent_comm.sum(f2)
 
         return f2
-

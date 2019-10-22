@@ -89,5 +89,3 @@ mol.translate(-mol[0].position)
 mol.translate([-1.e-24, 0, 0])
 calc.calculate(mol)
 run()
-
-

@@ -497,4 +497,3 @@ if __name__ in ['__main__', '__builtin__']:
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():
             raise SystemExit('Test failed. Check ut_invops.log for details.')
-

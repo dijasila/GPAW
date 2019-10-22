@@ -38,6 +38,3 @@ for i in range(result['iqp'].shape[0]):
           'Gap:',
           np.min(result['iqp'][i, 0, :, 3]) -
           np.max(result['iqp'][i, 0, :, 2]))
-
-
-

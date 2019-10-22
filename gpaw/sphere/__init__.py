@@ -38,4 +38,3 @@ def lmiter(lmax, full=True, comm=None, cost=None):
     assert np.abs(np.sum(parts_r)-1) < 1e-9, (parts_r,np.sum(parts_r))
     comm.barrier()
     return iter(lm_j[ja:jb+1])
-

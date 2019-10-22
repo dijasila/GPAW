@@ -41,4 +41,3 @@ expected=[ -1.14670206, -11.02164441]
 res=d2Excdnsdnt(dup,ddn)
 if out: print(res)
 equiv(res[isp][ksp],expected)
-

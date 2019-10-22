@@ -527,4 +527,3 @@ def pblas_simple_rk(desca, descc, a, c):
     beta = 0.0
     pblas_rk(alpha, a, beta, c,
              desca, descc)
-
