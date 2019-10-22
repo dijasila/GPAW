@@ -54,6 +54,33 @@ def get_ni_grid(rank, size, endval, pts_per_rank, grid_fct=None):
     
     return my_n_i, my_lower, my_upper 
 
+def get_ni_grid_w_min(rank, size, startval, endval, pts_per_rank, grid_fct=None):
+    assert rank >= 0 and rank < size
+    # Make an interface that allows for testing
+    
+    # Algo:
+    # Define a global grid. We want a grid such that each rank has not too many
+    num_pts = pts_per_rank *size
+    if grid_fct is None:
+        fulln_i = np.linspace(startval, endval, num_pts)
+    else:
+        fulln_i = grid_fct(startval, endval, num_pts)
+    # Split it up evenly
+    my_start = rank * pts_per_rank
+    my_n_i = fulln_i[my_start:my_start+pts_per_rank]
+
+    # Each ranks needs to know the closest pts outside its own range
+    if rank == 0:
+        my_lower = fulln_i[0]
+        my_upper = fulln_i[min(num_pts - 1, pts_per_rank)]
+    elif rank == size - 1:
+        my_lower = fulln_i[my_start - 1]
+        my_upper = fulln_i[-1]
+    else:
+        my_lower = fulln_i[my_start - 1]
+        my_upper = fulln_i[my_start + pts_per_rank]
+    
+    return my_n_i, my_lower, my_upper 
 
 
 

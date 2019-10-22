@@ -1,5 +1,6 @@
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import PurePythonLDAKernel
+from gpaw.utilities.tools import construct_reciprocal
 import numpy as np
 from gpaw import mpi
 
@@ -57,7 +58,8 @@ class WDA(XCFunctional):
                                                     ni_lower,
                                                     ni_upper,
                                                     grid, spin,
-                                                    gd1)
+                                                    gd1, mpi.rank,
+                                                    mpi.size)
 
         # Get alphas
         alpha_isg = self.get_alphas(Z_isg, Z_lower_sg, Z_upper_sg)
@@ -106,7 +108,7 @@ class WDA(XCFunctional):
         raise NotImplementedError
 
     def get_ni_grid(self, rank, size, n_sg):
-        from gpaw.xc.WDAUtils import get_ni_grid
+        from gpaw.xc.WDAUtils import get_ni_grid_w_min
         pts_per_rank = self.get_pts_per_rank()
         if not np.allclose(np.max(n_sg), 0):
             maxval = max(np.max(n_sg), 100 * np.mean(n_sg))
@@ -114,7 +116,10 @@ class WDA(XCFunctional):
             maxval = 10
         #maxval = np.mean(n_sg)*3
         maxval = self.gd.integrate(n_sg)[0]*2 #1.0
-        return get_ni_grid(rank, size, maxval, pts_per_rank)
+        minval = 0.5 * np.min(n_sg)
+        
+        # return np.arange(minval, maxval, pts_per_rank * size)
+        return get_ni_grid_w_min(rank, size, minval, maxval, pts_per_rank)
 
     def get_pts_per_rank(self):
         return 20
@@ -199,7 +204,7 @@ class WDA(XCFunctional):
                              "{}, {}, {}".format(ni_lower, ni_upper, ni_grid))
         return aug, lower_off, upper_off
 
-    def build_indicators(self, ni_grid, ni_lower, ni_upper):
+    def build_indicators(self, ni_grid, ni_lower, ni_upper, rank, size):
         # We use linear indicators for simplicity
         # This makes it easy to ensure that f <= 1, f >= 0 and
         # that they always sum to 1
@@ -215,11 +220,33 @@ class WDA(XCFunctional):
         def build_an_indicator(target_index, val_grid):
             targets = np.zeros_like(val_grid)
             targets[target_index] = 1
-            return interp1d(val_grid, targets, kind="linear",
+            inter = interp1d(val_grid, targets, kind="linear",
                             bounds_error=False, fill_value=0)
+            return inter
+            # def func(vals_g):
+            #     applied = inter(vals_g)
         ni_range = range(low_off, len(augmented_ni_grid) - upp_off)
 
-        return [build_an_indicator(j, augmented_ni_grid) for j in ni_range]
+        simple_indicators = [build_an_indicator(j, augmented_ni_grid) for j in ni_range]
+        # adv_indicators = []
+        def build_adv(j, indicator, augmented_ni_grid):
+            def f(vals):
+                less_thans = vals < np.min(augmented_ni_grid)
+                great_thans = vals > np.max(augmented_ni_grid)
+                applied = indicator(vals)
+                if j == 0 and rank == 0:
+                    applied[less_thans] = 1
+                elif j == len(augmented_ni_grid) - 1 and rank == size - 1:
+                    applied[great_thans] = 1
+                return applied
+            return f
+
+        adv_indicators = [build_adv(j, ind, augmented_ni_grid) for j, ind in enumerate(simple_indicators)]
+
+        return adv_indicators
+        #return simple_indicators
+
+        #return [build_an_indicator(j, augmented_ni_grid) for j in ni_range]
 
     def normal_dZ(self, i, s, G_isr, grid_vg, ni_lower, ni_upper, alpha_isg):
         if i < 0:
@@ -244,7 +271,8 @@ class WDA(XCFunctional):
 
     def standardmode_Zs(self, n_sg,
                         ni_grid, lower_ni,
-                        upper_ni, grid, spin, gd):
+                        upper_ni, grid, spin, gd,
+                        rank, size):
         # Get parametrized pair distribution functions
         # augmented_ni_grid = np.hstack([[lower], ni_grid, [upper]])
         
@@ -349,13 +377,14 @@ class WDA(XCFunctional):
 
     def symmetricmode_Zs(self, n_sg, ni_grid,
                          lower_ni, upper_ni,
-                         grid, spin, gd):
+                         grid, spin, gd,
+                         rank, size):
         augmented_ni_grid, _, _ = self.get_augmented_ni_grid(ni_grid,
                                                              lower_ni,
                                                              upper_ni)
 
         pairdist_sg = np.array([self.get_pairdist_g(grid, lower_ni, spin)])
-        ind_i = self.build_indicators(augmented_ni_grid, lower_ni, upper_ni)
+        ind_i = self.build_indicators(augmented_ni_grid, lower_ni, upper_ni, rank, size)
         ind_sg = np.array([ind_i[0](n_sg[0])])
         
         def getZ(pairdist, ind):
@@ -369,6 +398,7 @@ class WDA(XCFunctional):
             ind = ind_i[i](n_sg[0])
             Z = getZ(pd, ind)
             Z_isg.append(Z)
+
         assert len(Z_isg) == len(ni_grid)
         pd = np.array([self.get_pairdist_g(grid, upper_ni, spin)])
         ind = ind_i[-1](n_sg[0])
@@ -378,28 +408,149 @@ class WDA(XCFunctional):
 
     def interpolate_this(self, val_i, lower, upper, target):
         inter_i = np.zeros_like(val_i)
-        count = 0
-        for i, val in enumerate(val_i):
-            if i == 0:
-                nextv = val_i[1]
-                prev = lower
-            elif i == len(val_i) - 1:
-                nextv = upper
-                prev = val_i[i - 1]
-            else:
-                nextv = val_i[i + 1]
-                prev = val_i[i - 1]
 
-            if (val <= target
-                and nextv >= target) or (val >= target and nextv <= target):
-                inter_i[i] = (nextv - target) / (nextv - val)
-                count += 1
-            elif (val <= target and
-                  prev >= target) or (val >= target and prev <= target):
-                inter_i[i] = (prev - target) / (prev - val)
-                count += 1
+        # if (val_i <= target).all():
+        #     max_pos = np.unravel_index(np.argmax(val_i), val_i.shape)
+        #     inter_i[max_pos] = 1
+        #     assert np.allclose(inter_i.sum(), 1)
+        #     return inter_i
+        # elif (val_i >= target).all():
+        #     min_pos = np.unravel_index(np.argmin(val_i), val_i.shape)
+        #     inter_i[min_pos] = 1
+        #     assert np.allclose(inter_i.sum(), 1)
+        #     return inter_i
         
+        if np.allclose(val_i[0], lower) and np.allclose(val_i[-1], upper):
+            
+            for i, val in enumerate(val_i):
+                if i == 0:
+                    continue
+                
+                if (val >= target and val_i[i - 1] <= target) or (val <= target and val_i[i - 1] >= target):
+                    forward_weight = (target - val_i[i - 1]) / (val - val_i[i - 1])
+                    backward_weight = (val - target) / (val - val_i[i - 1])
+                    inter_i[i] = forward_weight
+                    inter_i[i - 1] = backward_weight
+                    return inter_i
+
+        elif np.allclose(val_i[0], lower):
+
+            found = False
+            for i, val in enumerate(val_i):
+                if i == 0:
+                    continue
+
+                if (val >= target and val_i[i - 1] <= target) or (val <= target and val_i[i - 1] >= target):
+                    forward_weight = (target - val_i[i - 1]) / (val - val_i[i - 1])
+                    backward_weight = (val - target) / (val - val_i[i - 1])
+                    inter_i[i] = forward_weight
+                    inter_i[i - 1] = backward_weight
+                    found = True
+                    break
+
+            if ((upper >= target and val_i[-1] <= target) or (upper <= target and val_i[-1] >= target)) and not found:
+                forward_weight = (target - val_i[-1]) / (upper - val_i[i - 1])
+                backward_weight = (upper - target) / (upper - val_i[i - 1])
+                inter_i[-1] = backward_weight
+                
+            return inter_i
+
+        elif np.allclose(val_i[0], upper):
+            found = False
+            if (val_i[0] >= target and lower <= target) or (val_i[0] <= target and lower >= target):
+                forward_weight = (target - lower) / (val_i[0] - lower)
+                inter_i[0] = forward_weight
+                found = True
+                return inter_i
+
+            for i, val in enumerate(val_i):
+                if i == 0:
+                    continue
+                
+                if (val >= target and val_i[i - 1] <= target) or (val <= target and val_i[i - 1] >= target):
+                    forward_weight = (target - val_i[i - 1]) / (val - val_i[i - 1])
+                    backward_weight = (val - target) / (val - val_i[i - 1])
+                    inter_i[i] = forward_weight
+                    inter_i[i - 1] = backward_weight
+                    return inter_i
+
+        else:
+            found = False
+            if (val_i[0] >= target and lower <= target) or (val_i[0] <= target and lower >= target):
+                forward_weight = (target - lower) / (val_i[0] - lower)
+                inter_i[0] = forward_weight
+                found = True
+                return inter_i
+
+            for i, val in enumerate(val_i):
+                if i == 0:
+                    continue
+                
+                if (val >= target and val_i[i - 1] <= target) or (val <= target and val_i[i - 1] >= target):
+                    forward_weight = (target - val_i[i - 1]) / (val - val_i[i - 1])
+                    backward_weight = (val - target) / (val - val_i[i - 1])
+                    inter_i[i] = forward_weight
+                    inter_i[i - 1] = backward_weight
+                    return inter_i
+
+            if (upper >= target and val_i[-1] <= target) or (upper <= target and val_i[-1] >= target):
+                backward_weight = (upper - target) / (upper - val_i[i - 1])
+                inter_i[-1] = backward_weight
+                return inter_i
+                    
+
         return inter_i
+
+        # if True:
+        #     print("HEJ")
+
+        # elif np.allclose(val_i[0], lower):
+        #     aug_i = np.array(list(val_i) + [upper])
+        # elif np.allclose(val_i[-1], upper):
+        #     aug_i = np.array([lower] + list(val_i))
+        # else:
+        #     aug_i = np.array([lower] + list(val_i) + [upper])
+
+        # # count = 0
+
+
+        # count = 0
+        # for i, val in enumerate(val_i):
+        #     if i == 0:
+        #         nextv = val_i[i + 1]
+        #         prev = lower
+        #     elif i == len(val_i) - 1:
+        #         nextv = upper
+        #         prev = val_i[i - 1]
+        #     else:
+        #         nextv = val_i[i + 1]
+        #         prev = val_i[i - 1]
+
+        #     if ((val <= target
+        #         and nextv >= target) or (val >= target and nextv <= target)) and (not np.allclose(val, nextv)):
+        #         inter_i[i] = (nextv - target) / (nextv - val)
+        #         assert inter_i[i] >= 0
+        #         assert inter_i[i] <= 1
+        #         count += 1
+        #     elif ((val <= target and
+        #           prev >= target) or (val >= target and prev <= target)) and (not np.allclose(val, prev)):
+        #         inter_i[i] = (prev - target) / (prev - val)
+        #         assert inter_i[i] >= 0
+        #         assert inter_i[i] <= 1
+        #         count += 1
+        #     if count >= 2:
+        #         break
+
+        # assert np.allclose(inter_i.sum(), 1), "Actual sum: {}\nVal_i: {}\nLower: {}\nUpper: {}\nTarget: {}".format(inter_i.sum(), val_i, lower, upper, target)
+        # assert count == 2
+
+        # if count != 2:
+        #     print("Count is:", count)
+        #     import matplotlib.pyplot as plt
+        #     plt.plot(val_i, '-', marker=".")
+        #     plt.show()
+
+        # return inter_i
 
     def get_alphas(self, Z_isg, Z_lower_sg, Z_upper_sg):
         alpha_isg = np.zeros_like(Z_isg)
@@ -604,9 +755,9 @@ class WDA(XCFunctional):
 
     def construct_G_splines(self, ni_grid):
         r_j = np.arange(0.01, 200, 0.01)
-        dr_j = r_j[1:] - r[:-1]
+        dr_j = r_j[1:] - r_j[:-1]
         
-        G_ir = self.get_G_ir(ni_grid, r_j)
+        G_ir = self.get_G_ir(ni_grid, r_j, 0)
 
         ks = np.linspace(0.01, 200, 300, endpoint=False)
     
@@ -614,14 +765,14 @@ class WDA(XCFunctional):
 
         na = np.newaxis
         for ik, k in enumerate(ks):
-            int_ir = G_ir * 4 * np.pi * np.sin(k * r_j[na, :]) / k * radial_grid[na, :]
+            int_ir = G_ir * 4 * np.pi * np.sin(k * r_j[na, :]) / k * r_j[na, :]
             int_ir = (int_ir[:, 1:] + int_ir[:, :-1]) / 2
             val_i = np.sum(int_ir * dr_j[na, :], axis=1)
             G_iG[:, ik] = val_i
             
         from scipy.interpolate import spline
 
-        inter_iG = lambda K_G, i: spline(ks, G_iG[i, :], K_G)
+        inter_iG = lambda i, K_G: spline(ks, G_iG[i, :], K_G)
 
         return inter_iG
 
@@ -630,7 +781,7 @@ class WDA(XCFunctional):
         from scipy.special import gamma
 
         def get_G_r(ni):
-            exc = self.get_lda_xc(self, ni, spin)
+            exc = self.get_lda_xc(ni, spin)
             lambd = -3 * gamma(3 / 5) / (2 * gamma(2 / 5) * exc)
             C = -3 / (4 * np.pi * gamma(2 / 5) * ni * lambd**3)
         
