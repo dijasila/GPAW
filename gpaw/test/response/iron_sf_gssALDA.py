@@ -61,13 +61,13 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 fxckwargs = {'rshe': None, 'fxc_scaling': fxc_scaling}
-for q in range(2):
-    tms = TransverseMagneticSusceptibility('Fe',
-                                           fxc=fxc,
-                                           eta=eta,
-                                           ecut=ecut,
-                                           fxckwargs=fxckwargs)
+tms = TransverseMagneticSusceptibility('Fe',
+                                       fxc=fxc,
+                                       eta=eta,
+                                       ecut=ecut,
+                                       fxckwargs=fxckwargs)
 
+for q in range(2):
     tms.get_macroscopic_component('+-', q_qc[q], frq_qw[q],
                                   filename='iron_dsus' + '_%d.csv' % (q + 1))
     tms.write_timer()
