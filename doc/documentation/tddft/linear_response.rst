@@ -42,6 +42,32 @@ The dipole spectrum can be evaluated from the Omega matrix and written to a file
   photoabsorption_spectrum(lr, 'spectrum_w.05eV.dat', # data file name
                            width=0.05)                # width in eV
 
+
+The spectrum may be also extracted and plotted in energy or
+wavelength directly::
+
+  import pylab as plt
+  from gpaw.lrtddft import LrTDDFT
+  from gpaw.lrtddft.spectrum import get_folded_spectrum
+
+  lr = LrTDDFT('lr.dat.gz')
+
+  plt.subplot(121)
+  # spectrum in energy
+  x, y = get_folded_spectrum(lr, width=0.05)
+  plt.plot(x, y[:, 0])
+  plt.xlabel('energy [eV]')
+  plt.ylabel('folded oscillator strength')
+
+  plt.subplot(122)
+  # spectrum in wavelengths
+  x, y = get_folded_spectrum(lr, energyunit='nm', width=10)
+  plt.plot(x, y[:, 0])
+  plt.xlabel('wavelength [nm]')
+
+  plt.show()
+
+
 Testing convergence
 ===================
 
