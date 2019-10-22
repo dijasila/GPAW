@@ -55,6 +55,8 @@ class EXX:
 
         self.symmetry_map_ss = create_symmetry_map(kd)
         self.inverse_s = self.symmetry_map_ss[:, 0]
+        U_scc = kd.symmetry.op_scc
+        assert (U_scc[0] == np.eye(3, dtype=int)).all()
 
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
@@ -89,7 +91,7 @@ class EXX:
             if derivatives:
                 v1_nG = v_knG[i1]
                 v1_ani = v_kani[i1]
-                if count > 1:#????:
+                if kpts1 is kpts2:
                     v2_nG = v_knG[i2]
                     v2_ani = v_kani[i2]
 
@@ -102,11 +104,14 @@ class EXX:
                                                k1.f_n,
                                                k2.f_n,
                                                s,
+                                               count,
                                                v1_nG, v1_ani,
                                                v2_nG, v2_ani)
 
-            # print(i1, i2, s,
-            #       k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count)#, e_nn, k1.f_n)
+            if 1:
+                print(i1, i2, s,
+                      k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count)
+                # , e_nn, k1.f_n)
             e_nn *= count
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             exxvv -= 0.5 * e
@@ -145,6 +150,9 @@ class EXX:
                     ekin += np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ni).real
                 self.pt.add(w_nG, v1_ani, kpt.psit.kpt)
+                if 0:#kpts1 is kpts2:
+                    print('?')
+                    w_nG *= 0.5
 
         return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
 
@@ -157,6 +165,7 @@ class EXX:
                                index1, index2,
                                f1_n, f2_n,
                                s,
+                               count,
                                v1_nG=None,
                                v1_ani=None,
                                v2_nG=None,
@@ -201,15 +210,24 @@ class EXX:
                             v2_ani[a][n2] -= (v_ii.conj().dot(k1.proj[a][n1]) *
                                               f1_n[n1] * factor)
                     vrho_R = ghat.pd.ifft(vrho_G)
-                    v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
-                        vrho_R * k2.u_nR[n2], index1, local=True)
-                    if k1 is k2 and n1 != n2:
-                        v1_nG[n2] -= f2_n[n1] * factor * pd1.fft(
-                            vrho_R.conj() * k2.u_nR[n1], index1, local=True)
-                    if v2_nG is not None:
-                        T = T or self.symmetry_operation(s)
-                        v2_nG[n2] -= f1_n[n1] * factor * pd2.fft(
-                            T(vrho_R.conj() * u1_R), index2, local=True)
+                    if v2_nG is None:
+                        v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
+                            vrho_R * k2.u_nR[n2], index1, local=True)
+                    else:
+                        if k1 is k2:
+                            v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
+                                vrho_R * k2.u_nR[n2], index1, local=True)
+                            if n1 != n2:
+                                v1_nG[n2] -= f2_n[n1] * factor * pd1.fft(
+                                    vrho_R.conj() * k2.u_nR[n1], index1,
+                                    local=True)
+                        else:
+                            v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
+                                vrho_R * k2.u_nR[n2], index1, local=True)
+                            if s == 0:
+                                v2_nG[n2] -= f1_n[n1] * factor * pd2.fft(
+                                    vrho_R.conj() * u1_R, index2,
+                                    local=True)
 
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
@@ -319,15 +337,23 @@ class EXX:
         time_reversal = s >= nsym
         s %= nsym
         U_cc = U_scc[s]
+        # print(s, U_cc, time_reversal)
 
-        if (U_cc == np.eye(3)).all() and not time_reversal:
-            return lambda a_R: a_R
+        if (U_cc == np.eye(3, dtype=int)).all():
+            def T(a_R):
+                return a_R
+        else:
+            N_c = self.N_c
+            i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
+            i = np.ravel_multi_index(i_cr, N_c, 'wrap')
 
-        N_c = self.N_c
-        i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
-        i = np.ravel_multi_index(i_cr, N_c, 'wrap')
+            def T(a_R):
+                return a_R.ravel()[i].reshape(N_c)
 
-        return lambda a_R: a_R.ravel()[i].reshape(N_c)
+        if time_reversal:
+            return lambda a_R: T(a_R).conj()
+
+        return T
 
     def apply_symmetry(self, s: int, rsk):
         U_scc = self.kd.symmetry.op_scc

@@ -12,6 +12,7 @@ def test(kpts, setup, spinpol, symmetry):
                   setups=setup,
                   kpts=kpts,
                   spinpol=spinpol,
+                  #nbands=1,
                   symmetry=symmetry,
                   txt=None,
                   xc='PBE')
@@ -33,26 +34,29 @@ def check(atoms, xc):
     xc2.calculate()
     e0 = xc2.get_exx_energy()
     eps0 = xc2.get_eigenvalue_contributions()
-    # print('B', eps0)
+    print('B', eps0)
     assert np.allclose(eps0, xc1.e_skn * Ha)
     # print(e0, e[0] + e[1])
     assert np.allclose(e0, e[0] + e[1])
     # print(xc1.description)
     ecv, evv, v_skn = xc1.test()
-    # print('C', v_skn)
+    print('C', v_skn)
     assert np.allclose(e0, ecv + evv)
+    #print(v_skn / eps0)
     assert np.allclose(v_skn, eps0)
 
 
 def main():
     for spinpol in [False,
-                    True]:
+                    True
+                    ]:
         for setup in ['ae',
-                      'paw']:
+                      #'paw'
+                      ]:
             for symmetry in ['off',
                              {}]:
                 for kpts in [
-                    (1, 1, 1),
+                    #(1, 1, 1),
                     (1, 1, 2),
                     (1, 1, 3),
                     (1, 1, 4),
