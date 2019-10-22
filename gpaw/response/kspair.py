@@ -884,16 +884,21 @@ class KohnShamPair:
 
         # Receive data
         rrequests = []
-        for r1, (eps_rt, f_rt,
-                 P_rtI, psit_rtG) in enumerate(zip(eps_r1rt, f_r1rt,
-                                                   P_r1rtI, psit_r1rtG)):
-            # Check if there is any data to receive
-            if r1 != rank and eps_rt is not None:
-                rreq1 = self.world.receive(eps_rt, r1, tag=201, block=False)
-                rreq2 = self.world.receive(f_rt, r1, tag=202, block=False)
-                rreq3 = self.world.receive(P_rtI, r1, tag=203, block=False)
-                rreq4 = self.world.receive(psit_rtG, r1, tag=204, block=False)
-                rrequests += [rreq1, rreq2, rreq3, rreq4]
+        if eps_r1rt is not None:  # The process may not be receiving anything
+            for r1, (eps_rt, f_rt,
+                     P_rtI, psit_rtG) in enumerate(zip(eps_r1rt, f_r1rt,
+                                                       P_r1rtI, psit_r1rtG)):
+                # Check if there is any data to receive
+                if r1 != rank and eps_rt is not None:
+                    rreq1 = self.world.receive(eps_rt, r1,
+                                               tag=201, block=False)
+                    rreq2 = self.world.receive(f_rt, r1,
+                                               tag=202, block=False)
+                    rreq3 = self.world.receive(P_rtI, r1,
+                                               tag=203, block=False)
+                    rreq4 = self.world.receive(psit_rtG, r1,
+                                               tag=204, block=False)
+                    rrequests += [rreq1, rreq2, rreq3, rreq4]
 
         # Send data
         srequests = []
