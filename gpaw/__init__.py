@@ -19,6 +19,9 @@ arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 # want to use the extension from the distutils build directory:
 sys.path.insert(0, join(build_path, 'lib.' + arch))
 
+if 'OMP_NUM_THREADS' not in os.environ:
+    os.environ['OMP_NUM_THREAD'] = '1'
+
 from gpaw.broadcast_imports import broadcast_imports
 
 with broadcast_imports:

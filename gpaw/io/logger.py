@@ -107,6 +107,7 @@ class GPAWLogger(object):
         self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
         self('cores:  %d' % world.size)
+        self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
         if gpaw.debug:
             self('DEBUG MODE')

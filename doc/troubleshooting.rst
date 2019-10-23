@@ -11,7 +11,7 @@ XXX todo!
 
 If tests pass, and the parallel version is built, test the parallel code::
 
-    $ mpiexec -np 2 gpaw-python -c "import gpaw.mpi as mpi; print(mpi.rank)"
+    $ mpiexec -np 2 python3 -c "import gpaw.mpi as mpi; print(mpi.rank)"
     1
     0
 
