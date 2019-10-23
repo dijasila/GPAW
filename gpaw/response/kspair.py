@@ -160,9 +160,7 @@ class KohnShamPair:
 
     def check_calc_parallelisation(self):
         """Check how ground state calculation is distributed in memory"""
-        from gpaw.mpi import SerialCommunicator
-        cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator):
+        if self.calc.world.size == 1:
             return False
         else:
             assert self.world.rank == self.calc.wfs.world.rank
