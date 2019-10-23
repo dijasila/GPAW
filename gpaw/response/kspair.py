@@ -1491,6 +1491,38 @@ class KohnShamPair:
 
         return data
 
+    @timer('Extracting data from the ground state calculator object')
+    def serially_extract_kptdata(self, k_pc, n_t, s_t):
+        # All processes can access all data. Each process extracts it own data.
+        wfs = self.calc.wfs
+
+        # Do data extraction for the processes, which have data to extract
+        if self.kptblockcomm.rank in range(len(k_pc)):
+            k_c = k_pc[self.kptblockcomm.rank]
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+
+            # construct symmetry operators
+            # allocate arrays
+
+            (myu_eu, myn_euet,
+             myt_euet) = self.get_alt_serial_extraction_protocol(self, ik)  # raltXXX
+
+            for myu, myn_et, myt_et in zip(myu_eu, myn_euet, myt_euet):
+                # Extract eig_occ
+                # Extract projections
+                # Extract ut
+                pass
+
+            # Make also local n and s arrays for the KohnShamKPoint object
+            n_myt = np.empty(self.mynt, dtype=n_t.dtype)
+            n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
+            s_myt = np.empty(self.mynt, dtype=s_t.dtype)
+            s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
+
+            return (K, n_myt, s_myt, eps_myt, f_myt,
+                    ut_mytR, projections, shift_c)
+
     @timer('Identifying k-points')
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
