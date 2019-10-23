@@ -1,7 +1,6 @@
 """User provided customizations.
 
-Here one changes the default arguments for compiling _gpaw.so (serial)
-and gpaw-python (parallel).
+Here one changes the default arguments for compiling _gpaw.so.
 
 Here are all the lists that can be modified:
 
@@ -41,7 +40,7 @@ To append use the form
 # flake8: noqa
 
 # compiler = 'gcc'
-# mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
+# mpicompiler = 'mpicc'
 # mpilinker = 'mpicc'
 # platform_id = ''
 
