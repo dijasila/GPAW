@@ -1501,18 +1501,37 @@ class KohnShamPair:
             k_c = k_pc[self.kptblockcomm.rank]
             K = self.find_kpoint(k_c)
             ik = wfs.kd.bz2ibz_k[K]
+            (_, T, a_a, U_aii, shift_c,
+             time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
-            # construct symmetry operators
-            # allocate arrays
+            # Allocate data arrays
+            mynt = self.mynt
+            eps_myt = np.empty(mynt)
+            f_myt = np.empty(mynt)
+            P = wfs.kpt_u[0].projections.new(nbands=mynt)
+            ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
 
-            (myu_eu, myn_euet,
-             myt_euet) = self.get_alt_serial_extraction_protocol(self, ik)  # raltXXX
+            (myu_eu, myn_euct,
+             myt_euct) = self.get_alt_serial_extraction_protocol(self, ik,
+                                                                 n_t, s_t)  # raltXXX
 
-            for myu, myn_et, myt_et in zip(myu_eu, myn_euet, myt_euet):
-                # Extract eig_occ
-                # Extract projections
-                # Extract ut
-                pass
+            # Extract data from the ground state
+            for myu, myn_ct, myt_ct in zip(myu_eu, myn_euct, myt_euct):
+                kpt = wfs.kpt_u[myu]
+                eps_myt[myt_ct] = kpt.eps_n[myn_ct]
+                f_myt[myt_ct] = kpt.f_n[myn_ct]
+                P.array[myt_ct] = kpt.projections.array[myn_ct]
+
+                # Extract and symmetrize wave function
+                for myn, myt in zip(myn_ct, myt_ct):
+                    ut_mytR[myt] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+
+            # Symmetrize projections
+            for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, P.items()):
+                assert a1 == a2
+                np.dot(P_myti, U_ii, out=P_myti)
+                if time_reversal:
+                    np.conj(P_myti, out=P_myti)
 
             # Make also local n and s arrays for the KohnShamKPoint object
             n_myt = np.empty(self.mynt, dtype=n_t.dtype)
@@ -1520,8 +1539,42 @@ class KohnShamPair:
             s_myt = np.empty(self.mynt, dtype=s_t.dtype)
             s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
 
-            return (K, n_myt, s_myt, eps_myt, f_myt,
-                    ut_mytR, projections, shift_c)
+            return (K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, P, shift_c)
+
+    @timer('Create data extraction protocol')
+    def get_alt_serial_extraction_protocol(self, ik, n_t, s_t):  # ralt        XXX
+        """Figure out how to extract data efficiently.
+        For the serial communicator, all processes can access all data,
+        and resultantly, there is no need to send any data.
+        """
+        wfs = self.calc.wfs
+
+        # Only extract the transitions handled by the process itself
+        myt_myt = np.arange(self.tb - self.ta)
+        t_myt = range(self.ta, self.tb)
+        n_myt = n_t[t_myt]
+        s_myt = s_t[t_myt]
+
+        # In the ground state, kpts are indexed by u=(s, k)
+        myu_eu = []
+        myn_euct = []
+        myt_euct = []
+        for s in set(s_myt):
+            thiss_myt = s_myt == s
+            myt_ct = myt_myt[thiss_myt]
+            n_ct = n_myt[thiss_myt]
+
+            # Find out where data is in wfs
+            u = wfs.kd.where_is(s, ik)
+            # The process has access to all data
+            myu = u
+            myn_ct = n_ct
+
+            myu_eu.append(myu)
+            myn_euct.append(myn_ct)
+            myt_euct.append(myt_ct)
+
+        return myu_eu, myn_euct, myt_euct
 
     @timer('Identifying k-points')
     def find_kpoint(self, k_c):
