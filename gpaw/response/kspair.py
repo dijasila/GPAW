@@ -259,11 +259,12 @@ class KohnShamPair:
         """Get KohnShamKPoint and help other processes extract theirs"""
         assert len(n_t) == len(s_t)
         assert len(k_pc) <= self.kptblockcomm.size
-
         kpt = None
-        # Extract data for the process' own k-point and help other processes
-        # extract their data.
-        kptdata = self.extract_kptdata(k_pc, n_t, s_t)
+
+        # Use the data extraction factory to extract the kptdata
+        _extract_kptdata = self.create_extract_kptdata()
+        kptdata = _extract_kptdata(k_pc, n_t, s_t)
+
         # Initiate k-point object.
         if self.kptblockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
@@ -271,22 +272,21 @@ class KohnShamPair:
 
         return kpt
 
-    def extract_kptdata(self, k_pc, n_t, s_t):  # to be redesigned             XXX
-        # Temporary factory method
+    def create_extract_kptdata(self):
+        """Creator component of the data extraction factory."""
         if self.calc_parallel:
-            # return self.old_extract_kptdata(k_pc, n_t, s_t)
-            return self.new_extract_kptdata(k_pc, n_t, s_t)
+            return self.parallel_extract_kptdata
         else:
-            # have simple serial option                                        XXX
-            return self.new_extract_kptdata(k_pc, n_t, s_t)
+            return self.serial_extract_kptdata
+            # return self.parallel_extract_kptdata
 
-    def new_extract_kptdata(self, k_pc, n_t, s_t):  # rnew                     XXX
+    def parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
         """
         # Extract the data from the ground state calculator object
-        data = self._newer_extract_kptdata(k_pc, n_t, s_t)  # rnewer           XXX
+        data = self._parallel_extract_kptdata(k_pc, n_t, s_t)
 
         # Unpack data and apply transformation and symmetrization
         if self.kptblockcomm.rank in range(len(k_pc)):
@@ -306,7 +306,7 @@ class KohnShamPair:
                     ut_mytR, projections, shift_c)
 
     @timer('Extracting data from the ground state calculator object')
-    def _newer_extract_kptdata(self, k_pc, n_t, s_t):
+    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
         # Wait for previous communication to finish
         with self.timer('Waiting to complete mpi.send'):
             while self.srequests:
@@ -712,6 +712,7 @@ class KohnShamPair:
         return (eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG,
                 eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG)
 
+    '''
     def old_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed            XXX
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
@@ -750,7 +751,6 @@ class KohnShamPair:
             # return self._extract_kptdata  # try new functionality            XXX
             return self._new_extract_kptdata  # try newer functionality        XXX
 
-    '''
     @timer('Sorting extracted data based on destination')
     def _new_extract_kptdata(self, k_pc, n_t, s_t):  # remove                  XXX
         """Do actual extraction"""
@@ -1403,7 +1403,6 @@ class KohnShamPair:
             data += (eps_myt, f_myt, ut_mytR, P)
 
         return data
-    '''
 
     def extract_parallel_kptdata(self, k_pc, n_t, s_t):  # to be removed       XXX
         """Get the (n, k, s) Kohn-Sham eigenvalues, occupations,
@@ -1490,9 +1489,10 @@ class KohnShamPair:
             data += (eps_myt, f_myt, ut_mytR, P)
 
         return data
+    '''
 
     @timer('Extracting data from the ground state calculator object')
-    def serially_extract_kptdata(self, k_pc, n_t, s_t):
+    def serial_extract_kptdata(self, k_pc, n_t, s_t):
         # All processes can access all data. Each process extracts it own data.
         wfs = self.calc.wfs
 
@@ -1512,8 +1512,7 @@ class KohnShamPair:
             ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
 
             (myu_eu, myn_euct,
-             myt_euct) = self.get_alt_serial_extraction_protocol(self, ik,
-                                                                 n_t, s_t)  # raltXXX
+             myt_euct) = self.get_alt_serial_extraction_protocol(ik, n_t, s_t)  # raltXXX
 
             # Extract data from the ground state
             for myu, myn_ct, myt_ct in zip(myu_eu, myn_euct, myt_euct):
@@ -1580,6 +1579,7 @@ class KohnShamPair:
     def find_kpoint(self, k_c):
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
+    '''
     def who_has(self, p, t):  # remove?                                        XXX
         """Convert k-point and transition index to global world rank
         and local transition index"""
@@ -1603,6 +1603,7 @@ class KohnShamPair:
         P_I = kpt.projections.array[myn]
 
         return eps, f, ut_R, P_I
+    '''
 
     @timer('Apply symmetry operations')
     def transform_and_symmetrize(self, K, k_c, projections, psit_mytG):
