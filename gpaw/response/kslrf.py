@@ -473,7 +473,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def __init__(self, *args, eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
                  disable_non_symmorphic=True, bundle_integrals=True,
-                 kpointintegration='point integration', bundle_kptpairs=True,
+                 kpointintegration='point integration', bundle_kptpairs=False,
                  **kwargs):
         """Initialize the plane wave calculator mode.
         In plane wave mode, the linear response function is calculated for a

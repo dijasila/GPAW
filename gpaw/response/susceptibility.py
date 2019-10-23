@@ -24,7 +24,7 @@ class FourComponentSusceptibilityTensor:
                  eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
                  bandsummation='pairwise', nbands=None,
-                 bundle_integrals=True, bundle_kptpairs=True,
+                 bundle_integrals=True, bundle_kptpairs=False,
                  world=mpi.world, nblocks=1, txt=sys.stdout):
         """
         Currently, everything is in plane wave mode.
