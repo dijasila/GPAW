@@ -337,12 +337,11 @@ class KohnShamPair:
     @timer('Extracting data from the ground state calculator object')
     def _newer_extract_kptdata(self, k_pc, n_t, s_t):
 
-        get_extraction_protocol = self.create_get_newer_extraction_protocol()  # rnewer XXX
         (K_p, ik_p,  # remove ik_p?                                            XXX
          myu_eu, myn_euet,
          nrt_r2, ik_r2,  # remove ik_r2?                                       XXX
          et_eur2ret,
-         rt_eur2ret, myt_r1rt) = get_extraction_protocol(k_pc, n_t, s_t)
+         rt_eur2ret, myt_r1rt) = self.get_extraction_protocol(k_pc, n_t, s_t)
 
         nrt_r1 = [len(myt_rt) for myt_rt in myt_r1rt]  # move into protocol    XXX
         (eps_r1rt, f_r1rt,
@@ -379,6 +378,127 @@ class KohnShamPair:
                                         eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG)  #rnewXXX
         '''
 
+    @timer('Create data extraction protocol')
+    def get_extraction_protocol(self, k_pc, n_t, s_t):
+        """Figure out how to extract data efficiently.
+        For the serial communicator, all processes can access all data,
+        and resultantly, there is no need to send any data.
+        """
+        wfs = self.calc.wfs
+        get_extraction_info = self.create_get_extraction_info()
+
+        # Kpoint data
+        K_p = []
+        ik_p = []
+
+        # Extraction protocol
+        myu_eu = []
+        myn_euet = []
+
+        # Data distribution protocol
+        nrt_r2 = np.zeros(self.world.size, dtype=np.int)
+        ik_r2 = [None for _ in range(self.world.size)]
+        et_eur2ret = []
+        rt_eur2ret = []
+        myt_r1rt = [list([]) for _ in range(self.world.size)]
+
+        nt = len(n_t)
+        assert nt == len(s_t)
+        t_t = np.arange(nt)
+        rtm_r2 = - np.ones(self.world.size, dtype=np.int)
+        for p, k_c in enumerate(k_pc):  # p indicates the receiving process
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+            K_p.append(K)
+            ik_p.append(ik)
+            for r2 in range(p * self.transitionblockscomm.size,
+                            min((p + 1) * self.transitionblockscomm.size,
+                                self.world.size)):
+                ik_r2[r2] = ik
+
+            # Find out who should store the data in KSKPpoint
+            r2_t, myt_t = self.new_map_who_has(p, t_t)
+
+            # Find out how to extract data
+            # In the ground state, kpts are indexed by u=(s, k)
+            for s in set(s_t):
+                thiss_t = s_t == s
+                t_ct = t_t[thiss_t]
+                n_ct = n_t[thiss_t]
+                r2_ct, myt_ct = r2_t[t_ct], myt_t[t_ct]
+                et = 0
+
+                # Find out where data is in wfs
+                u = wfs.kd.where_is(s, ik)
+                myu, r1_ct, myn_ct = get_extraction_info(u, n_ct, r2_ct)
+
+                # If the process is extracting or receiving data,
+                # figure out how to do so
+                if self.world.rank in np.append(r1_ct, r2_ct):
+                    myn_et = []
+                    et_r2ret = [list([]) for _ in range(self.world.size)]
+                    rt_r2ret = [list([]) for _ in range(self.world.size)]
+                    for r1, myn, r2, myt in zip(r1_ct, myn_ct, r2_ct, myt_ct):
+
+                        if self.world.rank == r1:  # process should extract
+                            myn_et.append(myn)
+                            nrt_r2[r2] += 1
+                            et_r2ret[r2].append(et)
+                            rtm_r2[r2] += 1
+                            rt_r2ret[r2].append(rtm_r2[r2])
+
+                            et += 1
+
+                        if self.world.rank == r2:  # process should receive
+                            myt_r1rt[r1].append(myt)
+
+                    if myn_et:  # process has something to extract
+                        myu_eu.append(myu)
+                        myn_euet.append(myn_et)
+                        et_eur2ret.append(et_r2ret)
+                        rt_eur2ret.append(rt_r2ret)
+
+        return (K_p, ik_p, myu_eu, myn_euet,  # remove ik_p, ik_r2?            XXX
+                nrt_r2, ik_r2, et_eur2ret, rt_eur2ret, myt_r1rt)
+
+    def create_get_extraction_info(self):
+        """Creator component of the extraction information factory."""
+        from gpaw.mpi import SerialCommunicator
+        cworld = self.calc.world
+        if isinstance(cworld, SerialCommunicator):
+            return self.get_serial_extraction_info
+        else:
+            assert self.world.rank == self.calc.wfs.world.rank
+            assert self.calc.wfs.gd.comm.size == 1
+            return self.get_parallel_extraction_info
+
+    @staticmethod
+    def get_serial_extraction_info(u, n_ct, r2_ct):
+        """Figure out where to extract the data from in the gs calc"""
+        # Let the process extract its own data
+        myu = u  # The process has access to all data
+        r1_ct = r2_ct
+        myn_ct = n_ct
+
+        return myu, r1_ct, myn_ct
+
+    def get_parallel_extraction_info(self, u, n_ct, *unused):
+        """Figure out where to extract the data from in the gs calc"""
+        wfs = self.calc.wfs
+        # Find out where data is in wfs
+        kptrank, myu = wfs.kd.who_has(u)
+        r1_ct, myn_ct = [], []
+        for n in n_ct:
+            bandrank, myn = wfs.bd.who_has(n)
+            # XXX this will fail when using non-standard nesting
+            # of communicators.
+            r1 = (kptrank * wfs.gd.comm.size * wfs.bd.comm.size
+                  + bandrank * wfs.gd.comm.size)
+            r1_ct.append(r1)
+            myn_ct.append(myn)
+
+        return myu, r1_ct, myn_ct
+    '''
     def create_get_newer_extraction_protocol(self):  # rnewer                  XXX
         """Creator component of the extract k-point data factory."""
         from gpaw.mpi import SerialCommunicator
@@ -578,6 +698,7 @@ class KohnShamPair:
 
         return (K_p, ik_p, myu_eu, myn_euet,
                 nrt_r2, ik_r2, et_eur2ret, rt_eur2ret, myt_r1rt)
+    '''
 
     @timer('Allocate transfer arrays')
     def allocate_transfer_arrays(self, nrt_r2, ik_r2, nrt_r1, ik_p):  # remove ik_r2?        XXX
