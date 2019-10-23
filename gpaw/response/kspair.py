@@ -1517,20 +1517,22 @@ class KohnShamPair:
             # Extract data from the ground state
             for myu, myn_ct, myt_ct in zip(myu_eu, myn_euct, myt_euct):
                 kpt = wfs.kpt_u[myu]
-                eps_myt[myt_ct] = kpt.eps_n[myn_ct]
-                f_myt[myt_ct] = kpt.f_n[myn_ct]
-                P.array[myt_ct] = kpt.projections.array[myn_ct]
+                with self.timer('Extracting eps, f and P_I from wfs'):
+                    eps_myt[myt_ct] = kpt.eps_n[myn_ct]
+                    f_myt[myt_ct] = kpt.f_n[myn_ct] / kpt.weight
+                    P.array[myt_ct] = kpt.projections.array[myn_ct]
 
-                # Extract and symmetrize wave function
-                for myn, myt in zip(myn_ct, myt_ct):
-                    ut_mytR[myt] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+                with self.timer('Extracting and symmetrizing wave function'):
+                    for myn, myt in zip(myn_ct, myt_ct):
+                        ut_mytR[myt] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
 
             # Symmetrize projections
-            for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, P.items()):
-                assert a1 == a2
-                np.dot(P_myti, U_ii, out=P_myti)
-                if time_reversal:
-                    np.conj(P_myti, out=P_myti)
+            with self.timer('Apply symmetry operations'):
+                for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, P.items()):
+                    assert a1 == a2
+                    np.dot(P_myti, U_ii, out=P_myti)
+                    if time_reversal:
+                        np.conj(P_myti, out=P_myti)
 
             # Make also local n and s arrays for the KohnShamKPoint object
             n_myt = np.empty(self.mynt, dtype=n_t.dtype)
