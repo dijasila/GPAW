@@ -1522,7 +1522,8 @@ class KohnShamPair:
                     f_myt[myt_ct] = kpt.f_n[myn_ct] / kpt.weight
                     P.array[myt_ct] = kpt.projections.array[myn_ct]
 
-                with self.timer('Extracting and symmetrizing wave function'):
+                with self.timer('Extracting, fourier transforming and '
+                                'symmetrizing wave function'):
                     for myn, myt in zip(myn_ct, myt_ct):
                         ut_mytR[myt] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
 
@@ -1631,6 +1632,7 @@ class KohnShamPair:
 
         return projections, ut_mytR, shift_c
 
+    '''
     @timer('Apply symmetry operations')
     def apply_symmetry_operations(self, K, k_c, ut_mytR, projections):  # tbr  XXX
         """Symmetrize wave functions and projections.
@@ -1651,6 +1653,7 @@ class KohnShamPair:
                 np.conj(P_myti, out=P_myti)
 
         return ut_mytR, projections, shift_c
+    '''
 
     @timer('Construct symmetry operators')
     def construct_symmetry_operators(self, K, k_c=None):
