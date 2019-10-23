@@ -130,6 +130,7 @@ class KohnShamPair:
         self.fd = convert_string_to_fd(txt, world)
         self.timer = timer or Timer()
         self.calc = get_calc(gs, fd=self.fd, timer=self.timer)
+        self.calc_parallel = self.check_calc_parallelisation()
 
         self.transitionblockscomm = transitionblockscomm
         self.kptblockcomm = kptblockcomm
@@ -156,6 +157,17 @@ class KohnShamPair:
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
         self.count_occupied_bands()
+
+    def check_calc_parallelisation(self):
+        """Check how ground state calculation is distributed in memory"""
+        from gpaw.mpi import SerialCommunicator
+        cworld = self.calc.world
+        if isinstance(cworld, SerialCommunicator):
+            return False
+        else:
+            assert self.world.rank == self.calc.wfs.world.rank
+            assert self.calc.wfs.gd.comm.size == 1
+            return True
 
     def count_occupied_bands(self):
         """Count number of occupied and unoccupied bands in ground state
@@ -300,13 +312,10 @@ class KohnShamPair:
 
     def extract_kptdata(self, k_pc, n_t, s_t):  # to be redesigned             XXX
         # Temporary factory method
-        from gpaw.mpi import SerialCommunicator
-        cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator):
+        if self.calc_parallel:
+            # return self.old_extract_kptdata(k_pc, n_t, s_t)
             return self.new_extract_kptdata(k_pc, n_t, s_t)
         else:
-            assert self.world.rank == self.calc.wfs.world.rank
-            # return self.old_extract_kptdata(k_pc, n_t, s_t)
             return self.new_extract_kptdata(k_pc, n_t, s_t)
 
     def new_extract_kptdata(self, k_pc, n_t, s_t):  # rnew                     XXX
@@ -463,14 +472,10 @@ class KohnShamPair:
 
     def create_get_extraction_info(self):
         """Creator component of the extraction information factory."""
-        from gpaw.mpi import SerialCommunicator
-        cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator):
-            return self.get_serial_extraction_info
-        else:
-            assert self.world.rank == self.calc.wfs.world.rank
-            assert self.calc.wfs.gd.comm.size == 1
+        if self.calc_parallel:
             return self.get_parallel_extraction_info
+        else:
+            return self.get_serial_extraction_info
 
     @staticmethod
     def get_serial_extraction_info(u, n_ct, r2_ct):
@@ -777,15 +782,12 @@ class KohnShamPair:
 
     def create_extract_kptdata(self):  # to be removed                         XXX
         """Creator component of the extract k-point data factory."""
-        from gpaw.mpi import SerialCommunicator
-        cworld = self.calc.world
-        if isinstance(cworld, SerialCommunicator):
+        if self.calc_parallel:
+            return self.extract_parallel_kptdata
+        else:
             # return self.extract_serial_kptdata
             # return self._extract_kptdata  # try new functionality            XXX
             return self._new_extract_kptdata  # try newer functionality        XXX
-        else:
-            assert self.world.rank == self.calc.wfs.world.rank
-            return self.extract_parallel_kptdata
 
     '''
     @timer('Sorting extracted data based on destination')
