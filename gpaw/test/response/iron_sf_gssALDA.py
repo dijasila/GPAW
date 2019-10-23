@@ -52,7 +52,7 @@ calc = GPAW(xc=xc,
             nbands=nb,
             symmetry={'point_group': False},
             idiotproof=False,
-            parallel={'band': 1})
+            parallel={'domain': 1})
 
 Febcc.set_calculator(calc)
 Febcc.get_potential_energy()
