@@ -148,6 +148,10 @@ class KohnShamPair:
         # Prepare to use other processes' k-points
         self._pd0 = None
 
+        # Prepare to redistribute kptdata
+        self.rrequests = []
+        self.srequests = []
+
         # Count bands so it is possible to remove null transitions
         self.nocc1 = None  # number of completely filled bands
         self.nocc2 = None  # number of non-empty bands
@@ -303,7 +307,11 @@ class KohnShamPair:
 
     @timer('Extracting data from the ground state calculator object')
     def _newer_extract_kptdata(self, k_pc, n_t, s_t):
-        
+        # Wait for previous communication to finish
+        with self.timer('Waiting to complete mpi.send'):
+            while self.srequests:
+                self.world.wait(self.srequests.pop(0))
+
         (data, myu_eu,
          myn_euet, nrt_r2,
          ik_r2, et_eur2ret,
@@ -959,7 +967,6 @@ class KohnShamPair:
             psit_r1rtG[rank] = psit_r2rtG[rank]
 
         # Send data
-        srequests = []
         for r2, (eps_rt, f_rt,
                  P_rtI, psit_rtG) in enumerate(zip(eps_r2rt, f_r2rt,
                                                    P_r2rtI, psit_r2rtG)):
@@ -969,10 +976,9 @@ class KohnShamPair:
                 sreq2 = self.world.send(f_rt, r2, tag=202, block=False)
                 sreq3 = self.world.send(P_rtI, r2, tag=203, block=False)
                 sreq4 = self.world.send(psit_rtG, r2, tag=204, block=False)
-                srequests += [sreq1, sreq2, sreq3, sreq4]
+                self.srequests += [sreq1, sreq2, sreq3, sreq4]
 
         # Receive data
-        rrequests = []
         if eps_r1rt is not None:  # The process may not be receiving anything
             for r1, (eps_rt, f_rt,
                      P_rtI, psit_rtG) in enumerate(zip(eps_r1rt, f_r1rt,
@@ -987,17 +993,11 @@ class KohnShamPair:
                                                tag=203, block=False)
                     rreq4 = self.world.receive(psit_rtG, r1,
                                                tag=204, block=False)
-                    rrequests += [rreq1, rreq2, rreq3, rreq4]
+                    self.rrequests += [rreq1, rreq2, rreq3, rreq4]
 
         with self.timer('Waiting to complete mpi.receive'):
-            # Be sure all data has been received
-            for request in rrequests:
-                self.world.wait(request)
-
-        with self.timer('Waiting to complete mpi.send'):
-            # Be sure all data is sent -> this may not make any difference     XXX
-            for request in srequests:
-                self.world.wait(request)
+            while self.rrequests:
+                self.world.wait(self.rrequests.pop(0))
 
     @timer('Collecting kptdata')
     def newer_collect_kptdata(self, data, myt_r1rt,
