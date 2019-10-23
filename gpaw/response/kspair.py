@@ -958,6 +958,19 @@ class KohnShamPair:
             P_r1rtI[rank] = P_r2rtI[rank]
             psit_r1rtG[rank] = psit_r2rtG[rank]
 
+        # Send data
+        srequests = []
+        for r2, (eps_rt, f_rt,
+                 P_rtI, psit_rtG) in enumerate(zip(eps_r2rt, f_r2rt,
+                                                   P_r2rtI, psit_r2rtG)):
+            # Check if there is any data to send
+            if r2 != rank and eps_rt is not None:
+                sreq1 = self.world.send(eps_rt, r2, tag=201, block=False)
+                sreq2 = self.world.send(f_rt, r2, tag=202, block=False)
+                sreq3 = self.world.send(P_rtI, r2, tag=203, block=False)
+                sreq4 = self.world.send(psit_rtG, r2, tag=204, block=False)
+                srequests += [sreq1, sreq2, sreq3, sreq4]
+
         # Receive data
         rrequests = []
         if eps_r1rt is not None:  # The process may not be receiving anything
@@ -976,25 +989,14 @@ class KohnShamPair:
                                                tag=204, block=False)
                     rrequests += [rreq1, rreq2, rreq3, rreq4]
 
-        # Send data
-        srequests = []
-        for r2, (eps_rt, f_rt,
-                 P_rtI, psit_rtG) in enumerate(zip(eps_r2rt, f_r2rt,
-                                                   P_r2rtI, psit_r2rtG)):
-            # Check if there is any data to send
-            if r2 != rank and eps_rt is not None:
-                sreq1 = self.world.send(eps_rt, r2, tag=201, block=False)
-                sreq2 = self.world.send(f_rt, r2, tag=202, block=False)
-                sreq3 = self.world.send(P_rtI, r2, tag=203, block=False)
-                sreq4 = self.world.send(psit_rtG, r2, tag=204, block=False)
-                srequests += [sreq1, sreq2, sreq3, sreq4]
-
-        with self.timer('Waiting for MPI requests'):
-            # Be sure all data is sent -> this may not make any difference     XXX
-            for request in srequests:
-                self.world.wait(request)
+        with self.timer('Waiting to complete mpi.receive'):
             # Be sure all data has been received
             for request in rrequests:
+                self.world.wait(request)
+
+        with self.timer('Waiting to complete mpi.send'):
+            # Be sure all data is sent -> this may not make any difference     XXX
+            for request in srequests:
                 self.world.wait(request)
 
     @timer('Collecting kptdata')
