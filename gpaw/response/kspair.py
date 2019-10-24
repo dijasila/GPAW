@@ -13,14 +13,16 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, K, h_t, n_h, s_h,
+    def __init__(self, h_t, n_h, s_h, K,
                  eps_h, f_h, ut_hR, hprojections, shift_c):
         """K-point data is indexed by a joint spin and band index h, which is
         directly related to the transition index t."""
-        self.K = K                      # BZ k-point index
         self.h_t = h_t                  # Transition h-index map
+
+        self.K = K                      # BZ k-point index
         self.n_h = n_h                  # Band index
         self.s_h = s_h                  # Spin index
+
         self.eps_h = eps_h              # Eigenvalues
         self.f_h = f_h                  # Occupation numbers
         self.ut_hR = ut_hR              # Periodic part of wave functions
@@ -289,6 +291,11 @@ class KohnShamPair:
         assert len(k_pc) <= self.kptblockcomm.size
         kpt = None
 
+        # Identify unique h = (n, s) indeces
+        h_t, n_myt, s_myt = self.get_transition_index_map(n_t, s_t)
+        # myh_myt = range(len(set(h_t[self.ta:self.tb])))
+        myh_myt = range(self.mynt)  # for testing, remove                      XXX
+
         # Use the data extraction factory to extract the kptdata
         _extract_kptdata = self.create_extract_kptdata()
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
@@ -296,9 +303,50 @@ class KohnShamPair:
         # Initiate k-point object.
         if self.kptblockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
-            kpt = KohnShamKPoint(*kptdata)
+            kpt = KohnShamKPoint(myh_myt, n_myt, s_myt, *kptdata)
 
         return kpt
+
+    @timer('Creating transition index mapping')
+    def get_transition_index_map(self, n_t, s_t):
+        """Make a joint h = (n, s) map for the transitions each process
+        is handling."""
+        nt = len(n_t)
+        # Figure out unique (n, s) indeces for each transition array
+        h_t = []
+        h = 0
+        for trank in range(self.transitionblockscomm.size):
+            ta = min(trank * self.mynt, nt)
+            tb = min(ta + self.mynt, nt)
+
+            n_itst = n_t[ta:tb]
+            s_itst = s_t[ta:tb]
+
+            # Find unique combinations
+            h_itst = []
+            h_itsh = []
+            ns_itsh = []
+            for n, s in zip(n_itst, s_itst):
+                ns = f'{n},{s}'
+                try:
+                    itsh = ns_itsh.index(ns)
+                    h_itst.append(h_itsh[itsh])
+                except ValueError:
+                    h += 1
+                    h_itst.append(h)
+                    h_itsh.append(h)
+                    ns_itsh.append(ns)
+
+            h_t += h_itst
+
+            if trank == self.transitionblockscomm.rank:
+                # Make local n and s arrays for the KohnShamKPoint object
+                n_myt = np.empty(self.mynt, dtype=n_t.dtype)
+                s_myt = np.empty(self.mynt, dtype=s_t.dtype)
+                n_myt[:tb - ta] = n_itst
+                s_myt[:tb - ta] = s_itst
+
+        return h_t, n_myt, s_myt
 
     def create_extract_kptdata(self):
         """Creator component of the data extraction factory."""
@@ -324,14 +372,7 @@ class KohnShamPair:
              shift_c) = self.transform_and_symmetrize(K, k_c, projections,
                                                       psit_mytG)
 
-            # Make also local n and s arrays for the KohnShamKPoint object
-            n_myt = np.empty(self.mynt, dtype=n_t.dtype)
-            n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
-            s_myt = np.empty(self.mynt, dtype=s_t.dtype)
-            s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
-
-            data = (K, range(self.mynt), n_myt, s_myt,
-                    eps_myt, f_myt, ut_mytR, projections, shift_c)
+            data = (K, eps_myt, f_myt, ut_mytR, projections, shift_c)
 
         # Wait for communication to finish
         with self.timer('Waiting to complete mpi.send'):
@@ -1566,14 +1607,7 @@ class KohnShamPair:
                     if time_reversal:
                         np.conj(P_myti, out=P_myti)
 
-            # Make also local n and s arrays for the KohnShamKPoint object
-            n_myt = np.empty(self.mynt, dtype=n_t.dtype)
-            n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
-            s_myt = np.empty(self.mynt, dtype=s_t.dtype)
-            s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
-
-            return (K, range(self.mynt), n_myt, s_myt,
-                    eps_myt, f_myt, ut_mytR, P, shift_c)
+            return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
     @timer('Create data extraction protocol')
     def get_alt_serial_extraction_protocol(self, ik, n_t, s_t):  # ralt        XXX
