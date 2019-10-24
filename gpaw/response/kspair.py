@@ -13,19 +13,47 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
-    def __init__(self, K, n_t, s_t, eps_t, f_t, ut_tR,
-                 projections, shift_c):
-        """K-point data is indexed by a transition index t."""
+    def __init__(self, K, h_t, n_h, s_h,
+                 eps_h, f_h, ut_hR, hprojections, shift_c):
+        """K-point data is indexed by a joint spin and band index h, which is
+        directly related to the transition index t."""
         self.K = K                      # BZ k-point index
-        self.n_t = n_t                  # Band index for each transition
-        self.s_t = s_t                  # Spin index for each transition
-        self.eps_t = eps_t              # Eigenvalues
-        self.f_t = f_t                  # Occupation numbers
-        self.ut_tR = ut_tR              # Periodic part of wave functions
-        self.projections = projections  # PAW projections
+        self.h_t = h_t                  # Transition h-index map
+        self.n_h = n_h                  # Band index
+        self.s_h = s_h                  # Spin index
+        self.eps_h = eps_h              # Eigenvalues
+        self.f_h = f_h                  # Occupation numbers
+        self.ut_hR = ut_hR              # Periodic part of wave functions
+        self.hprojections = hprojections  # PAW projections
 
         self.shift_c = shift_c  # long story - see the
         # PairDensity.construct_symmetry_operators() method
+
+    @property
+    def n_t(self):
+        return self.n_h[self.h_t]
+
+    @property
+    def s_t(self):
+        return self.s_h[self.h_t]
+
+    @property
+    def eps_t(self):
+        return self.eps_h[self.h_t]
+
+    @property
+    def f_t(self):
+        return self.f_h[self.h_t]
+
+    @property
+    def ut_tR(self):
+        return self.ut_hR[self.h_t]
+
+    @property
+    def projections(self):
+        P = self.hprojections.new(nbands=len(self.h_t))
+        P.array[:] = self.hprojections.array[self.h_t]
+        return P
 
 
 class KohnShamKPointPair:
@@ -302,8 +330,8 @@ class KohnShamPair:
             s_myt = np.empty(self.mynt, dtype=s_t.dtype)
             s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
 
-            data = (K, n_myt, s_myt, eps_myt, f_myt,
-                    ut_mytR, projections, shift_c)
+            data = (K, range(self.mynt), n_myt, s_myt,
+                    eps_myt, f_myt, ut_mytR, projections, shift_c)
 
         # Wait for communication to finish
         with self.timer('Waiting to complete mpi.send'):
@@ -1544,7 +1572,8 @@ class KohnShamPair:
             s_myt = np.empty(self.mynt, dtype=s_t.dtype)
             s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
 
-            return (K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, P, shift_c)
+            return (K, range(self.mynt), n_myt, s_myt,
+                    eps_myt, f_myt, ut_mytR, P, shift_c)
 
     @timer('Create data extraction protocol')
     def get_alt_serial_extraction_protocol(self, ik, n_t, s_t):  # ralt        XXX
