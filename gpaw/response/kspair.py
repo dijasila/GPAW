@@ -292,7 +292,8 @@ class KohnShamPair:
         kpt = None
 
         # Identify unique h = (n, s) indeces
-        h_t, n_h, s_h, n_myt, s_myt = self.get_transition_index_map(n_t, s_t)
+        (h_t, myh_myt, n_h,
+         trank_h, s_h, n_myt, s_myt) = self.get_transition_index_map(n_t, s_t)
         # myh_myt = range(len(set(h_t[self.ta:self.tb])))
         myh_myt = range(self.mynt)  # for testing, remove                      XXX
 
@@ -312,8 +313,9 @@ class KohnShamPair:
         """Make a joint h = (n, s) map for the transitions each process
         is handling."""
         nt = len(n_t)
-        # Figure out unique (n, s) indeces for each transition array
+        # Figure out unique (n, s) indeces for each transition
         h_t = []
+        trank_h = []
         n_h, s_h = [], []
         h = -1
         for trank in range(self.transitionblockscomm.size):
@@ -334,6 +336,7 @@ class KohnShamPair:
                     h_itst.append(h_itsh[itsh])
                 except ValueError:
                     h += 1
+                    trank_h.append(trank)
                     n_h.append(n)
                     s_h.append(s)
                     h_itst.append(h)
@@ -343,13 +346,16 @@ class KohnShamPair:
             h_t += h_itst
 
             if trank == self.transitionblockscomm.rank:
+                # Make local transition index map
+                myh_myt = np.zeros(self.mynt, dtype=np.int)
+                myh_myt[:tb - ta] = np.array(h_itst) - min(h_itst)
                 # Make local n and s arrays for the KohnShamKPoint object
                 n_myt = np.empty(self.mynt, dtype=n_t.dtype)
                 s_myt = np.empty(self.mynt, dtype=s_t.dtype)
                 n_myt[:tb - ta] = n_itst
                 s_myt[:tb - ta] = s_itst
 
-        return h_t, n_h, s_h, n_myt, s_myt
+        return h_t, myh_myt, trank_h, n_h, s_h, n_myt, s_myt
 
     def create_extract_kptdata(self):
         """Creator component of the data extraction factory."""
