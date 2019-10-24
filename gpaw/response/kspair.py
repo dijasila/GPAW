@@ -292,7 +292,7 @@ class KohnShamPair:
         kpt = None
 
         # Identify unique h = (n, s) indeces
-        h_t, n_myt, s_myt = self.get_transition_index_map(n_t, s_t)
+        h_t, n_h, s_h, n_myt, s_myt = self.get_transition_index_map(n_t, s_t)
         # myh_myt = range(len(set(h_t[self.ta:self.tb])))
         myh_myt = range(self.mynt)  # for testing, remove                      XXX
 
@@ -314,7 +314,8 @@ class KohnShamPair:
         nt = len(n_t)
         # Figure out unique (n, s) indeces for each transition array
         h_t = []
-        h = 0
+        n_h, s_h = [], []
+        h = -1
         for trank in range(self.transitionblockscomm.size):
             ta = min(trank * self.mynt, nt)
             tb = min(ta + self.mynt, nt)
@@ -333,6 +334,8 @@ class KohnShamPair:
                     h_itst.append(h_itsh[itsh])
                 except ValueError:
                     h += 1
+                    n_h.append(n)
+                    s_h.append(s)
                     h_itst.append(h)
                     h_itsh.append(h)
                     ns_itsh.append(ns)
@@ -346,7 +349,7 @@ class KohnShamPair:
                 n_myt[:tb - ta] = n_itst
                 s_myt[:tb - ta] = s_itst
 
-        return h_t, n_myt, s_myt
+        return h_t, n_h, s_h, n_myt, s_myt
 
     def create_extract_kptdata(self):
         """Creator component of the data extraction factory."""
