@@ -56,7 +56,7 @@ def main():
             for symmetry in ['off',
                              {}]:
                 for kpts in [
-                    #(1, 1, 1),
+                    (1, 1, 1),
                     (1, 1, 2),
                     (1, 1, 3),
                     (1, 1, 4),
@@ -65,11 +65,12 @@ def main():
                     [(0, 0, 0), (0, 0, 0.5)]]:
                     atoms = test(kpts, setup, spinpol, symmetry)
                     for xc in ['EXX',
-                               #'PBE0', 'HSE06'
+                               'PBE0', 'HSE06'
                                ]:
                         print(spinpol, setup, symmetry, kpts, xc,
                               len(atoms.calc.wfs.mykpts))
                         check(atoms, xc)
+                    #break
 
 
 main()

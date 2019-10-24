@@ -110,8 +110,8 @@ class EXX:
 
             if 1:
                 print(i1, i2, s,
-                      k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count)
-                # , e_nn, k1.f_n)
+                      k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count,
+                      e_nn[0, 0])
             e_nn *= count
             e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             exxvv -= 0.5 * e
@@ -150,9 +150,6 @@ class EXX:
                     ekin += np.einsum('n, ni, ni',
                                       kpt.f_n, P_ni.conj(), v_ni).real
                 self.pt.add(w_nG, v1_ani, kpt.psit.kpt)
-                if 0:#kpts1 is kpts2:
-                    print('?')
-                    w_nG *= 0.5
 
         return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
 
@@ -186,6 +183,7 @@ class EXX:
         S = self.comm.size
         for n1, u1_R in enumerate(k1.u_nR):
             n0 = n1 if k1 is k2 else 0
+            n0 = 0
             n2a = min(n0 + (N2 - n0 + S - 1) // S * self.comm.rank, N2)
             n2b = min(n2a + (N2 - n0 + S - 1) // S, N2)
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
@@ -214,20 +212,36 @@ class EXX:
                         v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
                     else:
-                        if k1 is k2:
-                            v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
-                                vrho_R * k2.u_nR[n2], index1, local=True)
-                            if n1 != n2:
-                                v1_nG[n2] -= f2_n[n1] * factor * pd1.fft(
-                                    vrho_R.conj() * k2.u_nR[n1], index1,
-                                    local=True)
-                        else:
+                        #if k1 is k2:
+                        x = factor * count / 2
+                        x1 = x / (self.kd.weight_k[index1] * self.kd.nbzkpts)
+                        x2 = x / (self.kd.weight_k[index2] * self.kd.nbzkpts)
+                        v1_nG[n1] -= f2_n[n2] * x1 * pd1.fft(
+                            vrho_R * k2.u_nR[n2], index1, local=True)
+                        T = T or self.symmetry_operation(
+                            self.inverse_s[s])
+                        v2_nG[n2] -= f1_n[n1] * x2 * pd2.fft(
+                            T(vrho_R.conj() * u1_R), index2,
+                            local=True)
+                        # if n1 != n2:
+                        #    v1_nG[n2] -= f2_n[n1] * factor * pd1.fft(
+                        #        vrho_R.conj() * k2.u_nR[n1], index1,
+                        #        local=True)
+                        # else:
+                        """
                             v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
                                 vrho_R * k2.u_nR[n2], index1, local=True)
                             if s == 0:
                                 v2_nG[n2] -= f1_n[n1] * factor * pd2.fft(
                                     vrho_R.conj() * u1_R, index2,
                                     local=True)
+                            elif count >= 4:
+                                T = T or self.symmetry_operation(
+                                    self.inverse_s[s])
+                                v2_nG[n2] -= f1_n[n1] * factor * pd2.fft(
+                                    T(vrho_R.conj() * u1_R), index2,
+                                    local=True)
+                        """
 
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
@@ -279,20 +293,29 @@ class EXX:
         pairs: Dict[Tuple[int, int, int], int]
 
         if kpts1 is kpts2:
-            pairs = defaultdict(int)
+            pairs1 = defaultdict(int)
             for i1 in range(kd.nibzkpts):
                 for s1 in symmetries_k[i1]:
                     for i2 in range(kd.nibzkpts):
                         for s2 in symmetries_k[i2]:
                             s3 = self.symmetry_map_ss[s1, s2]
                             if i1 < i2:
-                                pairs[(i1, i2, s3)] += 1
+                                pairs1[(i1, i2, s3)] += 1
                             else:
                                 s4 = self.inverse_s[s3]
                                 if i1 == i2:
-                                    pairs[(i1, i1, min(s3, s4))] += 1
+                                    pairs1[(i1, i1, min(s3, s4))] += 1
                                 else:
-                                    pairs[(i2, i1, s4)] += 1
+                                    pairs1[(i2, i1, s4)] += 1
+            pairs = {}
+            seen = {}
+            for (i1, i2, s), count in pairs1.items():
+                k2 = kd.bz2bz_ks[kd.ibz2bz_k[i2], s]
+                if (i1, k2) in seen:
+                    pairs[seen[(i1, k2)]] += count
+                else:
+                    pairs[(i1, i2, s)] = count
+                    seen[(i1, k2)] = (i1, i2, s)
         else:
             pairs = {}
             for i1 in range(len(kpts1)):
@@ -310,7 +333,7 @@ class EXX:
         lasti1 = -1
         lasti2 = -1
         for (i1, i2, s), count in sorted(pairs.items()):
-            assert count in {1, 2, 4}, count
+            #assert count in {1, 2, 4}, count
             if i1 != lasti1:
                 k1 = kpts1[i1]
                 u1_nR = to_real_space(k1.psit)
