@@ -12,7 +12,7 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
-* We are now using :mod:`setuptools` instead of :mod:`distutils`.
+* We are now using setuptools_ instead of :mod:`distutils`.
   This means that installation with pip works much better.
 
 * No more ``gpaw-python``.
@@ -49,7 +49,7 @@ Git master branch
 
       $ python3 -d script.py
 
-* Dry-run mode is enabled with::
+* Dry-run mode is now enabled with::
 
       $ gpaw python --dry-run=N script.py
 
@@ -58,6 +58,9 @@ Git master branch
 
 * Point-group symmetries now also used for non-periodic systems.
   Use ``symmetry={'point_group': False}`` if you don't want that.
+
+
+.. _setuptools: https://setuptools.readthedocs.io/en/latest/
 
 
 Version 19.8.1

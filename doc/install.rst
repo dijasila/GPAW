@@ -46,7 +46,6 @@ There are several ways to install GPAW:
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`
     * :ref:`troubleshooting`
-    * Important :ref:`envvars`
     * In case of trouble: :ref:`Our mail list and IRC channel <contact>`
 
 
@@ -98,7 +97,7 @@ This will compile and install GPAW (both ``_gpaw.so`` and all the Python
 files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
 Python can automatically find it.  Pip will also place
 the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
-make sure you have that in your :envvar:`PATH` environment variable.
+make sure you have that in your ``$PATH`` environment variable.
 
 Check that you have installed everything in the correct places::
 
@@ -228,7 +227,7 @@ Additionally a user may want to enable ScaLAPACK, setting in
     scalapack = True
 
 and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
-as described in :ref:`customizing installation`.
+as described in :ref:`siteconfig`.
 
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
