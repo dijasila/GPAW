@@ -302,16 +302,19 @@ class KohnShamPair:
             s_myt = np.empty(self.mynt, dtype=s_t.dtype)
             s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
 
-            return (K, n_myt, s_myt, eps_myt, f_myt,
+            data = (K, n_myt, s_myt, eps_myt, f_myt,
                     ut_mytR, projections, shift_c)
 
-    @timer('Extracting data from the ground state calculator object')
-    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
-        # Wait for previous communication to finish
+        # Wait for communication to finish
         with self.timer('Waiting to complete mpi.send'):
             while self.srequests:
                 self.world.wait(self.srequests.pop(0))
 
+        return data
+
+    @timer('Extracting data from the ground state calculator object')
+    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
+        """In-place kptdata extraction."""
         (data, myu_eu,
          myn_euet, nrt_r2,
          ik_r2, et_eur2ret,
