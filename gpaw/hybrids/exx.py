@@ -108,7 +108,7 @@ class EXX:
                                                v1_nG, v1_ani,
                                                v2_nG, v2_ani)
 
-            if 1:
+            if 0:
                 print(i1, i2, s,
                       k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count,
                       e_nn[0, 0])
@@ -196,52 +196,30 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
                 if v1_nG is not None:
-                    for a, v_xL in ghat.integrate(vrho_G).items():
-                        v_ii = self.Delta_aiiL[a].dot(v_xL[0])
-                        v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
-                                          f2_n[n2] * factor)
-                        if k1 is k2 and n1 != n2:
-                            v1_ani[a][n2] -= (v_ii.conj().dot(k2.proj[a][n1]) *
-                                              f2_n[n1] * factor)
-                        if v2_ani is not None:
-                            #assert s == 0
-                            v2_ani[a][n2] -= (v_ii.conj().dot(k1.proj[a][n1]) *
-                                              f1_n[n1] * factor)
                     vrho_R = ghat.pd.ifft(vrho_G)
                     if v2_nG is None:
                         v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
+                        for a, v_xL in ghat.integrate(vrho_G).items():
+                            v_ii = self.Delta_aiiL[a].dot(v_xL[0])
+                            v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
+                                              f2_n[n2] * factor)
                     else:
-                        #if k1 is k2:
                         x = factor * count / 2
                         x1 = x / (self.kd.weight_k[index1] * self.kd.nbzkpts)
                         x2 = x / (self.kd.weight_k[index2] * self.kd.nbzkpts)
                         v1_nG[n1] -= f2_n[n2] * x1 * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
-                        T = T or self.symmetry_operation(
-                            self.inverse_s[s])
+                        T = T or self.symmetry_operation(self.inverse_s[s])
                         v2_nG[n2] -= f1_n[n1] * x2 * pd2.fft(
                             T(vrho_R.conj() * u1_R), index2,
                             local=True)
-                        # if n1 != n2:
-                        #    v1_nG[n2] -= f2_n[n1] * factor * pd1.fft(
-                        #        vrho_R.conj() * k2.u_nR[n1], index1,
-                        #        local=True)
-                        # else:
-                        """
-                            v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
-                                vrho_R * k2.u_nR[n2], index1, local=True)
-                            if s == 0:
-                                v2_nG[n2] -= f1_n[n1] * factor * pd2.fft(
-                                    vrho_R.conj() * u1_R, index2,
-                                    local=True)
-                            elif count >= 4:
-                                T = T or self.symmetry_operation(
-                                    self.inverse_s[s])
-                                v2_nG[n2] -= f1_n[n1] * factor * pd2.fft(
-                                    T(vrho_R.conj() * u1_R), index2,
-                                    local=True)
-                        """
+                        for a, v_xL in ghat.integrate(vrho_G).items():
+                            v_ii = self.Delta_aiiL[a].dot(v_xL[0])
+                            v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
+                                              f2_n[n2] * x1)
+                            v2_ani[a][n2] -= (v_ii.conj().dot(k1.proj[a][n1]) *
+                                              f1_n[n1] * x2)
 
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 exx_nn[n1, n2] = e
