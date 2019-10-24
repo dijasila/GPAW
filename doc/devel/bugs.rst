@@ -21,7 +21,7 @@ please familiarize yourself with the
 
 If you experience segfaults or unexplained MPI crashes when running GPAW
 in parallel, it is recommended to try a :ref:`custom installation
-<siteconfig>` with a debugging flag in ``customize.py``::
+<siteconfig>` with a debugging flag in ``siteconfig.py``::
 
     define_macros += [('GPAW_MPI_DEBUG', 1)]
 
