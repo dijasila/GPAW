@@ -380,7 +380,8 @@ class KohnShamPair:
         if self.calc_parallel:
             return self.parallel_extract_kptdata
         else:
-            return self.serial_extract_kptdata
+            return self.new_serial_extract_kptdata
+            # return self.serial_extract_kptdata  # to be removed              XXX
             # return self.parallel_extract_kptdata
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):
@@ -1590,8 +1591,9 @@ class KohnShamPair:
         return data
     '''
 
+    '''
     @timer('Extracting data from the ground state calculator object')
-    def serial_extract_kptdata(self, k_pc, n_t, s_t):
+    def serial_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed         XXX
         # All processes can access all data. Each process extracts it own data.
         wfs = self.calc.wfs
 
@@ -1635,9 +1637,119 @@ class KohnShamPair:
                         np.conj(P_myti, out=P_myti)
 
             return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
+    '''
+
+    @timer('Extracting data from the ground state calculator object')
+    def new_serial_extract_kptdata(self, k_pc, n_t, s_t):
+        # All processes can access all data. Each process extracts it own data.
+        wfs = self.calc.wfs
+
+        # Do data extraction for the processes, which have data to extract
+        if self.kptblockcomm.rank in range(len(k_pc)):
+            # Find k-point indeces
+            k_c = k_pc[self.kptblockcomm.rank]
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+            # Construct symmetry operators
+            (_, T, a_a, U_aii, shift_c,
+             time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
+
+            # Allocate data arrays for the k-point
+            mynt = self.mynt
+            eps_myt = np.empty(mynt)
+            f_myt = np.empty(mynt)
+            P = wfs.kpt_u[0].projections.new(nbands=mynt)
+            ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
+
+            (myu_eu, myn_eurn, nh, h_eurn,
+             h_myt, myt_myt) = self.get_newalt_serial_extraction_protocol(ik, n_t, s_t)  # rnewaltXXX
+
+            # Allocate transfer arrays
+            eps_h = np.empty(nh)
+            f_h = np.empty(nh)
+            Ph = wfs.kpt_u[0].projections.new(nbands=nh)
+            ut_hR = wfs.gd.empty(nh, wfs.dtype)
+
+            # Extract data from the ground state
+            for myu, myn_rn, h_rn in zip(myu_eu, myn_eurn, h_eurn):
+                kpt = wfs.kpt_u[myu]
+                with self.timer('Extracting eps, f and P_I from wfs'):
+                    eps_h[h_rn] = kpt.eps_n[myn_rn]
+                    f_h[h_rn] = kpt.f_n[myn_rn] / kpt.weight
+                    Ph.array[h_rn] = kpt.projections.array[myn_rn]
+
+                with self.timer('Extracting, fourier transforming and '
+                                'symmetrizing wave function'):
+                    for myn, h in zip(myn_rn, h_rn):
+                        ut_hR[h] = T(wfs.pd.ifft(kpt.psit_nG[myn], kpt.q))
+
+            # Symmetrize projections
+            with self.timer('Apply symmetry operations'):
+                for a1, U_ii, (a2, P_hi) in zip(a_a, U_aii, Ph.items()):
+                    assert a1 == a2
+                    np.dot(P_hi, U_ii, out=P_hi)
+                    if time_reversal:
+                        np.conj(P_hi, out=P_hi)
+
+            # Collect k-point data
+            eps_myt[myt_myt] = eps_h[h_myt]
+            f_myt[myt_myt] = f_h[h_myt]
+            P.array[myt_myt] = Ph.array[h_myt]
+            ut_mytR[myt_myt] = ut_hR[h_myt]
+
+            return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
     @timer('Create data extraction protocol')
-    def get_alt_serial_extraction_protocol(self, ik, n_t, s_t):  # ralt        XXX
+    def get_newalt_serial_extraction_protocol(self, ik, n_t, s_t):  # rnewalt  XXX
+        """Figure out how to extract data efficiently.
+        For the serial communicator, all processes can access all data,
+        and resultantly, there is no need to send any data.
+        """
+        wfs = self.calc.wfs
+
+        # Only extract the transitions handled by the process itself
+        myt_myt = np.arange(self.tb - self.ta)
+        t_myt = range(self.ta, self.tb)
+        n_myt = n_t[t_myt]
+        s_myt = s_t[t_myt]
+
+        # In the ground state, kpts are indexed by u=(s, k)
+        myu_eu = []
+        myn_eurn = []
+        nh = 0
+        h_eurn = []
+        h_myt = np.empty(self.tb - self.ta, dtype=np.int)
+        for s in set(s_myt):
+            thiss_myt = s_myt == s
+            myt_ct = myt_myt[thiss_myt]
+            n_ct = n_myt[thiss_myt]
+
+            # Find unique composite h = (n, u) indeces
+            n_rn = np.unique(n_ct)
+            nrn = len(n_rn)
+            h_eurn.append(np.arange(nrn) + nh)
+            nh += nrn
+
+            # Find mapping between h and the transition index
+            for n, h in zip(n_rn, h_eurn[-1]):
+                thisn_myt = n_myt == n
+                thish_myt = np.logical_and(thisn_myt, thiss_myt)
+                h_myt[thish_myt] = h
+
+            # Find out where data is in wfs
+            u = wfs.kd.where_is(s, ik)
+            # The process has access to all data
+            myu = u
+            myn_rn = n_rn
+
+            myu_eu.append(myu)
+            myn_eurn.append(myn_rn)
+
+        return myu_eu, myn_eurn, nh, h_eurn, h_myt, myt_myt
+
+    '''
+    @timer('Create data extraction protocol')
+    def get_alt_serial_extraction_protocol(self, ik, n_t, s_t):  # tbr         XXX
         """Figure out how to extract data efficiently.
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
@@ -1670,6 +1782,7 @@ class KohnShamPair:
             myt_euct.append(myt_ct)
 
         return myu_eu, myn_euct, myt_euct
+    '''
 
     @timer('Identifying k-points')
     def find_kpoint(self, k_c):
