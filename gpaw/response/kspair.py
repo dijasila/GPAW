@@ -13,6 +13,24 @@ from gpaw.response.math_func import two_phi_planewave_integrals
 
 class KohnShamKPoint:
     """Kohn-Sham orbital information for a given k-point."""
+    def __init__(self, n_t, s_t, K,
+                 eps_t, f_t, ut_tR, projections, shift_c):
+        """K-point data is indexed by a joint spin and band index h, which is
+        directly related to the transition index t."""
+        self.K = K                      # BZ k-point index
+        self.n_t = n_t                  # Band index
+        self.s_t = s_t                  # Spin index
+        self.eps_t = eps_t              # Eigenvalues
+        self.f_t = f_t                  # Occupation numbers
+        self.ut_tR = ut_tR              # Periodic part of wave functions
+        self.projections = projections  # PAW projections
+
+        self.shift_c = shift_c  # long story - see the
+        # PairDensity.construct_symmetry_operators() method
+
+
+class OldKohnShamKPoint:  # remove                                             XXX
+    """Kohn-Sham orbital information for a given k-point."""
     def __init__(self, h_t, n_h, s_h, K,
                  eps_h, f_h, ut_hR, hprojections, shift_c):
         """K-point data is indexed by a joint spin and band index h, which is
@@ -291,20 +309,20 @@ class KohnShamPair:
         assert len(k_pc) <= self.kptblockcomm.size
         kpt = None
 
-        # Identify unique h = (n, s) indeces
-        (h_t, myh_myt, n_h,
-         trank_h, s_h, n_myt, s_myt) = self.get_transition_index_map(n_t, s_t)
-        # myh_myt = range(len(set(h_t[self.ta:self.tb])))
-        myh_myt = range(self.mynt)  # for testing, remove                      XXX
-
         # Use the data extraction factory to extract the kptdata
         _extract_kptdata = self.create_extract_kptdata()
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
 
+        # Make local n and s arrays for the KohnShamKPoint object
+        n_myt = np.empty(self.mynt, dtype=n_t.dtype)
+        n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
+        s_myt = np.empty(self.mynt, dtype=s_t.dtype)
+        s_myt[:self.tb - self.ta] = s_t[self.ta:self.tb]
+
         # Initiate k-point object.
         if self.kptblockcomm.rank in range(len(k_pc)):
             assert kptdata is not None
-            kpt = KohnShamKPoint(myh_myt, n_myt, s_myt, *kptdata)
+            kpt = KohnShamKPoint(n_myt, s_myt, *kptdata)
 
         return kpt
 
