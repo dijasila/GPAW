@@ -173,7 +173,8 @@ class EXX:
                             k2.proj[a].conj())
                   for a, Delta_iiL in enumerate(self.Delta_aiiL)]
 
-        T = None
+        if v2_nG is not None:
+            T, T_a, cc = self.symmetry_operation(self.inverse_s[s])
 
         factor = 1.0 / self.kd.nbzkpts
         N1 = len(k1.u_nR)
@@ -195,6 +196,11 @@ class EXX:
 
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
+                e = ghat.pd.integrate(rho_G, vrho_G).real
+                exx_nn[n1, n2] = e
+                if k1 is k2:
+                    exx_nn[n2, n1] = e
+
                 if v1_nG is not None:
                     vrho_R = ghat.pd.ifft(vrho_G)
                     if v2_nG is None:
@@ -210,7 +216,6 @@ class EXX:
                         x2 = x / (self.kd.weight_k[index2] * self.kd.nbzkpts)
                         v1_nG[n1] -= f2_n[n2] * x1 * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
-                        T = T or self.symmetry_operation(self.inverse_s[s])
                         v2_nG[n2] -= f1_n[n1] * x2 * pd2.fft(
                             T(vrho_R.conj() * u1_R), index2,
                             local=True)
@@ -218,13 +223,13 @@ class EXX:
                             v_ii = self.Delta_aiiL[a].dot(v_xL[0])
                             v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
                                               f2_n[n2] * x1)
-                            v2_ani[a][n2] -= (v_ii.conj().dot(k1.proj[a][n1]) *
-                                              f1_n[n1] * x2)
-
-                e = ghat.pd.integrate(rho_G, vrho_G).real
-                exx_nn[n1, n2] = e
-                if k1 is k2:
-                    exx_nn[n2, n1] = e
+                            b, S_c, U_ii = T_a[a]
+                            v_i = v_ii.conj().dot(k1.proj[b][n1])
+                            v_i = v_i.dot(U_ii)
+                            v_i *= np.exp(2j * pi * k2.k_c.dot(S_c))
+                            if cc:
+                                v_i = v_i.conj()
+                            v2_ani[a][n2] -= v_i * f1_n[n1] * x2
 
         return exx_nn * factor
 
@@ -311,7 +316,6 @@ class EXX:
         lasti1 = -1
         lasti2 = -1
         for (i1, i2, s), count in sorted(pairs.items()):
-            #assert count in {1, 2, 4}, count
             if i1 != lasti1:
                 k1 = kpts1[i1]
                 u1_nR = to_real_space(k1.psit)
@@ -341,20 +345,30 @@ class EXX:
         # print(s, U_cc, time_reversal)
 
         if (U_cc == np.eye(3, dtype=int)).all():
-            def T(a_R):
+            def T0(a_R):
                 return a_R
         else:
             N_c = self.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
 
-            def T(a_R):
+            def T0(a_R):
                 return a_R.ravel()[i].reshape(N_c)
 
         if time_reversal:
-            return lambda a_R: T(a_R).conj()
+            def T(a_R):
+                return T0(a_R).conj()
+        else:
+            T = T0
 
-        return T
+        T_a = []
+        for a, id in enumerate(self.setups.id_a):
+            b = self.kd.symmetry.a_sa[s, a]
+            S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
+            U_ii = self.setups[a].R_sii[s].T
+            T_a.append((b, S_c, U_ii))
+
+        return T, T_a, time_reversal
 
     def apply_symmetry(self, s: int, rsk):
         U_scc = self.kd.symmetry.op_scc
