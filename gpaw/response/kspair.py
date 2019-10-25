@@ -382,7 +382,8 @@ class KohnShamPair:
         else:
             return self.new_serial_extract_kptdata
             # return self.serial_extract_kptdata  # to be removed              XXX
-            # return self.parallel_extract_kptdata
+            # return self.parallel_extract_kptdata  # to be removed            XXX
+            # return self.new_parallel_extract_kptdata
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed       XXX
         """Returns the input to KohnShamKPoint:
@@ -454,7 +455,7 @@ class KohnShamPair:
         wfs = self.calc.wfs
 
         # Extract the data from the ground state calculator object
-        data, h_myt, myt_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
+        data, h_myt, myt_myt = self._new_parallel_extract_kptdata(k_pc, n_t, s_t)  # rnewXXX
 
         # If the process has a k-point to return, symmetrize and unfold
         if self.kptblockcomm.rank in range(len(k_pc)):
@@ -518,7 +519,132 @@ class KohnShamPair:
         return data, h_myt, myt_myt
 
     @timer('Create data extraction protocol')
-    def get_extraction_protocol(self, k_pc, n_t, s_t):
+    def get_new_extraction_protocol(self, k_pc, n_t, s_t):  # rnew             XXX
+        """Figure out how to extract data efficiently.
+        For the serial communicator, all processes can access all data,
+        and resultantly, there is no need to send any data.
+        """
+        wfs = self.calc.wfs
+        get_extraction_info = self.create_get_extraction_info()
+
+        # Kpoint data
+        data = (None, None, None)
+
+        # Extraction protocol
+        myu_eu = []
+        myn_eueh = []
+
+        # Data distribution protocol
+        nrh_r2 = np.zeros(self.world.size, dtype=np.int)
+        ik_r2 = [None for _ in range(self.world.size)]
+        eh_eur2reh = []
+        rh_eur2reh = []
+        h_r1rh = [list([]) for _ in range(self.world.size)]
+
+        # h to t index mapping
+        myt_myt = np.arange(self.tb - self.ta)
+        t_myt = range(self.ta, self.tb)
+        n_myt, s_myt = n_t[t_myt], s_t[t_myt]
+        h_myt = np.empty(self.tb - self.ta, dtype=np.int)
+
+        nt = len(n_t)
+        assert nt == len(s_t)
+        t_t = np.arange(nt)
+        nh = 0
+        for p, k_c in enumerate(k_pc):  # p indicates the receiving process
+            K = self.find_kpoint(k_c)
+            ik = wfs.kd.bz2ibz_k[K]
+            for r2 in range(p * self.transitionblockscomm.size,
+                            min((p + 1) * self.transitionblockscomm.size,
+                                self.world.size)):
+                ik_r2[r2] = ik
+
+            if p == self.kptblockcomm.rank:
+                data = (K, k_c, ik)
+
+            # Find out who should store the data in KSKPpoint
+            r2_t, myt_t = self.new_map_who_has(p, t_t)
+
+            # Find out how to extract data
+            # In the ground state, kpts are indexed by u=(s, k)
+            for s in set(s_t):
+                thiss_myt = s_myt == s
+                thiss_t = s_t == s
+                t_ct = t_t[thiss_t]
+                n_ct = n_t[thiss_t]
+                r2_ct, myt_ct = r2_t[t_ct], myt_t[t_ct]
+                et = 0
+
+                # Find out where data is in wfs
+                u = wfs.kd.where_is(s, ik)
+                myu, r1_ct, myn_ct = get_extraction_info(u, n_ct, r2_ct)
+
+                # If the process is extracting or receiving data,
+                # figure out how to do so
+                if self.world.rank in np.append(r1_ct, r2_ct):
+                    # Find unique composite index h = (n, s) that the process
+                    # is extracting
+                    myn_eh = np.unique(myn_ct)
+                    myn_eueh.append(myn_eh)
+
+                    eh_r2reh = [list([]) for _ in range(self.world.size)]
+                    rh_r2reh = [list([]) for _ in range(self.world.size)]
+                    # Does this process have anything to send?
+                    thisr1_ct = r1_ct == self.world.rank
+                    if np.any(thisr1_ct):
+                        # Find composite indeces h = (n, s)
+                        n_et = n_ct[thisr1_ct]
+                        n_eh = np.unique(n_et)
+
+                        # Where to send the data
+                        r2_et = r2_ct[thisr1_ct]
+                        for r2 in np.unique(r2_et):
+                            thisr2_et = r2_et == r2
+                            # What ns are the process sending?
+                            n_reh = np.unique(n_et[thisr2_et])
+                            eh_reh = []
+                            for n in n_reh:
+                                eh_reh.append(np.where(n_eh == n)[0][0])
+                            # How to send it
+                            eh_r2reh[r2] = eh_reh
+                            nreh = len(eh_reh)
+                            rh_r2reh[r2] = np.arange(nreh) + nrh_r2[r2]
+                            nrh_r2[r2] += nreh
+                    eh_eur2reh.append(eh_r2reh)
+                    rh_eur2reh.append(rh_r2reh)
+
+                    # Does this process have anything to receive?
+                    thisr2_ct = r2_ct == self.world.rank
+                    if np.any(thisr2_ct):
+                        # Find unique composite indeces h = (n, s)
+                        n_rt = n_ct[thisr2_ct]
+                        n_rn = np.unique(n_rt)
+                        nrn = len(n_rn)
+                        h_rn = np.arange(nrn) + nh
+                        nh += nrn
+
+                        # Where to get the data from
+                        r1_rt = r1_ct[thisr2_ct]
+                        for r1 in np.unique(r1_rt):
+                            thisr1_rt = r1_rt == r1
+                            # What ns are the process getting?
+                            n_reh = np.unique(n_rt[thisr1_rt])
+                            # Where to put them
+                            for n in n_reh:
+                                h = h_rn[np.where(n_rn == n)[0][0]]
+                                h_r1rh[r1].append(h)
+
+                                # h to t mapping
+                                thisn_myt = n_myt == n
+                                thish_myt = np.logical_and(thisn_myt,
+                                                           thiss_myt)
+                                h_myt[thish_myt] = h
+
+        return (data, myu_eu, myn_eueh, ik_r2, nrh_r2,
+                eh_eur2reh, rh_eur2reh, h_r1rh, h_myt, myt_myt)
+
+    @timer('Create data extraction protocol')
+    def get_extraction_protocol(self, k_pc, n_t, s_t):  # to be removed        XXX
         """Figure out how to extract data efficiently.
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
@@ -1172,7 +1298,7 @@ class KohnShamPair:
 
     @timer('Collecting kptdata')
     def newer_collect_kptdata(self, data, myt_r1rt,
-                              eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG):
+                              eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG):  # tbr   XXX
         """From the extracted data, collect the KohnShamKPoint data arrays"""
         # Some processes may not have to return a k-point
         if data[0] is None:
@@ -1211,7 +1337,7 @@ class KohnShamPair:
 
         # Allocate data arrays
         wfs = self.calc.wfs
-        nh = max([max(h_rh) for h_rh in h_r1rh]) + 1
+        nh = max([max(h_rh) for h_rh in h_r1rh if h_rh]) + 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
         Ph = wfs.kpt_u[0].projections.new(nbands=nh)
@@ -1223,7 +1349,7 @@ class KohnShamPair:
              f_rh, P_rhI, psit_rhG) in zip(h_r1rh, eps_r1rh,
                                            f_r1rh, P_r1rhI, psit_r1rhG):
             if h_rh:
-                eps_h[h_rt] = eps_rh
+                eps_h[h_rh] = eps_rh
                 f_h[h_rh] = f_rh
                 Ph.array[h_rh] = P_rhI
                 psit_hG[h_rh] = psit_rhG
