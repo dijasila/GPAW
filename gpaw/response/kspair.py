@@ -1200,6 +1200,36 @@ class KohnShamPair:
 
         return (K, k_c, eps_myt, f_myt, P, psit_mytG)
 
+    @timer('Collecting kptdata')
+    def newest_collect_kptdata(self, data, h_r1rh,
+                               eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
+        """From the extracted data, collect the KohnShamKPoint data arrays"""
+        # Some processes may not have to return a k-point
+        if data[0] is None:
+            return None
+        K, k_c, ik = data
+
+        # Allocate data arrays
+        wfs = self.calc.wfs
+        nh = max([max(h_rh) for h_rh in h_r1rh]) + 1
+        eps_h = np.empty(nh)
+        f_h = np.empty(nh)
+        Ph = wfs.kpt_u[0].projections.new(nbands=nh)
+        psit_hG = np.empty((nh, self.pd0.ng_q[ik]),
+                           dtype=wfs.kpt_u[0].psit.array.dtype)
+
+        # Store extracted data in the arrays
+        for (h_rh, eps_rh,
+             f_rh, P_rhI, psit_rhG) in zip(h_r1rh, eps_r1rh,
+                                           f_r1rh, P_r1rhI, psit_r1rhG):
+            if h_rh:
+                eps_h[h_rt] = eps_rh
+                f_h[h_rh] = f_rh
+                Ph.array[h_rh] = P_rhI
+                psit_hG[h_rh] = psit_rhG
+
+        return (K, k_c, eps_h, f_h, Ph, psit_hG)
+
     '''
     @timer('Collecting kptdata')  # remove                                     XXX
     def new_collect_kptdata(self, k_pc, K_p, ik_p, myt_r1rt,  # remove ik_p?   XXX
