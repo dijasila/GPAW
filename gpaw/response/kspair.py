@@ -327,7 +327,7 @@ class KohnShamPair:
         return kpt
 
     @timer('Creating transition index mapping')
-    def get_transition_index_map(self, n_t, s_t):
+    def get_transition_index_map(self, n_t, s_t):  # to be removed             XXX
         """Make a joint h = (n, s) map for the transitions each process
         is handling."""
         nt = len(n_t)
@@ -384,7 +384,7 @@ class KohnShamPair:
             # return self.serial_extract_kptdata  # to be removed              XXX
             # return self.parallel_extract_kptdata
 
-    def parallel_extract_kptdata(self, k_pc, n_t, s_t):
+    def parallel_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed       XXX
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
@@ -410,7 +410,7 @@ class KohnShamPair:
         return data
 
     @timer('Extracting data from the ground state calculator object')
-    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
+    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed      XXX
         """In-place kptdata extraction."""
         (data, myu_eu,
          myn_euet, nrt_r2,
@@ -445,6 +445,77 @@ class KohnShamPair:
 
         return self.newer_collect_kptdata(data, myt_r1rt, eps_r1rt,
                                           f_r1rt, P_r1rtI, psit_r1rtG)
+
+    def new_parallel_extract_kptdata(self, k_pc, n_t, s_t):
+        """Returns the input to KohnShamKPoint:
+        K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
+        if a k-point in the given list, k_pc, belongs to the process.
+        """
+        wfs = self.calc.wfs
+
+        # Extract the data from the ground state calculator object
+        data, h_myt, myt_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
+
+        # If the process has a k-point to return, symmetrize and unfold
+        if self.kptblockcomm.rank in range(len(k_pc)):
+            assert data is not None
+            # Unpack data, apply FT and symmetrization
+            K, k_c, eps_h, f_h, Ph, psit_hG = data
+            Ph, ut_hR, shift_c = self.transform_and_symmetrize(K, k_c, Ph,
+                                                               psit_hG)
+
+            (eps_myt, f_myt,
+             P, ut_mytR) = self.unfold_arrays(eps_h, f_h, Ph, ut_hR,
+                                              h_myt, myt_myt)
+
+            data = (K, eps_myt, f_myt, ut_mytR, P, shift_c)
+
+        # Wait for communication to finish
+        with self.timer('Waiting to complete mpi.send'):
+            while self.srequests:
+                self.world.wait(self.srequests.pop(0))
+
+        return data
+
+    @timer('Extracting data from the ground state calculator object')
+    def _new_parallel_extract_kptdata(self, k_pc, n_t, s_t):  # rnew           XXX
+        """In-place kptdata extraction."""
+        (data, myu_eu,
+         myn_eueh, ik_r2,
+         nrh_r2, eh_eur2reh,
+         rh_eur2reh, h_r1rh,  # do me                                          XXX
+         h_myt, myt_myt) = self.get_new_extraction_protocol(k_pc, n_t, s_t)  # rnewXXX
+
+        (eps_r1rh, f_r1rh,
+         P_r1rhI, psit_r1rhG,
+         eps_r2rh, f_r2rh,
+         P_r2rhI, psit_r2rhG) = self.allocate_transfer_arrays(data, nrh_r2,
+                                                              ik_r2, h_r1rh)
+
+        # Do actual extraction
+        for myu, myn_eh, eh_r2reh, rh_r2reh in zip(myu_eu, myn_eueh,
+                                                   eh_eur2reh, rh_eur2reh):
+
+            eps_eh, f_eh, P_ehI = self.extract_wfs_data(myu, myn_eh)
+
+            for r2, (eh_reh, rh_reh) in enumerate(zip(eh_r2reh, rh_r2reh)):
+                if eh_reh:
+                    eps_r2rh[r2][rh_reh] = eps_eh[eh_reh]
+                    f_r2rh[r2][rh_reh] = f_et[eh_reh]
+                    P_r2rhI[r2][rh_reh] = P_ehI[eh_reh]
+
+            # Wavefunctions are heavy objects which can only be extracted
+            # for one band index at a time, handle them seperately
+            self.new_add_wave_function(myu, myn_eh,
+                                       eh_r2reh, rh_r2reh, psit_r2rhG)  # rnew XXX
+
+        self.distribute_extracted_data(eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
+                                       eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
+
+        data = self.newest_collect_kptdata(data, h_r1rh, eps_r1rh,  # do me    XXX
+                                           f_r1rh, P_r1rhI, psit_r1rhG)  # rnewestXXX
+
+        return data, h_myt, myt_myt
 
     @timer('Create data extraction protocol')
     def get_extraction_protocol(self, k_pc, n_t, s_t):
@@ -765,7 +836,7 @@ class KohnShamPair:
     '''
 
     @timer('Allocate transfer arrays')
-    def allocate_transfer_arrays(self, data, nrt_r2, ik_r2, myt_r1rt):
+    def allocate_transfer_arrays(self, data, nrh_r2, ik_r2, h_r1rh):
         """Allocate arrays for intermediate storage of data."""
         wfs = self.calc.wfs
         kptex = wfs.kpt_u[0]
@@ -773,44 +844,44 @@ class KohnShamPair:
         Pdtype = kptex.projections.matrix.dtype
         psitdtype = kptex.psit.array.dtype
 
-        # Number of trasitions to receive
-        nrt_r1 = [len(myt_rt) for myt_rt in myt_r1rt]
+        # Number of h-indeces to receive
+        nrh_r1 = [len(h_rh) for h_rh in h_r1rh]
 
         # if self.kptblockcomm.rank in range(len(ik_p)):
         if data[2] is not None:
             ik = data[2]
             ng = self.pd0.ng_q[ik]
-            eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG = [], [], [], []
-            for nrt in nrt_r1:
-                if nrt >= 1:
-                    eps_r1rt.append(np.empty(nrt))
-                    f_r1rt.append(np.empty(nrt))
-                    P_r1rtI.append(np.empty((nrt,) + Pshape[1:], dtype=Pdtype))
-                    psit_r1rtG.append(np.empty((nrt, ng), dtype=psitdtype))
+            eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG = [], [], [], []
+            for nrh in nrh_r1:
+                if nrh >= 1:
+                    eps_r1rh.append(np.empty(nrh))
+                    f_r1rh.append(np.empty(nrh))
+                    P_r1rhI.append(np.empty((nrh,) + Pshape[1:], dtype=Pdtype))
+                    psit_r1rhG.append(np.empty((nrh, ng), dtype=psitdtype))
                 else:
-                    eps_r1rt.append(None)
-                    f_r1rt.append(None)
-                    P_r1rtI.append(None)
-                    psit_r1rtG.append(None)
+                    eps_r1rh.append(None)
+                    f_r1rh.append(None)
+                    P_r1rhI.append(None)
+                    psit_r1rhG.append(None)
         else:
-            eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG = None, None, None, None
+            eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG = None, None, None, None
 
-        eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG = [], [], [], []
-        for nrt, ik in zip(nrt_r2, ik_r2):
-            if nrt:
-                eps_r2rt.append(np.empty(nrt))
-                f_r2rt.append(np.empty(nrt))
-                P_r2rtI.append(np.empty((nrt,) + Pshape[1:], dtype=Pdtype))
+        eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG = [], [], [], []
+        for nrh, ik in zip(nrh_r2, ik_r2):
+            if nrh:
+                eps_r2rh.append(np.empty(nrh))
+                f_r2rh.append(np.empty(nrh))
+                P_r2rhI.append(np.empty((nrh,) + Pshape[1:], dtype=Pdtype))
                 ng = self.pd0.ng_q[ik]
-                psit_r2rtG.append(np.empty((nrt, ng), dtype=psitdtype))
+                psit_r2rhG.append(np.empty((nrh, ng), dtype=psitdtype))
             else:
-                eps_r2rt.append(None)
-                f_r2rt.append(None)
-                P_r2rtI.append(None)
-                psit_r2rtG.append(None)
+                eps_r2rh.append(None)
+                f_r2rh.append(None)
+                P_r2rhI.append(None)
+                psit_r2rhG.append(None)
 
-        return (eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG,
-                eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG)
+        return (eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
+                eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
 
     '''
     def old_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed            XXX
@@ -996,30 +1067,30 @@ class KohnShamPair:
     '''
 
     @timer('Extracting eps, f and P_I from wfs')
-    def extract_wfs_data(self, myu, myn_et):
+    def extract_wfs_data(self, myu, myn_eh):
         wfs = self.calc.wfs
         kpt = wfs.kpt_u[myu]
         # Get eig and occ
-        eps_et, f_et = kpt.eps_n[myn_et], kpt.f_n[myn_et] / kpt.weight
+        eps_eh, f_eh = kpt.eps_n[myn_eh], kpt.f_n[myn_eh] / kpt.weight
 
         # Get projections
         assert kpt.projections.atom_partition.comm.size == 1
-        P_etI = kpt.projections.array[myn_et]
+        P_ehI = kpt.projections.array[myn_eh]
 
-        return eps_et, f_et, P_etI
+        return eps_eh, f_eh, P_ehI
 
     @timer('Extracting wave function from wfs')
-    def new_add_wave_function(self, myu, myn_et,  # rnew                       XXX
-                              et_r2ret, rt_r2ret, psit_r2rtG):
+    def new_add_wave_function(self, myu, myn_eh,  # rnew                       XXX
+                              eh_r2reh, rh_r2reh, psit_r2rhG):
         """Add the plane wave coefficients of the smooth part of
         the wave function to the psit_r2rtG arrays."""
         wfs = self.calc.wfs
         kpt = wfs.kpt_u[myu]
 
-        for et_ret, rt_ret, psit_rtG in zip(et_r2ret, rt_r2ret, psit_r2rtG):
-            if et_ret:
-                for et, rt in zip(et_ret, rt_ret):
-                    psit_rtG[rt] = kpt.psit_nG[myn_et[et]]
+        for eh_reh, rh_reh, psit_rhG in zip(eh_r2reh, rh_r2reh, psit_r2rhG):
+            if eh_reh:
+                for eh, rh in zip(eh_reh, rh_reh):
+                    psit_rhG[rh] = kpt.psit_nG[myn_eh[eh]]
 
     '''
     @timer('Extracting wave function')
@@ -1054,45 +1125,45 @@ class KohnShamPair:
     '''
 
     @timer('Distributing kptdata')
-    def distribute_extracted_data(self, eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG,
-                                  eps_r2rt, f_r2rt, P_r2rtI, psit_r2rtG):
+    def distribute_extracted_data(self, eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
+                                  eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG):
         """Send the extracted data to appropriate destinations"""
         # Store the data extracted by the process itself
         rank = self.world.rank
         # Check if there is actually some data to store
-        if eps_r2rt[rank] is not None:
-            eps_r1rt[rank] = eps_r2rt[rank]
-            f_r1rt[rank] = f_r2rt[rank]
-            P_r1rtI[rank] = P_r2rtI[rank]
-            psit_r1rtG[rank] = psit_r2rtG[rank]
+        if eps_r2rh[rank] is not None:
+            eps_r1rh[rank] = eps_r2rh[rank]
+            f_r1rh[rank] = f_r2rh[rank]
+            P_r1rhI[rank] = P_r2rhI[rank]
+            psit_r1rhG[rank] = psit_r2rhG[rank]
 
         # Receive data
-        if eps_r1rt is not None:  # The process may not be receiving anything
-            for r1, (eps_rt, f_rt,
-                     P_rtI, psit_rtG) in enumerate(zip(eps_r1rt, f_r1rt,
-                                                       P_r1rtI, psit_r1rtG)):
+        if eps_r1rh is not None:  # The process may not be receiving anything
+            for r1, (eps_rh, f_rh,
+                     P_rhI, psit_rhG) in enumerate(zip(eps_r1rh, f_r1rh,
+                                                       P_r1rhI, psit_r1rhG)):
                 # Check if there is any data to receive
-                if r1 != rank and eps_rt is not None:
-                    rreq1 = self.world.receive(eps_rt, r1,
+                if r1 != rank and eps_rh is not None:
+                    rreq1 = self.world.receive(eps_rh, r1,
                                                tag=201, block=False)
-                    rreq2 = self.world.receive(f_rt, r1,
+                    rreq2 = self.world.receive(f_rh, r1,
                                                tag=202, block=False)
-                    rreq3 = self.world.receive(P_rtI, r1,
+                    rreq3 = self.world.receive(P_rhI, r1,
                                                tag=203, block=False)
-                    rreq4 = self.world.receive(psit_rtG, r1,
+                    rreq4 = self.world.receive(psit_rhG, r1,
                                                tag=204, block=False)
                     self.rrequests += [rreq1, rreq2, rreq3, rreq4]
 
         # Send data
-        for r2, (eps_rt, f_rt,
-                 P_rtI, psit_rtG) in enumerate(zip(eps_r2rt, f_r2rt,
-                                                   P_r2rtI, psit_r2rtG)):
+        for r2, (eps_rh, f_rh,
+                 P_rhI, psit_rhG) in enumerate(zip(eps_r2rh, f_r2rh,
+                                                   P_r2rhI, psit_r2rhG)):
             # Check if there is any data to send
-            if r2 != rank and eps_rt is not None:
-                sreq1 = self.world.send(eps_rt, r2, tag=201, block=False)
-                sreq2 = self.world.send(f_rt, r2, tag=202, block=False)
-                sreq3 = self.world.send(P_rtI, r2, tag=203, block=False)
-                sreq4 = self.world.send(psit_rtG, r2, tag=204, block=False)
+            if r2 != rank and eps_rh is not None:
+                sreq1 = self.world.send(eps_rh, r2, tag=201, block=False)
+                sreq2 = self.world.send(f_rh, r2, tag=202, block=False)
+                sreq3 = self.world.send(P_rhI, r2, tag=203, block=False)
+                sreq4 = self.world.send(psit_rhG, r2, tag=204, block=False)
                 self.srequests += [sreq1, sreq2, sreq3, sreq4]
 
         with self.timer('Waiting to complete mpi.receive'):
@@ -1639,6 +1710,25 @@ class KohnShamPair:
             return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
     '''
 
+    @timer('Unfolding arrays')
+    def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt, myt_myt):
+        """Create transition data arrays from the composite h = (n, s) index"""
+        wfs = self.calc.wfs
+        # Allocate data arrays for the k-point
+        mynt = self.mynt
+        eps_myt = np.empty(mynt)
+        f_myt = np.empty(mynt)
+        P = wfs.kpt_u[0].projections.new(nbands=mynt)
+        ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
+
+        # Unfold k-point data
+        eps_myt[myt_myt] = eps_h[h_myt]
+        f_myt[myt_myt] = f_h[h_myt]
+        P.array[myt_myt] = Ph.array[h_myt]
+        ut_mytR[myt_myt] = ut_hR[h_myt]
+
+        return eps_myt, f_myt, P, ut_mytR
+
     @timer('Extracting data from the ground state calculator object')
     def new_serial_extract_kptdata(self, k_pc, n_t, s_t):
         # All processes can access all data. Each process extracts it own data.
@@ -1653,13 +1743,6 @@ class KohnShamPair:
             # Construct symmetry operators
             (_, T, a_a, U_aii, shift_c,
              time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
-
-            # Allocate data arrays for the k-point
-            mynt = self.mynt
-            eps_myt = np.empty(mynt)
-            f_myt = np.empty(mynt)
-            P = wfs.kpt_u[0].projections.new(nbands=mynt)
-            ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
 
             (myu_eu, myn_eurn, nh, h_eurn,
              h_myt, myt_myt) = self.get_newalt_serial_extraction_protocol(ik, n_t, s_t)  # rnewaltXXX
@@ -1691,11 +1774,9 @@ class KohnShamPair:
                     if time_reversal:
                         np.conj(P_hi, out=P_hi)
 
-            # Collect k-point data
-            eps_myt[myt_myt] = eps_h[h_myt]
-            f_myt[myt_myt] = f_h[h_myt]
-            P.array[myt_myt] = Ph.array[h_myt]
-            ut_mytR[myt_myt] = ut_hR[h_myt]
+            (eps_myt, f_myt,
+             P, ut_mytR) = self.unfold_arrays(eps_h, f_h, Ph, ut_hR,
+                                              h_myt, myt_myt)
 
             return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
