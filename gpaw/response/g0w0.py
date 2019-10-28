@@ -1226,8 +1226,8 @@ class G0W0(PairDensity):
             h.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
             h.set_positions(c.spos_ac)
             h.calculate_eigenvalues(*self.bands, self.kpts)
-            #print(h.e_skn)
-            #print(self.exx_skn)
+            # print(h.e_skn)
+            # print(self.exx_skn)
             assert np.allclose(h.e_skn, self.exx_skn)
             np.save(fd, self.exx_skn)
 

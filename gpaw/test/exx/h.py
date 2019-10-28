@@ -4,12 +4,14 @@ from gpaw import GPAW, PW, Davidson
 from gpaw.xc.hf import Hybrid
 from gpaw.xc.hybrid import HybridXC as H1
 
+k = 2
 L = 3.0
 a = Atoms('H',
           #magmoms=[3],
           cell=[L, L, 1],
           pbc=(0, 0, 1))
-#a *= (1, 1, 2)
+if k == 1:
+    a *= (1, 1, 2)
 # xc = Hybrid(xc='LDA', exx_fraction=0)
 # xc.name = 'LDA'
 # xc = Hybrid(None, 'LDA', 0.0, 0.0)
@@ -20,7 +22,7 @@ for d in D:
     #a.positions[1, 0] = d
     #a.center()#######################
     es = Davidson(1)
-    es.keep_htpsit = False
+    es.keep_htpsit = True#False
     #xc = Hybrid('EXX')
     xc = Hybrid('PBE0')
     # xc = H1('EXX')
@@ -29,7 +31,7 @@ for d in D:
         # h=0.12,
         #setups='p1',
         #setups='ae',
-        kpts={'size': (1, 1, 2), 'gamma': True},
+        kpts={'size': (1, 1, k), 'gamma': True},
         nbands=1,
         eigensolver=es,
         # eigensolver='rmm-diis',
