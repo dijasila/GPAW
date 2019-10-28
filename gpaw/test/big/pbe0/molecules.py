@@ -1,7 +1,7 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, PW
-from gpaw.xc.hf import Hybrid
+from gpaw.hybrids import HybridXC
 
 
 def run(symbol, d0, M, ecut, L):
@@ -14,7 +14,7 @@ def run(symbol, d0, M, ecut, L):
         a.set_distance(0, 1, d)
         a.calc = GPAW(
             mode=PW(ecut, force_complex_dtype=True),
-            xc=Hybrid('PBE0'),
+            xc=HybridXC('PBE0'),
             nbands=0,
             # eigensolver='rmm-diis',
             txt=f'{symbol}2-{d / d0:.2f}.txt')
@@ -30,7 +30,7 @@ def run(symbol, d0, M, ecut, L):
     a.center()
     a.calc = GPAW(
         mode=PW(ecut, force_complex_dtype=True),
-        xc=Hybrid('PBE0', mix_all=False),
+        xc=HybridXC('PBE0', mix_all=False),
         eigensolver='rmm-diis',
         parallel={'band': 1, 'kpt': 1},
         txt=f'{symbol}.txt')
