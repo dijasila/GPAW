@@ -1,5 +1,4 @@
 """Test EXX/HFT implementation."""
-from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal

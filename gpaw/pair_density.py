@@ -261,4 +261,3 @@ class PairDensity:
 #            np.zeros(self.na))
 
         return nij_g
-

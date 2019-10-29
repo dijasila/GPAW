@@ -11,7 +11,6 @@ XC-functional.  There are two implementations:
 
 """
 
-from __future__ import print_function
 import os
 import sys
 import time

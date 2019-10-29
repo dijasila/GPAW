@@ -45,4 +45,3 @@ pes.save_folded_pes('CO-td.dat', folding=None)
 
 pes = DOSPES(m_c, d_c, shift=True)
 pes.save_folded_pes('CO-dos.dat', folding=None)
-

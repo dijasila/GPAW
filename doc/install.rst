@@ -19,23 +19,18 @@ are also some C-code used for:
 * allowing Python to talk to external numerical libraries (BLAS_,
   LibXC_, MPI_ and ScaLAPACK_)
 
-So, in order to make GPAW work, you need to compile some C-code.  For serial
-calculations, you will need to build a dynamically linked library
-(``_gpaw.so``) that the standard Python interpreter can load.  For parallel
-calculations, you need to build a new Python interpreter (``gpaw-python``)
-that has MPI_ functionality built in.
+So, in order to make GPAW work, you need to compile some C-code.
+You will need to build a dynamically linked library
+(``_gpaw.so``) that the standard Python interpreter can load.
 
 There are several ways to install GPAW:
 
-* On a lucky day it's as simple as ``pip3 install -U gpaw`` as
-  described :ref:`below <installation using pip>`.
+* Directly from PyPI_: ``python3 -m pip install gpaw``.  More details
+  here: :ref:`installation using pip`.
 
-* Alternatively, you can :ref:`download <download>` the source code,
-  edit :git:`customize.py` to tell the install script which libraries you
-  want to link to and where they
-  can be found (see :ref:`customizing installation`) and then install with a
-  ``python3 setup.py install --user`` as described :ref:`here <install
-  with distutils>`.
+* Alternatively, you can :ref:`download <download>` the source code
+  and then install with a
+  ``python3 -m pip install .``.
 
 * There may be a package for your Linux distribution that you can use
   (named ``gpaw``).
@@ -45,14 +40,14 @@ There are several ways to install GPAW:
 
 .. seealso::
 
-    * Using :ref:`homebrew` on MacOSX.
-    * Using :ref:`anaconda`.
-    * This `docker image`_.
+    * :ref:`siteconfig`
+    * Using :ref:`homebrew` on MacOSX
+    * Using :ref:`anaconda`
+    * This `docker image`_
     * Tips and tricks for installation on many :ref:`platforms and
-      architectures`.
-    * :ref:`troubleshooting`.
-    * Important :ref:`envvars`.
-    * In case of trouble: :ref:`Our mail list and IRC channel <contact>`.
+      architectures`
+    * :ref:`troubleshooting`
+    * In case of trouble: :ref:`Our mail list and IRC channel <contact>`
 
 
 Requirements
@@ -98,23 +93,17 @@ Installation using ``pip``
 The simplest way to install GPAW is using pip_ and the GPAW package from
 the Python package index (PyPI_)::
 
-    $ pip3 install --upgrade --user gpaw
+    $ python3 -m pip install gpaw
 
 This will compile and install GPAW (both ``_gpaw.so`` and all the Python
 files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
-Python can automatically find it.  The ``pip3`` command will also place
+Python can automatically find it.  Pip will also place
 the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
-make sure you have that in your :envvar:`PATH` environment variable.  If
-you have an ``mpicc`` command on your system then there will also be a
-``gpaw-python`` executable in ``~/.local/bin``.
+make sure you have that in your ``$PATH`` environment variable.
 
 Check that you have installed everything in the correct places::
 
     $ gpaw info
-
-To check the compiled parallel features (like ScaLAPACK), you need to run::
-
-    $ gpaw-python -m gpaw info
 
 
 Install PAW datasets
@@ -148,13 +137,14 @@ one core::
 Please report errors to the ``gpaw-users`` mailing list so that we
 can fix them (see :ref:`mail list`).
 
-If tests pass, and the parallel version is built, test the parallel code::
+If tests pass, and the parallel version is built, test the parallel code
+on 2, 4 and 8 cores::
 
-    $ gpaw -P 4 test
+    $ gpaw -P 2 test
 
 or equivalently::
 
-    $ mpiexec -np 4 gpaw-python -m gpaw test
+    $ mpiexec -np 2 python3 -m gpaw test
 
 
 .. _download:
@@ -188,10 +178,6 @@ Sou can get the source from a tar-file or from Git:
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
 
-Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
-``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
-folder is).
-
 .. note::
 
     We also have Git tags for older stable versions of GPAW.
@@ -202,38 +188,30 @@ folder is).
     https://pypi.org/packages/source/g/gpaw/gpaw-19.8.1.tar.gz
 
 
-.. _customizing installation:
+.. _siteconfig:
 
 Customizing installation
 ========================
 
-The install script does its best when trying to guess proper libraries
-and commands to build GPAW. However, if the standard procedure fails
-or user wants to override default values it is possible to customize
-the setup with :git:`customize.py` file which is located in the GPAW base
-directory. As an example, :git:`customize.py` might contain the following
-lines::
+The install script may need a little help finding you libraries
+(BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).
+This can be done by adding a ``siteconfig.py`` file in one of these three
+places:
+
+1) the file that ``$GPAW_CONFIG`` points at
+2) ``<git-root>/siteconfig.py``
+3) ``~/.gpaw/siteconfig.py``
+
+The first one found will be used. As an example, ``siteconfig.py``
+might contain the following lines::
 
   libraries = ['myblas']
   library_dirs = ['path_to_myblas']
 
 Now, GPAW would be built with "``-Lpath_to_myblas -lmyblas``"
-linker flags. Look at the file :git:`customize.py`
-itself for more possible options.  :ref:`platforms and architectures`
-provides examples of :file:`customize.py` for different platforms.
-After editing :git:`customize.py`, follow the instructions for the
-:ref:`developer installation`.
-
-
-.. _install with distutils:
-
-Install with setup.py
-=====================
-
-If you have the source code, you can use the install script (:git:`setup.py`)
-to compile and install the code::
-
-    $ python3 setup.py install --user
+linker flags. Look at the file :git:`siteconfig_example.py`
+for more possible options.  :ref:`platforms and architectures`
+provides examples of ``siteconfig.py`` files for different platforms.
 
 
 .. _parallel installation:
@@ -243,15 +221,15 @@ Parallel installation
 
 By default, setup looks if :program:`mpicc` is available, and if setup
 finds one, a parallel version is build. If the setup does not find
-mpicc, a user can specify one in the :git:`customize.py` file.
+mpicc, a user can specify one in the ``siteconfig.py`` file.
 
 Additionally a user may want to enable ScaLAPACK, setting in
-:git:`customize.py`::
+``siteconfig.py``::
 
     scalapack = True
 
 and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
-as described in :ref:`customizing installation`.
+as described in :ref:`siteconfig`.
 
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
@@ -260,9 +238,12 @@ Instructions for running parallel calculations can be found in the
 FFTW
 ====
 
-Older versions of GPAW would link FFTW using ctypes, based on library
-paths and the GPAW_FFTWSO environment variable if set.  As of GPAW
-1.5.1, FFTW is linked from customize.py like all other libraries.
+In order to use FFTW_ instead of :mod:`numpy.fft`, add something like
+this to your ``siteconfig.py``::
+
+    fftw = True
+    libraries += ['fftw3']
+
 
 
 .. _libxc installation:
@@ -271,9 +252,8 @@ Libxc Installation
 ==================
 
 If you OS does not have a LibXC package you can use then you can download
-and install LibXC as described `here
-<http://www.tddft.org/programs/libxc/>`_.  A
-few extra tips:
+and install LibXC as described `here <http://www.tddft.org/programs/libxc/>`_.
+A few extra tips:
 
 * Libxc installation requires both a C compiler and a fortran compiler.
 
@@ -284,14 +264,14 @@ few extra tips:
   to configure.  This might be slightly preferred because it reduces
   memory footprints for executables.
 
-* Typically when building GPAW one has to modify customize.py in a manner
+* Typically when building GPAW one has to modify ``siteconfig.py`` in a manner
   similar to the following::
 
     library_dirs += ['/my/path/to/libxc/4.2.3/install/lib']
     include_dirs += ['/my/path/to/libxc/4.2.3/install/include']
 
-  or if you don't want to modify your customize.py, you can add these lines to
-  your .bashrc::
+  or if you don't want to modify your ``siteconfig.py``, you can add these
+  lines to your .bashrc::
 
     export C_INCLUDE_PATH=/my/path/to/libxc/4.2.3/install/include
     export LIBRARY_PATH=/my/path/to/libxc/4.2.3/install/lib
@@ -311,35 +291,3 @@ Example::
     export C_INCLUDE_PATH=$XC/include
     export LIBRARY_PATH=$XC/lib
     export LD_LIBRARY_PATH=$XC/lib
-
-
-.. _envvars:
-
-Environment variables
-=====================
-
-.. envvar:: PATH
-
-    Colon-separated paths where programs can be found.
-
-.. envvar:: PYTHONPATH
-
-    Colon-separated paths where Python modules can be found.
-
-.. envvar:: OMP_NUM_THREADS
-
-    Currently should be set to 1.
-
-.. envvar:: GPAW_SETUP_PATH
-
-    Comma-separated paths to folders containing the PAW datasets.
-
-Set these permanently in your :file:`~/.bashrc` file::
-
-    $ export PYTHONPATH=~/gpaw:$PYTHONPATH
-    $ export PATH=~/gpaw/tools:$PATH
-
-or your :file:`~/.cshrc` file::
-
-    $ setenv PYTHONPATH ${HOME}/gpaw:${PYTHONPATH}
-    $ setenv PATH ${HOME}/gpaw/tools:${PATH}

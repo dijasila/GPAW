@@ -13,7 +13,7 @@ class CLICommand:
     @staticmethod
     def add_arguments(parser):
         parser.usage = usage
-        parser.add_argument('-0', '--dry-run', action='store_true')
+        parser.add_argument('-0', '--test', action='store_true')
         parser.add_argument('arguments', nargs='*')
 
     @staticmethod
@@ -39,10 +39,10 @@ class CLICommand:
                     script += line
         script += ('cd $SLURM_SUBMIT_DIR\n')
         script += ('OMP_NUM_THREADS=1 '
-                   'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw-python {}\n'
+                   'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw python3 {}\n'
                    .format(' '.join(args.arguments[i:])))
         cmd = ['sbatch'] + args.arguments[:i]
-        if args.dry_run:
+        if args.test:
             print('sbatch command:')
             print(' '.join(cmd))
             print('\nscript:')

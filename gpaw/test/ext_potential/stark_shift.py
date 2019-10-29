@@ -169,8 +169,7 @@ if test2:
         if rank == 0 and debug:
             print(field)
         c.set(
-            external  = ConstantElectricField(field),
-            )
+            external  = ConstantElectricField(field))
         etot = a.get_potential_energy()
         e   += [ etot ]
         ev0  = c.get_eigenvalues(0)
@@ -213,11 +212,9 @@ if test3:
     for charge in charges:
         ex = PointCharges(
             positions  = [ [ a0/2, a0/2, -pcd/2+a0/2 ], [ a0/2, a0/2, pcd/2+a0/2 ] ],
-            charges    = [ charge, -charge ]
-            )
+            charges    = [ charge, -charge ])
         c.set(
-            external  = ex
-            )
+            external  = ex)
         etot = a.get_potential_energy()
         e      += [ etot ]
         ev0     = c.get_eigenvalues(0)

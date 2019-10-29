@@ -1,7 +1,6 @@
 # Copyright (C) 2010  CAMd
 # Copyright (C) 2010  Argonne National Laboratory
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 
 """Module for high-level BLACS interface.
 
@@ -91,7 +90,7 @@ this module or gpaw.utilities.blacs will be renamed at some point.
 
 import numpy as np
 
-from gpaw import dry_run
+import gpaw
 from gpaw.mpi import SerialCommunicator
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.utilities.scalapack import scalapack_inverse_cholesky, \
@@ -151,14 +150,26 @@ class BlacsGrid:
         # if statements below
         self.context = INACTIVE
 
+        self.comm = comm
+        self.nprow = nprow
+        self.npcol = npcol
+        self.ncpus = nprow * npcol
+        self.order = order
+
         # There are three cases to handle:
         # 1. Comm is None is inactive (default).
         # 2. Comm is a legitimate communicator
-        # 3. DryRun Communicator is now handled by subclass
+        # 3. DryRun
+        if gpaw.dry_run:
+            self.mycol = INACTIVE
+            self.myrow = INACTIVE
+            return
+
         if comm is not None:  # MPI task is part of the communicator
             if nprow * npcol > comm.size:
-                raise ValueError('Impossible: %dx%d Blacs grid with %d CPUs'
-                                 % (nprow, npcol, comm.size))
+                raise ValueError(
+                    'Impossible: %dx%d Blacs grid with %d CPUs'
+                    % (nprow, npcol, comm.size))
 
             try:
                 new = _gpaw.new_blacs_context
@@ -166,8 +177,8 @@ class BlacsGrid:
                 raise AttributeError(
                     'BLACS is unavailable.  '
                     'GPAW must be compiled with BLACS/ScaLAPACK, '
-                    'and must run in MPI-enabled interpreter (gpaw-python).  '
-                    'Original error: %s' % e)
+                    'and must run in MPI-enabled interpreter '
+                    '(gpaw-python).  Original error: %s' % e)
 
             self.context = new(comm.get_c_object(), npcol, nprow, order)
             assert (self.context != INACTIVE) == (comm.rank < nprow * npcol)
@@ -175,12 +186,6 @@ class BlacsGrid:
         self.mycol, self.myrow = _gpaw.get_blacs_gridinfo(self.context,
                                                           nprow,
                                                           npcol)
-
-        self.comm = comm
-        self.nprow = nprow
-        self.npcol = npcol
-        self.ncpus = nprow * npcol
-        self.order = order
 
     @property
     def coords(self):
@@ -210,8 +215,6 @@ class BlacsGrid:
     def __bool__(self):
         2 / 0
 
-    __nonzero__ = __bool__  # for Python 2
-
     def __str__(self):
         classname = self.__class__.__name__
         template = '%s[comm:size=%d,rank=%d; context=%d; %dx%d]'
@@ -224,7 +227,7 @@ class BlacsGrid:
             _gpaw.blacs_destroy(self.context)
 
 
-class DryRunBlacsGrid(BlacsGrid):
+class DryRunBlacsGrid00000000(BlacsGrid):
     def __init__(self, comm, nprow, npcol, order='R'):
         assert (isinstance(comm, SerialCommunicator) or
                 isinstance(comm.comm, SerialCommunicator))
@@ -240,11 +243,6 @@ class DryRunBlacsGrid(BlacsGrid):
         self.ncpus = nprow * npcol
         self.mycol, self.myrow = INACTIVE, INACTIVE
         self.order = order
-
-
-# XXX A MAJOR HACK HERE:
-if dry_run:
-    BlacsGrid = DryRunBlacsGrid
 
 
 class BlacsDescriptor(MatrixDescriptor):

@@ -35,4 +35,3 @@ print("""References:
 [1] Self-consistent approximation to the Kohn-Sham exchange potential
 Gritsenko, Oleg; Leeuwen, Robert van; Lenthe, Erik van; Baerends, Evert Jan
 Phys. Rev. A Vol. 51 p. 1944""")
-

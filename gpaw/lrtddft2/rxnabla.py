@@ -159,4 +159,3 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
             i1 += 1
 
     return rxnabla_iiv
-

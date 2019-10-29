@@ -66,7 +66,7 @@ that only one process writes.  ASE provides the handy
 Apply the above modifications to the script and run it in parallel
 e.g. on four CPUs::
 
-  $ mpirun -np 4 gpaw-python script.py
+    $ mpiexec -np 4 python3 script.py
 
 Verify by checking the log file that GPAW is actually using multiple
 CPUs.  The log file should reveal that the :mol:`H_2O` calculation
@@ -92,7 +92,7 @@ direction.  Use a loop structure like::
 
   for symbol in [...]:
       ...
-      
+
       for ngridpoints in [24, 28, ...]:
           h = a / ngridpoints
           calc.set(h=h)
@@ -169,7 +169,7 @@ Plane-wave calculations
 For systems with small unit-cells, it can be much faster to expand the
 wave-functions in :ref:`plane-waves <manual_mode>`.  Try running a calculation
 for a water molecule with a plane-wave cutoff of 350 eV using this::
-    
+
     from gpaw import GPAW, PW
     calc = GPAW(mode=PW(350), ...)
 

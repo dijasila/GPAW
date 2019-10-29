@@ -55,8 +55,7 @@ os.chdir('..')
 
 task = Task(
     tag=tag,
-    use_lock_files=True,
-    )
+    use_lock_files=True)
 
 # header
 h = ['#element', 'V0', 'B0', 'B1']

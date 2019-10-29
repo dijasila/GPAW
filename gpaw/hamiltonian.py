@@ -3,7 +3,6 @@
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a Hamiltonian."""
-from __future__ import division
 
 import functools
 
@@ -19,8 +18,8 @@ from gpaw.spinorbit import soc
 from gpaw.transformers import Transformer
 from gpaw.utilities import (unpack, pack2, unpack_atomic_matrices,
                             pack_atomic_matrices)
-from gpaw.utilities.debug import frozen
 from gpaw.utilities.partition import AtomPartition
+# from gpaw.utilities.debug import frozen
 
 
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
@@ -51,7 +50,7 @@ def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     return out
 
 
-@frozen
+# @frozen
 class Hamiltonian:
 
     def __init__(self, gd, finegd, nspins, collinear, setups, timer, xc, world,
