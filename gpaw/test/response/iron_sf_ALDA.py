@@ -79,6 +79,12 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 
+'''
+# Temporary debugging                                                          XXX
+calc.write('Fe', 'all')
+calc = 'Fe'
+'''
+
 for s, ((rshe, bandsummation, bundle_integrals, bundle_kptpairs),
         frq_w) in enumerate(zip(strat_sd, frq_sw)):
     tms = TransverseMagneticSusceptibility(calc,

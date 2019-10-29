@@ -227,8 +227,15 @@ class KohnShamPair:
             nocc2 = max((f_n > ftol).sum(), nocc2)
         nocc1 = np.int(nocc1)
         nocc2 = np.int(nocc2)
-        nocc1 = self.world.min(nocc1)
-        nocc2 = self.world.max(nocc2)
+
+        # Collect nocc for all k-points
+        nocc1 = self.calc.wfs.kd.comm.min(nocc1)
+        nocc2 = self.calc.wfs.kd.comm.max(nocc2)
+
+        # Sum over band distribution
+        nocc1 = self.calc.wfs.bd.comm.sum(nocc1)
+        nocc2 = self.calc.wfs.bd.comm.sum(nocc2)
+
         self.nocc1 = int(nocc1)
         self.nocc2 = int(nocc2)
         print('Number of completely filled bands:', self.nocc1, file=self.fd)
@@ -263,6 +270,11 @@ class KohnShamPair:
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
         Here, t is a composite band and spin transition index
         and p is indexing the different k-points to be distributed."""
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, n1_t, flush=True)
+        self.world.barrier()
+        '''
 
         # Distribute transitions and extract data for transitions in
         # this process' block
@@ -496,6 +508,12 @@ class KohnShamPair:
          nrh_r2, eh_eur2reh,
          rh_eur2reh, h_r1rh,  # do me                                          XXX
          h_myt, myt_myt) = self.get_new_extraction_protocol(k_pc, n_t, s_t)  # rnewXXX
+
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, h_r1rh, h_myt, myt_myt, flush=True)
+        self.world.barrier()
+        '''
 
         (eps_r1rh, f_r1rh,
          P_r1rhI, psit_r1rhG,
@@ -1919,6 +1937,12 @@ class KohnShamPair:
     @timer('Unfolding arrays')
     def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt, myt_myt):
         """Create transition data arrays from the composite h = (n, s) index"""
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, f_h, h_myt, flush=True)
+        self.world.barrier()
+        '''
+
         wfs = self.calc.wfs
         # Allocate data arrays for the k-point
         mynt = self.mynt
