@@ -37,8 +37,8 @@ for i, arg in enumerate(sys.argv):
     if arg.startswith('--customize='):
         custom = arg.split('=')[1]
         raise DeprecationWarning(
-            'Please set GPAW_CONFIG_FILE={custom} or place {custom} in '
-            '~/.gpaw/config.py'.format(custom=custom))
+            'Please set GPAW_CONFIG={custom} or place {custom} in '
+            '~/.gpaw/siteconfig.py'.format(custom=custom))
 
 libraries = ['xc']
 library_dirs = []
