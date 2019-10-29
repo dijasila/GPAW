@@ -37,9 +37,9 @@ def hook(parser, args):
         if N:
             import gpaw
             gpaw.dry_run = N
-            from gpaw.mpi import world
-            world = getattr(world, 'comm', world)
-            world.size = N
+            import gpaw.mpi as mpi
+            mpi.world = mpi.SerialCommunicator()
+            mpi.world.size = N
 
     if args.parallel:
         from gpaw.mpi import have_mpi, world
@@ -58,6 +58,10 @@ def hook(parser, args):
                          py,
                          '-m',
                          'gpaw'] + sys.argv[1:]
+
+            extra = os.environ.get('GPAW_MPI_OPTIONS')
+            if extra:
+                arguments[1:1] = extra.split()
 
             # Use a clean set of environment variables without any MPI stuff:
             p = subprocess.run(arguments, check=not True, env=os.environ)
