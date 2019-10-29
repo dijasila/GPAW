@@ -602,6 +602,8 @@ class GPAW(PAW, Calculator):
             if h is None and reading:
                 shape = self.reader.density.proxy('density').shape[-3:]
                 N_c = 1 - pbc_c + shape
+            elif h is None and self.density is not None:
+                N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
                                                 self.symmetry, self.log)
