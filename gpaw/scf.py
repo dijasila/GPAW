@@ -110,7 +110,9 @@ class SCFLoop:
             errors['density'] = 0.0
 
         if len(self.old_energies) >= 3:
-            errors['energy'] = np.ptp(self.old_energies[-3:])
+            energies = self.old_energies[-3:]
+            if np.isfinite(energies).all():
+                errors['energy'] = np.ptp(energies)
 
         # We only want to calculate the (expensive) forces if we have to:
         check_forces = (self.max_errors['force'] < np.inf and

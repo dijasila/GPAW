@@ -2,6 +2,7 @@ import numpy as np
 from ase import Atoms
 from gpaw import GPAW, PW, RMMDIIS
 from gpaw.hybrids import HybridXC
+from gpaw.mpi import world
 
 
 def run(symbol, d0, M, ecut, L):
@@ -17,7 +18,7 @@ def run(symbol, d0, M, ecut, L):
             xc=HybridXC('PBE0'),
             nbands=0,
             # eigensolver='rmm-diis',
-            txt=f'{symbol}2-{d / d0:.2f}.txt')
+            txt=f'{symbol}2-{d / d0:.2f}-{ecut}-{L}.txt')
         e = a.get_potential_energy()
         E.append(e)
     """
@@ -33,12 +34,13 @@ def run(symbol, d0, M, ecut, L):
     a.calc = GPAW(
         mode=PW(ecut, force_complex_dtype=True),
         xc=HybridXC('PBE0', mix_all=False),
-        eigensolver=RMMDIIS(niter=1),  # 'rmm-diis',
+        eigensolver=RMMDIIS(niter=1),
         parallel={'band': 1, 'kpt': 1},
-        txt=f'{symbol}.txt')
+        txt=f'{symbol}-{ecut}-{L}.txt')
     e1 = a.get_potential_energy()
-    # print(symbol, 2 * e1 - e2, d)
-    # return 2 * e1 - e2, d
+    if world.rank == 0:
+        print(symbol, ecut, L, 2 * e1 - e2, d)
+    return 2 * e1 - e2, d
 
 
 if __name__ == '__main__......':
