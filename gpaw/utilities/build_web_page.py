@@ -47,7 +47,7 @@ git clean -fdx doc
 rm -r build
 git checkout master -q > /dev/null 2>&1
 git pull -q > /dev/null 2>&1
-GPAW_CONFIG=doc/platforms/Linux/Niflheim/el7-intel.sh python setup.py install --remove-default-flags
+GPAW_CONFIG=doc/platforms/Linux/Niflheim/el7-intel.sh python setup.py install
 cd doc; sphinx-build -b html -d build/doctrees . build/html
 mv doc/build/html gpaw-web-page/dev
 python setup.py sdist
