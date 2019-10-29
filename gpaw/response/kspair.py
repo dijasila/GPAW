@@ -694,6 +694,12 @@ class KohnShamPair:
                                                            thiss_myt)
                                 h_myt[thish_myt] = h
 
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, 'gets', h_r1rh, h_myt, myt_myt, flush=True)
+        self.world.barrier()
+        '''
+
         return (data, myu_eu, myn_eueh, ik_r2, nrh_r2,
                 eh_eur2reh, rh_eur2reh, h_r1rh, h_myt, myt_myt)
 
@@ -1384,6 +1390,16 @@ class KohnShamPair:
     def newest_collect_kptdata(self, data, h_r1rh,
                                eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
         """From the extracted data, collect the KohnShamKPoint data arrays"""
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, h_r1rh, flush=True)
+        try:
+            nh = max([max(h_rh) for h_rh in h_r1rh if h_rh]) + 1
+        except Exception:
+            print(self.world.rank, 'met exception', data, self.ta, self.tb)
+        self.world.barrier()
+        '''
+
         # Some processes may not have to return a k-point
         if data[0] is None:
             return None
@@ -1391,7 +1407,12 @@ class KohnShamPair:
 
         # Allocate data arrays
         wfs = self.calc.wfs
-        nh = max([max(h_rh) for h_rh in h_r1rh if h_rh]) + 1
+        maxh_r1 = [max(h_rh) for h_rh in h_r1rh if h_rh]
+        if maxh_r1:
+            nh = max(maxh_r1) + 1
+        else:  # Carry around empty array
+            assert self.ta == self.tb
+            nh = 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
         Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
