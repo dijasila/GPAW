@@ -65,7 +65,8 @@ tms = TransverseMagneticSusceptibility('Fe',
                                        fxc=fxc,
                                        eta=eta,
                                        ecut=ecut,
-                                       fxckwargs=fxckwargs)
+                                       fxckwargs=fxckwargs,
+                                       nblocks=1)
 
 for q in range(2):
     tms.get_macroscopic_component('+-', q_qc[q], frq_qw[q],

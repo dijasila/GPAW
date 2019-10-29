@@ -392,6 +392,7 @@ class KohnShamPair:
             # return self.new_serial_extract_kptdata
             # return self.serial_extract_kptdata  # to be removed              XXX
             # return self.parallel_extract_kptdata  # to be removed            XXX
+            # Useful for debugging:
             return self.new_parallel_extract_kptdata
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed       XXX
@@ -1345,7 +1346,7 @@ class KohnShamPair:
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
-        P = wfs.kpt_u[0].projections.new(nbands=mynt)
+        P = wfs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
         psit_mytG = np.empty((self.mynt, self.pd0.ng_q[ik]),
                              dtype=wfs.kpt_u[0].psit.array.dtype)
 
@@ -1375,9 +1376,16 @@ class KohnShamPair:
         nh = max([max(h_rh) for h_rh in h_r1rh if h_rh]) + 1
         eps_h = np.empty(nh)
         f_h = np.empty(nh)
-        Ph = wfs.kpt_u[0].projections.new(nbands=nh)
+        Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
         psit_hG = np.empty((nh, self.pd0.ng_q[ik]),
                            dtype=wfs.kpt_u[0].psit.array.dtype)
+
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, nh, Ph.array.shape, psit_hG.shape,
+              h_r1rh, flush=True)
+        self.world.barrier()
+        '''
 
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
@@ -1916,7 +1924,7 @@ class KohnShamPair:
         mynt = self.mynt
         eps_myt = np.empty(mynt)
         f_myt = np.empty(mynt)
-        P = wfs.kpt_u[0].projections.new(nbands=mynt)
+        P = wfs.kpt_u[0].projections.new(nbands=mynt, bcomm=None)
         ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
 
         # Unfold k-point data
@@ -1948,7 +1956,7 @@ class KohnShamPair:
             # Allocate transfer arrays
             eps_h = np.empty(nh)
             f_h = np.empty(nh)
-            Ph = wfs.kpt_u[0].projections.new(nbands=nh)
+            Ph = wfs.kpt_u[0].projections.new(nbands=nh, bcomm=None)
             ut_hR = wfs.gd.empty(nh, wfs.dtype)
 
             # Extract data from the ground state
