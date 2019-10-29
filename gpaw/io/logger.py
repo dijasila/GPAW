@@ -12,7 +12,6 @@ import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
 from gpaw import extra_parameters
-from gpaw.mpi import world
 
 
 class GPAWLogger(object):
@@ -106,7 +105,7 @@ class GPAWLogger(object):
         del sp
         self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
-        self('cores:  %d' % world.size)
+        self('cores:', self.world.size)
         self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
         if gpaw.debug:
