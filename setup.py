@@ -2,29 +2,23 @@
 # Copyright (C) 2003-2016  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-import distutils
 import distutils.util
+from distutils.sysconfig import get_config_vars
 import os
-import os.path as op
 import re
+from setuptools import setup, find_packages, Extension
+from setuptools.command.build_ext import build_ext as _build_ext
 import subprocess
 import sys
-from distutils.command.build_ext import build_ext as _build_ext
-from distutils.command.build_scripts import build_scripts as _build_scripts
-from distutils.command.sdist import sdist as _sdist
-from distutils.core import setup, Extension
-from glob import glob
 from pathlib import Path
 
-from config import (get_system_config, check_dependencies,
-                    write_configuration, build_interpreter, get_config_vars)
+from config import check_dependencies, write_configuration, build_interpreter
 
 
 assert sys.version_info >= (3, 5)
 
 # Get the current version number:
-with open('gpaw/__init__.py', 'rb') as fd:
-    txt = fd.read().decode('UTF-8')
+txt = Path('gpaw/__init__.py').read_text()
 version = re.search("__version__ = '(.*)'", txt).group(1)
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
@@ -34,21 +28,49 @@ projector-augmented wave (PAW) method and the atomic simulation environment
 (ASE). It uses plane-waves, atom-centered basis-functions or real-space
 uniform grids combined with multigrid methods."""
 
-libraries = []
+remove_default_flags = False
+if '--remove-default-flags' in sys.argv:
+    remove_default_flags = True
+    sys.argv.remove('--remove-default-flags')
+
+for i, arg in enumerate(sys.argv):
+    if arg.startswith('--customize='):
+        custom = arg.split('=')[1]
+        raise DeprecationWarning(
+            'Please set GPAW_CONFIG_FILE={custom} or place {custom} in '
+            '~/.gpaw/config.py'.format(custom=custom))
+
+libraries = ['xc']
 library_dirs = []
 include_dirs = []
 extra_link_args = []
-extra_compile_args = []
+extra_compile_args = ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 runtime_library_dirs = []
 extra_objects = []
-define_macros = [('NPY_NO_DEPRECATED_API', 7)]
-undef_macros = []
+define_macros = [('NPY_NO_DEPRECATED_API', '7'),
+                 ('GPAW_NO_UNDERSCORE_CBLACS', '1'),
+                 ('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+undef_macros = ['NDEBUG']
 
 mpi_libraries = []
 mpi_library_dirs = []
 mpi_include_dirs = []
 mpi_runtime_library_dirs = []
 mpi_define_macros = []
+
+parallel_python_interpreter = False
+compiler = None
+fftw = False
+scalapack = False
+libvdwxc = False
+elpa = False
+mpicompiler = 'mpicc'
+mpilinker = 'mpicc'
+
+error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
+if error:
+    mpicompiler = None
+    mpilinker = None
 
 # Search and store current git hash if possible
 try:
@@ -61,70 +83,31 @@ try:
 except ImportError:
     print('ASE not found. GPAW git hash not written.')
 
-platform_id = ''
-
-packages = []
-for dirname, dirnames, filenames in os.walk('gpaw'):
-    if '__init__.py' in filenames:
-        packages.append(dirname.replace('/', '.'))
-
-import_numpy = True
-if '--ignore-numpy' in sys.argv:
-    import_numpy = False
-    sys.argv.remove('--ignore-numpy')
-
-remove_default_flags = False
-if '--remove-default-flags' in sys.argv:
-    remove_default_flags = True
-    sys.argv.remove('--remove-default-flags')
-
-customize = Path('customize.py')
-for i, arg in enumerate(sys.argv):
-    if arg.startswith('--customize='):
-        del sys.argv[i]
-        customize = Path(arg.split('=')[1]).expanduser()
-        break
-    if arg == '--customize':
-        del sys.argv[i]
-        customize = Path(sys.argv.pop(i))
-        break
-
-# check for environment
-# up to now LIBRARY_PATH only
-try:
-    for directory in os.environ['LIBRARY_PATH'].split(os.pathsep):
-        if directory not in library_dirs:
-            library_dirs.append(directory)
-except KeyError:
-    pass
-
-get_system_config(define_macros, undef_macros,
-                  include_dirs, libraries, library_dirs,
-                  extra_link_args, extra_compile_args,
-                  runtime_library_dirs, extra_objects,
-                  import_numpy)
-
-error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
-if error:
-    mpicompiler = None
-else:
-    mpicompiler = 'mpicc'
-mpilinker = mpicompiler
-
-compiler = None
-fftw = False
-scalapack = False
-libvdwxc = False
-elpa = False
-
 # User provided customizations:
-exec(customize.read_text())
+for siteconfig in [os.environ.get('GPAW_CONFIG'),
+                   'siteconfig.py',
+                   '~/.gpaw/siteconfig.py']:
+    if siteconfig is not None:
+        path = Path(siteconfig).expanduser()
+        if path.is_file():
+            exec(path.read_text())
+            break
+else:
+    libraries.append('blas')
 
-if platform_id != '':
-    my_platform = distutils.util.get_platform() + '-' + platform_id
+if not parallel_python_interpreter and mpicompiler:
+    # Build MPI-interface into _gpaw.so:
+    compiler = mpicompiler
+    define_macros += [('PARALLEL', '1')]
+
+plat = distutils.util.get_platform()
+platform_id = os.getenv('CPU_ARCH')
+if platform_id:
+    plat += '-' + platform_id
 
     def my_get_platform():
-        return my_platform
+        return plat
+
     distutils.util.get_platform = my_get_platform
 
 if compiler is not None:
@@ -147,35 +130,18 @@ if compiler is not None:
             value[0] = compiler
             vars[key] = ' '.join(value)
 
-if scalapack:
-    define_macros.append(('GPAW_WITH_SL', '1'))
+for flag, name in [(fftw, 'GPAW_WITH_FFTW'),
+                   (scalapack, 'GPAW_WITH_SL'),
+                   (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
+                   (elpa, 'GPAW_WITH_ELPA')]:
+    if flag:
+        define_macros.append((name, '1'))
 
-if libvdwxc:
-    define_macros.append(('GPAW_WITH_LIBVDWXC', '1'))
-
-if elpa:
-    define_macros.append(('GPAW_WITH_ELPA', '1'))
-
-if fftw:
-    define_macros.append(('GPAW_WITH_FFTW', '1'))
-
-# distutils clean does not remove the _gpaw.so library and gpaw-python
-# binary so do it here:
-plat = distutils.util.get_platform()
-plat = plat + '-' + sys.version[0:3]
-gpawso = 'build/lib.%s/' % plat + '_gpaw.so'
-gpawbin = 'build/bin.%s/' % plat + 'gpaw-python'
-if 'clean' in sys.argv:
-    if op.isfile(gpawso):
-        print('removing ', gpawso)
-        os.remove(gpawso)
-    if op.isfile(gpawbin):
-        print('removing ', gpawbin)
-        os.remove(gpawbin)
-
-sources = glob('c/*.c') + ['c/bmgs/bmgs.c']
-sources = sources + glob('c/xc/*.c')
-# Make build process deterministic (for "reproducible build" in debian)
+sources = [Path('c/bmgs/bmgs.c')]
+sources += Path('c').glob('*.c')
+sources += Path('c/xc').glob('*.c')
+# Make build process deterministic (for "reproducible build")
+sources = [str(source) for source in sources]
 sources.sort()
 
 check_dependencies(sources)
@@ -192,11 +158,6 @@ extensions = [Extension('_gpaw',
                         runtime_library_dirs=runtime_library_dirs,
                         extra_objects=extra_objects)]
 
-files = ['gpaw-analyse-basis', 'gpaw-basis',
-         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
-         'gpaw-setup', 'gpaw-upfplot', 'gpaw']
-scripts = [op.join('tools', script) for script in files]
-
 write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     extra_link_args, extra_compile_args,
                     runtime_library_dirs, extra_objects, mpicompiler,
@@ -204,24 +165,14 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
                     mpi_runtime_library_dirs, mpi_define_macros)
 
 
-class sdist(_sdist):
-    """Fix distutils.
-
-    Distutils insists that there should be a README or README.txt,
-    but GitLab.com needs README.rst in order to parse it as
-    reStructuredText."""
-
-    def warn(self, msg):
-        if msg.startswith('standard file not found: should have one of'):
-            self.filelist.append('README.rst')
-        else:
-            _sdist.warn(self, msg)
-
-
 class build_ext(_build_ext):
     def run(self):
+        import numpy as np
+        self.include_dirs.append(np.get_include())
+
         _build_ext.run(self)
-        if mpicompiler:
+
+        if parallel_python_interpreter:
             # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
@@ -234,24 +185,15 @@ class build_ext(_build_ext):
             assert error == 0
 
 
-class build_scripts(_build_scripts):
-    # Python 3's version will try to read the first line of gpaw-python
-    # because it thinks it is a Python script that need an adjustment of
-    # the Python version.  We skip this in our version.
-    def copy_scripts(self):
-        self.mkpath(self.build_dir)
-        outfiles = []
-        updated_files = []
-        for script in self.scripts:
-            outfile = op.join(self.build_dir, op.basename(script))
-            outfiles.append(outfile)
-            updated_files.append(outfile)
-            self.copy_file(script, outfile)
-        return outfiles, updated_files
+files = ['gpaw-analyse-basis', 'gpaw-basis',
+         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-setup', 'gpaw-upfplot']
+scripts = [str(Path('tools') / script) for script in files]
 
-
-if mpicompiler:
-    scripts.append('build/bin.%s/' % plat + 'gpaw-python')
+if parallel_python_interpreter:
+    major, minor = sys.version_info[:2]
+    scripts.append('build/bin.{plat}-{major}.{minor}/gpaw-python'
+                   .format(plat=plat, major=major, minor=minor))
 
 setup(name='gpaw',
       version=version,
@@ -262,19 +204,19 @@ setup(name='gpaw',
       url='https://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
-      packages=packages,
+      packages=find_packages(),
+      entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
+      setup_requires=['numpy'],
+      install_requires=['ase>=3.18.0'],
       ext_modules=extensions,
       scripts=scripts,
-      cmdclass={'sdist': sdist,
-                'build_ext': build_ext,
-                'build_scripts': build_scripts},
+      cmdclass={'build_ext': build_ext},
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',

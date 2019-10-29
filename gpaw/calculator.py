@@ -12,7 +12,7 @@ from ase.dft.bandgap import bandgap
 import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
-from gpaw import dry_run, memory_estimate_depth
+from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
@@ -748,7 +748,7 @@ class GPAW(PAW, Calculator):
 
         self.timer.print_info(self)
 
-        if dry_run:
+        if gpaw.dry_run:
             self.dry_run()
 
         if (realspace and

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
 import numbers
 from math import pi
 from math import factorial as fac
@@ -9,7 +8,7 @@ from ase.units import Ha, Bohr
 from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
-from gpaw import dry_run
+import gpaw
 from gpaw.arraydict import ArrayDict
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
@@ -76,7 +75,7 @@ class PW(Mode):
         self.gammacentered = gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
-        self.fftwflags = fftwflags if not dry_run else fftw.MEASURE
+        self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None

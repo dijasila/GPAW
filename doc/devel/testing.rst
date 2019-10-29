@@ -19,8 +19,8 @@ Use the :program:`gpaw` command to run the tests::
                      [--reverse] [-k] [-d DIRECTORY] [-s] [--list]
                      [tests [tests ...]]
 
-    Run the GPAW test suite. The test suite can be run in parallel with MPI
-    through gpaw-python. The test suite supports 1, 2, 4 or 8 CPUs although some
+    Run the GPAW test suite. The test suite can be run in parallel with MPI.
+    The test suite supports 1, 2, 4 or 8 CPUs although some
     tests are skipped for some parallelizations. If no TESTs are given, run all
     tests supporting the parallelization.
 

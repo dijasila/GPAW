@@ -11,14 +11,14 @@ excitations of plasmons, that are collective electronic excitations,
 corresponding to oscillations in the electron density.  For a free-electron
 metal (Drude metal), the plasmon energy is given by the electron density, n:
 
-.. math:: \omega_p = \sqrt{\frac{ne^2}{\epsilon_0 m}}. 
+.. math:: \omega_p = \sqrt{\frac{ne^2}{\epsilon_0 m}}.
 
 In GPAW, the EELS can be calculated with the dielectric response module,
 where it is obtained from the macroscopic dielectric function:
 
 .. math::
-    
-    \mathrm{EELS}(q, \omega) = -\mathrm{Im} \frac{1}{\epsilon_M(q,\omega)}, 
+
+    \mathrm{EELS}(q, \omega) = -\mathrm{Im} \frac{1}{\epsilon_M(q,\omega)},
 
 where q is the momentum transfer. (Se the tutorial :ref:`df_tutorial` for a
 detailed description of the dielectric response.)
@@ -38,7 +38,7 @@ Then we can set up the dielectric function, taking the ground state as input:
 .. literalinclude:: eels.py
     :start-after: # Set up
     :end-before: # Momentum transfer
-    
+
 The EELS spectrum is calculated with the
 :meth:`~gpaw.response.df.DielectricFunction.get_eels_spectrum` method, that
 takes the momentum transfer q as a parameter. This parameter is restricted to
@@ -53,7 +53,7 @@ k-points then that will be ``[1.0 / N, 0, 0]``:
 The calculation (see :download:`eels.py`) takes some time due to a sum over
 k-points. To speed up the calculation, run it in parallel::
 
-  mpirun -np 4 gpaw-python silver_EELS.py
+    $ mpiexec -np 4 python3 silver_EELS.py
 
 The calculation saves the file ``eels.csv`` by default, where the first
 column is the energy grid, and the second and third columns are the loss
