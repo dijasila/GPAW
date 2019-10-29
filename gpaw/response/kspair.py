@@ -313,6 +313,14 @@ class KohnShamPair:
         _extract_kptdata = self.create_extract_kptdata()
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
 
+        '''
+        # Temporary debugging                                                  XXX
+        (K, eps_myt, f_myt, ut_mytR, P, shift_c) = kptdata
+        print(self.world.rank, f_myt, flush=True)
+        self.world.barrier()
+        quit()
+        '''
+
         # Make local n and s arrays for the KohnShamKPoint object
         n_myt = np.empty(self.mynt, dtype=n_t.dtype)
         n_myt[:self.tb - self.ta] = n_t[self.ta:self.tb]
@@ -378,12 +386,13 @@ class KohnShamPair:
     def create_extract_kptdata(self):
         """Creator component of the data extraction factory."""
         if self.calc_parallel:
-            return self.parallel_extract_kptdata
+            # return self.parallel_extract_kptdata  # to be removed            XXX
+            return self.new_parallel_extract_kptdata
         else:
-            return self.new_serial_extract_kptdata
+            # return self.new_serial_extract_kptdata
             # return self.serial_extract_kptdata  # to be removed              XXX
             # return self.parallel_extract_kptdata  # to be removed            XXX
-            # return self.new_parallel_extract_kptdata
+            return self.new_parallel_extract_kptdata
 
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed       XXX
         """Returns the input to KohnShamKPoint:
@@ -493,22 +502,48 @@ class KohnShamPair:
          P_r2rhI, psit_r2rhG) = self.allocate_transfer_arrays(data, nrh_r2,
                                                               ik_r2, h_r1rh)
 
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, myu_eu, myn_eueh,
+              eh_eur2reh, rh_eur2reh, flush=True)
+        self.world.barrier()
+        if self.world.rank == 0:
+            print('Doing extraction\n\n', flush=True)
+        self.world.barrier()
+        '''
+
         # Do actual extraction
         for myu, myn_eh, eh_r2reh, rh_r2reh in zip(myu_eu, myn_eueh,
                                                    eh_eur2reh, rh_eur2reh):
 
             eps_eh, f_eh, P_ehI = self.extract_wfs_data(myu, myn_eh)
 
+            '''
+            # Temporary debugging                                              XXX
+            print(self.world.rank, f'myu={myu}', f_eh, flush=True)
+            '''
+
             for r2, (eh_reh, rh_reh) in enumerate(zip(eh_r2reh, rh_r2reh)):
                 if eh_reh:
                     eps_r2rh[r2][rh_reh] = eps_eh[eh_reh]
-                    f_r2rh[r2][rh_reh] = f_et[eh_reh]
+                    f_r2rh[r2][rh_reh] = f_eh[eh_reh]
                     P_r2rhI[r2][rh_reh] = P_ehI[eh_reh]
 
             # Wavefunctions are heavy objects which can only be extracted
             # for one band index at a time, handle them seperately
             self.new_add_wave_function(myu, myn_eh,
                                        eh_r2reh, rh_r2reh, psit_r2rhG)  # rnew XXX
+
+        '''
+        # Temporary debugging                                                  XXX
+        self.world.barrier()
+        if self.world.rank == 0:
+            print('\n\nExtracted:', flush=True)
+        self.world.barrier()
+        print(self.world.rank, f_r1rh, f_r2rh, flush=True)
+        self.world.barrier()
+        quit()
+        '''
 
         self.distribute_extracted_data(eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                        eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
@@ -582,19 +617,16 @@ class KohnShamPair:
                 # If the process is extracting or receiving data,
                 # figure out how to do so
                 if self.world.rank in np.append(r1_ct, r2_ct):
-                    # Find unique composite index h = (n, s) that the process
-                    # is extracting
-                    myn_eh = np.unique(myn_ct)
-                    myn_eueh.append(myn_eh)
-
-                    eh_r2reh = [list([]) for _ in range(self.world.size)]
-                    rh_r2reh = [list([]) for _ in range(self.world.size)]
                     # Does this process have anything to send?
                     thisr1_ct = r1_ct == self.world.rank
                     if np.any(thisr1_ct):
+                        eh_r2reh = [list([]) for _ in range(self.world.size)]
+                        rh_r2reh = [list([]) for _ in range(self.world.size)]
                         # Find composite indeces h = (n, s)
                         n_et = n_ct[thisr1_ct]
                         n_eh = np.unique(n_et)
+                        # Find composite local band indeces
+                        myn_eh = np.unique(myn_ct[thisr1_ct])
 
                         # Where to send the data
                         r2_et = r2_ct[thisr1_ct]
@@ -610,8 +642,11 @@ class KohnShamPair:
                             nreh = len(eh_reh)
                             rh_r2reh[r2] = np.arange(nreh) + nrh_r2[r2]
                             nrh_r2[r2] += nreh
-                    eh_eur2reh.append(eh_r2reh)
-                    rh_eur2reh.append(rh_r2reh)
+
+                        myu_eu.append(myu)
+                        myn_eueh.append(myn_eh)
+                        eh_eur2reh.append(eh_r2reh)
+                        rh_eur2reh.append(rh_r2reh)
 
                     # Does this process have anything to receive?
                     thisr2_ct = r2_ct == self.world.rank
@@ -1353,6 +1388,13 @@ class KohnShamPair:
                 f_h[h_rh] = f_rh
                 Ph.array[h_rh] = P_rhI
                 psit_hG[h_rh] = psit_rhG
+
+        '''
+        # Temporary debugging                                                  XXX
+        print(self.world.rank, h_r1rh, f_r1rh, flush=True)
+        self.world.barrier()
+        quit()
+        '''
 
         return (K, k_c, eps_h, f_h, Ph, psit_hG)
 
