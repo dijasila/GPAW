@@ -793,7 +793,7 @@ class KohnShamPair:
             r1_ct.append(r1)
             myn_ct.append(myn)
 
-        return myu, r1_ct, myn_ct
+        return myu, np.array(r1_ct), np.array(myn_ct)
     '''
     def create_get_newer_extraction_protocol(self):  # rnewer                  XXX
         """Creator component of the extract k-point data factory."""
