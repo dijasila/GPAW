@@ -11,7 +11,7 @@ def run(symbol, d0, M, ecut, L):
     a.center()
     D = np.linspace(d0 * 0.98, d0 * 1.02, 5)
     E = []
-    if 0:  # for d in D:
+    for d in D:
         a.set_distance(0, 1, d)
         a.calc = GPAW(
             mode=PW(ecut, force_complex_dtype=True),
@@ -21,13 +21,12 @@ def run(symbol, d0, M, ecut, L):
             txt=f'{symbol}2-{d / d0:.2f}-{ecut}-{L}.txt')
         e = a.get_potential_energy()
         E.append(e)
-    """
+
     p0 = np.polyfit(D, E, 3)
     p1 = np.polyder(p0)
     p2 = np.polyder(p1)
     d = sorted([(np.polyval(p2, d), d) for d in np.roots(p1)])[1][1]
     e2 = np.polyval(p0, d)
-    """
 
     a = Atoms(symbol, cell=[L, L, L], magmoms=[M])
     a.center()
@@ -38,17 +37,17 @@ def run(symbol, d0, M, ecut, L):
         parallel={'band': 1, 'kpt': 1},
         txt=f'{symbol}-{ecut}-{L}.txt')
     e1 = a.get_potential_energy()
+
     if world.rank == 0:
         print(symbol, ecut, L, 2 * e1 - e2, d)
+
     return 2 * e1 - e2, d
 
 
-if __name__ == '__main__......':
+if __name__ == '__main__':
     for L in [8, 10, 12]:
         run('H', 0.75, 1, 500, L)
         run('N', 1.089, 3, 500, L)
     for ecut in [400, 500, 600, 700]:
         run('H', 0.75, 1, ecut, 8)
         run('N', 1.089, 3, ecut, 8)
-
-run('N', 1.089, 3, 500, 9)
