@@ -40,7 +40,7 @@ if output:
 
     plt.plot(be_e, f_e, '-b', label='Exp')
     plt.text(6.5, 0.8, 'H$_2$O', fontsize=22)
-    #xlabel('Binding energy [eV]', fontsize=20)
+    # xlabel('Binding energy [eV]', fontsize=20)
     plt.ylabel('Spectroscopic factor', fontsize=20)
     plt.axis((5, 45, 0, 2))
     plt.xticks(fontsize=18)
@@ -86,8 +86,8 @@ if output:
 
     plt.plot(be_e, f_e, '-b', label='Exp')
     plt.text(6.5, 0.8, 'CO', fontsize=22)
-    #xlabel('Binding energy [eV]', fontsize=20)
-    #ylabel('Spectroscopic factor', fontsize=20)
+    # xlabel('Binding energy [eV]', fontsize=20)
+    # ylabel('Spectroscopic factor', fontsize=20)
     plt.axis((5, 45, 0, 2))
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
@@ -101,7 +101,7 @@ for t, d, ref in zip(ube_t, ube_d, peaks):
     equal(t, ref, etol)
     equal(t, d, etol)
 
-############################# NH3 ############################
+# NH3
 
 filename = 'NH3'
 
@@ -134,13 +134,13 @@ if output:
     leg = plt.legend()
     plt.text(6.0, 0.8, 'NH$_3$', fontsize=22)
     plt.xlabel('Binding energy [eV]', fontsize=20)
-    #ylabel('Spectroscopic factor', fontsize=20)
+    # ylabel('Spectroscopic factor', fontsize=20)
     plt.axis((5, 45, 0, 2))
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
 
     plt.savefig('PES_fig.png')
-    #show()
+    # show()
 
 etol = 1.0
 peaks = np.array([10.8, 16.2])

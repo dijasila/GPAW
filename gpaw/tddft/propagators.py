@@ -1732,7 +1732,7 @@ class SemiImplicitKrylovExponential(DummyPropagator):
     def dot(self, psit, spsit):
         self.td_overlap.apply(psit, spsit, self.wfs, self.kpt)
 
-    ### Below this, just for testing & debug
+    # Below this, just for testing & debug
     def Sdot(self, psit, spsit):
         self.apply_preconditioner(psit, self.tmp)
         self.td_overlap.apply(self.tmp, spsit, self.wfs, self.kpt)

@@ -74,8 +74,8 @@ class PhononPerturbation(Perturbation):
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         kd,
                         dtype=self.dtype)
-        ## self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-        ##                 integral=sqrt(4 * pi), dtype=self.dtype)
+        # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        #                 integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
         self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
                         kd,

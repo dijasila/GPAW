@@ -1,4 +1,3 @@
-from __future__ import print_function
 import functools
 
 from ase.calculators.calculator import Calculator
@@ -587,7 +586,7 @@ class CDFT(Calculator):
         if not self.difference:
             self._n_charge_regions = len(self.charge_regions)
         else:
-            self._n_charge_regions =  1
+            self._n_charge_regions = 1
         return self._n_charge_regions
 
     @property
@@ -784,7 +783,7 @@ class CDFTPotential(ExternalPotential):
 
         #constrained spins
         if len(constraints) - self.n_charge_regions != 0:
-            Delta_nt_g =  dens.nt_sg[0] - dens.nt_sg[1] # pseudo spin difference density
+            Delta_nt_g = dens.nt_sg[0] - dens.nt_sg[1] # pseudo spin difference density
             spin_diff = self.gd.integrate(w[self.n_charge_regions:],
                     Delta_nt_g, global_integral=True) - constraints[self.n_charge_regions:]
             diff.append(spin_diff)
@@ -796,6 +795,7 @@ class CDFTPotential(ExternalPotential):
         e /= size
 
         return e
+
 
 class WeightFunc:
     """ Class which builds a weight function around atoms or molecules
@@ -1079,7 +1079,7 @@ class WeightFunc:
 
             # Gaussian derivative eq 34
 
-            G_a =  a_charge * \
+            G_a = a_charge * \
                self.normalized_gaussian(a_dis,
                    self.mu[a_symbol],
                    self.Rc[a_symbol])

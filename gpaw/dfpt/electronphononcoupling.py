@@ -132,13 +132,13 @@ class ElectronPhononCoupling:
         # Do a single-shot calculation to get the required wave-functions
 
 
-##         self.calc.set(fixdensity=True,
-##                       nbands=10,
-##                       convergence=dict(nbands=8),
-##                       # basis='dzp',
-##                       eigensolver='cg',
-##                       symmetry='off')
-##         self.calc.get_potential_energy()
+#         self.calc.set(fixdensity=True,
+#                       nbands=10,
+#                       convergence=dict(nbands=8),
+#                       # basis='dzp',
+#                       eigensolver='cg',
+#                       symmetry='off')
+#         self.calc.get_potential_energy()
 
 # Electronic k-point descriptor
         kd_e = self.calc.wfs.kd

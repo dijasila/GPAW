@@ -121,7 +121,7 @@ class LrResponse:
             data[ip, 15] = 2. * self.omega * df * C_im_ip * dm
             #data[ip,15] = 2. * (eps_p-eps_i) * df * C_im_ip * dm
 
-            ### FIXME: IS THIS CORRECT ???
+            # FIXME: IS THIS CORRECT ???
             # maybe answer is here
             # Varsano et al., Phys.Chem.Chem.Phys. 11, 4481 (2009)
             mm = np.vdot(kss_ip.magn_mom, self.field_vector)
@@ -239,7 +239,7 @@ class LrResponse:
             dnt_gip[:] = 0.0
             drhot_gip[:] = 0.0
             kss_ip.calculate_pair_density(dnt_Gip, dnt_gip, drhot_gip)
-            #### ?FIXME?: SHOULD HERE BE OCCUPATION DIFFERENCE? yes ####
+            # ?FIXME?: SHOULD HERE BE OCCUPATION DIFFERENCE? yes ####
             drhot_g += kss_ip.pop_diff * C_im[ip] * drhot_gip
 
         # sum over eh comm

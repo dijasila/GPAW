@@ -11,12 +11,12 @@ verbose = True
 # Y. Sakamoto, The J. of Chem. Phys., vol. 28, (1958), p. 164,
 # scaled to the nearest neighbor distance.
 
-if 1: #fcc
+if 1:  # fcc
     cell = np.array([[0., .5, .5],
-                      [.5, .0, .5],
-                      [.5, .5, .0]])
+                     [.5, .0, .5],
+                     [.5, .5, .0]])
     basis = np.array([[0.,0.,0.]])
-    charges =  np.array([1.])
+    charges = np.array([1.])
     r = np.array([0.0,0.0,0.0])
     charges = np.array([1])
     ewald = Ewald(cell)
@@ -27,16 +27,16 @@ if 1: #fcc
         print('Madelung energy, fcc:', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-5
 
-if 1: #hcp
+if 1:  # hcp
     a = 1.
     c = np.sqrt(8./3.)*a
-    cell =  np.array([[.5*a, -0.5*np.sqrt(3)*a,0],
+    cell = np.array([[.5*a, -0.5*np.sqrt(3)*a,0],
                       [.5*a, 0.5*np.sqrt(3)*a,0],
                       [0., 0., c]])
     basis = np.array([[.5*a, .5/np.sqrt(3)*a, 0.],
                       [.5*a, -.5/np.sqrt(3)*a, 0.5*c]])
     r = np.array([.5*a, .5/np.sqrt(3)*a, 0.])
-    charges =  np.array([1.,1.])
+    charges = np.array([1.,1.])
     ewald = Ewald(cell)
     e = ewald.get_electrostatic_potential(r, basis, charges, excludefroml0=0)
     a_this = -e * ewald.get_wigner_seitz_radius(sum(charges))
@@ -44,11 +44,11 @@ if 1: #hcp
     if verbose:
         print('Madelung energy, hcp:', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-5
-    
+
 if 1: #Simple Cubic
     cell = np.diag([1.,1.,1.])
     basis = np.array([[0.,0.,0.]])
-    charges =  np.array([1.])
+    charges = np.array([1.])
     r = np.array([0.0,0.0,0.0])
     charges = np.array([1])
     ewald = Ewald(cell)
@@ -66,7 +66,7 @@ if 1: # NaCl
     basis = np.array([[0.,0.,0.],
                       [.5,.5,.5]])
     r = np.array([0.0,0.0,0.0])
-    charges =  np.array([1,-1])
+    charges = np.array([1,-1])
     ewald = Ewald(cell)
     e = ewald.get_electrostatic_potential(r, basis, charges, excludefroml0=0)
     a_this = - 0.5 * e
@@ -102,7 +102,7 @@ if 1: # CsCl
     basis = np.array([[0.,0.,0.],
                       [.5, .5, .5]])
     r = np.array([0.0,0.0,0.0])
-    charges =  np.array([1,-1])
+    charges = np.array([1,-1])
     ewald = Ewald(cell)
     e = ewald.get_electrostatic_potential(r, basis, charges, excludefroml0=0)
     a_this = - .5 * np.sqrt(3.) * e
@@ -110,15 +110,15 @@ if 1: # CsCl
     if verbose:
         print('Madelung constant, CsCl (B2):', a_this, a_this-a_ref)
     assert abs(a_this-a_ref) < 1e-13
-    
+
 if 1: # Zincblende, cubic ZnS
-    cell =  np.array([[.0,.5,.5],
-                      [.5,.0,.5],
-                      [.5,.5,.0]])
+    cell = np.array([[.0,.5,.5],
+                     [.5,.0,.5],
+                     [.5,.5,.0]])
     basis = np.array([[0.,0.,0.],
                       [.25,.25,.25]])
     r = np.array([0.0,0.0,0.0])
-    charges =  np.array([1,-1])
+    charges = np.array([1,-1])
     ewald = Ewald(cell)
     e = ewald.get_electrostatic_potential(r, basis, charges, excludefroml0=0)
     a_this = - 0.25 * np.sqrt(3) * e
@@ -131,15 +131,15 @@ if 1: # Ideal Wurtzite, ZnS, (B4)
     a = 1.
     c = np.sqrt(8./3.)*a
     u = 3./8.
-    cell =  np.array([[.5*a, -0.5*np.sqrt(3)*a,0],
-                      [.5*a, 0.5*np.sqrt(3)*a,0],
-                      [0., 0., c]])
+    cell = np.array([[.5*a, -0.5*np.sqrt(3)*a,0],
+                     [.5*a, 0.5*np.sqrt(3)*a,0],
+                     [0., 0., c]])
     basis = np.array([[.5*a, .5/np.sqrt(3)*a, 0.],
                        [.5*a, -.5/np.sqrt(3)*a, 0.5*c],
                        [.5*a, .5/np.sqrt(3)*a, u*c],
                        [.5*a, -.5/np.sqrt(3)*a, (.5+u)*c]])
     r = np.array([.5*a, .5/np.sqrt(3)*a, 0.])
-    charges =  np.array([1.,1.,-1,-1])
+    charges = np.array([1.,1.,-1,-1])
     ewald = Ewald(cell)
     e = ewald.get_electrostatic_potential(r, basis, charges, excludefroml0=0)
     a_this = - 1. * u * c * e
