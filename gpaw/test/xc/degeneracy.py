@@ -1,18 +1,19 @@
-from __future__ import print_function
-from ase import Atom, Atoms
+from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
+from gpaw.xc.tools import vxc
 
 a = 5.0
 d = 1.0
 x = d / 3**0.5
-atoms = Atoms([Atom('C', (0.0, 0.0, 0.0)),
-                     Atom('H', (x, x, x)),
-                     Atom('H', (-x, -x, x)),
-                     Atom('H', (x, -x, -x)),
-                     Atom('H', (-x, x, -x))],
-                    cell=(a, a, a),
-                    pbc=False)
+atoms = Atoms('CH4',
+              [(0.0, 0.0, 0.0),
+               (x, x, x),
+               (-x, -x, x),
+               (x, -x, -x),
+               (-x, x, -x)],
+              cell=(a, a, a),
+              pbc=False)
 
 atoms.positions[:] += a / 2
 calc = GPAW(h=0.25, nbands=4, convergence={'eigenstates': 7.8e-10})
@@ -30,7 +31,6 @@ niter_tolerance = 0
 equal(energy, -23.631, energy_tolerance)
 
 # Calculate non-selfconsistent PBE eigenvalues:
-from gpaw.xc.tools import vxc
 epbe0 = e - vxc(calc)[0, 0] + vxc(calc, 'PBE')[0, 0]
 
 # Calculate selfconsistent PBE eigenvalues:

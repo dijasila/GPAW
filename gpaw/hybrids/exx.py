@@ -450,5 +450,3 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
             map_ss[s1, s2] = s
 
     return map_ss
-
-

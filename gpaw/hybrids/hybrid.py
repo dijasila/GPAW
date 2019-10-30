@@ -393,7 +393,7 @@ if __name__ == '__main__':
                   txt=None
                   )
     h.get_potential_energy()
-    x = Hybrid('EXX')
+    x = HybridXC('EXX')
 
     # h.calc.get_xc_difference(exx)
     # e = exx.evv + exx.evc + exx.exx.ecc
