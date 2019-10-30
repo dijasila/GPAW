@@ -1,7 +1,4 @@
-from __future__ import print_function
 import warnings
-
-from ase.utils import basestring
 
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
@@ -38,7 +35,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
 
-    if isinstance(kernel, basestring):
+    if isinstance(kernel, str):
         kernel = xc_string_to_dict(kernel)
 
     kwargs = {}

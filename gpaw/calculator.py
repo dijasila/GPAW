@@ -5,7 +5,7 @@ import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
-from ase.utils import basestring, plural
+from ase.utils import plural
 from ase.utils.timing import Timer
 from ase.dft.bandgap import bandgap
 
@@ -529,7 +529,7 @@ class GPAW(PAW, Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (basestring, dict)):
+            if isinstance(par.xc, (str, dict)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc

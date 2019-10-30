@@ -14,7 +14,6 @@ except ImportError:  # python2.6 compatibility
 
 import numpy as np
 from ase.data import atomic_numbers
-from ase.utils import basestring
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
@@ -261,7 +260,7 @@ class UPFSetupData:
         # or dict (that's what we are looking for).
         # Maybe just a symbol would also be fine if we know the
         # filename to look for.
-        if isinstance(data, basestring):
+        if isinstance(data, str):
             filename = data
             data = parse_upf(data)
         elif filename is None:

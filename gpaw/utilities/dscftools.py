@@ -1,45 +1,11 @@
+# flake8: noqa
 import numpy as np
 
 from gpaw import debug
 from gpaw import mpi
-"""
-def dscf_find_lumo(paw,band):
+from gpaw.kpoint import GlobalKPoint
+from gpaw.hs_operators import MatrixOperator
 
-    # http://trac.fysik.dtu.dk/projects/gpaw/browser/trunk/doc/documentation/dscf/lumo.py?format=raw
-
-    assert band in [5,6]
-
-    #Find band corresponding to lumo
-    lumo = paw.get_pseudo_wave_function(band=band, kpt=0, spin=0)
-    lumo = np.reshape(lumo, -1)
-
-    wf1_k = [paw.get_pseudo_wave_function(band=5, kpt=k, spin=0) for k in range(paw.wfs.kd.nibzkpts)]
-    wf2_k = [paw.get_pseudo_wave_function(band=6, kpt=k, spin=0) for k in range(paw.wfs.kd.nibzkpts)]
-
-    band_k = []
-    for k in range(paw.wfs.kd.nibzkpts):
-        wf1 = np.reshape(wf1_k[k], -1)
-        wf2 = np.reshape(wf2_k[k], -1)
-        p1 = np.abs(np.dot(wf1, lumo))
-        p2 = np.abs(np.dot(wf2, lumo))
-
-        if p1 > p2:
-            band_k.append(5)
-        else:
-            band_k.append(6)
-
-    return band_k
-"""
-
-# -------------------------------------------------------------------
-"""
-def mpi_debug(text):
-    if isinstance(text,list):
-        for t in text:
-            mpi_debug(t)
-    else:
-        print 'mpi.rank=%d, %s' % (mpi.rank,text)
-"""
 
 global msgcount
 msgcount = 0
@@ -65,15 +31,9 @@ def mpi_debug(data, ordered=True):
             mpi.world.barrier()
 
 
-# -------------------------------------------------------------------
-
-
 def dscf_find_atoms(atoms, symbol):
     chemsyms = atoms.get_chemical_symbols()
     return np.where([s == symbol for s in chemsyms])[0]
-
-
-# -------------------------------------------------------------------
 
 
 # Helper function in case of hs_operators having ngroups > 1
@@ -88,10 +48,6 @@ def SliceGen(psit_nG, operator):
         n2 = n1 + M
         yield psit_nG[n1:n2]
     raise StopIteration
-
-
-from gpaw.kpoint import GlobalKPoint
-from gpaw.hs_operators import MatrixOperator
 
 
 def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
@@ -118,8 +74,8 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
         r_cG = gd.empty(3)
         for c, r_G in enumerate(r_cG):
             slice_c2G = [np.newaxis, np.newaxis, np.newaxis]
-            slice_c2G[c] = slice(None)  #this means ':'
-            r_G[:] = np.arange(gd.beg_c[c], gd.end_c[c], \
+            slice_c2G[c] = slice(None)  # this means ':'
+            r_G[:] = np.arange(gd.beg_c[c], gd.end_c[c],
                                dtype=float)[slice_c2G] / gd.N_c[c]
 
     X_unn = np.empty((kd.mynks, bd.nbands, bd.nbands), dtype=paw.wfs.dtype)
@@ -149,12 +105,12 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
                     2j * np.pi * np.sum(paw.spos_ac[a] *
                                         (k_c - k0_c), axis=0)) * kpt0.P_ani[a]
 
-            ## NB: No exp(ikr) approximate here, but has a parallelization bug
-            #kpt0_rank, myu0 = kd.get_rank_and_index(kpt0.s, kpt0.k)
-            #if kd.comm.rank == kpt0_rank:
-            #    paw.wfs.pt.integrate(psit0_nG, P0_ani, kpt0.q)
-            #for a, P0_ni in P0_ani.items():
-            #    kd.comm.broadcast(P0_ni, kpt0_rank)
+            # NB: No exp(ikr) approximate here, but has a parallelization bug
+            # kpt0_rank, myu0 = kd.get_rank_and_index(kpt0.s, kpt0.k)
+            # if kd.comm.rank == kpt0_rank:
+            #     paw.wfs.pt.integrate(psit0_nG, P0_ani, kpt0.q)
+            # for a, P0_ni in P0_ani.items():
+            #     kd.comm.broadcast(P0_ni, kpt0_rank)
         else:
             psit0_nG = kpt0.psit_nG
             P0_ani = kpt0.P_ani
@@ -182,11 +138,10 @@ def dscf_kpoint_overlaps(paw, phasemod=True, broadcast=True):
     return kpt0_s, X_unn
 
 
-# -------------------------------------------------------------------
-
-
 def dscf_find_bands(paw, bands, data=None):
-    """Entirely serial, but works regardless of parallelization. DOES NOT WORK WITH DOMAIN-DECOMPOSITION IN GPAW v0.5.2725 """  #TODO!
+    """Entirely serial, but works regardless of parallelization.
+
+    DOES NOT WORK WITH DOMAIN-DECOMPOSITION IN GPAW v0.5.2725 """  # TODO!
 
     raise DeprecationWarning('About to be replaced with something better.')
 
@@ -195,14 +150,14 @@ def dscf_find_bands(paw, bands, data=None):
     else:
         assert len(data) == len(bands), 'Length mismatch.'
 
-    k0 = 0  #TODO find kpt with lowest kpt.k_c (closest to gamma point)
+    k0 = 0  # TODO find kpt with lowest kpt.k_c (closest to gamma point)
 
     gamma_siG = []
     for s in range(paw.wfs.nspins):
         gamma_siG.append([
             paw.get_pseudo_wave_function(band=n, kpt=k0, spin=s).ravel()
             for n in bands
-        ])  #TODO! paw.get_pseudo fails with domain-decomposition from tar-file
+        ])  # TODO! paw.get_pseudo fails with domain-decomposition from tar-file
 
     band_ui = []
     data_ui = []
@@ -215,7 +170,6 @@ def dscf_find_bands(paw, bands, data=None):
             if kpt.k == k0:
                 wf = gamma_siG[kpt.s][i]
             else:
-                #wf = paw.get_pseudo_wave_function(n, kpt.k, kpt.s, pad=False).ravel()
                 wf = paw.get_pseudo_wave_function(band=n,
                                                   kpt=kpt.k,
                                                   spin=kpt.s).ravel()
@@ -232,7 +186,7 @@ def dscf_find_bands(paw, bands, data=None):
             data_i.append(data[p])
 
         assert len(np.unique(band_i)) == len(
-            np.sort(band_i)), 'Non-unique band range'  #TODO!
+            np.sort(band_i)), 'Non-unique band range'  # TODO!
 
         band_ui.append(band_i)
         data_ui.append(data_i)
@@ -247,7 +201,8 @@ def dscf_find_bands(paw, bands, data=None):
 
 
 def dscf_linear_combination(paw, molecule, bands, coefficients):
-    """Full parallelization over k-point - grid-decomposition parallelization needs heavy testing."""  #TODO!
+    """Full parallelization over k-point - grid-decomposition
+    parallelization needs heavy testing."""  # TODO!
 
     raise DeprecationWarning('About to be replaced with something better.')
 
@@ -275,45 +230,19 @@ def dscf_linear_combination(paw, molecule, bands, coefficients):
         band_i = band_ui[u]
         coeff_i = coeff_ui[u]
 
-        #if debug: mpi_debug(['paw.wfs.kpt_u[%d].P_ani[:,%d,:].shape=%s' % (u,n,str(paw.wfs.kpt_u[u].P_ani[:,n,:].shape)) for n in bands])
-
         for m, a in enumerate(molecule):
-            """
-            if debug:
-                for n in bands:
-                    print 'mpi.rank=%d, paw.nuclei[%d].P_uni[:,%d,:].shape=' % (mpi.rank,a,n), paw.nuclei[a].P_uni[:,n,:].shape
-
-                print 'mpi.rank=%d, test.shape=' % mpi.rank, np.sum([c*paw.nuclei[a].P_uni[:,n,:] for (c,n) in zip(coefficients,bands)],axis=0).shape
-            """
-
-            #P_aui[m] += np.sum([c*paw.nuclei[a].P_uni[:,n,:] for (c,n) in zip(coefficients,bands)],axis=0)
-
-            #if paw.nuclei[a].in_this_domain: #TODO what happened to this one in guc?
             if True:
-                P_aui[m][u, :] += np.sum([
-                    c * kpt.P_ani[a][n, :] for (c, n) in zip(coeff_i, band_i)
-                ],
-                                         axis=0)
+                P_aui[m][u, :] += np.sum(
+                    [c * kpt.P_ani[a][n, :] for (c, n) in zip(coeff_i, band_i)
+                     ],
+                    axis=0)
 
                 if debug:
                     kpt.P_ani[a][:, :].dump(
                         'dscf_tool_P_ani_a%01d_k%01ds%01d_%s%02d.pickle' %
                         (a, kpt.k, kpt.s, dumpkey, mpi.rank))
 
-    #paw.wfs.gd.comm.sum(P_aui) #TODO HUH?!
-
     if debug: P_aui.dump('dscf_tool_P_aui_%s%02d.pickle' % (dumpkey, mpi.rank))
-    """
-    if debug and mpi.rank == 0:
-        print 'P_aui.shape=',P_aui.shape
-
-        for (a,P_ui) in enumerate(P_aui):
-            print 'P_aui[%d].shape=' % a,P_ui.shape
-
-        print 'P_aui=',P_aui
-
-        print 'gd.Nc=',paw.wfs.gd.N_c
-    """
 
     if debug: mpi_debug('P_aui.shape=' + str(P_aui.shape))
 

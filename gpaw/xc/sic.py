@@ -37,7 +37,6 @@ from math import pi
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.utils import basestring
 from scipy.linalg import eigh
 
 from gpaw.utilities.blas import gemm
@@ -169,7 +168,7 @@ class SIC(XCFunctional):
             Use fine grid for energy functional evaluations?
         """
 
-        if isinstance(xc, basestring):
+        if isinstance(xc, str):
             xc = XC(xc)
 
         if xc.orbital_dependent:
