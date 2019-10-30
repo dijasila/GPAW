@@ -8,7 +8,6 @@ import numpy.fft as fft
 
 class ElectronPhononCoupling:
     """..."""
-
     def __init__(self, atoms, gd, kd, calc=None, dmatrix=None, dtype=float):
         """...
 
@@ -92,7 +91,7 @@ class ElectronPhononCoupling:
             v1_eff_qavG.shape = (mynks, N, 3) + n_c
             self.kd.comm.send(v1_eff_qavG, 0, tag=123)
 
-    def evaluate_integrals(self, kpts=None, bands=[4,5]):
+    def evaluate_integrals(self, kpts=None, bands=[4, 5]):
         """Calculate matrix elements of the potential derivatives.
 
         Start by evaluating the integrals between the already calculated
@@ -131,6 +130,8 @@ class ElectronPhononCoupling:
             self.calc.set(kpts=kpts)
 
         # Do a single-shot calculation to get the required wave-functions
+
+
 ##         self.calc.set(fixdensity=True,
 ##                       nbands=10,
 ##                       convergence=dict(nbands=8),
@@ -139,7 +140,7 @@ class ElectronPhononCoupling:
 ##                       symmetry='off')
 ##         self.calc.get_potential_energy()
 
-        # Electronic k-point descriptor
+# Electronic k-point descriptor
         kd_e = self.calc.wfs.kd
 
         # Grid descriptor
@@ -223,7 +224,7 @@ class ElectronPhononCoupling:
         # Insert existing values
         i, j, k = self.kd.N_c / 2 + 1
         gm_cccavknn_[:i, :j, :k] = gm_cccavknn[:i, :j, :k]
-        i, j, k = - self.kd.N_c / 2
+        i, j, k = -self.kd.N_c / 2
         gm_cccavknn_[i:, j:, k:] = gm_cccavknn[i:, j:, k:]
 
         # Fourier transform
