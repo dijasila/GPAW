@@ -12,5 +12,5 @@ master:
     - su user -c 'gpaw install-data --register gpaw-datasets'
     - su user -c 'gpaw -P 1 info'
     - su user -c 'gpaw test --range linalg/gemm_complex.py,lcao/dos.py'
-    - flake8 --ignore E701,E722,E303,E221,E731,E203,E262,E202,E402,E502,E127,E201,E305,E241,W291,E302,E225,E128,E261,E251,E501,E265,E226,E231,E129,E741,W293,W503,W504 --exclude "doc/platforms/*" gpaw doc
+    - flake8 --ignore E722,E303,E221,E731,E203,E262,E202,E402,E502,E127,E201,E305,E241,W291,E302,E225,E128,E261,E251,E501,E265,E226,E231,E129,E741,W293,W503,W504 --exclude "doc/platforms/*" gpaw doc
     - python -We:invalid -m compileall -f -q gpaw/

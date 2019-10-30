@@ -33,7 +33,8 @@ else:
 
 src = 'https://molmod.ugent.be/sites/default/files/Delta_v3-0.zip'
 name = os.path.basename(src)
-if not os.path.exists(dir): os.makedirs(dir)
+if not os.path.exists(dir):
+    os.makedirs(dir)
 os.chdir(dir)
 if not os.path.exists('calcDelta.py'):
     try:

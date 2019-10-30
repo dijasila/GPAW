@@ -109,7 +109,8 @@ class Kmatrix:
                 elem_lists[proc].append(line + '\n')
                 #self.timer.stop('Read K-matrix: line')
 
-                if ip == jq: continue
+                if ip == jq:
+                    continue
 
                 # where to send transposed
                 #self.timer.start('Read K-matrix: line')
@@ -371,7 +372,8 @@ class Kmatrix:
                 q = kss_jq.unocc_ind
 
                 # Only lower triangle
-                if ip < jq: continue
+                if ip < jq:
+                    continue
 
                 # Pair density dn_jq
                 #self.timer.start('Pair density')

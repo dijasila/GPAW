@@ -74,7 +74,8 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
             for (c2, l2, m2) in Yl2m2:
                 # print '--------', c1, l1, m1, c2, l2, m2
                 lp = sqrt(l2 * (l2 + 1) - m2 * (m2 + 1))
-                if abs(lp) < 1e-5: continue
+                if abs(lp) < 1e-5:
+                    continue
                 if l1 == l2 and m1 == m2 + 1:
                     sum += lp * np.conjugate(c1) * c2
 
@@ -92,7 +93,8 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
             for (c2, l2, m2) in Yl2m2:
                 # print '--------', c1, l1, m1, c2, l2, m2
                 lp = sqrt(l2 * (l2 + 1) - m2 * (m2 - 1))
-                if abs(lp) < 1e-5: continue
+                if abs(lp) < 1e-5:
+                    continue
                 if l1 == l2 and m1 == m2 - 1:
                     sum += lp * np.conjugate(c1) * c2
 
@@ -131,20 +133,20 @@ def get_magnetic_integrals_new(self, rgd, phi_jg, phit_jg):
                     L2 = l2**2 + m2
                     # Lx
                     Lx = (1j * YL1_Lx_YL2(L1, L2))
-                    #print '%8.3lf %8.3lf | ' % (Lx.real, Lx.imag),
+                    # print '%8.3lf %8.3lf | ' % (Lx.real, Lx.imag),
                     rxnabla_iiv[i1, i2, 0] = Lx.real * radial_part
 
                     # Ly
                     Ly = (1j * YL1_Ly_YL2(L1, L2))
-                    #print '%8.3lf %8.3lf | ' % (Ly.real, Ly.imag),
+                    # print '%8.3lf %8.3lf | ' % (Ly.real, Ly.imag),
                     rxnabla_iiv[i1, i2, 1] = Ly.real * radial_part
 
                     # Lz
                     Lz = (1j * YL1_Lz_YL2(L1, L2))
-                    #print '%8.3lf %8.3lf | ' % (Lz.real, Lz.imag),
+                    # print '%8.3lf %8.3lf | ' % (Lz.real, Lz.imag),
                     rxnabla_iiv[i1, i2, 2] = Lz.real * radial_part
 
-                    #print
+                    # print
 
                     # increase index 2
                     i2 += 1
