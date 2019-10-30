@@ -223,11 +223,6 @@ class KohnShamPair:
         (n1_t, k1_p, s1_t) -> (n2_t, k2_p, s2_t)
         Here, t is a composite band and spin transition index
         and p is indexing the different k-points to be distributed."""
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, n1_t, flush=True)
-        self.world.barrier()
-        '''
 
         # Distribute transitions and extract data for transitions in
         # this process' block
@@ -277,14 +272,6 @@ class KohnShamPair:
         # Use the data extraction factory to extract the kptdata
         _extract_kptdata = self.create_extract_kptdata()
         kptdata = _extract_kptdata(k_pc, n_t, s_t)
-
-        '''
-        # Temporary debugging                                                  XXX
-        (K, eps_myt, f_myt, ut_mytR, P, shift_c) = kptdata
-        print(self.world.rank, f_myt, flush=True)
-        self.world.barrier()
-        quit()
-        '''
 
         # Make local n and s arrays for the KohnShamKPoint object
         n_myt = np.empty(self.mynt, dtype=n_t.dtype)
@@ -346,38 +333,17 @@ class KohnShamPair:
          rh_eur2reh, h_r1rh,
          h_myt, myt_myt) = self.get_extraction_protocol(k_pc, n_t, s_t)
 
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, h_r1rh, h_myt, myt_myt, flush=True)
-        self.world.barrier()
-        '''
-
         (eps_r1rh, f_r1rh,
          P_r1rhI, psit_r1rhG,
          eps_r2rh, f_r2rh,
          P_r2rhI, psit_r2rhG) = self.allocate_transfer_arrays(data, nrh_r2,
                                                               ik_r2, h_r1rh)
 
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, myu_eu, myn_eueh,
-              eh_eur2reh, rh_eur2reh, flush=True)
-        self.world.barrier()
-        if self.world.rank == 0:
-            print('Doing extraction\n\n', flush=True)
-        self.world.barrier()
-        '''
-
         # Do actual extraction
         for myu, myn_eh, eh_r2reh, rh_r2reh in zip(myu_eu, myn_eueh,
                                                    eh_eur2reh, rh_eur2reh):
 
             eps_eh, f_eh, P_ehI = self.extract_wfs_data(myu, myn_eh)
-
-            '''
-            # Temporary debugging                                              XXX
-            print(self.world.rank, f'myu={myu}', f_eh, flush=True)
-            '''
 
             for r2, (eh_reh, rh_reh) in enumerate(zip(eh_r2reh, rh_r2reh)):
                 if eh_reh:
@@ -389,17 +355,6 @@ class KohnShamPair:
             # for one band index at a time, handle them seperately
             self.add_wave_function(myu, myn_eh, eh_r2reh,
                                    rh_r2reh, psit_r2rhG)
-
-        '''
-        # Temporary debugging                                                  XXX
-        self.world.barrier()
-        if self.world.rank == 0:
-            print('\n\nExtracted:', flush=True)
-        self.world.barrier()
-        print(self.world.rank, f_r1rh, f_r2rh, flush=True)
-        self.world.barrier()
-        quit()
-        '''
 
         self.distribute_extracted_data(eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                        eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
@@ -529,12 +484,6 @@ class KohnShamPair:
                                 thish_myt = np.logical_and(thisn_myt,
                                                            thiss_myt)
                                 h_myt[thish_myt] = h
-
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, 'gets', h_r1rh, h_myt, myt_myt, flush=True)
-        self.world.barrier()
-        '''
 
         return (data, myu_eu, myn_eueh, ik_r2, nrh_r2,
                 eh_eur2reh, rh_eur2reh, h_r1rh, h_myt, myt_myt)
@@ -703,15 +652,6 @@ class KohnShamPair:
     def collect_kptdata(self, data, h_r1rh,
                         eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
         """From the extracted data, collect the KohnShamKPoint data arrays"""
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, h_r1rh, flush=True)
-        try:
-            nh = max([max(h_rh) for h_rh in h_r1rh if h_rh]) + 1
-        except Exception:
-            print(self.world.rank, 'met exception', data, self.ta, self.tb)
-        self.world.barrier()
-        '''
 
         # Some processes may not have to return a k-point
         if data[0] is None:
@@ -732,13 +672,6 @@ class KohnShamPair:
         psit_hG = np.empty((nh, self.pd0.ng_q[ik]),
                            dtype=wfs.kpt_u[0].psit.array.dtype)
 
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, nh, Ph.array.shape, psit_hG.shape,
-              h_r1rh, flush=True)
-        self.world.barrier()
-        '''
-
         # Store extracted data in the arrays
         for (h_rh, eps_rh,
              f_rh, P_rhI, psit_rhG) in zip(h_r1rh, eps_r1rh,
@@ -749,23 +682,11 @@ class KohnShamPair:
                 Ph.array[h_rh] = P_rhI
                 psit_hG[h_rh] = psit_rhG
 
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, h_r1rh, f_r1rh, flush=True)
-        self.world.barrier()
-        quit()
-        '''
-
         return (K, k_c, eps_h, f_h, Ph, psit_hG)
 
     @timer('Unfolding arrays')
     def unfold_arrays(self, eps_h, f_h, Ph, ut_hR, h_myt, myt_myt):
         """Create transition data arrays from the composite h = (n, s) index"""
-        '''
-        # Temporary debugging                                                  XXX
-        print(self.world.rank, f_h, h_myt, flush=True)
-        self.world.barrier()
-        '''
 
         wfs = self.calc.wfs
         # Allocate data arrays for the k-point
