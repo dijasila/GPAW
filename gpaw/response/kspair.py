@@ -302,19 +302,19 @@ class KohnShamPair:
     def create_extract_kptdata(self):
         """Creator component of the data extraction factory."""
         if self.calc_parallel:
-            return self.new_parallel_extract_kptdata
+            return self.parallel_extract_kptdata
         else:
-            return self.new_serial_extract_kptdata
+            return self.serial_extract_kptdata
             # Useful for debugging:
-            # return self.new_parallel_extract_kptdata
+            # return self.parallel_extract_kptdata
 
-    def new_parallel_extract_kptdata(self, k_pc, n_t, s_t):
+    def parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
         """
         # Extract the data from the ground state calculator object
-        data, h_myt, myt_myt = self._new_parallel_extract_kptdata(k_pc, n_t, s_t)  # rnewXXX
+        data, h_myt, myt_myt = self._parallel_extract_kptdata(k_pc, n_t, s_t)
 
         # If the process has a k-point to return, symmetrize and unfold
         if self.kptblockcomm.rank in range(len(k_pc)):
@@ -338,13 +338,13 @@ class KohnShamPair:
         return data
 
     @timer('Extracting data from the ground state calculator object')
-    def _new_parallel_extract_kptdata(self, k_pc, n_t, s_t):  # rnew           XXX
+    def _parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """In-place kptdata extraction."""
         (data, myu_eu,
          myn_eueh, ik_r2,
          nrh_r2, eh_eur2reh,
-         rh_eur2reh, h_r1rh,  # do me                                          XXX
-         h_myt, myt_myt) = self.get_new_extraction_protocol(k_pc, n_t, s_t)  # rnewXXX
+         rh_eur2reh, h_r1rh,
+         h_myt, myt_myt) = self.get_extraction_protocol(k_pc, n_t, s_t)
 
         '''
         # Temporary debugging                                                  XXX
@@ -387,8 +387,8 @@ class KohnShamPair:
 
             # Wavefunctions are heavy objects which can only be extracted
             # for one band index at a time, handle them seperately
-            self.new_add_wave_function(myu, myn_eh,
-                                       eh_r2reh, rh_r2reh, psit_r2rhG)  # rnew XXX
+            self.add_wave_function(myu, myn_eh, eh_r2reh,
+                                   rh_r2reh, psit_r2rhG)
 
         '''
         # Temporary debugging                                                  XXX
@@ -404,13 +404,13 @@ class KohnShamPair:
         self.distribute_extracted_data(eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                                        eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
 
-        data = self.newest_collect_kptdata(data, h_r1rh, eps_r1rh,  # do me    XXX
-                                           f_r1rh, P_r1rhI, psit_r1rhG)  # rnewestXXX
+        data = self.collect_kptdata(data, h_r1rh, eps_r1rh,
+                                    f_r1rh, P_r1rhI, psit_r1rhG)
 
         return data, h_myt, myt_myt
 
     @timer('Create data extraction protocol')
-    def get_new_extraction_protocol(self, k_pc, n_t, s_t):  # rnew             XXX
+    def get_extraction_protocol(self, k_pc, n_t, s_t):
         """Figure out how to extract data efficiently.
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
@@ -454,7 +454,7 @@ class KohnShamPair:
                 data = (K, k_c, ik)
 
             # Find out who should store the data in KSKPpoint
-            r2_t, myt_t = self.new_map_who_has(p, t_t)
+            r2_t, myt_t = self.map_who_has(p, t_t)
 
             # Find out how to extract data
             # In the ground state, kpts are indexed by u=(s, k)
@@ -621,7 +621,7 @@ class KohnShamPair:
         return (eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG,
                 eps_r2rh, f_r2rh, P_r2rhI, psit_r2rhG)
 
-    def new_map_who_has(self, p, t_t):
+    def map_who_has(self, p, t_t):
         """Convert k-point and transition index to global world rank
         and local transition index"""
         trank_t, myt_t = np.divmod(t_t, self.mynt)
@@ -641,8 +641,8 @@ class KohnShamPair:
         return eps_eh, f_eh, P_ehI
 
     @timer('Extracting wave function from wfs')
-    def new_add_wave_function(self, myu, myn_eh,  # rnew                       XXX
-                              eh_r2reh, rh_r2reh, psit_r2rhG):
+    def add_wave_function(self, myu, myn_eh,
+                          eh_r2reh, rh_r2reh, psit_r2rhG):
         """Add the plane wave coefficients of the smooth part of
         the wave function to the psit_r2rtG arrays."""
         wfs = self.calc.wfs
@@ -700,8 +700,8 @@ class KohnShamPair:
                 self.world.wait(self.rrequests.pop(0))
 
     @timer('Collecting kptdata')
-    def newest_collect_kptdata(self, data, h_r1rh,
-                               eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
+    def collect_kptdata(self, data, h_r1rh,
+                        eps_r1rh, f_r1rh, P_r1rhI, psit_r1rhG):
         """From the extracted data, collect the KohnShamKPoint data arrays"""
         '''
         # Temporary debugging                                                  XXX
@@ -784,7 +784,7 @@ class KohnShamPair:
         return eps_myt, f_myt, P, ut_mytR
 
     @timer('Extracting data from the ground state calculator object')
-    def new_serial_extract_kptdata(self, k_pc, n_t, s_t):
+    def serial_extract_kptdata(self, k_pc, n_t, s_t):
         # All processes can access all data. Each process extracts it own data.
         wfs = self.calc.wfs
 
@@ -798,8 +798,8 @@ class KohnShamPair:
             (_, T, a_a, U_aii, shift_c,
              time_reversal) = self.construct_symmetry_operators(K, k_c=k_c)
 
-            (myu_eu, myn_eurn, nh, h_eurn,
-             h_myt, myt_myt) = self.get_newalt_serial_extraction_protocol(ik, n_t, s_t)  # rnewaltXXX
+            (myu_eu, myn_eurn, nh, h_eurn, h_myt,
+             myt_myt) = self.get_serial_extraction_protocol(ik, n_t, s_t)
 
             # Allocate transfer arrays
             eps_h = np.empty(nh)
@@ -835,7 +835,7 @@ class KohnShamPair:
             return (K, eps_myt, f_myt, ut_mytR, P, shift_c)
 
     @timer('Create data extraction protocol')
-    def get_newalt_serial_extraction_protocol(self, ik, n_t, s_t):  # rnewalt  XXX
+    def get_serial_extraction_protocol(self, ik, n_t, s_t):
         """Figure out how to extract data efficiently.
         For the serial communicator, all processes can access all data,
         and resultantly, there is no need to send any data.
