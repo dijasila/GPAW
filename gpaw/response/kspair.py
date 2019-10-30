@@ -29,6 +29,7 @@ class KohnShamKPoint:
         # PairDensity.construct_symmetry_operators() method
 
 
+'''
 class OldKohnShamKPoint:  # remove                                             XXX
     """Kohn-Sham orbital information for a given k-point."""
     def __init__(self, h_t, n_h, s_h, K,
@@ -74,6 +75,7 @@ class OldKohnShamKPoint:  # remove                                             X
         P = self.hprojections.new(nbands=len(self.h_t))
         P.array[:] = self.hprojections.array[self.h_t]
         return P
+'''
 
 
 class KohnShamKPointPair:
@@ -346,6 +348,7 @@ class KohnShamPair:
 
         return kpt
 
+    '''
     @timer('Creating transition index mapping')
     def get_transition_index_map(self, n_t, s_t):  # to be removed             XXX
         """Make a joint h = (n, s) map for the transitions each process
@@ -394,19 +397,18 @@ class KohnShamPair:
                 s_myt[:tb - ta] = s_itst
 
         return h_t, myh_myt, trank_h, n_h, s_h, n_myt, s_myt
+    '''
 
     def create_extract_kptdata(self):
         """Creator component of the data extraction factory."""
         if self.calc_parallel:
-            # return self.parallel_extract_kptdata  # to be removed            XXX
             return self.new_parallel_extract_kptdata
         else:
-            # return self.new_serial_extract_kptdata
-            # return self.serial_extract_kptdata  # to be removed              XXX
-            # return self.parallel_extract_kptdata  # to be removed            XXX
+            return self.new_serial_extract_kptdata
             # Useful for debugging:
-            return self.new_parallel_extract_kptdata
+            # return self.new_parallel_extract_kptdata
 
+    '''
     def parallel_extract_kptdata(self, k_pc, n_t, s_t):  # to be removed       XXX
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
@@ -468,14 +470,13 @@ class KohnShamPair:
 
         return self.newer_collect_kptdata(data, myt_r1rt, eps_r1rt,
                                           f_r1rt, P_r1rtI, psit_r1rtG)
+    '''
 
     def new_parallel_extract_kptdata(self, k_pc, n_t, s_t):
         """Returns the input to KohnShamKPoint:
         K, n_myt, s_myt, eps_myt, f_myt, ut_mytR, projections, shift_c
         if a k-point in the given list, k_pc, belongs to the process.
         """
-        wfs = self.calc.wfs
-
         # Extract the data from the ground state calculator object
         data, h_myt, myt_myt = self._new_parallel_extract_kptdata(k_pc, n_t, s_t)  # rnewXXX
 
@@ -626,8 +627,7 @@ class KohnShamPair:
                 thiss_t = s_t == s
                 t_ct = t_t[thiss_t]
                 n_ct = n_t[thiss_t]
-                r2_ct, myt_ct = r2_t[t_ct], myt_t[t_ct]
-                et = 0
+                r2_ct = r2_t[t_ct]
 
                 # Find out where data is in wfs
                 u = wfs.kd.where_is(s, ik)
@@ -703,6 +703,7 @@ class KohnShamPair:
         return (data, myu_eu, myn_eueh, ik_r2, nrh_r2,
                 eh_eur2reh, rh_eur2reh, h_r1rh, h_myt, myt_myt)
 
+    '''
     @timer('Create data extraction protocol')
     def get_extraction_protocol(self, k_pc, n_t, s_t):  # to be removed        XXX
         """Figure out how to extract data efficiently.
@@ -785,6 +786,7 @@ class KohnShamPair:
 
         return (data, myu_eu, myn_euet, nrt_r2,
                 ik_r2, et_eur2ret, rt_eur2ret, myt_r1rt)
+    '''
 
     def create_get_extraction_info(self):
         """Creator component of the extraction information factory."""
@@ -1356,6 +1358,7 @@ class KohnShamPair:
             while self.rrequests:
                 self.world.wait(self.rrequests.pop(0))
 
+    '''
     @timer('Collecting kptdata')
     def newer_collect_kptdata(self, data, myt_r1rt,
                               eps_r1rt, f_r1rt, P_r1rtI, psit_r1rtG):  # tbr   XXX
@@ -1385,6 +1388,7 @@ class KohnShamPair:
                 psit_mytG[myt_rt] = psit_rtG
 
         return (K, k_c, eps_myt, f_myt, P, psit_mytG)
+    '''
 
     @timer('Collecting kptdata')
     def newest_collect_kptdata(self, data, h_r1rh,
@@ -2053,7 +2057,6 @@ class KohnShamPair:
         h_myt = np.empty(self.tb - self.ta, dtype=np.int)
         for s in set(s_myt):
             thiss_myt = s_myt == s
-            myt_ct = myt_myt[thiss_myt]
             n_ct = n_myt[thiss_myt]
 
             # Find unique composite h = (n, u) indeces
