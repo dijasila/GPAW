@@ -206,7 +206,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         return Kxc_GG
 
     @timer('Calculate PAW corrections to kernel')
-    def calculate_kernel_paw_correction(self, pd):
+    def calculate_kernel_paw_correction(self, pd):  # to be removed            XXX
         print("    Calculating PAW corrections to the kernel",
               file=self.cfd)
 
@@ -257,7 +257,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         return KxcPAW_GG
 
-    def _distribute_correction(self, npw):
+    def _distribute_correction(self, npw):  # to be removed                    XXX
         """Distribute correction"""
         nGpr = (npw + self.world.size - 1) // self.world.size
         Ga = min(self.world.rank * nGpr, npw)
@@ -265,7 +265,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         return range(Ga, Gb)
 
-    def _calculate_dG(self, pd, G_myG):
+    def _calculate_dG(self, pd, G_myG):  # to be removed                       XXX
         """Calculate (G-G') reciprocal space vectors,
         their length and direction"""
         npw = pd.ngmax
@@ -283,6 +283,107 @@ class PlaneWaveAdiabaticFXC(FXC):
         dGn_myGGv[mask0] = dG_myGGv[mask0] / dG_myGG[mask0][:, np.newaxis]
 
         return dG_myGGv, dG_myGG, dGn_myGGv
+
+    @timer('Calculate PAW corrections to kernel')
+    def new_calculate_kernel_paw_correction(self, pd):  # rnew                 XXX
+        print("    Calculating PAW corrections to the kernel",
+              file=self.cfd)
+
+        # Calculate (G-G') reciprocal space vectors
+        dG_GGv = self._new_calculate_dG(pd)  # rnew                            XXX
+
+        # Reshape to composite K = (G, G') index
+        dG_Kv = dG_GGv.reshape(-1, dG_GGv.shape[-1])
+
+        # Find unique dG-vectors
+        dG_dGv, dG_K = np.unique(dG_Kv, return_inverse=True, axis=0)
+        ndG = len(dG_dGv)
+
+        # Allocate array and distribute plane waves
+        KxcPAW_dG = np.zeros(ndG, dtype=complex)
+        dG_mydG = self._new_distribute_correction(ndG)  # rnew                 XXX
+        dG_mydGv = dG_dGv[dG_mydG]
+
+        # Calculate my (G-G') reciprocal space vector lengths and directions
+        dG_mydG, dGn_mydGv = self._normalize_by_length(dG_mydGv)
+
+        # Calculate PAW correction to each augmentation sphere (to each atom)
+        R_av = self.calc.atoms.positions / Bohr
+        for a, R_v in enumerate(R_av):
+            # Calculate dfxc on Lebedev quadrature and radial grid
+            # Please note: Using the radial grid descriptor with _add_fxc
+            # might give problems beyond ALDA
+            df_ng, Y_nL, rgd = self._calculate_dfxc(a)
+
+            # Calculate the surface norm square of df
+            self.dfSns_g = self._ang_int(df_ng ** 2)
+            # Reduce radial grid by excluding points where dfSns_g = 0
+            df_ng, r_g, dv_g = self._reduce_radial_grid(df_ng, rgd)
+
+            # Expand correction in real spherical harmonics
+            df_gL = self._perform_rshe(a, df_ng, Y_nL)
+            # Reduce expansion by removing coefficients that are zero
+            df_gM, L_M, l_M = self._reduce_rsh_expansion(df_gL)
+
+            # Expand plane wave differences (G-G')
+            (ii_MmydG,
+             j_gMmydG,
+             Y_MmydG) = self._new_expand_plane_waves(dG_mydG, dGn_mydGv,  # rnewXXX
+                                                     r_g, L_M, l_M)
+
+            # Perform integration
+            with self.timer('Integrate PAW correction'):
+                coefatomR_dG = np.exp(-1j * np.inner(dG_mydGv, R_v))
+                coefatomang_MdG = ii_MmydG * Y_MmydG
+                coefatomrad_MdG = np.tensordot(j_gMmydG * df_gL[:, L_M,
+                                                                np.newaxis],
+                                               dv_g, axes=([0, 0]))
+                coefatom_dG = np.sum(coefatomang_MdG * coefatomrad_MdG, axis=0)
+                KxcPAW_dG[dG_mydG] += coefatom_dG * coefatomR_dG
+
+        self.world.sum(KxcPAW_dG)
+
+        # Unfold PAW correction
+        KxcPAW_GG = KxcPAW_dG[dG_K].reshape(dG_GGv.shape[:2])
+
+        return KxcPAW_GG
+
+    def _new_calculate_dG(self, pd):  # rnew                                   XXX
+        """Calculate (G-G') reciprocal space vectors"""
+        npw = pd.ngmax
+        G_Gv = pd.get_reciprocal_vectors()
+
+        # Distribute dG to calculate
+        nGpr = (npw + self.world.size - 1) // self.world.size
+        Ga = min(self.world.rank * nGpr, npw)
+        Gb = min(Ga + nGpr, npw)
+        G_myG = range(Ga, Gb)
+
+        # Calculate dG_v for every set of (G-G')
+        dG_GGv = np.zeros((npw, npw, 3))
+        for v in range(3):
+            dG_GGv[Ga:Gb, :, v] = np.subtract.outer(G_Gv[G_myG, v], G_Gv[:, v])
+        self.world.sum(dG_GGv)
+
+        return dG_GGv
+
+    def _new_distribute_correction(self, ndG):  # rnew                         XXX
+        """Distribute correction"""
+        ndGpr = (ndG + self.world.size - 1) // self.world.size
+        dGa = min(self.world.rank * ndGpr, ndG)
+        dGb = min(dGa + ndGpr, ndG)
+
+        return range(dGa, dGb)
+
+    @staticmethod
+    def _normalize_by_length(dG_mydGv):
+        """Find the length and direction of reciprocal lattice vectors."""
+        dG_mydG = np.linalg.norm(dG_mydGv, axis=1)
+        dGn_mydGv = np.zeros_like(dG_mydGv)
+        mask0 = np.where(dG_mydG != 0.)
+        dGn_mydGv[mask0] = dG_mydGv[mask0] / dG_mydG[mask0][:, np.newaxis]
+
+        return dG_mydG, dGn_mydGv
 
     def _get_densities_in_augmentation_sphere(self, a):
         """Get the all-electron and smooth spin densities inside the
@@ -495,7 +596,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         return df_gM, L_M, l_M
 
     @timer('Expand plane waves')
-    def _expand_plane_waves(self, dG_myGG, dGn_myGGv, r_g, L_M, l_M):
+    def _expand_plane_waves(self, dG_myGG, dGn_myGGv, r_g, L_M, l_M):  # tbr   XXX
         """Expand plane waves in spherical Bessel functions and real spherical
         harmonics:
                          l
@@ -536,6 +637,43 @@ class PlaneWaveAdiabaticFXC(FXC):
         ii_MmyGG = ii_MK.reshape((nM, *dG_myGG.shape))
 
         return ii_MmyGG, j_gMmyGG, Y_MmyGG
+
+    @timer('Expand plane waves')
+    def _new_expand_plane_waves(self, dG_mydG, dGn_mydGv, r_g, L_M, l_M):  # rnewXXX
+        """Expand plane waves in spherical Bessel functions and real spherical
+        harmonics:
+                         l
+                     __  __
+         -iK.r       \   \      l             ^     ^
+        e      = 4pi /   /  (-i)  j (|K|r) Y (K) Y (r)
+                     ‾‾  ‾‾        l        lm    lm
+                     l  m=-l
+
+        Returns
+        -------
+        ii_MmydG : nd.array
+            (-i)^l for used (l,m) coefficients M
+        j_gMmydG : nd.array
+            j_l(|dG|r) for used (l,m) coefficients M
+        Y_MmydG : nd.array
+                 ^
+            Y_lm(K) for used (l,m) coefficients M
+        """
+        nmydG = len(dG_mydG)
+        # Setup arrays to fully vectorize computations
+        nM = len(L_M)
+        (r_gMmydG, l_gMmydG,
+         dG_gMmydG) = [a.reshape(len(r_g), nM, nmydG)
+                       for a in np.meshgrid(r_g, l_M, dG_mydG, indexing='ij')]
+
+        with self.timer('Compute spherical bessel functions'):
+            # Slow step
+            j_gMmydG = spherical_jn(l_gMmydG, dG_gMmydG * r_gMmydG)
+
+        Y_MmydG = Yarr(L_M, dGn_mydGv)
+        ii_MmydG = (-1j) ** np.repeat(l_M, nmydG)
+
+        return ii_MmydG, j_gMmydG, Y_MmydG
 
     def _add_fxc(self, gd, n_sg, fxc_g):
         raise NotImplementedError
