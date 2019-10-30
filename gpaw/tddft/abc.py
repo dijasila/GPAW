@@ -20,9 +20,9 @@ import numpy as np
 
 from ase.units import Bohr
 
+
 class DummyAbsorbingBoundary:
     """ Virtual and not usable class for abosrbing boundaries."""
-
     def __init__(self):
         self.v_imag = None
         self.type = None
@@ -34,9 +34,7 @@ class DummyAbsorbingBoundary:
         return self.v_imag
 
 
-
 class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
-
     """
     This class uses linear negative imaginary potential for absorption.
     For distances larger than abc_range, the negative imaginary potential
@@ -57,14 +55,12 @@ class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
                  as None, the middle point of the grid is used. You can use
                  the position array of an ASE Atoms object here.
     """
-
-    def __init__(self, abc_range, abc_strength, positions = None):
+    def __init__(self, abc_range, abc_strength, positions=None):
         DummyAbsorbingBoundary.__init__(self)
         self.abc_strength = abc_strength
         self.abc_r = abc_range / Bohr
         self.positions = positions / Bohr
         self.type = 'IPOT'
-
 
     def set_up(self, gd):
         """
@@ -82,9 +78,13 @@ class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
 
         # If positions array wasn't given, uses the middle point of the grid.
         if self.positions is None:
-            self.positions=[np.array([gd.N_c[0] *gd.h_cv[0, 0] * 0.5, # middle
-                                      gd.N_c[1] *gd.h_cv[1, 1] * 0.5,
-                                      gd.N_c[2] *gd.h_cv[2, 2] * 0.5])]
+            self.positions = [
+                np.array([
+                    gd.N_c[0] * gd.h_cv[0, 0] * 0.5,  # middle
+                    gd.N_c[1] * gd.h_cv[1, 1] * 0.5,
+                    gd.N_c[2] * gd.h_cv[2, 2] * 0.5
+                ])
+            ]
 
         for i in range(gd.n_c[0]):
             x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
@@ -92,21 +92,19 @@ class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
                 y = (j + gd.beg_c[1]) * gd.h_cv[1, 1]
                 for k in range(gd.n_c[2]):
                     z = (k + gd.beg_c[2]) * gd.h_cv[2, 2]
-                    position=np.array([x,y,z])
+                    position = np.array([x, y, z])
                     # Calculates the distance from the nearest chosen point
                     # in the grid
-                    position_vectors = self.positions-position
+                    position_vectors = self.positions - position
 
                     r = np.linalg.norm(position_vectors[0])
                     for vector in position_vectors:
-                        if np.linalg.norm(vector)<r:
+                        if np.linalg.norm(vector) < r:
                             r = np.linalg.norm(vector)
 
                     if r > self.abc_r:
                         self.v_imag[i][j][k] = \
                             -(0+1j) * self.abc_strength*(r-self.abc_r)
-
-
 
 
 class P4AbsorbingBoundary(DummyAbsorbingBoundary):
@@ -136,8 +134,7 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
                If you use the atom-centered model you have to define the
                width yourself.
     """
-
-    def __init__(self, abc_range, abc_strength, positions = None, width=None):
+    def __init__(self, abc_range, abc_strength, positions=None, width=None):
         DummyAbsorbingBoundary.__init__(self)
         self.abc_r = abc_range / Bohr
         self.abc_strength = abc_strength
@@ -145,7 +142,7 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
         self.width = width / Bohr
         self.type = 'IPOT'
 
-    def set_up(self,gd):
+    def set_up(self, gd):
 
         #self.v_imag = np.zeros((gd.n_c[0],gd.n_c[1],gd.n_c[2]),dtype=complex)
         self.v_imag = gd.zeros(dtype=complex)
@@ -153,12 +150,17 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
         # If positions array wasn't given, uses the middle point of the
         # grid as the center.
         if self.positions is None:
-            self.positions=[np.array([gd.N_c[0] *gd.h_cv[0, 0] *0.5, # middle
-                                      gd.N_c[1] *gd.h_cv[1, 1] *0.5,
-                                      gd.N_c[2] *gd.h_cv[2, 2] * 0.5])]
+            self.positions = [
+                np.array([
+                    gd.N_c[0] * gd.h_cv[0, 0] * 0.5,  # middle
+                    gd.N_c[1] * gd.h_cv[1, 1] * 0.5,
+                    gd.N_c[2] * gd.h_cv[2, 2] * 0.5
+                ])
+            ]
 
         if self.width is None:
-            self.width = np.linalg.norm(self.positions[0]) / np.sqrt(3) - self.abc_r
+            self.width = np.linalg.norm(
+                self.positions[0]) / np.sqrt(3) - self.abc_r
 
         for i in range(gd.n_c[0]):
             x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
@@ -166,23 +168,24 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
                 y = (j + gd.beg_c[1]) * gd.h_cv[1, 1]
                 for k in range(gd.n_c[2]):
                     z = (k + gd.beg_c[2]) * gd.h_cv[2, 2]
-                    position=np.array([x,y,z])
+                    position = np.array([x, y, z])
 
-                    position_vectors = self.positions-position
+                    position_vectors = self.positions - position
 
                     r = np.linalg.norm(position_vectors[0])
                     for vector in position_vectors:
-                        if np.linalg.norm(vector)<r:
+                        if np.linalg.norm(vector) < r:
                             r = np.linalg.norm(vector)
 
                     if r > self.abc_r:
-                        if r < self.abc_r+self.width:
+                        if r < self.abc_r + self.width:
                             self.v_imag[i][j][k] = (0+1j) \
                                 * ((np.sqrt(self.abc_strength) -
                                  np.sqrt(self.abc_strength)/self.width**2
                                  * (r-self.abc_r)**2)**2 - self.abc_strength)
                         else:
-                            self.v_imag[i][j][k] = -self.abc_strength*(0+1j)
+                            self.v_imag[i][j][k] = -self.abc_strength * (0 +
+                                                                         1j)
                     #print i, j, k, self.v_imag[i][j][k]
 
 
@@ -205,15 +208,13 @@ class PML:
 
       abc_strength:   Positive float, good amount should be around 0.1
     """
-
-    def __init__(self,abc_range,abc_strength):
+    def __init__(self, abc_range, abc_strength):
 
         self.abc_range = abc_range / Bohr
         self.abc_strength = abc_strength
         self.type = 'PML'
 
-
-    def set_up(self,gd):
+    def set_up(self, gd):
         r"""Set up matrices for PML.
 
         Creates the matrixes needed when the PML is applied in tdopers.py
@@ -243,34 +244,42 @@ class PML:
         directions.
 
         """
-        R = (0+1j) # Complex number, has to be in the first quadrant.
+        R = (0 + 1j)  # Complex number, has to be in the first quadrant.
         self.G = gd.zeros(dtype=complex)
         self.G[:] = 1.0
 
         self.dG = gd.zeros(n=3, dtype=complex)
 
-
-        r0=np.array([gd.N_c[0] * gd.h_cv[0, 0] * 0.5,
-                     gd.N_c[1] * gd.h_cv[1, 1] * 0.5,
-                     gd.N_c[2] * gd.h_cv[2, 2] * 0.5]) # middle point
+        r0 = np.array([
+            gd.N_c[0] * gd.h_cv[0, 0] * 0.5, gd.N_c[1] * gd.h_cv[1, 1] * 0.5,
+            gd.N_c[2] * gd.h_cv[2, 2] * 0.5
+        ])  # middle point
         for i in range(gd.n_c[0]):
             x = (i + gd.beg_c[0]) * gd.h_cv[0, 0]
             for j in range(gd.n_c[1]):
                 y = (j + gd.beg_c[1]) * gd.h_cv[1, 1]
                 for k in range(gd.n_c[2]):
                     z = (k + gd.beg_c[2]) * gd.h_cv[2, 2]
-                    position=np.array([x,y,z])
+                    position = np.array([x, y, z])
                     r = np.linalg.norm(position - r0)
 
-
                     if r > self.abc_range:
-                        self.G[i][j][k] = (1.0 + R * self.abc_strength * (r-self.abc_range)**2)**-1.0
+                        self.G[i][j][k] = (1.0 + R * self.abc_strength *
+                                           (r - self.abc_range)**2)**-1.0
                         self.dG[0][i][j][k] = \
                           -(1.0+R*self.abc_strength*(r-self.abc_range)**2.0)**-2.0*2.0*R*self.abc_strength*(r-self.abc_range)*(x-r0[0])/r
 
-                        self.dG[1][i][j][k] = -(1.0+R*self.abc_strength*(r-self.abc_range)**2.0)**-2.0*2.0*R*self.abc_strength*(r-self.abc_range)*(y-r0[1])/r
+                        self.dG[1][i][j][k] = -(
+                            1.0 + R * self.abc_strength *
+                            (r - self.abc_range)**2.0
+                        )**-2.0 * 2.0 * R * self.abc_strength * (
+                            r - self.abc_range) * (y - r0[1]) / r
 
-                        self.dG[2][i][j][k] = -(1.0+R*self.abc_strength*(r-self.abc_range)**2.0)**-2.0*2.0*R*self.abc_strength*(r-self.abc_range)*(z-r0[2])/r
+                        self.dG[2][i][j][k] = -(
+                            1.0 + R * self.abc_strength *
+                            (r - self.abc_range)**2.0
+                        )**-2.0 * 2.0 * R * self.abc_strength * (
+                            r - self.abc_range) * (z - r0[2]) / r
 
     def get_G(self):
         return self.G
