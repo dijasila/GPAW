@@ -537,7 +537,7 @@ class GPAW(PAW, Calculator):
             xc = self.hamiltonian.xc
 
         mode = par.mode
-        if isinstance(mode, basestring):
+        if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
@@ -628,7 +628,7 @@ class GPAW(PAW, Calculator):
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, basestring):
+        if isinstance(nbands, str):
             if nbands == 'nao':
                 nbands = nao
             elif nbands[-1] == '%':
