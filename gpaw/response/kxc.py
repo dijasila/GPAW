@@ -159,7 +159,8 @@ class PlaneWaveAdiabaticFXC(FXC):
         Kxc_GG = self.ft_from_grid(fxc_G, pd)
 
         if self.rshe:  # Do PAW correction to Fourier transformed kernel
-            KxcPAW_GG = self.calculate_kernel_paw_correction(pd)
+            # KxcPAW_GG = self.calculate_kernel_paw_correction(pd)  # tbr      XXX
+            KxcPAW_GG = self.new_calculate_kernel_paw_correction(pd)  # rnew   XXX
             Kxc_GG += KxcPAW_GG
 
         print('', file=self.cfd)
@@ -305,7 +306,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         dG_mydGv = dG_dGv[dG_mydG]
 
         # Calculate my (G-G') reciprocal space vector lengths and directions
-        dG_mydG, dGn_mydGv = self._normalize_by_length(dG_mydGv)
+        dGl_mydG, dGn_mydGv = self._normalize_by_length(dG_mydGv)
 
         # Calculate PAW correction to each augmentation sphere (to each atom)
         R_av = self.calc.atoms.positions / Bohr
@@ -328,7 +329,7 @@ class PlaneWaveAdiabaticFXC(FXC):
             # Expand plane wave differences (G-G')
             (ii_MmydG,
              j_gMmydG,
-             Y_MmydG) = self._new_expand_plane_waves(dG_mydG, dGn_mydGv,  # rnewXXX
+             Y_MmydG) = self._new_expand_plane_waves(dGl_mydG, dGn_mydGv,  # rnewXXX
                                                      r_g, L_M, l_M)
 
             # Perform integration
@@ -378,12 +379,12 @@ class PlaneWaveAdiabaticFXC(FXC):
     @staticmethod
     def _normalize_by_length(dG_mydGv):
         """Find the length and direction of reciprocal lattice vectors."""
-        dG_mydG = np.linalg.norm(dG_mydGv, axis=1)
+        dGl_mydG = np.linalg.norm(dG_mydGv, axis=1)
         dGn_mydGv = np.zeros_like(dG_mydGv)
-        mask0 = np.where(dG_mydG != 0.)
-        dGn_mydGv[mask0] = dG_mydGv[mask0] / dG_mydG[mask0][:, np.newaxis]
+        mask0 = np.where(dGl_mydG != 0.)
+        dGn_mydGv[mask0] = dG_mydGv[mask0] / dGl_mydG[mask0][:, np.newaxis]
 
-        return dG_mydG, dGn_mydGv
+        return dGl_mydG, dGn_mydGv
 
     def _get_densities_in_augmentation_sphere(self, a):
         """Get the all-electron and smooth spin densities inside the
@@ -671,7 +672,8 @@ class PlaneWaveAdiabaticFXC(FXC):
             j_gMmydG = spherical_jn(l_gMmydG, dG_gMmydG * r_gMmydG)
 
         Y_MmydG = Yarr(L_M, dGn_mydGv)
-        ii_MmydG = (-1j) ** np.repeat(l_M, nmydG)
+        ii_X = (-1j) ** np.repeat(l_M, nmydG)
+        ii_MmydG = ii_X.reshape((nM, nmydG))
 
         return ii_MmydG, j_gMmydG, Y_MmydG
 
