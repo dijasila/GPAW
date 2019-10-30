@@ -1,5 +1,4 @@
 # creates: lines.png
-from __future__ import division
 import datetime as dt
 import os
 import subprocess
@@ -65,13 +64,13 @@ def count_lines():
         print(year, month, hash)
         subprocess.call(['git', 'checkout', hash])
 
-        c = count('c', '\*.[ch]')
-        py = count('.', '\*.py')
-        test = count('gpaw/test', '\*.py')
-        test += count('test', '\*.py')
-        doc = count('doc', '\*.py')
+        c = count('c', r'\*.[ch]')
+        py = count('.', r'\*.py')
+        test = count('gpaw/test', r'\*.py')
+        test += count('test', r'\*.py')
+        doc = count('doc', r'\*.py')
         py -= test + doc  # avoid double counting
-        rst = count('.', '\*.rst')
+        rst = count('.', r'\*.rst')
         print(year, month, 0, c, py, test, doc, rst, file=fd)
         month += 1
         if month == 13:
