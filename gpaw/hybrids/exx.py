@@ -287,7 +287,8 @@ class EXX:
                             else:
                                 s4 = self.inverse_s[s3]
                                 if i1 == i2:
-                                    pairs1[(i1, i1, min(s3, s4))] += 1
+                                    # pairs1[(i1, i1, min(s3, s4))] += 1
+                                    pairs1[(i1, i1, s3)] += 1
                                 else:
                                     pairs1[(i2, i1, s4)] += 1
             pairs = {}
@@ -298,7 +299,7 @@ class EXX:
                     pairs[seen[(i1, k2)]] += count
                 else:
                     pairs[(i1, i2, s)] = count
-                    seen[(i1, k2)] = (i1, i2, s)
+                    # seen[(i1, k2)] = (i1, i2, s)
         else:
             pairs = {}
             for i1 in range(len(kpts1)):
