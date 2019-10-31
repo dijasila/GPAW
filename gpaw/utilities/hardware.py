@@ -176,9 +176,10 @@ class ComputeCluster:
                ':$LD_LIBRARY_PATH'), file=f)
         print('export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH',
               file=f)
+        print('export PATH=' + env['PATH'] + ':PATH',
+              file=f)
         print('export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH'], file=f)
-        print('export GPAW_PYTHON=' + env['GPAW_PYTHON'], file=f)
-        print(d['mpirun'] + str(cores) + ' $GPAW_PYTHON',
+        print('gpaw -P' + str(cores) + ' python',
               set['script'], end=' ', file=f)
         if 'parameters' in set:
             print(set['parameters'], end=' ', file=f)

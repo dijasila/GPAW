@@ -1,6 +1,5 @@
-#!/usr/bin/env gpaw-python
+#!/usr/bin/env python3
 
-from __future__ import print_function
 import os
 import stat
 import sys
@@ -47,7 +46,6 @@ platforms = { 'aix5' : 'loadleveler' }
 
 env = {'PATH'            : None,
        'PYTHONPATH'      : None,
-       'GPAW_PYTHON'     : None,
        'GPAW_SETUP_PATH' : None,
        'GPAW_MAIL'       : None,
        'LD_LIBRARY_PATH' : None,
@@ -163,18 +161,6 @@ except Exception as ex:
     sys.exit()
 
 print('using', cc.arch)
-
-# ............................................................
-# check necessary environment variables
-
-helptxt = {
-    'GPAW_PYTHON': 'to the parallel custom interpreter (gpaw-python)'
-    }
-
-for variable in list(helptxt.keys()):
-    if not (variable in os.environ):
-        raise RuntimeError('Please set the environment variable ' +
-                           variable + ' ' + helptxt[variable] + ' !')
 
 # ............................................................
 
