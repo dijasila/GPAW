@@ -198,11 +198,11 @@ class Chi0:
         eshift : float
             Shift unoccupied bands
         rate : float,str
-            Phenomenological scattering rate to use in optical limit Drude term.
-            If rate='eta', then use input artificial broadening eta as rate.
-            Note, for consistency with the formalism the rate is implemented as
-            omegap^2 / (omega + 1j * rate)^2 which differ from some literature
-            by a factor of 2.
+            Phenomenological scattering rate to use in optical limit Drude term
+            (in eV). If rate='eta', then use input artificial broadening eta as
+            rate. Note, for consistency with the formalism the rate is
+            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
+            some literature by a factor of 2.
             
 
         Attributes
