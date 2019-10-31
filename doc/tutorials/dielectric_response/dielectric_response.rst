@@ -464,6 +464,26 @@ There are few points about the implementation that we emphasize:
   dielectric function converges slowly with the upper bound of the frequency
   grid. Refer to :ref:`df_theory` for the details on the Hilbert transform.
 
+Drude phenomenological scattering rate
+======================================
+A phenomenological scattering rate can be introduced using the ``rate``
+parameter in the optical limit. By default this is zero but can be set by
+using::
+
+    df = DielectricFunction(...
+                            rate=0.1,
+                            ...)
+
+to set a scattering rate of 0.1 eV. If rate='eta' then the code with use the
+specified ``eta`` parameter. Note that the implementation of the rate parameter
+differs from some literature by a factor of 2 for consistency with the linear
+response formalism. In practice the Drude rate is implemented as
+
+.. math::
+
+    \frac{\omega_\mathrm{p}^2}{(\omega + i\gamma)^2}
+
+where `\gamma` is the rate parameter.
 
 Useful tips
 ===========
@@ -525,6 +545,13 @@ keyword            type               default value        description
 ``hilbert``        ``bool``           True                 Switch for hilbert transform.
 ``nbands``         ``int``            nbands from gs calc  Number of bands from gs calc
                                                            to include.
+``eta``            ``float`` or
+                   ``str``            0.0 (eV)             Phenomenological Drude
+                                                           scattering rate. If rate="eta" then
+                                                           use "eta". Note that this may differ
+                                                           by a factor of 2 for some definitions
+                                                           of the Drude scattering rate. See the
+                                                           section on Drude scattering rate.
 =================  =================  ===================  ================================
 
 
