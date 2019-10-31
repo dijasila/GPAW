@@ -179,7 +179,7 @@ class ComputeCluster:
         print('export PATH=' + env['PATH'] + ':PATH',
               file=f)
         print('export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH'], file=f)
-        print('gpaw -P' + str(cores) + ' python',
+        print('gpaw -P ' + str(cores) + ' python',
               set['script'], end=' ', file=f)
         if 'parameters' in set:
             print(set['parameters'], end=' ', file=f)
