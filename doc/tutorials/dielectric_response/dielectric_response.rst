@@ -545,7 +545,7 @@ keyword            type               default value        description
 ``hilbert``        ``bool``           True                 Switch for hilbert transform.
 ``nbands``         ``int``            nbands from gs calc  Number of bands from gs calc
                                                            to include.
-``eta``            ``float`` or
+``rate``           ``float`` or
                    ``str``            0.0 (eV)             Phenomenological Drude
                                                            scattering rate. If rate="eta" then
                                                            use "eta". Note that this may differ
