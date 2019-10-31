@@ -175,10 +175,9 @@ To build GPAW use::
  module load ase
 
  cd $GPAW_SOURCE/trunk
- mkdir install
- python3 setup.py install --prefix=$PWD/install
+ CC=mpicc; python3 setup.py build
 
-which installs GPAW to ``$GPAW_SOURCE/trunk/install``.
+which builds GPAW to ``$GPAW_SOURCE/trunk/build``.
 We create a module that does the necessary things::
 
   cd
@@ -196,10 +195,9 @@ the file  :file:`trunk` that should read::
  if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
  # change this to your needs
- set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk/install
- prepend-path    PATH                 $gpawhome/bin
- prepend-path    PYTHONPATH           $gpawhome/lib/python3.6/site-packages/
- setenv          GPAW_PYTHON          $gpawhome/bin/gpaw-python
+ set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk
+ prepend-path    PATH                 $gpawhome/tools:$gpawhome/build/scripts-3.6
+ prepend-path    PYTHONPATH           $gpawhome/build/lib.linux-x86_64-3.6
 
 Running GPAW
 ------------
