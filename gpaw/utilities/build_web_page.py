@@ -1,78 +1,69 @@
-"""Build GPAW's web-page.
+"""Build GPAW's web-page."""
 
-Initial setup::
-
-    cd ~
-    python3 -m venv gpaw-web-page
-    cd gpaw-web-page
-    . bin/activate
-    pip install sphinx-rtd-theme
-    pip install Sphinx
-    pip install matplotlib scipy
-    git clone http://gitlab.com/ase/ase.git
-    cd ase
-    pip install -U .
-    cd ..
-    git clone http://gitlab.com/gpaw/gpaw.git
-    cd gpaw
-    python setup.py install
-
-Crontab::
-
-    WEB_PAGE_FOLDER=...
-    CMD="python -m gpaw.utilities.build_web_page"
-    10 20 * * * cd ~/gpaw-web-page; . bin/activate; cd gpaw; $CMD > ../gpaw.log
-
-"""
-from __future__ import print_function
 import os
+import shutil
 import subprocess
 import sys
-
-from gpaw import __version__
+from pathlib import Path
 
 
 cmds = """\
-touch ../gpaw-web-page.lock
-cd ../ase; git checkout web-page -q; git pull -q; pip install .
-git clean -fdx
-git checkout web-page -q > /dev/null 2>&1
-git pull -q > /dev/null 2>&1
-python setup.py install {opts}
-cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html gpaw-web-page
-cd gpaw-web-page/_sources/setups; cp setups.rst.txt setups.txt
-cd ../ase; git checkout master -q; pip install .
-git clean -fdx doc
-rm -r build
-git checkout master -q > /dev/null 2>&1
-git pull -q > /dev/null 2>&1
-GPAW_CONFIG=doc/platforms/Linux/Niflheim/el7-intel.py python setup.py install
-cd doc; sphinx-build -b html -d build/doctrees . build/html
-mv doc/build/html gpaw-web-page/dev
+python3 -m venv venv
+. venv/bin/activate
+pip install wheel
+pip install git+https://gitlab.com/ase/ase.git@master
+git clone http://gitlab.com/gpaw/gpaw.git
+cd gpaw
+git checkout {branch}
+pip install .
 python setup.py sdist
-cp dist/gpaw-*.tar.gz gpaw-web-page/
-cp dist/gpaw-*.tar.gz gpaw-web-page/dev/
-find gpaw-web-page -name install.html | xargs sed -i s/snapshot.tar.gz/{tar}/g
-tar -czf gpaw-web-page.tar.gz gpaw-web-page
-cp gpaw-web-page.tar.gz {dir}/tmp-gpaw-web-page.tar.gz
-mv {dir}/tmp-gpaw-web-page.tar.gz {dir}/gpaw-web-page.tar.gz"""
-
-cmds = cmds.format(opts=os.environ.get('GPAW_COMPILE_OPTIONS', ''),
-                   tar='gpaw-' + __version__ + '.tar.gz',
-                   dir=os.environ['WEB_PAGE_FOLDER'])
+cd doc
+make
+mv build/html gpaw-web-page"""
 
 
-def build():
-    if os.path.isfile('../gpaw-web-page.lock'):
-        print('Locked', file=sys.stderr)
-        return
-    try:
-        for cmd in cmds.splitlines():
-            subprocess.check_call(cmd, shell=True)
-    finally:
-        os.remove('../gpaw-web-page.lock')
+def build(branch='master'):
+    root = Path(f'/tmp/gpaw-docs-{branch}')
+    if root.is_dir():
+        sys.exit('Locked')
+    root.mkdir()
+    os.chdir(root)
+    cmds2 = ' && '.join(cmds.format(branch=branch).splitlines())
+    p = subprocess.run(cmds2, shell=True)
+    if p.returncode == 0:
+        status = 'ok'
+    else:
+        print('FAILED!', file=sys.stdout)
+        status = 'error'
+    f = root.with_name(f'gpaw-docs-{branch}-{status}')
+    if f.is_dir():
+        shutil.rmtree(f)
+    root.rename(f)
+    return status
+
+
+def build_both():
+    assert build('master') == 'ok'
+    assert build('web-page') == 'ok'
+    tar = next(
+        Path('/tmp/gpaw-docs-master-ok/gpaw/dist/').glob('gpaw-*.tar.gz'))
+    master = Path('/tmp/gpaw-docs-master-ok/gpaw/doc/gpaw-web-page')
+    webpage = Path('/tmp/gpaw-docs-web-page-ok/gpaw/doc/gpaw-web-page')
+    home = Path.home() / 'web-pages'
+    cmds = ' && '.join(
+        [f'cp -rp {master} {webpage}/dev',
+         f'cp {tar} {webpage}',
+         f'cp {tar} {webpage}/dev',
+         f'find {webpage} -name install.html | '
+         f'xargs sed -i s/snapshot.tar.gz/{tar.name}/g',
+         f'cd {webpage}/_sources/setups',  # backwards compatibility
+         'cp setups.rst.txt setups.txt',  # with old install-data script
+         f'cd {webpage.parent}',
+         f'tar -czf gpaw-web-page.tar.gz gpaw-web-page',
+         f'cp gpaw-web-page.tar.gz {home}'])
+    subprocess.run(cmds, shell=True, check=True)
 
 
 if __name__ == '__main__':
     build()
+    # build_both()
