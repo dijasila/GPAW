@@ -108,12 +108,12 @@ class EXX:
                                                v1_nG, v1_ani,
                                                v2_nG, v2_ani)
 
+            e_nn *= count
+            e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
             if 0:
                 print(i1, i2, s,
                       k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count,
-                      e_nn[0, 0])
-            e_nn *= count
-            e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
+                      e_nn[0, 0], e)
             exxvv -= 0.5 * e
             ekin += e
             if e_kn is not None:
@@ -147,8 +147,9 @@ class EXX:
                     P_ni = kpt.proj[a]
                     v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_ii)
                     v1_ani[a] = v_ani[a] - v_ni
-                    ekin += np.einsum('n, ni, ni',
-                                      kpt.f_n, P_ni.conj(), v_ni).real
+                    ekin += (np.einsum('n, ni, ni',
+                                       kpt.f_n, P_ni.conj(), v_ni).real *
+                             kpt.weight)
                 self.pt.add(w_nG, v1_ani, kpt.psit.kpt)
 
         return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
@@ -282,7 +283,8 @@ class EXX:
                     for i2 in range(kd.nibzkpts):
                         for s2 in symmetries_k[i2]:
                             s3 = self.symmetry_map_ss[s1, s2]
-                            if i1 < i2:
+                            # s3 = self.inverse_s[s3]
+                            if 1:#i1 < i2:
                                 pairs1[(i1, i2, s3)] += 1
                             else:
                                 s4 = self.inverse_s[s3]
@@ -298,7 +300,7 @@ class EXX:
                     pairs[seen[(i1, k2)]] += count
                 else:
                     pairs[(i1, i2, s)] = count
-                    seen[(i1, k2)] = (i1, i2, s)
+                    #seen[(i1, k2)] = (i1, i2, s)
         else:
             pairs = {}
             for i1 in range(len(kpts1)):
