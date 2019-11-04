@@ -1,7 +1,6 @@
 """User provided customizations.
 
-Here one changes the default arguments for compiling _gpaw.so (serial)
-and gpaw-python (parallel).
+Here one changes the default arguments for compiling _gpaw.so.
 
 Here are all the lists that can be modified:
 
@@ -41,7 +40,7 @@ To append use the form
 # flake8: noqa
 
 # compiler = 'gcc'
-# mpicompiler = 'mpicc'  # use None if you don't want to build a gpaw-python
+# mpicompiler = 'mpicc'
 # mpilinker = 'mpicc'
 # platform_id = ''
 
@@ -53,11 +52,7 @@ if fftw:
 # ScaLAPACK (version 2.0.1+ required):
 scalapack = False
 if scalapack:
-    libraries += ['scalapack-openmpi',
-                  'blacsCinit-openmpi',
-                  'blacs-openmpi']
-    define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
-    define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+    libraries += ['scalapack-openmpi']
 
 # Use Elpa (requires ScaLAPACK and Elpa API 20171201):
 if 0:
@@ -99,10 +94,3 @@ if 0:
     library_dirs += ['%s/lib' % path]
     include_dirs += ['%s/include' % path]
     libraries += ['vdwxc']
-
-
-# Build MPI-interface into _gpaw.so:
-if 0:
-    compiler = 'mpicc'
-    define_macros += [('PARALLEL', '1')]
-    mpicompiler = None

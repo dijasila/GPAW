@@ -31,7 +31,7 @@ de21b = GPAW('PBE.gpw').get_xc_difference('LDA')
 print(de21, de21b)
 equal(de21, de21b, 9e-8)
 
-energy_tolerance = 0.00007
+energy_tolerance = 0.0007
 niter_tolerance = 0
 equal(e1, -0.0961003634812, energy_tolerance) # svnversion 5252
 equal(e2, -0.0790249564625, energy_tolerance) # svnversion 5252

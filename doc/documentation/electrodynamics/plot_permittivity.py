@@ -36,7 +36,7 @@ def plot(fname, fiteps):
     # plt.ylim(fiteps_e.real.min(), fiteps_e.real.max())
     plt.ylim(-70, 0)
     plt.xlabel('Energy (eV)')
-    plt.ylabel('Real($\epsilon$)')
+    plt.ylabel(r'Real($\epsilon$)')
     plt.legend(loc='best')
 
     plt.subplot(1, 2, 2)
@@ -46,7 +46,7 @@ def plot(fname, fiteps):
     # plt.ylim(fiteps_e.imag.min(), fiteps_e.imag.max())
     plt.ylim(0, 7)
     plt.xlabel('Energy (eV)')
-    plt.ylabel('Imaginary($\epsilon$)')
+    plt.ylabel(r'Imaginary($\epsilon$)')
     plt.tight_layout()
     plt.savefig('%s.png' % fname)
 
@@ -55,6 +55,8 @@ def plot(fname, fiteps):
 # http://refractiveindex.info/?shelf=main&book=Au&page=Johnson
 # Direct download link:
 # wget http://refractiveindex.info/database/main/Au/Johnson.yml -O Au.yml
+
+
 ymlfname = 'Au.yml'
 
 # Fit to the permittivity

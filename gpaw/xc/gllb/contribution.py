@@ -33,4 +33,3 @@ class Contribution:
 
     def add_extra_setup_date(self, dict):
         raise NotImplementedError
-        

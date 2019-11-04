@@ -1,5 +1,4 @@
 # Written by Lauri Lehtovaara, 2007
-
 """This module implements classes for time-dependent variables and
 operators."""
 
@@ -17,7 +16,6 @@ class TimeDependentHamiltonian:
     This class contains information required to apply time-dependent
     Hamiltonian to a wavefunction.
     """
-
     def __init__(self, wfs, spos_ac, hamiltonian, td_potential):
         """Create the TimeDependentHamiltonian-object.
 
@@ -218,28 +216,23 @@ class TimeDependentHamiltonian:
             # This is probably not the most optimal approach and slows
             # the propagation.
             if self.lpsit is None:
-                self.lpsit = self.hamiltonian.gd.empty( n=len(psit),
-                                                        dtype=complex )
+                self.lpsit = self.hamiltonian.gd.empty(n=len(psit),
+                                                       dtype=complex)
             self.laplace.apply(psit, self.lpsit, kpt.phase_cd)
-            hpsit[:] -= (.5 * (self.absorbing_boundary.get_G()**2 - 1.0)
-                         * self.lpsit)
+            hpsit[:] -= (.5 * (self.absorbing_boundary.get_G()**2 - 1.0) *
+                         self.lpsit)
             for i in range(3):
                 self.gradient[i].apply(psit, self.lpsit, kpt.phase_cd)
-                hpsit[:] -= (.5 * self.absorbing_boundary.get_G()
-                             * self.absorbing_boundary.get_dG()[i]
-                             * self.lpsit)
-
+                hpsit[:] -= (.5 * self.absorbing_boundary.get_G() *
+                             self.absorbing_boundary.get_dG()[i] * self.lpsit)
 
         # Time-dependent dipole field
         if self.td_potential is not None:
             #TODO on shaky ground here...
             strength = self.td_potential.strength
-            add_linear_field(self.wfs, self.spos_ac,
-                             psit, hpsit,
-                             0.5 * strength(self.time) +
-                             0.5 * strength(self.old_time),
-                             kpt)
-
+            add_linear_field(
+                self.wfs, self.spos_ac, psit, hpsit,
+                0.5 * strength(self.time) + 0.5 * strength(self.old_time), kpt)
 
     def set_absorbing_boundary(self, absorbing_boundary):
         """ Sets up the absorbing boundary.
@@ -252,12 +245,19 @@ class TimeDependentHamiltonian:
         if self.absorbing_boundary.type == 'PML':
             gd = self.hamiltonian.gd
             self.laplace = Laplace(gd, n=2, dtype=complex)
-            self.gradient = np.array((Gradient(gd,0, n=2, dtype=complex),
-                                       Gradient(gd,1, n=2, dtype=complex),
-                                       Gradient(gd,2, n=2, dtype=complex)))
-            self.lpsit=None
+            self.gradient = np.array(
+                (Gradient(gd, 0, n=2,
+                          dtype=complex), Gradient(gd, 1, n=2, dtype=complex),
+                 Gradient(gd, 2, n=2, dtype=complex)))
+            self.lpsit = None
 
-    def calculate_paw_correction(self, psit_nG, hpsit, wfs, kpt, v_atom, calculate_P_ani=True):
+    def calculate_paw_correction(self,
+                                 psit_nG,
+                                 hpsit,
+                                 wfs,
+                                 kpt,
+                                 v_atom,
+                                 calculate_P_ani=True):
         """ Operates on psit_nG with the P-term that is present in PAW based Ehrenfest dynamics
 
         Parameters
@@ -278,7 +278,6 @@ class TimeDependentHamiltonian:
         P_axi = wfs.pt.dict(shape)
         wfs.pt.integrate(psit_nG, P_axi, kpt.q)
 
-
         #Coefficients for calculating P \psi_n
         # P = -i sum_a v_a P^a, P^a = T^{\dagger} \nabla_{R_a} T
         w_ani = wfs.pt.dict(wfs.bd.mynbands, zero=True)
@@ -293,16 +292,16 @@ class TimeDependentHamiltonian:
                 P_xi = P_axi[a]
                 #nabla_iiv contains terms < \phi_i1^a | d / d v phi_i2^a >
                 #- < phit_i1^a | d / dv phit_i2^a>, where v is either x,y or z
-                nabla_ii = wfs.setups[a].nabla_iiv[:,:,c]
-                dpt_ni = dpt_aniv[a][:,:,c]
+                nabla_ii = wfs.setups[a].nabla_iiv[:, :, c]
+                dpt_ni = dpt_aniv[a][:, :, c]
                 dO_ii = wfs.setups[a].dO_ii
                 #dphi_aniv[a] = np.dot(P_xi, nabla_ii.transpose())
                 dphi_ni = np.dot(P_xi, nabla_ii.transpose())
                 pt_ni = np.dot(dpt_ni, dO_ii)
                 #pt_aniv[a] = np.dot(Dpt_ni, dO_ii)
-                w_ani[a] += (dphi_ni + pt_ni) * v_atom[a,c]
+                w_ani[a] += (dphi_ni + pt_ni) * v_atom[a, c]
 
-            w_ani[a] *= complex(0,1)
+            w_ani[a] *= complex(0, 1)
             #dO_ani[a] *= complex(0,1)
 
         #wfs.pt.add(ppsit, W_ani, kpt.q)
@@ -316,7 +315,6 @@ class AbsorptionKickHamiltonian:
     This class contains information required to apply absorption kick
     Hamiltonian to a wavefunction.
     """
-
     def __init__(self, wfs, spos_ac, strength=[0.0, 0.0, 1e-3]):
         """Create the AbsorptionKickHamiltonian-object.
 
@@ -335,9 +333,9 @@ class AbsorptionKickHamiltonian:
         self.spos_ac = spos_ac
 
         # magnitude
-        magnitude = np.sqrt(strength[0]*strength[0]
-                             + strength[1]*strength[1]
-                             + strength[2]*strength[2])
+        magnitude = np.sqrt(strength[0] * strength[0] +
+                            strength[1] * strength[1] +
+                            strength[2] * strength[2])
         # iterations
         self.iterations = int(round(magnitude / 1.0e-4))
         if self.iterations < 1:
@@ -347,7 +345,6 @@ class AbsorptionKickHamiltonian:
 
         # hamiltonian
         self.abs_hamiltonian = np.array([self.dp[0], self.dp[1], self.dp[2]])
-
 
     def update(self, density, time):
         """Dummy function = does nothing. Required to have correct interface.
@@ -397,8 +394,7 @@ class AbsorptionKickHamiltonian:
         hpsit[:] = 0.0
 
         #TODO on shaky ground here...
-        add_linear_field(self.wfs, self.spos_ac,
-                         psit, hpsit,
+        add_linear_field(self.wfs, self.spos_ac, psit, hpsit,
                          self.abs_hamiltonian, kpt)
 
 
@@ -409,7 +405,6 @@ class TimeDependentOverlap(Overlap):
     This class contains information required to apply time-dependent
     overlap operator to a set of wavefunctions.
     """
-
     def __init__(self, timer):
         """Creates the TimeDependentOverlap-object.
 
@@ -501,7 +496,13 @@ class TimeDependentOverlap(Overlap):
     #    """
     #    self.overlap.apply(psit, spsit, wfs, kpt, calculate_P_ani)
     #
-    def apply_inverse(self, a_nG, b_nG, wfs, kpt, calculate_P_ani=True, use_cg=True):
+    def apply_inverse(self,
+                      a_nG,
+                      b_nG,
+                      wfs,
+                      kpt,
+                      calculate_P_ani=True,
+                      use_cg=True):
         """Apply the approximative time-dependent inverse overlap operator
         to the wavefunction psit of the k-point kpt.
 
@@ -531,43 +532,46 @@ class TimeDependentOverlap(Overlap):
             return
 
         self.timer.start('Apply exact inverse overlap')
-        from gpaw.utilities.blas import dotu, axpy
+        from gpaw.utilities.blas import axpy
+
         #from gpaw.tddft.cscg import multi_zdotu, multi_scale, multi_zaxpy
         #initialization
         # Multivector dot product, a^T b, where ^T is transpose
 
-        def multi_zdotu(s, x,y, nvec):
+        def multi_zdotu(s, x, y, nvec):
             for i in range(nvec):
-                s[i] = dotu(x[i],y[i])
+                s[i] = x[i].ravel().dot(y[i].ravel())
+                # s[i] = dotu(x[i],y[i])
             wfs.gd.comm.sum(s)
             return s
 
         # Multivector ZAXPY: a x + y => y
-        def multi_zaxpy(a,x,y, nvec):
+        def multi_zaxpy(a, x, y, nvec):
             for i in range(nvec):
-                axpy(a[i]*(1+0J), x[i], y[i])
+                axpy(a[i] * (1 + 0J), x[i], y[i])
 
         # Multiscale: a x => x
-        def multi_scale(a,x, nvec):
+        def multi_scale(a, x, nvec):
             for i in range(nvec):
                 x[i] *= a[i]
+
         nvec = len(a_nG)
         r = wfs.gd.zeros(nvec, dtype=wfs.dtype)
-        z  = wfs.gd.zeros((nvec,), dtype=wfs.dtype)
+        z = wfs.gd.zeros((nvec, ), dtype=wfs.dtype)
         p = wfs.gd.zeros(nvec, dtype=wfs.dtype)
         q = wfs.gd.zeros(nvec, dtype=wfs.dtype)
-        alpha = np.zeros((nvec,), dtype=wfs.dtype)
-        beta = np.zeros((nvec,), dtype=wfs.dtype)
-        scale = np.zeros((nvec,), dtype=wfs.dtype)
-        normr2 = np.zeros((nvec,), dtype=wfs.dtype)
-        rho  = np.zeros((nvec,), dtype=wfs.dtype)
-        rho_prev  = np.zeros((nvec,), dtype=wfs.dtype)
+        alpha = np.zeros((nvec, ), dtype=wfs.dtype)
+        beta = np.zeros((nvec, ), dtype=wfs.dtype)
+        scale = np.zeros((nvec, ), dtype=wfs.dtype)
+        normr2 = np.zeros((nvec, ), dtype=wfs.dtype)
+        rho = np.zeros((nvec, ), dtype=wfs.dtype)
+        rho_prev = np.zeros((nvec, ), dtype=wfs.dtype)
         rho_prev[:] = 1.0
         tol_cg = 1e-14
         multi_zdotu(scale, a_nG, a_nG, nvec)
         scale = np.abs(scale)
 
-        x = b_nG #XXX TODO rename this
+        x = b_nG  #XXX TODO rename this
 
         #x0 = S^-1_approx a_nG
         self.apply_inverse(a_nG, x, wfs, kpt, calculate_P_ani, use_cg=False)
@@ -606,7 +610,7 @@ class TimeDependentOverlap(Overlap):
             #rho_prev = rho.copy()
 
             #print '||r|| =', np.sqrt(np.abs(normr2/scale))
-            if ( (np.sqrt(np.abs(normr2) / scale)) < tol_cg ).all():
+            if ((np.sqrt(np.abs(normr2) / scale)) < tol_cg).all():
                 break
 
         self.timer.stop('Apply exact inverse overlap')
@@ -616,11 +620,20 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
     def __init__(self, stencil, parallel, initksl, gd, nvalence, collinear,
                  setups, bd, dtype, world, kd, kptband_comm, timer):
         assert dtype == complex
-        FDWaveFunctions.__init__(self, stencil, parallel, initksl,
-                                 gd, nvalence,
-                                 setups, bd, dtype, world,
-                                 kd, kptband_comm,
-                                 collinear=collinear, timer=timer)
+        FDWaveFunctions.__init__(self,
+                                 stencil,
+                                 parallel,
+                                 initksl,
+                                 gd,
+                                 nvalence,
+                                 setups,
+                                 bd,
+                                 dtype,
+                                 world,
+                                 kd,
+                                 kptband_comm,
+                                 collinear=collinear,
+                                 timer=timer)
         self.overlap = self.make_overlap()
 
     def make_overlap(self):
@@ -630,7 +643,6 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
         """ Calculate wavefunction forces with optional corrections for
             Ehrenfest dynamics
         """
-
 
         #If td_correction is not none, we replace the overlap part of the
         #force, sum_n f_n eps_n < psit_n | dO / dR_a | psit_n>, with
@@ -654,8 +666,16 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
             hpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
             #eps_psit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
             sinvhpsit = self.gd.zeros(len(kpt.psit_nG), dtype=self.dtype)
-            hamiltonian.apply(kpt.psit_nG, hpsit, self, kpt, calculate_P_ani=True)
-            self.overlap.apply_inverse(hpsit, sinvhpsit, self, kpt, calculate_P_ani=True)
+            hamiltonian.apply(kpt.psit_nG,
+                              hpsit,
+                              self,
+                              kpt,
+                              calculate_P_ani=True)
+            self.overlap.apply_inverse(hpsit,
+                                       sinvhpsit,
+                                       self,
+                                       kpt,
+                                       calculate_P_ani=True)
             #print 'sinvhpsit_0_cg - epspsit_0.max', abs(sinvhpsit[0]-eps_psit[0]).max()
             #print 'sinvhpsit_0 - epspsit_0.max', abs(sinvhpsit2[0]-eps_psit[0]).max()
 
@@ -671,11 +691,14 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
                 dO_ii = hamiltonian.setups[a].dO_ii
                 F_vii = np.dot(np.dot(F_niv.transpose(), P_ni), dH_ii)
 
-                fP_ni = P_ni * kpt.f_n[:,np.newaxis]
+                fP_ni = P_ni * kpt.f_n[:, np.newaxis]
                 G_ni = G_axi[a]
                 nabla_iiv = hamiltonian.setups[a].nabla_iiv
-                F_vii_sinvh_dpt = -np.dot(np.dot(FdH1_niv.transpose(), G_ni), dO_ii)
-                F_vii_sinvh_dphi = -np.dot(nabla_iiv.transpose(2,0,1), np.dot(fP_ni.conj().transpose(), G_ni))
+                F_vii_sinvh_dpt = -np.dot(np.dot(FdH1_niv.transpose(), G_ni),
+                                          dO_ii)
+                F_vii_sinvh_dphi = -np.dot(
+                    nabla_iiv.transpose(2, 0, 1),
+                    np.dot(fP_ni.conj().transpose(), G_ni))
                 F_vii += F_vii_sinvh_dpt + F_vii_sinvh_dphi
 
                 #F_av_dO[a] += 2 * F_vii_dO.real.trace(0,1,2)
@@ -709,7 +732,6 @@ class TimeDependentWaveFunctions(FDWaveFunctions):
 # DummyDensity
 class DummyDensity:
     """Implements dummy (= does nothing) density for AbsorptionKick."""
-
     def __init__(self, wfs):
         """Placeholder Density object for AbsorptionKick.
 
@@ -738,7 +760,6 @@ class TimeDependentDensity(DummyDensity):
     This class contains information required to get the time-dependent
     density.
     """
-
     def __init__(self, paw):
         """Creates the TimeDependentDensity-object.
 
@@ -856,8 +877,8 @@ def add_linear_field(wfs, spos_ac, a_nG, b_nG, strength, kpt):
         # coefficients
         # coefs_ni = sum_j ( <phi_i| f(x,y,z) | phi_j>
         #                    - <phit_i| f(x,y,z) | phit_j> ) P_nj
-        coef_ani[a] = (c0 * oneij +
-                       cxyz[0] * xij + cxyz[1] * yij + cxyz[2] * zij)
+        coef_ani[a] = (c0 * oneij + cxyz[0] * xij + cxyz[1] * yij +
+                       cxyz[2] * zij)
 
     # add partial wave pt_nG to psit_nG with proper coefficient
     wfs.pt.add(b_nG, coef_ani, kpt.q)

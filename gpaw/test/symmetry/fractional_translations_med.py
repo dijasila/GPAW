@@ -15,7 +15,7 @@ atoms = crystal(['Si', 'O'], basis=[p0, p1],
                 spacegroup=152, cellpar=[a, a, c, 90, 90, 120])
 
 
-## with fractional translations
+# with fractional translations
 calc = GPAW(mode=PW(),
             xc='LDA',
             kpts=(3, 3, 3),
@@ -30,7 +30,7 @@ energy_fractrans = atoms.get_potential_energy()
 assert(len(calc.wfs.kd.ibzk_kc) == 7)
 assert(len(calc.wfs.kd.symmetry.op_scc) == 6)
 
-## without fractional translations
+# without fractional translations
 calc = GPAW(mode=PW(),
             xc='LDA',
             kpts=(3, 3, 3),

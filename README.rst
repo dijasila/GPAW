@@ -12,7 +12,7 @@ Webpage: http://wiki.fysik.dtu.dk/gpaw
 Requirements
 ------------
 
-* Python_ 3.4 or later
+* Python_ 3.5 or later
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
 * SciPy_ (library for scientific computing)
@@ -20,7 +20,7 @@ Requirements
 * BLAS
 * LAPACK
 
-Optional:
+Optional (highly recommended):
 
 * MPI
 * ScaLAPACK
@@ -31,7 +31,7 @@ Installation
 
 Do this::
 
-    $ python setup.py install --user
+    $ python3 -m pip install gpaw
 
 and make sure you have ``~/.local/bin`` in your $PATH.
 
@@ -56,7 +56,6 @@ Contact
 * Mailing list: gpaw-users_
 * IRC_: #gpaw on freenode.net
 * Bug reports and development: gitlab-issues_
-* Old development mailing list (archive): gpaw-developers_
 
 Please send us bug-reports, patches, code, ideas and questions.
 
@@ -87,6 +86,7 @@ BFGS:   3  09:08:13       -6.630429       0.0003
 >>> h2.get_potential_energy()  # ASE's units are eV and Å
 -6.6304292169392784
 
+
 Getting started
 ---------------
 
@@ -98,10 +98,7 @@ look at the GPAW exercises_ and tutorials_.
 .. _ASE: http://wiki.fysik.dtu.dk/ase
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _Matplotlib: http://matplotlib.org/
-.. _pygtk: http://www.pygtk.org/
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
-.. _gpaw-developers: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-developers
 .. _IRC: http://webchat.freenode.net/?randomnick=0&channels=gpaw
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html

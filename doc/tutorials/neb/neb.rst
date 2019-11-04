@@ -11,7 +11,7 @@ this:
 
 If we run the job on 12 cpu's::
 
-  $ mpirun -np 12 gpaw-python neb.py
+  $ mpiexec -np 12 python3 neb.py
 
 then each of the three internal images will be parallelized over 4 cpu's.
 

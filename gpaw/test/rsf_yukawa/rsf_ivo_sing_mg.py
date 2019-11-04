@@ -45,5 +45,3 @@ if world.rank == 0:
     lr2.diagonalize()
     ex_lr = lr2[1].get_energy() * Hartree
     equal(e_singlet_lr, ex_lr, 0.15)
-
-
