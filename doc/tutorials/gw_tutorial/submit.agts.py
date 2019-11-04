@@ -3,7 +3,7 @@ from myqueue.task import task
 
 def create_tasks():
     return [
-        task('C_ecut_k_conv_GW.py@8:20h'),
+        task('C_ecut_k_conv_GW.py@16:15h'),
         task('C_ecut_k_conv_plot_GW.py', deps='C_ecut_k_conv_GW.py'),
         task('C_ecut_extrap.py', deps='C_ecut_k_conv_GW.py'),
         task('C_frequency_conv.py@1:30m'),

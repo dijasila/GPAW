@@ -6,12 +6,13 @@ from gpaw import GPAW
 
 # this test requires OpenEXR-libs
 
-for name in ['zero', 'periodic', 'corrected','pwcorrected']:
+for name in ['zero', 'periodic', 'corrected', 'pwcorrected']:
     calc = GPAW(name + '.gpw', txt=None)
 
     efermi = calc.get_fermi_level()
 
-    v = calc.get_electrostatic_potential().mean(0).mean(0)
+    # Average over y and x:
+    v = calc.get_electrostatic_potential().mean(1).mean(0)
     z = np.linspace(0, calc.atoms.cell[2, 2], len(v), endpoint=False)
 
     plt.figure(figsize=(6.5, 4.5))
@@ -22,13 +23,13 @@ for name in ['zero', 'periodic', 'corrected','pwcorrected']:
         n = 6  # get the vacuum level 6 grid-points from the boundary
         plt.plot([0.2, 0.2], [efermi, v[n]], 'r:')
         plt.text(0.23, (efermi + v[n]) / 2,
-                 '$\phi$ = %.2f eV' % (v[n] - efermi), va='center')
+                 r'$\phi$ = %.2f eV' % (v[n] - efermi), va='center')
         plt.plot([z[-1] - 0.2, z[-1] - 0.2], [efermi, v[-n]], 'r:')
         plt.text(z[-1] - 0.23, (efermi + v[-n]) / 2,
-                 '$\phi$ = %.2f eV' % (v[-n] - efermi),
+                 r'$\phi$ = %.2f eV' % (v[-n] - efermi),
                  va='center', ha='right')
 
-    plt.xlabel('$z$, $\AA$')
+    plt.xlabel(r'$z$, r$\AA$')
     plt.ylabel('(Pseudo) electrostatic potential, V')
     plt.xlim([0., z[-1]])
     if name == 'pwcorrected':

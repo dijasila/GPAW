@@ -1,14 +1,14 @@
 from __future__ import print_function
 
-from ase import Atoms, Atom
-from ase.parallel import barrier, rank
+from ase import Atoms
+from gpaw.mpi import world
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 from ase.build import molecule
 from math import sqrt
 
 R = 2.0
-CO = Atoms([Atom('C', (1, 0, 0)), Atom('O', (1, 0, R))])
+CO = Atoms('CO', [(1, 0, 0), (1, 0, R)])
 
 CO.rotate(90, 'y')
 equal(CO.positions[1, 0], R, 1e-10)
@@ -29,7 +29,7 @@ for c in range(3):
 
 # minimal box
 b = 4.0
-CO = Cluster([Atom('C', (1, 0, 0)), Atom('O', (1, 0, R))])
+CO = Cluster(['C', 'O'], [(1, 0, 0), (1, 0, R)])
 CO.minimal_box(b)
 cc = CO.get_cell()
 for c in range(3):
@@ -64,21 +64,21 @@ fpdb = 'CO.pdb'
 
 cell = [2., 3., R + 2.]
 CO.set_cell(cell, scale_atoms=True)
-barrier()
+world.barrier()
 CO.write(fxyz)
-barrier()
+world.barrier()
 CO_b = Cluster(filename=fxyz)
 assert(len(CO) == len(CO_b))
 offdiagonal = CO_b.get_cell().sum() - CO_b.get_cell().diagonal().sum()
 assert(offdiagonal == 0.0)
 
-barrier()
+world.barrier()
 CO.write(fpdb)
 
 # read xyz files with additional info
 read_with_additional = True
 if read_with_additional:
-    if rank == 0:
+    if world.rank == 0:
         f = open(fxyz, 'w')
         print("""2
 
@@ -86,6 +86,6 @@ C 0 0 0. 1 2 3
 O 0 0 1. 6. 7. 8.""", file=f)
         f.close()
 
-    barrier()
+    world.barrier()
 
     CO = Cluster(filename=fxyz)

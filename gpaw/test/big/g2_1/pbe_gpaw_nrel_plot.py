@@ -2,7 +2,7 @@ from __future__ import print_function
 import os
 import warnings
 # silence matplotlib.use() warning
-warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
+warnings.filterwarnings('ignore', r'.*This call to matplotlib\.use.*',)
 
 import numpy as np
 
@@ -95,8 +95,7 @@ def get_statistics(result, reference):
 # prepare plot
 
 vs = [
-    (calc['ea'].copy(), ref['ea'].copy(), 'G2_1'),
-    ]
+    (calc['ea'].copy(), ref['ea'].copy(), 'G2_1')]
 
 for atom in atoms:
     calc_atom = {}
@@ -194,8 +193,7 @@ plot(
     'blue',
     0.5,
     miny, maxy,
-    num=1,
-    )
+    num=1)
 plot(
     no, absaverage, std,
     'Atomization energy: E(atoms) - E(molecule)',
@@ -205,8 +203,7 @@ plot(
     'green',
     0.2,
     miny, maxy,
-    num=1,
-    )
+    num=1)
 zero = [0.0 for i in range(len(no))]
 pylab.plot(no, zero, 'k-', label='_nolegend_')
 ay1=pylab.gca()
@@ -228,21 +225,18 @@ for n in range(len(no)):
         l = {
             'average': '\navg\n',
             'absaverage': '\nabs\n',
-            'std': '\nstd\n',
-            }[v]
+            'std': '\nstd\n'}[v]
         value = {
             'average': average,
             'absaverage': absaverage,
-            'std': std,
-            }[v]
+            'std': std}[v]
         label += l + ' ' + str(round(value[n], 3)) + '\n'
     pylab.annotate(label,
                    xy=(n + 0.0, 0.0),
                    xytext=errorslocation(n, n1),
                    arrowprops=None,
                    horizontalalignment='left', verticalalignment='center',
-                   fontsize=ann_fontsize,
-                   )
+                   fontsize=ann_fontsize)
 
 # plot compounds with largest errors
 for n, l in enumerate(largest):
@@ -257,8 +251,7 @@ for n, l in enumerate(largest):
                        xytext=formulaslocation(n, n1),
                        arrowprops=dict(width=0.05, headwidth=5.0, facecolor='black', shrink=1.00),
                        horizontalalignment='left', verticalalignment='center',
-                       fontsize=ann_fontsize,
-                       )
+                       fontsize=ann_fontsize)
 #pylab.show()
 plot_save(".", tag + '_ea_vs')
 #pylab.close(1)

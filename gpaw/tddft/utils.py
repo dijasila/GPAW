@@ -1,7 +1,7 @@
 # Written by Lauri Lehtovaara 2008
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotc
+
 
 class MultiBlas:
     def __init__(self, gd):
@@ -19,10 +19,10 @@ class MultiBlas:
     # Multivector dot product, a^H b, where ^H is transpose
     def multi_zdotc(self, s, x,y, nvec):
         for i in range(nvec):
-            s[i] = dotc(x[i],y[i])
+            s[i] = np.vdot(x[i],y[i])
         self.gd.comm.sum(s)
         return s
-            
+
     # Multiscale: a x => x
     def multi_scale(self, a,x, nvec):
         if isinstance(a, (float, complex)):
@@ -188,4 +188,3 @@ class DynamicOverlapWriter(DynamicOverlapMonitor):
 
     def __del__(self):
         self.fileobj.close()
-

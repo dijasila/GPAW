@@ -19,7 +19,7 @@ from gpaw.response.fxc import get_xc_kernel
 
 class DielectricFunction:
     """This class defines dielectric function related physical quantities."""
-    
+
     def __init__(self, calc, response='density',
                  name=None, frequencies=None, domega0=0.1,
                  omega2=10.0, omegamax=None, ecut=50,
@@ -118,7 +118,7 @@ class DielectricFunction:
         self.w1 = min(self.mynw * world.rank, nw)
         self.w2 = min(self.w1 + self.mynw, nw)
         self.truncation = truncation
-    
+
     def calculate_chi0(self, q_c, spin='all'):
         """Calculates the response function.
 
@@ -131,7 +131,7 @@ class DielectricFunction:
             If 0 or 1, only include this specific spin.
             (not used in transverse reponse functions)
         """
-        
+
         if self.name:
             kd = self.chi0.calc.wfs.kd
             name = self.name + '%+d%+d%+d.pckl' % tuple((q_c * kd.N_c).round())
@@ -232,7 +232,7 @@ class DielectricFunction:
         spin response. The truncated Coulomb interaction is included as
         v^-1/2 v_t v^-1/2. This is in order to conform with
         the head and wings of chi0, which is treated specially for q=0.
-        
+
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
@@ -260,19 +260,19 @@ class DielectricFunction:
         response = self.chi0.response
         if response in ['+-', '-+']:
             assert xc in ('ALDA_x', 'ALDA_X', 'ALDA')
-        
+
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c, spin)
-        
+
         if response == 'density':
             N_c = self.chi0.calc.wfs.kd.N_c
-            
+
             Kbare_G = get_coulomb_kernel(pd,
                                          N_c,
                                          truncation=None,
                                          q_v=q_v)
             vsqr_G = Kbare_G**0.5
             nG = len(vsqr_G)
-            
+
             if self.truncation is not None:
                 if self.truncation == 'wigner-seitz':
                     self.wstc = WignerSeitzTruncatedCoulomb(pd.gd.cell_cv, N_c)
@@ -286,7 +286,7 @@ class DielectricFunction:
                 K_GG = np.diag(Ktrunc_G / Kbare_G)
             else:
                 K_GG = np.eye(nG, dtype=complex)
-               
+
             if pd.kd.gamma:
                 if isinstance(direction, str):
                     d_v = {'x': [1, 0, 0],
@@ -299,7 +299,7 @@ class DielectricFunction:
                 chi0_wGG[:, 0] = np.dot(d_v, chi0_wxvG[W, 0])
                 chi0_wGG[:, :, 0] = np.dot(d_v, chi0_wxvG[W, 1])
                 chi0_wGG[:, 0, 0] = np.dot(d_v, np.dot(chi0_wvv[W], d_v).T)
-            
+
             if xc != 'RPA':
                 Kxc_GG = get_xc_kernel(pd,
                                        self.chi0,
@@ -307,7 +307,7 @@ class DielectricFunction:
                                        chi0_wGG=chi0_wGG,
                                        density_cut=density_cut)
                 K_GG += Kxc_GG / vsqr_G / vsqr_G[:, np.newaxis]
-               
+
             # Invert Dyson eq.
             chi_wGG = []
             for chi0_GG in chi0_wGG:
@@ -320,12 +320,12 @@ class DielectricFunction:
                     chi0_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                     chi_GG /= vsqr_G * vsqr_G[:, np.newaxis]
                 chi_wGG.append(chi_GG)
-            
+
             if len(chi_wGG):
                 chi_wGG = np.array(chi_wGG)
             else:
                 chi_wGG = np.zeros((0, nG, nG), complex)
-            
+
         # Spin response
         else:
             Kxc_GG = get_xc_kernel(pd,
@@ -337,18 +337,18 @@ class DielectricFunction:
                                    fxc_scaling=fxc_scaling,
                                    density_cut=density_cut,
                                    spinpol_cut=spinpol_cut)
-            
+
             # Invert Dyson equation
             chi_wGG = []
             for chi0_GG in chi0_wGG:
                 chi_GG = np.dot(np.linalg.inv(np.eye(len(chi0_GG)) -
                                               np.dot(chi0_GG, Kxc_GG)),
                                 chi0_GG)
-                
+
                 chi_wGG.append(chi_GG)
 
         return pd, chi0_wGG, np.array(chi_wGG)
-    
+
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
                                    rshe=0.99,
@@ -356,20 +356,20 @@ class DielectricFunction:
                                    fxc_scaling=None,
                                    filename='chiM_w.csv'):
         """Calculate the dynamic susceptibility.
-         
+
         Returns macroscopic(could be generalized?) dynamic susceptibility:
         chiM0_w, chiM_w = DielectricFunction.get_dynamic_susceptibility()
         """
-        
+
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                              rshe=rshe,
                                              spinpol_cut=spinpol_cut,
                                              density_cut=density_cut,
                                              fxc_scaling=fxc_scaling)
-        
+
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
         rf_w = np.zeros(len(chi_wGG), dtype=complex)
-        
+
         for w, (chi0_GG, chi_GG) in enumerate(zip(chi0_wGG, chi_wGG)):
             rf0_w[w] = chi0_GG[0, 0]
             rf_w[w] = chi_GG[0, 0]
@@ -385,12 +385,12 @@ class DielectricFunction:
                           file=fd)
 
         return rf0_w, rf_w
-    
+
     def get_dielectric_matrix(self, xc='RPA', q_c=[0, 0, 0],
                               direction='x', symmetric=True,
                               calculate_chi=False, q_v=None,
                               add_intraband=False):
-        """Returns the symmetrized dielectric matrix.
+        r"""Returns the symmetrized dielectric matrix.
 
         ::
 
@@ -414,7 +414,7 @@ class DielectricFunction:
         The head of the inverse symmetrized dielectric matrix is equal
         to the head of the inverse dielectric matrix (inverse dielectric
         function)"""
-        
+
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
 
         if add_intraband:
@@ -560,7 +560,7 @@ class DielectricFunction:
 
     def get_eels_spectrum(self, xc='RPA', q_c=[0, 0, 0],
                           direction='x', filename='eels.csv'):
-        """Calculate EELS spectrum. By default, generate a file 'eels.csv'.
+        r"""Calculate EELS spectrum. By default, generate a file 'eels.csv'.
 
         EELS spectrum is obtained from the imaginary part of the
         density response function as, EELS(\omega) = - 4 * \pi / q^2 Im \chi.
@@ -568,7 +568,7 @@ class DielectricFunction:
 
         df_NLFC_w, df_LFC_w = DielectricFunction.get_eels_spectrum()
         """
-        
+
         # Calculate V^1/2 \chi V^1/2
         pd, Vchi0_wGG, Vchi_wGG = self.get_chi(xc=xc, q_c=q_c,
                                                direction=direction)
@@ -596,7 +596,7 @@ class DielectricFunction:
 
     def get_polarizability(self, xc='RPA', direction='x', q_c=[0, 0, 0],
                            filename='polarizability.csv', pbc=None):
-        """Calculate the polarizability alpha.
+        r"""Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
         with reduced dimensionality the converged value of alpha is
@@ -629,17 +629,17 @@ class DielectricFunction:
             alpha_w = V * (df_w - 1.0) / (4 * pi)
             alpha0_w = V * (df0_w - 1.0) / (4 * pi)
         else:
-            """Since eps_M = 1.0 for a truncated Coulomb interaction, it does
-            not make sense to apply it here. Instead one should define the
-            polarizability by
-
-                alpha * eps_M^{-1} = -L / (4 * pi) * <v_ind>
-
-            where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced
-            potential (relative to the strength of the  external potential).
-            With the bare Coulomb potential, this expression is equivalent to
-            the standard one. In a 2D system \chi should be calculated with a
-            truncated Coulomb potential and eps_M = 1.0"""
+            # Since eps_M = 1.0 for a truncated Coulomb interaction, it does
+            # not make sense to apply it here. Instead one should define the
+            # polarizability by
+            #
+            #     alpha * eps_M^{-1} = -L / (4 * pi) * <v_ind>
+            #
+            # where <v_ind> = 4 * pi * \chi / q^2 is the averaged induced
+            # potential (relative to the strength of the  external potential).
+            # With the bare Coulomb potential, this expression is equivalent to
+            # the standard one. In a 2D system \chi should be calculated with a
+            # truncated Coulomb potential and eps_M = 1.0
 
             print('Using truncated Coulomb interaction', file=self.chi0.fd)
 
@@ -699,7 +699,7 @@ class DielectricFunction:
                        eigenvalue_only=False, direction='x',
                        checkphase=True):
         """Plasmon eigenmodes as eigenvectors of the dielectric matrix."""
-        
+
         assert self.chi0.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)
@@ -812,7 +812,7 @@ class DielectricFunction:
 
     def get_spatial_eels(self, q_c=[0, 0, 0], direction='x',
                          w_max=None, filename='eels', r=None, perpdir=None):
-        """Spatially resolved loss spectrum.
+        r"""Spatially resolved loss spectrum.
 
         The spatially resolved loss spectrum is calculated as the inverse
         fourier transform of ``VChiV = (eps^{-1}-I)V``::
@@ -832,7 +832,7 @@ class DielectricFunction:
 
         Returns: real space grid, frequency points, EELS(w,r)
         """
-        
+
         assert self.chi0.world.size == 1
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self.calculate_chi0(q_c)

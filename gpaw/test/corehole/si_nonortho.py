@@ -76,4 +76,3 @@ if mpi.size == 1:
 #    assert (np.sum(abs(y1-y2)[0,:] ** 2 ) < 5e-9)
 #    assert (np.sum(abs(y1-y2)[1,:] ** 2 ) < 5e-9)
 #    assert (np.sum(abs(y1-y2)[2,:] ** 2 ) < 5e-9)
-

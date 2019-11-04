@@ -21,7 +21,6 @@ class PhononPerturbation(Perturbation):
     the ``apply`` member function.
 
     """
-
     def __init__(self, calc, kd, poisson_solver, dtype=float, **kwargs):
         """Store useful objects, e.g. lfc's for the various atomic functions.
 
@@ -68,22 +67,27 @@ class PhononPerturbation(Perturbation):
         # Localized functions:
         # core corections
         self.nct = LFC(self.gd, [[setup.nct] for setup in setups],
-                       integral=[setup.Nct for setup in setups], dtype=self.dtype)
+                       integral=[setup.Nct for setup in setups],
+                       dtype=self.dtype)
         # compensation charges
         #XXX what is the consequence of numerical errors in the integral ??
-        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups], kd,
+        self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+                        kd,
                         dtype=self.dtype)
-        ## self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
-        ##                 integral=sqrt(4 * pi), dtype=self.dtype)
+        # self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
+        #                 integral=sqrt(4 * pi), dtype=self.dtype)
         # vbar potential
-        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups], kd,
+        self.vbar = LFC(self.finegd, [[setup.vbar] for setup in setups],
+                        kd,
                         dtype=self.dtype)
 
         # Expansion coefficients for the compensation charges
         self.Q_aL = calc.density.Q_aL.copy()
 
         # Grid transformer -- convert array from fine to coarse grid
-        self.restrictor = Transformer(self.finegd, self.gd, nn=3,
+        self.restrictor = Transformer(self.finegd,
+                                      self.gd,
+                                      nn=3,
                                       dtype=self.dtype)
 
         # Atom, cartesian coordinate and q-vector of the perturbation
@@ -110,10 +114,10 @@ class PhononPerturbation(Perturbation):
             cell_cv = self.finegd.cell_cv
             # Convert to scaled coordinates
             scoor_cg = np.dot(la.inv(cell_cv), coor_vg.swapaxes(0, -2))
-            scoor_cg = scoor_cg.swapaxes(1,-2)
+            scoor_cg = scoor_cg.swapaxes(1, -2)
             # Phase factor
-            phase_qg = np.exp(2j * pi *
-                              np.dot(self.kd.ibzk_qc, scoor_cg.swapaxes(0,-2)))
+            phase_qg = np.exp(
+                2j * pi * np.dot(self.kd.ibzk_qc, scoor_cg.swapaxes(0, -2)))
             self.phase_qg = phase_qg.swapaxes(1, -2)
 
         #XXX To be removed from this class !!
@@ -197,7 +201,7 @@ class PhononPerturbation(Perturbation):
             self.poisson.solve_neutral(phi_g, rho_g)
         else:
             # Divide out the phase factor to get the periodic part
-            rhot_g = rho_g/self.phase_qg[self.q]
+            rhot_g = rho_g / self.phase_qg[self.q]
 
             # Solve Poisson's equation for the periodic part of the potential
             #XXX NOTICE: solve_neutral
@@ -318,7 +322,7 @@ class PhononPerturbation(Perturbation):
         # < p_a^i | Psi_nk >
         P_ni = P_ani[a]
         # < dp_av^i | Psi_nk > - remember the sign convention of the derivative
-        dP_ni = -1 * dP_aniv[a][...,v]
+        dP_ni = -1 * dP_aniv[a][..., v]
 
         # Expansion coefficients for the projectors on atom a
         dH_ii = unpack(self.dH_asp[a][0])

@@ -65,15 +65,8 @@ class KohnShamSingleExcitation:
 
 
 class KohnShamSingles:
-    def __init__(self,
-                 basefilename,
-                 gs_calc,
-                 kpt_index,
-                 min_occ, max_occ,
-                 min_unocc, max_unocc,
-                 max_energy_diff,
-                 min_pop_diff,
-                 lr_comms,
+    def __init__(self, basefilename, gs_calc, kpt_index, min_occ, max_occ,
+                 min_unocc, max_unocc, max_energy_diff, min_pop_diff, lr_comms,
                  txt):
         self.basefilename = basefilename
         self.calc = gs_calc
@@ -95,23 +88,24 @@ class KohnShamSingles:
 
     def update_list(self):
         # shorthands
-        eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n      # eigen energies
-        f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n          # occupations
+        eps_n = self.calc.wfs.kpt_u[self.kpt_ind].eps_n  # eigen energies
+        f_n = self.calc.wfs.kpt_u[self.kpt_ind].f_n  # occupations
 
         # Create Kohn-Sham single excitation list with energy filter
-        old_kss_list = self.kss_list   # save old list for later
-        self.kss_list = []             # create a completely new list
+        old_kss_list = self.kss_list  # save old list for later
+        self.kss_list = []  # create a completely new list
         # Occupied loop
-        for i in range(self.min_occ, self.max_occ+1):
+        for i in range(self.min_occ, self.max_occ + 1):
             # Unoccupied loop
-            for p in range(self.min_unocc, self.max_unocc+1):
-                deps_pi = eps_n[p] - eps_n[i] # energy diff
-                df_ip = f_n[i] - f_n[p]       # population diff
+            for p in range(self.min_unocc, self.max_unocc + 1):
+                deps_pi = eps_n[p] - eps_n[i]  # energy diff
+                df_ip = f_n[i] - f_n[p]  # population diff
                 # Filter it
-                if ( np.abs(deps_pi) <= self.max_energy_diff
-                     and df_ip > self.min_pop_diff ):
+                if (np.abs(deps_pi) <= self.max_energy_diff
+                        and df_ip > self.min_pop_diff):
                     # i, p, deps, df, mur, muv, magn
-                    kss = KohnShamSingleExcitation(self.calc, self.kpt_ind, i, p)
+                    kss = KohnShamSingleExcitation(self.calc, self.kpt_ind, i,
+                                                   p)
                     kss.energy_diff = deps_pi
                     kss.pop_diff = df_ip
                     self.kss_list.append(kss)
@@ -119,27 +113,25 @@ class KohnShamSingles:
         # Sort by energy diff:
         self.kss_list = sorted(self.kss_list, key=lambda x: x.energy_diff)
 
-
         # Remove old transitions and add new
         # BUT only add to the end of the list (otherwise lower triangle
         # matrix is not filled completely)
         if old_kss_list is not None:
-            new_kss_list = self.kss_list   # required list
-            self.kss_list = []             # final list with correct order
+            new_kss_list = self.kss_list  # required list
+            self.kss_list = []  # final list with correct order
             # Old list first
             # If in new and old lists
             for kss_o in old_kss_list:
                 found = False
                 for kss_n in new_kss_list:
-                    if ( kss_o.occ_ind == kss_n.occ_ind
-                         and kss_o.unocc_ind == kss_n.unocc_ind ):
+                    if (kss_o.occ_ind == kss_n.occ_ind
+                            and kss_o.unocc_ind == kss_n.unocc_ind):
                         found = True
                         break
                 if found:
-                    self.kss_list.append(kss_o) # Found, add to final list
+                    self.kss_list.append(kss_o)  # Found, add to final list
                 else:
-                    pass                        # else drop
-
+                    pass  # else drop
 
             # Now old transitions which are not in new list where dropped
 
@@ -148,21 +140,22 @@ class KohnShamSingles:
             for kss_n in new_kss_list:
                 found = False
                 for kss in self.kss_list:
-                    if ( kss.occ_ind == kss_n.occ_ind
-                         and kss.unocc_ind == kss_n.unocc_ind ):
+                    if (kss.occ_ind == kss_n.occ_ind
+                            and kss.unocc_ind == kss_n.unocc_ind):
                         found = True
                         break
                 if not found:
-                    app_list.append(kss_n) # Not found, add to final list
+                    app_list.append(kss_n)  # Not found, add to final list
                 else:
-                    pass                   # else skip to avoid duplicates
+                    pass  # else skip to avoid duplicates
 
             # Create the final list
             self.kss_list += app_list
 
-
-        self.txt.write('Number of electron-hole pairs: %d\n' % len(self.kss_list))
-        self.txt.write('Maximum energy difference:     %6.3lf\n' % (self.kss_list[-1].energy_diff * ase.units.Hartree))
+        self.txt.write('Number of electron-hole pairs: %d\n' %
+                       len(self.kss_list))
+        self.txt.write('Maximum energy difference:     %6.3lf\n' %
+                       (self.kss_list[-1].energy_diff * ase.units.Hartree))
 
         # Prevent repeated work
         self.kss_list_ready = True
@@ -179,8 +172,9 @@ class KohnShamSingles:
             # a bit ugly and slow but works
             data = None
             if self.lr_comms.parent_comm.rank == 0:
-                data = open(kss_file, 'r', 1024*1024).read()
-            data = gpaw.mpi.broadcast_string(data, root=0,
+                data = open(kss_file, 'r', 1024 * 1024).read()
+            data = gpaw.mpi.broadcast_string(data,
+                                             root=0,
                                              comm=self.lr_comms.parent_comm)
 
             # just parse
@@ -188,8 +182,8 @@ class KohnShamSingles:
                 line = line.split()
                 i, p = int(line[0]), int(line[1])
                 ediff, fdiff = float(line[2]), float(line[3])
-                dm = np.array([float(line[4]),float(line[5]),float(line[6])])
-                mm = np.array([float(line[7]),float(line[8]),float(line[9])])
+                dm = np.array([float(line[4]), float(line[5]), float(line[6])])
+                mm = np.array([float(line[7]), float(line[8]), float(line[9])])
                 kss = KohnShamSingleExcitation(self.calc, self.kpt_ind, i, p)
                 kss.energy_diff = ediff
                 kss.pop_diff = fdiff
@@ -226,17 +220,17 @@ class KohnShamSingles:
 
         #self.timer.start('Calculate KS properties')
 
-
         # Init pair densities
         dnt_Gip = self.calc.wfs.gd.empty()
         dnt_gip = self.calc.density.finegd.empty()
         drhot_gip = self.calc.density.finegd.empty()
 
-
         # Init gradients of wfs
-        grad_psit2_G = [self.calc.wfs.gd.empty(), self.calc.wfs.gd.empty(),
-                        self.calc.wfs.gd.empty()]
-
+        grad_psit2_G = [
+            self.calc.wfs.gd.empty(),
+            self.calc.wfs.gd.empty(),
+            self.calc.wfs.gd.empty()
+        ]
 
         # Init gradient operators
         grad = []
@@ -244,14 +238,12 @@ class KohnShamSingles:
         for c in range(3):
             grad.append(Gradient(self.calc.wfs.gd, c, dtype=dtype, n=2))
 
-
         # Coordinate vector r
         R0 = 0.5 * np.diag(self.calc.wfs.gd.cell_cv)
         # R0 = np.array([0.0,0.0,0.0]) # old_version
         #print 'R0', R0
         r_cG, r2_G = coordinates(self.calc.wfs.gd, origin=R0)
         r_cg, r2_g = coordinates(self.calc.density.finegd, origin=R0)
-
 
         # Loop over all KS single excitations
         #
@@ -270,42 +262,43 @@ class KohnShamSingles:
         # J. Chem. Phys., Vol. 116, 6930 (2002)
         for kss_ip in self.kss_list:
             # If have dipole moment and magnetic moment, already done and skip
-            if (kss_ip.dip_mom_r is not None and
-                kss_ip.magn_mom is not None):
+            if (kss_ip.dip_mom_r is not None and kss_ip.magn_mom is not None):
                 continue
 
             # Transition dipole moment, mu_ip = <p| (-r) |i>
-            kss_ip.calculate_pair_density( dnt_Gip, dnt_gip, drhot_gip )
+            kss_ip.calculate_pair_density(dnt_Gip, dnt_gip, drhot_gip)
             #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
             #kss_ip.dip_mom_r = self.calc.density.finegd.calculate_dipole_moment(drhot_gip)
             kss_ip.dip_mom_r = np.zeros(3)
-            kss_ip.dip_mom_r[0] = -self.calc.density.finegd.integrate(r_cg[0] * drhot_gip)
-            kss_ip.dip_mom_r[1] = -self.calc.density.finegd.integrate(r_cg[1] * drhot_gip)
-            kss_ip.dip_mom_r[2] = -self.calc.density.finegd.integrate(r_cg[2] * drhot_gip)
-
+            kss_ip.dip_mom_r[0] = -self.calc.density.finegd.integrate(
+                r_cg[0] * drhot_gip)
+            kss_ip.dip_mom_r[1] = -self.calc.density.finegd.integrate(
+                r_cg[1] * drhot_gip)
+            kss_ip.dip_mom_r[2] = -self.calc.density.finegd.integrate(
+                r_cg[2] * drhot_gip)
 
             # Magnetic transition dipole, m_ip = -(1/2c) <i|L|p> = i/2c <i|r x p|p>
             # see Autschbach et al., J. Chem. Phys., 116, 6930 (2002)
 
             # Gradients
             for c in range(3):
-                grad[c].apply(kss_ip.pair_density.psit2_G, grad_psit2_G[c], self.calc.wfs.kpt_u[self.kpt_ind].phase_cd)
+                grad[c].apply(kss_ip.pair_density.psit2_G, grad_psit2_G[c],
+                              self.calc.wfs.kpt_u[self.kpt_ind].phase_cd)
 
             # <psi1|r x grad|psi2>
             #    i  j  k
             #    x  y  z   = (y pz - z py)i + (z px - x pz)j + (x py - y px)
             #    px py pz
             rxnabla_g = np.zeros(3)
-            rxnabla_g[0] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G *
-                                                      (r_cG[1] * grad_psit2_G[2] -
-                                                       r_cG[2] * grad_psit2_G[1]))
-            rxnabla_g[1] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G *
-                                                      (r_cG[2] * grad_psit2_G[0] -
-                                                       r_cG[0] * grad_psit2_G[2]))
-            rxnabla_g[2] = self.calc.wfs.gd.integrate(kss_ip.pair_density.psit1_G *
-                                                      (r_cG[0] * grad_psit2_G[1] -
-                                                       r_cG[1] * grad_psit2_G[0]))
-
+            rxnabla_g[0] = self.calc.wfs.gd.integrate(
+                kss_ip.pair_density.psit1_G *
+                (r_cG[1] * grad_psit2_G[2] - r_cG[2] * grad_psit2_G[1]))
+            rxnabla_g[1] = self.calc.wfs.gd.integrate(
+                kss_ip.pair_density.psit1_G *
+                (r_cG[2] * grad_psit2_G[0] - r_cG[0] * grad_psit2_G[2]))
+            rxnabla_g[2] = self.calc.wfs.gd.integrate(
+                kss_ip.pair_density.psit1_G *
+                (r_cG[0] * grad_psit2_G[1] - r_cG[1] * grad_psit2_G[0]))
 
             # augmentation contributions to magnetic moment
             # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2>
@@ -321,8 +314,7 @@ class KohnShamSingles:
                         for i2, Pp in enumerate(Pp_i):
                             rxnabla_a[c] += Pi * Pp * rxnabla_iiv[i1, i2, c]
 
-            self.calc.wfs.gd.comm.sum(rxnabla_a) # sum up from different procs
-
+            self.calc.wfs.gd.comm.sum(rxnabla_a)  # sum up from different procs
 
             # Ra x <psi1| nabla |psi2>
             Rxnabla_a = np.zeros(3)
@@ -334,47 +326,44 @@ class KohnShamSingles:
                 for i1, Pi in enumerate(Pi_i):
                     for i2, Pp in enumerate(Pp_i):
                         # (y pz - z py)i + (z px - x pz)j + (x py - y px)k
-                        Rxnabla_a[0] += Pi * Pp * ( Ra[1] * nabla_iiv[i1, i2, 2] - Ra[2] * nabla_iiv[i1, i2, 1] )
-                        Rxnabla_a[1] += Pi * Pp * ( Ra[2] * nabla_iiv[i1, i2, 0] - Ra[0] * nabla_iiv[i1, i2, 2] )
-                        Rxnabla_a[2] += Pi * Pp * ( Ra[0] * nabla_iiv[i1, i2, 1] - Ra[1] * nabla_iiv[i1, i2, 0] )
+                        Rxnabla_a[0] += Pi * Pp * (
+                            Ra[1] * nabla_iiv[i1, i2, 2] -
+                            Ra[2] * nabla_iiv[i1, i2, 1])
+                        Rxnabla_a[1] += Pi * Pp * (
+                            Ra[2] * nabla_iiv[i1, i2, 0] -
+                            Ra[0] * nabla_iiv[i1, i2, 2])
+                        Rxnabla_a[2] += Pi * Pp * (
+                            Ra[0] * nabla_iiv[i1, i2, 1] -
+                            Ra[1] * nabla_iiv[i1, i2, 0])
 
-
-            self.calc.wfs.gd.comm.sum(Rxnabla_a) # sum up from different procs
+            self.calc.wfs.gd.comm.sum(Rxnabla_a)  # sum up from different procs
 
             #print (kss_ip.occ_ind, kss_ip.unocc_ind), kss_ip.dip_mom_r, rxnabla_g, rxnabla_a, Rxnabla_a
 
             # m_ip = -1/2c <i|r x p|p> = i/2c <i|r x nabla|p>
             # just imaginary part!!!
-            kss_ip.magn_mom = ase.units.alpha / 2. * (rxnabla_g + rxnabla_a + Rxnabla_a)
-
-
-
+            kss_ip.magn_mom = ase.units.alpha / 2. * (rxnabla_g + rxnabla_a +
+                                                      Rxnabla_a)
 
         # Wait... to avoid io problems, and write KS_singles file
         self.lr_comms.parent_comm.barrier()
         if self.lr_comms.parent_comm.rank == 0:
-            self.kss_file = open(self.basefilename+'.KS_singles','w')
+            self.kss_file = open(self.basefilename + '.KS_singles', 'w')
             for kss_ip in self.kss_list:
                 format = '%08d %08d  %18.12lf %18.12lf  '
                 format += '%18.12lf %18.12lf %18.12lf '
                 format += '%18.12lf %18.12lf %18.12lf\n'
-                self.kss_file.write(format % (kss_ip.occ_ind, kss_ip.unocc_ind,
-                                              kss_ip.energy_diff,
-                                              kss_ip.pop_diff,
-                                              kss_ip.dip_mom_r[0],
-                                              kss_ip.dip_mom_r[1],
-                                              kss_ip.dip_mom_r[2],
-                                              kss_ip.magn_mom[0],
-                                              kss_ip.magn_mom[1],
-                                              kss_ip.magn_mom[2]))
+                self.kss_file.write(
+                    format %
+                    (kss_ip.occ_ind, kss_ip.unocc_ind, kss_ip.energy_diff,
+                     kss_ip.pop_diff, kss_ip.dip_mom_r[0], kss_ip.dip_mom_r[1],
+                     kss_ip.dip_mom_r[2], kss_ip.magn_mom[0],
+                     kss_ip.magn_mom[1], kss_ip.magn_mom[2]))
             self.kss_file.close()
         self.lr_comms.parent_comm.barrier()
 
-        self.kss_prop_ready = True      # avoid repeated work
+        self.kss_prop_ready = True  # avoid repeated work
         #self.timer.stop('Calculate KS properties')
-
-
-
 
 
 ###############################################################################
@@ -386,7 +375,6 @@ class KohnShamSingles:
 # FIXME: USE EXISTING METHOD
 class LRiPairDensity:
     """Pair density calculator class."""
-
     def __init__(self, density):
         """Initialization needs density instance"""
         self.density = density
@@ -427,7 +415,7 @@ class LRiPairDensity:
             D_ii = np.outer(P1_i.conj(), P2_i)
             # allowed to pack as used in the scalar product with
             # the symmetric array Delta_pL
-            D_p  = pack(D_ii)
+            D_p = pack(D_ii)
             #FIXME: CHECK THIS D_p  = pack(D_ii, tolerance=1e30)
 
             # Determine compensation charge coefficients:
@@ -437,6 +425,3 @@ class LRiPairDensity:
         rhot_g[:] = nt_g[:]
         self.density.ghat.add(rhot_g, Q_aL)
         #print 'dens', self.density.finegd.integrate(rhot_g)
-
-
-

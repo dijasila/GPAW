@@ -1,15 +1,16 @@
 master:
-  image: python:3
+  image: python:3.7
   script:
     - apt-get update -qy
-    - apt-get install -qy libopenblas-dev liblapack-dev libscalapack-mpi-dev libxc-dev > apt-get.output
+    - apt-get install -qy libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
     - pip install flake8
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
-    - sed -i "s/scalapack = False/scalapack = True/" customize.py
-    - python setup.py install > gpaw-install.output
+    - mkdir ~/.gpaw
+    - echo "scalapack = True; libraries += ['scalapack-openmpi']" > ~/.gpaw/siteconfig.py
+    - python setup.py install # > gpaw-install.output
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'
     - su user -c 'gpaw -P 1 info'
-    - su user -c 'ase build H2 -V1 | gpaw -P 2 run -p mode=pw'
-    - flake8 --ignore E122,E722,E222,E123,E701,E731,E114,E402,E502,W391,E262,E266,E203,E111,E305,E128,E221,E127,E202,E303,E302,E201,E241,E225,E251,E261,E265,E231,E226,W291,E501,E129,E741,W293,W504,W503,W605 --exclude "doc/platforms/*" gpaw doc
-
+    - su user -c 'gpaw test --range linalg/gemm_complex.py,lcao/dos.py'
+    - flake8 --ignore E722,E303,E221,E731,E203,E262,E202,E402,E502,E127,E201,E305,E241,W291,E302,E225,E128,E261,E251,E501,E265,E226,E231,E129,E741,W293,W503,W504 --exclude "doc/platforms/*" gpaw doc
+    - python -We:invalid -m compileall -f -q gpaw/

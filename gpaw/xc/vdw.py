@@ -11,9 +11,7 @@ XC-functional.  There are two implementations:
 
 """
 
-from __future__ import print_function
 import os
-import pickle
 import sys
 import time
 from math import sin, cos, exp, pi, log, sqrt, ceil
@@ -95,7 +93,7 @@ def hRPS(x, xc=1.0):
     return xc * (1.0 - y), z * y
 
 
-def VDWFunctional(name, fft=True, **kwargs):
+def VDWFunctional(name, fft=True, stencil=2, **kwargs):
     if name == 'vdW-DF':
         kernel = LibXC('GGA_X_PBE_R+LDA_C_PW')
     elif name == 'vdW-DF2':
@@ -126,8 +124,8 @@ def VDWFunctional(name, fft=True, **kwargs):
     else:
         2 / 0
     if fft:
-        return GGAFFTVDWFunctional(name, kernel, **kwargs)
-    return GGARealSpaceVDWFunctional(name, kernel, **kwargs)
+        return GGAFFTVDWFunctional(name, kernel, stencil, **kwargs)
+    return GGARealSpaceVDWFunctional(name, kernel, stencil, **kwargs)
 
 
 class VDWFunctionalBase:
@@ -304,16 +302,6 @@ class VDWFunctionalBase:
                 if self.verbose:
                     print('VDW: using', filename)
                 return
-
-        if sys.version_info[0] == 2:
-            oldname = name[:-3] + 'pckl'
-            for dir in dirs:
-                filename = os.path.join(dir, oldname)
-                if os.path.isfile(filename):
-                    self.phi_ij = pickle.load(open(filename, 'rb'))
-                    if self.verbose:
-                        print('VDW: using', filename)
-                    return
 
         print('VDW: Could not find table file:', name)
         self.make_table(name)
@@ -499,7 +487,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
 class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
     def __init__(self,
-                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
+                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=4096, size=None,
                  **kwargs):
         """FFT vdW-DF.
 
@@ -837,9 +825,9 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
 
 class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
-    def __init__(self, name, kernel, **kwargs):
+    def __init__(self, name, kernel, stencil, **kwargs):
         FFTVDWFunctional.__init__(self, **kwargs)
-        GGA.__init__(self, kernel)
+        GGA.__init__(self, kernel, stencil)
         self.name = name
 
     def calculate_exchange(self, *args):
@@ -851,7 +839,7 @@ class GGAFFTVDWFunctional(FFTVDWFunctional, GGA):
 
 
 class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
-    def __init__(self, name, kernel, **kwargs):
+    def __init__(self, name, kernel, stencil, **kwargs):
         RealSpaceVDWFunctional.__init__(self, **kwargs)
         GGA.__init__(self, kernel)
         self.name = name

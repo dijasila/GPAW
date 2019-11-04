@@ -10,7 +10,80 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.17.1b1
+* Corresponding ASE release: ASE-3.18.1b1
+
+* We are now using setuptools_ instead of :mod:`distutils`.
+  This means that installation with pip works much better.
+
+* No more ``gpaw-python``.
+  By default, an MPI-enabled Python interpreter is not built
+  (use ``parallel_python_interpreter=True`` if you want a gpaw-python).
+  The ``_gpaw.so`` C-extension file (usually only used for serial calculations)
+  will now be compiled with ``mpicc`` and contain what is necessary for both
+  serial and parallel calculations.  In order to run GPAW in parallel, you
+  do one of these two::
+
+      $ gpaw -P 24 python script.py
+      $ mpiexec -n 24 python3 script.py
+
+  The first way is the recommended one:  It will make sure that imports
+  are done in an efficient way.
+
+* Configuration/customization:
+  The ``customize.py`` file in the root folder of the Git repository is no
+  longer used.  Instead, the first of the following three files that exist
+  will be used:
+
+  1) the file that ``$GPAW_CONFIG`` points at
+  2) ``<git-root>/siteconfig.py``
+  3) ``~/.gpaw/siteconfig.py``
+
+  This will be used to configure things
+  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  is found then you get ``libraries = ['xc', 'blas']``.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+* Debug mode is now enabled with::
+
+      $ python3 -d script.py
+
+* Dry-run mode is now enabled with::
+
+      $ gpaw python --dry-run=N script.py
+
+* New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
+  will converge bands up to conduction band minimum plus 2.5 eV.
+
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
+
+.. _setuptools: https://setuptools.readthedocs.io/en/latest/
+
+
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* The ``"You have a weird unit cell"`` and
+  ``"Real space grid not compatible with symmetry operation"``
+  errors are now gone.  GPAW now handles these cases by
+  choosing the number of real-space grid-points in a more clever way.
 
 * The angular part of the PAW correction to the ALDA kernel is now calculated
   analytically by expanding the correction in spherical harmonics.
@@ -28,6 +101,42 @@ Git master branch
   (see :ref:`manual_convergence`), the foceces will only be calculated when the
   other convergence criteria (energy, eigenstates and density) are fulfilled.
   This can save a bit of time.
+
+* Experimental support for JTH_ PAW-datasets.
+
+* Fast C implementation of bond-length constraints and associated hidden
+  constraints for water models. This allows efficient explicit solvent QMMM
+  calculations for GPAW up to tens of thousands of solvent molecules with
+  watermodels such as SPC, TIPnP etc.  See :git:`gpaw/test/watermodel.py`
+  and :git:`gpaw/test/rattle.py` for examples.
+
+* New "metallic boundary conditions" have been added to the for PoissonSolver.
+  This enables simulating charged 2D systems without counter charges.
+  See: :git:`gpaw/test/poisson/metallic_poisson.py`
+
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
+
+.. _JTH: https://www.abinit.org/psp-tables
+
+
+Version 1.5.2
+=============
+
+8 May 2019: :git:`1.5.2 <../1.5.2>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* **Important bugfix release**:
+
+  There was a bug which was triggered when combining
+  ScaLAPACK, LCAO and k-points in GPAW 1.5.0/1.5.1 from January.  The
+  projections were calculated incorrectly which affected the SCF
+  loop.
+
+  If you use ScaLAPACK+LCAO+kpoints and see the line "Atomic Correction:
+  distributed and sparse using scipy" in the output, then please rerun
+  after updating.
 
 
 Version 1.5.1

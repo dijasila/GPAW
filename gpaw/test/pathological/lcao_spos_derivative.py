@@ -18,4 +18,3 @@ fmax = np.abs(f).max()
 print('maxforce', fmax)
 assert fmax < 0.05  # 0.03 normally, 2.7 with bug
 # fmax can be converged much closer to 0 with better grid/SCF convergence.
-
