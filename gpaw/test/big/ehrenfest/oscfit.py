@@ -10,7 +10,7 @@ try:
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     import warnings
     # silence matplotlib.use() warning
-    warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
+    warnings.filterwarnings('ignore', r'.*This call to matplotlib\.use.*',)
 except (ImportError, RuntimeError):
     mpl = None
 
@@ -18,12 +18,14 @@ from scipy.optimize import leastsq
 from ase.units import second
 from ase.io import Trajectory
 
-# Dimer oscillation model used for least-squares fit
+
 def f(p, t):
+    """Dimer oscillation model used for least-squares fit."""
     return p[0] * np.cos(p[1] * (t - p[2])) + p[3]
 
-# Jacobian of model with respect to its four parameters
+
 def Df(p, t):
+    """Jacobian of model with respect to its four parameters."""
     return np.array([
         np.cos(p[1] * (t - p[2])),
         -p[0] * np.sin(p[1] * (t - p[2])) * (t - p[2]),
@@ -32,7 +34,7 @@ def Df(p, t):
 
 
 for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
-    print('\nAnalysing %s\n%s' % (name, '-'*32))
+    print('\nAnalysing %s\n%s' % (name, '-' * 32))
 
     # Import relevant test and make sure it has the prerequisite parameters
     m = __import__(name, {}, {})
@@ -55,7 +57,7 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
         e_coulomb_i[i] = traj[i].get_potential_energy()
         R_iav[i] = traj[i].get_positions()
         V_iav[i] = traj[i].get_velocities()
-        A_iav[i] = traj[i].get_forces() / traj[i].get_masses()[:,np.newaxis]
+        A_iav[i] = traj[i].get_forces() / traj[i].get_masses()[:, np.newaxis]
     print('Read %d frames from trajectory...' % nframes)
     assert nframes * m.ndiv == m.niter, (nframes, m.ndiv, m.niter)
     traj.close()
@@ -76,19 +78,22 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
     assert np.all(dVstd_av < 1e-4 * dVmax_av + 1e-12), (dVstd_av, dVmax_av)
 
     # Fit model to time series using imported parameters as an initial guess
-    d_i = np.sum((R_iav[:,1] - R_iav[:,0])**2, axis=-1)**0.5
+    d_i = np.sum((R_iav[:, 1] - R_iav[:, 0])**2, axis=-1)**0.5
     p0 = (m.d_disp, 2 * np.pi / m.period, -m.timestep * m.ndiv, m.d_bond)
-    p, cov, info, msg, status = leastsq(lambda p: f(p, t_i) - d_i, p0, \
-        Dfun=lambda p: Df(p, t_i), col_deriv=True, full_output=True)
-    print('leastsq returned %d: %s' % (status, msg.replace('\n ','')))
+    p, cov, info, msg, status = leastsq(lambda p: f(p, t_i) - d_i,
+                                        p0,
+                                        Dfun=lambda p: Df(p, t_i),
+                                        col_deriv=True,
+                                        full_output=True)
+    print('leastsq returned %d: %s' % (status, msg.replace('\n ', '')))
     print('p0=', np.asarray(p0))
     print('p =', p)
-    assert status in range(1,4+1), (p, cov, info, msg, status)
+    assert status in range(1, 4 + 1), (p, cov, info, msg, status)
 
-    tol = 0.1 #TODO use m.reltol
+    tol = 0.1  # TODO use m.reltol
     err = np.abs(2 * np.pi / p[1] - m.period) / m.period
-    print('T=%13.9f fs, Tref=%13.9f fs, err=%5.2f %%, tol=%.1f %%' \
-        % (2 * np.pi / p[1] * 1e-3, m.period * 1e-3, 1e2 * err, 1e2 * tol))
+    print('T=%13.9f fs, Tref=%13.9f fs, err=%5.2f %%, tol=%.1f %%'
+          % (2 * np.pi / p[1] * 1e-3, m.period * 1e-3, 1e2 * err, 1e2 * tol))
 
     if mpl:
         fig = Figure()
@@ -105,6 +110,6 @@ for name in ['h2_osc', 'n2_osc', 'na2_md', 'na2_osc']:
         FigureCanvasAgg(fig).print_figure(name + '.png', dpi=90)
 
     if err > tol:
-        print('Relative error %f %% > tolerance %f %%' % (1e2 * err, 1e2 * tol))
+        print('Relative error %f %% > tolerance %f %%' %
+              (1e2 * err, 1e2 * tol))
         raise SystemExit(1)
-

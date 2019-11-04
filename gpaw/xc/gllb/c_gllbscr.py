@@ -275,6 +275,3 @@ class C_GLLBScr(Contribution):
     def write(self, writer):
         # GLLBScr has no special data to be written
         pass
-
-
-

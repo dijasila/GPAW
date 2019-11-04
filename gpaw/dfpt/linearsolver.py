@@ -62,4 +62,3 @@ class LinearSolver:
             psin[:] = psi
         #self.timer.stop('Solve Sternheimer preconditioner')
 '''
-

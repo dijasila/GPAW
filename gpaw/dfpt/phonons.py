@@ -210,9 +210,3 @@ class Phonons(phonons.Phonons):
 
         # Move this member function to the ASE class
         raise NotImplementedError
-
-
-
-
-
-

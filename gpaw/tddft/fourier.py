@@ -305,4 +305,3 @@ class DensityFourierTransform(Observer):
 
         self.omega_w = np.load(filename+'_omega') # crude but easy
         self.gamma_w = np.load(filename+'_gamma') # crude but easy
-

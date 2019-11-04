@@ -12,9 +12,7 @@ Parallel runs
 Running jobs in parallel
 ========================
 
-Parallel calculations are done with MPI and a special
-:program:`gpaw-python` python-interpreter.
-
+Parallel calculations are done with MPI.
 The parallelization can be done over the **k**-points, bands, spin in
 spin-polarized calculations, and using real-space domain
 decomposition.  The code will try to make a sensible domain
@@ -26,47 +24,44 @@ Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
 with ``--gpaw dry-run=N`` command line option::
 
-    $ python3 script.py --gpaw dry-run=8
+    $ gpaw python --dry-run=8 script.py
 
 The output will contain also the "Calculator" RAM Memory estimate per process.
 
-In order to start parallel calculation, you need to know the
-command for starting parallel processes. This command might contain
-also the number of processors to use and a file containing the names
-of the computing nodes.  Some
-examples::
+In order to run GPAW in parallel, you
+do one of these two::
 
-  mpirun -np 4 gpaw-python script.py
-  poe "gpaw-python script.py" -procs 8
+      $ gpaw -P <cores> python script.py
+      $ mpiexec -n <cores> python3 script.py
+
+The first way is the recommended one:  It will make sure that imports
+are done in an efficient way.
 
 
-Simple submit tool
-==================
+Submitting a job to a queuing system
+====================================
 
-Instead writing a file with the line "mpirun ... gpaw-python script.py" and
-then submitting it to a queueing system, it is simpler to automate this::
+You can write a shell-script that contains this line::
 
-  #!/usr/bin/env python3
-  from sys import argv
-  import os
-  options = ' '.join(argv[1:-1])
-  job = argv[-1]
-  dir = os.getcwd()
-  f = open('script.sh', 'w')
-  f.write("""\
-  NP=`wc -l < $PBS_NODEFILE`
-  cd %s
-  mpirun -np $NP -machinefile $PBS_NODEFILE gpaw-python %s
-  """ % (dir, job))
-  f.close()
-  os.system('qsub ' + options + ' script.sh')
+    mpiexec gpaw python script.py
 
-Now you can do::
+and then submit that with ``sbatch``, ``qsub`` or some other command.
 
-  $ qsub.py -l nodes=20 -m abe job.py
+Alternatives:
 
-You will have to modify the script so that it works with your queueing
-system.
+* If you are on a SLURM system:  use the :ref:`sbatch <cli>` sub-command
+  of the ``gpaw`` command-line tool::
+
+      $ gpaw sbatch -- [sbatch options] script.py [script options]
+
+* Use MyQueue_::
+
+      $ mq submit "script.py [script options]" -R <resources>
+
+* Write you own *submit* script.  See this example:
+  :git:`doc/platforms/gbar/qsub.py`.
+
+.. _MyQueue: https://myqueue.readthedocs.io/
 
 
 Alternative submit tool
@@ -91,7 +86,6 @@ variable        meaning
 =============== ===================================
 HOSTNAME        name used to assing host type
 PYTHONPATH      path for Python
-GPAW_PYTHON     where to find gpaw-python
 GPAW_SETUP_PATH where to find the setups
 GPAW_MAIL       where to send emails about the jobs
 =============== ===================================
@@ -109,8 +103,8 @@ open('data', 'w')``, use:
 Using ``paropen``, you get a real file object on the master node, and dummy
 objects on the slaves.  It is equivalent to this:
 
->>> from ase.parallel import rank
->>> if rank == 0:
+>>> from ase.parallel import world
+>>> if world.rank == 0:
 ...     f = open('data', 'w')
 ... else:
 ...     f = open('/dev/null', 'w')
@@ -118,8 +112,8 @@ objects on the slaves.  It is equivalent to this:
 If you *really* want all nodes to write something to files, you should make
 sure that the files have different names:
 
->>> from ase.parallel import rank
->>> f = open('data.%d' % rank, 'w')
+>>> from ase.parallel import world
+>>> f = open('data.{}'.format(world.rank), 'w')
 
 
 Writing text output
@@ -134,9 +128,9 @@ To avoid this use:
 
 which is equivalent to
 
->>> from ase.parallel import rank
+>>> from ase.parallel import world
 >>> print('This is written by all nodes')
->>> if rank == 0:
+>>> if world.rank == 0:
 ...     print('This is written by the master only')
 
 
@@ -291,7 +285,7 @@ where ``n`` is the total number of boxes.
    ``parallel={'domain': world.size}`` will force all parallelization to be
    carried out solely in terms of domain decomposition, and will in general
    be much more efficient than e.g. ``parallel={'domain': (1,1,world.size)}``.
-   You might have to add ``from gpaw.mpi import wold`` to the script to
+   You might have to add ``from gpaw.mpi import world`` to the script to
    define ``world``.
 
 There is also a command line argument ``--domain-decomposition`` which allows
