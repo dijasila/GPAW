@@ -308,7 +308,7 @@ class HybridXC:
                            kd.ibzk_kc[kpt.k],
                            kd.weight_k[kpt.k])
                     for kpt in wfs.mykpts[k1:k2]]
-            e1, e2, _, _ = self.xx.calculate(kpts, kpts, VV_aii)
+            e1, e2, ekin, _ = self.xx.calculate(kpts, kpts, VV_aii)
             evv += e1
             evc += e2
 
@@ -393,7 +393,7 @@ if __name__ == '__main__':
                   txt=None
                   )
     h.get_potential_energy()
-    x = Hybrid('EXX')
+    x = HybridXC('EXX')
 
     # h.calc.get_xc_difference(exx)
     # e = exx.evv + exx.evc + exx.exx.ecc
