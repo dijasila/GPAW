@@ -10,7 +10,7 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install wheel
+pip install sphinx-rtd-theme pillow
 pip install git+https://gitlab.com/ase/ase.git@master
 git clone http://gitlab.com/gpaw/gpaw.git
 cd gpaw
