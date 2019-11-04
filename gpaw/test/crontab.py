@@ -20,6 +20,7 @@ gpaw -P 8 test > test-8.out"""
 
 
 def run_tests():
+    home = Path.cwd()
     root = Path('/tmp/gpaw-tests')
     if root.is_dir():
         sys.exit('Locked')
@@ -30,6 +31,8 @@ def run_tests():
     p = subprocess.run(cmds2, shell=True)
     if p.returncode == 0:
         status = 'ok'
+        for n in [1, 2, 4, 8]:
+            shutil.copy2(root / f'test-{n}.out', home)
     else:
         print('FAILED!', file=sys.stdout)
         status = 'error'
