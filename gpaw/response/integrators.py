@@ -162,7 +162,6 @@ class PointIntegrator(Integrator):
 
         # Sum kpoints
         # Calculate integrations weight
-        tmp_wxx = np.zeros_like(out_wxx)
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(mydomain_t):
             n_MG = get_matrix_element(*arguments)
@@ -171,45 +170,44 @@ class PointIntegrator(Integrator):
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
-                self.update_intraband(n_MG, tmp_wxx, **extraargs)
+                self.update_intraband(n_MG, out_wxx, **extraargs)
             elif hermitian and not wings:
-                self.update_hermitian(n_MG, deps_M, x, tmp_wxx, **extraargs)
+                self.update_hermitian(n_MG, deps_M, x, out_wxx, **extraargs)
             elif hermitian and wings:
-                self.update_optical_limit(n_MG, deps_M, x, tmp_wxx,
+                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           **extraargs)
             elif hilbert and not wings:
-                self.update_hilbert(n_MG, deps_M, x, tmp_wxx, **extraargs)
+                self.update_hilbert(n_MG, deps_M, x, out_wxx, **extraargs)
             elif hilbert and wings:
                 self.update_hilbert_optical_limit(n_MG, deps_M, x,
-                                                  tmp_wxx, **extraargs)
+                                                  out_wxx, **extraargs)
             elif wings:
-                self.update_optical_limit(n_MG, deps_M, x, tmp_wxx,
+                self.update_optical_limit(n_MG, deps_M, x, out_wxx,
                                           **extraargs)
             else:
-                self.update(n_MG, deps_M, x, tmp_wxx, **extraargs)
+                self.update(n_MG, deps_M, x, out_wxx, **extraargs)
 
         # Sum over
-        self.kncomm.sum(tmp_wxx)
+        self.kncomm.sum(out_wxx)
 
         if (hermitian or hilbert) and self.blockcomm.size == 1 and not wings:
             # Fill in upper/lower triangle also:
-            nx = tmp_wxx.shape[1]
+            nx = out_wxx.shape[1]
             il = np.tril_indices(nx, -1)
             iu = il[::-1]
             if hilbert:
-                for tmp_xx in tmp_wxx:
-                    tmp_xx[il] = tmp_xx[iu].conj()
+                for out_xx in out_wxx:
+                    out_xx[il] = out_xx[iu].conj()
             else:
-                for tmp_xx in tmp_wxx:
-                    tmp_xx[iu] = tmp_xx[il].conj()
-
-        out_wxx += tmp_wxx
+                for out_xx in out_wxx:
+                    out_xx[iu] = out_xx[il].conj()
+        
         out_wxx *= prefactor
 
     @timer('CHI_0 update')
     def update(self, n_mG, deps_m, wd, chi0_wGG, timeordered=False, eta=None):
         """Update chi."""
-
+        
         omega_w = wd.get_data()
         deps_m += self.eshift * np.sign(deps_m)
         if timeordered:
@@ -218,13 +216,12 @@ class PointIntegrator(Integrator):
         else:
             deps1_m = deps_m + 1j * eta
             deps2_m = deps_m - 1j * eta
-
+        
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
             if self.response == 'density':
                 x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
             else:
                 x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
-
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:
