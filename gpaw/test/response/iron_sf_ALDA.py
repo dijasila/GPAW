@@ -124,32 +124,32 @@ mw5 = (wpeak5 + d5[0, 0]) * 1000
 mw6 = (wpeak6 + d6[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_mw1 = 245.59  # meV
-test_mw2 = 401.01  # meV
-test_mw5 = 402.38  # meV
-test_Ipeak1 = 57.56  # a.u.
-test_Ipeak2 = 58.46  # a.u.
-test_Ipeak5 = 56.15  # a.u.
+test_mw1 = 234.63  # meV
+test_mw2 = 397.33  # meV
+test_mw5 = 398.83  # meV
+test_Ipeak1 = 56.74  # a.u.
+test_Ipeak2 = 55.80  # a.u.
+test_Ipeak5 = 58.23  # a.u.
 
 # Different kernel strategies should remain the same
 # Magnon peak:
-equal(mw1, test_mw1, eta * 100)
-equal(mw2, test_mw2, eta * 100)
-equal(mw5, test_mw5, eta * 100)
+equal(mw1, test_mw1, eta * 250)
+equal(mw2, test_mw2, eta * 250)
+equal(mw5, test_mw5, eta * 250)
 
 # Scattering function intensity:
-equal(Ipeak1, test_Ipeak1, 1.5)
-equal(Ipeak2, test_Ipeak2, 1.5)
-equal(Ipeak5, test_Ipeak5, 1.5)
+equal(Ipeak1, test_Ipeak1, 2.5)
+equal(Ipeak2, test_Ipeak2, 2.5)
+equal(Ipeak5, test_Ipeak5, 2.5)
 
 # The bundled and unbundled integration methods should give the same
 equal(mw2, mw3, eta * 100)
-equal(Ipeak2, Ipeak3, 1.5)
+equal(Ipeak2, Ipeak3, 1.0)
 
 # The bundled and unbundled data extraction should give the same result
 equal(mw2, mw4, eta * 100)
-equal(Ipeak2, Ipeak4, 1.5)
+equal(Ipeak2, Ipeak4, 1.0)
 
 # The two transitions summation strategies should give identical results
 equal(mw5, mw6, eta * 100)
-equal(Ipeak5, Ipeak6, 1.5)
+equal(Ipeak5, Ipeak6, 1.0)
