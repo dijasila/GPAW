@@ -79,6 +79,9 @@ class HybridXC:
         return 'PBE'
         return 'LDA'
 
+    def write(self, writer):
+        pass
+
     def initialize(self, dens, ham, wfs, occupations):
         self.dens = dens
         self.ham = ham
@@ -117,6 +120,10 @@ class HybridXC:
 
         wfs = self.wfs
         kd = wfs.kd
+
+        if -1 in kd.bz2bz_ks:
+            raise ValueError(
+                'Your k-points are not as symmetric as your crystal!')
 
         assert kd.comm.size == 1 or kd.comm.size == 2 and wfs.nspins == 2
         assert wfs.bd.comm.size == 1
