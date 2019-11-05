@@ -9,6 +9,7 @@ a.center()
 
 a.calc = GPAW(
     mode=PW(400, force_complex_dtype=True),
+    parallel={'kpt': 1, 'band': 1},
     eigensolver=Davidson(1),
     kpts={'size': (1, 1, 2), 'gamma': True},
     txt='H.txt',
