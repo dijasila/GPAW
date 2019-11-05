@@ -101,7 +101,8 @@ class FXC:
 class PlaneWaveAdiabaticFXC(FXC):
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
-    '''  # old, to be removed                                                  XXX
+    # old, to be removed                                                       XXX
+    '''
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
                  rshe=0.99, filename=None, **ignored):
@@ -133,7 +134,6 @@ class PlaneWaveAdiabaticFXC(FXC):
             self.rsheL_M = None
 
         self.filename = filename
-    '''
 
     def __init__(self, gs, functional,  # dummy init, tbr                      XXX
                  world=mpi.world, txt='-', timer=None,
@@ -149,6 +149,11 @@ class PlaneWaveAdiabaticFXC(FXC):
                       rshelmax=rshelmax, rshewmin=rshewmin, filename=filename)
 
     def new_init(self, gs, functional,  # rnew, to __init__                    XXX
+                 world=mpi.world, txt='-', timer=None,
+                 rshelmax=-1, rshewmin=0.001, filename=None, **ignored):
+    '''
+
+    def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
                  rshelmax=-1, rshewmin=0.001, filename=None, **ignored):
         """
@@ -755,11 +760,11 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
-                 rshe=0.99, filename=None,
+                 rshelmax=-1, rshewmin=0.001, filename=None,
                  density_cut=None, spinpol_cut=None, **ignored):
         """
         gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC
-        functional, rshe, filename : see PlaneWaveAdiabaticFXC
+        functional, rshelmax, rshewmin, filename : see PlaneWaveAdiabaticFXC
         density_cut : float
             cutoff density below which f_xc is set to zero
         spinpol_cut : float
@@ -770,7 +775,8 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
         PlaneWaveAdiabaticFXC.__init__(self, gs, functional,
                                        world=world, txt=txt, timer=timer,
-                                       rshe=rshe, filename=filename)
+                                       rshelmax=rshelmax, rshewmin=rshewmin,
+                                       filename=filename)
 
         self.density_cut = density_cut
         self.spinpol_cut = spinpol_cut

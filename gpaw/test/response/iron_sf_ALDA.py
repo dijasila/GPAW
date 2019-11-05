@@ -41,13 +41,13 @@ ecut = 300
 eta = 0.01
 
 # Test different kernel and summation strategies
-# rshe, bandsummation, bundle_integrals, bundle_kptpairs
-strat_sd = [(None, 'pairwise', True, True),
-            (0.99, 'pairwise', True, True),
-            (0.99, 'pairwise', False, True),
-            (0.99, 'pairwise', True, False),
-            (0.99999, 'pairwise', True, True),
-            (0.99999, 'double', True, True)]
+# rshelmax, rshewmin, bandsummation, bundle_integrals, bundle_kptpairs
+strat_sd = [(None, None, 'pairwise', True, True),
+            (-1, 0.001, 'pairwise', True, True),
+            (-1, 0.001, 'pairwise', False, True),
+            (-1, 0.001, 'pairwise', True, False),
+            (-1, 0.000001, 'pairwise', True, True),
+            (-1, 0.000001, 'double', True, True)]
 frq_sw = [np.linspace(0.160, 0.320, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
@@ -79,14 +79,15 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 
-for s, ((rshe, bandsummation, bundle_integrals, bundle_kptpairs),
+for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals, bundle_kptpairs),
         frq_w) in enumerate(zip(strat_sd, frq_sw)):
     tms = TransverseMagneticSusceptibility(calc,
                                            fxc=fxc,
                                            eta=eta,
                                            ecut=ecut,
                                            bandsummation=bandsummation,
-                                           fxckwargs={'rshe': rshe},
+                                           fxckwargs={'rshelmax': rshelmax,
+                                                      'rshewmin': rshewmin},
                                            bundle_integrals=bundle_integrals,
                                            bundle_kptpairs=bundle_kptpairs,
                                            nblocks=2)
