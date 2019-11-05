@@ -8,7 +8,7 @@ from gpaw.test import equal
 a = 2.5
 H = Atoms('H', cell=[a, a, a], pbc=True)
 
-energy_tolerance = 0.00006
+energy_tolerance = 0.0006
 niter_tolerance = 0
 
 if world.size >= 3:

@@ -54,5 +54,5 @@ calc.write('N.gpw', mode='all')
 ralda = FXCCorrelation('N.gpw', xc='rALDA')
 Ec_N = ralda.calculate(ecut=[50])
 
-equal(Ec_N2, -6.1651, 0.001,)
+equal(Ec_N2, -6.17, 0.01,)
 equal(Ec_N, -1.1085, 0.001)

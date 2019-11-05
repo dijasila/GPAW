@@ -1,4 +1,3 @@
-
 import numpy as np
 
 from gpaw import debug
@@ -13,7 +12,7 @@ class PairOverlap:
     def __init__(self, gd, setups):
         self.gd = gd
         self.setups = setups
-        self.ni_a = np.cumsum([0]+[setup.ni for setup in self.setups])
+        self.ni_a = np.cumsum([0] + [setup.ni for setup in self.setups])
 
     def __len__(self):
         return self.ni_a[-1].item()
@@ -29,12 +28,12 @@ class PairOverlap:
     def calculate_overlaps(self, spos_ac, lfc1, lfc2=None):
         raise RuntimeError('This is a virtual member function.')
 
-    def calculate_atomic_pair_overlaps(self, lfs1, lfs2): #XXX Move some code here from above...
+    def calculate_atomic_pair_overlaps(
+            self, lfs1, lfs2):  #XXX Move some code here from above...
         raise RuntimeError('This is a virtual member function.')
 
+
 class GridPairOverlap(PairOverlap):
-
-
     def calculate_overlaps(self, spos_ac, lfc1, lfc2=None):
         # CONDITION: The two sets of splines must belong to the same kpoint!
 
@@ -47,7 +46,7 @@ class GridPairOverlap(PairOverlap):
         assert not isinstance(lfc1, NewLFC) and not isinstance(lfc2, NewLFC)
 
         nproj = len(self)
-        X_aa = np.zeros((nproj,nproj), dtype=float) # XXX always float?
+        X_aa = np.zeros((nproj, nproj), dtype=float)  # XXX always float?
 
         if debug:
             if world.rank == 0:
@@ -55,28 +54,39 @@ class GridPairOverlap(PairOverlap):
 
             mpi_debug('lfc1.lfs_a.keys(): %s' % lfc1.lfs_a.keys())
             mpi_debug('lfc2.lfs_a.keys(): %s' % lfc2.lfs_a.keys())
-            mpi_debug('N_c=%s, beg_c=%s, end_c=%s' % (self.gd.N_c,self.gd.beg_c,self.gd.end_c))
+            mpi_debug('N_c=%s, beg_c=%s, end_c=%s' %
+                      (self.gd.N_c, self.gd.beg_c, self.gd.end_c))
 
-            assert len(lfc1.spline_aj) == len(lfc1.spos_ac) # not distributed
-            assert len(lfc2.spline_aj) == len(lfc2.spos_ac) # not distributed
+            assert len(lfc1.spline_aj) == len(lfc1.spos_ac)  # not distributed
+            assert len(lfc2.spline_aj) == len(lfc2.spos_ac)  # not distributed
             #assert lfc1.lfs_a.keys() == lfc2.lfs_a.keys() # XXX must they be equal?!?
 
         # Both loops are over all atoms in all domains
         for a1, spline1_j in enumerate(lfc1.spline_aj):
             # We assume that all functions have the same cut-off:
             rcut1 = spline1_j[0].get_cutoff()
-            if debug: mpi_debug('a1=%d, spos1_c=%s, rcut1=%g, ni1=%d' % (a1,spos_ac[a1],rcut1,self.setups[a1].ni))
+            if debug:
+                mpi_debug('a1=%d, spos1_c=%s, rcut1=%g, ni1=%d' %
+                          (a1, spos_ac[a1], rcut1, self.setups[a1].ni))
 
             for a2, spline2_j in enumerate(lfc2.spline_aj):
                 # We assume that all functions have the same cut-off:
                 rcut2 = spline2_j[0].get_cutoff()
-                if debug: mpi_debug('  a2=%d, spos2_c=%s, rcut2=%g, ni2=%d' % (a2,spos_ac[a2],rcut2,self.setups[a2].ni))
+                if debug:
+                    mpi_debug('  a2=%d, spos2_c=%s, rcut2=%g, ni2=%d' %
+                              (a2, spos_ac[a2], rcut2, self.setups[a2].ni))
 
                 X_ii = self.extract_atomic_pair_matrix(X_aa, a1, a2)
 
                 b1 = 0
-                for beg1_c, end1_c, sdisp1_c in self.gd.get_boxes(spos_ac[a1], rcut1, cut=False): # loop over lfs1.box_b instead?
-                    if debug: mpi_debug('    b1=%d, beg1_c=%s, end1_c=%s, sdisp1_c=%s' % (b1,beg1_c,end1_c,sdisp1_c), ordered=False)
+                for beg1_c, end1_c, sdisp1_c in self.gd.get_boxes(
+                        spos_ac[a1], rcut1,
+                        cut=False):  # loop over lfs1.box_b instead?
+                    if debug:
+                        mpi_debug(
+                            '    b1=%d, beg1_c=%s, end1_c=%s, sdisp1_c=%s' %
+                            (b1, beg1_c, end1_c, sdisp1_c),
+                            ordered=False)
 
                     # Atom a1 has at least one piece so the LFC has LocFuncs
                     lfs1 = lfc1.lfs_a[a1]
@@ -86,11 +96,19 @@ class GridPairOverlap(PairOverlap):
 
                     if debug:
                         assert lfs1.dtype == lfc1.dtype
-                        assert self.setups[a1].ni == lfs1.ni, 'setups[%d].ni=%d, lfc1.lfs_a[%d].ni=%d' % (a1,self.setups[a1].ni,a1,lfs1.i)
+                        assert self.setups[
+                            a1].ni == lfs1.ni, 'setups[%d].ni=%d, lfc1.lfs_a[%d].ni=%d' % (
+                                a1, self.setups[a1].ni, a1, lfs1.i)
 
                     b2 = 0
-                    for beg2_c, end2_c, sdisp2_c in self.gd.get_boxes(spos_ac[a2], rcut2, cut=False): # loop over lfs2.box_b instead?
-                        if debug: mpi_debug('      b2=%d, beg2_c=%s, end2_c=%s, sdisp2_c=%s' % (b2,beg2_c,end2_c,sdisp2_c), ordered=False)
+                    for beg2_c, end2_c, sdisp2_c in self.gd.get_boxes(
+                            spos_ac[a2], rcut2,
+                            cut=False):  # loop over lfs2.box_b instead?
+                        if debug:
+                            mpi_debug(
+                                '      b2=%d, beg2_c=%s, end2_c=%s, sdisp2_c=%s'
+                                % (b2, beg2_c, end2_c, sdisp2_c),
+                                ordered=False)
 
                         # Atom a2 has at least one piece so the LFC has LocFuncs
                         lfs2 = lfc2.lfs_a[a2]
@@ -100,13 +118,18 @@ class GridPairOverlap(PairOverlap):
 
                         if debug:
                             assert lfs2.dtype == lfc2.dtype
-                            assert self.setups[a2].ni == lfs2.ni, 'setups[%d].ni=%d, lfc2.lfs_a[%d].ni=%d' % (a2,self.setups[a2].ni,a2,lfs2.ni)
+                            assert self.setups[
+                                a2].ni == lfs2.ni, 'setups[%d].ni=%d, lfc2.lfs_a[%d].ni=%d' % (
+                                    a2, self.setups[a2].ni, a2, lfs2.ni)
 
                         # Find the intersection of the two boxes
                         beg_c = np.max((beg1_c, beg2_c), axis=0)
                         end_c = np.min((end1_c, end2_c), axis=0)
 
-                        if debug: mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' % (beg_c, end_c, tuple(end_c-beg_c)), ordered=False)
+                        if debug:
+                            mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' %
+                                      (beg_c, end_c, tuple(end_c - beg_c)),
+                                      ordered=False)
 
                         # Intersection is non-empty, add overlap contribution
                         if (beg_c < end_c).all():
@@ -128,9 +151,8 @@ class GridPairOverlap(PairOverlap):
 
                     b1 += 1
 
-        self.gd.comm.sum(X_aa) # better to sum over X_ii?
+        self.gd.comm.sum(X_aa)  # better to sum over X_ii?
         return X_aa
-
 
     def calculate_overlaps2(self, spos_ac, lfc1, lfc2=None):
         # CONDITION: The two sets of splines must belong to the same kpoint!
@@ -141,18 +163,22 @@ class GridPairOverlap(PairOverlap):
         assert isinstance(lfc1, NewLFC) and isinstance(lfc2, NewLFC)
 
         nproj = len(self)
-        X_aa = np.zeros((nproj,nproj), dtype=float) # XXX always float?
+        X_aa = np.zeros((nproj, nproj), dtype=float)  # XXX always float?
 
         if debug:
             if world.rank == 0:
                 print('DEBUG INFO')
 
-            mpi_debug('len(lfc1.sphere_a): %d, lfc1.atom_indices: %s' % (len(lfc1.sphere_a),lfc1.atom_indices))
-            mpi_debug('len(lfc2.sphere_a): %d, lfc2.atom_indices: %s' % (len(lfc2.sphere_a),lfc2.atom_indices))
-            mpi_debug('N_c=%s, beg_c=%s, end_c=%s' % (self.gd.N_c,self.gd.beg_c,self.gd.end_c))
+            mpi_debug('len(lfc1.sphere_a): %d, lfc1.atom_indices: %s' %
+                      (len(lfc1.sphere_a), lfc1.atom_indices))
+            mpi_debug('len(lfc2.sphere_a): %d, lfc2.atom_indices: %s' %
+                      (len(lfc2.sphere_a), lfc2.atom_indices))
+            mpi_debug('N_c=%s, beg_c=%s, end_c=%s' %
+                      (self.gd.N_c, self.gd.beg_c, self.gd.end_c))
 
         if debug:
-            assert len(lfc1.sphere_a) == len(lfc2.sphere_a) # XXX must they be equal?!?
+            assert len(lfc1.sphere_a) == len(
+                lfc2.sphere_a)  # XXX must they be equal?!?
 
         # Both a-loops are over all relevant atoms which affect this domain
         for a1 in lfc1.atom_indices:
@@ -161,7 +187,10 @@ class GridPairOverlap(PairOverlap):
             # We assume that all functions have the same cut-off:
             spline1_j = sphere1.spline_j
             rcut1 = spline1_j[0].get_cutoff()
-            if debug: mpi_debug('a1=%d, spos1_c=%s, rcut1=%g, ni1=%d' % (a1,spos_ac[a1],rcut1,self.setups[a1].ni), ordered=False)
+            if debug:
+                mpi_debug('a1=%d, spos1_c=%s, rcut1=%g, ni1=%d' %
+                          (a1, spos_ac[a1], rcut1, self.setups[a1].ni),
+                          ordered=False)
 
             for a2 in lfc2.atom_indices:
                 sphere2 = lfc2.sphere_a[a2]
@@ -169,23 +198,41 @@ class GridPairOverlap(PairOverlap):
                 # We assume that all functions have the same cut-off:
                 spline2_j = sphere2.spline_j
                 rcut2 = spline2_j[0].get_cutoff()
-                if debug: mpi_debug('  a2=%d, spos2_c=%s, rcut2=%g, ni2=%d' % (a2,spos_ac[a2],rcut2,self.setups[a2].ni), ordered=False)
+                if debug:
+                    mpi_debug('  a2=%d, spos2_c=%s, rcut2=%g, ni2=%d' %
+                              (a2, spos_ac[a2], rcut2, self.setups[a2].ni),
+                              ordered=False)
 
                 X_ii = self.extract_atomic_pair_matrix(X_aa, a1, a2)
 
                 b1 = 0
-                for beg1_c, end1_c, sdisp1_c in self.gd.get_boxes(spos_ac[a1], rcut1, cut=False): # loop over lfs1.box_b instead?
-                    if debug: mpi_debug('    b1=%d, beg1_c=%s, end1_c=%s, sdisp1_c=%s' % (b1,beg1_c,end1_c,sdisp1_c), ordered=False)
+                for beg1_c, end1_c, sdisp1_c in self.gd.get_boxes(
+                        spos_ac[a1], rcut1,
+                        cut=False):  # loop over lfs1.box_b instead?
+                    if debug:
+                        mpi_debug(
+                            '    b1=%d, beg1_c=%s, end1_c=%s, sdisp1_c=%s' %
+                            (b1, beg1_c, end1_c, sdisp1_c),
+                            ordered=False)
 
                     b2 = 0
-                    for beg2_c, end2_c, sdisp2_c in self.gd.get_boxes(spos_ac[a2], rcut2, cut=False): # loop over lfs2.box_b instead?
-                        if debug: mpi_debug('      b2=%d, beg2_c=%s, end2_c=%s, sdisp2_c=%s' % (b2,beg2_c,end2_c,sdisp2_c), ordered=False)
+                    for beg2_c, end2_c, sdisp2_c in self.gd.get_boxes(
+                            spos_ac[a2], rcut2,
+                            cut=False):  # loop over lfs2.box_b instead?
+                        if debug:
+                            mpi_debug(
+                                '      b2=%d, beg2_c=%s, end2_c=%s, sdisp2_c=%s'
+                                % (b2, beg2_c, end2_c, sdisp2_c),
+                                ordered=False)
 
                         # Find the intersection of the two boxes
                         beg_c = np.max((beg1_c, beg2_c), axis=0)
                         end_c = np.min((end1_c, end2_c), axis=0)
 
-                        if debug: mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' % (beg_c, end_c, tuple(end_c-beg_c)), ordered=False)
+                        if debug:
+                            mpi_debug('        beg_c=%s, end_c=%s, size_c=%s' %
+                                      (beg_c, end_c, tuple(end_c - beg_c)),
+                                      ordered=False)
 
                         # Intersection is non-empty, add overlap contribution
                         if (beg_c < end_c).all():
@@ -201,7 +248,7 @@ class GridPairOverlap(PairOverlap):
                                         beg_c, end_c, spos_ac[a2]-sdisp2_c)
                                     nm2 = ket2_mB.shape[0]
 
-                                    X_mm = X_ii[i1:i1+nm1,i2:i2+nm2]
+                                    X_mm = X_ii[i1:i1 + nm1, i2:i2 + nm2]
                                     X_mm += self.gd.dv * np.inner( \
                                         bra1_mB.reshape((nm1,-1)), \
                                         ket2_mB.reshape((nm2,-1))) #XXX phase factors for kpoints
@@ -216,7 +263,7 @@ class GridPairOverlap(PairOverlap):
 
                     b1 += 1
 
-        self.gd.comm.sum(X_aa) # better to sum over X_ii?
+        self.gd.comm.sum(X_aa)  # better to sum over X_ii?
         return X_aa
 
 
@@ -248,7 +295,6 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         self.timer.start('Update two-center overlap')
 
         nproj = len(self)
-
         """
         self.B_aa = np.zeros((nproj, nproj), dtype=float) #always float?
         for a1,setup1 in enumerate(self.setups):
@@ -277,8 +323,8 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         self.B_aa = self.calculate_overlaps(wfs.spos_ac, wfs.pt)
 
         # Create two-center (block-diagonal) coefficients for overlap operator
-        dO_aa = np.zeros((nproj, nproj), dtype=float) #always float?
-        for a,setup in enumerate(self.setups):
+        dO_aa = np.zeros((nproj, nproj), dtype=float)  #always float?
+        for a, setup in enumerate(self.setups):
             self.assign_atomic_pair_matrix(dO_aa, a, a, setup.dO_ii)
 
         # Calculate two-center rotation matrix for overlap projections
@@ -287,7 +333,7 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         # Calculate two-center coefficients for inverse overlap operator
         lhs_aa = np.eye(nproj) + self.xO_aa
         rhs_aa = -dO_aa
-        self.dC_aa = np.linalg.solve(lhs_aa.T, rhs_aa.T).T #TODO parallel
+        self.dC_aa = np.linalg.solve(lhs_aa.T, rhs_aa.T).T  #TODO parallel
 
         # Calculate two-center rotation matrix for inverse overlap projections
         self.xC_aa = self.get_rotated_coefficients(self.dC_aa)
@@ -295,7 +341,7 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         self.timer.stop('Update two-center overlap')
 
     def get_rotated_coefficients(self, X_aa):
-        """Rotate two-center projector expansion coefficients with
+        r"""Rotate two-center projector expansion coefficients with
         the projector-projector overlap integrals as basis.
 
         Performs the following operation and returns the result::
@@ -314,13 +360,13 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         self.timer.start('Update two-center projections')
 
         nproj = len(self)
-        dI_aa = np.zeros((nproj, nproj), dtype=float) #always float?
+        dI_aa = np.zeros((nproj, nproj), dtype=float)  #always float?
 
         for a, dI_sp in dI_asp.items():
             dI_p = dI_sp[kpt.s]
             dI_ii = unpack(dI_p)
             self.assign_atomic_pair_matrix(dI_aa, a, a, dI_ii)
-        self.gd.comm.sum(dI_aa) #TODO too heavy?
+        self.gd.comm.sum(dI_aa)  #TODO too heavy?
 
         dM_aa = self.get_rotated_coefficients(dI_aa)
         Q_axi = wfs.pt.dict(shape, zero=True)
@@ -329,17 +375,23 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
                 Q_xi = Q_axi[a1]
             else:
                 # Atom a1 is not in domain so allocate a temporary buffer
-                Q_xi = np.zeros(shape+(self.setups[a1].ni,), dtype=wfs.pt.dtype) #TODO
+                Q_xi = np.zeros(shape + (self.setups[a1].ni, ),
+                                dtype=wfs.pt.dtype)  #TODO
             for a2, P_xi in P_axi.items():
                 dM_ii = self.extract_atomic_pair_matrix(dM_aa, a1, a2)
-                Q_xi += np.dot(P_xi, dM_ii.T) #sum over a2 and last i in dM_ii
+                Q_xi += np.dot(P_xi, dM_ii.T)  #sum over a2 and last i in dM_ii
             self.gd.comm.sum(Q_xi)
 
         self.timer.stop('Update two-center projections')
 
         return Q_axi
 
-    def apply(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True,
+    def apply(self,
+              a_xG,
+              b_xG,
+              wfs,
+              kpt,
+              calculate_P_ani=True,
               extrapolate_P_ani=False):
         """Apply the overlap operator to a set of vectors.
 
@@ -370,7 +422,7 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         if calculate_P_ani:
             wfs.pt.integrate(a_xG, P_axi, kpt.q)
         else:
-            for a,P_ni in kpt.P_ani.items():
+            for a, P_ni in kpt.P_ani.items():
                 P_axi[a][:] = P_ni
 
         Q_axi = wfs.pt.dict(shape)
@@ -387,18 +439,25 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
                     Q_xi[:] = P_axi[a1]
                 else:
                     # Atom a1 is not in domain so allocate a temporary buffer
-                    Q_xi = np.zeros(shape+(self.setups[a1].ni,), dtype=wfs.pt.dtype) #TODO
+                    Q_xi = np.zeros(shape + (self.setups[a1].ni, ),
+                                    dtype=wfs.pt.dtype)  #TODO
                 for a2, P_xi in P_axi.items():
                     # xO_aa are the overlap extrapolators across atomic pairs
                     xO_ii = self.extract_atomic_pair_matrix(self.xO_aa, a1, a2)
-                    Q_xi += np.dot(P_xi, xO_ii.T) #sum over a2 and last i in xO_ii
+                    Q_xi += np.dot(P_xi,
+                                   xO_ii.T)  #sum over a2 and last i in xO_ii
                 self.gd.comm.sum(Q_xi)
 
             return Q_axi
         else:
             return P_axi
 
-    def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True,
+    def apply_inverse(self,
+                      a_xG,
+                      b_xG,
+                      wfs,
+                      kpt,
+                      calculate_P_ani=True,
                       extrapolate_P_ani=False):
 
         self.timer.start('Apply inverse overlap')
@@ -409,7 +468,7 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
         if calculate_P_ani:
             wfs.pt.integrate(a_xG, P_axi, kpt.q)
         else:
-            for a,P_ni in kpt.P_ani.items():
+            for a, P_ni in kpt.P_ani.items():
                 P_axi[a][:] = P_ni
 
         Q_axi = wfs.pt.dict(shape, zero=True)
@@ -418,11 +477,12 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
                 Q_xi = Q_axi[a1]
             else:
                 # Atom a1 is not in domain so allocate a temporary buffer
-                Q_xi = np.zeros(shape+(self.setups[a1].ni,), dtype=wfs.pt.dtype) #TODO
+                Q_xi = np.zeros(shape + (self.setups[a1].ni, ),
+                                dtype=wfs.pt.dtype)  #TODO
             for a2, P_xi in P_axi.items():
                 # dC_aa are the inverse coefficients across atomic pairs
                 dC_ii = self.extract_atomic_pair_matrix(self.dC_aa, a1, a2)
-                Q_xi += np.dot(P_xi, dC_ii.T) #sum over a2 and last i in dC_ii
+                Q_xi += np.dot(P_xi, dC_ii.T)  #sum over a2 and last i in dC_ii
             self.gd.comm.sum(Q_xi)
 
         wfs.pt.add(b_xG, Q_axi, kpt.q)
@@ -435,18 +495,15 @@ class ProjectorPairOverlap(Overlap, GridPairOverlap):
                     Q_xi[:] = P_axi[a1]
                 else:
                     # Atom a1 is not in domain so allocate a temporary buffer
-                    Q_xi = np.zeros(shape+(self.setups[a1].ni,), dtype=wfs.pt.dtype) #TODO
+                    Q_xi = np.zeros(shape + (self.setups[a1].ni, ),
+                                    dtype=wfs.pt.dtype)  #TODO
                 for a2, P_xi in P_axi.items():
                     # xC_aa are the inverse extrapolators across atomic pairs
                     xC_ii = self.extract_atomic_pair_matrix(self.xC_aa, a1, a2)
-                    Q_xi += np.dot(P_xi, xC_ii.T) #sum over a2 and last i in xC_ii
+                    Q_xi += np.dot(P_xi,
+                                   xC_ii.T)  #sum over a2 and last i in xC_ii
                 self.gd.comm.sum(Q_xi)
 
             return Q_axi
         else:
             return P_axi
-
-
-
-
-

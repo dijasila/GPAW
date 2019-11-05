@@ -9,12 +9,10 @@ from gpaw.mpi import world
 from gpaw.berryphase import get_polarization_phase
 from ase.parallel import paropen
 from ase.units import Bohr
-from ase.io import jsonio
 
 
 def get_wavefunctions(atoms, name, params):
     params['symmetry'] = {'point_group': False,
-                          'do_not_symmetrize_the_density': True,
                           'time_reversal': False}
     tmp = splitext(name)[0]
     atoms.calc = GPAW(txt=tmp + '.txt', **params)
@@ -98,12 +96,14 @@ def borncharges(calc, delta=0.01):
         Z_vv = dP_vv * vol / (2 * delta / Bohr)
         Z_avv.append(Z_vv)
 
-    data = {'Z_avv': Z_avv, 'indices_a': indices, 'sym_a': sym_a}
+    data = {'Z_avv': [Z_aa.tolist() for Z_aa in Z_avv],
+            'indices_a': indices,
+            'sym_a': sym_a}
 
     filename = 'borncharges-{}.json'.format(delta)
 
     with paropen(filename, 'w') as fd:
-        json.dump(jsonio.encode(data), fd)
+        json.dump(data, fd)
 
     world.barrier()
     if world.rank == 0:

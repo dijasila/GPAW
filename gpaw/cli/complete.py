@@ -27,7 +27,8 @@ commands = {
     'atom':
         ['-f', '--xc-functional', '-a', '--add', '--spin-polarized', '-d',
          '--dirac', '-p', '--plot', '-e', '--exponents', '-l',
-         '--logarithmic-derivatives', '-r', '--refine', '-s',
+         '--logarithmic-derivatives', '-n', '--ngrid', '-R',
+         '--rcut', '-r', '--refine', '-s',
          '--scalar-relativistic', '--no-ee-interaction'],
     'completion':
         [],
@@ -42,7 +43,7 @@ commands = {
          '--gamma', '-b', '--create-basis-set', '--nlcc',
          '--core-hole', '-e', '--electrons', '-o', '--output'],
     'diag':
-        ['-b', '--bands', '-s', '--scalapack', '-0', '--dry-run'],
+        ['-b', '--bands', '-s', '--scalapack'],
     'dos':
         ['-p', '--plot', '-i', '--integrated', '-w', '--width', '-a',
          '--atom', '-t', '--total', '-r', '--range', '-n',
@@ -55,19 +56,17 @@ commands = {
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
          '--basis', '--test', '--register', '--no-register'],
     'python':
-        [],
+        ['--dry-run', '--command', '-c', '--module', '-m'],
     'rpa':
         ['-e', '--cut-off', '-b', '--blocks'],
     'run':
         ['-p', '--parameters', '-t', '--tag', '--properties', '-f',
          '--maximum-force', '--constrain-tags', '-s',
          '--maximum-stress', '-E', '--equation-of-state',
-         '--eos-type', '--modify', '--after', '-i',
-         '--interactive', '-c', '--collection', '-d',
-         '--database', '-S', '--skip', '-w', '--write', '-W',
-         '--write-all'],
+         '--eos-type', '-o', '--output', '--modify', '--after',
+         '--dry-run', '-w', '--write', '-W', '--write-all'],
     'sbatch':
-        ['-0', '--dry-run'],
+        ['-0', '--test'],
     'symmetry':
         [],
     'test':

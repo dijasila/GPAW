@@ -99,7 +99,7 @@ def bondlengths(Ea, dE):
 
     plt.plot(B, E0, 'g.', label='reference')
     plt.legend(loc='lower right')
-    plt.xlabel('Bond length $\mathrm{\AA}$')
+    plt.xlabel(r'Bond length $\mathrm{\AA}$')
     plt.ylabel('Energy [eV]')
     plt.savefig('bondlengths.png')
 

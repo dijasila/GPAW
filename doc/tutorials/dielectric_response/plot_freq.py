@@ -18,8 +18,8 @@ for omega2 in [2.5, 5, 10, 15, 20, np.inf]:
         label = '$\\omega_2 = %.1f\\, \\mathrm{eV}$' % omega2
     plt.plot(x, y, '.', label=label)
 plt.ylabel('Freq. no')
-plt.xlabel('$\\omega\\, [\mathrm{eV}]$')
+plt.xlabel(r'$\omega\, [\mathrm{eV}]$')
 plt.axis(xmax=30, ymax=200)
-plt.title('$\\Delta\\omega_0 = 0.2\\, \mathrm{eV}$')
+plt.title(r'$\Delta\omega_0 = 0.2\, \mathrm{eV}$')
 plt.legend(loc=2)
 plt.savefig('nl_freq_grid.png', bbox_inches='tight')

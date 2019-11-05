@@ -1,6 +1,6 @@
 .. _setups:
 .. _datasets:
-    
+
 =================
 Atomic PAW Setups
 =================
@@ -29,7 +29,7 @@ Jul 22 2009  gpaw-setups-0.5.3574.tar.gz_
 
 
 .. _periodic table:
-    
+
 Periodic table
 ==============
 
@@ -44,7 +44,7 @@ Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_
 
 
 .. _installation of paw datasets:
-    
+
 Installation of PAW datasets
 ============================
 
@@ -80,6 +80,10 @@ To manually install the setups, do as follows:
 
      In case of several locations of PAW datasets the first found setup
      file is used.
+
+.. envvar:: GPAW_SETUP_PATH
+
+    Colon-separated paths to folders containing the PAW datasets.
 
 See also `NIST Atomic Reference Data`_.
 

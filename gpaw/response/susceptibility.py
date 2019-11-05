@@ -9,8 +9,7 @@ from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
-                        Redistributor, DryRunBlacsGrid)
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.response.kspair import get_calc
 from gpaw.response.kslrf import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
@@ -299,7 +298,8 @@ class FourComponentSusceptibilityTensor:
             bg1 = BlacsGrid(comm, 1, comm.size)
             in_wGG = chiks_wGG.reshape((nw, -1))
         else:
-            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            bg1 = BlacsGrid(None, 1, 1)
+            # bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
             in_wGG = np.zeros((0, 0), complex)
         md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
 

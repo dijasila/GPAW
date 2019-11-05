@@ -88,7 +88,7 @@ class RadialGridDescriptor:
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
     def yukawa(self, n_g, l=0, gamma=1e-6):
-        """Calculates the radial grid yukawa integral.
+        r"""Calculates the radial grid yukawa integral.
 
         The the integral kernel for the Yukawa interaction:
 
@@ -502,6 +502,9 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         beta = self.a / self.b
         return ng * r / (beta + r)
 
+    def new(self, N):
+        return AERadialGridDescriptor(self.a, self.b, N)
+
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
@@ -534,3 +537,6 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
 
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d
+
+    def new(self, N):
+        return AbinitRadialGridDescriptor(self.a, self.d, N)

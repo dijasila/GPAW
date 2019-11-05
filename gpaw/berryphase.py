@@ -446,4 +446,7 @@ def parallel_transport(calc,
     world.sum(phi_km)
     world.sum(S_km)
 
-    np.savez('phases_%s.npz' % name, phi_km=phi_km, S_km=S_km)
+    if name is not None:
+        np.savez('phases_%s.npz' % name, phi_km=phi_km, S_km=S_km)
+    
+    return phi_km, S_km

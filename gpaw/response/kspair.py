@@ -807,7 +807,7 @@ class KohnShamPair:
         return self.kdtree.query(np.mod(np.mod(k_c, 1).round(6), 1))[1]
 
     @timer('Apply symmetry operations')
-    def transform_and_symmetrize(self, K, k_c, projections, psit_mytG):
+    def transform_and_symmetrize(self, K, k_c, Ph, psit_hG):
         """Get wave function on a real space grid and symmetrize it
         along with the corresponding PAW projections."""
         (_, T, a_a, U_aii, shift_c,
@@ -816,19 +816,19 @@ class KohnShamPair:
         # Symmetrize wave functions
         wfs = self.calc.wfs
         ik = wfs.kd.bz2ibz_k[K]
-        ut_mytR = wfs.gd.empty(self.mynt, wfs.dtype)
+        ut_hR = wfs.gd.empty(len(psit_hG), wfs.dtype)
         with self.timer('Fourier transform and symmetrize wave functions'):
-            for myt in range(len(psit_mytG)):
-                ut_mytR[myt] = T(self.pd0.ifft(psit_mytG[myt], ik))
+            for h, psit_G in enumerate(psit_hG):
+                ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
 
         # Symmetrize projections
-        for a1, U_ii, (a2, P_myti) in zip(a_a, U_aii, projections.items()):
+        for a1, U_ii, (a2, P_hi) in zip(a_a, U_aii, Ph.items()):
             assert a1 == a2
-            np.dot(P_myti, U_ii, out=P_myti)
+            np.dot(P_hi, U_ii, out=P_hi)
             if time_reversal:
-                np.conj(P_myti, out=P_myti)
+                np.conj(P_hi, out=P_hi)
 
-        return projections, ut_mytR, shift_c
+        return Ph, ut_hR, shift_c
 
     @timer('Construct symmetry operators')
     def construct_symmetry_operators(self, K, k_c=None):

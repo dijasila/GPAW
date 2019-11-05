@@ -149,11 +149,11 @@ class PlaneWaveAdiabaticFXC(FXC):
     def calculate(self, pd):
         print('Calculating fxc', file=self.cfd)
         # Get the spin density we need and allocate fxc
-        n_sG = self.get_density_on_grid()
+        n_sG = self.get_density_on_grid(pd.gd)
         fxc_G = np.zeros(np.shape(n_sG[0]))
 
         print('    Calculating fxc on real space grid', file=self.cfd)
-        self._add_fxc(self.calc.wfs.gd, n_sG, fxc_G)
+        self._add_fxc(pd.gd, n_sG, fxc_G)
 
         # Fourier transform to reciprocal space
         Kxc_GG = self.ft_from_grid(fxc_G, pd)
@@ -166,7 +166,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         return Kxc_GG / pd.gd.volume
             
-    def get_density_on_grid(self):
+    def get_density_on_grid(self, gd):
         """Get the spin density on coarse real-space grid.
         
         Returns
@@ -181,7 +181,11 @@ class PlaneWaveAdiabaticFXC(FXC):
         print('    Calculating all-electron density', file=self.cfd)
         with self.timer('Calculating all-electron density'):
             get_ae_density = self.calc.density.get_all_electron_density
-            return get_ae_density(atoms=self.calc.atoms, gridrefinement=1)[0]
+            n_sG, gd1 = get_ae_density(atoms=self.calc.atoms, gridrefinement=1)
+            assert gd1 is gd
+            assert gd1.comm.size == 1
+
+            return n_sG
 
     @timer('Fourier transform of kernel from real-space grid')
     def ft_from_grid(self, fxc_G, pd):

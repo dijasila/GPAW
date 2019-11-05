@@ -84,10 +84,10 @@ that it lists the local directory first and the regular entries afterwards.
 If you use bash, :envvar:`GPAW_SETUP_PATH` can be temporarily modified
 while you run GPAW with the single command::
 
-    GPAW_SETUP_PATH=.:$GPAW_SETUP_PATH gpaw-python script.py
+    GPAW_SETUP_PATH=.:$GPAW_SETUP_PATH python3 script.py
 
 or if you are using csh or tcsh, you have to first run ``setenv`` and then
 GPAW::
 
-    setenv GPAW_SETUP_PATH .:$GPAW_SETUP_PATH&& gpaw-python script.py
+    setenv GPAW_SETUP_PATH .:$GPAW_SETUP_PATH&& python3 script.py
 
