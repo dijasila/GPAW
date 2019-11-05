@@ -47,8 +47,12 @@ strat_sd = [(None, None, 'pairwise', True, True),
             (-1, 0.001, 'pairwise', False, True),
             (-1, 0.001, 'pairwise', True, False),
             (-1, 0.000001, 'pairwise', True, True),
-            (-1, 0.000001, 'double', True, True)]
+            (-1, 0.000001, 'double', True, True),
+            (-1, None, 'pairwise', True, True),
+            (3, None, 'pairwise', True, True)]
 frq_sw = [np.linspace(0.160, 0.320, 21),
+          np.linspace(0.320, 0.480, 21),
+          np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),
@@ -109,6 +113,8 @@ d3 = np.loadtxt('iron_dsus_G3.csv', delimiter=', ')
 d4 = np.loadtxt('iron_dsus_G4.csv', delimiter=', ')
 d5 = np.loadtxt('iron_dsus_G5.csv', delimiter=', ')
 d6 = np.loadtxt('iron_dsus_G6.csv', delimiter=', ')
+d7 = np.loadtxt('iron_dsus_G7.csv', delimiter=', ')
+d8 = np.loadtxt('iron_dsus_G8.csv', delimiter=', ')
 
 wpeak1, Ipeak1 = findpeak(d1[:, 0], d1[:, 4])
 wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
@@ -116,6 +122,8 @@ wpeak3, Ipeak3 = findpeak(d3[:, 0], d3[:, 4])
 wpeak4, Ipeak4 = findpeak(d4[:, 0], d4[:, 4])
 wpeak5, Ipeak5 = findpeak(d5[:, 0], d5[:, 4])
 wpeak6, Ipeak6 = findpeak(d6[:, 0], d6[:, 4])
+wpeak7, Ipeak7 = findpeak(d7[:, 0], d7[:, 4])
+wpeak8, Ipeak8 = findpeak(d8[:, 0], d8[:, 4])
 
 mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
@@ -123,6 +131,8 @@ mw3 = (wpeak3 + d3[0, 0]) * 1000
 mw4 = (wpeak4 + d4[0, 0]) * 1000
 mw5 = (wpeak5 + d5[0, 0]) * 1000
 mw6 = (wpeak6 + d6[0, 0]) * 1000
+mw7 = (wpeak7 + d7[0, 0]) * 1000
+mw8 = (wpeak8 + d8[0, 0]) * 1000
 
 # Part 4: compare new results to test values
 test_mw1 = 234.63  # meV
@@ -154,3 +164,9 @@ equal(Ipeak2, Ipeak4, 1.0)
 # The two transitions summation strategies should give identical results
 equal(mw5, mw6, eta * 100)
 equal(Ipeak5, Ipeak6, 1.0)
+
+# Including vanishing coefficients should not matter for the result
+equal(mw7, mw5, eta * 100)
+equal(Ipeak7, Ipeak5, 1.0)
+equal(mw8, mw2, eta * 100)
+equal(Ipeak8, Ipeak2, 1.0)
