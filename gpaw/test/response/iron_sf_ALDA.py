@@ -46,8 +46,8 @@ strat_sd = [(None, 'pairwise', True, True),
             (0.99, 'pairwise', True, True),
             (0.99, 'pairwise', False, True),
             (0.99, 'pairwise', True, False),
-            (0.999, 'pairwise', True, True),
-            (0.999, 'double', True, True)]
+            (0.99999, 'pairwise', True, True),
+            (0.99999, 'double', True, True)]
 frq_sw = [np.linspace(0.160, 0.320, 21),
           np.linspace(0.320, 0.480, 21),
           np.linspace(0.320, 0.480, 21),

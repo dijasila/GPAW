@@ -101,6 +101,7 @@ class FXC:
 class PlaneWaveAdiabaticFXC(FXC):
     """Adiabatic exchange-correlation kernels in plane wave mode using PAW."""
 
+    '''  # old, to be removed                                                  XXX
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
                  rshe=0.99, filename=None, **ignored):
@@ -130,6 +131,63 @@ class PlaneWaveAdiabaticFXC(FXC):
             self.rsheconvmin = None
 
             self.rsheL_M = None
+
+        self.filename = filename
+    '''
+
+    def __init__(self, gs, functional,  # dummy init, tbr                      XXX
+                 world=mpi.world, txt='-', timer=None,
+                 rshe=0.99, filename=None, **ignored):
+        if rshe is None:
+            rshelmax = None
+            rshewmin = None
+        else:
+            rshelmax = -1
+            rshewmin = 1. - rshe
+
+        self.new_init(gs, functional, world=world, txt=txt, timer=timer,
+                      rshelmax=rshelmax, rshewmin=rshewmin, filename=filename)
+
+    def new_init(self, gs, functional,  # rnew, to __init__                    XXX
+                 world=mpi.world, txt='-', timer=None,
+                 rshelmax=-1, rshewmin=0.001, filename=None, **ignored):
+        """
+        Parameters
+        ----------
+        gs, world, txt, timer : see FXC
+        functional : str
+            xc-functional
+        rshelmax : int or None
+            Expand kernel in real spherical harmonics inside augmentation
+            spheres. If None, the kernel will be calculated without
+            augmentation. The value of rshelmax indicates the maximum index l
+            to perform the expansion in (l < 6).
+        rshewmin : float or None
+            If None, the kernel correction will be fully expanded up to the
+            chosen lmax. Given as a float, (0 < rshewmin < 1) indicates what
+            coefficients to use in the expansion. If any coefficient
+            contributes with less than a fraction of rshewmin on average,
+            it will not be included.
+        """
+        FXC.__init__(self, gs, world=world, txt=txt, timer=timer)
+
+        self.functional = functional
+
+        # Do not carry out the expansion in real spherical harmonics, if lmax
+        # is chosen as None
+        self.rshe = rshelmax is not None
+
+        if self.rshe:
+            # Perform rshe up to l<=lmax(<=5)
+            if rshelmax == -1:
+                self.rshelmax = 5
+            else:
+                assert isinstance(rshelmax, int)
+                assert rshelmax in range(6)
+                self.rshelmax = rshelmax
+
+            self.rshewmin = rshewmin if rshewmin is not None else 0.
+            self.dfmask_g = None
 
         self.filename = filename
 
@@ -211,7 +269,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     @timer('Calculate PAW corrections to kernel')
     def calculate_kernel_paw_correction(self, pd):
-        print("    Calculating PAW corrections to the kernel",
+        print("    Calculating PAW corrections to the kernel\n",
               file=self.cfd)
 
         # Calculate (G-G') reciprocal space vectors
@@ -241,14 +299,15 @@ class PlaneWaveAdiabaticFXC(FXC):
             df_ng, Y_nL, rgd = self._calculate_dfxc(a)
 
             # Calculate the surface norm square of df
-            self.dfSns_g = self._ang_int(df_ng ** 2)
+            dfSns_g = self._ang_int(df_ng ** 2)
             # Reduce radial grid by excluding points where dfSns_g = 0
-            df_ng, r_g, dv_g = self._reduce_radial_grid(df_ng, rgd)
+            df_ng, r_g, dv_g = self._new_reduce_radial_grid(df_ng, rgd,  # rnewXXX
+                                                            dfSns_g)
 
             # Expand correction in real spherical harmonics
-            df_gL = self._perform_rshe(a, df_ng, Y_nL)
-            # Reduce expansion by removing coefficients that are zero
-            df_gM, L_M, l_M = self._reduce_rsh_expansion(df_gL)
+            df_gL = self._new_perform_rshe(df_ng, Y_nL)  # rnew                XXX
+            # Reduce expansion by removing coefficients that do not contribute
+            df_gM, L_M, l_M = self._new_reduce_rsh_expansion(a, df_gL, dfSns_g)  # rnew XXX
 
             # Expand plane wave differences (G-G')
             (ii_MmydG,
@@ -378,10 +437,137 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         return df_ng, Y_nL, rgd
 
-    def _ang_int(self, f_nA):
+    @staticmethod
+    def _ang_int(f_nA):
         """ Make surface integral on a sphere using Lebedev quadrature """
         return 4. * np.pi * np.tensordot(weight_n, f_nA, axes=([0], [0]))
 
+    def _new_reduce_radial_grid(self, df_ng, rgd, dfSns_g):
+        """Reduce the radial grid, by excluding points where dfSns_g = 0,
+        in order to avoid excess computation. Only points after the outermost
+        point where dfSns_g is non-zero will be excluded.
+
+        Returns
+        -------
+        df_ng : nd.array
+            df_ng on reduced radial grid
+        r_g : nd.array
+            radius of each point on the reduced radial grid
+        dv_g : nd.array
+            volume element of each point on the reduced radial grid
+        """
+        # Find PAW correction range
+        self.dfmask_g = np.where(dfSns_g > 0.)
+        ng = np.max(self.dfmask_g) + 1
+
+        # Integrate only r-values inside augmentation sphere
+        df_ng = df_ng[:, :ng]
+
+        r_g = rgd.r_g[:ng]
+        dv_g = rgd.dv_g[:ng]
+
+        return df_ng, r_g, dv_g
+
+    @timer('Expand PAW correction in real spherical harmonics')
+    def _new_perform_rshe(self, df_ng, Y_nL):  # rnew                          XXX
+        """Perform expansion of dfxc in real spherical harmonics. Note that the
+        Lebedev quadrature, which is used to calculate the expansion
+        coefficients, is exact to order l=11. This implies that functions
+        containing angular components l<=5 can be expanded exactly.
+        Assumes df_ng to be a real function.
+
+        Returns
+        -------
+        df_gL : nd.array
+            dfxc in g=radial grid index, L=(l,m) spherical harmonic index
+        """
+        lmax = min(self.rshelmax, int(np.sqrt(Y_nL.shape[1])) - 1)
+        nL = (lmax + 1)**2
+        L_L = np.arange(nL)
+
+        # Perform the real spherical harmonics expansion
+        df_ngL = np.repeat(df_ng, nL, axis=1).reshape((*df_ng.shape, nL))
+        Y_ngL = np.repeat(Y_nL[:, L_L], df_ng.shape[1],
+                          axis=0).reshape((*df_ng.shape, nL))
+        df_gL = self._ang_int(Y_ngL * df_ngL)
+
+        return df_gL
+
+    def _new_reduce_rsh_expansion(self, a, df_gL, dfSns_g):  # rnew            XXX
+        """Reduce the composite index L=(l,m) to M, which indexes coefficients
+        contributing with a weight larger than rshewmin to the surface norm
+        square on average.
+
+        Returns
+        -------
+        df_gM : nd.array
+            PAW correction in reduced rsh index
+        L_M : nd.array
+            L=(l,m) spherical harmonics indices in reduced rsh index
+        l_M : list
+            l spherical harmonics indices in reduced rsh index
+        """
+        # Create l_L array
+        nL = df_gL.shape[1]
+        l_L = []
+        for l in range(int(np.sqrt(nL))):
+            l_L += [l] * (2 * l + 1)
+
+        # Filter away (l,m)-coefficients that do not contribute
+        rshew_L = self._new_evaluate_rshe_coefficients(a, df_gL, dfSns_g)  # rnewXXX
+        L_M = np.where(rshew_L > self.rshewmin)[0]
+        l_M = [l_L[L] for L in L_M]
+        df_gM = df_gL[:, L_M]
+
+        return df_gM, L_M, l_M
+
+    def _new_evaluate_rshe_coefficients(self, a, df_gL, dfSns_g):  # rnew      XXX
+        """If some of the rshe coefficients are very small for all radii g,
+        we may choose to exclude them from the kernel PAW correction.
+
+        The "smallness" is evaluated from their average weight in
+        evaluating the surface norm square for each radii g.
+        """
+        # Compute each coefficient's fraction of the surface norm square
+        nL = df_gL.shape[1]
+        dfSns_gL = np.repeat(dfSns_g, nL).reshape(dfSns_g.shape[0], nL)
+        dfSw_gL = df_gL[self.dfmask_g] ** 2 / dfSns_gL[self.dfmask_g]
+
+        # The smallness is evaluated from the average
+        rshew_L = np.average(dfSw_gL, axis=0)
+
+        # Print information about the expansion
+        print('    RSHE of atom', a, file=self.cfd)
+        print('      {0:6}  {1:10}  {2:10}  {3:8}'.format('(l,m)',
+                                                          'max weight',
+                                                          'avg weight',
+                                                          'included'),
+              file=self.cfd)
+        for L, (dfSw_g, rshew) in enumerate(zip(dfSw_gL.T, rshew_L)):
+            self.print_rshe_info(L, dfSw_g, rshew)
+
+        tot_avg_cov = np.average(np.sum(dfSw_gL, axis=1))
+        avg_cov = np.average(np.sum(dfSw_gL[:, rshew_L > self.rshewmin],
+                                    axis=1))
+        print(f'      In total: {avg_cov} of the dfSns is covered on average',
+              file=self.cfd)
+        print(f'      In total: {tot_avg_cov} of the dfSns could be covered',
+              'on average\n', flush=True, file=self.cfd)
+
+        return rshew_L
+
+    def print_rshe_info(self, L, dfSw_g, rshew):
+        """Print information about the importance of the rshe coefficient"""
+        l = int(np.sqrt(L))
+        m = L - l**2 - l
+        included = 'yes' if rshew > self.rshewmin else 'no'
+        print('      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
+                                                              np.max(dfSw_g),
+                                                              rshew, included),
+              file=self.cfd)
+
+    # to be removed                                                            XXX
+    '''
     def _reduce_radial_grid(self, df_ng, rgd):
         """Reduce the radial grid, by excluding points where dfSns_g = 0,
         in order to avoid excess computation. Only points after the outermost
@@ -519,6 +705,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         df_gM = df_gL[:, L_M]
 
         return df_gM, L_M, l_M
+    '''
 
     @timer('Expand plane waves')
     def _expand_plane_waves(self, dG_mydG, dGn_mydGv, r_g, L_M, l_M):
