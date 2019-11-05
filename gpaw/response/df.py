@@ -226,7 +226,7 @@ class DielectricFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                rshelmax=-1, rshewmin=0.001,
+                rshelmax=-1, rshewmin=None,
                 spinpol_cut=None, density_cut=None, fxc_scaling=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
@@ -357,7 +357,7 @@ class DielectricFunction:
 
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
-                                   rshelmax=-1, rshewmin=0.001,
+                                   rshelmax=-1, rshewmin=None,
                                    spinpol_cut=None, density_cut=None,
                                    fxc_scaling=None,
                                    filename='chiM_w.csv'):

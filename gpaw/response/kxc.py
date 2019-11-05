@@ -103,7 +103,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=0.001, filename=None, **ignored):
+                 rshelmax=-1, rshewmin=None, filename=None, **ignored):
         """
         Parameters
         ----------
@@ -568,7 +568,7 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
     def __init__(self, gs, functional,
                  world=mpi.world, txt='-', timer=None,
-                 rshelmax=-1, rshewmin=0.001, filename=None,
+                 rshelmax=-1, rshewmin=None, filename=None,
                  density_cut=None, spinpol_cut=None, **ignored):
         """
         gs, world, txt, timer : see PlaneWaveAdiabaticFXC, FXC

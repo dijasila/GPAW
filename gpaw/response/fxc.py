@@ -14,7 +14,7 @@ from gpaw.response.tms import find_goldstone_scaling
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
-                  rshelmax=-1, rshewmin=0.001,
+                  rshelmax=-1, rshewmin=None,
                   chi0_wGG=None,
                   fxc_scaling=None,
                   density_cut=None,
@@ -42,7 +42,7 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
 
 
 def get_density_xc_kernel(pd, chi0, functional='ALDA',
-                          rshelmax=-1, rshewmin=0.001,
+                          rshelmax=-1, rshewmin=None,
                           chi0_wGG=None,
                           density_cut=None):
     """
@@ -91,7 +91,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
 
 
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
-                             rshelmax=-1, rshewmin=0.001,
+                             rshelmax=-1, rshewmin=None,
                              chi0_wGG=None,
                              fxc_scaling=None,
                              density_cut=None,
