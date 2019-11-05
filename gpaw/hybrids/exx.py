@@ -54,9 +54,11 @@ class EXX:
             self.VC_aii[a] = unpack(data.X_p)
 
         self.symmetry_map_ss = create_symmetry_map(kd)
-        self.inverse_s = self.symmetry_map_ss[:, 0]
+
         U_scc = kd.symmetry.op_scc
-        assert (U_scc[0] == np.eye(3, dtype=int)).all()
+        is_identity_s = (U_scc == np.eye(3, dtype=int)).all(2).all(1)
+        s0 = is_identity_s.nonzero()[0][0]
+        self.inverse_s = self.symmetry_map_ss[:, s0]
 
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
@@ -180,7 +182,7 @@ class EXX:
         factor = 1.0 / self.kd.nbzkpts
         N1 = len(k1.u_nR)
         N2 = len(k2.u_nR)
-        exx_nn = np.zeros((N1, N2))
+        e_nn = np.zeros((N1, N2))
         rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
         S = self.comm.size
         for n1, u1_R in enumerate(k1.u_nR):
@@ -198,9 +200,9 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
                 e = ghat.pd.integrate(rho_G, vrho_G).real
-                exx_nn[n1, n2] = e
-                if k1 is k2:
-                    exx_nn[n2, n1] = e
+                e_nn[n1, n2] = e
+                # if k1 is k2:
+                #     e_nn[n2, n1] = e
 
                 if v1_nG is not None:
                     vrho_R = ghat.pd.ifft(vrho_G)
@@ -232,7 +234,7 @@ class EXX:
                                 v_i = v_i.conj()
                             v2_ani[a][n2] -= v_i * f1_n[n1] * x2
 
-        return exx_nn * factor
+        return e_nn * factor
 
     def calculate_eigenvalues(self, kpts1, kpts2, coulomb, VV_aii,
                               e_kn, v_nG=None):
