@@ -433,7 +433,7 @@ class PlaneWaveAdiabaticFXC(FXC):
         df_gL : nd.array
             dfxc in g=radial grid index, L=(l,m) spherical harmonic index
         """
-        lmax = min(self.rshelmax, int(np.sqrt(Y_nL.shape[1])) - 1)
+        lmax = min(int(np.sqrt(Y_nL.shape[1])) - 1, 36)
         nL = (lmax + 1)**2
         L_L = np.arange(nL)
 
@@ -459,21 +459,23 @@ class PlaneWaveAdiabaticFXC(FXC):
         l_M : list
             l spherical harmonics indices in reduced rsh index
         """
-        # Create l_L array
-        nL = df_gL.shape[1]
+        # Create L_L and l_L array
+        lmax = min(self.rshelmax, int(np.sqrt(df_gL.shape[1])) - 1)
+        nL = (lmax + 1)**2
+        L_L = np.arange(nL)
         l_L = []
         for l in range(int(np.sqrt(nL))):
             l_L += [l] * (2 * l + 1)
 
         # Filter away (l,m)-coefficients that do not contribute
-        rshew_L = self._evaluate_rshe_coefficients(a, df_gL, dfSns_g)
-        L_M = np.where(rshew_L > self.rshewmin)[0]
+        rshew_L = self._evaluate_rshe_coefficients(a, nL, df_gL, dfSns_g)
+        L_M = np.where(rshew_L[L_L] > self.rshewmin)[0]
         l_M = [l_L[L] for L in L_M]
         df_gM = df_gL[:, L_M]
 
         return df_gM, L_M, l_M
 
-    def _evaluate_rshe_coefficients(self, a, df_gL, dfSns_g):
+    def _evaluate_rshe_coefficients(self, a, nL, df_gL, dfSns_g):
         """If some of the rshe coefficients are very small for all radii g,
         we may choose to exclude them from the kernel PAW correction.
 
@@ -481,8 +483,8 @@ class PlaneWaveAdiabaticFXC(FXC):
         evaluating the surface norm square for each radii g.
         """
         # Compute each coefficient's fraction of the surface norm square
-        nL = df_gL.shape[1]
-        dfSns_gL = np.repeat(dfSns_g, nL).reshape(dfSns_g.shape[0], nL)
+        nallL = df_gL.shape[1]
+        dfSns_gL = np.repeat(dfSns_g, nallL).reshape(dfSns_g.shape[0], nallL)
         dfSw_gL = df_gL[self.dfmask_g] ** 2 / dfSns_gL[self.dfmask_g]
 
         # The smallness is evaluated from the average
@@ -496,11 +498,11 @@ class PlaneWaveAdiabaticFXC(FXC):
                                                           'included'),
               file=self.cfd)
         for L, (dfSw_g, rshew) in enumerate(zip(dfSw_gL.T, rshew_L)):
-            self.print_rshe_info(L, dfSw_g, rshew)
+            self.print_rshe_info(L, nL, dfSw_g, rshew)
 
         tot_avg_cov = np.average(np.sum(dfSw_gL, axis=1))
-        avg_cov = np.average(np.sum(dfSw_gL[:, rshew_L > self.rshewmin],
-                                    axis=1))
+        avg_cov = np.average(np.sum(dfSw_gL[:, :nL]
+                                    [:, rshew_L[:nL] > self.rshewmin], axis=1))
         print(f'      In total: {avg_cov} of the dfSns is covered on average',
               file=self.cfd)
         print(f'      In total: {tot_avg_cov} of the dfSns could be covered',
@@ -508,11 +510,11 @@ class PlaneWaveAdiabaticFXC(FXC):
 
         return rshew_L
 
-    def print_rshe_info(self, L, dfSw_g, rshew):
+    def print_rshe_info(self, L, nL, dfSw_g, rshew):
         """Print information about the importance of the rshe coefficient"""
         l = int(np.sqrt(L))
         m = L - l**2 - l
-        included = 'yes' if rshew > self.rshewmin else 'no'
+        included = 'yes' if (rshew > self.rshewmin and L < nL) else 'no'
         print('      {0:6}  {1:1.8f}  {2:1.8f}  {3:8}'.format(f'({l},{m})',
                                                               np.max(dfSw_g),
                                                               rshew, included),
