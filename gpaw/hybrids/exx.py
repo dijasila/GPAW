@@ -57,8 +57,8 @@ class EXX:
 
         U_scc = kd.symmetry.op_scc
         is_identity_s = (U_scc == np.eye(3, dtype=int)).all(2).all(1)
-        s0 = is_identity_s.nonzero()[0][0]
-        self.inverse_s = self.symmetry_map_ss[:, s0]
+        self.s0 = is_identity_s.nonzero()[0][0]
+        self.inverse_s = self.symmetry_map_ss[:, self.s0]
 
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
@@ -70,7 +70,7 @@ class EXX:
             nbands = len(kpts1[0].psit.array)
             shapes = [(nbands, len(Delta_iiL))
                       for Delta_iiL in self.Delta_aiiL]
-            v_kani = [{a: np.zeros(shape, complex)
+            v_kani = [{a: np.zeros(shape, pd.dtype)
                        for a, shape in enumerate(shapes)}
                       for _ in range(len(kpts1))]
             v_knG = [k.psit.pd.zeros(nbands, global_array=True, q=k.psit.kpt)
@@ -116,6 +116,7 @@ class EXX:
                 print(i1, i2, s,
                       k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count,
                       e_nn[0, 0], e)
+            # print(self.comm.rank,e_nn);asdg
             exxvv -= 0.5 * e
             ekin += e
             if e_kn is not None:
@@ -170,6 +171,15 @@ class EXX:
                                v1_ani=None,
                                v2_nG=None,
                                v2_ani=None):
+
+        factor = 1.0 / self.kd.nbzkpts
+
+        N1 = len(k1.u_nR)
+        N2 = len(k2.u_nR)
+
+        size = self.comm.size
+        rank = self.comm.rank
+
         Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                             k1.proj[a],
                             Delta_iiL,
@@ -179,17 +189,18 @@ class EXX:
         if v2_nG is not None:
             T, T_a, cc = self.symmetry_operation(self.inverse_s[s])
 
-        factor = 1.0 / self.kd.nbzkpts
-        N1 = len(k1.u_nR)
-        N2 = len(k2.u_nR)
         e_nn = np.zeros((N1, N2))
         rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
-        S = self.comm.size
+
         for n1, u1_R in enumerate(k1.u_nR):
-            n0 = n1 if k1 is k2 else 0
-            n0 = 0
-            n2a = min(n0 + (N2 - n0 + S - 1) // S * self.comm.rank, N2)
-            n2b = min(n2a + (N2 - n0 + S - 1) // S, N2)
+            if k1 is k2:
+                B = (N2 - n1 + size - 1) // size
+                n2a = min(n1 + rank * B, N2)
+                n2b = min(n2a + B, N2)
+            else:
+                n2a = 0
+                n2b = N2
+
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
@@ -200,13 +211,15 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
                 e = ghat.pd.integrate(rho_G, vrho_G).real
+                # print(self.comm.rank, n1, n2, e)
                 e_nn[n1, n2] = e
-                # if k1 is k2:
-                #     e_nn[n2, n1] = e
+                if k1 is k2:
+                    e_nn[n2, n1] = e
 
                 if v1_nG is not None:
                     vrho_R = ghat.pd.ifft(vrho_G)
                     if v2_nG is None:
+                        assert k1 is not k2
                         v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
                         for a, v_xL in ghat.integrate(vrho_G).items():
@@ -215,6 +228,8 @@ class EXX:
                                               f2_n[n2] * factor)
                     else:
                         x = factor * count / 2
+                        if k1 is k2 and n1 != n2:
+                            x *= 2
                         x1 = x / (self.kd.weight_k[index1] * self.kd.nbzkpts)
                         x2 = x / (self.kd.weight_k[index2] * self.kd.nbzkpts)
                         v1_nG[n1] -= f2_n[n2] * x1 * pd1.fft(
@@ -229,9 +244,10 @@ class EXX:
                             b, S_c, U_ii = T_a[a]
                             v_i = v_ii.conj().dot(k1.proj[b][n1])
                             v_i = v_i.dot(U_ii)
-                            v_i *= np.exp(2j * pi * k2.k_c.dot(S_c))
-                            if cc:
-                                v_i = v_i.conj()
+                            if v_i.dtype == complex:
+                                v_i *= np.exp(2j * pi * k2.k_c.dot(S_c))
+                                if cc:
+                                    v_i = v_i.conj()
                             v2_ani[a][n2] -= v_i * f1_n[n1] * x2
 
         return e_nn * factor
@@ -329,13 +345,30 @@ class EXX:
                                 k1.weight)
                 lasti1 = i1
             if i2 == i1 and kpts1 is kpts2:
-                rsk2 = rsk1
+                if s == self.s0:
+                    rsk2 = rsk1
+                else:
+                    N = len(rsk1.u_nR)
+                    S = self.comm.size
+                    B = (N + S - 1) // S
+                    na = min(B * self.comm.rank, N)
+                    nb = min(na + B, N)
+                    rsk2 = RSKPoint(rsk1.u_nR[na:nb],
+                                    rsk1.proj.view(na, nb),
+                                    rsk1.f_n[na:nb],
+                                    rsk1.k_c,
+                                    rsk1.weight)
                 lasti2 = i2
             elif i2 != lasti2:
                 k2 = kpts2[i2]
-                u2_nR = to_real_space(k2.psit)
-                rsk2 = RSKPoint(u2_nR, k2.proj.broadcast(),
-                                k2.f_n, k2.k_c,
+                N = len(k2.psit.array)
+                S = self.comm.size
+                B = (N + S - 1) // S
+                na = min(B * self.comm.rank, N)
+                nb = min(na + B, N)
+                u2_nR = to_real_space(k2.psit, na, nb)
+                rsk2 = RSKPoint(u2_nR, k2.proj.broadcast().view(na, nb),
+                                k2.f_n[na:nb], k2.k_c,
                                 k2.weight)
                 lasti2 = i2
 
@@ -413,12 +446,13 @@ class EXX:
         return RSKPoint(u2_nR, proj2, f_n, k2_c, weight)
 
 
-def to_real_space(psit):
+def to_real_space(psit, na=0, nb=None):
     pd = psit.pd
     comm = pd.comm
     S = comm.size
     q = psit.kpt
     nbands = len(psit.array)
+    nb = nb or nbands
     u_nR = pd.gd.empty(nbands, pd.dtype, global_array=True)
     for n1 in range(0, nbands, S):
         n2 = min(n1 + S, nbands)
@@ -429,7 +463,7 @@ def to_real_space(psit):
         for n in range(n1, n2):
             comm.broadcast(u_nR[n], n - n1)
 
-    return u_nR
+    return u_nR[na:nb]
 
 
 def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
