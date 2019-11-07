@@ -10,9 +10,9 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install wheel
-pip install git+https://gitlab.com/ase/ase.git@master
-pip install git+https://gitlab.com/gpaw/gpaw.git@master
+pip install -U pip
+pip install -q git+https://gitlab.com/ase/ase.git@master
+pip install -q git+https://gitlab.com/gpaw/gpaw.git@master
 gpaw test > test-1.out
 gpaw -P 2 test > test-2.out
 gpaw -P 4 test > test-4.out
