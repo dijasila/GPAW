@@ -6,15 +6,19 @@
 
 import re
 import sys
-from math import sqrt, exp
-
-import numpy as np
-from numpy import linalg
-
-import _gpaw
-from gpaw import debug
+import time
+from math import sqrt
+from contextlib import contextmanager
+from typing import Union
+from pathlib import Path
 
 from ase.utils import devnull
+import numpy as np
+
+import _gpaw
+import gpaw.mpi as mpi
+from gpaw import debug
+
 
 utilities_vdot = _gpaw.utilities_vdot
 utilities_vdot_self = _gpaw.utilities_vdot_self
@@ -183,7 +187,7 @@ def unpack2(M):
 
 
 def pack(A):
-    """Pack a 2D array to 1D, adding offdiagonal terms.
+    r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
 
@@ -271,8 +275,8 @@ def divrl(a_g, l, r_g):
     if l > 0:
         b_g[1:] /= r_g[1:]**l
         b1, b2 = b_g[1:3]
-        r0, r1, r2 = r_g[0:3]
-        b_g[0] = b2 + (b1 - b2) * (r0 - r2) / (r1 - r2)
+        r12, r22 = r_g[1:3]**2
+        b_g[0] = (b1 * r22 - b2 * r12) / (r22 - r12)
     return b_g
 
 
@@ -312,72 +316,50 @@ if not debug:
     pack = _gpaw.pack
 
 
-def mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n):
-    """Interpolate a point using moving least squares algorithm.
+def unlink(path: Union[str, Path], world=None):
+    """Safely unlink path (delete file or symbolic link)."""
 
-    Python wrapper for a c-function. See c/mlsqr.c.
+    if isinstance(path, str):
+        path = Path(path)
+    if world is None:
+        world = mpi.world
 
-    order:       Polynomial order (1 or 2)
-    coords_nc:   List of scaled coordinates
-    N_c:         Total number of grid points
-    beg_c:       The start of grid points
-    data_g:      3D-data to be interpolated
-    target_n:    Output array
-    """
-
-    assert is_contiguous(coords_nc, float)
-    assert is_contiguous(data_g, float)
-    N_c = np.ascontiguousarray(N_c, float)
-    beg_c = np.ascontiguousarray(beg_c, float)
-    assert is_contiguous(target_n, float)
-
-    return _gpaw.mlsqr(order, cutoff, coords_nc, N_c, beg_c, data_g, target_n)
-
-
-def interpolate_mlsqr(dg_c, vt_g, order):
-    """Interpolate a point using moving least squares algorithm.
-
-    dg_c:    The grid point index (from (0,0,0) to (Bg_g - bg_g)
-    vt_g:    The array to be interpolated
-    order:   Polynomial order
-    """
-
-    # Define the weight function
-    lsqr_weight = lambda r2: exp(-r2)
-
-    # Define the polynomial basis
-    if order == 1:
-        b = lambda x: np.array([1, x[0], x[1], x[2]])
-    elif order == 2:
-        b = lambda x: np.array([1, x[0], x[1], x[2],
-                                x[0] * x[1], x[1] * x[2], x[2] * x[0],
-                                x[0]**2, x[1]**2, x[2]**2])
+    # Remove file:
+    if world.rank == 0:
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
     else:
-        raise NotImplementedError
+        while path.is_file():
+            time.sleep(1.0)
+    world.barrier()
 
-    def fill_X(x, y, z):
-        result = None
-        for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
-            r = b(np.array([i, j, k])) * lsqr_weight(
-                np.sum((dg_c - np.array([i, j, k]))**2))
-            if result is None:
-                result = r
-            else:
-                result = np.vstack((result, r))
-        return result
 
-    def fill_w(x, y, z):
-        result = []
-        for i, j, k in zip(x.ravel(), y.ravel(), z.ravel()):
-            weight = lsqr_weight(np.sum((dg_c - np.array([i, j, k]))**2))
-            result.append(weight * vt_g[i][j][k])
-        return np.array(result)
+@contextmanager
+def file_barrier(path: Union[str, Path], world=None):
+    """Context manager for writing a file.
 
-    X = np.fromfunction(fill_X, vt_g.shape)
-    y = np.fromfunction(fill_w, vt_g.shape)
+    After the with-block all cores will be able to read the file.
 
-    X2 = np.dot(X.transpose(), X)
-    y2 = np.dot(X.transpose(), y)
-    c = linalg.solve(X2, y2)
-    a = np.dot(b(dg_c), c)
-    return a
+    >>> with file_barrier('something.txt'):
+    ...     <write file>
+    ...
+
+    This will remove the file, write the file and wait for the file.
+    """
+
+    if isinstance(path, str):
+        path = Path(path)
+    if world is None:
+        world = mpi.world
+
+    # Remove file:
+    unlink(path, world)
+
+    yield
+
+    # Wait for file:
+    while not path.is_file():
+        time.sleep(1.0)
+    world.barrier()

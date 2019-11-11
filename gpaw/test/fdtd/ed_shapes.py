@@ -53,4 +53,3 @@ qsfdtd.time_propagation('td.gpw', kick_strength=None, time_step=10, iterations=5
 ref_cl_dipole_moment = [ -1.01218549e-04,  -3.03603883e-05,   1.86063875e-01]
 tol = 1e-6
 equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
-

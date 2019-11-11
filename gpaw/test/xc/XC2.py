@@ -72,4 +72,3 @@ for name in ['LDA', 'PBE']:
             ns[:] = n / 2
             Es = xc.calculate(gd, ns, 0 * ns)
             equal(E, Es, 1e-13)
-

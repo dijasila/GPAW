@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import numbers
 from time import ctime
 
@@ -9,15 +8,14 @@ from ase.utils.timing import timer, Timer
 
 import gpaw.mpi as mpi
 from gpaw import extra_parameters
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor, Redistributor,
-                        DryRunBlacsGrid)
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.response.pair import PairDensity
 from gpaw.utilities.memory import maxrss
 from gpaw.utilities.blas import gemm
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PWSymmetryAnalyzer
-from gpaw.response.integrators import (PointIntegrator, TetrahedronIntegrator)
+from gpaw.response.integrators import PointIntegrator, TetrahedronIntegrator
 from gpaw.bztools import convex_hull_volume
 
 from functools import partial
@@ -130,7 +128,7 @@ class Chi0:
                  scissor=None, integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0):
         """Construct Chi0 object.
-        
+
         Parameters
         ----------
         calc : str
@@ -199,6 +197,13 @@ class Chi0:
             Periodic directions of the system. Defaults to [True, True, True].
         eshift : float
             Shift unoccupied bands
+        rate : float,str
+            Phenomenological scattering rate to use in optical limit Drude term
+            (in eV). If rate='eta', then use input artificial broadening eta as
+            rate. Note, for consistency with the formalism the rate is
+            implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
+            some literature by a factor of 2.
+            
 
         Attributes
         ----------
@@ -206,9 +211,9 @@ class Chi0:
             Class for calculating matrix elements of pairs of wavefunctions.
 
         """
-        
+
         self.response = response
-        
+
         self.timer = timer or Timer()
 
         self.pair = PairDensity(calc, ecut, self.response,
@@ -260,7 +265,7 @@ class Chi0:
 
         self.ecut = ecut
         self.gammacentered = gammacentered
-        
+
         self.eta = eta / Hartree
         if rate == 'eta':
             self.rate = self.eta
@@ -273,7 +278,7 @@ class Chi0:
         self.include_intraband = intraband
 
         omax = self.find_maximum_frequency()
-        
+
         if frequencies is None:
             if self.omegamax is None:
                 self.omegamax = omax
@@ -315,7 +320,7 @@ class Chi0:
                   file=self.fd)
         else:
             print('Using integration method: PointIntegrator', file=self.fd)
-    
+
     def find_maximum_frequency(self):
         """Determine the maximum electron-hole pair transition energy."""
         self.epsmin = 10000.0
@@ -398,7 +403,7 @@ class Chi0:
             chi0_wGG[:] = 0.0
         else:
             chi0_wGG = np.zeros((nw, self.Gb - self.Ga, nG), complex)
-            
+
         if optical_limit:
             chi0_wxvG = np.zeros((len(self.omega_w), 2, 3, nG), complex)
             chi0_wvv = np.zeros((len(self.omega_w), 3, 3), complex)
@@ -414,7 +419,7 @@ class Chi0:
         else:
             # Do all bands
             m1 = 0
-        
+
         m2 = self.nbands
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
@@ -422,14 +427,14 @@ class Chi0:
                                                             chi0_wxvG,
                                                             chi0_wvv,
                                                             m1, m2, spins)
-        
+
         return pd, chi0_wGG, chi0_wxvG, chi0_wvv
 
     @timer('Calculate CHI_0')
     def _calculate(self, pd, chi0_wGG, chi0_wxvG, chi0_wvv, m1, m2, spins,
                    extend_head=True):
         """In-place calculation of the response function.
-        
+
         Parameters
         ----------
         q_c : list or ndarray
@@ -458,7 +463,7 @@ class Chi0:
             for parts of the code that do not support this feature i.e., GW
             RPA total energy and RALDA.
         """
-        
+
         # Parse spins
         wfs = self.calc.wfs
         if spins == 'all':
@@ -537,7 +542,7 @@ class Chi0:
 
         prefactor = (2 * factor * PWSA.how_many_symmetries() /
                      (wfs.nspins * (2 * np.pi)**3))  # Remember prefactor
-        
+
         if self.integrationmode is None:
             if self.calc.wfs.kd.refine_info is not None:
                 nbzkpts = self.calc.wfs.kd.refine_info.mhnbzkpts
@@ -562,7 +567,7 @@ class Chi0:
         else:
             mat_kwargs['n2'] = self.nbands
             eig_kwargs['n2'] = self.nbands
-        
+
         if not extend_head:
             mat_kwargs['extend_head'] = False
 
@@ -598,7 +603,7 @@ class Chi0:
         if wings:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
-        
+
         # Integrate response function
         print('Integrating response function.', file=self.fd)
         integrator.integrate(kind=kind,  # Kind of integral
@@ -724,7 +729,7 @@ class Chi0:
         # calculated above is normalized by the number of symmetries (as seen
         # below) and then symmetrized.
         A_wxx *= prefactor
-        
+
         tmpA_wxx = self.redistribute(A_wxx)
         if extend_head:
             PWSA.symmetrize_wxx(tmpA_wxx,
@@ -840,7 +845,7 @@ class Chi0:
         the kpoint and q is the momentum transfer. For dielectric
         reponse s'=s, for the transverse magnetic reponse
         s' is flipped with respect to s.
-        
+
         Parameters
         ----------
         k_v : ndarray
@@ -902,10 +907,10 @@ class Chi0:
 
         n_nmG = self.pair.get_pair_density(pd, kptpair, n_n, m_m,
                                            Q_aGii=self.Q_aGii, block=block)
-        
+
         if integrationmode is None:
             n_nmG *= weight
-        
+
         df_nm = kptpair.get_occupation_differences(n_n, m_m)
         if not self.response == 'density':
             df_nm = np.abs(df_nm)
@@ -917,7 +922,7 @@ class Chi0:
             nq_nm = np.dot(n_nmG[:, :, :3], q_v)
             n_nmG = n_nmG[:, :, 2:]
             n_nmG[:, :, 0] = nq_nm
-        
+
         if not extend_head and optical_limit:
             n_nmG = np.copy(n_nmG[:, :, 2:])
             optical_limit = False
@@ -1078,7 +1083,8 @@ class Chi0:
             bg1 = BlacsGrid(comm, 1, comm.size)
             in_wGG = chi0_wGG.reshape((nw, -1))
         else:
-            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            bg1 = BlacsGrid(None, 1, 1)
+            # bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
             in_wGG = np.zeros((0, 0), complex)
         md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
 
@@ -1091,15 +1097,16 @@ class Chi0:
         r.redistribute(in_wGG, out_wGG.reshape((wb - wa, nG**2)))
 
         return out_wGG
-    
+
     def print_chi(self, pd):
         calc = self.calc
         gd = calc.wfs.gd
 
         if extra_parameters.get('df_dry_run'):
-            from gpaw.mpi import DryRunCommunicator
+            from gpaw.mpi import SerialCommunicator
             size = extra_parameters['df_dry_run']
-            world = DryRunCommunicator(size)
+            world = SerialCommunicator()
+            world.size = size
         else:
             world = self.world
 

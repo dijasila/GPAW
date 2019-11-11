@@ -18,7 +18,6 @@ de = e1 - e2
 print(de)
 equal(de, 0.7871, 1.e-4)
 
-energy_tolerance = 0.00006
-niter_tolerance = 0
+energy_tolerance = 0.0006
 equal(e1, -0.499854, energy_tolerance)
 equal(e2, -1.287, energy_tolerance)

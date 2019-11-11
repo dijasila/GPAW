@@ -4,18 +4,20 @@
 from __future__ import print_function
 
 import numpy as np
+from scipy.special import spherical_jn
 
 from gpaw.xc import XC
 from gpaw.sphere.lebedev import weight_n, R_nv
 from gpaw.io.tar import Reader
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.spherical_harmonics import Yarr
 
 from ase.utils.timing import Timer
 from ase.units import Bohr, Ha
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
-                  RSrep='gpaw',
+                  rshe=0.99,
                   chi0_wGG=None,
                   fxc_scaling=None,
                   density_cut=None,
@@ -26,14 +28,14 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
 
     if kernel == 'density':
         return get_density_xc_kernel(pd, chi0, functional=functional,
-                                     RSrep=RSrep,
+                                     rshe=rshe,
                                      chi0_wGG=chi0_wGG,
                                      density_cut=density_cut)
     elif kernel in ['+-', '-+']:
         # Currently only collinear adiabatic xc kernels are implemented
         # for which the +- and -+ kernels are the same
         return get_transverse_xc_kernel(pd, chi0, functional=functional,
-                                        RSrep=RSrep,
+                                        rshe=rshe,
                                         chi0_wGG=chi0_wGG,
                                         fxc_scaling=fxc_scaling,
                                         density_cut=density_cut,
@@ -43,7 +45,7 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
 
 
 def get_density_xc_kernel(pd, chi0, functional='ALDA',
-                          RSrep='gpaw',
+                          rshe=0.99,
                           chi0_wGG=None,
                           density_cut=None):
     """
@@ -59,7 +61,8 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
     if functional[0] == 'A':
         # Standard adiabatic kernel
         print('Calculating %s kernel' % functional, file=fd)
-        Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world, RSrep,
+        Kcalc = AdiabaticDensityKernelCalculator(fd, chi0.world,
+                                                 rshe=rshe,
                                                  ecut=chi0.ecut,
                                                  density_cut=density_cut)
         Kxc_sGG = np.array([Kcalc(pd, calc, functional)])
@@ -85,7 +88,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
 
 
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
-                             RSrep='gpaw',
+                             rshe=0.99,
                              chi0_wGG=None,
                              fxc_scaling=None,
                              density_cut=None,
@@ -94,34 +97,35 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
     Currently only collinear ALDA kernels are implemented
     Factory function that calls the relevant functions below
     """
-    
+
     calc = chi0.calc
     fd = chi0.fd
     nspins = len(calc.density.nt_sG)
     assert nspins == 2
-    
+
     if functional in ['ALDA_x', 'ALDA_X', 'ALDA']:
         # Adiabatic kernel
         print("Calculating transverse %s kernel" % functional, file=fd)
-        Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world, RSrep,
+        Kcalc = AdiabaticTransverseKernelCalculator(fd, chi0.world,
+                                                    rshe=rshe,
                                                     ecut=chi0.ecut,
                                                     density_cut=density_cut,
                                                     spinpol_cut=spinpol_cut)
     else:
         raise ValueError("%s spin kernel not implemented" % functional)
-    
+
     Kxc_GG = Kcalc(pd, calc, functional)
-    
+
     if fxc_scaling is not None:
         assert isinstance(fxc_scaling[0], bool)
         if fxc_scaling[0]:
             if fxc_scaling[1] is None:
                 fxc_scaling[1] = find_Goldstone_scaling(pd, chi0,
                                                         chi0_wGG, Kxc_GG)
-            
+
             assert isinstance(fxc_scaling[1], float)
             Kxc_GG *= fxc_scaling[1]
-    
+
     return Kxc_GG
 
 
@@ -129,7 +133,7 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     """ Find a scaling of the kernel to move the magnon peak to omeaga=0. """
     # q should be gamma - scale to hit Goldstone
     assert pd.kd.gamma
-    
+
     fd = chi0.fd
     omega_w = chi0.omega_w
     wgs = np.abs(omega_w).argmin()
@@ -175,63 +179,75 @@ def find_Goldstone_scaling(pd, chi0, chi0_wGG, Kxc_GG):
     # Broadcast found rescaling
     world.broadcast(fxcsbuf, rgs)
     fxcs = fxcsbuf[0]
-    
+
     return fxcs
 
 
 class AdiabaticKernelCalculator:
     """ Adiabatic kernels with PAW """
-    
-    def __init__(self, fd, world, RSrep, ecut=None):
 
+    def __init__(self, fd, world, rshe=0.99, ecut=None):
         """
-        RSrep : str
-            real space representation of kernel ('gpaw' or 'grid')
+        rshe : float or None
+            Expand kernel in real spherical harmonics inside augmentation
+            spheres. If None, the kernel will be calculated without
+            augmentation. The value of rshe (0<rshe<1) sets a convergence
+            criteria for the expansion in real spherical harmonics.
         """
-        
+
         self.fd = fd
         self.world = world
-        self.RSrep = RSrep
         self.ecut = ecut
-        
+
         self.permitted_functionals = []
         self.functional = None
-    
+
+        self.rshe = rshe is not None
+
+        if self.rshe:
+            self.rshecc = rshe
+            self.dfSns_g = None
+            self.dfSns_gL = None
+            self.dfmask_g = None
+            self.rsheconvmin = None
+
+            self.rsheL_M = None
+
     def __call__(self, pd, calc, functional):
         assert functional in self.permitted_functionals
         self.functional = functional
         add_fxc = self.add_fxc  # class methods not within the scope of call
-        
+
         vol = pd.gd.volume
         npw = pd.ngmax
-        
-        if self.RSrep == 'grid':
+
+        if self.rshe:
+            nt_sG = calc.density.nt_sG
+            gd, lpd = pd.gd, pd
+
+            print("\tCalculating fxc on real space grid using smooth density",
+                  file=self.fd)
+            fxc_G = np.zeros(np.shape(nt_sG[0]))
+            add_fxc(gd, nt_sG, fxc_G)
+        else:
             print("\tFinding all-electron density", file=self.fd)
             n_sG, gd = calc.density.get_all_electron_density(atoms=calc.atoms,
                                                              gridrefinement=1)
             qd = pd.kd
             lpd = PWDescriptor(self.ecut, gd, complex, qd,
                                gammacentered=pd.gammacentered)
-            
+
             print("\tCalculating fxc on real space grid using"
                   + " all-electron density", file=self.fd)
             fxc_G = np.zeros(np.shape(n_sG[0]))
             add_fxc(gd, n_sG, fxc_G)
-        else:
-            nt_sG = calc.density.nt_sG
-            gd, lpd = pd.gd, pd
-            
-            print("\tCalculating fxc on real space grid using smooth density",
-                  file=self.fd)
-            fxc_G = np.zeros(np.shape(nt_sG[0]))
-            add_fxc(gd, nt_sG, fxc_G)
-        
+
         print("\tFourier transforming into reciprocal space", file=self.fd)
         nG = gd.N_c
         nG0 = nG[0] * nG[1] * nG[2]
-        
+
         tmp_g = np.fft.fftn(fxc_G) * vol / nG0
-        
+
         Kxc_GG = np.zeros((npw, npw), dtype=complex)
         for iG, iQ in enumerate(lpd.Q_qG[0]):
             iQ_c = (np.unravel_index(iQ, nG) + nG // 2) % nG - nG // 2
@@ -240,55 +256,42 @@ class AdiabaticKernelCalculator:
                 ijQ_c = (iQ_c - jQ_c)
                 if (abs(ijQ_c) < nG // 2).all():
                     Kxc_GG[iG, jG] = tmp_g[tuple(ijQ_c)]
-        
-        if self.RSrep == 'gpaw':
+
+        if self.rshe:
             print("\tCalculating PAW corrections to the kernel", file=self.fd)
-            
+
             G_Gv = pd.get_reciprocal_vectors()
             R_av = calc.atoms.positions / Bohr
             setups = calc.wfs.setups
             D_asp = calc.density.D_asp
-            
+
             KxcPAW_GG = np.zeros_like(Kxc_GG)
-            dG_GGv = np.zeros((npw, npw, 3))
+
+            # Distribute correction and find dG
+            nGpr = (npw + self.world.size - 1) // self.world.size
+            Ga = min(self.world.rank * nGpr, npw)
+            Gb = min(Ga + nGpr, npw)
+            myG_G = range(Ga, Gb)
+            dG_GGv = np.zeros((len(myG_G), npw, 3))
             for v in range(3):
-                dG_GGv[:, :, v] = np.subtract.outer(G_Gv[:, v], G_Gv[:, v])
+                dG_GGv[:, :, v] = np.subtract.outer(G_Gv[myG_G, v], G_Gv[:, v])
 
-            # Distribute computation of PAW correction equally among processes
-            p_r = self.distribute_correction(setups, self.world.size)
-            apdone = 0
-            npdone = 0
-            pdone = 0
-            pdonebefore = np.sum(p_r[:self.world.rank])
-            pdonenow = pdonebefore + p_r[self.world.rank]
-            
+            # Find length of dG and the normalized dG
+            dG_GG = np.linalg.norm(dG_GGv, axis=2)
+            dGn_GGv = np.zeros_like(dG_GGv)
+            mask0 = np.where(dG_GG != 0.)
+            dGn_GGv[mask0] = dG_GGv[mask0] / dG_GG[mask0][:, np.newaxis]
+
             for a, setup in enumerate(setups):
-                # PAW correction is evaluated on a radial grid
-                Y_nL = setup.xc_correction.Y_nL
-                rgd = setup.xc_correction.rgd
-
-                # Continue if computation has been done already
-                nn = len(Y_nL)
-                ng = len(rgd.r_g)
-                apdone += nn * ng
-                if pdonebefore >= apdone or pdone >= pdonenow:
-                    npdone += nn * ng
-                    pdone += nn * ng
-                    continue
-                
                 n_qg = setup.xc_correction.n_qg
                 nt_qg = setup.xc_correction.nt_qg
                 nc_g = setup.xc_correction.nc_g
                 nct_g = setup.xc_correction.nct_g
-                dv_g = rgd.dv_g
 
                 D_sp = D_asp[a]
                 B_pqL = setup.xc_correction.B_pqL
                 D_sLq = np.inner(D_sp, B_pqL.T)
                 nspins = len(D_sp)
-
-                f_g = rgd.zeros()
-                ft_g = rgd.zeros()
 
                 n_sLg = np.dot(D_sLq, n_qg)
                 nt_sLg = np.dot(D_sLq, nt_qg)
@@ -297,17 +300,15 @@ class AdiabaticKernelCalculator:
                 n_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nc_g
                 nt_sLg[:, 0] += np.sqrt(4. * np.pi) / nspins * nct_g
 
-                coefatoms_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
-                
+                # Calculate dfxc
+                # Please note: Using the radial grid descriptor with add_fxc
+                # might give problems beyond ALDA
+                Y_nL = setup.xc_correction.Y_nL
+                rgd = setup.xc_correction.rgd
+                f_g = rgd.zeros()
+                ft_g = rgd.zeros()
+                df_ng = np.array([rgd.zeros() for n in range(len(R_nv))])
                 for n, Y_L in enumerate(Y_nL):
-                    # Continue if computation has been done already
-                    npdone += ng
-                    if pdonebefore >= npdone or pdone >= pdonenow:
-                        pdone += ng
-                        continue
-                    
-                    w = weight_n[n]
-
                     f_g[:] = 0.
                     n_sg = np.dot(Y_L, n_sLg)
                     add_fxc(rgd, n_sg, f_g)
@@ -316,54 +317,147 @@ class AdiabaticKernelCalculator:
                     nt_sg = np.dot(Y_L, nt_sLg)
                     add_fxc(rgd, nt_sg, ft_g)
 
-                    dG_GG = np.inner(dG_GGv, R_nv[n])
-                    for i in range(len(rgd.r_g)):
-                        # Continue if previous ranks already did computation
-                        pdone += 1
-                        if pdonebefore >= pdone:
-                            continue
-                        # Do computation if needed
-                        if pdone <= pdonenow:
-                            coef_GG = np.exp(-1j * dG_GG * rgd.r_g[i])
-                            KxcPAW_GG += w * coefatoms_GG\
-                                * np.dot(coef_GG, (f_g[i] - ft_g[i])
-                                         * dv_g[i])
-            
+                    df_ng[n, :] = f_g - ft_g
+
+                # Expand angular part of dfxc in real spherical harmonics.
+                # Note that the Lebedev quadrature, which is used to calculate
+                # the expansion coefficients, is exact to order l=11. This
+                # implies that functions containing angular components l<=5 can
+                # be expanded exactly.
+                L_L = []
+                l_L = []
+                nL = min(Y_nL.shape[1], 36)
+                # The convergence of the expansion is tracked through the
+                # surface norm square of df
+                ng = self._initialize_rshe_convcrit(df_ng, nL)
+                # Integrate only r-values inside augmentation sphere
+                df_ng = df_ng[:, :ng]
+                r_g = rgd.r_g[:ng]
+                dv_g = rgd.dv_g[:ng]
+
+                # Add real spherical harmonics to fulfill convergence criteria.
+                df_gL = np.zeros((ng, nL))
+                l = 0
+                while self.rsheconvmin < self.rshecc:
+                    if l > int(np.sqrt(nL) - 1):
+                        raise Exception('Could not expand %.f of' % self.rshecc
+                                        + ' PAW correction to atom %d in ' % a
+                                        + 'real spherical harmonics up to '
+                                        + 'order l=%d' % int(np.sqrt(nL) - 1))
+
+                    L_L += range(l**2, l**2 + 2 * l + 1)
+                    l_L += [l] * (l * 2 + 1)
+
+                    self._add_rshe_coefficients(df_ng, df_gL, Y_nL, l)
+                    self._evaluate_rshe_convergence(df_gL)
+
+                    print('\tAt least a fraction of '
+                          + '%.8f' % self.rsheconvmin
+                          + ' of the PAW correction to atom %d could be ' % a
+                          + 'expanded in spherical harmonics up to l=%d' % l,
+                          file=self.fd)
+                    l += 1
+
+                # Filter away unused (l,m)-coefficients
+                L_M = np.where(self.rsheL_M)[0]
+                l_M = [l_L[L] for L in L_M]
+
+                # Expand plane wave
+                nM = len(L_M)
+                (r_gMGG, l_gMGG,
+                 dG_gMGG) = [a.reshape(ng, nM, *dG_GG.shape)
+                             for a in np.meshgrid(r_g, l_M, dG_GG.flatten(),
+                                                  indexing='ij')]
+                j_gMGG = spherical_jn(l_gMGG, dG_gMGG * r_gMGG)  # Slow step
+                Y_MGG = Yarr(L_M, dGn_GGv)
+                ii_MK = (-1j) ** np.repeat(l_M,
+                                           np.prod(dG_GG.shape))
+                ii_MGG = ii_MK.reshape((nM, *dG_GG.shape))
+
+                # Perform integration
+                coefatomR_GG = np.exp(-1j * np.inner(dG_GGv, R_av[a]))
+                coefatomang_MGG = ii_MGG * Y_MGG
+                coefatomrad_MGG = np.tensordot(j_gMGG * df_gL[:, L_M,
+                                                              np.newaxis,
+                                                              np.newaxis],
+                                               dv_g, axes=([0, 0]))
+                coefatom_GG = np.sum(coefatomang_MGG * coefatomrad_MGG, axis=0)
+                KxcPAW_GG[myG_G] += coefatom_GG * coefatomR_GG
+
             self.world.sum(KxcPAW_GG)
             Kxc_GG += KxcPAW_GG
-        
+
         return Kxc_GG / vol
 
-    def distribute_correction(self, setups, size):
-        """ Make every process work an equal amount """
-        # Figure out the total number of grid points
-        tp = 0
-        for a, setup in enumerate(setups):
-            Y_nL = setup.xc_correction.Y_nL
-            r_g = setup.xc_correction.rgd.r_g
-            tp += len(Y_nL) * len(r_g)
-        
-        # How many points should each process compute
-        ppr = tp // size
-        p_r = []
-        pdone = 0
-        for rr in range(size):
-            if pdone + ppr * (size - rr) > tp:
-                ppr -= 1
-            elif pdone + ppr * (size - rr) < tp:
-                ppr += 1
-            p_r.append(ppr)
-            pdone += ppr
+    def _ang_int(self, f_nA):
+        """ Make surface integral on a sphere using Lebedev quadrature """
+        return 4. * np.pi * np.tensordot(weight_n, f_nA, axes=([0], [0]))
 
-        return p_r
-    
+    def _initialize_rshe_convcrit(self, df_ng, nL):
+        """
+        Initialize the convergence criteria for the expansion in real spherical
+        harmonics by finding the surface norm square of df as a function of g
+        (df is assumed to be a real function).
+        The convergence of the expansion is tracked by comparing the surface
+        norm square calculated using the expansion and the full result.
+        """
+        # Calculate surface norm square
+        dfSns_g = self._ang_int(df_ng ** 2)
+        self.dfSns_g = dfSns_g
+        self.dfSns_gL = np.repeat(dfSns_g, nL).reshape(dfSns_g.shape[0], nL)
+        # Find PAW correction range
+        self.dfmask_g = np.where(self.dfSns_g > 0.)
+        ng = np.max(self.dfmask_g) + 1
+
+        # Initialize convergence criteria
+        self.rsheconvmin = 0.
+
+        return ng
+
+    def _add_rshe_coefficients(self, df_ng, df_gL, Y_nL, l):
+        """
+        Adds the l-components in the real spherical harmonic expansion
+        of df_ng to df_gL.
+        Assumes df_ng to be a real function.
+        """
+        nm = 2 * l + 1
+        L_L = np.arange(l**2, l**2 + nm)
+        df_ngm = np.repeat(df_ng, nm, axis=1).reshape((*df_ng.shape, nm))
+        Y_ngm = np.repeat(Y_nL[:, L_L],
+                          df_ng.shape[1], axis=0).reshape((*df_ng.shape, nm))
+        df_gL[:, L_L] = self._ang_int(Y_ngm * df_ngm)
+
+    def _evaluate_rshe_coefficients(self, f_gL):
+        """
+        Checks weither some (l,m)-coefficients are very small for all g,
+        in that case they can be excluded from the expansion.
+        """
+        fc_L = np.sum(f_gL[self.dfmask_g]**2 / self.dfSns_gL[self.dfmask_g],
+                      axis=0)
+        self.rsheL_M = fc_L > (1. - self.rshecc) * 1.e-3
+
+    def _evaluate_rshe_convergence(self, f_gL):
+        """
+        Find the minimal fraction of f_ng captured by the expansion
+        in real spherical harmonics f_gL.
+        """
+        self._evaluate_rshe_coefficients(f_gL)
+
+        rsheconv_g = np.ones(f_gL.shape[0])
+        dfSns_g = np.sum(f_gL[:, self.rsheL_M]**2, axis=1)
+        rsheconv_g[self.dfmask_g] = dfSns_g[self.dfmask_g]
+        rsheconv_g[self.dfmask_g] /= self.dfSns_g[self.dfmask_g]
+
+        self.rsheconvmin = np.min(rsheconv_g)
+
     def add_fxc(self, gd, n_sg, fxc_g):
         raise NotImplementedError
 
 
 class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
 
-    def __init__(self, fd, world, RSrep,
+    def __init__(self, fd, world,
+                 rshe=0.99,
                  ecut=None,
                  density_cut=None):
         """
@@ -372,8 +466,8 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
         """
 
         self.density_cut = density_cut
-        
-        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep, ecut)
+
+        AdiabaticKernelCalculator.__init__(self, fd, world, rshe, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
 
@@ -387,18 +481,18 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
             Kxc_GG[:, 0] = 0.0
 
         return Kxc_GG
-        
+
     def add_fxc(self, gd, n_sG, fxc_G):
         """
         Calculate fxc, using the cutoffs from input above
-        
+
         ALDA_x is an explicit algebraic version
         ALDA_X uses the libxc package
         """
-        
+
         _calculate_fxc = self._calculate_fxc
         density_cut = self.density_cut
-        
+
         # Mask small n
         n_G = np.sum(n_sG, axis=0)
         if density_cut:
@@ -418,13 +512,14 @@ class AdiabaticDensityKernelCalculator(AdiabaticKernelCalculator):
             fxc_sG = np.zeros_like(n_sG)
             xc = XC(self.functional[1:])
             xc.calculate_fxc(gd, n_sG, fxc_sG)
-                
+
             return fxc_sG[0]
 
-        
+
 class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
-    
-    def __init__(self, fd, world, RSrep,
+
+    def __init__(self, fd, world,
+                 rshe=0.99,
                  ecut=None,
                  density_cut=None,
                  spinpol_cut=None):
@@ -434,27 +529,27 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
         spinpol_cut : float
             cutoff spin polarization. Below, f_xc is evaluated in zeta=0 limit
         """
-        
+
         self.density_cut = density_cut
         self.spinpol_cut = spinpol_cut
-        
-        AdiabaticKernelCalculator.__init__(self, fd, world, RSrep, ecut)
+
+        AdiabaticKernelCalculator.__init__(self, fd, world, rshe, ecut)
 
         self.permitted_functionals += ['ALDA_x', 'ALDA_X', 'ALDA']
-    
+
     def add_fxc(self, gd, n_sG, fxc_G):
         """
         Calculate fxc, using the cutoffs from input above
-        
+
         ALDA_x is an explicit algebraic version
         ALDA_X uses the libxc package
         """
-        
+
         _calculate_pol_fxc = self._calculate_pol_fxc
         _calculate_unpol_fxc = self._calculate_unpol_fxc
         spinpol_cut = self.spinpol_cut
         density_cut = self.density_cut
-        
+
         # Mask small zeta
         n_G, m_G = None, None
         if spinpol_cut is not None:
@@ -464,7 +559,7 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
         else:
             zetasmall_G = np.full(np.shape(n_sG[0]), False,
                                   np.array(False).dtype)
-            
+
         # Mask small n
         if density_cut:
             if n_G is None:
@@ -472,29 +567,29 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             npos_G = np.abs(n_G) > density_cut
         else:
             npos_G = np.full(np.shape(n_sG[0]), True, np.array(True).dtype)
-        
+
         # Don't use small zeta limit if n is small
         zetasmall_G = np.logical_and(zetasmall_G, npos_G)
-    
+
         # In small zeta limit, use unpolarized fxc
         if zetasmall_G.any():
             if n_G is None:
                 n_G = n_sG[0] + n_sG[1]
             fxc_G[zetasmall_G] += _calculate_unpol_fxc(gd, n_G)[zetasmall_G]
-        
+
         # Set fxc to zero if n is small
         allfine_G = np.logical_and(np.invert(zetasmall_G), npos_G)
-        
+
         # Above both spinpol_cut and density_cut calculate polarized fxc
         if m_G is None:
             m_G = n_sG[0] - n_sG[1]
         fxc_G[allfine_G] += _calculate_pol_fxc(gd, n_sG, m_G)[allfine_G]
-        
+
     def _calculate_pol_fxc(self, gd, n_sG, m_G):
         """ Calculate polarized fxc """
-        
+
         assert np.shape(m_G) == np.shape(n_sG[0])
-        
+
         if self.functional == 'ALDA_x':
             fx_G = - (6. / np.pi)**(1. / 3.) \
                 * (n_sG[0]**(1. / 3.) - n_sG[1]**(1. / 3.)) / m_G
@@ -503,9 +598,9 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             v_sG = np.zeros(np.shape(n_sG))
             xc = XC(self.functional[1:])
             xc.calculate(gd, n_sG, v_sg=v_sG)
-                
+
             return (v_sG[0] - v_sG[1]) / m_G
-    
+
     def _calculate_unpol_fxc(self, gd, n_G):
         """ Calculate unpolarized fxc """
         fx_G = - (3. / np.pi)**(1. / 3.) * 2. / 3. * n_G**(-2. / 3.)
@@ -519,20 +614,20 @@ class AdiabaticTransverseKernelCalculator(AdiabaticKernelCalculator):
             b2 = 3.6231
             b3 = 0.88026
             b4 = 0.49671
-            
+
             rs_G = 3. / (4. * np.pi) * n_G**(-1. / 3.)
             X_G = 2. * A * (b1 * rs_G**(1. / 2.)
                             + b2 * rs_G + b3 * rs_G**(3. / 2.) + b4 * rs_G**2.)
             ac_G = 2. * A * (1 + a1 * rs_G) * np.log(1. + 1. / X_G)
-            
+
             fc_G = 2. * ac_G / n_G
-            
+
             return fx_G + fc_G
 
 
 def calculate_renormalized_kernel(pd, calc, functional, fd, density_cut=None):
     """Renormalized kernel"""
-    
+
     from gpaw.xc.fxc import KernelDens
     kernel = KernelDens(calc,
                         functional,
@@ -543,15 +638,15 @@ def calculate_renormalized_kernel(pd, calc, functional, fd, density_cut=None):
                         ecut=pd.ecut * Ha,
                         tag='',
                         timer=Timer())
-    
+
     kernel.calculate_fhxc()
     r = Reader('fhxc_%s_%s_%s_%s.ulm' %
                ('', functional, pd.ecut * Ha, 0))
     Kxc_sGG = np.array([r.get('fhxc_sGsG')])
-    
+
     v_G = 4 * np.pi / pd.G2_qG[0]
     Kxc_sGG[0] -= np.diagflat(v_G)
-    
+
     if pd.kd.gamma:
         Kxc_sGG[:, 0, :] = 0.0
         Kxc_sGG[:, :, 0] = 0.0
@@ -598,7 +693,7 @@ def calculate_dm_kernel(pd, calc):
 
 def get_bootstrap_kernel(pd, chi0, chi0_wGG, fd):
     """ Bootstrap kernel (see below) """
-    
+
     if chi0.world.rank == 0:
         chi0_GG = chi0_wGG[0]
         if chi0.world.size > 1:

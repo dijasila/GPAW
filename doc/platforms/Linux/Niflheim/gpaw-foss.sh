@@ -16,6 +16,8 @@ if [[ -z "$EBROOTLIBXC" ]]; then
    module load libxc/3.0.1-${GPAW_TOOLCHAIN}-2018b
 fi
 
+module load libvdwxc/0.3.2-foss-2018b
+
 # Load Python and matplotlib
 module load matplotlib/3.0.0-$MYPYTHON
 
@@ -24,9 +26,7 @@ if [[ -z $GPAW_SETUP_PATH ]]; then
     module load GPAW-setups
 fi
 
-export GPAW_MPI_OPTIONS=""
-PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.6
-export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
-export PYTHONPATH=$GPAW:$GPAW/build/lib.$PLATFORM:$PYTHONPATH
+export PATH=$GPAW/tools:$PATH
+export PYTHONPATH=$GPAW:$PYTHONPATH
 export PATH=$ASE/bin:$PATH
 export PYTHONPATH=$ASE:$PYTHONPATH

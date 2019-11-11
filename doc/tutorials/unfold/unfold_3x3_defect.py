@@ -1,18 +1,17 @@
 from ase.build import mx2
-from ase.dft.kpoints import bandpath
 
 from gpaw import GPAW
 from gpaw.unfold import Unfold, find_K_from_k
 
 a = 3.184
 PC = mx2(a=a).get_cell(complete=True)
-points = PC.bravais()[0].get_special_points()
-path = [points[k] for k in 'MKG']
-kpts, x, X = bandpath(path, PC, 48)
+bp = PC.get_bravais_lattice().bandpath('MKG', npoints=48)
+x, X, _ = bp.get_linear_kpoint_axis()
+
 M = [[3, 0, 0], [0, 3, 0], [0, 0, 1]]
 
 Kpts = []
-for k in kpts:
+for k in bp.kpts:
     K = find_K_from_k(k, M)[0]
     Kpts.append(K)
 
@@ -31,5 +30,5 @@ unfold = Unfold(name='3x3_defect',
                 M=M,
                 spinorbit=False)
 
-unfold.spectral_function(kpts=kpts, x=x, X=X,
+unfold.spectral_function(kpts=bp.kpts, x=x, X=X,
                          points_name=['M', 'K', 'G'])

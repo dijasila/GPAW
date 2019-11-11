@@ -153,9 +153,10 @@ class ProjectedWannierFunctionsIBL:
         self.S_ww = self.rotate_matrix(np.ones(1), S_MM)
         P_uw = np.dot(V_uM, self.U_Mw)
         self.norms_n = np.hstack((
-            np.dot(U_ow, np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
-            np.dot(P_uw, np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()
-            ))
+            np.dot(U_ow,
+                   np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
+            np.dot(P_uw,
+                   np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()))
 
     def rotate_matrix(self, A_o, A_MM):
         assert A_o.ndim == 1

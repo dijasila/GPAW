@@ -1,4 +1,4 @@
-"""Module for calculating electron-phonon couplings.
+r"""Module for calculating electron-phonon couplings.
 
 Electron-phonon interaction::
 
@@ -75,7 +75,7 @@ from gpaw.utilities.tools import tri2full
 from gpaw.utilities.timing import StepTimer, nulltimer
 from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
-from ase.parallel import rank
+from gpaw.mpi import rank
 from ase.utils import opencew
 
 
@@ -606,7 +606,7 @@ class ElectronPhononCoupling(Displacement):
 
     def bloch_matrix(self, kpts, qpts, c_kn, u_ql,
                      omega_ql=None, kpts_from=None):
-        """Calculate el-ph coupling in the Bloch basis for the electrons.
+        r"""Calculate el-ph coupling in the Bloch basis for the electrons.
 
         This function calculates the electron-phonon coupling between the
         specified Bloch states, i.e.::

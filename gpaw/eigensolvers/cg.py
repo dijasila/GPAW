@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, gemv
+from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw import extra_parameters
@@ -62,7 +62,7 @@ class CG(Eigensolver):
                              'over %d band groups.' % wfs.bd.comm.size)
         Eigensolver.initialize(self, wfs)
 
-    def iterate_one_k_point(self, ham, wfs, kpt):
+    def iterate_one_k_point(self, ham, wfs, kpt, weights):
         """Do conjugate gradient iterations for the k-point"""
         self.timer.start('CG')
 
@@ -144,8 +144,7 @@ class CG(Eigensolver):
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
-                gemv(-1.0, psit.array[:N].view(wfs.dtype), overlap_n,
-                     1.0, phi_G.view(wfs.dtype), 'n')
+                phi_G -= psit.array[:N].T.dot(overlap_n).T
 
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]
@@ -222,13 +221,7 @@ class CG(Eigensolver):
                         break
                     error = error_new
 
-            if kpt.f_n is None:
-                weight = 1.0
-            else:
-                weight = kpt.f_n[n]
-            if self.nbands_converge != 'occupied':
-                weight = kpt.weight * float(n < self.nbands_converge)
-            total_error += weight * error
+            total_error += weights[n] * error
             # if nit == 3:
             #   print >> self.f, "cg:iters", n, nit+1
         if self.tw_coeff:  # undo the scaling for calculating energies
