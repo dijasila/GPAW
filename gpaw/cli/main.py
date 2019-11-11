@@ -30,7 +30,9 @@ commands = [
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
                         help='Run on N CPUs.')
-    args = parser.parse_args(args)
+    args, extra = parser.parse_known_args(args)
+    if extra:
+        args.arguments = extra
 
     if hasattr(args, 'dry_run'):
         N = int(args.dry_run)
