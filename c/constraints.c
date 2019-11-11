@@ -12,7 +12,7 @@
 #ifdef __clang__
 #define INLINE static
 #else
-#define INLINE inline
+#define INLINE static inline
 #endif
 
 // Index notation
@@ -230,7 +230,7 @@ PyObject* adjust_positions(PyObject *self, PyObject *args)
   PyArrayObject* arrayR_niv = 0;     // Output: Adjusted positions will be written here.
   PyArrayObject* arraynewR_niv = 0;  // Input: gives the positions to be adjusted.
 
-  if (!PyArg_ParseTuple(args, "OOOO", &arraylen_x, &arraymass_i, 
+  if (!PyArg_ParseTuple(args, "OOOO", &arraylen_x, &arraymass_i,
                         &arrayR_niv, &arraynewR_niv))
     {
       return NULL;
@@ -368,9 +368,9 @@ PyObject* adjust_momenta(PyObject *self, PyObject *args)
 {
   PyArrayObject* arraymass_i = 0;    // Input: the 3 masses
   PyArrayObject* arrayR_niv = 0;     //
-  PyArrayObject* arraynewP_niv = 0;  // 
+  PyArrayObject* arraynewP_niv = 0;  //
 
-  if (!PyArg_ParseTuple(args, "OOO", &arraymass_i, &arrayR_niv,  
+  if (!PyArg_ParseTuple(args, "OOO", &arraymass_i, &arrayR_niv,
                         &arraynewP_niv))
     {
       return NULL;
@@ -459,7 +459,7 @@ PyObject* adjust_momenta(PyObject *self, PyObject *args)
         vec9_dot(denom_x, d_xv, d_xv); // (R1-R2)^2 etc.
         vec3_div(lambda_x, g_x, denom_x); // g_12 / (R1-R2)^2
         vec3_imul(lambda_x, mu_x); // lambda /= (m_1^-1 + m_2^-1) etc.
-        
+
         #ifdef FF_DEBUG_M
         vec3_print("lambda_x", lambda_x);
         #endif
@@ -496,7 +496,7 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args)
 
   double cutoff=0;
   double width=0;
- 
+
   if (!PyArg_ParseTuple(args, "OOddddOOO", &arraypbc, &arraycell, &A, &B, &cutoff, &width, &arrayZ_i, &arrayR_niv, &arrayF_niv))
     {
       return NULL;
@@ -514,7 +514,7 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args)
     return NULL;
   }
 
-  if (!(PyArray_NDIM(arraycell) == 2 && 
+  if (!(PyArray_NDIM(arraycell) == 2 &&
        (PyArray_DIM(arraycell,0) == 3) &&
        (PyArray_DIM(arraycell,1) == 3))) {
     PyErr_SetString(PyExc_TypeError, "Cell should be array with size 3x3.");
@@ -523,10 +523,10 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args)
 
   double* cell_vc = DOUBLEP(arraycell);
   //printf("Cell\n");
-  for (unsigned int v1=0; v1<3; v1++) 
+  for (unsigned int v1=0; v1<3; v1++)
     for (unsigned int v2=0; v2<3; v2++) {
       //printf("%20.15f \n", cell_vc[v1+v2*3]);
-      if (v1 != v2) 
+      if (v1 != v2)
         if (fabs(cell_vc[v1+v2*3]) > 1e-10) {
           PyErr_SetString(PyExc_TypeError, "Cell array should be diagonal.");
           return NULL;
@@ -556,7 +556,7 @@ PyObject* calculate_forces_H2O(PyObject *self, PyObject *args)
   double* F_niv = DOUBLEP(arrayF_niv);
 
   double E = 0.0;
-  if (cutoff <= 0.0) { // No cutoff 
+  if (cutoff <= 0.0) { // No cutoff
     // Double loop of atoms
     for (unsigned int n1 = 0; n1 < NW; n1++)
       for (unsigned int n2 = n1+1; n2 < NW; n2++) {
