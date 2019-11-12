@@ -169,7 +169,8 @@ class EXX:
                                v1_nG=None,
                                v1_ani=None,
                                v2_nG=None,
-                               v2_ani=None):
+                               v2_ani=None,
+                               F_av=None):
 
         factor = 1.0 / self.kd.nbzkpts
 
@@ -212,6 +213,10 @@ class EXX:
 
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
+                if F_av:
+                    for a, v_xL in ghat.derivative(vrho_G).items():
+                        print(a, v_xL.shape)
+                    asdfg
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 e_nn[n1, n2] = e
                 if k1 is k2:
