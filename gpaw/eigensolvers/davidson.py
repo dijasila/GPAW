@@ -124,17 +124,8 @@ class Davidson(Eigensolver):
                 ekin = precond.calculate_kinetic_energy(psit_G, kpt)
                 precond(R_G, kpt, ekin, out=psit2_G)
 
-            if 0:
-                psit.array[:] += 0.21 * psit2.array
-                psit.matrix_elements(wfs.pt, out=P)
-                return error
-
-            if 0:#getattr(wfs, 'go', 0):
-                psit2.array[:] = psit.array / 2
-
             # Calculate projections
             psit2.matrix_elements(wfs.pt, out=P2)
-            #print(P2.array - P.array)
 
             def copy(M, C_nn):
                 comm.sum(M.array, 0)
@@ -176,11 +167,6 @@ class Davidson(Eigensolver):
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh
-                    #print(H_NN, S_NN)
-                    #print(H_NN[1,1] / H_NN[0,0])
-                    #print(H_NN[1,0] / H_NN[0,0])
-                    #if getattr(wfs, 'go', 0):
-                    #    asdfgkjh
                     eps_N, H_NN[:] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
