@@ -189,10 +189,13 @@ class SCFLoop:
             else:
                 log('       ', end='')
 
-        log('%11.6f    %-5s  %-7s' %
-            (Ha * ham.e_total_extrapolated,
-             niterocc,
-             niterpoisson), end='')
+        if np.isfinite(ham.e_total_extrapolated):
+            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
+        else:
+            energy = ' ' * 11
+
+        log('%s    %-5s  %-7s' %
+            (energy, niterocc, niterpoisson), end='')
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')
