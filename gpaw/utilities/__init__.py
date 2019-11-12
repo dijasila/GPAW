@@ -20,10 +20,6 @@ import gpaw.mpi as mpi
 from gpaw import debug
 
 
-utilities_vdot = _gpaw.utilities_vdot
-utilities_vdot_self = _gpaw.utilities_vdot_self
-
-
 erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
 # XXX should we unify double and complex erf ???
 cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')

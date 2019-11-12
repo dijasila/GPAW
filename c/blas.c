@@ -10,7 +10,6 @@
 #include "extensions.h"
 
 #ifdef GPAW_NO_UNDERSCORE_BLAS
-#  define dscal_  dscal
 #  define zscal_  zscal
 #  define daxpy_  daxpy
 #  define zaxpy_  zaxpy
@@ -23,10 +22,8 @@
 #  define zgemm_  zgemm
 #  define dgemv_  dgemv
 #  define zgemv_  zgemv
-#  define ddot_   ddot
 #endif
 
-void dscal_(int*n, double* alpha, double* x, int* incx);
 
 void zscal_(int*n, void* alpha, void* x, int* incx);
 
@@ -71,26 +68,7 @@ void zgemv_(char *trans, int *m, int * n,
             void *alpha, void *a, int *lda,
             void *x, int *incx, void *beta,
             void *y, int *incy);
-double ddot_(int *n, void *dx, int *incx, void *dy, int *incy);
 
-PyObject* scal(PyObject *self, PyObject *args)
-{
-  Py_complex alpha;
-  PyArrayObject* x;
-  if (!PyArg_ParseTuple(args, "DO", &alpha, &x))
-    return NULL;
-  int n = PyArray_DIMS(x)[0];
-  for (int d = 1; d < PyArray_NDIM(x); d++)
-    n *= PyArray_DIMS(x)[d];
-  int incx = 1;
-
-  if (PyArray_DESCR(x)->type_num == NPY_DOUBLE)
-    dscal_(&n, &(alpha.real), DOUBLEP(x), &incx);
-  else
-    zscal_(&n, &alpha, (void*)COMPLEXP(x), &incx);
-
-  Py_RETURN_NONE;
-}
 
 PyObject* gemm(PyObject *self, PyObject *args)
 {
@@ -350,155 +328,5 @@ PyObject* r2k(PyObject *self, PyObject *args)
             (void*)(&alpha), (void*)COMPLEXP(a), &lda,
             (void*)COMPLEXP(b), &lda, &beta,
             (void*)COMPLEXP(c), &ldc);
-  Py_RETURN_NONE;
-}
-
-PyObject* dotc(PyObject *self, PyObject *args)
-{
-  PyArrayObject* a;
-  PyArrayObject* b;
-  if (!PyArg_ParseTuple(args, "OO", &a, &b))
-    return NULL;
-  int n = PyArray_DIMS(a)[0];
-  for (int i = 1; i < PyArray_NDIM(a); i++)
-    n *= PyArray_DIMS(a)[i];
-  int incx = 1;
-  int incy = 1;
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    {
-      double result;
-      result = ddot_(&n, (void*)DOUBLEP(a),
-             &incx, (void*)DOUBLEP(b), &incy);
-      return PyFloat_FromDouble(result);
-    }
-  else
-    {
-      double_complex* ap = COMPLEXP(a);
-      double_complex* bp = COMPLEXP(b);
-      double_complex z = 0.0;
-      for (int i = 0; i < n; i++)
-        z += conj(ap[i]) * bp[i];
-      return PyComplex_FromDoubles(creal(z), cimag(z));
-    }
-}
-
-
-PyObject* dotu(PyObject *self, PyObject *args)
-{
-  PyArrayObject* a;
-  PyArrayObject* b;
-  if (!PyArg_ParseTuple(args, "OO", &a, &b))
-    return NULL;
-  int n = PyArray_DIMS(a)[0];
-  for (int i = 1; i < PyArray_NDIM(a); i++)
-    n *= PyArray_DIMS(a)[i];
-  int incx = 1;
-  int incy = 1;
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    {
-      double result;
-      result = ddot_(&n, (void*)DOUBLEP(a),
-             &incx, (void*)DOUBLEP(b), &incy);
-      return PyFloat_FromDouble(result);
-    }
-  else
-    {
-      double_complex* ap = COMPLEXP(a);
-      double_complex* bp = COMPLEXP(b);
-      double_complex z = 0.0;
-      for (int i = 0; i < n; i++)
-        z += ap[i] * bp[i];
-      return PyComplex_FromDoubles(creal(z), cimag(z));
-    }
-}
-
-PyObject* multi_dotu(PyObject *self, PyObject *args)
-{
-  PyArrayObject* a;
-  PyArrayObject* b;
-  PyArrayObject* c;
-  if (!PyArg_ParseTuple(args, "OOO", &a, &b, &c))
-    return NULL;
-  int n0 = PyArray_DIMS(a)[0];
-  int n = PyArray_DIMS(a)[1];
-  for (int i = 2; i < PyArray_NDIM(a); i++)
-    n *= PyArray_DIMS(a)[i];
-  int incx = 1;
-  int incy = 1;
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    {
-      double *ap = DOUBLEP(a);
-      double *bp = DOUBLEP(b);
-      double *cp = DOUBLEP(c);
-
-      for (int i = 0; i < n0; i++)
-        {
-          cp[i] = ddot_(&n, (void*)ap,
-             &incx, (void*)bp, &incy);
-          ap += n;
-          bp += n;
-        }
-    }
-  else
-    {
-      double_complex* ap = COMPLEXP(a);
-      double_complex* bp = COMPLEXP(b);
-      double_complex* cp = COMPLEXP(c);
-      for (int i = 0; i < n0; i++)
-        {
-          cp[i] = 0.0;
-          for (int j = 0; j < n; j++)
-              cp[i] += ap[j] * bp[j];
-          ap += n;
-          bp += n;
-        }
-    }
-  Py_RETURN_NONE;
-}
-
-PyObject* multi_axpy(PyObject *self, PyObject *args)
-{
-  PyArrayObject* alpha;
-  PyArrayObject* x;
-  PyArrayObject* y;
-  if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y))
-    return NULL;
-  int n0 = PyArray_DIMS(x)[0];
-  int n = PyArray_DIMS(x)[1];
-  for (int d = 2; d < PyArray_NDIM(x); d++)
-    n *= PyArray_DIMS(x)[d];
-  int incx = 1;
-  int incy = 1;
-
-   if (PyArray_DESCR(alpha)->type_num == NPY_DOUBLE)
-    {
-      if (PyArray_DESCR(x)->type_num == NPY_CDOUBLE)
-        n *= 2;
-      double *ap = DOUBLEP(alpha);
-      double *xp = DOUBLEP(x);
-      double *yp = DOUBLEP(y);
-      for (int i = 0; i < n0; i++)
-        {
-          daxpy_(&n, &ap[i],
-                 (void*)xp, &incx,
-                 (void*)yp, &incy);
-          xp += n;
-          yp += n;
-        }
-    }
-  else
-    {
-      double_complex *ap = COMPLEXP(alpha);
-      double_complex *xp = COMPLEXP(x);
-      double_complex *yp = COMPLEXP(y);
-      for (int i = 0; i < n0; i++)
-        {
-          zaxpy_(&n, (void*)(&ap[i]),
-                 (void*)xp, &incx,
-                 (void*)yp, &incy);
-          xp += n;
-          yp += n;
-        }
-    }
   Py_RETURN_NONE;
 }
