@@ -116,7 +116,6 @@ class EXX:
                 print(i1, i2, s,
                       k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count,
                       e_nn[0, 0], e)
-            # print(self.comm.rank,e_nn);asdg
             exxvv -= 0.5 * e
             ekin += e
             if e_kn is not None:
@@ -194,10 +193,13 @@ class EXX:
 
         for n1, u1_R in enumerate(k1.u_nR):
             if k1 is k2:
-                B = (N2 - n1 + size - 1) // size
+                B = (N1 - n1 + size - 1) // size
+                n20 = 0
                 n2a = min(n1 + rank * B, N2)
                 n2b = min(n2a + B, N2)
             else:
+                B = (N1 + size - 1) // size
+                n20 = min(B * rank, N1)
                 n2a = 0
                 n2b = N2
 
@@ -211,7 +213,6 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
                 e = ghat.pd.integrate(rho_G, vrho_G).real
-                # print(self.comm.rank, n1, n2, e)
                 e_nn[n1, n2] = e
                 if k1 is k2:
                     e_nn[n2, n1] = e
@@ -234,7 +235,7 @@ class EXX:
                         x2 = x / (self.kd.weight_k[index2] * self.kd.nbzkpts)
                         v1_nG[n1] -= f2_n[n2] * x1 * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
-                        v2_nG[n2] -= f1_n[n1] * x2 * pd2.fft(
+                        v2_nG[n2 + n20] -= f1_n[n1] * x2 * pd2.fft(
                             T(vrho_R.conj() * u1_R), index2,
                             local=True)
                         for a, v_xL in ghat.integrate(vrho_G).items():
@@ -248,7 +249,7 @@ class EXX:
                                 v_i *= np.exp(2j * pi * k2.k_c.dot(S_c))
                                 if cc:
                                     v_i = v_i.conj()
-                            v2_ani[a][n2] -= v_i * f1_n[n1] * x2
+                            v2_ani[a][n2 + n20] -= v_i * f1_n[n1] * x2
 
         return e_nn * factor
 
@@ -380,7 +381,6 @@ class EXX:
         time_reversal = s >= nsym
         s %= nsym
         U_cc = U_scc[s]
-        # print(s, U_cc, time_reversal)
 
         if (U_cc == np.eye(3, dtype=int)).all():
             def T0(a_R):
