@@ -1,13 +1,14 @@
-from __future__ import print_function
-from ase import Atom, Atoms
+from ase import Atoms
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, Mixer, FermiDirac, Davidson
 from gpaw.test import equal
 
 a = 4.0
 n = 16
-atoms = Atoms([Atom('H', [1.234, 2.345, 3.456])],
-                    cell=(a, a, a), pbc=True)
+atoms = Atoms('H',
+              positions=[[1.234, 2.345, 3.456]],
+              cell=(a, a, a),
+              pbc=True)
 calc = GPAW(nbands=1,
             gpts=(n, n, n),
             txt=None,
