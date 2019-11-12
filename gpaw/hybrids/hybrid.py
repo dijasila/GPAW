@@ -387,6 +387,9 @@ class HybridXC:
     def summary(self, log):
         log(self.description)
 
+    def add_forces(self, F_av):
+        pass
+
 
 if __name__ == '__main__':
     from ase import Atoms
