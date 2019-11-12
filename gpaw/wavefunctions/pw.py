@@ -1124,7 +1124,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if self.gd.comm.size > 1:
             raise ValueError(
-                "Please use mode=PW(..., parallel={'domain': 1})")
+                "Please use parallel={'domain': 1}")
 
         S = self.bd.comm.size
 
