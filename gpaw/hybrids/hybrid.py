@@ -333,8 +333,6 @@ class HybridXC:
 
         wfs = self.wfs
         kd = wfs.kd
-        # rank = kd.comm.rank
-        # size = kd.comm.size
 
         nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
                    for kpt in wfs.mykpts)
@@ -343,7 +341,6 @@ class HybridXC:
             kpts = range(len(wfs.mykpts) // wfs.nspins)
 
         self.e_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1))
-        e2_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1), complex)
 
         for spin in range(wfs.nspins):
             VV_aii = self.calculate_valence_valence_paw_corrections(spin)
@@ -362,21 +359,13 @@ class HybridXC:
                             kd.ibzk_kc[kpt.k],
                             kd.weight_k[kpt.k])
                      for kpt in wfs.mykpts[k1:k2]]
-            _, _, _, v_knG = self.xx.calculate(
+            self.xx.calculate(
                 kpts1, kpts2,
                 VV_aii,
-                e_kn=self.e_skn[spin],
-                derivatives=True)
-
-            for e_n, kpt, v_nG in zip(e2_skn[spin], kpts1, v_knG.values()):
-                e_n[:] = [kpt.psit.pd.integrate(v_G, psit_G) *
-                          self.exx_fraction
-                          for v_G, psit_G in zip(v_nG, kpt.psit.array)]
+                e_kn=self.e_skn[spin])
 
         kd.comm.sum(self.e_skn)
         self.e_skn *= self.exx_fraction
-
-        assert np.allclose(self.e_skn, e2_skn), (self.e_skn, e2_skn)
 
         if self.xc:
             vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
