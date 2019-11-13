@@ -60,7 +60,7 @@ calc.write('Fe', 'all')
 t2 = time.time()
 
 # Part 2: magnetic response calculation
-fxckwargs = {'rshe': None, 'fxc_scaling': fxc_scaling}
+fxckwargs = {'rshelmax': None, 'fxc_scaling': fxc_scaling}
 tms = TransverseMagneticSusceptibility('Fe',
                                        fxc=fxc,
                                        eta=eta,
