@@ -1,18 +1,20 @@
 from math import sqrt
 
 from ase import Atoms
+from ase.io import write
 
 from gpaw import GPAW, FermiDirac, Mixer
 from gpaw1.defects.defect import Defect
 
 # Calculator and supercell parameters
 PP = 'PAW'       # PAW pseudopotentials
-mode = 'FD'      # 'LCAO' # 'PW'
-basis = 'SZ'     # 'DZP'
+mode = 'FD'      # Other options: 'LCAO' and 'PW'
+basis = 'SZ'     # Basis used for the initialization of the wave functions
+                 # Use suitable LCAO basis if mode='LCAO' !
 h = 0.2          # Grid spacing
 k = 3            # k points
-kpts = (k, k, 1) # 
-width = 0.1      # Fermi smearing (eV)
+kpts = (k, k, 1) # Use only in periodic directions
+width = 0.2      # Fermi smearing (eV)
 N = 5            # Supercell size: NxN
 
 # Build graphene (nonperiodic BCs in the z direction)
@@ -26,11 +28,15 @@ atoms = Atoms('C2',
                     (0,         0,     c)],
               pbc=[1, 1, 0])
 atoms.center(axis=2)
+
+# Write to traj file for later use
+write('graphene.traj', atoms)
+
 # Number of valence electrons
 Ne = 8
 
 # Setup GPAW calculator
-convergence = {'energy': 5e-4/(Ne*N**2),
+convergence = {'energy': 5e-3/(Ne*N**2),
                'bands': -10}
 parallel = {'domain': (1, 1, 2)}
 
@@ -53,10 +59,13 @@ calc = GPAW(parallel=parallel,
 
 
 # Vacancy specs
-# (c, a): c'th primitive cell (center cell) and atom #a in primitive cell
+# (c, a): c'th primitive cell (0=center cell) and atom #a in primitive cell
 vac = [(0, 0), ]
 
-fname = 'vacancy1_supercell_%ux%u' % (N, N)
+# Base name used for file writing
+fname = 'vacancy_supercell_%ux%u' % (N, N)
+
+# Defect calculator
 def_calc = Defect(atoms, calc=calc, supercell=(N, N, 1), defect=vac,
                   name=fname, pckldir='.')
 def_calc.run()
