@@ -52,7 +52,7 @@ calc = GPAW(xc=xc,
             nbands=nb,
             symmetry={'point_group': False},
             idiotproof=False,
-            parallel={'band': 1})
+            parallel={'domain': 1})
 
 Febcc.set_calculator(calc)
 Febcc.get_potential_energy()
@@ -61,13 +61,14 @@ t2 = time.time()
 
 # Part 2: magnetic response calculation
 fxckwargs = {'rshe': None, 'fxc_scaling': fxc_scaling}
-for q in range(2):
-    tms = TransverseMagneticSusceptibility('Fe',
-                                           fxc=fxc,
-                                           eta=eta,
-                                           ecut=ecut,
-                                           fxckwargs=fxckwargs)
+tms = TransverseMagneticSusceptibility('Fe',
+                                       fxc=fxc,
+                                       eta=eta,
+                                       ecut=ecut,
+                                       fxckwargs=fxckwargs,
+                                       nblocks=1)
 
+for q in range(2):
     tms.get_macroscopic_component('+-', q_qc[q], frq_qw[q],
                                   filename='iron_dsus' + '_%d.csv' % (q + 1))
     tms.write_timer()
@@ -90,18 +91,18 @@ mw1 = (wpeak1 + d1[0, 0]) * 1000
 mw2 = (wpeak2 + d2[0, 0]) * 1000
 
 # Part 4: compare new results to test values
-test_fxcs = 1.037
+test_fxcs = 1.033
 test_mw1 = -0.03  # meV
-test_mw2 = 171.33  # meV
-test_Ipeak1 = 71.14  # a.u.
-test_Ipeak2 = 46.54  # a.u.
+test_mw2 = 176.91  # meV
+test_Ipeak1 = 71.20  # a.u.
+test_Ipeak2 = 44.46  # a.u.
 
 # fxc_scaling:
 equal(fxc_scaling[1], test_fxcs, 0.005)
 
 # Magnon peak:
 equal(mw1, test_mw1, 0.1)
-equal(mw2, test_mw2, eta * 750)
+equal(mw2, test_mw2, eta * 250)
 
 # Scattering function intensity:
 equal(Ipeak1, test_Ipeak1, 5)

@@ -63,8 +63,9 @@ class ChiKS(PlaneWaveKSLRF):
         return PlaneWaveKSLRF.calculate(self, q_c, frequencies,
                                         spinrot=spinrot, A_x=A_x)
 
-    def add_integrand(self, k_v, n1_t, n2_t, s1_t, s2_t, A_x):
-        """Use PairDensity object to calculate the integrand for all relevant
+    @timer('Add integrand to chiks_wGG')
+    def add_integrand(self, kskptpair, A_x):
+        r"""Use PairDensity object to calculate the integrand for all relevant
         transitions of the given k-point.
 
         Depending on the bandsummation, the collinear four-component Kohn-Sham
@@ -91,44 +92,15 @@ class ChiKS(PlaneWaveKSLRF):
                        hw + (eps_n'k's'-eps_nks) + ih eta |
                                                           /
         """
-        # Get all pairs of Kohn-Sham transitions:
-        # (n1_t, k_c, s1_t) -> (n2_t, k_c + q_c, s2_t)
-        k_c = np.dot(self.pd.gd.cell_cv, k_v) / (2 * np.pi)
-        q_c = self.pd.kd.bzk_kc[0]
-        kskptpairs = self.kspair.get_kpoint_pairs(n1_t, n2_t, k_c, k_c + q_c,
-                                                  s1_t, s2_t)
+        # Get data, distributed in memory
+        # Get bands and spins of the transitions
+        n1_t, n2_t, s1_t, s2_t = kskptpair.get_transitions()
+        # Get (f_n'k's' - f_nks), (eps_n'k's' - eps_nks) and the pair densities
+        df_t, deps_t, n_tG = kskptpair.df_t, kskptpair.deps_t, kskptpair.n_tG
 
-        # Get (f_n'k's' - f_nks) and (eps_n'k's' - eps_nks)
-        with self.timer('Get occupation differences and transition energies'):
-            df_t = kskptpairs.get_occupation_differences()
-            df_t[np.abs(df_t) <= 1e-20] = 0.0
-            deps_t = kskptpairs.get_transition_energies()
-        
-        # Calculate the pair densities
-        n_tG = self.pme(kskptpairs, self.pd)
-
-        self._add_integrand(n1_t, n2_t, s1_t, s2_t,
-                            df_t, deps_t, n_tG, A_x)
-
-    @timer('Add integrand to chiks_wGG')
-    def _add_integrand(self, n1_t, n2_t, s1_t, s2_t,
-                       df_t, deps_t, n_tG, A_x):
-        """In-place calculation of the integrand (depends on bandsummation)"""
         x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
 
-        if self.memory_safe:
-            # Specify notation
-            A_wmyGG = A_x
-
-            with self.timer('Set up ncc and nx'):
-                ncc_tG = n_tG.conj()
-                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
-                nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
-
-            with self.timer('Perform sum over t-transitions of ncc * nx'):
-                for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
-                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)
-        else:
+        if self.bundle_integrals:
             # Specify notation
             A_GwmyG = A_x
 
@@ -142,6 +114,18 @@ class ChiKS(PlaneWaveKSLRF):
                     
             with self.timer('Perform sum over t-transitions of ncc * nx'):
                 gemm(1.0, nx_twmyG, ncc_Gt, 1.0, A_GwmyG)  # slow step
+        else:
+            # Specify notation
+            A_wmyGG = A_x
+
+            with self.timer('Set up ncc and nx'):
+                ncc_tG = n_tG.conj()
+                n_myGt = np.ascontiguousarray(n_tG[:, self.Ga:self.Gb].T)
+                nx_wmyGt = x_wt[:, np.newaxis, :] * n_myGt[np.newaxis, :, :]
+
+            with self.timer('Perform sum over t-transitions of ncc * nx'):
+                for nx_myGt, A_myGG in zip(nx_wmyGt, A_wmyGG):
+                    gemm(1.0, ncc_tG, nx_myGt, 1.0, A_myGG)  # slow step
 
     @timer('Get temporal part')
     def get_temporal_part(self, n1_t, n2_t, s1_t, s2_t, df_t, deps_t):
