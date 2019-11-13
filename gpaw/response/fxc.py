@@ -14,7 +14,7 @@ from gpaw.response.tms import find_goldstone_scaling
 
 
 def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
-                  rshe=0.99,
+                  rshelmax=-1, rshewmin=None,
                   chi0_wGG=None,
                   fxc_scaling=None,
                   density_cut=None,
@@ -25,14 +25,14 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
 
     if kernel == 'density':
         return get_density_xc_kernel(pd, chi0, functional=functional,
-                                     rshe=rshe,
+                                     rshelmax=rshelmax, rshewmin=rshewmin,
                                      chi0_wGG=chi0_wGG,
                                      density_cut=density_cut)
     elif kernel in ['+-', '-+']:
         # Currently only collinear adiabatic xc kernels are implemented
         # for which the +- and -+ kernels are the same
         return get_transverse_xc_kernel(pd, chi0, functional=functional,
-                                        rshe=rshe,
+                                        rshelmax=rshelmax, rshewmin=rshewmin,
                                         chi0_wGG=chi0_wGG,
                                         fxc_scaling=fxc_scaling,
                                         density_cut=density_cut,
@@ -42,7 +42,7 @@ def get_xc_kernel(pd, chi0, functional='ALDA', kernel='density',
 
 
 def get_density_xc_kernel(pd, chi0, functional='ALDA',
-                          rshe=0.99,
+                          rshelmax=-1, rshewmin=None,
                           chi0_wGG=None,
                           density_cut=None):
     """
@@ -61,7 +61,8 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
         Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
                                            world=chi0.world, txt=fd,
                                            timer=chi0.timer,
-                                           rshe=rshe,
+                                           rshelmax=rshelmax,
+                                           rshewmin=rshewmin,
                                            density_cut=density_cut)
         Kxc_GG = Kcalc('00', pd)
         if pd.kd.gamma:
@@ -90,7 +91,7 @@ def get_density_xc_kernel(pd, chi0, functional='ALDA',
 
 
 def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
-                             rshe=0.99,
+                             rshelmax=-1, rshewmin=None,
                              chi0_wGG=None,
                              fxc_scaling=None,
                              density_cut=None,
@@ -111,7 +112,8 @@ def get_transverse_xc_kernel(pd, chi0, functional='ALDA_x',
         Kcalc = AdiabaticSusceptibilityFXC(calc, functional,
                                            world=chi0.world, txt=fd,
                                            timer=chi0.timer,
-                                           rshe=rshe,
+                                           rshelmax=rshelmax,
+                                           rshewmin=rshewmin,
                                            density_cut=density_cut,
                                            spinpol_cut=spinpol_cut)
     else:

@@ -226,7 +226,7 @@ class DielectricFunction:
 
     def get_chi(self, xc='RPA', q_c=[0, 0, 0], spin='all',
                 direction='x', return_VchiV=True, q_v=None,
-                rshe=0.99,
+                rshelmax=-1, rshewmin=None,
                 spinpol_cut=None, density_cut=None, fxc_scaling=None):
         """ Returns v^1/2 chi v^1/2 for the density response and chi for the
         spin response. The truncated Coulomb interaction is included as
@@ -237,11 +237,17 @@ class DielectricFunction:
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
             (not used in transverse reponse functions)
-        rshe : float or None
+        rshelmax : int or None
             Expand kernel in real spherical harmonics inside augmentation
             spheres. If None, the kernel will be calculated without
-            augmentation. The value of rshe (0<rshe<1) sets a convergence
-            criteria for the expansion in real spherical harmonics.
+            augmentation. The value of rshelmax indicates the maximum index l
+            to perform the expansion in (l < 6).
+        rshewmin : float or None
+            If None, the kernel correction will be fully expanded up to the
+            chosen lmax. Given as a float, (0 < rshewmin < 1) indicates what
+            coefficients to use in the expansion. If any coefficient
+            contributes with less than a fraction of rshewmin on average,
+            it will not be included.
         spinpol_cut : float
             cutoff spin polarization below which f_xc is evaluated in
             unpolarized limit (make sure divergent terms cancel out correctly)
@@ -332,7 +338,7 @@ class DielectricFunction:
                                    self.chi0,
                                    functional=xc,
                                    kernel=response[::-1],
-                                   rshe=rshe,
+                                   rshelmax=rshelmax, rshewmin=rshewmin,
                                    chi0_wGG=chi0_wGG,
                                    fxc_scaling=fxc_scaling,
                                    density_cut=density_cut,
@@ -351,7 +357,7 @@ class DielectricFunction:
 
     def get_dynamic_susceptibility(self, xc='ALDA', q_c=[0, 0, 0],
                                    q_v=None,
-                                   rshe=0.99,
+                                   rshelmax=-1, rshewmin=None,
                                    spinpol_cut=None, density_cut=None,
                                    fxc_scaling=None,
                                    filename='chiM_w.csv'):
@@ -362,7 +368,8 @@ class DielectricFunction:
         """
 
         pd, chi0_wGG, chi_wGG = self.get_chi(xc=xc, q_c=q_c,
-                                             rshe=rshe,
+                                             rshelmax=rshelmax,
+                                             rshewmin=rshewmin,
                                              spinpol_cut=spinpol_cut,
                                              density_cut=density_cut,
                                              fxc_scaling=fxc_scaling)
