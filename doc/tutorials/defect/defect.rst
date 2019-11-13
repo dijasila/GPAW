@@ -54,9 +54,9 @@ The following subsections go through the different steps one by one.
 Calculating the defect potential
 ================================
 
-The [#Tmatrix1]_[#Tmatrix2]_ script ``defect_run.py`` takes the gpw files of the defective and
-pristine calculation as input, as well as the gaussian parameters and
-dielectric constant, and calculates the different terms in the correction
+The [#Tmatrix1]_[#Tmatrix2]_ script ``defect_run.py`` takes the gpw files of the
+defective and pristine calculation as input, as well as the gaussian parameters
+and dielectric constant, and calculates the different terms in the correction
 scheme. For this case, the calculated value of `E_{\mathrm{l}}` is -1.28 eV.
 
 .. literalinclude:: defect_run.py
