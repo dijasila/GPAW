@@ -65,7 +65,7 @@ class ChiKS(PlaneWaveKSLRF):
 
     @timer('Add integrand to chiks_wGG')
     def add_integrand(self, kskptpair, A_x):
-        """Use PairDensity object to calculate the integrand for all relevant
+        r"""Use PairDensity object to calculate the integrand for all relevant
         transitions of the given k-point.
 
         Depending on the bandsummation, the collinear four-component Kohn-Sham

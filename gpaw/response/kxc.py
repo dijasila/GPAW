@@ -500,7 +500,7 @@ class PlaneWaveAdiabaticFXC(FXC):
 
     @timer('Expand plane waves')
     def _expand_plane_waves(self, dG_myGG, dGn_myGGv, r_g, L_M, l_M):
-        """Expand plane waves in spherical Bessel functions and real spherical
+        r"""Expand plane waves in spherical Bessel functions and real spherical
         harmonics:
                          l
                      __  __
