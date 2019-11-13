@@ -9,9 +9,9 @@ from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer, timer
 
 import gpaw.mpi as mpi
-from gpaw.blacs import (BlacsGrid, BlacsDescriptor,
-                        Redistributor, DryRunBlacsGrid)
-from gpaw.response.kslrf import get_calc, FrequencyDescriptor
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
+from gpaw.response.kspair import get_calc
+from gpaw.response.kslrf import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
 
@@ -22,7 +22,8 @@ class FourComponentSusceptibilityTensor:
     def __init__(self, gs, fxc='ALDA', fxckwargs={},
                  eta=0.2, ecut=50, gammacentered=False,
                  disable_point_group=True, disable_time_reversal=True,
-                 bandsummation='pairwise', nbands=None, memory_safe=False,
+                 bandsummation='pairwise', nbands=None,
+                 bundle_integrals=True, bundle_kptpairs=False,
                  world=mpi.world, nblocks=1, txt=sys.stdout):
         """
         Currently, everything is in plane wave mode.
@@ -37,8 +38,8 @@ class FourComponentSusceptibilityTensor:
         disable_point_group,
         disable_time_reversal,
         bandsummation, nbands,
-        memory_safe, world,
-        nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
+        bundle_integrals, bundle_kptpairs,
+        world, nblocks, txt : see gpaw.response.chiks, gpaw.response.kslrf
         """
         # Initiate output file and timer
         self.world = world
@@ -59,7 +60,8 @@ class FourComponentSusceptibilityTensor:
                            disable_point_group=disable_point_group,
                            disable_time_reversal=disable_time_reversal,
                            bandsummation=bandsummation, nbands=nbands,
-                           memory_safe=memory_safe, world=world,
+                           bundle_integrals=bundle_integrals,
+                           bundle_kptpairs=bundle_kptpairs, world=world,
                            nblocks=nblocks, txt=self.fd, timer=self.timer)
         self.fxc = get_fxc(self.calc, fxc,
                            response='susceptibility', mode='pw',
@@ -296,7 +298,8 @@ class FourComponentSusceptibilityTensor:
             bg1 = BlacsGrid(comm, 1, comm.size)
             in_wGG = chiks_wGG.reshape((nw, -1))
         else:
-            bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
+            bg1 = BlacsGrid(None, 1, 1)
+            # bg1 = DryRunBlacsGrid(mpi.serial_comm, 1, 1)
             in_wGG = np.zeros((0, 0), complex)
         md1 = BlacsDescriptor(bg1, nw, nG**2, nw, mynG * nG)
 
