@@ -32,7 +32,7 @@ the unperturbed Bloch states can be calculated,
     V_{\mathbf{k}\mathbf{k'}}^{nn'}=
     \langle\psi_{n\mathbf{k}}| \hat{V} |\psi_{n'\mathbf{k}'}\rangle .
 
-Here, `n` is the band index (including spin) and `\mathbf{k}\elem 1. ` BZ is the
+Here, `n` is the band index (including spin) and `\mathbf{k}\elem 1.` BZ is the
 electronic wave vector.
 
 Finally, the `T` matrix defined by the integral equation
@@ -40,7 +40,7 @@ Finally, the `T` matrix defined by the integral equation
 .. math::
 
     \hat{T}(\varepsilon) = \hat{V} + \hat{V} \hat{G}^0(\varepsilon) \hat{T}(\varepsilon),
-    
+
 can be calculated. Here, `G^0(\varepsilon)=(\varepsilon - \hat{H}_0)^{-1}` is
 the bare Green's function given by the resolvent of the unperturbed Hamiltonian.
 
