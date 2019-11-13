@@ -216,7 +216,7 @@ class EXX:
                 if F_av:
                     for a, v_xL in ghat.derivative(vrho_G).items():
                         print(a, v_xL.shape)
-                    asdfg
+                    1 / 0
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 e_nn[n1, n2] = e
                 if k1 is k2:
