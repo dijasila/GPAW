@@ -46,7 +46,13 @@ the bare Green's function given by the resolvent of the unperturbed Hamiltonian.
 
 The `T` matrix is a useful quantity in many aspects of modelling the electronic
 properties of 1) single defect sites (e.g., local density of states), and 2)
-disorder systems, i.e. system with a random configuration of defects [#Tmatrix1]_[#Tmatrix2]_.
+disorder systems, i.e. system with a random configuration of defects
+[#Tmatrix1,#Tmatrix2]_.
+
+The following subsections go through the different steps one by one.
+
+Calculating the defect potential
+================================
 
 The [#Tmatrix1]_[#Tmatrix2]_ script ``defect_run.py`` takes the gpw files of the defective and
 pristine calculation as input, as well as the gaussian parameters and
