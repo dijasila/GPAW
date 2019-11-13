@@ -15,7 +15,7 @@ from gpaw.response.kspair import KohnShamPair, get_calc
 
 
 class KohnShamLinearResponseFunction:
-    """Class calculating linear response functions in the Kohn-Sham system
+    r"""Class calculating linear response functions in the Kohn-Sham system
 
     Any linear response function can be calculated as a sum over transitions
     between the ground state and excited energy eigenstates.
