@@ -271,6 +271,10 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     return out.reshape(outshape)
 
 
+if not hasattr(_gpaw, 'mmm'):
+    def gemm(alpha, a, b, beta, c):
+
+
 if not debug:
     mmm = _gpaw.mmm  # noqa
     gemm = _gpaw.gemm  # noqa

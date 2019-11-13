@@ -3,6 +3,7 @@
  *  Copyright (C) 2007       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#ifndef GPAW_WITHOUT_BLAS
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
@@ -330,3 +331,4 @@ PyObject* r2k(PyObject *self, PyObject *args)
             (void*)COMPLEXP(c), &ldc);
   Py_RETURN_NONE;
 }
+#endif

@@ -30,14 +30,16 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
-PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
+#ifndef GPAW_WITHOUT_BLAS
+PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
 PyObject* czher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
+#endif
 PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
@@ -157,14 +159,16 @@ static PyMethodDef functions[] = {
     {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
     {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
     {"map_k_points", map_k_points, METH_VARARGS, 0},
-    {"mmm", mmm, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
+#ifndef GPAW_WITHOUT_BLAS
+    {"mmm", mmm, METH_VARARGS, 0},
     {"gemm", gemm, METH_VARARGS, 0},
     {"gemv", gemv, METH_VARARGS, 0},
     {"axpy", axpy, METH_VARARGS, 0},
     {"czher", czher, METH_VARARGS, 0},
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
+#endif
     {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
