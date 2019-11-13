@@ -39,11 +39,16 @@ Finally, the `T` matrix defined by the integral equation
 
 .. math::
 
-    \hat{T}(\varepsilon) = \hat{V} + \hat{V} \hat{G}^0(\varepsilon) \hat{T}(\varepsilon)
+    \hat{T}(\varepsilon) = \hat{V} + \hat{V} \hat{G}^0(\varepsilon) \hat{T}(\varepsilon),
     
-Here e_mk is an array of dimension (2 * Nb, Nk), where Nb is the number of
+can be calculated. Here, `G^0(\varepsilon)=(\varepsilon - \hat{H}_0)^{-1}` is
+the bare Green's function given by the resolvent of the unperturbed Hamiltonian.
 
-The script ``defect_run.py`` takes the gpw files of the defective and
+The `T` matrix is a useful quantity in many aspects of modelling the electronic
+properties of 1) single defect sites (e.g., local density of states), and 2)
+disorder systems, i.e. system with a random configuration of defects [#Tmatrix1]_[#Tmatrix2]_.
+
+The [#Tmatrix1]_[#Tmatrix2]_ script ``defect_run.py`` takes the gpw files of the defective and
 pristine calculation as input, as well as the gaussian parameters and
 dielectric constant, and calculates the different terms in the correction
 scheme. For this case, the calculated value of `E_{\mathrm{l}}` is -1.28 eV.
@@ -98,5 +103,3 @@ anisotropy of hcp Co. The idea is that the direction of spin polarization
            *Phys. Rev. B* **XX**, XXXXXX (2019)
 .. [#Tmatrix3] K. Kaasbjerg and A.-P. Jauho
            *Phys. Rev. X* **XX**, XXXXXX (2019)
-.. [#Kane] M. Z. Hasan and C. L. Kane,
-           *Rev. Mod. Phys.* **82**, 3045 (2010)
