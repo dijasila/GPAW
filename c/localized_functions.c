@@ -23,6 +23,7 @@
 #  define dgemv_ dgemv
 #endif
 
+#ifndef GPAW_WITHOUT_BLAS
 int dgemm_(char *transa, char *transb, int *m, int * n,
            int *k, double *alpha, double *a, int *lda,
            double *b, int *ldb, double *beta,
@@ -31,6 +32,22 @@ int dgemv_(char *trans, int *m, int * n,
            double *alpha, double *a, int *lda,
            double *x, int *incx, double *beta,
            double *y, int *incy);
+#else
+int dgemm_(char *transa, char *transb, int *m, int * n,
+           int *k, double *alpha, double *a, int *lda,
+           double *b, int *ldb, double *beta,
+           double *c, int *ldc)
+{
+    return 0;
+}
+int dgemv_(char *trans, int *m, int * n,
+           double *alpha, double *a, int *lda,
+           double *x, int *incx, double *beta,
+           double *y, int *incy)
+{
+    return 0;
+}
+#endif
 
 static void localized_functions_dealloc(LocalizedFunctionsObject *self)
 {

@@ -273,9 +273,10 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 
 if not hasattr(_gpaw, 'mmm'):
     def gemm(alpha, a, b, beta, c):
+        pass
 
-
-if not debug:
+    gemmdot = _gemmdot
+elif not debug:
     mmm = _gpaw.mmm  # noqa
     gemm = _gpaw.gemm  # noqa
     # axpy = _gpaw.axpy  # noqa

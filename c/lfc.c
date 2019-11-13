@@ -14,11 +14,26 @@
 #ifdef GPAW_NO_UNDERSCORE_BLAS
 #  define zgemm_  zgemm
 #endif
+#ifndef GPAW_WITHOUT_BLAS
 void zgemm_(char *transa, char *transb, int *m, int * n,
             int *k, void *alpha, void *a, int *lda,
             const void *b, int *ldb, void *beta,
             void *c, int *ldc);
-
+#else
+void zgemm_(char *transa, char *transb, int *m, int * n,
+            int *k, void *alpha, void *a, int *lda,
+            const void *b, int *ldb, void *beta,
+            void *c, int *ldc)
+{
+    double complex *a_GM = a;
+    double complex *b_xM = a;
+    double complex *c_xG = a;
+    for (int x = 0; x < *n; x++)
+        for (int G = 0; G < *m; G++)
+            for (int M = 0; M < *k; M++)
+            c_xG[*ldc * x + G] += conj(a_GM[*lda * G + M]) * b_xM[*ldb * x + M];
+}
+#endif
 
 static void lfc_dealloc(LFCObject *self)
 {
@@ -160,7 +175,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
     Ga = Gb;
   }
   assert(ni == 0);
-  
+
   self->volume_W = GPAW_MALLOC(LFVolume, nW);
   self->i_W = GPAW_MALLOC(int, nW);
   self->ngm_W = GPAW_MALLOC(int, nW);
@@ -181,7 +196,7 @@ PyObject * NewLFCObject(PyObject *obj, PyObject *args)
   self->volume_i = GPAW_MALLOC(LFVolume, nimax);
   if (self->bloch_boundary_conditions)
     self->phase_i = GPAW_MALLOC(complex double, nimax);
-  
+
   return (PyObject*)self;
 }
 
@@ -298,7 +313,7 @@ PyObject* calculate_potential_matrices(LFCObject *lfc, PyObject *args)
     PyArrayObject* x_W_obj;
     int Mstart;
     int Mstop;
-    
+
     if (!PyArg_ParseTuple(args, "OOOii", &vt_G_obj, &Vt_xMM_obj, &x_W_obj,
                           &Mstart, &Mstop))
         return NULL;
@@ -434,11 +449,11 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
   if (!PyArg_ParseTuple(args, "OOiii", &rho_MM_obj, &nt_G_obj, &k,
                         &Mstart, &Mstop))
     return NULL;
-  
+
   double* nt_G = (double*)PyArray_DATA(nt_G_obj);
-  
+
   int nM = PyArray_DIMS(rho_MM_obj)[1];
-  
+
   double* work_gm = lfc->work_gm;
 
   if (!lfc->bloch_boundary_conditions) {
@@ -504,17 +519,17 @@ PyObject* construct_density(LFCObject *lfc, PyObject *args)
 
         memset(work_gm, 0, nG * nm1 * sizeof(double));
         double complex factor = 1.0;
-        
+
         int m1end = MIN(nm1, Mstop - M1);
         int m1start = MAX(0, Mstart - M1);
-        
+
         for (int i2 = i1; i2 < ni; i2++) {
           if (i2 > i1)
             factor = 2.0 * phase_i[i1] * conj(phase_i[i2]);
-          
+
           double rfactor = creal(factor);
           double ifactor = cimag(factor);
-          
+
           LFVolume* v2 = volume_i + i2;
           const double* A2_gm = v2->A_gm;
           int M2 = v2->M;
@@ -566,10 +581,10 @@ PyObject* construct_density1(LFCObject *lfc, PyObject *args)
 {
   PyArrayObject* f_M_obj;
   PyArrayObject* nt_G_obj;
-  
+
   if (!PyArg_ParseTuple(args, "OO", &f_M_obj, &nt_G_obj))
     return NULL;
-  
+
   const double* f_M = (const double*)PyArray_DATA(f_M_obj);
   double* nt_G = (double*)PyArray_DATA(nt_G_obj);
 
@@ -595,7 +610,7 @@ PyObject* lcao_to_grid(LFCObject *lfc, PyObject *args)
 
   if (!PyArg_ParseTuple(args, "OOi", &c_M_obj, &psit_G_obj, &k))
     return NULL;
-  
+
   if (!lfc->bloch_boundary_conditions) {
     if (PyArray_DESCR(c_M_obj)->type_num == NPY_DOUBLE) {
       const double* c_M = (const double*)PyArray_DATA(c_M_obj);
@@ -663,7 +678,7 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
     if (!PyArg_ParseTuple(args, "OOii", &c_xM_obj, &psit_xG_obj, &k,
                           &Mblock))
         return NULL;
-  
+
     const double complex* c_xM = (const double complex*)PyArray_DATA(c_xM_obj);
     double complex* psit_xG = (double complex*)PyArray_DATA(psit_xG_obj);
 
@@ -684,7 +699,7 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
 
         if (tmp_GM == 0)
             tmp_GM = GPAW_MALLOC(double complex, Mblock * Gmax);
-        
+
         for (int GM = 0; GM < Gmax * Mblock; GM++)
             tmp_GM[GM] = 0.0;
 
@@ -702,7 +717,7 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
                 int M2p = MIN(M2, Mstop);
                 if (M1p == M2p)
                     continue;
-                
+
                 double complex phase = phase_i[i];
                 const double* A_gm = v->A_gm;
                 for (int G = Ga; G < Gb; G++)
@@ -812,7 +827,7 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
                (end_c[1] - beg_c[1]) *
                (end_c[2] - beg_c[2]));
   double* A_gm = GPAW_MALLOC(double, ngmax * nm);
-  
+
   int nBmax = ((end_c[0] - beg_c[0]) *
                (end_c[1] - beg_c[1]));
   int* G_B = GPAW_MALLOC(int, 2 * nBmax);
@@ -838,9 +853,9 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
           g2_end = g2;
           double A = bmgs_splinevalue(spline, r);
           double* p = A_gm + ngm;
-          
+
           spherical_harmonics(l, A, x, y, z, r2, p);
-          
+
           ngm += nm;
         }
       }
@@ -856,10 +871,10 @@ PyObject* spline_to_grid(PyObject *self, PyObject *args)
   npy_intp gm_dims[2] = {ngm / (2 * l + 1), 2 * l + 1};
   PyArrayObject* A_gm_obj = (PyArrayObject*)PyArray_SimpleNew(2, gm_dims,
                                                               NPY_DOUBLE);
-  
+
   memcpy(PyArray_DATA(A_gm_obj), A_gm, ngm * sizeof(double));
   free(A_gm);
-  
+
   npy_intp B_dims[1] = {nB};
   PyArrayObject* G_B_obj = (PyArrayObject*)PyArray_SimpleNew(1, B_dims,
                                                              NPY_INT);
@@ -928,7 +943,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
           const SplineObject* spline_obj = spline_obj_M[M1];
           const bmgsspline* spline = \
             (const bmgsspline*)(&(spline_obj->spline));
-          
+
           int nm1 = v1->nm;
 
           int M1p = MAX(M1, Mstart);
@@ -951,7 +966,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
             double vtdv = vt_G[G] * dv;
 
             double R_c[] = {x, y, z};
-            
+
             double r2 = x * x + y * y + z * z;
             double r = sqrt(r2);
             double Rcinvr = r > 1e-15 ? R_c[c] / r : 0.0;
@@ -1023,7 +1038,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
           const SplineObject* spline_obj = spline_obj_M[M1];
           const bmgsspline* spline = \
             (const bmgsspline*)(&(spline_obj->spline));
-          
+
           int nm1 = v1->nm;
 
           int M1p = MAX(M1, Mstart);
@@ -1048,7 +1063,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
             double vtdv = vt_G[G] * dv;
 
             double R_c[] = {x, y, z};
-            
+
             double r2 = x * x + y * y + z * z;
             double r = sqrt(r2);
             double Rc_over_r = r > 1e-15 ? R_c[c] / r : 0.0;
@@ -1067,7 +1082,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
               break;
             }
             spherical_harmonics(l, dfdr * Rc_over_r, x, y, z, r2, rlYdfdr_m);
-            
+
             int m1start = M1 < Mstart ? nm1 - nm1p : 0;
             for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
               work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start]
@@ -1085,7 +1100,7 @@ PyObject* calculate_potential_matrix_derivative(LFCObject *lfc, PyObject *args)
             double complex work;
             int nm2 = v2->nm;
             double complex phase = conj(phase_i[i1]) * phase_i[i2];
-            
+
             for (int g = 0; g < nG; g++) {
               A2_gm = A2_start_gm + g * nm2;
               for (int m1 = 0; m1 < nm1p; m1++) {
@@ -1162,7 +1177,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
           const SplineObject* spline_obj = spline_obj_M[M1];
           const bmgsspline* spline = \
             (const bmgsspline*)(&(spline_obj->spline));
-          
+
           int nm1 = v1->nm;
 
           int M1p = MAX(M1, Mstart);
@@ -1187,7 +1202,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
             double vtdv = vt_G[G] * dv;
 
             double R_c[] = {x, y, z};
-            
+
             double r2 = x * x + y * y + z * z;
             double r = sqrt(r2);
             double Rcinvr = r > 1e-15 ? R_c[c] / r : 0.0;
@@ -1259,7 +1274,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
           const SplineObject* spline_obj = spline_obj_M[M1];
           const bmgsspline* spline = \
             (const bmgsspline*)(&(spline_obj->spline));
-          
+
           int nm1 = v1->nm;
 
           int M1p = MAX(M1, Mstart);
@@ -1285,7 +1300,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
             double vtdv = vt_G[G] * dv;
 
             double R_c[] = {x, y, z};
-            
+
             double r2 = x * x + y * y + z * z;
             double r = sqrt(r2);
             double Rc_over_r = r > 1e-15 ? R_c[c] / r : 0.0;
@@ -1304,7 +1319,7 @@ PyObject* calculate_potential_matrix_force_contribution(LFCObject *lfc, PyObject
               break;
             }
             spherical_harmonics(l, dfdr * Rc_over_r, x, y, z, r2, rlYdfdr_m);
-            
+
             for (int m1 = 0; m1 < nm1p; m1++, gm1++) {
               work_gm[gm1] = vtdv * (fdYdc_m[m1 + m1start]
                                      + rlYdfdr_m[m1 + m1start]);
@@ -1393,7 +1408,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
             double* c_mv = c_Mv + 3 * M;
             const bmgsspline* spline = (const bmgsspline*) \
               &((const SplineObject*)PyList_GetItem(spline_M_obj, M))->spline;
-              
+
             int nm = vol->nm;
             int l = (nm - 1) / 2;
             double x = xG - pos_Wc[vol->W][0];
@@ -1454,7 +1469,7 @@ PyObject* derivative(LFCObject *lfc, PyObject *args)
             complex double* c_mv = c_Mv + 3 * M;
             const bmgsspline* spline = (const bmgsspline*) \
               &((const SplineObject*)PyList_GetItem(spline_M_obj, M))->spline;
-              
+
             int nm = vol->nm;
             int l = (nm - 1) / 2;
             double x = xG - pos_Wc[vol->W][0];
@@ -1535,7 +1550,7 @@ PyObject* normalized_derivative(LFCObject *lfc, PyObject *args)
         double* c_mv = c_Mv + 7 * M;
         const bmgsspline* spline = (const bmgsspline*)                  \
           &((const SplineObject*)PyList_GetItem(spline_M_obj, M))->spline;
-        
+
         int nm = vol->nm;
         int l = (nm - 1) / 2;
         double x = xG - pos_Wc[vol->W][0];
@@ -1594,11 +1609,11 @@ PyObject* ae_valence_density_correction(LFCObject *lfc, PyObject *args)
     PyArrayObject* a_W_obj;
     PyArrayObject* I_a_obj;
     PyArrayObject* x_W_obj;
-    
+
     if (!PyArg_ParseTuple(args, "OOOOO", &rho_MM_obj, &n_G_obj,
                           &a_W_obj, &I_a_obj, &x_W_obj))
         return NULL;
-  
+
     double* n_G = (double*)PyArray_DATA(n_G_obj);
     int* a_W = (int*)PyArray_DATA(a_W_obj);
     double* I_a = (double*)PyArray_DATA(I_a_obj);
@@ -1654,7 +1669,7 @@ PyObject* ae_core_density_correction(LFCObject *lfc, PyObject *args)
   if (!PyArg_ParseTuple(args, "dOOO", &scale, &n_G_obj,
                         &a_W_obj, &I_a_obj))
     return NULL;
-  
+
   double* n_G = (double*)PyArray_DATA(n_G_obj);
   int* a_W = (int*)PyArray_DATA(a_W_obj);
   double* I_a = (double*)PyArray_DATA(I_a_obj);

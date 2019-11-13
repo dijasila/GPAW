@@ -94,7 +94,8 @@ for siteconfig in [os.environ.get('GPAW_CONFIG'),
             exec(path.read_text())
             break
 else:
-    libraries.append('blas')
+    if not noblas:
+        libraries.append('blas')
 
 if not parallel_python_interpreter and mpicompiler:
     # Build MPI-interface into _gpaw.so:
