@@ -3,6 +3,7 @@ from math import pi
 from typing import List, Tuple, Dict
 
 import numpy as np
+from ase.utils.timing import timer
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
@@ -36,13 +37,15 @@ class EXX:
                  setups: List['Setup'],
                  pt,
                  coulomb,
-                 spos_ac):
+                 spos_ac,
+                 timer):
         """Exact exchange operator."""
         self.kd = kd
         self.setups = setups
         self.pt = pt
         self.coulomb = coulomb
         self.spos_ac = spos_ac
+        self.timer = timer
 
         self.comm = self.pt.comm
 
@@ -60,6 +63,7 @@ class EXX:
         self.s0 = is_identity_s.nonzero()[0][0]
         self.inverse_s = self.symmetry_map_ss[:, self.s0]
 
+    @timer('EXX.calc')
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
         gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
@@ -82,9 +86,10 @@ class EXX:
             q_c = k2.k_c - k1.k_c
             qd = KPointDescriptor([-q_c])
 
-            pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
-            ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
-            ghat.set_positions(self.spos_ac)
+            with self.timer('ghat-init'):
+                pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
+                ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
+                ghat.set_positions(self.spos_ac)
 
             v1_nG = None
             v1_ani = None
@@ -134,6 +139,7 @@ class EXX:
                 if e_kn is not None:
                     e_kn[i] -= (2 * vv_n + vc_n)
 
+        self.timer.start('vexx')
         w_knG = {}
         if derivatives:
             G1 = comm.rank * pd.maxmyng
@@ -153,9 +159,11 @@ class EXX:
                                        kpt.f_n, P_ni.conj(), v_ni).real *
                              kpt.weight)
                 self.pt.add(w_nG, v1_ani, kpt.psit.kpt)
+        self.timer.stop()
 
         return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
 
+    @timer('EXX.cefp')
     def calculate_exx_for_pair(self,
                                k1,
                                k2,
@@ -180,11 +188,12 @@ class EXX:
         size = self.comm.size
         rank = self.comm.rank
 
-        Q_annL = [np.einsum('mi, ijL, nj -> mnL',
-                            k1.proj[a],
-                            Delta_iiL,
-                            k2.proj[a].conj())
-                  for a, Delta_iiL in enumerate(self.Delta_aiiL)]
+        with self.timer('einsum'):
+            Q_annL = [np.einsum('mi, ijL, nj -> mnL',
+                                k1.proj[a],
+                                Delta_iiL,
+                                k2.proj[a].conj())
+                      for a, Delta_iiL in enumerate(self.Delta_aiiL)]
 
         if v2_nG is not None:
             T, T_a, cc = self.symmetry_operation(self.inverse_s[s])
@@ -207,9 +216,10 @@ class EXX:
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
-            ghat.add(rho_nG[n2a:n2b],
-                     {a: Q_nnL[n1, n2a:n2b]
-                      for a, Q_nnL in enumerate(Q_annL)})
+            with self.timer('exx-add'):
+                ghat.add(rho_nG[n2a:n2b],
+                         {a: Q_nnL[n1, n2a:n2b]
+                          for a, Q_nnL in enumerate(Q_annL)})
 
             for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
                 vrho_G = v_G * rho_G
@@ -228,10 +238,12 @@ class EXX:
                         assert k1 is not k2
                         v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
+                        self.timer.start('ghat.int')
                         for a, v_xL in ghat.integrate(vrho_G).items():
                             v_ii = self.Delta_aiiL[a].dot(v_xL[0])
                             v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
                                               f2_n[n2] * factor)
+                        self.timer.stop()
                     else:
                         x = factor * count / 2
                         if k1 is k2 and n1 != n2:
@@ -243,6 +255,7 @@ class EXX:
                         v2_nG[n2 + n20] -= f1_n[n1] * x2 * pd2.fft(
                             T(vrho_R.conj() * u1_R), index2,
                             local=True)
+                        self.timer.start('ghat.int2')
                         for a, v_xL in ghat.integrate(vrho_G).items():
                             v_ii = self.Delta_aiiL[a].dot(v_xL[0])
                             v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
@@ -255,6 +268,7 @@ class EXX:
                                 if cc:
                                     v_i = v_i.conj()
                             v2_ani[a][n2 + n20] -= v_i * f1_n[n1] * x2
+                        self.timer.stop()
 
         return e_nn * factor
 
@@ -285,6 +299,7 @@ class EXX:
                                  P_ni.conj(), self.VC_aii[a], P_ni).real
                 e_kn[i] -= (2 * vv_n + vc_n)
 
+    @timer('ipairs')
     def ipairs(self, kpts1, kpts2):
         kd = self.kd
         nsym = len(kd.symmetry.op_scc)

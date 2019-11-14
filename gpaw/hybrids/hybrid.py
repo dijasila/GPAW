@@ -136,7 +136,8 @@ class HybridXC:
             coulomb = WSTC(wfs.gd.cell_cv, wfs.kd.N_c, txt=output)
             self.description += output.getvalue()
 
-        self.xx = EXX(wfs.kd, wfs.setups, wfs.pt, coulomb, self.spos_ac)
+        self.xx = EXX(wfs.kd, wfs.setups, wfs.pt, coulomb, self.spos_ac,
+                      wfs.timer)
 
         self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
 
