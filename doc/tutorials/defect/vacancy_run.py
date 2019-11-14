@@ -1,7 +1,4 @@
-from math import sqrt
-
-from ase import Atoms
-from ase.io import write
+from ase.io import read
 
 from gpaw import GPAW, FermiDirac, Mixer
 from gpaw1.defects.defect import Defect
@@ -17,20 +14,8 @@ kpts = (k, k, 1) # Use only in periodic directions
 width = 0.2      # Fermi smearing (eV)
 N = 5            # Supercell size: NxN
 
-# Build graphene (nonperiodic BCs in the z direction)
-# Lattice constant and vacuum size
-a = 2.46 ; c = 15.0
-atoms = Atoms('C2',
-              scaled_positions=[(0, 0, 0),
-                                (1/3., 1/3., 0.0)],
-              cell=[(a,         0,     0),
-                    (a/2, a*sqrt(3)/2, 0),
-                    (0,         0,     c)],
-              pbc=[1, 1, 0])
-atoms.center(axis=2)
-
-# Write to traj file for later use
-write('graphene.traj', atoms)
+# Load graphene atoms
+atoms = read('graphene.traj')
 
 # Number of valence electrons
 Ne = 8
@@ -63,9 +48,9 @@ calc = GPAW(parallel=parallel,
 vac = [(0, 0), ]
 
 # Base name used for file writing
-fname = 'vacancy_supercell_%ux%u' % (N, N)
+fname = 'vacancy_%ux%u' % (N, N)
 
 # Defect calculator
-def_calc = Defect(atoms, calc=calc, supercell=(N, N, 1), defect=vac,
+calc_def = Defect(atoms, calc=calc, supercell=(N, N, 1), defect=vac,
                   name=fname, pckldir='.')
-def_calc.run()
+calc_def.run()

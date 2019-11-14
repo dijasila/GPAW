@@ -1,17 +1,17 @@
 .. _defect:
 
-===========================
-Defect scattering potential
-===========================
+=======================
+The gpaw/defects module
+=======================
 
 This module allows to model the impact of defects on the electron dynamics
 (e.g., quasiparticle and carrier scattering which affect, respectively, the
 spectral function and transport) in disordered materials with the `T`-matrix
 formalism [#Tmatrix1]_.
 
-The main ingredient in this approach is the single-defect potential defined by
-the difference in the DFT potential between a system with a defect of type
-`\alpha` and the pristine system, i.e.
+The main ingredient in this approach is the scattering potential
+`\hat{V}_\alpha` of a defect (of type `\alpha`) defined by the difference in the
+DFT potential between a system with a defect and the pristine system, i.e.
 
 .. math::
 
@@ -30,7 +30,7 @@ the unperturbed Bloch states can be calculated,
 .. math::
 
     V_{\mathbf{k}\mathbf{k'}}^{nn'}=
-    \langle\psi_{n\mathbf{k}}| \hat{V} |\psi_{n'\mathbf{k}'}\rangle .
+    \langle\psi_{n\mathbf{k}}| \hat{V}_{\alpha} |\psi_{n'\mathbf{k}'}\rangle .
 
 Here, `n` is the band index (including spin) and `\mathbf{k}\elem 1.` BZ is the
 electronic wave vector.
@@ -44,22 +44,34 @@ Finally, the `T` matrix defined by the integral equation
 can be calculated. Here, `G^0(\varepsilon)=(\varepsilon - \hat{H}_0)^{-1}` is
 the bare Green's function given by the resolvent of the unperturbed Hamiltonian.
 
-The `T` matrix is a useful quantity in many aspects of modelling the electronic
-properties of 1) single defect sites (e.g., local density of states), and 2)
-disorder systems, i.e. system with a random configuration of defects
-[#Tmatrix1,#Tmatrix2]_.
+The `T` matrix is a useful quantity in many aspects of modeling the electronic
+properties of 1) single defect sites (e.g., local density of states)
+[#Tmatrix1]_, and 2) disordered systems, i.e. system with a random configuration
+of defects [#Tmatrix2]_. In the latter case, the disorder-averaged Green's
+function `\langle \hat{G}_\mathbf{k}(\varepsilon) \rangle_\mathrm{dis}` is given
+by the Dyson equation, 
+
+.. math::
+
+    \langle \hat{G}_\mathbf{k}(\varepsilon) \rangle_\mathrm{dis}
+    = \hat{G}_\mathbf{k}^0(\varepsilon) + \hat{G}_\mathbf{k}^0(\varepsilon)
+      \hat{\Sigma}_\mathbf{k}(\varepsilon) \langle \hat{G}_\mathbf{k}(\varepsilon) \rangle_\mathrm{dis}
+
+where the disorder self-energy in the `T`-matrix approximation is given by
+`\hat{\Sigma}_\mathbf{k}(\varepsilon) = c_\mathrm{dis}
+\hat{T}_{\mathbf{k}\mathbf{k}}(\varepsilon)`.
 
 The following subsections go through the different steps one by one.
 
 Calculating the defect potential
 ================================
 
-The [#Tmatrix1]_[#Tmatrix2]_ script ``defect_run.py`` takes the gpw files of the
+The script :download:`vacancy_run.py` takes the gpw files of the
 defective and pristine calculation as input, as well as the gaussian parameters
 and dielectric constant, and calculates the different terms in the correction
 scheme. For this case, the calculated value of `E_{\mathrm{l}}` is -1.28 eV.
 
-.. literalinclude:: defect_run.py
+.. literalinclude:: vacancy_run.py
 
 .. math::
 
@@ -67,8 +79,10 @@ scheme. For this case, the calculated value of `E_{\mathrm{l}}` is -1.28 eV.
 
 and is useful for analyzing the degree of spin-orbit induced hybridization
 between spin up and spin down states. Examples of this will be given below.
-The implementation is documented in Ref. [#Tmatrix1]_
 
+
+.. image:: vacancy_V_vs_k.png
+           :height: 500 px
 
 Band structure of bulk Pt
 =========================
@@ -77,8 +91,7 @@ every second spin-orbit band, since time-reversal symmetry along with
 inversion symmetry dictates that all bands are two-fold degenerate (you can
 check this for the present case). The plot is shown below.
 
-.. image:: Pt_bands.png
-           :height: 500 px
+
 
 An important property of the spin-orbit interaction is the fact that it can
 lift degeneracies between states that are protected by symmetry when spin-
