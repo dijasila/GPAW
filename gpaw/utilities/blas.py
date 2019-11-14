@@ -274,17 +274,18 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
 if 1:#not hasattr(_gpaw, 'mmm'):
     def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
         c0=c.copy()
-        if transa == 'n':
-            c[:] = (beta * c +
-                    alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape))
-        elif transa == 't':
-            c[:] = (beta * c +
-                    alpha * b.reshape((len(b), -1)).dot(
-                        a.reshape((len(a), -1)).T))
+        if beta == 0:
+            c[:] = 0.0
         else:
-            c[:] = (beta * c +
-                    alpha * b.reshape((len(b), -1)).dot(
-                        a.reshape((len(a), -1)).T.conj()))
+            c *= beta
+        if transa == 'n':
+            c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
+        elif transa == 't':
+            c += alpha * b.reshape((len(b), -1)).dot(
+                a.reshape((len(a), -1)).T)
+        else:
+            c += alpha * b.reshape((len(b), -1)).dot(
+                a.reshape((len(a), -1)).T.conj())
         _gpaw.gemm(alpha, a, b, beta, c0, transa)
         assert np.allclose(c, c0)
 
@@ -311,11 +312,14 @@ if 1:#not hasattr(_gpaw, 'mmm'):
 
     def r2k(alpha, a, b, beta, c):  # noqa
         c0=c.copy()
-        c[:] = (beta * c +
-                alpha * a.reshape((len(a), -1)).dot(
-                    b.reshape((len(b), -1)).conj().T) +
-                alpha * b.reshape((len(b), -1)).dot(
-                    a.reshape((len(a), -1)).conj().T))
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        c += (alpha * a.reshape((len(a), -1)).dot(
+                  b.reshape((len(b), -1)).conj().T) +
+              alpha * b.reshape((len(b), -1)).dot(
+                  a.reshape((len(a), -1)).conj().T))
         _gpaw.r2k(alpha, a, b, beta, c0)
         n = len(c)
         c[np.triu_indices(n, 1)] = 0.0
@@ -331,9 +335,13 @@ if 1:#not hasattr(_gpaw, 'mmm'):
 
     def mmm(alpha, a, opa, b, opb, beta, c):  # noqa
         c0=c.copy()
-        c[:] = beta * c + alpha * op(opa, a).dot(op(opb, b))
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        c += alpha * op(opa, a).dot(op(opb, b))
         _gpaw.mmm(alpha, a, opa, b, opb, beta, c0)
-        assert np.allclose(c, c0)
+        assert np.allclose(c, c0), (a.shape, b.shape, c.shape, opa,opb,alpha,beta)
 
     gemmdot = _gemmdot
 elif not debug:
