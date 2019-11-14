@@ -904,6 +904,9 @@ class KohnShamPair:
         shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         shift_c += -shift0_c
 
+        # Sort based on atom index
+        a_a, U_aii = zip(*sorted(zip(a_a, U_aii)))
+
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
 
