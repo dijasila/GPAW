@@ -14,6 +14,7 @@ from gpaw.response.kspair import get_calc
 from gpaw.response.kslrf import FrequencyDescriptor
 from gpaw.response.chiks import ChiKS
 from gpaw.response.kxc import get_fxc
+from gpaw.response.kernels import get_coulomb_kernel
 
 
 class FourComponentSusceptibilityTensor:
@@ -203,11 +204,24 @@ class FourComponentSusceptibilityTensor:
 
     def _calculate_component(self, spincomponent, pd, wd):
         """In-place calculation of the given spin-component."""
-        Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
+        if spincomponent in ['+-', '-+']:
+            # No Hartree kernel
+            K_GG = self.fxc(spincomponent, pd, txt=self.cfd)
+        else:
+            # Calculate Hartree kernel
+            Kbare_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c)
+            vsqrt_G = Kbare_G ** 0.5
+            K_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
+
+            # Calculate exchange-correlation kernel
+            Kxc_GG = self.fxc(spincomponent, pd, txt=self.cfd)
+            if Kxc_GG is not None:
+                K_GG += Kxc_GG
+            
         chiks_wGG = self.calculate_ks_component(spincomponent, pd,
                                                 wd, txt=self.cfd)
 
-        chi_wGG = self.invert_dyson(chiks_wGG, Kxc_GG)
+        chi_wGG = self.invert_dyson(chiks_wGG, K_GG)
 
         return pd, wd, chiks_wGG, chi_wGG
 
@@ -247,15 +261,15 @@ class FourComponentSusceptibilityTensor:
         return chiks_wGG
 
     @timer('Invert dyson-like equation')
-    def invert_dyson(self, chiks_wGG, Kxc_GG):
+    def invert_dyson(self, chiks_wGG, Khxc_GG):
         """Invert the Dyson-like equation:
 
-        chi = chi_ks - chi_ks Kxc chi
+        chi = chi_ks + chi_ks Khxc chi
         """
         chi_wGG = np.empty_like(chiks_wGG)
         for w, chiks_GG in enumerate(chiks_wGG):
             chi_GG = np.dot(np.linalg.inv(np.eye(len(chiks_GG)) +
-                                          np.dot(chiks_GG, Kxc_GG)),
+                                          np.dot(chiks_GG, Khxc_GG)),
                             chiks_GG)
 
             chi_wGG[w] = chi_GG

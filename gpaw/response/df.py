@@ -372,7 +372,8 @@ class DielectricFunction:
                                              rshewmin=rshewmin,
                                              spinpol_cut=spinpol_cut,
                                              density_cut=density_cut,
-                                             fxc_scaling=fxc_scaling)
+                                             fxc_scaling=fxc_scaling,
+                                             return_VchiV=False)
 
         rf0_w = np.zeros(len(chi_wGG), dtype=complex)
         rf_w = np.zeros(len(chi_wGG), dtype=complex)

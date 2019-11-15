@@ -21,6 +21,13 @@ def get_fxc(gs, fxc, response='susceptibility', mode='pw',
             world=mpi.world, txt='-', timer=None, **kwargs):
     """Factory function getting an initiated version of the fxc class."""
     functional = fxc
+
+    if functional == 'RPA':
+        # No exchange and correlation
+        def dummy_fxc(*args, **kwargs):
+            return None
+        return dummy_fxc
+
     fxc = create_fxc(functional, response, mode)
     return fxc(gs, functional, world=world, txt=txt, timer=timer, **kwargs)
 
@@ -602,9 +609,11 @@ class AdiabaticSusceptibilityFXC(PlaneWaveAdiabaticFXC):
 
             self._calculate_fxc = self.calculate_trans_fxc
             self._calculate_unpol_fxc = self.calculate_trans_unpol_fxc
+        else:
+            raise ValueError(spincomponent)
 
         return PlaneWaveAdiabaticFXC.calculate(self, pd)
-    
+
     def _add_fxc(self, gd, n_sG, fxc_G):
         """
         Calculate fxc, using the cutoffs from input above
