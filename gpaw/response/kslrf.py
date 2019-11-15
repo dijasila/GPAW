@@ -95,7 +95,7 @@ class KohnShamLinearResponseFunction:
 
         Callables
         ---------
-        self.add_integrand(kskptpair, tmp_x, *args, **kwargs) : func
+        self.add_integrand(kskptpair, weight, tmp_x, *args, **kwargs) : func
             Add the integrand for a given part of the domain to output array
         self.calculate(*args, **kwargs) : func
             Runs the calculation, returning the response function.
@@ -258,7 +258,7 @@ class KohnShamLinearResponseFunction:
         raise NotImplementedError('Calculator method for matrix elements '
                                   'depend on response and mode')
 
-    def add_integrand(self, kskptpair, tmp_x, *args, **kwargs):
+    def add_integrand(self, kskptpair, weight, tmp_x, *args, **kwargs):
         raise NotImplementedError('Integrand depends on response and mode')
 
     def post_process(self, A_x):
@@ -675,7 +675,7 @@ class PlaneWaveKSLRF(KohnShamLinearResponseFunction):
     def calculate_pme(self, kskptpair):
         self.pme(kskptpair, self.pd)
 
-    def add_integrand(self, kskptpair, tmp_x, **kwargs):
+    def add_integrand(self, kskptpair, weight, tmp_x, **kwargs):
         raise NotImplementedError('Integrand depends on response')
 
     @timer('Post processing')
@@ -768,7 +768,7 @@ class Integrator:
         self.kslrf = kslrf
         self.timer = self.kslrf.timer
 
-    def slice_kpoint_domain(self, bzk_kv):
+    def slice_kpoint_domain(self, bzk_kv, weight_k):
         """When integrating over k-points, slice the domain in pieces with one
         k-point per process each.
 
@@ -783,7 +783,16 @@ class Integrator:
         bzk_ipv = np.array([bzk_kv[i * size:(i + 1) * size]
                             for i in range(ni)])
 
-        return bzk_ipv
+        # Extract the weight corresponding to the process' own k-point pair
+        weight_ip = np.array([weight_k[i * size:(i + 1) * size]
+                              for i in range(ni)])
+        weight_i = [None] * len(weight_ip)
+        krank = self.kslrf.intrablockcomm.rank
+        for i, w_p in enumerate(weight_ip):
+            if krank in range(len(w_p)):
+                weight_i[i] = w_p[krank]
+
+        return bzk_ipv, weight_i
 
     @timer('Integrate response function')
     def integrate(self, n1_t, n2_t, s1_t, s2_t,
@@ -791,10 +800,11 @@ class Integrator:
         if out_x is None:
             raise NotImplementedError
 
-        bzk_kv = self.get_kpoint_domain()
+        bzk_kv, weight_k = self.get_kpoint_domain()
         prefactor = self.calculate_bzint_prefactor(bzk_kv)
         out_x /= prefactor
-        self._integrate(bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
+        self._integrate(bzk_kv, weight_k,
+                        n1_t, n2_t, s1_t, s2_t, out_x, **kwargs)
         out_x *= prefactor
         
         return out_x
@@ -805,7 +815,8 @@ class Integrator:
     def calculate_bzint_prefactor(self, bzk_kv):
         raise NotImplementedError('Prefactor depends on integration method')
 
-    def _integrate(self, bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+    def _integrate(self, bzk_kv, weight_k,
+                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
         raise NotImplementedError('Integration method is defined by subclass')
 
 
@@ -818,9 +829,14 @@ class PWPointIntegrator(Integrator):
         K_gK = self.kslrf.pwsa.group_kpoints()
         bzk_kc = np.array([self.kslrf.calc.wfs.kd.bzk_kc[K_K[0]] for
                            K_K in K_gK])
+
         bzk_kv = np.dot(bzk_kc, self.kslrf.pd.gd.icell_cv) * 2 * np.pi
-        
-        return bzk_kv
+
+        nsym = self.kslrf.pwsa.how_many_symmetries()
+        weight_k = [self.kslrf.pwsa.get_kpoint_weight(k_c) / nsym
+                    for k_c in bzk_kc]
+
+        return bzk_kv, weight_k
 
     def calculate_bzint_prefactor(self, bzk_kv):
         # Could use some more documentation XXX
@@ -833,7 +849,8 @@ class PWPointIntegrator(Integrator):
         return (2 * frac * self.kslrf.pwsa.how_many_symmetries() /
                 (self.kslrf.calc.wfs.nspins * (2 * np.pi)**3))
 
-    def _integrate(self, bzk_kv, n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
+    def _integrate(self, bzk_kv, weight_k,
+                   n1_t, n2_t, s1_t, s2_t, out_x, **kwargs):
         """Do a simple sum over k-points in the first Brillouin Zone,
         adding the integrand (summed over bands and spin) for each k-point."""
 
@@ -850,8 +867,10 @@ class PWPointIntegrator(Integrator):
               file=self.kslrf.cfd, flush=True)
         self.kslrf.initialize_pme()
 
-        # Sum over kpoints
-        bzk_ipv = self.slice_kpoint_domain(bzk_kv)
+        # Slice domain
+        bzk_ipv, weight_i = self.slice_kpoint_domain(bzk_kv, weight_k)
+
+        # Perform sum over k-points
         tmp_x = np.zeros_like(out_x)
         pb = ProgressBar(self.kslrf.cfd)
         if self.kslrf.bundle_kptpairs:
@@ -863,25 +882,32 @@ class PWPointIntegrator(Integrator):
                 kskptpair_i.append(self.kslrf.get_ks_kpoint_pairs(k_pv,
                                                                   n1_t, n2_t,
                                                                   s1_t, s2_t))
+
             print('\nIntegrating response function',
                   file=self.kslrf.cfd, flush=True)
             # Carry out sum
-            for _, kskptpair in pb.enumerate(kskptpair_i):
+            for i, kskptpair in pb.enumerate(kskptpair_i):
                 if kskptpair is not None:
+                    weight = weight_i[i]
+                    assert weight is not None
                     self.kslrf.calculate_pme(kskptpair)
-                    self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)
+                    self.kslrf.add_integrand(kskptpair, weight,
+                                             tmp_x, **kwargs)
         else:
             # Each process will do its own k-points, but it has to follow the
             # others, as it may have to send them information about its
             # partition of the ground state
             print('\nIntegrating response function',
                   file=self.kslrf.cfd, flush=True)
-            for _, k_pv in pb.enumerate(bzk_ipv):
+            for i, k_pv in pb.enumerate(bzk_ipv):
                 kskptpair = self.kslrf.get_ks_kpoint_pairs(k_pv, n1_t, n2_t,
                                                            s1_t, s2_t)
                 if kskptpair is not None:
+                    weight = weight_i[i]
+                    assert weight is not None
                     self.kslrf.calculate_pme(kskptpair)
-                    self.kslrf.add_integrand(kskptpair, tmp_x, **kwargs)
+                    self.kslrf.add_integrand(kskptpair, weight,
+                                             tmp_x, **kwargs)
 
         # Sum over the k-points that have been distributed between processes
         with self.timer('Sum over distributed k-points'):
