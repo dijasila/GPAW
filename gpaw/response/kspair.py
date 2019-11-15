@@ -745,9 +745,14 @@ class KohnShamPair:
             with self.timer('Apply symmetry operations'):
                 for a1, U_ii, (a2, P_hi) in zip(a_a, U_aii, Ph.items()):
                     assert a1 == a2
+                    P_hi = np.ascontiguousarray(P_hi)
                     np.dot(P_hi, U_ii, out=P_hi)
                     if time_reversal:
                         np.conj(P_hi, out=P_hi)
+
+                    # Store symmtrized projector array in projections
+                    I1, I2 = Ph.map[a2]
+                    Ph.array[..., I1:I2] = P_hi
 
             (eps_myt, f_myt,
              P, ut_mytR) = self.unfold_arrays(eps_h, f_h, Ph, ut_hR,
