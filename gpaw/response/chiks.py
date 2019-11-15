@@ -64,7 +64,7 @@ class ChiKS(PlaneWaveKSLRF):
                                         spinrot=spinrot, A_x=A_x)
 
     @timer('Add integrand to chiks_wGG')
-    def add_integrand(self, kskptpair, A_x):
+    def add_integrand(self, kskptpair, weight, A_x):
         r"""Use PairDensity object to calculate the integrand for all relevant
         transitions of the given k-point.
 
@@ -98,7 +98,8 @@ class ChiKS(PlaneWaveKSLRF):
         # Get (f_n'k's' - f_nks), (eps_n'k's' - eps_nks) and the pair densities
         df_t, deps_t, n_tG = kskptpair.df_t, kskptpair.deps_t, kskptpair.n_tG
 
-        x_wt = self.get_temporal_part(n1_t, n2_t, s1_t, s2_t, df_t, deps_t)
+        x_wt = weight * self.get_temporal_part(n1_t, n2_t,
+                                               s1_t, s2_t, df_t, deps_t)
 
         if self.bundle_integrals:
             # Specify notation
