@@ -210,7 +210,7 @@ class FourComponentSusceptibilityTensor:
         else:
             # Calculate Hartree kernel
             Kbare_G = get_coulomb_kernel(pd, self.calc.wfs.kd.N_c)
-            vsqrt_G = (Kbare_G / np.pi) ** 0.5
+            vsqrt_G = Kbare_G ** 0.5
             K_GG = np.eye(len(vsqrt_G)) * vsqrt_G * vsqrt_G[:, np.newaxis]
 
             # Calculate exchange-correlation kernel
