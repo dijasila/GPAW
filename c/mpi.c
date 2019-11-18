@@ -228,6 +228,7 @@ static void mpi_ensure_initialized(void)
     if (!already_initialized)
     {
         // if not, let's initialize it
+#ifndef GPAW_OMP
         ierr = MPI_Init(NULL, NULL);
         if (ierr == MPI_SUCCESS)
         {
@@ -243,6 +244,31 @@ static void mpi_ensure_initialized(void)
             PyErr_SetString(PyExc_RuntimeError, err);
         }
     }
+#else
+        int granted;
+        ierr = MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &granted);
+        if (ierr == MPI_SUCCESS && granted == MPI_THREAD_MULTIPLE)
+        {
+            // No problem: register finalization when at Python exit
+            Py_AtExit(*mpi_ensure_finalized);
+        }
+        else if (granted != MPI_THREAD_MULTIPLE)
+        {
+            // We have a problem: raise an exception
+            char err[MPI_MAX_ERROR_STRING] = "MPI_THREAD_MULTIPLE is not supported";
+            PyErr_SetString(PyExc_RuntimeError, err);
+        }
+        else
+        {
+            // We have a problem: raise an exception
+            char err[MPI_MAX_ERROR_STRING];
+            int resultlen;
+            MPI_Error_string(ierr, err, &resultlen);
+            PyErr_SetString(PyExc_RuntimeError, err);
+        }
+
+    }
+#endif
 }
 
 
