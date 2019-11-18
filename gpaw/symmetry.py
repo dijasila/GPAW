@@ -4,6 +4,7 @@
 # Please see the accompanying LICENSE file for further information.
 from ase.io import read
 from ase.utils import gcd
+from ase.parallel import parprint
 import numpy as np
 
 import _gpaw
@@ -167,6 +168,9 @@ class Symmetry:
             for ft_c in ftrans_sc:
                 a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ij)
                 if a_a is not None:
+                    msg = ('This is a supercell and not a primitive cell => '
+                           'GPAW will ignore all non-symmorphic symmetries.')
+                    parprint(msg)
                     self.symmorphic = True
                     break
 
