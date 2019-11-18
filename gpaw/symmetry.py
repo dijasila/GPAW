@@ -168,8 +168,8 @@ class Symmetry:
             for ft_c in ftrans_sc:
                 a_a = self.check_one_symmetry(spos_ac, op_cc, ft_c, a_ij)
                 if a_a is not None:
-                    msg = ('This is a supercell and not a primitive cell => '
-                           'GPAW will ignore all non-symmorphic symmetries.')
+                    msg = ('Found supercell, deactivating fractional '
+                           'translations.')
                     parprint(msg)
                     self.symmorphic = True
                     break
