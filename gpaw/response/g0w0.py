@@ -1257,8 +1257,8 @@ class G0W0(PairDensity):
             print('Removing bad file (wrong shape of array):', filename,
                   file=self.fd)
 
-        if self.world.rank == 0:
-            os.remove(filename)
+        # if self.world.rank == 0:
+        #     os.remove(filename)
 
         return opencew(filename), None
 
