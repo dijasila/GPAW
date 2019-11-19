@@ -743,14 +743,17 @@ class KohnShamPair:
 
             # Symmetrize projections
             with self.timer('Apply symmetry operations'):
-                for a1, U_ii, (a2, P_hi) in zip(a_a, U_aii, Ph.items()):
-                    assert a1 == a2
-                    P_hi = np.ascontiguousarray(P_hi)
+                P_ahi = []
+                for a1, U_ii in zip(a_a, U_aii):
+                    P_hi = np.ascontiguousarray(Ph[a1])
+                    # Apply symmetry operations. This will map a1 onto a2
                     np.dot(P_hi, U_ii, out=P_hi)
                     if time_reversal:
                         np.conj(P_hi, out=P_hi)
+                    P_ahi.append(P_hi)
 
-                    # Store symmtrized projector array in projections
+                # Store symmetrized projectors
+                for a2, P_hi in enumerate(P_ahi):
                     I1, I2 = Ph.map[a2]
                     Ph.array[..., I1:I2] = P_hi
 
@@ -908,9 +911,6 @@ class KohnShamPair:
 
         shift0_c = (kd.bzk_kc[K] - k_c).round().astype(int)
         shift_c += -shift0_c
-
-        # Sort based on atom index
-        a_a, U_aii = zip(*sorted(zip(a_a, U_aii)))
 
         return U_cc, T, a_a, U_aii, shift_c, time_reversal
 
