@@ -237,6 +237,7 @@ tests = [
     'solvation/pbc.py',                     # ~5s
     'generic/asym_box.py',                  # ~5s
     'overlap.py',                           # ~5s
+    'response/silicon_chi_RPA.py',          # ~6s
     'linalg/gemm.py',                       # ~6s
     'generic/al_chain.py',                  # ~6s
     'fileio/parallel.py',                   # ~6s
