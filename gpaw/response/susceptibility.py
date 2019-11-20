@@ -1,6 +1,7 @@
 import sys
 from time import ctime
 from pathlib import Path
+import pickle
 
 import numpy as np
 
@@ -353,7 +354,7 @@ class FourComponentSusceptibilityTensor:
         if self.world.rank == 0:
             shape = A_wGG.shape
             # Make room for all frequencies
-            shape[0] = self.mynw * self.world.size
+            shape = (self.mynw * self.world.size,) + shape[1:]
             allA_wGG = np.empty(shape, dtype=A_wGG.dtype)
         else:
             allA_wGG = None
@@ -361,7 +362,10 @@ class FourComponentSusceptibilityTensor:
         self.world.gather(A_wGG, 0, allA_wGG)
 
         # Return array for w indeces on frequency grid
-        return allA_wGG[:len(wd), :, :]
+        if allA_wGG is not None:
+            allA_wGG = allA_wGG[:len(wd), :, :]
+
+        return allA_wGG
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
