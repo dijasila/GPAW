@@ -743,11 +743,19 @@ class KohnShamPair:
 
             # Symmetrize projections
             with self.timer('Apply symmetry operations'):
-                for a1, U_ii, (a2, P_hi) in zip(a_a, U_aii, Ph.items()):
-                    assert a1 == a2
+                P_ahi = []
+                for a1, U_ii in zip(a_a, U_aii):
+                    P_hi = np.ascontiguousarray(Ph[a1])
+                    # Apply symmetry operations. This will map a1 onto a2
                     np.dot(P_hi, U_ii, out=P_hi)
                     if time_reversal:
                         np.conj(P_hi, out=P_hi)
+                    P_ahi.append(P_hi)
+
+                # Store symmetrized projectors
+                for a2, P_hi in enumerate(P_ahi):
+                    I1, I2 = Ph.map[a2]
+                    Ph.array[..., I1:I2] = P_hi
 
             (eps_myt, f_myt,
              P, ut_mytR) = self.unfold_arrays(eps_h, f_h, Ph, ut_hR,
@@ -822,11 +830,19 @@ class KohnShamPair:
                 ut_hR[h] = T(self.pd0.ifft(psit_G, ik))
 
         # Symmetrize projections
-        for a1, U_ii, (a2, P_hi) in zip(a_a, U_aii, Ph.items()):
-            assert a1 == a2
+        P_ahi = []
+        for a1, U_ii in zip(a_a, U_aii):
+            P_hi = np.ascontiguousarray(Ph[a1])
+            # Apply symmetry operations. This will map a1 onto a2
             np.dot(P_hi, U_ii, out=P_hi)
             if time_reversal:
                 np.conj(P_hi, out=P_hi)
+            P_ahi.append(P_hi)
+
+        # Store symmetrized projectors
+        for a2, P_hi in enumerate(P_ahi):
+            I1, I2 = Ph.map[a2]
+            Ph.array[..., I1:I2] = P_hi
 
         return Ph, ut_hR, shift_c
 
