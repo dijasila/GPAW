@@ -146,7 +146,7 @@ class FourComponentSusceptibilityTensor:
         return omega_w, chiks_w, chi_w
 
     def get_component(self, spincomponent, q_c, frequencies,
-                      ecut=50, filename=None, txt=None):
+                      store_ecut=50, filename=None, txt=None):
         """Calculates a specific spincomponent component of the
         susceptibility tensor and writes it to a file.
 
@@ -154,7 +154,7 @@ class FourComponentSusceptibilityTensor:
         ----------
         spincomponent, q_c,
         frequencies : see gpaw.response.chiks, gpaw.response.kslrf
-        ecut : float
+        store_ecut : float
             Energy cutoff for the reduced plane wave representation.
             The susceptibility is returned/saved in the reduced representation.
         filename : str
@@ -188,7 +188,7 @@ class FourComponentSusceptibilityTensor:
         omega_w = wd.get_data() * Hartree
 
         # Get susceptibility in a reduced plane wave representation
-        mask_G = get_pw_reduction_map(pd, ecut)
+        mask_G = get_pw_reduction_map(pd, store_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
 
