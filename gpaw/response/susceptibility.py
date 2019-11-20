@@ -196,8 +196,8 @@ class FourComponentSusceptibilityTensor:
         G_Gc = get_pw_coordinates(pd)[mask_G]
 
         # Gather susceptibilities for all frequencies
-        chiks_wGG = self.gather(chiks_wGG)  # write me                         XXX
-        chi_wGG = self.gather(chi_wGG)
+        chiks_wGG = self.gather(chiks_wGG, wd)
+        chi_wGG = self.gather(chi_wGG, wd)
 
         # Write susceptibilities to a pickle file
         write_component(omega_w, G_Gc, chiks_w, chi_w,  # write me             XXX
@@ -346,6 +346,22 @@ class FourComponentSusceptibilityTensor:
         A_w = np.empty(world.size * self.mynw, a_w.dtype)
         world.all_gather(b_w, A_w)
         return A_w[:nw]
+
+    def gather(self, A_wGG, wd):
+        """Gather a full susceptibility array to root."""
+        # Allocate arrays
+        if self.world.rank == 0:
+            shape = A_wGG.shape
+            # Make room for all frequencies
+            shape[0] = self.mynw * self.world.size
+            allA_wGG = np.empty(shape, dtype=A_wGG.dtype)
+        else:
+            allA_wGG = None
+
+        self.world.gather(A_wGG, 0, allA_wGG)
+
+        # Return array for w indeces on frequency grid
+        return allA_wGG[:len(wd), :, :]
 
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
