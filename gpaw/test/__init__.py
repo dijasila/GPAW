@@ -349,6 +349,7 @@ tests = [
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
+    'response/two-aluminum_chi_RPA.py',     # ~23s
     'lcao/kpts_many_combinations.py',       # ~23s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
