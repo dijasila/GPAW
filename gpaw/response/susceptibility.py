@@ -193,7 +193,7 @@ class FourComponentSusceptibilityTensor:
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
 
         # Get reduced plane wave repr. as coordinates on the reciprocal lattice
-        G_Gc = get_pw_coordinates(pd)[mask_G]  # write me                      XXX
+        G_Gc = get_pw_coordinates(pd)[mask_G]
 
         # Gather susceptibilities for all frequencies
         chiks_wGG = self.gather(chiks_wGG)  # write me                         XXX
@@ -420,6 +420,27 @@ def get_pw_reduction_map(pd, ecut):
         mask_G = (((G_Gv + pd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
 
     return mask_G
+
+
+def get_pw_coordinates(pd):
+    """Get the reciprocal lattice vector coordinates corresponding to a
+    givne plane wave basis.
+
+    Please remark, that the response code currently works with one q-vector
+    at a time, at thus only a single plane wave representation at a time.
+
+    Returns
+    -------
+    G_Gc : nd.array (dtype=int)
+        Coordinates on the reciprocal lattice
+    """
+    # List of all plane waves
+    G_G = np.arange(len(pd.Q_qG[0]))
+    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+
+    # Use cell to get coordinates
+    B_cv = 2.0 * np.pi * pd.gd.icell_cv
+    return np.dot(G_Gv, np.linalg.inv(B_cv)).astype(int)
 
 
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
