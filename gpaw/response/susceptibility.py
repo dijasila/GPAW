@@ -146,8 +146,7 @@ class FourComponentSusceptibilityTensor:
         return omega_w, chiks_w, chi_w
 
     def get_component(self, spincomponent, q_c, frequencies,
-                      ecut=50, gammacentered=False,
-                      filename=None, txt=None):
+                      ecut=50, filename=None, txt=None):
         """Calculates a specific spincomponent component of the
         susceptibility tensor and writes it to a file.
 
@@ -158,8 +157,6 @@ class FourComponentSusceptibilityTensor:
         ecut : float
             Energy cutoff for the reduced plane wave representation.
             The susceptibility is returned/saved in the reduced representation.
-        gammacentered : bool
-            Center the reduced grid of plane waves around the gamma point.
         filename : str
             Save chiks_w and chi_w to pickle file of given name.
             Defaults to:
@@ -191,7 +188,7 @@ class FourComponentSusceptibilityTensor:
         omega_w = wd.get_data() * Hartree
 
         # Get susceptibility in a reduced plane wave representation
-        mask_G = get_pw_reduction_map(pd, ecut, gammacentered)  # write me     XXX
+        mask_G = get_pw_reduction_map(pd, ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
 
@@ -396,6 +393,33 @@ class FourComponentSusceptibilityTensor:
         self.cfd.close()
         print('\nClosing, %s' % ctime(), file=self.fd)
         self.fd.close()
+
+
+def get_pw_reduction_map(pd, ecut):
+    """Get a mask to reduce the plane wave representation.
+
+    Please remark, that the response code currently works with one q-vector
+    at a time, at thus only a single plane wave representation at a time.
+
+    Returns
+    -------
+    mask_G : nd.array (dtype=bool)
+        Mask which reduces the representation
+    """
+    assert ecut is not None
+    ecut /= Hartree
+    assert ecut <= pd.ecut
+
+    # List of all plane waves
+    G_G = np.arange(len(pd.Q_qG[0]))
+    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+
+    if pd.gammacentered:
+        mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
+    else:
+        mask_G = (((G_Gv + pd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
+
+    return mask_G
 
 
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
