@@ -200,7 +200,7 @@ class FourComponentSusceptibilityTensor:
         chi_wGG = self.gather(chi_wGG, wd)
 
         # Write susceptibilities to a pickle file
-        write_component(omega_w, G_Gc, chiks_w, chi_w,  # write me             XXX
+        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
                         filename, self.world)
 
         return omega_w, G_Gc, chiks_wGG, chi_wGG
@@ -468,3 +468,20 @@ def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
                 print('%.6f, %.6f, %.6f, %.6f, %.6f' %
                       (omega, chiks.real, chiks.imag, chi.real, chi.imag),
                       file=fd)
+
+
+def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename, world):
+    """Write the dynamic susceptibility as a pickle file."""
+    assert isinstance(filename, str)
+    if world.rank == 0:
+        with open(filename, 'wb') as fd:
+            pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
+
+
+def read_component(filename):
+    """Read a stored susceptibility component file"""
+    assert isinstance(filename, str)
+    with open(filename, 'rb') as fd:
+        omega_w, G_Gc, G_Gv, chiks_wGG, chi_wGG = pickle.load(fd)
+
+    return omega_w, G_Gc, G_Gv, chiks_wGG, chi_wGG
