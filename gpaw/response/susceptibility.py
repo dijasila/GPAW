@@ -486,6 +486,6 @@ def read_component(filename):
     """Read a stored susceptibility component file"""
     assert isinstance(filename, str)
     with open(filename, 'rb') as fd:
-        omega_w, G_Gc, G_Gv, chiks_wGG, chi_wGG = pickle.load(fd)
+        omega_w, G_Gc, chiks_wGG, chi_wGG = pickle.load(fd)
 
-    return omega_w, G_Gc, G_Gv, chiks_wGG, chi_wGG
+    return omega_w, G_Gc, chiks_wGG, chi_wGG
