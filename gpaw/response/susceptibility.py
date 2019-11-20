@@ -108,7 +108,7 @@ class FourComponentSusceptibilityTensor:
                                                        frequencies,
                                                        txt=txt)
 
-        write_macroscopic_component(omega_w / Hartree, chiks_w, chi_w,
+        write_macroscopic_component(omega_w, chiks_w, chi_w,
                                     filename, self.world)
 
         return omega_w, chiks_w, chi_w
@@ -128,7 +128,7 @@ class FourComponentSusceptibilityTensor:
         omega_w, chiks_w, chi_w : nd.array, nd.array, nd.array
             omega_w: frequencies in eV
             chiks_w: macroscopic dynamic susceptibility (Kohn-Sham system)
-            chi_w: macroscopic(to be generalized?) dynamic susceptibility
+            chi_w: macroscopic dynamic susceptibility
         """
         (pd, wd,
          chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c,
@@ -144,6 +144,69 @@ class FourComponentSusceptibilityTensor:
         chi_w = self.collect(chi_w)
 
         return omega_w, chiks_w, chi_w
+
+    def get_component(self, spincomponent, q_c, frequencies,
+                      ecut=50, gammacentered=False,
+                      filename=None, txt=None):
+        """Calculates a specific spincomponent component of the
+        susceptibility tensor and writes it to a file.
+
+        Parameters
+        ----------
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
+        ecut : float
+            Energy cutoff for the reduced plane wave representation.
+            The susceptibility is returned/saved in the reduced representation.
+        gammacentered : bool
+            Center the reduced grid of plane waves around the gamma point.
+        filename : str
+            Save chiks_w and chi_w to pickle file of given name.
+            Defaults to:
+            'chi%sGG_q«%+d-%+d-%+d».pckl' % (spincomponent,
+                                             *tuple((q_c * kd.N_c).round()))
+        txt : str
+            Save output of the calculation of this specific component into
+            a file with the filename of the given input.
+
+        Returns
+        -------
+        omega_w, G_Gc, chiks_wGG, chi_wGG : nd.array(s)
+            omega_w: frequencies in eV
+            G_Gc : plane wave repr. as coordinates on the reciprocal lattice
+            chiks_wGG: dynamic susceptibility (Kohn-Sham system)
+            chi_wGG: dynamic susceptibility
+        """
+
+        if filename is None:
+            tup = (spincomponent,
+                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
+            filename = 'chi%sGG_q«%+d-%+d-%+d».pckl' % tup
+
+        (pd, wd,
+         chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c,
+                                                        frequencies, txt=txt)
+
+        # Get frequencies in eV
+        omega_w = wd.get_data() * Hartree
+
+        # Get susceptibility in a reduced plane wave representation
+        mask_G = get_pw_reduction_map(pd, ecut, gammacentered)  # write me     XXX
+        chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
+        chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
+
+        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
+        G_Gc = get_pw_coordinates(pd)[mask_G]  # write me                      XXX
+
+        # Gather susceptibilities for all frequencies
+        chiks_wGG = self.gather(chiks_wGG)  # write me                         XXX
+        chi_wGG = self.gather(chi_wGG)
+
+        # Write susceptibilities to a pickle file
+        write_component(omega_w, G_Gc, chiks_w, chi_w,  # write me             XXX
+                        filename, self.world)
+
+        return omega_w, G_Gc, chiks_wGG, chi_wGG
 
     def calculate_component(self, spincomponent, q_c, frequencies, txt=None):
         """Calculate a single component of the susceptibility tensor.
@@ -340,7 +403,7 @@ def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
     assert isinstance(filename, str)
     if world.rank == 0:
         with Path(filename).open('w') as fd:
-            for omega, chiks, chi in zip(omega_w * Hartree, chiks_w, chi_w):
+            for omega, chiks, chi in zip(omega_w, chiks_w, chi_w):
                 print('%.6f, %.6f, %.6f, %.6f, %.6f' %
                       (omega, chiks.real, chiks.imag, chi.real, chi.imag),
                       file=fd)
