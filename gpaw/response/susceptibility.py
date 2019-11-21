@@ -462,7 +462,7 @@ def get_pw_coordinates(pd):
 
     # Use cell to get coordinates
     B_cv = 2.0 * np.pi * pd.gd.icell_cv
-    return np.dot(G_Gv, np.linalg.inv(B_cv)).astype(int)
+    return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
 
 
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
