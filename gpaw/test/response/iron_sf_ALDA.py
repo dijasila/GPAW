@@ -19,6 +19,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
@@ -107,32 +108,32 @@ parprint('Excited state calculations took', (t3 - t2) / 60, 'minutes')
 world.barrier()
 
 # Part 3: identify magnon peak in scattering functions
-d1 = np.loadtxt('iron_dsus_G1.csv', delimiter=', ')
-d2 = np.loadtxt('iron_dsus_G2.csv', delimiter=', ')
-d3 = np.loadtxt('iron_dsus_G3.csv', delimiter=', ')
-d4 = np.loadtxt('iron_dsus_G4.csv', delimiter=', ')
-d5 = np.loadtxt('iron_dsus_G5.csv', delimiter=', ')
-d6 = np.loadtxt('iron_dsus_G6.csv', delimiter=', ')
-d7 = np.loadtxt('iron_dsus_G7.csv', delimiter=', ')
-d8 = np.loadtxt('iron_dsus_G8.csv', delimiter=', ')
+w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_G1.csv')
+w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_G2.csv')
+w3_w, chiks3_w, chi3_w = read_macroscopic_component('iron_dsus_G3.csv')
+w4_w, chiks4_w, chi4_w = read_macroscopic_component('iron_dsus_G4.csv')
+w5_w, chiks5_w, chi5_w = read_macroscopic_component('iron_dsus_G5.csv')
+w6_w, chiks6_w, chi6_w = read_macroscopic_component('iron_dsus_G6.csv')
+w7_w, chiks7_w, chi7_w = read_macroscopic_component('iron_dsus_G7.csv')
+w8_w, chiks8_w, chi8_w = read_macroscopic_component('iron_dsus_G8.csv')
 
-wpeak1, Ipeak1 = findpeak(d1[:, 0], d1[:, 4])
-wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
-wpeak3, Ipeak3 = findpeak(d3[:, 0], d3[:, 4])
-wpeak4, Ipeak4 = findpeak(d4[:, 0], d4[:, 4])
-wpeak5, Ipeak5 = findpeak(d5[:, 0], d5[:, 4])
-wpeak6, Ipeak6 = findpeak(d6[:, 0], d6[:, 4])
-wpeak7, Ipeak7 = findpeak(d7[:, 0], d7[:, 4])
-wpeak8, Ipeak8 = findpeak(d8[:, 0], d8[:, 4])
+wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
+wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
+wpeak3, Ipeak3 = findpeak(w3_w, chi3_w.imag)
+wpeak4, Ipeak4 = findpeak(w4_w, chi4_w.imag)
+wpeak5, Ipeak5 = findpeak(w5_w, chi5_w.imag)
+wpeak6, Ipeak6 = findpeak(w6_w, chi6_w.imag)
+wpeak7, Ipeak7 = findpeak(w7_w, chi7_w.imag)
+wpeak8, Ipeak8 = findpeak(w8_w, chi8_w.imag)
 
-mw1 = (wpeak1 + d1[0, 0]) * 1000
-mw2 = (wpeak2 + d2[0, 0]) * 1000
-mw3 = (wpeak3 + d3[0, 0]) * 1000
-mw4 = (wpeak4 + d4[0, 0]) * 1000
-mw5 = (wpeak5 + d5[0, 0]) * 1000
-mw6 = (wpeak6 + d6[0, 0]) * 1000
-mw7 = (wpeak7 + d7[0, 0]) * 1000
-mw8 = (wpeak8 + d8[0, 0]) * 1000
+mw1 = (wpeak1 + w1_w[0]) * 1000
+mw2 = (wpeak2 + w2_w[0]) * 1000
+mw3 = (wpeak3 + w3_w[0]) * 1000
+mw4 = (wpeak4 + w4_w[0]) * 1000
+mw5 = (wpeak5 + w5_w[0]) * 1000
+mw6 = (wpeak6 + w6_w[0]) * 1000
+mw7 = (wpeak7 + w7_w[0]) * 1000
+mw8 = (wpeak8 + w8_w[0]) * 1000
 
 # Part 4: compare new results to test values
 test_mw1 = 234.63  # meV

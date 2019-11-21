@@ -1,6 +1,7 @@
 import sys
 from time import ctime
 from pathlib import Path
+import pickle
 
 import numpy as np
 
@@ -108,7 +109,7 @@ class FourComponentSusceptibilityTensor:
                                                        frequencies,
                                                        txt=txt)
 
-        write_macroscopic_component(omega_w / Hartree, chiks_w, chi_w,
+        write_macroscopic_component(omega_w, chiks_w, chi_w,
                                     filename, self.world)
 
         return omega_w, chiks_w, chi_w
@@ -128,7 +129,7 @@ class FourComponentSusceptibilityTensor:
         omega_w, chiks_w, chi_w : nd.array, nd.array, nd.array
             omega_w: frequencies in eV
             chiks_w: macroscopic dynamic susceptibility (Kohn-Sham system)
-            chi_w: macroscopic(to be generalized?) dynamic susceptibility
+            chi_w: macroscopic dynamic susceptibility
         """
         (pd, wd,
          chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c,
@@ -144,6 +145,66 @@ class FourComponentSusceptibilityTensor:
         chi_w = self.collect(chi_w)
 
         return omega_w, chiks_w, chi_w
+
+    def get_component(self, spincomponent, q_c, frequencies,
+                      store_ecut=50, filename=None, txt=None):
+        """Calculates a specific spin component of the
+        susceptibility tensor and writes it to a file.
+
+        Parameters
+        ----------
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
+        store_ecut : float
+            Energy cutoff for the reduced plane wave representation.
+            The susceptibility is returned/saved in the reduced representation.
+        filename : str
+            Save chiks_w and chi_w to pickle file of given name.
+            Defaults to:
+            'chi%sGG_q«%+d-%+d-%+d».pckl' % (spincomponent,
+                                             *tuple((q_c * kd.N_c).round()))
+        txt : str
+            Save output of the calculation of this specific component into
+            a file with the filename of the given input.
+
+        Returns
+        -------
+        omega_w, G_Gc, chiks_wGG, chi_wGG : nd.array(s)
+            omega_w: frequencies in eV
+            G_Gc : plane wave repr. as coordinates on the reciprocal lattice
+            chiks_wGG: dynamic susceptibility (Kohn-Sham system)
+            chi_wGG: dynamic susceptibility
+        """
+
+        if filename is None:
+            tup = (spincomponent,
+                   *tuple((q_c * self.calc.wfs.kd.N_c).round()))
+            filename = 'chi%sGG_q«%+d-%+d-%+d».pckl' % tup
+
+        (pd, wd,
+         chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c,
+                                                        frequencies, txt=txt)
+
+        # Get frequencies in eV
+        omega_w = wd.get_data() * Hartree
+
+        # Get susceptibility in a reduced plane wave representation
+        mask_G = get_pw_reduction_map(pd, store_ecut)
+        chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
+        chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
+
+        # Get reduced plane wave repr. as coordinates on the reciprocal lattice
+        G_Gc = get_pw_coordinates(pd)[mask_G]
+
+        # Gather susceptibilities for all frequencies
+        chiks_wGG = self.gather(chiks_wGG, wd)
+        chi_wGG = self.gather(chi_wGG, wd)
+
+        # Write susceptibilities to a pickle file
+        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
+                        filename, self.world)
+
+        return omega_w, G_Gc, chiks_wGG, chi_wGG
 
     def calculate_component(self, spincomponent, q_c, frequencies, txt=None):
         """Calculate a single component of the susceptibility tensor.
@@ -287,6 +348,29 @@ class FourComponentSusceptibilityTensor:
         world.all_gather(b_w, A_w)
         return A_w[:nw]
 
+    def gather(self, A_wGG, wd):
+        """Gather a full susceptibility array to root."""
+        # Allocate arrays to gather (all need to be the same shape)
+        shape = (self.mynw,) + A_wGG.shape[1:]
+        tmp_wGG = np.empty(shape, dtype=A_wGG.dtype)
+        tmp_wGG[:self.w2 - self.w1] = A_wGG
+
+        # Allocate array for the gathered data
+        if self.world.rank == 0:
+            # Make room for all frequencies
+            shape = (self.mynw * self.world.size,) + A_wGG.shape[1:]
+            allA_wGG = np.empty(shape, dtype=A_wGG.dtype)
+        else:
+            allA_wGG = None
+
+        self.world.gather(tmp_wGG, 0, allA_wGG)
+
+        # Return array for w indeces on frequency grid
+        if allA_wGG is not None:
+            allA_wGG = allA_wGG[:len(wd), :, :]
+
+        return allA_wGG
+
     @timer('Distribute frequencies')
     def distribute_frequencies(self, chiks_wGG):
         """Distribute frequencies to all cores."""
@@ -335,12 +419,87 @@ class FourComponentSusceptibilityTensor:
         self.fd.close()
 
 
+def get_pw_reduction_map(pd, ecut):
+    """Get a mask to reduce the plane wave representation.
+
+    Please remark, that the response code currently works with one q-vector
+    at a time, at thus only a single plane wave representation at a time.
+
+    Returns
+    -------
+    mask_G : nd.array (dtype=bool)
+        Mask which reduces the representation
+    """
+    assert ecut is not None
+    ecut /= Hartree
+    assert ecut <= pd.ecut
+
+    # List of all plane waves
+    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+
+    if pd.gammacentered:
+        mask_G = ((G_Gv ** 2).sum(axis=1) <= 2 * ecut)
+    else:
+        mask_G = (((G_Gv + pd.K_qv[0]) ** 2).sum(axis=1) <= 2 * ecut)
+
+    return mask_G
+
+
+def get_pw_coordinates(pd):
+    """Get the reciprocal lattice vector coordinates corresponding to a
+    givne plane wave basis.
+
+    Please remark, that the response code currently works with one q-vector
+    at a time, at thus only a single plane wave representation at a time.
+
+    Returns
+    -------
+    G_Gc : nd.array (dtype=int)
+        Coordinates on the reciprocal lattice
+    """
+    # List of all plane waves
+    G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
+
+    # Use cell to get coordinates
+    B_cv = 2.0 * np.pi * pd.gd.icell_cv
+    return np.round(np.dot(G_Gv, np.linalg.inv(B_cv))).astype(int)
+
+
 def write_macroscopic_component(omega_w, chiks_w, chi_w, filename, world):
     """Write the spatially averaged dynamic susceptibility."""
     assert isinstance(filename, str)
     if world.rank == 0:
         with Path(filename).open('w') as fd:
-            for omega, chiks, chi in zip(omega_w * Hartree, chiks_w, chi_w):
+            for omega, chiks, chi in zip(omega_w, chiks_w, chi_w):
                 print('%.6f, %.6f, %.6f, %.6f, %.6f' %
                       (omega, chiks.real, chiks.imag, chi.real, chi.imag),
                       file=fd)
+
+
+def read_macroscopic_component(filename):
+    """Read a stored macroscopic susceptibility file"""
+    d = np.loadtxt(filename, delimiter=', ')
+    omega_w = d[:, 0]
+    chiks_w = np.array(d[:, 1], complex)
+    chiks_w.imag = d[:, 2]
+    chi_w = np.array(d[:, 3], complex)
+    chi_w.imag = d[:, 4]
+
+    return omega_w, chiks_w, chi_w
+
+
+def write_component(omega_w, G_Gc, chiks_wGG, chi_wGG, filename, world):
+    """Write the dynamic susceptibility as a pickle file."""
+    assert isinstance(filename, str)
+    if world.rank == 0:
+        with open(filename, 'wb') as fd:
+            pickle.dump((omega_w, G_Gc, chiks_wGG, chi_wGG), fd)
+
+
+def read_component(filename):
+    """Read a stored susceptibility component file"""
+    assert isinstance(filename, str)
+    with open(filename, 'rb') as fd:
+        omega_w, G_Gc, chiks_wGG, chi_wGG = pickle.load(fd)
+
+    return omega_w, G_Gc, chiks_wGG, chi_wGG

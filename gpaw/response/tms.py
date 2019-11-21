@@ -42,6 +42,28 @@ class TransverseMagneticSusceptibility(FCST):
                                               frequencies, filename=filename,
                                               txt=txt)
 
+    def get_component(self, spincomponent, q_c, frequencies,
+                      store_ecut=50, filename=None, txt=None):
+        """Calculates a specific spin component of the
+        transverse magnetic susceptibility and writes it to a file.
+        
+        Parameters
+        ----------
+        spincomponent : str
+            '+-': calculate chi+-, '-+: calculate chi-+
+        q_c, frequencies,
+        store_ecut, filename, txt : see gpaw.response.susceptibility
+
+        Returns
+        -------
+        see gpaw.response.susceptibility
+        """
+        assert spincomponent in ['+-', '-+']
+
+        return FCST.get_component(self, spincomponent, q_c,
+                                  frequencies, store_ecut=store_ecut,
+                                  filename=filename, txt=txt)
+
     def _calculate_component(self, spincomponent, pd, wd):
         """Calculate a transverse magnetic susceptibility element.
 
