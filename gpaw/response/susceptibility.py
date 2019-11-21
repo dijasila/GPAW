@@ -350,16 +350,20 @@ class FourComponentSusceptibilityTensor:
 
     def gather(self, A_wGG, wd):
         """Gather a full susceptibility array to root."""
-        # Allocate arrays
+        # Allocate arrays to gather (all need to be the same shape)
+        shape = (self.mynw,) + A_wGG.shape[1:]
+        tmp_wGG = np.empty(shape, dtype=A_wGG.dtype)
+        tmp_wGG[:self.w2 - self.w1] = A_wGG
+
+        # Allocate array for the gathered data
         if self.world.rank == 0:
-            shape = A_wGG.shape
             # Make room for all frequencies
-            shape = (self.mynw * self.world.size,) + shape[1:]
+            shape = (self.mynw * self.world.size,) + A_wGG.shape[1:]
             allA_wGG = np.empty(shape, dtype=A_wGG.dtype)
         else:
             allA_wGG = None
 
-        self.world.gather(A_wGG, 0, allA_wGG)
+        self.world.gather(tmp_wGG, 0, allA_wGG)
 
         # Return array for w indeces on frequency grid
         if allA_wGG is not None:
