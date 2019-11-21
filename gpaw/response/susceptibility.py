@@ -431,7 +431,6 @@ def get_pw_reduction_map(pd, ecut):
     assert ecut <= pd.ecut
 
     # List of all plane waves
-    G_G = np.arange(len(pd.Q_qG[0]))
     G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
 
     if pd.gammacentered:
@@ -455,7 +454,6 @@ def get_pw_coordinates(pd):
         Coordinates on the reciprocal lattice
     """
     # List of all plane waves
-    G_G = np.arange(len(pd.Q_qG[0]))
     G_Gv = np.array([pd.G_Qv[Q] for Q in pd.Q_qG[0]])
 
     # Use cell to get coordinates
