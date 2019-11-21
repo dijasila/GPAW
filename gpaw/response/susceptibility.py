@@ -148,7 +148,7 @@ class FourComponentSusceptibilityTensor:
 
     def get_component(self, spincomponent, q_c, frequencies,
                       store_ecut=50, filename=None, txt=None):
-        """Calculates a specific spincomponent component of the
+        """Calculates a specific spin component of the
         susceptibility tensor and writes it to a file.
 
         Parameters
