@@ -8,6 +8,7 @@ from gpaw import GPAW, PW, FermiDirac
 from gpaw.test import findpeak, equal
 from gpaw.response.df import DielectricFunction
 from gpaw.response.susceptibility import FourComponentSusceptibilityTensor
+from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.mpi import size, world
 
 assert size <= 4**3
@@ -63,8 +64,8 @@ parprint('For excited state calc 2, it took', (t4 - t3) / 60, 'minutes')
 # The two response codes should hold identical results
 d1 = np.loadtxt('Si_chi1.csv', delimiter=',')
 wpeak1, Ipeak1 = findpeak(d1[:, 0], -d1[:, 4])
-d2 = np.loadtxt('Si_chi2.csv', delimiter=',')
-wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
+w_w, chiks_w, chi_w = read_macroscopic_component('Si_chi2.csv')
+wpeak2, Ipeak2 = findpeak(w_w, chi_w.imag)
 
 equal(wpeak1, wpeak2, 0.02)
 equal(Ipeak1, Ipeak2, 1.0)
