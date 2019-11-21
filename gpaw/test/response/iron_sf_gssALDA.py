@@ -16,6 +16,7 @@ from ase.parallel import parprint
 
 from gpaw import GPAW, PW
 from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
@@ -81,14 +82,14 @@ parprint('Excited state calculation took', (t3 - t2) / 60, 'minutes')
 world.barrier()
 
 # Part 3: identify magnon peaks in scattering function
-d1 = np.loadtxt('iron_dsus_1.csv', delimiter=', ')
-d2 = np.loadtxt('iron_dsus_2.csv', delimiter=', ')
+w1_w, chiks1_w, chi1_w = read_macroscopic_component('iron_dsus_1.csv')
+w2_w, chiks2_w, chi2_w = read_macroscopic_component('iron_dsus_2.csv')
 
-wpeak1, Ipeak1 = findpeak(d1[:, 0], d1[:, 4])
-wpeak2, Ipeak2 = findpeak(d2[:, 0], d2[:, 4])
+wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
+wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
 
-mw1 = (wpeak1 + d1[0, 0]) * 1000
-mw2 = (wpeak2 + d2[0, 0]) * 1000
+mw1 = (wpeak1 + w1_w[0]) * 1000
+mw2 = (wpeak2 + w2_w[0]) * 1000
 
 # Part 4: compare new results to test values
 test_fxcs = 1.033
