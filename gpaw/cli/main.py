@@ -34,6 +34,9 @@ def hook(parser, args):
     if extra:
         args.arguments = extra
 
+    if args.command == 'python':
+        args.traceback = True
+
     if hasattr(args, 'dry_run'):
         N = int(args.dry_run)
         if N:
