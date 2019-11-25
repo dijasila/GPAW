@@ -6,7 +6,7 @@ moab = {
     'cmdstr': '#MSUB ',
     'jobid': '$MOAB_JOBID',
     'mailtype': '-m bea',
-    'mpirun': 'mpirun -n ',
+    'mpirun': 'mpiexec -np ',
     'name': '-N ',
     'nodes': '-l nodes=',
     'ppn': ':ppn=',
@@ -37,7 +37,6 @@ _hardware_info = {
     "nemo": {
         "cores_per_node": 20,
         "loginnodes": [r"login1.nemo.privat"],
-        'modules': ['mpi/impi'],
         'scheduler': moab,
     },
     "justus": {
@@ -172,13 +171,10 @@ class ComputeCluster:
             for module in self.data['modules']:
                 print('module load', module, file=f)
         print('cd', set['wd'], file=f)
-        print(('export LD_LIBRARY_PATH=' + env['LD_LIBRARY_PATH'] +
-               ':$LD_LIBRARY_PATH'), file=f)
-        print('export PYTHONPATH=' + env['PYTHONPATH'] + ':$PYTHONPATH',
-              file=f)
-        print('export GPAW_SETUP_PATH=' + env['GPAW_SETUP_PATH'], file=f)
-        print('export GPAW_PYTHON=' + env['GPAW_PYTHON'], file=f)
-        print(d['mpirun'] + str(cores) + ' $GPAW_PYTHON',
+        print('export MODULEPATH=' + env['MODULEPATH'], file=f)
+        for module in env['LOADEDMODULES'].split(':'):
+            print('module load', module, file=f)
+        print(d['mpirun'] + str(cores) + ' python3',
               set['script'], end=' ', file=f)
         if 'parameters' in set:
             print(set['parameters'], end=' ', file=f)
