@@ -17,7 +17,7 @@ class Box:
 
         self.owns = []
         self.position = None
-            
+
     def set_position(self, position):
         self.position = np.asarray(position)
 
@@ -46,7 +46,7 @@ class MPL:
     def plot(self):
         a4 = 100 * np.array([2**-1.75, 2**-2.25])
         inch = 2.54
-        
+
         self.fig = plt.figure(1, a4 / inch)
         self.ax = ax = self.fig.add_axes([0, 0, 1, 1], frameon=False)
         ax.set_xlim(0, a4[0])
@@ -84,7 +84,7 @@ class MPL:
             bbox = b.text.get_window_extent()
             t = b.text.get_transform()
             b.size = t.inverted().transform(bbox.size)
-        
+
         for b in self.boxes:
             for other, name, s, style in b.owns:
                 d = other.position - b.position
@@ -115,6 +115,7 @@ def box(*args, **kwargs):
     b = Box(*args, **kwargs)
     boxes.append(b)
     return b
+
 
 atoms = box('Atoms', [''], ['positions, numbers, cell, pbc'],
             color='white')
@@ -153,7 +154,10 @@ fd = box('FDWaveFunctions',
          [], 'magenta')
 pt = box('LFC', r'$\tilde{p}_i^a(\mathbf{r})$', [], 'red')
 lcao = box('LCAOWaveFunctions',
-           r"$\tilde{\psi}_{\sigma\mathbf{k}n}(\mathbf{r})=\sum_{\mu\mathbf{R}} C_{\sigma\mathbf{k}n\mu} \Phi_\mu(\mathbf{r} - \mathbf{R}) \exp(i\mathbf{k}\cdot\mathbf{R})$",
+           r"$\tilde{\psi}_{\sigma\mathbf{k}n}(\mathbf{r})=" +
+           r"\sum_{\mu\mathbf{R}} " +
+           r"C_{\sigma\mathbf{k}n\mu} \Phi_\mu(\mathbf{r} - \mathbf{R}) " +
+           r"\exp(i\mathbf{k}\cdot\mathbf{R})$",
            ['S_qMM, T_qMM, P_aqMi'], 'magenta')
 atoms0 = box('Atoms', '(copy)', ['positions, numbers, cell, pbc'],
              color='grey')
@@ -162,8 +166,9 @@ forces = box('ForceCalculator')
 occupations = box(
     'OccupationNumbers',
     r'$\epsilon_{\sigma\mathbf{k}n} \rightarrow f_{\sigma\mathbf{k}n}$')
-poisson = box('PoissonSolver',
-              r'$\nabla^2 \tilde{v}_H(\mathbf{r}) = -4\pi \tilde{\rho}(\mathbf{r})$')
+poisson = box(
+    'PoissonSolver',
+    r'$\nabla^2 \tilde{v}_H(\mathbf{r}) = -4\pi \tilde{\rho}(\mathbf{r})$')
 eigensolver = box('EigenSolver')
 symmetry = box('Symmetry')
 restrictor = box('Transformer', '(fine -> coarse)',
@@ -175,7 +180,7 @@ kin = box('FDOperator', r'$-\frac{1}{2}\nabla^2$')
 hsoperator = box('HSOperator',
                  [r"$\langle \psi_n | A | \psi_{n'} \rangle$",
                   r"$\sum_{n'}U_{nn'}|\tilde{\psi}_{n'}\rangle$"])
-                 
+
 overlap = box('Overlap')
 basisfunctions = box('BasisFunctions', r'$\Phi_\mu(\mathbf{r})$',
                      color='red')
