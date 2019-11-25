@@ -17,7 +17,6 @@ _hardware_info = {
     "bwUniCluster": {
         "cores_per_node": 16,
         "loginnodes": [r'uc1n*'],
-        'modules': ['mpi'],
         'scheduler': moab,
     },
     "jureca": {
@@ -42,7 +41,6 @@ _hardware_info = {
     "justus": {
         "cores_per_node": 16,
         "loginnodes": [r"login??"],
-        'modules': ['mpi/impi'],
         'scheduler': moab,
     }
 }
@@ -167,9 +165,6 @@ class ComputeCluster:
         if set['mail'] is not None:
             print(c + '--mail-user=' + set['mail'], file=f)
         print(c + d['mailtype'], file=f)
-        if 'modules' in self.data:
-            for module in self.data['modules']:
-                print('module load', module, file=f)
         print('cd', set['wd'], file=f)
         print('export MODULEPATH=' + env['MODULEPATH'], file=f)
         for module in env['LOADEDMODULES'].split(':'):
