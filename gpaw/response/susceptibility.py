@@ -123,6 +123,7 @@ class FourComponentSusceptibilityTensor:
         ----------
         spincomponent, q_c,
         frequencies : see gpaw.response.chiks, gpaw.response.kslrf
+        txt : see get_macroscopic_component
 
         Returns
         -------
@@ -146,18 +147,17 @@ class FourComponentSusceptibilityTensor:
 
         return omega_w, chiks_w, chi_w
 
-    def get_component(self, spincomponent, q_c, frequencies,
-                      store_ecut=50, filename=None, txt=None):
-        """Calculates a specific spin component of the
-        susceptibility tensor and writes it to a file.
+    def get_component_array(self, spincomponent, q_c, frequencies,
+                            array_ecut=50, filename=None, txt=None):
+        """Calculates a specific spin component of the susceptibility tensor,
+        collects it as a numpy array in a reduced plane wave description
+        and writes it to a file.
 
         Parameters
         ----------
         spincomponent, q_c,
         frequencies : see gpaw.response.chiks, gpaw.response.kslrf
-        store_ecut : float
-            Energy cutoff for the reduced plane wave representation.
-            The susceptibility is returned/saved in the reduced representation.
+        array_ecut : see calculate_component_array
         filename : str
             Save chiks_w and chi_w to pickle file of given name.
             Defaults to:
@@ -169,11 +169,7 @@ class FourComponentSusceptibilityTensor:
 
         Returns
         -------
-        omega_w, G_Gc, chiks_wGG, chi_wGG : nd.array(s)
-            omega_w: frequencies in eV
-            G_Gc : plane wave repr. as coordinates on the reciprocal lattice
-            chiks_wGG: dynamic susceptibility (Kohn-Sham system)
-            chi_wGG: dynamic susceptibility
+        see calculate_component_array
         """
 
         if filename is None:
@@ -181,6 +177,40 @@ class FourComponentSusceptibilityTensor:
                    *tuple((q_c * self.calc.wfs.kd.N_c).round()))
             filename = 'chi%sGG_q«%+d-%+d-%+d».pckl' % tup
 
+        (omega_w, G_Gc, chiks_wGG,
+         chi_wGG) = self.calculate_component_array(spincomponent,
+                                                   q_c,
+                                                   frequencies,
+                                                   array_ecut=array_ecut,
+                                                   txt=txt)
+
+        # Write susceptibilities to a pickle file
+        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
+                        filename, self.world)
+
+        return omega_w, G_Gc, chiks_wGG, chi_wGG
+
+    def calculate_component_array(self, spincomponent, q_c, frequencies,
+                                  array_ecut=50, txt=None):
+        """Calculates a specific spin component of the susceptibility tensor
+        and collects it as a numpy array in a reduced plane wave description.
+
+        Parameters
+        ----------
+        spincomponent, q_c,
+        frequencies : see gpaw.response.chiks, gpaw.response.kslrf
+        array_ecut : float
+            Energy cutoff for the reduced plane wave representation.
+            The susceptibility is returned in the reduced representation.
+
+        Returns
+        -------
+        omega_w, G_Gc, chiks_wGG, chi_wGG : nd.array(s)
+            omega_w: frequencies in eV
+            G_Gc : plane wave repr. as coordinates on the reciprocal lattice
+            chiks_wGG: dynamic susceptibility (Kohn-Sham system)
+            chi_wGG: dynamic susceptibility
+        """
         (pd, wd,
          chiks_wGG, chi_wGG) = self.calculate_component(spincomponent, q_c,
                                                         frequencies, txt=txt)
@@ -189,7 +219,7 @@ class FourComponentSusceptibilityTensor:
         omega_w = wd.get_data() * Hartree
 
         # Get susceptibility in a reduced plane wave representation
-        mask_G = get_pw_reduction_map(pd, store_ecut)
+        mask_G = get_pw_reduction_map(pd, array_ecut)
         chiks_wGG = np.ascontiguousarray(chiks_wGG[:, mask_G, :][:, :, mask_G])
         chi_wGG = np.ascontiguousarray(chi_wGG[:, mask_G, :][:, :, mask_G])
 
@@ -199,10 +229,6 @@ class FourComponentSusceptibilityTensor:
         # Gather susceptibilities for all frequencies
         chiks_wGG = self.gather(chiks_wGG, wd)
         chi_wGG = self.gather(chi_wGG, wd)
-
-        # Write susceptibilities to a pickle file
-        write_component(omega_w, G_Gc, chiks_wGG, chi_wGG,
-                        filename, self.world)
 
         return omega_w, G_Gc, chiks_wGG, chi_wGG
 

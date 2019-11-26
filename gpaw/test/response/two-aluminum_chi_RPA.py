@@ -55,8 +55,8 @@ fcst = FourComponentSusceptibilityTensor(calc1, fxc='RPA',
                                          disable_point_group=False,
                                          disable_time_reversal=False)
 for q, q_c in enumerate(q1_qc):
-    fcst.get_component('00', q_c, w, store_ecut=25,
-                       filename='Al1_chiGG_q%d.pckl' % (q + 1))
+    fcst.get_component_array('00', q_c, w, array_ecut=25,
+                             filename='Al1_chiGG_q%d.pckl' % (q + 1))
     world.barrier()
 
 t4 = time.time()
@@ -67,8 +67,8 @@ fcst = FourComponentSusceptibilityTensor(calc2, fxc='RPA',
                                          disable_point_group=False,
                                          disable_time_reversal=False)
 for q, q_c in enumerate(q2_qc):
-    fcst.get_component('00', q_c, w, store_ecut=25,
-                       filename='Al2_chiGG_q%d.pckl' % (q + 1))
+    fcst.get_component_array('00', q_c, w, array_ecut=25,
+                             filename='Al2_chiGG_q%d.pckl' % (q + 1))
     world.barrier()
 
 t5 = time.time()
