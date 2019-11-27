@@ -947,6 +947,7 @@ def transform(A_g, axis=None, pbc=True):
         y *= .5
         return y
 
+
 def transform2(A_g, axes=None, pbc=[True, True]):
     if all(pbc):
         if A_g.size == 0:
@@ -961,6 +962,7 @@ def transform2(A_g, axes=None, pbc=[True, True]):
     else:
         return transform(transform(A_g, axis=axes[0], pbc=pbc[0]),
                          axis=axes[1], pbc=pbc[1])
+
 
 def itransform(A_g, axis=None, pbc=True):
     if pbc:
@@ -979,6 +981,7 @@ def itransform(A_g, axis=None, pbc=True):
         magic = 1.0 / (A_g.shape[axis] + 1)
         y *= magic
         return y
+
 
 def itransform2(A_g, axes=None, pbc=[True, True]):
     if all(pbc):
@@ -1017,7 +1020,6 @@ class FastPoissonSolver(BasePoissonSolver):
         periodic_axes = axes[pbc_c]
         non_periodic_axes = axes[np.logical_not(pbc_c)]
 
-
         # Find out which axes are orthogonal (0, 1 or 3)
         # Note that one expects that the axes are always rotated in
         # conventional form, thus for all axes to be
@@ -1047,7 +1049,7 @@ class FastPoissonSolver(BasePoissonSolver):
                                           key=lambda c: gd.N_c[c])
         if self.use_cholesky:
             if len(sorted_non_periodic_axes) > 0:
-                cholesky_axes = [ sorted_non_periodic_axes[-1] ]
+                cholesky_axes = [sorted_non_periodic_axes[-1]]
                 if cholesky_axes[0] in non_orthogonal_axes:
                     msg = ('Cholesky axis cannot be non-orthogonal. '
                            'Do you really want a non-orthogonal non-periodic '
