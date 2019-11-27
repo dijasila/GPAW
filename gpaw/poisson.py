@@ -1026,6 +1026,9 @@ def build_n_cp(parsize_c, N_c, pbc_c):
         n_p = np.around(n_p + 0.4999).astype(int)
         if not pbc_c[c]:
             n_p[0] = 1
+        # If there are empty domains, sort them to the end
+        if n_p[1] == n_p[0]:
+            n_p[:] = (np.arange(parsize_c[c] + 1) + 1 - pbc_c[c]).clip(0, N_c[c])
         n_cp.append(n_p)
     return n_cp
 
