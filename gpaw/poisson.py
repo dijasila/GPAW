@@ -1044,36 +1044,36 @@ class FastPoissonSolver(BasePoissonSolver):
         fftfst_axes = self.fft_axes + self.fst_axes
         axes = self.fft_axes + self.fst_axes + self.cholesky_axes
         self.axes = axes
-        gd_x = [ self.gd ]
 
         # Create xy flat decomposition (where x=axes[0] and y=axes[1])
         domain = gd.N_c.copy()
         domain[axes[0]] = 1
         domain[axes[1]] = 1
         parsize_c = decompose_domain(domain, gd.comm.size)
-        gd_x.append(gd.new_descriptor(parsize_c=parsize_c))
+        gd1d = gd.new_descriptor(parsize_c=parsize_c)
+        self.gd1d = gd1d
 
         # Create z flat decomposition
         domain = gd.N_c.copy()
         domain[axes[2]] = 1
         parsize_c = decompose_domain(domain, gd.comm.size)
-        gd_x.append(gd.new_descriptor(parsize_c=parsize_c))
-        self.gd_x = gd_x
+        gd2d = gd.new_descriptor(parsize_c=parsize_c)
+        self.gd2d = gd2d
 
         # Calculate eigenvalues in fst/fft decomposition for
         # non-cholesky axes in parallel
-        r_cx = np.indices(gd_x[-1].n_c)
-        r_cx += gd_x[-1].beg_c[:,np.newaxis, np.newaxis, np.newaxis]
+        r_cx = np.indices(gd2d.n_c)
+        r_cx += gd2d.beg_c[:,np.newaxis, np.newaxis, np.newaxis]
         r_cx = r_cx.astype(complex)
         for c, axis in enumerate(fftfst_axes):
-            r_cx[axis] *= 2j * np.pi / gd_x[-1].N_c[axis]
+            r_cx[axis] *= 2j * np.pi / gd2d.N_c[axis]
             if axis in fst_axes:
                 r_cx[axis] /= 2
         for c, axis in enumerate(cholesky_axes):
             r_cx[axis] = 0.0
         np.exp(r_cx, out=r_cx)
         fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
-        laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn)
+        laplace = Laplace(self.gd, -0.25 / pi, self.nn)
         self.stencil_description = laplace.description
 
         for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
@@ -1101,72 +1101,61 @@ class FastPoissonSolver(BasePoissonSolver):
                 np.abs(fft_lambdas) > 1e-10, 1.0 / fft_lambdas, 0)
 
     def solve_neutral(self, phi_g, rho_g, eps=None, timer=None):
-        gd1 = self.gd
-        work1_g = rho_g
-
-        for c in range(2):
-            # There are two decompositions, xy-flat and then z-flat
-            timer.start('Communicate fwd %d' % c)
-            gd2 = self.gd_x[c + 1]
-            work2_g = gd2.empty(dtype=work1_g.dtype)
-            grid2grid(gd1.comm, gd1, gd2, work1_g, work2_g)
-            timer.stop('Communicate fwd %d' % c)
-            if c == 0:
-                timer.start('fft2')
-                work1_g = transform2(work2_g, axes=self.axes[:2],
-                                     pbc=gd1.pbc_c[self.axes[:2]])
-                timer.stop('fft2')
-            elif c == 1:
-                if len(self.cholesky_axes) == 0:
-                    # The remaining problem is 0D dimensional, i.e the
-                    # problem has been fully diagonalized
-                    timer.start('fft')
-                    work1_g = transform(work2_g, axis=self.axes[2],
-                                        pbc=gd1.pbc_c[self.axes[2]])
-                    timer.stop('fft')
-                else:
-                    raise NotImplementedError
-            else:
-                raise NotImplementedError
-            gd1 = gd2
-
-        if len(self.cholesky_axes) == 0:
-            # The remaining problem is 0D dimensional, i.e the problem
-            # has been fully diagonalized
-            work1_g *= self.inv_fft_lambdas
-        else:
-            assert len(self.cholesky_axes) == 1
-            #axis = self.cholesky_axes[0]
+        if len(self.cholesky_axes) != 0:
             raise NotImplementedError
 
-        for c in [1, 0]:
-            gd2 = self.gd_x[c]
+        gd = self.gd
+        gd1d = self.gd1d
+        gd2d = self.gd2d
+        comm = self.gd.comm
+        self.gd_x = [gd, gd1d, gd2d]
 
-            if c == 0:
-                timer.start('fft2')
-                work2_g = itransform2(work1_g, axes=self.axes[1::-1],
-                                      pbc=gd1.pbc_c[self.axes[1::-1]])
-                timer.stop('fft2')
-            elif c == 1:
-                if len(self.cholesky_axes) == 0:
-                    # The remaining problem is 0D dimensional, i.e the
-                    # problem has been fully diagonalized
-                    timer.start('fft')
-                    work2_g = itransform(work1_g, axis=self.axes[2],
-                                         pbc=gd1.pbc_c[self.axes[2]])
-                    timer.stop('fft')
-                else:
-                    raise NotImplementedError
-            else:
-                raise NotImplementedError
+        # Decomposition to xy-flat
+        timer.start('Communicate fwd xy')
+        work1d_g = gd1d.empty(dtype=rho_g.dtype)
+        grid2grid(comm, gd, gd1d, rho_g, work1d_g)
+        timer.stop('Communicate fwd xy')
+        timer.start('fft2')
+        work1d_g = transform2(work1d_g, axes=self.axes[:2],
+                              pbc=gd.pbc_c[self.axes[:2]])
+        timer.stop('fft2')
 
-            timer.start('Communicate bwd %d' % c)
-            work1_g = gd2.empty(dtype=work2_g.dtype)
-            grid2grid(gd1.comm, gd1, gd2, work2_g, work1_g)
-            timer.stop('Communicate bwd %d' % c)
-            gd1 = gd2
+        # Decomposition to z-flat
+        timer.start('Communicate fwd z')
+        work2d_g = gd2d.empty(dtype=work1d_g.dtype)
+        grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
+        timer.stop('Communicate fwd z')
 
-        phi_g[:] = work1_g.real
+        timer.start('fft')
+        work2d_g = transform(work2d_g, axis=self.axes[2],
+                             pbc=gd.pbc_c[self.axes[2]])
+        timer.stop('fft')
+
+        # The remaining problem is 0D dimensional, i.e the problem
+        # has been fully diagonalized
+        work2d_g *= self.inv_fft_lambdas
+
+        timer.start('fft')
+        work2d_g = itransform(work2d_g, axis=self.axes[2],
+                              pbc=gd.pbc_c[self.axes[2]])
+        timer.stop('fft')
+
+        timer.start('Communicate bwd z')
+        work1d_g = gd1d.empty(dtype=work2d_g.dtype)
+        grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
+        timer.stop('Communicate bwd z')
+
+        timer.start('fft2')
+        work1d_g = itransform2(work1d_g, axes=self.axes[1::-1],
+                               pbc=gd.pbc_c[self.axes[1::-1]])
+        timer.stop('fft2')
+
+        timer.start('Communicate bwd xy')
+        work_g = gd.empty(dtype=work1d_g.dtype)
+        grid2grid(comm, gd1d, gd, work1d_g, work_g)
+        timer.stop('Communicate bwd xy')
+
+        phi_g[:] = work_g.real
         return 1  # Non-iterative method, return 1 iteration
 
     def todict(self):
