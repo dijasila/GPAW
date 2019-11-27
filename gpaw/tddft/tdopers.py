@@ -1,3 +1,4 @@
+# flake8: noqa
 # Written by Lauri Lehtovaara, 2007
 """This module implements classes for time-dependent variables and
 operators."""

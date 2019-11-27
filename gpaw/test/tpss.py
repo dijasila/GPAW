@@ -92,5 +92,6 @@ for formula in tpss_de.keys():
         print(out, file=file)
         file.flush()
 
-#comparison to gpaw revision 5450 version value in kcal/mol (note the grid:0.3 Ang)
+    # comparison to gpaw revision 5450 version value
+    # in kcal/mol (note the grid:0.3 Ang)
     equal(de_tpss, tpss_old[formula], 0.15)

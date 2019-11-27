@@ -1,5 +1,4 @@
-from __future__ import print_function
-
+# flake8: noqa
 import time
 import numpy as np
 from gpaw.utilities.gauss import gaussian_wave
