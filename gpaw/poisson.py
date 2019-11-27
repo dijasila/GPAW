@@ -2,6 +2,7 @@
 # Please see the accompanying LICENSE file for further information.
 
 import warnings
+from functools import partial
 from math import pi
 
 import numpy as np
@@ -16,7 +17,8 @@ from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities.grid import grid2grid
+from gpaw.utilities.grid import grid2grid, get_domains_from_gd
+from gpaw.utilities.grid_redistribute import general_redistribute
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
@@ -932,8 +934,14 @@ def ifst(A_g, axis):
 
 def transform(A_g, axis=None, pbc=True):
     if pbc:
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
         return fft(A_g, axis=axis)
     else:
+        if A_g.size == 0:
+            return A_g
+
         if not use_scipy_transforms:
             x = fst(A_g, axis)
             return x
@@ -943,8 +951,14 @@ def transform(A_g, axis=None, pbc=True):
 
 def transform2(A_g, axes=None, pbc=[True, True]):
     if all(pbc):
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
         return fft2(A_g, axes=axes)
     elif not any(pbc):
+        if A_g.size == 0:
+            return A_g
+
         return rfst2(A_g, axes=axes)
     else:
         return transform(transform(A_g, axis=axes[0], pbc=pbc[0]),
@@ -952,8 +966,14 @@ def transform2(A_g, axes=None, pbc=[True, True]):
 
 def itransform(A_g, axis=None, pbc=True):
     if pbc:
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
         return ifft(A_g, axis=axis)
     else:
+        if A_g.size == 0:
+            return A_g
+
         if not use_scipy_transforms:
             x = ifst(A_g, axis)
             return x
@@ -964,8 +984,14 @@ def itransform(A_g, axis=None, pbc=True):
 
 def itransform2(A_g, axes=None, pbc=[True, True]):
     if all(pbc):
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
         return ifft2(A_g, axes=axes)
     elif not any(pbc):
+        if A_g.size == 0:
+            return A_g
+
         return irfst2(A_g, axes=axes)
     else:
         return itransform(itransform(A_g, axis=axes[0], pbc=pbc[0]),
@@ -974,6 +1000,46 @@ def itransform2(A_g, axes=None, pbc=[True, True]):
 
 class BadAxesError(ValueError):
     pass
+
+
+class GridDescriptor1D:
+    def __init__(self, N_c, pbc_c, comm, c1d):
+        parsize_c = [1, 1, 1]
+        parsize_c[c1d] = comm.size
+        self.n_cp = build_n_cp(parsize_c, N_c, pbc_c)
+        self.rank2parpos = partial(rank2parpos_for_1d, c1d)
+        self.n_c = build_n_c(self.n_cp, self.rank2parpos(comm.rank))
+
+    def empty(self, dtype=float):
+        return np.empty(self.n_c, dtype=dtype)
+
+
+def rank2parpos_for_1d(c1d, rank):
+    parpos_c = np.zeros(3, int)
+    parpos_c[c1d] = rank
+    return parpos_c
+
+
+def build_n_cp(parsize_c, N_c, pbc_c):
+    n_cp = []
+    for c in range(3):
+        n_p = (np.arange(parsize_c[c] + 1) * float(N_c[c]) / parsize_c[c])
+        n_p = np.around(n_p + 0.4999).astype(int)
+        if not pbc_c[c]:
+            n_p[0] = 1
+        n_cp.append(n_p)
+    return n_cp
+
+
+def build_n_c(n_cp, parpos_c):
+    beg_c = np.empty(3, int)
+    end_c = np.empty(3, int)
+    for c, n_p in enumerate(n_cp):
+        beg_c[c] = n_p[parpos_c[c]]
+        end_c[c] = n_p[parpos_c[c] + 1]
+    n_c = end_c - beg_c
+    #return beg_c, end_c, n_c
+    return n_c
 
 
 class FastPoissonSolver(BasePoissonSolver):
@@ -1046,12 +1112,7 @@ class FastPoissonSolver(BasePoissonSolver):
         self.axes = axes
 
         # Create xy flat decomposition (where x=axes[0] and y=axes[1])
-        domain = gd.N_c.copy()
-        domain[axes[0]] = 1
-        domain[axes[1]] = 1
-        parsize_c = decompose_domain(domain, gd.comm.size)
-        gd1d = gd.new_descriptor(parsize_c=parsize_c)
-        self.gd1d = gd1d
+        self.gd1d = GridDescriptor1D(gd.N_c, gd.pbc_c, gd.comm, c1d=axes[2])
 
         # Create z flat decomposition
         domain = gd.N_c.copy()
@@ -1063,7 +1124,7 @@ class FastPoissonSolver(BasePoissonSolver):
         # Calculate eigenvalues in fst/fft decomposition for
         # non-cholesky axes in parallel
         r_cx = np.indices(gd2d.n_c)
-        r_cx += gd2d.beg_c[:,np.newaxis, np.newaxis, np.newaxis]
+        r_cx += gd2d.beg_c[:, np.newaxis, np.newaxis, np.newaxis]
         r_cx = r_cx.astype(complex)
         for c, axis in enumerate(fftfst_axes):
             r_cx[axis] *= 2j * np.pi / gd2d.N_c[axis]
@@ -1108,12 +1169,15 @@ class FastPoissonSolver(BasePoissonSolver):
         gd1d = self.gd1d
         gd2d = self.gd2d
         comm = self.gd.comm
-        self.gd_x = [gd, gd1d, gd2d]
 
         # Decomposition to xy-flat
         timer.start('Communicate fwd xy')
         work1d_g = gd1d.empty(dtype=rho_g.dtype)
-        grid2grid(comm, gd, gd1d, rho_g, work1d_g)
+        n_cp, rank2parpos = get_domains_from_gd(comm, gd)
+        general_redistribute(comm,
+                             n_cp, self.gd1d.n_cp,
+                             rank2parpos, self.gd1d.rank2parpos,
+                             rho_g, work1d_g)
         timer.stop('Communicate fwd xy')
         timer.start('fft2')
         work1d_g = transform2(work1d_g, axes=self.axes[:2],
@@ -1123,7 +1187,11 @@ class FastPoissonSolver(BasePoissonSolver):
         # Decomposition to z-flat
         timer.start('Communicate fwd z')
         work2d_g = gd2d.empty(dtype=work1d_g.dtype)
-        grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
+        n_cp, rank2parpos = get_domains_from_gd(comm, gd2d)
+        general_redistribute(comm,
+                             self.gd1d.n_cp, n_cp,
+                             self.gd1d.rank2parpos, rank2parpos,
+                             work1d_g, work2d_g)
         timer.stop('Communicate fwd z')
 
         timer.start('fft')
@@ -1142,7 +1210,11 @@ class FastPoissonSolver(BasePoissonSolver):
 
         timer.start('Communicate bwd z')
         work1d_g = gd1d.empty(dtype=work2d_g.dtype)
-        grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
+        n_cp, rank2parpos = get_domains_from_gd(comm, gd2d)
+        general_redistribute(comm,
+                             n_cp, self.gd1d.n_cp,
+                             rank2parpos, self.gd1d.rank2parpos,
+                             work2d_g, work1d_g)
         timer.stop('Communicate bwd z')
 
         timer.start('fft2')
@@ -1152,7 +1224,11 @@ class FastPoissonSolver(BasePoissonSolver):
 
         timer.start('Communicate bwd xy')
         work_g = gd.empty(dtype=work1d_g.dtype)
-        grid2grid(comm, gd1d, gd, work1d_g, work_g)
+        n_cp, rank2parpos = get_domains_from_gd(comm, gd)
+        general_redistribute(comm,
+                             self.gd1d.n_cp, n_cp,
+                             self.gd1d.rank2parpos, rank2parpos,
+                             work1d_g, work_g)
         timer.stop('Communicate bwd xy')
 
         phi_g[:] = work_g.real
