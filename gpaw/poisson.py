@@ -1132,50 +1132,35 @@ class FastPoissonSolver(BasePoissonSolver):
         gd2d = self.gd2d
         comm = self.gd.comm
 
-        # Decomposition to xy-flat
-        timer.start('Communicate fwd xy')
-        work1d_g = gd1d.empty(dtype=rho_g.dtype)
-        grid2grid(comm, gd, gd1d, rho_g, work1d_g)
-        timer.stop('Communicate fwd xy')
-        timer.start('fft2')
-        work1d_g = transform2(work1d_g, axes=self.axes[:2],
-                              pbc=gd.pbc_c[self.axes[:2]])
-        timer.stop('fft2')
-
-        # Decomposition to z-flat
-        timer.start('Communicate fwd z')
-        work2d_g = gd2d.empty(dtype=work1d_g.dtype)
-        grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
-        timer.stop('Communicate fwd z')
-
-        timer.start('fft')
-        work2d_g = transform(work2d_g, axis=self.axes[2],
-                             pbc=gd.pbc_c[self.axes[2]])
-        timer.stop('fft')
+        with timer('Communicate to 1D'):
+            work1d_g = gd1d.empty(dtype=rho_g.dtype)
+            grid2grid(comm, gd, gd1d, rho_g, work1d_g)
+        with timer('FFT 2D'):
+            work1d_g = transform2(work1d_g, axes=self.axes[:2],
+                                  pbc=gd.pbc_c[self.axes[:2]])
+        with timer('Communicate to 2D'):
+            work2d_g = gd2d.empty(dtype=work1d_g.dtype)
+            grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
+        with timer('FFT 1D'):
+            work2d_g = transform(work2d_g, axis=self.axes[2],
+                                 pbc=gd.pbc_c[self.axes[2]])
 
         # The remaining problem is 0D dimensional, i.e the problem
         # has been fully diagonalized
         work2d_g *= self.inv_fft_lambdas
 
-        timer.start('fft')
-        work2d_g = itransform(work2d_g, axis=self.axes[2],
-                              pbc=gd.pbc_c[self.axes[2]])
-        timer.stop('fft')
-
-        timer.start('Communicate bwd z')
-        work1d_g = gd1d.empty(dtype=work2d_g.dtype)
-        grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
-        timer.stop('Communicate bwd z')
-
-        timer.start('fft2')
-        work1d_g = itransform2(work1d_g, axes=self.axes[1::-1],
-                               pbc=gd.pbc_c[self.axes[1::-1]])
-        timer.stop('fft2')
-
-        timer.start('Communicate bwd xy')
-        work_g = gd.empty(dtype=work1d_g.dtype)
-        grid2grid(comm, gd1d, gd, work1d_g, work_g)
-        timer.stop('Communicate bwd xy')
+        with timer('FFT 1D'):
+            work2d_g = itransform(work2d_g, axis=self.axes[2],
+                                  pbc=gd.pbc_c[self.axes[2]])
+        with timer('Communicate from 2D'):
+            work1d_g = gd1d.empty(dtype=work2d_g.dtype)
+            grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
+        with timer('FFT 2D'):
+            work1d_g = itransform2(work1d_g, axes=self.axes[1::-1],
+                                   pbc=gd.pbc_c[self.axes[1::-1]])
+        with timer('Communicate from 1D'):
+            work_g = gd.empty(dtype=work1d_g.dtype)
+            grid2grid(comm, gd1d, gd, work1d_g, work_g)
 
         phi_g[:] = work_g.real
         return 1  # Non-iterative method, return 1 iteration
