@@ -121,6 +121,7 @@ class CDWriter(TDDFTObserver):
                 for c in range(3):
                      grad[c].apply(psit_G, grad_psit_G[c],kpt.phase_cd)
 
+                self.timer.start('Pseudo')
                 rxnabla_g[0] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
                                                         (r_cG[1] * grad_psit_G[2] -
                                                          r_cG[2] * grad_psit_G[1]))
@@ -130,30 +131,26 @@ class CDWriter(TDDFTObserver):
                 rxnabla_g[2] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
                                                         (r_cG[0] * grad_psit_G[1] -
                                                          r_cG[1] * grad_psit_G[0]))
+                self.timer.stop('Pseudo')
 
                 # augmentation contributions to magnetic moment
                 # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2>
                 #                         = <psi1| (r-Ra) x nabla |psi2> + Ra x <psi1| nabla |psi2>
 
 
+                self.timer.start('PAW')
                 # <psi1| (r-Ra) x nabla |psi2>
                 for a, P_ni in kpt.P_ani.items():
                     P_i = P_ni[n]
 
-                    if hasattr(self, 'rxnabla_iiv'):
-                        rxnabla_iiv = self.rxnabla_iiv
-                        nabla_iiv = self.nabla_iiv
-                    else:
-                        rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
-                        nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
-                        for c in range(3):
-                            rxnabla_iiv[:,:,c] = skew(rxnabla_iiv[:,:,c])
-                            nabla_iiv[:,:,c] = skew(nabla_iiv[:,:,c])
-                        self.rxnabla_iiv = rxnabla_iiv
-                        self.nabla_iiv = nabla_iiv
+                    rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
+                    nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
+                    for c in range(3):
+                        rxnabla_iiv[:,:,c] = skew(rxnabla_iiv[:,:,c])
+                        nabla_iiv[:,:,c] = skew(nabla_iiv[:,:,c])
 
                     Rxnabla_a2[0] += np.dot(P_i,np.dot(nabla_iiv[:,:,0],P_i.T.conjugate()))
-                    Ra = (paw.atoms[a].position /Bohr) - R0
+                    Ra = (paw.atoms[a].position / Bohr) - R0
                     for i1, P1 in enumerate(P_i):
                         for i2, P2 in enumerate(P_i):
                             for c in range(3):
@@ -163,6 +160,7 @@ class CDWriter(TDDFTObserver):
                             Rxnabla_a[0] +=-1j*f* P1.conjugate() * P2 * ( Ra[1] * nabla_iiv[i1, i2, 2] - Ra[2] * nabla_iiv[i1, i2, 1] )
                             Rxnabla_a[1] +=-1j*f* P1.conjugate() * P2 * ( Ra[2] * nabla_iiv[i1, i2, 0] - Ra[0] * nabla_iiv[i1, i2, 2] )
                             Rxnabla_a[2] +=-1j*f* P1.conjugate() * P2 * ( Ra[0] * nabla_iiv[i1, i2, 1] - Ra[1] * nabla_iiv[i1, i2, 0] )
+                self.timer.stop('PAW')
 
         paw.wfs.bd.comm.sum(rxnabla_a)
         paw.wfs.gd.comm.sum(rxnabla_a)
