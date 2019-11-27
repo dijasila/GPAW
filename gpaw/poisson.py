@@ -1133,33 +1133,34 @@ class FastPoissonSolver(BasePoissonSolver):
         gd1d = self.gd1d
         gd2d = self.gd2d
         comm = self.gd.comm
+        axes = self.axes
 
         with timer('Communicate to 1D'):
             work1d_g = gd1d.empty(dtype=rho_g.dtype)
             grid2grid(comm, gd, gd1d, rho_g, work1d_g)
         with timer('FFT 2D'):
-            work1d_g = transform2(work1d_g, axes=self.axes[:2],
-                                  pbc=gd.pbc_c[self.axes[:2]])
+            work1d_g = transform2(work1d_g, axes=axes[:2],
+                                  pbc=gd.pbc_c[axes[:2]])
         with timer('Communicate to 2D'):
             work2d_g = gd2d.empty(dtype=work1d_g.dtype)
             grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
         with timer('FFT 1D'):
-            work2d_g = transform(work2d_g, axis=self.axes[2],
-                                 pbc=gd.pbc_c[self.axes[2]])
+            work2d_g = transform(work2d_g, axis=axes[2],
+                                 pbc=gd.pbc_c[axes[2]])
 
         # The remaining problem is 0D dimensional, i.e the problem
         # has been fully diagonalized
         work2d_g *= self.inv_fft_lambdas
 
         with timer('FFT 1D'):
-            work2d_g = itransform(work2d_g, axis=self.axes[2],
-                                  pbc=gd.pbc_c[self.axes[2]])
+            work2d_g = itransform(work2d_g, axis=axes[2],
+                                  pbc=gd.pbc_c[axes[2]])
         with timer('Communicate from 2D'):
             work1d_g = gd1d.empty(dtype=work2d_g.dtype)
             grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
         with timer('FFT 2D'):
-            work1d_g = itransform2(work1d_g, axes=self.axes[1::-1],
-                                   pbc=gd.pbc_c[self.axes[1::-1]])
+            work1d_g = itransform2(work1d_g, axes=axes[1::-1],
+                                   pbc=gd.pbc_c[axes[1::-1]])
         with timer('Communicate from 1D'):
             work_g = gd.empty(dtype=work1d_g.dtype)
             grid2grid(comm, gd1d, gd, work1d_g, work_g)
