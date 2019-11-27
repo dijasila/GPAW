@@ -16,8 +16,7 @@ from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
-from gpaw.utilities.grid import grid2grid, get_domains_from_gd
-from gpaw.utilities.grid_redistribute import general_redistribute
+from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
 from gpaw.utilities.tools import construct_reciprocal
 from gpaw.utilities.timing import NullTimer
@@ -1001,49 +1000,6 @@ class BadAxesError(ValueError):
     pass
 
 
-class GridDescriptor1D:
-    def __init__(self, N_c, pbc_c, comm, c1d):
-        self.comm = comm
-        self.c1d = c1d
-        parsize_c = [1, 1, 1]
-        parsize_c[c1d] = comm.size
-        self.n_cp = build_n_cp(parsize_c, N_c, pbc_c)
-        self.n_c = build_n_c(self.n_cp, self.rank2parpos(comm.rank))
-
-    def rank2parpos(self, rank):
-        parpos_c = np.zeros(3, int)
-        parpos_c[self.c1d] = rank
-        return parpos_c
-
-    def empty(self, dtype=float):
-        return np.empty(self.n_c, dtype=dtype)
-
-
-def build_n_cp(parsize_c, N_c, pbc_c):
-    n_cp = []
-    for c in range(3):
-        n_p = (np.arange(parsize_c[c] + 1) * float(N_c[c]) / parsize_c[c])
-        n_p = np.around(n_p + 0.4999).astype(int)
-        if not pbc_c[c]:
-            n_p[0] = 1
-        # If there are empty domains, sort them to the end
-        if n_p[1] == n_p[0]:
-            n_p[:] = (np.arange(parsize_c[c] + 1) + 1 - pbc_c[c]).clip(0, N_c[c])
-        n_cp.append(n_p)
-    return n_cp
-
-
-def build_n_c(n_cp, parpos_c):
-    beg_c = np.empty(3, int)
-    end_c = np.empty(3, int)
-    for c, n_p in enumerate(n_cp):
-        beg_c[c] = n_p[parpos_c[c]]
-        end_c[c] = n_p[parpos_c[c] + 1]
-    n_c = end_c - beg_c
-    #return beg_c, end_c, n_c
-    return n_c
-
-
 class FastPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3,  **kwargs):
         BasePoissonSolver.__init__(self, **kwargs)
@@ -1114,7 +1070,11 @@ class FastPoissonSolver(BasePoissonSolver):
         self.axes = axes
 
         # Create xy flat decomposition (where x=axes[0] and y=axes[1])
-        self.gd1d = GridDescriptor1D(gd.N_c, gd.pbc_c, gd.comm, c1d=axes[2])
+        parsize_c = [1, 1, 1]
+        parsize_c[axes[2]] = gd.comm.size
+        gd1d = gd.new_descriptor(parsize_c=parsize_c,
+                                 allow_empty_domains=True)
+        self.gd1d = gd1d
 
         # Create z flat decomposition
         domain = gd.N_c.copy()
@@ -1175,11 +1135,7 @@ class FastPoissonSolver(BasePoissonSolver):
         # Decomposition to xy-flat
         timer.start('Communicate fwd xy')
         work1d_g = gd1d.empty(dtype=rho_g.dtype)
-        n_cp, rank2parpos = get_domains_from_gd(comm, gd)
-        general_redistribute(comm,
-                             n_cp, self.gd1d.n_cp,
-                             rank2parpos, self.gd1d.rank2parpos,
-                             rho_g, work1d_g)
+        grid2grid(comm, gd, gd1d, rho_g, work1d_g)
         timer.stop('Communicate fwd xy')
         timer.start('fft2')
         work1d_g = transform2(work1d_g, axes=self.axes[:2],
@@ -1189,11 +1145,7 @@ class FastPoissonSolver(BasePoissonSolver):
         # Decomposition to z-flat
         timer.start('Communicate fwd z')
         work2d_g = gd2d.empty(dtype=work1d_g.dtype)
-        n_cp, rank2parpos = get_domains_from_gd(comm, gd2d)
-        general_redistribute(comm,
-                             self.gd1d.n_cp, n_cp,
-                             self.gd1d.rank2parpos, rank2parpos,
-                             work1d_g, work2d_g)
+        grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
         timer.stop('Communicate fwd z')
 
         timer.start('fft')
@@ -1212,11 +1164,7 @@ class FastPoissonSolver(BasePoissonSolver):
 
         timer.start('Communicate bwd z')
         work1d_g = gd1d.empty(dtype=work2d_g.dtype)
-        n_cp, rank2parpos = get_domains_from_gd(comm, gd2d)
-        general_redistribute(comm,
-                             n_cp, self.gd1d.n_cp,
-                             rank2parpos, self.gd1d.rank2parpos,
-                             work2d_g, work1d_g)
+        grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
         timer.stop('Communicate bwd z')
 
         timer.start('fft2')
@@ -1226,11 +1174,7 @@ class FastPoissonSolver(BasePoissonSolver):
 
         timer.start('Communicate bwd xy')
         work_g = gd.empty(dtype=work1d_g.dtype)
-        n_cp, rank2parpos = get_domains_from_gd(comm, gd)
-        general_redistribute(comm,
-                             self.gd1d.n_cp, n_cp,
-                             self.gd1d.rank2parpos, rank2parpos,
-                             work1d_g, work_g)
+        grid2grid(comm, gd1d, gd, work1d_g, work_g)
         timer.stop('Communicate bwd xy')
 
         phi_g[:] = work_g.real
