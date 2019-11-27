@@ -2,7 +2,6 @@
 # Please see the accompanying LICENSE file for further information.
 
 import warnings
-from functools import partial
 from math import pi
 
 import numpy as np
@@ -1004,20 +1003,20 @@ class BadAxesError(ValueError):
 
 class GridDescriptor1D:
     def __init__(self, N_c, pbc_c, comm, c1d):
+        self.comm = comm
+        self.c1d = c1d
         parsize_c = [1, 1, 1]
         parsize_c[c1d] = comm.size
         self.n_cp = build_n_cp(parsize_c, N_c, pbc_c)
-        self.rank2parpos = partial(rank2parpos_for_1d, c1d)
         self.n_c = build_n_c(self.n_cp, self.rank2parpos(comm.rank))
+
+    def rank2parpos(self, rank):
+        parpos_c = np.zeros(3, int)
+        parpos_c[self.c1d] = rank
+        return parpos_c
 
     def empty(self, dtype=float):
         return np.empty(self.n_c, dtype=dtype)
-
-
-def rank2parpos_for_1d(c1d, rank):
-    parpos_c = np.zeros(3, int)
-    parpos_c[c1d] = rank
-    return parpos_c
 
 
 def build_n_cp(parsize_c, N_c, pbc_c):
