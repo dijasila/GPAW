@@ -207,7 +207,8 @@ class KPointDescriptor:
                            (w_k[k], self.nbzkpts)))
                 else:
                     s += ('%4d:   %12.8f  %12.8f  %12.8f     %12.8f\n' %
-                          ((k,) + tuple(self.ibzk_kc[k]) + (self.weight_k[k],)))
+                          ((k,) + tuple(self.ibzk_kc[k]) +
+                           (self.weight_k[k],)))
             elif k == 10:
                 s += '          ...\n'
         return s

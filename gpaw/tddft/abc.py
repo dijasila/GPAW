@@ -73,7 +73,7 @@ class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
 
         assert gd.orthogonal
 
-        #self.v_imag = np.zeros((gd.n_c[0],gd.n_c[1],gd.n_c[2]),dtype=complex)
+        # self.v_imag = np.zeros((gd.n_c[0],gd.n_c[1],gd.n_c[2]),dtype=complex)
         self.v_imag = gd.zeros(dtype=complex)
 
         # If positions array wasn't given, uses the middle point of the grid.
@@ -104,7 +104,7 @@ class LinearAbsorbingBoundary(DummyAbsorbingBoundary):
 
                     if r > self.abc_r:
                         self.v_imag[i][j][k] = \
-                            -(0+1j) * self.abc_strength*(r-self.abc_r)
+                            -(0 + 1j) * self.abc_strength * (r - self.abc_r)
 
 
 class P4AbsorbingBoundary(DummyAbsorbingBoundary):
@@ -144,7 +144,7 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
 
     def set_up(self, gd):
 
-        #self.v_imag = np.zeros((gd.n_c[0],gd.n_c[1],gd.n_c[2]),dtype=complex)
+        # self.v_imag = np.zeros((gd.n_c[0],gd.n_c[1],gd.n_c[2]),dtype=complex)
         self.v_imag = gd.zeros(dtype=complex)
 
         # If positions array wasn't given, uses the middle point of the
@@ -179,14 +179,15 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
 
                     if r > self.abc_r:
                         if r < self.abc_r + self.width:
-                            self.v_imag[i][j][k] = (0+1j) \
-                                * ((np.sqrt(self.abc_strength) -
-                                 np.sqrt(self.abc_strength)/self.width**2
-                                 * (r-self.abc_r)**2)**2 - self.abc_strength)
+                            self.v_imag[i][j][k] = (
+                                (0 + 1j) *
+                                ((np.sqrt(self.abc_strength) -
+                                  np.sqrt(self.abc_strength) / self.width**2
+                                  * (r - self.abc_r)**2)**2 -
+                                 self.abc_strength))
                         else:
                             self.v_imag[i][j][k] = -self.abc_strength * (0 +
                                                                          1j)
-                    #print i, j, k, self.v_imag[i][j][k]
 
 
 class PML:
@@ -266,8 +267,12 @@ class PML:
                     if r > self.abc_range:
                         self.G[i][j][k] = (1.0 + R * self.abc_strength *
                                            (r - self.abc_range)**2)**-1.0
-                        self.dG[0][i][j][k] = \
-                          -(1.0+R*self.abc_strength*(r-self.abc_range)**2.0)**-2.0*2.0*R*self.abc_strength*(r-self.abc_range)*(x-r0[0])/r
+                        self.dG[0][i][j][k] = (
+                            -(1.0 + R *
+                              self.abc_strength *
+                              (r - self.abc_range)**2.0)**-2.0 * 2.0 * R *
+                            self.abc_strength * (r - self.abc_range) *
+                            (x - r0[0]) / r)
 
                         self.dG[1][i][j][k] = -(
                             1.0 + R * self.abc_strength *

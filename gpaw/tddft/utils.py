@@ -106,7 +106,8 @@ class StaticOverlapMonitor:
 
             if calculate_P_ani:
                 #wfs.pt.integrate(psit_nG, P_ani, kpt.q)
-                raise NotImplementedError('In case you were wondering, TODO XXX')
+                raise NotImplementedError(
+                    'In case you were wondering, TODO XXX')
 
             for a, P_ni in P_ani.items():
                 sP_i = self.P_aui[a][u]
@@ -163,7 +164,8 @@ class DynamicOverlapMonitor:
 
             if calculate_P_ani:
                 #wfs.pt.integrate(psit_nG, P_ani, kpt.q)
-                raise NotImplementedError('In case you were wondering, TODO XXX')
+                raise NotImplementedError(
+                    'In case you were wondering, TODO XXX')
 
             # Construct the overlap matrix:
             S = lambda x: x

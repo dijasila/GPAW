@@ -24,8 +24,8 @@ class PhononPerturbation(Perturbation):
     def __init__(self, calc, kd, poisson_solver, dtype=float, **kwargs):
         """Store useful objects, e.g. lfc's for the various atomic functions.
 
-        Depending on whether the system is periodic or finite, Poisson's equation
-        is solved with FFT or multigrid techniques, respectively.
+        Depending on whether the system is periodic or finite, Poisson's
+        equation is solved with FFT or multigrid techniques, respectively.
 
         Parameters
         ----------

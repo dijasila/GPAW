@@ -1,3 +1,4 @@
+# flake8: noqa
 from gpaw.test import equal
 from ase import Atoms
 from ase.units import Pascal, m

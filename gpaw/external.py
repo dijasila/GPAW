@@ -200,6 +200,7 @@ class PointChargePotential(ExternalPotential):
         return F_pv * Hartree / Bohr
 
 class CDFTPotential(ExternalPotential):
-    # Dummy class to make cDFT compatible with new external potential class ClassName(object):
+    # Dummy class to make cDFT compatible with new external
+    # potential class ClassName(object):
     def __init__(self):
         self.name = 'CDFTPotential'

@@ -1,3 +1,4 @@
+# flake8: noqa
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
 from gpaw.xc.pawcorrection import rnablaY_nLv
