@@ -1,6 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.fdtd import FDTDPoissonSolver, PermittivityPlus, PolarizableMaterial, PolarizableSphere
+from gpaw.fdtd import (FDTDPoissonSolver, PermittivityPlus,
+                       PolarizableMaterial, PolarizableSphere)
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.test import equal

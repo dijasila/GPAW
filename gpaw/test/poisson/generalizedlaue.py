@@ -1,4 +1,6 @@
-from gpaw.poisson import NonPeriodicLauePoissonSolver, GeneralizedLauePoissonSolver, FDPoissonSolver, idst2, dst2
+from gpaw.poisson import (NonPeriodicLauePoissonSolver,
+                          GeneralizedLauePoissonSolver,
+                          FDPoissonSolver, idst2, dst2)
 from gpaw.grid_descriptor import GridDescriptor
 import numpy as np
 

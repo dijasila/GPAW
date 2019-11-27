@@ -12,5 +12,6 @@ result = test(verbose=10)
 sys.stdout = _stdout
 sys.stderr = _stderr
 if not result.wasSuccessful():
-    print("numpy_test%02d.out" % rank, result.errors, result.failures, file=sys.stderr)
+    print("numpy_test%02d.out" % rank, result.errors, result.failures,
+          file=sys.stderr)
 assert result.wasSuccessful()
