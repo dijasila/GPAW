@@ -12,7 +12,8 @@ We assume that the installation will be located in ``$HOME/source``.
 Setups
 ------
 
-The setups must be installed first::
+The setups of your choice must be installed
+(see also :ref:`installation of paw datasets`)::
 
   cd
   GPAW_SETUP_SOURCE=$PWD/source/gpaw-setups
@@ -102,7 +103,7 @@ Edit the module file  :file:`3.18.1` that should read::
 
   #%Module1.0
 
-  module load devel/python/3.6.0
+  module load devel/python/3.6.9
 
   #           change this to your path
   set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.17.0
@@ -135,7 +136,7 @@ and edit the module file  :file:`trunk` that should read::
 
   #%Module1.0
 
-  module load devel/python/3.6.0
+  module load devel/python/3.6.9
 
   #           change this to your path
   set asehome /home/fr/fr_fr/fr_mw767/source/ase/trunk
@@ -209,11 +210,16 @@ The file  :file:`trunk` that should read::
 Running GPAW
 ------------
 
-A gpaw script :file:`test.py` can be submitted to run on 20 cpus like this::
+A gpaw script :file:`test.py` can be submitted with the help
+of :file:`gpaw-runscript` to run on 20 cpus like this::
 
   > module load gpaw
   > gpaw-runscript test.py 20
   using nemo
   run.nemo written
   > msub run.nemo
+
+See options of :file:`gpaw-runscript` with::
+
+  > gpaw-runscript -h
 
