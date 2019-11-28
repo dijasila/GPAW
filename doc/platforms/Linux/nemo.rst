@@ -167,7 +167,7 @@ A specific tag can be loaded by::
  git checkout 1.2.0
 
 To build the current trunk version of GPAW we need to create
-a file :file:`setup.py` that reads
+a file :file:`siteconfig.py` that reads
 
 .. literalinclude:: nemo_siteconfig.py
 
@@ -202,10 +202,9 @@ The file  :file:`trunk` that should read::
  # change the following directory definition to your needs
  set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk
  # this can stay as is
- prepend-path    PATH                 $gpawhome/build/scripts-3.6
- prepend-path    PYTHONPATH           $gpawhome
- setenv          GPAW_PYTHON          $gpawhome/build/bin.linux-x86_64-3.6/gpaw-python
-
+ prepend-path    PATH                 $gpawhome/tools:$gpawhome/build/scripts-3.6
+ prepend-path    PYTHONPATH           $gpawhome:$gpawhome/build/lib.linux-x86_64-3.6
+ 
 
 Running GPAW
 ------------
