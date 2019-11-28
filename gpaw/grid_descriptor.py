@@ -133,16 +133,16 @@ class GridDescriptor(Domain):
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
-            if allow_empty_domains:
-                # If there are empty domains, sort them to the end
-                if n_p[1] == n_p[0]:
+            if np.any(n_p[1:] == n_p[:-1]):
+                if allow_empty_domains:
+                    # If there are empty domains, sort them to the end
                     n_p[:] = (np.arange(self.parsize_c[c] + 1) +
                               1 - self.pbc_c[c]).clip(0, self.N_c[c])
-            elif not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise BadGridError('Grid {0} too small for {1} cores!'
-                                   .format('x'.join(str(n) for n in self.N_c),
-                                           'x'.join(str(n) for n
-                                                    in self.parsize_c)))
+                else:
+                    msg = ('Grid {0} too small for {1} cores!'
+                           .format('x'.join(str(n) for n in self.N_c),
+                                   'x'.join(str(n) for n in self.parsize_c)))
+                    raise BadGridError(msg)
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
