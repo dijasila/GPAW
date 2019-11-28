@@ -54,7 +54,7 @@ the directory where you want to install
 
  mkdir -p $MYLIBXCDIR
  cd $MYLIBXCDIR
- wget http://www.tddft.org/programs/octopus/down.php?file=libxc/4.3.4/libxc-4.3.4.tar.gz -O libxc-4.3.4.tar.gz
+ wget http://www.tddft.org/programs/libxc/down.php?file=4.3.4/libxc-4.3.4.tar.gz -O libxc-4.3.4.tar.gz
  tar xvzf libxc-4.3.4.tar.gz
  cd libxc-4.3.4
  mkdir install
@@ -90,7 +90,7 @@ You might want to install a stable version of ASE::
   ASE_SOURCE=$PWD/source/ase
   mkdir -p $ASE_SOURCE
   cd $ASE_SOURCE
-  git clone -b 3.17.0 https://gitlab.com/ase/ase.git 3.17.0
+  git clone -b 3.18.1 https://gitlab.com/ase/ase.git 3.18.1
 
 We add our installation to the module environment::
 
@@ -98,7 +98,7 @@ We add our installation to the module environment::
   mkdir -p modulefiles/ase
   cd modulefiles/ase
   
-Edit the module file  :file:`3.17.0` that should read::
+Edit the module file  :file:`3.18.1` that should read::
 
   #%Module1.0
 
@@ -166,7 +166,12 @@ A specific tag can be loaded by::
  # load version 1.2.0
  git checkout 1.2.0
 
-To build GPAW use::
+To build the current trunk version of GPAW we need to create
+a file :file:`setup.py` that reads
+
+.. literalinclude:: nemo_siteconfig.py
+
+Then we build the executable::
 
  module purge
  module load libxc
@@ -175,17 +180,16 @@ To build GPAW use::
  module load ase
 
  cd $GPAW_SOURCE/trunk
- mkdir install
- python3 setup.py install --prefix=$PWD/install
+ python3 setup.py build
 
-which installs GPAW to ``$GPAW_SOURCE/trunk/install``.
-We create a module that does the necessary things::
+which builds GPAW to ``$GPAW_SOURCE/trunk/build``.
+We create a module that creates the necessary definitions::
 
   cd
   mkdir -p modulefiles/gpaw
   cd modulefiles/gpaw
 
-the file  :file:`trunk` that should read::
+The file  :file:`trunk` that should read::
 
  #%Module1.0
 
@@ -195,11 +199,13 @@ the file  :file:`trunk` that should read::
  if {![is-loaded numlib/mkl]}  {module load numlib/mkl}
  if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
- # change this to your needs
- set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk/install
- prepend-path    PATH                 $gpawhome/bin
- prepend-path    PYTHONPATH           $gpawhome/lib/python3.6/site-packages/
- setenv          GPAW_PYTHON          $gpawhome/bin/gpaw-python
+ # change the following directory definition to your needs
+ set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk
+ # this can stay as is
+ prepend-path    PATH                 $gpawhome/build/scripts-3.6
+ prepend-path    PYTHONPATH           $gpawhome
+ setenv          GPAW_PYTHON          $gpawhome/build/bin.linux-x86_64-3.6/gpaw-python
+
 
 Running GPAW
 ------------

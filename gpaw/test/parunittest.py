@@ -334,4 +334,3 @@ class ParallelTestProgram(TestProgram):
         TestProgram.runTests(self)
 
 main = ParallelTestProgram
-

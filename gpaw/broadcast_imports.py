@@ -33,8 +33,10 @@ if hasattr(_gpaw, 'Communicator'):
     if '_gpaw' not in sys.builtin_module_names:
         libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
         import ctypes
-        ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-
+        try:
+            ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
+        except OSError:
+            pass
     world = _gpaw.Communicator()
 else:
     world = None

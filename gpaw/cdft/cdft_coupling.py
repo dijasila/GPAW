@@ -1,3 +1,4 @@
+# flake8: noqa
 '''A class for computing the
 parameters for Marcus theory
 from two constrained DFT

@@ -1,6 +1,5 @@
 import numpy as np
-from gpaw.utilities.blas import \
-    gemm, axpy, r2k, rk, gemmdot, dotc
+from gpaw.utilities.blas import gemm, axpy, r2k, rk, gemmdot
 from gpaw.utilities.tools import tri2full
 
 a = np.arange(5 * 7).reshape(5, 7) + 4.
@@ -22,7 +21,6 @@ assert np.all(np.dot(a, a2.T) == gemmdot(a, a2, trans='t'))
 assert np.all(np.dot(a, a2.T.conj()) == gemmdot(a, a2, trans='c'))
 assert np.dot(b, b) == gemmdot(b, b, trans='n')
 assert np.dot(b, b.conj()) == gemmdot(b, b, trans='c')
-assert np.vdot(a, 5.j * a) == dotc(a, 5.j * a)
 
 # Check gemm for transa='n'
 a2 = np.arange(7 * 5 * 1 * 3).reshape(7, 5, 1, 3) * (-1. + 4.j) + 3.

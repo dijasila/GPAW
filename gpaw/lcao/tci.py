@@ -188,7 +188,9 @@ class TCICalculator:
         dtype = self.dtype
         get_phases = self.get_phases
 
-        displacement = DerivativeAtomicDisplacement if derivative else AtomicDisplacement
+        displacement = (DerivativeAtomicDisplacement
+                        if derivative
+                        else AtomicDisplacement)
         ibzk_qc = self.ibzk_qc
         nq = len(ibzk_qc)
         phit_rcmax_a = self.phit_rcmax_a

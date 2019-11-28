@@ -31,6 +31,3 @@ for poiss in [None, PoissonSolver(nn=c2.hamiltonian.poisson.nn)]:
     lr = LrTDDFT(c2, poisson=poiss)
     print(lr)
 print(Overlap(c1).pseudo(c2))
-
-
-

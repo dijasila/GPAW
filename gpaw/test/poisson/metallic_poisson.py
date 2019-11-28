@@ -8,11 +8,14 @@ electrodes = ['both', 'single']
 charge = 0.05
 
 for electrode in electrodes:
-    slab.calc = GPAW(xc='LDA', h=0.22,
-                        txt= 'metallic.txt', charge = charge,
-                        convergence = {'density': 1e-1, 'energy': 1e-1, 'eigenstates': 1e-1},
-                        kpts=(2, 2, 1),
-                        poissonsolver=PoissonSolver(metallic_electrodes=electrode))
+    slab.calc = GPAW(
+        xc='LDA', h=0.22,
+        txt= 'metallic.txt', charge = charge,
+        convergence={'density': 1e-1,
+                     'energy': 1e-1,
+                     'eigenstates': 1e-1},
+        kpts=(2, 2, 1),
+        poissonsolver=PoissonSolver(metallic_electrodes=electrode))
 
     E = slab.get_potential_energy()
     phi0 = slab.calc.get_electrostatic_potential()

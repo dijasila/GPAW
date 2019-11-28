@@ -158,7 +158,8 @@ class SCFLoop:
 
         denserr = errors['density']
         assert denserr is not None
-        if denserr is None or np.isinf(denserr) or denserr == 0 or nvalence == 0:
+        if (denserr is None or np.isinf(denserr) or denserr == 0 or
+            nvalence == 0):
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
@@ -181,7 +182,9 @@ class SCFLoop:
              denserr), end='')
 
         if self.max_errors['force'] < np.inf:
-            if errors['force'] < np.inf:
+            if errors['force'] == 0:
+                log('    -oo', end='')
+            elif errors['force'] < np.inf:
                 log('  %+.2f' %
                     (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
             else:

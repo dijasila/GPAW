@@ -12,14 +12,55 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
+* We are now using setuptools_ instead of :mod:`distutils`.
+  This means that installation with pip works much better.
+
+* No more ``gpaw-python``.
+  By default, an MPI-enabled Python interpreter is not built
+  (use ``parallel_python_interpreter=True`` if you want a gpaw-python).
+  The ``_gpaw.so`` C-extension file (usually only used for serial calculations)
+  will now be compiled with ``mpicc`` and contain what is necessary for both
+  serial and parallel calculations.  In order to run GPAW in parallel, you
+  do one of these two::
+
+      $ gpaw -P 24 python script.py
+      $ mpiexec -n 24 python3 script.py
+
+  The first way is the recommended one:  It will make sure that imports
+  are done in an efficient way.
+
+* Configuration/customization:
+  The ``customize.py`` file in the root folder of the Git repository is no
+  longer used.  Instead, the first of the following three files that exist
+  will be used:
+
+  1) the file that ``$GPAW_CONFIG`` points at
+  2) ``<git-root>/siteconfig.py``
+  3) ``~/.gpaw/siteconfig.py``
+
+  This will be used to configure things
+  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  is found then you get ``libraries = ['xc', 'blas']``.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+* Debug mode is now enabled with::
+
+      $ python3 -d script.py
+
+* Dry-run mode is now enabled with::
+
+      $ gpaw python --dry-run=N script.py
+
 * New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
   will converge bands up to conduction band minimum plus 2.5 eV.
 
 * Point-group symmetries now also used for non-periodic systems.
   Use ``symmetry={'point_group': False}`` if you don't want that.
 
-* A Lapack library is no longer needed for compiling GPAW.  We are using
-  :mod:`scipy.linalg` from now on.
+
+.. _setuptools: https://setuptools.readthedocs.io/en/latest/
 
 
 Version 19.8.1

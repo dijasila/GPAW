@@ -1,14 +1,12 @@
 """Kohn-Sham single particle excitations realated objects.
 
 """
-from __future__ import print_function
 import sys
 from math import pi, sqrt
 
 import numpy as np
 from ase.units import Bohr, Hartree, alpha
 from ase.parallel import paropen
-from ase.utils import basestring
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -56,7 +54,7 @@ class KSSingles(ExcitationList):
         self.world = mpi.world
 
         self.calculator = None
-        if isinstance(calculator, basestring):
+        if isinstance(calculator, str):
             self.read(calculator)
             return self.select(eps=eps, istart=istart, jend=jend,
                                energy_range=energy_range)

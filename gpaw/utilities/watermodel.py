@@ -113,5 +113,3 @@ class FixBondLengthsWaterModel(FixBondLengths):
 
     def index_shuffle(self, atoms, ind):
         raise NotImplementedError
-
-

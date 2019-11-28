@@ -4,15 +4,14 @@
 # Emacs: treat this as -*- python -*-
 from optparse import OptionParser
 
-parser = OptionParser(usage='%prog [options]',
-                      version='%prog 0.1')
-parser.add_option('--dir', dest="dir",
-                  default='.',
-                  help='Results directory')
-parser.add_option("--runs", dest="runs",
+parser = OptionParser(usage='%prog [options]', version='%prog 0.1')
+parser.add_option('--dir', dest="dir", default='.', help='Results directory')
+parser.add_option("--runs",
+                  dest="runs",
                   default=5,
                   help='use that many runs to calculate the average.')
-parser.add_option("--startcores", dest="startcores",
+parser.add_option("--startcores",
+                  dest="startcores",
                   default=1,
                   help='use at lease that many cores.')
 
@@ -23,22 +22,12 @@ import os
 import numpy as np
 
 colors = [
-    'black',
-    'brown',
-    'red',
-    'orange',
-    'yellow',
-    'green',
-    'blue',
-    'violet',
-    'gray',
-    'gray']
+    'black', 'brown', 'red', 'orange', 'yellow', 'green', 'blue', 'violet',
+    'gray', 'gray'
+]
 
 
-def plot(xdata, ydata, std,
-         title,
-         xlabel, ylabel,
-         label, color, num=1):
+def plot(xdata, ydata, std, title, xlabel, ylabel, label, color, num=1):
     #matplotlib.use('Agg')
     import pylab
 
@@ -49,22 +38,24 @@ def plot(xdata, ydata, std,
     miny = min(ydata)
     maxy = max(ydata)
     ywindow = maxy - miny
-    pylab.gca().set_ylim(miny-ywindow/4.0, maxy+ywindow/3.0)
+    pylab.gca().set_ylim(miny - ywindow / 4.0, maxy + ywindow / 3.0)
     #pylab.plot(xdata, ydata, 'b.', label=label, color=color)
     #pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
-    pylab.bar(xdata, ydata, 0.3, yerr = std, label=label, color=color)
+    pylab.bar(xdata, ydata, 0.3, yerr=std, label=label, color=color)
     pylab.title(title)
     pylab.xlabel(xlabel)
     pylab.ylabel(ylabel)
     #pylab.legend(loc='upper right')
     #pylab.savefig(directory_name + os.path.sep + out_prefix +'.png')
 
+
 def plot_save(directory_name, out_prefix):
     from os.path import exists
     assert exists(directory_name)
     import pylab
 
-    pylab.savefig(directory_name + os.path.sep + out_prefix +'.png')
+    pylab.savefig(directory_name + os.path.sep + out_prefix + '.png')
+
 
 def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     #system = ['carbon_py']
@@ -72,36 +63,37 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     #system = ['niflheim_py']
     #system = ['niflheim']
     #system = ['TEST_py']
-    system = machine+'_py'
+    system = machine + '_py'
 
     systems_string = {
-        'carbon_py' : 'gpaw 1865 on carbon',
-        'carbon' : 'mkl 10.0.2.018 dsyev on carbon',
-        'niflheim_py' : 'gpaw 1865 on niflheim',
-        'niflheim' : 'acml 4.0.1 dsyev on niflheim'}.get(system, False)
+        'carbon_py': 'gpaw 1865 on carbon',
+        'carbon': 'mkl 10.0.2.018 dsyev on carbon',
+        'niflheim_py': 'gpaw 1865 on niflheim',
+        'niflheim': 'acml 4.0.1 dsyev on niflheim'
+    }.get(system, False)
 
     processes = {
-        'carbon_py' : [1, 2, 4, 6, 8],
-        'carbon' : [1, 2, 4, 8],
-        'niflheim_py' : [1, 2, 3, 4],
-        'niflheim' : [1, 2, 4]}.get(system, False)
-
+        'carbon_py': [1, 2, 4, 6, 8],
+        'carbon': [1, 2, 4, 8],
+        'niflheim_py': [1, 2, 3, 4],
+        'niflheim': [1, 2, 4]
+    }.get(system, False)
 
     if not systems_string:
-        systems_string = 'gpaw on '+machine
+        systems_string = 'gpaw on ' + machine
     if not processes:
         processes = [startcores]
-        for n in range(startcores+1, ncores+1):
-            if n % 2==0:
+        for n in range(startcores + 1, ncores + 1):
+            if n % 2 == 0:
                 processes.append(n)
 
     timer_entries_all = []
     if system.find('_py') == -1:
         for i in range(runs):
-            timer_entries_all.append('run: '+str(i))
+            timer_entries_all.append('run: ' + str(i))
     else:
         for i in range(runs):
-            timer_entries_all.append('Run:  '+str(i))
+            timer_entries_all.append('Run:  ' + str(i))
 
     import re
 
@@ -120,7 +112,8 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     for entry in selected_entries:
         height[entry] = []
         timer_entries.append(timer_entries_all[entry])
-        timer_entries_re[timer_entries_all[entry]] = re.compile(timer_entries_all[entry])
+        timer_entries_re[timer_entries_all[entry]] = re.compile(
+            timer_entries_all[entry])
 
     # absolute path to directory
     root_abspath = os.path.abspath(opt.dir)
@@ -140,17 +133,18 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
 
     ref_failed = False
     h_failed = False
-    for run in [str(p)+'_01' for p in processes]:
+    for run in [str(p) + '_01' for p in processes]:
         # extract results
-        rundir = os.path.join(root_abspath, system+run)
+        rundir = os.path.join(root_abspath, system + run)
         file = os.path.join(rundir, 'out.txt')
         try:
             f = open(file, 'r')
             #
-            print('Analysing '+file, end=' ')
+            print('Analysing ' + file, end=' ')
             #
             lines = f.readlines()
-        except: pass
+        except:
+            pass
         # extract gpaw version
         for n, l in enumerate(lines):
             if l.startswith(' |__ |  _|___|_____|'):
@@ -184,7 +178,7 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
                 m = timer_entries_re[timer_entries_all[entry]].search(line)
                 if m is not None:
                     h.append(float(line.split(':')[-1]))
-                   #break # stop after the first match
+                #break # stop after the first match
             for h_entry in h:
                 if float(h_entry) < 0.0:
                     h_failed = True
@@ -194,21 +188,23 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
                 m = re.compile('Zero').search(line)
                 if m is not None:
                     ref.append(float(line.split(':')[-1]))
-                   #break # stop after the first match
+                #break # stop after the first match
             for ref_entry in ref:
-                if abs(float(ref_entry)-ref_value) > tolerance:
+                if abs(float(ref_entry) - ref_value) > tolerance:
                     ref_failed = True
                     break
     #
     assert len(processes) == len(gpaw_versions)
     for p in range(len(processes)):
-        assert gpaw_versions[p] == max(gpaw_versions), 'incompatible gpaw versions across cores'
+        assert gpaw_versions[p] == max(
+            gpaw_versions), 'incompatible gpaw versions across cores'
     #
     if h_failed:
-        print('Panic: negative time in '+file)
+        print('Panic: negative time in ' + file)
         assert not h_failed
     if ref_failed:
-        print('Panic: wrong Zero Kelvin: value in '+file+' - should be '+str(ref_value)+' +- '+str(tolerance))
+        print('Panic: wrong Zero Kelvin: value in ' + file + ' - should be ' +
+              str(ref_value) + ' +- ' + str(tolerance))
         assert not ref_failed
     # arrange results
     for p in range(len(processes)):
@@ -229,7 +225,8 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
             # averages for a given core q
             results[p].append((np.average(temp_q), np.std(temp_q)))
         # max, avrg, and std across all cores
-        results[p].append((np.average(temp), np.std(temp), min(temp), max(temp)))
+        results[p].append(
+            (np.average(temp), np.std(temp), min(temp), max(temp)))
     #for p in processes:
     #    #N = len(pre_results[p])
     #    #avg = sum(pre_results[p])/N
@@ -240,42 +237,49 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
     matplotlib.use('Agg')
     from matplotlib import pylab
     # from http://matplotlib.sourceforge.net/examples/dashtick.py
-    DASHBASE=5
-    DASHLEN=25
-    DASHSTAGGER=3
+    DASHBASE = 5
+    DASHLEN = 25
+    DASHSTAGGER = 3
 
     def dashlen(step):
-        return DASHBASE+(DASHLEN*(step % DASHSTAGGER))
+        return DASHBASE + (DASHLEN * (step % DASHSTAGGER))
+
     # print scaling results
     parameters = processes
     zero = [0.0 for i in range(len(parameters))]
     pylab.plot(parameters, zero, 'k-', label='_nolegend_')
-    ay1=pylab.gca()
+    ay1 = pylab.gca()
     ay1.xaxis.set_ticks(parameters)
     ay1.xaxis.set_ticklabels([str(x) for x in parameters])
     for p in processes:
         parameters = []
         avg = []
         std = []
-        for i in range(len(results[p])-1):
-            parameters.append(p+0.3*i)
+        for i in range(len(results[p]) - 1):
+            parameters.append(p + 0.3 * i)
             # avg and std across processes
             avg.append(results[p][i][0])
             std.append(results[p][i][1])
         # height
         #print parameters, avg, std
-        print('No. of processes '+str(int(parameters[0]))+': time [sec]: avg '+str(round(results[p][-1][0],1))+', stddev '+str(round(results[p][-1][1],1))+', min '+str(round(results[p][-1][2],1))+', max '+str(round(results[p][-1][3],1)))
-        plot(
-            parameters, avg, std,
-            systems_string+' version '+str(gpaw_version),
-            'processes per node',
-            'time [s]',
-            'gpaw',
-            (colors[p % 10]),
-            num=1)
+        print('No. of processes ' + str(int(parameters[0])) +
+              ': time [sec]: avg ' + str(round(results[p][-1][0], 1)) +
+              ', stddev ' + str(round(results[p][-1][1], 1)) + ', min ' +
+              str(round(results[p][-1][2], 1)) + ', max ' +
+              str(round(results[p][-1][3], 1)))
+        plot(parameters,
+             avg,
+             std,
+             systems_string + ' version ' + str(gpaw_version),
+             'processes per node',
+             'time [s]',
+             'gpaw', (colors[p % 10]),
+             num=1)
     # from two_scales.py
-    plot_save(".", 'memory_bandwidth_'+system)
+    plot_save(".", 'memory_bandwidth_' + system)
     pylab.close(1)
+
+
 #
 
 if __name__ == '__main__':
@@ -283,11 +287,11 @@ if __name__ == '__main__':
 
     NCORES = int(environ.get('NCORES', 8))
     MACHINE = environ.get('MACHINE', 'TEST')
-    assert NCORES >= 1, str(NCORES)+' must be >= 1'
+    assert NCORES >= 1, str(NCORES) + ' must be >= 1'
 
     runs = int(opt.runs)
-    assert runs >= 1, runs+' must be >= 1'
+    assert runs >= 1, runs + ' must be >= 1'
     startcores = int(opt.startcores)
-    assert startcores >= 1, startcores+' must be >= 1'
+    assert startcores >= 1, startcores + ' must be >= 1'
 
     analyse_benchmark(NCORES, startcores, MACHINE, runs=runs)

@@ -632,12 +632,43 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, ecut=50, response='density',
+    def __init__(self, gs, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None):
+                 nblocks=1, gate_voltage=None, **unused):
+        """Density matrix elements
 
+        Parameters
+        ----------
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        gate_voltage : float
+            Shift the fermi level by gate_voltage [Hartree].
+        """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
+
+        with self.timer('Read ground state'):
+            if isinstance(gs, str):
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=self.fd)
+                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            else:
+                calc = gs
+                assert calc.wfs.world.size == 1
+
+        assert calc.wfs.kd.symmetry.symmorphic
+        self.calc = calc
+        
         if ecut is not None:
             ecut /= Hartree
 
@@ -651,10 +682,6 @@ class PairDensity:
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
 
-        self.timer = timer or Timer()
-
-        self.world = world
-
         if nblocks == 1:
             self.blockcomm = world.new_communicator([world.rank])
             self.kncomm = world
@@ -665,19 +692,6 @@ class PairDensity:
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
-
-        self.fd = convert_string_to_fd(txt, world)
-
-        with self.timer('Read ground state'):
-            if isinstance(calc, str):
-                print('Reading ground state calculation:\n  %s' % calc,
-                      file=self.fd)
-                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-            else:
-                assert calc.wfs.world.size == 1
-
-        assert calc.wfs.kd.symmetry.symmorphic
-        self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
 

@@ -29,7 +29,7 @@ for name in ['zero', 'periodic', 'corrected', 'pwcorrected']:
                  r'$\phi$ = %.2f eV' % (v[-n] - efermi),
                  va='center', ha='right')
 
-    plt.xlabel('$z$, r$\AA$')
+    plt.xlabel(r'$z$, r$\AA$')
     plt.ylabel('(Pseudo) electrostatic potential, V')
     plt.xlim([0., z[-1]])
     if name == 'pwcorrected':

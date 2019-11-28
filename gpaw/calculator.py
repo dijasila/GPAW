@@ -2,16 +2,17 @@
 import warnings
 
 import numpy as np
+from ase import Atoms
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
-from ase.utils import basestring, plural
+from ase.utils import plural
 from ase.utils.timing import Timer
 from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
-from gpaw import dry_run, memory_estimate_depth
+from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
@@ -528,7 +529,7 @@ class GPAW(PAW, Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (basestring, dict)):
+            if isinstance(par.xc, (str, dict)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
@@ -536,7 +537,7 @@ class GPAW(PAW, Calculator):
             xc = self.hamiltonian.xc
 
         mode = par.mode
-        if isinstance(mode, basestring):
+        if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
@@ -601,6 +602,8 @@ class GPAW(PAW, Calculator):
             if h is None and reading:
                 shape = self.reader.density.proxy('density').shape[-3:]
                 N_c = 1 - pbc_c + shape
+            elif h is None and self.density is not None:
+                N_c = self.density.gd.N_c
             else:
                 N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
                                                 self.symmetry, self.log)
@@ -625,7 +628,7 @@ class GPAW(PAW, Calculator):
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, basestring):
+        if isinstance(nbands, str):
             if nbands == 'nao':
                 nbands = nao
             elif nbands[-1] == '%':
@@ -745,7 +748,7 @@ class GPAW(PAW, Calculator):
 
         self.timer.print_info(self)
 
-        if dry_run:
+        if gpaw.dry_run:
             self.dry_run()
 
         if (realspace and
@@ -979,7 +982,12 @@ class GPAW(PAW, Calculator):
     def create_kpoint_descriptor(self, nspins):
         par = self.parameters
 
-        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        # Zero cell vectors that are not periodic so that ASE's
+        # kpts2ndarray can handle 1-d and 2-d correctly:
+        atoms = Atoms(cell=self.atoms.cell * self.atoms.pbc[:, np.newaxis],
+                      pbc=self.atoms.pbc)
+        bzkpts_kc = kpts2ndarray(par.kpts, atoms)
+
         kpt_refine = par.experimental.get('kpt_refine')
         if kpt_refine is None:
             kd = KPointDescriptor(bzkpts_kc, nspins)

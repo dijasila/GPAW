@@ -7,8 +7,9 @@ from gpaw.lrtddft import LrTDDFT
 from gpaw.pes.dos import DOSPES
 from gpaw.pes.tddft import TDDFTPES
 
-atoms = Atoms([Atom('C', (7.666263598984184, 7.637780850431168, 8.289450797111844)),
-               Atom('O', (8.333644370007132, 8.362384430165646, 7.710230973847514))])
+atoms = Atoms(
+    [Atom('C', (7.666263598984184, 7.637780850431168, 8.289450797111844)),
+     Atom('O', (8.333644370007132, 8.362384430165646, 7.710230973847514))])
 atoms.center(vacuum=8)
 
 h = 0.15
@@ -45,4 +46,3 @@ pes.save_folded_pes('CO-td.dat', folding=None)
 
 pes = DOSPES(m_c, d_c, shift=True)
 pes.save_folded_pes('CO-dos.dat', folding=None)
-
