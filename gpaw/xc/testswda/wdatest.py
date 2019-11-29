@@ -457,8 +457,8 @@ class Tester(BaseTester):
         def local_test(rank, size):
             
             ni_j, nilower, niupper = xc.get_ni_grid(rank, size, n_sg)
-            print("ni_j in local_test: \n {} \n".format(ni_j))
-            print("nilower: {} \nniupper: {}\n".format(nilower, niupper))
+            # print("ni_j in local_test: \n {} \n".format(ni_j))
+            # print("nilower: {} \nniupper: {}\n".format(nilower, niupper))
             Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd, rank, size)
             alpha_ig = xc.get_alphas(Z_ig, Zlower_g, Zupper_g)
 

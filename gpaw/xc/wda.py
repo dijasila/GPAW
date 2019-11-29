@@ -1,6 +1,7 @@
 from gpaw.xc.functional import XCFunctional
 from gpaw.xc.lda import PurePythonLDAKernel
 from gpaw.utilities.tools import construct_reciprocal
+from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 import numpy as np
 from gpaw import mpi
 
@@ -28,7 +29,7 @@ class WDA(XCFunctional):
         self.mode = mode
         self.densitymode = densitymode
         self.lda_kernel = PurePythonLDAKernel()
-        print("LDA CORRELATION DISABLED")
+        print("LDA CORRELATION DISABLED", flush=True)
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.wfs = wfs
@@ -46,8 +47,7 @@ class WDA(XCFunctional):
         grid = gd1.get_grid_point_coordinates()
         
         # Get density: AE, Corrected or Valence
-        wn_sg = self.get_working_density(n_sg, gd1)
-    
+        wn_sg = self.get_working_density(n_sg, gd)
         # Get ni_grid
         ni_grid, ni_lower, ni_upper = self.get_ni_grid(mpi.rank,
                                                        mpi.size, wn_sg)
@@ -102,7 +102,8 @@ class WDA(XCFunctional):
 
     def get_corrected_density(self, n_sg, gd):
         from gpaw.xc.WDAUtils import correct_density
-        return correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac)
+        res = correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac)
+        return res
 
     def get_valence_density(self, n_sg):
         raise NotImplementedError
@@ -279,7 +280,6 @@ class WDA(XCFunctional):
         # pairdist_ig
         # = np.array([self.get_pairdi
         # st(grid, ni, spin) for ni in augmented_ni_grid])
-
         Z_isg = np.zeros(ni_grid.shape + n_sg.shape)
 
         pairdist_g = self.get_pairdist_g(grid, lower_ni, spin)
@@ -340,7 +340,7 @@ class WDA(XCFunctional):
     def fold_w_pair(self, f_sg, G_sg):
         assert np.allclose(f_sg, f_sg.real)
         assert np.allclose(G_sg, G_sg.real)
-        assert f_sg.shape == G_sg.shape
+        assert f_sg.shape == G_sg.shape, f"Shape of f_sg: {f_sg.shape}, shape of G_sg: {G_sg.shape}"
         assert f_sg.ndim == 4
 
 
@@ -560,10 +560,14 @@ class WDA(XCFunctional):
                 for ix, Z_si in enumerate(Z_xsi):
                     for inds, Z_i in enumerate(Z_si):
                         assert Z_i.ndim == 1
-                        alpha_isg[:, inds, ix, iy, iz] = self.interpolate_this(
-                            Z_i,
-                            Z_lower_sg[inds, ix, iy, iz],
-                            Z_upper_sg[inds, ix, iy, iz], -1)
+                        if not ((Z_i >= -1).any() and (Z_i <= -1).any()):
+                            mindex = np.argmin(Z_i + 1)
+                            alpha_isg[mindex, inds, ix, iy, iz] = 1
+                        else:
+                            alpha_isg[:, inds, ix, iy, iz] = self.interpolate_this(
+                                Z_i,
+                                Z_lower_sg[inds, ix, iy, iz],
+                                Z_upper_sg[inds, ix, iy, iz], -1)
         return alpha_isg
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
@@ -791,3 +795,38 @@ class WDA(XCFunctional):
         G_ir = np.array([get_G_r(ni) for ni in ni_grid])
 
         return G_ir
+
+    def redistribute_i_to_g(self, in_isg, out_isg, myni, ni):
+        # Take an array that is distributed over i (WD index)
+        # and return an array distributed over g (position)
+        comm = mpi.world
+
+
+        in_ix = in_isg.reshape(myni, -1)
+        out_ix = out_isg.reshape(ni, -1)
+
+        nx = in_ix.shape[1]
+        mynx = (nx + comm.size - 1) // comm.size
+
+        bg1 = BlacsGrid(comm, comm.size, 1)
+        bg2 = BlacsGrid(comm, 1, comm.size)
+        md1 = BlacsDescriptor(bg1, ni, nx, myni, nx)
+        md2 = BlacsDescriptor(bg2, ni, nx, ni, mynx)
+
+        r = Redistributor(comm, md1, md2)
+
+        r.redistribute(in_isg.reshape(md1.shape),
+                       out_isg.reshape(md2.shape))
+
+        return out_isg
+
+        
+
+        
+        # raise NotImplementedError
+
+    def redistribute_g_to_i(self, in_isg, out_isg):
+        # Take an array that is distributed over g (position)
+        # and return an array distributed over i (WD index)
+        raise NotImplementedError
+
