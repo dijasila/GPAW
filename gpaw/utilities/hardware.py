@@ -169,7 +169,7 @@ class ComputeCluster:
         print('export MODULEPATH=' + env['MODULEPATH'], file=f)
         for module in env['LOADEDMODULES'].split(':'):
             print('module load', module, file=f)
-        print(d['mpirun'] + str(cores) + ' python3',
+        print(d['mpirun'] + str(cores) + ' gpaw python',
               set['script'], end=' ', file=f)
         if 'parameters' in set:
             print(set['parameters'], end=' ', file=f)
