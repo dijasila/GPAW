@@ -8,7 +8,7 @@ class CLICommand:
 
     @staticmethod
     def add_arguments(parser):
-        parser.add_argument('--dry-run', type=int, default=0,
+        parser.add_argument('--dry-run', '-z', type=int, default=0,
                             metavar='NCPUS',
                             help='Dry run on NCPUS cpus.')
         group = parser.add_mutually_exclusive_group()

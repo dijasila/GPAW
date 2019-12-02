@@ -24,4 +24,5 @@ numpy_dot = np.max(b).real
 gpaw_gemm = np.max(c).real
 #print gpaw_gemm
 assert abs(gpaw_gemm-numpy_dot) < thresh, (gpaw_gemm, numpy_dot, thresh)
-assert abs(gpaw_gemm-ref_max_value) < thresh, (gpaw_gemm, ref_max_value, thresh)
+assert abs(gpaw_gemm-ref_max_value) < thresh, (gpaw_gemm,
+                                               ref_max_value, thresh)

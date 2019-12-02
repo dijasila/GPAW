@@ -2,7 +2,7 @@ from math import sqrt
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd, basestring
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
 from scipy.linalg import eigh
 
@@ -88,7 +88,7 @@ class OmegaMatrix:
         if xc == 'RPA':
             xc = None  # enable RPA as keyword
         if xc is not None:
-            if isinstance(xc, basestring):
+            if isinstance(xc, str):
                 self.xc = XC(xc)
             else:
                 self.xc = xc

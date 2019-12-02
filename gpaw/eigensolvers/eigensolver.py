@@ -106,7 +106,7 @@ class Eigensolver:
                 for weight_n, kpt in zip(weight_un, wfs.mykpts):
                     weight_n[kpt.eps_n < ecut] = kpt.weight
 
-                if (eps_skn[:, :, -1] < ecut).any():
+                if (eps_skn[:, :, -1] < ecut - efermi).any():
                     # We don't have enough bands!
                     weight_un[:] = np.inf
 

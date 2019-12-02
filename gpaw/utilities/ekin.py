@@ -8,9 +8,11 @@ def ekin(dataset):
     ds = dataset
     rgd = dataset.rgd
     de_j = ds.data.e_kin_jj.diagonal()
+    phit_j = ds.pseudo_partial_waves_j
     e0 = -ds.Kc
     e_k = 0.0
-    for f, l, de, phit in zip(ds.f_j, ds.l_j, de_j, ds.phit_j):
+
+    for f, l, de, phit in zip(ds.f_j, ds.l_j, de_j, phit_j):
         if f == 0.0:
             continue
         phit_r = np.array([phit(r) for r in rgd.r_g])

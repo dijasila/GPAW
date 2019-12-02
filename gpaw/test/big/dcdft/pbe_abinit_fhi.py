@@ -59,7 +59,7 @@ for name in collection.names:
             label=name + '_' + code + '_' + str(n),
             xc='PBE',
             kpts=kpts,
-            ecut=ecut*Rydberg,
+            ecut=ecut * Rydberg,
             occopt=3,
             tsmear=width,
             toldfe=1.0e-6,
@@ -78,8 +78,9 @@ for name in collection.names:
                 linspacestr=linspacestr,
                 kptdensity=kptdensity, width=width,
                 x=x,
-                time=time.time()-t)
+                time=time.time() - t)
         traj.write(atoms)
         wfk = name + '_' + code + '_' + str(n) + 'o_WFK'
-        if os.path.exists(wfk): os.remove(wfk)
+        if os.path.exists(wfk):
+            os.remove(wfk)
         del c[id]

@@ -1,5 +1,4 @@
 """This module defines a linear response TDDFT-class."""
-from __future__ import print_function
 import numbers
 import sys
 from math import sqrt
@@ -7,7 +6,6 @@ from math import sqrt
 import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
-from ase.utils import basestring
 
 import _gpaw
 import gpaw.mpi as mpi
@@ -76,7 +74,7 @@ class LrTDDFT(ExcitationList):
 
         changed = self.set(**kwargs)
 
-        if isinstance(calculator, basestring):
+        if isinstance(calculator, str):
             ExcitationList.__init__(self, None, self.txt)
             self.filename = calculator
         else:
@@ -179,7 +177,7 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                if isinstance(self.xc, basestring):
+                if isinstance(self.xc, str):
                     xc = XC(self.xc)
                 else:
                     xc = self.xc
@@ -365,7 +363,7 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            if isinstance(self.xc, basestring):
+            if isinstance(self.xc, str):
                 xc = self.xc
             else:
                 xc = self.xc.tostring()

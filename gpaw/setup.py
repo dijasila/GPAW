@@ -4,11 +4,11 @@
 from __future__ import print_function, absolute_import
 import functools
 from math import pi, sqrt
+from io import StringIO
 
 import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
-from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
@@ -23,10 +23,10 @@ from gpaw.xc import XC
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
-    if isinstance(xc, basestring):
+    if isinstance(xc, str):
         xc = XC(xc)
 
-    if isinstance(type, basestring) and ':' in type:
+    if isinstance(type, str) and ':' in type:
         # Parse DFT+U parameters from type-string:
         # Examples: "type:l,U" or "type:l,U,scale"
         type, lu = type.split(':')
@@ -1316,8 +1316,8 @@ class Setups(list):
             # Due to the "szp(dzp)" syntax this is complicated!
             # The name has to go as "szp(name.dzp)".
             basis = basis_a[a]
-            if isinstance(basis, basestring):
-                if isinstance(_type, basestring):
+            if isinstance(basis, str):
+                if isinstance(_type, str):
                     setupname = _type
                 else:
                     setupname = _type.name  # _type is an object like SetupData
@@ -1350,12 +1350,12 @@ class Setups(list):
                 Z, type, basis = id
                 symbol = chemical_symbols[Z]
                 setupdata = None
-                if not isinstance(type, basestring):
+                if not isinstance(type, str):
                     setupdata = type
                 # Basis may be None (meaning that the setup decides), a string
                 # (meaning we load the basis set now from a file) or an actual
                 # pre-created Basis object (meaning we just pass it along)
-                if isinstance(basis, basestring):
+                if isinstance(basis, str):
                     basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, 2, type,
                                      basis, setupdata=setupdata,
@@ -1460,7 +1460,7 @@ def types2atomtypes(symbols, types, default):
     default.
     """
     natoms = len(symbols)
-    if isinstance(types, basestring):
+    if isinstance(types, str):
         return [types] * natoms
 
     # If present, None will map to the default type,
@@ -1471,8 +1471,8 @@ def types2atomtypes(symbols, types, default):
     for symbol, type in types.items():
         # Types are given either by strings or they are objects that
         # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
-        assert isinstance(type, basestring) or hasattr(type, 'symbol')
-        if isinstance(symbol, basestring):
+        assert isinstance(type, str) or hasattr(type, 'symbol')
+        if isinstance(symbol, str):
             for a, symbol2 in enumerate(symbols):
                 if symbol == symbol2:
                     type_a[a] = type

@@ -25,7 +25,7 @@ gs_calc.write('na2_gs.gpw', 'all')
 
 # 16 fs run with 8.0 attosec time step
 time_step = 8.0 # 8.0 as (1 as = 0.041341 autime)5D
-iters =  10     # 2000 x 8 as => 16 fs
+iters = 10     # 2000 x 8 as => 16 fs
 # Weak delta kick to z-direction
 kick = [0,0,1e-3]
 
