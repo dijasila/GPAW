@@ -337,7 +337,6 @@ tests = [
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
-    'exx/kpts.py',
     'exx/double_cell.py',
     'exx/derivs.py',
     'corehole/si.py',                       # ~18s
