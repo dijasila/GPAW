@@ -37,14 +37,18 @@ class EXX:
                  setups: List['Setup'],
                  pt,
                  coulomb,
-                 spos_ac,
-                 timer):
+                 spos_ac: np.ndarray,
+                 timer=None):
         """Exact exchange operator."""
         self.kd = kd
         self.setups = setups
         self.pt = pt
         self.coulomb = coulomb
         self.spos_ac = spos_ac
+
+        if timer is None:
+            from gpaw.utilities.timing import NullTimer
+            timer = NullTimer()
         self.timer = timer
 
         self.comm = self.pt.comm

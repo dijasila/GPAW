@@ -3,13 +3,17 @@ from ase import Atoms
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
-from gpaw.xc.hf import EXX, KPoint
+from gpaw.hybrids.exx import EXX, KPoint
 from gpaw.symmetry import Symmetry
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.projections import Projections
 from gpaw.mpi import world
 from gpaw.spline import Spline
+
+if world.size > 1:
+    from unittest import SkipTest
+    raise SkiipTest
 
 N = 20
 L = 2.5
@@ -76,4 +80,4 @@ VV_aii = {a: np.einsum('n, ni, nj -> ij', f_n, P_ni, P_ni.conj()) * C
 xm = xx.calculate([kpt], [kpt], VV_aii)
 
 d = (xp[0] + xp[1] - xm[0] - xm[1]) / (2 * eps) * N**6 / L**3 / 2
-print(v / d)
+assert abs(v - d) < 1e-10, (v, d)
