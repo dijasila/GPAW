@@ -1,7 +1,8 @@
 def create_tasks():
     from myqueue.task import task
     return [task('gaps.py@16:5h'),
-            task('submit.agts.py', deps='gaps.py')]
+            task('submit.agts.py', deps='gaps.py'),
+            task('molecule.py', cores=8, tmax='5h')]
 
 
 if __name__ == '__main__':

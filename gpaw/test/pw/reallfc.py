@@ -43,8 +43,8 @@ for l in range(4):
     lfcr.set_positions(spos_ac)
     lfcr.add(br, cr_axi)
 
-    a = pd.ifft(b)
-    ar = pdr.ifft(br)
+    a = pd.ifft(b[0])
+    ar = pdr.ifft(br[0])
     equal(abs(a - ar).max(), 0, 1e-14)
 
     if l == 0:

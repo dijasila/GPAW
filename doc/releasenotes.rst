@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.18.1b1
 
+* Self-consistent calculations with hybrid functionals are now possible in
+  plane-wave mode.
+
 * We are now using setuptools_ instead of :mod:`distutils`.
   This means that installation with pip works much better.
 
