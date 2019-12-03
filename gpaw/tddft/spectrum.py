@@ -54,8 +54,7 @@ def read_dipole_moment_file(fname, remove_duplicates=True):
     return kick_i, time_t, norm_t, dm_tv
 
 
-def calculate_polarizability(data, foldedfrequencies):
-    kick_v, time_t, dm_tv = data
+def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
     ff = foldedfrequencies
     omega_w = ff.frequencies
     envelope = ff.folding.envelope
@@ -75,9 +74,9 @@ def calculate_polarizability(data, foldedfrequencies):
     return alpha_wv
 
 
-def calculate_photoabsorption(data, foldedfrequencies):
+def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
     omega_w = foldedfrequencies.frequencies
-    alpha_wv = calculate_polarizability(data, foldedfrequencies)
+    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies)
     abs_wv = 2 / np.pi * omega_w[:, np.newaxis] * alpha_wv.imag
     return abs_wv
 
@@ -109,7 +108,7 @@ def write_spectrum(dipole_moment_file, spectrum_file,
     folding = Folding(folding, width)
     ff = FoldedFrequencies(freqs, folding)
     omega_w = ff.frequencies
-    spec_wv = calculate((kick_v, time_t, dm_tv), ff)
+    spec_wv = calculate(kick_v, time_t, dm_tv, ff)
 
     # Write spectrum file header
     with open(spectrum_file, 'w') as f:
