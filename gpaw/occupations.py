@@ -661,7 +661,9 @@ class MarzariVanderbilt(SmoothDistribution):
         return np.array([n, dnde, n * sign, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):
-        return E - self.e_entropy
+        # According to Nicola Marzari, one should not extrapolate M-V energies
+        # https://lists.quantum-espresso.org/pipermail/users/2005-October/003170.html
+        return E
 
 
 class FixedOccupations(ZeroKelvin):
