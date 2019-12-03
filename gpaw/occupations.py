@@ -654,7 +654,8 @@ class MarzariVanderbilt(SmoothDistribution):
         dnde = expterm * (2 + np.sqrt(2) * x) / np.sqrt(np.pi)
         dnde = dnde.sum() * kpt.weight / self.width
 
-        s = expterm * (1 + np.sqrt(2) * x) / np.sqrt(np.pi)
+        s = expterm * (1 + np.sqrt(2) * x) / (2 * np.sqrt(np.pi))
+
         e_entropy = -kpt.weight * s.sum() * self.width
 
         sign = 1 - kpt.s * 2
