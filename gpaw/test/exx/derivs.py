@@ -13,7 +13,7 @@ from gpaw.spline import Spline
 
 if world.size > 1:
     from unittest import SkipTest
-    raise SkiipTest
+    raise SkipTest
 
 N = 20
 L = 2.5
