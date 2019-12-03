@@ -1,4 +1,3 @@
-import argparse
 import runpy
 import sys
 
@@ -19,7 +18,7 @@ class CLICommand:
         parser.add_argument('arguments', metavar='ARG',
                             help='Arguments passed to program in '
                             'sys.argv[1:].',
-                            nargs=argparse.REMAINDER)
+                            nargs=-1)
 
     @staticmethod
     def run(args):
