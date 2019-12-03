@@ -24,7 +24,7 @@ if 'OMP_NUM_THREADS' not in os.environ:
 
 from gpaw.broadcast_imports import broadcast_imports
 
-with broadcast_imports(debug=False):
+with broadcast_imports:
     import os
     import runpy
     import warnings
@@ -219,6 +219,7 @@ def main():
 
 dry_run = extra_parameters.pop('dry_run', 0)
 debug = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -253,7 +254,7 @@ def get_gpaw_python_path():
 setup_paths = []
 
 
-with broadcast_imports(debug=False):
+with broadcast_imports:
     from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
@@ -329,3 +330,12 @@ def initialize_data_paths():
 
 read_rc_file()
 initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))
