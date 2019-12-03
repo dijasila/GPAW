@@ -63,14 +63,14 @@ def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
     dt_t = np.insert(time_t[1:] - time_t[:-1], 0, 0.0)
     dm_tv = dm_tv[:] - dm_tv[0]
 
-    kick_magnitude = np.sum(kick_v**2)
-
     Nw = len(omega_w)
     alpha_wv = np.zeros((Nw, 3), dtype=complex)
     f_wt = np.exp(1.0j * np.outer(omega_w, time_t))
     dm_vt = np.swapaxes(dm_tv, 0, 1)
     alpha_wv = np.tensordot(f_wt, dt_t * envelope(time_t) * dm_vt, axes=(1, 1))
-    alpha_wv *= kick_v / kick_magnitude
+
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    alpha_wv /= kick_magnitude
     return alpha_wv
 
 
@@ -78,6 +78,9 @@ def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
     omega_w = foldedfrequencies.frequencies
     alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies)
     abs_wv = 2 / np.pi * omega_w[:, np.newaxis] * alpha_wv.imag
+
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    abs_wv *= kick_v / kick_magnitude
     return abs_wv
 
 
