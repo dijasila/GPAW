@@ -24,7 +24,7 @@ if 'OMP_NUM_THREADS' not in os.environ:
 
 from gpaw.broadcast_imports import broadcast_imports
 
-with broadcast_imports:
+with broadcast_imports(debug=False):
     import os
     import runpy
     import warnings
@@ -253,7 +253,7 @@ def get_gpaw_python_path():
 setup_paths = []
 
 
-with broadcast_imports:
+with broadcast_imports(debug=False):
     from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO

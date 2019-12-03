@@ -98,8 +98,16 @@ class BroadcastLoader:
 
 
 class BroadcastImporter:
-    def __init__(self):
+    def __init__(self, debug=False):
         self.module_cache = {}
+        if debug:
+            self.debug_print = lambda m: print('[{}] [{}/{}] {}'
+                                               .format(self.__class__.__name__,
+                                                       world.rank,
+                                                       world.size,
+                                                       m))
+        else:
+            self.debug_print = lambda m: None
 
     def find_spec(self, fullname, path=None, target=None):
         if world.rank == 0:
@@ -167,13 +175,16 @@ class BroadcastImporter:
         assert myself is self
 
     def __enter__(self):
+        self.debug_print('Enter')
         self.enable()
 
     def __exit__(self, *args):
+        self.debug_print('Exit, cache size = {}'
+                         .format(len(self.module_cache)))
         self.disable()
 
 
-broadcast_imports = BroadcastImporter()
+broadcast_imports = BroadcastImporter
 
 
 if 0:
