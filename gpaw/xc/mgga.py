@@ -59,7 +59,7 @@ class MGGA(XCFunctional):
         if taut_sG is None:
             taut_sG = self.wfs.gd.zeros(len(nt_sg))
 
-        if 0: #taut_sG is None:
+        if 0:  # taut_sG is None:
             # Below code disabled because it produces garbage in at least
             # some cases.
             #
@@ -193,7 +193,7 @@ class MGGA(XCFunctional):
 
 
 def create_kinetic(xcc, ny, phi_jg, tau_ypg):
-    """Short title here.
+    r"""Short title here.
 
     kinetic expression is::
 
@@ -340,7 +340,7 @@ def LegendreFx2(n, rs, sigma, tau,
 
     # product exchange enhancement factor
     Fx_i = legendre_polynomial(x_i, orders_i, coefs_i)
-    #print(Fx_i);asdf
+    # print(Fx_i);asdf
     Fx_j = legendre_polynomial(x_j, orders_j, coefs_j)
     Fx = Fx_i * Fx_j
     return Fx

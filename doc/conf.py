@@ -26,6 +26,7 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3.7', None),
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://docs.scipy.org/doc/numpy', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
 
 html_theme = 'sphinx_rtd_theme'
@@ -35,8 +36,8 @@ html_title = 'GPAW'
 html_favicon = 'static/gpaw_favicon.ico'
 html_static_path = ['static']
 html_last_updated_fmt = '%a, %d %b %Y %H:%M:%S'
-dev_version = '1.5.2b1'  # This line auto-edited by newrelease script
-stable_version = '1.5.1'  # This line auto-edited by newrelease script
+dev_version = '19.8.2b1'  # This line auto-edited by newrelease script
+stable_version = '19.8.1'  # This line auto-edited by newrelease script
 html_context = {
     'current_version': __version__,
     'versions':
@@ -44,3 +45,9 @@ html_context = {
           'https://wiki.fysik.dtu.dk/gpaw/dev'),
          ('{} (latest stable)'.format(stable_version),
           'https://wiki.fysik.dtu.dk/gpaw')]}
+mathjax_config = {
+    'TeX': {
+        'Macros': {
+            'br': '{\\mathbf r}',
+            'bk': '{\\mathbf k}',
+            'bG': '{\\mathbf G}'}}}

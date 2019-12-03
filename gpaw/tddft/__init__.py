@@ -116,6 +116,7 @@ class TDDFT(GPAW):
 
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
+        self.default_parameters['symmetry'] = {'point_group': False}
 
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
@@ -216,9 +217,11 @@ class TDDFT(GPAW):
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator.startswith('SITE') or propagator.startswith('SIKE'):
-            raise DeprecationWarning('Use propagator_kwargs to specify degree.')
+            raise DeprecationWarning(
+                'Use propagator_kwargs to specify degree.')
         else:
-            raise RuntimeError('Time propagator %s not supported.' % propagator)
+            raise RuntimeError(
+                'Time propagator %s not supported.' % propagator)
 
         if self.rank == 0:
             if wfs.kd.comm.size > 1:

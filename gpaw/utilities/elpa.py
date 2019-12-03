@@ -15,6 +15,10 @@ class LibElpa:
     def have_elpa():
         return hasattr(_gpaw, 'pyelpa_allocate')
 
+    @staticmethod
+    def api_version():
+        return _gpaw.pyelpa_version()
+
     def __init__(self, desc, nev=None, solver='1stage'):
         if nev is None:
             nev = desc.gshape[0]

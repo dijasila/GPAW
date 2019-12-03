@@ -44,11 +44,11 @@ print(e3 - e1)
 assert abs(e2 - e1 - 533.070) < 0.001
 assert abs(e3 - e1 - 538.549) < 0.001
 
-energy_tolerance = 0.001
+energy_tolerance = 0.02
 niter_tolerance = 1
 print(e1, niter1)
 print(e2, niter2)
 print(e3, niter3)
-equal(e1, -2080.3715465, energy_tolerance)
-equal(e2, -1547.30157798, energy_tolerance)
-equal(e3, -1541.82252385, energy_tolerance)
+equal(e1, -2080.3651, energy_tolerance)
+equal(e2, -1547.2944, energy_tolerance)
+equal(e3, -1541.8152, energy_tolerance)

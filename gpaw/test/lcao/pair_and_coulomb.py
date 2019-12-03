@@ -26,7 +26,7 @@ if rank == MASTER:
     S = lcao.get_overlap()
     pickle.dump((H, S), open('lcao_pair_hs.pckl', 'wb'), 2)
     symbols = atoms.get_chemical_symbols()
-    #indices = get_bfi2(symbols, basis, scat)
+    # indices = get_bfi2(symbols, basis, scat)
     indices = range(2)
     lcao.get_xc(indices=indices).dump('lcao_pair_xc.pckl')
     lcao.get_Fcore(indices=indices).dump('lcao_pair_Fcore.pckl')
@@ -50,14 +50,14 @@ makeV('lcao_pair.gpw',
       False)
 
 world.barrier()
-V_qq = np.load('lcao_pair_V_qq.pckl')
-eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl')
+V_qq = np.load('lcao_pair_V_qq.pckl', allow_pickle=True)
+eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl', allow_pickle=True)
 assert U_pq.flags.contiguous
 Usq_pq = U_pq * np.sqrt(eps_q)
 V_pp = np.dot(np.dot(Usq_pq, V_qq), Usq_pq.T.conj())
 V_pp_ref = np.array(
-[[ 15.34450177,  11.12669608,  11.12669608,  12.82934563],
- [ 11.12669608,   8.82280293,   8.82280293,  11.12669608],
- [ 11.12669608,   8.82280293,   8.82280293,  11.12669608],
- [ 12.82934563,  11.12669608,  11.12669608,  15.34450178]])
+    [[ 15.34450177,  11.12669608,  11.12669608,  12.82934563],
+     [ 11.12669608,   8.82280293,   8.82280293,  11.12669608],
+     [ 11.12669608,   8.82280293,   8.82280293,  11.12669608],
+     [ 12.82934563,  11.12669608,  11.12669608,  15.34450178]])
 equal(abs(V_pp_ref-V_pp).max(), 0.0, 1.0e-5)

@@ -353,11 +353,11 @@ Hybrid functionals (the feature is described at :ref:`exx`)
 require the setups containing exx information to be generated.
 Check available setups for the presence of exx information, for example::
 
-     [~]$ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
+    $ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
 
 and generate setups with missing exx information::
 
-     [~]$ gpaw-setup --exact-exchange -f PBE H C
+    $ gpaw-setup --exact-exchange -f PBE H C
 
 Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
@@ -621,6 +621,9 @@ possible to force convergence also for the unoccupied states.  One can
 also use ``{'bands': 200}`` to converge the lowest 200 bands. One can
 also write ``{'bands': -10}`` to converge all bands except the last
 10. It is often hard to converge the last few bands in a calculation.
+Finally, one can also use ``{'bands': 'CBM+5.0'}`` to specify that bands
+up to the conduction band minimum plus 5.0 eV should be converged
+(for a metal, CBM is taken as the Fermi level).
 
 
 .. _manual_maxiter:
@@ -1087,63 +1090,31 @@ See also :meth:`~gpaw.calculator.GPAW.attach`.
 Command-line options
 --------------------
 
-The behaviour of GPAW can be controlled with some command line
-arguments. The arguments for GPAW should be specified after the
-python-script, i.e.::
+I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
+to C-extensions, use Python's :option:`python:-c` option`:
 
-    $ python3 script.py --gpaw key1=val1,key2=val2,...
+    $ python3 -d script.py
 
-The possible keys are:
+If you run Python through the ``gpaw python`` command, then you run your
+script in dry-run mode::
 
-* ``debug=True``: run in debug-mode, e.g. check consistency of arrays passed
-  to c-extensions.
+    $ gpaw python --dry-run=N script.py
 
-* ``dry_run=nprocs``: Print out the computational parameters and estimate
-  memory usage, do not perform actual calculation.
-  Print also which parallelization settings would be employed when run on
-  ``nprocs`` processors.
+This will print out the computational parameters and estimate
+memory usage, and not perform an actual calculation.
+Parallelization settings that would be employed when run on
+``N`` cores will also be printed.
 
 .. tip::
 
-    Extra key-value pairs will be available for development work::
+    If you need extra parameters from the command-line for development work::
 
-        $ python3 - --gpaw a=1,b=2.3
-        >>> from gpaw import extra_parameters
-        >>> extra_parameters
-        {'a': 1, 'b': 2.3}
+        $ python3 -X a=1 -X b
+        >>> import sys
+        >>> sys._xoptions
+        {'a': '1', 'b': True}
 
-
-Other command-line arguments are accepted directly by ``gpaw-python``:
-
-===============================  =============================================
-argument                         description
-===============================  =============================================
-``--memory-estimate-depth[=n]``
-                                 Print out an itemized memory estimate by
-                                 stepping recursively through the object
-                                 hierarchy of the calculator. If ``n`` is
-                                 specified, print a summary for depths
-                                 greater than the specified value.
-                                 Default: ``n=2``
-``--domain-decomposition=comp``
-                                 Specify the domain decomposition with
-                                 ``comp`` as a positive integer or, for
-                                 greater control, a tuple of three integers.
-                                 Allowed values are equivalent to those of
-                                 the ``domain`` argument in the
-                                 :ref:`parallel <manual_parallel>` keyword,
-                                 with tuples specified as ``nx,ny,nz``.
-                                 See :ref:`manual_parsize_domain` for details.
-``--state-parallelization=nbg``
-                                 Specify the parallelization over Kohn-Sham
-                                 orbitals with ``nbg`` as a positive integer.
-                                 Allowed values are equivalent to those of
-                                 the ``band`` argument in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 See :ref:`manual_parsize_bands` for details.
-===============================  =============================================
-
-Please see ``gpaw-python --help`` for details.
+    See also Python's :option:`python:-X` option.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,

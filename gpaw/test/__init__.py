@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import gc
 import sys
@@ -82,7 +81,6 @@ tests = [
     'eigen/cg2.py',
     'fd_ops/laplace.py',
     'linalg/lapack.py',
-    'linalg/eigh.py',
     'parallel/submatrix_redist.py',
     'lfc/second_derivative.py',
     'parallel/parallel_eigh.py',
@@ -158,7 +156,6 @@ tests = [
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
     'reuse_wfs_celldisp.py',                # ~1s
-    'linalg/gemv.py',                       # ~2s
     'fileio/idiotproof_setup.py',           # ~2s
     'radial/ylexpand.py',                   # ~2s
     'eigen/keep_htpsit.py',                 # ~2s
@@ -177,6 +174,7 @@ tests = [
     'lcao/gllb_si.py',                      # ~2s
     'fileio/wfs_io.py',                     # ~3s
     'lrtddft/2.py',                         # ~3s
+    'pw/smallanglecell.py',
     'gllbghost.py',                         # ~3s
     'fileio/file_reference.py',             # ~3s
     'fileio/restart.py',                    # ~3s
@@ -187,7 +185,7 @@ tests = [
     'lcao/atomic_corrections.py',           # ~3s
     'vdw/libvdwxc_h2.py',                   # ~3s
     'generic/mixer.py',                     # ~3s
-    'parallel/lcao_projections.py',         # ~3s
+    'lcao/lcao_projections.py',             # ~3s
     'lcao/h2o.py',                          # ~3s
     'corehole/h2o.py',                      # ~3s
     'fileio/wfs_auto.py',                   # ~3s
@@ -201,6 +199,7 @@ tests = [
     'response/pdens_tool.py',               # ~4s
     'pw/par_strategies.py',                  # ~4s
     'pseudopotential/sg15_hydrogen.py',     # ~4s
+    'fileio/read_old_gpw.py',
     'generic/move_across_cell.py',          # ~4s
     'parallel/augment_grid.py',             # ~4s
     'pw/augment_grids.py',
@@ -220,8 +219,8 @@ tests = [
     'generic/Cl_minus.py',                  # ~4s
     'lrtddft/pes.py',                       # ~4s
     'generic/proton.py',                    # ~4s
-    'parallel/lcao_elpa_kpts.py',           # ~4s
-    'parallel/lcao_elpa.py',                # ~5s
+    'lcao/lcao_elpa_kpts.py',               # ~4s
+    'lcao/lcao_elpa.py',                    # ~5s
     'corehole/h2o_recursion.py',            # ~5s
     'xc/nonselfconsistent.py',              # ~5s
     'spin/spinpol.py',                      # ~5s
@@ -232,12 +231,13 @@ tests = [
     'pw/slab.py',                           # ~5s
     'generic/si.py',                        # ~5s
     'lcao/bsse.py',                         # ~5s
-    'parallel/lcao_hamiltonian.py',         # ~5s
+    'lcao/lcao_hamiltonian.py',             # ~5s
     'xc/degeneracy.py',                     # ~5s
     'fileio/refine.py',                     # ~5s
     'solvation/pbc.py',                     # ~5s
     'generic/asym_box.py',                  # ~5s
     'overlap.py',                           # ~5s
+    'response/silicon_chi_RPA.py',          # ~6s
     'linalg/gemm.py',                       # ~6s
     'generic/al_chain.py',                  # ~6s
     'fileio/parallel.py',                   # ~6s
@@ -268,6 +268,7 @@ tests = [
     'tddft/be_nltd_ip.py',                  # ~8s
     'ibzqpt.py',                            # ~8s
     'noncollinear/o2.py',
+    'noncollinear/soc.py',
     'generic/si_primitive.py',              # ~9s
     'tddft/ehrenfest_nacl.py',              # ~9s
     'lcao/fd2lcao_restart.py',              # ~9s
@@ -276,6 +277,7 @@ tests = [
     'vdw/quick.py',                         # ~9s
     'pathological/lcao_spos_derivative.py',  # ~9s
     'lrtddft2/H2O-lcao.py',                 # ~10s
+    'poisson/metallic_poisson.py',          # ~10s
     'lrtddft2/Al2.py',                      # ~10s
     'lcaotddft/simple.py',                  # ~10s
     'lcaotddft/restart.py',                 # ~10s
@@ -287,10 +289,11 @@ tests = [
     'tddft/fxc_linearize.py',               # ~10s
     'timelimit.py',                         # ~10s
     'ralda/ralda_energy_N2.py',             # ~10s
-    'parallel/lcao_complicated.py',         # ~10s
+    'lcao/lcao_complicated.py',             # ~10s
     'generic/bulk.py',                      # ~10s
     'sic/scfsic_h2.py',                     # ~10s
     'kpt_refine.py',                        # ~10s
+    'response/iron_sf_gssALDA.py',          # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
@@ -313,11 +316,11 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
-    'response/iron_sf_ALDA_gridrep.py',     # ~15s
-    'response/iron_sf_gssALDA_gridrep.py',  # ~15s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
+    'watermodel.py',                        # ~15s
+    'rattle.py',                            # ~15s
     'generic/IP_oxygen.py',                 # ~15s
     'rpa/rpa_energy_Na.py',                 # ~15s
     'parallel/fd_parallel.py',              # ~15s
@@ -325,7 +328,7 @@ tests = [
     'solvation/water_water.py',             # ~15s
     'xc/pygga.py',                          # ~15s
     'pseudopotential/atompaw.py',           # ~15s
-    'parallel/lcao_parallel.py',            # ~16s
+    'lcao/lcao_parallel.py',                # ~16s
     'xc/atomize.py',                        # ~16s
     'lrtddft/excited_state.py',             # ~16s
     'gllb/ne_disc.py',                      # ~16s
@@ -334,26 +337,34 @@ tests = [
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
+    'exx/double_cell.py',
+    'exx/derivs.py',
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
+    'symmetry/fractional_translations.py',
+    'symmetry/fractional_translations_med.py',
+    'symmetry/fractional_translations_big.py',
     'lrtddft/1.py',                         # ~20s
     'gllb/spin.py',                         # ~21s
     'parallel/fd_parallel_kpt.py',          # ~21s
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
+    'response/two-aluminum_chi_RPA.py',     # ~23s
+    'lcao/kpts_many_combinations.py',       # ~23s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
     'symmetry/kpoint_mapping.py',           # ~23s
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
+    'response/iron_sf_ALDA.py',             # ~25s
     'utilities/ldos.py',                    # ~25s
     'solvation/swap_atoms.py',              # ~25s
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
-    'parallel/lcao_parallel_kpt.py',        # ~29s
+    'lcao/lcao_parallel_kpt.py',            # ~29s
     'lrtddft/placzek_profeta_albrecht.py',  # ~29s
     'corehole/h2o_dks.py',                  # ~30s
     'lcaotddft/parallel_options.py',        # ~30s
@@ -388,7 +399,6 @@ tests = [
     'pathological/nonlocalset.py',          # ~82s
     'response/gw0_hBN.py',                  # ~82s
     'xc/lb94.py',                           # ~84s
-    'response/iron_sf_ALDA.py',             # ~86s
     'exx/exx_scf.py',                       # ~91s
     'pw/si_stress.py',                      # ~100s
     'response/gw_hBN_extrapolate.py',       # ~109s
@@ -414,14 +424,8 @@ tests = [
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
     'cdft.py']                              # 40s
 
-# 'symmetry/fractional_translations.py',
 # 'response/graphene_EELS.py', disabled while work is in progress
 
-# 'symmetry/fractional_translations_med.py',
-# 'symmetry/fractional_translations_big.py',
-
-# 'linalg/eigh_perf.py', # Requires LAPACK 3.2.1 or later
-# XXX https://trac.fysik.dtu.dk/projects/gpaw/ticket/230
 # 'parallel/scalapack_pdlasrt_hang.py',
 # 'dscf/dscf_forces.py',
 # 'ext_potential/stark_shift.py',
@@ -459,7 +463,7 @@ if mpi.size > 4:
 
 if mpi.size < 4:
     exclude += ['parallel/fd_parallel.py',
-                'parallel/lcao_parallel.py',
+                'lcao/lcao_parallel.py',
                 'parallel/pblas.py',
                 'parallel/scalapack.py',
                 'parallel/scalapack_diag_simple.py',
@@ -467,12 +471,12 @@ if mpi.size < 4:
                 'exx/AA_enthalpy.py',
                 'exx/exx_scf.py',
                 'response/bse_aluminum.py',
-                'response/iron_sf_ALDA.py',
                 'response/bse_MoS2_cut.py',
                 'fileio/parallel.py',
                 'parallel/diamond_gllb.py',
-                'parallel/lcao_parallel_kpt.py',
+                'lcao/lcao_parallel_kpt.py',
                 'parallel/fd_parallel_kpt.py',
+                'response/iron_sf_ALDA.py',
                 'response/na_plasmons.py',
                 'response/na_plasmons_tetrahedron.py']
 
@@ -516,8 +520,8 @@ if not compiled_with_libvdwxc():
 
 if not LibElpa.have_elpa():
     exclude += ['libelpa.py',
-                'parallel/lcao_elpa_kpts.py',
-                'parallel/lcao_elpa.py']
+                'lcao/lcao_elpa_kpts.py',
+                'lcao/lcao_elpa.py']
 
 
 if LooseVersion(np.__version__) < '1.6.0':
@@ -674,10 +678,7 @@ class TestRunner:
         except SkipTest:
             skip = True
         except ImportError as ex:
-            if sys.version_info[0] >= 3:
-                module = ex.name
-            else:
-                module = ex.args[0].split()[-1].split('.')[0]
+            module = ex.name
             if module == 'scipy':
                 skip = True
             else:

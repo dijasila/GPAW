@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 from gpaw.atom.all_electron import AllElectron
 from gpaw.test import equal
 
@@ -16,23 +14,26 @@ for xcname in ['GLLB','GLLBSC']:
     atoms = ['Be','Ne','Mg']
     for atom in atoms:
         # Test AllElectron GLLB
-        GLLB = AllElectron(atom, xcname = xcname, scalarrel = False, gpernode = 600)
+        GLLB = AllElectron(atom, xcname=xcname, scalarrel=False, gpernode=600)
         GLLB.run()
-        
-        out("Total energy", xcname+"1D", atom,  ETotal[atom] , GLLB.ETotal,"Ha")
-        out("Exchange energy", xcname+"1D", atom, EX[atom], GLLB.Exc,"Ha")
-        out("HOMO Eigenvalue", xcname+"1D", atom, EHOMO[atom], GLLB.e_j[-1],"Ha")
+
+        out("Total energy", xcname+"1D", atom,  ETotal[atom] , GLLB.ETotal,
+            "Ha")
+        out("Exchange energy", xcname+"1D", atom, EX[atom], GLLB.Exc,
+            "Ha")
+        out("HOMO Eigenvalue", xcname+"1D", atom, EHOMO[atom], GLLB.e_j[-1],
+            "Ha")
         if xcname == 'GLLB':
             equal(GLLB.ETotal, ETotal[atom], tolerance=1e-2)
             equal(GLLB.Exc, EX[atom], tolerance=1e-2)
             equal(GLLB.e_j[-1], EHOMO[atom], tolerance=1e-2)
-            
-    print("             Quanity        Method    Symbol     Ref[1]         GPAW      Unit  ")
+
+    print("             Quanity        Method    Symbol     Ref[1]"
+          "         GPAW      Unit  ")
     for a,b,c,d,e,f in data:
         print("%20s %10s %10s   %10.3f   %10.3f   %5s" % (a,b,c,d,e,f))
-    
+
 print("""References:
 [1] Self-consistent approximation to the Kohn-Sham exchange potential
 Gritsenko, Oleg; Leeuwen, Robert van; Lenthe, Erik van; Baerends, Evert Jan
 Phys. Rev. A Vol. 51 p. 1944""")
-

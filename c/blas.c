@@ -306,11 +306,11 @@ PyObject* rk(PyObject *self, PyObject *args)
         k = PyArray_DIMS(a)[1];
         for (int d = 2; d < PyArray_NDIM(a); d++)
             k *= PyArray_DIMS(a)[d];
-        lda = k;
+        lda = MAX(k, 1);
     }
     else {
         k = PyArray_DIMS(a)[0];
-        lda = n;
+        lda = MAX(n, 1);
     }
 
     int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
@@ -338,16 +338,17 @@ PyObject* r2k(PyObject *self, PyObject *args)
   int k = PyArray_DIMS(a)[1];
   for (int d = 2; d < PyArray_NDIM(a); d++)
     k *= PyArray_DIMS(a)[d];
+  int lda = MAX(k, 1);
   int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyr2k_("u", "t", &n, &k,
-            (double*)(&alpha), DOUBLEP(a), &k,
-            DOUBLEP(b), &k, &beta,
+            (double*)(&alpha), DOUBLEP(a), &lda,
+            DOUBLEP(b), &lda, &beta,
             DOUBLEP(c), &ldc);
   else
     zher2k_("u", "c", &n, &k,
-            (void*)(&alpha), (void*)COMPLEXP(a), &k,
-            (void*)COMPLEXP(b), &k, &beta,
+            (void*)(&alpha), (void*)COMPLEXP(a), &lda,
+            (void*)COMPLEXP(b), &lda, &beta,
             (void*)COMPLEXP(c), &ldc);
   Py_RETURN_NONE;
 }

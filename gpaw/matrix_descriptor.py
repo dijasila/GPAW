@@ -1,22 +1,22 @@
 
 import numpy as np
+from scipy.linalg import eigh
 
 from gpaw import debug
-from gpaw.utilities.lapack import general_diagonalize
 
 
 class MatrixDescriptor:
     """Class representing a 2D matrix shape.  Base class for parallel
     matrix descriptor with BLACS."""
-    
+
     def __init__(self, M, N):
         self.shape = (M, N)
-    
+
     def __bool__(self):
         return self.shape[0] != 0 and self.shape[1] != 0
 
     __nonzero__ = __bool__  # for Python 2
-    
+
     def zeros(self, n=(), dtype=float):
         """Return array of zeroes with the correct size on all CPUs.
 
@@ -53,8 +53,18 @@ class MatrixDescriptor:
 
     def general_diagonalize_dc(self, H_mm, S_mm, C_mm, eps_M,
                                UL='L', iu=None):
-        general_diagonalize(H_mm, eps_M, S_mm, iu=iu)
-        C_mm[:] = H_mm
+        if iu is None:
+            n = len(H_mm)
+            eigvals = None  # all
+        else:
+            n = iu
+            eigvals = (0, n - 1)
+        eps_M[:n], C_mm.T[:, :n] = eigh(H_mm, S_mm,
+                                        eigvals=eigvals,
+                                        overwrite_a=True,
+                                        check_finite=debug)
+        if C_mm.dtype == complex:
+            np.negative(C_mm.imag, C_mm.imag)
 
     def my_blocks(self, array_mn):
         yield (0, self.shape[0], 0, self.shape[1], array_mn)
@@ -444,7 +454,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):
         non-Hermitian matrix A_Nn. This subroutine is used for column assembly.
 
         Parameters:
-        
+
         A_qnn: ndarray
             Sub-blocks belonging to the specified rank.
         A_Nn: ndarray
@@ -602,7 +612,7 @@ class BlacsBandMatrixDescriptor(MatrixDescriptor):
             A_nn = self.ksl.nndescriptor.empty(dtype=A_Nn.dtype)
         self.ksl.Nn2nn.redistribute(A_Nn, A_nn)
         return A_nn
-    
+
     def estimate_memory(self, mem, dtype):
         # Temporary work arrays included in estimate #
         mynbands = self.bd.mynbands

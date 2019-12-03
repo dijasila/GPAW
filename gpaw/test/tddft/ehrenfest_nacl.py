@@ -31,4 +31,4 @@ for i in range(5):
     print('E = ', [i + 1, r, evv.Etot, evv.Ekin, evv.e_coulomb])
 
 equal(r, 7.558883144, 1e-6)
-equal(evv.Etot, -0.10359175317017391, 1e-7)
+equal(evv.Etot, -0.10359175317017391, 1e-4)

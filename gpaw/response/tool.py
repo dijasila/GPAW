@@ -2,7 +2,6 @@ import sys
 
 import numpy as np
 from scipy.optimize import leastsq
-import pylab as pl
 
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -255,7 +254,7 @@ def linear_fit(x, y, initpara=None):
 
 
 def plot_setfont():
-
+    import matplotlib.pyplot as plt
     params = {'axes.labelsize': 18,
               'text.fontsize': 18,
               'legend.fontsize': 18,
@@ -263,25 +262,25 @@ def plot_setfont():
               'ytick.labelsize': 18,
               'text.usetex': True}
     #          'figure.figsize': fig_size}
-    pl.rcParams.update(params)
+    plt.rcParams.update(params)
 
 
 def plot_setticks(x=True, y=True):
-
-    pl.minorticks_on()
-    ax = pl.gca()
+    import matplotlib.pyplot as plt
+    plt.minorticks_on()
+    ax = plt.gca()
     if x:
-        ax.xaxis.set_major_locator(pl.AutoLocator())
+        ax.xaxis.set_major_locator(plt.AutoLocator())
         x_major = ax.xaxis.get_majorticklocs()
         dx_minor = (x_major[-1] - x_major[0]) / (len(x_major) - 1) / 5.
-        ax.xaxis.set_minor_locator(pl.MultipleLocator(dx_minor))
+        ax.xaxis.set_minor_locator(plt.MultipleLocator(dx_minor))
     else:
-        pl.minorticks_off()
+        plt.minorticks_off()
 
     if y:
-        ax.yaxis.set_major_locator(pl.AutoLocator())
+        ax.yaxis.set_major_locator(plt.AutoLocator())
         y_major = ax.yaxis.get_majorticklocs()
         dy_minor = (y_major[-1] - y_major[0]) / (len(y_major) - 1) / 5.
-        ax.yaxis.set_minor_locator(pl.MultipleLocator(dy_minor))
+        ax.yaxis.set_minor_locator(plt.MultipleLocator(dy_minor))
     else:
-        pl.minorticks_off()
+        plt.minorticks_off()

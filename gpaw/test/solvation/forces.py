@@ -1,8 +1,9 @@
+# flake8: noqa
 from gpaw.test import equal
 from ase import Atoms
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii
-from ase.parallel import rank
+from gpaw.mpi import rank
 from gpaw import Mixer
 from gpaw.solvation import (
     SolvationGPAW,

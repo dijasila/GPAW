@@ -979,7 +979,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
         self.Mstop = Mstop
 
     def add_to_density(self, nt_sG, f_asi):
-        """Add linear combination of squared localized functions to density.
+        r"""Add linear combination of squared localized functions to density.
 
         ::
 
@@ -1075,7 +1075,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
                                             self.Mstart, self.Mstop)
 
     def lcao_to_grid(self, C_xM, psit_xG, q):
-        """Deploy basis functions onto grids according to coefficients.
+        r"""Deploy basis functions onto grids according to coefficients.
 
         ::
 
@@ -1181,6 +1181,7 @@ class BasisFunctions(NewLocalizedFunctionsCollection):
             M1 = max(0, M1)
             F_av[a, :] = 2.0 * F_vM[:, M1:M2].sum(axis=1)
         return F_av
+
 
 from gpaw.localized_functions import LocFuncs, LocFuncBroadcaster
 from gpaw.mpi import run
@@ -1306,6 +1307,7 @@ class OldLocalizedFunctionsCollection(BaseLFC):
             mem.subnode('Derivatives', 3 * bytes)
         mem.subnode('Work', bytes)
 
+
 if extra_parameters.get('usenewlfc', True):
     LocalizedFunctionsCollection = NewLocalizedFunctionsCollection
 else:
@@ -1342,6 +1344,7 @@ def test():
     plt.contourf(n_G[20, :, :])
     plt.axis('equal')
     plt.show()
+
 
 if __name__ == '__main__':
     test()

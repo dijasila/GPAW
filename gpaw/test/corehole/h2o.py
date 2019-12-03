@@ -1,15 +1,19 @@
-from __future__ import print_function
 import numpy as np
 from math import pi, cos, sin
 from ase import Atom, Atoms
-# from ase.parallel import rank, barrier
-from gpaw import GPAW
+from gpaw import GPAW, setup_paths
 from gpaw.poisson import FDPoissonSolver
 from gpaw.xas import XAS
-from gpaw.test import equal, gen
+from gpaw.test import equal
+from gpaw.atom.generator2 import generate
+import gpaw.mpi as mpi
 
 # Generate setup for oxygen with half a core-hole:
-gen('O', name='hch1s', corehole=(1, 0, 0.5))
+gen = generate('O', '2s,s,2p,p,d', [1.2], 1.0, None, 2, core_hole='1s,0.5')
+setup = gen.make_paw_setup('hch1s')
+setup.write_xml()
+if setup_paths[0] != '.':
+    setup_paths.insert(0, '.')
 
 a = 5.0
 d = 0.9575
@@ -25,8 +29,6 @@ calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
 H2O.set_calculator(calc)
 e = H2O.get_potential_energy()
 niter = calc.get_number_of_iterations()
-
-import gpaw.mpi as mpi
 
 if mpi.size == 1:
     xas = XAS(calc)
@@ -46,23 +48,13 @@ if mpi.size == 1:
     w_n = np.sum(xas.sigma_cn.real**2, axis=0)
     de2 = e2_n[1] - e2_n[0]
 
-    print(de2)
-    print(de2 - 2.0705)
-    assert abs(de2 - 2.0705) < 0.001
-    print(w_n[1] / w_n[0])
-    assert abs(w_n[1] / w_n[0] - 2.22) < 0.01
+    equal(de2, 2.064, 0.005)
+    equal(w_n[1] / w_n[0], 2.22, 0.01)
 
-    if mpi.size == 1:
-        assert de1 == de2
-
+    assert de1 == de2
 
 if 0:
-    import pylab as p
-    p.plot(x, y[0])
-    p.plot(x, sum(y))
-    p.show()
-
-print(e, niter)
-energy_tolerance = 0.00009
-niter_tolerance = 0
-equal(e, -17.9772, energy_tolerance)
+    import matplotlib.pyplot as plt
+    plt.plot(x, y[0])
+    plt.plot(x, sum(y))
+    plt.show()

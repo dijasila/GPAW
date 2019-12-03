@@ -12,6 +12,7 @@ The numbers are compared to:
   DOI: 10.1103/PhysRevB.81.195117
 """
 
+import numpy as np
 import ase.db
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
@@ -66,9 +67,6 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
                       kpts=kpts,
                       txt='%s.txt' % name)
 
-    if name in ['MgO', 'NaCl']:
-        atoms.calc.set(eigensolver='dav')
-
     atoms.get_potential_energy()
     atoms.calc.write(name + '.gpw', mode='all')
 
@@ -94,9 +92,10 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
 
     data = {}
     for k, point in enumerate('GXL'):
-        data[point] = [eps_kn[k][1] - eps_kn[0][0],
-                       eps0_kn[k, 1] - eps0_kn[0, 0]]
-        data[point] += bfb[name][2 + k * 4:6 + k * 4]
+        data[point] = np.array(
+            [eps_kn[k][1] - eps_kn[0][0],
+             eps0_kn[k, 1] - eps0_kn[0, 0]] +
+            bfb[name][2 + k * 4:6 + k * 4])
         if name == 'Ar':
             break
 

@@ -109,6 +109,7 @@ for t, (domainarg_d, n_nmG,
                 equal(testm, m, 0.5)
 
             for testts, ts in zip(testts_iG[i], ts_G):
+                print(ts)
                 equal(testts, ts, 0.01)
 
             i += 1

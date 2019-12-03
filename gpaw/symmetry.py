@@ -2,8 +2,6 @@
 # Copyright (C) 2014 R. Warmbier Materials for Energy Research Group,
 # Wits University
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, division
-
 from ase.io import read
 from ase.utils import gcd
 import numpy as np
@@ -38,10 +36,7 @@ class Symmetry:
     wavefunctions and forces.
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
-                 point_group=True, time_reversal=True, symmorphic=True,
-                 do_not_symmetrize_the_density=False,
-                 rotate_aperiodic_directions=False,
-                 translate_aperiodic_directions=False):
+                 point_group=True, time_reversal=True, symmorphic=True):
         """Construct symmetry object.
 
         Parameters:
@@ -85,13 +80,6 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
-        self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
-        self.rotate_aperiodic_directions = rotate_aperiodic_directions
-        self.translate_aperiodic_directions = translate_aperiodic_directions
-
-        # Disable fractional translations for non-periodic boundary conditions:
-        if not (self.translate_aperiodic_directions or self.pbc_c.all()):
-            self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
         self.ft_sc = np.zeros((1, 3))
@@ -125,7 +113,7 @@ class Symmetry:
         # Generate all possible 3x3 symmetry matrices using base-3 integers
         power = (6561, 2187, 729, 243, 81, 27, 9, 3, 1)
 
-        # operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
+        # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
         for base3id in range(19683):
             op_cc = np.empty((3, 3), dtype=int)
@@ -141,19 +129,12 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if (not self.rotate_aperiodic_directions and
-                op_cc[~(pbc_cc | np.identity(3, bool))].any()):
-                # Operation must not swap axes that are not both periodic
+            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+            if op_cc[pbc_cc].any():
+                # Operation must not swap axes that don't have same PBC
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if (not self.rotate_aperiodic_directions and
-                not (op_cc[np.diag(~self.pbc_c)] == 1).all()):
-                # Operation must not invert axes that are not periodic
-                continue
-
-            # operation is a valid symmetry of the unit cell
+            # Operation is a valid symmetry of the unit cell
             self.op_scc.append(op_cc)
 
         self.op_scc = np.array(self.op_scc)
@@ -163,6 +144,7 @@ class Symmetry:
         """Remove symmetries that are not satisfied by the atoms."""
 
         if len(spos_ac) == 0:
+            self.a_sa = np.zeros((len(self.op_scc), 0), int)
             return
 
         # Build lists of atom numbers for each type of atom - one
@@ -212,7 +194,8 @@ class Symmetry:
                     if a_a is not None:
                         ftsymmetries.append((op_cc, ft_c, a_a))
                         for c, d in enumerate(denom_c):
-                            self.gcd_c[c] = gcd(self.gcd_c[c] * d, d)
+                            if self.gcd_c[c] % d != 0:
+                                self.gcd_c[c] *= d
 
         # Add symmetry operations with fractional translations at the end:
         symmetries.extend(ftsymmetries)
@@ -315,24 +298,19 @@ class Symmetry:
         return (bzk_kc[ibz2bz_k], weight_k,
                 sym_k, time_reversal_k, bz2ibz_k, ibz2bz_k, bz2bz_ks)
 
-    def check_grid(self, N_c):
+    def check_grid(self, N_c) -> bool:
         """Check that symmetries are comensurate with grid."""
-        if self.do_not_symmetrize_the_density:
-            return
-        for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
+        for s, (U_cc, ft_c) in enumerate(zip(self.op_scc, self.ft_sc)):
             t_c = ft_c * N_c
             # Make sure all grid-points map onto another grid-point:
             if (((N_c * U_cc).T % N_c).any() or
                 not np.allclose(t_c, t_c.round())):
-                raise ValueError(
-                    'Real space grid not compatible with symmetry operation. '
-                    'Use:\n\n   '
-                    "GPAW(symmetry={'do_not_symmetrize_the_density': True})")
+                return False
+        return True
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""
-        if not self.do_not_symmetrize_the_density:
-            gd.symmetrize(a, self.op_scc, self.ft_sc)
+        gd.symmetrize(a, self.op_scc, self.ft_sc)
 
     def symmetrize_positions(self, spos_ac):
         """Symmetrizes the atomic positions."""

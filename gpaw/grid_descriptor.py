@@ -12,11 +12,11 @@ import numbers
 from math import pi
 
 import numpy as np
+from scipy.ndimage import map_coordinates
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
-from gpaw.utilities import mlsqr
 from gpaw.utilities.blas import rk, r2k, gemm
 
 
@@ -36,7 +36,7 @@ class BadGridError(ValueError):
 
 
 class GridDescriptor(Domain):
-    """Descriptor-class for uniform 3D grid
+    r"""Descriptor-class for uniform 3D grid
 
     A ``GridDescriptor`` object holds information on how functions, such
     as wave functions and electron densities, are discreticed in a
@@ -149,11 +149,6 @@ class GridDescriptor(Domain):
 
         self.orthogonal = not (self.cell_cv -
                                np.diag(self.cell_cv.diagonal())).any()
-
-        # Sanity check for grid spacings:
-        h_c = self.get_grid_spacings()
-        if max(h_c) / min(h_c) > 1.3:
-            raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
 
     def __repr__(self):
         if self.orthogonal:
@@ -455,9 +450,11 @@ class GridDescriptor(Domain):
             B_g = np.zeros_like(A_g)
             for s, op_cc in enumerate(op_scc):
                 if ft_sc is None:
-                    _gpaw.symmetrize(A_g, B_g, op_cc)
+                    _gpaw.symmetrize(A_g, B_g, op_cc, 1 - self.pbc_c)
                 else:
-                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, ft_sc[s])
+                    t_c = (ft_sc[s] * self.N_c).round().astype(int)
+                    _gpaw.symmetrize_ft(A_g, B_g, op_cc, t_c,
+                                        1 - self.pbc_c)
         else:
             B_g = None
         self.distribute(B_g, a_g)
@@ -584,11 +581,15 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
-    def calculate_dipole_moment(self, rho_g, center=False):
+    def calculate_dipole_moment(self, rho_g, center=False, origin_c=None):
         """Calculate dipole moment of density."""
         r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]
         if center:
+            assert origin_c is None
             r_cz = [r_cz[c] - 0.5 * self.N_c[c] for c in range(3)]
+        elif origin_c is not None:
+            r_cz = [r_cz[c] - origin_c[c] for c in range(3)]
+
         rho_01 = rho_g.sum(axis=2)
         rho_02 = rho_g.sum(axis=1)
         rho_cz = [rho_01.sum(axis=1), rho_01.sum(axis=0), rho_02.sum(axis=0)]
@@ -672,52 +673,22 @@ class GridDescriptor(Domain):
 
         return np.dot(s_Gc, cell_cv).T.copy()
 
-    def interpolate_grid_points(self, spos_nc, vt_g, target_n, use_mlsqr=True):
+    def interpolate_grid_points(self, spos_nc, vt_g):
         """Return interpolated values.
 
         Calculate interpolated values from array vt_g based on the
         scaled coordinates on spos_c.
 
-        Uses moving least squares algorithm by default, or otherwise
-        trilinear interpolation.
-
         This doesn't work in parallel, since it would require
-        communication between neighbouring grid.  """
+        communication between neighbouring grids."""
 
         assert self.comm.size == 1
 
-        if use_mlsqr:
-            mlsqr(3, 2.3, spos_nc, self.N_c, self.beg_c, vt_g, target_n)
-        else:
-            for n, spos_c in enumerate(spos_nc):
-                g_c = self.N_c * spos_c - self.beg_c
-
-                # The begin and end of the array slice
-                bg_c = np.floor(g_c).astype(int)
-                Bg_c = np.ceil(g_c).astype(int)
-
-                # The coordinate within the box (bottom left = 0,
-                # top right = h_c)
-                dg_c = g_c - bg_c
-                Bg_c %= self.N_c
-
-                target_n[n] = (
-                    vt_g[bg_c[0], bg_c[1], bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[Bg_c[0], bg_c[1], bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[bg_c[0], Bg_c[1], bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[Bg_c[0], Bg_c[1], bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (1.0 - dg_c[2]) +
-                    vt_g[bg_c[0], bg_c[1], Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0], bg_c[1], Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (1.0 - dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[bg_c[0], Bg_c[1], Bg_c[2]] *
-                    (1.0 - dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]) +
-                    vt_g[Bg_c[0], Bg_c[1], Bg_c[2]] *
-                    (0.0 + dg_c[0]) * (0.0 + dg_c[1]) * (0.0 + dg_c[2]))
+        vt_g = self.zero_pad(vt_g)
+        return map_coordinates(vt_g,
+                               (spos_nc * self.N_c).T,
+                               order=3,
+                               mode='wrap')
 
     def __eq__(self, other):
         # XXX Wait, should this not check the global distribution?  This

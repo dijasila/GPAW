@@ -7,9 +7,11 @@ Install these CentOS_ packages::
     $ yum install libxc-devel openblas-devel openmpi-devel fftw-devel
     $ yum install blacs-openmpi-devel scalapack-openmpi-devel
 
-Adjust your ``$PATH``:
+Add this to your ``~/.bashrc``::
 
-    $ echo "export PATH=/usr/lib64/openmpi/bin/:$PATH" >> ~/.bashrc
+    $ OPENMPI=/usr/lib64/openmpi
+    $ export PATH=$OPENMPI/bin/:$PATH
+    $ export LD_LIBRARY_PATH=$OPENMPI/lib:$LD_LIBRARY_PATH
 
 Make sure you have the latest pip::
 
@@ -22,18 +24,15 @@ Then install ASE_, Numpy and SciPy::
 
 And finally, GPAW with ScaLAPACK and FFTW::
 
-    $ wget https://pypi.org/packages/source/g/gpaw/gpaw-1.5.1.tar.gz
-    $ tar -xf gpaw-1.5.1.tar.gz
+    $ git clone git@gitlab.com:gpaw/gpaw.git
     $ cd gpaw
-    $ cat > customize.py
+    $ cat > siteconfig.py
     fftw = True
     scalapack = True
-    libraries = ['fftw3', 'scalapack', 'mpiblacs']
-    library_dirs.append('/usr/lib64/openmpi/lib/')
-    define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
-    define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+    libraries = ['xc', 'fftw3', 'scalapack', 'mpiblacs']
+    library_dirs = ['/usr/lib64/openmpi/lib/']
     ^D
-    $ python3 setup.py install --user
+    $ python3 -m pip install -v gpaw --user
 
 
 .. _CentOS: http://www.centos.org/

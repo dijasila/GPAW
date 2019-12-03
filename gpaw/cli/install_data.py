@@ -267,11 +267,11 @@ def print_setups_info(parser):
         parser.error('Cannot import \'gpaw\'.  GPAW does not appear to be '
                      'installed. %s' % e)
 
-    # GPAW may already have been imported, and the contents of the rc
-    # file may have changed since then.  Thus, we re-import gpaw to be
-    # sure that everything is as it should be.
-    gpaw.initialize_data_paths()
+    # The contents of the rc file may have changed.  Thus, we initialize
+    # setup_paths again to be sure that everything is as it should be.
+    gpaw.setup_paths[:] = []
     gpaw.read_rc_file()
+    gpaw.initialize_data_paths()
 
     npaths = len(gpaw.setup_paths)
     if npaths == 0:

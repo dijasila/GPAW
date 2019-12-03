@@ -28,7 +28,6 @@ for name in ['LDA', 'PBE']:
         wt_j.append(Spline(l, 1.2 * rcut, data))
 
     a = rcut * 1.2 * 2 + 1.0
-##    n = 120
     n = 70
     n = 90
     gd = GridDescriptor((n, n, n), (a, a, a), comm=serial_comm)
@@ -41,7 +40,6 @@ for name in ['LDA', 'PBE']:
     nii = ni * (ni + 1) // 2
     D_p = np.zeros(nii)
     H_p = np.zeros(nii)
-
 
     e_g = np.zeros((n, n, n))
     n_g = np.zeros((1, n, n, n))

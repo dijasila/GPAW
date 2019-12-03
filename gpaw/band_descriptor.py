@@ -17,7 +17,7 @@ NONBLOCKING = False
 
 
 class BandDescriptor:
-    """Descriptor-class for ordered lists of bands
+    r"""Descriptor-class for ordered lists of bands
 
     A ``BandDescriptor`` object holds information on how functions, such
     as wave functions and corresponding occupation numbers, are divided

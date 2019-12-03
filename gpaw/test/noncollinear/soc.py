@@ -37,7 +37,7 @@ E2 = get_spinorbit_eigenvalues(a.calc, bands=np.arange(14))[:, 2]
 
 def test(E, hsplit, lsplit):
     print(E)
-    h1, h2, l1, l2 = E[24:28]  # HOMO-1, HOMO, LUMO, LUMP+1
+    h1, h2, l1, l2 = E[24:28]  # HOMO-1, HOMO, LUMO, LUMO+1
     print(h2 - h1)
     print(l2 - l1)
     assert abs(h2 - h1 - hsplit) < 0.01

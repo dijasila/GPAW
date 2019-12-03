@@ -353,6 +353,7 @@ class WaveFunctions:
 
             # Domain master send this to the global master
             if self.gd.comm.rank == 0:
+                psit_G = np.ascontiguousarray(psit_G)
                 self.world.ssend(psit_G, 0, 1398)
 
         if rank == 0:
@@ -463,8 +464,8 @@ class WaveFunctions:
         if 'version' not in r:
             r.version = reader.version
         self.read_projections(r)
-        self.read_eigenvalues(r, r.version == 0)
-        self.read_occupations(r, r.version == 0)
+        self.read_eigenvalues(r, r.version <= 0)
+        self.read_occupations(r, r.version <= 0)
 
     def read_projections(self, reader):
         nslice = self.bd.get_slice()

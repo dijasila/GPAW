@@ -1,6 +1,5 @@
-#!/usr/bin/env gpaw-python
+#!/usr/bin/env python3
 
-from __future__ import print_function
 import os
 import stat
 import sys
@@ -165,7 +164,7 @@ except Exception as ex:
 print('using', cc.arch)
 
 # ............................................................
-# check necessary environment variables
+# check necessary environment variable
 
 helptxt = {
     'GPAW_PYTHON': 'to the parallel custom interpreter (gpaw-python)'
@@ -183,7 +182,10 @@ if set['mail'] is None and 'GPAW_MAIL' in os.environ:
 
 parameter_ext = ''
 if 'parameters' in set:
-     parameter_ext += '_' + set['parameters'].replace(' ','_')
+    parameters = set['parameters']
+    for replace in [' ', os.sep]:
+        parameters = parameters.replace(replace, '_')
+    parameter_ext += '_' + parameters
 
 # set output files
 if set['out'] is None:

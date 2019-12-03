@@ -105,7 +105,7 @@ class OccupationsDSCF(FermiDirac):
 
             for o, orb in enumerate(self.orbitals):
                 # TODO XXX false if orb[0]<0 since abs(c_n)**2>0
-                #kpt.c_on[o,:] = abs(orb[0])**0.5 * c_oun[o][u]
+                # kpt.c_on[o,:] = abs(orb[0])**0.5 * c_oun[o][u]
 
                 kpt.ne_o[o] = orb[0]
                 kpt.c_on[o, :] = c_oun[o][u]
@@ -139,7 +139,7 @@ class OccupationsDSCF(FermiDirac):
 
 
 class MolecularOrbital:
-    """Class defining the orbitals that should be filled in a dSCF calculation.
+    r"""Class defining the orbitals that should be filled in a dSCF calculation.
 
     An orbital is defined through a linear combination of the atomic
     partial waves. In each self-consistent cycle the method expand
