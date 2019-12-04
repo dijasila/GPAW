@@ -153,7 +153,7 @@ class SCFLoop:
                 header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
-        if eigerr <= 0.0 or np.isinf(eigerr):
+        if eigerr == 0.0 or np.isinf(eigerr):
             eigerr = ''
         else:
             eigerr = '%+.2f' % (ln(eigerr) / ln(10))

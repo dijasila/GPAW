@@ -137,7 +137,7 @@ class Eigensolver:
                 wfs.orthonormalize(kpt)
 
         wfs.orthonormalized = True
-        self.error = self.band_comm.sum(self.kpt_comm.sum(error))
+        self.error = np.abs(self.band_comm.sum(self.kpt_comm.sum(error)))
 
     def iterate_one_k_point(self, ham, kpt):
         """Implemented in subclasses."""
