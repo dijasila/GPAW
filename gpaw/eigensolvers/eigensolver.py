@@ -69,7 +69,7 @@ class Eigensolver:
                 if kpt.f_n is None:  # no eigenvalues yet
                     weight_n[:] = np.inf
                 else:
-                    weight_n[:] = kpt.f_n
+                    weight_n[:] = np.abs(kpt.f_n)
         else:
             # Converge state with energy up to CBM + delta:
             assert self.nbands_converge.startswith('CBM+')
@@ -137,7 +137,7 @@ class Eigensolver:
                 wfs.orthonormalize(kpt)
 
         wfs.orthonormalized = True
-        self.error = np.abs(self.band_comm.sum(self.kpt_comm.sum(error)))
+        self.error = self.band_comm.sum(self.kpt_comm.sum(error))
 
     def iterate_one_k_point(self, ham, kpt):
         """Implemented in subclasses."""
