@@ -543,8 +543,11 @@ Occupation numbers
 
 The smearing of the occupation numbers is controlled like this::
 
-  from gpaw import GPAW, FermiDirac
-  calc = GPAW(..., occupations=FermiDirac(width), ...)
+  from gpaw import GPAW
+  calc = GPAW(...,
+              occupations={'name': 'fermi-dirac',
+                           'width': 0.05},
+              ...)
 
 The distribution looks like this (width = `k_B T`):
 
@@ -555,8 +558,15 @@ is 0.1 eV and the total energies are extrapolated to *T* = 0 Kelvin.
 For a molecule (no periodic boundaries) the default value is ``width=0``,
 which gives integer occupation numbers.
 
-For a spin-polarized calculation, one can fix the magnetic moment at
-the initial value using ``FermiDirac(width, fixmagmom=True)``.
+Other distribution functions:
+
+* ``{'name': 'marzari-vanderbilt', 'width': ...}``
+* ``{'name': 'methfessel-paxton', 'width': ..., 'order': ...}``
+
+For a spin-polarized calculation, one can fix the total magnetic moment at
+the initial value using::
+
+    occupations={'name': ..., 'width': ..., 'fixmagmom': True}
 
 
 .. _manual_lmax:

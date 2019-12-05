@@ -62,6 +62,8 @@ Git master branch
 * Point-group symmetries now also used for non-periodic systems.
   Use ``symmetry={'point_group': False}`` if you don't want that.
 
+* :ref:`Marzari-Vanderbilt distribution function <manual_occ>` added.
+
 
 .. _setuptools: https://setuptools.readthedocs.io/en/latest/
 
