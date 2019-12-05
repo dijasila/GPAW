@@ -2,7 +2,8 @@ from gpaw import GPAW, PW, MethfesselPaxton
 from ase.spacegroup import crystal
 
 graphite = crystal(symbols=['C', 'C'],
-                   basis=[[0, 0, 1/4], [1/3, 2/3, 1/4]],
+                   basis=[[0, 0, 1 / 4],
+                          [1 / 3, 2 / 3, 1 / 4]],
                    spacegroup="P63/mmc",
                    cellpar=[2.464, 2.464, 6.711, 90, 90, 120])
 
