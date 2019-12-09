@@ -106,7 +106,7 @@ Edit the module file  :file:`3.18.1` that should read::
   module load devel/python/3.6.9
 
   #           change this to your path
-  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.17.0
+  set asehome /home/fr/fr_fr/fr_mw767/source/ase/3.18.1
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
