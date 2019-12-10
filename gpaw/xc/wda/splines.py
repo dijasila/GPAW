@@ -30,7 +30,7 @@ def build_splines(nb_i, gd):
         kmax = 1.2 * np.max(K_K)
 
         dr = 0.01
-        rmax = lambd * 300
+        rmax = lambd * 500
         r_j = np.arange(dr, rmax, dr)
 
         nks = 900
@@ -39,8 +39,8 @@ def build_splines(nb_i, gd):
 
         assert np.allclose(np.min(k_k), 0)
 
-        r_kj = r_j[na, :]
-        k_kj = k_k[:, na]
+        # r_kj = r_j[na, :]
+        # k_kj = k_k[:, na]
 
         # def Gintegrand(r, k):
         #     return C * (1 - np.exp(- (lambd / r)**5)) * 4 * np.pi * np.sinc(k * r) * r**2
@@ -63,7 +63,7 @@ def build_splines(nb_i, gd):
         # Gsplines_i = interp1d(k_k, integral_ik, kind='cubic') Can also do this
         # print(f"integral_k[0] * nb: {integral_k[0] * nb}")
         interf = lambda k, G: interp1d(k, G,
-                                       kind='linear')#, fill_value='extrapolate')
+                                       kind='cubic')#, fill_value='extrapolate')
         Gspline = interf(k_k, integral_k)
         assert np.allclose(Gspline(k_k), integral_k)
         # integrand_kj = 4 * np.pi * r_kj \
