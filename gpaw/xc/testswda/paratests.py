@@ -5,6 +5,33 @@ from gpaw import PW
 from gpaw import mpi
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
 
+def get_a_density(xc):
+    gd = xc.gd.new_descriptor(comm=mpi.serial_comm)
+    grid = gd.get_grid_point_coordinates()
+    dens = np.zeros(grid.shape[1:])
+    densf = np.fft.fftn(dens)
+    densf = np.random.rand(*densf.shape) + 0.1
+    densf[0,0,0] = densf[0,0,0] + 1.0
+    
+    dens = np.fft.ifftn(densf).real
+    dens = dens + np.min(dens)
+    dens[dens < 1e-7] = 1e-8
+    norm = xc.gd.integrate(dens)
+
+    nelec = 5
+    dens = dens / norm * nelec
+    
+    assert np.allclose(xc.gd.integrate(dens), nelec)
+    
+    res = np.array([dens])
+    #res[res < 1e-7] = 1e-8
+    
+    assert (res >= 0).all()
+    assert res.ndim == 4
+    assert not np.allclose(res, 0)
+    return res
+
+
 ## SIMPLE
 # comm = mpi.world
 
@@ -43,8 +70,8 @@ n = 4
 
 npts = 4**4
 
-in_isg = np.arange(0 + npts*mpi.rank, npts + npts*mpi.rank).reshape((4, 1, 4, 4, 4))
-full_out = np.arange(0, npts*mpi.size).reshape(4*s, 1, 4, 4, 4)
+# in_isg = np.arange(0 + npts*mpi.rank, npts + npts*mpi.rank).reshape((4, 1, 4, 4, 4))
+# full_out = np.arange(0, npts*mpi.size).reshape(4*s, 1, 4, 4, 4)
 
 in_ix = np.arange(0, 16).reshape((4, 4)).astype(float)
 rank = mpi.rank
@@ -54,25 +81,79 @@ myin_ix = in_ix[rank*size:rank*size + size, :].astype(float)
 out_ix = np.zeros((in_ix.shape[0], in_ix.shape[1]//size)).astype(float)
 # print(f"At rank {rank} out_ix is {out_ix}")
 
-newout = xc.redistribute_i_to_g(myin_ix, out_ix, 2, 4)
+newout = xc.redistribute_i_to_g(myin_ix, 2, 4, rank, size)
 # print(f"New out is: {newout}")
-print(f"At rank {rank} myin_ix is: \n{myin_ix} \n At rank {rank} out_ix is: \n{out_ix} \n\n\n")
+# print(f"At rank {rank} myin_ix is: \n{myin_ix} \n At rank {rank} out_ix is: \n{out_ix} \n\n\n")
 
 
-in_isg = np.arange(0, 8).reshape((2, 2, 2)).astype(float)
+# in_isg = np.arange(0, 8).reshape((2, 2, 2)).astype(float)
+np.random.seed(123)
+in_isg = np.random.rand(8).reshape((2, 2, 2)).astype(float)
 myin_isg = in_isg[rank: rank + 1, ...].astype(float)
 
 out_isg = np.zeros((2, 1, 2))
+out_isg = None
 
-o = xc.redistribute_i_to_g(myin_isg, out_isg, 1, 2)
-print(f"At rank {rank} myin_isg is: \n{myin_isg}\nAt rank {rank} out_isg is: \n{out_isg}")
-# out_isg = np.zeros((4 * s, 1, 4 // s, 4, 4)) 
+out_ix, mynx, nx = xc.redistribute_i_to_g(myin_isg, 1, 2, rank, size)
+out_isg = out_ix.reshape(2, 1, 2)
 
-# out_isg = xc.redistribute_i_to_g(in_isg, out_isg, 4, 4 * s)
+if size != 2:
+    print(f"At rank {rank} myin_isg is: \n{myin_isg}\nAt rank {rank} out_isg is: \n{out_isg}")
+    if rank == 0:
+        print(f"Full matrix is: {in_isg}")
 
-# # assert np.allclose(full_
+elif rank == 0:
+    # expected_out = np.array([[[0, 1]], [[4, 5]]])
+    # expected_out = np.array([in_isg[:, 0, ...]])
+    expected_out = in_isg[:, 0, ...].reshape(2, 1, 2)
+    # assert np.allclose(expected_out, out_isg), f"Expect: {expected_out.shape}, \nActual: {out_isg.shape}"
+    assert np.allclose(expected_out, out_isg), f"Expect: {expected_out}, \nActual: {out_isg}\nFull: {in_isg}"
+elif rank == 1:
+    # expected_out = np.array([[[2, 3]], [[6, 7]]])
+    expected_out = in_isg[:, 1, ...].reshape(2, 1, 2)
+    #expected_out = np.array([in_isg[:, 1, ...]])
+    # assert np.allclose(expected_out, out_isg), f"Expect: {expected_out.shape}, \nActual: {out_isg.shape}"
+    assert np.allclose(expected_out, out_isg), f"Expect: {expected_out}, \nActual: {out_isg}"
 
-# print(out_isg)
+
+myni = 1
+ni = 2
+mynx = 2
+nx = 4
+
+out2_isg = xc.redistribute_g_to_i(out_ix, myin_isg.copy(), myni, ni, mynx, nx, rank, size)
+
+assert np.allclose(myin_isg, out2_isg)
+
+
+
+
+
+n_g =  get_a_density(xc)
+
+ni_j, ni_l, ni_u, numni = xc.get_ni_grid(rank, size, n_g)
+
+Z_isg, Z_lower, Z_upper = xc.get_Zs(n_g,
+                                    ni_j,
+                                    ni_l,
+                                    ni_u,
+                                    xc.gd.get_grid_point_coordinates(),
+                                    0,
+                                    xc.gd, rank,
+                                    size)
+nZ_ix, mynx, nx = xc.redistribute_i_to_g(Z_isg, len(ni_j), numni, rank, size)
+alpha_ix = xc._get_alphas(nZ_ix)
+
+assert np.allclose(alpha_ix.sum(axis=0), 1), f"Mean sum: {alpha_ix.sum(axis=0).mean()}, std sum: {alpha_ix.sum(axis=0).std()}"
+
+
+
+
+
+
+
+if rank == 0:
+    print(f"All tests passed")
 
 
 # TODO: ALSO TRY WITH 2 SPINS

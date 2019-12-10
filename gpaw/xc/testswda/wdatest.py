@@ -50,10 +50,10 @@ class Tester(BaseTester):
 
     def get_initial_stuff(self):
         n_sg = self.get_a_density()
-        ni_j, nilower, niupper = xc.get_ni_grid(0, 1, n_sg)
+        ni_j, nilower, niupper, numni = xc.get_ni_grid(0, 1, n_sg)
         grid = self.gd.get_grid_point_coordinates()
-        Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd)
-        alpha_ig = xc.get_alphas(Z_ig, Zlower_g, Zupper_g)
+        Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd, 0, 1)
+        alpha_ig = xc.get_alphas(Z_ig, len(ni_j), numni, 0, 1)
         
         return alpha_ig, Z_ig, Zlower_g, Zupper_g, ni_j, nilower, niupper, n_sg
 
@@ -75,7 +75,7 @@ class Tester(BaseTester):
 
     def test_01_getstandardZis(self):
         n_sg = self.get_a_density()
-        ni_grid, lower_ni, upper_ni = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid()
         spin = 0
         gd = xc.gd
@@ -97,7 +97,7 @@ class Tester(BaseTester):
         assert np.allclose(e_x + e_c, actual_xc), "Error in xc: {}".format(np.max(np.abs(e_x+e_c - actual_xc)))
 
     def test_03_indicators_sumtoone(self):
-        ni_grid, ni_lower, ni_upper = xc.get_ni_grid(0, 1, self.get_a_density())
+        ni_grid, ni_lower, ni_upper, _ = xc.get_ni_grid(0, 1, self.get_a_density())
         ind_i = xc.build_indicators(ni_grid, ni_lower, ni_upper, 0, 1)
 
         num_pts = np.random.randint(1000) + 100
@@ -107,7 +107,7 @@ class Tester(BaseTester):
         assert np.allclose(evaluated_inds.sum(axis=0), 1), "\nmean: {}\nmin: {}\nmax: {}".format(np.mean(evaluated_inds.sum(axis=0)), np.min(evaluated_inds.sum(axis=0)), np.max(evaluated_inds.sum(axis=0)))
 
     def test_04_indicators_greaterthanzero(self):
-        ni_grid, ni_lower, ni_upper = xc.get_ni_grid(0, 1, self.get_a_density())
+        ni_grid, ni_lower, ni_upper, _ = xc.get_ni_grid(0, 1, self.get_a_density())
         ind_i = xc.build_indicators(ni_grid, ni_lower, ni_upper, 0, 1)
         
         num_pts = np.random.randint(1000) + 100
@@ -116,7 +116,7 @@ class Tester(BaseTester):
         assert (eval_inds >= 0).all()
 
     def test_05_indicators_oneattarget(self):
-        ni_grid, ni_lower, ni_upper = xc.get_ni_grid(0, 1, self.get_a_density())
+        ni_grid, ni_lower, ni_upper, _ = xc.get_ni_grid(0, 1, self.get_a_density())
         ind_i = xc.build_indicators(ni_grid, ni_lower, ni_upper, 0, 1)
 
         num_pts = np.random.randint(1000) + 100
@@ -127,7 +127,7 @@ class Tester(BaseTester):
         
     def test_06_getsymmetricZis(self):
         n_sg = self.get_a_density()
-        ni_grid, lower_ni, upper_ni = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid() 
         spin = 0
         gd = xc.gd
@@ -163,7 +163,7 @@ class Tester(BaseTester):
     def test_09_indicators_parallel(self):
         n_sg = self.get_a_density()
         def local_test_fct(rank, size):
-            ni_grid, lower_ni, upper_ni = xc.get_ni_grid(rank, size, n_sg)
+            ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(rank, size, n_sg)
             ind_i = xc.build_indicators(ni_grid, lower_ni, upper_ni, rank, size)
             ind_ig = np.array([ind(n_sg[0]) for ind in ind_i])
             assert (ind_ig >= 0).all()
@@ -180,7 +180,7 @@ class Tester(BaseTester):
         num_pts = len(n_sg.reshape(-1))
         n_sg = np.array(np.linspace(0, 1, num_pts)).reshape(*n_sg.shape)
         def local_test_fct(rank, size):
-            ni_grid, lower_ni, upper_ni = xc.get_ni_grid(rank, size, n_sg)
+            ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(rank, size, n_sg)
             ind_i = xc.build_indicators(ni_grid, lower_ni, upper_ni, rank, size)
             ind_ig = np.array([ind(n_sg[0]) for ind in ind_i])
             assert (ind_ig >= 0).all()
@@ -245,7 +245,7 @@ class Tester(BaseTester):
             mag = np.random.rand()*100
             n_sg = self.get_a_density()*mag
         
-        ni_grid, lower_ni, upper_ni = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid()
         Z_i, _, _ = xc.standardmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, 0, xc.gd, 0, 1)
 
@@ -273,7 +273,7 @@ class Tester(BaseTester):
             mag = np.random.rand()*100
             n_sg = self.get_a_density()*mag
         
-        ni_grid, lower_ni, upper_ni = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid()
         Z_i, _, _ = xc.standardmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, 0, xc.gd, 0, 1)
 
@@ -292,7 +292,7 @@ class Tester(BaseTester):
         n_sg = self.get_a_density()
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
         
-        ni_grid, lower_ni, upper_ni = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid()
         Z_i, _, _ = xc.standardmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, 0, xc.gd, 0, 1)
         
@@ -309,7 +309,7 @@ class Tester(BaseTester):
         n_sg = self.get_a_density()
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
         
-        ni_grid, lower_ni, upper_ni = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid()
         Z_i, _, _ = xc.symmetricmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, 0, xc.gd, 0, 1)
 
@@ -324,7 +324,7 @@ class Tester(BaseTester):
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
 
         def local_test(rank, size):
-            ni_grid, lower_ni, upper_ni = xc.get_ni_grid(rank, size, n_sg)
+            ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(rank, size, n_sg)
             grid = self.get_grid()
             Z_i, _, _ = xc.standardmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, 0, xc.gd, rank, size)
             return Z_i
@@ -345,7 +345,7 @@ class Tester(BaseTester):
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
 
         def local_test(rank, size):
-            ni_grid, lower_ni, upper_ni = xc.get_ni_grid(rank, size, n_sg)
+            ni_grid, lower_ni, upper_ni, _ = xc.get_ni_grid(rank, size, n_sg)
             grid = self.get_grid()
             Z_i, _, _ = xc.symmetricmode_Zs(n_sg, ni_grid, lower_ni, upper_ni, grid, 0, xc.gd, rank, size)
             return Z_i
@@ -360,19 +360,22 @@ class Tester(BaseTester):
             
         self.execute_test_for_random_mpiworld(local_test, global_test)
 
-    def get_some_Zs(self, Z_fct, rank=0, size=1):
+    def get_some_Zs(self, Z_fct, rank=0, size=1, retnumni=False):
         num_e = np.random.randint(100) + 1
         n_sg = self.get_a_density()
         n_sg = n_sg * num_e / xc.gd.integrate(n_sg)
         assert np.allclose(xc.gd.integrate(n_sg), num_e)
-        ni_grid, lower, upper = xc.get_ni_grid(0, 1, n_sg)
+        ni_grid, lower, upper, numni = xc.get_ni_grid(0, 1, n_sg)
         grid = self.get_grid()
         Z_ig, Z_lowerg, Z_upperg = Z_fct(n_sg, ni_grid, lower, upper, grid, 0, xc.gd, rank, size)
-        return Z_ig, Z_lowerg, Z_upperg
+        if retnumni:
+            return Z_ig, Z_lowerg, Z_upperg, numni
+        else:
+            return Z_ig, Z_lowerg, Z_upperg
         
     def test_19_get_alphas(self):
-        Z_ig, Z_lowerg, Z_upperg = self.get_some_Zs(xc.standardmode_Zs)
-        alpha_ig = xc.get_alphas(Z_ig, Z_lowerg, Z_upperg)
+        Z_ig, Z_lowerg, Z_upperg, numni = self.get_some_Zs(xc.standardmode_Zs, retnumni=True)
+        alpha_ig = xc.get_alphas(Z_ig, len(Z_ig), numni, 0, 1)
 
         alpha_ir = alpha_ig.reshape(len(alpha_ig), -1)
         assert np.allclose(alpha_ir.sum(axis=0), 1), "Mean: {}\nMin: {}\nMax: {}\nCount small: {}\nNum total {}".format(np.mean(alpha_ir.sum(axis=0)), np.min(alpha_ir.sum(axis=0)), np.max(alpha_ir.sum(axis=0)), (alpha_ir.sum(axis=0) < 0.8).sum(), len(alpha_ir[0]))
@@ -382,11 +385,11 @@ class Tester(BaseTester):
         assert np.logical_or(np.isclose(count_notzeros, 1), np.isclose(count_notzeros, 2)).all()
 
     def test_20_get_symalphas(self):
-        Z_ig, Z_lowerg, Z_upperg = self.get_some_Zs(xc.symmetricmode_Zs)
+        Z_ig, Z_lowerg, Z_upperg, numni = self.get_some_Zs(xc.symmetricmode_Zs, retnumni=True)
         # print(Z_ig.shape)
         # print("LOWER SHAPE", Z_lowerg.shape)
         # print("UPPER SHAPE", Z_upperg.shape)
-        alpha_ig = xc.get_alphas(Z_ig, Z_lowerg, Z_upperg)
+        alpha_ig = xc.get_alphas(Z_ig, len(Z_ig), numni, 0, 1)
 
         alpha_ir = alpha_ig.reshape(len(alpha_ig), -1)
         assert np.allclose(alpha_ir.sum(axis=0), 1), "Mean: {}, STD: {}, MIN: {}, MAX: {}".format(np.mean(alpha_ir.sum(axis=0)), np.std(alpha_ir.sum(axis=0)), np.min(alpha_ir.sum(axis=0)), np.max(alpha_ir.sum(axis=0)))
@@ -399,7 +402,7 @@ class Tester(BaseTester):
         Z_isg = np.array([[[[np.linspace(-1, 0, 10)]]]]).T
         Z_lower = np.array([[[[-1]]]])
         Z_upper = np.array([[[[0]]]])
-        alpha_i = xc.get_alphas(Z_isg, Z_lower, Z_upper)
+        alpha_i = xc.get_alphas(Z_isg, len(Z_isg), len(Z_isg), 0, 1)
         expected = np.zeros_like(Z_isg)
         expected[0, 0, 0, 0, 0] = 1
         
@@ -418,7 +421,7 @@ class Tester(BaseTester):
         Z_lower = np.array([[[[Z_i[0, 0, 0, 0, 0]]]]])
         Z_upper = np.array([[[[Z_i[-1, -1, -1, -1, -1]]]]])
         assert Z_lower.shape == Z_i.shape[1:]
-        alpha_i = xc.get_alphas(Z_i, Z_lower, Z_upper)
+        alpha_i = xc.get_alphas(Z_i, Z_lower, Z_upper, 0, 1)
         expected = np.zeros_like(Z_i)
         expected[index, 0, 0, 0, 0] = 1 - relweight
         expected[index+1, 0, 0, 0, 0] = relweight
@@ -440,7 +443,7 @@ class Tester(BaseTester):
         Z_lower = np.array([[[[Z_i[0, 0, 0, 0, 0]]]]])
         Z_upper = np.array([[[[Z_i[-1, -1, -1, -1, -1]]]]])
         assert Z_lower.shape == Z_i.shape[1:]
-        alpha_i = xc.get_alphas(Z_i, Z_lower, Z_upper)
+        alpha_i = xc.get_alphas(Z_i, len(Z_i), len(Z_i), 0, 1)
         expected = np.zeros_like(Z_i)
         expected[index, 0, 0, 0, 0] = 1 - relweight
         expected[index+1, 0, 0, 0, 0] = relweight
@@ -452,15 +455,16 @@ class Tester(BaseTester):
         assert np.allclose(alpha_i, expected)
 
     def test_24_alphapara(self):
+        return "skipped"
         n_sg = self.get_a_density()
         grid = self.gd.get_grid_point_coordinates()
         def local_test(rank, size):
             
-            ni_j, nilower, niupper = xc.get_ni_grid(rank, size, n_sg)
+            ni_j, nilower, niupper, numni = xc.get_ni_grid(rank, size, n_sg)
             # print("ni_j in local_test: \n {} \n".format(ni_j))
             # print("nilower: {} \nniupper: {}\n".format(nilower, niupper))
             Z_ig, Zlower_g, Zupper_g = xc.get_Zs(n_sg, ni_j, nilower, niupper, grid, 0, self.gd, rank, size)
-            alpha_ig = xc.get_alphas(Z_ig, Zlower_g, Zupper_g)
+            alpha_ig = xc.get_alphas(Z_ig, len(Z_ig), numni, rank, size)
 
             return alpha_ig
 
@@ -541,9 +545,9 @@ class Tester(BaseTester):
 
         # We can substitute in any dZ function we want and any Z_i(r) functions we want, so we can control the results
         n_sg = self.get_a_density()
-        print("NORM HERE: ", self.gd.integrate(n_sg))
+        # print("NORM HERE: ", self.gd.integrate(n_sg))
         
-        ni_j, ni_lower, ni_upper = xc.get_ni_grid(0, 1, n_sg)
+        ni_j, ni_lower, ni_upper, _ = xc.get_ni_grid(0, 1, n_sg)
         
         nnis = len(ni_j)
 
@@ -552,10 +556,10 @@ class Tester(BaseTester):
         def my_dZ(i, s, G_isr, grid_vg, ni_lowe2r, ni_uppe2r, alpha_isg):
             return np.random.rand(*G_isr[i, s].shape)
 
-        Z_isg, Z_lower_sg, Z_upper_sg = xc.get_Zs(n_sg, ni_j, ni_lower, ni_upper, self.grid, 0, self.gd)
+        Z_isg, Z_lower_sg, Z_upper_sg = xc.get_Zs(n_sg, ni_j, ni_lower, ni_upper, self.grid, 0, self.gd, 0, 1)
         
-        print("MEAN Z", np.mean(Z_isg))
-        import matplotlib.pyplot as plt
+        # print("MEAN Z", np.mean(Z_isg))
+        # import matplotlib.pyplot as plt
 
         # for j, ni in enumerate(ni_j):
         #     g_g = xc.get_pairdist_g(self.grid, ni, 0)
@@ -563,26 +567,26 @@ class Tester(BaseTester):
         # plt.legend()
         # plt.show()
 
-        print("")
-        print("DV = ", self.gd.dv)
-        print("1/DV = ", 1 / self.gd.dv)
+        # print("")
+        # print("DV = ", self.gd.dv)
+        # print("1/DV = ", 1 / self.gd.dv)
         npts = np.array(Z_isg[0,0].shape).prod()
-        print("NPTS: ", npts)
-        print("SQRT NPTS: ", np.sqrt(npts))
+        # print("NPTS: ", npts)
+        # print("SQRT NPTS: ", np.sqrt(npts))
 
-        print("A Z VAL:" , Z_isg[0, 0, 0, 0, 0])
+        # print("A Z VAL:" , Z_isg[0, 0, 0, 0, 0])
 
         D = Z_isg[:, 0, ...]
         D = D.reshape(len(Z_isg), -1)
-        plt.plot(ni_j, np.mean(D, axis=1))
-        plt.show()
+        # plt.plot(ni_j, np.mean(D, axis=1))
+        # plt.show()
 
         assert (Z_isg < -1.0).any()
         assert (Z_isg >= -1.0).any()
 
         dalpha_isg = xc.get_dalpha_isg(alpha_isg, Z_isg, Z_lower_sg, Z_upper_sg, self.grid, ni_j, ni_lower, ni_upper, 1, my_dZ)
         
-        assert np.allclose(dalpha_isg, 0)
+        # assert np.allclose(dalpha_isg, 0)
 
         
         ii = np.random.randint(nnis)
@@ -614,32 +618,41 @@ class Tester(BaseTester):
 
         # raise NotImplementedError
 
-    def test_34_get_dZ_normal(self):
-        raise NotImplementedError
+        
+    def test_34_get_Gk(self):
+        ni_j = np.array([0.1])
+        xs = np.arange(0, 1, 0.1)
+        X, Y, Z = np.meshgrid(xs, xs, xs)
+        k_k = np.linalg.norm(np.array([X, Y, Z]), axis=0)
 
-    def test_35_get_dZ_symmetric(self):
-         raise NotImplementedError
+        G_ik = xc.calc_G_ik(ni_j, k_k)
 
-    def test_36_calculateV2_symmetric(self):
-         raise NotImplementedError
+    # def test_34_get_dZ_normal(self):
+    #     raise NotImplementedError
 
-    def test_37_plotGSpline(self):
-        return "skipped"
-        import matplotlib.pyplot as plt
-        alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
+    # def test_35_get_dZ_symmetric(self):
+    #      raise NotImplementedError
+
+    # def test_36_calculateV2_symmetric(self):
+    #      raise NotImplementedError
+
+    # def test_37_plotGSpline(self):
+    #     return "skipped"
+    #     import matplotlib.pyplot as plt
+    #     alpha_isg, Z_isg, Zlower_sg, Zupper_sg, ni_j, nilower, niupper, n_sg = self.get_initial_stuff()
                 
 
-        print("")
-        print("MIN OF NI_J: ", np.min(ni_j))
-        print("MAX OF NI_J: ", np.max(ni_j))
-        inter_iG = xc.construct_G_splines(ni_j)
+    #     print("")
+    #     print("MIN OF NI_J: ", np.min(ni_j))
+    #     print("MAX OF NI_J: ", np.max(ni_j))
+    #     inter_iG = xc.construct_G_splines(ni_j)
         
-        ks = xc._get_K_G(xc.gd)
-        ks = np.linspace(np.min(ks), np.max(ks), 1000)
-        for j, ni in enumerate(ni_j):
-            plt.plot(ks, inter_iG(j, ks), label=str(ni))
-        plt.legend()
-        plt.show()
+    #     ks = xc._get_K_G(xc.gd)
+    #     ks = np.linspace(np.min(ks), np.max(ks), 1000)
+    #     for j, ni in enumerate(ni_j):
+    #         plt.plot(ks, inter_iG(j, ks), label=str(ni))
+    #     plt.legend()
+    #     plt.show()
             
 
 if __name__ == "__main__":
