@@ -107,6 +107,8 @@ for calculating many properties during the propagation.
 See :ref:`analysis` for tutorial how to extend the analysis capabilities.
 
 
+.. _note basis sets:
+
 General notes about basis sets
 ==============================
 
@@ -182,7 +184,7 @@ ScaLAPACK and large band parallelization with ``augment_grids`` enabled.
 This can be achieved with parallelization settings like
 ``parallel={'sl_auto': True, 'domain': 8, 'augment_grids': True}``
 (see :ref:`manual_parallel`),
-which would use 8 tasks for domain parallelization and the rest for
+which will use groups of 8 tasks for domain parallelization and the rest for
 band parallelization (for example, with a total of 144 cores this would mean
 domain and band parallelizations of 8 and 18, respectively).
 
@@ -402,6 +404,37 @@ Advanced tutorials
 Plasmon resonance of silver cluster
 -----------------------------------
 
+This tutorial demonstrates
+:ref:`the efficient parallelization options <parallelization>` and
+the importance of :ref:`proper basis sets <note basis sets>`.
+
+We calculate the photoabsorption spectrum of
+:download:`an icosahedral Ag55 cluster <lcaotddft_Ag55/Ag55.xyz>`.
+We use GLLB-SC potential to significantly improve the description of d states,
+:ref:`pvalence basis sets` to improve the description of unoccupied states, and
+11-electron Ag setup to reduce computational cost.
+
+The workflow is the same as in the previous examples.
+First, we calculate ground state (takes around 20 minutes with 36 cores):
+
+.. literalinclude:: lcaotddft_Ag55/gs.py
+
+Then, we carry the time propagation for 30 femtoseconds in steps of
+10 attoseconds (takes around 3.5 hours with 36 cores):
+
+.. literalinclude:: lcaotddft_Ag55/td.py
+
+Finally, we calculate the spectrum (takes a few seconds):
+
+.. literalinclude:: lcaotddft_Ag55/spec.py
+
+The resulting spectrum shows an emerging plasmon resonance at around 4 eV:
+
+.. image:: lcaotddft_Ag55/Ag55_spec.png
+
+For further insight on plasmon resonance in metal nanoparticles,
+see [#Kuisma2015]_ and [#Rossi2017]_.
+
 One should think about what type of transitions of interest are present,
 and make sure that the basis set can represent such Kohn-Sham electron and
 hole wave functions. The first transitions in silver clusters will be
@@ -415,20 +448,7 @@ is **better** than the default double-zeta polarized one.
 We will use the 11-electron Ag setup, since the semi-core p states included
 in the default setup are not relevant here.
 
-.. literalinclude:: lcaotddft_Ag55/basis.py
 
-We calculate :download:`an icosahedral Ag55 cluster <lcaotddft_Ag55/Ag55.xyz>`.
-
-This code uses ScaLAPACK parallelization with 48 cores.
-
-.. literalinclude:: lcaotddft_Ag55/ag55.py
-
-Code runs for approximately two hours wall-clock time.
-The resulting spectrum shows already emerging plasmonic excitation
-around 4 eV.
-For more details, see [#Kuisma2015]_.
-
-.. image:: lcaotddft_Ag55/fig1.png
 
 .. TODO
 
