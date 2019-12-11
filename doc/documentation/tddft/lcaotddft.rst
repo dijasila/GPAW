@@ -407,20 +407,20 @@ is **better** than the default double-zeta polarized one.
 We will use the 11-electron Ag setup, since the semi-core p states included
 in the default setup are not relevant here.
 
-.. literalinclude:: lcaotddft_basis.py
+.. literalinclude:: lcaotddft_Ag55/basis.py
 
-We calculate the icosahedral Ag55 cluster: :download:`ag55.xyz`
+We calculate :download:`an icosahedral Ag55 cluster <lcaotddft_Ag55/Ag55.xyz>`.
 
 This code uses ScaLAPACK parallelization with 48 cores.
 
-.. literalinclude:: lcaotddft_ag55.py
+.. literalinclude:: lcaotddft_Ag55/ag55.py
 
 Code runs for approximately two hours wall-clock time.
 The resulting spectrum shows already emerging plasmonic excitation
 around 4 eV.
 For more details, see [#Kuisma2015]_.
 
-.. image:: fig1.png
+.. image:: lcaotddft_Ag55/fig1.png
 
 .. TODO
 
