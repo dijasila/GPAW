@@ -177,16 +177,24 @@ benchmark their suitability for your application**.
 Parallelization
 ===============
 
-LCAO-TDDFT is parallelized using ScaLAPACK. It runs without ScaLAPACK,
-but in this case only a single core is used for linear alrebra.
+For maximum performance on large systems, it is advicable to use
+ScaLAPACK and large band parallelization with ``augment_grids`` enabled.
+This can be achieved with parallelization settings like
+``parallel={'sl_auto': True, 'domain': 8, 'augment_grids': True}``
+(see :ref:`manual_parallel`),
+which would use 8 tasks for domain parallelization and the rest for
+band parallelization (for example, with a total of 144 cores this would mean
+domain and band parallelizations of 8 and 18, respectively).
 
-* Use ``parallel={'sl_default':(N, M, 64)}``;  See :ref:`manual_parallel`.
-* It is necessary that N*M equals the total number of cores used
-  by the calculator, and ``max(N,M)*64 < nbands``, where ``64`` is the used
-  block size. The block size can be changed to, e.g., 16 if necessary.
-* Apart from parallelization of linear algrebra, normal domain and
-  band parallelizations can be used. As in ground-state LCAO calculations,
-  use band parallelization to reduce memory consumption.
+Instead of ``sl_auto``, the ScaLAPACK settings can be set by hand
+as ``sl_default=(m, n, block)`` (see :ref:`manual_ScaLAPACK`,
+in which case it is important that ``m * n``` equals
+the total number of cores used by the calculator
+and that ``max(m, n) * block < nbands``.
+
+It is also possible to run the code without ScaLAPACK, but it is
+very inefficient for large systems as in that case only a single core
+is used for linear algebra.
 
 
 .. TODO
