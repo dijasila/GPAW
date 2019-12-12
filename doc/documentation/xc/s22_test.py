@@ -15,7 +15,7 @@ except ModuleNotFoundError:
 h = 0.18
 box = 4.
 
-xc = 'dftd4'
+xc = 'TS09'
 if len(sys.argv) > 1:
     xc = sys.argv[1]
 
@@ -31,7 +31,7 @@ for molecule in data:
     s1 = ss.find_connected(0)
     s2 = ss.find_connected(-1)
     assert(len(ss) == len(s1) + len(s2))
-    if xc == 'TS09' or xc == 'TPSS' or xc == 'M06-L' or xc=='dftd4':
+    if xc == 'TS09' or xc == 'TPSS' or xc == 'M06-L' or xc == 'dftd4':
         c = GPAW(xc='PBE', h=h, nbands=-6, occupations=FermiDirac(width=0.1))
     else:
         c = GPAW(xc=xc, h=h, nbands=-6, occupations=FermiDirac(width=0.1))
@@ -44,7 +44,7 @@ for molecule in data:
             cc = vdWTkatchenko09prl(HirshfeldPartitioning(c),
                                     vdWradii(s.get_chemical_symbols(), 'PBE'))
             s.set_calculator(cc)
-        elif xc=='dftd4':
+        elif xc == 'dftd4':
             s.get_potential_energy()
             cc = D4_model(xc='PBE', calc=c)
             s.set_calculator(cc)
