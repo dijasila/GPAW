@@ -1,5 +1,9 @@
 from ase.io import read
 from gpaw import GPAW, FermiDirac, Mixer, PoissonSolver
+from gpaw import setup_paths
+
+# Insert the path to the created basis set
+setup_paths.insert(0, '.')
 
 # Read the structure from the xyz file
 atoms = read('Ag55.xyz')
@@ -21,8 +25,8 @@ poissonsolver = PoissonSolver(eps=1e-16, remove_moment=1 + 3)
 
 # Ground-state calculation
 calc = GPAW(mode='lcao', xc='GLLBSC', h=0.3, nbands=360,
-            setups={'Ag': '11'},
-            basis={'Ag': 'pvalence.dz', 'default': 'dpz'},
+            setups={'Ag': 'my'},
+            basis={'Ag': 'GLLBSC.dz', 'default': 'dpz'},
             convergence=convergence, poissonsolver=poissonsolver,
             occupations=occupations, mixer=mixer, parallel=parallel,
             maxiter=1000,

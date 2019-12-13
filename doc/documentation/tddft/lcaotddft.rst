@@ -404,15 +404,17 @@ Advanced tutorials
 Plasmon resonance of silver cluster
 -----------------------------------
 
-This tutorial demonstrates
-:ref:`the efficient parallelization options <parallelization>` and
-the importance of :ref:`proper basis sets <note basis sets>`.
-
-We calculate the photoabsorption spectrum of
+In this tutorial, we demonstrate the use of
+:ref:`efficient parallelization settings <parallelization>` and
+calculate the photoabsorption spectrum of
 :download:`an icosahedral Ag55 cluster <lcaotddft_Ag55/Ag55.xyz>`.
 We use GLLB-SC potential to significantly improve the description of d states,
 :ref:`pvalence basis sets` to improve the description of unoccupied states, and
 11-electron Ag setup to reduce computational cost.
+
+**When calculating other systems, remember to check the convergence
+with respect to the used basis sets.**
+Recall :ref:`hints here <note basis sets>`.
 
 The workflow is the same as in the previous examples.
 First, we calculate ground state (takes around 20 minutes with 36 cores):
@@ -435,20 +437,35 @@ The resulting spectrum shows an emerging plasmon resonance at around 4 eV:
 For further insight on plasmon resonance in metal nanoparticles,
 see [#Kuisma2015]_ and [#Rossi2017]_.
 
-One should think about what type of transitions of interest are present,
-and make sure that the basis set can represent such Kohn-Sham electron and
-hole wave functions. The first transitions in silver clusters will be
-`5s \rightarrow 5p` like. We require 5p orbitals in the basis set, and thus,
-we must generate a custom basis set.
 
-Here is how to generate a double-zeta basis set with 5p orbital in valence
-for silver for GLLB-SC potential. Note that the extra 5p valence state
-effectively improves on the ordinary polarization function, so this basis set
-is **better** than the default double-zeta polarized one.
-We will use the 11-electron Ag setup, since the semi-core p states included
-in the default setup are not relevant here.
+User-generated basis sets
+-------------------------
 
+The :ref:`pvalence basis sets` distributed with GPAW and used in
+the above tutorial have been generated from atomic PBE orbitals.
+Similar basis sets can be generated based on atomic GLLB-SC orbitals:
 
+.. literalinclude:: lcaotddft_Ag55/mybasis/basis.py
+
+The Ag55 cluster can be calculated as in the above tutorial, once
+the ground-state calculation has been modified to use
+the generated setup and basis set:
+
+.. literalinclude:: lcaotddft_Ag55/mybasis/gs.py
+   :diff: lcaotddft_Ag55/gs.py
+
+The calculation with this generated "my" p-valence basis set results only in
+small differences in the spectrum in comparison to
+the distributed :ref:`pvalence basis sets`:
+
+.. image:: lcaotddft_Ag55/Ag55_spec_basis.png
+
+The spectrum with the default dzp basis sets is also shown for reference,
+resulting in unconverged spectrum due to the lack of diffuse functions.
+**This demonstrates the importance of checking convergence
+with respect to the used basis sets.**
+Recall :ref:`hints here <note basis sets>` and
+see [#Kuisma2015]_ and [#Rossi2015]_ for further discussion on the basis sets.
 
 .. TODO
 
