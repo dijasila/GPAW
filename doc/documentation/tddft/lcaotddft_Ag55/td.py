@@ -1,5 +1,8 @@
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw import setup_paths
+
+setup_paths.insert(0, '.')
 
 # Parallelzation settings
 parallel = {'sl_auto': True, 'domain': 2, 'augment_grids': True}
