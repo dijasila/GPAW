@@ -448,11 +448,17 @@ Similar basis sets can be generated based on atomic GLLB-SC orbitals:
 .. literalinclude:: lcaotddft_Ag55/mybasis/basis.py
 
 The Ag55 cluster can be calculated as in the above tutorial, once
-the ground-state calculation has been modified to use
-the generated setup and basis set:
+the input scripts have been modified to use
+the generated setup and basis set.
+Changes to the ground-state script:
 
 .. literalinclude:: lcaotddft_Ag55/mybasis/gs.py
    :diff: lcaotddft_Ag55/gs.py
+
+Changes to the time-propagation script:
+
+.. literalinclude:: lcaotddft_Ag55/mybasis/td.py
+   :diff: lcaotddft_Ag55/td.py
 
 The calculation with this generated "my" p-valence basis set results only in
 small differences in the spectrum in comparison to
