@@ -25,26 +25,27 @@ void zgemm_(char *transa, char *transb, int *m, int * n,
             const void *b, int *ldb, void *beta,
             void *c, int *ldc)
 {
-    double complex *a_GM = a;
-    double complex *b_xM = a;
-    double complex *c_xG = a;
+    const double complex *a_GM = a;
+    const double complex *b_xM = b;
+    double complex *c_xG = c;
     for (int x = 0; x < *n; x++)
         for (int G = 0; G < *m; G++)
             for (int M = 0; M < *k; M++)
-            c_xG[*ldc * x + G] += conj(a_GM[*lda * G + M]) * b_xM[*ldb * x + M];
+                c_xG[*ldc * x + G] += (conj(a_GM[*lda * G + M]) *
+                                       b_xM[*ldb * x + M]);
 }
 #endif
 
 static void lfc_dealloc(LFCObject *self)
 {
-  if (self->bloch_boundary_conditions)
-    free(self->phase_i);
-  free(self->volume_i);
-  free(self->work_gm);
-  free(self->ngm_W);
-  free(self->i_W);
-  free(self->volume_W);
-  PyObject_DEL(self);
+    if (self->bloch_boundary_conditions)
+        free(self->phase_i);
+    free(self->volume_i);
+    free(self->work_gm);
+    free(self->ngm_W);
+    free(self->i_W);
+    free(self->volume_W);
+    PyObject_DEL(self);
 }
 
 
