@@ -1,10 +1,9 @@
-from __future__ import print_function, division
 import numpy as np
 import numpy.random as ra
 from gpaw.test import equal
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.localized_functions import create_localized_functions
+from gpaw.lfc import LFC
 from gpaw.spline import Spline
 from gpaw.xc import XC
 from gpaw.utilities import pack
@@ -31,11 +30,11 @@ for name in ['LDA', 'PBE']:
     n = 70
     n = 90
     gd = GridDescriptor((n, n, n), (a, a, a), comm=serial_comm)
-    pr = create_localized_functions(wt_j, gd, (0.5, 0.5, 0.5))
+    pr = LFC(gd, [wt_j])
+    pr.set_positions([(0.5, 0.5, 0.5)])
 
-    coefs = np.identity(nao, float)
     psit_ig = np.zeros((nao, n, n, n))
-    pr.add(psit_ig, coefs)
+    pr.add(psit_ig, {0: np.eye(nao)})
 
     nii = ni * (ni + 1) // 2
     D_p = np.zeros(nii)
@@ -56,8 +55,9 @@ for name in ['LDA', 'PBE']:
             p += 1
         p += ni - nao
 
-    p = create_localized_functions([s.nct], gd, (0.5, 0.5, 0.5))
-    p.add(n_g[0], np.ones(1))
+    p = LFC(gd, [[s.nct]])
+    p.set_positions([(0.5, 0.5, 0.5)])
+    p.add(n_g[0], 1.0)
     e_g = gd.zeros()
     xc.calculate(gd, n_g, v_g, e_g)
 
