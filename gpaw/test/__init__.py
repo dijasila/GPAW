@@ -84,7 +84,6 @@ tests = [
     'parallel/submatrix_redist.py',
     'lfc/second_derivative.py',
     'parallel/parallel_eigh.py',
-    'lfc/gp2.py',
     'linalg/blas.py',
     'Gauss.py',
     'symmetry/check.py',
