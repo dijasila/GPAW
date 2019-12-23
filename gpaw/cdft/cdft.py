@@ -1,3 +1,4 @@
+# flake8: noqa
 import functools
 
 from ase.calculators.calculator import Calculator

@@ -48,4 +48,6 @@ f2 = lr.lr_transitions.get_transition_contributions(0)
 for (ip, val) in enumerate(f2):
     if (val > 1e-3):
         parprint(' %5d => %5d  %lf %%\n ' %
-                 (lr.ks_singles.kss_list[ip].occ_ind, lr.ks_singles.kss_list[ip].unocc_ind, val / 2. * 100))
+                 (lr.ks_singles.kss_list[ip].occ_ind,
+                  lr.ks_singles.kss_list[ip].unocc_ind,
+                  val / 2. * 100))

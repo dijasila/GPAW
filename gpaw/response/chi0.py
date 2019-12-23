@@ -125,7 +125,7 @@ class Chi0:
                  nblocks=1, gate_voltage=None,
                  disable_point_group=False, disable_time_reversal=False,
                  disable_non_symmorphic=True,
-                 scissor=None, integrationmode=None,
+                 integrationmode=None,
                  pbc=None, rate=0.0, eshift=0.0):
         """Construct Chi0 object.
 
@@ -187,8 +187,6 @@ class Chi0:
             Do not use time reversal symmetry.
         disable_non_symmorphic : bool
             Do no use non symmorphic symmetry operators.
-        scissor : tuple ([bands], shift [eV])
-            Use scissor operator on bands.
         integrationmode : str
             Integrator for the kpoint integration.
             If == 'tetrahedron integration' then the kpoint integral is
@@ -253,12 +251,6 @@ class Chi0:
             self.kncomm = self.world.new_communicator(ranks)
 
         self.nblocks = nblocks
-
-        if world.rank != 0:
-            txt = devnull
-        elif isinstance(txt, str):
-            txt = open(txt, 'w')
-        self.fd = txt
 
         if ecut is not None:
             ecut /= Hartree
@@ -346,7 +338,7 @@ class Chi0:
         spin : str or int
             If 'all' then include all spins.
             If 0 or 1, only include this specific spin.
-            (not used in transverse reponse functions)
+            (not used in transverse response functions)
         A_x : ndarray
             Output array. If None, the output array is created.
 
@@ -413,13 +405,12 @@ class Chi0:
             chi0_wvv = None
             self.plasmafreq_vv = None
 
-        if self.response == 'density':
-            # Do all empty bands:
-            m1 = self.nocc1
-        else:
+        if self.response in ['+-', '-+']:
             # Do all bands
             m1 = 0
-
+        else:
+            # Do all empty bands:
+            m1 = self.nocc1
         m2 = self.nbands
 
         pd, chi0_wGG, chi0_wxvG, chi0_wvv = self._calculate(pd,
@@ -453,8 +444,7 @@ class Chi0:
             Upper band cutoff for band summation
         spins : str or list(ints)
             If 'all' then include all spins.
-            If [0] or [1], only include this specific spin (and flip it,
-            if calculating the transverse magnetic response).
+            If [0] or [1], only include this specific spin.
         extend_head : bool
             If True: Extend the wings and head of chi in the optical limit to
             take into account the non-analytic nature of chi. Effectively
@@ -468,10 +458,6 @@ class Chi0:
         wfs = self.calc.wfs
         if spins == 'all':
             spins = range(wfs.nspins)
-        elif spins == 'pm':
-            spins = [0]
-        elif spins == 'mp':
-            spins = [1]
         else:
             for spin in spins:
                 assert spin in range(wfs.nspins)
@@ -480,6 +466,12 @@ class Chi0:
         optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
             self.response == 'density'
 
+        # Use wings in optical limit, if head cannot be extended
+        if optical_limit and not extend_head:
+            wings = True
+        else:
+            wings = False
+        
         # Reset PAW correction in case momentum has change
         self.Q_aGii = self.pair.initialize_paw_corrections(pd)
         A_wxx = chi0_wGG  # Change notation
@@ -550,23 +542,20 @@ class Chi0:
                 nbzkpts = self.calc.wfs.kd.nbzkpts
             prefactor *= len(bzk_kv) / nbzkpts
 
+        A_wxx /= prefactor
+        if wings:
+            chi0_wxvG /= prefactor
+            chi0_wvv /= prefactor
+        
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
         # kwargs keyword.
         kd = self.calc.wfs.kd
-        mat_kwargs = {'kd': kd, 'pd': pd, 'n1': 0,
-                      'm1': m1, 'm2': m2,
+        mat_kwargs = {'kd': kd, 'pd': pd,
                       'symmetry': PWSA,
                       'integrationmode': self.integrationmode}
-        eig_kwargs = {'kd': kd, 'm1': m1, 'm2': m2,
-                      'n1': 0, 'pd': pd}
-        if self.response == 'density':
-            mat_kwargs['n2'] = self.nocc2
-            eig_kwargs['n2'] = self.nocc2
-        else:
-            mat_kwargs['n2'] = self.nbands
-            eig_kwargs['n2'] = self.nbands
+        eig_kwargs = {'kd': kd, 'pd': pd}
 
         if not extend_head:
             mat_kwargs['extend_head'] = False
@@ -594,18 +583,18 @@ class Chi0:
             extraargs['eta'] = self.eta
             extraargs['timeordered'] = self.timeordered
 
-        if optical_limit and not extend_head:
-            wings = True
-        else:
-            wings = False
-
-        A_wxx /= prefactor
-        if wings:
-            chi0_wxvG /= prefactor
-            chi0_wvv /= prefactor
-
         # Integrate response function
         print('Integrating response function.', file=self.fd)
+        # Define band summation
+        if self.response == 'density':
+            bandsum = {'n1': 0, 'n2': self.nocc2, 'm1': m1, 'm2': m2}
+            mat_kwargs.update(bandsum)
+            eig_kwargs.update(bandsum)
+        else:
+            bandsum = {'n1': 0, 'n2': self.nbands, 'm1': m1, 'm2': m2}
+            mat_kwargs.update(bandsum)
+            eig_kwargs.update(bandsum)
+
         integrator.integrate(kind=kind,  # Kind of integral
                              domain=domain,  # Integration domain
                              integrand=(self.get_matrix_element,  # Integrand
@@ -843,7 +832,7 @@ class Chi0:
 
         where s and s' are spins, n and m are band indices, k is
         the kpoint and q is the momentum transfer. For dielectric
-        reponse s'=s, for the transverse magnetic reponse
+        response s'=s, for the transverse magnetic response
         s' is flipped with respect to s.
 
         Parameters

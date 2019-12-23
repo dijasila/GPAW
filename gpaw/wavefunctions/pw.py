@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import numbers
-from math import pi
-from math import factorial as fac
+from math import pi, factorial as fac
 
 import numpy as np
 from ase.units import Ha, Bohr
@@ -267,7 +266,7 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=None):
+    def zeros(self, x=(), dtype=None, q=None, global_array=False):
         """Return zeroed array.
 
         The shape of the array will be x + (ng,) where ng is the number
@@ -275,11 +274,11 @@ class PWDescriptor:
         different values for ng.  Therefore, the q index must be given,
         unless we are describibg a real-valued function."""
 
-        a_xG = self.empty(x, dtype, q)
+        a_xG = self.empty(x, dtype, q, global_array)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None):
+    def empty(self, x=(), dtype=None, q=None, global_array=False):
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
@@ -288,7 +287,10 @@ class PWDescriptor:
         if q is None:
             assert self.only_one_k_point
             q = 0
-        shape = x + (self.myng_q[q],)
+        if global_array:
+            shape = x + (self.ng_q[q],)
+        else:
+            shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
 
     def fft(self, f_R, q=None, Q_G=None, local=False):
@@ -336,6 +338,7 @@ class PWDescriptor:
         If local=True, all cores will do an iFFT without any
         gather/distribute.
         """
+        assert q is not None or self.only_one_k_point
         q = q or 0
         if not local:
             c_G = self.gather(c_G, q)
@@ -348,7 +351,9 @@ class PWDescriptor:
             #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
             #
             # but much faster:
-            _gpaw.pw_insert(c_G, self.Q_qG[q], scale, self.tmp_Q)
+            Q_G = self.Q_qG[q]
+            assert len(c_G) == len(Q_G)
+            _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -1556,6 +1561,7 @@ class PWLFC(BaseLFC):
             assert q == -1 and a_xG.ndim == 1
             c_xI[:] = c_axi
         else:
+            assert q != -1 or self.pd.only_one_k_point
             if self.comm.size != 1:
                 c_xI[:] = 0.0
             for a, I1, I2 in self.my_indices:

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import Numeric as num
 from gpaw import GPAW
 from gpaw.spherical_harmonics import Y
@@ -60,10 +59,12 @@ for n in paw.nuclei:
     p.plot(X + x, num.dot(P_i, phi_i), C + '-', lw=2,
            label=r'$\psi^%s$' % s.symbol)
     C = 'r'
-p.plot([-d / 2], [0], 'go', ms=2*0.8*4*80/a*1.0*0.53, mfc=None, label='_nolegend_')
-p.plot([d / 2], [0], 'ro', ms=2*0.8*4*80/a*1.2*0.53, mfc=None, label='_nolegend_')
+p.plot([-d / 2], [0], 'go', ms=2*0.8*4*80/a*1.0*0.53, mfc=None,
+       label='_nolegend_')
+p.plot([d / 2], [0], 'ro', ms=2*0.8*4*80/a*1.2*0.53, mfc=None,
+       label='_nolegend_')
 p.legend(loc='best')
 p.xlabel(u'x [Å]')
 p.ylabel(r'$\psi$')
-#p.show()
+# p.show()
 p.savefig('co_wavefunctions.png', dpi=dpi)

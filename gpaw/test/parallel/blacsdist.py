@@ -30,7 +30,8 @@ def test(comm, M, N, mcpus, ncpus, mb, nb):
             for Mstart, Mstop, Nstart, Nstop, block in desc1.my_blocks(B_mn):
                 if Mstart > last_Mstart and last_Mstart >= 0:
                     print()
-                print('[%3d:%3d, %3d:%3d]' % (Mstart, Mstop, Nstart, Nstop), end=' ')
+                print('[%3d:%3d, %3d:%3d]' % (Mstart, Mstop, Nstart, Nstop),
+                      end=' ')
                 last_Mstart = Mstart
                 assert (block == comm.rank).all()
                 #print block
@@ -38,7 +39,7 @@ def test(comm, M, N, mcpus, ncpus, mb, nb):
             print()
             print()
         comm.barrier()
-    
+
     redistributor = Redistributor(comm, desc1, desc0)
     redistributor.redistribute(B_mn, A_mn)
 

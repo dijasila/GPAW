@@ -1,3 +1,4 @@
+# flake8: noqa
 # Written by Lauri Lehtovaara, 2008
 """This module defines BiCGStab-class, which implements biconjugate
 gradient stabilized method. Requires Numpy and GPAW's own BLAS."""
