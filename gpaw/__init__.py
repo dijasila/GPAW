@@ -12,7 +12,7 @@ plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat += '-' + platform_id
-build_path = join(__path__[0], '..', 'build')
+build_path = join(__path__[0], '..', 'build')  # noqa
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
@@ -22,7 +22,7 @@ sys.path.insert(0, join(build_path, 'lib.' + arch))
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
-from gpaw.broadcast_imports import broadcast_imports
+from gpaw.broadcast_imports import broadcast_imports  # noqa
 
 with broadcast_imports:
     import os

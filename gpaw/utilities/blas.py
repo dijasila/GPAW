@@ -121,27 +121,6 @@ def axpy(alpha, x, y):
     assert z is y, (x, y, x.shape, y.shape)
 
 
-def czher(alpha, x, a):
-    """alpha x * x.conj() + a.
-
-    Performs the operation::
-
-      y <- alpha * x * x.conj() + a
-
-    where x is a N element vector and a is a N by N hermitian matrix, alpha
-    is a real scalar.
-    """
-
-    assert isinstance(alpha, float)
-    assert is_contiguous(x, complex) and is_contiguous(a, complex)
-    assert x.flags.contiguous and a.flags.contiguous
-    assert x.ndim == 1 and a.ndim == 2
-    assert x.shape[0] == a.shape[0]
-
-    # Use zherk instead?
-    _gpaw.czher(alpha, x, a)
-
-
 def rk(alpha, a, beta, c, trans='c'):
     """Rank-k update of a matrix.
 
@@ -271,7 +250,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     return out.reshape(outshape)
 
 
-if 1:#not hasattr(_gpaw, 'mmm'):
+if 1:  # not hasattr(_gpaw, 'mmm'):
     def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
         if c.size == 0:
             return
