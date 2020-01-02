@@ -3,7 +3,6 @@
  *  Please see the accompanying LICENSE file for further information. */
 
 #include "extensions.h"
-#include "localized_functions.h"
 #include "bmgs/bmgs.h"
 #include "spline.h"
 #include <complex.h>

@@ -40,7 +40,6 @@ PyObject* czher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
 #endif
-PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
@@ -169,7 +168,6 @@ static PyMethodDef functions[] = {
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
 #endif
-    {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
     {"Spline", NewSplineObject, METH_VARARGS, 0},
@@ -285,7 +283,6 @@ extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 extern PyTypeObject LFCType;
-extern PyTypeObject LocalizedFunctionsType;
 extern PyTypeObject OperatorType;
 extern PyTypeObject WOperatorType;
 extern PyTypeObject SplineType;
@@ -350,8 +347,6 @@ static PyObject* moduleinit(void)
 
     if (PyType_Ready(&LFCType) < 0)
         return NULL;
-    if (PyType_Ready(&LocalizedFunctionsType) < 0)
-        return NULL;
     if (PyType_Ready(&OperatorType) < 0)
         return NULL;
     if (PyType_Ready(&WOperatorType) < 0)
@@ -383,7 +378,6 @@ static PyObject* moduleinit(void)
 #endif
 
     Py_INCREF(&LFCType);
-    Py_INCREF(&LocalizedFunctionsType);
     Py_INCREF(&OperatorType);
     Py_INCREF(&WOperatorType);
     Py_INCREF(&SplineType);
