@@ -268,6 +268,8 @@ if 1:  # not hasattr(_gpaw, 'mmm'):
                 a.reshape((len(a), -1)).T.conj())
 
     def rk(alpha, a, beta, c, trans='c'):  # noqa
+        if c.size == 0:
+            return
         if beta == 0:
             c[:] = 0.0
         else:
@@ -275,10 +277,12 @@ if 1:  # not hasattr(_gpaw, 'mmm'):
         if trans == 'n':
             c += alpha * a.conj().T.dot(a)
         else:
-            c += alpha * a.reshape((len(a), -1)).dot(
-                a.reshape((len(a), -1)).conj().T)
+            a = a.reshape((len(a), -1))
+            c += alpha * a.dot(a.conj().T)
 
     def r2k(alpha, a, b, beta, c):  # noqa
+        if c.size == 0:
+            return
         if beta == 0.0:
             c[:] = 0.0
         else:

@@ -18,7 +18,7 @@ for soft in [False]:
     ghat_Lg = LFC(gd, [ghat_l])
     ghat_Lg.set_positions([(0.54321, 0.5432, 0.543)])
     a_Lg[:] = 0.0
-    ghat_Lg.add(a_Lg, {0: c_LL})
+    ghat_Lg.add(a_Lg, {0: c_LL} if ghat_Lg.my_atom_indices else {})
     for l in range(3):
         for m in range(2 * l + 1):
             L = l**2 + m
