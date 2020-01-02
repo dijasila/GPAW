@@ -64,6 +64,9 @@ Git master branch
 
 * :ref:`Marzari-Vanderbilt distribution function <manual_occ>` added.
 
+* New configuration option: ``noblas = True``.  Useful for compiling GPAW
+  without a BLAS library.  :mod:`scipy.linalg.blas` and :func:`numpy.dot`
+  will be used instead.
 
 .. _setuptools: https://setuptools.readthedocs.io/en/latest/
 
