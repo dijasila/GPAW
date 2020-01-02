@@ -19,11 +19,12 @@ void zgemm_(char *transa, char *transb, int *m, int * n,
             int *k, void *alpha, void *a, int *lda,
             const void *b, int *ldb, void *beta,
             void *c, int *ldc);
+#define myzgemm zgemm_
 #else
-void zgemm_(char *transa, char *transb, int *m, int * n,
-            int *k, void *alpha, void *a, int *lda,
-            const void *b, int *ldb, void *beta,
-            void *c, int *ldc)
+void myzgemm(char *transa, char *transb, int *m, int * n,
+             int *k, void *alpha, void *a, int *lda,
+             const void *b, int *ldb, void *beta,
+             void *c, int *ldc)
 {
     const double complex *a_GM = a;
     const double complex *b_xM = b;
@@ -730,8 +731,8 @@ PyObject* lcao_to_grid_k(LFCObject *lfc, PyObject *args)
         GRID_LOOP_STOP(lfc, k);
 
         double complex one = 1.0;
-        zgemm_("C", "N", &Gmax, &nx, &Mblock, &one, tmp_GM, &Mblock,
-               c_xM + Mstart, &Mmax, &one, psit_xG, &Gmax);
+        myzgemm("C", "N", &Gmax, &nx, &Mblock, &one, tmp_GM, &Mblock,
+                c_xM + Mstart, &Mmax, &one, psit_xG, &Gmax);
     }
     free(tmp_GM);
     Py_RETURN_NONE;
