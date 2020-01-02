@@ -14,7 +14,6 @@ http://www.netlib.org/lapack/lug/node145.html
 import numpy as np
 import scipy.linalg.blas as blas
 
-from gpaw.utilities import is_contiguous
 from gpaw import debug
 import _gpaw
 
@@ -219,12 +218,6 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         else:
             return alpha * a.dot(b)
 
-#     # Use gemv if a or b is a vector, and the other is a matrix??
-#     if a.ndim == 1 and trans == 'n':
-#         gemv(alpha, b, a, beta, out, trans='n')
-#     if b.ndim == 1 and trans == 'n':
-#         gemv(alpha, a, b, beta, out, trans='t')
-
     # Map all arrays to 2D arrays
     a = a.reshape(-1, a.shape[-1])
     if trans == 'n':
@@ -250,7 +243,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     return out.reshape(outshape)
 
 
-if 1:  # not hasattr(_gpaw, 'mmm'):
+if not hasattr(_gpaw, 'mmm'):
     def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
         if c.size == 0:
             return

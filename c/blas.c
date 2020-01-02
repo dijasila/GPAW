@@ -11,36 +11,18 @@
 #include "extensions.h"
 
 #ifdef GPAW_NO_UNDERSCORE_BLAS
-#  define zscal_  zscal
-#  define daxpy_  daxpy
-#  define zaxpy_  zaxpy
 #  define dsyrk_  dsyrk
-#  define zher_   zher
 #  define zherk_  zherk
 #  define dsyr2k_ dsyr2k
 #  define zher2k_ zher2k
 #  define dgemm_  dgemm
 #  define zgemm_  zgemm
-#  define dgemv_  dgemv
-#  define zgemv_  zgemv
 #endif
 
-
-void zscal_(int*n, void* alpha, void* x, int* incx);
-
-void daxpy_(int* n, double* alpha,
-            double* x, int *incx,
-            double* y, int *incy);
-void zaxpy_(int* n, void* alpha,
-            void* x, int *incx,
-            void* y, int *incy);
 
 void dsyrk_(char *uplo, char *trans, int *n, int *k,
             double *alpha, double *a, int *lda, double *beta,
             double *c, int *ldc);
-void zher_(char *uplo, int *n,
-           double *alpha, void *x, int *incx,
-           void *a, int *lda);
 void zherk_(char *uplo, char *trans, int *n, int *k,
             double *alpha, void *a, int *lda,
             double *beta,
@@ -61,14 +43,6 @@ void zgemm_(char *transa, char *transb, int *m, int * n,
             int *k, void *alpha, void *a, int *lda,
             void *b, int *ldb, void *beta,
             void *c, int *ldc);
-void dgemv_(char *trans, int *m, int * n,
-            double *alpha, double *a, int *lda,
-            double *x, int *incx, double *beta,
-            double *y, int *incy);
-void zgemv_(char *trans, int *m, int * n,
-            void *alpha, void *a, int *lda,
-            void *x, int *incx, void *beta,
-            void *y, int *incy);
 
 
 PyObject* gemm(PyObject *self, PyObject *args)
@@ -165,106 +139,6 @@ PyObject* mmm(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-
-PyObject* gemv(PyObject *self, PyObject *args)
-{
-  Py_complex alpha;
-  PyArrayObject* a;
-  PyArrayObject* x;
-  Py_complex beta;
-  PyArrayObject* y;
-  char t = 't';
-  char* trans = &t;
-  if (!PyArg_ParseTuple(args, "DOODO|s", &alpha, &a, &x, &beta, &y, &trans))
-    return NULL;
-
-  int m, n, lda, itemsize, incx, incy;
-
-  if (*trans == 'n')
-    {
-      m = PyArray_DIMS(a)[1];
-      for (int i = 2; i < PyArray_NDIM(a); i++)
-        m *= PyArray_DIMS(a)[i];
-      n = PyArray_DIMS(a)[0];
-      lda = MAX(1, m);
-    }
-  else
-    {
-      n = PyArray_DIMS(a)[0];
-      for (int i = 1; i < PyArray_NDIM(a)-1; i++)
-        n *= PyArray_DIMS(a)[i];
-      m = PyArray_DIMS(a)[PyArray_NDIM(a)-1];
-      lda = MAX(1, m);
-    }
-
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    itemsize = sizeof(double);
-  else
-    itemsize = sizeof(double_complex);
-
-  incx = PyArray_STRIDES(x)[0]/itemsize;
-  incy = 1;
-
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    dgemv_(trans, &m, &n,
-           &(alpha.real),
-           DOUBLEP(a), &lda,
-           DOUBLEP(x), &incx,
-           &(beta.real),
-           DOUBLEP(y), &incy);
-  else
-    zgemv_(trans, &m, &n,
-           &alpha,
-           (void*)COMPLEXP(a), &lda,
-           (void*)COMPLEXP(x), &incx,
-           &beta,
-           (void*)COMPLEXP(y), &incy);
-  Py_RETURN_NONE;
-}
-
-
-PyObject* axpy(PyObject *self, PyObject *args)
-{
-  Py_complex alpha;
-  PyArrayObject* x;
-  PyArrayObject* y;
-  if (!PyArg_ParseTuple(args, "DOO", &alpha, &x, &y))
-    return NULL;
-  int n = PyArray_DIMS(x)[0];
-  for (int d = 1; d < PyArray_NDIM(x); d++)
-    n *= PyArray_DIMS(x)[d];
-  int incx = 1;
-  int incy = 1;
-  if (PyArray_DESCR(x)->type_num == NPY_DOUBLE)
-    daxpy_(&n, &(alpha.real),
-           DOUBLEP(x), &incx,
-           DOUBLEP(y), &incy);
-  else
-    zaxpy_(&n, &alpha,
-           (void*)COMPLEXP(x), &incx,
-           (void*)COMPLEXP(y), &incy);
-  Py_RETURN_NONE;
-}
-
-PyObject* czher(PyObject *self, PyObject *args)
-{
-  double alpha;
-  PyArrayObject* x;
-  PyArrayObject* a;
-  if (!PyArg_ParseTuple(args, "dOO", &alpha, &x, &a))
-    return NULL;
-  int n = PyArray_DIMS(x)[0];
-  for (int d = 1; d < PyArray_NDIM(x); d++)
-    n *= PyArray_DIMS(x)[d];
-
-  int incx = 1;
-  int lda = MAX(1, n);
-
-  zher_("l", &n, &(alpha),
-        (void*)COMPLEXP(x), &incx,
-        (void*)COMPLEXP(a), &lda);
-  Py_RETURN_NONE;
-}
 
 PyObject* rk(PyObject *self, PyObject *args)
 {
