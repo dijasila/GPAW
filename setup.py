@@ -91,6 +91,7 @@ for siteconfig in [os.environ.get('GPAW_CONFIG'),
     if siteconfig is not None:
         path = Path(siteconfig).expanduser()
         if path.is_file():
+            print('Reading configuration from', path)
             exec(path.read_text())
             break
 else:
