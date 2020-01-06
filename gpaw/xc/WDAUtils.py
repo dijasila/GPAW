@@ -26,7 +26,7 @@ def correct_density(n_sg, gd, setups, spos_ac):
     return np.array([dens])
 
 
-def get_ni_grid(rank, size, endval, pts_per_rank, grid_fct=None):
+def get_ni_grid(rank, size, endval, pts_per_rank, grid_fct=None, return_full_size=False):
     assert rank >= 0 and rank < size
     # Make an interface that allows for testing
     
@@ -52,9 +52,12 @@ def get_ni_grid(rank, size, endval, pts_per_rank, grid_fct=None):
         my_lower = fulln_i[my_start - 1]
         my_upper = fulln_i[my_start + pts_per_rank]
     
-    return my_n_i, my_lower, my_upper 
+    if return_full_size:
+        return my_n_i, my_lower, my_upper, len(fulln_i), fulln_i
+    else:
+        return my_n_i, my_lower, my_upper 
 
-def get_ni_grid_w_min(rank, size, startval, endval, pts_per_rank, grid_fct=None):
+def get_ni_grid_w_min(rank, size, startval, endval, pts_per_rank, grid_fct=None, return_full_size=False):
     assert rank >= 0 and rank < size
     # Make an interface that allows for testing
     
@@ -79,8 +82,11 @@ def get_ni_grid_w_min(rank, size, startval, endval, pts_per_rank, grid_fct=None)
     else:
         my_lower = fulln_i[my_start - 1]
         my_upper = fulln_i[my_start + pts_per_rank]
-    
-    return my_n_i, my_lower, my_upper 
+
+    if return_full_size:
+        return my_n_i, my_lower, my_upper, len(fulln_i)
+    else:
+        return my_n_i, my_lower, my_upper
 
 
 
