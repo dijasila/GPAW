@@ -1371,7 +1371,6 @@ class WLDA(XCFunctional):
         
     def apply_kernel(self, wn_sg, ia, gd):
         f_sg = self.get_indicator_g(wn_sg, ia) * wn_sg
-        
         f_sG = self.fftn(f_sg, axes=(1, 2, 3))
 
         w_sG = self.get_weight_function(ia, gd, self.alphas)
