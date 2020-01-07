@@ -230,10 +230,16 @@ class WLDA(XCFunctional):
 
         K_G = self._get_K_G(gd)
 
-        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**self.alphaw).astype(np.complex128)
-        res = res / res[0, 0, 0]
+        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**self.alphaw)
+        res = (res / res[0, 0, 0]).astype(np.complex128)
         assert not np.isnan(res).any()
         return res
+
+    def _get_K_G(self, gd):
+        assert gd.comm.size == 1
+        k2_Q, _ = construct_reciprocal(gd)
+        k2_Q[0, 0, 0] = 0
+        return k2_Q**(1 / 2)
 
     def calculate_wlda(self, wn_sg, nstar_sg, my_alpha_indices):
         # Calculate the XC energy and potential that corresponds
@@ -243,9 +249,11 @@ class WLDA(XCFunctional):
         vxc_sg = np.zeros_like(wn_sg)
 
         if len(wn_sg) == 1:
-            self.lda_x(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], my_alpha_indices)
+            self.lda_x(0, exc_g, wn_sg[0],
+                       nstar_sg[0], vxc_sg[0], my_alpha_indices)
             zeta = 0
-            self.lda_c(0, exc_g, wn_sg[0], nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+            self.lda_c(0, exc_g, wn_sg[0],
+                       nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
         else:
             assert False
             na = 2.0 * nstar_sg[0]
