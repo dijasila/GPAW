@@ -202,8 +202,14 @@ class EXX:
         if v2_nG is not None:
             T, T_a, cc = self.symmetry_operation(self.inverse_s[s])
 
+        if k1 is k2:
+            n2max = (N1 + size - 1) // size
+        else:
+            n2max = N2
+
         e_nn = np.zeros((N1, N2))
-        rho_nG = ghat.pd.empty(N2, k1.u_nR.dtype)
+        rho_nG = ghat.pd.empty(n2max, k1.u_nR.dtype)
+        vrho_nG = ghat.pd.empty(n2max, k1.u_nR.dtype)
 
         for n1, u1_R in enumerate(k1.u_nR):
             if k1 is k2:
@@ -217,15 +223,15 @@ class EXX:
                 n2a = 0
                 n2b = N2
 
-            for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
+            for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
                 rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
 
             with self.timer('exx-add'):
-                ghat.add(rho_nG[n2a:n2b],
+                ghat.add(rho_nG[:n2b - n2a],
                          {a: Q_nnL[n1, n2a:n2b]
                           for a, Q_nnL in enumerate(Q_annL)})
 
-            for n2, rho_G in enumerate(rho_nG[n2a:n2b], n2a):
+            for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
                 vrho_G = v_G * rho_G
                 if F_av:
                     for a, v_xL in ghat.derivative(vrho_G).items():
@@ -235,6 +241,7 @@ class EXX:
                 e_nn[n1, n2] = e
                 if k1 is k2:
                     e_nn[n2, n1] = e
+                vrho_nG[n2 - n2a] = vrho_G
 
                 if v1_nG is not None:
                     vrho_R = ghat.pd.ifft(vrho_G)
@@ -242,12 +249,6 @@ class EXX:
                         assert k1 is not k2
                         v1_nG[n1] -= f2_n[n2] * factor * pd1.fft(
                             vrho_R * k2.u_nR[n2], index1, local=True)
-                        self.timer.start('ghat.int')
-                        for a, v_xL in ghat.integrate(vrho_G).items():
-                            v_ii = self.Delta_aiiL[a].dot(v_xL[0])
-                            v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
-                                              f2_n[n2] * factor)
-                        self.timer.stop()
                     else:
                         x = factor * count / 2
                         if k1 is k2 and n1 != n2:
@@ -259,20 +260,42 @@ class EXX:
                         v2_nG[n2 + n20] -= f1_n[n1] * x2 * pd2.fft(
                             T(vrho_R.conj() * u1_R), index2,
                             local=True)
-                        self.timer.start('ghat.int2')
-                        for a, v_xL in ghat.integrate(vrho_G).items():
-                            v_ii = self.Delta_aiiL[a].dot(v_xL[0])
-                            v1_ani[a][n1] -= (v_ii.dot(k2.proj[a][n2]) *
-                                              f2_n[n2] * x1)
-                            b, S_c, U_ii = T_a[a]
-                            v_i = v_ii.conj().dot(k1.proj[b][n1])
-                            v_i = v_i.dot(U_ii)
-                            if v_i.dtype == complex:
-                                v_i *= np.exp(2j * pi * k2.k_c.dot(S_c))
-                                if cc:
-                                    v_i = v_i.conj()
-                            v2_ani[a][n2 + n20] -= v_i * f1_n[n1] * x2
-                        self.timer.stop()
+
+            if v1_nG is not None and v2_nG is None:
+                self.timer.start('ghat.int')
+                for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
+                    v_iin = self.Delta_aiiL[a].dot(v_nL.T)
+                    v1_ani[a][n1] -= np.einsum('ijn, nj, n -> i',
+                                               v_iin,
+                                               k2.proj[a][n2a:n2b],
+                                               f2_n[n2a:n2b] * factor)
+                self.timer.stop()
+
+            if v1_nG is not None and v2_nG is not None:
+                x = factor * count / self.kd.nbzkpts
+                x1 = x / self.kd.weight_k[index1]
+                x2 = x / self.kd.weight_k[index2]
+
+                self.timer.start('ghat.int2')
+                for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
+                    if k1 is k2 and n2a <= n1 < n2b:
+                        v_nL[n1 - n2a] *= 0.5
+                    v_iin = self.Delta_aiiL[a].dot(v_nL.T)
+                    v1_ani[a][n1] -= np.einsum('ijn, nj, n -> i',
+                                               v_iin,
+                                               k2.proj[a][n2a:n2b],
+                                               f2_n[n2a:n2b] * x1)
+                    b, S_c, U_ii = T_a[a]
+                    v_ni = np.einsum('ijn, j, ik -> nk',
+                                     v_iin.conj(),
+                                     k1.proj[b][n1],
+                                     U_ii)
+                    if v_nL.dtype == complex:
+                        v_ni *= np.exp(2j * pi * k2.k_c.dot(S_c))
+                        if cc:
+                            v_ni = v_ni.conj()
+                    v2_ani[a][n2a:n2b] -= v_ni * f1_n[n1] * x2
+                self.timer.stop()
 
         return e_nn * factor
 
