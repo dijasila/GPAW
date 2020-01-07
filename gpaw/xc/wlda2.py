@@ -35,7 +35,6 @@ class WLDA(XCFunctional):
         # 1. Correct density
         # This or correct via self.get_ae_density(gd, n_sg)
         wn_sg = wn_sg
-
         # 2. calculate weighted density
         # This contains contributions for the alphas at this
         # rank, i.e. we need a world.sum to get all contributions
@@ -230,7 +229,7 @@ class WLDA(XCFunctional):
 
         K_G = self._get_K_G(gd)
 
-        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**self.alphaw)
+        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**2)
         res = (res / res[0, 0, 0]).astype(np.complex128)
         assert not np.isnan(res).any()
         return res
