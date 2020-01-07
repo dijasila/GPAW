@@ -121,7 +121,6 @@ class WDA(XCFunctional):
 
 
         res = alpha_ri.T.reshape(Z_ig.shape)    
-        assert np.allclose(res.sum(axis=0), 1)
         return res
 
     def wda_energy(self, n_g, alpha_ig, Grs_ik):
