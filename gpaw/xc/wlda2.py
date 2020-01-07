@@ -43,16 +43,8 @@ class WLDA(XCFunctional):
 
         # 3. Calculate LDA energy
         e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
-        # v1_sg here is v_LDA[n*](s, r)
         assert not np.allclose(v1_sg, 0)
         assert not np.allclose(e1_g, 0)
-
-        # v1_sg = np.array([self.fold_with_derivative(v1_g,
-        #                                             wn_sg[i],
-        #                                             my_alpha_indices)
-        #                   for i, v1_g in enumerate(v1_sg)])
-        mpi.world.sum(v1_sg)
-        # v1_sg here is \int v_LDA[n*](s, r') dn*(r')/dn(r) dr'
 
         gd.distribute(e1_g, e_g)
         gd.distribute(v1_sg, v_sg)
@@ -249,10 +241,10 @@ class WLDA(XCFunctional):
 
         if len(wn_sg) == 1:
             self.lda_x1(0, exc_g, wn_sg[0],
-                       nstar_sg[0], vxc_sg[0], my_alpha_indices)
+                        nstar_sg[0], vxc_sg[0], my_alpha_indices)
             zeta = 0
             self.lda_c1(0, exc_g, wn_sg[0],
-                       nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+                        nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
         else:
             assert False
             na = 2.0 * nstar_sg[0]
@@ -296,21 +288,23 @@ class WLDA(XCFunctional):
             e[:] += nstar_g * ex
         else:
             e[:] += 0.5 * nstar_g * ex
-        v += ex - rs * dexdrs / 3.
+        v = self.fold_with_derivative(ex, wn_g, my_alpha_indices)
+        v -= rs * dexdrs / 3.
 
     def lda_x3(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         from gpaw.xc.lda import lda_constants
         assert spin in [0, 1]
         C0I, C1, CC1, CC2, IF2 = lda_constants()
         
-        rs = (C0I / wn_g) ** (1 / 3.)
+        rs = (C0I / nstar_g) ** (1 / 3.)
         ex = C1 / rs
         dexdrs = -ex / rs
         if spin == 0:
             e[:] += nstar_g * ex
         else:
             e[:] += 0.5 * nstar_g * ex
-        v += ex - rs * dexdrs / 3.
+        v = ex - rs * dexdrs / 3.
+        v = self.fold_with_derivative(v, wn_g, my_alpha_indices)
 
     def lda_c1(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
         assert spin in [0, 1]
@@ -354,15 +348,66 @@ class WLDA(XCFunctional):
 
             v[0] += ec
             v[0] -= self.fold_with_derivative((rs * decdrs / 3.0
-                                               - (zeta - 1.0) * decdzeta * wn_g / nstar_g),
+                                               - (zeta - 1.0)
+                                               * decdzeta * wn_g / nstar_g),
                                               wn_g, my_alpha_indices)
-                                              
-
+            
             v[1] += ec
             v[1] -= self.fold_with_derivative((rs * decdrs / 3.0
                                                - (zeta + 1.0) * decdzeta),
                                               wn_g, my_alpha_indices)
 
+    def lda_c2(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
+        assert spin in [0, 1]
+        from gpaw.xc.lda import lda_constants, G
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+        
+        rs = (C0I / wn_g) ** (1 / 3.)
+        ec, decdrs_0 = G(rs ** 0.5,
+                         0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+        
+        if spin == 0:
+            e[:] += nstar_g * ec
+            v += ec
+            v -= self.fold_with_derivative(rs * decdrs_0 / 3. * wn_g / nstar_g,
+                                           wn_g, my_alpha_indices)
+        else:
+            e1, decdrs_1 = G(rs ** 0.5,
+                             0.015545, 0.20548, 14.1189,
+                             6.1977, 3.3662, 0.62517)
+            alpha, dalphadrs = G(rs ** 0.5,
+                                 0.016887, 0.11125, 10.357, 3.6231, 0.88026,
+                                 0.49671)
+            alpha *= -1.
+            dalphadrs *= -1.
+            zp = 1.0 + zeta
+            zm = 1.0 - zeta
+            xp = zp ** (1 / 3.)
+            xm = zm ** (1 / 3.)
+            f = CC1 * (zp * xp + zm * xm - 2.0)
+            f1 = CC2 * (xp - xm)
+            zeta3 = zeta * zeta * zeta
+            zeta4 = zeta * zeta * zeta * zeta
+            x = 1.0 - zeta4
+            decdrs = (decdrs_0 * (1.0 - f * zeta4) +
+                      decdrs_1 * f * zeta4 +
+                      dalphadrs * f * x * IF2)
+            decdzeta = (4.0 * zeta3 * f * (e1 - ec - alpha * IF2) +
+                        f1 * (zeta4 * e1 - zeta4 * ec + x * alpha * IF2))
+            ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
+            e[:] += wn_g * ec
+
+            v[0] += ec
+            v[0] -= self.fold_with_derivative((rs * decdrs / 3.0
+                                               - (zeta - 1.0)
+                                               * decdzeta * wn_g / nstar_g),
+                                              wn_g, my_alpha_indices)
+            
+            v[1] += ec
+            v[1] -= self.fold_with_derivative((rs * decdrs / 3.0
+                                               - (zeta + 1.0) * decdzeta),
+                                              wn_g, my_alpha_indices)
+            
     def fold_with_derivative(self, f_g, n_g, my_alpha_indices):
         res_g = np.zeros_like(f_g)
 
@@ -377,4 +422,5 @@ class WLDA(XCFunctional):
             assert np.allclose(r_g, r_g.real)
             res_g += r_g.real * fac_g
 
+        mpi.world.sum(res_g)
         return res_g
