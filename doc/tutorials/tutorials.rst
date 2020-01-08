@@ -48,6 +48,7 @@ Specialized tutorials
    bader/bader
    all-electron/all_electron_density
    ps2ae/ps2ae
+   cdft/cdft
    neb/neb
    pbe0/pbe0
    xas/xas
