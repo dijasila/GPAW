@@ -236,7 +236,6 @@ class GPAW(PAW, Calculator):
         from gpaw.utilities.partition import AtomPartition
         atom_partition = AtomPartition(self.wfs.gd.comm,
                                        np.zeros(len(self.atoms), dtype=int))
-        self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
         rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
@@ -244,6 +243,10 @@ class GPAW(PAW, Calculator):
         for obj in [self.density, self.hamiltonian]:
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
+        if new_atom_partition != atom_partition:
+            for kpt in self.wfs.mykpts:
+                kpt.projections = kpt.projections.redist(new_atom_partition)
+        self.wfs.atom_partition = new_atom_partition
 
         self.hamiltonian.xc.read(reader)
 
