@@ -214,6 +214,7 @@ class Density:
 
     def update_atomic_density_matrices(self, value):
         if isinstance(value, dict):
+            asdfhjg
             tmp = self.setups.empty_atomic_matrix(self.ncomponents,
                                                   self.atom_partition)
             tmp.update(value)
