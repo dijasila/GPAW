@@ -1,4 +1,4 @@
-# flake8: noqa
+# flake8888: noqa
 '''A class for computing the
 parameters for Marcus theory
 from two constrained DFT
@@ -680,9 +680,9 @@ class CouplingParameters:
 
             for k in range(len(self.w_k)):
                 # sum_k (sum_ij <i|sum_c Vc*wc| j> * C_ij
-                W_k_AB[k] = self.VW_AB[k].sum()
+                W_k_AB[k] = self.VW_AB[k].real.sum()
                 W_k_AB[k] *= self.w_k[k]
-                W_k_BA[k] = self.VW_BA[k].sum()
+                W_k_BA[k] = self.VW_BA[k].real.sum()
                 W_k_BA[k] *= self.w_k[k]
 
             self.VW[0][1] = W_k_AB.sum()
@@ -848,9 +848,9 @@ class CouplingParameters:
             S_k_BA = np.zeros(len(self.w_k))
 
             for k in range(len(self.w_k)):
-                S_k_AB[k] = self.w_k[k] * np.linalg.det(self.n_ab[k])
+                S_k_AB[k] = self.w_k[k] * np.linalg.det(self.n_ab[k]).real
                 # determinant of the complex conjugate
-                S_k_BA[k] = self.w_k[k] * np.linalg.det(np.transpose(self.n_ab[k]).conj())
+                S_k_BA[k] = self.w_k[k] * np.linalg.det(np.transpose(self.n_ab[k]).conj()).real
 
             S_AB = S_k_AB.sum()
             S_BA = S_k_BA.sum()
