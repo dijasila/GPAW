@@ -509,6 +509,7 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if not compiled_with_sl():
     exclude += ['lcao/atomic_corrections.py',
+                'response/iron_sf_ALDA.py',
                 'response/na_plasmons.py',
                 'response/na_plasmons_tetrahedron.py']
 
