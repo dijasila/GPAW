@@ -1,11 +1,9 @@
 from ase import Atoms
-import numpy as np
 from gpaw import GPAW, FermiDirac, Davidson, Mixer
 from gpaw.cdft.cdft import CDFT
 from gpaw.cdft.cdft_coupling import CouplingParameters
-from gpaw.mpi import size
 
-# Set the system
+# Set up the system
 distance = 2.5
 sys = Atoms('He2', positions=([0., 0., 0.], [0., 0., distance]))
 sys.center(3)
@@ -22,7 +20,7 @@ calc_a = GPAW(
     symmetry='off',
     occupations=FermiDirac(0., fixmagmom=True),
     eigensolver=Davidson(3),
-    spinpol=True,  #only spin-polarized calculations are supported
+    spinpol=True,  # only spin-polarized calculations are supported
     nbands=4,
     mixer=Mixer(beta=0.25, nmaxold=3, weight=100.0),
     txt='He2+_initial_%3.2f.txt' % distance,
@@ -30,8 +28,7 @@ calc_a = GPAW(
         'eigenstates': 1.0e-4,
         'density': 1.0e-1,
         'energy': 1e-1,
-        'bands': 4
-    })
+        'bands': 4})
 
 # Set initial state cdft
 cdft_a = CDFT(
@@ -44,7 +41,7 @@ cdft_a = CDFT(
     txt='He2+_initial_%3.2f.cdft' % distance,  # cDFT output file
     minimizer_options={'gtol': 0.01})  # tolerance for cdft
 
-#get cdft energy
+# Get cdft energy
 sys.set_calculator(cdft_a)
 sys.get_potential_energy()
 
@@ -65,8 +62,7 @@ calc_b = GPAW(h=0.2,
                   'eigenstates': 1.0e-4,
                   'density': 1.0e-1,
                   'energy': 1e-1,
-                  'bands': 4
-              })
+                  'bands': 4})
 
 cdft_b = CDFT(
     calc=calc_b,
