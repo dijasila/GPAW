@@ -19,6 +19,13 @@ class GPAWPlugin:
         terminalreporter.section('GPAW-MPI stuff')
 
         terminalreporter.write(f'rank, size: {rank}, {size}')
+        print(dir(terminalreporter))
+
+    def pytest_report_header(self, config, startdir):
+        return 'hej'
+
+    def pytest_report_collectionfinish(self, config, startdir, items):
+        return '******' * 9
 
 
 def pytest_configure(config):
