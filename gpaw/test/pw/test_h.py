@@ -3,7 +3,7 @@ from gpaw import GPAW, PW
 from gpaw.mpi import world
 
 
-def test_pw_h():
+def test_pw_h(in_tmp_dir):
     a = molecule('H', pbc=1)
     a.center(vacuum=2)
 
