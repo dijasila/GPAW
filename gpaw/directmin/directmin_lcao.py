@@ -566,6 +566,7 @@ class DirectMinLCAO(DirectLCAO):
 
         counter = self.update_ref_orbs_counter
         if self.iters % counter == 0 and self.iters > 1:
+            # TODO: you need to recompute the gradients now
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
                 self.sort_wavefunctions(ham, wfs, kpt)
