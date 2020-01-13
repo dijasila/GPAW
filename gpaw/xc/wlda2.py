@@ -40,6 +40,9 @@ class WLDA(XCFunctional):
         # rank, i.e. we need a world.sum to get all contributions
         nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
         mpi.world.sum(nstar_sg)
+        n1 = self.gd.integrate(nstar_sg)
+        n2 = self.gd.integrate(wn_sg)
+        assert np.allclose(n1, n2), '{} - {}'.format(n1, n2)
 
         # 3. Calculate LDA energy
         e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
@@ -243,8 +246,8 @@ class WLDA(XCFunctional):
             self.lda_x1(0, exc_g, wn_sg[0],
                         nstar_sg[0], vxc_sg[0], my_alpha_indices)
             zeta = 0
-            self.lda_c1(0, exc_g, wn_sg[0],
-                        nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+            # self.lda_c1(0, exc_g, wn_sg[0],
+            #            nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
         else:
             assert False
             na = 2.0 * nstar_sg[0]
@@ -421,6 +424,12 @@ class WLDA(XCFunctional):
             r_g = self.ifftn(w_G * int_G)
             assert np.allclose(r_g, r_g.real)
             res_g += r_g.real * fac_g
+            assert np.allclose(res_g, res_g.real)
 
         mpi.world.sum(res_g)
+        assert res_g.shape == f_g.shape
+        assert res_g.shape == n_g.shape
         return res_g
+
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
+        return 0

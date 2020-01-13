@@ -2,35 +2,55 @@ from gpaw.xc.functional import XCFunctional
 from gpaw import mpi
 import numpy as np
 
+def timer(f):
+    from functools import wraps
+    from time import time
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        t1 = time()
+        res = f(*args, **kwargs)
+        t2 = time()
+        if mpi.rank == 0:
+            print("Running {} took {} seconds".format(f.__name__, t2 - t1))
+        return res
+    return wrapped
 
 class WDA(XCFunctional):
     def __init__(self):
         XCFunctional.__init__(self, 'WDA', 'LDA')
         self.num_nbar = 100
+        # Params:
+        # - num nbar
+        # - min of nbar grid
+        # - ??
 
     def initialize(self, density, hamiltonia, wfs, occupations):
         self.wfs = wfs
         self.density = density
     
+    @timer
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        from gpaw.xc.wda.splines import build_splines
+        from gpaw.xc.WDAUtils import build_splines, get_K_K
+
+        wn_sg = gd.collect(n_sg, broadcast=True)
+        wn_sg[wn_sg < 1e-20] = 1e-20
 
         self.gd = gd.new_descriptor(comm=mpi.serial_comm)
-        nb_i = self.get_nbars(n_sg, self.num_nbar)
+        nb_i = self.get_nbars(wn_sg, self.num_nbar)
         my_i = self.distribute_nbars(self.num_nbar, mpi.rank, mpi.size)
 
         Gs_i, Grs_i = build_splines(nb_i[my_i], self.gd)
 
-        K_K = self.get_K_K(self.gd)
+        K_K = get_K_K(self.gd)
         Gs_ik, Grs_ik = self.get_G_ks(Gs_i, Grs_i, K_K)
 
-        Z_isg = self.calc_Z_isg(n_sg, Gs_ik)
+        Z_isg = self.calc_Z_isg(wn_sg, Gs_ik)
 
         alpha_isg = self.get_alphas(Z_isg)
 
-        e1_g = self.wda_energy(n_sg, alpha_isg, Grs_ik)
+        e1_g = self.wda_energy(wn_sg, alpha_isg, Grs_ik)
 
-        v1_sg = self.V(n_sg, alpha_isg, Z_isg, Grs_ik, Gs_ik)
+        v1_sg = self.V(wn_sg, alpha_isg, Z_isg, Grs_ik, Gs_ik)
 
         mpi.world.sum(e1_g)
         mpi.world.sum(v1_sg)
@@ -38,9 +58,11 @@ class WDA(XCFunctional):
         gd.distribute(e1_g, e_g)
         gd.distribute(v1_sg, v_sg)
 
+    @timer
     def get_nbars(self, n_g, npts=100):
         min_dens = np.min(n_g)
         max_dens = np.max(n_g)
+        min_dens = max(min_dens, 1e-6)
         nb_i = np.linspace(0.9 * min_dens, 1.1 * max_dens, npts)
         return nb_i
 
@@ -58,22 +80,16 @@ class WDA(XCFunctional):
 
         return range(start, end)
 
-    def get_K_K(self, gd):
-        from gpaw.utilities.tools import construct_reciprocal
-        from ase.units import Bohr
-        K2_K, _ = construct_reciprocal(gd)
-        K2_K[0, 0, 0] = 0
-        return K2_K**(1 / 2)
-
+    @timer
     def get_G_ks(self, Gs_i, Grs_i, k_k):
         Gs_ik = np.array([Gs(k_k) for Gs in Gs_i])
         Grs_ik = np.array([Gs(k_k) for Gs in Gs_i])
 
         return Gs_ik, Grs_ik
 
-    def calc_Z_isg(self, n_sg, Gs_iK):
-        from convolutions import npp_conv
-        
+    @timer
+    def calc_Z_isg(self, n_sg, Gs_iK):        
+        assert len(n_sg.shape) == 4
         n_sK = self.fftn(n_sg)
         na = np.newaxis
         Gs_iK = Gs_iK[:, na, :, :, :]
@@ -81,10 +97,10 @@ class WDA(XCFunctional):
 
         Z_isg = self.ifftn(self.npp_conv(Gs_iK, n_sK))
     
-        return Z_isg    
+        return Z_isg
         
     def npp_conv(self, np_xK, p_xK):
-        assert np_xK.shape[-3:] == p_xK.shape[-3:]
+        assert np_xK.shape[-3:] == p_xK.shape[-3:], '{} - {} - {}'.format(np_xK.shape, p_xK.shape, self.gd.n_c)
         return np_xK * p_xK
 
 
@@ -106,6 +122,7 @@ class WDA(XCFunctional):
 
         return res.real
 
+    @timer
     def get_alphas(self, Z_ig):
         Z_ri = Z_ig.reshape(len(Z_ig), -1).T
 
@@ -123,31 +140,31 @@ class WDA(XCFunctional):
         res = alpha_ri.T.reshape(Z_ig.shape)    
         return res
 
+    @timer
     def wda_energy(self, n_g, alpha_ig, Grs_ik):
         # Convolve n with G/r
         # Multiply result by alpha * n
         # Integrate
-        from convolutions import npp_conv
-        from ffts import fftn, ifftn
-    
-        n_k = fftn(n_g)
-        res_ig = ifftn(npp_conv(Grs_ik, n_k))
-        assert res_ig.shape == alpha_ig.shape
+        n_k = self.fftn(n_g)
+        na = np.newaxis
+        res_ig = self.ifftn(self.npp_conv(Grs_ik[:, na, :, :, :], n_k))
+        assert res_ig.shape == alpha_ig.shape, "{}-{}-{}-{}".format(res_ig.shape, alpha_ig.shape, n_g.shape, Grs_ik.shape)
 
         result_g = np.sum(res_ig * n_g[np.newaxis, :] * alpha_ig, axis=0)
 
         return result_g
 
+    @timer
     def V1(self, n_g, alpha_ig, Grs_ik):
         n_k = self.fftn(n_g)
     
         res_ig = self.ifftn(self.npp_conv(Grs_ik, n_k))
-        assert res_ig.shape == alpha_ig.shape
+        assert res_ig.shape == alpha_ig.shape, "{} - {}".format(res_ig.shape, alpha_ig.shape)
 
         result_g = np.sum(res_ig * alpha_ig, axis=0)
         return result_g
 
-
+    @timer
     def V1p(self, n_g, alpha_ig, Grs_ik):
         f_k = self.fftn(n_g[np.newaxis, :] * alpha_ig)
         res_ig = self.ifftn(self.npp_conv(Grs_ik, f_k))
@@ -155,7 +172,7 @@ class WDA(XCFunctional):
 
         return res_ig.sum(axis=0)
 
-
+    @timer
     def V2(self, n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik):
         dZ_ig = np.roll(Z_ig, -1, axis=0) - Z_ig
         n_k = self.fftn(n_g)
@@ -168,8 +185,13 @@ class WDA(XCFunctional):
     
         return result
 
-
+    @timer
     def V(self, n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik):
-        return (V1(n_g, alpha_ig, Grs_ik) 
-                + V1p(n_g, alpha_ig, Grs_ik)
-                + V2(n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik))
+        Gs_ik = Gs_ik[:, np.newaxis, :, :, :]
+        Grs_ik = Grs_ik[:, np.newaxis, :, :, :]
+        return (self.V1(n_g, alpha_ig, Grs_ik) 
+                + self.V1p(n_g, alpha_ig, Grs_ik)
+                + self.V2(n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik))
+
+    def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
+        return 0

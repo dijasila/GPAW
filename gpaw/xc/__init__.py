@@ -138,7 +138,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             splt = name.split("_") + [None, None]
             mode = splt[1]
             density_mode = splt[2]
-            return WDA(mode=mode, densitymode=density_mode)
+            return WDA()
         else:
             kernel = LibXC(name)
 
