@@ -299,10 +299,10 @@ class LBFGS(SteepestDescent):
             dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
                                           s_k[kp[k]],
                                           wfs)
-            if abs(dot_ys) > 1.0e-10:
+            if abs(dot_ys) > 1.0e-15:
                 rho_k[kp[k]] = 1.0 / dot_ys
             else:
-                rho_k[kp[k]] = 1.0
+                rho_k[kp[k]] = 1.0e15
 
             # try:
             #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
@@ -312,7 +312,7 @@ class LBFGS(SteepestDescent):
             # except ZeroDivisionError:
             #     rho_k[kp[k]] = 1.0e12
 
-            if rho_k[kp[k]] < 0.0:
+            if dot_ys < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
                 # print("y_k^Ts_k is not positive!")
                 self.stable = False
@@ -337,10 +337,10 @@ class LBFGS(SteepestDescent):
             t = k
             dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
                                           y_k[kp[t]], wfs)
-            if abs(dot_yy) < 1.0e-10:
+            if abs(dot_yy) > 1.0e-15:
                 r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
             else:
-                r = self.multiply(q, 1.0)
+                r = self.multiply(q, 1.0e15)
             # try:
             #     # t = np.maximum(1, k - m + 1)
             #
@@ -444,7 +444,7 @@ class LBFGS_P(SteepestDescent):
             except ZeroDivisionError:
                 rho_k[kp[k]] = 1.0e12
 
-            if rho_k[kp[k]] < 0.0:
+            if dot_ys < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
                 parprint("y_k^Ts_k is not positive!")
                 self.stable = False
@@ -580,7 +580,7 @@ class LBFGS_P2(SteepestDescent):
             except ZeroDivisionError:
                 rho_k[kp[k]] = 1.0e12
 
-            if rho_k[kp[k]] < 0.0:
+            if dot_ys < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
                 parprint("y_k^Ts_k is not positive!")
                 self.stable = False
