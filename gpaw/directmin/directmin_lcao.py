@@ -708,10 +708,9 @@ class DirectMinLCAO(DirectLCAO):
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                self.c_nm_ref[u] = kpt.C_nM.copy()
-                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+            u = kpt.s * self.n_kps + kpt.q
+            self.c_nm_ref[u] = kpt.C_nM.copy()
+            self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
 
         wfs.timer.stop('Get canonical representation')
 
