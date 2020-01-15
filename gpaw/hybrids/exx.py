@@ -297,7 +297,7 @@ class EXX:
                         v_ni *= np.exp(2j * pi * k2.k_c.dot(S_c))
                         if cc:
                             v_ni = v_ni.conj()
-                    v2_ani[a][n2a:n2b] -= v_ni * f1_n[n1] * x2
+                    v2_ani[a][n20 + n2a:n20 + n2b] -= v_ni * f1_n[n1] * x2
                 self.timer.stop()
 
         return e_nn * factor
