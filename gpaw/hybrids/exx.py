@@ -272,9 +272,12 @@ class EXX:
                 self.timer.stop()
 
             if v1_nG is not None and v2_nG is not None:
-                x = factor * count / self.kd.nbzkpts
+                x = factor * count / self.kd.nbzkpts / 2
                 x1 = x / self.kd.weight_k[index1]
                 x2 = x / self.kd.weight_k[index2]
+                if k1 is k2:
+                    x1 *= 2
+                    x2 *= 2
 
                 self.timer.start('ghat.int2')
                 for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
