@@ -233,10 +233,6 @@ class EXX:
 
             for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
                 vrho_G = v_G * rho_G
-                if F_av:
-                    for a, v_xL in ghat.derivative(vrho_G).items():
-                        print(a, v_xL.shape)
-                    1 / 0
                 e = ghat.pd.integrate(rho_G, vrho_G).real
                 e_nn[n1, n2] = e
                 if k1 is k2:
@@ -260,6 +256,11 @@ class EXX:
                         v2_nG[n2 + n20] -= f1_n[n1] * x2 * pd2.fft(
                             T(vrho_R.conj() * u1_R), index2,
                             local=True)
+
+            if F_av:
+                for a, v_nL in ghat.derivative(vrho_nG).items():
+                    print(a, v_nL.shape)
+                1 / 0
 
             if v1_nG is not None and v2_nG is None:
                 self.timer.start('ghat.int')
