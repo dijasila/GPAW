@@ -4,6 +4,7 @@ from ase.units import Ha
 from gpaw import GPAW, PW
 from gpaw.hybrids import HybridXC
 from gpaw.xc.exx import EXX
+from gpaw.mpi import world, serial_comm
 
 
 def test(kpts, setup, spinpol, symmetry):
@@ -14,6 +15,7 @@ def test(kpts, setup, spinpol, symmetry):
                   spinpol=spinpol,
                   # nbands=1,
                   symmetry=symmetry,
+                  parallel={'band': 1, 'kpt': 1},
                   txt=None,
                   xc='PBE')
     a.get_potential_energy()
@@ -23,15 +25,21 @@ def test(kpts, setup, spinpol, symmetry):
 def check(atoms, xc):
     xc1 = HybridXC(xc)
     c = atoms.calc
-    xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
-    xc1.set_positions(c.spos_ac)
+    xc1.calculate_eigenvalues(c, 0, 2, None, restart)
+    #xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
+    #xc1.set_positions(c.spos_ac)
     e = xc1.calculate_energy()
-    xc1.calculate_eigenvalues(0, 2, None)
+    #xc1.calculate_eigenvalues(0, 2, None)
+
+    if world.size > 1:
+        c.write('tmp.gpw', 'all')
+        c = GPAW('tmp.gpw', communicator=serial_comm, txt=None)
 
     xc2 = EXX(c, xc=xc, bands=(0, 2), txt=None)
     xc2.calculate()
     e0 = xc2.get_exx_energy()
     eps0 = xc2.get_eigenvalue_contributions()
+    print(world.rank, eps0, xc1.e_skn * Ha)
     assert np.allclose(eps0, xc1.e_skn * Ha)
     assert np.allclose(e0, e[0] + e[1])
     ecv, evv, v_skn = xc1.test()
