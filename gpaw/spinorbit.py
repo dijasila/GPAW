@@ -1,6 +1,5 @@
 import numpy as np
 from ase.units import Ha, alpha, Bohr
-from gpaw import GPAW
 from gpaw.mpi import serial_comm, world, rank
 
 s = np.array([[0.0]])
@@ -126,7 +125,10 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         out: e_mk or (e_mk, s_kvm) or (e_mk, wfs_knm) or (e_mk, s_kvm, wfs_knm)
    """
     if isinstance(calc, str):
+        from gpaw import GPAW
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
@@ -276,7 +278,10 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
     from ase.units import Hartree
 
     if isinstance(calc, str):
+        from gpaw import GPAW
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     noncollinear = not calc.density.collinear
 
@@ -305,7 +310,10 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     relative to the sum of eigenvalues without spinorbit coupling"""
 
     if isinstance(calc, str):
+        from gpaw import GPAW
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     assert len(calc.symmetry.op_scc) == 1
 
@@ -352,7 +360,10 @@ def get_spinorbit_projections(calc, ik, v_nm):
     # For spinors the number of projectors and bands are doubled
 
     if isinstance(calc, str):
+        from gpaw import GPAW
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     Na = len(calc.atoms)
     Nk = len(calc.get_ibz_k_points())
@@ -380,6 +391,7 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
     # For spinors the number of bands is doubled and a spin dimension is added
 
     if isinstance(calc, str):
+        from gpaw import GPAW
         calc = GPAW(calc, communicator=serial_comm, txt=None)
 
     Ns = calc.wfs.nspins
@@ -408,8 +420,12 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the magnetic moments inside all PAW spheres"""
     from gpaw.utilities import unpack
+
     if isinstance(calc, str):
+        from gpaw import GPAW
         calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     if nbands is None:
         nbands = calc.get_number_of_bands()
@@ -510,8 +526,8 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
     """Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
     """
-    if isinstance(calc, str):
-        calc = GPAW(calc, communicator=serial_comm, txt=None)
+
+    assert calc.world.size == 1
 
     kpt_c = calc.get_ibz_k_points()[ik]
     if Nv is None:
