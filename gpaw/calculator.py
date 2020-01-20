@@ -171,7 +171,7 @@ class GPAW(PAW, Calculator):
 
     def _write(self, writer, mode):
         from ase.io.trajectory import write_atoms
-        writer.write(version=1, gpaw_version=gpaw.__version__,
+        writer.write(version=2, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
 
         write_atoms(writer.child('atoms'), self.atoms)
@@ -867,6 +867,9 @@ class GPAW(PAW, Calculator):
         if self.parameters.external is not None:
             symm = symm.copy()
             symm['point_group'] = False
+
+        if reading and self.reader.version <= 1:
+            symm['allow_invert_aperiodic_axes'] = False
 
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
