@@ -466,8 +466,6 @@ class WaveFunctions:
 
         if reader.version >= 2:
             kpts = r.kpts
-            assert (kpts.rotations == self.kd.symmetry.op_scc).all()
-            assert np.allclose(kpts.translations, self.kd.symmetry.ft_sc)
             assert np.allclose(kpts.ibzkpts, self.kd.ibzk_kc)
             assert np.allclose(kpts.bzkpts, self.kd.bzk_kc)
             assert (kpts.bz2ibz == self.kd.bz2ibz_k).all()
