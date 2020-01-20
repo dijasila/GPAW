@@ -36,7 +36,8 @@ class Symmetry:
     wavefunctions and forces.
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
-                 point_group=True, time_reversal=True, symmorphic=True):
+                 point_group=True, time_reversal=True, symmorphic=True,
+                 allow_invert_aperiodic_axes=True):
         """Construct symmetry object.
 
         Parameters:
@@ -88,7 +89,7 @@ class Symmetry:
         self.gcd_c = np.ones(3, int)
 
         # For reading old gpw-files:
-        self.allow_invert_aperiodic_axes = True
+        self.allow_invert_aperiodic_axes = allow_invert_aperiodic_axes
 
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.

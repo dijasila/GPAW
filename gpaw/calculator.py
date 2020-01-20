@@ -868,8 +868,8 @@ class GPAW(PAW, Calculator):
             symm = symm.copy()
             symm['point_group'] = False
 
-        if reading and self.reader.version == 1:
-            symm['allow_inversion_aperiodic_axes'] = False
+        if reading and self.reader.version <= 1:
+            symm['allow_invert_aperiodic_axes'] = False
 
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]

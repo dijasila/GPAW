@@ -464,13 +464,14 @@ class WaveFunctions:
         if 'version' not in r:
             r.version = reader.version
 
-        kpts = r.kpts
-        assert (kpts.rotations == self.kd.symmetry.op_scc).all()
-        assert np.allclose(kpts.translations, self.kd.symmetry.ft_sc)
-        assert np.allclose(kpts.ibzkpts, self.kd.ibzk_kc)
-        assert np.allclose(kpts.bzkpts, self.kd.bzk_kc)
-        assert (kpts.bz2ibz == self.kd.bz2ibz_k).all()
-        assert np.allclose(kpts.weights, self.kd.weight_k)
+        if reader.version >= 2:
+            kpts = r.kpts
+            assert (kpts.rotations == self.kd.symmetry.op_scc).all()
+            assert np.allclose(kpts.translations, self.kd.symmetry.ft_sc)
+            assert np.allclose(kpts.ibzkpts, self.kd.ibzk_kc)
+            assert np.allclose(kpts.bzkpts, self.kd.bzk_kc)
+            assert (kpts.bz2ibz == self.kd.bz2ibz_k).all()
+            assert np.allclose(kpts.weights, self.kd.weight_k)
 
         self.read_projections(r)
         self.read_eigenvalues(r, r.version <= 0)
