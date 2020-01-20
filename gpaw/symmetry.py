@@ -87,6 +87,9 @@ class Symmetry:
         self.has_inversion = False
         self.gcd_c = np.ones(3, int)
 
+        # For reading old gpw-files:
+        self.allow_invert_aperiodic_axes = True
+
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.
 
@@ -133,6 +136,11 @@ class Symmetry:
             if op_cc[pbc_cc].any():
                 # Operation must not swap axes that don't have same PBC
                 continue
+
+            if not self.allow_invert_aperiodic_axes:
+                if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+                    # Operation must not invert axes that are not periodic
+                    continue
 
             # Operation is a valid symmetry of the unit cell
             self.op_scc.append(op_cc)
