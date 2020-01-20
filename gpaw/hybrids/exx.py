@@ -68,6 +68,70 @@ class EXX:
         self.inverse_s = self.symmetry_map_ss[:, self.s0]
 
     @timer('EXX.calc')
+    def calculate_eigenvalues(self, kpt, kpts, VV_aii):
+        pd = kpt.psit.pd
+        gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
+        comm = self.comm
+        self.N_c = gd.N_c
+        kd = self.kd
+        nsym = len(kd.symmetry.op_scc)
+
+        assert len(kpts) == kd.nibzkpts
+
+        rsk1 = RSKPoint(u1_nR, kpt.proj.broadcast(),
+                        kpt.f_n, kpt.k_c,
+                        kpt.weight)
+
+        for k in range(kd.nibzkpts):
+            indices = np.where(kd.bz2ibz_k == k)[0]
+            sindices = (kd.sym_k[indices] +
+                        kd.time_reversal_k[indices] * nsym)
+            q_c = k2.k_c - k1.k_c
+            qd = KPointDescriptor([-q_c])
+
+            with self.timer('ghat-init'):
+                pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
+                ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
+                ghat.set_positions(self.spos_ac)
+
+            v_G = self.coulomb.get_potential(pd12)
+                N = len(k2.psit.array)
+                S = self.comm.size
+                B = (N + S - 1) // S
+                na = min(B * self.comm.rank, N)
+                nb = min(na + B, N)
+                u2_nR = to_real_space(k2.psit, na, nb)
+                rsk2 = RSKPoint(u2_nR, k2.proj.broadcast().view(na, nb),
+                                k2.f_n[na:nb], k2.k_c,
+                                k2.weight)
+                lasti2 = i2
+
+            yield i1, i2, s, rsk1, self.apply_symmetry(s, rsk2), count
+            e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
+                                               kpts1[i1].psit.pd,
+                                               kpts2[i2].psit.pd,
+                                               kpts1[i1].psit.kpt,
+                                               kpts2[i2].psit.kpt,
+                                               k1.f_n,
+                                               k2.f_n,
+                                               s,
+                                               count,
+                                               v1_nG, v1_ani,
+                                               v2_nG, v2_ani)
+
+            e_nn *= count
+            e_n -= e_nn.dot(k2.f_n)
+
+        for i, kpt in enumerate(kpts1):
+            for a, VV_ii in VV_aii.items():
+                P_ni = kpt.proj[a]
+                vv_n = np.einsum('ni, ij, nj -> n',
+                                 P_ni.conj(), VV_ii, P_ni).real
+                vc_n = np.einsum('ni, ij, nj -> n',
+                                 P_ni.conj(), self.VC_aii[a], P_ni).real
+                e_n[i] -= (2 * vv_n + vc_n)
+
+    @timer('EXX.calc')
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
         pd = kpts1[0].psit.pd
         gd = pd.gd.new_descriptor(comm=mpi.serial_comm)

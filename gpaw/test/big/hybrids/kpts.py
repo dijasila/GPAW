@@ -22,14 +22,11 @@ def test(kpts, setup, spinpol, symmetry):
     return a
 
 
-def check(atoms, xc):
+def check(atoms, xc, i):
     xc1 = HybridXC(xc)
     c = atoms.calc
-    xc1.calculate_eigenvalues(c, 0, 2, None, restart)
-    #xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
-    #xc1.set_positions(c.spos_ac)
+    xc1.calculate_eigenvalues(c, 0, 2, None, restart=f'tmp-{i}.json')
     e = xc1.calculate_energy()
-    #xc1.calculate_eigenvalues(0, 2, None)
 
     if world.size > 1:
         c.write('tmp.gpw', 'all')
@@ -48,6 +45,7 @@ def check(atoms, xc):
 
 
 def main():
+    i = 0
     for spinpol in [False, True]:
         for setup in ['ae', 'paw']:
             for symmetry in ['off', {}]:
@@ -62,7 +60,8 @@ def main():
                     for xc in ['EXX', 'PBE0', 'HSE06']:
                         print(spinpol, setup, symmetry, kpts, xc,
                               len(atoms.calc.wfs.mykpts))
-                        check(atoms, xc)
+                        check(atoms, xc, i)
+                        i += 1
 
 
 main()
