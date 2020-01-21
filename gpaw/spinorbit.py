@@ -251,10 +251,10 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
             sz_m = []
             for m in range(2 * Nn):
                 v_sn = np.array([v_snm[::2, m], v_snm[1::2, m]])
-                sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)))
-                sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)))
-                sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)))
-            s_kvm[k] = [sx_m.real, sy_m.real, sz_m.real]
+                sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)).real)
+                sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)).real)
+                sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)).real)
+            s_kvm[k] = [sx_m, sy_m, sz_m]
 
     world.sum(e_km)
 
