@@ -1,15 +1,13 @@
 import json
 from math import nan
-from pathlib import Path
-from typing import Tuple, Dict
+from typing import Tuple
 from io import StringIO
 
 import numpy as np
 from ase.units import Ha
-from ase.utils import convert_string_to_fd
 
 from gpaw.xc import XC
-from gpaw.xc.exx import pawexxvv, select_kpts
+from gpaw.xc.exx import pawexxvv
 from gpaw.xc.tools import _vxc
 from gpaw.utilities import unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
@@ -339,65 +337,6 @@ class HybridXC:
 
         return evv * Ha, evc * Ha
 
-    def calculate_eigenvalues(self,
-                              calc,
-                              n1=0,
-                              n2=-1,
-                              kpts=None,
-                              restart=None,
-                              txt='-') -> np.ndarray:
-        self.initialize_from_calculator(calc)
-        self.set_positions(calc.spos_ac)
-        self._initialize()
-
-        fd = convert_string_to_fd(txt)
-        wfs = self.wfs
-        kd = wfs.kd
-
-        if n2 == -1:
-            n2 = wfs.bd.nbands
-
-        kpts = select_kpts(kpts, calc)
-
-        nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
-                   for kpt in wfs.mykpts)
-
-        e_skn: Dict[Tuple(int, int), np.ndarray] = {}
-        v_skn: Dict[Tuple(int, int), np.ndarray] = {}
-
-        nspins = wfs.nspins
-        nkpts = len(kpts)
-
-
-        if restart:
-            path = Path(restart)
-            if path.is_file():
-                lines = path.read_text().splitlines()
-                for line in lines[:nspins * nkpts]:
-                    words = line.split()
-                    spin = int(words[0])
-                    k = int(words[1])
-                    e_skn[(spin, k)] = np.array([float(word)
-                                                 for word in words[2:]])
-                if len(lines) > nspins * nkpts:
-                    for line in lines[nspins * nkpts:]:
-                        words = line.split()
-                        spin = int(words[0])
-                        k = int(words[1])
-                        v_skn[(spin, k)] = np.array([float(word)
-                                                     for word in words[2:]])
-                nsk = len(e_skn)
-                print(f'Restarting from {path} (spin+k-point pairs: {nsk})',
-                      file=fd)
-
-        def write(e_skn, v_sin):
-            if restart and self.xx.comm.rank == 0:
-                tmp = path.with_name(path.name + '.tmp')
-                tmp.write_text(json.dumps([list(e_skn.items()), v_sin]))
-                # Overwrite restart-file in in almost atomic step that
-                # hopefully does not crash due to job running out of time:
-                tmp.rename(path)
-
     def calculate_eigenvalue_contribution(self,
                                           spin,
                                           k,
@@ -407,40 +346,25 @@ class HybridXC:
         VV_aii = self.calculate_valence_valence_paw_corrections(spin)
         k1 = spin * kd.nibzkpts
         k2 = (spin + 1) * kd.nibzkpts
+
+        kpt = wfs.mykpts[k1 + k]
+        kpt1 = KPoint(kpt.psit.view(n1, n2),
+                      kpt.projections.view(n1, n2),
+                      kpt.f_n[n1:n2] / kpt.weight,  # scale to [0, 1]
+                      kd.ibzk_kc[kpt.k],
+                      kd.weight_k[kpt.k])
+
         kpts2 = [KPoint(kpt.psit.view(0, nocc),
                         kpt.projections.view(0, nocc),
                         kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
                         kd.ibzk_kc[kpt.k],
                         kd.weight_k[kpt.k])
                  for kpt in wfs.mykpts[k1:k2]]
-        kpt = wfs.mykpts[k1 + k]
-        kpts1 = [KPoint(kpt.psit.view(n1, n2),
-                        kpt.projections.view(n1, n2),
-                        kpt.f_n[n1:n2] / kpt.weight,  # scale to [0, 1]
-                        kd.ibzk_kc[kpt.k],
-                        kd.weight_k[kpt.k])]
 
-        e_kn = np.zeros((kd.nibzkpts, n2 - n1))
-        self.xx.calculate(kpts1, kpts2, VV_aii, e_kn=e_kn)
-        self.xx.comm.sum(e_kn)
-        e_kn *= self.exx_fraction
-        return e_kn
-
-        if self.xc:
-            if v_sin:
-                v_sin = np.array(v_sin)
-            else:
-                v_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
-                v_sin = v_skn[:, kpts, n1:n2]
-                write(e_skn, v_sin.tolist())
-        else:
-            v_sin = np.zeros((wfs.nspins, len(kpts), n2 - n1))
-
-        fd.close()
-
-        return np.array([[e_skn[(s, k)] + v_sin[s, i]
-                          for i, k in enumerate(kpts)]
-                         for s in range(wfs.nspins)]) * Ha
+        e_n = self.xx.calculate_eigenvalues(kpt1, kpts2, VV_aii)
+        self.xx.comm.sum(e_n)
+        e_n *= self.exx_fraction
+        return e_n
 
     def summary(self, log):
         log(self.description)

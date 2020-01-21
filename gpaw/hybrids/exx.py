@@ -68,68 +68,79 @@ class EXX:
         self.inverse_s = self.symmetry_map_ss[:, self.s0]
 
     @timer('EXX.calc')
-    def calculate_eigenvalues(self, kpt, kpts, VV_aii):
-        pd = kpt.psit.pd
+    def calculate_eigenvalues(self, kpt1, kpts2, VV_aii):
+        pd = kpt1.psit.pd
         gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
         comm = self.comm
+        size = comm.size
+        rank = comm.rank
         self.N_c = gd.N_c
         kd = self.kd
         nsym = len(kd.symmetry.op_scc)
 
-        assert len(kpts) == kd.nibzkpts
+        assert len(kpts2) == kd.nibzkpts
 
-        rsk1 = RSKPoint(u1_nR, kpt.proj.broadcast(),
-                        kpt.f_n, kpt.k_c,
-                        kpt.weight)
+        u1_nR = to_real_space(kpt1.psit)
+        proj1 = kpt1.proj.broadcast()
 
-        for k in range(kd.nibzkpts):
-            indices = np.where(kd.bz2ibz_k == k)[0]
-            sindices = (kd.sym_k[indices] +
-                        kd.time_reversal_k[indices] * nsym)
-            q_c = k2.k_c - k1.k_c
-            qd = KPointDescriptor([-q_c])
+        N1 = len(kpt1.psit.array)
+        N2 = len(kpts2[0].psit.array)
 
-            with self.timer('ghat-init'):
+        B = (N2 + size - 1) // size
+        na = min(B * rank, N2)
+        nb = min(na + B, N2)
+
+        e_n = np.zeros(N1)
+        e_nn = np.empty((N1, nb - na))
+
+        for k2, kpt2 in enumerate(kpts2):
+            u2_nR = to_real_space(kpt2.psit, na, nb)
+            rskpt0 = RSKPoint(u2_nR,
+                              kpt2.proj.broadcast().view(na, nb),
+                              kpt2.f_n[na:nb],
+                              kpt2.k_c,
+                              kpt2.weight)
+            for K, k in enumerate(kd.bz2ibz_k):
+                if k != k2:
+                    continue
+                s = kd.sym_k[K] + kd.time_reversal_k[K] * nsym
+                rskpt2 = self.apply_symmetry(s, rskpt0)
+                q_c = rskpt2.k_c - kpt1.k_c
+                qd = KPointDescriptor([-q_c])
                 pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
                 ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
                 ghat.set_positions(self.spos_ac)
+                v_G = self.coulomb.get_potential(pd12)
+                with self.timer('einsum'):
+                    Q_annL = [np.einsum('mi, ijL, nj -> mnL',
+                                        proj1[a],
+                                        Delta_iiL,
+                                        rskpt2.proj[a].conj())
+                              for a, Delta_iiL in enumerate(self.Delta_aiiL)]
+                rho_nG = ghat.pd.empty(nb - na, u1_nR.dtype)
 
-            v_G = self.coulomb.get_potential(pd12)
-                N = len(k2.psit.array)
-                S = self.comm.size
-                B = (N + S - 1) // S
-                na = min(B * self.comm.rank, N)
-                nb = min(na + B, N)
-                u2_nR = to_real_space(k2.psit, na, nb)
-                rsk2 = RSKPoint(u2_nR, k2.proj.broadcast().view(na, nb),
-                                k2.f_n[na:nb], k2.k_c,
-                                k2.weight)
-                lasti2 = i2
+                for n1, u1_R in enumerate(u1_nR):
+                    for u2_R, rho_G in zip(rskpt2.u_nR, rho_nG):
+                        rho_G[:] = ghat.pd.fft(u1_R * u2_R.conj())
 
-            yield i1, i2, s, rsk1, self.apply_symmetry(s, rsk2), count
-            e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                               kpts1[i1].psit.pd,
-                                               kpts2[i2].psit.pd,
-                                               kpts1[i1].psit.kpt,
-                                               kpts2[i2].psit.kpt,
-                                               k1.f_n,
-                                               k2.f_n,
-                                               s,
-                                               count,
-                                               v1_nG, v1_ani,
-                                               v2_nG, v2_ani)
+                    ghat.add(rho_nG,
+                             {a: Q_nnL[n1] for a, Q_nnL in enumerate(Q_annL)})
 
-            e_nn *= count
-            e_n -= e_nn.dot(k2.f_n)
+                    for n2, rho_G in enumerate(rho_nG):
+                        vrho_G = v_G * rho_G
+                        e = ghat.pd.integrate(rho_G, vrho_G).real
+                        e_nn[n1, n2] = e
+                e_n -= e_nn.dot(rskpt2.f_n)
 
-        for i, kpt in enumerate(kpts1):
-            for a, VV_ii in VV_aii.items():
-                P_ni = kpt.proj[a]
-                vv_n = np.einsum('ni, ij, nj -> n',
-                                 P_ni.conj(), VV_ii, P_ni).real
-                vc_n = np.einsum('ni, ij, nj -> n',
-                                 P_ni.conj(), self.VC_aii[a], P_ni).real
-                e_n[i] -= (2 * vv_n + vc_n)
+        for a, VV_ii in VV_aii.items():
+            P_ni = proj1[a]
+            vv_n = np.einsum('ni, ij, nj -> n',
+                             P_ni.conj(), VV_ii, P_ni).real
+            vc_n = np.einsum('ni, ij, nj -> n',
+                             P_ni.conj(), self.VC_aii[a], P_ni).real
+            e_n -= (2 * vv_n + vc_n)
+
+        return e_n / kd.nbzkpts
 
     @timer('EXX.calc')
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
@@ -366,8 +377,8 @@ class EXX:
 
         return e_nn * factor
 
-    def calculate_eigenvalues(self, kpts1, kpts2, coulomb, VV_aii,
-                              e_kn, v_nG=None):
+    def calculate_eigenvalues0(self, kpts1, kpts2, coulomb, VV_aii,
+                               e_kn, v_nG=None):
         pd = kpts1[0].psit.pd
 
         for i1, k1, k2, count in self.ipairs(kpts1, kpts2):
