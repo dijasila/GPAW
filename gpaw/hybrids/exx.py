@@ -129,7 +129,7 @@ class EXX:
                     for n2, rho_G in enumerate(rho_nG):
                         vrho_G = v_G * rho_G
                         e = ghat.pd.integrate(rho_G, vrho_G).real
-                        e_nn[n1, n2] = e
+                        e_nn[n1, n2] = e / kd.nbzkpts
                 e_n -= e_nn.dot(rskpt2.f_n)
 
         for a, VV_ii in VV_aii.items():
@@ -140,7 +140,7 @@ class EXX:
                              P_ni.conj(), self.VC_aii[a], P_ni).real
             e_n -= (2 * vv_n + vc_n)
 
-        return e_n / kd.nbzkpts
+        return e_n
 
     @timer('EXX.calc')
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):

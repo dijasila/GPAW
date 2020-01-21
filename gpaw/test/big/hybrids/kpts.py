@@ -3,6 +3,7 @@ from ase import Atoms
 from ase.units import Ha
 from gpaw import GPAW, PW
 from gpaw.hybrids import HybridXC
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.xc.exx import EXX
 from gpaw.mpi import world, serial_comm
 
@@ -25,9 +26,12 @@ def test(kpts, setup, spinpol, symmetry):
 def check(atoms, xc, i):
     xc1 = HybridXC(xc)
     c = atoms.calc
-    xc1.calculate_eigenvalues(c, 0, 2, None, restart=f'tmp-{i}.json')
+    xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
+    xc1.set_positions(c.spos_ac)
     e = xc1.calculate_energy()
-
+    xc1.calculate_eigenvalues0(0, 2, None)
+    e1, v1, v2 = non_self_consistent_eigenvalues(c, xc, 0, 2, None,
+                                                 f'{i}.txt')
     if world.size > 1:
         c.write('tmp.gpw', 'all')
         c = GPAW('tmp.gpw', communicator=serial_comm, txt=None)
@@ -36,7 +40,12 @@ def check(atoms, xc, i):
     xc2.calculate()
     e0 = xc2.get_exx_energy()
     eps0 = xc2.get_eigenvalue_contributions()
-    print(world.rank, eps0, xc1.e_skn * Ha)
+    # print(world.rank, eps0, xc1.e_skn * Ha)
+    # assert np.allclose(v2, xc1.e_skn * Ha), (v2, xc1.e_skn * Ha, eps0)
+    if not np.allclose(v2, xc1.e_skn * Ha):
+        # print(v2, xc1.e_skn * Ha, eps0)
+        print(abs(v2 - xc1.e_skn * Ha).max())
+        lkjh
     assert np.allclose(eps0, xc1.e_skn * Ha)
     assert np.allclose(e0, e[0] + e[1])
     ecv, evv, v_skn = xc1.test()
@@ -47,7 +56,8 @@ def check(atoms, xc, i):
 def main():
     i = 0
     for spinpol in [False, True]:
-        for setup in ['ae', 'paw']:
+        for setup in ['ae',
+                      'paw']:
             for symmetry in ['off', {}]:
                 for kpts in [(1, 1, 1),
                              (1, 1, 2),
@@ -58,7 +68,7 @@ def main():
                              [(0, 0, 0), (0, 0, 0.5)]]:
                     atoms = test(kpts, setup, spinpol, symmetry)
                     for xc in ['EXX', 'PBE0', 'HSE06']:
-                        print(spinpol, setup, symmetry, kpts, xc,
+                        print(i, spinpol, setup, symmetry, kpts, xc,
                               len(atoms.calc.wfs.mykpts))
                         check(atoms, xc, i)
                         i += 1

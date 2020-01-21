@@ -1,4 +1,3 @@
-import json
 from math import nan
 from typing import Tuple
 from io import StringIO
@@ -340,10 +339,10 @@ class HybridXC:
     def calculate_eigenvalue_contribution(self,
                                           spin,
                                           k,
-                                          n1, n2, nocc) -> np.ndarray:
+                                          n1, n2, nocc,
+                                          VV_aii) -> np.ndarray:
         wfs = self.wfs
         kd = wfs.kd
-        VV_aii = self.calculate_valence_valence_paw_corrections(spin)
         k1 = spin * kd.nibzkpts
         k2 = (spin + 1) * kd.nibzkpts
 
@@ -371,6 +370,50 @@ class HybridXC:
 
     def add_forces(self, F_av):
         pass
+
+    def calculate_eigenvalues0(self, n1, n2, kpts):
+        self._initialize()
+        wfs = self.wfs
+        kd = wfs.kd
+
+        nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
+                   for kpt in wfs.mykpts)
+
+        if kpts is None:
+            kpts = range(len(wfs.mykpts) // wfs.nspins)
+
+        self.e_skn = np.zeros((wfs.nspins, len(kpts), n2 - n1))
+
+        for spin in range(wfs.nspins):
+            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+            K = kd.nibzkpts
+            k1 = spin * K
+            k2 = k1 + K
+            kpts1 = [KPoint(kpt.psit.view(n1, n2),
+                            kpt.projections.view(n1, n2),
+                            kpt.f_n[n1:n2] / kpt.weight,  # scale to [0, 1]
+                            kd.ibzk_kc[kpt.k],
+                            kd.weight_k[kpt.k])
+                     for kpt in (wfs.mykpts[k] for k in kpts)]
+            kpts2 = [KPoint(kpt.psit.view(0, nocc),
+                            kpt.projections.view(0, nocc),
+                            kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
+                            kd.ibzk_kc[kpt.k],
+                            kd.weight_k[kpt.k])
+                     for kpt in wfs.mykpts[k1:k2]]
+            self.xx.calculate(
+                kpts1, kpts2,
+                VV_aii,
+                e_kn=self.e_skn[spin])
+
+        self.xx.comm.sum(self.e_skn)
+        self.e_skn *= self.exx_fraction
+
+        if self.xc:
+            vxc_skn = _vxc(self.xc, self.ham, self.dens, self.wfs) / Ha
+            self.e_skn += vxc_skn[:, kpts, n1:n2]
+
+        return self.e_skn * Ha
 
 
 if __name__ == '__main__':
