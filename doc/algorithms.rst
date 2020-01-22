@@ -5,9 +5,9 @@ Features and algorithms
 =======================
 
 Quick links to all features:
-    
+
 .. list-table::
-    
+
     * - :ref:`Plane-waves <manual_mode>`
       - :ref:`Finite-difference <manual_stencils>`
       - :ref:`LCAO <lcao>`
@@ -23,9 +23,6 @@ Quick links to all features:
     * - :ref:`TDDFT <timepropagation>`
       - :ref:`LRTDDFT (molecules) <lrtddft>`
       - :ref:`LRTDDFT (extended systems) <df_theory>`
-    * - :ref:`Transport <transport_exercise>`
-      - :ref:`NEGF-transport <transport>`
-      - :ref:`Keldysh GF-transport ... <keldyshgf>`
     * - :ref:`RPA-correlation <rpa>`
       - :ref:`GW <gw_theory>`
       - :ref:`BSE <bse theory>`
@@ -72,15 +69,14 @@ Finite-difference (FD):
 Plane-waves (PW):
     Expansion in plane-waves.  There is one cutoff used for the wave-functions
     and a higher cutoff for electron densities and potentials.
-    
+
 Linear combination of atomic orbitals (LCAO):
     Expansion in atom-centered basis functions.
-    
-    
-Multi-grid techniques for FD-mode
+
+
+Grid-based techniques for FD-mode
 =================================
 
-The Poisson equation is solved using a standard multi-grid solver.
 Solving the Kohn-Sham equation is done via iterative multi-grid
 eigensolvers starting from a good guess for the wave functions
 obtained by diagonalizing a Hamiltonian for a subspace of atomic orbitals.
@@ -152,7 +148,6 @@ simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`). ASE provides:
  * Nudged elastic band calculations.
  * Maximally localized Wannier functions.
  * Scanning tunneling microscopy images.
- * Transport calculations.
 
 
 Open Software
@@ -167,24 +162,17 @@ participate in using and :ref:`developing the code <devel>`.
 
 .. figure:: carlsberg.png
     :width: 12cm
-    
+
     September 2003 - August 2005: Sponsored by The `Carlsberg Foundation`_
     (artwork by P. Erhart)
-   
+
 .. _Carlsberg Foundation: http://www.carlsbergfondet.dk
 
 
-.. [Mor05] J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen,
-   Phys. Rev. B, 71 035109 (2005)
-.. [Mor05b] J. J. Mortensen, K. Kaasbjerg, S. L. Frederiksen,
-   J. K. Nørskov, J. P. Sethna, and K. W. Jacobsen,
-   Phys. Rev. Lett. 95, 216401 (2005)
 .. [Blo94] P. E. Blöchl,
    Phys. Rev. B 50, 17953 (1994)
 .. [Blo03] P. E. Blöchl, C. J. Först and J. Schimpl,
    Bull. Mater. Sci, 26, 33 (2003)
-.. [Kre96] G. Kresse and J. Furthmuller,
-   Phys. Rev. B 54, 11169 (1996)
 .. [Bri96] E. L. Briggs, D. J. Sullivan and J. Bernholc,
    Phys. Rev. B 54, 14362 (1996)
 .. [Taf06] *A general and efficient pseudopotential Fourier filtering scheme

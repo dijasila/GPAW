@@ -27,13 +27,13 @@ Set the versions::
   export ase=3.5.1.2175
   export gpaw=0.8.0.8092
   export setups=0.8.7929
-  
+
 and create sh startup script::
 
   cat <<EOF > ${HOME}/opt/campos.sh
   #!/bin/sh
   #
-  export GPAW_PLATFORM=`python -c "from distutils import util, sysconfig; print util.get_platform()+'-'+sysconfig.get_python_version()"`
+  export GPAW_PLATFORM=`python -c "from distutils import util, sysconfig; print(util.get_platform()+'-'+sysconfig.get_python_version())"`
   #
   export LD_LIBRARY_PATH=\${HOME}/opt/acml-${acml}/gfortran64/lib:\${LD_LIBRARY_PATH}
   export LD_LIBRARY_PATH=\${HOME}/opt/CBLAS.acml-${acml}/lib:\${LD_LIBRARY_PATH} # if cblas used

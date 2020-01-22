@@ -24,9 +24,9 @@ the unit cell.  This choice can be overruled, see
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
-with ``--dry-run`` command line option::
+with ``--gpaw dry-run=N`` command line option::
 
-  python script.py --dry-run=8
+    $ python3 script.py --gpaw dry-run=8
 
 The output will contain also the "Calculator" RAM Memory estimate per process.
 
@@ -46,7 +46,7 @@ Simple submit tool
 Instead writing a file with the line "mpirun ... gpaw-python script.py" and
 then submitting it to a queueing system, it is simpler to automate this::
 
-  #!/usr/bin/env python
+  #!/usr/bin/env python3
   from sys import argv
   import os
   options = ' '.join(argv[1:-1])
@@ -90,11 +90,12 @@ By default it uses the following environment variables to write the runscript:
 variable        meaning
 =============== ===================================
 HOSTNAME        name used to assing host type
-PYTHONPATH      path for python
+PYTHONPATH      path for Python
 GPAW_PYTHON     where to find gpaw-python
 GPAW_SETUP_PATH where to find the setups
 GPAW_MAIL       where to send emails about the jobs
 =============== ===================================
+
 
 Writing to files
 ================
@@ -169,8 +170,8 @@ nitrogen molecule using two processes:
 
 .. literalinclude:: parallel_atomization.py
 
-.. _manual_parallelization_types:
 
+.. _manual_parallelization_types:
 .. _manual_parallel:
 
 Parallelization options
@@ -195,25 +196,28 @@ The default value corresponds to this Python dictionary::
    'sl_inverse_cholesky': None,
    'sl_lcao':             None,
    'sl_lrtddft':          None,
+   'use_elpa':            False,
+   'elpasolver':          '2stage',
    'buffer_size':         None}
 
 In words:
 
-* ``'kpt'`` is an integer and denotes the number of groups of k-points over which to parallelize.
-  k-point parallelization is the most efficient type of parallelization for most systems
-  with many electrons and/or many k-points.
-  If unspecified, the calculator will choose a parallelization itself which maximizes the k-point
-  parallelization unless that leads to load imbalance; in that case, it may prioritize domain
-  decomposition.
+* ``'kpt'`` is an integer and denotes the number of groups of k-points over
+  which to parallelize.  k-point parallelization is the most efficient type of
+  parallelization for most systems with many electrons and/or many k-points. If
+  unspecified, the calculator will choose a parallelization itself which
+  maximizes the k-point parallelization unless that leads to load imbalance; in
+  that case, it may prioritize domain decomposition.
 
 * The ``'domain'`` value specifies either an integer ``n`` or a tuple
-  ``(nx,ny,nz)`` of 3 integers for :ref:`domain decomposition <manual_parsize_domain>`.
-  If not specified (i.e. ``None``), the calculator will try to determine the best
-  domain parallelization size based on number of kpoints, spins etc.
+  ``(nx,ny,nz)`` of 3 integers for
+  :ref:`domain decomposition <manual_parsize_domain>`.
+  If not specified (i.e. ``None``), the calculator will try to determine the
+  best domain parallelization size based on number of kpoints, spins etc.
 
-* The ``'band'`` value specifies the number of parallelization groups to use for
-  :ref:`band parallelization <manual_parsize_bands>` and defaults to one, i.e.
-  no band parallelization.
+* The ``'band'`` value specifies the number of parallelization groups to use
+  for :ref:`band parallelization <manual_parsize_bands>` and defaults to one,
+  i.e. no band parallelization.
 
 * ``'order'`` specifies how different parallelization modes are nested
   within the calculator's world communicator.  Must be a permutation
@@ -224,19 +228,31 @@ In words:
   calculations the most efficient order is ``'kdb'`` whereas for TDDFT
   it is ``'kbd'``.
 
-* The ``'stridebands'`` value only applies when band parallelization is used, and
-  can be used to toggle between grouped and strided band distribution.
+* The ``'stridebands'`` value only applies when band parallelization is used,
+  and can be used to toggle between grouped and strided band distribution.
 
-* If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically chosen
-  parameters and using all available CPUs.
+* If ``'sl_auto'`` is ``True``, ScaLAPACK will be enabled with automatically
+  chosen parameters and using all available CPUs.
 
-* The other ``'sl_...'`` values are for using ScaLAPACK with different parameters in different operations.
+* The other ``'sl_...'`` values are for using ScaLAPACK with different
+  parameters in different operations.
   Each can be specified as a tuple ``(m,n,mb)`` of 3 integers to
   indicate an ``m*n`` grid of CPUs and a block size of ``mb``.
   If any of the three latter keywords are not
   specified (i.e. ``None``), they default to the value of
   ``'sl_default'``. Presently, ``'sl_inverse_cholesky'`` must equal
   ``'sl_diagonalize'``.
+
+* If the Elpa library is installed, enable it by setting ``use_elpa``
+  to ``True``.  Elpa will be used to diagonalize the Hamiltonian.  The
+  Elpa distribution relies on BLACS and ScaLAPACK, and hence can only
+  be used alongside ``sl_auto``, ``sl_default``, or a similar keyword.
+  Enabling Elpa is highly recommended as it significantly
+  speeds up the diagonalization step.  See also :ref:`lcao`.
+
+* ``elpasolver`` indicates which solver to use with Elpa.  By default
+  it uses the two-stage solver, ``'2stage'``.  The other allowed value
+  is ``'1stage'``.  This setting will only have effect if Elpa is enabled.
 
 * The ``'buffer_size'``  is specified as an integer and corresponds to
   the size of the buffer in KiB used in the 1D systolic parallel
@@ -314,6 +330,7 @@ More information about these topics can be found here:
 
    band_parallelization/band_parallelization
 
+
 .. _manual_ScaLAPACK:
 
 ScaLAPACK
@@ -335,10 +352,8 @@ benefit from ScaLAPACK; otherwise, the default serial LAPACK might as
 well be used.
 
 The ScaLAPACK parameters
-are defined either using the aforementioned ``'sl_...'`` entry in the parallel
-keyword dictionary (recommended) such as ``sl_default=(m, n, block)``,
-or alternatively using a command line argument such as
-``--sl_default=m,n,block``.
+are defined using the parallel
+keyword dictionary, e.g., ``sl_default=(m, n, block)``.
 
 A block size of 64 has been found to be a universally good choice both
 in all modes.
@@ -368,14 +383,9 @@ possible to use different ScaLAPACK parameters in the LCAO
 initialization and the FD calculation by using two of the ScaLAPACK
 keywords in tandem, e.g::
 
-   --sl_lcao=p,q,pb --sl_default=m,n,mb
+  GPAW(..., parallel={'sl_lcao': (p, q, p), 'sl_default': (m, n, mb)})
 
 where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
-of three ScaLAPACK keywords, e.g::
-
-   --sl_lcao=p,q,pb --sl_diagonalize=m,n,mb  --sl_inverse_cholesky=r,s,rb
-
-however, we do not presently support ``m != r``, ``n != s``,  and
-``mb != rb``.  We may implement this in the future.
-
+of three ScaLAPACK keywords.
+Note that some combinations of keywords may not be supported.

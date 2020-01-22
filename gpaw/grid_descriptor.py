@@ -17,7 +17,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities import mlsqr
-from gpaw.utilities.blas import rk, r2k, gemv, gemm
+from gpaw.utilities.blas import rk, r2k, gemm
 
 import gpaw.cuda
 
@@ -29,6 +29,10 @@ NONBLOCKING = False
 
 
 class GridBoundsError(ValueError):
+    pass
+
+
+class BadGridError(ValueError):
     pass
 
 
@@ -69,7 +73,7 @@ class GridDescriptor(Domain):
 
     ndim = 3  # dimension of ndarrays
 
-    def __init__(self, N_c, cell_cv=(1, 1, 1), pbc_c=True,
+    def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
                  comm=None, parsize_c=None):
         """Construct grid-descriptor object.
 
@@ -86,7 +90,7 @@ class GridDescriptor(Domain):
         parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
 
-        Note that if pbc_c[c] is True, then the actual number of gridpoints
+        Note that if pbc_c[c] is False, then the actual number of gridpoints
         along axis c is one less than N_c[c].
 
         Attributes:
@@ -112,7 +116,7 @@ class GridDescriptor(Domain):
         self.N_c = np.array(N_c, int)
         if (self.N_c != N_c).any():
             raise ValueError('Non-int number of grid points %s' % N_c)
-        
+
         Domain.__init__(self, cell_cv, pbc_c, comm, parsize_c, self.N_c)
         self.rank = self.comm.rank
 
@@ -129,7 +133,10 @@ class GridDescriptor(Domain):
                 n_p[0] = 1
 
             if not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise ValueError('Grid too small!')
+                raise BadGridError('Grid {0} too small for {1} cores!'
+                                   .format('x'.join(str(n) for n in self.N_c),
+                                           'x'.join(str(n) for n
+                                                    in self.parsize_c)))
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
@@ -147,9 +154,9 @@ class GridDescriptor(Domain):
         # Sanity check for grid spacings:
         h_c = self.get_grid_spacings()
         if max(h_c) / min(h_c) > 1.3:
-            raise ValueError('Very anisotropic grid spacings: %s' % h_c)
+            raise BadGridError('Very anisotropic grid spacings: %s' % h_c)
 
-    def __str__(self):
+    def __repr__(self):
         if self.orthogonal:
             cellstring = np.diag(self.cell_cv).tolist()
         else:
@@ -183,20 +190,20 @@ class GridDescriptor(Domain):
 
     def coords(self, c, pad=True):
         """Return coordinates along one of the three axes.
-        
+
         Useful for plotting::
-            
+
             import matplotlib.pyplot as plt
             plt.plot(gd.coords(0), data[:, 0, 0])
             plt.show()
-            
+
         """
         L = np.linalg.norm(self.cell_cv[c])
         N = self.N_c[c]
         h = L / N
         p = self.pbc_c[c] or pad
         return np.linspace((1 - p) * h, L, N - 1 + p, False)
-        
+
     def get_grid_spacings(self):
         L_c = (np.linalg.inv(self.cell_cv)**2).sum(0)**-0.5
         return L_c / self.N_c
@@ -210,7 +217,7 @@ class GridDescriptor(Domain):
     def flat_index(self, G_c):
         g1, g2, g3 = G_c - self.beg_c
         return g3 + self.n_c[2] * (g2 + g1 * self.n_c[1])
-    
+
     def get_slice(self):
         return [slice(b - 1 + p, e - 1 + p) for b, e, p in
                 zip(self.beg_c, self.end_c, self.pbc_c)]
@@ -225,7 +232,7 @@ class GridDescriptor(Domain):
         ``global_array=True``."""
 
         return self._new_array(n, dtype, True, global_array, pad, cuda=cuda)
-    
+
     def empty(self, n=(), dtype=float, global_array=False, pad=False,
               cuda=False):
         """Return new uninitialized 3D array for this domain.
@@ -236,14 +243,14 @@ class GridDescriptor(Domain):
         ``global_array=True``."""
 
         return self._new_array(n, dtype, False, global_array, pad, cuda=cuda)
-        
+
     def _new_array(self, n=(), dtype=float, zero=True,
                    global_array=False, pad=False, cuda=False):
         if global_array:
             shape = self.get_size_of_global_array(pad)
         else:
             shape = self.n_c
-            
+
         if isinstance(n, numbers.Integral):
             n = (n,)
 
@@ -270,7 +277,7 @@ class GridDescriptor(Domain):
             peer_ranks.append(self.get_rank_from_processor_position(pos_c))
         peer_comm = self.comm.new_communicator(peer_ranks)
         return peer_comm
-        
+
     def integrate(self, a_xg, b_yg=None,
                   global_integral=True, hermitian=False,
                   _transposed_result=None):
@@ -289,7 +296,7 @@ class GridDescriptor(Domain):
         _transposed_result: ndarray
             Long story.  Don't use this unless you are a method of the
             MatrixOperator class ..."""
-        
+
         xshape = a_xg.shape[:-3]
 
         assert(not isinstance(_transposed_result, gpaw.cuda.gpuarray.GPUArray))
@@ -335,31 +342,23 @@ class GridDescriptor(Domain):
                 r2k(0.5 * self.dv, A_xg, B_yg, 0.0, result_yx)
             else:
                 gemm(self.dv, A_xg, B_yg, 0.0, result_yx, 'c')
-        
+
         if global_integral:
             self.comm.sum(result_yx)
 
         yshape = b_yg.shape[:-3]
         result = result_yx.T.reshape(xshape + yshape)
-        
+
         if result.ndim == 0:
             return result.item()
         else:
             return result
 
-    def gemm(self, alpha, psit_nG, C_mn, beta, newpsit_mG):
-        """Helper function for MatrixOperator class."""
-        gemm(alpha, psit_nG, C_mn, beta, newpsit_mG, hybrid=True)
-
-    def gemv(self, alpha, psit_nG, C_n, beta, newpsit_G, trans='t'):
-        """Helper function for CG eigensolver."""
-        gemv(alpha, psit_nG, C_n, beta, newpsit_G, trans)
-
     def coarsen(self):
         """Return coarsened `GridDescriptor` object.
 
         Reurned descriptor has 2x2x2 fewer grid points."""
-        
+
         if np.sometrue(self.N_c % 2):
             raise ValueError('Grid %s not divisible by 2!' % self.N_c)
 
@@ -370,7 +369,7 @@ class GridDescriptor(Domain):
 
         Returned descriptor has 2x2x2 more grid points."""
         return self.new_descriptor(self.N_c * 2)
-    
+
     def get_boxes(self, spos_c, rcut, cut=True):
         """Find boxes enclosing sphere."""
         N_c = self.N_c
@@ -394,25 +393,25 @@ class GridDescriptor(Domain):
                            'Beg. of box %s, end of box %s, max box size %s' %
                            (tuple(spos_c) + (beg_c, end_c, self.N_c)))
                     raise GridBoundsError(msg)
-                    
+
         range_c = ([], [], [])
-        
+
         for c in range(3):
             b = beg_c[c]
             e = b
-            
+
             while e < end_c[c]:
                 b0 = b % N_c[c]
-               
+
                 e = min(end_c[c], b + N_c[c] - b0)
 
                 if b0 < self.beg_c[c]:
                     b1 = b + self.beg_c[c] - b0
                 else:
                     b1 = b
-                    
+
                 e0 = b0 - b + e
-                              
+
                 if e0 > self.end_c[c]:
                     e1 = e - (e0 - self.end_c[c])
                 else:
@@ -420,7 +419,7 @@ class GridDescriptor(Domain):
                 if e1 > b1:
                     range_c[c].append((b1, e1))
                 b = e
-        
+
         boxes = []
 
         for b0, e0 in range_c[0]:
@@ -442,7 +441,7 @@ class GridDescriptor(Domain):
 
     def get_nearest_grid_point(self, spos_c, force_to_this_domain=False):
         """Return index of nearest grid point.
-        
+
         The nearest grid point can be on a different CPU than the one the
         nucleus belongs to (i.e. return can be negative, or larger than
         gd.end_c), in which case something clever should be done.
@@ -476,10 +475,10 @@ class GridDescriptor(Domain):
         # XXXX documentation missing.  This is some kind of array then?
         if len(op_scc) == 1:
             return
-        
+
         if ft_sc is not None and not ft_sc.any():
             ft_sc = None
-            
+
         A_g = self.collect(a_g)
         if self.comm.rank == 0:
             B_g = np.zeros_like(A_g)
@@ -492,11 +491,14 @@ class GridDescriptor(Domain):
             B_g = None
         self.distribute(B_g, a_g)
         a_g /= len(op_scc)
-    
-    def collect(self, a_xg, broadcast=False):
+
+    def collect(self, a_xg, out=None, broadcast=False):
         """Collect distributed array to master-CPU or all CPU's."""
         if self.comm.size == 1:
-            return a_xg
+            if out is None:
+                return a_xg
+            out[:] = a_xg
+            return out
 
         xshape = a_xg.shape[:-3]
 
@@ -510,11 +512,14 @@ class GridDescriptor(Domain):
                 self.comm.broadcast(A_xg, 0)
                 return A_xg
             else:
-                return None
+                return np.nan
 
         # Put the subdomains from the slaves into the big array
         # for the whole domain:
-        A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        if out is None:
+            A_xg = self.empty(xshape, a_xg.dtype, global_array=True)
+        else:
+            A_xg = out
         parsize_c = self.parsize_c
         r = 0
         for n0 in range(parsize_c[0]):
@@ -534,7 +539,7 @@ class GridDescriptor(Domain):
             self.comm.broadcast(A_xg, 0)
         return A_xg
 
-    def distribute(self, B_xg, b_xg):
+    def distribute(self, B_xg, out=None):
         """Distribute full array B_xg to subdomains, result in b_xg.
 
         B_xg is not used by the slaves (i.e. it should be None on all slaves)
@@ -542,7 +547,9 @@ class GridDescriptor(Domain):
         """
 
         if self.comm.size == 1:
-            if isinstance(b_xg, gpaw.cuda.gpuarray.GPUArray):
+            if out is None:
+                return B_xg
+            elif isinstance(out, gpaw.cuda.gpuarray.GPUArray):
                 if isinstance(B_xg, gpaw.cuda.gpuarray.GPUArray):
                     B_xg_gpu = B_xg
                 else:
@@ -550,12 +557,14 @@ class GridDescriptor(Domain):
                 gpaw.cuda.drv.memcpy_dtod(b_xg.gpudata, B_xg_gpu.gpudata,
                                           B_xg_gpu.nbytes)
             else:
-                b_xg[:] = B_xg
-            return
-        
+                out[:] = B_xg
+            return out
+
+        if out is None:
+            out = self.empty(B_xg.shape[:-3], dtype=B_xg.dtype)
+
         if self.rank != 0:
-            self.comm.receive(b_xg, 0, 42)
-            return
+            self.comm.receive(out, 0, 42)
         else:
             parsize_c = self.parsize_c
             requests = []
@@ -574,12 +583,14 @@ class GridDescriptor(Domain):
                             # deallocated:
                             requests.append((request, a_xg))
                         else:
-                            b_xg[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
+                            out[:] = B_xg[..., b0:e0, b1:e1, b2:e2]
                         r += 1
-                        
+
             for request, a_xg in requests:
                 self.comm.wait(request)
-        
+
+        return out
+
     def zero_pad(self, a_xg, global_array=True):
         """Pad array with zeros as first element along non-periodic directions.
 
@@ -610,13 +621,15 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
-    def calculate_dipole_moment(self, rho_g):
+    def calculate_dipole_moment(self, rho_g, center=False):
         """Calculate dipole moment of density."""
+        r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]
+        if center:
+            r_cz = [r_cz[c] - 0.5 * self.N_c[c] for c in range(3)]
         rho_01 = rho_g.sum(axis=2)
         rho_02 = rho_g.sum(axis=1)
-        rho_cg = [rho_01.sum(axis=1), rho_01.sum(axis=0), rho_02.sum(axis=0)]
-        rhog_c = [np.dot(np.arange(self.beg_c[c], self.end_c[c]), rho_cg[c])
-                  for c in range(3)]
+        rho_cz = [rho_01.sum(axis=1), rho_01.sum(axis=0), rho_02.sum(axis=0)]
+        rhog_c = [np.dot(r_cz[c], rho_cz[c]) for c in range(3)]
         d_c = -np.dot(rhog_c, self.h_cv) * self.dv
         self.comm.sum(d_c)
         return d_c
@@ -629,7 +642,7 @@ class GridDescriptor(Domain):
             ~       ~     -i G.r   ~
             Z   = <psi | e      |psi >
              nm       n             m
-                    
+
         psit_nG and psit_nG1 are the set of wave functions for the two
         different spin/kpoints in question.
 
@@ -658,7 +671,7 @@ class GridDescriptor(Domain):
             z = self.integrate(a_R, np.exp(2j * pi / L * r_R))
             center.append(np.angle(z) / (2 * pi) * L % L)
         return np.array(center)
-        
+
     def bytecount(self, dtype=float):
         """Get the number of bytes used by a grid of specified dtype."""
         return int(np.prod(self.n_c)) * np.array(1, dtype).itemsize
@@ -681,16 +694,19 @@ class GridDescriptor(Domain):
         """
         s_Gc = (np.indices(self.n_c, dtype).T + self.beg_c) / self.N_c
         cell_cv = self.N_c * self.h_cv
-        s_Gc -= np.linalg.solve(cell_cv.T, r_v)
-        
+        r_c = np.linalg.solve(cell_cv.T, r_v)
+        # do the correction twice works better because of rounding errors
+        # e.g.: -1.56250000e-25 % 1.0 = 1.0,
+        #      but (-1.56250000e-25 % 1.0) % 1.0 = 0.0
+        r_c = np.where(self.pbc_c, r_c % 1.0, r_c)
+        s_Gc -= np.where(self.pbc_c, r_c % 1.0, r_c)
+
         if mic:
-            # XXX do the correction twice works better
-            s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             s_Gc -= self.pbc_c * (2 * s_Gc).astype(int)
             # sanity check
             assert((s_Gc * self.pbc_c >= -0.5).all())
             assert((s_Gc * self.pbc_c <= 0.5).all())
-                
+
         return np.dot(s_Gc, cell_cv).T.copy()
 
     def interpolate_grid_points(self, spos_nc, vt_g, target_n, use_mlsqr=True):
@@ -701,7 +717,7 @@ class GridDescriptor(Domain):
 
         Uses moving least squares algorithm by default, or otherwise
         trilinear interpolation.
-        
+
         This doesn't work in parallel, since it would require
         communication between neighbouring grid.  """
 

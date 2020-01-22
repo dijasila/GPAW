@@ -1,7 +1,7 @@
 from ase.constraints import FixAtoms
 from ase.optimize import QuasiNewton
 from ase.calculators.emt import EMT
-from ase.lattice.surface import fcc100, add_adsorbate
+from ase.build import fcc100, add_adsorbate
 
 from gpaw import GPAW, PW
 

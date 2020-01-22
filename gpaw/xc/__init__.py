@@ -1,11 +1,13 @@
 from __future__ import print_function
-
 import warnings
+
+from ase.utils import basestring
 
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
 from gpaw.xc.mgga import MGGA
+from gpaw.xc.noncollinear import NonCollinearLDAKernel
 
 from threading import Thread
 
@@ -15,16 +17,28 @@ class XCThread(Thread):
         self.xc = xc
 
     def run(self):
-        self.Exc = self.xc.calculate(*self._Thread__args, only_local=True)
+        self.xc.calculate_impl(*self._args)
 
     def join(self):
         Thread.join(self)
-        return self.Exc
 
-def XC(kernel, parameters=None):
+def xc_string_to_dict(string):
+    """Convert XC specification string to dictionary.
+
+    'name:key1=value1:...' -> {'name': <name>, key1: value1, ...}."""
+    tokens = string.split(':')
+
+    d = {'name': tokens[0]}
+    for token in tokens[1:]:
+        kw, val = token.split('=')
+        d[kw] = val
+    return d
+
+
+def XC(kernel, parameters=None, atoms=None, collinear=True):
     """Create XCFunctional object.
 
-    kernel: XCKernel object or str
+    kernel: XCKernel object, dict or str
         Kernel object or name of functional.
     parameters: ndarray
         Parameters for BEE functional.
@@ -35,19 +49,38 @@ def XC(kernel, parameters=None):
     GGA_X_PBE+GGA_C_PBE is equivalent to PBE, and LDA_X to the LDA exchange.
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
-    
-    if isinstance(kernel, str):
-        name = kernel
+
+    if isinstance(kernel, basestring):
+        kernel = xc_string_to_dict(kernel)
+
+    kwargs = {}
+    if isinstance(kernel, dict):
+        kwargs = kernel.copy()
+        name = kwargs.pop('name')
+        backend = kwargs.pop('backend', None)
+
+        if backend == 'libvdwxc' or name == 'vdW-DF-cx':
+            # Must handle libvdwxc before old vdw implementation to override
+            # behaviour for 'name'.  Also, cx is not implemented by the old
+            # vdW module, so that always refers to libvdwxc.
+            from gpaw.xc.libvdwxc import get_libvdwxc_functional
+            return get_libvdwxc_functional(name=name, **kwargs)
+
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
             from gpaw.xc.vdw import VDWFunctional
-            return VDWFunctional(name)
-        elif name in ['EXX', 'PBE0', 'B3LYP']:
+            return VDWFunctional(name, **kwargs)
+        elif name in ['EXX', 'PBE0', 'B3LYP',
+                      'CAMY-BLYP', 'CAMY-B3LYP', 'LCY-BLYP', 'LCY-PBE']:
             from gpaw.xc.hybrid import HybridXC
-            return HybridXC(name)
+            return HybridXC(name, **kwargs)
+        elif name.startswith('LCY-') or name.startswith('CAMY-'):
+            parts = name.split('(')
+            from gpaw.xc.hybrid import HybridXC
+            return HybridXC(parts[0], omega=float(parts[1][:-1]))
         elif name in ['HSE03', 'HSE06']:
             from gpaw.xc.exx import EXX
-            return EXX(name)
+            return EXX(name, **kwargs)
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)
@@ -57,6 +90,7 @@ def XC(kernel, parameters=None):
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 NonLocalFunctionalFactory
+            # Pass kwargs somewhere?
             xc = NonLocalFunctionalFactory().get_functional_by_name(name)
             xc.print_functional()
             return xc
@@ -65,17 +99,17 @@ def XC(kernel, parameters=None):
             kernel = LB94()
         elif name == 'TB09':
             from gpaw.xc.tb09 import TB09
-            return TB09()
+            return TB09(**kwargs)
         elif name.startswith('ODD_'):
             from ODD import ODDFunctional
-            return ODDFunctional(name[4:])
+            return ODDFunctional(name[4:], **kwargs)
         elif name.endswith('PZ-SIC'):
             try:
                 from ODD import PerdewZungerSIC as SIC
-                return SIC(xc=name[:-7])
+                return SIC(xc=name[:-7], **kwargs)
             except:
                 from gpaw.xc.sic import SIC
-                return SIC(xc=name[:-7])
+                return SIC(xc=name[:-7], **kwargs)
         elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
             if name == 'M06L':
                 name = 'M06-L'
@@ -97,19 +131,31 @@ def XC(kernel, parameters=None):
         elif name[0].isdigit():
             from gpaw.xc.parametrizedxc import ParametrizedKernel
             kernel = ParametrizedKernel(name)
+        elif name == 'null':
+            from gpaw.xc.kernel import XCNull
+            kernel = XCNull()
+        elif name == 'QNA':
+            from gpaw.xc.qna import QNA
+            return QNA(atoms, kernel['parameters'], kernel['setup_name'],
+                       alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
         else:
-            kernel = LibXC(kernel)
-    if kernel.type == 'LDA':
-        return LDA(kernel)
-    elif kernel.type == 'GGA':
-        return GGA(kernel)
-    else:
-        return MGGA(kernel)
+            kernel = LibXC(name)
 
-        
+    if kernel.type == 'LDA':
+        if not collinear:
+            kernel = NonCollinearLDAKernel(kernel)
+        xc = LDA(kernel, **kwargs)
+        return xc
+
+    elif kernel.type == 'GGA':
+        return GGA(kernel, **kwargs)
+    else:
+        return MGGA(kernel, **kwargs)
+
+
 def xc(filename, xc, ecut=None):
     """Calculate non self-consitent energy.
-    
+
     filename: str
         Name of restart-file.
     xc: str

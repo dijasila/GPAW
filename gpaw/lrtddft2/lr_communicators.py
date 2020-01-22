@@ -81,9 +81,8 @@ class LrCommunicators:
     def initialize(self, calc):
         if self.parent_comm is None:
             if calc is not None:
-                # extra wrapper in calc so we need double parent
-                self.dd_comm = self.calc.density.gd.comm
-                self.parent_comm = self.dd_comm.parent.parent
+                self.dd_comm = calc.density.gd.comm
+                self.parent_comm = self.dd_comm.parent
                 if self.parent_comm.size != self.dd_comm.size:
                     raise RuntimeError('Invalid communicators in LrTDDFT2. Ground state calculator domain decomposition communicator and its parent (or actually its parent parent) has different size. Please set up LrCommunicators explicitly to avoid this. Or contact developers if this is intentional.')
                 self.eh_comm = gpaw.mpi.serial_comm

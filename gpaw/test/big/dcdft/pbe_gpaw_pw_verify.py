@@ -1,7 +1,5 @@
 import csv
 
-import numpy as np
-
 from gpaw.test.big.dcdft.pbe_gpaw_pw import tag
 
 # calculated with pw=1200, k-point-density=8, width=0.06, fit=(5, 0.02)

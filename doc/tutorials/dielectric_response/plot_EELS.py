@@ -1,3 +1,4 @@
+# Creates: graphite_EELS.png
 import numpy as np
 import matplotlib.pyplot as plt
 

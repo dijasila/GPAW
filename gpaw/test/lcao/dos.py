@@ -1,7 +1,7 @@
 # Check that the LCAODOS works.
 
 from gpaw import GPAW
-from ase.structure import molecule
+from ase.build import molecule
 #import pylab as pl
 
 system = molecule('H2O')
@@ -17,7 +17,7 @@ calc = GPAW(mode='lcao', basis='dzp', h=0.3, xc='oldLDA',
 system.set_calculator(calc)
 system.get_potential_energy()
 
-from gpaw.utilities.dos import LCAODOS, fold
+from gpaw.utilities.dos import LCAODOS
 # Use RestartLCAODOS if you just restarted from a file.
 # Requires one diagonalization though!
 

@@ -3,16 +3,16 @@ class NonLocalFunctionalFactory:
 
     NonLocalFunctionalFactory is used by xc_functional.py, when the
     functional starts with words GLLB.
-    
+
     It contains a method called get_functional_by_name, which takes
     the xc-name for non-local functional and returns the corresponding
-    NonLocalFunctional object. 
+    NonLocalFunctional object.
 
     * GLLB
     * GLLBC (GLLB with screening part from PBE + PBE Correlation)
     * GLLBSC (GLLB with screening part from PBE_SOL + PBE Correlation)
 
-    
+
     * GLLBNORESP (Just GLLB Screening)
     * GLLBLDA (A test functional, which is just LDA but via
                NonLocalFunctional framework)
@@ -21,11 +21,9 @@ class NonLocalFunctionalFactory:
     """
 
     def get_functional_by_name(self, name):
-        print("Functional name", name)
-
         from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
         functional = NonLocalFunctional(name)
-        
+
         if name == 'GLLB':
             # Functional GLLB
             # Contains screening part from GGA functional
@@ -63,7 +61,7 @@ class NonLocalFunctionalFactory:
                 'GGA_X_PBE_SOL', metallic=True).get_coefficient_calculator())
             C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
             return functional
-        
+
         elif name == 'GLLBC':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
             from gpaw.xc.gllb.c_response import C_Response
@@ -105,4 +103,3 @@ class NonLocalFunctionalFactory:
             return functional
         else:
             raise RuntimeError('Unkown NonLocal density functional: ' + name)
-

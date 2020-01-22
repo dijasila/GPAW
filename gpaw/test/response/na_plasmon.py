@@ -26,6 +26,7 @@ a2 = Atoms('Na2',
            pbc=True)
 
 a1.calc = GPAW(gpts=(10, 10, 10),
+               experimental={'niter_fixdensity': 2},
                mode=PW(300),
                kpts={'size': (8, 8, 8), 'gamma': True},
                parallel={'band': 1},
@@ -34,6 +35,7 @@ a1.calc = GPAW(gpts=(10, 10, 10),
 
 # Kpoint sampling should be halved in the expanded direction.
 a2.calc = GPAW(gpts=(20, 10, 10),
+               experimental={'niter_fixdensity': 2},
                mode=PW(300),
                kpts={'size': (4, 8, 8), 'gamma': True},
                parallel={'band': 1},
@@ -51,22 +53,16 @@ a1.calc.write('gs_Na_small.gpw', 'all')
 a2.calc.write('gs_Na_large.gpw', 'all')
 
 # Settings that should yield the same result
-settings = [{'disable_point_group': True, 'disable_time_reversal': True,
-             'use_more_memory': 0},
-            {'disable_point_group': False, 'disable_time_reversal': True,
-             'use_more_memory': 0},
-            {'disable_point_group': True, 'disable_time_reversal': False,
-             'use_more_memory': 0},
-            {'disable_point_group': False, 'disable_time_reversal': False,
-             'use_more_memory': 0},
-            {'disable_point_group': False, 'disable_time_reversal': False,
-             'use_more_memory': 1}]
+settings = [{'disable_point_group': True, 'disable_time_reversal': True},
+            {'disable_point_group': False, 'disable_time_reversal': True},
+            {'disable_point_group': True, 'disable_time_reversal': False},
+            {'disable_point_group': False, 'disable_time_reversal': False}]
 
 # Test block parallelization (needs scalapack)
 if world.size > 1 and compiled_with_sl():
     settings.append({'disable_point_group': False,
                      'disable_time_reversal': False,
-                     'use_more_memory': 1, 'nblocks': 2})
+                     'nblocks': 2})
 
 # Calculate the dielectric functions
 dfs0 = []  # Arrays to check for self-consistency
@@ -83,6 +79,7 @@ for kwargs in settings:
 
     df1 = DielectricFunction('gs_Na_small.gpw',
                              domega0=0.03,
+                             omegamax=10,
                              ecut=150,
                              name='chi0',
                              **kwargs)
@@ -98,6 +95,7 @@ for kwargs in settings:
     
     df2 = DielectricFunction('gs_Na_large.gpw',
                              domega0=0.03,
+                             omegamax=10,
                              ecut=150,
                              name='chi1',
                              **kwargs)

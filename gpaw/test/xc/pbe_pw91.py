@@ -23,7 +23,6 @@ def f1(xc, rs, s):
     na = 2 * n
     third = 1.0 / 3.0
     kF = (3 * pi**2 * n)**third
-    rsa = (3 / pi / 4 / na)**third
     a2 = (2 * kF * n * s)**2
     e = np.zeros(1)
     xc.calculate(e,

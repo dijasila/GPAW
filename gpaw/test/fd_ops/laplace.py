@@ -4,7 +4,6 @@ import numpy as np
 from gpaw.fd_operators import GUCLaplace as Laplace
 from gpaw.fd_operators import Gradient
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.mpi import size
 
 cells = [
     ('distorted hexagonal', 4,
@@ -64,7 +63,7 @@ for name, D, cell in cells:
     print(cell[0])
     print(cell[1])
     print(cell[2])
-    for n in range(1, 6):
+    for n in range(1, 5):
         N = 2 * n + 2
         gd = GridDescriptor((N, N, N), cell)
         b_g = gd.zeros()
@@ -74,6 +73,7 @@ for name, D, cell in cells:
         lap = Laplace(gd, n=n)
         grad_v = [Gradient(gd, v, n=n) for v in range(3)]
         assert lap.npoints == D * 2 * n + 1
+        print([g.npoints for g in grad_v], n, D)
         for m in range(0, 2 * n + 1):
             for ix in range(m + 1):
                 for iy in range(m - ix + 1):

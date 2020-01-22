@@ -1,11 +1,11 @@
 from __future__ import print_function
 
-import os
+import numpy as np
 from ase import Atom, Atoms
+
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.wannier import Wannier
-import numpy as np
 
 # GPAW wannier example for ethylene corresponding to the ASE Wannier
 # tutorial.

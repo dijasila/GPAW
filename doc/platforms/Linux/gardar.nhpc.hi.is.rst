@@ -23,7 +23,7 @@ Setup the root directory::
   mkdir -p ${APPHOME}
   cd ${APPHOME}
 
-  export GPAW_PLATFORM=`python -c "from distutils import util, sysconfig; print util.get_platform()+'-'+sysconfig.get_python_version()"`
+  export GPAW_PLATFORM=`python -c "from distutils import util, sysconfig; print(util.get_platform()+'-'+sysconfig.get_python_version())"`
 
 Download software::
 

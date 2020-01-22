@@ -1,5 +1,5 @@
 from gpaw.solvation.cavity import get_pbc_positions
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import Bohr
 import numpy as np
 

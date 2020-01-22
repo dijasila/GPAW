@@ -1,5 +1,5 @@
 from ase import Atom, Atoms
-from gpaw import GPAW, PW
+from gpaw import GPAW
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.mpi import size
 from gpaw.test import equal

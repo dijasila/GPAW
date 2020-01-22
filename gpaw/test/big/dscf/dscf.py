@@ -1,7 +1,7 @@
 from __future__ import print_function
 from ase.io import read
 from gpaw import GPAW
-from gpaw import dscf
+import gpaw.dscf as dscf
 from gpaw.mixer import MixerSum
 from numpy import reshape, dot
 from gpaw.test import equal

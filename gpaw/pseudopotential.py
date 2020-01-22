@@ -1,12 +1,56 @@
 import numpy as np
 
 from gpaw.atom.atompaw import AtomPAW
-from gpaw.utilities import erf
-from gpaw.setup import BaseSetup
-from gpaw.spline import Spline
+from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
+from gpaw.setup import BaseSetup, LocalCorrectionVar
+from gpaw.spline import Spline
+from gpaw.utilities import erf, divrl, hartree as hartree_solve
+
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])
+
+
+# XXX Not used at the moment; see comment below about rgd splines.
+def projectors_to_splines(rgd, l_j, pt_jg, filter=None):
+    # This function exists because both HGH and SG15 needs to do
+    # exactly the same thing.
+    #
+    # XXX equal-range projectors still required for some reason
+    maxlen = max([len(pt_g) for pt_g in pt_jg])
+    pt_j = []
+    for l, pt1_g in zip(l_j, pt_jg):
+        pt2_g = np.zeros(maxlen)
+        pt2_g[:len(pt1_g)] = pt1_g
+        if filter is not None:
+            filter(rgd, rgd.r_g[maxlen], pt2_g, l=l)
+        pt2_g = divrl(pt2_g, l, rgd.r_g[:maxlen])
+        spline = rgd.spline(pt2_g, rgd.r_g[maxlen - 1], l=l)
+        pt_j.append(spline)
+    return pt_j
+
+
+# XXX not used at the moment
+def local_potential_to_spline(rgd, vbar_g, filter=None):
+    vbar_g = vbar_g.copy()
+    rcut = rgd.r_g[len(vbar_g) - 1]
+    if filter is not None:
+        filter(rgd, rcut, vbar_g, l=0)
+    # vbar = Spline(0, rcut, vbar_g)
+    vbar = rgd.spline(vbar_g, rgd.r_g[len(vbar_g) - 1], l=0)
+    return vbar
+
+
+def get_radial_hartree_energy(r_g, rho_g):
+    """Get energy of l=0 compensation charge on equidistant radial grid."""
+
+    # At least in some cases the zeroth point is moved to 1e-8 or so to
+    # prevent division by zero and the like, so:
+    dr = r_g[2] - r_g[1]
+    rho_r_dr_g = dr * r_g * rho_g
+    vh_r_g = np.zeros(len(r_g))  # "r * vhartree"
+    hartree_solve(0, rho_r_dr_g, r_g, vh_r_g)
+    return 2.0 * np.pi * (rho_r_dr_g * vh_r_g).sum()
 
 
 def screen_potential(r, v, charge, rcut=None, a=None):
@@ -14,7 +58,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
 
     The potential v is a long-ranted potential with the asymptotic form Z/r
     corresponding to the given charge.
-    
+
     Return a potential vscreened and charge distribution rhocomp such that
 
       v(r) = vscreened(r) + vHartree[rhocomp](r).
@@ -22,7 +66,7 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     The returned quantities are truncated to a reasonable cutoff radius.
     """
     vr = v * r + charge
-    
+
     if rcut is None:
         err = 0.0
         i = len(vr)
@@ -37,13 +81,14 @@ def screen_potential(r, v, charge, rcut=None, a=None):
     else:
         icut = np.searchsorted(r, rcut)
     rcut = r[icut]
-    rshort = r[:icut]
+    rshort = r[:icut].copy()
+    if rshort[0] < 1e-16:
+        rshort[0] = 1e-10
 
     if a is None:
-        a = rcut / 5.0 # XXX why is this so important?
+        a = rcut / 5.0  # XXX why is this so important?
     vcomp = np.zeros_like(rshort)
-    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort.clip(1e-10,
-                                                                    np.inf)
+    vcomp = charge * erf(rshort / (np.sqrt(2.0) * a)) / rshort
     # XXX divide by r
     rhocomp = charge * (np.sqrt(2.0 * np.pi) * a)**(-3) * \
         np.exp(-0.5 * (rshort / a)**2)
@@ -58,7 +103,7 @@ def figure_out_valence_states(ppdata):
     chemical_symbol = chemical_symbols[ppdata.Z]
     Z, config = configurations[chemical_symbol]
     assert Z == ppdata.Z
-    
+
     # Okay, we need to figure out occupations f_ln when we don't know
     # any info about existing states on the pseudopotential.
     #
@@ -83,7 +128,7 @@ def figure_out_valence_states(ppdata):
             elif nelectrons >= ncore:
                 raise ValueError('Cannot figure out what states should exist '
                                  'on this pseudopotential.')
-    
+
     f_ln = {}
     l_j = []
     f_j = []
@@ -101,11 +146,9 @@ def figure_out_valence_states(ppdata):
 def generate_basis_functions(ppdata):
     class SimpleBasis(Basis):
         def __init__(self, symbol, l_j):
-            Basis.__init__(self, symbol, 'simple', readxml=False)
+            rgd = EquidistantRadialGridDescriptor(0.02, 160)
+            Basis.__init__(self, symbol, 'simple', readxml=False, rgd=rgd)
             self.generatordata = 'simple'
-            self.d = 0.02
-            self.ng = 160
-            rgd = self.get_grid_descriptor()
             bf_j = self.bf_j
             rcgauss = rgd.r_g[-1] / 3.0
             gauss_g = np.exp(-(rgd.r_g / rcgauss)**2.0)
@@ -113,22 +156,22 @@ def generate_basis_functions(ppdata):
                 phit_g = rgd.r_g**l * gauss_g
                 norm = (rgd.integrate(phit_g**2) / (4 * np.pi))**0.5
                 phit_g /= norm
-                bf = BasisFunction(l, rgd.r_g[-1], phit_g, 'gaussian')
+                bf = BasisFunction(None, l, rgd.r_g[-1], phit_g, 'gaussian')
                 bf_j.append(bf)
-    #l_orb_j = [state.l for state in self.data['states']]
+    # l_orb_j = [state.l for state in self.data['states']]
     b1 = SimpleBasis(ppdata.symbol, ppdata.l_orb_j)
     apaw = AtomPAW(ppdata.symbol, [ppdata.f_ln], h=0.05, rcut=9.0,
                    basis={ppdata.symbol: b1},
                    setups={ppdata.symbol: ppdata},
                    maxiter=60,
-                   lmax=0, txt=None)
+                   txt=None)
     basis = apaw.extract_basis_functions()
     return basis
 
 
 def pseudoplot(pp, show=True):
     import pylab as pl
-    
+
     fig = pl.figure()
     wfsax = fig.add_subplot(221)
     ptax = fig.add_subplot(222)
@@ -154,7 +197,7 @@ def pseudoplot(pp, show=True):
 
     r, y = spline2grid(pp.vbar)
     vax.plot(r, y, label='vbar')
-    
+
     vax.set_ylabel('potential')
     rhoax.set_ylabel('density')
     wfsax.set_ylabel('wfs')
@@ -168,7 +211,7 @@ def pseudoplot(pp, show=True):
 
 
 class PseudoPotential(BaseSetup):
-    def __init__(self, data, basis=None):
+    def __init__(self, data, basis=None, filter=None):
         self.data = data
 
         self.R_sii = None
@@ -191,13 +234,16 @@ class PseudoPotential(BaseSetup):
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
+        # self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
+        #                                   filter=filter)
         self.pt_j = data.get_projectors()
+
         if len(self.pt_j) == 0:
-            assert False # not sure yet about the consequences of
+            assert False  # not sure yet about the consequences of
             # cleaning this up in the other classes
             self.l_j = [0]
             self.pt_j = [null_spline]
-        
+
         if basis is None:
             basis = data.create_basis_functions()
         self.phit_j = basis.tosplines()
@@ -213,11 +259,19 @@ class PseudoPotential(BaseSetup):
         self.xc_correction = None
 
         r, l_comp, g_comp = data.get_compensation_charge_functions()
+        assert l_comp == [0]  # Presumably only spherical charges
         self.ghat_l = [Spline(l, r[-1], g) for l, g in zip(l_comp, g_comp)]
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
+        # self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
+        #                                      filter=filter)
         self.vbar = data.get_local_potential()
+        # XXX HGH and UPF use different radial grids, and this for
+        # some reason makes it difficult to use the exact same code to
+        # construct vbar and projectors.  This should be fixed since
+        # either type of rgd should be able to always produce a valid
+        # and equivalent spline transparently.
 
         _np = self.ni * (self.ni + 1) // 2
         self.Delta0 = data.Delta0
@@ -225,7 +279,7 @@ class PseudoPotential(BaseSetup):
 
         self.E = 0.0
         self.Kc = 0.0
-        self.M = 0.0
+        self.M = -data.Eh_compcharge
         self.M_p = np.zeros(_np)
         self.M_pp = np.zeros((_np, _np))
 
@@ -238,7 +292,7 @@ class PseudoPotential(BaseSetup):
         self.rcutfilter = None
         self.rcore = None
 
-        self.N0_p = np.zeros(_np) # not really implemented
+        self.N0_p = np.zeros(_np)  # not really implemented
         self.nabla_iiv = None
         self.rnabla_iiv = None
         self.rxnabla_iiv = None
@@ -250,10 +304,15 @@ class PseudoPotential(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_pg = None
         self.ExxC = None
+        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(_np)
         self.extra_xc_data = {}
 
         self.wg_lg = None
         self.g_lg = None
+        self.local_corr = LocalCorrectionVar(None)
+        self._Mg_pp = None
+        self._gamma = None

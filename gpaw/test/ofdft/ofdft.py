@@ -27,7 +27,7 @@ for element, result, e, charge in zip(elements, results, electrons, charges):
     mixer = Mixer(0.3, 5, 1)
     calc = GPAW(gpts=(32, 32, 32),
                 txt='-', xc=xcname,
-                poissonsolver=PoissonSolver(relax='GS', eps=1e-6),
+                poissonsolver=PoissonSolver(eps=1e-6),
                 eigensolver='cg', mixer=mixer, charge=charge)
 
     atom.set_calculator(calc)

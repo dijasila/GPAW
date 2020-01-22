@@ -1,9 +1,8 @@
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mixer import Mixer
 from gpaw.test import equal
 from gpaw.test import gen
-from gpaw.eigensolvers import CG
 
 
 symbol = 'C'

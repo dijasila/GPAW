@@ -1,11 +1,11 @@
 from __future__ import print_function
 
 import functools
-import pickle
 from time import time, ctime
 from datetime import timedelta
 
 import sys
+from os import path as op
 
 import numpy as np
 from ase.units import Hartree, Bohr
@@ -15,6 +15,7 @@ from ase.dft import monkhorst_pack
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
+from gpaw.spinorbit import get_spinorbit_eigenvalues
 
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm
@@ -28,7 +29,9 @@ from gpaw.response.pair import PairDensity
 class BSE:
     def __init__(self,
                  calc=None,
+                 spinors=False,
                  ecut=10.,
+                 scale=1.0,
                  nbands=None,
                  valence_bands=None,
                  conduction_bands=None,
@@ -39,10 +42,11 @@ class BSE:
                  txt=sys.stdout,
                  mode='BSE',
                  wfile=None,
-                 write_h=True,
-                 write_v=True):
+                 write_h=False,
+                 write_v=False):
+
         """Creates the BSE object
-        
+
         calc: str or calculator object
             The string should refer to the .gpw file contaning KS orbitals
         ecut: float
@@ -76,15 +80,17 @@ class BSE:
             File for saving screened interaction and some other stuff
             needed later
         write_h: bool
-            If True, write the BSE Hamiltonian to H_SS.gpw.
+            If True, write the BSE Hamiltonian to H_SS.ulm.
         write_v: bool
-            If True, write eigenvalues and eigenstates to v_TS.gpw
+            If True, write eigenvalues and eigenstates to v_TS.ulm
         """
 
         # Calculator
         if isinstance(calc, str):
             calc = GPAW(calc, txt=None, communicator=serial_comm)
         self.calc = calc
+        self.spinors = spinors
+        self.scale = scale
 
         assert mode in ['RPA', 'TDHF', 'BSE']
         # assert calc.wfs.kd.nbzkpts % world.size == 0
@@ -121,18 +127,43 @@ class BSE:
         self.vol = abs(np.linalg.det(calc.wfs.gd.cell_cv))
 
         # bands
+        self.spins = self.calc.wfs.nspins
+        if self.spins == 2:
+            if self.spinors:
+                self.spinors = False
+                print('***WARNING*** Presently the spinor version' +
+                      'does not work for spin-polarized calculations.' + 
+                      'Performing scalar calculation', file=self.fd)
+            assert len(valence_bands[0]) == len(valence_bands[1])
+            assert len(conduction_bands[0]) == len(conduction_bands[1])
         if valence_bands is None:
-            valence_bands = [self.calc.wfs.setups.nvalence // 2]
+            nv = self.calc.wfs.setups.nvalence
+            valence_bands = [[nv // 2 - 1]]
+            if self.spins == 2:
+                valence_bands *= 2
         if conduction_bands is None:
-            conduction_bands = [valence_bands[-1] + 1]
-        self.val_n = valence_bands
-        self.con_n = conduction_bands
+            conduction_bands = [[valence_bands[-1] + 1]]
+            if self.spins == 2:
+                conduction_bands *= 2
+
+        self.val_sn = np.array(valence_bands)
+        if len(np.shape(self.val_sn)) == 1:
+            self.val_sn = np.array([self.val_sn])
+        self.con_sn = np.array(conduction_bands)
+        if len(np.shape(self.con_sn)) == 1:
+            self.con_sn = np.array([self.con_sn])
+
         self.td = True
-        for n in self.val_n:
-            if n in self.con_n:
+        for n in self.val_sn[0]:
+            if n in self.con_sn[0]:
                 self.td = False
-        self.nv = len(valence_bands)
-        self.nc = len(conduction_bands)
+        if len(self.val_sn) == 2:
+            for n in self.val_sn[1]:
+                if n in self.con_sn[1]:
+                    self.td = False
+            
+        self.nv = len(self.val_sn[0])
+        self.nc = len(self.con_sn[0])
         if eshift is not None:
             eshift /= Hartree
         if gw_skn is not None:
@@ -143,18 +174,10 @@ class BSE:
             gw_skn /= Hartree
         self.gw_skn = gw_skn
         self.eshift = eshift
-        self.nS = self.kd.nbzkpts * self.nv * self.nc
-        
-        self.print_initialization(self.td, self.eshift, self.gw_skn)
 
-    def calculate(self, optical=True, ac=1.0):
-
-        # Parallelization stuff
-        nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(world.rank * myKsize,
-                         min((world.rank + 1) * myKsize, nK))
-        myKsize = len(myKrange)
+        # Number of pair orbitals
+        self.nS = self.kd.nbzkpts * self.nv * self.nc * self.spins
+        self.nS *= (self.spinors + 1)**2
 
         # Wigner-Seitz stuff
         if self.truncation == 'wigner-seitz':
@@ -162,6 +185,45 @@ class BSE:
                                                     self.kd.N_c, self.fd)
         else:
             self.wstc = None
+
+        self.print_initialization(self.td, self.eshift, self.gw_skn)
+
+    def calculate(self, optical=True, ac=1.0):
+
+        if self.spinors:
+            """Calculate spinors. Here m is index of eigenvalues with SOC 
+            and n is the basis of eigenstates withour SOC. Below m is used 
+            for unoccupied states and n is used for occupied states so be 
+            careful!"""
+        
+            print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
+            param = self.calc.parameters
+            if not param['symmetry'] == 'off':
+                print('Calculating KS wavefunctions without symmetry ' +
+                      'for spin-orbit', file=self.fd)
+                if not op.isfile('gs_nosym.gpw'):
+                    calc_so = GPAW(**param)
+                    calc_so.set(symmetry='off',
+                                fixdensity=True,
+                                txt='gs_nosym.txt')
+                    calc_so.atoms = self.calc.atoms
+                    calc_so.density = self.calc.density
+                    calc_so.get_potential_energy()
+                    calc_so.write('gs_nosym.gpw')
+                calc_so = GPAW('gs_nosym.gpw', txt=None, communicator=serial_comm)
+                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so, 
+                                                        return_wfs=True,
+                                                        scale=self.scale)
+                del calc_so
+            else:
+                e_mk, v_knm = get_spinorbit_eigenvalues(self.calc,
+                                                        return_wfs=True,
+                                                        scale=self.scale)
+            e_mk /= Hartree
+
+        # Parallelization stuff
+        nK = self.kd.nbzkpts
+        myKrange, myKsize, mySsize = self.parallelisation_sizes()
 
         # Calculate exchange interaction
         qd0 = KPointDescriptor([self.q_c])
@@ -176,9 +238,6 @@ class BSE:
                                 txt='pair.txt')
 
         # Calculate direct (screened) interaction and PAW corrections
-        self.Q_qaGii = []
-        self.W_qGG = []
-        self.pd_q = []
         if self.mode == 'RPA':
             Q_aGii = self.pair.initialize_paw_corrections(pd0)
         else:
@@ -189,105 +248,192 @@ class BSE:
                 Q_aGii = self.Q_qaGii[iq0]
             else:
                 Q_aGii = self.pair.initialize_paw_corrections(pd0)
-            
+
         # Calculate pair densities, eigenvalues and occupations
-        rhoex_KmnG = np.zeros((nK, self.nv, self.nc, len(v_G)), complex)
-        rhoG0_Kmn = np.zeros((nK, self.nv, self.nc), complex)
-        df_Kmn = np.zeros((nK, self.nv, self.nc), float)
-        deps_kmn = np.zeros((myKsize, self.nv, self.nc), float)
+        so = self.spinors + 1
+        Nv, Nc = so * self.nv, so * self.nc
+        Ns = self.spins
+        rhoex_KsmnG = np.zeros((nK, Ns, Nv, Nc, len(v_G)), complex)
+        rhoG0_Ksmn = np.zeros((nK, Ns, Nv, Nc), complex)
+        df_Ksmn = np.zeros((nK, Ns, Nv, Nc), float) # -(ev - ec)
+        deps_ksmn = np.zeros((myKsize, Ns, Nv, Nc), float) # -(fv - fc)
         if np.allclose(self.q_c, 0.0):
             optical_limit = True
         else:
             optical_limit = False
         get_pair = self.pair.get_kpoint_pair
         get_rho = self.pair.get_pair_density
-        vi, vf = self.val_n[0], self.val_n[-1] + 1
-        ci, cf = self.con_n[0], self.con_n[-1] + 1
+        if self.spinors:
+            # Get all pair densities to allow for SOC mixing
+            # Use twice as many no-SOC states as BSE bands to allow mixing
+            vi_s = [2 * self.val_sn[0, 0] - self.val_sn[0, -1] - 1]
+            vf_s = [2 * self.con_sn[0, -1] - self.con_sn[0, 0] + 2]
+            if vi_s[0] < 0:
+                vi_s[0] = 0
+            ci_s, cf_s = vi_s, vf_s
+            ni, nf = vi_s[0], vf_s[0]
+            mvi = 2 * self.val_sn[0, 0]
+            mvf = 2 * (self.val_sn[0, -1] + 1)
+            mci = 2 * self.con_sn[0, 0]
+            mcf = 2 * (self.con_sn[0, -1] + 1)
+        else:
+            vi_s, vf_s = self.val_sn[:, 0], self.val_sn[:, -1] + 1
+            ci_s, cf_s = self.con_sn[:, 0], self.con_sn[:, -1] + 1
         for ik, iK in enumerate(myKrange):
-            pair = get_pair(pd0, 0, iK, vi, vf, ci, cf)
-            n_n = np.arange(self.nv)
-            m_m = np.arange(self.nc)
+            for s in range(Ns):
+                pair = get_pair(pd0, s, iK,
+                                vi_s[s], vf_s[s], ci_s[s], cf_s[s])
+                m_m = np.arange(vi_s[s], vf_s[s])
+                n_n = np.arange(ci_s[s], cf_s[s])
+                if self.gw_skn is not None:
+                    iKq = self.calc.wfs.kd.find_k_plus_q(self.q_c, [iK])[0]
+                    epsv_m = self.gw_skn[s, iK, :self.nv]
+                    epsc_n = self.gw_skn[s, iKq, self.nv:]
+                    deps_ksmn[ik] = -(epsv_m[:, np.newaxis] - epsc_n)
+                elif self.spinors:
+                    iKq = self.calc.wfs.kd.find_k_plus_q(self.q_c, [iK])[0]
+                    epsv_m = e_mk[mvi:mvf, iK]
+                    epsc_n = e_mk[mci:mcf, iKq]
+                    deps_ksmn[ik, s] = -(epsv_m[:, np.newaxis] - epsc_n)
+                else:
+                    deps_ksmn[ik, s] = -pair.get_transition_energies(m_m, n_n)
 
-            if self.gw_skn is not None:
-                deps_kmn[ik] = -(self.gw_skn[0, iK, :self.nv][:, np.newaxis] -
-                                 self.gw_skn[0, iK, self.nv:])
-            else:
-                deps_kmn[ik] = -pair.get_transition_energies(n_n, m_m)
-                
-            df_Kmn[iK] = pair.get_occupation_differences(n_n, m_m)
-            rhoex_KmnG[iK] = get_rho(pd0, pair,
-                                     n_n, m_m,
-                                     optical_limit=optical_limit,
-                                     direction=self.direction,
-                                     Q_aGii=Q_aGii)[0]
+                df_mn = pair.get_occupation_differences(self.val_sn[s],
+                                                        self.con_sn[s])
+                rho_mnG = get_rho(pd0, pair,
+                                  m_m, n_n,
+                                  optical_limit=optical_limit,
+                                  direction=self.direction,
+                                  Q_aGii=Q_aGii,
+                                  extend_head=False)
+                if self.spinors:
+                    if optical_limit:
+                        deps0_mn = -pair.get_transition_energies(m_m, n_n)
+                        rho_mnG[:, :, 0] *= deps0_mn 
+                    df_Ksmn[iK, s, ::2, ::2] = df_mn
+                    df_Ksmn[iK, s, ::2, 1::2] = df_mn
+                    df_Ksmn[iK, s, 1::2, ::2] = df_mn
+                    df_Ksmn[iK, s, 1::2, 1::2] = df_mn
+                    vecv0_nm = v_knm[iK][::2][ni:nf, mvi:mvf]
+                    vecc0_nm = v_knm[iKq][::2][ni:nf, mci:mcf]
+                    rho_0mnG = np.dot(vecv0_nm.T.conj(),
+                                      np.dot(vecc0_nm.T, rho_mnG))
+                    vecv1_nm = v_knm[iK][1::2][ni:nf, mvi:mvf]
+                    vecc1_nm = v_knm[iKq][1::2][ni:nf, mci:mcf]
+                    rho_1mnG = np.dot(vecv1_nm.T.conj(),
+                                      np.dot(vecc1_nm.T, rho_mnG))
+                    rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
+                    if optical_limit:
+                        rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
+                else:
+                    df_Ksmn[iK, s] = pair.get_occupation_differences(m_m, n_n)
+                    rhoex_KsmnG[iK, s] = rho_mnG
+
         if self.eshift is not None:
-            deps_kmn[np.where(df_Kmn[myKrange] > 1.0e-3)] += self.eshift
-            deps_kmn[np.where(df_Kmn[myKrange] < -1.0e-3)] -= self.eshift
+            deps_ksmn[np.where(df_Ksmn[myKrange] > 1.0e-3)] += self.eshift
+            deps_ksmn[np.where(df_Ksmn[myKrange] < -1.0e-3)] -= self.eshift
 
-        df_Kmn[np.where(np.abs(df_Kmn) < 1.0e-6)] = 0.0
-        df_Kmn *= 2.0 / nK  # multiply by 2 for spin polarized calculation
-        world.sum(df_Kmn)
-        world.sum(rhoex_KmnG)
+        world.sum(df_Ksmn)
+        world.sum(rhoex_KsmnG)
+
+        self.rhoG0_S = np.reshape(rhoex_KsmnG[:, :, :, :, 0], -1)
+
+        if hasattr(self, 'H_sS'):
+            return
 
         # Calculate Hamiltonian
         t0 = time()
         print('Calculating %s matrix elements at q_c = %s'
               % (self.mode, self.q_c), file=self.fd)
-        H_kKmnmn = np.zeros((myKsize, nK,
-                             self.nv, self.nc, self.nv, self.nc),
-                            complex)
+        H_ksmnKsmn = np.zeros((myKsize, Ns, Nv, Nc, nK, Ns, Nv, Nc), complex)
         for ik1, iK1 in enumerate(myKrange):
-            rho1_mnG = rhoex_KmnG[iK1]
-            rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
-            rhoG0_Kmn[iK1] = rho1_mnG[:, :, 0]
-            kptv1 = self.pair.get_k_point(0, iK1, vi, vf)
-            kptc1 = self.pair.get_k_point(0, ikq_k[iK1], ci, cf)
-            for Q_c in self.qd.bzk_kc:
-                iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
-                rho2_mnG = rhoex_KmnG[iK2]
-                H_kKmnmn[ik1, iK2] += np.dot(rho1ccV_mnG,
-                                             np.swapaxes(rho2_mnG, 1, 2))
-                if not self.mode == 'RPA':
-                    kptv2 = self.pair.get_k_point(0, iK2, vi, vf)
-                    kptc2 = self.pair.get_k_point(0, ikq_k[iK2], ci, cf)
-                    rho3_mmG, iq = self.get_density_matrix(kptv1, kptv2)
-                    rho4_nnG, iq = self.get_density_matrix(kptc1, kptc2)
-                    rho3ccW_mmG = np.dot(rho3_mmG.conj(), self.W_qGG[iq])
-                    W_mmnn = np.dot(rho3ccW_mmG,
-                                    np.swapaxes(rho4_nnG, 1, 2))
-                    H_kKmnmn[ik1, iK2] -= 0.5 * np.swapaxes(W_mmnn, 1, 2)
+            for s1 in range(Ns):
+                kptv1 = self.pair.get_k_point(s1, iK1, vi_s[s1], vf_s[s1])
+                kptc1 = self.pair.get_k_point(s1, ikq_k[iK1], ci_s[s1],
+                                              cf_s[s1])
+                rho1_mnG = rhoex_KsmnG[iK1, s1]
 
+                #rhoG0_Ksmn[iK1, s1] = rho1_mnG[:, :, 0]
+                rho1ccV_mnG = rho1_mnG.conj()[:, :] * v_G
+                for s2 in range(Ns):
+                    for Q_c in self.qd.bzk_kc:
+                        iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
+                        rho2_mnG = rhoex_KsmnG[iK2, s2]
+                        rho2_mGn = np.swapaxes(rho2_mnG, 1, 2)
+                        H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += (
+                            np.dot(rho1ccV_mnG, rho2_mGn))
+                        if not self.mode == 'RPA' and s1 == s2:
+                            ikq = ikq_k[iK2]
+                            kptv2 = self.pair.get_k_point(s1, iK2, vi_s[s1],
+                                                          vf_s[s1])
+                            kptc2 = self.pair.get_k_point(s1, ikq, ci_s[s1],
+                                                          cf_s[s1])
+                            rho3_mmG, iq = self.get_density_matrix(kptv1,
+                                                                   kptv2)
+                            rho4_nnG, iq = self.get_density_matrix(kptc1,
+                                                                   kptc2)
+                            if self.spinors:
+                                vec0_nm = v_knm[iK1][::2][ni:nf, mvi:mvf]
+                                vec1_nm = v_knm[iK1][1::2][ni:nf, mvi:mvf]
+                                vec2_nm = v_knm[iK2][::2][ni:nf, mvi:mvf]
+                                vec3_nm = v_knm[iK2][1::2][ni:nf, mvi:mvf]
+                                rho_0mnG = np.dot(vec0_nm.T.conj(),
+                                                  np.dot(vec2_nm.T, rho3_mmG))
+                                rho_1mnG = np.dot(vec1_nm.T.conj(),
+                                                  np.dot(vec3_nm.T, rho3_mmG))
+                                rho3_mmG = rho_0mnG + rho_1mnG
+                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf, mci:mcf]
+                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,mci:mcf]
+                                vec2_nm = v_knm[ikq][::2][ni:nf, mci:mcf]
+                                vec3_nm = v_knm[ikq][1::2][ni:nf, mci:mcf]
+                                rho_0mnG = np.dot(vec0_nm.T.conj(),
+                                                  np.dot(vec2_nm.T, rho4_nnG))
+                                rho_1mnG = np.dot(vec1_nm.T.conj(),
+                                                  np.dot(vec3_nm.T, rho4_nnG))
+                                rho4_nnG = rho_0mnG + rho_1mnG
+
+                            rho3ccW_mmG = np.dot(rho3_mmG.conj(),
+                                                 self.W_qGG[iq])
+                            W_mmnn = np.dot(rho3ccW_mmG,
+                                            np.swapaxes(rho4_nnG, 1, 2))
+                            W_mnmn = np.swapaxes(W_mmnn, 1, 2) * Ns * so
+                            H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
                 tleft = dt * myKsize / (iK1 + 1) - dt
                 print('  Finished %s pair orbitals in %s - Estimated %s left' %
-                      ((iK1 + 1) * self.nv * self.nc * world.size,
+                      ((iK1 + 1) * Nv * Nc * Ns * world.size,
                        timedelta(seconds=round(dt)),
                        timedelta(seconds=round(tleft))), file=self.fd)
-        H_kKmnmn /= self.vol
 
-        # From here on s is a local pair-orbital index
-        mySsize = myKsize * self.nv * self.nc
+        #if self.mode == 'BSE':
+        #    del self.Q_qaGii, self.W_qGG, self.pd_q
+
+        H_ksmnKsmn /= self.vol
+
+        mySsize = myKsize * Nv * Nc * Ns
         if myKsize > 0:
-            iS0 = myKrange[0] * self.nv * self.nc
-            
-        # Reshape and collect
-        world.sum(rhoG0_Kmn)
-        self.rhoG0_S = np.reshape(rhoG0_Kmn, -1)
-        self.df_S = np.reshape(df_Kmn, -1)
-        self.deps_s = np.reshape(deps_kmn, -1)
-        H_sS = np.reshape(np.swapaxes(np.swapaxes(H_kKmnmn, 1, 2), 2, 3),
-                          (mySsize, self.nS))
+            iS0 = myKrange[0] *  Nv * Nc * Ns
 
+        #world.sum(rhoG0_Ksmn)
+        #self.rhoG0_S = np.reshape(rhoG0_Ksmn, -1)
+        self.df_S = np.reshape(df_Ksmn, -1)
+        if not self.td:
+            self.excludef_S = np.where(np.abs(self.df_S) < 0.001)[0]
+        # multiply by 2 when spin-paired and no SOC
+        self.df_S *= 2.0 / nK / Ns / so 
+        self.deps_s = np.reshape(deps_ksmn, -1)
+        H_sS = np.reshape(H_ksmnKsmn, (mySsize, self.nS))
         for iS in range(mySsize):
             # Multiply by occupations and adiabatic coupling
             H_sS[iS] *= self.df_S[iS0 + iS] * ac
             # add bare transition energies
             H_sS[iS, iS0 + iS] += self.deps_s[iS]
 
-        if self.write_h:
-            self.par_save('H_SS', 'H_SS', H_sS)
         self.H_sS = H_sS
+
+        if self.write_h:
+            self.par_save('H_SS.ulm', 'H_SS', self.H_sS)
 
     def get_density_matrix(self, kpt1, kpt2):
 
@@ -315,7 +461,7 @@ class BSE:
         shift_c = kpt1.shift_c - kpt2.shift_c - shift0_c
         I_G = np.ravel_multi_index(i_cG + shift_c[:, None], N_c, 'wrap')
         G_Gv = pd.get_reciprocal_vectors()
-        pos_ac = self.calc.atoms.get_scaled_positions()
+        pos_ac = self.calc.spos_ac
         pos_av = np.dot(pos_ac, pd.gd.cell_cv)
         M_vv = np.dot(pd.gd.cell_cv.T, np.dot(U_cc.T,
                                               np.linalg.inv(pd.gd.cell_cv).T))
@@ -343,20 +489,25 @@ class BSE:
 
     def get_screened_potential(self, ac=1.0):
 
+        if hasattr(self, 'W_qGG'):
+            return
+
         if self.wfile is not None:
             # Read screened potential from file
             try:
-                f = open(self.wfile)
+                data = np.load(self.wfile + '.npz')
+                self.Q_qaGii = data['Q']
+                self.W_qGG = data['W']
+                self.pd_q = data['pd']
                 print('Reading screened potential from % s' % self.wfile,
                       file=self.fd)
-                self.Q_qaGii, self.pd_q, self.W_qGG = pickle.load(f)
             except:
                 self.calculate_screened_potential(ac)
                 print('Saving screened potential to % s' % self.wfile,
                       file=self.fd)
-                f = open(self.wfile, 'w')
-                pickle.dump((self.Q_qaGii, self.pd_q, self.W_qGG),
-                            f, pickle.HIGHEST_PROTOCOL)
+                if world.rank == 0:
+                    np.savez(self.wfile,
+                             Q=self.Q_qaGii, pd=self.pd_q, W=self.W_qGG)
         else:
             self.calculate_screened_potential(ac)
 
@@ -377,6 +528,10 @@ class BSE:
         self.blockcomm = chi0.blockcomm
         wfs = self.calc.wfs
 
+        self.Q_qaGii = []
+        self.W_qGG = []
+        self.pd_q = []
+
         t0 = time()
         print('Calculating screened potential', file=self.fd)
         for iq, q_c in enumerate(self.qd.ibzk_kc):
@@ -395,7 +550,7 @@ class BSE:
                 chi0_wvv = None
 
             chi0._calculate(pd, chi0_wGG, chi0_wxvG, chi0_wvv,
-                            0, self.nbands, [0, 1])
+                            0, self.nbands, spins='all', extend_head=False)
             chi0_GG = chi0_wGG[0]
 
             # Calculate eps^{-1}_GG
@@ -477,7 +632,7 @@ class BSE:
                 W_GG[1:, 0] = einv_GG[1:, 0] * sqrV_G[1:] * sqrV0
             else:
                 pass
-            
+
             if pd.kd.gamma:
                 e = 1 / einv_GG[0, 0].real
                 print('    RPA dielectric constant is: %3.3f' % e,
@@ -499,13 +654,22 @@ class BSE:
         """The t and T represent local and global
            eigenstates indices respectively
         """
- 
+
         # Non-Hermitian matrix can only use linalg.eig
         if not self.td:
             print('  Using numpy.linalg.eig...', file=self.fd)
-            self.H_SS = np.zeros((self.nS, self.nS), dtype=complex)
-            world.all_gather(self.H_sS, self.H_SS)
-            self.w_T, self.v_St = np.linalg.eig(self.H_SS)
+            print('  Eliminated %s pair orbitals' % len(self.excludef_S),
+                  file=self.fd)
+
+            self.H_SS = self.collect_A_SS(self.H_sS)
+            self.w_T = np.zeros(self.nS - len(self.excludef_S), complex)
+            if world.rank == 0:
+                self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=0)
+                self.H_SS = np.delete(self.H_SS, self.excludef_S, axis=1)
+                self.w_T, self.v_ST = np.linalg.eig(self.H_SS)
+            world.broadcast(self.w_T, 0)
+            self.df_S = np.delete(self.df_S, self.excludef_S)
+            self.rhoG0_S = np.delete(self.rhoG0_S, self.excludef_S)
         # Here the eigenvectors are returned as complex conjugated rows
         else:
             if world.size == 1:
@@ -517,10 +681,12 @@ class BSE:
             else:
                 print('  Using scalapack...', file=self.fd)
                 nS = self.nS
-                ns = -(-self.kd.nbzkpts // world.size) * self.nv * self.nc
+                ns = -(-self.kd.nbzkpts // world.size) * (self.nv * self.nc *
+                                                          self.spins *
+                                                          (self.spinors + 1)**2)
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, nS, ns, nS)
-                
+
                 desc2 = grid.new_descriptor(nS, nS, 2, 2)
                 H_tmp = desc2.zeros(dtype=complex)
                 r = Redistributor(world, desc, desc2)
@@ -535,35 +701,48 @@ class BSE:
                 r.redistribute(v_tmp, self.v_St)
                 self.v_St = self.v_St.conj().T
 
-        if self.write_v:
-            self.par_save('v_TS', 'v_TS', self.v_St.T)
+        if self.write_v and self.td:
+            # Cannot use par_save without td
+            self.par_save('v_TS.ulm', 'v_TS', self.v_St.T)
+
         return
 
-    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
-                 direction=0, ac=1.0, readfile=None, optical=True):
-        """Returns v * \chi where v is the bare Coulomb interaction"""
+    def get_bse_matrix(self, q_c=[0.0, 0.0, 0.0], direction=0, ac=1.0,
+                       readfile=None, optical=True, write_eig=None):
+        """Calculate and diagonalize BSE matrix"""
 
         self.q_c = q_c
         self.direction = direction
 
         if readfile is None:
             self.calculate(optical=optical, ac=ac)
+            if hasattr(self, 'w_T'):
+                return
             self.diagonalize()
         elif readfile == 'H_SS':
             print('Reading Hamiltonian from file', file=self.fd)
-            self.par_load('H_SS', 'H_SS')
+            self.par_load('H_SS.ulm', 'H_SS')
             self.diagonalize()
         elif readfile == 'v_TS':
             print('Reading eigenstates from file', file=self.fd)
-            self.par_load('v_TS', 'v_TS')
+            self.par_load('v_TS.ulm', 'v_TS')
         else:
             raise ValueError('%s array not recognized' % readfile)
 
-        w_w /= Hartree
-        eta /= Hartree
+        # TODO: Move write_eig here
+
+        return
+
+    def get_vchi(self, w_w=None, eta=0.1, q_c=[0.0, 0.0, 0.0],
+                 direction=0, ac=1.0, readfile=None, optical=True,
+                 write_eig=None):
+        """Returns v * \chi where v is the bare Coulomb interaction"""
+
+        self.get_bse_matrix(q_c=q_c, direction=direction, ac=ac,
+                            readfile=readfile, optical=optical,
+                            write_eig=write_eig)
 
         w_T = self.w_T
-        v_St = self.v_St
         rhoG0_S = self.rhoG0_S
         df_S = self.df_S
 
@@ -571,19 +750,26 @@ class BSE:
               len(w_w), file=self.fd)
         vchi_w = np.zeros(len(w_w), dtype=complex)
 
-        A_t = np.dot(rhoG0_S, v_St)
-        B_t = np.dot(rhoG0_S * df_S, v_St)
         if not self.td:
-            # Indices are global in this case (t=T, s=S)
-            tmp = np.dot(v_St.conj().T, v_St)
-            overlap_tt = np.linalg.inv(tmp)
-            C_T = np.dot(B_t.conj(), overlap_tt.T) * A_t
+            C_T = np.zeros(self.nS - len(self.excludef_S), complex)
+            if world.rank == 0:
+                A_T = np.dot(rhoG0_S, self.v_ST)
+                B_T = np.dot(rhoG0_S * df_S, self.v_ST)
+                tmp = np.dot(self.v_ST.conj().T, self.v_ST)
+                overlap_tt = np.linalg.inv(tmp)
+                C_T = np.dot(B_T.conj(), overlap_tt.T) * A_T
+            world.broadcast(C_T, 0)
         else:
+            A_t = np.dot(rhoG0_S, self.v_St)
+            B_t = np.dot(rhoG0_S * df_S, self.v_St)
             if world.size == 1:
                 C_T = B_t.conj() * A_t
             else:
+                Nv = self.nv * (self.spinors + 1)
+                Nc = self.nc * (self.spinors + 1)
+                Ns = self.spins
                 nS = self.nS
-                ns = -(-self.kd.nbzkpts // world.size) * self.nv * self.nc
+                ns = -(-self.kd.nbzkpts // world.size) * Nv * Nc * Ns
                 grid = BlacsGrid(world, world.size, 1)
                 desc = grid.new_descriptor(nS, 1, ns, 1)
                 C_t = desc.empty(dtype=complex)
@@ -592,7 +778,9 @@ class BSE:
                 if world.rank != 0:
                     C_T = np.empty(nS, dtype=complex)
                 world.broadcast(C_T, 0)
-        for iw, w in enumerate(w_w):
+
+        eta /= Hartree
+        for iw, w in enumerate(w_w / Hartree):
             tmp_T = 1. / (w - w_T + 1j * eta)
             vchi_w[iw] += np.dot(tmp_T, C_T)
         vchi_w *= 4 * np.pi / self.vol
@@ -603,12 +791,31 @@ class BSE:
             q_v = np.dot(q_c, B_cv)
             vchi_w /= np.dot(q_v, q_v)
 
+        """Check f-sum rule."""
+        nv = self.calc.wfs.setups.nvalence
+        dw_w = (w_w[1:] - w_w[:-1]) / Hartree
+        wchi_w = (w_w[1:] * vchi_w[1:] + w_w[:-1] * vchi_w[:-1]) / Hartree / 2
+        N = -np.dot(dw_w, wchi_w.imag) * self.vol / (2 * np.pi**2)
+        print(file=self.fd)
+        print('Checking f-sum rule:', file=self.fd)
+        print('  Valence = %s, N = %f' % (nv, N), file=self.fd)
+        print(file=self.fd)
+
+        if write_eig is not None:
+            if world.rank == 0:
+                f = open(write_eig, 'w')
+                print('# %s eigenvalues in eV' % self.mode, file=f)
+                for iw, w in enumerate(self.w_T * Hartree):
+                    print('%8d %12.6f %12.16f' % (iw, w.real, C_T[iw].real),
+                          file=f)
+                f.close()
+
         return vchi_w * ac
 
     def get_dielectric_function(self, w_w=None, eta=0.1,
                                 q_c=[0.0, 0.0, 0.0], direction=0,
                                 filename='df_bse.csv', readfile=None,
-                                write_eig=None):
+                                write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
         function.
 
@@ -626,54 +833,35 @@ class BSE:
             dielectric function is written
         readfile: str
             If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
-            eigenstates from v_TS.gpw
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
 
         epsilon_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c,
                                    direction=direction,
-                                   readfile=readfile, optical=True)
+                                   readfile=readfile, optical=True,
+                                   write_eig=write_eig)
         epsilon_w += 1.0
-    
-        """Check f-sum rule."""
-        nv = self.calc.wfs.setups.nvalence
-        dw_w = w_w[1:] - w_w[:-1]
-        weps_w = (w_w[1:] + w_w[:-1]) * (epsilon_w[1:] + epsilon_w[:-1]) / 4
-        N = np.dot(dw_w, weps_w.imag) * self.vol / (2 * np.pi**2)
-        print(file=self.fd)
-        print('Checking f-sum rule:', file=self.fd)
-        print('  N = %f, %f  %% error' % (N, (N - nv) / nv * 100),
-              file=self.fd)
-        print(file=self.fd)
 
-        w_w *= Hartree
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f, %.6f' %
+                print('%.9f, %.9f, %.9f' %
                       (w, epsilon_w[iw].real, epsilon_w[iw].imag), file=f)
             f.close()
         world.barrier()
 
-        self.w_T *= Hartree
-        if write_eig is not None:
-            if world.rank == 0:
-                f = open(write_eig, 'w')
-                print('# %s eigenvalues in eV' % self.mode, file=f)
-                for iw, w in enumerate(self.w_T):
-                    print('%8d %12.6f' % (iw, w.real), file=f)
-                f.close()
-            
         print('Calculation completed at:', ctime(), file=self.fd)
-        
+        print(file=self.fd)
+
         return w_w, epsilon_w
 
     def get_eels_spectrum(self, w_w=None, eta=0.1,
                           q_c=[0.0, 0.0, 0.0], direction=0,
                           filename='df_bse.csv', readfile=None,
-                          write_eig=None):
+                          write_eig='eig.dat'):
         """Returns and writes real and imaginary part of the dielectric
         function.
 
@@ -691,40 +879,32 @@ class BSE:
             dielectric function is written
         readfile: str
             If H_SS is given, the method will load the BSE Hamiltonian
-            from H_SS.gpw. If v_TS is given, the method will load the
-            eigenstates from v_TS.gpw
+            from H_SS.ulm. If v_TS is given, the method will load the
+            eigenstates from v_TS.ulm
         write_eig: str
             File on which the BSE eigenvalues are written
         """
 
         eels_w = -self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
-                                readfile=readfile, optical=False).imag
+                                readfile=readfile, optical=False,
+                                write_eig=write_eig).imag
 
-        w_w *= Hartree
         if world.rank == 0 and filename is not None:
             f = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f' % (w, eels_w[iw]), file=f)
+                print('%.9f, %.9f' % (w, eels_w[iw]), file=f)
             f.close()
         world.barrier()
 
-        self.w_T *= Hartree
-        if write_eig is not None:
-            if world.rank == 0:
-                f = open(write_eig, 'w')
-                print('# %s eigenvalues in eV' % self.mode, file=f)
-                for iw, w in enumerate(self.w_T):
-                    print('%8d %12.6f' % (iw, w.real), file=f)
-                f.close()
-            
         print('Calculation completed at:', ctime(), file=self.fd)
-        
+        print(file=self.fd)
+
         return w_w, eels_w
 
     def get_polarizability(self, w_w=None, eta=0.1,
                            q_c=[0.0, 0.0, 0.0], direction=0,
                            filename='pol_bse.csv', readfile=None, pbc=None,
-                           write_eig=None, optical=True):
+                           write_eig='eig.dat'):
         """Calculate the polarizability alpha.
         In 3D the imaginary part of the polarizability is related to the
         dielectric function by Im(eps_M) = 4 pi * Im(alpha). In systems
@@ -749,107 +929,167 @@ class BSE:
         else:
             V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
 
+        if self.truncation is None:
+            optical = True
+        else:
+            optical = False
+
         vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
-                               readfile=readfile, optical=optical)
+                               readfile=readfile, optical=optical,
+                               write_eig=write_eig)
         alpha_w = -V * vchi_w / (4 * np.pi)
         alpha_w *= Bohr**(sum(~pbc_c))
-        w_w *= Hartree
 
         if world.rank == 0 and filename is not None:
             fd = open(filename, 'w')
             for iw, w in enumerate(w_w):
-                print('%.6f, %.6f, %.6f' %
+                print('%.9f, %.9f, %.9f' %
                       (w, alpha_w[iw].real, alpha_w[iw].imag), file=fd)
             fd.close()
 
-        self.w_T *= Hartree
-        if write_eig is not None:
-            if world.rank == 0:
-                f = open(write_eig, 'w')
-                print('# %s eigenvalues in eV' % self.mode, file=f)
-                for iw, w in enumerate(self.w_T):
-                    print('%8d %12.6f' % (iw, w.real), file=f)
-                f.close()
-            
         print('Calculation completed at:', ctime(), file=self.fd)
+        print(file=self.fd)
 
         return w_w, alpha_w
 
-    def par_save(self, filename, name, A_sS):
-        from gpaw.io import open
+    def get_2d_absorption(self, w_w=None, eta=0.1,
+                          q_c=[0.0, 0.0, 0.0], direction=0,
+                          filename='abs_bse.csv', readfile=None, pbc=None,
+                          write_eig='eig.dat'):
+        """Calculate the dimensionless absorption for 2d materials.
+        It is essentially related to the 2D polarizability \alpha_2d as
 
-        nS = self.nS
-        if world.rank == 0:
-            w = open(filename, 'w', world)
-            w.dimension('nS', nS)
-            
-            if name == 'v_TS':
-                w.add('w_T', ('nS',), dtype=self.w_T.dtype)
-                w.fill(self.w_T)
-            w.add('rhoG0_S', ('nS',), dtype=complex)
-            w.fill(self.rhoG0_S)
-            w.add('df_S', ('nS',), dtype=complex)
-            w.fill(self.df_S)
+              ABS = 4 * np.pi * \omega * \alpha_2d / c
 
-            w.add(name, ('nS', 'nS'), dtype=complex)
-        
-        if not self.td and name == 'v_TS':
-            if world.rank == 0:
-                w.fill(A_sS)
+        where c is the velocity of light
+        """
+
+        from ase.units import alpha
+        c = 1.0 / alpha
+
+        cell_cv = self.calc.wfs.gd.cell_cv
+        if not pbc:
+            pbc_c = self.calc.atoms.pbc
         else:
-            # Assumes that A_SS is written in order from rank 0 - rank N
-            nK = self.kd.nbzkpts
-            for irank in range(world.size):
-                if irank == 0:
-                    if world.rank == 0:
-                        w.fill(A_sS)
-                else:
-                    if world.rank == irank:
-                        world.send(A_sS, 0, irank + 100)
-                    if world.rank == 0:
-                        iKsize = -(-nK // world.size)
-                        iKrange = range(irank * iKsize,
-                                        min((irank + 1) * iKsize, nK))
-                        iSsize = len(iKrange) * self.nv * self.nc
-                        tmp = np.empty((iSsize, nS), complex)
-                        world.receive(tmp, irank, irank + 100)
-                        w.fill(tmp)
+            pbc_c = np.array(pbc)
+
+        assert np.sum(pbc_c) == 2
+        V = np.abs(np.linalg.det(cell_cv[~pbc_c][:, ~pbc_c]))
+        vchi_w = self.get_vchi(w_w=w_w, eta=eta, q_c=q_c, direction=direction,
+                               readfile=readfile, optical=True,
+                               write_eig=write_eig)
+        abs_w = -V * vchi_w.imag * w_w / Hartree / c
+
+        if world.rank == 0 and filename is not None:
+            fd = open(filename, 'w')
+            for iw, w in enumerate(w_w):
+                print('%.9f, %.9f' % (w, abs_w[iw]), file=fd)
+            fd.close()
+
+        print('Calculation completed at:', ctime(), file=self.fd)
+        print(file=self.fd)
+
+        return w_w, abs_w
+
+    def par_save(self, filename, name, A_sS):
+        import ase.io.ulm as ulm
+
+        if world.size == 1:
+            A_XS = A_sS
+        else:
+            A_XS = self.collect_A_SS(A_sS)
+
         if world.rank == 0:
+            w = ulm.open(filename, 'w')
+            if name == 'v_TS':
+                w.write(w_T=self.w_T)
+            # w.write(nS=self.nS)
+            w.write(rhoG0_S=self.rhoG0_S)
+            w.write(df_S=self.df_S)
+            w.write(A_XS=A_XS)
             w.close()
         world.barrier()
 
     def par_load(self, filename, name):
-        from gpaw.io import open
+        import ase.io.ulm as ulm
 
-        r = open(filename, 'r')
-        nS = r.dimension('nS')
-        nK = self.kd.nbzkpts
-        myKsize = -(-nK // world.size)
-        myKrange = range(world.rank * myKsize,
-                         min((world.rank + 1) * myKsize, nK))
-        mySsize = len(myKrange) * self.nv * self.nc
-        if len(myKrange) > 0:
-            mySrange = range(myKrange[0] * self.nv * self.nc,
-                             myKrange[0] * self.nv * self.nc + mySsize)
+        if world.rank == 0:
+            r = ulm.open(filename, 'r')
+            if name == 'v_TS':
+                self.w_T = r.w_T
+            self.rhoG0_S = r.rhoG0_S
+            self.df_S = r.df_S
+            A_XS = r.A_XS
+            r.close()
+        else:
+            if name == 'v_TS':
+                self.w_T = np.zeros((self.nS), dtype=float)
+            self.rhoG0_S = np.zeros((self.nS), dtype=complex)
+            self.df_S = np.zeros((self.nS), dtype=float)
+            A_XS = None
+
+        world.broadcast(self.rhoG0_S, 0)
+        world.broadcast(self.df_S, 0)
 
         if name == 'H_SS':
-            self.H_sS = np.zeros((mySsize, nS), dtype=complex)
-            if len(myKrange) > 0:
-                for si, s in enumerate(mySrange):
-                    self.H_sS[si] = r.get('H_SS', s)
+            self.H_sS = self.distribute_A_SS(A_XS)
 
         if name == 'v_TS':
-            self.w_T = r.get('w_T')
-            self.v_St = np.zeros((nS, mySsize), dtype=complex)
-            if len(myKrange) > 0:
-                for it, t in enumerate(mySrange):
-                    self.v_St[:, it] = r.get('v_TS', t)
+            world.broadcast(self.w_T, 0)
+            self.v_St = self.distribute_A_SS(A_XS, transpose=True)
 
-        self.rhoG0_S = r.get('rhoG0_S')
-        self.df_S = r.get('df_S')
+    def collect_A_SS(self, A_sS):
+        if world.rank == 0:
+            A_SS = np.zeros((self.nS, self.nS), dtype=complex)
+            A_SS[:len(A_sS)] = A_sS
+            Ntot = len(A_sS)
+            for rank in range(1, world.size):
+                nkr, nk, ns = self.parallelisation_sizes(rank)
+                buf = np.empty((ns, self.nS), dtype=complex)
+                world.receive(buf, rank, tag=123)
+                A_SS[Ntot:Ntot + ns] = buf
+                Ntot += ns
+        else:
+            world.send(A_sS, 0, tag=123)
+        world.barrier()
+        if world.rank == 0:
+            return A_SS
 
-        r.close()
-        
+    def distribute_A_SS(self, A_SS, transpose=False):
+        if world.rank == 0:
+            for rank in range(0, world.size):
+                nkr, nk, ns = self.parallelisation_sizes(rank)
+                if rank == 0:
+                    A_sS = A_SS[0:ns]
+                    Ntot = ns
+                else:
+                    world.send(A_SS[Ntot:Ntot + ns], rank, tag=123)
+                    Ntot += ns
+        else:
+            nkr, nk, ns = self.parallelisation_sizes()
+            A_sS = np.empty((ns, self.nS), dtype=complex)
+            world.receive(A_sS, 0, tag=123)
+        world.barrier()
+        if transpose:
+            A_sS = A_sS.T
+        return A_sS
+
+    def parallelisation_sizes(self, rank=None):
+        if rank is None:
+            rank = world.rank
+        nK = self.kd.nbzkpts
+        myKsize = -(-nK // world.size)
+        myKrange = range(rank * myKsize,
+                         min((rank + 1) * myKsize, nK))
+        myKsize = len(myKrange)
+        mySsize = myKsize * self.nv * self.nc * self.spins
+        mySsize *= (1 + self.spinors)**2
+        return myKrange, myKsize, mySsize
+
+    def get_bse_wf(self):
+        pass
+        # asd = 1.0
+
     def print_initialization(self, td, eshift, gw_skn):
         p = functools.partial(print, file=self.fd)
         p('----------------------------------------------------------')
@@ -861,8 +1101,9 @@ class BSE:
           self.calc.atoms.get_chemical_formula(mode='hill'))
         p('Ground state XC functional     :', self.calc.hamiltonian.xc.name)
         p('Valence electrons              :', self.calc.wfs.setups.nvalence)
+        p('Spinor calculations            :', self.spinors)
         p('Number of bands                :', self.calc.wfs.bd.nbands)
-        p('Number of spins                :', self.calc.wfs.nspins)
+        p('Number of spins                :', self.calc.wfs.nspins)        
         p('Number of k-points             :', self.kd.nbzkpts)
         p('Number of irreducible k-points :', self.kd.nibzkpts)
         p('Number of q-points             :', self.qd.nbzkpts)
@@ -873,9 +1114,14 @@ class BSE:
         p()
         if gw_skn is not None:
             p('User specified BSE bands')
+        p('Response PW cutoff             :', self.ecut * Hartree, 'eV')
         p('Screening bands included       :', self.nbands)
-        p('Valence bands                  :', self.val_n)
-        p('Conduction bands               :', self.con_n)
+        if len(self.val_sn) == 1:
+            p('Valence bands                  :', self.val_sn[0])
+            p('Conduction bands               :', self.con_sn[0])
+        else:
+            p('Valence bands                  :', self.val_sn[0],self.val_sn[1])
+            p('Conduction bands               :', self.con_sn[0],self.con_sn[1])
         if eshift is not None:
             p('Scissors operator              :', eshift * Hartree, 'eV')
         p('Tamm-Dancoff approximation     :', td)

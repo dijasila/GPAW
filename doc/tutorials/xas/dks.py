@@ -1,6 +1,7 @@
 from __future__ import print_function
 from math import pi, cos, sin
 from ase import Atoms
+from ase.parallel import paropen
 from gpaw import GPAW, setup_paths, FermiDirac
 setup_paths.insert(0, '.')
 
@@ -9,10 +10,10 @@ a = 12.0  # use a large cell
 d = 0.9575
 t = pi / 180 * 104.51
 atoms = Atoms('OH2',
-            [(0, 0, 0),
-             (d, 0, 0),
-             (d * cos(t), d * sin(t), 0)],
-            cell=(a, a, a))
+              [(0, 0, 0),
+               (d, 0, 0),
+               (d * cos(t), d * sin(t), 0)],
+              cell=(a, a, a))
 atoms.center()
 
 calc1 = GPAW(h=0.2,
@@ -32,4 +33,5 @@ atoms[0].magmom = 1
 atoms.set_calculator(calc2)
 e2 = atoms.get_potential_energy() + calc2.get_reference_energy()
 
-print('Energy difference' , e2 - e1)
+with paropen('dks.result', 'w') as fd:
+    print('Energy difference:', e2 - e1, file=fd)

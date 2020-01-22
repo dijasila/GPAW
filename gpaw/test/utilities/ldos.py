@@ -1,12 +1,12 @@
 from __future__ import print_function
-import os
-import numpy as np
+
 from ase import Atom, Atoms
-from gpaw import GPAW, FermiDirac
+import numpy as np
+
+from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.utilities.dos import raw_orbital_LDOS, raw_wignerseitz_LDOS, RawLDOS
 from gpaw.test import equal
 import gpaw.mpi as mpi
-import numpy as np
 
 comms = [mpi.world.new_communicator(np.array([r])) for r in range(mpi.size)]
 comm = comms[mpi.rank]
@@ -31,6 +31,7 @@ energies, sweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 energies, pdfweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='pdf')
 
 calc = GPAW(gpts=(24, 24, 24), occupations=FermiDirac(width=0, fixmagmom=True),
+            poissonsolver=PoissonSolver('fd'),
             hund=True, communicator=comm)
 Hspin.set_calculator(calc)
 e_Hspin = Hspin.get_potential_energy()
@@ -38,6 +39,7 @@ niter_Hspin = calc.get_number_of_iterations()
 energies,sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 
 calc = GPAW(gpts=(32, 32, 40), nbands=2, #eigensolver='dav',
+            poissonsolver=PoissonSolver('fd'),
             communicator=comm)
 LiH.set_calculator(calc)
 e_LiH = LiH.get_potential_energy()

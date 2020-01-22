@@ -149,7 +149,6 @@ class P4AbsorbingBoundary(DummyAbsorbingBoundary):
 
         #self.v_imag = np.zeros((gd.n_c[0],gd.n_c[1],gd.n_c[2]),dtype=complex)
         self.v_imag = gd.zeros(dtype=complex)
-        vo = self.abc_strength
 
         # If positions array wasn't given, uses the middle point of the
         # grid as the center.

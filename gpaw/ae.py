@@ -49,6 +49,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.dO_ii = np.zeros((0, 0))
         self.type = 'all-electron'
         self.fingerprint = None
+        self.symbol = 'H'
 
     def get_default_nbands(self):
         return 1

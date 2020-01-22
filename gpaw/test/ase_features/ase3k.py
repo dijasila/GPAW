@@ -1,8 +1,15 @@
 from __future__ import print_function
-from ase import Atom, Atoms
+from ase import Atoms
 from ase.io import read
+from ase.test import must_raise
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
+
+# Check that we fail for non-3x3 cell:
+with must_raise(ValueError):
+    H = Atoms('H', calculator=GPAW())
+    H.get_potential_energy()
+
 a = 2.0
 calc = GPAW(gpts=(12, 12, 12), txt='H.txt', occupations=FermiDirac(0.0))
 H = Atoms('H',

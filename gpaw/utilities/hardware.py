@@ -34,9 +34,15 @@ _hardware_info = {
             'walltime': '--time=',
         },
     },
+    "nemo": {
+        "cores_per_node": 20,
+        "loginnodes": [r"login1.nemo.privat"],
+        'modules': ['mpi/impi'],
+        'scheduler': moab,
+    },
     "justus": {
         "cores_per_node": 16,
-        "loginnodes": [r"login*"],
+        "loginnodes": [r"login??"],
         'modules': ['mpi/impi'],
         'scheduler': moab,
     }

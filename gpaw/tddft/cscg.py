@@ -7,14 +7,11 @@ import numpy as np
 
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.blas import dotu
-from gpaw.utilities.blas import dotc
 from gpaw.utilities.linalg import change_sign
 from gpaw.mpi import rank
 from gpaw.tddft.utils import MultiBlas
 
-import _gpaw
 import gpaw.cuda
-
 
 class CSCG:
     """Conjugate gradient for complex symmetric matrices

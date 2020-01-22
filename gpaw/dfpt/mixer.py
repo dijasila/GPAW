@@ -88,17 +88,6 @@ class BaseMixer:
         self.D_iap = []
         self.dD_iap = []
 
-    def get_charge_sloshing(self):
-        """Return number of electrons moving around.
-
-        Calculated as the integral of the absolute value of the change
-        of the density from input to output."""
-        
-        return self.dNt
-
-    def set_charge_sloshing(self, dNt):
-        self.dNt = dNt
-        
     def mix(self, nt_G, D_ap, phase_cd=None):
         iold = len(self.nt_iG)
         if iold > 0:
@@ -227,20 +216,6 @@ class Mixer(BaseMixer):
         for mixer in self.mixers:
             mixer.reset()
 
-    def get_charge_sloshing(self):
-        """Return number of electrons moving around.
-
-        Calculated as the integral of the absolute value of the change
-        of the density from input to output."""
-
-        if self.mixers[0].dNt is None:
-            return None
-        return sum([mixer.dNt for mixer in self.mixers])
-
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
-
 
 class MixerSum(BaseMixer):
     """For pseudo electron densities, mix the total charge density and for
@@ -355,12 +330,6 @@ class MixerDif(BaseMixer):
         for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
             D_sp[0] = 0.5 * (D_p + dD_p)
             D_sp[1] = 0.5 * (D_p - dD_p)
-            
-
-    def get_charge_sloshing(self):
-        if self.mixer.dNt is None:
-            return None
-        return self.mixer.dNt
 
 
 class MixerRho(BaseMixer):
@@ -411,10 +380,7 @@ class BaseMixer_Broydn:
         self.u_G = []
         self.u_D = []        
         self.dNt = None
-        
-    def get_charge_sloshing(self):
-        return self.dNt 
-    
+
     def mix(self, nt_G, D_ap):
         if self.step > 2:
             del self.d_nt_G[0]
@@ -512,21 +478,6 @@ class Mixer_Broydn(BaseMixer_Broydn):
     def reset(self):
         for mixer in self.mixers:
             mixer.reset()
-
-    def get_charge_sloshing(self):
-        """Return number of electrons moving around.
-
-        Calculated as the integral of the absolute value of the change
-        of the density from input to output."""
-
-        if self.mixers[0].dNt is None:
-            return None
-        return sum([mixer.dNt for mixer in self.mixers])
-
-    def set_charge_sloshing(self, dNt):
-        for mixer in self.mixers:
-            mixer.set_charge_sloshing(dNt / len(self.mixers))
-
 
 class MixerSum_Broydn(BaseMixer_Broydn):
     def mix(self, density):

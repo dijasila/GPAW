@@ -16,11 +16,11 @@ this :download:`Al_fcc.py` to a place in your file area:
 Read the script and try to get an idea of what it will do. Run the
 script by typing::
 
-  $ python Al_fcc.py
+  $ python3 Al_fcc.py
 
 The program will pop up a window showing the bulk structure.  Verify
 that the structure indeed is fcc. Try to identify the closepacked (111)
-planes.  In :program:`ase-gui` this is done by choosing :menuselection:`View
+planes.  In :program:`ase gui` this is done by choosing :menuselection:`View
 --> Repeat`.
 
 Notice that the program has generated two output files::
@@ -44,8 +44,6 @@ plane-waves used.  You can conveniently monitor some variables by using the
 you see the progress of the iteration cycles including convergence of
 wave functions, density and total energy. If the ``txt`` keyword is omitted
 the log output will be printed directly in the terminal.
-
-.. highlight:: python
 
 The binary file contains all information about the calculation. Try
 typing the following from the Python interpreter:
@@ -79,6 +77,8 @@ bulk Aluminum.
 
   .. hint::
 
+     .. highlight:: python
+
      Modify :download:`Al_fcc.py` by adding a
      for-loop like this::
 
@@ -96,11 +96,13 @@ bulk Aluminum.
 
   .. math:: B = V\frac{d^2 E}{dV^2} = \frac{M}{9a_0}\frac{d^2 E}{da^2},
 
+  .. highlight:: bash
+
   where *M* is the number of atoms per cubic unit cell:
   `V=a^3/M` (`M=4` for fcc).  Make the fit using your favorite math
-  package (NumPy_) or use :program:`ase-gui` like this::
+  package (NumPy_) or use :program:`ase gui` like this::
 
-    $ ase-gui bulk-*.txt
+    $ ase gui bulk-*.txt
 
   Then choose :menuselection:`Tools --> Bulk Modulus`.
 
@@ -122,7 +124,7 @@ bulk Aluminum.
     numpy.polynomial.polynomial.Polynomial.html
     #numpy-polynomial-polynomial-polynomial
 
-    
+
 Convergence in number of **k**-points
 -------------------------------------
 
@@ -148,7 +150,7 @@ Equilibrium lattice properties for bcc
 ======================================
 
 * Set up a similar calculation for bcc, in the minimal unit cell.
-  
+
 * Make a qualified starting guess on `a_\text{bcc}` from the lattice
   constant for fcc, that you have determined above. One can either
   assume that the primitive unit cell volumes of the fcc and bcc

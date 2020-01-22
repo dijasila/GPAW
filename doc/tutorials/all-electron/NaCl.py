@@ -1,7 +1,8 @@
+# Creates: all_electron.csv
 from __future__ import print_function
 import numpy as np
 
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from ase.parallel import paropen
 
@@ -13,9 +14,8 @@ f = paropen('all_electron.csv', 'w')
 for formula in ('Na', 'Cl', 'NaCl',):
     calc = GPAW(xc='PBE',
                 h=0.18,
-                convergence={'eigenstates':1E-8},
-                txt=formula + '.txt'
-                )
+                convergence={'eigenstates': 1e-8},
+                txt=formula + '.txt')
 
     if formula in ['Na', 'Cl']:
         calc.set(hund=True)

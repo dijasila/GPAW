@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase import Atom, Atoms
+from ase import Atoms
 from gpaw import GPAW, FermiDirac
 from gpaw.xas import XAS, RecursionMethod
 from gpaw.test import gen

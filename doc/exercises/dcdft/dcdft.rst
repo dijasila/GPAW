@@ -5,9 +5,9 @@ DeltaCodesDFT - Comparing Solid State DFT Codes, Basis Sets and Potentials
 ==========================================================================
 
 .. note::
-    
+
     This exercise is currently broken.  Please skip it.
-    
+
 The webpage https://molmod.ugent.be/deltacodesdft provides a method
 for measuring the precision of a given calculation method
 against a chosen reference method (computational
@@ -51,7 +51,7 @@ temperature. Copy this :download:`dcdft_gpaw.py` to a place in your file area:
 Read the script and try to understand it. Run the
 script by typing::
 
-  $ python dcdft_gpaw.py
+  $ python3 dcdft_gpaw.py
 
 It should take about 15 minutes to run the script.
 Note that you can start several instances of the script
@@ -60,17 +60,17 @@ simultaneously in order to speed things up.
 The script will generate ``.txt`` files and an SQLite3 database file.
 Watch the progess as the calculations run::
 
-    $ ase-db dcdft.db -c +x,time
+    $ ase db dcdft.db -c +x,time
 
 Examine the equation of state (see :ref:`aluminium_exercise`)
-using :command:`ase-gui`::
+using :command:`ase gui`::
 
-  $ ase-gui dcdft.db@name=Ca
+  $ ase gui dcdft.db@name=Ca
 
 .. note::
 
     The PBE reference values from https://molmod.ugent.be/deltacodesdft are:
-     
+
     =======  ==================  =========
     element  `V` [Å\ `^3`/atom]  `B` [GPa]
     =======  ==================  =========

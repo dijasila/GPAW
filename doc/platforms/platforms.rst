@@ -7,14 +7,16 @@ Platforms and architectures
 Linux:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
+   gbar/gbar
    Linux/CentOS
    Linux/Fedora
    Linux/openSUSE
-   Linux/Ubuntu_ppa
-   Linux/Ubuntu
+   Linux/ubuntu
    Linux/Niflheim/Niflheim
+   Linux/Niflheim/load
+   Linux/Niflheim/build
    Linux/SUNCAT/SUNCAT
    Linux/akka
    Linux/armageddon
@@ -31,6 +33,7 @@ Linux:
    Linux/monolith
    Linux/murska
    Linux/nanolab_EL4
+   Linux/nemo
    Linux/neolith
    Linux/newcell
    Linux/r410_psmn.ens-lyon
@@ -48,6 +51,7 @@ MacOSX:
    :maxdepth: 1
 
    MacOSX/homebrew
+   MacOSX/anaconda
 
 AIX:
 
@@ -96,6 +100,7 @@ Cray:
 .. toctree::
    :maxdepth: 1
 
+   Cray/nersc_cori
    Cray/louhi
    Cray/jaguar
    Cray/sisu
@@ -114,4 +119,3 @@ Solaris:
    :maxdepth: 1
 
    Solaris/corona
-   Solaris/bohr

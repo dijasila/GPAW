@@ -28,6 +28,8 @@ Jul 22 2009  gpaw-setups-0.5.3574.tar.gz_
 ===========  =============================
 
 
+.. _periodic table:
+    
 Periodic table
 ==============
 

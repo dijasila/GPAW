@@ -120,7 +120,7 @@ Please perform the following steps:
 
  - analyse the results::
 
-    python ../memory_bandwidth.py
+    python3 ../memory_bandwidth.py
 
  - to estimate performance run the benchmark on the maximal number the cores only::
 
@@ -550,14 +550,12 @@ The number of bands (1056) and cores are chosen to make comparisons
 of different band parallelizations (:ref:`band_parallelization`) possible.
 
 **Note**: to achieve optimal performance diagonalization steps are performed
-on `4x4` blacs grid with block size of `64` specified by adding ``--gpaw=blacs=1 --sl_diagonalize=4,4,64`` options.
+on `4x4` blacs grid with block size of `64`.  This can be specified
+using the keyword `parallel={'sl_diagonalize': (4, 4, 64)}`.
 
 **Note** also that a default domain decomposition is appplied, and different
 results can be obtained by tuning ``--domain-decomposition`` argument
 to your platform.
-
-**Note**: the ``--gpaw=usenewlfc=1`` option is required to skip the calculation of forces
-and decrease **memory** usage.
 
 The results of the benchmark is scaling of execution time of different stages
 of GPAW run with the number of processes (CPU cores).
@@ -599,7 +597,7 @@ Please perform the following steps:
 
  - analyse the results::
 
-    python scaling.py -v --dir=. --pattern="b256H2O_112_04x04m64.grid_*_" b256H2O
+    python3 scaling.py -v --dir=. --pattern="b256H2O_112_04x04m64.grid_*_" b256H2O
 
    Niflheim results:
 
@@ -707,14 +705,12 @@ The number of bands (1728) and cores are chosen to make comparisons
 of different band parallelizations (:ref:`band_parallelization`) possible.
 
 **Note**: to achieve optimal performance diagonalization steps are performed
-on `5x5` blacs grid with block size of `64` specified by adding ``--gpaw=blacs=1 --sl_diagonalize=5,5,64`` options.
+on `5x5` blacs grid with block size of `64`.  This can be specified
+using the keyword `parallel={'sl_diagonalize': (4, 4, 64)}`.
 
 **Note** also that a default domain decomposition is appplied, and different
 results can be obtained by tuning ``--domain-decomposition`` argument
 to your platform.
-
-**Note**: the ``--gpaw=usenewlfc=1`` option is required to skip the calculation of forces
-and decrease **memory** usage.
 
 The results of the benchmark is scaling of execution time of different stages
 of GPAW run with the number of processes (CPU cores).
@@ -758,7 +754,7 @@ Please perform the following steps:
 
  - analyse the results::
 
-    python scaling.py -v --dir=. --pattern="Au_cluster_240_05x05m64.grid_*_" Au_cluster
+    python3 scaling.py -v --dir=. --pattern="Au_cluster_240_05x05m64.grid_*_" Au_cluster
 
    A typical output may look like
    (example given for Intel Xeon dual-socket, quad-core L5k CPUs, 2.5 GHz,

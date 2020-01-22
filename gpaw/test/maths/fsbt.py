@@ -16,8 +16,9 @@ for l in range(7):
     f = fsbt(l, n * r**l, r, G)
     f0 = (np.pi**0.5 / alpha**(l + 1.5) / 2**l * G**l / 4 *
           np.exp(-G**2 / (4 * alpha)))
-    print(l, abs(f - f0).max())
-    assert abs(f - f0).max() < 1e-7
+    tol = 3e-6 * 10**(-7 + l)
+    print(l, abs(f - f0).max(), 'tol=', tol)
+    assert abs(f - f0).max() < tol
 
 rgd = RGD(r, r * 0 + r[1])
 g, f = rgd.fft(n * r)

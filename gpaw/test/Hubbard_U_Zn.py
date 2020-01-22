@@ -1,8 +1,7 @@
 from __future__ import print_function
 from ase import Atom
-from ase.units import Hartree
 
-from gpaw import GPAW, FermiDirac, Davidson, PoissonSolver
+from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
@@ -19,7 +18,7 @@ for spin in [0, 1]:
     c = GPAW(h=h, spinpol=spin,
              xc='oldLDA',
              mode='lcao', basis='sz(dzp)',
-             poissonsolver=PoissonSolver(relax='GS', eps=1e-7),
+             poissonsolver=PoissonSolver(eps=1e-7),
              parallel=dict(kpt=1),
              charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
              )

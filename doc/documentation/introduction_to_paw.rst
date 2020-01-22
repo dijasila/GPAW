@@ -59,10 +59,7 @@ More information on PAW
 =======================
 
 You can find additional information on the :ref:`literature` page, or
-by reading the `paw note`_
-
-.. _paw note: paw_note.pdf
-
+by reading the :download:`paw note <paw_note.pdf>`.
 
 
 Script

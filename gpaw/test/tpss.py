@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW, Davidson, Mixer, PoissonSolver
 from gpaw.utilities.tools import split_formula
@@ -44,7 +44,7 @@ for formula in systems:
                 parallel=dict(kpt=1),
                 mixer=Mixer(0.5, 5),
                 nbands=-2,
-                poissonsolver=PoissonSolver(relax='GS'),
+                poissonsolver=PoissonSolver('fd', relax='GS'),
                 xc='oldPBE',
                 #fixmom=True,
                 txt=formula + '.txt')

@@ -19,7 +19,7 @@ def to_parent_comm(partition):
     # XXXX we hope and pray that our communicator is "equivalent" to
     # that which includes parent's rank0.
     assert min(members) == members[0]
-    parent_rank_a -= members[0] # yuckkk
+    parent_rank_a -= members[0]  # yuckkk
     return AtomPartition(parent, parent_rank_a,
                          name='parent-%s' % partition.name)
 
@@ -54,7 +54,7 @@ class AtomicMatrixDistributor:
         # Right now the D are duplicated across the band/kpt comms.
         # Here we pick out a set of unique D.  With duplicates out,
         # we can redistribute one-to-one to the larger work_partition.
-        #assert D_asp.partition == self.grid_partition
+        # assert D_asp.partition == self.grid_partition
 
         Ddist_asp = ArrayDict(self.grid_unique_partition, D_asp.shapes_a,
                               dtype=D_asp.dtype)
@@ -72,8 +72,8 @@ class AtomicMatrixDistributor:
         # to grid_partition.
 
         # First receive one-to-one from everywhere.
-        #assert dHdist_asp.partition == self.work_partition
-        dHdist_asp = dHdist_asp.deepcopy()
+        # assert dHdist_asp.partition == self.work_partition
+        dHdist_asp = dHdist_asp.copy()
         dHdist_asp.redistribute(self.grid_unique_partition)
 
         dH_asp = ArrayDict(self.grid_partition, dHdist_asp.shapes_a,
@@ -83,7 +83,7 @@ class AtomicMatrixDistributor:
             assert not np.isnan(buf).any()
         else:
             buf = dH_asp.toarray()
-            buf[:] = np.nan # Let's be careful for now like --debug mode
+            buf[:] = np.nan  # Let's be careful for now like --debug mode
         self.broadcast_comm.broadcast(buf, 0)
         assert not np.isnan(buf).any()
         dH_asp.fromarray(buf)
@@ -108,10 +108,10 @@ class EvenPartitioning:
         #  i, I: local/global index
         self.comm = comm
         self.N = N
-        self.nlong = -(-N // comm.size) # size of a 'long' slice
-        self.nshort = N // comm.size # size of a 'short' slice
-        self.longcount = N % comm.size # number of ranks with a 'long' slice
-        self.shortcount = comm.size - self.longcount # ranks with 'short' slice
+        self.nlong = -(-N // comm.size)  # size of a long slice
+        self.nshort = N // comm.size  # size of a short slice
+        self.longcount = N % comm.size  # number of ranks with a long slice
+        self.shortcount = comm.size - self.longcount  # ranks with short slice
 
     def nlocal(self, rank=None):
         """Get the number of locally stored elements."""
@@ -146,7 +146,8 @@ class EvenPartitioning:
             return I // self.nshort, I % self.nshort
         else:
             Ioffset = I - nIshort
-            return self.shortcount + Ioffset // self.nlong, Ioffset % self.nlong
+            return (self.shortcount + Ioffset // self.nlong,
+                    Ioffset % self.nlong)
 
     def local2global(self, i, rank=None):
         """Get global index I corresponding to local index i on rank."""
@@ -218,6 +219,18 @@ class AtomPartition:
         self.natoms = len(rank_a)
         self.name = name
 
+    def __eq__(self, other):
+        try:
+            comm = other.comm
+            rank_a = other.rank_a
+        except AttributeError:
+            return False
+        return (self.comm.compare(comm) in ['ident', 'congruent']
+                and np.array_equal(self.rank_a, rank_a))
+
+    def __ne__(self, other):
+        return not self == other
+
     def as_serial(self):
         return AtomPartition(self.comm, np.zeros(self.natoms, int),
                              name='%s-serial' % self.name)
@@ -252,7 +265,7 @@ class AtomPartition:
                         assert a not in d_ax
                         atomdict_ax[u][a] = b_x[u]
                 def get_sendbuffer(self, a):
-                    return np.array([d_ax.pop(a) for d_ax in atomdict_ax])
+                    return np.array([d_ax.data.pop(a) for d_ax in atomdict_ax])
         else:
             class Redist:
                 def get_recvbuffer(self, a):
@@ -261,7 +274,7 @@ class AtomPartition:
                     assert a not in atomdict_ax
                     atomdict_ax[a] = b_x
                 def get_sendbuffer(self, a):
-                    return atomdict_ax.pop(a)
+                    return atomdict_ax.data.pop(a)
 
         try:
             general_redistribute(self.comm, self.rank_a,

@@ -1,4 +1,4 @@
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import parprint
 
 from gpaw import GPAW
@@ -6,7 +6,6 @@ from gpaw.cluster import Cluster
 from gpaw.analyse.hirshfeld import HirshfeldDensity, HirshfeldPartitioning
 from gpaw.analyse.wignerseitz import WignerSeitz
 from gpaw.test import equal
-from gpaw.mpi import rank
 
 h = 0.4
 gpwname = 'H2O' + str(h) + '.gpw'

@@ -1,15 +1,12 @@
 from __future__ import print_function
 from math import sqrt
-import numpy as np
-import gpaw.mpi as mpi
-MASTER = mpi.MASTER
 
+import numpy as np
 from ase.units import Hartree
+from ase.utils import convert_string_to_fd, basestring
 from ase.utils.timing import Timer
 
 import gpaw.mpi as mpi
-#from gpaw.poisson import PoissonSolver
-from gpaw.output import get_txt
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
@@ -42,27 +39,26 @@ class OmegaMatrix:
                  xc=None,
                  derivativeLevel=None,
                  numscale=0.001,
+                 poisson=None,
                  filehandle=None,
                  txt=None,
                  finegrid=2,
-                 eh_comm=None,
-                 ):
+                 eh_comm=None):
 
         if not txt and calculator:
-            txt = calculator.txt
-        self.txt = get_txt(txt, mpi.rank)
+            txt = calculator.log.fd
+        self.txt = convert_string_to_fd(txt, mpi.world)
 
         if eh_comm is None:
             eh_comm = mpi.serial_comm
 
         self.eh_comm = eh_comm
+        self.fullkss = kss
 
         if filehandle is not None:
-            self.kss = kss
             self.read(fh=filehandle)
             return None
 
-        self.fullkss = kss
         self.finegrid = finegrid
 
         if calculator is None:
@@ -74,26 +70,29 @@ class OmegaMatrix:
         # handle different grid possibilities
         self.restrict = None
         # self.poisson = PoissonSolver(nn=self.paw.hamiltonian.poisson.nn)
-        self.poisson = calculator.hamiltonian.poisson
+        if poisson is None:
+            self.poisson = calculator.hamiltonian.poisson
+        else:
+            self.poisson = poisson
         if finegrid:
             self.poisson.set_grid_descriptor(self.paw.density.finegd)
-            self.poisson.initialize()
 
             self.gd = self.paw.density.finegd
             if finegrid == 1:
                 self.gd = wfs.gd
         else:
             self.poisson.set_grid_descriptor(wfs.gd)
-            self.poisson.initialize()
             self.gd = wfs.gd
         self.restrict = Transformer(self.paw.density.finegd, wfs.gd,
-                                    self.paw.input_parameters.stencils[1]
-                                    ).apply
+                                    self.paw.density.stencil).apply
 
         if xc == 'RPA':
             xc = None  # enable RPA as keyword
         if xc is not None:
-            self.xc = XC(xc)
+            if isinstance(xc, basestring):
+                self.xc = XC(xc)
+            else:
+                self.xc = xc
             self.xc.initialize(self.paw.density, self.paw.hamiltonian,
                                wfs, self.paw.occupations)
 
@@ -139,7 +138,7 @@ class OmegaMatrix:
         gd = paw.density.finegd
         eh_comm = self.eh_comm
 
-        fg = self.finegrid is 2
+        fg = self.finegrid == 2
         kss = self.fullkss
         nij = len(kss)
 
@@ -368,7 +367,7 @@ class OmegaMatrix:
                       self.time_left(timer, t0, ij, nij), file=self.txt)
 
     def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot,
-                             timer=None):
+                             timer=None, yukawa=False):
         # smooth part
         if timer:
             timer.start('integrate')
@@ -392,7 +391,11 @@ class OmegaMatrix:
             Pq_i = Pkq_ani[a][kss_kq.j]
             Dkq_ii = np.outer(Pk_i, Pq_i)
             Dkq_p = pack(Dkq_ii)
-            C_pp = wfs.setups[a].M_pp
+            if yukawa and hasattr(self.xc, 'omega') and self.xc.omega > 0:
+                C_pp = wfs.setups[a].calculate_yukawa_interaction(
+                    self.xc.omega)
+            else:
+                C_pp = wfs.setups[a].M_pp
             #   ----
             # 2 >      P   P  C    P  P
             #   ----    ip  jr prst ks qt
@@ -428,7 +431,7 @@ class OmegaMatrix:
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -455,7 +458,7 @@ class OmegaMatrix:
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
 
                 pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
@@ -493,10 +496,11 @@ class OmegaMatrix:
                 skss.append((ks + ks) / sqrt(2))
                 tkss.append((ks - ks) / sqrt(2))
                 map.append(ij)
-
+        skss.istart = tkss.istart = self.fullkss.istart
+        skss.jend = tkss.jend = self.fullkss.jend
         nkss = len(skss)
 
-        # define the singlet and the triplet omega-matrixes
+        # define the singlet and the triplet omega-matrices
         sOm = OmegaMatrix(kss=skss)
         sOm.full = np.empty((nkss, nkss))
         tOm = OmegaMatrix(kss=tkss)
@@ -533,7 +537,13 @@ class OmegaMatrix:
         return self.timestring(t0 * (nij - ij - 1) + t)
 
     def get_map(self, istart=None, jend=None, energy_range=None):
-        """Return the reduction map for the given requirements"""
+        """Return the reduction map for the given requirements
+
+        Returns
+        -------
+        map - list of original indices
+        kss - reduced KSSingles object
+        """
 
         self.istart = istart
         self.jend = jend
@@ -581,12 +591,8 @@ class OmegaMatrix:
 
         return map, kss
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None,
-                    TDA=False):
+    def diagonalize(self, istart=None, jend=None, energy_range=None):
         """Evaluate Eigenvectors and Eigenvalues:"""
-
-        if TDA:
-            raise NotImplementedError
 
         map, kss = self.get_map(istart, jend, energy_range)
         nij = len(kss)
@@ -604,14 +610,16 @@ class OmegaMatrix:
         self.kss = kss
         diagonalize(self.eigenvectors, self.eigenvalues)
 
-    def Kss(self, kss=None):
-        """Set and get own Kohn-Sham singles"""
-        if kss is not None:
-            self.fullkss = kss
-        if(hasattr(self, 'fullkss')):
-            return self.fullkss
-        else:
-            return None
+    @property
+    def kss(self):
+        if hasattr(self, '_kss'):
+            return self._kss
+        return self.fullkss
+
+    @kss.setter
+    def kss(self, kss):
+        """Set current (restricted) KSSingles object"""
+        self._kss = kss
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
@@ -624,10 +632,9 @@ class OmegaMatrix:
         nij = int(f.readline())
         full = np.zeros((nij, nij))
         for ij in range(nij):
-            l = f.readline().split()
-            for kq in range(ij, nij):
-                full[ij, kq] = float(l[kq - ij])
-                full[kq, ij] = full[ij, kq]
+            l = [float(x) for x in f.readline().split()]
+            full[ij, ij:] = l
+            full[ij:, ij] = l
         self.full = full
 
         if fh is None:
@@ -635,7 +642,12 @@ class OmegaMatrix:
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-        if mpi.rank == mpi.MASTER:
+
+        try:
+            rank = self.paw.wfs.world.rank
+        except AttributeError:
+            rank = mpi.world.rank
+        if rank == 0:
             if fh is None:
                 f = open(filename, 'w')
             else:

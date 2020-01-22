@@ -1,11 +1,8 @@
 from __future__ import print_function
-from math import pi, sqrt
-import numpy as np
+
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.gauss import Gaussian
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.test import equal
-from gpaw.mpi import world
 from gpaw.helmholtz import HelmholtzSolver, ScreenedPoissonGaussian
 
 # Initialize classes
@@ -19,7 +16,6 @@ solver = HelmholtzSolver(k2=coupling, nn=3)  # Numerical poisson solver
 # solver = PoissonSolver(nn=3)  # Numerical poisson solver
 # solver = HelmholtzSolver(0.16)  # Numerical poisson solver
 solver.set_grid_descriptor(gd)
-solver.initialize()
 xyz, r2 = coordinates(gd)     # Matrix with the square of the radial coordinate
 gauss = Gaussian(gd, a=inv_width)          # An instance of Gaussian
 test_screened_poisson = ScreenedPoissonGaussian(gd, a=inv_width)

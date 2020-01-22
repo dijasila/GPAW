@@ -5,17 +5,20 @@ Development
 ===========
 
 GPAW development can be done by anyone! Just take a look at the
-:ref:`todolist` list and find something that suits your talents!
+`issue tracker`_ and find something that suits your talents!
 
 The primary source of information is still the :ref:`manual` and
 :ref:`documentation`, but as a developer you might need additional
 information which can be found here. For example the :ref:`code_overview`.
 
-As a developer, you should subscribe to all GPAW related :ref:`mail lists`.
+As a developer, you should subscribe to the GPAW :ref:`mail list`.
 We would also like to encourage you to join our channel for :ref:`irc`.
 
 Now you are ready to to perfom a :ref:`developer installation` and
 start development!
+
+
+.. _issue tracker: https://gitlab.com/gpaw/gpaw/issues/
 
 .. toctree::
    :maxdepth: 2
@@ -46,7 +49,6 @@ version to become the next release.
    bugs
    newrelease
    technology
-   todo
    benchmarks
 
 * Details about supported :ref:`platforms and architectures`.
@@ -80,6 +82,7 @@ the corresponding objects are defined in the code:
    setups
    density_and_hamiltonian
    planewaves
+   matrices
    communicators
    others
 

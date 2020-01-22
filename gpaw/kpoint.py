@@ -38,7 +38,7 @@ class KPoint:
         Rank of the CPU that does the matrix diagonalization of
         H_nn and the Cholesky decomposition of S_nn.
     """
-    
+
     def __init__(self, weight, s, k, q, phase_cd, cuda=False):
         """Construct k-point object.
 
@@ -80,21 +80,21 @@ class KPoint:
         self.k = k  # k-point index
         self.q = q  # local k-point index
         self.phase_cd = phase_cd
-        
+
         self.eps_n = None
         self.f_n = None
-        self.P_ani = None
+        self.P = None
 
         # Only one of these two will be used:
-        self.psit_nG = None  # wave functions on 3D grid
-        self.C_nM = None     # LCAO coefficients for wave functions XXX
+        self.psit = None  # UniformGridMatrix/PWExpansionMatrix
+        self.C_nM = None  # LCAO coefficients for wave functions
 
         self.cuda = cuda
         if self.cuda:
             self.psit_nG_gpu = None
 
+        # LCAO stuff:
         self.rho_MM = None
-        
         self.S_MM = None
         self.T_MM = None
 
@@ -118,8 +118,18 @@ class KPoint:
             del self.psit_nG_gpu
             self.psit_nG_gpu = None
 
-class GlobalKPoint(KPoint):
+    @property
+    def P_ani(self):
+        if self.P is not None:
+            return {a: P_ni for a, P_ni in self.P.items()}
 
+    @property
+    def psit_nG(self):
+        if self.psit is not None:
+            return self.psit.array
+
+
+class GlobalKPoint(KPoint):
     def update(self, wfs):
         """Distribute requested kpoint data across the kpoint communicator."""
 
@@ -136,7 +146,7 @@ class GlobalKPoint(KPoint):
         self.P_ani = {}
 
         if self.phase_cd is None:
-            self.phase_cd = np.empty((3,2), wfs.dtype)
+            self.phase_cd = np.empty((3, 2), wfs.dtype)
 
         if self.psit_nG is None:
             self.psit_nG = wfs.gd.empty(wfs.mynbands, wfs.dtype)
@@ -150,9 +160,9 @@ class GlobalKPoint(KPoint):
 
             # Compress entries in requested P_ani dict into my_P_ni ndarray
             i = 0
-            for a,P_ni in wfs.kpt_u[u].P_ani.items():
+            for a, P_ni in wfs.kpt_u[u].P_ani.items():
                 ni = wfs.setups[a].ni
-                my_P_ni[:,i:i+ni] = P_ni
+                my_P_ni[:, i:i + ni] = P_ni
                 i += ni
 
             assert (my_atom_indices == wfs.kpt_u[u].P_ani.keys()).all()
@@ -176,6 +186,5 @@ class GlobalKPoint(KPoint):
         i = 0
         for a in my_atom_indices:
             ni = wfs.setups[a].ni
-            self.P_ani[a] = my_P_ni[:,i:i+ni] #copy?
+            self.P_ani[a] = my_P_ni[:, i:i + ni]  # copy?
             i += ni
-

@@ -28,7 +28,7 @@ import sys
 import numpy as np
 from unittest import TestResult, TestCase, TestSuite, \
                      _TextTestResult, TextTestRunner, TestLoader, \
-                     FunctionTestCase, TestProgram, defaultTestLoader
+                     FunctionTestCase, TestProgram
 
 from ase.utils import devnull
 
@@ -304,7 +304,7 @@ class ParallelTextTestRunner(TextTestRunner):
             stream = devnull
         elif isinstance(stream, str):
             self.logfile = stream
-            stream = open(self.logfile, 'w', buffering=0)
+            stream = open(self.logfile, 'w')
         TextTestRunner.__init__(self, stream=stream, **kwargs)
 
     def _makeResult(self):

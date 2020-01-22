@@ -1,12 +1,13 @@
 
 import numpy as np
 
+from gpaw.io import Reader, Writer
+
 from gpaw import debug
-from gpaw.io.tar import Reader, Writer
 from gpaw.utilities import is_contiguous
 from gpaw.analyse.observers import Observer
 from gpaw.transformers import Transformer
-from gpaw.tddft import attosec_to_autime, eV_to_aufrequency
+from gpaw.tddft.units import attosec_to_autime, eV_to_aufrequency
 
 
 class DensityFourierTransform(Observer):

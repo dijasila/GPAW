@@ -60,8 +60,13 @@ class Interaction(NeedsGD):
         """Return spatial derivatives with respect to atomic position."""
         raise NotImplementedError
 
-    def print_parameters(self, text):
-        """Print parameters using text function."""
+    def __str__(self):
+        s = "Interaction: %s\n" % (self.__class__, )
+        s += "  subscript: %s\n" % (self.subscript, )
+        return s
+
+    def update_atoms(self, atoms, log):
+        """Inexpensive initialization when atoms change."""
         pass
 
 
@@ -91,9 +96,10 @@ class SurfaceInteraction(Interaction):
         np.multiply(st, acalc.delta_A_delta_g_g, self.delta_E_delta_g_g)
         return True
 
-    def print_parameters(self, text):
-        Interaction.print_parameters(self, text)
-        text('surface_tension: %s' % (self.surface_tension, ))
+    def __str__(self):
+        s = Interaction.__str__(self)
+        s += '  surface_tension: %s\n' % (self.surface_tension, )
+        return s
 
 
 class VolumeInteraction(Interaction):
@@ -122,9 +128,10 @@ class VolumeInteraction(Interaction):
         np.multiply(pressure, vcalc.delta_V_delta_g_g, self.delta_E_delta_g_g)
         return True
 
-    def print_parameters(self, text):
-        Interaction.print_parameters(self, text)
-        text('pressure: %s' % (self.pressure, ))
+    def __str__(self):
+        s = Interaction.__str__(self)
+        s += '  pressure: %s\n' % (self.pressure, )
+        return s
 
 
 class LeakedDensityInteraction(Interaction):
@@ -160,6 +167,7 @@ class LeakedDensityInteraction(Interaction):
         )
         return True
 
-    def print_parameters(self, text):
-        Interaction.print_parameters(self, text)
-        text('voltage: %s' % (self.voltage, ))
+    def __str__(self):
+        s = Interaction.__str__(self)
+        s += '  voltage: %s\n' % (self.voltage, )
+        return s

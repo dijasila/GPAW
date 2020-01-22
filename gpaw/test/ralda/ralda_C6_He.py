@@ -1,6 +1,5 @@
-from ase import *
-from ase.structure import molecule
-from gpaw import *
+from ase import Atoms
+from gpaw import GPAW, PW
 from gpaw.mpi import serial_comm
 from gpaw.test import equal
 from gpaw.xc.fxc_correlation_energy import FXCCorrelation
@@ -10,8 +9,7 @@ ecut = 50
 He = Atoms('He')
 He.center(vacuum=1.0)
 
-calc = GPAW(mode='pw',
-            dtype=complex,
+calc = GPAW(mode=PW(force_complex_dtype=True),
             xc='PBE',
             communicator=serial_comm)
 He.set_calculator(calc)

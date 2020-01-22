@@ -6,7 +6,6 @@ from __future__ import print_function
 import sys
 import time
 import math
-import functools
 
 import numpy as np
 from ase.utils.timing import Timer as BaseTimer
@@ -50,6 +49,10 @@ class NullTimer:
     def write(self, out=sys.stdout): pass
     def write_now(self, mark=''): pass
     def add(self, timer): pass
+    def __call__(self, name):
+        return self
+    def __enter__(self): pass
+    def __exit__(self, *args): pass
 
 
 nulltimer = NullTimer()
@@ -88,11 +91,11 @@ class ParallelTimer(DebugTimer):
     determine bottlenecks in the parallelization.
 
     See the tool gpaw-plot-parallel-timings."""
-    def __init__(self, prefix='timings'):
+    def __init__(self, prefix='timings', flush=False):
         ndigits = len(str(mpi.world.size - 1))
         ranktxt = '%0*d' % (ndigits, mpi.world.rank)
         fname = '%s.%s.txt' % (prefix, ranktxt)
-        txt = open(fname, 'w')
+        txt = open(fname, 'w', buffering=1 if flush else -1)
         DebugTimer.__init__(self, comm=mpi.world, txt=txt)
         self.prefix = prefix
 

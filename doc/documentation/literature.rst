@@ -156,10 +156,10 @@ response:
 
 csm:
     \A. Held and M. Walter
-           
+
     `Simplified continuum solvent model with a smooth cavity based on
     volumetric data`__
-     
+
     \J. Chem. Phys. **141**, 174108 (2014)
 
     __ http://dx.doi.org/10.1063/1.4900838
@@ -171,4 +171,3 @@ All citing articles:
    :file: citations.csv
    :header: #, title
    :widths: 1, 15
-

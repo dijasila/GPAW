@@ -1,14 +1,10 @@
-import os
-import sys
-
-import numpy as np
-
 from ase import Atom
 from ase.units import Ha
 from ase.parallel import parprint
 
 from gpaw import GPAW
-from gpaw.cluster import *
+
+from gpaw.cluster import Cluster
 from gpaw.pes.state import BoundState, H1s
 from gpaw.pes.ds_beta import CrossSectionBeta
 

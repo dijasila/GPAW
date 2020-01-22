@@ -3,21 +3,15 @@
 """This module implements time propagators for time-dependent density
 functional theory calculations."""
 
-import sys
-
 import numpy as np
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotc
 from gpaw.utilities.blas import scal
-
-from gpaw.mpi import rank, run
 
 from gpaw.tddft.utils import MultiBlas
 from gpaw.tddft.tdopers import DummyDensity
 
 import gpaw.cuda
-
 
 ###############################################################################
 # DummyKPoint
@@ -742,7 +736,7 @@ class EhrenfestPAWSICN(ExplicitCrankNicolson):
             # Update estimate of psit(t+dt) to ( 1 - i S^(-1) H dt ) psit(t)
             #print 'self.use_cg[0]', self.use_cg[0]
             self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=self.use_cg[0])
-            #assert self.use_cg[0] is False
+            #assert not self.use_cg[0]
             #self.td_overlap.apply_inverse(self.hpsit, self.sinvhpsit, self.wfs, kpt, use_cg=False)
             
             self.mblas.multi_zaxpy(-1.0j*time_step, self.sinvhpsit,

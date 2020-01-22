@@ -1,10 +1,10 @@
 from __future__ import print_function
 import numpy as np
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 from ase.units import Bohr
 
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac
 from gpaw.response.chi0 import Chi0
 from gpaw.mpi import serial_comm
 
@@ -31,14 +31,14 @@ for k in [2, 3]:
                         eigensolver='rmm-diis',
                         symmetry={'point_group': sym},
                         mode='pw',
-                        width=0.001,
+                        occupations=FermiDirac(width=0.001),
                         txt=name + '.txt')
                     e = a.get_potential_energy()
                     calc.write(name, 'all')
                     
                 calc = GPAW(name, txt=None, communicator=serial_comm)
 
-                chi = Chi0(calc, omega, hilbert=False,
+                chi = Chi0(calc, frequencies=omega, hilbert=False,
                            ecut=100, txt=name + '.log')
                 pd, chi0_wGG, _, _ = chi.calculate(q_c)
                 

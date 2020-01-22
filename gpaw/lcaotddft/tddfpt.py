@@ -79,7 +79,7 @@ def transform_local_operator(gpw_file=None, tdop_file=None, fqop_file=None,
 
     tdf.close()
     tdaf.close()
-    
+
     fqf = open(fqop_file + '.sG', 'w')
     Fq_G.tofile(fqf)
     fqf.close()
@@ -142,7 +142,7 @@ class TDDFPT(GPAW):
         self.hamiltonian.vt_sG[:] = self.cvt_sG.real
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].real
-        
+
         print(self.hamiltonian.vt_sG, np.sum(self.hamiltonian.vt_sG))
         Hp_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
                      self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
@@ -156,7 +156,7 @@ class TDDFPT(GPAW):
 
         S_MM = self.wfs.S_qMM[0]
         C0_nM = self.wfs.kpt_u[0].C_nM.copy()
-        
+
         d_m = np.dot(np.dot(S_MM, Hm_MM), S_MM.T)
         Hm_nn = np.dot(np.dot(C0_nM, d_m), C0_nM.T.conjugate())
         print('Hm_nn', Hm_nn)
@@ -165,7 +165,7 @@ class TDDFPT(GPAW):
         Hp_nn = np.dot(np.dot(C0_nM, d_p), C0_nM.T.conjugate())
         print('Hp_nn', Hp_nn)
 
-        
+
 class HamiltonianCollector(Observer):
 
     def __init__(self, filename, lcao):
@@ -194,7 +194,7 @@ class HamiltonianCollector(Observer):
             vt_sG.tofile(f)
             f.close()
 
-        dH_asp = hamiltonian.dH_asp.deepcopy()
+        dH_asp = hamiltonian.dH_asp.copy()
         serial_partition = dH_asp.partition.as_serial()
         dH_asp.redistribute(serial_partition)
 
@@ -239,7 +239,7 @@ class DensityCollector(Observer):
             print(nt_sG.sum())
             f.close()
 
-        D_asp = density.D_asp.deepcopy()
+        D_asp = density.D_asp.copy()
         serial_partition = D_asp.partition.as_serial()
         D_asp.redistribute(serial_partition)
 

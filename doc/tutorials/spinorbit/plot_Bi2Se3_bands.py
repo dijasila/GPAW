@@ -1,9 +1,10 @@
+# Creates: Bi2Se3_bands.png
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues, set_calculator
 
-plt.rc('text', usetex=True)
+#plt.rc('text', usetex=True)
 
 calc1 = GPAW('Bi2Se3_bands.gpw', txt=None)
 calc2 = GPAW('gs_Bi2Se3.gpw', txt=None)
@@ -38,5 +39,6 @@ for e_k in e_nk:
     plt.plot(x, e_k, c='b')
 plt.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
 plt.axis([0, x[-1], -1.7, 1.7])
+plt.tight_layout()
 # plt.show()
 plt.savefig('Bi2Se3_bands.png')

@@ -1,9 +1,4 @@
-from math import pi, cos, sin, sqrt, acos
-
-import numpy as np
-
 from ase.atoms import Atoms
-from ase.parallel import paropen
 
 
 def read_cc1(fileobj, index=-1):

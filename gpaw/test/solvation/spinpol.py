@@ -1,6 +1,6 @@
 from gpaw.test import equal
 from gpaw.cluster import Cluster
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (

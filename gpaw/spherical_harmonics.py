@@ -6,7 +6,7 @@ Real-valued spherical harmonics
 
 
 === === === =======
- L   l   m   
+ L   l   m
 === === === =======
  0   0   0   1
  1   1  -1   y
@@ -19,7 +19,7 @@ Real-valued spherical harmonics
  8   2   2   x2-y2
 === === === =======
 
-For a more complete list, see trunk/c/bmgs/sharmonic.py
+For a more complete list, see c/bmgs/sharmonic.py
 
 
 Gaunt coefficients::
@@ -42,7 +42,7 @@ from _gpaw import spherical_harmonics as Yl
 # Computer generated tables - do not touch!
 YL = [# s:
       [(1, (0, 0, 0))],
-      # p:  
+      # p:
       [(1, (0, 1, 0))],
       [(1, (0, 0, 1))],
       [(1, (1, 0, 0))],
@@ -141,8 +141,7 @@ YL = [# s:
       [(-5, (1, 6, 0)), (-120, (3, 2, 2)), (-1, (7, 0, 0)), (60, (1, 4, 2)),
        (5, (3, 4, 0)), (12, (5, 0, 2)), (9, (5, 2, 0))],
       [(1, (6, 0, 1)), (-1, (0, 6, 1)), (-15, (4, 2, 1)), (15, (2, 4, 1))],
-      [(1, (7, 0, 0)), (-21, (5, 2, 0)), (35, (3, 4, 0)), (-7, (1, 6, 0))]
-      ]
+      [(1, (7, 0, 0)), (-21, (5, 2, 0)), (35, (3, 4, 0)), (-7, (1, 6, 0))]]
 
 norms = ['sqrt(1./4/pi)', 'sqrt(3./4/pi)', 'sqrt(3./4/pi)', 'sqrt(3./4/pi)', 'sqrt(15./4/pi)', 'sqrt(15./4/pi)', 'sqrt(5./16/pi)', 'sqrt(15./4/pi)', 'sqrt(15./16/pi)', 'sqrt(35./32/pi)', 'sqrt(105./4/pi)', 'sqrt(21./32/pi)', 'sqrt(7./16/pi)', 'sqrt(21./32/pi)', 'sqrt(105./16/pi)', 'sqrt(35./32/pi)', 'sqrt(315./16/pi)', 'sqrt(315./32/pi)', 'sqrt(45./16/pi)', 'sqrt(45./32/pi)', 'sqrt(9./256/pi)', 'sqrt(45./32/pi)', 'sqrt(45./64/pi)', 'sqrt(315./32/pi)', 'sqrt(315./256/pi)', 'sqrt(693./512/pi)', 'sqrt(3465./16/pi)', 'sqrt(385./512/pi)', 'sqrt(1155./16/pi)', 'sqrt(165./256/pi)', 'sqrt(11./256/pi)', 'sqrt(165./256/pi)', 'sqrt(1155./64/pi)', 'sqrt(385./512/pi)', 'sqrt(3465./256/pi)', 'sqrt(693./512/pi)', 'sqrt(3003./512/pi)', 'sqrt(9009./512/pi)', 'sqrt(819./64/pi)', 'sqrt(1365./512/pi)', 'sqrt(1365./512/pi)', 'sqrt(273./256/pi)', 'sqrt(13./1024/pi)', 'sqrt(273./256/pi)', 'sqrt(1365./2048/pi)', 'sqrt(1365./512/pi)', 'sqrt(819./1024/pi)', 'sqrt(9009./512/pi)', 'sqrt(3003./2048/pi)', 'sqrt(6435./4096/pi)', 'sqrt(45045./512/pi)', 'sqrt(3465./4096/pi)', 'sqrt(3465./64/pi)', 'sqrt(315./4096/pi)', 'sqrt(315./512/pi)', 'sqrt(105./4096/pi)', 'sqrt(15./1024/pi)', 'sqrt(105./4096/pi)', 'sqrt(315./2048/pi)', 'sqrt(315./4096/pi)', 'sqrt(3465./1024/pi)', 'sqrt(3465./4096/pi)', 'sqrt(45045./2048/pi)', 'sqrt(6435./4096/pi)']
 # End of computer generated code
@@ -158,6 +157,7 @@ g = [1.0]
 for l in range(9):
     g.append(g[-1] * (l + 0.5))
 
+
 def gam(n0, n1, n2):
     h0 = n0 // 2
     h1 = n1 // 2
@@ -165,6 +165,7 @@ def gam(n0, n1, n2):
     if 2 * h0 != n0 or 2 * h1 != n1 or 2 * h2 != n2:
         return 0.0
     return 2.0 * pi * g[h0] * g[h1] * g[h2] / g[1 + h0 + h1 + h2]
+
 
 def yLL(L1, L2):
     s = 0.0

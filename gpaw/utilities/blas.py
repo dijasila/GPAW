@@ -22,29 +22,29 @@ import gpaw.cuda
 
 def mmm(alpha, a, opa, b, opb, beta, c):
     """Matrix-matrix multiplication using dgemm or zgemm.
-    
+
     For opa='n' and opb='n', we have::
-        
+
         c <- alpha * a * b + beta * c.
-        
+
     Use 't' to transpose matrices and 'c' to transpose and complex conjugate
     matrices.
     """
-    
-    assert opa in 'ntc'
-    assert opb in 'ntc'
-    
-    if opa == 'n':
+
+    assert opa in 'NTC'
+    assert opb in 'NTC'
+
+    if opa == 'N':
         a1, a2 = a.shape
     else:
         a2, a1 = a.shape
-    if opb == 'n':
+    if opb == 'N':
         b1, b2 = b.shape
     else:
         b2, b1 = b.shape
     assert a2 == b1
     assert c.shape == (a1, b2)
-    
+
     assert a.strides[1] == b.strides[1] == c.strides[1] == c.itemsize
     assert a.dtype == b.dtype == c.dtype
     if a.dtype == float:
@@ -52,17 +52,17 @@ def mmm(alpha, a, opa, b, opb, beta, c):
         assert not isinstance(beta, complex)
     else:
         assert a.dtype == complex
-    
+
     _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
-    
-    
+
+
 def scal(alpha, x):
     """alpha x
 
     Performs the operation::
 
       x <- alpha * x
-      
+
     """
     if debug:
         if isinstance(alpha, complex):
@@ -82,25 +82,25 @@ def scal(alpha, x):
     else:
         _gpaw.scal(alpha, x)
 
-    
+
 def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
     """General Matrix Multiply.
 
     Performs the operation::
-    
+
       c <- alpha * b.a + beta * c
 
     If transa is "n", ``b.a`` denotes the matrix multiplication defined by::
-    
+
                       _
                      \
       (b.a)        =  ) b  * a
            ijkl...   /_  ip   pjkl...
                       p
-    
+
     If transa is "t" or "c", ``b.a`` denotes the matrix multiplication
     defined by::
-    
+
                       _
                      \
       (b.a)        =  ) b    *    a
@@ -111,10 +111,11 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
     """
     if debug:
         assert np.isfinite(c).all()
-    
+
         assert (a.dtype == float and b.dtype == float and c.dtype == float and
                 isinstance(alpha, float) and isinstance(beta, float) or
-                a.dtype == complex and b.dtype == complex and c.dtype == complex)
+                a.dtype == complex and b.dtype == complex and
+                c.dtype == complex)
         assert a.flags.contiguous
         if transa == 'n':
             assert c.flags.contiguous or c.ndim == 2 and c.strides[1] == c.itemsize
@@ -224,7 +225,7 @@ def axpy(alpha, x, y, cuda=False):
     Performs the operation::
 
       y <- alpha * x + y
-      
+
     """
     if debug:
         if isinstance(alpha, complex):
@@ -257,7 +258,7 @@ def axpy(alpha, x, y, cuda=False):
     else:
         _gpaw.axpy(alpha, x, y)
 
-    
+
 def czher(alpha, x, a):
     """alpha x * x.conj() + a.
 
@@ -282,7 +283,7 @@ def rk(alpha, a, beta, c, trans='c', cuda=False, hybrid=False):
     """Rank-k update of a matrix.
 
     Performs the operation::
-    
+
                         dag
       c <- alpha * a . a    + beta * c
 
@@ -296,11 +297,11 @@ def rk(alpha, a, beta, c, trans='c', cuda=False, hybrid=False):
 
     ``dag`` denotes the hermitian conjugate (complex conjugation plus a
     swap of axis 0 and 1).
-    
+
     Only the lower triangle of ``c`` will contain sensible numbers.
     """
     if debug:
-        assert np.isfinite(c).all()
+        assert beta == 0.0 or np.isfinite(c).all()
 
         assert (a.dtype == float and c.dtype == float or
                 a.dtype == complex and c.dtype == complex)
@@ -333,6 +334,7 @@ def rk(alpha, a, beta, c, trans='c', cuda=False, hybrid=False):
     else:
         _gpaw.rk(alpha, a, beta, c, trans)
 
+
 def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
     """Rank-2k update of a matrix.
 
@@ -350,7 +352,7 @@ def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
                pklm...
 
     ``cc`` denotes complex conjugation.
-    
+
     ``dag`` denotes the hermitian conjugate (complex conjugation plus a
     swap of axis 0 and 1).
 
@@ -359,7 +361,8 @@ def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
     if debug:
         assert np.isfinite(c).all()
         assert (a.dtype == float and b.dtype == float and c.dtype == float or
-                a.dtype == complex and b.dtype == complex and c.dtype == complex)
+                a.dtype == complex and b.dtype == complex and
+                c.dtype == complex)
         assert a.flags.contiguous and b.flags.contiguous
         assert a.ndim > 1
         assert a.shape == b.shape
@@ -393,7 +396,7 @@ def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
     else:
         _gpaw.r2k(alpha, a, b, beta, c)
 
-    
+
 def dotc(a, b):
     """Dot product, conjugating the first vector with complex arguments.
 
@@ -503,7 +506,7 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         outshape = a.shape[0], b.shape[1]
     else:  # 't' or 'c'
         b = b.reshape(-1, b.shape[-1])
-    
+
     # Apply BLAS gemm routine
     outshape = a.shape[0], b.shape[trans == 'n']
     if out is None:

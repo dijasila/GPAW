@@ -1,6 +1,6 @@
 from __future__ import print_function
 import numpy as np
-from ase.lattice.surface import fcc111
+from ase.build import fcc111
 
 from gpaw.mpi import world
 from gpaw import GPAW, PoissonSolver
@@ -38,13 +38,13 @@ system.rattle(stdev=0.2, seed=17)
 from gpaw import FermiDirac, LCAO
 
 def calculate(parallel, comm=world, Eref=None, Fref=None):
-    calc = GPAW(mode=LCAO(atomic_correction='scipy'),
+    calc = GPAW(mode=LCAO(atomic_correction='sparse'),
                 basis=dict(O='dzp', Au='sz(dzp)'),
                 occupations=FermiDirac(0.1),
                 kpts=(4, 1, 1),
                 #txt=None,
                 communicator=comm,
-                poissonsolver=PoissonSolver(relax='J', eps=1e-8),
+                poissonsolver=PoissonSolver(eps=1e-8),
                 nbands=16,
                 parallel=parallel,
                 h=0.35)

@@ -1,9 +1,8 @@
-import numpy as np
 from ase import Atoms
 from ase.optimize import BFGS
+
 from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
-from gpaw.test import equal
 from gpaw.mpi import world
 
 a = 2.65

@@ -2,15 +2,7 @@ from __future__ import print_function
 import os, sys, time
 import numpy as np
 
-try:
-    # Matplotlib is not a dependency
-    import matplotlib as mpl
-    mpl.use('Agg')  # force the antigrain backend
-except (ImportError, RuntimeError):
-    mpl = None
-
-from ase import Atoms
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import paropen
 from ase.units import Bohr, Hartree
 from ase.io import Trajectory
@@ -22,10 +14,11 @@ from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
-from gpaw.test.ut_common import shapeopt, TestCase, \
-    TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
-    initialTestLoader, create_random_atoms, create_parsize_maxbands
+from gpaw.test.ut_common import TestCase, \
+    TextTestRunner, defaultTestLoader, \
+    initialTestLoader, create_parsize_maxbands
 
+mpl = None
 
 class UTGroundStateSetup(TestCase):
     """
@@ -82,7 +75,7 @@ class UTGroundStateSetup(TestCase):
         #XXX DEBUG END
 
         self.atoms.set_calculator(self.gscalc)
-        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.0621, 4)
+        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.06198, 4)
         self.gscalc.write(self.gsname + '.gpw', mode='all')
         self.assertTrue(os.path.isfile(self.gsname + '.gpw'))
 
@@ -232,13 +225,16 @@ def UTStaticPropagatorFactory(timesteps, propagator):
 
 # -------------------------------------------------------------------
 
-if __name__ in ['__main__', '__builtin__']:
+if __name__ in ['__main__', '__builtin__', 'builtins']:
+    # XXX Not sure whether we should use the CustomTextTestRunner sometimes.
+    #   --askhl
+    #
     # We may have been imported by test.py, if so we should redirect to logfile
-    if __name__ == '__builtin__':
-        testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
-    else:
-        stream = (world.rank == 0) and sys.stdout or devnull
-        testrunner = TextTestRunner(stream=stream, verbosity=2)
+    # if 0: #__name__ in ['__builtin__', 'builtins']:
+    #     testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
+    # else:
+    stream = (world.rank == 0) and sys.stdout or devnull
+    testrunner = TextTestRunner(stream=stream, verbosity=2)
 
     parinfo = []
     for test in [UTGroundStateSetup]:

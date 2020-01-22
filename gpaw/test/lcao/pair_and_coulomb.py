@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw.lcao.tools import makeU, makeV
 from gpaw import GPAW, FermiDirac, restart
 from gpaw.lcao.pwf2 import LCAOwrap
@@ -11,7 +11,8 @@ scat = range(2)
 atoms = molecule('H2')
 atoms.set_cell([6.4, 6.4, 6.4])
 atoms.center()
-calc = GPAW(mode='lcao', occupations=FermiDirac(0.1))
+calc = GPAW(mode='lcao', occupations=FermiDirac(0.1),
+            poissonsolver={'name': 'fd'})
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calc.write('lcao_pair.gpw')
@@ -49,8 +50,14 @@ makeV('lcao_pair.gpw',
       False)
 
 world.barrier()
-V_qq = np.load('lcao_pair_V_qq.pckl')
-eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl')
+
+try:
+    V_qq = np.load('lcao_pair_V_qq.pckl', allow_pickle=True)
+    eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl', allow_pickle=True)
+except TypeError:  # numpy 1.9 does not have allow_pickle; needs 1.10.
+    V_qq = np.load('lcao_pair_V_qq.pckl')
+    eps_q, U_pq = np.load('lcao_pair_eps_q__U_pq.pckl')
+
 assert U_pq.flags.contiguous
 Usq_pq = U_pq * np.sqrt(eps_q)
 V_pp = np.dot(np.dot(Usq_pq, V_qq), Usq_pq.T.conj())

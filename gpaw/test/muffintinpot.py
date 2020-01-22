@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atoms
-from gpaw import GPAW, restart
+from gpaw import GPAW
 from gpaw.test import equal
 
 from gpaw.utilities.kspot import AllElectronPotential

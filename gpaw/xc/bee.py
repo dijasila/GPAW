@@ -1,5 +1,4 @@
 import numpy as np
-from ase.parallel import rank
 from ase.units import Hartree
 
 import _gpaw
@@ -141,15 +140,13 @@ class BEEFEnsemble:
             self.max_order = 8
             self.trans = [6.5124, -1.0]
             self.calc.converge_wave_functions()
-            if rank == 0:
-                print('wave functions converged')
+            self.calc.log('wave functions converged')
         elif self.xc == 'mBEEF-vdW':
             self.bee_type = 3
             self.max_order = 5
             self.trans = [6.5124, -1.0]
             self.calc.converge_wave_functions()
-            if rank == 0:
-                print('wave functions converged')
+            self.calc.log('wave functions converged')
         else:
             raise NotImplementedError('xc = %s not implemented' % self.xc)
 

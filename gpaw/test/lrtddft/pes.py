@@ -4,7 +4,7 @@ from ase.parallel import parprint
 from gpaw import GPAW, mpi
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
-
+from gpaw.poisson import FDPoissonSolver
 from gpaw.pes.dos import DOSPES
 from gpaw.pes.tddft import TDDFTPES
 
@@ -23,7 +23,7 @@ H2_plus = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
 
 xc='LDA'
 
-calc = GPAW(gpts=(12, 12, 12), xc=xc, nbands=1,
+calc = GPAW(gpts=(12, 12, 12), xc=xc, nbands=1, poissonsolver=FDPoissonSolver(),
             parallel={'domain': mpi.world.size},
             spinpol=True, txt=txt)
 H2.set_calculator(calc)
@@ -31,7 +31,7 @@ e_H2 = H2.get_potential_energy()
 niter_H2 = calc.get_number_of_iterations()
 
 
-calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2,
+calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2, poissonsolver=FDPoissonSolver(),
                  parallel={'domain': mpi.world.size},
                  spinpol=True, txt=txt)
 calc_plus.set(charge=+1)

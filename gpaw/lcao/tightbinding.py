@@ -21,7 +21,6 @@ class TightBinding:
         self.kd = calc.wfs.kd
         wfs = calc.wfs
         kd = wfs.kd
-        kpt_u = wfs.kpt_u
 
         # Matrix size
         self.nao = wfs.setups.nao
@@ -38,7 +37,7 @@ class TightBinding:
 
         # Symmetry
         self.symmetry = kd.symmetry
-        if self.symmetry['point_group'] is True:
+        if self.symmetry.point_group:
             raise NotImplementedError("Only time-reversal symmetry supported.")
 
         # Lattice vectors and number of repetitions

@@ -93,7 +93,7 @@ the parameters optimized for neutral molecules [#HW14]_.
 A lot of the parts that make up the model (cavity, dielectric
 function, Poisson solver, non-electrostatic interactions) can be
 replaced easily by alternative implementations as they are represented
-as python classes in the source code. Some alternative models already
+as Python classes in the source code. Some alternative models already
 exist in the GPAW source code, yet they are not well tested and
 therefore not recommended for production use. Nevertheless they can
 serve as an example on how to add your own solvation

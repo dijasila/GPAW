@@ -1,4 +1,4 @@
-.. _projects:
+.. _dev projects:
 
 ================
 Ongoing Projects
@@ -10,7 +10,6 @@ Ongoing Projects
     setups
     rmmdiis
     mixing
-    pw
     response
     bse
     gw

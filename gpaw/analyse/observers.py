@@ -1,4 +1,3 @@
-
 class Observer(object):
 
     def __init__(self, interval=1):
@@ -22,4 +21,3 @@ class WritableObserver(Observer):
 
     def __del__(self):
         self.w.close()
-        Observer.__del__(self)

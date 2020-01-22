@@ -1,6 +1,5 @@
 from ase import Atoms
 from gpaw import GPAW
-from ase.visualize import view
 
 
 class ObsTest:

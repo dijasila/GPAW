@@ -4,9 +4,8 @@
 # Please see the accompanying LICENSE file for further information.
 from __future__ import print_function, division
 
-import functools
-
-from fractions import gcd
+from ase.io import read
+from ase.utils import gcd
 import numpy as np
 
 import _gpaw
@@ -40,7 +39,9 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 do_not_symmetrize_the_density=False):
+                 do_not_symmetrize_the_density=False,
+                 rotate_aperiodic_directions=False,
+                 translate_aperiodic_directions=False):
         """Construct symmetry object.
 
         Parameters:
@@ -85,9 +86,11 @@ class Symmetry:
         self.point_group = point_group
         self.time_reversal = time_reversal
         self.do_not_symmetrize_the_density = do_not_symmetrize_the_density
-        
+        self.rotate_aperiodic_directions = rotate_aperiodic_directions
+        self.translate_aperiodic_directions = translate_aperiodic_directions
+
         # Disable fractional translations for non-periodic boundary conditions:
-        if not self.pbc_c.all():
+        if not (self.translate_aperiodic_directions or self.pbc_c.all()):
             self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
@@ -138,14 +141,16 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            # Operation must not swap axes that are not both periodic
             pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if op_cc[~(pbc_cc | np.identity(3, bool))].any():
+            if (not self.rotate_aperiodic_directions and
+                op_cc[~(pbc_cc | np.identity(3, bool))].any()):
+                # Operation must not swap axes that are not both periodic
                 continue
 
-            # Operation must not invert axes that are not periodic
             pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+            if (not self.rotate_aperiodic_directions and
+                not (op_cc[np.diag(~self.pbc_c)] == 1).all()):
+                # Operation must not invert axes that are not periodic
                 continue
 
             # operation is a valid symmetry of the unit cell
@@ -257,7 +262,8 @@ class Symmetry:
         nsym = len(U_scc)
 
         time_reversal = self.time_reversal and not self.has_inversion
-        bz2bz_ks = map_k_points(bzk_kc, U_scc, time_reversal, comm, self.tol)
+        bz2bz_ks = map_k_points_fast(bzk_kc, U_scc, time_reversal,
+                                     comm, self.tol)
 
         bz2bz_k = -np.ones(nbzkpts + 1, int)
         ibz2bz_k = []
@@ -314,12 +320,14 @@ class Symmetry:
         if self.do_not_symmetrize_the_density:
             return
         for U_cc, ft_c in zip(self.op_scc, self.ft_sc):
-            # Make sure all grid-points map onto another grid-point:
-            if ((N_c * U_cc).T % N_c).any():
-                raise ValueError
             t_c = ft_c * N_c
-            if not np.allclose(t_c, t_c.round()):
-                raise ValueError
+            # Make sure all grid-points map onto another grid-point:
+            if (((N_c * U_cc).T % N_c).any() or
+                not np.allclose(t_c, t_c.round())):
+                raise ValueError(
+                    'Real space grid not compatible with symmetry operation. '
+                    'Use:\n\n   '
+                    "GPAW(symmetry={'do_not_symmetrize_the_density': True})")
 
     def symmetrize(self, a, gd):
         """Symmetrize array."""
@@ -393,35 +401,35 @@ class Symmetry:
                 F_ac[a2] += np.dot(F0_av[a1], op_vv)
         return F_ac / len(self.op_scc)
 
-    def print_symmetries(self, fd):
-        """Print symmetry information."""
-
-        p = functools.partial(print, file=fd)
-
+    def __str__(self):
         n = len(self.op_scc)
         nft = self.ft_sc.any(1).sum()
-        p('Symmetries present (total):', n)
+        lines = ['Symmetries present (total): {0}'.format(n)]
         if not self.symmorphic:
-            p('Symmetries with fractional translations:', nft)
+            lines.append(
+                'Symmetries with fractional translations: {0}'.format(nft))
 
         # X-Y grid of symmetry matrices:
-        p()
+
+        lines.append('')
         nx = 6 if self.symmorphic else 3
         ns = len(self.op_scc)
         y = 0
         for y in range((ns + nx - 1) // nx):
             for c in range(3):
+                line = ''
                 for x in range(nx):
                     s = x + y * nx
                     if s == ns:
                         break
                     op_c = self.op_scc[s, c]
                     ft = self.ft_sc[s, c]
-                    p('  (%2d %2d %2d)' % tuple(op_c), end='')
+                    line += '  (%2d %2d %2d)' % tuple(op_c)
                     if not self.symmorphic:
-                        p(' + (%4s)' % sfrac(ft), end='')
-                p()
-            p()
+                        line += ' + (%4s)' % sfrac(ft)
+                lines.append(line)
+            lines.append('')
+        return '\n'.join(lines)
 
 
 def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
@@ -466,6 +474,80 @@ def map_k_points(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-11):
     return bz2bz_ks
 
 
+def map_k_points_fast(bzk_kc, U_scc, time_reversal, comm=None, tol=1e-7):
+    """Find symmetry relations between k-points.
+
+    Performs the same task as map_k_points(), but much faster.
+    This is achieved by finding the symmetry related kpoints using
+    lexical sorting instead of brute force searching.
+
+    bzk_kc: ndarray
+        kpoint coordinates.
+    U_scc: ndarray
+        Symmetry operations
+    time_reversal: Bool
+        Use time reversal symmetry in mapping.
+    comm:
+        Communicator
+    tol: float
+        When kpoint are closer than tol, they are
+        considered to be identical.
+    """
+
+    nbzkpts = len(bzk_kc)
+
+    if time_reversal:
+        U_scc = np.concatenate([U_scc, -U_scc])
+
+    bz2bz_ks = np.zeros((nbzkpts, len(U_scc)), int)
+    bz2bz_ks[:] = -1
+
+    for s, U_cc in enumerate(U_scc):
+        # Find mapped kpoints
+        Ubzk_kc = np.dot(bzk_kc, U_cc.T)
+
+        # Do some work on the input
+        k_kc = np.concatenate([bzk_kc, Ubzk_kc])
+        k_kc = np.mod(np.mod(k_kc, 1), 1)
+        aglomerate_points(k_kc, tol)
+        k_kc = k_kc.round(-np.log10(tol).astype(int))
+        k_kc = np.mod(k_kc, 1)
+
+        # Find the lexicographical order
+        order = np.lexsort(k_kc.T)
+        k_kc = k_kc[order]
+        diff_kc = np.diff(k_kc, axis=0)
+        equivalentpairs_k = np.array((diff_kc == 0).all(1),
+                                     bool)
+
+        # Mapping array.
+        orders = np.array([order[:-1][equivalentpairs_k],
+                           order[1:][equivalentpairs_k]])
+
+        # This has to be true.
+        assert (orders[0] < nbzkpts).all()
+        assert (orders[1] >= nbzkpts).all()
+        bz2bz_ks[orders[1] - nbzkpts, s] = orders[0]
+
+    return bz2bz_ks
+
+
+def aglomerate_points(k_kc, tol):
+    nd = k_kc.shape[1]
+    nbzkpts = len(k_kc)
+    inds_kc = np.argsort(k_kc, axis=0)
+    for c in range(nd):
+        sk_k = k_kc[inds_kc[:, c], c]
+        dk_k = np.diff(sk_k)
+
+        # Partition the kpoints into groups
+        pt_K = np.argwhere(dk_k > tol)[:, 0]
+        pt_K = np.append(np.append(0, pt_K + 1), 2 * nbzkpts)
+        for i in range(len(pt_K) - 1):
+            k_kc[inds_kc[pt_K[i]:pt_K[i + 1], c],
+                 c] = k_kc[inds_kc[pt_K[i], c], c]
+
+
 def atoms2symmetry(atoms, id_a=None):
     """Create symmetry object from atoms object."""
     if id_a is None:
@@ -476,15 +558,16 @@ def atoms2symmetry(atoms, id_a=None):
     symmetry.analyze(atoms.get_scaled_positions())
     return symmetry
 
-    
-def analyze_atoms(filename):
-    """Analyse symmetry.
-    
-    filename: str
-        filename containing atomic positions and unit cell."""
-        
-    import sys
-    from ase.io import read
-    atoms = read(filename)
-    symmetry = atoms2symmetry(atoms)
-    symmetry.print_symmetries(sys.stdout)
+
+class CLICommand:
+    """Analyse symmetry."""
+
+    @staticmethod
+    def add_arguments(parser):
+        parser.add_argument('filename')
+
+    @staticmethod
+    def run(args):
+        atoms = read(args.filename)
+        symmetry = atoms2symmetry(atoms)
+        print(symmetry)

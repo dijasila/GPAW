@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.atoms.Atoms` object and a :class:`~gpaw.aseinterface.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
 calculator::
 
    _____________          ____________
@@ -43,7 +43,7 @@ In Python code, it looks like this:
 
 .. literalinclude:: h2.py
     :start-after: from __future__
-    
+
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
 supercell of size `6.0 \times 6.0 \times 6.0` Å with cluster
@@ -82,31 +82,39 @@ given in the following sections.
 .. list-table::
     :header-rows: 1
     :widths: 1 1 1 2
-    
+
     * - keyword
       - type
       - default value
       - description
-    * - ``mode``
-      - ``str``
-      - ``'fd'``
-      - :ref:`manual_mode`
-    * - ``nbands``
-      - ``int``
+    * - ``basis``
+      - ``str`` or dict
+      - ``{}``
+      - Specification of :ref:`manual_basis`
+    * - ``charge``
+      - ``float``
+      - ``0``
+      - Total :ref:`manual_charge` of the system
+    * - ``communicator``
+      - Object
       -
-      - :ref:`manual_nbands`
-    * - ``xc``
+      - :ref:`manual_communicator`
+    * - ``convergence``
+      - ``dict``
+      -
+      - :ref:`manual_convergence`
+    * - ``eigensolver``
       - ``str``
-      - ``'LDA'``
-      - :ref:`manual_xc`
-    * - ``kpts``
-      - *seq*
-      - `\Gamma`-point
-      - :ref:`manual_kpts`
-    * - ``spinpol``
+      - ``'dav'``
+      - :ref:`manual_eigensolver`
+    * - ``external``
+      - Object
+      -
+      - :ref:`manual_external`
+    * - ``fixdensity``
       - ``bool``
-      -
-      - :ref:`manual_spinpol`
+      - ``False``
+      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -115,106 +123,82 @@ given in the following sections.
       - ``float``
       - ``0.2``
       - :ref:`manual_h`
-    * - ``symmetry``
-      - ``dict``
-      - ``{}``
-      - :ref:`manual_symmetry`
-    * - ``usesymm``
-      - ``bool``
-      - ``True``
-      - :ref:`manual_symmetry`
-    * - ``random``
-      - ``bool``
-      - ``False``
-      - Use random numbers for :ref:`manual_random`
-    * - ``occupations``
-      - occ. obj.
-      -
-      - :ref:`manual_occ`
-    * - ``lmax``
-      - ``int``
-      - ``2``
-      - Maximum angular momentum for expansion of :ref:`manual_lmax`
-    * - ``charge``
-      - ``float``
-      - ``0``
-      - Total :ref:`manual_charge` of the system
-    * - ``convergence``
-      - ``dict``
-      -
-      - :ref:`manual_convergence`
-    * - ``maxiter``
-      - ``int``
-      - ``333``
-      - :ref:`manual_maxiter`
-    * - ``txt``
-      - ``str``, None, or file obj.
-      - ``'-'`` (``sys.stdout``)
-      - :ref:`manual_txt`
-    * - ``parallel``
-      - ``dict``
-      -
-      - :ref:`manual_parallel`
-    * - ``stencils``
-      - tuple
-      - ``(3, 3)``
-      - Number of neighbors for :ref:`manual_stencils`
-    * - ``mixer``
-      - Object
-      -
-      - Pulay :ref:`manual_mixer` scheme
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
-    * - ``setups``
-      - ``str`` or ``dict``
-      - ``'paw'``
-      - :ref:`manual_setups`
-    * - ``basis``
-      - ``str`` or dict
-      - ``{}``
-      - Specification of :ref:`manual_basis`
-    * - ``eigensolver``
-      - ``str``
-      - ``'dav'``
-      - :ref:`manual_eigensolver`
     * - ``hund``
       - ``bool``
       - ``False``
       - :ref:`Use Hund's rule <manual_hund>`
-    * - ``external``
+    * - ``idiotproof``
+      - ``bool``
+      - ``True``
+      - Set to ``False`` to ignore setup fingerprint mismatch
+        (allows restart when the original setup files are not available)
+    * - ``kpts``
+      - *seq*
+      - `\Gamma`-point
+      - :ref:`manual_kpts`
+    * - ``maxiter``
+      - ``int``
+      - ``333``
+      - :ref:`manual_maxiter`
+    * - ``mixer``
       - Object
       -
-      - :ref:`manual_external`
-    * - ``verbose``
+      - Pulay :ref:`manual_mixer` scheme
+    * - ``mode``
+      - ``str``
+      - ``'fd'``
+      - :ref:`manual_mode`
+    * - ``nbands``
       - ``int``
-      - ``0``
-      - :ref:`manual_verbose`
+      -
+      - :ref:`manual_nbands`
+    * - ``occupations``
+      - occ. obj.
+      -
+      - :ref:`manual_occ`
+    * - ``parallel``
+      - ``dict``
+      -
+      - :ref:`manual_parallel`
     * - ``poissonsolver``
       - Object
       -
       - Specification of :ref:`Poisson solver <manual_poissonsolver>` or
         :ref:`dipole correction <manual_dipole_correction>` or
         :ref:`Advanced Poisson solver <advancedpoisson>`
-    * - ``communicator``
-      - Object
-      -
-      - :ref:`manual_communicator`
-    * - ``idiotproof``
+    * - ``random``
       - ``bool``
-      - ``True``
-      - Set to ``False`` to ignore setup fingerprint mismatch
-        (allows restart when the original setup files are not available)
+      - ``False``
+      - Use random numbers for :ref:`manual_random`
+    * - ``setups``
+      - ``str`` or ``dict``
+      - ``'paw'``
+      - :ref:`manual_setups`
+    * - ``spinpol``
+      - ``bool``
+      -
+      - :ref:`manual_spinpol`
+    * - ``symmetry``
+      - ``dict``
+      - ``{}``
+      - :ref:`manual_symmetry`
+    * - ``txt``
+      - ``str``, None, or file obj.
+      - ``'-'`` (``sys.stdout``)
+      - :ref:`manual_txt`
+    * - ``xc``
+      - ``str``
+      - ``'LDA'``
+      - :ref:`manual_xc`
 
 
 *seq*: A sequence of three ``int``'s.
 
 
 .. note::
-   
+
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.aseinterface.GPAW.set` method:
+   by using the :meth:`~gpaw.calculator.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -224,13 +208,13 @@ given in the following sections.
 
 Deprecated keywords (in favour of the ``parallel`` keyword) include:
 
-=================  =========  ===================  ============================
-keyword            type       default value        description
-=================  =========  ===================  ============================
-``parsize``        *seq*                           Parallel
-                                                   :ref:`manual_parsize_domain`
-``parsize_bands``  ``int``    ``1``                :ref:`manual_parsize_bands`
-=================  =========  ===================  ============================
+=================  =========  =============  ============================
+keyword            type       default value  description
+=================  =========  =============  ============================
+``parsize``        *seq*                     Parallel
+                                             :ref:`manual_parsize_domain`
+``parsize_bands``  ``int``    ``1``          :ref:`manual_parsize_bands`
+=================  =========  =============  ============================
 
 
 .. _manual_mode:
@@ -239,9 +223,9 @@ Finite-difference, plane-wave or LCAO mode
 ------------------------------------------
 
 Finite-difference:
-    The default mode (``mode='fd'``) is Finite Differece. This means that
+    The default mode (``mode='fd'``) is Finite Difference. This means that
     the wave functions will be expanded on a real space grid.
-    
+
 LCAO:
     Expand the wave functions in a basis-set constructed
     from atomic-like orbitals, in short LCAO (linear combination of atomic
@@ -254,30 +238,30 @@ Plane-waves:
     to use the default plane-wave cutoff of `E_{\text{cut}}=340` eV.  The
     plane-waves will be those with `|\mathbf G+\mathbf k|^2/2<E_{\text{cut}}`.
     You can set another cutoff like this::
-        
+
         from gpaw import GPAW, PW
         calc = GPAW(mode=PW(200))
 
 
 Comparing FD, LCAO and PW modes
 ```````````````````````````````
-    
+
 Memory consumption:
     With LCAO, you have fewer degrees of freedom so memory usage is low.
     PW mode uses more memory and FD a lot more.
-    
+
 Speed:
     For small systems with many **k**-points, PW mode beats everything else.
     For larger systems LCAO will be most efficient.  Whereas PW beats FD for
     smallish systems, the opposite is true for very large systems where FD
     will parallelize better.
-    
+
 Absolute convergence:
     With LCAO, it can be hard to reach the complete basis set limit and get
     absolute convergence of energies, whereas with FD and PW mode it is
     quite easy to do by decreasing the grid spacing or increasing the
     plane-wave cutoff energy, respectively.
-    
+
 Eggbox errors:
     With LCAO and FD mode you will get a small eggbox error: you get a
     small periodic energy variation as you translate atoms and the period
@@ -287,10 +271,8 @@ Eggbox errors:
 Features:
     FD mode is the oldest and has most features.  Only PW mode can be used
     for calculating the stress-tensor and for response function calculations.
-    Green's function based electronic transport calculations require
-    LCAO mode.
-    
-    
+
+
 .. _manual_nbands:
 
 Number of electronic bands
@@ -303,21 +285,27 @@ spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
 needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
 spin down).
 
-The default number of electronic bands (``nbands``) is equal to the
-number of atomic orbitals present in the atomic setups.  For systems
+The default number of electronic bands (``nbands``) is equal to 4 plus
+1.2 times the number of occupied bands.  For systems
 with the occupied states well separated from the unoccupied states,
 one could use just the number of bands needed to hold the occupied
 states.  For metals, more bands are needed.  Sometimes, adding more
 unoccupied bands will improve convergence.
 
 .. tip::
-   
+
     ``nbands=0`` will give zero empty bands, and ``nbands=-n`` will
     give ``n`` empty bands.
-   
+
 .. tip::
-    
+
     ``nbands='n%'`` will give ``n/100`` times the number of occupied bands.
+
+.. tip::
+
+    ``nbands='nao'`` will use the the same number of bands as there are
+    atomic orbitals. This corresponds to the maximum ``nbands`` value that
+    can be used in LCAO mode.
 
 
 .. _manual_xc:
@@ -346,11 +334,20 @@ generalized gradient approximation (GGA) type, and the last two are
 For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
-Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header file (the leading ``'XC_'`` should be removed from those names).
-Valid keywords are strings or combinations of exchange and correlation string
-joined by **+** (plus).
-For example, "the" (most common) LDA approximation in chemistry
-corresponds to ``'LDA_X+LDA_C_VWN'``.
+Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
+file (the leading ``'XC_'`` should be removed from those names).
+You should be able to find the file installed alongside LibXC.
+Valid
+keywords are strings or combinations of exchange and correlation string
+joined by **+** (plus). For example, "the" (most common) LDA approximation
+in chemistry corresponds to ``'LDA_X+LDA_C_VWN'``.
+
+XC functionals can also be specified as dictionaries. This is useful for
+functionals that depend on one or more parameters. For example, to use a
+stencil with two nearest neighbours for the density-gradient with the PBE
+functional, use ``xc={'name': 'PBE', 'stencil': 2}``. The ``stencil``
+keyword applies to any GGA or MGGA. Some functionals may take other
+parameters; see their respective documentation pages.
 
 Hybrid functionals (the feature is described at :ref:`exx`)
 require the setups containing exx information to be generated.
@@ -388,24 +385,24 @@ This will sample the Brillouin-zone with a regular grid of ``N1``
 :func:`ase.dft.kpoints.monkhorst_pack` function for more details.
 
 For more flexibility, you can use this syntax::
-    
+
     kpts={'size': (4, 4, 4)}  # 4x4x4 Monkhorst-pack
     kpts={'size': (4, 4, 4), 'gamma': True}  # shifted 4x4x4 Monkhorst-pack
 
 You can also specify the **k**-point density in units of points per
 Å\ `^{-1}`::
-    
+
     kpts={'density': 2.5}  # MP with a minimum density of 2.5 points/Ang^-1
     kpts={'density': 2.5, 'even': True}  # round up to nearest even number
     kpts={'density': 2.5, 'gamma': True}  # include gamma-point
-    
+
 The **k**-point density is calculated as:
-    
+
 .. math:: N \frac{a}{2\pi},
 
 where `N` is then number of **k**-points and `a` is the length of the
 unit-cell along the direction of the corresponding reciprocal lattice vector.
-    
+
 An arbitrary set of **k**-points can be specified, by giving a
 sequence of k-point coordinates like this::
 
@@ -501,17 +498,17 @@ The default behavior is to use all point-group symmetries and time-reversal
 symmetry to reduce the **k**-points to only those in the irreducible part of
 the Brillouin-zone.  Moving the atoms so that a symmetry is broken will
 cause an error.  This can be avoided by using::
-    
+
     symmetry={'point_group': False}
 
 This will reduce the number of applied symmetries to just the time-reversal
 symmetry (implying that the Hamiltonian is invariant under **k** -> -**k**).
 For some purposes you might want to have no symmetry reduction of the
-**k**-points at all (debugging, transport calculations, band-structure
-calculations, ...). This can be achieved by specifying::
+**k**-points at all (debugging, band-structure calculations, ...). This can
+be achieved by specifying::
 
     symmetry={'point_group': False, 'time_reversal': False}
-    
+
 or simply ``symmetry='off'`` which is a short-hand notation for the same
 thing.
 
@@ -527,12 +524,6 @@ key                default   description
 ``tolerance``      ``1e-7``  Relative tolerance
 =================  ========  ===============================
 
-.. note::
-    
-    If you are using version 0.10 or earlier, you can use
-    ``usesymm=False`` to turn off all point-group symmetries and
-    ``usesymm=None`` to turn off also time-reversal symmetry.
-    
 
 .. _manual_random:
 
@@ -599,7 +590,7 @@ The default value is this Python dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied',
-   'forces': None} # eV / Ang Max
+   'forces': float('inf')} # eV / Ang Max
 
 In words:
 
@@ -611,11 +602,12 @@ In words:
 
 * The integrated value of the square of the residuals of the Kohn-Sham
   equations should be less than `4.0 \times 10^{-8}
-  \mathrm{eV}^2` per valence electron (FD mode only).
+  \mathrm{eV}^2` per valence electron. This criterion does not affect LCAO
+  calculations.
 
 * The maximum change in the magnitude of the vector representing the
-  difference in forces for each atom.  Setting this to None disables
-  this functionality, saving computational time and memory usage.
+  difference in forces for each atom.  Setting this to infinity (default)
+  disables this functionality, saving computational time and memory usage.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
@@ -637,7 +629,7 @@ Maximum number of SCF-iterations
 --------------------------------
 
 The calculation will stop with an error if convergence is not reached
-in ``maxiter`` self-consistent iterations (defaults to 120).
+in ``maxiter`` self-consistent iterations.
 
 
 .. _manual_txt:
@@ -676,8 +668,8 @@ which is also what GPAW will choose if the system has periodic
 boundary conditions in one or more directions.
 
 In spin-polarized calculations using Fermi-distribution
-occupations one has to use :class:`~gpaw.mixer.MixerSum` instead of
-:class:`~gpaw.mixer.Mixer`.
+occupations one has to use ``MixerSum`` instead of
+``Mixer``.
 
 See also the documentation on :ref:`density mixing <densitymix>`.
 
@@ -690,7 +682,7 @@ Fixed density
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw/.hdf5 or existing from previous calculation) is used
+(e.g. one read from .gpw or existing from previous calculation) is used
 throughout the SCF-cycle (so called Harris calculation).
 
 
@@ -714,8 +706,8 @@ If specified as a string, the given name is used for all atoms.  If
 specified as a dictionary, each keys can be either a chemical symbol
 or an atom number. The values state the individual setup names.
 
-The special key ``None`` can be used to specify the default setup
-name. Thus ``setups={None: 'paw'}`` is equivalent to ``setups='paw'``
+The special key ``'default'`` can be used to specify the default setup
+name. Thus ``setups={'default': 'paw'}`` is equivalent to ``setups='paw'``
 which is the GPAW default.
 
 As an example, the latest PAW setup of Na includes also the 6 semicore p
@@ -737,7 +729,7 @@ There exist three special names that, if used, do not specify a file name:
   {<pseudopotential>}`.  Here, :file:`{<pseudopotential>}` can be
   either a direct path to a UPF file or the symbol or identifier to
   search for in the GPAW setup paths.
-        
+
 * ``'hgh'`` is used to specify a norm-conserving Hartwigsen-Goedecker-Hutter
   pseudopotential (no installation necessary).  Some elements have better
   semicore pseudopotentials.  To use those, specify ``'hgh.sc'``
@@ -745,15 +737,16 @@ There exist three special names that, if used, do not specify a file name:
 * ``'ghost'`` is used to indicated a *ghost* atom in LCAO mode,
   see :ref:`ghost-atoms`.
 
-.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials: http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
+.. _SG15 optimized norm-conserving Vanderbilt pseudopotentials:
+    http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/
 
 If a dictionary contains both chemical element specifications *and*
 atomic number specifications, the latter is dominant.
 
 An example::
 
-  setups={None: 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
-  
+  setups={'default': 'soft', 'Li': 'hard', 5: 'ghost', 'H': 'ae'}
+
 Indicates that the files named 'hard' should be used for lithium
 atoms, an all-electron potential is used for hydrogen atoms, atom
 number 5 is a ghost atom (even if it is a Li or H atom), and for all
@@ -767,7 +760,7 @@ Atomic basis set
 
 The ``basis`` keyword can be used to specify the basis set which
 should be used in LCAO mode.  This also affects the LCAO
-initialization in FD mode, where initial wave functions are
+initialization in FD or PW mode, where initial wave functions are
 constructed by solving the Kohn-Sham equations in the LCAO basis.
 
 If ``basis`` is a string, :file:`basis='basisname'`, then GPAW will
@@ -812,9 +805,16 @@ Eigensolver
 -----------
 
 The default solver for iterative diagonalization of the Kohn-Sham
-Hamiltonian is a simple Davidson method, (``eigensolver='dav'``), which seems to perform well in most cases. Sometimes more efficient/stable convergence can be obtained with a different eigensolver. One option is the RMM-DIIS (Residual minimization method - direct inversion in iterative subspace), (``eigensolver='rmm-diis'``), which performs well when only a few unoccupied states are calculated. Another option is the conjugate gradient method (``eigensolver='cg'``), which is very stable but slower.
+Hamiltonian is a simple Davidson method, (``eigensolver='dav'``), which
+seems to perform well in most cases. Sometimes more efficient/stable
+convergence can be obtained with a different eigensolver. One option is the
+RMM-DIIS (Residual minimization method - direct inversion in iterative
+subspace), (``eigensolver='rmm-diis'``), which performs well when only a few
+unoccupied states are calculated. Another option is the conjugate gradient
+method (``eigensolver='cg'``), which is very stable but slower.
 
-If parallellization over bands is necessary, then RMM-DIIS must be used.
+If parallellization over bands is necessary, then Davidson or RMM-DIIS must
+be used.
 
 More control can be obtained by using directly the eigensolver objects::
 
@@ -837,7 +837,14 @@ Poisson solver
 The *poissonsolver* keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
-The default Poisson solver uses a multigrid Jacobian method.  Use this
+The default Poisson solver in FD and LCAO mode
+is called FastPoissonSolver and uses
+a combination of Fourier and Fourier-sine transforms
+in combination with parallel array transposes.  Meanwhile in PW mode,
+the Poisson equation is solved by dividing each planewave coefficient
+by the squared length of its corresponding wavevector.
+
+The old default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
 the default Poisson solver::
 
@@ -869,13 +876,10 @@ non-periodic in that direction but periodic in the two other
 directions.
 
 ::
-  
+
   from gpaw import GPAW
-  from gpaw.poisson import PoissonSolver
-  from gpaw.dipole_correction import DipoleCorrection
-  
-  poissonsolver = PoissonSolver()
-  correction = DipoleCorrection(poissonsolver, 2) # 2 == z-axis
+
+  correction = {'dipolelayer': 'xy'}
   calc = GPAW(poissonsolver=correction)
 
 Without dipole correction, the potential will approach 0 at all
@@ -883,13 +887,29 @@ non-periodic boundaries.  With dipole correction, there will be a
 potential difference across the system depending on the size of the
 dipole moment.
 
+Other parameters in this dictionary are forwarded to the
+Poisson solver::
+
+    GPAW(poissonsolver={'dipolelayer': 'xy', 'name': 'fd', 'relax': 'GS'})
+
+An alternative Poisson solver based on Fourier transforms is available
+for fully periodic calculations::
+
+   GPAW(poissonsolver={'name': 'fft'})
+
+The FFT Poisson solver will reduce the dependence on the grid spacing and
+is in general less picky about the grid.  It may be beneficial for
+non-periodic systems as well, but the system must be set up explicitly
+as periodic and hence should be well padded with vacuum in non-periodic
+directions to avoid unphysical interactions across the cell boundary.
+
 
 .. _manual_stencils:
 
 Finite-difference stencils
 --------------------------
 
-GPAW uses finite-difference stencils for the Laplacian in the
+GPAW can use finite-difference stencils for the Laplacian in the
 Kohn-Sham and Poisson equations.  You can set the range of the stencil
 (number of neighbor grid points) used for the Poisson equation like
 this::
@@ -898,15 +918,26 @@ this::
     calc = GPAW(poissonsolver=PoissonSolver(nn=n))
 
 This will give an accuracy of `O(h^{2n})`, where ``n`` must be between
-1 and 6.  The default value for version 0.6 is ``n='M'`` which is a
-special Mehrstellen stencil - this will be changed to ``n=3`` in
-version 0.7.
+1 and 6.  The default value is ``n=3``.
+Similarly, for the Kohn-Sham equation, you can use::
 
-With the ``stencils=(a, b)`` keyword, you can set the accuracy of the
-stencil used for the Kohn-Sham equation to `O(h^{2a})`.  The ``b``
-parameter (between 1 and 4) controls the accuracy of the
-interpolation of the density from the coarse grid to the fine grid.
-Default values are ``stencils=(3, 3)``.
+    from gpaw import GPAW, FD
+    calc = GPAW(mode=FD(nn=n))
+
+where the default value is also ``n=3``.
+
+In PW-mode, the interpolation of the density from the coarse grid to the
+fine grid is done with FFT's.  In FD and LCAO mode, tri-quintic interpolation
+is used (5. degree polynomium)::
+
+    from gpaw import GPAW, FD
+    calc = GPAW(mode=FD(interpolation=n))
+    # or
+    from gpaw import GPAW, LCAO
+    calc = GPAW(mode=LCAO(interpolation=n))
+
+The order of polynomium is `2n-1`, default value is ``n=3`` and ``n`` must be
+between 1 and 4 (linear, cubic, quintic, heptic).
 
 
 .. _manual_hund:
@@ -930,10 +961,10 @@ External potential
 ------------------
 
 Example::
-    
+
     from gpaw.external import ConstanElectricField
     calc = GPAW(..., external=ConstanElectricField(2.0, [1, 0, 0]), ...)
-    
+
 See also: :mod:`gpaw.external`.
 
 
@@ -954,6 +985,7 @@ Communicator object
 By specifying a communicator object, it is possible to use only a subset of
 processes for the calculator when calculating e.g. different atomic images
 in parallel. See :ref:`different_calculations_in parallel` for more details.
+
 
 .. _manual_parallel_calculations:
 
@@ -1005,7 +1037,7 @@ at a later time, this can be done as follows:
 
 >>> from gpaw import *
 >>> atoms, calc = restart('H2.gpw')
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
@@ -1013,14 +1045,14 @@ changed slightly.  This is very simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
->>> print atoms.get_potential_energy()
+>>> print(atoms.get_potential_energy())
 
 .. tip::
    There is an alternative way to do this, that can be handy sometimes:
 
    >>> atoms, calc = restart('H2.gpw')
    >>> calc.set(gpts=(20, 20, 20))
-   >>> print atoms.get_potential_energy()
+   >>> print(atoms.get_potential_energy())
 
 
 More details can be found on the :ref:`restart_files` page.
@@ -1047,35 +1079,45 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.aseinterface.GPAW.attach`.
+See also :meth:`~gpaw.calculator.GPAW.attach`.
 
+.. _command line options:
 
-----------------------
-Command line arguments
-----------------------
+--------------------
+Command-line options
+--------------------
 
 The behaviour of GPAW can be controlled with some command line
 arguments. The arguments for GPAW should be specified after the
 python-script, i.e.::
 
-    python script.py [options]
+    $ python3 script.py --gpaw key1=val1,key2=val2,...
 
-The possible command line arguments are:
+The possible keys are:
+
+* ``debug=True``: run in debug-mode, e.g. check consistency of arrays passed
+  to c-extensions.
+
+* ``dry_run=nprocs``: Print out the computational parameters and estimate
+  memory usage, do not perform actual calculation.
+  Print also which parallelization settings would be employed when run on
+  ``nprocs`` processors.
+
+.. tip::
+
+    Extra key-value pairs will be available for development work::
+
+        $ python3 - --gpaw a=1,b=2.3
+        >>> from gpaw import extra_parameters
+        >>> extra_parameters
+        {'a': 1, 'b': 2.3}
+
+
+Other command-line arguments are accepted directly by ``gpaw-python``:
 
 ===============================  =============================================
 argument                         description
 ===============================  =============================================
-``--trace``
-``--debug``
-                                 Run in debug-mode, e.g. check
-                                 consistency of arrays passed to c-extensions
-``--dry-run[=nprocs]``
-                                 Print out the computational
-                                 parameters and estimate memory usage,
-                                 do not perform actual calculation.
-                                 If ``nprocs`` is specified, print also which
-                                 parallelization settings would be employed
-                                 when run on ``nprocs`` processors.
 ``--memory-estimate-depth[=n]``
                                  Print out an itemized memory estimate by
                                  stepping recursively through the object
@@ -1099,26 +1141,9 @@ argument                         description
                                  the ``band`` argument in the
                                  :ref:`parallel <manual_parallel>` keyword.
                                  See :ref:`manual_parsize_bands` for details.
-``--sl_...=m,n,mb``
-                                 Specify ScaLAPACK / BLACS parameters for
-                                 diagonalization (``--sl_default``),
-                                 inverse Cholesky factorization
-                                 (``--sl_inverse_cholesky``) and LCAO general
-                                 diagonalization (``--sl_lcao``) respectively.
-                                 Use ``--sl_default`` to specify all three
-                                 of the above at once or just the default
-                                 value for those not explicitly given.
-                                 Allowed values are equivalent to those of
-                                 the four ``sl_...`` arguments in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 Requires GPAW to be built with ScaLAPACK.
-``--gpaw a=1,b=2.3,...``
-                                 Extra parameters for development work:
-                                 
-                                 >>> from gpaw import extra_parameters
-                                 >>> print extra_parameters
-                                 {'a': 1, 'b': 2.3}
 ===============================  =============================================
+
+Please see ``gpaw-python --help`` for details.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,
@@ -1141,5 +1166,5 @@ argument                         description
              parameters: The PBE0 model
 .. [#B3LYP]  P. J. Stephens, F. J. Devlin, C. F. Chabalowski, and M.J. Frisch,
              *J. Phys. Chem.* **98** 11623-11627 (1994)
-             Ab-Initio Calculation of Vibrational Absorption and Circular-Dichroism
-             Spectra Using Density-Functional Force-Fields
+             Ab-Initio Calculation of Vibrational Absorption and
+             Circular-Dichroism Spectra Using Density-Functional Force-Fields

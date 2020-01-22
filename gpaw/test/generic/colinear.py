@@ -1,5 +1,5 @@
 from ase import Atoms
-from gpaw import GPAW, FermiDirac, Mixer
+from gpaw import GPAW, Mixer
 #from gpaw.xc.noncolinear import NonColinearLDA, NonColinearLCAOEigensolver, \
 #     NonColinearMixer
 

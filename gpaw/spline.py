@@ -24,6 +24,7 @@ class Spline:
         # Copy so we don't change the values of the input array
         f_g[-1] = 0.0
         self.spline = _gpaw.Spline(l, rmax, f_g)
+        self.l = self.get_angular_momentum_number()
 
     def get_cutoff(self):
         """Return the radial cutoff."""
@@ -32,6 +33,11 @@ class Spline:
     def get_angular_momentum_number(self):
         """Return the angular momentum quantum number."""
         return self.spline.get_angular_momentum_number()
+
+    def __repr__(self):
+        return ('Spline(l={}, rmax={:.2f}, ...)'
+                .format(self.get_angular_momentum_number(),
+                        self.get_cutoff()))
 
     def get_value_and_derivative(self, r):
         """Return the value and derivative."""
@@ -70,6 +76,6 @@ class Spline:
 ##         self.rcut = r_g[-1]
 ##         self.l = l
 ##         ...
-        
+
 ##     def __call__(self, r):
 ##         return self.spline(r)*r**l

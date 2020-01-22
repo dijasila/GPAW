@@ -42,6 +42,8 @@ Specialized tutorials
    hubbardu/hubbardu
    jellium/jellium
    hydrogen/h
+   muonsites/mnsi
+   defects/defects
    stm/stm
    bader/bader
    all-electron/all_electron_density
@@ -50,6 +52,7 @@ Specialized tutorials
    pbe0/pbe0
    xas/xas
    dielectric_response/dielectric_response
+   qeh/qeh
    gw_tutorial/gw_tutorial
    bse_tutorial/bse_tutorial
    rpa/rpa_tut
@@ -59,3 +62,4 @@ Specialized tutorials
    continuum_solvent_model/continuum_solvent_model
    ofdft/ofdft
    wannier90/wannier90_tutorial
+   sjm/solvated_jellium_method.rst

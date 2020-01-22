@@ -34,7 +34,7 @@ Notice that an energy integrating of the LDOS multiplied by a Fermi
 distribution gives the electron density
 
 .. math::
-  
+
   \int\!\mathrm{d}\varepsilon\, n_F(\varepsilon) \rho(r, \varepsilon) = n(r)
 
 Summing the PDOS over `i` gives the spectral weight of orbital `i`.
@@ -104,40 +104,11 @@ a Pt(111) slab and the density of states projected onto the gas phase
 orbitals of CO. The ``.gpw`` files can be generated with the script
 :git:`~doc/documentation/pdos/top.py`
 
-PDOS script::
+PDOS script (:git:`~doc/documentation/pdos/pdos.py`):
 
-    from gpaw import *
-    from pylab import *
+.. literalinclude:: pdos.py
 
-    # Density of States
-    subplot(211)
-    slab, calc = restart('top.gpw')
-    e, dos = calc.get_dos(spin=0, npts=2001, width=0.2)
-    e_f = calc.get_fermi_level()
-    plot(e-e_f, dos)
-    axis([-15, 10, None, 4])
-    ylabel('DOS')
-
-    molecule = range(len(slab))[-2:]
-
-    subplot(212)
-    c_mol = GPAW('CO.gpw')
-    for n in range(2,7):
-        print('Band', n)
-        # PDOS on the band n
-        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
-                for k in range(len(c_mol.wfs.weight_k))]
-        P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-                 for a in range(len(molecule))]
-        e, dos = calc.get_all_electron_ldos(mol=molecule, spin=0, npts=2001,
-                                            width=0.2, wf_k=wf_k, P_aui=P_aui)
-        plot(e-e_f, dos, label='Band: '+str(n))
-    legend()
-    axis([-15, 10, None, None])
-    xlabel('Energy [eV]')
-    ylabel('All-Electron PDOS')
-
-    show()
+.. image:: pdos.png
 
 When running the script `\int d\varepsilon\rho_i(\varepsilon)` is
 printed for each spin and k-point. The value should be close to one if
@@ -156,48 +127,13 @@ overlaps and energies in Hartree. It is useful to simply save these in
 a ``.pickle`` file since the ``.gpw`` files with wave functions can be
 quite large. The following script pickles the overlaps
 
-Pickle script::
+Pickle script (:git:`~doc/documentation/pdos/p1.py`):
 
-    from gpaw import *
-    import pickle
+.. literalinclude:: p1.py
 
-    slab, calc = restart('top.gpw')
-    c_mol = GPAW('CO.gpw')
-    molecule = range(len(slab))[-2:]
-    e_n = []
-    P_n = []
-    for n in range(c_mol.wfs.nbands):
-        print('Band: ', n)
-        wf_k = [c_mol.wfs.kpt_u[k].psit_nG[n]
-                for k in range(len(c_mol.wfs.weight_k))]
-        P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-                 for a in range(len(molecule))]
-        e, P = calc.get_all_electron_ldos(mol=molecule, wf_k=wf_k, spin=0,
-                                          P_aui=P_aui, raw=True)
-        e_n.append(e)
-        P_n.append(P)
-    pickle.dump((e_n, P_n), open('top.pickle', 'w'))
+Plot PDOS (:git:`~doc/documentation/pdos/p2.py`):
 
-Plot PDOS::
-
-    from ase.units import Hartree
-    from gpaw import *
-    from gpaw.utilities.dos import fold
-    import pickle
-    from pylab import *
-
-    e_f = GPAW('top.gpw').get_fermi_level()
-
-    e_n, P_n = pickle.load(open('top.pickle'))
-    for n in range(2,7):
-        e, ldos = fold(e_n[n] * Hartree, P_n[n], npts=2001, width=0.2)
-        plot(e-e_f, ldos, label='Band: ' + str(n))
-    legend()
-    axis([-15, 10, None, None])
-    xlabel('Energy [eV]')
-    ylabel('PDOS')
-
-    show()
+.. literalinclude:: p2.py
 
 .. [#Blo94] P. E. Blöchl, Phys. Rev. B 50, 17953 (1994)
 
@@ -311,7 +247,7 @@ For the Wigner-Seitz LDOS, the eigenstates are projected onto the function
 This defines an LDOS:
 
 .. math::
-  
+
   \rho^a(\varepsilon) = \sum_n |\langle \theta^a| \psi_n \rangle|^2
   \delta(\varepsilon - \varepsilon_n)
 
@@ -349,44 +285,11 @@ as an input for the PDOS calculation.
 
 An example and with explanation is provided below.
 
-LCAO PDOS::
+LCAO PDOS (see :git:`~doc/documentation/pdos/lcaodos_gs.py` and
+:git:`~doc/documentation/pdos/lcaodos_plt.py`):
 
-    from ase import Atoms
-    from ase.io import read
-
-    from gpaw import GPAW
-    from gpaw.utilities.dos import LCAODOS, RestartLCAODOS, fold
-    from ase.units import Hartree
-
-    import numpy as np
-
-    name = 'HfS2'
-    calc = GPAW(name+'.gpw', txt=None)
-    atoms = read(name+'.gpw')
-    ef = calc.get_fermi_level()
-
-    dos = RestartLCAODOS(calc)
-    energies, weights = dos.get_subspace_pdos(range(51))
-    e, w = fold(energies * Hartree, weights, 2000, 0.1)
-
-    e, m_s_pdos = dos.get_subspace_pdos([0,1])
-    e, m_s_pdos = fold(e * Hartree, m_s_pdos, 2000, 0.1)
-    e, m_p_pdos = dos.get_subspace_pdos([2,3,4])
-    e, m_p_pdos = fold(e * Hartree, m_p_pdos, 2000, 0.1)
-    e, m_d_pdos = dos.get_subspace_pdos([5,6,7,8,9])
-    e, m_d_pdos = fold(e * Hartree, m_d_pdos, 2000, 0.1)
-
-    e, x_s_pdos = dos.get_subspace_pdos([25])
-    e, x_s_pdos = fold(e * Hartree, x_s_pdos, 2000, 0.1)
-    e, x_p_pdos = dos.get_subspace_pdos([26,27,28])
-    e, x_p_pdos = fold(e * Hartree, x_p_pdos, 2000, 0.1)
-
-    w_max = []
-    for i in range(len(e)):
-        if (-4.5 <= e[i]-ef <= 4.5):
-            w_max.append(w[i])
-
-    w_max = np.asarray(w_max)
+.. literalinclude:: lcaodos_plt.py
+   :end-before: things
 
 Few comments about the above script.
 There are 51 basis functions in the calculations and the total
@@ -403,33 +306,9 @@ is chosen.
 There is a smarter way of getting the above orbitals in an automated
 way but it will come later.
 
-LCAO PDOS plotting script::
+.. image:: lcaodos.png
 
-    from pylab import plotfile, show, gca
-    import matplotlib.pyplot as plt
-    import matplotlib
+Last part of :git:`~doc/documentation/pdos/lcaodos_plt.py` script:
 
-    matplotlib.rc('font', family='normal', serif='cm10')
-
-    matplotlib.rc('text', usetex=True)
-    matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
-
-    font = {'family' : 'normal',
-        'size'   : 12}
-    matplotlib.rc('font', **font)
-
-    plt.plot(e-ef, w, label=r'\textbf{Total}', c='k', lw=2, alpha=0.7)
-    plt.plot(e-ef, x_s_pdos, label=r'\textbf{X-$s$}', c='g', lw=2, alpha=0.7)
-    plt.plot(e-ef, x_p_pdos, label=r'\textbf{X-$p$}', c='b', lw=2, alpha=0.7)
-    plt.plot(e-ef, m_s_pdos, label=r'\textbf{M-$s$}', c='y', lw=2, alpha=0.7)
-    plt.plot(e-ef, m_p_pdos, label=r'\textbf{M-$p$}', c='c', lw=2, alpha=0.7)
-    plt.plot(e-ef, m_d_pdos, label=r'\textbf{M-$d$}', c='r', lw=2, alpha=0.7)
-
-    plt.axis(ymin=0., ymax=np.max(w_max), xmin=-4.5, xmax=4.5, )
-    plt.xlabel(r'$\epsilon - \epsilon_F \ \rm{(eV)}$')
-    plt.ylabel(r'\textbf{DOS}')
-    plt.legend(loc=1)
-    ax = plt.gca()
-    fig = plt.gcf()
-    fig.set_size_inches(8,8)
-    plt.savefig(name + '.png', dpi=200)
+.. literalinclude:: lcaodos_plt.py
+   :start-after: things

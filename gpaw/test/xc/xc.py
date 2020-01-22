@@ -10,6 +10,8 @@ for name in short_names:
         LibXC(name)
     except NameError:
         continue
+    if name == 'SCAN':
+        continue
     funcs.append(name)
     modes.append(0)
 for name in codes:
@@ -24,7 +26,7 @@ def create_xc(func, mode):
         xc = XCKernel(func)
     return xc
 
-    
+
 def f1(n_xg, xc):
     e_g = np.empty_like(n_xg[0])
     n_sg = n_xg[:1]
@@ -36,7 +38,7 @@ def f1(n_xg, xc):
     xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
     return e_g, np.concatenate((dedn_sg, dedsigma_xg, dedtau_sg))
 
-    
+
 def f2(n_xg, xc):
     e_g = np.empty_like(n_xg[0])
     n_sg = n_xg[:2]

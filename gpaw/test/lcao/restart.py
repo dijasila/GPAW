@@ -3,7 +3,7 @@ from __future__ import print_function
 # in normal as well as 'all' mode
 
 import numpy as np
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 
 # setting number of decimals globally makes numpy.test() tests
@@ -18,11 +18,13 @@ system.set_calculator(calc)
 system.get_potential_energy()
 wf = calc.get_pseudo_wave_function(0)
 
-for mode in ['normal', 'all']:
+for mode in ['all', 'normal']:
     fname = 'lcao-restart.%s.gpw' % mode
     calc.write(fname, mode=dict(normal='', all='all')[mode])
     
     calc2 = GPAW(fname, txt=None)
+    if mode == 'normal':
+        continue
     wf2 = calc2.get_pseudo_wave_function(0)
     err = np.abs(wf2 - wf).max()
     print('%s: err=%s' % (mode, repr(err)))

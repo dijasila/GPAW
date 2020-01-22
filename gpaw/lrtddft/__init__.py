@@ -1,6 +1,4 @@
-"""This module defines a linear response TDDFT-class.
-
-"""
+"""This module defines a linear response TDDFT-class."""
 from __future__ import print_function
 import numbers
 import sys
@@ -9,6 +7,7 @@ from math import sqrt
 import numpy as np
 from ase.units import Hartree
 from ase.utils.timing import Timer
+from ase.utils import basestring
 
 import _gpaw
 import gpaw.mpi as mpi
@@ -54,21 +53,41 @@ class LrTDDFT(ExcitationList):
     read from a file
     """
 
+    default_parameters = {
+        'nspins': None,
+        'eps': 0.001,
+        'istart': 0,
+        'jend': sys.maxsize,
+        'energy_range': None,
+        'xc': 'GS',
+        'derivative_level': 1,
+        'numscale': 0.00001,
+        'txt': None,
+        'filename': None,
+        'finegrid': 2,
+        'force_ApmB': False,  # for tests
+        'eh_comm': None,  # parallelization over eh-pairs
+        'poisson': None}  # use calculator's Poisson
+
     def __init__(self, calculator=None, **kwargs):
 
         self.timer = Timer()
         self.diagonalized = False
 
-        self.set(**kwargs)
+        changed = self.set(**kwargs)
 
-        if isinstance(calculator, str):
+        if isinstance(calculator, basestring):
             ExcitationList.__init__(self, None, self.txt)
             self.filename = calculator
         else:
             ExcitationList.__init__(self, calculator, self.txt)
 
         if self.filename is not None:
-            return self.read(self.filename)
+            self.read(self.filename)
+            if set(['istart', 'jend', 'energy_range']) & set(changed):
+                # the user has explicitely demanded these
+                self.diagonalize()
+            return
 
         if self.eh_comm is None:
             self.eh_comm = mpi.serial_comm
@@ -82,6 +101,8 @@ class LrTDDFT(ExcitationList):
                 np.asarray(self.eh_comm))
 
         if calculator is not None and calculator.initialized:
+            # XXXX not ready for k-points
+            assert(len(calculator.wfs.kd.ibzk_kc) == 1)
             if not isinstance(calculator.wfs, FDWaveFunctions):
                 raise RuntimeError(
                     'Linear response TDDFT supported only in real space mode')
@@ -91,8 +112,8 @@ class LrTDDFT(ExcitationList):
                 err_txt += 'calculator parameter.'
                 raise NotImplementedError(err_txt)
             if self.xc == 'GS':
-                self.xc = calculator.hamiltonian.xc.name
-            if calculator.input_parameters.mode != 'lcao':
+                self.xc = calculator.hamiltonian.xc
+            if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
                 spos_ac = calculator.initialize_positions()
@@ -102,30 +123,14 @@ class LrTDDFT(ExcitationList):
             self.update(calculator)
 
     def set(self, **kwargs):
-
-        defaults = {
-            'nspins': None,
-            'eps': 0.001,
-            'istart': 0,
-            'jend': sys.maxsize,
-            'energy_range': None,
-            'xc': 'GS',
-            'derivative_level': 1,
-            'numscale': 0.00001,
-            'txt': None,
-            'filename': None,
-            'finegrid': 2,
-            'force_ApmB': False,  # for tests
-            'eh_comm': None  # parallelization over eh-pairs
-        }
-
-        changed = False
-        for key, value in defaults.items():
+        """Change parameters."""
+        changed = []
+        for key, value in LrTDDFT.default_parameters.items():
             if hasattr(self, key):
                 value = getattr(self, key)  # do not overwrite
             setattr(self, key, kwargs.pop(key, value))
             if value != getattr(self, key):
-                changed = True
+                changed.append(key)
 
         for key in kwargs:
             raise KeyError('Unknown key ' + key)
@@ -174,7 +179,10 @@ class LrTDDFT(ExcitationList):
             Om = OmegaMatrix
             name = 'LrTDDFT'
             if self.xc:
-                xc = XC(self.xc)
+                if isinstance(self.xc, basestring):
+                    xc = XC(self.xc)
+                else:
+                    xc = self.xc
                 if hasattr(xc, 'hybrid') and xc.hybrid > 0.0:
                     Om = ApmB
                     name = 'LrTDDFThyb'
@@ -193,14 +201,14 @@ class LrTDDFT(ExcitationList):
         self.Om = Om(self.calculator, self.kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
-                     txt=self.txt)
+                     poisson=self.poisson, txt=self.txt)
         self.name = name
 
-    def diagonalize(self, istart=None, jend=None,
-                    energy_range=None, TDA=False):
+    def diagonalize(self, **kwargs):
+        self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(istart, jend, energy_range, TDA)
+        self.Om.diagonalize(self.istart, self.jend, self.energy_range)
         self.timer.stop('omega')
         self.diagonalized = True
 
@@ -224,6 +232,8 @@ class LrTDDFT(ExcitationList):
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
 
+        timer = self.timer
+        timer.start('name')
         if fh is None:
             if filename.endswith('.gz'):
                 try:
@@ -237,12 +247,14 @@ class LrTDDFT(ExcitationList):
         else:
             f = fh
             self.filename = None
+        timer.stop('name')
 
+        timer.start('header')
         # get my name
-        s = f.readline().replace('\n', '')
+        s = f.readline().strip()
         self.name = s.split()[1]
 
-        self.xc = f.readline().replace('\n', '').split()[0]
+        self.xc = XC(f.readline().strip().split()[0])
         values = f.readline().split()
         self.eps = float(values[0])
         if len(values) > 1:
@@ -252,16 +264,22 @@ class LrTDDFT(ExcitationList):
         else:
             # old writing style, use old defaults
             self.numscale = 0.001
+        timer.stop('header')
 
+        timer.start('init_kss')
         self.kss = KSSingles(filehandle=f)
+        timer.stop('init_kss')
+        timer.start('init_obj')
         if self.name == 'LrTDDFT':
             self.Om = OmegaMatrix(kss=self.kss, filehandle=f,
                                   txt=self.txt)
         else:
             self.Om = ApmB(kss=self.kss, filehandle=f,
                            txt=self.txt)
-        self.Om.Kss(self.kss)
+        self.Om.fullkss = self.kss
+        timer.stop('init_obj')
 
+        timer.start('read diagonalized')
         # check if already diagonalized
         p = f.tell()
         s = f.readline()
@@ -269,24 +287,22 @@ class LrTDDFT(ExcitationList):
             # go back to previous position
             f.seek(p)
         else:
+            self.diagonalized = True
             # load the eigenvalues
             n = int(f.readline().split()[0])
             for i in range(n):
                 self.append(LrTDDFTExcitation(string=f.readline()))
             # load the eigenvectors
+            timer.start('read eigenvectors')
             f.readline()
             for i in range(n):
-                values = f.readline().split()
-                weights = [float(val) for val in values]
-                self[i].f = np.array(weights)
+                self[i].f = np.array([float(x) for x in f.readline().split()])
                 self[i].kss = self.kss
+            timer.stop('read eigenvectors')
+        timer.stop('read diagonalized')
 
         if fh is None:
             f.close()
-
-        # update own variables
-        self.istart = self.Om.fullkss.istart
-        self.jend = self.Om.fullkss.jend
 
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
@@ -329,7 +345,13 @@ class LrTDDFT(ExcitationList):
         'fh' is a filehandle. This can be used to write into already
         opened files.
         """
-        if mpi.rank == 0:
+
+        if self.calculator is None:
+            rank = mpi.world.rank
+        else:
+            rank = self.calculator.wfs.world.rank
+
+        if rank == 0:
             if fh is None:
                 if filename.endswith('.gz'):
                     try:
@@ -343,7 +365,10 @@ class LrTDDFT(ExcitationList):
                 f = fh
 
             f.write('# ' + self.name + '\n')
-            xc = self.xc
+            if isinstance(self.xc, basestring):
+                xc = self.xc
+            else:
+                xc = self.xc.tostring()
             if xc is None:
                 xc = 'RPA'
             if self.calculator is not None:
@@ -375,6 +400,31 @@ class LrTDDFT(ExcitationList):
                 f.close()
         mpi.world.barrier()
 
+    def overlap(self, ov_nn, other):
+        """Matrix element overlap determined from pair density overlaps.
+
+        Parameters
+        ----------
+        ov_nn: array
+            Wave function overlap factors from a displaced calculator.
+
+            Index 0 corresponds to our own wavefunctions and
+            index 1 to the others wavefunctions
+
+        Returns
+        -------
+        ov_pp: array
+            Overlap
+        """
+        #ov_pp = self.kss.overlap(ov_nn, other.kss)
+        ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
+        self.diagonalize()
+        other.diagonalize()
+        # ov[pLm, pLo] = Om[pLm, :pKm]* ov[:pKm, pLo]
+        return np.dot(self.Om.eigenvectors.conj(),
+                      # ov[pKm, pLo] = ov[pKm, :pKo] Om[pLo, :pKo].T
+                      np.dot(ov_pp, other.Om.eigenvectors.T))
+
     def __getitem__(self, i):
         if not self.diagonalized:
             self.diagonalize()
@@ -389,6 +439,9 @@ class LrTDDFT(ExcitationList):
         if not self.diagonalized:
             self.diagonalize()
         return list.__len__(self)
+
+    def __del__(self):
+        self.timer.write(self.txt)
 
 
 def d2Excdnsdnt(dup, ddn):
@@ -413,12 +466,12 @@ class LrTDDFTExcitation(Excitation):
     def __init__(self, Om=None, i=None,
                  e=None, m=None, string=None):
 
+        # multiplicity comes from Kohn-Sham contributions
+        self.fij = 1
+
         if string is not None:
             self.fromstring(string)
             return None
-
-        # multiplicity comes from Kohn-Sham contributions
-        self.fij = 1
 
         # define from the diagonalized Omega matrix
         if Om is not None:
@@ -507,13 +560,13 @@ class LrTDDFTExcitation(Excitation):
         s = ('E=%.3f' % (self.energy * Hartree) + ' eV, ' +
              'f=%.5g' % osc[0] + ', (%.5g,%.5g,%.5g) ' %
              (osc[1], osc[2], osc[3]) + '\n')
-           #'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
+        # 'R=%.5g' % self.get_rotatory_strength() + ' cgs\n')
 
         def sqr(x):
             return x * x
         spin = ['u', 'd']
         min2 = sqr(min)
-        rest = np.sum(self.f ** 2)
+        rest = np.sum(self.f**2)
         for f, k in zip(self.f, self.kss):
             f2 = sqr(f)
             if f2 > min2:

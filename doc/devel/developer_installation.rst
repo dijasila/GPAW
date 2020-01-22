@@ -9,7 +9,7 @@ Start by :ref:`forking and cloning as it is done for ASE develoment
 (could be ``~/gpaw``). Then do::
 
     $ cd <repo>
-    $ python setup.py build_ext
+    $ python3 setup.py build_ext
 
 This will build two things:
 

@@ -175,7 +175,7 @@ class TDDFTPES(BasePES):
     def _create_f(self):
         self.f = (self.g_Ii * self.g_Ii).sum(axis=1)
 
-        if self.shift is True:
+        if self.shift:
             shift = (self.c_d.get_potential_energy() -
                      self.c_m.get_potential_energy())
         else:

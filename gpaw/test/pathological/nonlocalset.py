@@ -1,7 +1,6 @@
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, Mixer
 from gpaw.test import equal
-from gpaw.poisson import PoissonSolver
 
 """The purpose of this test is to make sure that wfs-dependent
 functionals do not produce wrong results due to incorrect saving of
@@ -20,20 +19,20 @@ atoms.set_pbc((True,True,True))
 atoms.set_cell((2.0,2.0,2.0))
 
 def MGGA_fail():
-    calc = GPAW(xc='TPSS', eigensolver='cg',kpts=(1,2,1), convergence={'density':1e-8})
+    calc = GPAW(xc='TPSS', mixer=Mixer(0.5, 5, 50.0), eigensolver='cg',kpts=(1,2,1), convergence={'density':1e-8})
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.set(kpts=(4,1,1))
     return atoms.get_potential_energy()
 
 def MGGA_work():
-    calc = GPAW(xc='TPSS', eigensolver='cg', kpts=(4,1,1), convergence={'density':1e-8})
+    calc = GPAW(xc='TPSS', mixer=Mixer(0.5, 5, 50.0), eigensolver='cg', kpts=(4,1,1), convergence={'density':1e-8})
 
     atoms.set_calculator(calc)
     return atoms.get_potential_energy()
 
 def GLLBSC_fail():
-    calc = GPAW(xc='GLLBSC', eigensolver='cg', kpts=(1,2,1), convergence={'density':1e-8})
+    calc = GPAW(xc='GLLBSC', mixer=Mixer(0.5, 5, 50.0), eigensolver='cg', kpts=(1,2,1), convergence={'density':1e-8})
 
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
@@ -41,7 +40,7 @@ def GLLBSC_fail():
     return atoms.get_potential_energy()
 
 def GLLBSC_work():
-    calc = GPAW(xc='GLLBSC', eigensolver='cg', kpts=(4,1,1), convergence={'density':1e-8})
+    calc = GPAW(xc='GLLBSC', mixer=Mixer(0.5, 5, 50.0), eigensolver='cg', kpts=(4,1,1), convergence={'density':1e-8})
 
     atoms.set_calculator(calc)
     return atoms.get_potential_energy()

@@ -20,7 +20,7 @@ n = 20
 calc = GPAW(gpts=(n, n, n),
             nbands='150%',
             occupations=FermiDirac(width=0.01),
-            poissonsolver=PoissonSolver(nn='M', relax='J'),
+            poissonsolver=PoissonSolver('fd', nn='M', relax='J'),
             kpts=(2, 2, 2),
             convergence={'energy': 1e-7}
             )

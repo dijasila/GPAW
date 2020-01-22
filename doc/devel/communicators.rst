@@ -5,5 +5,5 @@ MPI communicators
 
 .. autoclass:: gpaw.mpi._Communicator
    :members:
-   :show-inheritance:
 
+.. autofunction:: gpaw.mpi.broadcast_exception

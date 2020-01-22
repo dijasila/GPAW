@@ -18,23 +18,22 @@ def check_degenerate_bands(filename, etol):
             if (f_kn[k,n-1] - f_kn[k,n] > 1e-5) and (np.abs(e_kn[k,n] - e_kn[k,n-1]) < etol):
                 print(k, n, e_kn[k,n], e_kn[k, n-1])
     return
-    
+
 
 def get_orbitals(calc):
     """Get LCAO orbitals on 3D grid by lcao_to_grid method."""
 
     bfs_a = [setup.phit_j for setup in calc.wfs.setups]
-    
+
     from gpaw.lfc import BasisFunctions
     bfs = BasisFunctions(calc.wfs.gd, bfs_a, calc.wfs.kd.comm, cut=True)
-    spos_ac = calc.atoms.get_scaled_positions()
-    bfs.set_positions(spos_ac)
+    bfs.set_positions(calc.spos_ac)
 
     nLCAO = calc.get_number_of_bands()
     orb_MG = calc.wfs.gd.zeros(nLCAO)
     C_M = np.identity(nLCAO)
     bfs.lcao_to_grid(C_M, orb_MG,q=-1)
-    
+
     return orb_MG
 
 def find_peaks(x,y,threshold = None):
@@ -126,10 +125,10 @@ def lorz_fit(x,y, npeak=1, initpara = None):
 
     if initpara is None:
         if npeak == 1:
-            initpara[i] = np.array([1., 0., 0., 0.1])
+            initpara = np.array([1., 0., 0., 0.1])
         if npeak == 2:
-            initpara[i] = np.array([1., 0., 0., 0.1,
-                                    3., 0., 0., 0.1])
+            initpara = np.array([1., 0., 0., 0.1,
+                                 3., 0., 0., 0.1])
     p0 = initpara
     
     result = leastsq(residual, p0, args=(x, y), maxfev=2000)

@@ -2,7 +2,7 @@ from math import pi, sqrt
 import numpy as np
 from numpy import exp
 
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver
 from gpaw.utilities import cerf, erf
 from gpaw.utilities.gauss import Gaussian
 from gpaw.fd_operators import FDOperator, laplace
@@ -26,12 +26,12 @@ class HelmholtzGaussian(Gaussian):
         return sqrt(4 * pi) * exp(-p**2) / r / 2 * (
             np.cos(k * r) * (cerf(rhop) + cerf(rhom)) +
             i * np.sin(k * r) * (2 + cerf(rhop) - cerf(rhom)))
-        
+
 
 class ScreenedPoissonGaussian(Gaussian):
     def get_phi(self, mu2):
         """Get the solution of the screened Poisson equation for a Gaussian.
-        
+
            The Gaussian is centered to middle of grid-descriptor."""
         r = np.sqrt(self.r2)
         mu = sqrt(mu2)
@@ -46,7 +46,7 @@ class ScreenedPoissonGaussian(Gaussian):
         # the gpaw-Gaussian is sqrt(4 * pi) times a 3D normalized Gaussian
         return sqrt(4 * pi) * exp(sig2 * mu2 / 2.0) / (2 * r) * (
             exp(-mu * r) * erfc(mrho) - exp(mu * r) * erfc(prho))
-        
+
 
 class HelmholtzOperator(FDOperator):
     def __init__(self, gd, scale=1.0, n=1, dtype=float, k2=0.0):
@@ -74,7 +74,8 @@ class HelmholtzOperator(FDOperator):
         for D in range(3, 7):
             h_dv = np.dot(M_ic[i_d[:D]], gd.h_cv)
             A_md = (h_dv**m_mv[:, np.newaxis, :]).prod(2)
-            a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0])
+            a_d, residual, rank, s = np.linalg.lstsq(A_md, [1, 1, 1, 0, 0, 0],
+                                                     rcond=-1)
             if residual.sum() < 1e-14:
                 assert rank == D, 'You have a weird unit cell!'
                 # D directions was OK
@@ -92,13 +93,13 @@ class HelmholtzOperator(FDOperator):
             coefs.extend(a_d[d] * np.array(laplace[n][1:]))
 
         FDOperator.__init__(self, coefs, offsets, gd, dtype)
-        
+
         self.description = (
             '%d*%d+1=%d point O(h^%d) finite-difference Helmholtz' %
             ((self.npoints - 1) // n, n, self.npoints, 2 * n))
 
 
-class HelmholtzSolver(PoissonSolver):
+class HelmholtzSolver(FDPoissonSolver):
     """Solve the Helmholtz or screened Poisson equations.
 
        The difference between the Helmholtz equation:
@@ -118,10 +119,10 @@ class HelmholtzSolver(PoissonSolver):
     def __init__(self, k2=0.0, nn='M', relax='GS', eps=2e-10,
                  use_charge_center=True):
         assert k2 <= 0, 'Currently only defined for k^2<=0'
-        PoissonSolver.__init__(self, nn, relax, eps,
-                               use_charge_center=use_charge_center)
+        FDPoissonSolver.__init__(self, nn, relax, eps,
+                                 use_charge_center=use_charge_center)
         self.k2 = k2
-        
+
     def set_grid_descriptor(self, gd):
         # Should probably be renamed initialize
         self.gd = gd

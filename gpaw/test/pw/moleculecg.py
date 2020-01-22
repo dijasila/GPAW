@@ -1,6 +1,6 @@
 # fails with On entry to ZGEMV parameter number 8 had an illegal value
 
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 

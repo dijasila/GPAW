@@ -1,13 +1,10 @@
-import os
 import sys
 import time
 
-from ase.units import Bohr
 from ase import Atom, Atoms
 from ase.parallel import parprint
 
 from gpaw import GPAW
-from gpaw.mpi import world 
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.excited_state import ExcitedState

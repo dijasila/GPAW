@@ -1,4 +1,3 @@
-from math import factorial as fact
 import numpy as np
 
 from gpaw.sphere import lmfact

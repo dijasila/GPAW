@@ -1,9 +1,6 @@
 # creates: paw_note.pdf
+import subprocess
 
-import os
-from distutils.version import LooseVersion
-
-import matplotlib
 import matplotlib.pyplot as plt
 
 from gpaw.atom.all_electron import AllElectron
@@ -21,11 +18,7 @@ lim = [0, 3.5, -2, 3]
 plt.plot([rcut, rcut], lim[2:], 'k--', label='_nolegend_')
 plt.axis(lim)
 
-# The pad keyword to legend was deprecated in MPL v. 0.98.4
-if LooseVersion(matplotlib.__version__) < '0.98.4':
-    kwpad = {'pad': 0.05}
-else:
-    kwpad = {'borderpad': 0.05, 'labelspacing': 0.01}
+kwpad = {'borderpad': 0.05, 'labelspacing': 0.01}
 
 plt.legend(loc=(1.02, 0.03), markerscale=1, **kwpad)
 plt.xlabel(r'$r$ [Bohr]')
@@ -33,10 +26,14 @@ plt.text(rcut + 0.05, lim[2] + 0.05, '$r_c$', ha='left', va='bottom')
 plt.text(0.6, 2, '[Pt] = [Xe]4f$^{14}$5d$^9$6s$^1$')
 plt.savefig('Pt.png', dpi=80)
 
-
-error = 0
-error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
-error += os.system('bibtex paw_note > /dev/null')
-error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
-error += os.system('pdflatex -interaction=nonstopmode paw_note > /dev/null')
-error += os.system('cp paw_note.pdf ..')
+try:
+    subprocess.run(
+        'pdflatex -interaction=nonstopmode paw_note > /dev/null && '
+        'bibtex paw_note > /dev/null && '
+        'pdflatex -interaction=nonstopmode paw_note > /dev/null && '
+        'pdflatex -interaction=nonstopmode paw_note > /dev/null && '
+        'cp paw_note.pdf ..',
+        shell=True, check=True)
+except subprocess.CalledProcessError:
+    subprocess.run('echo "No pdflatex" > paw_note.pdf; cp paw_note.pdf ..',
+                   shell=True)

@@ -254,8 +254,8 @@ XC(mgga_c_revtpss)(void *par, const double *rho, const double *sigmatmp, const d
   int i, is;
 
   sigma[0] = sigmatmp[0];
-  sigma[1] = sigmatmp[1];
-  sigma[2] = sigmatmp[2];
+  sigma[1] = 0.0;
+  sigma[2] = 0.0;
 
   zeta = (rho[0]-rho[1])/(rho[0]+rho[1]);
 
@@ -266,6 +266,8 @@ XC(mgga_c_revtpss)(void *par, const double *rho, const double *sigmatmp, const d
   if(p->common.nspin == XC_POLARIZED) {
     dens  += rho[1];
     tautr += tau[1];
+    sigma[1] = sigmatmp[1];
+    sigma[2] = sigmatmp[2];
     grad  += (2*sigma[1] + sigma[2]);
   }
 
@@ -275,6 +277,7 @@ XC(mgga_c_revtpss)(void *par, const double *rho, const double *sigmatmp, const d
   taut = max(tautr, tauw);
 
   z = tauw/taut;
+
 
   sigma[0] = max(MIN_GRAD*MIN_GRAD, sigma[0]);
   if(p->common.nspin == XC_POLARIZED) 

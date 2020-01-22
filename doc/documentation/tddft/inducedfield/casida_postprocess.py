@@ -16,7 +16,6 @@ photoabsorption_spectrum(lr, 'na2_casida_spectrum.dat',
 
 # Load GPAW object
 calc = GPAW('na2_gs_casida.gpw')
-print(calc.wfs.atom_partition.rank_a)
 
 # Calculate induced field
 frequencies = [1.0, 2.08]     # Frequencies of interest in eV

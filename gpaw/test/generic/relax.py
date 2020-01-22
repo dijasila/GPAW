@@ -1,12 +1,12 @@
-from __future__ import print_function
-import os
-from ase import Atom, Atoms
+from time import time
+from ase import Atoms
 from ase.optimize import BFGS
 from ase.io import read
 from gpaw import GPAW
 from gpaw.test import equal
+from gpaw.mpi import world
 
-a = 4.    # Size of unit cell (Angstrom)
+a = 4.0    # Size of unit cell (Angstrom)
 c = a / 2
 d = 0.74  # Experimental bond length
 molecule = Atoms('H2',
@@ -14,7 +14,8 @@ molecule = Atoms('H2',
                   (c + d / 2, c, c)],
                  cell=(a, a, a),
                  pbc=False)
-calc = GPAW(h=0.2, nbands=1, xc='PBE', txt=None)
+calc = GPAW(h=0.2, nbands=1, xc={'name': 'PBE', 'stencil': 1}, txt=None,
+            poissonsolver={'name': 'fd'})
 molecule.set_calculator(calc)
 e1 = molecule.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
@@ -24,11 +25,11 @@ molecule.get_forces()
 calc.write('H2f.gpw')
 calc.write('H2fa.gpw', mode='all')
 
-from time import time
+
 def timer(func, *args, **kwargs):
     t0 = time()
     ret = func(*args, **kwargs)
-    return ret, time()-t0
+    return ret, time() - t0
 
 molecule = GPAW('H2.gpw', txt=None).get_atoms()
 f1, t1 = timer(molecule.get_forces)
@@ -93,7 +94,6 @@ assert abs(d0q - d0) < 4e-4
 f0 = molecule.get_forces()
 del relax, molecule
 
-from gpaw.mpi import world
 world.barrier()  # syncronize before reading text output file
 f = read('H2.txt').get_forces()
 assert abs(f - f0).max() < 5e-6  # 5 digits in txt file

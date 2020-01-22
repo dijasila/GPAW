@@ -6,7 +6,7 @@ from gpaw.test import equal
 from gpaw.xc import XC
 from gpaw.mpi import world
 
-N = 8
+N = 10
 a = 2.0
 gd = GridDescriptor((N, N, N), (a, a, a))
 

@@ -17,7 +17,7 @@ class LrTDDFTInducedField(BaseInducedField):
         LrTDDFT object
     """
     
-    def __init__(self, filename=None, paw=None, lr=None, ws='all',
+    def __init__(self, filename=None, paw=None, lr=None,
                  frequencies=None, folding='Gauss', width=0.08,
                  kickdir=0
                  ):
@@ -45,7 +45,7 @@ class LrTDDFTInducedField(BaseInducedField):
         # "Kick" direction
         self.kickdir = kickdir
         
-        BaseInducedField.__init__(self, filename, paw, ws,
+        BaseInducedField.__init__(self, filename, paw,
                                   frequencies, folding, width)
         
         self.readwritemode_str_to_list = \
@@ -63,9 +63,8 @@ class LrTDDFTInducedField(BaseInducedField):
         self.Fbgef_v = Fbgef_v
 
         # Initialize PAW object
-        self.density.ghat.set_positions(self.atoms.get_scaled_positions())
-        paw.converge_wave_functions()
-        
+        paw.initialize_positions()
+
     def set_folding(self, folding, width):
         BaseInducedField.set_folding(self, folding, width)
         

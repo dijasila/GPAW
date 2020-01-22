@@ -3,7 +3,6 @@ from math import pi
 import numpy as np
 from ase.units import Hartree
 
-from gpaw.xc import XC
 from gpaw.xc.sic import SIC
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
@@ -41,7 +40,6 @@ class NSCFSIC:
                 na[0] = na[1]
                 nb = np.zeros(g.N)
                 v_sg = np.zeros((2, g.N))
-                e_g = np.zeros(g.N)
                 vHr = np.zeros(g.N)
                 Exc = xc.calculate_spherical(g.rgd, np.array([na, nb]), v_sg)
                 hartree(0, na * g.r * g.dr, g.r, vHr)
@@ -52,7 +50,7 @@ class NSCFSIC:
                 
         sic = SIC(finegrid=True, coulomb_factor=1, xc_factor=1)
         sic.initialize(self.paw.density, self.paw.hamiltonian, self.paw.wfs)
-        sic.set_positions(self.paw.atoms.get_scaled_positions())
+        sic.set_positions(self.paw.spos_ac)
         
         print('Valence electron sic ')
         print('%10s%10s%10s%10s%10s%10s' % ('spin', 'k-point', 'band',

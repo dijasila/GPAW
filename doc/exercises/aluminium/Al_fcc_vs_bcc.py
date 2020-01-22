@@ -1,7 +1,7 @@
 """Compare Al(fcc) and Al(bcc) at two different plane-wave cutoffs
 and two differens k-point densities."""
 from __future__ import print_function
-from ase.lattice import bulk
+from ase.build import bulk
 from gpaw import GPAW, PW
 
 afcc = 3.985

@@ -68,6 +68,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
     for date, doi, title in papers:
         fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
                                            doi, title))
+        assert '"' not in title, title
         total[doi] = (date, title)
     fd.close()
     x = dict([(p[1], 0) for p in papers])

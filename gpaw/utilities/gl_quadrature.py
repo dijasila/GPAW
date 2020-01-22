@@ -390,7 +390,7 @@ def gaussLog(xmin, xmax, funct, ng=10):
 
 if __name__ == '__main__':
 
-    from math import *
+    from math import cos, pi
 
     def f2(x):
         return x**2

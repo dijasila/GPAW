@@ -38,9 +38,18 @@
 #  define zgttrf_ zgttrf
 #  define zgttrs_ zgttrs
 #  define ilaenv_ ilaenv
+#  define dpbtrf_ dpbtrf
+#  define dpbtrs_ dpbtrs
 #endif
 
 double dlamch_(char* cmach);
+
+void dpbtrf_(char* uplo, int* n, int* kd, double* ab,
+             int* ldab, int *info);
+
+void dpbtrs_( char* uplo, int* n, int* kd, int* nrhs,
+              const double* ab, int* ldab, double* b,
+              int* ldb, int *info );
 
 void dsyev_(char *jobz, char *uplo, int *n, 
             double *a, int *lda, double *w, double *work, int *lwork,
@@ -517,6 +526,44 @@ int nrhs=PyArray_DIMS(b)[1];
    ipiv = GPAW_MALLOC(int, n);
    zgbsv_(&n, &kl,&ku, &nrhs, (void*)COMPLEXP(a), &ldab, ipiv, (void*)COMPLEXP(b), &ldb, &info);
    free(ipiv);
+ return Py_BuildValue("i",info);
+}
+
+PyObject* banded_cholesky(PyObject *self, PyObject *args)
+{
+ PyArrayObject* A;
+ char uplo = 'L';
+ if(!PyArg_ParseTuple(args,"O",&A))
+ {
+   return NULL;
+ }
+ int n=PyArray_DIMS(A)[0];
+ int kd=PyArray_DIMS(A)[1]-1;
+ int ldab=PyArray_DIMS(A)[1];
+ int info = 0;
+ dpbtrf_(&uplo, &n, &kd, DOUBLEP(A), &ldab, &info);
+ return Py_BuildValue("i",info);
+}
+
+PyObject* solve_banded_cholesky(PyObject *self, PyObject *args)
+{
+ PyArrayObject* A;
+ PyArrayObject* B;
+ char uplo = 'L';
+ if(!PyArg_ParseTuple(args,"OO",&A, &B))
+ {
+   return NULL;
+ }
+ int n=PyArray_DIMS(A)[0];
+ int kd=PyArray_DIMS(A)[1]-1;
+ int nrhs=PyArray_DIMS(B)[0];
+ int ldab=PyArray_DIMS(A)[1];
+ int ldb=PyArray_DIMS(B)[1];
+ int info = 0;
+ dpbtrs_( &uplo, &n,  &kd, &nrhs,
+          DOUBLEP(A),
+          &ldab, DOUBLEP(B),
+          &ldb, &info);
  return Py_BuildValue("i",info);
 }
 

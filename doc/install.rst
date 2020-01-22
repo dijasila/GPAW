@@ -3,18 +3,18 @@
 ============
 Installation
 ============
-    
+
 .. toctree::
     :hidden:
-        
+
     troubleshooting
     platforms/platforms
-        
+
 GPAW relies on the Python library *atomic simulation environment* (ASE_),
 so you need to :ref:`install ASE <ase:download_and_install>` first.  GPAW
 itself is written mostly in the Python programming language, but there
 are also some C-code used for:
-    
+
 * performance critical parts
 * allowing Python to talk to external numerical libraries (BLAS_, LAPACK_,
   LibXC_, MPI_ and ScaLAPACK_)
@@ -26,55 +26,50 @@ calculations, you need to build a new Python interpreter (``gpaw-python``)
 that has MPI_ functionality built in.
 
 There are several ways to install GPAW:
-    
-* On a lucky day it's as simple as ``pip install -U gpaw`` as
+
+* On a lucky day it's as simple as ``pip3 install -U gpaw`` as
   described :ref:`below <installation using pip>`.
-  
+
 * Alternatively, you can :ref:`download <download>` the source code,
   edit :git:`customize.py` to tell the install script which libraries you
   want to link to and where they
   can be found (see :ref:`customizing installation`) and then install with a
-  ``python setup.py install --user`` as described :ref:`here <install
+  ``python3 setup.py install --user`` as described :ref:`here <install
   with distutils>`.
-  
+
 * There may be a package for your Linux distribution that you can use
   (named ``gpaw``).
-  
+
 * If you are a developer that need to change the code you should look at this
   description: :ref:`developer installation`.
 
 .. seealso::
 
     * Using :ref:`homebrew` on MacOSX.
+    * Using :ref:`anaconda`.
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`.
     * :ref:`troubleshooting`.
     * Important :ref:`envvars`.
     * In case of trouble: :ref:`Our mail list and IRC channel <contact>`.
 
-    
+
 Requirements
 ============
 
-* Python_ 2.6-3.5
-* NumPy_ 1.6.1 or later (base N-dimensional array package)
-* ASE_ 3.10 or later (atomic simulation environment)
+* Python_ 2.7, 3.4-
+* NumPy_ 1.9 or later (base N-dimensional array package)
+* SciPy_ 0.14 or later (library for scientific computing)
+* ASE_ 3.17.0 or later (atomic simulation environment)
 * a C-compiler
 * LibXC_ 2.0.1 or later
 * BLAS_ and LAPACK_ libraries
 
 Optional, but highly recommended:
 
-* SciPy_ 0.7 or later (library for scientific computing, requirered for
-  some features)
 * an MPI_ library (required for parallel calculations)
 * FFTW_ (for increased performance)
 * BLACS_ and ScaLAPACK_
-
-Optional (maybe not needed):
-    
-* HDF5_ 1.8.0 or later (library for parallel I/O and for saving files in HDF5_
-  format)
 
 
 .. _Python: http://www.python.org/
@@ -86,15 +81,14 @@ Optional (maybe not needed):
 .. _BLACS: http://www.netlib.org/blacs/
 .. _LAPACK: http://www.netlib.org/lapack/
 .. _ScaLAPACK: http://www.netlib.org/scalapack/
-.. _HDF5: https://www.hdfgroup.org/HDF5/
-.. _PyPI: https://pypi.python.org/pypi/gpaw
+.. _PyPI: https://pypi.org/project/gpaw
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
 
 
 .. _installation using pip:
-    
+
 Installation using ``pip``
 ==========================
 
@@ -102,29 +96,33 @@ Installation using ``pip``
 
 The simplest way to install GPAW is using pip_ and the GPAW package from
 the Python package index (PyPI_)::
-    
-    $ pip install --upgrade --user gpaw
-    
+
+    $ pip3 install --upgrade --user gpaw
+
 This will compile and install GPAW (both ``_gpaw.so`` and all the Python
 files) in your ``~/.local/lib/pythonX.Y/site-packages`` folder where
-Python can automatically find it.  The ``pip`` command will also place
+Python can automatically find it.  The ``pip3`` command will also place
 the command line tool :command:`gpaw` in the ``~/.local/bin`` folder, so
 make sure you have that in your :envvar:`PATH` environment variable.  If
 you have an ``mpicc`` command on your system then there will also be a
 ``gpaw-python`` executable in ``~/.local/bin``.
 
 Check that you have installed everything in the correct places::
-    
+
     $ gpaw info
-    
-    
+
+To check the compiled parallel features (like ScaLAPACK), you need to run::
+
+    $ gpaw-python -m gpaw info
+
+
 Install PAW datasets
 ====================
 
-This is done using this command::
-    
-    $ gpaw install-data
-    
+Install the datasets into the folder ``<dir>`` using this command::
+
+    $ gpaw install-data <dir>
+
 See :ref:`installation of paw datasets` for more details.
 
 Now you should be ready to use GPAW, but before you start, please run the
@@ -138,24 +136,24 @@ Run the tests
 =============
 
 Make sure that everything works by running the test suite::
-    
+
     $ gpaw test
-    
+
 This will take a couple of hours.  You can speed it up by using more than
 one core::
-    
+
     $ gpaw test -j 4
 
-Please report errors to the ``gpaw-developers`` mailing list so that we
-can fix them (see :ref:`mail lists`).
+Please report errors to the ``gpaw-users`` mailing list so that we
+can fix them (see :ref:`mail list`).
 
 If tests pass, and the parallel version is built, test the parallel code::
 
     $ gpaw -P 4 test
 
 or equivalently::
-    
-    $ mpiexec -np 4 gpaw-python `which gpaw` test
+
+    $ mpiexec -np 4 gpaw-python -m gpaw test
 
 
 .. _download:
@@ -168,41 +166,41 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-1.0.0.tar.gz_) or the latest
+    latest stable release (gpaw-1.5.2.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
-    
-        $ tar -xf gpaw-1.0.0.tar.gz
-        $ ln -s gpaw-1.0.0 gpaw
+
+        $ tar -xf gpaw-1.5.2.tar.gz
+        $ ln -s gpaw-1.5.2 gpaw
+
+    Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
 :Git clone:
 
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
-    
-        $ git clone -b 1.0.0 https://gitlab.com/gpaw/gpaw.git
+
+        $ git clone -b 1.5.2 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
         $ git clone https://gitlab.com/gpaw/gpaw.git
-    
+
 Add ``~/gpaw`` to your :envvar:`PYTHONPATH` environment variable and add
 ``~/gpaw/tools`` to :envvar:`PATH` (assuming ``~/gpaw`` is where your GPAW
 folder is).
-    
+
 .. note::
-    
+
     We also have Git tags for older stable versions of GPAW.
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-1.0.0.tar.gz:
-    https://pypi.python.org/packages/50/ab/
-    7e7b1591c631bbe54e000a6d0b605628a2d88818ee5048fc1cdcaa3ee6f5/
-    gpaw-1.0.0.tar.gz
+.. _gpaw-1.5.2.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-1.5.2.tar.gz
 
-    
+
 .. _customizing installation:
 
 Customizing installation
@@ -233,9 +231,9 @@ Install with setup.py
 
 If you have the source code, you can use the install script (:git:`setup.py`)
 to compile and install the code::
-    
-    $ python setup.py install --user
-    
+
+    $ python3 setup.py install --user
+
 
 .. _parallel installation:
 
@@ -258,19 +256,21 @@ Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
 
-Installation with HDF5 support
-------------------------------
+FFTW
+====
 
-HDF5_ support can be enabled by setting in :git:`customize.py`::
+The FFTW library is linked at runtime using :mod:`ctypes`.  By default, the
+following shared library names are searched for: ``libmkl_rt.so``,
+``libmkl_intel_lp64.so`` and ``libfftw3.so``.  First one found will be
+loaded.  If no library is found, the :mod:`numpy.fft` library will be used
+instead.  The name of the FFTW shared library can also be set via the
+``$GPAW_FFTWSO`` environment variable.
 
-    hdf5 = True
 
-and, in this case, provide HDF5 ``include_dirs``, ``libraries``, and
-``library_dirs`` as described in :ref:`customizing installation`.
-
+.. _libxc installation:
 
 Libxc Installation
-------------------
+==================
 
 If you OS does not have a LibXC_ package you can use then you can download
 and install LibXC_ as described `here
@@ -289,46 +289,46 @@ few extra tips:
 * Typically when building GPAW one has to modify customize.py in a manner
   similar to the following::
 
-    library_dirs += ['/my/path/to/libxc/2.0.2/install/lib']
-    include_dirs += ['/my/path/to/libxc/2.0.2/install/include']
+    library_dirs += ['/my/path/to/libxc/4.0.1/install/lib']
+    include_dirs += ['/my/path/to/libxc/4.0.1/install/include']
 
   or if you don't want to modify your customize.py, you can add these lines to
   your .bashrc::
-  
-    export C_INCLUDE_PATH=/my/path/to/libxc/2.0.2/install/include
-    export LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
-    export LD_LIBRARY_PATH=/my/path/to/libxc/2.0.2/install/lib
+
+    export C_INCLUDE_PATH=/my/path/to/libxc/4.0.1/install/include
+    export LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
+    export LD_LIBRARY_PATH=/my/path/to/libxc/4.0.1/install/lib
 
 Example::
-    
-    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz -O libxc-2.0.2.tar.gz
-    tar -xf libxc-2.0.2.tar.gz
-    cd libxc-2.0.2
-    ./configure --enable-shared --prefix=$HOME/xc
+
+    wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-4.0.1.tar.gz -O libxc-4.0.1.tar.gz
+    tar -xf libxc-4.0.1.tar.gz
+    cd libxc-4.0.1
+    ./configure --enable-shared --disable-fortran --prefix=$HOME/libxc-4.0.1
     make
     make install
-    
+
     # add these to your .bashrc:
-    export C_INCLUDE_PATH=~/xc/include
-    export LIBRARY_PATH=~/xc/lib
-    export LD_LIBRARY_PATH=~/xc/lib
+    export C_INCLUDE_PATH=~/libxc-4.0.1/include
+    export LIBRARY_PATH=~/libxc-4.0.1/lib
+    export LD_LIBRARY_PATH=~/libxc-4.0.1/lib
 
 
 .. _envvars:
-    
+
 Environment variables
 =====================
 
 .. envvar:: PATH
 
     Colon-separated paths where programs can be found.
-    
+
 .. envvar:: PYTHONPATH
 
     Colon-separated paths where Python modules can be found.
 
 .. envvar:: OMP_NUM_THREADS
-  
+
     Currently should be set to 1.
 
 .. envvar:: GPAW_SETUP_PATH
@@ -338,7 +338,7 @@ Environment variables
 Set these permanently in your :file:`~/.bashrc` file::
 
     $ export PYTHONPATH=~/gpaw:$PYTHONPATH
-    $ export PATH=~gpaw/tools:$PATH
+    $ export PATH=~/gpaw/tools:$PATH
 
 or your :file:`~/.cshrc` file::
 

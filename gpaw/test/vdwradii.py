@@ -1,4 +1,3 @@
-from ase.units import Bohr
 from gpaw.analyse.vdwradii import vdWradii
 
 # data from A. Bondi, J. Phys. Chem. 68 (1964) 441

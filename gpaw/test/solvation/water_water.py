@@ -1,7 +1,7 @@
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
-from ase.structure import molecule
+from ase.build import molecule
 from ase.units import mol, kcal
 from gpaw.solvation import (
     SolvationGPAW,

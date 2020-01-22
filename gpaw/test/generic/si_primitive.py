@@ -1,17 +1,18 @@
-import numpy as np
-from ase.lattice import bulk
+from ase.build import bulk
+
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 a = 5.475
 calc = GPAW(h=0.24,
             kpts=(4, 4, 4),
+            poissonsolver={'name': 'fft'},
             occupations=FermiDirac(width=0.0),
             nbands=5)
 atoms = bulk('Si', 'diamond', a=a)
 atoms.set_calculator(calc)
 E = atoms.get_potential_energy()
-equal(E, -11.8092858, 0.0002)
+equal(E, -11.8699605591, 0.0002)
 niter = calc.get_number_of_iterations()
 
 equal(atoms.calc.get_fermi_level(), 5.17751284, 0.005)

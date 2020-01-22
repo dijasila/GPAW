@@ -16,9 +16,11 @@ void gpaw_cuda_setdevice(int gpuid);
 void gpaw_cuda_init_c();
 #endif
 
-#ifdef GPAW_WITH_HDF5
-PyMODINIT_FUNC init_gpaw_hdf5(void);
+#ifdef PARALLEL
+#include <mpi.h>
 #endif
+
+#define PY3 (PY_MAJOR_VERSION >= 3)
 
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
@@ -41,6 +43,7 @@ PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
 PyObject* scal(PyObject *self, PyObject *args);
 PyObject* mmm(PyObject *self, PyObject *args);
+PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
 PyObject* gemv(PyObject *self, PyObject *args);
 PyObject* axpy(PyObject *self, PyObject *args);
@@ -55,6 +58,8 @@ PyObject* diagonalize(PyObject *self, PyObject *args);
 PyObject* diagonalize_mr3(PyObject *self, PyObject *args);
 PyObject* general_diagonalize(PyObject *self, PyObject *args);
 PyObject* inverse_cholesky(PyObject *self, PyObject *args);
+PyObject* banded_cholesky(PyObject* self, PyObject* args);
+PyObject* solve_banded_cholesky(PyObject* self, PyObject* args);
 PyObject* inverse_symmetric(PyObject *self, PyObject *args);
 PyObject* inverse_general(PyObject *self, PyObject *args);
 PyObject* linear_solve_band(PyObject *self, PyObject *args);
@@ -66,8 +71,7 @@ PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
 PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
-PyObject* heap_mallinfo(PyObject *self);
-PyObject* elementwise_multiply_add(PyObject *self, PyObject *args);
+PyObject* add_to_density(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
 PyObject* utilities_vdot(PyObject *self, PyObject *args);
 PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
@@ -83,12 +87,17 @@ PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
+PyObject* tci_overlap(PyObject *self, PyObject *args);
+PyObject *pwlfc_expand(PyObject *self, PyObject *args);
+PyObject *pw_insert(PyObject *self, PyObject *args);
+PyObject *pw_precond(PyObject *self, PyObject *args);
 PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
 PyObject* spline_to_grid(PyObject *self, PyObject *args);
 PyObject* NewLFCObject(PyObject *self, PyObject *args);
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
 PyObject* new_blacs_context(PyObject *self, PyObject *args);
 PyObject* get_blacs_gridinfo(PyObject* self, PyObject *args);
@@ -115,6 +124,18 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args);
 PyObject* pblas_gemv(PyObject *self, PyObject *args);
 PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
+#if defined(GPAW_WITH_ELPA)
+#include <elpa/elpa.h>
+PyObject* pyelpa_allocate(PyObject *self, PyObject *args);
+PyObject* pyelpa_set(PyObject *self, PyObject *args);
+PyObject* pyelpa_set_comm(PyObject *self, PyObject *args);
+PyObject* pyelpa_setup(PyObject *self, PyObject *args);
+PyObject* pyelpa_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_general_diagonalize(PyObject *self, PyObject *args);
+PyObject* pyelpa_hermitian_multiply(PyObject *self, PyObject *args);
+PyObject* pyelpa_constants(PyObject *self, PyObject *args);
+PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
+#endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL and PARALLEL
 
 #ifdef GPAW_PAPI
@@ -131,6 +152,19 @@ PyObject* libvdwxc_free(PyObject* self, PyObject* args);
 PyObject* libvdwxc_init_mpi(PyObject* self, PyObject* args);
 PyObject* libvdwxc_init_pfft(PyObject* self, PyObject* args);
 #endif // GPAW_WITH_LIBVDWXC
+
+#ifdef GPAW_GITHASH
+// For converting contents of a macro to a string, see
+// https://en.wikipedia.org/wiki/C_preprocessor#Token_stringification
+#define STR(s) #s
+#define XSTR(s) STR(s)
+PyObject* githash(PyObject* self, PyObject* args)
+{
+    return Py_BuildValue("s", XSTR(GPAW_GITHASH));
+}
+#undef XSTR
+#undef STR
+#endif // GPAW_GITHASH
 
 // Moving least squares interpolation
 PyObject* mlsqr(PyObject *self, PyObject *args);
@@ -171,6 +205,7 @@ static PyMethodDef functions[] = {
     {"map_k_points", map_k_points, METH_VARARGS, 0},
     {"scal", scal, METH_VARARGS, 0},
     {"mmm", mmm, METH_VARARGS, 0},
+    {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
     {"gemm", gemm, METH_VARARGS, 0},
     {"gemv", gemv, METH_VARARGS, 0},
     {"axpy", axpy, METH_VARARGS, 0},
@@ -185,6 +220,8 @@ static PyMethodDef functions[] = {
     {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
     {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
     {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
+    {"banded_cholesky", banded_cholesky, METH_VARARGS, 0},
+    {"solve_banded_cholesky", solve_banded_cholesky, METH_VARARGS, 0},
     {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
     {"inverse_general", inverse_general, METH_VARARGS, 0},
     {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},
@@ -195,13 +232,15 @@ static PyMethodDef functions[] = {
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
     {"Spline", NewSplineObject, METH_VARARGS, 0},
     {"Transformer", NewTransformerObject, METH_VARARGS, 0},
-    {"heap_mallinfo", (PyCFunction) heap_mallinfo, METH_NOARGS, 0},
-    {"elementwise_multiply_add", elementwise_multiply_add, METH_VARARGS, 0},
+    {"add_to_density", add_to_density, METH_VARARGS, 0},
     {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
     {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
     {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
     {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
     {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
+    {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
+    {"pw_insert", pw_insert, METH_VARARGS, 0},
+    {"pw_precond", pw_precond, METH_VARARGS, 0},
     {"erf", errorfunction, METH_VARARGS, 0},
     {"cerf", cerf, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
@@ -213,12 +252,14 @@ static PyMethodDef functions[] = {
     {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
     {"overlap", overlap, METH_VARARGS, 0},
+    {"tci_overlap", tci_overlap, METH_VARARGS, 0},
     {"vdw", vdw, METH_VARARGS, 0},
     {"vdw2", vdw2, METH_VARARGS, 0},
     {"spherical_harmonics", spherical_harmonics, METH_VARARGS, 0},
     {"pc_potential", pc_potential, METH_VARARGS, 0},
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
+    {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
@@ -249,6 +290,17 @@ static PyMethodDef functions[] = {
     {"pblas_gemv", pblas_gemv, METH_VARARGS, 0},
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
+#if defined(GPAW_WITH_ELPA)
+    {"pyelpa_allocate", pyelpa_allocate, METH_VARARGS, 0},
+    {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
+    {"pyelpa_setup", pyelpa_setup, METH_VARARGS, 0},
+    {"pyelpa_set_comm", pyelpa_set_comm, METH_VARARGS, 0},
+    {"pyelpa_diagonalize", pyelpa_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_general_diagonalize", pyelpa_general_diagonalize, METH_VARARGS, 0},
+    {"pyelpa_hermitian_multiply", pyelpa_hermitian_multiply, METH_VARARGS, 0},
+    {"pyelpa_constants", pyelpa_constants, METH_VARARGS, 0},
+    {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
+#endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL && PARALLEL
 #ifdef GPAW_HPM
     {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
@@ -274,6 +326,9 @@ static PyMethodDef functions[] = {
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
 #endif // GPAW_WITH_LIBVDWXC
     {"mlsqr", mlsqr, METH_VARARGS, 0},
+#ifdef GPAW_GITHASH
+    {"githash", githash, METH_VARARGS, 0},
+#endif // GPAW_GITHASH
 #ifdef GPAW_CUDA
     {"gpaw_cuda_setdevice", gpaw_cuda_setdevice, METH_VARARGS, 0},
     {"gpaw_cuda_init", gpaw_cuda_init, METH_VARARGS, 0},
@@ -301,7 +356,7 @@ static PyMethodDef functions[] = {
     {"axpbyz_gpu", axpbyz_gpu, METH_VARARGS, 0},
     {"axpbz_gpu", axpbz_gpu, METH_VARARGS, 0},
     {"fill_gpu", fill_gpu, METH_VARARGS, 0},
-#endif
+#endif // GPAW_CUDA
     {0, 0, 0, 0}
 };
 
@@ -319,7 +374,41 @@ extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
 extern PyTypeObject lxcXCFunctionalType;
 
-#if PY_MAJOR_VERSION >= 3
+PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
+{
+    PyObject *pybytes;
+    if(!PyArg_ParseTuple(args, "O", &pybytes)){
+        return NULL;
+    }
+
+#ifdef PARALLEL
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+
+    long size;
+    if(rank == 0) {
+        size = PyBytes_Size(pybytes);  // Py_ssize_t --> long
+    }
+    MPI_Bcast(&size, 1, MPI_LONG, 0, comm);
+
+    char *dst = (char *)malloc(size);
+    if(rank == 0) {
+        char *src = PyBytes_AsString(pybytes);  // Read-only
+        memcpy(dst, src, size);
+    }
+    MPI_Bcast(dst, size, MPI_BYTE, 0, comm);
+
+    PyObject *value = PyBytes_FromStringAndSize(dst, size);
+    free(dst);
+    return value;
+#else
+    return pybytes;
+#endif
+}
+
+
+#if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_gpaw",
@@ -359,7 +448,7 @@ static PyObject* moduleinit(void)
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
     PyObject* m = PyModule_Create(&moduledef);
 #else
     PyObject* m = Py_InitModule3("_gpaw", functions,
@@ -383,20 +472,18 @@ static PyObject* moduleinit(void)
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
-
-#ifdef GPAW_WITH_HDF5
-    init_gpaw_hdf5();
+#ifndef PARALLEL
+    // gpaw-python needs to import arrays at the right time, so this is
+    // done in gpaw_main().  In serial, we just do it here:
+    import_array1(0);
 #endif
-
-    import_array1(NULL);
- 
     return m;
 }
 
 #ifndef GPAW_INTERPRETER
 
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 PyMODINIT_FUNC PyInit__gpaw(void)
 {
     return moduleinit();
@@ -410,13 +497,47 @@ PyMODINIT_FUNC init_gpaw(void)
 
 #else // ifndef GPAW_INTERPRETER
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
 #define moduleinit0 moduleinit
 #else
 void moduleinit0(void) { moduleinit(); }
 #endif
 
-#include <mpi.h>
+
+int
+gpaw_main()
+{
+    int status = -1;
+
+    PyObject *gpaw_mod = NULL, *pymain = NULL;
+
+    gpaw_mod = PyImport_ImportModule("gpaw");
+    if(gpaw_mod == NULL) {
+        status = 3;  // Basic import failure
+    } else {
+        pymain = PyObject_GetAttrString(gpaw_mod, "main");
+    }
+
+    if(pymain == NULL) {
+        status = 4;  // gpaw.main does not exist for some reason
+        //PyErr_Print();
+    } else {
+        // Returns Py_None or NULL (error after calling user script)
+        // We already imported the Python parts of numpy.  If we want, we can
+        // later attempt to broadcast the numpy C API imports, too.
+        // However I don't know how many files they are, and we need to
+        // figure out how to broadcast extension modules (shared objects).
+        import_array1(0);
+        PyObject *pyreturn = PyObject_CallFunction(pymain, "");
+        status = (pyreturn == NULL);
+        Py_XDECREF(pyreturn);
+    }
+
+    Py_XDECREF(pymain);
+    Py_XDECREF(gpaw_mod);
+    return status;
+}
+
 
 int
 main(int argc, char **argv)
@@ -469,7 +590,8 @@ main(int argc, char **argv)
         exit(1);
 #endif // GPAW_OMP
 
-#if PY_MAJOR_VERSION >= 3
+#if PY3
+#define PyChar wchar_t
     wchar_t* wargv[argc];
     wchar_t* wargv2[argc];
     for (int i = 0; i < argc; i++) {
@@ -479,6 +601,7 @@ main(int argc, char **argv)
         mbstowcs(wargv[i], argv[i], n);
     }
 #else
+#define PyChar char
     char** wargv = argv;
 #endif
 
@@ -487,11 +610,32 @@ main(int argc, char **argv)
 #ifndef CUDA_MPI
     Py_Initialize();
 #endif
-    int status = Py_Main(argc, wargv);
+    PySys_SetArgvEx(argc, wargv, 0);
+
+#ifdef GPAW_WITH_ELPA
+    // Globally initialize Elpa library if present:
+    if (elpa_init(20171201) != ELPA_OK) {
+        // What API versions do we support?
+        PyErr_SetString(PyExc_RuntimeError, "Elpa >= 20171201 required");
+        PyErr_Print();
+        return 1;
+    }
+#endif
+
+    int status = gpaw_main();
+
+    if(status != 0) {
+        PyErr_Print();
+    }
+
+#ifdef GPAW_WITH_ELPA
+    elpa_uninit();
+#endif
+
     Py_Finalize();
     MPI_Finalize();
-    
-#if PY_MAJOR_VERSION >= 3
+
+#if PY3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);
 #endif

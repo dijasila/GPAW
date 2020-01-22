@@ -14,8 +14,8 @@ However, in LCAO approach large vacuum size is often unnecessary. Thus, to
 avoid using large vacuum sizes but get converged potential, one can use two
 approaches or their combination: 1) use multipole moment corrections or 2)
 solve Poisson equation on a extended grid. These two approaches are
-implemented in ``ExtendedPoissonSolver``. Also regular PoissonSolver in GPAW
-has the option remove_moment.
+implemented in ``ExtendedPoissonSolver`` and ``ExtraVacuumPoissonSolver``.
+Also regular ``PoissonSolver`` in GPAW has the option ``remove_moment``.
 
 In any nano-particle plasmonics calculation, it is necessary to use multipole
 correction. Without corrections more than 10Å of vacuum is required for
@@ -85,34 +85,59 @@ the partitioning of a plane.
    `doi:10.1139/p03-078 <http://dx.doi.org/10.1139/p03-078>`_
 
 
-Extended Poisson grid
----------------------
+Adding extra vacuum to the Poisson grid
+---------------------------------------
 
 The multipole correction scheme is not always successful for complex system
 geometries. For these cases, one can use a separate large grid just for
-solving the Hartree potential. Such extended grid can be set up as follows::
+solving the Hartree potential. Such a large grid can be set up by using
+``ExtraVacuumPoissonSolver`` wrapper::
 
-  from gpaw.poisson_extended import ExtendedPoissonSolver
-  poissonsolver = ExtendedPoissonSolver(eps=eps,
-                                        extended={'gpts': (128, 128, 128),
-                                                  'useprev': False})
+  from gpaw.poisson import PoissonSolver
+  from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
+  poissonsolver = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
+                                           poissonsolver_large=PoissonSolver(eps=eps))
 
-This solves the Poisson equation on an extended grid. The size of the grid is
-given **in units of coarse grid**. Thus, in this case the fine extended grid
-used in evaluating the Hartree potential is of size (256, 256, 256). It is
-important to **use grid sizes that are divisible by high powers of 2 to
-accelerate the multigrid scheme** used in ``PoissonSolver``.
+This uses the given `poissonsolver_large` to solve the Poisson equation on
+a large grid defined by the number of grid points `gpts`.
+The size of the grid is given **in the units of the Poisson grid**
+(this is usually the same as the fine grid).
+If using the ``FDPoissonSolver``, it is important to use grid sizes that are divisible by high powers of 2 to
+accelerate the multigrid scheme.
 
-The ``useprev`` parameter describes whether the ``ExtendedPoissonSolver``
-uses the previous solution as a initial potential for subsequent calls of the
-function ``solver.solve()``. It is often reasonable to use ``useprev =
-True``, which mimics the behaviour of the usual ``PoissonSolver`` in most
-cases. In such cases, the value ``useprev = False`` would lead to significant
-performance decrease since the Hartree potential is always calculated from
-scratch.
+To speed up the calculation of the Hartree potential on the large grid,
+one can apply additional coarsening::
 
-.. note::
+  from gpaw.poisson import PoissonSolver
+  from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
+  poissonsolver = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
+                                           poissonsolver_large=PoissonSolver(eps=eps),
+                                           coarses=1,
+                                           poissonsolver_small=PoissonSolver(eps=eps))
 
-   When extended grid is in use, the implementation neglects the ``phi``
-   parameter given to the ``solver.solve()`` due to its incompatibility
-   with the extended grid.
+The ``coarses`` parameter describes how many times the given large grid
+is coarsed before the `poissonsolver_large` is used solve the Poisson equation
+there. With the given value ``coarses=1``, the grid is coarsed once and
+the actual calculation grid is of size ``(128, 128, 128)`` with the grid
+spacing twice as large compared to the original one.
+The obtained coarse potential is used to correct the boundary conditions
+of the potential calculated on the original small and fine
+grid by `poissonsolver_small`.
+
+As ``ExtraVacuumPoissonSolver`` is wrapper, it can be combined with any
+``PoissonSolver`` instance. For example, one can define multiple subsequently
+larger grids via::
+
+  from gpaw.poisson import PoissonSolver
+  from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
+  poissonsolver0 = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
+                                            poissonsolver_large=PoissonSolver(eps=eps),
+                                            coarses=1,
+                                            poissonsolver_small=PoissonSolver(eps=eps))
+  poissonsolver = ExtraVacuumPoissonSolver(gpts=(256, 256, 256),
+                                           poissonsolver_large=poissonsolver0,
+                                           coarses=1,
+                                           poissonsolver_small=PoissonSolver(eps=eps))
+
+See ``poissonsolver.get_description()`` or the ``txt`` output for
+the corresponding grids.

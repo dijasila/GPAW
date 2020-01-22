@@ -355,4 +355,4 @@ The electrostatic energy part of `\tilde{E}` is calculated as
 d\mathbf{r}\tilde{v}_H(\mathbf{r})\tilde{\rho}(\mathbf{r})`, where the
 Hartree potential is found by solving Poissons equation:
 `\nabla^2 \tilde{v}_H(\mathbf{r})=-4\pi\tilde{\rho}(\mathbf{r})` (see
-:class:`gpaw.poisson.PoissonSolver`).
+:class:`gpaw.poisson.FDPoissonSolver`).

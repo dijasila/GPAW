@@ -16,9 +16,7 @@ probability (see article [Mor05b]_ for details).
 
 .. literalinclude:: ensembles.py
 
-The script produces a text file named ensemble_energies.txt containing::
-
-.. literalinclude:: ensembles_energies.txt
+The script produces a text file named ensemble_energies.txt.
 
 * You must run the :ref:`atomization <atomization_energy>` script first.
 
@@ -26,3 +24,8 @@ Ensemble of atomization energies for H\ `2`:sub: :
 
 .. image:: ensemble.png
    :width: 400 px
+
+
+.. [Mor05b] J. J. Mortensen, K. Kaasbjerg, S. L. Frederiksen,
+   J. K. Nørskov, J. P. Sethna, and K. W. Jacobsen,
+   Phys. Rev. Lett. 95, 216401 (2005)

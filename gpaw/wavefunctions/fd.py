@@ -1,46 +1,59 @@
 import numpy as np
+from ase.units import Bohr
 
+from gpaw.fd_operators import Laplace, Gradient
 from gpaw.kpoint import KPoint
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.mpi import serial_comm
-from gpaw.io import FileReference
+from gpaw.preconditioner import Preconditioner
+from gpaw.projections import Projections
+from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.linalg import multi_ax2py
-from gpaw.transformers import Transformer
-from gpaw.hs_operators import MatrixOperator
-from gpaw.preconditioner import Preconditioner
-from gpaw.fd_operators import Laplace, Gradient
-from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
 from gpaw.wavefunctions.fdpw import FDPWWaveFunctions
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
+from gpaw.wavefunctions.mode import Mode
+import _gpaw
 
 import gpaw.cuda
 
-class FD:
+class FD(Mode):
     name = 'fd'
 
-    def __init__(self):
-        pass  # Could hold parameters like FD stencils
+    def __init__(self, nn=3, interpolation=3, force_complex_dtype=False):
+        self.nn = nn
+        self.interpolation = interpolation
+        Mode.__init__(self, force_complex_dtype)
 
     def __call__(self, *args, **kwargs):
-        return FDWaveFunctions(*args, **kwargs)
+        return FDWaveFunctions(self.nn, *args, **kwargs)
+
+    def todict(self):
+        dct = Mode.todict(self)
+        dct['nn'] = self.nn
+        dct['interpolation'] = self.interpolation
+        return dct
 
 
 class FDWaveFunctions(FDPWWaveFunctions):
     mode = 'fd'
 
-    def __init__(self, stencil, diagksl, orthoksl, initksl,
+    def __init__(self, stencil, parallel, initksl,
                  gd, nvalence, setups, bd,
-                 dtype, world, kd, kptband_comm, timer, cuda=False):
+                 dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None,
+                 collinear=True, cuda=False):
         self.cuda = cuda
-        FDPWWaveFunctions.__init__(self, diagksl, orthoksl, initksl,
-                                   gd, nvalence, setups, bd,
-                                   dtype, world, kd, kptband_comm, timer,
-                                   cuda=cuda)
+        FDPWWaveFunctions.__init__(self, parallel, initksl,
+                                   reuse_wfs_method=reuse_wfs_method,
+                                   collinear=collinear,
+                                   gd=gd, nvalence=nvalence, setups=setups,
+                                   bd=bd, dtype=dtype, world=world, kd=kd,
+                                   kptband_comm=kptband_comm, timer=timer,
+                                   cuda=self.cuda)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, cuda=self.cuda)
-
-        self.matrixoperator = MatrixOperator(self.orthoksl, cuda=self.cuda)
 
         if self.cuda:
             self.nt_G_gpu = None
@@ -68,14 +81,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def set_positions(self, spos_ac, atom_partition=None):
         FDPWWaveFunctions.set_positions(self, spos_ac, atom_partition)
 
-    def summary(self, fd):
-        fd.write('Wave functions: Uniform real-space grid\n')
-        fd.write('Kinetic energy operator: %s\n' % self.kin.description)
-        
+    def __str__(self):
+        s = 'Wave functions: Uniform real-space grid\n'
+        s += '  Kinetic energy operator: %s\n' % self.kin.description
+        return s + FDPWWaveFunctions.__str__(self)
+
     def make_preconditioner(self, block=1):
         return Preconditioner(self.gd, self.kin, self.dtype, block,
                               cuda=self.cuda)
-    
+
     def apply_pseudo_hamiltonian(self, kpt, ham, psit_xG, Htpsit_xG):
         self.timer.start('Apply hamiltonian')
         self.kin.apply(psit_xG, Htpsit_xG, kpt.phase_cd)
@@ -84,26 +98,24 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt, psit_xG, Htpsit_xG, ham.dH_asp)
         self.timer.stop('Apply hamiltonian')
 
+    def get_pseudo_partial_waves(self):
+        phit_aj = [setup.get_partial_waves_for_atomic_orbitals()
+                   for setup in self.setups]
+        return LFC(self.gd, phit_aj, kd=self.kd, cut=True, dtype=self.dtype)
+
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
-        if (self.cuda) and (kpt.psit_nG_gpu is not None):
+        nt_G = nt_sG[kpt.s]
+        if self.cuda and (kpt.psit_nG_gpu is not None):
             if self.nt_G_gpu is None:
                 self.nt_G_gpu = gpaw.cuda.gpuarray.empty(
-                        nt_sG[kpt.s].shape, nt_sG[kpt.s].dtype)
-            self.nt_G_gpu.set(nt_sG[kpt.s])
-            psit_nG = kpt.psit_nG_gpu
-            multi_ax2py(f_n, psit_nG, self.nt_G_gpu)
+                        nt_G.shape, nt_G.dtype)
+            self.nt_G_gpu.set(nt_G)
+            multi_ax2py(f_n, kpt.psit_nG_gpu, self.nt_G_gpu)
         else:
-            nt_G = nt_sG[kpt.s]
-            psit_nG = kpt.psit_nG
-
-            if self.dtype == float:
-                for f, psit_G in zip(f_n, psit_nG):
-                    axpy(f, psit_G * psit_G, nt_G)  # PyCUDA does not support power?
-            else:
-                for f, psit_G in zip(f_n, psit_nG):
-                    axpy(f, psit_G.real * psit_G.real, nt_G)
-                    axpy(f, psit_G.imag * psit_G.imag, nt_G)
+            for f, psit_G in zip(f_n, kpt.psit_nG):
+                # Same as nt_G += f * abs(psit_G)**2, but much faster:
+                _gpaw.add_to_density(f, psit_G, nt_G)
 
         # Hack used in delta-scf calculations:
         if hasattr(kpt, 'c_on'):
@@ -118,7 +130,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
         if self.cuda and (kpt.psit_nG_gpu is not None):
-            self.nt_G_gpu.get(nt_sG[kpt.s])
+            self.nt_G_gpu.get(nt_G)
 
     def calculate_kinetic_energy_density(self):
         if self.taugrad_v is None:
@@ -127,9 +139,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 for v in range(3)]
 
         assert not hasattr(self.kpt_u[0], 'c_on')
-        if self.kpt_u[0].psit_nG is None:
-            return None
-        if isinstance(self.kpt_u[0].psit_nG, FileReference):
+        if not isinstance(self.kpt_u[0].psit_nG, np.ndarray):
             return None
 
         taut_sG = self.gd.zeros(self.nspins)
@@ -169,7 +179,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         self.initialize_wave_functions_from_restart_file()
 
         weight = 2.0 / kd.nspins / kd.nbzkpts
-        
+
         # Build new list of k-points:
         kpt_u = []
         for s in range(self.nspins):
@@ -178,8 +188,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 ik = self.kd.bz2ibz_k[k]
                 r, u = self.kd.get_rank_and_index(s, ik)
                 assert r == 0
-                kpt = self.kpt_u[u]
-            
+                kpt = self.mykpts[u]
+
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
 
@@ -187,24 +197,31 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2 = KPoint(weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
-                
+
                 # Transform wave functions using symmetry operation:
                 Psit_nG = self.gd.collect(kpt.psit_nG)
                 if Psit_nG is not None:
                     Psit_nG = Psit_nG.copy()
                     for Psit_G in Psit_nG:
                         Psit_G[:] = self.kd.transform_wave_function(Psit_G, k)
-                kpt2.psit_nG = self.gd.empty(self.bd.nbands, dtype=self.dtype)
+                kpt2.psit = UniformGridWaveFunctions(
+                    self.bd.nbands, self.gd, self.dtype,
+                    kpt=k, dist=(self.bd.comm, self.bd.comm.size),
+                    spin=kpt.s, collinear=True)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
-
                 # Calculate PAW projections:
-                kpt2.P_ani = self.pt.dict(len(kpt.psit_nG))
-                self.pt.integrate(kpt2.psit_nG, kpt2.P_ani, k)
-                
+                nproj_a = [setup.ni for setup in self.setups]
+                kpt2.P = Projections(
+                    self.bd.nbands, nproj_a,
+                    kpt.P.atom_partition,
+                    self.bd.comm,
+                    collinear=True, spin=s, dtype=self.dtype)
+
+                kpt2.psit.matrix_elements(self.pt, out=kpt2.P)
                 kpt_u.append(kpt2)
 
         self.kd = kd
-        self.kpt_u = kpt_u
+        self.mykpts = kpt_u
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace
@@ -216,64 +233,58 @@ class FDWaveFunctions(FDPWWaveFunctions):
         return psit_G
 
     def write(self, writer, write_wave_functions=False):
-        writer['Mode'] = 'fd'
+        FDPWWaveFunctions.write(self, writer)
 
         if not write_wave_functions:
             return
 
-        writer.add('PseudoWaveFunctions',
-                   ('nspins', 'nibzkpts', 'nbands',
-                    'ngptsx', 'ngptsy', 'ngptsz'),
-                   dtype=self.dtype)
+        writer.add_array(
+            'values',
+            (self.nspins, self.kd.nibzkpts, self.bd.nbands) +
+            tuple(self.gd.get_size_of_global_array()),
+            self.dtype)
 
-        if hasattr(writer, 'hdf5'):
-            parallel = (self.world.size > 1)
-            for kpt in self.kpt_u:
-                indices = [kpt.s, kpt.k]
-                indices.append(self.bd.get_slice())
-                indices += self.gd.get_slice()
-                writer.fill(kpt.psit_nG, parallel=parallel, *indices)
-        else:
-            for s in range(self.nspins):
-                for k in range(self.kd.nibzkpts):
-                    for n in range(self.bd.nbands):
-                        psit_G = self.get_wave_function_array(n, k, s)
-                        writer.fill(psit_G, s, k, n)
+        for s in range(self.nspins):
+            for k in range(self.kd.nibzkpts):
+                for n in range(self.bd.nbands):
+                    psit_G = self.get_wave_function_array(n, k, s)
+                    writer.fill(psit_G * Bohr**-1.5)
 
-    def read(self, reader, hdf5):
-        if ((not hdf5 and self.bd.comm.size == 1) or
-            (hdf5 and self.world.size == 1)):
+    def read(self, reader):
+        FDPWWaveFunctions.read(self, reader)
+
+        if 'values' not in reader.wave_functions:
+            return
+
+        c = reader.bohr**1.5
+        if reader.version < 0:
+            c = 1  # old gpw file
+
+        for kpt in self.kpt_u:
             # We may not be able to keep all the wave
             # functions in memory - so psit_nG will be a special type of
             # array that is really just a reference to a file:
+            psit_nG = reader.wave_functions.proxy('values', kpt.s, kpt.k)
+            psit_nG.scale = c
+
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, psit_nG,
+                kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
+                spin=kpt.s, collinear=True)
+
+        if self.world.size > 1:
+            # Read to memory:
             for kpt in self.kpt_u:
-                kpt.psit_nG = reader.get_reference('PseudoWaveFunctions',
-                                                   (kpt.s, kpt.k))
-        else:
-            for kpt in self.kpt_u:
-                kpt.psit_nG = self.empty(self.bd.mynbands, cuda=False)
-                if hdf5:
-                    indices = [kpt.s, kpt.k]
-                    indices.append(self.bd.get_slice())
-                    indices += self.gd.get_slice()
-                    reader.get('PseudoWaveFunctions', out=kpt.psit_nG,
-                               parallel=(self.world.size > 1), *indices)
-                else:
-                    # Read band by band to save memory
-                    for myn, psit_G in enumerate(kpt.psit_nG):
-                        n = self.bd.global_index(myn)
-                        if self.gd.comm.rank == 0:
-                            big_psit_G = np.array(
-                                reader.get('PseudoWaveFunctions',
-                                           kpt.s, kpt.k, n),
-                                self.dtype)
-                        else:
-                            big_psit_G = None
-                        self.gd.distribute(big_psit_G, psit_G)
-        
-    def initialize_from_lcao_coefficients(self, basis_functions, mynbands):
-        for kpt in self.kpt_u:
-            kpt.psit_nG = self.gd.zeros(self.bd.mynbands, self.dtype)
+                kpt.psit.read_from_file()
+
+    def initialize_from_lcao_coefficients(self, basis_functions):
+        for kpt in self.mykpts:
+            kpt.psit = UniformGridWaveFunctions(
+                self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
+                dist=(self.bd.comm, self.bd.comm.size, 1),
+                spin=kpt.s, collinear=True)
+            kpt.psit_nG[:] = 0.0
+            mynbands = len(kpt.C_nM)
             basis_functions.lcao_to_grid(kpt.C_nM,
                                          kpt.psit_nG[:mynbands], kpt.q)
             kpt.C_nM = None
@@ -282,7 +293,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
         """Generate random wave functions."""
 
         gpts = self.gd.N_c[0] * self.gd.N_c[1] * self.gd.N_c[2]
-        
+
         if self.bd.nbands < gpts / 64:
             gd1 = self.gd.coarsen()
             gd2 = gd1.coarsen()
@@ -311,7 +322,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     interpolate2(psit_G2, psit_G1, kpt.phase_cd)
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
-        
+
         elif gpts / 64 <= self.bd.nbands < gpts / 8:
             gd1 = self.gd.coarsen()
 
@@ -336,7 +347,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
-               
+
         else:
             shape = tuple(self.gd.n_c)
             scale = np.sqrt(12 / abs(np.linalg.det(self.gd.cell_cv)))

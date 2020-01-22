@@ -3,7 +3,7 @@ from __future__ import print_function
 import os
 
 from ase import Atom, Atoms
-from gpaw import GPAW, Mixer, restart, FermiDirac
+from gpaw import GPAW, restart, FermiDirac
 from gpaw.test import equal
 
 energy_tolerance = 0.0001
@@ -13,14 +13,13 @@ if not os.path.isfile('Na4_fd.gpw'):
     # Do grid kpts calculation
     a = 3.31
     atoms = Atoms([Atom('Na',(i*a,0,0)) for i in range(4)], pbc=(1,0,0))
+    atoms.center(vacuum=3.5)
     atoms.center(vacuum=a/2, axis=0)
-    atoms.center(vacuum=3.5, axis=1)
-    atoms.center(vacuum=3.5, axis=2)
 
     calc = GPAW(nbands=-3,
                 h=0.3,
                 setups={'Na': '1'},
-                xc='PBE',
+                xc={'name': 'PBE', 'stencil': 1},
                 occupations=FermiDirac(width=0.1),
                 kpts=(3, 1, 1),
                 #basis='dzp',

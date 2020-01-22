@@ -5,7 +5,6 @@ import datetime
 import numpy as np
 
 import gpaw.mpi
-from gpaw.poisson import PoissonSolver
 from gpaw.utilities import pack
 from gpaw.lrtddft2.eta import QuadraticETA
 
@@ -29,11 +28,9 @@ class Kmatrix:
         self.fH_pre = 1.0
         self.fxc_pre = 1.0
 
-    ############################################################################
     def initialize(self):
         self.K_matrix_ready = False
 
-    ############################################################################
     def read_indices(self):
         # Read ALL ready_rows files
         #self.timer.start('Init read ready rows')
@@ -50,14 +47,9 @@ class Kmatrix:
         for line in data.splitlines():
             line = line.split()
             self.ready_indices.append([int(line[0]),int(line[1])])
-        #self.timer.stop('Init read ready rows')
 
-
-
-
-    ############################################################################
-    """ Read K-matrix (not the Casida form) ready for 2D ScaLapack array"""
     def read_values(self):
+        """ Read K-matrix (not the Casida form) ready for 2D ScaLapack array"""
         nrow = len(self.ks_singles.kss_list)  # total rows
         nlrow = 0 # local rows
         nlcol = 0 # local cols
@@ -70,7 +62,6 @@ class Kmatrix:
                 nlrow += 1
             if self.lr_comms.get_local_dd_index(ip) is not None:
                 nlcol += 1
-
         
         # ready rows list for different procs (read by this proc)
         elem_lists = {}
@@ -308,10 +299,6 @@ class Kmatrix:
             self.log_file = open(logfn,'a+')
             self.Kfile.write('# K-matrix file\n')
 
-        # Init Poisson solver
-        #self.poisson = PoissonSolver(nn=self.calc.hamiltonian.poisson.nn)
-        #self.poisson.set_grid_descriptor(self.calc.density.finegd)
-        #self.poisson.initialize()
         self.poisson = self.calc.hamiltonian.poisson
 
         # Allocate grids for densities and potentials

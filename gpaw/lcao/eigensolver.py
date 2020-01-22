@@ -1,7 +1,5 @@
 import numpy as np
 
-from gpaw.utilities.blas import gemm
-
 
 class DirectLCAO(object):
     """Eigensolver for LCAO-basis calculation"""
@@ -10,7 +8,7 @@ class DirectLCAO(object):
         self.diagonalizer = diagonalizer
         # ??? why should we be able to set
         # this diagonalizer in both constructor and initialize?
-        self.has_initialized = False # XXX
+        self.has_initialized = False  # XXX
 
     def initialize(self, gd, dtype, nao, diagonalizer=None):
         self.gd = gd
@@ -18,7 +16,7 @@ class DirectLCAO(object):
         if diagonalizer is not None:
             self.diagonalizer = diagonalizer
         assert self.diagonalizer is not None
-        self.has_initialized = True # XXX
+        self.has_initialized = True  # XXX
 
     def reset(self):
         pass
@@ -26,11 +24,11 @@ class DirectLCAO(object):
     @property
     def error(self):
         return 0.0
-        
+
     @error.setter
     def error(self, e):
         pass
-        
+
     def calculate_hamiltonian_matrix(self, hamiltonian, wfs, kpt, Vt_xMM=None,
                                      root=-1, add_kinetic=True):
         # XXX document parallel stuff, particularly root parameter
@@ -41,10 +39,10 @@ class DirectLCAO(object):
         # distributed_atomic_correction works with ScaLAPACK/BLACS in general.
         # If SL is not enabled, it will not work with band parallelization.
         # But no one would want that for a practical calculation anyway.
-        #dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
+        # dH_asp = wfs.atomic_correction.redistribute(wfs, hamiltonian.dH_asp)
         # XXXXX fix atomic corrections
         dH_asp = hamiltonian.dH_asp
-        
+
         if Vt_xMM is None:
             wfs.timer.start('Potential matrix')
             vt_G = hamiltonian.vt_sG[kpt.s]
@@ -105,14 +103,28 @@ class DirectLCAO(object):
 
         H_MM = self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt, Vt_xMM,
                                                  root=0)
-        S_MM = wfs.S_qMM[kpt.q]
+
+        # Decomposition step of overlap matrix can be skipped if we have
+        # cached the result and if the solver supports it (Elpa)
+        may_decompose = self.diagonalizer.accepts_decomposed_overlap_matrix
+        if may_decompose:
+            S_MM = wfs.decomposed_S_qMM[kpt.q]
+            is_already_decomposed = (S_MM is not None)
+            if S_MM is None:
+                # Contents of S_MM will be overwritten by eigensolver below.
+                S_MM = wfs.decomposed_S_qMM[kpt.q] = wfs.S_qMM[kpt.q].copy()
+        else:
+            is_already_decomposed = False
+            S_MM = wfs.S_qMM[kpt.q]
 
         if kpt.eps_n is None:
             kpt.eps_n = np.empty(wfs.bd.mynbands)
-            
+
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
-        self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)
+        # May overwrite S_MM (so the results will be stored as decomposed)
+        self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM,
+                                      is_already_decomposed)
         wfs.timer.stop(diagonalization_string)
 
         wfs.timer.start('Calculate projections')

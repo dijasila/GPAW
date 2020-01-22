@@ -1,5 +1,5 @@
 from ase.optimize import QuasiNewton
-from ase.structure import graphene_nanoribbon
+from ase.build import graphene_nanoribbon
 from gpaw import GPAW
 
 GNR = graphene_nanoribbon(12,1,type='zigzag', vacc=6)

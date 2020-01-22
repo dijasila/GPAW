@@ -46,13 +46,12 @@ class PAWXCCorrection:
                  rgd,     # radial grid descriptor
                  jl,      # ?
                  lmax,    # maximal angular momentum to consider
-                 Exc0,    # xc energy of reference atom
+                 e_xc0,    # xc energy of reference atom
                  phicorehole_g,  # ?
                  fcorehole,      # ?
                  tauc_g,  # kinetic core energy array
-                 tauct_g  # pseudo kinetic core energy array
-                 ):
-        self.Exc0 = Exc0
+                 tauct_g):  # pseudo kinetic core energy array
+        self.e_xc0 = e_xc0
         self.Lmax = (lmax + 1)**2
         self.rgd = rgd
         self.dv_g = rgd.dv_g

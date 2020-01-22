@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase.structure import molecule
+from ase.build import molecule
 from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.cluster import Cluster

@@ -1,14 +1,20 @@
-if [ -n $PBS_ENVIRONMENT ]; then cd $PBS_O_WORKDIR; fi
-GPAW=~/gpaw
-ASE=~/ase
-source /home/opt/modulefiles/modulefiles_el6.sh
-module load GPAW
-module load NUMPY/1.7.1-1
-module load SCIPY/0.12.0-1
-module load fftw
-PLATFORM=linux-x86_64-$FYS_PLATFORM-2.6
+if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
+fi
+
+if [ -z $GPAW ]; then
+    GPAW=~/gpaw
+fi
+if [ -z $ASE ]; then
+    ASE=~/ase
+fi
+
+module load GPAW/1.4.0-foss-2018b-Python-3.6.6
+module unload ASE
+
+export GPAW_MPI_OPTIONS=""
+PLATFORM=linux-x86_64-$CPU_ARCH-el7-3.6
 export PATH=$GPAW/tools:$GPAW/build/bin.$PLATFORM:$PATH
 export PYTHONPATH=$GPAW:$GPAW/build/lib.$PLATFORM:$PYTHONPATH
-export PATH=$ASE/tools:$PATH
+export PATH=$ASE/bin:$PATH
 export PYTHONPATH=$ASE:$PYTHONPATH
-alias gpaw-qsub=$GPAW/doc/platforms/Linux/Niflheim/gpaw-qsub.py

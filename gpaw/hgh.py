@@ -6,7 +6,8 @@ from ase.data import atomic_numbers
 from gpaw.utilities import pack2
 from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.atom.configurations import configurations
-from gpaw.pseudopotential import PseudoPotential
+from gpaw.pseudopotential import PseudoPotential, get_radial_hartree_energy
+
 
 setups = {}  # Filled out during parsing below
 sc_setups = {}  # Semicore
@@ -75,7 +76,7 @@ class HGHSetupData:
             else:
                 hghdata = setups[symbol]
         self.hghdata = hghdata
-        
+
         chemsymbol = hghdata.symbol
         if '.' in chemsymbol:
             chemsymbol, sc = chemsymbol.split('.')
@@ -91,7 +92,7 @@ class HGHSetupData:
         N = 450
         rgd = AERadialGridDescriptor(beta / N, 1.0 / N, N,
                                      default_spline_points=100)
-        #rgd = EquidistantRadialGridDescriptor(0.001, 10000)
+        # rgd = EquidistantRadialGridDescriptor(0.001, 10000)
         self.rgd = rgd
 
         self.Z = hghdata.Z
@@ -166,6 +167,11 @@ class HGHSetupData:
         self.f_ln = f_ln
         self.f_j = f_j
 
+        r_g, lcomp, ghat = self.get_compensation_charge_functions()
+        assert lcomp == [0] and len(ghat) == 1
+        renormalized_ghat = self.Nv / (4.0 * np.pi) * ghat[0]
+        self.Eh_compcharge = get_radial_hartree_energy(r_g, renormalized_ghat)
+
     def find_cutoff(self, r_g, dr_g, f_g, sqrtailnorm=1e-5):
         g = len(r_g)
         acc_sqrnorm = 0.0
@@ -236,6 +242,21 @@ class HGHSetupData:
             pl.plot(r_g, pt_g, label=label)
         pl.legend()
 
+    def create_basis_functions(self):
+        from gpaw.pseudopotential import generate_basis_functions
+        return generate_basis_functions(self)
+
+    def get_compensation_charge_functions(self):
+        alpha = self.rcgauss**-2
+
+        rcutgauss = self.rcgauss * 5.0
+        # smaller values break charge conservation
+
+        r = np.linspace(0.0, rcutgauss, 100)
+        g = alpha**1.5 * np.exp(-alpha * r**2) * 4.0 / np.sqrt(np.pi)
+        g[-1] = 0.0
+        return r, [0], [g]
+
     def get_projectors(self):
         # XXX equal-range projectors still required for some reason
         maxlen = max([len(pt_g) for pt_g in self.pt_jg])
@@ -246,24 +267,9 @@ class HGHSetupData:
             pt_j.append(self.rgd.spline(pt2_g, self.rgd.r_g[maxlen - 1], l))
         return pt_j
 
-    def create_basis_functions(self):
-        from gpaw.pseudopotential import generate_basis_functions
-        return generate_basis_functions(self)
-
-    def get_compensation_charge_functions(self):
-        alpha = self.rcgauss**-2
-        
-        rcutgauss = self.rcgauss * 5.0
-        # smaller values break charge conservation
-        
-        r = np.linspace(0.0, rcutgauss, 100)
-        g = alpha**1.5 * np.exp(-alpha * r**2) * 4.0 / np.sqrt(np.pi)
-        g[-1] = 0.0
-        return r, [0], [g]
-
     def get_local_potential(self):
         n = len(self.vbar_g)
-        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1])
+        return self.rgd.spline(self.vbar_g, self.rgd.r_g[n - 1], l=0)
 
     def build(self, xcfunc, lmax, basis, filter=None):
         if basis is None:
@@ -303,8 +309,7 @@ def create_hgh_projector(r_g, l, n, r0):
 hcoefs_l = [
     [-.5 * (3. / 5.)**.5, .5 * (5. / 21.)**.5, -.5 * (100. / 63.)**.5],
     [-.5 * (5. / 7.)**.5, 1. / 6. * (35. / 11.)**.5, -1. / 6. * 14. / 11.**.5],
-    [-.5 * (7. / 9.)**.5, .5 * (63. / 143)**.5, -.5 * 18. / 143.**.5]
-    ]
+    [-.5 * (7. / 9.)**.5, .5 * (63. / 143)**.5, -.5 * 18. / 143.**.5]]
 
 
 class VNonLocal:
@@ -325,7 +330,7 @@ class VNonLocal:
         for n, h in enumerate(h_n):
             h_nn[n, n] = h
         if self.l > 2:
-            #print 'Warning: no diagonal elements for l=%d' % l
+            # print 'Warning: no diagonal elements for l=%d' % l
             # Some elements have projectors corresponding to l=3, but
             # the HGH article only specifies how to calculate the
             # diagonal elements of the atomic hamiltonian for l = 0, 1, 2 !
@@ -483,9 +488,12 @@ def parse_hgh_setup(lines):
     symbol, Z, Nv, rloc, c_n = parse_local_part(next(lines))
 
     def pair_up_nonlocal_lines(lines):
-        yield next(lines), ''
-        while True:
-            yield next(lines), next(lines)
+        try:
+            yield (next(lines), '')
+            while True:
+                yield (next(lines), next(lines))
+        except StopIteration:
+            return
 
     v_l = []
     for l, (non_local, spinorbit) in enumerate(pair_up_nonlocal_lines(lines)):
@@ -494,11 +502,11 @@ def parse_hgh_setup(lines):
         r0 = float(nltokens[0])
         h_n = [float(token) for token in nltokens[1:]]
 
-        #if h_n[-1] == 0.0: # Only spin-orbit contributes.  Discard.
-        #    h_n.pop()
+        # if h_n[-1] == 0.0: # Only spin-orbit contributes.  Discard.
+        #     h_n.pop()
         # Actually the above causes trouble.  Probably it messes up state
         # ordering or something else that shouldn't have any effect.
-        
+
         vnl = VNonLocal(l, r0, h_n)
         v_l.append(vnl)
         if l > 2:
@@ -567,5 +575,6 @@ def parse_default_setups():
             sc_setups[sym] = value
         else:
             setups[key] = value
+
 
 parse_default_setups()

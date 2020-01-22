@@ -1,6 +1,5 @@
-from gpaw.upf import UPFSetupData, upfplot
-from gpaw.pseudopotential import pseudoplot, PseudoPotential
-from gpaw.eigensolvers.davidson import Davidson
+from gpaw.upf import UPFSetupData
+from gpaw.pseudopotential import PseudoPotential
 
 def get(fname):
     s = UPFSetupData(fname)
@@ -44,10 +43,9 @@ if 0:
 #print 'horrible version ok, relatively speaking'
 
 if 1:
-    from ase import Atoms
-    from gpaw import GPAW, PoissonSolver, FermiDirac, Mixer, MixerSum
+    from gpaw import GPAW, PoissonSolver
     from gpaw.utilities import h2gpts
-    from ase.structure import molecule
+    from ase.build import molecule
 
     #s = UPFSetupData('/home/askhl/parse-upf/h_lda_v1.uspp.F.UPF')
 
@@ -65,7 +63,6 @@ if 1:
                 #eigensolver='cg',
                 #occupations=FermiDirac(0.1),
                 #charge=1-1e-12,
-                eigensolver=Davidson(2),
                 #eigensolver='rmm-diis',
                 gpts=h2gpts(0.12, system.get_cell(), idiv=8),
                 poissonsolver=PoissonSolver(relax='GS', eps=1e-7),

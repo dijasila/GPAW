@@ -4,13 +4,23 @@
 vdW-DF and BEEF-vdW
 ========================
 
+GPAW supports vdW-DF functionals through a built-in interface as well
+as through the external :ref:`libvdwxc <libvdwxc-doc>` library.
+Note that these use different kernels and hence will yield slightly different
+results.
 
 Several vdW-DF [#vdW-DF1a]_ type XC functionals
 are implemented selfconsistently
 in GPAW, and also the BEEF-vdW [#BEEF-vdW]_ density functional.
 The vdW-DF variants include vdW-DF [#vdW-DF1a]_, [#vdW-DF1b]_,
-vdW-DF2 [#vdW-DF2]_, optPBE-vdW [#opt-vdW]_, optB88-vdW [#opt-vdW]_,
+vdW-DF2 [#vdW-DF2]_,
+vdW-DF-cx, [#vdW-DF-cx]_,
+optPBE-vdW [#opt-vdW]_, optB88-vdW [#opt-vdW]_,
 and C09-vdW [#C09-vdW]_.
+
+Of these, vdW-DF-cx is available only through libvdwxc.
+The spin-polarized generalization of the vdW-DF functionals, [#svdW-DF]_, is
+also only available with libvdwxc.
 
 The selfconsistent implementation uses the Perez-Soler [#soler]_ FFT
 algorithm to evaluate the total energy and potential of the
@@ -63,9 +73,13 @@ Perturbative vdW-DF calculations (non-selfconsistent)
 >>> vdWDF_energy = GGA_energy + vdWDF_diff
 
 In the above examples, other vdW-DF type functionals can be used
-by substituting 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', or 'C09-vdW'
-for 'vdW-DF'.
- 
+by substituting 'vdW-DF2', 'vdW-DF-cx' (if GPAW is compiled with libvdwxc),
+'optPBE-vdW', 'optB88-vdW', or 'C09-vdW' for 'vdW-DF'.
+To explicitly use the faster libvdwxc backend, use e.g.
+`xc={'name': 'vdW-DF', 'backend': 'libvdwxc'}`.
+t libvdwxc uses a different kernel parametrization,
+which will slightly affect calculated values.
+
 
 Non-default FFT parameters for vdW-DF calculations
 -----------------------------------------------------
@@ -178,6 +192,10 @@ BEEF-vdW ensemble error estimates on a quantity.
    and D. C. Langreth, Higher-accuracy van der Waals density functional,
    Physical Review B, 82, 081101 (2010)
 
+.. [#vdW-DF-cx] K. Berland and P. Hyldgaard, Exchange functional that tests
+   the robustness of the plasmon description of the van der Waals density
+   functional, Physical Review B 89, 035412 (2014)
+
 .. [#opt-vdW] J. Klimes, D. R. Bowler, and A. Michaelides,
    Chemical accuracy for the van der Waals density functional,
    Journal of Physics: Condensed Matter, 22, 022201 (2010)
@@ -185,8 +203,12 @@ BEEF-vdW ensemble error estimates on a quantity.
 .. [#C09-vdW] V. R. Cooper,
    Van der Waals density functional: An appropriate exchange functional,
    Physical Review B, 81, 161104(R) (2010)
-   
+
 .. [#soler] Guillermo Román-Pérez and José M. Soler,
    Efficient Implementation of a van der Waals Density Functional: Application
    to Double-Wall Carbon Nanotubes,
    Physical Review Letters 103, 096102 (2009)
+
+.. [#svdW-DF] T. Thonhauser, S. Zuluaga, C. A. Arter, K. Berland, E. Schröder,
+   and P. Hyldgaard, Spin Signature of Nonlocal Correlation Binding in
+   Metal-Organic Frameworks, Physical Review Letters 115, 136402 (2015)

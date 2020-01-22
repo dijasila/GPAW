@@ -5,7 +5,7 @@ def derivatives(atoms):
     """Calculate derivatives of the energy with respect to PAW-setup
     parameters."""
 
-    e00 = atoms.get_potential_energy()
+    atoms.get_potential_energy()
 
     allsetups = atoms.calc.wfs.setups.setups
 
@@ -37,22 +37,21 @@ def derivatives(atoms):
                       e0=d.e0)
         parameters[d.symbol] = kwargs
 
-    
     for symbol, p in parameters.items():
         if atoms.calc.wfs.world.rank == 0:
             gen = _generate(**p)
             gen.make_paw_setup('derivative0').write_xml()
         atoms.calc.wfs.world.barrier()
-        
+
     atoms.calc.set(setups='derivative0')
     e0 = atoms.get_potential_energy()
-    
+
     def f(p, name):
         if atoms.calc.wfs.world.rank == 0:
             gen = _generate(**p)
             gen.make_paw_setup(name).write_xml()
         atoms.calc.wfs.world.barrier()
-        atoms.calc.set(setups={None: 'derivative0', p['symbol']: name})
+        atoms.calc.set(setups={'default': 'derivative0', p['symbol']: name})
         e = atoms.get_potential_energy()
         return e
 
@@ -80,4 +79,3 @@ def derivatives(atoms):
         results[symbol] = derivs
 
     return results
-

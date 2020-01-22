@@ -1,4 +1,4 @@
-from ase.io import read, Trajectory
+from ase.io import read
 from ase.constraints import FixAtoms
 from ase.neb import NEB
 from ase.optimize import BFGS
@@ -18,7 +18,6 @@ assert 3 * n == size
 images = [initial]
 
 for i in range(3):
-
     ranks = range(i * n, (i + 1) * n)
     image = initial.copy()
 
@@ -26,23 +25,18 @@ for i in range(3):
 
         calc = GPAW(h=0.3,
                     kpts=(2, 2, 1),
-                    txt='neb%d.txt' % j,
+                    txt='neb{}.txt'.format(j),
                     communicator=ranks)
-        
+
         image.set_calculator(calc)
-        
+
     image.set_constraint(constraint)
     images.append(image)
-    
+
 images.append(final)
 
 neb = NEB(images, parallel=True, climb=True)
 neb.interpolate()
 
-qn = BFGS(neb, logfile='qn.log')
-
-traj = Trajectory('neb%d.traj' % j, 'w', images[j],
-                  master=(rank % n == 0))
-
-qn.attach(traj)
+qn = BFGS(neb, logfile='qn.log', trajectory='neb.traj')
 qn.run(fmax=0.05)

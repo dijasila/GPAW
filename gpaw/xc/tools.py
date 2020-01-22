@@ -7,7 +7,7 @@ from gpaw.utilities import unpack
 
 def vxc(paw, xc=None, coredensity=True):
     """Calculate XC-contribution to eigenvalues."""
-    
+
     ham = paw.hamiltonian
     dens = paw.density
     wfs = paw.wfs
@@ -21,7 +21,7 @@ def vxc(paw, xc=None, coredensity=True):
         dens.interpolate_pseudo_density()
 
     thisisatest = not True
-    
+
     if xc.orbital_dependent:
         paw.get_xc_difference(xc)
 
@@ -36,7 +36,7 @@ def vxc(paw, xc=None, coredensity=True):
     dvxc_asii = {}
     for a, D_sp in dens.D_asp.items():
         dvxc_sp = np.zeros_like(D_sp)
-        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp, a=a, 
+        xc.calculate_paw_correction(wfs.setups[a], D_sp, dvxc_sp, a=a,
                                     addcoredensity=coredensity)
         dvxc_asii[a] = [unpack(dvxc_p) for dvxc_p in dvxc_sp]
         if thisisatest:
@@ -62,4 +62,4 @@ def vxc(paw, xc=None, coredensity=True):
     if xc.orbital_dependent:
         vxc_skn += xc.exx_skn
 
-    return vxc_skn * Hartree
+    return wfs.bd.collect(vxc_skn.T.copy(), broadcast=True).T * Hartree

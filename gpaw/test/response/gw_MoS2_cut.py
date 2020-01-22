@@ -8,6 +8,7 @@ from gpaw.response.g0w0 import G0W0
 if 1:
     calc = GPAW(mode='pw',
                 xc='PBE',
+                experimental={'niter_fixdensity': 2},
                 nbands=16,
                 setups={'Mo': '6'},
                 eigensolver='rmm-diis',

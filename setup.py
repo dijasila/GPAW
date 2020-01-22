@@ -7,6 +7,7 @@ import distutils.util
 import os
 import os.path as op
 import re
+import subprocess
 import sys
 from distutils.command.build_ext import build_ext as _build_ext
 from distutils.command.build_scripts import build_scripts as _build_scripts
@@ -14,17 +15,17 @@ from distutils.command.sdist import sdist as _sdist
 from distutils.core import setup, Extension
 from glob import glob
 
-from config import (get_system_config, get_parallel_config,
-                    check_dependencies,
+from config import (get_system_config, check_dependencies,
                     write_configuration, build_interpreter, get_config_vars)
 
 
-assert sys.version_info >= (2, 6)
+assert sys.version_info >= (2, 7)
 
 # Get the current version number:
-with open('gpaw/__init__.py') as fd:
-    version = re.search("__version__ = '(.*)'", fd.read()).group(1)
- 
+with open('gpaw/__init__.py', 'rb') as fd:
+    txt = fd.read().decode('UTF-8')
+version = re.search("__version__ = '(.*)'", txt).group(1)
+
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
 long_description = """\
 GPAW is a density-functional theory (DFT) Python code based on the
@@ -47,6 +48,17 @@ mpi_library_dirs = []
 mpi_include_dirs = []
 mpi_runtime_library_dirs = []
 mpi_define_macros = []
+
+# Search and store current git hash if possible
+try:
+    from ase.utils import search_current_git_hash
+    githash = search_current_git_hash('gpaw')
+    if githash is not None:
+        define_macros += [('GPAW_GITHASH', githash)]
+    else:
+        print('.git directory not found. GPAW git hash not written.')
+except ImportError:
+    print('ASE not found. GPAW git hash not written.')
 
 platform_id = ''
 
@@ -77,18 +89,17 @@ get_system_config(define_macros, undef_macros,
                   runtime_library_dirs, extra_objects,
                   import_numpy)
 
-mpicompiler = get_parallel_config(mpi_libraries,
-                                  mpi_library_dirs,
-                                  mpi_include_dirs,
-                                  mpi_runtime_library_dirs,
-                                  mpi_define_macros)
-
+error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
+if error:
+    mpicompiler = None
+else:
+    mpicompiler = 'mpicc'
 mpilinker = mpicompiler
-compiler = None
 
+compiler = None
 scalapack = False
 libvdwxc = False
-hdf5 = False
+elpa = False
 
 # User provided customizations:
 exec(open(customize).read())
@@ -126,6 +137,9 @@ if scalapack:
 if libvdwxc:
     define_macros.append(('GPAW_WITH_LIBVDWXC', '1'))
 
+if elpa:
+    define_macros.append(('GPAW_WITH_ELPA', '1'))
+
 # distutils clean does not remove the _gpaw.so library and gpaw-python
 # binary so do it here:
 plat = distutils.util.get_platform()
@@ -159,24 +173,6 @@ extensions = [Extension('_gpaw',
                         runtime_library_dirs=runtime_library_dirs,
                         extra_objects=extra_objects)]
 
-if hdf5:
-    assert sys.version_info < (3, 0), 'We do not support hdf5 on Python 3'
-    hdf5_sources = ['c/hdf5.c']
-    define_macros.append(('GPAW_WITH_HDF5', '1'))
-
-    hdf5_extension = Extension('_gpaw_hdf5',
-                               hdf5_sources,
-                               libraries=libraries,
-                               library_dirs=library_dirs,
-                               include_dirs=include_dirs,
-                               define_macros=define_macros,
-                               undef_macros=undef_macros,
-                               extra_link_args=extra_link_args,
-                               extra_compile_args=extra_compile_args,
-                               runtime_library_dirs=runtime_library_dirs,
-                               extra_objects=extra_objects)
-    extensions.append(hdf5_extension)
-
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-upfplot', 'gpaw']
@@ -191,18 +187,18 @@ write_configuration(define_macros, include_dirs, libraries, library_dirs,
 
 class sdist(_sdist):
     """Fix distutils.
-    
+
     Distutils insists that there should be a README or README.txt,
     but GitLab.com needs README.rst in order to parse it as
     reStructuredText."""
-    
+
     def warn(self, msg):
         if msg.startswith('standard file not found: should have one of'):
             self.filelist.append('README.rst')
         else:
             _sdist.warn(self, msg)
 
-            
+
 class build_ext(_build_ext):
     def run(self):
         _build_ext.run(self)
@@ -218,7 +214,7 @@ class build_ext(_build_ext):
                 mpi_runtime_library_dirs, mpi_define_macros)
             assert error == 0
 
-        
+
 class build_scripts(_build_scripts):
     # Python 3's version will try to read the first line of gpaw-python
     # because it thinks it is a Python script that need an adjustment of
@@ -233,8 +229,8 @@ class build_scripts(_build_scripts):
             updated_files.append(outfile)
             self.copy_file(script, outfile)
         return outfiles, updated_files
-        
-        
+
+
 if mpicompiler:
     scripts.append('build/bin.%s/' % plat + 'gpaw-python')
 
@@ -244,7 +240,7 @@ setup(name='gpaw',
       long_description=long_description,
       maintainer='GPAW-community',
       maintainer_email='gpaw-users@listserv.fysik.dtu.dk',
-      url='http://wiki.fysik.dtu.dk/gpaw',
+      url='https://wiki.fysik.dtu.dk/gpaw',
       license='GPLv3+',
       platforms=['unix'],
       packages=packages,
@@ -259,9 +255,10 @@ setup(name='gpaw',
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.6',
           'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3.6',
+          'Programming Language :: Python :: 3.7',
           'Topic :: Scientific/Engineering :: Physics'])

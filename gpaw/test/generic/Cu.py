@@ -1,5 +1,3 @@
-from __future__ import print_function
-import os
 from ase import Atoms
 from ase.units import Hartree
 from gpaw import GPAW
@@ -7,14 +5,15 @@ from gpaw.test import equal, gen
 import gpaw.mpi as mpi
 
 # Generate non-scalar-relativistic setup for Cu:
-gen('Cu', scalarrel=False)
+setup = gen('Cu', scalarrel=False)
 
 a = 8.0
 c = a / 2
 Cu = Atoms('Cu', [(c, c, c)], magmoms=[1],
            cell=(a, a, a), pbc=0)
 
-calc = GPAW(h=0.2, lmax=0)# basis='sz')
+calc = GPAW(h=0.2,
+            setups={'Cu': setup})
 Cu.set_calculator(calc)
 e = Cu.get_potential_energy()
 niter = calc.get_number_of_iterations()

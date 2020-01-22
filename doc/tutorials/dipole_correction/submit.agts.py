@@ -1,6 +1,9 @@
-def agts(queue):
-    d = queue.add('dipole.py', ncpus=4, walltime=60)
-    queue.add('plot.py', deps=d, ncpus=1, walltime=10,
-              creates=['zero.png', 'periodic.png', 'corrected.png',
-                       'slab.png'])
-    queue.add('check.py', deps=d, ncpus=1, walltime=10)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('dipole.py@4:1h'),
+        task('pwdipole.py@4:5m'),
+        task('plot.py', deps='dipole.py,pwdipole.py'),
+        task('check.py', deps='dipole.py,pwdipole.py')]

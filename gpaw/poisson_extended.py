@@ -1,6 +1,6 @@
 import numpy as np
 from ase.units import Bohr
-from gpaw.poisson import PoissonSolver
+from gpaw.poisson import FDPoissonSolver
 from gpaw.utilities.gauss import Gaussian
 from gpaw.utilities.timing import nulltimer
 
@@ -10,9 +10,9 @@ from gpaw.utilities.extend_grid import extended_grid_descriptor, \
     extend_array, deextend_array
 
 
-class ExtendedPoissonSolver(PoissonSolver):
+class ExtendedPoissonSolver(FDPoissonSolver):
     """ExtendedPoissonSolver
-    
+
     Parameter syntax:
 
     moment_corrections = [{'moms': moms_list1, 'center': center1},
@@ -43,9 +43,9 @@ class ExtendedPoissonSolver(PoissonSolver):
                  extended=None,
                  timer=nulltimer):
 
-        PoissonSolver.__init__(self, nn=nn, relax=relax,
-                               eps=eps, maxiter=maxiter,
-                               remove_moment=None)
+        FDPoissonSolver.__init__(self, nn=nn, relax=relax,
+                                 eps=eps, maxiter=maxiter,
+                                 remove_moment=None)
 
         self.timer = timer
 
@@ -74,15 +74,16 @@ class ExtendedPoissonSolver(PoissonSolver):
     def set_grid_descriptor(self, gd):
         if self.is_extended:
             self.gd_original = gd
-            assert np.all(self.gd_original.N_c < self.extended['finegpts']), \
+            assert np.all(self.gd_original.N_c <= self.extended['finegpts']), \
                 'extended grid has to be larger than the original one'
-            gd, _, _ = extended_grid_descriptor(gd,
+            gd, _, _ = extended_grid_descriptor(
+                gd,
                 N_c=self.extended['finegpts'],
                 extcomm=self.extended.get('comm'))
-        PoissonSolver.set_grid_descriptor(self, gd)
+        FDPoissonSolver.set_grid_descriptor(self, gd)
 
     def get_description(self):
-        description = PoissonSolver.get_description(self)
+        description = FDPoissonSolver.get_description(self)
 
         lines = [description]
 
@@ -106,21 +107,23 @@ class ExtendedPoissonSolver(PoissonSolver):
         return '\n'.join(lines)
 
     @timer('Poisson initialize')
-    def initialize(self, load_gauss=False):
-        PoissonSolver.initialize(self, load_gauss=load_gauss)
+    def _init(self):
+        if self._initialized:
+            return
+        FDPoissonSolver._init(self)
 
         if self.is_extended:
             if not self.gd.orthogonal or self.gd.pbc_c.any():
-                raise NotImplementedError('Only orthogonal unit cells' +
-                                          'and non-periodic boundary' +
+                raise NotImplementedError('Only orthogonal unit cells '
+                                          'and non-periodic boundary '
                                           'conditions are tested')
             self.rho_g = self.gd.zeros()
             self.phi_g = self.gd.zeros()
 
         if self.moment_corrections is not None:
             if not self.gd.orthogonal or self.gd.pbc_c.any():
-                raise NotImplementedError('Only orthogonal unit cells' +
-                                          'and non-periodic boundary' +
+                raise NotImplementedError('Only orthogonal unit cells '
+                                          'and non-periodic boundary '
                                           'conditions are tested')
             self.load_moment_corrections_gauss()
 
@@ -167,6 +170,7 @@ class ExtendedPoissonSolver(PoissonSolver):
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
               zero_initial_phi=False):
+        self._init()
         if self.is_extended:
             self.rho_g[:] = 0
             if not self.extended['useprev']:
@@ -191,6 +195,7 @@ class ExtendedPoissonSolver(PoissonSolver):
     @timer('Solve')
     def _solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
                zero_initial_phi=False):
+        self._init()
         if eps is None:
             eps = self.eps
 
@@ -226,12 +231,12 @@ class ExtendedPoissonSolver(PoissonSolver):
 
             return niter
         else:
-            return PoissonSolver.solve(self, phi, rho, charge,
-                                       eps, maxcharge,
-                                       zero_initial_phi)
+            return FDPoissonSolver.solve(self, phi, rho, charge,
+                                         eps, maxcharge,
+                                         zero_initial_phi)
 
     def estimate_memory(self, mem):
-        PoissonSolver.estimate_memory(self, mem)
+        FDPoissonSolver.estimate_memory(self, mem)
         gdbytes = self.gd.bytecount()
         if self.is_extended:
             mem.subnode('extended arrays',

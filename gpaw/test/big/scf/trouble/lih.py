@@ -1,4 +1,4 @@
-from ase.structure import molecule
+from ase.build import molecule
 from gpaw import GPAW, PW
 ncpus = 1
 atoms = molecule('LiH')

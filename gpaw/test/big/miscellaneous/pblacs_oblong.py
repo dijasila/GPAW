@@ -1,12 +1,12 @@
 # This script exercsises some of the idiosyncracies
 # of the descriptor class and PBLAS on a realistic
-# case. See the BLACS descriptor documentation 
-# in trunk/gpaw/blacs.py for some discussions of 
+# case. See the BLACS descriptor documentation
+# in trunk/gpaw/blacs.py for some discussions of
 # these idiosyncracies.
 import numpy as np
 
 from gpaw.blacs import BlacsGrid, parallelprint
-from gpaw.mpi import world, rank, size
+from gpaw.mpi import world
 from gpaw.utilities.scalapack import pblas_simple_gemm
 
 gen = np.random.RandomState(42)
@@ -21,7 +21,7 @@ grid = BlacsGrid(world, B, D)
 nbands = 500
 nG = 80**3
 
-nGdesc = grid.new_descriptor(nbands, nG, nbands/B, nG/D)
+nGdesc = grid.new_descriptor(nbands, nG, nbands // B, nG // D)
 nndesc = grid.new_descriptor(nbands, nbands, mb, mb)
 
 psit_nG = gen.rand(*nGdesc.shape)

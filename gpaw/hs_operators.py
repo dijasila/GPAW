@@ -26,14 +26,11 @@ class MatrixOperator:
     standard definitions.
     """
 
-    # This class has 100% parallel unittest coverage by parallel/ut_hsops.py!
-    # If you add to or change any aspect of the code, please update the test.
-
     nblocks = 1
-    async = True
+    asynchronous = True
     hermitian = True
 
-    def __init__(self, ksl, nblocks=None, async=None, hermitian=None,
+    def __init__(self, ksl, nblocks=None, asynchronous=None, hermitian=None,
                  cuda=False):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
@@ -49,9 +46,9 @@ class MatrixOperator:
           g = np.ceil(G/float(J))  The number of grid points in each block.
           X and Q                  The workspaces to be calculated.
 
-        Note that different values of J can lead to the same values of M 
-        and G. Q is relatively simple to calculate, symmetric case needs 
-        *roughly* half as much storage space as the non-symmetric case. 
+        Note that different values of J can lead to the same values of M
+        and G. Q is relatively simple to calculate, symmetric case needs
+        *roughly* half as much storage space as the non-symmetric case.
         X is much more difficult. Read below.
 
         X is the band index of the workspace array. It is allocated in units
@@ -73,7 +70,7 @@ class MatrixOperator:
 
           Simplest case is G % J = M % J = 0: X = M.
           
-          If g * N > M * G, then we need to increase the buffer size by one 
+          If g * N > M * G, then we need to increase the buffer size by one
           wavefunction unit greater than the simple case, thus X = M + 1.
 
         """
@@ -86,8 +83,8 @@ class MatrixOperator:
         self.buffer_size = ksl.buffer_size
         if nblocks is not None:
             self.nblocks = nblocks
-        if async is not None:
-            self.async = async
+        if asynchronous is not None:
+            self.asynchronous = asynchronous
         if hermitian is not None:
             self.hermitian = hermitian
 
@@ -102,15 +99,15 @@ class MatrixOperator:
         mynbands = self.bd.mynbands
         ngroups = self.bd.comm.size
         if self.cuda and (self.nblocks > 1 or ngroups > 1):
-            print 'Warning: CUDA not implemented for ground state DFT blocking/band parallelization'
+            print('Warning: CUDA not implemented for ground state DFT blocking/band parallelization')
 
         G = self.gd.n_c.prod()
 
-        # If buffer_size keyword exist, use it to calculate closest 
+        # If buffer_size keyword exist, use it to calculate closest
         # corresponding value of nblocks. An *attempt* is made
-        # such that actual buffer size used does not exceed the 
+        # such that actual buffer size used does not exceed the
         # value specified by buffer_size.
-        # Maximum allowable buffer_size corresponds to nblock = 1 
+        # Maximum allowable buffer_size corresponds to nblock = 1
         # which is all the wavefunctions.
         # Give error if the buffer_size is so small that it cannot
         # contain a single wavefunction
@@ -144,7 +141,7 @@ class MatrixOperator:
         self.A_nn = self.bmd.zeros(dtype=dtype)
 
         if ngroups == 1 and self.nblocks == 1:
-            self.work1_xG = self.gd.empty(self.bd.mynbands, self.dtype)
+            self.work1_xG = self.gd.empty(mynbands, self.dtype)
             if self.cuda:
                 self.work1_xG_gpu = self.gd.empty(mynbands, dtype,
                                                   cuda=self.cuda)
@@ -156,7 +153,7 @@ class MatrixOperator:
         ngroups = self.bd.comm.size
         count = ngroups * self.bd.mynbands**2
 
-        # Code semipasted from allocate_work_arrays        
+        # Code semipasted from allocate_work_arrays
         if ngroups > 1:
             mem.subnode('A_qnn', count * mem.itemsize[dtype])
 
@@ -202,12 +199,12 @@ class MatrixOperator:
         rankp = (band_comm.rank + 1) % band_comm.size
         self.req, self.req2 = [], []
 
-        # If asyncronous, non-blocking send/receives of psit_nG's start here.
-        if self.async:
+        # If asynchronous, non-blocking send/receives of psit_nG's start here.
+        if self.asynchronous:
             self.req.append(band_comm.send(sbuf_mG, rankm, 11, False))
             self.req.append(band_comm.receive(rbuf_mG, rankp, 11, False))
 
-        # Auxiliary asyncronous cycle, also send/receive of P_ani's.
+        # Auxiliary asynchronous cycle, also send/receive of P_ani's.
         if auxiliary:
             self.req2.append(band_comm.send(sbuf_nI, rankm, 31, False))
             self.req2.append(band_comm.receive(rbuf_nI, rankp, 31, False))
@@ -248,7 +245,7 @@ class MatrixOperator:
         rankp = (band_comm.rank + 1) % band_comm.size
 
         # If syncronous, blocking send/receives of psit_nG's carried out here.
-        if self.async:
+        if self.asynchronous:
             assert len(self.req) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req)
         else:
@@ -256,7 +253,7 @@ class MatrixOperator:
             band_comm.sendreceive(sbuf_mG, rankm, rbuf_mG, rankp, 11, 11)
         sbuf_mG, rbuf_mG = rbuf_mG, sbuf_mG
 
-        # Auxiliary asyncronous cycle, also wait for P_ani's.
+        # Auxiliary asynchronous cycle, also wait for P_ani's.
         if auxiliary:
             assert len(self.req2) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req2)
@@ -264,7 +261,7 @@ class MatrixOperator:
 
         return sbuf_mG, rbuf_mG, sbuf_nI, rbuf_nI
 
-    def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA, 
+    def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA,
                                   psit2_nG=None, P2_ani=None):
         """Calculate matrix elements for A-operator.
 
@@ -372,7 +369,7 @@ class MatrixOperator:
                 n2 = N
                 M = n2 - n1
             psit_mG = psit2_nG[n1:n2]
-            temp_mG = A(psit_mG) 
+            temp_mG = A(psit_mG)
             sbuf_mG = temp_mG[:M]  # necessary only for last slice
             rbuf_mG = work2_xG[:M]
             cycle_P_ani = (j == J - 1 and P1_ani)
@@ -390,9 +387,9 @@ class MatrixOperator:
 
                 # Calculate pseudo-braket contributions for the current slice
                 # of bands in the current mynbands x mynbands matrix block.
-                # The special case may no longer be valid when. Better to be 
-                # conservative, than to risk it. Moreover, this special case 
-                # seems is an accident waiting to happen. Always doing the 
+                # The special case may no longer be valid when. Better to be
+                # conservative, than to risk it. Moreover, this special case
+                # seems is an accident waiting to happen. Always doing the
                 # more general case is safer.
                 # if q == 0 and self.hermitian and not self.bd.strided:
                 #    # Special case, we only need the lower part:
@@ -430,7 +427,7 @@ class MatrixOperator:
             self.bmd.assemble_blocks(A_qnn, A_NN, hermitian)
 
         # Because of the amount of communication involved, we need to
-        # be syncronized up to this point.           
+        # be syncronized up to this point.
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
         
@@ -481,8 +478,8 @@ class MatrixOperator:
                     gpaw.cuda.drv.memcpy_dtod(
                             work_nG.gpudata, psit_nG.gpudata, psit_nG.nbytes)
                     psit_nG = work_nG
-                self.gd.gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN),
-                             0.0, out_nG)
+                gemm(1.0, psit_nG, gpaw.cuda.gpuarray.to_gpu(C_NN), 0.0,
+                     out_nG, hybrid=True)
             else:
                 work_nG = reshape(self.work1_xG, psit_nG.shape)
                 if out_nG is None:
@@ -491,7 +488,7 @@ class MatrixOperator:
                 elif out_nG is psit_nG:
                     work_nG[:] = psit_nG
                     psit_nG = work_nG
-                self.gd.gemm(1.0, psit_nG, C_NN, 0.0, out_nG)
+                gemm(1.0, psit_nG, C_NN, 0.0, out_nG, hybrid=True)
             if P_ani:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
@@ -548,7 +545,7 @@ class MatrixOperator:
                 # Calculate wave-function contributions from the current slice
                 # of grid data by the current mynbands x mynbands matrix block.
                 C_nn = self.bmd.extract_block(C_NN, (rank + q) % B, rank)
-                self.gd.gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2])
+                gemm(1.0, sbuf_ng, C_nn, beta, psit_nG[:, G1:G2], hybrid=True)
 
                 # If we're at the last slice, add contributions to P_ani's.
                 if cycle_P_ani:

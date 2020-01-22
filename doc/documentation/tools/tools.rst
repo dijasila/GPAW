@@ -1,5 +1,5 @@
 .. _tools:
-    
+
 Command-line tools
 ==================
 
@@ -14,11 +14,11 @@ use direct diagonalization to find all the eigenvalues and eigenstates in one
 step.
 
 Usage::
-    
-    $ python -m gpaw.fulldiag [options] <gpw-file>
-    
+
+    $ python3 -m gpaw.fulldiag [options] <gpw-file>
+
 Options:
-    
+
 -h, --help            Show this help message and exit
 -n BANDS, --bands=BANDS
                       Number of bands to calculate.  Defaults to all.
@@ -28,5 +28,5 @@ Options:
 
 Typpically, you will want to run this in parallel and distrubute the matrices
 using ScaLapack::
-    
+
     $ mpiexec gpaw-python -m gpaw.fulldiag abc.gpw --scalapack=8

@@ -6,13 +6,13 @@ import platform
 import sys
 import re
 import distutils.util
-from distutils.sysconfig import get_config_var, get_config_vars
+from distutils.sysconfig import get_config_vars
 from distutils.version import LooseVersion
 from glob import glob
 from os.path import join
 from stat import ST_MTIME
 
-            
+
 def find_file(arg, dir, files):
     # looks if the first element of the list arg is contained in the list files
     # and if so, appends dir to to arg. To be used with the os.path.walk
@@ -79,7 +79,6 @@ def get_system_config(define_macros, undef_macros,
             # OpenBLAS (includes Lapack)
             if os.path.exists(join(ld, 'libopenblas.a')):
                 lib = 'openblas'
-                directory = ld
                 break
         if lib == 'openblas':
             libraries += [lib, 'gfortran']
@@ -100,14 +99,30 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['f', 'lapack', 'essl']
         define_macros.append(('GPAW_AIX', '1'))
 
-    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64']:
+    elif sys.platform == 'darwin':
+
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
+        include_dirs += ['/usr/include/malloc']
+        library_dirs += ['/usr/local/lib']   # libxc installed with Homebrew
+        extra_link_args += ['-framework', 'Accelerate']  # BLAS
+
+        # If the user uses python 3 from homebrew, then installation would
+        # fail due to a broken LINKFORSHARED configuration variable
+        cfgDict = get_config_vars()
+        if ('LINKFORSHARED' in cfgDict and
+            'Python.framework/Versions/3.6' in cfgDict['LINKFORSHARED']):
+            cfgDict['LINKFORSHARED'] = '-l python3.6'
+
+        # We should probably add something to allow for user-installed BLAS?
+
+    elif machine in ['x86_64', 'ppc64', 'ppc64le', 'aarch64', 's390x']:
 
         #    _
         # \/|_||_    |_ |_|
         # /\|_||_| _ |_|  |
         #
 
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         # Look for ACML libraries:
         acml = glob('/opt/acml*/g*64/lib')
@@ -138,8 +153,11 @@ def get_system_config(define_macros, undef_macros,
                     openblas = True
                     libdir = dir
                     break
-            if openblas:  # prefer openblas
-                libraries += ['openblas']
+            if 'MKLROOT' in os.environ:
+                libraries += ['mkl_intel_lp64', 'mkl_sequential', 'mkl_core',
+                              'irc']
+            elif openblas:  # prefer openblas
+                libraries += ['openblas', 'lapack']
                 library_dirs += [libdir]
             else:
                 if atlas:  # then atlas
@@ -166,8 +184,8 @@ def get_system_config(define_macros, undef_macros,
         libraries += ['mkl', 'mkl_lapack64']
 
     elif platform.machine().startswith('arm'):
-        
-        extra_compile_args += ['-Wall', '-std=c99']
+
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         atlas = False
         for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
@@ -210,7 +228,7 @@ def get_system_config(define_macros, undef_macros,
         # ||_||_||_|
         #
 
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         if 'MKL_ROOT' in os.environ:
             mklbasedir = [os.environ['MKL_ROOT']]
@@ -274,18 +292,8 @@ def get_system_config(define_macros, undef_macros,
             if g2c:
                 libraries += ['g2c']
 
-    elif sys.platform == 'darwin':
-
-        extra_compile_args += ['-Wall', '-std=c99']
-        include_dirs += ['/usr/include/malloc']
-
-        if glob('/System/Library/Frameworks/vecLib.framework') != []:
-            extra_link_args += ['-framework vecLib']
-        else:
-            libraries += ['blas', 'lapack']
-
     else:
-        extra_compile_args += ['-Wall', '-std=c99']
+        extra_compile_args += ['-Wall', '-Wno-unknown-pragmas', '-std=c99']
 
         atlas = False
         for dir in ['/usr/lib', '/usr/local/lib', '/usr/lib/atlas']:
@@ -327,33 +335,6 @@ def get_system_config(define_macros, undef_macros,
         define_macros.append(('_GNU_SOURCE', '1'))
 
 
-def get_parallel_config(mpi_libraries, mpi_library_dirs, mpi_include_dirs,
-                        mpi_runtime_library_dirs, mpi_define_macros):
-
-    globals = {}
-    exec(open('gpaw/mpi/config.py').read(), globals)
-    mpi = globals['get_mpi_implementation']()
-
-    if mpi == '':
-        mpicompiler = None
-
-    elif mpi == 'sun':
-        mpi_include_dirs += ['/opt/SUNWhpc/include']
-        mpi_libraries += ['mpi']
-        mpi_library_dirs += ['/opt/SUNWhpc/lib']
-        mpi_runtime_library_dirs += ['/opt/SUNWhpc/lib']
-        mpicompiler = get_config_var('CC')
-
-    elif mpi == 'poe':
-        mpicompiler = 'mpcc_r'
-
-    else:
-        # Try to use mpicc
-        mpicompiler = 'mpicc'
-
-    return mpicompiler
-
-    
 def mtime(path, name, mtimes):
     """Return modification time.
 
@@ -374,7 +355,7 @@ def mtime(path, name, mtimes):
     mtimes[name] = t
     return t
 
-    
+
 def check_dependencies(sources):
     # Distutils does not do deep dependencies correctly.  We take care of
     # that here so that "python setup.py build_ext" always does the right
@@ -399,7 +380,7 @@ def check_dependencies(sources):
         # print 'removing', so
         os.remove(so)
 
-        
+
 def test_configuration():
     raise NotImplementedError
 
@@ -457,7 +438,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
 
     sources = ['c/bc.c', 'c/localized_functions.c', 'c/mpi.c', 'c/_gpaw.c',
                'c/operators.c', 'c/woperators.c', 'c/transformers.c',
-               'c/blacs.c', 'c/utilities.c', 'c/hdf5.c', 'c/xc/libvdwxc.c']
+               'c/elpa.c',
+               'c/blacs.c', 'c/utilities.c', 'c/xc/libvdwxc.c']
     objects = ' '.join(['build/temp.%s/' % plat + x[:-1] + 'o'
                         for x in cfiles])
 
@@ -488,7 +470,8 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
     if glob(libpl + '/libpython*mpi*'):
         libs += ' -lpython%s_mpi' % cfgDict['VERSION']
     else:
-        libs += ' -lpython%s' % cfgDict['VERSION']
+        libs += ' ' + cfgDict.get('BLDLIBRARY',
+                                  '-lpython%s' % cfgDict['VERSION'])
     libs = ' '.join([libs, cfgDict['LIBS'], cfgDict['LIBM']])
 
     # Hack taken from distutils to determine option for runtime_libary_dirs
@@ -508,16 +491,20 @@ def build_interpreter(define_macros, include_dirs, libraries, library_dirs,
                              for lib in runtime_library_dirs])
 
     extra_link_args.append(cfgDict['LDFLAGS'])
+
     if sys.platform in ['aix5', 'aix6']:
         extra_link_args.append(cfgDict['LINKFORSHARED'].replace(
             'Modules', cfgDict['LIBPL']))
     elif sys.platform == 'darwin':
-        pass
+        # On a Mac, it is important to preserve the original compile args.
+        # This should probably always be done ?!?
+        extra_compile_args.append(cfgDict['CFLAGS'])
+        extra_link_args.append(cfgDict['LINKFORSHARED'])
     else:
         extra_link_args.append(cfgDict['LINKFORSHARED'])
 
     extra_compile_args.append('-fPIC')
-    
+
     # Compile the parallel sources
     for src in sources:
         obj = 'build/temp.%s/' % plat + src[:-1] + 'o'

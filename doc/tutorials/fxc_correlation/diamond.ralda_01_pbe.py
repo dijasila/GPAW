@@ -1,6 +1,6 @@
 from __future__ import print_function
 from ase import Atoms
-from ase.lattice import bulk
+from ase.build import bulk
 from ase.dft import monkhorst_pack
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
@@ -22,8 +22,8 @@ calc = GPAW(mode=PW(600),
             occupations=FermiDirac(width=0.01),
             convergence={'density': 1.e-6},
             kpts=kpts,
-            txt='diamond.ralda_01_pbe.txt',
-            )
+            parallel={'domain': 1},
+            txt='diamond.ralda_01_pbe.txt')
 
 a.set_calculator(calc)
 E_pbe = a.get_potential_energy()

@@ -1,5 +1,5 @@
 from __future__ import print_function
-from ase import *
+
 from gpaw.atom.all_electron import AllElectron
 from gpaw.test import equal
 

@@ -1,10 +1,8 @@
 from ase import Atoms
-from ase.units import Bohr
+
 from gpaw import GPAW
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.tddft.abc import LinearAbsorbingBoundary, P4AbsorbingBoundary, PML
-from gpaw.test import equal
-import os
 
 # Sodium dimer, Na2
 d = 1.5

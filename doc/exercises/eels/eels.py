@@ -1,7 +1,7 @@
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 
-calc = GPAW('Ag_GLLBSC.gpw')
+calc = GPAW('Ag_GLLBSC.gpw', parallel={'domain': 1})
 calc.diagonalize_full_hamiltonian(nbands=30)
 calc.write('Ag_GLLBSC_full.gpw', 'all')
 
