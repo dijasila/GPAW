@@ -298,43 +298,22 @@ class HybridXC:
 
         return evv * Ha, evc * Ha, e_skn * Ha
 
-    def calculate_energy(self):
-        self._initialize()
-
+    def calculate_energy(self, spin, nocc):
         wfs = self.wfs
         kd = wfs.kd
-        # rank = kd.comm.rank
-        # size = kd.comm.size
-
-        nocc = max(((kpt.f_n / kpt.weight) > self.ftol).sum()
-                   for kpt in wfs.mykpts)
-
-        evv = 0.0
-        evc = 0.0
-
-        for spin in range(wfs.nspins):
-            VV_aii = self.calculate_valence_valence_paw_corrections(spin)
-            K = kd.nibzkpts
-            k1 = spin * K
-            k2 = k1 + K
-            kpts = [KPoint(kpt.psit.view(0, nocc),
-                           kpt.projections.view(0, nocc),
-                           kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
-                           kd.ibzk_kc[kpt.k],
-                           kd.weight_k[kpt.k])
-                    for kpt in wfs.mykpts[k1:k2]]
-            e1, e2, ekin, _ = self.xx.calculate(kpts, kpts, VV_aii)
-            evv += e1
-            evc += e2
-
+        VV_aii = self.calculate_valence_valence_paw_corrections(spin)
+        K = kd.nibzkpts
+        k1 = spin * K
+        k2 = k1 + K
+        kpts = [KPoint(kpt.psit.view(0, nocc),
+                       kpt.projections.view(0, nocc),
+                       kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
+                       kd.ibzk_kc[kpt.k],
+                       kd.weight_k[kpt.k])
+                for kpt in wfs.mykpts[k1:k2]]
+        evc, evv = self.xx.calculate_energy(kpts, VV_aii)
         deg = 2 / wfs.nspins
-        evv = kd.comm.sum(evv) * deg
-        evc = kd.comm.sum(evc) * deg
-
-        if self.xc:
-            pass
-
-        return evv * Ha, evc * Ha
+        return evc * deg, evv * deg
 
     def calculate_eigenvalue_contribution(self,
                                           spin,

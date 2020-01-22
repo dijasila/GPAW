@@ -1,15 +1,16 @@
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import numpy as np
 from ase.units import Ha
 
+from gpaw import GPAW
 from gpaw.xc.tools import vxc
 from .hybrid import HybridXC
 
 
-def non_self_consistent_eigenvalues(calc,
+def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
                                     xcname: str,
                                     n1=0,
                                     n2=-1,
@@ -19,10 +20,20 @@ def non_self_consistent_eigenvalues(calc,
     """Calculate non self-consistent eigenvalues for Hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
-    n2 - 1 for the IBZ indices in kpts are calculated. EXX integrals involving
+    n2 - 1 for the IBZ indices in kpts are calculated (default is all bands
+    and all k-points). EXX integrals involving
     states with occupation numbers less than ftol are skipped.  Use
     restart=name.json to get snapshots for each k-point finished.
+
+    returns three (nspins, nkpts, n2 - n1) shaped ndarrays with contributuons
+    to the eigenvalues in eV:
+
+    >>> eig_dft, vxc_dft, vxc_hyb = non_self_consistent_eigenvalues(...)
+    >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """
+
+    if not isinstance(calc, GPAW):
+        calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
 
     wfs = calc.wfs
 
@@ -50,7 +61,6 @@ def non_self_consistent_eigenvalues(calc,
         e_dft_sin = np.array(dct['e_dft_sin'])
         v_hyb_sl_sin = np.array(dct['v_hyb_sl_sin'])  # semi-local part
     else:
-        # print('semi-local contributions')
         v_dft_sin = vxc(calc)[:, kpts, n1:n2]
         e_dft_sin = np.array([[calc.get_eigenvalues(k, spin)[n1:n2]
                                for k in kpts]
@@ -65,7 +75,7 @@ def non_self_consistent_eigenvalues(calc,
                    'v_hyb_sl_sin': v_hyb_sl_sin.tolist()}
             path.write_text(json.dumps(dct))
 
-    # non-local hybrid contribution:
+    # Non-local hybrid contribution:
     v_hyb_nl_sin = np.empty_like(v_hyb_sl_sin)
     if 'v_hyb_nl_sin' in dct:
         v_sin = np.array(dct['v_hyb_nl_sin'])
@@ -83,7 +93,6 @@ def non_self_consistent_eigenvalues(calc,
 
         for i, k in enumerate(kpts[i0:], i0):
             for spin in range(nspins):
-                # print(i,k,spin)
                 v_n = xc.calculate_eigenvalue_contribution(
                     spin, k, n1, n2, nocc, VV_saii[spin]) * Ha
                 v_hyb_nl_sin[spin, i] = v_n

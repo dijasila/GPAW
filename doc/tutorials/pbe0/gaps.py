@@ -1,10 +1,8 @@
 # Creates: si-gaps.csv
-from __future__ import print_function
 import numpy as np
 from ase.build import bulk
 from ase.parallel import paropen
-from gpaw.xc.exx import EXX
-from gpaw.xc.tools import vxc
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw import GPAW, PW
 
 a = 5.43
@@ -38,19 +36,15 @@ for k in range(2, 9, 2):
     # DFT eigenvalues:
     pbeeigs = np.array(pbeeigs)
 
-    # PBE contribution:
-    dpbeeigs = vxc(si.calc, 'PBE')[0, kpt_indices, n1:n2]
-
     # Do PBE0 calculation:
-    pbe0 = EXX(name + '.gpw',
-               'PBE0',
-               kpts=kpt_indices,
-               bands=[n1, n2],
-               txt=name + '.pbe0.txt')
-    pbe0.calculate(restart=name + '.json')
+    epbe, vpbe, vpbe0 = non_self_consistent_eigenvalues(
+        name + '.gpw',
+        'PBE0',
+        n1, n2,
+        kpt_indices,
+        restart=name + '.json')
 
-    dpbe0eigs = pbe0.get_eigenvalue_contributions()[0]
-    pbe0eigs = pbeeigs - dpbeeigs + dpbe0eigs
+    pbe0eigs = (epbe - vpbe + vpbe0)[0]
 
     print('{0}, {1:.3f}, {2:.3f}, {3:.3f}, {4:.3f}'
           .format(k,

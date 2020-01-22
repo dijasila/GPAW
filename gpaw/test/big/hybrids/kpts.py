@@ -40,12 +40,7 @@ def check(atoms, xc, i):
     xc2.calculate()
     e0 = xc2.get_exx_energy()
     eps0 = xc2.get_eigenvalue_contributions()
-    # print(world.rank, eps0, xc1.e_skn * Ha)
-    # assert np.allclose(v2, xc1.e_skn * Ha), (v2, xc1.e_skn * Ha, eps0)
-    if not np.allclose(v2, xc1.e_skn * Ha):
-        # print(v2, xc1.e_skn * Ha, eps0)
-        print(abs(v2 - xc1.e_skn * Ha).max())
-        lkjh
+    assert np.allclose(v2, xc1.e_skn * Ha), (v2, xc1.e_skn * Ha, eps0)
     assert np.allclose(eps0, xc1.e_skn * Ha)
     assert np.allclose(e0, e[0] + e[1])
     ecv, evv, v_skn = xc1.test()
