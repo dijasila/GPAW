@@ -12,8 +12,8 @@ TOPdir        = .
 INCdir        = $(TOPdir)
 PYTHONINCdir ?= $(PYTHONHOME)/include/python3.7m/
 PYTHONLIBdir ?= $(PYTHONHOME)/lib/
-NUMPYINCdir  ?= `python -c "import numpy; print(numpy.get_include())"`
-MPIINCdir    ?= `mpicc --showme:incdirs`
+NUMPYINCdir  ?= $(shell python3 -c "import numpy; print(numpy.get_include())")
+MPIINCdir    ?= $(MPICH_INSTALL_ROOT)/include
 LIBdir        = $(TOPdir)
 CUGPAWLIB     = $(LIBdir)/libgpaw-cuda.a
 
@@ -46,10 +46,10 @@ CUGPAW_DEFS     = $(CUGPAW_OPTS) $(CUDA_OPTS)  $(CUGPAW_INCLUDES)
 # ----------------------------------------------------------------------
 CC           = gcc
 CCNOOPT      = $(CUGPAW_DEFS)
-CCFLAGS      = $(CUGPAW_DEFS) -g -fPIC -std=c99 -m64 -O3
+CCFLAGS      = $(CUGPAW_DEFS) -g -fPIC -std=c99 -m64 -O3 -mavx512f
 
 NVCC           = nvcc
-NVCCFLAGS      = $(CUGPAW_DEFS) -O3 -g -gencode arch=compute_37,code=sm_37 -gencode arch=compute_60,code=sm_60 -m64 --compiler-options '-O3 -g -std=c99 -fPIC'
+NVCCFLAGS      = $(CUGPAW_DEFS) -O3 -g -gencode arch=compute_70,code=sm_70 -m64 --compiler-options '-g -fPIC -std=c99 -O3 -mavx512f'
 
 ARCH     = ar
 ARCHFLAGS= cr
