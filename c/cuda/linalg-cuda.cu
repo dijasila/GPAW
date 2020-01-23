@@ -138,10 +138,10 @@ extern "C" {
                               &y_gpu, &y_type, &c_gpu))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         Py_ssize_t nd = PyTuple_Size(a_shape);
         for (int d=1; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(a_shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, d));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
@@ -190,12 +190,12 @@ extern "C" {
 
         shape = (x_nd > y_nd) ? x_shape : y_shape;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(shape, 1));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(shape, 1));
         Py_ssize_t nd=PyTuple_Size(shape);
         for (int d=2; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
 
-        int nvec = PyInt_AsLong(PyTuple_GetItem(shape, 0));
+        int nvec = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
@@ -273,10 +273,10 @@ extern "C" {
                               &y_gpu, &y_shape, &type))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
         Py_ssize_t nd = PyTuple_Size(x_shape);
         for (int d=1; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
@@ -306,10 +306,10 @@ extern "C" {
         if (!PyArg_ParseTuple(args, "nOO", &x_gpu, &x_shape, &type))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
         Py_ssize_t nd = PyTuple_Size(x_shape);
         for (int d=1; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
@@ -334,18 +334,17 @@ extern "C" {
         CUdeviceptr y_gpu;
         PyObject *x_shape, *y_shape;
         PyArray_Descr *type;
-        int nvec;
 
         if (!PyArg_ParseTuple(args, "nnOnOO", &alpha_gpu, &x_gpu, &x_shape,
                               &y_gpu, &y_shape, &type))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 1));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 1));
         Py_ssize_t nd = PyTuple_Size(x_shape);
         for (int d=2; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
 
-        nvec = PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+        int nvec = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
 
         if (type->type_num == PyArray_DOUBLE) {
             double *alpha = (double*) alpha_gpu;

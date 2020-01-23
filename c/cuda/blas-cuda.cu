@@ -634,10 +634,10 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "DnOO", &alpha, &x_gpu, &x_shape, &type))
         return NULL;
 
-    int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
     Py_ssize_t nd = PyTuple_Size(x_shape);
     for (int d=1; d < nd; d++)
-        n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
     int incx = 1;
     if (type->type_num == PyArray_DOUBLE) {
         gpaw_cubSCall(
@@ -681,7 +681,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     int m, k, lda, ldb, ldc;
     int n_off = 0, m_off = 0;
     int lda2, ldc2;
-    int n = PyInt_AsLong(PyTuple_GetItem(b_shape, 0));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(b_shape, 0));
     int beta_null = 0;
     cublasOperation_t transa_c;
 
@@ -695,18 +695,18 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
         assert(0);
 
     if (transa == 'n') {
-        m = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+        m = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
         for (int i=2; i < PyTuple_Size(a_shape); i++)
-            m *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
-        k = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+            m *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
+        k = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         lda = m;
         ldb = k;
         ldc = m;
     } else {
-        k = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+        k = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
         for (int i=2; i < PyTuple_Size(a_shape); i++)
-            k *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
-        m = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+            k *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
+        m = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         lda = k;
         ldb = k;
         ldc = m;
@@ -929,16 +929,16 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
         assert(0);
 
     if (trans == 'n') {
-        m = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+        m = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
         for (int i=2; i < PyTuple_Size(a_shape); i++)
-            m *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
-        n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+            m *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
+        n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         lda = m;
     } else {
-        n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+        n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         for (int i=1; i < PyTuple_Size(a_shape) - 1; i++)
-            n *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
-        m = PyInt_AsLong(
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
+        m = (int) PyLong_AsLong(
                 PyTuple_GetItem(a_shape, PyTuple_Size(a_shape) - 1));
         lda = m;
     }
@@ -981,9 +981,9 @@ PyObject* axpy_cuda_gpu(PyObject *self, PyObject *args)
         return NULL;
 
     Py_ssize_t nd = PyTuple_Size(x_shape);
-    int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
     for (int d=1; d < nd; d++)
-        n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
     int incx = 1;
     int incy = 1;
     if (type->type_num == PyArray_DOUBLE) {
@@ -1023,10 +1023,10 @@ PyObject* rk_cuda_gpu(PyObject *self, PyObject *args)
                           &beta, &c_gpu, &c_shape, &type, &hybrid))
         return NULL;
 
-    int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
-    int k = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
+    int k = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
     for (int d=2; d < PyTuple_Size(a_shape); d++)
-        k *= PyInt_AsLong(PyTuple_GetItem(a_shape, d));
+        k *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, d));
     int lda2;
     int ldc = n;
     int lda = k;
@@ -1175,10 +1175,10 @@ PyObject* r2k_cuda_gpu(PyObject *self, PyObject *args)
                           &type, &hybrid))
         return NULL;
 
-    int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
-    int k = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
+    int k = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
     for (int d=2; d < PyTuple_Size(a_shape); d++)
-        k *= PyInt_AsLong(PyTuple_GetItem(a_shape, d));
+        k *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, d));
     int ldc = n;
     int lda2;
     int lda = k;
@@ -1333,9 +1333,9 @@ PyObject* dotc_cuda_gpu(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "nOnO", &a_gpu, &a_shape, &b_gpu, &type))
         return NULL;
 
-    int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
     for (int i=1; i < PyTuple_Size(a_shape); i++)
-        n *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
 
     int incx = 1;
     int incy = 1;
@@ -1374,9 +1374,9 @@ PyObject* dotu_cuda_gpu(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "nOnO", &a_gpu, &a_shape, &b_gpu, &type))
         return NULL;
 
-    int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+    int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
     for (int i=1; i < PyTuple_Size(a_shape); i++)
-        n *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
+        n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
 
     int incx = 1;
     int incy = 1;

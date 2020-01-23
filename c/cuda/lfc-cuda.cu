@@ -460,16 +460,16 @@ extern "C" {
 
         int nd = PyTuple_Size(shape);
 
-        int nx = PyInt_AsLong(PyTuple_GetItem(shape, 0));
+        int nx = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
         for (int i=1; i < nd - 3; i++) {
-            nx *= PyInt_AsLong(PyTuple_GetItem(shape, i));
+            nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
         }
-        int nG = PyInt_AsLong(PyTuple_GetItem(shape, nd - 3));
+        int nG = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd - 3));
         for (int i = nd-2; i < nd; i++)
-            nG *= PyInt_AsLong(PyTuple_GetItem(shape, i));
+            nG *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
 
         int c_nd = PyTuple_Size(c_shape);
-        int nM = PyInt_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
+        int nM = (int) PyLong_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
 
         if (!lfc->bloch_boundary_conditions) {
             const double* a_G = (const double*) a_xG_gpu;
@@ -504,17 +504,17 @@ extern "C" {
 
         int nd = PyTuple_Size(shape);
 
-        int nx = PyInt_AsLong(PyTuple_GetItem(shape, 0));
+        int nx = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
         for (int i=1; i < nd - 3; i++) {
-            nx *= PyInt_AsLong(PyTuple_GetItem(shape, i));
+            nx *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
         }
-        int nG = PyInt_AsLong(PyTuple_GetItem(shape, nd - 3));
+        int nG = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd - 3));
         for (int i = nd - 2; i < nd; i++) {
-            nG *= PyInt_AsLong(PyTuple_GetItem(shape, i));
+            nG *= (int) PyLong_AsLong(PyTuple_GetItem(shape, i));
         }
 
         int c_nd = PyTuple_Size(c_shape);
-        int nM = PyInt_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
+        int nM = (int) PyLong_AsLong(PyTuple_GetItem(c_shape, c_nd - 1));
 
         if (!lfc->bloch_boundary_conditions) {
             double* a_G = (double*) a_xG_gpu;

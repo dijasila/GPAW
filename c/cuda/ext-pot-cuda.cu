@@ -79,11 +79,11 @@ extern "C" {
 
         int nd = PyTuple_Size(shape);
         if (nd == 4)
-            blocks = PyInt_AsLong(PyTuple_GetItem(shape, 0));
+            blocks = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
 
-        hc_sizea.x = PyInt_AsLong(PyTuple_GetItem(shape, nd-3+0));
-        hc_sizea.y = PyInt_AsLong(PyTuple_GetItem(shape, nd-3+1));
-        hc_sizea.z = PyInt_AsLong(PyTuple_GetItem(shape, nd-3+2));
+        hc_sizea.x = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+0));
+        hc_sizea.y = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+1));
+        hc_sizea.z = (int) PyLong_AsLong(PyTuple_GetItem(shape, nd-3+2));
 
         hc_n.x = ((long*) c_ni->data)[0];
         hc_n.y = ((long*) c_ni->data)[1];

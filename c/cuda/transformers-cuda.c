@@ -83,7 +83,7 @@ PyObject* Transformer_apply_cuda_gpu(TransformerObject *self, PyObject *args)
 
     int nin = 1;
     if (PyTuple_Size(shape) == 4)
-        nin = PyInt_AsLong(PyTuple_GetItem(shape, 0));
+        nin = (int) PyLong_AsLong(PyTuple_GetItem(shape, 0));
 
     boundary_conditions* bc = self->bc;
     const int* size1 = bc->size1;

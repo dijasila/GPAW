@@ -72,18 +72,17 @@ extern "C" {
         CUdeviceptr alpha_gpu, x_gpu;
         PyObject *x_shape;
         PyArray_Descr *type, *a_type;
-        int nvec;
 
         if (!PyArg_ParseTuple(args, "nOnOO", &alpha_gpu, &a_type,
                               &x_gpu, &x_shape, &type))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 1));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 1));
         Py_ssize_t nd = PyTuple_Size(x_shape);
         for (int d=2; d < nd; d++) {
-            n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
         }
-        nvec = PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+        int nvec = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
 
         if (type->type_num == PyArray_DOUBLE) {
             int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
@@ -130,18 +129,17 @@ extern "C" {
         CUdeviceptr y_gpu;
         PyObject *x_shape, *y_shape;
         PyArray_Descr *type, *a_type;
-        int nvec;
 
         if (!PyArg_ParseTuple(args, "nOnOnOO", &alpha_gpu, &a_type,
                               &x_gpu, &x_shape, &y_gpu, &y_shape, &type))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(x_shape, 1));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 1));
         Py_ssize_t nd = PyTuple_Size(x_shape);
         for (int d=2; d < nd; d++) {
-            n *= PyInt_AsLong(PyTuple_GetItem(x_shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(x_shape, d));
         }
-        nvec= PyInt_AsLong(PyTuple_GetItem(x_shape, 0));
+        int nvec = (int) PyLong_AsLong(PyTuple_GetItem(x_shape, 0));
         if (type->type_num == PyArray_DOUBLE) {
             double *alpha = (double*) alpha_gpu;
             int gridx = MIN(MAX((n + MBLAS_BLOCK_X - 1) / MBLAS_BLOCK_X, 1),
@@ -201,11 +199,11 @@ extern "C" {
                               &type, &res_gpu))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
         for (int i=2; i < PyTuple_Size(a_shape); i++) {
-            n *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
         }
-        int nvec = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+        int nvec = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         if (type->type_num == PyArray_DOUBLE) {
             double *result = (double *) res_gpu;
             reducemap_dotu((double*) a_gpu, (double*) b_gpu, result, n,
@@ -236,12 +234,12 @@ extern "C" {
                               &type, &res_gpu))
             return NULL;
 
-        int n = PyInt_AsLong(PyTuple_GetItem(a_shape, 1));
+        int n = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 1));
         Py_ssize_t nd=PyTuple_Size(a_shape);
         for (int i = 2; i < nd; i++) {
-            n *= PyInt_AsLong(PyTuple_GetItem(a_shape, i));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(a_shape, i));
         }
-        int nvec = PyInt_AsLong(PyTuple_GetItem(a_shape, 0));
+        int nvec = (int) PyLong_AsLong(PyTuple_GetItem(a_shape, 0));
         if (type->type_num == PyArray_DOUBLE) {
             double *result = (double *) res_gpu;
             reducemap_dotc((double*) a_gpu, (double*) b_gpu, result, n,

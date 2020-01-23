@@ -108,7 +108,7 @@ extern "C" {
         int n = 1;
         Py_ssize_t nd = PyTuple_Size(shape);
         for (int d=0; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
@@ -144,7 +144,7 @@ extern "C" {
         int n = 1;
         Py_ssize_t nd = PyTuple_Size(shape);
         for (int d=0; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
@@ -178,7 +178,7 @@ extern "C" {
         int n = 1;
         Py_ssize_t nd = PyTuple_Size(shape);
         for (int d=0; d < nd; d++)
-            n *= PyInt_AsLong(PyTuple_GetItem(shape, d));
+            n *= (int) PyLong_AsLong(PyTuple_GetItem(shape, d));
 
         int gridx = MIN(MAX((n + BLOCK_X - 1) / BLOCK_X, 1), MAX_BLOCKS);
 
