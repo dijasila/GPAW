@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <xc_config.h>
 #include "xc_mgga.h"
 #include "xc_gpaw.h"
 

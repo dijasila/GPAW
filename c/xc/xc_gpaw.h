@@ -4,7 +4,6 @@
 
 #ifndef _XC_GPAW_H
 #define _XC_GPAW_H
-#include <xc_config.h>
 
 /*
 BETA = 0.066725
