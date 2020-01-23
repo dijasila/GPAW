@@ -10,9 +10,9 @@ SHELL = /bin/sh
 #
 TOPdir        = .
 INCdir        = $(TOPdir)
-PYTHONINCdir ?= $(PYTHONHOME)/include/python2.7/
+PYTHONINCdir ?= $(PYTHONHOME)/include/python3.7m/
 PYTHONLIBdir ?= $(PYTHONHOME)/lib/
-NUMPYINCdir  ?= `python -c "import numpy; print numpy.get_include()"`
+NUMPYINCdir  ?= `python -c "import numpy; print(numpy.get_include())"`
 MPIINCdir    ?= `mpicc --showme:incdirs`
 LIBdir        = $(TOPdir)
 CUGPAWLIB     = $(LIBdir)/libgpaw-cuda.a
