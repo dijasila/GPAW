@@ -280,7 +280,7 @@ class FDPoissonSolver(BasePoissonSolver):
     def get_stencil(self):
         return self.nn
 
-    def create_laplace(self, gd, scale=1.0, n=1, dtype=float, cuda=cuda):
+    def create_laplace(self, gd, scale=1.0, n=1, dtype=float, cuda=False):
         """Instantiate and return a Laplace operator
 
         Allows subclasses to change the Laplace operator
