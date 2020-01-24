@@ -413,7 +413,7 @@ class GPAW(PAW, Calculator):
                 self.wfs.set_eigensolver(None)
 
             if key in ['mixer', 'verbose', 'txt', 'hund', 'random',
-                       'eigensolver', 'idiotproof']:
+                       'eigensolver', 'idiotproof', 'cuda']:
                 continue
 
             if key in ['convergence', 'fixdensity', 'maxiter']:
