@@ -631,8 +631,8 @@ class RealSpaceHamiltonian(Hamiltonian):
 
         if self.use_xc_thread:
             self.timer.start('XC 3D grid + Poisson')
-            e_g = self.xc.empty()
-            xc_thread = XCThread(self.xc, self.finegd, density.nt_sg,
+            e_g = self.finegd.empty()
+            xc_thread = XCThread(self.xc, self.finegd, dens.nt_sg,
                                  self.vt_sg, e_g)
             xc_thread.start()
         else:
@@ -647,8 +647,8 @@ class RealSpaceHamiltonian(Hamiltonian):
                                            timer=self.timer)
         if self.use_xc_thread:
             xc_thread.join()
-            Exc = self.finegd.integrate(e_g)
-            Exc /= self.finegd.comm.size
+            e_xc = self.finegd.integrate(e_g)
+            e_xc /= self.finegd.comm.size
             self.timer.stop('XC 3D grid + Poisson')
         else:
             self.timer.stop('Poisson')
