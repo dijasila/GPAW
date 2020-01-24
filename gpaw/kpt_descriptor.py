@@ -306,7 +306,6 @@ class KPointDescriptor:
             if not collinear:
                 s = None
                 weight *= 0.5
-            kpt_u.append(KPoint(weight, s, k, q, phase_cd))
             kpt_u.append(KPoint(weight, s, k, q, phase_cd, cuda=cuda))
 
         return kpt_u
