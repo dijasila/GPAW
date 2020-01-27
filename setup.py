@@ -60,6 +60,7 @@ mpi_define_macros = []
 
 parallel_python_interpreter = False
 compiler = None
+noblas = False
 fftw = False
 scalapack = False
 libvdwxc = False
@@ -90,10 +91,12 @@ for siteconfig in [os.environ.get('GPAW_CONFIG'),
     if siteconfig is not None:
         path = Path(siteconfig).expanduser()
         if path.is_file():
+            print('Reading configuration from', path)
             exec(path.read_text())
             break
 else:
-    libraries.append('blas')
+    if not noblas:
+        libraries.append('blas')
 
 if not parallel_python_interpreter and mpicompiler:
     # Build MPI-interface into _gpaw.so:
@@ -130,7 +133,8 @@ if compiler is not None:
             value[0] = compiler
             vars[key] = ' '.join(value)
 
-for flag, name in [(fftw, 'GPAW_WITH_FFTW'),
+for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
+                   (fftw, 'GPAW_WITH_FFTW'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
                    (elpa, 'GPAW_WITH_ELPA')]:
@@ -220,4 +224,5 @@ setup(name='gpaw',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
+          'Programming Language :: Python :: 3.8',
           'Topic :: Scientific/Engineering :: Physics'])

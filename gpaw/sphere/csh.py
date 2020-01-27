@@ -118,11 +118,12 @@ def intYdYdtheta_ex(l1, m1, l2, m2):
                   pi 2pi
                   /  /      *                    d Y(u,v)
            A    = |  |    Y (u,v) cos(u)*cos(v) --- l'm'  sin(u) dv du
-            LL'   /  /     lm                    du  
+            LL'   /  /     lm                    du
                   0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
-    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1 (stricter rule applies).
+    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1
+    (stricter rule applies).
     """
     if abs(l1 - l2) % 2 != 1 or abs(m1 - m2) != 1:
         return 0.0
@@ -170,11 +171,12 @@ def intYdYdtheta_ey(l1, m1, l2, m2):
                   pi 2pi
                   /  /      *                    d Y(u,v)
            A    = |  |    Y (u,v) cos(u)*sin(v) --- l'm'  sin(u) dv du
-            LL'   /  /     lm                    du  
+            LL'   /  /     lm                    du
                   0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
-    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1 (stricter rule applies).
+    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1
+    (stricter rule applies).
     """
     if abs(l1 - l2) % 2 != 1 or abs(m1 - m2) != 1:
         return 0.0
@@ -222,7 +224,7 @@ def intYdYdtheta_ez(l1, m1, l2, m2):
                      pi 2pi
                      /  /      *             d Y(u,v)
            A    =  - |  |    Y (u,v) sin(u) --- l'm'  sin(u) dv du
-            LL'      /  /     lm             du  
+            LL'      /  /     lm             du
                      0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
@@ -245,11 +247,12 @@ def intYdYdphi_ex(l1, m1, l2, m2):
                      pi 2pi
                      /  /      *       -1           d Y(u,v)
            A    =  - |  |    Y (u,v) sin(u)*sin(v) --- l'm'  sin(u) dv du
-            LL'      /  /     lm                    dv  
+            LL'      /  /     lm                    dv
                      0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
-    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1 (stricter rule applies).
+    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1
+    (stricter rule applies).
     """
     if abs(l1 - l2) % 2 != 1 or abs(m1 - m2) != 1:
         return 0.0
@@ -270,11 +273,12 @@ def intYdYdphi_ey(l1, m1, l2, m2):
                   pi 2pi
                   /  /      *       -1           d Y(u,v)
            A    = |  |    Y (u,v) sin(u)*cos(v) --- l'm'  sin(u) dv du
-            LL'   /  /     lm                    dv  
+            LL'   /  /     lm                    dv
                   0  0
 
     where u = theta and v = phi in the usual notation. Note that the result
-    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1 (stricter rule applies).
+    is only non-zero if `|l1-l2|` is odd and `|m1-m2|` = 1
+    (stricter rule applies).
     """
     if abs(l1 - l2) % 2 != 1 or abs(m1 - m2) != 1:
         return 0.0

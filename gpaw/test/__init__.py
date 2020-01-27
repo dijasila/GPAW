@@ -84,7 +84,6 @@ tests = [
     'parallel/submatrix_redist.py',
     'lfc/second_derivative.py',
     'parallel/parallel_eigh.py',
-    'lfc/gp2.py',
     'linalg/blas.py',
     'Gauss.py',
     'symmetry/check.py',
@@ -152,6 +151,7 @@ tests = [
     'pathological/numpy_zdotc_graphite.py',  # ~1s
     'utilities/eed.py',                     # ~1s
     'lcao/dos.py',                          # ~1s
+    'negative_eigerror.py',
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
@@ -237,6 +237,7 @@ tests = [
     'solvation/pbc.py',                     # ~5s
     'generic/asym_box.py',                  # ~5s
     'overlap.py',                           # ~5s
+    'response/silicon_chi_RPA.py',          # ~6s
     'linalg/gemm.py',                       # ~6s
     'generic/al_chain.py',                  # ~6s
     'fileio/parallel.py',                   # ~6s
@@ -292,6 +293,7 @@ tests = [
     'generic/bulk.py',                      # ~10s
     'sic/scfsic_h2.py',                     # ~10s
     'kpt_refine.py',                        # ~10s
+    'response/iron_sf_gssALDA.py',          # ~10s
     'lcao/bulk.py',                         # ~11s
     'reuse_wfs.py',                         # ~11s
     'generic/2Al.py',                       # ~11s
@@ -314,8 +316,6 @@ tests = [
     'ofdft/ofdft_pbc.py',                   # ~13s
     'gllb/restart_band_structure.py',       # ~14s
     'exx/exx.py',                           # ~14s
-    'response/iron_sf_ALDA_gridrep.py',     # ~15s
-    'response/iron_sf_gssALDA_gridrep.py',  # ~15s
     'Hubbard_U.py',                         # ~15s
     'rpa/rpa_energy_Si.py',                 # ~15s
     'dipole.py',                            # ~15s
@@ -337,6 +337,8 @@ tests = [
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
+    'exx/double_cell.py',
+    'exx/derivs.py',
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
@@ -349,6 +351,7 @@ tests = [
     'generic/Cu.py',                        # ~21s
     'vdw/ts09.py',                          # ~21s
     'response/na_plasmon.py',               # ~22s
+    'response/two-aluminum_chi_RPA.py',     # ~23s
     'lcao/kpts_many_combinations.py',       # ~23s
     'fermilevel.py',                        # ~23s
     'ralda/ralda_energy_H2.py',             # ~23s
@@ -356,9 +359,9 @@ tests = [
     'response/diamond_absorption.py',       # ~24s
     'ralda/ralda_energy_Si.py',             # ~24s
     'jellium.py',                           # ~24s
+    'response/iron_sf_ALDA.py',             # ~25s
     'utilities/ldos.py',                    # ~25s
     'solvation/swap_atoms.py',              # ~25s
-    'response/iron_sf_ALDA.py',             # ~25s
     'xc/revPBE_Li.py',                      # ~26s
     'ofdft/ofdft_scale.py',                 # ~26s
     'lcao/lcao_parallel_kpt.py',            # ~29s
@@ -473,6 +476,7 @@ if mpi.size < 4:
                 'parallel/diamond_gllb.py',
                 'lcao/lcao_parallel_kpt.py',
                 'parallel/fd_parallel_kpt.py',
+                'response/iron_sf_ALDA.py',
                 'response/na_plasmons.py',
                 'response/na_plasmons_tetrahedron.py']
 
@@ -505,6 +509,7 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if not compiled_with_sl():
     exclude += ['lcao/atomic_corrections.py',
+                'response/iron_sf_ALDA.py',
                 'response/na_plasmons.py',
                 'response/na_plasmons_tetrahedron.py']
 

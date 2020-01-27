@@ -51,6 +51,10 @@ def info():
             have_elpa = 'yes; version: {}'.format(version)
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
+
+    if not hasattr(_gpaw, 'mmm'):
+        results.append(('BLAS', 'using scipy.linalg.blas and numpy.dot()'))
+
     results.append(('scalapack', have_sl))
     results.append(('Elpa', have_elpa))
 
