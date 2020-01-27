@@ -1247,7 +1247,7 @@ class G0W0(PairDensity):
 
         try:
             with open(filename, 'rb') as fd:
-                x_skn = np.load(fd)
+                x_skn = np.load(fd, allow_pickle=True)
         except IOError:
             print('Removing broken file:', filename, file=self.fd)
         else:
