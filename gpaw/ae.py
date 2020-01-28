@@ -22,8 +22,9 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.nao = None
         self.pt_j = []
         self.ni = 0
-        self.l_j = []
-        self.n_j = []
+        self.l_j = [0]
+        self.l_orb_j = [0]
+        self.n_j = [1]
         self.nct = Spline(0, 0.5, [0.0, 0.0, 0.0])
         self.Nct = 0.0
         self.N0_p = []
@@ -40,7 +41,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.Delta_iiL = np.zeros((0, 0, 1))
         self.Delta0 = -1 / (4 * np.pi)**0.5
         self.lmax = 0
-        self.K_p = self.M_p = self.MB_p = np.zeros(0)
+        self.K_p = self.M_p = self.MB_p = self.X_p = np.zeros(0)
         self.M_pp = np.zeros((0, 0))
         self.Kc = 0.0
         self.MB = 0.0
@@ -51,6 +52,7 @@ class HydrogenAllElectronSetup(BaseSetup):
         self.type = 'all-electron'
         self.fingerprint = None
         self.symbol = 'H'
+        self.ExxC = 0.0
 
     def get_default_nbands(self):
         return 1

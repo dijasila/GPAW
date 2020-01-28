@@ -17,6 +17,7 @@ gpts = np.array([16, 16, 24])
 def PS(**kwargs):
     return PoissonSolver(eps=poissoneps, **kwargs)
 
+
 poissonsolver_i = []
 
 ps = PS()

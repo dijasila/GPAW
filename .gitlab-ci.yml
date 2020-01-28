@@ -14,5 +14,5 @@ master:
     - su user -c 'gpaw test --range linalg/gemm_complex.py,lcao/dos.py'
     - flake8 --exit-zero --exclude "doc/platforms/*,gpaw/lrtddft2/*" gpaw doc > f8.out
     - cat f8.out | wc -l | tee nerr
-    - python -c "assert int(open('nerr').read()) <= 2364, 'Please run flake8 on your code'"
+    - python -c "assert int(open('nerr').read()) <= 2308, 'Please run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/

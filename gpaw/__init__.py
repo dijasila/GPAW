@@ -12,7 +12,7 @@ plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat += '-' + platform_id
-build_path = join(__path__[0], '..', 'build')
+build_path = join(__path__[0], '..', 'build')  # noqa
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
@@ -22,7 +22,7 @@ sys.path.insert(0, join(build_path, 'lib.' + arch))
 if 'OMP_NUM_THREADS' not in os.environ:
     os.environ['OMP_NUM_THREADS'] = '1'
 
-from gpaw.broadcast_imports import broadcast_imports
+from gpaw.broadcast_imports import broadcast_imports  # noqa
 
 with broadcast_imports:
     import os
@@ -43,6 +43,7 @@ __all__ = ['GPAW',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
+           'MarzariVanderbilt',
            'PW', 'LCAO', 'restart', 'FD']
 
 
@@ -258,7 +259,8 @@ with broadcast_imports:
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
-    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                                  MarzariVanderbilt)
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD

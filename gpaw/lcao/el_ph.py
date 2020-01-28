@@ -5,7 +5,7 @@ from gpaw.mpi import world
 from gpaw.utilities import unpack2
 from gpaw.lcao.projected_wannier import dots
 from gpaw.utilities.tools import tri2full
-from gpaw.lfc import NewLocalizedFunctionsCollection as LFC
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from ase.units import Bohr, Ha
 from gpaw.utilities.timing import StepTimer, nulltimer
 

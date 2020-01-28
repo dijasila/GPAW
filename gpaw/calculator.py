@@ -171,7 +171,7 @@ class GPAW(PAW, Calculator):
 
     def _write(self, writer, mode):
         from ase.io.trajectory import write_atoms
-        writer.write(version=1, gpaw_version=gpaw.__version__,
+        writer.write(version=2, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
 
         write_atoms(writer.child('atoms'), self.atoms)
@@ -236,7 +236,6 @@ class GPAW(PAW, Calculator):
         from gpaw.utilities.partition import AtomPartition
         atom_partition = AtomPartition(self.wfs.gd.comm,
                                        np.zeros(len(self.atoms), dtype=int))
-        self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
         rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
@@ -244,6 +243,10 @@ class GPAW(PAW, Calculator):
         for obj in [self.density, self.hamiltonian]:
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
+        if new_atom_partition != atom_partition:
+            for kpt in self.wfs.mykpts:
+                kpt.projections = kpt.projections.redist(new_atom_partition)
+        self.wfs.atom_partition = new_atom_partition
 
         self.hamiltonian.xc.read(reader)
 
@@ -864,6 +867,9 @@ class GPAW(PAW, Calculator):
         if self.parameters.external is not None:
             symm = symm.copy()
             symm['point_group'] = False
+
+        if reading and self.reader.version <= 1:
+            symm['allow_invert_aperiodic_axes'] = False
 
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]

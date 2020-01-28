@@ -18,6 +18,8 @@ def create_occupation_number_object(name, **kwargs):
         return FermiDirac(**kwargs)
     if name == 'methfessel-paxton':
         return MethfesselPaxton(**kwargs)
+    if name == 'marzari-vanderbilt':
+        return MarzariVanderbilt(**kwargs)
     if name == 'orbital-free':
         return TFOccupations()
     raise ValueError('Unknown occupation number object name: ' + name)
@@ -623,6 +625,46 @@ class MethfesselPaxton(SmoothDistribution):
 
     def extrapolate_energy_to_zero_width(self, E):
         return E - self.e_entropy / (self.order + 2)
+
+
+class MarzariVanderbilt(SmoothDistribution):
+    def __init__(self, width, fixmagmom=False):
+        SmoothDistribution.__init__(self, width, fixmagmom)
+
+    def todict(self):
+        dct = SmoothDistribution.todict(self)
+        dct['name'] = 'marzari-vanderbilt'
+        return dct
+
+    def __str__(self):
+        s = '  Marzari-Vanderbilt: width={0:.4f} eV\n'.format(
+            self.width * Hartree)
+        return SmoothDistribution.__str__(self) + s
+
+    def distribution(self, kpt, fermilevel):
+        x = (kpt.eps_n - fermilevel) / self.width
+        x = x.clip(-100, 100)
+
+        expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
+
+        z = expterm / np.sqrt(2 * np.pi) + 0.5 * (1 - erf(1. / np.sqrt(2) + x))
+        kpt.f_n[:] = kpt.weight * z
+        n = kpt.f_n.sum()
+
+        dnde = expterm * (2 + np.sqrt(2) * x) / np.sqrt(np.pi)
+        dnde = dnde.sum() * kpt.weight / self.width
+
+        s = expterm * (1 + np.sqrt(2) * x) / (2 * np.sqrt(np.pi))
+
+        e_entropy = -kpt.weight * s.sum() * self.width
+
+        sign = 1 - kpt.s * 2
+        return np.array([n, dnde, n * sign, e_entropy])
+
+    def extrapolate_energy_to_zero_width(self, E):
+        # According to Nicola Marzari, one should not extrapolate M-V energies
+        # https://lists.quantum-espresso.org/pipermail/users/2005-October/003170.html
+        return E
 
 
 class FixedOccupations(ZeroKelvin):

@@ -42,9 +42,11 @@ class AppelbaumHamann(BaseSetup):
         self.ghat_l = [Spline(0, rc, 4 * alpha**1.5 / np.pi**0.5 * x_g)]
         self.vbar = Spline(0, rc, 2 * np.pi**0.5 * (v1 + v2 * r2_g) * x_g)
         self.Delta_pL = np.zeros((1, 1))
+        self.Delta_iiL = np.zeros((1, 1, 1))
         self.Delta0 = -4 / (4 * np.pi)**0.5
+        self.ExxC = 0.0
         self.lmax = 0
-        self.K_p = self.M_p = self.MB_p = np.zeros(1)
+        self.K_p = self.M_p = self.MB_p = self.X_p = np.zeros(1)
         self.M_pp = np.zeros((1, 1))
         self.Kc = 0.0
         self.MB = 0.0

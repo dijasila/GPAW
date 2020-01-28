@@ -7,7 +7,7 @@ def create_tasks():
         task('Pt_bands.py@32:1h', deps='Pt_gs.py'),
         task('plot_Pt_bands.py@1:10m', deps='Pt_bands.py'),
         task('WS2_gs.py@4:20h'),
-        task('WS2_bands.py@32:3h', deps='WS2_gs.py'),
+        task('WS2_bands.py@32:3m', deps='WS2_gs.py'),
         task('plot_WS2_bands.py@1:10m', deps='WS2_bands.py'),
         task('Fe_gs.py@4:20m'),
         task('Fe_bands.py@32:1h', deps='Fe_gs.py'),

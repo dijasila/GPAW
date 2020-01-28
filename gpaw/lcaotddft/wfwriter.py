@@ -23,7 +23,7 @@ class WaveFunctionReader(object):
     def __getattr__(self, attr):
         try:
             return getattr(self.reader, attr)
-        except KeyError:
+        except AttributeError:
             pass
 
         # Split reader handling

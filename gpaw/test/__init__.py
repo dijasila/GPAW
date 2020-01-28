@@ -84,7 +84,6 @@ tests = [
     'parallel/submatrix_redist.py',
     'lfc/second_derivative.py',
     'parallel/parallel_eigh.py',
-    'lfc/gp2.py',
     'linalg/blas.py',
     'Gauss.py',
     'symmetry/check.py',
@@ -152,6 +151,7 @@ tests = [
     'pathological/numpy_zdotc_graphite.py',  # ~1s
     'utilities/eed.py',                     # ~1s
     'lcao/dos.py',                          # ~1s
+    'negative_eigerror.py',
     'solvation/nan_radius.py',              # ~1s
     'solvation/pbc_pos_repeat.py',          # ~1s
     'lcao/generate_ngto.py',                # ~1s
@@ -337,6 +337,8 @@ tests = [
     'tpss.py',                              # ~18s
     'tddft/td_na2.py',                      # ~18s
     'exx/coarse.py',                        # ~18s
+    'exx/double_cell.py',
+    'exx/derivs.py',
     'corehole/si.py',                       # ~18s
     'mgga/mgga_sc.py',                      # ~19s
     'Hubbard_U_Zn.py',                      # ~20s
@@ -507,6 +509,7 @@ if mpi.size != 1 and not compiled_with_sl():
 
 if not compiled_with_sl():
     exclude += ['lcao/atomic_corrections.py',
+                'response/iron_sf_ALDA.py',
                 'response/na_plasmons.py',
                 'response/na_plasmons_tetrahedron.py']
 

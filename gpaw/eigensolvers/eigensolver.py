@@ -69,7 +69,9 @@ class Eigensolver:
                 if kpt.f_n is None:  # no eigenvalues yet
                     weight_n[:] = np.inf
                 else:
-                    weight_n[:] = kpt.f_n
+                    # Methfessel-Paxton distribution can give negative
+                    # occupation numbers - so we take the absolute value:
+                    weight_n[:] = np.abs(kpt.f_n)
         else:
             # Converge state with energy up to CBM + delta:
             assert self.nbands_converge.startswith('CBM+')

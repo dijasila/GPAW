@@ -43,6 +43,7 @@ There are several ways to install GPAW:
     * :ref:`siteconfig`
     * Using :ref:`homebrew` on MacOSX
     * Using :ref:`anaconda`
+    * This `docker image`_
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`
     * :ref:`troubleshooting`
@@ -79,6 +80,7 @@ Optional, but highly recommended:
 .. _PIP: https://pip.pypa.io/en/stable/
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 .. _FFTW: http://www.fftw.org/
+.. _docker image: https://hub.docker.com/r/marcindulak/gpaw-openmpi
 
 
 .. _installation using pip:
@@ -241,6 +243,7 @@ this to your ``siteconfig.py``::
 
     fftw = True
     libraries += ['fftw3']
+
 
 
 .. _libxc installation:
