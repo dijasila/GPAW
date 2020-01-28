@@ -38,8 +38,8 @@ Git master branch
       $ gpaw -P 24 python script.py
       $ mpiexec -n 24 python3 script.py
 
-  The first two are the recommended ones:  It will make sure that imports
-  are done in an efficient way.
+  The first two are the recommended ones:  The *gpaw* script will make sure
+  that imports are done in an efficient way.
 
 * Configuration/customization:
   The ``customize.py`` file in the root folder of the Git repository is no
