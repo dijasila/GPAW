@@ -25,6 +25,8 @@ class WaveFunctionReader(object):
             return getattr(self.reader, attr)
         except AttributeError:
             pass
+        except KeyError:  # backwards compatibility with ase-3.19.0
+            pass
 
         # Split reader handling
         if attr == 'wave_functions' and self.split:
