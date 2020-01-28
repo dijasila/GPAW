@@ -220,6 +220,7 @@ def main():
 
 dry_run = extra_parameters.pop('dry_run', 0)
 debug = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -331,3 +332,12 @@ def initialize_data_paths():
 
 read_rc_file()
 initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))
