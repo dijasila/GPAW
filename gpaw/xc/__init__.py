@@ -136,8 +136,14 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif 'WDA' in name:
             from gpaw.xc.wda import WDA
             splt = name.split("_") + [None, None]
-            mode = splt[1]
+            factor = splt[1]
             density_mode = splt[2]
+            if factor is not None:
+                try:
+                    rcut_factor = float(factor)
+                except ValueError:
+                    rcut_factor = None
+                return WDA(rcut_factor=rcut_factor)
             return WDA()
         else:
             kernel = LibXC(name)

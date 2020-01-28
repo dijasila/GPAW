@@ -1291,12 +1291,12 @@ class Setup(BaseSetup):
                 i += 2 * l + 1
         assert i == self.ni
 
-    def calculate_pseudized_atomic_density(self, spos_ac):
+    def calculate_pseudized_atomic_density(self, spos_ac, rcut_factor=0.8):
         from gpaw.lfc import LFC
         if self.pseudized_atomic_density is not None:
             return self.pseudized_atomic_density
 
-        rcut = 0.8 * max(self.rcut_j)
+        rcut = rcut_factor * max(self.rcut_j)
         atomic_Deltan_g = self.calculate_atomic_density()
 
         pseudn_g = self.calculate_pseudo_density(atomic_Deltan_g, rcut)

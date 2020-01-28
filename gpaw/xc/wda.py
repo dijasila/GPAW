@@ -1,26 +1,34 @@
 from gpaw.xc.functional import XCFunctional
 from gpaw import mpi
 import numpy as np
-
+from gpaw.utilities.memory import maxrss
 
 def timer(f):
     from functools import wraps
     from time import time
     @wraps(f)
     def wrapped(*args, **kwargs):
+        if mpi.rank == 0:
+            print("#####################################")
+            print("Starting {}".format(f.__name__), flush=True)
+            print("Current memory: {}".format(maxrss()/(1024**2)), flush=True)
         t1 = time()
         res = f(*args, **kwargs)
         t2 = time()
         if mpi.rank == 0:
-            print("Running {} took {} seconds".format(f.__name__, t2 - t1))
+            print("Running {} took {} seconds".format(f.__name__, t2 - t1), flush=True)
+            print("Current memory: {}".format(maxrss()/(1024**2)), flush=True)
+            print("Ending {}".format(f.__name__), flush=True)
+            print("######################################")
         return res
     return wrapped
 
 
 class WDA(XCFunctional):
-    def __init__(self):
+    def __init__(self, rcut_factor=None):
         XCFunctional.__init__(self, 'WDA', 'LDA')
         self.num_nbar = 100
+        self.rcut_factor = rcut_factor
         # Params:
         # - num nbar
         # - min of nbar grid
@@ -30,21 +38,16 @@ class WDA(XCFunctional):
         self.wfs = wfs
         self.density = density
     
-    @timer
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        from gpaw.xc.WDAUtils import build_splines, get_K_K
-
         wn_sg = gd.collect(n_sg, broadcast=True)
-        wn_sg[wn_sg < 1e-20] = 1e-20
-
         self.gd = gd.new_descriptor(comm=mpi.serial_comm)
+        wn_sg[wn_sg < 1e-20] = 1e-20
+        wn_sg = self.density_correction(self.gd, wn_sg)
+
         nb_i = self.get_nbars(wn_sg, self.num_nbar)
         my_i = self.distribute_nbars(self.num_nbar, mpi.rank, mpi.size)
 
-        Gs_i, Grs_i = build_splines(nb_i[my_i], self.gd)
-
-        K_K = get_K_K(self.gd)
-        Gs_ik, Grs_ik = self.get_G_ks(Gs_i, Grs_i, K_K)
+        Gs_ik, Grs_ik = self.get_G_ks(gd, nb_i, my_i)
 
         Z_isg = self.calc_Z_isg(wn_sg, Gs_ik)
 
@@ -60,7 +63,6 @@ class WDA(XCFunctional):
         gd.distribute(e1_g, e_g)
         gd.distribute(v1_sg, v_sg)
 
-    @timer
     def get_nbars(self, n_g, npts=100):
         min_dens = np.min(n_g)
         max_dens = np.max(n_g)
@@ -82,14 +84,19 @@ class WDA(XCFunctional):
 
         return range(start, end)
 
-    @timer
-    def get_G_ks(self, Gs_i, Grs_i, k_k):
+    
+    def get_G_ks(self, gd, nb_i, my_i):
+        from gpaw.xc.WDAUtils import build_splines, get_K_K
+
+        Gs_i, Grs_i = build_splines(nb_i[my_i], self.gd)
+
+        k_k = get_K_K(self.gd)
         Gs_ik = np.array([Gs(k_k) for Gs in Gs_i])
         Grs_ik = np.array([Gs(k_k) for Gs in Gs_i])
 
         return Gs_ik, Grs_ik
 
-    @timer
+    
     def calc_Z_isg(self, n_sg, Gs_iK):
         assert len(n_sg.shape) == 4
         n_sK = self.fftn(n_sg)
@@ -123,8 +130,7 @@ class WDA(XCFunctional):
         assert np.allclose(res, res.real)
 
         return res.real
-
-    @timer
+    
     def get_alphas(self, Z_isg):
         # Assumptions: Z_isg is monotonically increasing
         # at all s, g
@@ -147,8 +153,7 @@ class WDA(XCFunctional):
                                           - Z_isg[ll_g, S, X, Y, Z]))
 
         return alpha_isg
-
-    @timer
+    
     def wda_energy(self, n_g, alpha_ig, Grs_ik):
         # Convolve n with G/r
         # Multiply result by alpha * n
@@ -163,52 +168,64 @@ class WDA(XCFunctional):
         result_g = np.sum(res_ig * n_g[np.newaxis, :] * alpha_ig, axis=0)
 
         return result_g
-
-    @timer
-    def V1(self, n_g, alpha_ig, Grs_ik):
-        n_k = self.fftn(n_g)
     
-        res_ig = self.ifftn(self.npp_conv(Grs_ik, n_k))
-        b = res_ig.shape == alpha_ig.shape
-        assert b, "{} - {}".format(res_ig.shape, alpha_ig.shape)
-
-        result_g = np.sum(res_ig * alpha_ig, axis=0)
-        return result_g
-
-    @timer
-    def V1p(self, n_g, alpha_ig, Grs_ik):
-        f_k = self.fftn(n_g[np.newaxis, :] * alpha_ig)
-        res_ig = self.ifftn(self.npp_conv(Grs_ik, f_k))
-        assert res_ig.shape == alpha_ig.shape
-
-        return res_ig.sum(axis=0)
-
-    @timer
-    def V2(self, n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik):
-        dZ_ig = np.roll(Z_ig, -1, axis=0) - Z_ig
-        n_k = self.fftn(n_g)
-        Gnconv_ig = self.fftn(self.npp_conv(Grs_ik, n_k))
-        res = self.ifftn(
-            self.npp_conv(
-                np.roll(Gs_ik, -1, axis=0),
-                self.fftn(Gnconv_ig * n_g[np.newaxis, :] / dZ_ig)))
-        
-        res2 = self.ifftn(
-            self.npp_conv(
-                np.roll(Gs_ik, -1, axis=0) - Gs_ik,
-                self.fftn(Gnconv_ig * n_g[np.newaxis, :] * alpha_ig / dZ_ig)))
-        
-        result = ((res - res2) * (alpha_ig != 0)).sum(axis=0)
+    def V1(self, n_sg, alpha_isg, Grs_isk):
+        n_sk = self.fftn(n_sg)
     
-        return result
+        res_isg = self.ifftn(self.npp_conv(Grs_isk, n_sk))
+        b = res_isg.shape == alpha_isg.shape
+        assert b, "{} - {}".format(res_isg.shape, alpha_isg.shape)
 
-    @timer
-    def V(self, n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik):
-        Gs_ik = Gs_ik[:, np.newaxis, :, :, :]
-        Grs_ik = Grs_ik[:, np.newaxis, :, :, :]
-        return (self.V1(n_g, alpha_ig, Grs_ik)
-                + self.V1p(n_g, alpha_ig, Grs_ik)
-                + self.V2(n_g, alpha_ig, Z_ig, Grs_ik, Gs_ik))
+        # result_sg = np.sum(res_isg * alpha_isg, axis=0)
+
+        # return result_sg
+        return np.sum(res_isg * alpha_isg, axis=0)
+    
+    def V1p(self, n_sg, alpha_isg, Grs_isk):
+        f_isk = self.fftn(n_sg[np.newaxis, :] * alpha_isg)
+        res_isg = self.ifftn(self.npp_conv(Grs_isk, f_isk))
+        assert res_isg.shape == alpha_isg.shape
+        
+        # result_sg = np.sum(res_isg, axis=0)
+
+        # return result_sg
+        return np.sum(res_isg, axis=0)
+
+    def V2(self, n_sg, alpha_isg, Z_isg, Grs_isk, Gs_isk):
+        dZ_isg = np.roll(Z_isg, -1, axis=0) - Z_isg
+        n_sk = self.fftn(n_sg)
+        Gnconv_isg = self.fftn(self.npp_conv(Grs_isk, n_sk))
+        res_isg = self.ifftn(
+            self.npp_conv(
+                np.roll(Gs_isk, -1, axis=0),
+                self.fftn(Gnconv_isg * n_sg[np.newaxis, ...] / dZ_isg)))
+        result_sg = (res_isg * (alpha_isg != 0)).sum(axis=0)
+
+        res_isg = self.ifftn(
+            self.npp_conv(
+                np.roll(Gs_isk, -1, axis=0) - Gs_isk,
+                self.fftn(Gnconv_isg * n_sg[np.newaxis, ...] * alpha_isg / dZ_isg)))
+        result_sg -= (res_isg * (alpha_isg != 0)).sum(axis=0)
+
+        # result_sg = ((res_isg - res2_isg) * (alpha_isg != 0)).sum(axis=0)
+
+        return result_sg
+    
+    def V(self, n_sg, alpha_isg, Z_isg, Grs_ik, Gs_ik):
+        Gs_isk = Gs_ik[:, np.newaxis, :, :, :]
+        Grs_isk = Grs_ik[:, np.newaxis, :, :, :]
+        return np.ascontiguousarray((self.V1(n_sg, alpha_isg, Grs_isk)
+                                     + self.V1p(n_sg, alpha_isg, Grs_isk)
+                                     + self.V2(n_sg,
+                                               alpha_isg,
+                                               Z_isg, Grs_isk, Gs_isk)))
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
+        
+    def density_correction(self, gd, n_sg):
+        if self.rcut_factor:
+            from gpaw.xc.WDAUtils import correct_density
+            return correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac, self.rcut_factor)
+        else:
+            return n_sg

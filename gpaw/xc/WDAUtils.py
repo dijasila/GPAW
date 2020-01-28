@@ -3,24 +3,20 @@ import numpy as np
 
 
 
-def correct_density(n_sg, gd, setups, spos_ac):
-    # Every rank needs the density
-    n1_sg = gd.collect(n_sg, out=None, broadcast=True)
-    n1_sg[n1_sg < 1e-7] = 1e-8
-    
+def correct_density(n_sg, gd, setups, spos_ac, rcut_factor=0.8):
     if not hasattr(setups[0], "calculate_pseudized_atomic_density"):
-        return n1_sg
+        return n_sg
         
-    if len(n1_sg) != 1:
+    if len(n_sg) != 1:
         raise NotImplementedError
             
-    dens = n1_sg[0].copy()
+    dens = n_sg[0].copy()
 
     for a, setup in enumerate(setups):
         spos_ac_indices = list(filter(lambda x: x[1] == setup, enumerate(setups)))
         spos_ac_indices = [x[0] for x in spos_ac_indices]
         spos_ac = spos_ac[spos_ac_indices]
-        t = setup.calculate_pseudized_atomic_density(spos_ac)
+        t = setup.calculate_pseudized_atomic_density(spos_ac, rcut_factor)
         t.add(dens)
         
     return np.array([dens])
