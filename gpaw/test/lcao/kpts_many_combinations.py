@@ -104,5 +104,5 @@ for spinpol in [False, True]:
         maxferr = max(ferrs)
         print('maxeerr', maxeerr)
         print('maxferr', maxferr)
-        assert maxeerr < 1e-10, maxeerr
+        assert maxeerr < 1e-9, maxeerr
         assert maxferr < 1e-10, maxferr
