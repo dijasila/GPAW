@@ -32,6 +32,9 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
        [ -9.98454736e-14,   4.37862132e-14,   6.44750360e-01]])
 
 
+.. image:: https://badge.fury.io/py/gpaw.svg
+    :target: https://pypi.org/project/gpaw/
+
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 
