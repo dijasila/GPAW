@@ -94,6 +94,8 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_ELPA)
 #include <elpa/elpa.h>
+PyObject* pyelpa_init(PyObject *self, PyObject *args);
+PyObject* pyelpa_uninit(PyObject *self, PyObject *args);
 PyObject* pyelpa_version(PyObject *self, PyObject *args);
 PyObject* pyelpa_allocate(PyObject *self, PyObject *args);
 PyObject* pyelpa_set(PyObject *self, PyObject *args);
@@ -222,6 +224,8 @@ static PyMethodDef functions[] = {
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #if defined(GPAW_WITH_ELPA)
+    {"pyelpa_init", pyelpa_init, METH_VARARGS, 0},
+    {"pyelpa_uninit", pyelpa_uninit, METH_VARARGS, 0},
     {"pyelpa_version", pyelpa_version, METH_VARARGS, 0},
     {"pyelpa_allocate", pyelpa_allocate, METH_VARARGS, 0},
     {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
