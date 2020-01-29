@@ -1,17 +1,23 @@
 import os
 
 import pytest
+from _pytest.tmpdir import _mk_tmp
 from ase.utils import devnull
 
-from gpaw.mpi import world
+from gpaw.mpi import world, broadcast
 
 
 @pytest.fixture
-def in_tmp_dir(tmpdir):
+def in_tmp_dir(request, tmp_path_factory):
+    if world.rank == 0:
+        path = _mk_tmp(request, tmp_path_factory)
+    else:
+        path = None
+    path = broadcast(path)
     cwd = os.getcwd()
-    os.chdir(str(tmpdir))
+    os.chdir(path)
     try:
-        yield tmpdir
+        yield path
     finally:
         os.chdir(cwd)
 
@@ -25,6 +31,8 @@ class GPAWPlugin:
         terminalreporter.section('GPAW-MPI stuff')
         terminalreporter.write(f'rank, size: {rank}, {size}')
 
+
+"""
     def pytest_report_header(self, config, startdir):
         return 'hej'
 
@@ -36,13 +44,8 @@ class GPAWPlugin:
     # def pytest_make_collect_report(self, collector):
     #     pass
 
+"""
+
 
 def pytest_configure(config):
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    # print(dir(config))
-
-
-def pytest_sessionstart(session):
-    print(dir(session))
-    szdagljkh
-
