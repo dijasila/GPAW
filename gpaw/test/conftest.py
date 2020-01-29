@@ -2,7 +2,7 @@ import os
 
 import pytest
 from _pytest.tmpdir import _mk_tmp
-# from ase.utils import devnull
+from ase.utils import devnull
 
 from gpaw import __version__
 from gpaw.mpi import world, broadcast
@@ -38,11 +38,6 @@ class GPAWPlugin:
     def pytest_report_header(self, config, startdir):
         return 'hej'
 
-    def pytest_report_collectionfinish(self, config, startdir, items):
-        tw = config.get_terminal_writer()
-        if world.rank != 0:
-            tw._file = devnull
-
     # def pytest_make_collect_report(self, collector):
     #     pass
 
@@ -50,6 +45,9 @@ class GPAWPlugin:
 
 
 def pytest_configure(config):
+    tw = config.get_terminal_writer()
+    if world.rank != 0:
+        tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
 
 
