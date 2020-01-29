@@ -10,7 +10,7 @@ from gpaw.mpi import size
 from gpaw.wannier import Wannier
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def ethylene():
     a = 6.0  # Size of unit cell (Angstrom)
 
@@ -25,14 +25,15 @@ def ethylene():
                 pbc=True)
     mol.center()
 
-    mol.calc = GPAW(nbands=8,
+    mol.calc = GPAW(txt=None,
+                    nbands=8,
                     gpts=(32, 32, 32),
                     convergence={'eigenstates': 3.3e-5})
     mol.get_potential_energy()
     return mol
 
 
-@pytest.mark.skipif(size > 1)
+@pytest.mark.skipif(size > 1, reason='Not parallelized')
 def test_ethylene_energy(ethylene):
     e = ethylene.get_potential_energy()
     assert e == pytest.approx(-33.328, abs=0.002)
@@ -60,12 +61,12 @@ def check(calc):
         expected.pop(i)
 
 
-@pytest.mark.skipif(size > 1)
+@pytest.mark.skipif(size > 1, reason='Not parallelized')
 def test_wannier_centers(ethylene):
     check(ethylene.calc)
 
 
-@pytest.mark.skipif(size > 1)
+@pytest.mark.skipif(size > 1, reason='Not parallelized')
 def test_wannier_centers_gpw(ethylene, in_tmp_dir):
     ethylene.calc.write('ethylene.gpw', 'all')
     check(GPAW('ethylene.gpw', txt=None))

@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pytest
 
 from gpaw import GPAW, PW
 from gpaw.mpi import world
@@ -10,7 +11,8 @@ from ase.build import bulk
 from ase.units import Bohr, Hartree
 
 
-def test_chi0_intraband():
+@pytest.mark.slow
+def test_chi0_intraband(in_tmp_dir):
     """Comparing the plasmon peaks found in bulk sodium for two different
     atomic structures. Testing for idential plasmon peaks. Not using
     physical sodium cell."""
