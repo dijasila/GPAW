@@ -5,6 +5,7 @@ from _pytest.tmpdir import _mk_tmp
 from ase.utils import devnull
 
 from gpaw import __version__
+from gpaw.cli.info import info
 from gpaw.mpi import world, broadcast
 
 
@@ -26,7 +27,10 @@ def in_tmp_dir(request, tmp_path_factory):
 class GPAWPlugin:
     def __init__(self):
         if world.rank == 0:
-            print('\nhello', __version__)
+            print()
+            print('-' * 24, '-' * 50)
+            info()
+            print('-' * 24, '-' * 50)
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
         from gpaw.mpi import rank, size

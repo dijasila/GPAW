@@ -15,7 +15,6 @@ commands = [
     ('dos', 'gpaw.cli.dos'),
     ('gpw', 'gpaw.cli.gpw'),
     ('completion', 'gpaw.cli.completion'),
-    ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
     # ('quick', 'gpaw.cli.quick'),
