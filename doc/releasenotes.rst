@@ -13,7 +13,15 @@ Git master branch
 * Corresponding ASE release: ASE-3.18.1b1
 
 * Self-consistent calculations with hybrid functionals are now possible in
-  plane-wave mode.
+  plane-wave mode.  You have to do parallelize over plane-waves and you must
+  use the Davidson eigensolver with one iteration per scf step::
+
+      from gpaw import GPAW, PW, Davidson
+      calc = GPAW(mode=PW(ecut=...),
+                  xc='HSE06',
+                  parallel={'band': 1, 'kpt': 1},
+                  eigensolver=Davidson(niter=1),
+                  ...)
 
 * We are now using setuptools_ instead of :mod:`distutils`.
   This means that installation with pip works much better.
@@ -24,13 +32,14 @@ Git master branch
   The ``_gpaw.so`` C-extension file (usually only used for serial calculations)
   will now be compiled with ``mpicc`` and contain what is necessary for both
   serial and parallel calculations.  In order to run GPAW in parallel, you
-  do one of these two::
+  do one of these three::
 
+      $ mpiexec -n 24 gpaw python script.py
       $ gpaw -P 24 python script.py
       $ mpiexec -n 24 python3 script.py
 
-  The first way is the recommended one:  It will make sure that imports
-  are done in an efficient way.
+  The first two are the recommended ones:  The *gpaw* script will make sure
+  that imports are done in an efficient way.
 
 * Configuration/customization:
   The ``customize.py`` file in the root folder of the Git repository is no

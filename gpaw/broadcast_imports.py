@@ -100,6 +100,7 @@ class BroadcastLoader:
 class BroadcastImporter:
     def __init__(self):
         self.module_cache = {}
+        self.cached_modules = []
 
     def find_spec(self, fullname, path=None, target=None):
         if world.rank == 0:
@@ -162,6 +163,7 @@ class BroadcastImporter:
 
         if world.rank == 0:
             self.broadcast()
+        self.cached_modules += self.module_cache.keys()
         self.module_cache = {}
         myself = sys.meta_path.pop(0)
         assert myself is self
