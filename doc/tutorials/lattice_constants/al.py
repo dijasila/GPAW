@@ -1,6 +1,6 @@
 import numpy as np
 from ase.build import bulk
-from gpaw import GPAW, PW, FermiDirac, MethfesselPaxton
+from gpaw import GPAW, PW
 
 a0 = 4.04
 al = bulk('Al', 'fcc', a=a0)

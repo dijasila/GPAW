@@ -12,7 +12,7 @@ freqs = frequencies([1.12, 2.48], 'Gauss', 0.1)
 fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=freqs)
 
 # Replay the propagation
-td_calc.replay(name='wfw.ulm', update='none')
+td_calc.replay(name='wf.ulm', update='none')
 
 # Store the density matrix
 fdm.write('fdm.ulm')

@@ -7,7 +7,7 @@ from gpaw.external import ConstantElectricField
 
 h = Atoms('H')
 h.center(vacuum=2.5)
-h.calc = GPAW(external=ConstantElectricField(1.0),  # 1 eV / Ang
+h.calc = GPAW(external=ConstantElectricField(1.0),  # 1 V / Ang
               charge=1,
               txt='h.txt')
 e = h.get_potential_energy()

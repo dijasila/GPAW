@@ -17,13 +17,14 @@ from __future__ import print_function
 import numpy as np
 from ase.build import molecule
 
-from gpaw import GPAW
+from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
 
 mol = molecule('H2O')
 mol.rattle(0.2)
 mol.center(vacuum=2.0)
 calc = GPAW(nbands=6,
+            poissonsolver=PoissonSolver('fd'),
             gpts=(32, 40, 40),
             setups='hgh',
             convergence=dict(eigenstates=1e-9, density=1e-5, energy=0.3e-5),

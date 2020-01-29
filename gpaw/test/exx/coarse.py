@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 
 from ase import Atoms
@@ -17,10 +16,10 @@ loa = Atoms('Be2',
 loa.center()
 
 fgl = [False, True]
-#fgl = [True, False]
+# fgl = [True, False]
 
-txt='-'
-txt='/dev/null'
+txt = '-'
+txt = '/dev/null'
 
 E = {}
 niter = {}
@@ -32,16 +31,24 @@ for fg in fgl:
     timer.start(tstr)
     calc = GPAW(h=0.3,
                 eigensolver='rmm-diis',
-                xc='PBE',
+                xc=dict(name='PBE', stencil=1),
+                poissonsolver={'name': 'fd'},
                 nbands=4,
                 convergence={'eigenstates': 1e-4},
                 charge=-1)
     loa.set_calculator(calc)
     E[fg] = loa.get_potential_energy()
-    calc.set(xc=HybridXC('PBE0', finegrid=fg))
+    calc.set(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
     E[fg] = loa.get_potential_energy()
     niter[fg] = calc.get_number_of_iterations()
     timer.stop(tstr)
+    if not fg:
+        fname = 'exx_load.gpw'
+        calc.write(fname)
+        calcl = GPAW(fname)
+        func = calcl.get_xc_functional()
+        assert func['name'] == 'PBE0', 'wrong name for functional'
+        assert func['hybrid'] == 0.25, 'wrong factor for functional'
 
 timer.write(sys.stdout)
 
@@ -49,6 +56,6 @@ print('Total energy on the fine grid   =', E[True])
 print('Total energy on the coarse grid =', E[False])
 equal(E[True], E[False], 0.01)
 
-energy_tolerance = 0.0003
+energy_tolerance = 0.003
 equal(E[False], 6.97818, energy_tolerance)
 equal(E[True], 6.97153, energy_tolerance)

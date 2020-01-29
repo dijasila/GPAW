@@ -1,3 +1,4 @@
+# Creates: bandstructure.png
 """Band structure tutorial
 
 Calculate the band structure of Si along high symmetry directions

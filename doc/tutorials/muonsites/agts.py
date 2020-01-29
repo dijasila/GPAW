@@ -1,3 +1,7 @@
-def agts(queue):
-    mnsi = queue.add('mnsi.py')
-    queue.add('plot2d.py', deps=mnsi, creates='pot_contour.png')
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('mnsi.py'),
+        task('plot2d.py', deps='mnsi.py')]

@@ -12,6 +12,7 @@ calc = GPAW(mode=PW(ecut),
             xc='LDA',
             kpts={'size': (30, 30, 1), 'gamma': True},
             occupations=FermiDirac(0.01),
+            parallel={'domain': 1},
             txt='WSe2_gs_out.txt')
 
 structure.set_calculator(calc)

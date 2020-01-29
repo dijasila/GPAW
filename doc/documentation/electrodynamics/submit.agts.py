@@ -1,3 +1,6 @@
-def agts(queue):
-    queue.add('plot_permittivity.py',
-              creates=['Au.yml.png'])
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('plot_permittivity.py')]

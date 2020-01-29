@@ -1,12 +1,8 @@
-def agts(queue):
-    c1 = queue.add('calculate.py',
-                   ncpus=8,
-                   walltime=60)
+from myqueue.task import task
 
-    queue.add('plot_geom.py',
-              deps=c1,
-              creates=['geom.png'])
 
-    queue.add('plot.py',
-              deps=[c1],
-              creates=['hybrid.png'])
+def create_tasks():
+    return [
+        task('calculate.py@8:1h'),
+        task('plot_geom.py', deps='calculate.py'),
+        task('plot.py', deps='calculate.py')]

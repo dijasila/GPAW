@@ -1,6 +1,6 @@
 import numpy as np
 from ase.units import Ha, alpha, Bohr
-
+from gpaw.mpi import serial_comm, world, rank
 
 s = np.array([[0.0]])
 p = np.zeros((3, 3), complex)  # y, z, x
@@ -64,6 +64,7 @@ def get_radial_potential(a, xc, D_sp):
     fh_g = -np.array([np.sum(rho_g[:ig]) for ig in range(len(r_g))]) / r_g**2
 
     f_g = fc_g + fh_g
+
     # xc force
     if xc.name != 'GLLBSC':
         v_sg = np.zeros_like(n_sg)
@@ -123,6 +124,11 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     Returns:
         out: e_mk or (e_mk, s_kvm) or (e_mk, wfs_knm) or (e_mk, s_kvm, wfs_knm)
    """
+    if isinstance(calc, str):
+        from gpaw import GPAW
+        calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
@@ -162,12 +168,12 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         a = calc.wfs.setups[ai]
         dVL_avii.append(soc(a, calc.hamiltonian.xc, calc.density.D_asp[ai]))
 
-    e_km = []
+    e_km = np.zeros((Nk, 2 * Nn), float)
     if return_wfs:
-        v_knm = []
+        v_knm = np.zeros((Nk, 2 * Nn, 2 * Nn), complex)
     if return_spin:
-        v_knm = []
-        s_kvm = []
+        v_knm = np.zeros((Nk, 2 * Nn, 2 * Nn), complex)
+        s_kvm = np.zeros((Nk, 3, 2 * Nn), float)
 
     # Hamiltonian with SO in KS basis
     # The even indices in H_mm are spin up along \hat n defined by \theta, phi
@@ -184,7 +190,13 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     sy_ss = C_ss.T.conj().dot(sy_ss).dot(C_ss)
     sz_ss = C_ss.T.conj().dot(sz_ss).dot(C_ss)
 
-    for k in range(Nk):
+    # Parallelization stuff
+    myKsize = -(-Nk // (world.size))
+    myKrange = range(rank * myKsize,
+                     min((rank + 1) * myKsize, Nk))
+    myKsize = len(myKrange)
+
+    for k in myKrange:
         # Evaluate H in a basis of S_z eigenstates
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
         if not noncollinear:
@@ -230,35 +242,46 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                     H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
 
         e_m, v_snm = np.linalg.eigh(H_mm)
-        e_km.append(e_m)
+        e_km[k] = e_m
         if return_wfs or return_spin:
-            v_knm.append(v_snm)
+            v_knm[k] = v_snm
         if return_spin:
             sx_m = []
             sy_m = []
             sz_m = []
             for m in range(2 * Nn):
                 v_sn = np.array([v_snm[::2, m], v_snm[1::2, m]])
-                sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)))
-                sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)))
-                sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)))
-            s_kvm.append([sx_m, sy_m, sz_m])
+                sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)).real)
+                sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)).real)
+                sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)).real)
+            s_kvm[k] = [sx_m, sy_m, sz_m]
+
+    world.sum(e_km)
 
     if return_spin:
+        world.sum(s_kvm)
         if return_wfs:
-            return np.array(e_km).T, np.array(s_kvm).real, v_knm
+            world.sum(v_knm)
+            return e_km.T, s_kvm, v_knm
         else:
-            return np.array(e_km).T, np.array(s_kvm).real
+            return e_km.T, s_kvm
     else:
         if return_wfs:
-            return np.array(e_km).T, v_knm
+            world.sum(v_knm)
+            return e_km.T, v_knm
         else:
-            return np.array(e_km).T
+            return e_km.T
 
 
 def set_calculator(calc, e_km, v_knm=None, width=None):
     from gpaw.occupations import FermiDirac
     from ase.units import Hartree
+
+    if isinstance(calc, str):
+        from gpaw import GPAW
+        calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     noncollinear = not calc.density.collinear
 
@@ -286,7 +309,17 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the sum of occupied spinorbit eigenvalues. Returns the result
     relative to the sum of eigenvalues without spinorbit coupling"""
 
+    if isinstance(calc, str):
+        from gpaw import GPAW
+        calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
+
+    assert len(calc.symmetry.op_scc) == 1
+
     Ns = calc.wfs.nspins
+    noncollinear = not calc.density.collinear
+
     e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
                        for k in range(len(calc.get_ibz_k_points()))]
                       for s in range(Ns)])
@@ -301,6 +334,9 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     f_kn = np.reshape(np.swapaxes(f_skn, 0, 1), (len(f_skn[0]),
                                                  Ns * len(f_skn[0, 0])))
     f_kn = np.sort(f_kn, 1)[:, ::-1]
+    if noncollinear:
+        f_kn *= 2
+
     E = np.sum(e_kn * f_kn)
 
     from gpaw.occupations import occupation_numbers
@@ -320,11 +356,76 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     return E_so - E
 
 
+def get_spinorbit_projections(calc, ik, v_nm):
+    # For spinors the number of projectors and bands are doubled
+
+    if isinstance(calc, str):
+        from gpaw import GPAW
+        calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
+
+    Na = len(calc.atoms)
+    Nk = len(calc.get_ibz_k_points())
+    Ns = calc.wfs.nspins
+
+    v0_mn = v_nm[::2].T
+    v1_mn = v_nm[1::2].T
+        
+    P_ani = {}
+    for ia in range(Na):
+        P0_ni = calc.wfs.kpt_u[ik].P_ani[ia]
+        P1_ni = calc.wfs.kpt_u[(Ns - 1) * Nk + ik].P_ani[ia]
+
+        P0_mi = np.dot(v0_mn, P0_ni)
+        P1_mi = np.dot(v1_mn, P1_ni)
+        P_mi = np.zeros((len(P0_mi), 2 * len(P0_mi[0])), complex)
+        P_mi[:, ::2] = P0_mi
+        P_mi[:, 1::2] = P1_mi
+        P_ani[ia] = P_mi
+
+    return P_ani
+
+    
+def get_spinorbit_wavefunctions(calc, ik, v_nm):
+    # For spinors the number of bands is doubled and a spin dimension is added
+
+    if isinstance(calc, str):
+        from gpaw import GPAW
+        calc = GPAW(calc, communicator=serial_comm, txt=None)
+
+    Ns = calc.wfs.nspins
+    Nn = calc.wfs.bd.nbands
+
+    v0_mn = v_nm[::2].T
+    v1_mn = v_nm[1::2].T
+    
+    u0_nG = np.array([calc.wfs.get_wave_function_array(n, ik, 0)
+                      for n in range(Nn)])
+    u1_nG = np.array([calc.wfs.get_wave_function_array(n, ik, (Ns - 1))
+                      for n in range(Nn)])
+    u0_mG = np.swapaxes(np.dot(v0_mn, np.swapaxes(u0_nG, 0, 2)), 1, 2)
+    u1_mG = np.swapaxes(np.dot(v1_mn, np.swapaxes(u1_nG, 0, 2)), 1, 2)
+    u_mG = np.zeros((len(u0_mG),
+                     2,
+                     len(u0_mG[0]),
+                     len(u0_mG[0, 0]),
+                     len(u0_mG[0, 0, 0])), complex)
+    u_mG[:, 0] = u0_mG
+    u_mG[:, 1] = u1_mG
+
+    return u_mG
+
+    
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the magnetic moments inside all PAW spheres"""
-
-    from gpaw.wannier90 import get_spinorbit_projections
     from gpaw.utilities import unpack
+
+    if isinstance(calc, str):
+        from gpaw import GPAW
+        calc = GPAW(calc, communicator=serial_comm, txt=None)
+    else:
+        assert calc.world.size == 1
 
     if nbands is None:
         nbands = calc.get_number_of_bands()
@@ -392,9 +493,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
         Delta_p = calc.density.setups[a].Delta_pL[:, 0].copy()
         Delta_ij = unpack(Delta_p)
         for ik in range(Nk):
-            P_ami = get_spinorbit_projections(calc, ik, v_knm[ik],
-                                              nbands=nbands)
-
+            P_ami = get_spinorbit_projections(calc, ik, v_knm[ik])
             P_smi = np.array([P_ami[a][:, ::2], P_ami[a][:, 1::2]])
             P_smi = np.dot(C_ss, np.swapaxes(P_smi, 0, 1))
 
@@ -427,6 +526,8 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
     """Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
     """
+
+    assert calc.world.size == 1
 
     kpt_c = calc.get_ibz_k_points()[ik]
     if Nv is None:

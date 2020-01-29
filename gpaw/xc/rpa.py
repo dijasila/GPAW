@@ -208,8 +208,8 @@ class RPACorrelation:
             self.read()
             self.world.barrier()
 
-        chi0 = Chi0(self.calc, 1j * Hartree * self.omega_w, eta=0.0,
-                    intraband=False, hilbert=False,
+        chi0 = Chi0(self.calc, frequencies=1j * Hartree * self.omega_w,
+                    eta=0.0, intraband=False, hilbert=False,
                     txt='chi0.txt', timer=self.timer, world=self.world,
                     nblocks=self.nblocks)
 
@@ -488,7 +488,7 @@ def get_gauss_legendre_points(nw=16, frequency_max=800.0, frequency_scale=2.0):
 
 
 class CLICommand:
-    short_description = 'Run RPA-correlation calculation'
+    """Run RPA-correlation calculation."""
 
     @staticmethod
     def add_arguments(parser):

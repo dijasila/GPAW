@@ -1,2 +1,5 @@
-def agts(queue):
-    queue.add('dscf.py', ncpus=8, walltime=13 * 60)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [task('dscf.py@8:13h')]

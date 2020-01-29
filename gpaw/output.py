@@ -38,7 +38,7 @@ def print_positions(atoms, log, magmom_av):
     log()
 
 
-def print_parallelization_details(wfs, dens, log):
+def print_parallelization_details(wfs, ham, log):
     nibzkpts = wfs.kd.nibzkpts
 
     # Print parallelization details
@@ -55,13 +55,14 @@ def print_parallelization_details(wfs, dens, log):
 
     # Domain decomposition settings:
     coarsesize = tuple(wfs.gd.parsize_c)
-    finesize = tuple(dens.finegd.parsize_c)
+    finesize = tuple(ham.finegd.parsize_c)
+
     try:  # Only planewave density
-        xc_redist = dens.xc_redistributor
+        xc_gd = ham.xc_gd
     except AttributeError:
-        xcsize = finesize
-    else:
-        xcsize = tuple(xc_redist.aux_gd.parsize_c)
+        xc_gd = ham.finegd
+    xcsize = tuple(xc_gd.parsize_c)
+
 
     if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
         title = 'Domain decomposition:'

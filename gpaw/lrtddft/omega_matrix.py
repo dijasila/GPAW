@@ -1,16 +1,15 @@
-from __future__ import print_function
 from math import sqrt
 
 import numpy as np
 from ase.units import Hartree
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
+from scipy.linalg import eigh
 
 import gpaw.mpi as mpi
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
-from gpaw.utilities.lapack import diagonalize
 from gpaw.xc import XC
 
 """This module defines a Omega Matrix class."""
@@ -53,13 +52,12 @@ class OmegaMatrix:
             eh_comm = mpi.serial_comm
 
         self.eh_comm = eh_comm
+        self.fullkss = kss
 
         if filehandle is not None:
-            self.kss = kss
             self.read(fh=filehandle)
             return None
 
-        self.fullkss = kss
         self.finegrid = finegrid
 
         if calculator is None:
@@ -90,7 +88,10 @@ class OmegaMatrix:
         if xc == 'RPA':
             xc = None  # enable RPA as keyword
         if xc is not None:
-            self.xc = XC(xc)
+            if isinstance(xc, str):
+                self.xc = XC(xc)
+            else:
+                self.xc = xc
             self.xc.initialize(self.paw.density, self.paw.hamiltonian,
                                wfs, self.paw.occupations)
 
@@ -136,7 +137,7 @@ class OmegaMatrix:
         gd = paw.density.finegd
         eh_comm = self.eh_comm
 
-        fg = self.finegrid is 2
+        fg = self.finegrid == 2
         kss = self.fullkss
         nij = len(kss)
 
@@ -365,7 +366,7 @@ class OmegaMatrix:
                       self.time_left(timer, t0, ij, nij), file=self.txt)
 
     def Coulomb_integral_kss(self, kss_ij, kss_kq, phit, rhot,
-                             timer=None):
+                             timer=None, yukawa=False):
         # smooth part
         if timer:
             timer.start('integrate')
@@ -389,7 +390,11 @@ class OmegaMatrix:
             Pq_i = Pkq_ani[a][kss_kq.j]
             Dkq_ii = np.outer(Pk_i, Pq_i)
             Dkq_p = pack(Dkq_ii)
-            C_pp = wfs.setups[a].M_pp
+            if yukawa and hasattr(self.xc, 'omega') and self.xc.omega > 0:
+                C_pp = wfs.setups[a].calculate_yukawa_interaction(
+                    self.xc.omega)
+            else:
+                C_pp = wfs.setups[a].M_pp
             #   ----
             # 2 >      P   P  C    P  P
             #   ----    ip  jr prst ks qt
@@ -425,7 +430,7 @@ class OmegaMatrix:
             # smooth density including compensation charges
             timer2.start('with_compensation_charges 0')
             rhot_p = kss[ij].with_compensation_charges(
-                finegrid is not 0)
+                finegrid != 0)
             timer2.stop()
 
             # integrate with 1/|r_1-r_2|
@@ -452,7 +457,7 @@ class OmegaMatrix:
                     # smooth density including compensation charges
                     timer2.start('kq with_compensation_charges')
                     rhot = kss[kq].with_compensation_charges(
-                        finegrid is 2)
+                        finegrid == 2)
                     timer2.stop()
 
                 pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
@@ -531,7 +536,13 @@ class OmegaMatrix:
         return self.timestring(t0 * (nij - ij - 1) + t)
 
     def get_map(self, istart=None, jend=None, energy_range=None):
-        """Return the reduction map for the given requirements"""
+        """Return the reduction map for the given requirements
+
+        Returns
+        -------
+        map - list of original indices
+        kss - reduced KSSingles object
+        """
 
         self.istart = istart
         self.jend = jend
@@ -557,7 +568,7 @@ class OmegaMatrix:
         else:
             try:
                 emin, emax = energy_range
-            except:
+            except TypeError:
                 emax = energy_range
                 emin = 0.
             emin /= Hartree
@@ -593,19 +604,20 @@ class OmegaMatrix:
                     evec[ij, kq] = self.full[map[ij], map[kq]]
         assert(len(evec) > 0)
 
-        self.eigenvectors = evec
-        self.eigenvalues = np.zeros((len(kss)))
+        self.eigenvalues, v = eigh(evec)
+        self.eigenvectors = v.T
         self.kss = kss
-        diagonalize(self.eigenvectors, self.eigenvalues)
 
-    def Kss(self, kss=None):
-        """Set and get own Kohn-Sham singles"""
-        if kss is not None:
-            self.fullkss = kss
-        if(hasattr(self, 'fullkss')):
-            return self.fullkss
-        else:
-            return None
+    @property
+    def kss(self):
+        if hasattr(self, '_kss'):
+            return self._kss
+        return self.fullkss
+
+    @kss.setter
+    def kss(self, kss):
+        """Set current (restricted) KSSingles object"""
+        self._kss = kss
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""

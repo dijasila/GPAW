@@ -25,10 +25,10 @@ class MatrixOperator:
     """
 
     nblocks = 1
-    async = True
+    asynchronous = True
     hermitian = True
 
-    def __init__(self, ksl, nblocks=None, async=None, hermitian=None):
+    def __init__(self, ksl, nblocks=None, asynchronous=None, hermitian=None):
         """The constructor now calculates the work array sizes, but does not
         allocate them. Here is a summary of the relevant variables and the
         cases handled.
@@ -66,7 +66,7 @@ class MatrixOperator:
         Cases::
 
           Simplest case is G % J = M % J = 0: X = M.
-          
+
           If g * N > M * G, then we need to increase the buffer size by one
           wavefunction unit greater than the simple case, thus X = M + 1.
 
@@ -79,8 +79,8 @@ class MatrixOperator:
         self.buffer_size = ksl.buffer_size
         if nblocks is not None:
             self.nblocks = nblocks
-        if async is not None:
-            self.async = async
+        if asynchronous is not None:
+            self.asynchronous = asynchronous
         if hermitian is not None:
             self.hermitian = hermitian
 
@@ -106,7 +106,7 @@ class MatrixOperator:
             numberof_wfs = self.buffer_size * 1024 / sizeof_single_wfs
             assert numberof_wfs > 0  # buffer_size is too small
             self.nblocks = max(int(mynbands // numberof_wfs), 1)
-            
+
         # Calculate Q and X for allocating arrays later
         self.X = 1  # not used for ngroups == 1 and J == 1
         self.Q = 1
@@ -186,12 +186,12 @@ class MatrixOperator:
         rankp = (band_comm.rank + 1) % band_comm.size
         self.req, self.req2 = [], []
 
-        # If asyncronous, non-blocking send/receives of psit_nG's start here.
-        if self.async:
+        # If asynchronous, non-blocking send/receives of psit_nG's start here.
+        if self.asynchronous:
             self.req.append(band_comm.send(sbuf_mG, rankm, 11, False))
             self.req.append(band_comm.receive(rbuf_mG, rankp, 11, False))
 
-        # Auxiliary asyncronous cycle, also send/receive of P_ani's.
+        # Auxiliary asynchronous cycle, also send/receive of P_ani's.
         if auxiliary:
             self.req2.append(band_comm.send(sbuf_nI, rankm, 31, False))
             self.req2.append(band_comm.receive(rbuf_nI, rankp, 31, False))
@@ -232,7 +232,7 @@ class MatrixOperator:
         rankp = (band_comm.rank + 1) % band_comm.size
 
         # If syncronous, blocking send/receives of psit_nG's carried out here.
-        if self.async:
+        if self.asynchronous:
             assert len(self.req) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req)
         else:
@@ -240,7 +240,7 @@ class MatrixOperator:
             band_comm.sendreceive(sbuf_mG, rankm, rbuf_mG, rankp, 11, 11)
         sbuf_mG, rbuf_mG = rbuf_mG, sbuf_mG
 
-        # Auxiliary asyncronous cycle, also wait for P_ani's.
+        # Auxiliary asynchronous cycle, also wait for P_ani's.
         if auxiliary:
             assert len(self.req2) == 2, 'Expected asynchronous request pairs.'
             band_comm.waitall(self.req2)
@@ -250,7 +250,7 @@ class MatrixOperator:
 
     def calculate_matrix_elements(self, psit1_nG, P1_ani, A, dA,
                                   psit2_nG=None, P2_ani=None):
-        """Calculate matrix elements for A-operator.
+        r"""Calculate matrix elements for A-operator.
 
         Results will be put in the *A_nn* array::
 
@@ -292,7 +292,7 @@ class MatrixOperator:
             hermitian = self.hermitian
         else:
             hermitian = False
-        
+
         if P2_ani is None:
             P2_ani = P1_ani
 
@@ -311,7 +311,7 @@ class MatrixOperator:
                 gemm(1.0, P1_ni, dA(a, P2_ni), 1.0, A_NN, 'c')
             domain_comm.sum(A_NN, 0)
             return self.bmd.redistribute_output(A_NN)
-        
+
         # Now it gets nasty! We parallelize over B groups of bands and
         # each band group is blocked in J smaller slices (less memory).
 
@@ -319,7 +319,7 @@ class MatrixOperator:
             Q = B // 2 + 1
         else:
             Q = B
-        
+
         # Buffer for storage of blocks of calculated matrix elements.
         if B == 1:
             A_qnn = A_NN.reshape((1, N, N))
@@ -413,9 +413,9 @@ class MatrixOperator:
         # be syncronized up to this point.
         block_comm.barrier()
         return self.bmd.redistribute_output(A_NN)
-        
+
     def matrix_multiply(self, C_NN, psit_nG, P_ani=None, out_nG=None):
-        """Calculate new linear combinations of wave functions.
+        r"""Calculate new linear combinations of wave functions.
 
         Results will be put in the *P_ani* dict and a new psit_nG returned::
 
@@ -464,7 +464,7 @@ class MatrixOperator:
                 for P_ni in P_ani.values():
                     gemm(1.0, P_ni.copy(), C_NN, 0.0, P_ni)
             return out_nG
-        
+
         # Now it gets nasty! We parallelize over B groups of bands and
         # each grid chunk is divided in J smaller slices (less memory).
 

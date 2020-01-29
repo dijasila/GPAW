@@ -1,12 +1,10 @@
-from ase import *
-from ase.io import *
 from ase.parallel import parprint
 
-from gpaw import *
-from gpaw.poisson import *
-from gpaw.mpi import world, size, rank
+from gpaw import GPAW
+from gpaw.poisson import PoissonSolver
+from gpaw.mpi import world, size
 
-from gpaw.lrtddft2 import *
+from gpaw.lrtddft2 import LrTDDFT2
 from gpaw.lrtddft2.lr_communicators import LrCommunicators
 
 # atoms, gs_calc = restart('r-methyl-oxirane.gpw')
@@ -50,4 +48,6 @@ f2 = lr.lr_transitions.get_transition_contributions(0)
 for (ip, val) in enumerate(f2):
     if (val > 1e-3):
         parprint(' %5d => %5d  %lf %%\n ' %
-                 (lr.ks_singles.kss_list[ip].occ_ind, lr.ks_singles.kss_list[ip].unocc_ind, val / 2. * 100))
+                 (lr.ks_singles.kss_list[ip].occ_ind,
+                  lr.ks_singles.kss_list[ip].unocc_ind,
+                  val / 2. * 100))

@@ -19,6 +19,7 @@ from gpaw.test import equal
 def relative_equal(x, y, *args, **kwargs):
     return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
 
+
 # Atoms
 atoms = molecule('NaCl')
 atoms.center(vacuum=4.0)

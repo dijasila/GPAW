@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # This file generates tested setups to be used with LCAO-TDDFT
 
 from gpaw.atom.generator import Generator

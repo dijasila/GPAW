@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
-from gpaw.setup import BaseSetup
+from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
 from gpaw.utilities import erf, divrl, hartree as hartree_solve
 
@@ -36,7 +36,7 @@ def local_potential_to_spline(rgd, vbar_g, filter=None):
     rcut = rgd.r_g[len(vbar_g) - 1]
     if filter is not None:
         filter(rgd, rcut, vbar_g, l=0)
-    #vbar = Spline(0, rcut, vbar_g)
+    # vbar = Spline(0, rcut, vbar_g)
     vbar = rgd.spline(vbar_g, rgd.r_g[len(vbar_g) - 1], l=0)
     return vbar
 
@@ -234,8 +234,8 @@ class PseudoPotential(BaseSetup):
         self.nj = len(data.l_j)
 
         self.ni = sum([2 * l + 1 for l in data.l_j])
-        #self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
-        #                                  filter=filter)
+        # self.pt_j = projectors_to_splines(data.rgd, data.l_j, data.pt_jg,
+        #                                   filter=filter)
         self.pt_j = data.get_projectors()
 
         if len(self.pt_j) == 0:
@@ -264,7 +264,7 @@ class PseudoPotential(BaseSetup):
         self.rcgauss = data.rcgauss
 
         # accuracy is rather sensitive to this
-        #self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
+        # self.vbar = local_potential_to_spline(data.rgd, data.vbar_g,
         #                                      filter=filter)
         self.vbar = data.get_local_potential()
         # XXX HGH and UPF use different radial grids, and this for
@@ -304,10 +304,15 @@ class PseudoPotential(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_pg = None
         self.ExxC = None
+        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(_np)
         self.extra_xc_data = {}
 
         self.wg_lg = None
         self.g_lg = None
+        self.local_corr = LocalCorrectionVar(None)
+        self._Mg_pp = None
+        self._gamma = None

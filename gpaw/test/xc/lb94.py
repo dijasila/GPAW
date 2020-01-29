@@ -1,8 +1,8 @@
 from __future__ import print_function
 
 from ase import Atoms
-from ase.parallel import rank, barrier
-from gpaw import GPAW, FermiDirac, setup_paths
+from gpaw.mpi import world
+from gpaw import GPAW, FermiDirac, setup_paths, Mixer, MixerSum, Davidson
 from gpaw.atom.all_electron import AllElectron
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
@@ -21,7 +21,7 @@ print('and', ref2)
 
 print('**** all electron calculations')
 print('atom [refs] -e_homo diff   all in mHa')
-if rank == 0:
+if world.rank == 0:
     for atom in e_HOMO_cs.keys():
         ae = AllElectron(atom, 'LB94', txt=txt)
         ae.run()
@@ -29,7 +29,7 @@ if rank == 0:
         diff = e_HOMO_cs[atom] + e_homo
         print('%2s %8g %6.1f %4.1g' % (atom, e_HOMO_cs[atom], -e_homo, diff))
         assert abs(diff) < 6
-barrier()
+world.barrier()
 
 setup_paths.insert(0, '.')
 setups = {}
@@ -40,15 +40,17 @@ print('atom [refs] -e_homo diff   all in mHa')
 for atom in sorted(e_HOMO_cs):
     e_ref = e_HOMO_cs[atom]
     # generate setup for the atom
-    if rank == 0 and atom not in setups:
+    if world.rank == 0 and atom not in setups:
         g = Generator(atom, 'LB94', nofiles=True, txt=txt)
         g.run(**parameters[atom])
         setups[atom] = 1
-    barrier()
-    
+    world.barrier()
+
     SS = Atoms(atom, cell=(7, 7, 7), pbc=False)
     SS.center()
-    c = GPAW(h=.3, xc='LB94', nbands=-2, txt=txt)
+    c = GPAW(h=.3, xc='LB94',
+             eigensolver=Davidson(3),
+             mixer=Mixer(0.5, 7, 50.0), nbands=-2, txt=txt)
     if atom in ['Mg']:
         c.set(eigensolver='cg')
     c.calculate(SS)
@@ -76,11 +78,11 @@ for atom in sorted(e_HOMO_os):
     e_ref = e_HOMO_os[atom][0]
     magmom = e_HOMO_os[atom][1]
     # generate setup for the atom
-    if rank == 0 and atom not in setups:
+    if world.rank == 0 and atom not in setups:
         g = Generator(atom, 'LB94', nofiles=True, txt=txt)
         g.run(**parameters[atom])
         setups[atom] = 1
-    barrier()
+    world.barrier()
 
     SS = Atoms(atom, magmoms=[magmom], cell=(7, 7, 7), pbc=False)
     SS.center()
@@ -90,6 +92,8 @@ for atom in sorted(e_HOMO_os):
              nbands=-2,
              spinpol=True,
              hund=True,
+             eigensolver=Davidson(3),
+             mixer=MixerSum(0.5, 7, 50.0),
              occupations=FermiDirac(0.0, fixmagmom=True),
              txt=txt)
     c.calculate(SS)

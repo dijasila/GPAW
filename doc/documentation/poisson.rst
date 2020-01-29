@@ -102,10 +102,10 @@ This uses the given `poissonsolver_large` to solve the Poisson equation on
 a large grid defined by the number of grid points `gpts`.
 The size of the grid is given **in the units of the Poisson grid**
 (this is usually the same as the fine grid).
-It is important to **use grid sizes that are divisible by high powers of 2 to
-accelerate the multigrid scheme** used in ``PoissonSolver``.
+If using the ``FDPoissonSolver``, it is important to use grid sizes that are divisible by high powers of 2 to
+accelerate the multigrid scheme.
 
-To speed up the calculation of the Hartree porential on the large grid,
+To speed up the calculation of the Hartree potential on the large grid,
 one can apply additional coarsening::
 
   from gpaw.poisson import PoissonSolver

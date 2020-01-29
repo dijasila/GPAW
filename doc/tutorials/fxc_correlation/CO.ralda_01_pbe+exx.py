@@ -12,6 +12,7 @@ CO = Atoms('CO', [(0, 0, 0), (0, 0, 1.1283)])
 CO.set_pbc(True)
 CO.center(vacuum=3.0)
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            parallel={'domain': 1},
             xc='PBE',
             txt='CO.ralda_01_CO_pbe.txt',
             convergence={'density': 1.e-6})
@@ -33,6 +34,7 @@ C.set_pbc(True)
 C.set_cell(CO.cell)
 C.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            parallel={'domain': 1},
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,
@@ -61,6 +63,7 @@ O.set_pbc(True)
 O.set_cell(CO.cell)
 O.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            parallel={'domain': 1},
             xc='PBE',
             mixer=MixerSum(beta=0.1, nmaxold=5, weight=50.0),
             hund=True,

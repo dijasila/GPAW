@@ -18,5 +18,5 @@ calc.converge_wave_functions()
 e_j = CoreEigenvalues(calc).get_core_eigenvalues(0)
 assert abs(e_j[0] - (-30.344066)) * 27.21 < 0.1  # Error smaller than 0.1 eV
 
-energy_tolerance = 0.0004
+energy_tolerance = 0.002
 equal(e0, -0.0107707223, energy_tolerance)

@@ -4,27 +4,29 @@ from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
-from gpaw.mpi import world 
+from gpaw.mpi import world
 from gpaw.lrtddft.excited_state import ExcitedState
 
-txt='-'
-txt='/dev/null'
-io_only=False
-#io_only=True
-load=False
-#load=True
+txt = '-'
+txt = '/dev/null'
+io_only = False
+# io_only=True
+load = False
+# load = True
 if not io_only:
-    R=0.7 # approx. experimental bond length
+    R = 0.7  # approx. experimental bond length
     a = 3.0
     c = 4.0
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
-    calc = GPAW(xc='PBE', nbands=3, spinpol=False, txt=txt)
+    calc = GPAW(xc='PBE',
+                poissonsolver={'name': 'fd'},
+                nbands=3, spinpol=False, txt=txt)
     H2.set_calculator(calc)
     H2.get_potential_energy()
 
-    xc='LDA'
+    xc = 'LDA'
 
     # without spin
     lr = LrTDDFT(calc, xc=xc)
@@ -40,15 +42,15 @@ if not io_only:
         equal(ozr, ozv, 0.1)
 
     # course grids
-    for finegrid in [1,0]:
+    for finegrid in [1, 0]:
         lr = LrTDDFT(calc, xc=xc, finegrid=finegrid)
         lr.diagonalize()
         t3 = lr[0]
-        parprint('finegrid, t1, t3=', finegrid, t1 ,t3)
+        parprint('finegrid, t1, t3=', finegrid, t1, t3)
         equal(t1.get_energy(), t3.get_energy(), 5.e-4)
 
     # with spin
-    
+
     lr_vspin = LrTDDFT(calc, xc=xc, nspins=2)
     singlet, triplet = lr_vspin.singlets_triplets()
     lr_vspin.diagonalize()
@@ -58,7 +60,7 @@ if not io_only:
     ex_vspin = ExcitedState(lr_vspin, 1)
     den_vspin = ex_vspin.get_pseudo_density() * Bohr**3
 
-    parprint('with virtual/wo spin t2, t1=', 
+    parprint('with virtual/wo spin t2, t1=',
              t2.get_energy(), t1 .get_energy())
     equal(t1.get_energy(), t2.get_energy(), 5.e-7)
     gd = lr.calculator.density.gd
@@ -72,12 +74,12 @@ if not io_only:
     assert(ddiff < 1.e-4)
 
     if not load:
-        c_spin = GPAW(xc='PBE', nbands=2, 
+        c_spin = GPAW(xc='PBE', nbands=2,
+                      poissonsolver={'name': 'fd'},
                       spinpol=True, parallel={'domain': world.size},
                       txt=txt)
         H2.set_calculator(c_spin)
         c_spin.calculate(H2)
-##        c_spin.write('H2spin.gpw', 'all')
     else:
         c_spin = GPAW('H2spin.gpw', txt=txt)
     lr_spin = LrTDDFT(c_spin, xc=xc)
@@ -94,9 +96,9 @@ if not io_only:
                  gd.integrate(den_vspin), gd.integrate(den_spin),
                  ddiff)
         parprint('   aed density integral',
-                 finegd.integrate(ex_vspin.get_all_electron_density() 
+                 finegd.integrate(ex_vspin.get_all_electron_density()
                                   * Bohr**3),
-                 finegd.integrate(ex_spin.get_all_electron_density() 
+                 finegd.integrate(ex_spin.get_all_electron_density()
                                   * Bohr**3))
         assert(ddiff < 3.e-3), ddiff
 
@@ -133,6 +135,6 @@ if 1:
     forces = exst.get_forces(H2)
     parprint('forces=', forces)
     for c in range(2):
-        equal(forces[0,c], 0.0, accuracy)
-        equal(forces[1,c], 0.0, accuracy)
+        equal(forces[0, c], 0.0, accuracy)
+        equal(forces[1, c], 0.0, accuracy)
     equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)

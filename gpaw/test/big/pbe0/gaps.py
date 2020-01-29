@@ -12,6 +12,7 @@ The numbers are compared to:
   DOI: 10.1103/PhysRevB.81.195117
 """
 
+import numpy as np
 import ase.db
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
@@ -55,7 +56,7 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
     id = c.reserve(name=name)
     if id is None:
         continue
-        
+
     x, a = bfb[name][:2]
     atoms = bulk(name, x, a=a)
     atoms.calc = GPAW(xc='PBE',
@@ -65,16 +66,13 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
                       convergence=dict(bands=-7),
                       kpts=kpts,
                       txt='%s.txt' % name)
-    
-    if name in ['MgO', 'NaCl']:
-        atoms.calc.set(eigensolver='dav')
 
     atoms.get_potential_energy()
     atoms.calc.write(name + '.gpw', mode='all')
-    
+
     ibzk_kc = atoms.calc.get_ibz_k_points()
     n = int(atoms.calc.get_number_of_electrons()) // 2
-    
+
     ibzk = []
     eps_kn = []
     for k_c in [(0, 0, 0), (0.5, 0.5, 0), (0.5, 0.5, 0.5)]:
@@ -85,20 +83,21 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
             break
 
     deps_kn = vxc(atoms.calc, 'PBE')[0, ibzk, n - 1:n + 1]
-        
+
     pbe0 = EXX(name + '.gpw', 'PBE0', ibzk, (n - 1, n + 1), txt=name + '.exx')
-    pbe0.calculate()
+    pbe0.calculate(restart=name + '.json')
     deps0_kn = pbe0.get_eigenvalue_contributions()[0]
 
     eps0_kn = eps_kn - deps_kn + deps0_kn
 
     data = {}
     for k, point in enumerate('GXL'):
-        data[point] = [eps_kn[k][1] - eps_kn[0][0],
-                       eps0_kn[k, 1] - eps0_kn[0, 0]]
-        data[point] += bfb[name][2 + k * 4:6 + k * 4]
+        data[point] = np.array(
+            [eps_kn[k][1] - eps_kn[0][0],
+             eps0_kn[k, 1] - eps0_kn[0, 0]] +
+            bfb[name][2 + k * 4:6 + k * 4])
         if name == 'Ar':
             break
-            
+
     c.write(atoms, name=name, data=data)
     del c[id]

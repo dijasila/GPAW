@@ -1,9 +1,8 @@
 from __future__ import print_function
 import numpy as np
-from ase.visualize import view
 from ase.dft.kpoints import monkhorst_pack
 from ase.parallel import paropen
-from ase.build import *
+from ase.build import hcp0001, add_adsorbate
 from gpaw import GPAW, PW, FermiDirac, MixerSum
 from gpaw.xc.exx import EXX
 
@@ -49,5 +48,5 @@ for d in ds:
     f = paropen('hf_acdf.dat', 'a')
     print(d, E, E_hf, file=f)
     f.close()
-    
+
     del slab[-2:]

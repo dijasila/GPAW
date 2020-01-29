@@ -4,7 +4,7 @@ Hybrid functionals
 :Who:
     Jens Jørgen
 
-Currently we have two implementation of exact exchange:
+Currently we have two implementations of exact exchange:
 
 1) :git:`~gpaw/xc/hybrid.py`: Can handle Gamma-point only
    calculations self-consistently (for molecules and large cells).
@@ -16,4 +16,5 @@ Things to work on:
 
 * Implement forces.
 * Self-consistent k-point calculations.
-* Hybrids with range separated Coulomb interaction (HSE).
+
+See :ref:`exx`.

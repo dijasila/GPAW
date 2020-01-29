@@ -20,7 +20,7 @@ n = 20
 calc = GPAW(gpts=(n, n, n),
             nbands='150%',
             occupations=FermiDirac(width=0.01),
-            poissonsolver=PoissonSolver(nn='M', relax='J'),
+            poissonsolver=PoissonSolver('fd', nn='M', relax='J'),
             kpts=(2, 2, 2),
             convergence={'energy': 1e-7}
             )
@@ -42,8 +42,8 @@ print(de)
 assert abs(de[0] - -2.190) < 0.001
 
 print((e1, f1, niter1))
-energy_tolerance = 0.00025
-force_tolerance = 0.0001
+energy_tolerance = 0.0025
+force_tolerance = 0.01
 niter_tolerance = 0
-equal(e1, -46.6596470348, energy_tolerance)  # svnversion 5252
+equal(e1, -46.6628, energy_tolerance)  # svnversion 5252
 equal(f1, -1.38242356123, force_tolerance)  # svnversion 5252

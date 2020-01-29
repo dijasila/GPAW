@@ -1,3 +1,4 @@
+# Creates: graphene_eps.png
 import matplotlib.pyplot as plt
 import numpy as np
 from ase import Atoms
@@ -77,4 +78,3 @@ if world.rank == 0:
     plt.legend()
     plt.tight_layout()
     plt.savefig('graphene_eps.png', dpi=600)
-    plt.show()

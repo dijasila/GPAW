@@ -13,7 +13,7 @@ if 1:
     niter = calc.get_number_of_iterations()
     #calc.write("be.gpw")
 
-    energy_tolerance = 0.00001
+    energy_tolerance = 0.001
     niter_tolerance = 0
     equal(e, 0.00246471, energy_tolerance)
 

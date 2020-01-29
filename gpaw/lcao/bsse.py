@@ -6,19 +6,21 @@ except for an atomic basis set."""
 import numpy as np
 from ase.data import atomic_numbers
 
-from gpaw.setup import BaseSetup
+from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
 from gpaw.utilities import min_locfun_radius
 
 
-# Some splines are mandatory, but should then be zero to avoid affecting things
+# Some splines are mandatory,
+# but should then be zero to avoid affecting things
 zero_function = Spline(0, min_locfun_radius, [0.0, 0.0, 0.0])
 
 # Some operations fail horribly if the splines are zero, due to weird
 # divisions and assumptions that various quantities are nonzero
 #
 # We'll use a function which is almost zero for these things
-nonzero_function = Spline(0, min_locfun_radius, [0.0, 1.0e-12, 0.0]) # XXX
+nonzero_function = Spline(0, min_locfun_radius, [0.0, 1.0e-12, 0.0])  # XXX
+
 
 class GhostSetup(BaseSetup):
     def __init__(self, basis, data):
@@ -42,12 +44,12 @@ class GhostSetup(BaseSetup):
         self.wg_lg = None
         self.g_lg = None
 
-        self.Nct = 1e-12 # XXX XXX XXX XXX
-        self.nct = nonzero_function # XXXXXX
+        self.Nct = 1e-12  # XXX XXX XXX XXX
+        self.nct = nonzero_function  # XXXXXX
         self.lmax = 0
         self.xc_correction = None
-        self.ghat_l = [nonzero_function] * (self.lmax + 1) # XXXXXX
-        self.rcgauss = 1e12 # XXX XXX XXX XXX
+        self.ghat_l = [nonzero_function] * (self.lmax + 1)  # XXXXXX
+        self.rcgauss = 1e12  # XXX XXX XXX XXX
         self.vbar = zero_function
 
         self.Delta0 = 0.0
@@ -67,7 +69,7 @@ class GhostSetup(BaseSetup):
         self.l_j = [0]
         self.l_orb_j = [0]
         self.nj = 1
-        self.lq = None # XXXX
+        self.lq = None  # XXXX
 
         self.rcutfilter = None
         self.rcore = None
@@ -83,10 +85,15 @@ class GhostSetup(BaseSetup):
         self.B_ii = None
         self.dC_ii = None
         self.X_p = None
+        self.X_pg = None
         self.ExxC = None
+        self.X_gamma = None
         self.dEH0 = 0.0
         self.dEH_p = np.zeros(1)
         self.extra_xc_data = {}
+        self.local_corr = LocalCorrectionVar(None)
+        self._Mg_pp = None
+        self._gamma = None
 
 
 class GhostSetupData:

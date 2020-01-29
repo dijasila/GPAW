@@ -1,3 +1,4 @@
+# Creates: ind_1.12.png, ind_2.48.png
 # -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,6 +43,7 @@ def do(freq):
     plt.title('Induced density of Na8 at %.2f eV' % freq)
     plt.tight_layout()
     plt.savefig('ind_%.2f.png' % freq)
+
 
 do(1.12)
 do(2.48)

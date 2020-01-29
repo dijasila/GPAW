@@ -2,7 +2,7 @@ import os
 
 
 class CLICommand:
-    short_description = 'Manipulate/show content of GPAW-restart file'
+    """Manipulate/show content of GPAW-restart file."""
 
     @staticmethod
     def add_arguments(parser):

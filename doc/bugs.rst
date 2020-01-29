@@ -33,9 +33,7 @@ Known bugs
 ----------
 
 * `A list of known bugs`_.
-* `Very old bugs`_.
 
 
 .. _A list of known bugs:
 .. _issue tracker: https://gitlab.com/gpaw/gpaw/issues
-.. _Very old bugs: http://trac.fysik.dtu.dk/projects/gpaw/report/1

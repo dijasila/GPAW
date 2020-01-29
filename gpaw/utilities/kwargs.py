@@ -1,7 +1,7 @@
 from __future__ import print_function
 import os
 import sys
-    
+
 from optparse import OptionParser, OptionGroup
 from gpaw.parameters import InputParameters
 from gpaw.poisson import PoissonSolver
@@ -21,6 +21,7 @@ __all__ = ['PoissonSolver',
            'CG',
            'Davidson',
            'DirectLCAO']
+
 
 def build_parser():
     usage = '%prog [OPTIONS] [FILE...]'
@@ -86,7 +87,7 @@ def main(argv):
 
     if opts.update is not None and opts.output is not None:
         parser.error('Cannot both update and write to new file.')
-    
+
     if opts.update:
         if not os.path.isfile(opts.update):
             parser.error('No such file %s' % opts.update)
@@ -96,11 +97,11 @@ def main(argv):
         outfilename = opts.output
     else:
         outfilename = None
-    
+
     parameters = {}
     if opts.complete:
         parameters.update(defaults)
-    
+
     for arg in args:
         loaded_parameters = load(arg)
         parameters.update(loaded_parameters)
@@ -111,13 +112,12 @@ def main(argv):
         # We can probably avoid this somehow, think about it in the future
         # (can one have different call formats like e.g. the 'du' man-page,
         # and somehow detect which one is relevant?)
-        #parser2 = build_parser()
-        #populate_parser(parser2, loaded_parameters)
-        #opts, args2 = parser2.parse_args(argv)
-    
+        # parser2 = build_parser()
+        # populate_parser(parser2, loaded_parameters)
+        # opts, args2 = parser2.parse_args(argv)
+
     cli_args = vars(opts)
     cli_parameters = {}
-    keys = defaults.keys()
     for key in defaults:
         obj = eval(cli_args[key])
         if defaults[key] != obj:
@@ -127,14 +127,14 @@ def main(argv):
     # Remove keys which are not changed from defaults
     if not opts.complete:
         # must call keys() since dict cannot change size during iteration
-        for key in parameters.keys(): 
+        for key in parameters.keys():
             if defaults[key] == parameters[key]:
                 del parameters[key]
 
     if opts.pop:
         for kwarg in opts.pop.split(','):
             parameters.pop(kwarg)
-    
+
     if outfilename is None:
         out = sys.stdout
     else:

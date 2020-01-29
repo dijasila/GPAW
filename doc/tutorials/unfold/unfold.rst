@@ -27,7 +27,7 @@ matrix.
 As a general convention, capital and lower caseletters indicate quantities in
 the SC and PC respectively.
 A similar relation holds in reciprocal space:
- 
+
  .. math::
     \underline{\vec{B}} = \underline{M}^{-1}\cdot\underline{\vec{b}},
 
@@ -49,7 +49,7 @@ Such a spectral function can be calculated as follow:
   .. math::
     A(\vec{k},\epsilon) =
     \sum_m P_{\vec{K}m}(\vec{k}) \delta(\epsilon_{\vec{K}m}-\epsilon).
- 
+
 Remember that `\vec{k}` and `\vec{K}` are related to each other and this is why
 we made `\vec{K}` appear on the RHS.
 In the previous equation, `P_{\vec{K}m}(\vec{k})` are the weights defined by:
@@ -106,9 +106,9 @@ spectral function, we define the transformation matrix M, and find the
 corresponding `\vec{K}` in the SBZ.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 1-17
+    :lines: 1-16
 
-    
+
 Non self-consistent calculation at the `\vec{K}` points
 -------------------------------------------------------
 
@@ -116,8 +116,8 @@ Once we have the relevant `\vec{K}` we have to calculate eigenvalues and
 eigenvectors; we can do that non self-consistently.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 19-27
-    
+    :lines: 18-26
+
 
 Unfolding the bands and calculating Spectral Function
 -----------------------------------------------------
@@ -126,18 +126,18 @@ We are now ready to proceed with the unfolding. First we set up the
 :class:`Unfold` object.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 29-32
+    :lines: 28-31
 
 and then we call the function for calculating the spectral function.
 
 .. literalinclude:: unfold_3x3_defect.py
-    :lines: 34-35
+    :lines: 33-34
 
 This can be run in parallel over kpoints, and you may want to do that since the
 supercell is relatively big.
 
 .. note::
-    
+
     The function produces two outputs, 'weights_3x3_defects.pckl' containing
     the eigenvalues `\epsilon_{\vec{K}m}` and the weights
     `P_{\vec{K}m}(\vec{k})` and 'sf_3x3_defects.pckl' which contains the

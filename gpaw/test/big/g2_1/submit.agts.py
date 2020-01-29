@@ -1,5 +1,6 @@
-def agts(queue):
-    # generate = queue.add('generate.py', ncpus=1, walltime=20)
-    G = [queue.add('g21gpaw.py %d' % i, walltime=40 * 60)
-         for i in range(4)]
-    queue.add('analyse.py', deps=G)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [task('g21gpaw.py@1:20h'),
+            task('analyse.py', deps='g21gpaw.py')]

@@ -107,6 +107,8 @@ for calculating many properties during the propagation.
 See :ref:`analysis` for tutorial how to extend the analysis capabilities.
 
 
+.. _note basis sets:
+
 General notes about basis sets
 ==============================
 
@@ -177,23 +179,31 @@ benchmark their suitability for your application**.
 Parallelization
 ===============
 
-LCAO-TDDFT is parallelized using ScaLAPACK. It runs without ScaLAPACK,
-but in this case only a single core is used for linear alrebra.
+For maximum performance on large systems, it is advicable to use
+ScaLAPACK and large band parallelization with ``augment_grids`` enabled.
+This can be achieved with parallelization settings like
+``parallel={'sl_auto': True, 'domain': 8, 'augment_grids': True}``
+(see :ref:`manual_parallel`),
+which will use groups of 8 tasks for domain parallelization and the rest for
+band parallelization (for example, with a total of 144 cores this would mean
+domain and band parallelizations of 8 and 18, respectively).
 
-* Use ``parallel={'sl_default':(N, M, 64)}``;  See :ref:`manual_parallel`.
-* It is necessary that N*M equals the total number of cores used
-  by the calculator, and ``max(N,M)*64 < nbands``, where ``64`` is the used
-  block size. The block size can be changed to, e.g., 16 if necessary.
-* Apart from parallelization of linear algrebra, normal domain and
-  band parallelizations can be used. As in ground-state LCAO calculations,
-  use band parallelization to reduce memory consumption.
+Instead of ``sl_auto``, the ScaLAPACK settings can be set by hand
+as ``sl_default=(m, n, block)`` (see :ref:`manual_ScaLAPACK`,
+in which case it is important that ``m * n``` equals
+the total number of cores used by the calculator
+and that ``max(m, n) * block < nbands``.
+
+It is also possible to run the code without ScaLAPACK, but it is
+very inefficient for large systems as in that case only a single core
+is used for linear algebra.
 
 
 .. TODO
 
     Timing
     ======
-    
+
     Add ``ParallelTimer`` example
 
 
@@ -210,32 +220,32 @@ as a separate observers in the general time-propagation framework.
 
 There are two ways to perform analysis:
    1. Perform analysis on-the-fly during the propagation::
-  
-         # Read starting point 
+
+         # Read starting point
          td_calc = LCAOTDDFT('gs.gpw')
-   
+
          # Attach analysis tools
          MyObserver(td_calc, ...)
-   
+
          # Kick and propagate
          td_calc.absorption_kick([1e-5, 0., 0.])
          td_calc.propagate(10, 3000)
-   
+
       For example, the analysis tools can be ``DipoleMomentWriter`` observer
       for spectrum or Fourier transform of density at specific frequencies etc.
-   
+
    2. Record the wave functions during the first propagation and
       perform the analysis later by replaying the propagation::
-   
-         # Read starting point 
+
+         # Read starting point
          td_calc = LCAOTDDFT('gs.gpw')
-   
+
          # Attach analysis tools
          MyObserver(td_calc, ...)
-   
+
          # Replay propagation from a stored file
-         td_calc.replay(name='wfw.ulm', update='all')
-   
+         td_calc.replay(name='wf.ulm', update='all')
+
       From the perspective of the attached observers the replaying
       is identical to actual propagation.
 
@@ -275,7 +285,7 @@ with ``WaveFunctionWriter`` observer:
 
    .. literalinclude:: lcaotddft_Na8/tdc.py
 
-The created ``wfw.ulm`` file contains the time-dependent wave functions
+The created ``wf.ulm`` file contains the time-dependent wave functions
 `C_{\mu n}(t)` that define the state of the system at each time.
 We can use the file to replay the time propagation:
 
@@ -290,6 +300,18 @@ The ``update`` keyword in ``replay()`` has following options:
 ``'density'``   density
 ``'none'``      nothing
 ==============  ===============================
+
+.. tip::
+
+   The wave functions can be written in separate files
+   by using ``split=True``::
+
+      WaveFunctionWriter(td_calc, 'wf.ulm', split=True)
+
+   This creates additional ``wf*.ulm`` files containing the wave functions.
+   The replay functionality works as in the above example
+   even with splitted files.
+
 
 
 Kohn--Sham decomposition of density matrix
@@ -382,48 +404,89 @@ Advanced tutorials
 Plasmon resonance of silver cluster
 -----------------------------------
 
-One should think about what type of transitions of interest are present,
-and make sure that the basis set can represent such Kohn-Sham electron and
-hole wave functions. The first transitions in silver clusters will be
-`5s \rightarrow 5p` like. We require 5p orbitals in the basis set, and thus,
-we must generate a custom basis set.
+In this tutorial, we demonstrate the use of
+:ref:`efficient parallelization settings <parallelization>` and
+calculate the photoabsorption spectrum of
+:download:`an icosahedral Ag55 cluster <lcaotddft_Ag55/Ag55.xyz>`.
+We use GLLB-SC potential to significantly improve the description of d states,
+:ref:`pvalence basis sets` to improve the description of unoccupied states, and
+11-electron Ag setup to reduce computational cost.
 
-Here is how to generate a double-zeta basis set with 5p orbital in valence
-for silver for GLLB-SC potential. Note that the extra 5p valence state
-effectively improves on the ordinary polarization function, so this basis set
-is **better** than the default double-zeta polarized one.
-We will use the 11-electron Ag setup, since the semi-core p states included
-in the default setup are not relevant here.
+**When calculating other systems, remember to check the convergence
+with respect to the used basis sets.**
+Recall :ref:`hints here <note basis sets>`.
 
-.. literalinclude:: lcaotddft_basis.py
+The workflow is the same as in the previous examples.
+First, we calculate ground state (takes around 20 minutes with 36 cores):
 
-We calculate the icosahedral Ag55 cluster: :download:`ag55.xyz`
+.. literalinclude:: lcaotddft_Ag55/gs.py
 
-This code uses ScaLAPACK parallelization with 48 cores.
+Then, we carry the time propagation for 30 femtoseconds in steps of
+10 attoseconds (takes around 3.5 hours with 36 cores):
 
-.. literalinclude:: lcaotddft_ag55.py
+.. literalinclude:: lcaotddft_Ag55/td.py
 
-Code runs for approximately two hours wall-clock time.
-The resulting spectrum shows already emerging plasmonic excitation
-around 4 eV.
-For more details, see [#Kuisma2015]_.
+Finally, we calculate the spectrum (takes a few seconds):
 
-.. image:: fig1.png
+.. literalinclude:: lcaotddft_Ag55/spec.py
+
+The resulting spectrum shows an emerging plasmon resonance at around 4 eV:
+
+.. image:: lcaotddft_Ag55/Ag55_spec.png
+
+For further insight on plasmon resonance in metal nanoparticles,
+see [#Kuisma2015]_ and [#Rossi2017]_.
+
+
+User-generated basis sets
+-------------------------
+
+The :ref:`pvalence basis sets` distributed with GPAW and used in
+the above tutorial have been generated from atomic PBE orbitals.
+Similar basis sets can be generated based on atomic GLLB-SC orbitals:
+
+.. literalinclude:: lcaotddft_Ag55/mybasis/basis.py
+
+The Ag55 cluster can be calculated as in the above tutorial, once
+the input scripts have been modified to use
+the generated setup and basis set.
+Changes to the ground-state script:
+
+.. literalinclude:: lcaotddft_Ag55/mybasis/gs.py
+   :diff: lcaotddft_Ag55/gs.py
+
+Changes to the time-propagation script:
+
+.. literalinclude:: lcaotddft_Ag55/mybasis/td.py
+   :diff: lcaotddft_Ag55/td.py
+
+The calculation with this generated "my" p-valence basis set results only in
+small differences in the spectrum in comparison to
+the distributed :ref:`pvalence basis sets`:
+
+.. image:: lcaotddft_Ag55/Ag55_spec_basis.png
+
+The spectrum with the default dzp basis sets is also shown for reference,
+resulting in unconverged spectrum due to the lack of diffuse functions.
+**This demonstrates the importance of checking convergence
+with respect to the used basis sets.**
+Recall :ref:`hints here <note basis sets>` and
+see [#Kuisma2015]_ and [#Rossi2015]_ for further discussion on the basis sets.
 
 .. TODO
 
    Large organic molecule
    ----------------------
-   
+
    On large organic molecules, on large conjugated systems, there will `\pi \rightarrow \pi^*`,
    `\sigma \rightarrow \sigma^*`. These states consist of only
    the valence orbitals of carbon, and they are likely by quite similar few eV's
    below and above the fermi lavel. These are thus a reason to believe that these
    states are well described with hydrogen 1s and carbon 2s and 2p valence orbitals
    around the fermi level.
-   
+
    Here, we will calculate a small and a large organic molecule with lcao-tddft.
-   
+
 
 References
 ==========

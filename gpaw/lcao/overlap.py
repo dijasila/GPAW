@@ -659,9 +659,6 @@ class DerivativeAtomicDisplacement(AtomicDisplacement):
         else:
             self.Rhat_c = np.zeros(3)
 
-    def evaluate_derivative(self, oe, dst_xqmm):
-        oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
-
     def derivative_without_phases(self, oe):
         return oe.derivative(self.r, self.Rhat_c, self.rlY_lm, self.drlYdr_lmc)
 

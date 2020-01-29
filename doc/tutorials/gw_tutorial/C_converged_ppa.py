@@ -14,6 +14,7 @@ atoms = bulk('C', 'diamond', a=a)
 k = 8
 
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            parallel={'domain': 1},
             kpts={'size': (k, k, k), 'gamma': True},
             dtype=complex,
             xc='LDA',

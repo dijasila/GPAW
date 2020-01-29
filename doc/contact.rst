@@ -37,11 +37,6 @@ Finally, to save time, state your complete question immediately
 instead of asking whether someone might be able to answer a question
 related to some topic.
 
-Logs from the IRC channel:
-
-* irc-logs_
-
-
 GitLab
 ======
 
@@ -59,7 +54,6 @@ These lists are inactive and serve as an archives only:
 
 
 .. _webclient: http://webchat.freenode.net/?randomnick=0&channels=gpaw
-.. _irc-logs: http://dcwww.fys.dtu.dk/~jensj/gpaw-stuff
 .. _gpaw-developers: https://listserv.fysik.dtu.dk/mailman/listinfo/
                      gpaw-developers
 .. _gpaw-svncheckins: https://listserv.fysik.dtu.dk/mailman/listinfo/

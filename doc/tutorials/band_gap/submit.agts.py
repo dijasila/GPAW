@@ -1,2 +1,6 @@
-def agts(queue):
-    queue.add('gllbsc_band_gap.py', ncpus=1, walltime=30)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('gllbsc_band_gap.py@1:30m')]

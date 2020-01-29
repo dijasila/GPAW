@@ -6,8 +6,8 @@ LCAO Mode
 
 .. highlight:: bash
 
-
-GPAW supports an alternative mode of calculation, :dfn:`LCAO mode`,
+GPAW supports an alternative mode of calculation,
+:dfn:`LCAO mode` [LCAO_article]_,
 which will use a basis set of atomic orbital-like functions rather
 than grid-based wave functions.  This makes calculations considerably
 cheaper, although the accuracy will be limited by the quality of the
@@ -96,6 +96,11 @@ should be set in the calculator::
 The calculator can then be used in the usual way.  The ``basis``
 keyword accepts the same types of values as the ``setups`` keyword,
 such as ``basis={'H' : 'dzp', 'O' : 'mine', 'C' : 'szp'}``.
+
+For larger systems, to get good performance, be sure to enable ScaLAPACK
+to parallelize the cubic-scaling diagonalization step and distribute
+many matrices.  If possible, install and enable Elpa [Elpa]_ to further save
+time.  See the :ref:` parallel keyword <manual_parallel>`.
 
 
 Example
@@ -194,7 +199,8 @@ atoms are ghosts::
 Notes on performance
 --------------------
 
-For larger LCAO calculations, it is crucial to use ScaLAPACK.
+For larger LCAO calculations, it is crucial to use ScaLAPACK
+and recommended to also use Elpa.
 See the dedicated section on :ref:`manual_ScaLAPACK` for more information.
 Below are some hints on how to obtain good performance for operations not
 related to ScaLAPACK.
@@ -207,7 +213,21 @@ take a larger percentage of the CPU time compared to FD mode, where
 operations on the wave functions usually dominate.  Thus it makes
 sense to pay some attention to the performance of these operations.
 
-The multigrid method used in the Poisson solver relies on alternating
+This example shows the
+:ref:`most important parameters <manual_parallel>` to achieve
+good performance with LCAO.  The example is actually much too small
+to make much use of parallelism, but these parameters will provide good
+performance for large-scale systems.
+
+.. literalinclude:: lcao_opt.py
+
+.. note::
+
+   The following paragraph refers to the old ``FDPoissonSolver``.  This
+   has since been replaced by ``FastPoissonSolver`` which always performs
+   well, and for which the paragraph does not apply.
+
+The multigrid method used in the FD Poisson solver relies on alternating
 interpolations and restrictions of the density on grids of different
 sizes.  Make sure that the grid point count along each axis is
 divisible by 8, by specifying e.g. ``gpts=(96, 96, 96)`` when creating
@@ -215,22 +235,11 @@ the calculator -- this will *dramatically* reduce the number of
 required Poisson iterations in large or very oblong systems in those
 cases where the code would otherwise have chosen a grid point count
 not divisible by 8.
-
-By default, the Poisson solver uses the *Jacobi method*.  To increase
+By default, the FD Poisson solver uses the *Jacobi method*.  To increase
 performance further use the *Gauss-Seidel* method instead, which
 usually reduces the Poisson iteration count by around 40% (ideally
-50%).
-
-The convergence criterion of the Poisson solver in FD mode,
-``eps=2e-10``, is very strict.  A value of around ``eps=1e-7`` can
-reduce the required Poisson iteration count considerably without
-increasing the required number of SCF steps.  Larger values like
-``eps=1e-5`` tend to increase the number of SCF steps, possibly making
-the calculation take longer.
-
-Example:
-
-.. literalinclude:: lcao_opt.py
+50%).  Again, please note that none of the above applies to the
+``FastPoissonSolver`` which is now default.
 
 Advanced basis generation
 -------------------------
@@ -264,10 +273,14 @@ does not in any other way affect the subsequent iterations::
 In either mode, if a basis is not specified to the calculator, the
 calculator will use the pseudo partial waves `\tilde \phi_i^a(\mathbf
 r)`, smoothly truncated to 8 Bohr radii, as a basis.  This corresponds
-to a single-zeta basis in most cases.  Depending on the unoccupied
+roughly to a single-zeta basis in most cases.  Depending on the unoccupied
 states defined on the PAW setups, it may be roughly equivalent to a
 single-zeta polarized basis set for certain elements.
 
+.. [LCAO_article] A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen,
+  and K. W. Jacobsen, Phys. Rev. B 80, 195112 (2009)
 
 .. [Siesta] J.M. Soler et al.,
    J. Phys. Cond. Matter 14, 2745-2779 (2002)
+
+.. [Elpa]  A Marek et al., J. Phys.: Condens. Matter 26 213201 (2014)

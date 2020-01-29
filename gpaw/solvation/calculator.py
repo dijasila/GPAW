@@ -50,6 +50,8 @@ class SolvationGPAW(GPAW):
 
         self.log(self.hamiltonian)
 
+        xc.set_grid_descriptor(self.hamiltonian.finegd)
+
     def initialize_positions(self, atoms=None):
         spos_ac = GPAW.initialize_positions(self, atoms)
         self.hamiltonian.update_atoms(self.atoms, self.log)

@@ -35,7 +35,7 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
-	python -m ase.utils.sphinx clean
+	python3 -m ase.utils.sphinx clean
 
 linkcheck:
 	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck

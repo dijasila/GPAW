@@ -5,23 +5,28 @@ import warnings
 from math import pi
 
 import numpy as np
-from numpy.fft import fftn, ifftn, fft2, ifft2
+from numpy.fft import fftn, ifftn, fft2, ifft2, rfft2, irfft2, fft, ifft
+from scipy.fftpack import dst as scipydst
+
 
 from gpaw import PoissonConvergenceError
-from gpaw.dipole_correction import DipoleCorrection
+from gpaw.dipole_correction import DipoleCorrection, dipole_correction
+from gpaw.domain import decompose_domain
 from gpaw.fd_operators import Laplace, LaplaceA, LaplaceB
 from gpaw.transformers import Transformer
 from gpaw.utilities.blas import axpy
 from gpaw.utilities.gauss import Gaussian
+from gpaw.utilities.grid import grid2grid
 from gpaw.utilities.ewald import madelung
-from gpaw.utilities.grid_redistribute import AlignedGridRedistributor
 from gpaw.utilities.tools import construct_reciprocal
+from gpaw.utilities.timing import NullTimer
 import _gpaw
 
+POISSON_GRID_WARNING = """Grid unsuitable for FDPoissonSolver!
 
-POISSON_GRID_WARNING = """Grid unsuitable for Poisson solver!
+Consider using FastPoissonSolver instead.
 
-The Poisson solver does not have sufficient multigrid levels for good
+The FDPoissonSolver does not have sufficient multigrid levels for good
 performance and will converge inefficiently if at all, or yield wrong
 results.
 
@@ -41,7 +46,7 @@ number of multigrid levels even if the total number of grid points
 is divisible by a high power of 2."""
 
 
-def create_poisson_solver(name='fd', **kwargs):
+def create_poisson_solver(name='fast', **kwargs):
     if isinstance(name, _PoissonSolver):
         return name
     elif isinstance(name, dict):
@@ -53,17 +58,28 @@ def create_poisson_solver(name='fd', **kwargs):
         from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
         return FDTDPoissonSolver(**kwargs)
     elif name == 'fd':
-        return PoissonSolver(**kwargs)
+        return FDPoissonSolverWrapper(**kwargs)
+    elif name == 'fast':
+        return FastPoissonSolver(**kwargs)
     elif name == 'ExtraVacuumPoissonSolver':
         from gpaw.poisson_extravacuum import ExtraVacuumPoissonSolver
         return ExtraVacuumPoissonSolver(**kwargs)
+    elif name == 'nointeraction':
+        return NoInteractionPoissonSolver()
     else:
         raise ValueError('Unknown poisson solver: %s' % name)
 
 
-def PoissonSolver(dipolelayer=None, **kwargs):
+def PoissonSolver(name='fast', dipolelayer=None, **kwargs):
+    p = create_poisson_solver(name=name, **kwargs)
     if dipolelayer is not None:
-        return DipoleCorrection(PoissonSolver(**kwargs), dipolelayer)
+        p = DipoleCorrection(p, dipolelayer)
+    return p
+
+
+def FDPoissonSolverWrapper(dipolelayer=None, **kwargs):
+    if dipolelayer is not None:
+        return DipoleCorrection(FDPoissonSolver(**kwargs), dipolelayer)
     return FDPoissonSolver(**kwargs)
 
 
@@ -92,11 +108,16 @@ class _PoissonSolver(object):
 
 
 class BasePoissonSolver(_PoissonSolver):
-    def __init__(self, eps=None, remove_moment=None, use_charge_center=False):
+    def __init__(self, eps=None, remove_moment=None, use_charge_center=False,
+                 metallic_electrodes=False):
+        # metallic electrodes: mirror image method to allow calculation of
+        # charged, partly periodic systems
         self.gd = None
         self.remove_moment = remove_moment
         self.use_charge_center = use_charge_center
         self.eps = eps
+        self.metallic_electrodes = metallic_electrodes
+        assert self.metallic_electrodes in [False, None, 'single', 'both']
 
     def todict(self):
         d = {'name': 'basepoisson'}
@@ -106,6 +127,9 @@ class BasePoissonSolver(_PoissonSolver):
             d['remove_moment'] = self.remove_moment
         if self.use_charge_center:
             d['use_charge_center'] = self.use_charge_center
+        if self.metallic_electrodes:
+            d['metallic_electrodes'] = self.metallic_electrodes
+
         return d
 
     def get_description(self):
@@ -122,7 +146,7 @@ class BasePoissonSolver(_PoissonSolver):
         return '\n'.join(lines)
 
     def solve(self, phi, rho, charge=None, eps=None, maxcharge=1e-6,
-              zero_initial_phi=False):
+              zero_initial_phi=False, timer=NullTimer()):
         self._init()
         assert np.all(phi.shape == self.gd.n_c)
         assert np.all(rho.shape == self.gd.n_c)
@@ -145,7 +169,7 @@ class BasePoissonSolver(_PoissonSolver):
             for phi_cor in phi_cor_L:
                 phi -= phi_cor
 
-            niter = self.solve_neutral(phi, rho_neutral, eps=eps)
+            niter = self.solve_neutral(phi, rho_neutral, eps=eps, timer=timer)
             # correct error introduced by removing multipoles
             for phi_cor in phi_cor_L:
                 phi += phi_cor
@@ -154,8 +178,8 @@ class BasePoissonSolver(_PoissonSolver):
         if charge is None:
             charge = actual_charge
         if abs(charge) <= maxcharge:
-            # System is charge neutral. Use standard solver
-            return self.solve_neutral(phi, rho - background, eps=eps)
+            return self.solve_neutral(phi, rho - background, eps=eps,
+                                      timer=timer)
 
         elif abs(charge) > maxcharge and self.gd.pbc_c.all():
             # System is charged and periodic. Subtract a homogeneous
@@ -165,7 +189,8 @@ class BasePoissonSolver(_PoissonSolver):
             if zero_initial_phi:
                 phi[:] = 0.0
 
-            iters = self.solve_neutral(phi, rho - background, eps=eps)
+            iters = self.solve_neutral(phi, rho - background, eps=eps,
+                                       timer=timer)
             return iters
 
         elif abs(charge) > maxcharge and not self.gd.pbc_c.any():
@@ -213,7 +238,7 @@ class BasePoissonSolver(_PoissonSolver):
                 axpy(-q, self.phi_gauss, phi)  # phi -= q * self.phi_gauss
 
             # Determine potential from neutral density using standard solver
-            niter = self.solve_neutral(phi, rho_neutral, eps=eps)
+            niter = self.solve_neutral(phi, rho_neutral, eps=eps, timer=timer)
 
             # correct error introduced by removing monopole
             axpy(q, self.phi_gauss, phi)  # phi += q * self.phi_gauss
@@ -221,9 +246,34 @@ class BasePoissonSolver(_PoissonSolver):
             return niter
         else:
             # System is charged with mixed boundaryconditions
-            msg = ('Charged systems with mixed periodic/zero'
-                   ' boundary conditions')
-            raise NotImplementedError(msg)
+            if self.metallic_electrodes == 'single':
+                self.c = 2
+                origin_c = [0, 0, 0]
+                origin_c[self.c] = self.gd.N_c[self.c]
+                drhot_g, dvHt_g, self.correction = dipole_correction(
+                    self.c,
+                    self.gd,
+                    rho,
+                    origin_c=origin_c)
+                # self.correction *=-1.
+                phi -= dvHt_g
+                iters = self.solve_neutral(phi, rho + drhot_g, eps=eps,
+                                           timer=timer)
+                phi += dvHt_g
+                phi -= self.correction
+                self.correction = 0.0
+
+                return iters
+
+            elif self.metallic_electrodes == 'both':
+                iters = self.solve_neutral(phi, rho, eps=eps, timer=timer)
+                return iters
+
+            else:
+                # System is charged with mixed boundaryconditions
+                msg = ('Charged systems with mixed periodic/zero'
+                       ' boundary conditions')
+                raise NotImplementedError(msg)
 
     def load_gauss(self, center=None):
         if not hasattr(self, 'rho_gauss') or center is not None:
@@ -234,11 +284,13 @@ class BasePoissonSolver(_PoissonSolver):
 
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
-                 remove_moment=None, use_charge_center=False):
+                 remove_moment=None, use_charge_center=False,
+                 metallic_electrodes=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
-            use_charge_center=use_charge_center)
+            use_charge_center=use_charge_center,
+            metallic_electrodes=metallic_electrodes)
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None
@@ -338,7 +390,6 @@ class FDPoissonSolver(BasePoissonSolver):
             del self.rho_gauss
             del self.phi_gauss
 
-
     def get_description(self):
         name = {1: 'Gauss-Seidel', 2: 'Jacobi'}[self.relax_method]
         coarsest_grid = self.operators[-1].gd.N_c
@@ -380,7 +431,7 @@ class FDPoissonSolver(BasePoissonSolver):
         self.postsmooths[level] = 8
         self._initialized = True
 
-    def solve_neutral(self, phi, rho, eps=2e-10):
+    def solve_neutral(self, phi, rho, eps=2e-10, timer=None):
         self._init()
         self.phis[0] = phi
 
@@ -472,7 +523,7 @@ class NoInteractionPoissonSolver(_PoissonSolver):
     def get_stencil(self):
         return 1
 
-    def solve(self, phi, rho, charge):
+    def solve(self, phi, rho, charge, timer=None):
         return 0
 
     def set_grid_descriptor(self, gd):
@@ -487,7 +538,6 @@ class NoInteractionPoissonSolver(_PoissonSolver):
 
 class FFTPoissonSolver(BasePoissonSolver):
     """FFT Poisson solver for general unit cells."""
-    # XXX it is criminally outrageous that this inherits from PoissonSolver!
 
     relax_method = 0
     nn = 999
@@ -506,36 +556,52 @@ class FFTPoissonSolver(BasePoissonSolver):
         # We will probably want to use this on non-periodic grids too...
         assert gd.pbc_c.all()
         self.gd = gd
-        self.transp_x_yz_1 = AlignedGridRedistributor(self.gd, 1, 2)
-        self.transp_1_yz_x = AlignedGridRedistributor(self.transp_x_yz_1.gd2,
-                                                      2, 0)
-        self.transp_yz_1_x = AlignedGridRedistributor(self.transp_1_yz_x.gd2,
-                                                      0, 1)
+
+        self.grids = [gd]
+        for c in range(3):
+            N_c = gd.N_c.copy()
+            N_c[c] = 1  # Will be serial in that direction
+            parsize_c = decompose_domain(N_c, gd.comm.size)
+            self.grids.append(gd.new_descriptor(parsize_c=parsize_c))
 
     def _init(self):
         if self._initialized:
             return
-        gd = self.transp_yz_1_x.gd2
-        k2_Q, N3 = construct_reciprocal(gd, distributed=True)
+
+        gd = self.grids[-1]
+        k2_Q, N3 = construct_reciprocal(gd)
         self.poisson_factor_Q = 4.0 * np.pi / k2_Q
         self._initialized = True
 
-    def solve_neutral(self, phi_g, rho_g, eps=None):
+    def solve_neutral(self, phi_g, rho_g, eps=None, timer=None):
         self._init()
         # Will be a bit more efficient if reduced dimension is always
         # contiguous.  Probably more things can be improved...
-        work = fftn(self.transp_x_yz_1.forth(rho_g), axes=[2])
-        work = fftn(self.transp_1_yz_x.forth(work), axes=[0])
-        work = fftn(self.transp_yz_1_x.forth(work), axes=[1])
-        work *= self.poisson_factor_Q
-        work = self.transp_yz_1_x.back(ifftn(work, axes=[1]))
-        work = self.transp_1_yz_x.back(ifftn(work, axes=[0]))
-        work = self.transp_x_yz_1.back(ifftn(work, axes=[2]).real)
-        phi_g[:] = work
+
+        gd1 = self.gd
+        work1_g = rho_g
+
+        for c in range(3):
+            gd2 = self.grids[c + 1]
+            work2_g = gd2.empty(dtype=work1_g.dtype)
+            grid2grid(gd1.comm, gd1, gd2, work1_g, work2_g)
+            work1_g = fftn(work2_g, axes=[c])
+            gd1 = gd2
+
+        work1_g *= self.poisson_factor_Q
+
+        for c in [2, 1, 0]:
+            gd2 = self.grids[c]
+            work2_g = ifftn(work1_g, axes=[c])
+            work1_g = gd2.empty(dtype=work2_g.dtype)
+            grid2grid(gd1.comm, gd1, gd2, work2_g, work1_g)
+            gd1 = gd2
+
+        phi_g[:] = work1_g.real
         return 1
 
     def estimate_memory(self, mem):
-        mem.subnode('k squared', self.transp_yz_1_x.gd2.bytecount())
+        mem.subnode('k squared', self.grids[-1].bytecount())
 
 
 class FixedBoundaryPoissonSolver(FDPoissonSolver):
@@ -612,7 +678,7 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
         self.comm_reshape = not (self.gd.parsize_c[0] == 1 and
                                  self.gd.parsize_c[1] == 1)
 
-    def solve(self, phi_g, rho_g, charge=None):
+    def solve(self, phi_g, rho_g, charge=None, timer=None):
         if charge is None:
             actual_charge = self.gd.integrate(rho_g)
         else:
@@ -689,7 +755,7 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
             global_phi_g = None
         return global_phi_g
 
-    def solve_neutral(self, phi_g, rho_g):
+    def solve_neutral(self, phi_g, rho_g, timer=None):
         # b_phi1 and b_phi2 are the boundary Hartree potential values
         # of left and right sides
 
@@ -739,3 +805,381 @@ class FixedBoundaryPoissonSolver(FDPoissonSolver):
             self.gd.distribute(global_phi_g, phi_g)
         else:
             phi_g[:] = phi_g3
+
+
+"""def rfst2(A_g, axes=[0,1]):
+    assert axes[0] == 0
+    assert axes[1] == 1
+    x,y,z = A_g.shape
+    temp_g = np.zeros((x*2+2, y*2+2, z))
+    temp_g[1:x+1, 1:y+1,:] = A_g
+    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
+    temp_g[1:x+1, y+2:,:] = -A_g[:, ::-1, :]
+    temp_g[x+2:, y+2:,:] = A_g[::-1, ::-1, :]
+    X = -4*rfft2(temp_g, axes=axes)
+    return X[1:x+1, 1:y+1, :].real
+
+def irfst2(A_g, axes=[0,1]):
+    assert axes[0] == 0
+    assert axes[1] == 1
+    x,y,z = A_g.shape
+    temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
+    temp_g[1:x+1, 1:y+1,:] = A_g
+    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :]
+    return -0.25*irfft2(temp_g, axes=axes)[1:x+1, 1:y+1, :].real
+"""
+
+
+use_scipy_transforms = True
+
+
+def rfst2(A_g, axes=[0, 1]):
+    all = set([0, 1, 2])
+    third = [all.difference(set(axes)).pop()]
+
+    if use_scipy_transforms:
+        Y = A_g
+        for axis in axes:
+            Y = scipydst(Y, axis=axis, type=1)
+        Y *= 2**len(axes)
+        return Y
+
+    A_g = np.transpose(A_g, axes + third)
+    x, y, z = A_g.shape
+    temp_g = np.zeros((x * 2 + 2, y * 2 + 2, z))
+    temp_g[1:x + 1, 1:y + 1, :] = A_g
+    temp_g[x + 2:, 1:y + 1, :] = -A_g[::-1, :, :]
+    temp_g[1:x + 1, y + 2:, :] = -A_g[:, ::-1, :]
+    temp_g[x + 2:, y + 2:, :] = A_g[::-1, ::-1, :]
+    X = -4 * rfft2(temp_g, axes=[0, 1])[1:x + 1, 1:y + 1, :].real
+    return np.transpose(X, np.argsort(axes + third))
+
+
+def irfst2(A_g, axes=[0,1]):
+    if use_scipy_transforms:
+        Y = A_g
+        for axis in axes:
+            Y = scipydst(Y, axis=axis, type=1)
+        magic = 1.0 / (16 * np.prod([A_g.shape[axis] + 1 for axis in axes]))
+        Y *= magic
+        #Y /= 211200
+        return Y
+
+    all = set([0,1,2])
+    third = [ all.difference(set(axes)).pop() ]
+    A_g = np.transpose(A_g, axes + third)
+    x,y,z = A_g.shape
+    temp_g = np.zeros((x*2+2, (y*2+2)//2+1, z))
+    temp_g[1:x+1, 1:y+1,:] = A_g.real
+    temp_g[x+2:, 1:y+1,:] = -A_g[::-1, :, :].real
+    X = -0.25*irfft2(temp_g, axes=[0,1])[1:x+1, 1:y+1, :]
+
+    T = np.transpose(X, np.argsort(axes + third))
+    return T
+
+
+# This method needs to be taken from fftw / scipy to gain speedup of ~4x
+def fst(A_g, axis):
+    x, y, z = A_g.shape
+    N_c = np.array([x, y, z])
+    N_c[axis] = N_c[axis]*2 + 2
+    temp_g = np.zeros(N_c, dtype=A_g.dtype)
+    if axis == 0:
+        temp_g[1:x+1, :,:] = A_g
+        temp_g[x+2:, :,:] = -A_g[::-1, :, :]
+    elif axis == 1:
+        temp_g[:, 1:y+1,:] = A_g
+        temp_g[:, y+2:, :] = -A_g[:, ::-1, :]
+    elif axis == 2:
+        temp_g[:, :, 1:z+1] = A_g
+        temp_g[:, :, z+2:] = -A_g[:, ::, ::-1]
+    else:
+        raise NotImplementedError()
+    X = 0.5j*fft(temp_g, axis=axis)
+    if axis == 0:
+        return X[1:x+1, :, :]
+    elif axis == 1:
+        return X[:, 1:y+1, :]
+    elif axis == 2:
+        return X[:, :, 1:z+1]
+
+def ifst(A_g, axis):
+    x, y, z = A_g.shape
+    N_c = np.array([x, y, z])
+    N_c[axis] = N_c[axis]*2 + 2
+    temp_g = np.zeros(N_c, dtype=A_g.dtype)
+
+    if axis == 0:
+        temp_g[1:x+1, :,:] = A_g
+        temp_g[x+2:, :,:] = -A_g[::-1, :, :]
+    elif axis == 1:
+        temp_g[:, 1:y+1,:] = A_g
+        temp_g[:, y+2:, :] = -A_g[:, ::-1, :]
+    elif axis == 2:
+        temp_g[:, :, 1:z+1] = A_g
+        temp_g[:, :, z+2:] = -A_g[:, ::, ::-1]
+    else:
+        raise NotImplementedError()
+
+    X_g = ifft(temp_g, axis=axis)
+    if axis == 0:
+        return -2j*X_g[1:x+1, :, :]
+    elif axis == 1:
+        return -2j*X_g[:, 1:y+1, :]
+    elif axis == 2:
+        return -2j*X_g[:, :, 1:z+1]
+
+
+def transform(A_g, axis=None, pbc=True):
+    if pbc:
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
+        return fft(A_g, axis=axis)
+    else:
+        if A_g.size == 0:
+            return A_g
+
+        if not use_scipy_transforms:
+            x = fst(A_g, axis)
+            return x
+        y = scipydst(A_g, axis=axis, type=1)
+        y *= .5
+        return y
+
+
+def transform2(A_g, axes=None, pbc=[True, True]):
+    if all(pbc):
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
+        return fft2(A_g, axes=axes)
+    elif not any(pbc):
+        if A_g.size == 0:
+            return A_g
+
+        return rfst2(A_g, axes=axes)
+    else:
+        return transform(transform(A_g, axis=axes[0], pbc=pbc[0]),
+                         axis=axes[1], pbc=pbc[1])
+
+
+def itransform(A_g, axis=None, pbc=True):
+    if pbc:
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
+        return ifft(A_g, axis=axis)
+    else:
+        if A_g.size == 0:
+            return A_g
+
+        if not use_scipy_transforms:
+            x = ifst(A_g, axis)
+            return x
+        y = scipydst(A_g, axis=axis, type=1)
+        magic = 1.0 / (A_g.shape[axis] + 1)
+        y *= magic
+        return y
+
+
+def itransform2(A_g, axes=None, pbc=[True, True]):
+    if all(pbc):
+        if A_g.size == 0:
+            return A_g.astype(complex)
+
+        return ifft2(A_g, axes=axes)
+    elif not any(pbc):
+        if A_g.size == 0:
+            return A_g
+
+        return irfst2(A_g, axes=axes)
+    else:
+        return itransform(itransform(A_g, axis=axes[0], pbc=pbc[0]),
+                          axis=axes[1], pbc=pbc[1])
+
+
+class BadAxesError(ValueError):
+    pass
+
+
+class FastPoissonSolver(BasePoissonSolver):
+    def __init__(self, nn=3,  **kwargs):
+        BasePoissonSolver.__init__(self, **kwargs)
+        self.nn = nn
+        # We may later enable this to work with Cholesky, but not now:
+        self.use_cholesky = False
+
+    def _init(self):
+        pass
+
+    def set_grid_descriptor(self, gd):
+        self.gd = gd
+        axes = np.arange(3)
+        pbc_c = np.array(gd.pbc_c, dtype=bool)
+        periodic_axes = axes[pbc_c]
+        non_periodic_axes = axes[np.logical_not(pbc_c)]
+
+        # Find out which axes are orthogonal (0, 1 or 3)
+        # Note that one expects that the axes are always rotated in
+        # conventional form, thus for all axes to be
+        # classified as orthogonal, the cell_cv needs to be diagonal.
+        # This may always be achieved by rotating
+        # the unit-cell along with the atoms. The classification is
+        # inherited from grid_descriptor.orthogonal.
+        dotprods = np.dot(gd.cell_cv, gd.cell_cv.T)
+        # For each direction, check whether there is only one nonzero
+        # element in that row (necessarily being the diagonal element,
+        # since this is a cell vector length and must be > 0).
+        orthogonal_c = (np.abs(dotprods) > 1e-10).sum(axis=0) == 1
+        assert sum(orthogonal_c) in [0, 1, 3]
+
+        non_orthogonal_axes = axes[np.logical_not(orthogonal_c)]
+
+        if not all(pbc_c | orthogonal_c):
+            raise BadAxesError('Each axis must be periodic or orthogonal '
+                               'to other axes.  But we have pbc={} '
+                               'and orthogonal={}'
+                               .format(pbc_c.astype(int),
+                                       orthogonal_c.astype(int)))
+
+        # We sort them, and pick the longest non-periodic axes as the
+        # cholesky axis.
+        sorted_non_periodic_axes = sorted(non_periodic_axes,
+                                          key=lambda c: gd.N_c[c])
+        if self.use_cholesky:
+            if len(sorted_non_periodic_axes) > 0:
+                cholesky_axes = [sorted_non_periodic_axes[-1]]
+                if cholesky_axes[0] in non_orthogonal_axes:
+                    msg = ('Cholesky axis cannot be non-orthogonal. '
+                           'Do you really want a non-orthogonal non-periodic '
+                           'axis? If so, run with use_cholesky=False.')
+                    raise NotImplementedError(msg)
+                fst_axes = sorted_non_periodic_axes[0:-1]
+            else:
+                cholesky_axes = []
+                fst_axes = []
+        else:
+            cholesky_axes = []
+            fst_axes = sorted_non_periodic_axes
+        fft_axes = list(periodic_axes)
+
+        (self.cholesky_axes, self.fst_axes,
+         self.fft_axes) = cholesky_axes, fst_axes, fft_axes
+
+        fftfst_axes = self.fft_axes + self.fst_axes
+        axes = self.fft_axes + self.fst_axes + self.cholesky_axes
+        self.axes = axes
+
+        # Create xy flat decomposition (where x=axes[0] and y=axes[1])
+        parsize_c = [1, 1, 1]
+        parsize_c[axes[2]] = gd.comm.size
+        gd1d = gd.new_descriptor(parsize_c=parsize_c,
+                                 allow_empty_domains=True)
+        self.gd1d = gd1d
+
+        # Create z flat decomposition
+        domain = gd.N_c.copy()
+        domain[axes[2]] = 1
+        parsize_c = decompose_domain(domain, gd.comm.size)
+        gd2d = gd.new_descriptor(parsize_c=parsize_c)
+        self.gd2d = gd2d
+
+        # Calculate eigenvalues in fst/fft decomposition for
+        # non-cholesky axes in parallel
+        r_cx = np.indices(gd2d.n_c)
+        r_cx += gd2d.beg_c[:, np.newaxis, np.newaxis, np.newaxis]
+        r_cx = r_cx.astype(complex)
+        for c, axis in enumerate(fftfst_axes):
+            r_cx[axis] *= 2j * np.pi / gd2d.N_c[axis]
+            if axis in fst_axes:
+                r_cx[axis] /= 2
+        for c, axis in enumerate(cholesky_axes):
+            r_cx[axis] = 0.0
+        np.exp(r_cx, out=r_cx)
+        fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
+        laplace = Laplace(self.gd, -0.25 / pi, self.nn)
+        self.stencil_description = laplace.description
+
+        for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
+            offset_c = np.array(offset_c)
+            if not any(offset_c):
+                # The centerpoint is handled with (temp-1.0)
+                continue
+            non_zero_axes, = np.where(offset_c)
+            if set(non_zero_axes).issubset(fftfst_axes):
+                temp = np.ones_like(fft_lambdas)
+                for c, axis in enumerate(fftfst_axes):
+                    temp *= r_cx[axis] ** offset_c[axis]
+                fft_lambdas += coeff * (temp - 1.0)
+
+        assert np.linalg.norm(fft_lambdas.imag) < 1e-10
+        fft_lambdas = fft_lambdas.real.copy()  # arr.real is not contiguous
+
+        # If there is no Cholesky decomposition, the system is already
+        # fully diagonal and we can directly invert the linear problem
+        # by dividing with the eigenvalues.
+        assert len(cholesky_axes) == 0
+        # if len(cholesky_axes) == 0:
+        with np.errstate(divide='ignore'):
+            self.inv_fft_lambdas = np.where(
+                np.abs(fft_lambdas) > 1e-10, 1.0 / fft_lambdas, 0)
+
+    def solve_neutral(self, phi_g, rho_g, eps=None, timer=None):
+        if len(self.cholesky_axes) != 0:
+            raise NotImplementedError
+
+        gd = self.gd
+        gd1d = self.gd1d
+        gd2d = self.gd2d
+        comm = self.gd.comm
+        axes = self.axes
+
+        with timer('Communicate to 1D'):
+            work1d_g = gd1d.empty(dtype=rho_g.dtype)
+            grid2grid(comm, gd, gd1d, rho_g, work1d_g)
+        with timer('FFT 2D'):
+            work1d_g = transform2(work1d_g, axes=axes[:2],
+                                  pbc=gd.pbc_c[axes[:2]])
+        with timer('Communicate to 2D'):
+            work2d_g = gd2d.empty(dtype=work1d_g.dtype)
+            grid2grid(comm, gd1d, gd2d, work1d_g, work2d_g)
+        with timer('FFT 1D'):
+            work2d_g = transform(work2d_g, axis=axes[2],
+                                 pbc=gd.pbc_c[axes[2]])
+
+        # The remaining problem is 0D dimensional, i.e the problem
+        # has been fully diagonalized
+        work2d_g *= self.inv_fft_lambdas
+
+        with timer('FFT 1D'):
+            work2d_g = itransform(work2d_g, axis=axes[2],
+                                  pbc=gd.pbc_c[axes[2]])
+        with timer('Communicate from 2D'):
+            work1d_g = gd1d.empty(dtype=work2d_g.dtype)
+            grid2grid(comm, gd2d, gd1d, work2d_g, work1d_g)
+        with timer('FFT 2D'):
+            work1d_g = itransform2(work1d_g, axes=axes[1::-1],
+                                   pbc=gd.pbc_c[axes[1::-1]])
+        with timer('Communicate from 1D'):
+            work_g = gd.empty(dtype=work1d_g.dtype)
+            grid2grid(comm, gd1d, gd, work1d_g, work_g)
+
+        phi_g[:] = work_g.real
+        return 1  # Non-iterative method, return 1 iteration
+
+    def todict(self):
+        d = super(FastPoissonSolver, self).todict()
+        d.update({'name': 'fast', 'nn': self.nn})
+        return d
+
+    def estimate_memory(self, mem):
+        pass
+
+    def get_description(self):
+        return """\
+FastPoissonSolver using
+    %s stencil;
+    FFT axes: %s;
+    FST axes: %s.
+""" % (self.stencil_description, self.fft_axes, self.fst_axes)

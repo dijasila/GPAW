@@ -17,10 +17,9 @@ After this docstring we have import statements in this order:
 from math import pi
 
 import numpy as np
-from ase.units import kJ, Hartree
+from ase.units import Ha
 
 from gpaw import debug
-from gpaw.fd_operators import Gradient
 import gpaw.mpi as mpi
 
 
@@ -123,4 +122,7 @@ def function(a, b):
 
     Long story ..."""
 
-    return a + b
+    result = a + b
+    if debug and mpi.world.rank == 0:
+        print(result * Ha)
+    return result

@@ -9,7 +9,7 @@ from gpaw.dfpt.kpointcontainer import KPointContainer
 
 class WaveFunctions:
     """Class for wave-function related stuff (e.g. projectors)."""
-    
+
     def __init__(self, nbands, kpt_u, setups, kd, gd, dtype=float):
         """Store and initialize required attributes.
 
@@ -48,8 +48,8 @@ class WaveFunctions:
         self.kpt_u = []
 
         # No symmetries or only time-reversal symmetry used
-        assert kd.symmetry.point_group == False
-        if kd.symmetry.time_reversal == False:
+        assert not kd.symmetry.point_group
+        if not kd.symmetry.time_reversal:
             # For now, time-reversal symmetry not allowed
             assert len(kpt_u) == kd.nbzkpts
 
@@ -74,9 +74,9 @@ class WaveFunctions:
                                       psit1_nG=None,
                                       P_ani=None,
                                       dP_aniv=None)
-                                       # q=kpt.q,
-                                       # f_n=kpt.f_n[:nbands])
-            
+                # q=kpt.q,
+                # f_n=kpt.f_n[:nbands])
+
                 self.kpt_u.append(kpt)
 
         else:
@@ -95,7 +95,7 @@ class WaveFunctions:
                 ik_c = kd.ibzk_kc[ik]
                 # Point group operation
                 op_cc = kd.symmetry.op_scc[s]
-                    
+
                 # KPoint from ground-state calculation
                 kpt_ = kpt_u[ik]
                 weight = 1. / kd.nbzkpts * (2 - kpt_.s)
@@ -120,15 +120,15 @@ class WaveFunctions:
                                       psit1_nG=None,
                                       P_ani=None,
                                       dP_aniv=None)
-                
+
                 self.kpt_u.append(kpt)
-                
+
     def initialize(self, spos_ac):
         """Initialize projectors according to the ``gamma`` attribute."""
 
         # Set positions on LFC's
         self.pt.set_positions(spos_ac)
-        
+
         # Calculate projector coefficients for the GS wave-functions
         self.calculate_projector_coef()
 
@@ -137,7 +137,7 @@ class WaveFunctions:
 
         for kpt in self.kpt_u:
             kpt.psit1_nG = self.gd.zeros(n=self.nbands, dtype=self.dtype)
-        
+
     def calculate_projector_coef(self):
         """Coefficients for the derivative of the non-local part of the PP.
 
@@ -155,7 +155,7 @@ class WaveFunctions:
                         /      a
                P_ani =  | dG  p (G) Psi (G)  ,
                         /      i       n
-                          
+
         2. Coefficients from the derivative of the projector functions::
 
                           /      a
@@ -163,7 +163,7 @@ class WaveFunctions:
                           /      iv       n
 
         where::
-                       
+
                  a        d       a
                dp  (G) =  ---  Phi (G) .
                  iv         a     i
@@ -178,15 +178,15 @@ class WaveFunctions:
             # K-point index and wave-functions
             k = kpt.k
             psit_nG = kpt.psit_nG
-            
+
             # Integration dicts
             P_ani   = self.pt.dict(shape=n)
             dP_aniv = self.pt.dict(shape=n, derivative=True)
-    
+
             # 1) Integrate with projectors
             self.pt.integrate(psit_nG, P_ani, q=k)
             kpt.P_ani = P_ani
-            
+
             # 2) Integrate with derivative of projectors
             self.pt.derivative(psit_nG, dP_aniv, q=k)
             kpt.dP_aniv = dP_aniv

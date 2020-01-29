@@ -14,7 +14,7 @@ atoms = molecule('NaCl')
 atoms.center(vacuum=4.0)
 
 # Ground-state calculation
-calc = GPAW(nbands=6, h=0.4, setups=dict(Na='1'),
+calc = GPAW(nbands=7, h=0.4, setups=dict(Na='1'),
             basis='dzp', mode='lcao',
             poissonsolver=PoissonSolver(eps=1e-16),
             convergence={'density': 1e-8},

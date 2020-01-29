@@ -15,10 +15,6 @@
 /* Allows for special MaxOS magic */
 #include <malloc/malloc.h>
 #endif
-#ifdef __linux__
-/* stdlib.h does not define mallinfo (it should!) */
-#include <malloc.h>
-#endif
 
 #ifdef GPAW_HPM
 void HPM_Start(char *);
@@ -182,14 +178,14 @@ void gpaw_perf_finalize()
   int rank, numranks;
 
   MPI_Comm Comm = MPI_COMM_WORLD;
-  
+
   //get papi info, first time it intializes PAPI counters
   papi_end_usec_r = PAPI_get_real_usec();
   papi_end_usec_p = PAPI_get_virt_usec();
 
   MPI_Comm_size(Comm, &numranks);
   MPI_Comm_rank(Comm, &rank);
-  
+
   FILE *fp;
   if (rank == 0)
     fp = fopen("gpaw_perf.log", "w");
@@ -201,13 +197,13 @@ void gpaw_perf_finalize()
 
   if(PAPI_get_dmem_info(&dmem) != PAPI_OK)
     error++;
- 
+
   rtime=(double)(papi_end_usec_r - papi_start_usec_r)/1e6;
   ptime=(double)(papi_end_usec_p - papi_start_usec_p)/1e6;
   avegflops=(double)papi_values[0]/rtime/1e9;
   gflop_opers = (double)papi_values[0]/1e9;
   // l1hitratio=100.0*(double)papi_values[1]/(papi_values[0] + papi_values[1]);
-  
+
   if (rank==0 ) {
     fprintf(fp,"########  GPAW PERFORMANCE REPORT (PAPI)  ########\n");
     fprintf(fp,"# MPI tasks   %d\n", numranks);
@@ -253,19 +249,19 @@ void gpaw_perf_finalize(void)
   int rank, numranks;
 
   MPI_Comm Comm = MPI_COMM_WORLD;
-  
+
   MPI_Comm_size(Comm, &numranks);
   MPI_Comm_rank(Comm, &rank);
 
   double t1 = MPI_Wtime();
   rtime = t1 - t0;
-  
+
   FILE *fp;
   if (rank == 0)
     fp = fopen("gpaw_perf.log", "w");
   else
     fp = NULL;
-  
+
   if (rank==0 ) {
     fprintf(fp,"########  GPAW PERFORMANCE REPORT (MPI_Wtime)  ########\n");
     fprintf(fp,"# MPI tasks   %d\n", numranks);
@@ -292,55 +288,39 @@ double distance(double *a, double *b)
   return sqrt(sum);
 }
 
-/* get heap memory using mallinfo.
-   There is a UNIX version and a Mac OS X version is not well tested
-   but seems to give credible values in simple tests.*/
-PyObject* heap_mallinfo(PyObject *self)
+
+// Equivalent to:
+//
+//     nt_R += f * abs(psit_R)**2
+//
+PyObject* add_to_density(PyObject *self, PyObject *args)
 {
-  double heap;
-#ifdef __linux__
-  unsigned int mmap, arena, small;
-  struct mallinfo mi; /* structure in bytes */
-
-  mi = mallinfo();
-  mmap = mi.hblkhd;
-  arena = mi.uordblks;
-  small = mi.usmblks;
-  heap = ((double)(mmap + arena + small))/1024.0; /* convert to KB */
-#elif defined(__DARWIN_UNIX03)
-  /* Mac OS X specific hack */
-  struct malloc_statistics_t mi; /* structure in bytes */
-
-  malloc_zone_statistics(NULL, &mi);
-  heap = ((double)(mi.size_in_use))/1024.0; /* convert to KB */
-#else
-  heap = -1;
-#endif
-  return Py_BuildValue("d",heap);
-}
-
-/* elementwise multiply and add result to another vector
- *
- * c[i] += a[i] * b[i] ,  for i = every element in the vectors
- */
-PyObject* elementwise_multiply_add(PyObject *self, PyObject *args)
-{
-  PyArrayObject* aa;
-  PyArrayObject* bb;
-  PyArrayObject* cc;
-  if (!PyArg_ParseTuple(args, "OOO", &aa, &bb, &cc))
-    return NULL;
-  const double* const a = DOUBLEP(aa);
-  const double* const b = DOUBLEP(bb);
-  double* const c = DOUBLEP(cc);
-  int n = 1;
-  for (int d = 0; d < PyArray_NDIM(aa); d++)
-    n *= PyArray_DIMS(aa)[d];
-  for (int i = 0; i < n; i++)
-    {
-      c[i] += a[i] * b[i];
+    double f;
+    PyArrayObject* psit_R_obj;
+    PyArrayObject* nt_R_obj;
+    if (!PyArg_ParseTuple(args, "dOO", &f, &psit_R_obj, &nt_R_obj))
+        return NULL;
+    const double* psit_R = PyArray_DATA(psit_R_obj);
+    double* nt_R = PyArray_DATA(nt_R_obj);
+    int n = PyArray_SIZE(nt_R_obj);
+    if (PyArray_ITEMSIZE(psit_R_obj) == 8) {
+        // Real wave functions
+        // psit_R can be a view of a larger array (psit_R = tmp[:, :, :dim2])
+        int stride2 = PyArray_STRIDE(psit_R_obj, 1) / 8;
+        int dim2 = PyArray_DIM(psit_R_obj, 2);
+        int j = 0;
+        for (int i = 0; i < n;) {
+            for (int k = 0; k < dim2; i++, j++, k++)
+                nt_R[i] += f * psit_R[j] * psit_R[j];
+            j += stride2 - dim2;
+        }
     }
-  Py_RETURN_NONE;
+    else
+        // Complex wave functions
+        for (int i = 0; i < n; i++)
+            nt_R[i] += f * (psit_R[2 * i] * psit_R[2 * i] +
+                            psit_R[2 * i + 1] * psit_R[2 * i + 1]);
+    Py_RETURN_NONE;
 }
 
 
@@ -437,54 +417,6 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
 }
 
 
-/* vdot
- *
- * If a and b are input vectors,
- * a[0]*b[0] + a[1]*b[1] + a[2]*b[2] + ...
- * is returned.
- */
-PyObject* utilities_vdot(PyObject *self, PyObject *args)
-{
-  PyArrayObject* aa;
-  PyArrayObject* bb;
-  if (!PyArg_ParseTuple(args, "OO", &aa, &bb))
-    return NULL;
-  const double* const a = DOUBLEP(aa);
-  const double* const b = DOUBLEP(bb);
-  double sum = 0.0;
-  int n = 1;
-  for (int d = 0; d < PyArray_NDIM(aa); d++)
-    n *= PyArray_DIMS(aa)[d];
-  for (int i = 0; i < n; i++)
-    {
-      sum += a[i] * b[i];
-    }
-  return PyFloat_FromDouble(sum);
-}
-
-/* vdot
- *
- * If a is the input vector,
- * a[0]*a[0] + a[1]*a[1] + a[2]*a[2] + ...
- * is returned.
- */
-PyObject* utilities_vdot_self(PyObject *self, PyObject *args)
-{
-  PyArrayObject* aa;
-  if (!PyArg_ParseTuple(args, "O", &aa))
-    return NULL;
-  const double* const a = DOUBLEP(aa);
-  double sum = 0.0;
-  int n = 1;
-  for (int d = 0; d < PyArray_NDIM(aa); d++)
-    n *= PyArray_DIMS(aa)[d];
-  for (int i = 0; i < n; i++)
-    {
-      sum += a[i] * a[i];
-    }
-  return PyFloat_FromDouble(sum);
-}
-
 PyObject* errorfunction(PyObject *self, PyObject *args)
 {
   double x;
@@ -578,12 +510,12 @@ PyObject* hartree(PyObject *self, PyObject *args)
     PyArrayObject* vr_obj;
     if (!PyArg_ParseTuple(args, "iOOO", &l, &nrdr_obj, &r_obj, &vr_obj))
         return NULL;
-        
+
     const int M = PyArray_DIM(nrdr_obj, 0);
     const double* nrdr = DOUBLEP(nrdr_obj);
     const double* r = DOUBLEP(r_obj);
     double* vr = DOUBLEP(vr_obj);
-    
+
     double p = 0.0;
     double q = 0.0;
     for (int g = M - 1; g > 0; g--)

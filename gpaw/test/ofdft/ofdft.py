@@ -6,12 +6,12 @@ from gpaw.test import gen
 
 a = 6.0
 c = a / 2
-#d = 1.8
+# d = 1.8
 
 elements = ['C', 'Be']
-results = [0.245393619863, 9.98114719239]
+results = [0.243, 9.9773]
 electrons = [6, 3]
-charges = [0,1]
+charges = [0, 1]
 
 
 for symbol in elements:
@@ -27,7 +27,7 @@ for element, result, e, charge in zip(elements, results, electrons, charges):
     mixer = Mixer(0.3, 5, 1)
     calc = GPAW(gpts=(32, 32, 32),
                 txt='-', xc=xcname,
-                poissonsolver=PoissonSolver(relax='GS', eps=1e-6),
+                poissonsolver=PoissonSolver(eps=1e-6),
                 eigensolver='cg', mixer=mixer, charge=charge)
 
     atom.set_calculator(calc)
@@ -39,4 +39,4 @@ for element, result, e, charge in zip(elements, results, electrons, charges):
     I = n.sum() * dv / 2**3
 
     equal(I, e, 1.0e-6)
-    equal(result, E, 1.0e-3)
+    equal(result, E, 1.0e-2)

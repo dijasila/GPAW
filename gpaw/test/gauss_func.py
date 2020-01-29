@@ -68,7 +68,7 @@ for L in range(7): # Angular index of gaussian
     residual = gd.integrate((pot - vg)**2)**0.5
 
     # print result
-    print('L=%s, processor %s of %s: %s'%(
+    print('L=%s, processor %s of %s: %s' % (
         L,
         gd.comm.rank + 1,
         gd.comm.size,

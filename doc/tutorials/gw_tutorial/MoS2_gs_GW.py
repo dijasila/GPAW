@@ -9,6 +9,7 @@ structure.pbc = (1, 1, 1)
 Ecut = 400
 
 calc = GPAW(mode=PW(Ecut),
+            parallel={'domain': 1},
             xc='PBE',
             basis='dzp',
             kpts={'size': (9, 9, 1), 'gamma': True},

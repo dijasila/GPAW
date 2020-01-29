@@ -37,8 +37,8 @@ niter = solver.solve(pot, ng, charge=None, zero_initial_phi=True)
 # residual = norm(pot - vg)
 residual = gd.integrate((pot - vg)**2)**0.5
 
-    # print result
-print('residual %s'%(
+# print result
+print('residual %s' % (
     residual))
 assert residual < 0.003
 

@@ -2,6 +2,7 @@ from gpaw import GPAW, PW, FermiDirac
 from ase.build import bulk
 si = bulk('Si')
 si.calc = GPAW(mode=PW(200),
+               parallel={'domain': 1},
                kpts={'size': (2, 2, 2), 'gamma': True},
                occupations=FermiDirac(0.01))
 si.get_potential_energy()

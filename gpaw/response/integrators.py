@@ -1,23 +1,30 @@
-from __future__ import print_function, division
-
-import numpy as np
-from scipy.spatial import Delaunay
-
-from ase.utils import devnull
-from ase.utils import convert_string_to_fd
-from ase.utils.timing import timer, Timer
-
-from _gpaw import tetrahedron_weight
-
-import gpaw.mpi as mpi
-from gpaw.utilities.blas import gemm, rk, czher, mmm
-from gpaw.utilities.progressbar import ProgressBar
 from functools import partial
 
+import numpy as np
+from ase.utils import devnull, convert_string_to_fd
+from ase.utils.timing import timer, Timer
+from scipy.spatial import Delaunay
+from scipy.linalg.blas import zher
 
-class Integrator():
+import gpaw.mpi as mpi
+from gpaw.utilities.blas import gemm, rk, mmm
+from gpaw.utilities.progressbar import ProgressBar
+from _gpaw import tetrahedron_weight
 
-    def __init__(self, cell_cv, comm=mpi.world,
+
+def czher(alpha: float, x, A) -> None:
+    """Hermetian rank-1 update of upper half of A.
+
+    A += alpha * np.outer(x.conj(), x)
+
+    """
+    AT = A.T
+    out = zher(alpha, x, 1, 1, 0, len(x), AT, 1)
+    assert out is AT
+
+
+class Integrator:
+    def __init__(self, cell_cv, response='density', comm=mpi.world,
                  txt='-', timer=None, nblocks=1, eshift=0.0):
         """Baseclass for Brillouin zone integration and band summation.
 
@@ -28,6 +35,7 @@ class Integrator():
         nblocks: block parallelization
         """
 
+        self.response = response
         self.comm = comm
         self.eshift = eshift
         self.nblocks = nblocks
@@ -164,6 +172,8 @@ class PointIntegrator(Integrator):
         pb = ProgressBar(self.fd)
         for _, arguments in pb.enumerate(mydomain_t):
             n_MG = get_matrix_element(*arguments)
+            if n_MG is None:
+                continue
             deps_M = get_eigenvalues(*arguments)
 
             if intraband:
@@ -215,7 +225,10 @@ class PointIntegrator(Integrator):
             deps2_m = deps_m - 1j * eta
 
         for omega, chi0_GG in zip(omega_w, chi0_wGG):
-            x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            if self.response == 'density':
+                x_m = (1 / (omega + deps1_m) - 1 / (omega - deps2_m))
+            else:
+                x_m = - np.sign(deps_m) * 1. / (omega + deps1_m)
             if self.blockcomm.size > 1:
                 nx_mG = n_mG[:, self.Ga:self.Gb] * x_m[:, np.newaxis]
             else:

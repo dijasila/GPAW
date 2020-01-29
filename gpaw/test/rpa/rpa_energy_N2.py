@@ -12,6 +12,7 @@ N2.center(vacuum=2.0)
 
 calc = GPAW(mode=PW(force_complex_dtype=True),
             xc='PBE',
+            parallel={'domain': 1},
             eigensolver='rmm-diis')
 N2.set_calculator(calc)
 E_n2_pbe = N2.get_potential_energy()
@@ -31,6 +32,7 @@ N.set_cell(N2.cell)
 
 calc = GPAW(mode=PW(force_complex_dtype=True),
             xc='PBE',
+            parallel={'domain': 1},
             eigensolver='rmm-diis')
 N.set_calculator(calc)
 E_n_pbe = N.get_potential_energy()

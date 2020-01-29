@@ -4,6 +4,9 @@ from gpaw import GPAW, Davidson, Mixer
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
+def xc(name):
+    return {'name': name, 'stencil': 1}
+
 a = 6.  # Size of unit cell (Angstrom)
 c = a / 2
 # Hydrogen atom:
@@ -11,7 +14,7 @@ atom = Atoms([Atom('H', (c, c, c), magmom=1)],
              cell=(a, a, a), pbc=False)
 
 # gpaw calculator:
-calc = GPAW(gpts=(32, 32, 32), nbands=1, xc='PBE', txt='H.txt',
+calc = GPAW(gpts=(32, 32, 32), nbands=1, xc=xc('PBE'), txt='H.txt',
             eigensolver=Davidson(12),
             mixer=Mixer(0.5, 5),
             parallel=dict(kpt=1),
@@ -21,10 +24,10 @@ atom.set_calculator(calc)
 e1 = atom.get_potential_energy()
 niter1 = calc.get_number_of_iterations()
 print('start')
-de1t = calc.get_xc_difference('TPSS')
-de1m = calc.get_xc_difference('M06-L')
-de1x = calc.get_xc_difference(HybridXC('EXX', finegrid=True))
-de1xb = calc.get_xc_difference(HybridXC('EXX', finegrid=False))
+de1t = calc.get_xc_difference(xc('TPSS'))
+de1m = calc.get_xc_difference(xc('M06-L'))
+de1x = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=True))
+de1xb = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=False))
 print('stop')
 
 # Hydrogen molecule:
@@ -37,10 +40,10 @@ calc.set(txt='H2.txt')
 molecule.set_calculator(calc)
 e2 = molecule.get_potential_energy()
 niter2 = calc.get_number_of_iterations()
-de2t = calc.get_xc_difference('TPSS')
-de2m = calc.get_xc_difference('M06-L')
-de2x = calc.get_xc_difference(HybridXC('EXX', finegrid=True))
-de2xb = calc.get_xc_difference(HybridXC('EXX', finegrid=False))
+de2t = calc.get_xc_difference(xc('TPSS'))
+de2m = calc.get_xc_difference(xc('M06-L'))
+de2x = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=True))
+de2xb = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=False))
 
 print('hydrogen atom energy:     %5.2f eV' % e1)
 print('hydrogen molecule energy: %5.2f eV' % e2)
@@ -65,7 +68,7 @@ equal(PBEM06Ldifference, -0.169, 0.01)
 equal(PBEEXXdifference, 0.91, 0.005)
 equal(PBEEXXbdifference, 0.91, 0.005)
 
-energy_tolerance = 0.0002
+energy_tolerance = 0.002
 niter_tolerance = 0
 equal(e1, -1.081638, energy_tolerance)
 equal(e2, -6.726356, energy_tolerance)

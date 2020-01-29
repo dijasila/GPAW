@@ -1,3 +1,4 @@
+# Creates: Bi2Se3_bands.png
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
@@ -38,5 +39,6 @@ for e_k in e_nk:
     plt.plot(x, e_k, c='b')
 plt.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
 plt.axis([0, x[-1], -1.7, 1.7])
+plt.tight_layout()
 # plt.show()
 plt.savefig('Bi2Se3_bands.png')

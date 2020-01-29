@@ -25,6 +25,7 @@ calc = GPAW(mode=PW(210, force_complex_dtype=True),
             xc='LDA',
             basis='dzp',
             nbands=8,
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 H2.set_calculator(calc)
 H2.get_potential_energy()
@@ -48,6 +49,7 @@ calc = GPAW(mode=PW(210, force_complex_dtype=True),
             basis='dzp',
             nbands=4,
             hund=True,
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 H.set_calculator(calc)
 H.get_potential_energy()
@@ -59,8 +61,8 @@ E_ralda_H = ralda.calculate(ecut=[200])
 
 rapbe = FXCCorrelation('H.gpw', xc='rAPBE', nblocks=min(4, world.size))
 E_rapbe_H = rapbe.calculate(ecut=[200])
-                                      
+
 equal(E_ralda_H2, -0.8411, 0.001)
-equal(E_ralda_H, 0.002860, 0.00001)
+equal(E_ralda_H, 0.0029, 0.0001)
 equal(E_rapbe_H2, -0.7233, 0.001)
-equal(E_rapbe_H, 0.016022, 0.00001)
+equal(E_rapbe_H, 0.0161, 0.0001)

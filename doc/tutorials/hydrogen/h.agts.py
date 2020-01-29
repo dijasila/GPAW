@@ -1,6 +1,12 @@
-def agts(queue):
-    ae = queue.add('h.py')
-    queue.add('h.agts.py', deps=ae, creates='h.png')
+# Creates: h.png
+
+
+def create_tasks():
+    from myqueue.task import task
+    return [
+        task('h.py'),
+        task('h.agts.py', deps='h.py')]
+
 
 if __name__ == '__main__':
     import numpy as np

@@ -1,3 +1,4 @@
+# Creates: qsfdtd_vs_mie.png
 import numpy as np
 import pylab as plt
 from ase.units import Hartree, Bohr

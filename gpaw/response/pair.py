@@ -221,7 +221,7 @@ class PWSymmetryAnalyzer:
 
     @timer('Analyze symmetries.')
     def analyze_symmetries(self):
-        """Determine allowed symmetries.
+        r"""Determine allowed symmetries.
 
         An direct symmetry U must fulfill::
 
@@ -394,7 +394,11 @@ class PWSymmetryAnalyzer:
 
         for K_k in K_gK:
             if K in K_k:
-                return len(K_k)
+                if self.kd.refine_info is not None:
+                    weight = sum(self.kd.refine_info.weight_k[K_k])
+                    return weight
+                else:
+                    return len(K_k)
 
     def get_kpoint_mapping(self, K1, K2):
         """Get index of symmetry for mapping between K1 and K2"""
@@ -567,11 +571,13 @@ class PWSymmetryAnalyzer:
 
         reds = s % self.nU
         if self.timereversal(s):
-            TR = lambda x: x.conj()
+            TR = np.conj
             sign = -1
         else:
             sign = 1
-            TR = lambda x: x
+
+            def TR(x):
+                return x
 
         return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
 
@@ -628,27 +634,55 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, ecut=50,
+    def __init__(self, gs, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None):
+                 nblocks=1, gate_voltage=None, **unused):
+        """Density matrix elements
 
+        Parameters
+        ----------
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        gate_voltage : float
+            Shift the fermi level by gate_voltage [Hartree].
+        """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
+
+        with self.timer('Read ground state'):
+            if isinstance(gs, str):
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=self.fd)
+                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            else:
+                calc = gs
+                assert calc.wfs.world.size == 1
+
+        assert calc.wfs.kd.symmetry.symmorphic
+        self.calc = calc
+        
         if ecut is not None:
             ecut /= Hartree
 
         if gate_voltage is not None:
             gate_voltage = gate_voltage / Hartree
 
+        self.response = response
         self.ecut = ecut
         self.ftol = ftol
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
-
-        self.timer = timer or Timer()
-
-        self.world = world
 
         if nblocks == 1:
             self.blockcomm = world.new_communicator([world.rank])
@@ -660,19 +694,6 @@ class PairDensity:
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
-
-        self.fd = convert_string_to_fd(txt, world)
-
-        with self.timer('Read ground state'):
-            if isinstance(calc, str):
-                print('Reading ground state calculation:\n  %s' % calc,
-                      file=self.fd)
-                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-            else:
-                assert calc.wfs.world.size == 1
-
-        assert calc.wfs.kd.symmetry.symmorphic
-        self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
 
@@ -878,7 +899,8 @@ class PairDensity:
         assert 0 <= use_more_memory <= 1
 
         q_c = pd.kd.bzk_kc[0]
-        optical_limit = not disable_optical_limit and np.allclose(q_c, 0.0)
+        optical_limit = np.allclose(q_c, 0.0) and self.response == 'density'
+        optical_limit = not disable_optical_limit and optical_limit
 
         Q_aGii = self.initialize_paw_corrections(pd)
         self.Q_aGii = Q_aGii  # This is used in g0w0
@@ -1032,7 +1054,11 @@ class PairDensity:
         with self.timer('get k-points'):
             kpt1 = self.get_k_point(s, k_c, n1, n2, load_wfs=load_wfs)
             # K2 = wfs.kd.find_k_plus_q(q_c, [kpt1.K])[0]
-            kpt2 = self.get_k_point(s, k_c + q_c, m1, m2,
+            if self.response in ['+-', '-+']:
+                s2 = 1 - s
+            else:
+                s2 = s
+            kpt2 = self.get_k_point(s2, k_c + q_c, m1, m2,
                                     load_wfs=load_wfs, block=block)
 
         with self.timer('fft indices'):
@@ -1047,7 +1073,8 @@ class PairDensity:
                          Q_aGii=None, block=False, direction=2,
                          extend_head=True):
         """Get pair density for a kpoint pair."""
-        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0)
+        ol = optical_limit = np.allclose(pd.kd.bzk_kc[0], 0.0) and \
+            self.response == 'density'
         eh = extend_head
         cpd = self.calculate_pair_densities  # General pair densities
         opd = self.optical_pair_density  # Interband pair densities / q
@@ -1085,7 +1112,7 @@ class PairDensity:
 
     @timer('get_pair_momentum')
     def get_pair_momentum(self, pd, kptpair, n_n, m_m, Q_avGii=None):
-        """Calculate matrix elements of the momentum operator.
+        r"""Calculate matrix elements of the momentum operator.
 
         Calculates::
 
@@ -1184,7 +1211,6 @@ class PairDensity:
             n_R = ut1cc_R * ut_R
             with self.timer('fft'):
                 n_G[:] = pd.fft(n_R, 0, Q_G) * dv
-
         # PAW corrections:
         with self.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
@@ -1264,8 +1290,8 @@ class PairDensity:
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
             n_n = np.arange(na, nb)
-        assert np.max(n_n) < nb, print('This is too many bands')
-        assert np.min(n_n) >= na, print('This is too few bands')
+        assert np.max(n_n) < nb, 'This is too many bands'
+        assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
         kd = self.calc.wfs.kd
@@ -1406,16 +1432,21 @@ class PairDensity:
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
-            T = lambda f_R: f_R
+            def T(f_R):
+                return f_R
         else:
             N_c = self.calc.wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            T = lambda f_R: f_R.ravel()[i].reshape(N_c)
+
+            def T(f_R):
+                return f_R.ravel()[i].reshape(N_c)
 
         if time_reversal:
             T0 = T
-            T = lambda f_R: T0(f_R).conj()
+
+            def T(f_R):
+                return T0(f_R).conj()
             shift_c *= -1
 
         a_a = []
@@ -1434,7 +1465,7 @@ class PairDensity:
     def initialize_paw_corrections(self, pd, soft=False):
         wfs = self.calc.wfs
         q_v = pd.K_qv[0]
-        optical_limit = np.allclose(q_v, 0)
+        optical_limit = np.allclose(q_v, 0) and self.response == 'density'
 
         G_Gv = pd.get_reciprocal_vectors()
         if optical_limit:
@@ -1448,8 +1479,12 @@ class PairDensity:
             if soft:
                 ghat = PWLFC([atomdata.ghat_l], pd)
                 ghat.set_positions(np.zeros((1, 3)))
-                Q_LG = ghat.expand()
-                Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
+                Q_LG = ghat.expand().T
+                if atomdata.Delta_iiL is None:
+                    ni = atomdata.ni
+                    Q_Gii = np.zeros((Q_LG.shape[1], ni, ni))
+                else:
+                    Q_Gii = np.dot(atomdata.Delta_iiL, Q_LG).T
             else:
                 Q_Gii = two_phi_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni

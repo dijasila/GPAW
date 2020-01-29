@@ -83,4 +83,3 @@ for GSkwargs in GSsettings:
                 print('DFkwargs2:', DFkwargs)
                 print(np.max(np.abs((df - df2) / df)))
                 raise AssertionError
-

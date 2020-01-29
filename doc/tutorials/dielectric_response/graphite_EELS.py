@@ -25,6 +25,7 @@ atoms = Atoms('C4',
 # Part 2: Find ground state density and diagonalize full hamiltonian
 calc = GPAW(mode=PW(500),
             kpts=(6, 6, 3),
+            parallel={'domain': 1},
             # Use smaller Fermi-Dirac smearing to avoid intraband transitions:
             occupations=FermiDirac(0.05))
 
@@ -50,7 +51,7 @@ for i in range(1, 6):  # loop over different q
                             txt='out_df_%d.txt' % i)
 
     q_c = [i / 20.0, 0.0, 0.0]  # Gamma - M excitation
-    
+
     df.get_eels_spectrum(q_c=q_c, filename='graphite_EELS_%d' % i)
 
     # Calculate cartesian momentum vector:

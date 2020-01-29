@@ -19,6 +19,7 @@ a = 4.043
 atoms = bulk('Al', 'fcc', a=a)
 atoms.center()
 calc = GPAW(mode=PW(200),
+            nbands=4,
             kpts=(4, 4, 4),
             parallel={'band': 1},
             idiotproof=False,  # allow uneven distribution of k-points

@@ -285,8 +285,8 @@ spin-polarized system with magnetic moment of 2 a minimum of ``nbands=6`` is
 needed (6 occupied bands for spin-up, 4 occupied bands and 2 empty bands for
 spin down).
 
-The default number of electronic bands (``nbands``) is equal to the
-number of atomic orbitals present in the atomic setups.  For systems
+The default number of electronic bands (``nbands``) is equal to 4 plus
+1.2 times the number of occupied bands.  For systems
 with the occupied states well separated from the unoccupied states,
 one could use just the number of bands needed to hold the occupied
 states.  For metals, more bands are needed.  Sometimes, adding more
@@ -306,7 +306,6 @@ unoccupied bands will improve convergence.
     ``nbands='nao'`` will use the the same number of bands as there are
     atomic orbitals. This corresponds to the maximum ``nbands`` value that
     can be used in LCAO mode.
-
 
 
 .. _manual_xc:
@@ -336,7 +335,9 @@ For the list of all functionals available in GPAW see :ref:`overview_xc`.
 
 GPAW uses the functionals from libxc_ by default.
 Keywords are based on the names in the libxc :file:`'xc_funcs.h'` header
-file (the leading ``'XC_'`` should be removed from those names). Valid
+file (the leading ``'XC_'`` should be removed from those names).
+You should be able to find the file installed alongside LibXC.
+Valid
 keywords are strings or combinations of exchange and correlation string
 joined by **+** (plus). For example, "the" (most common) LDA approximation
 in chemistry corresponds to ``'LDA_X+LDA_C_VWN'``.
@@ -352,11 +353,11 @@ Hybrid functionals (the feature is described at :ref:`exx`)
 require the setups containing exx information to be generated.
 Check available setups for the presence of exx information, for example::
 
-     [~]$ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
+    $ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
 
 and generate setups with missing exx information::
 
-     [~]$ gpaw-setup --exact-exchange -f PBE H C
+    $ gpaw-setup --exact-exchange -f PBE H C
 
 Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
@@ -542,8 +543,11 @@ Occupation numbers
 
 The smearing of the occupation numbers is controlled like this::
 
-  from gpaw import GPAW, FermiDirac
-  calc = GPAW(..., occupations=FermiDirac(width), ...)
+  from gpaw import GPAW
+  calc = GPAW(...,
+              occupations={'name': 'fermi-dirac',
+                           'width': 0.05},
+              ...)
 
 The distribution looks like this (width = `k_B T`):
 
@@ -554,8 +558,15 @@ is 0.1 eV and the total energies are extrapolated to *T* = 0 Kelvin.
 For a molecule (no periodic boundaries) the default value is ``width=0``,
 which gives integer occupation numbers.
 
-For a spin-polarized calculation, one can fix the magnetic moment at
-the initial value using ``FermiDirac(width, fixmagmom=True)``.
+Other distribution functions:
+
+* ``{'name': 'marzari-vanderbilt', 'width': ...}``
+* ``{'name': 'methfessel-paxton', 'width': ..., 'order': ...}``
+
+For a spin-polarized calculation, one can fix the total magnetic moment at
+the initial value using::
+
+    occupations={'name': ..., 'width': ..., 'fixmagmom': True}
 
 
 .. _manual_lmax:
@@ -620,6 +631,9 @@ possible to force convergence also for the unoccupied states.  One can
 also use ``{'bands': 200}`` to converge the lowest 200 bands. One can
 also write ``{'bands': -10}`` to converge all bands except the last
 10. It is often hard to converge the last few bands in a calculation.
+Finally, one can also use ``{'bands': 'CBM+5.0'}`` to specify that bands
+up to the conduction band minimum plus 5.0 eV should be converged
+(for a metal, CBM is taken as the Fermi level).
 
 
 .. _manual_maxiter:
@@ -836,7 +850,14 @@ Poisson solver
 The *poissonsolver* keyword is used to specify a Poisson solver class
 or enable dipole correction.
 
-The default Poisson solver uses a multigrid Jacobian method.  Use this
+The default Poisson solver in FD and LCAO mode
+is called FastPoissonSolver and uses
+a combination of Fourier and Fourier-sine transforms
+in combination with parallel array transposes.  Meanwhile in PW mode,
+the Poisson equation is solved by dividing each planewave coefficient
+by the squared length of its corresponding wavevector.
+
+The old default Poisson solver uses a multigrid Jacobian method.  Use this
 keyword to specify a different method.  This example corresponds to
 the default Poisson solver::
 
@@ -1079,63 +1100,31 @@ See also :meth:`~gpaw.calculator.GPAW.attach`.
 Command-line options
 --------------------
 
-The behaviour of GPAW can be controlled with some command line
-arguments. The arguments for GPAW should be specified after the
-python-script, i.e.::
+I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
+to C-extensions, use Python's :option:`python:-c` option`:
 
-    $ python3 script.py --gpaw key1=val1,key2=val2,...
+    $ python3 -d script.py
 
-The possible keys are:
+If you run Python through the ``gpaw python`` command, then you run your
+script in dry-run mode::
 
-* ``debug=True``: run in debug-mode, e.g. check consistency of arrays passed
-  to c-extensions.
+    $ gpaw python --dry-run=N script.py
 
-* ``dry_run=nprocs``: Print out the computational parameters and estimate
-  memory usage, do not perform actual calculation.
-  Print also which parallelization settings would be employed when run on
-  ``nprocs`` processors.
+This will print out the computational parameters and estimate
+memory usage, and not perform an actual calculation.
+Parallelization settings that would be employed when run on
+``N`` cores will also be printed.
 
 .. tip::
 
-    Extra key-value pairs will be available for development work::
+    If you need extra parameters from the command-line for development work::
 
-        $ python3 - --gpaw a=1,b=2.3
-        >>> from gpaw import extra_parameters
-        >>> extra_parameters
-        {'a': 1, 'b': 2.3}
+        $ python3 -X a=1 -X b
+        >>> import sys
+        >>> sys._xoptions
+        {'a': '1', 'b': True}
 
-
-Other command-line arguments are accepted directly by ``gpaw-python``:
-
-===============================  =============================================
-argument                         description
-===============================  =============================================
-``--memory-estimate-depth[=n]``
-                                 Print out an itemized memory estimate by
-                                 stepping recursively through the object
-                                 hierarchy of the calculator. If ``n`` is
-                                 specified, print a summary for depths
-                                 greater than the specified value.
-                                 Default: ``n=2``
-``--domain-decomposition=comp``
-                                 Specify the domain decomposition with
-                                 ``comp`` as a positive integer or, for
-                                 greater control, a tuple of three integers.
-                                 Allowed values are equivalent to those of
-                                 the ``domain`` argument in the
-                                 :ref:`parallel <manual_parallel>` keyword,
-                                 with tuples specified as ``nx,ny,nz``.
-                                 See :ref:`manual_parsize_domain` for details.
-``--state-parallelization=nbg``
-                                 Specify the parallelization over Kohn-Sham
-                                 orbitals with ``nbg`` as a positive integer.
-                                 Allowed values are equivalent to those of
-                                 the ``band`` argument in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 See :ref:`manual_parsize_bands` for details.
-===============================  =============================================
-
-Please see ``gpaw-python --help`` for details.
+    See also Python's :option:`python:-X` option.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,

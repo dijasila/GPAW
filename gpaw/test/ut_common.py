@@ -1,5 +1,5 @@
 """Common code base for maintaining backwards compatibility in ut_xxx tests."""
-
+# flake8: noqa
 __all__ = ['shapeopt', 'TestCase', 'TextTestRunner', \
     'CustomTextTestRunner', 'defaultTestLoader', 'initialTestLoader', \
     'create_random_atoms', 'create_parsize_maxbands', 'create_parsize_minbands']
@@ -31,7 +31,7 @@ def shapegen(size, ndims, ecc=0.5):
         yield c
     yield round(size)
 
-    
+
 def shapeopt(maxseed, size, ndims, ecc=0.5):
     """Return optimal estimate of an N-dimensional array shape
     which is closest to containing a given number of elements.

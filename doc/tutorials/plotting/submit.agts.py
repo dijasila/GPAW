@@ -1,4 +1,8 @@
-def agts(queue):
-    d = queue.add('CO.py', ncpus=1, walltime=10)
-    queue.add('CO2cube.py', deps=d, ncpus=1, walltime=10)
-    queue.add('CO2plt.py', deps=d, ncpus=1, walltime=10)
+from myqueue.task import task
+
+
+def create_tasks():
+    return [
+        task('CO.py@1:10s'),
+        task('CO2cube.py@1:10s', deps='CO.py'),
+        task('CO2plt.py@1:10s', deps='CO.py')]

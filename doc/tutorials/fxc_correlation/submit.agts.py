@@ -1,7 +1,9 @@
-def agts(queue):
+def create_tasks():
     # Most of these time out at the moment ...
-    return
+    return []
 
+
+"""
     gs_H_lda = queue.add('H.ralda_01_lda.py', ncpus=2, walltime=5)
     queue.add('H.ralda_02_rpa_at_lda.py', deps=gs_H_lda, ncpus=16, walltime=20)
     queue.add('H.ralda_03_ralda.py', deps=gs_H_lda, ncpus=16, walltime=200)
@@ -31,3 +33,4 @@ def agts(queue):
                              deps=diamkern_rangeRPA, ncpus=8, walltime=5)
     queue.add('diam_kern.ralda_09_compare.py',
               deps=diamkern_RPA, ncpus=1, walltime=5)
+"""

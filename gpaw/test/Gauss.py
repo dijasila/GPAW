@@ -14,5 +14,3 @@ for i in range(3):
     i1, i2 = test_derivatives((1.0, -3.4, 1.2),
                              (0, 2, 0), (1, 0, 1), 1.4, 3.0, i)
     equal(i1, i2, 6e-10)
-
-

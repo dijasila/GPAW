@@ -193,11 +193,13 @@ class Density:
 
     def set_positions(self, spos_ac, atom_partition):
         self.set_positions_without_ruining_everything(spos_ac, atom_partition)
-        self.nct.set_positions(spos_ac)
-        self.ghat.set_positions(spos_ac)
+        self.nct.set_positions(spos_ac, atom_partition)
+        self.ghat.set_positions(spos_ac, atom_partition)
         self.mixer.reset()
 
+        self.nt_xg = None
         self.nt_sg = None
+        self.nt_vg = None
         self.nt_g = None
         self.rhot_g = None
 
@@ -492,7 +494,12 @@ class Density:
             W += nw
 
         x_W = phi.create_displacement_arrays()[0]
-        D_asp = self.D_asp  # XXX really?
+
+        # We need the charges for the density matrices in order to add
+        # nuclear charges at each atom.  Hence we use the aux partition:
+        # The one where atoms are distributed according to which realspace
+        # domain they belong to.
+        D_asp = self.atomdist.to_aux(self.D_asp)
 
         rho_MM = np.zeros((phi.Mmax, phi.Mmax))
         for s, I_a in enumerate(I_sa):
@@ -510,8 +517,8 @@ class Density:
                     if not skip_core:
                         I_a[a] -= setup.Nc / self.nspins
 
-                if gd.comm.size > 1:
-                    gd.comm.broadcast(D_sp, D_asp.partition.rank_a[a])
+                rank = D_asp.partition.rank_a[a]
+                D_asp.partition.comm.broadcast(D_sp, rank)
                 M2 = M1 + ni
                 rho_MM[M1:M2, M1:M2] = unpack2(D_sp[s])
                 M1 = M2
@@ -522,6 +529,7 @@ class Density:
             phit.lfc.ae_valence_density_correction(-rho_MM, n_sg[s], a_W, I_a,
                                                    x_W)
 
+        # wth is this?
         a_W = np.empty(len(nc.M_W), np.intc)
         W = 0
         for a in nc.atom_indices:
@@ -536,12 +544,11 @@ class Density:
                 nc.lfc.ae_core_density_correction(scale, n_sg[s], a_W, I_a)
 
             nct.lfc.ae_core_density_correction(-scale, n_sg[s], a_W, I_a)
-            gd.comm.sum(I_a)
+            D_asp.partition.comm.sum(I_a)
             N_c = gd.N_c
             g_ac = np.around(N_c * spos_ac).astype(int) % N_c - gd.beg_c
 
             if not skip_core:
-
                 for I, g_c in zip(I_a, g_ac):
                     if (g_c >= 0).all() and (g_c < gd.n_c).all():
                         n_sg[s][tuple(g_c)] -= I / gd.dv
@@ -670,8 +677,8 @@ class RealSpaceDensity(Density):
         self.ghat = LFC(self.finegd, [setup.ghat_l for setup in setups],
                         integral=sqrt(4 * pi), forces=True)
 
-    def set_positions(self, spos_ac, rank_a=None):
-        Density.set_positions(self, spos_ac, rank_a)
+    def set_positions(self, spos_ac, atom_partition):
+        Density.set_positions(self, spos_ac, atom_partition)
         self.nct_G = self.gd.zeros()
         self.nct.add(self.nct_G, 1.0 / self.nspins)
 

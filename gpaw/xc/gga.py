@@ -32,7 +32,8 @@ class GGARadialExpansion:
             w = weight_n[n]
             rnablaY_Lv = rnablaY_nLv[n, :Lmax]
             e_g, dedn_sg, b_vsg, dedsigma_xg = \
-                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n, *self.args)
+                self.rcalc(rgd, n_sLg, Y_L, dndr_sLg, rnablaY_Lv, n,
+                           *self.args)
             dEdD_sqL += np.dot(rgd.dv_g * dedn_sg,
                                n_qg.T)[:, :, np.newaxis] * (w * Y_L)
             dedsigma_xg *= rgd.dr_g
@@ -103,7 +104,7 @@ class GGARadialCalculator:
 
 
 def calculate_sigma(gd, grad_v, n_sg):
-    """Calculate sigma(r) and grad n(r).
+    r"""Calculate sigma(r) and grad n(r).
                   _     __   _  2     __    _
     Returns sigma(r) = |\/ n(r)|  and \/ n (r).
 
@@ -134,7 +135,7 @@ def calculate_sigma(gd, grad_v, n_sg):
 
 
 def add_gradient_correction(grad_v, gradn_svg, sigma_xg, dedsigma_xg, v_sg):
-    """Add gradient correction to potential.
+    r"""Add gradient correction to potential.
 
     ::
 
@@ -170,7 +171,7 @@ def get_gradient_ops(gd, nn):
 
 
 class GGA(XCFunctional):
-    def __init__(self, kernel, stencil=1):
+    def __init__(self, kernel, stencil=2):
         XCFunctional.__init__(self, kernel.name, kernel.type)
         self.kernel = kernel
         self.stencil_range = stencil
@@ -183,6 +184,10 @@ class GGA(XCFunctional):
         d = super(GGA, self).todict()
         d['stencil'] = self.stencil_range
         return d
+
+    def get_description(self):
+        return ('{} with {} nearest neighbor stencil'
+                .format(self.name, self.stencil_range))
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         sigma_xg, dedsigma_xg, gradn_svg = gga_vars(gd, self.grad_v, n_sg)
@@ -214,6 +219,7 @@ class GGA(XCFunctional):
             P -= integrate(v_g, n_g)
         for sigma_g, dedsigma_g in zip(sigma_xg, dedsigma_xg):
             P -= 2 * integrate(sigma_g, dedsigma_g)
+
         stress_vv = P * np.eye(3)
         for v1 in range(3):
             for v2 in range(3):
@@ -227,6 +233,7 @@ class GGA(XCFunctional):
                     stress_vv[v1, v2] -= integrate(gradn_svg[1, v1] *
                                                    gradn_svg[1, v2],
                                                    dedsigma_xg[2]) * 2
+        self.gd.comm.sum(stress_vv)
         return stress_vv
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
@@ -303,6 +310,7 @@ class PurePythonGGAKernel:
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
 
+
 def pbe_constants(name):
     if name == 'pyPBE':
         name = 'PBE'
@@ -323,6 +331,7 @@ def pbe_constants(name):
         raise NotImplementedError(name)
 
     return name, kappa, mu, beta
+
 
 # a2 = |grad n|^2
 def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
@@ -351,12 +360,12 @@ def gga_x(name, spin, n, a2, kappa, mu, dedmu_g=None):
         dFxds2 = mu * x
     else:
         raise NotImplementedError
-        
+
     ds2drs = 8.0 * c * a2 / rs
     dexdrs = dexdrs * Fx + ex * dFxds2 * ds2drs
     dexda2 = ex * dFxds2 * c
     if dedmu_g is not None:
-        dedmu_g[:] = ex * s2 / (1 + mu*s2 / kappa) **2
+        dedmu_g[:] = ex * s2 / (1 + mu * s2 / kappa)**2
     ex *= Fx
 
     return ex, rs, dexdrs, dexda2
@@ -486,8 +495,9 @@ def gga_c(name, spin, n, a2, zeta, BETA, decdbeta_g=None):
             phi3 = 1.0
         Y = GAMMA * phi3
         decdbeta_g[:] = Y / X * t2 / GAMMA
-        decdbeta_g *= (1 + 2*At2) / (1+At2+At2**2) - (1+At2)*(At2+2*At2**2) / (1+At2+At2**2)**2
-        
+        decdbeta_g *= ((1 + 2 * At2) / (1 + At2 + At2**2) -
+                       (1 + At2) * (At2 + 2 * At2**2) / (1 + At2 + At2**2)**2)
+
     return ec, rs, decdrs, decda2, decdzeta
 
 

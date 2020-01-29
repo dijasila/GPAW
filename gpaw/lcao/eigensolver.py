@@ -70,7 +70,7 @@ class DirectLCAO(object):
         #
         name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_asp, H_MM, yy)
+        wfs.atomic_correction.calculate_hamiltonian(kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')
@@ -82,7 +82,7 @@ class DirectLCAO(object):
             H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 
-    def iterate(self, hamiltonian, wfs):
+    def iterate(self, hamiltonian, wfs, occ=None):
         wfs.timer.start('LCAO eigensolver')
 
         s = -1
@@ -103,14 +103,28 @@ class DirectLCAO(object):
 
         H_MM = self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt, Vt_xMM,
                                                  root=0)
-        S_MM = wfs.S_qMM[kpt.q]
+
+        # Decomposition step of overlap matrix can be skipped if we have
+        # cached the result and if the solver supports it (Elpa)
+        may_decompose = self.diagonalizer.accepts_decomposed_overlap_matrix
+        if may_decompose:
+            S_MM = wfs.decomposed_S_qMM[kpt.q]
+            is_already_decomposed = (S_MM is not None)
+            if S_MM is None:
+                # Contents of S_MM will be overwritten by eigensolver below.
+                S_MM = wfs.decomposed_S_qMM[kpt.q] = wfs.S_qMM[kpt.q].copy()
+        else:
+            is_already_decomposed = False
+            S_MM = wfs.S_qMM[kpt.q]
 
         if kpt.eps_n is None:
             kpt.eps_n = np.empty(wfs.bd.mynbands)
 
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
-        self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM)
+        # May overwrite S_MM (so the results will be stored as decomposed)
+        self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM,
+                                      is_already_decomposed)
         wfs.timer.stop(diagonalization_string)
 
         wfs.timer.start('Calculate projections')

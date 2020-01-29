@@ -10,11 +10,12 @@ N = molecule('N')
 N.cell = (6, 6, 7)
 N.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
-            nbands=8,
+            nbands=16,
             maxiter=300,
             xc='PBE',
             hund=True,
             txt='N_pbe.txt',
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 
 N.calc = calc
@@ -34,9 +35,11 @@ N2 = molecule('N2')
 N2.cell = (6, 6, 7)
 N2.center()
 calc = GPAW(mode=PW(600, force_complex_dtype=True),
+            nbands=16,
             maxiter=300,
             xc='PBE',
             txt='N2_pbe.txt',
+            parallel={'domain': 1},
             convergence={'density': 1.e-6})
 
 N2.calc = calc

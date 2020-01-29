@@ -117,8 +117,8 @@ class TB09Kernel:
 
 
 class TB09(MGGA):
-    def __init__(self, c=None):
-        MGGA.__init__(self, TB09Kernel(c))
+    def __init__(self, c=None, stencil=2):
+        MGGA.__init__(self, TB09Kernel(c), stencil=stencil)
 
     def get_setup_name(self):
         return 'LDA'

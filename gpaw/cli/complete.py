@@ -27,10 +27,11 @@ commands = {
     'atom':
         ['-f', '--xc-functional', '-a', '--add', '--spin-polarized', '-d',
          '--dirac', '-p', '--plot', '-e', '--exponents', '-l',
-         '--logarithmic-derivatives', '-r', '--refine', '-s',
-         '--scalar-relativistic'],
+         '--logarithmic-derivatives', '-n', '--ngrid', '-R',
+         '--rcut', '-r', '--refine', '-s',
+         '--scalar-relativistic', '--no-ee-interaction'],
     'completion':
-        ['-0', '--dry-run'],
+        [],
     'dataset':
         ['-f', '--xc-functional', '-C', '--configuration', '-P',
          '--projectors', '-r', '--radius', '-0',
@@ -38,40 +39,41 @@ commands = {
          '--pseudo-core-density-radius', '-z', '--pseudize',
          '-p', '--plot', '-l', '--logarithmic-derivatives', '-w',
          '--write', '-s', '--scalar-relativistic', '-n',
-         '--no-check', '-t', '--tag', '-a', '--alpha', '-b',
-         '--create-basis-set', '--nlcc', '--core-hole', '-e',
-         '--electrons', '-o', '--output'],
+         '--no-check', '-t', '--tag', '-a', '--alpha', '-g',
+         '--gamma', '-b', '--create-basis-set', '--nlcc',
+         '--core-hole', '-e', '--electrons', '-o', '--output'],
     'diag':
-        ['-b', '--bands', '-s', '--scalapack', '-0', '--dry-run'],
+        ['-b', '--bands', '-s', '--scalapack'],
     'dos':
         ['-p', '--plot', '-i', '--integrated', '-w', '--width', '-a',
          '--atom', '-t', '--total', '-r', '--range', '-n',
          '--points'],
     'gpw':
         ['-w', '--remove-wave-functions'],
+    'info':
+        [],
     'install-data':
         ['--version', '--tarball', '--list-all', '--gpaw', '--sg15',
          '--basis', '--test', '--register', '--no-register'],
     'python':
-        [''],
+        ['--dry-run', '-z', '--command', '-c', '--module', '-m'],
     'rpa':
         ['-e', '--cut-off', '-b', '--blocks'],
     'run':
-        ['-t', '--tag', '-p', '--parameters', '-d', '--database', '-S',
-         '--skip', '--properties', '-f', '--maximum-force',
-         '--constrain-tags', '-s', '--maximum-stress', '-E',
-         '--equation-of-state', '--eos-type', '-i',
-         '--interactive', '-c', '--collection', '--modify',
-         '--after', '-w', '--write', '-W', '--write-all'],
+        ['-p', '--parameters', '-t', '--tag', '--properties', '-f',
+         '--maximum-force', '--constrain-tags', '-s',
+         '--maximum-stress', '-E', '--equation-of-state',
+         '--eos-type', '-o', '--output', '--modify', '--after',
+         '--dry-run', '-w', '--write', '-W', '--write-all'],
     'sbatch':
-        ['-0', '--dry-run'],
+        ['-0', '--test'],
     'symmetry':
-        [''],
+        [],
     'test':
         ['-x', '--exclude', '-f', '--run-failed-tests-only', '--from',
          '--after', '--range', '-j', '--jobs', '--reverse', '-k',
          '--keep-temp-dir', '-d', '--directory', '-s',
-         '--show-output']}
+         '--show-output', '--list']}
 # End of computer generated data
 
 

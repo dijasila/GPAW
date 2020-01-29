@@ -8,6 +8,7 @@ a = 3.567
 atoms = bulk('C', 'diamond', a=a)
 
 calc = GPAW(mode=PW(300),
+            parallel={'domain': 1},
             kpts=(3, 3, 3),
             xc='LDA',
             occupations=FermiDirac(0.001),

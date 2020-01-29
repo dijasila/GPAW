@@ -41,7 +41,3 @@ for v in range(3):
     pos_av[0, v] += eps
 if 0 in d_avv:
     assert np.abs(d_avv[0]).max() < 1e-10
-
- 
-
-    

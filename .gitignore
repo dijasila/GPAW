@@ -2,8 +2,12 @@
 build/
 /dist
 MANIFEST
+_gpaw*.so
 .DS_Store
 */.DS_Store
+gpaw.egg-info/
+.eggs/
+/siteconfig.py
 
 # If you build the documentation in the source tree, you will create a
 # lot of files that we don't want to see with "git status":
@@ -30,7 +34,8 @@ theme.css
 *.svg
 *.json
 doc/setups/[A-Z]*.rst
-
+*.ipynb
+!*.master.ipynb
 !doc/devel/gpaw-logo.svg
 
 # If you run the tests, these may write out files

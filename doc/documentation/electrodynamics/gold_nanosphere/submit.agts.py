@@ -1,7 +1,7 @@
-def agts(queue):
-    c1 = queue.add('calculate.py',
-                   walltime=60)
+from myqueue.task import task
 
-    queue.add('plot.py',
-              deps=c1,
-              creates=['qsfdtd_vs_mie.png'])
+
+def create_tasks():
+    return [
+        task('calculate.py@1:1h'),
+        task('plot.py', deps='calculate.py')]

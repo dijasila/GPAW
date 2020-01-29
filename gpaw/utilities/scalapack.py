@@ -19,6 +19,22 @@ import _gpaw
 
 switch_lu = {'U': 'L', 'L': 'U'}
 
+def scalapack_tri2full(desc, array):
+    """Write lower triangular part into upper triangular part of matrix.
+
+    This function is a frightful hack, but we can improve the
+    implementation later."""
+
+    # Zero upper triangle:
+    scalapack_zero(desc, array, 'U')
+    buf = array.copy()
+    # Set diagonal to zero in the copy:
+    scalapack_set(desc, buf, alpha=0.0, beta=0.0, uplo='U')
+    # Now transpose tmp_mm adding the result to the original matrix:
+    pblas_tran(alpha=1.0, a_MN=buf,
+               beta=1.0, c_NM=array,
+               desca=desc, descc=desc)
+
 
 def scalapack_zero(desca, a, uplo, ia=1, ja=1):
     """Zero the upper or lower half of a square matrix."""
@@ -272,7 +288,8 @@ def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
                                                    switch_lu[uplo],
                                                    iu, b, z, w)
     if info != 0:
-        raise RuntimeError('scalapack_general_diagonalize_mr3 error: %d' % info)
+        raise RuntimeError('scalapack_general_diagonalize_mr3 error: %d' %
+                           info)
 
 def scalapack_inverse_cholesky(desca, a, uplo):
     """Perform Cholesky decomposin followed by an inversion
@@ -294,6 +311,7 @@ def scalapack_inverse_cholesky(desca, a, uplo):
                                             switch_lu[uplo])
     if info != 0:
         raise RuntimeError('scalapack_inverse_cholesky error: %d' % info)
+
 
 def scalapack_inverse(desca, a, uplo):
     """Perform a hermitian matrix inversion.
@@ -327,7 +345,11 @@ def scalapack_solve(desca, descb, a, b):
     if info != 0:
         raise RuntimeError('scalapack_solve error: %d' % info)
 
+
 def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
+    """C <- beta C + alpha A.T.
+
+    See also pdtran from PBLAS."""
     desca.checkassert(a_MN)
     descc.checkassert(c_NM)
     M, N = desca.gshape
@@ -425,7 +447,8 @@ def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN,
                transa, transb)
 
 
-def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN, side='L', uplo='L'):
+def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN,
+                      side='L', uplo='L'):
     alpha = 1.0
     beta = 0.0
     pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
@@ -506,4 +529,3 @@ def pblas_simple_rk(desca, descc, a, c):
     beta = 0.0
     pblas_rk(alpha, a, beta, c,
              desca, descc)
-

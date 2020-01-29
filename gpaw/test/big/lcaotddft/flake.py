@@ -23,11 +23,11 @@ else:
     atoms.center(vacuum=vacuum)
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
-    gs_calc.write('flake.gpw', 'all')  # ????
-  
+    calc.write('flake.gpw', 'all')
+
 maxiterations = 24000 / time_step
 fname0 = 'flake_dm.dat'
 fname2 = 'flake_spectrum.dat'
-  
+
 calc.absorption_kick(kick)
 calc.propagate(time_step, maxiterations, fname0)

@@ -1,12 +1,14 @@
+# Creates: field.ind_Ffe.png
 # -*- coding: utf-8 -*-
 from gpaw.mpi import world
-assert world.size == 1, 'This script should be run in serial mode (with one process).'
 
 import numpy as np
 import matplotlib.pyplot as plt
 
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
 from gpaw.tddft.units import aufrequency_to_eV
+
+assert world.size == 1, 'This script should be run in serial mode.'
 
 
 # Helper function
@@ -36,6 +38,7 @@ def do_plot(d_g, ng, box, atoms):
     plt.xlim([x[0], x[-1]])
     plt.ylim([y[0], y[-1]])
     ax.set_aspect('equal')
+
 
 for fname, name in zip(['field.ind'], ['Classical system']):
     # Read InducedField object

@@ -18,8 +18,9 @@ volumes = []
 for spinpol in [False, True]:
     calc = GPAW(h=h,
                 occupations=FermiDirac(0.1, fixmagmom=True),
+                experimental={'niter_fixdensity': 2},
                 spinpol=spinpol)
     calc.calculate(atoms)
     volumes.append(HirshfeldPartitioning(calc).get_effective_volume_ratios())
 parprint(volumes)
-equal(volumes[0], volumes[1], 1.e-9)
+equal(volumes[0][0], volumes[1][0], 4e-9)

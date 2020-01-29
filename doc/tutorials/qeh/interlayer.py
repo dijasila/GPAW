@@ -1,3 +1,4 @@
+# Creates: W_r.svg
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw.response.qeh import Heterostructure
@@ -37,4 +38,3 @@ ee, ev = HS.get_exciton_binding_energies(eff_mass=inter_mass,
                                          h_distr=hl_array)
 
 print('The interlayer exciton binding energy is:', -ee[0])
-

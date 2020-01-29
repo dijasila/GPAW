@@ -26,7 +26,7 @@ print(id(calc.hamiltonian.dielectric))
 
 
 # We test the agreement of a pure RPA kernel with setting eps to 1
-lr = LrTDDFT(calc, poisson=PoissonSolver(nn=calc.hamiltonian.poisson.nn))
+lr = LrTDDFT(calc, poisson=PoissonSolver('fd', nn=calc.hamiltonian.poisson.nn))
 lr.diagonalize()
 
 if 0:

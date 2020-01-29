@@ -1,3 +1,4 @@
+# Creates: si-gaps.csv
 from __future__ import print_function
 import numpy as np
 from ase.build import bulk
@@ -20,11 +21,11 @@ for k in range(2, 9, 2):
                    txt=name + '.txt')
     si.get_potential_energy()
     si.calc.write(name + '.gpw', mode='all')
-    
+
     # Range of eigenvalues:
     n1 = 3
     n2 = 5
-    
+
     ibzkpts = si.calc.get_ibz_k_points()
     kpt_indices = []
     pbeeigs = []
@@ -36,18 +37,18 @@ for k in range(2, 9, 2):
 
     # DFT eigenvalues:
     pbeeigs = np.array(pbeeigs)
-    
+
     # PBE contribution:
     dpbeeigs = vxc(si.calc, 'PBE')[0, kpt_indices, n1:n2]
-        
+
     # Do PBE0 calculation:
     pbe0 = EXX(name + '.gpw',
                'PBE0',
                kpts=kpt_indices,
                bands=[n1, n2],
                txt=name + '.pbe0.txt')
-    pbe0.calculate()
-    
+    pbe0.calculate(restart=name + '.json')
+
     dpbe0eigs = pbe0.get_eigenvalue_contributions()[0]
     pbe0eigs = pbeeigs - dpbeeigs + dpbe0eigs
 

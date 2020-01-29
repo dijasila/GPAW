@@ -74,10 +74,9 @@ Linear combination of atomic orbitals (LCAO):
     Expansion in atom-centered basis functions.
 
 
-Multi-grid techniques for FD-mode
+Grid-based techniques for FD-mode
 =================================
 
-The Poisson equation is solved using a standard multi-grid solver.
 Solving the Kohn-Sham equation is done via iterative multi-grid
 eigensolvers starting from a good guess for the wave functions
 obtained by diagonalizing a Hamiltonian for a subspace of atomic orbitals.

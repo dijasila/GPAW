@@ -1,13 +1,17 @@
-name='diamond333_hch'
+from gpaw import GPAW
+from fpaw.xas import RecursionMethod
 
-calc = Calculator(name +'.gpw', 
-         kpts=(6,6,6),txt=name + '_rec.txt')
+name = 'diamond333_hch'
+
+calc = GPAW(name + '.gpw',
+            kpts=(6, 6, 6),
+            txt=name + '_rec.txt')
 calc.set_positions()
 
 r = RecursionMethod(calc)
-r.run(600) 
+r.run(600)
 
-r.run(1400, 
+r.run(1400,
       inverse_overlap='approximate')
 
 r.write(name + '_600_1400a.rec',

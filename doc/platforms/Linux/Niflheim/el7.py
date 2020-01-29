@@ -12,5 +12,5 @@ define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1'),
 platform_id = os.environ['CPU_ARCH'] + '-el7'
 
 # Important: libxc must come BEFORE what is already in this list (/usr/lib64)
-library_dirs = [os.environ['EBROOTLIBXC']+'/lib'] + library_dirs
-include_dirs += [os.environ['EBROOTLIBXC']+'/include']
+library_dirs = [os.environ['EBROOTLIBXC'] + '/lib'] + library_dirs
+include_dirs += [os.environ['EBROOTLIBXC'] + '/include']

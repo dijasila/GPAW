@@ -3,7 +3,7 @@ import numpy as np
 from ase import Atoms
 from ase.parallel import paropen
 
-from gpaw import GPAW, FermiDirac
+from gpaw import GPAW, FermiDirac, Davidson
 from gpaw.wavefunctions.pw import PW
 from gpaw.response.chi0 import Chi0
 from gpaw.test import equal
@@ -38,7 +38,9 @@ bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
                      pbc=(1, 1, 1))
 data_s = []
 for symmetry in ['off', {}]:
-    bulk_calc = GPAW(mode=PW(pwcutoff, force_complex_dtype=True),
+    bulk_calc = GPAW(mode=PW(pwcutoff),
+                     nbands=42,
+                     eigensolver=Davidson(1),
                      kpts={'size': (k, k, k), 'gamma': True},
                      xc='PBE',
                      occupations=FermiDirac(0.00001),
@@ -60,4 +62,4 @@ while len(data_s):
         for dat1, dat2 in zip(data1, data2):
             if dat1 is not None:
                 equal(np.abs(dat1 - dat2).max(),
-                      0, 1e-5, msg=msg)
+                      0, 0.001, msg=msg)

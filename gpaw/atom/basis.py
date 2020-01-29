@@ -139,7 +139,7 @@ class BasisMaker:
                                  'generation.')
 
     def smoothify(self, psi_mg, l):
-        """Generate pseudo wave functions from all-electron ones.
+        r"""Generate pseudo wave functions from all-electron ones.
 
         The pseudo wave function is::
 
@@ -434,7 +434,7 @@ class BasisMaker:
                         l_pol = i
                         break
                 else:
-                        l_pol = max(lvalues) + 1
+                    l_pol = max(lvalues) + 1
 
             # Find the last state with l=l_pol - 1, which will be the state we
             # base the polarization function on

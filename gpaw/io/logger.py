@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import os
 import sys
 import time
@@ -12,8 +11,7 @@ from ase.utils import search_current_git_hash
 import gpaw
 import _gpaw
 from gpaw.utilities.memory import maxrss
-from gpaw import dry_run, extra_parameters
-from gpaw.mpi import world
+from gpaw import extra_parameters
 
 
 class GPAWLogger(object):
@@ -99,17 +97,16 @@ class GPAWLogger(object):
 
         self('numpy:  %s (version %s)' %
              (os.path.dirname(np.__file__), np.version.version))
-        try:
-            import scipy as sp
-            self('scipy:  %s (version %s)' %
-                 (os.path.dirname(sp.__file__), sp.version.version))
-            # Explicitly deleting SciPy seems to remove garbage collection
-            # problem of unknown cause
-            del sp
-        except ImportError:
-            self('scipy:  Not available')
+        import scipy as sp
+        self('scipy:  %s (version %s)' %
+             (os.path.dirname(sp.__file__), sp.version.version))
+        # Explicitly deleting SciPy seems to remove garbage collection
+        # problem of unknown cause
+        del sp
+        self('libxc: ', getattr(_gpaw, 'libxc_version', '2.x.y'))
         self('units:  Angstrom and eV')
-        self('cores:  %d' % world.size)
+        self('cores:', self.world.size)
+        self('OMP_NUM_THREADS:', os.environ['OMP_NUM_THREADS'])
 
         if gpaw.debug:
             self('DEBUG MODE')
@@ -143,7 +140,7 @@ class GPAWLogger(object):
 
     def __del__(self):
         """Destructor:  Write timing output before closing."""
-        if dry_run:
+        if gpaw.dry_run:
             return
 
         try:

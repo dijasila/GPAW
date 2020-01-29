@@ -1,6 +1,6 @@
 from ase import Atom, Atoms
 
-from gpaw import GPAW, restart
+from gpaw import GPAW, restart, Davidson, Mixer
 from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
 from gpaw import setup_paths
@@ -24,14 +24,16 @@ for xcname in ['GLLB','GLLBSC']:
     Ne = Atoms([Atom(atom, (0, 0, 0))],
                cell=(a, a, a), pbc=False)
     Ne.center()
-    calc = GPAW(nbands=10, h=0.21, xc=xcname)
+    calc = GPAW(eigensolver=Davidson(4), nbands=10, h=0.18, xc=xcname,
+                basis='dzp',
+                mixer=Mixer(0.6))
     Ne.set_calculator(calc)
     e = Ne.get_potential_energy()
     response = calc.hamiltonian.xc.xcs['RESPONSE']
     response.calculate_delta_xc()
     KS, dxc = response.calculate_delta_xc_perturbation()
     if xcname=='GLLB':
-        equal(KS+dxc, 24.71, 1.5e-1)
+        equal(KS+dxc, 24.89, 1.5e-1)
     else:
         equal(KS+dxc, 27.70, 6.0e-2)
     eps3d = calc.wfs.kpt_u[0].eps_n[3]
@@ -41,10 +43,13 @@ for xcname in ['GLLB','GLLBSC']:
     KS2, dxc2 = response.calculate_delta_xc_perturbation()
     equal(KS, KS2, 1e-5)
     equal(dxc2, dxc, 1e-5)
-    
+
     # Hardness of Ne 24.71eV by GLLB+Dxc, experimental I-A = I = 21.56eV
+    #
+    # Not sure where 24.71 comes from, but with better grid and better
+    # stencil, result becomes 24.89.  --askhl
 
     if world.rank == 0:
         equal(eps, eps3d, 1e-3)
     if xcname=='GLLB':
-        equal(24.71, KS2+dxc2, 1.2e-1)
+        equal(24.89, KS2+dxc2, 1.2e-1)

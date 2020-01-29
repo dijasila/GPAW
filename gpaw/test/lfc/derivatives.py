@@ -46,6 +46,3 @@ for v in range(3):
         C0_n /= -2 * eps
         assert abs(C0_n - d_aniv[0][:, 0, v]).max() < 1e-8
     pos_av[0, v] += eps
- 
-
-    

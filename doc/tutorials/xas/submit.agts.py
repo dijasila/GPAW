@@ -1,16 +1,19 @@
-def agts(queue):
-    setups = queue.add('setups.py')
-    run = queue.add('run.py', ncpus=8, walltime=25, deps=[setups])
-    dks = queue.add('dks.py', ncpus=8, walltime=25, deps=[setups])
-    box = queue.add('h2o_xas_box1.py', ncpus=8, walltime=25, deps=[setups])
-    queue.add('submit.agts.py', deps=[run, dks, box],
-              creates=['xas_h2o_spectrum.png', 'h2o_xas_box.png'],
-              show=['xas_h2o_spectrum.png', 'h2o_xas_box.png'])
+# Creates: xas_h2o_spectrum.png, h2o_xas_box.png
+
+
+def create_tasks():
+    from myqueue.task import task
+    return [
+        task('setups.py'),
+        task('run.py@8:25m', deps='setups.py'),
+        task('dks.py@8:25m', deps='setups.py'),
+        task('h2o_xas_box1.py@8:25m', deps='setups.py'),
+        task('submit.agts.py', deps='run.py,dks.py,h2o_xas_box1.py')]
 
 
 if __name__ == '__main__':
     from gpaw.test import equal
     exec(open('plot.py').read())
-    e_dks = float(open('dks.py.output').readline().split()[2])
-    equal(e_dks, 532.508, 0.001)
+    e_dks = float(open('dks.result').readline().split()[2])
+    equal(e_dks, 532.502, 0.001)
     exec(open('h2o_xas_box2.py').read())

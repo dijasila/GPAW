@@ -4,6 +4,7 @@ from gpaw.lfc import LFC
 from gpaw.spline import Spline
 from gpaw.xc.gga import gga_x, gga_c
 
+
 class QNAKernel:
     def __init__(self, qna):
         self.qna = qna
@@ -13,7 +14,8 @@ class QNAKernel:
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg, dedsigma_xg,
-                  tau_sg=None, dedtau_sg=None, mu_g=None, beta_g=None, dedmu_g=None, dedbeta_g=None):
+                  tau_sg=None, dedtau_sg=None, mu_g=None, beta_g=None,
+                  dedmu_g=None, dedbeta_g=None):
 
         e_g[:] = 0.
         dedsigma_xg[:] = 0.
@@ -24,7 +26,7 @@ class QNAKernel:
         else:
             atoms = self.qna.atoms
 
-        if len(n_sg.shape) > 2: 
+        if len(n_sg.shape) > 2:
             # 3D xc calculation
             mu_g, beta_g = self.qna.calculate_spatial_parameters(atoms)
             dedmu_g = self.qna.dedmu_g
@@ -38,10 +40,10 @@ class QNAKernel:
             beta_g[:] = beta
             dedmu_g = None
             dedbeta_g = None
- 
-        #Enable to use PBE always
-        #mu_g[:] = 0.2195149727645171
-        #beta_g[:] = 0.06672455060314922
+
+        # Enable to use PBE always
+        # mu_g[:] = 0.2195149727645171
+        # beta_g[:] = 0.06672455060314922
 
         # Write mu and beta fields
         if 0:
@@ -50,20 +52,23 @@ class QNAKernel:
             write('beta_g.cube', atoms, data=beta_g)
             raise SystemExit
 
-        # spin-paired: XXX Copy-paste from gga.py to prevent distruptions to pyGGA
+        # spin-paired: XXX Copy-paste from gga.py to prevent
+        # distruptions to pyGGA
         if len(n_sg) == 1:
             n = n_sg[0]
             n[n < 1e-20] = 1e-40
 
             # exchange
-            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, mu_g, dedmu_g=dedmu_g)
+            res = gga_x(self.name, 0, n, sigma_xg[0], self.kappa, mu_g,
+                        dedmu_g=dedmu_g)
             ex, rs, dexdrs, dexda2 = res
 
             if dedmu_g is not None:
                 dedmu_g[:] = n * dedmu_g
 
             # correlation
-            res = gga_c(self.name, 0, n, sigma_xg[0], 0, beta_g, decdbeta_g=dedbeta_g)
+            res = gga_c(self.name, 0, n, sigma_xg[0], 0, beta_g,
+                        decdbeta_g=dedbeta_g)
             ec, rs_, decdrs, decda2, decdzeta = res
             e_g[:] += n * (ex + ec)
             dedn_sg[:] += ex + ec - rs * (dexdrs + decdrs) / 3.
@@ -88,9 +93,11 @@ class QNAKernel:
 
             # exchange
             exa, rsa, dexadrs, dexada2 = gga_x(
-                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, mu_g, dedmu_g=dedmua_g)
+                self.name, 1, na, 4.0 * sigma_xg[0], self.kappa, mu_g,
+                dedmu_g=dedmua_g)
             exb, rsb, dexbdrs, dexbda2 = gga_x(
-                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, mu_g, dedmu_g=dedmub_g)
+                self.name, 1, nb, 4.0 * sigma_xg[2], self.kappa, mu_g,
+                dedmu_g=dedmub_g)
             a2 = sigma_xg[0] + 2.0 * sigma_xg[1] + sigma_xg[2]
             if dedmu_g is not None:
                 dedmu_g[:] = 0.5 * (na * dedmua_g + nb * dedmub_g)
@@ -99,10 +106,10 @@ class QNAKernel:
             ec, rs, decdrs, decda2, decdzeta = gga_c(
                 self.name, 1, n, a2, zeta, beta_g, decdbeta_g=dedbeta_g)
             e_g[:] += 0.5 * (na * exa + nb * exb) + n * ec
-            dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0
-                              - (zeta - 1.0) * decdzeta)
-            dedn_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0
-                              - (zeta + 1.0) * decdzeta)
+            dedn_sg[0][:] += (exa + ec - (rsa * dexadrs + rs * decdrs) / 3.0 -
+                              (zeta - 1.0) * decdzeta)
+            dedn_sg[1][:] += (exb + ec - (rsb * dexbdrs + rs * decdrs) / 3.0 -
+                              (zeta + 1.0) * decdzeta)
             dedsigma_xg[0][:] += 2.0 * na * dexada2 + n * decda2
             dedsigma_xg[1][:] += 2.0 * n * decda2
             dedsigma_xg[2][:] += 2.0 * nb * dexbda2 + n * decda2
@@ -110,11 +117,14 @@ class QNAKernel:
         if dedbeta_g is not None:
             dedbeta_g[:] = dedbeta_g * n
 
+
 class QNA(GGA):
-    def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0, override_atoms=None):
-        # override_atoms is only used to test the partial derivatives of xc-functional
+    def __init__(self, atoms, parameters, qna_setup_name='PBE', alpha=2.0,
+                 override_atoms=None, stencil=2):
+        # override_atoms is only used to test the partial derivatives
+        # of xc-functional
         kernel = QNAKernel(self)
-        GGA.__init__(self, kernel)
+        GGA.__init__(self, kernel, stencil=stencil)
         self.atoms = atoms
         self.parameters = parameters
         self.qna_setup_name = qna_setup_name
@@ -141,13 +151,14 @@ class QNA(GGA):
         points = 200
         r_i = np.linspace(0, rcut, points + 1)
         rcgauss = 1.2
-        g_g = 2 / rcgauss**3 / np.pi * np.exp(-((r_i / rcgauss)**2)**self.alpha)
+        g_g = (2 / rcgauss**3 / np.pi *
+               np.exp(-((r_i / rcgauss)**2)**self.alpha))
 
         # Values too close to zero can cause numerical problems especially with
         # forces (some parts of the mu and beta field can become negative)
-        g_g[ np.where( g_g < l_lim ) ] = l_lim
+        g_g[np.where(g_g < l_lim)] = l_lim
         spline = Spline(l=0, rmax=rcut, f_g=g_g)
-        spline_j = [[ spline ]] * len(self.atoms)
+        spline_j = [[spline]] * len(self.atoms)
         self.Pa = LFC(gd, spline_j)
 
     def set_positions(self, spos_ac, atom_partition=None):
@@ -162,9 +173,9 @@ class QNA(GGA):
         eye_a = {}
         for atom in atoms:
             mu, beta = self.parameters[atom.symbol]
-            mu_a[atom.index] = [ mu ]
-            beta_a[atom.index] = [ beta ]
-            eye_a[atom.index] = 1.0
+            mu_a[atom.index] = np.array([mu])
+            beta_a[atom.index] = np.array([beta])
+            eye_a[atom.index] = np.array(1.0)
         self.Pa.add(mu_g, mu_a)
         self.Pa.add(beta_g, beta_a)
         self.Pa.add(denominator, eye_a)
@@ -177,11 +188,12 @@ class QNA(GGA):
         self.current_atom = a
         return GGA.calculate_paw_correction(self, setup, D_sp, dEdD_sp,
                                             addcoredensity, a)
+
     def get_setup_name(self):
         return self.qna_setup_name
-    
+
     def get_description(self):
-        return "QNA Parameters: "+str(self.parameters)
+        return 'QNA Parameters: ' + str(self.parameters)
 
     def add_forces(self, F_av):
         mu_g = self.gd.zeros()
@@ -192,9 +204,9 @@ class QNA(GGA):
         eye_a = {}
         for atom in self.atoms:
             mu, beta = self.parameters[atom.symbol]
-            mu_a[atom.index] = [ mu ]
-            beta_a[atom.index] = [ beta ]
-            eye_a[atom.index] = 1.0
+            mu_a[atom.index] = np.array([mu])
+            beta_a[atom.index] = np.array([beta])
+            eye_a[atom.index] = np.array(1.0)
         self.Pa.add(mu_g, mu_a)
         self.Pa.add(beta_g, beta_a)
         self.Pa.add(denominator, eye_a)
@@ -206,7 +218,7 @@ class QNA(GGA):
         part2 = -part1 * mu_g
         c_axiv = self.Pa.dict(derivative=True)
         self.Pa.derivative(part1, c_axiv)
-        old = F_av.copy()
+
         for atom in self.atoms:
             F_av[atom.index] -= c_axiv[atom.index][0][:] * mu_a[atom.index][0]
         c_axiv = self.Pa.dict(derivative=True)
@@ -220,9 +232,8 @@ class QNA(GGA):
         c_axiv = self.Pa.dict(derivative=True)
         self.Pa.derivative(part1, c_axiv)
         for atom in self.atoms:
-            F_av[atom.index] -= c_axiv[atom.index][0][:] * beta_a[atom.index][0]
+            F_av[atom.index] -= c_axiv[atom.index][0] * beta_a[atom.index][0]
         c_axiv = self.Pa.dict(derivative=True)
         self.Pa.derivative(part2, c_axiv)
         for atom in self.atoms:
             F_av[atom.index] -= c_axiv[atom.index][0][:]
-

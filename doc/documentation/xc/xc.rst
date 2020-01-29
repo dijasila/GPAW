@@ -9,6 +9,7 @@ XC Functionals
 
    functionals
    exx
+   range_separated_functionals
    rpa
    tpss
    vdw

@@ -9,7 +9,8 @@ for name in ['H2', 'N2', 'O2', 'NO']:
     calc = GPAW(xc='PBE',
                 h=0.2,
                 eigensolver=Davidson(3),
-                txt=name + '.txt')
+                txt=name + '.txt',
+                convergence={'eigenstates': 1e-10})
     if name == 'NO':
         mol.translate((0, 0.1, 0))
         calc.set(mixer=MixerDif(0.05, 5))

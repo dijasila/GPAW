@@ -1,3 +1,6 @@
-def agts(queue):
-    queue.add('NaCl.py', ncpus=1, walltime=30, creates=['all_electron.csv'])
+from myqueue.task import task
 
+
+def create_tasks():
+    return [
+        task('NaCl.py@1:30m')]

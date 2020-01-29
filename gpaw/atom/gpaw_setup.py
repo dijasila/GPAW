@@ -14,6 +14,8 @@ def build_parser():
     parser.add_option('-x', '--exact-exchange', action='store_true',
                       default=False,
                       help='Calculate exact exchange integrals.')
+    parser.add_option('--gamma', type='float',
+                      help='Set gamma for Yukawa dampening.')
     parser.add_option('-r', '--radius', type='string', default=None,
                       help='Cutoff radius or radii (comma separated).',
                       metavar='<rcut>')
@@ -23,8 +25,8 @@ def build_parser():
     parser.add_option('--filter', metavar='h,x',
                       help='Parameters used for Fourier-filtering and '
                       'projector functions and zero-potential. "h" is '
-                      'the cutoff grid-spacing (in Bohr) and "x" is the ratio '
-                      'between outer and inner radii.')
+                      'the cutoff grid-spacing (in Bohr) and "x" is the '
+                      'ratio between outer and inner radii.')
     parser.add_option('-l', '--logarithmic-derivatives', action='store_true',
                       help='Calculate logarithmic derivatives.')
     parser.add_option('-a', '--all-electron-only', action='store_true',
@@ -79,7 +81,7 @@ def main():
     opt, args = parser.parse_args()
 
     import sys
-    
+
     from gpaw.atom.generator import Generator
     from gpaw.atom.configurations import parameters, tf_parameters
     from gpaw.atom.all_electron import AllElectron
@@ -157,6 +159,9 @@ def main():
 
         if opt.empty_states is not None:
             p['empty_states'] = opt.empty_states
+
+        if opt.gamma is not None:
+            p['yukawa_gamma'] = opt.gamma
 
         try:
             g.run(logderiv=opt.logarithmic_derivatives,

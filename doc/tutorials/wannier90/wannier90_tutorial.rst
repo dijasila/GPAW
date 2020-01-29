@@ -167,7 +167,7 @@ on a very fine mesh. To perform the calculation set ``kpath = False`` in
 
 Now run ``postw90.x Fe`` once more. This calculates the anomalous Hall
 conductivity on a `50\times50\times50` `k`-mesh. The `z`-component should be
-803 S/cm and can be read from the output file ``Fe.wpout``. This is not too
+924 S/cm and can be read from the output file ``Fe.wpout``. This is not too
 bad, but one needs to go to much higher `k`-point densities to obtain the
 converged values of 757 S/cm [#AHC]_.
 

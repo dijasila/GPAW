@@ -12,7 +12,7 @@ c = a / 2
 d = 1.8
 
 elements = ['C']
-results = [0.0168960169771]
+results = [0.016]
 electrons = [6]
 lambda_coeff=2.0
 

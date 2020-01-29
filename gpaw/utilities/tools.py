@@ -33,10 +33,10 @@ def split_formula(formula):
     return res
 
 
-def construct_reciprocal(gd, q_c=None, distributed=False):
+def construct_reciprocal(gd, q_c=None):
     """Construct the reciprocal lattice from ``GridDescriptor`` instance.
 
-    The generated reciprocal lattice has lattice vectors correspoding to the
+    The generated reciprocal lattice has lattice vectors corresponding to the
     real-space lattice defined in the input grid. Note that it is the squared
     length of the reciprocal lattice vectors that are returned.
 
@@ -45,7 +45,7 @@ def construct_reciprocal(gd, q_c=None, distributed=False):
 
     Note that the G=(0,0,0) entry is set to one instead of zero. This
     bit should probably be moved somewhere else ...
-    
+
     Parameters
     ----------
     q_c: ndarray
@@ -53,47 +53,37 @@ def construct_reciprocal(gd, q_c=None, distributed=False):
         reciprocal lattice vectors, i.e. array with index ``c``). When
         specified, the returned array contains the values of (q+G)^2 where G
         denotes the reciprocal lattice vectors.
-    
+
     """
-    # TODO: always use distributed.  If someone wants to do this in serial,
-    # they can easily create their own serial grid descriptor.
-    
+
     assert gd.pbc_c.all(), 'Works only with periodic boundary conditions!'
 
-    # Check q_c
-    if q_c is not None:
-        assert q_c.shape in [(3,), (3, 1)]
-        q_c = q_c.reshape((3, 1))
-        
+    q_c = np.zeros((3, 1), dtype=float) if q_c is None else q_c.reshape((3, 1))
+
     # Calculate reciprocal lattice vectors
-    N_c1 = gd.N_c[:, np.newaxis]
-    if distributed:
-        shape = gd.n_c
-        i_cq = np.indices(gd.n_c).reshape((3, -1)) # offsets....
-        i_cq += gd.beg_c[:, None]
-    else:
-        shape = gd.N_c
-        i_cq = np.indices(gd.N_c).reshape((3, -1))
+    N_c1 = gd.N_c[:, None]
+    i_cq = np.indices(gd.n_c, dtype=float).reshape((3, -1))  # offsets....
+    i_cq += gd.beg_c[:, None]
     i_cq += N_c1 // 2
     i_cq %= N_c1
     i_cq -= N_c1 // 2
 
-    if q_c is not None:
-        i_cq = np.array(i_cq, dtype=float)
-        i_cq += q_c
+    i_cq += q_c
 
     # Convert from scaled to absolute coordinates
     B_vc = 2.0 * np.pi * gd.icell_cv.T
     k_vq = np.dot(B_vc, i_cq)
 
     k_vq *= k_vq
-    k2_Q = k_vq.sum(axis=0).reshape(shape)
+    k2_Q = k_vq.sum(axis=0).reshape(gd.n_c)
 
-    if gd.comm.rank == 0 or not distributed:
-        if q_c is None:
-            k2_Q[0, 0, 0] = 1.0
-        elif abs(q_c).sum() < 1e-8:
-            k2_Q[0, 0, 0] = 1.0
+    # Avoid future divide-by-zero by setting k2_Q[G=(0,0,0)] = 1.0 if needed
+    if k2_Q[0, 0, 0] < 1e-10:
+        k2_Q[0, 0, 0] = 1.0           # Only make sense iff
+        assert gd.comm.rank == 0      # * on rank 0 (G=(0,0,0) is only there)
+        assert abs(q_c).sum() < 1e-8  # * q_c is (almost) zero
+
+    assert k2_Q.min() > 0.0       # Now there should be no zero left
 
     # Determine N^3
     #
@@ -102,7 +92,7 @@ def construct_reciprocal(gd, q_c=None, distributed=False):
     N3 = gd.n_c[0] * gd.n_c[1] * gd.n_c[2]
     return k2_Q, N3
 
-    
+
 def coordinates(gd, origin=None, tiny=1e-12):
     """Constructs and returns matrices containing cartesian coordinates,
        and the square of the distance from the origin.
@@ -111,7 +101,7 @@ def coordinates(gd, origin=None, tiny=1e-12):
        Otherwise the origin is placed in the center of the box described
        by the given grid-descriptor 'gd'.
     """
-    
+
     if origin is None:
         origin = 0.5 * gd.cell_cv.sum(0)
     r0_v = np.array(origin)
@@ -124,7 +114,7 @@ def coordinates(gd, origin=None, tiny=1e-12):
     # Return r^2 matrix
     return r_vG, r2_G
 
-    
+
 def pick(a_ix, i):
     """Take integer index of a, or a linear combination of the elements of a"""
     if isinstance(i, int):
@@ -286,15 +276,15 @@ def tridiag(a, b, c, r, u):
     u[0] = r[0] / beta
     for i in range(1, n):
         # Decompose and forward substitution
-        tmp[i-1] = c[i-1] / beta
-        beta = b[i] - a[i-1] * tmp[i-1]
+        tmp[i - 1] = c[i - 1] / beta
+        beta = b[i] - a[i - 1] * tmp[i - 1]
         if beta == 0:
             raise RuntimeError('Method failure')
-        u[i] = (r[i] - a[i-1] * u[i-1]) / beta
+        u[i] = (r[i] - a[i - 1] * u[i - 1]) / beta
 
-    for i in range(n-1, 0, -1):
+    for i in range(n - 1, 0, -1):
         # Backward substitution
-        u[i-1] -= tmp[i-1] * u[i]
+        u[i - 1] -= tmp[i - 1] * u[i]
 
 
 def signtrim(data, decimals=None):
@@ -304,7 +294,7 @@ def signtrim(data, decimals=None):
     decimals is an integer specifying how many decimals to round to.
     """
     if decimals is not None:
-        data = data.round(decimals) #np.round is buggy because -0 != 0
+        data = data.round(decimals)  # np.round is buggy because -0 != 0
 
     shape = data.shape
     data = data.reshape(-1)
@@ -315,7 +305,7 @@ def signtrim(data, decimals=None):
         data.real[i] = 0
         data.imag[j] = 0
     else:
-        i = np.argwhere(np.sign(data)==0).ravel()
+        i = np.argwhere(np.sign(data) == 0).ravel()
         data[i] = 0
 
     return data.reshape(shape)
@@ -349,12 +339,15 @@ def md5_array(data, numeric=False):
         data.dtype not in [bool, np.bool, np.bool_]):
         raise TypeError('MD5 hex digest only accepts numeric/boolean arrays.')
 
-    datahash = hashlib.md5(data.tostring())
+    datahash = hashlib.md5(data.tobytes())
 
     if numeric:
-        xor = lambda a,b: chr(ord(a)^ord(b)) # bitwise xor on 2 bytes -> 1 byte
+        def xor(a, b):
+            return chr(ord(a) ^ ord(b))  # bitwise xor on 2 bytes -> 1 byte
+
         sbuf128 = datahash.digest()
-        sbuf64 = ''.join([xor(a,b) for a,b in zip(sbuf128[::2],sbuf128[1::2])])
+        sbuf64 = ''.join([xor(a, b)
+                          for a, b in zip(sbuf128[::2], sbuf128[1::2])])
         return np.fromstring(sbuf64, np.int64).item()
     else:
         return datahash.hexdigest()
@@ -396,13 +389,13 @@ class Spline:
         """
         self.xy = (xi, yi)
         N = len(xi)
-        self.ypp = u = np.zeros(N) # The second derivatives y''
+        self.ypp = u = np.zeros(N)  # the second derivatives y''
         tmp = np.zeros(N - 1)
 
         # Set left boundary condition
-        if leftderiv is None: # natural spline - second derivative is zero
+        if leftderiv is None:  # natural spline - second derivative is zero
             tmp[0] = u[0] = 0.0
-        else: # clamped spline - first derivative is fixed
+        else:  # clamped spline - first derivative is fixed
             tmp[0] = 3 / (xi[1] - xi[0]) * (
                 (yi[1] - yi[0]) / (xi[1] - xi[0]) - leftderiv)
             u[0] = -.5
@@ -413,18 +406,19 @@ class Spline:
             u[i] = (sig - 1) / p
             tmp[i] = (yi[i + 1] - yi[i]) / (xi[i + 1] - xi[i]) - \
                      (yi[i] - yi[i - 1]) / (xi[i] - xi[i - 1])
-            tmp[i] = (6 * tmp[i] / (xi[i +1] - xi[i-1]) - sig * tmp[i - 1]) / p
+            tmp[i] = (6 * tmp[i] /
+                      (xi[i + 1] - xi[i - 1]) - sig * tmp[i - 1]) / p
 
         # Set right boundary condition
-        if rightderiv is None: # natural spline - second derivative is zero
+        if rightderiv is None:  # natural spline - second derivative is zero
             qn = tmpn = 0.0
-        else: # clamped spline - first derivative is fixed
+        else:  # clamped spline - first derivative is fixed
             qn = .5
             tmpn = 3 / (xi[N - 1] - xi[N - 2]) * (
                 rightderiv - (yi[N - 1] - yi[N - 2]) / (xi[N - 1] - xi[N - 2]))
 
         u[N - 1] = (tmpn - qn * tmp[N - 2]) / (qn * u[N - 1] + 1)
-        for k in range(N - 2, -1, -1): # backsubstitution step
+        for k in range(N - 2, -1, -1):  # backsubstitution step
             u[k] = u[k] * u[k + 1] + tmp[k]
 
     def __call__(self, x):
@@ -438,7 +432,8 @@ class Spline:
 
         """
         x = np.array(x, float)
-        if x.ndim == 0: x.shape = (1,)
+        if x.ndim == 0:
+            x.shape = (1,)
         y = np.zeros_like(x)
         xi, yi = self.xy
 
@@ -460,7 +455,11 @@ class Spline:
         1 or len(xi) - 1 is returned if x is outside list range.
         """
         xi = self.xy[0]
-        if x <= xi[0]: return 1
-        elif x > xi[-1]: return len(xi) - 1
-        elif guess and xi[guess - 1] < x <= xi[guess]: return guess
-        else: return np.searchsorted(xi, x)
+        if x <= xi[0]:
+            return 1
+        elif x > xi[-1]:
+            return len(xi) - 1
+        elif guess and xi[guess - 1] < x <= xi[guess]:
+            return guess
+        else:
+            return np.searchsorted(xi, x)

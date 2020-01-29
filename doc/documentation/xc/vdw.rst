@@ -13,8 +13,9 @@ Several vdW-DF [#vdW-DF1a]_ type XC functionals
 are implemented selfconsistently
 in GPAW, and also the BEEF-vdW [#BEEF-vdW]_ density functional.
 The vdW-DF variants include vdW-DF [#vdW-DF1a]_, [#vdW-DF1b]_,
-[#vdW-DF-cx]_,
-vdW-DF2 [#vdW-DF2]_, optPBE-vdW [#opt-vdW]_, optB88-vdW [#opt-vdW]_,
+vdW-DF2 [#vdW-DF2]_,
+vdW-DF-cx, [#vdW-DF-cx]_,
+optPBE-vdW [#opt-vdW]_, optB88-vdW [#opt-vdW]_,
 and C09-vdW [#C09-vdW]_.
 
 Of these, vdW-DF-cx is available only through libvdwxc.
@@ -72,9 +73,13 @@ Perturbative vdW-DF calculations (non-selfconsistent)
 >>> vdWDF_energy = GGA_energy + vdWDF_diff
 
 In the above examples, other vdW-DF type functionals can be used
-by substituting 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW', or 'C09-vdW'
-for 'vdW-DF'.
- 
+by substituting 'vdW-DF2', 'vdW-DF-cx' (if GPAW is compiled with libvdwxc),
+'optPBE-vdW', 'optB88-vdW', or 'C09-vdW' for 'vdW-DF'.
+To explicitly use the faster libvdwxc backend, use e.g.
+`xc={'name': 'vdW-DF', 'backend': 'libvdwxc'}`.
+t libvdwxc uses a different kernel parametrization,
+which will slightly affect calculated values.
+
 
 Non-default FFT parameters for vdW-DF calculations
 -----------------------------------------------------

@@ -10,8 +10,7 @@ Compare to reference.
 """
 from ase.build import bulk
 from ase.units import Ha
-from gpaw.eigensolvers.davidson import Davidson
-from gpaw import GPAW, restart
+from gpaw import GPAW, Davidson, Mixer, restart
 from gpaw.test import gen
 from gpaw import setup_paths
 from gpaw.mpi import world
@@ -29,9 +28,10 @@ calc = GPAW(h=0.2,
             kpts=(4, 4, 4),
             xc=xc,
             nbands=8,
+            mixer=Mixer(0.5, 5, 10.0),
             parallel=dict(domain=min(world.size, 2),
                           band=1),
-            eigensolver=Davidson(niter=4))
+            eigensolver=Davidson(niter=2))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()
 calc.write('Cgs.gpw')
@@ -52,6 +52,7 @@ print('band gap', lumo - homo)
 
 # Redo the ground state calculation
 calc = GPAW(h=0.2, kpts=(4, 4, 4), xc=xc, nbands=8,
+            mixer=Mixer(0.5, 5, 10.0),
             eigensolver=Davidson(niter=4))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()

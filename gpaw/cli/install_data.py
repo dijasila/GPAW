@@ -4,11 +4,7 @@ import fnmatch
 from io import BytesIO
 import tarfile
 import re
-try:
-    from urllib2 import urlopen
-    input = raw_input
-except ImportError:
-    from urllib.request import urlopen
+from urllib.request import urlopen
 
 
 sources = [('gpaw', 'official GPAW setups releases [default]'),
@@ -18,13 +14,11 @@ sources = [('gpaw', 'official GPAW setups releases [default]'),
 
 names = [r for r, d in sources]
 
-baseurls = {'gpaw':
-            'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.rst.txt',
-            # 'sg15': 'http://fpmd.ucdavis.edu/qso/potentials/sg15_oncv/',
-            'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
-            'basis':
-            'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-lcao-basis-sets/',
-            'test': 'http://dcwww.camd.dtu.dk/~askhl/files/gpaw-test-source/'}
+baseurls = {
+    'gpaw': 'https://wiki.fysik.dtu.dk/gpaw/_sources/setups/setups.rst.txt',
+    'sg15': 'http://www.quantum-simulation.org/potentials/sg15_oncv/',
+    'basis': 'https://wiki.fysik.dtu.dk/gpaw-files/',
+    'test': 'https://wiki.fysik.dtu.dk/gpaw-files/'}
 
 
 notfound_msg = """\
@@ -37,16 +31,20 @@ available at the expected URL:
 
 Or maybe there it is just a temporary problem or timeout.  Please try
 again, or rummage around the GPAW web page until a solution is found.
-Writing e-mails to gpaw-developers@lists@listserv.fysik.dtu.dk is also
+Writing e-mails to gpaw-users@listserv.fysik.dtu.dk or reporting
+an issue on https://gitlab.com/gpaw/gpaw/issues is also
 likely to help."""
 
 
 class CLICommand:
-    short_description = 'Install PAW datasets, pseudopotential or basis sets'
-    description = ('Without a directory, show available setups and GPAW '
-                   'setup paths. '
-                   'With a directory, download and install gpaw-setups into '
-                   'INSTALLDIR/[setups-package-name-and-version].')
+    """Install PAW datasets, pseudopotential or basis sets.
+
+    Without a directory, show available setups and GPAW
+    setup paths.
+
+    With a directory, download and install gpaw-setups into
+    INSTALLDIR/[setups-package-name-and-version].
+    """
 
     @staticmethod
     def add_arguments(parser):
@@ -232,12 +230,15 @@ def main(args, parser):
 
 def get_urls(source):
     page = baseurls[source]
-    response = urlopen(page)
     if source == 'gpaw':
+        response = urlopen(page)
         pattern = 'https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-*.tar.gz'
         lines = (line.strip().decode() for line in response)
         urls = [line for line in lines if fnmatch.fnmatch(line, pattern)]
+
     elif source == 'sg15':
+        response = urlopen(page)
+
         # We want sg15_oncv_2015-10-07.tar.gz, but they may upload
         # newer files, too.
         pattern = (r'<a\s*href=[^>]+>\s*'
@@ -248,15 +249,19 @@ def get_urls(source):
         files = re.compile(pattern).findall(txt)
         files.sort(reverse=True)
         urls = [page + fname for fname in files]
+
     elif source == 'basis':
-        pattern = re.compile('>(gpaw-basis-.+?.tar.gz)</a>')
-        txt = response.read().decode('ascii', errors='replace')
-        files = sorted(pattern.findall(txt), reverse=True)
+        files = ['gpaw-basis-NAO-sz+coopt-NGTO-0.9.11271.tar.gz',
+                 'gpaw-basis-pvalence-0.9.11271.tar.gz',
+                 'gpaw-basis-pvalence-0.9.20000.tar.gz']
         urls = [page + fname for fname in files]
+
     elif source == 'test':
-        urls = ['{0}gpaw-dist-test-source.tar.gz'.format(page)]
+        urls = [page + 'gpaw-dist-test-source.tar.gz']
+
     else:
         raise ValueError('Unknown source: %s' % source)
+
     return urls
 
 
@@ -267,11 +272,11 @@ def print_setups_info(parser):
         parser.error('Cannot import \'gpaw\'.  GPAW does not appear to be '
                      'installed. %s' % e)
 
-    # GPAW may already have been imported, and the contents of the rc
-    # file may have changed since then.  Thus, we re-import gpaw to be
-    # sure that everything is as it should be.
-    gpaw.initialize_data_paths()
+    # The contents of the rc file may have changed.  Thus, we initialize
+    # setup_paths again to be sure that everything is as it should be.
+    gpaw.setup_paths[:] = []
     gpaw.read_rc_file()
+    gpaw.initialize_data_paths()
 
     npaths = len(gpaw.setup_paths)
     if npaths == 0:

@@ -1,24 +1,16 @@
-from __future__ import print_function
-
-from gpaw import *
-from ase import *
-import numpy as np
+from gpaw import GPAW, FermiDirac
+from ase import Atoms
 
 atom = Atoms(symbols='KTaO3',
-             pbc=np.array([ True,  True,  True], dtype=bool),
-             cell=np.array(
-                           [[ 4.,  0.,  0.],
-                            [ 0.,  4.,  0.],
-                            [ 0.,  0.,  4.]]
-                           ),
-             positions=np.array(
-                            [[ 0.,  0.,  0.],
-                             [ 2.,  2.,  2.],
-                             [ 2.,  2.,  0.],
-                             [ 0.,  2.,  2.],
-                             [ 2.,  0.,  2.]]
-                                ),
-            )
+             pbc=[ True,  True,  True],
+             cell=[[ 4.,  0.,  0.],
+                   [ 0.,  4.,  0.],
+                   [ 0.,  0.,  4.]],
+             positions=[[ 0.,  0.,  0.],
+                        [ 2.,  2.,  2.],
+                        [ 2.,  2.,  0.],
+                        [ 0.,  2.,  2.],
+                        [ 2.,  0.,  2.]])
 
 
 calc = GPAW(h=0.16,

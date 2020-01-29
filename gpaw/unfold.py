@@ -30,7 +30,7 @@ class Unfold:
         self.gd = self.calc.wfs.gd.new_descriptor()
 
         self.kd = self.calc.wfs.kd
-        if self.calc.wfs.mode is 'pw':
+        if self.calc.wfs.mode == 'pw':
             self.pd = self.calc.wfs.pd
         else:
             self.pd = PWDescriptor(ecut=None, gd=self.gd, kd=self.kd,
@@ -131,7 +131,7 @@ class Unfold:
             return u_mG
 
     def get_spectral_weights_k(self, k_t):
-        """Returns the spectral weights for a given k in the PC:
+        r"""Returns the spectral weights for a given k in the PC:
 
             P_mK(k_t) = \sum_n |<Km|k_t n>|**2
 
@@ -219,7 +219,7 @@ class Unfold:
 
     def spectral_function(self, kpts, x, X, points_name, width=0.002,
                           npts=10000, filename=None):
-        """Returns the spectral function for all the ks in kpoints:
+        r"""Returns the spectral function for all the ks in kpoints:
 
                                               eta / pi
 

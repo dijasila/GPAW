@@ -1,8 +1,9 @@
+from myqueue.task import task
 
-def agts(queue):
-    calc_co = queue.add('PES_CO.py', ncpus=8, walltime=2 * 45)
-    calc_h2o = queue.add('PES_H2O.py', ncpus=8, walltime=2 * 45)
-    calc_nh3 = queue.add('PES_NH3.py', ncpus=8, walltime=55)
-    queue.add('PES_plot.py', ncpus=1, walltime=5,
-              deps=[calc_co, calc_h2o, calc_nh3], creates=['PES_fig.png'])
 
+def create_tasks():
+    return [task('PES_CO.py@8:1h'),
+            task('PES_H2O.py@8:1h'),
+            task('PES_NH3.py@8:55m'),
+            task('PES_plot.py@1:5m',
+                deps='PES_CO.py,PES_H2O.py,PES_NH3.py')]

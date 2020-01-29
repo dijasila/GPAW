@@ -64,7 +64,7 @@ def check(name, energy, peakloss, ref_energy, ref_loss):
        % (name, energy, ref_energy, peakloss, ref_loss))
     energy_errs.append(abs(energy - ref_energy))
     loss_errs.append(abs(peakloss - ref_loss))
-    
+
 
 array = np.array
 template = """\
@@ -113,7 +113,7 @@ def check_df(name, ref_energy, ref_loss, ref_energy_lfe, ref_loss_lfe,
 # The implementation for vcut choices has still to be done
 
 check_df('3d', 20.20, 2.505295593820, 26.90, 1.748517033160)
-         #**{'rpad': array([1, 1, 1])}) #, 'vcut': '3D'})
+#        **{'rpad': array([1, 1, 1])}) #, 'vcut': '3D'})
 #check_df('2d', 20.10, 2.449662058530, 26.80, 1.538080502420,
 #         **{'rpad': array([1, 1, 1]), 'vcut': '2D'})
 

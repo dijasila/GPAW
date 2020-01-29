@@ -1,7 +1,9 @@
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
-from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, PolarizableSphere
+from gpaw.fdtd.polarizable_material import (PermittivityPlus,
+                                            PolarizableMaterial,
+                                            PolarizableSphere)
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.test import equal
@@ -28,10 +30,11 @@ world.barrier()
 # Classical subsystem
 classical_material = PolarizableMaterial()
 sphere_center = np.array([10.0, 10.0, 10.0])
-classical_material.add_component(PolarizableSphere(permittivity = PermittivityPlus('ed.txt'),
-                                                   center = sphere_center,
-                                                   radius = 5.0
-                                                   ))
+classical_material.add_component(
+    PolarizableSphere(permittivity = PermittivityPlus('ed.txt'),
+                      center = sphere_center,
+                      radius = 5.0
+                      ))
 
 # Combined Poisson solver
 poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
@@ -50,6 +53,7 @@ atoms, qm_spacing, gpts = poissonsolver.cut_cell(atoms,
 
 # Initialize GPAW
 gs_calc = GPAW(gpts          = gpts,
+               experimental={'niter_fixdensity': 2},
                eigensolver   = 'cg',
                nbands        = -1,
                poissonsolver = poissonsolver,
@@ -89,9 +93,9 @@ td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
 # Test
 ref_cl_dipole_moment = [  5.25374117e-14,  5.75811267e-14,  3.08349334e-02]
 ref_qm_dipole_moment = [  1.78620337e-11, -1.57782578e-11,  5.21368300e-01]
-#print("ref_cl_dipole_moment = %s" % td_calc2.hamiltonian.poisson.get_classical_dipole_moment())
-#print("ref_qm_dipole_moment = %s" % td_calc2.hamiltonian.poisson.get_quantum_dipole_moment())
 
 tol = 1e-4
-equal(td_calc2.hamiltonian.poisson.get_classical_dipole_moment(), ref_cl_dipole_moment, tol)
-equal(td_calc2.hamiltonian.poisson.get_quantum_dipole_moment(), ref_qm_dipole_moment, tol)
+equal(td_calc2.hamiltonian.poisson.get_classical_dipole_moment(),
+      ref_cl_dipole_moment, tol)
+equal(td_calc2.hamiltonian.poisson.get_quantum_dipole_moment(),
+      ref_qm_dipole_moment, tol)

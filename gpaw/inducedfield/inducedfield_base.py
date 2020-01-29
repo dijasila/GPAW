@@ -208,7 +208,7 @@ class BaseInducedField(object):
 
         # Poissonsolver
         if poissonsolver is None:
-            poissonsolver = PoissonSolver(eps=1e-20)
+            poissonsolver = PoissonSolver(name='fd', eps=1e-20)
         poissonsolver.set_grid_descriptor(gd)
 
         for w in range(self.nw):

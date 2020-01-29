@@ -27,6 +27,7 @@ calc_es = GPAW(mode='lcao',
                basis='dzp',
                nbands=8,
                h=0.2,
+               symmetry='off',
                xc='PBE',
                spinpol=True,
                convergence={'energy': 100,
@@ -35,11 +36,10 @@ calc_es = GPAW(mode='lcao',
 
 CO.set_calculator(calc_es)
 lumo = dscf.MolecularOrbital(calc,
-                             weights={0: [0, 0, 0,  1], 1: [0, 0, 0, -1]})
+                             weights={0: [0, 0, 0, 1], 1: [0, 0, 0, -1]})
 dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
 
 E_es = CO.get_potential_energy()
 dE = E_es - E_gs
 print(dE)
 equal(dE, 5.7595110076, 0.011)
-

@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import eigh
 
 from gpaw.lcao.eigensolver import DirectLCAO
 
@@ -42,6 +43,7 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
         wfs.timer.stop('LCAO eigensolver')
 
     def iterate_one_k_point(self, ham, wfs, kpt, Vt_xdMM):
+        assert wfs.gd.comm.size == 1, 'No quite sure this works!'
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
@@ -69,9 +71,7 @@ class NonCollinearLCAOEigensolver(DirectLCAO):
 
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
-        from gpaw.utilities.lapack import general_diagonalize
-        general_diagonalize(H2_MM, kpt.eps_n, S2_MM)
-        kpt.C_nM = H2_MM
-        #self.diagonalizer.diagonalize(H2_MM, kpt.C_nM, kpt.eps_n, S2_MM)
+        kpt.eps_n, V_MM = eigh(H2_MM, S2_MM)
+        kpt.C_nM = V_MM.T.conj()
         wfs.timer.stop(diagonalization_string)
         kpt.C_nM.shape = (wfs.bd.mynbands * 4, M)
