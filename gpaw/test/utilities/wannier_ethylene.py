@@ -1,36 +1,41 @@
-from __future__ import print_function
-
+"""GPAW wannier example for ethylene corresponding to the ASE Wannier
+tutorial.
+"""
+import pytest
 import numpy as np
 from ase import Atoms
 
 from gpaw import GPAW
-from gpaw.test import equal
+from gpaw.mpi import size
 from gpaw.wannier import Wannier
 
-# GPAW wannier example for ethylene corresponding to the ASE Wannier
-# tutorial.
 
-a = 6.0  # Size of unit cell (Angstrom)
+@pytest.fixture
+def ethylene():
+    a = 6.0  # Size of unit cell (Angstrom)
 
-ethylene = Atoms('H2C2H2',
-                 [(-1.235, -0.936, 0),
-                  (-1.235, 0.936, 0),
-                  (-0.660, 0.000, 0),
-                  (0.660, 0.000, 0),
-                  (1.235, -0.936, 0),
-                  (1.235, 0.936, 0)],
-                 cell=(a, a, a),
-                 pbc=True)
-ethylene.center()
+    mol = Atoms('H2C2H2',
+                [(-1.235, -0.936, 0),
+                 (-1.235, 0.936, 0),
+                 (-0.660, 0.000, 0),
+                 (0.660, 0.000, 0),
+                 (1.235, -0.936, 0),
+                 (1.235, 0.936, 0)],
+                cell=(a, a, a),
+                pbc=True)
+    mol.center()
 
-calc = GPAW(nbands=8, gpts=(32, 32, 32), convergence={'eigenstates': 3.3e-5})
-ethylene.set_calculator(calc)
-e = ethylene.get_potential_energy()
-niter = calc.get_number_of_iterations()
+    mol.calc = GPAW(nbands=8,
+                    gpts=(32, 32, 32),
+                    convergence={'eigenstates': 3.3e-5})
+    mol.get_potential_energy()
+    return mol
 
-energy_tolerance = 0.002
-niter_tolerance = 0
-equal(e, -33.328, energy_tolerance)
+
+@pytest.mark.skipif(size > 1)
+def test_ethylene_energy(ethylene):
+    e = ethylene.get_potential_energy()
+    assert e == pytest.approx(-33.328, abs=0.002)
 
 
 def check(calc):
@@ -45,35 +50,22 @@ def check(calc):
                 [3.000, 3.000, 3.329],
                 [4.050, 2.376, 3.000],
                 [4.050, 3.624, 3.000]]
-    equal(13.7995, wannier.value, 0.016)
+    assert wannier.value == pytest.approx(13.7995, abs=0.016)
     for center in centers:
         i = 0
         while np.sum((expected[i] - center)**2) > 0.01:
             i += 1
             if i == len(expected):
                 raise RuntimeError('Correct center not found')
-    expected.pop(i)
+        expected.pop(i)
 
 
-check(calc)
-calc.write('ethylene.gpw', 'all')
-check(GPAW('ethylene.gpw', txt=None))
+@pytest.mark.skipif(size > 1)
+def test_wannier_centers(ethylene):
+    check(ethylene.calc)
 
-try:
-    from gpaw.io.etsf import ETSFWriter
-except ImportError:
-    pass  # Scientific.IO.NetCDF was not installed
-else:
-    if calc.wfs.world.size == 1:
-        ETSFWriter().write(calc)
 
-# for i in range(6):
-#     wannier.write_cube(i, 'ethylene%s.cube' % i, real=True)
-
-# from ASE.Visualization.PrimiPlotter import PrimiPlotter, X11Window
-# ethylene.extend(wannier.get_centers_as_atoms())
-# plot = PrimiPlotter(ethylene)
-# plot.set_output(X11Window())
-# plot.set_radii(.2)
-# plot.set_rotation([15, 0, 0])
-# plot.plot()
+@pytest.mark.skipif(size > 1)
+def test_wannier_centers_gpw(ethylene, in_tmp_dir):
+    ethylene.calc.write('ethylene.gpw', 'all')
+    check(GPAW('ethylene.gpw', txt=None))
