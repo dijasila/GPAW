@@ -59,6 +59,7 @@ td_calc.propagate(dt, N - N1)
 world.barrier()
 time_t = np.arange(0, dt * (N + 0.1), dt) * as_to_au
 pulse_t = pulse.strength(time_t)
+np.savetxt('pulse.dat', np.stack((time_t, pulse_t)).T)
 dm_tv = np.delete(np.loadtxt('dm.dat')[:, 2:], 1, axis=0)
 dm_tv /= np.linalg.norm(kick_v)
 pulsedm_tv = np.delete(np.loadtxt('dmpulse.dat')[:, 2:], N1, axis=0)
@@ -66,4 +67,5 @@ pulsedm_tv = np.delete(np.loadtxt('dmpulse.dat')[:, 2:], N1, axis=0)
 tol = 5e-6
 for v in range(3):
     pulsedmconv_t = np.convolve(dm_tv[:, v], pulse_t)[:(N + 1)] * dt * as_to_au
+    np.savetxt('dmpulseconv%d.dat' % v, pulsedmconv_t)
     equal(pulsedm_tv[:, v], pulsedmconv_t, tol)
