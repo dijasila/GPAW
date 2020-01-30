@@ -35,8 +35,8 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '20.1.0'
-__ase_version_required__ = '3.19.0'
+__version__ = '20.1.1b1'
+__ase_version_required__ = '3.20.0b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
