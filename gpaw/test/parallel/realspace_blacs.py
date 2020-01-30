@@ -34,16 +34,18 @@ comms = distribute_cpus(parsize_domain=D,
                         nspins=1, nibzkpts=2)
 domain_comm, kpt_comm, band_comm, block_comm = \
     [comms[name] for name in ['d', 'k', 'b', 'K']]
-assert world.size == D*B*kpt_comm.size
+assert world.size == D * B * kpt_comm.size
 
 if world.rank == 0:
-    print('MPI: %d domains, %d band groups, %d kpts' % (domain_comm.size, band_comm.size, kpt_comm.size))
+    print('MPI: %d domains, %d band groups, %d kpts' %
+          (domain_comm.size, band_comm.size, kpt_comm.size))
 
 # Set up band and grid descriptors:
 bd = BandDescriptor(N, band_comm, False)
 gd = GridDescriptor((G, G, G), (a, a, a), True, domain_comm, parsize_c=D)
 
 mcpus, ncpus, blocksize = 2, 2, 6
+
 
 def blacs_diagonalize(ksl, H_Nn, U_nN, eps_n):
     # H_Nn must be lower triangular or symmetric,
@@ -60,6 +62,7 @@ def blacs_diagonalize(ksl, H_Nn, U_nN, eps_n):
     U_nn = H_nn
     del H_nn
     U_nN[:] = bmd.redistribute_input(U_nn)
+
 
 def blacs_inverse_cholesky(ksl, S_Nn, C_nN):
     # S_Nn must be upper triangular or symmetric,
@@ -78,6 +81,7 @@ def blacs_inverse_cholesky(ksl, S_Nn, C_nN):
     del S_nn
     C_nN[:] = bmd.redistribute_input(C_nn)
 
+
 def main(seed=42, dtype=float):
     ksl = BlacsBandLayouts(gd, bd, block_comm, dtype, mcpus, ncpus, blocksize)
     nbands = bd.nbands
@@ -90,7 +94,7 @@ def main(seed=42, dtype=float):
     H_Nn = np.zeros((nbands, mynbands), dtype=dtype)
     U_nN = np.empty((mynbands, nbands), dtype=dtype)
 
-    if ksl.Nndescriptor: # hack
+    if ksl.Nndescriptor:  # hack
         scalapack_set(ksl.Nndescriptor, H_Nn, 0.1, 75.0, 'L')
     else:
         assert gd.comm.rank != 0
@@ -109,7 +113,7 @@ def main(seed=42, dtype=float):
     S_Nn = np.zeros((nbands, mynbands), dtype=dtype)
     C_nN = np.empty((mynbands, nbands), dtype=dtype)
 
-    if ksl.Nndescriptor: # hack
+    if ksl.Nndescriptor:  # hack
         scalapack_set(ksl.Nndescriptor, S_Nn, 0.1, 75.0, 'L')
     else:
         assert gd.comm.rank != 0
@@ -120,11 +124,10 @@ def main(seed=42, dtype=float):
     print("C_nN")
     parallelprint(world, C_nN)
 
+
 if __name__ in ['__main__', '__builtin__']:
     if not compiled_with_sl():
         print('Not built with ScaLAPACK. Test does not apply.')
     else:
         main(dtype=float)
         main(dtype=complex)
-
-

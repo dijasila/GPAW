@@ -3,20 +3,26 @@
 # Please see the accompanying LICENSE file for further information.
 
 """Main gpaw module."""
-
+import os
 import sys
 from sysconfig import get_platform
 from os.path import join, isfile
 
-build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (get_platform(), sys.version[0:3])
+plat = get_platform()
+platform_id = os.getenv('CPU_ARCH')
+if platform_id:
+    plat += '-' + platform_id
+build_path = join(__path__[0], '..', 'build')  # noqa
+arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
 # want to use the extension from the distutils build directory:
 sys.path.insert(0, join(build_path, 'lib.' + arch))
 
+if 'OMP_NUM_THREADS' not in os.environ:
+    os.environ['OMP_NUM_THREADS'] = '1'
 
-from gpaw.broadcast_imports import broadcast_imports
+from gpaw.broadcast_imports import broadcast_imports  # noqa
 
 with broadcast_imports:
     import os
@@ -29,14 +35,15 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '19.8.2b1'
-__ase_version_required__ = '3.18.0'
+__version__ = '20.1.0'
+__ase_version_required__ = '3.19.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
+           'MarzariVanderbilt',
            'PW', 'LCAO', 'restart', 'FD']
 
 
@@ -212,7 +219,8 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', False)
+debug = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -252,7 +260,8 @@ with broadcast_imports:
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
-    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                                  MarzariVanderbilt)
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
@@ -323,3 +332,12 @@ def initialize_data_paths():
 
 read_rc_file()
 initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))

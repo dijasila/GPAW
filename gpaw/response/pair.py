@@ -571,11 +571,13 @@ class PWSymmetryAnalyzer:
 
         reds = s % self.nU
         if self.timereversal(s):
-            TR = lambda x: x.conj()
+            TR = np.conj
             sign = -1
         else:
             sign = 1
-            TR = lambda x: x
+
+            def TR(x):
+                return x
 
         return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
 
@@ -632,12 +634,43 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, ecut=50, response='density',
+    def __init__(self, gs, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None):
+                 nblocks=1, gate_voltage=None, **unused):
+        """Density matrix elements
 
+        Parameters
+        ----------
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        gate_voltage : float
+            Shift the fermi level by gate_voltage [Hartree].
+        """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
+
+        with self.timer('Read ground state'):
+            if isinstance(gs, str):
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=self.fd)
+                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            else:
+                calc = gs
+                assert calc.wfs.world.size == 1
+
+        assert calc.wfs.kd.symmetry.symmorphic
+        self.calc = calc
+        
         if ecut is not None:
             ecut /= Hartree
 
@@ -651,10 +684,6 @@ class PairDensity:
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
 
-        self.timer = timer or Timer()
-
-        self.world = world
-
         if nblocks == 1:
             self.blockcomm = world.new_communicator([world.rank])
             self.kncomm = world
@@ -665,19 +694,6 @@ class PairDensity:
             self.blockcomm = self.world.new_communicator(range(rank1, rank2))
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
-
-        self.fd = convert_string_to_fd(txt, world)
-
-        with self.timer('Read ground state'):
-            if isinstance(calc, str):
-                print('Reading ground state calculation:\n  %s' % calc,
-                      file=self.fd)
-                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-            else:
-                assert calc.wfs.world.size == 1
-
-        assert calc.wfs.kd.symmetry.symmorphic
-        self.calc = calc
 
         self.fermi_level = self.calc.occupations.get_fermi_level()
 
@@ -1195,7 +1211,6 @@ class PairDensity:
             n_R = ut1cc_R * ut_R
             with self.timer('fft'):
                 n_G[:] = pd.fft(n_R, 0, Q_G) * dv
-
         # PAW corrections:
         with self.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
@@ -1275,8 +1290,8 @@ class PairDensity:
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
             n_n = np.arange(na, nb)
-        assert np.max(n_n) < nb, print('This is too many bands')
-        assert np.min(n_n) >= na, print('This is too few bands')
+        assert np.max(n_n) < nb, 'This is too many bands'
+        assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
         kd = self.calc.wfs.kd
@@ -1417,16 +1432,21 @@ class PairDensity:
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
-            T = lambda f_R: f_R
+            def T(f_R):
+                return f_R
         else:
             N_c = self.calc.wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            T = lambda f_R: f_R.ravel()[i].reshape(N_c)
+
+            def T(f_R):
+                return f_R.ravel()[i].reshape(N_c)
 
         if time_reversal:
             T0 = T
-            T = lambda f_R: T0(f_R).conj()
+
+            def T(f_R):
+                return T0(f_R).conj()
             shift_c *= -1
 
         a_a = []

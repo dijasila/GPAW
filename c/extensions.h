@@ -28,9 +28,7 @@
 #  define Py_RETURN_NONE return Py_INCREF(Py_None), Py_None
 #endif
 
-#define INLINE inline
-
-static INLINE void* gpaw_malloc(size_t n)
+static inline void* gpaw_malloc(size_t n)
 {
   void* p = malloc(n);
   assert(p != NULL);

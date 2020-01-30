@@ -9,9 +9,11 @@ from gpaw.atom.generator2 import generate
 import gpaw.mpi as mpi
 
 # Generate setup for oxygen with half a core-hole:
-gen = generate('O', '2s,s,2p,p,d', [1.2], 1.0, None, 2, core_hole='1s,0.5')
-setup = gen.make_paw_setup('hch1s')
-setup.write_xml()
+if mpi.rank == 0:
+    gen = generate('O', '2s,s,2p,p,d', [1.2], 1.0, None, 2, core_hole='1s,0.5')
+    setup = gen.make_paw_setup('hch1s')
+    setup.write_xml()
+mpi.world.barrier()
 if setup_paths[0] != '.':
     setup_paths.insert(0, '.')
 

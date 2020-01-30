@@ -35,13 +35,14 @@ if world.rank == 0:  # This test is not really parallel
         calc = AtomPAW('H', [[[1]]],
                        rcut=12.0, h=0.05,
                        setups={'H': setup}, **kwargs)
-        tol = 5e-4 if setup in ['paw', 'hgh'] else 1e-3 # horrible UPF right now
+        # horrible UPF right now:
+        tol = 5e-4 if setup in ['paw', 'hgh'] else 1e-3
         check('H %s' % setup, calc, [-0.233471], tol)
-
 
     for setup in ['paw', 'hgh', upf(O_hgh, 'O.pz-hgh.UPF')]:
         calc = AtomPAW('O', [[[2], [4]]],
                        rcut=10.0, h=0.035,
                        setups={'O': setup}, **kwargs)
-        tol = 1e-3 if setup in ['paw', 'hgh'] else 5e-3 # horrible UPF right now
+        # horrible UPF right now:
+        tol = 1e-3 if setup in ['paw', 'hgh'] else 5e-3
         check('O %s' % setup, calc, [-0.871362, -0.338381], tol)

@@ -10,7 +10,68 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.18.1b1
+* Corresponding ASE release: ASE-3.20.0b1
+
+
+Version 20.1.0
+==============
+
+30 Jan 2020: :git:`20.1.0 <../20.1.0>`
+
+* Corresponding ASE release: ASE-3.19.0.
+
+* Self-consistent calculations with hybrid functionals are now possible in
+  plane-wave mode.  You have to parallelize over plane-waves and you must
+  use the Davidson eigensolver with one iteration per scf step::
+
+      from gpaw import GPAW, PW, Davidson
+      calc = GPAW(mode=PW(ecut=...),
+                  xc='HSE06',
+                  parallel={'band': 1, 'kpt': 1},
+                  eigensolver=Davidson(niter=1),
+                  ...)
+
+* We are now using setuptools_ instead of :mod:`distutils`.
+  This means that installation with pip works much better.
+
+* No more ``gpaw-python``.
+  By default, an MPI-enabled Python interpreter is not built
+  (use ``parallel_python_interpreter=True`` if you want a gpaw-python).
+  The ``_gpaw.so`` C-extension file (usually only used for serial calculations)
+  will now be compiled with ``mpicc`` and contain what is necessary for both
+  serial and parallel calculations.  In order to run GPAW in parallel, you
+  do one of these three::
+
+      $ mpiexec -n 24 gpaw python script.py
+      $ gpaw -P 24 python script.py
+      $ mpiexec -n 24 python3 script.py
+
+  The first two are the recommended ones:  The *gpaw* script will make sure
+  that imports are done in an efficient way.
+
+* Configuration/customization:
+  The ``customize.py`` file in the root folder of the Git repository is no
+  longer used.  Instead, the first of the following three files that exist
+  will be used:
+
+  1) the file that ``$GPAW_CONFIG`` points at
+  2) ``<git-root>/siteconfig.py``
+  3) ``~/.gpaw/siteconfig.py``
+
+  This will be used to configure things
+  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  is found then you get ``libraries = ['xc', 'blas']``.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+* Debug mode is now enabled with::
+
+      $ python3 -d script.py
+
+* Dry-run mode is now enabled with::
+
+      $ gpaw python --dry-run=N script.py
 
 * New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
   will converge bands up to conduction band minimum plus 2.5 eV.
@@ -18,8 +79,13 @@ Git master branch
 * Point-group symmetries now also used for non-periodic systems.
   Use ``symmetry={'point_group': False}`` if you don't want that.
 
-* A Lapack library is no longer needed for compiling GPAW.  We are using
-  :mod:`scipy.linalg` from now on.
+* :ref:`Marzari-Vanderbilt distribution function <manual_occ>` added.
+
+* New configuration option: ``noblas = True``.  Useful for compiling GPAW
+  without a BLAS library.  :mod:`scipy.linalg.blas` and :func:`numpy.dot`
+  will be used instead.
+
+.. _setuptools: https://setuptools.readthedocs.io/en/latest/
 
 
 Version 19.8.1

@@ -34,7 +34,8 @@ linspace = (0.98, 1.02, 5)  # eos numpy's linspace
 linspacestr = ''.join([str(t) + 'x' for t in linspace])[:-1]
 
 code = 'abinit' + '-' + '_c' + str(ecut) + '_e' + linspacestr
-code = code + '_k' + str(kptdensity) + '_w' + str(width) + '_s' + str(ecutsm) + '_t' + str(tolsym)
+code = (code + '_k' + str(kptdensity) + '_w' + str(width) + '_s' +
+        str(ecutsm) + '_t' + str(tolsym))
 
 for name in names:
     # save all steps in one traj file in addition to the database
@@ -71,7 +72,7 @@ for name in names:
             label=name + '_' + code + '_' + str(n),
             xc='PBE',
             kpts=kpts,
-            ecut=ecut*Rydberg,
+            ecut=ecut * Rydberg,
             occopt=3,
             tsmear=width,
             ecutsm=ecutsm,
@@ -94,8 +95,9 @@ for name in names:
                 kptdensity=kptdensity, width=width, ecutsm=ecutsm,
                 fband=fband, tolsym=tolsym,
                 x=x,
-                time=time.time()-t)
+                time=time.time() - t)
         traj.write(atoms)
         wfk = name + '_' + code + '_' + str(n) + 'o_WFK'
-        if os.path.exists(wfk): os.remove(wfk)
+        if os.path.exists(wfk):
+            os.remove(wfk)
         del c[id]

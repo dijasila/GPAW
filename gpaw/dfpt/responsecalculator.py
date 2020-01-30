@@ -1,4 +1,3 @@
-from __future__ import print_function
 """This module implements a linear response calculator class."""
 
 __all__ = ["ResponseCalculator"]
@@ -380,15 +379,17 @@ class ResponseCalculator:
                 rhs_G = -1 * rhs_nG[n]
 
                 # Solve Sternheimer equation
-                iter, info = self.linear_solver.solve(self.sternheimer_operator,
-                                                      psit1_G, rhs_G)
+                iter, info = self.linear_solver.solve(
+                    self.sternheimer_operator,
+                    psit1_G, rhs_G)
 
                 if verbose:
                     print("\tBand %2.1i -" % n, end=' ')
 
                 if info == 0:
                     if verbose:
-                        print("linear solver converged in %i iterations" % iter)
+                        print("linear solver converged in %i iterations" %
+                              iter)
                 elif info > 0:
                     assert False, ("linear solver did not converge in maximum "
                                    "number (=%i) of iterations for "

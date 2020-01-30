@@ -19,7 +19,7 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
     equivalent PBLAS functions for distributed matrices.
 
     The coefficients alpha and beta are of type float.  Matrices a, b and c
-    must have same type (float or complex).  The strings apa and opb must be
+    must have same type (float or complex).  The strings opa and opb must be
     'N', 'T', or 'C' .  For opa='N' and opb='N', the operation performed is
     equivalent to::
 

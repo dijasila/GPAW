@@ -33,8 +33,10 @@ if hasattr(_gpaw, 'Communicator'):
     if '_gpaw' not in sys.builtin_module_names:
         libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
         import ctypes
-        ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-
+        try:
+            ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
+        except OSError:
+            pass
     world = _gpaw.Communicator()
 else:
     world = None
@@ -98,6 +100,7 @@ class BroadcastLoader:
 class BroadcastImporter:
     def __init__(self):
         self.module_cache = {}
+        self.cached_modules = []
 
     def find_spec(self, fullname, path=None, target=None):
         if world.rank == 0:
@@ -160,6 +163,7 @@ class BroadcastImporter:
 
         if world.rank == 0:
             self.broadcast()
+        self.cached_modules += self.module_cache.keys()
         self.module_cache = {}
         myself = sys.meta_path.pop(0)
         assert myself is self

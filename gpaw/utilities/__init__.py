@@ -20,10 +20,6 @@ import gpaw.mpi as mpi
 from gpaw import debug
 
 
-utilities_vdot = _gpaw.utilities_vdot
-utilities_vdot_self = _gpaw.utilities_vdot_self
-
-
 erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
 # XXX should we unify double and complex erf ???
 cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
@@ -169,6 +165,7 @@ corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
     assert is_contiguous(M)
+    assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = np.zeros((n, n), M.dtype.char)
     if M.dtype == complex:

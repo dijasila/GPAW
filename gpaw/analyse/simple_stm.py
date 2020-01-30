@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import sqrt
 
 import numpy as np
@@ -196,7 +195,7 @@ class SimpleStm(STM):
         """
         return self.scan_const_density(self.current_to_density(current),
                                        bias)
- 
+
     def scan_const_density(self, density, bias):
         """Get the height image for constant density [e/Angstrom^3].
         """
@@ -204,7 +203,7 @@ class SimpleStm(STM):
         self.heights = heights / Bohr
 
         return self.heights
-        
+
     def write(self, file=None):
         """Write STM data to a file in gnuplot readable tyle."""
 
@@ -237,7 +236,8 @@ class SimpleStm(STM):
         print('#', file=f)
         print('# density=', self.density, '[e/Angstrom^3]', end=' ', file=f)
         print(
-            '(current=', self.density_to_current(self.density), '[nA])', file=f)
+            '(current=', self.density_to_current(self.density), '[nA])',
+            file=f)
         print('# x[Angs.]   y[Angs.]     h[Angs.] (-1 is not found)', file=f)
         for i in range(nx):
             for j in range(ny):

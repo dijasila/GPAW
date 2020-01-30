@@ -66,13 +66,15 @@ def get_statistics(result, reference):
     toremove = list(set(res1).symmetric_difference(set(ref1)))
     for c in toremove:
         if c in res1:
-            print(result + ' vs ' + reference + ': ' + result + ' removed ' + c)
+            print(result + ' vs ' + reference + ': ' + result +
+                  ' removed ' + c)
             i = res1.index(c)
             res1.pop(i)
             res2.pop(i)
             resrm.append(c)
         if c in ref1:
-            print(result + ' vs ' + reference + ': ' + reference + ' removed ' + c)
+            print(result + ' vs ' + reference + ': ' + reference +
+                  ' removed ' + c)
             i = ref1.index(c)
             ref1.pop(i)
             ref2.pop(i)
@@ -95,8 +97,7 @@ def get_statistics(result, reference):
 # prepare plot
 
 vs = [
-    (calc['ea'].copy(), ref['ea'].copy(), 'G2_1'),
-    ]
+    (calc['ea'].copy(), ref['ea'].copy(), 'G2_1')]
 
 for atom in atoms:
     calc_atom = {}
@@ -167,14 +168,14 @@ def plot(xdata, ydata, std,
     prop = matplotlib.font_manager.FontProperties(size=12)
     leg = pylab.legend(loc='upper right', fancybox=True, prop=prop)
     leg.get_frame().set_alpha(0.5)
-    #pylab.savefig(directory_name + os.path.sep + out_prefix +'.eps', format='eps')
 
 def plot_save(directory_name, out_prefix):
     from os.path import exists
     assert exists(directory_name)
     import pylab
 
-    pylab.savefig(directory_name + os.path.sep + out_prefix +'.png', bbox_inches='tight')
+    pylab.savefig(directory_name + os.path.sep + out_prefix +'.png',
+                  bbox_inches='tight')
 
 import matplotlib
 matplotlib.use('Agg')
@@ -194,8 +195,7 @@ plot(
     'blue',
     0.5,
     miny, maxy,
-    num=1,
-    )
+    num=1)
 plot(
     no, absaverage, std,
     'Atomization energy: E(atoms) - E(molecule)',
@@ -205,8 +205,7 @@ plot(
     'green',
     0.2,
     miny, maxy,
-    num=1,
-    )
+    num=1)
 zero = [0.0 for i in range(len(no))]
 pylab.plot(no, zero, 'k-', label='_nolegend_')
 ay1=pylab.gca()
@@ -228,21 +227,18 @@ for n in range(len(no)):
         l = {
             'average': '\navg\n',
             'absaverage': '\nabs\n',
-            'std': '\nstd\n',
-            }[v]
+            'std': '\nstd\n'}[v]
         value = {
             'average': average,
             'absaverage': absaverage,
-            'std': std,
-            }[v]
+            'std': std}[v]
         label += l + ' ' + str(round(value[n], 3)) + '\n'
     pylab.annotate(label,
                    xy=(n + 0.0, 0.0),
                    xytext=errorslocation(n, n1),
                    arrowprops=None,
                    horizontalalignment='left', verticalalignment='center',
-                   fontsize=ann_fontsize,
-                   )
+                   fontsize=ann_fontsize)
 
 # plot compounds with largest errors
 for n, l in enumerate(largest):
@@ -255,10 +251,10 @@ for n, l in enumerate(largest):
         pylab.annotate(label,
                        xy=(n + 0.05, e),
                        xytext=formulaslocation(n, n1),
-                       arrowprops=dict(width=0.05, headwidth=5.0, facecolor='black', shrink=1.00),
+                       arrowprops=dict(width=0.05, headwidth=5.0,
+                                       facecolor='black', shrink=1.00),
                        horizontalalignment='left', verticalalignment='center',
-                       fontsize=ann_fontsize,
-                       )
+                       fontsize=ann_fontsize)
 #pylab.show()
 plot_save(".", tag + '_ea_vs')
 #pylab.close(1)
