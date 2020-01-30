@@ -70,8 +70,8 @@ if check and rank == 0:
     assert np.abs(eps-eps1).sum() < 1e-6
 
     for i in range(N//size):
-        # the eigenvectors are row of the matrix, it can be differ by a minus sign.
+        # the eigenvectors are row of the matrix, it can be
+        # differ by a minus sign.
         if np.abs(A[i,:] - B[i,:]).sum() > 1e-6:
             if np.abs(A[i,:] + B[i,:]).sum() > 1e-6:
                 raise ValueError('Check !')
-

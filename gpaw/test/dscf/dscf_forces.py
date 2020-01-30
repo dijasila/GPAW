@@ -24,7 +24,7 @@ for i in range(3):
     calc_gs = GPAW(h=0.2,
                    nbands=-5,
                    xc=xc,
-                   width=0.05,
+                   occupations={'name': 'fermi-dirac', 'width': 0.05},
                    eigensolver=eigensolver,
                    spinpol=True,
                    txt=None,

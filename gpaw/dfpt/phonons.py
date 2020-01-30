@@ -66,7 +66,8 @@ class Phonons(phonons.Phonons):
         """Read force constants from files."""
 
         # Data structure for force constants
-        self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3), dtype=self.dtype))
+        self.C_qaavv = [dict([(a, dict([(a_, np.zeros((3, 3),
+                                                      dtype=self.dtype))
                                         for a_ in self.indices]))
                               for a in self.indices])
                         for q in range(self.kd.nibzkpts)]
@@ -187,7 +188,8 @@ class Phonons(phonons.Phonons):
         # Reshape before Fourier transforming
         shape = self.D_k.shape
         Dq_lmn = self.D_k.reshape(N_c + shape[1:])
-        DR_lmn = fft.ifftn(fft.ifftshift(Dq_lmn, axes=(0, 1, 2)), axes=(0, 1, 2))
+        DR_lmn = fft.ifftn(fft.ifftshift(Dq_lmn, axes=(0, 1, 2)),
+                           axes=(0, 1, 2))
 
         if debug:
             # Check that D_R is real enough
@@ -210,9 +212,3 @@ class Phonons(phonons.Phonons):
 
         # Move this member function to the ASE class
         raise NotImplementedError
-
-
-
-
-
-

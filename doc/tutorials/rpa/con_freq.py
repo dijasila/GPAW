@@ -5,7 +5,8 @@ from gpaw.xc.rpa import RPACorrelation
 
 f = paropen('con_freq.dat', 'w')
 for N in [4, 6, 8, 12, 16, 24, 32]:
-    rpa = RPACorrelation('N2.gpw', txt='rpa_N2_frequencies.txt', nfrequencies=N)
+    rpa = RPACorrelation('N2.gpw', txt='rpa_N2_frequencies.txt',
+                         nfrequencies=N)
     E = rpa.calculate(ecut=[50])
     print(N, E[0], file=f)
     if N == 16:

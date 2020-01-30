@@ -46,5 +46,3 @@ for k in [2, 4, 6, 8]:
     restr = Transformer(gd, gd2, k // 2, complex).apply
     restr(a, b, phase)
     assert abs(gd.integrate(a) - gd2.integrate(b)) < 1e-14
-
-

@@ -59,7 +59,7 @@ class SCFLoop:
     def run(self, wfs, ham, dens, occ, log, callback):
         self.niter = 1
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs)
+            wfs.eigensolver.iterate(ham, wfs, occ)
             occ.calculate(wfs)
 
             energy = ham.get_energy(occ)
@@ -91,6 +91,10 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if not self.converged:
+            if not np.isfinite(errors['eigenstates']):
+                msg = 'Not enough bands for ' + wfs.eigensolver.nbands_converge
+                log(msg)
+                raise KohnShamConvergenceError(msg)
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
@@ -106,7 +110,9 @@ class SCFLoop:
             errors['density'] = 0.0
 
         if len(self.old_energies) >= 3:
-            errors['energy'] = np.ptp(self.old_energies[-3:])
+            energies = self.old_energies[-3:]
+            if np.isfinite(energies).all():
+                errors['energy'] = np.ptp(energies)
 
         # We only want to calculate the (expensive) forces if we have to:
         check_forces = (self.max_errors['force'] < np.inf and
@@ -147,13 +153,15 @@ class SCFLoop:
                 header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
-        if eigerr == 0.0:
+        if eigerr == 0.0 or np.isinf(eigerr):
             eigerr = ''
         else:
             eigerr = '%+.2f' % (ln(eigerr) / ln(10))
 
         denserr = errors['density']
-        if denserr is None or denserr == 0 or nvalence == 0:
+        assert denserr is not None
+        if (denserr is None or np.isinf(denserr) or denserr == 0 or
+            nvalence == 0):
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
@@ -176,16 +184,21 @@ class SCFLoop:
              denserr), end='')
 
         if self.max_errors['force'] < np.inf:
-            if errors['force'] < np.inf:
+            if errors['force'] == 0:
+                log('    -oo', end='')
+            elif errors['force'] < np.inf:
                 log('  %+.2f' %
                     (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
             else:
                 log('       ', end='')
 
-        log('%11.6f    %-5s  %-7s' %
-            (Ha * ham.e_total_extrapolated,
-             niterocc,
-             niterpoisson), end='')
+        if np.isfinite(ham.e_total_extrapolated):
+            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
+        else:
+            energy = ' ' * 11
+
+        log('%s    %-5s  %-7s' %
+            (energy, niterocc, niterpoisson), end='')
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')

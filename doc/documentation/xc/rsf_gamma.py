@@ -32,5 +32,3 @@ co.set_calculator(calc)
 co.get_potential_energy()
 (eps_homo, eps_lumo) = calc.get_homo_lumo()
 equal(eps_homo, -IP, 0.15)
-
-

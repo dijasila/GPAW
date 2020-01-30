@@ -19,8 +19,8 @@ Use the :program:`gpaw` command to run the tests::
                      [--reverse] [-k] [-d DIRECTORY] [-s] [--list]
                      [tests [tests ...]]
 
-    Run the GPAW test suite. The test suite can be run in parallel with MPI
-    through gpaw-python. The test suite supports 1, 2, 4 or 8 CPUs although some
+    Run the GPAW test suite. The test suite can be run in parallel with MPI.
+    The test suite supports 1, 2, 4 or 8 CPUs although some
     tests are skipped for some parallelizations. If no TESTs are given, run all
     tests supporting the parallelization.
 
@@ -109,4 +109,8 @@ something like::
                      deps=['calculate.py'])]
 
 As shown, this script has to contain the definition of the function
-``create_tasks()``.  See https://myqueue.readthedocs.io/ for more details.
+create_tasks_.  Start the workflow with ``mq workflow -p agts.py .``
+(see https://myqueue.readthedocs.io/ for more details).
+
+.. _create_tasks: https://myqueue.readthedocs.io/en/latest/
+    workflows.html#create_tasks

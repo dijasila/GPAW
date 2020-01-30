@@ -52,7 +52,7 @@ H2 dissociation example:
 
 .. literalinclude:: h2_diss.py
 
-The distance between the H atoms at the end of the dynamics is more than 2 Å 
+The distance between the H atoms at the end of the dynamics is more than 2 Å
 and thus their bond was broken by the intense laser field.
 
 
@@ -60,17 +60,17 @@ and thus their bond was broken by the intense laser field.
 Electronic stopping in graphene
 -------------------------------
 
-A more complex use for Ehrenfest dynamics is to simulate the irradiation of 
-materials with either chared ions (Ref. [#Ojanpera2014]_) or neutral atoms 
+A more complex use for Ehrenfest dynamics is to simulate the irradiation of
+materials with either chared ions (Ref. [#Ojanpera2014]_) or neutral atoms
 (Ref. [#Brand2019]_).
 
 The following script calculates the ground state of the projectile + target
 system, with the parameter ``charge`` defining its charge state. For ionisation
 state +1, an external potential is used at the hydrogen ion the converge the
 calculation. One might also have to change the default convergence parameters
-depending on the projectile used, and to verify the convergence of the results 
-with respect to the timestep and *k*-points. Here, slightly less strict criteria 
-are used. The impact point in this case is the center of a carbon hexagon, but 
+depending on the projectile used, and to verify the convergence of the results
+with respect to the timestep and *k*-points. Here, slightly less strict criteria
+are used. The impact point in this case is the center of a carbon hexagon, but
 this can be modified by changing the x-y position of the H atom
 (``projpos``).
 
@@ -80,11 +80,11 @@ Projectile + target example:
 
 Finally, the following script can be used for performing an electronic
 stopping calculation for a hydrogen atom impacting graphene with the initial
-velocity being 40 keV. In the charged state, the external potential is 
-automatically set to zero when the TDDFT object is initialized and hence does 
-not affect the calculation. The calculation ends when the distance between the 
-projectile and the bottom of the supercell is less than 5 Å. (Note: this is a 
-fairly demanding calculation with 8 cores and requires close to 50 GB of 
+velocity being 40 keV. In the charged state, the external potential is
+automatically set to zero when the TDDFT object is initialized and hence does
+not affect the calculation. The calculation ends when the distance between the
+projectile and the bottom of the supercell is less than 5 Å. (Note: this is a
+fairly demanding calculation with 32 cores and requires close to 50 GB of
 memory.)
 
 Electronic stopping example:

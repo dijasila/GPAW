@@ -39,7 +39,8 @@ for selection in [[0, 1, 2], [3, 4, 5]]:
 
     monomer = dimer[selection]
     monomer.center(vacuum=4)
-    monomer.calc = GPAW(txt=name + 'M.txt', h=0.16)
+    # Grrr.  PreconLBFGS breaks the symmetry!  Some one should fix that.
+    monomer.calc = GPAW(txt=name + 'M.txt', h=0.16, symmetry='off')
     opt = PreconLBFGS(monomer, precon=Exp(A=3), trajectory=name + 'M.traj')
     opt.run(0.02)
     e0 = monomer.get_potential_energy()

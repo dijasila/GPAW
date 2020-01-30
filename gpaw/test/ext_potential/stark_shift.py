@@ -1,11 +1,10 @@
-from __future__ import print_function
 from math import sqrt, pi
 
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Hartree
-from ase.parallel import rank, size
 
+from gpaw.mpi import rank, size
 from gpaw import GPAW
 from gpaw.external import ConstantElectricField
 from gpaw.point_charges import PointCharges
@@ -35,7 +34,7 @@ def dipole_op(c, state1, state2, k=0, s=0):
     for i in wfs.kpt_u:
         if i.k == k and i.s == s:
             kpt = i
-    
+
     pd = PairDensity(c)
     pd.initialize(kpt, state1, state2)
 
@@ -66,8 +65,9 @@ def dipole_op(c, state1, state2, k=0, s=0):
                 if wfs.setups[a].lmax >= 1:
                     # see spherical_harmonics.py for
                     # L=1:y L=2:z; L=3:x
-                    ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
-                                     Delta_pL[ij, 2]]) * pij
+                    ma1 += np.array([
+                        Delta_pL[ij, 3], Delta_pL[ij, 1], Delta_pL[ij, 2]
+                    ]) * pij
         ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
     gd.comm.sum(ma)
 
@@ -80,9 +80,9 @@ def dipole_op(c, state1, state2, k=0, s=0):
 assert size == 1
 
 maxfield = 0.01
-nfs = 5          # number of field
-nbands = 30      # number of bands
-h = 0.20         # grid spacing
+nfs = 5  # number of field
+nbands = 30  # number of bands
+h = 0.20  # grid spacing
 
 debug = not False
 
@@ -96,9 +96,7 @@ test2 = True
 test3 = True
 
 a0 = 6.0
-a = Atoms('H',
-          positions=[[a0 / 2, a0 / 2, a0 / 2 ]],
-          cell=[a0, a0, a0])
+a = Atoms('H', positions=[[a0 / 2, a0 / 2, a0 / 2]], cell=[a0, a0, a0])
 
 alpha1 = None
 alpha2 = None
@@ -107,16 +105,18 @@ alpha3 = None
 # Test 1
 
 if test1:
-    c = GPAW(
-        h=h,
-        nbands=nbands + 10,
-        spinpol=True,
-        hund=True,
-        xc='LDA',
-        eigensolver='cg',
-        convergence={'bands': nbands, 'eigenstates': 3.3e-4},
-        maxiter=1000,
-        txt=txt)
+    c = GPAW(h=h,
+             nbands=nbands + 10,
+             spinpol=True,
+             hund=True,
+             xc='LDA',
+             eigensolver='cg',
+             convergence={
+                 'bands': nbands,
+                 'eigenstates': 3.3e-4
+             },
+             maxiter=1000,
+             txt=txt)
     a.set_calculator(c)
     a.get_potential_energy()
 
@@ -149,37 +149,37 @@ if test1:
 
 c = GPAW(
     h=h,
-    nbands       = 2,
-    spinpol      = True,
-    hund         = True,
-    xc           = 'LDA',
+    nbands=2,
+    spinpol=True,
+    hund=True,
+    xc='LDA',
     #eigensolver  = 'cg',
-    convergence  = {'bands': nbands, 'eigenstates': 3.3e-4},
-    maxiter      = 1000,
-    txt          = txt)
+    convergence={
+        'bands': nbands,
+        'eigenstates': 3.3e-4
+    },
+    maxiter=1000,
+    txt=txt)
 a.set_calculator(c)
 
 # Test 2
 
 if test2:
-    e       = [ ]
-    e1s     = [ ]
-    d       = [ ]
-    fields  = np.linspace(-maxfield, maxfield, nfs)
+    e = []
+    e1s = []
+    d = []
+    fields = np.linspace(-maxfield, maxfield, nfs)
     for field in fields:
         if rank == 0 and debug:
             print(field)
-        c.set(
-            external  = ConstantElectricField(field),
-            )
+        c.set(external=ConstantElectricField(field))
         etot = a.get_potential_energy()
-        e   += [ etot ]
-        ev0  = c.get_eigenvalues(0)
-        ev1  = c.get_eigenvalues(1)
-        e1s += [ min( ev0[0], ev1[0] ) ]
-        dip  = c.get_dipole_moment()
-        d   += [ dip[2] ]
-
+        e += [etot]
+        ev0 = c.get_eigenvalues(0)
+        ev1 = c.get_eigenvalues(1)
+        e1s += [min(ev0[0], ev1[0])]
+        dip = c.get_dipole_moment()
+        d += [dip[2]]
 
     pol1, dummy = np.polyfit(fields, d, 1)
     pol2, dummy1, dummy2 = np.polyfit(fields, e1s, 2)
@@ -187,49 +187,45 @@ if test2:
     if rank == 0 and debug:
         print('From shift in 1s-state at constant electric field:')
         print('  alpha = ', -pol2, ' A**2/eV')
-        print('  alpha = ', -pol2*to_au, ' Bohr**3')
+        print('  alpha = ', -pol2 * to_au, ' Bohr**3')
 
         print('From dipole moment at constant electric field:')
         print('  alpha = ', pol1, ' A**2/eV')
-        print('  alpha = ', pol1*to_au, ' Bohr**3')
+        print('  alpha = ', pol1 * to_au, ' Bohr**3')
 
-        np.savetxt('ecf.out', np.transpose( [ fields, e, e1s, d ] ))
+        np.savetxt('ecf.out', np.transpose([fields, e, e1s, d]))
 
-    assert abs(pol1+pol2) < 0.0001
+    assert abs(pol1 + pol2) < 0.0001
 
-    alpha2 = (pol1-pol2)/2
-
+    alpha2 = (pol1 - pol2) / 2
 
 # Test 3
 
 if test3:
-    pcd        = 1000.0    # distance of the two point charges
-    maxcharge  = 100.0     # maximum charge on the point charge
+    pcd = 1000.0  # distance of the two point charges
+    maxcharge = 100.0  # maximum charge on the point charge
 
-    e        = [ ]
-    e1s      = [ ]
-    d        = [ ]
-    charges  = np.linspace(-maxcharge, maxcharge, nfs)
-    fields   = [ ]
+    e = []
+    e1s = []
+    d = []
+    charges = np.linspace(-maxcharge, maxcharge, nfs)
+    fields = []
     for charge in charges:
-        ex = PointCharges(
-            positions  = [ [ a0/2, a0/2, -pcd/2+a0/2 ], [ a0/2, a0/2, pcd/2+a0/2 ] ],
-            charges    = [ charge, -charge ]
-            )
-        c.set(
-            external  = ex
-            )
+        ex = PointCharges(positions=[[a0 / 2, a0 / 2, -pcd / 2 + a0 / 2],
+                                     [a0 / 2, a0 / 2, pcd / 2 + a0 / 2]],
+                          charges=[charge, -charge])
+        c.set(external=ex)
         etot = a.get_potential_energy()
-        e      += [ etot ]
-        ev0     = c.get_eigenvalues(0)
-        ev1     = c.get_eigenvalues(1)
-        e1s    += [ min( ev0[0], ev1[0] ) ]
-        dip     = c.get_dipole_moment()
-        d      += [ dip[2] ]
-        field   = ex.get_taylor(position=a[0].position)[1][1]
+        e += [etot]
+        ev0 = c.get_eigenvalues(0)
+        ev1 = c.get_eigenvalues(1)
+        e1s += [min(ev0[0], ev1[0])]
+        dip = c.get_dipole_moment()
+        d += [dip[2]]
+        field = ex.get_taylor(position=a[0].position)[1][1]
         if rank == 0 and debug:
-            print(field*to_eVA, 2*charge/((pcd/2)**2)*Hartree*Bohr)
-        fields += [ field*to_eVA ]
+            print(field * to_eVA, 2 * charge / ((pcd / 2)**2) * Hartree * Bohr)
+        fields += [field * to_eVA]
 
     pol1, dummy = np.polyfit(fields, d, 1)
     pol2, dummy1, dummy2 = np.polyfit(fields, e1s, 2)
@@ -237,16 +233,16 @@ if test3:
     if rank == 0 and debug:
         print('From shift in 1s-state between two point charges:')
         print('  alpha = ', -pol2, ' A**2/eV')
-        print('  alpha = ', -pol2*to_au, ' Bohr**3')
+        print('  alpha = ', -pol2 * to_au, ' Bohr**3')
 
         #print 'From dipole moment between two point charges:'
         #print '  alpha = ', pol1, ' A**2/eV'
         #print '  alpha = ', pol1*to_au, ' Bohr**3'
 
-        np.savetxt('epc.out', np.transpose( [ fields, e, e1s, d ] ))
+        np.savetxt('epc.out', np.transpose([fields, e, e1s, d]))
 
     alpha3 = alpha
 
 # This is a very, very rough test
-assert abs(alpha1-alpha2) < 0.01
-assert abs(alpha3-alpha2) < 0.01
+assert abs(alpha1 - alpha2) < 0.01
+assert abs(alpha3 - alpha2) < 0.01

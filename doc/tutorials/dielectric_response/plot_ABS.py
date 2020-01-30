@@ -1,16 +1,16 @@
 # Creates: silicon_ABS.png
 import numpy as np
 import matplotlib.pyplot as plt
-    
+
 plt.figure(figsize=(7, 5))
 d = np.loadtxt('si_abs.csv', delimiter=',')
-plt.plot(d[:, 0], d[:, 3], '-k', label='$\mathrm{Re}\epsilon(\omega)$')
-plt.plot(d[:, 0], d[:, 4], '-r', label='$\mathrm{Im}\epsilon(\omega)$')
+plt.plot(d[:, 0], d[:, 3], '-k', label=r'$\mathrm{Re}\epsilon(\omega)$')
+plt.plot(d[:, 0], d[:, 4], '-r', label=r'$\mathrm{Im}\epsilon(\omega)$')
 
 plt.title('Dielectric function of Si')
 plt.legend()
 plt.xlabel('Energy (eV)', fontsize=14)
-plt.ylabel('$\epsilon$', fontsize=18)
+plt.ylabel(r'$\epsilon$', fontsize=18)
 
 ax = plt.gca()
 
@@ -20,7 +20,7 @@ def y(e):
     i = (x < e).sum()
     return d[i, 4]
 
-    
+
 # data from G.Kresse, PRB 73, 045112 (2006)
 for name, e in zip("E_0 E_1 E_2 E_0' E_1'".split(),
                    [2.53, 2.71, 3.72, 3.08, 4.50]):
