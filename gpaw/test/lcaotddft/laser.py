@@ -15,7 +15,8 @@ from gpaw.test import equal
 
 # Settings
 dt = 20.0
-N = 10
+N1 = 5
+N = 5 + N1
 kick_v = np.ones(3) * 1e-5
 
 # Atoms
@@ -47,7 +48,12 @@ pulse = GaussianImpulse(1e-5, 0e3, 8.6, 0.5, 'sin')
 td_calc = LCAOTDDFT('gs.gpw', td_potential={'ext': ext, 'laser': pulse},
                     txt='tdpulse.out')
 DipoleMomentWriter(td_calc, 'dmpulse.dat')
-td_calc.propagate(dt, N)
+td_calc.propagate(dt, N1)
+td_calc.write('td.gpw', mode='all')
+# Restart
+td_calc = LCAOTDDFT('td.gpw', txt='tdpulse2.out')
+DipoleMomentWriter(td_calc, 'dmpulse.dat')
+td_calc.propagate(dt, N - N1)
 
 # Convoluted dipole moment
 world.barrier()
@@ -55,7 +61,7 @@ time_t = np.arange(0, dt * (N + 0.1), dt) * as_to_au
 pulse_t = pulse.strength(time_t)
 dm_tv = np.delete(np.loadtxt('dm.dat')[:, 2:], 1, axis=0)
 dm_tv /= np.linalg.norm(kick_v)
-pulsedm_tv = np.loadtxt('dmpulse.dat')[:, 2:]
+pulsedm_tv = np.delete(np.loadtxt('dmpulse.dat')[:, 2:], N1, axis=0)
 
 tol = 5e-6
 for v in range(3):
