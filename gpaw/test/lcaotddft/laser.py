@@ -4,7 +4,7 @@ from ase.build import molecule
 from ase.units import Hartree, Bohr
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
-from gpaw.lcaotddft.laser import GaussianImpulse
+from gpaw.lcaotddft.laser import GaussianPulse
 from gpaw.external import ConstantElectricField
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
@@ -42,7 +42,7 @@ td_calc.propagate(dt, N)
 # Pulse
 direction = kick_v
 ext = ConstantElectricField(Hartree / Bohr, direction)
-pulse = GaussianImpulse(1e-5, 0e3, 8.6, 0.5, 'sin')
+pulse = GaussianPulse(1e-5, 0e3, 8.6, 0.5, 'sin')
 
 # Time-propagation calculation with pulse
 td_calc = LCAOTDDFT('gs.gpw', td_potential={'ext': ext, 'laser': pulse},

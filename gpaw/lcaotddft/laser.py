@@ -8,8 +8,8 @@ def create_laser(name, **kwargs):
     elif isinstance(name, dict):
         kwargs.update(name)
         return create_laser(**kwargs)
-    elif name == 'GaussianImpulse':
-        return GaussianImpulse(**kwargs)
+    elif name == 'GaussianPulse':
+        return GaussianPulse(**kwargs)
     elif name == 'SumLaser':
         return SumLaser(**kwargs)
     else:
@@ -54,16 +54,16 @@ class SumLaser(Laser):
         return self.dict
 
 
-class GaussianImpulse(Laser):
+class GaussianPulse(Laser):
     """
-    Laser with Gaussian envelope.
+    Laser pulse with Gaussian envelope.
 
     Parameters:
     """
 
     def __init__(self, strength, time0, frequency, sigma, sincos='sin',
                  stoptime=np.inf):
-        self.dict = dict(name='GaussianImpulse',
+        self.dict = dict(name='GaussianPulse',
                          strength=strength,
                          time0=time0,
                          frequency=frequency,
