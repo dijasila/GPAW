@@ -1,4 +1,6 @@
 import numpy as np
+
+from gpaw.mpi import world
 from gpaw.tddft.units import as_to_au, eV_to_au
 
 
@@ -23,8 +25,33 @@ class Laser(object):
     def strength(self, time):
         return 0.0
 
+    def derivative(self, time):
+        return 0.0
+
     def fourier(self, omega):
         return 0.0
+
+    def write(self, fname, time_t):
+        """
+        Write the values of the pulse to a file.
+
+        Parameters
+        ----------
+        fname
+            filename
+        time_t
+            times in attoseconds
+        """
+        if world.rank != 0:
+            return
+        time_t = time_t * as_to_au
+        strength_t = self.strength(time_t)
+        derivative_t = self.derivative(time_t)
+        fmt = '%12.6f %20.10e %20.10e'
+        header = '{:^10} {:^20} {:^20}'.format('time', 'strength',
+                                               'derivative')
+        np.savetxt(fname, np.stack((time_t, strength_t, derivative_t)).T,
+                   fmt=fmt, header=header)
 
 
 class SumLaser(Laser):
