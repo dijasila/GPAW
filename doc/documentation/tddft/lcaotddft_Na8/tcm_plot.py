@@ -58,5 +58,6 @@ def do(w):
     # Save the plot
     plt.savefig('tcm_%.2f.png' % frequency)
 
+
 do(0)
 do(1)

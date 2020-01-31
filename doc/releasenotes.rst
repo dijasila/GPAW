@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
+  time-dependent potentials.
+
 
 Version 20.1.0
 ==============
