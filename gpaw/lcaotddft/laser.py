@@ -56,9 +56,27 @@ class SumLaser(Laser):
 
 class GaussianPulse(Laser):
     """
-    Laser pulse with Gaussian envelope.
+    Laser pulse with Gaussian envelope:
 
-    Parameters:
+    .. math::
+
+        g(t) = s_0 \sin(\omega_0 (t - t_0)) \exp(-\sigma^2 (t - t_0)^2 / 2)
+
+
+    Parameters
+    ----------
+    strength: float
+        value of :math:`s_0` in atomic units
+    time0: float
+        value of :math:`t_0` in attoseconds
+    frequency: float
+        value of :math:`\omega_0` in eV
+    sigma: float
+        value of :math:`\sigma` in eV
+    sincos: 'sin' or 'cos'
+        use sin or cos function
+    stoptime: float
+        pulse is set to zero after this value (in attoseconds)
     """
 
     def __init__(self, strength, time0, frequency, sigma, sincos='sin',
@@ -79,7 +97,16 @@ class GaussianPulse(Laser):
 
     def strength(self, t):
         """
-        t: au
+        Return the value of the pulse :math:`g(t)`.
+
+        Parameters
+        ----------
+        t
+            time in atomic units
+
+        Returns
+        -------
+        The value of the pulse.
         """
         s = self.s0 * np.exp(-0.5 * self.sigma**2 * (t - self.t0)**2)
         if self.sincos == 'sin':
@@ -92,7 +119,16 @@ class GaussianPulse(Laser):
 
     def derivative(self, t):
         """
-        t: au
+        Return the derivative of the pulse :math:`g'(t)`.
+
+        Parameters
+        ----------
+        t
+            time in atomic units
+
+        Returns
+        -------
+        The derivative of the pulse.
         """
         dt = t - self.t0
         s = self.s0 * np.exp(-0.5 * self.sigma**2 * dt**2)
@@ -106,7 +142,16 @@ class GaussianPulse(Laser):
 
     def fourier(self, omega):
         """
-        omega: au
+        Return Fourier transform of the pulse :math:`g(\omega)`.
+
+        Parameters
+        ----------
+        omega
+            frequency in atomic units
+
+        Returns
+        -------
+        Fourier transform of the pulse.
         """
         s = (self.s0 * np.sqrt(np.pi / 2) / self.sigma *
              np.exp(-0.5 * (omega - self.omega0)**2 / self.sigma**2) *
