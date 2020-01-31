@@ -492,6 +492,24 @@ see [#Kuisma2015]_ and [#Rossi2015]_ for further discussion on the basis sets.
    Here, we will calculate a small and a large organic molecule with lcao-tddft.
 
 
+Time-dependent potential
+------------------------
+
+Instead of using the dipolar delta kick as a time-domain perturbation,
+it is possible to define any time-dependent potential.
+
+Considering the sodium atom chain as an example,
+we can tune a dipolar Gaussian pulse to its resonance at 1.12 eV
+and propagate the system:
+
+.. literalinclude:: lcaotddft_Na8/td_pulse.py
+
+The resulting dipole-moment response shows the resonant excitation
+of the system:
+
+.. image:: lcaotddft_Na8/pulse.png
+
+
 References
 ==========
 

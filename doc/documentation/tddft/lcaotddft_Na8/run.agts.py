@@ -14,4 +14,7 @@ def create_tasks():
         task('spec_plot.py@1:2m', deps='spectrum.py'),
         task('tcm_plot.py@1:2m',
              deps='ksd_init.py,td_fdm_replay.py,spectrum.py'),
-        task('ind_plot.py@1:2m', deps='fdm_ind.py')]
+        task('ind_plot.py@1:2m', deps='fdm_ind.py'),
+        task('td_pulse.py@8:30m', deps='gs.py'),
+        task('plot_pulse.py@1:2m', deps='td_pulse.py'),
+        ]
