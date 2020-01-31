@@ -392,7 +392,7 @@ def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
         _gpaw.r2k_cuda_gpu(alpha, a_gpu.gpudata, a.shape, b_gpu.gpudata,
                            b.shape, beta, c_gpu.gpudata, c.shape, a.dtype,
                            hybrid)
-        bc_gpu.get(c)
+        c_gpu.get(c)
     else:
         _gpaw.r2k(alpha, a, b, beta, c)
 
