@@ -1,7 +1,7 @@
+import re
 import numpy as np
 
-from gpaw.mpi import world
-from ase.units import Hartree, alpha, Bohr
+from ase.units import Bohr
 from gpaw.utilities.tools import coordinates
 from gpaw.fd_operators import Gradient
 from gpaw.lcaotddft.observer import TDDFTObserver
@@ -29,9 +29,9 @@ def skew(a):
 
 
 class CDWriter(TDDFTObserver):
-    version=1
+    version = 1
 
-    def __init__(self, paw, filename, center=False,
+    def __init__(self, paw, filename, center=True,
                  interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
@@ -46,13 +46,21 @@ class CDWriter(TDDFTObserver):
             if self.master:
                 self.fd = open(filename, 'a')
 
+        gd = paw.wfs.gd
+
+        assert center
+        R0 = 0.5 * np.diag(gd.cell_cv)
+        r_cG, _ = coordinates(gd, origin=R0)
+        self.r_cG = r_cG
+        self.Ra_a = paw.atoms.positions / Bohr - R0[None, :]
+
         # Create Gradient operator
         gd = paw.wfs.gd
-        grad = []
-        for c in range(3):
-            grad.append(Gradient(gd, c, dtype=complex, n=2))
-        self.grad = grad
-        self.timer=paw.timer
+        grad_v = []
+        for v in range(3):
+            grad_v.append(Gradient(gd, v, dtype=complex, n=2))
+        self.grad_v = grad_v
+        self.timer = paw.timer
 
     def _write(self, line):
         if self.master:
@@ -93,116 +101,108 @@ class CDWriter(TDDFTObserver):
         line += 'Time = %.8lf\n' % time
         self._write(line)
 
-    def calculate_cd_moment(self, paw, center=True):
-        grad = self.grad
-        gd = paw.wfs.gd
+    def calculate_cd_moment(self, paw):
+        grad_v = self.grad_v
+        wfs = paw.wfs
+        gd = wfs.gd
+        bd = wfs.bd
+        r_cG = self.r_cG
+        Ra_a = self.Ra_a
 
         self.timer.start('CD')
 
-        grad_psit_G = gd.empty(3, dtype=complex)
-        rxnabla_a = np.zeros(3,dtype=complex)
+        grad_psit_vG = gd.empty(3, dtype=complex)
+        rxnabla_a = np.zeros(3, dtype=complex)
         # Ra x <psi1| nabla |psi2>
         Rxnabla_a = np.zeros(3, dtype=complex)
-        Rxnabla_a2 = np.zeros(3, dtype=complex)
 
         rxnabla_g = np.zeros(3, dtype=complex)
-        R0 = 0.5 * np.diag(paw.wfs.gd.cell_cv)
 
-        if hasattr(self, 'r_cG'):
-            r_cG = self.r_cG
-        else:
-            r_cG, _ = coordinates(paw.wfs.gd, origin=R0)
-            self.r_cG = r_cG
-
-        for kpt in paw.wfs.kpt_u:
-            #paw.wfs.atomic_correction.calculate_projections(paw.wfs, kpt)
-
+        for kpt in wfs.kpt_u:
             for n, (f, psit_G) in enumerate(zip(kpt.f_n, kpt.psit_nG)):
-                for c in range(3):
-                     grad[c].apply(psit_G, grad_psit_G[c],kpt.phase_cd)
+                pref = -1j * f
+
+                for v in range(3):
+                    grad_v[v].apply(psit_G, grad_psit_vG[v], kpt.phase_cd)
 
                 self.timer.start('Pseudo')
-                rxnabla_g[0] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
-                                                        (r_cG[1] * grad_psit_G[2] -
-                                                         r_cG[2] * grad_psit_G[1]))
-                rxnabla_g[1] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
-                                                        (r_cG[2] * grad_psit_G[0] -
-                                                         r_cG[0] * grad_psit_G[2]))
-                rxnabla_g[2] += -1j*f*paw.wfs.gd.integrate(psit_G.conjugate() *
-                                                        (r_cG[0] * grad_psit_G[1] -
-                                                         r_cG[1] * grad_psit_G[0]))
+
+                def calculate(v1, v2):
+                    return pref * gd.integrate(psit_G.conjugate() *
+                                               (r_cG[v1] * grad_psit_vG[v2] -
+                                                r_cG[v2] * grad_psit_vG[v1]))
+
+                rxnabla_g[0] += calculate(1, 2)
+                rxnabla_g[1] += calculate(2, 0)
+                rxnabla_g[2] += calculate(0, 1)
                 self.timer.stop('Pseudo')
 
                 # augmentation contributions to magnetic moment
-                # <psi1| r x nabla |psi2> = <psi1| (r-Ra+Ra) x nabla |psi2>
-                #                         = <psi1| (r-Ra) x nabla |psi2> + Ra x <psi1| nabla |psi2>
-
+                # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
+                #                         = <psi1| (r - Ra) x nabla |psi2>
+                #                             + Ra x <psi1| nabla |psi2>
 
                 self.timer.start('PAW')
                 # <psi1| (r-Ra) x nabla |psi2>
                 for a, P_ni in kpt.P_ani.items():
+                    Ra = Ra_a[a]
                     P_i = P_ni[n]
 
-                    rxnabla_iiv = paw.wfs.setups[a].rxnabla_iiv.copy()
-                    nabla_iiv = paw.wfs.setups[a].nabla_iiv.copy()
-                    for c in range(3):
-                        rxnabla_iiv[:,:,c] = skew(rxnabla_iiv[:,:,c])
-                        nabla_iiv[:,:,c] = skew(nabla_iiv[:,:,c])
+                    rxnabla_iiv = wfs.setups[a].rxnabla_iiv.copy()
+                    nabla_iiv = wfs.setups[a].nabla_iiv.copy()
+                    for v in range(3):
+                        rxnabla_iiv[:, :, v] = skew(rxnabla_iiv[:, :, v])
+                        nabla_iiv[:, :, v] = skew(nabla_iiv[:, :, v])
 
-                    Rxnabla_a2[0] += np.dot(P_i,np.dot(nabla_iiv[:,:,0],P_i.T.conjugate()))
-                    Ra = (paw.atoms[a].position / Bohr) - R0
                     for i1, P1 in enumerate(P_i):
                         for i2, P2 in enumerate(P_i):
-                            for c in range(3):
-                                rxnabla_a[c] += -1j*f*P1.conjugate() * P2 * rxnabla_iiv[i1, i2, c]
+                            PP = P1.conjugate() * P2
+                            rxnabla_v = rxnabla_iiv[i1, i2]
+                            nabla_v = nabla_iiv[i1, i2]
+
+                            for v in range(3):
+                                rxnabla_a[v] += pref * PP * rxnabla_v[v]
+
+                            def calculate(v1, v2):
+                                return pref * PP * (Ra[v1] * nabla_v[v2] -
+                                                    Ra[v2] * nabla_v[v1])
 
                             # (y pz - z py)i + (z px - x pz)j + (x py - y px)k
-                            Rxnabla_a[0] +=-1j*f* P1.conjugate() * P2 * ( Ra[1] * nabla_iiv[i1, i2, 2] - Ra[2] * nabla_iiv[i1, i2, 1] )
-                            Rxnabla_a[1] +=-1j*f* P1.conjugate() * P2 * ( Ra[2] * nabla_iiv[i1, i2, 0] - Ra[0] * nabla_iiv[i1, i2, 2] )
-                            Rxnabla_a[2] +=-1j*f* P1.conjugate() * P2 * ( Ra[0] * nabla_iiv[i1, i2, 1] - Ra[1] * nabla_iiv[i1, i2, 0] )
+                            Rxnabla_a[0] += calculate(1, 2)
+                            Rxnabla_a[1] += calculate(2, 0)
+                            Rxnabla_a[2] += calculate(0, 1)
                 self.timer.stop('PAW')
 
-        paw.wfs.bd.comm.sum(rxnabla_a)
-        paw.wfs.gd.comm.sum(rxnabla_a)
+        bd.comm.sum(rxnabla_a)
+        gd.comm.sum(rxnabla_a)
 
-        paw.wfs.bd.comm.sum(Rxnabla_a)
-        paw.wfs.gd.comm.sum(Rxnabla_a)
+        bd.comm.sum(Rxnabla_a)
+        gd.comm.sum(Rxnabla_a)
 
-        paw.wfs.bd.comm.sum(rxnabla_g)
+        bd.comm.sum(rxnabla_g)
 
-        rtots = rxnabla_g + Rxnabla_a + rxnabla_a
+        rxnabla_tot = rxnabla_g + Rxnabla_a + rxnabla_a
 
         self.timer.stop('CD')
 
-        return rtots
+        return rxnabla_tot.real
 
     def _write_cd(self, paw):
         time = paw.time
 
-        cd = self.calculate_cd_moment(paw, center=self.do_center)
+        cd = self.calculate_cd_moment(paw)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
-          (time, cd[0].real, cd[1].real, cd[2].real))
-
+                (time, cd[0], cd[1], cd[2]))
         self._write(line)
 
     def _update(self, paw):
-        #if paw.action == 'init':
-        #    self._write_header(paw)
-        #elif paw.action == 'kick':
-        #    self._write_kick(paw)
+        # if paw.action == 'init':
+        #     self._write_header(paw)
+        # elif paw.action == 'kick':
+        #     self._write_kick(paw)
         self._write_cd(paw)
 
     def __del__(self):
         if self.master:
             self.fd.close()
         TDDFTObserver.__del__(self)
-
-
-
-
-
-
-
-
-
-
