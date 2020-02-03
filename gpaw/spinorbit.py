@@ -1,6 +1,6 @@
 import numpy as np
 from ase.units import Ha, alpha, Bohr
-from gpaw.mpi import serial_comm, world, rank
+from gpaw.mpi import serial_comm
 
 s = np.array([[0.0]])
 p = np.zeros((3, 3), complex)  # y, z, x
@@ -136,6 +136,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     assert calc.gd.comm.size == 1, \
         "Spinorbit not compatible with grid parallelization"
 
+    world = calc.world
     Na = len(calc.atoms)
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
@@ -172,7 +173,6 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     #         P_nI = calc.wfs.collect_projections(k, spin)
     #         P_knI.append(P_nI)
 
-    # calc.world.broadcast
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = []
     for ai in range(Na):
