@@ -4,17 +4,6 @@ from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
 
 
-def ranks(wfs):
-    import time
-    time.sleep(wfs.world.rank * 0.1)
-    txt = ''
-    comm_i = [wfs.world, wfs.gd.comm, wfs.kd.comm,
-              wfs.bd.comm, wfs.ksl.block_comm]
-    for comm in comm_i:
-        txt += '%2d/%2d ' % (comm.rank, comm.size)
-    return txt
-
-
 def collect_uMM(wfs, a_uMM, s, k):
     return collect_wuMM(wfs, [a_uMM], 0, s, k)
 
