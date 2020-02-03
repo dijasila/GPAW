@@ -82,7 +82,7 @@ class SumLaser(Laser):
 
 
 class GaussianPulse(Laser):
-    """
+    r"""
     Laser pulse with Gaussian envelope:
 
     .. math::
@@ -168,7 +168,7 @@ class GaussianPulse(Laser):
         return s
 
     def fourier(self, omega):
-        """
+        r"""
         Return Fourier transform of the pulse :math:`g(\omega)`.
 
         Parameters
