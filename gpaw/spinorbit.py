@@ -126,12 +126,15 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
    """
     if isinstance(calc, str):
         from gpaw import GPAW
-        calc = GPAW(calc, communicator=serial_comm, txt=None)
-    else:
-        assert calc.world.size == 1
+        calc = GPAW(calc, txt=None)
 
     if bands is None:
         bands = np.arange(calc.get_number_of_bands())
+
+    assert calc.bd.comm.size == 1, \
+        "Spinorbit not compatible with band parallelization"
+    assert calc.gd.comm.size == 1, \
+        "Spinorbit not compatible with grid parallelization"
 
     Na = len(calc.atoms)
     Nk = len(calc.get_ibz_k_points())
@@ -162,6 +165,14 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
         else:
             e_skn = gw_skn.copy()
 
+    # # Collect projections on rank 0
+    # P_knI = []
+    # for k in range(Nk):
+    #     for spin in range(Ns):
+    #         P_nI = calc.wfs.collect_projections(k, spin)
+    #         P_knI.append(P_nI)
+
+    # calc.world.broadcast
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = []
     for ai in range(Na):
@@ -191,28 +202,44 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
     sz_ss = C_ss.T.conj().dot(sz_ss).dot(C_ss)
 
     # Parallelization stuff
-    myKsize = -(-Nk // (world.size))
-    myKrange = range(rank * myKsize,
-                     min((rank + 1) * myKsize, Nk))
-    myKsize = len(myKrange)
+    mykpts = calc.wfs.mykpts
+    kd = calc.wfs.kd
 
-    for k in myKrange:
+    for kpt in mykpts:
+        if kpt.s != 0:
+            continue
+
+        if Ns == 2:
+            # Somehow get P_ani for other spin channel
+            kpt_rank, u = kd.get_rank_and_index(1, kpt.k)
+
+            if kpt_rank == world.rank:
+                kpt2 = mykpts[u]
+            else:
+                raise NotImplementedError
+
+            # kpt_rank, u = kd.get_rank_and_index(s, k)
+            # calc.wfs.collect_projections(sk)
+            # rank, ranku = kd.get_rank_and_index(kpt.k, 1)
+            # kpt2 = kd.comm.communicate(rank, localu)
+        else:
+            kpt2 = kpt
+
         # Evaluate H in a basis of S_z eigenstates
         H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
         if not noncollinear:
             i1 = np.arange(0, 2 * Nn, 2)
             i2 = np.arange(1, 2 * Nn, 2)
-            H_mm[i1, i1] = e_skn[0, k]
-            H_mm[i2, i2] = e_skn[1, k]
+            H_mm[i1, i1] = e_skn[0, kpt.k]
+            H_mm[i2, i2] = e_skn[1, kpt.k]
         else:
             i0 = np.arange(0, 2 * Nn)
-            H_mm[i0, i0] = e_skn[0, k]
+            H_mm[i0, i0] = e_skn[0, kpt.k]
         for ai in range(Na):
             if not noncollinear:
-                Pt_sni = [calc.wfs.kpt_u[k + s * Nk].P_ani[ai][bands]
-                          for s in range(Ns)]
+                Pt_sni = [kpt.P_ani[ai][bands], kpt2.P_ani[ai][bands]]
             else:
-                Pt_sni = np.swapaxes(calc.wfs.kpt_u[k].P_ani[ai], 0, 1)
+                Pt_sni = np.swapaxes(kpt.P_ani[ai], 0, 1)
             Ni = len(Pt_sni[0][0])
             P_sni = np.zeros((2, 2 * Nn, Ni), complex)
             dVL_vii = dVL_avii[ai] * scale * Ha
@@ -242,9 +269,9 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                     H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
 
         e_m, v_snm = np.linalg.eigh(H_mm)
-        e_km[k] = e_m
+        e_km[kpt.k] = e_m
         if return_wfs or return_spin:
-            v_knm[k] = v_snm
+            v_knm[kpt.k] = v_snm
         if return_spin:
             sx_m = []
             sy_m = []
@@ -254,7 +281,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                 sx_m.append(np.trace(v_sn.T.conj().dot(sx_ss).dot(v_sn)).real)
                 sy_m.append(np.trace(v_sn.T.conj().dot(sy_ss).dot(v_sn)).real)
                 sz_m.append(np.trace(v_sn.T.conj().dot(sz_ss).dot(v_sn)).real)
-            s_kvm[k] = [sx_m, sy_m, sz_m]
+            s_kvm[kpt.k] = [sx_m, sy_m, sz_m]
 
     world.sum(e_km)
 
