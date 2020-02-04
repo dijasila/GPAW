@@ -26,17 +26,15 @@ def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
 
     for kpt in kpt_u:
         for n, (f, psit_G) in enumerate(zip(kpt.f_n, kpt.psit_nG)):
-            pref = -1j * f
-
             for v in range(3):
                 grad_v[v].apply(psit_G, grad_psit_vG[v], kpt.phase_cd)
 
             timer.start('Pseudo')
 
             def calculate(v1, v2):
-                return pref * gd.integrate(psit_G.conjugate() *
-                                           (r_cG[v1] * grad_psit_vG[v2] -
-                                            r_cG[v2] * grad_psit_vG[v1]))
+                return f * gd.integrate(psit_G.conjugate() *
+                                        (r_cG[v1] * grad_psit_vG[v2] -
+                                         r_cG[v2] * grad_psit_vG[v1]))
 
             pseudo_rxnabla_v[0] += calculate(1, 2)
             pseudo_rxnabla_v[1] += calculate(2, 0)
@@ -55,7 +53,7 @@ def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
                 P_i = P_ni[n]
                 for v in range(3):
                     PdXP = np.dot(P_i.conj(), np.dot(dX0_caii[v][a], P_i))
-                    paw_rxnabla_v[v] += -pref * PdXP
+                    paw_rxnabla_v[v] += -f * PdXP
             timer.stop('PAW')
 
     bd.comm.sum(paw_rxnabla_v)
@@ -67,7 +65,7 @@ def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
 
     timer.stop('CD')
 
-    return rxnabla_v.real
+    return rxnabla_v.imag
 
 
 def get_dX0(Ra_a, setups, partition):
@@ -137,13 +135,16 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
     bfs.calculate_potential_matrix_derivative(r_cG[2], A_cmM, 0)
     E_cmM[0] -= A_cmM[1]
     E_cmM[1] += A_cmM[0]
+
+    # The matrix should be real
+    assert np.max(np.absolute(E_cmM.imag)) == 0.0
+    E_cmM = E_cmM.real.copy()
     return E_cmM
 
 
 def calculate_cd_from_rho_and_e(rho_xx, E_cxx):
-    # (Can save time by doing imag/real algebra explicitly, but this
-    #  probably doesn't matter.)
-    return -(rho_xx[None] * E_cxx).sum(axis=(1, 2)).imag
+    assert E_cxx.dtype == float
+    return -np.sum(rho_xx.imag * E_cxx, axis=(1, 2))
 
 
 class BlacsEMatrix:
