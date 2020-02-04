@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.mpi import world
 from ase.units import Hartree, alpha, Bohr
+from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
@@ -11,6 +12,66 @@ from gpaw.utilities.blas import gemm, mmm
 
 def skew(a):
     return 0.5 * (a - a.T)
+
+
+def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
+    gd = wfs.gd
+    bd = wfs.bd
+    kpt_u = wfs.kpt_u
+
+    timer.start('CD')
+
+    grad_psit_vG = gd.empty(3, dtype=complex)
+    pseudo_rxnabla_v = np.zeros(3, dtype=complex)
+    paw_rxnabla_v = np.zeros(3, dtype=complex)
+
+    for kpt in kpt_u:
+        for n, (f, psit_G) in enumerate(zip(kpt.f_n, kpt.psit_nG)):
+            pref = -1j * f
+
+            for v in range(3):
+                grad_v[v].apply(psit_G, grad_psit_vG[v], kpt.phase_cd)
+
+            timer.start('Pseudo')
+
+            def calculate(v1, v2):
+                return pref * gd.integrate(psit_G.conjugate() *
+                                           (r_cG[v1] * grad_psit_vG[v2] -
+                                            r_cG[v2] * grad_psit_vG[v1]))
+
+            pseudo_rxnabla_v[0] += calculate(1, 2)
+            pseudo_rxnabla_v[1] += calculate(2, 0)
+            pseudo_rxnabla_v[2] += calculate(0, 1)
+            timer.stop('Pseudo')
+
+            # augmentation contributions to magnetic moment
+            # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
+            #                         = <psi1| (r - Ra) x nabla |psi2>
+            #                             + Ra x <psi1| nabla |psi2>
+
+            timer.start('PAW')
+
+            # <psi1| (r-Ra) x nabla |psi2>
+            for a, P_ni in kpt.P_ani.items():
+                P_i = P_ni[n]
+                for i1, P1 in enumerate(P_i):
+                    for i2, P2 in enumerate(P_i):
+                        PP = P1.conjugate() * P2
+                        for v in range(3):
+                            paw_rxnabla_v[v] += -pref * PP * dX0_caii[v][a][i1, i2]
+            timer.stop('PAW')
+
+    bd.comm.sum(paw_rxnabla_v)
+    gd.comm.sum(paw_rxnabla_v)
+
+    bd.comm.sum(pseudo_rxnabla_v)
+
+    rxnabla_v = pseudo_rxnabla_v + paw_rxnabla_v
+
+    timer.stop('CD')
+
+    return rxnabla_v.real
+
 
 
 def get_dX0(Ra_a, setups, partition):
@@ -132,11 +193,9 @@ def convert_repr(r):
 class CDWriter(TDDFTObserver):
     version=1
 
-    def __init__(self, paw, filename, center=False, interval=1):
+    def __init__(self, paw, filename, center=True, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
-        self.dmat = DensityMatrix(paw)  # XXX
-        self.ksl = paw.wfs.ksl
         if paw.niter == 0:
             # Initialize
             self.do_center = center
@@ -148,24 +207,40 @@ class CDWriter(TDDFTObserver):
             if self.master:
                 self.fd = open(filename, 'a')
 
+        mode = paw.wfs.mode
+        assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
+
         gd = paw.wfs.gd
         self.timer=paw.timer
 
+        assert center
+        # TODO: change R0 to choose another origin
         R0 = 0.5 * np.diag(gd.cell_cv)
         Ra_a = paw.atoms.positions / Bohr - R0[None, :]
-        r_cG, r2_G = coordinates(gd, origin=R0)
+        r_cG, _ = coordinates(gd, origin=R0)
 
         dX0_caii = get_dX0(Ra_a, paw.setups, paw.hamiltonian.dH_asp.partition)
 
-        E_cmM = calculate_E(dX0_caii, paw.wfs.kpt_u,
-                            paw.wfs.basis_functions,
-                            paw.wfs.atomic_correction, r_cG)
+        if mode == 'fd':
+            self.r_cG = r_cG
+            self.dX0_caii = dX0_caii
 
-        if self.ksl.using_blacs:
-            self.e_matrix = BlacsEMatrix.redist_from_raw(self.ksl, E_cmM)
+            grad_v = []
+            for v in range(3):
+                grad_v.append(Gradient(gd, v, dtype=complex, n=2))
+            self.grad_v = grad_v
         else:
-            gd.comm.sum(E_cmM)
-            self.e_matrix = SerialEMatrix(self.ksl, E_cmM)
+            E_cmM = calculate_E(dX0_caii, paw.wfs.kpt_u,
+                                paw.wfs.basis_functions,
+                                paw.wfs.atomic_correction, r_cG)
+
+            self.dmat = DensityMatrix(paw)  # XXX
+            ksl = paw.wfs.ksl
+            if ksl.using_blacs:
+                self.e_matrix = BlacsEMatrix.redist_from_raw(ksl, E_cmM)
+            else:
+                gd.comm.sum(E_cmM)
+                self.e_matrix = SerialEMatrix(ksl, E_cmM)
 
     def _write(self, line):
         if self.master:
@@ -207,29 +282,34 @@ class CDWriter(TDDFTObserver):
         line += 'Time = %.8lf\n' % time
         self._write(line)
 
-    def calculate_cd_moment(self, paw, center=True):
-        u = 0
-        kpt = paw.wfs.kpt_u[0]
-        ksl = self.e_matrix.ksl
-        rho_mm = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
-        cd_c = self.e_matrix.calculate_cd(rho_mm)
+    def calculate_cd_moment(self, paw):
+        mode = paw.wfs.mode
+        if mode == 'fd':
+            cd_c = calculate_cd_fd(paw.wfs, self.grad_v, self.r_cG,
+                                   self.dX0_caii, self.timer)
+        else:
+            u = 0
+            kpt = paw.wfs.kpt_u[0]
+            ksl = self.e_matrix.ksl
+            rho_mm = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
+            cd_c = self.e_matrix.calculate_cd(rho_mm)
         assert cd_c.shape == (3,)
         assert cd_c.dtype == float
         return cd_c
 
     def _write_cd(self, paw):
         time = paw.time
-        cd = self.calculate_cd_moment(paw,center=self.do_center)
-        print('cd', cd)
+        cd = self.calculate_cd_moment(paw)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
           (time, cd[0], cd[1], cd[2]))
         self._write(line)
 
     def _update(self, paw):
-        if paw.action == 'init':
-            self._write_header(paw)
-        elif paw.action == 'kick':
-            self._write_kick(paw)
+        if hasattr(paw, 'action'):
+            if paw.action == 'init':
+                self._write_header(paw)
+            elif paw.action == 'kick':
+                self._write_kick(paw)
         self._write_cd(paw)
 
     def __del__(self):
