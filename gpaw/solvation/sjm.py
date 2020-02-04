@@ -354,6 +354,12 @@ class SJM(SolvationGPAW):
         if p.target_potential:
             p.previous_ne = None  # Reset for slope calculations.
             p.previous_pot = None
+            #FIXME: I am changing the slope calculation method to do
+            # a linear regression on all the previous potentials from
+            # the current calculation. I should be able to delete the above
+            # two variables if/when this works.
+            p.previous_nes = []
+            p.previous_potentials = []
             self.sog('Starting constant-potential calculation targeting {:.3f}'
                      ' +/- {:.3f} V.'
                      .format(p.target_potential, p.dpot))
@@ -625,6 +631,7 @@ class SJM(SolvationGPAW):
         """Module for the definition of the explicit and counter charge
 
         """
+        self.log('inside define_jellium method')
         p = self.sjm_parameters
         if p.dl is None:
             p.dl = {}
@@ -642,6 +649,7 @@ class SJM(SolvationGPAW):
         else:
             p.dl['start'] = max(atoms.positions[:, 2]) + 3.
 
+        self.log('   passed first if')
         if 'upper_limit' in p.dl:
             pass
         elif 'thickness' in p.dl:
@@ -655,20 +663,28 @@ class SJM(SolvationGPAW):
         else:
             p.dl['upper_limit'] = atoms.cell[2][2] - 5.0
 
+        self.log('   passed 2nd if')
         if p.dl['start'] == 'cavity_like':
+            self.log('    in cavity_like')
 
             # XXX This part can definitely be improved
             if self.hamiltonian is None:
+                self.log('    in hamiltonian is None')
                 filename = self.log.fd
-                self.log.fd = None
+                self.log('    filename')
+                self.log(filename)
+                #self.log.fd = None
+                self.log('    initializeing atoms')
                 self.initialize(atoms)
                 self.set_positions(atoms)
-                self.log.fd = filename
+                #self.log.fd = filename
+                self.log('      copying hamiltonian cavity')
                 g_g = self.hamiltonian.cavity.g_g.copy()
                 self.wfs = None
                 self.density = None
                 self.hamiltonian = None
                 self.initialized = False
+                self.log('      returning CavityShapedJellium')
                 return CavityShapedJellium(p.ne, g_g=g_g,
                                            z2=p.dl['upper_limit'])
 
@@ -682,6 +698,7 @@ class SJM(SolvationGPAW):
                                            z2=p.dl['upper_limit'])
 
         elif isinstance(p.dl['start'], numbers.Real):
+            self.log('    in isinstance start')
             return JelliumSlab(p.ne, z1=p.dl['start'],
                                z2=p.dl['upper_limit'])
 
@@ -694,6 +711,8 @@ class SJM(SolvationGPAW):
             wf2 = -fermilevel
         else:
             wf2 = (-fermilevel - correction) * Hartree
+        #FIXME: Why is one unit-corrected but not the other?
+        #       If the correction is absent, is it already in eV?
 
         return wf2  # refpot-E_f
 
