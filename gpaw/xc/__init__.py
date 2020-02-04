@@ -122,23 +122,18 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
                        alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
         elif name == 'WLDA':
             from gpaw.xc.wlda2 import WLDA
-            rc = kernel["rc"]
-            kernel_type = kernel["kernel_type"]
-            kernel_param = kernel["kernel_param"]
-            wlda_type = kernel["type"]
+            rc = kernel.get("rc", None)
+            kernel_type = kernel.get("kernel_type", None)
+            kernel_param = kernel.get("kernel_param", None)
+            wlda_type = kernel.get("type", None)
             return WLDA(rc=rc, kernel_type=kernel_type,
                         kernel_param=kernel_param,
                         wlda_type=wlda_type)
-        elif 'WDA' in name:
+        elif name == 'WDA':
             from gpaw.xc.wda import WDA
-            splt = name.split("_") + [None, None]
-            factor = splt[1]
-            density_mode = splt[2]
+            factor = kernel.get("rc", None)
             if factor is not None:
-                try:
-                    rcut_factor = float(factor)
-                except ValueError:
-                    rcut_factor = None
+                rcut_factor = float(factor)
                 return WDA(rcut_factor=rcut_factor)
             return WDA()
         else:
