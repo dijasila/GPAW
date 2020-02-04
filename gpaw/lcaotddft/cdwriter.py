@@ -13,7 +13,8 @@ def skew(a):
     return 0.5 * (a - a.T)
 
 
-def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer):
+def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
+                         only_pseudo=False):
     gd = wfs.gd
     mode = wfs.mode
     bd = wfs.bd
@@ -55,15 +56,15 @@ def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer):
             #                         = <psi1| (r - Ra) x nabla |psi2>
             #                             + Ra x <psi1| nabla |psi2>
 
-            timer.start('PAW')
-
-            # <psi1| (r-Ra) x nabla |psi2>
-            for a, P_ni in kpt.P_ani.items():
-                P_i = P_ni[n]
-                for v in range(3):
-                    PdXP = np.dot(P_i.conj(), np.dot(dX0_caii[v][a], P_i))
-                    paw_rxnabla_v[v] += -f * PdXP
-            timer.stop('PAW')
+            if not only_pseudo:
+                timer.start('PAW')
+                # <psi1| (r-Ra) x nabla |psi2>
+                for a, P_ni in kpt.P_ani.items():
+                    P_i = P_ni[n]
+                    for v in range(3):
+                        PdXP = np.dot(P_i.conj(), np.dot(dX0_caii[v][a], P_i))
+                        paw_rxnabla_v[v] += -f * PdXP
+                timer.stop('PAW')
 
     bd.comm.sum(paw_rxnabla_v)
     gd.comm.sum(paw_rxnabla_v)
@@ -113,7 +114,7 @@ def get_dX0(Ra_a, setups, partition):
     return dX0_caii
 
 
-def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
+def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     Mstart = correction.Mstart
     Mstop = correction.Mstop
     mynao = Mstop - Mstart
@@ -125,11 +126,12 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
     E_cmM = np.zeros((3, mynao, nao), dtype=complex)
     A_cmM = np.zeros((3, mynao, nao), dtype=complex)
 
-    for c in range(3):
-        for kpt in kpt_u:
-            assert kpt.k == 0
-            correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
-                                 Mstart, Mstop)
+    if not only_pseudo:
+        for c in range(3):
+            for kpt in kpt_u:
+                assert kpt.k == 0
+                correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
+                                     Mstart, Mstop)
 
     bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
     E_cmM[1] -= A_cmM[2]
@@ -186,7 +188,7 @@ class CDWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, filename, center=True, interval=1,
-                 calculate_on_grid=False):
+                 calculate_on_grid=False, only_pseudo=False):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
         if paw.niter == 0:
@@ -219,6 +221,7 @@ class CDWriter(TDDFTObserver):
         dX0_caii = get_dX0(Ra_a, paw.setups, paw.hamiltonian.dH_asp.partition)
 
         if self.calculate_on_grid:
+            self.only_pseudo = only_pseudo
             self.r_cG = r_cG
             self.dX0_caii = dX0_caii
 
@@ -229,7 +232,8 @@ class CDWriter(TDDFTObserver):
         else:
             E_cmM = calculate_E(dX0_caii, paw.wfs.kpt_u,
                                 paw.wfs.basis_functions,
-                                paw.wfs.atomic_correction, r_cG)
+                                paw.wfs.atomic_correction, r_cG,
+                                only_pseudo=only_pseudo)
 
             self.dmat = DensityMatrix(paw)  # XXX
             ksl = paw.wfs.ksl
@@ -282,7 +286,8 @@ class CDWriter(TDDFTObserver):
     def calculate_cd(self, paw):
         if self.calculate_on_grid:
             cd_c = calculate_cd_on_grid(paw.wfs, self.grad_v, self.r_cG,
-                                        self.dX0_caii, self.timer)
+                                        self.dX0_caii, self.timer,
+                                        only_pseudo=self.only_pseudo)
         else:
             u = 0
             kpt = paw.wfs.kpt_u[u]
