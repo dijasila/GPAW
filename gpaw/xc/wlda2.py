@@ -5,7 +5,7 @@ import gpaw.mpi as mpi
 
 
 class WLDA(XCFunctional):
-    def __init__(self, kernel=None, mode="", filter_kernel=""):
+    def __init__(self, rc=None, kernel_type=None, kernel_param=None, wlda_type=None):
         XCFunctional.__init__(self, 'WLDA', 'LDA')
 
         self.nindicators = int(5 * 1e2)
@@ -256,18 +256,18 @@ class WLDA(XCFunctional):
             # self.lda_c1(0, exc_g, wn_sg[0],
               #          nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
 
-            self.lda_x2(0, exc2_g, wn_sg[0],
-                        nstar_sg[0], vxc2_sg[0], my_alpha_indices)
+            # self.lda_x2(0, exc2_g, wn_sg[0],
+            #             nstar_sg[0], vxc2_sg[0], my_alpha_indices)
             zeta = 0
-            self.lda_c2(0, exc2_g, wn_sg[0],
-                        nstar_sg[0], vxc2_sg[0], zeta, my_alpha_indices)
+            # self.lda_c2(0, exc2_g, wn_sg[0],
+            #             nstar_sg[0], vxc2_sg[0], zeta, my_alpha_indices)
 
             
-            # self.lda_x3(0, exc3_g, wn_sg[0],
-               #         nstar_sg[0], vxc3_sg[0], my_alpha_indices)
+            self.lda_x3(0, exc3_g, wn_sg[0],
+                        nstar_sg[0], vxc3_sg[0], my_alpha_indices)
             zeta = 0
-            # self.lda_c3(0, exc3_g, wn_sg[0],
-                #        nstar_sg[0], vxc3_sg[0], zeta, my_alpha_indices)
+            self.lda_c3(0, exc3_g, wn_sg[0],
+                        nstar_sg[0], vxc3_sg[0], zeta, my_alpha_indices)
 
             
         else:
@@ -281,7 +281,7 @@ class WLDA(XCFunctional):
             self.lda_x(1, exc_g, nb, vxc_sg[1], my_alpha_indices)
             self.lda_c(1, exc_g, n, vxc_sg, zeta, my_alpha_indices)
         
-        return exc_g + exc2_g - exc3_g, vxc_sg + vxc2_sg - vxc3_sg
+        return exc_g + exc2_g + exc3_g, vxc_sg + vxc2_sg + vxc3_sg
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         from gpaw.xc.lda import lda_constants
@@ -332,8 +332,8 @@ class WLDA(XCFunctional):
             e[:] += nstar_g * ex
         else:
             e[:] += 0.5 * nstar_g * ex
-        v = ex - rs * dexdrs / 3.
-        v = self.fold_with_derivative(v, wn_g, my_alpha_indices)
+        v[:] = ex - rs * dexdrs / 3.
+        v[:] = self.fold_with_derivative(v, wn_g, my_alpha_indices)
 
     def lda_c1(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
         assert spin in [0, 1]
@@ -443,14 +443,15 @@ class WLDA(XCFunctional):
         from gpaw.xc.lda import lda_constants, G
         C0I, C1, CC1, CC2, IF2 = lda_constants()
         
-        rs = (C0I / wn_g) ** (1 / 3.)
+        rs = (C0I / nstar_g) ** (1 / 3.)
         ec, decdrs_0 = G(rs ** 0.5,
                          0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
         
         if spin == 0:
             e[:] += nstar_g * ec
-            v += ec - rs * decdrs_0 / 3.
-            v[:] = self.fold_with_derivative(v,
+            v_place = np.zeros_like(v)
+            v_place += ec - rs * decdrs_0 / 3.
+            v += self.fold_with_derivative(v_place,
                                            wn_g, my_alpha_indices)
         else:
             e1, decdrs_1 = G(rs ** 0.5,
@@ -479,7 +480,7 @@ class WLDA(XCFunctional):
             e[:] += wn_g * ec
 
             v[0] += ec - (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta)
-            v[0] -= self.fold_with_derivative(v[0],
+            v[0] = self.fold_with_derivative(v[0],
                                               wn_g, my_alpha_indices)
             
             v[1] += ec - (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta)

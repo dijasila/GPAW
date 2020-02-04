@@ -120,19 +120,15 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.qna import QNA
             return QNA(atoms, kernel['parameters'], kernel['setup_name'],
                        alpha=kernel['alpha'], stencil=kwargs.get('stencil', 2))
-        elif 'WLDA' in name:
-            from gpaw.xc.wlda import WLDA
-            splt = name.split("_")
-            if len(splt) > 1:
-                mode = splt[1]
-                if len(splt) > 2:
-                    filter_kernel = splt[2]
-                else:
-                    filter_kernel = ""
-            else:
-                mode = ""
-                filter_kernel = ""
-            return WLDA(mode=mode, filter_kernel=filter_kernel)
+        elif name == 'WLDA':
+            from gpaw.xc.wlda2 import WLDA
+            rc = kernel["rc"]
+            kernel_type = kernel["kernel_type"]
+            kernel_param = kernel["kernel_param"]
+            wlda_type = kernel["type"]
+            return WLDA(rc=rc, kernel_type=kernel_type,
+                        kernel_param=kernel_param,
+                        wlda_type=wlda_type)
         elif 'WDA' in name:
             from gpaw.xc.wda import WDA
             splt = name.split("_") + [None, None]
