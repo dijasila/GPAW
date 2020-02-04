@@ -13,8 +13,9 @@ def skew(a):
     return 0.5 * (a - a.T)
 
 
-def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
+def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer):
     gd = wfs.gd
+    mode = wfs.mode
     bd = wfs.bd
     kpt_u = wfs.kpt_u
 
@@ -23,9 +24,17 @@ def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
     grad_psit_vG = gd.empty(3, dtype=complex)
     pseudo_rxnabla_v = np.zeros(3, dtype=complex)
     paw_rxnabla_v = np.zeros(3, dtype=complex)
+    if mode == 'lcao':
+        psit_G = gd.empty(dtype=complex)
 
     for kpt in kpt_u:
-        for n, (f, psit_G) in enumerate(zip(kpt.f_n, kpt.psit_nG)):
+        for n, f in enumerate(kpt.f_n):
+            if mode == 'lcao':
+                psit_G[:] = 0.0
+                wfs.basis_functions.lcao_to_grid(kpt.C_nM[n], psit_G, kpt.q)
+            else:
+                psit_G = kpt.psit_nG[n]
+
             for v in range(3):
                 grad_v[v].apply(psit_G, grad_psit_vG[v], kpt.phase_cd)
 
@@ -176,7 +185,8 @@ class SerialEMatrix:
 class CDWriter(TDDFTObserver):
     version = 1
 
-    def __init__(self, paw, filename, center=True, interval=1):
+    def __init__(self, paw, filename, center=True, interval=1,
+                 calculate_on_grid=False):
         TDDFTObserver.__init__(self, paw, interval)
         self.master = paw.world.rank == 0
         if paw.niter == 0:
@@ -192,6 +202,10 @@ class CDWriter(TDDFTObserver):
 
         mode = paw.wfs.mode
         assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
+        if mode == 'fd':
+            self.calculate_on_grid = True
+        else:
+            self.calculate_on_grid = calculate_on_grid
 
         gd = paw.wfs.gd
         self.timer = paw.timer
@@ -204,7 +218,7 @@ class CDWriter(TDDFTObserver):
 
         dX0_caii = get_dX0(Ra_a, paw.setups, paw.hamiltonian.dH_asp.partition)
 
-        if mode == 'fd':
+        if self.calculate_on_grid:
             self.r_cG = r_cG
             self.dX0_caii = dX0_caii
 
@@ -266,10 +280,9 @@ class CDWriter(TDDFTObserver):
         self._write(line)
 
     def calculate_cd(self, paw):
-        mode = paw.wfs.mode
-        if mode == 'fd':
-            cd_c = calculate_cd_fd(paw.wfs, self.grad_v, self.r_cG,
-                                   self.dX0_caii, self.timer)
+        if self.calculate_on_grid:
+            cd_c = calculate_cd_on_grid(paw.wfs, self.grad_v, self.r_cG,
+                                        self.dX0_caii, self.timer)
         else:
             u = 0
             kpt = paw.wfs.kpt_u[u]
