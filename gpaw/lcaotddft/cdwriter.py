@@ -41,24 +41,22 @@ def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
 
             timer.start('Pseudo')
 
-            def calculate(v1, v2):
+            def rxnabla(v1, v2):
                 return f * gd.integrate(psit_G.conjugate() *
                                         (r_cG[v1] * grad_psit_vG[v2] -
                                          r_cG[v2] * grad_psit_vG[v1]))
 
-            pseudo_rxnabla_v[0] += calculate(1, 2)
-            pseudo_rxnabla_v[1] += calculate(2, 0)
-            pseudo_rxnabla_v[2] += calculate(0, 1)
+            # rxnabla   = <psi1| r x nabla |psi2>
+            # rxnabla_x = <psi1| r_y nabla_z - r_z nabla_y |psi2>
+            # rxnabla_y = <psi1| r_z nabla_x - r_x nabla_z |psi2>
+            # rxnabla_z = <psi1| r_x nabla_y - r_y nabla_x |psi2>
+            pseudo_rxnabla_v[0] += rxnabla(1, 2)
+            pseudo_rxnabla_v[1] += rxnabla(2, 0)
+            pseudo_rxnabla_v[2] += rxnabla(0, 1)
             timer.stop('Pseudo')
-
-            # augmentation contributions to magnetic moment
-            # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
-            #                         = <psi1| (r - Ra) x nabla |psi2>
-            #                             + Ra x <psi1| nabla |psi2>
 
             if not only_pseudo:
                 timer.start('PAW')
-                # <psi1| (r-Ra) x nabla |psi2>
                 for a, P_ni in kpt.P_ani.items():
                     P_i = P_ni[n]
                     for v in range(3):
@@ -79,6 +77,11 @@ def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
 
 
 def get_dX0(Ra_a, setups, partition):
+    # augmentation contributions to magnetic moment
+    # <psi1| r x nabla |psi2> = <psi1| (r - Ra + Ra) x nabla |psi2>
+    #                         = <psi1| (r - Ra) x nabla |psi2>
+    #                             + Ra x <psi1| nabla |psi2>
+
     dX0_caii = []
     for _ in range(3):
         def shape(a):
@@ -99,13 +102,18 @@ def get_dX0(Ra_a, setups, partition):
             rxnabla_iiv[:, :, c] = skew(rxnabla_iiv[:, :, c])
             nabla_iiv[:, :, c] = skew(nabla_iiv[:, :, c])
 
-        def calculate(v1, v2):
+        def Rxnabla(v1, v2):
             return (Ra[v1] * nabla_iiv[:, :, v2] -
                     Ra[v2] * nabla_iiv[:, :, v1])
 
-        dX0_ii = calculate(1, 2) + rxnabla_iiv[:, :, 0]
-        dX1_ii = calculate(2, 0) + rxnabla_iiv[:, :, 1]
-        dX2_ii = calculate(0, 1) + rxnabla_iiv[:, :, 2]
+        # rxnabla: <psi1| (r - Ra) x nabla |psi2>
+        # Rxnabla: Ra x <psi1| nabla |psi2>
+        # Rxnabla_x = (Ra_y nabla_z - Ra_z nabla_y)
+        # Rxnabla_y = (Ra_z nabla_x - Ra_x nabla_z)
+        # Rxnabla_z = (Ra_x nabla_y - Ra_y nabla_x)
+        dX0_ii = Rxnabla(1, 2) + rxnabla_iiv[:, :, 0]
+        dX1_ii = Rxnabla(2, 0) + rxnabla_iiv[:, :, 1]
+        dX2_ii = Rxnabla(0, 1) + rxnabla_iiv[:, :, 2]
 
         for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
             assert not dX0_caii[c][a].any()
