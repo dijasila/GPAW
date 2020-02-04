@@ -53,11 +53,9 @@ def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
             # <psi1| (r-Ra) x nabla |psi2>
             for a, P_ni in kpt.P_ani.items():
                 P_i = P_ni[n]
-                for i1, P1 in enumerate(P_i):
-                    for i2, P2 in enumerate(P_i):
-                        PP = P1.conjugate() * P2
-                        for v in range(3):
-                            paw_rxnabla_v[v] += -pref * PP * dX0_caii[v][a][i1, i2]
+                for v in range(3):
+                    PdXP = np.dot(P_i.conj(), np.dot(dX0_caii[v][a], P_i))
+                    paw_rxnabla_v[v] += -pref * PdXP
             timer.stop('PAW')
 
     bd.comm.sum(paw_rxnabla_v)
