@@ -63,7 +63,7 @@ def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
                     P_i = P_ni[n]
                     for v in range(3):
                         PdXP = np.dot(P_i.conj(), np.dot(dX0_caii[v][a], P_i))
-                        paw_rxnabla_v[v] += -f * PdXP
+                        paw_rxnabla_v[v] += f * PdXP
                 timer.stop('PAW')
 
     bd.comm.sum(paw_rxnabla_v)
@@ -103,9 +103,9 @@ def get_dX0(Ra_a, setups, partition):
             return (Ra[v1] * nabla_iiv[:, :, v2] -
                     Ra[v2] * nabla_iiv[:, :, v1])
 
-        dX0_ii = -(calculate(1, 2) + rxnabla_iiv[:, :, 0])
-        dX1_ii = -(calculate(2, 0) + rxnabla_iiv[:, :, 1])
-        dX2_ii = -(calculate(0, 1) + rxnabla_iiv[:, :, 2])
+        dX0_ii = calculate(1, 2) + rxnabla_iiv[:, :, 0]
+        dX1_ii = calculate(2, 0) + rxnabla_iiv[:, :, 1]
+        dX2_ii = calculate(0, 1) + rxnabla_iiv[:, :, 2]
 
         for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
             assert not dX0_caii[c][a].any()
@@ -132,6 +132,7 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
                 assert kpt.k == 0
                 correction.calculate(kpt.q, dX0_caii[c], E_cmM[c],
                                      Mstart, Mstop)
+        E_cmM *= -1
 
     bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
     E_cmM[1] -= A_cmM[2]
