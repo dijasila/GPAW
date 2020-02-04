@@ -1,13 +1,12 @@
+import re
 import numpy as np
 
-from gpaw.mpi import world
-from ase.units import Hartree, alpha, Bohr
+from ase.units import Bohr
 from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
 from gpaw.lcaotddft.observer import TDDFTObserver
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
-from gpaw.lcaotddft.utilities import distribute_MM
-from gpaw.utilities.blas import gemm, mmm
+from gpaw.lcaotddft.dipolemomentwriter import convert_repr
 
 
 def skew(a):
@@ -73,7 +72,6 @@ def calculate_cd_fd(wfs, grad_v, r_cG, dX0_caii, timer):
     return rxnabla_v.real
 
 
-
 def get_dX0(Ra_a, setups, partition):
     dX0_caii = []
     for _ in range(3):
@@ -92,12 +90,16 @@ def get_dX0(Ra_a, setups, partition):
         nabla_iiv = setups[a].nabla_iiv.copy()
 
         for c in range(3):
-            rxnabla_iiv[:,:,c]=skew(rxnabla_iiv[:,:,c])
-            nabla_iiv[:,:,c]=skew(nabla_iiv[:,:,c])
+            rxnabla_iiv[:, :, c] = skew(rxnabla_iiv[:, :, c])
+            nabla_iiv[:, :, c] = skew(nabla_iiv[:, :, c])
 
-        dX0_ii = -(Ra[1] * nabla_iiv[:, :, 2] - Ra[2] * nabla_iiv[:, :, 1] + rxnabla_iiv[:,:,0])
-        dX1_ii = -(Ra[2] * nabla_iiv[:, :, 0] - Ra[0] * nabla_iiv[:, :, 2] + rxnabla_iiv[:,:,1])
-        dX2_ii = -(Ra[0] * nabla_iiv[:, :, 1] - Ra[1] * nabla_iiv[:, :, 0] + rxnabla_iiv[:,:,2])
+        def calculate(v1, v2):
+            return (Ra[v1] * nabla_iiv[:, :, v2] -
+                    Ra[v2] * nabla_iiv[:, :, v1])
+
+        dX0_ii = -(calculate(1, 2) + rxnabla_iiv[:, :, 0])
+        dX1_ii = -(calculate(2, 0) + rxnabla_iiv[:, :, 1])
+        dX2_ii = -(calculate(0, 1) + rxnabla_iiv[:, :, 2])
 
         for c, dX_ii in enumerate([dX0_ii, dX1_ii, dX2_ii]):
             assert not dX0_caii[c][a].any()
@@ -125,25 +127,25 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG):
                                  Mstart, Mstop)
 
     bfs.calculate_potential_matrix_derivative(r_cG[0], A_cmM, 0)
-    E_cmM[1]-=A_cmM[2]
-    E_cmM[2]+=A_cmM[1]
+    E_cmM[1] -= A_cmM[2]
+    E_cmM[2] += A_cmM[1]
 
-    A_cmM[:]=0.0
+    A_cmM[:] = 0.0
     bfs.calculate_potential_matrix_derivative(r_cG[1], A_cmM, 0)
-    E_cmM[0]+=A_cmM[2]
-    E_cmM[2]-=A_cmM[0]
+    E_cmM[0] += A_cmM[2]
+    E_cmM[2] -= A_cmM[0]
 
-    A_cmM[:]=0.0
+    A_cmM[:] = 0.0
     bfs.calculate_potential_matrix_derivative(r_cG[2], A_cmM, 0)
-    E_cmM[0]-=A_cmM[1]
-    E_cmM[1]+=A_cmM[0]
+    E_cmM[0] -= A_cmM[1]
+    E_cmM[1] += A_cmM[0]
     return E_cmM
 
 
 def calculate_cd_from_rho_and_e(rho_xx, E_cxx):
     # (Can save time by doing imag/real algebra explicitly, but this
     #  probably doesn't matter.)
-    return -(rho_xx[None] * E_cxx).sum(axis=-1).sum(axis=-1).imag
+    return -(rho_xx[None] * E_cxx).sum(axis=(1, 2)).imag
 
 
 class BlacsEMatrix:
@@ -171,27 +173,9 @@ class SerialEMatrix:
     def calculate_cd(self, rho_MM):
         return calculate_cd_from_rho_and_e(rho_MM, self.E_cMM)
 
-def debug_msg(msg):
-    print('[%01d/%01d]: %s' % (world.rank, world.size, msg))
-
-def convert_repr(r):
-    # Integer
-    try:
-        return int(r)
-    except ValueError:
-        pass
-    # Boolean
-    b = {repr(False): False, repr(True): True}.get(r, None)
-    if b is not None:
-        return b
-    # String
-    s = r[1:-1]
-    if repr(s) == r:
-        return s
-    raise RuntimeError('Unknown value: %s' % r)
 
 class CDWriter(TDDFTObserver):
-    version=1
+    version = 1
 
     def __init__(self, paw, filename, center=True, interval=1):
         TDDFTObserver.__init__(self, paw, interval)
@@ -211,7 +195,7 @@ class CDWriter(TDDFTObserver):
         assert mode in ['fd', 'lcao'], 'unknown mode: {}'.format(mode)
 
         gd = paw.wfs.gd
-        self.timer=paw.timer
+        self.timer = paw.timer
 
         assert center
         # TODO: change R0 to choose another origin
@@ -282,14 +266,14 @@ class CDWriter(TDDFTObserver):
         line += 'Time = %.8lf\n' % time
         self._write(line)
 
-    def calculate_cd_moment(self, paw):
+    def calculate_cd(self, paw):
         mode = paw.wfs.mode
         if mode == 'fd':
             cd_c = calculate_cd_fd(paw.wfs, self.grad_v, self.r_cG,
                                    self.dX0_caii, self.timer)
         else:
             u = 0
-            kpt = paw.wfs.kpt_u[0]
+            kpt = paw.wfs.kpt_u[u]
             ksl = self.e_matrix.ksl
             rho_mm = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
             cd_c = self.e_matrix.calculate_cd(rho_mm)
@@ -299,9 +283,9 @@ class CDWriter(TDDFTObserver):
 
     def _write_cd(self, paw):
         time = paw.time
-        cd = self.calculate_cd_moment(paw)
+        cd = self.calculate_cd(paw)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
-          (time, cd[0], cd[1], cd[2]))
+                (time, cd[0], cd[1], cd[2]))
         self._write(line)
 
     def _update(self, paw):
@@ -316,4 +300,3 @@ class CDWriter(TDDFTObserver):
         if self.master:
             self.fd.close()
         TDDFTObserver.__del__(self)
-
