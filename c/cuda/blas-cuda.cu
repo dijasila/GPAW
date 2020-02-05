@@ -673,7 +673,7 @@ PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args)
     hybrid_func_params_t *pg = &hybrid_gemm_params;
     hybrid_params_t *ph = &hybrid_params;
 
-    if (!PyArg_ParseTuple(args, "DnOnODnOO|ci", &alpha, &a_gpu, &a_shape,
+    if (!PyArg_ParseTuple(args, "DnOnODnOO|Ci", &alpha, &a_gpu, &a_shape,
                           &b_gpu, &b_shape, &beta, &c_gpu, &c_shape, &type,
                           &transa, &hybrid))
         return NULL;
@@ -911,8 +911,8 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
     PyObject *a_shape, *x_shape;
     PyArray_Descr *type;
 
-    char trans = 't';
-    if (!PyArg_ParseTuple(args, "DnOnODn0|c", &alpha, &a_gpu, &a_shape,
+    int trans = 't';
+    if (!PyArg_ParseTuple(args, "DnOnODn0|C", &alpha, &a_gpu, &a_shape,
                           &x_gpu, &x_shape, &beta, &y_gpu, &type, &trans))
         return NULL;
 
