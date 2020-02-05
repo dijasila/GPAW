@@ -10,10 +10,21 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.18.1b1
+* Corresponding ASE release: ASE-3.20.0b1
+
+* The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
+  time-dependent potentials.
+
+
+Version 20.1.0
+==============
+
+30 Jan 2020: :git:`20.1.0 <../20.1.0>`
+
+* Corresponding ASE release: ASE-3.19.0.
 
 * Self-consistent calculations with hybrid functionals are now possible in
-  plane-wave mode.  You have to do parallelize over plane-waves and you must
+  plane-wave mode.  You have to parallelize over plane-waves and you must
   use the Davidson eigensolver with one iteration per scf step::
 
       from gpaw import GPAW, PW, Davidson
