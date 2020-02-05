@@ -7,6 +7,8 @@
 
 The central object that glues everything together!"""
 
+from typing import List
+
 import numpy as np
 from ase.units import Bohr, Ha
 
@@ -296,9 +298,17 @@ class PAW:
         dens.calculate_pseudo_charge()
         return ham.get_electrostatic_potential(dens) * Ha
 
-    def get_atomic_electrostatic_potentials(self):
-        """Return the electrostatic potential at the atomic sites.
+    def get_atomic_electrostatic_potentials(self) -> List[float]:
+        r"""Return the electrostatic potential at the atomic sites.
 
+        Return list of energies in eV, one for each atom:
+
+        .. math::
+
+            Y_{00}
+            \int d\mathbf{r}
+            \tilde{v}_H(\mathbf{r})
+            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
 
         """
         ham = self.hamiltonian

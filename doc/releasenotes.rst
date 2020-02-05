@@ -15,6 +15,10 @@ Git master branch
 * The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
   time-dependent potentials.
 
+* New :meth:`~gpaw.paw.PAW.get_atomic_electrostatic_potentials`
+  method.  Useful for aligning eigenvalues from different calculations.
+  See :ref:`this example <potential>`.
+
 
 Version 20.1.0
 ==============
