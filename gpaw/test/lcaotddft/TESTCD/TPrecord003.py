@@ -5,7 +5,7 @@ from gpaw.occupations import FermiDirac
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.lcaotddft.wfwriter import WaveFunctionWriter
-from gpaw.lcaotddft.cdwriter import CDWriter
+from gpaw.lcaotddft.magneticmomentwriter import MagneticMomentWriter
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw import setup_paths
 
@@ -14,7 +14,7 @@ from gpaw import setup_paths
 td_calc = LCAOTDDFT('methyl-oxirane.gpw')
 
 DipoleMomentWriter(td_calc, 'rmeo003.dm')
-CDWriter(td_calc,'cd_live003.dat')
+MagneticMomentWriter(td_calc,'cd_live003.dat')
 #WaveFunctionWriter(td_calc, 'wf003.ulm')
 
 

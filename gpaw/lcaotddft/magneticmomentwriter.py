@@ -13,14 +13,14 @@ def skew(a):
     return 0.5 * (a - a.T)
 
 
-def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
+def calculate_mm_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
                          only_pseudo=False):
     gd = wfs.gd
     mode = wfs.mode
     bd = wfs.bd
     kpt_u = wfs.kpt_u
 
-    timer.start('CD')
+    timer.start('Magnetic moment')
 
     grad_psit_vG = gd.empty(3, dtype=complex)
     pseudo_rxnabla_v = np.zeros(3, dtype=complex)
@@ -71,7 +71,7 @@ def calculate_cd_on_grid(wfs, grad_v, r_cG, dX0_caii, timer,
 
     rxnabla_v = pseudo_rxnabla_v + paw_rxnabla_v
 
-    timer.stop('CD')
+    timer.stop('Magnetic moment')
 
     return rxnabla_v.imag
 
@@ -162,7 +162,7 @@ def calculate_E(dX0_caii, kpt_u, bfs, correction, r_cG, only_pseudo=False):
     return E_cmM
 
 
-def calculate_cd_from_rho_and_e(rho_xx, E_cxx):
+def calculate_mm_from_rho_and_e(rho_xx, E_cxx):
     assert E_cxx.dtype == float
     return -np.sum(rho_xx.imag * E_cxx, axis=(1, 2))
 
@@ -178,10 +178,10 @@ class BlacsEMatrix:
         E_cmm = ksl.distribute_overlap_matrix(E_cmM)
         return BlacsEMatrix(ksl, E_cmm)
 
-    def calculate_cd(self, rho_mm):
-        cd_c = calculate_cd_from_rho_and_e(rho_mm, self.E_cmm)
-        self.ksl.mmdescriptor.blacsgrid.comm.sum(cd_c)
-        return cd_c
+    def calculate_mm(self, rho_mm):
+        mm_c = calculate_mm_from_rho_and_e(rho_mm, self.E_cmm)
+        self.ksl.mmdescriptor.blacsgrid.comm.sum(mm_c)
+        return mm_c
 
 
 class SerialEMatrix:
@@ -189,11 +189,11 @@ class SerialEMatrix:
         self.ksl = ksl
         self.E_cMM = E_cMM
 
-    def calculate_cd(self, rho_MM):
-        return calculate_cd_from_rho_and_e(rho_MM, self.E_cMM)
+    def calculate_mm(self, rho_MM):
+        return calculate_mm_from_rho_and_e(rho_MM, self.E_cMM)
 
 
-class CDWriter(TDDFTObserver):
+class MagneticMomentWriter(TDDFTObserver):
     version = 1
 
     def __init__(self, paw, filename, center=True, interval=1,
@@ -292,9 +292,9 @@ class CDWriter(TDDFTObserver):
         line += 'Time = %.8lf\n' % time
         self._write(line)
 
-    def calculate_cd(self, paw):
+    def calculate_mm(self, paw):
         if self.calculate_on_grid:
-            cd_c = calculate_cd_on_grid(paw.wfs, self.grad_v, self.r_cG,
+            mm_c = calculate_mm_on_grid(paw.wfs, self.grad_v, self.r_cG,
                                         self.dX0_caii, self.timer,
                                         only_pseudo=self.only_pseudo)
         else:
@@ -302,16 +302,16 @@ class CDWriter(TDDFTObserver):
             kpt = paw.wfs.kpt_u[u]
             ksl = self.e_matrix.ksl
             rho_mm = ksl.calculate_blocked_density_matrix(kpt.f_n, kpt.C_nM)
-            cd_c = self.e_matrix.calculate_cd(rho_mm)
-        assert cd_c.shape == (3,)
-        assert cd_c.dtype == float
-        return cd_c
+            mm_c = self.e_matrix.calculate_mm(rho_mm)
+        assert mm_c.shape == (3,)
+        assert mm_c.dtype == float
+        return mm_c
 
-    def _write_cd(self, paw):
+    def _write_mm(self, paw):
         time = paw.time
-        cd = self.calculate_cd(paw)
+        mm = self.calculate_mm(paw)
         line = ('%20.8lf %22.12le %22.12le %22.12le\n' %
-                (time, cd[0], cd[1], cd[2]))
+                (time, mm[0], mm[1], mm[2]))
         self._write(line)
 
     def _update(self, paw):
@@ -320,7 +320,7 @@ class CDWriter(TDDFTObserver):
                 self._write_header(paw)
             elif paw.action == 'kick':
                 self._write_kick(paw)
-        self._write_cd(paw)
+        self._write_mm(paw)
 
     def __del__(self):
         if self.master:
