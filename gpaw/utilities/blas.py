@@ -20,7 +20,7 @@ import _gpaw
 import gpaw.cuda
 
 
-def mmm(alpha, a, opa, b, opb, beta, c):
+def mmm(alpha, a, opa, b, opb, beta, c, cuda=None):
     """Matrix-matrix multiplication using dgemm or zgemm.
 
     For opa='n' and opb='n', we have::
@@ -53,7 +53,40 @@ def mmm(alpha, a, opa, b, opb, beta, c):
     else:
         assert a.dtype == complex
 
-    _gpaw.mmm(alpha, a, opa, b, opb, beta, c)
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpaw.cuda.gpuarray.GPUArray) \
+                             else (a, None)
+    b_cpu, b_gpu = (None, b) if isinstance(b, gpaw.cuda.gpuarray.GPUArray) \
+                             else (b, None)
+    c_cpu, c_gpu = (None, c) if isinstance(c, gpaw.cuda.gpuarray.GPUArray) \
+                             else (c, None)
+
+    if cuda or (cuda is None and isinstance(c, gpaw.cuda.gpuarray.GPUArray)):
+        if a_gpu is None:
+            a_gpu = gpaw.cuda.gpuarray.to_gpu(a_cpu)
+        if b_gpu is None:
+            b_gpu = gpaw.cuda.gpuarray.to_gpu(b_cpu)
+        if c_gpu is None:
+            c_gpu = gpaw.cuda.gpuarray.to_gpu(c_cpu)
+        m = b2
+        n = a1
+        k = b1
+        lda = a_gpu.strides[0] // a_gpu.itemsize
+        ldb = b_gpu.strides[0] // b_gpu.itemsize
+        ldc = c_gpu.strides[0] // c_gpu.itemsize
+        _gpaw.mmm_gpu(alpha, a_gpu.gpudata, lda, opa, b_gpu.gpudata, ldb, opb,
+                      beta, c_gpu.gpudata, ldc, c_gpu.itemsize, m, n, k)
+        if c_cpu is not None:
+            c_gpu.get(c_cpu)
+    else:
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if b_cpu is None:
+            b_cpu = b_gpu.get()
+        if c_cpu is None:
+            c_cpu = c_gpu.get()
+        _gpaw.mmm(alpha, a_cpu, opa, b_cpu, opb, beta, c_cpu)
+        if c_gpu is not None:
+            c_gpu.set(c_cpu)
 
 
 def scal(alpha, x):

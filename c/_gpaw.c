@@ -176,6 +176,7 @@ PyObject* gpaw_cuda_delete(PyObject *self, PyObject *args);
 PyObject* csign_gpu(PyObject *self, PyObject *args);
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* multi_scal_cuda_gpu(PyObject *self, PyObject *args);
+PyObject* mmm_gpu(PyObject *self, PyObject *args);
 PyObject* gemm_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args);
 PyObject* rk_cuda_gpu(PyObject *self, PyObject *args);
@@ -336,6 +337,7 @@ static PyMethodDef functions[] = {
     {"csign_gpu", csign_gpu, METH_VARARGS, 0},
     {"scal_cuda_gpu", scal_cuda_gpu, METH_VARARGS, 0},
     {"multi_scal_cuda_gpu", multi_scal_cuda_gpu, METH_VARARGS, 0},
+    {"mmm_gpu", mmm_gpu, METH_VARARGS, 0},
     {"gemm_cuda_gpu", gemm_cuda_gpu, METH_VARARGS, 0},
     {"gemv_cuda_gpu", gemv_cuda_gpu, METH_VARARGS, 0},
     {"axpy_cuda_gpu", axpy_cuda_gpu, METH_VARARGS, 0},

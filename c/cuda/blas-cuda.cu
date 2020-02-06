@@ -623,6 +623,22 @@ static void hybrid_syr2k_update_paces(hybrid_func_params_t *ps)
 }
 
 
+cublasOperation_t cublas_operation(int op)
+{
+    cublasOperation_t cu_op;
+
+    if (op == 'N' || op == 'n')
+        cu_op = CUBLAS_OP_N;
+    else if (op == 'T' || op == 't')
+        cu_op = CUBLAS_OP_T;
+    else if (op == 'C' || op == 'c')
+        cu_op = CUBLAS_OP_C;
+    else
+        assert(0);
+    return cu_op;
+}
+
+
 PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
 {
     Py_complex alpha;
@@ -653,6 +669,51 @@ PyObject* scal_cuda_gpu(PyObject *self, PyObject *args)
         return NULL;
     else
         Py_RETURN_NONE;
+}
+
+
+PyObject* mmm_gpu(PyObject *self, PyObject *args)
+{
+    Py_complex alpha;
+    CUdeviceptr b;
+    int ldb;
+    int opb;
+    CUdeviceptr a;
+    int lda;
+    int opa;
+    Py_complex beta;
+    CUdeviceptr c;
+    int ldc;
+    int bytes;
+    int m, n, k;
+
+    if (!PyArg_ParseTuple(args, "DniCniCDniiiii",
+                          &alpha, &b, &ldb, &opb, &a, &lda, &opa,
+                          &beta, &c, &ldc, &bytes, &m, &n, &k))
+        return NULL;
+
+    cublasOperation_t cu_opa;
+    cublasOperation_t cu_opb;
+
+    cu_opa = cublas_operation(opa);
+    cu_opb = cublas_operation(opb);
+
+    if (bytes == NPY_SIZEOF_DOUBLE) {
+        gpaw_cubSCall(
+                cublasDgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
+                            &(alpha.real), (double*) a, lda, (double*) b, ldb,
+                            &(beta.real), (double*) c, ldc));
+    } else {
+        cuDoubleComplex cu_alpha = {alpha.real, alpha.imag};
+        cuDoubleComplex cu_beta = {beta.real, beta.imag};
+        gpaw_cubSCall(
+                cublasZgemm(_gpaw_cublas_handle, cu_opa, cu_opb, m, n, k,
+                            &cu_alpha, (cuDoubleComplex*) a, lda,
+                            (cuDoubleComplex*) b, ldb,
+                            &cu_beta, (cuDoubleComplex*) c, ldc));
+    }
+
+    Py_RETURN_NONE;
 }
 
 
