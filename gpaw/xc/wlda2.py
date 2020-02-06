@@ -5,13 +5,18 @@ import gpaw.mpi as mpi
 
 
 class WLDA(XCFunctional):
-    def __init__(self, rc=None, kernel_type=None, kernel_param=None, wlda_type=None):
+    def __init__(self, rc=None, kernel_type=None,
+                 kernel_param=None, wlda_type=None,
+                 nindicators=None):
         XCFunctional.__init__(self, 'WLDA', 'LDA')
 
-        self.nindicators = int(5 * 1e2)
-
-        if kernel is not None:
-            self.get_weight_function = kernel
+        self.nindicators = nindicators or int(5 * 1e2)
+        self.rcut_factor = rc
+        self.kernel_type = kernel_type
+        self.kernel_param = kernel_param
+        self.wlda_type = wlda_type
+        if wlda_type not in ['1', '2', '3', 'c']:
+            raise ValueError('WLDA type {} not recognized'.format(wlda_type))
         
     def initialize(self, density, hamiltonian, wfs, occupations):
         self.density = density
@@ -34,7 +39,7 @@ class WLDA(XCFunctional):
         
         # 1. Correct density
         # This or correct via self.get_ae_density(gd, n_sg)
-        wn_sg = wn_sg
+        wn_sg = self.density_correction(self.gd, wn_sg)
         wn_sg[wn_sg <  1e-20] = 1e-20
         # 2. calculate weighted density
         # This contains contributions for the alphas at this
@@ -219,15 +224,31 @@ class WLDA(XCFunctional):
 
     def get_weight_function(self, ia, gd, alphas):
         alpha = alphas[ia]
-
         kF = (3 * np.pi**2 * alpha)**(1 / 3)
-
         K_G = self._get_K_G(gd)
 
-        res = (1 / (1 + (K_G / (kF + 0.0001))**2)**2)
+        kernel_fn = self.get_kernel_fn(self.kernel_type, self.kernel_param)
+        res = kernel_fn(kF, K_G)
+
         res = (res / res[0, 0, 0]).astype(np.complex128)
         assert not np.isnan(res).any()
         return res
+
+    def get_kernel_fn(self, kernel_type, kernel_param):
+        # TYPES:
+        # 1. lorentz6
+        # 2. lorentz5
+        # 3. ???
+        p = self.kernel_param or 1
+        if kernel_type == "lorentz5":
+            def kernel(kF, K_G):
+                return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**5)**2)
+            return kernel
+        else:
+            def kernel(kF, K_G):
+                return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**6)**2)
+            return kernel
+        return kernel
 
     def _get_K_G(self, gd):
         assert gd.comm.size == 1
@@ -249,25 +270,28 @@ class WLDA(XCFunctional):
         exc3_g = np.zeros_like(wn_sg[0])
         vxc3_sg = np.zeros_like(wn_sg)
 
+        t = self.wlda_type
         if len(wn_sg) == 1:
-            # self.lda_x1(0, exc_g, wn_sg[0],
-            # nstar_sg[0], vxc_sg[0], my_alpha_indices)
-            zeta = 0
-            # self.lda_c1(0, exc_g, wn_sg[0],
-              #          nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
+            if t == '1' or t == 'c':
+                self.lda_x1(0, exc_g, wn_sg[0],
+                nstar_sg[0], vxc_sg[0], my_alpha_indices)
+                zeta = 0
+                self.lda_c1(0, exc_g, wn_sg[0],
+                            nstar_sg[0], vxc_sg[0], zeta, my_alpha_indices)
 
-            # self.lda_x2(0, exc2_g, wn_sg[0],
-            #             nstar_sg[0], vxc2_sg[0], my_alpha_indices)
-            zeta = 0
-            # self.lda_c2(0, exc2_g, wn_sg[0],
-            #             nstar_sg[0], vxc2_sg[0], zeta, my_alpha_indices)
+            if t == '2' or t == 'c':
+                self.lda_x2(0, exc2_g, wn_sg[0],
+                            nstar_sg[0], vxc2_sg[0], my_alpha_indices)
+                zeta = 0
+                self.lda_c2(0, exc2_g, wn_sg[0],
+                            nstar_sg[0], vxc2_sg[0], zeta, my_alpha_indices)
 
-            
-            self.lda_x3(0, exc3_g, wn_sg[0],
-                        nstar_sg[0], vxc3_sg[0], my_alpha_indices)
-            zeta = 0
-            self.lda_c3(0, exc3_g, wn_sg[0],
-                        nstar_sg[0], vxc3_sg[0], zeta, my_alpha_indices)
+            if t == '3' or t == 'c':
+                self.lda_x3(0, exc3_g, wn_sg[0],
+                            nstar_sg[0], vxc3_sg[0], my_alpha_indices)
+                zeta = 0
+                self.lda_c3(0, exc3_g, wn_sg[0],
+                            nstar_sg[0], vxc3_sg[0], zeta, my_alpha_indices)
 
             
         else:
@@ -281,7 +305,16 @@ class WLDA(XCFunctional):
             self.lda_x(1, exc_g, nb, vxc_sg[1], my_alpha_indices)
             self.lda_c(1, exc_g, n, vxc_sg, zeta, my_alpha_indices)
         
-        return exc_g + exc2_g + exc3_g, vxc_sg + vxc2_sg + vxc3_sg
+        if t == '1':
+            return exc_g, vxc_sg
+        elif t == '2':
+            return exc2_g, vxc2_sg
+        elif t == '3':
+            return exc3_g, vxc3_sg
+        elif t == 'c':
+            return exc_g + exc2_g - exc3_g, vxc_sg + vxc2_sg - vxc3_sg
+        else:
+            raise ValueError('WLDA type not recognized')
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         from gpaw.xc.lda import lda_constants
@@ -514,3 +547,10 @@ class WLDA(XCFunctional):
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp=None, a=None):
         return 0
+
+    def density_correction(self, gd, n_sg):
+        if self.rcut_factor:
+            from gpaw.xc.WDAUtils import correct_density
+            return correct_density(n_sg, gd, self.wfs.setups, self.wfs.spos_ac, self.rcut_factor)
+        else:
+            return n_sg
