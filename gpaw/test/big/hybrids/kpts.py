@@ -4,6 +4,7 @@ from ase.units import Ha
 from gpaw import GPAW, PW
 from gpaw.hybrids import HybridXC
 from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
+from gpaw.hybrids.energy import non_self_consistent_energy
 from gpaw.xc.exx import EXX
 from gpaw.mpi import world, serial_comm
 
@@ -28,7 +29,7 @@ def check(atoms, xc, i):
     c = atoms.calc
     xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
     xc1.set_positions(c.spos_ac)
-    e = xc1.calculate_energy()
+    e = non_self_consistent_energy(c, xc)
     xc1.calculate_eigenvalues0(0, 2, None)
     e1, v1, v2 = non_self_consistent_eigenvalues(c, xc, 0, 2, None,
                                                  f'{i}.txt')

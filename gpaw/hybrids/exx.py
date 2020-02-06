@@ -1,4 +1,4 @@
-from collections import namedtuple, defaultdict
+from collections import defaultdict
 from math import pi
 from typing import List, Tuple, Dict
 
@@ -8,27 +8,9 @@ from ase.utils.timing import timer
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import unpack
+from .kpts import RSKPoint
+from .symmetry import create_symmetry_map
 import gpaw.mpi as mpi
-
-
-KPoint = namedtuple(
-    'KPoint',
-    ['psit',   # plane-wave expansion of wfs
-     'proj',   # projections
-     'f_n',    # occupations numbers between 0 and 1
-     'k_c',    # k-vector in units of reciprocal cell
-     'weight'  # weight of k-point
-     ])
-
-RSKPoint = namedtuple(
-    'RealSpaceKPoint',
-    ['u_nR',  # wfs on a real-space grid
-     'proj',  # same as above
-     'f_n',   # ...
-     'k_c',
-     'weight',
-     # 'index'  # IBZ k-point index
-     ])
 
 
 class EXX:
@@ -141,6 +123,7 @@ class EXX:
             e_n -= (2 * vv_n + vc_n)
 
         return e_n
+
 
     @timer('EXX.calc')
     def calculate(self, kpts1, kpts2, VV_aii, derivatives=False, e_kn=None):
@@ -589,28 +572,3 @@ def to_real_space(psit, na=0, nb=None):
             comm.broadcast(u_nR[n], n - n1)
 
     return u_nR[na:nb]
-
-
-def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
-    sym = kd.symmetry
-    U_scc = sym.op_scc
-    nsym = len(U_scc)
-    compconj_s = np.zeros(nsym, bool)
-    if sym.time_reversal and not sym.has_inversion:
-        U_scc = np.concatenate([U_scc, -U_scc])
-        compconj_s = np.zeros(nsym * 2, bool)
-        compconj_s[nsym:] = True
-        nsym *= 2
-
-    map_ss = np.zeros((nsym, nsym), int)
-    for s1 in range(nsym):
-        for s2 in range(nsym):
-            diff_s = abs(U_scc[s1].dot(U_scc).transpose((1, 0, 2)) -
-                         U_scc[s2]).sum(2).sum(1)
-            indices = (diff_s == 0).nonzero()[0]
-            assert len(indices) == 1
-            s = indices[0]
-            assert compconj_s[s1] ^ compconj_s[s2] == compconj_s[s]
-            map_ss[s1, s2] = s
-
-    return map_ss
