@@ -78,7 +78,12 @@ class ArrayWaveFunctions:
         return self
 
     def eval(self, matrix):
-        matrix.array[:] = self.matrix.array
+        if isinstance(self.matrix.array, GPUArray):
+            self.matrix.array.get(matrix.array)
+        elif isinstance(matrix.array, GPUArray):
+            matrix.array.set(self.matrix.array)
+        else:
+            matrix.array[:] = self.matrix.array
 
     def read_from_file(self):
         """Read wave functions from file into memory."""
