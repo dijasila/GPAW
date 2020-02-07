@@ -1,9 +1,11 @@
 from math import pi
+from typing import Dict, Tuple
+from collections import defaultdict
 
 import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
-from .kpts import RSKPoint
+from .kpts import RSKPoint, to_real_space
 
 
 def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
@@ -109,3 +111,84 @@ class Symmetry:
             np.conj(proj2.array, out=proj2.array)
 
         return RSKPoint(u2_nR, proj2, f_n, k2_c, weight)
+
+    def pairs(self, kpts):
+        kd = self.kd
+        nsym = len(kd.symmetry.op_scc)
+
+        assert len(kpts) == kd.nibzkpts
+
+        symmetries_k = []
+        for k in range(kd.nibzkpts):
+            indices = np.where(kd.bz2ibz_k == k)[0]
+            sindices = (kd.sym_k[indices] +
+                        kd.time_reversal_k[indices] * nsym)
+            symmetries_k.append(sindices)
+
+        pairs: Dict[Tuple[int, int, int], int]
+
+        pairs1 = defaultdict(int)
+        for i1 in range(kd.nibzkpts):
+            for s1 in symmetries_k[i1]:
+                for i2 in range(kd.nibzkpts):
+                    for s2 in symmetries_k[i2]:
+                        s3 = self.symmetry_map_ss[s1, s2]
+                        # s3 = self.inverse_s[s3]
+                        if 1:  # i1 < i2:
+                            pairs1[(i1, i2, s3)] += 1
+                        else:
+                            s4 = self.inverse_s[s3]
+                            if i1 == i2:
+                                # pairs1[(i1, i1, min(s3, s4))] += 1
+                                pairs1[(i1, i1, s3)] += 1
+                            else:
+                                pairs1[(i2, i1, s4)] += 1
+        pairs = {}
+        seen = {}
+        for (i1, i2, s), count in pairs1.items():
+            k2 = kd.bz2bz_ks[kd.ibz2bz_k[i2], s]
+            if (i1, k2) in seen:
+                pairs[seen[(i1, k2)]] += count
+            else:
+                pairs[(i1, i2, s)] = count
+                # seen[(i1, k2)] = (i1, i2, s)
+
+        lasti1 = -1
+        lasti2 = -1
+        for (i1, i2, s), count in sorted(pairs.items()):
+            if i1 != lasti1:
+                k1 = kpts[i1]
+                u1_nR = to_real_space(k1.psit)
+                rsk1 = RSKPoint(u1_nR, k1.proj.broadcast(),
+                                k1.f_n, k1.k_c,
+                                k1.weight)
+                lasti1 = i1
+            if i2 == i1:
+                if s == self.s0:
+                    rsk2 = rsk1
+                else:
+                    N = len(rsk1.u_nR)
+                    S = self.comm.size
+                    B = (N + S - 1) // S
+                    na = min(B * self.comm.rank, N)
+                    nb = min(na + B, N)
+                    rsk2 = RSKPoint(rsk1.u_nR[na:nb],
+                                    rsk1.proj.view(na, nb),
+                                    rsk1.f_n[na:nb],
+                                    rsk1.k_c,
+                                    rsk1.weight)
+                lasti2 = i2
+            elif i2 != lasti2:
+                k2 = kpts[i2]
+                N = len(k2.psit.array)
+                S = self.comm.size
+                B = (N + S - 1) // S
+                na = min(B * self.comm.rank, N)
+                nb = min(na + B, N)
+                u2_nR = to_real_space(k2.psit, na, nb)
+                rsk2 = RSKPoint(u2_nR, k2.proj.broadcast().view(na, nb),
+                                k2.f_n[na:nb], k2.k_c,
+                                k2.weight)
+                lasti2 = i2
+
+            yield i1, i2, s, rsk1, self.apply_symmetry(s, rsk2), count

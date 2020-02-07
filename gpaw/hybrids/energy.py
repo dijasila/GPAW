@@ -1,10 +1,16 @@
 from pathlib import Path
 from typing import Union
 
+import numpy as np
 from ase.units import Ha
 
 from gpaw import GPAW
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from .hybrid import HybridXC
+from .kpts import KPoint
+from .symmetry import Symmetry
+from gpaw.mpi import serial_comm
 
 
 def non_self_consistent_energy(calc: Union[GPAW, str, Path],
@@ -32,89 +38,126 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     xc.set_positions(calc.spos_ac)
     xc._initialize()
 
+    kd = wfs.kd
+    sym = Symmetry(kd)
+
     evc = 0.0
     evv = 0.0
     for spin in range(nspins):
-        e1, e2 = xc.calculate_energy(spin, nocc)
-        evc += e1
-        evv += e2
+        VV_aii = xc.calculate_valence_valence_paw_corrections(spin)
+        K = kd.nibzkpts
+        k1 = spin * K
+        k2 = k1 + K
+        kpts = [KPoint(kpt.psit.view(0, nocc),
+                       kpt.projections.view(0, nocc),
+                       kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
+                       kd.ibzk_kc[kpt.k],
+                       kd.weight_k[kpt.k])
+                for kpt in wfs.mykpts[k1:k2]]
+        e1, e2 = calculate_energy(kpts, VV_aii, wfs.world, sym)
+        evc += e1 * 2 / wfs.nspins
+        evv += e2 * 2 / wfs.nspins
 
-    return evc, evv * Ha
+    return evc * Ha, evv * Ha
 
 
-def calculate_energy_only(self, kpts, VV_aii):
+def calculate_energy(kpts, VC_aii, VV_aii,
+                     comm, sym, setups, spos_ac, coulomb):
     pd = kpts[0].psit.pd
-    gd = pd.gd.new_descriptor(comm=mpi.serial_comm)
-    comm = self.comm
-    self.N_c = gd.N_c
+    gd = pd.gd.new_descriptor(comm=serial_comm)
 
     exxvv = 0.0
-    for i1, i2, s, k1, k2, count in self.ipairs(kpts1, kpts2):
+    for i1, i2, s, k1, k2, count in sym.pairs(kpts):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
 
-        with self.timer('ghat-init'):
-            pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
-            ghat = PWLFC([data.ghat_l for data in self.setups], pd12)
-            ghat.set_positions(self.spos_ac)
+        pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
+        ghat = PWLFC([data.ghat_l for data in setups], pd12)
+        ghat.set_positions(spos_ac)
 
-        v_G = self.coulomb.get_potential(pd12)
-        e_nn = self.calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                           kpts1[i1].psit.pd,
-                                           kpts2[i2].psit.pd,
-                                           kpts1[i1].psit.kpt,
-                                           kpts2[i2].psit.kpt,
-                                           k1.f_n,
-                                           k2.f_n,
-                                           s,
-                                           count,
-                                           v1_nG, v1_ani,
-                                           v2_nG, v2_ani)
+        v_G = coulomb.get_potential(pd12)
+        e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G,
+                                      kpts[i1].psit.pd,
+                                      kpts[i2].psit.pd,
+                                      kpts[i1].psit.kpt,
+                                      kpts[i2].psit.kpt,
+                                      k1.f_n,
+                                      k2.f_n,
+                                      s,
+                                      count)
 
         e_nn *= count
-        e = k1.f_n.dot(e_nn).dot(k2.f_n) / self.kd.nbzkpts
-        if 0:
-            print(i1, i2, s,
-                  k1.k_c[2], k2.k_c[2], kpts1 is kpts2, count,
-                  e_nn[0, 0], e)
+        e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
         exxvv -= 0.5 * e
-        ekin += e
-        if e_kn is not None:
-            e_kn[i1] -= e_nn.dot(k2.f_n)
 
     exxvc = 0.0
-    for i, kpt in enumerate(kpts1):
+    for i, kpt in enumerate(kpts):
         for a, VV_ii in VV_aii.items():
             P_ni = kpt.proj[a]
             vv_n = np.einsum('ni, ij, nj -> n',
                              P_ni.conj(), VV_ii, P_ni).real
             vc_n = np.einsum('ni, ij, nj -> n',
-                             P_ni.conj(), self.VC_aii[a], P_ni).real
+                             P_ni.conj(), VC_aii[a], P_ni).real
             exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
             exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
-            if e_kn is not None:
-                e_kn[i] -= (2 * vv_n + vc_n)
 
-    self.timer.start('vexx')
-    w_knG = {}
-    if derivatives:
-        G1 = comm.rank * pd.maxmyng
-        G2 = (comm.rank + 1) * pd.maxmyng
-        for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts1):
-            comm.sum(v_nG)
-            w_nG = v_nG[:, G1:G2].copy()
-            w_knG[len(w_knG)] = w_nG
-            for v_ni in v_ani.values():
-                comm.sum(v_ni)
-            v1_ani = {}
-            for a, VV_ii in VV_aii.items():
-                P_ni = kpt.proj[a]
-                v_ni = P_ni.dot(self.VC_aii[a] + 2 * VV_ii)
-                v1_ani[a] = v_ani[a] - v_ni
-                ekin += (np.einsum('n, ni, ni',
-                                   kpt.f_n, P_ni.conj(), v_ni).real *
-                         kpt.weight)
-            self.pt.add(w_nG, v1_ani, kpt.psit.kpt)
-    self.timer.stop()
+    return comm.sum(exxvv), comm.sum(exxvc)
 
-    return comm.sum(exxvv), comm.sum(exxvc), comm.sum(ekin), w_knG
+
+def calculate_exx_for_pair(k1,
+                           k2,
+                           ghat,
+                           v_G,
+                           pd1, pd2,
+                           index1, index2,
+                           f1_n, f2_n,
+                           s,
+                           count,
+                           comm,
+                           Delta_aiiL):
+
+    N1 = len(k1.u_nR)
+    N2 = len(k2.u_nR)
+
+    size = comm.size
+    rank = comm.rank
+
+    Q_annL = [np.einsum('mi, ijL, nj -> mnL',
+                        k1.proj[a],
+                        Delta_iiL,
+                        k2.proj[a].conj())
+              for a, Delta_iiL in enumerate(Delta_aiiL)]
+
+    if k1 is k2:
+        n2max = (N1 + size - 1) // size
+    else:
+        n2max = N2
+
+    e_nn = np.zeros((N1, N2))
+    rho_nG = ghat.pd.empty(n2max, k1.u_nR.dtype)
+
+    for n1, u1_R in enumerate(k1.u_nR):
+        if k1 is k2:
+            B = (N1 - n1 + size - 1) // size
+            n2a = min(n1 + rank * B, N2)
+            n2b = min(n2a + B, N2)
+        else:
+            B = (N1 + size - 1) // size
+            n2a = 0
+            n2b = N2
+
+        for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
+            rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
+
+        ghat.add(rho_nG[:n2b - n2a],
+                 {a: Q_nnL[n1, n2a:n2b]
+                  for a, Q_nnL in enumerate(Q_annL)})
+
+        for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
+            vrho_G = v_G * rho_G
+            e = ghat.pd.integrate(rho_G, vrho_G).real
+            e_nn[n1, n2] = e
+            if k1 is k2:
+                e_nn[n2, n1] = e
+
+    return e_nn
