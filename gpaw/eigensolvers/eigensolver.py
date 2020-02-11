@@ -43,12 +43,12 @@ class Eigensolver:
             else:
                 ndouble = 2
             cuda_blocks_min = 16
-            cuda_blocks_max = 96 / ndouble
+            cuda_blocks_max = 96 // ndouble
             self.blocksize = min(cuda_blocks_max, wfs.bd.mynbands,
                                  wfs.gd.comm.size * cuda_blocks_min,
                                  max(1, (224 * 224 * 224) * wfs.gd.comm.size
-                                     / (wfs.gd.N_c[0] * wfs.gd.N_c[1]
-                                        * wfs.gd.N_c[2] * ndouble)))
+                                     // (wfs.gd.N_c[0] * wfs.gd.N_c[1]
+                                         * wfs.gd.N_c[2] * ndouble)))
 
         if wfs.bd.comm.size > 1:
             self.keep_htpsit = False
