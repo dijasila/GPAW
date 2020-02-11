@@ -1,5 +1,3 @@
-from __future__ import print_function
-import sys
 import xml.sax
 
 import numpy as np
@@ -220,9 +218,6 @@ class BasisSetXMLParser(xml.sax.handler.ContentHandler):
             basis.reduce(reduced)
 
     def startElement(self, name, attrs):
-        if sys.version_info[0] < 3:
-            attrs.__contains__ = attrs.has_key
-
         basis = self.basis
         if name == 'paw_basis':
             basis.version = attrs['version']

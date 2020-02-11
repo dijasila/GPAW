@@ -1,5 +1,4 @@
-from __future__ import print_function
-from gpaw.fd_operators import Gradient
+from gpaw.fd_operators import Gradient, FDOperator
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.mpi import world
@@ -23,13 +22,15 @@ print(dadx.itemsize, dadx.dtype, dadx.shape)
 gradx.apply(a, dadx)
 
 #   a = [ 0.  1.  2.  3.  4.  5.  6.  7.]
-#
-#   da
-#   -- = [-2.5  1.   1.   1.   1.   1.  1.  -2.5]
-#   dx
 
-dadx = gd.collect(dadx, broadcast=True)
-assert dadx[3, 0, 0] == 1.0 and np.sum(dadx[:, 0, 0]) == 0.0
+dAdx = gd.collect(dadx, broadcast=True)
+assert not (dAdx[:, 0, 0] - [-3, 1, 1, 1, 1, 1, 1, -3]).any()
+
+# Backwards FD operator:
+gradx2 = FDOperator([-1, 1], [[-1, 0, 0], [0, 0, 0]], gd)
+gradx2.apply(a, dadx)
+dAdx = gd.collect(dadx, broadcast=True)
+assert not (dAdx[:, 0, 0] - [-7, 1, 1, 1, 1, 1, 1, 1]).any()
 
 gd = GridDescriptor((1, 8, 1), (1.0, 8.0, 1.0), (1, 0, 1), comm=domain_comm)
 dady = gd.zeros()

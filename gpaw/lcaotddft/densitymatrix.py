@@ -71,7 +71,7 @@ class DensityMatrix(object):
     def get_density_matrix(self, tag=None):
         if tag is None or self.tag != tag:
             self.rho_uMM = []
-            for u, kpt in enumerate(self.wfs.kpt_u):
+            for kpt in self.wfs.kpt_u:
                 rho_MM = self._calculate_density_matrix(self.wfs, kpt)
                 self.rho_uMM.append(rho_MM)
             self.tag = tag

@@ -4,6 +4,7 @@ from math import pi, exp, sqrt, log
 
 import numpy as np
 from scipy.optimize import fsolve
+from scipy.linalg import eigh
 from ase.units import Hartree
 from ase.data import atomic_numbers
 
@@ -11,7 +12,6 @@ from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
-from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 
@@ -704,8 +704,7 @@ class PAWSetupGenerator:
                 H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                 S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
 
-        e_b = np.empty(len(basis))
-        general_diagonalize(H_bb, e_b, S_bb)
+        e_b, _ = eigh(H_bb, S_bb)
         return e_b
 
     def test_convergence(self):

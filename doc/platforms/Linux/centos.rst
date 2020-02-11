@@ -26,15 +26,13 @@ And finally, GPAW with ScaLAPACK and FFTW::
 
     $ git clone git@gitlab.com:gpaw/gpaw.git
     $ cd gpaw
-    $ cat > customize.py
+    $ cat > siteconfig.py
     fftw = True
     scalapack = True
-    libraries += ['fftw3', 'scalapack', 'mpiblacs']
-    library_dirs.append('/usr/lib64/openmpi/lib/')
-    define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
-    define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+    libraries = ['xc', 'fftw3', 'scalapack', 'mpiblacs']
+    library_dirs = ['/usr/lib64/openmpi/lib/']
     ^D
-    $ python3 setup.py install --user
+    $ python3 -m pip install -v gpaw --user
 
 
 .. _CentOS: http://www.centos.org/

@@ -36,7 +36,9 @@ PyObject* symmetrize(PyObject *self, PyObject *args)
 
     const double* a_g = (const double*)PyArray_DATA(a_g_obj);
     double* b_g = (double*)PyArray_DATA(b_g_obj);
+#ifdef _OPENMP
 #pragma omp simd
+#endif
     for (int g0 = o_c[0]; g0 < Ng0; g0++)
         for (int g1 = o_c[1]; g1 < Ng1; g1++)
             for (int g2 = o_c[2]; g2 < Ng2; g2++) {

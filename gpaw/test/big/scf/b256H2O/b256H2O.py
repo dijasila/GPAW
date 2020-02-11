@@ -56,7 +56,7 @@ calc = GPAW(nbands=nbands,
             # basis='sz',
             gpts=tuple(n),
             # maxiter=5,
-            width=0.01,
+            occupations={'name': 'fermi-dirac', 'width': 0.01},
             eigensolver=es,
             txt='water.txt')
 atoms.set_calculator(calc)

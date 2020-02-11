@@ -2,8 +2,7 @@ import json
 import numpy as np
 
 with open('borncharges-0.01.json') as fd:
-    Z_avv = eval(json.load(fd))['Z_avv']
-z_avv = np.zeros((len(Z_avv), 3, 3), float)
+    Z_avv = json.load(fd)['Z_avv']
 for a, Z_vv in enumerate(Z_avv):
-    z_avv[a] = Z_vv
+    print(a)
     print(np.round(Z_vv, 2))

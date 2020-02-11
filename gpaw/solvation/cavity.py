@@ -172,8 +172,10 @@ class Cavity(NeedsGD):
 
     def summary(self, log):
         """Log cavity surface area and volume."""
-        A = self.A * Bohr ** 2 if self.A is not None else 'not calculated (no calculator defined)'
-        V = self.V * Bohr ** 3 if self.V is not None else 'not calculated (no calculator defined)'
+        A = (self.A * Bohr ** 2 if self.A is not None
+             else 'not calculated (no calculator defined)')
+        V = (self.V * Bohr ** 3 if self.V is not None
+             else 'not calculated (no calculator defined)')
         log('Cavity Surface Area: %s' % (A, ))
         log('Cavity Volume: %s' % (V, ))
 
@@ -242,8 +244,8 @@ class EffectivePotentialCavity(Cavity):
         u = self.effective_potential
         del_u_del_r_vg = u.get_del_r_vg(atom_index, density)
         # there should be no more NaNs now, but let's keep the hint
-        ## asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
-        #del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
+        # asserts lim_(||r - r_atom|| -> 0) dg/du * du/dr_atom = 0
+        # del_u_del_r_vg[np.isnan(del_u_del_r_vg)] = .0
         return self.minus_beta * self.g_g * del_u_del_r_vg
 
     @property
@@ -494,8 +496,7 @@ class SmoothStepCavity(Cavity):
             np.multiply(
                 grad_inner_vg[i],
                 del_outer_del_inner,
-                self.grad_g_vg[i]
-                )
+                self.grad_g_vg[i])
         return True
 
     def update_smooth_step(self, rho_g):

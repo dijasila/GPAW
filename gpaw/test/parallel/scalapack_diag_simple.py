@@ -1,14 +1,14 @@
-from __future__ import print_function
+from time import time
+
 import numpy as np
+from scipy.linalg import eigh
 
 # Set-up a simple matrix in parallel, diagonalize using ScaLAPACK
 # D&C driver then compare *eigenvalues* with serial LAPACK diagonlize
-from time import time
 
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from gpaw.utilities.lapack import diagonalize
 from gpaw.utilities.scalapack import scalapack_set, \
     scalapack_zero
 
@@ -25,9 +25,9 @@ def main(nbands=1000, mprocs=2, mb=64):
 
     # Create descriptor
     nndesc = grid.new_descriptor(nbands, nbands, mb, mb)
-    H_nn = nndesc.empty(dtype=float) # outside the BlacsGrid these are size zero
-    C_nn = nndesc.empty(dtype=float) # outside the BlacsGrid these are size zero
-    eps_N  = np.empty((nbands), dtype=float) # replicated array on all MPI tasks
+    H_nn = nndesc.empty(dtype=float) # outside BlacsGrid these are size zero
+    C_nn = nndesc.empty(dtype=float) # outside BlacsGrid these are size zero
+    eps_N  = np.empty((nbands), dtype=float) # replicated on all MPI tasks
     # Fill ScaLAPACK array
     alpha = 0.1 # off-diagonal
     beta = 75.0 # diagonal
@@ -53,7 +53,7 @@ def main(nbands=1000, mprocs=2, mb=64):
     E0 = np.empty((nbands), dtype=float)
 
     t1 = time()
-    diagonalize(H0,E0)
+    E0 = eigh(H0, eigvals_only=True)
     t2 = time()
 
     if rank == 0:

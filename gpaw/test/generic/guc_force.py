@@ -1,4 +1,3 @@
-from __future__ import print_function
 # This tests calculates the force on the atoms of a
 # slightly distorted Silicon primitive cell.
 #
@@ -12,7 +11,7 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 
 sibasis = BasisMaker('Si').generate(2, 1, energysplit=0.3, tailnorm=0.03**.5)
-basis = {'Si' : sibasis}
+basis = {'Si': sibasis}
 
 a = 5.475
 system = Atoms(symbols='Si2', pbc=True,
@@ -25,9 +24,8 @@ system = Atoms(symbols='Si2', pbc=True,
 calc = GPAW(h=0.2,
             mode='lcao',
             basis=basis,
-            kpts=(2,2,2),
-            convergence={'density':1e-5, 'energy': 1e-6}
-            )
+            kpts=(2, 2, 2),
+            convergence={'density': 1e-5, 'energy': 1e-6})
 system.set_calculator(calc)
 
 F_ac = system.get_forces()

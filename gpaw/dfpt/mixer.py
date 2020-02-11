@@ -13,7 +13,7 @@ from gpaw.fd_operators import FDOperator
 
 class BaseMixer:
     """Pulay density mixer."""
-    
+
     def __init__(self, beta=0.1, nmaxold=3, weight=50.0, dtype=float):
         """Construct density-mixer object.
 
@@ -49,25 +49,26 @@ class BaseMixer:
             b = 0.0625 * (self.weight - 1)
             c = 0.03125 * (self.weight - 1)
             d = 0.015625 * (self.weight - 1)
-            self.metric = FDOperator([a,
-                                      b, b, b, b, b, b,
-                                      c, c, c, c, c, c, c, c, c, c, c, c,
-                                      d, d, d, d, d, d, d, d],
-                                     [(0, 0, 0),
-                                      (-1, 0, 0), (1, 0, 0),                 #b
-                                      (0, -1, 0), (0, 1, 0),                 #b
-                                      (0, 0, -1), (0, 0, 1),                 #b
-                                      (1, 1, 0), (1, 0, 1), (0, 1, 1),       #c
-                                      (1, -1, 0), (1, 0, -1), (0, 1, -1),    #c
-                                      (-1, 1, 0), (-1, 0, 1), (0, -1, 1),    #c
-                                      (-1, -1, 0), (-1, 0, -1), (0, -1, -1), #c
-                                      (1, 1, 1), (1, 1, -1), (1, -1, 1),     #d
-                                      (-1, 1, 1), (1, -1, -1), (-1, -1, 1),  #d
-                                      (-1, 1, -1), (-1, -1, -1)              #d
-                                      ],
-                                     gd, self.dtype).apply
+            self.metric = FDOperator(
+                [a,
+                 b, b, b, b, b, b,
+                 c, c, c, c, c, c, c, c, c, c, c, c,
+                 d, d, d, d, d, d, d, d],
+                [(0, 0, 0),
+                 (-1, 0, 0), (1, 0, 0),                  # b
+                 (0, -1, 0), (0, 1, 0),                  # b
+                 (0, 0, -1), (0, 0, 1),                  # b
+                 (1, 1, 0), (1, 0, 1), (0, 1, 1),        # c
+                 (1, -1, 0), (1, 0, -1), (0, 1, -1),     # c
+                 (-1, 1, 0), (-1, 0, 1), (0, -1, 1),     # c
+                 (-1, -1, 0), (-1, 0, -1), (0, -1, -1),  # c
+                 (1, 1, 1), (1, 1, -1), (1, -1, 1),      # d
+                 (-1, 1, 1), (1, -1, -1), (-1, -1, 1),   # d
+                 (-1, 1, -1), (-1, -1, -1)               # d
+                 ],
+                gd, self.dtype).apply
             self.mR_G = gd.empty(dtype=self.dtype)
-        
+
     def initialize(self, density):
         self.initialize_metric(density.gd)
 
@@ -78,13 +79,13 @@ class BaseMixer:
 
         my_nuclei:   All nuclei in local domain.
         """
-        
+
         # History for Pulay mixing of densities:
-        self.nt_iG = [] # Pseudo-electron densities
+        self.nt_iG = []  # Pseudo-electron densities
         self.R_iG = []  # Residuals
         self.A_ii = np.zeros((0, 0))
         self.dNt = None
-        
+
         self.D_iap = []
         self.dD_iap = []
 
@@ -115,13 +116,13 @@ class BaseMixer:
             A_ii = np.zeros((iold, iold))
             i1 = 0
             i2 = iold - 1
-            
+
             if self.metric is None:
                 mR_G = R_G
             else:
                 mR_G = self.mR_G
                 self.metric(R_G, mR_G, phase_cd=phase_cd)
-                
+
             for R_1G in self.R_iG:
                 # Inner product between new and old residues
                 # XXX For now, use only real part of residues
@@ -129,7 +130,7 @@ class BaseMixer:
                 a = self.gd.comm.sum(np.vdot(R_1G.real, mR_G.real))
                 if self.dtype == complex:
                     a += self.gd.comm.sum(np.vdot(R_1G.imag, mR_G.imag))
-                    
+
                 A_ii[i1, i2] = a
                 A_ii[i2, i1] = a
                 i1 += 1
@@ -200,7 +201,7 @@ class Mixer(BaseMixer):
             mixer = BaseMixer(self.beta, self.nmaxold, self.weight)
             mixer.initialize_metric(density.gd)
             self.mixers.append(mixer)
-    
+
     def mix(self, density):
         """Mix pseudo electron densities."""
 
@@ -233,9 +234,9 @@ class MixerSum(BaseMixer):
 
         # Only new magnetization for spin density
         dnt_G = nt_sG[0] - nt_sG[1]
-        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+        # dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
 
-        # Construct new spin up/down densities 
+        # Construct new spin up/down densities
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)
 
@@ -259,7 +260,7 @@ class MixerSum2(BaseMixer):
         dnt_G = nt_sG[0] - nt_sG[1]
         dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
 
-        # Construct new spin up/down densities 
+        # Construct new spin up/down densities
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)
         for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
@@ -269,7 +270,7 @@ class MixerSum2(BaseMixer):
 
 class MixerDif(BaseMixer):
     """Mix the charge density and magnetization density separately"""
-    
+
     def __init__(self, beta=0.1, nmaxold=3, weight=50.0,
                  beta_m=0.7, nmaxold_m=2, weight_m=10.0):
         """Construct density-mixer object.
@@ -297,7 +298,6 @@ class MixerDif(BaseMixer):
 
         self.mix_rho = False
 
-
     def initialize(self, density):
         assert density.nspins == 2
         self.mixer = BaseMixer(self.beta, self.nmaxold, self.weight)
@@ -324,7 +324,7 @@ class MixerDif(BaseMixer):
         dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
         self.mixer_m.mix(dnt_G, dD_ap)
 
-        # Construct new spin up/down densities 
+        # Construct new spin up/down densities
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)
         for D_sp, D_p, dD_p in zip(D_asp, D_ap, dD_ap):
@@ -334,10 +334,10 @@ class MixerDif(BaseMixer):
 
 class MixerRho(BaseMixer):
     def initialize(self, density):
-    
+
         self.mix_rho = True
         self.initialize_metric(density.finegd)
-    
+
     def mix(self, density):
         """Mix pseudo electron densities."""
 
@@ -347,10 +347,10 @@ class MixerRho(BaseMixer):
 
 class MixerRho2(BaseMixer):
     def initialize(self, density):
-    
+
         self.mix_rho = True
         self.initialize_metric(density.finegd)
-    
+
     def mix(self, density):
         """Mix pseudo electron densities."""
 
@@ -365,7 +365,7 @@ class BaseMixer_Broydn:
         self.nmaxold = nmaxold
         self.weight = 1
         self.mix_rho = False
-        
+
     def initialize(self, density):
         self.gd = density.gd
 
@@ -375,10 +375,10 @@ class BaseMixer_Broydn:
         self.d_D_ap = []
         self.nt_iG = []
         self.D_iap = []
-        self.c_G =  []
+        self.c_G = []
         self.v_G = []
         self.u_G = []
-        self.u_D = []        
+        self.u_D = []
         self.dNt = None
 
     def mix(self, nt_G, D_ap):
@@ -393,7 +393,7 @@ class BaseMixer_Broydn:
             fmin_G = self.gd.integrate(self.d_nt_G[-1] * self.d_nt_G[-1])
             self.dNt = self.gd.integrate(np.fabs(self.d_nt_G[-1]))
             if self.verbose:
-                print('Mixer: broydn: fmin_G = %f fmin_D = %f'% fmin_G)
+                print('Mixer: broydn: fmin_G = %f fmin_D = %f' % fmin_G)
         if self.step == 0:
             self.eta_G = np.empty(nt_G.shape)
             self.eta_D = []
@@ -412,15 +412,16 @@ class BaseMixer_Broydn:
                         del u_D[0]
                 temp_nt_G = self.d_nt_G[1] - self.d_nt_G[0]
                 self.v_G.append(temp_nt_G / self.gd.integrate(temp_nt_G
-                                                                 * temp_nt_G))
+                                                              * temp_nt_G))
                 if len(self.v_G) < self.nmaxold:
                     nstep = self.step - 1
                 else:
-                    nstep = self.nmaxold 
+                    nstep = self.nmaxold
                 for i in range(nstep):
                     self.c_G.append(self.gd.integrate(self.v_G[i] *
-                                                             self.d_nt_G[1]))
-                self.u_G.append(self.beta  * temp_nt_G + self.nt_iG[1] - self.nt_iG[0])
+                                                      self.d_nt_G[1]))
+                self.u_G.append(self.beta * temp_nt_G +
+                                self.nt_iG[1] - self.nt_iG[0])
                 for d_Dp, u_D, D_ip in zip(self.d_D_ap, self.u_D, self.D_iap):
                     temp_D_ap = d_Dp[1] - d_Dp[0]
                     u_D.append(self.beta * temp_D_ap + D_ip[1] - D_ip[0])
@@ -433,14 +434,14 @@ class BaseMixer_Broydn:
             self.eta_G = self.beta * self.d_nt_G[-1]
             for i, d_Dp in enumerate(self.d_D_ap):
                 self.eta_D[i] = self.beta * d_Dp[-1]
-            usize = len(self.u_G) 
+            usize = len(self.u_G)
             for i in range(usize):
                 axpy(-self.c_G[i], self.u_G[i], self.eta_G)
                 for eta_D, u_D in zip(self.eta_D, self.u_D):
                     axpy(-self.c_G[i], u_D[i], eta_D)
             axpy(-1.0, self.d_nt_G[-1], nt_G)
             axpy(1.0, self.eta_G, nt_G)
-            for D_p, d_Dp, eta_D in zip(D_ap, self.d_D_ap, self.eta_D):            
+            for D_p, d_Dp, eta_D in zip(D_ap, self.d_D_ap, self.eta_D):
                 axpy(-1.0, d_Dp[-1], D_p)
                 axpy(1.0, eta_D, D_p)
             if self.step >= 2:
@@ -452,7 +453,7 @@ class BaseMixer_Broydn:
             D_ip.append(np.copy(D_p))
         self.step += 1
 
-        
+
 class Mixer_Broydn(BaseMixer_Broydn):
     """Mix spin up and down densities separately"""
 
@@ -461,9 +462,9 @@ class Mixer_Broydn(BaseMixer_Broydn):
         for s in range(density.nspins):
             mixer = BaseMixer_Broydn()
             mixer.initialize(density)
-            #mixer.initialize_metric(density.gd)
+            # mixer.initialize_metric(density.gd)
             self.mixers.append(mixer)
-    
+
     def mix(self, density):
         """Mix pseudo electron densities."""
 
@@ -479,6 +480,7 @@ class Mixer_Broydn(BaseMixer_Broydn):
         for mixer in self.mixers:
             mixer.reset()
 
+
 class MixerSum_Broydn(BaseMixer_Broydn):
     def mix(self, density):
         nt_sG = density.nt_sG
@@ -490,8 +492,8 @@ class MixerSum_Broydn(BaseMixer_Broydn):
 
         # Only new magnetization for spin density
         dnt_G = nt_sG[0] - nt_sG[1]
-        #dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
+        # dD_ap = [D_sp[0] - D_sp[1] for D_sp in D_asp]
 
-        # Construct new spin up/down densities 
+        # Construct new spin up/down densities
         nt_sG[0] = 0.5 * (nt_G + dnt_G)
         nt_sG[1] = 0.5 * (nt_G - dnt_G)

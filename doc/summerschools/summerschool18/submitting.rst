@@ -60,7 +60,7 @@ Dry run: Let GPAW help you choosing
 
 If you run your script with the command::
 
-  python3 myscript.py --gpaw dry-run=1
+    $ gpaw python --dry-run=1 myscript.py
 
 then your script will execute until the first GPAW calculation.  That
 calculation will print information into the ``.txt`` file, and then stop.  In
@@ -70,7 +70,7 @@ your parallelization strategy.
 Once you have decided how many processes you want, run another dry-run to
 check how GPAW will parallelize::
 
-  python3 myscript.py --gpaw dry-run=PROCESSES
+    $ gpaw python --dry-run=PROCESSES myscript.py
 
 where ``PROCESSES`` is the number of processes you want to use.  In this case,
 gpaw will print how it will parallelize the calculation when running for real.
