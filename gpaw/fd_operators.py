@@ -15,7 +15,7 @@ from numpy.fft import fftn, ifftn
 import _gpaw
 from gpaw import debug
 from gpaw import cuda
-from gpaw.cuda.gpuarray import GPUArray
+from gpaw.gpuarray import GPUArray, to_gpu
 
 # Expansion coefficients for finite difference Laplacian.  The numbers are
 # from J. R. Chelikowsky et al., Phys. Rev. B 50, 11355 (1994):
@@ -93,38 +93,54 @@ class FDOperator:
         return '<' + self.description + '>'
 
     def apply(self, in_xg, out_xg, phase_cd=None):
-        assert (type(in_xg) == type(out_xg))
+        in_cpu, in_gpu = (None, in_xg) if isinstance(in_xg, GPUArray) \
+                                       else (in_xg, None)
+        out_cpu, out_gpu = (None, out_xg) if isinstance(out_xg, GPUArray) \
+                                          else (out_xg, None)
 
-        if (isinstance(in_xg, GPUArray)
-                and isinstance(out_xg, GPUArray)):
-            assert self.cuda
+        if self.cuda or in_gpu is not None or out_gpu is not None:
+            if in_gpu is None:
+                in_gpu = to_gpu(in_cpu)
+            if out_gpu is None:
+                out_gpu = to_gpu(out_cpu)
             if cuda.debug:
-                in_xg_cpu = in_xg.get()
-                out_xg_cpu = out_xg.get()
-                self.operator.apply(in_xg_cpu, out_xg_cpu, phase_cd)
-            self.operator.apply_cuda_gpu(in_xg.gpudata, out_xg.gpudata,
-                                         in_xg.shape, in_xg.dtype, phase_cd)
+                in_debug = in_gpu.get()
+                out_debug = out_gpu.get()
+                self.operator.apply(in_debug, out_debug, phase_cd)
+            self.operator.apply_cuda_gpu(in_gpu.gpudata, out_gpu.gpudata,
+                                         in_gpu.shape, in_gpu.dtype, phase_cd)
             if cuda.debug:
-                cuda.debug_test(out_xg_cpu, out_xg, "fd_operator")
+                cuda.debug_test(out_debug, out_gpu, "fd_operator")
+            if out_cpu is not None:
+                out_gpu.get(out_cpu)
         else:
-            self.operator.apply(in_xg, out_xg, phase_cd)
+            self.operator.apply(in_cpu, out_cpu, phase_cd)
 
     def relax(self, relax_method, f_g, s_g, n, w=None):
-        assert (type(f_g) == type(s_g))
+        f_cpu, f_gpu = (None, f_g) if isinstance(f_g, GPUArray) \
+                                   else (f_g, None)
+        s_cpu, s_gpu = (None, s_g) if isinstance(s_g, GPUArray) \
+                                   else (s_g, None)
 
-        if (isinstance(f_g, GPUArray)
-                and isinstance(s_g, GPUArray)):
-            assert self.cuda
+        if self.cuda or f_gpu is not None or s_gpu is not None:
+            if f_gpu is None:
+                f_gpu = to_gpu(f_cpu)
+            if s_gpu is None:
+                s_gpu = to_gpu(s_cpu)
             if cuda.debug:
-                f_g_cpu = f_g.get()
-                s_g_cpu = s_g.get()
-                self.operator.relax(relax_method, f_g_cpu, s_g_cpu, n, w)
-            self.operator.relax_cuda_gpu(relax_method, f_g.gpudata,
-                                         s_g.gpudata, n, w)
+                f_debug = f_gpu.get()
+                s_debug = s_gpu.get()
+                self.operator.relax(relax_method, f_debug, s_debug, n, w)
+            self.operator.relax_cuda_gpu(relax_method, f_gpu.gpudata,
+                                         s_gpu.gpudata, n, w)
             if cuda.debug:
-                cuda.debug_test(f_g_cpu, f_g, "relax")
+                cuda.debug_test(f_debug, f_gpu, "relax")
+            if f_cpu is not None:
+                f_gpu.get(f_cpu)
+            if s_cpu is not None:
+                s_gpu.get(s_cpu)
         else:
-            self.operator.relax(relax_method, f_g, s_g, n, w)
+            self.operator.relax(relax_method, f_cpu, s_cpu, n, w)
 
     def get_diagonal_element(self):
         return self.operator.get_diagonal_element()
