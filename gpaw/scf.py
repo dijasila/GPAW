@@ -1,5 +1,5 @@
 import time
-from math import log as ln
+from collections import deque
 
 import numpy as np
 from ase.units import Ha, Bohr
@@ -11,38 +11,46 @@ from gpaw.forces import calculate_forces
 class SCFLoop:
     """Self-consistent field loop."""
     def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
-                 maxiter=100, niter_fixdensity=None, nvalence=None):
+                 workfunction=np.inf, maxiter=100, niter_fixdensity=None,
+                 nvalence=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
+                           'density': density,
                            'force': force,
-                           'density': density}
+                           'workfunction': workfunction}
+        # FIXME/ap: It looks like things are in units of Hartree here?
+        # This is what it looks like from the __str__ command below.
+        # So somewhere the convergence dictionary must be converted in
+        # units before it is passed here?
+        # Yes, this is done in GPAW.create_scf. I did this so it divides by
+        # Ha in that part.
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
         self.nvalence = nvalence
 
-        self.old_energies = []
-        self.old_F_av = None
-        self.converged = False
-
         self.niter = None
-
         self.reset()
 
     def __str__(self):
         cc = self.max_errors
-        s = 'Convergence criteria:\n'
+        s = ("Convergence criteria:\n"
+             " (Square brackets indicate name in SCF output, whereas\n"
+             "  a 'c' in the SCF output indicates the quantity has "
+             "converged.)\n")
         for name, val in [
-            ('total energy change: {0:g} eV / electron',
+            ('[total energy] change: {0:g} eV / electron',
              cc['energy'] * Ha / self.nvalence),
-            ('integral of absolute density change: {0:g} electrons',
+            ('integral of absolute [dens]ity change: {0:g} electrons',
              cc['density'] / self.nvalence),
-            ('integral of absolute eigenstate change: {0:g} eV^2',
+            ('integral of absolute eigenstate [wfs] change: {0:g} eV^2',
              cc['eigenstates'] * Ha**2 / self.nvalence),
-            ('change in atomic force: {0:g} eV / Ang',
+            ('change in atomic [force]: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
-            ('number of iterations: {0}', self.maxiter)]:
+            ('workfunction [wkfxn] change: {0:g} eV',
+             cc['workfunction'] * Ha),
+            ('number of [iter]ations: {0}', self.maxiter)]:
             if val < np.inf:
-                s += '  Maximum {0}\n'.format(name.format(val))
+                s += '   Maximum {0}\n'.format(name.format(val))
         return s
 
     def write(self, writer):
@@ -52,8 +60,10 @@ class SCFLoop:
         self.converged = reader.scf.converged
 
     def reset(self):
-        self.old_energies = []
+        self.old_energies = []  # FIXME Might as well turn this into deque too.
+        self.old_workfunctions = deque(maxlen=3)
         self.old_F_av = None
+        self.converged_items = {key:False for key in self.max_errors}
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
@@ -62,17 +72,18 @@ class SCFLoop:
             wfs.eigensolver.iterate(ham, wfs, occ)
             occ.calculate(wfs)
 
-            energy = ham.get_energy(occ)
-            self.old_energies.append(energy)
-            errors = self.collect_errors(dens, ham, wfs)
+            errors = self.collect_errors(dens, ham, wfs, occ)
 
             # Converged?
             for kind, error in errors.items():
                 if error > self.max_errors[kind]:
-                    self.converged = False
-                    break
-            else:
+                    self.converged_items[kind] = False
+                else:
+                    self.converged_items[kind] = True
+            if all(self.converged_items.values()):
                 self.converged = True
+            else:
+                self.converged = False
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
@@ -87,7 +98,7 @@ class SCFLoop:
                 ham.npoisson = 0
             self.niter += 1
 
-        # Don't fix the density in the next step:
+        # Don't fix the density in the next step.
         self.niter_fixdensity = 0
 
         if not self.converged:
@@ -99,7 +110,7 @@ class SCFLoop:
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
 
-    def collect_errors(self, dens, ham, wfs):
+    def collect_errors(self, dens, ham, wfs, occ):
         """Check convergence of eigenstates, energy and density."""
 
         errors = {'eigenstates': wfs.eigensolver.error,
@@ -109,10 +120,23 @@ class SCFLoop:
         if dens.fixed:
             errors['density'] = 0.0
 
+        self.old_energies.append(ham.get_energy(occ))
         if len(self.old_energies) >= 3:
             energies = self.old_energies[-3:]
             if np.isfinite(energies).all():
                 errors['energy'] = np.ptp(energies)
+
+        errors['workfunction'] = np.inf
+        if self.max_errors['workfunction'] < np.inf:
+            workfunctions = ham.get_workfunctions(occ.fermilevel)
+            if workfunctions is None:
+                raise RuntimeError('System has no well-defined workfunction'
+                                   ' so please do not specify this '
+                                   ' convergence keyword.')
+            self.old_workfunctions.append(workfunctions)
+            if len(self.old_workfunctions) == self.old_workfunctions.maxlen:
+                errors['workfunction'] = max(np.ptp(self.old_workfunctions,
+                                                    axis=0))
 
         # We only want to calculate the (expensive) forces if we have to:
         check_forces = (self.max_errors['force'] < np.inf and
@@ -120,6 +144,9 @@ class SCFLoop:
                             for kind, error in errors.items()))
 
         errors['force'] = np.inf
+        # XXX Note this checks just the difference in the last 2
+        # iterations, whereas other quantities (at least energy) does
+        # a peak-to-peak on 3. Ok?
         if check_forces:
             with wfs.timer('Forces'):
                 F_av = calculate_forces(wfs, dens, ham)
@@ -132,76 +159,85 @@ class SCFLoop:
     def log(self, log, niter, wfs, ham, dens, occ, errors):
         """Output from each iteration."""
 
-        nvalence = wfs.nvalence
-        if nvalence > 0:
-            eigerr = errors['eigenstates'] * Ha**2 / nvalence
-        else:
-            eigerr = 0.0
-
-        T = time.localtime()
-
         if niter == 1:
             header = """\
-                     log10-error:    total        iterations:
-           time      wfs    density  energy       fermi  poisson"""
+                  log10-error:          total iterations:
+             time   wfs   dens         energy fermi  poisson"""
             if wfs.nspins == 2:
                 header += '  magmom'
-            if self.max_errors['force'] < np.inf:
-                l1 = header.find('total')
+            if self.max_errors['workfunction'] < np.inf:
+                l1 = header.find('total') - 7
                 header = header[:l1] + '       ' + header[l1:]
-                l2 = header.find('energy')
+                l2 = header.find('energy') - 7
+                header = header[:l2] + 'wkfxn  ' + header[l2:]
+            if self.max_errors['force'] < np.inf:
+                l1 = header.find('total') - 7
+                header = header[:l1] + '       ' + header[l1:]
+                l2 = header.find('energy') - 7
                 header = header[:l2] + 'force  ' + header[l2:]
             log(header)
 
-        if eigerr == 0.0 or np.isinf(eigerr):
+        c = {k: 'c' if v else ' ' for k, v in self.converged_items.items()}
+
+        nvalence = wfs.nvalence
+        eigerr = errors['eigenstates'] * Ha**2
+        if (np.isinf(eigerr) or eigerr == 0 or nvalence == 0):
             eigerr = ''
         else:
-            eigerr = '%+.2f' % (ln(eigerr) / ln(10))
+            eigerr = '{:+.2f}'.format(np.log10(eigerr / nvalence))
 
         denserr = errors['density']
-        assert denserr is not None
         if (denserr is None or np.isinf(denserr) or denserr == 0 or
             nvalence == 0):
             denserr = ''
         else:
-            denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
+            denserr = '{:+.2f}'.format(np.log10(denserr / nvalence))
 
-        niterocc = occ.niter
-        if niterocc == -1:
-            niterocc = ''
+        if occ.niter == -1:
+            niterfermi = ''
         else:
-            niterocc = '%d' % niterocc
+            niterfermi = '{:d}'.format(occ.niter)
 
         if ham.npoisson == 0:
             niterpoisson = ''
         else:
-            niterpoisson = str(ham.npoisson)
+            niterpoisson = '{:d}'.format(ham.npoisson)
 
-        log('iter: %3d  %02d:%02d:%02d %6s %6s  ' %
-            (niter,
-             T[3], T[4], T[5],
-             eigerr,
-             denserr), end='')
+        T = time.localtime()
+        log('iter:{:3d} {:02d}:{:02d}:{:02d} {:5s}{:s} {:5s}{:s} '
+            .format(niter, T[3], T[4], T[5],
+                    eigerr, c['eigenstates'],
+                    denserr, c['density']), end='')
+
+        if self.max_errors['workfunction'] < np.inf:
+            if len(self.old_workfunctions) == 3:
+                wfkerr = max(np.ptp(self.old_workfunctions, axis=0)) * Ha
+                wfkerr = '{:+.2f}'.format(np.log10(wfkerr))
+            else:
+                wfkerr = ''
+            log('{:5s}{:s} '.format(wfkerr, c['workfunction']), end='')
 
         if self.max_errors['force'] < np.inf:
             if errors['force'] == 0:
-                log('    -oo', end='')
+                forceerr = '-oo'  # XXX What does this mean?
             elif errors['force'] < np.inf:
-                log('  %+.2f' %
-                    (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
+                forceerr = '{:+.2f}'.format(np.log10(errors['force'] * Ha / Bohr))
             else:
-                log('       ', end='')
+                forceerr = 'n/a'
+            log('{:>5s}{:s} '.format(forceerr, c['force']), end='')
 
         if np.isfinite(ham.e_total_extrapolated):
-            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
+            energy = '%.6f' % (Ha * ham.e_total_extrapolated)
         else:
-            energy = ' ' * 11
+            energy = ''
 
-        log('%s    %-5s  %-7s' %
-            (energy, niterocc, niterpoisson), end='')
+        if True:
+            log(' {:>12s}{:s}{:>5s}  {:>7s}'.format(energy, c['energy'], niterfermi, niterpoisson), end='')
+        else:
+            log(' %12s %5s %7s' % ('.'*12, '.'*5, '.'*5), end='')
 
         if wfs.nspins == 2:
-            log('  %+.4f' % occ.magmom, end='')
+            log(' {:+.4f}'.format(occ.magmom), end='')
         elif not wfs.collinear:
             totmom_v, magmom_av = dens.estimate_magnetic_moments()
             log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')

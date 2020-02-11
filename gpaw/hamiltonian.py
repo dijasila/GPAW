@@ -149,10 +149,22 @@ class Hamiltonian:
         log()
         self.xc.summary(log)
 
+        workfunctions = self.get_workfunctions(fermilevel)
+        if workfunctions is not None:
+            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
+                .format(*np.array(workfunctions) * Ha))
+            log()
+
+    def get_workfunctions(self, fermilevel):
+        """
+        Returns the workfunctions, in Hartree, for a dipole-corrected
+        simulation. Returns None if non dipole correction is present.
+        """
         try:
-            correction = self.poisson.correction
+            dipole_correction = self.poisson.correction
         except AttributeError:
-            pass
+            # Workfunction not defined if no field-free region.
+            return
         else:
             c = self.poisson.c  # index of axis perpendicular to dipole-layer
             if not self.gd.pbc_c[c]:
@@ -167,11 +179,9 @@ class Hamiltonian:
                 else:
                     vacuum = np.nan
 
-            wf1 = (vacuum - fermilevel + correction) * Ha
-            wf2 = (vacuum - fermilevel - correction) * Ha
-            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
-                .format(wf1, wf2))
-            log()
+            wf1 = vacuum - fermilevel + dipole_correction
+            wf2 = vacuum - fermilevel - dipole_correction
+            return wf1, wf2
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):
@@ -394,27 +404,6 @@ class Hamiltonian:
         F_av += F_coarsegrid_av
 
     def apply_local_potential(self, psit_nG, Htpsit_nG, s):
-        """Apply the Hamiltonian operator to a set of vectors.
-
-        XXX Parameter description is deprecated!
-
-        Parameters:
-
-        a_nG: ndarray
-            Set of vectors to which the overlap operator is applied.
-        b_nG: ndarray, output
-            Resulting H times a_nG vectors.
-        kpt: KPoint object
-            k-point object defined in kpoint.py.
-        calculate_projections: bool
-            When True, the integrals of projector times vectors
-            P_ni = <p_i | a_nG> are calculated.
-            When False, existing P_uni are used
-        local_part_only: bool
-            When True, the non-local atomic parts of the Hamiltonian
-            are not applied and calculate_projections is ignored.
-
-        """
         vt_G = self.vt_sG[s]
         if psit_nG.ndim == 3:
             Htpsit_nG += psit_nG * vt_G

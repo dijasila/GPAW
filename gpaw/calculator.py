@@ -86,7 +86,8 @@ class GPAW(PAW, Calculator):
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
-                        'forces': np.inf},  # eV / Ang
+                        'forces': np.inf,  # eV / Ang
+                        'workfunction': np.inf},  # eV
         'dtype': None,  # deprecated
         'width': None,  # deprecated
         'verbose': 0}
@@ -836,17 +837,19 @@ class GPAW(PAW, Calculator):
         nv = max(nvalence, 1)
         cc = self.parameters.convergence
         self.scf = SCFLoop(
-            cc.get('eigenstates', 4.0e-8) / Ha**2 * nv,
-            cc.get('energy', 0.0005) / Ha * nv,
-            cc.get('density', 1.0e-4) * nv,
-            cc.get('forces', np.inf) / (Ha / Bohr),
-            self.parameters.maxiter,
+            eigenstates=cc.get('eigenstates', 4.0e-8) / Ha**2 * nv,
+            energy=cc.get('energy', 0.0005) / Ha * nv,
+            density=cc.get('density', 1.0e-4) * nv,
+            force=cc.get('forces', np.inf) / (Ha / Bohr),
+            workfunction=cc.get('workfunction', np.inf) / Ha,
+            maxiter=self.parameters.maxiter,
             # XXX make sure niter_fixdensity value is *always* set from default
             # Subdictionary defaults seem to not be set when user provides
             # e.g. {}.  We should change that so it works like the ordinary
             # parameters.
-            self.parameters.experimental.get('niter_fixdensity', 0),
-            nv)
+            niter_fixdensity=self.parameters.experimental.get(
+                'niter_fixdensity', 0),
+            nvalence=nv)
         self.log(self.scf)
 
     def create_symmetry(self, magmom_av, cell_cv, reading):

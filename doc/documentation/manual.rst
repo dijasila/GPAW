@@ -600,6 +600,7 @@ The default value is this Python dictionary::
    'density': 1.0e-4,
    'eigenstates': 4.0e-8,  # eV^2 / electron
    'bands': 'occupied',
+   'workfunction': float('inf'),  # eV
    'forces': float('inf')} # eV / Ang Max
 
 In words:
@@ -614,6 +615,11 @@ In words:
   equations should be less than `4.0 \times 10^{-8}
   \mathrm{eV}^2` per valence electron. This criterion does not affect LCAO
   calculations.
+
+* The difference in the workfunction across the last three self-consistency
+  cycles should be no more than that specified by the workfunction keyword.
+  This only applies when a dipole correction is employed. The default is
+  to set it to infinity, which disables this setting.
 
 * The maximum change in the magnitude of the vector representing the
   difference in forces for each atom.  Setting this to infinity (default)
