@@ -18,38 +18,24 @@ class GPUArray(pycuda_GPUArray):
     Ideally, once slicing is supported by PyCUDA's GPUArray we could
     simply use it directly and drop this subclass."""
 
-    def reshape(self, *shape):
-        # TODO: add more error-checking, perhaps
-        if isinstance(shape[0], tuple) or isinstance(shape[0], list):
-            shape = tuple(shape[0])
-        size = reduce(lambda x, y: x * y, shape, 1)
-        if size != self.size:
-            raise ValueError("total size of new array must be unchanged")
-
+    def reshape(self, *shape, **kwargs):
+        order = kwargs.pop("order", "C")
+        x = super().reshape(*shape, **kwargs)
         return self.__class__(
-                shape=shape,
+                shape=x.shape,
                 dtype=self.dtype,
                 allocator=self.allocator,
                 base=self,
-                gpudata=int(self.gpudata))
+                gpudata=int(self.gpudata),
+                order=order)
 
     def view(self, dtype=None):
-        if dtype is None:
-            dtype = self.dtype
-
-        old_itemsize = self.dtype.itemsize
-        itemsize = np.dtype(dtype).itemsize
-
-        if self.shape[-1] * old_itemsize % itemsize != 0:
-            raise ValueError("new type not compatible with array")
-
-        shape = self.shape[:-1] \
-              + (self.shape[-1] * old_itemsize // itemsize,)
-
+        x = super().view(dtype)
         return self.__class__(
-                shape=shape,
-                dtype=dtype,
+                shape=x.shape,
+                dtype=x.dtype,
                 allocator=self.allocator,
+                strides=x.strides,
                 base=self,
                 gpudata=int(self.gpudata))
 
