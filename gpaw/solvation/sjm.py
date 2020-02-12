@@ -1,8 +1,8 @@
-# General imports
 import os
 import numbers
 import numpy as np
-# ASE and GPAW imports
+from scipy.stats import linregress
+
 from ase.units import Bohr, Hartree
 from ase.calculators.calculator import Parameters
 from gpaw.jellium import Jellium, JelliumSlab
@@ -10,7 +10,6 @@ from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
 from gpaw.dipole_correction import DipoleCorrection
 
-# Implicit solvent imports
 from gpaw.solvation.cavity import (Potential, Power12Potential,
                                    get_pbc_positions)
 from gpaw.solvation.calculator import SolvationGPAW
@@ -45,27 +44,26 @@ class SJM(SolvationGPAW):
         The mode for potential relaxation (only relevant for structure
         optimizations):
 
-        'seq' (Default):
-            Sequential mode.
-            In a geometry optimization, the
-            potential will be fully equilibrated after each
-            ionic step, if outside of dpot.
+        'con' (Default):
+            Conservative mode.
+            ne is adjusted until the target potential is achieved;
+            on subsequent calls (such as in a geometry optimization),
+            ne is not touched again until the potential falls out of
+            tolerance.
 
-        'sim':
-            Simultaneous mode.
-            After each ionic step only ne is adjusted and the geometry
-            optimization continues. If potential deviation from target
-            is higher than `max_pot_deviation` one complete potential
-            equilibration at constant geometry is triggered.
+        'pre':
+            Predictive mode.
+            Even after the potential is in tolerance, ne is adjusted
+            to try to improve the potential for the next ionic step.
+            This may help it from drifting out of convergence.
+            If used along with a loose tolerance (high dpot), this can
+            be useful in calculations such as geometry optimizations such
+            that the potential and positions are simultaneously optimized.
 
     dpot: float
-        Tolerance for the deviation of the target potential in sequential
-        mode. If the potential is outside the defined range `ne` will be
+        Tolerance for the deviation of the target potential.
+        If the potential is outside the defined range `ne` will be
         changed in order to get inside again. Default: 0.01 V.
-    max_pot_deviation: float
-        Maximum tolerance for the deviation in the potential from target
-        potential in simultaneous mode. If the tolerance is surpassed a
-        complete potential equilibration is triggered. Default: 0.2 V.
     doublelayer: dict
         Parameters regarding the shape of the counter charge region
         Implemented keys:
@@ -91,8 +89,13 @@ class SJM(SolvationGPAW):
             In addition to 'True', also write the cavity on the
             3D-grid into a cube file.
     write_grandcanonical_energy: bool
-        Write the constant potential energy into output files such as
+        Write the constant-potential energy into output files such as
         trajectory files. Default: True
+    always_adjust_ne:
+        Adjust ne again even when potential is within tolerance.
+        This is useful to set to True along with a loose potential
+        tolerance (dpot) to allow the potential and structure to be
+        simultaneously optimized in a geometry optimization, for example.
 
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
@@ -109,8 +112,8 @@ class SJM(SolvationGPAW):
     # up for the final round to ensure it converged.
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
-                 potential_equilibration_mode='seq',
-                 max_pot_deviation=0.2, verbose=False, **gpaw_kwargs):
+                 potential_equilibration_mode='con',
+                 verbose=False, **gpaw_kwargs):
 
         p = self.sjm_parameters = Parameters()
         SolvationGPAW.__init__(self, **gpaw_kwargs)
@@ -121,18 +124,14 @@ class SJM(SolvationGPAW):
         p.dl = doublelayer
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
-        p.pot_tol = max_pot_deviation
         # FIXME: pot_tol and dpot are pretty confusing. Need better terms.
 
-        if potential_equilibration_mode in ['seq', 'sim']:
+        if potential_equilibration_mode in ['con', 'pre']:
             p.equil_mode = potential_equilibration_mode
         else:
             raise ValueError("Potential equilibration mode not recognized."
-                             "Implemented modes are 'seq' and 'sim'")
+                             "Implemented modes are 'con' and 'pre'")
 
-        # p.previous_ne = 0  # FIXME: Why this 0 but previous_pot=None?
-        p.previous_ne = None
-        p.previous_pot = None
         p.slope = None
         p.max_iters = 10  # FIXME: What exactly is this? max?
         # FIXME: It is getting changed later in the code.
@@ -229,14 +228,6 @@ class SJM(SolvationGPAW):
                  .format(str(major_changes)))
 
         p = self.sjm_parameters
-        if any(key in SJM_keys[1:] for key in SJM_changes):
-            # FIXME: Note I can't change the order because it is called
-            # before init.
-            if p.equil_mode == 'sim':
-                self.sog("Pre-equilibrating the potential",
-                         "after manual change of",
-                         list(SJM_changes.keys()))
-                p.max_iters = 10
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
@@ -303,10 +294,10 @@ class SJM(SolvationGPAW):
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
-                    if p.previous_ne is not None:
+                    if len(p.previous_nes) > 0:
                         self.sog('wfs nvalence changed by {:.5f}'
-                                 .format(p.ne - p.previous_ne))
-                        self.wfs.nvalence += p.ne - p.previous_ne
+                                 .format(p.ne - p.previous_nes[-1]))
+                        self.wfs.nvalence += p.ne - p.previous_nes[-1]
                     else:
                         self.sog('wfs nvalence unchanged')
                     self.sog('wfs nvalence now {:.5f}'
@@ -343,179 +334,98 @@ class SJM(SolvationGPAW):
         self.sog('System changes: {:s}'.format(str(system_changes)))
         self.sog('Requested properties: {:s}'.format(str(system_changes)))
         # FIXME: Should results be zerod when set is called? That might be
-        # easiest. Then I can check here if the results are not zero 
+        # easiest. Then I can check here if the results are not zero
         # and we can calculate things directly.
         if self.scf is not None:
             self.sog('SCF converged? {:s}'.format(str(self.scf.converged)))
         else:
             self.sog('SCF is None.')
         p = self.sjm_parameters
+        if p.dl is not None:
+            self.sog(' Jellium size parameters:')
+            if 'start' in p.dl:
+                self.sog('    Lower boundary: %s' % p.dl['start'])
+            if 'upper_limit' in p.dl:
+                self.sog('    Upper boundary: %s' % p.dl['upper_limit'])
 
         if p.target_potential:
-            p.previous_ne = None  # Reset for slope calculations.
-            p.previous_pot = None
-            #FIXME: I am changing the slope calculation method to do
-            # a linear regression on all the previous potentials from
-            # the current calculation. I should be able to delete the above
-            # two variables if/when this works.
-            p.previous_nes = []
-            p.previous_potentials = []
             self.sog('Starting constant-potential calculation targeting {:.3f}'
                      ' +/- {:.3f} V.'
                      .format(p.target_potential, p.dpot))
-            equil_iter = 0
-            # FIXME: This might be clearer as `while not equilibrated:`
-            # FIXME: to get rid of the break statement.
-            while equil_iter < p.max_iters:
-                self.log('SJ:  --')
-                self.log('SJ:  Potential equlibration attempt {:d}'
-                         .format(equil_iter))
-                self.log('SJ:  Equilibrating potential to {:.3f} '
-                         '+/- {:.3f} V.'
+            iteration = 0
+            p.previous_nes = []
+            p.previous_potentials = []
+            equilibrated = False
+
+            while not equilibrated:
+                self.sog(' Potential equlibration attempt {:d}'
+                         .format(iteration))
+                self.sog(' Equilibrating potential to {:.3f} +/- {:.3f} V.'
                          .format(p.target_potential, p.dpot))
-                self.log('SJ:  Current number of excess electrons: {:.5f}'
+                self.sog(' Current number of excess electrons: {:.5f}'
                          .format(p.ne))
-                if p.dl is not None:
-                    self.sog(' Jellium size parameters:')
-                    if 'start' in p.dl:
-                        self.sog('    Lower boundary: %s'
-                                 % p.dl['start'])
-                    if 'upper_limit' in p.dl:
-                        self.sog('    Upper boundary: %s'
-                                 % p.dl['upper_limit'])
-                if equil_iter == 1:
+                if iteration == 1:
                     self.timer.start('Potential equilibration loop')
+                    # We don't want SolvationGPAW to see any more system
+                    # changes, like positions.
                     system_changes = []
-                    # FIXME Why is system_changes deleted?
-                    # Doesn't SolvationGPAW.calculate need this?
-
-                if False:
-                    # FIXME: I don't think this should be needed here.
-                    # But it crashes without it. Why?
-                    # I think it was a bug in define_jellium
-                    # Actually it's in the set function. I now set this
-                    # at the top of this function so it's not called every
-                    # time through.
-                    if self.atoms is None:
-                        self.atoms = atoms
-
-                if p.max_iters > 1 or 'positions' in system_changes:
-                    self.sog('Calling self.set_jellium(atoms)')
-                    self.set_jellium(atoms)
-                else:
-                    self.sog('Not calling self.set_jellium(atoms)')
-
+                self.sog('Calling self.set_jellium(atoms)')
+                self.set_jellium(atoms)
                 self.sog('Calling SolvationGPAW.calculate...')
-                self.log.flush()
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
                 self.sog('...finished SolvationGPAW.calculate.')
-                self.log.flush()
-
                 if p.verbose:
                     self.write_cavity_and_bckcharge()
-
                 self.sog('Calling get_electrode_potential...')
-                self.log.flush()
                 true_potential = self.get_electrode_potential()
                 self.sog('...finished get_electrode_potential.')
-                self.log.flush()
                 self.sog('Potential found to be {:.5f} V'
                          .format(true_potential))
+                p.previous_nes += [p.ne]
+                p.previous_potentials += [true_potential]
 
-                self.sog('    [p.max_iters: {:d}]' .format(p.max_iters))
+                # Update slope based on regression.
+                if len(p.previous_nes) > 1:
+                    p.slope = linregress(p.previous_nes,
+                                         p.previous_potentials)[0]
+                    self.sog('Slope regressed from previous attempts to be '
+                             '{:4f} V/electron.'.format(p.slope))
 
-                if p.max_iters > 1:
-
-                    self.sog(' Entering p.max_iters > 1 if.')
-                    if abs(true_potential - p.target_potential) < p.dpot:
-                        self.sog('Potential is within tolerance. '
-                                 'Equilibrated.')
-
-                        if p.equil_mode == 'sim':
-                            if p.max_iters > 1:
-                                self.log("Changing to simultaneous potential "
-                                         "and geometry equilibration\n")
-                                p.max_iters = 1
-
-                        if equil_iter > 0:
-                            self.timer.stop('Potential equilibration loop')
-                            self.log('SJ: equil_iter was {:d}.'
-                                     .format(equil_iter))
-                            # FIXME: Here I should set the slope, I think.
-                            # Because it would have at least two points.
-                            # I might only change it if d(potential) > dpot
-                            # to avoid noise?
-                            self.sog('Changing slope (calculate):')
-                            self.sog('Values for slope calculation:')
-                            self.sog(' true_potential: {:.5f}'
-                                     .format(true_potential))
-                            self.sog(' previous_pot: {:.5f}'
-                                     .format(p.previous_pot))
-                            self.sog(' p.ne: {:.5f}'
-                                     .format(p.ne))
-                            self.sog(' p.previous_ne: {:.5f}'
-                                     .format(p.previous_ne))
-                            slope = (true_potential - p.previous_pot) / \
-                                (p.ne - p.previous_ne)
-                            if (abs(true_potential - p.previous_pot) >
-                                p.dpot / 10.):
-                                p.slope = slope
-                                self.log('SJ: Setting slope to new value of '
-                                         '{:8f} V/e.'.format(p.slope))
-                            else:
-                                self.log('SJ: Not setting slope because '
-                                         'potential change of {:4f} V was '
-                                         'less than dpot={:4f} V (trying to'
-                                         ' avoid noise. Slope would have '
-                                         'been {:4f} V/e.'
-                                         .format(abs(true_potential -
-                                                     p.previous_pot),
-                                                 p.dpot, slope))
-
-                        else:
-                            self.log("SJ: Slope of potential versus ne "
-                                     "(unchanged): %1.8f V/e\n"
-                                     % (p.slope))
-
-                        p.previous_pot = true_potential
-                        p.previous_ne = p.ne
-
-                        # FIXME: I think this break statement exits the
-                        # while. Would be better with an equilibrated =
-                        # True statement? This wouldn't be totally
-                        # equivalent.
+                if abs(true_potential - p.target_potential) < p.dpot:
+                    equilibrated = True
+                    self.sog('Potential is within tolerance. Equilibrated.')
+                    if iteration >= 1:
+                        self.timer.stop('Potential equilibration loop')
+                    if p.equil_mode == 'con':
                         break
 
-                if p.max_iters > 1 or 'positions' in system_changes:
-                    # FIXME: This follows a previous test of the same
-                    # inequality? What?
-                    self.change_ne(true_potential)
+                # Change ne based on slope.
+                if p.slope is None:
+                    self.sog('No slope information; changing ne by 0.1 to '
+                             'learn slope.')
+                    p.ne += 0.1 * np.sign(true_potential -
+                                          p.target_potential)
+                else:
+                    p.ne += (p.target_potential - true_potential) / p.slope
+                    self.sog('Number of electrons changed to {:.4f} based '
+                             'on slope of {:.4f} V/electron.'
+                             .format(p.ne, p.slope))
 
-                if abs(true_potential - p.target_potential) > p.pot_tol:
-                    # (This is simultaneous mode.)
-                    self.log('SJ: Deviation from target potential outside '
-                             'of threshold, equilibrating potential.')
-                    p.max_iters = 10
-
-                equil_iter += 1
-
-            if p.max_iters > 1:
-                # FIXME: Why isn't this hit every time?
-                # Ans: It only runs after the while loop.
-                if abs(true_potential - p.target_potential) > p.dpot:
-                    raise Exception('Potential could not be reached after ten'
-                                    ' iterations. Aborting!')
+                iteration += 1
+                if iteration == p.max_iters:
+                    raise Exception('Potential could not be reached after '
+                                    '{:d} iterations.  Aborting!'
+                                    .format(iteration))
 
         else:
+            # Constant-charge mode.
             self.log('SJ:  Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.ne))
             self.set_jellium(atoms)
-            SolvationGPAW.calculate(self, atoms, ['energy'],
-                                    system_changes)
+            SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             if p.verbose:
                 self.write_cavity_and_bckcharge()
-            p.previous_ne = p.ne
 
         if properties != ['energy']:
             # FIXME: A sequential call to get_potential_energy then
@@ -526,54 +436,6 @@ class SJM(SolvationGPAW):
 
             self.log('SJ: Calculating non-energy properties.')
             SolvationGPAW.calculate(self, atoms, properties, [])
-
-    def change_ne(self, true_potential):
-        self.log('SJ: Changing the number of electrons:')
-        # FIXME: Add some documentation of what this method does!
-        p = self.sjm_parameters
-        if p.previous_pot is not None:
-            # FIXME: This is duplicate code of what's also in calculate.
-            # Figure out how to get it down to one version.
-            self.sog('Changing slope (change_ne):')
-            self.sog('Values for slope calculation:')
-            self.sog(' true_potential: {:.5f}'
-                     .format(true_potential))
-            self.sog(' previous_pot: {:.5f}'
-                     .format(p.previous_pot))
-            self.sog(' p.ne: {:.5f}'
-                     .format(p.ne))
-            self.sog(' p.previous_ne: {:.5f}'
-                     .format(p.previous_ne))
-            slope = (true_potential - p.previous_pot) / \
-                (p.ne - p.previous_ne)
-            if abs(true_potential - p.previous_pot) > p.dpot / 10.:
-                p.slope = slope
-                self.log('SJ: Setting slope to new value of '
-                         '{:8f} V/e.'.format(p.slope))
-            else:
-                self.log('SJ: Not setting slope because '
-                         'potential change of {:4f} V was '
-                         'less than dpot={:4f} V (trying to'
-                         ' avoid noise. Slope would have '
-                         'been {:4f} V/e.'
-                         .format(abs(true_potential -
-                                     p.previous_pot),
-                                 p.dpot, slope))
-
-        if p.slope is None:
-            self.log('SJ: Changing ne with no slope information.')
-            p.previous_ne = p.ne
-            # FIXME: It's changing number of electrons by something
-            # that has units of V???
-            p.ne += np.sign(true_potential - p.target_potential) * p.dpot
-        else:
-            self.log('SJ: Changing ne based on slope of {:.8f} V/e'
-                     .format(p.slope))
-            d = (true_potential - p.target_potential) - (p.slope * p.ne)
-            p.previous_ne = p.ne
-            p.ne = - d / p.slope
-
-        p.previous_pot = true_potential
 
     def write_cavity_and_bckcharge(self):
         p = self.sjm_parameters
@@ -673,11 +535,11 @@ class SJM(SolvationGPAW):
                 filename = self.log.fd
                 self.log('    filename')
                 self.log(filename)
-                #self.log.fd = None
+                # self.log.fd = None  # FIXME This was causing crashes.
                 self.log('    initializeing atoms')
                 self.initialize(atoms)
                 self.set_positions(atoms)
-                #self.log.fd = filename
+                # self.log.fd = filename
                 self.log('      copying hamiltonian cavity')
                 g_g = self.hamiltonian.cavity.g_g.copy()
                 self.wfs = None
@@ -703,6 +565,7 @@ class SJM(SolvationGPAW):
                                z2=p.dl['upper_limit'])
 
     def get_electrode_potential(self):
+        #FIXME/ap: Use ham.get_workfunctions instead!
         ham = self.hamiltonian
         fermilevel = self.occupations.fermilevel
         try:
@@ -711,7 +574,7 @@ class SJM(SolvationGPAW):
             wf2 = -fermilevel
         else:
             wf2 = (-fermilevel - correction) * Hartree
-        #FIXME: Why is one unit-corrected but not the other?
+        # FIXME: Why is one unit-corrected but not the other?
         #       If the correction is absent, is it already in eV?
 
         return wf2  # refpot-E_f
