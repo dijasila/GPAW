@@ -18,6 +18,7 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 
 class SJM(SolvationGPAW):
+    # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     """Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
 
@@ -96,8 +97,14 @@ class SJM(SolvationGPAW):
         This is useful to set to True along with a loose potential
         tolerance (dpot) to allow the potential and structure to be
         simultaneously optimized in a geometry optimization, for example.
-
     """
+    # FIXME: Is always_adjust_ne in True mode the same as predictive mode?
+    # They seem to be very similar. Looking closer, I think they must be
+    # (designeed to be accidentally) redundant, as always_adjust_ne is
+    # never used. I think this was an alternate keyword approach.
+    # Will have to decide which we prefer.
+    # FIXME: If I keep the potential equilibration mode, chanage to 'c' and
+    # 'p' for brevity, con and pre are not that great of short names.
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
@@ -110,6 +117,9 @@ class SJM(SolvationGPAW):
     # added that replaces the current simultaneous use case: basically just
     # setting the tolerance lower during the optimization then turning it
     # up for the final round to ensure it converged.
+    # (This is done, except the always_adjust_ne issue mentioned above,
+    # and we need to update the tutorial once it is figured out.)
+
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  potential_equilibration_mode='con',
@@ -124,7 +134,6 @@ class SJM(SolvationGPAW):
         p.dl = doublelayer
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
-        # FIXME: pot_tol and dpot are pretty confusing. Need better terms.
 
         if potential_equilibration_mode in ['con', 'pre']:
             p.equil_mode = potential_equilibration_mode
@@ -133,9 +142,7 @@ class SJM(SolvationGPAW):
                              "Implemented modes are 'con' and 'pre'")
 
         p.slope = None
-        p.max_iters = 10  # FIXME: What exactly is this? max?
-        # FIXME: It is getting changed later in the code.
-        # I think I should change this to max_iters.
+        p.max_iters = 10  # FIXME: Should we make this user-specified?
 
         self.sog('Solvated jellium method (SJM) parameters:')
         self.sog(' Using the solvated jellium method (SJM) from:\n {:s}\n'
@@ -155,10 +162,6 @@ class SJM(SolvationGPAW):
             self.sog(' Grand canonical energy will be returned.')
         else:
             self.sog(' Canonical energy will be returned.')
-        # FIXME: These init messages are being written to stdout, not to
-        # the GPAW log file. Why is this? I think this is an artifact of
-        # the script Per gave me that set txt outside of the init loop,
-        # so it will probably work after I changed that.
 
     def sog(self, message):
         # FIXME: Delete after all is set up.
@@ -169,8 +172,11 @@ class SJM(SolvationGPAW):
     def create_hamiltonian(self, realspace, mode, xc):
         """
         This differs from SolvationGPAW's create_hamiltonian
-        method by the ability to use dipole corretions.
+        method by the ability to use dipole corrections.
         """
+        # FIXME: At some point, we should check to make sure a dipole is
+        # present (correction). Perhaps here? Otherwise the user will get
+        # an error in the SCF cycle.
         if not realspace:
             raise NotImplementedError(
                 'SJM does not support calculations in reciprocal space yet'
@@ -565,19 +571,10 @@ class SJM(SolvationGPAW):
                                z2=p.dl['upper_limit'])
 
     def get_electrode_potential(self):
-        #FIXME/ap: Use ham.get_workfunctions instead!
-        ham = self.hamiltonian
-        fermilevel = self.occupations.fermilevel
-        try:
-            correction = ham.poisson.correction
-        except AttributeError:
-            wf2 = -fermilevel
-        else:
-            wf2 = (-fermilevel - correction) * Hartree
-        # FIXME: Why is one unit-corrected but not the other?
-        #       If the correction is absent, is it already in eV?
-
-        return wf2  # refpot-E_f
+        """Returns the potential of the simulated electrode, in V, relative
+        to the vacuum. This comes directly from the workfunction."""
+        return self.hamiltonian.get_workfunctions(
+            self.occupations.fermilevel)[1] * Hartree
 
     def set_jellium(self, atoms):
         self.sog('in set_jellium method')

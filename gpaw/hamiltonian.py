@@ -149,8 +149,11 @@ class Hamiltonian:
         log()
         self.xc.summary(log)
 
-        workfunctions = self.get_workfunctions(fermilevel)
-        if workfunctions is not None:
+        try:
+            workfunctions = self.get_workfunctions(fermilevel)
+        except NotImplementedError:
+            pass
+        else:
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
                 .format(*np.array(workfunctions) * Ha))
             log()
@@ -163,25 +166,26 @@ class Hamiltonian:
         try:
             dipole_correction = self.poisson.correction
         except AttributeError:
-            # Workfunction not defined if no field-free region.
-            return
+            raise NotImplementedError(
+                'Workfunction not defined if no field-free region. Consider '
+                'using a dipole correction if you are looking for a'
+                'workfunction.')
+        c = self.poisson.c  # index of axis perpendicular to dipole-layer
+        if not self.gd.pbc_c[c]:
+            # zero boundary conditions
+            vacuum = 0.0
         else:
-            c = self.poisson.c  # index of axis perpendicular to dipole-layer
-            if not self.gd.pbc_c[c]:
-                # zero boundary conditions
-                vacuum = 0.0
+            v_q = self.pd3.gather(self.vHt_q)
+            if self.pd3.comm.rank == 0:
+                axes = (c, (c + 1) % 3, (c + 2) % 3)
+                v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
+                vacuum = v_g[0].mean()
             else:
-                v_q = self.pd3.gather(self.vHt_q)
-                if self.pd3.comm.rank == 0:
-                    axes = (c, (c + 1) % 3, (c + 2) % 3)
-                    v_g = self.pd3.ifft(v_q, local=True).transpose(axes)
-                    vacuum = v_g[0].mean()
-                else:
-                    vacuum = np.nan
+                vacuum = np.nan
 
-            wf1 = vacuum - fermilevel + dipole_correction
-            wf2 = vacuum - fermilevel - dipole_correction
-            return wf1, wf2
+        wf1 = vacuum - fermilevel + dipole_correction
+        wf2 = vacuum - fermilevel - dipole_correction
+        return wf1, wf2
 
     def set_positions_without_ruining_everything(self, spos_ac,
                                                  atom_partition):

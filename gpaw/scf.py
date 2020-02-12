@@ -63,7 +63,7 @@ class SCFLoop:
         self.old_energies = []  # FIXME Might as well turn this into deque too.
         self.old_workfunctions = deque(maxlen=3)
         self.old_F_av = None
-        self.converged_items = {key:False for key in self.max_errors}
+        self.converged_items = {key: False for key in self.max_errors}
         self.converged = False
 
     def run(self, wfs, ham, dens, occ, log, callback):
@@ -128,15 +128,17 @@ class SCFLoop:
 
         errors['workfunction'] = np.inf
         if self.max_errors['workfunction'] < np.inf:
-            workfunctions = ham.get_workfunctions(occ.fermilevel)
-            if workfunctions is None:
+            try:
+                workfunctions = ham.get_workfunctions(occ.fermilevel)
+            except NotImplementedError:
                 raise RuntimeError('System has no well-defined workfunction'
                                    ' so please do not specify this '
                                    ' convergence keyword.')
-            self.old_workfunctions.append(workfunctions)
-            if len(self.old_workfunctions) == self.old_workfunctions.maxlen:
-                errors['workfunction'] = max(np.ptp(self.old_workfunctions,
-                                                    axis=0))
+            else:
+                old = self.old_workfunctions
+                old.append(workfunctions)  # Pops off > 3!
+                if len(old) == old.maxlen:
+                    errors['workfunction'] = max(np.ptp(old, axis=0))
 
         # We only want to calculate the (expensive) forces if we have to:
         check_forces = (self.max_errors['force'] < np.inf and
@@ -221,7 +223,8 @@ class SCFLoop:
             if errors['force'] == 0:
                 forceerr = '-oo'  # XXX What does this mean?
             elif errors['force'] < np.inf:
-                forceerr = '{:+.2f}'.format(np.log10(errors['force'] * Ha / Bohr))
+                forceerr = '{:+.2f}'.format(
+                    np.log10(errors['force'] * Ha / Bohr))
             else:
                 forceerr = 'n/a'
             log('{:>5s}{:s} '.format(forceerr, c['force']), end='')
@@ -231,10 +234,8 @@ class SCFLoop:
         else:
             energy = ''
 
-        if True:
-            log(' {:>12s}{:s}{:>5s}  {:>7s}'.format(energy, c['energy'], niterfermi, niterpoisson), end='')
-        else:
-            log(' %12s %5s %7s' % ('.'*12, '.'*5, '.'*5), end='')
+        log(' {:>12s}{:s}{:>5s}  {:>7s}'.format(
+            energy, c['energy'], niterfermi, niterpoisson), end='')
 
         if wfs.nspins == 2:
             log(' {:+.4f}'.format(occ.magmom), end='')
