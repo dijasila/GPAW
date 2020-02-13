@@ -105,12 +105,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
     def add_to_density_from_k_point_with_occupation(self, nt_sG, kpt, f_n):
         # Used in calculation of response part of GLLB-potential
         nt_G = nt_sG[kpt.s]
-        if self.cuda and (kpt.psit_nG_gpu is not None):
+        if self.cuda and kpt.psit.matrix.on_gpu:
             if self.nt_G_gpu is None:
                 self.nt_G_gpu = gpaw.cuda.gpuarray.empty(
                         nt_G.shape, nt_G.dtype)
             self.nt_G_gpu.set(nt_G)
-            multi_ax2py(f_n, kpt.psit_nG_gpu, self.nt_G_gpu)
+            multi_ax2py(f_n, kpt.psit_nG, self.nt_G_gpu)
         else:
             for f, psit_G in zip(f_n, kpt.psit_nG):
                 # Same as nt_G += f * abs(psit_G)**2, but much faster:
@@ -128,7 +128,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     if abs(d) > 1.e-12:
                         nt_G += (psi0_G.conj() * d * psi_G).real
 
-        if self.cuda and (kpt.psit_nG_gpu is not None):
+        if self.cuda and kpt.psit.matrix.on_gpu:
             self.nt_G_gpu.get(nt_G)
 
     def calculate_kinetic_energy_density(self):
