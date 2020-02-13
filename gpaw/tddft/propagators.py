@@ -195,8 +195,8 @@ class ExplicitCrankNicolson(DummyPropagator):
         if self.cuda:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 gpaw.cuda.drv.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
-                                          kpt.psit_nG_gpu.gpudata,
-                                          kpt.psit_nG_gpu.nbytes)
+                                          kpt.psit_nG.gpudata,
+                                          kpt.psit_nG.nbytes)
         else:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.tmp_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -216,10 +216,7 @@ class ExplicitCrankNicolson(DummyPropagator):
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
 
-        if self.cuda:
-            psit_nG = kpt.psit_nG_gpu
-        else:
-            psit_nG = kpt.psit_nG
+        psit_nG = kpt.psit_nG
 
         # kpt is guess, rhs_kpt is used to calculate rhs and is overwritten
         nvec = len(rhs_kpt.psit_nG)
@@ -393,11 +390,11 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         if self.cuda:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 gpaw.cuda.drv.memcpy_dtod(self.old_kpt_u[u].psit_nG.gpudata,
-                                          kpt.psit_nG_gpu.gpudata,
-                                          kpt.psit_nG_gpu.nbytes)
+                                          kpt.psit_nG.gpudata,
+                                          kpt.psit_nG.nbytes)
                 gpaw.cuda.drv.memcpy_dtod(self.tmp_kpt_u[u].psit_nG.gpudata,
-                                          kpt.psit_nG_gpu.gpudata,
-                                          kpt.psit_nG_gpu.nbytes)
+                                          kpt.psit_nG.gpudata,
+                                          kpt.psit_nG.nbytes)
         else:
             for u, kpt in enumerate(self.wfs.kpt_u):
                 self.old_kpt_u[u].psit_nG[:] = kpt.psit_nG
@@ -434,10 +431,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
         # wavefunction in old_kpt_u are used to calculate rhs based on psit(t)
         for [kpt, rhs_kpt] in zip(self.wfs.kpt_u, self.old_kpt_u):
             # Average of psit(t) and predicted psit(t+dt)
-            if self.cuda:
-                psit_nG = kpt.psit_nG_gpu
-            else:
-                psit_nG = kpt.psit_nG
+            psit_nG = kpt.psit_nG
             if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
                 gpaw.cuda.drv.memcpy_dtod(self.sinvhpsit.gpudata,
                                           psit_nG.gpudata,
@@ -463,10 +457,7 @@ class SemiImplicitCrankNicolson(ExplicitCrankNicolson):
 
     # ( S + i H dt/2 ) psit(t+dt) = ( S - i H dt/2 ) psit(t)
     def solve_propagation_equation(self, kpt, rhs_kpt, time_step, guess=False):
-        if self.cuda:
-            psit_nG = kpt.psit_nG_gpu
-        else:
-            psit_nG = kpt.psit_nG
+        psit_nG = kpt.psit_nG
 
         # kpt is guess, rhs_kpt is used to calculate rhs and is overwritten
         nvec = len(rhs_kpt.psit_nG)

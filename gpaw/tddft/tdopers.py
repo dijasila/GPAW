@@ -479,10 +479,7 @@ class TimeDependentOverlap(Overlap):
         if psit is not None:
             wfs.pt.integrate(psit, kpt.P_ani, kpt.q)
         else:
-            if kpt.cuda:
-                wfs.pt.integrate(kpt.psit_nG_gpu, kpt.P_ani, kpt.q)
-            else:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
     def update(self, wfs):
         """Updates the time-dependent overlap operator.

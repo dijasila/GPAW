@@ -469,10 +469,7 @@ class TDDFT(GPAW):
 
         # self.Eband = sum_i <psi_i|H|psi_j>
         for kpt in kpt_u:
-            if self.cuda:
-                psit_nG = kpt.psit_nG_gpu
-            else:
-                psit_nG = kpt.psit_nG
+            psit_nG = kpt.psit_nG
             self.td_hamiltonian.apply(kpt, psit_nG, self.hpsit,
                                       calculate_P_ani=False)
             self.mblas.multi_zdotc(psit_nG, self.hpsit, self.eps_tmp)
