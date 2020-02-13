@@ -58,7 +58,7 @@ class SCFLoop:
 
     def run(self, wfs, ham, dens, occ, log, callback, cuda=False):
         if cuda:
-            wfs.cuda_psit_nG_htod()
+            wfs.use_gpu()
 
         self.niter = 1
         while self.niter <= self.maxiter:
@@ -94,7 +94,7 @@ class SCFLoop:
         self.niter_fixdensity = 0
 
         if cuda:
-            wfs.cuda_psit_nG_dtoh()
+            wfs.use_cpu()
 
         if not self.converged:
             log(oops)

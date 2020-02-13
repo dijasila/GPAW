@@ -352,8 +352,7 @@ class TDDFT(GPAW):
 
         self.timer.start('Propagate')
         if self.cuda:
-            for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_htod()
+            self.wfs.use_gpu()
         while self.niter < self.tdmaxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
@@ -395,8 +394,7 @@ class TDDFT(GPAW):
                           self.time * autime_to_attosec, ' as.')
 
         if self.cuda:
-            for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_dtoh()
+            self.wfs.use_cpu()
         self.timer.stop('Propagate')
 
         # Write final results and close dipole moment file
@@ -538,14 +536,12 @@ class TDDFT(GPAW):
                                   cuda=self.cuda)
 
         if self.cuda:
-            for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_htod()
+            self.wfs.use_gpu()
 
         abs_kick.kick()
 
         if self.cuda:
-            for kpt in self.wfs.kpt_u:
-                kpt.cuda_psit_nG_dtoh()
+            self.wfs.use_cpu()
 
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
