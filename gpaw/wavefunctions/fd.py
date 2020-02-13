@@ -282,7 +282,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),
                 spin=kpt.s, collinear=True, cuda=self.cuda)
-            kpt.psit_nG[:] = 0.0
+            kpt.psit_nG.fill(0.0)
             mynbands = len(kpt.C_nM)
             kpt.psit.use_cpu()
             basis_functions.lcao_to_grid(kpt.C_nM,
