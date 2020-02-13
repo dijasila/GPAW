@@ -109,6 +109,12 @@ class ArrayWaveFunctions:
         self.matrix = matrix
         self.in_memory = True
 
+    def use_gpu(self):
+        self.matrix.use_gpu()
+
+    def use_cpu(self):
+        self.matrix.use_cpu()
+
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
