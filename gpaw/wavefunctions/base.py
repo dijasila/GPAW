@@ -415,6 +415,14 @@ class WaveFunctions:
             kpt.set_cuda(self.cuda)
         self.eigensolver = None
 
+    def use_gpu(self):
+        for kpt in self.kpt_u:
+            kpt.use_gpu()
+
+    def use_cpu(self):
+        for kpt in self.kpt_u:
+            kpt.use_cpu()
+
     def write(self, writer):
         writer.write(version=1, ha=Hartree)
         writer.write(kpts=self.kd)

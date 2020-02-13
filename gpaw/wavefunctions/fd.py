@@ -368,13 +368,5 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
             np.random.set_state(old_state)
 
-    def use_gpu(self):
-        for kpt in self.kpt_u:
-            kpt.use_gpu()
-
-    def use_cpu(self):
-        for kpt in self.kpt_u:
-            kpt.use_cpu()
-
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
