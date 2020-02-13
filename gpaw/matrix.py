@@ -4,6 +4,7 @@ import scipy.linalg as linalg
 
 import _gpaw
 from gpaw import debug
+from gpaw import gpuarray
 from gpaw.mpi import serial_comm
 import gpaw.utilities.blas as blas
 
@@ -69,7 +70,7 @@ def suggest_blocking(N, ncpus):
 
 
 class Matrix:
-    def __init__(self, M, N, dtype=None, data=None, dist=None):
+    def __init__(self, M, N, dtype=None, data=None, dist=None, cuda=False):
         """Matrix object.
 
         M: int
@@ -94,18 +95,67 @@ class Matrix:
                 dtype = data.dtype
         self.dtype = np.dtype(dtype)
 
+        self.cuda = cuda
+        self.on_gpu = None
+
         dist = dist or ()
         if isinstance(dist, tuple):
             dist = create_distribution(M, N, *dist)
         self.dist = dist
 
-        if data is None:
-            self.array = np.empty(dist.shape, self.dtype)
-        else:
-            self.array = data.reshape(dist.shape)
+        self.array = data
 
         self.comm = serial_comm
         self.state = 'everything is fine'
+
+    @property
+    def array(self):
+        if self.on_gpu:
+            return self._array_gpu
+        else:
+            return self._array_cpu
+
+    @array.setter
+    def array(self, data):
+        if data is None:
+            self._array_cpu = np.empty(self.dist.shape, self.dtype)
+            self._array_gpu = None
+            if self.cuda:
+                self._array_gpu = gpuarray.GPUArray(self.dist.shape,
+                                                    self.dtype)
+        elif isinstance(data, gpuarray.GPUArray):
+            self._array_gpu = data.reshape(self.dist.shape)
+            self._array_cpu = self._array_gpu.get()
+            if not self.cuda:
+                self._array_gpu = None
+        else:
+            self._array_cpu = data.reshape(self.dist.shape)
+            self._array_gpu = None
+            if self.cuda:
+                self._array_gpu = gpuarray.to_gpu(self._array_cpu)
+        self.on_gpu = bool(self.cuda)
+
+    def sync(self):
+        try:
+            if self.on_gpu:
+                self._array_gpu.get(self._array_cpu)
+            else:
+                self._array_gpu.set(self._array_cpu)
+        except AttributeError:
+            pass
+
+    def use_gpu(self):
+        if not self.cuda:
+            self.cuda = True
+            self._array_gpu = gpuarray.empty_like(self._array_cpu)
+        if not self.on_gpu:
+            self.sync()
+            self.on_gpu = True
+
+    def use_cpu(self):
+        if self.on_gpu:
+            self.sync()
+            self.on_gpu = False
 
     def __len__(self):
         return self.shape[0]
@@ -114,14 +164,15 @@ class Matrix:
         dist = str(self.dist).split('(')[1]
         return 'Matrix({}: {}'.format(self.dtype.name, dist)
 
-    def new(self, dist='inherit'):
+    def new(self, dist='inherit', cuda=None):
         """Create new matrix of same shape and dtype.
 
         Default is to use same BLACS distribution.  Use dist to use another
         distribution.
         """
         return Matrix(*self.shape, dtype=self.dtype,
-                      dist=self.dist if dist == 'inherit' else dist)
+                      dist=self.dist if dist == 'inherit' else dist,
+                      cuda=self.cuda if cuda is None else cuda)
 
     def __setitem__(self, i, x):
         # assert i == slice(None)
