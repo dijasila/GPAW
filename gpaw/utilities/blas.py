@@ -162,32 +162,43 @@ def gemm(alpha, a, b, beta, c, transa='n', cuda=False, hybrid=False):
             assert c.strides[1] == c.itemsize
             assert a.shape[1:] == b.shape[1:]
             assert c.shape == (b.shape[0], a.shape[0])
-    assert (type(a) == type(b) and type(b) == type(c))
 
-    if isinstance(a, gpuarray.GPUArray) \
-            and isinstance(b, gpuarray.GPUArray) \
-            and isinstance(c, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
-            a_cpu = a.get()
-            b_cpu = b.get()
-            c_cpu = c.get()
-            _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpuarray.GPUArray) \
+                             else (a, None)
+    b_cpu, b_gpu = (None, b) if isinstance(b, gpuarray.GPUArray) \
+                             else (b, None)
+    c_cpu, c_gpu = (None, c) if isinstance(c, gpuarray.GPUArray) \
+                             else (c, None)
 
-        _gpaw.gemm_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
-                            b.shape,beta, c.gpudata, c.shape, a.dtype,
-                            transa, hybrid)
+    if cuda or (cuda is None and isinstance(c, gpuarray.GPUArray)):
+        if a_gpu is None:
+            a_gpu = gpuarray.to_gpu(a_cpu)
+        if b_gpu is None:
+            b_gpu = gpuarray.to_gpu(b_cpu)
+        if c_gpu is None:
+            c_gpu = gpuarray.to_gpu(c_cpu)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(c_cpu, c, "gemm")
-    elif cuda:
-        a_gpu = gpuarray.to_gpu(a)
-        b_gpu = gpuarray.to_gpu(b)
-        c_gpu = gpuarray.to_gpu(c)
-        _gpaw.gemm_cuda_gpu(alpha, a_gpu.gpudata, a.shape, b_gpu.gpudata,
-                            b.shape,beta, c_gpu.gpudata, c.shape, a.dtype,
-                            transa)
-        c_gpu.get(c)
+            a_debug = a_gpu.get()
+            b_debug = b_gpu.get()
+            c_debug = c_gpu.get()
+            _gpaw.gemm(alpha, a_debug, b_debug, beta, c_debug, transa)
+        _gpaw.gemm_cuda_gpu(alpha, a_gpu.gpudata, a_gpu.shape, b_gpu.gpudata,
+                            b_gpu.shape, beta, c_gpu.gpudata, c_gpu.shape,
+                            a_gpu.dtype, transa, hybrid)
+        if gpaw.cuda.debug:
+            gpaw.cuda.debug_test(c_debug, c_gpu, "gemm")
+        if c_cpu is not None:
+            c_gpu.get(c_cpu)
     else:
-        _gpaw.gemm(alpha, a, b, beta, c, transa)
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if b_cpu is None:
+            b_cpu = b_gpu.get()
+        if c_cpu is None:
+            c_cpu = c_gpu.get()
+        _gpaw.gemm(alpha, a_cpu, b_cpu, beta, c_cpu, transa)
+        if c_gpu is not None:
+            c_gpu.set(c_cpu)
 
 
 def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
@@ -227,33 +238,46 @@ def gemv(alpha, a, x, beta, y, trans='t', cuda=False):
         else:
             assert a.shape[-1] == x.shape[0]
             assert a.shape[:-1] == y.shape
-    assert (type(a) == type(x) and type(x) == type(y))
 
-    if isinstance(a, gpuarray.GPUArray) \
-            and isinstance(x, gpuarray.GPUArray) \
-            and isinstance(y, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
-            a_cpu = a.get()
-            x_cpu = x.get()
-            y_cpu = y.get()
-            _gpaw.gemv(alpha, a_cpu, x_cpu, beta, y_cpu, trans)
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpuarray.GPUArray) \
+                             else (a, None)
+    x_cpu, x_gpu = (None, x) if isinstance(x, gpuarray.GPUArray) \
+                             else (x, None)
+    y_cpu, y_gpu = (None, y) if isinstance(y, gpuarray.GPUArray) \
+                             else (y, None)
 
-        _gpaw.gemv_cuda_gpu(alpha, a.gpudata, a.shape, x.gpudata, x.shape, beta,
-                            y.gpudata, a.dtype, trans)
+    if cuda or (cuda is None and isinstance(y, gpuarray.GPUArray)):
+        if a_gpu is None:
+            a_gpu = gpuarray.to_gpu(a_cpu)
+        if x_gpu is None:
+            x_gpu = gpuarray.to_gpu(x_cpu)
+        if y_gpu is None:
+            y_gpu = gpuarray.to_gpu(y_cpu)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(y_cpu, y, "gemv")
-    elif cuda:
-        a_gpu = gpuarray.to_gpu(a)
-        x_gpu = gpuarray.to_gpu(x)
-        y_gpu = gpuarray.to_gpu(y)
-        _gpaw.gemv_cuda_gpu(alpha, a_gpu.gpudata, a.shape, x_gpu.gpudata,
-                            x.shape, beta, y_gpu.gpudata, a.dtype, trans)
-        y_gpu.get(y)
+            a_debug = a_gpu.get()
+            x_debug = x_gpu.get()
+            y_debug = y_gpu.get()
+            _gpaw.gemv(alpha, a_debug, x_debug, beta, y_debug, trans)
+        _gpaw.gemv_cuda_gpu(alpha, a_gpu.gpudata, a_gpu.shape, x_gpu.gpudata,
+                            x_gpu.shape, beta, y_gpu.gpudata, a_gpu.dtype,
+                            trans)
+        if gpaw.cuda.debug:
+            gpaw.cuda.debug_test(y_debug, y_gpu, "gemv")
+        if y_cpu is not None:
+            y_gpu.get(y_cpu)
     else:
-        _gpaw.gemv(alpha, a, x, beta, y, trans)
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if x_cpu is None:
+            x_cpu = x_gpu.get()
+        if y_cpu is None:
+            y_cpu = y_gpu.get()
+        _gpaw.gemv(alpha, a_cpu, x_cpu, beta, y_cpu, trans)
+        if y_gpu is not None:
+            y_gpu.set(y_cpu)
 
 
-def axpy(alpha, x, y, cuda=False):
+def axpy(alpha, x, y, cuda=None):
     """alpha x plus y.
 
     Performs the operation::
@@ -270,27 +294,35 @@ def axpy(alpha, x, y, cuda=False):
             assert x.dtype == y.dtype
             assert x.flags.contiguous and y.flags.contiguous
         assert x.shape == y.shape
-    assert type(x) == type(y)
 
-    if isinstance(x, gpuarray.GPUArray) \
-            and isinstance(y, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
-            x_cpu = x.get()
-            y_cpu = y.get()
-            _gpaw.axpy(alpha, x_cpu, y_cpu)
+    x_cpu, x_gpu = (None, x) if isinstance(x, gpuarray.GPUArray) \
+                             else (x, None)
+    y_cpu, y_gpu = (None, y) if isinstance(y, gpuarray.GPUArray) \
+                             else (y, None)
 
-        _gpaw.axpy_cuda_gpu(alpha, x.gpudata, x.shape, y.gpudata, y.shape,
-                            x.dtype)
+    if cuda or (cuda is None and isinstance(y, gpuarray.GPUArray)):
+        if x_gpu is None:
+            x_gpu = gpuarray.to_gpu(x_cpu)
+        if y_gpu is None:
+            y_gpu = gpuarray.to_gpu(y_cpu)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(y_cpu, y, "axpy")
-    elif cuda:
-        x_gpu = gpuarray.to_gpu(x)
-        y_gpu = gpuarray.to_gpu(y)
-        _gpaw.axpy_cuda_gpu(alpha, x_gpu.gpudata, x.shape, y_gpu.gpudata,
-                            y.shape, x.dtype)
-        y_gpu.get(y)
+            x_debug = x_gpu.get()
+            y_debug = y_gpu.get()
+            _gpaw.axpy(alpha, x_debug, y_debug)
+        _gpaw.axpy_cuda_gpu(alpha, x_gpu.gpudata, x_gpu.shape, y_gpu.gpudata,
+                            y_gpu.shape, x_gpu.dtype)
+        if gpaw.cuda.debug:
+            gpaw.cuda.debug_test(y_debug, y_gpu, "axpy")
+        if y_cpu is not None:
+            y_gpu.get(y_cpu)
     else:
-        _gpaw.axpy(alpha, x, y)
+        if x_cpu is None:
+            x_cpu = x_gpu.get()
+        if y_cpu is None:
+            y_cpu = y_gpu.get()
+        _gpaw.axpy(alpha, x_cpu, y_cpu)
+        if y_gpu is not None:
+            y_gpu.set(y_cpu)
 
 
 def czher(alpha, x, a):
@@ -313,7 +345,7 @@ def czher(alpha, x, a):
     _gpaw.czher(alpha, x, a)
 
 
-def rk(alpha, a, beta, c, trans='c', cuda=False, hybrid=False):
+def rk(alpha, a, beta, c, trans='c', cuda=None, hybrid=False):
     """Rank-k update of a matrix.
 
     Performs the operation::
@@ -346,30 +378,38 @@ def rk(alpha, a, beta, c, trans='c', cuda=False, hybrid=False):
         else:
             assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
-    assert type(a) == type(c)
 
-    if isinstance(a, gpuarray.GPUArray) \
-            and isinstance(c, gpuarray.GPUArray):
-        if gpaw.cuda.debug:
-            a_cpu = a.get()
-            c_cpu = c.get()
-            _gpaw.rk(alpha, a_cpu, beta, c_cpu, trans)
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpuarray.GPUArray) \
+                             else (a, None)
+    c_cpu, c_gpu = (None, c) if isinstance(c, gpuarray.GPUArray) \
+                             else (c, None)
 
-        _gpaw.rk_cuda_gpu(alpha, a.gpudata, a.shape, beta, c.gpudata,
-                          c.shape, a.dtype, hybrid)
+    if cuda or (cuda is None and isinstance(c, gpuarray.GPUArray)):
+        if a_gpu is None:
+            a_gpu = gpuarray.to_gpu(a_cpu)
+        if c_gpu is None:
+            c_gpu = gpuarray.to_gpu(c_cpu)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(c_cpu, c, "rk")
-    elif cuda:
-        a_gpu = gpuarray.to_gpu(a)
-        c_gpu = gpuarray.to_gpu(c)
-        _gpaw.rk_cuda_gpu(alpha, a_gpu.gpudata, a.shape, beta,
-                          c_gpu.gpudata, c.shape, a.dtype)
-        c_gpu.get(c)
+            a_debug = a_gpu.get()
+            c_debug = c_gpu.get()
+            _gpaw.rk(alpha, a_debug, beta, c_debug, trans)
+        _gpaw.rk_cuda_gpu(alpha, a_gpu.gpudata, a_gpu.shape, beta,
+                          c_gpu.gpudata, c_gpu.shape, a_gpu.dtype)
+        if gpaw.cuda.debug:
+            gpaw.cuda.debug_test(c_debug, c_gpu, "rk")
+        if c_cpu is not None:
+            c_gpu.get(c_cpu)
     else:
-        _gpaw.rk(alpha, a, beta, c, trans)
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if c_cpu is None:
+            c_cpu = c_gpu.get()
+        _gpaw.rk(alpha, a_cpu, beta, c_cpu, trans)
+        if c_gpu is not None:
+            c_gpu.set(c_cpu)
 
 
-def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
+def r2k(alpha, a, b, beta, c, cuda=None, hybrid=False):
     """Rank-2k update of a matrix.
 
     Performs the operation::
@@ -402,33 +442,43 @@ def r2k(alpha, a, b, beta, c, cuda=False, hybrid=False):
         assert a.shape == b.shape
         assert c.shape == (a.shape[0], a.shape[0])
         assert c.strides[1] == c.itemsize
-    assert (type(a) == type(b) and type(b) == type(c))
 
-    if isinstance(a, gpuarray.GPUArray) \
-            and isinstance(b, gpuarray.GPUArray) \
-            and isinstance(c, gpuarray.GPUArray):
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpuarray.GPUArray) \
+                             else (a, None)
+    b_cpu, b_gpu = (None, b) if isinstance(b, gpuarray.GPUArray) \
+                             else (b, None)
+    c_cpu, c_gpu = (None, c) if isinstance(c, gpuarray.GPUArray) \
+                             else (c, None)
+
+    if cuda or (cuda is None and isinstance(c, gpuarray.GPUArray)):
+        if a_gpu is None:
+            a_gpu = gpuarray.to_gpu(a_cpu)
+        if b_gpu is None:
+            b_gpu = gpuarray.to_gpu(b_cpu)
+        if c_gpu is None:
+            c_gpu = gpuarray.to_gpu(c_cpu)
         if gpaw.cuda.debug:
-            a_cpu = a.get()
-            b_cpu = b.get()
-            c_cpu = c.get()
-            _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu)
-
-        _gpaw.r2k_cuda_gpu(alpha, a.gpudata, a.shape, b.gpudata,
-                           b.shape, beta, c.gpudata, c.shape, a.dtype,
-                           hybrid)
+            a_debug = a_gpu.get()
+            b_debug = b_gpu.get()
+            c_debug = c_gpu.get()
+            _gpaw.r2k(alpha, a_debug, b_debug, beta, c_debug)
+        _gpaw.r2k_cuda_gpu(alpha, a_gpu.gpudata, a_gpu.shape, b_gpu.gpudata,
+                           b_gpu.shape, beta, c_gpu.gpudata, c_gpu.shape,
+                           a_gpu.dtype, hybrid)
         if gpaw.cuda.debug:
-            gpaw.cuda.debug_test(c_cpu, c, "rk2")
-    elif cuda:
-        a_gpu = gpuarray.to_gpu(a)
-        b_gpu = gpuarray.to_gpu(b)
-        c_gpu = gpuarray.to_gpu(c)
-
-        _gpaw.r2k_cuda_gpu(alpha, a_gpu.gpudata, a.shape, b_gpu.gpudata,
-                           b.shape, beta, c_gpu.gpudata, c.shape, a.dtype,
-                           hybrid)
-        c_gpu.get(c)
+            gpaw.cuda.debug_test(c_debug, c_gpu, "rk2")
+        if c_cpu is not None:
+            c_gpu.get(c_cpu)
     else:
-        _gpaw.r2k(alpha, a, b, beta, c)
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if b_cpu is None:
+            b_cpu = b_gpu.get()
+        if c_cpu is None:
+            c_cpu = c_gpu.get()
+        _gpaw.r2k(alpha, a_cpu, b_cpu, beta, c_cpu)
+        if c_gpu is not None:
+            c_gpu.set(c_cpu)
 
 
 def dotc(a, b):
@@ -448,21 +498,32 @@ def dotc(a, b):
         assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
-    assert (type(a) == type(b))
 
-    if isinstance(a, gpuarray.GPUArray) \
-            and isinstance(b, gpuarray.GPUArray):
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpuarray.GPUArray) \
+                             else (a, None)
+    b_cpu, b_gpu = (None, b) if isinstance(b, gpuarray.GPUArray) \
+                             else (b, None)
+
+    if isinstance(a, gpuarray.GPUArray) or isinstance(b, gpuarray.GPUArray):
+        if a_gpu is None:
+            a_gpu = gpuarray.to_gpu(a_cpu)
+        if b_gpu is None:
+            b_gpu = gpuarray.to_gpu(b_cpu)
         if gpaw.cuda.debug:
-            gpu = _gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
-            a_cpu = a.get()
-            b_cpu = b.get()
-            cpu = _gpaw.dotc(a_cpu, b_cpu)
+            a_debug = a_gpu.get()
+            b_debug = b_gpu.get()
+            cpu = _gpaw.dotc(a_debug, b_debug)
+        gpu = _gpaw.dotc_cuda_gpu(a_gpu.gpudata, a.shape,
+                                  b_gpu.gpudata, a.dtype)
+        if gpaw.cuda.debug:
             gpaw.cuda.debug_test(cpu, gpu, "dotc")
-            return gpu
-        else:
-            return _gpaw.dotc_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
+        return gpu
     else:
-        return _gpaw.dotc(a, b)
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if b_cpu is None:
+            b_cpu = b_gpu.get()
+        return _gpaw.dotc(a_cpu, b_cpu)
 
 
 def dotu(a, b):
@@ -482,21 +543,32 @@ def dotu(a, b):
         assert ((is_contiguous(a, float) and is_contiguous(b, float)) or
                 (is_contiguous(a, complex) and is_contiguous(b, complex)))
         assert a.shape == b.shape
-    assert (type(a) == type(b))
 
-    if isinstance(a, gpuarray.GPUArray) \
-            and isinstance(b, gpuarray.GPUArray):
+    a_cpu, a_gpu = (None, a) if isinstance(a, gpuarray.GPUArray) \
+                             else (a, None)
+    b_cpu, b_gpu = (None, b) if isinstance(b, gpuarray.GPUArray) \
+                             else (b, None)
+
+    if isinstance(a, gpuarray.GPUArray) or isinstance(b, gpuarray.GPUArray):
+        if a_gpu is None:
+            a_gpu = gpuarray.to_gpu(a_cpu)
+        if b_gpu is None:
+            b_gpu = gpuarray.to_gpu(b_cpu)
         if gpaw.cuda.debug:
-            a_cpu = a.get()
-            b_cpu = b.get()
-            cpu = _gpaw.dotu(a_cpu, b_cpu)
-            gpu = _gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
-            gpaw.cuda.debug_test(cpu,gpu,"dotu")
-            return gpu
-        else:
-            return _gpaw.dotu_cuda_gpu(a.gpudata, a.shape, b.gpudata, a.dtype)
+            a_debug = a_gpu.get()
+            b_debug = b_gpu.get()
+            cpu = _gpaw.dotu(a_debug, b_debug)
+        gpu = _gpaw.dotu_cuda_gpu(a_gpu.gpudata, a.shape,
+                                  b_gpu.gpudata, a.dtype)
+        if gpaw.cuda.debug:
+            gpaw.cuda.debug_test(cpu, gpu, "dotu")
+        return gpu
     else:
-        return _gpaw.dotu(a, b)
+        if a_cpu is None:
+            a_cpu = a_gpu.get()
+        if b_cpu is None:
+            b_cpu = b_gpu.get()
+        return _gpaw.dotu(a_cpu, b_cpu)
 
 
 def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
