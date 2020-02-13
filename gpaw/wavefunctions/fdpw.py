@@ -228,7 +228,7 @@ class FDPWWaveFunctions(WaveFunctions):
             self._work_matrix_nn = Matrix(
                 self.bd.nbands, self.bd.nbands,
                 self.dtype,
-                dist=(self.bd.comm, self.bd.comm.size))
+                dist=(self.bd.comm, self.bd.comm.size), cuda=self.cuda)
         return self._work_matrix_nn
 
     def __str__(self):
