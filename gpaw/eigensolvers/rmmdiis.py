@@ -208,13 +208,8 @@ class RMMDIIS(Eigensolver):
 
                 # copy arrays to CPU and swap references to enable
                 #   element-wise assignments
-                if self.cuda:
-                    psitb.array.get(psitb_cpu)
-                    psitb_gpu = psitb.array
-                    psitb.array = psitb_cpu
-                    Rb.array.get(Rb_cpu)
-                    Rb_gpu = Rb.array
-                    Rb.array = Rb_cpu
+                psitb.use_cpu()
+                Rb.use_cpu()
 
                 # Update the subspace
                 psit_diis_nxG[nit:B * self.niter:self.niter] = psitb.array
@@ -262,10 +257,8 @@ class RMMDIIS(Eigensolver):
 
                 # copy arrays back to GPU and swap references back
                 if self.cuda:
-                    psitb_gpu.set(psitb.array)
-                    psitb.array = psitb_gpu
-                    Rb_gpu.set(Rb.array)
-                    Rb.array = Rb_gpu
+                    psitb.use_gpu()
+                    Rb.use_gpu()
 
                 if nit < self.niter - 1:
                     with self.timer('precondition'):
