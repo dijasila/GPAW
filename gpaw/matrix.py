@@ -341,7 +341,7 @@ class Matrix:
                   blocksize != self.dist.blocksize)
 
         if redist:
-            H = self.new(dist=dist)
+            H = self.new(dist=dist, cuda=False)
             self.redist(H)
         else:
             assert self.dist.comm.size == slcomm.size
