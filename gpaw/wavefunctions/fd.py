@@ -43,14 +43,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
                  gd, nvalence, setups, bd,
                  dtype, world, kd, kptband_comm, timer, reuse_wfs_method=None,
                  collinear=True, cuda=False):
-        self.cuda = cuda
         FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
                                    collinear=collinear,
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer,
-                                   cuda=self.cuda)
+                                   cuda=cuda)
 
         # Kinetic energy operator:
         self.kin = Laplace(self.gd, -0.5, stencil, self.dtype, cuda=self.cuda)
@@ -207,7 +206,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt2.psit = UniformGridWaveFunctions(
                     self.bd.nbands, self.gd, self.dtype,
                     kpt=k, dist=(self.bd.comm, self.bd.comm.size),
-                    spin=kpt.s, collinear=True)
+                    spin=kpt.s, collinear=True, cuda=self.cuda)
                 self.gd.distribute(Psit_nG, kpt2.psit_nG)
                 # Calculate PAW projections:
                 nproj_a = [setup.ni for setup in self.setups]
@@ -270,7 +269,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, psit_nG,
                 kpt=kpt.q, dist=(self.bd.comm, self.bd.comm.size),
-                spin=kpt.s, collinear=True)
+                spin=kpt.s, collinear=True, cuda=self.cuda)
 
         if self.world.size > 1:
             # Read to memory:
@@ -282,7 +281,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),
-                spin=kpt.s, collinear=True)
+                spin=kpt.s, collinear=True, cuda=self.cuda)
             kpt.psit_nG[:] = 0.0
             mynbands = len(kpt.C_nM)
             basis_functions.lcao_to_grid(kpt.C_nM,
