@@ -90,33 +90,29 @@ class KPoint:
         self.C_nM = None  # LCAO coefficients for wave functions
 
         self.cuda = cuda
-        if self.cuda:
-            self.psit_nG_gpu = None
 
         # LCAO stuff:
         self.rho_MM = None
         self.S_MM = None
         self.T_MM = None
 
-    def cuda_psit_nG_htod(self):
-        if self.psit_nG_gpu is None:
-            self.psit_nG_gpu = gpaw.cuda.gpuarray.to_gpu(self.psit_nG)
-        else:
-            self.psit_nG_gpu.set(self.psit_nG)
+    def use_gpu(self):
+        if self.psit is not None:
+            self.psit.use_gpu()
 
-    def cuda_psit_nG_dtoh(self):
-        self.psit_nG_gpu.get(self.psit_nG)
+    def use_cpu(self):
+        if self.psit is not None:
+            self.psit.use_cpu()
 
     def set_cuda(self, cuda):
         """Enable/disable cuda"""
         if cuda == self.cuda:
             return
-
         self.cuda = cuda
-
-        if not self.cuda:
-            del self.psit_nG_gpu
-            self.psit_nG_gpu = None
+        if self.cuda:
+            self.use_gpu()
+        else:
+            self.use_cpu()
 
     @property
     def P_ani(self):
