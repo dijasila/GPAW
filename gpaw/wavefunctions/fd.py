@@ -365,13 +365,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
             np.random.set_state(old_state)
 
-    def cuda_psit_nG_htod(self):
+    def use_gpu(self):
         for kpt in self.kpt_u:
-            kpt.cuda_psit_nG_htod()
+            kpt.use_gpu()
 
-    def cuda_psit_nG_dtoh(self):
+    def use_cpu(self):
         for kpt in self.kpt_u:
-            kpt.cuda_psit_nG_dtoh()
+            kpt.use_cpu()
 
     def estimate_memory(self, mem):
         FDPWWaveFunctions.estimate_memory(self, mem)
