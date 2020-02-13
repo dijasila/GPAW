@@ -222,6 +222,8 @@ class Matrix:
         """Redistribute to other BLACS layout."""
         if self is other:
             return
+        self.use_cpu()
+        other.use_cpu()
         d1 = self.dist
         d2 = other.dist
         n1 = d1.rows * d1.columns
@@ -275,18 +277,23 @@ class Matrix:
             else:
                 ctx = d2.desc[1]
             redist(d1, self.array, d2, other.array, ctx)
+        if self.cuda:
+            self.use_gpu()
+        if other.cuda:
+            other.use_gpu()
 
     def invcholesky(self):
         """Inverse of Cholesky decomposition.
 
         Only the lower part is used.
         """
+        self.use_cpu()
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
         if self.comm.rank == 0:
             if self.dist.comm.size > 1:
-                S = self.new(dist=(self.dist.comm, 1, 1))
+                S = self.new(dist=(self.dist.comm, 1, 1), cuda=False)
                 self.redist(S)
             else:
                 S = self
@@ -306,6 +313,8 @@ class Matrix:
         if self.comm.size > 1:
             self.comm.broadcast(self.array, 0)
             self.state == 'everything is fine'
+        if self.cuda:
+            self.use_gpu()
 
     def eigh(self, cc=False, scalapack=(None, 1, 1, None)):
         """Calculate eigenvectors and eigenvalues.
@@ -320,6 +329,7 @@ class Matrix:
         """
         slcomm, rows, columns, blocksize = scalapack
 
+        self.use_cpu()
         if self.state == 'a sum is needed':
             self.comm.sum(self.array, 0)
 
@@ -366,13 +376,18 @@ class Matrix:
             self.comm.broadcast(self.array, 0)
             self.comm.broadcast(eps, 0)
             self.state == 'everything is fine'
+        if self.cuda:
+            self.use_gpu()
 
         return eps
 
     def complex_conjugate(self):
         """Inplace complex conjugation."""
         if self.dtype == complex:
+            self.use_cpu()
             np.negative(self.array.imag, self.array.imag)
+            if self.cuda:
+                self.use_gpu()
 
 
 def _matrix(M):
@@ -516,6 +531,10 @@ def create_distribution(M, N, comm=None, r=1, c=1, b=None):
 
 
 def fastmmm(m1, m2, m3, beta):
+    m1.use_cpu()
+    m2.use_cpu()
+    m3.use_cpu()
+
     comm = m1.dist.comm
 
     buf1 = m2.array
@@ -557,6 +576,13 @@ def fastmmm(m1, m2, m3, beta):
         if srequest:
             comm.wait(srequest)
 
+    if m1.cuda:
+        m1.use_gpu()
+    if m2.cuda:
+        m2.use_gpu()
+    if m3.cuda:
+        m3.use_gpu()
+
     return m3
 
 
@@ -566,6 +592,10 @@ def fastmmm2(a, b, out):
         if a.comm.size > 1:
             assert out.comm == a.comm
             assert out.state == 'a sum is needed'
+
+    a.use_cpu()
+    b.use_cpu()
+    out.use_cpu()
 
     comm = a.dist.comm
     M, N = a.shape
@@ -638,6 +668,13 @@ def fastmmm2(a, b, out):
     for m1, m2, block in blocks:
         out.array[:, m1:m2] += block
 
+    if a.cuda:
+        a.use_gpu()
+    if b.cuda:
+        b.use_gpu()
+    if out.cuda:
+        out.use_gpu()
+
     return out
 
 
@@ -647,6 +684,10 @@ def fastmmm2notsym(a, b, out):
         if a.comm.size > 1:
             assert out.comm == a.comm
             assert out.state == 'a sum is needed'
+
+    a.use_cpu()
+    b.use_cpu()
+    out.use_cpu()
 
     comm = a.dist.comm
     M, N = a.shape
@@ -684,5 +725,12 @@ def fastmmm2notsym(a, b, out):
 
         bb = buf1
         buf1, buf2 = buf2, buf1
+
+    if a.cuda:
+        a.use_gpu()
+    if b.cuda:
+        b.use_gpu()
+    if out.cuda:
+        out.use_gpu()
 
     return out
