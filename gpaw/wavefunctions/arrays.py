@@ -13,19 +13,20 @@ class MatrixInFile:
 
 
 class ArrayWaveFunctions:
-    def __init__(self, M, N, dtype, data, dist, collinear):
+    def __init__(self, M, N, dtype, data, dist, collinear, cuda=False):
         self.collinear = collinear
         if not collinear:
             N *= 2
         if data is None or isinstance(data, np.ndarray) \
-                or isinstance(data, GPUArray):
-            self.matrix = Matrix(M, N, dtype, data, dist)
+                        or isinstance(data, GPUArray):
+            self.matrix = Matrix(M, N, dtype, data, dist, cuda)
             self.in_memory = True
         else:
             self.matrix = MatrixInFile(M, N, dtype, data, dist)
             self.in_memory = False
         self.comm = None
         self.dtype = self.matrix.dtype
+        self.cuda = cuda
 
     def __len__(self):
         return len(self.matrix)
@@ -44,7 +45,8 @@ class ArrayWaveFunctions:
             out = Matrix(len(self), len(other or self), dtype=self.dtype,
                          dist=(self.matrix.dist.comm,
                                self.matrix.dist.rows,
-                               self.matrix.dist.columns))
+                               self.matrix.dist.columns),
+                         cuda=self.cuda)
         if other is None or isinstance(other, ArrayWaveFunctions):
             assert cc
             if other is None:
@@ -88,7 +90,8 @@ class ArrayWaveFunctions:
     def read_from_file(self):
         """Read wave functions from file into memory."""
         matrix = Matrix(*self.matrix.shape,
-                        dtype=self.dtype, dist=self.matrix.dist)
+                        dtype=self.dtype, dist=self.matrix.dist,
+                        cuda=self.cuda)
         # Read band by band to save memory
         rows = matrix.dist.rows
         blocksize = (matrix.shape[0] + rows - 1) // rows
@@ -109,10 +112,10 @@ class ArrayWaveFunctions:
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, gd, dtype=None, data=None, kpt=None, dist=None,
-                 spin=0, collinear=True):
+                 spin=0, collinear=True, cuda=False):
         ngpts = gd.n_c.prod()
         ArrayWaveFunctions.__init__(self, nbands, ngpts, dtype, data, dist,
-                                    collinear)
+                                    collinear, cuda)
 
         M = self.matrix
 
@@ -149,13 +152,15 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
                                         self.gd, self.dtype,
                                         buf,
                                         self.kpt, dist,
-                                        self.spin)
+                                        self.spin,
+                                        cuda=self.cuda)
 
     def view(self, n1, n2):
         return UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
                                         self.array[n1:n2],
                                         self.kpt, None,
-                                        self.spin)
+                                        self.spin,
+                                        cuda=self.cuda)
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -167,7 +172,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
 
 class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
     def __init__(self, nbands, pd, dtype=None, data=None, kpt=None, dist=None,
-                 spin=0, collinear=True):
+                 spin=0, collinear=True, cuda=False):
         ng = ng0 = pd.myng_q[kpt]
         if data is not None:
             assert data.dtype == complex
@@ -177,7 +182,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                 data = data.view(float)
 
         ArrayWaveFunctions.__init__(self, nbands, ng, dtype, data, dist,
-                                    collinear)
+                                    collinear, cuda)
         self.pd = pd
         self.gd = pd.gd
         self.comm = pd.gd.comm
@@ -217,7 +222,8 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                 out = Matrix(len(self), len(other or self), dtype=self.dtype,
                              dist=(self.matrix.dist.comm,
                                    self.matrix.dist.rows,
-                                   self.matrix.dist.columns))
+                                   self.matrix.dist.columns),
+                             cuda=self.cuda)
             assert cc
             if other is None:
                 assert symmetric
@@ -257,13 +263,15 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                                self.pd, self.dtype,
                                                buf,
                                                self.kpt, dist,
-                                               self.spin, self.collinear)
+                                               self.spin, self.collinear,
+                                               self.cuda)
 
     def view(self, n1, n2):
         return PlaneWaveExpansionWaveFunctions(n2 - n1, self.pd, self.dtype,
                                                self.array[n1:n2],
                                                self.kpt, None,
-                                               self.spin, self.collinear)
+                                               self.spin, self.collinear,
+                                               self.cuda)
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
