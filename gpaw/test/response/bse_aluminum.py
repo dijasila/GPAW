@@ -19,7 +19,7 @@ if GS:
                 xc='LDA',
                 nbands=4,
                 convergence={'bands': 'all'})
-    
+
     atoms.set_calculator(calc)
     atoms.get_potential_energy()
     calc.write('Al.gpw', 'all')
@@ -42,7 +42,7 @@ if bse:
                                   q_c=q_c,
                                   w_w=w_w,
                                   eta=eta)[1]
-    
+
 if df:
     df = DielectricFunction(calc='Al.gpw',
                             frequencies=w_w,

@@ -57,5 +57,6 @@ doc/setups/[A-Z]*.rst
 # Emacs lock files:
 .\#*
 
-# This one is OK:
+# These are OK:
 !requirements.txt
+!mypy.ini
