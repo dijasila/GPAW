@@ -1,5 +1,6 @@
 """ASE-calculator interface."""
 import warnings
+from typing import Dict, Any
 
 import numpy as np
 from ase import Atoms
@@ -49,7 +50,7 @@ class GPAW(PAW, Calculator):
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms']
 
-    default_parameters = {
+    default_parameters: Dict[str, Any] = {
         'mode': 'fd',
         'xc': 'LDA',
         'occupations': None,
@@ -91,7 +92,7 @@ class GPAW(PAW, Calculator):
         'width': None,  # deprecated
         'verbose': 0}
 
-    default_parallel = {
+    default_parallel: Dict[str, Any] = {
         'kpt': None,
         'domain': gpaw.parsize_domain,
         'band': gpaw.parsize_bands,

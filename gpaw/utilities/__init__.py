@@ -224,7 +224,7 @@ def pack2(M2, tolerance=1e-10):
 
 
 for method in (unpack, unpack2, pack, pack2):
-    method.__doc__ += packing_conventions
+    method.__doc__ += packing_conventions  # type: ignore
 
 
 def element_from_packed(M, i, j):
