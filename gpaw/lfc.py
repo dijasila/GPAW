@@ -1,4 +1,3 @@
-from __future__ import division
 from math import pi
 
 import numpy as np
@@ -1209,7 +1208,7 @@ def test():
     x.set_positions([(0.5, 0.45, 0.5), (0.5, 0.55, 0.5)])
     n_G = gd.zeros()
     x.add(n_G)
-    import pylab as plt
+    import matplotlib.pyplot as plt
     plt.contourf(n_G[20, :, :])
     plt.axis('equal')
     plt.show()

@@ -73,7 +73,7 @@ def info():
 
 
 class CLICommand:
-    __doc__ = info.__doc__.rstrip('.')
+    """Show versions of GPAW and its dependencies"""
 
     @staticmethod
     def add_arguments(parser):

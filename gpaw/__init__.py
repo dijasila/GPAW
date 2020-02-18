@@ -7,12 +7,13 @@ import os
 import sys
 from sysconfig import get_platform
 from os.path import join, isfile
+from typing import List
 
 plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat += '-' + platform_id
-build_path = join(__path__[0], '..', 'build')  # noqa
+build_path = join(__path__[0], '..', 'build')  # type: ignore
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
@@ -219,7 +220,7 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', sys.flags.debug)
+debug: bool = extra_parameters.pop('debug', sys.flags.debug)
 benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
@@ -252,7 +253,7 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = []
+setup_paths: List[str] = []
 
 
 with broadcast_imports:

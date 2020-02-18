@@ -170,9 +170,9 @@ def generate_basis_functions(ppdata):
 
 
 def pseudoplot(pp, show=True):
-    import pylab as pl
+    import matplotlib.pyplot as plt
 
-    fig = pl.figure()
+    fig = plt.figure()
     wfsax = fig.add_subplot(221)
     ptax = fig.add_subplot(222)
     vax = fig.add_subplot(223)
@@ -207,7 +207,7 @@ def pseudoplot(pp, show=True):
         ax.legend()
 
     if show:
-        pl.show()
+        plt.show()
 
 
 class PseudoPotential(BaseSetup):

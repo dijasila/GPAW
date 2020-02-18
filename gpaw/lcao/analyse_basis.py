@@ -3,6 +3,7 @@
 import os
 from optparse import OptionParser
 
+
 def build_parser():
     usage = '%prog [OPTION] [BASIS]...'
     parser = OptionParser(usage=usage, version='%prog 1.0')
@@ -20,11 +21,12 @@ def build_parser():
                       help='Image format [default: %default]')
     return parser
 
+
 def main():
     parser = build_parser()
     opts, files = parser.parse_args()
 
-    import pylab
+    import matplotlib.pyplot as plt
     from gpaw.basis_data import Basis, BasisPlotter
 
     plotter = BasisPlotter(premultiply=not opts.literal,
@@ -41,9 +43,9 @@ def main():
         if opts.actual_filenames:
             basis = Basis(symbol, name, False)
             basis.read_xml(path)
-        else: # Search GPAW setup dirs
-            basis = Basis(symbol, name)        
+        else:  # search GPAW setup dirs
+            basis = Basis(symbol, name)
         plotter.plot(basis)
 
     if not opts.save:
-        pylab.show()
+        plt.show()
