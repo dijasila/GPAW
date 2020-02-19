@@ -876,7 +876,7 @@ class DirectMinFD(Eigensolver):
         # log = parprint
 
         log = None
-        if wfs.read_from_file:
+        if wfs.read_from_file_init_wfs_dm:
             intital_random = False
         else:
             intital_random = True
@@ -895,7 +895,8 @@ class DirectMinFD(Eigensolver):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
-        if not self.need_init_orbs or wfs.read_from_file:
+        if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+            occ.calculate(wfs)
             return
 
         log("Initial Localization: ...", flush=True)
