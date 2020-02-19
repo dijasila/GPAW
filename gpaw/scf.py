@@ -40,6 +40,8 @@ class SCFLoop:
         for name, val in [
             ('[total energy] change: {0:g} eV / electron',
              cc['energy'] * Ha / self.nvalence),
+            ('                 (or): {0:g} eV',
+             cc['energy'] * Ha),
             ('integral of absolute [dens]ity change: {0:g} electrons',
              cc['density'] / self.nvalence),
             ('integral of absolute eigenstate [wfs] change: {0:g} eV^2',

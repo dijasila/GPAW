@@ -158,14 +158,10 @@ class SJM(SolvationGPAW):
             self.sog(' Current excess electrons: {:.5f}' .format(p.ne))
         else:
             self.sog(' Excess electrons: {:.5f}' .format(p.ne))
-        if p.write_grandcanonical is True:
-            self.sog(' Grand canonical energy will be returned.')
-        else:
-            self.sog(' Canonical energy will be returned.')
 
     def sog(self, message):
         # FIXME: Delete after all is set up.
-        message = 'SJ: ' + message
+        message = 'SJ: ' + str(message)
         self.log(message)
         self.log.flush()
 
@@ -198,7 +194,7 @@ class SJM(SolvationGPAW):
             psolver=self.parameters.poissonsolver,
             stencil=mode.interpolation)
 
-        self.log(self.hamiltonian)
+        self.sog(self.hamiltonian)
 
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
@@ -255,10 +251,10 @@ class SJM(SolvationGPAW):
                 else:
                     # FIXME: Why is it deciding here?
                     if self.wfs is None:
-                        self.log('Target electrode potential: %1.4f V'
+                        self.sog('Target electrode potential: %1.4f V'
                                  % p.target_potential)
                     else:
-                        self.log('New Target electrode potential: %1.4f V'
+                        self.sog('New Target electrode potential: %1.4f V'
                                  % p.target_potential)
 
             if key == 'doublelayer':
@@ -426,7 +422,7 @@ class SJM(SolvationGPAW):
 
         else:
             # Constant-charge mode.
-            self.log('SJ:  Constant-charge calculation with {:.5f} excess '
+            self.sog(' Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.ne))
             self.set_jellium(atoms)
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
@@ -440,8 +436,11 @@ class SJM(SolvationGPAW):
             # and such. This shouldn't be the case, I believe. Check
             # how GPAW does it.
 
-            self.log('SJ: Calculating non-energy properties.')
+            self.sog('Calculating non-energy properties.')
             SolvationGPAW.calculate(self, atoms, properties, [])
+
+        #FIXME set self.results['energy'] etc here, not in summary.
+        # Then it's like GPAW.
 
     def write_cavity_and_bckcharge(self):
         p = self.sjm_parameters
@@ -458,6 +457,10 @@ class SJM(SolvationGPAW):
             name='background_charge_')
 
     def summary(self):
+        # FIXME: We *think* this should be e_total_free and
+        # e_total_extrapolated.
+        # In solvation/hamiltonian, we should just get rid of
+        # self.e_el_* quantities
         p = self.sjm_parameters
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
             self.get_electrode_potential() * p.ne
@@ -468,6 +471,8 @@ class SJM(SolvationGPAW):
             self.results['energy'] = omega_extra
             self.results['free_energy'] = omega_free
         else:
+            #FIXME: This can be deleted, I think. Already written by
+            # parent calculator.
             self.results['energy'] = Hartree * \
                 self.hamiltonian.e_el_extrapolated
             self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
@@ -476,15 +481,14 @@ class SJM(SolvationGPAW):
         self.results['electrode_potential'] = self.get_electrode_potential()
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
 
-        self.log('----------------------------------------------------------')
-        self.log("Grand Potential Energy (E_tot + E_solv - mu*ne):")
-        self.log('Extrpol:    %s' % omega_extra)
-        self.log('Free:    %s' % omega_free)
-        self.log('-----------------------------------------------------------')
+        # FIXME: add in what ne and mu are here.
+        self.sog('Grand-canonical potential energy (E_tot + E_solv - mu*ne):')
+        self.sog('{:<14s} {:+11.6f}'.format('Extrapolated:', omega_extra))
+        self.sog('{:<14s} {:+11.6f}'.format('Free energy:', omega_free))
         if p.write_grandcanonical:
-            self.log("Grand canonical energy will be written into results\n")
+            self.sog('Grand-canonical energy was written into results.\n')
         else:
-            self.log("Canonical energy will be written to results\n")
+            self.sog("Canonical energy was written into results.\n")
 
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
@@ -499,7 +503,7 @@ class SJM(SolvationGPAW):
         """Module for the definition of the explicit and counter charge
 
         """
-        self.log('inside define_jellium method')
+        self.sog('inside define_jellium method')
         p = self.sjm_parameters
         if p.dl is None:
             p.dl = {}
@@ -517,7 +521,7 @@ class SJM(SolvationGPAW):
         else:
             p.dl['start'] = max(atoms.positions[:, 2]) + 3.
 
-        self.log('   passed first if')
+        self.sog('   passed first if')
         if 'upper_limit' in p.dl:
             pass
         elif 'thickness' in p.dl:
@@ -531,28 +535,28 @@ class SJM(SolvationGPAW):
         else:
             p.dl['upper_limit'] = atoms.cell[2][2] - 5.0
 
-        self.log('   passed 2nd if')
+        self.sog('   passed 2nd if')
         if p.dl['start'] == 'cavity_like':
-            self.log('    in cavity_like')
+            self.sog('    in cavity_like')
 
             # XXX This part can definitely be improved
             if self.hamiltonian is None:
-                self.log('    in hamiltonian is None')
+                self.sog('    in hamiltonian is None')
                 filename = self.log.fd
-                self.log('    filename')
-                self.log(filename)
+                self.sog('    filename')
+                self.sog(str(filename))
                 # self.log.fd = None  # FIXME This was causing crashes.
-                self.log('    initializeing atoms')
+                self.sog('    initializeing atoms')
                 self.initialize(atoms)
                 self.set_positions(atoms)
                 # self.log.fd = filename
-                self.log('      copying hamiltonian cavity')
+                self.sog('      copying hamiltonian cavity')
                 g_g = self.hamiltonian.cavity.g_g.copy()
                 self.wfs = None
                 self.density = None
                 self.hamiltonian = None
                 self.initialized = False
-                self.log('      returning CavityShapedJellium')
+                self.sog('      returning CavityShapedJellium')
                 return CavityShapedJellium(p.ne, g_g=g_g,
                                            z2=p.dl['upper_limit'])
 
@@ -566,7 +570,7 @@ class SJM(SolvationGPAW):
                                            z2=p.dl['upper_limit'])
 
         elif isinstance(p.dl['start'], numbers.Real):
-            self.log('    in isinstance start')
+            self.sog('    in isinstance start')
             return JelliumSlab(p.ne, z1=p.dl['start'],
                                z2=p.dl['upper_limit'])
 

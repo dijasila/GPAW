@@ -187,6 +187,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     global_integral=False)
 
     def get_energy(self, occ):
+        # FIXME: Maybe we should delete self.e_el_free and
+        # self.e_el_extrapolated?
         self.e_kinetic = self.e_kinetic0 + occ.e_band
         self.e_entropy = occ.e_entropy
         self.e_el_free = (
@@ -217,6 +219,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         return gs
 
     def summary(self, fermilevel, log):
+        # XXX: (Should we copy from gpaw/hamiltonian and just add in
+        # the single term from interactions? Or have gpaw/hamiltonian
+        # take an "extra_energies" keyword?
         self.cavity.summary(log)
         log()
         log('Solvation Energy Contributions:')
