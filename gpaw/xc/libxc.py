@@ -1,3 +1,7 @@
+import os
+
+import pylibxc
+
 import _gpaw
 from gpaw.xc.kernel import XCKernel
 from gpaw import debug
@@ -20,7 +24,65 @@ short_names = {
     'SCAN': 'MGGA_X_SCAN+MGGA_C_SCAN'}
 
 
-class LibXC(XCKernel):
+def LibXC(name):
+    if os.environ.get('GPAW_USE_PYLIBXC'):
+        return PyLibXC(name)
+    return GPAWLibXC(name)
+
+
+class PyLibXC(XCKernel):
+    """Functionals from libxc."""
+    def __init__(self, name):
+        self.name = name
+        self.omega = None
+        self.nspins = 0
+        self.xcs = []
+
+    def initialize(self, nspins):
+        self.nspins = nspins
+        name = short_names.get(self.name, self.name)
+        number = pylibxc.util.xc_functional_get_number(name)
+        if number != -1:
+            numbers = [number]
+        else:
+            try:
+                x, c = name.split('+')
+            except ValueError:
+                raise NameError('Unknown functional: "%s".' % name)
+            x = pylibxc.util.xc_functional_get_number(x)
+            c = pylibxc.util.xc_functional_get_number(c)
+            if x == -1 or c == -1:
+                raise NameError('Unknown functional: "%s".' % name)
+            numbers = [x, c]
+        self.xcs = [pylibxc.functional.LibXCFunctional(n, nspins)
+                    for n in numbers]
+
+    def calculate(self, e_g, n_sg, dedn_sg,
+                  sigma_xg=None, dedsigma_xg=None,
+                  tau_sg=None, dedtau_sg=None):
+        if debug:
+            self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
+                                 tau_sg, dedtau_sg)
+        nspins = len(n_sg)
+        if self.nspins != nspins:
+            self.initialize(nspins)
+
+        e_g[:] = 0.0
+
+        for xc in self.xcs:
+            inp = {}
+            if nspins == 1:
+                inp['rho'] = n_sg[0]
+            else:
+                inp['rho'] = n_sg.T.copy()
+            out = xc.compute(inp)
+            e_g += out['zk'][0]
+            dedn_sg += out['vrho'].reshape(dedn_sg.shape)
+
+        e_g *= n_sg.sum(0)
+
+
+class GPAWLibXC(XCKernel):
     """Functionals from libxc."""
     def __init__(self, name):
         self.name = name
