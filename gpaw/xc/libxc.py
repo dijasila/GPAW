@@ -1,6 +1,6 @@
 import os
 
-import pylibxc
+import numpy as np
 
 import _gpaw
 from gpaw.xc.kernel import XCKernel
@@ -33,6 +33,7 @@ def LibXC(name):
 class PyLibXC(XCKernel):
     """Functionals from libxc."""
     def __init__(self, name):
+        import pylibxc
         self.name = name
         self.omega = None
         self.nspins = 0
@@ -52,17 +53,17 @@ class PyLibXC(XCKernel):
                 raise NameError('Unknown functional: "%s".' % name)
             self.numbers = [x, c]
 
-        family = max(pylibxc.util.xc_family_from_id(id)[0]
-                     for id in self.numbers)
-        assert all(family == pylibxc.util.xc_family_from_id(id)[0]
-                   for id in self.numbers)
+        families = [pylibxc.util.xc_family_from_id(id)[0]
+                    for id in self.numbers]
+        assert np.ptp(families) == 0, (name, families)
 
         self.type = {pylibxc.flags.XC_FAMILY_LDA: 'LDA',
                      pylibxc.flags.XC_FAMILY_GGA: 'GGA',
                      # pylibxc.flags.XC_FAMILY_MGGA: 'MGGA'
-                     }[family]
+                     }[families[0]]
 
     def initialize(self, nspins):
+        import pylibxc
         self.nspins = nspins
         self.xcs = [pylibxc.functional.LibXCFunctional(n, nspins)
                     for n in self.numbers]
@@ -92,10 +93,17 @@ class PyLibXC(XCKernel):
                 if self.type == 'GGA':
                     inp['sigma'] = sigma_xg.T.copy()
             out = xc.compute(inp)
-            e_g += out['zk'][0].reshape(e_g.shape)
-            dedn_sg += out['vrho'].reshape(n_sg.shape)
-            if self.type == 'GGA':
-                dedsigma_xg += out['vsigma'].reshape(sigma_xg.shape)
+            if nspins == 1:
+                e_g += out['zk'][0].reshape(e_g.shape)
+                dedn_sg += out['vrho'].reshape(n_sg.shape)
+                if self.type == 'GGA':
+                    dedsigma_xg += out['vsigma'].reshape(sigma_xg.shape)
+            else:
+                e_g += out['zk'][0].reshape(e_g.shape[::-1]).T
+                dedn_sg += out['vrho'].reshape(n_sg.shape[:0:-1] + (2,)).T
+                if self.type == 'GGA':
+                    dedsigma_xg += out['vsigma'].reshape(n_sg.shape[:0:-1] +
+                                                         (3,)).T
 
         e_g *= n_sg.sum(0)
 
