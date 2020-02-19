@@ -191,14 +191,6 @@ memory_estimate_depth = gpaw_args.memory_estimate_depth
 parsize_domain = gpaw_args.parsize_domain
 parsize_bands = gpaw_args.parsize_bands
 augment_grids = gpaw_args.augment_grids
-# We deprecate the sl_xxx parameters being set from command line.
-# People can satisfy their lusts by setting gpaw.sl_default = something
-# if they are perverted enough to use global variables.
-sl_default = None
-sl_diagonalize = None
-sl_inverse_cholesky = None
-sl_lcao = None
-sl_lrtddft = None
 buffer_size = gpaw_args.buffer_size
 profile = gpaw_args.profile
 
