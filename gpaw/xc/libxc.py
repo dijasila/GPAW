@@ -37,13 +37,10 @@ class PyLibXC(XCKernel):
         self.omega = None
         self.nspins = 0
         self.xcs = []
-
-    def initialize(self, nspins):
-        self.nspins = nspins
-        name = short_names.get(self.name, self.name)
+        name = short_names.get(name, name)
         number = pylibxc.util.xc_functional_get_number(name)
         if number != -1:
-            numbers = [number]
+            self.numbers = [number]
         else:
             try:
                 x, c = name.split('+')
@@ -53,9 +50,22 @@ class PyLibXC(XCKernel):
             c = pylibxc.util.xc_functional_get_number(c)
             if x == -1 or c == -1:
                 raise NameError('Unknown functional: "%s".' % name)
-            numbers = [x, c]
+            self.numbers = [x, c]
+
+        family = max(pylibxc.util.xc_family_from_id(id)[0]
+                     for id in self.numbers)
+        assert all(family == pylibxc.util.xc_family_from_id(id)[0]
+                   for id in self.numbers)
+
+        self.type = {pylibxc.flags.XC_FAMILY_LDA: 'LDA',
+                     pylibxc.flags.XC_FAMILY_GGA: 'GGA',
+                     # pylibxc.flags.XC_FAMILY_MGGA: 'MGGA'
+                     }[family]
+
+    def initialize(self, nspins):
+        self.nspins = nspins
         self.xcs = [pylibxc.functional.LibXCFunctional(n, nspins)
-                    for n in numbers]
+                    for n in self.numbers]
 
     def calculate(self, e_g, n_sg, dedn_sg,
                   sigma_xg=None, dedsigma_xg=None,
@@ -68,16 +78,24 @@ class PyLibXC(XCKernel):
             self.initialize(nspins)
 
         e_g[:] = 0.0
+        if self.type == 'GGA':
+            dedsigma_xg[:] = 0.0
 
         for xc in self.xcs:
             inp = {}
             if nspins == 1:
                 inp['rho'] = n_sg[0]
+                if self.type == 'GGA':
+                    inp['sigma'] = sigma_xg[0]
             else:
                 inp['rho'] = n_sg.T.copy()
+                if self.type == 'GGA':
+                    inp['sigma'] = sigma_xg.T.copy()
             out = xc.compute(inp)
-            e_g += out['zk'][0]
-            dedn_sg += out['vrho'].reshape(dedn_sg.shape)
+            e_g += out['zk'][0].reshape(e_g.shape)
+            dedn_sg += out['vrho'].reshape(n_sg.shape)
+            if self.type == 'GGA':
+                dedsigma_xg += out['vsigma'].reshape(sigma_xg.shape)
 
         e_g *= n_sg.sum(0)
 
