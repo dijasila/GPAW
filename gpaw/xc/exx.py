@@ -219,6 +219,7 @@ class EXX(PairDensity):
                                  for x_n in [self.f_sin[s, i],
                                              self.exxvc_sin[s, i],
                                              self.exxvv_sin[s, i]]])
+                    assert isinstance(restart, Path)  # for mypy
                     tmp = restart.with_name(restart.name + '.tmp')
                     tmp.write_text(json.dumps(data))
                     # Overwrite restart-file in in almost atomic step that

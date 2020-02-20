@@ -188,7 +188,7 @@ extra_parameters.update(parse_gpaw_args())
 
 # Check for special command line arguments:
 memory_estimate_depth = gpaw_args.memory_estimate_depth
-parsize_domain = gpaw_args.parsize_domain
+parsize_domain: int = gpaw_args.parsize_domain
 parsize_bands = gpaw_args.parsize_bands
 augment_grids = gpaw_args.augment_grids
 buffer_size = gpaw_args.buffer_size

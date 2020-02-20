@@ -1308,19 +1308,19 @@ if __name__ == '__main__':
     # http://www.physics.nist.gov/PhysRefData/DFTdata/
     path = '/scratch/jensj/dftdata/'
     Ztable = {}
-    configurations = [['X', '']]
+    confs = [['X', '']]
     Z = 1
     for line in open(path + 'configurations'):
         if len(line) > 1 and line[1].isdigit():
-            line = line[:44].split()
-            symbol = line[1]
+            words = line[:44].split()
+            symbol = words[1]
             Ztable[symbol] = Z
-            configurations.append(line[2:])
+            confs.append(words[2:])
             Z += 1
 
     def get_occupations(symbol):
         Z = Ztable[symbol]
-        configuration = configurations[Z]
+        configuration = confs[Z]
         if configuration[0][0] == '[':
             occupations = get_occupations(configuration[0][1:-1])
             configuration = configuration[1:]
@@ -1345,8 +1345,8 @@ if __name__ == '__main__':
         for state, occ in occupations:
             n = int(state[0])
             l = spdf[state[1]]
-            eps = epsilons[state]
-            nloe.append((n, l, occ, eps))
+            e = epsilons[state]
+            nloe.append((n, l, occ, e))
         dftdata[symbol] = (Z, nloe)
     print('# Computer generated code:')
     print()

@@ -113,7 +113,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, r, vr):
+def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -183,7 +183,7 @@ def unpack2(M):
     return M2
 
 
-def pack(A):
+def pack(A: np.ndarray) -> np.ndarray:
     r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::

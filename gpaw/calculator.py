@@ -1,6 +1,6 @@
 """ASE-calculator interface."""
 import warnings
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 import numpy as np
 from ase import Atoms
@@ -1148,3 +1148,26 @@ class GPAW(PAW, Calculator):
         del self.timer
 
         raise SystemExit
+
+    def get_atomic_electrostatic_potentials(self) -> List[float]:
+        r"""Return the electrostatic potential at the atomic sites.
+
+        Return list of energies in eV, one for each atom:
+
+        .. math::
+
+            Y_{00}
+            \int d\mathbf{r}
+            \tilde{v}_H(\mathbf{r})
+            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+
+        """
+        ham = self.hamiltonian
+        dens = self.density
+        self.initialize_positions()
+        dens.interpolate_pseudo_density()
+        dens.calculate_pseudo_charge()
+        ham.update(dens)
+        W_aL = ham.calculate_atomic_hamiltonians(dens)
+        return np.array([W_L[0] / (4 * np.pi)**0.5 * Ha
+                         for W_L in W_aL.values()])

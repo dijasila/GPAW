@@ -1,10 +1,11 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
+from typing import Dict
 
 import numpy as np
 
-_gaunt = {}
-_nabla = {}
+_gaunt: Dict[int, np.ndarray] = {}
+_nabla: Dict[int, np.ndarray] = {}
 
 
 def gaunt(lmax=2):
@@ -31,7 +32,7 @@ def gaunt(lmax=2):
     _gaunt[lmax] = G_LLL
     return G_LLL
 
-    
+
 def nabla(lmax=2):
     """Create the array of derivative intergrals.
 
@@ -45,7 +46,7 @@ def nabla(lmax=2):
 
     if lmax in _nabla:
         return _nabla[lmax]
-        
+
     Lmax = (lmax + 1)**2
     from gpaw.spherical_harmonics import YL, gam
     Y_LLv = np.zeros((Lmax, Lmax, 3))

@@ -87,10 +87,6 @@ class NonLocalFunctionalFactory:
             from gpaw.xc.gllb.c_xc import C_XC
             C_XC(functional, 1.0,'PBE')
             return functional
-        elif name == 'GLLBSLATER':
-            from gpaw.xc.gllb.c_slater import C_Slater
-            C_Slater(functional, 1.0)
-            return functional
         elif name == 'GLLBNORESP':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
             C_GLLBScr(functional, 1.0)

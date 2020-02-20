@@ -1,7 +1,7 @@
 """Python wrapper for FFTW3 library."""
 
 import os
-
+from typong import Union
 import numpy as np
 
 import _gpaw
@@ -16,7 +16,7 @@ EXHAUSTIVE = 8
 if os.environ.get('GPAW_FFTWSO'):
     import warnings
     warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
-                  'Please use customize.py to link FFTW instead.'
+                  'Please use siteconf.py to link FFTW instead.'
                   .format(os.environ['GPAW_FFTWSO']))
 
 
@@ -118,6 +118,8 @@ def empty(shape, dtype=float):
     a.shape = shape
     return a
 
+
+FFTPlan: Union[FFTWPlan, NumpyFFTPlan]
 
 if have_fftw():
     FFTPlan = FFTWPlan

@@ -41,9 +41,6 @@ if hasattr(_gpaw, 'Communicator'):
 else:
     world = None
 
-paths = {}
-sources = {}
-
 
 def marshal_broadcast(obj):
     if world.rank == 0:

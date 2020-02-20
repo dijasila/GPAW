@@ -1,5 +1,5 @@
 from math import nan
-from typing import Tuple
+from typing import Tuple, Dict
 from io import StringIO
 
 import numpy as np
@@ -63,7 +63,7 @@ class HybridXC:
 
         self.xx = None
         self.coulomb = None
-        self.v_knG = {}
+        self.v_knG: Dict[int, np.ndarray] = {}
         self.spin = -1
 
         self.evv = np.nan
