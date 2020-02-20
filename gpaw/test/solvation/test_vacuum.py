@@ -5,9 +5,10 @@ from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
+                            Power12Potential, LinearDielectric)
+
 
 def test_solvation_vacuum():
-                                Power12Potential, LinearDielectric)
 
     SKIP_REF_CALC = True
 
@@ -20,7 +21,6 @@ def test_solvation_vacuum():
     T = 298.15
     vdw_radii = vdw_radii.copy()
     vdw_radii[1] = 1.09
-
 
     def atomic_radii(atoms):
         return [vdw_radii[n] for n in atoms.numbers]

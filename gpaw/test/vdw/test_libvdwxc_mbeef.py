@@ -1,6 +1,5 @@
 import pytest
 from gpaw.utilities import compiled_with_libvdwxc
-from __future__ import print_function
 
 from ase.build import bulk
 
@@ -11,7 +10,6 @@ from gpaw.test import gen
 
 pytestmark = pytest.mark.skipif(not compiled_with_libvdwxc(),
                                 reason='not compiled_with_libvdwxc()')
-
 
 
 def test_vdw_libvdwxc_mbeef():

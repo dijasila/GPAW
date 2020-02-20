@@ -3,13 +3,10 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 from ase.build import molecule
 from ase.units import mol, kcal
-from gpaw.solvation import (
+from gpaw.solvation import SolvationGPAW, get_HW14_water_kwargs
+
 
 def test_solvation_water_water():
-        SolvationGPAW,
-        get_HW14_water_kwargs,
-    )
-
     SKIP_VAC_CALC = True
 
     h = 0.24

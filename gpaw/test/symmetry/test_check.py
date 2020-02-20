@@ -1,13 +1,13 @@
 """Example from the gpaw-dev ML.
 
 
-def test_symmetry_check():
     https://listserv.fysik.dtu.dk/pipermail/gpaw-users/2016-January/003864.html
-    """
-    from __future__ import division
-    from ase import Atoms
-    from gpaw.symmetry import atoms2symmetry
+"""
+from ase import Atoms
+from gpaw.symmetry import atoms2symmetry
 
+
+def test_symmetry_check():
     a = 3.9
     atoms = Atoms('Ge2Si4',
                   cell=[[a, 0, 0], [0, a, 0], [-a / 2, -a / 2, a * 3 / 2**0.5]],

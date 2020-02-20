@@ -3,16 +3,15 @@ from ase.build import molecule
 from ase.units import Pascal, m
 from ase.data.vdw import vdw_radii
 from gpaw.solvation import (
+    SolvationGPAW,
+    EffectivePotentialCavity,
+    Power12Potential,
+    LinearDielectric,
+    GradientSurface,
+    SurfaceInteraction)
+
 
 def test_solvation_swap_atoms():
-        SolvationGPAW,
-        EffectivePotentialCavity,
-        Power12Potential,
-        LinearDielectric,
-        GradientSurface,
-        SurfaceInteraction,
-    )
-
     h = 0.3
     vac = 3.0
     u0 = 0.180
