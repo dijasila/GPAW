@@ -1,6 +1,9 @@
 import os
 
-import numpy as np
+try:
+    import pylibxc
+except ImportError:
+    pylibxc = None
 
 import _gpaw
 from gpaw.xc.kernel import XCKernel
@@ -24,6 +27,15 @@ short_names = {
     'SCAN': 'MGGA_X_SCAN+MGGA_C_SCAN'}
 
 
+if pylibxc:
+    LDA = {pylibxc.flags.XC_FAMILY_LDA,
+           pylibxc.flags.XC_FAMILY_HYB_LDA}
+    GGA = {pylibxc.flags.XC_FAMILY_GGA,
+           pylibxc.flags.XC_FAMILY_HYB_GGA}
+    MGGA = {pylibxc.flags.XC_FAMILY_MGGA,
+            pylibxc.flags.XC_FAMILY_HYB_MGGA}
+
+
 def LibXC(name):
     if os.environ.get('GPAW_USE_PYLIBXC'):
         return PyLibXC(name)
@@ -33,7 +45,6 @@ def LibXC(name):
 class PyLibXC(XCKernel):
     """Functionals from libxc."""
     def __init__(self, name):
-        import pylibxc
         self.name = name
         self.omega = None
         self.nspins = 0
@@ -53,17 +64,21 @@ class PyLibXC(XCKernel):
                 raise NameError('Unknown functional: "%s".' % name)
             self.numbers = [x, c]
 
-        families = [pylibxc.util.xc_family_from_id(id)[0]
-                    for id in self.numbers]
-        assert np.ptp(families) == 0, (name, families)
+        self.families = []
+        for id in self.numbers:
+            family = pylibxc.util.xc_family_from_id(id)[0]
+            assert family in (LDA | GGA | MGGA)
+            self.families.append(family)
 
-        self.type = {pylibxc.flags.XC_FAMILY_LDA: 'LDA',
-                     pylibxc.flags.XC_FAMILY_GGA: 'GGA',
-                     # pylibxc.flags.XC_FAMILY_MGGA: 'MGGA'
-                     }[families[0]]
+        self.type = 'LDA'
+        for family in self.families:
+            if family in MGGA:
+                self.type = 'MGGA'
+                break
+            if family in GGA:
+                self.type = 'GGA'
 
     def initialize(self, nspins):
-        import pylibxc
         self.nspins = nspins
         self.xcs = [pylibxc.functional.LibXCFunctional(n, nspins)
                     for n in self.numbers]
@@ -81,31 +96,54 @@ class PyLibXC(XCKernel):
         e_g[:] = 0.0
         if self.type == 'GGA':
             dedsigma_xg[:] = 0.0
+        if self.type == 'MGGA':
+            dedtau_sg[:] = 0.0
 
-        for xc in self.xcs:
+        for xc, family in zip(self.xcs, self.families):
             inp = {}
             if nspins == 1:
                 inp['rho'] = n_sg[0]
-                if self.type == 'GGA':
+                if family in GGA or family in MGGA:
                     inp['sigma'] = sigma_xg[0]
+                    if family in MGGA:
+                        inp['tau'] = tau_sg[0]
             else:
                 inp['rho'] = n_sg.T.copy()
-                if self.type == 'GGA':
+                if family in GGA or family in MGGA:
                     inp['sigma'] = sigma_xg.T.copy()
+                    if family in MGGA:
+                        inp['tau'] = tau_sg.T.copy()
             out = xc.compute(inp)
             if nspins == 1:
                 e_g += out['zk'][0].reshape(e_g.shape)
                 dedn_sg += out['vrho'].reshape(n_sg.shape)
-                if self.type == 'GGA':
+                if family in GGA or family in MGGA:
                     dedsigma_xg += out['vsigma'].reshape(sigma_xg.shape)
+                    if family in MGGA:
+                        dedtau_sg += out['vtau'].reshape(tau_sg.shape)
+
             else:
                 e_g += out['zk'][0].reshape(e_g.shape[::-1]).T
-                dedn_sg += out['vrho'].reshape(n_sg.shape[:0:-1] + (2,)).T
-                if self.type == 'GGA':
-                    dedsigma_xg += out['vsigma'].reshape(n_sg.shape[:0:-1] +
-                                                         (3,)).T
+                dedn_sg += out['vrho'].reshape(n_sg.shape[::-1]).T
+                if family in GGA or family in MGGA:
+                    dedsigma_xg += out['vsigma'].reshape(
+                        sigma_xg.shape[::-1]).T
+                    if family in MGGA:
+                        dedtau_sg += out['vtau'].reshape(tau_sg.shape[::-1]).T
 
         e_g *= n_sg.sum(0)
+
+    def calculate_fxc_spinpaired(self, n_g, fxc_g):
+        if self.nspins != 1:
+            self.initialize(nspins=1)
+
+        fxc_g[:] = 0.0
+
+        for xc, family in zip(self.xcs, self.families):
+            assert family in LDA
+            inp = {'rho': n_g}
+            out = xc.compute(inp, do_exc=False, do_vxc=False, do_fxc=True)
+            fxc_g += out['v2rho2'].reshape(n_g.shape)
 
 
 class GPAWLibXC(XCKernel):
@@ -164,6 +202,9 @@ class GPAWLibXC(XCKernel):
         self.xc.calculate(e_g.ravel(), n_sg, dedn_sg,
                           sigma_xg, dedsigma_xg,
                           tau_sg, dedtau_sg)
+
+    def calculate_fxc_spinpaired(self, n_g, fxc_g):
+        self.xc.calculate_fxc_spinpaired(n_g.ravel(), fxc_g)
 
     def set_omega(self, omega=None):
         """Set the value of gamma/omega in RSF."""
