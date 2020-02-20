@@ -17,54 +17,56 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.atom.basis import BasisMaker
 
-hbasis = BasisMaker('H').generate(1, 0, energysplit=1.8, tailnorm=0.03**.5)
-basis = {'H' : hbasis}
 
-atom = Atoms('H')
-atom.center(vacuum=.8)
-system = atom.repeat((1, 1, 4))
+def test_lcao_largecellforce():
+    hbasis = BasisMaker('H').generate(1, 0, energysplit=1.8, tailnorm=0.03**.5)
+    basis = {'H' : hbasis}
 
-rc = hbasis.bf_j[0].rc
+    atom = Atoms('H')
+    atom.center(vacuum=.8)
+    system = atom.repeat((1, 1, 4))
 
-system.center(vacuum=2.5)
+    rc = hbasis.bf_j[0].rc
 
-calc = GPAW(h=0.23,
-            mode='lcao',
-            basis=basis,
-            convergence={'density':1e-4, 'energy': 1e-7},
-            )
+    system.center(vacuum=2.5)
 
-system.set_calculator(calc)
+    calc = GPAW(h=0.23,
+                mode='lcao',
+                basis=basis,
+                convergence={'density':1e-4, 'energy': 1e-7},
+                )
 
-F_ac = system.get_forces()
+    system.set_calculator(calc)
 
-# Check that rightmost domain is in fact outside range of basis functions
-from gpaw.mpi import rank, size
-if rank == 0 and size > 1:
-    assert len(calc.wfs.basis_functions.atom_indices) < len(system)
+    F_ac = system.get_forces()
 
-fd = 0
+    # Check that rightmost domain is in fact outside range of basis functions
+    from gpaw.mpi import rank, size
+    if rank == 0 and size > 1:
+        assert len(calc.wfs.basis_functions.atom_indices) < len(system)
 
-# Values taken from FD calculation below
-# (Symmetry means only z-component may be nonzero)
-ref = array([[0, 0, 4.616841597363752],
-             [0, 0, -2.7315136482540803],
-             [0, 0, 2.7315116638237935],
-             [0, 0, -4.616840606709416]])
+    fd = 0
 
-if fd:
-    from ase.calculators.test import numeric_force
-    ref = [[0, 0, numeric_force(system, a, 2, d=0.002)] for a in range(4)]
-    print('Calced')
-    print(F_ac)
-    print('FD')
+    # Values taken from FD calculation below
+    # (Symmetry means only z-component may be nonzero)
+    ref = array([[0, 0, 4.616841597363752],
+                 [0, 0, -2.7315136482540803],
+                 [0, 0, 2.7315116638237935],
+                 [0, 0, -4.616840606709416]])
+
+    if fd:
+        from ase.calculators.test import numeric_force
+        ref = [[0, 0, numeric_force(system, a, 2, d=0.002)] for a in range(4)]
+        print('Calced')
+        print(F_ac)
+        print('FD')
+        print(ref)
+        print(repr(ref))
+
+    err = np.abs(F_ac - ref).max()
+    print('Ref')
     print(ref)
-    print(repr(ref))
-
-err = np.abs(F_ac - ref).max()
-print('Ref')
-print(ref)
-print('Calculated')
-print(F_ac)
-print('Max error', err)
-assert err < 6e-4
+    print('Calculated')
+    print(F_ac)
+    print('Max error', err)
+    assert err < 6e-4

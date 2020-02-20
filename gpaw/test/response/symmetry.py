@@ -14,52 +14,54 @@ from gpaw.test import equal
 # the same results. Tests that the chi's are element-wise
 # equal to a tolerance of 1e-10.
 
-resultfile = paropen('results.txt', 'a')
-pwcutoff = 400.0
-k = 4
-a = 4.59
-c = 2.96
-u = 0.305
 
-rutile_cell = [[a, 0, 0],
-               [0, a, 0],
-               [0, 0, c]]
+def test_response_symmetry():
+    resultfile = paropen('results.txt', 'a')
+    pwcutoff = 400.0
+    k = 4
+    a = 4.59
+    c = 2.96
+    u = 0.305
 
-TiO2_basis = np.array([[0.0, 0.0, 0.0],
-                       [0.5, 0.5, 0.5],
-                       [u, u, 0.0],
-                       [-u, -u, 0.0],
-                       [0.5 + u, 0.5 - u, 0.5],
-                       [0.5 - u, 0.5 + u, 0.5]])
+    rutile_cell = [[a, 0, 0],
+                   [0, a, 0],
+                   [0, 0, c]]
 
-bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
-                     scaled_positions=TiO2_basis,
-                     cell=rutile_cell,
-                     pbc=(1, 1, 1))
-data_s = []
-for symmetry in ['off', {}]:
-    bulk_calc = GPAW(mode=PW(pwcutoff),
-                     nbands=42,
-                     eigensolver=Davidson(1),
-                     kpts={'size': (k, k, k), 'gamma': True},
-                     xc='PBE',
-                     occupations=FermiDirac(0.00001),
-                     parallel={'band': 1},
-                     symmetry=symmetry)
+    TiO2_basis = np.array([[0.0, 0.0, 0.0],
+                           [0.5, 0.5, 0.5],
+                           [u, u, 0.0],
+                           [-u, -u, 0.0],
+                           [0.5 + u, 0.5 - u, 0.5],
+                           [0.5 - u, 0.5 + u, 0.5]])
 
-    bulk_crystal.set_calculator(bulk_calc)
-    e0_bulk_pbe = bulk_crystal.get_potential_energy()
-    bulk_calc.write('bulk.gpw', mode='all')
-    X = Chi0('bulk.gpw')
-    chi_t = X.calculate([1. / 4, 0, 0])[1:]
-    data_s.append(list(chi_t))
+    bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
+                         scaled_positions=TiO2_basis,
+                         cell=rutile_cell,
+                         pbc=(1, 1, 1))
+    data_s = []
+    for symmetry in ['off', {}]:
+        bulk_calc = GPAW(mode=PW(pwcutoff),
+                         nbands=42,
+                         eigensolver=Davidson(1),
+                         kpts={'size': (k, k, k), 'gamma': True},
+                         xc='PBE',
+                         occupations=FermiDirac(0.00001),
+                         parallel={'band': 1},
+                         symmetry=symmetry)
 
-msg = 'Difference in Chi when turning off symmetries!'
+        bulk_crystal.set_calculator(bulk_calc)
+        e0_bulk_pbe = bulk_crystal.get_potential_energy()
+        bulk_calc.write('bulk.gpw', mode='all')
+        X = Chi0('bulk.gpw')
+        chi_t = X.calculate([1. / 4, 0, 0])[1:]
+        data_s.append(list(chi_t))
 
-while len(data_s):
-    data1 = data_s.pop()
-    for data2 in data_s:
-        for dat1, dat2 in zip(data1, data2):
-            if dat1 is not None:
-                equal(np.abs(dat1 - dat2).max(),
-                      0, 0.001, msg=msg)
+    msg = 'Difference in Chi when turning off symmetries!'
+
+    while len(data_s):
+        data1 = data_s.pop()
+        for data2 in data_s:
+            for dat1, dat2 in zip(data1, data2):
+                if dat1 is not None:
+                    equal(np.abs(dat1 - dat2).max(),
+                          0, 0.001, msg=msg)

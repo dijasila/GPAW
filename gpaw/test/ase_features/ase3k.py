@@ -6,22 +6,24 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 # Check that we fail for non-3x3 cell:
-with must_raise(ValueError):
-    H = Atoms('H', calculator=GPAW())
-    H.get_potential_energy()
 
-a = 2.0
-calc = GPAW(gpts=(12, 12, 12), txt='H.txt', occupations=FermiDirac(0.0))
-H = Atoms('H',
-          cell=(a, a, a),
-          pbc=True,
-          calculator=calc)
-e0 = H.get_potential_energy()
+def test_ase_features_ase3k():
+    with must_raise(ValueError):
+        H = Atoms('H', calculator=GPAW())
+        H.get_potential_energy()
 
-H = read('H.txt')
-equal(H.get_potential_energy(), e0, 1e-6)
+    a = 2.0
+    calc = GPAW(gpts=(12, 12, 12), txt='H.txt', occupations=FermiDirac(0.0))
+    H = Atoms('H',
+              cell=(a, a, a),
+              pbc=True,
+              calculator=calc)
+    e0 = H.get_potential_energy()
 
-energy_tolerance = 0.001
-equal(e0, -6.5577, energy_tolerance)
+    H = read('H.txt')
+    equal(H.get_potential_energy(), e0, 1e-6)
 
-print(calc.get_xc_functional())
+    energy_tolerance = 0.001
+    equal(e0, -6.5577, energy_tolerance)
+
+    print(calc.get_xc_functional())

@@ -1,33 +1,35 @@
 """gpaw-python Segmentation faults
-when gpaw-python and numpy are linked to different blas"""
-from __future__ import division
-from math import sqrt
-from ase import Atoms
-from gpaw import GPAW
-from gpaw import ConvergenceError
 
-kpts = (2, 1, 1)
-a = 1.42
-c = 3.355
- 
-# AB stack
-atoms = Atoms('C4',
-              [(1 / 3, 1 / 3, 0),
-               (2 / 3, 2 / 3, 0),
-               (0, 0, 0.5),
-               (1 / 3, 1 / 3, 0.5)],
-              pbc=(1, 1, 1))
+def test_pathological_numpy_zdotc_graphite():
+    when gpaw-python and numpy are linked to different blas"""
+    from __future__ import division
+    from math import sqrt
+    from ase import Atoms
+    from gpaw import GPAW
+    from gpaw import ConvergenceError
 
-atoms.set_cell([(sqrt(3) * a / 2, 3 / 2 * a, 0),
-                (-sqrt(3) * a / 2, 3 / 2 * a, 0),
-                (0, 0, 2 * c)],
-               scale_atoms=True)
+    kpts = (2, 1, 1)
+    a = 1.42
+    c = 3.355
+     
+    # AB stack
+    atoms = Atoms('C4',
+                  [(1 / 3, 1 / 3, 0),
+                   (2 / 3, 2 / 3, 0),
+                   (0, 0, 0.5),
+                   (1 / 3, 1 / 3, 0.5)],
+                  pbc=(1, 1, 1))
 
-calc = GPAW(gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
+    atoms.set_cell([(sqrt(3) * a / 2, 3 / 2 * a, 0),
+                    (-sqrt(3) * a / 2, 3 / 2 * a, 0),
+                    (0, 0, 2 * c)],
+                   scale_atoms=True)
 
-atoms.set_calculator(calc)
+    calc = GPAW(gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
 
-try:
-    pot = atoms.get_potential_energy()
-except ConvergenceError:
-    pass
+    atoms.set_calculator(calc)
+
+    try:
+        pot = atoms.get_potential_energy()
+    except ConvergenceError:
+        pass

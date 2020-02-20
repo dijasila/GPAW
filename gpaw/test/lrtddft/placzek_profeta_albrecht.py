@@ -8,95 +8,97 @@ from gpaw.test import equal
 from gpaw.analyse.overlap import Overlap
 
 """
-Test Placzek Raman implementation
-"""
 
-txt = '-'
-txt = None
-load = True
-load = False
-xc = 'LDA'
+def test_lrtddft_placzek_profeta_albrecht():
+    Test Placzek Raman implementation
+    """
 
-# run
+    txt = '-'
+    txt = None
+    load = True
+    load = False
+    xc = 'LDA'
 
-R = 0.7  # approx. experimental bond length
-a = 4.0
-c = 5.0
-H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
-            Atom('H', (a / 2, a / 2, (c + R) / 2))],
-           cell=(a, a, c))
+    # run
 
-gsname = exname = 'rraman'
-exkwargs = {'eps': 0.0, 'jend': 3}
+    R = 0.7  # approx. experimental bond length
+    a = 4.0
+    c = 5.0
+    H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
+                Atom('H', (a / 2, a / 2, (c + R) / 2))],
+               cell=(a, a, c))
 
-if 1:
-    calc = GPAW(xc=xc, nbands=7,
-                convergence={'bands': 3},
-                spinpol=False,
-                # eigensolver='rmm-diis',
-                symmetry={'point_group': False},
-                txt=txt)
-    H2.set_calculator(calc)
-    # H2.get_potential_energy()
+    gsname = exname = 'rraman'
+    exkwargs = {'eps': 0.0, 'jend': 3}
 
-    pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,
-                 exkwargs=exkwargs,
-                 # XXX full does not work in parallel due to boxes
-                 # on different nodes
-                 # overlap=lambda x, y: Overlap(x).full(y)[0],
-                 overlap=lambda x, y: Overlap(x).pseudo(y)[0],
-                 txt=txt)
-    pz.run()
+    if 1:
+        calc = GPAW(xc=xc, nbands=7,
+                    convergence={'bands': 3},
+                    spinpol=False,
+                    # eigensolver='rmm-diis',
+                    symmetry={'point_group': False},
+                    txt=txt)
+        H2.set_calculator(calc)
+        # H2.get_potential_energy()
 
-# check
+        pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,
+                     exkwargs=exkwargs,
+                     # XXX full does not work in parallel due to boxes
+                     # on different nodes
+                     # overlap=lambda x, y: Overlap(x).full(y)[0],
+                     overlap=lambda x, y: Overlap(x).pseudo(y)[0],
+                     txt=txt)
+        pz.run()
 
-# Different Placzeck implementations should agree
+    # check
 
-om = 5
-pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname, txt=txt)
-pzi = pz.absolute_intensity(omega=om)[-1]
+    # Different Placzeck implementations should agree
 
-pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
-             approximation='Placzek', txt=txt)
-pri = pr.absolute_intensity(omega=om)[-1]
-equal(pzi, pri, 0.1)
+    om = 5
+    pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname, txt=txt)
+    pzi = pz.absolute_intensity(omega=om)[-1]
 
-pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
-             overlap=True,
-             approximation='Placzek', txt=txt)
-pri = pr.absolute_intensity(omega=om)[-1]
-equal(pzi, pri, 0.1)
+    pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
+                 approximation='Placzek', txt=txt)
+    pri = pr.absolute_intensity(omega=om)[-1]
+    equal(pzi, pri, 0.1)
 
-"""Albrecht and Placzek are approximately equal"""
+    pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
+                 overlap=True,
+                 approximation='Placzek', txt=txt)
+    pri = pr.absolute_intensity(omega=om)[-1]
+    equal(pzi, pri, 0.1)
 
-al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-              overlap=True,
-              approximation='Albrecht', txt=txt)
-ali = al.absolute_intensity(omega=om)[-1]
-equal(pzi, ali, 1.5)
+    """Albrecht and Placzek are approximately equal"""
 
-"""Albrecht A and P-P are approximately equal"""
+    al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                  overlap=True,
+                  approximation='Albrecht', txt=txt)
+    ali = al.absolute_intensity(omega=om)[-1]
+    equal(pzi, ali, 1.5)
 
-pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
-             overlap=True,
-             approximation='P-P', txt=txt)
-pri = pr.absolute_intensity(omega=om)[-1]
+    """Albrecht A and P-P are approximately equal"""
 
-al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-              overlap=True,
-              approximation='Albrecht A', txt=txt)
-ali = al.absolute_intensity(omega=om)[-1]
-equal(pri, ali, 3)
+    pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
+                 overlap=True,
+                 approximation='P-P', txt=txt)
+    pri = pr.absolute_intensity(omega=om)[-1]
 
-"""Albrecht B+C and Profeta are approximately equal"""
+    al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                  overlap=True,
+                  approximation='Albrecht A', txt=txt)
+    ali = al.absolute_intensity(omega=om)[-1]
+    equal(pri, ali, 3)
 
-pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
-             overlap=True,
-             approximation='Profeta', txt=txt)
-pri = pr.absolute_intensity(omega=om)[-1]
+    """Albrecht B+C and Profeta are approximately equal"""
 
-al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
-              overlap=True,
-              approximation='Albrecht BC', txt=txt)
-ali = al.absolute_intensity(omega=om)[-1]
-equal(pri, ali, 3)
+    pr = Profeta(H2, KSSingles, gsname=gsname, exname=exname,
+                 overlap=True,
+                 approximation='Profeta', txt=txt)
+    pri = pr.absolute_intensity(omega=om)[-1]
+
+    al = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
+                  overlap=True,
+                  approximation='Albrecht BC', txt=txt)
+    ali = al.absolute_intensity(omega=om)[-1]
+    equal(pri, ali, 3)

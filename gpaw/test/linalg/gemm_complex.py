@@ -4,25 +4,27 @@
 
 import numpy as np
 
-n = 5 # works for n = 4
-a1 = np.eye(n) + 1.j
-a2 = a1 + 1.j
 
-from gpaw.utilities.blas import gemm
-b = np.zeros((n, n), dtype=complex)
+def test_linalg_gemm_complex():
+    n = 5 # works for n = 4
+    a1 = np.eye(n) + 1.j
+    a2 = a1 + 1.j
 
-c = np.dot(a2, a1)
+    from gpaw.utilities.blas import gemm
+    b = np.zeros((n, n), dtype=complex)
 
-gemm(1.0, a1, a2, 0.0, b)
+    c = np.dot(a2, a1)
 
-thresh = 1.0e-7
-ref_max_value = -9.0
+    gemm(1.0, a1, a2, 0.0, b)
 
-#print b
-#print c
-numpy_dot = np.max(b).real
-gpaw_gemm = np.max(c).real
-#print gpaw_gemm
-assert abs(gpaw_gemm-numpy_dot) < thresh, (gpaw_gemm, numpy_dot, thresh)
-assert abs(gpaw_gemm-ref_max_value) < thresh, (gpaw_gemm,
-                                               ref_max_value, thresh)
+    thresh = 1.0e-7
+    ref_max_value = -9.0
+
+    #print b
+    #print c
+    numpy_dot = np.max(b).real
+    gpaw_gemm = np.max(c).real
+    #print gpaw_gemm
+    assert abs(gpaw_gemm-numpy_dot) < thresh, (gpaw_gemm, numpy_dot, thresh)
+    assert abs(gpaw_gemm-ref_max_value) < thresh, (gpaw_gemm,
+                                                   ref_max_value, thresh)

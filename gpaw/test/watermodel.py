@@ -9,75 +9,77 @@ import numpy as np
 import time
 from ase.io import read
 
-NSTEPS = 600
-SCALE = 200
 
-cutoff = 4.0
+def test_watermodel():
+    NSTEPS = 600
+    SCALE = 200
 
-# Set up water box at 20 deg C density
-x = angleHOH * np.pi / 180 / 2
-pos = [[0, 0, 0],
-       [0, rOH * np.cos(x), rOH * np.sin(x)],
-       [0, rOH * np.cos(x), -rOH * np.sin(x)]]
-atoms = Atoms('OH2', positions=pos)
+    cutoff = 4.0
 
-vol = ((18.01528 / 6.022140857e23) / (0.9982 / 1e24))**(1 / 3.)
-atoms.set_cell((vol, vol, vol))
-atoms.center()
+    # Set up water box at 20 deg C density
+    x = angleHOH * np.pi / 180 / 2
+    pos = [[0, 0, 0],
+           [0, rOH * np.cos(x), rOH * np.sin(x)],
+           [0, rOH * np.cos(x), -rOH * np.sin(x)]]
+    atoms = Atoms('OH2', positions=pos)
 
-N = 4
-atoms = atoms.repeat((N, N, N))
-atoms.set_pbc(True)
+    vol = ((18.01528 / 6.022140857e23) / (0.9982 / 1e24))**(1 / 3.)
+    atoms.set_cell((vol, vol, vol))
+    atoms.center()
 
-pairs = [(3 * i + j, 3 * i + (j + 1) % 3)
-         for i in range(len(atoms) // 3)
-         for j in [0, 1, 2]]
+    N = 4
+    atoms = atoms.repeat((N, N, N))
+    atoms.set_pbc(True)
 
-# Create atoms object with old constraints for reference
-atoms_ref = atoms.copy()
-atoms_ref.constraints = FixBondLengths(pairs)
+    pairs = [(3 * i + j, 3 * i + (j + 1) % 3)
+             for i in range(len(atoms) // 3)
+             for j in [0, 1, 2]]
 
-# RATTLE-type constraints on O-H1, O-H2, H1-H2.
-atoms.constraints = FixBondLengthsWaterModel(pairs)
+    # Create atoms object with old constraints for reference
+    atoms_ref = atoms.copy()
+    atoms_ref.constraints = FixBondLengths(pairs)
 
-atoms.calc = TIP3PWaterModel(rc=cutoff)
-atoms_ref.calc = TIP3P(rc=cutoff)
+    # RATTLE-type constraints on O-H1, O-H2, H1-H2.
+    atoms.constraints = FixBondLengthsWaterModel(pairs)
 
-np.random.seed(123)
-md = Langevin(atoms, 1 * units.fs, temperature=300 * units.kB,
-              friction=0.01, logfile='C.log')
-traj = Trajectory('C.traj', 'w', atoms)
-md.attach(traj.write, interval=1)
+    atoms.calc = TIP3PWaterModel(rc=cutoff)
+    atoms_ref.calc = TIP3P(rc=cutoff)
 
-start = time.time()
-md.run(NSTEPS)
-end = time.time()
-Cversion = end - start
-print("%d steps of C-MD took %.3fs (%.0f ms/step)" % (
-    NSTEPS, Cversion,
-    Cversion / NSTEPS * 1000))
-traj.close()
+    np.random.seed(123)
+    md = Langevin(atoms, 1 * units.fs, temperature=300 * units.kB,
+                  friction=0.01, logfile='C.log')
+    traj = Trajectory('C.traj', 'w', atoms)
+    md.attach(traj.write, interval=1)
 
-np.random.seed(123)
-md_ref = Langevin(atoms_ref, 1 * units.fs, temperature=300 * units.kB,
-                  friction=0.01, logfile='ref.log')
-traj_ref = Trajectory('ref.traj', 'w', atoms_ref)
-md_ref.attach(traj_ref.write, interval=1)
-start = time.time()
-md_ref.run(NSTEPS / SCALE)
-end = time.time()
-Pyversion = (end - start) * SCALE
-print("%d steps of Py-MD took %.3fs (%.0f ms/step)" % (
-    NSTEPS / SCALE,
-    Pyversion / SCALE, Pyversion / NSTEPS * 1000))
-traj_ref.close()
+    start = time.time()
+    md.run(NSTEPS)
+    end = time.time()
+    Cversion = end - start
+    print("%d steps of C-MD took %.3fs (%.0f ms/step)" % (
+        NSTEPS, Cversion,
+        Cversion / NSTEPS * 1000))
+    traj.close()
 
-# Compare trajectories
-images = read('C.traj@:')
-images_ref = read('ref.traj@:')
-for img1, img2 in zip(images, images_ref):
-    norm = np.linalg.norm(img1.get_positions() - img2.get_positions())
-    print(norm)
-    assert norm < 1e-11
+    np.random.seed(123)
+    md_ref = Langevin(atoms_ref, 1 * units.fs, temperature=300 * units.kB,
+                      friction=0.01, logfile='ref.log')
+    traj_ref = Trajectory('ref.traj', 'w', atoms_ref)
+    md_ref.attach(traj_ref.write, interval=1)
+    start = time.time()
+    md_ref.run(NSTEPS / SCALE)
+    end = time.time()
+    Pyversion = (end - start) * SCALE
+    print("%d steps of Py-MD took %.3fs (%.0f ms/step)" % (
+        NSTEPS / SCALE,
+        Pyversion / SCALE, Pyversion / NSTEPS * 1000))
+    traj_ref.close()
 
-print("Speedup", Pyversion / Cversion)
+    # Compare trajectories
+    images = read('C.traj@:')
+    images_ref = read('ref.traj@:')
+    for img1, img2 in zip(images, images_ref):
+        norm = np.linalg.norm(img1.get_positions() - img2.get_positions())
+        print(norm)
+        assert norm < 1e-11
+
+    print("Speedup", Pyversion / Cversion)

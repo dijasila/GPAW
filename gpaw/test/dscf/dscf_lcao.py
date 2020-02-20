@@ -5,41 +5,43 @@ from gpaw.test import equal
 
 # Ground state calculation
 
-calc = GPAW(mode='lcao',
-            basis='dzp',
-            nbands=8,
-            h=0.2,
-            xc='PBE',
-            spinpol=True,
-            convergence={'energy': 100,
-                         'density': 1e-3,
-                         'bands': -1})
 
-CO = molecule('CO')
-CO.center(vacuum=3)
-CO.set_calculator(calc)
+def test_dscf_dscf_lcao():
+    calc = GPAW(mode='lcao',
+                basis='dzp',
+                nbands=8,
+                h=0.2,
+                xc='PBE',
+                spinpol=True,
+                convergence={'energy': 100,
+                             'density': 1e-3,
+                             'bands': -1})
 
-E_gs = CO.get_potential_energy()
+    CO = molecule('CO')
+    CO.center(vacuum=3)
+    CO.set_calculator(calc)
 
-# Excited state calculation
+    E_gs = CO.get_potential_energy()
 
-calc_es = GPAW(mode='lcao',
-               basis='dzp',
-               nbands=8,
-               h=0.2,
-               symmetry='off',
-               xc='PBE',
-               spinpol=True,
-               convergence={'energy': 100,
-                            'density': 1e-3,
-                            'bands': -1})
+    # Excited state calculation
 
-CO.set_calculator(calc_es)
-lumo = dscf.MolecularOrbital(calc,
-                             weights={0: [0, 0, 0, 1], 1: [0, 0, 0, -1]})
-dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
+    calc_es = GPAW(mode='lcao',
+                   basis='dzp',
+                   nbands=8,
+                   h=0.2,
+                   symmetry='off',
+                   xc='PBE',
+                   spinpol=True,
+                   convergence={'energy': 100,
+                                'density': 1e-3,
+                                'bands': -1})
 
-E_es = CO.get_potential_energy()
-dE = E_es - E_gs
-print(dE)
-equal(dE, 5.7595110076, 0.011)
+    CO.set_calculator(calc_es)
+    lumo = dscf.MolecularOrbital(calc,
+                                 weights={0: [0, 0, 0, 1], 1: [0, 0, 0, -1]})
+    dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)
+
+    E_es = CO.get_potential_energy()
+    dE = E_es - E_gs
+    print(dE)
+    equal(dE, 5.7595110076, 0.011)
