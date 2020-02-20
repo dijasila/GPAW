@@ -145,6 +145,10 @@ class PyLibXC(XCKernel):
             out = xc.compute(inp, do_exc=False, do_vxc=False, do_fxc=True)
             fxc_g += out['v2rho2'].reshape(n_g.shape)
 
+    def set_omega(self, omega):
+        for xc, family in zip(self.xcs, self.families):
+            xc.xc_func.contents.cam_omega = omega
+
 
 class GPAWLibXC(XCKernel):
     """Functionals from libxc."""
