@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 from ase import Atoms
 from ase.calculators.test import numeric_force

@@ -1,4 +1,3 @@
-from __future__ import division
 from gpaw import GPAW
 from gpaw import PW
 from gpaw import FermiDirac

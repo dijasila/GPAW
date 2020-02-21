@@ -2,7 +2,6 @@
 
 def test_pathological_numpy_zdotc_graphite():
     when gpaw-python and numpy are linked to different blas"""
-    from __future__ import division
     from math import sqrt
     from ase import Atoms
     from gpaw import GPAW

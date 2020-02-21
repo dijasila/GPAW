@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 from ase.build import bulk
 from ase.dft.bee import BEEFEnsemble, readbee
