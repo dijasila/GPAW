@@ -6,22 +6,22 @@ from gpaw.test import gen
 from gpaw.eigensolvers import CG
 
 
-
 def test_ofdft_ofdft_scale(in_tmp_dir):
     h = 0.18
     a = 10.0
     c = a / 2
-    d = 1.8
 
     elements = ['C']
     results = [0.016]
     electrons = [6]
-    lambda_coeff=2.0
+    lambda_coeff = 2.0
+    xcname = '1.0_LDA_K_TF+1.0_LDA_X'
 
+    setups = {}
     for symbol in elements:
-        xcname = '1.0_LDA_K_TF+1.0_LDA_X'
         g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True,
                 tw_coeff=lambda_coeff)
+        setups[symbol] = g
 
     for element, result, e in zip(elements, results, electrons):
         atom = Atoms(element,
@@ -30,7 +30,10 @@ def test_ofdft_ofdft_scale(in_tmp_dir):
 
         mixer = Mixer(0.3, 5, 1)
         eigensolver = CG(tw_coeff=lambda_coeff)
-        calc = GPAW(h=h, txt='-', xc=xcname, maxiter=240,
+        calc = GPAW(h=h,
+                    xc=xcname,
+                    setups=setups,
+                    maxiter=240,
                     mixer=mixer, eigensolver=eigensolver)
 
         atom.set_calculator(calc)

@@ -1,12 +1,11 @@
+import pytest
 import numpy as np
 
 from ase import Atoms
-from ase.parallel import paropen
 
 from gpaw import GPAW, FermiDirac, Davidson
 from gpaw.wavefunctions.pw import PW
 from gpaw.response.chi0 import Chi0
-from gpaw.test import equal
 
 # This script asserts that the chi's obtained
 # from GS calculations using symmetries
@@ -16,7 +15,6 @@ from gpaw.test import equal
 
 
 def test_response_symmetry(in_tmp_dir):
-    resultfile = paropen('results.txt', 'a')
     pwcutoff = 400.0
     k = 4
     a = 4.59
@@ -50,7 +48,7 @@ def test_response_symmetry(in_tmp_dir):
                          symmetry=symmetry)
 
         bulk_crystal.set_calculator(bulk_calc)
-        e0_bulk_pbe = bulk_crystal.get_potential_energy()
+        _ = bulk_crystal.get_potential_energy()
         bulk_calc.write('bulk.gpw', mode='all')
         X = Chi0('bulk.gpw')
         chi_t = X.calculate([1. / 4, 0, 0])[1:]
@@ -63,5 +61,5 @@ def test_response_symmetry(in_tmp_dir):
         for data2 in data_s:
             for dat1, dat2 in zip(data1, data2):
                 if dat1 is not None:
-                    equal(np.abs(dat1 - dat2).max(),
-                          0, 0.001, msg=msg)
+                    assert (np.abs(dat1 - dat2).max() ==
+                            pytest.approx(0, abs=0.001)), msg

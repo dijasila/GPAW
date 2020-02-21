@@ -842,7 +842,7 @@ def alltoallv_string(send_dict, comm=world):
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
-            data = np.fromstring(send_dict[proc], np.int8)
+            data = np.frombuffer(send_dict[proc], np.int8)
             scounts[proc] = data.size
             sdispls[proc] = stotal
             stotal += scounts[proc]
@@ -862,7 +862,7 @@ def alltoallv_string(send_dict, comm=world):
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
         sbuffer[sdispls[proc]:(sdispls[proc] + scounts[proc])] = (
-            np.fromstring(send_dict[proc], np.int8))
+            np.frombuffer(send_dict[proc], np.int8))
 
     rbuffer = np.zeros(rtotal, dtype=np.int8)
     comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)

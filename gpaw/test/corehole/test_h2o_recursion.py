@@ -3,10 +3,10 @@ from ase import Atom, Atoms
 from gpaw import GPAW, PoissonSolver, Mixer, Davidson
 from gpaw.test import equal, gen
 
-# Generate setup for oxygen with half a core-hole:
 
 def test_corehole_h2o_recursion(in_tmp_dir):
-    gen('O', name='hch1s', corehole=(1, 0, 0.5))
+    # Generate setup for oxygen with half a core-hole:
+    s = gen('O', name='hch1s', corehole=(1, 0, 0.5))
 
     a = 5.0
     d = 0.9575
@@ -16,7 +16,7 @@ def test_corehole_h2o_recursion(in_tmp_dir):
                  Atom('H', (d * cos(t), d * sin(t), 0))],
                 cell=(a, a, a), pbc=False)
     H2O.center()
-    calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
+    calc = GPAW(nbands=10, h=0.2, setups={'O': s},
                 eigensolver=Davidson(4),
                 mixer=Mixer(0.5),
                 xc='oldLDA',
@@ -37,5 +37,4 @@ def test_corehole_h2o_recursion(in_tmp_dir):
 
     print(e, niter)
     energy_tolerance = 0.002
-    niter_tolerance = 0
     equal(e, -17.980, energy_tolerance)

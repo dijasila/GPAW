@@ -7,24 +7,24 @@ from gpaw.test import equal, gen
 
 def test_xc_lxc_xcatom(in_tmp_dir):
     if 1:
+        setups = {}
         for functional in [
             'LDA_X', 'LDA_X+LDA_C_PW', 'LDA_X+LDA_C_VWN', 'LDA_X+LDA_C_PZ',
             'GGA_X_PBE+GGA_C_PBE', 'GGA_X_PBE_R+GGA_C_PBE',
             'GGA_X_B88+GGA_C_P86', 'GGA_X_B88+GGA_C_LYP',
             'GGA_X_FT97_A+GGA_C_LYP']:
-            gen('N', xcname=functional)
+            s = gen('N', xcname=functional)
+            setups[functional] = s
 
-    tolerance = 0.000005 # libxc must reproduce old gpaw energies
+    tolerance = 0.000005  # libxc must reproduce old gpaw energies
     # zero Kelvin: in Hartree
 
-    reference = { # version 0.9.1
-        'LDA_X+LDA_C_PW': 2.28836113207, # 'LDA'
-        'GGA_X_PBE+GGA_C_PBE': 2.3366049993, # 'PBE'
+    reference = {  # version 0.9.1
+        'LDA_X+LDA_C_PW': 2.28836113207,  # 'LDA'
+        'GGA_X_PBE+GGA_C_PBE': 2.3366049993,  # 'PBE'
         'GGA_X_PBE_R+GGA_C_PBE': 2.34496288319}  # 'revPBE'
 
-    tolerance_libxc = 0.000001 # libxc must reproduce reference libxc energies
-
-    reference_libxc = { # svnversion 5252
+    reference_libxc = {  # svnversion 5252
         'LDA_X': 1.95030600807,
         'LDA_X+LDA_C_PW': 2.23194461135,
         'LDA_X+LDA_C_VWN': 2.23297429824,
@@ -45,13 +45,15 @@ def test_xc_lxc_xcatom(in_tmp_dir):
     for xcname in libxc_set:
         ra.seed(8)
         xc = XC(xcname)
-        s = create_setup('N', xc)
+        s = create_setup('N', xc, setupdata=setups[xcname])
         ni = s.ni
         nii = ni * (ni + 1) // 2
         D_p = 0.1 * ra.random(nii) + 0.4
         H_p = np.zeros(nii)
 
-        E1 = xc.calculate_paw_correction(s, D_p.reshape(1, -1), H_p.reshape(1, -1))
+        E1 = xc.calculate_paw_correction(s,
+                                         D_p.reshape(1, -1),
+                                         H_p.reshape(1, -1))
         dD_p = x * ra.random(nii)
         D_p += dD_p
         dE = np.dot(H_p, dD_p) / x
@@ -59,16 +61,18 @@ def test_xc_lxc_xcatom(in_tmp_dir):
         print(xcname, dE, (E2 - E1) / x)
         equal(dE, (E2 - E1) / x, 0.003)
 
-        E2s = xc.calculate_paw_correction(s,
-            np.array([0.5 * D_p, 0.5 * D_p]), np.array([H_p, H_p]))
+        E2s = xc.calculate_paw_correction(
+            s,
+            np.array([0.5 * D_p, 0.5 * D_p]),
+            np.array([H_p, H_p]))
         print(E2, E2s)
         equal(E2, E2s, 1.0e-12)
 
-        if xcname in reference: # compare with old gpaw
+        if xcname in reference:  # compare with old gpaw
             print('A:', E2, reference[xcname])
             equal(E2, reference[xcname], tolerance)
 
-        if xc in reference_libxc: # compare with reference libxc
+        if xc in reference_libxc:  # compare with reference libxc
             print('B:', E2, reference_libxc[xcname])
             equal(E2, reference_libxc[xcname], tolerance)
 

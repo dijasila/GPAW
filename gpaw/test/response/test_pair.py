@@ -5,7 +5,6 @@ import numpy as np
 from ase import Atoms
 
 from gpaw import GPAW, PW
-from gpaw.test import equal
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.response.pair import PairDensity
@@ -13,7 +12,6 @@ from gpaw.response.math_func import two_phi_nabla_planewave_integrals
 
 pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
-
 
 
 def test_response_pair(in_tmp_dir):
@@ -66,22 +64,22 @@ def test_response_pair(in_tmp_dir):
             # Check that PAW-corrections are
             # are equal to nabla-PAW corrections
             G_Gv = pd.get_reciprocal_vectors()
-        
+
             for id, atomdata in pair.calc.wfs.setups.setups.items():
                 nabla_vii = atomdata.nabla_iiv.transpose((2, 0, 1))
                 Q_vGii = two_phi_nabla_planewave_integrals(G_Gv, atomdata)
                 ni = atomdata.ni
                 Q_vGii.shape = (3, -1, ni, ni)
-                equal(nabla_vii.astype(complex), Q_vGii[:, 0], tolerance=1e-10,
-                      msg='Planewave-nabla PAW corrections not equal ' +
-                      'to nabla PAW corrections when q + G = 0!')
+                msg = ('Planewave-nabla PAW corrections not equal ' +
+                       'to nabla PAW corrections when q + G = 0!')
+                assert nabla_vii == pytest.approx(Q_vGii[:, 0], abs=1e-10), msg
 
             # Check optical limit nabla matrix elements
             err = np.abs(n_nmvG[..., 0] - n2_nmv)
             maxerr = np.max(err)
             arg = np.unravel_index(np.argmax(err), err.shape)
-            equal(maxerr, 0.0, tolerance=1e-10,
-                  msg='G=0 pair densities wrong! ' + str(arg) + ' ')
+            msg = 'G=0 pair densities wrong! ' + str(arg) + ' '
+            assert maxerr == pytest.approx(0.0, abs=1e-10), msg
 
         # Check longitudinal part of matrix elements
         print('Checking continuity eq.')
@@ -91,14 +89,16 @@ def test_response_pair(in_tmp_dir):
         n2_nmG = np.diagonal(np.dot(G_Gv, n_nmvG), axis1=0, axis2=3).copy()
         if ol:
             n2_nmG[..., 0] = n_nmvG[..., 2, 0]
-        
+
         # Left hand side and right hand side of
         # continuity eq.: d/dr x J + d/dt n = 0
-        lhs_nmG = n2_nmG - G2_G[np.newaxis, np.newaxis] / 2. * n_nmG[..., 2 * ol:]
+        lhs_nmG = n2_nmG - G2_G[np.newaxis, np.newaxis] / 2. * n_nmG[...,
+                                                                     2 * ol:]
         rhs_nmG = - deps_nm[..., np.newaxis] * n_nmG[..., 2 * ol:]
 
         err = np.abs(lhs_nmG - rhs_nmG)
         maxerr = np.max(err)
         arg = np.unravel_index(np.argmax(err), rhs_nmG.shape)
-        equal(maxerr, 0.0, tolerance=1e-3, msg='Calculated current does ' +
-              'not fulfill the continuity equation! ' + str(arg) + ' ')
+        msg = ('Calculated current does ' +
+               'not fulfill the continuity equation! ' + str(arg) + ' ')
+        assert maxerr == pytest.approx(0.0, abs=1e-3), msg

@@ -5,7 +5,6 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 
-
 def test_ofdft_ofdft_pbc(in_tmp_dir):
     symbol = 'C'
     result = -224.206
@@ -20,10 +19,10 @@ def test_ofdft_ofdft_pbc(in_tmp_dir):
 
     calc = GPAW(h=h,
                 xc=xcname,
+                setups={'C': g},
                 maxiter=120,
                 eigensolver='cg',
                 mixer=mixer)
-
 
     atoms.set_calculator(calc)
 

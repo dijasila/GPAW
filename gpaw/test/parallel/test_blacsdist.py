@@ -8,7 +8,7 @@ from gpaw.utilities import compiled_with_sl
 pytestmark = pytest.mark.skipif(not compiled_with_sl(), reason='No scalapack')
 
 
-def test(comm, M, N, mcpus, ncpus, mb, nb):
+def check(comm, M, N, mcpus, ncpus, mb, nb):
     grid0 = BlacsGrid(comm, 1, 1)
     desc0 = grid0.new_descriptor(M, N, M, N, 0, 0)
     A_mn = desc0.zeros(dtype=float)
@@ -63,4 +63,4 @@ def test_parallel_blacsdist():
         print('mb x nb:      ', mb, 'x', nb)
         print()
 
-    test(world, M, N, mcpus, ncpus, mb, nb)
+    check(world, M, N, mcpus, ncpus, mb, nb)

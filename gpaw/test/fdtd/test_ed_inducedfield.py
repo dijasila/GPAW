@@ -168,12 +168,6 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
     tot_ind = None
 
     # Test induced fields
-    if do_print_values:
-        new_ref_values = []
-
-        def equal(x, y, tol):
-            new_ref_values.append(x)
-
     ref_values = [72404.467117024149,
                   0.520770766296,
                   0.520770766299,
@@ -213,9 +207,3 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
             for v in range(3):
                 val = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[w][v]))
                 equal(val, ref_values.pop(0), tol)
-
-    if do_print_values:
-        print('ref_values = [')
-        for val in new_ref_values:
-            print('              %20.12f,' % val)
-        print('              ]')

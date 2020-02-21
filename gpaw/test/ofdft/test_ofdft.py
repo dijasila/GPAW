@@ -14,21 +14,27 @@ def test_ofdft_ofdft(in_tmp_dir):
     results = [0.243, 9.9773]
     electrons = [6, 3]
     charges = [0, 1]
+    xcname = '1.0_LDA_K_TF+1.0_LDA_X'
 
-
+    setups = {}
     for symbol in elements:
-        xcname = '1.0_LDA_K_TF+1.0_LDA_X'
-        g = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True,
+        s = gen(symbol, xcname=xcname, scalarrel=False, orbital_free=True,
                 gpernode=75)
+        setups[symbol] = s
 
-    for element, result, e, charge in zip(elements, results, electrons, charges):
+    for element, result, e, charge in zip(elements,
+                                          results,
+                                          electrons,
+                                          charges):
         atom = Atoms(element,
                      positions=[(c, c, c)],
                      cell=(a, a, a))
 
         mixer = Mixer(0.3, 5, 1)
         calc = GPAW(gpts=(32, 32, 32),
-                    txt='-', xc=xcname,
+                    txt='-',
+                    xc=xcname,
+                    setups=setups,
                     poissonsolver=PoissonSolver(eps=1e-6),
                     eigensolver='cg', mixer=mixer, charge=charge)
 
