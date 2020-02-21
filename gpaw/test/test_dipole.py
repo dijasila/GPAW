@@ -1,3 +1,38 @@
+"""
+Test the dipole correction code by comparing this system:
+
+    H
+z1   O  z2
+    H
+
+
+(where z1 and z2 denote points where the potential is probed)
+
+Expected potential:
+
+      -----
+     /
+    /
+----
+
+to this system:
+
+   H           H
+z1  O    z2   O
+   H           H
+
+
+Expected potential:
+
+       -------
+      /       \
+     /         \
+-----           ------
+
+The height of the two potentials are tested to be the same.
+
+Enable if-statement in the bottom for nice plots
+"""
 import numpy as np
 from ase.build import molecule
 from ase.units import Hartree
@@ -5,45 +40,7 @@ from gpaw import GPAW, Mixer
 from gpaw.mpi import rank
 
 
-"""
-
 def test_dipole():
-    Test the dipole correction code by comparing this system:
-
-        H
-    z1   O  z2
-        H
-
-
-    (where z1 and z2 denote points where the potential is probed)
-
-    Expected potential:
-
-          -----
-         /
-        /
-    ----
-
-    to this system:
-
-       H           H
-    z1  O    z2   O
-       H           H
-
-
-    Expected potential:
-
-           -------
-          /       \
-         /         \
-    -----           ------
-
-    The height of the two potentials are tested to be the same.
-
-    Enable if-statement in the bottom for nice plots
-    """
-
-
     system1 = molecule('H2O')
     system1.set_pbc((True, True, False))
     system1.cell = 4.0 * np.array([[1.0, -1.5, 0.0], [1.0, 1.0, 0.0],
@@ -75,7 +72,6 @@ def test_dipole():
     system2.set_calculator(calc2)
     system2.get_potential_energy()
     v2 = calc2.get_effective_potential(pad=False)
-
 
     def get_avg(v):
         nx, ny, nz = v.shape

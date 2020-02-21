@@ -2,15 +2,15 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
+                                            PolarizableMaterial,
+                                            PolarizableSphere)
+from gpaw.mpi import world
+from gpaw.tddft import TDDFT
+from gpaw.test import equal
+import numpy as np
+
 
 def test_fdtd_ed(in_tmp_dir):
-                                                PolarizableMaterial,
-                                                PolarizableSphere)
-    from gpaw.mpi import world
-    from gpaw.tddft import TDDFT
-    from gpaw.test import equal
-    import numpy as np
-
     # Accuracy
     energy_eps = 0.0005
 

@@ -3,11 +3,11 @@ from gpaw.fdtd.poisson_fdtd import QSFDTD
 from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial, \
     PolarizableSphere, PolarizableBox, \
     PolarizableEllipsoid, PolarizableRod, \
+    PolarizableTetrahedron
+from gpaw.test import equal
+
 
 def test_fdtd_ed_shapes(in_tmp_dir):
-        PolarizableTetrahedron
-    from gpaw.test import equal
-
     # Whole simulation cell (Angstroms)
     cell = [40, 40, 20]
 

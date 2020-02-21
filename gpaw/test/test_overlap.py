@@ -10,12 +10,12 @@ from gpaw.lrtddft import LrTDDFT
 
 """Evaluate the overlap between two independent calculations
 
+Differences are forced by different eigensolvers and differing number
+of Kohn-Sham states.
+"""
+
 
 def test_overlap(in_tmp_dir):
-    Differences are forced by different eigensolvers and differing number
-    of Kohn-Sham states.
-    """ 
-
     h = 0.4
     box = 2
     nbands = 4
@@ -72,7 +72,7 @@ def test_overlap(in_tmp_dir):
     if 1:
         ov = Overlap(c1).pseudo(c2, otherspin=1)
         parprint('wave function overlap (pseudo other spin):\n', ov)
-        
+
     parprint('k-points --------')
 
     H2.set_pbc([1, 1, 1])

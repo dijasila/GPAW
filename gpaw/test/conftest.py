@@ -32,9 +32,9 @@ class GPAWPlugin:
             print('-' * 24, '-' * 50)
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
-        from gpaw.mpi import rank, size
+        from gpaw.mpi import size
         terminalreporter.section('GPAW-MPI stuff')
-        terminalreporter.write(f'rank, size: {rank}, {size}')
+        terminalreporter.write(f'size: {size}\n')
 
 
 def pytest_configure(config):

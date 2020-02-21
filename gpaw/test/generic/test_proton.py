@@ -1,16 +1,15 @@
 """Test calculation for bare proton.
+Also, its interaction with an external potential in the form of a point charge
+is tested.
+"""
+import numpy as np
+from ase import Atoms
+from ase.units import Bohr, Hartree
+from gpaw import GPAW
+from gpaw.external import PointChargePotential
 
 
 def test_generic_proton(in_tmp_dir):
-    Also, its interaction with an external potential in the form of a point charge
-    is tested.
-    """
-    import numpy as np
-    from ase import Atoms
-    from ase.units import Bohr, Hartree
-    from gpaw import GPAW
-    from gpaw.external import PointChargePotential
-
     a = 4.5
     H = Atoms('H', [(a / 2, a / 2, a / 2)],
               pbc=0,
