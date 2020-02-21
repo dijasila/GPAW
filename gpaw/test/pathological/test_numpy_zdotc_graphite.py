@@ -1,16 +1,16 @@
 """gpaw-python Segmentation faults
+when gpaw-python and numpy are linked to different blas"""
+from math import sqrt
+from ase import Atoms
+from gpaw import GPAW
+from gpaw import ConvergenceError
+
+kpts = (2, 1, 1)
+a = 1.42
+c = 3.355
+
 
 def test_pathological_numpy_zdotc_graphite():
-    when gpaw-python and numpy are linked to different blas"""
-    from math import sqrt
-    from ase import Atoms
-    from gpaw import GPAW
-    from gpaw import ConvergenceError
-
-    kpts = (2, 1, 1)
-    a = 1.42
-    c = 3.355
-     
     # AB stack
     atoms = Atoms('C4',
                   [(1 / 3, 1 / 3, 0),
@@ -29,6 +29,6 @@ def test_pathological_numpy_zdotc_graphite():
     atoms.set_calculator(calc)
 
     try:
-        pot = atoms.get_potential_energy()
+        atoms.get_potential_energy()
     except ConvergenceError:
         pass

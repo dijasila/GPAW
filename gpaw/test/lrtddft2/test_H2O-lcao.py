@@ -7,7 +7,7 @@ from gpaw.lrtddft2 import LrTDDFT2
 from gpaw.test import equal
 
 
-def test_lrtddft2_H2O-lcao():
+def test_lrtddft2_H2O_lcao():
     name = 'H2O-lcao'
     atoms = molecule('H2O')
     atoms.center(vacuum=4)

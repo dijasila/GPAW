@@ -1,3 +1,6 @@
+"""
+Test Placzek Raman implementation
+"""
 from ase import Atoms, Atom
 from ase.vibrations.placzek import Placzek, Profeta
 from ase.vibrations.albrecht import Albrecht
@@ -7,23 +10,21 @@ from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.test import equal
 from gpaw.analyse.overlap import Overlap
 
-"""
+
+txt = '-'
+txt = None
+load = True
+load = False
+xc = 'LDA'
+
+# run
+
+R = 0.7  # approx. experimental bond length
+a = 4.0
+c = 5.0
+
 
 def test_lrtddft_placzek_profeta_albrecht():
-    Test Placzek Raman implementation
-    """
-
-    txt = '-'
-    txt = None
-    load = True
-    load = False
-    xc = 'LDA'
-
-    # run
-
-    R = 0.7  # approx. experimental bond length
-    a = 4.0
-    c = 5.0
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))

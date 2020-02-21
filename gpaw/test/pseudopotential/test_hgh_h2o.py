@@ -1,26 +1,25 @@
 """Test of HGH pseudopotential implementation.
+This is the canonical makes-sure-nothing-breaks test, which checks that the
+numbers do not change from whatever they were before.
+
+The test runs an HGH calculation on a misconfigured H2O molecule, such that
+the forces are nonzero.
+
+Energy is compared to a previous calculation; if it differs significantly,
+that is considered an error.
+
+Forces are compared to a previous finite-difference result.
+"""
+
+
+import numpy as np
+from ase.build import molecule
+
+from gpaw import GPAW, PoissonSolver
+from gpaw.test import equal
 
 
 def test_pseudopotential_hgh_h2o():
-    This is the canonical makes-sure-nothing-breaks test, which checks that the
-    numbers do not change from whatever they were before.
-
-    The test runs an HGH calculation on a misconfigured H2O molecule, such that
-    the forces are nonzero.
-
-    Energy is compared to a previous calculation; if it differs significantly,
-    that is considered an error.
-
-    Forces are compared to a previous finite-difference result.
-    """
-
-
-    import numpy as np
-    from ase.build import molecule
-
-    from gpaw import GPAW, PoissonSolver
-    from gpaw.test import equal
-
     mol = molecule('H2O')
     mol.rattle(0.2)
     mol.center(vacuum=2.0)
