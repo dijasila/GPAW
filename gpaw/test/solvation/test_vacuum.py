@@ -7,6 +7,8 @@ from gpaw.test import equal
 from gpaw.solvation import (SolvationGPAW, EffectivePotentialCavity,
                             Power12Potential, LinearDielectric)
 
+vdw_radii = vdw_radii.copy()
+
 
 def test_solvation_vacuum():
 
@@ -19,7 +21,6 @@ def test_solvation_vacuum():
     vac = 3.0
     u0 = .180
     T = 298.15
-    vdw_radii = vdw_radii.copy()
     vdw_radii[1] = 1.09
 
     def atomic_radii(atoms):
@@ -53,7 +54,8 @@ def test_solvation_vacuum():
     atoms.calc = SolvationGPAW(
         xc='LDA', h=h, convergence=convergence,
         cavity=EffectivePotentialCavity(
-            effective_potential=Power12Potential(atomic_radii=atomic_radii, u0=u0),
+            effective_potential=Power12Potential(atomic_radii=atomic_radii,
+                                                 u0=u0),
             temperature=T
         ),
         dielectric=LinearDielectric(epsinf=1.0),

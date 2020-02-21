@@ -1,17 +1,15 @@
 from ase import Atoms
-from gpaw import GPAW, setup_paths
+from gpaw import GPAW
 from gpaw.basis_data import get_basis_name, parse_basis_name
 
 # This test looks for differently named setups and basis sets to ascertain
 # that correct filenames are constructed.  Generally speaking, the things
 # it looks for do not exist; we just verify the filenames.
 
-def test_setup_basis_spec():
-    del setup_paths[:]
 
+def test_setup_basis_spec():
     system = Atoms('Na')
     system.center(vacuum=3.0)
-
 
     def check(setups, basis, refname):
         calc = GPAW(setups=setups, basis=basis)

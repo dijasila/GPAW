@@ -5,12 +5,12 @@ from gpaw.test import equal, gen
 
 # Generate setup for oxygen with a core-hole:
 
-def test_corehole_h2o_dks(in_tmp_dir):
+
+def test_corehole_h2o_dks():
     def xc(name):
         return {'name': name, 'stencil': 1}
 
-
-    gen('O', name='fch1s', xcname='PBE', corehole=(1, 0, 1.0))
+    s = gen('O', name='fch1s', xcname='PBE', corehole=(1, 0, 1.0))
 
     atoms = molecule('H2O')
     atoms.center(vacuum=2.5)
@@ -24,14 +24,14 @@ def test_corehole_h2o_dks(in_tmp_dir):
 
     atoms[0].magmom = 1
     calc.set(charge=-1,
-             setups={'O': 'fch1s'},
+             setups={'O': s},
              occupations=FermiDirac(0.0, fixmagmom=True))
     e2 = atoms.get_potential_energy() + calc.get_reference_energy()
     niter2 = calc.get_number_of_iterations()
 
     atoms[0].magmom = 0
     calc.set(charge=0,
-             setups={'O': 'fch1s'},
+             setups={'O': s},
              occupations=FermiDirac(0.0, fixmagmom=True),
              spinpol=True)
     e3 = atoms.get_potential_energy() + calc.get_reference_energy()
@@ -46,10 +46,13 @@ def test_corehole_h2o_dks(in_tmp_dir):
     assert abs(e3 - e1 - 538.549) < 0.001
 
     energy_tolerance = 0.02
-    niter_tolerance = 1
     print(e1, niter1)
     print(e2, niter2)
     print(e3, niter3)
     equal(e1, -2080.3651, energy_tolerance)
     equal(e2, -1547.2944, energy_tolerance)
     equal(e3, -1541.8152, energy_tolerance)
+
+
+if __name__ == '__main__':
+    test_corehole_h2o_dks()

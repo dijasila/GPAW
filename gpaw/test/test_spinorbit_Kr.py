@@ -1,13 +1,12 @@
 import pytest
 from gpaw.mpi import world
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, setup_paths
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 from gpaw.test import equal
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
-
 
 
 def test_spinorbit_Kr():

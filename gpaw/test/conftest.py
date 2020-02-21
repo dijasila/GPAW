@@ -42,3 +42,4 @@ def pytest_configure(config):
     if world.rank != 0:
         tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+    
