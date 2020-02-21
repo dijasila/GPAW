@@ -3,28 +3,27 @@ from ase.data.vdw import vdw_radii
 from gpaw.test import equal
 from ase.units import Pascal, m
 from gpaw.solvation import (
+    SolvationGPAW,
+    EffectivePotentialCavity,
+    Power12Potential,
+    LinearDielectric,
+    KB51Volume,
+    GradientSurface,
+    VolumeInteraction,
+    SurfaceInteraction,
+    LeakedDensityInteraction)
+import numpy as np
+
+h = 0.2
+d = 2.5
+min_vac = 4.0
+u0 = .180
+epsinf = 80.
+T = 298.15
+atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
 
 def test_solvation_forces_symmetry():
-        SolvationGPAW,
-        EffectivePotentialCavity,
-        Power12Potential,
-        LinearDielectric,
-        KB51Volume,
-        GradientSurface,
-        VolumeInteraction,
-        SurfaceInteraction,
-        LeakedDensityInteraction
-    )
-    import numpy as np
-
-    h = 0.2
-    d = 2.5
-    min_vac = 4.0
-    u0 = .180
-    epsinf = 80.
-    T = 298.15
-    atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
-
     xy_cell = np.ceil((min_vac * 2.) / h / 8.) * 8. * h
     z_cell = np.ceil((min_vac * 2. + d) / h / 8.) * 8. * h
     atoms = Atoms(

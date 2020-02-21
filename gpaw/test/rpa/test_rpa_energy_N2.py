@@ -1,16 +1,15 @@
 import pytest
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from __future__ import print_function
 from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.exx import EXX
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_rpa_rpa_energy_N2():

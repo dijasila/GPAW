@@ -1,13 +1,11 @@
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.utilities.sic import NSCFSIC
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
-
 
 
 def test_sic_nscfsic():
@@ -28,6 +26,6 @@ def test_sic_nscfsic():
     print("%10s%10s%10s%10s" % ("atom", "ref.", "gpaw", "diff"))
     for a, er, e in zip(atoms, EREF, EE):
         print("%10s%10.2f%10.2f%10.2f" % (a, er, e, er-e))
-        assert abs(er-e)<0.1 
+        assert abs(er-e)<0.1
         # Arbitrary 0.1 eV tolerance for non-self consistent SIC
         # Note that Ne already deviates 2.5 eV

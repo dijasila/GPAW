@@ -11,7 +11,7 @@ from gpaw.response.susceptibility import read_component
 from gpaw.mpi import size, world
 
 
-def test_response_two-aluminum_chi_RPA():
+def test_response_two_aluminum_chi_RPA():
     assert size <= 4**3
 
     # Ground state calculation

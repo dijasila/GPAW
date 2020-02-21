@@ -1,37 +1,34 @@
 """
+Calculate the magnetic response in iron using ALDA.
+
+Tests whether the magnon energies and scattering intensities
+have changed for:
+ * Different kernel calculation strategies
+ * Different chi0 transitions summation strategies
+"""
+
+import numpy as np
+import pytest
+
+import time
+
+from ase.build import bulk
+from ase.dft.kpoints import monkhorst_pack
+from ase.parallel import parprint
+
+from gpaw import GPAW, PW
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.susceptibility import read_macroscopic_component
+from gpaw.test import findpeak, equal
+from gpaw.mpi import world
+from gpaw.utilities import compiled_with_sl
+
+
 pytestmark = pytest.mark.skipif(world.size < 4 or not compiled_with_sl(),
                                 reason='world.size < 4 or not compiled_with_sl()')
 
 
-
 def test_response_iron_sf_ALDA():
-    Calculate the magnetic response in iron using ALDA.
-
-    Tests whether the magnon energies and scattering intensities
-import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
-    have changed for:
-     * Different kernel calculation strategies
-     * Different chi0 transitions summation strategies
-    """
-
-    # Workflow modules
-    import numpy as np
-
-    # Script modules
-    import time
-
-    from ase.build import bulk
-    from ase.dft.kpoints import monkhorst_pack
-    from ase.parallel import parprint
-
-    from gpaw import GPAW, PW
-    from gpaw.response.tms import TransverseMagneticSusceptibility
-    from gpaw.response.susceptibility import read_macroscopic_component
-    from gpaw.test import findpeak, equal
-    from gpaw.mpi import world
-
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation

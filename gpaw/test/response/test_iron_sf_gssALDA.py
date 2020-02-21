@@ -1,27 +1,27 @@
 """
+Calculate the magnetic response in iron using ALDA.
+
+Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
+"""
+
+# Workflow modules
+import numpy as np
+
+# Script modules
+import time
+
+from ase.build import bulk
+from ase.dft.kpoints import monkhorst_pack
+from ase.parallel import parprint
+
+from gpaw import GPAW, PW
+from gpaw.response.tms import TransverseMagneticSusceptibility
+from gpaw.response.susceptibility import read_macroscopic_component
+from gpaw.test import findpeak, equal
+from gpaw.mpi import world
+
 
 def test_response_iron_sf_gssALDA():
-    Calculate the magnetic response in iron using ALDA.
-
-    Fast test, where the kernel is scaled to fulfill the Goldstone theorem.
-    """
-
-    # Workflow modules
-    import numpy as np
-
-    # Script modules
-    import time
-
-    from ase.build import bulk
-    from ase.dft.kpoints import monkhorst_pack
-    from ase.parallel import parprint
-
-    from gpaw import GPAW, PW
-    from gpaw.response.tms import TransverseMagneticSusceptibility
-    from gpaw.response.susceptibility import read_macroscopic_component
-    from gpaw.test import findpeak, equal
-    from gpaw.mpi import world
-
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation

@@ -1,22 +1,22 @@
 """
+Calculate optical transition strengths.
+"""
+
+# General modules
+import numpy as np
+
+# Script modules
+from ase.build import bulk
+
+from gpaw import GPAW, PW, FermiDirac
+from gpaw.response.tool import (get_bz_transitions,
+                                get_chi0_integrand,
+                                get_degeneracy_matrix,
+                                get_individual_transition_strengths)
+from gpaw.test import equal
+
 
 def test_response_pdens_tool():
-    Calculate optical transition strengths.
-    """
-
-    # General modules
-    import numpy as np
-
-    # Script modules
-    from ase.build import bulk
-
-    from gpaw import GPAW, PW, FermiDirac
-    from gpaw.response.tool import (get_bz_transitions,
-                                    get_chi0_integrand,
-                                    get_degeneracy_matrix,
-                                    get_individual_transition_strengths)
-    from gpaw.test import equal
-
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation
@@ -91,8 +91,9 @@ def test_response_pdens_tool():
         # Find diagonal transition strengths
         its_nmG = np.zeros((nn, nm, 1 + 2 * optical_limit))
         for G in range(1 + 2 * optical_limit):
-            its_nmG[:, :, G] = get_individual_transition_strengths(n_nmG, df_nm,
-                                                                   G, G)
+            its_nmG[:, :, G] = get_individual_transition_strengths(
+                n_nmG, df_nm,
+                G, G)
 
         # Find unique transition strengths
         its_NmG = np.tensordot(degmat_Nn, its_nmG, axes=(1, 0))

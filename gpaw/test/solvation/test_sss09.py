@@ -1,25 +1,26 @@
 """
 
+tests solvation parameters as in
+
+V. M. Sanchez, M. Sued, and D. A. Scherlis,
+The Journal of Chemical Physics, vol. 131, no. 17, p. 174108, 2009
+"""
+
+from gpaw import GPAW
+from gpaw.cluster import Cluster
+from gpaw.test import equal
+from ase import Atoms
+from ase.units import mol, kcal, Pascal, m, Bohr
+from gpaw.solvation import (
+    SolvationGPAW,
+    FG02SmoothStepCavity,
+    LinearDielectric,
+    GradientSurface,
+    SurfaceInteraction,
+    SSS09Density)
+
+
 def test_solvation_sss09():
-    tests solvation parameters as in
-
-    V. M. Sanchez, M. Sued, and D. A. Scherlis,
-    The Journal of Chemical Physics, vol. 131, no. 17, p. 174108, 2009
-    """
-
-    from gpaw import GPAW
-    from gpaw.cluster import Cluster
-    from gpaw.test import equal
-    from ase import Atoms
-    from ase.units import mol, kcal, Pascal, m, Bohr
-    from gpaw.solvation import (
-        SolvationGPAW,
-        FG02SmoothStepCavity,
-        LinearDielectric,
-        GradientSurface,
-        SurfaceInteraction,
-        SSS09Density)
-
     SKIP_VAC_CALC = True
 
     h = 0.24

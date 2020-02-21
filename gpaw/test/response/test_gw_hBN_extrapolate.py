@@ -1,3 +1,6 @@
+""" Tests extrapolation to infinite energy cutoff + block paralellization.
+It takes ~109 s on one core"""
+
 import pytest
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
@@ -9,15 +12,11 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from gpaw.response.g0w0 import G0W0
 
-""" Tests extrapolation to infinite energy cutoff + block paralellization.
 pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
                                 reason='world.size != 1 and not compiled_with_sl()')
 
 
-
 def test_response_gw_hBN_extrapolate():
-    It takes ~109 s on one core"""
-
     if 1:
         calc = GPAW(mode='pw',
                     xc='PBE',

@@ -1,52 +1,50 @@
 from gpaw.solvation.poisson import (WeightedFDPoissonSolver,
+                                    ADM12PoissonSolver,
+                                    PolarizationPoissonSolver)
+from gpaw.solvation.dielectric import Dielectric
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.utilities.gauss import Gaussian
+from gpaw.fd_operators import Gradient
+from ase.units import Bohr
+from gpaw.test import equal
+from gpaw.utilities import erf
+from ase.parallel import parprint
+import numpy as np
+import warnings
+
+nn = 3
+accuracy = 2e-10
+
+
+def gradient(gd, x, nn):
+    out = gd.empty(3)
+    for i in (0, 1, 2):
+        Gradient(gd, i, 1.0, nn).apply(x, out[i])
+    return out
+
+
+def make_gd(h, box, pbc):
+    diag = np.array([box] * 3)
+    cell = np.diag(diag)
+    grid_shape = tuple((diag / h * 2).astype(int))
+    return GridDescriptor(grid_shape, cell / Bohr, pbc)
+
+
+class MockDielectric(Dielectric):
+    def __init__(self, epsinf, nn):
+        Dielectric.__init__(self, epsinf)
+        self.nn = nn
+
+    def update(self, cavity):
+        grad_eps_vg = gradient(self.gd, self.eps_gradeps[0] - self.epsinf,
+                               self.nn)
+        for i in (0, 1, 2):
+            self.eps_gradeps[1 + i][...] = grad_eps_vg[i]
+
 
 def test_solvation_poisson():
-                                        ADM12PoissonSolver,
-                                        PolarizationPoissonSolver)
-    from gpaw.solvation.dielectric import Dielectric
-    from gpaw.grid_descriptor import GridDescriptor
-    from gpaw.utilities.gauss import Gaussian
-    from gpaw.fd_operators import Gradient
-    from ase.units import Bohr
-    from gpaw.test import equal
-    from gpaw.utilities import erf
-    from ase.parallel import parprint
-    import numpy as np
-    import warnings
-
-    nn = 3
-    accuracy = 2e-10
-
-
-    def gradient(gd, x, nn):
-        out = gd.empty(3)
-        for i in (0, 1, 2):
-            Gradient(gd, i, 1.0, nn).apply(x, out[i])
-        return out
-
-
-    def make_gd(h, box, pbc):
-        diag = np.array([box] * 3)
-        cell = np.diag(diag)
-        grid_shape = tuple((diag / h * 2).astype(int))
-        return GridDescriptor(grid_shape, cell / Bohr, pbc)
-
-
-    class MockDielectric(Dielectric):
-        def __init__(self, epsinf, nn):
-            Dielectric.__init__(self, epsinf)
-            self.nn = nn
-
-        def update(self, cavity):
-            grad_eps_vg = gradient(self.gd, self.eps_gradeps[0] - self.epsinf,
-                                   self.nn)
-            for i in (0, 1, 2):
-                self.eps_gradeps[1 + i][...] = grad_eps_vg[i]
-
-
     box = 12.
     gd = make_gd(h=.4, box=box, pbc=False)
-
 
     def solve(ps, eps, rho):
         phi = gd.zeros()
@@ -64,11 +62,9 @@ def test_solvation_poisson():
         solver.solve(phi, rho)
         return phi
 
-
     psolvers = (WeightedFDPoissonSolver,
                 ADM12PoissonSolver,
                 PolarizationPoissonSolver)
-
 
     # test neutral system with constant permittivity
     parprint('neutral, constant permittivity')

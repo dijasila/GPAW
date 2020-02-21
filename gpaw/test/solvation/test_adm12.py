@@ -1,46 +1,46 @@
 """
+tests solvation parameters as in
+
+O. Andreussi, I. Dabo, and N. Marzari,
+The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
+"""
+
+from gpaw import GPAW
+from gpaw.cluster import Cluster
+from gpaw.test import equal
+from ase.build import molecule
+from ase.units import mol, kcal, Pascal, m, Bohr
+from gpaw.solvation import (
+    SolvationGPAW,
+    ADM12SmoothStepCavity,
+    LinearDielectric,
+    GradientSurface,
+    SurfaceInteraction,
+    KB51Volume,
+    VolumeInteraction,
+    ElDensity
+)
+from gpaw.solvation.poisson import ADM12PoissonSolver
+import warnings
+
+SKIP_VAC_CALC = True
+
+h = 0.24
+vac = 4.0
+
+epsinf = 78.36
+rhomin = 0.0001 / Bohr ** 3
+rhomax = 0.0050 / Bohr ** 3
+st = 50. * 1e-3 * Pascal * m
+p = -0.35 * 1e9 * Pascal
+convergence = {
+    'energy': 0.05 / 8.,
+    'density': 10.,
+    'eigenstates': 10.,
+}
+
 
 def test_solvation_adm12():
-    tests solvation parameters as in
-
-    O. Andreussi, I. Dabo, and N. Marzari,
-    The Journal of Chemical Physics, vol. 136, no. 6, p. 064102, 2012
-    """
-
-    from gpaw import GPAW
-    from gpaw.cluster import Cluster
-    from gpaw.test import equal
-    from ase.build import molecule
-    from ase.units import mol, kcal, Pascal, m, Bohr
-    from gpaw.solvation import (
-        SolvationGPAW,
-        ADM12SmoothStepCavity,
-        LinearDielectric,
-        GradientSurface,
-        SurfaceInteraction,
-        KB51Volume,
-        VolumeInteraction,
-        ElDensity
-    )
-    from gpaw.solvation.poisson import ADM12PoissonSolver
-    import warnings
-
-    SKIP_VAC_CALC = True
-
-    h = 0.24
-    vac = 4.0
-
-    epsinf = 78.36
-    rhomin = 0.0001 / Bohr ** 3
-    rhomax = 0.0050 / Bohr ** 3
-    st = 50. * 1e-3 * Pascal * m
-    p = -0.35 * 1e9 * Pascal
-    convergence = {
-        'energy': 0.05 / 8.,
-        'density': 10.,
-        'eigenstates': 10.,
-    }
-
     atoms = Cluster(molecule('H2O'))
     atoms.minimal_box(vac, h)
 

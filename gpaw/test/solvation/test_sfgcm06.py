@@ -1,27 +1,27 @@
 """
+tests solvation parameters as in
+
+Damian A. Scherlis, Jean-Luc Fattebert, Francois Gygi,
+Matteo Cococcioni and Nicola Marzari,
+J. Chem. Phys. 124, 074103, 2006
+"""
+
+from gpaw import GPAW
+from gpaw.cluster import Cluster
+from gpaw.test import equal
+from ase import Atoms
+from ase.units import mol, kcal, Pascal, m, Bohr
+from gpaw.solvation import (
+    SolvationGPAW,
+    FG02SmoothStepCavity,
+    LinearDielectric,
+    GradientSurface,
+    SurfaceInteraction,
+    ElDensity
+)
+
 
 def test_solvation_sfgcm06():
-    tests solvation parameters as in
-
-    Damian A. Scherlis, Jean-Luc Fattebert, Francois Gygi,
-    Matteo Cococcioni and Nicola Marzari,
-    J. Chem. Phys. 124, 074103, 2006
-    """
-
-    from gpaw import GPAW
-    from gpaw.cluster import Cluster
-    from gpaw.test import equal
-    from ase import Atoms
-    from ase.units import mol, kcal, Pascal, m, Bohr
-    from gpaw.solvation import (
-        SolvationGPAW,
-        FG02SmoothStepCavity,
-        LinearDielectric,
-        GradientSurface,
-        SurfaceInteraction,
-        ElDensity
-    )
-
     SKIP_VAC_CALC = True
 
     h = 0.24

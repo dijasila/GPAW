@@ -6,29 +6,29 @@ from ase.data.vdw import vdw_radii
 from gpaw.mpi import rank
 from gpaw import Mixer
 from gpaw.solvation import (
+    SolvationGPAW,
+    EffectivePotentialCavity,
+    Power12Potential,
+    LinearDielectric,
+    KB51Volume,
+    GradientSurface,
+    VolumeInteraction,
+    SurfaceInteraction,
+    LeakedDensityInteraction)
+
+import numpy as np
+
+SKIP_ENERGY_CALCULATION = True
+F_max_err = 0.005
+
+h = 0.2
+u0 = 0.180
+epsinf = 80.
+T = 298.15
+atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
 
 def test_solvation_forces():
-        SolvationGPAW,
-        EffectivePotentialCavity,
-        Power12Potential,
-        LinearDielectric,
-        KB51Volume,
-        GradientSurface,
-        VolumeInteraction,
-        SurfaceInteraction,
-        LeakedDensityInteraction)
-
-    import numpy as np
-
-    SKIP_ENERGY_CALCULATION = True
-    F_max_err = 0.005
-
-    h = 0.2
-    u0 = 0.180
-    epsinf = 80.
-    T = 298.15
-    atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
-
     atoms = Atoms('NaCl', positions=((5.6, 5.6, 6.8), (5.6, 5.6, 8.8)))
     atoms.set_cell((11.2, 11.2, 14.4))
 
