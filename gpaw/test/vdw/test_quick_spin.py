@@ -2,7 +2,7 @@ from ase import Atoms
 from gpaw import GPAW, FermiDirac
 
 
-def test_vdw_quick_spin():
+def test_vdw_quick_spin(in_tmp_dir):
     L = 2.5
     a = Atoms('H', cell=(L, L, L), pbc=True)
     calc = GPAW(xc='vdW-DF',

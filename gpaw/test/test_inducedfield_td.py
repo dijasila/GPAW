@@ -8,7 +8,7 @@ from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
 
 
-def test_inducedfield_td():
+def test_inducedfield_td(in_tmp_dir):
     do_print_values = False  # Use this for printing the reference values
     poisson_eps = 1e-12
     density_eps = 1e-6

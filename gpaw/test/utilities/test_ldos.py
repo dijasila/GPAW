@@ -8,7 +8,7 @@ from gpaw.test import equal
 import gpaw.mpi as mpi
 
 
-def test_utilities_ldos():
+def test_utilities_ldos(in_tmp_dir):
     comms = [mpi.world.new_communicator(np.array([r])) for r in range(mpi.size)]
     comm = comms[mpi.rank]
 

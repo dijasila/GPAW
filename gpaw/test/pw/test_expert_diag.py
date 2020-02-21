@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
 
 
 
-def test_pw_expert_diag():
+def test_pw_expert_diag(in_tmp_dir):
     wfs_e = []
     for i, expert in enumerate([True, False]):
         si = bulk('Si')

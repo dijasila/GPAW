@@ -6,7 +6,7 @@ from gpaw.cdft.cdft_coupling import CouplingParameters
 from gpaw.mpi import size
 
 
-def test_cdft():
+def test_cdft(in_tmp_dir):
     distance = 2.5
     sys = Atoms('He2', positions = ([0.,0.,0.],[0.,0.,distance]))
     sys.center(3)

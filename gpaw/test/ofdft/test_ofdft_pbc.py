@@ -6,7 +6,7 @@ from gpaw.test import gen
 
 
 
-def test_ofdft_ofdft_pbc():
+def test_ofdft_ofdft_pbc(in_tmp_dir):
     symbol = 'C'
     result = -224.206
     electrons = 48

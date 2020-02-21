@@ -11,7 +11,7 @@ from gpaw.lrtddft.kssingle import KSSingles
 
 
 
-def test_lrtddft_kssingles_Be():
+def test_lrtddft_kssingles_Be(in_tmp_dir):
     Be = Atoms('Be')
     Be.center(vacuum=4)
     if 1:

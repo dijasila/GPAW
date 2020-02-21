@@ -5,7 +5,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 
-def test_fileio_refine():
+def test_fileio_refine(in_tmp_dir):
     restart_wf = 'gpaw-restart-wf.gpw'
     # H2
     H = Atoms('HH', [(0, 0, 0), (0, 0, 1)])

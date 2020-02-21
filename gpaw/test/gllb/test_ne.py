@@ -7,7 +7,7 @@ from gpaw.test import equal
 from gpaw.mpi import world
 
 
-def test_gllb_ne():
+def test_gllb_ne(in_tmp_dir):
     atom = 'Ne'
     setup_paths.insert(0, '.')
 

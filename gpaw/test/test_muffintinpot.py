@@ -10,7 +10,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 
 
 
-def test_muffintinpot():
+def test_muffintinpot(in_tmp_dir):
     if 1:
         be = Atoms(symbols='Be',positions=[(0,0,0)])
         be.center(vacuum=5)

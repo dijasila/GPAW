@@ -17,7 +17,7 @@ from gpaw.test import equal
 
 
 
-def test_lcaotddft_ksdecomp():
+def test_lcaotddft_ksdecomp(in_tmp_dir):
     def relative_equal(x, y, *args, **kwargs):
         return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
 

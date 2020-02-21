@@ -5,7 +5,7 @@ from gpaw import GPAW, PW, restart
 from gpaw.test import equal
 
 
-def test_fileio_restart():
+def test_fileio_restart(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
                   positions=[(0, 0, 0),

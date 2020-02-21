@@ -11,7 +11,7 @@ from gpaw.lrtddft import LrTDDFT
 import _gpaw
 
 
-def test_rsf_yukawa_rsf_ivo_sing_mg():
+def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:
         from unittest import SkipTest

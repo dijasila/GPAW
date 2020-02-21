@@ -7,7 +7,7 @@ from gpaw.mpi import world, rank
 
 
 
-def test_fileio_file_reference():
+def test_fileio_file_reference(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
                   positions=[(0, 0, 0),

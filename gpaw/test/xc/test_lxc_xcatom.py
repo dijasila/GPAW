@@ -5,7 +5,7 @@ from gpaw.xc import XC
 from gpaw.test import equal, gen
 
 
-def test_xc_lxc_xcatom():
+def test_xc_lxc_xcatom(in_tmp_dir):
     if 1:
         for functional in [
             'LDA_X', 'LDA_X+LDA_C_PW', 'LDA_X+LDA_C_VWN', 'LDA_X+LDA_C_PZ',

@@ -8,7 +8,7 @@ from gpaw import GPAW
 from gpaw.cluster import Cluster
 
 
-def test_ase_features_plt():
+def test_ase_features_plt(in_tmp_dir):
     txt = '-'
     txt = '/dev/null'
 

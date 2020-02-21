@@ -4,7 +4,7 @@ from gpaw.poisson import PoissonSolver
 import numpy as np
 
 
-def test_poisson_metallic_poisson():
+def test_poisson_metallic_poisson(in_tmp_dir):
     slab = bcc111('Na', (1, 1, 2), vacuum=8)
     electrodes = ['both', 'single']
     charge = 0.05

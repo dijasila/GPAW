@@ -8,7 +8,7 @@ from gpaw.mpi import world
 from gpaw.lrtddft.excited_state import ExcitedState
 
 
-def test_lrtddft_1():
+def test_lrtddft_1(in_tmp_dir):
     txt = '-'
     txt = '/dev/null'
     io_only = False

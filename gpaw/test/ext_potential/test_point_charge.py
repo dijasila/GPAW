@@ -8,7 +8,7 @@ import _gpaw
 
 # Find coefs for polynomial:
 
-def test_ext_potential_point_charge():
+def test_ext_potential_point_charge(in_tmp_dir):
     c = np.linalg.solve([[1, 1, 1, 1],
                          [0, 2, 4, 6],
                          [0, 2, 12, 30],

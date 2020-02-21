@@ -4,7 +4,7 @@ from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.spectrum import spectrum
 
 
-def test_lrtddft_2():
+def test_lrtddft_2(in_tmp_dir):
     txt = '-'
     txt = None
     load = True

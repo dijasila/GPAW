@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size != 1 and not compiled_with_sl()')
 
 
-def test_rpa_rpa_energy_N2():
+def test_rpa_rpa_energy_N2(in_tmp_dir):
     ecut = 25
 
     N2 = molecule('N2')

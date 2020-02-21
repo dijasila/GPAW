@@ -3,7 +3,7 @@ from ase import Atoms
 from gpaw.fdtd.poisson_fdtd import QSFDTD
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
 
-def test_fdtd_ed_wrapper():
+def test_fdtd_ed_wrapper(in_tmp_dir):
                                                 PolarizableMaterial,
                                                 PolarizableSphere)
     from gpaw.mpi import world

@@ -9,7 +9,7 @@ from gpaw.test import equal, gen
 import _gpaw
 
 
-def test_rsf_yukawa_rsf_general():
+def test_rsf_yukawa_rsf_general(in_tmp_dir):
     libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
     if int(libxc_version.split('.')[0]) < 3:
         from unittest import SkipTest

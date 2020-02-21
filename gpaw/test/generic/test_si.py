@@ -4,7 +4,7 @@ from gpaw.test import equal
 import numpy as np
 
 
-def test_generic_si():
+def test_generic_si(in_tmp_dir):
     a = 5.404
     bulk = Atoms(symbols='Si8',
                  scaled_positions=[(0, 0, 0),

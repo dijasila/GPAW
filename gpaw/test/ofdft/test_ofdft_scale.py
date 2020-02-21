@@ -7,7 +7,7 @@ from gpaw.eigensolvers import CG
 
 
 
-def test_ofdft_ofdft_scale():
+def test_ofdft_ofdft_scale(in_tmp_dir):
     h = 0.18
     a = 10.0
     c = a / 2

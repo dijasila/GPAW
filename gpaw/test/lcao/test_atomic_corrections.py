@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(not compiled_with_sl(),
 
 
 
-def test_lcao_atomic_corrections():
+def test_lcao_atomic_corrections(in_tmp_dir):
     def test(system, **kwargs):
         corrections = ['dense', 'sparse']
 

@@ -10,7 +10,7 @@ from gpaw.test import equal
 
 # Atoms
 
-def test_tddft_fxc_linearize():
+def test_tddft_fxc_linearize(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
 

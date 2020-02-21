@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 
 
 
-def test_lcao_pair_and_coulomb():
+def test_lcao_pair_and_coulomb(in_tmp_dir):
     scat = range(2)
     atoms = molecule('H2')
     atoms.set_cell([6.4, 6.4, 6.4])

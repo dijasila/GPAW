@@ -4,7 +4,7 @@ from ase.build import bulk
 from gpaw import GPAW, PW, Mixer
 
 
-def test_xc_tb09():
+def test_xc_tb09(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}
 

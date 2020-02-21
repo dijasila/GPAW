@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
 
 
 
-def test_ralda_ralda_energy_H2():
+def test_ralda_ralda_energy_H2(in_tmp_dir):
     if world.size == 1:
         scalapack1 = None
         scalapack2 = None

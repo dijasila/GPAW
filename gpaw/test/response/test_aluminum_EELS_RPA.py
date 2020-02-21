@@ -10,7 +10,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import size, world
 
 
-def test_response_aluminum_EELS_RPA():
+def test_response_aluminum_EELS_RPA(in_tmp_dir):
     assert size <= 4**3
 
     # Ground state calculation

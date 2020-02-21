@@ -2,7 +2,7 @@ from ase import Atoms
 from gpaw import GPAW, PW, Davidson
 
 
-def test_exx_double_cell():
+def test_exx_double_cell(in_tmp_dir):
     L = 4.0
     a = Atoms('H',
               cell=[L, L, 1],

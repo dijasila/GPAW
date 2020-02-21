@@ -12,7 +12,7 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
-def test_vdw_ts09():
+def test_vdw_ts09(in_tmp_dir):
     h = 0.4
     s = Cluster(molecule('LiH'))
     s.minimal_box(3., h=h)

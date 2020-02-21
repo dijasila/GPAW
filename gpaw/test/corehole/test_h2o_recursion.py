@@ -5,7 +5,7 @@ from gpaw.test import equal, gen
 
 # Generate setup for oxygen with half a core-hole:
 
-def test_corehole_h2o_recursion():
+def test_corehole_h2o_recursion(in_tmp_dir):
     gen('O', name='hch1s', corehole=(1, 0, 0.5))
 
     a = 5.0

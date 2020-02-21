@@ -4,7 +4,7 @@ from ase.parallel import parprint
 from ase.lattice.compounds import L1_2
 
 
-def test_xc_qna_stress():
+def test_xc_qna_stress(in_tmp_dir):
     name = 'Cu3Au'
     structure = 'L1_2'
     ecut = 300

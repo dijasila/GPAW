@@ -3,7 +3,7 @@ from ase.units import Hartree
 from gpaw import GPAW
 
 
-def test_fileio_wfs_io():
+def test_fileio_wfs_io(in_tmp_dir):
     h2 = Atoms('H2', [(0, 0, 0), (0, 0, 1)])
     h2.center(vacuum=2.0)
     calc = GPAW(nbands=2, convergence={'eigenstates': 1e-3})

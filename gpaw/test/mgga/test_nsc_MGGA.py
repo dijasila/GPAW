@@ -5,7 +5,7 @@ from gpaw.test import equal
 # ??? g = Generator('H', 'TPSS', scalarrel=True, nofiles=True)
 
 
-def test_mgga_nsc_MGGA():
+def test_mgga_nsc_MGGA(in_tmp_dir):
     def xc(name):
         return dict(name=name, stencil=1)
 

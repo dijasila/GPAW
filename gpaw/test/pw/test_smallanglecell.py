@@ -1,7 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW, PW
 
-def test_pw_smallanglecell():
+def test_pw_smallanglecell(in_tmp_dir):
     a = 3.0
     ec = 200
     h2 = Atoms('H2', [[0, 0, 0], [0, 0, 0.8]],

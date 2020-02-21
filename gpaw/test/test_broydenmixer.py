@@ -4,7 +4,7 @@ from gpaw.mixer import BroydenMixer
 from gpaw.test import equal
 
 
-def test_broydenmixer():
+def test_broydenmixer(in_tmp_dir):
     a = 2.7
     bulk = Atoms([Atom('Li')], pbc=True, cell=(a, a, a))
     k = 2

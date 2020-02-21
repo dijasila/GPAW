@@ -11,7 +11,7 @@ pytestmark = pytest.mark.skipif(world.size > 2,
 
 
 
-def test_ase_features_neb():
+def test_ase_features_neb(in_tmp_dir):
     txt=None
 
     mol = Cluster([Atom('H'),

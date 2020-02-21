@@ -11,7 +11,7 @@ from gpaw.lrtddft import LrTDDFT
 """Evaluate the overlap between two independent calculations
 
 
-def test_overlap():
+def test_overlap(in_tmp_dir):
     Differences are forced by different eigensolvers and differing number
     of Kohn-Sham states.
     """ 

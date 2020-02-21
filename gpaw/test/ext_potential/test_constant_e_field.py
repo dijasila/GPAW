@@ -6,7 +6,7 @@ from gpaw import GPAW
 from gpaw.external import ConstantElectricField
 
 
-def test_ext_potential_constant_e_field():
+def test_ext_potential_constant_e_field(in_tmp_dir):
     h = Atoms('H')
     h.center(vacuum=2.5)
     h.calc = GPAW(external=ConstantElectricField(1.0),  # 1 V / Ang

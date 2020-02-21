@@ -5,7 +5,7 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 
-def test_ofdft_ofdft():
+def test_ofdft_ofdft(in_tmp_dir):
     a = 6.0
     c = a / 2
     # d = 1.8

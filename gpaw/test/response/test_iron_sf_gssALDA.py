@@ -21,7 +21,7 @@ from gpaw.test import findpeak, equal
 from gpaw.mpi import world
 
 
-def test_response_iron_sf_gssALDA():
+def test_response_iron_sf_gssALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation

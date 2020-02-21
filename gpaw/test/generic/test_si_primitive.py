@@ -4,7 +4,7 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 
-def test_generic_si_primitive():
+def test_generic_si_primitive(in_tmp_dir):
     a = 5.475
     calc = GPAW(h=0.24,
                 kpts=(4, 4, 4),

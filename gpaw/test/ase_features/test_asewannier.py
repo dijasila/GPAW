@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 
 
 
-def test_ase_features_asewannier():
+def test_ase_features_asewannier(in_tmp_dir):
     calc = GPAW(gpts=(32, 32, 32), nbands=4)
     atoms = molecule('H2', calculator=calc)
     atoms.center(vacuum=3.)

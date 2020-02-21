@@ -9,7 +9,7 @@ from gpaw.pes.dos import DOSPES
 from gpaw.pes.tddft import TDDFTPES
 
 
-def test_lrtddft_pes():
+def test_lrtddft_pes(in_tmp_dir):
     txt = None
     R=0.7 # approx. experimental bond length
     a = 3.0

@@ -5,7 +5,7 @@ import os
 from gpaw.mpi import world
 
 
-def test_gllb_restart_band_structure():
+def test_gllb_restart_band_structure(in_tmp_dir):
     gen('Si', xcname='GLLBSC')
 
     e = {}

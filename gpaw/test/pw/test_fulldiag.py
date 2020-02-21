@@ -10,7 +10,7 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
 
 
 
-def test_pw_fulldiag():
+def test_pw_fulldiag(in_tmp_dir):
     a = Atoms('H2',
               [(0, 0, 0), (0, 0, 0.74)],
               cell=(3, 3, 3),

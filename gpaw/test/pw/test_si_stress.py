@@ -4,7 +4,7 @@ from gpaw import GPAW, PW, Mixer
 from gpaw.mpi import world
 
 
-def test_pw_si_stress():
+def test_pw_si_stress(in_tmp_dir):
     xc = 'PBE'
     si = bulk('Si')
     k = 3

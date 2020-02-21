@@ -8,7 +8,7 @@ from gpaw.test import equal
 # without a self-consistent calculation.
 
 
-def test_generic_mixer():
+def test_generic_mixer(in_tmp_dir):
     a = 2.7
     bulk = Atoms([Atom('Li')], pbc=True, cell=(a, a, a))
     k = 2

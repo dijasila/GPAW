@@ -8,7 +8,7 @@ from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
-def test_exx_coarse():
+def test_exx_coarse(in_tmp_dir):
     timer = Timer()
 
     loa = Atoms('Be2',

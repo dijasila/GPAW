@@ -16,7 +16,7 @@ from gpaw.response.tool import (get_bz_transitions,
 from gpaw.test import equal
 
 
-def test_response_pdens_tool():
+def test_response_pdens_tool(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation

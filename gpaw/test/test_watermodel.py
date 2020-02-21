@@ -10,7 +10,7 @@ import time
 from ase.io import read
 
 
-def test_watermodel():
+def test_watermodel(in_tmp_dir):
     NSTEPS = 600
     SCALE = 200
 

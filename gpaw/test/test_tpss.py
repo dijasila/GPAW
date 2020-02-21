@@ -5,7 +5,7 @@ from gpaw.utilities.tools import split_formula
 from gpaw.test import equal
 
 
-def test_tpss():
+def test_tpss(in_tmp_dir):
     cell = [6., 6., 7.]
     data = paropen('data.txt', 'w')
 

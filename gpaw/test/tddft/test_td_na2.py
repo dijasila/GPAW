@@ -6,7 +6,7 @@ from gpaw.tddft.abc import LinearAbsorbingBoundary, P4AbsorbingBoundary, PML
 
 # Sodium dimer, Na2
 
-def test_tddft_td_na2():
+def test_tddft_td_na2(in_tmp_dir):
     d = 1.5
     atoms = Atoms(symbols='Na2',
                   positions=[( 0, 0, d),

@@ -8,7 +8,7 @@ from gpaw.test import equal
 from gpaw.analyse.expandyl import AngularIntegral, ExpandYl
 
 
-def test_radial_ylexpand():
+def test_radial_ylexpand(in_tmp_dir):
     fname = 'H2.gpw'
     donot = ''
     donot = 'donot'

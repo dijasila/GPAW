@@ -8,7 +8,7 @@ from gpaw.test import equal
 import os
 
 
-def test_response_graphene_refined_response():
+def test_response_graphene_refined_response(in_tmp_dir):
     system = Graphene(symbol='C',
                       latticeconstant={'a': 2.467710, 'c': 1.0},
                       size=(1, 1, 1))

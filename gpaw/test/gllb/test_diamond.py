@@ -1,6 +1,6 @@
 """This calculation has the following structure.
 
-def test_gllb_diamond():
+def test_gllb_diamond(in_tmp_dir):
     1) Calculate the ground state of Diamond.
     2) Calculate the band structure of diamond in order to obtain accurate KS
        band gap for Diamond.

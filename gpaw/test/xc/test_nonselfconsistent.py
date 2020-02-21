@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 
-def test_xc_nonselfconsistent():
+def test_xc_nonselfconsistent(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}
 

@@ -6,7 +6,7 @@ from gpaw.mpi import world
 
 
 
-def test_pseudopotential_atompaw():
+def test_pseudopotential_atompaw(in_tmp_dir):
     def check(title, calc, epsref_n, threshold):
         eps_n = calc.wfs.kpt_u[0].eps_n
         print(title)

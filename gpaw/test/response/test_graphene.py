@@ -12,7 +12,7 @@ from gpaw.mpi import world
 # should be equal, are.
 
 
-def test_response_graphene():
+def test_response_graphene(in_tmp_dir):
     a = 2.5
     c = 3.22
 

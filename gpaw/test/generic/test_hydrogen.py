@@ -7,7 +7,7 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 
 
-def test_generic_hydrogen():
+def test_generic_hydrogen(in_tmp_dir):
     a = 4.0
     h = 0.2
     hydrogen = Atoms('H',

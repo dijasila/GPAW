@@ -3,7 +3,7 @@ from ase import Atoms
 from gpaw import GPAW, PW, FermiDirac
 
 
-def test_pw_augment_grids():
+def test_pw_augment_grids(in_tmp_dir):
     ecut = 200
     kpoints = [1, 1, 4]
     atoms = Atoms('HLi', cell=[6, 6, 3.4], pbc=True,

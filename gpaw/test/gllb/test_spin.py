@@ -4,7 +4,7 @@ from ase.build import bulk
 
 
 
-def test_gllb_spin():
+def test_gllb_spin(in_tmp_dir):
     for spin in [False, True]:
         a = 3.56
         atoms = bulk('C', 'diamond', a=a)

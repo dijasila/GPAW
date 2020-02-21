@@ -10,7 +10,7 @@ from ase.data import s22
 # and constraints give the same results
 
 
-def test_rattle():
+def test_rattle(in_tmp_dir):
     pairs = [(3 * i + j, 3 * i + (j + 1) % 3)
              for i in range(2)
              for j in [0, 1, 2]]

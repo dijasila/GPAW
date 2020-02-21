@@ -6,7 +6,7 @@ from gpaw.utilities import compiled_with_sl
 
 
 
-def test_lcao_kpts_many_combinations():
+def test_lcao_kpts_many_combinations(in_tmp_dir):
     def ikwargs():
         for augment_grids in [False, True]:
             for sl_auto in ([0, 1] if compiled_with_sl() else [0]):

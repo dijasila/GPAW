@@ -2,7 +2,7 @@ from gpaw import GPAW, restart, FD
 from ase.build import molecule
 from gpaw.test import equal
 
-def test_complex():
+def test_complex(in_tmp_dir):
     Eini0 = -17.8037610364
     energy_eps = 0.0005
     esolvers = ['cg', 'rmm-diis', 'dav']

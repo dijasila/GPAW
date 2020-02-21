@@ -7,7 +7,7 @@ from gpaw.test import equal
 from gpaw.xc.vdw import VDWFunctional
 
 
-def test_vdw_ar2():
+def test_vdw_ar2(in_tmp_dir):
     energy_tolerance = 0.002
 
 

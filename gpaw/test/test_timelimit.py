@@ -6,7 +6,7 @@ from gpaw.utilities.timelimit import TimeLimiter
 
 # Atoms
 
-def test_timelimit():
+def test_timelimit(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
 

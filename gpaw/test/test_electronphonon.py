@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(world.size > 2,
 
 
 
-def test_electronphonon():
+def test_electronphonon(in_tmp_dir):
     if LooseVersion(__version__) < '3.18':
         from unittest import SkipTest
         raise SkipTest

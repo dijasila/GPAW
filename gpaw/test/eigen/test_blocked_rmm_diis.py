@@ -4,7 +4,7 @@ from gpaw import GPAW, Mixer, RMM_DIIS
 from gpaw.test import equal
 
 
-def test_eigen_blocked_rmm_diis():
+def test_eigen_blocked_rmm_diis(in_tmp_dir):
     a = 4.0
     n = 20
     d = 1.0

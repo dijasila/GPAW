@@ -6,7 +6,7 @@ from gpaw import GPAW, Mixer
 from gpaw.test import equal
 
 
-def test_jellium():
+def test_jellium(in_tmp_dir):
     rs = 5.0 * Bohr  # Wigner-Seitz radius
     h = 0.24          # grid-spacing
     a = 8 * h        # lattice constant

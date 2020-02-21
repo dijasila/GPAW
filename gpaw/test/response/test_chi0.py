@@ -9,7 +9,7 @@ from gpaw.mpi import serial_comm
 
 
 
-def test_response_chi0():
+def test_response_chi0(in_tmp_dir):
     omega = np.array([0, 1.0, 2.0])
     for k in [2, 3]:
         q_c = [0, 0, 1.0 / k]

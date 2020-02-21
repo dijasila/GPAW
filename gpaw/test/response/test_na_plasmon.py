@@ -14,7 +14,7 @@ from gpaw.response.df import DielectricFunction
 # physical sodium cell.
 
 
-def test_response_na_plasmon():
+def test_response_na_plasmon(in_tmp_dir):
     a = 4.23 / 2.0
     a1 = Atoms('Na',
                scaled_positions=[[0, 0.1, 0]],

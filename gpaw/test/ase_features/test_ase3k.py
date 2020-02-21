@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 # Check that we fail for non-3x3 cell:
 
-def test_ase_features_ase3k():
+def test_ase_features_ase3k(in_tmp_dir):
     with must_raise(ValueError):
         H = Atoms('H', calculator=GPAW())
         H.get_potential_energy()

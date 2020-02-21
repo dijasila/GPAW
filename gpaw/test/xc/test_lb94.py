@@ -7,7 +7,7 @@ from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
 
 
-def test_xc_lb94():
+def test_xc_lb94(in_tmp_dir):
     ref1 = 'R. v. Leeuwen PhysRevA 49, 2421 (1994)'
     ref2 = 'Gritsenko IntJQuanChem 76, 407 (2000)'
     # HOMO energy in mHa for closed shell atoms

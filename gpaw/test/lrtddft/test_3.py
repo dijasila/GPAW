@@ -12,7 +12,7 @@ from gpaw.gauss import Gauss
 from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
 from gpaw.lrtddft.kssingle import KSSingles
 
-def test_lrtddft_3():
+def test_lrtddft_3(in_tmp_dir):
     try:
         from StringIO import StringIO  # Python 2
     except ImportError:

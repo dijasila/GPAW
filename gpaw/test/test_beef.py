@@ -7,7 +7,7 @@ from gpaw.mpi import world
 import _gpaw
 
 
-def test_beef():
+def test_beef(in_tmp_dir):
     newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
     gen('Si', xcname='PBEsol')

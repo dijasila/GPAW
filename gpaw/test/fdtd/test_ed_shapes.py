@@ -4,7 +4,7 @@ from gpaw.fdtd.polarizable_material import PermittivityPlus, PolarizableMaterial
     PolarizableSphere, PolarizableBox, \
     PolarizableEllipsoid, PolarizableRod, \
 
-def test_fdtd_ed_shapes():
+def test_fdtd_ed_shapes(in_tmp_dir):
         PolarizableTetrahedron
     from gpaw.test import equal
 

@@ -1,5 +1,5 @@
 
-def test_ase_features_wannierk():
+def test_ase_features_wannierk(in_tmp_dir):
     'Test ase.dft.wannier module with k-points.'
     from ase.build import bulk
     from ase.dft.wannier import Wannier

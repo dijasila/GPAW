@@ -8,7 +8,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
-def test_sic_nscfsic():
+def test_sic_nscfsic(in_tmp_dir):
     atoms = ['He','Be'] #,'Ne'] # Ne deviates already 2.5 eV
     EE = []
     EREF = [-79.4,-399.8,-3517.6]

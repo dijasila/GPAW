@@ -6,7 +6,7 @@ from gpaw import GPAW, restart, FermiDirac
 from gpaw.test import equal
 
 
-def test_lcao_fd2lcao_restart():
+def test_lcao_fd2lcao_restart(in_tmp_dir):
     energy_tolerance = 0.001
     niter_tolerance = 0
 

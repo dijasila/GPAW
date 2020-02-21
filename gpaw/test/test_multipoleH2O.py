@@ -10,7 +10,7 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
-def test_multipoleH2O():
+def test_multipoleH2O(in_tmp_dir):
     h = 0.3
 
     s = Cluster(molecule('H2O'))

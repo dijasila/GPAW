@@ -15,7 +15,7 @@ from gpaw.test import equal
 # equal to a tolerance of 1e-10.
 
 
-def test_response_symmetry():
+def test_response_symmetry(in_tmp_dir):
     resultfile = paropen('results.txt', 'a')
     pwcutoff = 400.0
     k = 4

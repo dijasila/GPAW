@@ -12,7 +12,7 @@ from gpaw.response.susceptibility import read_macroscopic_component
 from gpaw.mpi import size, world
 
 
-def test_response_silicon_chi_RPA():
+def test_response_silicon_chi_RPA(in_tmp_dir):
     assert size <= 4**3
 
     # Ground state calculation

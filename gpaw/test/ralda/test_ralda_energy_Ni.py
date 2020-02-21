@@ -13,7 +13,7 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
 
 
 
-def test_ralda_ralda_energy_Ni():
+def test_ralda_ralda_energy_Ni(in_tmp_dir):
     if world.rank == 0:
         a0  = 5.43
         Ni = bulk('Ni', 'fcc')

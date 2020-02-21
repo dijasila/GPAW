@@ -3,7 +3,7 @@ from ase.lattice.cubic import BodyCenteredCubic
 from gpaw.test import equal
 
 
-def test_xc_qna_spinpol():
+def test_xc_qna_spinpol(in_tmp_dir):
     QNA = {'alpha': 2.0,
            'name': 'QNA',
            'orbital_dependent': False,

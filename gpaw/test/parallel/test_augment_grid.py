@@ -4,7 +4,7 @@ from ase.build import molecule
 from gpaw.mpi import world
 
 
-def test_parallel_augment_grid():
+def test_parallel_augment_grid(in_tmp_dir):
     system = molecule('H2O')
     system.cell = (4, 4, 4)
     system.pbc = 1

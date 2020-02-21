@@ -7,7 +7,7 @@ from gpaw.test import equal
 # Setup up bulk NiO in an antiferromagnetic configuration.
 # Lattice constants:
 
-def test_Hubbard_U():
+def test_Hubbard_U(in_tmp_dir):
     a = 4.19
     b = a / sqrt(2)
     m = 2

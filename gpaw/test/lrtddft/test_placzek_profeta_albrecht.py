@@ -24,7 +24,7 @@ a = 4.0
 c = 5.0
 
 
-def test_lrtddft_placzek_profeta_albrecht():
+def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))

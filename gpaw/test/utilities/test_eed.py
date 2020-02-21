@@ -5,7 +5,7 @@ from gpaw.cluster import Cluster
 from gpaw.analyse.eed import ExteriorElectronDensity
 
 
-def test_utilities_eed():
+def test_utilities_eed(in_tmp_dir):
     fwfname='H2_kpt441_wf.gpw'
     txt = None
     #txt = '-'

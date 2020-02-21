@@ -2,7 +2,7 @@ from gpaw import GPAW, PW, restart
 from ase.lattice.compounds import L1_2
 
 
-def test_xc_qna_band():
+def test_xc_qna_band(in_tmp_dir):
     name = 'Cu3Au'
     ecut = 300
     kpts = (2, 2, 2)

@@ -5,7 +5,7 @@ from gpaw.tddft.ehrenfest import EhrenfestVelocityVerlet
 from gpaw.test import equal
 
 
-def test_tddft_ehrenfest_nacl():
+def test_tddft_ehrenfest_nacl(in_tmp_dir):
     d = 4.0
     atoms = Atoms('NaCl', [(0, 0, 0), (0, 0, d)])
     atoms.center(vacuum=4.5)

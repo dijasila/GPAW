@@ -8,7 +8,7 @@ pytestmark = pytest.mark.skipif(world.size > 1,
 
 
 
-def test_lcao_generate_ngto():
+def test_lcao_generate_ngto(in_tmp_dir):
     with open('gbs.txt', 'w') as f:
         def w(s):
             f.write('%s\n' % s)

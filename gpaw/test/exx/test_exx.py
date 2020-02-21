@@ -6,7 +6,7 @@ from gpaw.xc import XC
 from gpaw.xc.hybrid import HybridXC
 
 
-def test_exx_exx():
+def test_exx_exx(in_tmp_dir):
     be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
     be2.center(vacuum=2.0)
     calc = GPAW(h=0.21,

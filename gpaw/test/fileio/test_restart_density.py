@@ -9,7 +9,7 @@ from gpaw.test import equal
 
 
 
-def test_fileio_restart_density():
+def test_fileio_restart_density(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
                   positions=[(0, 0, 0),

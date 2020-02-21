@@ -7,7 +7,7 @@ from ase.build import molecule
 from math import sqrt
 
 
-def test_cluster():
+def test_cluster(in_tmp_dir):
     R = 2.0
     CO = Atoms('CO', [(1, 0, 0), (1, 0, R)])
 

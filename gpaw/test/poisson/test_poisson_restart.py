@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(world.size > 2,
 
 
 
-def test_poisson_poisson_restart():
+def test_poisson_poisson_restart(in_tmp_dir):
     name = 'Na2'
     poissoneps = 1e-16
     gpts = np.array([16, 16, 24])

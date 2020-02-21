@@ -11,7 +11,7 @@ from gpaw.test import equal
 
 # Atoms
 
-def test_lcaotddft_restart():
+def test_lcaotddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
 

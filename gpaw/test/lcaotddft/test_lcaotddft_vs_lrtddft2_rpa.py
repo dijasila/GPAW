@@ -13,7 +13,7 @@ from gpaw.test import equal
 
 # Atoms
 
-def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa():
+def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
 

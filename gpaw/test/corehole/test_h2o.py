@@ -10,7 +10,7 @@ import gpaw.mpi as mpi
 
 # Generate setup for oxygen with half a core-hole:
 
-def test_corehole_h2o():
+def test_corehole_h2o(in_tmp_dir):
     gen = generate('O', '2s,s,2p,p,d', [1.2], 1.0, None, 2, core_hole='1s,0.5')
     setup = gen.make_paw_setup('hch1s')
     setup.write_xml()

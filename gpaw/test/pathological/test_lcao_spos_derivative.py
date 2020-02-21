@@ -3,7 +3,7 @@ from ase.build import bulk
 from gpaw import GPAW, FermiDirac, Mixer
 
 
-def test_pathological_lcao_spos_derivative():
+def test_pathological_lcao_spos_derivative(in_tmp_dir):
     atoms = bulk('Si', 'diamond', a=5.4834322363595565)
     atoms *= (3, 3, 3)
     atoms.calc = GPAW(

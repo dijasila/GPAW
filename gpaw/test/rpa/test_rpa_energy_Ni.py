@@ -6,7 +6,7 @@ from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc import FXCCorrelation
 
 
-def test_rpa_rpa_energy_Ni():
+def test_rpa_rpa_energy_Ni(in_tmp_dir):
     a0 = 5.43
     Ni = bulk('Ni', 'fcc')
     Ni.set_initial_magnetic_moments([0.7])

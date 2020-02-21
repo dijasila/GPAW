@@ -5,7 +5,7 @@ from gpaw.test import gen
 
 # Generate setup for oxygen with half a core-hole:
 
-def test_corehole_si():
+def test_corehole_si(in_tmp_dir):
     gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30)
     a = 2.6
     si = Atoms('Si', cell=(a, a, a), pbc=True)

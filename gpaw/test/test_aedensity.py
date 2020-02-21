@@ -5,7 +5,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 
-def test_aedensity():
+def test_aedensity(in_tmp_dir):
     try:
         calc = GPAW('NaCl.gpw')
         NaCl = calc.get_atoms()

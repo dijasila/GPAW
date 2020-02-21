@@ -12,7 +12,7 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
 
 
 
-def test_response_au02_absorption():
+def test_response_au02_absorption(in_tmp_dir):
     GS = 1
     ABS = 1
     if GS:

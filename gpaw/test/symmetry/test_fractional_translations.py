@@ -4,7 +4,7 @@ from gpaw import PW
 from gpaw.test import equal
 
 
-def test_symmetry_fractional_translations():
+def test_symmetry_fractional_translations(in_tmp_dir):
     name = 'sishovite'
     # no 136 - tetragonal
 

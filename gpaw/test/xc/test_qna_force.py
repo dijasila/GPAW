@@ -3,7 +3,7 @@ from ase.parallel import parprint
 from ase.lattice.compounds import L1_2
 
 
-def test_xc_qna_force():
+def test_xc_qna_force(in_tmp_dir):
     name = 'Cu3Au'
     ecut = 300
     kpts = (2, 2, 2)

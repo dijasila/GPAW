@@ -9,7 +9,7 @@ from gpaw.pes.state import BoundState, H1s
 from gpaw.pes.ds_beta import CrossSectionBeta
 
 
-def test_ds_beta():
+def test_ds_beta(in_tmp_dir):
     xc = 'PBE'
     ngauss=2
 

@@ -6,7 +6,7 @@ from gpaw.analyse.simple_stm import SimpleStm
 from gpaw.test import equal
 
 
-def test_utilities_simple_stm():
+def test_utilities_simple_stm(in_tmp_dir):
     load = True
     load = False
     txt = '/dev/null'

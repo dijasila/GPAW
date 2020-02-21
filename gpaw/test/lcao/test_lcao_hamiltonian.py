@@ -7,7 +7,7 @@ from gpaw.atom.basis import BasisMaker
 from gpaw.test import equal
 
 
-def test_lcao_lcao_hamiltonian():
+def test_lcao_lcao_hamiltonian(in_tmp_dir):
     if world.rank == 0:
         basis = BasisMaker('Li').generate(1, 1)
         basis.write_xml()

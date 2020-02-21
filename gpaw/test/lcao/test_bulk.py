@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 
-def test_lcao_bulk():
+def test_lcao_bulk(in_tmp_dir):
     bulk = Atoms('Li', pbc=True)
     k = 4
     g = 8

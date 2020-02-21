@@ -6,7 +6,7 @@ from gpaw import GPAW, LCAO
 # calculation, physically speaking, is garbage.
 
 
-def test_lcao_gllb_si():
+def test_lcao_gllb_si(in_tmp_dir):
     si = bulk('Si', 'diamond', a=5.421)
     calc = GPAW(mode=LCAO(interpolation=2),
                 h=0.3,

@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.test import equal
 
 
-def test_xc_nonselfconsistentLDA():
+def test_xc_nonselfconsistentLDA(in_tmp_dir):
     a = 7.5 * Bohr
     n = 16
     atoms = Atoms([Atom('He', (0.0, 0.0, 0.0))], cell=(a, a, a), pbc=True)

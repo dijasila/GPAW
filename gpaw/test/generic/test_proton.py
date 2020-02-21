@@ -1,7 +1,7 @@
 """Test calculation for bare proton.
 
 
-def test_generic_proton():
+def test_generic_proton(in_tmp_dir):
     Also, its interaction with an external potential in the form of a point charge
     is tested.
     """

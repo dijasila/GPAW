@@ -6,7 +6,7 @@ from gpaw.test import equal
 from ase.atoms import Atoms
 
 
-def test_lrtddft2_Al2():
+def test_lrtddft2_Al2(in_tmp_dir):
     debug = False
     restart_file = 'Al2_gs.gpw'
 

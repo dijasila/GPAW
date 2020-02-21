@@ -3,7 +3,7 @@ from gpaw import GPAW
 from gpaw.fdtd.poisson_fdtd import FDTDPoissonSolver
 from gpaw.fdtd.polarizable_material import (PermittivityPlus,
 
-def test_fdtd_ed_inducedfield():
+def test_fdtd_ed_inducedfield(in_tmp_dir):
                                                 PolarizableMaterial,
                                                 PolarizableSphere)
     from gpaw.mpi import world

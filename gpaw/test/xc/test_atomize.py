@@ -4,7 +4,7 @@ from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
-def test_xc_atomize():
+def test_xc_atomize(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}
 

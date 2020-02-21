@@ -5,7 +5,7 @@ from gpaw.test import equal, gen
 
 # Generate setup for oxygen with a core-hole:
 
-def test_corehole_h2o_dks():
+def test_corehole_h2o_dks(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}
 

@@ -5,7 +5,7 @@ from gpaw import GPAW, FermiDirac, Davidson
 from gpaw.test import equal
 
 
-def test_fermilevel():
+def test_fermilevel(in_tmp_dir):
     calc = GPAW(nbands=1,
                 eigensolver=Davidson(6),
                 occupations=FermiDirac(0.0))

@@ -16,7 +16,7 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
 
 
 
-def test_response_gwsi():
+def test_response_gwsi(in_tmp_dir):
     def run(atoms, symm, name):
         atoms.calc = GPAW(mode=PW(250),
                           eigensolver='rmm-diis',

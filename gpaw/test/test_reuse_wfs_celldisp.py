@@ -10,7 +10,7 @@ from ase.build import molecule
 
 
 
-def test_reuse_wfs_celldisp():
+def test_reuse_wfs_celldisp(in_tmp_dir):
     def check(reuse):
         atoms = molecule('H2')
         atoms.pbc = 1

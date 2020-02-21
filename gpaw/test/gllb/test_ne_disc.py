@@ -11,7 +11,7 @@ from gpaw.test import equal
 # first on 3D without restart. Then does restart and recalculates.
 
 
-def test_gllb_ne_disc():
+def test_gllb_ne_disc(in_tmp_dir):
     atom = 'Ne'
     setup_paths.insert(0, '.')
 
