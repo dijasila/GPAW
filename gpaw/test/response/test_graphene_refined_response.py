@@ -1,11 +1,11 @@
+import os
+
+import pytest
 from ase.lattice.hexagonal import Graphene
 
 from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.df import DielectricFunction
 from ase.units import Hartree
-from gpaw.test import equal
-
-import os
 
 
 def test_response_graphene_refined_response(in_tmp_dir):
@@ -34,16 +34,14 @@ def test_response_graphene_refined_response(in_tmp_dir):
         system.get_potential_energy()
         calc.write('graphene.gpw', 'all')
 
-    pbc = system.pbc
-
     df = DielectricFunction('graphene.gpw', eta=25e-3, domega0=0.01)
-    alpha0x_w, alphax_w = df.get_polarizability(q_c=[1 / (nk * nkrefine), 0, 0])
+    alpha0x_w, alphax_w = df.get_polarizability(
+        q_c=[1 / (nk * nkrefine), 0, 0])
     omega_w = df.get_frequencies()
     analyticalalpha_w = 1j / (8 * omega_w[1:] / Hartree)
 
     # Just some hardcoded test for alpha at omega=0
-    equal(alphax_w[0].real, 6.69, tolerance=0.04,
-          msg='Polarizability at omega=0 is wrong')
+    assert alphax_w[0].real == pytest.approx(6.69, abs=0.04)
 
     if 0:
         from matplotlib import pyplot as plt

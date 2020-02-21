@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 
 def test_rpa_rpa_energy_Na(in_tmp_dir):
-    bulk = bulk('Na', 'bcc', a=4.23)
+    blk = bulk('Na', 'bcc', a=4.23)
 
     ecut = 350
     calc = GPAW(mode=PW(ecut),
@@ -17,8 +17,8 @@ def test_rpa_rpa_energy_Na(in_tmp_dir):
                 nbands=4,
                 occupations=FermiDirac(0.01),
                 setups={'Na': '1'})
-    bulk.set_calculator(calc)
-    bulk.get_potential_energy()
+    blk.set_calculator(calc)
+    blk.get_potential_energy()
     calc.write('gs_occ_pw.gpw')
 
     calc = GPAW('gs_occ_pw.gpw', txt='gs_pw.txt', parallel={'band': 1})

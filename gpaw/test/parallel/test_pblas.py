@@ -177,9 +177,5 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
 
 
 def test_parallel_pblas():
-    if __name__ in ['__main__', '__builtin__']:
-        if not compiled_with_sl():
-            print('Not built with ScaLAPACK. Test does not apply.')
-        else:
-            main(dtype=float)
-            main(dtype=complex)
+    main(dtype=float)
+    main(dtype=complex)
