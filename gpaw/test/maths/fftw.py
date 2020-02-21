@@ -1,10 +1,9 @@
-
 import time
 
 import gpaw.fftw as fftw
 
 
-def test(Plan, flags, input, output, sign):
+def check(Plan, flags, input, output, sign):
     t0 = time.time()
     plan = Plan(input, output, sign, flags)
     t1 = time.time()
@@ -18,7 +17,7 @@ def test(Plan, flags, input, output, sign):
     return t1 - t0, t / 100
 
 
-if __name__ == '__main__':
+def test_fft():
     a1 = fftw.empty((32, 28, 128), complex)
     a2 = fftw.empty((32, 28, 128), complex)
     b = fftw.empty((32, 28, 65), complex)
@@ -36,6 +35,6 @@ if __name__ == '__main__':
                             (fftw.FFTWPlan, fftw.MEASURE),
                             (fftw.FFTWPlan, fftw.PATIENT),
                             (fftw.FFTWPlan, fftw.EXHAUSTIVE)]:
-            tplan, tfft = test(Plan, flags, input, output, sign)
+            tplan, tfft = check(Plan, flags, input, output, sign)
             print(('%-12s %3d %10.6f %10.6f' %
                   (Plan.__name__, flags, tplan, tfft)))

@@ -20,7 +20,7 @@ def f(occ, x):
     return n, dnde, S
 
 
-def test(occ):
+def check(occ):
     print(occ)
     for e in [-0.3 / Hartree, 0, 0.1 / Hartree, 1.2 / Hartree]:
         n0, d0, S0 = f(occ, e)
@@ -37,10 +37,10 @@ def test(occ):
 
 def test_occupations():
     for w in [0.1, 0.5]:
-        test(FermiDirac(w))
+        check(FermiDirac(w))
         for n in range(4):
-            test(MethfesselPaxton(w, n))
-        test(MarzariVanderbilt(w))
+            check(MethfesselPaxton(w, n))
+        check(MarzariVanderbilt(w))
 
     occ = {'name': 'fermi-dirac', 'width': 0.1}
 

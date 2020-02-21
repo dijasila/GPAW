@@ -8,8 +8,18 @@ from gpaw.poisson import PoissonSolver
 from gpaw.test import equal
 
 
+do_print_values = False  # Use this for printing the reference values
+
+if do_print_values:
+    i = 1
+
+    def equal(x, y, tol):  # noqa
+        global i
+        print("equal(val%d, %20.12f, tol)" % (i, x))
+        i += 1
+
+
 def test_inducedfield_td(in_tmp_dir):
-    do_print_values = False  # Use this for printing the reference values
     poisson_eps = 1e-12
     density_eps = 1e-6
 
@@ -23,10 +33,13 @@ def test_inducedfield_td(in_tmp_dir):
     atoms.center(vacuum=3.0)
 
     # Standard ground state calculation
-    calc = GPAW(nbands=2, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
+    calc = GPAW(nbands=2,
+                h=0.6,
+                setups={'Na': '1'},
+                poissonsolver=poissonsolver,
                 convergence={'density': density_eps})
     atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
+    _ = atoms.get_potential_energy()
     calc.write('na2_gs.gpw', mode='all')
 
     # Standard time-propagation initialization
@@ -47,7 +60,10 @@ def test_inducedfield_td(in_tmp_dir):
                             restart_file='na2_td.ind')
 
     # Propagate as usual
-    td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
+    td_calc.propagate(time_step,
+                      iterations // 2,
+                      'na2_td_dm.dat',
+                      'na2_td.gpw')
 
     # Save TDDFT and InducedField objects
     td_calc.write('na2_td.gpw', mode='all')
@@ -63,7 +79,10 @@ def test_inducedfield_td(in_tmp_dir):
                             restart_file='na2_td.ind')
 
     # Continue propagation as usual
-    td_calc.propagate(time_step, iterations // 2, 'na2_td_dm.dat', 'na2_td.gpw')
+    td_calc.propagate(time_step,
+                      iterations // 2,
+                      'na2_td_dm.dat',
+                      'na2_td.gpw')
 
     # Calculate induced electric field
     ind.calculate_induced_field(gridrefinement=2,
@@ -98,14 +117,6 @@ def test_inducedfield_td(in_tmp_dir):
     val6 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][0]))
     val7 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][1]))
     val8 = ind.fieldgd.integrate(np.abs(ind.Fef_wvg[1][2]))
-
-    if do_print_values:
-        i = 1
-
-        def equal(x, y, tol):  # noqa
-            global i
-            print("equal(val%d, %20.12f, tol)" % (i, x))
-            i += 1
 
     equal(val1, 1926.232999117403, tol)
     equal(val2, 0.427606450419, tol)
