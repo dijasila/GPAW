@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack

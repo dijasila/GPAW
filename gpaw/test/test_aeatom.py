@@ -1,4 +1,3 @@
-from __future__ import print_function
 from gpaw.atom.aeatom import AllElectronAtom, c
 from gpaw.test import equal
 

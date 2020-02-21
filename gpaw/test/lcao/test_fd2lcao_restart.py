@@ -1,5 +1,4 @@
 """Test read/write of restart files between fd and lcao mode"""
-from __future__ import print_function
 import os
 
 from ase import Atom, Atoms

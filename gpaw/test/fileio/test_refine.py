@@ -1,5 +1,4 @@
 """Test automatically write out of restart files"""
-from __future__ import print_function
 
 from ase import Atoms
 from gpaw import GPAW

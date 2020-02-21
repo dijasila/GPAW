@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atoms
 from ase.io import read
 from ase.test import must_raise

@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 from ase import Atom
 from gpaw import GPAW

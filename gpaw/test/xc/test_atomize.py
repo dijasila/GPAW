@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atom, Atoms
 from gpaw import GPAW, Davidson, Mixer
 from gpaw.test import equal

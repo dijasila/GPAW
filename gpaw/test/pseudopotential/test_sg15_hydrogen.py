@@ -1,7 +1,6 @@
 # Test loading of sg15 setups as setups='sg15' and that the calculation
 # agrees with PAW for the H2 eigenvalue.
 
-from __future__ import print_function
 from ase.build import molecule
 from gpaw import GPAW, Davidson, Mixer
 from gpaw.test.pseudopotential.H_sg15 import pp_text

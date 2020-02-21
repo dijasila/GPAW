@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, sin, cos
 import numpy as np
 

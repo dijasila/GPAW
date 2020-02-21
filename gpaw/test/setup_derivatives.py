@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.atom.derivatives import derivatives

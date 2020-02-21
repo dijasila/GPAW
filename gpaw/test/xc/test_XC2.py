@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.grid_descriptor import GridDescriptor

@@ -5,7 +5,6 @@
 # Computer generated code:
 # format:
 #    'element': (atomic number, [(n, l, occ, energy), ...])
-from __future__ import print_function
 
 import copy
 

@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function
 import sys
 
 from ase.build import molecule

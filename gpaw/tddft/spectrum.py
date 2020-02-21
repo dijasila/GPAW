@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 
 from gpaw import __version__ as version

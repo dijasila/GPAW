@@ -1,4 +1,3 @@
-from __future__ import print_function
 # This tests calculates the force on the atoms of a small molecule.
 #
 # If the test fails, set the fd boolean below to enable a (costly) finite

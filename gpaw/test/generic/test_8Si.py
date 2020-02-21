@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atoms
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, FermiDirac, PoissonSolver

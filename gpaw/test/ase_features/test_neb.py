@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function
 from ase import Atom
 from ase.neb import SingleCalculatorNEB
 from ase.optimize import FIRE

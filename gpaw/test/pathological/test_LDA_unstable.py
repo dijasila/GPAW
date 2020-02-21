@@ -1,5 +1,4 @@
 # http://listserv.fysik.dtu.dk/pipermail/gpaw-developers/2014-February/004374.html
-from __future__ import print_function
 from gpaw import GPAW, PoissonSolver
 from gpaw.test import equal
 from ase.build import molecule

@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.build import molecule
 from ase.parallel import paropen
 from gpaw import GPAW, Davidson, Mixer, PoissonSolver

@@ -1,5 +1,4 @@
 """This module is used to generate atomic orbital basis sets."""
-from __future__ import print_function
 import sys
 try:
     from StringIO import StringIO  # Python 2

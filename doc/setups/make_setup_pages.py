@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # creates: H.rst, H.default.png
 # ... and all the rest.
-from __future__ import print_function
 import json
 import sys
 

@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, cos, sin
 from ase import Atom, Atoms
 from gpaw import GPAW, PoissonSolver, Mixer, Davidson

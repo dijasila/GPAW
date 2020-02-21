@@ -1,6 +1,5 @@
 # Copyright (C) 2006 CSC-Scientific Computing Ltd.
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 import os
 import sys
 import re

@@ -1,7 +1,6 @@
 import pytest
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from __future__ import print_function
 from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid, Redistributor
 

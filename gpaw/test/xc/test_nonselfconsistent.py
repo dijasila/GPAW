@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atoms
 from ase.units import Bohr
 from gpaw import GPAW

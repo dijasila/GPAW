@@ -5,7 +5,6 @@
 Atomic Density Functional Theory
 """
 
-from __future__ import print_function
 from math import pi, sqrt, log
 import tempfile
 import pickle

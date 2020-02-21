@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from math import pi
 from gpaw.coulomb import Coulomb

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor

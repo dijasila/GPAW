@@ -1,4 +1,3 @@
-from __future__ import print_function
 from sys import argv
 import matplotlib.pyplot as plt
 

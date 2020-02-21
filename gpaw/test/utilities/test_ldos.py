@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 from ase import Atom, Atoms
 import numpy as np

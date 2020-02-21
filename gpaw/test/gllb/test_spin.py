@@ -1,4 +1,3 @@
-from __future__ import print_function
 from gpaw import GPAW, FermiDirac
 from gpaw.test import equal
 from ase.build import bulk

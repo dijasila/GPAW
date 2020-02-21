@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function, division
 from math import sin, cos, pi
 import numpy as np
 from gpaw.fd_operators import GUCLaplace as Laplace

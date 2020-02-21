@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function
 from ase import Atoms, Atom
 from ase.build import molecule
 from ase.parallel import barrier

@@ -1,7 +1,6 @@
 
 def test_ase_features_wannierk():
     'Test ase.dft.wannier module with k-points.'
-    from __future__ import print_function
     from ase.build import bulk
     from ase.dft.wannier import Wannier
 

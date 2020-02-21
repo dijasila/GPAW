@@ -1,4 +1,3 @@
-from __future__ import print_function
 # This tests calculates the force on the atoms of a
 # slightly distorted Silicon primitive cell.
 #

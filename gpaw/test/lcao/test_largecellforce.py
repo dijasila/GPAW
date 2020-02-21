@@ -1,4 +1,3 @@
-from __future__ import print_function
 # This test calculates the force on the atoms in a hydrogen chain, comparing
 # the results to finite-difference values.
 #

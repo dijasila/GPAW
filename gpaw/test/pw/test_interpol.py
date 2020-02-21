@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor

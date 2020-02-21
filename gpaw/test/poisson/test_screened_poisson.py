@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 from gpaw.utilities.tools import coordinates
 from gpaw.utilities.gauss import Gaussian

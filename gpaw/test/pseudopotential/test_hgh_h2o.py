@@ -14,7 +14,6 @@ def test_pseudopotential_hgh_h2o():
     Forces are compared to a previous finite-difference result.
     """
 
-    from __future__ import print_function
 
     import numpy as np
     from ase.build import molecule

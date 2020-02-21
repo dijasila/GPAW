@@ -1,7 +1,6 @@
 """Calculate diamond with various parallelizations with GLLBSC."""
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function
 from ase.build import bulk
 from ase.units import Ha
 from gpaw import GPAW, restart, Mixer

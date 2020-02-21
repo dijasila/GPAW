@@ -1,5 +1,4 @@
 """Test poisson solver for asymmetric charges."""
-from __future__ import print_function
 from gpaw.utilities.gauss import Gaussian
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.poisson import PoissonSolver

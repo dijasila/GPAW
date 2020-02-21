@@ -1,6 +1,5 @@
 import pytest
 from gpaw.mpi import world
-from __future__ import print_function
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW
