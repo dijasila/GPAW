@@ -6,7 +6,7 @@ from gpaw.test import gen
 
 def test_corehole_si(in_tmp_dir):
     # Generate setup for oxygen with half a core-hole:
-    s = gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30)
+    gen('Si', name='hch1s', corehole=(1, 0, 0.5), gpernode=30, write_xml=True)
     a = 2.6
     si = Atoms('Si', cell=(a, a, a), pbc=True)
 
@@ -14,7 +14,7 @@ def test_corehole_si(in_tmp_dir):
     calc = GPAW(nbands=None,
                 h=0.25,
                 occupations=FermiDirac(width=0.05),
-                setups={0: s})
+                setups='hch1s')
 
     def stopcalc():
         calc.scf.converged = 1
@@ -65,4 +65,3 @@ def test_corehole_si(in_tmp_dir):
 
     calc.attach(stopcalc, 1)
     _ = si.get_potential_energy()
-    calc.write('si_hch2p.gpw')

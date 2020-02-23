@@ -33,7 +33,8 @@ def findpeak(x, y):
     return dx * (i + x), a * x**2 + b * x + c
 
 
-def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
+def gen(symbol, exx=False, name=None, yukawa_gamma=None,
+        write_xml=False, **kwargs):
     setup = None
     if mpi.rank == 0:
         if 'scalarrel' not in kwargs:
@@ -42,12 +43,12 @@ def gen(symbol, exx=False, name=None, yukawa_gamma=None, **kwargs):
         if 'orbital_free' in kwargs:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
                           use_restart_file=False,
-                          write_xml=False,
+                          write_xml=write_xml,
                           **tf_parameters.get(symbol, {'rcut': 0.9}))
         else:
             setup = g.run(exx=exx, name=name, yukawa_gamma=yukawa_gamma,
                           use_restart_file=False,
-                          write_xml=False,
+                          write_xml=write_xml,
                           **parameters[symbol])
     setup = mpi.broadcast(setup, 0)
     if setup_paths[0] != '.':
