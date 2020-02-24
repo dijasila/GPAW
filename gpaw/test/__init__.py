@@ -7,8 +7,7 @@ from gpaw import setup_paths
 from gpaw import mpi
 
 
-def equal(x, y, tolerance=0, fail=True, msg=''):
-    assert fail and msg == ''
+def equal(x, y, tolerance=0):
     assert x == pytest.approx(y, abs=tolerance)
 
 

@@ -132,6 +132,7 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
         message = 'scalapack_diagonalize_ex may have a buffer ' \
             'overflow, use scalapack_diagonalize_dc instead'
+        1 / 0
         warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(),
                                           switch_lu[uplo],
@@ -139,6 +140,7 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     if info != 0:
         # 0 means you are OK
         raise RuntimeError('scalapack_diagonalize_ex error: %d' % info)
+
 
 def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the MRRR algorithm.
