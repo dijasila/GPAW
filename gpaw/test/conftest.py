@@ -38,8 +38,7 @@ class GPAWPlugin:
 
 
 def pytest_configure(config):
-    tw = config.get_terminal_writer()
     if world.rank != 0:
+        tw = config.get_terminal_writer()
         tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
-    
