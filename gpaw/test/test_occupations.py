@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from ase.units import Hartree
 from gpaw.occupations import (FermiDirac, MethfesselPaxton,
@@ -35,6 +36,7 @@ def check(occ):
         assert abs(dS - e * dn) < 1e-13
 
 
+@pytest.mark.ci
 def test_occupations():
     for w in [0.1, 0.5]:
         check(FermiDirac(w))

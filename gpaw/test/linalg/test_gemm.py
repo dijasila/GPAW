@@ -1,8 +1,10 @@
 from time import time
 
+import pytest
 import numpy as np
 
 
+@pytest.mark.ci
 def test_linalg_gemm():
     n = 1000
     a1 = np.eye(n)
@@ -14,7 +16,7 @@ def test_linalg_gemm():
     t0 = time()
     gemm(1.0, a1, a2, 0.0, b)
     tgpaw = time() - t0
-    print('gpaw.gemm  ', tgpaw) 
+    print('gpaw.gemm  ', tgpaw)
 
     t0 = time()
     c = np.dot(a1, a2)

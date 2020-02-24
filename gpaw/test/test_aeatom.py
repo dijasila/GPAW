@@ -1,7 +1,9 @@
+import pytest
 from gpaw.atom.aeatom import AllElectronAtom, c
 from gpaw.test import equal
 
 
+@pytest.mark.ci
 def test_aeatom():
     Z = 79  # gold atom
     kwargs = dict(ngpts=5000, alpha2=1000 * Z**2, ngauss=200)

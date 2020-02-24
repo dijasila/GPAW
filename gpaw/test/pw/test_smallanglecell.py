@@ -1,6 +1,9 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW, PW
 
+
+@pytest.mark.ci
 def test_pw_smallanglecell(in_tmp_dir):
     a = 3.0
     ec = 200

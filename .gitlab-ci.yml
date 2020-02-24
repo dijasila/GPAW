@@ -11,7 +11,7 @@ master:
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'
     - su user -c 'gpaw -P 1 info'
-    - su user -c 'pytest -v -m fast'
+    - su user -c 'pytest -v -m ci'
     - flake8 --exit-zero --exclude "doc/platforms/*,gpaw/lrtddft2/*" gpaw doc > f8.out
     - cat f8.out | wc -l | tee nerr
     - python -c "assert int(open('nerr').read()) <= 2308, 'Please run flake8 on your code'"

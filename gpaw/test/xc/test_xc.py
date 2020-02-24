@@ -1,9 +1,11 @@
+import pytest
 import numpy as np
 from gpaw.xc.libxc import LibXC, short_names
 from gpaw.xc.kernel import XCKernel, codes
 from gpaw.test import equal
 
 
+@pytest.mark.ci
 def test_xc_xc():
     funcs = []
     modes = []
@@ -20,14 +22,12 @@ def test_xc_xc():
         funcs.append(name)
         modes.append(1)
 
-
     def create_xc(func, mode):
         if mode == 0:
             xc = LibXC(func)
         else:
             xc = XCKernel(func)
         return xc
-
 
     def f1(n_xg, xc):
         e_g = np.empty_like(n_xg[0])
@@ -37,9 +37,11 @@ def test_xc_xc():
         dedn_sg = np.zeros_like(n_sg)
         dedsigma_xg = np.zeros_like(sigma_xg)
         dedtau_sg = np.zeros_like(tau_sg)
-        xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
+        xc.calculate(e_g,
+                     n_sg, dedn_sg,
+                     sigma_xg, dedsigma_xg,
+                     tau_sg, dedtau_sg)
         return e_g, np.concatenate((dedn_sg, dedsigma_xg, dedtau_sg))
-
 
     def f2(n_xg, xc):
         e_g = np.empty_like(n_xg[0])
@@ -49,7 +51,10 @@ def test_xc_xc():
         dedn_sg = np.zeros_like(n_sg)
         dedsigma_xg = np.zeros_like(sigma_xg)
         dedtau_sg = np.zeros_like(tau_sg)
-        xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg, dedtau_sg)
+        xc.calculate(e_g,
+                     n_sg, dedn_sg,
+                     sigma_xg, dedsigma_xg,
+                     tau_sg, dedtau_sg)
         return e_g, np.concatenate((dedn_sg, dedsigma_xg, dedtau_sg))
 
     eps = 1.0e-6
@@ -102,7 +107,6 @@ def test_xc_xc():
          [0.1, 0.2, 0.1, -0.08, 0.10, 0.01, 0.05],
          [0.1, 0.1, 0.1, 0.01, 0.01, 0.01, 0.01],
          [0.1, 0.1, 0.1, 0.15, 0.20, 0.01, 0.05]]).T.copy()
-
 
     for i, func in enumerate(funcs):
         xc = create_xc(funcs[i], modes[i])

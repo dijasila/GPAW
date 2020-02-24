@@ -21,9 +21,8 @@ from gpaw.test.ut_common import TestCase, \
     initialTestLoader, create_parsize_maxbands
 
 mpl = None
+pytestmark = pytest.mark .xfail(reason='Needs to be rewritten')
 
-
-pytestmark = pytest.mark .xfail('Needs to be rewritten')
 
 class UTGroundStateSetup(TestCase):
     """

@@ -9,6 +9,8 @@ from gpaw import GPAW
 from gpaw.mpi import size
 from gpaw.wannier import Wannier
 
+pytestmark = pytest.mark.ci
+
 
 @pytest.fixture(scope='module')
 def ethylene():
