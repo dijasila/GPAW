@@ -5,7 +5,7 @@ from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
 # from gpaw.utilities import compiled_with_sl
 
-pytestmark = pytest.mark.skip
+pytestmark = pytest.mark.xfail
 # pytestmark = pytest.mark.skipif(not compiled_with_sl(),
 #                                 reason='No scalapack')
 
