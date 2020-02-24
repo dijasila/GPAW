@@ -1,16 +1,16 @@
+import pytest
 from ase import Atoms
 from ase.io import read
-from ase.test import must_raise
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 
-# Check that we fail for non-3x3 cell:
 
-def test_ase_features_ase3k(in_tmp_dir):
-    with must_raise(ValueError):
+def test_no_cell():
+    with pytest.raises(ValueError):
         H = Atoms('H', calculator=GPAW())
         H.get_potential_energy()
 
+
+def test_read_txt(in_tmp_dir):
     a = 2.0
     calc = GPAW(gpts=(12, 12, 12), txt='H.txt', occupations=FermiDirac(0.0))
     H = Atoms('H',
@@ -20,9 +20,7 @@ def test_ase_features_ase3k(in_tmp_dir):
     e0 = H.get_potential_energy()
 
     H = read('H.txt')
-    equal(H.get_potential_energy(), e0, 1e-6)
+    assert H.get_potential_energy() == pytest.approx(e0)
 
     energy_tolerance = 0.001
-    equal(e0, -6.5577, energy_tolerance)
-
-    print(calc.get_xc_functional())
+    assert e0 == pytest.approx(-6.5577, abs=energy_tolerance)

@@ -3,9 +3,11 @@ import numpy as np
 from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
-from gpaw.utilities import compiled_with_sl
+# from gpaw.utilities import compiled_with_sl
 
-pytestmark = pytest.mark.skipif(not compiled_with_sl(), reason='No scalapack')
+pytestmark = pytest.mark.skip
+# pytestmark = pytest.mark.skipif(not compiled_with_sl(),
+#                                 reason='No scalapack')
 
 
 def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
