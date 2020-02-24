@@ -24,7 +24,6 @@ def test_corehole_h2o_recursion(in_tmp_dir):
     H2O.set_calculator(calc)
     e = H2O.get_potential_energy()
     niter = calc.get_number_of_iterations()
-    calc.write('h2o.gpw')
 
     from gpaw.xas import RecursionMethod
 

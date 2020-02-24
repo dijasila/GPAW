@@ -14,7 +14,7 @@ def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
     grid = BlacsGrid(world, *blacsgrid)
 
     if world.rank == 0:
-        H_MM = np.load(matrixfile)
+        H_MM = np.load(matrixfile, allow_pickle=True)
         assert H_MM.ndim == 2
         assert H_MM.shape[0] == H_MM.shape[1]
         NM = len(H_MM)

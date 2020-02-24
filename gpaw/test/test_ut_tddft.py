@@ -10,18 +10,20 @@ from ase.units import Bohr, Hartree
 from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.utils import devnull
+import pytest
 
 from gpaw import GPAW, debug
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
-
 from gpaw.test.ut_common import TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_parsize_maxbands
 
 mpl = None
 
+
+pytestmark = pytest.mark .xfail('Needs to be rewritten')
 
 class UTGroundStateSetup(TestCase):
     """
