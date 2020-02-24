@@ -1,11 +1,12 @@
 """Check for tunability of gamma for yukawa potential."""
+import pytest
 from ase import Atoms
 from gpaw import GPAW, setup_paths
 from gpaw.cluster import Cluster
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.xc.hybrid import HybridXC
 from gpaw.occupations import FermiDirac
-from gpaw.test import equal, gen
+from gpaw.test import gen
 import _gpaw
 
 
@@ -41,10 +42,10 @@ def test_rsf_yukawa_rsf_general(in_tmp_dir):
     # calc.set(xc=xc)
     energy_083 = be.get_potential_energy()
     (eps_homo, eps_lumo) = calc.get_homo_lumo()
-    equal(eps_homo, -IP, 0.15)
+    assert eps_homo == pytest.approx(-IP, abs=0.15)
     xc2 = 'LCY-PBE'
     energy_075 = calc.get_xc_difference(HybridXC(xc2))
-    equal(energy_083 - energy_075, 21.13, 0.2, 'wrong energy difference')
+    assert energy_083 - energy_075 == pytest.approx(21.13, abs=0.2)
     calc.write(fname)
     calc2 = GPAW(fname)
     func = calc2.get_xc_functional()

@@ -17,6 +17,7 @@ def check(Plan, flags, input, output, sign):
     return t1 - t0, t / 100
 
 
+skipif
 def test_fft():
     a1 = fftw.empty((32, 28, 128), complex)
     a2 = fftw.empty((32, 28, 128), complex)

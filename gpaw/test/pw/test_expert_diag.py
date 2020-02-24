@@ -1,21 +1,18 @@
 import pytest
+import numpy as np
+from ase.build import bulk
+
+from gpaw import GPAW, PW
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-
-import numpy as np
-
-from ase.build import bulk
-from gpaw import GPAW, PW
-from gpaw.test import equal
-from gpaw.mpi import world
 
 # This test is asserting that the expert diagonalization
 # routine gives the same result as the non-expert version
 # in terms of eigenvalues and wavefunctions
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_pw_expert_diag(in_tmp_dir):
@@ -75,8 +72,9 @@ def test_pw_expert_diag(in_tmp_dir):
                     psitmp_nG = kpttmp.psit_nG[inds][:, 0, :]
                     fidelity = 0
                     for psitmp_G in psitmp_nG:
-                        fidelity += (np.abs(np.dot(psitmp_G.conj(), psi_G))**2 /
-                                     np.dot(psitmp_G.conj(), psitmp_G) /
-                                     np.dot(psi_G.conj(), psi_G))
+                        fidelity += (
+                            np.abs(np.dot(psitmp_G.conj(), psi_G))**2 /
+                            np.dot(psitmp_G.conj(), psitmp_G) /
+                            np.dot(psi_G.conj(), psi_G))
 
-                    equal(fidelity, 1, 1e-10, 'Difference between wfs!')
+                    assert fidelity == pytest.approx(1, abs=1e-10)
