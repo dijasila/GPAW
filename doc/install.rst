@@ -127,12 +127,12 @@ Run the tests
 
 Make sure that everything works by running the test suite::
 
-    $ gpaw test
+    $ pytest
 
 This will take a couple of hours.  You can speed it up by using more than
 one core::
 
-    $ gpaw test -j 4
+    $ pytest -n 4
 
 Please report errors to the ``gpaw-users`` mailing list so that we
 can fix them (see :ref:`mail list`).
@@ -140,11 +140,11 @@ can fix them (see :ref:`mail list`).
 If tests pass, and the parallel version is built, test the parallel code
 on 2, 4 and 8 cores::
 
-    $ gpaw -P 2 test
+    $ gpaw -P 2 python -m pytest
 
 or equivalently::
 
-    $ mpiexec -np 2 python3 -m gpaw test
+    $ mpiexec -np 2 pytest
 
 
 .. _download:

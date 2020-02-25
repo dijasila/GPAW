@@ -5,9 +5,8 @@ from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
 # from gpaw.utilities import compiled_with_sl
 
-pytestmark = pytest.mark.xfail
-# pytestmark = pytest.mark.skipif(not compiled_with_sl(),
-#                                 reason='No scalapack')
+pytestmark = pytest.mark.skipif(not compiled_with_sl(),
+                                reason='No scalapack')
 
 
 def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
@@ -82,3 +81,7 @@ def test_parallel_parallel_eigh(in_tmp_dir):
     if world.rank == 0:
         assert abs(eps - range(1, 51)).sum() < 1e-5
         assert abs(U - np.identity(50)).sum() < 1e-5
+
+
+if __name__ == '__main__':
+    test_parallel_parallel_eigh(0)

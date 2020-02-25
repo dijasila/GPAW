@@ -132,7 +132,6 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
         message = 'scalapack_diagonalize_ex may have a buffer ' \
             'overflow, use scalapack_diagonalize_dc instead'
-        1 / 0
         warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(),
                                           switch_lu[uplo],
