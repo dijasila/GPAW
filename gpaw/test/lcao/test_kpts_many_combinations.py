@@ -5,7 +5,6 @@ from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 
 
-
 def test_lcao_kpts_many_combinations(in_tmp_dir):
     def ikwargs():
         for augment_grids in [False, True]:
@@ -30,9 +29,7 @@ def test_lcao_kpts_many_combinations(in_tmp_dir):
                                     augment_grids=augment_grids)
                     yield dict(parallel=parallel)
 
-
     counter = count()
-
 
     for spinpol in [False, True]:
         # We want a non-trivial cell:
@@ -62,13 +59,14 @@ def test_lcao_kpts_many_combinations(in_tmp_dir):
             if kwargs['parallel']['kpt'] == 4 and not spinpol:
                 continue  # Core without kpoints
 
-            calc = GPAW(mode='lcao',
-                        basis='sz(dzp)',
-                        xc='PBE', h=0.3,
-                        symmetry={'point_group': False},  # No symmetry here anyway
-                        txt='gpaw.{:02d}.spin{}.txt'.format(int(spinpol), i),
-                        kpts=(4, 1, 1),
-                        **kwargs)
+            calc = GPAW(
+                mode='lcao',
+                basis='sz(dzp)',
+                xc='PBE', h=0.3,
+                symmetry={'point_group': False},  # No symmetry here anyway
+                txt='gpaw.{:02d}.spin{}.txt'.format(int(spinpol), i),
+                kpts=(4, 1, 1),
+                **kwargs)
 
             def stopcalc():
                 calc.scf.converged = True
@@ -106,5 +104,5 @@ def test_lcao_kpts_many_combinations(in_tmp_dir):
             maxferr = max(ferrs)
             print('maxeerr', maxeerr)
             print('maxferr', maxferr)
-            assert maxeerr < 1e-10, maxeerr
+            assert maxeerr < 1e-9, maxeerr
             assert maxferr < 1e-10, maxferr

@@ -35,8 +35,8 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '19.8.2b1'
-__ase_version_required__ = '3.18.0'
+__version__ = '20.1.1b1'
+__ase_version_required__ = '3.20.0b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -220,6 +220,7 @@ def main():
 
 dry_run = extra_parameters.pop('dry_run', 0)
 debug = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -331,3 +332,12 @@ def initialize_data_paths():
 
 read_rc_file()
 initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))

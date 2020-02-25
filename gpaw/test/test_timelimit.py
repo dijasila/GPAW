@@ -1,18 +1,19 @@
 from ase.build import molecule
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
+from gpaw.tddft import TDDFT
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities.timelimit import TimeLimiter
 
-# Atoms
 
 def test_timelimit(in_tmp_dir):
+    # Atoms
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
 
     # Ground-state calculation that will never converge
-    maxiter = 100
-    calc = GPAW(mode='lcao', basis='sz(dzp)', setups='1',
+    maxiter = 10
+    calc = GPAW(mode='lcao', basis='sz(dzp)', setups='1', nbands=1,
                 convergence={'density': 1e-100},
                 maxiter=maxiter)
     atoms.set_calculator(calc)
@@ -27,8 +28,26 @@ def test_timelimit(in_tmp_dir):
         raise AssertionError('SCF loop ended too early')
     calc.write('gs.gpw', mode='all')
 
-    # Time-propagation calculation that will never finish
+    # LCAOTDDFT calculation that will never finish
     td_calc = LCAOTDDFT('gs.gpw')
+    tl = TimeLimiter(td_calc, timelimit=0, output='lcaotddft.txt')
+    tl.reset('tddft', min_updates=3)
+    td_calc.propagate(10, maxiter - td_calc.niter)
+    assert td_calc.maxiter < maxiter, 'TimeLimiter did not break the TDDFT loop'
+
+    # Test mode='fd'
+
+    # Prepare ground state
+    calc = GPAW(mode='fd', setups='1', maxiter=1, nbands=1)
+    atoms.set_calculator(calc)
+    try:
+        atoms.get_potential_energy()
+    except KohnShamConvergenceError:
+        pass
+    calc.write('gs.gpw', mode='all')
+
+    # TDDFT calculation that will never finish
+    td_calc = TDDFT('gs.gpw')
     tl = TimeLimiter(td_calc, timelimit=0, output='tddft.txt')
     tl.reset('tddft', min_updates=3)
     td_calc.propagate(10, maxiter - td_calc.niter)

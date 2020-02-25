@@ -75,6 +75,9 @@ class HybridXC:
 
         self.description = ''
 
+    def read(self, reader):
+        pass
+
     def get_setup_name(self):
         return 'PBE'
         return 'LDA'
