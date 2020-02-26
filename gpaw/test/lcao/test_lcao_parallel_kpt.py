@@ -1,7 +1,6 @@
-import pytest
-from gpaw.mpi import world
 import sys
 
+import pytest
 from ase.build import molecule
 from ase.utils import devnull
 
@@ -14,7 +13,6 @@ from gpaw.mpi import world
 
 pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
-
 
 
 def test_lcao_lcao_parallel_kpt():
@@ -31,7 +29,6 @@ def test_lcao_lcao_parallel_kpt():
 
     Eref = None
     Fref_av = None
-
 
     def run(formula='H2O', vacuum=1.0, cell=None, pbc=1, **morekwargs):
         print(formula, parallel)
@@ -56,7 +53,7 @@ def test_lcao_lcao_parallel_kpt():
         F_av = calculate_forces(calc.wfs, calc.density,
                                 calc.hamiltonian)
 
-        global Eref, Fref_av
+        nonlocal Eref, Fref_av
         if Eref is None:
             Eref = E
             Fref_av = F_av
@@ -95,7 +92,6 @@ def test_lcao_lcao_parallel_kpt():
             print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
             print(parallel, file=stderr)
             raise AssertionError(msg)
-            
 
     # reference:
     # kpt-parallelization = 8,

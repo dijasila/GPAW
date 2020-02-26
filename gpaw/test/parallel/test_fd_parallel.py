@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 import sys
 
 from ase.build import molecule
@@ -17,7 +16,6 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
 def test_parallel_fd_parallel():
     tolerance = 4e-5
 
@@ -31,7 +29,6 @@ def test_parallel_fd_parallel():
 
     Eref = None
     Fref_av = None
-
 
     def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         print(formula, parallel)
@@ -56,7 +53,7 @@ def test_parallel_fd_parallel():
         F_av = calculate_forces(calc.wfs, calc.density,
                                 calc.hamiltonian)
 
-        global Eref, Fref_av
+        nonlocal Eref, Fref_av
         if Eref is None:
             Eref = E
             Fref_av = F_av
@@ -95,7 +92,6 @@ def test_parallel_fd_parallel():
             print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
             print(parallel, file=stderr)
             raise AssertionError(msg)
-
 
     # reference:
     # state-parallelization = 1,

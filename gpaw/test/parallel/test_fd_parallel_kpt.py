@@ -17,7 +17,6 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
 def test_parallel_fd_parallel_kpt():
     tolerance = 4e-5
 
@@ -34,7 +33,6 @@ def test_parallel_fd_parallel_kpt():
 
     Eref = None
     Fref_av = None
-
 
     def run(formula='H2O', vacuum=1.5, cell=None, pbc=1, **morekwargs):
         print(formula, parallel)
@@ -59,7 +57,7 @@ def test_parallel_fd_parallel_kpt():
         F_av = calculate_forces(calc.wfs, calc.density,
                                 calc.hamiltonian)
 
-        global Eref, Fref_av
+        nonlocal Eref, Fref_av
         if Eref is None:
             Eref = E
             Fref_av = F_av
@@ -98,7 +96,6 @@ def test_parallel_fd_parallel_kpt():
             print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
             print(parallel, file=stderr)
             raise AssertionError(msg)
-
 
     # reference:
     # kpt-parallelization = 8,

@@ -1,21 +1,18 @@
-import pytest
-from gpaw.mpi import world
 import sys
 
+import pytest
 from ase.utils import devnull
 
 from gpaw import GPAW, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
 from gpaw.mpi import world
 from gpaw.forces import calculate_forces
-
 from ase.build import molecule
 
 # Calculates energy and forces for various parallelizations
 
 pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
-
 
 
 def test_lcao_lcao_parallel():
@@ -30,7 +27,6 @@ def test_lcao_lcao_parallel():
 
     Eref = None
     Fref_av = None
-
 
     def run(formula='H2O', vacuum=2.0, cell=None, pbc=0, **morekwargs):
         print(formula, parallel)
@@ -55,7 +51,7 @@ def test_lcao_lcao_parallel():
         F_av = calculate_forces(calc.wfs, calc.density,
                                 calc.hamiltonian)
 
-        global Eref, Fref_av
+        nonlocal Eref, Fref_av
         if Eref is None:
             Eref = E
             Fref_av = F_av
@@ -94,7 +90,7 @@ def test_lcao_lcao_parallel():
             print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
             print(parallel, file=stderr)
             raise AssertionError(msg)
-            
+
     # reference:
     # state-parallelization = 1,
     # domain-decomposition = (1, 2, 2)
