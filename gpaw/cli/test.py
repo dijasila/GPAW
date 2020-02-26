@@ -20,7 +20,8 @@ class CLICommand:
 
 def test():
     if not setup_paths:
-        1 / 0
+        raise RuntimeError('Could not find any atomic PAW-data or '
+                           'pseudopotentials!')
 
     parprint(f'Doing a test calculation (cores: {size}): ... ',
              end='', flush=True)
