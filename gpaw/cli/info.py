@@ -66,10 +66,12 @@ def info():
     results.append(('PAW-datasets', '\n{:25}'.format('').join(paths)))
 
     if rank == 0:
+        print('-' * 26 + '+' + '-' * 50)
         for a, b in results:
             if isinstance(b, bool):
                 b = ['no', 'yes'][b]
-            print('{0:25}{1}'.format(a, b))
+            print(f'{a:25} | {b}')
+        print('-' * 26 + '+' + '-' * 50)
 
 
 class CLICommand:
