@@ -27,9 +27,7 @@ class GPAWPlugin:
     def __init__(self):
         if world.rank == 0:
             print()
-            print('-' * 24, '-' * 50)
             info()
-            print('-' * 24, '-' * 50)
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
         from gpaw.mpi import size
