@@ -7,28 +7,23 @@ from ase.units import Hartree, mol, kcal
 from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
 from gpaw.occupations import FermiDirac
-from gpaw.test import equal, gen
+from gpaw.test import gen
 from gpaw.mpi import rank
-
-from os import remove
-from os.path import exists
 
 pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
-def test_exx_AA_enthalpy():
+def test_exx_AA_enthalpy(in_tmp_dir):
     data = {}
-
 
     def _xc(name):
         return {'name': name, 'stencil': 1}
 
-
     # data (from tables.pdf of 10.1063/1.1626543)
-    data['N'] = { # intermolecular distance (A),
-                  #formation enthalpy(298) (kcal/mol) on B3LYP geometry
+    data['N'] = {
+        # intermolecular distance (A),
+        # formation enthalpy(298) (kcal/mol) on B3LYP geometry
         'exp': (1.098, 0.0, 'none', 'none'),
         'HCTH407': (1.097, 7.9, 'HCTH407', 'gga'),
         'PBE': (1.103, -15.1, 'PBE', 'gga'),
@@ -42,16 +37,17 @@ def test_exx_AA_enthalpy():
         'magmom': 3.0,
         # tables.pdf:
         # http://ftp.aip.org/epaps/journ_chem_phys/E-JCPSA6-119-302348/tables.pdf
-        'R_AA_B3LYP': 1.092, # (from tables.pdf of 10.1063/1.1626543) (Angstom)
-        'ZPE_AA_B3LYP': 0.005457 * Hartree, # (from benchmarks.txt of
-                                            # 10.1063/1.1626543) (eV)
-        'H_298_H_0_AA_B3LYP': 0.003304 * Hartree, # (from benchmarks.txt of
-                                                  # 10.1063/1.1626543) (eV)
-        'H_298_H_0_A': 1.04 / (mol / kcal), # (from 10.1063/1.473182) (eV)
+        'R_AA_B3LYP': 1.092,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
+        'ZPE_AA_B3LYP': 0.005457 * Hartree,  # (from benchmarks.txt of
+                                             # 10.1063/1.1626543) (eV)
+        'H_298_H_0_AA_B3LYP': 0.003304 * Hartree,  # (from benchmarks.txt of
+                                                   # 10.1063/1.1626543) (eV)
+        'H_298_H_0_A': 1.04 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
         'dHf_0_A': 112.53 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
 
-    data['O'] = { # intermolecular distance (A),
-                  # formation enthalpy(298) (kcal/mol) on B3LYP geometry
+    data['O'] = {
+        # intermolecular distance (A),
+        # formation enthalpy(298) (kcal/mol) on B3LYP geometry
         'exp': (1.208, 0.0, 'none', 'none'),
         'HCTH407': (1.202, -14.5, 'HCTH407', 'gga'),
         'PBE': (1.218, -23.6, 'PBE', 'gga'),
@@ -65,16 +61,17 @@ def test_exx_AA_enthalpy():
         'magmom': 2.0,
         # tables.pdf:
         # http://ftp.aip.org/epaps/journ_chem_phys/E-JCPSA6-119-302348/tables.pdf
-        'R_AA_B3LYP': 1.204, # (from tables.pdf of 10.1063/1.1626543) (Angstom)
-        'ZPE_AA_B3LYP': 0.003736 * Hartree, # (from benchmarks.txt of
-                                            # 10.1063/1.1626543) (eV)
-        'H_298_H_0_AA_B3LYP': 0.003307*Hartree, # (from benchmarks.txt of
-                                                # 10.1063/1.1626543) (eV)
-        'H_298_H_0_A': 1.04 / (mol / kcal), # (from 10.1063/1.473182) (eV)
+        'R_AA_B3LYP': 1.204,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
+        'ZPE_AA_B3LYP': 0.003736 * Hartree,  # (from benchmarks.txt of
+                                             # 10.1063/1.1626543) (eV)
+        'H_298_H_0_AA_B3LYP': 0.003307 * Hartree,
+        # (from benchmarks.txt of 10.1063/1.1626543) (eV)
+        'H_298_H_0_A': 1.04 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
         'dHf_0_A': 58.99 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
 
-    data['H'] = { # intermolecular distance (A),
-                  # formation enthalpy(298) (kcal/mol) on B3LYP geometry
+    data['H'] = {
+        # intermolecular distance (A),
+        # formation enthalpy(298) (kcal/mol) on B3LYP geometry
         'exp': (0.741, 0.0, 'none', 'none'),
         'HCTH407': (0.744, 1.8, 'HCTH407', 'gga'),
         'PBE': (0.750, 5.1, 'PBE', 'gga'),
@@ -88,14 +85,13 @@ def test_exx_AA_enthalpy():
         'magmom': 1.0,
         # tables.pdf:
         # http://ftp.aip.org/epaps/journ_chem_phys/E-JCPSA6-119-302348/tables.pdf
-        'R_AA_B3LYP': 0.742, # (from tables.pdf of 10.1063/1.1626543) (Angstom)
-        'ZPE_AA_B3LYP': 0.010025 * Hartree, # (from benchmarks.txt of
-                                            # 10.1063/1.1626543) (eV)
-        'H_298_H_0_AA_B3LYP': 0.003305 * Hartree, # (from benchmarks.txt of
-                                                  # 10.1063/1.1626543) (eV)
-        'H_298_H_0_A': 1.01 / (mol / kcal), # (from 10.1063/1.473182) (eV)
+        'R_AA_B3LYP': 0.742,  # (from tables.pdf of 10.1063/1.1626543) (Ang)
+        'ZPE_AA_B3LYP': 0.010025 * Hartree,  # (from benchmarks.txt of
+                                             # 10.1063/1.1626543) (eV)
+        'H_298_H_0_AA_B3LYP': 0.003305 * Hartree,  # (from benchmarks.txt of
+                                                   # 10.1063/1.1626543) (eV)
+        'H_298_H_0_A': 1.01 / (mol / kcal),  # (from 10.1063/1.473182) (eV)
         'dHf_0_A': 51.63 / (mol / kcal)}  # (from 10.1063/1.473182) (eV)
-
 
     def calculate(element, h, vacuum, xc, magmom):
 
@@ -109,7 +105,7 @@ def test_exx_AA_enthalpy():
         mixer = MixerSum(beta=0.4)
         if element == 'O':
             mixer = MixerSum(0.4, nmaxold=1, weight=100)
-            atom.set_positions(atom.get_positions()+[0.0, 0.0, 0.0001])
+            atom.set_positions(atom.get_positions() + [0.0, 0.0, 0.0001])
 
         calc_atom = GPAW(h=h, xc=_xc(data[element][xc][2]),
                          experimental={'niter_fixdensity': 2},
@@ -122,7 +118,7 @@ def test_exx_AA_enthalpy():
         atom.set_calculator(calc_atom)
 
         mixer = Mixer(beta=0.4, weight=100)
-        compound = molecule(element+'2')
+        compound = molecule(element + '2')
         if compound == 'O2':
             mixer = MixerSum(beta=0.4)
             mms = [1.0 for i in range(len(compound))]
@@ -134,12 +130,12 @@ def test_exx_AA_enthalpy():
                     mixer=mixer,
                     parallel=dict(augment_grids=True),
                     txt='%s2.%s.txt' % (element, xc))
-        compound.set_distance(0,1, data[element]['R_AA_B3LYP'])
+        compound.set_distance(0, 1, data[element]['R_AA_B3LYP'])
         compound.center(vacuum=vacuum)
 
         compound.set_calculator(calc)
 
-        if data[element][xc][3] == 'hyb_gga': # only for hybrids
+        if data[element][xc][3] == 'hyb_gga':  # only for hybrids
             e_atom = atom.get_potential_energy()
             e_compound = compound.get_potential_energy()
 
@@ -149,22 +145,22 @@ def test_exx_AA_enthalpy():
         e_atom = atom.get_potential_energy()
         e_compound = compound.get_potential_energy()
 
-        dHf_0   = (e_compound - 2 * e_atom + data[element]['ZPE_AA_B3LYP'] +
-                   2 * data[element]['dHf_0_A'])
+        dHf_0 = (e_compound - 2 * e_atom + data[element]['ZPE_AA_B3LYP'] +
+                 2 * data[element]['dHf_0_A'])
         dHf_298 = (dHf_0 + data[element]['H_298_H_0_AA_B3LYP'] -
                    2 * data[element]['H_298_H_0_A']) * (mol / kcal)
-        de = dHf_298-data[element][xc][1]
+        de = dHf_298 - data[element][xc][1]
         E[element][xc] = de
         if rank == 0:
             print((xc, h, vacuum, dHf_298, data[element][xc][1], de,
-                   de/data[element][xc][1]))
+                   de / data[element][xc][1]))
             if element == 'H':
-                equal(dHf_298, data[element][xc][1], 0.25, msg=xc+': ') # kcal/mol
+                assert dHf_298 == pytest.approx(data[element][xc][1], abs=0.25)
             elif element == 'O':
-                equal(dHf_298, data[element][xc][1], 7.5, msg=xc+': ') # kcal/mol
+                assert dHf_298 == pytest.approx(data[element][xc][1], abs=7.5)
             else:
-                equal(dHf_298, data[element][xc][1], 2.15, msg=xc+': ') # kcal/mol
-            equal(de, E_ref[element][xc], 0.06, msg=xc+': ') # kcal/mol
+                assert dHf_298 == pytest.approx(data[element][xc][1], abs=2.15)
+            assert de == pytest.approx(E_ref[element][xc], abs=0.06)
 
     E = {}
 
@@ -175,21 +171,18 @@ def test_exx_AA_enthalpy():
              'N': {'HCTH407': 2.1354017840869268,
                    'B3LYP': 0.63466589919873972,
                    'PBE0': -0.33376468078480226,
-                   'PBEH': -0.30365500626180042}} # svnversion 5599 # -np 4
+                   'PBEH': -0.30365500626180042}}  # svnversion 5599 # -np 4
 
-    for element in ['H']:#, 'N']:#, 'O']: # oxygen atom fails to converge
+    for element in ['H']:  # , 'N']:#, 'O']: # oxygen atom fails to converge
         E[element] = {}
         for xc in ['HCTH407', 'PBE0', 'B3LYP']:
             setup = data[element][xc][2]
-            if data[element][xc][3] == 'hyb_gga': # only for hybrids
+            if data[element][xc][3] == 'hyb_gga':  # only for hybrids
                 exx = True
             else:
                 exx = False
-            gen(element, exx=exx, xcname=setup)
+            gen(element, exx=exx, xcname=setup, write_xml=True)
             for h in [0.20]:
                 for vacuum in [4.5]:
                     calculate(element, h, vacuum, xc, data[element]['magmom'])
             barrier()
-            if rank == 0:
-                if exists(element+'.'+setup):
-                    remove(element+'.'+setup)
