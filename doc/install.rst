@@ -120,31 +120,25 @@ tests as described below.
 
 
 .. index:: test
-.. _run the tests:
+.. _run a tests:
 
-Run the tests
-=============
+Run a simple test calculation
+=============================
 
-Make sure that everything works by running the test suite::
+Make sure that everything works by running a simple test::
 
-    $ pytest
+    $ gpaw test
 
-This will take a couple of hours.  You can speed it up by using more than
-one core::
+If this worked then try also a parallel calculation::
 
-    $ pytest -n 4
+    $ gpaw -P 4 test
 
 Please report errors to the ``gpaw-users`` mailing list so that we
 can fix them (see :ref:`mail list`).
 
-If tests pass, and the parallel version is built, test the parallel code
-on 2, 4 and 8 cores::
+.. seealso::
 
-    $ gpaw -P 2 python -m pytest
-
-or equivalently::
-
-    $ mpiexec -np 2 pytest
+    :ref:`testing` for how to run the complete test suite.
 
 
 .. _download:

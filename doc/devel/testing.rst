@@ -23,6 +23,9 @@ In order to run the tests in parallel, do this:
 
     $ mpiexec -n <number-of-processes> pytest -v
 
+Please report errors to the ``gpaw-users`` mailing list so that we
+can fix them (see :ref:`mail list`).
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _pytest-xdist: https://github.com/pytest-dev/pytest-xdist
