@@ -12,5 +12,5 @@ atoms = Atoms('H2',
 atoms.center()
 
 calc = GPAW(nbands=2, txt='h2.txt')
-atoms.set_calculator(calc)
+atoms.calc = calc
 print(atoms.get_forces())
