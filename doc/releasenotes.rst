@@ -14,6 +14,8 @@ Git master branch
 
 * Python 3.6 or later is required now.
 
+* It's now possible to use the pylibxc_ interface to Libxc_.
+
 * The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
   time-dependent potentials.
 
@@ -28,6 +30,8 @@ Git master branch
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
+.. _pylibxc: https://gitlab.com/libxc/libxc/-/tree/master/pylibxc
+.. _Libxc: https://www.tddft.org/programs/libxc/
 
 
 Version 20.1.0
