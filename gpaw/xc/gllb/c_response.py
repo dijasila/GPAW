@@ -569,22 +569,3 @@ class C_Response(Contribution):
                                             olddens.gd, self.gd,
                                             self.wfs.nspins,
                                             self.wfs.kptband_comm)
-
-
-if __name__ == '__main__':
-    from gpaw.xc_functional import XCFunctional
-    xc = XCFunctional('LDA')
-    dx = 1e-3
-    Ntot = 100000
-    x = np.array(range(1, Ntot + 1)) * dx
-    kf = (2 * x) ** (1. / 2)
-    n_g = kf ** 3 / (3 * pi ** 2)
-    v_g = np.zeros(Ntot)
-    e_g = np.zeros(Ntot)
-    xc.calculate_spinpaired(e_g, n_g, v_g)
-    vresp = v_g - 2 * e_g / n_g
-
-    f = open('response.dat', 'w')
-    for xx, v in zip(x, vresp):
-        print(xx, v, file=f)
-    f.close()

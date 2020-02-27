@@ -1,3 +1,4 @@
+# type: ignore
 from collections import namedtuple, defaultdict
 from math import pi
 from typing import List, Tuple, Dict
@@ -6,6 +7,7 @@ import numpy as np
 from ase.utils.timing import timer
 
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.setup import Setup
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.utilities import unpack
 import gpaw.mpi as mpi
@@ -34,7 +36,7 @@ RSKPoint = namedtuple(
 class EXX:
     def __init__(self,
                  kd: KPointDescriptor,
-                 setups: List['Setup'],
+                 setups: List[Setup],
                  pt,
                  coulomb,
                  spos_ac: np.ndarray,

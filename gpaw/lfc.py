@@ -87,8 +87,12 @@ class Sphere:
             rcut = spline.get_cutoff()
             l = spline.get_angular_momentum_number()
             for beg_c, end_c, sdisp_c in gd.get_boxes(spos_c, rcut, cut):
-                A_gm, G_b = self.spline_to_grid(spline, gd, beg_c, end_c,
-                                                spos_c - sdisp_c)
+                pos_v = np.dot(spos_c - sdisp_c, gd.cell_cv)
+                A_gm, G_b = _gpaw.spline_to_grid(
+                    spline.spline,
+                    beg_c, end_c, pos_v,
+                    np.ascontiguousarray(gd.h_cv),
+                    gd.n_c, gd.beg_c)
                 if len(G_b) > 0:
                     self.A_wgm.append(A_gm)
                     self.G_wb.append(G_b)
@@ -111,16 +115,6 @@ class Sphere:
         self.spos_c = spos_c.copy()
         self.normalized = False
         return True
-
-    def spline_to_grid(spline, gd, start_c, end_c, spos_c):
-        dom = gd
-        pos_v = np.dot(spos_c, dom.cell_cv)
-        return _gpaw.spline_to_grid(spline.spline, start_c, end_c, pos_v,
-                                    np.ascontiguousarray(gd.h_cv),
-                                    gd.n_c, gd.beg_c)
-
-    # TODO This belongs in Spline!
-    spline_to_grid = staticmethod(spline_to_grid)
 
     def get_function_count(self):
         return sum([2 * spline.get_angular_momentum_number() + 1
@@ -1208,7 +1202,7 @@ def test():
     x.set_positions([(0.5, 0.45, 0.5), (0.5, 0.55, 0.5)])
     n_G = gd.zeros()
     x.add(n_G)
-    import pylab as plt
+    import matplotlib.pyplot as plt
     plt.contourf(n_G[20, :, :])
     plt.axis('equal')
     plt.show()

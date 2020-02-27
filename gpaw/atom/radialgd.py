@@ -7,7 +7,7 @@ from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
 
 
-def radial_grid_descriptor(eq, **kwargs):
+def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
     if eq == 'r=d*i':
         assert int(kwargs['istart']) == 0
         return EquidistantRadialGridDescriptor(float(kwargs['d']),
@@ -60,7 +60,7 @@ def fsbt(l, f_g, r_g, G_k):
 class RadialGridDescriptor:
     ndim = 1  # dimension of ndarrays
 
-    def __init__(self, r_g, dr_g, default_spline_points=25):
+    def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25):
         """Grid descriptor for radial grid."""
         self.r_g = r_g
         self.dr_g = dr_g

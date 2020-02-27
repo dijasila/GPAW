@@ -39,10 +39,7 @@ if hasattr(_gpaw, 'Communicator'):
             pass
     world = _gpaw.Communicator()
 else:
-    world = None
-
-paths = {}
-sources = {}
+    world = None  # type: ignore
 
 
 def marshal_broadcast(obj):

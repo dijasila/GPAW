@@ -146,42 +146,6 @@ class StepTimer(Timer):
         self.start(self.now)
 
 
-class TAUTimer(Timer):
-    """TAUTimer requires installation of the TAU Performance System
-    http://www.cs.uoregon.edu/research/tau/home.php
-
-    The TAU Python API will not output any data if there are any
-    unmatched starts/stops in the code."""
-
-    top_level = 'GPAW.calculator'  # TAU needs top level timer
-    merge = True  # Requires TAU 2.19.2 or later
-
-    def __init__(self):
-        Timer.__init__(self)
-        import pytau
-        self.pytau = pytau
-        self.tau_timers = {}
-        pytau.setNode(mpi.rank)
-        self.tau_timers[self.top_level] = pytau.profileTimer(self.top_level)
-        pytau.start(self.tau_timers[self.top_level])
-
-    def start(self, name):
-        Timer.start(self, name)
-        self.tau_timers[name] = self.pytau.profileTimer(name)
-        self.pytau.start(self.tau_timers[name])
-
-    def stop(self, name=None):
-        Timer.stop(self, name)
-        self.pytau.stop(self.tau_timers[name])
-
-    def write(self, out=sys.stdout):
-        Timer.write(self, out)
-        if self.merge:
-            self.pytau.dbMergeDump()
-        else:
-            self.pytau.stop(self.tau_timers[self.top_level])
-
-
 class HPMTimer(Timer):
     """HPMTimer requires installation of the IBM BlueGene/P HPM
     middleware interface to the low-level UPC library. This will
