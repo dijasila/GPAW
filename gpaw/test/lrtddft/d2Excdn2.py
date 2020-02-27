@@ -1,4 +1,3 @@
-from __future__ import print_function
 from gpaw.lrtddft import d2Excdnsdnt, d2Excdn2
 import numpy as np
 

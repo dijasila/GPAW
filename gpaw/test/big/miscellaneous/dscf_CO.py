@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.build import molecule
 from gpaw import GPAW
 import gpaw.dscf as dscf

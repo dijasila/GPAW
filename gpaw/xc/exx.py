@@ -2,6 +2,7 @@ import json
 import sys
 from math import pi
 from pathlib import Path
+from typing import Union
 
 import numpy as np
 from ase.units import Hartree
@@ -165,7 +166,7 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self, restart: str = None) -> None:
+    def calculate(self, restart: Union[Path, str] = None) -> None:
         """Do the calculation.
 
         restart_filename: str or Path
@@ -218,6 +219,7 @@ class EXX(PairDensity):
                                  for x_n in [self.f_sin[s, i],
                                              self.exxvc_sin[s, i],
                                              self.exxvv_sin[s, i]]])
+                    assert isinstance(restart, Path)  # for mypy
                     tmp = restart.with_name(restart.name + '.tmp')
                     tmp.write_text(json.dumps(data))
                     # Overwrite restart-file in in almost atomic step that

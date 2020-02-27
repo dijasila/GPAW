@@ -12,12 +12,22 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* Python 3.6 or later is required now.
+
 * The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
   time-dependent potentials.
 
 * New :meth:`~gpaw.paw.PAW.get_atomic_electrostatic_potentials`
   method.  Useful for aligning eigenvalues from different calculations.
   See :ref:`this example <potential>`.
+
+* We are using pytest_ for :ref:`testing`.
+
+* We are now using MyPy_ for static analysis of the source code.
+
+
+.. _pytest: http://doc.pytest.org/en/latest/contents.html
+.. _mypy: https://mypy.readthedocs.io/en/stable/
 
 
 Version 20.1.0

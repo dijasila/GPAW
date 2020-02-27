@@ -10,7 +10,6 @@ This must (probably) be done *after* compilation because otherwise dirs
 may not exist.
 
 """
-from __future__ import print_function
 try:
     from urllib2 import urlopen, HTTPError
 except ImportError:

@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, cos, sin
 from ase import Atoms
 from ase.parallel import paropen

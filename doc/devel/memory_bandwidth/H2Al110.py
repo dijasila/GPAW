@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # flake8: noqa
-from __future__ import print_function
 from optparse import OptionParser
 
 code_choices = ['gpaw', 'dacapo']

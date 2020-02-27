@@ -3,7 +3,6 @@
 
 # Emacs: treat this as -*- python -*-
 # flake8: noqa
-from __future__ import print_function
 from optparse import OptionParser
 
 parser = OptionParser(usage='%prog [options] output_prefix.\nExample of call:\n'+

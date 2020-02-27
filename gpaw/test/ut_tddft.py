@@ -10,17 +10,18 @@ from ase.units import Bohr, Hartree
 from ase.io import Trajectory
 from ase.calculators.singlepoint import SinglePointCalculator
 from ase.utils import devnull
+import pytest
 
 from gpaw import GPAW, debug
 from gpaw.mpi import world
 from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
-
 from gpaw.test.ut_common import TestCase, \
     TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_parsize_maxbands
 
 mpl = None
+pytestmark = pytest.mark .xfail(reason='Needs to be rewritten')
 
 
 class UTGroundStateSetup(TestCase):
@@ -227,15 +228,9 @@ def UTStaticPropagatorFactory(timesteps, propagator):
     MetaPrototype.__name__ = classname
     return MetaPrototype
 
-# -------------------------------------------------------------------
 
-if __name__ in ['__main__', '__builtin__']:
-    # We may have been imported by test.py, if so we should redirect to logfile
-    if __name__ == '__builtin__':
-        testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
-    else:
-        stream = (world.rank == 0) and sys.stdout or devnull
-        testrunner = TextTestRunner(stream=stream, verbosity=2)
+def test_ut_tddft():
+    testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
 
     parinfo = []
     for test in [UTGroundStateSetup]:

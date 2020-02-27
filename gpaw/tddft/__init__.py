@@ -2,7 +2,6 @@
 functional theory calculations.
 
 """
-from __future__ import print_function
 import time
 from math import log
 

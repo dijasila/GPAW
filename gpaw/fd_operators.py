@@ -6,7 +6,6 @@
 This file defines a series of finite difference operators used in grid mode.
 """
 
-from __future__ import division
 from math import pi, factorial as fact
 
 import numpy as np
@@ -107,7 +106,7 @@ class FDOperator:
 if debug:
     _FDOperator = FDOperator
 
-    class FDOperator(_FDOperator):
+    class FDOperator(_FDOperator):  # type: ignore
         def apply(self, in_xg, out_xg, phase_cd=None):
             assert in_xg.shape == out_xg.shape
             assert in_xg.shape[-3:] == self.shape

@@ -15,7 +15,7 @@ from pathlib import Path
 from config import check_dependencies, write_configuration, build_interpreter
 
 
-assert sys.version_info >= (3, 5)
+assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
@@ -217,7 +217,6 @@ setup(name='gpaw',
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',

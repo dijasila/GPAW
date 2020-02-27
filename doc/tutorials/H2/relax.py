@@ -1,5 +1,4 @@
 # Creates: optimization.txt
-from __future__ import print_function
 
 from gpaw import restart
 from ase.parallel import paropen as open

@@ -7,8 +7,6 @@ This module defines tools for doing interpolations/restrictions between
 differentt uniform 3D grids.
 """
 
-from __future__ import division
-from __future__ import print_function
 import numpy as np
 
 from gpaw import debug

@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, acos, sqrt
 
 import numpy as np
