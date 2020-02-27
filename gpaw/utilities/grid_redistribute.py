@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import itertools
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor

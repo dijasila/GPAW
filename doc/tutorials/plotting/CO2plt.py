@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.io.plt import write_plt
 from gpaw import restart
 

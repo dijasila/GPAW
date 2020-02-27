@@ -1,4 +1,3 @@
-from __future__ import division
 from ase import Atoms
 from ase.lattice.hexagonal import Hexagonal
 from gpaw import GPAW, PW, FermiDirac

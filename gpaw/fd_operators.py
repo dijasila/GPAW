@@ -6,7 +6,6 @@
 This file defines a series of finite difference operators used in grid mode.
 """
 
-from __future__ import division
 from math import pi, factorial as fact
 
 import numpy as np

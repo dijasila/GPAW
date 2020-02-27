@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from gpaw.mpi import world
 from parms import V, H, h1, ion_shift

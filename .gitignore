@@ -60,3 +60,4 @@ doc/setups/[A-Z]*.rst
 # These are OK:
 !requirements.txt
 !mypy.ini
+!pytest.ini

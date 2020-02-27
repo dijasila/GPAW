@@ -82,7 +82,7 @@ class FFTWPlan:
         _gpaw.FFTWExecute(self._ptr)
 
     def __del__(self):
-        if getattr(self, '_ptr', None):
+        if getattr(self, '_ptr', None) and _gpaw is not None:
             _gpaw.FFTWDestroy(self._ptr)
         self._ptr = None
 

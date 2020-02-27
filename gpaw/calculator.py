@@ -157,7 +157,7 @@ class GPAW(PAW, Calculator):
 
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
-        if hasattr(self, 'timer'):
+        if hasattr(self, 'timer') and not self.log.fd.closed:
             self.timer.write(self.log.fd)
 
         if hasattr(self, 'reader') and self.reader is not None:

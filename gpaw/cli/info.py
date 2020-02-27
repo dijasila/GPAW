@@ -48,7 +48,7 @@ def info():
             version = LibElpa.api_version()
             if version is None:
                 version = 'unknown, at most 2018.xx'
-            have_elpa = 'yes; version: {}'.format(version)
+            have_elpa = f'yes; version: {version}'
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
 
@@ -61,15 +61,16 @@ def info():
     have_fftw = fftw.have_fftw()
     results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
-    paths = ['{0}: {1}'.format(i + 1, path)
-             for i, path in enumerate(gpaw.setup_paths)]
-    results.append(('PAW-datasets', '\n{:25}'.format('').join(paths)))
+    for i, path in enumerate(gpaw.setup_paths):
+        results.append(('PAW-datasets' if i == 0 else '', f'{i + 1}: {path}'))
 
     if rank == 0:
+        print('-' * 26 + '+' + '-' * 50)
         for a, b in results:
             if isinstance(b, bool):
                 b = ['no', 'yes'][b]
-            print('{0:25}{1}'.format(a, b))
+            print(f'{a:25} | {b}')
+        print('-' * 26 + '+' + '-' * 50)
 
 
 class CLICommand:
@@ -82,7 +83,3 @@ class CLICommand:
     @staticmethod
     def run(args):
         info()
-        if not have_mpi:
-            print()
-            print('MPI not enabled.  Check parallel configuration with: '
-                  'gpaw -P1 info')

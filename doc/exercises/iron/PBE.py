@@ -1,4 +1,3 @@
-from __future__ import print_function
 from gpaw import GPAW
 
 print('state    LDA        PBE')

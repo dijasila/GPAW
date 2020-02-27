@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.dft.kpoints import bandpath
 from ase.io import read
 from ase.parallel import paropen
