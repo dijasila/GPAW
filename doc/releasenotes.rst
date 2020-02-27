@@ -19,6 +19,11 @@ Git master branch
   method.  Useful for aligning eigenvalues from different calculations.
   See :ref:`this example <potential>`.
 
+* We are using pytest_ for tesing GPAW now.
+
+
+.. _pytest: http://doc.pytest.org/en/latest/contents.html
+
 
 Version 20.1.0
 ==============

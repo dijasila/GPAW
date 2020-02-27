@@ -1,4 +1,3 @@
-from __future__ import division
 import numbers
 from math import pi, factorial as fac
 

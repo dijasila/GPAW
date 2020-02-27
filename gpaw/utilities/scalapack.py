@@ -140,6 +140,7 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
         # 0 means you are OK
         raise RuntimeError('scalapack_diagonalize_ex error: %d' % info)
 
+
 def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the MRRR algorithm.
 

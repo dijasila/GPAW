@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.visualize import view
 from ase.constraints import FixAtoms
 from ase.optimize import QuasiNewton

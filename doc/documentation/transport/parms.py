@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 
 pos = np.asarray([1.450 * a for a in range(6)])

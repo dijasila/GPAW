@@ -1,4 +1,3 @@
-from __future__ import print_function
 from numpy import around
 from gpaw import GPAW
 from gpaw.wannier import LocFun

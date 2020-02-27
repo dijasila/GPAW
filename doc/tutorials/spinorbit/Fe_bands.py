@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.dft.kpoints import ibz_points, bandpath
 from ase.parallel import paropen
 from gpaw import GPAW

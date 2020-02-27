@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
 import os.path
 import numpy as np
 from ase import parallel as mpi
