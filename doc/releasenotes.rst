@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* Python 3.6 or later is required now.
+
 * The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
   time-dependent potentials.
 
