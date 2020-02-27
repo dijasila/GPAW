@@ -1,3 +1,4 @@
+# type: ignore
 from math import nan
 from typing import Tuple, Dict
 from io import StringIO

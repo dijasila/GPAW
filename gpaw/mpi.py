@@ -702,8 +702,8 @@ if world is None:
     world = serial_comm
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
+    serial_comm = _Communicator(serial_comm)  # type: ignore
+    world = _Communicator(world)  # type: ignore
 
 rank = world.rank
 size = world.size

@@ -1,3 +1,4 @@
+# type: ignore
 from collections import namedtuple, defaultdict
 from math import pi
 from typing import List, Tuple, Dict
