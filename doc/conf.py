@@ -27,6 +27,7 @@ intersphinx_mapping = {
     'ase': ('https://wiki.fysik.dtu.dk/ase', None),
     'numpy': ('https://docs.scipy.org/doc/numpy', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'pytest': ('https://docs.pytest.org/en/stable', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
 
 html_theme = 'sphinx_rtd_theme'
