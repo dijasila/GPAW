@@ -232,7 +232,7 @@ class PAWWaves:
         self.e_n.append(e)
         self.f_n.append(f)
 
-    def pseudize(self, type, nderiv, vtr_g, vr_g, rcmax):
+    def pseudize(self, type, nderiv, vtr_g, rcmax):
         rgd = self.rgd
         r_g = rgd.r_g
         phi_ng = self.phi_ng = np.array(self.phi_ng)
@@ -534,7 +534,7 @@ class PAWSetupGenerator:
 
         self.nt_g = self.rgd.zeros()
         for waves in self.waves_l:
-            waves.pseudize(type, nderiv, self.vtr_g, self.aea.vr_sg[0],
+            waves.pseudize(type, nderiv, self.vtr_g,# self.aea.vr_sg[0],
                            2.0 * self.rcmax)
             self.nt_g += waves.nt_g
             self.Q += waves.Q

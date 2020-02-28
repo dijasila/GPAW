@@ -141,6 +141,9 @@ class Channel:
 
     def solve(self, vr_g):
         """Diagonalize Schrödinger equation in basis set."""
+        if self.l == 2:
+            r = self.basis.rgd.r_g
+            vr_g = vr_g + 0.13 * r * np.exp(-(r / 0.93))
         H_bb = self.basis.calculate_potential_matrix(vr_g)
         H_bb += self.basis.T_bb
         self.e_n, C_bn = eigh(H_bb)
