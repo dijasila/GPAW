@@ -519,7 +519,7 @@ class PAWSetupGenerator:
                     gc = self.rgd.round(2.5 * self.rcmax)
                     ch = Channel(l)
                     a = ch.integrate_outwards(phi_g, self.rgd,
-                                              self.aea.vr_sg[0], gc, e,
+                                              self.aea.vr(0, l), gc, e,
                                               self.aea.scalar_relativistic,
                                               self.aea.Z)[1]
                     phi_g[1:gc + 1] /= self.rgd.r_g[1:gc + 1]
@@ -622,7 +622,7 @@ class PAWSetupGenerator:
     def construct_projectors(self, rcore):
         for waves in self.waves_l:
             waves.construct_projectors(self.vtr_g, 2.45 * self.rcmax)
-            waves.calculate_kinetic_energy_correction(self.aea.vr_sg[0],
+            waves.calculate_kinetic_energy_correction(self.aea.vr(0, waves.l),
                                                       self.vtr_g)
 
     def check_all(self):

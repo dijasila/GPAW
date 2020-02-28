@@ -141,9 +141,6 @@ class Channel:
 
     def solve(self, vr_g):
         """Diagonalize Schrödinger equation in basis set."""
-        if self.l == 2:
-            r = self.basis.rgd.r_g
-            vr_g = vr_g + 0.13 * r * np.exp(-(r / 0.93))
         H_bb = self.basis.calculate_potential_matrix(vr_g)
         H_bb += self.basis.T_bb
         self.e_n, C_bn = eigh(H_bb)
@@ -547,15 +544,22 @@ class AllElectronAtom:
         self.vr_sg = self.rgd.zeros(self.nspins)
         self.vr_sg[:] = -self.Z
 
+    def vr(self, s, l):
+        vr_g = self.vr_sg[s]
+        if l == 2:
+            r = self.rgd.r_g
+            return vr_g + 0.13 * r * np.exp(-(r / 0.93))
+        return vr_g
+
     def solve(self):
         """Diagonalize Schrödinger equation."""
         self.eeig = 0.0
         for channel in self.channels:
+            vr_g = self.vr(channel.s, channel.l)
             if self.method == 'Gaussian basis-set':
-                channel.solve(self.vr_sg[channel.s])
+                channel.solve(vr_g)
             else:
-                channel.solve2(self.vr_sg[channel.s], self.scalar_relativistic,
-                               self.Z)
+                channel.solve2(vr_g, self.scalar_relativistic, self.Z)
 
             self.eeig += channel.get_eigenvalue_sum()
 
