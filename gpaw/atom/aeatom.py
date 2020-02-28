@@ -548,7 +548,7 @@ class AllElectronAtom:
         vr_g = self.vr_sg[s]
         if l == 2:
             r = self.rgd.r_g
-            return vr_g + 0.13 * r * np.exp(-(r / 0.93))
+            return vr_g + 2.9513 * r * np.exp(-(r / 0.73)**2)
         return vr_g
 
     def solve(self):
