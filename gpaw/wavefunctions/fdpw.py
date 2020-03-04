@@ -314,7 +314,7 @@ class FDPWWaveFunctions(WaveFunctions):
         for kpt in self.mykpts:
             if not kpt.psit.in_memory:
                 kpt.psit.read_from_file()
-                self.read_from_file = True
+        self.read_from_file_init_wfs_dm = True
 
     def initialize_wave_functions_from_basis_functions(self,
                                                        basis_functions,
