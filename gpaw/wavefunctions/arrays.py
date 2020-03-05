@@ -309,6 +309,11 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     else:
         send_array = psit1.array
 
+    m12 = Matrix(len(psit), len(psit), dtype=psit.dtype,
+                 dist=(psit.matrix.dist.comm, psit.matrix.dist.rows,
+                       psit.matrix.dist.columns),
+                 cuda=True)
+
     for r in range(half + 1):
         rrequest = None
         srequest = None
@@ -331,12 +336,13 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
                 psit2 = psit
 
         if not (comm.size % 2 == 0 and r == half and comm.rank < half):
-            m12 = psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
-                                        serial=True)
-            m12.use_cpu()
+            psit2.matrix_elements(psit, symmetric=(r == 0), cc=True,
+                                  serial=True, out=m12)
             n1 = min(((comm.rank - r) % comm.size) * n, N)
             n2 = min(n1 + n, N)
+            m12.use_cpu()
             out.array[:, n1:n2] = m12.array[:, :n2 - n1]
+            m12.use_gpu()
 
         if rrequest:
             comm.wait(rrequest)
