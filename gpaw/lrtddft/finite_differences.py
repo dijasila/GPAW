@@ -7,7 +7,9 @@ from ase.parallel import parprint
 
 
 class FiniteDifference:
-
+    def __init__(self, atoms, propertyfunction,
+                 save=False, name='fd', ending='',
+                 d=0.001, parallel=0, world=None):
     """
     atoms: Atoms object
         The atoms to work on.
@@ -31,10 +33,6 @@ class FiniteDifference:
         splits the mpi.world into 'parallel' subprocs that calculate
         displacements of different atoms individually.
     """
-
-    def __init__(self, atoms, propertyfunction,
-                 save=False, name='fd', ending='',
-                 d=0.001, parallel=0, world=None):
 
         self.atoms = atoms
         self.indices = np.asarray(range(len(atoms)))
