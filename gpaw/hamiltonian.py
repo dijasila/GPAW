@@ -243,7 +243,11 @@ class Hamiltonian:
         coarsegrid_e_kinetic = self.calculate_kinetic_energy(density)
 
         if self.cuda:
-            self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
+            if self.vt_sG_gpu is None or \
+                    self.vt_sG_gpu.shape != self.vt_sG.shape:
+                self.vt_sG_gpu = gpaw.cuda.gpuarray.to_gpu(self.vt_sG)
+            else:
+                self.vt_sG_gpu.set(self.vt_sG)
 
         with self.timer('Calculate atomic Hamiltonians'):
             W_aL = self.calculate_atomic_hamiltonians(density)
