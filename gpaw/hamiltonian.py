@@ -426,11 +426,13 @@ class Hamiltonian:
             are not applied and calculate_projections is ignored.
 
         """
-        if isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
+        if self.cuda or isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
             if self.cuda:
                 vt_G = self.vt_sG_gpu[s]
             else:
                 vt_G = gpaw.cuda.gpuarray.to_gpu(self.vt_sG[s])
+            if not isinstance(psit_nG, gpaw.cuda.gpuarray.GPUArray):
+                psit_nG = gpaw.cuda.gpuarray.to_gpu(psit_nG)
             if len(psit_nG.shape) == 3:  # XXX Doesn't GPU arrays have ndim attr?
                 elementwise_multiply_add(psit_nG, vt_G, Htpsit_nG);
             else:
