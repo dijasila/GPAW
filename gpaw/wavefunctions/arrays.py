@@ -27,6 +27,7 @@ class ArrayWaveFunctions:
         self.comm = None
         self.dtype = self.matrix.dtype
         self.cuda = cuda
+        self._buffers = None
 
     def __len__(self):
         return len(self.matrix)
@@ -116,6 +117,12 @@ class ArrayWaveFunctions:
 
     def use_cpu(self):
         self.matrix.use_cpu()
+
+    def get_buffers(self, nbands):
+        if len(self) != nbands or self._buffers is None:
+            self._buffers = [self.new(nbands=nbands, dist=None),
+                             self.new(nbands=nbands, dist=None)]
+        return self._buffers
 
 
 class UniformGridWaveFunctions(ArrayWaveFunctions):
@@ -298,8 +305,7 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     n = (N + comm.size - 1) // comm.size
     mynbands = len(psit1.matrix.array)
 
-    buf1 = psit1.new(nbands=n, dist=None)
-    buf2 = psit1.new(nbands=n, dist=None)
+    buf1, buf2 = psit1.get_buffers(n)
     half = comm.size // 2
     psit = psit1.view(0, mynbands)
     if psit2 is not None:
