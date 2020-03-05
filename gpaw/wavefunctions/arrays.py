@@ -40,13 +40,15 @@ class ArrayWaveFunctions:
             assert opb in 'TC' and b.comm is self.comm
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False):
+                        operator=None, result=None, serial=False, cuda=None):
+        if cuda is None:
+            cuda = self.cuda
         if out is None:
             out = Matrix(len(self), len(other or self), dtype=self.dtype,
                          dist=(self.matrix.dist.comm,
                                self.matrix.dist.rows,
                                self.matrix.dist.columns),
-                         cuda=self.cuda)
+                         cuda=cuda)
         if other is None or isinstance(other, ArrayWaveFunctions):
             assert cc
             if other is None:
@@ -222,14 +224,16 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             psit_sG[1] = self.pd.scatter(big_psit_G[1], self.kpt)
 
     def matrix_elements(self, other=None, out=None, symmetric=False, cc=False,
-                        operator=None, result=None, serial=False):
+                        operator=None, result=None, serial=False, cuda=None):
+        if cuda is None:
+            cuda = self.cuda
         if other is None or isinstance(other, ArrayWaveFunctions):
             if out is None:
                 out = Matrix(len(self), len(other or self), dtype=self.dtype,
                              dist=(self.matrix.dist.comm,
                                    self.matrix.dist.rows,
                                    self.matrix.dist.columns),
-                             cuda=self.cuda)
+                             cuda=cuda)
             assert cc
             if other is None:
                 assert symmetric
