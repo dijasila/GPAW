@@ -137,7 +137,7 @@ extern "C" {
         PyObject *shape;
         PyArray_Descr *type;
 
-        if (!PyArg_ParseTuple(args, "dndnnOO", &a, &x, &b, &z, &shape,
+        if (!PyArg_ParseTuple(args, "dndnOO", &a, &x, &b, &z, &shape,
                               &type))
             return NULL;
 
