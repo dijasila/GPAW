@@ -304,10 +304,9 @@ def operate_and_multiply(psit1, dv, out, operator, psit2):
     psit = psit1.view(0, mynbands)
     if psit2 is not None:
         psit2 = psit2.view(0, mynbands)
-    if isinstance(psit1.array, GPUArray):
-        send_array = psit1.array.get()
-    else:
-        send_array = psit1.array
+    if psit1.matrix.on_gpu:
+        psit1.matrix.sync()
+    send_array = psit1.matrix._array_cpu
 
     m12 = Matrix(len(psit), len(psit), dtype=psit.dtype,
                  dist=(psit.matrix.dist.comm, psit.matrix.dist.rows,
