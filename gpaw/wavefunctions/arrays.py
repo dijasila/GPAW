@@ -28,6 +28,7 @@ class ArrayWaveFunctions:
         self.dtype = self.matrix.dtype
         self.cuda = cuda
         self._buffers = None
+        self._cached_view = {}
 
     def __len__(self):
         return len(self.matrix)
@@ -171,11 +172,15 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
                                         cuda=self.cuda)
 
     def view(self, n1, n2):
-        return UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
-                                        self.array[n1:n2],
-                                        self.kpt, None,
-                                        self.spin,
-                                        cuda=self.cuda)
+        key = (n1, n2)
+        if key not in self._cached_view:
+            self._cached_view[key] = \
+                    UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
+                                             self.array[n1:n2],
+                                             self.kpt, None,
+                                             self.spin,
+                                             cuda=self.cuda)
+        return self._cached_view[key]
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -284,11 +289,16 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
                                                self.cuda)
 
     def view(self, n1, n2):
-        return PlaneWaveExpansionWaveFunctions(n2 - n1, self.pd, self.dtype,
-                                               self.array[n1:n2],
-                                               self.kpt, None,
-                                               self.spin, self.collinear,
-                                               self.cuda)
+        key = (n1, n2)
+        if key not in self._cached_view:
+            self._cached_view[key] = \
+                    PlaneWaveExpansionWaveFunctions(
+                            n2 - n1, self.pd, self.dtype,
+                            self.array[n1:n2],
+                            self.kpt, None,
+                            self.spin, self.collinear,
+                            self.cuda)
+        return self._cached_view[key]
 
 
 def operate_and_multiply(psit1, dv, out, operator, psit2):
