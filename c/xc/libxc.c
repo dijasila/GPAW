@@ -78,10 +78,12 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
   if (self->functional[0]->info->family == XC_FAMILY_HYB_GGA) {
     for (i=0; i<self->functional[0]->n_func_aux; i++) {
       test_functional = self->functional[0]->func_aux[i];
-      if (test_functional->info->number == XC_GGA_X_SFAT) {
 #if XC_MAJOR_VERSION >= 4
+      if ((test_functional->info->number == XC_GGA_X_SFAT) || 
+	  (test_functional->info->number == XC_GGA_X_SFAT_PBE)) {
         XC(func_set_ext_params)(test_functional, &omega);
 #else
+      if (test_functional->info->number == XC_GGA_X_SFAT) {
         XC(gga_x_sfat_set_params)(test_functional, -1, omega);
 #endif
         success = 1;
