@@ -98,6 +98,12 @@ class LrTDDFT(ExcitationList):
             self.eh_comm = mpi.world.new_communicator(
                 np.asarray(self.eh_comm))
 
+        if calculator is not None and self.xc == 'GS':
+            if calculator.initialized:
+                self.xc = calculator.hamiltonian.xc
+            else:
+                self.xc = calculator.parameters['xc']
+
         if calculator is not None and calculator.initialized:
             # XXXX not ready for k-points
             assert(len(calculator.wfs.kd.ibzk_kc) == 1)
@@ -109,8 +115,6 @@ class LrTDDFT(ExcitationList):
                 err_txt += "TDDFT. Use parallel={'domain': world.size} "
                 err_txt += 'calculator parameter.'
                 raise NotImplementedError(err_txt)
-            if self.xc == 'GS':
-                self.xc = calculator.hamiltonian.xc
             if calculator.parameters.mode != 'lcao':
                 calculator.converge_wave_functions()
             if calculator.density.nct_G is None:
