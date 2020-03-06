@@ -65,7 +65,7 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 
 #if XC_MAJOR_VERSION == 4
     PyErr_SetString(PyExc_RuntimeError,
-                    "Support for RSF with tunable gamma is broken in libxc 4.x");
+                    "Support for RSF with tuneable gamma is broken in libxc 4.x");
     return NULL;
 #endif
 
