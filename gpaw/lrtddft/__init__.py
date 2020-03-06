@@ -241,7 +241,7 @@ class LrTDDFT(ExcitationList):
                 try:
                     import gzip
                     f = gzip.open(filename, 'rt')
-                except:
+                except ModuleNotFoundError:
                     f = open(filename, 'r')
             else:
                 f = open(filename, 'r')
@@ -359,7 +359,7 @@ class LrTDDFT(ExcitationList):
                     try:
                         import gzip
                         f = gzip.open(filename, 'wt')
-                    except:
+                    except ModuleNotFoundError:
                         f = open(filename, 'w')
                 else:
                     f = open(filename, 'w')
@@ -418,7 +418,7 @@ class LrTDDFT(ExcitationList):
         ov_pp: array
             Overlap
         """
-        #ov_pp = self.kss.overlap(ov_nn, other.kss)
+        # XXX ov_pp = self.kss.overlap(ov_nn, other.kss)
         ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
         self.diagonalize()
         other.diagonalize()
