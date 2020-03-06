@@ -56,12 +56,22 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 {
   int success = 0; /* Assume we don't use sfat */
   int i = 0;
-  double omega = 0.0;
+#if XC_MAJOR_VERSION >= 4
+  double omega = 0.0;        
+#else
+  float omega = 0.0;
+#endif
   XC(func_type) *test_functional;
 
+#if XC_MAJOR_VERSION >= 4
   if (!PyArg_ParseTuple(args, "d", &omega)) {
     PyErr_SetString(PyExc_TypeError,
+                    "Gamma has to be double");
+#else
+  if (!PyArg_ParseTuple(args, "f", &omega)) {
+    PyErr_SetString(PyExc_TypeError,
                     "Gamma has to be float");
+#endif
     return NULL;
   }
 
