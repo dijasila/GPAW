@@ -10,7 +10,7 @@ class FiniteDifference:
     def __init__(self, atoms, propertyfunction,
                  save=False, name='fd', ending='',
                  d=0.001, parallel=0, world=None):
-    """
+        """
     atoms: Atoms object
         The atoms to work on.
     propertyfunction: function that returns a single number.

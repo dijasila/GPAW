@@ -7,6 +7,7 @@ import numpy as np
 from ase.units import Hartree
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
+from ase.calculators.calculator import Calculator
 
 import gpaw.mpi as mpi
 from gpaw import GPAW, __version__, restart
@@ -18,9 +19,8 @@ from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
-class ExcitedState(GPAW):
-
-    def __init__(self, lrtddft=None, index=0, d=0.001, txt=None,
+class ExcitedState(GPAW, Calculator):
+    def __init__(self, lrtddft, index, d=0.001, txt=None,
                  parallel=0, communicator=None, name=None, restart=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation

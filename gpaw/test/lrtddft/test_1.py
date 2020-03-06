@@ -34,7 +34,6 @@ def test_lrtddft_1(in_tmp_dir):
         lr = LrTDDFT(calc, xc=xc)
         lr.diagonalize()
         t1 = lr[0]
-        lr_calc = lr
         ex = ExcitedState(lr, 0)
         den = ex.get_pseudo_density() * Bohr**3
 
@@ -72,7 +71,8 @@ def test_lrtddft_1(in_tmp_dir):
                  gd.integrate(den), gd.integrate(den_vspin), ddiff)
         parprint('   aed density integral',
                  finegd.integrate(ex.get_all_electron_density() * Bohr**3),
-                 finegd.integrate(ex_vspin.get_all_electron_density() * Bohr**3))
+                 finegd.integrate(ex_vspin.get_all_electron_density()
+                                  * Bohr**3))
         assert(ddiff < 1.e-4)
 
         if not load:
@@ -129,14 +129,3 @@ def test_lrtddft_1(in_tmp_dir):
 
     e4 = t4.get_energy()
     equal(e4, 0.675814, 2e-4)
-
-    # excited state with forces
-    if 1:
-        accuracy = 0.3
-        exst = ExcitedState(lr_calc, 0)
-        forces = exst.get_forces(H2)
-        parprint('forces=', forces)
-        for c in range(2):
-            equal(forces[0, c], 0.0, accuracy)
-            equal(forces[1, c], 0.0, accuracy)
-        equal(forces[0, 2] + forces[1, 2], 0.0, accuracy)
