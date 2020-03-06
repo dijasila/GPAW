@@ -112,7 +112,7 @@ class ExcitedState(GPAW, Calculator):
         mpi.world.barrier()
 
     def read(self, filename):
-
+        """Read yourself from a file"""
         self.lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
         self.atoms, self.calculator = restart(
             filename + '/' + filename, communicator=self.world)

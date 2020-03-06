@@ -162,6 +162,7 @@ class FiniteDifference:
             self.comm.append(self.world.new_communicator(self.ranks[i]))
             if self.world.rank in self.ranks[i]:
                 calc2 = calc.__class__(
+                    None, 0,
                     restart=self.name + '_eq' + self.ending,
                     communicator=self.comm[i], txt=None)
                 self.atoms.set_calculator(calc2)
