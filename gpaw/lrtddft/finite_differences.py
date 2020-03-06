@@ -94,7 +94,7 @@ class FiniteDifference:
                   'direction', i, 'FD: ', self.value[a, i])
         else:
             parprint('Atom', a, 'direction', i,
-                     '\nFD: ', self.value[a, i], '\n')
+                     'FD: ', self.value[a, i])
         return((eminus - eplus) / (2 * self.d))
 
     def run(self, **kwargs):
@@ -148,6 +148,7 @@ class FiniteDifference:
         return self.value
 
     def set_parallel(self):
+        """Copy object onto different communicators"""
         assert self.world.size == 1 or self.world.size % self.parallel == 0
         assert len(self.atoms) % self.parallel == 0
 
@@ -165,6 +166,3 @@ class FiniteDifference:
                     self.name + '_eq' + self.ending,
                     communicator=self.comm[i])
                 self.atoms.set_calculator(calc2)
-                calc2.calculate(atoms=self.atoms)
-
-        return

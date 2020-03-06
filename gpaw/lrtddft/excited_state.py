@@ -109,7 +109,8 @@ class ExcitedState(GPAW, Calculator):
         """Read ExcitedState from a file"""
         lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
         atoms, calculator = restart(
-            filename + '/' + filename, communicator=communicator)
+            filename + '/' + filename,
+            communicator=communicator, txt=None)
         E0 = calculator.get_potential_energy()
         lrtddft.set_calculator(calculator)
 
