@@ -9,7 +9,7 @@ from ase.parallel import parprint
 class FiniteDifference:
     def __init__(self, atoms, propertyfunction,
                  save=False, name='fd', ending='',
-                 d=0.001, parallel=0, world=None):
+                 d=0.001, parallel=1, world=None):
         """
     atoms: Atoms object
         The atoms to work on.
@@ -43,17 +43,7 @@ class FiniteDifference:
         self.d = d
         self.value = np.empty([len(self.atoms), 3])
 
-        if world is None:
-            world = mpi.world
-        self.world = world
-        if world.size < 2:
-            if parallel > 1:
-                parprint('#', (self.__class__.__name__ + ':'),
-                         'Serial calculation, keyword parallel ignored.')
-                parallel = 0
-        self.parallel = parallel
-        if parallel > 1:
-            self.set_parallel()
+        self.set_parallel(parallel, world)
 
     def calculate(self, a, i, filename='fd', **kwargs):
         """Evaluate finite difference  along i'th axis on a'th atom.
@@ -66,12 +56,6 @@ class FiniteDifference:
             kwargs['atoms'] = self.atoms
 
         p0 = self.atoms.positions[a, i]
-        if self.parallel > 1:
-            par = 0
-            while (par + 1) * len(self.atoms) / self.parallel <= a:
-                par += 1
-            if self.world.rank not in self.ranks[par]:
-                return
 
         self.atoms.positions[a, i] += self.d
         eplus = self.propertyfunction(**kwargs)
@@ -87,29 +71,24 @@ class FiniteDifference:
         self.atoms.positions[a, i] = p0
 
         self.value[a, i] = (eminus - eplus) / (2 * self.d)
+        
         if self.parallel > 1:
-            k = a - par * len(self.atoms) // self.parallel
-            self.locvalue[k, i] = (eminus - eplus) / (2 * self.d)
             print('# rank', self.world.rank, 'Atom', a,
                   'direction', i, 'FD: ', self.value[a, i])
         else:
             parprint('Atom', a, 'direction', i,
                      'FD: ', self.value[a, i])
-        return((eminus - eplus) / (2 * self.d))
 
     def run(self, **kwargs):
         """Evaluate finite differences for all atoms
         """
-
         for filename, a, i in self.displacements():
-            self.calculate(a, i, filename=filename, **kwargs)
+            if a in self.myindices:
+                self.calculate(a, i, filename=filename, **kwargs)
 
-        if self.parallel > 1:
-            gathercom = self.world.new_communicator(self.ranks[:, 0])
-            if self.world.rank in self.ranks[:, 0]:
-                gathercom.all_gather(self.locvalue, self.value)
-            self.world.broadcast(self.value, 0)
-        return self.value
+        self.world.barrier()
+        self.world.sum(self.value)
+        return self.value / self.cores_per_atom
 
     def displacements(self):
         for a in self.indices:
@@ -147,21 +126,43 @@ class FiniteDifference:
 
         return self.value
 
-    def set_parallel(self):
+    def set_parallel(self, parallel, world):
         """Copy object onto different communicators"""
-        assert self.world.size == 1 or self.world.size % self.parallel == 0
-        assert len(self.atoms) % self.parallel == 0
+        if world is None:
+            world = mpi.world
+        self.world = world
+        
+        if parallel > world.size:
+            parprint('#', (self.__class__.__name__ + ':'),
+                     'Serial calculation, keyword parallel ignored.')
+            parallel = 1
+        self.parallel = parallel
 
+        assert world.size % parallel == 0
+
+        # number of atoms to calculate
+        natoms = len(self.atoms)
+        myn = -(-natoms // parallel)  # ceil divide
+
+        # my workers index
+        self.cores_per_atom = world.size // parallel
+        myi = world.rank // self.cores_per_atom
+        self.myindices = list(range(min(myi * myn, natoms),
+                                    min((myi + 1) * myn, natoms)))
+
+        if parallel < 2:  # no redistribution needed
+            return
+        
         calc = self.atoms.get_calculator()
         calc.write(self.name + '_eq' + self.ending)
-        self.locvalue = np.empty([len(self.atoms) // self.parallel, 3])
-        ranks = np.array(range(self.world.size), dtype=int)
+
+        ranks = np.array(range(world.size), dtype=int)
         self.ranks = ranks.reshape(
-            self.parallel, self.world.size // self.parallel)
+            parallel, world.size // parallel)
         self.comm = []
-        for i in range(self.parallel):
-            self.comm.append(self.world.new_communicator(self.ranks[i]))
-            if self.world.rank in self.ranks[i]:
+        for i in range(parallel):
+            self.comm.append(world.new_communicator(self.ranks[i]))
+            if world.rank in self.ranks[i]:
                 calc2 = calc.__class__.read(
                     self.name + '_eq' + self.ending,
                     communicator=self.comm[i])

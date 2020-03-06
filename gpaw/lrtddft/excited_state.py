@@ -21,7 +21,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class ExcitedState(GPAW, Calculator):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
-                 parallel=0, communicator=None, name=None):
+                 parallel=1, communicator=None, name=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
         over images.
