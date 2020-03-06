@@ -21,7 +21,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class ExcitedState(GPAW, Calculator):
     def __init__(self, lrtddft, index, d=0.001, txt=None,
-                 parallel=0, communicator=None, name=None, restart=None):
+                 parallel=0, communicator=None, name=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
         over images.
@@ -43,13 +43,6 @@ class ExcitedState(GPAW, Calculator):
             except:
                 communicator = mpi.world
         self.world = communicator
-
-        if restart is not None:
-            self.read(restart)
-            if txt is None:
-                self.txt = self.lrtddft.txt
-            else:
-                self.txt = convert_string_to_fd(txt, self.world)
 
         if lrtddft is not None:
             self.lrtddft = lrtddft
@@ -111,20 +104,22 @@ class ExcitedState(GPAW, Calculator):
 
         mpi.world.barrier()
 
-    def read(self, filename):
-        """Read yourself from a file"""
-        self.lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
-        self.atoms, self.calculator = restart(
-            filename + '/' + filename, communicator=self.world)
-        E0 = self.calculator.get_potential_energy()
+    @classmethod
+    def read(cls, filename, communicator=None):
+        """Read ExcitedState from a file"""
+        lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
+        atoms, calculator = restart(
+            filename + '/' + filename, communicator=communicator)
+        E0 = calculator.get_potential_energy()
+        lrtddft.set_calculator(calculator)
 
         f = open(filename + '/' + filename + '.exst', 'r')
         f.readline()
-        self.d = f.readline().replace('\n', '').split()[1]
+        d = f.readline().replace('\n', '').split()[1]
         indextype = f.readline().replace('\n', '').split()[1]
         if indextype == 'UnconstraintIndex':
             iex = int(f.readline().replace('\n', '').split()[1])
-            self.index = UnconstraintIndex(iex)
+            index = UnconstraintIndex(iex)
         else:
             direction = f.readline().replace('\n', '').split()[1]
             if direction in [str(0), str(1), str(2)]:
@@ -135,15 +130,17 @@ class ExcitedState(GPAW, Calculator):
             val = f.readline().replace('\n', '').split()
             if indextype == 'MinimalOSIndex':
 
-                self.index = MinimalOSIndex(float(val[1]), direction)
+                index = MinimalOSIndex(float(val[1]), direction)
             else:
                 emin = float(val[2])
                 emax = float(val[3].replace(']', ''))
-                self.index = MaximalOSIndex([emin, emax], direction)
+                index = MaximalOSIndex([emin, emax], direction)
 
-        index = self.index.apply(self.lrtddft)
-        self.results['energy'] = E0 + self.lrtddft[index].energy * Hartree
-        self.lrtddft.set_calculator(self.calculator)
+        exst = cls(lrtddft, index, d, communicator=communicator)
+        index = exst.index.apply(lrtddft)
+        exst.results['energy'] = E0 + lrtddft[index].energy * Hartree
+
+        return exst
 
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:

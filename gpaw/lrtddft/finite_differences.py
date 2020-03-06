@@ -161,10 +161,9 @@ class FiniteDifference:
         for i in range(self.parallel):
             self.comm.append(self.world.new_communicator(self.ranks[i]))
             if self.world.rank in self.ranks[i]:
-                calc2 = calc.__class__(
-                    None, 0,
-                    restart=self.name + '_eq' + self.ending,
-                    communicator=self.comm[i], txt=None)
+                calc2 = calc.__class__.read(
+                    self.name + '_eq' + self.ending,
+                    communicator=self.comm[i])
                 self.atoms.set_calculator(calc2)
                 calc2.calculate(atoms=self.atoms)
 
