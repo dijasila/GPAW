@@ -63,7 +63,13 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 #endif
   XC(func_type) *test_functional;
 
-#if XC_MAJOR_VERSION >= 4
+#if XC_MAJOR_VERSION == 4
+    PyErr_SetString(PyExc_RuntimeError,
+                    "Support for RSF with tunable gamma is broken in libxc 4.x");
+    return NULL;
+#endif
+
+#if XC_MAJOR_VERSION >= 5
   if (!PyArg_ParseTuple(args, "d", &omega)) {
     PyErr_SetString(PyExc_TypeError,
                     "Gamma has to be double");
@@ -78,14 +84,14 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
   if (self->functional[0]->info->family == XC_FAMILY_HYB_GGA) {
     for (i=0; i<self->functional[0]->n_func_aux; i++) {
       test_functional = self->functional[0]->func_aux[i];
-#if XC_MAJOR_VERSION >= 4
+#if XC_MAJOR_VERSION >= 5
       if ((test_functional->info->number == XC_GGA_X_SFAT) || 
 	  (test_functional->info->number == XC_GGA_X_SFAT_PBE)) {
         XC(func_set_ext_params)(test_functional, &omega);
 #else
       if (test_functional->info->number == XC_GGA_X_SFAT) {
         XC(gga_x_sfat_set_params)(test_functional, -1, omega);
-#endif
+#endif /* XC_MAJOR_VERSION >= 5 */
         success = 1;
       }
     }
