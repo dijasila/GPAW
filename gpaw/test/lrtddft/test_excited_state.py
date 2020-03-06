@@ -1,5 +1,6 @@
 import time
 import pytest
+import numpy as np
 
 from ase import Atom, Atoms
 from ase.parallel import parprint, world
@@ -23,6 +24,21 @@ def get_H2(calculator=None):
         H2.set_calculator(calculator)
 
     return H2
+
+
+def get_H3(calculator=None):
+    R = 0.87  # approx. bond length
+    a = 4.0
+    c = 3.0
+    H3 = Atoms('H3', positions=[[0, 0, 0], [R, 0, 0],
+                                [R / 2, R / 2 * np.sqrt(3), 0]],
+               cell=(a, a, c))
+    H3.center()
+    
+    if calculator is not None:
+        H3.set_calculator(calculator)
+
+    return H3
 
 
 def test_lrtddft_excited_state():
@@ -103,7 +119,29 @@ def test_forces():
         forcesp = exstp.get_forces(H2)
         assert forcesp == pytest.approx(forces, abs=0.001)
         
+
+def test_unequal_parralel_work():
+    """Test whether parallel force calculation works for three atoms"""
+    if world.size == 1:
+        return
+
+    calc = GPAW(xc='PBE', charge=1, h=0.25, nbands=3, txt=None)
+    exlst = LrTDDFT(calc)
+    H3 = get_H3()
+
+    parprint('---------------- serial')
+    exst = ExcitedState(exlst, 0)
+    forces = exst.get_forces(H3)
+
+    parprint('---------------- parallel', world.size)
+    exst = ExcitedState(exlst, 0, parallel=2)
+    H3 = get_H3(exst)
+    forcesp = H3.get_forces()
+
+    assert forcesp == pytest.approx(forces, abs=0.01)
     
+
 if __name__ == '__main__':
-    test_forces()
+    test_unequal_parralel_work()
+    # test_forces()
     # test_lrtddft_excited_state()

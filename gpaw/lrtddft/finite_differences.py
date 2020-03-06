@@ -41,7 +41,6 @@ class FiniteDifference:
         self.name = name
         self.ending = ending
         self.d = d
-        self.value = np.empty([len(self.atoms), 3])
 
         self.set_parallel(parallel, world)
 
@@ -72,7 +71,7 @@ class FiniteDifference:
 
         self.value[a, i] = (eminus - eplus) / (2 * self.d)
         
-        if self.parallel > 1:
+        if self.parallel > 1 and self.comm.rank == 0:
             print('# rank', self.world.rank, 'Atom', a,
                   'direction', i, 'FD: ', self.value[a, i])
         else:
@@ -82,13 +81,17 @@ class FiniteDifference:
     def run(self, **kwargs):
         """Evaluate finite differences for all atoms
         """
+        self.value = np.zeros([len(self.atoms), 3])
+        
         for filename, a, i in self.displacements():
             if a in self.myindices:
                 self.calculate(a, i, filename=filename, **kwargs)
 
         self.world.barrier()
+        self.value /= self.cores_per_atom
         self.world.sum(self.value)
-        return self.value / self.cores_per_atom
+        
+        return self.value
 
     def displacements(self):
         for a in self.indices:
@@ -149,7 +152,7 @@ class FiniteDifference:
         myi = world.rank // self.cores_per_atom
         self.myindices = list(range(min(myi * myn, natoms),
                                     min((myi + 1) * myn, natoms)))
-
+        
         if parallel < 2:  # no redistribution needed
             return
         
@@ -159,11 +162,12 @@ class FiniteDifference:
         ranks = np.array(range(world.size), dtype=int)
         self.ranks = ranks.reshape(
             parallel, world.size // parallel)
-        self.comm = []
+
         for i in range(parallel):
-            self.comm.append(world.new_communicator(self.ranks[i]))
             if world.rank in self.ranks[i]:
+                comm = world.new_communicator(self.ranks[i])
                 calc2 = calc.__class__.read(
                     self.name + '_eq' + self.ending,
-                    communicator=self.comm[i])
+                    communicator=comm)
                 self.atoms.set_calculator(calc2)
+                self.comm = comm
