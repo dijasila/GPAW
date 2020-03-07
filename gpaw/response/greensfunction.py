@@ -7,6 +7,7 @@ class GreensFunction:
 
 
     def calculate(self, domegas, k_index=None):
+        domegas = np.array(domegas)
         gw = self.gw_object
 
         kd = gw.calc.wfs.kd
@@ -34,7 +35,7 @@ class GreensFunction:
 
 
         self.sigma_wskn = np.zeros((len(domegas),) + gw.shape, dtype=np.complex128)
-        
+        self.dsigma_wskn = np.zeros((len(domegas),) + gw.shape, dtype=np.complex128)
         
         
 
@@ -67,11 +68,12 @@ class GreensFunction:
                 self.calculate_q(domegas, ie, i, kpt1, kpt2, pd0, W0, W0_GW)
 
         gw.world.sum(self.sigma_wskn)
+        gw.world.sum(self.dsigma_wskn)
 
         na = np.newaxis
         G_wskn = 1/(domegas[na, na, na].T - self.sigma_wskn)
 
-        return G_wskn, self.sigma_wskn
+        return G_wskn, self.sigma_wskn, self.dsigma_wskn
 
     def calculate_q(self, domegas, ie, k, kpt1, kpt2, pd0, W0, W0_GW=None):
         gw = self.gw_object
@@ -128,15 +130,18 @@ class GreensFunction:
             nn = kpt1.n1 + n - gw.bands[0]
 
             W = Ws[0]
-            sigma_w = self.calculate_sigma(n_mG, deps_wm, f_m, W)
+            sigma_w, dsigma_w = self.calculate_sigma(n_mG, deps_wm, f_m, W)
             self.sigma_wskn[:, kpt1.s, k, nn] += sigma_w
+            self.dsigma_wskn[:, kpt1.s, k, nn] += dsigma_w
 
 
 
     def calculate_sigma(self, n_mG, deps_wm, f_m, C_swGG):
         gw = self.gw_object
         sigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
+        dsigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
         for w_index, deps_m in enumerate(deps_wm):
-            sigma, _ = gw.calculate_sigma(n_mG, deps_m, f_m, C_swGG, full_sigma=True)
+            sigma, dsigma = gw.calculate_sigma(n_mG, deps_m, f_m, C_swGG, full_sigma=True)
             sigma_w[w_index] += -np.real(sigma)*1j + np.imag(sigma)
-        return sigma_w
+            dsigma_w[w_index] += dsigma
+        return sigma_w, dsigma_w
