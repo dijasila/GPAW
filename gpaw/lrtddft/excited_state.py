@@ -217,8 +217,6 @@ class ExcitedState(GPAW, Calculator):
             atoms = self.atoms
 
         if self.calculation_required(atoms, ['forces']):
-            atoms.set_calculator(self)
-
             # do the ground state calculation to set all
             # ranks to the same density to start with
             E0 = self.calculate(atoms)
