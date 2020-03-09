@@ -4,6 +4,7 @@ import numpy as np
 
 from ase import Atom, Atoms
 from ase.parallel import parprint, world
+from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.test import equal
@@ -92,6 +93,29 @@ def test_lrtddft_excited_state():
     parprint("time used:", time.time() - t0)
 
 
+def test_io():
+    """Test output and input from files"""
+    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
+    exlst = LrTDDFT(calc)
+    exst = ExcitedState(exlst, 0)
+    H2 = get_H2(exst)
+
+    parprint('----------- calculate')
+    E1 = H2.get_potential_energy()
+    E0 = exst.calculator.get_potential_energy()
+    dE1 = exlst[0].energy * Ha
+    assert E1 == pytest.approx(E0 + dE1, 1.e-5)
+        
+    parprint('----------- write out')
+    fname = 'exst_test_io'
+    exst.write(fname)
+
+    parprint('----------- read')
+    exst = ExcitedState.read(fname)
+    E1 = exst.get_potential_energy()
+    assert E1 == pytest.approx(E0 + dE1, 1.e-5)
+  
+
 def test_forces():
     """Test whether force calculation works"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
@@ -144,5 +168,6 @@ def test_unequal_parralel_work():
 
 if __name__ == '__main__':
     # test_unequal_parralel_work()
-    test_forces()
+    # test_forces()
+    test_io()
     # test_lrtddft_excited_state()

@@ -83,7 +83,16 @@ class ExcitedState(GPAW, Calculator):
         self.results['energy'] = None
 
     def write(self, filename, mode=''):
+        """Write yourself to a directory
 
+        Paramaters
+        ----------
+        filenname: string
+          Write the files to the directory filename. The directory
+          is created in case it does not exist.
+        mode: string
+          Mode for writing the calculator (GPAW object). Default ''.
+        """
         try:
             os.makedirs(filename)
         except OSError as exception:
@@ -91,19 +100,17 @@ class ExcitedState(GPAW, Calculator):
                 raise
 
         self.calculator.write(filename=filename + '/' + filename, mode=mode)
-        self.lrtddft.write(filename=filename + '/' + filename + '.lr.dat.gz',
-                           fh=None)
+        self.lrtddft.write(filename=filename + '/' + filename + '.lr.dat.gz')
 
-        f = open(filename + '/' + filename + '.exst', 'w')
-        f.write('# ' + self.__class__.__name__ + __version__ + '\n')
-        f.write('Displacement: {0}'.format(self.d) + '\n')
-        f.write('Index: ' + self.index.__class__.__name__ + '\n')
-        for k, v in self.index.__dict__.items():
-            f.write('{0}, {1}'.format(k, v) + '\n')
-        f.close()
-
-        mpi.world.barrier()
-
+        if self.world.rank == 0:
+            with open(filename + '/' + filename + '.exst', 'w') as f:
+                f.write('# ' + self.__class__.__name__ + __version__ + '\n')
+                f.write('Displacement: {0}'.format(self.d) + '\n')
+                f.write('Index: ' + self.index.__class__.__name__ + '\n')
+                for k, v in self.index.__dict__.items():
+                    f.write('{0}, {1}'.format(k, v) + '\n')
+        self.world.barrier()
+ 
     @classmethod
     def read(cls, filename, communicator=None):
         """Read ExcitedState from a file"""
