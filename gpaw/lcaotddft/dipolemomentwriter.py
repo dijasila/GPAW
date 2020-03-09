@@ -113,10 +113,11 @@ class DipoleMomentWriter(TDDFTObserver):
         self._write(line)
 
     def _update(self, paw):
-        if paw.action == 'init':
-            self._write_header(paw)
-        elif paw.action == 'kick':
-            self._write_kick(paw)
+        if hasattr(paw, 'action'):
+            if paw.action == 'init':
+                self._write_header(paw)
+            elif paw.action == 'kick':
+                self._write_kick(paw)
         self._write_dm(paw)
 
     def __del__(self):
