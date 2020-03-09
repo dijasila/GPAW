@@ -13,11 +13,13 @@ python3 -m venv venv
 pip install -U pip
 pip install pytest
 pip install -q git+https://gitlab.com/ase/ase.git@master
-pip install -q git+https://gitlab.com/gpaw/gpaw.git@master
-pytest --pyargs gpaw > test-1.out
-gpaw -P 2 python -m pytest --pyargs gpaw > test-2.out
-gpaw -P 4 python -m pytest --pyargs gpaw > test-4.out
-gpaw -P 8 python -m pytest --pyargs gpaw > test-8.out"""
+git clone git@gitlab.com:gpaw/gpaw
+cd gpaw
+pip install -e .
+pytest > test-1.out
+gpaw -P 2 python -m pytest > test-2.out
+gpaw -P 4 python -m pytest > test-4.out
+gpaw -P 8 python -m pytest > test-8.out"""
 
 
 def run_tests():
