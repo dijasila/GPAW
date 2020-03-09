@@ -21,6 +21,9 @@ class ArrayWaveFunctions:
                         or isinstance(data, GPUArray):
             self.matrix = Matrix(M, N, dtype, data, dist, cuda)
             self.in_memory = True
+        elif isinstance(data, Matrix):
+            self.matrix = data
+            self.in_memory = True
         else:
             self.matrix = MatrixInFile(M, N, dtype, data, dist)
             self.in_memory = False
@@ -176,7 +179,7 @@ class UniformGridWaveFunctions(ArrayWaveFunctions):
         if key not in self._cached_view:
             self._cached_view[key] = \
                     UniformGridWaveFunctions(n2 - n1, self.gd, self.dtype,
-                                             self.array[n1:n2],
+                                             self.matrix.view(n1, n2),
                                              self.kpt, None,
                                              self.spin,
                                              cuda=self.cuda)
@@ -294,7 +297,7 @@ class PlaneWaveExpansionWaveFunctions(ArrayWaveFunctions):
             self._cached_view[key] = \
                     PlaneWaveExpansionWaveFunctions(
                             n2 - n1, self.pd, self.dtype,
-                            self.array[n1:n2],
+                            self.matrix.view(n1, n2),
                             self.kpt, None,
                             self.spin, self.collinear,
                             self.cuda)

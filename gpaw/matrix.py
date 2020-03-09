@@ -128,12 +128,20 @@ class Matrix:
             self._array_cpu = self._array_gpu.get()
             if not self.cuda:
                 self._array_gpu = None
+        elif isinstance(data, tuple):
+            self._array_cpu = data[0].reshape(self.dist.shape)
+            self._array_gpu = data[1].reshape(self.dist.shape)
         else:
             self._array_cpu = data.reshape(self.dist.shape)
             self._array_gpu = None
             if self.cuda:
                 self._array_gpu = gpuarray.to_gpu(self._array_cpu)
         self.on_gpu = bool(self.cuda)
+
+    def view(self, i, j):
+        return Matrix(j - i, *self.shape[1:],
+                      data=(self._array_cpu[i:j], self._array_gpu[i:j]),
+                      dtype=self.dtype, cuda=self.cuda)
 
     def sync(self):
         try:
