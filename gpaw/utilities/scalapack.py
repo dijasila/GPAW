@@ -13,7 +13,6 @@ and
 http://www.netlib.org/scalapack
 """
 
-import warnings
 
 import _gpaw
 
@@ -129,10 +128,6 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
-        message = 'scalapack_diagonalize_ex may have a buffer ' \
-            'overflow, use scalapack_diagonalize_dc instead'
-        warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(),
                                           switch_lu[uplo],
                                           iu, z, w)
@@ -243,10 +238,6 @@ def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
-        message = 'scalapack_general_diagonalize_ex may have a buffer ' \
-            'overflow, use scalapack_general_diagonalize_dc instead'
-        warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_general_diagonalize_ex(a, desca.asarray(),
                                                   switch_lu[uplo],
                                                   iu, b, z, w)
