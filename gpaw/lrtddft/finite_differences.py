@@ -150,8 +150,12 @@ class FiniteDifference:
         # my workers index
         self.cores_per_atom = world.size // parallel
         myi = world.rank // self.cores_per_atom
-        self.myindices = list(range(min(myi * myn, natoms),
-                                    min((myi + 1) * myn, natoms)))
+        # distribute work
+        self.myindices = []
+        for a in range(natoms):
+            if a % parallel == myi:
+                self.myindices.append(a)
+        ## print(world.rank, 'myindices', self.myindices)
         
         if parallel < 2:  # no redistribution needed
             return
