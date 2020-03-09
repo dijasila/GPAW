@@ -196,7 +196,7 @@ class ExcitedState(GPAW, Calculator):
         self.log('Energy:   {0}'.format(energy))
         self.log()
 
-        return energy
+        self.results['energy'] = energy
 
     def get_forces(self, atoms=None, save=False):
         """Get finite-difference forces
