@@ -1,4 +1,3 @@
-import os
 import numbers
 import numpy as np
 from scipy.stats import linregress
@@ -120,6 +119,8 @@ class SJM(SolvationGPAW):
     # (This is done, except the always_adjust_ne issue mentioned above,
     # and we need to update the tutorial once it is figured out.)
 
+    # FIXME Would a better term for doublelayer be jelliumregion or similar?
+
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  potential_equilibration_mode='con',
@@ -131,7 +132,7 @@ class SJM(SolvationGPAW):
         p.ne = ne
         p.target_potential = potential
         p.dpot = dpot
-        p.dl = doublelayer
+        p.doublelayer = doublelayer
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
 
@@ -145,19 +146,16 @@ class SJM(SolvationGPAW):
         p.max_iters = 10  # FIXME: Should we make this user-specified?
 
         self.sog('Solvated jellium method (SJM) parameters:')
-        self.sog(' Using the solvated jellium method (SJM) from:\n {:s}\n'
-                 .format(os.path.abspath(__file__)))
         # FIXME: Probably should dump the SJM parameters to the log file
         # here; might want a separate method for this.
-        mode = ('Constant-charge' if p.target_potential is None
-                else 'Constant-potential')
-        self.sog(' Mode: {:s}.'.format(mode))
-        if mode == 'Constant-potential':
+        if p.target_potential is None:
+            self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
+                     .format(p.ne))
+        else:
+            self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.dpot))
-            self.sog(' Current excess electrons: {:.5f}' .format(p.ne))
-        else:
-            self.sog(' Excess electrons: {:.5f}' .format(p.ne))
+            self.sog(' Guessed excess electrons: {:.5f}' .format(p.ne))
 
     def sog(self, message):
         # FIXME: Delete after all is set up.
@@ -194,8 +192,6 @@ class SJM(SolvationGPAW):
             psolver=self.parameters.poissonsolver,
             stencil=mode.interpolation)
 
-        self.sog(self.hamiltonian)
-
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
     def set(self, **kwargs):
@@ -213,9 +209,7 @@ class SJM(SolvationGPAW):
                     'max_pot_deviation']
 
         SJM_changes = {}
-        self.sog('"set" received the keys:')
         for key in kwargs:
-            self.sog('    {:s}'.format(key))
             if key in SJM_keys:
                 SJM_changes[key] = None
 
@@ -226,14 +220,11 @@ class SJM(SolvationGPAW):
         if kwargs:
             SolvationGPAW.set(self, **kwargs)
             major_changes = True
-        self.sog(' Density to be reset: {:s}'
-                 .format(str(major_changes)))
 
         p = self.sjm_parameters
 
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
-            self.sog('processing key "{:s}"'.format(key))
 
             if key == 'potential_equilibration_mode':
                 p.equil_mode = SJM_changes[key]
@@ -258,7 +249,7 @@ class SJM(SolvationGPAW):
                                  % p.target_potential)
 
             if key == 'doublelayer':
-                p.dl = SJM_changes[key]
+                p.doublelayer = SJM_changes[key]
                 self.set(background_charge=self.define_jellium(self.atoms))
 
             if key == 'dpot':
@@ -278,7 +269,6 @@ class SJM(SolvationGPAW):
                 p.dpot = SJM_changes[key]
 
             if key == 'background_charge':
-                self.sog('background_charge changed')
                 self.parameters[key] = SJM_changes[key]
                 if self.wfs is not None:
                     if major_changes:
@@ -296,25 +286,19 @@ class SJM(SolvationGPAW):
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
-                    if len(p.previous_nes) > 0:
-                        self.sog('wfs nvalence changed by {:.5f}'
-                                 .format(p.ne - p.previous_nes[-1]))
-                        self.wfs.nvalence += p.ne - p.previous_nes[-1]
-                    else:
-                        self.sog('wfs nvalence unchanged')
-                    self.sog('wfs nvalence now {:.5f}'
+                    if p.target_potential:
+                        if len(p.previous_nes) > 0:
+                            self.wfs.nvalence += p.ne - p.previous_nes[-1]
+                    self.sog('Number of valence electrons is now {:.5f}'
                              .format(self.wfs.nvalence))
                     # FIXME: background_charge not always called when ne
                     # changes? Doesn't this screw up nvalence in wfs?
 
             if key == 'ne':
-                self.sog('ne changed')
                 self.results = {}
                 p.ne = SJM_changes['ne']
                 self.sog('Number of Excess electrons manually changed '
                          'to %1.8f' % (p.ne))
-
-            self.sog('returning from self.set')
             return
 
     def calculate(self, atoms=None, properties=['energy'],
@@ -330,60 +314,44 @@ class SJM(SolvationGPAW):
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
 
-        self.sog('*****************************')
-        self.sog('Solvated jellium calculation.')
-        self.sog('*****************************')
-        self.sog('System changes: {:s}'.format(str(system_changes)))
-        self.sog('Requested properties: {:s}'.format(str(system_changes)))
         # FIXME: Should results be zerod when set is called? That might be
         # easiest. Then I can check here if the results are not zero
         # and we can calculate things directly.
-        if self.scf is not None:
-            self.sog('SCF converged? {:s}'.format(str(self.scf.converged)))
-        else:
-            self.sog('SCF is None.')
         p = self.sjm_parameters
-        if p.dl is not None:
+        if p.doublelayer is not None:
             self.sog(' Jellium size parameters:')
-            if 'start' in p.dl:
-                self.sog('    Lower boundary: %s' % p.dl['start'])
-            if 'upper_limit' in p.dl:
-                self.sog('    Upper boundary: %s' % p.dl['upper_limit'])
+            if 'start' in p.doublelayer:
+                self.sog('  Lower boundary: %s' % p.doublelayer['start'])
+            if 'upper_limit' in p.doublelayer:
+                self.sog('  Upper boundary: %s' % p.doublelayer['upper_limit'])
 
         if p.target_potential:
-            self.sog('Starting constant-potential calculation targeting {:.3f}'
-                     ' +/- {:.3f} V.'
-                     .format(p.target_potential, p.dpot))
             iteration = 0
             p.previous_nes = []
             p.previous_potentials = []
             equilibrated = False
 
             while not equilibrated:
-                self.sog(' Potential equlibration attempt {:d}'
-                         .format(iteration))
-                self.sog(' Equilibrating potential to {:.3f} +/- {:.3f} V.'
-                         .format(p.target_potential, p.dpot))
-                self.sog(' Current number of excess electrons: {:.5f}'
+                self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
+                         ' {:.3f} V'
+                         .format(iteration, p.target_potential, p.dpot))
+                self.sog('Current guess of excess electrons: {:+.5f}'
                          .format(p.ne))
                 if iteration == 1:
                     self.timer.start('Potential equilibration loop')
                     # We don't want SolvationGPAW to see any more system
-                    # changes, like positions.
+                    # changes, like positions, after attempt 0.
                     system_changes = []
-                self.sog('Calling self.set_jellium(atoms)')
                 self.set_jellium(atoms)
-                self.sog('Calling SolvationGPAW.calculate...')
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
-                self.sog('...finished SolvationGPAW.calculate.')
+                # FIXME: Why not forces in above??
                 if p.verbose:
                     self.write_cavity_and_bckcharge()
-                self.sog('Calling get_electrode_potential...')
                 true_potential = self.get_electrode_potential()
-                self.sog('...finished get_electrode_potential.')
-                self.sog('Potential found to be {:.5f} V'
-                         .format(true_potential))
+                self.sog('Potential found to be {:.5f} V (with {:+.5f} '
+                         'electrons, attempt {:d})'
+                         .format(true_potential, p.ne, iteration))
                 p.previous_nes += [p.ne]
                 p.previous_potentials += [true_potential]
 
@@ -416,13 +384,14 @@ class SJM(SolvationGPAW):
 
                 iteration += 1
                 if iteration == p.max_iters:
-                    raise Exception('Potential could not be reached after '
-                                    '{:d} iterations.  Aborting!'
-                                    .format(iteration))
+                    msg = ('Potential could not be reached after {:d} '
+                           'iterations.  Aborting!'.format(iteration))
+                    self.sog(msg)
+                    raise Exception(msg)
 
         else:
             # Constant-charge mode.
-            self.sog(' Constant-charge calculation with {:.5f} excess '
+            self.sog('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.ne))
             self.set_jellium(atoms)
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
@@ -436,15 +405,19 @@ class SJM(SolvationGPAW):
             # and such. This shouldn't be the case, I believe. Check
             # how GPAW does it.
 
-            self.sog('Calculating non-energy properties.')
             SolvationGPAW.calculate(self, atoms, properties, [])
 
-        #FIXME set self.results['energy'] etc here, not in summary.
+        # FIXME set self.results['energy'] etc here, not in summary.
         # Then it's like GPAW.
+
+        # FIXME: I believe that in the current version if you call
+        #  atoms.get_potential_energy()
+        #  atoms.get_forces()
+        # Then the second line triggers a new SCF cycle even though
+        # it should just pull the forces from the first.
 
     def write_cavity_and_bckcharge(self):
         p = self.sjm_parameters
-        self.sog('Writing cavity and background charge.')
         self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
                                       name='cavity_')
         if p.verbose == 'cube':
@@ -471,7 +444,7 @@ class SJM(SolvationGPAW):
             self.results['energy'] = omega_extra
             self.results['free_energy'] = omega_free
         else:
-            #FIXME: This can be deleted, I think. Already written by
+            # FIXME: This can be deleted, I think. Already written by
             # parent calculator.
             self.results['energy'] = Hartree * \
                 self.hamiltonian.e_el_extrapolated
@@ -503,15 +476,14 @@ class SJM(SolvationGPAW):
         """Module for the definition of the explicit and counter charge
 
         """
-        self.sog('inside define_jellium method')
         p = self.sjm_parameters
-        if p.dl is None:
-            p.dl = {}
+        if p.doublelayer is None:
+            p.doublelayer = {}
 
-        if 'start' in p.dl:
-            if p.dl['start'] == 'cavity_like':
+        if 'start' in p.doublelayer:
+            if p.doublelayer['start'] == 'cavity_like':
                 pass
-            elif isinstance(p.dl['start'], numbers.Real):
+            elif isinstance(p.doublelayer['start'], numbers.Real):
                 pass
             else:
                 raise RuntimeError("The starting z value of the counter charge"
@@ -519,46 +491,37 @@ class SJM(SolvationGPAW):
                                    "cavity_like' or not given (default: "
                                    " max(position)+3)")
         else:
-            p.dl['start'] = max(atoms.positions[:, 2]) + 3.
+            p.doublelayer['start'] = max(atoms.positions[:, 2]) + 3.
 
-        self.sog('   passed first if')
-        if 'upper_limit' in p.dl:
+        if 'upper_limit' in p.doublelayer:
             pass
-        elif 'thickness' in p.dl:
-            if p.dl['start'] == 'cavity_like':
+        elif 'thickness' in p.doublelayer:
+            if p.doublelayer['start'] == 'cavity_like':
                 raise RuntimeError("With a cavity-like counter charge only"
                                    "the keyword upper_limit(not thickness)"
                                    "can be used.")
             else:
-                p.dl['upper_limit'] = p.dl['start'] + \
-                    p.dl['thickness']
+                p.doublelayer['upper_limit'] = (p.doublelayer['start'] +
+                                                p.doublelayer['thickness'])
         else:
-            p.dl['upper_limit'] = atoms.cell[2][2] - 5.0
+            p.doublelayer['upper_limit'] = atoms.cell[2][2] - 5.0
 
-        self.sog('   passed 2nd if')
-        if p.dl['start'] == 'cavity_like':
-            self.sog('    in cavity_like')
+        if p.doublelayer['start'] == 'cavity_like':
 
             # XXX This part can definitely be improved
             if self.hamiltonian is None:
-                self.sog('    in hamiltonian is None')
                 filename = self.log.fd
-                self.sog('    filename')
-                self.sog(str(filename))
                 # self.log.fd = None  # FIXME This was causing crashes.
-                self.sog('    initializeing atoms')
                 self.initialize(atoms)
                 self.set_positions(atoms)
                 # self.log.fd = filename
-                self.sog('      copying hamiltonian cavity')
                 g_g = self.hamiltonian.cavity.g_g.copy()
                 self.wfs = None
                 self.density = None
                 self.hamiltonian = None
                 self.initialized = False
-                self.sog('      returning CavityShapedJellium')
                 return CavityShapedJellium(p.ne, g_g=g_g,
-                                           z2=p.dl['upper_limit'])
+                                           z2=p.doublelayer['upper_limit'])
 
             else:
                 filename = self.log.fd
@@ -567,12 +530,11 @@ class SJM(SolvationGPAW):
                 self.log.fd = filename
                 return CavityShapedJellium(p.ne,
                                            g_g=self.hamiltonian.cavity.g_g,
-                                           z2=p.dl['upper_limit'])
+                                           z2=p.doublelayer['upper_limit'])
 
-        elif isinstance(p.dl['start'], numbers.Real):
-            self.sog('    in isinstance start')
-            return JelliumSlab(p.ne, z1=p.dl['start'],
-                               z2=p.dl['upper_limit'])
+        elif isinstance(p.doublelayer['start'], numbers.Real):
+            return JelliumSlab(p.ne, z1=p.doublelayer['start'],
+                               z2=p.doublelayer['upper_limit'])
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
@@ -581,9 +543,7 @@ class SJM(SolvationGPAW):
             self.occupations.fermilevel)[1] * Hartree
 
     def set_jellium(self, atoms):
-        self.sog('in set_jellium method')
         self.set(background_charge=self.define_jellium(atoms))
-        self.sog('out set_jellium method')
 
     """Various tools for writing global functions"""
 
