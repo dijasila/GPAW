@@ -2,7 +2,7 @@ from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
 from gpaw.fd_operators import Gradient
 from gpaw.io.logger import indent
-from ase.units import Hartree
+from ase.units import Ha
 import numpy as np
 
 
@@ -219,18 +219,44 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         return gs
 
     def summary(self, fermilevel, log):
-        # XXX: (Should we copy from gpaw/hamiltonian and just add in
-        # the single term from interactions? Or have gpaw/hamiltonian
-        # take an "extra_energies" keyword?
-        self.cavity.summary(log)
+        # This is almost duplicate code to gpaw/hamiltonian'
+        # Hamiltonian.summary, but with the cavity and interactions added.
+
+        log('Energy contributions relative to reference atoms:',
+            '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
+
+        energies = [('Kinetic:      ', self.e_kinetic),
+                    ('Potential:    ', self.e_coulomb),
+                    ('External:     ', self.e_external),
+                    ('XC:           ', self.e_xc),
+                    ('Entropy (-ST):', self.e_entropy),
+                    ('Local:        ', self.e_zero),
+                   ]
+        if len(self.interactions) > 0:
+            energies += [('Interactions', None)]
+            for ia in self.interactions:
+                energies += [(' {:s}:'.format(ia.subscript),
+                              getattr(self, 'e_' + ia.subscript))]
+
+        for name, e in energies:
+            if e is not None:
+                log('%-14s %+11.6f' % (name, Ha * e))
+            else:
+                log('%-14s' % (name))
+
+        log('--------------------------')
+        log('Free energy:   %+11.6f' % (Ha * self.e_total_free))
+        log('Extrapolated:  %+11.6f' % (Ha * self.e_total_extrapolated))
         log()
-        log('Solvation Energy Contributions:')
-        for ia in self.interactions:
-            E = Hartree * getattr(self, 'e_' + ia.subscript)
-            log('%-14s %+11.6f' % (ia.subscript + ':', E))
-        E_el_free = Hartree * self.e_el_free
-        E_el_extrapolated = Hartree * self.e_el_extrapolated
-        log('%-14s %+11.6f' % ('el (free):', E_el_free))
-        log('%-14s %+11.6f' % ('el (extrpol.):', E_el_extrapolated))
-        log('el (free) is composed of:')
-        RealSpaceHamiltonian.summary(self, fermilevel, log)
+        self.xc.summary(log)
+
+        try:
+            workfunctions = self.get_workfunctions(fermilevel)
+        except NotImplementedError:
+            pass
+        else:
+            log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
+                .format(*np.array(workfunctions) * Ha))
+            log()
+
+        self.cavity.summary(log)

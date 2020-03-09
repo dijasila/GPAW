@@ -172,12 +172,12 @@ class Cavity(NeedsGD):
 
     def summary(self, log):
         """Log cavity surface area and volume."""
-        A = (self.A * Bohr ** 2 if self.A is not None
+        A = ('{:.5f}'.format(self.A * Bohr ** 2) if self.A is not None
              else 'not calculated (no calculator defined)')
-        V = (self.V * Bohr ** 3 if self.V is not None
+        V = ('{:.5f}'.format(self.V * Bohr ** 3) if self.V is not None
              else 'not calculated (no calculator defined)')
-        log('Cavity Surface Area: %s' % (A, ))
-        log('Cavity Volume: %s' % (V, ))
+        log('Solvation cavity surface area: %s' % (A, ))
+        log('Solvation cavity volume: %s' % (V, ))
 
 
 class EffectivePotentialCavity(Cavity):
