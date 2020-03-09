@@ -44,14 +44,10 @@ class ExcitedState(GPAW, Calculator):
                 communicator = mpi.world
         self.world = communicator
 
-        if lrtddft is not None:
-            self.lrtddft = lrtddft
-            self.calculator = self.lrtddft.calculator
-            self.log = self.calculator.log
-            self.atoms = self.calculator.atoms
-            self.parameters = self.calculator.parameters
-        else:
-            self.log = GPAWLogger(self.world)
+        self.lrtddft = lrtddft
+        self.calculator = self.lrtddft.calculator
+        self.log = self.calculator.log
+        self.atoms = self.calculator.atoms
         self.calculator.log.fd = txt
         
         self.d = d
