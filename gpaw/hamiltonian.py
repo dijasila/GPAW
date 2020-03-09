@@ -160,16 +160,16 @@ class Hamiltonian:
 
     def get_workfunctions(self, fermilevel):
         """
-        Returns the workfunctions, in Hartree, for a dipole-corrected
-        simulation. Returns None if non dipole correction is present.
+        Returns the work functions, in Hartree, for a dipole-corrected
+        simulation. Returns None if no dipole correction is present.
         """
         try:
             dipole_correction = self.poisson.correction
         except AttributeError:
             raise ValueError(
-                'Workfunction not defined if no field-free region. Consider '
+                'Work function not defined if no field-free region. Consider '
                 'using a dipole correction if you are looking for a '
-                'workfunction.')
+                'work function.')
         c = self.poisson.c  # index of axis perpendicular to dipole-layer
         if not self.gd.pbc_c[c]:
             # zero boundary conditions

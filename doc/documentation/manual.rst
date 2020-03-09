@@ -616,7 +616,7 @@ In words:
   \mathrm{eV}^2` per valence electron. This criterion does not affect LCAO
   calculations.
 
-* The difference in the workfunction across the last three self-consistency
+* The difference in the work function across the last three self-consistency
   cycles should be no more than that specified by the workfunction keyword.
   This only applies when a dipole correction is employed. The default is
   to set it to infinity, which disables this setting.

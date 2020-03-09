@@ -40,7 +40,7 @@ class SCFLoop:
              cc['eigenstates'] * Ha**2 / self.nvalence),
             ('Maximum change in atomic [force]: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
-            ('Maximum workfunction [wkfxn] change: {0:g} eV',
+            ('Maximum work function [wkfxn] change: {0:g} eV',
              cc['workfunction'] * Ha),
             ('Maximum number of [iter]ations: {0}', self.maxiter)]:
             if val < np.inf:
@@ -126,7 +126,7 @@ class SCFLoop:
             try:
                 workfunctions = ham.get_workfunctions(occ.fermilevel)
             except NotImplementedError:
-                raise Exception('System has no well-defined workfunction, ' 
+                raise Exception('System has no well-defined work function, '
                     'so please do not specify this convergence keyword. '
                     'Consider adding a dipole correction.')
             else:

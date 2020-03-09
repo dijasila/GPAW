@@ -191,13 +191,8 @@ class SJM(SolvationGPAW):
                     self.sog('Potential equilibration has been '
                              'turned off')
                 else:
-                    # FIXME: Why is it deciding here?
-                    if self.wfs is None:
-                        self.sog('Target electrode potential: %1.4f V'
-                                 % p.target_potential)
-                    else:
-                        self.sog('New Target electrode potential: %1.4f V'
-                                 % p.target_potential)
+                    self.sog('Target electrode potential set to {:1.4f} V'
+                             .format(p.target_potential))
 
             if key == 'doublelayer':
                 p.doublelayer = SJM_changes[key]
@@ -277,6 +272,12 @@ class SJM(SolvationGPAW):
                 self.sog('  Upper boundary: %s' % p.doublelayer['upper_limit'])
 
         if p.target_potential:
+            # FIXME: In case of a nonlinear response, might want to switch
+            # to a scheme that still uses the slope for the first two
+            # iterations, but once we have three points switches to a scipy
+            # optimizer. If so this might be best to write a self-standing
+            # function of the type
+            # def equilibrate_potential(calc, target, guess, slope_guess)
             iteration = 0
             p.previous_nes = []
             p.previous_potentials = []
@@ -293,7 +294,7 @@ class SJM(SolvationGPAW):
                     # We don't want SolvationGPAW to see any more system
                     # changes, like positions, after attempt 0.
                     system_changes = []
-                self.set_jellium(atoms)
+                self.set(background_charge=self.define_jellium(atoms))
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
                 # FIXME: Why not forces in above??
@@ -344,7 +345,7 @@ class SJM(SolvationGPAW):
             # Constant-charge mode.
             self.sog('Constant-charge calculation with {:.5f} excess '
                      'electrons'.format(p.ne))
-            self.set_jellium(atoms)
+            self.set(background_charge=self.define_jellium(atoms))
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             if p.verbose:
                 self.write_cavity_and_bckcharge()
@@ -358,8 +359,45 @@ class SJM(SolvationGPAW):
 
             SolvationGPAW.calculate(self, atoms, properties, [])
 
-        # FIXME set self.results['energy'] etc here, not in summary.
-        # Then it's like GPAW.
+        # Put together results, adjusting for grand-potential, etc.
+
+        # FIXME: We *think* this should be e_total_free and
+        # e_total_extrapolated.
+        # In solvation/hamiltonian, we should just get rid of
+        # self.e_el_* quantities
+        p = self.sjm_parameters
+        omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
+            self.get_electrode_potential() * p.ne
+        omega_free = Hartree * self.hamiltonian.e_el_free + \
+            self.get_electrode_potential() * p.ne
+
+        self.sog('results:')
+        self.sog(str(self.results))
+        if p.write_grandcanonical:
+            self.results['energy'] = omega_extra
+            self.results['free_energy'] = omega_free
+            self.sog('Grand-canonical energy was written into results.\n')
+        else:
+            self.sog("Canonical energy was written into results.\n")
+            # FIXME: This can be deleted, I think. Already written by
+            # parent calculator. Except, I see below the values don't match
+            # This is the problem that SJM is pulling the wrong number from
+            # the SolvationGPAW results.
+            # Maybe it would actually be safer to pull the results from the
+            # results dictionary itself? But then I risk some unexpected
+            # multiple calls making this happen twice.
+            self.results['energy'] = Hartree * \
+                self.hamiltonian.e_el_extrapolated
+            self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
+
+        self.results['ne'] = p.ne
+        self.results['electrode_potential'] = self.get_electrode_potential()
+        self.sog('new results')
+        self.sog(str(self.results))
+        self.sog('e_el_extrapolateed [energy]')
+        self.sog(str(Hartree * self.hamiltonian.e_el_extrapolated))
+        self.sog('e_el_free')
+        self.sog(str(Hartree * self.hamiltonian.e_el_free))
 
         # FIXME: I believe that in the current version if you call
         #  atoms.get_potential_energy()
@@ -381,38 +419,20 @@ class SJM(SolvationGPAW):
             name='background_charge_')
 
     def summary(self):
-        # FIXME: We *think* this should be e_total_free and
-        # e_total_extrapolated.
-        # In solvation/hamiltonian, we should just get rid of
-        # self.e_el_* quantities
         p = self.sjm_parameters
+        # FIXME omega_extra and omega_free are being calculated twice.
+        # Creates an issue for debugging if so...
         omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
             self.get_electrode_potential() * p.ne
         omega_free = Hartree * self.hamiltonian.e_el_free + \
             self.get_electrode_potential() * p.ne
 
-        if p.write_grandcanonical:
-            self.results['energy'] = omega_extra
-            self.results['free_energy'] = omega_free
-        else:
-            # FIXME: This can be deleted, I think. Already written by
-            # parent calculator.
-            self.results['energy'] = Hartree * \
-                self.hamiltonian.e_el_extrapolated
-            self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
-
-        self.results['ne'] = p.ne
-        self.results['electrode_potential'] = self.get_electrode_potential()
         self.hamiltonian.summary(self.occupations.fermilevel, self.log)
 
         # FIXME: add in what ne and mu are here.
         self.sog('Grand-canonical potential energy (E_tot + E_solv - mu*ne):')
         self.sog('{:<14s} {:+11.6f}'.format('Extrapolated:', omega_extra))
         self.sog('{:<14s} {:+11.6f}'.format('Free energy:', omega_free))
-        if p.write_grandcanonical:
-            self.sog('Grand-canonical energy was written into results.\n')
-        else:
-            self.sog("Canonical energy was written into results.\n")
 
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
@@ -489,12 +509,9 @@ class SJM(SolvationGPAW):
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
-        to the vacuum. This comes directly from the workfunction."""
+        to the vacuum. This comes directly from the work function."""
         return self.hamiltonian.get_workfunctions(
             self.occupations.fermilevel)[1] * Hartree
-
-    def set_jellium(self, atoms):
-        self.set(background_charge=self.define_jellium(atoms))
 
     """Various tools for writing global functions"""
 
