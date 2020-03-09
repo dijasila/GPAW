@@ -47,21 +47,17 @@ class ExcitedState(GPAW, Calculator):
         if lrtddft is not None:
             self.lrtddft = lrtddft
             self.calculator = self.lrtddft.calculator
+            self.log = self.calculator.log
             self.atoms = self.calculator.atoms
             self.parameters = self.calculator.parameters
-            if txt is None:
-                self.txt = self.lrtddft.txt
-            else:
-                self.txt = convert_string_to_fd(txt, self.world)
-
+        else:
+            self.log = GPAWLogger(self.world)
+        self.calculator.log.fd = txt
+        
         self.d = d
         self.parallel = parallel
         self.name = name
 
-        self.log = GPAWLogger(self.world)
-        self.log.fd = self.txt
-        self.reader = None
-        self.calculator.log.fd = self.txt
         self.log('#', self.__class__.__name__, __version__)
         self.log('#', self.index)
         if name:
@@ -180,18 +176,8 @@ class ExcitedState(GPAW, Calculator):
         system_changes = GPAW.check_state(self.calculator, atoms, tol)
         return system_changes
 
-    def get_potential_energy(self, atoms=None, force_consistent=None):
-        """Evaluate potential energy for the given excitation."""
-
-        if atoms is None:
-            atoms = self.atoms
-
-        if self.calculation_required(atoms, ['energy']):
-            self.results['energy'] = self.calculate(atoms)
-
-        return self.results['energy']
-
-    def calculate(self, atoms):
+    def calculate(self, atoms, properties=['energy'],
+                  system_changes=['cell']):
         """Evaluate your energy if needed."""
         self.set_positions(atoms)
 
