@@ -17,7 +17,6 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 
 class SJM(SolvationGPAW):
-    # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     """Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
 
@@ -40,26 +39,6 @@ class SJM(SolvationGPAW):
         The potential that should be reached or kept in the course of the
         calculation. If set to "None" (default) a constant-charge
         calculation based on the value of `ne` is performed.
-    potential_equilibration_mode: str
-        The mode for potential relaxation (only relevant for structure
-        optimizations):
-
-        'con' (Default):
-            Conservative mode.
-            ne is adjusted until the target potential is achieved;
-            on subsequent calls (such as in a geometry optimization),
-            ne is not touched again until the potential falls out of
-            tolerance.
-
-        'pre':
-            Predictive mode.
-            Even after the potential is in tolerance, ne is adjusted
-            to try to improve the potential for the next ionic step.
-            This may help it from drifting out of convergence.
-            If used along with a loose tolerance (high dpot), this can
-            be useful in calculations such as geometry optimizations such
-            that the potential and positions are simultaneously optimized.
-
     dpot: float
         Tolerance for the deviation of the target potential.
         If the potential is outside the defined range `ne` will be
@@ -97,34 +76,19 @@ class SJM(SolvationGPAW):
         tolerance (dpot) to allow the potential and structure to be
         simultaneously optimized in a geometry optimization, for example.
     """
-    # FIXME: Is always_adjust_ne in True mode the same as predictive mode?
-    # They seem to be very similar. Looking closer, I think they must be
-    # (designeed to be accidentally) redundant, as always_adjust_ne is
-    # never used. I think this was an alternate keyword approach.
-    # Will have to decide which we prefer.
-    # FIXME: If I keep the potential equilibration mode, chanage to 'c' and
-    # 'p' for brevity, con and pre are not that great of short names.
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
-    # FIXME: Unify the sequential and simultaneous methods as discussed
-    # with GK. The simultaneous mode would be 'predictive'; that is, it
-    # will pro-actively adjust ne in the next image based on the current
-    # deviation; that is it will keep the method from drifting out of
-    # tolerance. The sequential mode will be 'conservative' which will not
-    # touch ne unless it drifts out of tolerance. A user tutorial will be
-    # added that replaces the current simultaneous use case: basically just
-    # setting the tolerance lower during the optimization then turning it
-    # up for the final round to ensure it converged.
-    # (This is done, except the always_adjust_ne issue mentioned above,
-    # and we need to update the tutorial once it is figured out.)
 
-    # FIXME Would a better term for doublelayer be jelliumregion or similar?
+    # FIXME Would a better term for doublelayer be jellium_region or similar?
+
+    # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
+    # E.g., verbose (and max_iter) could easily collide with a parent
+    # class's future or present keywords.
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
-                 potential_equilibration_mode='con',
-                 verbose=False, **gpaw_kwargs):
+                 always_adjust_ne=False, verbose=False, **gpaw_kwargs):
 
         p = self.sjm_parameters = Parameters()
         SolvationGPAW.__init__(self, **gpaw_kwargs)
@@ -135,19 +99,12 @@ class SJM(SolvationGPAW):
         p.doublelayer = doublelayer
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
-
-        if potential_equilibration_mode in ['con', 'pre']:
-            p.equil_mode = potential_equilibration_mode
-        else:
-            raise ValueError("Potential equilibration mode not recognized."
-                             "Implemented modes are 'con' and 'pre'")
+        p.always_adjust_ne = always_adjust_ne
 
         p.slope = None
         p.max_iters = 10  # FIXME: Should we make this user-specified?
 
         self.sog('Solvated jellium method (SJM) parameters:')
-        # FIXME: Probably should dump the SJM parameters to the log file
-        # here; might want a separate method for this.
         if p.target_potential is None:
             self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
                      .format(p.ne))
@@ -168,9 +125,6 @@ class SJM(SolvationGPAW):
         This differs from SolvationGPAW's create_hamiltonian
         method by the ability to use dipole corrections.
         """
-        # FIXME: At some point, we should check to make sure a dipole is
-        # present (correction). Perhaps here? Otherwise the user will get
-        # an error in the SCF cycle.
         if not realspace:
             raise NotImplementedError(
                 'SJM does not support calculations in reciprocal space yet'
@@ -205,8 +159,7 @@ class SJM(SolvationGPAW):
         """
 
         SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
-                    'doublelayer', 'potential_equilibration_mode',
-                    'max_pot_deviation']
+                    'doublelayer', 'always_adjust_ne']
 
         SJM_changes = {}
         for key in kwargs:
@@ -226,10 +179,8 @@ class SJM(SolvationGPAW):
         # SJM custom `set` for the new keywords
         for key in SJM_changes:
 
-            if key == 'potential_equilibration_mode':
-                p.equil_mode = SJM_changes[key]
-            if key == 'max_pot_deviation':
-                p.pot_tol = SJM_changes[key]
+            if key == 'always_adjust_ne':
+                p.always_adjust_ne = SJM_changes[key]
 
             if key in ['potential', 'doublelayer']:
                 self.results = {}
@@ -367,7 +318,7 @@ class SJM(SolvationGPAW):
                     self.sog('Potential is within tolerance. Equilibrated.')
                     if iteration >= 1:
                         self.timer.stop('Potential equilibration loop')
-                    if p.equil_mode == 'con':
+                    if p.always_adjust_ne == False:
                         break
 
                 # Change ne based on slope.

@@ -166,9 +166,9 @@ class Hamiltonian:
         try:
             dipole_correction = self.poisson.correction
         except AttributeError:
-            raise NotImplementedError(
+            raise ValueError(
                 'Workfunction not defined if no field-free region. Consider '
-                'using a dipole correction if you are looking for a'
+                'using a dipole correction if you are looking for a '
                 'workfunction.')
         c = self.poisson.c  # index of axis perpendicular to dipole-layer
         if not self.gd.pbc_c[c]:

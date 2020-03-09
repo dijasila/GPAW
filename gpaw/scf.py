@@ -18,12 +18,6 @@ class SCFLoop:
                            'density': density,
                            'force': force,
                            'workfunction': workfunction}
-        # FIXME/ap: It looks like things are in units of Hartree here?
-        # This is what it looks like from the __str__ command below.
-        # So somewhere the convergence dictionary must be converted in
-        # units before it is passed here?
-        # Yes, this is done in GPAW.create_scf. I did this so it divides by
-        # Ha in that part.
         self.maxiter = maxiter
         self.niter_fixdensity = niter_fixdensity
         self.nvalence = nvalence
@@ -33,26 +27,26 @@ class SCFLoop:
 
     def __str__(self):
         cc = self.max_errors
-        s = ("Convergence criteria:\n"
-             " (Square brackets indicate name in SCF output, whereas\n"
-             "  a 'c' in the SCF output indicates the quantity has "
-             "converged.)\n")
+        s = 'Convergence criteria:\n'
         for name, val in [
-            ('[total energy] change: {0:g} eV / electron',
+            ('Maximum [total energy] change: {0:g} eV / electron',
              cc['energy'] * Ha / self.nvalence),
-            ('                 (or): {0:g} eV',
+            ('                         (or): {0:g} eV',
              cc['energy'] * Ha),
-            ('integral of absolute [dens]ity change: {0:g} electrons',
+            ('Maximum integral of absolute [dens]ity change: {0:g} electrons',
              cc['density'] / self.nvalence),
-            ('integral of absolute eigenstate [wfs] change: {0:g} eV^2',
+            ('Maximum integral of absolute eigenstate [wfs] change:'
+             ' {0:g} eV^2',
              cc['eigenstates'] * Ha**2 / self.nvalence),
-            ('change in atomic [force]: {0:g} eV / Ang',
+            ('Maximum change in atomic [force]: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
-            ('workfunction [wkfxn] change: {0:g} eV',
+            ('Maximum workfunction [wkfxn] change: {0:g} eV',
              cc['workfunction'] * Ha),
-            ('number of [iter]ations: {0}', self.maxiter)]:
+            ('Maximum number of [iter]ations: {0}', self.maxiter)]:
             if val < np.inf:
-                s += '   Maximum {0}\n'.format(name.format(val))
+                s += ' {0}\n'.format(name.format(val))
+        s += ("\n (Square brackets indicate name in SCF output, whereas a 'c'"
+              " in\n the SCF output indicates the quantity has converged.)\n")
         return s
 
     def write(self, writer):
@@ -62,7 +56,7 @@ class SCFLoop:
         self.converged = reader.scf.converged
 
     def reset(self):
-        self.old_energies = []  # FIXME Might as well turn this into deque too.
+        self.old_energies = deque(maxlen=3)
         self.old_workfunctions = deque(maxlen=3)
         self.old_F_av = None
         self.converged_items = {key: False for key in self.max_errors}
@@ -122,20 +116,19 @@ class SCFLoop:
         if dens.fixed:
             errors['density'] = 0.0
 
-        self.old_energies.append(ham.get_energy(occ))
-        if len(self.old_energies) >= 3:
-            energies = self.old_energies[-3:]
-            if np.isfinite(energies).all():
-                errors['energy'] = np.ptp(energies)
+        self.old_energies.append(ham.get_energy(occ))  # Pops off >3!
+        if len(self.old_energies) == self.old_energies.maxlen:
+            if np.isfinite(self.old_energies).all():
+                errors['energy'] = np.ptp(self.old_energies)
 
         errors['workfunction'] = np.inf
         if self.max_errors['workfunction'] < np.inf:
             try:
                 workfunctions = ham.get_workfunctions(occ.fermilevel)
             except NotImplementedError:
-                raise RuntimeError('System has no well-defined workfunction'
-                                   ' so please do not specify this '
-                                   ' convergence keyword.')
+                raise Exception('System has no well-defined workfunction, ' 
+                    'so please do not specify this convergence keyword. '
+                    'Consider adding a dipole correction.')
             else:
                 old = self.old_workfunctions
                 old.append(workfunctions)  # Pops off > 3!
