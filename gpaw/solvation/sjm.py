@@ -2,8 +2,10 @@ import numbers
 import numpy as np
 from scipy.stats import linregress
 
-from ase.units import Bohr, Hartree
+from ase.units import Bohr, Ha
 from ase.calculators.calculator import Parameters
+from ase.dft.bandgap import bandgap
+
 from gpaw.jellium import Jellium, JelliumSlab
 from gpaw.hamiltonian import RealSpaceHamiltonian
 from gpaw.fd_operators import Gradient
@@ -79,7 +81,6 @@ class SJM(SolvationGPAW):
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
-
     # FIXME Would a better term for doublelayer be jellium_region or similar?
 
     # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
@@ -114,7 +115,7 @@ class SJM(SolvationGPAW):
                      .format(p.target_potential, p.dpot))
             self.sog(' Guessed excess electrons: {:.5f}' .format(p.ne))
 
-    def sog(self, message):
+    def sog(self, message=''):
         # FIXME: Delete after all is set up.
         message = 'SJ: ' + str(message)
         self.log(message)
@@ -301,6 +302,7 @@ class SJM(SolvationGPAW):
                 if p.verbose:
                     self.write_cavity_and_bckcharge()
                 true_potential = self.get_electrode_potential()
+                self.sog()
                 self.sog('Potential found to be {:.5f} V (with {:+.5f} '
                          'electrons, attempt {:d})'
                          .format(true_potential, p.ne, iteration))
@@ -319,7 +321,7 @@ class SJM(SolvationGPAW):
                     self.sog('Potential is within tolerance. Equilibrated.')
                     if iteration >= 1:
                         self.timer.stop('Potential equilibration loop')
-                    if p.always_adjust_ne == False:
+                    if p.always_adjust_ne is False:
                         break
 
                 # Change ne based on slope.
@@ -359,23 +361,13 @@ class SJM(SolvationGPAW):
 
             SolvationGPAW.calculate(self, atoms, properties, [])
 
-        # Put together results, adjusting for grand-potential, etc.
-
-        # FIXME: We *think* this should be e_total_free and
-        # e_total_extrapolated.
-        # In solvation/hamiltonian, we should just get rid of
-        # self.e_el_* quantities
-        p = self.sjm_parameters
-        omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
-            self.get_electrode_potential() * p.ne
-        omega_free = Hartree * self.hamiltonian.e_el_free + \
-            self.get_electrode_potential() * p.ne
+        # Note that grand-potential energies are assembled in summary.
 
         self.sog('results:')
         self.sog(str(self.results))
         if p.write_grandcanonical:
-            self.results['energy'] = omega_extra
-            self.results['free_energy'] = omega_free
+            self.results['energy'] = self.omega_extrapolated * Ha
+            self.results['free_energy'] = self.omega_free * Ha
             self.sog('Grand-canonical energy was written into results.\n')
         else:
             self.sog("Canonical energy was written into results.\n")
@@ -386,18 +378,18 @@ class SJM(SolvationGPAW):
             # Maybe it would actually be safer to pull the results from the
             # results dictionary itself? But then I risk some unexpected
             # multiple calls making this happen twice.
-            self.results['energy'] = Hartree * \
-                self.hamiltonian.e_el_extrapolated
-            self.results['free_energy'] = Hartree * self.hamiltonian.e_el_free
+            self.results['energy'] = Ha * \
+                self.hamiltonian.e_total_extrapolated
+            self.results['free_energy'] = Ha * self.hamiltonian.e_total_free
 
         self.results['ne'] = p.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
         self.sog('new results')
         self.sog(str(self.results))
-        self.sog('e_el_extrapolateed [energy]')
-        self.sog(str(Hartree * self.hamiltonian.e_el_extrapolated))
-        self.sog('e_el_free')
-        self.sog(str(Hartree * self.hamiltonian.e_el_free))
+        self.sog('e_total_extrapolateed [energy]')
+        self.sog(str(Ha * self.hamiltonian.e_total_extrapolated))
+        self.sog('e_total_free')
+        self.sog(str(Ha * self.hamiltonian.e_total_free))
 
         # FIXME: I believe that in the current version if you call
         #  atoms.get_potential_energy()
@@ -420,26 +412,36 @@ class SJM(SolvationGPAW):
 
     def summary(self):
         p = self.sjm_parameters
-        # FIXME omega_extra and omega_free are being calculated twice.
-        # Creates an issue for debugging if so...
-        omega_extra = Hartree * self.hamiltonian.e_el_extrapolated + \
-            self.get_electrode_potential() * p.ne
-        omega_free = Hartree * self.hamiltonian.e_el_free + \
-            self.get_electrode_potential() * p.ne
+        efermi = self.occupations.fermilevel
+        self.hamiltonian.summary(efermi, self.log)
+        # Add grand-canonical terms.
+        self.sog()
+        self.omega_free = (self.hamiltonian.e_total_free +
+                           self.get_electrode_potential() * p.ne / Ha)
+        self.omega_extrapolated = (self.hamiltonian.e_total_extrapolated +
+                                   self.get_electrode_potential() * p.ne / Ha)
+        self.sog('Legendre-transformed energies (Omega = E - N mu)')
+        self.sog('  (grand potential energies)')
+        self.sog('  N (excess electrons):  {:+11.6f}'
+                 .format(self.sjm_parameters.ne))
+        self.sog('  mu (workfunction, eV): {:+11.6f}'
+                 .format(self.get_electrode_potential()))
+        self.sog('-'*26)
+        self.sog('Free energy:   %+11.6f' % (Ha * self.omega_free))
+        self.sog('Extrapolated:  %+11.6f' % (Ha * self.omega_extrapolated))
 
-        self.hamiltonian.summary(self.occupations.fermilevel, self.log)
-
-        # FIXME: add in what ne and mu are here.
-        self.sog('Grand-canonical potential energy (E_tot + E_solv - mu*ne):')
-        self.sog('{:<14s} {:+11.6f}'.format('Extrapolated:', omega_extra))
-        self.sog('{:<14s} {:+11.6f}'.format('Free energy:', omega_free))
-
+        # Back to standard output.
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
         self.wfs.summary(self.log)
+        try:
+            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+        except ValueError:
+            pass
         self.log.fd.flush()
+
         if p.verbose:
-            self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Hartree -
+            self.write_parallel_func_in_z(self.hamiltonian.vHt_g * Ha -
                                           self.get_fermi_level(),
                                           'elstat_potential_')
 
@@ -511,7 +513,7 @@ class SJM(SolvationGPAW):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
         return self.hamiltonian.get_workfunctions(
-            self.occupations.fermilevel)[1] * Hartree
+            self.occupations.fermilevel)[1] * Ha
 
     """Various tools for writing global functions"""
 
@@ -743,8 +745,8 @@ class SJMPower12Potential(Power12Potential):
                 r_diff_vg *= u_g[na, ...]
                 self.grad_u_vg += r_diff_vg
 
-        self.u_g *= self.u0 / Hartree
-        self.grad_u_vg *= -12. * self.u0 / Hartree
+        self.u_g *= self.u0 / Ha
+        self.grad_u_vg *= -12. * self.u0 / Ha
         self.grad_u_vg[self.grad_u_vg < -1e20] = -1e20
         self.grad_u_vg[self.grad_u_vg > 1e20] = 1e20
 
@@ -809,8 +811,8 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
             setattr(self, 'e_' + ia.subscript, None)
         self.new_atoms = None
         self.vt_ia_g = None
-        self.e_el_free = None
-        self.e_el_extrapolated = None
+        self.e_total_free = None
+        self.e_total_extrapolated = None
 
     def initialize(self):
         if self.dipcorr:
