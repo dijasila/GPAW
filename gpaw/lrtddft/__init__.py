@@ -9,7 +9,7 @@ from ase.utils.timing import Timer
 
 import _gpaw
 import gpaw.mpi as mpi
-from gpaw.lrtddft.excitation import Excitation, ExcitationList
+from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.lrtddft.apmb import ApmB
@@ -53,10 +53,7 @@ class LrTDDFT(ExcitationList):
 
     default_parameters = {
         'nspins': None,
-        'eps': 0.001,
-        'istart': 0,
-        'jend': sys.maxsize,
-        'energy_range': None,
+        'restrict': {'eps': 0.001},
         'xc': 'GS',
         'derivative_level': 1,
         'numscale': 0.00001,
@@ -192,15 +189,12 @@ class LrTDDFT(ExcitationList):
             Om = ApmB
             name = 'LrTDDFThyb'
 
-        self.kss = KSSingles(calculator=self.calculator,
-                             nspins=self.nspins,
-                             restrict={'eps': self.eps,
-                                       'istart': self.istart,
-                                       'jend': self.jend,
-                                       'energy_range': self.energy_range},
-                             txt=self.txt)
+        kss = KSSingles(calculator=self.calculator,
+                        nspins=self.nspins,
+                        restrict=self.restrict,
+                        txt=self.txt)
 
-        self.Om = Om(self.calculator, self.kss,
+        self.Om = Om(self.calculator, kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
                      poisson=self.poisson, txt=self.txt)
@@ -210,7 +204,11 @@ class LrTDDFT(ExcitationList):
         self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(self.istart, self.jend, self.energy_range)
+        restrict =  self.kss.restrict
+        istart = restrict.get('istart', 0)
+        jend = restrict.get('jend', sys.maxsize)
+        energy_range = restrict.get('energy_range', None)
+        self.Om.diagonalize(istart, jend, energy_range)
         self.timer.stop('omega')
         self.diagonalized = True
 
@@ -231,54 +229,46 @@ class LrTDDFT(ExcitationList):
     def get_Om(self):
         return self.Om
 
-    def read(self, filename=None, fh=None):
+    @classmethod
+    def read(cls, filename=None, fh=None):
         """Read myself from a file"""
-
-        timer = self.timer
+        lr = cls()
+        timer = lr.timer
         timer.start('name')
         if fh is None:
-            if filename.endswith('.gz'):
-                try:
-                    import gzip
-                    f = gzip.open(filename, 'rt')
-                except ModuleNotFoundError:
-                    f = open(filename, 'r')
-            else:
-                f = open(filename, 'r')
-            self.filename = filename
+            f = get_filehandle(self, filename)
         else:
             f = fh
-            self.filename = None
         timer.stop('name')
 
         timer.start('header')
         # get my name
         s = f.readline().strip()
-        self.name = s.split()[1]
+        lr.name = s.split()[1]
 
-        self.xc = XC(f.readline().strip().split()[0])
+        lr.xc = XC(f.readline().strip().split()[0])
         values = f.readline().split()
-        self.eps = float(values[0])
+        eps = float(values[0])
         if len(values) > 1:
-            self.derivative_level = int(values[1])
-            self.numscale = float(values[2])
-            self.finegrid = int(values[3])
+            lr.derivative_level = int(values[1])
+            lr.numscale = float(values[2])
+            lr.finegrid = int(values[3])
         else:
             # old writing style, use old defaults
-            self.numscale = 0.001
+            lr.numscale = 0.001
         timer.stop('header')
 
         timer.start('init_kss')
-        self.kss = KSSingles.read(fh=f)
+        kss = KSSingles.read(fh=f)
         timer.stop('init_kss')
         timer.start('init_obj')
         if self.name == 'LrTDDFT':
-            self.Om = OmegaMatrix(kss=self.kss, filehandle=f,
+            self.Om = OmegaMatrix(kss=kss, filehandle=f,
                                   txt=self.txt)
         else:
-            self.Om = ApmB(kss=self.kss, filehandle=f,
+            self.Om = ApmB(kss=kss, filehandle=f,
                            txt=self.txt)
-        self.Om.fullkss = self.kss
+        self.Om.fullkss = kss
         timer.stop('init_obj')
 
         timer.start('read diagonalized')
@@ -305,6 +295,10 @@ class LrTDDFT(ExcitationList):
 
         if fh is None:
             f.close()
+
+    @property
+    def kss(self):
+        return self.Om.kss
 
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
@@ -355,14 +349,7 @@ class LrTDDFT(ExcitationList):
 
         if rank == 0:
             if fh is None:
-                if filename.endswith('.gz'):
-                    try:
-                        import gzip
-                        f = gzip.open(filename, 'wt')
-                    except ModuleNotFoundError:
-                        f = open(filename, 'w')
-                else:
-                    f = open(filename, 'w')
+                f = get_filehandle(self, filename, mode='w')
             else:
                 f = fh
 
@@ -376,20 +363,15 @@ class LrTDDFT(ExcitationList):
             if self.calculator is not None:
                 xc += ' ' + self.calculator.get_xc_functional()
             f.write(xc + '\n')
-            f.write('%g %d %g %d' % (self.eps, int(self.derivative_level),
+            f.write('%g %d %g %d' % (self.kss.restrict['eps'],
+                                     int(self.derivative_level),
                                      self.numscale, int(self.finegrid)) + '\n')
-            self.kss.write(fh=f)
+            self.Om.fullkss.write(fh=f)
             self.Om.write(fh=f)
 
             if len(self):
                 f.write('# Eigenvalues\n')
-                istart = self.istart
-                if istart is None:
-                    istart = self.kss.istart
-                jend = self.jend
-                if jend is None:
-                    jend = self.kss.jend
-                f.write('%d %d %d' % (len(self), istart, jend) + '\n')
+                f.write('{0}\n'.format(len(self)))
                 for ex in self:
                     f.write(ex.outstring())
                 f.write('# Eigenvectors\n')

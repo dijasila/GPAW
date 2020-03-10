@@ -9,6 +9,17 @@ import gpaw.mpi as mpi
 from ase.utils import convert_string_to_fd
 
 
+def get_filehandle(cls, filename, mode='r'):
+    cls.filename = filename
+    if filename.endswith('.gz'):
+        try:
+            import gzip
+            return gzip.open(filename, mode + 't')
+        except ModuleNotFoundError:
+            pass
+    return open(filename, mode)
+
+
 class ExcitationList(list):
     """General Excitation List class.
     """

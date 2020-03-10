@@ -24,7 +24,6 @@ def test_old_io():
 
     kss = KSSingles.read('old.dat')
     assert len(kss) == 2
-    print(kss.restrict)
     assert kss.restrict['eps'] == 0.024
 
 

@@ -10,7 +10,7 @@ from ase.parallel import paropen
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
-from gpaw.lrtddft.excitation import Excitation, ExcitationList
+from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
 from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
@@ -38,8 +38,6 @@ class KSSingles(ExcitationList):
     energy_range:
       The energy range [emin, emax] or emax for KS transitions to use as basis
     """
-    default_restrictions = {'eps': 0.001}
-
     def __init__(self,
                  calculator=None,
                  nspins=None,
@@ -48,7 +46,7 @@ class KSSingles(ExcitationList):
         ExcitationList.__init__(self, calculator, txt=txt)
         self.world = mpi.world
 
-        self.restrict = dict(self.default_restrictions)
+        self.restrict = KSSRestrictor()
         self.restrict.update(restrict)
 
         # LCAO calculation requires special actions
@@ -99,11 +97,10 @@ class KSSingles(ExcitationList):
         """Select KSSingles according to the given criterium."""
 
         # criteria
-        energy_range = self.restrict.get('energy_range', None)
-        emin, emax = self.emin_emax(energy_range)
-        istart = self.restrict.get('istart', 0)
-        jend = self.restrict.get('jend', sys.maxsize)
-        eps = self.restrict.get('eps')
+        emin, emax = self.restrict.emin_emax()
+        istart = self.restrict['istart']
+        jend = self.restrict['jend']
+        eps = self.restrict['eps']
 
         if self.calculator is None:  # I'm read from a file
             # throw away all not needed entries
@@ -196,11 +193,7 @@ class KSSingles(ExcitationList):
             raise RuntimeError(f.name + ' does not contain ' +
                                cls.__class__.__name__ + ' data')
         if fh is None:
-            if filename.endswith('.gz'):
-                import gzip
-                f = gzip.open(filename, 'rt')
-            else:
-                f = open(filename, 'r')
+            f = get_filehandle(cls, filename)
 
             # there can be other information, i.e. the LrTDDFT header
             try:
@@ -321,7 +314,7 @@ class KSSingles(ExcitationList):
 
         f.write('# KSSingles\n')
         f.write('{0} {1}\n'.format(len(self), np.dtype(self.dtype)))
-        f.write(json.dumps(self.restrict) + '\n')
+        f.write(json.dumps(self.restrict.values) + '\n')
         for kss in self:
             f.write(kss.outstring())
         if fh is None:
@@ -352,6 +345,40 @@ class KSSingles(ExcitationList):
         for p0, ex0 in enumerate(self):
             ov_pp[p0, :] = ov_nn[ex0.i, i1_p].conj() * ov_nn[ex0.j, j1_p]
         return ov_pp
+
+
+class KSSRestrictor:
+    """Object to handle KSSingles restrictions"""
+    defaults = {'eps' : 0.01,
+                'istart': 0,
+                'jend': sys.maxsize,
+                'energy_range': None
+               }
+    def __init__(self):
+        self._vals = {}
+    def __getitem__(self, index):
+        assert index in self.defaults
+        return self._vals.get(index, self.defaults[index])
+    def __setitem__(self, index, value):
+        assert index in self.defaults
+        self._vals[index] = value
+    def update(self, dictionary):
+        for key, value in dictionary.items():
+            self[key] = value
+    def emin_emax(self):
+        emin = -sys.float_info.max
+        emax = sys.float_info.max
+        if self['energy_range'] is not None:
+            try:
+                emin, emax = self['energy_range']
+                emin /= Hartree
+                emax /= Hartree
+            except TypeError:
+                emax = self['energy_range'] / Hartree
+        return emin, emax
+    @property
+    def values(self):
+        return dict(self._vals)
 
 
 class KSSingle(Excitation, PairDensity):
