@@ -204,11 +204,8 @@ class LrTDDFT(ExcitationList):
         self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        restrict =  self.kss.restrict
-        istart = restrict.get('istart', 0)
-        jend = restrict.get('jend', sys.maxsize)
-        energy_range = restrict.get('energy_range', None)
-        self.Om.diagonalize(istart, jend, energy_range)
+        rst =  self.kss.restrict
+        self.Om.diagonalize(rst['istart'], rst['jend'], rst['energy_range'])
         self.timer.stop('omega')
         self.diagonalized = True
 

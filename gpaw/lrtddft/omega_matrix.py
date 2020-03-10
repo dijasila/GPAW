@@ -557,12 +557,12 @@ class OmegaMatrix:
         if energy_range is None:
             if istart is None:
                 istart = self.kss.restrict['istart']
-            if self.fullkss.restrict.get('istart', 0) > istart:
+            if self.fullkss.restrict['istart'] > istart:
                 raise RuntimeError('istart=%d has to be >= %d' %
                                    (istart, self.kss.restrict['istart']))
             if jend is None:
                 jend = self.kss.jend
-            if self.fullkss.restrict.get('jend', sys.maxsize) < jend:
+            if self.fullkss.restrict['jend'] < jend:
                 raise RuntimeError('jend=%d has to be <= %d' %
                                    (jend, self.kss.restrict['jend']))
 
