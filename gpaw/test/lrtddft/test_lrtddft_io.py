@@ -35,12 +35,16 @@ def test_io():
     fname = 'lr.dat.gz'
     exlst.write(fname)
 
-    lr2 = LrTDDFT(fname)
+    lr2 = LrTDDFT.read(fname)
     assert len(lr2) == len(exlst) == 3
 
-    lr3 = LrTDDFT(fname, restrict={'jend': 2})
-    print(lr3)
+    lr3 = LrTDDFT.read(fname, restrict={'jend': 2})
     assert len(lr3) == 2
+    assert len(lr3.kss) == 2
+    assert len(lr3.Om.fullkss) == 3
+
+    lr4 = LrTDDFT.read(fname, restrict={'energy_range': 20})
+    assert len(lr4) == 1
 
 
 if __name__ == '__main__':

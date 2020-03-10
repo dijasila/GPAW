@@ -10,7 +10,7 @@ from ase.utils.timing import Timer
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
-from gpaw.lrtddft.kssingle import KSSingles
+from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.lrtddft.apmb import ApmB
 # from gpaw.lrtddft.transition_density import TransitionDensity
@@ -71,18 +71,7 @@ class LrTDDFT(ExcitationList):
 
         changed = self.set(**kwargs)
 
-        if isinstance(calculator, str):
-            ExcitationList.__init__(self, None, self.txt)
-            self.filename = calculator
-        else:
-            ExcitationList.__init__(self, calculator, self.txt)
-
-        if self.filename is not None:
-            self.read(self.filename)
-            if set(['istart', 'jend', 'energy_range']) & set(changed):
-                # the user has explicitely demanded these
-                self.diagonalize()
-            return
+        ExcitationList.__init__(self, calculator, self.txt)
 
         if self.eh_comm is None:
             self.eh_comm = mpi.serial_comm
@@ -201,10 +190,14 @@ class LrTDDFT(ExcitationList):
         self.name = name
 
     def diagonalize(self, **kwargs):
+        """Diagonalize and save new Eigenvalues and Eigenvectors"""
+        if 'restrict' in kwargs:
+            rst = KSSRestrictor(kwargs['restrict'])
+        else:
+            rst = self.kss.restrict
         self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        rst =  self.kss.restrict
         self.Om.diagonalize(rst['istart'], rst['jend'], rst['energy_range'])
         self.timer.stop('omega')
         self.diagonalized = True
@@ -227,13 +220,13 @@ class LrTDDFT(ExcitationList):
         return self.Om
 
     @classmethod
-    def read(cls, filename=None, fh=None):
+    def read(cls, filename=None, fh=None, restrict={}):
         """Read myself from a file"""
         lr = cls()
         timer = lr.timer
         timer.start('name')
         if fh is None:
-            f = get_filehandle(self, filename)
+            f = get_filehandle(lr, filename)
         else:
             f = fh
         timer.stop('name')
@@ -259,39 +252,47 @@ class LrTDDFT(ExcitationList):
         kss = KSSingles.read(fh=f)
         timer.stop('init_kss')
         timer.start('init_obj')
-        if self.name == 'LrTDDFT':
-            self.Om = OmegaMatrix(kss=kss, filehandle=f,
-                                  txt=self.txt)
+        if lr.name == 'LrTDDFT':
+            lr.Om = OmegaMatrix(kss=kss, filehandle=f,
+                                txt=lr.txt)
         else:
-            self.Om = ApmB(kss=kss, filehandle=f,
-                           txt=self.txt)
-        self.Om.fullkss = kss
+            lr.Om = ApmB(kss=kss, filehandle=f,
+                         lr=self.txt)
+        ## lr.Om.fullkss = kss  # XXX is this necessary?
         timer.stop('init_obj')
 
-        timer.start('read diagonalized')
-        # check if already diagonalized
-        p = f.tell()
-        s = f.readline()
-        if s != '# Eigenvalues\n':
-            # go back to previous position
-            f.seek(p)
+        if not len(restrict):
+            timer.start('read diagonalized')
+            # check if already diagonalized
+            p = f.tell()
+            s = f.readline()
+            if s != '# Eigenvalues\n' or len(restrict):
+                # no further info or selection of Kohn-Sham states changed
+                # go back to previous position
+                f.seek(p)
+            else:
+                lr.diagonalized = True
+                # load the eigenvalues
+                n = int(f.readline().split()[0])
+                for i in range(n):
+                    lr.append(LrTDDFTExcitation(string=f.readline()))
+                # load the eigenvectors
+                timer.start('read eigenvectors')
+                f.readline()
+                for i in range(n):
+                    lr[i].f = np.array([float(x) for x in f.readline().split()])
+                    lr[i].kss = lr.kss
+                timer.stop('read eigenvectors')
+            timer.stop('read diagonalized')
         else:
-            self.diagonalized = True
-            # load the eigenvalues
-            n = int(f.readline().split()[0])
-            for i in range(n):
-                self.append(LrTDDFTExcitation(string=f.readline()))
-            # load the eigenvectors
-            timer.start('read eigenvectors')
-            f.readline()
-            for i in range(n):
-                self[i].f = np.array([float(x) for x in f.readline().split()])
-                self[i].kss = self.kss
-            timer.stop('read eigenvectors')
-        timer.stop('read diagonalized')
-
+            timer.start('diagonalize')
+            lr.diagonalize(restrict=restrict)
+            timer.stop('diagonalize')
+            
         if fh is None:
             f.close()
+
+        return lr
 
     @property
     def kss(self):

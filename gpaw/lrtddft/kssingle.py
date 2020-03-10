@@ -354,8 +354,9 @@ class KSSRestrictor:
                 'jend': sys.maxsize,
                 'energy_range': None
                }
-    def __init__(self):
+    def __init__(self, dictionary={}):
         self._vals = {}
+        self.update(dictionary)
     def __getitem__(self, index):
         assert index in self.defaults
         return self._vals.get(index, self.defaults[index])
