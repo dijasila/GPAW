@@ -79,3 +79,7 @@ def test_lrtddft_pes(in_tmp_dir):
     pes = TDDFTPES(calc, lr)
     parprint('Linear response:')
     pes.save_folded_pes(filename=None, folding=None)
+
+
+if __name__ == '__main__':
+    test_lrtddft_pes()

@@ -69,7 +69,7 @@ class LrTDDFT(ExcitationList):
         self.timer = Timer()
         self.diagonalized = False
 
-        changed = self.set(**kwargs)
+        self.set(**kwargs)
 
         ExcitationList.__init__(self, calculator, self.txt)
 
@@ -250,6 +250,7 @@ class LrTDDFT(ExcitationList):
 
         timer.start('init_kss')
         kss = KSSingles.read(fh=f)
+        assert eps == kss.restrict['eps']
         timer.stop('init_kss')
         timer.start('init_obj')
         if lr.name == 'LrTDDFT':
@@ -363,7 +364,7 @@ class LrTDDFT(ExcitationList):
             f.write('%g %d %g %d' % (self.kss.restrict['eps'],
                                      int(self.derivative_level),
                                      self.numscale, int(self.finegrid)) + '\n')
-            self.Om.fullkss.write(fh=f)
+            self.kss.write(fh=f)
             self.Om.write(fh=f)
 
             if len(self):
