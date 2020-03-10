@@ -187,21 +187,16 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     global_integral=False)
 
     def get_energy(self, occ):
-        # FIXME: Maybe we should delete self.e_el_free and
-        # self.e_el_extrapolated?
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
-        self.e_el_free = (
-            self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +
-            self.e_xc + self.e_entropy)
-        e_total_free = self.e_el_free
+        RealSpaceHamiltonian.get_energy(self, occ)
+        # The total energy calculated by the parent class includes the
+        # solvent electrostatic contributions but not the interaction
+        # energies. We add those here and store the electrostatic energies.
+        self.e_el_free = self.e_total_free
+        self.e_el_extrapolated = self.e_total_extrapolated
         for ia in self.interactions:
-            e_total_free += getattr(self, 'e_' + ia.subscript)
-        self.e_total_free = e_total_free
+            self.e_total_free += getattr(self, 'e_' + ia.subscript)
         self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
             self.e_total_free)
-        self.e_el_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_el_free)
         return self.e_total_free
 
     def grad_squared(self, x):
@@ -219,7 +214,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         return gs
 
     def summary(self, fermilevel, log):
-        # This is almost duplicate code to gpaw/hamiltonian'
+        # This is almost duplicate code to gpaw/hamiltonian's
         # Hamiltonian.summary, but with the cavity and interactions added.
 
         log('Energy contributions relative to reference atoms:',
