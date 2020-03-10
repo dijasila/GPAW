@@ -10,13 +10,9 @@ from ase.utils import convert_string_to_fd
 
 
 class ExcitationList(list):
-
     """General Excitation List class.
-
     """
-
     def __init__(self, calculator=None, txt=None):
-
         # initialise empty list
         list.__init__(self)
 
