@@ -45,17 +45,15 @@ class KSSingles(ExcitationList):
                  nspins=None,
                  restrict={},
                  txt=None):
+        ExcitationList.__init__(self, calculator, txt=txt)
         self.world = mpi.world
-        self.calculator = calculator
 
-        self.restrict = self.default_restrictions
+        self.restrict = dict(self.default_restrictions)
         self.restrict.update(restrict)
 
         # LCAO calculation requires special actions
         if calculator is not None:
             self.lcao = calculator.parameters.mode == 'lcao'
-
-        ExcitationList.__init__(self, calculator, txt=txt)
 
         if calculator is None:
             return  # leave the list empty
