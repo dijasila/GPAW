@@ -194,10 +194,10 @@ class LrTDDFT(ExcitationList):
 
         self.kss = KSSingles(calculator=self.calculator,
                              nspins=self.nspins,
-                             eps=self.eps,
-                             istart=self.istart,
-                             jend=self.jend,
-                             energy_range=self.energy_range,
+                             restrict={'eps': self.eps,
+                                       'istart': self.istart,
+                                       'jend': self.jend,
+                                       'energy_range': self.energy_range},
                              txt=self.txt)
 
         self.Om = Om(self.calculator, self.kss,
@@ -269,7 +269,7 @@ class LrTDDFT(ExcitationList):
         timer.stop('header')
 
         timer.start('init_kss')
-        self.kss = KSSingles(filehandle=f)
+        self.kss = KSSingles.read(fh=f)
         timer.stop('init_kss')
         timer.start('init_obj')
         if self.name == 'LrTDDFT':

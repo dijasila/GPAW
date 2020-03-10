@@ -1,3 +1,4 @@
+import sys
 from math import sqrt
 
 import numpy as np
@@ -495,8 +496,8 @@ class OmegaMatrix:
                 skss.append((ks + ks) / sqrt(2))
                 tkss.append((ks - ks) / sqrt(2))
                 map.append(ij)
-        skss.istart = tkss.istart = self.fullkss.istart
-        skss.jend = tkss.jend = self.fullkss.jend
+        skss.istart = tkss.istart = self.fullkss.restrict['istart']
+        skss.jend = tkss.jend = self.fullkss.restrict['jend']
         nkss = len(skss)
 
         # define the singlet and the triplet omega-matrices
@@ -555,15 +556,15 @@ class OmegaMatrix:
 
         if energy_range is None:
             if istart is None:
-                istart = self.kss.istart
-            if self.fullkss.istart > istart:
+                istart = self.kss.restrict['istart']
+            if self.fullkss.restrict.get('istart', 0) > istart:
                 raise RuntimeError('istart=%d has to be >= %d' %
-                                   (istart, self.kss.istart))
+                                   (istart, self.kss.restrict['istart']))
             if jend is None:
                 jend = self.kss.jend
-            if self.fullkss.jend < jend:
+            if self.fullkss.restrict.get('jend', sys.maxsize) < jend:
                 raise RuntimeError('jend=%d has to be <= %d' %
-                                   (jend, self.kss.jend))
+                                   (jend, self.kss.restrict['jend']))
 
         else:
             try:

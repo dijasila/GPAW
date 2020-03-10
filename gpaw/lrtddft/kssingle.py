@@ -70,6 +70,7 @@ class KSSingles(ExcitationList):
         # parallelization over bands not yet supported
         assert(calculator.wfs.bd.comm.size == 1)
 
+        # do the evaluation
         self.select(nspins)
 
         trkm = self.get_trk()
