@@ -74,7 +74,7 @@ def test_lrtddft_pes(in_tmp_dir):
     # io
     out = 'lrpes.dat.gz'
     lr.write(out)
-    lr = LrTDDFT(out)
+    lr = LrTDDFT.read(out)
     lr.set_calculator(calc_plus)
     pes = TDDFTPES(calc, lr)
     parprint('Linear response:')

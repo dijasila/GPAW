@@ -301,17 +301,16 @@ class LrTDDFT(ExcitationList):
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
 
-        slr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
-                      istart=self.istart, jend=self.jend, xc=self.xc,
+        slr = LrTDDFT(None, nspins=self.nspins, xc=self.xc,
+                      restrict=self.kss.restrict.values,
                       derivative_level=self.derivative_level,
                       numscale=self.numscale)
-        tlr = LrTDDFT(None, nspins=self.nspins, eps=self.eps,
-                      istart=self.istart, jend=self.jend, xc=self.xc,
+        tlr = LrTDDFT(None, nspins=self.nspins, xc=self.xc,
+                      restrict=self.kss.restrict.values,
                       derivative_level=self.derivative_level,
                       numscale=self.numscale)
         slr.Om, tlr.Om = self.Om.singlets_triplets()
-        for lr in [slr, tlr]:
-            lr.kss = lr.Om.fullkss
+
         return slr, tlr
 
     def single_pole_approximation(self, i, j):

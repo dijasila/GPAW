@@ -120,7 +120,7 @@ def test_lrtddft_1():
     if not io_only:
         lr.write(fname)
         world.barrier()
-    lr = LrTDDFT(fname)
+    lr = LrTDDFT.read(fname)
     lr.diagonalize()
     t4 = lr[0]
 
