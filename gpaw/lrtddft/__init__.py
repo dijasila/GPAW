@@ -10,7 +10,7 @@ from ase.utils.timing import Timer
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
-from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
+from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.lrtddft.apmb import ApmB
 # from gpaw.lrtddft.transition_density import TransitionDensity
@@ -53,7 +53,7 @@ class LrTDDFT(ExcitationList):
 
     default_parameters = {
         'nspins': None,
-        'restrict': {'eps': 0.001},
+        'restrict': {},
         'xc': 'GS',
         'derivative_level': 1,
         'numscale': 0.00001,
@@ -70,7 +70,6 @@ class LrTDDFT(ExcitationList):
         self.diagonalized = False
 
         self.set(**kwargs)
-
         ExcitationList.__init__(self, calculator, self.txt)
 
         if self.eh_comm is None:
@@ -109,7 +108,7 @@ class LrTDDFT(ExcitationList):
                                           calculator.hamiltonian, spos_ac)
 
             self.update(calculator)
-
+ 
     def set(self, **kwargs):
         """Change parameters."""
         changed = []
@@ -191,14 +190,12 @@ class LrTDDFT(ExcitationList):
 
     def diagonalize(self, **kwargs):
         """Diagonalize and save new Eigenvalues and Eigenvectors"""
-        if 'restrict' in kwargs:
-            rst = KSSRestrictor(kwargs['restrict'])
-        else:
-            rst = self.kss.restrict
+        self.restrict.update(kwargs.pop('restrict', {}))
+        
         self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(rst['istart'], rst['jend'], rst['energy_range'])
+        self.Om.diagonalize(self.restrict)
         self.timer.stop('omega')
         self.diagonalized = True
 
@@ -215,9 +212,6 @@ class LrTDDFT(ExcitationList):
             print(' ', str(self[-1]), file=self.txt)
         self.timer.stop('build')
         self.timer.stop('diagonalize')
-
-    def get_Om(self):
-        return self.Om
 
     @classmethod
     def read(cls, filename=None, fh=None, restrict={}):

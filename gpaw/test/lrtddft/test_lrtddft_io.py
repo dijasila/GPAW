@@ -22,13 +22,15 @@ def get_H2(calculator=None):
 def test_io():
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
-    exlst = LrTDDFT(calc, restrict={'jend': 3})
+    exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3})
+    assert len(exlst) == 3
+    assert exlst.kss.restrict['eps'] == 0.4
     
     fname = 'lr.dat.gz'
     exlst.write(fname)
 
     lr2 = LrTDDFT.read(fname)
-    assert len(lr2) == len(exlst) == 3
+    assert len(lr2) == 3
 
     lr3 = LrTDDFT.read(fname, restrict={'jend': 2})
     assert len(lr3) == 2

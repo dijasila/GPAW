@@ -376,10 +376,24 @@ class KSSRestrictor:
             except TypeError:
                 emax = self['energy_range'] / Hartree
         return emin, emax
-    
+
+    def __ge__(self, other):
+        """am I less or equal restricting than the other?"""
+        emin, emax = self.emin_emax()
+        omin, omax = other.emin_emax()
+        res = (emin <= omin) & (emax >= omax)
+        
+        res &= self['istart'] <= other['istart']
+        res &= self['jend'] >= other['jend']
+
+        return res
+
     @property
     def values(self):
         return dict(self._vals)
+
+    def __str__(self):
+        return str(self.values)
 
 
 class KSSingle(Excitation, PairDensity):

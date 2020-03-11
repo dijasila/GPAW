@@ -6,7 +6,7 @@ from ase.utils.timing import Timer
 from scipy.linalg import eigh
 
 import gpaw.mpi as mpi
-from gpaw.lrtddft.kssingle import KSSingles
+from gpaw.lrtddft.kssingle import KSSingles, KSSRestrictor
 from gpaw.transformers import Transformer
 from gpaw.utilities import pack
 from gpaw.xc import XC
@@ -190,8 +190,6 @@ class OmegaMatrix:
             self.xc.calculate_fxc(gd, nt_sg, fxc_sg)
         else:
             raise ValueError('derivativeLevel can only be 0,1,2')
-
-# self.paw.my_nuclei = []
 
         ns = self.numscale
         xc = self.xc
@@ -537,7 +535,7 @@ class OmegaMatrix:
         t = .5 * t * (nij - ij)  # estimated time for n*(n+1)/2, n=nij-(ij+1)
         return self.timestring(t0 * (nij - ij - 1) + t)
 
-    def get_map(self, istart=None, jend=None, energy_range=None):
+    def get_map(self, restrict={}):
         """Return the reduction map for the given requirements
 
         Returns
@@ -545,40 +543,20 @@ class OmegaMatrix:
         map - list of original indices
         kss - reduced KSSingles object
         """
-
-        self.istart = istart
-        self.jend = jend
-        if istart is None and jend is None and energy_range is None:
+        rst = KSSRestrictor(restrict)
+        if rst >= self.fullkss.restrict:
             return None, self.fullkss
 
-        # reduce the matrix
         print('# diagonalize: %d transitions original'
               % len(self.fullkss), file=self.txt)
-
-        if energy_range is None:
-            if istart is None:
-                istart = self.kss.restrict['istart']
-            if self.fullkss.restrict['istart'] > istart:
-                raise RuntimeError('istart=%d has to be >= %d' %
-                                   (istart, self.kss.restrict['istart']))
-            if jend is None:
-                jend = self.kss.jend
-            if self.fullkss.restrict['jend'] < jend:
-                raise RuntimeError('jend=%d has to be <= %d' %
-                                   (jend, self.kss.restrict['jend']))
-
-        else:
-            try:
-                emin, emax = energy_range
-            except TypeError:
-                emax = energy_range
-                emin = 0.
-            emin /= Hartree
-            emax /= Hartree
 
         map = []
         kss = KSSingles()
         kss.dtype = self.fullkss.dtype
+        energy_range = rst['energy_range']
+        emin, emax = rst.emin_emax()
+        istart = rst['istart']
+        jend = rst['jend']
         for ij, k in zip(range(len(self.fullkss)), self.fullkss):
             if energy_range is None:
                 if k.i >= istart and k.j <= jend:
@@ -593,10 +571,11 @@ class OmegaMatrix:
 
         return map, kss
 
-    def diagonalize(self, istart=None, jend=None, energy_range=None):
+    def diagonalize(self, restrict={}):
         """Evaluate Eigenvectors and Eigenvalues:"""
 
-        map, kss = self.get_map(istart, jend, energy_range)
+        map, kss = self.get_map(restrict)
+        
         nij = len(kss)
         if map is None:
             evec = self.full.copy()
