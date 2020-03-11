@@ -151,7 +151,7 @@ class Hamiltonian:
 
         try:
             workfunctions = self.get_workfunctions(fermilevel)
-        except NotImplementedError:
+        except ValueError:
             pass
         else:
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
