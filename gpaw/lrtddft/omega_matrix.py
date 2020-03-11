@@ -489,7 +489,9 @@ class OmegaMatrix:
 
         # strip kss from down spins
         skss = KSSingles()
+        skss.dtype = self.fullkss.dtype
         tkss = KSSingles()
+        tkss.dtype = self.fullkss.dtype
         map = []
         for ij, ks in enumerate(self.fullkss):
             if ks.pspin == ks.spin:
@@ -577,6 +579,7 @@ class OmegaMatrix:
 
         map = []
         kss = KSSingles()
+        kss.dtype = self.fullkss.dtype
         for ij, k in zip(range(len(self.fullkss)), self.fullkss):
             if energy_range is None:
                 if k.i >= istart and k.j <= jend:
