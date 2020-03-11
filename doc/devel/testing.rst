@@ -50,8 +50,8 @@ clean up.  Just add the ``in_tmp_dir`` fixture as an argument::
     def test_something(in_tmp_dir):
         # make a mess ...
 
-Here is a parametrized test that uses :func:`pytest.approx` for comparing
-floating point numbers::
+Here is a parametrized test that uses :func:`~_pytest.python_api.approx` for
+comparing floating point numbers::
 
     import pytest
 

@@ -13,7 +13,9 @@ python3 -m venv venv
 pip install -U pip
 pip install pytest
 pip install -q git+https://gitlab.com/ase/ase.git@master
-pip install -q git+https://gitlab.com/gpaw/gpaw.git@master
+git clone git@gitlab.com:gpaw/gpaw
+cd gpaw
+pip install -e .
 pytest > test-1.out
 gpaw -P 2 python -m pytest > test-2.out
 gpaw -P 4 python -m pytest > test-4.out
