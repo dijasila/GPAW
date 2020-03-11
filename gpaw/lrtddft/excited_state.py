@@ -5,14 +5,12 @@ import errno
 
 import numpy as np
 from ase.units import Hartree
-from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
 from ase.calculators.calculator import Calculator
 
 import gpaw.mpi as mpi
 from gpaw import GPAW, __version__, restart
 from gpaw.density import RealSpaceDensity
-from gpaw.io.logger import GPAWLogger
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.finite_differences import FiniteDifference
 from gpaw.utilities.blas import axpy
@@ -40,7 +38,7 @@ class ExcitedState(GPAW, Calculator):
         if communicator is None:
             try:
                 communicator = lrtddft.calculator.wfs.world
-            except:
+            except AttributeError:
                 communicator = mpi.world
         self.world = communicator
 
@@ -106,7 +104,8 @@ class ExcitedState(GPAW, Calculator):
     @classmethod
     def read(cls, filename, communicator=None):
         """Read ExcitedState from a file"""
-        lrtddft = LrTDDFT(filename + '/' + filename + '.lr.dat.gz')
+        lrtddft = LrTDDFT.read(filename + '/' +
+                               filename + '.lr.dat.gz')
         atoms, calculator = restart(
             filename + '/' + filename,
             communicator=communicator, txt=None)

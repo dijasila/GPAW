@@ -1,15 +1,7 @@
-import time
-import pytest
-import numpy as np
-
 from ase import Atom, Atoms
-from ase.parallel import parprint, world
-from ase.units import Ha
 
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
-from gpaw.lrtddft.excited_state import ExcitedState
 
 
 def get_H2(calculator=None):

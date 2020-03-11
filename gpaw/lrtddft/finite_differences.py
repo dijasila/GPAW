@@ -143,19 +143,16 @@ class FiniteDifference:
 
         assert world.size % parallel == 0
 
-        # number of atoms to calculate
         natoms = len(self.atoms)
-        myn = -(-natoms // parallel)  # ceil divide
-
-        # my workers index
         self.cores_per_atom = world.size // parallel
+        # my workers index
         myi = world.rank // self.cores_per_atom
         # distribute work
         self.myindices = []
         for a in range(natoms):
             if a % parallel == myi:
                 self.myindices.append(a)
-        ## print(world.rank, 'myindices', self.myindices)
+        # print(world.rank, 'myindices', self.myindices)
         
         if parallel < 2:  # no redistribution needed
             return

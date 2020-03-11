@@ -258,8 +258,7 @@ class LrTDDFT(ExcitationList):
                                 txt=lr.txt)
         else:
             lr.Om = ApmB(kss=kss, filehandle=f,
-                         lr=self.txt)
-        ## lr.Om.fullkss = kss  # XXX is this necessary?
+                         txt=lr.txt)
         timer.stop('init_obj')
 
         if not len(restrict):
@@ -268,7 +267,8 @@ class LrTDDFT(ExcitationList):
             p = f.tell()
             s = f.readline()
             if s != '# Eigenvalues\n' or len(restrict):
-                # no further info or selection of Kohn-Sham states changed
+                # no further info or selection of
+                # Kohn-Sham states changed
                 # go back to previous position
                 f.seek(p)
             else:
@@ -281,7 +281,8 @@ class LrTDDFT(ExcitationList):
                 timer.start('read eigenvectors')
                 f.readline()
                 for i in range(n):
-                    lr[i].f = np.array([float(x) for x in f.readline().split()])
+                    lr[i].f = np.array([float(x) for x in
+                                        f.readline().split()])
                     lr[i].kss = lr.kss
                 timer.stop('read eigenvectors')
             timer.stop('read diagonalized')

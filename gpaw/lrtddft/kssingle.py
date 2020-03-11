@@ -6,7 +6,6 @@ import json
 import numpy as np
 
 from ase.units import Bohr, Hartree, alpha
-from ase.parallel import paropen
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
@@ -345,23 +344,27 @@ class KSSingles(ExcitationList):
 
 class KSSRestrictor:
     """Object to handle KSSingles restrictions"""
-    defaults = {'eps' : 0.01,
+    defaults = {'eps': 0.01,
                 'istart': 0,
                 'jend': sys.maxsize,
-                'energy_range': None
-               }
+                'energy_range': None}
+    
     def __init__(self, dictionary={}):
         self._vals = {}
         self.update(dictionary)
+
     def __getitem__(self, index):
         assert index in self.defaults
         return self._vals.get(index, self.defaults[index])
+    
     def __setitem__(self, index, value):
         assert index in self.defaults
         self._vals[index] = value
+        
     def update(self, dictionary):
         for key, value in dictionary.items():
             self[key] = value
+            
     def emin_emax(self):
         emin = -sys.float_info.max
         emax = sys.float_info.max
@@ -373,16 +376,14 @@ class KSSRestrictor:
             except TypeError:
                 emax = self['energy_range'] / Hartree
         return emin, emax
+    
     @property
     def values(self):
         return dict(self._vals)
 
 
 class KSSingle(Excitation, PairDensity):
-
     """Single Kohn-Sham transition containing all it's indicees
-
-    ::
 
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.

@@ -1,7 +1,5 @@
-import sys
-from math import sqrt
-
 import numpy as np
+
 from ase.units import Hartree
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import Timer
@@ -447,7 +445,6 @@ class OmegaMatrix:
             if finegrid == 1:
                 rhot = kss[ij].with_compensation_charges()
                 phit = self.gd.zeros()
-# print "shapes 0=",phit.shape,rhot.shape
                 self.restrict(phit_p, phit)
             else:
                 phit = phit_p
@@ -461,8 +458,10 @@ class OmegaMatrix:
                         finegrid == 2)
                     timer2.stop()
 
-                pre = 2 * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
-                               kss[ij].get_weight() * kss[kq].get_weight())
+                pre = 2 * np.sqrt(kss[ij].get_energy() *
+                                  kss[kq].get_energy() *
+                                  kss[ij].get_weight() *
+                                  kss[kq].get_weight())
                 I = self.Coulomb_integral_kss(kss[ij], kss[kq],
                                               rhot, phit, timer2)
                 Om[ij, kq] = pre * I
@@ -495,8 +494,8 @@ class OmegaMatrix:
         map = []
         for ij, ks in enumerate(self.fullkss):
             if ks.pspin == ks.spin:
-                skss.append((ks + ks) / sqrt(2))
-                tkss.append((ks - ks) / sqrt(2))
+                skss.append((ks + ks) / np.sqrt(2))
+                tkss.append((ks - ks) / np.sqrt(2))
                 map.append(ij)
         skss.istart = tkss.istart = self.fullkss.restrict['istart']
         skss.jend = tkss.jend = self.fullkss.restrict['jend']
@@ -669,8 +668,10 @@ class OmegaMatrix:
     def weight_Kijkq(self, ij, kq):
         """weight for the coupling matrix terms"""
         kss = self.fullkss
-        return 2. * sqrt(kss[ij].get_energy() * kss[kq].get_energy() *
-                         kss[ij].get_weight() * kss[kq].get_weight())
+        return 2. * np.sqrt(kss[ij].get_energy() *
+                            kss[kq].get_energy() *
+                            kss[ij].get_weight() *
+                            kss[kq].get_weight())
 
     def __str__(self):
         str = '<OmegaMatrix> '
@@ -678,5 +679,5 @@ class OmegaMatrix:
             str += 'dimension ' + ('%d' % len(self.eigenvalues))
             str += '\neigenvalues: '
             for ev in self.eigenvalues:
-                str += ' ' + ('%f' % (sqrt(ev) * Hartree))
+                str += ' ' + ('%f' % (np.sqrt(ev) * Hartree))
         return str

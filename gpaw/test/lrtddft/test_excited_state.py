@@ -128,8 +128,9 @@ def test_forces():
     forces = H2.get_forces()
     accuracy = 1.e-3
     # forces in x and y direction should be 0
-    assert forces[:, :2] == pytest.approx(np.zeros_like(forces[:, :2]),
-                                                        abs=accuracy)
+    assert forces[:, :2] == pytest.approx(
+        np.zeros_like(forces[:, :2]), abs=accuracy)
+
     # forces in z direction should be opposite
     assert -forces[0, 2] == pytest.approx(forces[1, 2], abs=accuracy)
    
