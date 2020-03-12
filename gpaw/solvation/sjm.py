@@ -87,6 +87,12 @@ class SJM(SolvationGPAW):
     # E.g., verbose (and max_iter) could easily collide with a parent
     # class's future or present keywords.
 
+    # FIXME In a test script from GK, it only specifies the upper_limit of
+    # the double layer, and I think the "cavity" keyword is supplied
+    # instead? It isn't clear to me from reading the keywords above how I
+    # do this. That cavity keyword comes from SolvationGPAW, so I wouldn't
+    # have expected it to affect the jellium.
+
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  always_adjust_ne=False, verbose=False, **gpaw_kwargs):
@@ -208,7 +214,7 @@ class SJM(SolvationGPAW):
                     pass
                 else:
                     if (abs(true_potential - p.target_potential) >
-                        SJM_changes[key]):
+                            SJM_changes[key]):
                         self.results = {}
                         self.sog('Recalculating...\n')
                     else:
@@ -240,6 +246,7 @@ class SJM(SolvationGPAW):
                              .format(self.wfs.nvalence))
                     # FIXME: background_charge not always called when ne
                     # changes? Doesn't this screw up nvalence in wfs?
+                    # (I.e., see below where key == 'ne'.)
 
             if key == 'ne':
                 self.results = {}
@@ -251,10 +258,10 @@ class SJM(SolvationGPAW):
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell'], ):
         """
-        Perform a calculation with SJM
+        Perform a calculation with SJM.
 
-        This module includes the potential equilibration loop characteristic
-        for SJM. It is essentially a wrapper around GPAW.calculate()
+        This methodincludes the potential equilibration loop.
+        It is essentially a wrapper around GPAW.calculate()
 
         """
         if atoms is not None:
@@ -278,7 +285,8 @@ class SJM(SolvationGPAW):
             # iterations, but once we have three points switches to a scipy
             # optimizer. If so this might be best to write a self-standing
             # function of the type
-            # def equilibrate_potential(calc, target, guess, slope_guess)
+            # def equilibrate_potential(calc, target, ne_guess=0.,
+            #                           slope_guess=None)
             iteration = 0
             p.previous_nes = []
             p.previous_potentials = []
@@ -363,33 +371,15 @@ class SJM(SolvationGPAW):
 
         # Note that grand-potential energies are assembled in summary.
 
-        self.sog('results:')
-        self.sog(str(self.results))
         if p.write_grandcanonical:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
             self.sog('Grand-canonical energy was written into results.\n')
         else:
-            self.sog("Canonical energy was written into results.\n")
-            # FIXME: This can be deleted, I think. Already written by
-            # parent calculator. Except, I see below the values don't match
-            # This is the problem that SJM is pulling the wrong number from
-            # the SolvationGPAW results.
-            # Maybe it would actually be safer to pull the results from the
-            # results dictionary itself? But then I risk some unexpected
-            # multiple calls making this happen twice.
-            self.results['energy'] = Ha * \
-                self.hamiltonian.e_total_extrapolated
-            self.results['free_energy'] = Ha * self.hamiltonian.e_total_free
+            self.sog('Canonical energy was written into results.\n')
 
         self.results['ne'] = p.ne
         self.results['electrode_potential'] = self.get_electrode_potential()
-        self.sog('new results')
-        self.sog(str(self.results))
-        self.sog('e_total_extrapolateed [energy]')
-        self.sog(str(Ha * self.hamiltonian.e_total_extrapolated))
-        self.sog('e_total_free')
-        self.sog(str(Ha * self.hamiltonian.e_total_free))
 
         # FIXME: I believe that in the current version if you call
         #  atoms.get_potential_energy()
@@ -406,9 +396,8 @@ class SJM(SolvationGPAW):
                                              atoms=self.atoms,
                                              name='cavity')
 
-        self.write_parallel_func_in_z(
-            self.density.background_charge.mask_g,
-            name='background_charge_')
+        self.write_parallel_func_in_z(self.density.background_charge.mask_g,
+                                      name='background_charge_')
 
     def summary(self):
         p = self.sjm_parameters
@@ -429,6 +418,7 @@ class SJM(SolvationGPAW):
         self.sog('-'*26)
         self.sog('Free energy:   %+11.6f' % (Ha * self.omega_free))
         self.sog('Extrapolated:  %+11.6f' % (Ha * self.omega_extrapolated))
+        self.sog()
 
         # Back to standard output.
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
@@ -446,9 +436,8 @@ class SJM(SolvationGPAW):
                                           'elstat_potential_')
 
     def define_jellium(self, atoms):
-        """Module for the definition of the explicit and counter charge
+        """Method to define the explicit and counter charge."""
 
-        """
         p = self.sjm_parameters
         if p.doublelayer is None:
             p.doublelayer = {}
@@ -484,10 +473,12 @@ class SJM(SolvationGPAW):
             # XXX This part can definitely be improved
             if self.hamiltonian is None:
                 filename = self.log.fd
+                self.sog('WHY DELETE 1')
                 # self.log.fd = None  # FIXME This was causing crashes.
                 self.initialize(atoms)
                 self.set_positions(atoms)
                 # self.log.fd = filename
+                self.sog('WHY DELETE 2')
                 g_g = self.hamiltonian.cavity.g_g.copy()
                 self.wfs = None
                 self.density = None
@@ -538,6 +529,7 @@ class SJM(SolvationGPAW):
         if outstyle == 'cube':
             write(name + '.cube', atoms, data=G)
         elif outstyle == 'pckl':
+            # FIXME does this have parallel issues?
             import pickle
             out = open(name, 'wb')
             pickle.dump(G, out)
@@ -545,6 +537,8 @@ class SJM(SolvationGPAW):
 
 
 class SJMPower12Potential(Power12Potential):
+    # FIXME. We should state how this differs from its parent.
+    # Also could it be integrated now that we are comfortable with SJM?
     """Inverse power law potential.
 
     An 1 / r ** 12 repulsive potential
@@ -754,6 +748,8 @@ class SJMPower12Potential(Power12Potential):
 
 
 class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
+    # FIXME If the docs are right this just has a dipole added, so it could
+    # be folded into SolvationGPAW's implementation, right?
     """Realspace Hamiltonian with continuum solvent model in the context of
     SJM.
 
@@ -832,12 +828,8 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
         RealSpaceHamiltonian.initialize(self)
 
 
-"""Changed module which makes it possible to use the cavity shaped
-   counter charge
-"""
-
-
 def create_background_charge(**kwargs):
+    # FIXME. Add documentation for this?
     if 'z1' in kwargs:
         return JelliumSlab(**kwargs)
     elif 'g_g' in kwargs:
@@ -860,7 +852,9 @@ class CavityShapedJellium(Jellium):
             The g function from the implicit solvent model, representing the
             percentage of the actual dielectric constant on the grid.
         z2: float
-            Position of upper surface in Angstrom units."""
+            Position of upper surface in Angstrom units.
+        """
+        # FIXME add charge to parameters documentation above.
 
         Jellium.__init__(self, charge)
         self.g_g = g_g
@@ -879,6 +873,8 @@ class CavityShapedJellium(Jellium):
 
 
 class SJMDipoleCorrection(DipoleCorrection):
+    # FIXME We should document why this needs to be different than the
+    # standard version. It is not obvious to me.
     """Dipole-correcting wrapper around another PoissonSolver specific for SJM.
 
     Iterative dipole correction class as applied in SJM.
