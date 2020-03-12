@@ -18,7 +18,7 @@ def test_pw_h(in_tmp_dir):
     a.calc = GPAW(mode=PW(250),
                   eigensolver='rmm-diis',
                   basis='szp(dzp)',
-                  txt='%d.txt' % world.size)
+                  txt=f'{world.size}.txt')
     e = a.get_potential_energy()
     f = a.get_forces()
     assert abs(e - e0) < 7e-5, abs(e - e0)
