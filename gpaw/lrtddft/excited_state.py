@@ -18,7 +18,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class ExcitedState(GPAW, Calculator):
-    def __init__(self, lrtddft, index, d=0.001, txt=None,
+    def __init__(self, lrtddft, index, d=0.001, txt='-',
                  parallel=1, communicator=None, name=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
@@ -52,6 +52,10 @@ class ExcitedState(GPAW, Calculator):
         self.parallel = parallel
         self.name = name
 
+        # set output
+        self.log = self.calculator.log
+        self.log.fd = txt
+        
         self.log('#', self.__class__.__name__, __version__)
         self.log('#', self.index)
         if name:
@@ -102,14 +106,17 @@ class ExcitedState(GPAW, Calculator):
         self.world.barrier()
  
     @classmethod
-    def read(cls, filename, communicator=None):
+    def read(cls, filename, communicator=None, log=None):
         """Read ExcitedState from a file"""
-        lrtddft = LrTDDFT.read(filename + '/' +
-                               filename + '.lr.dat.gz')
         atoms, calculator = restart(
             filename + '/' + filename,
             communicator=communicator, txt=None)
+        if log is not None:
+            calculator.log = log
         E0 = calculator.get_potential_energy()
+        lrtddft = LrTDDFT.read(filename + '/' +
+                               filename + '.lr.dat.gz',
+                               log=log)
         lrtddft.set_calculator(calculator)
 
         f = open(filename + '/' + filename + '.exst', 'r')
@@ -135,7 +142,8 @@ class ExcitedState(GPAW, Calculator):
                 emax = float(val[3].replace(']', ''))
                 index = MaximalOSIndex([emin, emax], direction)
 
-        exst = cls(lrtddft, index, d, communicator=communicator)
+        exst = cls(lrtddft, index, d, communicator=communicator,
+                   txt=calculator.log.oldfd)
         index = exst.index.apply(lrtddft)
         exst.results['energy'] = E0 + lrtddft[index].energy * Hartree
 

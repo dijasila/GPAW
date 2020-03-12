@@ -33,8 +33,6 @@ class ExcitationList(list):
             self.log = log
             return
         if calculator is not None:
-            if txt == '-':  # this is done silently in GPAWLogger
-                txt = '<stdout>'
             if txt == calculator.log.oldfd:
                 self.log = calculator.log
                 return

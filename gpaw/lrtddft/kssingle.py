@@ -188,7 +188,7 @@ class KSSingles(ExcitationList):
             kss.distribute()
 
     @classmethod
-    def read(cls, filename=None, fh=None, restrict={}):
+    def read(cls, filename=None, fh=None, restrict={}, log=None):
         """Read myself from a file"""
         assert (filename is not None) or (fh is not None)
         
@@ -214,7 +214,7 @@ class KSSingles(ExcitationList):
 
         words = f.readline().split()
         n = int(words[0])
-        kssl = cls()
+        kssl = cls(log=log)
         if len(words) == 1:
             # very old output style for real wave functions (finite systems)
             kssl.dtype = float

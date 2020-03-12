@@ -41,6 +41,7 @@ class FiniteDifference:
         self.name = name
         self.ending = ending
         self.d = d
+        self.log = self.atoms.calc.log
 
         self.set_parallel(parallel, world)
 
@@ -136,7 +137,7 @@ class FiniteDifference:
         self.world = world
         
         if parallel > world.size:
-            parprint('#', (self.__class__.__name__ + ':'),
+            self.log('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.')
             parallel = 1
         self.parallel = parallel
@@ -156,10 +157,9 @@ class FiniteDifference:
         
         if parallel < 2:  # no redistribution needed
             return
-        
-        calc = self.atoms.get_calculator()
-        calc.write(self.name + '_eq' + self.ending)
 
+        calc = self.atoms.calc
+        calc.write(self.name + '_eq' + self.ending)
         ranks = np.array(range(world.size), dtype=int)
         self.ranks = ranks.reshape(
             parallel, world.size // parallel)
@@ -167,8 +167,12 @@ class FiniteDifference:
         for i in range(parallel):
             if world.rank in self.ranks[i]:
                 comm = world.new_communicator(self.ranks[i])
+                if 0 in self.ranks[i]:
+                    log = calc.log
+                else:
+                    log = None
                 calc2 = calc.__class__.read(
                     self.name + '_eq' + self.ending,
-                    communicator=comm)
+                    communicator=comm, log=log)
                 self.atoms.set_calculator(calc2)
                 self.comm = comm

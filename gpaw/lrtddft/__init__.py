@@ -62,13 +62,13 @@ class LrTDDFT(ExcitationList):
         'eh_comm': None,  # parallelization over eh-pairs
         'poisson': None}  # use calculator's Poisson
 
-    def __init__(self, calculator=None, txt='-', **kwargs):
+    def __init__(self, calculator=None, log=None, txt='-', **kwargs):
 
         self.timer = Timer()
         self.diagonalized = False
 
         self.set(**kwargs)
-        ExcitationList.__init__(self, calculator, txt=txt)
+        ExcitationList.__init__(self, calculator, log=log, txt=txt)
 
         if self.eh_comm is None:
             self.eh_comm = mpi.serial_comm
@@ -212,9 +212,9 @@ class LrTDDFT(ExcitationList):
         self.timer.stop('diagonalize')
 
     @classmethod
-    def read(cls, filename=None, fh=None, restrict={}):
+    def read(cls, filename=None, fh=None, restrict={}, log=None):
         """Read myself from a file"""
-        lr = cls()
+        lr = cls(log=log)
         timer = lr.timer
         timer.start('name')
         if fh is None:
@@ -241,13 +241,13 @@ class LrTDDFT(ExcitationList):
         timer.stop('header')
 
         timer.start('init_kss')
-        kss = KSSingles.read(fh=f)
+        kss = KSSingles.read(fh=f, log=log)
         assert eps == kss.restrict['eps']
         timer.stop('init_kss')
         timer.start('init_obj')
         if lr.name == 'LrTDDFT':
             lr.Om = OmegaMatrix(kss=kss, filehandle=f,
-                                txt=lr.txt)
+                                log=lr.log)
         else:
             lr.Om = ApmB(kss=kss, filehandle=f,
                          txt=lr.txt)
