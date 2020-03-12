@@ -2,11 +2,10 @@
 
 """
 from math import sqrt
-
 import numpy as np
 
 import gpaw.mpi as mpi
-from ase.utils import convert_string_to_fd
+from gpaw.io.logger import GPAWLogger
 
 
 def get_filehandle(cls, filename, mode='r'):
@@ -23,14 +22,24 @@ def get_filehandle(cls, filename, mode='r'):
 class ExcitationList(list):
     """General Excitation List class.
     """
-    def __init__(self, calculator=None, txt=None):
+    def __init__(self, calculator=None, log=None, txt='-'):
         # initialise empty list
         list.__init__(self)
 
         self.calculator = calculator
-        if not txt and calculator:
-            txt = calculator.log.fd
-        self.txt = convert_string_to_fd(txt, mpi.world)
+
+        # set output
+        if log is not None:
+            self.log = log
+            return
+        if calculator is not None:
+            if txt == '-':  # this is done silently in GPAWLogger
+                txt = '<stdout>'
+            if txt == calculator.log.oldfd:
+                self.log = calculator.log
+                return
+        self.log = GPAWLogger(world=mpi.world)
+        self.log.fd = txt
 
     def get_calculator(self):
         return self.calculator

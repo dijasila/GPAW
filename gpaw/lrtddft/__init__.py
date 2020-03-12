@@ -9,14 +9,13 @@ from ase.utils.timing import Timer
 
 import _gpaw
 import gpaw.mpi as mpi
+from gpaw.xc import XC
+from gpaw.wavefunctions.fd import FDWaveFunctions
 from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.lrtddft.omega_matrix import OmegaMatrix
 from gpaw.lrtddft.apmb import ApmB
-# from gpaw.lrtddft.transition_density import TransitionDensity
-from gpaw.xc import XC
 from gpaw.lrtddft.spectrum import spectrum
-from gpaw.wavefunctions.fd import FDWaveFunctions
 
 __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
@@ -57,20 +56,19 @@ class LrTDDFT(ExcitationList):
         'xc': 'GS',
         'derivative_level': 1,
         'numscale': 0.00001,
-        'txt': None,
         'filename': None,
         'finegrid': 2,
         'force_ApmB': False,  # for tests
         'eh_comm': None,  # parallelization over eh-pairs
         'poisson': None}  # use calculator's Poisson
 
-    def __init__(self, calculator=None, **kwargs):
+    def __init__(self, calculator=None, txt='-', **kwargs):
 
         self.timer = Timer()
         self.diagonalized = False
 
         self.set(**kwargs)
-        ExcitationList.__init__(self, calculator, self.txt)
+        ExcitationList.__init__(self, calculator, txt=txt)
 
         if self.eh_comm is None:
             self.eh_comm = mpi.serial_comm
@@ -180,12 +178,12 @@ class LrTDDFT(ExcitationList):
         kss = KSSingles(calculator=self.calculator,
                         nspins=self.nspins,
                         restrict=self.restrict,
-                        txt=self.txt)
+                        log=self.log)
 
         self.Om = Om(self.calculator, kss,
                      self.xc, self.derivative_level, self.numscale,
                      finegrid=self.finegrid, eh_comm=self.eh_comm,
-                     poisson=self.poisson, txt=self.txt)
+                     poisson=self.poisson, log=self.log)
         self.name = name
 
     def diagonalize(self, **kwargs):
@@ -205,11 +203,11 @@ class LrTDDFT(ExcitationList):
             self.pop()
         self.timer.stop('clean')
 
-        print('LrTDDFT digonalized:', file=self.txt)
+        self.log('LrTDDFT digonalized:')
         self.timer.start('build')
         for j in range(len(self.Om.kss)):
             self.append(LrTDDFTExcitation(self.Om, j))
-            print(' ', str(self[-1]), file=self.txt)
+            self.log(' ', str(self[-1]))
         self.timer.stop('build')
         self.timer.stop('diagonalize')
 
@@ -418,7 +416,7 @@ class LrTDDFT(ExcitationList):
         return list.__len__(self)
 
     def __del__(self):
-        self.timer.write(self.txt)
+        self.timer.write(self.log.fd)
 
 
 def d2Excdnsdnt(dup, ddn):

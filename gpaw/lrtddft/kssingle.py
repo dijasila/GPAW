@@ -41,8 +41,9 @@ class KSSingles(ExcitationList):
                  calculator=None,
                  nspins=None,
                  restrict={},
+                 log=None,
                  txt=None):
-        ExcitationList.__init__(self, calculator, txt=txt)
+        ExcitationList.__init__(self, calculator, log=log, txt=txt)
         self.world = mpi.world
 
         self.restrict = KSSRestrictor()
@@ -71,13 +72,12 @@ class KSSingles(ExcitationList):
         self.select(nspins)
 
         trkm = self.get_trk()
-        print(file=self.txt)
-        print('KSS %d transitions' % len(self), file=self.txt)
-        print('KSS TRK sum %g (%g,%g,%g)' %
-              (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]), file=self.txt)
+        self.log('KSS %d transitions' % len(self))
+        self.log('KSS TRK sum %g (%g,%g,%g)' %
+                 (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]))
         pol = self.get_polarizabilities(lmax=3)
-        print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
-              tuple(pol.tolist()), file=self.txt)
+        self.log('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
+                 tuple(pol.tolist()))
 
     @staticmethod
     def emin_emax(energy_range):
@@ -157,6 +157,10 @@ class KSSingles(ExcitationList):
                                 take[u, i, j] = 1
                 u += 1
         kpt_comm.sum(take)
+
+        self.log()
+        self.log('Kohn-Sham single transitions')
+        self.log()
 
         # calculate in parallel
         u = 0
