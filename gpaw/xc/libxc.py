@@ -93,7 +93,6 @@ class PyLibXC(XCKernel):
         if self.nspins != nspins:
             self.initialize(nspins)
 
-        e_g[:] = 0.0
         if self.type == 'GGA':
             dedsigma_xg[:] = 0.0
         if self.type == 'MGGA':
@@ -115,7 +114,7 @@ class PyLibXC(XCKernel):
                         inp['tau'] = tau_sg.T.copy()
             out = xc.compute(inp)
             if nspins == 1:
-                e_g += out['zk'][0].reshape(e_g.shape)
+                e_g[:] = out['zk'][0].reshape(e_g.shape)
                 dedn_sg += out['vrho'].reshape(n_sg.shape)
                 if family in GGA or family in MGGA:
                     dedsigma_xg += out['vsigma'].reshape(sigma_xg.shape)
@@ -123,7 +122,7 @@ class PyLibXC(XCKernel):
                         dedtau_sg += out['vtau'].reshape(tau_sg.shape)
 
             else:
-                e_g += out['zk'][0].reshape(e_g.shape[::-1]).T
+                e_g[:] = out['zk'][0].reshape(e_g.shape[::-1]).T
                 dedn_sg += out['vrho'].reshape(n_sg.shape[::-1]).T
                 if family in GGA or family in MGGA:
                     dedsigma_xg += out['vsigma'].reshape(
