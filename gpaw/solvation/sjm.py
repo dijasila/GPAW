@@ -1,6 +1,7 @@
+import traceback
+from io import StringIO
 import numbers
 import numpy as np
-from scipy.stats import linregress
 
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Parameters
@@ -16,6 +17,13 @@ from gpaw.solvation.cavity import (Potential, Power12Potential,
 from gpaw.solvation.calculator import SolvationGPAW
 from gpaw.solvation.hamiltonian import SolvationRealSpaceHamiltonian
 from gpaw.solvation.poisson import WeightedFDPoissonSolver
+
+
+def get_traceback_string():
+    # FIXME. Temporary function for debugging.
+    filelike = StringIO()
+    traceback.print_stack(file=filelike)
+    return filelike.getvalue()
 
 
 class SJM(SolvationGPAW):
@@ -100,6 +108,12 @@ class SJM(SolvationGPAW):
         p = self.sjm_parameters = Parameters()
         SolvationGPAW.__init__(self, **gpaw_kwargs)
 
+        # FIXME. There seems to be two ways that parameters are being set.
+        # If they come from the __init__ keywords they are set here.
+        # If they are set with the set method they are set according to
+        # different # criteria. Yet 'set' is also invoked here; would it
+        # make more sense # to have these keywords just fed to 'set' to not
+        # duplicate things?
         p.ne = ne
         p.target_potential = potential
         p.dpot = dpot
@@ -168,13 +182,9 @@ class SJM(SolvationGPAW):
         SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
                     'doublelayer', 'always_adjust_ne']
 
-        SJM_changes = {}
-        for key in kwargs:
-            if key in SJM_keys:
-                SJM_changes[key] = None
-
-        for key in SJM_changes:
-            SJM_changes[key] = kwargs.pop(key)
+        SJM_changes = {key: kwargs.pop(key) for key in list(kwargs.keys())
+                       if key in SJM_keys}
+        self.sog('SJM_changes: {:s}'.format(str(SJM_changes)))
 
         major_changes = False
         if kwargs:
@@ -195,14 +205,19 @@ class SJM(SolvationGPAW):
             if key == 'potential':
                 p.target_potential = SJM_changes[key]
                 if p.target_potential is None:
-                    self.sog('Potential equilibration has been '
-                             'turned off')
+                    self.sog('Potential equilibration has been turned off')
                 else:
                     self.sog('Target electrode potential set to {:1.4f} V'
                              .format(p.target_potential))
 
             if key == 'doublelayer':
                 p.doublelayer = SJM_changes[key]
+                self.sog(' Jellium size parameters:')
+                if 'start' in p.doublelayer:
+                    self.sog('  Lower boundary: %s' % p.doublelayer['start'])
+                if 'upper_limit' in p.doublelayer:
+                    self.sog('  Upper boundary: %s'
+                             % p.doublelayer['upper_limit'])
                 self.set(background_charge=self.define_jellium(self.atoms))
 
             if key == 'dpot':
@@ -222,6 +237,7 @@ class SJM(SolvationGPAW):
                 p.dpot = SJM_changes[key]
 
             if key == 'background_charge':
+                # background_charge is a GPAW parameter.
                 self.parameters[key] = SJM_changes[key]
                 if self.wfs is not None:
                     if major_changes:
@@ -264,29 +280,20 @@ class SJM(SolvationGPAW):
         It is essentially a wrapper around GPAW.calculate()
 
         """
-        if atoms is not None:
-            # Need to be set before ASE's Calculator.calculate gets to it.
-            self.atoms = atoms.copy()
 
         # FIXME: Should results be zerod when set is called? That might be
         # easiest. Then I can check here if the results are not zero
         # and we can calculate things directly.
         p = self.sjm_parameters
-        if p.doublelayer is not None:
-            self.sog(' Jellium size parameters:')
-            if 'start' in p.doublelayer:
-                self.sog('  Lower boundary: %s' % p.doublelayer['start'])
-            if 'upper_limit' in p.doublelayer:
-                self.sog('  Upper boundary: %s' % p.doublelayer['upper_limit'])
 
-        if p.target_potential:
-            # FIXME: In case of a nonlinear response, might want to switch
-            # to a scheme that still uses the slope for the first two
-            # iterations, but once we have three points switches to a scipy
-            # optimizer. If so this might be best to write a self-standing
-            # function of the type
-            # def equilibrate_potential(calc, target, ne_guess=0.,
-            #                           slope_guess=None)
+        if not p.target_potential:
+            self.sog('Constant-charge calculation with {:.5f} excess '
+                     'electrons'.format(p.ne))
+            # Background charge is set here, not earlier, because atoms needed.
+            self.set(background_charge=self.define_jellium(atoms))
+            SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
+
+        else:
             iteration = 0
             p.previous_nes = []
             p.previous_potentials = []
@@ -306,9 +313,6 @@ class SJM(SolvationGPAW):
                 self.set(background_charge=self.define_jellium(atoms))
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
-                # FIXME: Why not forces in above??
-                if p.verbose:
-                    self.write_cavity_and_bckcharge()
                 true_potential = self.get_electrode_potential()
                 self.sog()
                 self.sog('Potential found to be {:.5f} V (with {:+.5f} '
@@ -317,12 +321,13 @@ class SJM(SolvationGPAW):
                 p.previous_nes += [p.ne]
                 p.previous_potentials += [true_potential]
 
-                # Update slope based on regression.
+                # Update slope based only on last two points.
                 if len(p.previous_nes) > 1:
-                    p.slope = linregress(p.previous_nes,
-                                         p.previous_potentials)[0]
-                    self.sog('Slope regressed from previous attempts to be '
-                             '{:4f} V/electron.'.format(p.slope))
+                    p.slope = (np.diff(p.previous_potentials[-2:]) /
+                               np.diff(p.previous_nes[-2:]))[0]
+                    self.sog(str(p.slope))
+                    self.sog('Slope regressed from last two attempts is '
+                             '{:.4f} V/electron.'.format(p.slope))
 
                 if abs(true_potential - p.target_potential) < p.dpot:
                     equilibrated = True
@@ -347,18 +352,12 @@ class SJM(SolvationGPAW):
                 iteration += 1
                 if iteration == p.max_iters:
                     msg = ('Potential could not be reached after {:d} '
-                           'iterations.  Aborting!'.format(iteration))
+                           'iterations. This may indicate your workfunction '
+                           'is noisier than dpot. You may try setting the '
+                           'convergence["workfunction"] keyword in GPAW. '
+                           'Aborting!'.format(iteration))
                     self.sog(msg)
                     raise Exception(msg)
-
-        else:
-            # Constant-charge mode.
-            self.sog('Constant-charge calculation with {:.5f} excess '
-                     'electrons'.format(p.ne))
-            self.set(background_charge=self.define_jellium(atoms))
-            SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
-            if p.verbose:
-                self.write_cavity_and_bckcharge()
 
         if properties != ['energy']:
             # FIXME: A sequential call to get_potential_energy then
@@ -386,6 +385,10 @@ class SJM(SolvationGPAW):
         #  atoms.get_forces()
         # Then the second line triggers a new SCF cycle even though
         # it should just pull the forces from the first.
+        # I'm pretty sure this is because the line is invoked again:
+        #        self.set(background_charge=self.define_jellium(atoms))
+        if p.verbose:
+            self.write_cavity_and_bckcharge()
 
     def write_cavity_and_bckcharge(self):
         p = self.sjm_parameters
