@@ -22,7 +22,7 @@ __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
 class LrTDDFT(ExcitationList):
 
-    """Linear Response TDDFT excitation class
+    """Linear Response TDDFT excitation list class
 
     Input parameters:
 
@@ -105,7 +105,7 @@ class LrTDDFT(ExcitationList):
                 calculator.wfs.initialize(calculator.density,
                                           calculator.hamiltonian, spos_ac)
 
-            self.update(calculator)
+            self.forced_update()
  
     def set(self, **kwargs):
         """Change parameters."""
@@ -146,18 +146,11 @@ class LrTDDFT(ExcitationList):
         for i in what:
             print(str(i) + ':', self[i].analyse(min=min), file=out)
 
-    def update(self, calculator=None, **kwargs):
-
-        changed = self.set(**kwargs)
-        if calculator is not None:
-            changed = True
-            self.set_calculator(calculator)
-
-        if not changed:
-            return
-
-        self.forced_update()
-
+    def calculate(self, atoms):
+        if not hasattr(self, 'Om') or self.calculator.check_state(atoms):
+            self.calculator.get_potential_energy(atoms)
+            self.forced_update()
+        
     def forced_update(self):
         """Recalc yourself."""
         if not self.force_ApmB:

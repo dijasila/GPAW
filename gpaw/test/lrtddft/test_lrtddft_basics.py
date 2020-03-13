@@ -41,5 +41,19 @@ def test_io():
     assert len(lr4) == 1
 
 
+def test_invocation():
+    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
+    exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
+    exlst.calculate(get_H2())
+    assert hasattr(exlst, 'Om')
+
+    # traditional way
+    h2 = get_H2(calc)
+    h2.get_potential_energy()
+    exlst2 = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
+    assert hasattr(exlst2, 'Om')
+
+
 if __name__ == '__main__':
-    test_io()
+    # test_io()
+    test_invocation()
