@@ -1,4 +1,4 @@
-import os.path as op
+import os
 import subprocess
 import sys
 
@@ -34,8 +34,11 @@ def info():
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())
+    else:
+        githash = ''
     results.append(('_gpaw' + githash,
-                    op.normpath(getattr(module, '__file__', 'built-in'))))
+                    os.path.normpath(getattr(module, '__file__',
+                                             'built-in'))))
     if '_gpaw' in sys.builtin_module_names or not have_mpi:
         p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
         results.append(('parallel',
@@ -62,15 +65,19 @@ def info():
     results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
     for i, path in enumerate(gpaw.setup_paths):
-        results.append(('PAW-datasets' if i == 0 else '', f'{i + 1}: {path}'))
+        results.append((f'PAW-datasets ({i + 1})', path))
 
-    if rank == 0:
-        print('-' * 26 + '+' + '-' * 50)
-        for a, b in results:
-            if isinstance(b, bool):
-                b = ['no', 'yes'][b]
-            print(f'{a:25} | {b}')
-        print('-' * 26 + '+' + '-' * 50)
+    if rank != 0:
+        return
+
+    lines = [(a, b if isinstance(b, str) else ['no', 'yes'][b])
+             for a, b in results]
+    n1 = max(len(a) for a, _ in lines)
+    n2 = max(len(b) for _, b in lines)
+    print('-' * n1 + '-+-' + '-' * n2)
+    for a, b in results:
+        print(f'{a:{n1}} | {b}')
+    print('-' * n1 + '-+-' + '-' * n2)
 
 
 class CLICommand:
