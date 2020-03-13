@@ -236,6 +236,7 @@ class LrTDDFT(ExcitationList):
         timer.start('init_kss')
         kss = KSSingles.read(fh=f, log=log)
         assert eps == kss.restrict['eps']
+        lr.restrict = kss.restrict.values
         timer.stop('init_kss')
         timer.start('init_obj')
         if lr.name == 'LrTDDFT':

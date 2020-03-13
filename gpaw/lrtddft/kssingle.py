@@ -72,7 +72,8 @@ class KSSingles(ExcitationList):
         self.select(nspins)
 
         trkm = self.get_trk()
-        self.log('KSS %d transitions' % len(self))
+        self.log('KSS {0} transitions (restrict={1})'.format(
+            len(self), self.restrict))
         self.log('KSS TRK sum %g (%g,%g,%g)' %
                  (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]))
         pol = self.get_polarizabilities(lmax=3)
