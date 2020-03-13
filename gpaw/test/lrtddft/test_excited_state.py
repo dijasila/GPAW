@@ -155,6 +155,7 @@ def test_log():
                 # we see only half of the calculations in parallel
                 # one eq + 3 * 2 displacements = 7 calculations
                 n = 7
+            assert string.count('Converged after') == n
             assert string.count('Kohn-Sham single transitions') == n
             assert string.count('Linear response TDDFT calculation') == n
 
