@@ -43,7 +43,28 @@ class FiniteDifference:
         self.d = d
         self.log = self.atoms.calc.log
 
-        self.set_parallel(parallel, world)
+        if world is None:
+            world = mpi.world
+        self.world = world
+        
+        if parallel > world.size:
+            self.log('#', (self.__class__.__name__ + ':'),
+                     'Serial calculation, keyword parallel ignored.')
+            parallel = 1
+        self.parallel = parallel
+
+        assert world.size % parallel == 0
+
+        natoms = len(self.atoms)
+        self.cores_per_atom = world.size // parallel
+        # my workers index
+        myi = world.rank // self.cores_per_atom
+        # distribute work
+        self.myindices = []
+        for a in range(natoms):
+            if a % parallel == myi:
+                self.myindices.append(a)
+        # print(world.rank, 'myindices', self.myindices)
 
     def calculate(self, a, i, filename='fd', **kwargs):
         """Evaluate finite difference  along i'th axis on a'th atom.
@@ -72,8 +93,8 @@ class FiniteDifference:
 
         self.value[a, i] = (eminus - eplus) / (2 * self.d)
         
-        if self.parallel > 1 and self.comm.rank == 0:
-            print('# rank', self.world.rank, 'Atom', a,
+        if self.parallel > 1 and self.world.rank == 0:
+            print('# rank', mpi.world.rank, 'Atom', a,
                   'direction', i, 'FD: ', self.value[a, i])
         else:
             parprint('Atom', a, 'direction', i,
@@ -130,49 +151,3 @@ class FiniteDifference:
 
         return self.value
 
-    def set_parallel(self, parallel, world):
-        """Copy object onto different communicators"""
-        if world is None:
-            world = mpi.world
-        self.world = world
-        
-        if parallel > world.size:
-            self.log('#', (self.__class__.__name__ + ':'),
-                     'Serial calculation, keyword parallel ignored.')
-            parallel = 1
-        self.parallel = parallel
-
-        assert world.size % parallel == 0
-
-        natoms = len(self.atoms)
-        self.cores_per_atom = world.size // parallel
-        # my workers index
-        myi = world.rank // self.cores_per_atom
-        # distribute work
-        self.myindices = []
-        for a in range(natoms):
-            if a % parallel == myi:
-                self.myindices.append(a)
-        # print(world.rank, 'myindices', self.myindices)
-        
-        if parallel < 2:  # no redistribution needed
-            return
-
-        calc = self.atoms.calc
-        calc.write(self.name + '_eq' + self.ending)
-        ranks = np.array(range(world.size), dtype=int)
-        self.ranks = ranks.reshape(
-            parallel, world.size // parallel)
-
-        for i in range(parallel):
-            if world.rank in self.ranks[i]:
-                comm = world.new_communicator(self.ranks[i])
-                if 0 in self.ranks[i]:
-                    log = calc.log
-                else:
-                    log = None
-                calc2 = calc.__class__.read(
-                    self.name + '_eq' + self.ending,
-                    communicator=comm, log=log)
-                self.atoms.set_calculator(calc2)
-                self.comm = comm

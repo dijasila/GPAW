@@ -21,7 +21,6 @@ __all__ = ['LrTDDFT', 'photoabsorption_spectrum', 'spectrum']
 
 
 class LrTDDFT(ExcitationList):
-
     """Linear Response TDDFT excitation list class
 
     Input parameters:

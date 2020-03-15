@@ -1,4 +1,5 @@
 import time
+import re
 import pytest
 import numpy as np
 
@@ -7,6 +8,7 @@ from ase.parallel import parprint, paropen, world
 from ase.units import Ha
 
 from gpaw import GPAW
+from gpaw.mpi import world
 from gpaw.test import equal
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.excited_state import ExcitedState
@@ -40,6 +42,25 @@ def get_H3(calculator=None):
         H3.set_calculator(calculator)
 
     return H3
+
+
+def test_split():
+    fname = 'exlst.out'
+    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
+    exlst = LrTDDFT(calc, txt=None)
+    exst = ExcitedState(exlst, 0, txt=fname)
+    H2 = get_H2(exst)
+    H2.get_potential_energy()
+
+    n = world.size
+    exst.split(n)
+    H2.get_potential_energy()
+    
+    if world.rank == 1:
+        with open(fname) as f:
+            string = f.read()
+            assert 'Total number of cores used: {0}'.format(n) in string
+            assert 'Total number of cores used: 1' in string
 
 
 def test_lrtddft_excited_state():
@@ -142,7 +163,7 @@ def test_log():
     del(exlst)
     del(exst)
 
-    if world.rank == 1:
+    if world.rank == 0:
         with paropen(fname) as f:
             string = f.read()
             assert 'ExcitedState' in string
@@ -213,6 +234,8 @@ def test_unequal_parralel_work():
 
 if __name__ == '__main__':
     # test_unequal_parralel_work()
+    #
     # test_forces()
     test_log()
+    #test_split()
     # test_lrtddft_excited_state()

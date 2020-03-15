@@ -18,6 +18,8 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class ExcitedState(GPAW, Calculator):
+    has_been_split=False
+    default_parameters={}
     def __init__(self, lrtddft, index, d=0.001, txt='-',
                  parallel=1, communicator=None, name=None):
         """ExcitedState object.
@@ -52,6 +54,8 @@ class ExcitedState(GPAW, Calculator):
         self.parallel = parallel
         self.name = name
 
+        self.parameters = {'d': d}  # XXXX add index
+        
         # set output
         self.log = self.calculator.log
         self.log.fd = txt
@@ -205,6 +209,31 @@ class ExcitedState(GPAW, Calculator):
 
         self.results['energy'] = energy
 
+    def split(self, nparts):
+        """Split world into parts and allow log in masters' part"""
+        if self.has_been_split or self.world.size == 1:
+            return
+        
+        assert self.world.size % nparts == 0
+
+        allranks = np.array(range(self.world.size), dtype=int)
+        allranks = allranks.reshape(nparts, self.world.size // nparts)
+
+        # force hard reset
+        self.calculator.reset()
+        self.calculator.set(
+            external=self.calculator.parameters['external'])
+        
+        for ranks in allranks:
+            if self.world.rank in ranks:
+                self.world = self.world.new_communicator(ranks)
+                self.calculator.world = self.world
+                if 0 not in ranks:
+                    self.calculator.log.fd = None
+                    self.lrtddft.log.fd = None
+                self.has_been_split = True
+                return
+                    
     def get_forces(self, atoms=None, save=False):
         """Get finite-difference forces
         If save = True, restartfiles for every displacement are given
@@ -215,6 +244,7 @@ class ExcitedState(GPAW, Calculator):
         if self.calculation_required(atoms, ['forces']):
             # do the ground state calculation to set all
             # ranks to the same density to start with
+            self.split(self.parallel)
             E0 = self.calculate(atoms)
 
             finite = FiniteDifference(
@@ -225,7 +255,6 @@ class ExcitedState(GPAW, Calculator):
                 d=self.d, parallel=self.parallel)
             F_av = finite.run()
 
-            self.set_positions(atoms)
             self.results['energy'] = E0
             self.results['forces'] = F_av
 
