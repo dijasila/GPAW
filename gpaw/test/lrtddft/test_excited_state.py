@@ -2,7 +2,7 @@ import time
 import pytest
 import numpy as np
 
-from ase import Atom, Atoms
+from ase import Atom, Atoms, io
 from ase.parallel import parprint, paropen
 from ase.units import Ha
 
@@ -116,8 +116,8 @@ def test_lrtddft_excited_state():
 def test_io():
     """Test output and input from files"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
-    exlst = LrTDDFT(calc)
-    exst = ExcitedState(exlst, 0)
+    exlst = LrTDDFT(calc, txt=None)
+    exst = ExcitedState(exlst, 0, txt=None)
     H2 = get_H2(exst)
 
     parprint('----------- calculate')
@@ -126,15 +126,19 @@ def test_io():
     dE1 = exlst[0].energy * Ha
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
         
+    parprint('----------- trajectory')
+    traj = io.Trajectory('H2exst.traj', 'w')
+    traj.write(H2)
+
     parprint('----------- write out')
     fname = 'exst_test_io'
     exst.write(fname)
 
     parprint('----------- read')
-    exst = ExcitedState.read(fname)
+    exst = ExcitedState.read(fname, txt=None)
     E1 = exst.get_potential_energy()
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
-
+    
 
 def test_log():
     fname = 'ex0.out'
@@ -235,6 +239,7 @@ if __name__ == '__main__':
     # test_unequal_parralel_work()
     #
     # test_forces()
-    test_log()
+    # test_log()
+    test_io()
     # test_split()
     # test_lrtddft_excited_state()

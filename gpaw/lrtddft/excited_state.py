@@ -29,15 +29,11 @@ class ExcitedState(GPAW, Calculator):
         """
 
         self.timer = Timer()
-        self.atoms = None
         if isinstance(index, int):
             self.index = UnconstraintIndex(index)
         else:
             self.index = index
 
-        self.results = {}
-        self.results['forces'] = None
-        self.results['energy'] = None
         if communicator is None:
             try:
                 communicator = lrtddft.calculator.wfs.world
@@ -49,13 +45,13 @@ class ExcitedState(GPAW, Calculator):
         self.calculator = self.lrtddft.calculator
         self.log = self.calculator.log
         self.atoms = self.calculator.atoms
-        self.calculator.log.fd = txt
         
         self.d = d
         self.parallel = parallel
         self.name = name
 
-        self.parameters = {'d': d}  # XXXX add index
+        self.results = {}
+        self.parameters = {'d': d, 'index': self.index}
         
         # set output
         self.log = self.calculator.log
@@ -111,19 +107,19 @@ class ExcitedState(GPAW, Calculator):
         self.world.barrier()
  
     @classmethod
-    def read(cls, filename, communicator=None, log=None):
+    def read(cls, filename, communicator=None, log=None, txt=None):
         """Read ExcitedState from a file"""
         atoms, calculator = restart(
             filename + '/' + filename,
-            communicator=communicator, txt=None)
+            communicator=communicator, txt=txt)
         if log is not None:
             calculator.log = log
         E0 = calculator.get_potential_energy()
         lrtddft = LrTDDFT.read(filename + '/' +
                                filename + '.lr.dat.gz',
-                               log=log)
+                               log=calculator.log)
         lrtddft.set_calculator(calculator)
-
+        
         f = open(filename + '/' + filename + '.exst', 'r')
         f.readline()
         d = f.readline().replace('\n', '').split()[1]
@@ -176,7 +172,7 @@ class ExcitedState(GPAW, Calculator):
         for quantity in ['energy', 'forces']:
             if quantity in quantities:
                 quantities.remove(quantity)
-                if self.results[quantity] is None:
+                if quantity not in self.results:
                     return True
         return len(quantities) > 0
 
@@ -329,6 +325,9 @@ class UnconstraintIndex:
 
     def __str__(self):
         return (self.__class__.__name__ + '(' + str(self.index) + ')')
+
+    def todict(self):
+        return {'class': self.__class__.__name__, 'index': self.index}
 
 
 class MinimalOSIndex:
