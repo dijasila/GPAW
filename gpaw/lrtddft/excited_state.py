@@ -18,8 +18,9 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class ExcitedState(GPAW, Calculator):
-    has_been_split=False
-    default_parameters={}
+    has_been_split = False
+    default_parameters = {}
+    
     def __init__(self, lrtddft, index, d=0.001, txt='-',
                  parallel=1, communicator=None, name=None):
         """ExcitedState object.

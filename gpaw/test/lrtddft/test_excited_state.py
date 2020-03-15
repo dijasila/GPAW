@@ -1,10 +1,9 @@
 import time
-import re
 import pytest
 import numpy as np
 
 from ase import Atom, Atoms
-from ase.parallel import parprint, paropen, world
+from ase.parallel import parprint, paropen
 from ase.units import Ha
 
 from gpaw import GPAW
@@ -237,5 +236,5 @@ if __name__ == '__main__':
     #
     # test_forces()
     test_log()
-    #test_split()
+    # test_split()
     # test_lrtddft_excited_state()
