@@ -126,20 +126,29 @@ def test_io():
     dE1 = exlst[0].energy * Ha
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
         
-    parprint('----------- trajectory')
-    traj = io.Trajectory('H2exst.traj', 'w')
+    parprint('----------- write trajectory')
+    ftraj = 'H2exst.traj'
+    F = H2.get_forces()
+    traj = io.Trajectory(ftraj, 'w')
     traj.write(H2)
 
-    parprint('----------- write out')
+    parprint('----------- write')
     fname = 'exst_test_io'
+    print('----', exst.get_potential_energy())
     exst.write(fname)
 
     parprint('----------- read')
     exst = ExcitedState.read(fname, txt=None)
     E1 = exst.get_potential_energy()
+    print('-----', exst.get_potential_energy(), E0 + dE1)
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
     
+    parprint('----------- read trajectory')
+    atoms = io.read(ftraj)
+    assert atoms.get_potential_energy() == pytest.approx(E1, 1.e-5)
+    assert atoms.get_forces() == pytest.approx(F, 1.e-5)
 
+    
 def test_log():
     fname = 'ex0.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
@@ -220,15 +229,15 @@ def test_unequal_parralel_work():
         return
 
     calc = GPAW(xc='PBE', charge=1, h=0.25, nbands=3, txt=None)
-    exlst = LrTDDFT(calc)
+    exlst = LrTDDFT(calc, txt=None)
     H3 = get_H3()
 
     parprint('---------------- serial')
-    exst = ExcitedState(exlst, 0)
+    exst = ExcitedState(exlst, 0, txt=None)
     forces = exst.get_forces(H3)
 
     parprint('---------------- parallel', world.size)
-    exst = ExcitedState(exlst, 0, parallel=2)
+    exst = ExcitedState(exlst, 0, parallel=2, txt=None)
     H3 = get_H3(exst)
     forcesp = H3.get_forces()
 
@@ -237,9 +246,8 @@ def test_unequal_parralel_work():
 
 if __name__ == '__main__':
     # test_unequal_parralel_work()
-    #
     # test_forces()
-    # test_log()
-    test_io()
+    test_log()
+    # test_io()
     # test_split()
     # test_lrtddft_excited_state()

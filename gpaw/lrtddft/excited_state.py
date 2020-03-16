@@ -20,10 +20,11 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class ExcitedState(GPAW, Calculator):
     has_been_split = False
+    implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
     
     def __init__(self, lrtddft, index, d=0.001, txt='-',
-                 parallel=1, communicator=None, name=None):
+                 parallel=1, communicator=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
         over images.
@@ -48,7 +49,7 @@ class ExcitedState(GPAW, Calculator):
         self.atoms = self.calculator.atoms
         
         self.d = d
-        self.name = name
+        self.name = self.__class__.__name__
 
         self.results = {}
         self.parameters = {'d': d, 'index': self.index}
@@ -59,8 +60,6 @@ class ExcitedState(GPAW, Calculator):
         
         self.log('#', self.__class__.__name__, __version__)
         self.log('#', self.index)
-        if name:
-            self.log('name=' + name)
         self.log('# Force displacement:', self.d)
         self.log
         
@@ -242,8 +241,9 @@ class ExcitedState(GPAW, Calculator):
         if self.calculation_required(atoms, ['forces']):
             # do the ground state calculation to set all
             # ranks to the same density to start with
-            E0 = self.calculate(atoms)
-
+            p0 = atoms.get_positions().copy()
+            atoms.set_calculator(self)
+            
             finite = FiniteDifference(
                 atoms=atoms,
                 propertyfunction=atoms.get_potential_energy,
@@ -252,7 +252,8 @@ class ExcitedState(GPAW, Calculator):
                 d=self.d, parallel=self.nparts)
             F_av = finite.run()
 
-            self.results['energy'] = E0
+            atoms.set_positions(p0)
+            self.calculate(atoms)
             self.results['forces'] = F_av
 
             self.log('Excited state forces in eV/Ang:')

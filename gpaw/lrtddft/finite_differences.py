@@ -41,14 +41,13 @@ class FiniteDifference:
         self.name = name
         self.ending = ending
         self.d = d
-        self.log = self.atoms.calc.log
 
         if world is None:
             world = mpi.world
         self.world = world
         
         if parallel > world.size:
-            self.log('#', (self.__class__.__name__ + ':'),
+            parprint('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.')
             parallel = 1
         self.parallel = parallel
@@ -150,4 +149,3 @@ class FiniteDifference:
                 self.calculate(a, i, filename=filename, **kwargs)
 
         return self.value
-
