@@ -47,7 +47,6 @@ class ExcitedState(GPAW, Calculator):
         self.atoms = self.calculator.atoms
         
         self.d = d
-        self.parallel = parallel
         self.name = name
 
         self.results = {}
@@ -63,6 +62,8 @@ class ExcitedState(GPAW, Calculator):
             self.log('name=' + name)
         self.log('# Force displacement:', self.d)
         self.log
+        
+        self.split(parallel)
 
     def __del__(self):
         self.timer.write(self.log.fd)
@@ -72,10 +73,8 @@ class ExcitedState(GPAW, Calculator):
 
     def set_positions(self, atoms):
         """Update the positions of the atoms."""
-
         self.atoms = atoms.copy()
-        self.results['forces'] = None
-        self.results['energy'] = None
+        self.results = {}
 
     def write(self, filename, mode=''):
         """Write yourself to a directory
@@ -208,6 +207,7 @@ class ExcitedState(GPAW, Calculator):
 
     def split(self, nparts):
         """Split world into parts and allow log in masters' part"""
+        self.nparts = nparts
         if self.has_been_split or self.world.size == 1:
             return
         
@@ -215,7 +215,7 @@ class ExcitedState(GPAW, Calculator):
 
         allranks = np.array(range(self.world.size), dtype=int)
         allranks = allranks.reshape(nparts, self.world.size // nparts)
-
+        
         # force hard reset
         self.calculator.reset()
         self.calculator.set(
@@ -241,7 +241,6 @@ class ExcitedState(GPAW, Calculator):
         if self.calculation_required(atoms, ['forces']):
             # do the ground state calculation to set all
             # ranks to the same density to start with
-            self.split(self.parallel)
             E0 = self.calculate(atoms)
 
             finite = FiniteDifference(
@@ -249,7 +248,7 @@ class ExcitedState(GPAW, Calculator):
                 propertyfunction=atoms.get_potential_energy,
                 save=save,
                 name="excited_state", ending='.gpw',
-                d=self.d, parallel=self.parallel)
+                d=self.d, parallel=self.nparts)
             F_av = finite.run()
 
             self.results['energy'] = E0
@@ -261,6 +260,7 @@ class ExcitedState(GPAW, Calculator):
                 self.log(('%3d %-2s %10.5f %10.5f %10.5f' %
                           ((a, symbol) +
                            tuple(self.results['forces'][a]))))
+
         return self.results['forces']
 
     def forces_indexn(self, index):
