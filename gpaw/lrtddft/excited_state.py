@@ -2,8 +2,9 @@
 
 import os
 import errno
-
 import numpy as np
+from typing import Dict, Any
+
 from ase.units import Hartree
 from ase.utils.timing import Timer
 from ase.calculators.calculator import Calculator
@@ -19,7 +20,7 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 class ExcitedState(GPAW, Calculator):
     has_been_split = False
-    default_parameters = {}
+    default_parameters: Dict[str, Any] = {}
     
     def __init__(self, lrtddft, index, d=0.001, txt='-',
                  parallel=1, communicator=None, name=None):

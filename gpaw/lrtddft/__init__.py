@@ -2,8 +2,9 @@
 import numbers
 import sys
 from math import sqrt
-
+from typing import Dict, Any
 import numpy as np
+
 from ase.units import Hartree
 from ase.utils.timing import Timer
 
@@ -49,7 +50,7 @@ class LrTDDFT(ExcitationList):
     read from a file
     """
 
-    default_parameters = {
+    default_parameters: Dict[str, Any] = {
         'nspins': None,
         'restrict': {},
         'xc': 'GS',
