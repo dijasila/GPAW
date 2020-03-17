@@ -8,7 +8,6 @@ from gpaw.mpi import world
 
 from gpaw.test import equal
 
-# Atoms
 
 def test_tddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
@@ -21,7 +20,7 @@ def test_tddft_restart(in_tmp_dir):
                 xc='GLLBSC',
                 txt='gs.out')
     atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
+    _ = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
@@ -59,7 +58,8 @@ def test_tddft_restart(in_tmp_dir):
     ref = [0.0, 1.46915686e-15, -3.289312570937e-14, -2.273046460905e-14,
            -3.201827522804e-15, 0.82682747, 1.30253044e-15, 6.113786782415e-05,
            6.113753835177e-05, 6.113827464597e-05, 1.65365493, -1.69353262e-15,
-           0.0001073089135539, 0.0001073052457949, 0.0001073068465827, 2.4804824,
+           0.0001073089135539, 0.0001073052457949,
+           0.0001073068465827, 2.4804824,
            1.42934356e-15, 0.0001353894007493, 0.0001353887214486,
            0.0001353873226291, 3.30730987, -3.43926271e-16, 0.0001441529062519,
            0.000144155244532, 0.0001441536382364, 4.13413733, -8.41062896e-16,

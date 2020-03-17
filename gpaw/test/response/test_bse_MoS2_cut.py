@@ -8,12 +8,12 @@ from gpaw import GPAW, FermiDirac
 from gpaw.test import findpeak, equal
 from gpaw.response.bse import BSE
 
-pytestmark = pytest.mark.skipif(world.size < 4 or not compiled_with_sl(),
-                                reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size < 4 or not compiled_with_sl(),
+    reason='world.size < 4 or not compiled_with_sl()')
 
 
-
-def test_response_bse_MoS2_cut():
+def test_response_bse_MoS2_cut(in_tmp_dir):
     if 1:
         calc = GPAW(mode='pw',
                     xc='PBE',
@@ -27,7 +27,8 @@ def test_response_bse_MoS2_cut():
         a = 3.1604
         c = 10.0
 
-        cell = Hexagonal(symbol='Mo', latticeconstant={'a': a, 'c': c}).get_cell()
+        cell = Hexagonal(symbol='Mo',
+                         latticeconstant={'a': a, 'c': c}).get_cell()
         layer = Atoms(symbols='MoS2', cell=cell, pbc=(1, 1, 1),
                       scaled_positions=[(0, 0, 0),
                                         (2 / 3, 1 / 3, 0.3),
