@@ -9,7 +9,7 @@ pytestmark = pytest.mark.skipif(not compiled_with_libvdwxc(),
                                 reason='not compiled_with_libvdwxc()')
 
 
-def test_vdw_libvdwxc_h2():
+def test_vdw_libvdwxc_h2(in_tmp_dir):
     system = molecule('H2')
     system.center(vacuum=1.0)
     system.pbc = 1
@@ -40,8 +40,8 @@ def test_vdw_libvdwxc_h2():
 
     E1 = calc.get_potential_energy()
     calc.write('dump.libvdwxc.gpw')
-    calc2 = GPAW('dump.libvdwxc.gpw', txt='restart.txt',
-                 parallel={'domain': fddomainpar})
+    _ = GPAW('dump.libvdwxc.gpw', txt='restart.txt',
+             parallel={'domain': fddomainpar})
     system2 = calc.get_atoms()
 
     # Verify same energy after restart
