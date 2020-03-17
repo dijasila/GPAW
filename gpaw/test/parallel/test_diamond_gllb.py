@@ -12,8 +12,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
-def test_parallel_diamond_gllb():
+def test_parallel_diamond_gllb(in_tmp_dir):
     xc = 'GLLBSC'
     gen('C', xcname=xc)
     setup_paths.insert(0, '.')

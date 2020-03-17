@@ -14,8 +14,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
-def test_exx_exx_scf():
+def test_exx_exx_scf(in_tmp_dir):
     if setup_paths[0] != '.':
         setup_paths.insert(0, '.')
 
