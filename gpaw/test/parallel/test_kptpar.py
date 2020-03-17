@@ -6,12 +6,11 @@ from gpaw.mpi import world
 from gpaw.test import equal
 
 
-def test_parallel_kptpar():
+def test_parallel_kptpar(in_tmp_dir):
     a = 2.5
     H = Atoms('H', cell=[a, a, a], pbc=True)
 
     energy_tolerance = 0.0006
-    niter_tolerance = 0
 
     if world.size >= 3:
         calc = GPAW(kpts=[6, 6, 1],
@@ -20,7 +19,6 @@ def test_parallel_kptpar():
                     txt='H-a.txt')
         H.set_calculator(calc)
         e1 = H.get_potential_energy()
-        niter1 = calc.get_number_of_iterations()
         assert H.get_calculator().wfs.kd.comm.size == 1
 
         equal(e1, -2.23708481, energy_tolerance)

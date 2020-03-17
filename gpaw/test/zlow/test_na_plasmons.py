@@ -11,12 +11,12 @@ from gpaw.test import equal, findpeak
 # Reasons that this can fail:
 # - Bug in block parallelization
 
-pytestmark = pytest.mark.skipif(world.size < 4 or not compiled_with_sl(),
-                                reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size < 4 or not compiled_with_sl(),
+    reason='world.size < 4 or not compiled_with_sl()')
 
 
-
-def test_response_na_plasmons():
+def test_response_na_plasmons(in_tmp_dir):
     a = 4.23 / 2.0
     a1 = Atoms('Na',
                scaled_positions=[[0, 0, 0]],
