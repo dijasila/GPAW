@@ -16,12 +16,14 @@ a1.calc = GPAW(mode='lcao',
                kpts=(3, 3, 1),
                txt='1.txt')
 a1.get_potential_energy()
+a1.calc.write('1.gpw', mode='all')
 
 a2.calc = GPAW(mode='lcao',
                basis='sz(dzp)',
                kpts=(3, 3, 1),
                txt='2.txt')
 a2.get_potential_energy()
+a2.calc.write('2.gpw', mode='all')
 
 a12.calc = GPAW(mode='lcao',
                 basis='sz(dzp)',
