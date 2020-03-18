@@ -1,5 +1,4 @@
 """Trajectory module with viewmol support."""
-from __future__ import print_function
 
 from math import sqrt
 import numpy as np

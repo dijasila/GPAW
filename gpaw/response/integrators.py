@@ -6,10 +6,10 @@ from ase.utils.timing import timer, Timer
 from scipy.spatial import Delaunay
 from scipy.linalg.blas import zher
 
+import _gpaw
 import gpaw.mpi as mpi
 from gpaw.utilities.blas import gemm, rk, mmm
 from gpaw.utilities.progressbar import ProgressBar
-from _gpaw import tetrahedron_weight
 
 
 def czher(alpha: float, x, A) -> None:
@@ -519,8 +519,8 @@ class TetrahedronIntegrator(Integrator):
         W_w = np.zeros(len(omega_w), float)
         vol_s = self.get_simplex_volume(td, simplices_s)
         with self.timer('Tetrahedron weight'):
-            tetrahedron_weight(deps_k, td.simplices, K,
-                               simplices_s,
-                               W_w, omega_w, vol_s)
+            _gpaw.tetrahedron_weight(deps_k, td.simplices, K,
+                                     simplices_s,
+                                     W_w, omega_w, vol_s)
 
         return W_w

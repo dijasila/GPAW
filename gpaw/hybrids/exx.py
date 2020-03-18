@@ -6,6 +6,7 @@ import numpy as np
 from ase.utils.timing import timer
 
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.setup import Setup
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from ..utilities import unpack
 from .kpts import RSKPoint, to_real_space
@@ -16,7 +17,7 @@ import gpaw.mpi as mpi
 class EXX:
     def __init__(self,
                  kd: KPointDescriptor,
-                 setups: List['Setup'],
+                 setups: List[Setup],
                  pt,
                  coulomb,
                  spos_ac: np.ndarray,

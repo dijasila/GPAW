@@ -11,12 +11,15 @@ cmds = """\
 python3 -m venv venv
 . venv/bin/activate
 pip install -U pip
+pip install pytest
 pip install -q git+https://gitlab.com/ase/ase.git@master
-pip install -q git+https://gitlab.com/gpaw/gpaw.git@master
-gpaw test > test-1.out
-gpaw -P 2 test > test-2.out
-gpaw -P 4 test > test-4.out
-gpaw -P 8 test > test-8.out"""
+git clone git@gitlab.com:gpaw/gpaw
+cd gpaw
+pip install -e .
+pytest > test-1.out
+gpaw -P 2 python -m pytest > test-2.out
+gpaw -P 4 python -m pytest > test-4.out
+gpaw -P 8 python -m pytest > test-8.out"""
 
 
 def run_tests():
@@ -32,7 +35,7 @@ def run_tests():
     if p.returncode == 0:
         status = 'ok'
         for n in [1, 2, 4, 8]:
-            shutil.copy2(root / f'test-{n}.out', home)
+            shutil.copy2(root / f'gpaw/test-{n}.out', home)
     else:
         print('FAILED!', file=sys.stdout)
         status = 'error'

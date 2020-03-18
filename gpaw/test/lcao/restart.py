@@ -1,4 +1,3 @@
-from __future__ import print_function
 # Test that LCAO wavefunctions are available and equal after restarts
 # in normal as well as 'all' mode
 

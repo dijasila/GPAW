@@ -2,7 +2,6 @@
 # Refer to G. Kresse, Phys. Rev. B 73, 045112 (2006)
 # for comparison of macroscopic and microscopic dielectric constant
 # and absorption peaks.
-from __future__ import print_function
 from pathlib import Path
 
 from ase.build import bulk

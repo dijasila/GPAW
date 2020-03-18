@@ -1,3 +1,4 @@
+# type: ignore
 from math import nan
 from io import StringIO
 

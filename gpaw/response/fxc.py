@@ -1,7 +1,6 @@
 # -*- coding: utf-8
 """This module calculates XC kernels for response function calculations.
 """
-from __future__ import print_function
 
 import numpy as np
 

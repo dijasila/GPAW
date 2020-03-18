@@ -7,12 +7,13 @@ import os
 import sys
 from sysconfig import get_platform
 from os.path import join, isfile
+from typing import List
 
 plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
 if platform_id:
     plat += '-' + platform_id
-build_path = join(__path__[0], '..', 'build')  # noqa
+build_path = join(__path__[0], '..', 'build')  # type: ignore
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
 
 # If we are running the code from the source directory, then we will
@@ -35,8 +36,8 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '19.8.2b1'
-__ase_version_required__ = '3.18.0'
+__version__ = '20.1.1b1'
+__ase_version_required__ = '3.20.0b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -187,18 +188,10 @@ extra_parameters.update(parse_gpaw_args())
 
 # Check for special command line arguments:
 memory_estimate_depth = gpaw_args.memory_estimate_depth
-parsize_domain = gpaw_args.parsize_domain
-parsize_bands = gpaw_args.parsize_bands
-augment_grids = gpaw_args.augment_grids
-# We deprecate the sl_xxx parameters being set from command line.
-# People can satisfy their lusts by setting gpaw.sl_default = something
-# if they are perverted enough to use global variables.
-sl_default = None
-sl_diagonalize = None
-sl_inverse_cholesky = None
-sl_lcao = None
-sl_lrtddft = None
-buffer_size = gpaw_args.buffer_size
+parsize_domain: int = gpaw_args.parsize_domain
+parsize_bands: int = gpaw_args.parsize_bands
+augment_grids: int = gpaw_args.augment_grids
+buffer_size: int = gpaw_args.buffer_size
 profile = gpaw_args.profile
 
 
@@ -219,7 +212,8 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', sys.flags.debug)
+debug: bool = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -251,7 +245,7 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = []
+setup_paths: List[str] = []
 
 
 with broadcast_imports:
@@ -331,3 +325,12 @@ def initialize_data_paths():
 
 read_rc_file()
 initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))

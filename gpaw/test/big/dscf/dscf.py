@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.io import read
 from gpaw import GPAW
 import gpaw.dscf as dscf

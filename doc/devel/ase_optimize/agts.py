@@ -8,6 +8,8 @@ def create_tasks():
              task('run_tests_emt.py', deps='agts.py')]
     deps = ['run_tests_emt.py']
     for name in all_optimizers:
+        if name == 'Berny':
+            continue
         tasks.append(task('run_tests.py+{}@8:1d'.format(name),
                           deps='agts.py'))
         deps.append('run_tests.py+{}'.format(name))

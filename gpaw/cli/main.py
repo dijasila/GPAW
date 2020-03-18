@@ -12,10 +12,10 @@ from gpaw import __version__
 commands = [
     ('run', 'gpaw.cli.run'),
     ('info', 'gpaw.cli.info'),
+    ('test', 'gpaw.cli.test'),
     ('dos', 'gpaw.cli.dos'),
     ('gpw', 'gpaw.cli.gpw'),
     ('completion', 'gpaw.cli.completion'),
-    ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
     # ('quick', 'gpaw.cli.quick'),

@@ -10,11 +10,10 @@ atoms = Atoms('Na8',
 atoms.center()
 
 # Use an advanced Poisson solver
-eps = 1e-16
 ps = ExtraVacuumPoissonSolver(gpts=(512, 256, 256),
-                              poissonsolver_large=PoissonSolver(eps=eps),
+                              poissonsolver_large=PoissonSolver(),
                               coarses=2,
-                              poissonsolver_small=PoissonSolver(eps=eps))
+                              poissonsolver_small=PoissonSolver())
 
 # Ground-state calculation
 calc = GPAW(mode='lcao', h=0.3, basis='pvalence.dz', xc='LDA', nbands=6,

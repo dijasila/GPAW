@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 
 from gpaw import __version__ as version
@@ -54,8 +53,7 @@ def read_dipole_moment_file(fname, remove_duplicates=True):
     return kick_i, time_t, norm_t, dm_tv
 
 
-def calculate_polarizability(data, foldedfrequencies):
-    kick_v, time_t, dm_tv = data
+def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
     ff = foldedfrequencies
     omega_w = ff.frequencies
     envelope = ff.folding.envelope
@@ -64,21 +62,24 @@ def calculate_polarizability(data, foldedfrequencies):
     dt_t = np.insert(time_t[1:] - time_t[:-1], 0, 0.0)
     dm_tv = dm_tv[:] - dm_tv[0]
 
-    kick_magnitude = np.sum(kick_v**2)
-
     Nw = len(omega_w)
     alpha_wv = np.zeros((Nw, 3), dtype=complex)
     f_wt = np.exp(1.0j * np.outer(omega_w, time_t))
     dm_vt = np.swapaxes(dm_tv, 0, 1)
     alpha_wv = np.tensordot(f_wt, dt_t * envelope(time_t) * dm_vt, axes=(1, 1))
-    alpha_wv *= kick_v / kick_magnitude
+
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    alpha_wv /= kick_magnitude
     return alpha_wv
 
 
-def calculate_photoabsorption(data, foldedfrequencies):
+def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
     omega_w = foldedfrequencies.frequencies
-    alpha_wv = calculate_polarizability(data, foldedfrequencies)
+    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies)
     abs_wv = 2 / np.pi * omega_w[:, np.newaxis] * alpha_wv.imag
+
+    kick_magnitude = np.sqrt(np.sum(kick_v**2))
+    abs_wv *= kick_v / kick_magnitude
     return abs_wv
 
 
@@ -109,7 +110,7 @@ def write_spectrum(dipole_moment_file, spectrum_file,
     folding = Folding(folding, width)
     ff = FoldedFrequencies(freqs, folding)
     omega_w = ff.frequencies
-    spec_wv = calculate((kick_v, time_t, dm_tv), ff)
+    spec_wv = calculate(kick_v, time_t, dm_tv, ff)
 
     # Write spectrum file header
     with open(spectrum_file, 'w') as f:

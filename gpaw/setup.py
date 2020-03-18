@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, absolute_import
 import functools
 from math import pi, sqrt
 from io import StringIO

@@ -15,18 +15,14 @@ from pathlib import Path
 from config import check_dependencies, write_configuration, build_interpreter
 
 
-assert sys.version_info >= (3, 5)
+assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
 version = re.search("__version__ = '(.*)'", txt).group(1)
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
-long_description = """\
-GPAW is a density-functional theory (DFT) Python code based on the
-projector-augmented wave (PAW) method and the atomic simulation environment
-(ASE). It uses plane-waves, atom-centered basis-functions or real-space
-uniform grids combined with multigrid methods."""
+long_description = Path('README.rst').read_text()
 
 remove_default_flags = False
 if '--remove-default-flags' in sys.argv:
@@ -221,7 +217,6 @@ setup(name='gpaw',
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',

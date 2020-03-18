@@ -1,6 +1,5 @@
 """Excited state as calculator object."""
 
-from __future__ import print_function
 import os
 import errno
 
