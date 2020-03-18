@@ -11,19 +11,18 @@ from gpaw.pes.tddft import TDDFTPES
 
 def test_lrtddft_pes(in_tmp_dir):
     txt = None
-    R=0.7 # approx. experimental bond length
+    R = 0.7  # approx. experimental bond length
     a = 3.0
     c = 3.0
-    h = .3
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
-                    Atom('H', (a / 2, a / 2, (c + R) / 2))],
-                   cell=(a, a, c))
+                Atom('H', (a / 2, a / 2, (c + R) / 2))],
+               cell=(a, a, c))
 
     H2_plus = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
-                    Atom('H', (a / 2, a / 2, (c + R) / 2))],
-                   cell=(a, a, c))
+                     Atom('H', (a / 2, a / 2, (c + R) / 2))],
+                    cell=(a, a, c))
 
-    xc='LDA'
+    xc = 'LDA'
 
     calc = GPAW(gpts=(12, 12, 12), xc=xc, nbands=1,
                 poissonsolver=FDPoissonSolver(),
@@ -31,8 +30,6 @@ def test_lrtddft_pes(in_tmp_dir):
                 spinpol=True, txt=txt)
     H2.set_calculator(calc)
     e_H2 = H2.get_potential_energy()
-    niter_H2 = calc.get_number_of_iterations()
-
 
     calc_plus = GPAW(gpts=(12, 12, 12), xc=xc, nbands=2,
                      poissonsolver=FDPoissonSolver(),
@@ -41,7 +38,6 @@ def test_lrtddft_pes(in_tmp_dir):
     calc_plus.set(charge=+1)
     H2_plus.set_calculator(calc_plus)
     e_H2_plus = H2_plus.get_potential_energy()
-    niter_H2_plus = calc.get_number_of_iterations()
 
     out = 'dospes.dat'
     pes = DOSPES(calc, calc_plus, shift=True)
@@ -67,7 +63,6 @@ def test_lrtddft_pes(in_tmp_dir):
     pes.save_folded_pes(filename=None, folding=None)
 
     energy_tolerance = 0.001
-    niter_tolerance = 1
     equal(e_H2, -3.90059, energy_tolerance)
     equal(e_H2_plus, 10.5659703, energy_tolerance)
 

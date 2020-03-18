@@ -10,7 +10,6 @@ from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
 
 
-
 def test_lrtddft_kssingles_Be(in_tmp_dir):
     Be = Atoms('Be')
     Be.center(vacuum=4)
@@ -21,11 +20,11 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
         Be.set_cell(cell)
 
     txt = None
-    #txt='-'
+    # txt='-'
     eigensolver = None
-    #eigensolver = 'rmm-diis'
+    # eigensolver = 'rmm-diis'
 
-    #modes = ['lcao', 'fd']
+    # modes = ['lcao', 'fd']
     modes = ['fd']
 
     for mode in modes:
@@ -35,10 +34,14 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             Be.set_pbc(pbc)
             if pbc:
                 name = 'periodic'
-                calc = GPAW(h=0.25, nbands=4, kpts=(1,2,2), mode=mode,
+                calc = GPAW(h=0.25,
+                            nbands=4,
+                            kpts=(1, 2, 2),
+                            mode=mode,
                             poissonsolver={'name': 'fd'},
                             symmetry='off',
-                            eigensolver=eigensolver, txt=txt)
+                            eigensolver=eigensolver,
+                            txt=txt)
             else:
                 name = 'zero_bc'
                 calc = GPAW(h=0.25, nbands=4, mode=mode,
