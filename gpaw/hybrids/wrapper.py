@@ -53,6 +53,8 @@ class HybridXC:
         return 'PBE'
 
     def initialize(self, dens, ham, wfs, occupations):
+        self.dens = dens
+        self.wfs = wfs
         self.exx = EXX(wfs.gd, wfs.kd, wfs.nspins, wfs.pt, wfs.setups,
                        self.omega, self.exx_fraction, self.xc)
         assert wfs.world.size == wfs.gd.comm.size
@@ -64,11 +66,11 @@ class HybridXC:
         self.exx.spos_ac = spos_ac
 
     def calculate(self, gd, nt_sr, vt_sr):
-        energy = self.exx.calculate_semi_local_potential_and_energy()
+        energy = self.exx.calculate_local_potential_and_energy(
+            gd, nt_sr, vt_sr)
         return energy
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
-        1 / 0
         if not self.xc:
             return 0.0
         return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
@@ -85,7 +87,7 @@ class HybridXC:
                 self.vlda_sR = self.calculate_lda_potential()
             pd = kpt.psit.pd
             for psit_G, Htpsit_G in zip(psit_xG, Htpsit_xG):
-                Htpsit_G += pd.fft(self.vt_sR[kpt.s] *
+                Htpsit_G += pd.fft(self.vlda_sR[kpt.s] *
                                    pd.ifft(psit_G, kpt.k), kpt.q)
         else:
             self.vlda_sR = None

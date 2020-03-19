@@ -25,11 +25,12 @@ class EXX:
 
         if omega:
             self.coulomb = ShortRangeCoulomb(omega)
+            self.description = f'Short-range Coulomb (omega={omega} bohr^-1)'
         else:
             # Wigner-Seitz truncated Coulomb:
             output = StringIO()
             self.coulomb = WSTC(gd.cell_cv, kd.N_c, txt=output)
-            self.description += output.getvalue()
+            self.description = output.getvalue()
 
         self.gd = gd
         self.kd = kd
@@ -57,9 +58,7 @@ class EXX:
 
         self.spos_ac = None
 
-        self.description = ''
-
-    def calculate_semi_local_potential_and_energy(self, gd, nt_sr, vt_sr):
+    def calculate_local_potential_and_energy(self, gd, nt_sr, vt_sr):
         energy = self.ecc + self.evv + self.evc
         if self.xc:
             e_r = gd.empty()
