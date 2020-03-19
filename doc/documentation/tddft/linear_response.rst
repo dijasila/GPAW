@@ -7,7 +7,10 @@ Linear response TDDFT
 Ground state
 ============
 
-The linear response TDDFT calculation needs a converged ground state calculation with a set of unoccupied states. The standard eigensolver 'rmm-diis' should not be used for the calculation of unoccupied states, better use 'dav' or 'cg':
+The linear response TDDFT calculation needs a converged ground state
+calculation with a set of unoccupied states.
+Note, that the eigensolver 'rmm-diis' should not be used
+for the calculation of unoccupied states, better use 'dav' or 'cg':
 
 .. literalinclude:: Be_gs_8bands.py
 
@@ -36,7 +39,7 @@ The dipole spectrum can be evaluated from the Omega matrix and written to a file
   from gpaw.lrtddft import LrTDDFT
   from gpaw.lrtddft import photoabsorption_spectrum
 
-  lr = LrTDDFT('lr.dat.gz')
+  lr = LrTDDFT.read('lr.dat.gz')
   lr.diagonalize()
   # write the spectrum to the data file
   photoabsorption_spectrum(lr, 'spectrum_w.05eV.dat', # data file name
@@ -50,7 +53,7 @@ the basis in the diagonalisation step, e.g.::
 
   from gpaw.lrtddft import LrTDDFT 
 
-  lr = LrTDDFT('lr.dat.gz')
+  lr = LrTDDFT.read('lr.dat.gz')
   lr.diagonalize(energy_range=2.)
 
 This can be automated by using the check_convergence function::
@@ -58,7 +61,7 @@ This can be automated by using the check_convergence function::
   from gpaw.lrtddft import LrTDDFT
   from gpaw.lrtddft.convergence import check_convergence
 
-  lr = LrTDDFT('lr.dat.gz')
+  lr = LrTDDFT.read('lr.dat.gz')
   check_convergence(lr,
                     'linear_response',
                     'my plot title',
@@ -76,7 +79,7 @@ The single transitions (or a list of transitions) can be analysed as follows
 
   from gpaw.lrtddft import LrTDDFT
 
-  lr = LrTDDFT('lr.dat.gz')
+  lr = LrTDDFT.read('lr.dat.gz')
   lr.diagonalize()
 
   # analyse transition 1
@@ -102,18 +105,17 @@ keyword           type            default value        description
 ================  ==============  ===================  ========================================
 ``calculator``    ``GPAW``                             Calculator object of ground state
                                                        calculation
-``filename``      ``string``                           read the state of LrTDDFT calculation 
-                                                       (i.e. omega matrix, excitations)
-                                                       from ``filename``  
-``istart``        ``int``         0                    first occupied state to consider
-``jend``          ``int``         number of bands      last unoccupied state to consider
-``energy_range``  ``float``       None                 Energy range to consider in the involved
-                                                       Kohn-Sham orbitals (replaces [istart,jend])
 ``nspins``        ``int``         1                    number of excited state spins, i.e.
                                                        singlet-triplet transitions are 
                                                        calculated with ``nspins=2``. Effective
                                                        only if ground state is spin-compensated
 ``xc``            ``string``      xc of calculator     Exchange-correlation for LrTDDFT, can 
-                                                       differ from ground state value 
+                                                       differ from ground state value
+``restrict``	  ``dict``        {}		       Restrictions ``eps``, ``istart``, ``jend``
+                                                       and ``energy_range`` collected as dict.		       
 ``eps``           ``float``       0.001                Minimal occupation difference for a transition
+``istart``        ``int``         0                    first occupied state to consider
+``jend``          ``int``         number of bands      last unoccupied state to consider
+``energy_range``  ``float``       None                 Energy range to consider in the involved
+                                                       Kohn-Sham orbitals (replaces [istart,jend])
 ================  ==============  ===================  ========================================

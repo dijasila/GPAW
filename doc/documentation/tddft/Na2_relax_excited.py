@@ -22,7 +22,7 @@ c = GPAW(h=h, nbands=nbands, eigensolver='cg',
          setups={'Na': '1'},
          convergence={'bands': nconv})
 c.calculate(s)
-lr = LrTDDFT(c, xc=exc, eps=0.1, jend=nconv - 1)
+lr = LrTDDFT(c, xc=exc, restrict={'eps': 0.1, 'jend': nconv - 1})
 
 ex = ExcitedState(lr, iex, d=d)
 s.set_calculator(ex)
