@@ -1,7 +1,6 @@
 from ase import Atoms
 from ase.build import mx2
 from gpaw import GPAW
-from gpaw.lcao.scissors import Scissors
 
 d = 3.0
 a12 = mx2()
@@ -11,12 +10,20 @@ a12.center(vacuum=3.0, axis=2)
 a1 = a12[:3]
 a2 = a12[3:]
 
+bp = a12.cell.bandpath('GKM', npoints=20)
+
 a1.calc = GPAW(mode='lcao',
                basis='sz(dzp)',
                kpts=(3, 3, 1),
                txt='1.txt')
 a1.get_potential_energy()
 a1.calc.write('1.gpw', mode='all')
+
+a1.calc.set(fixdensity=True, kpts=bp, symmetry='off')
+a1.get_potential_energy()
+a1.calc.write('1bs.gpw', mode='all')
+bs = a1.calc.band_structure()
+bs.write('1bs.json')
 
 a2.calc = GPAW(mode='lcao',
                basis='sz(dzp)',
@@ -25,6 +32,12 @@ a2.calc = GPAW(mode='lcao',
 a2.get_potential_energy()
 a2.calc.write('2.gpw', mode='all')
 
+a2.calc.set(fixdensity=True, kpts=bp, symmetry='off')
+a2.get_potential_energy()
+a2.calc.write('2bs.gpw', mode='all')
+bs = a2.calc.band_structure()
+bs.write('2bs.json')
+
 a12.calc = GPAW(mode='lcao',
                 basis='sz(dzp)',
                 kpts=(3, 3, 1),
@@ -32,11 +45,8 @@ a12.calc = GPAW(mode='lcao',
 a12.get_potential_energy()
 a12.calc.write('12.gpw')
 
-a12.calc = GPAW(mode='lcao',
-                basis='sz(dzp)',
-                kpts=(3, 3, 1),
-                eigensolver=Scissors([(-0.5, 0.5, a1.calc),
-                                      (1.0, -1.0, a2.calc)]),
-                txt='12s.txt')
+a12.calc.set(fixdensity=True, kpts=bp, symmetry='off')
 a12.get_potential_energy()
-a12.calc.write('12s.gpw')
+a12.calc.write('12bs.gpw', mode='all')
+bs = a12.calc.band_structure()
+bs.write('12bs.json')
