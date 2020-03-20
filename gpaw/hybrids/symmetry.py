@@ -35,6 +35,7 @@ def create_symmetry_map(kd: KPointDescriptor):  # -> List[List[int]]
 
 class Symmetry:
     def __init__(self, kd: KPointDescriptor):
+        self.kd = kd
         self.symmetry_map_ss = create_symmetry_map(kd)
 
         U_scc = kd.symmetry.op_scc
@@ -75,7 +76,7 @@ class Symmetry:
 
         return T, T_a, time_reversal
 
-    def apply_symmetry(self, s: int, rsk):
+    def apply_symmetry(self, s: int, rsk, setups, spos_ac):
         U_scc = self.kd.symmetry.op_scc
         nsym = len(U_scc)
         time_reversal = s >= nsym
@@ -99,11 +100,11 @@ class Symmetry:
         for u1_R, u2_R in zip(u1_nR, u2_nR):
             u2_R[:] = u1_R.ravel()[i].reshape(N_c)
 
-        for a, id in enumerate(self.setups.id_a):
+        for a, id in enumerate(setups.id_a):
             b = self.kd.symmetry.a_sa[s, a]
-            S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
+            S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
             x = np.exp(2j * pi * np.dot(k1_c, S_c))
-            U_ii = self.setups[a].R_sii[s].T * x
+            U_ii = setups[a].R_sii[s].T * x
             proj2[a][:] = proj1[b].dot(U_ii)
 
         if time_reversal:
@@ -112,7 +113,7 @@ class Symmetry:
 
         return RSKPoint(u2_nR, proj2, f_n, k2_c, weight)
 
-    def pairs(self, kpts):
+    def pairs(self, kpts, comm, setups, spos_ac):
         kd = self.kd
         nsym = len(kd.symmetry.op_scc)
 
@@ -168,9 +169,9 @@ class Symmetry:
                     rsk2 = rsk1
                 else:
                     N = len(rsk1.u_nR)
-                    S = self.comm.size
+                    S = comm.size
                     B = (N + S - 1) // S
-                    na = min(B * self.comm.rank, N)
+                    na = min(B * comm.rank, N)
                     nb = min(na + B, N)
                     rsk2 = RSKPoint(rsk1.u_nR[na:nb],
                                     rsk1.proj.view(na, nb),
@@ -181,9 +182,9 @@ class Symmetry:
             elif i2 != lasti2:
                 k2 = kpts[i2]
                 N = len(k2.psit.array)
-                S = self.comm.size
+                S = comm.size
                 B = (N + S - 1) // S
-                na = min(B * self.comm.rank, N)
+                na = min(B * comm.rank, N)
                 nb = min(na + B, N)
                 u2_nR = to_real_space(k2.psit, na, nb)
                 rsk2 = RSKPoint(u2_nR, k2.proj.broadcast().view(na, nb),
@@ -191,4 +192,5 @@ class Symmetry:
                                 k2.weight)
                 lasti2 = i2
 
-            yield i1, i2, s, rsk1, self.apply_symmetry(s, rsk2), count
+            yield (i1, i2, s,
+                   rsk1, self.apply_symmetry(s, rsk2, setups, spos_ac), count)

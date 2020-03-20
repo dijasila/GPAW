@@ -1,6 +1,5 @@
 # type: ignore
 from math import nan
-from io import StringIO
 
 import numpy as np
 from ase.units import Ha
@@ -8,7 +7,6 @@ from ase.units import Ha
 from gpaw.xc.exx import pawexxvv
 from gpaw.xc.tools import _vxc
 from gpaw.utilities import unpack2, unpack
-from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 from .kpts import KPoint
 from .coulomb import ShortRangeCoulomb
 
@@ -22,15 +20,6 @@ class EXX:
                 'Your k-points are not as symmetric as your crystal!')
 
         assert kd.comm.size == 1
-
-        if omega:
-            self.coulomb = ShortRangeCoulomb(omega)
-            self.description = f'Short-range Coulomb (omega={omega} bohr^-1)'
-        else:
-            # Wigner-Seitz truncated Coulomb:
-            output = StringIO()
-            self.coulomb = WSTC(gd.cell_cv, kd.N_c, txt=output)
-            self.description = output.getvalue()
 
         self.gd = gd
         self.kd = kd
@@ -69,7 +58,7 @@ class EXX:
     def apply1(self, kpt, psit_xG, Htpsit_xG):
         deg = 2 / self.nspins
 
-        v_nG = self.v_sknG.pop((kpt.s, kpt.k))
+        v_nG = self.v_knG.pop(kpt.k)
         if v_nG is not None:
             Htpsit_xG += v_nG * self.exx_fraction
             return
@@ -79,9 +68,10 @@ class EXX:
             self.evc = 0.0
             self.ekin = 0.0
 
+        kd = self.kd
         VV_aii = self.calculate_valence_valence_paw_corrections(kpt.s)
         K = kd.nibzkpts
-        k1 = (spin - kd.comm.rank) * K
+        k1 = kpt.s * K
         k2 = k1 + K
         kpts = [KPoint(kpt.psit,
                        kpt.projections,
@@ -125,15 +115,6 @@ class EXX:
             derivatives=True)
         Htpsit_xG += self.exx_fraction * v_1xG[0]
 
-    def calculate_valence_valence_paw_corrections(self, spin):
-        VV_aii = {}
-        for a, D_sp in self.dens.D_asp.items():
-            data = self.wfs.setups[a]
-            D_p = D_sp[spin]
-            D_ii = unpack2(D_p) * (self.wfs.nspins / 2)
-            VV_ii = pawexxvv(data, D_ii)
-            VV_aii[a] = VV_ii
-        return VV_aii
 
     def test(self):
         self._initialize()

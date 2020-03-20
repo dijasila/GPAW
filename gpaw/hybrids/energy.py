@@ -6,11 +6,14 @@ from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from .hybrid import HybridXC
-from .kpts import KPoint
-from .symmetry import Symmetry
 from gpaw.mpi import serial_comm
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.xc import XC
+from . import parse_name
+from .coulomb import coulomb_inteaction
+from .kpts import KPoint
+from .paw import calculate_paw_stuff
+from .symmetry import Symmetry
 
 
 def non_self_consistent_energy(calc: Union[GPAW, str, Path],
@@ -26,25 +29,33 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     """
 
     if not isinstance(calc, GPAW):
-        calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
+        calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
 
     wfs = calc.wfs
-    nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
-               for kpt in wfs.mykpts)
+    dens = calc.density
+    kd = wfs.kd
+    setups = wfs.setups
     nspins = wfs.nspins
 
-    xc = HybridXC(xcname)
-    xc.initialize_from_calculator(calc)
-    xc.set_positions(calc.spos_ac)
-    xc._initialize()
+    nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
+               for kpt in wfs.mykpts)
 
-    kd = wfs.kd
+    xcname, exx_fraction, omega = parse_name(xcname)
+
+    xc = XC(xcname)
+    exc = xc.calculate(dens.finegd, dens.nt_sg)
+    for a, D_sp in dens.D_asp.items():
+        exc += xc.calculate_paw_correction(setups[a], D_sp)
+
+    coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
+    VV_saii, VC_aii, Delta_aiiL = calculate_paw_stuff(dens, setups)
+
+    ecc = sum(setup.ExxC for setup in setups) * exx_fraction
     evc = 0.0
     evv = 0.0
     for spin in range(nspins):
-        VV_aii = xc.calculate_valence_valence_paw_corrections(spin)
         K = kd.nibzkpts
         k1 = spin * K
         k2 = k1 + K
@@ -54,20 +65,22 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                        kd.ibzk_kc[kpt.k],
                        kd.weight_k[kpt.k])
                 for kpt in wfs.mykpts[k1:k2]]
-        e1, e2 = calculate_energy(kpts, VV_aii, wfs.world, sym)
+        e1, e2 = calculate_energy(kpts, VC_aii, VV_saii[spin],
+                                  Delta_aiiL, wfs.world, sym,
+                                  setups, calc.spos_ac, coulomb)
         evc += e1 * 2 / wfs.nspins
         evv += e2 * 2 / wfs.nspins
 
-    return evc * Ha, evv * Ha
+    return exc * Ha, ecc * Ha, evc * Ha, evv * Ha
 
 
-def calculate_energy(kpts, VC_aii, VV_aii,
+def calculate_energy(kpts, VC_aii, VV_aii, Delta_aiiL,
                      comm, sym, setups, spos_ac, coulomb):
     pd = kpts[0].psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
 
     exxvv = 0.0
-    for i1, i2, s, k1, k2, count in sym.pairs(kpts):
+    for i1, i2, s, k1, k2, count in sym.pairs(kpts, comm, setups, spos_ac):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
 
@@ -83,8 +96,8 @@ def calculate_energy(kpts, VC_aii, VV_aii,
                                       kpts[i2].psit.kpt,
                                       k1.f_n,
                                       k2.f_n,
-                                      s,
-                                      count)
+                                      s, comm,
+                                      count, Delta_aiiL)
 
         e_nn *= count
         e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
@@ -112,8 +125,8 @@ def calculate_exx_for_pair(k1,
                            index1, index2,
                            f1_n, f2_n,
                            s,
-                           count,
                            comm,
+                           count,
                            Delta_aiiL):
 
     N1 = len(k1.u_nR)

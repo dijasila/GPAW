@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 import numpy as np
 
@@ -6,40 +6,19 @@ from gpaw.xc import XC
 from .hybrid import EXX
 
 
-def parse_name(name: str) -> Tuple[str, float, float]:
-    if name == 'EXX':
-        return 'null', 1.0, 0.0
-    if name == 'PBE0':
-        return 'HYB_GGA_XC_PBEH', 0.25, 0.0
-    if name == 'HSE03':
-        return 'HYB_GGA_XC_HSE03', 0.25, 0.106
-    if name == 'HSE06':
-        return 'HYB_GGA_XC_HSE06', 0.25, 0.11
-    if name == 'B3LYP':
-        return 'HYB_GGA_XC_B3LYP', 0.2, 0.0
-
-
 class HybridXC:
     orbital_dependent = True
     type = 'HYB'
 
     def __init__(self,
-                 name: str = None,
-                 xc=None,
-                 exx_fraction: float = None,
-                 omega: float = None):
-        if name is not None:
-            assert xc is None and exx_fraction is None and omega is None
-            xc, exx_fraction, omega = parse_name(name)
-            self.name = name
+                 kind: Union[str, Tuple[str, float, float]]):
+        from . import parse_name
+        if isinstance(kind, str):
+            xcname, exx_fraction, omega = parse_name(kind)
         else:
-            assert xc is not None and exx_fraction is not None
-            self.name = '???'
+            xcname, exx_fraction, omega = kind
 
-        if xc:
-            xc = XC(xc)
-
-        self.xc = xc
+        self.xc = XC(xcname)
         self.exx_fraction = exx_fraction
         self.omega = omega
 

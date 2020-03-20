@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import numpy as np
 from ase.units import Ha
@@ -104,3 +104,48 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
                 path.write_text(json.dumps(dct))
 
     return e_dft_sin, v_dft_sin, v_hyb_sl_sin + v_hyb_nl_sin
+
+
+def _semi_local_eigenvalues(calc: GPAW,
+                            xc,
+                            n1: int,
+                            n2: int,
+                            kpts: List[int]
+                            ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    wfs = calc.wfs
+    nspins = wfs.nspins
+
+    e_dft_sin = np.array([[calc.get_eigenvalues(k, spin)[n1:n2]
+                           for k in kpts]
+                          for spin in range(nspins)])
+    v_dft_sin = vxc(calc)[:, kpts, n1:n2]
+    if xc.xc:
+        v_hyb_sl_sin = vxc(calc, xc.xc)[:, kpts, n1:n2]
+    else:
+        v_hyb_sl_sin = np.zeros_like(v_dft_sin)
+    return e_dft_sin, v_dft_sin, v_hyb_sl_sin
+
+
+def _non_local_eigenvalues(calc: GPAW,
+                           xc,
+                           n1: int,
+                           n2: int,
+                           kpts: List[int],
+                           ftol: float
+                           ) -> Generator[np.ndarray, None, None]:
+    wfs = calc.wfs
+    nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
+               for kpt in wfs.mykpts)
+    nspins = wfs.nspins
+
+    xc.initialize_from_calculator(calc)
+    xc.set_positions(calc.spos_ac)
+    xc._initialize()
+    VV_saii = [xc.calculate_valence_valence_paw_corrections(spin)
+               for spin in range(nspins)]
+
+    for k in kpts:
+        for spin in range(nspins):
+            v_n = xc.calculate_eigenvalue_contribution(
+                spin, k, n1, n2, nocc, VV_saii[spin]) * Ha
+            yield v_n
