@@ -71,8 +71,8 @@ def test_lrtddft_1():
                  gd.integrate(den), gd.integrate(den_vspin), ddiff)
         parprint('   aed density integral',
                  finegd.integrate(ex.get_all_electron_density() * Bohr**3),
-                 finegd.integrate(ex_vspin.get_all_electron_density()
-                                  * Bohr**3))
+                 finegd.integrate(ex_vspin.get_all_electron_density() *
+                                  Bohr**3))
         assert(ddiff < 1.e-4)
 
         if not load:

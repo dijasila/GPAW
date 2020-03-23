@@ -9,7 +9,6 @@ from gpaw.mpi import world
 
 from gpaw.test import equal
 
-# Atoms
 
 def test_lcaotddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
@@ -23,7 +22,7 @@ def test_lcaotddft_restart(in_tmp_dir):
                 xc='GLLBSC',
                 txt='gs.out')
     atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
+    _ = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation

@@ -1,6 +1,7 @@
 from ase.build import bulk
 from gpaw import GPAW, PW
 
+
 def test_pseudopotential_ah(in_tmp_dir):
     si = bulk('Si', 'diamond', a=5.5, cubic=not True)
     si.calc = GPAW(mode=PW(200),

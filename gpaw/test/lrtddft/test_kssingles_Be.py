@@ -32,10 +32,14 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             Be.set_pbc(pbc)
             if pbc:
                 name = 'periodic'
-                calc = GPAW(h=0.25, nbands=4, kpts=(1, 2, 2), mode=mode,
+                calc = GPAW(h=0.25,
+                            nbands=4,
+                            kpts=(1, 2, 2),
+                            mode=mode,
                             poissonsolver={'name': 'fd'},
                             symmetry='off',
-                            eigensolver=eigensolver, txt=txt)
+                            eigensolver=eigensolver,
+                            txt=txt)
             else:
                 name = 'zero_bc'
                 calc = GPAW(h=0.25, nbands=4, mode=mode,

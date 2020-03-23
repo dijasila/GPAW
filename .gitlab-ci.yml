@@ -14,6 +14,6 @@ master:
     - su user -c 'pytest -v -m ci'
     - flake8 --exit-zero --exclude "doc/platforms/*,gpaw/lrtddft2/*" gpaw doc > f8.out
     - cat f8.out | wc -l | tee nerr
-    - python -c "assert int(open('nerr').read()) <= 2579, 'Please run flake8 on your code'"
+    - python -c "assert int(open('nerr').read()) <= 2451, 'Please run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/
     - mypy -p gpaw

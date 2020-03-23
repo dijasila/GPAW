@@ -35,7 +35,7 @@ def run_tests():
     if p.returncode == 0:
         status = 'ok'
         for n in [1, 2, 4, 8]:
-            shutil.copy2(root / f'test-{n}.out', home)
+            shutil.copy2(root / f'gpaw/test-{n}.out', home)
     else:
         print('FAILED!', file=sys.stdout)
         status = 'error'

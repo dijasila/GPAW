@@ -80,4 +80,5 @@ def test_gllb_diamond(in_tmp_dir):
     if calc.wfs.world.rank == 0:
         print('energy', energy, 'ref', ref)
     assert err < 0.10, err
-    # M. Kuisma et. al, Phys. Rev. B 82, 115106, QP gap for C, 5.41eV, expt. 5.48eV
+    # M. Kuisma et. al, Phys. Rev. B 82, 115106:
+    #     QP gap for C, 5.41eV, expt. 5.48eV

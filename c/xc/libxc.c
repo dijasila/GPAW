@@ -56,20 +56,36 @@ lxcXCFunctional_set_omega(lxcXCFunctionalObject *self, PyObject *args)
 {
   int success = 0; /* Assume we don't use sfat */
   int i = 0;
+#if XC_MAJOR_VERSION >= 4
+  double omega = 0.0;        
+#else
   float omega = 0.0;
+#endif
   XC(func_type) *test_functional;
 
+#if XC_MAJOR_VERSION >= 4
+  if (!PyArg_ParseTuple(args, "d", &omega)) {
+    PyErr_SetString(PyExc_TypeError,
+                    "Gamma has to be double");
+#else
   if (!PyArg_ParseTuple(args, "f", &omega)) {
     PyErr_SetString(PyExc_TypeError,
                     "Gamma has to be float");
+#endif
     return NULL;
   }
 
   if (self->functional[0]->info->family == XC_FAMILY_HYB_GGA) {
     for (i=0; i<self->functional[0]->n_func_aux; i++) {
       test_functional = self->functional[0]->func_aux[i];
+#if XC_MAJOR_VERSION >= 5
+      if ((test_functional->info->number == XC_GGA_X_SFAT) || 
+	  (test_functional->info->number == XC_GGA_X_SFAT_PBE)) {
+        XC(func_set_ext_params)(test_functional, &omega);
+#else
       if (test_functional->info->number == XC_GGA_X_SFAT) {
         XC(gga_x_sfat_set_params)(test_functional, -1, omega);
+#endif /* XC_MAJOR_VERSION >= 5 */
         success = 1;
       }
     }
