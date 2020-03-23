@@ -25,6 +25,14 @@ a = 4.0
 c = 5.0
 
 
+class GPAW_with_classmethod_read(GPAW):
+    @classmethod
+    def read(cls, filename):
+        gpw = cls()
+        GPAW.read(gpw, filename)
+        return gpw
+
+
 @pytest.mark.xfail
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
@@ -35,12 +43,13 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     exkwargs = {'eps': 0.0, 'jend': 3}
 
     if 1:
-        calc = GPAW(xc=xc, nbands=7,
-                    convergence={'bands': 3},
-                    spinpol=False,
-                    # eigensolver='rmm-diis',
-                    symmetry={'point_group': False},
-                    txt=txt)
+        calc = GPAW_with_classmethod_read(
+            xc=xc, nbands=7,
+            convergence={'bands': 3},
+            spinpol=False,
+            # eigensolver='rmm-diis',
+            symmetry={'point_group': False},
+            txt=txt)
         H2.set_calculator(calc)
         # H2.get_potential_energy()
 
@@ -105,3 +114,7 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
                   approximation='Albrecht BC', txt=txt)
     ali = al.absolute_intensity(omega=om)[-1]
     equal(pri, ali, 3)
+
+
+if __name__ == '__main__':
+    test_lrtddft_placzek_profeta_albrecht(True)
