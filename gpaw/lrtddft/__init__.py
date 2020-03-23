@@ -69,6 +69,7 @@ class LrTDDFT(ExcitationList):
 
     def __init__(self, calculator=None, **kwargs):
 
+        self.energy_to_eV_scale = Hartree
         self.timer = Timer()
         self.diagonalized = False
 

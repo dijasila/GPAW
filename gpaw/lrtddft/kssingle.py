@@ -50,6 +50,7 @@ class KSSingles(ExcitationList):
                  filehandle=None,
                  txt=None):
 
+        self.energy_to_eV_scale = Hartree
         self.eps = None
         self.world = mpi.world
 
