@@ -1,7 +1,6 @@
 """
 Test Placzek Raman implementation
 """
-import pytest
 from ase import Atoms, Atom
 from ase.vibrations.placzek import Placzek, Profeta
 from ase.vibrations.albrecht import Albrecht
@@ -33,7 +32,6 @@ class GPAW_with_classmethod_read(GPAW):
         return gpw
 
 
-@pytest.mark.xfail
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
