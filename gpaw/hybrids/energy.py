@@ -89,15 +89,7 @@ def calculate_energy(kpts, VC_aii, VV_aii, Delta_aiiL,
         ghat.set_positions(spos_ac)
 
         v_G = coulomb.get_potential(pd12)
-        e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                      kpts[i1].psit.pd,
-                                      kpts[i2].psit.pd,
-                                      kpts[i1].psit.kpt,
-                                      kpts[i2].psit.kpt,
-                                      k1.f_n,
-                                      k2.f_n,
-                                      s, comm,
-                                      count, Delta_aiiL)
+        e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G, comm, Delta_aiiL)
 
         e_nn *= count
         e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
@@ -121,12 +113,7 @@ def calculate_exx_for_pair(k1,
                            k2,
                            ghat,
                            v_G,
-                           pd1, pd2,
-                           index1, index2,
-                           f1_n, f2_n,
-                           s,
                            comm,
-                           count,
                            Delta_aiiL):
 
     N1 = len(k1.u_nR)
