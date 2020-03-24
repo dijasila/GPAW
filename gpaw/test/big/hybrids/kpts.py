@@ -43,6 +43,7 @@ def check(atoms, xc, i):
     xc2.calculate()
     e0 = xc2.get_exx_energy()
     eps0 = xc2.get_eigenvalue_contributions()
+    assert np.allclose(eps0, eps['v_hyb_sin']), (eps0, eps)
     # assert np.allclose(v2, xc1.e_skn * Ha), (v2, xc1.e_skn * Ha, eps0)
     # assert np.allclose(eps0, xc1.e_skn * Ha)
     print(e0, e)

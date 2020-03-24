@@ -73,7 +73,10 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
             results['v_hyb_nl_sin'][s].append(v_hyb_nl_n)
             write_snapshot(results, snapshot, wfs.world)
 
-    return {name: np.array(array) * Ha for name, array in results.items()}
+    print({name: np.asarray(array) * Ha for name, array in results.items()})
+    results['v_hyb_sin'] = (results.pop('v_hyb_sl_sin') +
+                            results.pop('v_hyb_nl_sin'))
+    return {name: np.asarray(array) * Ha for name, array in results.items()}
 
 
 def _semi_local(calc: GPAW,
@@ -89,9 +92,9 @@ def _semi_local(calc: GPAW,
                           for spin in range(nspins)])
     v_dft_sin = vxc(calc)[:, kpt_indices, n1:n2]
     v_hyb_sl_sin = vxc(calc, xc)[:, kpt_indices, n1:n2]
-    return {'e_dft_sin': e_dft_sin,
-            'v_dft_sin': v_dft_sin,
-            'v_hyb_sl_sin': v_hyb_sl_sin}
+    return {'e_dft_sin': e_dft_sin / Ha,
+            'v_dft_sin': v_dft_sin / Ha,
+            'v_hyb_sl_sin': v_hyb_sl_sin / Ha}
 
 
 def _non_local(calc: GPAW,
