@@ -5,6 +5,7 @@ from gpaw import GPAW, PW
 # from gpaw.hybrids import HybridXC
 # from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.hybrids.energy import non_self_consistent_energy
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.xc.exx import EXX
 # from gpaw.mpi import world, serial_comm
 
@@ -30,6 +31,7 @@ def check(atoms, xc, i):
     # xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
     # xc1.set_positions(c.spos_ac)
     e = non_self_consistent_energy(c, xc)
+    eps = non_self_consistent_eigenvalues(c, xc)
     # xc1.calculate_eigenvalues0(0, 2, None)
     # e1, v1, v2 = non_self_consistent_eigenvalues(c, xc, 0, 2, None,
     #                                             f'{i}.txt')
@@ -40,7 +42,7 @@ def check(atoms, xc, i):
     xc2 = EXX(c, xc=xc, bands=(0, 2), txt=None)
     xc2.calculate()
     e0 = xc2.get_exx_energy()
-    # eps0 = xc2.get_eigenvalue_contributions()
+    eps0 = xc2.get_eigenvalue_contributions()
     # assert np.allclose(v2, xc1.e_skn * Ha), (v2, xc1.e_skn * Ha, eps0)
     # assert np.allclose(eps0, xc1.e_skn * Ha)
     print(e0, e)
@@ -54,7 +56,7 @@ def main():
     i = 0
     for spinpol in [False, True]:
         for setup in [
-            # 'ae',
+            'ae',
             'paw']:
             for symmetry in ['off', {}]:
                 for kpts in [(1, 1, 1),
