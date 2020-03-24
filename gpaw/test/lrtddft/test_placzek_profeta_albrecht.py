@@ -38,7 +38,7 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
                cell=(a, a, c))
 
     gsname = exname = 'rraman'
-    exkwargs = {'eps': 0.0, 'jend': 3}
+    exkwargs = {'restrict': {'eps': 0.0, 'jend': 3}}
 
     if 1:
         calc = GPAW_with_classmethod_read(
