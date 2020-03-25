@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Union, Tuple, Generator, Dict
+from typing import List, Union, Tuple, Generator, Dict, Optional
 
 import numpy as np
 from ase.units import Ha
@@ -28,13 +28,13 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     """Calculate non self-consistent eigenvalues for Hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
-    n2 - 1 for the IBZ indices in kpts are calculated (default is all bands
-    and all k-points). EXX integrals involving
+    n2 - 1 for the IBZ indices in kpt_indices are calculated
+    (default is all bands and all k-points). EXX integrals involving
     states with occupation numbers less than ftol are skipped.  Use
-    restart=name.json to get snapshots for each k-point finished.
+    snapshot='name.json' to get snapshots for each k-point finished.
 
-    returns three (nspins, nkpts, n2 - n1) shaped ndarrays with contributuons
-    to the eigenvalues in eV:
+    Returns three (nspins, nkpts, n2 - n1)-shaped ndarrays
+    with contributions to the eigenvalues in eV:
 
     >>> eig_dft, vxc_dft, vxc_hyb = non_self_consistent_eigenvalues(...)
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
@@ -51,6 +51,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     if kpt_indices is None:
         kpt_indices = np.arange(wfs.kd.nibzkpts)
 
+    snapshot = Path(snapshot)
     results = read_snapshot(snapshot)
 
     xcname, exx_fraction, omega = parse_name(xcname)
@@ -68,15 +69,15 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
                      for v_hyb_nl_in in results['v_hyb_nl_sin']]
 
     if any(len(i) > 0 for i in kpt_indices_s):
-        for s, v_hyb_nl_n in _non_local(calc, xc, n1, n2, kpt_indices_s,
-                                        ftol, exx_fraction, omega):
-            results['v_hyb_nl_sin'][s].append(v_hyb_nl_n)
+        for s, v_hyb_nl_n in _non_local(calc, n1, n2, kpt_indices_s,
+                                        ftol, omega):
+            results['v_hyb_nl_sin'][s].append(v_hyb_nl_n * exx_fraction)
             write_snapshot(results, snapshot, wfs.world)
 
-    print({name: np.asarray(array) * Ha for name, array in results.items()})
-    results['v_hyb_sin'] = (results.pop('v_hyb_sl_sin') +
-                            results.pop('v_hyb_nl_sin'))
-    return {name: np.asarray(array) * Ha for name, array in results.items()}
+    return (np.asarray(results['e_dft_sin']) * Ha,
+            np.asarray(results['v_dft_sin']) * Ha,
+            (np.asarray(results['v_hyb_sl_sin']) +
+             np.asarray(results['v_hyb_nl_sin'])) * Ha)
 
 
 def _semi_local(calc: GPAW,
@@ -98,12 +99,10 @@ def _semi_local(calc: GPAW,
 
 
 def _non_local(calc: GPAW,
-               xc,
                n1: int,
                n2: int,
                kpt_indices_s: List[List[int]],
                ftol: float,
-               exx_fraction: float,
                omega: float) -> Generator[np.ndarray, None, None]:
     wfs = calc.wfs
     kd = wfs.kd
@@ -140,6 +139,7 @@ def _non_local(calc: GPAW,
             v_n = calculate_eigenvalues(
                 kpt1, kpts2, VV_saii[spin], VC_aii, Delta_aiiL, coulomb, sym,
                 wfs.world, wfs.setups, wfs.spos_ac)
+            wfs.world.sum(v_n)
             yield spin, v_n
 
 
@@ -218,7 +218,7 @@ def calculate_eigenvalues(kpt1, kpts2, VV_aii, VC_aii, Delta_aiiL,
 
 
 def write_snapshot(results: Dict[str, List[List[List[float]]]],
-                   snapshot: Path,
+                   snapshot: Optional[Path],
                    comm) -> None:
     if comm.rank == 0 and snapshot:
         dct = {name: [[[x for x in x_n]
@@ -228,11 +228,9 @@ def write_snapshot(results: Dict[str, List[List[List[float]]]],
         snapshot.write_text(json.dumps(dct))
 
 
-def read_snapshot(snapshot: Path) -> Dict[str, List[List[List[float]]]]:
+def read_snapshot(snapshot: Optional[Path]
+                  ) -> Dict[str, List[List[List[float]]]]:
     if snapshot:
-        snapshot = Path(snapshot)
         if snapshot.is_file():
             return json.loads(snapshot.read_text())
     return {}
-
-
