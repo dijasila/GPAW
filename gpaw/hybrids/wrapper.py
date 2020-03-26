@@ -3,7 +3,10 @@ from typing import Tuple, Union
 import numpy as np
 
 from gpaw.xc import XC
-from .hybrid import EXX
+from .scf import apply1, apply2
+from .coulomb import coulomb_inteaction
+from .paw import calculate_paw_stuff
+from .symmetry import Symmetry
 
 
 class HybridXC:
@@ -14,6 +17,7 @@ class HybridXC:
                  kind: Union[str, Tuple[str, float, float]]):
         from . import parse_name
         if isinstance(kind, str):
+            self.name = kind
             xcname, exx_fraction, omega = parse_name(kind)
         else:
             xcname, exx_fraction, omega = kind
@@ -22,11 +26,14 @@ class HybridXC:
         self.exx_fraction = exx_fraction
         self.omega = omega
 
-        self.exx = None
-
-        self.description = ''
+        self.description = f'{xcname}+{exx_fraction}*EXX(omega={omega})'
 
         self.vlda_sR = None
+
+        self.ecc = np.nan
+        self.evc = np.nan
+        self.evv = np.nan
+        self.ekin = np.nan
 
     def get_setup_name(self):
         return 'PBE'
@@ -34,33 +41,36 @@ class HybridXC:
     def initialize(self, dens, ham, wfs, occupations):
         self.dens = dens
         self.wfs = wfs
-        self.exx = EXX(wfs.gd, wfs.kd, wfs.nspins, wfs.pt, wfs.setups,
-                       self.omega, self.exx_fraction, self.xc)
+        self.coulomb = coulomb_inteaction(self.omega, wfs.gd, wfs.kd)
+        self.sym = Symmetry(wfs.kd)
+        self.VV_saii, self.VC_aii, self.Delta_aiiL = calculate_paw_stuff(
+            dens, wfs.setups)
+        self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
         assert wfs.world.size == wfs.gd.comm.size
 
     def get_description(self):
-        return self.exx.description
+        return self.description
 
     def set_positions(self, spos_ac):
         self.exx.spos_ac = spos_ac
 
     def calculate(self, gd, nt_sr, vt_sr):
-        energy = self.exx.calculate_local_potential_and_energy(
-            gd, nt_sr, vt_sr)
+        energy = self.ecc + self.evv + self.evc
+        e_r = gd.empty()
+        self.xc.calculate(gd, nt_sr, vt_sr, e_r)
+        energy += gd.integrate(e_r)
         return energy
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
-        if not self.xc:
-            return 0.0
         return self.xc.calculate_paw_correction(setup, D_sp, dH_sp, a=a)
 
     def get_kinetic_energy_correction(self):
-        return self.exx.ekin
+        return self.ekin
 
     def apply_orbital_dependent_hamiltonian(self, kpt, psit_xG,
                                             Htpsit_xG=None, dH_asp=None):
         if kpt.f_n is None:
-            # Just use LDA for first step:
+            # Just use LDA_X for first step:
             if self.vlda_sR is None:
                 # First time:
                 self.vlda_sR = self.calculate_lda_potential()
@@ -70,24 +80,38 @@ class HybridXC:
                                    pd.ifft(psit_G, kpt.k), kpt.q)
         else:
             self.vlda_sR = None
-            if kpt.psit.array.base is psit_xG.base:
-                self.exx.apply1(kpt, psit_xG, Htpsit_xG)
-            else:
-                self.exx.apply2(kpt, psit_xG, Htpsit_xG)
+            if (kpt.s, kpt.k) not in self.v_sknG:
+                assert len(self.v_sknG) == 0
+                if kpt.psit.array.base is psit_xG.base:
+                    evc, evv, ekin, v_knG = apply1(kpt, Htpsit_xG, self)
+                    if kpt.s == 0:
+                        self.evc = 0.0
+                        self.evv = 0.0
+                        self.ekin = 0.0
+                    scale = 2 / self.nspins * self.exx_fraction
+                    self.evc += evc * scale
+                    self.evv += evv * scale
+                else:
+                    v_knG = apply2(kpt, psit_xG, Htpsit_xG, self)
+
+                self.v_sknG = {(kpt.s, k): v_nG
+                               for k, v_nG in enumerate(v_knG)}
+
+            Htpsit_xG += self.v_sknG[(kpt.s, kpt.k)] * self.exx_fraction
 
     def calculate_lda_potential(self):
         from gpaw.xc import XC
-        lda = XC('LDA')
+        lda = XC('LDA_X')
         nt_sr = self.dens.nt_sg
         vt_sr = np.zeros_like(nt_sr)
         vlda_sR = self.dens.gd.zeros(self.wfs.nspins)
         lda.calculate(self.dens.finegd, nt_sr, vt_sr)
         for vt_R, vt_r in zip(vlda_sR, vt_sr):
             vt_R[:], _ = self.dens.pd3.restrict(vt_r, self.dens.pd2)
-        return vlda_sR
+        return vlda_sR * self.exx_fraction
 
     def summary(self, log):
-        log(self.exx.description)
+        log(self.description)
 
     def add_forces(self, F_av):
         pass
