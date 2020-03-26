@@ -105,9 +105,11 @@ class HybridXC:
                     self.v_sknG = {(kpt.s, k): v_nG
                                    for k, v_nG in enumerate(v_knG)}
                 v_nG = self.v_sknG.pop((kpt.s, kpt.k))
-                Htpsit_xG += v_nG * self.exx_fraction
             else:
-                apply2(kpt, psit_xG, Htpsit_xG, wfs)
+                v_nG = apply2(kpt, psit_xG, Htpsit_xG, wfs,
+                              self.coulomb, self.sym,
+                              paw_s[kpt.s])
+            Htpsit_xG += v_nG * self.exx_fraction
 
     def calculate_lda_potential(self):
         from gpaw.xc import XC

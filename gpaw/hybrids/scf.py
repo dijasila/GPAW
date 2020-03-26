@@ -3,7 +3,7 @@ import numpy as np
 from gpaw.mpi import serial_comm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from .kpts import KPoint
+from .kpts import KPoint, RSKPoint, to_real_space
 
 
 def apply1(kpt, Htpsit_xG, wfs, coulomb, sym, paw):
@@ -51,6 +51,8 @@ def calculate(kpts, wfs, paw, sym, coulomb):
         v2_ani = v_kani[i2]
 
         v_G = coulomb.get_potential(pd12)
+        assert i1 == kpts[i1].psit.kpt
+        assert i2 == kpts[i2].psit.kpt
         e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G,
                                       kpts[i1].psit.pd,
                                       kpts[i2].psit.pd,
@@ -262,65 +264,77 @@ def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
 
 
 def calculate2(kpt1, kpts2, wfs, paw, sym, coulomb):
-    pd = kpts[0].psit.pd
+    pd = kpt1.psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     kd = wfs.kd
     comm = wfs.world
-    nbands = len(kpts[0].psit.array)
+    nbands = len(kpt1.psit.array)
     shapes = [(nbands, len(Delta_iiL))
               for Delta_iiL in paw.Delta_aiiL]
-    v_kani = [{a: np.zeros(shape, pd.dtype)
-               for a, shape in enumerate(shapes)}
-              for _ in range(len(kpts))]
-    v_knG = [k.psit.pd.zeros(nbands, global_array=True, q=k.psit.kpt)
-             for k in kpts]
+    v_ani = {a: np.zeros(shape, pd.dtype)
+             for a, shape in enumerate(shapes)}
+    v_nG = kpt1.psit.pd.zeros(nbands, global_array=True, q=kpt1.psit.kpt)
 
-    exxvv = 0.0
-    ekin = 0.0
-    for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs):
-        q_c = k2.k_c - k1.k_c
-        qd = KPointDescriptor([-q_c])
+    u1_nR = to_real_space(kpt1.psit)
+    proj1 = kpt1.proj.broadcast()
+    k1 = RSKPoint(u1_nR,
+                  proj1,
+                  kpt1.f_n,
+                  kpt1.k_c,
+                  kpt1.weight)
 
-        pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
-        ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
-        ghat.set_positions(wfs.spos_ac)
+    N2 = len(kpts2[0].psit.array)
+    nsym = len(kd.symmetry.op_scc)
 
-        v1_nG = v_knG[i1]
-        v1_ani = v_kani[i1]
-        v2_nG = v_knG[i2]
-        v2_ani = v_kani[i2]
+    size = comm.size
+    rank = comm.rank
+    B = (N2 + size - 1) // size
+    na = min(B * rank, N2)
+    nb = min(na + B, N2)
+    for i2, kpt2 in enumerate(kpts2):
+        u2_nR = to_real_space(kpt2.psit, na, nb)
+        k0 = RSKPoint(u2_nR,
+                      kpt2.proj.broadcast().view(na, nb),
+                      kpt2.f_n[na:nb],
+                      kpt2.k_c,
+                      kpt2.weight)
+        for k, i in enumerate(kd.bz2ibz_k):
+            if i != i2:
+                continue
+            s = kd.sym_k[k] + kd.time_reversal_k[k] * nsym
+            k2 = sym.apply_symmetry(s, k0, wfs)
+            q_c = k2.k_c - k1.k_c
+            qd = KPointDescriptor([-q_c])
 
-        v_G = coulomb.get_potential(pd12)
-        e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G,
-                                      kpts[i1].psit.pd,
-                                      kpts[i2].psit.pd,
-                                      kpts[i1].psit.kpt,
-                                      kpts[i2].psit.kpt,
-                                      k1.f_n,
-                                      k2.f_n,
-                                      s,
-                                      count,
-                                      v1_nG, v1_ani,
-                                      v2_nG, v2_ani,
-                                      wfs, sym, paw)
+            pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
+            ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
+            ghat.set_positions(wfs.spos_ac)
 
-    w_knG = {}
+            v_G = coulomb.get_potential(pd12)
+            calculate_exx_for_pair(k1, k2, ghat, v_G,
+                                   kpt1.psit.pd,
+                                   kpts2[i2].psit.pd,
+                                   kpt1.psit.kpt,
+                                   kpts2[i2].psit.kpt,
+                                   k1.f_n,
+                                   k2.f_n,
+                                   s,
+                                   1.0,
+                                   v_nG, v_ani,
+                                   None, None,
+                                   wfs, sym, paw)
+
     G1 = comm.rank * pd.maxmyng
     G2 = (comm.rank + 1) * pd.maxmyng
-    for v_nG, v_ani, kpt in zip(v_knG, v_kani, kpts):
-        comm.sum(v_nG)
-        w_nG = v_nG[:, G1:G2].copy()
-        w_knG[len(w_knG)] = w_nG
-        for v_ni in v_ani.values():
-            comm.sum(v_ni)
-        v1_ani = {}
-        for a, VV_ii in paw.VV_aii.items():
-            P_ni = kpt.proj[a]
-            v_ni = P_ni.dot(paw.VC_aii[a] + 2 * VV_ii)
-            v1_ani[a] = v_ani[a] - v_ni
-            ekin += (np.einsum('n, ni, ni',
-                               kpt.f_n, P_ni.conj(), v_ni).real *
-                     kpt.weight)
-        wfs.pt.add(w_nG, v1_ani, kpt.psit.kpt)
+    comm.sum(v_nG)
+    w_nG = v_nG[:, G1:G2].copy()
+    for v_ni in v_ani.values():
+        comm.sum(v_ni)
+    v1_ani = {}
+    for a, VV_ii in paw.VV_aii.items():
+        P_ni = kpt1.proj[a]
+        v_ni = P_ni.dot(paw.VC_aii[a] + 2 * VV_ii)
+        v1_ani[a] = v_ani[a] - v_ni
+    wfs.pt.add(w_nG, v1_ani, kpt1.psit.kpt)
 
-    return w_knG
+    return w_nG
