@@ -50,7 +50,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
-    VV_saii, VC_aii, Delta_aiiL = calculate_paw_stuff(dens, setups)
+    paw_s = calculate_paw_stuff(dens, setups)
 
     ecc = sum(setup.ExxC for setup in setups) * exx_fraction
     evc = 0.0
@@ -65,31 +65,31 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                        kd.ibzk_kc[kpt.k],
                        kd.weight_k[kpt.k])
                 for kpt in wfs.mykpts[k1:k2]]
-        e1, e2 = calculate_energy(kpts, VC_aii, VV_saii[spin],
-                                  Delta_aiiL, wfs.world, sym,
-                                  setups, calc.spos_ac, coulomb)
+        e1, e2 = calculate_energy(kpts, paw_s[spin],
+                                  wfs, sym, coulomb)
         evc += e1 * 2 / wfs.nspins
         evv += e2 * 2 / wfs.nspins
 
     return exc * Ha, ecc * Ha, evc * Ha, evv * Ha
 
 
-def calculate_energy(kpts, VC_aii, VV_aii, Delta_aiiL,
-                     comm, sym, setups, spos_ac, coulomb):
+def calculate_energy(kpts, paw, wfs, sym, coulomb):
     pd = kpts[0].psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
+    comm = wfs.world
 
     exxvv = 0.0
-    for i1, i2, s, k1, k2, count in sym.pairs(kpts, comm, setups, spos_ac):
+    for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
 
         pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
-        ghat = PWLFC([data.ghat_l for data in setups], pd12)
-        ghat.set_positions(spos_ac)
+        ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
+        ghat.set_positions(wfs.spos_ac)
 
         v_G = coulomb.get_potential(pd12)
-        e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G, comm, Delta_aiiL)
+        e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G, comm,
+                                      paw.Delta_aiiL)
 
         e_nn *= count
         e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
@@ -97,12 +97,12 @@ def calculate_energy(kpts, VC_aii, VV_aii, Delta_aiiL,
 
     exxvc = 0.0
     for i, kpt in enumerate(kpts):
-        for a, VV_ii in VV_aii.items():
+        for a, VV_ii in paw.VV_aii.items():
             P_ni = kpt.proj[a]
             vv_n = np.einsum('ni, ij, nj -> n',
                              P_ni.conj(), VV_ii, P_ni).real
             vc_n = np.einsum('ni, ij, nj -> n',
-                             P_ni.conj(), VC_aii[a], P_ni).real
+                             P_ni.conj(), paw.VC_aii[a], P_ni).real
             exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
             exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
 

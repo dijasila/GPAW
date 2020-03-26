@@ -115,7 +115,7 @@ def _non_local(calc: GPAW,
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
-    VV_saii, VC_aii, Delta_aiiL = calculate_paw_stuff(dens, setups)
+    paw_s = calculate_paw_stuff(dens, setups)
 
     for spin, kpt_indices in enumerate(kpt_indices_s):
         if len(kpt_indices) == 0:
@@ -137,17 +137,15 @@ def _non_local(calc: GPAW,
                           kd.ibzk_kc[kpt.k],
                           kd.weight_k[kpt.k])
             v_n = calculate_eigenvalues(
-                kpt1, kpts2, VV_saii[spin], VC_aii, Delta_aiiL, coulomb, sym,
-                wfs.world, wfs.setups, wfs.spos_ac)
+                kpt1, kpts2, paw_s[spin], coulomb, sym, wfs)
             wfs.world.sum(v_n)
             yield spin, v_n
 
 
-def calculate_eigenvalues(kpt1, kpts2, VV_aii, VC_aii, Delta_aiiL,
-                          coulomb, sym, comm,
-                          setups, spos_ac):
+def calculate_eigenvalues(kpt1, kpts2, paw, coulomb, sym, wfs):
     pd = kpt1.psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
+    comm = wfs.world
     size = comm.size
     rank = comm.rank
 
@@ -179,18 +177,18 @@ def calculate_eigenvalues(kpt1, kpts2, VV_aii, VC_aii, Delta_aiiL,
             if i != i2:
                 continue
             s = kd.sym_k[k] + kd.time_reversal_k[k] * nsym
-            rskpt2 = sym.apply_symmetry(s, rskpt0, setups, spos_ac)
+            rskpt2 = sym.apply_symmetry(s, rskpt0, wfs)
             q_c = rskpt2.k_c - kpt1.k_c
             qd = KPointDescriptor([-q_c])
             pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
-            ghat = PWLFC([data.ghat_l for data in setups], pd12)
-            ghat.set_positions(spos_ac)
+            ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
+            ghat.set_positions(wfs.spos_ac)
             v_G = coulomb.get_potential(pd12)
             Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                                 proj1[a],
                                 Delta_iiL,
                                 rskpt2.proj[a].conj())
-                      for a, Delta_iiL in enumerate(Delta_aiiL)]
+                      for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
             rho_nG = ghat.pd.empty(nb - na, u1_nR.dtype)
 
             for n1, u1_R in enumerate(u1_nR):
@@ -206,12 +204,12 @@ def calculate_eigenvalues(kpt1, kpts2, VV_aii, VC_aii, Delta_aiiL,
                     e_nn[n1, n2] = e / kd.nbzkpts
             e_n -= e_nn.dot(rskpt2.f_n)
 
-    for a, VV_ii in VV_aii.items():
+    for a, VV_ii in paw.VV_aii.items():
         P_ni = proj1[a]
         vv_n = np.einsum('ni, ij, nj -> n',
                          P_ni.conj(), VV_ii, P_ni).real
         vc_n = np.einsum('ni, ij, nj -> n',
-                         P_ni.conj(), VC_aii[a], P_ni).real
+                         P_ni.conj(), paw.VC_aii[a], P_ni).real
         e_n -= (2 * vv_n + vc_n)
 
     return e_n

@@ -43,7 +43,9 @@ class Symmetry:
         self.s0 = is_identity_s.nonzero()[0][0]
         self.inverse_s = self.symmetry_map_ss[:, self.s0]
 
-    def symmetry_operation(self, s: int):
+    def symmetry_operation(self, s: int, wfs, inverse=False):
+        if inverse:
+            s = self.inverse_s[s]
         U_scc = self.kd.symmetry.op_scc
         nsym = len(U_scc)
         time_reversal = s >= nsym
@@ -68,15 +70,15 @@ class Symmetry:
             T = T0
 
         T_a = []
-        for a, id in enumerate(self.setups.id_a):
+        for a, id in enumerate(wfs.setups.id_a):
             b = self.kd.symmetry.a_sa[s, a]
-            S_c = np.dot(self.spos_ac[a], U_cc) - self.spos_ac[b]
-            U_ii = self.setups[a].R_sii[s].T
+            S_c = np.dot(wfs.spos_ac[a], U_cc) - wfs.spos_ac[b]
+            U_ii = wfs.setups[a].R_sii[s].T
             T_a.append((b, S_c, U_ii))
 
         return T, T_a, time_reversal
 
-    def apply_symmetry(self, s: int, rsk, setups, spos_ac):
+    def apply_symmetry(self, s: int, rsk, wfs):
         U_scc = self.kd.symmetry.op_scc
         nsym = len(U_scc)
         time_reversal = s >= nsym
@@ -100,11 +102,11 @@ class Symmetry:
         for u1_R, u2_R in zip(u1_nR, u2_nR):
             u2_R[:] = u1_R.ravel()[i].reshape(N_c)
 
-        for a, id in enumerate(setups.id_a):
+        for a, id in enumerate(wfs.setups.id_a):
             b = self.kd.symmetry.a_sa[s, a]
-            S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
+            S_c = np.dot(wfs.spos_ac[a], U_cc) - wfs.spos_ac[b]
             x = np.exp(2j * pi * np.dot(k1_c, S_c))
-            U_ii = setups[a].R_sii[s].T * x
+            U_ii = wfs.setups[a].R_sii[s].T * x
             proj2[a][:] = proj1[b].dot(U_ii)
 
         if time_reversal:
@@ -113,7 +115,7 @@ class Symmetry:
 
         return RSKPoint(u2_nR, proj2, f_n, k2_c, weight)
 
-    def pairs(self, kpts, comm, setups, spos_ac):
+    def pairs(self, kpts, wfs):
         kd = self.kd
         nsym = len(kd.symmetry.op_scc)
 
@@ -154,6 +156,7 @@ class Symmetry:
                 pairs[(i1, i2, s)] = count
                 # seen[(i1, k2)] = (i1, i2, s)
 
+        comm = wfs.world
         lasti1 = -1
         lasti2 = -1
         for (i1, i2, s), count in sorted(pairs.items()):
@@ -192,5 +195,6 @@ class Symmetry:
                                 k2.weight)
                 lasti2 = i2
 
-            yield (i1, i2, s,
-                   rsk1, self.apply_symmetry(s, rsk2, setups, spos_ac), count)
+            yield (i1, i2, s, rsk1,
+                   self.apply_symmetry(s, rsk2, wfs),
+                   count)
