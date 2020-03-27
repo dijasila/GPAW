@@ -103,7 +103,7 @@ class HybridXC:
                     self.evc += evc * scale
                     self.evv += evv * scale
                     self.v_sknG = {(kpt.s, k): v_nG
-                                   for k, v_nG in enumerate(v_knG)}
+                                   for k, v_nG in v_knG.items()}
                 v_nG = self.v_sknG.pop((kpt.s, kpt.k))
             else:
                 v_nG = apply2(kpt, psit_xG, Htpsit_xG, wfs,

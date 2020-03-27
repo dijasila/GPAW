@@ -18,7 +18,7 @@ def apply1(kpt, Htpsit_xG, wfs, coulomb, sym, paw):
                    kd.weight_k[kpt.k])
             for kpt in wfs.mykpts[k1:k2]]
     evv, evc, ekin, v_knG = calculate(kpts, wfs, paw, sym, coulomb)
-    return evv, evc, ekin, v_knG
+    return evc, evv, ekin, v_knG
 
 
 def calculate(kpts, wfs, paw, sym, coulomb):
@@ -259,8 +259,8 @@ def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
                     kd.ibzk_kc[kpt.k],
                     kd.weight_k[kpt.k])
              for kpt in wfs.mykpts[k1:k2]]
-    v_knG = calculate2(kpt1, kpts2, wfs, paw, sym, coulomb)
-    return v_knG
+    v_nG = calculate2(kpt1, kpts2, wfs, paw, sym, coulomb)
+    return v_nG
 
 
 def calculate2(kpt1, kpts2, wfs, paw, sym, coulomb):
