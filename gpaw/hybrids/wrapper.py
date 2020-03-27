@@ -102,6 +102,7 @@ class HybridXC:
                     scale = 2 / wfs.nspins * self.exx_fraction
                     self.evc += evc * scale
                     self.evv += evv * scale
+                    self.ekin += ekin * scale
                     self.v_sknG = {(kpt.s, k): v_nG
                                    for k, v_nG in v_knG.items()}
                 v_nG = self.v_sknG.pop((kpt.s, kpt.k))
