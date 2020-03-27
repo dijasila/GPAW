@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import Union, Tuple
 
 import numpy as np
 from ase.units import Ha
@@ -18,12 +18,13 @@ from .symmetry import Symmetry
 
 def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                                xcname: str,
-                               ftol=1e-9) -> float:
+                               ftol=1e-9) -> Tuple[float, float, float, float]:
     """Calculate non self-consistent energy for Hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  EXX integrals involving
     states with occupation numbers less than ftol are skipped.
 
+    >>> ?????????????????????????????????????
     >>> eig_dft, vxc_dft, vxc_hyb = non_self_consistent_eigenvalues(...)
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """

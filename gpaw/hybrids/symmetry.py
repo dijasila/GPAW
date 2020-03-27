@@ -56,7 +56,7 @@ class Symmetry:
             def T0(a_R):
                 return a_R
         else:
-            N_c = self.N_c
+            N_c = wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
 

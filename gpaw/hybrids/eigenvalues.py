@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Union, Tuple, Generator, Dict, Optional
+from typing import List, Union, Tuple, Generator, Optional
 
 import numpy as np
 from ase.units import Ha
@@ -51,33 +51,43 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     if kpt_indices is None:
         kpt_indices = np.arange(wfs.kd.nibzkpts)
 
-    snapshot = Path(snapshot)
-    results = read_snapshot(snapshot)
+    path = Path(snapshot) if snapshot is not None else None
+
+    e_dft_sin = np.array([[[]]])
+    v_dft_sin = np.array([[[]]])
+    v_hyb_sl_sin = np.array([[[]]])
+    v_hyb_nl_sin: Optional[List[List[np.ndarray]]] = None
+
+    if path:
+        e_dft_sin, v_dft_sin, v_hyb_sl_sin, v_hyb_nl_sin = read_snapshot(path)
 
     xcname, exx_fraction, omega = parse_name(xcname)
 
-    if 'v_dft_sin' not in results:
+    if v_dft_sin.size == 0:
         xc = XC(xcname)
-        results.update(_semi_local(calc, xc, n1, n2, kpt_indices))
-        write_snapshot(results, snapshot, wfs.world)
+        e_dft_sin, v_dft_sin, v_hyb_sl_sin = _semi_local(
+            calc, xc, n1, n2, kpt_indices)
+        write_snapshot(e_dft_sin, v_dft_sin, v_hyb_sl_sin, v_hyb_nl_sin,
+                       path, wfs.world)
 
-    # Non-local hybrid contribution:
-    if 'v_hyb_nl_sin' not in results:
-        results['v_hyb_nl_sin'] = [[] * wfs.nspins]
+    # Non-local hybrid contribution
+    if v_hyb_nl_sin is None:
+        v_hyb_nl_sin = [[] * wfs.nspins]
 
+    # Find missing indices:
     kpt_indices_s = [kpt_indices[len(v_hyb_nl_in):]
-                     for v_hyb_nl_in in results['v_hyb_nl_sin']]
+                     for v_hyb_nl_in in v_hyb_nl_sin]
 
-    if any(len(i) > 0 for i in kpt_indices_s):
+    if any(len(kpt_indices) > 0 for kpt_indices in kpt_indices_s):
         for s, v_hyb_nl_n in _non_local(calc, n1, n2, kpt_indices_s,
                                         ftol, omega):
-            results['v_hyb_nl_sin'][s].append(v_hyb_nl_n * exx_fraction)
-            write_snapshot(results, snapshot, wfs.world)
+            v_hyb_nl_sin[s].append(v_hyb_nl_n * exx_fraction)
+            write_snapshot(e_dft_sin, v_dft_sin, v_hyb_sl_sin, v_hyb_nl_sin,
+                           path, wfs.world)
 
-    return (np.asarray(results['e_dft_sin']) * Ha,
-            np.asarray(results['v_dft_sin']) * Ha,
-            (np.asarray(results['v_hyb_sl_sin']) +
-             np.asarray(results['v_hyb_nl_sin'])) * Ha)
+    return (e_dft_sin * Ha,
+            v_dft_sin * Ha,
+            (v_hyb_sl_sin + v_hyb_nl_sin) * Ha)
 
 
 def _semi_local(calc: GPAW,
@@ -85,7 +95,7 @@ def _semi_local(calc: GPAW,
                 n1: int,
                 n2: int,
                 kpt_indices: List[int]
-                ) -> Dict[str, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+                ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     wfs = calc.wfs
     nspins = wfs.nspins
     e_dft_sin = np.array([[calc.get_eigenvalues(k, spin)[n1:n2]
@@ -93,9 +103,7 @@ def _semi_local(calc: GPAW,
                           for spin in range(nspins)])
     v_dft_sin = vxc(calc)[:, kpt_indices, n1:n2]
     v_hyb_sl_sin = vxc(calc, xc)[:, kpt_indices, n1:n2]
-    return {'e_dft_sin': e_dft_sin / Ha,
-            'v_dft_sin': v_dft_sin / Ha,
-            'v_hyb_sl_sin': v_hyb_sl_sin / Ha}
+    return e_dft_sin / Ha, v_dft_sin / Ha, v_hyb_sl_sin / Ha
 
 
 def _non_local(calc: GPAW,
@@ -215,20 +223,37 @@ def calculate_eigenvalues(kpt1, kpts2, paw, coulomb, sym, wfs):
     return e_n
 
 
-def write_snapshot(results: Dict[str, List[List[List[float]]]],
-                   snapshot: Optional[Path],
+def write_snapshot(e_dft_sin: np.ndarray,
+                   v_dft_sin: np.ndarray,
+                   v_hyb_sl_sin: np.ndarray,
+                   v_hyb_nl_sin: Optional[List[List[np.ndarray]]],
+                   path: Optional[Path],
                    comm) -> None:
-    if comm.rank == 0 and snapshot:
-        dct = {name: [[[x for x in x_n]
-                       for x_n in x_in]
-                      for x_in in x_sin]
-               for name, x_sin in results.items()}
-        snapshot.write_text(json.dumps(dct))
+    if comm.rank == 0 and path:
+        dct = {'e_dft_sin': e_dft_sin.tolist(),
+               'v_dft_sin': v_dft_sin.tolist(),
+               'v_hyb_sl_sin': v_hyb_sl_sin.tolist()}
+        if v_hyb_nl_sin is not None:
+            dct['v_hyb_nl_sin'] = [[v_n.tolist()
+                                    for v_n in v_in]
+                                   for v_in in v_hyb_nl_sin]
+        path.write_text(json.dumps(dct))
 
 
-def read_snapshot(snapshot: Optional[Path]
-                  ) -> Dict[str, List[List[List[float]]]]:
-    if snapshot:
-        if snapshot.is_file():
-            return json.loads(snapshot.read_text())
-    return {}
+def read_snapshot(snapshot: Path
+                  ) -> Tuple[np.ndarray,
+                             np.ndarray,
+                             np.ndarray,
+                             Optional[List[List[np.ndarray]]]]:
+    if snapshot.is_file():
+        dct = json.loads(snapshot.read_text())
+        v_hyb_nl_sin = dct.get('v_hyb_nl_sin')
+        if v_hyb_nl_sin is not None:
+            v_hyb_nl_sin = [[np.array(v_n)
+                             for v_n in v_in]
+                            for v_in in v_hyb_nl_sin]
+        return (np.array(dct['e_dft_sin']),
+                np.array(dct['v_dft_sin']),
+                np.array(dct['v_hyb_sl_sin']),
+                v_hyb_nl_sin)
+    return np.array([[[]]]), np.array([[[]]]), np.array([[[]]]), None

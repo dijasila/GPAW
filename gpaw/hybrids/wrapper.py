@@ -1,4 +1,4 @@
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict
 
 import numpy as np
 
@@ -29,7 +29,7 @@ class HybridXC:
         self.description = f'{xcname}+{exx_fraction}*EXX(omega={omega})'
 
         self.vlda_sR = None
-        self.v_sknG = {}
+        self.v_sknG: Dict[Tuple[int, int], np.ndarray] = {}
 
         self.ecc = np.nan
         self.evc = np.nan
@@ -75,7 +75,7 @@ class HybridXC:
             self.sym = Symmetry(wfs.kd)
 
         paw_s = calculate_paw_stuff(self.dens, wfs.setups)  # ???????
-        print(kpt.s,kpt.k, kpt.f_n is None)
+
         if kpt.f_n is None:
             # Just use LDA_X for first step:
             if self.vlda_sR is None:
