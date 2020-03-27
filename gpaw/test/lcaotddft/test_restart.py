@@ -1,8 +1,7 @@
 import numpy as np
-
 import ase.io.ulm as ulm
-
 from ase.build import molecule
+
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.poisson import PoissonSolver
@@ -11,7 +10,6 @@ from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.mpi import world
 from gpaw.tddft.folding import frequencies
-
 from gpaw.test import equal
 
 
