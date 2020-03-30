@@ -138,7 +138,7 @@ def calculate_exx_for_pair(k1,
               for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
 
     if v2_nG is not None:
-        T, T_a, cc = sym.symmetry_operation(s, wfs)
+        T, T_a, cc = sym.symmetry_operation(s, wfs, inverse=True)
 
     if k1 is k2:
         n2max = (N1 + size - 1) // size
