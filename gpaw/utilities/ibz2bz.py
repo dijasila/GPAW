@@ -49,7 +49,7 @@ def ibz2bz(input_gpw, output_gpw=None):
             e_sKn = np.empty((ns, nK, nbands))
             f_sKn = np.empty((ns, nK, nbands))
 
-        weight = kd.weight_k[k] * 2 // kd.nspins
+        weight = kd.weight_k[k] * (2 // kd.nspins)
         for s in range(ns):
             e_sKn[s, K] = calc.get_eigenvalues(k, s)
             f_sKn[s, K] = calc.get_occupation_numbers(k, s) / weight
