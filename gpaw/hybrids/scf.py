@@ -37,7 +37,7 @@ def calculate(kpts, wfs, paw, sym, coulomb):
 
     exxvv = 0.0
     ekin = 0.0
-    for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs):
+    for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs, wfs.spos_ac):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
 
@@ -302,7 +302,7 @@ def calculate2(kpt1, kpts2, wfs, paw, sym, coulomb):
             if i != i2:
                 continue
             s = kd.sym_k[k] + kd.time_reversal_k[k] * nsym
-            k2 = sym.apply_symmetry(s, k0, wfs)
+            k2 = sym.apply_symmetry(s, k0, wfs, wfs.spos_ac)
             q_c = k2.k_c - k1.k_c
             qd = KPointDescriptor([-q_c])
 

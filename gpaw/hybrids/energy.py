@@ -67,20 +67,20 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                        kd.weight_k[kpt.k])
                 for kpt in wfs.mykpts[k1:k2]]
         e1, e2 = calculate_energy(kpts, paw_s[spin],
-                                  wfs, sym, coulomb)
+                                  wfs, sym, coulomb, calc.spos_ac)
         evc += e1 * 2 / wfs.nspins
         evv += e2 * 2 / wfs.nspins
 
     return exc * Ha, ecc * Ha, evc * Ha, evv * Ha
 
 
-def calculate_energy(kpts, paw, wfs, sym, coulomb):
+def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
     pd = kpts[0].psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
 
     exxvv = 0.0
-    for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs):
+    for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs, spos_ac):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
 

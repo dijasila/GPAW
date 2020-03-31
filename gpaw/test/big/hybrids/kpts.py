@@ -31,7 +31,9 @@ def check(atoms, xc, i):
     # xc1.initialize(c.density, c.hamiltonian, c.wfs, c.occupations)
     # xc1.set_positions(c.spos_ac)
     e = non_self_consistent_energy(c, xc)
-    eps = non_self_consistent_eigenvalues(c, xc, snapshot=f'{i}.json')
+    c.write('c.gpw', 'all')
+    # eps = non_self_consistent_eigenvalues(c, xc, snapshot=f'{i}.json')
+    eps = non_self_consistent_eigenvalues('c.gpw', xc, snapshot=f'{i}.json')
     # xc1.calculate_eigenvalues0(0, 2, None)
     # e1, v1, v2 = non_self_consistent_eigenvalues(c, xc, 0, 2, None,
     #                                             f'{i}.txt')

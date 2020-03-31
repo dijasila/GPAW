@@ -78,7 +78,7 @@ class Symmetry:
 
         return T, T_a, time_reversal
 
-    def apply_symmetry(self, s: int, rsk, wfs):
+    def apply_symmetry(self, s: int, rsk, wfs, spos_ac):
         U_scc = self.kd.symmetry.op_scc
         nsym = len(U_scc)
         time_reversal = s >= nsym
@@ -104,7 +104,7 @@ class Symmetry:
 
         for a, id in enumerate(wfs.setups.id_a):
             b = self.kd.symmetry.a_sa[s, a]
-            S_c = np.dot(wfs.spos_ac[a], U_cc) - wfs.spos_ac[b]
+            S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
             x = np.exp(2j * pi * np.dot(k1_c, S_c))
             U_ii = wfs.setups[a].R_sii[s].T * x
             proj2[a][:] = proj1[b].dot(U_ii)
@@ -115,7 +115,7 @@ class Symmetry:
 
         return RSKPoint(u2_nR, proj2, f_n, k2_c, weight)
 
-    def pairs(self, kpts, wfs):
+    def pairs(self, kpts, wfs, spos_ac):
         kd = self.kd
         nsym = len(kd.symmetry.op_scc)
 
@@ -196,5 +196,5 @@ class Symmetry:
                 lasti2 = i2
 
             yield (i1, i2, s, rsk1,
-                   self.apply_symmetry(s, rsk2, wfs),
+                   self.apply_symmetry(s, rsk2, wfs, spos_ac),
                    count)

@@ -145,12 +145,12 @@ def _non_local(calc: GPAW,
                           kd.ibzk_kc[kpt.k],
                           kd.weight_k[kpt.k])
             v_n = calculate_eigenvalues(
-                kpt1, kpts2, paw_s[spin], coulomb, sym, wfs)
+                kpt1, kpts2, paw_s[spin], coulomb, sym, wfs, calc.spos_ac)
             wfs.world.sum(v_n)
             yield spin, v_n
 
 
-def calculate_eigenvalues(kpt1, kpts2, paw, coulomb, sym, wfs):
+def calculate_eigenvalues(kpt1, kpts2, paw, coulomb, sym, wfs, spos_ac):
     pd = kpt1.psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
@@ -185,12 +185,12 @@ def calculate_eigenvalues(kpt1, kpts2, paw, coulomb, sym, wfs):
             if i != i2:
                 continue
             s = kd.sym_k[k] + kd.time_reversal_k[k] * nsym
-            rskpt2 = sym.apply_symmetry(s, rskpt0, wfs)
+            rskpt2 = sym.apply_symmetry(s, rskpt0, wfs, spos_ac)
             q_c = rskpt2.k_c - kpt1.k_c
             qd = KPointDescriptor([-q_c])
             pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
             ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
-            ghat.set_positions(wfs.spos_ac)
+            ghat.set_positions(spos_ac)
             v_G = coulomb.get_potential(pd12)
             Q_annL = [np.einsum('mi, ijL, nj -> mnL',
                                 proj1[a],
