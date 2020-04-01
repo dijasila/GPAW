@@ -182,7 +182,7 @@ class SJM(SolvationGPAW):
         SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
                     'doublelayer', 'always_adjust_ne']
 
-        SJM_changes = {key: kwargs.pop(key) for key in list(kwargs.keys())
+        SJM_changes = {key: kwargs.pop(key) for key in list(kwargs)
                        if key in SJM_keys}
         self.sog('SJM_changes: {:s}'.format(str(SJM_changes)))
 
@@ -272,14 +272,17 @@ class SJM(SolvationGPAW):
             return
 
     def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=['cell'], ):
+                  system_changes=['cell']):
         """
         Perform a calculation with SJM.
 
         This methodincludes the potential equilibration loop.
         It is essentially a wrapper around GPAW.calculate()
 
-        """
+        """ 
+        if atoms is not None:
+            # Need to be set before ASE's Calculator.calculate gets to it.
+            self.atoms = atoms.copy()
 
         # FIXME: Should results be zerod when set is called? That might be
         # easiest. Then I can check here if the results are not zero
