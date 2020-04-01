@@ -99,7 +99,7 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
 
         pd12 = PWDescriptor(pd.ecut, gd, pd.dtype, kd=qd)
         ghat = PWLFC([data.ghat_l for data in wfs.setups], pd12)
-        ghat.set_positions(wfs.spos_ac)
+        ghat.set_positions(spos_ac)
 
         v_G = coulomb.get_potential(pd12)
         e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G, comm,
