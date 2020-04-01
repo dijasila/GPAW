@@ -75,7 +75,7 @@ def info():
     n1 = max(len(a) for a, _ in lines)
     n2 = max(len(b) for _, b in lines)
     print('-' * n1 + '-+-' + '-' * n2)
-    for a, b in results:
+    for a, b in lines:
         print(f'{a:{n1}} | {b}')
     print('-' * n1 + '-+-' + '-' * n2)
 

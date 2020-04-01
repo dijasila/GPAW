@@ -1,5 +1,9 @@
+import sys
+from pathlib import Path
+
 from ase import Atoms
 from ase.parallel import parprint
+
 from .info import info
 from gpaw import GPAW, PW, setup_paths
 from gpaw.mpi import size
@@ -19,9 +23,17 @@ class CLICommand:
 
 
 def test():
-    if not setup_paths:
-        raise RuntimeError('Could not find any atomic PAW-data or '
-                           'pseudopotentials!')
+    for path in setup_paths:
+        if Path(path).is_dir():
+            break
+    else:
+        print("""Could not find any atomic PAW-data or pseudopotentials!
+
+You need to set the GPAW_SETUP_PATH environment variable to point to
+the directories where PAW dataset and basis files are stored.  See
+https://wiki.fysik.dtu.dk/gpaw/install.html#install-paw-datasets
+for details.""", file=sys.stderr)
+        return
 
     parprint(f'Doing a test calculation (cores: {size}): ... ',
              end='', flush=True)

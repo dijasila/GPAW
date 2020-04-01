@@ -1,4 +1,4 @@
-from ase.utils.extrapolate import extrapolate
+from gpaw.utilities.extrapolate import extrapolate
 import numpy as np
 
 a = np.loadtxt('diamond.ralda.rpa.dat')
