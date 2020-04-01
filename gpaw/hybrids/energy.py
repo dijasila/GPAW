@@ -24,9 +24,17 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     Based on a self-consistent DFT calculation (calc).  EXX integrals involving
     states with occupation numbers less than ftol are skipped.
 
-    >>> ?????????????????????????????????????
-    >>> eig_dft, vxc_dft, vxc_hyb = non_self_consistent_eigenvalues(...)
-    >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
+    >>> energies = non_self_consistent_eigenvalues(...)
+    >>> e_hyb = energies.sum()
+
+    The returned energy contributions are (in eV):
+
+    1. DFT total energy
+    2. minus DFT XC energy
+    3. Hybrid semi-local XC energy
+    4. EXX core-core energy
+    5. EXX core-valence energy
+    6. EXX valence-valence energy
     """
 
     if not isinstance(calc, GPAW):
@@ -71,7 +79,12 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
         evc += e1 * 2 / wfs.nspins
         evv += e2 * 2 / wfs.nspins
 
-    return exc * Ha, ecc * Ha, evc * Ha, evv * Ha
+    return np.array([calc.hamiltonian.e_total_free,
+                     -calc.hamiltonian.e_xc,
+                     exc,
+                     ecc,
+                     evc,
+                     evv]) * Ha
 
 
 def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
@@ -107,7 +120,7 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
             exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
             exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
 
-    return comm.sum(exxvv), comm.sum(exxvc)
+    return comm.sum(exxvc), comm.sum(exxvv)
 
 
 def calculate_exx_for_pair(k1,
