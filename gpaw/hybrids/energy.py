@@ -11,7 +11,7 @@ from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
 from .coulomb import coulomb_inteaction
-from .kpts import get_kpts
+from .kpts import get_kpt
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
 
@@ -68,7 +68,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     evc = 0.0
     evv = 0.0
     for spin in range(nspins):
-        kpts = get_kpts(wfs, spin, nocc)
+        kpts = [get_kpt(wfs, k, spin, nocc) for k in range(kd.nibzkpts)]
         e1, e2 = calculate_energy(kpts, paw_s[spin],
                                   wfs, sym, coulomb, calc.spos_ac)
         evc += e1 * exx_fraction * 2 / wfs.nspins
