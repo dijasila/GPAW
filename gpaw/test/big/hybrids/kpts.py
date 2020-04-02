@@ -11,10 +11,10 @@ from gpaw.mpi import world, serial_comm
 
 
 def test(kpts, setup, spinpol, symmetry):
-    a = Atoms('H2',
+    a = Atoms('HLi',
               cell=(3, 3, 3),
               pbc=1,
-              positions=[[1.4, 0, 1.25], [1.6, 0, 2]]
+              positions=[[1.4, 0, 1.05], [1.6, 0, 2]]
               # positions=[[0, 0, 1.25], [0, 0, 2]]
               # positions=[[0, 0, 0], [0, 0, 0.75]]
               )
@@ -39,7 +39,8 @@ def check(atoms, xc, i):
     e = non_self_consistent_energy(c, xc)
     c.write('c.gpw', 'all')
     # eps = non_self_consistent_eigenvalues(c, xc, snapshot=f'{i}.json')
-    eps = non_self_consistent_eigenvalues('c.gpw', xc, snapshot=f'{i}.json')
+    eps = non_self_consistent_eigenvalues('c.gpw', xc, 0, 2,
+                                          snapshot=f'{i}.json')
     # xc1.calculate_eigenvalues0(0, 2, None)
     # e1, v1, v2 = non_self_consistent_eigenvalues(c, xc, 0, 2, None,
     #                                             f'{i}.txt')
@@ -57,6 +58,7 @@ def check(atoms, xc, i):
     # assert np.allclose(eps0, xc1.e_skn * Ha)
     # print(e0, e)
     # assert np.allclose(e0, e[-3:].sum())
+    # print(et0, e);asdfg
     assert np.allclose(et0, e.sum()), (et0, e)
     # ecv, evv, v_skn = xc1.test()
     # assert np.allclose(e0, ecv + evv)
@@ -67,7 +69,7 @@ def main():
     i = 0
     for spinpol in [False, True]:
         for setup in [
-            'ae',
+            #'ae',
             'paw']:
             for symmetry in ['off', {}]:
                 for kpts in [(1, 1, 1),

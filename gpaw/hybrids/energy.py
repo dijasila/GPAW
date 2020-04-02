@@ -11,7 +11,7 @@ from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
 from .coulomb import coulomb_inteaction
-from .kpts import KPoint
+from .kpts import get_kpts
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
 
@@ -39,9 +39,6 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
 
     if not isinstance(calc, GPAW):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
-    else:
-        if calc.wfs.world.size != calc.wfs.gd.comm.size:
-            import tempfile
 
     wfs = calc.wfs
     dens = calc.density
@@ -55,10 +52,12 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     xcname, exx_fraction, omega = parse_name(xcname)
 
     xc = XC(xcname)
-    exc = xc.calculate(dens.finegd, dens.nt_sg)
+    exc = 0.0
     for a, D_sp in dens.D_asp.items():
         print(calc.wfs.world.rank, a)
         exc += xc.calculate_paw_correction(setups[a], D_sp)
+    exc = dens.finegd.comm.sum(exc)
+    exc += xc.calculate(dens.finegd, dens.nt_sg)
 
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
@@ -69,15 +68,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     evc = 0.0
     evv = 0.0
     for spin in range(nspins):
-        K = kd.nibzkpts
-        k1 = spin * K
-        k2 = k1 + K
-        kpts = [KPoint(kpt.psit.view(0, nocc),
-                       kpt.projections.view(0, nocc),
-                       kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
-                       kd.ibzk_kc[kpt.k],
-                       kd.weight_k[kpt.k])
-                for kpt in wfs.mykpts[k1:k2]]
+        kpts = get_kpts(wfs, spin, nocc)
         e1, e2 = calculate_energy(kpts, paw_s[spin],
                                   wfs, sym, coulomb, calc.spos_ac)
         evc += e1 * exx_fraction * 2 / wfs.nspins
@@ -96,7 +87,22 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
 
-    exxvv = 0.0
+    exxvv1 = 0.0
+    exxvc = 0.0
+    for i, kpt in enumerate(kpts):
+        for a, VV_ii in paw.VV_aii.items():
+            P_ni = kpt.proj[a]
+            vv_n = np.einsum('ni, ij, nj -> n',
+                             P_ni.conj(), VV_ii, P_ni).real
+            vc_n = np.einsum('ni, ij, nj -> n',
+                             P_ni.conj(), paw.VC_aii[a], P_ni).real
+            exxvv1 -= vv_n.dot(kpt.f_n) * kpt.weight
+            exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
+
+    exxvc = paw.comm.sum(exxvc)
+    exxvv1 = paw.comm.sum(exxvv1)
+
+    exxvv2 = 0.0
     for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs, spos_ac):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
@@ -111,20 +117,11 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
 
         e_nn *= count
         e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
-        exxvv -= 0.5 * e
+        exxvv2 -= 0.5 * e
 
-    exxvc = 0.0
-    for i, kpt in enumerate(kpts):
-        for a, VV_ii in paw.VV_aii.items():
-            P_ni = kpt.proj[a]
-            vv_n = np.einsum('ni, ij, nj -> n',
-                             P_ni.conj(), VV_ii, P_ni).real
-            vc_n = np.einsum('ni, ij, nj -> n',
-                             P_ni.conj(), paw.VC_aii[a], P_ni).real
-            exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
-            exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
+    exxvv2 = comm.sum(exxvv2)
 
-    return comm.sum(exxvc), comm.sum(exxvv)
+    return exxvc, exxvv1 + exxvv2
 
 
 def calculate_exx_for_pair(k1,

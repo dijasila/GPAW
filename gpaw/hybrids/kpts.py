@@ -39,3 +39,26 @@ def to_real_space(psit, na=0, nb=None):
             comm.broadcast(u_nR[n], n - n1)
 
     return u_nR[na:nb]
+
+
+def get_kpts(wfs, spin, nocc=-1):
+    assert wfs.world.size == wfs.gd.comm.size
+    kd = wfs.kd
+    K = kd.nibzkpts
+    k1 = spin * K
+    k2 = k1 + K
+    kpts = []
+    for kpt in wfs.mykpts[k1:k2]:
+        psit = kpt.psit
+        proj = kpt.projections
+        if nocc != -1:
+            psit = psit.view(0, nocc)
+            proj = proj.view(0, nocc)
+        kpt = KPoint(psit,
+                     proj,
+                     kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
+                     kd.ibzk_kc[kpt.k],
+                     kd.weight_k[kpt.k])
+        kpts.append(kpt)
+    return kpts
+    

@@ -1,4 +1,4 @@
-from typing import NamedTuple, Dict, List
+from typing import NamedTuple, Dict, List, Any
 
 import numpy as np
 
@@ -7,8 +7,9 @@ from gpaw.utilities import unpack2, unpack, packed_index
 
 class PAWThings(NamedTuple):
     VC_aii: Dict[int, np.ndarray]
-    VV_aii: Dict[int, np.ndarray]
+    VV_aii: Dict[int, np.ndarray]  # distributed over comm
     Delta_aiiL: List[np.ndarray]
+    comm: Any
 
 
 def calculate_paw_stuff(dens, setups):
@@ -27,7 +28,8 @@ def calculate_paw_stuff(dens, setups):
         Delta_aiiL.append(data.Delta_iiL)
         VC_aii[a] = unpack(data.X_p)
 
-    return [PAWThings(VC_aii, VV_aii, Delta_aiiL) for VV_aii in VV_saii]
+    return [PAWThings(VC_aii, VV_aii, Delta_aiiL, dens.gd.comm)
+            for VV_aii in VV_saii]
 
 
 def pawexxvv(atomdata, D_ii):
