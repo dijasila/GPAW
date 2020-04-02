@@ -11,7 +11,13 @@ from gpaw.mpi import world, serial_comm
 
 
 def test(kpts, setup, spinpol, symmetry):
-    a = Atoms('H2', cell=(3, 3, 3), pbc=1, positions=[[0, 0, 0], [0, 0, 0.75]])
+    a = Atoms('H2',
+              cell=(3, 3, 3),
+              pbc=1,
+              positions=[[1.4, 0, 1.25], [1.6, 0, 2]]
+              # positions=[[0, 0, 1.25], [0, 0, 2]]
+              # positions=[[0, 0, 0], [0, 0, 0.75]]
+              )
     a.calc = GPAW(mode=PW(100, force_complex_dtype=True),
                   setups=setup,
                   kpts=kpts,
@@ -43,13 +49,15 @@ def check(atoms, xc, i):
 
     xc2 = EXX(c, xc=xc, bands=(0, 2), txt=None)
     xc2.calculate()
-    e0 = xc2.get_exx_energy()
+    # e0 = xc2.get_exx_energy()
+    et0 = xc2.get_total_energy()
     eps0 = xc2.get_eigenvalue_contributions()
     assert np.allclose(eps0, eps[2]), (eps0, eps)
     # assert np.allclose(v2, xc1.e_skn * Ha), (v2, xc1.e_skn * Ha, eps0)
     # assert np.allclose(eps0, xc1.e_skn * Ha)
     # print(e0, e)
-    assert np.allclose(e0, e[1] + e[2] + e[3])
+    # assert np.allclose(e0, e[-3:].sum())
+    assert np.allclose(et0, e.sum()), (et0, e)
     # ecv, evv, v_skn = xc1.test()
     # assert np.allclose(e0, ecv + evv)
     # assert np.allclose(v_skn, eps0)

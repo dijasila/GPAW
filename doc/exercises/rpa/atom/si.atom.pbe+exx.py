@@ -1,7 +1,7 @@
 from ase import Atoms
 from gpaw import GPAW, FermiDirac, Mixer
 from gpaw.wavefunctions.pw import PW
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 from ase.parallel import paropen
 
@@ -37,9 +37,7 @@ for L in [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]:
     isolated_calc.write('si.pbe+exx.isolated.gpw', mode='all')
 
     # Now the exact exchange
-    exx = EXX('si.pbe+exx.isolated.gpw', txt='si_isolated_exx.txt')
-    exx.calculate()
-    si_isolated_exx = exx.get_total_energy()
+    si_isolated_exx = nsc_energy('si.pbe+exx.isolated.gpw', 'EXX')
 
     s = str(L)
     s += ' '

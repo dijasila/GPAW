@@ -39,6 +39,9 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
 
     if not isinstance(calc, GPAW):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
+    else:
+        if calc.wfs.world.size != calc.wfs.gd.comm.size:
+            import tempfile
 
     wfs = calc.wfs
     dens = calc.density
@@ -54,6 +57,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     xc = XC(xcname)
     exc = xc.calculate(dens.finegd, dens.nt_sg)
     for a, D_sp in dens.D_asp.items():
+        print(calc.wfs.world.rank, a)
         exc += xc.calculate_paw_correction(setups[a], D_sp)
 
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
@@ -76,8 +80,8 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
                 for kpt in wfs.mykpts[k1:k2]]
         e1, e2 = calculate_energy(kpts, paw_s[spin],
                                   wfs, sym, coulomb, calc.spos_ac)
-        evc += e1 * 2 / wfs.nspins
-        evv += e2 * 2 / wfs.nspins
+        evc += e1 * exx_fraction * 2 / wfs.nspins
+        evv += e2 * exx_fraction * 2 / wfs.nspins
 
     return np.array([calc.hamiltonian.e_total_free,
                      -calc.hamiltonian.e_xc,
