@@ -50,7 +50,7 @@ def get_kpts(wfs, spin, nocc=-1):
     kpts = []
     for kpt in wfs.mykpts[k1:k2]:
         psit = kpt.psit
-        proj = kpt.projections
+        proj = get_projections(wfs, spin, k, nocc)
         if nocc != -1:
             psit = psit.view(0, nocc)
             proj = proj.view(0, nocc)
@@ -61,4 +61,7 @@ def get_kpts(wfs, spin, nocc=-1):
                      kd.weight_k[kpt.k])
         kpts.append(kpt)
     return kpts
-    
+
+
+def get_projections
+kpt.projections

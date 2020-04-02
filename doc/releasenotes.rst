@@ -12,6 +12,10 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* New functions for non self-consistent hybrid calculations:
+  :func:`gpaw.hybrids.energy.non_self_consistent_energy` and
+  :func:`gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues`.
+
 * Python 3.6 or later is required now.
 
 * The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
