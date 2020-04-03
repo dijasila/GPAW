@@ -132,19 +132,18 @@ def _non_local(calc: GPAW,
         for i in kpt_indices:
             kpt1 = get_kpt(wfs, i, spin, n1, n2)
             v_n = calculate_eigenvalues(
-                kpt1, kpts2, paw_s[spin], coulomb, sym, wfs, calc.spos_ac)
+                kpt1, kpts2, paw_s[spin], kd, coulomb, sym, wfs, calc.spos_ac)
             wfs.world.sum(v_n)
             yield spin, v_n
 
 
-def calculate_eigenvalues(kpt1, kpts2, paw, coulomb, sym, wfs, spos_ac):
+def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     pd = kpt1.psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
     size = comm.size
     rank = comm.rank
 
-    kd = kpts2[0].psit.pd.kd
     nsym = len(kd.symmetry.op_scc)
     assert len(kpts2) == kd.nibzkpts
 

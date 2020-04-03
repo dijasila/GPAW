@@ -74,7 +74,7 @@ class HybridXC:
             self.coulomb = coulomb_inteaction(self.omega, wfs.gd, wfs.kd)
             self.sym = Symmetry(wfs.kd)
 
-        paw_s = calculate_paw_stuff(self.dens, wfs.setups)  # ???????
+        paw_s = calculate_paw_stuff(wfs, self.dens)  # ???????
 
         if kpt.f_n is None:
             # Just use LDA_X for first step:

@@ -37,6 +37,10 @@ class GPAWPlugin:
 
 def pytest_configure(config):
     if world.rank != 0:
-        tw = config.get_terminal_writer()
-        tw._file = devnull
+        try:
+            tw = config.get_terminal_writer()
+        except AttributeError:
+            pass
+        else:
+            tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')

@@ -24,7 +24,7 @@ def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
         D_asp = {a: D_sp for a, D_sp in D_asp.items()
                  if rank_a[a] == wfs.world.rank}
 
-    VV_saii = [{} for s in range(dens.nspins)]
+    VV_saii: List[Dict[int, np.ndarray]] = [{} for s in range(dens.nspins)]
     for a, D_sp in D_asp.items():
         data = wfs.setups[a]
         for VV_aii, D_p in zip(VV_saii, D_sp):
