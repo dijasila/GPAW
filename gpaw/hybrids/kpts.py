@@ -24,9 +24,7 @@ RSKPoint = namedtuple(
      'proj',  # same as above
      'f_n',   # ...
      'k_c',
-     'weight',
-     # 'index'  # IBZ k-point index
-     ])
+     'weight'])
 
 
 def to_real_space(psit, na=0, nb=None):
@@ -69,7 +67,10 @@ def get_kpt(wfs, k, spin, nocc=-1):
                                                dtype=wfs.dtype,
                                                spin=spin)
         for n in range(wfs.bd.nbands):
-            psit_G = wfs.get_wave_function_array(n, k, spin, realspace=False)
+            psit_G = wfs.get_wave_function_array(n, k, spin,
+                                                 realspace=False, cut=False)
+            if isinstance(psit_G, float):
+                psit_G = None
             psit._distribute(psit_G, psit.array[n])
 
         P_nI = wfs.collect_projections(k, spin)
@@ -89,13 +90,13 @@ def get_kpt(wfs, k, spin, nocc=-1):
         atom_partition = AtomPartition(wfs.world, rank_a)
         proj = proj.redist(atom_partition)
 
-        f_n = wfs.get_occupations(k, spin)
+        f_n = wfs.collect_occupations(k, spin)
 
     if nocc != -1:
         psit = psit.view(0, nocc)
         proj = proj.view(0, nocc)
 
-    f_n = f_n[:nocc] / (weight * (2 // kd.nspins))  # scale to [0, 1]
+    f_n = f_n[:nocc] / (weight * (2 // wfs.nspins))  # scale to [0, 1]
 
     kpt = KPoint(psit, proj, f_n, k_c, weight)
     return kpt

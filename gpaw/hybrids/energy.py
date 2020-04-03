@@ -7,6 +7,7 @@ from ase.units import Ha
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
+from gpaw.utilities.partition import AtomPartition
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
@@ -62,7 +63,13 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
-    paw_s = calculate_paw_stuff(dens, setups)
+    D_asp = dens.D_asp
+    if D_asp.partition.comm.size != wfs.world.size:
+        natoms = len(wfs.setups)
+        rank_a = np.zeros(natoms, int)
+        atom_partition = AtomPartition(wfs.world, rank_a)
+        D_asp = D_asp.redistribute(atom_partition)
+    paw_s = calculate_paw_stuff(wfs.nspins, D_asp, setups)
 
     ecc = sum(setup.ExxC for setup in setups) * exx_fraction
     evc = 0.0
@@ -87,7 +94,7 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
 
-    exxvv1 = 0.0
+    exxvv = 0.0
     exxvc = 0.0
     for i, kpt in enumerate(kpts):
         for a, VV_ii in paw.VV_aii.items():
@@ -96,13 +103,9 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
                              P_ni.conj(), VV_ii, P_ni).real
             vc_n = np.einsum('ni, ij, nj -> n',
                              P_ni.conj(), paw.VC_aii[a], P_ni).real
-            exxvv1 -= vv_n.dot(kpt.f_n) * kpt.weight
+            exxvv -= vv_n.dot(kpt.f_n) * kpt.weight
             exxvc -= vc_n.dot(kpt.f_n) * kpt.weight
 
-    exxvc = paw.comm.sum(exxvc)
-    exxvv1 = paw.comm.sum(exxvv1)
-
-    exxvv2 = 0.0
     for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs, spos_ac):
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
@@ -117,11 +120,12 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
 
         e_nn *= count
         e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
-        exxvv2 -= 0.5 * e
+        exxvv -= 0.5 * e
 
-    exxvv2 = comm.sum(exxvv2)
+    exxvv = comm.sum(exxvv)
+    exxvc = comm.sum(exxvc)
 
-    return exxvc, exxvv1 + exxvv2
+    return exxvc, exxvv
 
 
 def calculate_exx_for_pair(k1,

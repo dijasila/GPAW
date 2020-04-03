@@ -7,15 +7,13 @@ from gpaw.utilities import unpack2, unpack, packed_index
 
 class PAWThings(NamedTuple):
     VC_aii: Dict[int, np.ndarray]
-    VV_aii: Dict[int, np.ndarray]  # distributed over comm
+    VV_aii: Dict[int, np.ndarray]  # distributed
     Delta_aiiL: List[np.ndarray]
-    comm: Any
 
 
-def calculate_paw_stuff(dens, setups):
-    nspins = dens.nspins
+def calculate_paw_stuff(nspins, D_asp, setups):
     VV_saii = [{} for s in range(nspins)]
-    for a, D_sp in dens.D_asp.items():
+    for a, D_sp in D_asp.items():
         data = setups[a]
         for VV_aii, D_p in zip(VV_saii, D_sp):
             D_ii = unpack2(D_p) * (nspins / 2)
@@ -28,7 +26,7 @@ def calculate_paw_stuff(dens, setups):
         Delta_aiiL.append(data.Delta_iiL)
         VC_aii[a] = unpack(data.X_p)
 
-    return [PAWThings(VC_aii, VV_aii, Delta_aiiL, dens.gd.comm)
+    return [PAWThings(VC_aii, VV_aii, Delta_aiiL)
             for VV_aii in VV_saii]
 
 

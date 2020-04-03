@@ -24,7 +24,7 @@ def test(kpts, setup, spinpol, symmetry):
                   spinpol=spinpol,
                   # nbands=1,
                   symmetry=symmetry,
-                  parallel={'band': 1, 'kpt': 1},
+                  #parallel={'band': 1, 'kpt': 1},
                   txt=None,
                   xc='PBE')
     a.get_potential_energy()

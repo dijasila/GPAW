@@ -123,7 +123,7 @@ def _non_local(calc: GPAW,
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
-    paw_s = calculate_paw_stuff(dens, setups)
+    paw_s = calculate_paw_stuff(dens.nspins, dens.D_asp, setups)
 
     for spin, kpt_indices in enumerate(kpt_indices_s):
         if len(kpt_indices) == 0:
