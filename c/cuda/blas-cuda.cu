@@ -973,7 +973,7 @@ PyObject* gemv_cuda_gpu(PyObject *self, PyObject *args)
     PyArray_Descr *type;
 
     int trans = 't';
-    if (!PyArg_ParseTuple(args, "DnOnODn0|C", &alpha, &a_gpu, &a_shape,
+    if (!PyArg_ParseTuple(args, "DnOnODnO|C", &alpha, &a_gpu, &a_shape,
                           &x_gpu, &x_shape, &beta, &y_gpu, &type, &trans))
         return NULL;
 
