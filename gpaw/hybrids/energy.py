@@ -6,8 +6,7 @@ from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.mpi import serial_comm, broadcast
-from gpaw.utilities import pack_atomic_matrices, unpack_atomic_matrices
+from gpaw.mpi import serial_comm
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
@@ -49,6 +48,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
                for kpt in wfs.mykpts)
+    nocc = kd.comm.max(int(nocc))
 
     xcname, exx_fraction, omega = parse_name(xcname)
 
@@ -62,22 +62,13 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
-    D_asp = dens.D_asp
-    if D_asp.partition.comm.size != wfs.world.size:
-        D_sP = pack_atomic_matrices(D_asp)
-        D_sP = broadcast(D_sP, comm=D_asp.partition.comm)
-        D_asp = unpack_atomic_matrices(D_sP, wfs.setups)
-        rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
-                             endpoint=False).astype(int)
-        D_asp = {a: D_sp for a, D_sp in D_asp.items()
-                 if rank_a[a] == wfs.world.rank}
-    paw_s = calculate_paw_stuff(wfs.nspins, D_asp, setups)
+    paw_s = calculate_paw_stuff(wfs, dens)
 
     ecc = sum(setup.ExxC for setup in setups) * exx_fraction
     evc = 0.0
     evv = 0.0
     for spin in range(nspins):
-        kpts = [get_kpt(wfs, k, spin, nocc) for k in range(kd.nibzkpts)]
+        kpts = [get_kpt(wfs, k, spin, 0, nocc) for k in range(kd.nibzkpts)]
         e1, e2 = calculate_energy(kpts, paw_s[spin],
                                   wfs, sym, coulomb, calc.spos_ac)
         evc += e1 * exx_fraction * 2 / wfs.nspins

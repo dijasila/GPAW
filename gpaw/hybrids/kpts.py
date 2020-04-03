@@ -47,40 +47,42 @@ def to_real_space(psit, na=0, nb=None):
     return u_nR[na:nb]
 
 
-def get_kpt(wfs, k, spin, nocc=-1):
+def get_kpt(wfs, k, spin, n1, n2):
     k_c = wfs.kd.ibzk_kc[k]
     weight = wfs.kd.weight_k[k]
 
     if wfs.world.size == wfs.gd.comm.size:
         # Easy:
         kpt = wfs.mykpts[wfs.kd.nibzkpts * spin + k]
-        psit = kpt.psit
-        proj = kpt.projections
-        f_n = kpt.f_n
+        psit = kpt.psit.view(n1, n2)
+        proj = kpt.projections.view(n1, n2)
+        f_n = kpt.f_n[n1:n2]
     else:
         # Need to redistribute things:
         gd = wfs.gd.new_descriptor(comm=wfs.world)
         kd = KPointDescriptor([k_c])
         pd = PWDescriptor(wfs.ecut, gd, wfs.dtype, kd, wfs.fftwflags)
-        psit = PlaneWaveExpansionWaveFunctions(wfs.bd.nbands,
+        psit = PlaneWaveExpansionWaveFunctions(n2 - n1,
                                                pd,
                                                dtype=wfs.dtype,
                                                spin=spin)
-        for n in range(wfs.bd.nbands):
+        for n in range(n1, n2):
             psit_G = wfs.get_wave_function_array(n, k, spin,
                                                  realspace=False, cut=False)
             if isinstance(psit_G, float):
                 psit_G = None
             else:
                 psit_G = psit_G[:pd.ngmax]
-            psit._distribute(psit_G, psit.array[n])
+            psit._distribute(psit_G, psit.array[n - n1])
 
         P_nI = wfs.collect_projections(k, spin)
+        if wfs.world.rank == 0:
+            P_nI = P_nI[n1:n2]
         natoms = len(wfs.setups)
         rank_a = np.zeros(natoms, int)
         atom_partition = AtomPartition(wfs.world, rank_a)
         nproj_a = [setup.ni for setup in wfs.setups]
-        proj = Projections(wfs.bd.nbands,
+        proj = Projections(n2 - n1,
                            nproj_a,
                            atom_partition,
                            spin=spin,
@@ -94,14 +96,11 @@ def get_kpt(wfs, k, spin, nocc=-1):
 
         f_n = wfs.collect_occupations(k, spin)
         if wfs.world.rank != 0:
-            f_n = np.empty(wfs.bd.nbands)
+            f_n = np.empty(n2 - n1)
+        else:
+            f_n = f_n[n1:n2]
         wfs.world.broadcast(f_n, 0)
 
-    if nocc != -1:
-        psit = psit.view(0, nocc)
-        proj = proj.view(0, nocc)
+    f_n = f_n / (weight * (2 // wfs.nspins))  # scale to [0, 1]
 
-    f_n = f_n[:nocc] / (weight * (2 // wfs.nspins))  # scale to [0, 1]
-
-    kpt = KPoint(psit, proj, f_n, k_c, weight)
-    return kpt
+    return KPoint(psit, proj, f_n, k_c, weight)

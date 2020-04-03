@@ -13,7 +13,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from . import parse_name
 from .coulomb import coulomb_inteaction
-from .kpts import KPoint, RSKPoint, to_real_space
+from .kpts import RSKPoint, to_real_space, get_kpt
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
 
@@ -115,35 +115,22 @@ def _non_local(calc: GPAW,
     wfs = calc.wfs
     kd = wfs.kd
     dens = calc.density
-    setups = wfs.setups
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
                for kpt in wfs.mykpts)
+    nocc = kd.comm.max(int(nocc))
 
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
-    paw_s = calculate_paw_stuff(dens.nspins, dens.D_asp, setups)
+    paw_s = calculate_paw_stuff(wfs, dens)
 
     for spin, kpt_indices in enumerate(kpt_indices_s):
         if len(kpt_indices) == 0:
             continue
-        K = kd.nibzkpts
-        k1 = spin * K
-        k2 = k1 + K
-        kpts2 = [KPoint(kpt.psit.view(0, nocc),
-                        kpt.projections.view(0, nocc),
-                        kpt.f_n[:nocc] / kpt.weight,  # scale to [0, 1]
-                        kd.ibzk_kc[kpt.k],
-                        kd.weight_k[kpt.k])
-                 for kpt in wfs.mykpts[k1:k2]]
+        kpts2 = [get_kpt(wfs, k, spin, 0, nocc) for k in range(kd.nibzkpts)]
         for i in kpt_indices:
-            kpt = wfs.mykpts[k1 + i]
-            kpt1 = KPoint(kpt.psit.view(n1, n2),
-                          kpt.projections.view(n1, n2),
-                          kpt.f_n[n1:n2] / kpt.weight,  # scale to [0, 1]
-                          kd.ibzk_kc[kpt.k],
-                          kd.weight_k[kpt.k])
+            kpt1 = get_kpt(wfs, i, spin, n1, n2)
             v_n = calculate_eigenvalues(
                 kpt1, kpts2, paw_s[spin], coulomb, sym, wfs, calc.spos_ac)
             wfs.world.sum(v_n)

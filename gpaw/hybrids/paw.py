@@ -1,8 +1,10 @@
-from typing import NamedTuple, Dict, List, Any
+from typing import NamedTuple, Dict, List
 
 import numpy as np
 
-from gpaw.utilities import unpack2, unpack, packed_index
+from gpaw.mpi import broadcast
+from gpaw.utilities import (pack_atomic_matrices, unpack_atomic_matrices,
+                            unpack2, unpack, packed_index)
 
 
 class PAWThings(NamedTuple):
@@ -11,18 +13,28 @@ class PAWThings(NamedTuple):
     Delta_aiiL: List[np.ndarray]
 
 
-def calculate_paw_stuff(nspins, D_asp, setups):
-    VV_saii = [{} for s in range(nspins)]
+def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
+    D_asp = dens.D_asp
+    if D_asp.partition.comm.size != wfs.world.size:
+        D_sP = pack_atomic_matrices(D_asp)
+        D_sP = broadcast(D_sP, comm=D_asp.partition.comm)
+        D_asp = unpack_atomic_matrices(D_sP, wfs.setups)
+        rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
+                             endpoint=False).astype(int)
+        D_asp = {a: D_sp for a, D_sp in D_asp.items()
+                 if rank_a[a] == wfs.world.rank}
+
+    VV_saii = [{} for s in range(dens.nspins)]
     for a, D_sp in D_asp.items():
-        data = setups[a]
+        data = wfs.setups[a]
         for VV_aii, D_p in zip(VV_saii, D_sp):
-            D_ii = unpack2(D_p) * (nspins / 2)
+            D_ii = unpack2(D_p) * (dens.nspins / 2)
             VV_ii = pawexxvv(data, D_ii)
             VV_aii[a] = VV_ii
 
     Delta_aiiL = []
     VC_aii = {}
-    for a, data in enumerate(setups):
+    for a, data in enumerate(wfs.setups):
         Delta_aiiL.append(data.Delta_iiL)
         VC_aii[a] = unpack(data.X_p)
 
