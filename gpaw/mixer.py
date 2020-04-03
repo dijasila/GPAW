@@ -553,10 +553,11 @@ class SpinDifferenceMixerDriver:
 _backends = {}
 _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer]:
-    _backends[cls.name] = cls
-for cls in [SeparateSpinMixerDriver, SpinSumMixerDriver, SpinSumMixerDriver2,
-            SpinDifferenceMixerDriver, DummyMixer]:
-    _methods[cls.name] = cls
+    _backends[cls.name] = cls  # type:ignore
+for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
+             SpinSumMixerDriver2,
+             SpinDifferenceMixerDriver, DummyMixer]:
+    _methods[dcls.name] = dcls  # type:ignore
 
 
 # This function is used by Density to decide mixer parameters

@@ -124,7 +124,8 @@ class KohnShamDecomposition(object):
             direction[v] = 1.0
             magnitude = 1.0
             cef = ConstantElectricField(magnitude * Hartree / Bohr, direction)
-            kick_hamiltonian = KickHamiltonian(paw, cef)
+            kick_hamiltonian = KickHamiltonian(paw.hamiltonian, paw.density,
+                                               cef)
             dm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
                 kick_hamiltonian, paw.wfs, self.wfs.kpt_u[u],
                 add_kinetic=False, root=-1)

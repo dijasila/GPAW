@@ -1,5 +1,6 @@
+# type: ignore
 from math import nan
-from typing import Tuple
+from typing import Tuple, Dict
 from io import StringIO
 
 import numpy as np
@@ -25,6 +26,7 @@ def parse_name(name: str) -> Tuple[str, float, float]:
         return 'HYB_GGA_XC_HSE06', 0.25, 0.11
     if name == 'B3LYP':
         return 'HYB_GGA_XC_B3LYP', 0.2, 0.0
+    raise ValueError
 
 
 class HybridXC:
@@ -62,7 +64,7 @@ class HybridXC:
 
         self.xx = None
         self.coulomb = None
-        self.v_knG = {}
+        self.v_knG: Dict[int, np.ndarray] = {}
         self.spin = -1
 
         self.evv = np.nan

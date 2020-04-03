@@ -1,4 +1,4 @@
-import os.path as op
+import os
 import subprocess
 import sys
 
@@ -34,8 +34,11 @@ def info():
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())
+    else:
+        githash = ''
     results.append(('_gpaw' + githash,
-                    op.normpath(getattr(module, '__file__', 'built-in'))))
+                    os.path.normpath(getattr(module, '__file__',
+                                             'built-in'))))
     if '_gpaw' in sys.builtin_module_names or not have_mpi:
         p = subprocess.Popen(['which', 'gpaw-python'], stdout=subprocess.PIPE)
         results.append(('parallel',
@@ -48,7 +51,7 @@ def info():
             version = LibElpa.api_version()
             if version is None:
                 version = 'unknown, at most 2018.xx'
-            have_elpa = 'yes; version: {}'.format(version)
+            have_elpa = f'yes; version: {version}'
     else:
         have_sl = have_elpa = 'no (MPI unavailable)'
 
@@ -61,19 +64,24 @@ def info():
     have_fftw = fftw.have_fftw()
     results.append(('FFTW', have_fftw))
     results.append(('libvdwxc', compiled_with_libvdwxc()))
-    paths = ['{0}: {1}'.format(i + 1, path)
-             for i, path in enumerate(gpaw.setup_paths)]
-    results.append(('PAW-datasets', '\n{:25}'.format('').join(paths)))
+    for i, path in enumerate(gpaw.setup_paths):
+        results.append((f'PAW-datasets ({i + 1})', path))
 
-    if rank == 0:
-        for a, b in results:
-            if isinstance(b, bool):
-                b = ['no', 'yes'][b]
-            print('{0:25}{1}'.format(a, b))
+    if rank != 0:
+        return
+
+    lines = [(a, b if isinstance(b, str) else ['no', 'yes'][b])
+             for a, b in results]
+    n1 = max(len(a) for a, _ in lines)
+    n2 = max(len(b) for _, b in lines)
+    print('-' * n1 + '-+-' + '-' * n2)
+    for a, b in lines:
+        print(f'{a:{n1}} | {b}')
+    print('-' * n1 + '-+-' + '-' * n2)
 
 
 class CLICommand:
-    __doc__ = info.__doc__.rstrip('.')
+    """Show versions of GPAW and its dependencies"""
 
     @staticmethod
     def add_arguments(parser):
@@ -82,7 +90,3 @@ class CLICommand:
     @staticmethod
     def run(args):
         info()
-        if not have_mpi:
-            print()
-            print('MPI not enabled.  Check parallel configuration with: '
-                  'gpaw -P1 info')

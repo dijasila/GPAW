@@ -1,6 +1,5 @@
 # Copyright (C) 2016 R. Warmbier Materials for Energy Research Group,
 # Wits University
-from __future__ import division
 
 import copy
 import numpy as np

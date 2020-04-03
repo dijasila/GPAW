@@ -25,7 +25,9 @@ if (relax_method == 1)
     {
       for (int i1 = 0; i1 < nstep[1]; i1++)
         {
+#ifdef _OPENMP
 #pragma omp simd
+#endif
           for (int i2 = 0; i2 < nstep[2]; i2++)
             {
               double x = 0.0;
@@ -53,7 +55,9 @@ else
     {
       for (int i1 = 0; i1 < s->n[1]; i1++)
         {
+#ifdef _OPENMP
 #pragma omp simd
+#endif
           for (int i2 = 0; i2 < s->n[2]; i2++)
             {
               double x = 0.0;

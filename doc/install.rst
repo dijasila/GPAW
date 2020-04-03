@@ -53,7 +53,7 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 3.5 or later
+* Python_ 3.6 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.18.0 or later (atomic simulation environment)
@@ -120,31 +120,25 @@ tests as described below.
 
 
 .. index:: test
-.. _run the tests:
+.. _run a tests:
 
-Run the tests
-=============
+Run a simple test calculation
+=============================
 
-Make sure that everything works by running the test suite::
+Make sure that everything works by running a simple test::
 
     $ gpaw test
 
-This will take a couple of hours.  You can speed it up by using more than
-one core::
+If this worked then try also a parallel calculation::
 
-    $ gpaw test -j 4
+    $ gpaw -P 4 test
 
 Please report errors to the ``gpaw-users`` mailing list so that we
 can fix them (see :ref:`mail list`).
 
-If tests pass, and the parallel version is built, test the parallel code
-on 2, 4 and 8 cores::
+.. seealso::
 
-    $ gpaw -P 2 test
-
-or equivalently::
-
-    $ mpiexec -np 2 python3 -m gpaw test
+    :ref:`testing` for how to run the complete test suite.
 
 
 .. _download:
@@ -157,13 +151,13 @@ Sou can get the source from a tar-file or from Git:
 :Tar-file:
 
     You can get the source as a tar-file for the
-    latest stable release (gpaw-19.8.1.tar.gz_) or the latest
+    latest stable release (gpaw-20.1.0.tar.gz_) or the latest
     development snapshot (`<snapshot.tar.gz>`_).
 
     Unpack and make a soft link::
 
-        $ tar -xf gpaw-19.8.1.tar.gz
-        $ ln -s gpaw-19.8.1 gpaw
+        $ tar -xf gpaw-20.1.0.tar.gz
+        $ ln -s gpaw-20.1.0 gpaw
 
     Here is a `list of tarballs <https://pypi.org/simple/gpaw/>`__.
 
@@ -172,7 +166,7 @@ Sou can get the source from a tar-file or from Git:
     Alternatively, you can get the source for the latest stable release from
     https://gitlab.com/gpaw/gpaw like this::
 
-        $ git clone -b 19.8.1 https://gitlab.com/gpaw/gpaw.git
+        $ git clone -b 20.1.0 https://gitlab.com/gpaw/gpaw.git
 
     or if you want the development version::
 
@@ -184,8 +178,8 @@ Sou can get the source from a tar-file or from Git:
     See the :ref:`releasenotes` for which tags are available.  Also the
     dates of older releases can be found there.
 
-.. _gpaw-19.8.1.tar.gz:
-    https://pypi.org/packages/source/g/gpaw/gpaw-19.8.1.tar.gz
+.. _gpaw-20.1.0.tar.gz:
+    https://pypi.org/packages/source/g/gpaw/gpaw-20.1.0.tar.gz
 
 
 .. _siteconfig:

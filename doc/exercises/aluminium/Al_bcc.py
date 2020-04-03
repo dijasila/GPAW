@@ -1,4 +1,3 @@
-from __future__ import division, print_function
 from numpy.polynomial import Polynomial
 import ase.units as u
 from ase.build import bulk

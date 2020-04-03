@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pickle
 import numpy as np
 from gpaw import GPAW, setup_paths
