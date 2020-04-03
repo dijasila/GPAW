@@ -15,9 +15,10 @@ class PAWThings(NamedTuple):
 
 def calculate_paw_stuff(wfs, dens) -> List[PAWThings]:
     D_asp = dens.D_asp
-    if D_asp.partition.comm.size != wfs.world.size:
+    comm = D_asp.partition.comm
+    if comm.size != wfs.world.size:
         D_sP = pack_atomic_matrices(D_asp)
-        D_sP = broadcast(D_sP, comm=D_asp.partition.comm)
+        D_sP = broadcast(D_sP if comm.rank == 0 else None, comm=comm)
         D_asp = unpack_atomic_matrices(D_sP, wfs.setups)
         rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
                              endpoint=False).astype(int)
