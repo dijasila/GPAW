@@ -71,6 +71,8 @@ def get_kpt(wfs, k, spin, nocc=-1):
                                                  realspace=False, cut=False)
             if isinstance(psit_G, float):
                 psit_G = None
+            else:
+                psit_G = psit_G[:pd.ngmax]
             psit._distribute(psit_G, psit.array[n])
 
         P_nI = wfs.collect_projections(k, spin)
@@ -91,6 +93,9 @@ def get_kpt(wfs, k, spin, nocc=-1):
         proj = proj.redist(atom_partition)
 
         f_n = wfs.collect_occupations(k, spin)
+        if wfs.world.rank != 0:
+            f_n = np.empty(wfs.bd.nbands)
+        wfs.world.broadcast(f_n, 0)
 
     if nocc != -1:
         psit = psit.view(0, nocc)

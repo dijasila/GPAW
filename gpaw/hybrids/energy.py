@@ -6,8 +6,8 @@ from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.mpi import serial_comm
-from gpaw.utilities.partition import AtomPartition
+from gpaw.mpi import serial_comm, broadcast
+from gpaw.utilities import pack_atomic_matrices, unpack_atomic_matrices
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
@@ -55,7 +55,6 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     xc = XC(xcname)
     exc = 0.0
     for a, D_sp in dens.D_asp.items():
-        print(calc.wfs.world.rank, a)
         exc += xc.calculate_paw_correction(setups[a], D_sp)
     exc = dens.finegd.comm.sum(exc)
     exc += xc.calculate(dens.finegd, dens.nt_sg)
@@ -65,10 +64,13 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
 
     D_asp = dens.D_asp
     if D_asp.partition.comm.size != wfs.world.size:
-        natoms = len(wfs.setups)
-        rank_a = np.zeros(natoms, int)
-        atom_partition = AtomPartition(wfs.world, rank_a)
-        D_asp = D_asp.redistribute(atom_partition)
+        D_sP = pack_atomic_matrices(D_asp)
+        D_sP = broadcast(D_sP, comm=D_asp.partition.comm)
+        D_asp = unpack_atomic_matrices(D_sP, wfs.setups)
+        rank_a = np.linspace(0, wfs.world.size, len(wfs.spos_ac),
+                             endpoint=False).astype(int)
+        D_asp = {a: D_sp for a, D_sp in D_asp.items()
+                 if rank_a[a] == wfs.world.rank}
     paw_s = calculate_paw_stuff(wfs.nspins, D_asp, setups)
 
     ecc = sum(setup.ExxC for setup in setups) * exx_fraction
