@@ -116,6 +116,35 @@ def axpbz(a, x, b, z):
     _gpaw.axpbz_gpu(a, x.gpudata, b, z.gpudata, x.shape, x.dtype)
     return z
 
+def sum(x, result=None, axis=0):
+    """sum of array elements over a given axis"""
+    if not isinstance(x, GPUArray) and not isinstance(result, GPUArray):
+        return np.sum(x, axis=axis, out=result)
+    if axis > 0 or not isinstance(x, GPUArray):
+        if isinstance(x, GPUArray):
+            x = x.get()
+        if isinstance(result, GPUArray):
+            result.set(np.sum(x, axis=axis))
+        else:
+            result = np.sum(x, axis=axis, out=result)
+        return result
+    shape = x.shape[:axis] + x.shape[axis+1:]
+    convert = False
+    if result is None:
+        result = GPUArray(shape, x.dtype)
+    elif not isinstance(result, GPUArray):
+        _result = result
+        result = GPUArray(shape, x.dtype)
+        convert = True
+    ones = empty_like(result)
+    ones.fill(1.0)
+    _gpaw.gemv_cuda_gpu(1.0, x.gpudata, x.shape, ones.gpudata, ones.shape,
+                        1.0, result.gpudata, x.dtype, 'n')
+    if convert:
+        result.get(_result)
+        return _result
+    return result
+
 def to_gpu(ary, allocator=drv.mem_alloc):
     """converts a numpy array to a GPUArray"""
     result = GPUArray(ary.shape, ary.dtype, allocator, strides=ary.strides)
