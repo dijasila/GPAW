@@ -295,6 +295,8 @@ class SJM(SolvationGPAW):
             # Background charge is set here, not earlier, because atoms needed.
             self.set(background_charge=self.define_jellium(atoms))
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
+            self.sog('Potential found to be {:.5f} V (with {:+.5f} '
+                     'electrons)'.format(self.get_electrode_potential(), p.ne))
 
         else:
             iteration = 0
