@@ -90,20 +90,26 @@ class SJM(SolvationGPAW):
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
     # FIXME Would a better term for doublelayer be jellium_region or similar?
+    # GK: Before merging I always called this "counter_charge". Maybe we want
+    # to go back to that.
 
     # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     # E.g., verbose (and max_iter) could easily collide with a parent
     # class's future or present keywords.
+    # GK: Did you already implement this?
 
     # FIXME In a test script from GK, it only specifies the upper_limit of
     # the double layer, and I think the "cavity" keyword is supplied
     # instead? It isn't clear to me from reading the keywords above how I
     # do this. That cavity keyword comes from SolvationGPAW, so I wouldn't
     # have expected it to affect the jellium.
+    # GK: Are you refering to the "cavity_like" keyword? It is described
+    # in the doublelayer section. We can definitely change the wording.
 
     def __init__(self, ne=0, doublelayer=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
-                 always_adjust_ne=False, verbose=False, **gpaw_kwargs):
+                 always_adjust_ne=False, verbose=False,
+                 max_poteq_iters=10, **gpaw_kwargs):
 
         p = self.sjm_parameters = Parameters()
         SolvationGPAW.__init__(self, **gpaw_kwargs)
@@ -114,6 +120,10 @@ class SJM(SolvationGPAW):
         # different # criteria. Yet 'set' is also invoked here; would it
         # make more sense # to have these keywords just fed to 'set' to not
         # duplicate things?
+        # GK: I guess this is due to my limited experience in coding. As
+        # I understand set is always just called manually and __init__
+        # starts up things. That's why I made it that way. I can not see
+        # a call of set in here. Did you already fix this?
         p.ne = ne
         p.target_potential = potential
         p.dpot = dpot
@@ -123,7 +133,7 @@ class SJM(SolvationGPAW):
         p.always_adjust_ne = always_adjust_ne
 
         p.slope = None
-        p.max_iters = 10  # FIXME: Should we make this user-specified?
+        p.max_iters = max_poteq_iters
 
         self.sog('Solvated jellium method (SJM) parameters:')
         if p.target_potential is None:
@@ -199,7 +209,7 @@ class SJM(SolvationGPAW):
             if key == 'always_adjust_ne':
                 p.always_adjust_ne = SJM_changes[key]
 
-            if key in ['potential', 'doublelayer']:
+            if key in ['potential', 'doublelayer', 'ne']:
                 self.results = {}
 
             if key == 'potential':
@@ -263,9 +273,10 @@ class SJM(SolvationGPAW):
                     # FIXME: background_charge not always called when ne
                     # changes? Doesn't this screw up nvalence in wfs?
                     # (I.e., see below where key == 'ne'.)
+                    # GK: Have think about this one, but I'm fairly certain
+                    # it was needed in otder to avoid what you mentioned
 
             if key == 'ne':
-                self.results = {}
                 p.ne = SJM_changes['ne']
                 self.sog('Number of Excess electrons manually changed '
                          'to %1.8f' % (p.ne))
@@ -276,10 +287,10 @@ class SJM(SolvationGPAW):
         """
         Perform a calculation with SJM.
 
-        This methodincludes the potential equilibration loop.
+        This method includes the potential equilibration loop.
         It is essentially a wrapper around GPAW.calculate()
 
-        """ 
+        """
         if atoms is not None:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
@@ -287,6 +298,8 @@ class SJM(SolvationGPAW):
         # FIXME: Should results be zerod when set is called? That might be
         # easiest. Then I can check here if the results are not zero
         # and we can calculate things directly.
+        # GK: In general yes. However, some keywords might not need it
+        # e.g. dpot
         p = self.sjm_parameters
 
         if not p.target_potential:
@@ -370,6 +383,8 @@ class SJM(SolvationGPAW):
             # calculation because the above re-sets the jellium
             # and such. This shouldn't be the case, I believe. Check
             # how GPAW does it.
+            # GK: I will test this. I am certain this was not the
+            # case in the past, since it was part of my test suite.
 
             SolvationGPAW.calculate(self, atoms, properties, [])
 
@@ -392,6 +407,7 @@ class SJM(SolvationGPAW):
         # it should just pull the forces from the first.
         # I'm pretty sure this is because the line is invoked again:
         #        self.set(background_charge=self.define_jellium(atoms))
+        # GK: Will test
         if p.verbose:
             self.write_cavity_and_bckcharge()
 
@@ -523,7 +539,9 @@ class SJM(SolvationGPAW):
         G = gd.collect(g, broadcast=False)
         if world.rank == 0:
             G_z = G.mean(0).mean(0)
-            out = open(name + self.log.fd.name.split('.')[0] + '.out', 'w')
+            name += '.'.join(self.log.fd.name.split('.')[:-1]) + '.out'
+            out = open(name, 'w')
+            # out = open(name + self.log.fd.name.split('.')[0] + '.out', 'w')
             for i, val in enumerate(G_z):
                 out.writelines('%f  %1.8f\n' % ((i + 1) * gd.h_cv[2][2] * Bohr,
                                val))
@@ -538,6 +556,7 @@ class SJM(SolvationGPAW):
             write(name + '.cube', atoms, data=G)
         elif outstyle == 'pckl':
             # FIXME does this have parallel issues?
+            # GK: Possibly have to check
             import pickle
             out = open(name, 'wb')
             pickle.dump(G, out)
@@ -547,6 +566,9 @@ class SJM(SolvationGPAW):
 class SJMPower12Potential(Power12Potential):
     # FIXME. We should state how this differs from its parent.
     # Also could it be integrated now that we are comfortable with SJM?
+    # GK: This class is explicitly called in the SolvationGPAW keywords.
+    # Thus, I guess it might be a little more of an effort to include it.
+
     """Inverse power law potential.
 
     An 1 / r ** 12 repulsive potential
@@ -758,6 +780,7 @@ class SJMPower12Potential(Power12Potential):
 class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
     # FIXME If the docs are right this just has a dipole added, so it could
     # be folded into SolvationGPAW's implementation, right?
+    # GK: Yes, I think that is the only reason why it is a separate class
     """Realspace Hamiltonian with continuum solvent model in the context of
     SJM.
 
@@ -838,6 +861,7 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
 
 def create_background_charge(**kwargs):
     # FIXME. Add documentation for this?
+    # GK: Hmmm... This does not seem to be called anywhere.
     if 'z1' in kwargs:
         return JelliumSlab(**kwargs)
     elif 'g_g' in kwargs:
@@ -850,7 +874,7 @@ class CavityShapedJellium(Jellium):
        of the cavity.
     """
     def __init__(self, charge, g_g, z2):
-        """Put the positive background charge where the solvent is present and
+        """Put the jellium background charge where the solvent is present and
            z < z2.
 
         Parameters:
@@ -863,6 +887,8 @@ class CavityShapedJellium(Jellium):
             Position of upper surface in Angstrom units.
         """
         # FIXME add charge to parameters documentation above.
+        # GK: The amount of charge is never used in this class. It only
+        # defines the counter charge shape
 
         Jellium.__init__(self, charge)
         self.g_g = g_g
@@ -883,6 +909,16 @@ class CavityShapedJellium(Jellium):
 class SJMDipoleCorrection(DipoleCorrection):
     # FIXME We should document why this needs to be different than the
     # standard version. It is not obvious to me.
+    # GK: The standard dipole correction does not work for SJM. If used
+    # the potential is not flat outside. The reason is that there's regions
+    # with  varying dielectric properties in the cell. Thus, the dipole alone
+    # is not enough for canceling the field at the outer regions, since field
+    # is proportional to q/epsilon. Just scaling by espilon doesn't work
+    # either, unfortunately, because of the mentioned inhomogenity in epsilon.
+    # This is why it took me so long to get this working and even now it is
+    # only working iteratively. At some point in the future this should be
+    # revisited (again...) and solved in a more rigorous way. The keyword
+    # here is "Polarization charges", I think.
     """Dipole-correcting wrapper around another PoissonSolver specific for SJM.
 
     Iterative dipole correction class as applied in SJM.
