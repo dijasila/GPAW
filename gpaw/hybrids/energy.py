@@ -57,6 +57,8 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     for a, D_sp in dens.D_asp.items():
         exc += xc.calculate_paw_correction(setups[a], D_sp)
     exc = dens.finegd.comm.sum(exc)
+    if dens.nt_sg is None:
+        dens.interpolate_pseudo_density()
     exc += xc.calculate(dens.finegd, dens.nt_sg)
 
     coulomb = coulomb_inteaction(omega, wfs.gd, kd)
