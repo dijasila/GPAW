@@ -31,3 +31,13 @@ def test_exx_double_cell(in_tmp_dir):
 
     assert abs(e2 - 2 * e1) < 0.002
     assert abs(eps1 - eps2) < 0.001
+
+
+if __name__ == '__main__':
+    from cProfile import Profile
+    prof = Profile()
+    prof.enable()
+    test_exx_double_cell(1)
+    prof.disable()
+    from gpaw.mpi import rank, size
+    prof.dump_stats(f'prof-{size}.{rank}')
