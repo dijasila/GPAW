@@ -188,6 +188,7 @@ class build_ext(_build_ext):
 
 class install(_install):
     def run(self):
+        _install.run(self)
         
         if parallel_python_interpreter:
             # Also copy gpaw-python
