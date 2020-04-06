@@ -5,7 +5,7 @@ from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 
 pytestmark = pytest.mark.skipif(
     world.size != 1 and not compiled_with_sl(),
@@ -28,9 +28,7 @@ def test_rpa_rpa_energy_N2(in_tmp_dir):
     calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
     calc.write('N2.gpw', mode='all')
 
-    exx = EXX('N2.gpw')
-    exx.calculate()
-    E_n2_hf = exx.get_total_energy()
+    E_n2_hf = nsc_energy('N2.gpw', 'EXX')
 
     rpa = RPACorrelation('N2.gpw', nfrequencies=8)
     E_n2_rpa = rpa.calculate(ecut=[ecut])
@@ -48,9 +46,7 @@ def test_rpa_rpa_energy_N2(in_tmp_dir):
     calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
     calc.write('N.gpw', mode='all')
 
-    exx = EXX('N.gpw')
-    exx.calculate()
-    E_n_hf = exx.get_total_energy()
+    E_n_hf = nsc_energy('N.gpw', 'EXX')
 
     rpa = RPACorrelation('N.gpw', nfrequencies=8)
     E_n_rpa = rpa.calculate(ecut=[ecut])

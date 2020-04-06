@@ -2,7 +2,7 @@ from ase import Atoms
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
 from gpaw.mixer import MixerSum
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 from gpaw.wavefunctions.pw import PW
 
 # CO
@@ -19,9 +19,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 CO.set_calculator(calc)
 E0_pbe = CO.get_potential_energy()
 
-exx = EXX(calc, txt='CO.ralda_01_CO_exx.txt')
-exx.calculate()
-E0_hf = exx.get_total_energy()
+E0_hf = nsc_energy(calc, 'EXX')
 
 calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_CO.gpw', mode='all')
@@ -44,9 +42,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 C.set_calculator(calc)
 E1_pbe = C.get_potential_energy()
 
-exx = EXX(calc, txt='CO.ralda_01_C_exx.txt')
-exx.calculate()
-E1_hf = exx.get_total_energy()
+E1_hf = nsc_energy(calc, 'EXX')
 
 f = paropen('CO.ralda.PBE_HF_C.dat', 'w')
 print(E1_pbe, E1_hf, file=f)
@@ -72,9 +68,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
 O.set_calculator(calc)
 E2_pbe = O.get_potential_energy()
 
-exx = EXX(calc, txt='CO.ralda_01_O_exx.txt')
-exx.calculate()
-E2_hf = exx.get_total_energy()
+E2_hf = nsc_energy(calc, 'EXX')
 
 calc.diagonalize_full_hamiltonian()
 calc.write('CO.ralda.pbe_wfcs_O.gpw', mode='all')
