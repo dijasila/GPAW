@@ -166,7 +166,7 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self, restart: Union[Path, str] = None) -> None:
+    def calculate(self, restart: Union[Path, str] = None):
         """Do the calculation.
 
         restart_filename: str or Path
