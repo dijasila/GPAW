@@ -22,7 +22,7 @@ for k in range(2, 9):
         si.get_potential_energy()
         name = 'si-{0:.2f}-{1}'.format(a, k)
         si.calc.write(name + '.gpw', mode='all')
-        epbe0 = nsc_energy(name + '.gpw', 'PBE0')
+        epbe0 = nsc_energy(name + '.gpw', 'PBE0').sum()
 
         con.write(si, a=a, k=k, epbe0=epbe0)
         del con[id]

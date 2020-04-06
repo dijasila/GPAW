@@ -42,7 +42,7 @@ for k in range(2, 9, 2):
         'PBE0',
         n1, n2,
         kpt_indices,
-        restart=name + '.json')
+        snapshot=name + '.json')
 
     pbe0eigs = (epbe - vpbe + vpbe0)[0]
 
