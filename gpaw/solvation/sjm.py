@@ -410,10 +410,10 @@ class SJM(SolvationGPAW):
                              '{:.4f} V/electron.'.format(p.slope))
                     self.sog('Corresponding to a size-normalized slope of '
                              '{:.4f} V/(electron/Angstrom).'
-                             .format(p.slope*np.product(np.diag(
+                             .format(p.slope * np.product(np.diag(
                                  atoms.cell[:2, :2]))))
-                    C = 1/p.slope*np.product(np.diag(atoms.cell[:2, :2]))
-                    C *= 1.6022*1e3
+                    C = np.product(np.diag(atoms.cell[:2, :2])) / p.slope
+                    C *= 1.6022 * 1e3
 
                     self.sog('And a capacitance of {:.4f} muF/cm2'
                              .format(C))
@@ -510,7 +510,7 @@ class SJM(SolvationGPAW):
                  .format(self.sjm_parameters.ne))
         self.sog('  mu (workfunction, eV): {:+11.6f}'
                  .format(self.get_electrode_potential()))
-        self.sog('-'*26)
+        self.sog('-' * 26)
         self.sog('Free energy:   %+11.6f' % (Ha * self.omega_free))
         self.sog('Extrapolated:  %+11.6f' % (Ha * self.omega_extrapolated))
         self.sog()
