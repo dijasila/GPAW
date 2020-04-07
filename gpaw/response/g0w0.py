@@ -1223,10 +1223,14 @@ class G0W0(PairDensity):
             np.save(fd, self.exx_skn)
 
     def read_contribution(self, filename):
-        fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
-            # File was not there: nothing to read
-            return fd, None
+        '''
+        This function attempts to read an array from
+        file "filename". If the file is missing or invalid,
+        (filename, None) is returned. If the file is present
+        and valid (None, Array) is returned.
+        '''
+        if not os.path.exists(filename):
+            return filename, None
 
         try:
             with open(filename, 'rb') as fd:
@@ -1243,7 +1247,7 @@ class G0W0(PairDensity):
         if self.world.rank == 0:
             os.remove(filename)
 
-        return opencew(filename), None
+        return filename, None
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
