@@ -147,7 +147,12 @@ class SJM(SolvationGPAW):
         p.dpot = dpot
         p.jelliumregion = jelliumregion
 
-#
+        # Just for transition
+        p.doublelayer = doublelayer
+        self.add_backwards_compatibility('doublelayer', 'jelliumregion')
+        self.add_backwards_compatibility('start', 'lower_limit',
+                                          indict=p.jelliumregion)
+        #
 
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
@@ -156,7 +161,6 @@ class SJM(SolvationGPAW):
         p.slope = None
         p.max_iters = max_poteq_iters
 
-        self.check_backwards_compatibility(doublelayer, jelliumregion)
 
         # GK: Would it make sense to add a defaults dictionary here as well?
 
@@ -176,27 +180,45 @@ class SJM(SolvationGPAW):
         self.log(message)
         self.log.flush()
 
-    def check_backwards_compatibility(self, doublelayer, jelliumregion):
-        p = self.sjm_parameters
-        if doublelayer is not None:
-            self.sog("Warning the 'doublelayer' key has been changed to"
-                     "jelliumregion. Please use that key from now on.\n")
-            if jelliumregion is not None:
-                self.sog("Both the doublelayer and jelliumregion keys"
-                         "are given. This might be due to your adaptation"
-                         "to the changed SJM code. Please only use"
-                         "jelliumregion. For now the information in"
-                         "jelliumregion will be used\n")
-            else:
-                p.jelliumregion = doublelayer
+    def add_backwards_compatibility(self, oldkey, newkey, indict=None):
+        if indict is None:
+            p = self.sjm_parameters
+        else:
+            p = indict
 
-        if 'start' in p.jelliumregion.keys():
-            self.sog("Warning the 'start' key for the jelliumregion"
-                     "has been changed to 'lower_limit'. Please use that"
-                     "key from now on.\n")
+        if newkey not in p.keys():
+            p[newkey]=None
 
-            p.jelliumregion['lower_limit'] = p.jelliumregion['start']
-            del p.jelliumregion['start']
+        if oldkey in p.keys():
+            if p[oldkey] is not None:
+
+                if p[newkey] is not None:
+                    self.sog("Both the {0} and {1} keys are given. "
+                             "This might be due to your adaptation "
+                             "to the changed SJ code."
+                             .format(oldkey,newkey))
+                    self.sog("Please only use {0} from now on. For now the "
+                             "information in {0} will be used.\n"
+                             .format(newkey))
+                else:
+                    self.sog("Warning the '{0}' key has been changed to "
+                             "'{1}'.".format(oldkey,newkey))
+                    self.sog("Please only use '{1}' from now on. For now the "
+                             "information in '{0}' will be used.\n"
+                             .format(oldkey,newkey))
+                    p[newkey] = p[oldkey]
+                    del p[oldkey]
+
+
+       # else:
+       # # Following is not really general
+       # if 'start' in p.jelliumregion.keys():
+       #     self.sog("Warning the 'start' key for the jelliumregion"
+       #              "has been changed to 'lower_limit'. Please use that"
+       #              "key from now on.\n")
+#
+#            p.jelliumregion['lower_limit'] = p.jelliumregion['start']
+#            del p.jelliumregion['start']
 
     def create_hamiltonian(self, realspace, mode, xc):
         """
