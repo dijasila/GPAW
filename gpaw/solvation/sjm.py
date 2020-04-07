@@ -21,6 +21,7 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 
 def get_traceback_string():
     # FIXME. Temporary function for debugging.
+    # (Will delete right before merge request.)
     filelike = StringIO()
     traceback.print_stack(file=filelike)
     return filelike.getvalue()
@@ -53,7 +54,7 @@ class SJM(SolvationGPAW):
         Tolerance for the deviation of the target potential.
         If the potential is outside the defined range `ne` will be
         changed in order to get inside again. Default: 0.01 V.
-    doublelayer: dict
+    jelliumregion: dict
         Parameters regarding the shape of the counter charge region
         Implemented keys:
 
@@ -89,14 +90,22 @@ class SJM(SolvationGPAW):
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
 
-    # FIXME Would a better term for doublelayer be jellium_region or similar?
-    # GK: Before merging I always called this "counter_charge". Maybe we want
-    # to go back to that.
-
     # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     # E.g., verbose (and max_iter) could easily collide with a parent
     # class's future or present keywords.
     # GK: Did you already implement this?
+    # No, I mean there could be one keyword called sj or something, where the
+    # user feeds in all sj-specific keywords as a dictionary. E.g.,
+    # sj = {'potential': 4.4,
+    #       'dpot': 0.01,
+    #       'ne': 0.17,
+    #       'verbose': True,
+    #       'jelliumregion': ...}
+    # this would just future-proof things a bit in case a 'potential'  or
+    # 'verbose' keyword gets added to the GPAW class at some point.
+    # This might be nice for a couple of other reasons...it's more obvious
+    # to the user what parameters make this special compared to a standard
+    # GPAW calculation.
 
     # FIXME In a test script from GK, it only specifies the upper_limit of
     # the double layer, and I think the "cavity" keyword is supplied
@@ -105,8 +114,9 @@ class SJM(SolvationGPAW):
     # have expected it to affect the jellium.
     # GK: Are you refering to the "cavity_like" keyword? It is described
     # in the doublelayer section. We can definitely change the wording.
+    # AP: created issue #5.
 
-    def __init__(self, ne=0, doublelayer=None, potential=None,
+    def __init__(self, ne=0, jelliumregion=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  always_adjust_ne=False, verbose=False,
                  max_poteq_iters=10, **gpaw_kwargs):
@@ -127,7 +137,7 @@ class SJM(SolvationGPAW):
         p.ne = ne
         p.target_potential = potential
         p.dpot = dpot
-        p.doublelayer = doublelayer
+        p.jelliumregion = jelliumregion
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
         p.always_adjust_ne = always_adjust_ne
@@ -190,7 +200,7 @@ class SJM(SolvationGPAW):
         """
 
         SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
-                    'doublelayer', 'always_adjust_ne']
+                    'jelliumregion', 'always_adjust_ne']
 
         SJM_changes = {key: kwargs.pop(key) for key in list(kwargs)
                        if key in SJM_keys}
@@ -209,7 +219,7 @@ class SJM(SolvationGPAW):
             if key == 'always_adjust_ne':
                 p.always_adjust_ne = SJM_changes[key]
 
-            if key in ['potential', 'doublelayer', 'ne']:
+            if key in ['potential', 'jelliumregion', 'ne']:
                 self.results = {}
 
             if key == 'potential':
@@ -220,14 +230,14 @@ class SJM(SolvationGPAW):
                     self.sog('Target electrode potential set to {:1.4f} V'
                              .format(p.target_potential))
 
-            if key == 'doublelayer':
-                p.doublelayer = SJM_changes[key]
+            if key == 'jelliumregion':
+                p.jelliumregion = SJM_changes[key]
                 self.sog(' Jellium size parameters:')
-                if 'start' in p.doublelayer:
-                    self.sog('  Lower boundary: %s' % p.doublelayer['start'])
-                if 'upper_limit' in p.doublelayer:
+                if 'start' in p.jelliumregion:
+                    self.sog('  Lower boundary: %s' % p.jelliumregion['start'])
+                if 'upper_limit' in p.jelliumregion:
                     self.sog('  Upper boundary: %s'
-                             % p.doublelayer['upper_limit'])
+                             % p.jelliumregion['upper_limit'])
                 self.set(background_charge=self.define_jellium(self.atoms))
 
             if key == 'dpot':
@@ -463,13 +473,13 @@ class SJM(SolvationGPAW):
         """Method to define the explicit and counter charge."""
 
         p = self.sjm_parameters
-        if p.doublelayer is None:
-            p.doublelayer = {}
+        if p.jelliumregion is None:
+            p.jelliumregion = {}
 
-        if 'start' in p.doublelayer:
-            if p.doublelayer['start'] == 'cavity_like':
+        if 'start' in p.jelliumregion:
+            if p.jelliumregion['start'] == 'cavity_like':
                 pass
-            elif isinstance(p.doublelayer['start'], numbers.Real):
+            elif isinstance(p.jelliumregion['start'], numbers.Real):
                 pass
             else:
                 raise RuntimeError("The starting z value of the counter charge"
@@ -477,22 +487,22 @@ class SJM(SolvationGPAW):
                                    "cavity_like' or not given (default: "
                                    " max(position)+3)")
         else:
-            p.doublelayer['start'] = max(atoms.positions[:, 2]) + 3.
+            p.jelliumregion['start'] = max(atoms.positions[:, 2]) + 3.
 
-        if 'upper_limit' in p.doublelayer:
+        if 'upper_limit' in p.jelliumregion:
             pass
-        elif 'thickness' in p.doublelayer:
-            if p.doublelayer['start'] == 'cavity_like':
+        elif 'thickness' in p.jelliumregion:
+            if p.jelliumregion['start'] == 'cavity_like':
                 raise RuntimeError("With a cavity-like counter charge only"
                                    "the keyword upper_limit(not thickness)"
                                    "can be used.")
             else:
-                p.doublelayer['upper_limit'] = (p.doublelayer['start'] +
-                                                p.doublelayer['thickness'])
+                p.jelliumregion['upper_limit'] = (p.jelliumregion['start'] +
+                                                  p.jelliumregion['thickness'])
         else:
-            p.doublelayer['upper_limit'] = atoms.cell[2][2] - 5.0
+            p.jelliumregion['upper_limit'] = atoms.cell[2][2] - 5.0
 
-        if p.doublelayer['start'] == 'cavity_like':
+        if p.jelliumregion['start'] == 'cavity_like':
 
             # XXX This part can definitely be improved
             if self.hamiltonian is None:
@@ -509,7 +519,7 @@ class SJM(SolvationGPAW):
                 self.hamiltonian = None
                 self.initialized = False
                 return CavityShapedJellium(p.ne, g_g=g_g,
-                                           z2=p.doublelayer['upper_limit'])
+                                           z2=p.jelliumregion['upper_limit'])
 
             else:
                 filename = self.log.fd
@@ -518,11 +528,11 @@ class SJM(SolvationGPAW):
                 self.log.fd = filename
                 return CavityShapedJellium(p.ne,
                                            g_g=self.hamiltonian.cavity.g_g,
-                                           z2=p.doublelayer['upper_limit'])
+                                           z2=p.jelliumregion['upper_limit'])
 
-        elif isinstance(p.doublelayer['start'], numbers.Real):
-            return JelliumSlab(p.ne, z1=p.doublelayer['start'],
-                               z2=p.doublelayer['upper_limit'])
+        elif isinstance(p.jelliumregion['start'], numbers.Real):
+            return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
+                               z2=p.jelliumregion['upper_limit'])
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
@@ -859,16 +869,6 @@ class SJM_RealSpaceHamiltonian(SolvationRealSpaceHamiltonian):
         RealSpaceHamiltonian.initialize(self)
 
 
-def create_background_charge(**kwargs):
-    # FIXME. Add documentation for this?
-    # GK: Hmmm... This does not seem to be called anywhere.
-    if 'z1' in kwargs:
-        return JelliumSlab(**kwargs)
-    elif 'g_g' in kwargs:
-        return CavityShapedJellium(**kwargs)
-    return Jellium(**kwargs)
-
-
 class CavityShapedJellium(Jellium):
     """The Solvated Jellium object, where the counter charge takes the form
        of the cavity.
@@ -889,6 +889,8 @@ class CavityShapedJellium(Jellium):
         # FIXME add charge to parameters documentation above.
         # GK: The amount of charge is never used in this class. It only
         # defines the counter charge shape
+        # AP: It is the first argument to __init__ but is not documented;
+        # we just need to tell the user what this is.
 
         Jellium.__init__(self, charge)
         self.g_g = g_g
