@@ -346,6 +346,15 @@ class SJM(SolvationGPAW):
                     self.sog(str(p.slope))
                     self.sog('Slope regressed from last two attempts is '
                              '{:.4f} V/electron.'.format(p.slope))
+                    self.sog('Corresponding to a size-normalized slope of'
+                             '{:.4f} V/(electron/Angstrom).'
+                             .format(p.slope*np.product(np.diag(
+                                 atoms.cell[:2,:2]))))
+                    C = 1/p.slope*np.product(np.diag(atoms.cell[:2,:2]))
+                    C *= 1.6022*1e3
+
+                    self.sog('And a capacitance of {:.4f} muF/cm2'
+                             .format(C))
 
                 if abs(true_potential - p.target_potential) < p.dpot:
                     equilibrated = True
