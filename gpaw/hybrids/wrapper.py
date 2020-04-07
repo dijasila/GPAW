@@ -3,9 +3,10 @@ from typing import Tuple, Union, Dict
 import numpy as np
 
 from gpaw.xc import XC
-from .scf import apply1, apply2
 from .coulomb import coulomb_inteaction
+from .forces import calculate_forces
 from .paw import calculate_paw_stuff
+from .scf import apply1, apply2
 from .symmetry import Symmetry
 
 
@@ -127,7 +128,7 @@ class HybridXC:
         log(self.description)
 
     def add_forces(self, F_av):
-        pass
+        F_av += calculate_forces(self.wfs)
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         return
