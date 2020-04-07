@@ -10,7 +10,7 @@ from gpaw.mpi import serial_comm
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.xc import XC
 from . import parse_name
-from .coulomb import coulomb_inteaction
+from .coulomb import coulomb_interaction
 from .kpts import get_kpt
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
@@ -61,7 +61,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
         dens.interpolate_pseudo_density()
     exc += xc.calculate(dens.finegd, dens.nt_sg)
 
-    coulomb = coulomb_inteaction(omega, wfs.gd, kd)
+    coulomb = coulomb_interaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
     paw_s = calculate_paw_stuff(wfs, dens)

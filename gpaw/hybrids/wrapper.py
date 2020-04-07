@@ -3,7 +3,7 @@ from typing import Tuple, Union, Dict
 import numpy as np
 
 from gpaw.xc import XC
-from .coulomb import coulomb_inteaction
+from .coulomb import coulomb_interaction
 from .forces import calculate_forces
 from .paw import calculate_paw_stuff
 from .scf import apply1, apply2
@@ -72,7 +72,7 @@ class HybridXC:
                                             Htpsit_xG=None, dH_asp=None):
         wfs = self.wfs
         if self.coulomb is None:
-            self.coulomb = coulomb_inteaction(self.omega, wfs.gd, wfs.kd)
+            self.coulomb = coulomb_interaction(self.omega, wfs.gd, wfs.kd)
             self.sym = Symmetry(wfs.kd)
 
         paw_s = calculate_paw_stuff(wfs, self.dens)  # ???????
@@ -128,7 +128,11 @@ class HybridXC:
         log(self.description)
 
     def add_forces(self, F_av):
-        F_av += calculate_forces(self.wfs)
+        paw_s = calculate_paw_stuff(self.wfs, self.dens)
+        F_av += calculate_forces(self.wfs,
+                                 self.coulomb,
+                                 self.sym,
+                                 paw_s)
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         return

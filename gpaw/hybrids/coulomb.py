@@ -6,7 +6,7 @@ from io import StringIO
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 
-def coulomb_inteaction(omega, gd, kd):
+def coulomb_interaction(omega, gd, kd):
     if omega:
         return ShortRangeCoulomb(omega)
     # Wigner-Seitz truncated Coulomb:
