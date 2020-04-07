@@ -1208,7 +1208,8 @@ class G0W0(PairDensity):
             vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            np.save(fd, self.vxc_skn)
+            if self.world.rank == 0:
+                np.save(fd, self.vxc_skn)
 
     @timer('EXX')
     def calculate_exact_exchange(self):
@@ -1220,7 +1221,8 @@ class G0W0(PairDensity):
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-            np.save(fd, self.exx_skn)
+            if self.world.rank == 0:
+                np.save(fd, self.exx_skn)
 
     def read_contribution(self, filename):
         '''
