@@ -58,11 +58,12 @@ class SJM(SolvationGPAW):
         Parameters regarding the shape of the counter charge region
         Implemented keys:
 
-        'start': float or 'cavity_like'
+        'lower_limit': float or 'cavity_like'
             If a float is given it corresponds to the lower
             boundary coordinate (default: z), where the counter charge
             starts. If 'cavity_like' is given the counter charge will
             take the form of the cavity up to the 'upper_limit'.
+            Default: Highest z-coordinate +
         'thickness': float
             Thickness of the counter charge region in Angstrom.
             Can only be used if start is not 'cavity_like' and will
@@ -485,19 +486,6 @@ class SJM(SolvationGPAW):
         if p.jelliumregion is None:
             p.jelliumregion = {}
 
-        if 'start' in p.jelliumregion:
-            if p.jelliumregion['start'] == 'cavity_like':
-                pass
-            elif isinstance(p.jelliumregion['start'], numbers.Real):
-                pass
-            else:
-                raise RuntimeError("The starting z value of the counter charge"
-                                   "has to be either a number (coordinate),"
-                                   "cavity_like' or not given (default: "
-                                   " max(position)+3)")
-        else:
-            p.jelliumregion['start'] = max(atoms.positions[:, 2]) + 3.
-
         if 'upper_limit' in p.jelliumregion:
             pass
         elif 'thickness' in p.jelliumregion:
@@ -509,38 +497,47 @@ class SJM(SolvationGPAW):
                 p.jelliumregion['upper_limit'] = (p.jelliumregion['start'] +
                                                   p.jelliumregion['thickness'])
         else:
-            p.jelliumregion['upper_limit'] = atoms.cell[2][2] - 5.0
+            p.jelliumregion['upper_limit'] = atoms.cell[2][2] - 1.0
 
-        if p.jelliumregion['start'] == 'cavity_like':
+        if 'lower_limit' in p.jelliumregion:
+            if p.jelliumregion['lower_limit'] == 'cavity_like':
+                # XXX This part can definitely be improved
+                if self.hamiltonian is None:
+                    filename = self.log.fd
+                    self.sog('WHY DELETE 1')
+                    # self.log.fd = None  # FIXME This was causing crashes.
+                    self.initialize(atoms)
+                    self.set_positions(atoms)
+                    # self.log.fd = filename
+                    self.sog('WHY DELETE 2')
+                    g_g = self.hamiltonian.cavity.g_g.copy()
+                    self.wfs = None
+                    self.density = None
+                    self.hamiltonian = None
+                    self.initialized = False
+                    return CavityShapedJellium(p.ne, g_g=g_g,
+                                               z2=p.jelliumregion['upper_limit'])
 
-            # XXX This part can definitely be improved
-            if self.hamiltonian is None:
-                filename = self.log.fd
-                self.sog('WHY DELETE 1')
-                # self.log.fd = None  # FIXME This was causing crashes.
-                self.initialize(atoms)
-                self.set_positions(atoms)
-                # self.log.fd = filename
-                self.sog('WHY DELETE 2')
-                g_g = self.hamiltonian.cavity.g_g.copy()
-                self.wfs = None
-                self.density = None
-                self.hamiltonian = None
-                self.initialized = False
-                return CavityShapedJellium(p.ne, g_g=g_g,
-                                           z2=p.jelliumregion['upper_limit'])
+                else:
+                    filename = self.log.fd
+                    self.log.fd = None
+                    self.set_positions(atoms)
+                    self.log.fd = filename
+                    return CavityShapedJellium(p.ne,
+                                               g_g=self.hamiltonian.cavity.g_g,
+                                               z2=p.jelliumregion['upper_limit'])
 
+            elif isinstance(p.jelliumregion['lower_limit'], numbers.Real):
+                p.jelliumregion['start'] = p.jelliumregion['lower_limit']
             else:
-                filename = self.log.fd
-                self.log.fd = None
-                self.set_positions(atoms)
-                self.log.fd = filename
-                return CavityShapedJellium(p.ne,
-                                           g_g=self.hamiltonian.cavity.g_g,
-                                           z2=p.jelliumregion['upper_limit'])
+                raise RuntimeError("The starting z value of the counter charge"
+                                   "has to be either a number (coordinate),"
+                                   "cavity_like' or not given (default: "
+                                   " max(position)+3)")
+        else:
+            p.jelliumregion['start'] = max(atoms.positions[:, 2]) + 3.
 
-        elif isinstance(p.jelliumregion['start'], numbers.Real):
-            return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
+        return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
                                z2=p.jelliumregion['upper_limit'])
 
     def get_electrode_potential(self):
