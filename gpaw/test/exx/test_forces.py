@@ -10,17 +10,20 @@ def test_forces():
               pbc=True)
     a.center(vacuum=1.5)
     a.calc = GPAW(
-        mode=PW(200, force_complex_dtype=True),
-        setups='ae',
+        mode=PW(300, force_complex_dtype=True),
+        # setups='ae',
         symmetry='off',
         parallel={'kpt': 1, 'band': 1},
         eigensolver=Davidson(1),
         # kpts={'size': (1, 1, 2), 'gamma': True},
         # xc='HSE06',
         xc=HybridXC('EXX'),
-        txt='H2.txt')
+        convergence={'forces': 1e-3},
+        # txt='H2.txt'
+        )
     a.get_potential_energy()
     f = a.get_forces()
-    f0 = numeric_force(a, 0, 2)
+    f0 = -2.5373125013143927
+    # f0 = numeric_force(a, 0, 2)
     print(f0)
     print(f)
