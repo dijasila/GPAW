@@ -63,15 +63,21 @@ class SJM(SolvationGPAW):
             boundary coordinate (default: z), where the counter charge
             starts. If 'cavity_like' is given the counter charge will
             take the form of the cavity up to the 'upper_limit'.
-            Default: Highest z-coordinate +
+            Default: Highest z-coordinate + 3
         'thickness': float
             Thickness of the counter charge region in Angstrom.
             Can only be used if start is not 'cavity_like' and will
-            be overwritten by 'upper_limit'.
+            be overwritten by 'upper_limit'. Default: None
         'upper_limit': float
             Upper boundary of the counter charge region in terms of
-            coordinate in Angstrom (default: z). The default is
-            atoms.cell[2][2] - 5.
+            coordinate in Angstrom (default: z).
+            Default: atoms.cell[2][2] - 1.
+        'fix_lower_limit': bool
+            Do not allow the lower limit of the jellium region to adapt
+            to a change in the atimic geometry during a relaxation.
+            Omitted in a 'cavity_like' jelliumregion.
+            Default: False
+
     verbose: bool or 'cube'
         True:
             Write final electrostatic potential, background charge and
@@ -120,7 +126,8 @@ class SJM(SolvationGPAW):
     def __init__(self, ne=0, jelliumregion=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  always_adjust_ne=False, verbose=False,
-                 max_poteq_iters=10, **gpaw_kwargs):
+                 max_poteq_iters=10, doublelayer=None,
+                 **gpaw_kwargs):
 
         p = self.sjm_parameters = Parameters()
         SolvationGPAW.__init__(self, **gpaw_kwargs)
@@ -139,12 +146,19 @@ class SJM(SolvationGPAW):
         p.target_potential = potential
         p.dpot = dpot
         p.jelliumregion = jelliumregion
+
+#
+
         p.verbose = verbose
         p.write_grandcanonical = write_grandcanonical_energy
         p.always_adjust_ne = always_adjust_ne
 
         p.slope = None
         p.max_iters = max_poteq_iters
+
+        self.check_backwards_compatibility(doublelayer, jelliumregion)
+
+        # GK: Would it make sense to add a defaults dictionary here as well?
 
         self.sog('Solvated jellium method (SJM) parameters:')
         if p.target_potential is None:
@@ -161,6 +175,28 @@ class SJM(SolvationGPAW):
         message = 'SJ: ' + str(message)
         self.log(message)
         self.log.flush()
+
+    def check_backwards_compatibility(self, doublelayer, jelliumregion):
+        p = self.sjm_parameters
+        if doublelayer is not None:
+            self.sog("Warning the 'doublelayer' key has been changed to"
+                     "jelliumregion. Please use that key from now on.\n")
+            if jelliumregion is not None:
+                self.sog("Both the doublelayer and jelliumregion keys"
+                         "are given. This might be due to your adaptation"
+                         "to the changed SJM code. Please only use"
+                         "jelliumregion. For now the information in"
+                         "jelliumregion will be used\n")
+            else:
+                p.jelliumregion = doublelayer
+
+        if 'start' in p.jelliumregion.keys():
+            self.sog("Warning the 'start' key for the jelliumregion"
+                     "has been changed to 'lower_limit'. Please use that"
+                     "key from now on.\n")
+
+            p.jelliumregion['lower_limit'] = p.jelliumregion['start']
+            del p.jelliumregion['start']
 
     def create_hamiltonian(self, realspace, mode, xc):
         """
@@ -189,6 +225,11 @@ class SJM(SolvationGPAW):
             stencil=mode.interpolation)
 
         xc.set_grid_descriptor(self.hamiltonian.finegd)
+
+    # GK: I had to add this again. How did it work without??
+    def set_atoms(self, atoms):
+        self.atoms = atoms
+        self.spos_ac = atoms.get_scaled_positions() % 1.0
 
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -285,7 +326,7 @@ class SJM(SolvationGPAW):
                     # changes? Doesn't this screw up nvalence in wfs?
                     # (I.e., see below where key == 'ne'.)
                     # GK: Have think about this one, but I'm fairly certain
-                    # it was needed in otder to avoid what you mentioned
+                    # it was needed in order to avoid what you mentioned
 
             if key == 'ne':
                 p.ne = SJM_changes['ne']
@@ -357,11 +398,11 @@ class SJM(SolvationGPAW):
                     self.sog(str(p.slope))
                     self.sog('Slope regressed from last two attempts is '
                              '{:.4f} V/electron.'.format(p.slope))
-                    self.sog('Corresponding to a size-normalized slope of'
+                    self.sog('Corresponding to a size-normalized slope of '
                              '{:.4f} V/(electron/Angstrom).'
                              .format(p.slope*np.product(np.diag(
-                                 atoms.cell[:2,:2]))))
-                    C = 1/p.slope*np.product(np.diag(atoms.cell[:2,:2]))
+                                 atoms.cell[:2, :2]))))
+                    C = 1/p.slope*np.product(np.diag(atoms.cell[:2, :2]))
                     C *= 1.6022*1e3
 
                     self.sog('And a capacitance of {:.4f} muF/cm2'
@@ -515,17 +556,16 @@ class SJM(SolvationGPAW):
                     self.density = None
                     self.hamiltonian = None
                     self.initialized = False
-                    return CavityShapedJellium(p.ne, g_g=g_g,
-                                               z2=p.jelliumregion['upper_limit'])
 
                 else:
                     filename = self.log.fd
                     self.log.fd = None
                     self.set_positions(atoms)
                     self.log.fd = filename
-                    return CavityShapedJellium(p.ne,
-                                               g_g=self.hamiltonian.cavity.g_g,
-                                               z2=p.jelliumregion['upper_limit'])
+                    g_g = self.hamiltonian.cavity.g_g
+
+                return CavityShapedJellium(p.ne, g_g=g_g,
+                                           z2=p.jelliumregion['upper_limit'])
 
             elif isinstance(p.jelliumregion['lower_limit'], numbers.Real):
                 p.jelliumregion['start'] = p.jelliumregion['lower_limit']
@@ -535,10 +575,18 @@ class SJM(SolvationGPAW):
                                    "cavity_like' or not given (default: "
                                    " max(position)+3)")
         else:
+            if 'fix_lower_limit' in p.jelliumregion.keys():
+                if p.jelliumregion['fix_lower_limit']:
+                    p.jelliumregion['lower_limit'] = \
+                        max(atoms.positions[:, 2]) + 3.
+
             p.jelliumregion['start'] = max(atoms.positions[:, 2]) + 3.
 
+        self.sog('Lower jellium boundary: %s' % p.jelliumregion['start'])
+        self.sog('Upper jellium boundary: %s' % p.jelliumregion['upper_limit'])
+
         return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
-                               z2=p.jelliumregion['upper_limit'])
+                           z2=p.jelliumregion['upper_limit'])
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
