@@ -1,7 +1,6 @@
 # from typing import Tuple
 
 import numpy as np
-from ase.units import Ha, Bohr
 
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import serial_comm
@@ -20,15 +19,22 @@ def calculate_forces(wfs, coulomb, sym, paw_s, ftol=1e-9) -> np.ndarray:
     dPdR_skaniv = {(kpt.s, kpt.k): wfs.pt.derivative(kpt.psit_nG, q=kpt.k)
                    for kpt in wfs.mykpts}
 
+    F_av = np.zeros((3, 2, 3), complex)
+
     for spin in range(nspins):
         kpts = [get_kpt(wfs, k, spin, 0, nocc) for k in range(kd.nibzkpts)]
         dPdR_kaniv = [dPdR_skaniv[(spin, k)] for k in range(kd.nibzkpts)]
         forces(kpts, dPdR_kaniv, paw_s[spin],
-               wfs, sym, coulomb)
-    return 0.0
+               wfs, sym, coulomb, F_av)
+
+    assert np.allclose(F_av[:, :, :2], 0)
+    assert np.allclose(F_av.imag, 0)
+    # assert np.allclose(F_av.sum(axis=(0, 1)), 0)
+
+    return F_av.real
 
 
-def forces(kpts, dPdR_kaniv, paw, wfs, sym, coulomb):
+def forces(kpts, dPdR_kaniv, paw, wfs, sym, coulomb, F_av):
     pd = kpts[0].psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
@@ -57,7 +63,7 @@ def forces(kpts, dPdR_kaniv, paw, wfs, sym, coulomb):
         calculate_exx_for_pair(k1, k2,
                                dPdR_kaniv[i1], dPdR_kaniv[i2],
                                ghat, v_G, comm,
-                               paw.Delta_aiiL)
+                               paw, F_av)
 
 
 def calculate_exx_for_pair(k1,
@@ -67,7 +73,8 @@ def calculate_exx_for_pair(k1,
                            ghat,
                            v_G,
                            comm,
-                           Delta_aiiL):
+                           paw,
+                           F_av):
 
     N1 = len(k1.u_nR)
     N2 = len(k2.u_nR)
@@ -79,7 +86,7 @@ def calculate_exx_for_pair(k1,
                         k1.proj[a],
                         Delta_iiL,
                         k2.proj[a].conj())
-              for a, Delta_iiL in enumerate(Delta_aiiL)]
+              for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
 
     if k1 is k2:
         n2max = (N1 + size - 1) // size
@@ -110,17 +117,26 @@ def calculate_exx_for_pair(k1,
             vrho_G = v_G * rho_G
             vrho_nG[n2 - n2a] = vrho_G
         for a, v_nLv in ghat.derivative(vrho_nG).items():
-            F_v = k1.f_n[n1] * np.einsum('n, nL, nLv -> v',
-                                         k2.f_n,
-                                         Q_annL[a][n1].conj(),
-                                         v_nLv)
-            print(a, F_v[2] * Ha / Bohr)
+            F_av[0, a] += k1.f_n[n1] * np.einsum('n, nL, nLv -> v',
+                                                 k2.f_n,
+                                                 Q_annL[a][n1].conj(),
+                                                 v_nLv)
 
         for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
-            v_iin = Delta_aiiL[a].dot(v_nL.T)
+            v_iin = paw.Delta_aiiL[a].dot(v_nL.T)
             F_v = k1.f_n[n1] * np.einsum('ijn, iv, nj, n -> v',
                                          v_iin,
                                          dPdR1_aniv[a][n1].conj(),
                                          k2.proj[a][n2a:n2b],
                                          k2.f_n[n2a:n2b])
-            print(a, F_v[2] * Ha / Bohr)
+            F_av[1, a] += F_v
+
+        for a, v_ii in paw.VV_aii.items():
+            F_v = k1.f_n[n1] * np.einsum('ij, iv, nj, n -> v',
+                                         v_ii,
+                                         dPdR1_aniv[a][n1].conj(),
+                                         k2.proj[a][n2a:n2b],
+                                         k2.f_n[n2a:n2b])
+            F_av[2, a] += F_v
+
+

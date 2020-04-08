@@ -129,10 +129,10 @@ class HybridXC:
 
     def add_forces(self, F_av):
         paw_s = calculate_paw_stuff(self.wfs, self.dens)
-        F_av += calculate_forces(self.wfs,
-                                 self.coulomb,
-                                 self.sym,
-                                 paw_s)
+        self.F_xav = calculate_forces(self.wfs,
+                                      self.coulomb,
+                                      self.sym,
+                                      paw_s)
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         return

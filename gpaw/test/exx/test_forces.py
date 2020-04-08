@@ -1,7 +1,10 @@
+import numpy as np
 from ase import Atoms
+from ase.units import Ha, Bohr
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, PW, Davidson
 from gpaw.hybrids import HybridXC
+from gpaw.hybrids.energy import non_self_consistent_energy as nsce
 
 
 def test_forces():
@@ -10,7 +13,7 @@ def test_forces():
               pbc=True)
     a.center(vacuum=1.5)
     a.calc = GPAW(
-        mode=PW(300, force_complex_dtype=True),
+        mode=PW(200, force_complex_dtype=True),
         # setups='ae',
         symmetry='off',
         parallel={'kpt': 1, 'band': 1},
@@ -19,11 +22,36 @@ def test_forces():
         # xc='HSE06',
         xc=HybridXC('EXX'),
         convergence={'forces': 1e-3},
-        # txt='H2.txt'
-        )
-    a.get_potential_energy()
+        txt='H2.txt')
+    # from jj import plot as P
+    D = np.linspace(0.7, 0.99, 15)
+    #D = [0.7, 0.8, 0.9, 1.0]
+    F = []
+    FF = []
+    E = []
+    for d in D:
+        a.set_distance(0, 1, d)
+        e = a.get_potential_energy()
+        e2 = nsce(a.calc, 'EXX')
+        # print(e2)
+        f = a.get_forces()[0, 2]
+        Fx = a.calc.hamiltonian.xc.F_xav[:, 0, 2] * Ha / Bohr
+        f -= Fx[:2].dot([2, 4])
+        # f00 = numeric_force(a, 0, 2)
+        f0 = numeric_force(a, 0, 2, 0.01)
+        print(f0, f0 - f, Fx[2])
+        #F.append(f[0, 2] - f0)
+        # P(d, (e, e2.sum(), f[0, 2], 0))
+        E.append(e)
+        # F.append(f[0, 2])
+    print(F)
+    print(FF)
+    #print(np.linalg.lstsq(FF, F))
+    return
+    for i in range(1, 14):
+        print(F[i], F[i] + (E[i - 1] - E[i + 1]) / (D[2] - D[0]))
     f = a.get_forces()
     f0 = -2.5373125013143927
-    # f0 = numeric_force(a, 0, 2)
     print(f0)
     print(f)
+    
