@@ -171,6 +171,10 @@ class SJM(SolvationGPAW):
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.dpot))
+            if not 2 < p.target_potential < 7:
+                self.sog('Warning! Your target potential might be '
+                         'unphysical. Keep in mind 0 V_SHE is ~4.4 '
+                         'in the input')
             self.sog(' Guessed excess electrons: {:.5f}' .format(p.ne))
 
     def sog(self, message=''):
@@ -185,10 +189,11 @@ class SJM(SolvationGPAW):
         else:
             p = indict
 
-        if newkey not in p.keys():
-            p[newkey] = None
-
         if oldkey in p.keys():
+
+            if newkey not in p.keys():
+                p[newkey] = None
+
             if p[oldkey] is not None:
 
                 if p[newkey] is not None:
@@ -377,6 +382,7 @@ class SJM(SolvationGPAW):
             iteration = 0
             p.previous_nes = []
             p.previous_potentials = []
+            p.previous_slopes = []
             equilibrated = False
 
             while not equilibrated:
@@ -405,6 +411,7 @@ class SJM(SolvationGPAW):
                 if len(p.previous_nes) > 1:
                     p.slope = (np.diff(p.previous_potentials[-2:]) /
                                np.diff(p.previous_nes[-2:]))[0]
+                    p.previous_slopes += [p.slope]
                     self.sog(str(p.slope))
                     self.sog('Slope regressed from last two attempts is '
                              '{:.4f} V/electron.'.format(p.slope))
@@ -427,16 +434,63 @@ class SJM(SolvationGPAW):
                         break
 
                 # Change ne based on slope.
+                usr_warned = False
                 if p.slope is None:
                     self.sog('No slope information; changing ne by 0.1 to '
                              'learn slope.')
                     p.ne += 0.1 * np.sign(true_potential -
                                           p.target_potential)
                 else:
+                    if np.diff(p.previous_potentials[-2:])[0] < -1 and\
+                            true_potential < 2:
+                        self.sog('-' * 13)
+                        self.sog('Warning! Your last slope lead to a '
+                                 'dangerously low potential.\n '
+                                 'The previous step size will be halved '
+                                 'and retried in order to avoid\n '
+                                 'unphysical behavior. In case the potential '
+                                 'will not equilibrate, \n rethink your '
+                                 'initial charge guess')
+                        self.sog('-' * 13)
+
+                        self.wfs.nvalence += p.previous_nes[-2] - \
+                            p.previous_nes[-1]
+
+                        del p.previous_potentials[-1]
+                        del p.previous_nes[-1]
+
+                        p.slope = 2 * (np.diff(p.previous_potentials[-2:]) /
+                                       np.diff(p.previous_nes[-2:]))[0]
+                        true_potential = p.previous_potentials[-1]
+                        p.ne = p.previous_nes[-1]
+                        usr_warned = True
+
+                    elif (p.target_potential - true_potential) / p.slope > 0\
+                            and true_potential < 2:
+
+                        self.sog('-' * 13)
+                        self.sog('Warning! Based on the slope the next step '
+                                 'would lead to very unphysical behavior\n '
+                                 '(workfunction ~ 0) and will most likely '
+                                 'not converge.\n Recheck the initial guess '
+                                 'of the charges.')
+                        self.sog('-' * 13)
+                        usr_warned = True
+
                     p.ne += (p.target_potential - true_potential) / p.slope
                     self.sog('Number of electrons changed to {:.4f} based '
                              'on slope of {:.4f} V/electron.'
                              .format(p.ne, p.slope))
+
+                if not 2 < true_potential < 7 and not usr_warned:
+                    self.sog('-' * 13)
+                    self.sog("Warning! The resulting potential is in a "
+                             "region where a linear slope between\n potential "
+                             "and charge is not guaranteed. You might want "
+                             "to rethink\n the inital charge guess. If the "
+                             "potential is too high increase 'ne' and vice "
+                             "versa")
+                    self.sog('-' * 13)
 
                 iteration += 1
                 if iteration == p.max_iters:
