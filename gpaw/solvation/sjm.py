@@ -130,48 +130,50 @@ class SJM(SolvationGPAW):
                  max_poteq_iters=10, doublelayer=None,
                  **gpaw_kwargs):
 
+
+
         p = self.sjm_parameters = Parameters()
-        print(gpaw_kwargs)
-
         SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
-        print(self.todict())#__dict__.keys())#gpaw_kwargs)
-        #self.parameters['cavity']=self.stuff_for_hamiltonian[0]
-        #self.parameters['dielectric']=self.stuff_for_hamiltonian[1]
-        #self.parameters['interactions']=self.stuff_for_hamiltonian[2][0]
 
-        # FIXME. There seems to be two ways that parameters are being set.
-        # If they come from the __init__ keywords they are set here.
-        # If they are set with the set method they are set according to
-        # different # criteria. Yet 'set' is also invoked here; would it
-        # make more sense # to have these keywords just fed to 'set' to not
-        # duplicate things?
-        # GK: I guess this is due to my limited experience in coding. As
-        # I understand set is always just called manually and __init__
-        # starts up things. That's why I made it that way. I can not see
-        # a call of set in here. Did you already fix this?
-        p.ne = ne
-        p.target_potential = potential
-        p.dpot = dpot
-        p.jelliumregion = jelliumregion
+        if restart:
+            p = self.sjm_parameters
+            print(p)
+            das
+        else:
 
-        # Just for transition
-        p.doublelayer = doublelayer
-        self.add_backwards_compatibility('doublelayer', 'jelliumregion')
-        self.add_backwards_compatibility('start', 'lower_limit',
-                                         indict=p.jelliumregion)
-        #
+            # FIXME. There seems to be two ways that parameters are being set.
+            # If they come from the __init__ keywords they are set here.
+            # If they are set with the set method they are set according to
+            # different # criteria. Yet 'set' is also invoked here; would it
+            # make more sense # to have these keywords just fed to 'set' to not
+            # duplicate things?
+            # GK: I guess this is due to my limited experience in coding. As
+            # I understand set is always just called manually and __init__
+            # starts up things. That's why I made it that way. I can not see
+            # a call of set in here. Did you already fix this?
+            p.ne = ne
+            p.target_potential = potential
+            p.dpot = dpot
+            p.jelliumregion = jelliumregion
 
-        p.verbose = verbose
-        p.write_grandcanonical = write_grandcanonical_energy
-        p.always_adjust_ne = always_adjust_ne
+            # Just for transition
+            p.doublelayer = doublelayer
+            self.add_backwards_compatibility('doublelayer', 'jelliumregion')
+            self.add_backwards_compatibility('start', 'lower_limit',
+                                             indict=p.jelliumregion)
+            #
 
-        p.slope = None
-        p.max_iters = max_poteq_iters
+            p.verbose = verbose
+            p.write_grandcanonical = write_grandcanonical_energy
+            p.always_adjust_ne = always_adjust_ne
+
+            p.slope = None
+            p.max_iters = max_poteq_iters
 
         # GK: Would it make sense to add a defaults dictionary here as well?
 
         self.sog('Solvated jellium method (SJM) parameters:')
-        if p.target_potential is None:
+        if not p.target_potential:
             self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
                      .format(p.ne))
         else:
@@ -189,10 +191,6 @@ class SJM(SolvationGPAW):
         message = 'SJ: ' + str(message)
         self.log(message)
         self.log.flush()
-
-    def read(self,filename):
-        SolvationGPAW.read(self,filename)
-        pass#dasadasd
 
     def add_backwards_compatibility(self, oldkey, newkey, indict=None):
         if indict is None:
@@ -331,6 +329,14 @@ class SJM(SolvationGPAW):
                     if major_changes:
                         self.density = None
                     else:
+                        if not self.density.nct_G:
+                            self.initialize_positions()
+                            #rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
+                            #from gpaw.utilities.partition import AtomPartition
+                            #atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
+        #self.wfs.set_positions(self.spos_ac, atom_partition)
+                            #self.density.set_positions(self.spos_ac, atom_partition)
+
                         self.density.reset()
                         self.density.background_charge = \
                             SJM_changes['background_charge']
@@ -711,31 +717,18 @@ class SJM(SolvationGPAW):
 
     def _write(self, writer, mode=''):
         SolvationGPAW._write(self,writer,mode)
+        #self.sjm_parameters
+        writer.child('SJM').write(**self.sjm_parameters)
 
-        #print(self.todict())
-        #print('-'*15)
-        #print(self.default_parameters)
-        #print('-'*15)
-        self.parameters['cavity']=self.stuff_for_hamiltonian[0]
-        self.parameters['dielectric']=self.stuff_for_hamiltonian[1]
-        self.parameters['interactions']=self.stuff_for_hamiltonian[2][0]
-        #print(self.parameters)
-        #print('-'*15)
-        writer.child('parameters').write(**self.todict())
+    def read(self,filename):
+        reader = SolvationGPAW.read(self,filename)
 
-        #from ase.io.trajectory import write_atoms
-        #writer.write(version=2, gpaw_version=gpaw.__version__,
-        #             ha=Ha, bohr=Bohr)
-
-        #write_atoms(writer.child('atoms'), self.atoms)
-        #writer.child('results').write(**self.results)
-        #writer.child('parameters').write(**self.todict())
-
-        #self.density.write(writer.child('density'))
-        #self.hamiltonian.write(writer.child('hamiltonian'))
-        #self.occupations.write(writer.child('occupations'))
-        #self.scf.write(writer.child('scf'))
-        #self.wfs.write(writer.child('wave_functions'), mode == 'all')
+        if 'SJM' in reader:
+            self.sjm_parameters=Parameters()
+            for sj_key in reader.SJM.keys():
+                self.sjm_parameters[sj_key] = reader.SJM.asdict()[sj_key]
+#            self.sjm_parameters = reader.SJM.asdict()
+            print(self.sjm_parameters.ne)
 
 
 class SJMPower12Potential(Power12Potential):
@@ -799,9 +792,10 @@ class SJMPower12Potential(Power12Potential):
         self.unsolv_backside = unsolv_backside
 
     def write(self,writer):
+        print(self.atomic_radii)
         writer.write(name='SJMPower12Potential',
                 u0=self.u0,
-        #atomic_radii = self.atomic_radii,
+        atomic_radii = self.atomic_radii_output,
         #pbc_cutoff = self.pbc_cutoff,
         #r12_a = self.r12_a,
         #r_vg = self.r_vg,

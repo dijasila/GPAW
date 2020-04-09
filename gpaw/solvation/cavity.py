@@ -907,7 +907,9 @@ class GradientSurface(SurfaceCalculator):
         self.div_tmp = None
 
     def write(self,writer):
-        writer.write(nn=self.nn)
+        writer.write(
+                name='GradientSurface',
+                nn=self.nn)
 
     def read(self,reader):
         self.nn = reader.parameters.cavity.nn

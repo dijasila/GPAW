@@ -91,7 +91,8 @@ class SurfaceInteraction(Interaction):
         self.surface_tension = float(surface_tension)
 
     def write(self,writer):
-        writer.write(surface_tension=self.surface_tension)
+        writer.write(name = 'SurfaceInteraction',
+                surface_tension=self.surface_tension)
 
     def update(self, atoms, density, cavity):
         if cavity is None:
