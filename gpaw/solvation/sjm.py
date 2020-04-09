@@ -96,6 +96,7 @@ class SJM(SolvationGPAW):
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
+    #self.parameters.update=self.todict())#{''}
 
     # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     # E.g., verbose (and max_iter) could easily collide with a parent
@@ -123,14 +124,20 @@ class SJM(SolvationGPAW):
     # in the doublelayer section. We can definitely change the wording.
     # AP: created issue #5.
 
-    def __init__(self, ne=0, jelliumregion=None, potential=None,
+    def __init__(self, restart=None, ne=0, jelliumregion=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  always_adjust_ne=False, verbose=False,
                  max_poteq_iters=10, doublelayer=None,
                  **gpaw_kwargs):
 
         p = self.sjm_parameters = Parameters()
-        SolvationGPAW.__init__(self, **gpaw_kwargs)
+        print(gpaw_kwargs)
+
+        SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
+        print(self.todict())#__dict__.keys())#gpaw_kwargs)
+        #self.parameters['cavity']=self.stuff_for_hamiltonian[0]
+        #self.parameters['dielectric']=self.stuff_for_hamiltonian[1]
+        #self.parameters['interactions']=self.stuff_for_hamiltonian[2][0]
 
         # FIXME. There seems to be two ways that parameters are being set.
         # If they come from the __init__ keywords they are set here.
@@ -182,6 +189,10 @@ class SJM(SolvationGPAW):
         message = 'SJ: ' + str(message)
         self.log(message)
         self.log.flush()
+
+    def read(self,filename):
+        SolvationGPAW.read(self,filename)
+        pass#dasadasd
 
     def add_backwards_compatibility(self, oldkey, newkey, indict=None):
         if indict is None:
@@ -690,6 +701,42 @@ class SJM(SolvationGPAW):
             pickle.dump(G, out)
             out.close()
 
+    def write(self, filename, mode=''):
+        from gpaw.io import Reader, Writer
+        self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
+        writer = Writer(filename, self.world)
+        self._write(writer, mode)
+        writer.close()
+        self.world.barrier()
+
+    def _write(self, writer, mode=''):
+        SolvationGPAW._write(self,writer,mode)
+
+        #print(self.todict())
+        #print('-'*15)
+        #print(self.default_parameters)
+        #print('-'*15)
+        self.parameters['cavity']=self.stuff_for_hamiltonian[0]
+        self.parameters['dielectric']=self.stuff_for_hamiltonian[1]
+        self.parameters['interactions']=self.stuff_for_hamiltonian[2][0]
+        #print(self.parameters)
+        #print('-'*15)
+        writer.child('parameters').write(**self.todict())
+
+        #from ase.io.trajectory import write_atoms
+        #writer.write(version=2, gpaw_version=gpaw.__version__,
+        #             ha=Ha, bohr=Bohr)
+
+        #write_atoms(writer.child('atoms'), self.atoms)
+        #writer.child('results').write(**self.results)
+        #writer.child('parameters').write(**self.todict())
+
+        #self.density.write(writer.child('density'))
+        #self.hamiltonian.write(writer.child('hamiltonian'))
+        #self.occupations.write(writer.child('occupations'))
+        #self.scf.write(writer.child('scf'))
+        #self.wfs.write(writer.child('wave_functions'), mode == 'all')
+
 
 class SJMPower12Potential(Power12Potential):
     # FIXME. We should state how this differs from its parent.
@@ -750,6 +797,20 @@ class SJMPower12Potential(Power12Potential):
         self.atomic_radii_output = None
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
+
+    def write(self,writer):
+        writer.write(name='SJMPower12Potential',
+                u0=self.u0,
+        #atomic_radii = self.atomic_radii,
+        #pbc_cutoff = self.pbc_cutoff,
+        #r12_a = self.r12_a,
+        #r_vg = self.r_vg,
+        #pos_aav = self.pos_aav,
+        #del_u_del_r_vg = self.del_u_del_r_vg,
+        #atomic_radii_output = self.atomic_radii_output,
+        H2O_layer = self.H2O_layer,
+        unsolv_backside = self.unsolv_backside
+                )
 
     def update(self, atoms, density):
         if atoms is None:

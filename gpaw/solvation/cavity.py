@@ -76,6 +76,12 @@ class Cavity(NeedsGD):
         self.V = None  # global Volume
         self.A = None  # global Surface
 
+    def write(self,writer):
+        pass
+
+    def read(self,reader):
+        pass
+
     def estimate_memory(self, mem):
         ngrids = 1 + self.depends_on_el_density
         mem.subnode('Distribution Function', ngrids * self.gd.bytecount())
@@ -204,6 +210,21 @@ class EffectivePotentialCavity(Cavity):
         self.effective_potential = effective_potential
         self.temperature = float(temperature)
         self.minus_beta = -1. / (kB * temperature / Hartree)
+
+    def write(self,writer):
+        writer.write(effective_potential=self.effective_potential,
+                     temperature=self.temperature,
+                     surface_calculator=self.surface_calculator,
+                     volume_calculator=self.volume_calculator)
+
+    def read(self,reader):
+        c = reader.parameters.cavity
+        self.effective_potential=c.effective_potential
+        print(self.effective_potential)
+        dsa
+        self.temperature=c.temperature
+        self.surface_calculator=c.surface_calculator
+        self.volume_calculator=c.volume_calculator
 
     def estimate_memory(self, mem):
         Cavity.estimate_memory(self, mem)
@@ -847,6 +868,12 @@ class SurfaceCalculator(NeedsGD):
         self.A = None
         self.delta_A_delta_g_g = None
 
+    def write(self,writer):
+        pass
+
+    def read(self,reader):
+        pass
+
     def estimate_memory(self, mem):
         mem.subnode('Functional Derivative', self.gd.bytecount())
 
@@ -878,6 +905,12 @@ class GradientSurface(SurfaceCalculator):
         self.gradient_out = None
         self.norm_grad_out = None
         self.div_tmp = None
+
+    def write(self,writer):
+        writer.write(nn=self.nn)
+
+    def read(self,reader):
+        self.nn = reader.parameters.cavity.nn
 
     def estimate_memory(self, mem):
         SurfaceCalculator.estimate_memory(self, mem)

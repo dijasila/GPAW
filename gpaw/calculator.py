@@ -113,6 +113,7 @@ class GPAW(PAW, Calculator):
                  atoms=None, timer=None,
                  communicator=None, txt='-', parallel=None, **kwargs):
 
+        print('restart in  GPAW calc',restart)
         self.parallel = dict(self.default_parallel)
         if parallel:
             for key in parallel:
@@ -174,7 +175,7 @@ class GPAW(PAW, Calculator):
         from ase.io.trajectory import write_atoms
         writer.write(version=2, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
-
+        print('In gpaw._write',self.atoms)
         write_atoms(writer.child('atoms'), self.atoms)
         writer.child('results').write(**self.results)
         writer.child('parameters').write(**self.todict())
@@ -221,6 +222,7 @@ class GPAW(PAW, Calculator):
             else:
                 self.parameters[key] = value
             dct[key] = self.parameters[key]
+        print('In gpaw read:', self.parameters)
 
         self.log.print_dict(dct)
         self.log()

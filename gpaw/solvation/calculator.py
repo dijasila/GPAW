@@ -10,7 +10,7 @@ class SolvationGPAW(GPAW):
     A. Held and M. Walter, J. Chem. Phys. 141, 174108 (2014).
     """
 
-    def __init__(self, cavity, dielectric, interactions=None,
+    def __init__(self, restart=None, cavity=None, dielectric=None, interactions=None,
                  **gpaw_kwargs):
         """Constructor for SolvationGPAW class.
 
@@ -24,7 +24,20 @@ class SolvationGPAW(GPAW):
 
         self.stuff_for_hamiltonian = (cavity, dielectric, interactions)
 
-        GPAW.__init__(self, **gpaw_kwargs)
+        self.default_parameters.update({'cavity':None,
+                'dielectric':None,
+                'interactions':None})
+        GPAW.__init__(self, restart, **gpaw_kwargs)
+#        self.parameters.update({'cavity':cavity,
+#                'dielectric':dielectric,
+#                'interactions':interactions})
+
+    def read(self,filename):
+        GPAW.read(self,filename)
+        das
+        self.cavity.read(reader)#initialize()
+        print('Read in Solvationgpaw')
+        dasd
 
     def create_hamiltonian(self, realspace, mode, xc):
         if not realspace:
@@ -93,6 +106,6 @@ class SolvationGPAW(GPAW):
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
 
-    def write(self, *args, **kwargs):
-        raise NotImplementedError(
-            'IO is not implemented yet for SolvationGPAW!')
+    #def write(self, *args, **kwargs):
+    #    raise NotImplementedError(
+    #        'IO is not implemented yet for SolvationGPAW!')
