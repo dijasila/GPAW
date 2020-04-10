@@ -96,7 +96,6 @@ class SJM(SolvationGPAW):
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
-    #self.parameters.update=self.todict())#{''}
 
     # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     # E.g., verbose (and max_iter) could easily collide with a parent
@@ -130,14 +129,11 @@ class SJM(SolvationGPAW):
                  max_poteq_iters=10, doublelayer=None,
                  **gpaw_kwargs):
 
-
-
         p = self.sjm_parameters = Parameters()
         SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
 
         if restart:
             p = self.sjm_parameters
-            print(p)
         else:
 
             # FIXME. There seems to be two ways that parameters are being set.
@@ -330,11 +326,6 @@ class SJM(SolvationGPAW):
                     else:
                         if self.density.nct_G is None:
                             self.initialize_positions()
-                            #rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
-                            #from gpaw.utilities.partition import AtomPartition
-                            #atom_partition = AtomPartition(self.wfs.gd.comm, rank_a, name='gd')
-        #self.wfs.set_positions(self.spos_ac, atom_partition)
-                            #self.density.set_positions(self.spos_ac, atom_partition)
 
                         self.density.reset()
                         self.density.background_charge = \
@@ -348,9 +339,6 @@ class SJM(SolvationGPAW):
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
-                    #if p.target_potential:
-                        #if len(p.previous_nes) > 0:
-                            #self.wfs.nvalence += p.ne - p.previous_nes[-1]
                     self.wfs.nvalence = self.setups.nvalence + p.ne
                     self.sog('Number of valence electrons is now {:.5f}'
                              .format(self.wfs.nvalence))
@@ -426,8 +414,7 @@ class SJM(SolvationGPAW):
 
                 # Update slope based only on last two points.
                 if len(p.previous_nes) > 1:
-                    p.slope = (np.diff(p.previous_potentials[-2:]) /
-                               np.diff(p.previous_nes[-2:]))[0]
+                    p.slope = self.calculate_slope()
                     p.previous_slopes += [p.slope]
                     self.sog(str(p.slope))
                     self.sog('Slope regressed from last two attempts is '
@@ -458,43 +445,21 @@ class SJM(SolvationGPAW):
                     p.ne += 0.1 * np.sign(true_potential -
                                           p.target_potential)
                 else:
-                    if true_potential < 2:
-                        if len(p.previous_potential) > 1:
-                            if np.diff(p.previous_potentials[-2:])[0] < -1:
-                                self.sog('-' * 13)
-                                self.sog('Warning! Your last slope lead to a '
-                                         'dangerously low potential.\n '
-                                         'The previous step size will be halved '
-                                         'and retried in order to avoid\n '
-                                         'unphysical behavior. In case the potential '
-                                         'will not equilibrate, \n rethink your '
-                                         'initial charge guess')
-                                self.sog('-' * 13)
+                    if true_potential < 2 and len(p.previous_potentials) > 1:
+                        if np.diff(p.previous_potentials[-2:])[0] < -1:
+                            true_potential = self.half_last_step()
 
-                                #self.wfs.nvalence += p.previous_nes[-2] - \
-                                #    p.previous_nes[-1]
-                                self.wfs.nvalence = self.setups.nvalence + \
-                                        p.previous_ne[-2]
+                        elif ((p.target_potential - true_potential) /
+                              p.slope) > 0:
 
-                                del p.previous_potentials[-1]
-                                del p.previous_nes[-1]
-
-                                p.slope = 2 * (np.diff(p.previous_potentials[-2:]) /
-                                               np.diff(p.previous_nes[-2:]))[0]
-                                true_potential = p.previous_potentials[-1]
-                                p.ne = p.previous_nes[-1]
-                                usr_warned = True
-
-                        elif (p.target_potential - true_potential) / p.slope > 0:
-
-                            self.sog('-' * 13)
-                            self.sog('Warning! Based on the slope the next step '
-                                     'will lead to very unphysical behavior\n '
-                                     '(workfunction ~ 0) and will most likely '
-                                     'not converge.\n Recheck the initial guess '
-                                     'of the charges.')
-                            self.sog('-' * 13)
-                            usr_warned = True
+                            self.sog(
+                                '-' * 13 + '\n'
+                                'Warning! Based on the slope the next step '
+                                'will lead to very unphysical behavior\n '
+                                '(workfunction ~ 0) and will likely '
+                                'not converge.\n Recheck the initial guess '
+                                'of the charges.\n' + '-' * 13)
+                        usr_warned = True
 
                     p.ne += (p.target_potential - true_potential) / p.slope
                     self.sog('Number of electrons changed to {:.4f} based '
@@ -554,6 +519,32 @@ class SJM(SolvationGPAW):
         # GK: Will test
         if p.verbose:
             self.write_cavity_and_bckcharge()
+
+    def calculate_slope(self, coeff=1.):
+        p = self.sjm_parameters
+        return coeff * (np.diff(p.previous_potentials[-2:]) /
+                        np.diff(p.previous_nes[-2:]))[0]
+
+    def half_last_step(self):
+        p = self.sjm_parameters
+        self.sog('-' * 13 + '\n'
+                 'Warning! Your last step lead to a '
+                 'dangerously low potential.\n '
+                 'This is most likely due to overshooting the target.\n '
+                 'The previous step size will be halved '
+                 'and retried in order to avoid\n '
+                 'unphysical behavior. In case the potential '
+                 'will not equilibrate, \n rethink your '
+                 'initial charge guess\n' + '-' * 13)
+
+        del p.previous_potentials[-1]
+        del p.previous_nes[-1]
+
+        self.wfs.nvalence = self.setups.nvalence + \
+            p.previous_nes[-2]
+        p.slope = self.calculate_slope(coeff=2.)
+        p.ne = p.previous_nes[-1]
+        return p.previous_potentials[-1]
 
     def write_cavity_and_bckcharge(self):
         p = self.sjm_parameters
@@ -709,30 +700,25 @@ class SJM(SolvationGPAW):
             pickle.dump(G, out)
             out.close()
 
-    def write(self, filename, mode=''):
-        from gpaw.io import Reader, Writer
-        self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
-        writer = Writer(filename, self.world)
-        self._write(writer, mode)
-        writer.close()
-        self.world.barrier()
+    # def write(self, filename, mode=''):
+    #    from gpaw.io import Reader, Writer
+    #    self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
+    #    writer = Writer(filename, self.world)
+    #    self._write(writer, mode)
+    #    writer.close()
+    #    self.world.barrier()
 
-    def _write(self, writer, mode=''):
-        SolvationGPAW._write(self,writer,mode)
-        #self.sjm_parameters
+    def _write(self, writer, mode):
+        SolvationGPAW._write(self, writer, mode)
         writer.child('SJM').write(**self.sjm_parameters)
 
-    def read(self,filename):
-        reader = SolvationGPAW.read(self,filename)
+    def read(self, filename):
+        reader = SolvationGPAW.read(self, filename)
 
         if 'SJM' in reader:
-            self.sjm_parameters=Parameters()
+            self.sjm_parameters = Parameters()
             for sj_key in reader.SJM.keys():
                 self.sjm_parameters[sj_key] = reader.SJM.asdict()[sj_key]
-#            self.sjm_parameters = reader.SJM.asdict()
-            print(self.sjm_parameters.ne)
-            self.sjm_parameters.previous_nes = [self.sjm_parameters.ne]
-            self.sjm_parameters.previous_potentials = [self.sjm_parameters.target_potential]
 
 
 class SJMPower12Potential(Power12Potential):
@@ -795,20 +781,13 @@ class SJMPower12Potential(Power12Potential):
         self.H2O_layer = H2O_layer
         self.unsolv_backside = unsolv_backside
 
-    def write(self,writer):
-        print(self.atomic_radii)
-        writer.write(name='SJMPower12Potential',
-                u0=self.u0,
-        atomic_radii = self.atomic_radii_output,
-        #pbc_cutoff = self.pbc_cutoff,
-        #r12_a = self.r12_a,
-        #r_vg = self.r_vg,
-        #pos_aav = self.pos_aav,
-        #del_u_del_r_vg = self.del_u_del_r_vg,
-        #atomic_radii_output = self.atomic_radii_output,
-        H2O_layer = self.H2O_layer,
-        unsolv_backside = self.unsolv_backside
-                )
+    def write(self, writer):
+        writer.write(
+            name='SJMPower12Potential',
+            u0=self.u0,
+            atomic_radii=self.atomic_radii_output,
+            H2O_layer=self.H2O_layer,
+            unsolv_backside=self.unsolv_backside)
 
     def update(self, atoms, density):
         if atoms is None:

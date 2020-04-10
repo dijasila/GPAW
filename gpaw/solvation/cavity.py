@@ -76,10 +76,10 @@ class Cavity(NeedsGD):
         self.V = None  # global Volume
         self.A = None  # global Surface
 
-    def write(self,writer):
+    def write(self, writer):
         pass
 
-    def read(self,reader):
+    def read(self, reader):
         pass
 
     def estimate_memory(self, mem):
@@ -211,20 +211,19 @@ class EffectivePotentialCavity(Cavity):
         self.temperature = float(temperature)
         self.minus_beta = -1. / (kB * temperature / Hartree)
 
-    def write(self,writer):
+    def write(self, writer):
         writer.write(effective_potential=self.effective_potential,
                      temperature=self.temperature,
                      surface_calculator=self.surface_calculator,
                      volume_calculator=self.volume_calculator)
 
-    def read(self,reader):
+    # For future, not used at the moment
+    def read(self, reader):
         c = reader.parameters.cavity
-        self.effective_potential=c.effective_potential
-        print(self.effective_potential)
-        dsa
-        self.temperature=c.temperature
-        self.surface_calculator=c.surface_calculator
-        self.volume_calculator=c.volume_calculator
+        self.effective_potential = c.effective_potential
+        self.temperature = c.temperature
+        self.surface_calculator = c.surface_calculator
+        self.volume_calculator = c.volume_calculator
 
     def estimate_memory(self, mem):
         Cavity.estimate_memory(self, mem)
@@ -868,10 +867,10 @@ class SurfaceCalculator(NeedsGD):
         self.A = None
         self.delta_A_delta_g_g = None
 
-    def write(self,writer):
+    def write(self, writer):
         pass
 
-    def read(self,reader):
+    def read(self, reader):
         pass
 
     def estimate_memory(self, mem):
@@ -906,12 +905,12 @@ class GradientSurface(SurfaceCalculator):
         self.norm_grad_out = None
         self.div_tmp = None
 
-    def write(self,writer):
+    def write(self, writer):
         writer.write(
-                name='GradientSurface',
-                nn=self.nn)
+            name='GradientSurface',
+            nn=self.nn)
 
-    def read(self,reader):
+    def read(self, reader):
         self.nn = reader.parameters.cavity.nn
 
     def estimate_memory(self, mem):

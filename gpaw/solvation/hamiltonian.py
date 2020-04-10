@@ -225,8 +225,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     ('External:     ', self.e_external),
                     ('XC:           ', self.e_xc),
                     ('Entropy (-ST):', self.e_entropy),
-                    ('Local:        ', self.e_zero),
-                   ]
+                    ('Local:        ', self.e_zero)]
+
         if len(self.interactions) > 0:
             energies += [('Interactions', None)]
             for ia in self.interactions:
