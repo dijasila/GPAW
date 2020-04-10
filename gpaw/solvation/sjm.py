@@ -126,7 +126,9 @@ class SJM(SolvationGPAW):
     def __init__(self, restart=None, ne=0, jelliumregion=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  always_adjust_ne=False, verbose=False,
-                 max_poteq_iters=10, doublelayer=None,
+                 max_poteq_iters=10,
+                 # For transition period
+                 doublelayer=None, potential_equilibration_mode='seq',
                  **gpaw_kwargs):
 
         p = self.sjm_parameters = Parameters()
@@ -151,19 +153,28 @@ class SJM(SolvationGPAW):
             p.dpot = dpot
             p.jelliumregion = jelliumregion
 
-            # Just for transition
-            p.doublelayer = doublelayer
-            self.add_backwards_compatibility('doublelayer', 'jelliumregion')
-            self.add_backwards_compatibility('start', 'lower_limit',
-                                             indict=p.jelliumregion)
-            #
-
             p.verbose = verbose
             p.write_grandcanonical = write_grandcanonical_energy
             p.always_adjust_ne = always_adjust_ne
 
             p.slope = None
             p.max_iters = max_poteq_iters
+
+            # Just for transition
+            p.doublelayer = doublelayer
+
+            self.add_backwards_compatibility('doublelayer', 'jelliumregion')
+            self.add_backwards_compatibility('start', 'lower_limit',
+                                             indict=p.jelliumregion)
+            if potential_equilibration_mode != 'sim':
+                p.potential_equilibration_mode = False
+            else:
+                p.potential_equilibration_mode = True
+
+            self.add_backwards_compatibility('potential_equilibration_mode',
+                                             'always_adjust_ne')
+
+            #####
 
         # GK: Would it make sense to add a defaults dictionary here as well?
 
@@ -198,9 +209,9 @@ class SJM(SolvationGPAW):
             if newkey not in p.keys():
                 p[newkey] = None
 
-            if p[oldkey] is not None:
+            if p[oldkey]:
 
-                if p[newkey] is not None:
+                if p[newkey]:
                     self.sog("Both the {0} and {1} keys are given. "
                              "This might be due to your adaptation "
                              "to the changed SJ code."
@@ -261,7 +272,9 @@ class SJM(SolvationGPAW):
         """
 
         SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
-                    'jelliumregion', 'always_adjust_ne']
+                    'jelliumregion', 'always_adjust_ne',
+                    # FIXME: Delete the following after transition'
+                    'doublelayer', 'potential_equilibration_mode']
 
         SJM_changes = {key: kwargs.pop(key) for key in list(kwargs)
                        if key in SJM_keys}
