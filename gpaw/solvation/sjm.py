@@ -138,7 +138,6 @@ class SJM(SolvationGPAW):
         if restart:
             p = self.sjm_parameters
             print(p)
-            das
         else:
 
             # FIXME. There seems to be two ways that parameters are being set.
@@ -329,7 +328,7 @@ class SJM(SolvationGPAW):
                     if major_changes:
                         self.density = None
                     else:
-                        if not self.density.nct_G:
+                        if self.density.nct_G is None:
                             self.initialize_positions()
                             #rank_a = self.wfs.gd.get_ranks_from_positions(self.spos_ac)
                             #from gpaw.utilities.partition import AtomPartition
@@ -349,9 +348,10 @@ class SJM(SolvationGPAW):
                         self.wfs.eigensolver.reset()
                         self.scf.reset()
 
-                    if p.target_potential:
-                        if len(p.previous_nes) > 0:
-                            self.wfs.nvalence += p.ne - p.previous_nes[-1]
+                    #if p.target_potential:
+                        #if len(p.previous_nes) > 0:
+                            #self.wfs.nvalence += p.ne - p.previous_nes[-1]
+                    self.wfs.nvalence = self.setups.nvalence + p.ne
                     self.sog('Number of valence electrons is now {:.5f}'
                              .format(self.wfs.nvalence))
                     # FIXME: background_charge not always called when ne
@@ -458,41 +458,43 @@ class SJM(SolvationGPAW):
                     p.ne += 0.1 * np.sign(true_potential -
                                           p.target_potential)
                 else:
-                    if np.diff(p.previous_potentials[-2:])[0] < -1 and\
-                            true_potential < 2:
-                        self.sog('-' * 13)
-                        self.sog('Warning! Your last slope lead to a '
-                                 'dangerously low potential.\n '
-                                 'The previous step size will be halved '
-                                 'and retried in order to avoid\n '
-                                 'unphysical behavior. In case the potential '
-                                 'will not equilibrate, \n rethink your '
-                                 'initial charge guess')
-                        self.sog('-' * 13)
+                    if true_potential < 2:
+                        if len(p.previous_potential) > 1:
+                            if np.diff(p.previous_potentials[-2:])[0] < -1:
+                                self.sog('-' * 13)
+                                self.sog('Warning! Your last slope lead to a '
+                                         'dangerously low potential.\n '
+                                         'The previous step size will be halved '
+                                         'and retried in order to avoid\n '
+                                         'unphysical behavior. In case the potential '
+                                         'will not equilibrate, \n rethink your '
+                                         'initial charge guess')
+                                self.sog('-' * 13)
 
-                        self.wfs.nvalence += p.previous_nes[-2] - \
-                            p.previous_nes[-1]
+                                #self.wfs.nvalence += p.previous_nes[-2] - \
+                                #    p.previous_nes[-1]
+                                self.wfs.nvalence = self.setups.nvalence + \
+                                        p.previous_ne[-2]
 
-                        del p.previous_potentials[-1]
-                        del p.previous_nes[-1]
+                                del p.previous_potentials[-1]
+                                del p.previous_nes[-1]
 
-                        p.slope = 2 * (np.diff(p.previous_potentials[-2:]) /
-                                       np.diff(p.previous_nes[-2:]))[0]
-                        true_potential = p.previous_potentials[-1]
-                        p.ne = p.previous_nes[-1]
-                        usr_warned = True
+                                p.slope = 2 * (np.diff(p.previous_potentials[-2:]) /
+                                               np.diff(p.previous_nes[-2:]))[0]
+                                true_potential = p.previous_potentials[-1]
+                                p.ne = p.previous_nes[-1]
+                                usr_warned = True
 
-                    elif (p.target_potential - true_potential) / p.slope > 0\
-                            and true_potential < 2:
+                        elif (p.target_potential - true_potential) / p.slope > 0:
 
-                        self.sog('-' * 13)
-                        self.sog('Warning! Based on the slope the next step '
-                                 'would lead to very unphysical behavior\n '
-                                 '(workfunction ~ 0) and will most likely '
-                                 'not converge.\n Recheck the initial guess '
-                                 'of the charges.')
-                        self.sog('-' * 13)
-                        usr_warned = True
+                            self.sog('-' * 13)
+                            self.sog('Warning! Based on the slope the next step '
+                                     'will lead to very unphysical behavior\n '
+                                     '(workfunction ~ 0) and will most likely '
+                                     'not converge.\n Recheck the initial guess '
+                                     'of the charges.')
+                            self.sog('-' * 13)
+                            usr_warned = True
 
                     p.ne += (p.target_potential - true_potential) / p.slope
                     self.sog('Number of electrons changed to {:.4f} based '
@@ -729,6 +731,8 @@ class SJM(SolvationGPAW):
                 self.sjm_parameters[sj_key] = reader.SJM.asdict()[sj_key]
 #            self.sjm_parameters = reader.SJM.asdict()
             print(self.sjm_parameters.ne)
+            self.sjm_parameters.previous_nes = [self.sjm_parameters.ne]
+            self.sjm_parameters.previous_potentials = [self.sjm_parameters.target_potential]
 
 
 class SJMPower12Potential(Power12Potential):
