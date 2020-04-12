@@ -627,6 +627,13 @@ class SJM(SolvationGPAW):
         else:
             p.jelliumregion['upper_limit'] = atoms.cell[2][2] - 1.0
 
+        if p.jelliumregion['upper_limit'] > atoms.cell[2][2]:
+            raise IOError('The upper limit of the jellium region lies '
+                          'outside of unit cell. If you did not set it '
+                          'manually, increase your unit cell size or '
+                          'translate the atomic system down along the '
+                          'z-axis.')
+
         if 'lower_limit' in p.jelliumregion:
             if p.jelliumregion['lower_limit'] == 'cavity_like':
                 # XXX This part can definitely be improved
@@ -655,6 +662,13 @@ class SJM(SolvationGPAW):
                                            z2=p.jelliumregion['upper_limit'])
 
             elif isinstance(p.jelliumregion['lower_limit'], numbers.Real):
+                if p.jelliumregion['lower_limit'] > \
+                        p.jelliumregion['upper_limit']:
+
+                    raise IOError('The lower limit of the jellium region '
+                                  'lies above the upper limit. Recheck your '
+                                  'input.')
+
                 p.jelliumregion['start'] = p.jelliumregion['lower_limit']
             else:
                 raise RuntimeError("The starting z value of the counter charge"
@@ -671,6 +685,12 @@ class SJM(SolvationGPAW):
 
         self.sog('Lower jellium boundary: %s' % p.jelliumregion['start'])
         self.sog('Upper jellium boundary: %s' % p.jelliumregion['upper_limit'])
+
+        if p.jelliumregion['start'] > p.jelliumregion['upper_limit']:
+            raise IOError('The lower limit of the jellium region '
+                          'lies above the upper limit. Increase your unit '
+                          'cell size or translate the atomic system down '
+                          'along the z-axis.')
 
         return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
                            z2=p.jelliumregion['upper_limit'])
