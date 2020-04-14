@@ -37,7 +37,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     6. EXX valence-valence energy
     """
 
-    if not isinstance(calc, GPAW):
+    if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
 
     wfs = calc.wfs
@@ -112,7 +112,6 @@ def calculate_energy(kpts, paw, wfs, sym, coulomb, spos_ac):
         v_G = coulomb.get_potential(pd12)
         e_nn = calculate_exx_for_pair(k1, k2, ghat, v_G, comm,
                                       paw.Delta_aiiL)
-
         e_nn *= count
         e = k1.f_n.dot(e_nn).dot(k2.f_n) / sym.kd.nbzkpts**2
         exxvv -= 0.5 * e
@@ -141,6 +140,7 @@ def calculate_exx_for_pair(k1,
                         Delta_iiL,
                         k2.proj[a].conj())
               for a, Delta_iiL in enumerate(Delta_aiiL)]
+    #Q_annL[0][0, 0, 0] = 0.0001
 
     if k1 is k2:
         n2max = (N1 + size - 1) // size
@@ -169,6 +169,8 @@ def calculate_exx_for_pair(k1,
 
         for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
             vrho_G = v_G * rho_G
+            print(v_G)
+            #vrho_G = rho_G
             e = ghat.pd.integrate(rho_G, vrho_G).real
             e_nn[n1, n2] = e
             if k1 is k2:

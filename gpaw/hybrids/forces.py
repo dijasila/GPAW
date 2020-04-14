@@ -27,7 +27,7 @@ def calculate_forces(wfs, coulomb, sym, paw_s, ftol=1e-9) -> np.ndarray:
         forces(kpts, dPdR_kaniv, paw_s[spin],
                wfs, sym, coulomb, F_av)
 
-    assert np.allclose(F_av[:, :, :2], 0)
+    # assert np.allclose(F_av[:, :, :2], 0)
     assert np.allclose(F_av.imag, 0)
     # assert np.allclose(F_av.sum(axis=(0, 1)), 0)
 
@@ -87,6 +87,7 @@ def calculate_exx_for_pair(k1,
                         Delta_iiL,
                         k2.proj[a].conj())
               for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
+    #Q_annL[0][0, 0, 0] = 0.0001
 
     if k1 is k2:
         n2max = (N1 + size - 1) // size
@@ -113,14 +114,18 @@ def calculate_exx_for_pair(k1,
                  {a: Q_nnL[n1, n2a:n2b]
                   for a, Q_nnL in enumerate(Q_annL)})
 
+        print(n1, n2a, n2b)
         for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
             vrho_G = v_G * rho_G
+            print(v_G)
+            #vrho_G = rho_G
             vrho_nG[n2 - n2a] = vrho_G
         for a, v_nLv in ghat.derivative(vrho_nG).items():
-            F_av[0, a] += k1.f_n[n1] * np.einsum('n, nL, nLv -> v',
+            print(v_nLv, Q_annL[0][n1])
+            F_av[0, a] -= k1.f_n[n1] * np.einsum('n, nL, nLv -> v',
                                                  k2.f_n,
                                                  Q_annL[a][n1].conj(),
-                                                 v_nLv)
+                                                 v_nLv) * 2
 
         for a, v_nL in ghat.integrate(vrho_nG[:n2b - n2a]).items():
             v_iin = paw.Delta_aiiL[a].dot(v_nL.T)
@@ -129,7 +134,7 @@ def calculate_exx_for_pair(k1,
                                          dPdR1_aniv[a][n1].conj(),
                                          k2.proj[a][n2a:n2b],
                                          k2.f_n[n2a:n2b])
-            F_av[1, a] += F_v
+            F_av[1, a] -= F_v * 4
 
         for a, v_ii in paw.VV_aii.items():
             F_v = k1.f_n[n1] * np.einsum('ij, iv, nj, n -> v',
@@ -137,6 +142,6 @@ def calculate_exx_for_pair(k1,
                                          dPdR1_aniv[a][n1].conj(),
                                          k2.proj[a][n2a:n2b],
                                          k2.f_n[n2a:n2b])
-            F_av[2, a] += F_v
+            F_av[2, a] -= 16 * F_v
 
 
