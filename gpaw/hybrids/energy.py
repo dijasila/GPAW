@@ -140,7 +140,6 @@ def calculate_exx_for_pair(k1,
                         Delta_iiL,
                         k2.proj[a].conj())
               for a, Delta_iiL in enumerate(Delta_aiiL)]
-    #Q_annL[0][0, 0, 0] = 0.0001
 
     if k1 is k2:
         n2max = (N1 + size - 1) // size
@@ -156,7 +155,6 @@ def calculate_exx_for_pair(k1,
             n2a = min(n1 + rank * B, N2)
             n2b = min(n2a + B, N2)
         else:
-            B = (N1 + size - 1) // size
             n2a = 0
             n2b = N2
 
@@ -169,8 +167,6 @@ def calculate_exx_for_pair(k1,
 
         for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
             vrho_G = v_G * rho_G
-            print(v_G)
-            #vrho_G = rho_G
             e = ghat.pd.integrate(rho_G, vrho_G).real
             e_nn[n1, n2] = e
             if k1 is k2:

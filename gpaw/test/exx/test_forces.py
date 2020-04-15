@@ -9,7 +9,8 @@ from gpaw.hybrids.energy import non_self_consistent_energy as nsce
 
 def test_forces():
     a = Atoms('H2',
-              positions=[(0, 0, 0), (0, 0, 0.75)],
+              positions=[(0, 0, 0), (0, 0, 0.75),
+                 ],#        (2, 0, 0), (2, 0, 0.75)],
               pbc=True)
     a.center(vacuum=1.5)
     a.calc = GPAW(
@@ -21,7 +22,7 @@ def test_forces():
         # kpts={'size': (1, 1, 2), 'gamma': True},
         # xc='HSE06',
         xc=HybridXC('EXX'),
-        convergence={'forces': 1e-3},
+        #convergence={'forces': 1e-3},
         txt='H2.txt')
     # from jj import plot as P
     D = np.linspace(0.7, 0.99, 15)
@@ -29,17 +30,19 @@ def test_forces():
     F = []
     FF = []
     E = []
+    import jj
     for d in D:
         a.set_distance(0, 1, d)
-        e = a.get_potential_energy()
-        e2 = nsce(a.calc, 'EXX')
+        #e = a.get_potential_energy()
+        #e2 = nsce(a.calc, 'EXX')
         # print(e2)
         f = a.get_forces()[0, 2]
-        Fx = a.calc.hamiltonian.xc.F_xav[:, 0, 2] * Ha / Bohr
-        f -= Fx[:2].dot([2, 4])
+        #print(f)
         # f00 = numeric_force(a, 0, 2)
         f0 = numeric_force(a, 0, 2, 0.01)
-        print(f0, f0 - f, Fx[2])
+        print(f0, f0 - f)
+        return
+        jj.plot(f0,f)
         #F.append(f[0, 2] - f0)
         # P(d, (e, e2.sum(), f[0, 2], 0))
         E.append(e)

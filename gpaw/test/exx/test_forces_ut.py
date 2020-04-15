@@ -20,9 +20,9 @@ from gpaw.hybrids.symmetry import Symmetry as Sym
 from gpaw.hybrids.kpts import get_kpt
 
 
-N = 28
+N = 20
 L = 2.5
-nb = 1#2
+nb = 2
 r2 = np.linspace(0, 2, 101)**2
 
 
@@ -45,7 +45,7 @@ class WFS:
         self.kd = KPointDescriptor(None)
         self.kd.set_symmetry(Atoms(pbc=True), sym)
         self.setups = [Setup()]
-        pd = PWDescriptor(500, self.gd, complex, self.kd)
+        pd = PWDescriptor(50, self.gd, complex, self.kd)
         data = pd.zeros(nb)
         R = self.gd.get_grid_point_coordinates()
         R -= L / 2
@@ -59,7 +59,7 @@ class WFS:
         self.pt = PWLFC([[Spline(0, 2.0, np.exp(-r2 * 10))]], pd)
         self.pt.set_positions(self.spos_ac)
         psit.matrix_elements(self.pt, out=proj)
-        f_n = np.array([1.0])#, 0.00000000000000000000000000])
+        f_n = np.array([1.0, 0.0])#, 0.00000000000000000000000000])
         kpt = KPoint(1.0, 0, 0, 0, None)
         kpt.psit = psit
         kpt.projections = proj
@@ -98,11 +98,11 @@ class AP:
 
 class Setup:
     Delta_iiL = np.zeros((1, 1, 1)) + 0.1
-    X_p = np.zeros(1)# + 0.3
+    X_p = np.zeros(1) + 0.3
     ExxC = -10.0
     ghat_l = [Spline(0, 2.0, np.exp(-r2 * 10))]
     xc_correction = None
-    M_pp = np.zeros((1, 1))# + 0.3
+    M_pp = np.zeros((1, 1)) + 0.3
 
 
 def energy(calc, sym, coulomb):
@@ -116,9 +116,9 @@ def energy(calc, sym, coulomb):
 
 
 def test_force():
-    x = 0.5
+    x = 0.2
     y = 0.35
-    z = 0.5
+    z = 0.1
     calc = Calc([[x, y, z]])
     omega = 0.2
     wfs = calc.wfs
@@ -126,9 +126,8 @@ def test_force():
     coulomb = coulomb_interaction(omega, wfs.gd, kd)
     sym = Sym(kd)
     paw_s = calculate_paw_stuff(wfs, calc.density)
-    F_av = calculate_forces(wfs, coulomb, sym, paw_s)
-    print(F_av[:, 0] * Ha / Bohr)
-    print(F_av[:, 0].sum(0) * Ha / Bohr)
+    F_v = calculate_forces(wfs, coulomb, sym, paw_s)[0] * Ha / Bohr
+    print(F_v)
     dx = 0.0001
     y -= dx / 2
     calc = Calc([[x, y, z]])
@@ -136,11 +135,4 @@ def test_force():
     y += dx
     calc = Calc([[x, y, z]])
     ep = energy(calc, sym, coulomb)
-    print((em - ep) / (dx * L * Bohr))
-    return
-    from jj import plot as P
-    for x in np.linspace(0, 0.25, 50):
-        calc = Calc([[x, y, 0]])
-        e = nsce(calc, 'EXX')
-        print(e)
-        P(x, e[5])
+    print((em - ep) / (dx * L * Bohr) - F_v[1])
