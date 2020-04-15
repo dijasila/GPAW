@@ -80,9 +80,13 @@ def test_utilities_ldos(in_tmp_dir):
     assert not H_orbitalweight.round(1).any()
 
     ldos = RawLDOS(calc)
-    fname = 'ldbe.dat'
-    ldos.by_element_to_file(fname, shift=False)
-    ldos.by_element_to_file(fname, 2.0, shift=False)
+    fname = 'ldbe'
+    ldos.by_element_to_file(fname + '.dat', shift=False)
+    ldos.by_element_to_file(fname + '_2.0.dat', 2.0, shift=False)
+    ldos.by_element_to_file(fname + '_indx0.dat', indices=[0])
+    # the hydrogen entries are missing for index 0 only
+    assert (np.loadtxt(fname + '_indx0.dat').shape[1] + 3 ==
+            np.loadtxt(fname + '.dat').shape[1] )
 
     energy_tolerance = 0.001
     niter_tolerance = 0
