@@ -1015,167 +1015,140 @@ class WeightFunc:
               finite difference or analytical
               dw/dR
         '''
+
         cdft_forces = np.zeros((len(self.atoms), 3))
-        prefactor = self.get_derivative_prefactor(n_charge_regions,
-                                                  n_spin_regions, w_ig, v_i,
-                                                  difference)
 
         if dens.nt_sg is None:
             dens.interpolate_pseudo_density()
 
-        if method == 'analytical':
-            dG_dRav = self.get_analytical_gaussian_derivates()
-        elif method == 'fd':
-            dG_dRav = self.get_fd_gaussian_derivatives()
-        else:
-            raise NotImplementedError
+        rho_kd = self.construct_total_density(self.atoms)  # sum_k n_k
+        # Check zero elements
+        check = rho_kd == 0.
+        # Add value to zeros for denominator...
+        #rho_kd = rho_k.copy()
+        rho_kd += check * 1.0
 
         for a, atom in enumerate(self.atoms):
             wn_sg = self.gd.zeros()
+            prefactor = self.get_derivative_prefactor(n_charge_regions,
+                                                  n_spin_regions, w_ig, v_i,
+                                                  difference, atom, rho_kd)
 
             # make extended array
             for c in range(n_charge_regions):
-                n_g = (dens.nt_sg[0] + dens.nt_sg[1])
-                wn_sg += n_g * prefactor[a][0]
+                #n_g = (dens.nt_sg[0] + dens.nt_sg[1])
+                wn_sg += (dens.nt_sg[0] + dens.nt_sg[1]) * prefactor[0]
 
             for s in range(n_spin_regions):
-                n_g = (dens.nt_sg[0] - dens.nt_sg[1])
-                wn_sg += n_g * prefactor[a][1]
-            if method == 'LFC':
-                # XXX NOT YET WORKING!!!!
-                raise NotImplementedError
+                #n_g = (dens.nt_sg[0] - dens.nt_sg[1])
+                wn_sg += (dens.nt_sg[0] - dens.nt_sg[1]) * prefactor[1]
 
-            else:
-                for i in [0, 1, 2]:
-                    cdft_forces[a][i] += -self.gd.integrate(
-                        wn_sg * dG_dRav[a][i], global_integral=True)
+            for i in [0, 1, 2]:
+                if method == 'analytical':
+                    dG_dRav = self.get_analytical_gaussian_derivates(atom, direction=i)
+                elif method == 'fd':
+                    dG_dRav = self.get_fd_gaussian_derivatives(atom, direction=i)
+
+                cdft_forces[a][i] -= self.gd.integrate(
+                        wn_sg * dG_dRav, global_integral=True)
 
         return cdft_forces
 
-    def get_fd_gaussian_derivatives(self, dx=1.e-4):
-        dG_dRav = {}
+    def get_fd_gaussian_derivatives(self, atom, dx=1.e-4):
+
         dirs = [[dx, 0., 0.], [0., dx, 0.], [0., 0., dx]]
-        for atom in self.atoms:
-            dGav = []
-            charge = atom.number
-            symbol = atom.symbol
-            mu = self.mu[symbol]
-            Rc = self.Rc[symbol]
+        dGav = []
+        charge = atom.number
+        symbol = atom.symbol
+        mu = self.mu[symbol]
+        Rc = self.Rc[symbol]
 
-            for i in [0, 1, 2]:
-                # move to +dx
-                a_posx = atom.position / Bohr + dirs[i]
-                a_dis = self.get_distance_vectors(a_posx)
-                Ga_posx = charge * self.normalized_gaussian(a_dis, mu, Rc)
-                # move to -dx
-                a_negx = atom.position / Bohr - dirs[i]
-                a_dis = self.get_distance_vectors(a_negx)
-                Ga_negx = charge * self.normalized_gaussian(a_dis, mu, Rc)
-                # dG/dx
-                dGax = (Ga_posx - Ga_negx) / (2 * dx)
-                dGav.append(dGax)
+        for i in [0, 1, 2]:
+            # move to +dx
+            a_posx = atom.position / Bohr + dirs[i]
+            a_dis = self.get_distance_vectors(a_posx)
+            Ga_posx = charge * self.normalized_gaussian(a_dis, mu, Rc)
+            # move to -dx
+            a_negx = atom.position / Bohr - dirs[i]
+            a_dis = self.get_distance_vectors(a_negx)
+            Ga_negx = charge * self.normalized_gaussian(a_dis, mu, Rc)
+            # dG/dx
+            dGax = (Ga_posx - Ga_negx) / (2 * dx)
+            dGav.append(dGax)
 
-            dG_dRav[atom.index] = dGav
-
-        return dG_dRav
+        return dGRav
 
     def get_derivative_prefactor(self, n_charge_regions, n_spin_regions, w_ig,
-                                 v_i, difference):
+                                 v_i, difference, atom, rho_kd):
         '''Computes the dw/dRa array needed for derivatives/forces
         eq 31
         needed for lfc-derivative/integrals
         '''
+        wc = self.gd.zeros()
+        ws = self.gd.zeros()
 
-        prefactor = {}  # place to store the extended array
-        rho_k = self.construct_total_density(self.atoms)  # sum_k n_k
-        # Check zero elements
-        check = rho_k == 0.
-        # Add value to zeros for denominator...
-        rho_kd = rho_k.copy()
-        rho_kd += check * 1.0
-        # MAKE AN EXTENDED ARRAY
-        for atom in self.atoms:
-            wc = self.gd.zeros()
-            ws = self.gd.zeros()
+        for i in range(n_charge_regions):
+            # build V_i [sum_k rho_k + sum_{j in i}rho_i]
+            wi = -w_ig[i]
 
-            for i in range(n_charge_regions):
-                # build V_i [sum_k rho_k + sum_{j in i}rho_i]
-                wi = -w_ig[i]
-
-                if not difference:
-                    if atom.index in self.indices_i[i]:
-                        wi += 1.
-                else:
-                    if atom.index in self.indices_i[0]:
-                        wi += 1.
-                    elif atom.index in self.indices_i[1]:
-                        wi -= 1.
-
-                wi *= v_i[i]
-                wc += wi / rho_kd
-
-            for i in range(n_spin_regions):
-                # build V_i [sum_k rho_k + sum_{j in i}rho_i]
-                wi = -w_ig[n_charge_regions + i]
-                if atom.index in self.indices_i[n_charge_regions + i]:
+            if not difference:
+                if atom.index in self.indices_i[i]:
                     wi += 1.
-                wi *= v_i[n_charge_regions + i]
-                ws += wi / rho_kd
+            else:
+                if atom.index in self.indices_i[0]:
+                    wi += 1.
+                elif atom.index in self.indices_i[1]:
+                    wi -= 1.
 
-            prefactor[atom.index] = [wc, ws]
-        return prefactor
+            wi *= v_i[i]
+            wc += wi / rho_kd
 
-    def get_analytical_gaussian_derivates(self):
+        for i in range(n_spin_regions):
+            # build V_i [sum_k rho_k + sum_{j in i}rho_i]
+            wi = -w_ig[n_charge_regions + i]
+            if atom.index in self.indices_i[n_charge_regions + i]:
+                wi += 1.
+            wi *= v_i[n_charge_regions + i]
+            ws += wi / rho_kd
+
+        return [wc, ws]
+
+    def get_analytical_gaussian_derivates(self, atom, direction):
         # equations 32,33,34
-        dG_dRav = {}  # place to store the extended array
 
-        # MAKE AN EXTENDED ARRAY
-        for atom in self.atoms:
+        a_pos = atom.position / Bohr
+        a_symbol = atom.symbol
+        a_charge = atom.number
 
-            a_pos = atom.position / Bohr
-            a_symbol = atom.symbol
-            a_charge = atom.number
+        a_dis = self.get_distance_vectors(a_pos)
+        rRa = -self.get_distance_vectors(a_pos, distance=False)
+        dist_rRa = self.get_distance_vectors(a_pos, distance=True)
+        check = dist_rRa == 0
 
-            a_dis = self.get_distance_vectors(a_pos)
-            rRa = -self.get_distance_vectors(a_pos, distance=False)
-            dist_rRa = self.get_distance_vectors(a_pos, distance=True)
-            check = dist_rRa == 0
-            # Add value to zeros ...
-            dist_rRa += check * 1.0
-            # eq 33
-            drRa_dx = rRa[0] / dist_rRa
-            drRa_dy = rRa[1] / dist_rRa
-            drRa_dz = rRa[2] / dist_rRa
+        # Add value to zeros ...
+        dist_rRa += check * 1.0
+        # eq 33
+        drRa_di = rRa[direction] / dist_rRa
 
-            # Gaussian derivative eq 34
+        # Gaussian derivative eq 34
 
-            G_a = a_charge * self.normalized_gaussian(a_dis,
-                                                      self.mu[a_symbol],
-                                                      self.Rc[a_symbol])
+        G_a = a_charge * self.normalized_gaussian(a_dis,
+                                                  self.mu[a_symbol],
+                                                  self.Rc[a_symbol])
 
-            # within cutoff or at surface ? --> heaviside
-            # inside
-            check_i = abs(a_dis) <= self.Rc[a_symbol]
-            rRc = check_i * a_dis
-            dGa_drRa = -rRc * G_a / (
-                self.mu[a_symbol])**2  # (\Theta * (r-R_a) n_A) / \sigma^2
+        # within cutoff or at surface ? --> heaviside
+        # inside
+        check_i = abs(a_dis) <= self.Rc[a_symbol]
+        rRc = check_i * a_dis
+        dGa_drRa = -rRc * G_a / (
+            self.mu[a_symbol])**2  # (\Theta * (r-R_a) n_A) / \sigma^2
 
-            # at surface
+        # at surface
+        check_s = abs(abs(a_dis) - self.Rc[a_symbol]) <= max(self.gd.get_grid_spacings())
+        dGa_drRa += check_s * G_a  # \ sigma_{A\in i} n_A
 
-            check_s = abs(abs(a_dis) - self.Rc[a_symbol]) <= max(
-                self.gd.get_grid_spacings())
-            dGa_drRa += check_s * G_a  # \ sigma_{A\in i} n_A
-
-            # eq 32
-
-            dGa_dRax = dGa_drRa * drRa_dx
-            dGa_dRay = dGa_drRa * drRa_dy
-            dGa_dRaz = dGa_drRa * drRa_dz
-
-            dGa_dRav = [dGa_dRax, dGa_dRay, dGa_dRaz]
-            dG_dRav[atom.index] = dGa_dRav
-
-        return dG_dRav
+        # eq 32
+        return dGa_drRa * drRa_di
 
 
 def get_ks_energy_wo_external(calc):
