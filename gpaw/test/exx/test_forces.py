@@ -11,7 +11,9 @@ def test_forces():
     a = Atoms('H2',
               positions=[(0, 0, 0), (0, 0, 0.75),
                  ],#        (2, 0, 0), (2, 0, 0.75)],
-              pbc=True)
+              pbc=True,
+              #magmoms=[0, 0, 0, 0.1]
+              )
     a.center(vacuum=1.5)
     a.calc = GPAW(
         mode=PW(200, force_complex_dtype=True),
@@ -19,7 +21,7 @@ def test_forces():
         symmetry='off',
         parallel={'kpt': 1, 'band': 1},
         eigensolver=Davidson(1),
-        # kpts={'size': (1, 1, 2), 'gamma': True},
+        kpts={'size': (1, 1, 2), 'gamma': True},
         # xc='HSE06',
         xc=HybridXC('EXX'),
         #convergence={'forces': 1e-3},
