@@ -4,7 +4,8 @@ from gpaw import GPAW, PW, Davidson
 
 def test_exx_double_cell(in_tmp_dir):
     L = 4.0
-    a = Atoms('H',
+    a = Atoms('H2',
+              [[0, 0, 0], [0.5, 0.5, 0]],
               cell=[L, L, 1],
               pbc=1)
     a.center()
@@ -13,24 +14,36 @@ def test_exx_double_cell(in_tmp_dir):
         mode=PW(400, force_complex_dtype=True),
         parallel={'kpt': 1, 'band': 1},
         eigensolver=Davidson(1),
-        kpts={'size': (1, 1, 2), 'gamma': True},
+        symmetry='off',
+        kpts={'size': (1, 1, 4), 'gamma': True},
         txt='H.txt',
-        xc='HSE06')
+        #xc='HSE06'
+        )
     e1 = a.get_potential_energy()
     eps1 = a.calc.get_eigenvalues(0)[0]
+    f1 = a.get_forces()
 
     a *= (1, 1, 2)
     es = Davidson(1)
     es.keep_htpsit = True
     a.calc = GPAW(
         mode=PW(400, force_complex_dtype=True),
-        txt='H2.txt',
-        xc='HSE06')
+        kpts={'size': (1, 1, 2), 'gamma': True},
+        eigensolver=Davidson(1),
+        symmetry='off',
+        #txt='H2.txt',
+        xc='HSE06'
+        )
     e2 = a.get_potential_energy()
     eps2 = a.calc.get_eigenvalues(0)[0]
+    f2 = a.get_forces()
+
+    f2[:2] -= f1
+    f2[2:] -= f1
 
     assert abs(e2 - 2 * e1) < 0.002
     assert abs(eps1 - eps2) < 0.001
+    assert abs(f2).max() < 0.00000001
 
 
 if __name__ == '__main__':
@@ -41,3 +54,4 @@ if __name__ == '__main__':
     prof.disable()
     from gpaw.mpi import rank, size
     prof.dump_stats(f'prof-{size}.{rank}')
+    

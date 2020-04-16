@@ -8,15 +8,16 @@ from gpaw.hybrids.energy import non_self_consistent_energy as nsce
 
 
 def test_forces():
-    a = Atoms('H2',
-              positions=[(0, 0, 0), (0, 0, 0.75),
-                 ],#        (2, 0, 0), (2, 0, 0.75)],
+    a = Atoms('H4',
+              positions=[(0, 0, 0), (0.5, 0.5, 0),
+                         (0, 0, 1), (0.5, 0.5, 1)],
               pbc=True,
               #magmoms=[0, 0, 0, 0.1]
+              cell=[4, 4, 2]
               )
-    a.center(vacuum=1.5)
+    a.center()#vacuum=1.5)
     a.calc = GPAW(
-        mode=PW(200, force_complex_dtype=True),
+        mode=PW(400, force_complex_dtype=True),
         # setups='ae',
         symmetry='off',
         parallel={'kpt': 1, 'band': 1},
@@ -34,15 +35,15 @@ def test_forces():
     E = []
     import jj
     for d in D:
-        a.set_distance(0, 1, d)
+        #a.set_distance(0, 1, d)
         #e = a.get_potential_energy()
         #e2 = nsce(a.calc, 'EXX')
         # print(e2)
-        f = a.get_forces()[0, 2]
+        f = a.get_forces()#[0, 2]
         #print(f)
         # f00 = numeric_force(a, 0, 2)
-        f0 = numeric_force(a, 0, 2, 0.01)
-        print(f0, f0 - f)
+        f0 = numeric_force(a, 2, 2, 0.01)
+        print(f, f0)
         return
         jj.plot(f0,f)
         #F.append(f[0, 2] - f0)

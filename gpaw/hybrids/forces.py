@@ -45,6 +45,7 @@ def forces(kpts, dPdR_kaniv, paw, wfs, sym, coulomb, F_av):
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
     for i1, i2, s, k1, k2, count in sym.pairs(kpts, wfs, wfs.spos_ac):
+        print(count)
         q_c = k2.k_c - k1.k_c
         qd = KPointDescriptor([-q_c])
 
@@ -56,12 +57,15 @@ def forces(kpts, dPdR_kaniv, paw, wfs, sym, coulomb, F_av):
         calculate_exx_for_pair(k1, k2,
                                dPdR_kaniv[i1], dPdR_kaniv[i2],
                                ghat, v_G, comm,
-                               paw, F_av)
+                               paw, count, F_av)
+
+    F_av *= 1 / wfs.kd.nbzkpts**2
 
     for a, v_ii in paw.VV_aii.items():
+        vv_ii = 8 * v_ii + 4 * paw.VC_aii[a]
         for kpt, dPdR_aniv in zip(kpts, dPdR_kaniv):
             F_av[a] -= np.einsum('ij, niv, nj, n -> v',
-                                 8 * v_ii + 4 * paw.VC_aii[a],
+                                 vv_ii,
                                  dPdR_aniv[a].conj(),
                                  kpt.proj[a],
                                  kpt.f_n).real * kpt.weight
@@ -75,6 +79,7 @@ def calculate_exx_for_pair(k1,
                            v_G,
                            comm,
                            paw,
+                           count,
                            F_av):
 
     N1 = len(k1.u_nR)
@@ -101,13 +106,13 @@ def calculate_exx_for_pair(k1,
             B = (N1 - n1 + size - 1) // size
             n2a = min(n1 + rank * B, N2)
             n2b = min(n2a + B, N2)
-            ff_n = k1.f_n[n1] * k2.f_n[n2a:n2b] * 4
+            ff_n = k1.f_n[n1] * k2.f_n[n2a:n2b] * 4 * count
             if rank == 0:
                 ff_n[0] *= 0.5
         else:
             n2a = 0
             n2b = N2
-            ff_n = k1.f_n[n1] * k2.f_n[n2a:n2b] * 2
+            ff_n = k1.f_n[n1] * k2.f_n[n2a:n2b] * 2 * count
 
         for n2, rho_G in enumerate(rho_nG[:n2b - n2a], n2a):
             rho_G[:] = ghat.pd.fft(u1_R * k2.u_nR[n2].conj())
@@ -131,4 +136,4 @@ def calculate_exx_for_pair(k1,
                                  v_iin,
                                  dPdR1_aniv[a][n1].conj(),
                                  k2.proj[a][n2a:n2b],
-                                 ff_n).real
+                                 ff_n).real this term has a problem with symmetry
