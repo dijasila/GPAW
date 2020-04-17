@@ -12,7 +12,7 @@ from gpaw.xc.tools import vxc
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from . import parse_name
-from .coulomb import coulomb_inteaction
+from .coulomb import coulomb_interaction
 from .kpts import RSKPoint, to_real_space, get_kpt
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
@@ -120,7 +120,7 @@ def _non_local(calc: GPAW,
                for kpt in wfs.mykpts)
     nocc = kd.comm.max(int(nocc))
 
-    coulomb = coulomb_inteaction(omega, wfs.gd, kd)
+    coulomb = coulomb_interaction(omega, wfs.gd, kd)
     sym = Symmetry(kd)
 
     paw_s = calculate_paw_stuff(wfs, dens)

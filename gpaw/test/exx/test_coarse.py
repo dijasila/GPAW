@@ -20,9 +20,6 @@ def test_exx_coarse(in_tmp_dir):
     fgl = [False, True]
     # fgl = [True, False]
 
-    txt = '-'
-    txt = '/dev/null'
-
     E = {}
     niter = {}
     for fg in fgl:

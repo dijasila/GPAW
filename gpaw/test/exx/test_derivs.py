@@ -5,7 +5,7 @@ from ase import Atoms
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
-# from gpaw.hybrids.exx import EXX, KPoint
+from gpaw.hybrids.kpts import PWKPoint
 from gpaw.symmetry import Symmetry
 from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
@@ -59,9 +59,10 @@ def test_exx_derivs():
     pt.set_positions(spos_ac)
 
     f_n = np.array([1.0, 0.5])
-    kpt = KPoint(psit, proj, f_n, np.array([0.0, 0.0, 0.0]), 1.0)
+    kpt = PWKPoint(psit, proj, f_n, np.array([0.0, 0.0, 0.0]), 1.0)
 
-    xx = EXX(kd, [Setup()], pt, coulomb, spos_ac)
+    # xx = EXX(kd, [Setup()], pt, coulomb, spos_ac)
+    xx = (kd, [Setup()], pt, coulomb, spos_ac)
 
     psit.matrix_elements(pt, out=proj)
     C = 0.79

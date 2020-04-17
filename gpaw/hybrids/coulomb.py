@@ -6,7 +6,7 @@ from io import StringIO
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb as WSTC
 
 
-def coulomb_inteaction(omega, gd, kd):
+def coulomb_interaction(omega, gd, kd):
     if omega:
         return ShortRangeCoulomb(omega)
     # Wigner-Seitz truncated Coulomb:
@@ -19,7 +19,8 @@ def coulomb_inteaction(omega, gd, kd):
 class ShortRangeCoulomb:
     def __init__(self, omega):
         self.omega = omega
-        self.description = f'Short-range Coulomb (omega={omega} bohr^-1)'
+        self.description = (
+            f'Short-range Coulomb: erfc(omega*r)/r (omega = {omega} bohr^-1)')
 
     def get_potential(self, pd):
         G2_G = pd.G2_qG[0]

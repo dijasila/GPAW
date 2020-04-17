@@ -165,7 +165,7 @@ class Symmetry:
                 u1_nR = to_real_space(k1.psit)
                 rsk1 = RSKPoint(u1_nR, k1.proj.broadcast(),
                                 k1.f_n, k1.k_c,
-                                k1.weight)
+                                k1.weight, k1.dPdR_aniv)
                 lasti1 = i1
             if i2 == i1:
                 if s == self.s0:
