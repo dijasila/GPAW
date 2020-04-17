@@ -73,6 +73,7 @@ class HybridXC:
         wfs = self.wfs
         if self.coulomb is None:
             self.coulomb = coulomb_interaction(self.omega, wfs.gd, wfs.kd)
+            self.description += f'\n{self.coulomb.description}'
             self.sym = Symmetry(wfs.kd)
 
         paw_s = calculate_paw_stuff(wfs, self.dens)  # ???????

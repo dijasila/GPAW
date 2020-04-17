@@ -7,7 +7,7 @@ from gpaw.hybrids import HybridXC
 from gpaw.hybrids.energy import non_self_consistent_energy as nsce
 
 
-def test_forces():
+def test_forces(in_tmp_dir):
     a = Atoms('H4',
               positions=[(0, 0, 0), (0.5, 0.5, 0),
                          (0, 0, 1), (0.5, 0.5, 1)],
@@ -25,8 +25,9 @@ def test_forces():
         kpts={'size': (1, 1, 2), 'gamma': True},
         # xc='HSE06',
         xc=HybridXC('EXX'),
-        #convergence={'forces': 1e-3},
-        txt='H2.txt')
+        convergence={'energy': 1e-5},#'forces': 1e-3},
+        txt='H2.txt'
+        )
     # from jj import plot as P
     D = np.linspace(0.7, 0.99, 15)
     #D = [0.7, 0.8, 0.9, 1.0]
@@ -43,6 +44,9 @@ def test_forces():
         #print(f)
         # f00 = numeric_force(a, 0, 2)
         f0 = numeric_force(a, 2, 2, 0.01)
+        f00 = numeric_force(a, 2, 2, 0.001)
+        print(f, f0, f00)
+        f0 = numeric_force(a, 2, 1, 0.01)
         print(f, f0)
         return
         jj.plot(f0,f)
