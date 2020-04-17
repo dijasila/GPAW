@@ -80,7 +80,7 @@ __global__ void fill_kernel(double a, double *z, unsigned long n)
     }
 }
 
-__global__ void fill_kernelz(double a, cuDoubleComplex *z, unsigned long n)
+__global__ void fill_kernelz(double real, double imag, cuDoubleComplex *z, unsigned long n)
 {
     unsigned tid = threadIdx.x;
     unsigned threads = gridDim.x*blockDim.x;
@@ -88,8 +88,8 @@ __global__ void fill_kernelz(double a, cuDoubleComplex *z, unsigned long n)
     unsigned i;
 
     for (i = start + tid; i < n; i += threads) {
-        (z[i]).x = a;
-        (z[i]).y = 0;
+        (z[i]).x = real;
+        (z[i]).y = imag;
     }
 }
 
@@ -167,13 +167,25 @@ extern "C" {
 
     PyObject* fill_gpu(PyObject *self, PyObject *args)
     {
-        double a;
-        CUdeviceptr z;
+        PyObject *value;
+        CUdeviceptr x;
         PyObject *shape;
         PyArray_Descr *type;
 
-        if (!PyArg_ParseTuple(args, "dnOO", &a, &z, &shape, &type))
+        if (!PyArg_ParseTuple(args, "OnOO", &value, &x, &shape, &type))
             return NULL;
+
+        double real;
+        double imag;
+        if PyComplex_Check(value) {
+            Py_complex c;
+            c = PyComplex_AsCComplex(value);
+            real = c.real;
+            imag = c.imag;
+        } else {
+            real = PyFloat_AsDouble(value);
+            imag = 0.0;
+        }
 
         int n = 1;
         Py_ssize_t nd = PyTuple_Size(shape);
@@ -186,11 +198,11 @@ extern "C" {
         dim3 dimGrid(gridx, 1);
         if (type->type_num == PyArray_DOUBLE) {
             fill_kernel<<<dimGrid, dimBlock, 0>>>
-                (a, (double*) z, n);
+                (real, (double*) x, n);
 
         } else {
             fill_kernelz<<<dimGrid, dimBlock, 0>>>
-                (a, (cuDoubleComplex*) z, n);
+                (real, imag, (cuDoubleComplex*) x, n);
         }
         gpaw_cudaSafeCall(cudaGetLastError());
         if (PyErr_Occurred())
