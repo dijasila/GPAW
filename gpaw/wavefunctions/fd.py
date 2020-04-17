@@ -300,11 +300,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
             gd1 = self.gd.coarsen()
             gd2 = gd1.coarsen()
 
-            psit_G1 = gd1.empty(dtype=self.dtype)
-            psit_G2 = gd2.empty(dtype=self.dtype)
+            psit_G1 = gd1.empty(dtype=self.dtype, cuda=self.cuda)
+            psit_G2 = gd2.empty(dtype=self.dtype, cuda=self.cuda)
 
-            interpolate2 = Transformer(gd2, gd1, 1, self.dtype).apply
-            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
+            interpolate2 = Transformer(gd2, gd1, 1, self.dtype,
+                                       cuda=self.cuda).apply
+            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype,
+                                       cuda=self.cuda).apply
 
             shape = tuple(gd2.n_c)
             scale = np.sqrt(12 / abs(np.linalg.det(gd2.cell_cv)))
@@ -316,10 +318,21 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for kpt in self.kpt_u:
                 for psit_G in kpt.psit_nG[nao:]:
                     if self.dtype == float:
-                        psit_G2[:] = (np.random.random(shape) - 0.5) * scale
+                        if self.cuda:
+                            psit_G2.set((np.random.random(shape) - 0.5) * scale)
+                        else:
+                            psit_G2[:] = (np.random.random(shape) - 0.5) * scale
                     else:
-                        psit_G2.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G2.imag = (np.random.random(shape) - 0.5) * scale
+                        if self.cuda:
+                            tmp = np.empty(psit_G2.shape, dtype=complex)
+                            tmp.real = (np.random.random(shape) - 0.5) * scale
+                            tmp.imag = (np.random.random(shape) - 0.5) * scale
+                            psit_G2.set(tmp)
+                        else:
+                            psit_G2.real = \
+                                    (np.random.random(shape) - 0.5) * scale
+                            psit_G2.imag = \
+                                    (np.random.random(shape) - 0.5) * scale
 
                     interpolate2(psit_G2, psit_G1, kpt.phase_cd)
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
@@ -328,9 +341,10 @@ class FDWaveFunctions(FDPWWaveFunctions):
         elif gpts / 64 <= self.bd.nbands < gpts / 8:
             gd1 = self.gd.coarsen()
 
-            psit_G1 = gd1.empty(dtype=self.dtype)
+            psit_G1 = gd1.empty(dtype=self.dtype, cuda=self.cuda)
 
-            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype).apply
+            interpolate1 = Transformer(gd1, self.gd, 1, self.dtype,
+                                       cuda=self.cuda).apply
 
             shape = tuple(gd1.n_c)
             scale = np.sqrt(12 / abs(np.linalg.det(gd1.cell_cv)))
@@ -342,10 +356,21 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for kpt in self.kpt_u:
                 for psit_G in kpt.psit_nG[nao:]:
                     if self.dtype == float:
-                        psit_G1[:] = (np.random.random(shape) - 0.5) * scale
+                        if self.cuda:
+                            psit_G1.set((np.random.random(shape) - 0.5) * scale)
+                        else:
+                            psit_G1[:] = (np.random.random(shape) - 0.5) * scale
                     else:
-                        psit_G1.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G1.imag = (np.random.random(shape) - 0.5) * scale
+                        if self.cuda:
+                            tmp = np.empty(psit_G1.shape, dtype=complex)
+                            tmp.real = (np.random.random(shape) - 0.5) * scale
+                            tmp.imag = (np.random.random(shape) - 0.5) * scale
+                            psit_G1.set(tmp)
+                        else:
+                            psit_G1.real = \
+                                    (np.random.random(shape) - 0.5) * scale
+                            psit_G1.imag = \
+                                    (np.random.random(shape) - 0.5) * scale
 
                     interpolate1(psit_G1, psit_G, kpt.phase_cd)
             np.random.set_state(old_state)
@@ -361,10 +386,21 @@ class FDWaveFunctions(FDPWWaveFunctions):
             for kpt in self.kpt_u:
                 for psit_G in kpt.psit_nG[nao:]:
                     if self.dtype == float:
-                        psit_G[:] = (np.random.random(shape) - 0.5) * scale
+                        if self.cuda:
+                            psit_G.set((np.random.random(shape) - 0.5) * scale)
+                        else:
+                            psit_G[:] = (np.random.random(shape) - 0.5) * scale
                     else:
-                        psit_G.real = (np.random.random(shape) - 0.5) * scale
-                        psit_G.imag = (np.random.random(shape) - 0.5) * scale
+                        if self.cuda:
+                            tmp = np.empty(psit_G.shape, dtype=complex)
+                            tmp.real = (np.random.random(shape) - 0.5) * scale
+                            tmp.imag = (np.random.random(shape) - 0.5) * scale
+                            psit_G.set(tmp)
+                        else:
+                            psit_G.real = \
+                                    (np.random.random(shape) - 0.5) * scale
+                            psit_G.imag = \
+                                    (np.random.random(shape) - 0.5) * scale
 
             np.random.set_state(old_state)
 
