@@ -1,4 +1,4 @@
-# import pytest
+import pytest
 import numpy as np
 from ase import Atoms
 from ase.units import Ha, Bohr
@@ -26,6 +26,32 @@ nb = 2
 r2 = np.linspace(0, 2, 101)**2
 
 
+@pytest.mark.skipif(world.size > 1, reason='Not parallelized')
+def test_force():
+    x = 0.2
+    y = 0.35
+    z = 0.1
+    calc = Calc([[x, y, z]])
+    omega = 0.2
+    wfs = calc.wfs
+    kd = wfs.kd
+    coulomb = coulomb_interaction(omega, wfs.gd, kd)
+    sym = Sym(kd)
+    paw_s = calculate_paw_stuff(wfs, calc.density)
+    F_v = calculate_forces(wfs, coulomb, sym, paw_s)[0] * Ha / Bohr
+    print(F_v)
+    dx = 0.0001
+    y -= dx / 2
+    calc = Calc([[x, y, z]])
+    em = energy(calc, sym, coulomb)
+    y += dx
+    calc = Calc([[x, y, z]])
+    ep = energy(calc, sym, coulomb)
+    error = (em - ep) / (dx * L * Bohr) - F_v[1]
+    print(error)
+    assert abs(error) < 5e-11
+
+
 class Calc:
     def __init__(self, spos_ac):
         self.spos_ac = np.array(spos_ac)
@@ -51,15 +77,13 @@ class WFS:
         R -= L / 2
         R2 = (R**2).sum(0)
         data[0] = pd.fft(np.exp(-R2 * (10 / L**2)))
-        #data[0] = pd.fft(1.0 + np.sin(2 * np.pi / L * R[0]))
-        #data[1] = pd.fft(np.sin(2 * np.pi / L * R[1]))
-        #data *= 2.0
+        data[1] = pd.fft(np.exp(-R2 * (10 / L**2))) + 0.5
         psit = PlaneWaveExpansionWaveFunctions(nb, pd, data=data)
         proj = Projections(nb, [1], AP(), world, dtype=complex)
         self.pt = PWLFC([[Spline(0, 2.0, np.exp(-r2 * 10))]], pd)
         self.pt.set_positions(self.spos_ac)
         psit.matrix_elements(self.pt, out=proj)
-        f_n = np.array([1.0, 0.0])#, 0.00000000000000000000000000])
+        f_n = np.array([1.0, 0.5])
         kpt = KPoint(1.0, 0, 0, 0, None)
         kpt.psit = psit
         kpt.projections = proj
@@ -113,26 +137,3 @@ def energy(calc, sym, coulomb):
     evc = e1 * 2 * Ha
     evv = e2 * 2 * Ha
     return evc + evv
-
-
-def test_force():
-    x = 0.2
-    y = 0.35
-    z = 0.1
-    calc = Calc([[x, y, z]])
-    omega = 0.2
-    wfs = calc.wfs
-    kd = wfs.kd
-    coulomb = coulomb_interaction(omega, wfs.gd, kd)
-    sym = Sym(kd)
-    paw_s = calculate_paw_stuff(wfs, calc.density)
-    F_v = calculate_forces(wfs, coulomb, sym, paw_s)[0] * Ha / Bohr
-    print(F_v)
-    dx = 0.0001
-    y -= dx / 2
-    calc = Calc([[x, y, z]])
-    em = energy(calc, sym, coulomb)
-    y += dx
-    calc = Calc([[x, y, z]])
-    ep = energy(calc, sym, coulomb)
-    print((em - ep) / (dx * L * Bohr) - F_v[1])

@@ -27,7 +27,11 @@ class HybridXC:
         self.exx_fraction = exx_fraction
         self.omega = omega
 
-        self.description = f'{xcname}+{exx_fraction}*EXX(omega={omega})'
+        if xcname == 'null':
+            self.description = ''
+        else:
+            self.description = f'{xcname} + '
+        self.description += f'{exx_fraction} * EXX(omega = {omega} bohr^-1)'
 
         self.vlda_sR = None
         self.v_sknG: Dict[Tuple[int, int], np.ndarray] = {}
@@ -133,7 +137,7 @@ class HybridXC:
         F_av += calculate_forces(self.wfs,
                                  self.coulomb,
                                  self.sym,
-                                 paw_s)
+                                 paw_s) * self.exx_fraction
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         return
@@ -153,4 +157,3 @@ class HybridXC:
 
     def set_grid_descriptor(self, gd):
         pass
-

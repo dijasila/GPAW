@@ -6,6 +6,10 @@ from gpaw.xc import XC
 from gpaw.xc.hybrid import HybridXC
 
 
+def xc1(name):
+    return dict(name=name, stencil=1)
+
+
 def test_exx_exx(in_tmp_dir):
     be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
     be2.center(vacuum=2.0)
@@ -23,16 +27,11 @@ def test_exx_exx(in_tmp_dir):
         'PBE0': (-790.919942, -4.92321, -1.62948),
         'EXX': (-785.5837828306236, -7.16802337336, -2.72602997017)}
 
-
-    def xc(name):
-        return dict(name=name, stencil=1)
-
-
     current = {}  # Current revision
-    for xc in [XC(xc('PBE')),
+    for xc in [XC(xc1('PBE')),
                HybridXC('PBE0', stencil=1, finegrid=True),
                HybridXC('EXX', stencil=1, finegrid=True),
-               XC(xc('PBE'))]:  # , 'oldPBE', 'LDA']:
+               XC(xc1('PBE'))]:  # , 'oldPBE', 'LDA']:
         # Generate setup
         # g = Generator('Be', setup, scalarrel=True, nofiles=True, txt=None)
         # g.run(exx=True, **parameters['Be'])
@@ -42,7 +41,7 @@ def test_exx_exx(in_tmp_dir):
         E = be2.get_potential_energy()
         if xc.name != 'PBE':
             E += calc.get_reference_energy()
-        bands = calc.get_eigenvalues()[:2]  # not 3 as unocc. eig are random!? XXX
+        bands = calc.get_eigenvalues()[:2]  # not 3 as unocc. eig are random!?
         res = (E,) + tuple(bands)
         print(xc.name, res)
 
