@@ -89,7 +89,11 @@ class Symmetry:
         if (U_cc == np.eye(3)).all() and not time_reversal:
             return rsk
 
-        u1_nR, proj1, f_n, k1_c, weight = rsk
+        u1_nR = rsk.u_nR
+        proj1 = rsk.proj
+        f_n = rsk.f_n
+        k1_c = rsk.k_c
+        weight = rsk.weight
 
         u2_nR = np.empty_like(u1_nR)
         proj2 = proj1.new()
