@@ -963,9 +963,10 @@ class BadAxesError(ValueError):
 
 
 class FastPoissonSolver(BasePoissonSolver):
-    def __init__(self, nn=3,  **kwargs):
+    def __init__(self, nn=3, cuda=False, **kwargs):
         BasePoissonSolver.__init__(self, **kwargs)
         self.nn = nn
+        self.cuda = cuda
         # We may later enable this to work with Cholesky, but not now:
         self.use_cholesky = False
 
@@ -1059,7 +1060,7 @@ class FastPoissonSolver(BasePoissonSolver):
             r_cx[axis] = 0.0
         np.exp(r_cx, out=r_cx)
         fft_lambdas = np.zeros_like(r_cx[0], dtype=complex)
-        laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn)
+        laplace = Laplace(gd_x[-1], -0.25 / pi, self.nn, cuda=self.cuda)
         self.stencil_description = laplace.description
 
         for coeff, offset_c in zip(laplace.coef_p, laplace.offset_pc):
