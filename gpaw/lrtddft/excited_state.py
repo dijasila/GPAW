@@ -143,7 +143,7 @@ class ExcitedState(GPAW):
 
         index = self.index.apply(self.lrtddft)
         self.results['energy'] = E0 + self.lrtddft[index].energy * Hartree
-        self.lrtddft.calc = self.calculator
+        self.lrtddft.calculator = self.calculator
 
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
