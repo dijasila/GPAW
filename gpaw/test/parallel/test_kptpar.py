@@ -25,17 +25,17 @@ def test_parallel_kptpar(in_tmp_dir):
 
         if world.rank < 3:
             comm = world.new_communicator(np.array([0, 1, 2]))
-            H.set_calculator(GPAW(kpts=[6, 6, 1],
-                                  spinpol=True,
-                                  communicator=comm,
-                                  txt='H-b.txt'))
+            H.calc = GPAW(kpts=[6, 6, 1],
+                          spinpol=True,
+                          communicator=comm,
+                          txt='H-b.txt')
             e2 = H.get_potential_energy()
             assert H.calc.wfs.kd.comm.size == 3
             equal(e1, e2, 5e-9)
         else:
             comm = world.new_communicator(np.array(range(3, world.size)))
-            H.set_calculator(GPAW(kpts=[6, 6, 1],
-                                  spinpol=True,
-                                  communicator=comm,
-                                  txt='H-b2.txt'))
+            H.calc = GPAW(kpts=[6, 6, 1],
+                          spinpol=True,
+                          communicator=comm,
+                          txt='H-b2.txt')
             e2 = H.get_potential_energy()

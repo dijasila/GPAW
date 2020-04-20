@@ -165,7 +165,7 @@ class LrTDDFT(ExcitationList):
         changed = self.set(**kwargs)
         if calculator is not None:
             changed = True
-            self.calc = calculator
+            self.set_calculator(calculator)
 
         if not changed:
             return
@@ -415,7 +415,7 @@ class LrTDDFT(ExcitationList):
         ov_pp: array
             Overlap
         """
-        #ov_pp = self.kss.overlap(ov_nn, other.kss)
+        # ov_pp = self.kss.overlap(ov_nn, other.kss)
         ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
         self.diagonalize()
         other.diagonalize()
