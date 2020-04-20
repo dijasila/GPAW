@@ -118,6 +118,9 @@ class HirshfeldPartitioning:
         assert(gd == self.calculator.density.finegd)
         self.den_g = den_sg.sum(axis=0)
 
+    def get_calculator(self):
+        return self.calculator
+
     def get_effective_volume_ratios(self):
         """Return the list of effective volume to free volume ratios."""
         self.initialize()

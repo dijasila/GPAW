@@ -70,7 +70,7 @@ def test_lrtddft_pes(in_tmp_dir):
     out = 'lrpes.dat.gz'
     lr.write(out)
     lr = LrTDDFT(out)
-    lr.calc = calc_plus
+    lr.calculator = calc_plus
     pes = TDDFTPES(calc, lr)
     parprint('Linear response:')
     pes.save_folded_pes(filename=None, folding=None)
