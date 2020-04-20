@@ -18,7 +18,7 @@ def test_generic_relax(in_tmp_dir):
                      pbc=False)
     calc = GPAW(h=0.2, nbands=1, xc={'name': 'PBE', 'stencil': 1}, txt=None,
                 poissonsolver={'name': 'fd'})
-    molecule.set_calculator(calc)
+    molecule.calc = calc
     e1 = molecule.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     calc.write('H2.gpw')

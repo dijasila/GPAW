@@ -11,7 +11,7 @@ def test_fileio_wfs_auto(in_tmp_dir):
 
     calc = GPAW(nbands=2,
                 convergence={'eigenstates': 1e-3})
-    H.set_calculator(calc)
+    H.calc = calc
     H.get_potential_energy()
     calc.write('tmp')
 

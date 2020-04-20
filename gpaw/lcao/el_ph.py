@@ -41,7 +41,7 @@ class ElectronPhononCouplingMatrix:
 
         if indices is None:
             indices = range(len(self.atoms))
-        self.calc = atoms.get_calculator()
+        self.calc = atoms.calc
         self.atoms = atoms
         self.indices = np.asarray(indices)
         self.name = name

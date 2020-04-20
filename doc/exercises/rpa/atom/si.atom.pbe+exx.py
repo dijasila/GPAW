@@ -31,7 +31,7 @@ for L in [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]:
         convergence={'density': 1.e-6},
         mixer=Mixer(beta=0.05, nmaxold=5, weight=50.0))
 
-    isolated_silicon.set_calculator(isolated_calc)
+    isolated_silicon.calc = isolated_calc
 
     e0_isolated_pbe = isolated_silicon.get_potential_energy()
     isolated_calc.write('si.pbe+exx.isolated.gpw', mode='all')

@@ -38,7 +38,7 @@ def test_inducedfield_td(in_tmp_dir):
                 setups={'Na': '1'},
                 poissonsolver=poissonsolver,
                 convergence={'density': density_eps})
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     _ = atoms.get_potential_energy()
     calc.write('na2_gs.gpw', mode='all')
 

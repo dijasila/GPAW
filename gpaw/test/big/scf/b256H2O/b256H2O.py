@@ -59,5 +59,5 @@ calc = GPAW(nbands=nbands,
             occupations={'name': 'fermi-dirac', 'width': 0.01},
             eigensolver=es,
             txt='water.txt')
-atoms.set_calculator(calc)
+atoms.calc = calc
 pot = atoms.get_potential_energy()

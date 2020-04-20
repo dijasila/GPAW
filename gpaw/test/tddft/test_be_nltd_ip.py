@@ -10,7 +10,7 @@ def test_tddft_be_nltd_ip(in_tmp_dir):
     atoms = Atoms('Be', [(0, 0, 0)], pbc=False)
     atoms.center(vacuum=6)
     calc = GPAW(h=0.35)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     calc.write('be_gs.gpw', 'all')

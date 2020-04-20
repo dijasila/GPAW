@@ -15,6 +15,6 @@ calc = GPAW(mode='lcao',
             occupations=FermiDirac(0.01),
             txt='gs_3x3_defect.txt')
 
-structure.set_calculator(calc)
+structure.calc = calc
 structure.get_potential_energy()
 calc.write('gs_3x3_defect.gpw', 'all')

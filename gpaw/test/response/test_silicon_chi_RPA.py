@@ -30,7 +30,7 @@ def test_response_silicon_chi_RPA(in_tmp_dir):
                 occupations=FermiDirac(width=0.05),
                 xc='LDA')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Si', 'all')
     t2 = time.time()

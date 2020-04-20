@@ -20,7 +20,7 @@ def test_lrtddft2_Al2(in_tmp_dir):
                              'density': 1.0e-2,
                              'bands': 'all'},
                 nbands=20)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write(restart_file, mode='all')
 

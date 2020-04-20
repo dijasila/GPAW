@@ -7,6 +7,6 @@ calc = GPAW(mode='pw',
             kpts=(4, 4, 1),
             symmetry='off',
             txt='al111.txt')
-atoms.set_calculator(calc)
+atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('al111.gpw', 'all')

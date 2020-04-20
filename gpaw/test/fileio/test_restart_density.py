@@ -23,7 +23,7 @@ def test_fileio_restart_density(in_tmp_dir):
     calc = GPAW(h=0.30, nbands=3,
                 setups={'Na': '1'},
                 convergence=conv)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e0 = atoms.get_potential_energy()
     f0 = atoms.get_forces()
     m0 = atoms.get_magnetic_moments()

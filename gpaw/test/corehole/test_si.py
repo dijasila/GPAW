@@ -20,7 +20,7 @@ def test_corehole_si(in_tmp_dir):
         calc.scf.converged = 1
 
     calc.attach(stopcalc, 1)
-    si.set_calculator(calc)
+    si.calc = calc
     _ = si.get_potential_energy()
     calc.write('si.gpw')
 
@@ -58,7 +58,7 @@ def test_corehole_si(in_tmp_dir):
                 h=0.25,
                 occupations=FermiDirac(width=0.05),
                 setups={0: s})
-    si.set_calculator(calc)
+    si.calc = calc
 
     def stopcalc():
         calc.scf.converged = True

@@ -115,7 +115,7 @@ def test_exx_AA_enthalpy(in_tmp_dir):
                          parallel=dict(augment_grids=True),
                          nbands=-2,
                          txt='%s.%s.txt' % (element, xc))
-        atom.set_calculator(calc_atom)
+        atom.calc = calc_atom
 
         mixer = Mixer(beta=0.4, weight=100)
         compound = molecule(element + '2')
@@ -133,7 +133,7 @@ def test_exx_AA_enthalpy(in_tmp_dir):
         compound.set_distance(0, 1, data[element]['R_AA_B3LYP'])
         compound.center(vacuum=vacuum)
 
-        compound.set_calculator(calc)
+        compound.calc = calc
 
         if data[element][xc][3] == 'hyb_gga':  # only for hybrids
             e_atom = atom.get_potential_energy()

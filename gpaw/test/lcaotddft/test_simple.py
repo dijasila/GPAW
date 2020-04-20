@@ -22,7 +22,7 @@ def test_lcaotddft_simple(in_tmp_dir):
                 poissonsolver=PoissonSolver('fd', eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 

@@ -60,7 +60,7 @@ def test_fdtd_ed(in_tmp_dir):
                    nbands        = -1,
                    poissonsolver = poissonsolver,
                    convergence   = {'energy': energy_eps})
-    atoms.set_calculator(gs_calc)
+    atoms.calc = gs_calc
 
     # Ground state
     energy = atoms.get_potential_energy()

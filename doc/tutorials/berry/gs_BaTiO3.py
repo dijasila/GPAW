@@ -15,7 +15,7 @@ calc = GPAW(mode=PW(600),
             xc='PBE',
             kpts={'size': (6, 6, 6), 'gamma': True},
             txt='relax.txt')
-a.set_calculator(calc)
+a.calc = calc
 opt = BFGS(a)
 opt.run(fmax=0.01)
 

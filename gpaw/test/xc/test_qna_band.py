@@ -22,7 +22,7 @@ def test_xc_qna_band(in_tmp_dir):
                 parallel={'domain': 1},
                 txt='gs.txt')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     eigs = calc.get_eigenvalues(kpt=0)[:24]
     calc.write('gs.gpw')

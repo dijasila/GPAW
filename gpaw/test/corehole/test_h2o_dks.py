@@ -18,7 +18,7 @@ def test_corehole_h2o_dks():
     calc = GPAW(xc=xc('PBE'),
                 poissonsolver=PoissonSolver('fd',
                                             use_charge_center=True))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy() + calc.get_reference_energy()
     niter1 = calc.get_number_of_iterations()
 

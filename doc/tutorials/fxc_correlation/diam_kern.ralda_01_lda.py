@@ -10,7 +10,7 @@ calc = GPAW(mode=PW(600.0),
             kpts={'size': (6, 6, 6), 'gamma': True},
             txt='diam_kern.ralda_01_lda.txt')
 
-bulk_c.set_calculator(calc)
+bulk_c.calc = calc
 E_lda = bulk_c.get_potential_energy()
 calc.diagonalize_full_hamiltonian()
 calc.write('diam_kern.ralda.lda_wfcs.gpw', mode='all')

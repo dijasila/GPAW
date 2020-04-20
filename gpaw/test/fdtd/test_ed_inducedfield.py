@@ -68,7 +68,7 @@ def test_fdtd_ed_inducedfield(in_tmp_dir):
                    poissonsolver=poissonsolver,
                    convergence={'energy': energy_eps,
                                 'density': density_eps})
-    atoms.set_calculator(gs_calc)
+    atoms.calc = gs_calc
 
     # Ground state
     energy = atoms.get_potential_energy()

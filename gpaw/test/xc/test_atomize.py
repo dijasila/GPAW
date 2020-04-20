@@ -20,7 +20,7 @@ def test_xc_atomize(in_tmp_dir):
                 mixer=Mixer(0.5, 5),
                 parallel=dict(kpt=1),
                 convergence=dict(eigenstates=3.3e-8))
-    atom.set_calculator(calc)
+    atom.calc = calc
 
     e1 = atom.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
@@ -38,7 +38,7 @@ def test_xc_atomize(in_tmp_dir):
                      cell=(a, a, a), pbc=False)
 
     calc.set(txt='H2.txt')
-    molecule.set_calculator(calc)
+    molecule.calc = calc
     e2 = molecule.get_potential_energy()
     niter2 = calc.get_number_of_iterations()
     de2t = calc.get_xc_difference(xc('TPSS'))

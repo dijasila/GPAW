@@ -37,7 +37,7 @@ def dscf_calculation(paw, orbitals, atoms):
     Example
     =======
 
-    >>> atoms.set_calculator(calc)
+    >>> atoms.calc = calc
     >>> e_gs = atoms.get_potential_energy() #ground state energy
     >>> sigma_star=MolecularOrbitals(calc, molecule=[0,1],
     >>>                              w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])

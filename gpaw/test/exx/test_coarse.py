@@ -35,7 +35,7 @@ def test_exx_coarse(in_tmp_dir):
                     nbands=4,
                     convergence={'eigenstates': 1e-4},
                     charge=-1)
-        loa.set_calculator(calc)
+        loa.calc = calc
         E[fg] = loa.get_potential_energy()
         calc.set(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
         E[fg] = loa.get_potential_energy()

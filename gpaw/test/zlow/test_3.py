@@ -42,7 +42,7 @@ def test_lrtddft_3(in_tmp_dir):
                     txt=txt,
                     eigensolver='cg',
                     parallel={'domain': world.size})
-        N2.set_calculator(calc)
+        N2.calc = calc
         E0 = N2.get_potential_energy()
         calc.write('N2_wfs.gpw', 'all')
 

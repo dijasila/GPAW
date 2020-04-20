@@ -20,7 +20,7 @@ def test_xc_pygga():
             calc = GPAW(nbands=-1, xc=xc,
                         h=0.3,
                         mode='lcao', basis='szp(dzp)')
-            h2.set_calculator(calc)
+            h2.calc = calc
             e = np.append(e, h2.get_potential_energy())
             f = np.append(f, h2.get_forces())
             del calc
@@ -42,7 +42,7 @@ def test_xc_pygga():
             calc = GPAW(nbands=-2, xc=xc,
                         h=0.3,
                         mode='lcao', basis='szp(dzp)')
-            o2.set_calculator(calc)
+            o2.calc = calc
             e = np.append(e, o2.get_potential_energy())
             f = np.append(f, o2.get_forces())
             del calc

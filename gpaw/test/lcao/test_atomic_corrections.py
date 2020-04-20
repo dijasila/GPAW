@@ -41,7 +41,7 @@ def run(system, **kwargs):
             calc.scf.converged = True
 
         calc.attach(stopcalc, 2)
-        system.set_calculator(calc)
+        system.calc = calc
         energy = system.get_potential_energy()
         energies.append(energy)
         if calc.world.rank == 0:

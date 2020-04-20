@@ -22,7 +22,7 @@ def test_rpa_rpa_energy_N2(in_tmp_dir):
                 xc='PBE',
                 parallel={'domain': 1},
                 eigensolver='rmm-diis')
-    N2.set_calculator(calc)
+    N2.calc = calc
     E_n2_pbe = N2.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)
@@ -40,7 +40,7 @@ def test_rpa_rpa_energy_N2(in_tmp_dir):
                 xc='PBE',
                 parallel={'domain': 1},
                 eigensolver='rmm-diis')
-    N.set_calculator(calc)
+    N.calc = calc
     E_n_pbe = N.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian(nbands=104, scalapack=True)

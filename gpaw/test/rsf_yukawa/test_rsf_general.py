@@ -37,7 +37,7 @@ def test_rsf_yukawa_rsf_general(in_tmp_dir):
     calc = GPAW(txt='Be.txt', xc=xc, convergence=c,
                 eigensolver=RMMDIIS(), h=h,
                 occupations=FermiDirac(width=0.0), spinpol=False)
-    be.set_calculator(calc)
+    be.calc = calc
     # energy = na2.get_potential_energy()
     # calc.set(xc=xc)
     energy_083 = be.get_potential_energy()

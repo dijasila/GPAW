@@ -26,7 +26,7 @@ def test_response_bse_aluminum(in_tmp_dir):
                     nbands=4,
                     convergence={'bands': 'all'})
 
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('Al.gpw', 'all')
 

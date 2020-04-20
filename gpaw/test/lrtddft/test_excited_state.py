@@ -21,7 +21,7 @@ def test_lrtddft_excited_state(in_tmp_dir):
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
     calc = GPAW(xc='PBE', h=0.25, nbands=3, spinpol=False, txt=txt)
-    H2.set_calculator(calc)
+    H2.calc = calc
 
     xc = 'LDA'
     lr = LrTDDFT(calc, xc=xc)

@@ -50,7 +50,7 @@ def test_lcao_lcao_complicated():
                     nbands=16,
                     parallel=parallel,
                     h=0.35)
-        system.set_calculator(calc)
+        system.calc = calc
         E = system.get_potential_energy()
         F = system.get_forces()
 

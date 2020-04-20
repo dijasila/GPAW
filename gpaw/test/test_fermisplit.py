@@ -18,7 +18,7 @@ def test_fermisplit(in_tmp_dir):
     mm = [1] * 1
     mm[0] = 6.
     atoms.set_initial_magnetic_moments(mm)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     ef1 = calc.occupations.get_fermi_levels_mean()

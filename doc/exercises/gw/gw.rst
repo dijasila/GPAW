@@ -60,7 +60,7 @@ In order to carry out the GW calculation we need the wavefunctions and correspon
 
   calc = GPAW(mode=PW(300), ...) # Note we MUST use plane waves
 
-  atoms.set_calculator(calc)
+  atoms.calc = calc
   atoms.get_potential_energy()   # Calculate ground state
 
   calc.diagonalize_full_hamiltonian() # Does what it says ;)

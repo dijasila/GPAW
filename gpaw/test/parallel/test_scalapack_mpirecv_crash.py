@@ -35,7 +35,7 @@ def test_parallel_scalapack_mpirecv_crash():
                 **kwargs)
 
 
-    slab.set_calculator(calc)
+    slab.calc = calc
     try:
         slab.get_potential_energy()
     except ConvergenceError:
