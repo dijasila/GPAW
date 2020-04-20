@@ -24,7 +24,9 @@ class TimeDependentPotential(object):
         if self.initialized:
             return
 
-        self.wfs = paw.wfs
+        self.ksl = paw.wfs.ksl
+        self.kd = paw.wfs.kd
+        self.kpt_u = paw.wfs.kpt_u
         get_matrix = paw.wfs.eigensolver.calculate_hamiltonian_matrix
         self.V_iuMM = []
         for ext in self.ext_i:
@@ -47,12 +49,14 @@ class TimeDependentPotential(object):
     def write(self, writer):
         writer.write(Ni=self.Ni)
         writer.write(laser_i=[laser.todict() for laser in self.laser_i])
-        write_wuMM(self.wfs, writer, 'V_iuMM', self.V_iuMM, range(self.Ni))
+        write_wuMM(self.kd, self.ksl, writer, 'V_iuMM',
+                   self.V_iuMM, range(self.Ni))
 
     def read(self, reader):
         self.Ni = reader.Ni
         self.laser_i = [create_laser(**laser) for laser in reader.laser_i]
-        self.V_iuMM = read_wuMM(self.wfs, reader, 'V_iuMM', range(self.Ni))
+        self.V_iuMM = read_wuMM(self.kpt_u, self.ksl, reader, 'V_iuMM',
+                                range(self.Ni))
         self.initialized = True
 
 
@@ -73,7 +77,7 @@ class KickHamiltonian(object):
 
 
 class TimeDependentHamiltonian(object):
-    def __init__(self, fxc=None, td_potential=None):
+    def __init__(self, fxc=None, td_potential=None, scale=None):
         assert fxc is None or isinstance(fxc, str)
         self.fxc_name = fxc
         if isinstance(td_potential, dict):
@@ -84,31 +88,53 @@ class TimeDependentHamiltonian(object):
             for pot in pot_i:
                 td_potential.add(**pot)
         self.td_potential = td_potential
+        self.has_scale = scale is not None
+        if self.has_scale:
+            self.scale = scale
 
     def write(self, writer):
         if self.has_fxc:
             self.write_fxc(writer.child('fxc'))
+        if self.has_scale:
+            self.write_scale(writer.child('scale'))
         if self.td_potential is not None:
             self.td_potential.write(writer.child('td_potential'))
 
     def write_fxc(self, writer):
-        wfs = self.wfs
         writer.write(name=self.fxc_name)
-        write_uMM(wfs, writer, 'deltaXC_H_uMM', self.deltaXC_H_uMM)
+        write_uMM(self.wfs.kd, self.wfs.ksl, writer, 'deltaXC_H_uMM',
+                  self.deltaXC_H_uMM)
+
+    def write_scale(self, writer):
+        writer.write(scale=self.scale)
+        write_uMM(self.wfs.kd, self.wfs.ksl, writer, 'scale_H_uMM',
+                  self.scale_H_uMM)
 
     def read(self, reader):
         if 'fxc' in reader:
             self.read_fxc(reader.fxc)
+        if 'scale' in reader:
+            self.read_scale(reader.scale)
         if 'td_potential' in reader:
             assert self.td_potential is None
             self.td_potential = TimeDependentPotential()
-            self.td_potential.wfs = self.wfs
+            self.td_potential.ksl = self.wfs.ksl
+            self.td_potential.kd = self.wfs.kd
+            self.td_potential.kpt_u = self.wfs.kpt_u
             self.td_potential.read(reader.td_potential)
 
     def read_fxc(self, reader):
         assert self.fxc_name is None or self.fxc_name == reader.name
         self.fxc_name = reader.name
-        self.deltaXC_H_uMM = read_uMM(self.wfs, reader, 'deltaXC_H_uMM')
+        self.deltaXC_H_uMM = read_uMM(self.wfs.kpt_u, self.wfs.ksl, reader,
+                                      'deltaXC_H_uMM')
+
+    def read_scale(self, reader):
+        assert not self.has_scale or self.scale == reader.scale
+        self.has_scale = True
+        self.scale = reader.scale
+        self.scale_H_uMM = read_uMM(self.wfs.kpt_u, self.wfs.ksl, reader,
+                                    'scale_H_uMM')
 
     def initialize(self, paw):
         self.timer = paw.timer
@@ -127,6 +153,9 @@ class TimeDependentHamiltonian(object):
 
         # Initialize fxc
         self.initialize_fxc(niter)
+
+        # Initialize scale
+        self.initialize_scale(niter)
 
         # Initialize td_potential
         if self.td_potential is not None:
@@ -147,7 +176,8 @@ class TimeDependentHamiltonian(object):
         if niter == 0:
             def get_H_MM(kpt):
                 return self.get_hamiltonian_matrix(kpt, time=0.0,
-                                                   addfxc=False, addpot=False)
+                                                   addfxc=False, addpot=False,
+                                                   scale=False)
             self.deltaXC_H_uMM = []
             for kpt in self.wfs.kpt_u:
                 self.deltaXC_H_uMM.append(get_H_MM(kpt))
@@ -172,13 +202,30 @@ class TimeDependentHamiltonian(object):
                 self.deltaXC_H_uMM[u] -= get_H_MM(kpt)
         self.timer.stop('Initialize fxc')
 
+    def initialize_scale(self, niter):
+        if not self.has_scale:
+            return
+        self.timer.start('Initialize scale')
+
+        # Take current H_MM and multiply with scale
+        if niter == 0:
+            def get_H_MM(kpt):
+                return self.get_hamiltonian_matrix(kpt, time=0.0,
+                                                   addfxc=False, addpot=False,
+                                                   scale=False)
+            self.scale_H_uMM = []
+            for kpt in self.wfs.kpt_u:
+                self.scale_H_uMM.append((1 - self.scale) * get_H_MM(kpt))
+        self.timer.stop('Initialize scale')
+
     def update_projectors(self):
         self.timer.start('Update projectors')
         for kpt in self.wfs.kpt_u:
             self.wfs.atomic_correction.calculate_projections(self.wfs, kpt)
         self.timer.stop('Update projectors')
 
-    def get_hamiltonian_matrix(self, kpt, time, addfxc=True, addpot=True):
+    def get_hamiltonian_matrix(self, kpt, time, addfxc=True, addpot=True,
+                               scale=True):
         self.timer.start('Calculate H_MM')
         kpt_rank, u = self.wfs.kd.get_rank_and_index(kpt.s, kpt.k)
         assert kpt_rank == self.wfs.kd.comm.rank
@@ -187,6 +234,9 @@ class TimeDependentHamiltonian(object):
         H_MM = get_matrix(self.hamiltonian, self.wfs, kpt, root=-1)
         if addfxc and self.has_fxc:
             H_MM += self.deltaXC_H_uMM[u]
+        if scale and self.has_scale:
+            H_MM *= self.scale
+            H_MM += self.scale_H_uMM[u]
         if addpot and self.td_potential is not None:
             H_MM += self.td_potential.get_MM(u, time)
         self.timer.stop('Calculate H_MM')
