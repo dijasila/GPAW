@@ -26,7 +26,7 @@ def test_gllb_ne(in_tmp_dir):
                    cell=(a, a, a), pbc=False)
         Ne.center()
         calc = GPAW(nbands=7, h=0.25, xc=xcname)
-        Ne.set_calculator(calc)
+        Ne.calc = calc
         e = Ne.get_potential_energy()
         # Calculate the discontinuity
         response = calc.hamiltonian.xc.xcs['RESPONSE']

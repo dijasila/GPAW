@@ -24,7 +24,7 @@ def test_vdw_libvdwxc_h2(in_tmp_dir):
                       mixer=Mixer(0.5, 5, 10.))
         kwargs.update(kwargs1)
         calc = GPAW(**kwargs)
-        system.set_calculator(calc)
+        system.calc = calc
         system.get_potential_energy()
         return calc
 

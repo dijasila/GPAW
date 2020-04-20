@@ -109,7 +109,7 @@ class QSFDTD:
         self.gs_calc = GPAW(gpts=self.gpts,
                             poissonsolver=self.poissonsolver,
                             **kwargs)
-        self.atoms.set_calculator(self.gs_calc)
+        self.atoms.calc = self.gs_calc
         self.energy = self.atoms.get_potential_energy()
         self.write(filename, mode='all')
 

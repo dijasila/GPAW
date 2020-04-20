@@ -36,7 +36,7 @@ def test_ofdft_ofdft_scale(in_tmp_dir):
                     maxiter=240,
                     mixer=mixer, eigensolver=eigensolver)
 
-        atom.set_calculator(calc)
+        atom.calc = calc
 
         E = atom.get_total_energy()
         n = calc.get_all_electron_density()

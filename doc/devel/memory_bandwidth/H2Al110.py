@@ -92,7 +92,7 @@ def memory_bandwidth(code='gpaw', runs=7):
                 nbands=nbands,
                 kpts=kpts,
                 **parameters)
-            slab.set_calculator(calc)
+            slab.calc = calc
             e = slab.get_potential_energy()
             del calc
             if exists('out.nc'): remove('out.nc')

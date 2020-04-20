@@ -25,7 +25,7 @@ def test_lcao_force():
                 kpts=[(0., 0., 0.), (.3, .1, .4)],
                 convergence={'density': 1e-5, 'energy': 1e-6})
 
-    system.set_calculator(calc)
+    system.calc = calc
 
     F_ac = system.get_forces()
 

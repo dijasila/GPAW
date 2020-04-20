@@ -42,7 +42,7 @@ cdft_a = CDFT(
     minimizer_options={'gtol': 0.01})  # tolerance for cdft
 
 # Get cdft energy
-sys.set_calculator(cdft_a)
+sys.calc = cdft_a
 sys.get_potential_energy()
 
 # the same for the final state
@@ -74,7 +74,7 @@ cdft_b = CDFT(
     txt='He2+_final_%3.2f.cdft' % distance,
     minimizer_options={'gtol': 0.01})
 
-sys.set_calculator(cdft_b)
+sys.calc = cdft_b
 sys.get_potential_energy()
 
 # Now for the coupling parameter

@@ -10,7 +10,7 @@ atoms.center(vacuum=6.0)
 
 # Standard ground state calculation with empty states
 calc = GPAW(nbands=100, h=0.4, setups={'Na': '1'})
-atoms.set_calculator(calc)
+atoms.calc = calc
 energy = atoms.get_potential_energy()
 
 calc.set(convergence={'bands' : 90}, 

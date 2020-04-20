@@ -16,7 +16,7 @@ def test_lcao_h2o():
                 nbands=4,
                 mode='lcao',
                 poissonsolver=FDPoissonSolver())
-    mol.set_calculator(calc)
+    mol.calc = calc
     e = mol.get_potential_energy()
     niter = calc.get_number_of_iterations()
 
@@ -28,6 +28,6 @@ def test_lcao_h2o():
                 nbands=4,
                 mode=LCAO(force_complex_dtype=True),
                 poissonsolver=FDPoissonSolver())
-    mol.set_calculator(calc)
+    mol.calc = calc
     ec = mol.get_potential_energy()
     equal(e, ec, 1e-5)

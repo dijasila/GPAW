@@ -21,7 +21,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             occupations=FermiDirac(0.001),
             txt='C_converged_ppa.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()

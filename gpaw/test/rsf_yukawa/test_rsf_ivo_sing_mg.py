@@ -32,7 +32,7 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     calc = GPAW(txt='mg_ivo.txt', xc='LCY-PBE:omega=0.38:excitation=singlet',
                 eigensolver=RMMDIIS(), h=h, occupations=FermiDirac(width=0.0),
                 spinpol=False, convergence=c)
-    na2.set_calculator(calc)
+    na2.calc = calc
     na2.get_potential_energy()
     (eps_homo, eps_lumo) = calc.get_homo_lumo()
     e_ex = eps_lumo - eps_homo

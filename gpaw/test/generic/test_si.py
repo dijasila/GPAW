@@ -22,7 +22,7 @@ def test_generic_si(in_tmp_dir):
                 occupations=FermiDirac(width=0.01),
                 verbose=1,
                 kpts=(1, 1, 1))
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     e1 = bulk.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     eigs = calc.get_eigenvalues(kpt=0)

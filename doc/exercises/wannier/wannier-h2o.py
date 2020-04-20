@@ -8,7 +8,7 @@ calc = GPAW(nbands=4)
 
 atoms = molecule('H2O')
 atoms.center(vacuum=3.)
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 # Initialize the Wannier class

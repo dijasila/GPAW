@@ -27,7 +27,7 @@ calc = GPAW(mode=PW(600),
             occupations=FermiDirac(width=0.01),
             kpts={'density': 5})
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write('TaS2-gs.gpw')
 

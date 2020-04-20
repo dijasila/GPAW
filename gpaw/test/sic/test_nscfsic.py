@@ -17,7 +17,7 @@ def test_sic_nscfsic(in_tmp_dir):
         s = Atoms(a)
         s.center(vacuum=4.0)
         calc = GPAW(h=0.15, txt=a + '.txt')
-        s.set_calculator(calc)
+        s.calc = calc
         E = s.get_potential_energy()
         EE.append(NSCFSIC(calc).calculate())
 

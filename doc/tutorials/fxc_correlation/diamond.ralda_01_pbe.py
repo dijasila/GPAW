@@ -24,7 +24,7 @@ calc = GPAW(mode=PW(600),
             parallel={'domain': 1},
             txt='diamond.ralda_01_pbe.txt')
 
-a.set_calculator(calc)
+a.calc = calc
 E_pbe = a.get_potential_energy()
 
 E_hf = nsc_energy(calc, 'ECC')

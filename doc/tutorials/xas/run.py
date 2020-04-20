@@ -20,7 +20,7 @@ calc = GPAW(nbands=-30,
 # the number of unoccupied stated will determine how
 # high you will get in energy
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 e = atoms.get_potential_energy()
 
 calc.write('h2o_xas.gpw')

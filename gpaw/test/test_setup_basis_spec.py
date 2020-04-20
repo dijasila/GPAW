@@ -13,7 +13,7 @@ def test_setup_basis_spec():
 
     def check(setups, basis, refname):
         calc = GPAW(setups=setups, basis=basis)
-        system.set_calculator(calc)
+        system.calc = calc
         try:
             calc.initialize(system)
         except RuntimeError as err:

@@ -16,7 +16,7 @@ def test_lcao_dos():
                 #kpts=[4, 4, 4]
                 )
 
-    system.set_calculator(calc)
+    system.calc = calc
     system.get_potential_energy()
 
     from gpaw.utilities.dos import LCAODOS

@@ -11,7 +11,7 @@ calc_mol = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
 
 CO = molecule('CO')
 CO.center(vacuum=3)
-CO.set_calculator(calc_mol)
+CO.calc = calc_mol
 E_gs = CO.get_potential_energy()
 
 # Get the pseudowavefunctions and projector overlaps of the
@@ -27,7 +27,7 @@ calc_1 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
               convergence={'energy': 100,
                            'density': 100,
                            'bands': -1})
-CO.set_calculator(calc_1)
+CO.calc = calc_1
 weights = {0: [0., 0., 0., 1.], 1: [0., 0., 0., -1.]}
 lumo = dscf.MolecularOrbital(calc_1, weights=weights)
 dscf.dscf_calculation(calc_1, [[1.0, lumo, 1]], CO)
@@ -38,7 +38,7 @@ calc_2 = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
               convergence={'energy': 100,
                            'density': 100,
                            'bands': -1})
-CO.set_calculator(calc_2)
+CO.calc = calc_2
 lumo = dscf.AEOrbital(calc_2, wf_u, p_uai)
 dscf.dscf_calculation(calc_2, [[1.0, lumo, 1]], CO)
 E_es2 = CO.get_potential_energy()

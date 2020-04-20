@@ -57,7 +57,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                 idiotproof=False,
                 parallel={'domain': 1})
 
-    Febcc.set_calculator(calc)
+    Febcc.calc = calc
     Febcc.get_potential_energy()
     calc.write('Fe', 'all')
     t2 = time.time()

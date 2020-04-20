@@ -12,7 +12,7 @@ calc = GPAW(h=0.25,
             xc='LDA',
             maxiter=300,
             txt='unocc.txt')
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.write('r-methyl-oxirane.gpw', mode='all')

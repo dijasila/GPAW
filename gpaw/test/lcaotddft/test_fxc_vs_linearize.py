@@ -22,7 +22,7 @@ def test_lcaotddft_fxc_vs_linearize(in_tmp_dir):
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
                 txt='gs.out')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 

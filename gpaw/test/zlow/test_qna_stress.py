@@ -29,7 +29,7 @@ def test_xc_qna_stress(in_tmp_dir):
                 kpts=kpts,
                 txt=name + '.txt')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
 
     atoms.set_cell(np.dot(atoms.cell,
                           [[1.02, 0, 0.03],

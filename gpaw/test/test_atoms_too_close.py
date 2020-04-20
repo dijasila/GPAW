@@ -9,7 +9,7 @@ def test_atoms_too_close():
                   cell=(4, 4, 4), pbc=True)
 
     calc = GPAW(txt=None)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     try:
         calc.initialize(atoms)
         calc.set_positions(atoms)

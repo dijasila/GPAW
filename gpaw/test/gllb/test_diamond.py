@@ -34,7 +34,7 @@ def test_gllb_diamond(in_tmp_dir):
                 parallel=dict(domain=min(world.size, 2),
                               band=1),
                 eigensolver=Davidson(niter=2))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Cgs.gpw')
 
@@ -56,7 +56,7 @@ def test_gllb_diamond(in_tmp_dir):
     calc = GPAW(h=0.2, kpts=(4, 4, 4), xc=xc, nbands=8,
                 mixer=Mixer(0.5, 5, 10.0),
                 eigensolver=Davidson(niter=4))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     # And calculate the discontinuity potential with accurate band gap
     response = calc.hamiltonian.xc.xcs['RESPONSE']

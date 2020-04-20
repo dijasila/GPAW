@@ -21,7 +21,7 @@ def test_lcao_pair_and_coulomb(in_tmp_dir):
     atoms.center()
     calc = GPAW(mode='lcao', occupations=FermiDirac(0.1),
                 poissonsolver={'name': 'fd'})
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('lcao_pair.gpw')
 

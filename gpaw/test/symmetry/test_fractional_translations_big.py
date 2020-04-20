@@ -26,7 +26,7 @@ def test_symmetry_fractional_translations_big():
                 gpts=(24, 24, 32),
                 eigensolver='rmm-diis')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy_fractrans = atoms.get_potential_energy()
 
     assert(len(calc.wfs.kd.ibzk_kc) == 3)
@@ -40,7 +40,7 @@ def test_symmetry_fractional_translations_big():
                 gpts=(24, 24, 32),
                 eigensolver='rmm-diis')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy_no_fractrans = atoms.get_potential_energy()
 
     assert(len(calc.wfs.kd.ibzk_kc) == 6)

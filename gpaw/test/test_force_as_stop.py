@@ -10,7 +10,7 @@ def test_force_as_stop():
                              'density': 100,
                              'energy': 100,
                              'eigenstates': 100})
-    H2.set_calculator(calc)
+    H2.calc = calc
     H2.get_potential_energy()
     n = calc.get_number_of_iterations()
     assert 7 <= n <= 11, n

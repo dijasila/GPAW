@@ -21,7 +21,7 @@ calc = GPAW(mode='lcao',
 if compiled_with_sl():
     calc.set(parallel={'domain': (1, 1, 4), 'sl_default': (2, 2, 64)})
 
-slab.set_calculator(calc)
+slab.calc = calc
 try:
     slab.get_potential_energy()
 except ConvergenceError:

@@ -31,6 +31,6 @@ calc = GPAW(mode='lcao', xc='GLLBSC', h=0.3, nbands=360,
             occupations=occupations, mixer=mixer, parallel=parallel,
             maxiter=1000,
             txt='gs.out')
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')

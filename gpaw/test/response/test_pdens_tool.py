@@ -43,7 +43,7 @@ def test_response_pdens_tool(in_tmp_dir):
                 xc='LDA',
                 occupations=FermiDirac(0.001))  # use small FD smearing
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()  # get ground state density
 
     calc.write('si.gpw', 'all')  # write wavefunctions
