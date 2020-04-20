@@ -19,7 +19,7 @@ def test_parallel_kptpar(in_tmp_dir):
                     txt='H-a.txt')
         H.calc = calc
         e1 = H.get_potential_energy()
-        assert H.get_calculator().wfs.kd.comm.size == 1
+        assert H.calc.wfs.kd.comm.size == 1
 
         equal(e1, -2.23708481, energy_tolerance)
 
@@ -30,7 +30,7 @@ def test_parallel_kptpar(in_tmp_dir):
                                   communicator=comm,
                                   txt='H-b.txt'))
             e2 = H.get_potential_energy()
-            assert H.get_calculator().wfs.kd.comm.size == 3
+            assert H.calc.wfs.kd.comm.size == 3
             equal(e1, e2, 5e-9)
         else:
             comm = world.new_communicator(np.array(range(3, world.size)))
