@@ -18,7 +18,7 @@ def test_generic_H_force():
                 mixer=Mixer(0.3, 3, 1),
                 convergence={'energy': 1e-7},
                 occupations=FermiDirac(0.0))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     f1 = atoms.get_forces()[0]

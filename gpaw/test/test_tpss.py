@@ -53,7 +53,7 @@ def test_tpss(in_tmp_dir):
             pos[1,:] = pos[0,:] + [0.0, 0.0, exp_bonds_dE[formula][0]]
             loa.set_positions(pos)
             loa.center()
-        loa.set_calculator(calc)
+        loa.calc = calc
         try:
             energy = loa.get_potential_energy()
             niters[formula] = calc.get_number_of_iterations()

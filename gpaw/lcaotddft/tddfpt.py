@@ -284,7 +284,7 @@ if 1:
     td_calc = LCAOTDDFT(basis='sz', xc='oldLDA', h=0.3,
                         convergence=convergence, poissonsolver=poissonsolver)
 
-    atoms.set_calculator(td_calc)
+    atoms.calc = td_calc
     atoms.get_potential_energy()
     td_calc.write('H2_gs.gpw',mode='all')
 

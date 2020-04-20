@@ -17,7 +17,7 @@ def test_parallel_kptpar(in_tmp_dir):
                     spinpol=True,
                     parallel={'domain': world.size},
                     txt='H-a.txt')
-        H.set_calculator(calc)
+        H.calc = calc
         e1 = H.get_potential_energy()
         assert H.get_calculator().wfs.kd.comm.size == 1
 

@@ -165,7 +165,7 @@ class LrTDDFT(ExcitationList):
         changed = self.set(**kwargs)
         if calculator is not None:
             changed = True
-            self.set_calculator(calculator)
+            self.calc = calculator
 
         if not changed:
             return

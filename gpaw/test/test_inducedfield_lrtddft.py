@@ -24,7 +24,7 @@ def test_inducedfield_lrtddft(in_tmp_dir):
     calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
                 experimental={'niter_fixdensity': 2},
                 convergence={'density': density_eps})
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()
     calc.write('na2_gs_casida.gpw', mode='all')
 

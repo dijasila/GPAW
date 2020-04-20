@@ -90,7 +90,7 @@ gs_calc = GPAW(gpts=gpts,
                eigensolver='cg',
                nbands=-2,
                poissonsolver=poissonsolver)
-atoms.set_calculator(gs_calc)
+atoms.calc = gs_calc
 
 # Ground state
 energy = atoms.get_potential_energy()

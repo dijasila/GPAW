@@ -28,7 +28,7 @@ for i in range(3):
                     txt='neb{}.txt'.format(j),
                     communicator=ranks)
 
-        image.set_calculator(calc)
+        image.calc = calc
 
     image.set_constraint(constraint)
     images.append(image)

@@ -166,7 +166,7 @@ class FiniteDifference:
                 calc2 = calc.__class__(
                     restart=self.name + '_eq' + self.ending,
                     communicator=self.comm[i], txt=None)
-                self.atoms.set_calculator(calc2)
+                self.atoms.calc = calc2
                 calc2.calculate(atoms=self.atoms)
 
         return

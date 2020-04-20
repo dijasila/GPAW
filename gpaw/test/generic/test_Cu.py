@@ -16,7 +16,7 @@ def test_generic_Cu(in_tmp_dir):
 
     calc = GPAW(h=0.2,
                 setups={'Cu': setup})
-    Cu.set_calculator(calc)
+    Cu.calc = calc
     e = Cu.get_potential_energy()
     niter = calc.get_number_of_iterations()
 

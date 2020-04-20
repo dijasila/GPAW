@@ -16,7 +16,7 @@ def test_lrtddft2_H2O_lcao(in_tmp_dir):
     calc = GPAW(h=0.4, mode='lcao', basis='dzp', txt='%s-gs.out' % name,
                 poissonsolver={'name': 'fd'},
                 nbands=8, xc='LDA')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('%s.gpw' % name, mode='all')
 

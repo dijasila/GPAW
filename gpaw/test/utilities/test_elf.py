@@ -15,7 +15,7 @@ def test_utilities_elf():
     # txt = None
 
     calc = GPAW(h=0.24, txt=txt)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()
 
     elf = ELF(calc)
@@ -59,7 +59,7 @@ def test_utilities_elf():
                 txt=txt,
                 spinpol=True,
                 parallel={'domain': world.size})
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy_spinpol = atoms.get_potential_energy()
 
         

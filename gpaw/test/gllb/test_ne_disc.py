@@ -29,7 +29,7 @@ def test_gllb_ne_disc(in_tmp_dir):
         calc = GPAW(eigensolver=Davidson(4), nbands=10, h=0.18, xc=xcname,
                     basis='dzp',
                     mixer=Mixer(0.6))
-        Ne.set_calculator(calc)
+        Ne.calc = calc
         e = Ne.get_potential_energy()
         response = calc.hamiltonian.xc.xcs['RESPONSE']
         response.calculate_delta_xc()

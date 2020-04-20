@@ -23,14 +23,14 @@ def test_fixocc():
                  occupations=ZeroKelvin(True), 
                  convergence=convergence,
                  txt=txt)
-        H2.set_calculator(c)
+        H2.calc = c
         E_zk = H2.get_potential_energy()
 
         c = GPAW(h=h, nbands=nbands, 
                  occupations=FixedOccupations([[2, 0]]), 
                  convergence=convergence,
                  txt=txt)
-        H2.set_calculator(c)
+        H2.calc = c
         E_fo = H2.get_potential_energy()
         parprint(E_zk, E_fo)
         equal(E_zk, E_fo, 1.e-10)
@@ -41,14 +41,14 @@ def test_fixocc():
                  occupations=FixedOccupations([[1,1]]), 
                  convergence=convergence,
                  txt=txt)
-        H2.set_calculator(c)
+        H2.calc = c
         E_ns = H2.get_potential_energy()
     if 1:
         c = GPAW(h=h, nbands=nbands, spinpol=True,
                  occupations=FixedOccupations([[0.5, 0.5]] * 2), 
                  convergence=convergence,
                  txt=txt)
-        H2.set_calculator(c)
+        H2.calc = c
         E_sp = H2.get_potential_energy()
         parprint(E_ns, E_sp)
         equal(E_ns, E_sp, 1.e-6)

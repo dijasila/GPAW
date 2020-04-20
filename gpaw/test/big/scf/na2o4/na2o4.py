@@ -33,7 +33,7 @@ calc = GPAW(
     eigensolver='cg',
     txt='na2o4.txt')
 
-bulk.set_calculator(calc)
+bulk.calc = calc
 
 try:
     bulk.get_potential_energy()
@@ -54,5 +54,5 @@ calc1 = GPAW(
 
 calc1.set(mixer=Mixer(0.10, 2))
 calc1.set(txt='na2o4_m1.txt')
-bulk.set_calculator(calc1)
+bulk.calc = calc1
 bulk.get_potential_energy()

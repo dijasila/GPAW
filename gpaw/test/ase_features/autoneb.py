@@ -33,7 +33,7 @@ def getcalc(**kwargs):
 
 calc = getcalc()
 
-slab.set_calculator(calc)
+slab.calc = calc
 
 qn = QuasiNewton(slab, trajectory='neb000.traj')
 qn.run(fmax=0.05)
@@ -56,7 +56,7 @@ def attach_calculators(images):
         if rank in ranks:
             calc = getcalc(txt='neb%d.txt' % j,
                            communicator=ranks)
-            images[i].set_calculator(calc)
+            images[i].calc = calc
 
 autoneb=AutoNEB(attach_calculators,
                 prefix='neb',

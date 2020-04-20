@@ -23,7 +23,7 @@ def test_lcao_density():
     calc = GPAW(mode='lcao',
                 maxiter=1)
 
-    system.set_calculator(calc)
+    system.calc = calc
     try:
         system.get_potential_energy()
     except ConvergenceError:

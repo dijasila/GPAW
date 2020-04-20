@@ -12,7 +12,7 @@ def test_generic_si_primitive(in_tmp_dir):
                 occupations=FermiDirac(width=0.0),
                 nbands=5)
     atoms = bulk('Si', 'diamond', a=a)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     E = atoms.get_potential_energy()
     equal(E, -11.8699605591, 0.001)
     niter = calc.get_number_of_iterations()

@@ -16,7 +16,7 @@ def test_timelimit(in_tmp_dir):
     calc = GPAW(mode='lcao', basis='sz(dzp)', setups='1', nbands=1,
                 convergence={'density': 1e-100},
                 maxiter=maxiter)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
 
     tl = TimeLimiter(calc, timelimit=0, output='scf.txt')
     tl.reset('scf', min_updates=3)
@@ -39,7 +39,7 @@ def test_timelimit(in_tmp_dir):
 
     # Prepare ground state
     calc = GPAW(mode='fd', setups='1', maxiter=1, nbands=1)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     try:
         atoms.get_potential_energy()
     except KohnShamConvergenceError:

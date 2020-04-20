@@ -143,7 +143,7 @@ class ExcitedState(GPAW):
 
         index = self.index.apply(self.lrtddft)
         self.results['energy'] = E0 + self.lrtddft[index].energy * Hartree
-        self.lrtddft.set_calculator(self.calculator)
+        self.lrtddft.calc = self.calculator
 
     def calculation_required(self, atoms, quantities):
         if len(quantities) == 0:
@@ -192,7 +192,7 @@ class ExcitedState(GPAW):
 
         self.calculator.calculate(atoms)
         E0 = self.calculator.get_potential_energy()
-        atoms.set_calculator(self)
+        atoms.calc = self
 
         if hasattr(self, 'density'):
             del(self.density)
@@ -219,7 +219,7 @@ class ExcitedState(GPAW):
             atoms = self.atoms
 
         if self.calculation_required(atoms, ['forces']):
-            atoms.set_calculator(self)
+            atoms.calc = self
 
             # do the ground state calculation to set all
             # ranks to the same density to start with
@@ -261,7 +261,7 @@ class ExcitedState(GPAW):
             propertyfunction=self.atoms.get_potential_energy,
             name="excited_state", ending='.gpw',
             d=self.d, parallel=0)
-        atoms.set_calculator(self)
+        atoms.calc = self
 
         return fd.restart(reforce)
 

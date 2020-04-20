@@ -37,17 +37,17 @@ for molecule in data:
         c = GPAW(xc=xc, h=h, nbands=-6, occupations=FermiDirac(width=0.1))
     E = []
     for s in [s1, s2, ss]:
-        s.set_calculator(c)
+        s.calc = c
         s.minimal_box(box, h=h)
         if xc == 'TS09':
             s.get_potential_energy()
             cc = vdWTkatchenko09prl(HirshfeldPartitioning(c),
                                     vdWradii(s.get_chemical_symbols(), 'PBE'))
-            s.set_calculator(cc)
+            s.calc = cc
         elif xc == 'dftd4':
             s.get_potential_energy()
             cc = D4_model(xc='PBE', calc=c)
-            s.set_calculator(cc)
+            s.calc = cc
         if xc == 'TPSS' or xc == 'M06-L':
             ene = s.get_potential_energy()
             ene += c.get_xc_difference(xc)

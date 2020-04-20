@@ -35,7 +35,7 @@ for d in ds:
                 parallel={'domain': 1,
                           'band': 1},
                 txt='gs_%s.txt' % d)
-    slab.set_calculator(calc)
+    slab.calc = calc
     E = slab.get_potential_energy()
     exx = EXX(calc, txt='exx_%s.txt' % d)
     exx.calculate()
