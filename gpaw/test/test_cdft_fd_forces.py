@@ -1,7 +1,6 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.cdft.gpaw_cdft_cdft import *
-#from gpaw.cdft.cdft import CDFT
+from gpaw.cdft.cdft import CDFT
 from gpaw import Mixer
 import numpy as np
 
