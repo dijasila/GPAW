@@ -1,5 +1,6 @@
 """This module defines different external potentials."""
 import warnings
+import copy
 
 import numpy as np
 
@@ -7,7 +8,8 @@ from ase.units import Bohr, Hartree
 
 import _gpaw
 
-__all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential']
+__all__ = ['ConstantPotential', 'ConstantElectricField', 'CDFTPotential',
+           'PointChargePotential']
 
 
 def create_external_potential(name, **kwargs):
@@ -155,6 +157,9 @@ class PointChargePotential(ExternalPotential):
 
         for all values of r - no cutoff at rc2!
         """
+        self._dict = dict(name=self.__class__.__name__,
+                          charges=charges, positions=positions,
+                          rc=rc, rc2=rc2, width=width)
         self.q_p = np.ascontiguousarray(charges, float)
         self.rc = rc / Bohr
         self.rc2 = rc2 / Bohr
@@ -169,6 +174,9 @@ class PointChargePotential(ExternalPotential):
         if self.rc < 0. and self.rc2 < np.inf:
             warnings.warn('Long range cutoff chosen but will not be applied\
                            for negative inner cutoff values!')
+
+    def todict(self):
+        return copy.deepcopy(self._dict)
 
     def __str__(self):
         return ('Point-charge potential '
@@ -216,6 +224,7 @@ class PointChargePotential(ExternalPotential):
                            self.vext_g, dcom_pv, dens.rhot_g, F_pv)
         gd.comm.sum(F_pv)
         return F_pv * Hartree / Bohr
+
 
 class CDFTPotential(ExternalPotential):
     # Dummy class to make cDFT compatible with new external
