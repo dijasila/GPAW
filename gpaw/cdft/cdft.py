@@ -1025,36 +1025,37 @@ class WeightFunc:
         # Check zero elements
         check = rho_kd == 0.
         # Add value to zeros for denominator...
-        #rho_kd = rho_k.copy()
         rho_kd += check * 1.0
 
         for a, atom in enumerate(self.atoms):
             wn_sg = self.gd.zeros()
             prefactor = self.get_derivative_prefactor(n_charge_regions,
-                                                  n_spin_regions, w_ig, v_i,
-                                                  difference, atom, rho_kd)
+                                                      n_spin_regions, w_ig,
+                                                      v_i,
+                                                      difference,
+                                                      atom, rho_kd)
 
             # make extended array
             for c in range(n_charge_regions):
-                #n_g = (dens.nt_sg[0] + dens.nt_sg[1])
                 wn_sg += (dens.nt_sg[0] + dens.nt_sg[1]) * prefactor[0]
 
             for s in range(n_spin_regions):
-                #n_g = (dens.nt_sg[0] - dens.nt_sg[1])
                 wn_sg += (dens.nt_sg[0] - dens.nt_sg[1]) * prefactor[1]
 
             for i in [0, 1, 2]:
                 if method == 'analytical':
-                    dG_dRav = self.get_analytical_gaussian_derivates(atom, direction=i)
+                    dG_dRav = self.get_analytical_derivates(atom,
+                                                            direction=i)
                 elif method == 'fd':
-                    dG_dRav = self.get_fd_gaussian_derivatives(atom, direction=i)
+                    dG_dRav = self.get_fd_derivatives(atom,
+                                                      direction=i)
 
-                cdft_forces[a][i] -= self.gd.integrate(
-                        wn_sg * dG_dRav, global_integral=True)
+                cdft_forces[a][i] -= self.gd.integrate(wn_sg * dG_dRav,
+                                                       global_integral=True)
 
         return cdft_forces
 
-    def get_fd_gaussian_derivatives(self, atom, direction, dx=1.e-4):
+    def get_fd_derivatives(self, atom, direction, dx=1.e-4):
 
         dirs = [[dx, 0., 0.], [0., dx, 0.], [0., 0., dx]]
         charge = atom.number
@@ -1109,7 +1110,7 @@ class WeightFunc:
 
         return [wc, ws]
 
-    def get_analytical_gaussian_derivates(self, atom, direction):
+    def get_analytical_derivates(self, atom, direction):
         # equations 32,33,34
 
         a_pos = atom.position / Bohr
@@ -1140,7 +1141,8 @@ class WeightFunc:
             self.mu[a_symbol])**2  # (\Theta * (r-R_a) n_A) / \sigma^2
 
         # at surface
-        check_s = abs(abs(a_dis) - self.Rc[a_symbol]) <= max(self.gd.get_grid_spacings())
+        surf = abs(abs(a_dis) - self.Rc[a_symbol])
+        check_s = surf <= max(self.gd.get_grid_spacings())
         dGa_drRa += check_s * G_a  # \ sigma_{A\in i} n_A
 
         # eq 32
