@@ -15,7 +15,7 @@ calc = GPAW(nbands=8,
 
 CO = molecule('CO')
 CO.center(vacuum=3)
-CO.set_calculator(calc)
+CO.calc = calc
 
 E_gs = CO.get_potential_energy()
 
@@ -37,7 +37,7 @@ calc_es = GPAW(nbands=8,
                             'eigenstates': 1.0e-9,
                             'bands': -1})
 
-CO.set_calculator(calc_es)
+CO.calc = calc_es
 lumo = dscf.AEOrbital(calc_es, wf_u, p_uai)
 # lumo = dscf.MolecularOrbital(calc, weights={0: [0, 0, 0,  1],
 #                                             1: [0, 0, 0, -1]})

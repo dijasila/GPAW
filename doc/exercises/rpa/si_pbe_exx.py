@@ -27,7 +27,7 @@ bulk_calc = GPAW(mode=PW(pwcutoff),
                  parallel={'band': 1}
                  )
 
-bulk_crystal.set_calculator(bulk_calc)
+bulk_crystal.calc = bulk_calc
 e0_bulk_pbe = bulk_crystal.get_potential_energy()
 
 #  Write to file

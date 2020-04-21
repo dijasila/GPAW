@@ -185,7 +185,7 @@ class CDFT(Calculator):
                 self.regions.append(self.spin_regions[i])
 
         # initialise without v_ext
-        atoms.set_calculator(self.calc)
+        atoms.calc = self.calc
         atoms.get_potential_energy()
 
         assert atoms.calc.wfs.nspins == 2
@@ -1233,8 +1233,8 @@ def get_promolecular_constraints(calc_a,
     atoms = atoms_a + atoms_b
 
     if not restart:
-        atoms_a.set_calculator(calc_a)
-        atoms_b.set_calculator(calc_b)
+        atoms_a.calc = calc_a
+        atoms_b.calc = calc_b
     atoms_a.get_potential_energy()
     atoms_b.get_potential_energy()
 

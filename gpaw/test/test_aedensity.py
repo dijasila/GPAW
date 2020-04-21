@@ -24,7 +24,7 @@ def test_aedensity(in_tmp_dir):
                     setups={'Na': '1'},
                     convergence={'eigenstates': 1e-6}, spinpol=1)
 
-        NaCl.set_calculator(calc)
+        NaCl.calc = calc
         e = NaCl.get_potential_energy()
         niter = calc.get_number_of_iterations()
         calc.write('NaCl.gpw')

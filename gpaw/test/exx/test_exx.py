@@ -19,7 +19,7 @@ def test_exx_exx(in_tmp_dir):
                 convergence={'eigenstates': 1e-6},
                 txt='exx.txt')
 
-    be2.set_calculator(calc)
+    be2.calc = calc
 
     ref_1871 = {  # Values from revision 1871. Not true reference values
         # xc         Energy          eigenvalue 0    eigenvalue 1

@@ -24,7 +24,7 @@ def test_ofdft_ofdft_pbc(in_tmp_dir):
                 eigensolver='cg',
                 mixer=mixer)
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
 
     e = atoms.get_potential_energy()
 

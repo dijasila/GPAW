@@ -20,7 +20,7 @@ def test_symmetry_usesymm2():
                 occupations=FermiDirac(width=0.15),
                 kpts=(1, 1, 1),
                 xc='LDA')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
 

@@ -35,7 +35,7 @@ class SimpleStm(STM):
         else:
             if isinstance(atoms, Atoms):
                 self.atoms = atoms
-                self.calc = atoms.get_calculator()
+                self.calc = atoms.calc
             else:
                 self.calc = atoms
                 self.atoms = self.calc.get_atoms()

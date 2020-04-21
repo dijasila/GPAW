@@ -29,7 +29,7 @@ def test_radial_ylexpand(in_tmp_dir):
                     convergence={'eigenstates': 1.e-6},
                     txt=None,
                     )
-        H2.set_calculator(calc)
+        H2.calc = calc
         H2.get_potential_energy()
         if not donot:
             calc.write(fname)

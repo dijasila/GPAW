@@ -44,7 +44,7 @@ for symbol in elements:
                 setups=name,
                 poissonsolver=poissonsolver)
 
-    molecule.set_calculator(calc)
+    molecule.calc = calc
 
     E = molecule.get_total_energy()
 

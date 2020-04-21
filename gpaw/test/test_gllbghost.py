@@ -6,5 +6,5 @@ def test_gllbghost():
     atoms.center(vacuum=2)
     calc = GPAW(mode='lcao', basis='dzp', setups={0: 'paw', 1: 'ghost'},
                 xc='GLLBSC')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()

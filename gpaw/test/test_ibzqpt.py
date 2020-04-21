@@ -21,7 +21,7 @@ def test_ibzqpt():
         calc = GPAW(h=0.2,
                     kpts=bzk_kc)
         
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
 
         kd = calc.wfs.kd

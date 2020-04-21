@@ -26,7 +26,7 @@ def test_response_au02_absorption(in_tmp_dir):
                     parallel={'domain': 1},
                     occupations=FermiDirac(0.01))
 
-        cluster.set_calculator(calc)
+        cluster.calc = calc
         cluster.get_potential_energy()
         calc.diagonalize_full_hamiltonian(nbands=24, scalapack=True)
         calc.write('Au2.gpw', 'all')

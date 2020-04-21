@@ -21,7 +21,7 @@ def test_fixmom():
                 kpts=(3, 3, 3),
                 convergence=conv,
                 occupations=FermiDirac(0.1, fixmagmom=True))
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     bulk.get_potential_energy()
     mom = calc.get_magnetic_moment()
     equal(mom, mom0, 1e-5)

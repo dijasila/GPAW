@@ -24,7 +24,7 @@ m_c = GPAW(gpts=N_c, nbands=4, mixer=MixerDif(0.1, 5, weight=100.0),
 
 m = atoms.copy()
 m.set_initial_magnetic_moments([-1,1,1,-1])
-m.set_calculator(m_c)
+m.calc = m_c
 m.get_potential_energy()
 
 d_c = GPAW(gpts=N_c, nbands=16, mixer=MixerDif(0.1, 5, weight=100.0),
@@ -35,7 +35,7 @@ d_c = GPAW(gpts=N_c, nbands=16, mixer=MixerDif(0.1, 5, weight=100.0),
 d = atoms.copy()
 d.set_initial_magnetic_moments([-1, 0.5, 0.5, -0.5])
 d_c.set(charge=1)
-d.set_calculator(d_c)
+d.calc = d_c
 d.get_potential_energy()
 
 istart=0 # band index of the first occ. band to consider

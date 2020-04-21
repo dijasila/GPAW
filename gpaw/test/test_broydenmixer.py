@@ -11,7 +11,7 @@ def test_broydenmixer(in_tmp_dir):
     g = 16
     calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2,
                 mixer=BroydenMixer())
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     e = bulk.get_potential_energy()
     niter = calc.get_number_of_iterations()
     calc.write('Li.gpw')

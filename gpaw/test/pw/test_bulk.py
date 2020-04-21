@@ -12,7 +12,7 @@ def test_pw_bulk():
                 kpts=(k, k, k),
                 eigensolver='rmm-diis')
 
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     e = []
     niter = []
     A = [2.6, 2.65, 2.7, 2.75, 2.8]

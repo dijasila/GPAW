@@ -117,7 +117,7 @@ if test1:
              },
              maxiter=1000,
              txt=txt)
-    a.set_calculator(c)
+    a.calc = c
     a.get_potential_energy()
 
     o1 = c.get_occupation_numbers(spin=0)
@@ -160,7 +160,7 @@ c = GPAW(
     },
     maxiter=1000,
     txt=txt)
-a.set_calculator(c)
+a.calc = c
 
 # Test 2
 

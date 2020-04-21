@@ -47,7 +47,7 @@ def test_response_symmetry(in_tmp_dir):
                          parallel={'band': 1},
                          symmetry=symmetry)
 
-        bulk_crystal.set_calculator(bulk_calc)
+        bulk_crystal.calc = bulk_calc
         _ = bulk_crystal.get_potential_energy()
         bulk_calc.write('bulk.gpw', mode='all')
         X = Chi0('bulk.gpw')
