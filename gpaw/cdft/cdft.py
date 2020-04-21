@@ -1054,29 +1054,25 @@ class WeightFunc:
 
         return cdft_forces
 
-    def get_fd_gaussian_derivatives(self, atom, dx=1.e-4):
+    def get_fd_gaussian_derivatives(self, atom, direction, dx=1.e-4):
 
         dirs = [[dx, 0., 0.], [0., dx, 0.], [0., 0., dx]]
-        dGav = []
         charge = atom.number
         symbol = atom.symbol
         mu = self.mu[symbol]
         Rc = self.Rc[symbol]
 
-        for i in [0, 1, 2]:
-            # move to +dx
-            a_posx = atom.position / Bohr + dirs[i]
-            a_dis = self.get_distance_vectors(a_posx)
-            Ga_posx = charge * self.normalized_gaussian(a_dis, mu, Rc)
-            # move to -dx
-            a_negx = atom.position / Bohr - dirs[i]
-            a_dis = self.get_distance_vectors(a_negx)
-            Ga_negx = charge * self.normalized_gaussian(a_dis, mu, Rc)
-            # dG/dx
-            dGax = (Ga_posx - Ga_negx) / (2 * dx)
-            dGav.append(dGax)
+        a_posx = atom.position / Bohr + dirs[direction]
+        a_dis = self.get_distance_vectors(a_posx)
+        Ga_posx = charge * self.normalized_gaussian(a_dis, mu, Rc)
+        # move to -dx
+        a_negx = atom.position / Bohr - dirs[direction]
+        a_dis = self.get_distance_vectors(a_negx)
+        Ga_negx = charge * self.normalized_gaussian(a_dis, mu, Rc)
+        # dG/dx
+        dGav = (Ga_posx - Ga_negx) / (2 * dx)
 
-        return dGRav
+        return dGav
 
     def get_derivative_prefactor(self, n_charge_regions, n_spin_regions, w_ig,
                                  v_i, difference, atom, rho_kd):
