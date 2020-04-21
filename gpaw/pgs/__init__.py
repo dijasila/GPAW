@@ -9,7 +9,7 @@ from ase import Atoms
 
 from scipy.ndimage.interpolation import shift
 
-import pointgroups
+from . import pointgroups
 
 """
 This module contains the SymmetryCalculator class and interfaces
@@ -409,7 +409,7 @@ class SymmetryCalculator:
 class GPAWSymmetryCalculator(SymmetryCalculator):
     """
     Data extractor for GPAW restart files.
-    
+
     Does not work as such due to parallel read.
     """
 

@@ -7,6 +7,7 @@ import numpy as np
 
 pglib = pointgroups.list_of_pointgroups
 
+
 class TestSymmetryCalculator(SymmetryCalculator):
     """
     Calculator for a given numpy N*M*P array.
@@ -28,14 +29,17 @@ class TestSymmetryCalculator(SymmetryCalculator):
     def get_energy(self, band):
         return 0.0
 
+
 N = 50
 c = (N-1) / 2.
+
 
 def fx(x,y,z):
     # Function for p_x orbital
     x,y,z = x-c, y-c, z-c
     r = np.sqrt(np.square(x) + np.square(y) + np.square(z))
     return x * np.exp(-0.5 * r)
+
 
 def fy(x,y,z):
     # Function for p_y orbital
@@ -51,19 +55,22 @@ def fz(x,y,z):
     return z * np.exp(-0.5 * r)
 
 
-px = np.fromfunction(function=fx, shape=[N, N, N])
-px /= np.sqrt(np.square(px).sum()) # normalize
-py = np.fromfunction(function=fy, shape=[N, N, N])
-py /= np.sqrt(np.square(py).sum())
-pz = np.fromfunction(function=fz, shape=[N, N, N])
-pz /= np.sqrt(np.square(pz).sum())
+def test_pg(in_tmp_dir):
+    # Go through each point group class:
+    for pgname in pglib:
+        # Pass the upper class:
+        if pgname == 'Pointgroup':
+            continue
+        pgtest(pgname)
 
-# Go through each point group class:
-for pgname in pglib:
 
-    # Pass the upper class:
-    if pgname == 'Pointgroup':
-        continue
+def pgtest(pgname):
+    px = np.fromfunction(function=fx, shape=[N, N, N])
+    px /= np.sqrt(np.square(px).sum()) # normalize
+    py = np.fromfunction(function=fy, shape=[N, N, N])
+    py /= np.sqrt(np.square(py).sum())
+    pz = np.fromfunction(function=fz, shape=[N, N, N])
+    pz /= np.sqrt(np.square(pz).sum())
 
     pg = pglib[pgname]()
     pg.character_table = np.array(pg.character_table)
@@ -138,22 +145,22 @@ for pgname in pglib:
                 correctnorm = h
             else: # complex rows
                 correctnorm = h*2
-            
+
             equal(norm, correctnorm, 1e-6)
 
 
             for j, row2 in enumerate(pg.character_table):
-                    
+
                 if i >= j:
                     continue
 
                 # Compare real with real rows and complex with complex rows:
-                if ((reps[i].find('E') >= 0 and reps[j].find('E') >= 0) 
+                if ((reps[i].find('E') >= 0 and reps[j].find('E') >= 0)
                     or
                     (reps[i].find('E') < 0 and reps[j].find('E') < 0)):
 
                     # Check orthogonality:
-                    norm = np.multiply(np.multiply(row1, row2), 
+                    norm = np.multiply(np.multiply(row1, row2),
                                        pg.nof_operations).sum()
                     equal(norm, 0.0, 1e-6)
 
@@ -162,25 +169,25 @@ for pgname in pglib:
 
 
     # Calculate the symmetry representations of p-orbitals:
-    symcalc = TestSymmetryCalculator('none', 
-                                     [0], 
-                                     str(pg), 
-                                     mpi=gpaw.mpi, 
+    symcalc = TestSymmetryCalculator('none',
+                                     [0],
+                                     str(pg),
+                                     mpi=gpaw.mpi,
                                      symmetryfile='sym-%s-x.txt' % str(pg))
     symcalc.initialize(px)
     symcalc.calculate()
     symcalc = TestSymmetryCalculator('none',
-                                     [0], 
-                                     str(pg), 
-                                     mpi=gpaw.mpi, 
+                                     [0],
+                                     str(pg),
+                                     mpi=gpaw.mpi,
                                      symmetryfile='sym-%s-y.txt' % str(pg))
     symcalc.initialize(py)
     symcalc.calculate()
 
-    symcalc = TestSymmetryCalculator('none', 
-                                     [0], 
-                                     str(pg), 
-                                     mpi=gpaw.mpi, 
+    symcalc = TestSymmetryCalculator('none',
+                                     [0],
+                                     str(pg),
+                                     mpi=gpaw.mpi,
                                      symmetryfile='sym-%s-z.txt' % str(pg))
     symcalc.initialize(pz)
     symcalc.calculate()
