@@ -31,26 +31,26 @@ class TestSymmetryCalculator(SymmetryCalculator):
 
 
 N = 50
-c = (N-1) / 2.
+c = (N - 1) / 2.
 
 
-def fx(x,y,z):
+def fx(x, y, z):
     # Function for p_x orbital
-    x,y,z = x-c, y-c, z-c
+    x, y, z = x - c, y - c, z - c
     r = np.sqrt(np.square(x) + np.square(y) + np.square(z))
     return x * np.exp(-0.5 * r)
 
 
-def fy(x,y,z):
+def fy(x, y, z):
     # Function for p_y orbital
-    x,y,z = x-c, y-c, z-c
+    x, y, z = x - c, y - c, z - c
     r = np.sqrt(np.square(x) + np.square(y) + np.square(z))
     return y * np.exp(-0.5 * r)
 
 
-def fz(x,y,z):
+def fz(x, y, z):
     # Function for p_z orbital
-    x,y,z = x-c, y-c, z-c
+    x, y, z = x - c, y - c, z - c
     r = np.sqrt(np.square(x) + np.square(y) + np.square(z))
     return z * np.exp(-0.5 * r)
 
@@ -66,7 +66,7 @@ def test_pg(in_tmp_dir):
 
 def pgtest(pgname):
     px = np.fromfunction(function=fx, shape=[N, N, N])
-    px /= np.sqrt(np.square(px).sum()) # normalize
+    px /= np.sqrt(np.square(px).sum())  # normalize
     py = np.fromfunction(function=fy, shape=[N, N, N])
     py /= np.sqrt(np.square(py).sum())
     pz = np.fromfunction(function=fz, shape=[N, N, N])
@@ -75,15 +75,10 @@ def pgtest(pgname):
     pg = pglib[pgname]()
     pg.character_table = np.array(pg.character_table)
 
-
-
-
-    # Check that the number of irreducible representation is equal to the number of symmetry
+    # Check that the number of irreducible representation
+    # is equal to the number of symmetry
     # transform classes:
     equal(len(pg.character_table), len(pg.character_table[0]))
-
-
-
 
     # Checks for groups with real character tables:
     if not hasattr(pg, 'complex'):
@@ -108,7 +103,8 @@ def pgtest(pgname):
                     continue
 
                 # Check orthogonality:
-                norm = np.multiply(np.multiply(row1, row2), pg.nof_operations).sum()
+                norm = np.multiply(np.multiply(row1, row2),
+                                   pg.nof_operations).sum()
                 equal(norm, 0.0, 1e-6)
 
         # Columns:
@@ -127,9 +123,6 @@ def pgtest(pgname):
                 norm = np.multiply(row1, row2).sum()
                 equal(norm, 0.0, 1e-6)
 
-
-
-
     # Checks for complex groups:
     else:
         h = float(sum(pg.nof_operations))
@@ -143,11 +136,10 @@ def pgtest(pgname):
             # Real rows:
             if reps[i].find('E') < 0:
                 correctnorm = h
-            else: # complex rows
-                correctnorm = h*2
+            else:  # complex rows
+                correctnorm = h * 2
 
             equal(norm, correctnorm, 1e-6)
-
 
             for j, row2 in enumerate(pg.character_table):
 
@@ -163,10 +155,6 @@ def pgtest(pgname):
                     norm = np.multiply(np.multiply(row1, row2),
                                        pg.nof_operations).sum()
                     equal(norm, 0.0, 1e-6)
-
-
-
-
 
     # Calculate the symmetry representations of p-orbitals:
     symcalc = TestSymmetryCalculator('none',
@@ -194,7 +182,7 @@ def pgtest(pgname):
 
     # Proceed with master processor:
     if gpaw.mpi.rank != 0:
-        continue
+        return
 
     # Check that the representation indices Tx_i, Ty_i, Tz_i are correct
     # for each group:
@@ -212,10 +200,6 @@ def pgtest(pgname):
     norm = results[0, 2]
     equal(results[0, 3 + pg.Tx_i], norm, 1.e-2)
 
-
-
-
-
     # Y
     f = open('sym-%s-y.txt' % str(pg), 'r')
     results = []
@@ -229,9 +213,6 @@ def pgtest(pgname):
     norm = results[0, 2]
     equal(results[0, 3 + pg.Ty_i], norm, 1.e-2)
 
-
-
-
     # Z
     f = open('sym-%s-z.txt' % str(pg), 'r')
     results = []
@@ -244,5 +225,3 @@ def pgtest(pgname):
     results = np.array(results).astype(float)
     norm = results[0, 2]
     equal(results[0, 3 + pg.Tz_i], norm, 1.e-2)
-
-
