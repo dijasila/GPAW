@@ -1,17 +1,27 @@
-import os
-
-scalapack = True
-fftw = True
+# Convert static library specs from EasyBuild to GPAW
+def static_eblibs_to_gpawlibs(lib_specs):
+    return [libfile[3:-2] for libfile in os.getenv(lib_specs).split(',')]
 
 # Clean out any autodetected things, we only want the EasyBuild
 # definitions to be used.
-libraries = ['openblas', 'fftw3', 'readline', 'gfortran']
-mpi_libraries = []
+libraries = []
 include_dirs = []
 
-# Use EasyBuild scalapack from the active toolchain
-libraries += ['scalapack']
+# Use EasyBuild fftw from the active toolchain
+fftw = os.getenv('FFT_STATIC_LIBS')
+if fftw:
+    libraries += static_eblibs_to_gpawlibs('FFT_STATIC_LIBS')
 
+# Use ScaLAPACK from the active toolchain
+scalapack = os.getenv('SCALAPACK_STATIC_LIBS')
+if scalapack:
+    libraries += static_eblibs_to_gpawlibs('SCALAPACK_STATIC_LIBS')
+
+# Add EasyBuild LAPACK/BLAS libs
+libraries += static_eblibs_to_gpawlibs('LAPACK_STATIC_LIBS')
+libraries += static_eblibs_to_gpawlibs('BLAS_STATIC_LIBS')
+
+# LibXC:
 # Use EasyBuild libxc
 libxc = os.getenv('EBROOTLIBXC')
 if libxc:
@@ -20,7 +30,6 @@ if libxc:
 
 # libvdwxc:
 # Use EasyBuild libvdwxc
-# This will only work with the foss toolchain.
 libvdwxc = os.getenv('EBROOTLIBVDWXC')
 if libvdwxc:
     include_dirs.append(os.path.join(libvdwxc, 'include'))
