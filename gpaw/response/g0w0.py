@@ -1217,36 +1217,37 @@ class G0W0(PairDensity):
         name = self.filename + '.vxc.npy'
         fd, self.vxc_skn = self.read_contribution(name)
         if self.vxc_skn is None:
+            assert fd is not None, f"name = {name}"
             print('Calculating Kohn-Sham XC contribution', file=self.fd)
             vxc_skn = vxc(self.calc, self.calc.hamiltonian.xc) / Ha
             n1, n2 = self.bands
             self.vxc_skn = vxc_skn[:, self.kpts, n1:n2]
-            if (type(fd) in [str, bytes, os.PathLike]):
-                np.save(fd, self.vxc_skn)
+            np.save(fd, self.vxc_skn)
 
     @timer('EXX')
     def calculate_exact_exchange(self):
         name = self.filename + '.exx.npy'
         fd, self.exx_skn = self.read_contribution(name)
         if self.exx_skn is None:
+            assert fd is not None, f"name = {name}"
             print('Calculating EXX contribution', file=self.fd)
             exx = EXX(self.calc, kpts=self.kpts, bands=self.bands,
                       txt=self.filename + '.exx.txt', timer=self.timer)
             exx.calculate()
             self.exx_skn = exx.get_eigenvalue_contributions() / Ha
-            if (type(fd) in [str, bytes, os.PathLike]):
-                np.save(fd, self.exx_skn)
+            np.save(fd, self.exx_skn)
 
     def read_contribution(self, filename):
+        import os
         fd = opencew(filename)  # create, exclusive, write
-        if fd is not None:
+        if not os.path.exists(filename):
             # File was not there: nothing to read
             return fd, None
 
         try:
             with open(filename, 'rb') as fd:
-                x_skn = np.load(fd, allow_pickle=True)
-        except IOError:
+                x_skn = np.load(fd)
+        except IOError as e:
             print('Removing broken file:', filename, file=self.fd)
         else:
             print('Read:', filename, file=self.fd)
@@ -1255,10 +1256,10 @@ class G0W0(PairDensity):
             print('Removing bad file (wrong shape of array):', filename,
                   file=self.fd)
 
-        # if self.world.rank == 0:
-        #     os.remove(filename)
+        if self.world.rank == 0:
+            os.remove(filename)
 
-        return opencew(filename), None
+        return fd, None
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
