@@ -26,5 +26,15 @@ if libvdwxc:
     include_dirs.append(os.path.join(libvdwxc, 'include'))
     libraries.append('vdwxc')
 
+# ELPA:
+# Use EasyBuild ELPA if loaded
+elpa = os.getenv('EBROOTELPA')
+if elpa:
+    libraries += ['elpa']
+    elpaversion = os.path.basename(elpa).split('-')[0]
+    library_dirs.append(os.path.join(elpa, 'lib'))
+    extra_link_args += ['-Wl,-rpath={}/lib'.format(elpa)]
+    include_dirs.append(os.path.join(elpa, 'include', 'elpa-'+elpaversion))
+
 # Now add a EasyBuild "cover-all-bases" library_dirs
 library_dirs = os.getenv('LD_LIBRARY_PATH').split(':')
