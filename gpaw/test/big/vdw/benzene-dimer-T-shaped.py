@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from ase.build import molecule
 from ase.constraints import FixedPlane
@@ -26,7 +25,7 @@ calc = GPAW(nbands=-1,
             xc=xc,
             occupations=FermiDirac(0.0),
             txt=molname + '_relax.txt')
-benz.set_calculator(calc)
+benz.calc = calc
 
 # qn constraint
 for i in range(len(benz)):
@@ -68,7 +67,7 @@ for i in np.linspace(-6, 6, 20):
                 xc=xc,
                 occupations=FermiDirac(0.0),
                 txt=dimername + '_' + k_str + '.txt')
-    dimer.set_calculator(calc)
+    dimer.calc = calc
     e_dimer = dimer.get_potential_energy()
     del calc
 

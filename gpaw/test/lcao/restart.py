@@ -1,4 +1,3 @@
-from __future__ import print_function
 # Test that LCAO wavefunctions are available and equal after restarts
 # in normal as well as 'all' mode
 
@@ -14,7 +13,7 @@ system = molecule('H2')
 system.center(vacuum=2.5)
 
 calc = GPAW(mode='lcao', basis='sz(dzp)', h=0.3, nbands=1, txt=None)
-system.set_calculator(calc)
+system.calc = calc
 system.get_potential_energy()
 wf = calc.get_pseudo_wave_function(0)
 

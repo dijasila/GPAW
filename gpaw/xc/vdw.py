@@ -11,9 +11,7 @@ XC-functional.  There are two implementations:
 
 """
 
-from __future__ import print_function
 import os
-import pickle
 import sys
 import time
 from math import sin, cos, exp, pi, log, sqrt, ceil
@@ -126,7 +124,7 @@ def VDWFunctional(name, fft=True, stencil=2, **kwargs):
     else:
         2 / 0
     if fft:
-        return GGAFFTVDWFunctional(name, kernel, stencil,**kwargs)
+        return GGAFFTVDWFunctional(name, kernel, stencil, **kwargs)
     return GGARealSpaceVDWFunctional(name, kernel, stencil, **kwargs)
 
 
@@ -305,16 +303,6 @@ class VDWFunctionalBase:
                     print('VDW: using', filename)
                 return
 
-        if sys.version_info[0] == 2:
-            oldname = name[:-3] + 'pckl'
-            for dir in dirs:
-                filename = os.path.join(dir, oldname)
-                if os.path.isfile(filename):
-                    self.phi_ij = pickle.load(open(filename, 'rb'))
-                    if self.verbose:
-                        print('VDW: using', filename)
-                    return
-
         print('VDW: Could not find table file:', name)
         self.make_table(name)
 
@@ -355,7 +343,7 @@ class VDWFunctionalBase:
             np.savetxt(name, self.phi_ij, header=header)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
-        import pylab as plt
+        import matplotlib.pyplot as plt
         x = np.linspace(0, 8.0, 100)
         for delta in [0, 0.5, 0.9]:
             y = [self.phi(D * (1.0 + delta), D * (1.0 - delta))
@@ -499,7 +487,7 @@ class RealSpaceVDWFunctional(VDWFunctionalBase):
 class FFTVDWFunctional(VDWFunctionalBase):
     """FFT implementation of vdW-DF."""
     def __init__(self,
-                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=2048, size=None,
+                 Nalpha=20, lambd=1.2, rcut=125.0, Nr=4096, size=None,
                  **kwargs):
         """FFT vdW-DF.
 

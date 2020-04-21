@@ -1,26 +1,16 @@
 scalapack = True
 fftw = True
-platform_id = os.environ['CPU_ARCH'] + '-el7'
-
-# Clean out any autodetected things, we only want the EasyBuild
-# definitions to be used.
-libraries = []
-mpi_libraries = []
-include_dirs = []
+mpicompiler = 'mpiicc'
 
 # Use Intel MKL
-libraries += ['mkl_sequential','mkl_core', 'fftw3xc_intel_pic', 'mkl_rt', ]
+libraries += ['mkl_sequential', 'mkl_core', 'fftw3xc_intel_pic', 'mkl_rt']
 
 # Use EasyBuild scalapack from the active toolchain
-mpi_libraries += ['mkl_scalapack_lp64','mkl_blacs_intelmpi_lp64']
-mpi_define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
-mpi_define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+libraries += ['mkl_scalapack_lp64', 'mkl_blacs_intelmpi_lp64']
 
 # Use EasyBuild libxc
 libxc = os.getenv('EBROOTLIBXC')
-if libxc:
-    include_dirs.append(os.path.join(libxc, 'include'))
-    libraries.append('xc')
+include_dirs.append(os.path.join(libxc, 'include'))
 
 # libvdwxc:
 # Use EasyBuild libvdwxc
@@ -30,9 +20,15 @@ if libvdwxc:
     include_dirs.append(os.path.join(libvdwxc, 'include'))
     libraries.append('vdwxc')
 
+# ELPA:
+# Use EasyBuild ELPA if loaded
+elpa = os.getenv('EBROOTELPA')
+if elpa:
+    libraries += ['elpa']
+    elpaversion = os.path.basename(elpa).split('-')[0]
+    library_dirs.append(os.path.join(elpa, 'lib'))
+    extra_link_args += ['-Wl,-rpath={}/lib'.format(elpa)]
+    include_dirs.append(os.path.join(elpa, 'include', 'elpa-'+elpaversion))
+
 # Now add a EasyBuild "cover-all-bases" library_dirs
 library_dirs = os.getenv('LD_LIBRARY_PATH').split(':')
-
-# Build separate gpaw-python
-mpicompiler = 'mpiicc'
-mpilinker = mpicompiler

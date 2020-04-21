@@ -27,7 +27,7 @@ calc = GPAW(nbands=-10,
             occupations=FermiDirac(width=0.05),
             setups={0: 'hch1s'})
 
-si_nonortho.set_calculator(calc)
+si_nonortho.calc = calc
 e = si_nonortho.get_potential_energy()
 niter = calc.get_number_of_iterations()
 calc.write('si_nonortho_xas_sym.gpw')
@@ -41,7 +41,7 @@ calc = GPAW(nbands=-10,
             setups={0: 'hch1s'},
             symmetry='off')
 
-si_nonortho.set_calculator(calc)
+si_nonortho.calc = calc
 e = si_nonortho.get_potential_energy()
 niter = calc.get_number_of_iterations()
 calc.write('si_nonortho_xas_nosym.gpw')
@@ -76,4 +76,3 @@ if mpi.size == 1:
 #    assert (np.sum(abs(y1-y2)[0,:] ** 2 ) < 5e-9)
 #    assert (np.sum(abs(y1-y2)[1,:] ** 2 ) < 5e-9)
 #    assert (np.sum(abs(y1-y2)[2,:] ** 2 ) < 5e-9)
-

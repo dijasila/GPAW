@@ -1,8 +1,25 @@
-#!/usr/bin/env python
-from __future__ import print_function
 import numpy as np
 from gpaw.mpi import world
-from gpaw.utilities.dscftools import mpi_debug
+
+
+def mpi_debug(data, ordered=True):
+    global msgcount
+
+    if not isinstance(data, list):
+        data = [data]
+
+    if ordered:
+        for i in range(world.rank):
+            world.barrier()
+
+    for txt in data:
+        print('%02d-mpi%d, %s' % (msgcount, world.rank, txt))
+        if ordered:
+            msgcount += 1
+
+    if ordered:
+        for i in range(world.size - world.rank):
+            world.barrier()
 
 
 W = world.size
@@ -144,4 +161,3 @@ else:
 """
 
 mpi_debug('result: %s' % result)
-

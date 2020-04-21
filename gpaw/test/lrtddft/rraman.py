@@ -27,7 +27,7 @@ H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
            cell=(a, a, c))
 
 calc = GPAW(xc=xc, nbands=3, spinpol=False, eigensolver='rmm-diis', txt=txt)
-H2.set_calculator(calc)
+H2.calc = calc
 H2.get_potential_energy()
 
 gsname = exname = 'rraman'
@@ -61,4 +61,3 @@ if world.size > 1 and world.rank == 0:
                    comm=comm, verbose=True,)
     isi = pzsi.intensity(omega=om)[-1]
     equal(isi, i, 1e-11)
-

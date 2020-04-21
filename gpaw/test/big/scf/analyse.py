@@ -128,7 +128,7 @@ rundefs = {
     #
     'm101': 'Mixer(0.10, 1)',
     'm102': 'Mixer(0.10, 2)',
-    'm103': 'Mixer(0.10, 3)', # default
+    'm103': 'Mixer(0.10, 3)',  # default
     'm104': 'Mixer(0.10, 4)',
     'm105': 'Mixer(0.10, 5)',
     'm106': 'Mixer(0.10, 6)',
@@ -881,15 +881,14 @@ rundefs = {
     'davfd256': 'FFTMixerDif(0.25, 6)',
     'davfd257': 'FFTMixerDif(0.25, 7)',
     #
-    'jacapo': 'dacapo',
-    }
+    'jacapo': 'dacapo'}
 
 if __name__ == '__main__':
 
     import os
     import warnings
     # silence matplotlib.use() warning
-    warnings.filterwarnings('ignore', '.*This call to matplotlib\.use.*',)
+    warnings.filterwarnings('ignore', r'.*This call to matplotlib\.use.*',)
 
     assert len(sys.argv) > 1
     if len(sys.argv) == 2:

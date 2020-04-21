@@ -2,7 +2,7 @@ from ase.io import read
 from ase.constraints import FixAtoms
 from ase.neb import NEB
 from ase.optimize import BFGS
-from ase.parallel import rank, size
+from gpaw.mpi import rank, size
 
 from gpaw import GPAW
 
@@ -28,7 +28,7 @@ for i in range(3):
                     txt='neb{}.txt'.format(j),
                     communicator=ranks)
 
-        image.set_calculator(calc)
+        image.calc = calc
 
     image.set_constraint(constraint)
     images.append(image)

@@ -22,7 +22,7 @@ H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
            cell=(a, a, c))
 
 calc = GPAW(xc=xc, nbands=3, spinpol=False, eigensolver='rmm-diis', txt=txt)
-H2.set_calculator(calc)
+H2.calc = calc
 H2.get_potential_energy()
 
 gsname = exname = 'rraman'
@@ -68,4 +68,3 @@ alam = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
 # single excitation energies should agree
 equal(ints, alam.intensity(omega=om)[0] , 1e-11)
 alam.summary(omega=5, method='frederiksen')
-

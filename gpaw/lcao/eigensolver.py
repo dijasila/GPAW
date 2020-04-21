@@ -82,7 +82,7 @@ class DirectLCAO(object):
             H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 
-    def iterate(self, hamiltonian, wfs):
+    def iterate(self, hamiltonian, wfs, occ=None):
         wfs.timer.start('LCAO eigensolver')
 
         s = -1

@@ -40,7 +40,7 @@ calc = GPAW(mode='fd',
             txt='BN{0}{0}.CB_charged.txt'.format(N))
 
 
-defect.set_calculator(calc)
+defect.calc = calc
 defect.get_potential_energy()
 calc.write('BN{0}{0}.C_B_charged.gpw'.format(N))
 
@@ -50,7 +50,7 @@ parameters['txt'] = 'BN{0}{0}.CB_neutral.txt'.format(N)
 parameters['charge'] = 0
 calc = GPAW(**parameters)
 
-defect.set_calculator(calc)
+defect.calc = calc
 defect.get_potential_energy()
 calc.write('BN{0}{0}.C_B_neutral.gpw'.format(N))
 
@@ -61,6 +61,6 @@ pristine = system.repeat((N, N, 1))
 parameters['txt'] = 'BN{0}{0}.pristine.txt'.format(N)
 calc = GPAW(**parameters)
 
-pristine.set_calculator(calc)
+pristine.calc = calc
 pristine.get_potential_energy()
 calc.write('BN{0}{0}.pristine.gpw'.format(N))

@@ -109,7 +109,7 @@ class QSFDTD:
         self.gs_calc = GPAW(gpts=self.gpts,
                             poissonsolver=self.poissonsolver,
                             **kwargs)
-        self.atoms.set_calculator(self.gs_calc)
+        self.atoms.calc = self.gs_calc
         self.energy = self.atoms.get_potential_energy()
         self.write(filename, mode='all')
 
@@ -250,7 +250,8 @@ class FDTDPoissonSolver:
     def estimate_memory(self, mem):
         # self.cl.poisson_solver.estimate_memory(mem)
         #print(self.qm.poisson_solver.estimate_memory.__code__.co_varnames)
-        # WTF?  How can this shabby method suddenly be unbound?  It needs both self and mem.
+        # WTF?  How can this shabby method suddenly be unbound?
+        # It needs both self and mem.
         # Ferchrissakes!
         #self.qm.poisson_solver.estimate_memory(mem=mem)
         pass

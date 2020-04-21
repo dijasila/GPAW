@@ -1,3 +1,6 @@
+.. image:: https://badge.fury.io/py/gpaw.svg
+    :target: https://pypi.org/project/gpaw/
+
 GPAW
 ====
 
@@ -12,15 +15,14 @@ Webpage: http://wiki.fysik.dtu.dk/gpaw
 Requirements
 ------------
 
-* Python_ 3.4 or later
+* Python_ 3.6 or later
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
 * SciPy_ (library for scientific computing)
 * LibXC
 * BLAS
-* LAPACK
 
-Optional:
+Optional (highly recommended):
 
 * MPI
 * ScaLAPACK
@@ -31,7 +33,7 @@ Installation
 
 Do this::
 
-    $ python setup.py install --user
+    $ python3 -m pip install gpaw
 
 and make sure you have ``~/.local/bin`` in your $PATH.
 
@@ -40,14 +42,12 @@ For more details, please see:
     https://wiki.fysik.dtu.dk/gpaw/install.html
 
 
-Testing
--------
+Test your installation
+----------------------
 
-Please run the tests::
+You can do a test calculation with::
 
-    $ gpaw test -j 4  # takes 1 hour!
-
-and send us the output if there are failing tests.
+    $ gpaw test
 
 
 Contact
@@ -56,7 +56,6 @@ Contact
 * Mailing list: gpaw-users_
 * IRC_: #gpaw on freenode.net
 * Bug reports and development: gitlab-issues_
-* Old development mailing list (archive): gpaw-developers_
 
 Please send us bug-reports, patches, code, ideas and questions.
 
@@ -71,12 +70,12 @@ Geometry optimization of hydrogen molecule:
 >>> from ase.io import write
 >>> from gpaw import GPAW, PW
 >>> h2 = Atoms('H2',
-               positions=[[0, 0, 0],
-                          [0, 0, 0.7]])
+...            positions=[[0, 0, 0],
+...                       [0, 0, 0.7]])
 >>> h2.center(vacuum=2.5)
->>> h2.set_calculator(GPAW(xc='PBE',
-                           mode=PW(300),
-                           txt='h2.txt'))
+>>> h2.calc = GPAW(xc='PBE',
+...                mode=PW(300),
+...                txt='h2.txt')
 >>> opt = BFGS(h2, trajectory='h2.traj')
 >>> opt.run(fmax=0.02)
 BFGS:   0  09:08:09       -6.566505       2.2970
@@ -86,6 +85,7 @@ BFGS:   3  09:08:13       -6.630429       0.0003
 >>> write('H2.xyz', h2)
 >>> h2.get_potential_energy()  # ASE's units are eV and Å
 -6.6304292169392784
+
 
 Getting started
 ---------------
@@ -98,10 +98,7 @@ look at the GPAW exercises_ and tutorials_.
 .. _ASE: http://wiki.fysik.dtu.dk/ase
 .. _NumPy: http://docs.scipy.org/doc/numpy/reference/
 .. _SciPy: http://docs.scipy.org/doc/scipy/reference/
-.. _Matplotlib: http://matplotlib.org/
-.. _pygtk: http://www.pygtk.org/
 .. _gpaw-users: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-users
-.. _gpaw-developers: https://listserv.fysik.dtu.dk/mailman/listinfo/gpaw-developers
 .. _IRC: http://webchat.freenode.net/?randomnick=0&channels=gpaw
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html

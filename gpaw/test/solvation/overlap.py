@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.build import molecule
 
 from gpaw import GPAW
@@ -31,6 +30,3 @@ for poiss in [None, PoissonSolver(nn=c2.hamiltonian.poisson.nn)]:
     lr = LrTDDFT(c2, poisson=poiss)
     print(lr)
 print(Overlap(c1).pseudo(c2))
-
-
-

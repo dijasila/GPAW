@@ -1,6 +1,5 @@
 """This script calculates the atomization energy of nitrogen using two
 processes, each process working on a separate system."""
-from __future__ import print_function
 from gpaw import GPAW, mpi
 import numpy as np
 from ase import Atoms
@@ -24,7 +23,7 @@ else:
 # Open different files depending on rank
 output = '%d.txt' % rank
 calc = GPAW(communicator=[rank], txt=output, xc='PBE')
-system.set_calculator(calc)
+system.calc = calc
 energy = system.get_potential_energy()
 
 # Now send the energy from the second process to the first process,

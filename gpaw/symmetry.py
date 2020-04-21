@@ -2,8 +2,6 @@
 # Copyright (C) 2014 R. Warmbier Materials for Energy Research Group,
 # Wits University
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, division
-
 from ase.io import read
 from ase.utils import gcd
 import numpy as np
@@ -39,8 +37,7 @@ class Symmetry:
     """
     def __init__(self, id_a, cell_cv, pbc_c=np.ones(3, bool), tolerance=1e-7,
                  point_group=True, time_reversal=True, symmorphic=True,
-                 rotate_aperiodic_directions=False,
-                 translate_aperiodic_directions=False):
+                 allow_invert_aperiodic_axes=True):
         """Construct symmetry object.
 
         Parameters:
@@ -84,18 +81,15 @@ class Symmetry:
         self.symmorphic = symmorphic
         self.point_group = point_group
         self.time_reversal = time_reversal
-        self.rotate_aperiodic_directions = rotate_aperiodic_directions
-        self.translate_aperiodic_directions = translate_aperiodic_directions
-
-        # Disable fractional translations for non-periodic boundary conditions:
-        if not (self.translate_aperiodic_directions or self.pbc_c.all()):
-            self.symmorphic = True
 
         self.op_scc = np.identity(3, int).reshape((1, 3, 3))
         self.ft_sc = np.zeros((1, 3))
         self.a_sa = np.arange(len(id_a)).reshape((1, -1))
         self.has_inversion = False
         self.gcd_c = np.ones(3, int)
+
+        # For reading old gpw-files:
+        self.allow_invert_aperiodic_axes = allow_invert_aperiodic_axes
 
     def analyze(self, spos_ac):
         """Determine list of symmetry operations.
@@ -123,7 +117,7 @@ class Symmetry:
         # Generate all possible 3x3 symmetry matrices using base-3 integers
         power = (6561, 2187, 729, 243, 81, 27, 9, 3, 1)
 
-        # operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
+        # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
         for base3id in range(19683):
             op_cc = np.empty((3, 3), dtype=int)
@@ -139,19 +133,17 @@ class Symmetry:
             if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if (not self.rotate_aperiodic_directions and
-                op_cc[~(pbc_cc | np.identity(3, bool))].any()):
-                # Operation must not swap axes that are not both periodic
+            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+            if op_cc[pbc_cc].any():
+                # Operation must not swap axes that don't have same PBC
                 continue
 
-            pbc_cc = np.logical_and.outer(self.pbc_c, self.pbc_c)
-            if (not self.rotate_aperiodic_directions and
-                not (op_cc[np.diag(~self.pbc_c)] == 1).all()):
-                # Operation must not invert axes that are not periodic
-                continue
+            if not self.allow_invert_aperiodic_axes:
+                if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+                    # Operation must not invert axes that are not periodic
+                    continue
 
-            # operation is a valid symmetry of the unit cell
+            # Operation is a valid symmetry of the unit cell
             self.op_scc.append(op_cc)
 
         self.op_scc = np.array(self.op_scc)
@@ -211,7 +203,8 @@ class Symmetry:
                     if a_a is not None:
                         ftsymmetries.append((op_cc, ft_c, a_a))
                         for c, d in enumerate(denom_c):
-                            self.gcd_c[c] = gcd(self.gcd_c[c] * d, d)
+                            if self.gcd_c[c] % d != 0:
+                                self.gcd_c[c] *= d
 
         # Add symmetry operations with fractional translations at the end:
         symmetries.extend(ftsymmetries)
@@ -542,13 +535,14 @@ def aglomerate_points(k_kc, tol):
                  c] = k_kc[inds_kc[pt_K[i], c], c]
 
 
-def atoms2symmetry(atoms, id_a=None):
+def atoms2symmetry(atoms, id_a=None, tolerance=1e-7):
     """Create symmetry object from atoms object."""
     if id_a is None:
         id_a = atoms.get_atomic_numbers()
     symmetry = Symmetry(id_a, atoms.cell, atoms.pbc,
                         symmorphic=False,
-                        time_reversal=False)
+                        time_reversal=False,
+                        tolerance=tolerance)
     symmetry.analyze(atoms.get_scaled_positions())
     return symmetry
 

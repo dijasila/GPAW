@@ -4,6 +4,7 @@ from math import pi, exp, sqrt, log
 
 import numpy as np
 from scipy.optimize import fsolve
+from scipy.linalg import eigh
 from ase.units import Hartree
 from ase.data import atomic_numbers
 
@@ -11,7 +12,6 @@ from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
 from gpaw.utilities import erf, pack2
-from gpaw.utilities.lapack import general_diagonalize
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 
@@ -387,6 +387,14 @@ class PAWSetupGenerator:
             self.alpha = fsolve(f, 7.0)[0]
 
             self.alpha = round(self.alpha, 1)
+        elif alpha < 0:
+            rc = min(rc)
+            self.log('Shape function: (sin(pi*r/rc)/r)^2, rc={rc:.2f} Bohr'
+                     .format(rc=rc))
+            self.ghat_g = np.sinc(self.rgd.r_g / rc)**2 * (pi / 2 / rc**3)
+            self.ghat_g[self.rgd.ceil(rc):] = 0.0
+            self.alpha = -rc
+            return
 
         self.log('Shape function: exp(-alpha*r^2), alpha=%.1f Bohr^-2' %
                  self.alpha)
@@ -435,7 +443,7 @@ class PAWSetupGenerator:
         self.vtr_g = self.rgd.pseudize(self.aea.vr_sg[0], g0, 1, P)[0]
         if dv0:
             x = self.rgd.r_g[:g0] / r0
-            dv_g = dv0 * (1 - 3 * x**2 + 2 * x**3)
+            dv_g = dv0 * (1 - 2 * x**2 + x**4)
             self.vtr_g[:g0] += x * r0 * dv_g
 
     def match_local_potential(self, r0, P):
@@ -696,8 +704,7 @@ class PAWSetupGenerator:
                 H_bb += np.dot(np.dot(P_bn, waves.dH_nn), P_bn.T)
                 S_bb += np.dot(np.dot(P_bn, waves.dS_nn), P_bn.T)
 
-        e_b = np.empty(len(basis))
-        general_diagonalize(H_bb, e_b, S_bb)
+        e_b, _ = eigh(H_bb, S_bb)
         return e_b
 
     def test_convergence(self):
@@ -720,7 +727,7 @@ class PAWSetupGenerator:
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0]
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
 
-        import pylab as p
+        import matplotlib.pyplot as plt
 
         errors = 10.0**np.arange(-4, 0) / Hartree
         self.log('\nConvergence of energy:')
@@ -743,13 +750,13 @@ class PAWSetupGenerator:
                 ecut = 0.5 * G**2
                 h = pi / G
                 self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
+            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
         self.log()
-        p.axis(xmax=20)
-        p.xlabel('G')
-        p.ylabel('[eV]')
-        p.legend()
-        p.show()
+        plt.axis(xmax=20)
+        plt.xlabel('G')
+        plt.ylabel('[eV]')
+        plt.legend()
+        plt.show()
 
     def plot(self):
         import matplotlib.pyplot as plt
@@ -1070,8 +1077,12 @@ class PAWSetupGenerator:
         setup.e_electrostatic = aea.eH + aea.eZ
         setup.e_total = aea.exc + aea.ekin + aea.eH + aea.eZ
         setup.rgd = self.rgd
-        setup.shape_function = {'type': 'gauss',
-                                'rc': 1 / sqrt(self.alpha)}
+        if self.alpha > 0:
+            setup.shape_function = {'type': 'gauss',
+                                    'rc': 1 / sqrt(self.alpha)}
+        else:
+            setup.shape_function = {'type': 'sinc',
+                                    'rc': -self.alpha}
 
         self.calculate_exx_integrals()
         setup.ExxC = self.exxcc

@@ -111,8 +111,7 @@ for name in names:
             override_illconditioning=True,
             basis_threshold=basis_threshold,
             charge_mix_param=charge_mix_param,
-            sc_iter_limit=9000,
-            )
+            sc_iter_limit=9000)
         atoms.calc.set(**kwargs)  # remaining calc keywords
         t = time.time()
         atoms.get_potential_energy()

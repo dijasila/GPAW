@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 
 pos = np.asarray([1.450 * a for a in range(6)])
@@ -53,4 +52,3 @@ if __name__=='__main__':
     print(np.around(H.real, 2))
     print(np.around(V.real ,2))
     print(np.around(ion_shift.diagonal().real, 2))
-

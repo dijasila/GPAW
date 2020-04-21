@@ -8,53 +8,27 @@ Testing of gpaw is done by a nightly test suite consisting of many
 small and quick tests and by a weekly set of larger test.
 
 
-Quick test suite
-================
+"Quick" test suite
+==================
 
-Use the :program:`gpaw` command to run the tests::
+Use pytest_ pytest-xdist_ to run the tests::
 
-    $ gpaw test --help
-    usage: gpaw test [-h] [-x test1.py,test2.py,...] [-f] [--from TESTFILE]
-                     [--after TESTFILE] [--range test_i.py,test_j.py] [-j JOBS]
-                     [--reverse] [-k] [-d DIRECTORY] [-s] [--list]
-                     [tests [tests ...]]
-
-    Run the GPAW test suite. The test suite can be run in parallel with MPI
-    through gpaw-python. The test suite supports 1, 2, 4 or 8 CPUs although some
-    tests are skipped for some parallelizations. If no TESTs are given, run all
-    tests supporting the parallelization.
-
-    positional arguments:
-      tests
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      -x test1.py,test2.py,..., --exclude test1.py,test2.py,...
-                            Exclude tests (comma separated list of tests).
-      -f, --run-failed-tests-only
-                            Run failed tests only.
-      --from TESTFILE       Run remaining tests, starting from TESTFILE
-      --after TESTFILE      Run remaining tests, starting after TESTFILE
-      --range test_i.py,test_j.py
-                            Run tests in range test_i.py to test_j.py (inclusive)
-      -j JOBS, --jobs JOBS  Run JOBS threads. Each test will be executed in serial
-                            by one thread. This option cannot be used for
-                            parallelization together with MPI.
-      --reverse             Run tests in reverse order (less overhead with
-                            multiple jobs)
-      -k, --keep-temp-dir   Do not delete temporary files.
-      -d DIRECTORY, --directory DIRECTORY
-                            Run test in this directory
-      -s, --show-output     Show standard output from tests.
-      --list                list the full list of tests, then exit
-
-A temporary directory will be made and the tests will run in that
-directory.  If all tests pass, the directory is removed.
+    $ pytest -v -n <number-of-prcesses>
 
 The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
 and in parallel.
 
+In order to run the tests in parallel, do this:
+
+    $ mpiexec -n <number-of-processes> pytest -v
+
+Please report errors to the ``gpaw-users`` mailing list so that we
+can fix them (see :ref:`mail list`).
+
+
+.. _pytest: http://doc.pytest.org/en/latest/contents.html
+.. _pytest-xdist: https://github.com/pytest-dev/pytest-xdist
 
 
 Adding new tests
@@ -62,8 +36,8 @@ Adding new tests
 
 A test script should fulfill a number of requirements:
 
-* It should be quick.  Preferably a few seconds, but a few minutes is
-  OK.  If the test takes several minutes or more, consider making the
+* It should be quick.  Preferably not more than a few seconds.
+  If the test takes several minutes or more, consider making the
   test a :ref:`big test <big-test>`.
 
 * It should not depend on other scripts.
@@ -71,12 +45,19 @@ A test script should fulfill a number of requirements:
 * It should be possible to run it on 1, 2, 4, and 8 cores.
 
 A test can produce standard output and files - it doesn't have to
-clean up.  Remember to add the new test to list of all tests specified
-in the :git:`gpaw/test/__init__.py` file.
+clean up.  Just add the ``in_tmp_dir`` fixture as an argument::
 
-Use this function to check results:
+    def test_something(in_tmp_dir):
+        # make a mess ...
 
-.. function:: gpaw.test.equal(x, y, tolerance=0, fail=True, msg='')
+Here is a parametrized test that uses :func:`~_pytest.python_api.approx` for
+comparing floating point numbers::
+
+    import pytest
+
+    @pytest.mark.parametrize('x', [1.0, 1.5, 2.0])
+    def test_sqr(x):
+        assert x**2 == pytest.approx(x * x)
 
 
 .. _big-test:
@@ -109,4 +90,8 @@ something like::
                      deps=['calculate.py'])]
 
 As shown, this script has to contain the definition of the function
-``create_tasks()``.  See https://myqueue.readthedocs.io/ for more details.
+create_tasks_.  Start the workflow with ``mq workflow -p agts.py .``
+(see https://myqueue.readthedocs.io/ for more details).
+
+.. _create_tasks: https://myqueue.readthedocs.io/en/latest/
+    workflows.html#create_tasks

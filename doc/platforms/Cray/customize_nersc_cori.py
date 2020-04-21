@@ -1,10 +1,10 @@
 compiler = 'cc'
 mpicompiler = 'cc'
 mpilinker = 'cc'
-scalapack=True
-libxc='/usr/common/software/libxc/4.2.3/gnu/haswell'
-include_dirs += [libxc+'/include']
-library_dirs += [xc + '/lib']
+scalapack = True
+libxc = '/usr/common/software/libxc/4.2.3/gnu/haswell'
+include_dirs += [libxc + '/include']
+library_dirs += [libxc + '/lib']
 extra_link_args += ['-Wl,-rpath={xc}/lib'.format(xc=libxc)]
 extra_compile_args += ['-O2']
 if 'xc' not in libraries:

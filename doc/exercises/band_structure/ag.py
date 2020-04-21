@@ -8,7 +8,7 @@ calc = GPAW(mode='pw',
             xc='GLLBSC',
             kpts=(10, 10, 10),
             txt='Ag_GLLBSC.txt')
-ag.set_calculator(calc)
+ag.calc = calc
 ag.get_potential_energy()
 calc.write('Ag_GLLBSC.gpw')
 ef = calc.get_fermi_level()

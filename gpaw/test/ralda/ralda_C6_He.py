@@ -12,7 +12,7 @@ He.center(vacuum=1.0)
 calc = GPAW(mode=PW(force_complex_dtype=True),
             xc='PBE',
             communicator=serial_comm)
-He.set_calculator(calc)
+He.calc = calc
 He.get_potential_energy()
 calc.diagonalize_full_hamiltonian()
 

@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import itertools
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
@@ -129,7 +128,8 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
                          'Use get_compatible_grid_descriptor to construct '
                          'a compatible grid.')
     #assert peer_comm2 is not None
-    assert peer_comm.compare(gd2.comm.new_communicator(peer_ranks2)) == 'congruent'
+    assert peer_comm.compare(
+        gd2.comm.new_communicator(peer_ranks2)) == 'congruent'
     #print('COMPARE', peer_ranks, peer_ranks2, peer_comm.compare(peer_comm2))
 
     # Now check that peer_comm encompasses the same physical processes
@@ -223,7 +223,9 @@ def redistribute(gd, gd2, src, distribute_dir, reduce_dir, operation='forth'):
             assert 0 <= sendstart_ddir
             assert sendstop_ddir <= src.shape[1]
             sendchunk = src[:, sendstart_ddir:sendstop_ddir, :]
-            assert sendchunk.size == mynpts1_rdir * sendnpts_ddir * mynpts_idir, (sendchunk.shape, (mynpts_idir, sendnpts_ddir, mynpts1_rdir))
+            assert (sendchunk.size ==
+                    mynpts1_rdir * sendnpts_ddir * mynpts_idir), (
+                sendchunk.shape, (mynpts_idir, sendnpts_ddir, mynpts1_rdir))
         else:
             sendchunk = src[:, :, recvstart_rdir:recvstop_rdir]
             assert sendchunk.size == recvnpts_rdir * mynpts2_ddir * mynpts_idir

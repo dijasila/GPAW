@@ -1,4 +1,3 @@
-from __future__ import print_function
 
 from ase import Atoms
 from gpaw import GPAW
@@ -16,10 +15,10 @@ calc = GPAW(xc=SIC(),
             txt='n2.sic.new3b.txt',
             setups='hgh')
 
-atom.set_calculator(calc)
+atom.calc = calc
 e1 = atom.get_potential_energy()
 
-molecule.set_calculator(calc)
+molecule.calc = calc
 e2 = molecule.get_potential_energy()
 F_ac = molecule.get_forces()
 print(2 * e1 - e2)

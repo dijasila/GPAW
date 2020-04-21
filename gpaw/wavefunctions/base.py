@@ -463,16 +463,24 @@ class WaveFunctions:
             r.ha = reader.ha
         if 'version' not in r:
             r.version = reader.version
+
+        if reader.version >= 2:
+            kpts = r.kpts
+            assert np.allclose(kpts.ibzkpts, self.kd.ibzk_kc)
+            assert np.allclose(kpts.bzkpts, self.kd.bzk_kc)
+            assert (kpts.bz2ibz == self.kd.bz2ibz_k).all()
+            assert np.allclose(kpts.weights, self.kd.weight_k)
+
         self.read_projections(r)
-        self.read_eigenvalues(r, r.version == 0)
-        self.read_occupations(r, r.version == 0)
+        self.read_eigenvalues(r, r.version <= 0)
+        self.read_occupations(r, r.version <= 0)
 
     def read_projections(self, reader):
         nslice = self.bd.get_slice()
         nproj_a = [setup.ni for setup in self.setups]
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
-        for u, kpt in enumerate(self.kpt_u):
+        for u, kpt in enumerate(self.mykpts):
             if self.collinear:
                 index = (kpt.s, kpt.k)
             else:

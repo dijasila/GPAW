@@ -10,7 +10,129 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.17.1b1
+* Corresponding ASE release: ASE-3.20.0b1
+
+* Forces are now available for hybrid functionals in
+  plane-wave mode.
+
+* New functions for non self-consistent hybrid calculations:
+  :func:`gpaw.hybrids.energy.non_self_consistent_energy` and
+  :func:`gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues`.
+
+* Python 3.6 or later is required now.
+
+* The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
+  time-dependent potentials.
+
+* New :meth:`~gpaw.calculator.GPAW.get_atomic_electrostatic_potentials`
+  method.  Useful for aligning eigenvalues from different calculations.
+  See :ref:`this example <potential>`.
+
+* We are using pytest_ for :ref:`testing`.
+
+* We are now using MyPy_ for static analysis of the source code.
+
+
+.. _pytest: http://doc.pytest.org/en/latest/contents.html
+.. _mypy: https://mypy.readthedocs.io/en/stable/
+
+
+Version 20.1.0
+==============
+
+30 Jan 2020: :git:`20.1.0 <../20.1.0>`
+
+* Corresponding ASE release: ASE-3.19.0.
+
+* Self-consistent calculations with hybrid functionals are now possible in
+  plane-wave mode.  You have to parallelize over plane-waves and you must
+  use the Davidson eigensolver with one iteration per scf step::
+
+      from gpaw import GPAW, PW, Davidson
+      calc = GPAW(mode=PW(ecut=...),
+                  xc='HSE06',
+                  parallel={'band': 1, 'kpt': 1},
+                  eigensolver=Davidson(niter=1),
+                  ...)
+
+* We are now using setuptools_ instead of :mod:`distutils`.
+  This means that installation with pip works much better.
+
+* No more ``gpaw-python``.
+  By default, an MPI-enabled Python interpreter is not built
+  (use ``parallel_python_interpreter=True`` if you want a gpaw-python).
+  The ``_gpaw.so`` C-extension file (usually only used for serial calculations)
+  will now be compiled with ``mpicc`` and contain what is necessary for both
+  serial and parallel calculations.  In order to run GPAW in parallel, you
+  do one of these three::
+
+      $ mpiexec -n 24 gpaw python script.py
+      $ gpaw -P 24 python script.py
+      $ mpiexec -n 24 python3 script.py
+
+  The first two are the recommended ones:  The *gpaw* script will make sure
+  that imports are done in an efficient way.
+
+* Configuration/customization:
+  The ``customize.py`` file in the root folder of the Git repository is no
+  longer used.  Instead, the first of the following three files that exist
+  will be used:
+
+  1) the file that ``$GPAW_CONFIG`` points at
+  2) ``<git-root>/siteconfig.py``
+  3) ``~/.gpaw/siteconfig.py``
+
+  This will be used to configure things
+  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  is found then you get ``libraries = ['xc', 'blas']``.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+* Debug mode is now enabled with::
+
+      $ python3 -d script.py
+
+* Dry-run mode is now enabled with::
+
+      $ gpaw python --dry-run=N script.py
+
+* New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
+  will converge bands up to conduction band minimum plus 2.5 eV.
+
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
+* :ref:`Marzari-Vanderbilt distribution function <manual_occ>` added.
+
+* New configuration option: ``noblas = True``.  Useful for compiling GPAW
+  without a BLAS library.  :mod:`scipy.linalg.blas` and :func:`numpy.dot`
+  will be used instead.
+
+.. _setuptools: https://setuptools.readthedocs.io/en/latest/
+
+
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* The ``"You have a weird unit cell"`` and
+  ``"Real space grid not compatible with symmetry operation"``
+  errors are now gone.  GPAW now handles these cases by
+  choosing the number of real-space grid-points in a more clever way.
 
 * The angular part of the PAW correction to the ALDA kernel is now calculated
   analytically by expanding the correction in spherical harmonics.
@@ -40,6 +162,9 @@ Git master branch
 * New "metallic boundary conditions" have been added to the for PoissonSolver.
   This enables simulating charged 2D systems without counter charges.
   See: :git:`gpaw/test/poisson/metallic_poisson.py`
+
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
 
 .. _JTH: https://www.abinit.org/psp-tables
 

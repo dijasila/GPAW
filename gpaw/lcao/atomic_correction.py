@@ -22,7 +22,8 @@ class BaseAtomicCorrection:
         return dO_aii
 
     def calculate_hamiltonian(self, kpt, dH_asp, H_MM, yy):
-        dH_aii = dH_asp.partition.arraydict(self.dS_aii.shapes_a)
+        dH_aii = dH_asp.partition.arraydict(self.dS_aii.shapes_a,
+                                            dtype=dH_asp.dtype)
 
         for a in dH_asp:
             dH_aii[a] = yy * unpack(dH_asp[a][kpt.s])
@@ -101,7 +102,7 @@ class SparseAtomicCorrection(BaseAtomicCorrection):
         nI = P_indices.max
 
         import scipy.sparse as sparse
-        dXsparse_II = sparse.lil_matrix((nI, nI), dtype=X_MM.dtype)
+        dXsparse_II = sparse.dok_matrix((nI, nI), dtype=X_MM.dtype)
         for a in dX_aii:
             I1, I2 = P_indices[a]
             dXsparse_II[I1:I2, I1:I2] = dX_aii[a]

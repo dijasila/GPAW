@@ -1,5 +1,4 @@
 """Trajectory module with viewmol support."""
-from __future__ import print_function
 
 from math import sqrt
 import numpy as np
@@ -253,4 +252,3 @@ def write_viewmol(pt, filename, mode='w'):
     for atoms in pt:
         vt.add(atoms)
     del(vt)
-

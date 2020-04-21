@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.utilities import packed_index
 
+
 class Overlap:
     """Wave funcion overlap of two GPAW objects"""
     def __init__(self, calc):
@@ -11,11 +12,13 @@ class Overlap:
         self.kd = self.calc.wfs.kd
 
     def number_of_states(self, calc):
+        # we will need the wave functions
+        calc.converge_wave_functions()
         return (calc.get_number_of_bands(), len(calc.get_ibz_k_points()),
                 calc.get_number_of_spins())
 
     def pseudo(self, other, myspin=0, otherspin=0, normalize=True):
-        """Overlap with pseudo wave functions only
+        r"""Overlap with pseudo wave functions only
 
         Parameter
         ---------
@@ -39,7 +42,7 @@ class Overlap:
             assert self.kd.comm.rank == kpt_rank
             kpt_rank, uo = other.wfs.kd.get_rank_and_index(otherspin, k)
             assert self.kd.comm.rank == kpt_rank
-            
+
             overlap_nn = np.zeros((self.nb, nbo), dtype=self.calc.wfs.dtype)
             mkpt = self.calc.wfs.kpt_u[u]
             okpt = other.wfs.kpt_u[uo]
@@ -63,11 +66,11 @@ class Overlap:
         ---------
         other: gpaw
             gpaw-object containing wave functions
- 
+
         Returns
         -------
         out: array
-            u_kij =  \int dx mypsi_ki^*(x) otherpsi_kj(x)
+            u_kij = int dx mypsi_ki^*(x) otherpsi_kj(x)
         """
         ov_knn = self.pseudo(other, normalize=False)
         for k in range(self.nk):
@@ -84,7 +87,7 @@ class Overlap:
             for a, mP_ni in mkpt.P_ani.items():
                 oP_ni = okpt.P_ani[a]
                 Delta_p = (np.sqrt(4 * np.pi) *
-                           self.calc.wfs.setups[a].Delta_pL[:,0])
+                           self.calc.wfs.setups[a].Delta_pL[:, 0])
                 for n0, mP_i in enumerate(mP_ni):
                     for n1, oP_i in enumerate(oP_ni):
                         ni = len(mP_i)

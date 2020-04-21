@@ -12,13 +12,13 @@ The numbers are compared to:
   DOI: 10.1103/PhysRevB.81.195117
 """
 
+import numpy as np
 import ase.db
 from ase.build import bulk
 from ase.dft.kpoints import monkhorst_pack
 
 from gpaw import GPAW, PW
-from gpaw.xc.exx import EXX
-from gpaw.xc.tools import vxc
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues as nsceigs
 
 
 # Data from Betzinger, Friedrich and Blügel:
@@ -66,9 +66,6 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
                       kpts=kpts,
                       txt='%s.txt' % name)
 
-    if name in ['MgO', 'NaCl']:
-        atoms.calc.set(eigensolver='dav')
-
     atoms.get_potential_energy()
     atoms.calc.write(name + '.gpw', mode='all')
 
@@ -76,27 +73,25 @@ for name in ['Si', 'C', 'GaAs', 'MgO', 'NaCl', 'Ar']:
     n = int(atoms.calc.get_number_of_electrons()) // 2
 
     ibzk = []
-    eps_kn = []
     for k_c in [(0, 0, 0), (0.5, 0.5, 0), (0.5, 0.5, 0.5)]:
         k = abs(ibzk_kc - k_c).max(1).argmin()
         ibzk.append(k)
-        eps_kn.append(atoms.calc.get_eigenvalues(k)[n - 1:n + 1])
         if name == 'Ar':
             break
 
-    deps_kn = vxc(atoms.calc, 'PBE')[0, ibzk, n - 1:n + 1]
+    eps_skn, deps_skn, deps0_skn = nsceigs(name + '.gpw',
+                                           'PBE0',
+                                           n - 1, n + 1,
+                                           ibzk)
 
-    pbe0 = EXX(name + '.gpw', 'PBE0', ibzk, (n - 1, n + 1), txt=name + '.exx')
-    pbe0.calculate(restart=name + '.json')
-    deps0_kn = pbe0.get_eigenvalue_contributions()[0]
-
-    eps0_kn = eps_kn - deps_kn + deps0_kn
+    eps0_kn = (eps_skn - deps_skn + deps0_skn)[0]
 
     data = {}
     for k, point in enumerate('GXL'):
-        data[point] = [eps_kn[k][1] - eps_kn[0][0],
-                       eps0_kn[k, 1] - eps0_kn[0, 0]]
-        data[point] += bfb[name][2 + k * 4:6 + k * 4]
+        data[point] = np.array(
+            [eps_skn[0, k, 1] - eps_skn[0, 0, 0],
+             eps0_kn[k, 1] - eps0_kn[0, 0]] +
+            bfb[name][2 + k * 4:6 + k * 4])
         if name == 'Ar':
             break
 

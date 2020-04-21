@@ -10,4 +10,5 @@ def create_tasks():
         task('dscf_CO.py'),
         task('revtpss_tpss_scf.py'),
         task('ltt.py'),
+        task('scalapack.py', cores=16),
         task('pblacs_oblong.py@64:5m')]

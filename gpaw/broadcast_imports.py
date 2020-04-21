@@ -33,14 +33,13 @@ if hasattr(_gpaw, 'Communicator'):
     if '_gpaw' not in sys.builtin_module_names:
         libmpi = os.environ.get('GPAW_MPI', 'libmpi.so')
         import ctypes
-        ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
-
+        try:
+            ctypes.CDLL(libmpi, ctypes.RTLD_GLOBAL)
+        except OSError:
+            pass
     world = _gpaw.Communicator()
 else:
-    world = None
-
-paths = {}
-sources = {}
+    world = None  # type: ignore
 
 
 def marshal_broadcast(obj):
@@ -98,6 +97,7 @@ class BroadcastLoader:
 class BroadcastImporter:
     def __init__(self):
         self.module_cache = {}
+        self.cached_modules = []
 
     def find_spec(self, fullname, path=None, target=None):
         if world.rank == 0:
@@ -160,6 +160,7 @@ class BroadcastImporter:
 
         if world.rank == 0:
             self.broadcast()
+        self.cached_modules += self.module_cache.keys()
         self.module_cache = {}
         myself = sys.meta_path.pop(0)
         assert myself is self
@@ -259,12 +260,7 @@ if 0:
             if module_data.code is None:
                 return self.load_as_normal(name)
 
-            if sys.version_info[0] == 2:
-                # Load, ignoring checksum and time stamp.
-                # 8 is header length (12 in py3, if we need that someday)
-                code = marshal.loads(module_data.code[8:])
-            else:
-                code = module_data.code
+            code = module_data.code
 
             imp.acquire_lock()  # Required in threaded applications
 

@@ -1,6 +1,6 @@
 """GPAW command-line tool."""
-from __future__ import print_function
 import os
+import subprocess
 import sys
 
 
@@ -12,10 +12,10 @@ from gpaw import __version__
 commands = [
     ('run', 'gpaw.cli.run'),
     ('info', 'gpaw.cli.info'),
+    ('test', 'gpaw.cli.test'),
     ('dos', 'gpaw.cli.dos'),
     ('gpw', 'gpaw.cli.gpw'),
     ('completion', 'gpaw.cli.completion'),
-    ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
     # ('quick', 'gpaw.cli.quick'),
@@ -29,8 +29,23 @@ commands = [
 
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
-                        help="Run on N CPUs.")
-    args = parser.parse_args()
+                        help='Run on N CPUs.')
+    args, extra = parser.parse_known_args(args)
+    if extra:
+        assert not args.arguments
+        args.arguments = extra
+
+    if args.command == 'python':
+        args.traceback = True
+
+    if hasattr(args, 'dry_run'):
+        N = int(args.dry_run)
+        if N:
+            import gpaw
+            gpaw.dry_run = N
+            import gpaw.mpi as mpi
+            mpi.world = mpi.SerialCommunicator()
+            mpi.world.size = N
 
     if args.parallel:
         from gpaw.mpi import have_mpi, world
@@ -43,12 +58,20 @@ def hook(parser, args):
 
         if py:
             # Start again in parallel:
-            arguments = ['mpiexec', '-np', str(args.parallel), py]
-            if args.command == 'python':
-                arguments += args.arguments
-            else:
-                arguments += ['-m', 'gpaw'] + sys.argv[1:]
-            os.execvp('mpiexec', arguments)
+            arguments = ['mpiexec',
+                         '-np',
+                         str(args.parallel),
+                         py,
+                         '-m',
+                         'gpaw'] + sys.argv[1:]
+
+            extra = os.environ.get('GPAW_MPI_OPTIONS')
+            if extra:
+                arguments[1:1] = extra.split()
+
+            # Use a clean set of environment variables without any MPI stuff:
+            p = subprocess.run(arguments, check=not True, env=os.environ)
+            sys.exit(p.returncode)
 
     return args
 

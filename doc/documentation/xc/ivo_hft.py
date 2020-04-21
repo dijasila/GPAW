@@ -25,7 +25,7 @@ mol.minimal_box(5.0, h=h)
 calc = GPAW(txt='NaCl.txt', xc='LCY-PBE:omega=0.40:excitation=singlet',
             eigensolver=RMMDIIS(), h=h, occupations=FermiDirac(width=0.0),
             spinpol=False, convergence=c)
-mol.set_calculator(calc)
+mol.calc = calc
 mol.get_potential_energy()
 (eps_homo, eps_lumo) = calc.get_homo_lumo()
 e_ex = eps_lumo - eps_homo
@@ -39,5 +39,3 @@ if world.rank == 0:
     lr2.diagonalize()
     ex_lr = lr2[1].get_energy() * Hartree
     equal(e_singlet_lr, e_singlet, 0.05)
-
-

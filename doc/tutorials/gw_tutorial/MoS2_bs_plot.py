@@ -1,5 +1,4 @@
 # Creates: MoS2_bs.png
-from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
