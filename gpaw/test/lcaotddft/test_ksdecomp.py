@@ -84,10 +84,10 @@ def test_lcaotddft_ksdecomp(in_tmp_dir):
         relative_equal(ref_wv[w], spec_v, tol)
 
         # KS transformation
-        rho_up = ksd.transform(rho_uMM)
+        rho_up = ksd.transform(rho_uMM, broadcast=True)
 
         # Calculate dipole moment from induced density
-        rho_g = ksd.get_density([rho_up[0].imag])
+        rho_g = ksd.get_density(calc.wfs, [rho_up[0].imag])
         dm_v = ksd.density.finegd.calculate_dipole_moment(rho_g)
         spec_v = 2 * freq.freq / np.pi * dm_v / au_to_eV
 
