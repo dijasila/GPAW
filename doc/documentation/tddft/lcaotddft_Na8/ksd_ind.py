@@ -26,7 +26,7 @@ def do(w):
     rho_up = ksd.transform(rho_uMM, broadcast=True)
 
     # Induced density
-    rho_g = ksd.get_density([rho_up[0].imag])
+    rho_g = ksd.get_density(calc.wfs, [rho_up[0].imag])
 
     # Save as a cube file
     write('ind_%.2f.cube' % (freq.freq * au_to_eV), calc.atoms, data=rho_g)
