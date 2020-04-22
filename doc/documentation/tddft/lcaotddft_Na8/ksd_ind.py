@@ -23,7 +23,7 @@ def do(w):
     print('Folding: %s' % freq.folding)
 
     # Transform the LCAO density matrix to KS basis
-    rho_up = ksd.transform(rho_uMM)
+    rho_up = ksd.transform(rho_uMM, broadcast=True)
 
     # Induced density
     rho_g = ksd.get_density([rho_up[0].imag])
