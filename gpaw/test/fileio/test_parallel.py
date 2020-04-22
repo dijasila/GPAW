@@ -21,7 +21,7 @@ def test_fileio_parallel(in_tmp_dir):
                 kpts=(4, 4, 4),
                 parallel={'band': 2, 'domain': (2, 1, 1)},
                 maxiter=4)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     try:
         atoms.get_potential_energy()
     except ConvergenceError:

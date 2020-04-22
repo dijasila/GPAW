@@ -29,12 +29,12 @@ def test_pseudopotential_sg15_hydrogen(in_tmp_dir):
                     xc='oldPBE')
 
     calc1 = GPAW(setups='sg15', h=0.13, **getkwargs())
-    system.set_calculator(calc1)
+    system.calc = calc1
     system.get_potential_energy()
     eps1 = calc1.get_eigenvalues()
 
     calc2 = GPAW(h=0.2, **getkwargs())
-    system.set_calculator(calc2)
+    system.calc = calc2
     system.get_potential_energy()
     eps2 = calc2.get_eigenvalues()
 

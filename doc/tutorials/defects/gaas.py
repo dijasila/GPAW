@@ -41,7 +41,7 @@ calc = GPAW(mode='fd',
             txt='GaAs{0}{0}{0}.Ga_vac.txt'.format(N))
 
 
-GaAsdef.set_calculator(calc)
+GaAsdef.calc = calc
 Edef = GaAsdef.get_potential_energy()
 
 calc.write('GaAs{0}{0}{0}.Ga_vac_charged.gpw'.format(N))
@@ -54,7 +54,7 @@ parameters['txt'] = 'GaAs{0}{0}{0}.pristine.txt'.format(N)
 parameters['charge'] = 0
 calc = GPAW(**parameters)
 
-GaAspris.set_calculator(calc)
+GaAspris.calc = calc
 Epris = GaAspris.get_potential_energy()
 
 calc.write('GaAs{0}{0}{0}.pristine.gpw'.format(N))

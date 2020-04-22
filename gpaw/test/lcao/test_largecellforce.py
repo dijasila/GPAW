@@ -35,7 +35,7 @@ def test_lcao_largecellforce():
                 convergence={'density':1e-4, 'energy': 1e-7},
                 )
 
-    system.set_calculator(calc)
+    system.calc = calc
 
     F_ac = system.get_forces()
 

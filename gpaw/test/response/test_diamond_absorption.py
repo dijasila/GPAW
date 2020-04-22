@@ -15,7 +15,7 @@ def test_response_diamond_absorption(in_tmp_dir):
                 eigensolver='rmm-diis',
                 occupations=FermiDirac(0.001))
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('C.gpw', 'all')
 

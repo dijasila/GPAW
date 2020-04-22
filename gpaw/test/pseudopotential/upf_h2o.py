@@ -70,5 +70,5 @@ if 1:
                 #nbands=4
                 )
 
-    system.set_calculator(calc)
+    system.calc = calc
     system.get_potential_energy()

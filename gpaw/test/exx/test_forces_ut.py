@@ -49,7 +49,7 @@ def test_force():
     ep = energy(calc, sym, coulomb)
     error = (em - ep) / (dx * L * Bohr) - F_v[1]
     print(error)
-    assert abs(error) < 5e-11
+    assert abs(error) < 2e-10
 
 
 class Calc:

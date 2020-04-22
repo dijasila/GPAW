@@ -61,9 +61,7 @@ class HybridXC:
 
     def calculate(self, gd, nt_sr, vt_sr):
         energy = self.ecc + self.evv + self.evc
-        e_r = gd.empty()
-        self.xc.calculate(gd, nt_sr, vt_sr, e_r)
-        energy += gd.integrate(e_r)
+        energy += self.xc.calculate(gd, nt_sr, vt_sr)
         return energy
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):

@@ -47,7 +47,7 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
                 calc = GPAW(h=0.25, nbands=4, mode=mode,
                             poissonsolver={'name': 'fd'},
                             eigensolver=eigensolver, txt=txt)
-            Be.set_calculator(calc)
+            Be.calc = calc
             Be.get_potential_energy()
 
             kss = KSSingles(calc, eps=0.9)

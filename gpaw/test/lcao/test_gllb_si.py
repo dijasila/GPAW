@@ -22,7 +22,7 @@ def test_lcao_gllb_si(in_tmp_dir):
 
     calc.attach(stopcalc, 1)
 
-    si.set_calculator(calc)
+    si.calc = calc
     si.get_potential_energy()
 
     response = calc.hamiltonian.xc.xcs['RESPONSE']

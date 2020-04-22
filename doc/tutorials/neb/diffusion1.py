@@ -19,7 +19,7 @@ mask = [atom.tag > 1 for atom in slab]
 slab.set_constraint(FixAtoms(mask=mask))
 
 # Use EMT potential:
-slab.set_calculator(EMT())
+slab.calc = EMT()
 
 # Initial state:
 qn = QuasiNewton(slab, trajectory='initial.traj')

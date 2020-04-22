@@ -29,7 +29,7 @@ def test_generic_guc_force():
                 kpts=(2,2,2),
                 convergence={'density':1e-5, 'energy': 1e-6}
                 )
-    system.set_calculator(calc)
+    system.calc = calc
 
     F_ac = system.get_forces()
 

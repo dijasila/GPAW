@@ -23,7 +23,7 @@ def test_pathological_nonlocalset():
     def MGGA_fail():
         calc = GPAW(xc='TPSS', mixer=Mixer(0.5, 5, 50.0),
                     eigensolver='cg',kpts=(1,2,1), convergence={'density':1e-8})
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.set(kpts=(4,1,1))
         return atoms.get_potential_energy()
@@ -32,14 +32,14 @@ def test_pathological_nonlocalset():
         calc = GPAW(xc='TPSS', mixer=Mixer(0.5, 5, 50.0),
                     eigensolver='cg', kpts=(4,1,1), convergence={'density':1e-8})
 
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         return atoms.get_potential_energy()
 
     def GLLBSC_fail():
         calc = GPAW(xc='GLLBSC', mixer=Mixer(0.5, 5, 50.0),
                     eigensolver='cg', kpts=(1,2,1), convergence={'density':1e-8})
 
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.set(kpts=(4,1,1))
         return atoms.get_potential_energy()
@@ -48,7 +48,7 @@ def test_pathological_nonlocalset():
         calc = GPAW(xc='GLLBSC', mixer=Mixer(0.5, 5, 50.0),
                     eigensolver='cg', kpts=(4,1,1), convergence={'density':1e-8})
 
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         return atoms.get_potential_energy()
 
     a = GLLBSC_fail()

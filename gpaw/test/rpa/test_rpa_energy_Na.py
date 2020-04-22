@@ -17,7 +17,7 @@ def test_rpa_rpa_energy_Na(in_tmp_dir):
                 nbands=4,
                 occupations=FermiDirac(0.01),
                 setups={'Na': '1'})
-    blk.set_calculator(calc)
+    blk.calc = calc
     blk.get_potential_energy()
     calc.write('gs_occ_pw.gpw')
 

@@ -32,7 +32,7 @@ isolated_calc = GPAW(
     convergence={'density': 1.e-6},
     mixer=Mixer(beta=0.05, nmaxold=5, weight=50.0))
 
-isolated_silicon.set_calculator(isolated_calc)
+isolated_silicon.calc = isolated_calc
 
 isolated_silicon.get_potential_energy()
 isolated_calc.diagonalize_full_hamiltonian()  # ouch

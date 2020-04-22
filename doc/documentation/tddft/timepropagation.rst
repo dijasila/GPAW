@@ -54,7 +54,7 @@ Ground state example::
   # Create GPAW calculator
   calc = GPAW(nbands=1, h=0.3)
   # Attach calculator to atoms
-  atoms.set_calculator(calc)
+  atoms.calc = calc
   
   # Calculate the ground state
   energy = atoms.get_potential_energy()

@@ -31,7 +31,7 @@ calc = GPAW(h=0.18,
             kpts={'density': 10.0, 'gamma': True},
             occupations=FermiDirac(0.1))
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write('gs.gpw')
 

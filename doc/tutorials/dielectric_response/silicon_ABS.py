@@ -20,7 +20,7 @@ calc = GPAW(mode='pw',
             xc='LDA',
             occupations=FermiDirac(0.001))  # use small FD smearing
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()  # get ground state density
 
 # Restart Calculation with fixed density and dense kpoint sampling

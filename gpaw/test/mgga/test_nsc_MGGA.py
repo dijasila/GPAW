@@ -18,7 +18,7 @@ def test_mgga_nsc_MGGA(in_tmp_dir):
                     gpts=(32, 32, 32), nbands=1, xc=xc('oldPBE'))
 
     calc = GPAW(txt='Hnsc.txt', **getkwargs())
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     e1ref = calc.get_reference_energy()
@@ -46,7 +46,7 @@ def test_mgga_nsc_MGGA(in_tmp_dir):
     atomsHe = Atoms('He', pbc=True)
     atomsHe.center(vacuum=3)
     calc = GPAW(txt='Hensc.txt', **getkwargs())
-    atomsHe.set_calculator(calc)
+    atomsHe.calc = calc
     e1He = atomsHe.get_potential_energy()
     niter_1He = calc.get_number_of_iterations()
     e1refHe = calc.get_reference_energy()

@@ -26,7 +26,7 @@ def test_pw_expert_diag(in_tmp_dir):
                     eigensolver='rmm-diis',
                     parallel={'domain': 1},
                     symmetry='off', txt=name + '.txt')
-        si.set_calculator(calc)
+        si.calc = calc
         si.get_potential_energy()
         calc.diagonalize_full_hamiltonian(expert=expert, nbands=48)
         string = name + '.gpw'

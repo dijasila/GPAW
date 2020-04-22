@@ -37,7 +37,7 @@ def calc_me(atoms, nbands):
                     'bands': nbands,
                     'eigenstates': 1e-4,
                     'density': 1e-3})
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     try:
         atoms.get_potential_energy()
     except KohnShamConvergenceError:

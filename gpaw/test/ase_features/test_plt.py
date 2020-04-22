@@ -26,7 +26,7 @@ def test_ase_features_plt(in_tmp_dir):
     fname = 'H2.gpw'
     if (not load) or (not os.path.exists(fname)):
         calc = GPAW(xc='PBE', nbands=2, spinpol=False, txt=txt)
-        H2.set_calculator(calc)
+        H2.calc = calc
         H2.get_potential_energy()
         if load:
             calc.write(fname, 'all')

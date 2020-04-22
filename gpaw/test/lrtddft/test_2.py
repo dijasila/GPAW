@@ -22,7 +22,7 @@ def test_lrtddft_2(in_tmp_dir):
                 spinpol=False,
                 eigensolver='rmm-diis',
                 txt=txt)
-    H2.set_calculator(calc)
+    H2.calc = calc
     H2.get_potential_energy()
     calc.write('H2saved_wfs.gpw', 'all')
     calc.write('H2saved.gpw')
