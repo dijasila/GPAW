@@ -8,7 +8,7 @@ from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw.xc.exx import EXX
 from gpaw.mpi import world
 
-pytestmark = pytest.skipif(world.size > 1, reason='Not parallelized')
+pytestmark = pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 
 n = 7
 
