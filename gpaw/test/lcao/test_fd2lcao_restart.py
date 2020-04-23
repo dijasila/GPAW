@@ -25,7 +25,7 @@ def test_lcao_fd2lcao_restart(in_tmp_dir):
                     kpts=(3, 1, 1),
                     #basis='dzp',
                     txt='Na4_fd.txt')
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         etot_fd = atoms.get_potential_energy()
         niter_fd = calc.get_number_of_iterations()
         print('Etot:', etot_fd, 'eV in fd-mode')

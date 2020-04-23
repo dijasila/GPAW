@@ -21,7 +21,7 @@ def test_vdw_ar2(in_tmp_dir):
         calc = GPAW(h=0.2, xc=dict(name='revPBE', stencil=1),
                     mixer=Mixer(0.8, 7, 50.0),
                     eigensolver=Davidson(5))
-        dimer.set_calculator(calc)
+        dimer.calc = calc
         e2 = dimer.get_potential_energy()
         calc.write('Ar2.gpw')
         e2vdw = calc.get_xc_difference(vdw)

@@ -29,3 +29,4 @@ au_to_eV = aufrequency_to_eV
 as_to_au = attosec_to_autime
 au_to_as = autime_to_attosec
 au_to_fs = au_to_as / 1e3
+fs_to_au = as_to_au * 1e3

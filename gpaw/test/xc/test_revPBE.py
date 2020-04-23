@@ -10,7 +10,7 @@ def test_xc_revPBE():
     atoms = Atoms('He', [(0.0, 0.0, 0.0)], cell=(a, a, a), pbc=True)
     calc = GPAW(gpts=(n, n, n), nbands=1, xc={'name': 'PBE', 'stencil': 1},
                 poissonsolver=PoissonSolver('fd'))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     e1a = calc.get_reference_energy()

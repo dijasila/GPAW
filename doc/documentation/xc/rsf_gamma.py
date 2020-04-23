@@ -28,7 +28,7 @@ calc = GPAW(txt='CO.txt', xc='LCY-PBE:omega=0.81', convergence=c,
             eigensolver=RMMDIIS(), h=h,
             poissonsolver=PoissonSolver(use_charge_center=True),
             occupations=FermiDirac(width=0.0), spinpol=False)
-co.set_calculator(calc)
+co.calc = calc
 co.get_potential_energy()
 (eps_homo, eps_lumo) = calc.get_homo_lumo()
 equal(eps_homo, -IP, 0.15)

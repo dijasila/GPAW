@@ -38,7 +38,7 @@ def test_ofdft_ofdft(in_tmp_dir):
                     poissonsolver=PoissonSolver(eps=1e-6),
                     eigensolver='cg', mixer=mixer, charge=charge)
 
-        atom.set_calculator(calc)
+        atom.calc = calc
 
         E = atom.get_total_energy()
         n = calc.get_all_electron_density()

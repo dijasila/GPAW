@@ -38,7 +38,7 @@ calc = GPAW(h=0.3,
             txt='pt_h2_lcao_scat.txt',
             mixer=Mixer(0.1, 5, weight=100.0),
             symmetry={'point_group': False, 'time_reversal': False})
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 atoms.get_potential_energy()  # Converge everything!
 Ef = atoms.calc.get_fermi_level()
@@ -71,7 +71,7 @@ calc = GPAW(h=0.3,
             txt='pt_h2_lcao_llead.txt',
             mixer=Mixer(0.1, 5, weight=100.0),
             symmetry={'point_group': False, 'time_reversal': False})
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 atoms.get_potential_energy()  # Converge everything!
 Ef = atoms.calc.get_fermi_level()

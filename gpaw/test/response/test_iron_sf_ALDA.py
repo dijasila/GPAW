@@ -85,7 +85,7 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
                 idiotproof=False,
                 parallel={'domain': 1})
 
-    Febcc.set_calculator(calc)
+    Febcc.calc = calc
     Febcc.get_potential_energy()
     t2 = time.time()
 

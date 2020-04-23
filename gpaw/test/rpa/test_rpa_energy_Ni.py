@@ -16,7 +16,7 @@ def test_rpa_rpa_energy_Ni(in_tmp_dir):
                 occupations=FermiDirac(0.001),
                 setups={'Ni': '10'},
                 communicator=serial_comm)
-    Ni.set_calculator(calc)
+    Ni.calc = calc
     E = Ni.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 

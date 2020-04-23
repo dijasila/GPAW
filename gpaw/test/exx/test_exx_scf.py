@@ -38,7 +38,7 @@ def test_exx_exx_scf(in_tmp_dir):
                           h=h, maxiter=35)   # Up to 24 are needed by now
         calculator.set(xc=HybridXC('PBE0'))
         calculator.set(txt=atom + '-PBE0.txt')
-        work_atom.set_calculator(calculator)
+        work_atom.calc = calculator
         try:
             work_atom.get_potential_energy()
         except KohnShamConvergenceError:

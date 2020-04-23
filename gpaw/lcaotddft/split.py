@@ -179,7 +179,7 @@ atoms.center(vacuum=5)
 calc = LCAOTDDFT(mode='lcao', dtype=complex, width=0.01,
                  basis='LDA.dz+5p', xc='LDA', h=0.3,
                  mixer=Mixer(0.1,4,weight=100))
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.absorption_kick([0.001,0.00,0.00])
 split = SplitDensityCollector('ag13', calc, 13*5)

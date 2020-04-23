@@ -10,7 +10,7 @@ from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.install import install as _install
 from setuptools.command.develop import develop as _develop
-import subprocess
+from subprocess import run, PIPE
 import sys
 from pathlib import Path
 
@@ -63,13 +63,13 @@ fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
-mpicompiler = 'mpicc'
-mpilinker = 'mpicc'
 
-error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
-if error:
+if os.name != 'nt' and run(['which', 'mpicc'], stdout=PIPE).returncode == 0:
+    mpicompiler = 'mpicc'
+else:
     mpicompiler = None
-    mpilinker = None
+
+mpilinker = mpicompiler
 
 # Search and store current git hash if possible
 try:

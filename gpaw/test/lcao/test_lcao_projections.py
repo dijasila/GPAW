@@ -13,7 +13,7 @@ def test_lcao_lcao_projections():
                 experimental={'niter_fixdensity': 2},
                 poissonsolver=FDPoissonSolver(),
                 eigensolver='rmm-diis')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     V_qnM, H_qMM, S_qMM, P_aqMi = get_lcao_projections_HSP(

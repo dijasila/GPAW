@@ -36,8 +36,9 @@ def test_cdft(in_tmp_dir):
                   method = 'L-BFGS-B',
                   txt = 'He2+_final_%3.2f.cdft' % distance,
                   minimizer_options={'gtol':0.01})
-    sys.set_calculator(cdft_b)
+    sys.calc = cdft_b
     sys.get_potential_energy()
+    sys.get_forces()
 
     if size == 1:
         coupling = CouplingParameters(cdft_b, cdft_b, AE = False)

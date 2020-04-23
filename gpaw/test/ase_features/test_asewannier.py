@@ -1,16 +1,16 @@
-import pytest
-from gpaw.mpi import world
+"""Test of ase wannier using gpaw."""
 import numpy as np
+import pytest
 from ase.build import molecule
 from ase.dft import Wannier
+
+from gpaw.mpi import world
 from gpaw import GPAW
 from gpaw.test import equal
 
-# Test of ase wannier using gpaw
 
 pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
-
 
 
 def test_ase_features_asewannier(in_tmp_dir):
@@ -31,7 +31,9 @@ def test_ase_features_asewannier(in_tmp_dir):
     equal(wan.get_functional_value(), 3.100, 2e-3)
     equal(np.linalg.norm(wan.get_centers() - pos), 0, 1e-3)
 
-    wan = Wannier(nwannier=2, calc=calc, initialwannier=[[0, 0, .5], [1, 0, .5]])
+    wan = Wannier(nwannier=2,
+                  calc=calc,
+                  initialwannier=[[0, 0, .5], [1, 0, .5]])
     equal(wan.get_functional_value(), 3.100, 2e-3)
     equal(np.linalg.norm(wan.get_centers() - pos), 0, 1e-3)
 
@@ -45,5 +47,4 @@ def test_ase_features_asewannier(in_tmp_dir):
     wan.write_cube(0, 'H2.cube')
 
     energy_tolerance = 0.002
-    niter_tolerance = 0
     equal(e, -6.652, energy_tolerance)
