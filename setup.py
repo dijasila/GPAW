@@ -83,7 +83,10 @@ except ImportError:
     print('ASE not found. GPAW git hash not written.')
 
 # User provided customizations:
-for siteconfig in [os.environ.get('GPAW_CONFIG'),
+gpaw_config = os.environ.get('GPAW_CONFIG')
+if gpaw_config and not Path(gpaw_config).is_file():
+    raise FileNotFoundError(gpaw_config)
+for siteconfig in [gpaw_config,
                    'siteconfig.py',
                    '~/.gpaw/siteconfig.py']:
     if siteconfig is not None:
@@ -186,10 +189,11 @@ class build_ext(_build_ext):
                 mpi_runtime_library_dirs, mpi_define_macros)
             assert error == 0
 
+
 class install(_install):
     def run(self):
         _install.run(self)
-        
+
         if parallel_python_interpreter:
             # Also copy gpaw-python
             plat = distutils.util.get_platform() + '-' + sys.version[0:3]
@@ -197,16 +201,18 @@ class install(_install):
             target = os.path.join(self.install_scripts, 'gpaw-python')
             self.copy_file(source, target)
 
+
 class develop(_develop):
     def run(self):
         _develop.run(self)
-        
+
         if parallel_python_interpreter:
             # Also copy gpaw-python
             plat = distutils.util.get_platform() + '-' + sys.version[0:3]
             source = 'build/bin.{}/gpaw-python'.format(plat)
             target = os.path.join(self.script_dir, 'gpaw-python')
             self.copy_file(source, target)
+
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
          'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
