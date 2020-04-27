@@ -4,9 +4,10 @@ from time import time
 from math import pi
 
 class GreensFunction:
-    def __init__(self, gw_object):
+    def __init__(self, gw_object, vectorized=False):
         self.gw_object = gw_object
         self.gw_object.ite = 0
+        self.vectorized = vectorized
 
     def _report(self, msg):
         parprint(f"Greensfunction: {msg}", flush=True)
@@ -65,8 +66,10 @@ class GreensFunction:
             print("Number of kpts: ", len(mykpts))
 
         self._report("Finished setup")
+        t2 = time()
         for iterc, (ie, pd0, W0, q_c, m2, W0_GW) in enumerate(gw.calculate_screened_potential()):
             t1 = time()
+            self._report(f"Getting W took {t1 - t2} seconds")
             self._report(f"At ie = {ie} in calc W")
             for u, kpt1 in enumerate(mykpts):
                 K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
@@ -143,13 +146,16 @@ class GreensFunction:
             nn = kpt1.n1 + n - gw.bands[0]
 
             W = Ws[0]
-            sigma_w, dsigma_w = self._calculate_sigma(n_mG, deps_wm, f_m, W, full_sigma=True)
+            if self.vectorized:
+                sigma_w, dsigma_w = self._calculate_sigma(n_mG, deps_wm, f_m, W, full_sigma=True)
+            else:
+                sigma_w, dsigma_w = self.calculate_sigma(n_mG, deps_wm, f_m, W, full_sigma=True)
             self.sigma_wskn[:, kpt1.s, k, nn] += sigma_w
             self.dsigma_wskn[:, kpt1.s, k, nn] += dsigma_w
 
 
 
-    def calculate_sigma(self, n_mG, deps_wm, f_m, C_swGG):
+    def calculate_sigma(self, n_mG, deps_wm, f_m, C_swGG, full_sigma=None):
         gw = self.gw_object
         sigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
         dsigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
@@ -184,15 +190,20 @@ class GreensFunction:
         x = 1.0 / (gw.qd.nbzkpts * 2 * pi * gw.vol)
         sigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
         dsigma_w = np.zeros(deps_wm.shape[0], dtype=np.complex128)
+        sigma = 0.0
+        dsigma = 0.0
         # Performing frequency integration
+        i = 0
         for o_w, o1_w, o2_w, sgn_w, s_w, w_w, n_G in zip(o_wm.T, o1_wm.T, o2_wm.T,
                                              sgn_wm.T, s_wm.T, w_wm.T, n_mG):
 
             # if w >= len(self.omega_w) - 1:
             #     continue
-
+            assert np.allclose(w_wm[:, i], w_w)
+            i += 1
             prefac_w = np.ones(len(w_w))
-            prefac_w[w_w >= len(gw.omega_w) - 1] = 0
+            prefac_w[w_w >= (len(gw.omega_w) - 1)] = 0
+            w_w[w_w >= (len(gw.omega_w) -  1)] = len(gw.omega_w) - 2
 
             C1_wGG = C_swGG[s_w, w_w]
             C2_wGG = C_swGG[s_w, w_w + 1]
@@ -206,7 +217,10 @@ class GreensFunction:
                                         (np.dot(C2_wGG, n_G.conj()).T))
             else:
                 raise NotImplementedError
-            sigma_w += ((o_w - o1_w) * sigma2_w + (o2_w - o_w) * sigma1_w) / (o2_w - o1_w) * prefac_w
-            dsigma_w += sgn_w * (sigma2_w - sigma1_w) / (o2_w - o1_w) * prefac_w
-
-        return sigma_w, dsigma_w
+            sigma_w += (((o_w - o1_w) * sigma2_w + (o2_w - o_w) * sigma1_w) / (o2_w - o1_w)) * prefac_w
+            dsigma_w += (sgn_w * (sigma2_w - sigma1_w) / (o2_w - o1_w)) * prefac_w
+            
+        # assert not np.allclose(sigma_w, 0)
+        # assert not np.allclose(dsigma_w, 0)
+        assert i != 0
+        return (-1j) * sigma_w, dsigma_w

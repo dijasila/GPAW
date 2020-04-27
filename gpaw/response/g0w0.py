@@ -1238,9 +1238,8 @@ class G0W0(PairDensity):
             np.save(fd, self.exx_skn)
 
     def read_contribution(self, filename):
-        import os
         fd = opencew(filename)  # create, exclusive, write
-        if not os.path.exists(filename):
+        if fd is not None:
             # File was not there: nothing to read
             return fd, None
 
@@ -1259,7 +1258,7 @@ class G0W0(PairDensity):
         if self.world.rank == 0:
             os.remove(filename)
 
-        return fd, None
+        return opencew(filename), None
 
     def print_results(self, results):
         description = ['f:      Occupation numbers',
