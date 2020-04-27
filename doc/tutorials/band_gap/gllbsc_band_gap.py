@@ -20,7 +20,7 @@ calc = GPAW(h=0.16,
             occupations=FermiDirac(width=0.05),
             )
 
-atom.set_calculator(calc)
+atom.calc = calc
 atom.get_potential_energy()
 
 #Important commands for calculating the response and the

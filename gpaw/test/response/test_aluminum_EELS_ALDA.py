@@ -27,7 +27,7 @@ def test_response_aluminum_EELS_ALDA(in_tmp_dir):
                 idiotproof=False,  # allow uneven distribution of k-points
                 xc='LDA')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Al', 'all')
     t2 = time.time()

@@ -28,7 +28,7 @@ def test_corehole_h2o(in_tmp_dir):
     calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
                 experimental={'niter_fixdensity': 2},
                 poissonsolver=FDPoissonSolver(use_charge_center=True))
-    H2O.set_calculator(calc)
+    H2O.calc = calc
     _ = H2O.get_potential_energy()
 
     if mpi.size == 1:

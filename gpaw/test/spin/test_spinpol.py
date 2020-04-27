@@ -10,7 +10,7 @@ def test_spin_spinpol():
     hydrogen.center()
     calc = GPAW(gpts=(n, n, n), nbands=1, convergence={'energy': 1e-5},
                 occupations=FermiDirac(0.0))
-    hydrogen.set_calculator(calc)
+    hydrogen.calc = calc
     e1 = hydrogen.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     hydrogen.set_initial_magnetic_moments([1.0])

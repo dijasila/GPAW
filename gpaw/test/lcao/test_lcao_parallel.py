@@ -34,7 +34,7 @@ def test_lcao_lcao_parallel():
         kwargs = dict(basekwargs)
         kwargs.update(morekwargs)
         calc = GPAW(**kwargs)
-        system.set_calculator(calc)
+        system.calc = calc
         system.center(vacuum)
         if cell is None:
             system.center(vacuum)

@@ -16,7 +16,7 @@ from ase.calculators.singlepoint import SinglePointCalculator
 
 
 def get_bf_centers(atoms, basis=None):
-    calc = atoms.get_calculator()
+    calc = atoms.calc
     if calc is None or isinstance(calc, SinglePointCalculator):
         symbols = atoms.get_chemical_symbols()
         basis_a = types2atomtypes(symbols, basis, 'dzp')

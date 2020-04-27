@@ -15,7 +15,7 @@ calc = GPAW(mode=PW(400),
             kpts={'size': (8, 8, 8), 'gamma': True},
             txt='gs_Si.txt')
 
-a.set_calculator(calc)
+a.calc = calc
 a.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian(nbands=100)

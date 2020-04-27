@@ -78,7 +78,7 @@ class UTGroundStateSetup(TestCase):
             return
         #XXX DEBUG END
 
-        self.atoms.set_calculator(self.gscalc)
+        self.atoms.calc = self.gscalc
         self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.0621, 4)
         self.gscalc.write(self.gsname + '.gpw', mode='all')
         self.assertTrue(os.path.isfile(self.gsname + '.gpw'))
@@ -149,7 +149,7 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
                 # Hack to prevent calls to GPAW::get_potential_energy when saving
                 spa = self.tdcalc.get_atoms()
                 spc = SinglePointCalculator(spa, energy=epot, forces=F_av)
-                spa.set_calculator(spc)
+                spa.calc = spc
                 traj.write(spa)
         f.close()
         traj.close()

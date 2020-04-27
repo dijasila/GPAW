@@ -15,7 +15,7 @@ def test_complex(in_tmp_dir):
 
     mol = molecule('N2')
     mol.center(vacuum=3.0)
-    mol.set_calculator(calc)
+    mol.calc = calc
 
     Eini = mol.get_potential_energy()
     Iini = calc.get_number_of_iterations()

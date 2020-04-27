@@ -32,7 +32,7 @@ def test_xc_qna_force(in_tmp_dir):
                     txt=name + '%.0f.txt' % ecut)
 
         atoms[0].position[0] += dx
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         E.append(atoms.get_potential_energy(force_consistent=True))
         if i == 1:
             F = atoms.get_forces()[0, 0]

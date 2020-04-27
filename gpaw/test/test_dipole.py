@@ -63,13 +63,13 @@ def test_dipole():
 
     calc1 = GPAW(poissonsolver={'dipolelayer': 'xy'}, **kw())
 
-    system1.set_calculator(calc1)
+    system1.calc = calc1
     system1.get_potential_energy()
     v1 = calc1.get_effective_potential(pad=False)
 
     calc2 = GPAW(**kw())
 
-    system2.set_calculator(calc2)
+    system2.calc = calc2
     system2.get_potential_energy()
     v2 = calc2.get_effective_potential(pad=False)
 

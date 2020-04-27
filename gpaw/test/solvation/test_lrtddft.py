@@ -21,7 +21,7 @@ def test_solvation_lrtddft():
         convergence={'energy': 0.1, 'eigenstates': 0.01, 'density': 0.1},
         **solv.get_HW14_water_kwargs())
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     print(id(calc.hamiltonian.poisson.dielectric))
     print(id(calc.hamiltonian.dielectric))

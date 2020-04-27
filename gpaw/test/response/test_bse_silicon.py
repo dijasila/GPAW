@@ -27,7 +27,7 @@ def test_response_bse_silicon(in_tmp_dir):
                     occupations=FermiDirac(0.001),
                     nbands=12,
                     convergence={'bands': -4})
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('Si.gpw', 'all')
 
@@ -59,7 +59,7 @@ def test_response_bse_silicon(in_tmp_dir):
                     nbands=12,
                     symmetry='off',
                     convergence={'bands': -4})
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('Si.gpw', 'all')
 

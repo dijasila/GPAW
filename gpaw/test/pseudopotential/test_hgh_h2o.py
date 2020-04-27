@@ -29,7 +29,7 @@ def test_pseudopotential_hgh_h2o():
                 setups='hgh',
                 convergence=dict(eigenstates=1e-9, density=1e-5, energy=0.3e-5),
                 txt='-')
-    mol.set_calculator(calc)
+    mol.calc = calc
     e = mol.get_potential_energy()
     niter = calc.get_number_of_iterations()
     F_ac = mol.get_forces()

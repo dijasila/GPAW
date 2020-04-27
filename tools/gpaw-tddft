@@ -50,15 +50,15 @@ def center_divisible(atoms, vacuum, h, n=4):
 
 
 parser = OptionParser()
-parser.add_option('', '--kick', action='store', default='0,0,0.00001', 
+parser.add_option('', '--kick', action='store', default='0,0,0.00001',
                   help='Kick stengths')
-parser.add_option('', '--charge', action='store', default=None, 
+parser.add_option('', '--charge', action='store', default=None,
                   help='Charge of the systen')
-parser.add_option('', '--parallel_band', action='store', default=None, 
+parser.add_option('', '--parallel_band', action='store', default=None,
                   help='Band parallelization')
-parser.add_option('-d', '--directory', action='store', default=None, 
+parser.add_option('-d', '--directory', action='store', default=None,
                   help='Specify directory for output files')
-parser.add_option('-n', '--name', action='store', default=None, 
+parser.add_option('-n', '--name', action='store', default=None,
                   help='Prefix name for output files. Otherwise input name is used.')
 parser.add_option('', '--collect_density', action='store', default=None,
                   help='Collect density.\n'
@@ -71,7 +71,7 @@ parser.add_option('', '--collect_split_density', action='store', default=None,
                   help='Collect two densities, give orbital index which splits them')
 parser.add_option('', '--collect_vresp', action='store_true', default=None,
                   help='Collect response potential of GLLBSC')
-parser.add_option('-s', '--system', action='store', default=None, 
+parser.add_option('-s', '--system', action='store', default=None,
                   help='Input an example system. Example C6H6')
 parser.add_option('-g', '--gridspacing', action='store', default='0.2',
                   help='Specify grid spacing')
@@ -87,11 +87,11 @@ parser.add_option('-t', '--timestep', action='store', default='10',
                   help='Time step for LCAO calculation (in as)')
 parser.add_option('-T', '--time', action='store', default='10',
                   help='Simulation time (in fs)')
-parser.add_option('', '--lrtddft', action='store', default=False,  
+parser.add_option('', '--lrtddft', action='store', default=False,
                   help='Perform linear response calculation')
-parser.add_option('', '--nbands', action='store', default='None',  
+parser.add_option('', '--nbands', action='store', default='None',
                   help='Number of bands')
-parser.add_option('', '--dxc', action='store_true', default=False,  
+parser.add_option('', '--dxc', action='store_true', default=False,
                   help='Calculate dxc')
 parser.add_option('', '--hard', action='store_true', default=False,
                   help='Try harder to converge the system')
@@ -123,7 +123,7 @@ class System:
         self.collect_vresp = False
         self.collect_density = None
         #self.collect_split_density = False
- 
+
     #def set_collect_split_density(self, split):
     #    self.collect_split_density = split
 
@@ -138,7 +138,7 @@ class System:
 
     def set_charge(self, charge):
         self.charge = charge
-  
+
     def set_bandpar(self, bandpar):
         self.bandpar = bandpar
 
@@ -165,7 +165,7 @@ class System:
         self.directory = directory
         if self.directory == None:
             self.directory = ''
-    
+
     def set_timestep(self, dt):
         self.dt = dt
 
@@ -215,7 +215,7 @@ class System:
 
     def get_gs_gpw_file(self):
         return self.directory + '%s%s.gpw' % (self.name, self.get_base_name())
-    
+
     def get_full_name(self):
         return self.directory + '%s_%s_td_%s' % (self.name, self.get_base_name(), self.get_td_base_name())
 
@@ -230,13 +230,13 @@ class System:
 
     def get_lrtddft_file(self):
         return self.directory +'%s_%s_td_%s.gz' % (self.name, self.get_base_name(), self.get_td_base_name())
- 
+
     def groundstate(self):
         if path.exists(self.get_gs_gpw_file()):
             if self.lrtddft:
                 self.calc = GPAW(self.get_gs_gpw_file())
             return
-         
+
         atoms = self.atoms
         center_divisible(atoms, self.vacuum, self.h)
         dtype = complex if self.mode == 'lcao' else float
@@ -259,11 +259,11 @@ class System:
             #    self.xc.set_mix(0.2)
 
         poissonsolver = PoissonSolver(eps=1e-20, remove_moment=self.remove_moment)
-        calc = GPAW(mode=self.mode, maxiter=300, h=self.h, nbands=self.nbands, xc=self.xc, basis=basis, 
-                    parallel={'band':self.bandpar}, verbose=True, 
-                    poissonsolver=poissonsolver, dtype=dtype, charge=self.charge, eigensolver=eigensolver, 
+        calc = GPAW(mode=self.mode, maxiter=300, h=self.h, nbands=self.nbands, xc=self.xc, basis=basis,
+                    parallel={'band':self.bandpar}, verbose=True,
+                    poissonsolver=poissonsolver, dtype=dtype, charge=self.charge, eigensolver=eigensolver,
                     convergence=convergence, occupations=FermiDirac(0.05), mixer=mixer)
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         if self.collect_vresp:
             from gpaw.lcaotddft.split import VRespCollector
             calc.attach(VRespCollector(self.get_full_name(), calc))
@@ -292,7 +292,7 @@ class System:
             del calc
 
     def tddft(self):
-        fxc = self.fxc 
+        fxc = self.fxc
         if self.lrtddft:
             lr = TimedLrTDDFT(self.calc, xc=fxc, energy_range=self.energy)
             lr.write(self.get_lrtddft_file())
@@ -303,11 +303,11 @@ class System:
             return
 
         if self.mode == 'lcao':
-            td_calc = self.td_calc = TimedLCAOTDDFT(self.get_gs_gpw_file(), fxc=fxc, parallel={'band': self.bandpar}, 
+            td_calc = self.td_calc = TimedLCAOTDDFT(self.get_gs_gpw_file(), fxc=fxc, parallel={'band': self.bandpar},
                                                     poissonsolver=PoissonSolver(eps=1e-20, remove_moment=self.remove_moment))
             td_calc.occupations.calculate(td_calc.wfs)
             #td_calc.hamiltonian.xc.xcs['RESPONSE'].set_damp(1e-5)
-            
+
             td_calc.kick(strength=self.kick)
             if self.collect_vresp:
                 from gpaw.lcaotddft.split import VRespCollector
@@ -317,7 +317,7 @@ class System:
                 td_calc.attach(DensityCollector(self.get_full_name(), td_calc, self.collect_density))
 
         else:
-            td_calc = TimedTDDFT(self.get_gs_gpw_file(), parallel={'band': self.bandpar }, 
+            td_calc = TimedTDDFT(self.get_gs_gpw_file(), parallel={'band': self.bandpar },
                             poissonsolver=PoissonSolver(eps=1e-20, remove_moment=self.remove_moment))
             td_calc.occupations.calculate(td_calc.wfs)
             td_calc.absorption_kick(kick_strength=self.kick)
@@ -329,13 +329,13 @@ class System:
             if self.collect_density is not None:
                 from gpaw.lcaotddft.split import DensityCollector
                 td_calc.attach(DensityCollector(self.get_full_name(), td_calc, self.collect_density))
-            
+
 
         td_calc.propagate(self.dt, int(1000 * self.T / self.dt), self.get_dipole_file(), dump_interval=25)
         td_calc.write(self.get_td_gpw_file(), mode='all')
         del td_calc
 
- 
+
 def calculate(atoms, name=None):
     system = System(atoms, name)
     system.set_h(eval(options.gridspacing))

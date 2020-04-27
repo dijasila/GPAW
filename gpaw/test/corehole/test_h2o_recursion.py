@@ -21,7 +21,7 @@ def test_corehole_h2o_recursion(in_tmp_dir):
                 mixer=Mixer(0.5),
                 xc='oldLDA',
                 poissonsolver=PoissonSolver(use_charge_center=True))
-    H2O.set_calculator(calc)
+    H2O.calc = calc
     e = H2O.get_potential_energy()
     niter = calc.get_number_of_iterations()
 

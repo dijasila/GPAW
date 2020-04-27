@@ -10,7 +10,7 @@ def test_lcao_bulk(in_tmp_dir):
     g = 8
     calc = GPAW(gpts=(g, g, g), kpts=(k, k, k),
                       mode='lcao', basis='dzp')
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     e = []
     niter = []
     A = [2.6, 2.65, 2.7, 2.75, 2.8]

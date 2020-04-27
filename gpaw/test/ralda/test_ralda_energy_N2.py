@@ -35,7 +35,7 @@ def test_ralda_ralda_energy_N2(in_tmp_dir):
                 basis='dzp',
                 parallel={'domain': 1},
                 convergence={'density': 1.e-6})
-    N2.set_calculator(calc)
+    N2.calc = calc
     N2.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
     calc.write('N2.gpw', mode='all')
@@ -55,7 +55,7 @@ def test_ralda_ralda_energy_N2(in_tmp_dir):
                 hund=True,
                 parallel={'domain': 1},
                 convergence={'density': 1.e-6})
-    N.set_calculator(calc)
+    N.calc = calc
     N.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack2)
     calc.write('N.gpw', mode='all')

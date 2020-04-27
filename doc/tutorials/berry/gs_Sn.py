@@ -9,7 +9,7 @@ calc = GPAW(mode=PW(600),
 
 slab = mx2(formula='SnSn2', a=4.67, thickness=1.7, vacuum=5.0)
 del slab[-1]
-slab.set_calculator(calc)
+slab.calc = calc
 slab.get_potential_energy()
 
 calc.write('gs_Sn.gpw')
