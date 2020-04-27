@@ -186,6 +186,7 @@ def generate_parameters():
 
 
 if __name__ == '__main__':
+    random.seed(117)
     for p in generate_parameters():
         if world.rank == 0:
             print(p, flush=True)
