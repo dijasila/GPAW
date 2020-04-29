@@ -38,7 +38,7 @@ def test_poisson_poisson():
     print(err2)
     print(err3)
     assert err3 < 1e-10
-    assert err1 < 6e-16
+    assert err1 < 8e-16
     assert err2 < 3e-6 # XXX Shouldn't this be better?
 
     b4 = f(8, FFTPoissonSolver())
