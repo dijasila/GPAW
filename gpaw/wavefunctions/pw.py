@@ -1626,9 +1626,9 @@ class PWLFC(BaseLFC):
 
     def derivative(self, a_xG, c_axiv=None, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int),
-                               self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        nx = np.prod(c_vxI.shape[1:-1], dtype=int)
+        b_vxI = c_vxI.reshape((3, nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
 
