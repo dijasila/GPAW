@@ -343,10 +343,13 @@ class SJM(SolvationGPAW):
                             self.initialize_positions()
 
                         self.density.reset()
-                        self.density.background_charge = \
-                            SJM_changes['background_charge']
-                        self.density.background_charge.set_grid_descriptor(
-                            self.density.finegd)
+
+                        if self.density.background_charge:
+                            self.density.background_charge = \
+                                SJM_changes['background_charge']
+                            self.density.background_charge.set_grid_descriptor(
+                                self.density.finegd)
+
                         self.spos_ac = self.atoms.get_scaled_positions() % 1.0
                         self.density.mixer.reset()
                         self.wfs.initialize(self.density, self.hamiltonian,
@@ -614,6 +617,10 @@ class SJM(SolvationGPAW):
         """Method to define the explicit and counter charge."""
 
         p = self.sjm_parameters
+
+        if not np.around(p.ne, 5):
+            return None
+
         if p.jelliumregion is None:
             p.jelliumregion = {}
 
@@ -695,11 +702,8 @@ class SJM(SolvationGPAW):
                           'cell size or translate the atomic system down '
                           'along the z-axis.')
 
-        if abs(p.ne) > 1e-8:
-            return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
-                               z2=p.jelliumregion['upper_limit'])
-        else:
-            return None
+        return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
+                           z2=p.jelliumregion['upper_limit'])
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
