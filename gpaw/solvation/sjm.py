@@ -113,6 +113,7 @@ class SJM(SolvationGPAW):
     # This might be nice for a couple of other reasons...it's more obvious
     # to the user what parameters make this special compared to a standard
     # GPAW calculation.
+    # GK: Fully agree, that sounds like an awesome idea
 
     # FIXME In a test script from GK, it only specifies the upper_limit of
     # the double layer, and I think the "cavity" keyword is supplied
@@ -149,6 +150,7 @@ class SJM(SolvationGPAW):
             # starts up things. That's why I made it that way. I can not see
             # a call of set in here. Did you already fix this?
             p.ne = ne
+
             p.target_potential = potential
             p.dpot = dpot
             p.jelliumregion = jelliumregion
@@ -436,11 +438,12 @@ class SJM(SolvationGPAW):
                              '{:.4f} V/(electron/Angstrom).'
                              .format(p.slope * np.product(np.diag(
                                  atoms.cell[:2, :2]))))
-                    C = np.product(np.diag(atoms.cell[:2, :2])) / p.slope
-                    C *= 1.6022 * 1e3
+
+                    Area = np.product(np.diag(atoms.cell[:2, :2]))
+                    Cap = -1.6022 * 1e3 / (Area * p.slope)
 
                     self.sog('And a capacitance of {:.4f} muF/cm2'
-                             .format(C))
+                             .format(Cap))
 
                 if abs(true_potential - p.target_potential) < p.dpot:
                     equilibrated = True
@@ -692,8 +695,11 @@ class SJM(SolvationGPAW):
                           'cell size or translate the atomic system down '
                           'along the z-axis.')
 
-        return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
-                           z2=p.jelliumregion['upper_limit'])
+        if abs(p.ne) > 1e-8:
+            return JelliumSlab(p.ne, z1=p.jelliumregion['start'],
+                               z2=p.jelliumregion['upper_limit'])
+        else:
+            return None
 
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
@@ -892,26 +898,23 @@ class SJMPower12Potential(Power12Potential):
                         (oxygen, self.pos_aav[windex] * Bohr))
 
             O_layer = []
-            if self.H2O_layer == 'plane':
+            if isinstance(self.H2O_layer, str):
                 # Add a virtual plane
-                # XXX:The value -1.5, being the amount of vdW radii of O in
-                # distance of the plane relative to the oxygens in the water
-                # layer, is an empirical one and should perhaps be
-                # interchangable.
-                # For some reason the poissonsolver has trouble converging
-                # sometimes if this scheme is used
-
-                plane_rel_oxygen = -1.5 * self.atomic_radii_output[
-                    water_oxygen_ind[0]]
-                plane_z = oxygen[:, 2].min() + plane_rel_oxygen
+                if len(self.H2O_layer.split('-')) > 1:
+                    plane_z = float(self.H2O_layer.split('-')[1]) - \
+                        1.0 * self.atomic_radii_output[water_oxygen_ind[0]]
+                else:
+                    plane_rel_oxygen = -1.5 * self.atomic_radii_output[
+                        water_oxygen_ind[0]]
+                    plane_z = oxygen[:, 2].min() + plane_rel_oxygen
 
                 r_diff_zg = self.r_vg[2, :, :, :] - plane_z / Bohr
                 r_diff_zg[r_diff_zg < self.tiny] = self.tiny
-                r_diff_zg = r_diff_zg ** 2
-                u_g = self.r12_a[water_oxygen_ind[0]] / r_diff_zg ** 6
-                self.u_g += u_g
-                u_g /= r_diff_zg
-                r_diff_zg *= u_g
+                r_diff_zg2 = r_diff_zg ** 2
+                u_g = self.r12_a[water_oxygen_ind[0]] / r_diff_zg2 ** 6
+                self.u_g += u_g.copy()
+                u_g /= r_diff_zg2
+                r_diff_zg *= u_g.copy()
                 self.grad_u_vg[2, :, :, :] += r_diff_zg
 
             else:
@@ -938,21 +941,21 @@ class SJMPower12Potential(Power12Potential):
                                  natoms_in_plane[1],
                                  k / Bohr]), cell))
 
-            # Add additional ghost O-atoms below the actual water O atoms
-            # of water which frees the interface in case of corrugated
-            # water layers
-            for ox in oxygen / Bohr:
-                O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
-                                self.atomic_radii_output[
-                                    water_oxygen_ind[0]] / Bohr])
+                # Add additional ghost O-atoms below the actual water O atoms
+                # of water which frees the interface in case of corrugated
+                # water layers
+                for ox in oxygen / Bohr:
+                    O_layer.append([ox[0], ox[1], ox[2] - 1.0 *
+                                    self.atomic_radii_output[
+                                        water_oxygen_ind[0]] / Bohr])
 
-            r12_add = []
-            for i in range(len(O_layer)):
-                self.pos_aav[len(atoms) + i] = [O_layer[i]]
-                r12_add.append(self.r12_a[water_oxygen_ind[0]])
-            r12_add = np.array(r12_add)
-            # r12_a must have same dimensions as pos_aav items
-            self.r12_a = np.concatenate((self.r12_a, r12_add))
+                r12_add = []
+                for i in range(len(O_layer)):
+                    self.pos_aav[len(atoms) + i] = [O_layer[i]]
+                    r12_add.append(self.r12_a[water_oxygen_ind[0]])
+                r12_add = np.array(r12_add)
+                # r12_a must have same dimensions as pos_aav items
+                self.r12_a = np.concatenate((self.r12_a, r12_add))
 
         for index, pos_av in self.pos_aav.items():
             pos_av = np.array(pos_av)
