@@ -55,6 +55,7 @@ from ase.transport.tools import dagger
 from gpaw.pipekmezey.weightfunction import WeightFunc, WignerSeitz
 from ase.dft.wannier import neighbor_k_search, calculate_weights
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
+from ase.parallel import world
 # from ase.parallel import parprint
 
 def md_min(func, step=.25, tolerance=1e-6, verbose=False, gd=None):
@@ -312,6 +313,8 @@ class PipekMezey:
         for k in range(self.Nk):
             self.W_k[k] = random_orthogonal(self.nocc,
                                             dtype=self.dtype)
+        if world is not None:
+            world.broadcast(self.W_k, 0)
 
         # Given all matrices, update
         self.update()
