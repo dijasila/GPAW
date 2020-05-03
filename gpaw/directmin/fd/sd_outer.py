@@ -509,6 +509,152 @@ class LBFGS(SteepestDescent):
 
             return self.multiply(r, const=-1.0)
 
+
+class LBFGS_P(SteepestDescent):
+
+    def __init__(self, wfs, dimensions, memory=1):
+
+        """
+        """
+        super().__init__(wfs, dimensions)
+
+        self.s_k = {i: None for i in range(memory)}
+        self.y_k = {i: None for i in range(memory)}
+        self.rho_k = np.zeros(shape=memory)
+
+        self.kp = {}
+        self.p = 0
+        self.k = 0  # number of calls
+
+        self.m = memory
+        self.stable = True
+
+    def __str__(self):
+
+        return 'LBFGS'
+
+    def update_data(self, psi, g_k1, wfs, prec):
+
+        if self.k == 0:
+
+            self.kp[self.k] = self.p
+            self.x_k = psi
+            self.g_k = g_k1
+            self.s_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.y_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.k += 1
+            self.p += 1
+            self.kp[self.k] = self.p
+            p = self.minus(wfs, g_k1)
+            if prec is not None:
+                self.apply_prec(wfs, p, prec, 1.0)
+            return p
+
+        else:
+            if self.p == self.m:
+                self.p = 0
+                self.kp[self.k] = self.p
+
+            s_k = self.s_k
+            x_k = self.x_k
+            y_k = self.y_k
+            g_k = self.g_k
+
+            x_k1 = psi
+
+            rho_k = self.rho_k
+
+            kp = self.kp
+            k = self.k
+            m = self.m
+
+            s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
+            y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
+
+            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+                                          s_k[kp[k]], wfs)
+            if abs(dot_ys) > 0.0:
+                rho_k[kp[k]] = 1.0 / dot_ys
+            else:
+                rho_k[kp[k]] = 1.0e16 * np.sign(dot_ys)
+
+            if rho_k[kp[k]] < 0.0:
+                # raise Exception('y_k^Ts_k is not positive!')
+                self.stable = False
+                self.__init__(wfs, self.dimensions, self.m)
+                # we could call self.update,
+                # but we already applied prec to g
+                self.kp[self.k] = self.p
+                self.x_k = x_k1
+                self.g_k = g_k1
+                self.s_k[self.kp[self.k]] = self.zeros(g_k1)
+                self.y_k[self.kp[self.k]] = self.zeros(g_k1)
+                self.k += 1
+                self.p += 1
+                self.kp[self.k] = self.p
+                p = self.multiply(g_k1, -1.0)
+                if prec is not None:
+                    self.apply_prec(wfs, p, prec, 1.0)
+                return p
+
+            # q = np.copy(g_k1)
+            q = copy.deepcopy(g_k1)
+
+            alpha = np.zeros(np.minimum(k + 1, m))
+            j = np.maximum(-1, k - m)
+
+            for i in range(k, j, -1):
+
+                dot_sq = self.dot_all_k_and_b(s_k[kp[i]], q, wfs)
+
+                alpha[kp[i]] = rho_k[kp[i]] * dot_sq
+
+                q = self.calc_diff(q, y_k[kp[i]],
+                                   wfs, const=alpha[kp[i]])
+
+                # q -= alpha[kp[i]] * y_k[kp[i]]
+
+            if prec is not None:
+                self.apply_prec(wfs, q, prec, 1.0)
+                r = q
+            else:
+                try:
+                    t = np.maximum(1, k - m + 1)
+
+                    dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
+                                                  y_k[kp[t]], wfs)
+
+                    r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
+
+                    # r = q / (
+                    #       rho_k[kp[t]] * np.dot(y_k[kp[t]], y_k[kp[t]]))
+                except ZeroDivisionError:
+                    # r = 1.0e12 * q
+                    r = self.multiply(q, 1.0e16)
+
+            for i in range(np.maximum(0, k - m + 1), k + 1):
+
+                dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
+
+                beta = rho_k[kp[i]] * dot_yr
+
+                r = self.calc_diff(r, s_k[kp[i]], wfs,
+                                   const=(beta-alpha[kp[i]]))
+
+                # r += s_k[kp[i]] * (alpha[kp[i]] - beta)
+
+            # save this step:
+            self.x_k = x_k1
+            self.g_k = g_k1
+
+            self.k += 1
+            self.p += 1
+
+            self.kp[self.k] = self.p
+
+            return self.multiply(r, const=-1.0)
+
+
 #
 # class LBFGSdirection_prec:
 #

@@ -1,7 +1,7 @@
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.fd.sd_outer import SteepestDescent, FRcg, HZcg, \
-    PRcg, PRpcg, QuickMin, LBFGS
+    PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P
 from gpaw.directmin.fd.ls_outer import UnitStepLength, \
     StrongWolfeConditions, Parabola, TwoStepParabola, \
     TwoStepParabolaAwc, TwoStepParabolaCubicAwc, \
@@ -29,6 +29,8 @@ def sd_outer(method, wfs, dim):
             return QuickMin(wfs, dim)
         elif name == 'LBFGS':
             return LBFGS(wfs, dim, **kwargs)
+        elif name == 'LBFGS_P':
+            return LBFGS_P(wfs, dim, **kwargs)
         else:
             raise ValueError('Check keyword for search direction!')
     else:
