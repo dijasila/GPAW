@@ -12,6 +12,9 @@ from gpaw.directmin.tools import get_n_occ
 from gpaw.directmin.fd.inner_loop import InnerLoop
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
+from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
+from gpaw.directmin.locfunc.er import ERlocalization as ERL
+
 import time
 # from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
@@ -47,7 +50,7 @@ class DirectMinFD(Eigensolver):
             if self.sda is None:
                 self.sda = 'LBFGS'
             if self.initial_orbitals is None:
-                self.initial_orbitals = 'W'
+                self.initial_orbitals = 'WER'
         else:
             if self.sda is None:
                 self.sda = 'LBFGS'
@@ -226,7 +229,7 @@ class DirectMinFD(Eigensolver):
             if isinstance(ham.xc, HybridXC):
                 self.blocksize = wfs.bd.mynbands
             self.initialize_super(wfs)
-            self.init_wfs(wfs, ham, occ, log)
+            self.init_wfs(wfs, dens, ham, occ, log)
             self.initialize_dm(wfs, dens, ham, log)
 
         n_kps = self.n_kps
@@ -891,7 +894,7 @@ class DirectMinFD(Eigensolver):
 
         return counter, True
 
-    def init_wfs(self, wfs, ham, occ, log):
+    def init_wfs(self, wfs, dens, ham, occ, log):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
@@ -910,25 +913,30 @@ class DirectMinFD(Eigensolver):
             wfs.gd.comm.broadcast(kpt.eps_n, 0)
         occ.calculate(wfs)  # fill occ numbers
 
+        io = self.initial_orbitals
+        if io == 'PM':
+            tol = 1.0e-6
+        else:
+            tol = 1.0e-10
+
         for kpt in wfs.kpt_u:
             if sum(kpt.f_n) < 1.0e-3:
                 continue
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-            if self.initial_orbitals == 'KS' or \
-                    self.initial_orbitals is None:
+            if io == 'KS' or io is None:
                 self.need_init_orbs = False
                 break
-            elif self.initial_orbitals == 'PM':
+            elif io == 'PM' or io == 'PMER':
                 lf_obj = PipekMezey(
                     wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
-            elif self.initial_orbitals == 'W':
+            elif io == 'W' or io == 'WER':
                 lf_obj = WannierLocalization(
                     wfs=wfs, spin=kpt.s)
             else:
                 raise ValueError('Check initial orbitals.')
-            lf_obj.localize(tolerance=1.0e-8)
-            if self.initial_orbitals == 'PM':
+            lf_obj.localize(tolerance=tol)
+            if io == 'PM':
                 U = np.ascontiguousarray(
                     lf_obj.W_k[kpt.q].T)
             else:
@@ -941,6 +949,14 @@ class DirectMinFD(Eigensolver):
             kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
                                           U, kpt.psit_nG[:dim])
             del lf_obj
+
+        if io == 'PMER' or io == 'WER':
+            log('Edmiston-Ruedenberg localisation')
+            dm = DirectMinLocalize(
+                ERL(wfs, dens, ham), wfs,
+                maxiter=100, g_tol=1.0e-4)
+            dm.run(wfs, dens)
+            del dm
 
         self.need_init_orbs = False
         wfs.timer.stop('Initial Localization')
