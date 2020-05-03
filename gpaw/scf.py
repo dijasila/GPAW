@@ -140,6 +140,8 @@ class SCFLoop:
            time      wfs    density  energy       fermi  poisson"""
             if wfs.nspins == 2:
                 header += '  magmom'
+            if wfs.eigensolver.iloop is not None:
+                header += '  inner loop'
             if self.max_errors['force'] < np.inf:
                 l1 = header.find('total')
                 header = header[:l1] + '       ' + header[l1:]
@@ -189,6 +191,9 @@ class SCFLoop:
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')
+        if wfs.eigensolver.iloop is not None:
+            log('  %d' % wfs.eigensolver.iloop.eg_count, end='')
+
         elif not wfs.collinear:
             totmom_v, magmom_av = dens.estimate_magnetic_moments()
             log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
