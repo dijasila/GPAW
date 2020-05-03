@@ -1,6 +1,6 @@
 from gpaw.directmin.tools import get_n_occ, get_indices
 from gpaw.directmin.tools import expm_ed
-from gpaw.directmin.fd.sd_inner import LBFGS
+from gpaw.directmin.fd.sd_inner import LBFGS_P
 from gpaw.directmin.fd.ls_inner import StrongWolfeConditions as SWC
 from ase.units import Hartree
 import numpy as np
@@ -9,7 +9,7 @@ import time
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, g_tol=5.0e-4):
+    def __init__(self, odd_pot, wfs, g_tol=5.0e-4, maxiter=15):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -19,7 +19,7 @@ class InnerLoop:
         self.method = 'LBFGS'
         self.line_search_method = 'AwcSwc'
         self.max_iter_line_search = 3
-        self.n_counter = 15
+        self.n_counter = maxiter
         self.eg_count = 0
         self.run_count = 0
         self.U_k = {}
@@ -132,8 +132,8 @@ class InnerLoop:
     def run(self, e_ks, psit_knG, wfs, dens, log, outer_counter=0,
             small_random=True):
         self.run_count += 1
-
-        counter = 0
+        self.counter = 0
+        self.eg_count = 0
         # initial things
         self.psit_knG = psit_knG
         a_k = {}
@@ -144,13 +144,14 @@ class InnerLoop:
             if self.run_count == 1 and self.dtype is complex\
                     and small_random:
                 a = 0.01 * np.random.rand(d, d) * 1.0j
+                a = a - a.T.conj()
                 # a = np.zeros(shape=(d, d), dtype=self.dtype)
                 wfs.gd.comm.broadcast(a, 0)
                 a_k[k] = a
             else:
                 a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
-        self.sd = LBFGS(wfs, memory=3)
+        self.sd = LBFGS_P(wfs, memory=20)
         self.ls = SWC(
             self.evaluate_phi_and_der_phi,
             method=self.method, awc=True,
@@ -178,7 +179,7 @@ class InnerLoop:
 
         outer_counter += 1
         if log is not None:
-            log_f(log, counter, g_max, e_ks, e_total, outer_counter)
+            log_f(log, self.counter, g_max, e_ks, e_total, outer_counter)
 
         alpha = 1.0
         if g_max < 1.0e-8:
@@ -199,7 +200,7 @@ class InnerLoop:
                 self.evaluate_phi_and_der_phi(a_k, p_k,
                                               0.0, wfs, dens,
                                               phi=phi_0, g_k=g_k)
-            if counter > 1:
+            if self.counter > 1:
                 phi_old = phi_0
                 der_phi_old = der_phi_0
 
@@ -243,17 +244,17 @@ class InnerLoop:
                 max_norm = np.max(np.asarray(max_norm))
                 g_max = wfs.world.max(max_norm)
                 # output
-                counter += 1
+                self.counter += 1
                 if outer_counter is not None:
                     outer_counter += 1
                 if log is not None:
                     log_f(
-                        log, counter, g_max, e_ks, phi_0,
+                        log, self.counter, g_max, e_ks, phi_0,
                         outer_counter)
 
                 not_converged = g_max > self.g_tol and \
-                                counter < self.n_counter
-                if not not_converged and counter < 2:
+                                self.counter < self.n_counter
+                if not not_converged and self.counter < 2:
                     not_converged = True
 
             else:
@@ -261,6 +262,8 @@ class InnerLoop:
 
         if log is not None:
             log('INNER LOOP FINISHED.\n')
+            log('Total number of e/g calls:' + str(self.eg_count))
+
         # for kpt in wfs.kpt_u:
         #     k = self.n_kps * kpt.s + kpt.q
         #     n_occ = self.n_occ[k]
@@ -285,7 +288,8 @@ class InnerLoop:
             return outer_counter
 
     def get_numerical_gradients(self, A_s, wfs, dens, log, eps=1.0e-5,
-                                dtype=complex):
+                                dtype=None):
+        dtype=self.dtype
         h = [eps, -eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
@@ -293,86 +297,129 @@ class InnerLoop:
         E_0, G = self.get_energy_and_gradients(A_s, wfs, dens)
         log("Estimating gradients using finite differences..")
         log(flush=True)
-        if dtype == complex:
+
+        if dtype is complex:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 dim = A_s[k].shape[0]
-                for z in range(2):
-                    grad = np.zeros(shape=(dim * dim),
-                                    dtype=self.dtype)
-                    for i in range(dim):
-                        for j in range(dim):
-                            log(k, z, i, j)
-                            log(flush=True)
-                            A = A_s[k][i][j]
-                            for l in range(2):
-                                if z == 1:
-                                    if i == j:
-                                        A_s[k][i][j] = A + 1.0j * h[l]
-                                    else:
-                                        A_s[k][i][j] = A + 1.0j * h[
-                                            l]
-                                        A_s[k][j][i] = -np.conjugate(
-                                            A + 1.0j * h[l])
-                                else:
-                                    if i == j:
-                                        A_s[k][i][j] = A + 0.0j * h[l]
-                                    else:
-                                        A_s[k][i][j] = A + h[
-                                            l]
-                                        A_s[k][j][i] = -np.conjugate(
-                                            A + h[l])
+                iut = np.triu_indices(dim, 1)
+                dim_gr = iut[0].shape[0]
 
-                                E =\
-                                    self.get_energy_and_gradients(
-                                        A_s, wfs, dens)[0]
-                                grad[i * dim + j] += E * coef[l]
-                            grad[i * dim + j] *= 1.0 / (2.0 * eps)
-                            if i == j:
-                                A_s[k][i][j] = A
-                            else:
-                                A_s[k][i][j] = A
-                                A_s[k][j][i] = -np.conjugate(A)
-                    if z == 0:
-                        Gr_n_x[k] = grad[:].reshape(
-                            int(np.sqrt(grad.shape[0])),
-                            int(np.sqrt(grad.shape[0])))
-                    else:
-                        Gr_n_y[k] = grad[:].reshape(
-                            int(np.sqrt(grad.shape[0])),
-                            int(np.sqrt(grad.shape[0])))
-            Gr_n = {k: (Gr_n_x[k] + 1.0j * Gr_n_y[k]) for k in
-                    Gr_n_x.keys()}
-        else:
-            for kpt in self.wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                dim = A_s[k].shape[0]
-                grad = np.zeros(shape=(dim * dim), dtype=self.dtype)
-                for i in range(dim):
-                    for j in range(dim):
-                        log(k, i, j)
+                for z in range(2):
+                    grad_num = np.zeros(shape=dim_gr,
+                                        dtype=self.dtype)
+                    igr = 0
+                    for i, j in zip(*iut):
+                        log(igr + 1, 'out of', dim_gr, 'for a', k,
+                            'kpt and', z, 'real/compl comp.')
                         log(flush=True)
                         A = A_s[k][i][j]
                         for l in range(2):
-                            if i == j:
-                                A_s[k][i][j] = A
+                            if z == 1:
+                                if i == j:
+                                    A_s[k][i][j] = A + 1.0j * h[l]
+                                else:
+                                    A_s[k][i][j] = A + 1.0j * h[
+                                        l]
+                                    A_s[k][j][i] = -np.conjugate(
+                                        A + 1.0j * h[l])
                             else:
-                                A_s[k][i][j] = A + h[l]
-                                A_s[k][j][i] = -(A + h[l])
-                            E = self.get_energy_and_gradients(
-                                A_s, wfs, dens)[0]
-                            grad[i * dim + j] += E * coef[l]
-                        grad[i * dim + j] *= 1.0 / (2.0 * eps)
+                                if i == j:
+                                    A_s[k][i][j] = A + 0.0j * h[l]
+                                else:
+                                    A_s[k][i][j] = A + h[
+                                        l]
+                                    A_s[k][j][i] = -np.conjugate(
+                                        A + h[l])
+                            E =\
+                                self.get_energy_and_gradients(
+                                    A_s, wfs, dens)[0]
+                            grad_num[igr] += E * coef[l]
+                        grad_num[igr]*= 1.0 / (2.0 * eps)
                         if i == j:
                             A_s[k][i][j] = A
                         else:
                             A_s[k][i][j] = A
-                            A_s[k][j][i] = -A
-                Gr_n_x[k] = grad[:].reshape(
-                    int(np.sqrt(grad.shape[0])),
-                    int(np.sqrt(grad.shape[0])))
+                            A_s[k][j][i] = -np.conjugate(A)
+                        igr += 1
+                    if z == 0:
+                        Gr_n_x[k] = grad_num.copy()
+                    else:
+                        Gr_n_y[k] = grad_num.copy()
+                G[k] = G[k][iut]
+
+            Gr_n = {k: (Gr_n_x[k] + 1.0j * Gr_n_y[k]) for k in
+                    Gr_n_x.keys()}
+        else:
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                dim = A_s[k].shape[0]
+                iut = np.triu_indices(dim, 1)
+                dim_gr = iut[0].shape[0]
+                grad_num = np.zeros(shape=dim_gr, dtype=self.dtype)
+
+                igr = 0
+                for i, j in zip(*iut):
+                    # log(k, i, j)
+                    log(igr+1, 'out of ', dim_gr, 'for a', k, 'kpt')
+                    log(flush=True)
+                    A = A_s[k][i][j]
+                    for l in range(2):
+                        A_s[k][i][j] = A + h[l]
+                        A_s[k][j][i] = -(A + h[l])
+                        E = self.get_energy_and_gradients(A_s, wfs, dens)[0]
+                        grad_num[igr] += E * coef[l]
+                    grad_num[igr] *= 1.0 / (2.0 * eps)
+                    A_s[k][i][j] = A
+                    A_s[k][j][i] = -A
+                    igr += 1
+
+                Gr_n_x[k] = grad_num.copy()
+                G[k] = G[k][iut]
+
             Gr_n = {k: (Gr_n_x[k]) for k in Gr_n_x.keys()}
+
         return G, Gr_n
+
+    def get_numerical_hessian(self, A_s, wfs, dens, log, eps=1.0e-5,
+                                dtype=None):
+
+        dtype=self.dtype
+        h = [eps, -eps]
+        coef = [1.0, -1.0]
+        log("Estimating Hessian using finite differences..")
+        log(flush=True)
+        num_hes = {}
+
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            dim = A_s[k].shape[0]
+            iut = np.tril_indices(dim, -1)
+            dim_gr = iut[0].shape[0]
+            hessian = np.zeros(shape=(dim_gr,dim_gr),
+                               dtype=self.dtype)
+            ih = 0
+            for i, j in zip(*iut):
+                # log(k, i, j)
+                log(ih + 1, 'out of ', dim_gr, 'for a', k, 'kpt')
+                log(flush=True)
+                A = A_s[k][i][j]
+                for l in range(2):
+                    A_s[k][i][j] = A + h[l]
+                    A_s[k][j][i] = -(A + h[l])
+                    g = self.get_energy_and_gradients(A_s, wfs, dens)[1]
+                    g = g[k][iut]
+                    hessian[ih, :] += g * coef[l]
+
+                hessian[ih, :] *= 1.0 / (2.0 * eps)
+
+                A_s[k][i][j] = A
+                A_s[k][j][i] = -A
+                ih += 1
+
+            num_hes[k] = hessian.copy()
+
+        return num_hes
 
     def get_energy_and_gradients2(self, a_k, wfs, dens):
 

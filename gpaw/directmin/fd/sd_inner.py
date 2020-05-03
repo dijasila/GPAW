@@ -77,11 +77,14 @@ class SteepestDescent(object):
 
         y = {}
         for k in x.keys():
-            if prec[k].dtype == complex:
-                y[k] = const * (prec[k].real * x[k].real +
-                                1.0j*prec[k].imag * x[k].imag)
+            if prec[k].ndim == 1:
+                if prec[k].dtype == complex:
+                    y[k] = const * (prec[k].real * x[k].real +
+                                    1.0j*prec[k].imag * x[k].imag)
+                else:
+                    y[k] = const * prec[k] * x[k]
             else:
-                y[k] = const * prec[k] * x[k]
+                y[k] = const * prec[k] @ x[k]
 
         return y
 
@@ -362,3 +365,145 @@ class LBFGS(SteepestDescent):
 
             return self.multiply(r, const=-1.0)
 
+
+class LBFGS_P(SteepestDescent):
+
+    def __init__(self, wfs, memory=3):
+        """
+        :param m: memory (amount of previous steps to use)
+        """
+        super(LBFGS_P, self).__init__(wfs)
+
+        self.s_k = {i: None for i in range(memory)}
+        self.y_k = {i: None for i in range(memory)}
+
+        self.rho_k = np.zeros(shape=memory)
+
+        self.kp = {}
+        self.p = 0
+        self.k = 0
+
+        self.m = memory
+
+        self.stable = True
+
+    def __str__(self):
+
+        return 'LBFGS'
+
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+
+        if self.k == 0:
+
+            self.kp[self.k] = self.p
+            self.x_k = copy.deepcopy(x_k1)
+            self.g_k = g_k1
+
+            self.s_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.y_k[self.kp[self.k]] = self.zeros(g_k1)
+
+            self.k += 1
+            self.p += 1
+
+            self.kp[self.k] = self.p
+
+            if precond is None:
+                p = self.minus(g_k1)
+            else:
+                p = self.apply_prec(precond, g_k1, -1.0)
+
+            self.iters += 1
+
+            return p
+
+        else:
+
+            if self.p == self.m:
+                self.p = 0
+                self.kp[self.k] = self.p
+
+            s_k = self.s_k
+            x_k = self.x_k
+            y_k = self.y_k
+            g_k = self.g_k
+
+            x_k1 = copy.deepcopy(x_k1)
+
+            rho_k = self.rho_k
+
+            kp = self.kp
+            k = self.k
+            m = self.m
+
+            s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
+            y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
+
+            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+                                          s_k[kp[k]],
+                                          wfs)
+            if abs(dot_ys) > 1.0e-20:
+                rho_k[kp[k]] = 1.0 / dot_ys
+            else:
+                rho_k[kp[k]] = 1.0e20
+
+            # try:
+            #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+            #                                   s_k[kp[k]],
+            #                                   wfs)
+            #     rho_k[kp[k]] = 1.0 / dot_ys
+            # except ZeroDivisionError:
+            #     rho_k[kp[k]] = 1.0e12
+
+            if rho_k[kp[k]] < 0.0:
+                # raise Exception('y_k^Ts_k is not positive!')
+                # print("y_k^Ts_k is not positive!")
+                self.stable = False
+                self.__init__(wfs, memory=self.m)
+                return self.update_data(wfs, x_k1, g_k1)
+
+            # q = np.copy(g_k1)
+            q = copy.deepcopy(g_k1)
+
+            alpha = np.zeros(np.minimum(k + 1, m))
+            j = np.maximum(-1, k - m)
+
+            for i in range(k, j, -1):
+                dot_sq = self.dot_all_k_and_b(s_k[kp[i]],
+                                              q, wfs)
+
+                alpha[kp[i]] = rho_k[kp[i]] * dot_sq
+
+                q = self.calc_diff(q, y_k[kp[i]],
+                                   wfs, const=alpha[kp[i]])
+
+            t = k
+            dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
+                                          y_k[kp[t]], wfs)
+
+            rhoyy = rho_k[kp[t]] * dot_yy
+
+            if precond is not None:
+                r = self.apply_prec(precond, q)
+            else:
+                if abs(rhoyy) > 1.0e-20:
+                    r = self.multiply(q, 1.0 / (rhoyy))
+                else:
+                    r = self.multiply(q, 1.0 * 1.0e20)
+
+            for i in range(np.maximum(0, k - m + 1), k + 1):
+                dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
+
+                beta = rho_k[kp[i]] * dot_yr
+
+                r = self.calc_diff(r, s_k[kp[i]], wfs,
+                                   const=(beta - alpha[kp[i]]))
+
+            # save this step:
+            self.x_k = copy.deepcopy(x_k1)
+            self.g_k = copy.deepcopy(g_k1)
+            self.k += 1
+            self.p += 1
+            self.kp[self.k] = self.p
+            self.iters += 1
+
+            return self.multiply(r, const=-1.0)
