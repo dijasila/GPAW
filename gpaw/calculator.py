@@ -257,7 +257,7 @@ class GPAW(PAW, Calculator):
 
         return reader
 
-    def check_state(self, atoms, tol=1e-15):
+    def check_state(self, atoms, tol=1e-12):
         system_changes = Calculator.check_state(self, atoms, tol)
         if 'positions' not in system_changes:
             if self.hamiltonian:

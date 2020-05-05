@@ -2,6 +2,8 @@
 
 from ase.build import molecule
 from gpaw.mpi import world, synchronize_atoms
+from gpaw import GPAW
+from ase.optimize import BFGS
 
 
 def test_atoms_mismatch():
@@ -25,3 +27,16 @@ def test_atoms_mismatch():
         assert (expected_err_ranks == e.args[1]).all()
     else:
         assert world.size == 1
+
+    # Check that GPAW can handle small numerical differences within ASE
+    def mess_up_atoms(atoms):
+        if world.rank == 1:
+            atoms.positions[1, 1] += 1e-13
+
+    system = molecule('H2O')
+    system.center(3.0)
+    calc = GPAW(h=0.2)
+    system.set_calculator(calc)
+    dyn = BFGS(system)
+    dyn.attach(mess_up_atoms, 1, system)
+    dyn.run(steps=2)
