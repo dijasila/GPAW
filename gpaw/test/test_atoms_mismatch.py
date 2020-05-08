@@ -29,14 +29,20 @@ def test_atoms_mismatch():
         assert world.size == 1
 
     # Check that GPAW can handle small numerical differences within ASE
+    if world.size == 1:
+        # Test makes sense only in parallel
+        return
+
     def mess_up_atoms(atoms):
         if world.rank == 1:
             atoms.positions[1, 1] += 1e-13
 
     system = molecule('H2O')
     system.center(3.0)
-    calc = GPAW(h=0.2)
-    system.set_calculator(calc)
+    calc = GPAW(h=0.2, 
+                convergence={'energy': 0.01, 'density': 1.0e-2,
+                             'eigenstates': 4.0e-3})
+    system.calc = calc
     dyn = BFGS(system)
     dyn.attach(mess_up_atoms, 1, system)
     dyn.run(steps=2)
