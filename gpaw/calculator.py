@@ -731,7 +731,7 @@ class GPAW(PAW, Calculator):
             self.log('XC parameters: {}\n'
                      .format('\n  '.join(description.splitlines())))
 
-        if xc.name == 'GLLBSC' and olddens is not None:
+        if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
         self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
