@@ -76,6 +76,7 @@ class SCFLoop:
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
                 break
