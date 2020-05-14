@@ -215,7 +215,7 @@ class develop(_develop):
 
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
-         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-upfplot']
 scripts = [str(Path('tools') / script) for script in files]
 
