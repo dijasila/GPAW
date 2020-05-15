@@ -29,7 +29,7 @@ H       7.580803493981530      5.034479218283977      4.877211530909463
 h = 0.3
 atoms = Cluster(read(io.StringIO(butadiene), format='xyz'))
 atoms.minimal_box(3.0, h)
-atoms.set_calculator(GPAW(h=h))
+atoms.calc = GPAW(h=h)
 if 0:
     dyn = FIRE(atoms)
     dyn.run(fmax=0.05)

@@ -9,7 +9,7 @@ def test_generic_bulk():
     k = 4
     g = 8
     calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2)#, txt=None)
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     a = np.linspace(2.6, 2.8, 5)
     e = []
     for x in a:

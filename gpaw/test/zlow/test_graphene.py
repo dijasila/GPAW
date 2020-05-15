@@ -49,7 +49,7 @@ def test_response_graphene(in_tmp_dir):
                     occupations=FermiDirac(0.2),
                     **GSkwargs)
      
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('gr.gpw', 'all')
 

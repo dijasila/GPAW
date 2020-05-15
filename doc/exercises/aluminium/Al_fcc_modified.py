@@ -20,7 +20,7 @@ for a in A:
                 kpts=(k, k, k),     # k-points
                 txt=name + '.txt')  # output file
 
-    bulk.set_calculator(calc)
+    bulk.calc = calc
 
     energy = bulk.get_potential_energy()
     calc.write(name + '.gpw')

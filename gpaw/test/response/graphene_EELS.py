@@ -26,7 +26,7 @@ if world.rank == 0:
                 xc='oldLDA',
                 nbands=len(system) * 6,
                 txt='gpaw.graphene.txt')
-    system.set_calculator(calc)
+    system.calc = calc
     system.get_potential_energy()
     calc.write(gpwname, mode='all')
 

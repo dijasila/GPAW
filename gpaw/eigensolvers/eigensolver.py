@@ -212,11 +212,6 @@ class Eigensolver:
             slcomm, r, c, b = wfs.scalapack_parameters
             if r == c == 1:
                 slcomm = None
-            else:
-                ranks = [rbd * wfs.gd.comm.size + rgd
-                         for rgd in range(wfs.gd.comm.size)
-                         for rbd in range(wfs.bd.comm.size)]
-                slcomm = slcomm.new_communicator(ranks)
             # Complex conjugate before diagonalizing:
             eps_n = H.eigh(cc=True, scalapack=(slcomm, r, c, b))
             # H.array[n, :] now contains the n'th eigenvector and eps_n[n]

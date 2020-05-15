@@ -769,6 +769,8 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
         # at the turning point
         gtp = g + 1
         utp = u[gtp]
+        if gtp == len(u) - 1:
+            return 100, 0.0
         dudrplus = 0.5 * (u[gtp + 1] - u[gtp - 1]) / dr[gtp]
     else:
         gtp = gmax

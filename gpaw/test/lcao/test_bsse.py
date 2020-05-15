@@ -24,12 +24,12 @@ def test_lcao_bsse():
                     poissonsolver=PoissonSolver(nn='M', relax='GS', eps=1e-5),
                     spinpol=False,
                     nbands=1)
-        system.set_calculator(calc)
+        system.calc = calc
         return calc
 
 
     calc = prepare({0: 'paw', 1: 'ghost'})
-    system.set_calculator(calc)
+    system.calc = calc
     e_bsse = system.get_potential_energy()
     niter_bsse = calc.get_number_of_iterations()
 
@@ -41,7 +41,7 @@ def test_lcao_bsse():
     # Reference system which is just a hydrogen
     sys0 = system[0:1].copy()
     calc = prepare('paw')
-    sys0.set_calculator(calc)
+    sys0.calc = calc
     e0 = sys0.get_potential_energy()
     niter0 = calc.get_number_of_iterations()
     print('e0, e_bsse = ', e0, e_bsse)

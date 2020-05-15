@@ -15,10 +15,10 @@ def test_sic_scfsic_h2(in_tmp_dir):
                 txt='h2.sic.txt',
                 setups='hgh')
 
-    atom.set_calculator(calc)
+    atom.calc = calc
     e1 = atom.get_potential_energy()
 
-    molecule.set_calculator(calc)
+    molecule.calc = calc
     e2 = molecule.get_potential_energy()
     F_ac = molecule.get_forces()
     de = 2 * e1 - e2

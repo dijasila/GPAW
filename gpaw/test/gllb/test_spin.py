@@ -14,7 +14,7 @@ def test_gllb_spin(in_tmp_dir):
                     nbands=8,
                     convergence={'bands':6,'density':1e-6},
                     occupations=FermiDirac(width=0.005))
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('temp.gpw')
         response = calc.hamiltonian.xc.xcs['RESPONSE']

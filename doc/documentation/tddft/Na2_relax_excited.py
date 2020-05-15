@@ -25,7 +25,7 @@ c.calculate(s)
 lr = LrTDDFT(c, xc=exc, restrict={'eps': 0.1, 'jend': nconv - 1})
 
 ex = ExcitedState(lr, iex, d=d)
-s.set_calculator(ex)
+s.calc = ex
 
 ftraj = 'relax_ex' + str(iex)
 ftraj += '_box' + str(box) + '_h' + str(h)

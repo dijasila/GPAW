@@ -25,7 +25,7 @@ def test_lrtddft_1():
         calc = GPAW(xc='PBE',
                     poissonsolver={'name': 'fd'},
                     nbands=3, spinpol=False, txt=txt)
-        H2.set_calculator(calc)
+        H2.calc = calc
         H2.get_potential_energy()
 
         xc = 'LDA'
@@ -80,7 +80,7 @@ def test_lrtddft_1():
                           poissonsolver={'name': 'fd'},
                           spinpol=True, parallel={'domain': world.size},
                           txt=txt)
-            H2.set_calculator(c_spin)
+            H2.calc = c_spin
             c_spin.calculate(H2)
         else:
             c_spin = GPAW('H2spin.gpw', txt=txt)

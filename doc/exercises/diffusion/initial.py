@@ -22,7 +22,7 @@ slab.set_constraint(fixlayer)
 
 # Use GPAW:
 calc = GPAW(mode=PW(200), kpts=(2, 2, 1), xc='PBE', txt='hollow.txt')
-slab.set_calculator(calc)
+slab.calc = calc
 
 qn = QuasiNewton(slab, trajectory='hollow.traj')
 

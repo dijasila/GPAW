@@ -18,7 +18,7 @@ def test_generic_asym_box(in_tmp_dir):
                  'energy': 0.001,
                  'eigenstates': 1e-4,
                  'density': 1e-3})
-    s.set_calculator(c)
+    s.calc = c
     e_small = s.get_potential_energy()
     eps_small = c.get_eigenvalues()[0]
 

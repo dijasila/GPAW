@@ -29,7 +29,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
-    atoms1.set_calculator(calc1)
+    atoms1.calc = calc1
     atoms1.get_potential_energy()
 
     t2 = time.time()
@@ -41,7 +41,7 @@ def test_response_two_aluminum_chi_RPA(in_tmp_dir):
                  idiotproof=False,  # allow uneven distribution of k-points
                  xc='LDA')
 
-    atoms2.set_calculator(calc2)
+    atoms2.calc = calc2
     atoms2.get_potential_energy()
 
     t3 = time.time()

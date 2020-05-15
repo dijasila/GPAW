@@ -50,7 +50,7 @@ def test_utilities_simple_stm(in_tmp_dir):
     if not load:
         BH.set_pbc(False)
         cf = GPAW(nbands=3, h=.3, txt=txt)
-        BH.set_calculator(cf)
+        BH.calc = cf
         e1 = BH.get_potential_energy()
         niter1 = cf.get_number_of_iterations()
         cf.write(fname, 'all')
@@ -67,7 +67,7 @@ def test_utilities_simple_stm(in_tmp_dir):
                   nbands=5,
                   h=0.3,
                   txt=txt)
-        BH.set_calculator(cf)
+        BH.calc = cf
         e2 = BH.get_potential_energy()
         niter2 = cf.get_number_of_iterations()
         cf.write(fname, 'all')
@@ -80,7 +80,7 @@ def test_utilities_simple_stm(in_tmp_dir):
         BH.set_pbc(True)
         cp = GPAW(spinpol=True, nbands=3, h=.3,
                   kpts=(2, 1, 1), txt=txt, symmetry='off')
-        BH.set_calculator(cp)
+        BH.calc = cp
         e3 = BH.get_potential_energy()
         niter3 = cp.get_number_of_iterations()
         cp.write('BH-4kpts_wfs.gpw', 'all')

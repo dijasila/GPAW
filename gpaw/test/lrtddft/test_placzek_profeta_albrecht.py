@@ -48,7 +48,7 @@ def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
             # eigensolver='rmm-diis',
             symmetry={'point_group': False},
             txt=txt)
-        H2.set_calculator(calc)
+        H2.calc = calc
         # H2.get_potential_energy()
 
         pz = Placzek(H2, KSSingles, gsname=gsname, exname=exname,

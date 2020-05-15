@@ -116,6 +116,9 @@ the IVOs:
 Non self-consistent plane-wave implementation
 =============================================
 
+.. autofunction:: gpaw.hybrids.energy.non_self_consistent_energy
+.. autofunction:: gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues
+
 See this tutorial: :ref:`pbe0_tut`.
 
 .. autoclass:: gpaw.xc.exx.EXX

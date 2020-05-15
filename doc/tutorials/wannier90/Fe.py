@@ -11,7 +11,7 @@ calc = GPAW(mode=PW(600),
             occupations=FermiDirac(width=0.01),
             kpts=(12, 12, 12),
             txt='Fe_scf.txt')
-a.set_calculator(calc)
+a.calc = calc
 a.get_potential_energy()
 
 calc.set(kpts={'size': (8, 8, 8), 'gamma': True},

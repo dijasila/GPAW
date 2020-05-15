@@ -197,7 +197,11 @@ class FDPWWaveFunctions(WaveFunctions):
     def __init__(self, parallel, initksl, reuse_wfs_method=None, **kwargs):
         WaveFunctions.__init__(self, **kwargs)
 
-        self.scalapack_parameters = parallel
+        ranks = [rbd * self.gd.comm.size + rgd
+                 for rgd in range(self.gd.comm.size)
+                 for rbd in range(self.bd.comm.size)]
+        slcomm = parallel[0].new_communicator(ranks)
+        self.scalapack_parameters = (slcomm, ) + parallel[1:]
 
         self.initksl = initksl
         if reuse_wfs_method is None or reuse_wfs_method == 'keep':

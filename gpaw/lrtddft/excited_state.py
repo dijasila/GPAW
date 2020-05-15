@@ -1,5 +1,3 @@
-"""Excited state as calculator object."""
-
 import os
 import errno
 import numpy as np
@@ -186,7 +184,7 @@ class ExcitedState(GPAW, Calculator):
 
         self.calculator.calculate(atoms)
         E0 = self.calculator.get_potential_energy()
-        atoms.set_calculator(self)
+        atoms.calc = self
 
         if hasattr(self, 'density'):
             del(self.density)
@@ -281,7 +279,7 @@ class ExcitedState(GPAW, Calculator):
             propertyfunction=self.atoms.get_potential_energy,
             name="excited_state", ending='.gpw',
             d=self.d, parallel=0)
-        atoms.set_calculator(self)
+        atoms.calc = self
 
         return fd.restart(reforce)
 

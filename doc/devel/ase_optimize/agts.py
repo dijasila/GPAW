@@ -10,9 +10,9 @@ def create_tasks():
     for name in all_optimizers:
         if name == 'Berny':
             continue
-        tasks.append(task('run_tests.py+{}@8:1d'.format(name),
+        tasks.append(task(f'run_tests.py+{name}@8:1d',
                           deps='agts.py'))
-        deps.append('run_tests.py+{}'.format(name))
+        deps.append(f'run_tests.py+{name}')
     tasks.append(task('analyze.py', deps=deps))
     return tasks
 

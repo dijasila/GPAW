@@ -154,7 +154,6 @@ class GPAW(PAW, Calculator):
 
     def __del__(self):
         # Write timings and close reader if necessary.
-
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
         if hasattr(self, 'timer') and not self.log.fd.closed:
@@ -257,7 +256,7 @@ class GPAW(PAW, Calculator):
 
         return reader
 
-    def check_state(self, atoms, tol=1e-15):
+    def check_state(self, atoms, tol=1e-12):
         system_changes = Calculator.check_state(self, atoms, tol)
         if 'positions' not in system_changes:
             if self.hamiltonian:

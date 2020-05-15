@@ -80,13 +80,13 @@ class FiniteDifference:
         self.atoms.positions[a, i] += self.d
         eplus = self.propertyfunction(**kwargs)
         if self.save is True:
-            savecalc = self.atoms.get_calculator()
+            savecalc = self.atoms.calc
             savecalc.write(filename + '+' + self.ending)
 
         self.atoms.positions[a, i] -= 2 * self.d
         eminus = self.propertyfunction(**kwargs)
         if self.save is True:
-            savecalc = self.atoms.get_calculator()
+            savecalc = self.atoms.calc
             savecalc.write(filename + '-' + self.ending)
         self.atoms.positions[a, i] = p0
 

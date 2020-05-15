@@ -15,7 +15,7 @@ def test_xc_revPBE_Li():
                 eigensolver=Davidson(4),
                 convergence=dict(eigenstates=4.5e-8),
                 occupations=FermiDirac(0.0))
-    li.set_calculator(calc)
+    li.calc = calc
     e = li.get_potential_energy() + calc.get_reference_energy()
     niter_PBE = calc.get_number_of_iterations()
     equal(e, -7.462 * Hartree, 1.4)

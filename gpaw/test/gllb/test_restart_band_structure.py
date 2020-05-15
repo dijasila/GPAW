@@ -30,7 +30,7 @@ def test_gllb_restart_band_structure(in_tmp_dir):
                     xc=xc,
                     eigensolver='cg')
 
-        bulk.set_calculator(calc)
+        bulk.calc = calc
         e[xc] = {'direct': bulk.get_potential_energy()}
         print(calc.get_ibz_k_points())
         old_eigs = calc.get_eigenvalues(kpt=3)

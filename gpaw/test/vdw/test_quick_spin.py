@@ -8,7 +8,7 @@ def test_vdw_quick_spin(in_tmp_dir):
     calc = GPAW(xc='vdW-DF',
                 occupations=FermiDirac(width=0.001),
                 txt='H.vdW-DF.txt')
-    a.set_calculator(calc)
+    a.calc = calc
     e1 = a.get_potential_energy()
 
     calc.set(txt='H.vdW-DF.spinpol.txt',
