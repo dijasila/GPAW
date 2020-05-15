@@ -4,6 +4,8 @@
 from math import sqrt
 import numpy as np
 
+from ase.units import Ha
+
 import gpaw.mpi as mpi
 from gpaw.io.logger import GPAWLogger
 
@@ -25,6 +27,7 @@ class ExcitationList(list):
     def __init__(self, calculator=None, log=None, txt='-'):
         # initialise empty list
         list.__init__(self)
+        self.energy_to_eV_scale = Ha
 
         self.calculator = calculator
 
