@@ -69,10 +69,7 @@ commands = {
     'symmetry':
         [],
     'test':
-        ['-x', '--exclude', '-f', '--run-failed-tests-only', '--from',
-         '--after', '--range', '-j', '--jobs', '--reverse', '-k',
-         '--keep-temp-dir', '-d', '--directory', '-s',
-         '--show-output', '--list']}
+        []}
 # End of computer generated data
 
 
