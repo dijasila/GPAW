@@ -8,4 +8,4 @@ def test_fileio_read_old_gpw():
     if dir:
         for f in Path(dir).glob('*.gpw'):
             print(f)
-            calc = GPAW(str(f), txt=None)
+            GPAW(str(f), txt=None)
