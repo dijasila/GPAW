@@ -1,3 +1,4 @@
+import functools
 import json
 from pathlib import Path
 from typing import List, Union, Tuple, Generator, Optional
@@ -16,26 +17,6 @@ from .coulomb import coulomb_interaction
 from .kpts import RSKPoint, to_real_space, get_kpt
 from .paw import calculate_paw_stuff
 from .symmetry import Symmetry
-
-_layouts = {}
-
-
-def idle(n: int, s: int) -> float:
-    b = (n + s - 1) // s
-    return 1 - n / (b * s)
-
-
-def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
-    if (n1, n2, size) not in _layouts:
-        fss: List[Tuple[float, int, int]] = []
-        for s1 in range(1, size + 1):
-            s2, r = divmod(size, s1)
-            if r > 0:
-                continue
-            fitness = (1 - idle(n1, s1)) * (1 - idle(n2, s2))
-            fss.append((fitness, s1, s2))
-        _layouts[(n1, n2, size)] = max(fss)
-    return _layouts[(n1, n2, size)][1:]
 
 
 def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
@@ -179,7 +160,6 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     n1b = min(n1a + B1, N1)
     n2a = min(B2 * rank2, N2)
     n2b = min(n2a + B2, N2)
-    print(N1, N2, rank, n1a, n1b, n2a, n2b)
 
     u1_nR = to_real_space(kpt1.psit, n1a, n1b)
     proj1 = kpt1.proj.broadcast().view(n1a, n1b)
@@ -271,3 +251,25 @@ def read_snapshot(snapshot: Path
                 np.array(dct['v_hyb_sl_sin']),
                 v_hyb_nl_sin)
     return np.array([[[]]]), np.array([[[]]]), np.array([[[]]]), None
+
+
+def idle(n: int, s: int) -> float:
+    """Idle fraction (helper function for layout() function."""
+    b = (n + s - 1) // s
+    return 1 - n / (b * s)
+
+
+@functools.lru_cache()
+def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
+    """Distribute n1*n2 matrix over s1*s2=size blocks.
+
+    Returns s1, s2.
+    """
+    candidates: List[Tuple[float, int, int]] = []
+    for s1 in range(1, size + 1):
+        s2, r = divmod(size, s1)
+        if r > 0:
+            continue
+        fitness = (1 - idle(n1, s1)) * (1 - idle(n2, s2))
+        candidates.append((fitness, s1, s2))
+    return max(candidates)[1:]
