@@ -27,6 +27,7 @@ class DirectMinFD(Eigensolver):
                  linesearch_algo='TSPCAWC',
                  use_prec=True,
                  odd_parameters='Zero',
+                 force_init_localization=False,
                  inner_loop=None,
                  initial_orbitals=None,
                  blocksize=1):
@@ -65,6 +66,8 @@ class DirectMinFD(Eigensolver):
         self.initialized = False
         self.need_init_orbs = True
         self.U_k = {}
+
+        self.force_init_localization = force_init_localization
 
     def __repr__(self):
 
@@ -898,7 +901,8 @@ class DirectMinFD(Eigensolver):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
-        if not self.need_init_orbs or wfs.read_from_file_init_wfs_dm:
+        if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
+                and not self.force_init_localization:
             occ.calculate(wfs)
             return
 
@@ -959,6 +963,7 @@ class DirectMinFD(Eigensolver):
             del dm
 
         self.need_init_orbs = False
+        self.force_init_localization = False
         wfs.timer.stop('Initial Localization')
         log("Done", flush=True)
 
