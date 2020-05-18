@@ -14,7 +14,7 @@ if platform_id:
     plat += '-' + platform_id
 build_path = join(__path__[0], '..', 'build')  # type: ignore
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
-debug = sys.flags.debug
+debug: int = sys.flags.debug
 
 # If we are running the code from the source directory, then we will
 # want to use the extension from the distutils build directory:
