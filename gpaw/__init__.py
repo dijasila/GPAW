@@ -1,4 +1,3 @@
-# encoding: utf-8
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
@@ -15,6 +14,7 @@ if platform_id:
     plat += '-' + platform_id
 build_path = join(__path__[0], '..', 'build')  # type: ignore
 arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
+debug = sys.flags.debug
 
 # If we are running the code from the source directory, then we will
 # want to use the extension from the distutils build directory:
@@ -33,6 +33,12 @@ with broadcast_imports:
 
     import numpy as np
     from ase.cli.run import str2dict
+    import ase.parallel
+    from gpaw.mpi import world
+
+set_global_master = getattr(ase.parallel, '_set_global_master', None)
+if set_global_master and world:
+    set_global_master(world)
 
 assert not np.version.version.startswith('1.6.0')
 
@@ -212,7 +218,7 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug: bool = extra_parameters.pop('debug', sys.flags.debug)
+debug = extra_parameters.pop('debug', debug)
 benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
