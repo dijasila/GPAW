@@ -317,6 +317,7 @@ The ``update`` keyword in ``replay()`` has following options:
    even with splitted files.
 
 
+.. _ksdecomposition:
 
 Kohn--Sham decomposition of density matrix
 ------------------------------------------
