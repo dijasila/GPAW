@@ -509,7 +509,6 @@ PyObject * NewOperatorObject(PyObject *obj, PyObject *args)
     comm = ((MPIObject*)comm_obj)->comm;
 
   self->bc = bc_init(LONGP(size), padding, padding, nb, comm, real, cfd);
-  const int* size2 = self->bc->size2;
 #ifdef GPAW_CUDA
   self->cuda = cuda;
   if (self->cuda) {
