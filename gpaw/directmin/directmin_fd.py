@@ -16,7 +16,7 @@ from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
 from gpaw.directmin.locfunc.er import ERlocalization as ERL
 
 import time
-# from ase.parallel import parprint
+from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
 
 
@@ -30,6 +30,8 @@ class DirectMinFD(Eigensolver):
                  force_init_localization=False,
                  inner_loop=None,
                  initial_orbitals=None,
+                 maxiter=100,
+                 kappa_tol=5.0e-4,
                  blocksize=1):
 
         super(DirectMinFD, self).__init__(keep_htpsit=False,
@@ -42,6 +44,8 @@ class DirectMinFD(Eigensolver):
         self.odd_parameters = odd_parameters
         self.inner_loop = inner_loop
         self.initial_orbitals = initial_orbitals
+        self.maxiter=maxiter
+        self.kappa_tol=kappa_tol
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
@@ -66,7 +70,7 @@ class DirectMinFD(Eigensolver):
         self.initialized = False
         self.need_init_orbs = True
         self.U_k = {}
-
+        self.eg_count = 0
         self.force_init_localization = force_init_localization
 
     def __repr__(self):
@@ -213,7 +217,8 @@ class DirectMinFD(Eigensolver):
                 self.inner_loop is True
 
             if iloop:
-                self.iloop = InnerLoop(self.odd, wfs)
+                self.iloop = InnerLoop(self.odd, wfs,
+                                       self.kappa_tol, self.maxiter)
             else:
                 self.iloop = None
 
@@ -367,35 +372,31 @@ class DirectMinFD(Eigensolver):
         grad = self.get_gradients_2(ham, wfs)
 
         if 'SIC' in self.odd_parameters['name']:
-            temp = {}
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                temp[k] = kpt.psit_nG[:].copy()
-                n_occ = get_n_occ(kpt)
-                kpt.psit_nG[:n_occ] = \
-                    np.tensordot(
-                        self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
-
             self.e_sic = 0.0
             # error = self.error * Hartree ** 2 / wfs.nvalence
             if self.iters > 0:
-                self.run_inner_loop(ham, wfs, occ, dens, log=None)
-            self.e_sic = 0.0
+                self.run_inner_loop(ham, wfs, occ, dens, grad_knG=grad, log=None)
+            else:
+                temp = {}
+                for kpt in wfs.kpt_u:
+                    k = self.n_kps * kpt.s + kpt.q
+                    temp[k] = kpt.psit_nG[:].copy()
+                    n_occ = get_n_occ(kpt)
+                    kpt.psit_nG[:n_occ] = \
+                        np.tensordot(
+                            self.U_k[k].T, kpt.psit_nG[:n_occ],
+                            axes=1)
+                self.e_sic = self.odd.get_energy_and_gradients(
+                    wfs, grad, dens, self.U_k)
+                for kpt in wfs.kpt_u:
+                    k = self.n_kps * kpt.s + kpt.q
+                    kpt.psit_nG[:] = temp[k]
 
-            for kpt in wfs.kpt_u:
-                k = n_kps * kpt.s + kpt.q
-                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
-
-            self.e_sic = self.odd.get_energy_and_gradients(
-                wfs, grad, dens, self.U_k)
             energy += self.e_sic
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                kpt.psit_nG[:] = temp[k]
 
         self.project_search_direction_2(wfs, grad)
         self.error = self.error_eigv(wfs, grad)
-        # self.eg_counter += 1
+        self.eg_count += 1
         return energy, grad
 
     def get_gradients_2(self, ham, wfs):
@@ -864,36 +865,70 @@ class DirectMinFD(Eigensolver):
 
         self.initialized = False
 
-    def run_inner_loop(self, ham, wfs, occ, dens, log, niter=0):
+    def run_inner_loop(self, ham, wfs, occ, dens, log, grad_knG, niter=0):
 
         if self.iloop is None:
             return niter, False
 
+        # self.e_sic = self.odd.get_eg_and_estimate_error(wfs, grad_knG,
+        #                                                 self.U_k)
+        #
+        # if self.odd.kappa < 1.0e-4:
+        #     self.iloop.eg_count = 0
+        #     # energy += self.e_sic
+        #     return 0, True
+        #
+        # temp = {}
+        # psi_copy = {}
+        # for kpt in wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     temp[k] = kpt.psit_nG[:].copy()
+        #     n_occ = get_n_occ(kpt)
+        #     kpt.psit_nG[:n_occ] = \
+        #         np.tensordot(
+        #             self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
+        #     psi_copy[k] = kpt.psit_nG[:].copy()
+        #
         wfs.timer.start('Inner loop')
-
-        psi_copy = {}
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            psi_copy[k] = kpt.psit_nG[:].copy()
-
         e_total = ham.get_energy(occ,
                                  kin_en_using_band=False,
                                  e_sic=self.e_sic)
         # log = parprint
-
         log = None
         if wfs.read_from_file_init_wfs_dm:
             intital_random = False
         else:
             intital_random = True
-        counter = self.iloop.run(
-            e_total - self.e_sic, psi_copy,
+        self.e_sic, counter = self.iloop.run(
+            e_total - self.e_sic,
             wfs, dens, log, niter,
             small_random=intital_random)
 
-        del psi_copy
+        if grad_knG is not None:
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                n_occ = get_n_occ(kpt)
+                grad_knG[k][:n_occ] += \
+                    np.tensordot(self.iloop.U_k[k].conj(),
+                                 self.iloop.odd_pot.grad[k], axes=1)
 
         wfs.timer.stop('Inner loop')
+
+        # for kpt in wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
+        #
+        # self.e_sic = self.odd.get_energy_and_gradients(
+        #     wfs, grad_knG, dens, self.U_k)
+        #
+        # for kpt in wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     np.save('psit_nG.npy', kpt.psit_nG)
+        #     kpt.psit_nG[:] = temp[k]
+        # del temp
+        # del psi_copy
+        # self.e_sic = self.odd.get_eg_and_estimate_error(wfs, grad_knG, self.U_k)
+
 
         return counter, True
 
@@ -958,7 +993,7 @@ class DirectMinFD(Eigensolver):
             log('Edmiston-Ruedenberg localisation')
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
-                maxiter=100, g_tol=1.0e-4)
+                maxiter=200, g_tol=5.0e-4)
             dm.run(wfs, dens)
             del dm
 
@@ -973,16 +1008,12 @@ class DirectMinFD(Eigensolver):
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 n_occ=get_n_occ(kpt)
-                self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
                 kpt.psit_nG[:n_occ] = \
                     np.tensordot(
-                        self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
-            self.run_inner_loop(ham, wfs, occ, dens, log=None)
-
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                self.U_k[k] = np.eye(self.U_k[k].shape[0])
+                        self.iloop.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
                 self.iloop.U_k[k] = np.eye(self.iloop.U_k[k].shape[0])
+                self.iloop.Unew_k[k] = np.eye(self.iloop.Unew_k[k].shape[0])
+            self.run_inner_loop(ham, wfs, occ, dens, log=None, grad_knG=None)
 
 
 def log_f(niter, e_total, eig_error, log):

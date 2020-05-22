@@ -74,6 +74,9 @@ class PzCorrections:
 
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.store_potentials = store_potentials
+        self.grad = {}
+        self.total_sic = 0.0
+
         if store_potentials:
             self.old_pot = {}
             for kpt in wfs.kpt_u:
@@ -103,18 +106,21 @@ class PzCorrections:
         for kpt in wfs.kpt_u:
             e_sic += self.get_energy_and_gradients_kpt(
                 wfs, kpt, grad_knG, dens, U_k)
-        e_sic = wfs.kd.comm.sum(e_sic)
+        self.total_sic = wfs.kd.comm.sum(e_sic)
+        return self.total_sic
 
-        return e_sic
-
-    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
-                                     dens=None, U_k=None):
+    def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG=None,
+                                     dens=None, U_k=None, add_grad=False):
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
         e_total_sic = np.array([])
-        grad = np.zeros_like(kpt.psit_nG[:n_occ])
+
+        # if rewrite_grad:
+        #     grad = grad_knG[k][:n_occ]
+        # else:
+        self.grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
 
         for i in range(n_occ):
             nt_G, Q_aL, D_ap = \
@@ -128,20 +134,24 @@ class PzCorrections:
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
 
-            grad[i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+            self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
             c_axi = {}
             for a in kpt.P_ani.keys():
                 dH_ii = unpack(dH_ap[a])
                 c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
                 c_axi[a] = c_xi * kpt.f_n[i]
             # add projectors to
-            wfs.pt.add(grad[i], c_axi, kpt.q)
+            wfs.pt.add(self.grad[k][i], c_axi, kpt.q)
 
-        if U_k is not None:
-            grad_knG[k][:n_occ] += \
-                np.tensordot(U_k[k].conj(), grad, axes=1)
+        if add_grad:
+            if U_k is not None:
+                grad_knG[k][:n_occ] += \
+                    np.tensordot(U_k[k].conj(), self.grad[k], axes=1)
+            else:
+                grad_knG[k][:n_occ] += self.grad[k]
         else:
-            grad_knG[k][:n_occ] += grad
+            if U_k is not None:
+                self.grad[k][:] = np.tensordot(U_k[k].conj(), self.grad[k], axes=1)
 
         self.e_sic_by_orbitals[k] = \
             e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
@@ -250,43 +260,41 @@ class PzCorrections:
 
     def get_energy_and_gradients_inner_loop(self, wfs, kpt, a_mat,
                                             evals, evec, dens):
-
         n_occ = 0
         for f in kpt.f_n:
             if f > 1.0e-10:
                 n_occ += 1
 
         k = self.n_kps * kpt.s + kpt.q
-        grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
-
-        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad, dens)
-
+        self.grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
+        e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad_knG=None,
+                                                  dens=None,
+                                                  U_k=None,
+                                                  add_grad=False)
         wfs.timer.start('Unitary gradients')
         l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
-                                   grad[k][:n_occ], False)
+                                   self.grad[k][:n_occ], False)
         l_odd = np.ascontiguousarray(l_odd)
         self.cgd.comm.sum(l_odd)
-
         f = np.ones(n_occ)
+        indz = np.absolute(l_odd) > 1.0e-8
+        l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
+        kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
 
         if a_mat is None:
             wfs.timer.stop('Unitary gradients')
-            return l_odd.T, e_sic
+            return l_odd.T, e_sic, kappa
         else:
             g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
             g_mat = g_mat * d_matrix(evals)
             g_mat = evec @ g_mat @ evec.T.conj()
-
             for i in range(g_mat.shape[0]):
                 g_mat[i][i] *= 0.5
-
             wfs.timer.stop('Unitary gradients')
-
             if a_mat.dtype == float:
-                return 2.0 * g_mat.real, e_sic
-            else:
-                return 2.0 * g_mat, e_sic
+                g_mat = g_mat.real
+            return 2.0 * g_mat, e_sic, kappa
 
     def get_odd_corrections_to_forces(self, F_av, wfs, kpt):
 
@@ -353,3 +361,78 @@ class PzCorrections:
         e_pz += e_pz_paw_m
 
         return e_pz, vt_G, dH_ap
+
+    #
+    # def get_eg_and_estimate_error(self, wfs, grad_knG, U_k, dens=None):
+    #
+    #     wfs.timer.start('SIC e/g grid calculations')
+    #
+    #     e_sic = 0.0
+    #     temp = {}
+    #     grad = {}
+    #     self.kappa = 0.0
+    #     for kpt in wfs.kpt_u:
+    #         k = self.n_kps * kpt.s + kpt.q
+    #         n_occ = get_n_occ(kpt)
+    #         e_total_sic = np.array([])
+    #         grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
+    #         temp[k] = kpt.psit_nG[:].copy()
+    #
+    #         kpt.psit_nG[:n_occ] = \
+    #             np.tensordot(
+    #                 U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
+    #         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+    #
+    #         for i in range(n_occ):
+    #             nt_G, Q_aL, D_ap = \
+    #                 self.get_orbdens_compcharge_dm_kpt(kpt, i)
+    #
+    #             # calculate sic energy, sic pseudo-potential and Hartree
+    #             e_sic, vt_G, dH_ap = \
+    #                 self.get_pz_sic_ith_kpt(
+    #                     nt_G, Q_aL, D_ap, i, k, wfs.timer)
+    #
+    #             e_total_sic = np.append(e_total_sic,
+    #                                     kpt.f_n[i] * e_sic, axis=0)
+    #
+    #             grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+    #             c_axi = {}
+    #             for a in kpt.P_ani.keys():
+    #                 dH_ii = unpack(dH_ap[a])
+    #                 c_xi = np.dot(kpt.P_ani[a][i], dH_ii)
+    #                 c_axi[a] = c_xi * kpt.f_n[i]
+    #             # add projectors to
+    #             wfs.pt.add(grad[k][i], c_axi, kpt.q)
+    #
+    #         self.e_sic_by_orbitals[k] = \
+    #             e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)
+    #
+    #         # estimate the error
+    #         l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
+    #                                    grad[k][:n_occ], False)
+    #         l_odd = np.ascontiguousarray(l_odd)
+    #         self.cgd.comm.sum(l_odd)
+    #         f = np.ones(n_occ)
+    #         indz = np.absolute(l_odd) > 1.0e-8
+    #         l_c = 2.0 * l_odd[indz]
+    #         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
+    #         kappa_1 = np.max(
+    #             np.absolute(l_odd[indz]) / np.absolute(l_c))
+    #         if kappa_1 > self.kappa:
+    #             self.kappa = kappa_1
+    #
+    #     self.kappa = wfs.kd.comm.max(self.kappa)
+    #     if self.kappa < 1.0e-4:
+    #         for kpt in wfs.kpt_u:
+    #             k = self.n_kps * kpt.s + kpt.q
+    #             n_occ = get_n_occ(kpt)
+    #             grad[k] = np.tensordot(U_k[k].conj(), grad[k], axes=1)
+    #             grad_knG[k][:n_occ] += grad[k]
+    #
+    #     for kpt in wfs.kpt_u:
+    #         k = self.n_kps * kpt.s + kpt.q
+    #         kpt.psit_nG[:] = temp[k]
+    #
+    #     wfs.timer.stop('SIC e/g grid calculations')
+    #
+    #     return e_total_sic.sum()

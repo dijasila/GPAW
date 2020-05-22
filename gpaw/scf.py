@@ -204,8 +204,11 @@ class SCFLoop:
 
         self.niter = 1
 
-        while self.niter <= self.maxiter:
+        wfs.eigensolver.eg_counter = 0
+        if hasattr(wfs.eigensolver, 'iloop'):
+            wfs.eigensolver.iloop.total_eg_count = 0
 
+        while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
             if hasattr(wfs.eigensolver, 'e_sic'):
                 e_sic = wfs.eigensolver.e_sic
@@ -235,8 +238,13 @@ class SCFLoop:
                 if 'SIC' in wfs.eigensolver.odd_parameters['name']:
                     wfs.eigensolver.choose_optimal_orbitals(
                         wfs, ham, occ, dens)
-
-                log('\nOccupied states converged after {:d}'.format(self.niter))
+                    niter1 = wfs.eigensolver.eg_count
+                    niter2 = wfs.eigensolver.iloop.total_eg_count
+                    log('\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(niter1,
+                                                                                                        niter2))
+                else:
+                    niter = wfs.eigensolver.eg_counter
+                    log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
                 log('Converge unoccupied states:')
                 max_er = self.max_errors['eigenstates']
                 max_er *= Hartree ** 2 / wfs.nvalence

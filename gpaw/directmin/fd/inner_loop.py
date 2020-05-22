@@ -9,11 +9,11 @@ import time
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, g_tol=5.0e-4, maxiter=15):
+    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=100):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
-        self.g_tol = g_tol / Hartree
+        self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
         self.method = 'LBFGS'
@@ -21,14 +21,17 @@ class InnerLoop:
         self.max_iter_line_search = 3
         self.n_counter = maxiter
         self.eg_count = 0
+        self.total_eg_count = 0
         self.run_count = 0
         self.U_k = {}
-
+        self.Unew_k = {}
+        self.e_total = 0.0
         self.n_occ = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             self.n_occ[k] = get_n_occ(kpt)
             self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
+            self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
 
     def get_energy_and_gradients(self, a_k, wfs, dens):
         """
@@ -42,8 +45,9 @@ class InnerLoop:
             return self.get_energy_and_gradients2(a_k, wfs, dens)
 
         g_k = {}
-        e_total = 0.0
+        self.e_total = 0.0
 
+        self.kappa = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             n_occ = self.n_occ[k]
@@ -53,8 +57,7 @@ class InnerLoop:
             wfs.timer.start('Unitary matrix')
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
-            self.U_k[k] = u_mat.copy()
-
+            self.Unew_k[k] = u_mat.copy()
             kpt.psit_nG[:n_occ] = \
                 np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
                              axes=1)
@@ -64,17 +67,20 @@ class InnerLoop:
 
             del u_mat
             wfs.timer.start('Energy and gradients')
-            g_k[k], e_sic = \
+            g_k[k], e_sic, kappa1 = \
                 self.odd_pot.get_energy_and_gradients_inner_loop(
                     wfs, kpt, a_k[k], evals, evecs, dens)
             wfs.timer.stop('Energy and gradients')
+            if kappa1 > self.kappa:
+                self.kappa = kappa1
+            self.e_total += e_sic
 
-            e_total += e_sic
-        e_total = wfs.kd.comm.sum(e_total)
-
+        self.kappa = wfs.kd.comm.max(self.kappa)
+        self.e_total = wfs.kd.comm.sum(self.e_total)
         self.eg_count += 1
+        self.total_eg_count += 1
 
-        return e_total, g_k
+        return self.e_total, g_k
 
     def evaluate_phi_and_der_phi(self, a_k, p_k, alpha, wfs, dens,
                                  phi=None, g_k=None):
@@ -129,13 +135,21 @@ class InnerLoop:
 
         return p_k
 
-    def run(self, e_ks, psit_knG, wfs, dens, log, outer_counter=0,
+    def run(self, e_ks, wfs, dens, log, outer_counter=0,
             small_random=True):
+
         self.run_count += 1
         self.counter = 0
         self.eg_count = 0
         # initial things
-        self.psit_knG = psit_knG
+        self.psit_knG = {}
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            n_occ = self.n_occ[k]
+            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
+                                            kpt.psit_nG[:n_occ],
+                                            axes=1)
+
         a_k = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -158,20 +172,36 @@ class InnerLoop:
             max_iter=self.max_iter_line_search)
 
         # get initial energy and gradients
-        e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
+        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
+        if self.kappa < self.tol:
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                n_occ = self.n_occ[k]
+                kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
+                                                   self.psit_knG[k],
+                                                   axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+                self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+            del self.psit_knG
+            if outer_counter is None:
+                return self.e_total, counter
+            else:
+                return self.e_total, outer_counter
 
         # get maximum of gradients
-        max_norm = []
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            if self.n_occ[k] == 0:
-                continue
-            max_norm.append(np.max(np.absolute(g_k[k])))
-        max_norm = np.max(np.asarray(max_norm))
-        g_max = wfs.world.max(max_norm)
+        # max_norm = []
+        # for kpt in wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     if self.n_occ[k] == 0:
+        #         continue
+        #     max_norm.append(np.max(np.absolute(g_k[k])))
+        # max_norm = np.max(np.asarray(max_norm))
+        # g_max = wfs.world.max(max_norm)
 
         # stuff which are needed for minim.
-        phi_0 = e_total
+        phi_0 = self.e_total
         phi_old = None
         der_phi_old = None
         phi_old_2 = None
@@ -179,17 +209,16 @@ class InnerLoop:
 
         outer_counter += 1
         if log is not None:
-            log_f(log, self.counter, g_max, e_ks, e_total, outer_counter)
+            log_f(log, self.counter, self.kappa, e_ks, self.e_total, outer_counter)
 
         alpha = 1.0
-        if g_max < 1.0e-8:
-            not_converged = False
-        else:
-            not_converged = True
-
+        # if self.kappa < self.tol:
+        #     not_converged = False
+        # else:
+        #     not_converged = True
         # not_converged = \
         #     g_max > self.g_tol and counter < self.n_counter
-
+        not_converged = True
         while not_converged:
 
             # calculate search direction fot current As and Gs
@@ -234,28 +263,19 @@ class InnerLoop:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
 
-                # get maximum of gradients
-                max_norm = []
-                for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    if self.n_occ[k] == 0:
-                        continue
-                    max_norm.append(np.max(np.absolute(g_k[k])))
-                max_norm = np.max(np.asarray(max_norm))
-                g_max = wfs.world.max(max_norm)
                 # output
                 self.counter += 1
                 if outer_counter is not None:
                     outer_counter += 1
                 if log is not None:
                     log_f(
-                        log, self.counter, g_max, e_ks, phi_0,
+                        log, self.counter, self.kappa, e_ks, phi_0,
                         outer_counter)
 
-                not_converged = g_max > self.g_tol and \
+                not_converged = self.kappa > self.tol and \
                                 self.counter < self.n_counter
-                if not not_converged and self.counter < 2:
-                    not_converged = True
+                # if not not_converged and self.counter < 2:
+                #     not_converged = True
 
             else:
                 break
@@ -280,12 +300,21 @@ class InnerLoop:
         #     # calc projectors
         #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            n_occ = self.n_occ[k]
+            kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
+                                               self.psit_knG[k],
+                                               axes=1)
+            # calc projectors
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+
         del self.psit_knG
         if outer_counter is None:
-
-            return counter
+            return self.e_total, counter
         else:
-            return outer_counter
+            return self.e_total, outer_counter
 
     def get_numerical_gradients(self, A_s, wfs, dens, log, eps=1.0e-5,
                                 dtype=None):
@@ -471,9 +500,9 @@ def log_f(log, niter, g_max, e_ks, e_sic, outer_counter=None):
     if niter == 0:
         header0 = 'INNER LOOP:\n'
         header = '                      Kohn-Sham          SIC' \
-                 '        Total    ||g||_inf\n' \
+                 '        Total             \n' \
                  '           time         energy:      energy:' \
-                 '      energy:    gradients:'
+                 '      energy:    Error:'
         log(header0 + header)
 
     if outer_counter is not None:

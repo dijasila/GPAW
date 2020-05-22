@@ -203,11 +203,16 @@ class ERlocalization:
             self.get_energy_and_hamiltonain_kpt(wfs, dens, kpt)
         wfs.timer.start('Unitary gradients')
         f = np.ones(l_odd.shape[0])
+
+        # calc_error:
+        indz = np.absolute(l_odd) > 1.0e-8
+        l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
+        kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
 
         if a_mat is None:
             wfs.timer.stop('Unitary gradients')
-            return l_odd.T, e_sic
+            return l_odd.T, e_sic, kappa
         else:
             g_mat = evec.T.conj() @ l_odd.T.conj() @ evec
             g_mat = g_mat * d_matrix(evals)
@@ -217,11 +222,9 @@ class ERlocalization:
                 g_mat[i][i] *= 0.5
 
             wfs.timer.stop('Unitary gradients')
-
             if a_mat.dtype == float:
-                return 2.0 * g_mat.real, e_sic
-            else:
-                return 2.0 * g_mat, e_sic
+                g_mat = g_mat.real
+            return 2.0 * g_mat, e_sic, kappa
 
     def get_energy_and_hamiltonain_kpt(self, wfs, dens, kpt):
 
