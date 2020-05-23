@@ -394,7 +394,7 @@ class DirectMinFD(Eigensolver):
 
             energy += self.e_sic
 
-        self.project_search_direction_2(wfs, grad)
+        self.project_gradient(wfs, grad)
         self.error = self.error_eigv(wfs, grad)
         self.eg_count += 1
         return energy, grad
@@ -439,15 +439,15 @@ class DirectMinFD(Eigensolver):
 
         return Hpsi_nG
 
-    def project_search_direction_2(self, wfs, p_knG):
+    def project_gradient(self, wfs, p_knG):
 
         n_kps = self.n_kps
         for kpt in wfs.kpt_u:
             kpoint = n_kps * kpt.s + kpt.q
-            self.project_search_direction_for_one_k_point_2(
+            self.project_gradient_for_one_k_point(
                 wfs, p_knG[kpoint], kpt)
 
-    def project_search_direction_for_one_k_point_2(self, wfs, p_nG,
+    def project_gradient_for_one_k_point(self, wfs, p_nG,
                                                    kpt):
 
         def dot_2(psi_1, psi_2, wfs):
