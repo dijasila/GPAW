@@ -64,7 +64,7 @@ def cubic_interpolation_2(x_0, x_1, x_2, f_0, df_0, f_1, f_2):
     :param df_2:
     :return:
     """
-    assert x_0 <= x_1 <= x_2
+    # assert x_0 <= x_1 <= x_2
 
     # shift to the center of origin
     x_c = x_0
@@ -94,9 +94,9 @@ def cubic_interpolation_2(x_0, x_1, x_2, f_0, df_0, f_1, f_2):
 
     f_min = cubic_function(a, b, c, d, x_min)
 
-    assert f_min < f_1
-    assert f_min < f_2
-    assert f_min < f_0
+    # assert f_min < f_1
+    # assert f_min < f_2
+    # assert f_min < f_0
 
     return x_min + x_c
 
@@ -115,7 +115,7 @@ def parabola_interpolation(x_0, x_1, f_0, f_1, df_0):
     :param df_0:
     :return:
     """
-    assert x_0 <= x_1
+    # assert x_0 <= x_1
 
     r = x_1 - x_0
     a = (f_1 - f_0 - r * df_0) / r**2
