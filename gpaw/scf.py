@@ -204,9 +204,10 @@ class SCFLoop:
 
         self.niter = 1
 
-        wfs.eigensolver.eg_counter = 0
+        wfs.eigensolver.eg_count = 0
         if hasattr(wfs.eigensolver, 'iloop'):
-            wfs.eigensolver.iloop.total_eg_count = 0
+            if wfs.eigensolver.iloop is not None:
+                wfs.eigensolver.iloop.total_eg_count = 0
 
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
@@ -243,7 +244,7 @@ class SCFLoop:
                     log('\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(niter1,
                                                                                                         niter2))
                 else:
-                    niter = wfs.eigensolver.eg_counter
+                    niter = wfs.eigensolver.eg_count
                     log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
                 log('Converge unoccupied states:')
                 max_er = self.max_errors['eigenstates']
