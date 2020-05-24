@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 
-
 class SteepestDescent:
 
     def __init__(self, wfs, dimensions):
@@ -57,7 +56,10 @@ class SteepestDescent:
 
     def dot_all_k_and_b(self, x1, x2, wfs):
 
-        dot_pr_x1x2 = 0.0
+        if wfs.dtype is complex:
+            dot_pr_x1x2 = 0.0j
+        else:
+            dot_pr_x1x2 = 0.0
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q

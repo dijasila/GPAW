@@ -25,7 +25,6 @@ from gpaw.utilities.partition import AtomPartition
 ENERGY_NAMES = ['e_kinetic', 'e_coulomb', 'e_zero', 'e_external', 'e_xc',
                 'e_entropy', 'e_total_free', 'e_total_extrapolated']
 
-
 def apply_non_local_hamilton(dH_asp, collinear, P, out=None):
     if out is None:
         out = P.new()
@@ -574,7 +573,7 @@ class Hamiltonian:
                 if f > 1.0e-10:
                     e_kin += f * wfs.gd.integrate(Lapl(psit_G, kpt),
                                                   psit_G, False)
-
+        e_kin = e_kin.real
         e_kin = wfs.kd.comm.sum(e_kin)  # ?
         e_kin = density.gd.comm.sum(e_kin)
 
@@ -585,8 +584,7 @@ class Hamiltonian:
             D_p = D_sp.sum(0)
             e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
         e_kin_paw = density.gd.comm.sum(e_kin_paw)
-
-        return e_kin.real + e_kin_paw
+        return e_kin + e_kin_paw
 
 
 class RealSpaceHamiltonian(Hamiltonian):

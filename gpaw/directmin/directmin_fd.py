@@ -14,7 +14,6 @@ from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
 from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
 from gpaw.directmin.locfunc.er import ERlocalization as ERL
-
 import time
 from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
@@ -296,13 +295,13 @@ class DirectMinFD(Eigensolver):
 
         self.alpha = alpha
         self.grad_knG = grad_knG
-        self.iters += 1
 
         # and 'shift' phi, der_phi for the next iteration
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         wfs.timer.stop('Direct Minimisation step')
+        self.iters += 1
 
     def update_ks_energy(self, ham, wfs, dens, occ):
 
@@ -538,16 +537,16 @@ class DirectMinFD(Eigensolver):
     def error_eigv(self, wfs, grad_knG):
 
         n_kps = wfs.kd.nks // wfs.kd.nspins
-        norm = []
+        norm = [0.0]
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             for i, f in enumerate(kpt.f_n):
                 if f > 1.0e-10:
-                    norm.append(self.dot(wfs,
-                                         grad_knG[k][i] / f,
-                                         grad_knG[k][i] / f,
-                                         kpt).item() * f)
-
+                    a = self.dot(wfs,
+                                 grad_knG[k][i] / f,
+                                 grad_knG[k][i] / f, kpt).item() * f
+                    a = a.real
+                    norm.append(a)
         # error = sum(norm) * Hartree**2 / wfs.nvalence
         error = sum(norm)
         error = wfs.kd.comm.sum(error)
