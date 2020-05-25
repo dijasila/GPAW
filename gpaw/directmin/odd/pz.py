@@ -266,7 +266,7 @@ class PzCorrections:
                 n_occ += 1
 
         k = self.n_kps * kpt.s + kpt.q
-        self.grad = {k: np.zeros_like(kpt.psit_nG[:n_occ])}
+        self.grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
         e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad_knG=None,
                                                   dens=None,
                                                   U_k=None,
