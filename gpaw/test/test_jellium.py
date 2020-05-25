@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from ase import Atoms
 from ase.units import Bohr, Hartree
@@ -6,6 +7,7 @@ from gpaw import GPAW, Mixer
 from gpaw.test import equal
 
 
+@pytest.mark.libxc
 def test_jellium(in_tmp_dir):
     rs = 5.0 * Bohr  # Wigner-Seitz radius
     h = 0.24          # grid-spacing
@@ -32,7 +34,7 @@ def test_jellium(in_tmp_dir):
                      mixer=Mixer(0.3, 7, 100),
                      nbands=int(ne / 2) + 15,
                      txt='surface.txt')
-    e = surf.get_potential_energy()
+    _ = surf.get_potential_energy()
 
     efermi = surf.calc.get_fermi_level()
     # Get (x-y-averaged) electrostatic potential

@@ -31,9 +31,9 @@ def info():
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
 
-    if hasattr(_gpaw, 'lxcXCFunctional'):
-        results.append(
-            ('libxc-' + getattr(_gpaw, 'libxc_version', '2.x.y'), True))
+    libxc = gpaw.libs['libxc']
+    if libxc:
+        results.append((f'libxc-{libxc}', True))
     else:
         results.append(('libxc', False))
 

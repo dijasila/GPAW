@@ -44,3 +44,11 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+
+
+def pytest_runtest_setup(item):
+    print(item, '*' * 99)
+    from gpaw import libs
+    if not libs['libxc'] and any(mark.name == 'libxc'
+                                 for mark in item.iter_markers()):
+        pytest.skip('No LibXC.')

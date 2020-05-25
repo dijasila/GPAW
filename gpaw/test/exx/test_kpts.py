@@ -27,6 +27,7 @@ def atoms():
     return a
 
 
+@pytest.mark.libxc
 @pytest.mark.parametrize('xc', ['EXX', 'PBE0', 'HSE06'])
 def test_kpts(xc, atoms):
     c = atoms.calc

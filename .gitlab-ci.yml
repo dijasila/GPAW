@@ -3,7 +3,7 @@ master:
   script:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
-    - pip install flake8 mypy pytest
+    - pip install flake8 mypy pytest interrogate
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - mkdir ~/.gpaw
     - echo "scalapack = True; libraries += ['scalapack-openmpi']" > ~/.gpaw/siteconfig.py
@@ -17,3 +17,4 @@ master:
     - python -c "assert int(open('nerr').read()) <= 2435, 'Please run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/
     - mypy -p gpaw
+    - interrogate -v -m -i -f 28.5 gpaw
