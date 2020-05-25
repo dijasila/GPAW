@@ -23,6 +23,8 @@ short_names = {
 class LibXC(XCKernel):
     """Functionals from libxc."""
     def __init__(self, name):
+        assert 0, f'no libxc {name}'
+        # assert hasattr(_gpaw, 'lxcXCFuncNum')
         self.name = name
         self.omega = None
         self.initialize(nspins=1)
