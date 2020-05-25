@@ -8,12 +8,7 @@ codes = {
     'PBE': 0,
     'revPBE': 1,
     'RPBE': 2,
-    'PW91': 14,
-    'TPSS': 20,
-    'M06-L': 21,
-    'revTPSS': 22}
-# NOTE: when adding MGGA functionals to the above
-# list, self.type must be set to MGGA in XCKernel:__init__
+    'PW91': 14}
 
 
 class XCNull:
@@ -29,8 +24,6 @@ class XCKernel:
         self.name = name
         if name == 'LDA':
             self.type = 'LDA'
-        elif name == 'TPSS' or name == 'M06-L' or name == 'revTPSS':
-            self.type = 'MGGA'
         else:
             self.type = 'GGA'
         self.xc = _gpaw.XCFunctional(codes[name])
@@ -52,13 +45,10 @@ class XCKernel:
            2nd-order derivatives for MGGAs.  XXX verify and document this.
         """
         if debug:
-            self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
-                                 tau_sg, dedtau_sg)
-        self.xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg, tau_sg,
-                          dedtau_sg)
+            self.check_arguments(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
+        self.xc.calculate(e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg)
 
-    def check_arguments(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg,
-                        tau_sg, dedtau_sg):
+    def check_arguments(self, e_g, n_sg, dedn_sg, sigma_xg, dedsigma_xg):
         S = n_sg.shape[0]
         G = n_sg.shape[1:]
         assert e_g.shape == G
@@ -72,9 +62,3 @@ class XCKernel:
             assert sigma_xg.flags.contiguous and sigma_xg.dtype == float
             assert (dedsigma_xg.flags.contiguous and
                     dedsigma_xg.dtype == float)
-            if self.type == 'MGGA':
-                assert tau_sg.shape == (S,) + G
-                assert dedtau_sg.shape == (S,) + G
-                assert tau_sg.flags.contiguous and tau_sg.dtype == float
-                assert (dedtau_sg.flags.contiguous and
-                        dedtau_sg.dtype == float)

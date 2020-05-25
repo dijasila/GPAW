@@ -148,7 +148,7 @@ sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
 sources += Path('c/xc').glob('*.c')
 if nolibxc:
-    sources.remove('c/xc/libxc.c')
+    sources.remove(Path('c/xc/libxc.c'))
 # Make build process deterministic (for "reproducible build")
 sources = [str(source) for source in sources]
 sources.sort()
