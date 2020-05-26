@@ -21,8 +21,16 @@ Git master branch
 
 * Python 3.6 or later is required now.
 
-* The :ref:`LCAOTDDFT <lcaotddft>` module supports now user-defined
-  time-dependent potentials.
+* Updates in :ref:`LCAOTDDFT <lcaotddft>` module:
+
+  * User-defined time-dependent potentials and general kicks supported.
+
+  * New observers for analysis.
+
+  * Syntax updates for Kohn--Sham decomposition,
+    see :ref:`examples <ksdecomposition>`.
+
+  * Code improvements.
 
 * New :meth:`~gpaw.calculator.GPAW.get_atomic_electrostatic_potentials`
   method.  Useful for aligning eigenvalues from different calculations.
