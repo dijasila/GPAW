@@ -84,15 +84,6 @@ get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
 # files from http://wiki.fysik.dtu.dk/gpaw-files/things/
 
-scf_conv_eval_stuff = """
-scf_g2_1_pbe0_fd_calculator_steps.png
-scf_g2_1_pbe0_fd_energy.csv
-scf_dcdft_pbe_pw_calculator_steps.png
-scf_dcdft_pbe_pw_energy.csv
-""".split()
-
-get('things', scf_conv_eval_stuff, target='documentation/scf_conv_eval')
-
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_aims_stuff = """
 dcdft_aims.tight.01.16.db.csv
