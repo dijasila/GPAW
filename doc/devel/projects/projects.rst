@@ -8,7 +8,6 @@ Ongoing Projects
 .. toctree::
 
     setups
-    rmmdiis
     mixing
     response
     bse
