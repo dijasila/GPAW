@@ -32,7 +32,6 @@ GPAW calculator:
    pdos/pdos
    xas/xas
    densitymix/densitymix
-   scf_conv_eval/scf_conv_eval
    cmdline
    ../devel/electrostatic_potential
    ../devel/eigenvalues_of_core_states
