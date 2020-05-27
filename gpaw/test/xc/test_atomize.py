@@ -5,6 +5,7 @@ from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
+@pytest.mark.mgga
 @pytest.mark.libxc
 def test_xc_atomize(in_tmp_dir):
     def xc(name):

@@ -1,8 +1,10 @@
 """Compare TPSS from scratch and from PBE"""
+import pytest
 from ase import Atoms
 from gpaw import GPAW, MixerSum, Davidson
 
 
+@pytest.mark.mgga
 def test_mgga_mgga_sc():
     n = Atoms('N', magmoms=[3])
     n.center(vacuum=2.5)
