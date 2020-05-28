@@ -154,7 +154,7 @@ Open Software
 =============
 
 GPAW is released under the `GNU Public License <http://xkcd.com/225>`_
-version 3 or any later version.  See the file :git:`COPYING` which
+version 3 or any later version.  See the file :git:`LICENSE` which
 accompanies the downloaded files, or see the license at GNU's web
 server at http://www.gnu.org/licenses/.  Everybody is invited to
 participate in using and :ref:`developing the code <devel>`.
