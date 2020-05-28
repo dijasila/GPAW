@@ -1,8 +1,10 @@
+import pytest
 from gpaw.response.integrators import czher
 import numpy as np
 from time import time
 
 
+@pytest.mark.ci
 def test_linalg_zher():
     alpha = 0.5
     x = np.random.rand(3) + 1j * np.random.rand(3)

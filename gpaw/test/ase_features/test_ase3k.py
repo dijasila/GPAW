@@ -4,6 +4,7 @@ from ase.io import read
 from gpaw import GPAW, FermiDirac
 
 
+@pytest.mark.ci
 def test_no_cell():
     with pytest.raises(ValueError):
         H = Atoms('H', calculator=GPAW())
