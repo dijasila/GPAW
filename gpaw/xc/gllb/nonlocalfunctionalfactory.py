@@ -60,6 +60,7 @@ class NonLocalFunctionalFactory:
                 1.0,
                 'GGA_X_PBE_SOL', metallic=True).get_coefficient_calculator())
             C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
+            functional.get_setup_name = lambda: 'GLLBSC'
             return functional
         elif name.startswith('GLLBSC_W'):
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
@@ -72,6 +73,7 @@ class NonLocalFunctionalFactory:
                 'GGA_X_PBE_SOL',
                 width=width).get_coefficient_calculator())
             C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
+            functional.get_setup_name = lambda: 'GLLBSC'
             return functional
         elif name.startswith('GLLBSCM_W'):
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
@@ -84,6 +86,7 @@ class NonLocalFunctionalFactory:
                 'GGA_X_PBE_SOL',
                 metallic=True, width=width).get_coefficient_calculator())
             C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
+            functional.get_setup_name = lambda: 'GLLBSC'
             return functional
         elif name == 'GLLBC':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
