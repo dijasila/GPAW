@@ -126,6 +126,11 @@ class C_GLLBScr(Contribution):
             # Find homo and lumo levels for each spin
             for s in range(nspins):
                 homo, lumo = self.nlfunc.wfs.get_homo_lumo(s)
+                # Check that homo and lumo are reasonable
+                if homo > lumo:
+                    raise RuntimeError("GLLBScr error: HOMO is higher than LUMO. "
+                                       "Are you using `xc='GLLBSC'` for a metallic system? "
+                                       "If yes, try using `xc='GLLBSCM'` instead.")
                 eref_s.append(homo)
                 eref_lumo_s.append(lumo)
         else:
