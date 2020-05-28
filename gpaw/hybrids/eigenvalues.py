@@ -1,3 +1,4 @@
+import functools
 import json
 from pathlib import Path
 from typing import List, Union, Tuple, Generator, Optional
@@ -147,24 +148,31 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     nsym = len(kd.symmetry.op_scc)
     assert len(kpts2) == kd.nibzkpts
 
-    u1_nR = to_real_space(kpt1.psit)
-    proj1 = kpt1.proj.broadcast()
-
     N1 = len(kpt1.psit.array)
     N2 = len(kpts2[0].psit.array)
 
-    B = (N2 + size - 1) // size
-    na = min(B * rank, N2)
-    nb = min(na + B, N2)
+    size1, size2 = layout(N1, N2, size)
+    assert size1 * size2 == size
+    B1 = (N1 + size1 - 1) // size1
+    B2 = (N2 + size2 - 1) // size2
+    rank1, rank2 = divmod(rank, size2)
+    n1a = min(B1 * rank1, N1)
+    n1b = min(n1a + B1, N1)
+    n2a = min(B2 * rank2, N2)
+    n2b = min(n2a + B2, N2)
 
-    e_n = np.zeros(N1)
-    e_nn = np.empty((N1, nb - na))
+    u1_nR = to_real_space(kpt1.psit, n1a, n1b)
+    proj1 = kpt1.proj.broadcast().view(n1a, n1b)
+
+    E_n = np.zeros(N1)
+    e_n = E_n[n1a:n1b]
+    e_nn = np.empty((n1b - n1a, n2b - n2a))
 
     for i2, kpt2 in enumerate(kpts2):
-        u2_nR = to_real_space(kpt2.psit, na, nb)
+        u2_nR = to_real_space(kpt2.psit, n2a, n2b)
         rskpt0 = RSKPoint(u2_nR,
-                          kpt2.proj.broadcast().view(na, nb),
-                          kpt2.f_n[na:nb],
+                          kpt2.proj.broadcast().view(n2a, n2b),
+                          kpt2.f_n[n2a:n2b],
                           kpt2.k_c,
                           kpt2.weight)
         for k, i in enumerate(kd.bz2ibz_k):
@@ -183,7 +191,7 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
                                 Delta_iiL,
                                 rskpt2.proj[a].conj())
                       for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
-            rho_nG = ghat.pd.empty(nb - na, u1_nR.dtype)
+            rho_nG = ghat.pd.empty(n2b - n2a, u1_nR.dtype)
 
             for n1, u1_R in enumerate(u1_nR):
                 for u2_R, rho_G in zip(rskpt2.u_nR, rho_nG):
@@ -206,7 +214,7 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
                          P_ni.conj(), paw.VC_aii[a], P_ni).real
         e_n -= (2 * vv_n + vc_n)
 
-    return e_n
+    return E_n
 
 
 def write_snapshot(e_dft_sin: np.ndarray,
@@ -243,3 +251,25 @@ def read_snapshot(snapshot: Path
                 np.array(dct['v_hyb_sl_sin']),
                 v_hyb_nl_sin)
     return np.array([[[]]]), np.array([[[]]]), np.array([[[]]]), None
+
+
+def idle(n: int, s: int) -> float:
+    """Idle fraction (helper function for layout() function."""
+    b = (n + s - 1) // s
+    return 1 - n / (b * s)
+
+
+@functools.lru_cache()
+def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
+    """Distribute n1*n2 matrix over s1*s2=size blocks.
+
+    Returns s1, s2.
+    """
+    candidates: List[Tuple[float, int, int]] = []
+    for s1 in range(1, size + 1):
+        s2, r = divmod(size, s1)
+        if r > 0:
+            continue
+        fitness = (1 - idle(n1, s1)) * (1 - idle(n2, s2))
+        candidates.append((fitness, s1, s2))
+    return max(candidates)[1:]
