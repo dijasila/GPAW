@@ -1,6 +1,6 @@
 import numpy as np
 from ase.build import bulk
-from gpaw import GPAW, PW
+from gpaw import GPAW
 
 
 def run(xc, repeat=1):
