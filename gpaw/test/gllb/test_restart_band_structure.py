@@ -1,26 +1,20 @@
 from gpaw import GPAW, restart, FermiDirac
-from ase import Atoms
-from gpaw.test import equal, gen
+from gpaw.test import equal
 import os
 from gpaw.mpi import world
+from ase.build import bulk
 
 
 def test_gllb_restart_band_structure(in_tmp_dir):
-    gen('Si', xcname='GLLBSC')
-
     e = {}
 
     energy_tolerance = 0.001
 
-    e_ref = {'LDA': {'restart': -5.583306128278814},
-             'GLLBSC': {'restart': -5.458520154765278}}
+    e_ref = {'LDA': {'restart': -1.0695887848881105},
+             'GLLBSC': {'restart': -0.9886252429853254}}
 
     for xc in ['LDA', 'GLLBSC']:
-        a = 4.23
-        bulk = Atoms('Si2',
-                     cell=(a, a, a),
-                     pbc=True,
-                     scaled_positions=[[0, 0, 0], [0.5, 0.5, 0.5]])
+        atoms = bulk('Si')
         calc = GPAW(h=0.25,
                     nbands=8,
                     occupations=FermiDirac(width=0.01),
@@ -30,17 +24,17 @@ def test_gllb_restart_band_structure(in_tmp_dir):
                     xc=xc,
                     eigensolver='cg')
 
-        bulk.set_calculator(calc)
-        e[xc] = {'direct': bulk.get_potential_energy()}
+        atoms.calc = calc
+        e[xc] = {'direct': atoms.get_potential_energy()}
         print(calc.get_ibz_k_points())
         old_eigs = calc.get_eigenvalues(kpt=3)
         calc.write('Si_gs.gpw')
-        del bulk
+        del atoms
         del calc
-        bulk, calc = restart('Si_gs.gpw',
-                             fixdensity=True,
-                             kpts=[[0, 0, 0], [1.0 / 3, 1.0 / 3, 1.0 / 3]])
-        e[xc] = {'restart': bulk.get_potential_energy()}
+        atoms, calc = restart('Si_gs.gpw',
+                              fixdensity=True,
+                              kpts=[[0, 0, 0], [1.0 / 3, 1.0 / 3, 1.0 / 3]])
+        e[xc] = {'restart': atoms.get_potential_energy()}
 
         if world.rank == 0:
             os.remove('Si_gs.gpw')
