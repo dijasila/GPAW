@@ -4,14 +4,21 @@ import numpy as np
 
 
 class NonLocalFunctional(XCFunctional):
-    def __init__(self, xcname):
+    def __init__(self, xcname, setup_name=None):
         self.contributions = []
         self.xcs = {}
         XCFunctional.__init__(self, xcname, 'GLLB')
+        if setup_name is None:
+            self.setup_name = self.name
+        else:
+            self.setup_name = setup_name
         self.mix = None
         self.mix_vt_sg = None
         self.old_vt_sg = None
         self.old_H_asp = {}
+
+    def get_setup_name(self):
+        return self.setup_name
 
     def set_mix(self, mix):
         self.mix = mix
