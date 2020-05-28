@@ -6,7 +6,9 @@ from gpaw import GPAW, PW
 def run(xc, repeat=1):
     atoms = bulk('Ag') * repeat
     k = 4 // repeat
-    calc = GPAW(mode=PW(200),
+    calc = GPAW(mode='lcao',
+                basis='sz(dzp)',
+                h=0.3,
                 setups={'Ag': '11'},
                 nbands=6 * repeat**3,
                 xc=xc,
