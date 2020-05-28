@@ -133,11 +133,11 @@ Version 19.8.0
   constraints for water models. This allows efficient explicit solvent QMMM
   calculations for GPAW up to tens of thousands of solvent molecules with
   watermodels such as SPC, TIPnP etc.  See :git:`gpaw/utilities/watermodel.py`
-  and :git:`gpaw/test/test_rattle.py` for examples.
+  and :git:`gpaw/test/rattle.py` for examples.
 
 * New "metallic boundary conditions" have been added to the for PoissonSolver.
   This enables simulating charged 2D systems without counter charges.
-  See: :git:`gpaw/test/poisson/test_metallic_poisson.py`
+  See: :git:`gpaw/test/poisson/metallic_poisson.py`
 
 * Removed unnecessary application of H-operator in davidson algorithm making
   it a bit faster.
@@ -257,7 +257,7 @@ Version 1.5.0
   :ref:`photovoltaics`, :ref:`batteries` and :ref:`intro`.
 
 * New experimental local **k**-point refinement feature:
-  :git:`gpaw/test/test_kpt_refine.py`.
+  :git:`gpaw/test/kpt_refine.py`.
 
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
