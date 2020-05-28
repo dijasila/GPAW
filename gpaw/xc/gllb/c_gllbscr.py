@@ -115,9 +115,11 @@ class C_GLLBScr(Contribution):
         eref_s = []
         eref_lumo_s = []
         if self.metallic:
+            fermilevel = self.occupations.get_fermi_level()
+            assert isinstance(fermilevel, float), 'GLLBSCM supports only a single Fermi level'
             for s in range(nspins):
-                eref_s.append(self.occupations.get_fermi_level())
-                eref_lumo_s.append(self.occupations.get_fermi_level())
+                eref_s.append(fermilevel)
+                eref_lumo_s.append(fermilevel)
         elif homolumo is None:
             # Find homo and lumo levels for each spin
             for s in range(nspins):
