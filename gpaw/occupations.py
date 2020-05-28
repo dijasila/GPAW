@@ -64,6 +64,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
                           nspins=nspins,
                           kptband_comm=serial_comm,
                           world=serial_comm,
+                          collinear=True,
                           gd=GridDescriptor([4, 4, 4], [1.0, 1.0, 1.0],
                                             comm=serial_comm),
                           bd=SimpleNamespace(nbands=nbands,
