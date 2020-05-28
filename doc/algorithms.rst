@@ -141,7 +141,7 @@ ASE interface
 =============
 
 The code has been designed to work together with the atomic
-simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`). ASE provides:
+simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`_). ASE provides:
 
  * Structure optimization.
  * Molecular dynamics.
