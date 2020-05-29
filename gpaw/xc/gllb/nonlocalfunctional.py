@@ -154,16 +154,17 @@ class NonLocalFunctional(XCFunctional):
     def print_functional(self):
         if world.rank != 0:
             return
+        fmt = "| %-7s | %-10s | %-44s |"
+        header = fmt % ('Weight', 'Module', 'Description')
+        dashes = '-' * len(header)
         print()
         print("Functional being used consists of")
-        print("---------------------------------------------------")
-        print("| Weight    | Module           | Description      |")
-        print("---------------------------------------------------")
-        for contribution in self.contributions:
-            print("|%9.3f  | %-17s| %-17s|" %
-                  (contribution.weight, contribution.get_name(),
-                   contribution.get_desc()))
-        print("---------------------------------------------------")
+        print(dashes)
+        print(header)
+        print(dashes)
+        for c in self.contributions:
+            print(fmt % ('%7.3f' % c.weight, c.get_name(), c.get_desc()))
+        print(dashes)
         print()
 
     def read(self, reader):
