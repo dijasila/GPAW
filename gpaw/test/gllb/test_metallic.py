@@ -17,6 +17,7 @@ def run(xc, repeat=1):
     atoms.calc = calc
     atoms.get_potential_energy()
     x_i, y_i = calc.get_dos(npts=1001)
+    x_i -= calc.get_fermi_level()
     y_i /= repeat**3
     return x_i, y_i
  
