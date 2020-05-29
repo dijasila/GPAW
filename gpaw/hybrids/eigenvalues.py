@@ -1,3 +1,4 @@
+"""Calculate non self-consistent eigenvalues for hybrid functionals."""
 import functools
 import json
 from pathlib import Path
@@ -26,7 +27,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
                                     kpt_indices: List[int] = None,
                                     snapshot: Union[str, Path] = None,
                                     ftol: float = 1e-9) -> np.ndarray:
-    """Calculate non self-consistent eigenvalues for Hybrid functional.
+    """Calculate non self-consistent eigenvalues for a hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
     n2 - 1 for the IBZ indices in kpt_indices are calculated
@@ -132,13 +133,13 @@ def _non_local(calc: GPAW,
         kpts2 = [get_kpt(wfs, k, spin, 0, nocc) for k in range(kd.nibzkpts)]
         for i in kpt_indices:
             kpt1 = get_kpt(wfs, i, spin, n1, n2)
-            v_n = calculate_eigenvalues(
+            v_n = _calculate_eigenvalues(
                 kpt1, kpts2, paw_s[spin], kd, coulomb, sym, wfs, calc.spos_ac)
             wfs.world.sum(v_n)
             yield spin, v_n
 
 
-def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
+def _calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     pd = kpt1.psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
@@ -162,7 +163,8 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     n2b = min(n2a + B2, N2)
 
     u1_nR = to_real_space(kpt1.psit, n1a, n1b)
-    proj1 = kpt1.proj.broadcast().view(n1a, n1b)
+    proj1all = kpt1.proj.broadcast()
+    proj1 = proj1all.view(n1a, n1b)
 
     E_n = np.zeros(N1)
     e_n = E_n[n1a:n1b]
@@ -207,12 +209,12 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
             e_n -= e_nn.dot(rskpt2.f_n)
 
     for a, VV_ii in paw.VV_aii.items():
-        P_ni = proj1[a]
+        P_ni = proj1all[a]
         vv_n = np.einsum('ni, ij, nj -> n',
                          P_ni.conj(), VV_ii, P_ni).real
         vc_n = np.einsum('ni, ij, nj -> n',
                          P_ni.conj(), paw.VC_aii[a], P_ni).real
-        e_n -= (2 * vv_n + vc_n)
+        E_n -= (2 * vv_n + vc_n)
 
     return E_n
 
@@ -223,6 +225,7 @@ def write_snapshot(e_dft_sin: np.ndarray,
                    v_hyb_nl_sin: Optional[List[List[np.ndarray]]],
                    path: Optional[Path],
                    comm) -> None:
+    """Write to json-file what has been calculated so far."""
     if comm.rank == 0 and path:
         dct = {'e_dft_sin': e_dft_sin.tolist(),
                'v_dft_sin': v_dft_sin.tolist(),
@@ -231,7 +234,7 @@ def write_snapshot(e_dft_sin: np.ndarray,
             dct['v_hyb_nl_sin'] = [[v_n.tolist()
                                     for v_n in v_in]
                                    for v_in in v_hyb_nl_sin]
-        path.write_text(json.dumps(dct))
+        path.write_text(json.dumps(dct, indent=0))
 
 
 def read_snapshot(snapshot: Path
@@ -239,6 +242,7 @@ def read_snapshot(snapshot: Path
                              np.ndarray,
                              np.ndarray,
                              Optional[List[List[np.ndarray]]]]:
+    """Read from json-file what has already been calculated."""
     if snapshot.is_file():
         dct = json.loads(snapshot.read_text())
         v_hyb_nl_sin = dct.get('v_hyb_nl_sin')
@@ -253,17 +257,14 @@ def read_snapshot(snapshot: Path
     return np.array([[[]]]), np.array([[[]]]), np.array([[[]]]), None
 
 
-def idle(n: int, s: int) -> float:
-    """Idle fraction (helper function for layout() function."""
-    b = (n + s - 1) // s
-    return 1 - n / (b * s)
-
-
 @functools.lru_cache()
 def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
     """Distribute n1*n2 matrix over s1*s2=size blocks.
 
     Returns s1, s2.
+
+    >>> layout(10, 10, 8)
+    (4, 2)
     """
     candidates: List[Tuple[float, int, int]] = []
     for s1 in range(1, size + 1):
@@ -273,3 +274,9 @@ def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
         fitness = (1 - idle(n1, s1)) * (1 - idle(n2, s2))
         candidates.append((fitness, s1, s2))
     return max(candidates)[1:]
+
+
+def idle(n: int, s: int) -> float:
+    """Idle fraction (helper function for layout() function)."""
+    b = (n + s - 1) // s
+    return 1 - n / (b * s)
