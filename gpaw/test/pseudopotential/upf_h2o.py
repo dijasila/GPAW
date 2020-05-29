@@ -1,74 +1,79 @@
+import pytest
 from gpaw.upf import UPFSetupData
 from gpaw.pseudopotential import PseudoPotential
+
 
 def get(fname):
     s = UPFSetupData(fname)
     return s
 
-s = get('O.pz-hgh.UPF')
-#upfplot(s.data, show=True)
-bfs = s.create_basis_functions()
-pp = PseudoPotential(s, bfs)
 
-import numpy as np
-x = np.linspace(0.0, 5.0, 1000)
-dr = x[1] - x[0]
+@pytest.skip(reason='TODO')
+def test_psp_upf_h2o():
+    s = get('O.pz-hgh.UPF')
+    # upfplot(s.data, show=True)
+    bfs = s.create_basis_functions()
+    pp = PseudoPotential(s, bfs)
 
-psi = pp.phit_j[0].map(x)
-p = pp.pt_j[0].map(x)
+    import numpy as np
+    x = np.linspace(0.0, 5.0, 1000)
+    dr = x[1] - x[0]
 
-from gpaw.atom.atompaw import AtomPAW
+    psi = pp.phit_j[0].map(x)
+    p = pp.pt_j[0].map(x)
 
-if 0:
-    f = 1.0 #1e-12
-    c = AtomPAW('H', [[[2.0], [4.0]]],
-                #charge=1 - f,
-                h=0.04,
-                #setups='paw',
-                #setups='hgh',
-                setups={'H': s}
-                )
+    from gpaw.atom.atompaw import AtomPAW
 
-    import pylab as pl
-    pl.plot(c.wfs.gd.r_g, c.hamiltonian.vt_sg[0])
-    pl.show()
-    raise SystemExit
+    if 0:
+        f = 1.0  # 1e-12
+        c = AtomPAW('H', [[[2.0], [4.0]]],
+                    # charge=1 - f,
+                    h=0.04,
+                    # setups='paw',
+                    # setups='hgh',
+                    setups={'H': s}
+                    )
 
-#print 'test v201 Au.pz-d-hgh.UPF'
-#s = UPFSetupData('Au.pz-d-hgh.UPF')
-#print 'v201 ok'
+        import pylab as pl
+        pl.plot(c.wfs.gd.r_g, c.hamiltonian.vt_sg[0])
+        pl.show()
+        raise SystemExit
 
-#print 'test horrible version O.pz-mt.UPF'
-#s = UPFSetupData('O.pz-mt.UPF')
-#print 'horrible version ok, relatively speaking'
+    # print 'test v201 Au.pz-d-hgh.UPF'
+    # s = UPFSetupData('Au.pz-d-hgh.UPF')
+    # print 'v201 ok'
 
-if 1:
-    from gpaw import GPAW, PoissonSolver
-    from gpaw.utilities import h2gpts
-    from ase.build import molecule
+    # print 'test horrible version O.pz-mt.UPF'
+    # s = UPFSetupData('O.pz-mt.UPF')
+    # print 'horrible version ok, relatively speaking'
 
-    #s = UPFSetupData('/home/askhl/parse-upf/h_lda_v1.uspp.F.UPF')
+    if 1:
+        from gpaw import GPAW, PoissonSolver
+        from gpaw.utilities import h2gpts
+        from ase.build import molecule
 
-    upfsetups = {'H': UPFSetupData('H.pz-hgh.UPF'),
-                 'O': UPFSetupData('O.pz-hgh.UPF')}
+        # s = UPFSetupData('/home/askhl/parse-upf/h_lda_v1.uspp.F.UPF')
 
-    system = molecule('H2O')
-    system.center(vacuum=3.5)
-    calc = GPAW(txt='-',
-                nbands=6,
-                setups=upfsetups,
-                #setups='paw',
-                #hund=True,
-                #mixer=MixerSum(0.1, 5, 20.0),
-                #eigensolver='cg',
-                #occupations=FermiDirac(0.1),
-                #charge=1-1e-12,
-                #eigensolver='rmm-diis',
-                gpts=h2gpts(0.12, system.get_cell(), idiv=8),
-                poissonsolver=PoissonSolver(relax='GS', eps=1e-7),
-                xc='oldLDA',
-                #nbands=4
-                )
+        upfsetups = {'H': UPFSetupData('H.pz-hgh.UPF'),
+                     'O': UPFSetupData('O.pz-hgh.UPF')}
 
-    system.calc = calc
-    system.get_potential_energy()
+        system = molecule('H2O')
+        system.center(vacuum=3.5)
+        calc = GPAW(txt='-',
+                    nbands=6,
+                    setups=upfsetups,
+                    # setups='paw',
+                    # hund=True,
+                    # mixer=MixerSum(0.1, 5, 20.0),
+                    # eigensolver='cg',
+                    # occupations=FermiDirac(0.1),
+                    # charge=1-1e-12,
+                    # eigensolver='rmm-diis',
+                    gpts=h2gpts(0.12, system.get_cell(), idiv=8),
+                    poissonsolver=PoissonSolver(relax='GS', eps=1e-7),
+                    xc='oldLDA',
+                    # nbands=4
+                    )
+
+        system.calc = calc
+        system.get_potential_energy()
