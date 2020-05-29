@@ -9,7 +9,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import world
 
 
-@pytest.skip(reason='TODO')
+@pytest.mark.skip(reason='TODO')
 def test_graphene_EELS():
     system = Graphene(symbol='C',
                       latticeconstant={'a': 2.45, 'c': 1.0},

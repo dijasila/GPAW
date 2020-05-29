@@ -3,11 +3,11 @@ from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import serial_comm
 from gpaw.test import equal
-from gpaw.xc.fxc_correlation_energy import FXCCorrelation
 
 
-@pytest.skip(reason='TODO')
+@pytest.mark.skip(reason='TODO')
 def test_ralda_C6_He():
+    from gpaw.xc.fxc_correlation_energy import FXCCorrelation
     ecut = 50
 
     He = Atoms('He')

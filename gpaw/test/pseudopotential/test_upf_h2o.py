@@ -8,7 +8,7 @@ def get(fname):
     return s
 
 
-@pytest.skip(reason='TODO')
+@pytest.mark.skip(reason='TODO')
 def test_psp_upf_h2o():
     s = get('O.pz-hgh.UPF')
     # upfplot(s.data, show=True)

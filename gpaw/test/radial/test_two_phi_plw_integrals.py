@@ -1,13 +1,13 @@
 import pytest
-import numpy as np
-from gpaw.lfc import LocalizedFunctionsCollection as LFC
-from gpaw.grid_descriptor import GridDescriptor, RadialGridDescriptor
-from gpaw.spline import Spline
-from gpaw.response.math_func import two_phi_planewave_integrals
 
 
-@pytest.skip(reason='TODO')
+@pytest.mark.skip(reason='TODO')
 def test_two_phi_plw_integrals():
+    import numpy as np
+    from gpaw.lfc import LocalizedFunctionsCollection as LFC
+    from gpaw.grid_descriptor import GridDescriptor, RadialGridDescriptor
+    from gpaw.spline import Spline
+    from gpaw.response.math_func import two_phi_planewave_integrals
     # Initialize s, p, d (9 in total) wave and put them on grid
     rc = 2.0
     a = 2.5 * rc
