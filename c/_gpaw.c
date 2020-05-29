@@ -583,6 +583,12 @@ main(int argc, char **argv)
     }
 #endif
 
+#ifdef GPAW_CUDA
+    int granted;
+    MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
+    if (granted < MPI_THREAD_MULTIPLE)
+        exit(1);
+#else
 #ifndef GPAW_OMP
     MPI_Init(&argc, &argv);
 #else
@@ -591,6 +597,7 @@ main(int argc, char **argv)
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
 #endif // GPAW_OMP
+#endif
 
 #if PY3
 #define PyChar wchar_t
