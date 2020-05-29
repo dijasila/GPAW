@@ -34,7 +34,13 @@ class C_GLLBScr(Contribution):
         self.damp = damp
 
     def get_desc(self):
-        return '(' + self.functional + ')'
+        desc = '({}'.format(self.functional)
+        if self.metallic:
+            desc += ', metallic'
+        if self.width is not None:
+            desc += ', width={:.4f} eV'.format(self.width * Hartree)
+        desc += ')'
+        return desc
 
     # Initialize GLLBScr functional
     def initialize_1d(self):
