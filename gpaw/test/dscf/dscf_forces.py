@@ -24,7 +24,7 @@ for i in range(3):
     calc_gs = GPAW(h=0.2,
                    nbands=-5,
                    xc=xc,
-                   width=0.05,
+                   occupations={'name': 'fermi-dirac', 'width': 0.05},
                    eigensolver=eigensolver,
                    spinpol=True,
                    txt=None,
@@ -33,7 +33,7 @@ for i in range(3):
                                 'density': 100,
                                 'eigenstates': 1.0e-9,
                                 'bands': -1})
-    atoms.set_calculator(calc_gs)
+    atoms.calc = calc_gs
 
     E0.append(atoms.get_potential_energy())
     if i == 1:
@@ -58,7 +58,7 @@ for i in range(3):
     p_uai = [dict([(molecule[a], P_ni[n]) for a, P_ni in kpt.P_ani.items()])
              for kpt in calc_gs.wfs.kpt_u]
 
-    atoms.set_calculator(calc_es)
+    atoms.calc = calc_es
     lumo = dscf.AEOrbital(calc_es, wf_u, p_uai)
     dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], atoms)
 

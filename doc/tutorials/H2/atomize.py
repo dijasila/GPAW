@@ -1,5 +1,4 @@
 # Creates: atomization.txt
-from __future__ import print_function
 
 from ase import Atoms
 from ase.parallel import paropen as open
@@ -22,7 +21,7 @@ calc = GPAW(mode=PW(),
             occupations=FermiDirac(0.0, fixmagmom=True),
             txt='H.out',
             )
-atom.set_calculator(calc)
+atom.calc = calc
 
 e1 = atom.get_potential_energy()
 calc.write('H.gpw')
@@ -37,7 +36,7 @@ molecule = Atoms('H2',
 calc.set(txt='H2.out')
 calc.set(hund=False)  # No hund rule for molecules
 
-molecule.set_calculator(calc)
+molecule.calc = calc
 e2 = molecule.get_potential_energy()
 calc.write('H2.gpw')
 

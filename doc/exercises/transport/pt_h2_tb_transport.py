@@ -1,4 +1,3 @@
-from __future__ import print_function
 import numpy as np
 from ase.transport.calculators import TransportCalculator
 import pylab

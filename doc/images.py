@@ -10,7 +10,6 @@ This must (probably) be done *after* compilation because otherwise dirs
 may not exist.
 
 """
-from __future__ import print_function
 try:
     from urllib2 import urlopen, HTTPError
 except ImportError:
@@ -65,7 +64,6 @@ get('exercises/wavefunctions', ['co_bonding.jpg'])
 
 get('tutorials/H2', ['ensemble.png'])
 
-get('.', ['2sigma.png', 'co_wavefunctions.png'], 'documentation')
 get('exercises/lrtddft', ['spectrum.png'])
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),

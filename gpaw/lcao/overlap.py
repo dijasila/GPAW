@@ -65,7 +65,7 @@ UL = 'L'
 
 # Generate the coefficients for the Fourier-Bessel transform
 C = []
-a = 0.0
+a = 0.0 + 0.0j
 LMAX = 7
 for n in range(LMAX):
     c = np.zeros(n + 1, complex)

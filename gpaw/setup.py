@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function, absolute_import
 import functools
 from math import pi, sqrt
 from io import StringIO
@@ -294,7 +293,7 @@ class BaseSetup:
 
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
-        nj = len(self.l_j)
+        nj = len(self.pt_j)
         j = 0
         i = 0
         ib = 0

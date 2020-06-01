@@ -1,5 +1,4 @@
 """Time dependent density functional perturbation theory."""
-from __future__ import print_function
 from gpaw.analyse.observers import Observer
 from gpaw import GPAW
 import ase.io
@@ -112,7 +111,8 @@ class TDDFPT(GPAW):
         # Read the complex smooth potential
         tdf = open(Vop_filename + '.sG', 'r')
         NG = np.prod(self.hamiltonian.vt_sG.shape)
-        self.cvt_sG = np.fromfile(tdf, dtype=np.complex128, count=NG).reshape(self.hamiltonian.vt_sG.shape)
+        self.cvt_sG = np.fromfile(tdf, dtype=np.complex128, count=NG).reshape(
+            self.hamiltonian.vt_sG.shape)
 
         # Read the complex PAW corrections
         tdaf = open(Vop_filename + '.asp', 'r')
@@ -145,14 +145,16 @@ class TDDFPT(GPAW):
 
         print(self.hamiltonian.vt_sG, np.sum(self.hamiltonian.vt_sG))
         Hp_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-            self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
+            self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False,
+            root=-1)
 
         # Imag part
         self.hamiltonian.vt_sG[:] = self.cvt_sG.imag
         for a, dH_sp in self.hamiltonian.dH_asp.items():
             self.hamiltonian.dH_asp[a][:] = self.cH_asp[a].imag
         Hm_MM = self.wfs.eigensolver.calculate_hamiltonian_matrix(
-            self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False, root=-1)
+            self.hamiltonian, self.wfs, self.wfs.kpt_u[0], add_kinetic=False,
+            root=-1)
 
         S_MM = self.wfs.S_qMM[0]
         C0_nM = self.wfs.kpt_u[0].C_nM.copy()
@@ -262,7 +264,8 @@ from gpaw import GPAW
 from ase.optimize import BFGS
 from gpaw.tddft import photoabsorption_spectrum
 from gpaw import PoissonSolver
-from gpaw.lcaotddft.tddfpt import TDDFPT, HamiltonianCollector, transform_local_operator
+from gpaw.lcaotddft.tddfpt import (TDDFPT, HamiltonianCollector,
+                                   transform_local_operator)
 
 # Sodium dimer
 atoms = Atoms('H2', positions=[[0.0,0.0,0.0],[0.7,0.0,0.0]])
@@ -281,7 +284,7 @@ if 1:
     td_calc = LCAOTDDFT(basis='sz', xc='oldLDA', h=0.3,
                         convergence=convergence, poissonsolver=poissonsolver)
 
-    atoms.set_calculator(td_calc)
+    atoms.calc = td_calc
     atoms.get_potential_energy()
     td_calc.write('H2_gs.gpw',mode='all')
 
@@ -293,7 +296,8 @@ if 1:
 
 photoabsorption_spectrum('H2.dm','H2.spec', width=0.4)
 
-transform_local_operator(gpw_file='H2_gs.gpw', tdop_file='H2.TdHam', fqop_file='H2.FqHam', omega=19.15, eta=1)
+transform_local_operator(gpw_file='H2_gs.gpw', tdop_file='H2.TdHam',
+                         fqop_file='H2.FqHam', omega=19.15, eta=1)
 tddftpt = TDDFPT('H2_gs.gpw', 'H2.FqHam')
 tddftpt.calculate()
 

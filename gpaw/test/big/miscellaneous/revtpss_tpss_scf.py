@@ -1,4 +1,3 @@
-from __future__ import division
 from ase import Atoms
 from gpaw import GPAW
 
@@ -14,7 +13,7 @@ calc = GPAW(h=0.22,
             convergence={'eigenstates': 1.0e-7},
             txt=name + '.txt',
             eigensolver='rmm-diis')
-a.set_calculator(calc)
+a.calc = calc
 e_n2 = a.get_potential_energy()
 n2t = calc.get_xc_difference('TPSS')
 n2rt = calc.get_xc_difference('revTPSS')
@@ -35,7 +34,7 @@ calc = GPAW(h=0.22,
             txt=name + '.txt',
             eigensolver='rmm-diis',
             hund=True)
-b.set_calculator(calc)
+b.calc = calc
 e_n = b.get_potential_energy()
 nt = calc.get_xc_difference('TPSS')
 nrt = calc.get_xc_difference('revTPSS')

@@ -16,7 +16,7 @@ calc = GPAW(h=0.15, xc='LDA', nbands=-4, txt='-',
 atoms = hcp0001('C', a=a / sqrt(3), vacuum=d, size=(3, 2, 1), orthogonal=True)
 del atoms[[1, -1]]
 atoms.center(axis=0)
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 kpts_c = np.ceil(50 / np.sum(atoms.get_cell()**2, axis=1)**0.5).astype(int)
 kpts_c[~atoms.get_pbc()] = 1
@@ -32,7 +32,7 @@ atoms = Atoms(symbols='C2', pbc=(True, True, False),
               cell=[(a / 2, -sqrt(3) / 2 * a, 0),
                     (a / 2, sqrt(3) / 2 * a, 0),
                     (0, 0, 2 * d)])
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 kpts_c = np.ceil(50 / np.sum(atoms.get_cell()**2, axis=1)**0.5).astype(int)
 kpts_c[~atoms.get_pbc()] = 1

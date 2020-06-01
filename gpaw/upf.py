@@ -7,10 +7,7 @@ provide pseudopotential objects for use with GPAW.
 
 from optparse import OptionParser
 from xml.etree.ElementTree import parse as xmlparse, fromstring
-try:
-    from xml.etree.ElementTree import ParseError
-except ImportError:  # python2.6 compatibility
-    from xml.parsers.expat import ExpatError as ParseError
+from xml.etree.ElementTree import ParseError
 
 import numpy as np
 from ase.data import atomic_numbers
@@ -234,9 +231,10 @@ def parse_upf(fname):
     return pp
 
 
-sg15_special_valence_states = {'Re': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 5.]),
-                               'Os': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 6.]),
-                               'Ir': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 7.])}
+sg15_special_valence_states = {
+    'Re': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 5.]),
+    'Os': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 6.]),
+    'Ir': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 7.])}
 
 
 def read_sg15(fname):
@@ -534,7 +532,7 @@ def main_plot():
                  help='calculate density and orbitals.')
     opts, args = p.parse_args()
 
-    import pylab as pl
+    import matplotlib.pyplot as plt
     for arg in args:
         if not arg.lower().endswith('.upf'):
             # This is a bit bug prone.  It is subject to files
@@ -552,7 +550,7 @@ def main_plot():
         print(UPFSetupData(pp).tostring())
         print(pp['info'])
         upfplot(pp, show=False, calculate=opts.calculate)
-    pl.show()
+    plt.show()
 
 
 def upfplot(setup, show=True, calculate=False):
@@ -570,8 +568,8 @@ def upfplot(setup, show=True, calculate=False):
         arr = divrl(array, rdividepower, r)
         return r, arr
 
-    import pylab as pl
-    fig = pl.figure()
+    import matplotlib.pyplot as plt
+    fig = plt.figure()
     fig.canvas.set_window_title('%s - UPF setup for %s' % (pp['fname'],
                                                            setup.symbol))
 
@@ -640,4 +638,4 @@ def upfplot(setup, show=True, calculate=False):
     fig.subplots_adjust(wspace=0.3)
 
     if show:
-        pl.show()
+        plt.show()

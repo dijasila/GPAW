@@ -13,7 +13,7 @@ ekin_str = '_ek' + str(int(Ekin / 1000)) + 'k'
 strbody = name + ekin_str
 traj_file = strbody + '.traj'
 
-# The parallelization options should match the number of cores, here 8.
+# The parallelization options should match the number of cores, here 32.
 p_bands = 2  # number of bands to parallelise over
 dom_dc = (2, 2, 4)  # domain decomposition for parallelization
 parallel = {'band': p_bands, 'domain': dom_dc}

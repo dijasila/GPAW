@@ -67,7 +67,8 @@ class NonLocalFunctionalFactory:
             from gpaw.xc.gllb.c_response import C_Response
             from gpaw.xc.gllb.c_xc import C_XC
             C_Response(functional, 1.0,
-                       C_GLLBScr(functional, 1.0,'X_PBE-None').get_coefficient_calculator())
+                       C_GLLBScr(functional, 1.0,'X_PBE-None')
+                       .get_coefficient_calculator())
             C_XC(functional, 1.0, 'None-C_PBE')
             return functional
         elif name == 'GLLBCP86':
@@ -85,10 +86,6 @@ class NonLocalFunctionalFactory:
         elif name == 'GLLBGGA':
             from gpaw.xc.gllb.c_xc import C_XC
             C_XC(functional, 1.0,'PBE')
-            return functional
-        elif name == 'GLLBSLATER':
-            from gpaw.xc.gllb.c_slater import C_Slater
-            C_Slater(functional, 1.0)
             return functional
         elif name == 'GLLBNORESP':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr

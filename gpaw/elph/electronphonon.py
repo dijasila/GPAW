@@ -147,7 +147,7 @@ class ElectronPhononCoupling(Displacement):
                 sys.stdout.flush()
 
         # Get calculator
-        calc = atoms_N.get_calculator()
+        calc = atoms_N.calc
 
         # Effective potential (in Hartree) and projector coefficients
         Vt_G = calc.hamiltonian.vt_sG[0]

@@ -1,4 +1,4 @@
-# {   -1,   -1}:  On entry to PDLASRT parameter number    9 had an illegal value
+# {   -1,   -1}:  On entry to PDLASRT parameter number 9 had an illegal value
 
 # works with 'sl_default': (2, 2, 32)
 
@@ -21,7 +21,7 @@ calc = GPAW(mode='lcao',
 if compiled_with_sl():
     calc.set(parallel={'domain': (1, 1, 4), 'sl_default': (2, 2, 64)})
 
-slab.set_calculator(calc)
+slab.calc = calc
 try:
     slab.get_potential_energy()
 except ConvergenceError:

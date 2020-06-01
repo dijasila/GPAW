@@ -7,7 +7,9 @@ manually instead of using gpawtransport, which currently does not work
 
 from ase import Atoms
 from gpaw import GPAW, Mixer, FermiDirac
-from gpaw.lcao.tools import remove_pbc, get_lcao_hamiltonian, get_lead_lcao_hamiltonian
+from gpaw.lcao.tools import (remove_pbc,
+                             get_lcao_hamiltonian,
+                             get_lead_lcao_hamiltonian)
 import pickle as pickle
 
 a = 2.41  # Pt binding length
@@ -36,7 +38,7 @@ calc = GPAW(h=0.3,
             txt='pt_h2_lcao_scat.txt',
             mixer=Mixer(0.1, 5, weight=100.0),
             symmetry={'point_group': False, 'time_reversal': False})
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 atoms.get_potential_energy()  # Converge everything!
 Ef = atoms.calc.get_fermi_level()
@@ -48,7 +50,7 @@ H -= Ef * S
 remove_pbc(atoms, H, S, 0)
 
 # Dump the Hamiltonian and Scattering matrix to a pickle file
-pickle.dump((H.astype(complex), S.astype(complex)), 
+pickle.dump((H.astype(complex), S.astype(complex)),
             open('scat_hs.pickle', 'wb'), 2)
 
 ########################
@@ -69,7 +71,7 @@ calc = GPAW(h=0.3,
             txt='pt_h2_lcao_llead.txt',
             mixer=Mixer(0.1, 5, weight=100.0),
             symmetry={'point_group': False, 'time_reversal': False})
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 atoms.get_potential_energy()  # Converge everything!
 Ef = atoms.calc.get_fermi_level()

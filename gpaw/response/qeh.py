@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import pickle
 import numpy as np
 from math import pi
@@ -250,8 +248,9 @@ class Heterostructure:
                             self.potential_model(self.myq_abs[iq], self.z_big,
                                                  self.z0[k], dipole=True,
                                                  delta=delta)
-                        dphi_array[2 * k + 1, iq, i_1: i_2 + 1] = \
-                            fd(z_big[i_1: i_2 + 1]) + 1j * fd2(z_big[i_1: i_2 + 1])
+                        dphi_array[2 * k + 1, iq, i_1: i_2 + 1] = (
+                            fd(z_big[i_1: i_2 + 1]) + 1j *
+                            fd2(z_big[i_1: i_2 + 1]))
 
         return dphi_array
 
@@ -261,7 +260,8 @@ class Heterostructure:
             z_lim = self.z_lim
 
         z_lim = int(z_lim / dz) * dz
-        z_grid = np.insert(z, 0, np.flip(np.arange(z[0] - dz, -z_lim - dz, -dz)))
+        z_grid = np.insert(z, 0, np.flip(np.arange(z[0] - dz,
+                                                   -z_lim - dz, -dz)))
         z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim + dz, dz))
         return z_grid
 

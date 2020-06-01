@@ -12,10 +12,10 @@ from gpaw import __version__
 commands = [
     ('run', 'gpaw.cli.run'),
     ('info', 'gpaw.cli.info'),
+    ('test', 'gpaw.cli.test'),
     ('dos', 'gpaw.cli.dos'),
     ('gpw', 'gpaw.cli.gpw'),
     ('completion', 'gpaw.cli.completion'),
-    ('test', 'gpaw.test.test'),
     ('atom', 'gpaw.atom.aeatom'),
     ('diag', 'gpaw.fulldiag'),
     # ('quick', 'gpaw.cli.quick'),
@@ -32,7 +32,11 @@ def hook(parser, args):
                         help='Run on N CPUs.')
     args, extra = parser.parse_known_args(args)
     if extra:
+        assert not args.arguments
         args.arguments = extra
+
+    if args.command == 'python':
+        args.traceback = True
 
     if hasattr(args, 'dry_run'):
         N = int(args.dry_run)

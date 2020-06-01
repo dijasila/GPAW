@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 
 from gpaw.mpi import have_mpi
@@ -304,11 +302,12 @@ class VDWXC(XCFunctional):
 
         # XXXXXXXXXXXXXXXXX
         self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
-        #self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
         self.calculate_spherical = semilocal_xc.calculate_spherical
-        self.apply_orbital_dependent_hamiltonian = semilocal_xc.apply_orbital_dependent_hamiltonian
+        self.apply_orbital_dependent_hamiltonian = \
+            semilocal_xc.apply_orbital_dependent_hamiltonian
         self.add_forces = semilocal_xc.add_forces
-        self.get_kinetic_energy_correction = semilocal_xc.get_kinetic_energy_correction
+        self.get_kinetic_energy_correction = \
+            semilocal_xc.get_kinetic_energy_correction
         self.rotate = semilocal_xc.rotate
 
     def __str__(self):
@@ -736,7 +735,7 @@ def test_selfconsistent():
                     setups='sg15',
                     txt='gpaw.%s.txt' % str(xc)  # .kernel.name
                     )
-        system.set_calculator(calc)
+        system.calc = calc
         return system.get_potential_energy()
 
     libxc_results = {}

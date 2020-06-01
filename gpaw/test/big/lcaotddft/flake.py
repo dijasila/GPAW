@@ -21,7 +21,7 @@ else:
     atoms = read('%s.xyz' % (title))
     atoms.set_pbc((False, False, False))
     atoms.center(vacuum=vacuum)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('flake.gpw', 'all')
 

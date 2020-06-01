@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atoms
 from ase.build import molecule
 from ase.parallel import paropen
@@ -76,7 +75,7 @@ for formula in systems:
         pos[1, :] = pos[0, :] + [exp_bonds_dE[i][1], 0.0, 0.0]
         loa.set_positions(pos)
         loa.center()
-    loa.set_calculator(calc)
+    loa.calc = calc
     try:
         energy = loa.get_potential_energy()
         difft = calc.get_xc_difference('TPSS')

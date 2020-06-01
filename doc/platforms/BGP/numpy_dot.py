@@ -1,4 +1,3 @@
-from __future__ import print_function
 num_string = "numpy"
 #num_string = "Numeric"
 if num_string == "numpy":

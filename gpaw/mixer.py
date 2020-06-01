@@ -553,16 +553,20 @@ class SpinDifferenceMixerDriver:
 _backends = {}
 _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer]:
-    _backends[cls.name] = cls
-for cls in [SeparateSpinMixerDriver, SpinSumMixerDriver, SpinSumMixerDriver2,
-            SpinDifferenceMixerDriver, DummyMixer]:
-    _methods[cls.name] = cls
+    _backends[cls.name] = cls  # type:ignore
+for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
+             SpinSumMixerDriver2,
+             SpinDifferenceMixerDriver, DummyMixer]:
+    _methods[dcls.name] = dcls  # type:ignore
 
 
 # This function is used by Density to decide mixer parameters
 # that the user did not explicitly provide, i.e., it fills out
 # everything that is missing and returns a mixer "driver".
 def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
+    if mixerkwargs.get('name') == 'dummy':
+        return DummyMixer()
+
     # The plan is to first establish a kwargs dictionary with all the
     # defaults, then we update it with values from the user.
     kwargs = {'backend': BaseMixer}

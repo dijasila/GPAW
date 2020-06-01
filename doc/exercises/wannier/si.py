@@ -17,6 +17,6 @@ calc = GPAW(nbands=16,
             h=0.25,
             txt='si.txt')
 
-si.set_calculator(calc)
+si.calc = calc
 si.get_potential_energy()
 calc.write('si.gpw', mode='all')

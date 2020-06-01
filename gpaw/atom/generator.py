@@ -1,6 +1,5 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np

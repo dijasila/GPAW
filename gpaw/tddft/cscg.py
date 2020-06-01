@@ -55,7 +55,9 @@ class CSCG:
         if ( eps <= tolerance ):
             self.eps = eps
         else:
-            raise RuntimeError("CSCG method got invalid tolerance (tol = %le < eps = %le)." % (tolerance,eps))
+            raise RuntimeError(
+                "CSCG method got invalid tolerance (tol = %le < eps = %le)." %
+                (tolerance,eps))
 
         self.iterations = -1
 
@@ -99,7 +101,7 @@ class CSCG:
         # Multivector dot product, a^T b, where ^T is transpose
         def multi_zdotu(s, x,y, nvec):
             for i in range(nvec):
-                s[i] = x[i].ravel(float).dot(y[i].ravel(float))
+                s[i] = x[i].ravel().dot(y[i].ravel())
                 # s[i] = dotu(x[i],y[i])
             self.gd.comm.sum(s)
             return s
@@ -120,7 +122,10 @@ class CSCG:
 
         # if scale < eps, then convergence check breaks down
         if (scale < self.eps).any():
-            raise RuntimeError("CSCG method detected underflow for squared norm of right-hand side (scale = %le < eps = %le)." % (scale, self.eps))
+            raise RuntimeError(
+                "CSCG method detected underflow for squared norm of "
+                "right-hand side (scale = %le < eps = %le)." %
+                (scale, self.eps))
 
         #print 'Scale = ', scale
 
@@ -145,7 +150,10 @@ class CSCG:
             # if abs(beta) / scale < eps, then CSCG breaks down
             if ( (i > 0) and
                  ((np.abs(beta) / scale) < self.eps).any() ):
-                raise RuntimeError("Conjugate gradient method failed (abs(beta)=%le < eps = %le)." % (np.min(np.abs(beta)),self.eps))
+                raise RuntimeError(
+                    "Conjugate gradient method failed "
+                    "(abs(beta)=%le < eps = %le)." %
+                    (np.min(np.abs(beta)),self.eps))
 
 
             # p = z + beta p
@@ -186,7 +194,9 @@ class CSCG:
 
         # if max iters reached, raise error
         if (i >= self.max_iter-1):
-            raise RuntimeError("Conjugate gradient method failed to converged within given number of iterations (= %d)." % self.max_iter)
+            raise RuntimeError(
+                "Conjugate gradient method failed to converged "
+                "within given number of iterations (= %d)." % self.max_iter)
 
 
         # done

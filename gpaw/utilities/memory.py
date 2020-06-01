@@ -1,5 +1,4 @@
 """Utilities to measure and estimate memory"""
-from __future__ import print_function
 
 # The functions  _VmB, memory, resident, and stacksize are based on
 # Python Cookbook, recipe number 286222

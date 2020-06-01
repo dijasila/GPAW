@@ -7,11 +7,7 @@ if [[ -z $GPAW_TOOLCHAIN ]]; then
     GPAW_TOOLCHAIN=foss
 fi
 
-ICMD=""
-for INPUT in "$@"
-do
-    ICMD="$ICMD$INPUT && "
-done
+ICMD="$ICMD$@ && "
 
 nh=doc/platforms/Linux/Niflheim
 rm -rf build

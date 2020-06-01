@@ -16,7 +16,7 @@ calc = GPAW(mode=PW(Ecut),
             occupations=FermiDirac(0.01),
             txt='MoS2_out_gs.txt')
 
-structure.set_calculator(calc)
+structure.calc = calc
 structure.get_potential_energy()
 calc.write('MoS2_gs.gpw', 'all')
 

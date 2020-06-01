@@ -1,5 +1,6 @@
 """ASE-calculator interface."""
 import warnings
+from typing import Dict, Any, List
 
 import numpy as np
 from ase import Atoms
@@ -49,7 +50,7 @@ class GPAW(PAW, Calculator):
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms']
 
-    default_parameters = {
+    default_parameters: Dict[str, Any] = {
         'mode': 'fd',
         'xc': 'LDA',
         'occupations': None,
@@ -91,7 +92,7 @@ class GPAW(PAW, Calculator):
         'width': None,  # deprecated
         'verbose': 0}
 
-    default_parallel = {
+    default_parallel: Dict[str, Any] = {
         'kpt': None,
         'domain': gpaw.parsize_domain,
         'band': gpaw.parsize_bands,
@@ -99,11 +100,11 @@ class GPAW(PAW, Calculator):
         'stridebands': False,
         'augment_grids': gpaw.augment_grids,
         'sl_auto': False,
-        'sl_default': gpaw.sl_default,
-        'sl_diagonalize': gpaw.sl_diagonalize,
-        'sl_inverse_cholesky': gpaw.sl_inverse_cholesky,
-        'sl_lcao': gpaw.sl_lcao,
-        'sl_lrtddft': gpaw.sl_lrtddft,
+        'sl_default': None,
+        'sl_diagonalize': None,
+        'sl_inverse_cholesky': None,
+        'sl_lcao': None,
+        'sl_lrtddft': None,
         'use_elpa': False,
         'elpasolver': '2stage',
         'buffer_size': gpaw.buffer_size}
@@ -156,7 +157,7 @@ class GPAW(PAW, Calculator):
 
         # If we crashed in the constructor (e.g. a bad keyword), we may not
         # have the normally expected attributes:
-        if hasattr(self, 'timer'):
+        if hasattr(self, 'timer') and not self.log.fd.closed:
             self.timer.write(self.log.fd)
 
         if hasattr(self, 'reader') and self.reader is not None:
@@ -171,7 +172,7 @@ class GPAW(PAW, Calculator):
 
     def _write(self, writer, mode):
         from ase.io.trajectory import write_atoms
-        writer.write(version=1, gpaw_version=gpaw.__version__,
+        writer.write(version=2, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
 
         write_atoms(writer.child('atoms'), self.atoms)
@@ -236,7 +237,6 @@ class GPAW(PAW, Calculator):
         from gpaw.utilities.partition import AtomPartition
         atom_partition = AtomPartition(self.wfs.gd.comm,
                                        np.zeros(len(self.atoms), dtype=int))
-        self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
         rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
@@ -244,6 +244,10 @@ class GPAW(PAW, Calculator):
         for obj in [self.density, self.hamiltonian]:
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
+        if new_atom_partition != atom_partition:
+            for kpt in self.wfs.mykpts:
+                kpt.projections = kpt.projections.redist(new_atom_partition)
+        self.wfs.atom_partition = new_atom_partition
 
         self.hamiltonian.xc.read(reader)
 
@@ -865,6 +869,9 @@ class GPAW(PAW, Calculator):
             symm = symm.copy()
             symm['point_group'] = False
 
+        if reading and self.reader.version <= 1:
+            symm['allow_invert_aperiodic_axes'] = False
+
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
@@ -1141,3 +1148,26 @@ class GPAW(PAW, Calculator):
         del self.timer
 
         raise SystemExit
+
+    def get_atomic_electrostatic_potentials(self) -> List[float]:
+        r"""Return the electrostatic potential at the atomic sites.
+
+        Return list of energies in eV, one for each atom:
+
+        .. math::
+
+            Y_{00}
+            \int d\mathbf{r}
+            \tilde{v}_H(\mathbf{r})
+            \hat{g}_{00}^a(\mathbf{r} - \mathbf{R}^a)
+
+        """
+        ham = self.hamiltonian
+        dens = self.density
+        self.initialize_positions()
+        dens.interpolate_pseudo_density()
+        dens.calculate_pseudo_charge()
+        ham.update(dens)
+        W_aL = ham.calculate_atomic_hamiltonians(dens)
+        return np.array([W_L[0] / (4 * np.pi)**0.5 * Ha
+                         for W_L in W_aL.values()])

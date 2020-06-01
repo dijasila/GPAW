@@ -1,4 +1,3 @@
-from __future__ import print_function
 import subprocess
 import sys
 
@@ -39,7 +38,7 @@ class CLICommand:
                     script += line
         script += ('cd $SLURM_SUBMIT_DIR\n')
         script += ('OMP_NUM_THREADS=1 '
-                   'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw python3 {}\n'
+                   'mpiexec `echo $GPAW_MPI_OPTIONS` gpaw python {}\n'
                    .format(' '.join(args.arguments[i:])))
         cmd = ['sbatch'] + args.arguments[:i]
         if args.test:

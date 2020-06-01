@@ -134,7 +134,7 @@ The installation of user's packages on neolith described below uses
    module load campos-gpaw
    export OMP_NUM_THREADS=1
 
-  and :ref:`run the tests`.
+  and :ref:`run the tests <testing>`.
 
 - **logout**, and login again.
 
