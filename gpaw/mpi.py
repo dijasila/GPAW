@@ -572,16 +572,16 @@ class _Communicator:
 
         Example::
 
-          >>> world.rank, world.size
+          >>> world.rank, world.size  # doctest: +SKIP
           (3, 4)
-          >>> world.get_members()
+          >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))
-          >>> comm.rank, comm.size
+          >>> comm = world.new_communicator(array([2, 3]))  # doctest: +SKIP
+          >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
-          >>> comm.get_members()
+          >>> comm.get_members()  # doctest: +SKIP
           array([2, 3])
-          >>> comm.get_members()[comm.rank] == world.rank
+          >>> comm.get_members()[comm.rank] == world.rank  # doctest: +SKIP
           True
 
         """

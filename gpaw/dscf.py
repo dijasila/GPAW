@@ -37,12 +37,14 @@ def dscf_calculation(paw, orbitals, atoms):
     Example
     =======
 
-    >>> atoms.calc = calc
-    >>> e_gs = atoms.get_potential_energy() #ground state energy
-    >>> sigma_star=MolecularOrbitals(calc, molecule=[0,1],
-    >>>                              w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])
-    >>> dscf_calculation(calc, [[1.0,sigma_star,1]], atoms)
-    >>> e_exc = atoms.get_potential_energy() #excitation energy
+    ::
+
+        atoms.calc = calc
+        e_gs = atoms.get_potential_energy() #ground state energy
+        sigma_star=MolecularOrbitals(calc, molecule=[0,1],
+                                     w=[[1.,0.,0.,0.],[-1.,0.,0.,0.]])
+        dscf_calculation(calc, [[1.0,sigma_star,1]], atoms)
+        e_exc = atoms.get_potential_energy() #excitation energy
 
     """
 
