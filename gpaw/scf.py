@@ -56,7 +56,7 @@ class SCFLoop:
         self.old_F_av = None
         self.converged = False
 
-    def run(self, wfs, ham, dens, occ, log, callback):
+    def irun(self, wfs, ham, dens, occ, log, callback):
         self.niter = 1
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs, occ)
@@ -76,6 +76,7 @@ class SCFLoop:
 
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
                 break
