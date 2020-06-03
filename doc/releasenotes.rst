@@ -4,6 +4,10 @@
 Release notes
 =============
 
+.. testsetup::
+
+    from gpaw import GPAW
+
 
 Git master branch
 =================
