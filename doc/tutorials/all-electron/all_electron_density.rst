@@ -24,8 +24,9 @@ the same way as you would normally use the
 
 >>> from gpaw import GPAW
 >>> from ase.build import molecule
->>> calc = GPAW()
->>> mol = molecule('C6H6', calculator=calc)
+>>> mol = molecule('C6H6')
+>>> calc = GPAW(txt='C6H6.txt')
+>>> mol.calc = calc
 >>> mol.center(vacuum=5)
 >>> E  = mol.get_potential_energy()
 >>> nt = calc.get_pseudo_density()
@@ -50,9 +51,9 @@ less arbitrary number. This fact is illustrated in the following
 example.
 
 .. seealso::
-    
+
     :ref:`bader analysis`
-    
+
 
 -------------
 Example: NaCl

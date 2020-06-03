@@ -62,6 +62,7 @@ The calculator will try to make sensible choices for all parameters
 that the user does not specify.  Specifying parameters can be done
 like this:
 
+>>> from gpaw import GPAW
 >>> calc = GPAW(nbands=1,
 ...             xc='PBE',
 ...             gpts=(24, 24, 24))
@@ -459,11 +460,11 @@ a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
 If you are more used to think in terms of plane waves; a conversion
 formula between plane wave energy cutoffs and realspace grid spacings
 have been provided by Briggs *et. al* PRB **54**, 14362 (1996).  The
-conversion can be done like this::
+conversion can be done like this:
 
-  >>> from gpaw.utilities.tools import cutoff2gridspacing, gridspacing2cutoff
-  >>> from ase.units import Rydberg
-  >>> h = cutoff2gridspacing(50 * Rydberg)
+>>> from gpaw.utilities.tools import cutoff2gridspacing, gridspacing2cutoff
+>>> from ase.units import Rydberg
+>>> h = cutoff2gridspacing(50 * Rydberg)
 
 
 .. _manual_h:
@@ -1048,7 +1049,7 @@ calculation).
 If you want to restart the `\rm{H}_2` calculation in another Python session
 at a later time, this can be done as follows:
 
->>> from gpaw import *
+>>> from gpaw import restart
 >>> atoms, calc = restart('H2.gpw')
 >>> print(atoms.get_potential_energy())
 
