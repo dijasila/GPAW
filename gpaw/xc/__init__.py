@@ -125,7 +125,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             rc = kernel.get("rc", None)
             kernel_type = kernel.get("kernel_type", None)
             kernel_param = kernel.get("kernel_param", None)
-            wlda_type = kernel.get("type", None)
+            wlda_type = kernel.get("wlda_type", None)
             return WLDA(rc=rc, kernel_type=kernel_type,
                         kernel_param=kernel_param,
                         wlda_type=wlda_type)
