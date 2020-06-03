@@ -1,3 +1,6 @@
+.. image:: https://badge.fury.io/py/gpaw.svg
+    :target: https://pypi.org/project/gpaw/
+
 GPAW
 ====
 
@@ -12,13 +15,12 @@ Webpage: http://wiki.fysik.dtu.dk/gpaw
 Requirements
 ------------
 
-* Python_ 3.5 or later
+* Python_ 3.6 or later
 * ASE_ (atomic simulation environment)
 * NumPy_ (base N-dimensional array package)
 * SciPy_ (library for scientific computing)
 * LibXC
 * BLAS
-* LAPACK
 
 Optional (highly recommended):
 
@@ -40,14 +42,12 @@ For more details, please see:
     https://wiki.fysik.dtu.dk/gpaw/install.html
 
 
-Testing
--------
+Test your installation
+----------------------
 
-Please run the tests::
+You can do a test calculation with::
 
-    $ gpaw test -j 4  # takes 1 hour!
-
-and send us the output if there are failing tests.
+    $ gpaw test
 
 
 Contact
@@ -70,12 +70,12 @@ Geometry optimization of hydrogen molecule:
 >>> from ase.io import write
 >>> from gpaw import GPAW, PW
 >>> h2 = Atoms('H2',
-               positions=[[0, 0, 0],
-                          [0, 0, 0.7]])
+...            positions=[[0, 0, 0],
+...                       [0, 0, 0.7]])
 >>> h2.center(vacuum=2.5)
->>> h2.set_calculator(GPAW(xc='PBE',
-                           mode=PW(300),
-                           txt='h2.txt'))
+>>> h2.calc = GPAW(xc='PBE',
+...                mode=PW(300),
+...                txt='h2.txt')
 >>> opt = BFGS(h2, trajectory='h2.traj')
 >>> opt.run(fmax=0.02)
 BFGS:   0  09:08:09       -6.566505       2.2970

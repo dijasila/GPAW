@@ -32,7 +32,7 @@ def run(symbol, d0, M, ecut, L):
     a.center()
     a.calc = GPAW(
         mode=PW(ecut, force_complex_dtype=True),
-        xc=HybridXC('PBE0', mix_all=False),
+        xc=HybridXC('PBE0'),
         eigensolver=RMMDIIS(niter=1),
         parallel={'band': 1, 'kpt': 1},
         txt=f'{symbol}-{ecut}-{L}.txt')

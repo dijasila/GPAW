@@ -8,7 +8,7 @@ molecule.center(vacuum=4.0)
 
 calc = GPAW(xc='PBE', setups={'Na': '1'}, h=0.25)
 
-molecule.set_calculator(calc)
+molecule.calc = calc
 
 molecule.get_potential_energy()
 

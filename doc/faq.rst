@@ -15,7 +15,7 @@ If you find GPAW useful in your research please cite the original reference:
    | J. J. Mortensen, L. B. Hansen , and K. W. Jacobsen
    | `Real-space grid implementation of the projector augmented wave method`__
    | Physical Review B, Vol. **71**, 035109, 2005
-  
+
    __ http://dx.doi.org/10.1103/PhysRevB.71.035109
 
 and the major GPAW review:
@@ -44,7 +44,7 @@ If you use the :ref:`localized basis set <lcao>`, please cite also:
    | Physical Review B, Vol. **80**, 195112, 2009
 
    __ http://dx.doi.org/10.1103/PhysRevB.80.195112
-   
+
 If you use the :ref:`df_tutorial`, please cite also:
 
    | Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
@@ -111,10 +111,12 @@ LDFLAGS with::
 
 and try again.
 
+
 Calculation does not converge
 =============================
 
 Consult the :ref:`convergence` page.
+
 
 Poisson solver did not converge!
 ================================
@@ -124,9 +126,3 @@ then you should set the Fermi temperature to a low value.
 
 You can also try to set the number of grid points to be divisible by 8.
 Consult the :ref:`poisson_performance` page.
-
-
-Tests fail!
-===========
-
-Please report the failing test as described on :ref:`run the tests`.

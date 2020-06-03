@@ -735,7 +735,7 @@ def test_selfconsistent():
                     setups='sg15',
                     txt='gpaw.%s.txt' % str(xc)  # .kernel.name
                     )
-        system.set_calculator(calc)
+        system.calc = calc
         return system.get_potential_energy()
 
     libxc_results = {}

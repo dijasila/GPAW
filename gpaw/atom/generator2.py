@@ -727,7 +727,7 @@ class PAWSetupGenerator:
         ekin = self.aea.ekin - self.ekincore - self.waves_l[0].dekin_nn[0, 0]
         evt = rgd.integrate(self.nt_g * self.vtr_g, -1)
 
-        import pylab as p
+        import matplotlib.pyplot as plt
 
         errors = 10.0**np.arange(-4, 0) / Hartree
         self.log('\nConvergence of energy:')
@@ -750,13 +750,13 @@ class PAWSetupGenerator:
                 ecut = 0.5 * G**2
                 h = pi / G
                 self.log(' %6.1f (%4.2f)' % (ecut * Hartree, h), end='')
-            p.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
+            plt.semilogy(G_k, abs(e_k - e_k[-1]) * Hartree, label=label)
         self.log()
-        p.axis(xmax=20)
-        p.xlabel('G')
-        p.ylabel('[eV]')
-        p.legend()
-        p.show()
+        plt.axis(xmax=20)
+        plt.xlabel('G')
+        plt.ylabel('[eV]')
+        plt.legend()
+        plt.show()
 
     def plot(self):
         import matplotlib.pyplot as plt

@@ -79,6 +79,6 @@ calc = GPAW(
     parallel={'band': 1},
 )
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 
 ncpus = 16

@@ -36,7 +36,9 @@ void *Z(bmgs_fd_worker)(void *threadarg)
 
     for (int i1 = 0; i1 < s->n[1]; i1++)
       {
+#ifdef _OPENMP
 #pragma omp simd
+#endif
         for (int i2 = 0; i2 < s->n[2]; i2++)
           {
             T x = 0.0;

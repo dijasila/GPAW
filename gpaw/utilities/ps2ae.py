@@ -138,8 +138,9 @@ class PS2AE:
             setup = dens.setups[a]
             c = setup.xc_correction
             rgd = c.rgd
-            ghat_g = shape_functions(rgd,
-                                     **setup.data.shape_function, lmax=0)[0]
+            params = setup.data.shape_function.copy()
+            params['lmax'] = 0
+            ghat_g = shape_functions(rgd, **params)[0]
             Z_g = shape_functions(rgd, 'gauss', rcgauss, lmax=0)[0] * setup.Z
             D_q = np.dot(D_sp.sum(0), c.B_pqL[:, :, 0])
             dn_g = np.dot(D_q, (c.n_qg - c.nt_qg)) * sqrt(4 * pi)

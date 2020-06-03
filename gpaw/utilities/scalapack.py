@@ -13,11 +13,11 @@ and
 http://www.netlib.org/scalapack
 """
 
-import warnings
 
 import _gpaw
 
 switch_lu = {'U': 'L', 'L': 'U'}
+
 
 def scalapack_tri2full(desc, array):
     """Write lower triangular part into upper triangular part of matrix.
@@ -121,7 +121,7 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     desca.checkassert(z)
     # only symmetric matrices
     assert desca.gshape[0] == desca.gshape[1]
-    if iu is None: # calculate all eigenvectors and eigenvalues
+    if iu is None:  # calculate all eigenvectors and eigenvalues
         iu = desca.gshape[0]
     assert 1 < iu <= desca.gshape[0]
     # still need assert for eigenvalues
@@ -129,16 +129,13 @@ def scalapack_diagonalize_ex(desca, a, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
-        message = 'scalapack_diagonalize_ex may have a buffer ' \
-            'overflow, use scalapack_diagonalize_dc instead'
-        warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_diagonalize_ex(a, desca.asarray(),
                                           switch_lu[uplo],
                                           iu, z, w)
     if info != 0:
         # 0 means you are OK
         raise RuntimeError('scalapack_diagonalize_ex error: %d' % info)
+
 
 def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the MRRR algorithm.
@@ -162,7 +159,7 @@ def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
     desca.checkassert(z)
     # only symmetric matrices
     assert desca.gshape[0] == desca.gshape[1]
-    if iu is None: # calculate all eigenvectors and eigenvalues
+    if iu is None:  # calculate all eigenvectors and eigenvalues
         iu = desca.gshape[0]
     assert 1 < iu <= desca.gshape[0]
     # stil need assert for eigenvalues
@@ -175,6 +172,7 @@ def scalapack_diagonalize_mr3(desca, a, z, w, uplo, iu=None):
                                            iu, z, w)
     if info != 0:
         raise RuntimeError('scalapack_diagonalize_mr3 error: %d' % info)
+
 
 def scalapack_general_diagonalize_dc(desca, a, b, z, w, uplo):
     """Diagonalize symmetric matrix using the divide & conquer algorithm.
@@ -203,9 +201,10 @@ def scalapack_general_diagonalize_dc(desca, a, b, z, w, uplo):
         return
     assert desca.gshape[0] == len(w)
     info = _gpaw.scalapack_general_diagonalize_dc(a, desca.asarray(),
-                                          switch_lu[uplo], b, z, w)
+                                                  switch_lu[uplo], b, z, w)
     if info != 0:
         raise RuntimeError('scalapack_general_diagonalize_dc error: %d' % info)
+
 
 def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the bisection and inverse
@@ -234,7 +233,7 @@ def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
     desca.checkassert(z)
     # only symmetric matrices
     assert desca.gshape[0] == desca.gshape[1]
-    if iu is None: # calculate all eigenvectors and eigenvalues
+    if iu is None:  # calculate all eigenvectors and eigenvalues
         iu = desca.gshape[0]
     assert 1 < iu <= desca.gshape[0]
     # still need assert for eigenvalues
@@ -242,16 +241,13 @@ def scalapack_general_diagonalize_ex(desca, a, b, z, w, uplo, iu=None):
     if not desca.blacsgrid.is_active():
         return
     assert desca.gshape[0] == len(w)
-    if (desca.blacsgrid.myrow, desca.blacsgrid.mycol) == (0, 0):
-        message = 'scalapack_general_diagonalize_ex may have a buffer ' \
-            'overflow, use scalapack_general_diagonalize_dc instead'
-        warnings.warn(message, RuntimeWarning)
     info = _gpaw.scalapack_general_diagonalize_ex(a, desca.asarray(),
                                                   switch_lu[uplo],
                                                   iu, b, z, w)
     if info != 0:
         # 0 means you are OK
         raise RuntimeError('scalapack_general_diagonalize_ex error: %d' % info)
+
 
 def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
     """Diagonalize symmetric matrix using the MRRR algorithm.
@@ -276,7 +272,7 @@ def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
     desca.checkassert(z)
     # only symmetric matrices
     assert desca.gshape[0] == desca.gshape[1]
-    if iu is None: # calculate all eigenvectors and eigenvalues
+    if iu is None:  # calculate all eigenvectors and eigenvalues
         iu = desca.gshape[0]
     assert 1 < iu <= desca.gshape[0]
     # still need assert for eigenvalues
@@ -290,6 +286,7 @@ def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
     if info != 0:
         raise RuntimeError('scalapack_general_diagonalize_mr3 error: %d' %
                            info)
+
 
 def scalapack_inverse_cholesky(desca, a, uplo):
     """Perform Cholesky decomposin followed by an inversion
@@ -326,6 +323,7 @@ def scalapack_inverse(desca, a, uplo):
     info = _gpaw.scalapack_inverse(a, desca.asarray(), switch_lu[uplo])
     if info != 0:
         raise RuntimeError('scalapack_inverse error: %d' % info)
+
 
 def scalapack_solve(desca, descb, a, b):
     """Perform general matrix solution to Ax=b. Result will be replaces with b.
@@ -366,17 +364,17 @@ def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     desca.checkassert(a_MK)
     descb.checkassert(b_KN)
     descc.checkassert(c_MN)
-    assert side in ['R','L'] and uplo in ['L','U']
+    assert side in ['R', 'L'] and uplo in ['L', 'U']
     M, Ka = desca.gshape
     Kb, N = descb.gshape
-    if side=='R':
+    if side == 'R':
         Kb, N = N, Kb
 
     if not desca.blacsgrid.is_active():
         return
-    fortran_side = {'L':'R', 'R':'L'}
-    fortran_uplo = {'U':'L', 'L':'U'}
-    if side=='R':
+    fortran_side = {'L': 'R', 'R': 'L'}
+    fortran_uplo = {'U': 'L', 'L': 'U'}
+    if side == 'R':
         M, N = N, M
 
     _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo],
@@ -453,6 +451,7 @@ def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN,
     beta = 0.0
     pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
 
+
 def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
                transa='T'):
     desca.checkassert(a)
@@ -481,18 +480,18 @@ def pblas_simple_gemv(desca, descx, descy, a, x, y):
 
 
 def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
-                uplo='U'):
+              uplo='U'):
     if not desca.blacsgrid.is_active():
         return
     desca.checkassert(a_NK)
     descb.checkassert(b_NK)
     descc.checkassert(c_NN)
-    assert descc.gshape[0] == descc.gshape[1] # symmetric matrix
-    assert desca.gshape == descb.gshape # same shape
+    assert descc.gshape[0] == descc.gshape[1]  # symmetric matrix
+    assert desca.gshape == descb.gshape  # same shape
     assert uplo in ['L', 'U']
-    N = descc.gshape[0] # order of C
+    N = descc.gshape[0]  # order of C
     # K must take into account implicit tranpose due to C ordering
-    K = desca.gshape[1] # number of columns of A and B
+    K = desca.gshape[1]  # number of columns of A and B
     _gpaw.pblas_r2k(N, K, alpha, a_NK, b_NK, beta, c_NN,
                     desca.asarray(),
                     descb.asarray(),
@@ -504,7 +503,7 @@ def pblas_simple_r2k(desca, descb, descc, a, b, c, uplo='U'):
     alpha = 1.0
     beta = 0.0
     pblas_r2k(alpha, a, b, beta, c,
-                desca, descb, descc, uplo)
+              desca, descb, descc, uplo)
 
 
 def pblas_rk(alpha, a_NK, beta, c_NN, desca, descc,
@@ -513,15 +512,15 @@ def pblas_rk(alpha, a_NK, beta, c_NN, desca, descc,
         return
     desca.checkassert(a_NK)
     descc.checkassert(c_NN)
-    assert descc.gshape[0] == descc.gshape[1] # symmetrix matrix
+    assert descc.gshape[0] == descc.gshape[1]  # symmetrix matrix
     assert uplo in ['L', 'U']
-    N = descc.gshape[0] # order of C
+    N = descc.gshape[0]  # order of C
     # K must take into account implicit tranpose due to C ordering
-    K = desca.gshape[1] # number of columns of A
+    K = desca.gshape[1]  # number of columns of A
     _gpaw.pblas_rk(N, K, alpha, a_NK, beta, c_NN,
-                    desca.asarray(),
-                    descc.asarray(),
-                    uplo)
+                   desca.asarray(),
+                   descc.asarray(),
+                   uplo)
 
 
 def pblas_simple_rk(desca, descc, a, c):

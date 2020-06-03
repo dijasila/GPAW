@@ -10,7 +10,7 @@ import _gpaw
 
 class Spline:
     def __init__(self, l, rmax, f_g):
-        """Spline(l, rcut, list) -> Spline object
+        """Spline object
 
         The integer l gives the angular momentum quantum number and
         the list contains the spline values from r=0 to r=rcut.

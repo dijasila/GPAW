@@ -14,6 +14,6 @@ calc = GPAW(mode=PW(600),
             kpts={'size': (2, 2, 2), 'gamma': True},
             txt='gs_GaAs.txt')
 
-a.set_calculator(calc)
+a.calc = calc
 a.get_potential_energy()
 calc.write('GaAs.gpw', mode='all')

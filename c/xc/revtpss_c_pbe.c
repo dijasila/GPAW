@@ -67,7 +67,11 @@ XC(perdew_params)(const XC(func_type) *gga_p, const double *rho, const double *s
     XC(lda_exc_vxc)(gga_p, np, rho, &(pt->ecunif), pt->vcunif);
     break;
   case 2:
+#if XC_MAJOR_VERSION >= 5
+    XC(lda)(gga_p, np, rho, &(pt->ecunif), pt->vcunif, pt->fcunif, NULL, NULL);
+#else
     XC(lda)(gga_p, np, rho, &(pt->ecunif), pt->vcunif, pt->fcunif, NULL);
+#endif
     break;
   }
 

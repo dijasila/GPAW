@@ -78,8 +78,12 @@ Some important points are:
   since they are not needed.
 * The density convergence criterion should be a few orders of magnitude
   more accurate than in usual ground-state calculations.
-* The convergence tolerance of the Poisson solver should be at least ``1e-16``,
+* If using GPAW version older than 1.5.0 or
+  ``PoissonSolver(name='fd', eps=eps, ...)``,
+  the convergence tolerance ``eps`` should be at least ``1e-16``,
   but ``1e-20`` does not hurt (note that this is the **quadratic** error).
+  The default ``FastPoissonSolver`` in GPAW versions starting from 1.5.0
+  do not require ``eps`` parameter. See :ref:`releasenotes`.
 * One should use multipole-corrected Poisson solvers or
   other advanced Poisson solvers in any TDDFT run
   in order to guarantee the convergence of the potential with respect to
@@ -313,6 +317,7 @@ The ``update`` keyword in ``replay()`` has following options:
    even with splitted files.
 
 
+.. _ksdecomposition:
 
 Kohn--Sham decomposition of density matrix
 ------------------------------------------
@@ -486,6 +491,24 @@ see [#Kuisma2015]_ and [#Rossi2015]_ for further discussion on the basis sets.
    around the fermi level.
 
    Here, we will calculate a small and a large organic molecule with lcao-tddft.
+
+
+Time-dependent potential
+------------------------
+
+Instead of using the dipolar delta kick as a time-domain perturbation,
+it is possible to define any time-dependent potential.
+
+Considering the sodium atom chain as an example,
+we can tune a dipolar Gaussian pulse to its resonance at 1.12 eV
+and propagate the system:
+
+.. literalinclude:: lcaotddft_Na8/td_pulse.py
+
+The resulting dipole-moment response shows the resonant excitation
+of the system:
+
+.. image:: lcaotddft_Na8/pulse.png
 
 
 References

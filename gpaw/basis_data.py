@@ -56,11 +56,11 @@ class Basis:
         if readxml:
             self.read_xml(world=world)
 
+    @property
     def nao(self):  # implement as a property so we don't have to
         # catch all the places where Basis objects are modified without
         # updating it.  (we can do that later)
         return sum([2 * bf.l + 1 for bf in self.bf_j])
-    nao = property(nao)
 
     def append(self, bf):
         self.bf_j.append(bf)
@@ -272,7 +272,7 @@ class BasisPlotter:
         self.normalize = normalize
 
     def plot(self, basis, filename=None, **plot_args):
-        import pylab as pl  # Should not import in module namespace
+        import matplotlib.pyplot as plt
         if plot_args is None:
             plot_args = {}
         r_g = basis.rgd.r_g
@@ -306,28 +306,28 @@ class BasisPlotter:
 
         dashes_l = [(), (6, 3), (4, 1, 1, 1), (1, 1)]
 
-        pl.figure()
+        plt.figure()
         for norm, bf in zip(norm_j, basis.bf_j):
             ng = len(bf.phit_g)
             y_g = bf.phit_g * factor[:ng]
             if self.normalize:
                 y_g /= norm
-            pl.plot(r_g[:ng], y_g, label=bf.type[:12],
-                    dashes=dashes_l[bf.l], lw=2,
-                    **plot_args)
-        axis = pl.axis()
+            plt.plot(r_g[:ng], y_g, label=bf.type[:12],
+                     dashes=dashes_l[bf.l], lw=2,
+                     **plot_args)
+        axis = plt.axis()
         rc = max([bf.rc for bf in basis.bf_j])
         newaxis = [0., rc, axis[2], axis[3]]
-        pl.axis(newaxis)
-        pl.legend()
-        pl.title(self.title % basis.__dict__)
-        pl.xlabel(self.xlabel)
-        pl.ylabel(self.ylabel)
+        plt.axis(newaxis)
+        plt.legend()
+        plt.title(self.title % basis.__dict__)
+        plt.xlabel(self.xlabel)
+        plt.ylabel(self.ylabel)
 
         if filename is None:
             filename = self.default_filename
         if self.save:
-            pl.savefig(filename % basis.__dict__)
+            plt.savefig(filename % basis.__dict__)
 
         if self.show:
-            pl.show()
+            plt.show()

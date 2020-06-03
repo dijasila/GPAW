@@ -10,7 +10,7 @@ calc = GPAW(h=0.2,
             hund=True,  # assigns the atom its correct magnetic moment
             txt='O.txt')
 
-atom.set_calculator(calc)
+atom.calc = calc
 atom.get_potential_energy()
 
 # Write wave functions to gpw file:

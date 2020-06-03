@@ -572,16 +572,16 @@ class _Communicator:
 
         Example::
 
-          >>> world.rank, world.size
+          >>> world.rank, world.size  # doctest: +SKIP
           (3, 4)
-          >>> world.get_members()
+          >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))
-          >>> comm.rank, comm.size
+          >>> comm = world.new_communicator(array([2, 3]))  # doctest: +SKIP
+          >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
-          >>> comm.get_members()
+          >>> comm.get_members()  # doctest: +SKIP
           array([2, 3])
-          >>> comm.get_members()[comm.rank] == world.rank
+          >>> comm.get_members()[comm.rank] == world.rank  # doctest: +SKIP
           True
 
         """
@@ -702,8 +702,8 @@ if world is None:
     world = serial_comm
 
 if gpaw.debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
+    serial_comm = _Communicator(serial_comm)  # type: ignore
+    world = _Communicator(world)  # type: ignore
 
 rank = world.rank
 size = world.size
@@ -842,7 +842,7 @@ def alltoallv_string(send_dict, comm=world):
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
-            data = np.fromstring(send_dict[proc], np.int8)
+            data = np.frombuffer(send_dict[proc].encode(), np.int8)
             scounts[proc] = data.size
             sdispls[proc] = stotal
             stotal += scounts[proc]
@@ -862,7 +862,7 @@ def alltoallv_string(send_dict, comm=world):
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
         sbuffer[sdispls[proc]:(sdispls[proc] + scounts[proc])] = (
-            np.fromstring(send_dict[proc], np.int8))
+            np.frombuffer(send_dict[proc].encode(), np.int8))
 
     rbuffer = np.zeros(rtotal, dtype=np.int8)
     comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)

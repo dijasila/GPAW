@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -25,7 +24,7 @@ slab = Atoms('Al10H2',
              pbc=(1, 1, 1))
 calc = GPAW(h=0.25, nbands=28, kpts=(2, 6, 1),
             convergence={'eigenstates': 1e-5})
-slab.set_calculator(calc)
+slab.calc = calc
 e = slab.get_potential_energy()
 niter = calc.get_number_of_iterations()
 assert len(calc.get_k_point_weights()) == 3

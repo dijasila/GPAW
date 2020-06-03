@@ -1624,13 +1624,16 @@ class PWLFC(BaseLFC):
         P_ani = {a: P_in.T for a, P_in in out.items()}
         self.integrate(psit.array, P_ani, psit.kpt)
 
-    def derivative(self, a_xG, c_axiv, q=-1):
+    def derivative(self, a_xG, c_axiv=None, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int),
-                               self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        nx = np.prod(c_vxI.shape[1:-1], dtype=int)
+        b_vxI = c_vxI.reshape((3, nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
+
+        if c_axiv is None:
+            c_axiv = self.dict(a_xG.shape[:-1], derivative=True)
 
         K_v = self.pd.K_qv[q]
 
@@ -1665,6 +1668,8 @@ class PWLFC(BaseLFC):
                 for a, I1, I2 in self.my_indices:
                     c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
                                          c_vxI[v, ..., I1:I2])
+
+        return c_axiv
 
     def stress_tensor_contribution(self, a_xG, c_axi=1.0, q=-1):
         cache = {}

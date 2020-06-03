@@ -31,11 +31,12 @@ The output will contain also the "Calculator" RAM Memory estimate per process.
 In order to run GPAW in parallel, you
 do one of these two::
 
-      $ gpaw -P <cores> python script.py
-      $ mpiexec -n <cores> python3 script.py
+    $ mpiexec -n <cores> gpaw python script.py
+    $ gpaw -P <cores> python script.py
+    $ mpiexec -n <cores> python3 script.py
 
-The first way is the recommended one:  It will make sure that imports
-are done in an efficient way.
+The first two are the recommended ones:  The *gpaw* script will make sure
+that imports are done in an efficient way.
 
 
 Submitting a job to a queuing system

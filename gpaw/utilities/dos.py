@@ -1,4 +1,3 @@
-from __future__ import print_function
 from math import pi, sqrt
 import numpy as np
 from ase.units import Hartree
@@ -389,11 +388,23 @@ class RawLDOS:
         wfs.kd.comm.sum(spd)
         return spd
 
-    def by_element(self):
-        """Return a dict with elements as keys and LDOS as values."""
+    def by_element(self, indices=None):
+        """Return a dict with elements as keys and LDOS as values.
+
+        Parameter:
+        -----------
+        indices: list or None
+          Atom indices to consider, default None
+        """
+        atoms = self.paw.atoms
+        if indices is None:
+            selected = range(len(atoms))
+        else:
+            selected = indices
+
         elemi = {}
-        for i, a in enumerate(self.paw.atoms):
-            symbol = a.symbol
+        for i in selected:
+            symbol = atoms[i].symbol
             if symbol in elemi:
                 elemi[symbol].append(i)
             else:
@@ -404,19 +415,26 @@ class RawLDOS:
 
     def to_file(self,
                 ldbe,
-                filename=None,
+                filename,
                 width=None,
                 shift=True,
                 bound=False):
         """Write the LDOS to a file.
 
-        If a width is given, the LDOS will be Gaussian folded and shifted to
-        set Fermi energy to 0 eV. The latter can be avoided by setting
-        shift=False.
-
-        If you use fixmagmom=true, you will get two fermi-levels, one for each
-        spin-setting. Normaly these will shifted individually to 0 eV. If you
-        want to shift them as pair to the higher energy use bound=True.
+        Parameters:
+        -----------
+        ldbe: dict
+          weights
+        filename: string
+        width: float or None
+          If a width is given, the LDOS will be Gaussian folded
+        shift: bool
+          Set Fermi energy to 0 eV. Default True
+        bound: bool
+          If the calculation was performed spin-polarized with fixmagmom=True,
+          there are two Fermi-levels, one for each spin. False shifts
+          both spins by their own Fermi levels, True both
+          by the higher Fermi level. Default: False
         """
 
         f = paropen(filename, 'w')
@@ -566,10 +584,17 @@ class RawLDOS:
                            filename='ldos_by_element.dat',
                            width=None,
                            shift=True,
-                           bound=False):
-        """Write the LDOS by element to a file.
+                           bound=False,
+                           indices=None):
         """
-        ldbe = self.by_element()
+        Write the LDOS by element to a file.
+
+        Parameters:
+        -----------
+        indices: list or None
+          Atom indices to consider, default None
+        """
+        ldbe = self.by_element(indices)
         self.to_file(ldbe, filename, width, shift, bound)
 
 

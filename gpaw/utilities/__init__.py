@@ -113,7 +113,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, r, vr):
+def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -183,7 +183,7 @@ def unpack2(M):
     return M2
 
 
-def pack(A):
+def pack(A: np.ndarray) -> np.ndarray:
     r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
@@ -224,7 +224,7 @@ def pack2(M2, tolerance=1e-10):
 
 
 for method in (unpack, unpack2, pack, pack2):
-    method.__doc__ += packing_conventions
+    method.__doc__ += packing_conventions  # type: ignore
 
 
 def element_from_packed(M, i, j):
@@ -340,8 +340,8 @@ def file_barrier(path: Union[str, Path], world=None):
     After the with-block all cores will be able to read the file.
 
     >>> with file_barrier('something.txt'):
-    ...     <write file>
-    ...
+    ...     result = 2 + 2
+    ...     Path('something.txt').write_text(f'{result}')  # doctest: +SKIP
 
     This will remove the file, write the file and wait for the file.
     """

@@ -226,7 +226,7 @@ Thursday (May 23)
 Activities for GPAW developers (we start at 9:00):
 
 * Coordination of code development and discussions about the future:
-  Quick tour of :ref:`dev projects` --- what's the current status?
+  Quick tour of ongoing projects --- what's the current status?
 
 * Introduction to Sphinx and reStructuredText
 

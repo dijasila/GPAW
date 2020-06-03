@@ -8,25 +8,23 @@ import os
 import re
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
-import subprocess
+from setuptools.command.install import install as _install
+from setuptools.command.develop import develop as _develop
+from subprocess import run, PIPE
 import sys
 from pathlib import Path
 
 from config import check_dependencies, write_configuration, build_interpreter
 
 
-assert sys.version_info >= (3, 5)
+assert sys.version_info >= (3, 6)
 
 # Get the current version number:
 txt = Path('gpaw/__init__.py').read_text()
 version = re.search("__version__ = '(.*)'", txt).group(1)
 
 description = 'GPAW: DFT and beyond within the projector-augmented wave method'
-long_description = """\
-GPAW is a density-functional theory (DFT) Python code based on the
-projector-augmented wave (PAW) method and the atomic simulation environment
-(ASE). It uses plane-waves, atom-centered basis-functions or real-space
-uniform grids combined with multigrid methods."""
+long_description = Path('README.rst').read_text()
 
 remove_default_flags = False
 if '--remove-default-flags' in sys.argv:
@@ -65,13 +63,13 @@ fftw = False
 scalapack = False
 libvdwxc = False
 elpa = False
-mpicompiler = 'mpicc'
-mpilinker = 'mpicc'
 
-error = subprocess.call(['which', 'mpicc'], stdout=subprocess.PIPE)
-if error:
+if os.name != 'nt' and run(['which', 'mpicc'], stdout=PIPE).returncode == 0:
+    mpicompiler = 'mpicc'
+else:
     mpicompiler = None
-    mpilinker = None
+
+mpilinker = mpicompiler
 
 # Search and store current git hash if possible
 try:
@@ -85,7 +83,10 @@ except ImportError:
     print('ASE not found. GPAW git hash not written.')
 
 # User provided customizations:
-for siteconfig in [os.environ.get('GPAW_CONFIG'),
+gpaw_config = os.environ.get('GPAW_CONFIG')
+if gpaw_config and not Path(gpaw_config).is_file():
+    raise FileNotFoundError(gpaw_config)
+for siteconfig in [gpaw_config,
                    'siteconfig.py',
                    '~/.gpaw/siteconfig.py']:
     if siteconfig is not None:
@@ -189,15 +190,35 @@ class build_ext(_build_ext):
             assert error == 0
 
 
+class install(_install):
+    def run(self):
+        _install.run(self)
+
+        if parallel_python_interpreter:
+            # Also copy gpaw-python
+            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
+            source = 'build/bin.{}/gpaw-python'.format(plat)
+            target = os.path.join(self.install_scripts, 'gpaw-python')
+            self.copy_file(source, target)
+
+
+class develop(_develop):
+    def run(self):
+        _develop.run(self)
+
+        if parallel_python_interpreter:
+            # Also copy gpaw-python
+            plat = distutils.util.get_platform() + '-' + sys.version[0:3]
+            source = 'build/bin.{}/gpaw-python'.format(plat)
+            target = os.path.join(self.script_dir, 'gpaw-python')
+            self.copy_file(source, target)
+
+
 files = ['gpaw-analyse-basis', 'gpaw-basis',
-         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-upfplot']
 scripts = [str(Path('tools') / script) for script in files]
 
-if parallel_python_interpreter:
-    major, minor = sys.version_info[:2]
-    scripts.append('build/bin.{plat}-{major}.{minor}/gpaw-python'
-                   .format(plat=plat, major=major, minor=minor))
 
 setup(name='gpaw',
       version=version,
@@ -214,14 +235,15 @@ setup(name='gpaw',
       install_requires=['ase>=3.18.0'],
       ext_modules=extensions,
       scripts=scripts,
-      cmdclass={'build_ext': build_ext},
+      cmdclass={'build_ext': build_ext,
+                'install': install,
+                'develop': develop},
       classifiers=[
           'Development Status :: 6 - Mature',
           'License :: OSI Approved :: '
           'GNU General Public License v3 or later (GPLv3+)',
           'Operating System :: OS Independent',
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
