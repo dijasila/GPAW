@@ -6,15 +6,13 @@ from ase.build import mx2
 
 from gpaw import GPAW
 from gpaw.test import equal
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.mpi import size
-
 
 
 def test_noncollinear_soc():
     if size > 1:
         raise SkipTest()
-
 
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
@@ -34,8 +32,8 @@ def test_noncollinear_soc():
     # Non-selfconsistent:
     a.calc = GPAW(convergence={'bands': 14}, **params)
     a.get_potential_energy()
-    E2 = get_spinorbit_eigenvalues(a.calc, bands=np.arange(14))[:, 2]
 
+    E2 = soc_eigenstates(a.calc, bands=np.arange(14))['e_km'][-1]
 
     def test(E, hsplit, lsplit):
         print(E)
@@ -44,7 +42,6 @@ def test_noncollinear_soc():
         print(l2 - l1)
         assert abs(h2 - h1 - hsplit) < 0.01
         assert abs(l2 - l1 - lsplit) < 0.002
-
 
     equal(E1[:28], E2, tolerance=1e-1)
     test(E1, 0.15, 0.002)

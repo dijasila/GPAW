@@ -1,7 +1,6 @@
 import numpy as np
 import ase.io.ulm as ulm
 
-from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 
 
@@ -17,6 +16,7 @@ def ibz2bz(input_gpw, output_gpw=None):
         $ python3 -m gpaw.utilities.ibz2bz abc.gpw
 
     """
+    from gpaw import GPAW
 
     if world.rank > 0:
         return

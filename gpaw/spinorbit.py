@@ -1,45 +1,140 @@
+from typing import Union, TYPE_CHECKING
+from pathlib import Path
+
 import numpy as np
 from ase.units import Ha, alpha, Bohr
 
+from gpaw.mpi import send, receive
+from gpaw.utilities.ibz2bz import construct_symmetry_operators
 
-s = np.array([[0.0]])
-p = np.zeros((3, 3), complex)  # y, z, x
-p[0, 1] = -1.0j
-p[1, 0] = 1.0j
-d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
-d[0, 3] = -1.0j
-d[3, 0] = 1.0j
-d[1, 2] = -3**0.5 * 1.0j
-d[2, 1] = 3**0.5 * 1.0j
-d[1, 4] = -1.0j
-d[4, 1] = 1.0j
-Lx_lmm = [s, p, d]
+if TYPE_CHECKING:
+    from gpaw import GPAW
 
-p = np.zeros((3, 3), complex)  # y, z, x
-p[1, 2] = -1.0j
-p[2, 1] = 1.0j
-d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
-d[0, 1] = 1.0j
-d[1, 0] = -1.0j
-d[2, 3] = -3**0.5 * 1.0j
-d[3, 2] = 3**0.5 * 1.0j
-d[3, 4] = -1.0j
-d[4, 3] = 1.0j
-Ly_lmm = [s, p, d]
+_L_vlmm = []  # see get_L_vlmm() below
 
-p = np.zeros((3, 3), complex)  # y, z, x
-p[0, 2] = 1.0j
-p[2, 0] = -1.0j
-d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
-d[0, 4] = 2.0j
-d[4, 0] = -2.0j
-d[1, 3] = 1.0j
-d[3, 1] = -1.0j
-Lz_lmm = [s, p, d]
+
+def soc_eigenstates(calc: Union['GPAW', str, Path],
+                    bands=None,
+                    myeig_skn=None,
+                    scale=1.0,
+                    theta=0.0,
+                    phi=0.0,
+                    return_wfs=False):
+    """Calculate SOC eigenstates.
+
+    Parameters:
+        calc: Calculator
+            GPAW calculator or path to gpw-file.
+        bands: list of ints
+            list of band indices for which to calculate soc.
+        myeig_skn: (ns, nk, nb)-shaped ndarray
+            use these eigenvalues instead of those from calc.get_eigenvalues()
+        return_wfs: bool
+            flag for returning wave functions
+        scale: float
+            scale the spinorbit coupling by this amount
+        theta: float
+            angle in radians
+        phi: float
+            angle in radians
+
+    Returns a dict containing the keys: 'e_km', 's_kvm' and possibly 'v_kmm'.
+    """
+
+    from gpaw import GPAW
+
+    if not isinstance(calc, GPAW):
+        calc = GPAW(calc, txt=None)
+
+    if bands is None:
+        bands = np.arange(calc.get_number_of_bands())
+
+    # <phi_i|dV_adr / r * L_v|phi_j>
+    dVL_avii = {a: soc(calc.wfs.setups[a],
+                       calc.hamiltonian.xc,
+                       D_sp) * scale * Ha
+                for a, D_sp in calc.density.D_asp.items()}
+
+    # Hamiltonian with SO in KS basis
+    # The even indices in H_mm are spin up along \hat n defined by \theta, phi
+    # Basis change matrix for constructing Pauli matrices in \theta,\phi basis:
+    #     \sigma_i^n = C^\dag\sigma_i C
+    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
+                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
+                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
+                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
+
+    sx_ss = np.array([[0, 1], [1, 0]], complex)
+    sy_ss = np.array([[0, -1.0j], [1.0j, 0]], complex)
+    sz_ss = np.array([[1, 0], [0, -1]], complex)
+    s_vss = [C_ss.T.conj().dot(sx_ss).dot(C_ss),
+             C_ss.T.conj().dot(sy_ss).dot(C_ss),
+             C_ss.T.conj().dot(sz_ss).dot(C_ss)]
+
+    kd = calc.wfs.kd
+
+    e_km = np.zeros((kd.nbzkpts, 2 * len(bands)))
+    s_kvm = np.zeros((kd.nbzkpts, 3, 2 * len(bands)))
+    if return_wfs:
+        v_kmm = np.zeros((kd.nbzkpts, 2 * len(bands), 2 * len(bands)), complex)
+
+    transform = SymmetryTransformer(calc).trasnsform_projections
+
+    for i, (e_sn, P_snI) in distribute_ibz_k_points(calc, bands).items():
+        for K, k in enumerate(kd.bz2ibz_k):
+            if k != i:
+                continue
+            if myeig_skn is not None:
+                e_sn = myeig_skn[:, i]
+            tP_snI = transform(K, P_snI)
+            e_m, s_vm, v_mm = soc_eig(e_sn, tP_snI, dVL_avii, s_vss, C_ss)
+            e_km[K] = e_m
+            s_kvm[K] = s_vm
+            if return_wfs:
+                v_kmm[K] = v_mm
+
+    calc.world.sum(e_km)
+    calc.world.sum(s_kvm)
+
+    results = {'e_km': e_km,
+               's_kvm': s_kvm}
+
+    if return_wfs:
+        calc.world.sum(v_kmm)
+        results['v_kmm'] = v_kmm
+
+    return results
+
+
+def soc(a, xc, D_sp):
+    """<phi_i|dV_adr / r * L_v|phi_j>"""
+    v_g = get_radial_potential(a, xc, D_sp)
+    Ng = len(v_g)
+    phi_jg = a.data.phi_jg
+
+    Lx_lmm, Ly_lmm, Lz_lmm = get_L_vlmm()
+
+    dVL_vii = np.zeros((3, a.ni, a.ni), complex)
+    N1 = 0
+    for j1, l1 in enumerate(a.l_j):
+        Nm = 2 * l1 + 1
+        N2 = 0
+        for j2, l2 in enumerate(a.l_j):
+            if l1 == l2:
+                f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
+                c = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
+                dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = c * Lx_lmm[l1]
+                dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = c * Ly_lmm[l1]
+                dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = c * Lz_lmm[l1]
+            else:
+                pass
+            N2 += 2 * l2 + 1
+        N1 += Nm
+    return dVL_vii * alpha**2 / 4.0
 
 
 def get_radial_potential(a, xc, D_sp):
-    """Calculates dV/dr / r for the effective potential.
+    """Calculates (dV/dr)/r for the effective potential.
     Below, f_g denotes dV/dr = minus the radial force"""
 
     rgd = a.xc_correction.rgd
@@ -76,33 +171,124 @@ def get_radial_potential(a, xc, D_sp):
     return f_g / r_g
 
 
-def soc(a, xc, D_sp):
-    v_g = get_radial_potential(a, xc, D_sp)
-    Ng = len(v_g)
-    phi_jg = a.data.phi_jg
+class SymmetryTransformer:
+    def __init__(self, calc):
+        self.wfs = calc.wfs
+        self.spos_ac = calc.spos_ac
+        self.I_a = [0]
+        I = 0
+        for setup in calc.wfs.setups:
+            I += setup.R_sii.shape[2]
+            self.I_a.append(I)
 
-    dVL_vii = np.zeros((3, a.ni, a.ni), complex)
-    N1 = 0
-    for j1, l1 in enumerate(a.l_j):
-        Nm = 2 * l1 + 1
-        N2 = 0
-        for j2, l2 in enumerate(a.l_j):
-            if l1 == l2:
-                f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
-                c = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
-                dVL_vii[0, N1:N1 + Nm, N2:N2 + Nm] = c * Lx_lmm[l1]
-                dVL_vii[1, N1:N1 + Nm, N2:N2 + Nm] = c * Ly_lmm[l1]
-                dVL_vii[2, N1:N1 + Nm, N2:N2 + Nm] = c * Lz_lmm[l1]
-            else:
-                pass
-            N2 += 2 * l2 + 1
-        N1 += Nm
-    return dVL_vii * alpha**2 / 4.0
+    def trasnsform_projections(self, bz_index, P_snI):
+        a_a, U_aii, time_rev = construct_symmetry_operators(
+            self.wfs, self.spos_ac, bz_index)
+        tP_snI = np.empty_like(P_snI, dtype=complex)
+        I_a = self.I_a
+        a = 0
+        for b, U_ii in zip(a_a, U_aii):
+            P_sni = np.dot(P_snI[:, :, I_a[b]:I_a[b + 1]], U_ii)
+            if time_rev:
+                P_sni = P_sni.conj()
+            tP_snI[:, :, I_a[a]:I_a[a + 1]] = P_sni
+            a += 1
+        return tP_snI
 
 
-def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
-                              return_wfs=False, scale=1.0,
+def distribute_ibz_k_points(calc, bands):
+    assert calc.density.collinear
+    world = calc.world
+    mykpts = {}
+    for i in range(calc.wfs.kd.nibzkpts):
+        eps0_n = calc.get_eigenvalues(i, 0)
+        P0_nI = calc.wfs.collect_projections(i, 0)
+        if calc.wfs.nspins == 1:
+            eps1_n = eps0_n
+            P1_nI = P0_nI
+        else:
+            eps1_n = calc.get_eigenvalues(i, 1)
+            P1_nI = calc.wfs.collect_projections(i, 1)
+        r = i % world.size
+        if world.rank == 0:
+            data = (np.array([eps0_n[bands], eps1_n[bands]]),
+                    np.array([P0_nI[bands], P1_nI[bands]]))
+            if r != 0:
+                send(data, r, world)
+        elif world.rank == r:
+            data = receive(0, world)
+        if r == world.rank:
+            mykpts[i] = data
+    return mykpts
+
+
+def soc_eig(e_sn, P_snI, dVL_avii, s_vss, C_ss):
+    # Evaluate H in a basis of S_z eigenstates
+    Nn = len(e_sn[0])
+    H_mm = np.zeros((2 * Nn, 2 * Nn), complex)
+    i1 = np.arange(0, 2 * Nn, 2)
+    i2 = np.arange(1, 2 * Nn, 2)
+    H_mm[i1, i1] = e_sn[0]
+    H_mm[i2, i2] = e_sn[1]
+    I1 = 0
+    for a, dVL_vii in dVL_avii.items():
+        Ni = dVL_vii.shape[2]
+        I2 = I1 + Ni
+        Pt_sni = P_snI[:, :, I1:I2]
+        P_sni = np.zeros((2, 2 * Nn, Ni), complex)
+        P_sni[0, ::2] = Pt_sni[0]
+        P_sni[1, 1::2] = Pt_sni[1]
+        H_ssii = np.zeros((2, 2, Ni, Ni), complex)
+        H_ssii[0, 0] = dVL_vii[2]
+        H_ssii[0, 1] = dVL_vii[0] - 1.0j * dVL_vii[1]
+        H_ssii[1, 0] = dVL_vii[0] + 1.0j * dVL_vii[1]
+        H_ssii[1, 1] = -dVL_vii[2]
+
+        # Tranform to theta, phi basis
+        H_ssii = np.tensordot(C_ss, H_ssii, ([0, 1]))
+        H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, ([1, 1]))
+        for s1 in range(2):
+            for s2 in range(2):
+                H_ii = H_ssii[s1, s2]
+                P1_mi = P_sni[s1]
+                P2_mi = P_sni[s2]
+                H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
+        I1 = I2
+
+    e_m, v_snm = np.linalg.eigh(H_mm)
+
+    sx_m = []
+    sy_m = []
+    sz_m = []
+    for m in range(2 * Nn):
+        v_sn = np.array([v_snm[::2, m], v_snm[1::2, m]])
+        sx_m.append(np.trace(v_sn.T.conj().dot(s_vss[0]).dot(v_sn)))
+        sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
+        sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
+
+    return e_m, np.array([sx_m, sy_m, sz_m]).real, v_snm
+
+
+def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None,
+                              return_spin=False,
+                              return_wfs=False,
+                              scale=1.0,
                               theta=0.0, phi=0.0):
+    results = soc_eigenstates(calc, bands, gw_kn, scale, theta, phi,
+                              return_wfs)
+    values = [results['e_km'].T]
+    if return_spin:
+        values.append(results['s_kvm'])
+    if return_wfs:
+        values.append(results['v_kmm'])
+    return tuple(values) if len(values) > 1 else values[0]
+
+
+def old_get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None,
+                                  return_spin=False,
+                                  return_wfs=False,
+                                  scale=1.0,
+                                  theta=0.0, phi=0.0):
     """
     Parameters:
         calc: Calculator
@@ -202,6 +388,7 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
                           for s in range(Ns)]
             else:
                 Pt_sni = np.swapaxes(calc.wfs.kpt_u[k].P_ani[ai], 0, 1)
+                print(Pt_sni.shape)
             Ni = len(Pt_sni[0][0])
             P_sni = np.zeros((2, 2 * Nn, Ni), complex)
             dVL_vii = dVL_avii[ai] * scale * Ha
@@ -334,7 +521,7 @@ def get_spinorbit_projections(calc, ik, v_nm):
 
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
-        
+
     P_ani = {}
     for ia in range(Na):
         P0_ni = calc.wfs.kpt_u[ik].P_ani[ia]
@@ -349,7 +536,7 @@ def get_spinorbit_projections(calc, ik, v_nm):
 
     return P_ani
 
-    
+
 def get_spinorbit_wavefunctions(calc, ik, v_nm):
     # For spinors the number of bands is doubled and a spin dimension is added
     Ns = calc.wfs.nspins
@@ -357,7 +544,7 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
-    
+
     u0_nG = np.array([calc.wfs.get_wave_function_array(n, ik, 0)
                       for n in range(Nn)])
     u1_nG = np.array([calc.wfs.get_wave_function_array(n, ik, (Ns - 1))
@@ -374,7 +561,7 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 
     return u_mG
 
-    
+
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the magnetic moments inside all PAW spheres"""
 
@@ -563,3 +750,45 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             p_n += [0 for n in n_n]
 
     return np.ravel(p_n)
+
+
+def get_L_vlmm():
+    if len(_L_vlmm) == 3:
+        return _L_vlmm
+
+    s = np.array([[0.0]])
+    p = np.zeros((3, 3), complex)  # y, z, x
+    p[0, 1] = -1.0j
+    p[1, 0] = 1.0j
+    d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
+    d[0, 3] = -1.0j
+    d[3, 0] = 1.0j
+    d[1, 2] = -3**0.5 * 1.0j
+    d[2, 1] = 3**0.5 * 1.0j
+    d[1, 4] = -1.0j
+    d[4, 1] = 1.0j
+    _L_vlmm.append([s, p, d])
+
+    p = np.zeros((3, 3), complex)  # y, z, x
+    p[1, 2] = -1.0j
+    p[2, 1] = 1.0j
+    d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
+    d[0, 1] = 1.0j
+    d[1, 0] = -1.0j
+    d[2, 3] = -3**0.5 * 1.0j
+    d[3, 2] = 3**0.5 * 1.0j
+    d[3, 4] = -1.0j
+    d[4, 3] = 1.0j
+    _L_vlmm.append([s, p, d])
+
+    p = np.zeros((3, 3), complex)  # y, z, x
+    p[0, 2] = 1.0j
+    p[2, 0] = -1.0j
+    d = np.zeros((5, 5), complex)  # xy, yz, z^2, xz, x^2-y^2
+    d[0, 4] = 2.0j
+    d[4, 0] = -2.0j
+    d[1, 3] = 1.0j
+    d[3, 1] = -1.0j
+    _L_vlmm.append([s, p, d])
+
+    return _L_vlmm
