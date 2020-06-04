@@ -1,4 +1,4 @@
-from typing import Union, TYPE_CHECKING
+from typing import Union, List, TYPE_CHECKING
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +10,7 @@ from gpaw.utilities.ibz2bz import construct_symmetry_operators
 if TYPE_CHECKING:
     from gpaw import GPAW
 
-_L_vlmm = []  # see get_L_vlmm() below
+_L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
