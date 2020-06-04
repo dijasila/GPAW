@@ -115,6 +115,9 @@ PyObject * FFTWExecute(PyObject *self, PyObject *args);
 PyObject * FFTWDestroy(PyObject *self, PyObject *args);
 #endif
 
+// Threading
+PyObject* get_num_threads(PyObject *self, PyObject *args);
+
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
 #endif
@@ -193,6 +196,7 @@ static PyMethodDef functions[] = {
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
     {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
+    {"get_num_threads", get_num_threads, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
