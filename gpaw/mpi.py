@@ -822,6 +822,20 @@ def broadcast_bytes(b=None, root=0, comm=world):
     return b.tobytes()
 
 
+def send(obj, rank, comm):
+    b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+    comm.send(np.array(len(b)), rank)
+    comm.send(np.frombuffer(b, np.int8).copy(), rank)
+
+
+def receive(rank, comm):
+    n = np.array(0)
+    comm.receive(n, rank)
+    buf = np.empty(n, np.int8)
+    comm.receive(buf, rank)
+    return pickle.loads(buf.tobytes())
+
+
 def send_string(string, rank, comm=world):
     b = string.encode()
     comm.send(np.array(len(b)), rank)
