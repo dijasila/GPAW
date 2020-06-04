@@ -43,10 +43,9 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """
 
-    if calc == '<gpw-file>':  # for doctest
-        return np.zeros((3, 1, 1, 1))
-
     if not isinstance(calc, GPAW):
+        if calc == '<gpw-file>':  # for doctest
+            return np.zeros((3, 1, 1, 1))
         calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
 
     wfs = calc.wfs
