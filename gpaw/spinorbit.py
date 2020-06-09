@@ -327,17 +327,17 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None,
 
     results = soc_eigenstates(calc, bands, gw_kn, scale, theta, phi,
                               return_wfs)
-    values = [results['e_km'].T]
+    values = [results['eigenstates'].T]
     if return_spin:
-        values.append(results['s_kvm'])
+        values.append(results['spin_projections'])
     if return_wfs:
-        values.append(results['v_kmm'])
+        values.append(results['eigenstates'])
     return tuple(values) if len(values) > 1 else values[0]
 
 
 def set_calculator(calc, e_km, v_knm=None, width=None):
     raise DeprecationWarning(
-        "Please use ef = soc_eigenstates(..., occupations=...)['efermi'] "
+        "Please use ef = soc_eigenstates(..., occupations=...)['fermi_level'] "
         'instead.')
 
 
@@ -369,7 +369,7 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
 
     from gpaw.occupations import occupation_numbers
     e_km = soc_eigenstates(calc, theta=theta, phi=phi,
-                           bands=range(nbands))['e_km']
+                           bands=range(nbands))['eigenvalues']
     if width is None:
         width = calc.occupations.width * Ha
     if width == 0.0:
@@ -458,8 +458,8 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
                              phi=phi,
                              return_wfs=True,
                              bands=range(nbands))
-    e_km = states['e_km']
-    v_knm = states['v_kmm']
+    e_km = states['eigenvalues']
+    v_knm = states['eigenstates']
 
     from gpaw.occupations import occupation_numbers
     if width is None:
@@ -573,7 +573,7 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
     if spin_orbit:
         v_knm = soc_eigenstates(calc,
                                 return_wfs=True,
-                                bands=bands)['v_kmm']
+                                bands=bands)['eigenstates']
         psit0_mG = np.dot(v_knm[ik][::2].T, psit_nG)
         psit1_mG = np.dot(v_knm[ik][1::2].T, psit_nG)
     for n in range(len(bands)):
