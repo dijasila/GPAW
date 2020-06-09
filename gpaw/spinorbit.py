@@ -21,7 +21,7 @@ Array2D = ArrayND
 Array3D = ArrayND
 
 
-def soc_eigenstates(calc: Union[GPAW, str, Path],
+def soc_eigenstates(calc: Union['GPAW', str, Path],
                     bands: List[int] = None,
                     myeig_skn: Array3D = None,
                     scale: float = 1.0,
@@ -86,7 +86,7 @@ def soc_eigenstates(calc: Union[GPAW, str, Path],
     if return_wfs:
         v_kmm = np.zeros((kd.nbzkpts, 2 * len(bands), 2 * len(bands)), complex)
 
-    transform = SymmetryTransformer(calc).trasnsform_projections
+    transform = SymmetryTransformer(calc).transform_projections
 
     for i, (e_sn, P_snI) in distribute_ibz_k_points(calc, bands).items():
         for K, k in enumerate(kd.bz2ibz_k):
@@ -190,9 +190,9 @@ class SymmetryTransformer:
             I += setup.R_sii.shape[2]
             self.I_a.append(I)
 
-    def trasnsform_projections(self,
-                               bz_index: int,
-                               P_snI: Array3D) -> Array3D:
+    def transform_projections(self,
+                              bz_index: int,
+                              P_snI: Array3D) -> Array3D:
         """Transform to bz_index."""
         a_a, U_aii, time_rev = construct_symmetry_operators(
             self.wfs, self.spos_ac, bz_index)
@@ -211,7 +211,7 @@ class SymmetryTransformer:
 KPT = Tuple[Array2D, Array3D]  # eigs, projections
 
 
-def distribute_ibz_k_points(calc: GPAW,
+def distribute_ibz_k_points(calc: 'GPAW',
                             bands: List[int]) -> Dict[int, KPT]:
     """Distrubite eigenvalues and projections across all CPU's.
 
