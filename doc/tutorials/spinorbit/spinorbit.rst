@@ -30,10 +30,11 @@ The full Bloch Hamiltonian in a basis of scalar relativistic states becomes
 
 where the spinors are chosen along the `z` axis as default. Thus, if calc is
 an instance of the GPAW calculator with converged wavefunctions the Kohn-Sham
-eigenvalues can be obtained with::
+eigenvalues can be obtained with the :func:`~gpaw.spinorbit.soc_eigenstates`
+function::
 
-    from gpaw.spinorbit import get_spinorbit_eigenvalues
-    e_mk = get_spinorbit_eigenvalues(calc)
+    from gpaw.spinorbit import soc_eigenstates
+    e_km = soc_eigenstates(calc)['eigenvalues']
 
 Here e_mk is an array of dimension (2 * Nb, Nk), where Nb is the number of
 bands and Nk is the number of irreducible k-points. Is is also possible to
@@ -47,6 +48,8 @@ character along the z axis. The spin character is defined as
 and is useful for analyzing the degree of spin-orbit induced hybridization
 between spin up and spin down states. Examples of this will be given below.
 The implementation is documented in Ref. [#Olsen]_
+
+.. autofunction:: gpaw.spinorbit.soc_eigenstates
 
 
 Band structure of bulk Pt

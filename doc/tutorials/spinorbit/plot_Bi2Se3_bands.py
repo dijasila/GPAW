@@ -1,11 +1,9 @@
 # Creates: Bi2Se3_bands.png
 import numpy as np
 import matplotlib.pyplot as plt
-from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.spinorbit import soc_eigenstates
-from gpaw.occupations import occupation_numbers
 
 
 calc1 = GPAW('Bi2Se3_bands.gpw', txt=None)
@@ -25,13 +23,11 @@ for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
 # Spin-orbit calculation
-e_kn = soc_eigenstates(calc2)['e_km']
-_, ef, _, _ = occupation_numbers({'name': 'fermi-dirac', 'width': 0.001},
-                                 e_kn[np.newaxis],
-                                 np.ones(len(e_kn)) / len(e_kn),
-                                 2 * calc2.get_number_of_electrons())
-ef *= Ha
-e_kn = soc_eigenstates(calc1, scale=1.0)['e_km']
+ef = soc_eigenstates(
+    calc2,
+    occupations={'name': 'fermi-dirac', 'width': 0.001})['fermi_level']
+
+e_kn = soc_eigenstates(calc1, scale=1.0)['eigenvalues']
 e_kn -= ef
 
 plt.xticks(X, [r'$\Gamma$', 'Z', 'F', r'$\Gamma$', 'L'], size=24)

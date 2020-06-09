@@ -1,13 +1,15 @@
-import os 
+import os
 import gpaw.wannier90 as w90
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 
 seed = 'Fe'
 
 calc = GPAW('Fe.gpw', txt=None)
 
-e_mk, v_knm = get_spinorbit_eigenvalues(calc, return_wfs=True)
+soc = soc_eigenstates(calc, return_wfs=True)
+e_mk = soc['eigenvalues'].T
+v_knm = soc['eigenstates']
 
 w90.write_input(calc,
                 bands=range(30),

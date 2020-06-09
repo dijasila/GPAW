@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
 from ase.dft.kpoints import bandpath
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 
 calc = GPAW('Pt_bands.gpw', txt=None)
 ef = GPAW('Pt_gs.gpw').get_fermi_level()
@@ -18,7 +18,7 @@ e_nk -= ef
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
-e_mk = get_spinorbit_eigenvalues(calc)
+e_mk = soc_eigenstates(calc)['eigenvalues'].T
 e_mk -= ef
 
 plt.xticks(X, [r'$\Gamma$', 'X', 'W', 'L', r'$\Gamma$', 'K', 'X'], size=20)

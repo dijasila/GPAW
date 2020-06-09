@@ -33,7 +33,7 @@ def test_noncollinear_soc():
     a.calc = GPAW(convergence={'bands': 14}, **params)
     a.get_potential_energy()
 
-    E2 = soc_eigenstates(a.calc, bands=np.arange(14))['e_km'][-1]
+    E2 = soc_eigenstates(a.calc, bands=np.arange(14))['eigenvalues'][-1]
 
     def test(E, hsplit, lsplit):
         print(E)

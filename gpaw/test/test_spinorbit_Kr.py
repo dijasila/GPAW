@@ -19,7 +19,7 @@ def test_spinorbit_Kr():
     a.get_potential_energy()
 
     e_n = calc.get_eigenvalues()
-    e_m = soc_eigenstates(calc)['e_km'][0]
+    e_m = soc_eigenstates(calc)['eigenvalues'][0]
 
     equal(e_n[0] - e_m[0], 0.0, 1.0e-3)
     equal(e_n[1] - e_m[2], 0.452, 1.0e-3)

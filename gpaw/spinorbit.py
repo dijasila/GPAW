@@ -27,7 +27,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     scale: float = 1.0,
                     theta: float = 0.0,
                     phi: float = 0.0,
-                    return_wfs: bool = False) -> Dict[str, ArrayND]:
+                    return_wfs: bool = False,
+                    occupations: Dict = None
+                    ) -> Dict[str, Union[ArrayND, float]]:
     """Calculate SOC eigenstates.
 
     Parameters:
@@ -35,10 +37,13 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             GPAW calculator or path to gpw-file.
         bands: list of ints
             List of band indices for which to calculate soc.
-        myeig_skn: (ns, nk, nb)-shaped ndarray
+        myeig_skn: (ns, nk, nb)-shaped ndarray [units: eV]
             Use these eigenvalues instead of those from calc.get_eigenvalues().
         return_wfs: bool
             Flag for returning wave functions.
+        occupations: dict
+            Example: {'name': 'fermi-dirac', 'width': 0.01} (width in eV).
+            This will calculate the Fermi-level also.
         scale: float
             Scale the spinorbit coupling by this amount.
         theta: float
@@ -46,7 +51,18 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         phi: float
             Angle in radians.
 
-    Returns a dict containing the keys: 'e_km', 's_kvm' and possibly 'v_kmm'.
+    Returns a dict containing:
+
+    ======================  =========================
+    key                     value
+    ======================  =========================
+    eigenvalues             (nk,ne)-shaped ndarray
+    spin_projections        (nk,3,ne)-shaped ndarray
+    eigenstates (optional)  (nk,ne,ne)-shaped ndarray
+    fermi_level (optional)  float
+    ======================  =========================
+
+    Units for eigenvalues and fermi_level are eV.
     """
 
     from gpaw import GPAW
@@ -110,6 +126,15 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     if return_wfs:
         calc.world.sum(v_kmm)
         results['v_kmm'] = v_kmm
+
+    if occupations:
+        from gpaw.occupations import occupation_numbers
+        weight_k = np.ones(len(e_km)) / len(e_km)
+        e_skn = e_km[np.newaxis]
+        ne = calc.get_number_of_electrons()
+        efermi = occupation_numbers(occupations,
+                                    e_skn, weight_k, ne * 2)[1] * Ha
+        results['efermi'] = efermi
 
     return results
 
@@ -311,29 +336,9 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None,
 
 
 def set_calculator(calc, e_km, v_knm=None, width=None):
-    from gpaw.occupations import FermiDirac
-    from ase.units import Hartree
-
-    noncollinear = not calc.density.collinear
-
-    if width is None:
-        width = calc.occupations.width * Hartree
-    if not noncollinear:
-        calc.wfs.bd.nbands *= 2
-    # calc.wfs.nspins = 1
-    for kpt in calc.wfs.kpt_u:
-        kpt.eps_n = e_km[kpt.k] / Hartree
-        kpt.f_n = np.zeros_like(kpt.eps_n)
-        if not noncollinear:
-            kpt.weight /= 2
-    ef = calc.occupations.fermilevel
-    calc.occupations = FermiDirac(width)
-    calc.occupations.nvalence = calc.wfs.setups.nvalence - calc.density.charge
-    calc.occupations.fermilevel = ef
-    calc.occupations.calculate_occupation_numbers(calc.wfs)
-    for kpt in calc.wfs.kpt_u:
-        kpt.f_n *= 2
-        kpt.weight *= 2
+    raise DeprecationWarning(
+        "Please use ef = soc_eigenstates(..., occupations=...)['efermi'] "
+        'instead.')
 
 
 def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):

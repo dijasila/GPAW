@@ -2,8 +2,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
-#plt.rc('text', usetex=True)
+from gpaw.spinorbit import soc_eigenstates
+
 
 calc = GPAW('WS2_bands.gpw', txt=None)
 
@@ -16,11 +16,13 @@ e_nk -= calc.get_fermi_level()
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
-e_nk, s_kvn = get_spinorbit_eigenvalues(calc, return_spin=True)
+soc = soc_eigenstates(calc)
+e_nk = soc['eigenvalues'].T
+s_kvn = soc['spin_projections']
 e_nk -= calc.get_fermi_level()
 s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
 
-plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$', 
+plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$',
                r'$\mathrm{-K}$', r'$\mathrm{-M}$'], size=20)
 plt.yticks(size=20)
 for i in range(len(X))[1:-1]:
