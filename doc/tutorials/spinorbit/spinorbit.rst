@@ -36,7 +36,7 @@ function::
     from gpaw.spinorbit import soc_eigenstates
     e_km = soc_eigenstates(calc)['eigenvalues']
 
-Here e_mk is an array of dimension (2 * Nb, Nk), where Nb is the number of
+Here ``e_km`` is an array of dimension (Nk, 2 * Nb), where Nb is the number of
 bands and Nk is the number of irreducible k-points. Is is also possible to
 obtain the eigenstates of the full spin-orbit Hamiltonian as well as the spin
 character along the z axis. The spin character is defined as
