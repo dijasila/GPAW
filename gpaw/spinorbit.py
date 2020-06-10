@@ -374,10 +374,10 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
         width = calc.occupations.width * Ha
     if width == 0.0:
         width = 1.e-6
-    weight_k = calc.get_k_point_weights() / 2
+    weight_k = np.ones(len(e_km)) / (2 * len(e_km))
     ne = calc.wfs.setups.nvalence - calc.density.charge
     f_km = occupation_numbers({'name': 'fermi-dirac', 'width': width},
-                              np.array([e_km]),
+                              e_km[np.newaxis],
                               weight_k=weight_k,
                               nelectrons=ne)[0][0]
     E_so = np.sum(e_km * f_km)
