@@ -21,7 +21,7 @@ for e_k in e_snk[1]:
     pl.plot(x, e_k, '--', c='0.5')
 
 soc = soc_eigenstates(calc)
-e_nk = soc['eigenvalues']
+e_nk = soc['eigenvalues'].T
 s_kvn = soc['spin_projections']
 
 e_nk -= GPAW('Fe_gs.gpw').get_fermi_level()
