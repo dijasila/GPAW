@@ -436,6 +436,10 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the magnetic moments inside all PAW spheres"""
 
+    raise RuntimeError(
+        'This function has no tests.  It is very likely that it no longer '
+        'works correctly after merging !677.')
+
     from gpaw.utilities import unpack
 
     if nbands is None:

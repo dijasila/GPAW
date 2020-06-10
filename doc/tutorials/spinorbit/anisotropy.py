@@ -1,12 +1,12 @@
-from pathlib import Path
 import numpy as np
 from gpaw import GPAW
 from gpaw.spinorbit import get_anisotropy
 
-theta_i = [i * np.pi / 20 for i in range(21)]
-for theta in theta_i:
-    calc = GPAW('gs_Co.gpw', txt=None)
-    E_so = get_anisotropy(calc, theta=theta, phi=0.0)
-    with open('anisotropy.dat', 'a') as f:
-        print(theta, E_so, file=f)
-Path('gs_Co.gpw').unlink()  # remove very large file
+theta = np.linspace(0, np.pi, 21)
+calc = GPAW('gs_Co.gpw', txt=None)
+E_so = [get_anisotropy(calc, theta=t, phi=0.0) for t in theta]
+dE = E_so[11] - E_so[0]
+assert abs(dE - 62e-6) < 1e-6
+with open('anisotropy.dat', 'w') as fd:
+    for t, e in zip(theta, E_so):
+        print(t, e, file=fd)

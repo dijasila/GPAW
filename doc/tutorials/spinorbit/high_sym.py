@@ -7,7 +7,8 @@ Z = [0.5, 0.5, 0.5]
 
 calc = GPAW('gs_Bi2Se3.gpw',
             kpts=[G, L, F, Z],
-            symmetry='off',
+            # symmetry='off',
+            fixdesity=True,
             txt='high_sym.txt')
 calc.diagonalize_full_hamiltonian(nbands=50)
 
