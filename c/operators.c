@@ -142,6 +142,8 @@ void apply_worker_cfd(OperatorObject *self, int chunksize, int chunkinc,
 		  const double* in, double* out,
 		  int real, const double_complex* ph)
 {
+  if (start >= end)
+    return;
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
   const int* size2 = bc->size2;
@@ -157,6 +159,9 @@ void apply_worker_cfd(OperatorObject *self, int chunksize, int chunkinc,
                                 * GPAW_ASYNC3 * GPAW_ASYNC2);
   double* buf = GPAW_MALLOC(double, ng2 * chunksize * GPAW_ASYNC2);
   
+  if ((end - start) < chunksize)
+    chunksize = end - start;
+
   int chunk = chunkinc;
   if (chunk > chunksize)
     chunk = chunksize;
@@ -270,7 +275,7 @@ static PyObject * Operator_apply(OperatorObject *self,
   if (getenv("GPAW_CHUNK_INC") != NULL)
     chunkinc = atoi(getenv("GPAW_CHUNK_INC"));
 
-#ifdef _OPENMP  
+#ifdef _OPENMP
   #pragma omp parallel
 #endif
 {
