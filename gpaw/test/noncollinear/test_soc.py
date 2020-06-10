@@ -11,6 +11,7 @@ from gpaw.mpi import size
 
 
 def test_noncollinear_soc():
+    """Test HOMO and LUMO band-splitting for MoS2."""
     if size > 1:
         raise SkipTest()
 

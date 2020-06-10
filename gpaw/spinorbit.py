@@ -120,12 +120,12 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     calc.world.sum(e_km)
     calc.world.sum(s_kvm)
 
-    results = {'e_km': e_km,
-               's_kvm': s_kvm}
+    results = {'eigenvalues': e_km,
+               'spin_projections': s_kvm}
 
     if return_wfs:
         calc.world.sum(v_kmm)
-        results['v_kmm'] = v_kmm
+        results['eigenstates'] = v_kmm
 
     if occupations:
         from gpaw.occupations import occupation_numbers
@@ -134,7 +134,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         ne = calc.get_number_of_electrons()
         efermi = occupation_numbers(occupations,
                                     e_skn, weight_k, ne * 2)[1] * Ha
-        results['efermi'] = efermi
+        results['fermi_level'] = efermi
 
     return results
 
