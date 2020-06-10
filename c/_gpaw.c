@@ -442,14 +442,14 @@ gpaw_main()
 int
 main(int argc, char **argv)
 {
-#ifndef GPAW_OMP
+#ifndef _OPENMP
     MPI_Init(&argc, &argv);
 #else
     int granted;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
-#endif // GPAW_OMP
+#endif 
 
 #define PyChar wchar_t
     wchar_t* wargv[argc];
