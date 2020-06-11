@@ -23,6 +23,6 @@ typedef struct _OperatorObject OperatorObject;
 void apply_worker(OperatorObject *self, int chunksize, int start,
 		  int end, int thread_id, int nthreads,
 		  const double* in, double* out,
-		  int real, const double_complex* ph);
+		  bool real, const double_complex* ph);
 
 #endif

@@ -91,7 +91,7 @@ static PyObject * Operator_relax(OperatorObject *self,
 void apply_worker(OperatorObject *self, int chunksize, int start,
 		  int end, int thread_id, int nthreads,
 		  const double* in, double* out,
-		  int real, const double_complex* ph)
+		  bool real, const double_complex* ph)
 {
   boundary_conditions* bc = self->bc;
   const int* size1 = bc->size1;
@@ -140,7 +140,7 @@ void apply_worker(OperatorObject *self, int chunksize, int start,
 void apply_worker_cfd(OperatorObject *self, int chunksize, int chunkinc, 
       int start, int end, int thread_id, int nthreads,
 		  const double* in, double* out,
-		  int real, const double_complex* ph)
+		  bool real, const double_complex* ph)
 {
   if (start >= end)
     return;
