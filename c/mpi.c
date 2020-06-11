@@ -228,7 +228,7 @@ static void mpi_ensure_initialized(void)
     if (!already_initialized)
     {
         // if not, let's initialize it
-#ifndef GPAW_OMP
+#ifdef _OPENMP
         ierr = MPI_Init(NULL, NULL);
         if (ierr == MPI_SUCCESS)
         {
