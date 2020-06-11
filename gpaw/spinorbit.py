@@ -23,7 +23,7 @@ Array3D = ArrayND
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
                     bands: List[int] = None,
-                    myeig_skn: Array3D = None,
+                    eigenvalues: Array3D = None,
                     scale: float = 1.0,
                     theta: float = 0.0,
                     phi: float = 0.0,
@@ -37,7 +37,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             GPAW calculator or path to gpw-file.
         bands: list of ints
             List of band indices for which to calculate soc.
-        myeig_skn: (ns, nk, nb)-shaped ndarray [units: eV]
+        eigenvalues: (ns, nk, nb)-shaped ndarray [units: eV]
             Use these eigenvalues instead of those from calc.get_eigenvalues().
         return_wfs: bool
             Flag for returning wave functions.
@@ -108,8 +108,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         for K, k in enumerate(kd.bz2ibz_k):
             if k != i:
                 continue
-            if myeig_skn is not None:
-                e_sn = myeig_skn[:, i]
+            if eigenvalues is not None:
+                e_sn = eigenvalues[:, i]
             tP_snI = transform(K, P_snI)
             e_m, s_vm, v_mm = _soc_eig(e_sn, tP_snI, dVL_avii, s_vss, C_ss)
             e_km[K] = e_m
