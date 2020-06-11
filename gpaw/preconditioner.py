@@ -4,7 +4,7 @@ from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
 
 from gpaw.utilities.blas import axpy
-
+import _gpaw
 
 class Preconditioner:
     def __init__(self, gd0, kin0, dtype=float, block=1):
@@ -46,6 +46,16 @@ class Preconditioner:
             q0 = self.scratch0[0, :nb]
         r1, d1, q1 = self.scratch1[:, :nb]
         r2, d2, q2 = self.scratch2[:, :nb]
+        use_c_precond = True
+        if use_c_precond:
+            _gpaw.fd_precond(self.restrictor_object0.transformer,
+                              self.restrictor_object1.transformer,
+                              self.interpolator_object1.transformer,
+                              self.interpolator_object2.transformer,
+                              self.kin0.operator, self.kin1.operator, self.kin2.operator,
+                              d0, q0, r1, d1, q1, r2, d2, q2,
+                              residuals, -residuals, step, phases)
+            return d0            
         self.restrictor0(-residuals, r1, phases)
         d1[:] = 4 * step * r1
         self.kin1.apply(d1, q1, phases)
