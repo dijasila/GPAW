@@ -171,11 +171,13 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
 def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
     """Like former, but with spinorbit coupling."""
 
-    from gpaw.spinorbit import get_spinorbit_eigenvalues
-    from gpaw.spinorbit import get_spinorbit_projections
+    from gpaw.spinorbit import soc_eigenstates, get_spinorbit_projections
 
-    e_mk, v_knm = get_spinorbit_eigenvalues(paw, return_wfs=True,
-                                            theta=theta, phi=phi)
+    dct = soc_eigenstates(paw,
+                          return_wfs=True,
+                          theta=theta, phi=phi)
+    e_mk = dct['eigenvalues'].T
+    v_knm = dct['eigenstates']
     e_mk /= Hartree
     ns = paw.wfs.nspins
     w_k = paw.wfs.kd.weight_k

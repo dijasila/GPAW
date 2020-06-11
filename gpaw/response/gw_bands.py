@@ -6,7 +6,7 @@ from ase.units import Ha
 from scipy.interpolate import InterpolatedUnivariateSpline
 
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.kpt_descriptor import to1bz
 
 
@@ -22,7 +22,7 @@ class GWBands:
 
         self.calc = GPAW(calc, communicator=comm, txt=None)
         if gw_file is not None:
-            self.gw_file = pickle.load(open(gw_file, 'rb'),encoding='bytes')
+            self.gw_file = pickle.load(open(gw_file, 'rb'), encoding='bytes')
         self.kpoints = kpoints
         if bandrange is None:
             self.bandrange = np.arange(self.calc.get_number_of_bands())
@@ -137,14 +137,16 @@ class GWBands:
             if eig_file is not None:
                 e_kn = pickle.load(open(eig_file))[0]
             else:
-                e_kn = self.get_dft_eigenvalues()[:,bandrange[0]:bandrange[-1]]
+                e_kn = self.get_dft_eigenvalues()[:,
+                                                  bandrange[0]:bandrange[-1]]
 
-        eSO_nk, s_nk, v_knm = get_spinorbit_eigenvalues(
+        dct = soc_eigenstates(
             calc,
-            return_spin=return_spin, return_wfs=return_wfs,
-            bands=range(bandrange[0], bandrange[-1]+1),
-            gw_kn=e_kn)
-
+            return_wfs=return_wfs,
+            bands=range(bandrange[0], bandrange[-1] + 1),
+            eigenvalues=e_kn[np.newaxis])
+        eSO_nk = dct['eigenvalues'].T
+        v_knm = dct['eigenstates']
         e_kn = eSO_nk.T
         return e_kn, v_knm
 
@@ -201,7 +203,7 @@ class GWBands:
         # N_occ = int(self.calc.get_number_of_electrons()/2)
         print(' ')
         if SO:
-            print('The number of Occupied bands is:', N_occ + 2.*bandrange[0])
+            print('The number of Occupied bands is:', N_occ + 2 * bandrange[0])
         else:
             print('The number of Occupied bands is:', N_occ + bandrange[0])
         gap = (eGW_kn[:, N_occ].min() - eGW_kn[:, N_occ - 1].max())

@@ -5,7 +5,7 @@ from ase.units import Hartree
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import to1bz
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.wavefunctions.pw import PWDescriptor
 import gpaw.mpi as mpi
 
@@ -48,8 +48,9 @@ class Unfold:
             if mpi.world.rank == 0:
                 print('Calculating spinorbit Corrections')
             self.nb = 2 * self.calc.get_number_of_bands()
-            self.e_mK, self.v_Knm = get_spinorbit_eigenvalues(self.calc,
-                                                              return_wfs=True)
+            dct = soc_eigenstates(self.calc, return_wfs=True)
+            self.e_mK = dct['eigenvalues']
+            self.v_Knm = dct['eigenstates']
             if mpi.world.rank == 0:
                 print('Done with the spinorbit Corrections')
 

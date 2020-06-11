@@ -5,9 +5,9 @@ import numpy as np
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, world, rank
 from gpaw.utilities.blas import gemmdot
-from gpaw.spinorbit import get_spinorbit_eigenvalues
-from gpaw.spinorbit import get_spinorbit_projections
-from gpaw.spinorbit import get_spinorbit_wavefunctions
+from gpaw.spinorbit import (soc_eigenstates,
+                            get_spinorbit_projections,
+                            get_spinorbit_wavefunctions)
 
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
 
@@ -326,11 +326,11 @@ def parallel_transport(calc,
     else:
         b_v = G_v
 
-    e_mk, v_knm = get_spinorbit_eigenvalues(calc,
-                                            return_wfs=True,
-                                            scale=scale,
-                                            theta=theta,
-                                            phi=phi)
+    v_knm = soc_eigenstates(calc,
+                            return_wfs=True,
+                            scale=scale,
+                            theta=theta,
+                            phi=phi)['eigenstates']
 
     phi_km = np.zeros((Npar, len(bands)), float)
     S_km = np.zeros((Npar, len(bands)), float)
@@ -448,5 +448,5 @@ def parallel_transport(calc,
 
     if name is not None:
         np.savez('phases_%s.npz' % name, phi_km=phi_km, S_km=S_km)
-    
+
     return phi_km, S_km

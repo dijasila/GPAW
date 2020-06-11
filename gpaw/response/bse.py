@@ -1,9 +1,7 @@
 import functools
 from time import time, ctime
 from datetime import timedelta
-
 import sys
-from os import path as op
 
 import numpy as np
 from ase.units import Hartree, Bohr
@@ -14,8 +12,7 @@ from scipy.linalg import eigh
 from gpaw import GPAW
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
-from gpaw.spinorbit import get_spinorbit_eigenvalues
-from gpaw.utilities import file_barrier
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.mpi import world, serial_comm
 from gpaw.response.chi0 import Chi0
@@ -196,31 +193,11 @@ class BSE:
             careful!"""
 
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
-            param = self.calc.parameters
-            if not param['symmetry'] == 'off':
-                print('Calculating KS wavefunctions without symmetry ' +
-                      'for spin-orbit', file=self.fd)
-                if not op.isfile('gs_nosym.gpw'):
-                    calc_so = GPAW(**param)
-                    calc_so.set(symmetry='off',
-                                fixdensity=True,
-                                txt='gs_nosym.txt')
-                    calc_so.atoms = self.calc.atoms
-                    calc_so.density = self.calc.density
-                    calc_so.get_potential_energy()
-                    with file_barrier('gs_nosym.gpw'):
-                        calc_so.write('gs_nosym.gpw')
-
-                calc_so = GPAW('gs_nosym.gpw', txt=None,
-                               communicator=serial_comm)
-                e_mk, v_knm = get_spinorbit_eigenvalues(calc_so,
-                                                        return_wfs=True,
-                                                        scale=self.scale)
-                del calc_so
-            else:
-                e_mk, v_knm = get_spinorbit_eigenvalues(self.calc,
-                                                        return_wfs=True,
-                                                        scale=self.scale)
+            dct = soc_eigenstates(self.calc,
+                                  return_wfs=True,
+                                  scale=self.scale)
+            e_mk = dct['eigenvalues']
+            v_knm = dct['eigenvalues']
             e_mk /= Hartree
 
         # Parallelization stuff
