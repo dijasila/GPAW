@@ -74,9 +74,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         bands = np.arange(calc.get_number_of_bands())
 
     # <phi_i|dV_adr / r * L_v|phi_j>
-    dVL_avii = {a: soc(calc.wfs.setups[a],
-                       calc.hamiltonian.xc,
-                       D_sp) * scale * Ha
+    dVL_avii = {a: _soc(calc.wfs.setups[a],
+                        calc.hamiltonian.xc,
+                        D_sp) * scale * Ha
                 for a, D_sp in calc.density.D_asp.items()}
 
     # Hamiltonian with SO in KS basis
@@ -139,7 +139,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     return results
 
 
-def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
+def _soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
     """<phi_i|dV_adr / r * L_v|phi_j>"""
     v_g = get_radial_potential(a, xc, D_sp)
     Ng = len(v_g)
@@ -390,6 +390,8 @@ def get_spinorbit_projections(calc, ik, v_nm):
     Nk = len(calc.get_ibz_k_points())
     Ns = calc.wfs.nspins
 
+    assert len(calc.get_bz_k_points()) == Nk
+
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
 
@@ -409,6 +411,8 @@ def get_spinorbit_projections(calc, ik, v_nm):
 
 
 def get_spinorbit_wavefunctions(calc, ik, v_nm):
+    assert len(calc.get_bz_k_points()) == len(calc.get_ibz_k_points())
+
     # For spinors the number of bands is doubled and a spin dimension is added
     Ns = calc.wfs.nspins
     Nn = calc.wfs.bd.nbands
@@ -543,6 +547,8 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
     """Calculates parity eigenvalues at time-reversal invariant k-points.
     Only works in plane wave mode.
     """
+
+    assert len(calc.get_bz_k_points()) == len(calc.get_ibz_k_points())
 
     kpt_c = calc.get_ibz_k_points()[ik]
     if Nv is None:
