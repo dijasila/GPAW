@@ -74,9 +74,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         bands = np.arange(calc.get_number_of_bands())
 
     # <phi_i|dV_adr / r * L_v|phi_j>
-    dVL_avii = {a: _soc(calc.wfs.setups[a],
-                        calc.hamiltonian.xc,
-                        D_sp) * scale * Ha
+    dVL_avii = {a: soc(calc.wfs.setups[a],
+                       calc.hamiltonian.xc,
+                       D_sp) * scale * Ha
                 for a, D_sp in calc.density.D_asp.items()}
 
     # Hamiltonian with SO in KS basis
@@ -139,7 +139,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     return results
 
 
-def _soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
+def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
     """<phi_i|dV_adr / r * L_v|phi_j>"""
     v_g = get_radial_potential(a, xc, D_sp)
     Ng = len(v_g)
