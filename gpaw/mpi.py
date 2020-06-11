@@ -822,13 +822,15 @@ def broadcast_bytes(b=None, root=0, comm=world):
     return b.tobytes()
 
 
-def send(obj, rank, comm):
+def send(obj, rank: int, comm) -> None:
+    """Send object to rank on the MPI communicator comm."""
     b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
     comm.send(np.array(len(b)), rank)
     comm.send(np.frombuffer(b, np.int8).copy(), rank)
 
 
-def receive(rank, comm):
+def receive(rank: int, comm):
+    """Receive object from rank on the MPI communicator comm."""
     n = np.array(0)
     comm.receive(n, rank)
     buf = np.empty(n, np.int8)
