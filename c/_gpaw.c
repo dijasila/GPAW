@@ -60,6 +60,7 @@ PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject *pwlfc_expand(PyObject *self, PyObject *args);
 PyObject *pw_insert(PyObject *self, PyObject *args);
 PyObject *pw_precond(PyObject *self, PyObject *args);
+PyObject *fd_precond(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
@@ -178,6 +179,7 @@ static PyMethodDef functions[] = {
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
     {"pw_insert", pw_insert, METH_VARARGS, 0},
     {"pw_precond", pw_precond, METH_VARARGS, 0},
+    {"fd_precond", fd_precond, METH_VARARGS, 0},
     {"erf", errorfunction, METH_VARARGS, 0},
     {"cerf", cerf, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
