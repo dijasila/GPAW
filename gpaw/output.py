@@ -3,6 +3,7 @@ import numpy as np
 from ase.units import Bohr
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
+from _gpaw import get_num_threads
 
 
 def print_cell(gd, pbc_c, log):
@@ -74,6 +75,9 @@ def print_parallelization_details(wfs, ham, log):
 
     if wfs.bd.comm.size > 1:  # band parallelization
         log('Parallelization over states: %d' % wfs.bd.comm.size)
+
+    if get_num_threads() > 1:  # OpenMP threading
+        log('OpenMP threads: {}'.format(get_num_threads()))
     log()
 
 
