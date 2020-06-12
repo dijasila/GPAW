@@ -218,7 +218,8 @@ benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 # Check for typos:
 for p in extra_parameters:
     # We should get rid of most of these!
-    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 'usenewlfc'}:
+    if p not in {'sic', 'log2ng', 'PK', 'vdw0', 'df_dry_run', 
+                 'c_precond', 'usenewlfc'}:
         warnings.warn('Unknown parameter: ' + p)
 
 if debug:
