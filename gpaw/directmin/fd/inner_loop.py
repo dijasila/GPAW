@@ -6,13 +6,15 @@ from ase.units import Hartree
 import numpy as np
 import time
 
+from ase.parallel import parprint
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=100):
+    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=100, g_tol=1.0e-4):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.g_tol = g_tol / Hartree
         self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
@@ -138,6 +140,7 @@ class InnerLoop:
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
             small_random=True):
 
+        # log = parprint
         self.run_count += 1
         self.counter = 0
         self.eg_count = 0
@@ -173,6 +176,7 @@ class InnerLoop:
 
         # get initial energy and gradients
         self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
+        g_max = g_max_norm(g_k, wfs, self.n_occ)
         if self.kappa < self.tol:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
@@ -209,7 +213,7 @@ class InnerLoop:
 
         outer_counter += 1
         if log is not None:
-            log_f(log, self.counter, self.kappa, e_ks, self.e_total, outer_counter)
+            log_f(log, self.counter, self.kappa, e_ks, self.e_total, outer_counter, g_max)
 
         alpha = 1.0
         # if self.kappa < self.tol:
@@ -262,6 +266,7 @@ class InnerLoop:
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
+                g_max = g_max_norm(g_k, wfs, self.n_occ)
 
                 # output
                 self.counter += 1
@@ -270,7 +275,7 @@ class InnerLoop:
                 if log is not None:
                     log_f(
                         log, self.counter, self.kappa, e_ks, phi_0,
-                        outer_counter)
+                        outer_counter, g_max)
 
                 not_converged = self.kappa > self.tol and \
                                 self.counter < self.n_counter
@@ -493,16 +498,16 @@ class InnerLoop:
         return e_sic, g_k
 
 
-def log_f(log, niter, g_max, e_ks, e_sic, outer_counter=None):
+def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
 
     t = time.localtime()
 
     if niter == 0:
-        header0 = 'INNER LOOP:\n'
+        header0 = '\nINNER LOOP:\n'
         header = '                      Kohn-Sham          SIC' \
                  '        Total             \n' \
                  '           time         energy:      energy:' \
-                 '      energy:    Error:'
+                 '      energy:       Error:       G_max:'
         log(header0 + header)
 
     if outer_counter is not None:
@@ -512,9 +517,26 @@ def log_f(log, niter, g_max, e_ks, e_sic, outer_counter=None):
         (niter,
          t[3], t[4], t[5]
          ), end='')
-    log('%11.6f  %11.6f  %11.6f  %11.1e' %
+    log('%11.6f  %11.6f  %11.6f  %11.1e  %11.1e' %
         (Hartree * e_ks,
          Hartree * e_sic,
          Hartree * (e_ks + e_sic),
+         kappa,
          Hartree * g_max), end='')
     log(flush=True)
+
+
+def g_max_norm(g_k, wfs, n_occ):
+    # get maximum of gradients
+    n_kps = wfs.kd.nks // wfs.kd.nspins
+
+    max_norm = []
+    for kpt in wfs.kpt_u:
+        k = n_kps * kpt.s + kpt.q
+        if n_occ[k] == 0:
+            continue
+        max_norm.append(np.max(np.absolute(g_k[k])))
+    max_norm = np.max(np.asarray(max_norm))
+    g_max = wfs.world.max(max_norm)
+
+    return g_max
