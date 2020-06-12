@@ -9,7 +9,8 @@ from gpaw.transformers import Transformer
 from gpaw.directmin.fd.tools import d_matrix
 from gpaw.poisson import PoissonSolver
 from gpaw.directmin.tools import get_n_occ
-
+from ase.parallel import parprint, rank
+import time
 
 class PzCorrections:
 
@@ -84,6 +85,12 @@ class PzCorrections:
                 n_occ = get_n_occ(kpt)
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
+        # self.t_pspot = 0.0
+        # self.t_paw = 0.0
+        # self.t_paw_xc = 0.0
+        # self.t_paw_hartree = 0.0
+        # self.t_waiting_time = 0.0
+
     def get_orbdens_compcharge_dm_kpt(self, kpt, n):
 
         nt_G = np.absolute(kpt.psit_nG[n]**2)
@@ -122,19 +129,34 @@ class PzCorrections:
         # else:
         self.grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
 
+        # t_projectors = 0.0
+        # t_get_orbdens = 0.0
+        # t_get_pz_sic = 0.0
+        # self.t_paw = 0.0
+        # self.t_paw_hartree = 0.0
+        # self.t_paw_xc = 0.0
+        # self.t_waiting_time = 0.0
+        # self.t_pspot = 0.0
         for i in range(n_occ):
+            # t1 = time.time()
             nt_G, Q_aL, D_ap = \
                 self.get_orbdens_compcharge_dm_kpt(kpt, i)
+            # t2 = time.time()
+            # t_get_orbdens += t2 - t1
 
             # calculate sic energy, sic pseudo-potential and Hartree
+            # t1 = time.time()
             e_sic, vt_G, dH_ap = \
                 self.get_pz_sic_ith_kpt(
                     nt_G, Q_aL, D_ap, i, k, wfs.timer)
+            # t_get_pz_sic += time.time() - t1
+
 
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
 
             self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+            # t1 = time.time()
             c_axi = {}
             for a in kpt.P_ani.keys():
                 dH_ii = unpack(dH_ap[a])
@@ -142,6 +164,19 @@ class PzCorrections:
                 c_axi[a] = c_xi * kpt.f_n[i]
             # add projectors to
             wfs.pt.add(self.grad[k][i], c_axi, kpt.q)
+            # t_projectors += time.time() - t1
+
+        # parprint('get_orbdens_compcharge_dm_kpt: %3.4f' % t_get_orbdens)
+        # parprint('get_pz_sic_ith_kpt: %3.4f' % t_get_pz_sic)
+        # parprint('add projectors: %3.4f' % t_get_orbdens)
+        # parprint('pseudo pot: %3.4f' % self.t_pspot)
+        # parprint('paw: %3.4f' % self.t_paw)
+        # self.t_paw_xc = wfs.world.max(self.t_paw_xc)
+        # self.t_paw_hartree = wfs.world.max(self.t_paw_hartree)
+        # self.t_waiting_time = wfs.world.max(self.t_waiting_time)
+        # parprint('paw_xc: %3.4f' % self.t_paw_xc)
+        # parprint('paw_hartree: %3.4f' % self.t_paw_hartree)
+        # parprint('t_waiting_time: %3.4f' % self.t_waiting_time)
 
         if add_grad:
             if U_k is not None:
@@ -221,6 +256,7 @@ class PzCorrections:
     def get_paw_corrections(self, D_ap, vHt_g):
 
         # XC-PAW
+        # t1 = time.time()
         dH_ap = {}
 
         exc = 0.0
@@ -235,8 +271,9 @@ class PzCorrections:
                                                     addcoredensity=False)
 
             dH_ap[a] = -dH_sp[0] * self.beta_x
-
+        # self.t_paw_xc += time.time() - t1
         # Hartree-PAW
+        # t1 = time.time()
         ec = 0.0
         W_aL = self.ghat.dict()
         self.ghat.integrate(vHt_g, W_aL)
@@ -249,12 +286,15 @@ class PzCorrections:
             dH_ap[a] += -(2.0 * M_p + np.dot(setup.Delta_pL,
                                              W_aL[a])) * self.beta_c
 
+        # self.t_paw_hartree += time.time() - t1
+        # t1 = time.time()
         if self.sic_coarse_grid is False:
             ec = self.finegd.comm.sum(ec)
             exc = self.finegd.comm.sum(exc)
         else:
             ec = self.cgd.comm.sum(ec)
             exc = self.cgd.comm.sum(exc)
+        # self.t_waiting_time += time.time() - t1
 
         return np.array([-ec*self.beta_c, -exc * self.beta_x]), dH_ap
 
@@ -266,18 +306,20 @@ class PzCorrections:
                 n_occ += 1
 
         k = self.n_kps * kpt.s + kpt.q
+        # t1 = time.time()
         self.grad[k] = np.zeros_like(kpt.psit_nG[:n_occ])
         e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad_knG=None,
                                                   dens=None,
                                                   U_k=None,
                                                   add_grad=False)
+        # parprint('energy_and_gradient total:', time.time() - t1)
         wfs.timer.start('Unitary gradients')
         l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
                                    self.grad[k][:n_occ], False)
         l_odd = np.ascontiguousarray(l_odd)
         self.cgd.comm.sum(l_odd)
         f = np.ones(n_occ)
-        indz = np.absolute(l_odd) > 1.0e-8
+        indz = np.absolute(l_odd) > 1.0e-4
         l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
         kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))
@@ -347,14 +389,18 @@ class PzCorrections:
         # sic pseudo-potential and Hartree
         timer.start('Get Pseudo Potential')
         # calculate sic energy, sic pseudo-potential and Hartree
+        # t1 = time.time()
         e_pz, vt_G, v_ht_g = \
             self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
+        # self.t_pspot += time.time() - t1
         timer.stop('Get Pseudo Potential')
 
         # calculate PAW corrections
         timer.start('PAW')
+        # t1 = time.time()
         # calculate PAW corrections
         e_pz_paw_m, dH_ap = self.get_paw_corrections(D_ap, v_ht_g)
+        # self.t_paw += time.time() - t1
         timer.stop('PAW')
 
         # total sic:

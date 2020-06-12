@@ -29,8 +29,9 @@ class DirectMinFD(Eigensolver):
                  force_init_localization=False,
                  inner_loop=None,
                  initial_orbitals=None,
-                 maxiter=100,
+                 maxiter=15,
                  kappa_tol=5.0e-4,
+                 g_tol=1.0e-4,
                  blocksize=1):
 
         super(DirectMinFD, self).__init__(keep_htpsit=False,
@@ -45,6 +46,7 @@ class DirectMinFD(Eigensolver):
         self.initial_orbitals = initial_orbitals
         self.maxiter=maxiter
         self.kappa_tol=kappa_tol
+        self.g_tol=g_tol
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
@@ -217,7 +219,7 @@ class DirectMinFD(Eigensolver):
 
             if iloop:
                 self.iloop = InnerLoop(self.odd, wfs,
-                                       self.kappa_tol, self.maxiter)
+                                       self.kappa_tol, self.maxiter,g_tol=self.g_tol)
             else:
                 self.iloop = None
 
@@ -992,7 +994,7 @@ class DirectMinFD(Eigensolver):
             log('Edmiston-Ruedenberg localisation')
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
-                maxiter=200, g_tol=5.0e-4)
+                maxiter=200, g_tol=5.0e-5)
             dm.run(wfs, dens)
             del dm
 

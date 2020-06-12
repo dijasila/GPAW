@@ -205,7 +205,7 @@ class ERlocalization:
         f = np.ones(l_odd.shape[0])
 
         # calc_error:
-        indz = np.absolute(l_odd) > 1.0e-8
+        indz = np.absolute(l_odd) > 1.0e-4
         l_c = 2.0 * l_odd[indz]
         l_odd = f[:, np.newaxis] * l_odd.T.conj() - f * l_odd
         kappa = np.max(np.absolute(l_odd[indz])/np.absolute(l_c))

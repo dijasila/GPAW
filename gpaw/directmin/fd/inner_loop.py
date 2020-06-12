@@ -177,7 +177,7 @@ class InnerLoop:
         # get initial energy and gradients
         self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
         g_max = g_max_norm(g_k, wfs, self.n_occ)
-        if self.kappa < self.tol:
+        if g_max < self.g_tol:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 n_occ = self.n_occ[k]
@@ -277,7 +277,7 @@ class InnerLoop:
                         log, self.counter, self.kappa, e_ks, phi_0,
                         outer_counter, g_max)
 
-                not_converged = self.kappa > self.tol and \
+                not_converged = g_max > self.g_tol and \
                                 self.counter < self.n_counter
                 # if not not_converged and self.counter < 2:
                 #     not_converged = True

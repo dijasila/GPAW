@@ -9,7 +9,7 @@ class DirectMinLocalize:
         self.obj_f = obj_f
         self.iloop = InnerLoop(
             obj_f, wfs, maxiter=maxiter,
-            tol=g_tol)
+            g_tol=g_tol)
 
     def run(self, wfs, dens, log=None, max_iter=None, g_tol=None):
 
