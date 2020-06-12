@@ -7,10 +7,11 @@ master:
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - mkdir ~/.gpaw
     - echo "scalapack = True; libraries += ['scalapack-openmpi']" > ~/.gpaw/siteconfig.py
+    - echo "extra_compile_args += ['-fopenmp']; extra_link_args += ['-fopenmp']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-install.output
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'
-    - su user -c 'gpaw -P 1 info'
+    - su user -c 'OMP_NUM_THREADS=2 gpaw -P 1 info'
     - su user -c 'pytest -v -m ci'
     - flake8 --exit-zero --exclude "doc/platforms/*,gpaw/lrtddft2/*" gpaw doc > f8.out
     - cat f8.out | wc -l | tee nerr
