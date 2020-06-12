@@ -199,6 +199,7 @@ static PyMethodDef functions[] = {
     {"LFC", NewLFCObject, METH_VARARGS, 0},
     {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
     {"get_num_threads", get_num_threads, METH_VARARGS, 0},
+    {"get_num_threads", get_num_threads, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
@@ -379,6 +380,11 @@ static PyObject* moduleinit(void)
     PyObject_SetAttrString(m,
                            "libxc_version",
                            PyUnicode_FromString(xc_version_string()));
+#endif
+#ifdef _OPENMP
+    PyObject_SetAttrString(m, "have_openmp", Py_True);
+#else
+    PyObject_SetAttrString(m, "have_openmp", Py_False);
 #endif
 
     Py_INCREF(&LFCType);
