@@ -27,6 +27,7 @@ def timer(f):
 class WDA(XCFunctional):
     def __init__(self, rcut_factor=None):
         XCFunctional.__init__(self, 'WDA', 'LDA')
+        from ase.parallel import parprint
         self.num_nbar = 100
         self.rcut_factor = rcut_factor
         # Params:
@@ -43,6 +44,8 @@ class WDA(XCFunctional):
         self.gd = gd.new_descriptor(comm=mpi.serial_comm)
         wn_sg[wn_sg < 1e-20] = 1e-20
         wn_sg = self.density_correction(self.gd, wn_sg)
+        wn_sg[wn_sg < 1e-20] = 1e-20
+
 
         nb_i = self.get_nbars(wn_sg, self.num_nbar)
         my_i = self.distribute_nbars(self.num_nbar, mpi.rank, mpi.size)

@@ -16,7 +16,7 @@ def correct_density(n_sg, gd, setups, spos_ac, rcut_factor=0.8):
         spos_ac_indices = list(filter(lambda x: x[1] == setup, enumerate(setups)))
         spos_ac_indices = [x[0] for x in spos_ac_indices]
         spos_ac = spos_ac[spos_ac_indices]
-        t = setup.calculate_pseudized_atomic_density(spos_ac, rcut_factor)
+        t = setup.calculate_pseudized_atomic_density(gd, spos_ac, rcut_factor)
         t.add(dens)
         
     return np.array([dens])
