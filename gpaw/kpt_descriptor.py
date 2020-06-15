@@ -291,7 +291,7 @@ class KPointDescriptor:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
             if collinear:
-                spins = range(self.nspin)
+                spins = range(self.nspins)
             else:
                 spins = [None]
                 weight *= 0.5
@@ -548,9 +548,8 @@ class KPointDescriptor:
     def get_rank_and_index(self, k):
         """Find rank and local index of k-point/spin combination."""
 
-        u = self.where_is(k)
-        rank, myu = self.who_has(u)
-        return rank, myu
+        rank, q = self.who_has(k)
+        return rank, q
 
     def xxxget_slice(self, rank=None):
         """Return the slice of global ks-pairs which belong to a given rank."""
@@ -589,14 +588,14 @@ class KPointDescriptor:
             rank += self.rank0
         return rank, q
 
-    def global_index(self, myu, rank=None):
+    def xxxglobal_index(self, myu, rank=None):
         """Convert rank information and local index to global index."""
 
         if rank is None:
             rank = self.comm.rank
         assert rank in range(self.comm.size)
-        ks0 = self.get_offset(rank)
-        u = ks0 + myu
+        k0 = self.get_offset(rank)
+        u = k0 + myu
         return u
 
     def xxxwhat_is(self, u):

@@ -50,7 +50,7 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.mykpts = kd.create_k_points(self.gd, collinear)
+        self.kpts = kd.create_k_points(self.gd.sdisp_cd, collinear)
 
         self.eigensolver = None
         self.positions_set = False
@@ -61,7 +61,12 @@ class WaveFunctions:
     @property
     def kpt_u(self):
         """Old name."""
-        return self.mykpts
+        return [skpt for kpt in self.kpts for skpt in kpt]
+
+    @property
+    def mykpts(self):
+        """Old name."""
+        return [skpt for kpt in self.kpts for skpt in kpt]
 
     def summary(self, log):
         log(eigenvalue_string(self))
@@ -224,10 +229,10 @@ class WaveFunctions:
         domain a full array on the domain master and send this to the
         global master."""
 
-        kpt_u = self.kpt_u
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_qs = self.kpts
+        kpt_rank, q = self.kd.get_rank_and_index(k)
         if self.kd.comm.rank == kpt_rank:
-            a_nx = getattr(kpt_u[u], name)
+            a_nx = getattr(kpt_qs[q][s], name)
 
             if subset is not None:
                 a_nx = a_nx[subset]
@@ -249,7 +254,7 @@ class WaveFunctions:
 
         elif self.world.rank == 0 and kpt_rank != 0:
             # Only used to determine shape and dtype of receiving buffer:
-            a_nx = getattr(kpt_u[0], name)
+            a_nx = getattr(kpt_qs[0][0], name)
 
             if subset is not None:
                 a_nx = a_nx[subset]
@@ -302,10 +307,10 @@ class WaveFunctions:
         For the parallel case find the rank in kpt_comm that contains
         the (k,s) pair, for this rank, send to the global master."""
 
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
 
         if self.kd.comm.rank == kpt_rank:
-            kpt = self.mykpts[u]
+            kpt = self.kpts[q][s]
             P_nI = kpt.projections.collect()
             if self.world.rank == 0:
                 return P_nI
@@ -336,14 +341,16 @@ class WaveFunctions:
         domain a full array on the domain master and send this to the
         global master."""
 
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
         band_rank, myn = self.bd.who_has(n)
 
         rank = self.world.rank
 
         if (self.kd.comm.rank == kpt_rank and
             self.bd.comm.rank == band_rank):
-            psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+            u = q * self.nspins + s
+            psit_G = self._get_wave_function_array(u, myn,
+                                                   realspace, periodic)
 
             if realspace:
                 psit_G = self.gd.collect(psit_G)

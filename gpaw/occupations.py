@@ -69,12 +69,12 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
                           bd=SimpleNamespace(nbands=nbands,
                                              collect=lambda x: x,
                                              comm=serial_comm),
-                          kd=SimpleNamespace(mynks=nspins * nkpts,
+                          kd=SimpleNamespace(mynk=nkpts,
                                              comm=serial_comm,
                                              nspins=nspins,
                                              nibzkpts=nkpts,
                                              weight_k=weight_k,
-                                             collect=lambda x, broadcast: x))
+                                             collect=lambda x: x))
 
     for s in range(nspins):
         for k in range(nkpts):
@@ -485,12 +485,12 @@ class SmoothDistribution(ZeroKelvin):
 
         kd = wfs.kd
 
-        myeps_un = np.empty((kd.mynks, wfs.bd.nbands))
+        myeps_un = np.empty((kd.mynk * kd.nspins, wfs.bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
 
         if wfs.bd.comm.rank == 0:
-            eps_skn = kd.collect(myeps_un, broadcast=False)
+            eps_skn = kd.collect(myeps_un)
             if kd.comm.rank == 0:
                 eps_n = eps_skn.ravel()
                 w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.bd.nbands))
