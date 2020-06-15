@@ -127,6 +127,7 @@ def build_splines(nb_i, gd):
                                        kind='cubic', fill_value='extrapolate')
         Gspline = interf(k_k, integral_k)
         assert np.allclose(Gspline(k_k), integral_k)
+        assert np.allclose(Gspline(0) * nb, -1)
 
         Gr_j = C * (1 - np.exp(- (lambd / r_j)**5)) / r_j
 
