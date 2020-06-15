@@ -388,10 +388,15 @@ class DirectMinFD(Eigensolver):
                             self.U_k[k].T, kpt.psit_nG[:n_occ],
                             axes=1)
                 self.e_sic = self.odd.get_energy_and_gradients(
-                    wfs, grad, dens, self.U_k)
+                    wfs, grad, dens, self.iloop.U_k)
                 for kpt in wfs.kpt_u:
                     k = self.n_kps * kpt.s + kpt.q
                     kpt.psit_nG[:] = temp[k]
+                    n_occ = get_n_occ(kpt)
+                    grad[k][:n_occ] += \
+                        np.tensordot(self.iloop.U_k[k].conj(),
+                                     self.iloop.odd_pot.grad[k], axes=1)
+
 
             energy += self.e_sic
 
@@ -560,7 +565,14 @@ class DirectMinFD(Eigensolver):
 
         grad_knG = self.get_gradients_2(ham, wfs)
         if 'SIC' in self.odd_parameters['name']:
-            self.odd.get_energy_and_gradients(wfs, grad_knG, dens)
+            self.odd.get_energy_and_gradients(wfs, grad_knG, dens, self.iloop.U_k)
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                n_occ = get_n_occ(kpt)
+                grad_knG[k][:n_occ] += \
+                    np.tensordot(self.iloop.U_k[k].conj(),
+                                 self.iloop.odd_pot.grad[k], axes=1)
+
 
         for kpt in wfs.kpt_u:
 

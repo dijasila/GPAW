@@ -262,14 +262,16 @@ class PzCorrections:
         exc = 0.0
         for a, D_p in D_ap.items():
             setup = self.setups[a]
-
+            # denszero = np.max(np.absolute(D_p)) < 1.0e-12
+            # if denszero:
+            #     exc += 0.0
+            #     dH_ap[a] = np.zeros_like(D_p)
+            # else:
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-
             exc += self.xc.calculate_paw_correction(setup, D_sp,
                                                     dH_sp,
                                                     addcoredensity=False)
-
             dH_ap[a] = -dH_sp[0] * self.beta_x
         # self.t_paw_xc += time.time() - t1
         # Hartree-PAW
