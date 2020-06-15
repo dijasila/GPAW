@@ -1035,7 +1035,7 @@ class GPAW(PAW, Calculator):
         kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
-                                              nspins * kd.nibzkpts)
+                                              kd.nibzkpts)
 
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']

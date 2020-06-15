@@ -160,7 +160,6 @@ class KPointDescriptor:
         self.ibz2bz_k = np.arange(self.nbzkpts)
         self.bz2bz_ks = np.arange(self.nbzkpts)[:, np.newaxis]
         self.nibzkpts = self.nbzkpts
-        self.nks = self.nibzkpts * self.nspins
         self.refine_info = None
         self.monkhorst = (self.N_c is not None)
 
@@ -213,7 +212,7 @@ class KPointDescriptor:
                 s += '          ...\n'
         return s
 
-    def __len__(self):
+    def xxx__len__(self):
         """Return number of k-point/spin combinations of local CPU."""
 
         return self.mynks
@@ -246,30 +245,22 @@ class KPointDescriptor:
 
         # Number of irreducible k-points and k-point/spin combinations.
         self.nibzkpts = len(self.ibzk_kc)
-        self.nks = self.nibzkpts * self.nspins
 
     def set_communicator(self, comm):
         """Set k-point communicator."""
 
         # Ranks < self.rank0 have mynks0 k-point/spin combinations and
         # ranks >= self.rank0 have mynks0+1 k-point/spin combinations.
-        mynks0, x = divmod(self.nks, comm.size)
+        mynk0, x = divmod(self.nibzkpts, comm.size)
         self.rank0 = comm.size - x
         self.comm = comm
 
         # My number and offset of k-point/spin combinations
-        self.mynks = self.get_count()
-        self.ks0 = self.get_offset()
+        self.mynk = self.get_count()
+        self.k0 = self.get_offset()
 
-        if self.nspins == 2 and comm.size == 1:  # NCXXXXXXXX
-            # Avoid duplicating k-points in local list of k-points.
-            self.ibzk_qc = self.ibzk_kc.copy()
-            self.weight_q = self.weight_k
-        else:
-            self.ibzk_qc = np.vstack((self.ibzk_kc,
-                                      self.ibzk_kc))[self.get_slice()]
-            self.weight_q = np.hstack((self.weight_k,
-                                       self.weight_k))[self.get_slice()]
+        self.ibzk_qc = self.ibzk_kc[self.k0:self.k0 + self.mynk]
+        self.weight_q = self.weight_k[self.k0:self.k0 + self.mynk]
 
     def copy(self, comm=mpi.serial_comm):
         """Create a copy with shared symmetry object."""
@@ -283,62 +274,53 @@ class KPointDescriptor:
         kd.bz2bz_ks = self.bz2bz_ks
         kd.symmetry = self.symmetry
         kd.nibzkpts = self.nibzkpts
-        kd.nks = self.nks
         kd.set_communicator(comm)
         return kd
 
-    def create_k_points(self, gd, collinear):
+    def create_k_points(self, sdisp_cd, collinear):
         """Return a list of KPoints."""
 
-        sdisp_cd = gd.sdisp_cd  # Maybe pass gd.sdisp_cd instead of gd??
-        # We do not in fact use any other property of gd.
+        kpt_q = []
 
-        kpt_u = []
-
-        for ks in range(self.ks0, self.ks0 + self.mynks):
-            s, k = divmod(ks, self.nibzkpts)
-            q = (ks - self.ks0) % self.nibzkpts
+        for k in range(self.k0, self.k0 + self.mynk):
+            q = k - self.k0
             weight = self.weight_k[k] * 2 / self.nspins
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
                 phase_cd = np.exp(2j * np.pi *
                                   sdisp_cd * self.ibzk_kc[k, :, np.newaxis])
-            if not collinear:
-                s = None
+            if collinear:
+                spins = range(self.nspin)
+            else:
+                spins = [None]
                 weight *= 0.5
-            kpt_u.append(KPoint(weight, s, k, q, phase_cd))
+            kpt_q.append([KPoint(weight, s, k, q, phase_cd) for s in spins])
 
-        return kpt_u
+        return kpt_q
 
-    def collect(self, a_ux, broadcast=True):
+    def collect(self, a_ux):
         """Collect distributed data to all."""
 
-        if self.comm.rank == 0 or broadcast:
-            xshape = a_ux.shape[1:]
-            a_skx = np.empty((self.nspins, self.nibzkpts) + xshape, a_ux.dtype)
-            a_Ux = a_skx.reshape((-1,) + xshape)
-        else:
-            a_skx = None
+        xshape = a_ux.shape[1:]
+        a_qsx = a_ux.reshape((-1, self.nspins) + xshape)
+        if self.comm.rank == 0:
+            a_ksx = np.empty((self.nibzkpts, self.nspins) + xshape, a_ux.dtype)
 
         if self.comm.rank > 0:
-            self.comm.send(a_ux, 0)
+            self.comm.send(a_qsx, 0)
         else:
-            u1 = self.get_count(0)
-            a_Ux[0:u1] = a_ux
+            k1 = self.get_count(0)
+            a_ksx[0:k1] = a_qsx
             requests = []
             for rank in range(1, self.comm.size):
-                u2 = u1 + self.get_count(rank)
-                requests.append(self.comm.receive(a_Ux[u1:u2], rank,
+                k2 = k1 + self.get_count(rank)
+                requests.append(self.comm.receive(a_ksx[k1:k2], rank,
                                                   block=False))
-                u1 = u2
-            assert u1 == len(a_Ux)
+                k1 = k2
+            assert k1 == self.nibzkpts
             self.comm.waitall(requests)
-
-        if broadcast:
-            self.comm.broadcast(a_Ux, 0)
-
-        return a_skx
+            return a_ksx.transpose((1, 0, 2))
 
     def transform_wave_function(self, psit_G, k, index_G=None, phase_G=None):
         """Transform wave function from IBZ to BZ.
@@ -545,11 +527,11 @@ class KPointDescriptor:
         if rank is None:
             rank = self.comm.rank
         assert rank in range(self.comm.size)
-        mynks0 = self.nks // self.comm.size
-        mynks = mynks0
+        mynk0 = self.nibzkpts // self.comm.size
+        mynk = mynk0
         if rank >= self.rank0:
-            mynks += 1
-        return mynks
+            mynk += 1
+        return mynk
 
     def get_offset(self, rank=None):
         """Return the offset of the first ks-pair on a given rank."""
@@ -557,20 +539,20 @@ class KPointDescriptor:
         if rank is None:
             rank = self.comm.rank
         assert rank in range(self.comm.size)
-        mynks0 = self.nks // self.comm.size
-        ks0 = rank * mynks0
+        mynk0 = self.nibzkpts // self.comm.size
+        k0 = rank * mynk0
         if rank >= self.rank0:
-            ks0 += rank - self.rank0
-        return ks0
+            k0 += rank - self.rank0
+        return k0
 
-    def get_rank_and_index(self, s, k):
+    def get_rank_and_index(self, k):
         """Find rank and local index of k-point/spin combination."""
 
-        u = self.where_is(s, k)
+        u = self.where_is(k)
         rank, myu = self.who_has(u)
         return rank, myu
 
-    def get_slice(self, rank=None):
+    def xxxget_slice(self, rank=None):
         """Return the slice of global ks-pairs which belong to a given rank."""
 
         if rank is None:
@@ -580,13 +562,13 @@ class KPointDescriptor:
         uslice = slice(ks0, ks0 + mynks)
         return uslice
 
-    def get_indices(self, rank=None):
+    def xxxget_indices(self, rank=None):
         """Return the global ks-pair indices which belong to a given rank."""
 
         uslice = self.get_slice(rank)
         return np.arange(*uslice.indices(self.nks))
 
-    def get_ranks(self):
+    def xxxget_ranks(self):
         """Return array of ranks as a function of global ks-pair indices."""
 
         ranks = np.empty(self.nks, dtype=int)
@@ -596,16 +578,16 @@ class KPointDescriptor:
         assert (ranks >= 0).all() and (ranks < self.comm.size).all()
         return ranks
 
-    def who_has(self, u):
+    def who_has(self, k):
         """Convert global index to rank information and local index."""
 
-        mynks0 = self.nks // self.comm.size
-        if u < mynks0 * self.rank0:
-            rank, myu = divmod(u, mynks0)
+        mynk0 = self.nibzkpts // self.comm.size
+        if k < mynk0 * self.rank0:
+            rank, q = divmod(k, mynk0)
         else:
-            rank, myu = divmod(u - mynks0 * self.rank0, mynks0 + 1)
+            rank, q = divmod(k - mynk0 * self.rank0, mynk0 + 1)
             rank += self.rank0
-        return rank, myu
+        return rank, q
 
     def global_index(self, myu, rank=None):
         """Convert rank information and local index to global index."""
@@ -617,17 +599,11 @@ class KPointDescriptor:
         u = ks0 + myu
         return u
 
-    def what_is(self, u):
+    def xxxwhat_is(self, u):
         """Convert global index to corresponding kpoint/spin combination."""
 
         s, k = divmod(u, self.nibzkpts)
         return s, k
-
-    def where_is(self, s, k):
-        """Convert kpoint/spin combination to the global index thereof."""
-
-        u = k + self.nibzkpts * s
-        return u
 
     def write(self, writer):
         writer.write('ibzkpts', self.ibzk_kc)

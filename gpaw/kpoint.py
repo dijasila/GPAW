@@ -69,9 +69,9 @@ class KPoint:
            --- + u = sK + k,
             P
 
-        where `r` is the processor rank within kpt_comm.  The
+        ???where `r` is the processor rank within kpt_comm.  The
         total number of spin/k-point pairs, `SK`, is always a
-        multiple of the number of processors, `P`.
+        multiple of the number of processors, `P`?????
         """
 
         self.weight = weight
@@ -102,64 +102,3 @@ class KPoint:
     def psit_nG(self):
         if self.psit is not None:
             return self.psit.array
-
-
-class GlobalKPoint(KPoint):
-    def update(self, wfs):
-        """Distribute requested kpoint data across the kpoint communicator."""
-
-        # Locate rank and index of requested k-point
-        nks = len(wfs.kd.ibzk_kc)
-        mynu = len(wfs.kpt_u)
-        kpt_rank, u = divmod(self.k + nks * self.s, mynu)
-        kpt_comm = wfs.kd.comm
-
-        my_atom_indices = wfs.atom_partition.my_atom_indices
-        mynproj = sum([wfs.setups[a].ni for a in my_atom_indices])
-        my_P_ni = np.empty((wfs.mynbands, mynproj), wfs.dtype)
-
-        self.P_ani = {}
-
-        if self.phase_cd is None:
-            self.phase_cd = np.empty((3, 2), wfs.dtype)
-
-        if self.psit_nG is None:
-            self.psit_nG = wfs.gd.empty(wfs.mynbands, wfs.dtype)
-
-        reqs = []
-
-        # Do I have the requested kpoint?
-        if kpt_comm.rank == kpt_rank:
-            self.phase_cd[:] = wfs.kpt_u[u].phase_cd
-            self.psit_nG[:] = wfs.kpt_u[u].psit_nG
-
-            # Compress entries in requested P_ani dict into my_P_ni ndarray
-            i = 0
-            for a, P_ni in wfs.kpt_u[u].P_ani.items():
-                ni = wfs.setups[a].ni
-                my_P_ni[:, i:i + ni] = P_ni
-                i += ni
-
-            assert (my_atom_indices == wfs.kpt_u[u].P_ani.keys()).all()
-
-            # Send phase_cd, psit_nG and my_P_ni to kpoint slaves
-            for rank in range(kpt_comm.size):
-                if rank != kpt_rank:
-                    reqs.append(kpt_comm.send(self.phase_cd, rank, 256, False))
-                    reqs.append(kpt_comm.send(self.psit_nG, rank, 257, False))
-                    reqs.append(kpt_comm.send(my_P_ni, rank, 258, False))
-        else:
-            # Receive phase_cd, psit_nG and my_P_ni from kpoint master
-            reqs.append(kpt_comm.receive(self.phase_cd, kpt_rank, 256, False))
-            reqs.append(kpt_comm.receive(self.psit_nG, kpt_rank, 257, False))
-            reqs.append(kpt_comm.receive(my_P_ni, kpt_rank, 258, False))
-
-        for request in reqs:
-            kpt_comm.wait(request)
-
-        # Decompress my_P_ni ndarray into entries in my P_ani dict
-        i = 0
-        for a in my_atom_indices:
-            ni = wfs.setups[a].ni
-            self.P_ani[a] = my_P_ni[:, i:i + ni]  # copy?
-            i += ni
