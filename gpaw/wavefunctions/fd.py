@@ -159,14 +159,15 @@ class FDWaveFunctions(FDPWWaveFunctions):
         weight = 2.0 / kd.nspins / kd.nbzkpts
 
         # Build new list of k-points:
-        kpt_u = []
-        for s in range(self.nspins):
-            for k in range(kd.nbzkpts):
+        kpts = []
+        for k in range(kd.nbzkpts):
+            kpt_s = []
+            for s in range(self.nspins):
                 # Index of symmetry related point in the IBZ
                 ik = self.kd.bz2ibz_k[k]
-                r, u = self.kd.get_rank_and_index(s, ik)
+                r, q = self.kd.get_rank_and_index(ik)
                 assert r == 0
-                kpt = self.mykpts[u]
+                kpt = self.kpts[q][s]
 
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
@@ -196,10 +197,11 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     collinear=True, spin=s, dtype=self.dtype)
 
                 kpt2.psit.matrix_elements(self.pt, out=kpt2.projections)
-                kpt_u.append(kpt2)
+                kpt_s.append(kpt2)
+            kpts.append(kpt_s)
 
         self.kd = kd
-        self.mykpts = kpt_u
+        self.kpts = kpts
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace

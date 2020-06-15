@@ -46,7 +46,7 @@ def _vxc(xc, ham, dens, wfs, paw=None, coredensity=True):
         if thisisatest:
             dvxc_asii[a] = [wfs.setups[a].dO_ii]
 
-    vxc_un = np.empty((wfs.kd.mynks, wfs.bd.mynbands))
+    vxc_un = np.empty((wfs.kd.mynk * wfs.nspins, wfs.bd.mynbands))
     for u, vxc_n in enumerate(vxc_un):
         kpt = wfs.kpt_u[u]
         vxct_G = vxct_sG[kpt.s]

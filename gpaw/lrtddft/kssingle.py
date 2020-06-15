@@ -106,6 +106,7 @@ class KSSingles(ExcitationList):
                 emin /= Hartree
                 emax /= Hartree
             except:
+                raise
                 emax = energy_range / Hartree
         return emin, emax
 
@@ -163,7 +164,7 @@ class KSSingles(ExcitationList):
         for ispin in ispins:
             for k in range(wfs.kd.nibzkpts):
                 q = k - wfs.kd.k0
-                for kpt in self.kpts[q]:
+                for kpt in wfs.kpts[q]:
                     if q >= 0 and q < wfs.kd.mynk:
                         for i in range(nbands):
                             for j in range(i + 1, nbands):
@@ -186,7 +187,7 @@ class KSSingles(ExcitationList):
                         for j in range(i + 1, nbands):
                             if take[u, i, j]:
                                 if q >= 0 and q < wfs.kd.mynk:
-                                    kpt = self.kpts[q][s]
+                                    kpt = wfs.kpts[q][s]
                                     pspin = max(kpt.s, ispin)
                                     self.append(
                                         KSSingle(i, j, pspin, kpt, paw,
