@@ -55,17 +55,17 @@ class Eigensolver:
 
     def weights(self, wfs, occ):
         """Calculate convergence weights for all eigenstates."""
-        weight_un = np.zeros((len(wfs.mykpts), self.bd.mynbands))
+        weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
 
         if isinstance(self.nbands_converge, int):
             # Converge fixed number of bands:
             n = self.nbands_converge - self.bd.beg
             if n > 0:
-                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                     weight_n[:n] = kpt.weight
         elif self.nbands_converge == 'occupied':
             # Conveged occupied bands:
-            for weight_n, kpt in zip(weight_un, wfs.mykpts):
+            for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                 if kpt.f_n is None:  # no eigenvalues yet
                     weight_n[:] = np.inf
                 else:
@@ -77,7 +77,7 @@ class Eigensolver:
             assert self.nbands_converge.startswith('CBM+')
             delta = float(self.nbands_converge[4:]) / Ha
 
-            if wfs.mykpts[0].f_n is None:
+            if wfs.kpt_u[0].f_n is None:
                 weight_un[:] = np.inf  # no eigenvalues yet
             else:
                 # Collect all eigenvalues and calculate band gap:
@@ -105,7 +105,7 @@ class Eigensolver:
 
                 ecut = cbm + delta
 
-                for weight_n, kpt in zip(weight_un, wfs.mykpts):
+                for weight_n, kpt in zip(weight_un, wfs.kpt_u):
                     weight_n[kpt.eps_n < ecut] = kpt.weight
 
                 if (eps_skn[:, :, -1] < ecut - efermi).any():
@@ -130,7 +130,7 @@ class Eigensolver:
         weight_un = self.weights(wfs, occ)
 
         error = 0.0
-        for kpt, weights in zip(wfs.mykpts, weight_un):
+        for kpt, weights in zip(wfs.kpt_u, weight_un):
             if not wfs.orthonormalized:
                 wfs.orthonormalize(kpt)
             e = self.iterate_one_k_point(ham, wfs, kpt, weights)

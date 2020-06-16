@@ -59,11 +59,6 @@ class WaveFunctions:
 
         self.set_setups(setups)
 
-    @property
-    def mykpts(self):
-        # Remove this ????
-        return self.kpt_u
-
     def summary(self, log):
         log(eigenvalue_string(self))
 
@@ -188,7 +183,7 @@ class WaveFunctions:
 
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             with self.timer('Redistribute'):
-                for kpt in self.mykpts:
+                for kpt in self.kpt_u:
                     P = kpt.projections
                     assert self.atom_partition == P.atom_partition
                     kpt.projections = P.redist(atom_partition)
@@ -199,12 +194,12 @@ class WaveFunctions:
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.mykpts[0].projections is not None:
+        if not self.positions_set and self.kpt_u[0].projections is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
-            for kpt in self.mykpts:
+            for kpt in self.kpt_u:
                 kpt.projections = Projections(
                     self.bd.nbands, nproj_a,
                     self.atom_partition,
@@ -483,7 +478,7 @@ class WaveFunctions:
         nproj_a = [setup.ni for setup in self.setups]
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
-        for u, kpt in enumerate(self.mykpts):
+        for u, kpt in enumerate(self.kpt_u):
             if self.collinear:
                 index = (kpt.s, kpt.k)
             else:

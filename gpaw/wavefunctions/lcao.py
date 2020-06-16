@@ -4,8 +4,8 @@ from ase.units import Bohr
 from gpaw.lfc import BasisFunctions
 from gpaw.utilities import unpack
 from gpaw.utilities.tools import tri2full
-#from gpaw import debug
-#from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
+# from gpaw import debug
+# from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.utilities.blas import gemm, gemmdot
 from gpaw.wavefunctions.base import WaveFunctions
@@ -109,7 +109,7 @@ class LCAOWaveFunctions(WaveFunctions):
             assert atomic_correction == 'dense'
             self.atomic_correction_cls = DenseAtomicCorrection
 
-        #self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
+        # self.tci = NewTCI(gd.cell_cv, gd.pbc_c, setups, kd.ibzk_qc, kd.gamma)
         with self.timer('TCI: Evaluate splines'):
             self.tciexpansions = TCIExpansions.new_from_setups(setups)
 
@@ -165,7 +165,7 @@ class LCAOWaveFunctions(WaveFunctions):
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
 
-        #if self.ksl.using_blacs:  # XXX
+        # if self.ksl.using_blacs:  # XXX
         #     S and T have been distributed to a layout with blacs, so
         #     discard them to force reallocation from scratch.
         #
@@ -188,12 +188,11 @@ class LCAOWaveFunctions(WaveFunctions):
             if kpt.C_nM is None:
                 kpt.C_nM = np.empty((mynbands, nao), self.dtype)
 
-        if 0:#self.debug_tci:
-            #if self.ksl.using_blacs:
-            #    self.tci.set_matrix_distribution(Mstart, mynao)
+        if 0:  # self.debug_tci:
+            # if self.ksl.using_blacs:
+            #     self.tci.set_matrix_distribution(Mstart, mynao)
             oldS_qMM = np.empty((nq, mynao, nao), self.dtype)
             oldT_qMM = np.empty((nq, mynao, nao), self.dtype)
-
 
             oldP_aqMi = {}
             for a in self.basis_functions.my_atom_indices:
@@ -202,10 +201,9 @@ class LCAOWaveFunctions(WaveFunctions):
 
             # Calculate lower triangle of S and T matrices:
             self.timer.start('tci calculate')
-            #self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
+            # self.tci.calculate(spos_ac, oldS_qMM, oldT_qMM,
             #                   oldP_aqMi)
             self.timer.stop('tci calculate')
-
 
         self.timer.start('mktci')
         manytci = self.tciexpansions.get_manytci_calculator(
@@ -237,11 +235,11 @@ class LCAOWaveFunctions(WaveFunctions):
         #   use symmetry/conj tricks to reduce calculations
         #   enable caching of spherical harmonics
 
-        #if self.atomic_correction.name != 'dense':
-        #from gpaw.lcao.newoverlap import newoverlap
-        #self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
+        # if self.atomic_correction.name != 'dense':
+        # from gpaw.lcao.newoverlap import newoverlap
+        # self.P_neighbors_a, self.P_aaqim = newoverlap(self, spos_ac)
 
-        #if self.atomic_correction.name == 'scipy':
+        # if self.atomic_correction.name == 'scipy':
         #    Pold_qIM = self.atomic_correction.Psparse_qIM
         #    for q in range(nq):
         #        maxerr = abs(Pold_qIM[q] - P_qIM[q]).max()
@@ -254,7 +252,7 @@ class LCAOWaveFunctions(WaveFunctions):
 
         self.allocate_arrays_for_projections(my_atom_indices)
 
-        #S_MM = None  # allow garbage collection of old S_qMM after redist
+        # S_MM = None  # allow garbage collection of old S_qMM after redist
         if self.debug_tci:
             oldS_qMM = self.ksl.distribute_overlap_matrix(oldS_qMM, root=-1)
             oldT_qMM = self.ksl.distribute_overlap_matrix(oldT_qMM, root=-1)
@@ -262,18 +260,18 @@ class LCAOWaveFunctions(WaveFunctions):
         newS_qMM = self.ksl.distribute_overlap_matrix(newS_qMM, root=-1)
         newT_qMM = self.ksl.distribute_overlap_matrix(newT_qMM, root=-1)
 
-        #if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
-        #    nao > 0 and not self.ksl.using_blacs):
-        #    S and T are summed only on comm master, so check only there
-        #    from numpy.linalg import eigvalsh
-        #    self.timer.start('Check positive definiteness')
-        #    for S_MM in S_qMM:
-        #        tri2full(S_MM, UL='L')
-        #        smin = eigvalsh(S_MM).real.min()
-        #        if smin < 0:
-        #            raise RuntimeError('Overlap matrix has negative '
+        # if (debug and self.bd.comm.size == 1 and self.gd.comm.rank == 0 and
+        #     nao > 0 and not self.ksl.using_blacs):
+        #     S and T are summed only on comm master, so check only there
+        #     from numpy.linalg import eigvalsh
+        #     self.timer.start('Check positive definiteness')
+        #     for S_MM in S_qMM:
+        #         tri2full(S_MM, UL='L')
+        #         smin = eigvalsh(S_MM).real.min()
+        #         if smin < 0:
+        #             raise RuntimeError('Overlap matrix has negative '
         #                               'eigenvalue: %e' % smin)
-        #    self.timer.stop('Check positive definiteness')
+        #     self.timer.stop('Check positive definiteness')
         self.positions_set = True
 
         if self.debug_tci:
@@ -353,7 +351,7 @@ class LCAOWaveFunctions(WaveFunctions):
         """
         from gpaw.wavefunctions.arrays import UniformGridWaveFunctions
         bfs = self.basis_functions
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q, dist=None,
                 spin=kpt.s, collinear=True)
@@ -397,15 +395,15 @@ class LCAOWaveFunctions(WaveFunctions):
             tri2full(rho_MM)
 
     def calculate_atomic_density_matrices_with_occupation(self, D_asp, f_un):
-        #ac = self.atomic_correction
-        #if ac.implements_distributed_projections():
-        #    D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
-        #    WaveFunctions.calculate_atomic_density_matrices_with_occupation(
-        #        self, D2_asp, f_un)
-        #    D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
-        #    for a in D_asp:
-        #        D_asp[a][:] = D3_asp[a]
-        #else:
+        # ac = self.atomic_correction
+        # if ac.implements_distributed_projections():
+        #     D2_asp = ac.redistribute(self, D_asp, type='asp', op='forth')
+        #     WaveFunctions.calculate_atomic_density_matrices_with_occupation(
+        #         self, D2_asp, f_un)
+        #     D3_asp = ac.redistribute(self, D2_asp, type='asp', op='back')
+        #     for a in D_asp:
+        #         D_asp[a][:] = D3_asp[a]
+        # else:
         WaveFunctions.calculate_atomic_density_matrices_with_occupation(
             self, D_asp, f_un)
 
@@ -447,7 +445,7 @@ class LCAOWaveFunctions(WaveFunctions):
         nao = ksl.nao
         mynao = ksl.mynao
         dtype = self.dtype
-        #tci = self.tci
+        # tci = self.tci
         newtci = self.newtci
         gd = self.gd
         bfs = self.basis_functions
@@ -555,10 +553,10 @@ class LCAOWaveFunctions(WaveFunctions):
                 rho_mm = redistributor.redistribute(rho1_mm)
                 return rho_mm
 
-            #pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
-            #             for setup in self.setups]
-            #phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
-            #               for setup in self.setups]
+            # pcutoff_a = [max([pt.get_cutoff() for pt in setup.pt_j])
+            #              for setup in self.setups]
+            # phicutoff_a = [max([phit.get_cutoff() for phit in setup.phit_j])
+            #                for setup in self.setups]
 
             # XXX should probably use bdsize x gdsize instead
             # That would be consistent with some existing grids
@@ -644,7 +642,7 @@ class LCAOWaveFunctions(WaveFunctions):
             del dThetadRE_vMM
 
         if isblacs:
-            #from gpaw.lcao.overlap import TwoCenterIntegralCalculator
+            # from gpaw.lcao.overlap import TwoCenterIntegralCalculator
             self.timer.start('Prepare TCI loop')
             M_a = bfs.M_a
             Fkin2_av = np.zeros_like(F_av)
@@ -974,7 +972,7 @@ class LCAOWaveFunctions(WaveFunctions):
         nM1, nM2 = self.ksl.get_overlap_matrix_shape()
         mem.subnode('S, T [2 x qmm]', 2 * nq * nM1 * nM2 * itemsize)
         mem.subnode('P [aqMi]', nq * nao * ni_total // self.gd.comm.size)
-        #self.tci.estimate_memory(mem.subnode('TCI'))
+        # self.tci.estimate_memory(mem.subnode('TCI'))
         self.basis_functions.estimate_memory(mem.subnode('BasisFunctions'))
         self.eigensolver.estimate_memory(mem.subnode('Eigensolver'),
                                          self.dtype)

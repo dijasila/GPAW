@@ -89,7 +89,8 @@ class WFS:
         kpt.psit = psit
         kpt.projections = proj
         kpt.f_n = f_n
-        self.mykpts = [kpt]
+        self.kpt_u = [kpt]
+        self.kpt_qs = [[kpt]]
 
 
 class Ham:
@@ -101,7 +102,7 @@ class Dens:
     nspins = 1
 
     def __init__(self, wfs):
-        kpt = wfs.mykpts[0]
+        kpt = wfs.kpt_u[0]
         self.D_asp = D(kpt)
         self.finegd = wfs.gd.refine()
         self.nt_sg = self.finegd.zeros(1)

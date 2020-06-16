@@ -261,7 +261,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt.psit.read_from_file()
 
     def initialize_from_lcao_coefficients(self, basis_functions):
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),
