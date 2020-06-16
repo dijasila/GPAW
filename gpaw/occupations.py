@@ -45,6 +45,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
     * entropy as -S*T
     """
 
+    from types import SimpleNamespace
     from gpaw.grid_descriptor import GridDescriptor
 
     occ = create_occupation_number_object(**occ)
@@ -53,11 +54,6 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
     weight_k = np.asarray(weight_k)
     nspins, nkpts, nbands = eps_skn.shape
     f_skn = np.empty_like(eps_skn)
-
-    class SimpleNamespace:
-        """Same as types.SimpleNamespace from Python 3.3+."""
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
 
     wfs = SimpleNamespace(kpt_u=[],
                           nvalence=nelectrons,
@@ -74,7 +70,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
                                              nspins=nspins,
                                              nibzkpts=nkpts,
                                              weight_k=weight_k,
-                                             collect=lambda x: x))
+                                             collect=lambda x, broadcast: x))
 
     for s in range(nspins):
         for k in range(nkpts):

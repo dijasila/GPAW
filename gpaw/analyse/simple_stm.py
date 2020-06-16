@@ -58,7 +58,11 @@ class SimpleStm(STM):
         if hasattr(bias, '__len__') and len(bias) == 3:
             n, k, s = bias
             # only a single wf requested
-            self.add_wf_to_ldos(n, k, s, weight=1)
+            kd = self.calc.wfs.kd
+            rank, q = kd.who_has(k)
+            if kd.comm.rank == rank:
+                u = q * kd.nspins + s
+                self.add_wf_to_ldos(n, u, weight=1)
 
         else:
             # energy bias
@@ -108,12 +112,11 @@ class SimpleStm(STM):
                             weight = kpt.f_n[n]
                         else:
                             weight = kpt.weight - kpt.f_n[n]
-                        self.add_wf_to_ldos(n, kpt.k, kpt.s, weight)
+                        self.add_wf_to_ldos(n, u, weight)
 
-    def add_wf_to_ldos(self, n, k, s, weight=None):
+    def add_wf_to_ldos(self, n, u, weight=None):
         """Add the wf with given kpoint and spin to the ldos"""
-        assert self.calc.wfs.kd.comm.size == 1
-        kpt = self.calc.wfs.kpt_qs[k][s]
+        kpt = self.calc.wfs.kpt_u[u]
         psi = kpt.psit_nG[n]
         w = weight
         if w is None:
@@ -220,11 +223,8 @@ class SimpleStm(STM):
             fname = file
         f = open(fname, 'w')
 
-        try:
-            import datetime
-            print('#', datetime.datetime.now().ctime(), file=f)
-        except:  # XXX except what?
-            pass
+        import datetime
+        print('#', datetime.datetime.now().ctime(), file=f)
         print('# Simulated STM picture', file=f)
         if hasattr(self, 'file'):
             print('# density read from', self.file, file=f)

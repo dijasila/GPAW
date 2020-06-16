@@ -163,8 +163,9 @@ class KSSingles(ExcitationList):
         for ispin in ispins:
             for k in range(wfs.kd.nibzkpts):
                 q = k - wfs.kd.k0
-                for kpt in wfs.kpt_qs[q]:
+                for s in range(wfs.nspins):
                     if q >= 0 and q < wfs.kd.mynk:
+                        kpt = wfs.kpt_qs[q][s]
                         for i in range(nbands):
                             for j in range(i + 1, nbands):
                                 fij = (kpt.f_n[i] - kpt.f_n[j]) / kpt.weight

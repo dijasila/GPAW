@@ -556,32 +556,12 @@ class KPointDescriptor:
         rank, q = self.who_has(k)
         return rank, q
 
-    def xxxget_slice(self, rank=None):
-        """Return the slice of global ks-pairs which belong to a given rank."""
-
-        if rank is None:
-            rank = self.comm.rank
-        assert rank in range(self.comm.size)
-        mynks, ks0 = self.get_count(rank), self.get_offset(rank)
-        uslice = slice(ks0, ks0 + mynks)
-        return uslice
-
     def get_indices(self, rank=None):
         """Return the global ks-pair indices which belong to a given rank."""
 
         k1 = self.get_offset(rank)
         k2 = k1 + self.get_count(rank)
         return np.arange(k1, k2)
-
-    def xxxget_ranks(self):
-        """Return array of ranks as a function of global ks-pair indices."""
-
-        ranks = np.empty(self.nks, dtype=int)
-        for rank in range(self.comm.size):
-            uslice = self.get_slice(rank)
-            ranks[uslice] = rank
-        assert (ranks >= 0).all() and (ranks < self.comm.size).all()
-        return ranks
 
     def who_has(self, k):
         """Convert global index to rank information and local index."""
@@ -593,22 +573,6 @@ class KPointDescriptor:
             rank, q = divmod(k - mynk0 * self.rank0, mynk0 + 1)
             rank += self.rank0
         return rank, q
-
-    def xxxglobal_index(self, myu, rank=None):
-        """Convert rank information and local index to global index."""
-
-        if rank is None:
-            rank = self.comm.rank
-        assert rank in range(self.comm.size)
-        k0 = self.get_offset(rank)
-        u = k0 + myu
-        return u
-
-    def xxxwhat_is(self, u):
-        """Convert global index to corresponding kpoint/spin combination."""
-
-        s, k = divmod(u, self.nibzkpts)
-        return s, k
 
     def write(self, writer):
         writer.write('ibzkpts', self.ibzk_kc)
