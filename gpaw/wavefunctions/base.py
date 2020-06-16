@@ -50,7 +50,8 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.kpts = kd.create_k_points(self.gd.sdisp_cd, collinear)
+        self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
+        self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
         self.eigensolver = None
         self.positions_set = False
@@ -59,14 +60,9 @@ class WaveFunctions:
         self.set_setups(setups)
 
     @property
-    def kpt_u(self):
-        """Old name."""
-        return [skpt for kpt in self.kpts for skpt in kpt]
-
-    @property
     def mykpts(self):
-        """Old name."""
-        return [skpt for kpt in self.kpts for skpt in kpt]
+        # Remove this ????
+        return self.kpt_u
 
     def summary(self, log):
         log(eigenvalue_string(self))
@@ -229,7 +225,7 @@ class WaveFunctions:
         domain a full array on the domain master and send this to the
         global master."""
 
-        kpt_qs = self.kpts
+        kpt_qs = self.kpt_qs
         kpt_rank, q = self.kd.get_rank_and_index(k)
         if self.kd.comm.rank == kpt_rank:
             a_nx = getattr(kpt_qs[q][s], name)
@@ -310,7 +306,7 @@ class WaveFunctions:
         kpt_rank, q = self.kd.get_rank_and_index(k)
 
         if self.kd.comm.rank == kpt_rank:
-            kpt = self.kpts[q][s]
+            kpt = self.kpt_qs[q][s]
             P_nI = kpt.projections.collect()
             if self.world.rank == 0:
                 return P_nI

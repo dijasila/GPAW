@@ -159,7 +159,8 @@ class FDWaveFunctions(FDPWWaveFunctions):
         weight = 2.0 / kd.nspins / kd.nbzkpts
 
         # Build new list of k-points:
-        kpts = []
+        kpt_qs = []
+        kpt_u = []
         for k in range(kd.nbzkpts):
             kpt_s = []
             for s in range(self.nspins):
@@ -167,7 +168,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 ik = self.kd.bz2ibz_k[k]
                 r, q = self.kd.get_rank_and_index(ik)
                 assert r == 0
-                kpt = self.kpts[q][s]
+                kpt = self.kpt_qs[q][s]
 
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
@@ -198,10 +199,12 @@ class FDWaveFunctions(FDPWWaveFunctions):
 
                 kpt2.psit.matrix_elements(self.pt, out=kpt2.projections)
                 kpt_s.append(kpt2)
-            kpts.append(kpt_s)
+                kpt_u.append(kpt2)
+            kpt_qs.append(kpt_s)
 
         self.kd = kd
-        self.kpts = kpts
+        self.kpt_qs = kpt_qs
+        self.kpt_u = kpt_u
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace

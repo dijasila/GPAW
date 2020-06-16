@@ -280,7 +280,7 @@ class KPointDescriptor:
     def create_k_points(self, sdisp_cd, collinear):
         """Return a list of KPoints."""
 
-        kpt_q = []
+        kpt_qs = []
 
         for k in range(self.k0, self.k0 + self.mynk):
             q = k - self.k0
@@ -295,9 +295,9 @@ class KPointDescriptor:
             else:
                 spins = [None]
                 weight *= 0.5
-            kpt_q.append([KPoint(weight, s, k, q, phase_cd) for s in spins])
+            kpt_qs.append([KPoint(weight, s, k, q, phase_cd) for s in spins])
 
-        return kpt_q
+        return kpt_qs
 
     def collect(self, a_ux):
         """Collect distributed data to all."""
@@ -561,11 +561,12 @@ class KPointDescriptor:
         uslice = slice(ks0, ks0 + mynks)
         return uslice
 
-    def xxxget_indices(self, rank=None):
+    def get_indices(self, rank=None):
         """Return the global ks-pair indices which belong to a given rank."""
 
-        uslice = self.get_slice(rank)
-        return np.arange(*uslice.indices(self.nks))
+        k1 = self.get_offset(rank)
+        k2 = k1 + self.get_count(rank)
+        return np.arange(k1, k2)
 
     def xxxget_ranks(self):
         """Return array of ranks as a function of global ks-pair indices."""

@@ -58,9 +58,7 @@ class SimpleStm(STM):
         if hasattr(bias, '__len__') and len(bias) == 3:
             n, k, s = bias
             # only a single wf requested
-            u = self.calc.wfs.kd.where_is(k, s)
-            if u is not None:
-                self.add_wf_to_ldos(n, u, weight=1)
+            self.add_wf_to_ldos(n, k, s, weight=1)
 
         else:
             # energy bias
@@ -69,7 +67,8 @@ class SimpleStm(STM):
                     efermi_s = self.calc.get_fermi_levels()
                 else:
                     efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:  # XXXXX except what?
+            except:
+                raise  # XXXXX except what?
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
 
             if isinstance(bias, (int, float)):
@@ -109,11 +108,12 @@ class SimpleStm(STM):
                             weight = kpt.f_n[n]
                         else:
                             weight = kpt.weight - kpt.f_n[n]
-                        self.add_wf_to_ldos(n, u, weight)
+                        self.add_wf_to_ldos(n, kpt.k, kpt.s, weight)
 
-    def add_wf_to_ldos(self, n, u, weight=None):
+    def add_wf_to_ldos(self, n, k, s, weight=None):
         """Add the wf with given kpoint and spin to the ldos"""
-        kpt = self.calc.wfs.kpt_u[u]
+        assert self.calc.wfs.kd.comm.size == 1
+        kpt = self.calc.wfs.kpt_qs[k][s]
         psi = kpt.psit_nG[n]
         w = weight
         if w is None:

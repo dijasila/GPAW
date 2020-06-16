@@ -943,6 +943,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def get_wave_function_array(self, n, k, s, realspace=True,
                                 cut=True, periodic=False):
         kpt_rank, q = self.kd.get_rank_and_index(k)
+        u = q * self.nspins + s
         band_rank, myn = self.bd.who_has(n)
 
         rank = self.world.rank
@@ -1022,11 +1023,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Q_G = np.empty(self.pd.ngmax, np.int32)
         kk = 0
         for r in range(self.kd.comm.size):
-            for q, ks in enumerate(self.kd.get_indices(r)):
-                s, k = divmod(ks, self.kd.nibzkpts)
+            for q, k in enumerate(self.kd.get_indices(r)):
                 ng = self.ng_k[k]
-                if s == 1:
-                    return
                 if r == self.kd.comm.rank:
                     Q_G[:ng] = self.pd.Q_qG[q]
                     if r > 0:

@@ -44,8 +44,8 @@ class Overlap:
             assert self.kd.comm.rank == kpt_rank
 
             overlap_nn = np.zeros((self.nb, nbo), dtype=self.calc.wfs.dtype)
-            mkpt = self.calc.wfs.kpts[q][myspin]
-            okpt = other.wfs.kpts[qo][otherspin]
+            mkpt = self.calc.wfs.kpt_qs[q][myspin]
+            okpt = other.wfs.kpt_qs[qo][otherspin]
             psit_nG = mkpt.psit_nG
             norm_n = self.gd.integrate(psit_nG.conj() * psit_nG)
             psito_nG = okpt.psit_nG
@@ -80,8 +80,8 @@ class Overlap:
             kpt_rank, qo = other.wfs.kd.get_rank_and_index(k)
             assert self.kd.comm.rank == kpt_rank
 
-            mkpt = self.calc.wfs.kpts[q][myspin]
-            okpt = other.wfs.kpts[qo][otherspin]
+            mkpt = self.calc.wfs.kpt_qs[q][myspin]
+            okpt = other.wfs.kpt_qs[qo][otherspin]
 
             aov_nn = np.zeros_like(ov_knn[k])
             for a, mP_ni in mkpt.P_ani.items():
