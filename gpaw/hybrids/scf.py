@@ -251,7 +251,7 @@ def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
                       kpt.f_n / kpt.weight,  # scale to [0, 1] range
                       kd.ibzk_kc[kpt.k],
                       kd.weight_k[kpt.k])
-             for kpt in wfs.mykpts[kpt.s::wfs.nspins]]
+             for kpt in wfs.kpt_u[kpt.s::wfs.nspins]]
     v_nG = calculate2(kpt1, kpts2, wfs, paw, sym, coulomb)
     return v_nG
 
