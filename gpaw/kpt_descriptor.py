@@ -299,12 +299,12 @@ class KPointDescriptor:
 
         return kpt_qs
 
-    def collect(self, a_ux):
+    def collect(self, a_ux, broadcast: bool):
         """Collect distributed data to all."""
 
         xshape = a_ux.shape[1:]
         a_qsx = a_ux.reshape((-1, self.nspins) + xshape)
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 or broadcast:
             a_ksx = np.empty((self.nibzkpts, self.nspins) + xshape, a_ux.dtype)
 
         if self.comm.rank > 0:
@@ -320,6 +320,11 @@ class KPointDescriptor:
                 k1 = k2
             assert k1 == self.nibzkpts
             self.comm.waitall(requests)
+
+        if broadcast:
+            self.comm.broadcast(a_ksx, 0)
+
+        if self.comm.rank == 0 or broadcast:
             return a_ksx.transpose((1, 0, 2))
 
     def transform_wave_function(self, psit_G, k, index_G=None, phase_G=None):

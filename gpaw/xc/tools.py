@@ -61,7 +61,7 @@ def _vxc(xc, ham, dens, wfs, paw=None, coredensity=True):
                       P_ni.conj()).sum(1).real
 
     wfs.gd.comm.sum(vxc_un)
-    vxc_skn = wfs.kd.collect(vxc_un)
+    vxc_skn = wfs.kd.collect(vxc_un, broadcast=True)
 
     if xc.orbital_dependent:
         vxc_skn += xc.exx_skn

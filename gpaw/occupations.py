@@ -490,7 +490,7 @@ class SmoothDistribution(ZeroKelvin):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
 
         if wfs.bd.comm.rank == 0:
-            eps_skn = kd.collect(myeps_un)
+            eps_skn = kd.collect(myeps_un, broadcast=False)
             if kd.comm.rank == 0:
                 eps_n = eps_skn.ravel()
                 w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.bd.nbands))
