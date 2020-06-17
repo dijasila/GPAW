@@ -2,7 +2,6 @@ from ase.build import molecule
 from gpaw import GPAW
 from gpaw.odd.sic import SIC
 from gpaw import extra_parameters
-from gpaw.test import equal
 
 extra_parameters['sic'] = True
 
@@ -24,4 +23,4 @@ calc = GPAW(xc=SIC(nspins=1),
 n2.calc = calc
 e2 = n2.get_potential_energy()
 
-equal(e2 - 2 * e1, -4.5, 0.1)
+assert abs(e2 - 2 * e1 - -4.5) < 0.1
