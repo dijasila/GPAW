@@ -244,7 +244,7 @@ class GPAW(PAW, Calculator):
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
         if new_atom_partition != atom_partition:
-            for kpt in self.wfs.mykpts:
+            for kpt in self.wfs.kpt_u:
                 kpt.projections = kpt.projections.redist(new_atom_partition)
         self.wfs.atom_partition = new_atom_partition
 
@@ -272,7 +272,7 @@ class GPAW(PAW, Calculator):
             pass
 
     def icalculate(self, atoms=None, properties=['energy'],
-                  system_changes=['cell']):
+                   system_changes=['cell']):
         """Calculate things."""
 
         Calculator.calculate(self, atoms)
@@ -1035,7 +1035,7 @@ class GPAW(PAW, Calculator):
         kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
-                                              nspins * kd.nibzkpts)
+                                              kd.nibzkpts)
 
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']

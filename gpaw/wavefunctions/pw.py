@@ -942,7 +942,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def get_wave_function_array(self, n, k, s, realspace=True,
                                 cut=True, periodic=False):
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
+        u = q * self.nspins + s
         band_rank, myn = self.bd.who_has(n)
 
         rank = self.world.rank
@@ -954,7 +955,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 psit_G = self.gd.collect(psit_G)
             else:
                 assert not cut
-                tmp_G = self.pd.gather(psit_G, self.mykpts[u].q)
+                tmp_G = self.pd.gather(psit_G, self.kpt_u[u].q)
                 if tmp_G is not None:
                     ng = self.pd.ngmax
                     if self.collinear:
@@ -1022,11 +1023,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Q_G = np.empty(self.pd.ngmax, np.int32)
         kk = 0
         for r in range(self.kd.comm.size):
-            for q, ks in enumerate(self.kd.get_indices(r)):
-                s, k = divmod(ks, self.kd.nibzkpts)
+            for q, k in enumerate(self.kd.get_indices(r)):
                 ng = self.ng_k[k]
-                if s == 1:
-                    return
                 if r == self.kd.comm.rank:
                     Q_G[:ng] = self.pd.Q_qG[q]
                     if r > 0:
@@ -1056,7 +1054,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             ng = self.ng_k[kpt.k]
             index = (kpt.s, kpt.k) if self.collinear else (kpt.k,)
             psit_nG = reader.wave_functions.proxy('coefficients', *index)
@@ -1183,7 +1181,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             scalapack = False
 
         self.set_positions(atoms.get_scaled_positions())
-        self.mykpts[0].P = None
+        self.kpt_u[0].projections = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         myslice = bd.get_slice()
@@ -1248,7 +1246,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
     def initialize_from_lcao_coefficients(self, basis_functions):
         psit_nR = self.gd.empty(1, self.dtype)
 
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             if self.kd.gamma:
                 emikr_R = 1.0
             else:
@@ -1416,8 +1414,7 @@ class PWLFC(BaseLFC):
                 self.s_J[J] = s
                 J += 1
 
-        # self.lmax = max(self.l_s, default=-1)  # needs Python 3.4
-        self.lmax = max(self.l_s) if len(self.l_s) > 0 else -1
+        self.lmax = max(self.l_s, default=-1)
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):

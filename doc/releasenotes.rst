@@ -46,6 +46,8 @@ Git master branch
 
 * We are now using MyPy_ for static analysis of the source code.
 
+* Parallelization over spin is no longer possible.  This simplifies
+  the code for handling non-collinear spins and spin-orbit coupling.
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/

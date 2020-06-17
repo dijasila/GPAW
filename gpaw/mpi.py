@@ -710,25 +710,6 @@ size = world.size
 parallel = (size > 1)
 
 
-# XXXXXXXXXX for easier transition to Parallelization class
-def distribute_cpus(parsize_domain, parsize_bands,
-                    nspins, nibzkpts, comm=world,
-                    idiotproof=True, mode='fd'):
-    nsk = nspins * nibzkpts
-    if mode in ['fd', 'lcao']:
-        if parsize_bands is None:
-            parsize_bands = 1
-    else:
-        # Plane wave mode:
-        if parsize_bands is None:
-            from ase.utils import gcd
-            parsize_bands = comm.size // gcd(nsk, comm.size)
-
-    p = Parallelization(comm, nsk)
-    return p.build_communicators(domain=np.prod(parsize_domain),
-                                 band=parsize_bands)
-
-
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
@@ -941,10 +922,10 @@ def run(iterators):
 
 
 class Parallelization:
-    def __init__(self, comm, nspinkpts):
+    def __init__(self, comm, nkpts):
         self.comm = comm
         self.size = comm.size
-        self.nspinkpts = nspinkpts
+        self.nkpts = nkpts
 
         self.kpt = None
         self.domain = None
@@ -1070,7 +1051,7 @@ class Parallelization:
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:
             # Try to use all the CPUs for k-point parallelization
-            ncpus = min(self.nspinkpts, self.navail)
+            ncpus = min(self.nkpts, self.navail)
             return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
         scores = ((self.navail // ncpuvalues) *
@@ -1080,16 +1061,16 @@ class Parallelization:
         return ncpus
 
     def find_kpt_parallelizations(self):
-        nspinkpts = self.nspinkpts
+        nkpts = self.nkpts
         ncpuvalues = []
         wastevalues = []
 
-        ncpus = nspinkpts
+        ncpus = nkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmax = -(-nspinkpts // ncpus)
+                nkptsmax = -(-nkpts // ncpus)
                 effort = nkptsmax * ncpus
-                efficiency = nspinkpts / float(effort)
+                efficiency = nkpts / float(effort)
                 waste = 1.0 - efficiency
                 wastevalues.append(waste)
                 ncpuvalues.append(ncpus)

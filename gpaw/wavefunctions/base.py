@@ -50,18 +50,14 @@ class WaveFunctions:
         self.timer = timer
         self.atom_partition = None
 
-        self.mykpts = kd.create_k_points(self.gd, collinear)
+        self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
+        self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
         self.eigensolver = None
         self.positions_set = False
         self.spos_ac = None
 
         self.set_setups(setups)
-
-    @property
-    def kpt_u(self):
-        """Old name."""
-        return self.mykpts
 
     def summary(self, log):
         log(eigenvalue_string(self))
@@ -187,7 +183,7 @@ class WaveFunctions:
 
         if self.atom_partition is not None and self.kpt_u[0].P_ani is not None:
             with self.timer('Redistribute'):
-                for kpt in self.mykpts:
+                for kpt in self.kpt_u:
                     P = kpt.projections
                     assert self.atom_partition == P.atom_partition
                     kpt.projections = P.redist(atom_partition)
@@ -198,12 +194,12 @@ class WaveFunctions:
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.mykpts[0].projections is not None:
+        if not self.positions_set and self.kpt_u[0].projections is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
-            for kpt in self.mykpts:
+            for kpt in self.kpt_u:
                 kpt.projections = Projections(
                     self.bd.nbands, nproj_a,
                     self.atom_partition,
@@ -224,10 +220,10 @@ class WaveFunctions:
         domain a full array on the domain master and send this to the
         global master."""
 
-        kpt_u = self.kpt_u
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_qs = self.kpt_qs
+        kpt_rank, q = self.kd.get_rank_and_index(k)
         if self.kd.comm.rank == kpt_rank:
-            a_nx = getattr(kpt_u[u], name)
+            a_nx = getattr(kpt_qs[q][s], name)
 
             if subset is not None:
                 a_nx = a_nx[subset]
@@ -249,7 +245,7 @@ class WaveFunctions:
 
         elif self.world.rank == 0 and kpt_rank != 0:
             # Only used to determine shape and dtype of receiving buffer:
-            a_nx = getattr(kpt_u[0], name)
+            a_nx = getattr(kpt_qs[0][0], name)
 
             if subset is not None:
                 a_nx = a_nx[subset]
@@ -302,10 +298,10 @@ class WaveFunctions:
         For the parallel case find the rank in kpt_comm that contains
         the (k,s) pair, for this rank, send to the global master."""
 
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
 
         if self.kd.comm.rank == kpt_rank:
-            kpt = self.mykpts[u]
+            kpt = self.kpt_qs[q][s]
             P_nI = kpt.projections.collect()
             if self.world.rank == 0:
                 return P_nI
@@ -336,14 +332,16 @@ class WaveFunctions:
         domain a full array on the domain master and send this to the
         global master."""
 
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
         band_rank, myn = self.bd.who_has(n)
 
         rank = self.world.rank
 
         if (self.kd.comm.rank == kpt_rank and
             self.bd.comm.rank == band_rank):
-            psit_G = self._get_wave_function_array(u, myn, realspace, periodic)
+            u = q * self.nspins + s
+            psit_G = self._get_wave_function_array(u, myn,
+                                                   realspace, periodic)
 
             if realspace:
                 psit_G = self.gd.collect(psit_G)
@@ -480,7 +478,7 @@ class WaveFunctions:
         nproj_a = [setup.ni for setup in self.setups]
         atom_partition = AtomPartition(self.gd.comm,
                                        np.zeros(len(nproj_a), int))
-        for u, kpt in enumerate(self.mykpts):
+        for u, kpt in enumerate(self.kpt_u):
             if self.collinear:
                 index = (kpt.s, kpt.k)
             else:
