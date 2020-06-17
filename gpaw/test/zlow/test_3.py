@@ -12,27 +12,19 @@ from gpaw.gauss import Gauss
 from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
 from gpaw.lrtddft.kssingle import KSSingles
 
+
 def test_lrtddft_3(in_tmp_dir):
-    try:
-        from StringIO import StringIO  # Python 2
-    except ImportError:
-        from io import StringIO
+    from io import StringIO
 
     L = 10.0
-    txt=None
-    txt='-'
+    txt = None
+    txt = '-'
 
     N2 = molecule('N2')
     N2.set_cell([L, L, L])
-    #N2.set_pbc(True)
+    # N2.set_pbc(True)
     N2.center()
 
-    #try:
-    #    calc = GPAW('N2_wfs.gpw',
-    #                txt=txt,
-    #                parallel={'domain': world.size})
-    #    calc.converge_wave_functions()
-    #except:
     if 1:
         calc = GPAW(h=0.25,
                     experimental={'niter_fixdensity': 2},
@@ -43,7 +35,7 @@ def test_lrtddft_3(in_tmp_dir):
                     eigensolver='cg',
                     parallel={'domain': world.size})
         N2.calc = calc
-        E0 = N2.get_potential_energy()
+        _ = N2.get_potential_energy()
         calc.write('N2_wfs.gpw', 'all')
 
     # selections
@@ -81,9 +73,10 @@ def test_lrtddft_3(in_tmp_dir):
 
     # Unfortunately not all of the lrtddft code is parallel
     if rank == 0:
-        Epeak = 19.5# The peak we want to investigate (this is alone)
-        Elist = np.asarray([lrsingle.get_energy() * Hartree for lrsingle in lr])
-        n = np.argmin(np.abs(Elist - Epeak)) # Index of the peak
+        Epeak = 19.5  # The peak we want to investigate (this is alone)
+        Elist = np.asarray([lrsingle.get_energy() * Hartree
+                            for lrsingle in lr])
+        n = np.argmin(np.abs(Elist - Epeak))  # index of the peak
 
         E = lr[n].get_energy() * Hartree
         osz = lr[n].get_oscillator_strength()
@@ -95,8 +88,8 @@ def test_lrtddft_3(in_tmp_dir):
         lr.analyse(n)
         s = sio.getvalue()
         sys.stdout = origstdout
-        match = re.findall(r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n,
-                           s)
+        match = re.findall(
+            r'%i: E=([0-9]*\.[0-9]*) eV, f=([0-9]*\.[0-9]*)*' % n, s)
         Eanalyse = float(match[0][0])
         oszanalyse = float(match[0][1])
         print('From analyse           :', Eanalyse, oszanalyse)
@@ -114,12 +107,12 @@ def test_lrtddft_3(in_tmp_dir):
 
         width = 0.05
         photoabsorption_spectrum(lr,
-                                 spectrum_file = 'lrtddft3-spectrum.dat',
-                                 width = width)
+                                 spectrum_file='lrtddft3-spectrum.dat',
+                                 width=width)
         # We need to be able to check the heights in the spectrum
         weight = Gauss(width).get(0)
 
-        spectrum = np.loadtxt('lrtddft3-spectrum.dat', usecols = (0, 1))
+        spectrum = np.loadtxt('lrtddft3-spectrum.dat', usecols=(0, 1))
         idx = (spectrum[:, 0] >= E - 0.1) & (spectrum[:, 0] <= E + 0.1)
         peak = np.argmax(spectrum[idx, 1]) + np.nonzero(idx)[0][0]
         Espec = spectrum[peak, 0]
