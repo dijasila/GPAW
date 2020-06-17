@@ -1,6 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2008  CAMd
- *  Copyright (C) 2005-2020       CSC - IT Center for Science Ltd.
+ *  Copyright (C) 2005-2020  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
 //*** Double buffering code based on original code by             ***//
@@ -11,7 +11,6 @@
 #define NO_IMPORT_ARRAY
 #include <numpy/arrayobject.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include "extensions.h"
 #include "bc.h"
 #include "mympi.h"
