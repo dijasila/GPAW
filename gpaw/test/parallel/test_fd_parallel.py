@@ -12,8 +12,8 @@ from gpaw.forces import calculate_forces
 
 # Calculates energy and forces for various parallelizations
 
-pytestmark = pytest.mark.skipif(world.size < 4,
-                                reason='world.size < 4')
+pytestmark = pytest.mark.skipif(world.size != 4,
+                                reason='world.size != 4')
 
 
 def test_parallel_fd_parallel():
