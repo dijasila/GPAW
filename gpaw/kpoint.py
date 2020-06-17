@@ -93,6 +93,10 @@ class KPoint:
         self.S_MM = None
         self.T_MM = None
 
+    def __repr__(self):
+        return (f'KPoint(weight={self.weight}, '
+                f's={self.s}, k={self.k}, q={self.q})')
+
     @property
     def P_ani(self):
         if self.projections is not None:
