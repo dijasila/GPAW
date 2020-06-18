@@ -22,7 +22,7 @@ def test_ralda_ralda_energy_H2(in_tmp_dir):
         scalapack2 = None
     else:
         scalapack1 = (2, world.size // 2, 32)
-        scalapack2 = (2, world.size // 4, 32)
+        scalapack2 = (2, world.size // 2, 32)
 
     # H2
     H2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)])
