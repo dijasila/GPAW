@@ -6,11 +6,10 @@ from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import world
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_ralda_ralda_energy_H2(in_tmp_dir):
