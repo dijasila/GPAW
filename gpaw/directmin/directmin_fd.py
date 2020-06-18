@@ -1003,7 +1003,7 @@ class DirectMinFD(Eigensolver):
             del lf_obj
 
         if io == 'PMER' or io == 'WER':
-            log('Edmiston-Ruedenberg localisation')
+            log('Edmiston-Ruedenberg localisation', flush=True)
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-5)

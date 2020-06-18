@@ -12,7 +12,7 @@ def descent(phi_0, phi_j, eps=1.0e-2):
 
 def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
 
-    eps = 1.0e-6
+    eps = 1.0e-8
     delta = 0.1
     sigma = 0.9
 
@@ -272,7 +272,7 @@ class StrongWolfeConditions(UnitStepLength):
                                       f_lo, f_hi,
                                       df_lo, df_hi)
             if a_j < 0.01:
-                a_j = 0.1
+                a_j = 0.01
                 phi_j, der_phi_j, g_j = \
                     self.evaluate_phi_and_der_phi(
                         x, p, a_j, *args)
