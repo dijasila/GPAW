@@ -1,14 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""K-point/spin combination-descriptors
-
-This module contains classes for defining combinations of two indices:
-
-* Index k for irreducible kpoints in the 1st Brillouin zone.
-* Index s for spin up/down if spin-polarized (otherwise ignored).
-
-"""
+"""K-point descriptor."""
 
 import numpy as np
 
@@ -110,7 +103,6 @@ class KPointDescriptor:
         ``nspins``            Number of spins in total.
         ``mynspins``          Number of spins on this CPU.
         ``nibzkpts``          Number of irreducible kpoints in 1st BZ.
-        ``nks``               Number of k-point/spin combinations in total.
         ``mynks``             Number of k-point/spin combinations on this CPU.
         ``gamma``             Boolean indicator for gamma point calculation.
         ``comm``              MPI-communicator for kpoint distribution.
@@ -211,11 +203,6 @@ class KPointDescriptor:
             elif k == 10:
                 s += '          ...\n'
         return s
-
-    def xxx__len__(self):
-        """Return number of k-point/spin combinations of local CPU."""
-
-        return self.mynks
 
     def set_symmetry(self, atoms, symmetry, comm=None):
         """Create symmetry object and construct irreducible Brillouin zone.

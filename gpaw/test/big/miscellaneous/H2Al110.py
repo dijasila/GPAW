@@ -1,6 +1,5 @@
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.test import equal
 
 a = 4.00
 d = a / 2**0.5
@@ -35,5 +34,4 @@ for i in range(1):
     e = slab.get_potential_energy()
 
 print(e, niter)
-energy_tolerance = 0.0015
-equal(e, -44.694, energy_tolerance)
+assert abs(e - -44.694) < 0.0015
