@@ -1,7 +1,6 @@
 from ase.build import molecule
 from gpaw import GPAW
 import gpaw.dscf as dscf
-from gpaw.test import equal
 
 # Ground state calculation
 calc_mol = GPAW(nbands=8, h=0.2, xc='PBE', spinpol=True,
@@ -44,5 +43,5 @@ dscf.dscf_calculation(calc_2, [[1.0, lumo, 1]], CO)
 E_es2 = CO.get_potential_energy()
 calc_2.write('dscf_CO_es2.gpw', mode='all')
 
-equal(E_es1, E_gs + 5.8, 0.1)
-equal(E_es1, E_es2, 0.001)
+assert abs(E_es1 - (E_gs + 5.8)) < 0.1
+assert abs(E_es1 - E_es2) < 0.001
