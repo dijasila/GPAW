@@ -108,13 +108,14 @@ def construct_symmetry_operators(kd, setups, spos_ac, K):
     ik = kd.bz2ibz_k[K]
     ik_c = kd.ibzk_kc[ik]
 
+    print(ik_c, spos_ac)
     a_a = []
     U_aii = []
     for a, id in enumerate(setups.id_a):
         b = kd.symmetry.a_sa[s, a]
         S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
         x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
-        U_ii = wfs.setups[a].R_sii[s].T * x
+        U_ii = setups[a].R_sii[s].T * x
         a_a.append(b)
         U_aii.append(U_ii)
 

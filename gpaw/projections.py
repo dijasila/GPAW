@@ -6,10 +6,11 @@ from gpaw.utilities.partition import AtomPartition
 
 
 class Projections:
-    def __init__(self, nbands, nproj_a, atom_partition, bcomm=None,
-                 collinear=True, spin=0, dtype=float, data=None):
+    def __init__(self, nbands, nproj_a, atom_partition=None, bcomm=None,
+                 collinear=True, spin=0, dtype=None, data=None):
         self.nproj_a = np.asarray(nproj_a)
-        self.atom_partition = atom_partition
+        self.atom_partition = atom_partition or AtomPartition(
+            serial_comm, np.zeros(len(nproj_a), int))
         self.bcomm = bcomm or serial_comm
         self.collinear = collinear
         self.spin = spin
@@ -28,6 +29,9 @@ class Projections:
 
         if not collinear:
             I1 *= 2
+
+        if dtype is None:
+            dtype = float if collinear else complex
 
         self.matrix = Matrix(nbands, I1, dtype, data,
                              dist=(self.bcomm, self.bcomm.size, 1))

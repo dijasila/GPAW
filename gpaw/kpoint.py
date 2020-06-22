@@ -2,6 +2,9 @@
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a ``KPoint`` class."""
+from typing import List
+
+from gpaw.utilities.ibz2bz import construct_symmetry_operators
 
 
 class KPoint:
@@ -19,7 +22,7 @@ class KPoint:
         k-point weight in supercell calculations.
     """
 
-    def __init__(self, weight: float, s: int, k: int, q: int, phase_cd):
+    def __init__(self, weight: float, s: int, k: int, q: int, phase_cd=None):
         """Construct k-point object.
 
         Parameters:
@@ -69,3 +72,21 @@ class KPoint:
     def psit_nG(self):
         if self.psit is not None:
             return self.psit.array
+
+    def transform(self, kd, setups: List, spos_ac, bz_index: int) -> 'KPoint':
+        """Transforms PAW projections from IBZ to BZ k-point."""
+        assert self.projections.bcomm.size == 1
+        a_a, U_aii, time_rev = construct_symmetry_operators(
+            kd, setups, spos_ac, bz_index)
+        projections = self.projections.new()
+        a = 0
+        for b, U_ii in zip(a_a, U_aii):
+            P_ni = self.projections[b].dot(U_ii)
+            if time_rev:
+                P_ni = P_ni.conj()
+            projections[a][:] = P_ni
+            a += 1
+        kpt = KPoint(1.0 / kd.nbzkpts, None, bz_index, -1)
+        kpt.projections = projections
+        kpt.eps_n = self.eps_n.copy()
+        return kpt
