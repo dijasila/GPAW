@@ -3,7 +3,6 @@ from ase.build import molecule
 from ase.constraints import FixedPlane
 from ase.optimize import QuasiNewton
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 
 # Initialization
 molname = 'benzene-mol'
@@ -91,5 +90,5 @@ print('****************', file=f)
 print('Minimum (E_int,d):', e_0, d_0, file=f)
 f.close()
 
-equal(e_0, -0.11, 0.01)
-equal(d_0, 2.86, 0.05)
+assert abs(e_0 - -0.11) < 0.01
+assert abs(d_0 - 2.86) < 0.05
