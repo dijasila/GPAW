@@ -6,7 +6,7 @@ from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fd import sd_outer, ls_outer
-from gpaw.utilities.lapack import diagonalize
+# from gpaw.utilities.lapack import diagonalize
 from gpaw.directmin.odd import odd_corrections
 from gpaw.directmin.tools import get_n_occ
 from gpaw.directmin.fd.inner_loop import InnerLoop
@@ -610,16 +610,21 @@ class DirectMinFD(Eigensolver):
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
 
             if n_occ != 0:
-                evals = np.empty(lamb.shape[0])
-                diagonalize(lamb, evals)
+                evals, lamb = np.linalg.eigh(lamb)
+                # evals = np.empty(lamb.shape[0])
+                # diagonalize(lamb, evals)
                 wfs.gd.comm.broadcast(evals, 0)
                 wfs.gd.comm.broadcast(lamb, 0)
+                lamb = lamb.T
+
                 kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
 
-            evals_lumo = np.empty(lumo.shape[0])
-            diagonalize(lumo, evals_lumo)
+            # evals_lumo = np.empty(lumo.shape[0])
+            # diagonalize(lumo, evals_lumo)
+            evals_lumo, lumo = np.linalg.eigh(lumo)
             wfs.gd.comm.broadcast(evals_lumo, 0)
             wfs.gd.comm.broadcast(lumo, 0)
+            lumo = lumo.T
 
             kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
             # kpt.eps_n[n_occ + 1:] = +np.inf

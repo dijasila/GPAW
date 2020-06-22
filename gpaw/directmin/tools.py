@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.utilities.lapack import diagonalize
+# from gpaw.utilities.lapack import diagonalize
 
 
 def get_n_occ(kpt):
@@ -39,10 +39,11 @@ def expm_ed(a_mat, evalevec=False, use_numpy=True):
     if use_numpy:
         eigval, evec = np.linalg.eigh(1.0j * a_mat)
     else:
-        evec = 1.0j * a_mat
-        eigval = np.empty(a_mat.shape[0])
-        diagonalize(evec, eigval)
-        evec = evec.T.conj()
+        raise ValueError('use_numpy must be True')
+        # evec = 1.0j * a_mat
+        # eigval = np.empty(a_mat.shape[0])
+        # diagonalize(evec, eigval)
+        # evec = evec.T.conj()
 
     product = np.dot(evec * np.exp(-1.0j * eigval), evec.T.conj())
 

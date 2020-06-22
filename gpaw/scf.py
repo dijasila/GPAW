@@ -269,7 +269,7 @@ class SCFLoop:
                     log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
                 log('Converge unoccupied states:')
                 max_er = self.max_errors['eigenstates']
-                max_er *= Hartree ** 2 / wfs.nvalence
+                max_er *= Ha ** 2 / wfs.nvalence
                 wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
                                          max_er, log)
                 rewrite_psi = True

@@ -1,6 +1,4 @@
 import numpy as np
-from gpaw.utilities.lapack import diagonalize
-
 
 def cubic_interpolation(x_0, x_1, f_0, f_1, df_0, df_1):
     """
@@ -145,36 +143,3 @@ def d_matrix(omega):
     u_m[np.isinf(u_m)] = 1.0
 
     return u_m
-
-
-def expm_ed(A, evalevec=False):
-
-    """
-    calcualte matrix exponential
-    through eigendecomposition of matrix A
-
-    :param A: to be exponented
-    :param evalevec: if True then return eigenvalues
-                     and eigenvectors of A
-    :return:
-    """
-
-    evec = 1.0j * A
-    eval = np.empty(A.shape[0])
-    diagonalize(evec, eval)
-
-    if evalevec:
-        if A.dtype == float:
-            return np.dot(evec.T.conj() * np.exp(-1.0j*eval),
-                          evec).real, evec.T.conj(), eval
-        else:
-            return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec), evec.T.conj(), eval
-
-    else:
-        if A.dtype == float:
-            return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec).real
-        else:
-            return np.dot(evec.T.conj() * np.exp(-1.0j * eval),
-                          evec)
