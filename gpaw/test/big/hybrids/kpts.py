@@ -24,7 +24,7 @@ def test(kpts, setup, spinpol, symmetry):
                   spinpol=spinpol,
                   # nbands=1,
                   symmetry=symmetry,
-                  #parallel={'band': 1, 'kpt': 1},
+                  # parallel={'band': 1, 'kpt': 1},
                   txt=None,
                   xc='PBE')
     a.get_potential_energy()
@@ -39,7 +39,7 @@ def check(atoms, xc, i):
     e = non_self_consistent_energy(c, xc)
     c.write('c.gpw', 'all')
     eps = non_self_consistent_eigenvalues(c, xc, 0, 2, snapshot=f'{i}.json')
-    #eps = non_self_consistent_eigenvalues('c.gpw', xc, 0, 2,
+    # eps = non_self_consistent_eigenvalues('c.gpw', xc, 0, 2,
     #                                      snapshot=f'{i}.json')
     # xc1.calculate_eigenvalues0(0, 2, None)
     # e1, v1, v2 = non_self_consistent_eigenvalues(c, xc, 0, 2, None,
@@ -69,7 +69,7 @@ def main():
     i = 0
     for spinpol in [False, True]:
         for setup in [
-            #'ae',
+            # 'ae',
             'paw']:
             for symmetry in ['off', {}]:
                 for kpts in [(1, 1, 1),
@@ -83,7 +83,7 @@ def main():
                     for xc in ['EXX',
                                'PBE0', 'HSE06']:
                         print(i, spinpol, setup, symmetry, kpts, xc,
-                              len(atoms.calc.wfs.mykpts))
+                              len(atoms.calc.wfs.kpt_u))
                         check(atoms, xc, i)
                         i += 1
 

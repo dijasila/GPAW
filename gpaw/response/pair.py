@@ -669,7 +669,7 @@ class PairDensity:
 
         assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
-        
+
         if ecut is not None:
             ecut /= Hartree
 
@@ -836,7 +836,8 @@ class PairDensity:
 
         shift_c += -shift0_c
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
 
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
@@ -1549,7 +1550,8 @@ class PairDensity:
         A_cv = wfs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
         psit_nG = kpt.psit_nG
         iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
         ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)

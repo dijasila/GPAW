@@ -76,7 +76,7 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             mpi.world.barrier()
             kss = KSSingles(fname)
             kss1 = KSSingles(fname, jend=1)
-            assert(len(kss1) == calc.wfs.kd.nks)
+            assert(len(kss1) == calc.wfs.kd.nibzkpts * calc.wfs.nspins)
 
         # periodic and non-periodic should be roughly equal
         equal(energy['zero_bc'], energy['periodic'], 5.e-2)
