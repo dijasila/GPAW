@@ -4,7 +4,6 @@ from os.path import exists, splitext
 import numpy as np
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, world, rank
-from gpaw.utilities.blas import gemmdot
 from gpaw.spinorbit import get_spinorbit_eigenvalues
 from gpaw.spinorbit import get_spinorbit_projections
 from gpaw.spinorbit import get_spinorbit_wavefunctions
@@ -348,12 +347,11 @@ def parallel_transport(calc,
                 u1_nsG = get_spinorbit_wavefunctions(calc, iq1,
                                                      v_knm[iq1])[bands]
                 # Transform from psi-like to u-like
-                u1_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq1],
-                                                    r_g, beta=0.0))
+                u1_nsG[:] *= np.exp(-1.0j * r_g.T.dot(kpts_kv[iq1]).T)
                 P1_ani = get_spinorbit_projections(calc, iq1, v_knm[iq1])
 
             u2_nsG = get_spinorbit_wavefunctions(calc, iq2, v_knm[iq2])[bands]
-            u2_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq2], r_g, beta=0.0))
+            u2_nsG[:] *= np.exp(-1.0j * r_g.T.dot(kpts_kv[iq2]).T)
             P2_ani = get_spinorbit_projections(calc, iq2, v_knm[iq2])
 
             M_mm = get_overlap(calc,
@@ -383,11 +381,11 @@ def parallel_transport(calc,
         iq0 = qpts_q[0]
         if Nloc == 1:
             u1_nsG = get_spinorbit_wavefunctions(calc, iq0, v_knm[iq0])[bands]
-            u1_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq0], r_g, beta=0.0))
+            u1_nsG[:] *= np.exp(-1.0j * r_g.T.dot(kpts_kv[iq0]).T)
             P1_ani = get_spinorbit_projections(calc, iq0, v_knm[iq0])
         u2_nsG = get_spinorbit_wavefunctions(calc, iq0, v_knm[iq0])[bands]
-        u2_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq0], r_g, beta=0.0))
-        u2_nsG[:] *= np.exp(-1.0j * gemmdot(G_v, r_g, beta=0.0))
+        u2_nsG[:] *= np.exp(-1.0j * r_g.T.dot(kpts_kv[iq0]).T)
+        u2_nsG[:] *= np.exp(-1.0j * r_g.T.dot(G_v).T)
         P2_ani = get_spinorbit_projections(calc, iq0, v_knm[iq0])
         for a in range(len(calc.atoms)):
             P2_ni = P2_ani[a][bands]
@@ -413,13 +411,13 @@ def parallel_transport(calc,
             P2_ani[a][bands] = P2_ni
 
         # Get overlap between first kpts and its smoothly translated image
-        u2_nsG[:] *= np.exp(1.0j * gemmdot(G_v, r_g, beta=0.0))
+        u2_nsG[:] *= np.exp(1.0j * r_g.T.dot(G_v).T)
         for a in range(len(calc.atoms)):
             P2_ni = P2_ani[a][bands]
             # P2_ni *= np.exp(1.0j * np.dot(G_v, r_av[a]))
             P2_ani[a][bands] = P2_ni
         u1_nsG = get_spinorbit_wavefunctions(calc, iq0, v_knm[iq0])[bands]
-        u1_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq0], r_g, beta=0.0))
+        u1_nsG[:] *= np.exp(-1.0j * r_g.T.dot(kpts_kv[iq0]).T)
         P1_ani = get_spinorbit_projections(calc, iq0, v_knm[iq0])
         M_mm = get_overlap(calc,
                            bands,
@@ -448,5 +446,5 @@ def parallel_transport(calc,
 
     if name is not None:
         np.savez('phases_%s.npz' % name, phi_km=phi_km, S_km=S_km)
-    
+
     return phi_km, S_km

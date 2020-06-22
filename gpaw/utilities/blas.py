@@ -201,59 +201,6 @@ def r2k(alpha, a, b, beta, c):
     _gpaw.r2k(alpha, a, b, beta, c)
 
 
-def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
-    """Matrix multiplication using gemm.
-
-    return reference to out, where::
-
-      out <- alpha * a . b + beta * out
-
-    If out is None, a suitably sized zero array will be created.
-
-    ``a.b`` denotes matrix multiplication, where the product-sum is
-    over the last dimension of a, and either
-    the first dimension of b (for trans='n'), or
-    the last dimension of b (for trans='t' or 'c').
-
-    If trans='c', the complex conjugate of b is used.
-    """
-    # Store original shapes
-    ashape = a.shape
-    bshape = b.shape
-
-    # Vector-vector multiplication is handled by dotu
-    if a.ndim == 1 and b.ndim == 1:
-        assert out is None
-        if trans == 'c':
-            return alpha * np.vdot(b, a)  # dotc conjugates *first* argument
-        else:
-            return alpha * a.dot(b)
-
-    # Map all arrays to 2D arrays
-    a = a.reshape(-1, a.shape[-1])
-    if trans == 'n':
-        b = b.reshape(b.shape[0], -1)
-        outshape = a.shape[0], b.shape[1]
-    else:  # 't' or 'c'
-        b = b.reshape(-1, b.shape[-1])
-
-    # Apply BLAS gemm routine
-    outshape = a.shape[0], b.shape[trans == 'n']
-    if out is None:
-        # (ATLAS can't handle uninitialized output array)
-        out = np.zeros(outshape, a.dtype)
-    else:
-        out = out.reshape(outshape)
-    gemm(alpha, b, a, beta, out, trans)
-
-    # Determine actual shape of result array
-    if trans == 'n':
-        outshape = ashape[:-1] + bshape[1:]
-    else:  # 't' or 'c'
-        outshape = ashape[:-1] + bshape[:-1]
-    return out.reshape(outshape)
-
-
 if not hasattr(_gpaw, 'mmm'):
     def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
         if c.size == 0:
@@ -311,31 +258,8 @@ if not hasattr(_gpaw, 'mmm'):
         else:
             c *= beta
         c += alpha * op(opa, a).dot(op(opb, b))
-
-    gemmdot = _gemmdot
-
 elif not debug:
     mmm = _gpaw.mmm  # noqa
     gemm = _gpaw.gemm  # noqa
     rk = _gpaw.rk  # noqa
     r2k = _gpaw.r2k  # noqa
-    gemmdot = _gemmdot
-
-else:
-    def gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
-        assert a.flags.contiguous
-        assert b.flags.contiguous
-        assert a.dtype == b.dtype
-        if trans == 'n':
-            assert a.shape[-1] == b.shape[0]
-        else:
-            assert a.shape[-1] == b.shape[-1]
-        if out is not None:
-            assert out.flags.contiguous
-            assert a.dtype == out.dtype
-            assert a.ndim > 1 or b.ndim > 1
-            if trans == 'n':
-                assert out.shape == a.shape[:-1] + b.shape[1:]
-            else:
-                assert out.shape == a.shape[:-1] + b.shape[:-1]
-        return _gemmdot(a, b, alpha, beta, out, trans)

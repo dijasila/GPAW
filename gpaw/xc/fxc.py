@@ -13,9 +13,10 @@ import gpaw.mpi as mpi
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities.blas import gemmdot, axpy
+from gpaw.utilities.blas import  axpy
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.rpa import RPACorrelation
+
 
 class FXCCorrelation(RPACorrelation):
     def __init__(self, calc, xc='RPA', filename=None,
@@ -1441,7 +1442,7 @@ class KernelDens:
                 # Fourier transform of r
                 for iq, q in enumerate(self.ibzq_qc):
                     q_v = np.dot(q, icell_cv)
-                    e_q = np.exp(-1j * gemmdot(q_v, r_r, beta=0.0))
+                    e_q = np.exp(-1j * np.einsum('v, v123 -> 123', q_v, r_r))
                     f_q = self.pd.fft((f_rr + V_rr) * e_q, iq) * vol / ng
                     fhxc_qsGr[iq][0, :, g - l_g_range[0]] += f_q
                     if ns == 2:
@@ -1543,7 +1544,7 @@ class KernelDens:
                         fxc = fxc_sg[s].copy()
                         dG_c = Gvec_Gc[iG] - Gvec_Gc[jG]
                         dG_v = np.dot(dG_c, icell_cv)
-                        dGr_g = gemmdot(dG_v, r_vg, beta=0.0)
+                        dGr_g = np.einsum('v, v123 -> 123', dG_v, r_vg)
                         ft_fxc = gd.integrate(np.exp(-1j * dGr_g) * fxc)
                         fhxc_sGsG[s * npw + iG, s * npw + jG] = ft_fxc
 

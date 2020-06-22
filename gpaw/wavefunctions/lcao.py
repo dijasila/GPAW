@@ -7,7 +7,7 @@ from gpaw.utilities.tools import tri2full
 #from gpaw import debug
 #from gpaw.lcao.overlap import NewTwoCenterIntegrals as NewTCI
 from gpaw.lcao.tci import TCIExpansions
-from gpaw.utilities.blas import gemm, gemmdot
+from gpaw.utilities.blas import gemm
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
                                          SparseAtomicCorrection)
@@ -537,8 +537,8 @@ class LCAOWaveFunctions(WaveFunctions):
                     tri2full(H_MM)
                     S_MM = kpt.S_MM.copy()
                     tri2full(S_MM)
-                    ET_MM = np.linalg.solve(S_MM, gemmdot(H_MM,
-                                                          kpt.rho_MM)).T.copy()
+                    ET_MM = np.linalg.solve(S_MM,
+                                            H_MM.dot(kpt.rho_MM)).T.copy()
                     del S_MM, H_MM
                     rhoT_MM = kpt.rho_MM.T.copy()
                     rhoT_uMM.append(rhoT_MM)
@@ -897,12 +897,10 @@ class LCAOWaveFunctions(WaveFunctions):
             for u, kpt in enumerate(self.kpt_u):
                 for b in my_atom_indices:
                     H_ii = np.asarray(unpack(dH_asp[b][kpt.s]), dtype)
-                    HP_iM = gemmdot(H_ii,
-                                    np.ascontiguousarray(
-                                        self.P_aqMi[b][kpt.q].T.conj()))
+                    HP_iM = H_ii.dot(self.P_aqMi[b][kpt.q].T.conj())
                     for v in range(3):
                         dPdR_Mi = dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop]
-                        ArhoT_MM = (gemmdot(dPdR_Mi, HP_iM) * rhoT_uMM[u]).real
+                        ArhoT_MM = (dPdR_Mi.dot(HP_iM) * rhoT_uMM[u]).real
                         for a, M1, M2 in slices():
                             dE = 2 * ArhoT_MM[M1:M2].sum()
                             Fatom_av[a, v] += dE  # the "b; mu in a; nu" term

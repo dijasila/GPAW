@@ -1,5 +1,4 @@
 import numpy as np
-from gpaw.utilities.blas import gemmdot
 from gpaw.berryphase import get_overlap
 from gpaw.spinorbit import get_spinorbit_projections
 from gpaw.spinorbit import get_spinorbit_wavefunctions
@@ -326,8 +325,8 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
     print('%10d %6d %6d' % (Nn, Nk, Nb), file=f)
 
     icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
-    r_g = calc.wfs.gd.get_grid_point_coordinates()
-    Ng = np.prod(np.shape(r_g)[1:]) * (spinors + 1)
+    r_vg = calc.wfs.gd.get_grid_point_coordinates()
+    Ng = np.prod(np.shape(r_vg)[1:]) * (spinors + 1)
 
     dO_aii = []
     for ia in calc.wfs.kpt_u[0].P_ani.keys():
@@ -389,7 +388,7 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
             G_c = np.array([int(line[i]) for i in range(2, 5)])
             bG_c = kpts_kc[ik2] - kpts_kc[ik1] + G_c
             bG_v = np.dot(bG_c, icell_cv)
-            u2_nG = u2_nG * np.exp(-1.0j * gemmdot(bG_v, r_g, beta=0.0))
+            u2_nG = u2_nG * np.exp(-1.0j * r_vg.T.dot(bG_v).T)
             M_mm = get_overlap(calc,
                                bands,
                                np.reshape(u1_nG, (len(u1_nG), Ng)),

@@ -7,7 +7,6 @@ from gpaw.analyse.wignerseitz import wignerseitz
 from gpaw.setup_data import SetupData
 from gpaw.gauss import Gauss
 from gpaw.io.fmf import FMF
-from gpaw.utilities.blas import gemmdot
 
 
 def print_projectors(setup):
@@ -302,7 +301,7 @@ def get_all_electron_IPR(paw):
 
                 # density a function of L and partial wave radial pair
                 # density coefficient
-                D_sLq = gemmdot(D_sp, xccorr.B_Lqp, trans='t')
+                D_sLq = np.einsum('sp, Lqp -> sLq', D_sp, xccorr.B_Lqp)
 
                 # Create pseudo/ae density iterators for integration
                 n_iter = xccorr.expand_density(D_sLq, xccorr.n_qg, None)
