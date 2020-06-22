@@ -97,12 +97,13 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
 
     kd = calc.wfs.kd
 
-    e_km = np.zeros((kd.nbzkpts, 2 * len(bands)))
-    s_kvm = np.zeros((kd.nbzkpts, 3, 2 * len(bands)))
-    if return_wfs:
-        v_kmm = np.zeros((kd.nbzkpts, 2 * len(bands), 2 * len(bands)), complex)
-
-    transform = SymmetryTransformer(calc).transform_projections
+    for kpt_s in calc.wfs.kpt_qs:
+        for kpt in kpt_s:
+            projections = kpt.projections.collect()
+            eigenvalues = kpt.bd.collect(kpt.eps_n)
+            new_kpt = Kpoint
+        if len(kpt_s) == 1:
+            kpt_s.append(kpt_s[0])
 
     for i, (e_sn, P_snI) in distribute_ibz_k_points(calc, bands).items():
         for K, k in enumerate(kd.bz2ibz_k):
@@ -116,6 +117,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             s_kvm[K] = s_vm
             if return_wfs:
                 v_kmm[K] = v_mm
+        ap = AtomPartition(serial_comm, np.zeros(len(self.nproj_a), int))
+        P = self.new(atom_partition=ap)
+        comm = self.atom_partition.comm
 
     calc.world.sum(e_km)
     calc.world.sum(s_kvm)
