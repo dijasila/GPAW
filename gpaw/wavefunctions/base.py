@@ -265,13 +265,13 @@ class WaveFunctions:
         domain a full array on the domain master and send this to the
         global master."""
 
-        kpt_u = self.kpt_u
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
 
         if self.kd.comm.rank == kpt_rank:
             if isinstance(value, str):
-                a_o = getattr(kpt_u[u], value)
+                a_o = getattr(self.kpt_qs[q][s], value)
             else:
+                u = q * self.nspins + s
                 a_o = value[u]  # assumed list
 
             # Make sure data is a mutable object

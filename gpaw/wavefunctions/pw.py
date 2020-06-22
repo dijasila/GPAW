@@ -1165,6 +1165,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if S > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
+                assert nprow * npcol == S, (nprow, npcol, S)
             else:
                 nprow = int(round(S**0.5))
                 while S % nprow != 0:
@@ -1177,7 +1178,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             scalapack = True
         else:
-            nprow = npcol = 1
             scalapack = False
 
         self.set_positions(atoms.get_scaled_positions())
