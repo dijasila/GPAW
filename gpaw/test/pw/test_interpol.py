@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from gpaw.test import equal
 from gpaw.grid_descriptor import GridDescriptor
@@ -5,14 +6,14 @@ from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.mpi import world
 
 
-
+@pytest.mark.ci
 def test_pw_interpol():
     def test(gd1, gd2, pd1, pd2, R1, R2):
         a1 = gd1.zeros(dtype=pd1.dtype)
         a1[R1] = 1
         a2 = pd1.interpolate(a1, pd2)[0]
         x = a2[R2]
-        
+
         a2 = gd2.zeros(dtype=pd2.dtype)
         a2[R2] = 1
         y = pd2.restrict(a2, pd1)[0][R1] * a2.size / a1.size
@@ -42,7 +43,7 @@ def test_pw_interpol():
                 x = test(gd1, gd2, pd1, pd2, R1, R2)
                 y = test(gd1, gd2, pd1r, pd2r, R1, R2)
                 equal(x, y, 1e-9)
-            
+
             a1 = np.random.random(size1)
             a2 = pd1r.interpolate(a1, pd2r)[0]
             c2 = pd1.interpolate(a1 + 0.0j, pd2)[0]

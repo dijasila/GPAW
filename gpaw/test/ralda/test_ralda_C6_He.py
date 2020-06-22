@@ -6,8 +6,8 @@ from gpaw.test import equal
 
 
 @pytest.mark.skip(reason='TODO')
-def test_rpa_C6_He():
-    from gpaw.xc.rpa_correlation_energy import RPACorrelation
+def test_ralda_C6_He():
+    from gpaw.xc.fxc_correlation_energy import FXCCorrelation
     ecut = 50
 
     He = Atoms('He')
@@ -20,9 +20,9 @@ def test_rpa_C6_He():
     He.get_potential_energy()
     calc.diagonalize_full_hamiltonian()
 
-    rpa = RPACorrelation(calc)
-    C6_rpa, C6_0 = rpa.get_C6_coefficient(ecut=ecut,
-                                          direction=2)
+    ralda = FXCCorrelation(calc, xc='rALDA')
+    C6_ralda, C6_0 = ralda.get_C6_coefficient(ecut=ecut,
+                                              direction=2)
 
     equal(C6_0, 1.772, 0.01)
-    equal(C6_rpa, 1.387, 0.01)
+    equal(C6_ralda, 1.609, 0.01)

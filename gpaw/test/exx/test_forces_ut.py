@@ -26,6 +26,7 @@ nb = 2
 r2 = np.linspace(0, 2, 101)**2
 
 
+@pytest.mark.ci
 @pytest.mark.skipif(world.size > 1, reason='Not parallelized')
 def test_force():
     x = 0.2

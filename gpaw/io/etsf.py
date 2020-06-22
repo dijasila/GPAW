@@ -1,16 +1,16 @@
 import numpy as np
 from ase.units import Hartree
-from Scientific.IO.NetCDF import NetCDFFile
 
 
 class ETSFWriter:
     def __init__(self, filename='gpaw', title='gpaw'):
+        from Scientific.IO.NetCDF import NetCDFFile
         if not filename.endswith('-etsf.nc'):
             if filename.endswith('.nc'):
                 filename = filename[:-3] + '-etsf.nc'
             else:
                 filename = filename + '-etsf.nc'
-            
+
         self.nc = NetCDFFile(filename, 'w')
 
         self.nc.file_format = 'ETSF Nanoquanta'
@@ -21,17 +21,17 @@ class ETSFWriter:
 
     def write(self, calc, spacegroup=1):
 
-        #sg = Spacegroup(spacegroup)
-        #print sg
-        
+        # sg = Spacegroup(spacegroup)
+        # print sg
+
         wfs = calc.wfs
         setups = wfs.setups
         bd = wfs.bd
         kd = wfs.kd
-        
+
         atoms = calc.atoms
         natoms = len(atoms)
-        
+
         if wfs.kd.symmetry is None:
             op_scc = np.eye(3, dtype=int).reshape((1, 3, 3))
         else:
@@ -53,7 +53,7 @@ class ETSFWriter:
                 numbers.append(setups[a].Z)
                 charges.append(setups[a].Nv)
             specie_a[a] = species[id]
-            
+
         dimensions = [
             ('character_string_length', 80),
             ('max_number_of_states', bd.nbands),
@@ -75,7 +75,7 @@ class ETSFWriter:
             self.nc.createDimension(name, size)
 
         var = self.add_variable
-        
+
         var('space_group', (), np.array(spacegroup, dtype=int))
         var('primitive_vectors',
             ('number_of_vectors', 'number_of_cartesian_directions'),
