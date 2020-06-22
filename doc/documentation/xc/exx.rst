@@ -4,13 +4,20 @@
 Exact exchange
 ==============
 
-**THIS PAGE IS PARTLY OUTDATED**
+Currently we have two implementations of exact exchange:
 
-.. Can one define what is outdated?
-.. Fractional occupations are fixed by now
+1) :git:`~gpaw/xc/hybrid.py`: Can handle Gamma-point only
+   calculations self-consistently (for molecules and large cells).
 
-Inclusion of the non-local Fock operator as an exchange-correclation
-functional is an experimental feature in gpaw.
+2) :git:`~gpaw/xc/exx.py`: Can handle k-points, but not
+   self-consitently.
+
+
+.. contents::
+
+
+Self-consistent finite-difference implementation
+================================================
 
 The current implementation *lacks* the following features:
 
@@ -104,6 +111,16 @@ as shown in the following code snippet which uses PBE0 in conjuncture with
 the IVOs:
 
 .. literalinclude:: rsf_ivo_nacl.py
+
+
+Non self-consistent plane-wave implementation
+=============================================
+
+See this tutorial: :ref:`pbe0_tut`.
+
+.. autoclass:: gpaw.xc.exx.EXX
+   :members:
+
 
 .. [AB98] C. Adamo and V. Barone.
    *Toward Chemical Accuracy in the Computation of NMR Shieldings: The PBE0

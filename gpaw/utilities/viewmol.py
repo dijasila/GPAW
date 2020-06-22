@@ -253,4 +253,3 @@ def write_viewmol(pt, filename, mode='w'):
     for atoms in pt:
         vt.add(atoms)
     del(vt)
-

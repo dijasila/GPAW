@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 
 from ase import Atoms
@@ -57,6 +56,6 @@ print('Total energy on the fine grid   =', E[True])
 print('Total energy on the coarse grid =', E[False])
 equal(E[True], E[False], 0.01)
 
-energy_tolerance = 0.0003
+energy_tolerance = 0.003
 equal(E[False], 6.97818, energy_tolerance)
 equal(E[True], 6.97153, energy_tolerance)

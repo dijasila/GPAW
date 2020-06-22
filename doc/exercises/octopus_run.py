@@ -11,4 +11,3 @@ if exitcode != 0:
     raise RuntimeError(('Octopus exited with exit code: %d.  ' +
                         'Check %s.log for more information.') %
                        (exitcode, label))
-

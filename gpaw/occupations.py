@@ -18,6 +18,8 @@ def create_occupation_number_object(name, **kwargs):
         return FermiDirac(**kwargs)
     if name == 'methfessel-paxton':
         return MethfesselPaxton(**kwargs)
+    if name == 'marzari-vanderbilt':
+        return MarzariVanderbilt(**kwargs)
     if name == 'orbital-free':
         return TFOccupations()
     raise ValueError('Unknown occupation number object name: ' + name)
@@ -254,15 +256,15 @@ class ZeroKelvin(OccupationNumbers):
         return HOMO and LUMO energies."""
 
         N = len(f_n)
-        if ne == N * weight:
+        if ne == N:
             f_n[:] = weight
             return eps_n[-1], np.inf
 
-        n, f = divmod(ne, weight)
-        n = int(n)
+        n = int(ne)
+        f = ne - n
         f_n[:n] = weight
         assert n < N
-        f_n[n] = f
+        f_n[n] = f * weight
         f_n[n + 1:] = 0.0
         if f > 0.0:
             return eps_n[n], eps_n[n]
@@ -367,7 +369,7 @@ class ZeroKelvin(OccupationNumbers):
             if wfs.bd.comm.rank == 0:
                 f_n = wfs.bd.empty(global_array=True)
                 hom, lum = self.occupy(f_n, eps_n,
-                                       ne * kpt.weight, kpt.weight)
+                                       ne, kpt.weight)
                 homo = max(homo, hom)
                 lumo = min(lumo, lum)
             else:
@@ -625,6 +627,46 @@ class MethfesselPaxton(SmoothDistribution):
         return E - self.e_entropy / (self.order + 2)
 
 
+class MarzariVanderbilt(SmoothDistribution):
+    def __init__(self, width, fixmagmom=False):
+        SmoothDistribution.__init__(self, width, fixmagmom)
+
+    def todict(self):
+        dct = SmoothDistribution.todict(self)
+        dct['name'] = 'marzari-vanderbilt'
+        return dct
+
+    def __str__(self):
+        s = '  Marzari-Vanderbilt: width={0:.4f} eV\n'.format(
+            self.width * Hartree)
+        return SmoothDistribution.__str__(self) + s
+
+    def distribution(self, kpt, fermilevel):
+        x = (kpt.eps_n - fermilevel) / self.width
+        x = x.clip(-100, 100)
+
+        expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
+
+        z = expterm / np.sqrt(2 * np.pi) + 0.5 * (1 - erf(1. / np.sqrt(2) + x))
+        kpt.f_n[:] = kpt.weight * z
+        n = kpt.f_n.sum()
+
+        dnde = expterm * (2 + np.sqrt(2) * x) / np.sqrt(np.pi)
+        dnde = dnde.sum() * kpt.weight / self.width
+
+        s = expterm * (1 + np.sqrt(2) * x) / (2 * np.sqrt(np.pi))
+
+        e_entropy = -kpt.weight * s.sum() * self.width
+
+        sign = 1 - kpt.s * 2
+        return np.array([n, dnde, n * sign, e_entropy])
+
+    def extrapolate_energy_to_zero_width(self, E):
+        # According to Nicola Marzari, one should not extrapolate M-V energies
+        # https://lists.quantum-espresso.org/pipermail/users/2005-October/003170.html
+        return E
+
+
 class FixedOccupations(ZeroKelvin):
     def __init__(self, occupation):
         self.occupation = np.array(occupation)
@@ -653,4 +695,4 @@ class TFOccupations(FermiDirac):
 
         return HOMO and LUMO energies."""
         # Same as occupy in FermiDirac expect one band: weight = ne
-        return FermiDirac.occupy(self, f_n, eps_n, ne, ne)
+        return FermiDirac.occupy(self, f_n, eps_n, 1, ne * weight)

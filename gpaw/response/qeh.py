@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import pickle
 import numpy as np
 from math import pi
@@ -250,8 +248,9 @@ class Heterostructure:
                             self.potential_model(self.myq_abs[iq], self.z_big,
                                                  self.z0[k], dipole=True,
                                                  delta=delta)
-                        dphi_array[2 * k + 1, iq, i_1: i_2 + 1] = \
-                            fd(z_big[i_1: i_2 + 1]) + 1j * fd2(z_big[i_1: i_2 + 1])
+                        dphi_array[2 * k + 1, iq, i_1: i_2 + 1] = (
+                            fd(z_big[i_1: i_2 + 1]) + 1j *
+                            fd2(z_big[i_1: i_2 + 1]))
 
         return dphi_array
 
@@ -261,7 +260,8 @@ class Heterostructure:
             z_lim = self.z_lim
 
         z_lim = int(z_lim / dz) * dz
-        z_grid = np.insert(z, 0, np.flip(np.arange(z[0] - dz, -z_lim - dz, -dz)))
+        z_grid = np.insert(z, 0, np.flip(np.arange(z[0] - dz,
+                                                   -z_lim - dz, -dz)))
         z_grid = np.append(z_grid, np.arange(z[-1] + dz, z_lim + dz, dz))
         return z_grid
 
@@ -391,7 +391,7 @@ class Heterostructure:
         return eps_qwij
 
     def get_screened_potential(self, layer=0):
-        """
+        r"""
         get the screened interaction averaged over layer "k":
         W_{kk}(q, w) = \sum_{ij} V_{ki}(q) \chi_{ij}(q, w) V_{jk}(q)
 
@@ -635,7 +635,7 @@ class Heterostructure:
         return self.q_abs / Bohr, self.frequencies[:Nw] * Hartree, epsM_qw
 
     def get_eels(self, dipole_contribution=False):
-        """
+        r"""
         Calculates Electron energy loss spectrum, defined as:
 
         EELS(q, w) = - Im 4 \pi / q**2 \chiM(q, w)
@@ -679,7 +679,7 @@ class Heterostructure:
             - (Bohr * eels_qw).imag
 
     def get_absorption_spectrum(self, dipole_contribution=False):
-        """
+        r"""
         Calculates absorption spectrum, defined as:
 
         ABS(q, w) = - Im 2 / q \epsM(q, w)
@@ -722,8 +722,7 @@ class Heterostructure:
             (Bohr * abs_qw).imag
 
     def get_sum_eels(self, V_beam=100, include_z=False):
-
-        """
+        r"""
         Calculates the q- averaged Electron energy loss spectrum usually
         obtained in scanning transmission electron microscopy (TEM).
 
@@ -838,7 +837,7 @@ class Heterostructure:
     def get_response(self, iw=0, dipole=False):
         """
         Get the induced density and potential due to constant perturbation
-        obtained as: rho_ind(r) = \int chi(r,r') dr'
+        obtained as: rho_ind(r) = int chi(r,r') dr'
         """
         const_per = np.ones([self.n_layers])
         if self.chi_dipole is not None:
@@ -1451,7 +1450,7 @@ def interpolate_building_blocks(BBfiles=None, BBmotherfile=None,
 
 def get_chi_2D(omega_w=None, pd=None, chi_wGG=None, q0=None,
                filenames=None, name=None):
-    """Calculate the monopole and dipole contribution to the
+    r"""Calculate the monopole and dipole contribution to the
     2D susceptibillity chi_2D, defined as
 
     ::

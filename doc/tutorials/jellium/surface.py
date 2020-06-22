@@ -13,7 +13,8 @@ k = 12           # number of k-points (k*k*1)
 
 ne = a**2 * L / (4 * np.pi / 3 * rs**3)
 
-jellium = JelliumSlab(ne, z1=v, z2=v + L)
+eps = 0.001  # displace surfaces away from grid-points
+jellium = JelliumSlab(ne, z1=v - eps, z2=v + L + eps)
 
 surf = Atoms(pbc=(True, True, False),
              cell=(a, a, v + L + v))

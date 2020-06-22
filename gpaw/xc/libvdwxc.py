@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 
 from gpaw.mpi import have_mpi
@@ -10,7 +8,7 @@ from gpaw.xc.functional import XCFunctional
 from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.mgga import MGGA
-
+import gpaw
 import _gpaw
 
 
@@ -112,10 +110,9 @@ class LibVDWXC(object):
             assert comm.size == 1, ('You cannot run in serial with %d cores'
                                     % comm.size)
             _gpaw.libvdwxc_init_serial(self._ptr)
-        elif comm.get_c_object() is None:
-            from gpaw.mpi import DryRunCommunicator
+        elif gpaw.dry_run:
+            pass
             # XXXXXX liable to cause really nasty errors.
-            assert isinstance(comm, DryRunCommunicator)
         elif mode == 'mpi':
             if not libvdwxc_has_mpi():
                 raise ImportError('libvdwxc not compiled with MPI')
@@ -305,11 +302,12 @@ class VDWXC(XCFunctional):
 
         # XXXXXXXXXXXXXXXXX
         self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
-        #self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
         self.calculate_spherical = semilocal_xc.calculate_spherical
-        self.apply_orbital_dependent_hamiltonian = semilocal_xc.apply_orbital_dependent_hamiltonian
+        self.apply_orbital_dependent_hamiltonian = \
+            semilocal_xc.apply_orbital_dependent_hamiltonian
         self.add_forces = semilocal_xc.add_forces
-        self.get_kinetic_energy_correction = semilocal_xc.get_kinetic_energy_correction
+        self.get_kinetic_energy_correction = \
+            semilocal_xc.get_kinetic_energy_correction
         self.rotate = semilocal_xc.rotate
 
     def __str__(self):

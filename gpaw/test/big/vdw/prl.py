@@ -35,4 +35,3 @@ plt.plot(d, (e + de - 2 * e0 - 2 * de0) / (kcal/mol))
 plt.xlim(3, 4.9)
 plt.ylim(-4, 5)
 plt.show()
-

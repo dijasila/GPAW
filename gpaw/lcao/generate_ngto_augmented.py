@@ -186,8 +186,8 @@ def main():
     for i, fname in enumerate(fname_i):
         if i % world.size != world.rank:
             continue
-        m = re.match('(?P<atom>\w+)-(?P<label>NAO-(?P<nao>\w+)\+' +
-                     'NGTO-N(?P<Nngto>\d+)).gbs', fname)
+        m = re.match(r'(?P<atom>\w+)-(?P<label>NAO-(?P<nao>\w+)\+' +
+                     r'NGTO-N(?P<Nngto>\d+)).gbs', fname)
         if m is not None:
             if world.size > 1:
                 print(world.rank, fname)

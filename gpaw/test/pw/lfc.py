@@ -9,7 +9,6 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.kpt_descriptor import KPointDescriptor
 
-
 x = 2.0
 rc = 3.5
 r = np.linspace(0, rc, 100)
@@ -24,11 +23,9 @@ spos_ac = np.array([(0.15, 0.5, 0.95)])
 
 pd = PWDescriptor(45, gd, complex, kd)
 
-eikr = np.ascontiguousarray(np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
-                                                         (kpts / gd.N_c).T).T)[0])
-
-from gpaw.fftw import FFTPlan
-print(FFTPlan)
+eikr = np.ascontiguousarray(
+    np.exp(2j * np.pi * np.dot(np.indices(gd.N_c).T,
+                               (kpts / gd.N_c).T).T)[0])
 
 for l in range(3):
     print(l)
@@ -36,7 +33,7 @@ for l in range(3):
 
     lfc1 = LFC(gd, [[s]], kd, dtype=complex)
     lfc2 = PWLFC([[s]], pd)
-    
+
     c_axi = {0: np.zeros((1, 2 * l + 1), complex)}
     c_axi[0][0, 0] = 1.9 - 4.5j
     c_axiv = {0: np.zeros((1, 2 * l + 1, 3), complex)}
@@ -49,8 +46,8 @@ for l in range(3):
         lfc.add(b, c_axi, 0)
 
     b2 = pd.ifft(b2[0]) * eikr
-    equal(abs(b2-b1[0]).max(), 0, 0.001)
-    
+    equal(abs(b2 - b1[0]).max(), 0, 0.001)
+
     b1 = eikr[None]
     b2 = pd.fft(b1[0] * 0 + 1).reshape((1, -1))
 

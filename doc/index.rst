@@ -32,6 +32,9 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
        [ -9.98454736e-14,   4.37862132e-14,   6.44750360e-01]])
 
 
+.. image:: https://badge.fury.io/py/gpaw.svg
+    :target: https://pypi.org/project/gpaw/
+
 .. _Python: http://www.python.org
 .. _ASE: https://wiki.fysik.dtu.dk/ase
 
@@ -40,6 +43,14 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 
 News
 ====
+
+* :ref:`GPAW version 20.1.0 <releasenotes>` released (30 Jan 2020).
+
+* :ref:`GPAW version 19.8.1 <releasenotes>` released (8 Aug 2019).
+
+* :ref:`GPAW version 19.8.0 <releasenotes>` released (1 Aug 2019).
+
+* :ref:`GPAW version 1.5.2 <releasenotes>` released (8 May 2019).
 
 * :ref:`GPAW version 1.5.1 <releasenotes>` released (23 Jan 2019).
 

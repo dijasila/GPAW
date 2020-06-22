@@ -2,16 +2,17 @@
 import warnings
 
 import numpy as np
+from ase import Atoms
 from ase.units import Bohr, Ha
 from ase.calculators.calculator import Calculator, kpts2ndarray
-from ase.utils import basestring, plural
+from ase.utils import plural
 from ase.utils.timing import Timer
 from ase.dft.bandgap import bandgap
 
 import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
-from gpaw import dry_run, memory_estimate_depth
+from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
 from gpaw.eigensolvers import get_eigensolver
@@ -80,14 +81,14 @@ class GPAW(PAW, Calculator):
                      'time_reversal': True,
                      'symmorphic': True,
                      'tolerance': 1e-7,
-                     'do_not_symmetrize_the_density': False},
+                     'do_not_symmetrize_the_density': None},  # deprecated
         'convergence': {'energy': 0.0005,  # eV / electron
                         'density': 1.0e-4,
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'dtype': None,  # Deprecated
-        'width': None,  # Deprecated
+        'dtype': None,  # deprecated
+        'width': None,  # deprecated
         'verbose': 0}
 
     default_parallel = {
@@ -170,7 +171,7 @@ class GPAW(PAW, Calculator):
 
     def _write(self, writer, mode):
         from ase.io.trajectory import write_atoms
-        writer.write(version=1, gpaw_version=gpaw.__version__,
+        writer.write(version=2, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
 
         write_atoms(writer.child('atoms'), self.atoms)
@@ -235,7 +236,6 @@ class GPAW(PAW, Calculator):
         from gpaw.utilities.partition import AtomPartition
         atom_partition = AtomPartition(self.wfs.gd.comm,
                                        np.zeros(len(self.atoms), dtype=int))
-        self.wfs.atom_partition = atom_partition
         self.density.atom_partition = atom_partition
         self.hamiltonian.atom_partition = atom_partition
         rank_a = self.density.gd.get_ranks_from_positions(self.spos_ac)
@@ -243,6 +243,10 @@ class GPAW(PAW, Calculator):
         for obj in [self.density, self.hamiltonian]:
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
+        if new_atom_partition != atom_partition:
+            for kpt in self.wfs.mykpts:
+                kpt.projections = kpt.projections.redist(new_atom_partition)
+        self.wfs.atom_partition = new_atom_partition
 
         self.hamiltonian.xc.read(reader)
 
@@ -437,11 +441,11 @@ class GPAW(PAW, Calculator):
             # More drastic changes:
             if self.wfs:
                 self.wfs.set_orthonormalized(False)
-            if key in ['external', 'xc', 'poissonsolver']:
+            if key in ['xc', 'poissonsolver']:
                 self.hamiltonian = None
             elif key in ['occupations', 'width']:
                 pass
-            elif key in ['charge', 'background_charge']:
+            elif key in ['external', 'charge', 'background_charge']:
                 self.hamiltonian = None
                 self.density = None
                 self.wfs = None
@@ -530,7 +534,7 @@ class GPAW(PAW, Calculator):
         # Generate new xc functional only when it is reset by set
         # XXX sounds like this should use the _changed_keywords dictionary.
         if self.hamiltonian is None or self.hamiltonian.xc is None:
-            if isinstance(par.xc, (basestring, dict)):
+            if isinstance(par.xc, (str, dict)):
                 xc = XC(par.xc, collinear=collinear, atoms=atoms)
             else:
                 xc = par.xc
@@ -538,7 +542,7 @@ class GPAW(PAW, Calculator):
             xc = self.hamiltonian.xc
 
         mode = par.mode
-        if isinstance(mode, basestring):
+        if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
@@ -556,10 +560,10 @@ class GPAW(PAW, Calculator):
 
         realspace = (mode.name != 'pw' and mode.interpolation != 'fft')
 
+        self.create_setups(mode, xc)
+
         if not realspace:
             pbc_c = np.ones(3, bool)
-
-        self.create_setups(mode, xc)
 
         if par.hund:
             if natoms != 1:
@@ -589,6 +593,28 @@ class GPAW(PAW, Calculator):
             self.log('Magnetic moment: ({:.6f}, {:.6f}, {:.6f})\n'
                      .format(*magmom_av.sum(0)))
 
+        self.create_symmetry(magmom_av, cell_cv, reading)
+
+        if par.gpts is not None:
+            if par.h is not None:
+                raise ValueError("""You can't use both "gpts" and "h"!""")
+            N_c = np.array(par.gpts)
+            h = None
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            if h is None and reading:
+                shape = self.reader.density.proxy('density').shape[-3:]
+                N_c = 1 - pbc_c + shape
+            elif h is None and self.density is not None:
+                N_c = self.density.gd.N_c
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
+
+        self.setups.set_symmetry(self.symmetry)
+
         if isinstance(par.background_charge, dict):
             background = create_background_charge(**par.background_charge)
         else:
@@ -607,7 +633,7 @@ class GPAW(PAW, Calculator):
         if orbital_free:
             nbands = 1
 
-        if isinstance(nbands, basestring):
+        if isinstance(nbands, str):
             if nbands == 'nao':
                 nbands = nao
             elif nbands[-1] == '%':
@@ -648,8 +674,6 @@ class GPAW(PAW, Calculator):
         if self.scf is None:
             self.create_scf(nvalence, mode)
 
-        self.create_symmetry(magmom_av, cell_cv)
-
         if not collinear:
             nbands *= 2
 
@@ -657,7 +681,7 @@ class GPAW(PAW, Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c)
+                                       cell_cv, pbc_c, N_c)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -679,7 +703,7 @@ class GPAW(PAW, Calculator):
             self.hamiltonian = None
 
         if self.density is None:
-            self.create_density(realspace, mode, background)
+            self.create_density(realspace, mode, background, h)
 
         # XXXXXXXXXX if setups change, then setups.core_charge may change.
         # But that parameter was supplied in Density constructor!
@@ -718,21 +742,18 @@ class GPAW(PAW, Calculator):
         self.log('Number of atoms:', natoms)
         self.log('Number of atomic orbitals:', self.wfs.setups.nao)
         self.log('Number of bands in calculation:', self.wfs.bd.nbands)
-        self.log('Bands to converge: ', end='')
-        n = par.convergence.get('bands', 'occupied')
-        if n == 'occupied':
-            self.log('occupied states only')
-        elif n == 'all':
-            self.log('all')
-        else:
-            self.log('%d lowest bands' % n)
         self.log('Number of valence electrons:', self.wfs.nvalence)
+
+        n = par.convergence.get('bands', 'occupied')
+        if isinstance(n, int) and n < 0:
+            n += self.wfs.bd.nbands
+        self.log('Bands to converge:', n)
 
         self.log(flush=True)
 
         self.timer.print_info(self)
 
-        if dry_run:
+        if gpaw.dry_run:
             self.dry_run()
 
         if (realspace and
@@ -833,23 +854,39 @@ class GPAW(PAW, Calculator):
             nv)
         self.log(self.scf)
 
-    def create_symmetry(self, magmom_av, cell_cv):
+    def create_symmetry(self, magmom_av, cell_cv, reading):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}
+
+        if 'do_not_symmetrize_the_density' in symm:
+            symm = symm.copy()
+            dnstd = symm.pop('do_not_symmetrize_the_density')
+            if dnstd is not None:
+                info = 'Ignoring your "do_not_symmetrize_the_density" keyword!'
+                if reading:
+                    self.log(info)
+                else:
+                    warnings.warn(info + ' Please remove it.')
+
+        if self.parameters.external is not None:
+            symm = symm.copy()
+            symm['point_group'] = False
+
+        if reading and self.reader.version <= 1:
+            symm['allow_invert_aperiodic_axes'] = False
+
         m_av = magmom_av.round(decimals=3)  # round off
         id_a = [id + tuple(m_v) for id, m_v in zip(self.setups.id_a, m_av)]
         self.symmetry = Symmetry(id_a, cell_cv, self.atoms.pbc, **symm)
         self.symmetry.analyze(self.spos_ac)
-        self.setups.set_symmetry(self.symmetry)
 
     def create_eigensolver(self, xc, nbands, mode):
         # Number of bands to converge:
         nbands_converge = self.parameters.convergence.get('bands', 'occupied')
         if nbands_converge == 'all':
             nbands_converge = nbands
-        elif nbands_converge != 'occupied':
-            assert isinstance(nbands_converge, int)
+        elif isinstance(nbands_converge, int):
             if nbands_converge < 0:
                 nbands_converge += nbands
         eigensolver = get_eigensolver(self.parameters.eigensolver, mode,
@@ -864,7 +901,7 @@ class GPAW(PAW, Calculator):
 
         self.log('Eigensolver\n  ', self.wfs.eigensolver, '\n')
 
-    def create_density(self, realspace, mode, background):
+    def create_density(self, realspace, mode, background, h):
         gd = self.wfs.gd
 
         big_gd = gd.new_descriptor(comm=self.world)
@@ -899,7 +936,12 @@ class GPAW(PAW, Calculator):
             self.density = RealSpaceDensity(stencil=mode.interpolation,
                                             **kwargs)
         else:
-            self.density = pw.ReciprocalSpaceDensity(**kwargs)
+            if h is None:
+                ecut = 2 * self.wfs.pd.ecut
+            else:
+                ecut = 0.5 * (np.pi / h)**2
+            self.density = pw.ReciprocalSpaceDensity(ecut=ecut,
+                                                     **kwargs)
 
         self.log(self.density, '\n')
 
@@ -951,7 +993,12 @@ class GPAW(PAW, Calculator):
     def create_kpoint_descriptor(self, nspins):
         par = self.parameters
 
-        bzkpts_kc = kpts2ndarray(par.kpts, self.atoms)
+        # Zero cell vectors that are not periodic so that ASE's
+        # kpts2ndarray can handle 1-d and 2-d correctly:
+        atoms = Atoms(cell=self.atoms.cell * self.atoms.pbc[:, np.newaxis],
+                      pbc=self.atoms.pbc)
+        bzkpts_kc = kpts2ndarray(par.kpts, atoms)
+
         kpt_refine = par.experimental.get('kpt_refine')
         if kpt_refine is None:
             kd = KPointDescriptor(bzkpts_kc, nspins)
@@ -979,7 +1026,7 @@ class GPAW(PAW, Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c):
+                              setups, cell_cv, pbc_c, N_c):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1005,19 +1052,6 @@ class GPAW(PAW, Calculator):
         domainband_comm = comms['K']
 
         self.comms = comms
-
-        if par.gpts is not None:
-            if par.h is not None:
-                raise ValueError("""You can't use both "gpts" and "h"!""")
-            N_c = np.array(par.gpts)
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                            kd.symmetry)
-
-        self.symmetry.check_grid(N_c)
 
         kd.set_communicator(kpt_comm)
 

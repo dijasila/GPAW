@@ -1,3 +1,4 @@
+# flake8: noqa
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
 from gpaw.xc.pawcorrection import rnablaY_nLv
@@ -275,6 +276,3 @@ class C_GLLBScr(Contribution):
     def write(self, writer):
         # GLLBScr has no special data to be written
         pass
-
-
-

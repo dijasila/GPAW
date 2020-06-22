@@ -1,8 +1,5 @@
 # Creates: fig2.png
 import numpy as np
-# mathtext fails to create title with matplotlib 0.99 on el6
-#import matplotlib
-#matplotlib.rc('text', usetex=True)
 import matplotlib.pyplot as plt
 from ase.units import Bohr
 from gpaw import GPAW
@@ -22,11 +19,10 @@ lambdaF = 2 * np.pi / kF  # Fermi wavelength
 plt.figure(figsize=(6, 6 / 2**0.5))
 plt.plot([-L / lambdaF, -L / lambdaF, 0, 0], [0, 1, 1, 0], 'k')
 plt.plot((z - z0) / lambdaF, density / n)
-#plt.xlim(xmin=-1.2, xmax=1)
+# plt.xlim(xmin=-1.2, xmax=1)
 plt.ylim(ymin=0)
 plt.title(r'$r_s=%.1f\ \mathrm{Bohr},\ \lambda_F=%.1f\ \mathrm{Bohr}$' %
           (rs / Bohr, lambdaF / Bohr))
 plt.xlabel('DISTANCE (FERMI WAVELENGTHS)')
 plt.ylabel('ELECTRON DENSITY')
 plt.savefig('fig2.png')
-

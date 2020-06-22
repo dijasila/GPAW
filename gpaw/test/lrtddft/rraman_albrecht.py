@@ -68,4 +68,3 @@ alam = Albrecht(H2, KSSingles, gsname=gsname, exname=exname,
 # single excitation energies should agree
 equal(ints, alam.intensity(omega=om)[0] , 1e-11)
 alam.summary(omega=5, method='frederiksen')
-

@@ -288,7 +288,8 @@ def scalapack_general_diagonalize_mr3(desca, a, b, z, w, uplo, iu=None):
                                                    switch_lu[uplo],
                                                    iu, b, z, w)
     if info != 0:
-        raise RuntimeError('scalapack_general_diagonalize_mr3 error: %d' % info)
+        raise RuntimeError('scalapack_general_diagonalize_mr3 error: %d' %
+                           info)
 
 def scalapack_inverse_cholesky(desca, a, uplo):
     """Perform Cholesky decomposin followed by an inversion
@@ -446,7 +447,8 @@ def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN,
                transa, transb)
 
 
-def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN, side='L', uplo='L'):
+def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN,
+                      side='L', uplo='L'):
     alpha = 1.0
     beta = 0.0
     pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
@@ -527,4 +529,3 @@ def pblas_simple_rk(desca, descc, a, c):
     beta = 0.0
     pblas_rk(alpha, a, beta, c,
              desca, descc)
-

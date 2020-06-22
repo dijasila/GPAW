@@ -239,4 +239,3 @@ class GWBands:
                        'vbm': vbm,
                        'cbm': cbm}
             return results
-

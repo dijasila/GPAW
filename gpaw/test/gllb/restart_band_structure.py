@@ -9,7 +9,7 @@ gen('Si', xcname='GLLBSC')
 
 e = {}
 
-energy_tolerance = 0.0002
+energy_tolerance = 0.001
 
 e_ref = {'LDA': {'restart': -5.583306128278814},
          'GLLBSC': {'restart': -5.458520154765278}}

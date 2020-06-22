@@ -1,9 +1,7 @@
-from __future__ import print_function, division
-
 from gpaw import GPAW
 
 
-def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
+def fulldiag(filename, bands=None, scalapack=1):
     """Set up full H and S matrices and find all or some eigenvectors/values.
 
     calc: str
@@ -21,9 +19,8 @@ def fulldiag(filename, bands=None, scalapack=1, dry_run=False):
     calc = GPAW(filename,
                 parallel={'band': scalapack},
                 txt=name + '-all.txt')
-    if not dry_run:
-        calc.diagonalize_full_hamiltonian(bands)
-        calc.write(name + '-all.gpw', 'all')
+    calc.diagonalize_full_hamiltonian(bands)
+    calc.write(name + '-all.gpw', 'all')
 
     ng = calc.wfs.pd.ngmax
     mem = ng**2 * 16 / 1024**2
@@ -38,8 +35,7 @@ class CLICommand:
         parser.add_argument('gpw', metavar='gpw-file')
         parser.add_argument('-b', '--bands', type=int)
         parser.add_argument('-s', '--scalapack', type=int, default=1)
-        parser.add_argument('-0', '--dry-run', action='store_true')
 
     @staticmethod
     def run(args):
-        fulldiag(args.gpw, args.bands, args.scalapack, args.dry_run)
+        fulldiag(args.gpw, args.bands, args.scalapack)

@@ -11,8 +11,6 @@
 #endif
 #include <xc.h>
 
-#define PY3 (PY_MAJOR_VERSION >= 3)
-
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
 PyObject* ibm_hpm_stop(PyObject *self, PyObject *args);
@@ -32,31 +30,13 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
-PyObject* scal(PyObject *self, PyObject *args);
-PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
+#ifndef GPAW_WITHOUT_BLAS
+PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
-PyObject* gemv(PyObject *self, PyObject *args);
-PyObject* axpy(PyObject *self, PyObject *args);
-PyObject* czher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
-PyObject* dotc(PyObject *self, PyObject *args);
-PyObject* dotu(PyObject *self, PyObject *args);
-PyObject* multi_dotu(PyObject *self, PyObject *args);
-PyObject* multi_axpy(PyObject *self, PyObject *args);
-PyObject* diagonalize(PyObject *self, PyObject *args);
-PyObject* diagonalize_mr3(PyObject *self, PyObject *args);
-PyObject* general_diagonalize(PyObject *self, PyObject *args);
-PyObject* inverse_cholesky(PyObject *self, PyObject *args);
-PyObject* banded_cholesky(PyObject* self, PyObject* args);
-PyObject* solve_banded_cholesky(PyObject* self, PyObject* args);
-PyObject* inverse_symmetric(PyObject *self, PyObject *args);
-PyObject* inverse_general(PyObject *self, PyObject *args);
-PyObject* linear_solve_band(PyObject *self, PyObject *args);
-PyObject* linear_solve_tridiag(PyObject *self, PyObject *args);
-PyObject* right_eigenvectors(PyObject *self, PyObject *args);
-PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
+#endif
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
@@ -64,8 +44,6 @@ PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* add_to_density(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
-PyObject* utilities_vdot(PyObject *self, PyObject *args);
-PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
 PyObject* errorfunction(PyObject *self, PyObject *args);
 PyObject* cerf(PyObject *self, PyObject *args);
 PyObject* pack(PyObject *self, PyObject *args);
@@ -82,7 +60,6 @@ PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject *pwlfc_expand(PyObject *self, PyObject *args);
 PyObject *pw_insert(PyObject *self, PyObject *args);
 PyObject *pw_precond(PyObject *self, PyObject *args);
-PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
@@ -117,6 +94,9 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_ELPA)
 #include <elpa/elpa.h>
+PyObject* pyelpa_init(PyObject *self, PyObject *args);
+PyObject* pyelpa_uninit(PyObject *self, PyObject *args);
+PyObject* pyelpa_version(PyObject *self, PyObject *args);
 PyObject* pyelpa_allocate(PyObject *self, PyObject *args);
 PyObject* pyelpa_set(PyObject *self, PyObject *args);
 PyObject* pyelpa_set_comm(PyObject *self, PyObject *args);
@@ -128,6 +108,12 @@ PyObject* pyelpa_constants(PyObject *self, PyObject *args);
 PyObject* pyelpa_deallocate(PyObject *self, PyObject *args);
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL and PARALLEL
+
+#ifdef GPAW_WITH_FFTW
+PyObject * FFTWPlan(PyObject *self, PyObject *args);
+PyObject * FFTWExecute(PyObject *self, PyObject *args);
+PyObject * FFTWDestroy(PyObject *self, PyObject *args);
+#endif
 
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
@@ -157,8 +143,12 @@ PyObject* githash(PyObject* self, PyObject* args)
 #undef STR
 #endif // GPAW_GITHASH
 
-// Moving least squares interpolation
-PyObject* mlsqr(PyObject *self, PyObject *args);
+// Holonomic constraints
+PyObject* adjust_positions(PyObject *self, PyObject *args);
+PyObject* adjust_momenta(PyObject *self, PyObject *args);
+// TIP3P forces
+PyObject* calculate_forces_H2O(PyObject *self, PyObject *args);
+
 
 static PyMethodDef functions[] = {
     {"symmetrize", symmetrize, METH_VARARGS, 0},
@@ -167,39 +157,19 @@ static PyMethodDef functions[] = {
     {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
     {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
     {"map_k_points", map_k_points, METH_VARARGS, 0},
-    {"scal", scal, METH_VARARGS, 0},
-    {"mmm", mmm, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
+#ifndef GPAW_WITHOUT_BLAS
+    {"mmm", mmm, METH_VARARGS, 0},
     {"gemm", gemm, METH_VARARGS, 0},
-    {"gemv", gemv, METH_VARARGS, 0},
-    {"axpy", axpy, METH_VARARGS, 0},
-    {"czher", czher, METH_VARARGS, 0},
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
-    {"dotc", dotc, METH_VARARGS, 0},
-    {"dotu", dotu, METH_VARARGS, 0},
-    {"multi_dotu", multi_dotu, METH_VARARGS, 0},
-    {"multi_axpy", multi_axpy, METH_VARARGS, 0},
-    {"diagonalize", diagonalize, METH_VARARGS, 0},
-    {"diagonalize_mr3", diagonalize_mr3, METH_VARARGS, 0},
-    {"general_diagonalize", general_diagonalize, METH_VARARGS, 0},
-    {"inverse_cholesky", inverse_cholesky, METH_VARARGS, 0},
-    {"banded_cholesky", banded_cholesky, METH_VARARGS, 0},
-    {"solve_banded_cholesky", solve_banded_cholesky, METH_VARARGS, 0},
-    {"inverse_symmetric", inverse_symmetric, METH_VARARGS, 0},
-    {"inverse_general", inverse_general, METH_VARARGS, 0},
-    {"linear_solve_band", linear_solve_band, METH_VARARGS, 0},
-    {"linear_solve_tridiag", linear_solve_tridiag, METH_VARARGS, 0},
-    {"right_eigenvectors", right_eigenvectors, METH_VARARGS, 0},
-    {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
+#endif
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
     {"Spline", NewSplineObject, METH_VARARGS, 0},
     {"Transformer", NewTransformerObject, METH_VARARGS, 0},
     {"add_to_density", add_to_density, METH_VARARGS, 0},
     {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
-    {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
-    {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
     {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
     {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
@@ -215,7 +185,6 @@ static PyMethodDef functions[] = {
     {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
-    {"overlap", overlap, METH_VARARGS, 0},
     {"tci_overlap", tci_overlap, METH_VARARGS, 0},
     {"vdw", vdw, METH_VARARGS, 0},
     {"vdw2", vdw2, METH_VARARGS, 0},
@@ -255,6 +224,9 @@ static PyMethodDef functions[] = {
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #if defined(GPAW_WITH_ELPA)
+    {"pyelpa_init", pyelpa_init, METH_VARARGS, 0},
+    {"pyelpa_uninit", pyelpa_uninit, METH_VARARGS, 0},
+    {"pyelpa_version", pyelpa_version, METH_VARARGS, 0},
     {"pyelpa_allocate", pyelpa_allocate, METH_VARARGS, 0},
     {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
     {"pyelpa_setup", pyelpa_setup, METH_VARARGS, 0},
@@ -266,6 +238,11 @@ static PyMethodDef functions[] = {
     {"pyelpa_deallocate", pyelpa_deallocate, METH_VARARGS, 0},
 #endif // GPAW_WITH_ELPA
 #endif // GPAW_WITH_SL && PARALLEL
+#ifdef GPAW_WITH_FFTW
+    {"FFTWPlan", FFTWPlan, METH_VARARGS, 0},
+    {"FFTWExecute", FFTWExecute, METH_VARARGS, 0},
+    {"FFTWDestroy", FFTWDestroy, METH_VARARGS, 0},
+#endif
 #ifdef GPAW_HPM
     {"hpm_start", ibm_hpm_start, METH_VARARGS, 0},
     {"hpm_stop", ibm_hpm_stop, METH_VARARGS, 0},
@@ -289,7 +266,9 @@ static PyMethodDef functions[] = {
     {"libvdwxc_init_mpi", libvdwxc_init_mpi, METH_VARARGS, 0},
     {"libvdwxc_init_pfft", libvdwxc_init_pfft, METH_VARARGS, 0},
 #endif // GPAW_WITH_LIBVDWXC
-    {"mlsqr", mlsqr, METH_VARARGS, 0},
+    {"adjust_positions", adjust_positions, METH_VARARGS, 0},
+    {"adjust_momenta", adjust_momenta, METH_VARARGS, 0},
+    {"calculate_forces_H2O", calculate_forces_H2O, METH_VARARGS, 0},
 #ifdef GPAW_GITHASH
     {"githash", githash, METH_VARARGS, 0},
 #endif // GPAW_GITHASH
@@ -302,7 +281,6 @@ extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 extern PyTypeObject LFCType;
-extern PyTypeObject LocalizedFunctionsType;
 extern PyTypeObject OperatorType;
 extern PyTypeObject WOperatorType;
 extern PyTypeObject SplineType;
@@ -344,7 +322,6 @@ PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
 }
 
 
-#if PY3
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
     "_gpaw",
@@ -356,7 +333,6 @@ static struct PyModuleDef moduledef = {
     NULL,
     NULL
 };
-#endif
 
 static PyObject* moduleinit(void)
 {
@@ -368,8 +344,6 @@ static PyObject* moduleinit(void)
 #endif
 
     if (PyType_Ready(&LFCType) < 0)
-        return NULL;
-    if (PyType_Ready(&LocalizedFunctionsType) < 0)
         return NULL;
     if (PyType_Ready(&OperatorType) < 0)
         return NULL;
@@ -384,12 +358,7 @@ static PyObject* moduleinit(void)
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
 
-#if PY3
     PyObject* m = PyModule_Create(&moduledef);
-#else
-    PyObject* m = Py_InitModule3("_gpaw", functions,
-                                 "C-extension for GPAW\n\n...\n");
-#endif
 
     if (m == NULL)
         return NULL;
@@ -400,19 +369,20 @@ static PyObject* moduleinit(void)
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
+#if XC_MAJOR_VERSION >= 3
     PyObject_SetAttrString(m,
                            "libxc_version",
                            PyUnicode_FromString(xc_version_string()));
+#endif
 
     Py_INCREF(&LFCType);
-    Py_INCREF(&LocalizedFunctionsType);
     Py_INCREF(&OperatorType);
     Py_INCREF(&WOperatorType);
     Py_INCREF(&SplineType);
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
     Py_INCREF(&lxcXCFunctionalType);
-#ifndef PARALLEL
+#ifndef GPAW_INTERPRETER
     // gpaw-python needs to import arrays at the right time, so this is
     // done in gpaw_main().  In serial, we just do it here:
     import_array1(0);
@@ -423,26 +393,12 @@ static PyObject* moduleinit(void)
 #ifndef GPAW_INTERPRETER
 
 
-#if PY3
 PyMODINIT_FUNC PyInit__gpaw(void)
 {
     return moduleinit();
 }
-#else
-PyMODINIT_FUNC init_gpaw(void)
-{
-    moduleinit();
-}
-#endif
 
 #else // ifndef GPAW_INTERPRETER
-
-#if PY3
-#define moduleinit0 moduleinit
-#else
-void moduleinit0(void) { moduleinit(); }
-#endif
-
 
 int
 gpaw_main()
@@ -491,7 +447,6 @@ main(int argc, char **argv)
         exit(1);
 #endif // GPAW_OMP
 
-#if PY3
 #define PyChar wchar_t
     wchar_t* wargv[argc];
     wchar_t* wargv2[argc];
@@ -501,13 +456,9 @@ main(int argc, char **argv)
         wargv2[i] = wargv[i];
         mbstowcs(wargv[i], argv[i], n);
     }
-#else
-#define PyChar char
-    char** wargv = argv;
-#endif
 
     Py_SetProgramName(wargv[0]);
-    PyImport_AppendInittab("_gpaw", &moduleinit0);
+    PyImport_AppendInittab("_gpaw", &moduleinit);
     Py_Initialize();
     PySys_SetArgvEx(argc, wargv, 0);
 
@@ -528,16 +479,22 @@ main(int argc, char **argv)
     }
 
 #ifdef GPAW_WITH_ELPA
-    elpa_uninit();
+
+#ifdef ELPA_API_VERSION
+    // Newer Elpas define their version but older ones don't.
+    int elpa_err;
+    elpa_uninit(&elpa_err);
+#else
+    elpa_uninit();  // 2018.05.001: no errcode
+#endif
+
 #endif
 
     Py_Finalize();
     MPI_Finalize();
 
-#if PY3
     for (int i = 0; i < argc; i++)
         free(wargv2[i]);
-#endif
 
     return status;
 }

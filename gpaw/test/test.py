@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import tempfile
 import warnings
@@ -12,7 +11,7 @@ class CLICommand:
     """Run the GPAW test suite.
 
     The test suite can be run in
-    parallel with MPI through gpaw-python.  The test suite
+    parallel with MPI.  The test suite
     supports 1, 2, 4 or 8 CPUs although some tests are
     skipped for some parallelizations.  If no TESTs are
     given, run all tests supporting the parallelization.
@@ -56,7 +55,9 @@ class CLICommand:
 
     @staticmethod
     def run(args):
-        main(args)
+        failed = main(args)
+        if failed:
+            raise SystemExit(1)
 
 
 def main(args):
