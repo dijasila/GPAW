@@ -1,7 +1,9 @@
 # creates: organometal.db
+from pathlib import Path
 from ase.db import connect
 import random
 
+path = ...
 in_db = connect('organometal.master.db')
 out_db = connect('organometal.db')
 
