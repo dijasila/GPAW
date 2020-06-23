@@ -22,7 +22,8 @@ calc = GPAW(h=0.2,
             mode='lcao',
             basis=basis,
             kpts=[(0., 0., 0.), (.3, .1, .4)],
-            convergence={'density': 1e-5, 'energy': 1e-6})
+            convergence={'density': 1e-5, 'energy': 1e-6,
+                         'eigenstates': 1.0e8})
 
 system.set_calculator(calc)
 

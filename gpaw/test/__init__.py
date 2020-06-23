@@ -422,7 +422,9 @@ tests = [
     'coreeig.py',                           # duration unknown
     'response/bse_MoS2_cut.py',             # duration unknown
     'parallel/scalapack_mpirecv_crash.py',  # duration unknown
-    'cdft.py']                              # 40s
+    'cdft.py',                              # 40s
+    'directmin_lcao.py',                    # ~11s
+    'sic/sic_lcao_H2O.py']                   # ~36s
 
 # 'response/graphene_EELS.py', disabled while work is in progress
 

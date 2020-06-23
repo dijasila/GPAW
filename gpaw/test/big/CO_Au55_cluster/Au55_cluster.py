@@ -14,7 +14,8 @@ cluster.center()
 
 kwargs_lcao = dict(mode='lcao',
               #basis='dzp',
-              convergence={'density':0.1, 'energy':0.1})
+              convergence={'density':0.1, 'energy':0.1,
+                           'eigenstates': 1.0e8})
 
 calc = GPAW(h=0.18,txt=None,**kwargs_lcao)
 cluster.set_calculator(calc)

@@ -16,7 +16,8 @@ if setup_paths[0] != '.':
 if 1:
     a = 2.7
     bulk = Atoms('Li', pbc=True, cell=[a, a, a])
-    calc = GPAW(gpts=(8, 8, 8), kpts=(4, 4, 4), mode='lcao', basis='szp')
+    calc = GPAW(gpts=(8, 8, 8), kpts=(4, 4, 4), mode='lcao', basis='szp',
+                convergence={'eigenstates': 1.0e8})
     bulk.set_calculator(calc)
     e = bulk.get_potential_energy()
     niter = calc.get_number_of_iterations()

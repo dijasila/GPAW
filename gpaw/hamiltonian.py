@@ -141,7 +141,10 @@ class Hamiltonian:
                     ('SIC:        ', self.e_sic)]
 
         for name, e in energies:
-            log('%-14s %+11.6f' % (name, Ha * e))
+            if name == 'SIC:        ' and e is None:
+                continue
+            else:
+                log('%-14s %+11.6f' % (name, Ha * e))
 
         log('--------------------------')
         log('Free energy:   %+11.6f' % (Ha * self.e_total_free))

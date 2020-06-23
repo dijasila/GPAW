@@ -38,3 +38,5 @@ GPAW calculator:
    ../devel/eigenvalues_of_core_states
    ../devel/grids
    ../setups/generation_of_setups
+   directmin/directmin
+   sic/sic
