@@ -14,6 +14,7 @@ def calculate_forces(wfs, dens, ham, log=None):
     assert not ham.xc.name.startswith('GLLB')
 
     egs_name = getattr(wfs.eigensolver, "name", None)
+    odd_name = None
     if egs_name == 'direct_min':
         if wfs.mode == 'fd':
             return calculate_forces_using_non_diag_lagr_matrix(

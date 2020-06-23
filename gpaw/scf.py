@@ -284,7 +284,7 @@ class SCFLoop:
                         '\nOccupied states converged after {:d} e/g evaluations'.format(
                             niter))
                     break
-                else wfs.mode == 'pw':
+                else:
                     raise NotImplementedError
 
             ham.npoisson = 0
