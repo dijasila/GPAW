@@ -29,9 +29,9 @@ class DirectMinFD(Eigensolver):
                  force_init_localization=False,
                  inner_loop=None,
                  initial_orbitals=None,
-                 maxiter=15,
+                 maxiter=50,
                  kappa_tol=5.0e-4,
-                 g_tol=1.0e-4,
+                 g_tol=5.0e-4,
                  blocksize=1):
 
         super(DirectMinFD, self).__init__(keep_htpsit=False,
