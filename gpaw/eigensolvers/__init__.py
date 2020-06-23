@@ -1,7 +1,5 @@
 """Module defining  ``Eigensolver`` classes."""
 
-from ase.utils import basestring
-
 from gpaw.eigensolvers.rmmdiis import RMMDIIS
 from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
@@ -17,7 +15,7 @@ def get_eigensolver(eigensolver, mode, convergence=None):
         else:
             eigensolver = 'dav'
 
-    if isinstance(eigensolver, basestring):
+    if isinstance(eigensolver, str):
         eigensolver = {'name': eigensolver}
 
     if isinstance(eigensolver, dict):

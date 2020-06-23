@@ -103,7 +103,8 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     # kpts in the transverse directions
     offset = np.zeros((3,))
     offset[:len(transverse_dirs)] = kpts_shift[transverse_dirs]
-    bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, )) + offset
+    bzk_t_kc = monkhorst_pack(
+        tuple(kpts_grid[transverse_dirs]) + (1, )) + offset
     if 'time_reversal' not in symmetry:
         symmetry['time_reversal'] = True
     if symmetry['time_reversal']:

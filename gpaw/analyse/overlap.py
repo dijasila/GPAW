@@ -12,6 +12,8 @@ class Overlap:
         self.kd = self.calc.wfs.kd
 
     def number_of_states(self, calc):
+        # we will need the wave functions
+        calc.converge_wave_functions()
         return (calc.get_number_of_bands(), len(calc.get_ibz_k_points()),
                 calc.get_number_of_spins())
 

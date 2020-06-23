@@ -57,7 +57,8 @@ class WeightedFDOperator(FDOperator):
         self.weights = None
         self.operator = None
         self.description = 'Weighted Finite Difference Operator\n      '
-        self.description += '\n      '.join([op.description for op in operators])
+        self.description += '\n      '.join([op.description
+                                             for op in operators])
 
     def set_weights(self, weights):
         """Set the operator weights.

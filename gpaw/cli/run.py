@@ -2,7 +2,8 @@ from ase.cli.run import Runner, str2dict, CLICommand as ASECLICommand
 
 from gpaw import GPAW
 from gpaw.mixer import Mixer, MixerSum
-from gpaw.occupations import FermiDirac, MethfesselPaxton
+from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                              MarzariVanderbilt)
 from gpaw.wavefunctions.pw import PW
 
 
@@ -20,6 +21,7 @@ class GPAWRunner(Runner):
             'PW': PW,
             'FermiDirac': FermiDirac,
             'MethfesselPaxton': MethfesselPaxton,
+            'MarzariVanderbilt': MarzariVanderbilt,
             'Mixer': Mixer,
             'MixerSum': MixerSum}
         parameters = str2dict(self.args.parameters, parameter_namespace)
@@ -56,6 +58,9 @@ class CLICommand:
     @staticmethod
     def add_arguments(parser):
         ASECLICommand.add_more_arguments(parser)
+        parser.add_argument('--dry-run', type=int, default=0,
+                            metavar='NCPUS',
+                            help='Dry run on NCPUS cpus.')
         parser.add_argument('-w', '--write', help='Write gpw-file.')
         parser.add_argument('-W', '--write-all',
                             help='Write gpw-file with wave functions.')

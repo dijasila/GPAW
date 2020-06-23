@@ -43,7 +43,7 @@ def get_coulomb_kernel(pd, N_c, truncation=None, q_v=None, wstc=None):
             v_G[0] = 0.0
     else:
         raise ValueError('Truncation scheme %s not implemented' % truncation)
-  
+
     return v_G.astype(complex)
 
 def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
@@ -70,7 +70,7 @@ def calculate_2D_truncated_coulomb(pd, q_v=None, N_c=None):
 
     qGp_G = ((qG_Gv[:, Np_c[0]])**2 + (qG_Gv[:, Np_c[1]]**2))**0.5
     qGn_G = qG_Gv[:, Nn_c[0]]
-    
+
     v_G = 4 * np.pi / (qG_Gv**2).sum(axis=1)
     if np.allclose(qGn_G[0], 0) or pd.kd.gamma:
         """sin(qGn_G * R) = 0 when R = L/2 and q_n = 0.0"""
@@ -94,7 +94,9 @@ def calculate_1D_truncated_coulomb(pd, q_v=None, N_c=None):
         if q_v is not None:
             qG_Gv += q_v
         else:
-            raise ValueError('Presently, calculations only work with a small q in the normal direction')
+            raise ValueError(
+                'Presently, calculations only work with a small q in the '
+                'normal direction')
 
     # The periodic direction is determined from k-point grid
     Nn_c = np.where(N_c == 1)[0]
@@ -130,7 +132,7 @@ def calculate_0D_truncated_coulomb(pd, q_v=None):
     R = (3 * np.linalg.det(pd.gd.cell_cv) / (4 * np.pi))**(1. / 3.)
 
     qG2_G = (qG_Gv**2).sum(axis=1)
-    
+
     v_G = 4 * np.pi / qG2_G
     v_G *= 1.0 - np.cos(qG2_G**0.5 * R)
 
@@ -163,7 +165,7 @@ def get_integrated_kernel(pd, N_c, truncation=None, N=100, reduced=False):
 
         qp_q = ((q_qv[:, Np_c[0]])**2 + (q_qv[:, Np_c[1]]**2))**0.5
         qn_q = q_qv[:, Nn_c[0]]
-    
+
         V_q = 4 * np.pi / (q_qv**2).sum(axis=1)
         a_q = qn_q / qp_q * np.sin(qn_q * R) - np.cos(qn_q * R)
         V_q *= 1. + np.exp(-qp_q * R) * a_q

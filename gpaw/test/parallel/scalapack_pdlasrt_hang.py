@@ -1,4 +1,4 @@
-# {   -1,   -1}:  On entry to PDLASRT parameter number    9 had an illegal value
+# {   -1,   -1}:  On entry to PDLASRT parameter number 9 had an illegal value
 
 # works with 'sl_default': (2, 2, 32)
 

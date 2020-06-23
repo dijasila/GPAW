@@ -21,7 +21,7 @@ def main():
                         help='Command-line argument for Python script.')
     args = parser.parse_args()
     arguments = ' '.join(args.argument)
-    cmd = f'gpaw-python {args.script} {arguments}'
+    cmd = f'gpaw python {args.script} {arguments}'
     nodes, rest = divmod(args.processes, maxcores)
     if nodes > 0:
         ppn = maxcores
