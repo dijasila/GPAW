@@ -4,7 +4,7 @@ Potentials for orbital density dependent energy functionals
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities import pack, unpack
-from gpaw.utilities.blas import gemm, gemv, gemmdot, mmm
+# from gpaw.utilities.blas import gemm, gemv, gemmdot, mmm
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
@@ -173,12 +173,14 @@ class PzCorrectionsLcao:
         hc_mn += b_mn
         h_mm += l_odd
         # what if there are empty states between occupied?
-        rhs = np.zeros(shape=(c_nm.shape[1], n_occ),
-                       dtype=self.dtype)
-        rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ),
-                        dtype=self.dtype)
-        mmm(1.0, kpt.S_MM.conj(), 'N', c_nm[:n_occ], 'T', 0.0, rhs)
-        mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ], 'N', 0.0, rhs2)
+        # rhs = np.zeros(shape=(c_nm.shape[1], n_occ),
+        #                dtype=self.dtype)
+        # rhs2 = np.zeros(shape=(c_nm.shape[1], n_occ),
+        #                 dtype=self.dtype)
+        # mmm(1.0, kpt.S_MM.conj(), 'N', c_nm[:n_occ], 'T', 0.0, rhs)
+        # mmm(1.0, rhs, 'N', h_mm[:n_occ, :n_occ], 'N', 0.0, rhs2)
+
+        rhs2 = kpt.S_MM.conj() @ c_nm[:n_occ].T @ h_mm[:n_occ, :n_occ]
         hc_mn = hc_mn[:, :n_occ] - rhs2[:, :n_occ]
         norm = []
         for i in range(n_occ):
@@ -186,7 +188,8 @@ class PzCorrectionsLcao:
                                hc_mn[:, i]).real * kpt.f_n[i])
 
         error = sum(norm) * Hartree ** 2 / wfs.nvalence
-        del rhs, rhs2, hc_mn, norm
+        # del rhs, rhs2, hc_mn, norm
+        del rhs2, hc_mn, norm
         timer.stop('Residual')
 
         if self.counter == 0:
@@ -288,26 +291,27 @@ class PzCorrectionsLcao:
             dH_ij = unpack(dH_p)
             # dH_ij = yy * unpack(dH_p)
 
-            K_iM = np.zeros((dH_ij.shape[0], n_set),
-                            dtype=self.dtype)
+            # K_iM = np.zeros((dH_ij.shape[0], n_set),
+            #                 dtype=self.dtype)
 
             if self.dtype is complex:
-                gemm(1.0, P_Mj,
-                     dH_ij.astype(complex),
-                     0.0, K_iM, 'c')
-                gemm(1.0, K_iM,
-                     P_Mj,
-                     1.0, F_MM)
-
+                # gemm(1.0, P_Mj,
+                #      dH_ij.astype(complex),
+                #      0.0, K_iM, 'c')
+                # gemm(1.0, K_iM,
+                #      P_Mj,
+                #      1.0, F_MM)
+                F_MM += P_Mj @ dH_ij @ P_Mj.T.conj()
                 # K_iM = np.dot(dH_ij, P_Mj.T.conj())
                 # F_MM += np.dot(P_Mj, K_iM)
 
             else:
-                gemm(1.0, P_Mj, dH_ij, 0.0, K_iM, 't')
-                gemm(1.0, K_iM, P_Mj, 1.0, F_MM)
+                # gemm(1.0, P_Mj, dH_ij, 0.0, K_iM, 't')
+                # gemm(1.0, K_iM, P_Mj, 1.0, F_MM)
 
                 # K_iM = np.dot(dH_ij, P_Mj.T)
                 # F_MM += np.dot(P_Mj, K_iM)
+                F_MM += P_Mj @ dH_ij @ P_Mj.T
 
         if self.dtype is complex:
             F_MM += Vt_MM.astype(complex)
@@ -347,18 +351,17 @@ class PzCorrectionsLcao:
 
         for a in wfs.P_aqMi.keys():
             P_Mi = wfs.P_aqMi[a][kpt.q]
-            rhoP_Mi = np.zeros_like(P_Mi)
-
+            # rhoP_Mi = np.zeros_like(P_Mi)
+            # gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
             D_ii = np.zeros((wfs.P_aqMi[a].shape[2],
                              wfs.P_aqMi[a].shape[2]),
                             dtype=self.dtype)
-
-            gemm(1.0, P_Mi, rho_MM, 0.0, rhoP_Mi)
-            if self.dtype is complex:
-                gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
-            else:
-                gemm(1.0, rhoP_Mi, P_Mi.T.copy(), 0.0, D_ii)
-
+            rhoP_Mi = rho_MM @ P_Mi
+            # if self.dtype is complex:
+            #     gemm(1.0, rhoP_Mi, P_Mi.T.conj().copy(), 0.0, D_ii)
+            # else:
+            #     gemm(1.0, rhoP_Mi, P_Mi.T.copy(), 0.0, D_ii)
+            D_ii = P_Mi.T.conj() @ rhoP_Mi
             # FIXME: What to do with complex part, which are not zero
             if self.dtype is complex:
                 D_ap[a] = D_p = pack(D_ii.real)
@@ -501,12 +504,15 @@ class PzCorrectionsLcao:
             F_MM = self.get_orbital_potential_matrix(f_n, C_nM, kpt,
                                                      wfs, setup, n,
                                                      )[0]
-            gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
-
+            # gemv(1.0, F_MM, C_nM[n], 0.0, b_nM[n])
+            b_nM[n] = F_MM @ C_nM[n]
         L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
-        C_conj_nM = np.copy(C_nM.conj()[:n_occ])
-        mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
-
+        C_conj_nM = C_nM.conj()[:n_occ]
+        # mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
+        # L_occ = b_nM.T @ C_conj_nM
+        # L_occ += np.dot(C_conj_nM,
+        #                 np.dot(H_MM, C_nM[:n_occ].T))
+        L_occ = C_conj_nM @ b_nM.T
         L_occ += np.dot(C_conj_nM,
                         np.dot(H_MM, C_nM[:n_occ].T))
         L_occ = 0.5 * (L_occ + L_occ.T.conj())
@@ -646,9 +652,12 @@ class PzCorrectionsLcao:
                                                       timer
                                                       )[0]
 
+                # sfrhoT_MM = np.linalg.solve(wfs.S_qMM[kpt.q],
+                #                            gemmdot(F_MM,
+                #                                    rho_xMM)).T.copy()
+
                 sfrhoT_MM = np.linalg.solve(wfs.S_qMM[kpt.q],
-                                           gemmdot(F_MM,
-                                                   rho_xMM)).T.copy()
+                                            F_MM@rho_xMM).T.copy()
 
                 del F_MM
 
@@ -691,13 +700,16 @@ class PzCorrectionsLcao:
                 for b in my_atom_indices:
                     setup = self.setups[b]
                     dO_ii = np.asarray(setup.dO_ii, dtype)
-                    dOP_iM = np.zeros((setup.ni, nao), dtype)
-                    gemm(1.0, wfs.P_aqMi[b][kpt.q], dO_ii, 0.0,
-                         dOP_iM, 'c')
+                    # dOP_iM = np.zeros((setup.ni, nao), dtype)
+                    # gemm(1.0, wfs.P_aqMi[b][kpt.q], dO_ii, 0.0,
+                    #      dOP_iM, 'c')
+                    dOP_iM = dO_ii @ wfs.P_aqMi[b][kpt.q].T.conj()
+
                     for v in range(3):
-                        gemm(1.0, dOP_iM,
-                             dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop],
-                             0.0, work_MM, 'n')
+                        # gemm(1.0, dOP_iM,
+                        #      dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop],
+                        #      0.0, work_MM, 'n')
+                        work_MM = dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop] @ dOP_iM
                         ZE_MM = (work_MM * sfrhoT_MM).real
                         for a, M1, M2 in slices():
                             dE = 2 * ZE_MM[M1:M2].sum()
@@ -749,15 +761,18 @@ class PzCorrectionsLcao:
                 for b in my_atom_indices:
                     H_ii = np.asarray(unpack(dH_ap[b]),
                                       dtype)
-                    HP_iM = gemmdot(H_ii,
-                                    np.ascontiguousarray(
-                                        wfs.P_aqMi[b][
-                                            kpt.q].T.conj()))
+                    HP_iM = H_ii @ wfs.P_aqMi[b][kpt.q].T.conj()
+                    # HP_iM = gemmdot(H_ii,
+                    #                 np.ascontiguousarray(
+                    #                     wfs.P_aqMi[b][
+                    #                         kpt.q].T.conj()))
                     for v in range(3):
                         dPdR_Mi = \
                             dPdR_aqvMi[b][kpt.q][v][Mstart:Mstop]
+                        # ArhoT_MM = \
+                        #     (gemmdot(dPdR_Mi, HP_iM) * rho_xMM.T).real
                         ArhoT_MM = \
-                            (gemmdot(dPdR_Mi, HP_iM) * rho_xMM.T).real
+                            ((dPdR_Mi @ HP_iM) * rho_xMM.T).real
                         for a, M1, M2 in slices():
                             dE = 2 * ArhoT_MM[M1:M2].sum()
                             Fatom_av[a, v] += dE  # the "b; mu in a; nu" term
@@ -819,12 +834,13 @@ class PzCorrectionsLcao:
                                                          wfs.timer
                                                          )[0]
                 F_MM += H_MM
-                gemv(1.0, F_MM.conj(), C_nM[n], 0.0, b_nM[n])
-
-            L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
-            C_conj_nM = np.copy(C_nM.conj()[:n_occ])
-            mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
-            del C_conj_nM
+                # gemv(1.0, F_MM.conj(), C_nM[n], 0.0, b_nM[n])
+                b_nM[n] = F_MM.conj() @ C_nM[n]
+            # L_occ = np.zeros((n_occ, n_occ), dtype=self.dtype)
+            # C_conj_nM = np.copy(C_nM.conj()[:n_occ])
+            # mmm(1.0, C_conj_nM, 'n', b_nM, 't', 0.0, L_occ)
+            # del C_conj_nM
+            L_occ = C_nM.conj()[:n_occ] @ b_nM.T
 
             L_occ = 0.5 * (L_occ + L_occ.T.conj())
             nrm_n, L_occ = np.linalg.eigh(L_occ)
@@ -844,29 +860,31 @@ class PzCorrectionsLcao:
 
         elif h_type == 'ks':
 
-            HC_Mn = np.zeros_like(H_MM)
-            mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
-            L = np.zeros_like(H_MM)
-            if self.dtype is complex:
-                mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
-            else:
-                mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+            # HC_Mn = np.zeros_like(H_MM)
+            # mmm(1.0, H_MM.conj(), 'n', C_nM, 't', 0.0, HC_Mn)
+            # L = np.zeros_like(H_MM)
+            # if self.dtype is complex:
+            #     mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            # else:
+            #     mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+
+            L =  C_nM.conj() @ H_MM.conj() @ C_nM.T
 
             nrm_n, L = np.linalg.eigh(L)
             # L = L.T.conj()
             kpt.eps_n = nrm_n
         elif h_type == 'kinetic':
-            HC_Mn = np.zeros_like(H_MM)
-            mmm(1.0, wfs.T_qMM[kpt.q].conj(),
-                'n', C_nM,
-                't', 0.0,
-                HC_Mn)
-            L = np.zeros_like(H_MM)
-            if self.dtype is complex:
-                mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
-            else:
-                mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
-
+            # HC_Mn = np.zeros_like(H_MM)
+            # mmm(1.0, wfs.T_qMM[kpt.q].conj(),
+            #     'n', C_nM,
+            #     't', 0.0,
+            #     HC_Mn)
+            # L = np.zeros_like(H_MM)
+            # if self.dtype is complex:
+            #     mmm(1.0, C_nM.conj(), 'n', HC_Mn, 'n', 0.0, L)
+            # else:
+            #     mmm(1.0, C_nM, 'n', HC_Mn, 'n', 0.0, L)
+            L = C_nM.conj() @ wfs.T_qMM[kpt.q].conj() @ C_nM.T
             nrm_n, L = np.linalg.eigh(L)
             # L = L.T.conj()
             kpt.eps_n = nrm_n
