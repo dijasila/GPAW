@@ -9,7 +9,7 @@ from gpaw.transformers import Transformer
 from gpaw.directmin.fd.tools import d_matrix
 from gpaw.poisson import PoissonSolver
 from gpaw.directmin.tools import get_n_occ
-from ase.parallel import parprint, rank
+from ase.parallel import parprint
 import time
 
 class PzCorrections:
