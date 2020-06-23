@@ -8,6 +8,7 @@ from ase.units import Ha, alpha, Bohr
 from gpaw.projections import Projections
 from gpaw.kpoint import KPoint
 from gpaw.setup import Setup
+from gpaw.utilities.partition import AtomPartition
 
 if TYPE_CHECKING:
     from gpaw import GPAW
@@ -30,7 +31,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     phi: float = 0.0,
                     return_wfs: bool = False,
                     occupations: Dict = None
-                    ) -> Dict[str, Union[ArrayND, float]]:
+                    ) -> List[KPoint]:
     """Calculate SOC eigenstates.
 
     Parameters:
@@ -76,6 +77,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
 
     kd = calc.wfs.kd
     bd = calc.wfs.bd
+    gd = calc.wfs.gd
     spos_ac = calc.wfs.spos_ac
     setups = calc.wfs.setups
     atom_partition = calc.density.atom_partition
@@ -86,7 +88,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = {a: soc(calc.wfs.setups[a],
                        calc.hamiltonian.xc,
-                       D_sp) * scale * Ha
+                       D_sp) * scale
                 for a, D_sp in calc.density.D_asp.items()}
 
     # Hamiltonian with SO in KS basis
@@ -108,20 +110,32 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     mykpts = []
     for kpt_s in calc.wfs.kpt_qs:
         kpt1 = kpt_s[0]
-        P1_nI = kpt1.projections.collect()[n1:n2]
-        eps1_n = bd.collect(kpt1.eps_n)[n1:n2]
+        P1_nI = kpt1.projections.collect()
+        eps1_n = bd.collect(kpt1.eps_n)
 
         if len(kpt_s) == 2:
             kpt2 = kpt_s[1]
-            P2_nI = kpt2.projections.collect()[n1:n2]
-            eps2_n = bd.collect(kpt2.eps_n)[n1:n2]
+            P2_nI = kpt2.projections.collect()
+            eps2_n = bd.collect(kpt2.eps_n, broadcast=True)
         else:
             P2_nI = P1_nI
             eps2_n = eps1_n
 
+        if bd.comm.rank != 0:
+            continue
+
         ibz_index = kpt1.k
 
-        if eigenvalues is not None:
+        if gd.comm.rank == 0:
+            P1_nI = P1_nI[n1:n2]
+            P2_nI = P2_nI[n1:n2]
+        else:
+            P1_nI = P2_nI = np.zeros((n2 - n1, 0), complex)
+
+        if eigenvalues is None:
+            eps1_n = eps1_n[n1:n2]
+            eps2_n = eps2_n[n1:n2]
+        else:
             eps1_n, eps2_n = eigenvalues[:, ibz_index]
 
         ibzkpt = KPoint(1.0, None, 0, 0)
@@ -130,9 +144,13 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         ibzkpt.eps_n[::2] = eps1_n
         ibzkpt.eps_n[1::2] = eps2_n
 
-        ibzkpt.projections = Projections(2 * (n2 - n1),
-                                         kpt1.projections.nproj_a,
-                                         collinear=False)
+        ibzkpt.projections = Projections(
+            nbands=2 * (n2 - n1),
+            nproj_a=kpt1.projections.nproj_a,
+            atom_partition=AtomPartition(gd.comm,
+                                         np.zeros(len(spos_ac), int)),
+            collinear=False)
+        ibzkpt.projections.array[:] = 0.0
         ibzkpt.projections.array[::2, 0] = P1_nI
         ibzkpt.projections.array[1::2, 1] = P2_nI
 
@@ -140,19 +158,10 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             kpt = ibzkpt.transform(kd, setups, spos_ac, bz_index)
             kpt.projections = kpt.projections.redist(atom_partition)
             add_soc(kpt, dVL_avii, s_vss, C_ss)
+            kpt.q = bz_index
             mykpts.append(kpt)
 
     return mykpts
-
-    if occupations:
-        from gpaw.occupations import occupation_numbers
-        weight_k = np.ones(len(e_km)) / len(e_km)
-        e_skn = e_km[np.newaxis]
-        ne = calc.get_number_of_electrons()
-        efermi = occupation_numbers(occupations,
-                                    e_skn, weight_k, ne * 2)[1] * Ha
-        results['fermi_level'] = efermi
-
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
@@ -225,7 +234,7 @@ def add_soc(kpt: KPoint,
             s_vss: Array3D,
             C_ss: Array2D) -> None:
     """Evaluate H in a basis of S_z eigenstates."""
-    H_mm = np.diag(kpt.eps_n)
+    H_mm = np.diag(kpt.eps_n.astype(complex))
     for a, dVL_vii in dVL_avii.items():
         ni = dVL_vii.shape[1]
         H_ssii = np.zeros((2, 2, ni, ni), complex)
@@ -250,7 +259,7 @@ def add_soc(kpt: KPoint,
 
     P_msI = kpt.projections.array
     m, s, I = P_msI.shape
-    P_msI[:] = v_snm.T.dot(P_msI.rehape((m * s, I)))
+    P_msI[:] = v_snm.T.dot(P_msI.reshape((m, s * I))).reshape((m, s, I))
 
     sx_m = []
     sy_m = []

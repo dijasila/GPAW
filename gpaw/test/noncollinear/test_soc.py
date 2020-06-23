@@ -1,26 +1,34 @@
-"""Self-consistent SOC."""
-from unittest import SkipTest
-
+"""Test HOMO and LUMO band-splitting for MoS2."""
+import pytest
 import numpy as np
 from ase.build import mx2
+from ase.units import Ha
 
 from gpaw import GPAW
-from gpaw.test import equal
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.mpi import size
 
 
-def test_noncollinear_soc():
-    """Test HOMO and LUMO band-splitting for MoS2."""
-    if size > 1:
-        raise SkipTest()
+def check(E, hsplit, lsplit):
+    print(E)
+    h1, h2, l1, l2 = E[24:28]  # HOMO-1, HOMO, LUMO, LUMO+1
+    print(h2 - h1)
+    print(l2 - l1)
+    assert abs(h2 - h1 - hsplit) < 0.01
+    assert abs(l2 - l1 - lsplit) < 0.002
 
+
+params = dict(mode='pw',
+              kpts={'size': (3, 3, 1),
+                    'gamma': True})
+
+
+@pytest.mark.soc
+@pytest.mark.skipif(size > 1, reason='Does not work in parallel')
+def test_soc_self_consistent():
+    """Self-consistent SOC."""
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
-
-    params = dict(mode='pw',
-                  kpts={'size': (3, 3, 1),
-                        'gamma': True})
 
     # Selfconsistent:
     a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
@@ -28,22 +36,23 @@ def test_noncollinear_soc():
                   convergence={'bands': 28},
                   **params)
     a.get_potential_energy()
-    E1 = a.calc.get_eigenvalues(kpt=2)
+    eigs = a.calc.get_eigenvalues(kpt=2)
+    check(eigs, 0.15, 0.002)
+
+
+@pytest.mark.soc
+def test_soc_self_non_consistent():
+    """Non self-consistent SOC."""
+    a = mx2('MoS2')
+    a.center(vacuum=3, axis=2)
 
     # Non-selfconsistent:
-    a.calc = GPAW(convergence={'bands': 14}, **params)
+    a.calc = GPAW(convergence={'bands': 14},
+                  **params)
     a.get_potential_energy()
 
-    E2 = soc_eigenstates(a.calc, bands=np.arange(14))['eigenvalues'][-1]
-
-    def test(E, hsplit, lsplit):
-        print(E)
-        h1, h2, l1, l2 = E[24:28]  # HOMO-1, HOMO, LUMO, LUMO+1
-        print(h2 - h1)
-        print(l2 - l1)
-        assert abs(h2 - h1 - hsplit) < 0.01
-        assert abs(l2 - l1 - lsplit) < 0.002
-
-    equal(E1[:28], E2, tolerance=1e-1)
-    test(E1, 0.15, 0.002)
-    test(E2, 0.15, 0.007)
+    kpts = soc_eigenstates(a.calc, n2=14)
+    for kpt in kpts:
+        if kpt.k == 8:
+            eigs = kpt.eps_n * Ha
+            check(eigs, 0.15, 0.007)

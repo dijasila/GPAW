@@ -2,15 +2,13 @@ import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
-from gpaw.utilities.partition import AtomPartition
 
 
 class Projections:
-    def __init__(self, nbands, nproj_a, atom_partition=None, bcomm=None,
+    def __init__(self, nbands, nproj_a, atom_partition, bcomm=None,
                  collinear=True, spin=0, dtype=None, data=None):
         self.nproj_a = np.asarray(nproj_a)
-        self.atom_partition = atom_partition or AtomPartition(
-            serial_comm, np.zeros(len(nproj_a), int))
+        self.atom_partition = atom_partition
         self.bcomm = bcomm or serial_comm
         self.collinear = collinear
         self.spin = spin

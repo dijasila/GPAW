@@ -108,7 +108,6 @@ def construct_symmetry_operators(kd, setups, spos_ac, K):
     ik = kd.bz2ibz_k[K]
     ik_c = kd.ibzk_kc[ik]
 
-    print(ik_c, spos_ac)
     a_a = []
     U_aii = []
     for a, id in enumerate(setups.id_a):
