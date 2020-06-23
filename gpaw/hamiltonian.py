@@ -560,6 +560,12 @@ class Hamiltonian:
         :return: total kinetic energy
         """
         # pseudo-part
+        if wfs.mode == 'lcao':
+            return self.calculate_kinetic_energy_using_kin_en_matrix(
+                density, wfs)
+        elif wfs.mode == 'pw':
+            raise NotImplementedError
+
         e_kin = 0.0
 
         def Lapl(psit_G, kpt):
@@ -584,6 +590,62 @@ class Hamiltonian:
             e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
         e_kin_paw = density.gd.comm.sum(e_kin_paw)
         return e_kin + e_kin_paw
+
+    def calculate_kinetic_energy_using_kin_en_matrix(self, density,
+                                                     wfs):
+        """
+        E_k = sum_{M'M} rho_MM' T_M'M
+        better agreement between gradients of energy and
+        the total energy during the direct minimisation.
+        This is important when the line search is used.
+        Also avoids using the eigenvalues which are
+        not calculated during the direct minimisation.
+
+        'calculate_kinetic_energy' method gives a correct
+        value of kinetic energy only at self-consistent solution.
+
+        :param density:
+        :param wfs:
+        :return: total kinetic energy
+        """
+        # pseudo-part
+        e_kinetic = 0.0
+        e_kin_paw = 0.0
+
+        for kpt in wfs.kpt_u:
+            # calculation of the density matrix directly
+            # can be expansive for a large scale
+            # as there are lot of empty states
+            # when the exponential transformation is used
+            # (n_bands=n_basis_functions.)
+            #
+            # rho_MM = \
+            #     wfs.calculate_density_matrix(kpt.f_n, kpt.C_nM)
+            # e_kinetic += np.einsum('ij,ji->', kpt.T_MM, rho_MM)
+            #
+            # the code below is faster
+            self.timer.start('Pseudo part')
+            n_occ = 0
+            nbands = len(kpt.f_n)
+            while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+                n_occ += 1
+            x_nn = np.dot(kpt.C_nM[:n_occ],
+                          np.dot(kpt.T_MM,
+                                 kpt.C_nM[:n_occ].T.conj())).real
+            e_kinetic += np.einsum('i,ii->', kpt.f_n[:n_occ], x_nn)
+            self.timer.stop('Pseudo part')
+        # del rho_MM
+
+        e_kinetic = wfs.kd.comm.sum(e_kinetic)
+        # paw corrections
+        for a, D_sp in density.D_asp.items():
+            setup = wfs.setups[a]
+            D_p = D_sp.sum(0)
+            e_kin_paw += np.dot(setup.K_p, D_p) + setup.Kc
+
+        e_kin_paw = self.gd.comm.sum(e_kin_paw)
+
+        return e_kinetic.real + e_kin_paw
 
 
 class RealSpaceHamiltonian(Hamiltonian):

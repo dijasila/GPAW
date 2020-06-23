@@ -67,7 +67,6 @@ class SCFLoop:
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs, occ)
             occ.calculate(wfs)
-
             energy = ham.get_energy(occ)
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
@@ -253,31 +252,43 @@ class SCFLoop:
             callback(self.niter)
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
+            if self.converged:
+                if wfs.mode == 'fd':
+                    if 'SIC' in wfs.eigensolver.odd_parameters['name']:
+                        wfs.eigensolver.choose_optimal_orbitals(
+                            wfs, ham, occ, dens)
+                        niter1 = wfs.eigensolver.eg_count
+                        niter2 = wfs.eigensolver.iloop.total_eg_count
+                        log('\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(niter1,
+                                                                                                            niter2))
+                    else:
+                        niter = wfs.eigensolver.eg_count
+                        log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
+                    log('Converge unoccupied states:')
+                    max_er = self.max_errors['eigenstates']
+                    max_er *= Ha ** 2 / wfs.nvalence
+                    wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
+                                             max_er, log)
+                    rewrite_psi = True
+                    if 'SIC' in wfs.eigensolver.odd_parameters['name']:
+                        rewrite_psi = False
+                    wfs.eigensolver.get_canonical_representation(
+                        ham, wfs, occ, dens, rewrite_psi)
+                    break
+                elif wfs.mode == 'lcao':
+                    occ.calculate(wfs)
+                    wfs.eigensolver.get_canonical_representation(ham,
+                                                                 wfs)
+                    niter = wfs.eigensolver.eg_count
+                    log(
+                        '\nOccupied states converged after {:d} e/g evaluations'.format(
+                            niter))
+                    break
+                else wfs.mode == 'pw':
+                    raise NotImplementedError
+
             ham.npoisson = 0
             self.niter += 1
-
-            if self.converged:
-                if 'SIC' in wfs.eigensolver.odd_parameters['name']:
-                    wfs.eigensolver.choose_optimal_orbitals(
-                        wfs, ham, occ, dens)
-                    niter1 = wfs.eigensolver.eg_count
-                    niter2 = wfs.eigensolver.iloop.total_eg_count
-                    log('\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(niter1,
-                                                                                                        niter2))
-                else:
-                    niter = wfs.eigensolver.eg_count
-                    log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
-                log('Converge unoccupied states:')
-                max_er = self.max_errors['eigenstates']
-                max_er *= Ha ** 2 / wfs.nvalence
-                wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
-                                         max_er, log)
-                rewrite_psi = True
-                if 'SIC' in wfs.eigensolver.odd_parameters['name']:
-                    rewrite_psi = False
-                wfs.eigensolver.get_canonical_representation(
-                    ham, wfs, occ, dens, rewrite_psi)
-                break
 
         if not self.converged:
             log(oops)
