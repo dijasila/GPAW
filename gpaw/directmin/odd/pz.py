@@ -106,13 +106,13 @@ class PzCorrections:
 
         return nt_G, Q_aL, D_ap
 
-    def get_energy_and_gradients(self, wfs, grad_knG,
-                                 dens=None, U_k=None):
+    def get_energy_and_gradients(self, wfs, grad_knG=None,
+                                 dens=None, U_k=None, add_grad=False):
 
         e_sic = 0.0
         for kpt in wfs.kpt_u:
             e_sic += self.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens, U_k)
+                wfs, kpt, grad_knG, dens, U_k, add_grad=add_grad)
         self.total_sic = wfs.kd.comm.sum(e_sic)
         return self.total_sic
 

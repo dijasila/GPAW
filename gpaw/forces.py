@@ -88,9 +88,16 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
     grad_knG = esolv.get_gradients_2(ham, wfs)
 
     if 'SIC' in esolv.odd_parameters['name']:
-        for kpt in wfs.kpt_u:
-            esolv.odd.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens)
+        esolv.odd.get_energy_and_gradients(wfs, grad_knG, dens,
+                                           esolv.iloop.U_k,
+                                           add_grad=True)
+        # for kpt in wfs.kpt_u:
+        #     k = self.n_kps * kpt.s + kpt.q
+        #     kpt.psit_nG[:] = temp[k]
+        #     n_occ = get_n_occ(kpt)
+        #     grad_knG[k][:n_occ] += \
+        #         np.tensordot(self.iloop.U_k[k].conj(),
+        #                      self.iloop.odd_pot.grad[k], axes=1)
 
     for kpt in wfs.kpt_u:
         k = esolv.n_kps * kpt.s + kpt.q

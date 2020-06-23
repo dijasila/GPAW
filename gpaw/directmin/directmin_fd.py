@@ -70,7 +70,7 @@ class DirectMinFD(Eigensolver):
         self.need_init_odd = True
         self.initialized = False
         self.need_init_orbs = True
-        self.U_k = {}
+        # self.U_k = {}
         self.eg_count = 0
         self.force_init_localization = force_init_localization
 
@@ -168,8 +168,8 @@ class DirectMinFD(Eigensolver):
 
             k = self.n_kps * kpt.s + kpt.q
             self.dimensions[k] = dim
-            if 'SIC' in self.odd_parameters['name'] and not lumo:
-                self.U_k[k] = np.eye(dim, dtype=self.dtype)
+            # if 'SIC' in self.odd_parameters['name'] and not lumo:
+            #     self.U_k[k] = np.eye(dim, dtype=self.dtype)
 
             if not lumo and self.dimensions[k] == len(kpt.f_n):
                 raise Exception('Please add one more empty band '
@@ -383,19 +383,19 @@ class DirectMinFD(Eigensolver):
                     k = self.n_kps * kpt.s + kpt.q
                     temp[k] = kpt.psit_nG[:].copy()
                     n_occ = get_n_occ(kpt)
-                    kpt.psit_nG[:n_occ] = \
-                        np.tensordot(
-                            self.U_k[k].T, kpt.psit_nG[:n_occ],
-                            axes=1)
+                    # kpt.psit_nG[:n_occ] = \
+                    #     np.tensordot(
+                    #         self.U_k[k].T, kpt.psit_nG[:n_occ],
+                    #         axes=1)
                 self.e_sic = self.odd.get_energy_and_gradients(
-                    wfs, grad, dens, self.iloop.U_k)
-                for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    kpt.psit_nG[:] = temp[k]
-                    n_occ = get_n_occ(kpt)
-                    grad[k][:n_occ] += \
-                        np.tensordot(self.iloop.U_k[k].conj(),
-                                     self.iloop.odd_pot.grad[k], axes=1)
+                    wfs, grad, dens, self.iloop.U_k, add_grad=True)
+                # for kpt in wfs.kpt_u:
+                #     k = self.n_kps * kpt.s + kpt.q
+                #     kpt.psit_nG[:] = temp[k]
+                #     n_occ = get_n_occ(kpt)
+                #     grad[k][:n_occ] += \
+                #         np.tensordot(self.iloop.U_k[k].conj(),
+                #                      self.iloop.odd_pot.grad[k], axes=1)
 
 
             energy += self.e_sic
@@ -565,13 +565,15 @@ class DirectMinFD(Eigensolver):
 
         grad_knG = self.get_gradients_2(ham, wfs)
         if 'SIC' in self.odd_parameters['name']:
-            self.odd.get_energy_and_gradients(wfs, grad_knG, dens, self.iloop.U_k)
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                n_occ = get_n_occ(kpt)
-                grad_knG[k][:n_occ] += \
-                    np.tensordot(self.iloop.U_k[k].conj(),
-                                 self.iloop.odd_pot.grad[k], axes=1)
+            self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
+                                              self.iloop.U_k,
+                                              add_grad=True)
+            # for kpt in wfs.kpt_u:
+            #     k = self.n_kps * kpt.s + kpt.q
+            #     n_occ = get_n_occ(kpt)
+            #     grad_knG[k][:n_occ] += \
+            #         np.tensordot(self.iloop.U_k[k].conj(),
+            #                      self.iloop.odd_pot.grad[k], axes=1)
 
 
         for kpt in wfs.kpt_u:
