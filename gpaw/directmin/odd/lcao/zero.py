@@ -1,7 +1,7 @@
 import numpy as np
 from gpaw.utilities.blas import mmm
 from ase.units import Hartree
-from gpaw.directmin.tools import D_matrix
+from gpaw.directmin.lcao.tools import D_matrix
 
 class ZeroCorrectionsLcao:
     """

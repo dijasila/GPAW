@@ -110,8 +110,8 @@ class _PoissonSolver(object):
 class BasePoissonSolver(_PoissonSolver):
     def __init__(self, eps=None, remove_moment=None,
                  use_charge_center=False,
-                 use_charged_periodic_corrections=False,
-                 metallic_electrodes=False):
+                 metallic_electrodes=False,
+                 use_charged_periodic_corrections=False):
         # metallic electrodes: mirror image method to allow calculation of
         # charged, partly periodic systems
         self.gd = None
@@ -153,7 +153,6 @@ class BasePoissonSolver(_PoissonSolver):
                          'majority charge')
         if self.use_charged_periodic_corrections:
             lines.append('    Subtract potential of homogeneous background')
-
 
         return '\n'.join(lines)
 
@@ -303,14 +302,14 @@ class BasePoissonSolver(_PoissonSolver):
 class FDPoissonSolver(BasePoissonSolver):
     def __init__(self, nn=3, relax='J', eps=2e-10, maxiter=1000,
                  remove_moment=None, use_charge_center=False,
-                 use_charged_periodic_corrections=False,
-                 metallic_electrodes=False):
+                 metallic_electrodes=False,
+                 use_charged_periodic_corrections=False):
         super(FDPoissonSolver, self).__init__(
             eps=eps,
             remove_moment=remove_moment,
             use_charge_center=use_charge_center,
-            use_charged_periodic_corrections=use_charged_periodic_corrections,
-            metallic_electrodes=metallic_electrodes)
+            metallic_electrodes=metallic_electrodes,
+            use_charged_periodic_corrections=use_charged_periodic_corrections)
         self.relax = relax
         self.nn = nn
         self.charged_periodic_correction = None

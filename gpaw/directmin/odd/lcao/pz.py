@@ -8,7 +8,7 @@ from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.poisson import PoissonSolver
-from gpaw.directmin.tools import D_matrix
+from gpaw.directmin.lcao.tools import D_matrix
 
 
 class PzCorrectionsLcao:

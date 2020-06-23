@@ -1,7 +1,7 @@
 from gpaw import GPAW, LCAO, FermiDirac
 from ase import Atoms
 import numpy as np
-from gpaw.directmin.directmin_lcao import DirectMinLCAO
+from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 from gpaw.test import equal
 
 # Water molecule:

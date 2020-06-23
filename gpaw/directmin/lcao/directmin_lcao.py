@@ -1,15 +1,15 @@
 from ase.units import Hartree
 import numpy as np
 from gpaw.utilities.blas import mmm  # , dotc, dotu
-from gpaw.directmin.tools import D_matrix, expm_ed, expm_ed_unit_inv
+from gpaw.directmin.lcao.tools import D_matrix, expm_ed, expm_ed_unit_inv
 from gpaw.lcao.eigensolver import DirectLCAO
 from scipy.linalg import expm  # , expm_frechet
 from gpaw.utilities.tools import tri2full
-from gpaw.directmin import search_direction, line_search_algorithm
+from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
-from gpaw.directmin.odd import odd_corrections
-from gpaw.directmin.tools import loewdin
+from gpaw.directmin.odd.lcao import odd_corrections
+from gpaw.directmin.lcao.tools import loewdin
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
 from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 
@@ -34,7 +34,7 @@ class DirectMinLCAO(DirectLCAO):
         self.lsa = linesearch_algo
         self.initial_rotation = initial_rotation
         self.initial_orbitals = initial_orbitals
-        self.get_en_and_grad_iters = 0
+        self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
@@ -398,7 +398,7 @@ class DirectMinLCAO(DirectLCAO):
         self.e_sic = self.kd_comm.sum(self.e_sic)
         wfs.timer.stop('Calculate gradients')
 
-        self.get_en_and_grad_iters += 1
+        self.eg_count += 1
 
         return e_total + self.e_sic, g_mat_u
 
