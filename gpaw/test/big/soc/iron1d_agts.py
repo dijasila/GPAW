@@ -15,15 +15,13 @@ def soc(params: Dict) -> list:
     """Do DFT + SOC calculations in memory and from gpw-file."""
     atoms.calc = GPAW(**params)
     atoms.get_potential_energy()
-    K1 = soc_eigenstates(atoms.calc)
+    S1 = soc_eigenstates(atoms.calc)
     atoms.calc.write('Fe.gpw')
-    K2 = soc_eigenstates('Fe.gpw')
+    S2 = soc_eigenstates('Fe.gpw')
     #occupations={'name': 'fermi-dirac', 'width': 0.05})
     #assert abs(s1['fermi_level'] - s2['fermi_level']) < 1e-10
-    for k1, k2 in zip(K1, K2):
-        assert abs(k1.eps_n - k2.eps_n).max() < 1e-10
-        assert abs(k1.spin_projections_vn -
-                   k2.spin_projections_vn).max() < 1e-10
+    assert abs(S1.eigenvalues() - S2.eigenvalues()).max() < 1e-10
+    assert abs(S1.spin_projections() - S2.spin_projections()).max() < 0.01
     return K1
 
 
@@ -36,10 +34,8 @@ def run() -> None:
     params['symmetry'] = 'off'
     B = soc(params)
     #assert abs(A['fermi_level'] - B['fermi_level']) < 0.002
-    for k1, k2 in zip(A, B):
-        assert abs(k1.eps_n - k2.eps_n).max() < 0.003
-        assert abs(k1.spin_projections_vn -
-                   k2.spin_projections_vn).max() < 0.15
+    assert abs(A.eigenvalues() - B.eigenvalues()).max() < 0.003
+    assert abs(A.spin_projections() - B.spin_projections()).max() < 0.15
 
 
 def create_tasks():

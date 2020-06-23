@@ -1,7 +1,6 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 from gpaw.berryphase import get_overlap
-from gpaw.spinorbit import get_spinorbit_projections
 from gpaw.spinorbit import get_spinorbit_wavefunctions
 
 
@@ -230,7 +229,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     assert len(orbitals_ai) == Na
 
     if spinors:
-        assert v_knm is not None
+        soc_kpts = soc_eigenstates(calc)
         new_orbitals_ai = []
         for orbitals_i in orbitals_ai:
             new_orbitals_i = []
@@ -253,7 +252,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
         if spinors:
-            P_ani = get_spinorbit_projections(calc, ik, v_knm[ik])
+            P_ani = soc_kpts.kpts[ik].projections
         else:
             P_ani = calc.wfs.kpt_u[spin * Nk + ik].P_ani
         for i in range(Nw):
@@ -358,7 +357,7 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
     P_kani = []
     for ik in range(Nk):
         if spinors:
-            P_kani.append(get_spinorbit_projections(calc, ik, v_knm[ik]))
+            P_kani.append(soc_kpts.kpts[ik].projections)
         else:
             P_kani.append(calc.wfs.kpt_u[spin * Nk + ik].P_ani)
 

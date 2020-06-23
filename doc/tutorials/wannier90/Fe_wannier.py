@@ -7,9 +7,7 @@ seed = 'Fe'
 
 calc = GPAW('Fe.gpw', txt=None)
 
-soc = soc_eigenstates(calc, return_wfs=True)
-e_mk = soc['eigenvalues'].T
-v_knm = soc['eigenstates']
+soc = soc_eigenstates(calc)
 
 w90.write_input(calc,
                 bands=range(30),
@@ -23,9 +21,9 @@ w90.write_input(calc,
 os.system('wannier90.x -pp ' + seed)
 
 w90.write_projections(calc,
-                      v_knm=v_knm,
+                      soc=soc,
                       seed=seed)
-w90.write_eigenvalues(calc, e_km=e_mk.T, seed=seed)
-w90.write_overlaps(calc, v_knm=v_knm, seed=seed)
+w90.write_eigenvalues(calc, soc=soc, seed=seed)
+w90.write_overlaps(calc, soc=soc, seed=seed)
 
 os.system('wannier90.x ' + seed)

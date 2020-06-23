@@ -2,7 +2,6 @@
 import pytest
 import numpy as np
 from ase.build import mx2
-from ase.units import Ha
 
 from gpaw import GPAW
 from gpaw.spinorbit import soc_eigenstates
@@ -30,7 +29,6 @@ def test_soc_self_consistent():
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
 
-    # Selfconsistent:
     a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
                                 'soc': True},
                   convergence={'bands': 28},
@@ -46,13 +44,10 @@ def test_soc_self_non_consistent():
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
 
-    # Non-selfconsistent:
     a.calc = GPAW(convergence={'bands': 14},
                   **params)
     a.get_potential_energy()
 
     kpts = soc_eigenstates(a.calc, n2=14)
-    for kpt in kpts:
-        if kpt.k == 8:
-            eigs = kpt.eps_n * Ha
-            check(eigs, 0.15, 0.007)
+    eigs = kpts.eigenvalues()[8]
+    check(eigs, 0.15, 0.007)

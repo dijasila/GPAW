@@ -6,7 +6,6 @@ from gpaw import GPAW
 from gpaw.mpi import serial_comm, world, rank
 from gpaw.utilities.blas import gemmdot
 from gpaw.spinorbit import (soc_eigenstates,
-                            get_spinorbit_projections,
                             get_spinorbit_wavefunctions)
 
 from ase.dft.kpoints import get_monkhorst_pack_size_and_offset
@@ -326,11 +325,10 @@ def parallel_transport(calc,
     else:
         b_v = G_v
 
-    v_knm = soc_eigenstates(calc,
-                            return_wfs=True,
-                            scale=scale,
-                            theta=theta,
-                            phi=phi)['eigenstates']
+    soc_kpts = soc_eigenstates(calc,
+                               scale=scale,
+                               theta=theta,
+                               phi=phi)
 
     phi_km = np.zeros((Npar, len(bands)), float)
     S_km = np.zeros((Npar, len(bands)), float)
@@ -350,11 +348,11 @@ def parallel_transport(calc,
                 # Transform from psi-like to u-like
                 u1_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq1],
                                                     r_g, beta=0.0))
-                P1_ani = get_spinorbit_projections(calc, iq1, v_knm[iq1])
+                P1_ani = soc_kpts.kpts[iq1].projections
 
             u2_nsG = get_spinorbit_wavefunctions(calc, iq2, v_knm[iq2])[bands]
             u2_nsG[:] *= np.exp(-1.0j * gemmdot(kpts_kv[iq2], r_g, beta=0.0))
-            P2_ani = get_spinorbit_projections(calc, iq2, v_knm[iq2])
+            P2_ani = soc_kpts.kpts[iq2].projections
 
             M_mm = get_overlap(calc,
                                bands,

@@ -1,5 +1,5 @@
 import warnings
-from typing import Union, List, TYPE_CHECKING, Dict, Any
+from typing import Union, List, TYPE_CHECKING, Dict, Any, Optional
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +22,46 @@ Array2D = ArrayND
 Array3D = ArrayND
 
 
+class KPointCollection:
+    def __init__(self, kd, kpts: List[KPoint]):
+        self.kd = kd
+        self.kpts = {kpt.k: kpt for kpt in kpts}
+
+        # Initialize ranks:
+        self.ranks = np.zeros(kd.nbzkpts, int)
+        for kpt in kpts:
+            self.ranks[kpt.k] = kd.comm.rank
+        kd.comm.sum(self.ranks)
+
+    def eigenvalues(self) -> Optional[Array2D]:
+        return self._collect('eps_n', Ha)
+
+    def spin_projections(self) -> Optional[Array3D]:
+        return self._collect('spin_projection_vn')
+
+    def _collect(self, attr: str, scale: float = 1.0) -> Optional[ArrayND]:
+        if self.kpts[0].projections.atom_partition.comm.rank != 0:
+            return
+        if self.kpts[0].projections.bcomm.rank != 0:
+            return
+
+        comm = self.kd.comm
+        if comm.rank == 0:
+            kpt = next(iter(self.kpts.values()))
+            shape = getattr(kpt, attr).shape
+            x_kn = np.empty((self.kd.nbzkpts,) + shape)
+            for k, rank in enumerate(self.ranks):
+                if rank == comm.rank:
+                    x_kn[k] = getattr(self.kpts[k], attr) * scale
+                else:
+                    comm.receive(x_kn[k], rank)
+            return x_kn
+
+        for k, rank in enumerate(self.ranks):
+            if rank == self.kd.comm.rank:
+                comm.send(getattr(self.kpts[k], attr) * scale, 0)
+
+
 def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n1: int = 0,
                     n2: int = 0,
@@ -31,7 +71,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     phi: float = 0.0,
                     return_wfs: bool = False,
                     occupations: Dict = None
-                    ) -> List[KPoint]:
+                    ) -> KPointCollection:
     """Calculate SOC eigenstates.
 
     Parameters:
@@ -78,7 +118,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     kd = calc.wfs.kd
     bd = calc.wfs.bd
     gd = calc.wfs.gd
-    spos_ac = calc.wfs.spos_ac
+    spos_ac = calc.spos_ac
     setups = calc.wfs.setups
     atom_partition = calc.density.atom_partition
 
@@ -161,7 +201,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             kpt.q = bz_index
             mykpts.append(kpt)
 
-    return mykpts
+    return KPointCollection(kd, mykpts)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
