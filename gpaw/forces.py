@@ -4,7 +4,7 @@ from ase.units import Hartree, Bohr
 
 from gpaw.xc.hybrid import HybridXCBase
 from gpaw.utilities import unpack
-from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.fd.tools import get_n_occ
 
 
 def calculate_forces(wfs, dens, ham, log=None):

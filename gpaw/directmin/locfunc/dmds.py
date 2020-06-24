@@ -1,5 +1,5 @@
 from ase.parallel import parprint
-from gpaw.directmin.tools import get_n_occ, matrix_function
+from gpaw.directmin.fd.tools import get_n_occ, matrix_function
 import numpy as np
 from ase.units import Hartree
 from gpaw.directmin.locfunc.diis import dot

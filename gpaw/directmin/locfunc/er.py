@@ -8,7 +8,7 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.fd.tools import d_matrix
 from gpaw.poisson import PoissonSolver
-from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.fd.tools import get_n_occ
 
 
 class ERlocalization:

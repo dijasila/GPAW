@@ -3,12 +3,11 @@ Potentials for orbital density dependent energy functionals
 """
 import numpy as np
 from gpaw.utilities import unpack
-from gpaw.directmin.fd.tools import d_matrix
-from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.fd.tools import get_n_occ, d_matrix
 # from gpaw.xc.scaling_factor import SF, PurePythonSFKernel
 from gpaw.xc.scaling_factor_gga import SFG, PurePythonSFGKernel
 from gpaw.xc.scaling_factor_gga_2 import PurePythonSFG2Kernel
-from gpaw.directmin.odd.pz import PzCorrections
+from gpaw.directmin.odd.fd.pz import PzCorrections
 
 
 class SPzCorrections(PzCorrections):

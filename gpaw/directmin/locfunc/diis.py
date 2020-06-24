@@ -1,8 +1,8 @@
 from ase.parallel import parprint
-from gpaw.directmin.tools import matrix_function, get_n_occ
+from gpaw.directmin.fd.tools import matrix_function, get_n_occ
 import numpy as np
 from ase.units import Hartree
-from gpaw.directmin.tools import get_random_um
+from gpaw.directmin.fd.tools import get_random_um
 
 
 def one_over_sqrt(x):

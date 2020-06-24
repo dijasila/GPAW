@@ -1,5 +1,58 @@
 import numpy as np
 
+def get_n_occ(kpt):
+
+    nbands = len(kpt.f_n)
+    n_occ = 0
+    while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
+        n_occ += 1
+    return n_occ
+
+
+def get_indices(dimens, dtype):
+
+    if dtype == complex:
+        il1 = np.tril_indices(dimens)
+    else:
+        il1 = np.tril_indices(dimens, -1)
+
+    return il1
+
+
+def expm_ed(a_mat, evalevec=False, use_numpy=True):
+
+    """
+    calculate matrix exponential
+    using eigendecomposition of matrix a_mat
+
+    :param a_mat: matrix to be exponented
+    :param evalevec: if True then returns eigenvalues
+                     and eigenvectors of A
+    :param use_numpy: if True use numpy for eigendecomposition,
+                      otherwise use gpaw's diagonalize
+
+    :return:
+    """
+
+    if use_numpy:
+        eigval, evec = np.linalg.eigh(1.0j * a_mat)
+    else:
+        raise ValueError('use_numpy must be True')
+        # evec = 1.0j * a_mat
+        # eigval = np.empty(a_mat.shape[0])
+        # diagonalize(evec, eigval)
+        # evec = evec.T.conj()
+
+    product = np.dot(evec * np.exp(-1.0j * eigval), evec.T.conj())
+
+    if a_mat.dtype == float:
+        product = product.real
+    if evalevec:
+        return product, evec, eigval
+
+    return product
+
+
 def cubic_interpolation(x_0, x_1, f_0, f_1, df_0, df_1):
     """
     f(x) = a x^3 + b x^2 + c x + d

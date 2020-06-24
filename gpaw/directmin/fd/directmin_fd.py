@@ -7,8 +7,8 @@ from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
 from gpaw.directmin.fd import sd_outer, ls_outer
 # from gpaw.utilities.lapack import diagonalize
-from gpaw.directmin.odd import odd_corrections
-from gpaw.directmin.tools import get_n_occ
+from gpaw.directmin.odd.fd import odd_corrections
+from gpaw.directmin.fd.tools import get_n_occ
 from gpaw.directmin.fd.inner_loop import InnerLoop
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization

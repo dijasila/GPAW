@@ -1,5 +1,4 @@
-from gpaw.directmin.tools import get_n_occ, get_indices
-from gpaw.directmin.tools import expm_ed
+from gpaw.directmin.fd.tools import get_n_occ, get_indices, expm_ed
 from gpaw.directmin.fd.sd_inner import LBFGS_P
 from gpaw.directmin.fd.ls_inner import StrongWolfeConditions as SWC
 from ase.units import Hartree

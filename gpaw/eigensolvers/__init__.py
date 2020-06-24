@@ -5,7 +5,7 @@ from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
-from gpaw.directmin.directmin_fd import DirectMinFD
+from gpaw.directmin.fd.directmin_fd import DirectMinFD
 from gpaw.directmin.lcao.directmin_lcao import DirectMinLCAO
 
 def get_eigensolver(eigensolver, mode, convergence=None):
