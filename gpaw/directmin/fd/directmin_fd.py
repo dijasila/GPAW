@@ -32,6 +32,7 @@ class DirectMinFD(Eigensolver):
                  maxiter=50,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
+                 printinnerloop=False,
                  blocksize=1):
 
         super(DirectMinFD, self).__init__(keep_htpsit=False,
@@ -47,6 +48,7 @@ class DirectMinFD(Eigensolver):
         self.maxiter=maxiter
         self.kappa_tol=kappa_tol
         self.g_tol=g_tol
+        self.printinnerloop = printinnerloop
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
@@ -913,8 +915,11 @@ class DirectMinFD(Eigensolver):
         e_total = ham.get_energy(occ,
                                  kin_en_using_band=False,
                                  e_sic=self.e_sic)
-        # log = parprint
-        log = None
+        if self.printinnerloop:
+            log = parprint
+        else:
+            log = None
+
         if wfs.read_from_file_init_wfs_dm:
             intital_random = False
         else:

@@ -139,7 +139,7 @@ class InnerLoop:
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
             small_random=True):
 
-        log = parprint
+        log = log
         self.run_count += 1
         self.counter = 0
         self.eg_count = 0
@@ -286,10 +286,11 @@ class InnerLoop:
                 if len(threelasten) > 2:
                     threelasten = threelasten[-3:]
                     if threelasten[0] < threelasten[1] and threelasten[1] < threelasten[2]:
-                       parprint(
-                            'Could not converge, leave the loop',
-                            flush=True)
-                       break
+                        if log is not None:
+                           log(
+                                'Could not converge, leave the loop',
+                                flush=True)
+                        break
                         # reset things:
                         # threelasten = []
                         # self.sd = LBFGS_P(wfs, memory=20)
