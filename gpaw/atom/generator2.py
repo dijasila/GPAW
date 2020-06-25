@@ -5,13 +5,14 @@ from math import pi, exp, sqrt, log
 import numpy as np
 from scipy.optimize import fsolve
 from scipy.linalg import eigh
+from scipy.special import erf
 from ase.units import Hartree
 from ase.data import atomic_numbers
 
 from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
 from gpaw.gaunt import gaunt
-from gpaw.utilities import erf, pack2
+from gpaw.utilities import pack2
 from gpaw.atom.aeatom import (AllElectronAtom, Channel, parse_ld_str, colors,
                               GaussianBasis)
 

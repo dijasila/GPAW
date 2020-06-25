@@ -1,8 +1,8 @@
 """Bare Coulomb potential for hydrogen."""
 
 import numpy as np
+from scipy.special import erf
 
-from gpaw.utilities import erf
 from gpaw.spline import Spline
 from gpaw.setup import BaseSetup
 from gpaw.basis_data import Basis
