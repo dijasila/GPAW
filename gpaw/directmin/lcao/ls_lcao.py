@@ -26,18 +26,33 @@ def appr_wc(der_phi_0, phi_0, der_phi_j, phi_j):
 
 class UnitStepLength(object):
 
-    def __init__(self, evaluate_phi_and_der_phi):
+    def __init__(self, evaluate_phi_and_der_phi, max_step=0.2, **kwargs):
         """
 
         :param evaluate_phi_and_der_phi:
         """
 
         self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
+        self.max_step = max_step
 
     def step_length_update(self, x, p, n_dim,
                            *args, **kwargs):
 
-        a_star = 1.0
+        kd = kwargs['kpdescr']
+        slength = 0.0
+        tmp = 0.0
+
+        for k in p.keys():
+            tmp = np.linalg.norm(p[k])
+            if tmp > slength:
+                slength = tmp
+
+        slength = kd.comm.max(slength)
+        if slength > self.max_step:
+            a_star = self.max_step / slength
+        else:
+            a_star = 1.0
+
         phi_star, der_phi_star, g_star = \
                 self.evaluate_phi_and_der_phi(x, p, n_dim, a_star,
                                               *args)

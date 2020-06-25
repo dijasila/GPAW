@@ -630,3 +630,140 @@ class LBFGS_P2(SteepestDescent):
             self.kp[self.k] = self.p
 
             return self.multiply(r, const=-1.0)
+
+
+class LSR1P(SteepestDescent):
+
+    def __init__(self, wfs, memory=10, method='LSR1', phi=None):
+        """
+        :param m: memory (amount of previous steps to use)
+        """
+        super(LSR1P, self).__init__(wfs)
+
+        self.u_k = {i: None for i in range(memory)}
+        self.j_k = {i: None for i in range(memory)}
+        self.yj_k = np.zeros(shape=memory)
+        self.method = method
+        self.phi = phi
+
+        self.phi_k = np.zeros(shape=memory)
+        if self.phi is None:
+            assert self.method in ['LSR1', 'LP',
+                                   'LBofill', 'Linverse_Bofill'], \
+                'Value Error'
+            if self.method == 'LP':
+                self.phi_k.fill(1.0)
+        else:
+            self.phi_k.fill(self.phi)
+
+        self.kp = {}
+        self.p = 0
+        self.k = 0
+
+        self.m = memory
+
+    def __str__(self):
+
+        return 'LSR1P'
+
+    def update_data(self, wfs, x_k1, g_k1, precond=None):
+
+        if precond is not None:
+            bg_k1 = self.apply_prec(precond, g_k1, 1.0)
+        else:
+            bg_k1 = g_k1.copy()
+
+        if self.k == 0:
+            self.kp[self.k] = self.p
+            self.x_k = copy.deepcopy(x_k1)
+            self.g_k = copy.deepcopy(g_k1)
+            self.u_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.j_k[self.kp[self.k]] = self.zeros(g_k1)
+            self.k += 1
+            self.p += 1
+            self.kp[self.k] = self.p
+            p = self.minus(bg_k1)
+            self.iters += 1
+
+            return p
+
+        else:
+            if self.p == self.m:
+                self.p = 0
+                self.kp[self.k] = self.p
+
+            x_k = self.x_k
+            g_k = self.g_k
+            u_k = self.u_k
+            j_k = self.j_k
+            yj_k = self.yj_k
+            phi_k = self.phi_k
+
+            x_k1 = copy.deepcopy(x_k1)
+
+            kp = self.kp
+            k = self.k
+            m = self.m
+
+            s_k = self.calc_diff(x_k1, x_k, wfs)
+            y_k = self.calc_diff(g_k1, g_k, wfs)
+            if precond is not None:
+                by_k = self.apply_prec(precond, y_k, 1.0)
+            else:
+                by_k = y_k.copy()
+
+            by_k = self.update_bv(wfs, by_k, y_k, u_k, j_k, yj_k, phi_k,
+                                  np.maximum(1, k - m), k)
+
+            j_k[kp[k]] = self.calc_diff(s_k, by_k, wfs)
+            yj_k[kp[k]] = self.dot_all_k_and_b(y_k, j_k[kp[k]], wfs)
+
+            dot_yy = self.dot_all_k_and_b(y_k, y_k, wfs)
+            if abs(dot_yy) > 1.0e-15:
+                u_k[kp[k]] = self.multiply(y_k, 1.0 / dot_yy)
+            else:
+                u_k[kp[k]] = self.multiply(y_k, 1.0e15)
+
+            if self.method == 'LBofill' and self.phi is None:
+                jj_k = self.dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
+                phi_k[kp[k]] = 1 - yj_k[kp[k]]**2 / (dot_yy * jj_k)
+            elif self.method == 'Linverse_Bofill' and self.phi is None:
+                jj_k = self.dot_all_k_and_b(j_k[kp[k]], j_k[kp[k]], wfs)
+                phi_k[kp[k]] = yj_k[kp[k]] ** 2 / (dot_yy * jj_k)
+
+            bg_k1 = self.update_bv(wfs, bg_k1, g_k1, u_k, j_k, yj_k, phi_k,
+                                   np.maximum(1, k - m + 1), k + 1)
+
+            # save this step:
+            self.x_k = copy.deepcopy(x_k1)
+            self.g_k = copy.deepcopy(g_k1)
+            self.k += 1
+            self.p += 1
+            self.kp[self.k] = self.p
+            self.iters += 1
+
+        return self.multiply(bg_k1, const=-1.0)
+
+    def update_bv(self, wfs, bv, v, u_k, j_k, yj_k, phi_k, i_0, i_m):
+        kp = self.kp
+
+        for i in range(i_0, i_m):
+            dot_uv = self.dot_all_k_and_b(u_k[kp[i]],
+                                          v, wfs)
+            dot_jv = self.dot_all_k_and_b(j_k[kp[i]],
+                                          v, wfs)
+
+            alpha = dot_jv - yj_k[kp[i]] * dot_uv
+            beta_p = self.calc_diff(j_k[kp[i]], u_k[kp[i]],
+                                    wfs, const_0=dot_uv,
+                                    const=-alpha)
+
+            beta_ms = self.multiply(j_k[kp[i]], dot_jv / yj_k[kp[i]])
+
+            beta = self.calc_diff(beta_ms, beta_p, wfs,
+                                  const_0=1-phi_k[kp[i]],
+                                  const=-phi_k[kp[i]])
+
+            bv = self.calc_diff(bv, beta, wfs, const=-1.0)
+
+        return bv

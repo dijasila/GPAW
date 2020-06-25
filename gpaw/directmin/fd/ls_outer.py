@@ -336,18 +336,34 @@ class StrongWolfeConditions:
 
 class UnitStepLength:
 
-    def __init__(self, evaluate_phi_and_der_phi):
+    def __init__(self, evaluate_phi_and_der_phi, maxstep=1.0e3, **kwargs):
         """
         :param evaluate_phi_and_der_phi: function which calculate
         phi, der_phi and g for given x_k, p_s and alpha
         """
 
         self.evaluate_phi_and_der_phi = evaluate_phi_and_der_phi
+        self.maxstep = maxstep
+
         # self.log = log
 
     def step_length_update(self, x_k, p_k, *args, **kwargs):
 
-        a_star = 1.0
+        wfs = kwargs['wfs']
+        dot = 0.0
+        for kpt in wfs.kpt_u:
+            k = wfs.kd.nks // wfs.kd.nspins * kpt.s + kpt.q
+            for p in p_k[k]:
+                dot += wfs.gd.integrate(p, p, False)
+        dot = dot.real
+        dot = wfs.world.sum(dot)
+        dot = np.sqrt(dot)
+
+        if dot > self.maxstep:
+            a_star = self.maxstep/dot
+        else:
+            a_star = 1.0
+
         phi_star, der_phi_star, g_star = \
                 self.evaluate_phi_and_der_phi(x_k, p_k, a_star, *args)
 

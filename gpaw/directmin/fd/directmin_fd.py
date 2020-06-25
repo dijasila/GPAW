@@ -84,8 +84,9 @@ class DirectMinFD(Eigensolver):
                'PRcg': 'Polak-Ribiere conj. grad. method',
                'PRpcg': 'Polak-Ribiere+ conj. grad. method',
                'QuickMin': 'Velocity projection algorithm',
-               'LBFGS': 'LBFGS algorithm',
-               'LBFGS_P': 'LBFGS algorithm with preconditioning'}
+               'LBFGS': 'L-BFGS algorithm',
+               'LBFGS_P': 'L-BFGS algorithm with preconditioning',
+               'LSR1P': 'L-SR1 or L-Powell or its combination update'}
 
         lss = {'UnitStep': 'step size equals one',
                'Parabola': 'Parabolic line search',
@@ -288,7 +289,7 @@ class DirectMinFD(Eigensolver):
                 psi_copy, p_knG, ham, wfs, dens, occ,
                 phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
                 phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
-                alpha_max=3.0, alpha_old=alpha)
+                alpha_max=3.0, alpha_old=alpha, wfs=wfs)
 
         # calculate new wfs:
         # do we actually need to do this?
@@ -843,7 +844,7 @@ class DirectMinFD(Eigensolver):
                 psi_copy, p_knG, ham, wfs, dens,
                 phi_0=phi_2i[0], der_phi_0=der_phi_2i[0],
                 phi_old=phi_2i[1], der_phi_old=der_phi_2i[1],
-                alpha_max=3.0, alpha_old=alpha)
+                alpha_max=3.0, alpha_old=alpha, wfs=wfs)
         # calculate new wfs:
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q

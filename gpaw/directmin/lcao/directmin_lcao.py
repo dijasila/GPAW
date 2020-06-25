@@ -83,7 +83,8 @@ class DirectMinLCAO(DirectLCAO):
                'QuickMin': 'Molecular-dynamics based algorithm',
                'LBFGS': 'LBFGS algorithm',
                'LBFGS_P': 'LBFGS algorithm with preconditioning',
-               'LBFGS_P2': 'LBFGS algorithm with preconditioning'}
+               'LBFGS_P2': 'LBFGS algorithm with preconditioning',
+               'LSR1P': 'Limited-memory SR1P algorithm'}
 
         lss = {'UnitStep': 'step size equals one',
                'Parabola': 'Parabolic line search',
@@ -322,7 +323,8 @@ class DirectMinLCAO(DirectLCAO):
                                                 phi_old=phi_2i[1],
                                                 der_phi_old=der_phi_2i[1],
                                                 alpha_max=5.0,
-                                                alpha_old=alpha)
+                                                alpha_old=alpha,
+                                                kpdescr=wfs.kd)
 
         if wfs.gd.comm.size > 1:
             wfs.timer.start('Broadcast gradients')
@@ -569,7 +571,7 @@ class DirectMinLCAO(DirectLCAO):
             # TODO: you need to recompute the gradients now
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
-                self.sort_wavefunctions(ham, wfs, kpt)
+                # self.sort_wavefunctions(ham, wfs, kpt)
                 self.c_nm_ref[u] = kpt.C_nM.copy()
                 self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
                 # self.sort_wavefunctions(ham, wfs, kpt)
