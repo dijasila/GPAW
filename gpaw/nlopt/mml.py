@@ -6,7 +6,7 @@ from math import pi
 # Import the required modules: GPAW/ASE
 from gpaw import GPAW
 from gpaw.mpi import world, broadcast, serial_comm
-from output import print_progressbar, parprint
+from gpaw.nlopt.output import print_progressbar, parprint
 from gpaw.fd_operators import Gradient
 from gpaw.response.pair import PairDensity
 from ase.units import Bohr, _hbar, _e, _me
