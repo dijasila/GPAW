@@ -1,7 +1,6 @@
 import numpy as np
+from scipy.special import erf
 from ase.units import Bohr
-
-from gpaw.utilities import erf
 
 
 class DipoleCorrection:
