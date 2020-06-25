@@ -8,8 +8,8 @@ from math import pi
 
 import numpy as np
 from ase.units import Hartree
+from scipy.special import erf
 
-from gpaw.utilities import erf
 from gpaw.mpi import serial_comm
 
 
