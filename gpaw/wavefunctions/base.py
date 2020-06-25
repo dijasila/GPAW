@@ -1,5 +1,5 @@
 import numpy as np
-from ase.units import Hartree
+from ase.units import Ha
 
 from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
@@ -53,6 +53,9 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
+        self.fermi_level = np.nan
+        self.fermi_level_split = np.nan
+
         self.eigensolver = None
         self.positions_set = False
         self.spos_ac = None
@@ -61,6 +64,14 @@ class WaveFunctions:
 
     def summary(self, log):
         log(eigenvalue_string(self))
+
+        if np.isfinite(self.fermi_level):
+            if np.isnan(self.fermi_level_split):
+                log(f'Fermi level: {self.fermi_level * Ha:.5f}\n')
+            else:
+                f1 = (self.fermi_level - 0.5 * self.fermi_level_split) * Ha
+                f2 = (self.fermi_level + 0.5 * self.fermi_level_split) * Ha
+                log(f'Fermi levels: {f1:.5f}, {f2:.5f}\n')
 
     def set_setups(self, setups):
         self.setups = setups
@@ -168,6 +179,16 @@ class WaveFunctions:
                 setup = self.setups[a]
                 D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
         D_asp.redistribute(self.atom_partition)
+
+    def calculate_occupation_numbers(self, occ):
+        f_qn, self.fermi_levels, e_entropy = occ(
+            nelectrons * self.nspins / 2,
+            [kpt.eps_n for kpt in self.kpt_u],
+            [kpt.weight for kpt in self.kpt_u],
+            self.fermi_level)
+        for f_n, kpt in zip(f_qn, self.kpt_u):
+            kpt.f_n = f_n * ...
+        return e_entropy
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
@@ -404,7 +425,9 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
-        writer.write(version=1, ha=Hartree)
+        writer.write(version=1, ha=Ha)
+        writer.write(fermi_level=self.fermi_level * Ha,
+                     fermi_level_split=self.fermi_level_splitsplit * Ha)
         writer.write(kpts=self.kd)
         self.write_projections(writer)
         self.write_eigenvalues(writer)

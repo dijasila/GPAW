@@ -3,17 +3,22 @@
 
 """Occupation number objects."""
 
-import warnings
-from math import pi
+from math import pi, nan
+from typing import List, Tuple
 
 import numpy as np
-from ase.units import Hartree
+from ase.units import Ha
 
 from gpaw.utilities import erf
-from gpaw.mpi import serial_comm
+from gpaw.mpi import serial_comm, broadcast_float
 
 
-def create_occupation_number_object(name, **kwargs):
+def create_occupation_number_object(name=None,
+                                    magmom=None,
+                                    bd=None,
+                                    kpt_comm=None,
+                                    domain_comm=None,
+                                    **kwargs):
     if name == 'fermi-dirac':
         return FermiDirac(**kwargs)
     if name == 'methfessel-paxton':
@@ -25,7 +30,7 @@ def create_occupation_number_object(name, **kwargs):
     raise ValueError('Unknown occupation number object name: ' + name)
 
 
-def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
+def occupation_numbersxxx(occ, eps_skn, weight_k, nelectrons):
     """Calculate occupation numbers from eigenvalues in eV.
 
     occ: dict
@@ -50,7 +55,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
 
     occ = create_occupation_number_object(**occ)
 
-    eps_skn = np.asarray(eps_skn) / Hartree
+    eps_skn = np.asarray(eps_skn) / Ha
     weight_k = np.asarray(weight_k)
     nspins, nkpts, nbands = eps_skn.shape
     f_skn = np.empty_like(eps_skn)
@@ -140,285 +145,183 @@ def findroot(func, x, tol=1e-10):
 
 class OccupationNumbers:
     """Base class for all occupation number objects."""
-    def __init__(self, fixmagmom):
+    def __init__(self,
+                 fixmagmom: bool = False,
+                 bd=None,
+                 kpt_comm=None,
+                 domain_comm=None):
         self.fixmagmom = fixmagmom
-        self.magmom = None  # magnetic moment
-        self.e_entropy = None  # -ST
-        self.e_band = None  # band energy (sum_n eps_n * f_n)
-        self.fermilevel = np.nan  # Fermi level
-        self.nvalence = None  # number of electrons
-        self.split = 0.0  # splitting of Fermi levels from fixmagmom=True
-        self.niter = 0  # number of iterations for finding Fermi level
-        self.ready = False
-        self.fixed_fermilevel = False
+        if fixmagmom:
+            assert magmom is None
+        self.magmom = magmom
+        self.bd = bd
+        self.kpt_comm = kpt_comm or serial_comm
+        self.domain_comm = domain_comm or serial_comm
 
-    def write(self, writer):
-        writer.write(fermilevel=self.fermilevel * Hartree,
-                     split=self.split * Hartree)
+    def todict(self):
 
-    def read(self, reader):
-        o = reader.occupations
-        self.fermilevel = o.fermilevel / reader.ha
-        self.split = o.split / reader.ha
-
-    def extrapolate_energy_to_zero_width(self, e_free):
-        return e_free
-
-    def calculate(self, wfs):
+    def __call__(self,
+                 nelectrons: float,
+                 eigenvalues: List[List[float]],
+                 weights: List[float],
+                 fermi_levels_guess: List[float] = [nan, nan]
+                 ) -> Tuple[List[np.ndarray],
+                            List[float],
+                            float]:
         """Calculate everything.
 
         The following is calculated:
 
         * occupation numbers
-        * magnetic moment
         * entropy
-        * band energy
         * Fermi level
         """
 
-        # Allow subclasses to adjust nvalence:
-        self.set_number_of_electrons(wfs)
+        if self.fixed_magmom is not None:
+            return self._fixed_magmom(
+                nelectrons, eigenvalues, weights, fermi_levels_guess)
 
-        # Allocate:
-        for kpt in wfs.kpt_u:
-            if kpt.f_n is None:
-                kpt.f_n = wfs.bd.empty()
+        f_kn = [np.empty_like(eig_n) for eig_n in eigenvalues]
 
-            # There are no eigenvalues, might as well return
-            if kpt.eps_n is None:
-                return
+        result = np.empty(2)
 
-            # Sanity check.  This class will typically be the first to
-            # suffer if any NaNs sneak in.
-            assert not np.isnan(kpt.eps_n).any()
+        if self.domain_comm.rank == 0:
+            # Let the master domain do the work and broadcast results:
+            result[:] = self._calculate(
+                nelectrons, eigenvalues, weights, f_kn, fermi_levels_guess[0])
 
-        fermilevel = self.fermilevel  # save for later
+        self.domain_comm.broadcast(result, 0)
+        for f_n in f_kn:
+            self.domain_comm.broadcast(f_n, 0)
+        fermi_level, e_entropy = result
+        return f_kn, [fermi_level], e_entropy
 
-        # Let the master domain do the work and broadcast results:
-        data = np.empty(5)
-        if wfs.gd.comm.rank == 0:
-            self.calculate_occupation_numbers(wfs)
-            self.calculate_band_energy(wfs)
-            data[:] = [self.magmom, self.e_entropy, self.e_band,
-                       self.fermilevel, self.split]
-        wfs.world.broadcast(data, 0)
-        (self.magmom, self.e_entropy, self.e_band,
-         self.fermilevel, self.split) = data
+    def _fixed_magmom(self,
+                      nelectrons: float,
+                      eigenvalues: List[List[float]],
+                      weights: List[float],
+                      fermi_levels_guess: List[float]
+                      ) -> Tuple[List[np.ndarray],
+                                 List[float],
+                                 float]:
+        f1_qn, (fermi_level1,), e_entropy1 = self(
+            (nelectrons + self.magmom) / 2,
+            eigenvalues[::2],
+            weights[::2],
+            [fermi_levels_guess[0]])
+        f2_qn, (fermi_level2,), e_entropy2 = self(
+            (nelectrons - self.magmom) / 2,
+            eigenvalues[1::2],
+            weights[1::2],
+            [fermi_levels_guess[1]])
+        f_qn = []
+        for f1_n, f2_n in zip(f1_qn, f2_qn):
+            f_qn += [f1_n, f2_n]
+        e_entropy = e_entropy1 + e_entropy2
+        return f_qn, [fermi_level1, fermi_level2], e_entropy
 
-        for kpt in wfs.kpt_u:
-            wfs.gd.comm.broadcast(kpt.f_n, 0)
-
-        if self.fixed_fermilevel:
-            self.fermilevel = fermilevel
-
-    def set_number_of_electrons(self, wfs):
-        self.nvalence = wfs.nvalence
-        self.ready = True
-
-    def calculate_occupation_numbers(self, wfs):
-        raise NotImplementedError
-
-    def calculate_band_energy(self, wfs):
-        """Sum up all eigenvalues weighted with occupation numbers"""
-        e_band = 0.0
-        for kpt in wfs.kpt_u:
-            e_band += np.dot(kpt.f_n, kpt.eps_n)
-        self.e_band = wfs.kptband_comm.sum(e_band)
-
-    def get_fermi_level(self):
-        raise ValueError('Can not calculate Fermi level!')
+    def extrapolate_energy_to_zero_width(self, e_free):
+        return e_free
 
 
-class ZeroKelvin(OccupationNumbers):
-    def __init__(self, fixmagmom):
-        self.width = 0.0
-        OccupationNumbers.__init__(self, fixmagmom)
+class ZeroWidth(OccupationNumbers):
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   fermi_level_guess=nan):
+        eig_kn, weight_k = self._collect_eigelvalues(eig_qn, weight_q)
 
-    def calculate_occupation_numbers(self, wfs):
-        if wfs.nspins == 1:
-            self.spin_paired(wfs)
-        elif self.fixmagmom:
-            assert wfs.kd.gamma
-            self.fixed_moment(wfs)
-        else:
-            assert wfs.kd.nibzkpts == 1
-            self.spin_polarized(wfs)
-
-        self.e_entropy = 0.0
-
-    def occupy(self, f_n, eps_n, ne, weight=1):
-        """Fill in occupation numbers.
-
-        return HOMO and LUMO energies."""
-
-        N = len(f_n)
-        if ne == N:
-            f_n[:] = weight
-            return eps_n[-1], np.inf
-
-        n = int(ne)
-        f = ne - n
-        f_n[:n] = weight
-        assert n < N
-        f_n[n] = f * weight
-        f_n[n + 1:] = 0.0
-        if f > 0.0:
-            return eps_n[n], eps_n[n]
-        return eps_n[n - 1], eps_n[n]
-
-    def summary(self, log):
-        if np.isfinite(self.fermilevel):
-            if self.fixed_fermilevel:
-                log('Fixed ', end='')
-            if not self.fixmagmom:
-                log('Fermi level: %.5f\n' % (Hartree * self.fermilevel))
+        if eig_kn is not None:
+            w_kn = np.empty_like(eig_kn)
+            w_kn[:] = weight_k[:, np.newaxis]
+            eig_m = eig_kn.ravel()
+            w_m = w_kn.ravel()
+            m_i = eig_m.argsort()
+            w_i = w_m[m_i]
+            f_i = np.add.accumulate(w_i) - 0.5 * w_i
+            i = np.nonzero(f_i >= nelectrons)[0][0]
+            f_kn = np.zeros_like(eig_kn)
+            f_m = f_kn.ravel()
+            f_m[m_i[:i]] = 1.0
+            extra = nelectrons - f_kn.sum(axis=1).dot(weight_k)
+            if extra > 0.0:
+                assert extra < w_i[i]
+                f_m[m_i[i]] = extra / w_i[i]
+                fermi_level = eig_m[m_i[i]]
             else:
-                log('Fermi levels: %.5f, %.5f\n' %
-                    (Hartree * (self.fermilevel + 0.5 * self.split),
-                     Hartree * (self.fermilevel - 0.5 * self.split)))
-
-    def get_fermi_level(self):
-        """This function returns the calculated fermi-level.
-
-        Care: you get two distinct fermi-levels if you do
-        fixed-magmom calculations. Therefore you should use
-        "get_fermi_levels" or "get_fermi_levels_mean" in
-        conjunction with "get_fermi_splitting" if you do
-        fixed-magmom calculations. We will issue an warning
-        otherwise.
-
-        """
-        if not np.isfinite(self.fermilevel):
-            OccupationNumbers.get_fermi_level(self)  # fail
+                fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
         else:
-            if self.fixmagmom:
-                warnings.warn('Please use get_fermi_levels when ' +
-                              'using fixmagmom', DeprecationWarning)
-                fermilevels = np.empty(2)
-                fermilevels[0] = self.fermilevel + 0.5 * self.split
-                fermilevels[1] = self.fermilevel - 0.5 * self.split
-                return fermilevels
-            else:
-                return self.fermilevel
+            fermi_level = nan
 
-    def get_fermi_levels(self):
-        """Getting fermi-levels in case of fixed-magmom."""
-        if not np.isfinite(self.fermilevel):
-            OccupationNumbers.get_fermi_level(self)  # fail
-        else:
-            if self.fixmagmom:
-                fermilevels = np.empty(2)
-                fermilevels[0] = self.fermilevel + 0.5 * self.split
-                fermilevels[1] = self.fermilevel - 0.5 * self.split
-                return fermilevels
-            else:
-                raise ValueError('Distinct fermi-levels are only vaild ' +
-                                 'for fixed-magmom calculations!')
+        self._distribute_occupation_numbers(f_kn, f_qn)
 
-    def get_fermi_levels_mean(self):
-        if not np.isfinite(self.fermilevel):
-            OccupationNumbers.get_fermi_level(self)  # fail
-        else:
-            return self.fermilevel
+        if self.kpt_comm.rank == 0 and self.bd is not None:
+            fermi_level = broadcast_float(fermi_level, self.bd.comm)
+        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
 
-    def get_fermi_splitting(self):
-        """Return the splitting of the fermi level in hartree.
+        e_entropy = 0.0
+        return fermi_level, e_entropy
 
-        Returns 0.0 if calculation is not done using
-        fixmagmom.
+    def _collect_eigelvalues(self, eig_qn, weight_q):
+        kpt_comm = self.kpt_comm
+        nkpts_r = np.zeros(kpt_comm.size, int)
+        nkpts_r[kpt_comm.rank] = len(weight_q)
+        kpt_comm.sum(nkpts_r)
+        weight_k = np.zeros(nkpts_r.sum())
+        k1 = nkpts_r[:kpt_comm.rank].sum()
+        k2 = k1 + len(weight_q)
+        weight_k[k1:k2] = weight_q
+        kpt_comm.sum(weight_k, 0)
 
-        """
-        if self.fixmagmom:
-            return self.split
-        else:
-            return 0.0
+        eig_kn = None
+        k = 0
+        for rank, nkpts in enumerate(nkpts_r):
+            for q in range(nkpts):
+                eig_n = eig_qn[q]
+                if self.bd is not None:
+                    eig_n = self.bd.collect(eig_n)
+                if self.bd is None or self.bd.comm.rank == 0:
+                    if kpt_comm.rank == 0:
+                        if k == 0:
+                            eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
+                        if rank == 0:
+                            eig_kn[k] = eig_n
+                        else:
+                            kpt_comm.receive(eig_kn[k], rank)
+                    else:
+                        kpt_comm.send(eig_n, 0)
+                k += 1
+        return eig_kn, weight_k, nkpts_r
 
-    def fixed_moment(self, wfs):
-        assert wfs.nspins == 2 and wfs.kd.nbzkpts == 1
-        fermilevels = np.zeros(2)
-        for kpt in wfs.kpt_u:
-            eps_n = wfs.bd.collect(kpt.eps_n)
-            if eps_n is None:
-                f_n = None
-            else:
-                f_n = wfs.bd.empty(global_array=True)
-                sign = 1 - kpt.s * 2
-                ne = 0.5 * (self.nvalence + sign * self.magmom)
-
-                homo, lumo = self.occupy(f_n, eps_n, ne)
-
-                fermilevels[kpt.s] = 0.5 * (homo + lumo)
-            wfs.bd.distribute(f_n, kpt.f_n)
-        wfs.kptband_comm.sum(fermilevels)
-        self.fermilevel = fermilevels.mean()
-        self.split = fermilevels[0] - fermilevels[1]
-
-    def spin_paired(self, wfs):
-        homo = -np.inf
-        lumo = np.inf
-        if wfs.collinear:
-            ne = 0.5 * self.nvalence
-        else:
-            ne = self.nvalence
-        for kpt in wfs.kpt_u:
-            eps_n = wfs.bd.collect(kpt.eps_n)
-            if wfs.bd.comm.rank == 0:
-                f_n = wfs.bd.empty(global_array=True)
-                hom, lum = self.occupy(f_n, eps_n,
-                                       ne, kpt.weight)
-                homo = max(homo, hom)
-                lumo = min(lumo, lum)
-            else:
-                f_n = None
-                self.fermilevel = np.nan
-            wfs.bd.distribute(f_n, kpt.f_n)
-
-        if wfs.bd.comm.rank == 0:
-            homo = wfs.kd.comm.max(homo)
-            lumo = wfs.kd.comm.min(lumo)
-            self.fermilevel = 0.5 * (homo + lumo)
-
-        self.magmom = 0.0
-
-    def spin_polarized(self, wfs):
-        eps_un = [wfs.bd.collect(kpt.eps_n) for kpt in wfs.kpt_u]
-        self.fermilevel = np.nan
-        nbands = wfs.bd.nbands
-        if wfs.bd.comm.rank == 0:
-            if wfs.kd.comm.size == 2:
-                if wfs.kd.comm.rank == 1:
-                    wfs.kd.comm.send(eps_un[0], 0)
+    def _distribute_occupation_numbers(self, f_kn, f_qn, nkpts_r):
+        kpt_comm = self.kpt_comm
+        k = 0
+        for rank, nkpts in enumerate(nkpts_r):
+            for q in range(nkpts):
+                if kpt_comm.rank == 0:
+                    if self.bd.comm.rank == 0:
+                        if rank == 0:
+                            f_qn[q] = f_kn[k]
+                        else:
+                            kpt_comm.send(f_kn[k], rank)
                 else:
-                    eps_sn = [eps_un[0], np.empty(nbands)]
-                    wfs.kd.comm.receive(eps_sn[1], 1)
-            else:
-                eps_sn = eps_un
-
-            if wfs.kd.comm.rank == 0:
-                eps_n = np.ravel(eps_sn)
-                f_n = np.empty(nbands * 2)
-                nsorted = eps_n.argsort()
-                homo, lumo = self.occupy(f_n, eps_n[nsorted], self.nvalence)
-                f_sn = f_n[nsorted.argsort()].reshape((2, nbands))
-                self.magmom = f_sn[0].sum() - f_sn[1].sum()
-                self.fermilevel = 0.5 * (homo + lumo)
-
-            if wfs.kd.comm.size == 2:
-                if wfs.kd.comm.rank == 0:
-                    wfs.kd.comm.send(f_sn[1], 1)
-                else:
-                    f_sn = [None, np.empty(nbands)]
-                    wfs.kd.comm.receive(f_sn[1], 0)
-        else:
-            f_sn = [None, None]
-
-        for kpt in wfs.kpt_u:
-            wfs.bd.distribute(f_sn[kpt.s], kpt.f_n)
+                    if self.bd is None or self.bd.comm.size == 1:
+                        kpt_comm.receive(f_qn[q], 0)
+                    else:
+                        if self.bd.comm.rank == 0:
+                            f_n = self.bd.empty(global_array=True)
+                            kpt_comm.receive(f_n, 0)
+                        else:
+                            f_n = None
+                        self.bd.distribute(f_n, f_qn[q])
+                k += 1
 
 
-class SmoothDistribution(ZeroKelvin):
+class SmoothDistribution(OccupationNumbers):
     """Base class for Fermi-Dirac and other smooth distributions."""
-    def __init__(self, width, fixmagmom):
+    def __init__(self, width, **kwargs):
         """Smooth distribution.
 
         Find the Fermi level by integrating in energy until
@@ -432,143 +335,77 @@ class SmoothDistribution(ZeroKelvin):
             self.split and self.fermilevel - self.split.
         """
 
-        ZeroKelvin.__init__(self, fixmagmom)
-        self.width = width / Hartree
+        self.width = width / Ha
+        OccupationNumbers.__init__(self, **kwargs)
 
     def todict(self):
-        dct = {'width': self.width * Hartree}
-        if self.fixmagmom:
-            dct['fixmagmom'] = True
+        dct = OccupationNumbers.todict(self)
+        dct['width'] = self.width * Ha
         return dct
 
-    def __str__(self):
-        s = 'Occupation numbers:\n'
-        if self.fixmagmom:
-            s += '  Fixed magnetic moment\n'
-        if self.fixed_fermilevel:
-            s += '  Fixed Fermi level\n'
-        return s
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   fermi_level_guess):
+        if np.isnan(fermi_level_guess):
+            zero = ZeroWidth(self.bd, self.kpt_comm, self.domain_comm)
+            fermi_level_guess = zero._calculate(
+                nelectrons, eig_qn, weight_q, f_qn)
 
-    def calculate_occupation_numbers(self, wfs):
-        if self.width == 0 or self.nvalence == wfs.bd.nbands * 2:
-            ZeroKelvin.calculate_occupation_numbers(self, wfs)
-            return
+        x = fermi_level_guess
 
-        if not np.isfinite(self.fermilevel):
-            self.fermilevel = self.guess_fermi_level(wfs)
-
-        if not self.fixmagmom or wfs.nspins == 1:
-            result = self.find_fermi_level(wfs, self.nvalence, self.fermilevel)
-            self.fermilevel, self.magmom, self.e_entropy = result
-
-            if wfs.nspins == 1:
-                self.magmom = 0.0
-        else:
-            fermilevels = np.empty(2)
-            self.e_entropy = 0.0
-            for s in range(2):
-                sign = 1 - s * 2
-                ne = 0.5 * (self.nvalence + sign * self.magmom)
-                fermilevel = self.fermilevel + 0.5 * sign * self.split
-                fermilevels[s], magmom, e_entropy = \
-                    self.find_fermi_level(wfs, ne, fermilevel, [s])
-                self.e_entropy += e_entropy
-            self.fermilevel = fermilevels.mean()
-            self.split = fermilevels[0] - fermilevels[1]
-
-    def guess_fermi_level(self, wfs):
-        fermilevel = 0.0
-
-        kd = wfs.kd
-
-        myeps_un = np.empty((kd.mynk * kd.nspins, wfs.bd.nbands))
-        for u, kpt in enumerate(wfs.kpt_u):
-            myeps_un[u] = wfs.bd.collect(kpt.eps_n)
-
-        if wfs.bd.comm.rank == 0:
-            eps_skn = kd.collect(myeps_un, broadcast=False)
-            if kd.comm.rank == 0:
-                eps_n = eps_skn.ravel()
-                w_skn = np.empty((kd.nspins, kd.nibzkpts, wfs.bd.nbands))
-                w_skn[:] = (2.0 / wfs.nspins * kd.weight_k[:, np.newaxis])
-                w_n = w_skn.ravel()
-                n_i = eps_n.argsort()
-                w_i = w_n[n_i]
-                f_i = np.add.accumulate(w_i) - 0.5 * w_i
-                i = np.nonzero(f_i >= self.nvalence)[0][0]
-                if i == 0:
-                    fermilevel = eps_n[n_i[0]]
-                else:
-                    fermilevel = ((eps_n[n_i[i]] *
-                                   (self.nvalence - f_i[i - 1]) +
-                                   eps_n[n_i[i - 1]] *
-                                   (f_i[i] - self.nvalence)) /
-                                  (f_i[i] - f_i[i - 1]))
-
-        # XXX broadcast would be better!
-        return wfs.kptband_comm.sum(fermilevel)
-
-    def find_fermi_level(self, wfs, ne, fermilevel, spins={0, 1, None}):
-        niter = 0
-
-        x = self.fermilevel
-        if not np.isfinite(x):
-            x = self.guess_fermi_level(wfs)
-
-        data = np.empty(4)
+        data = np.empty(3)
 
         def f(x, data=data):
             data[:] = 0.0
-            for kpt in wfs.kpt_u:
-                if kpt.s in spins:
-                    data += self.distribution(kpt, x)
-            wfs.kptband_comm.sum(data)
-            n, dnde = data[:2]
-            dn = n - ne
+            for eig_n, weight, f_n in zip(eig_qn, weight_q, f_qn):
+                data += weight * self.distribution(eig_n, x, f_n)
+            if self.bd is not None:
+                self.bd.comm.sum(data)
+            self.kpt_comm.sum(data)
+            nelectronsx, dnde = data[:2]
+            dn = nelectronsx - nelectrons
             return dn, dnde
 
         fermilevel, niter = findroot(f, x)
 
-        self.niter = niter
-        magmom, e_entropy = data[2:]
-        return fermilevel, magmom, e_entropy
+        e_entropy = data[2]
+
+        return fermilevel, e_entropy
 
 
 class FermiDirac(SmoothDistribution):
-    def __init__(self, width, fixmagmom=False):
-        SmoothDistribution.__init__(self, width, fixmagmom)
-
     def todict(self):
         dct = SmoothDistribution.todict(self)
         dct['name'] = 'fermi-dirac'
         return dct
 
     def __str__(self):
-        s = '  Fermi-Dirac: width={0:.4f} eV\n'.format(self.width * Hartree)
-        return SmoothDistribution.__str__(self) + s
+        return f'  Fermi-Dirac: width={self.width * Ha:.4f} eV\n'
 
-    def distribution(self, kpt, fermilevel):
-        x = (kpt.eps_n - fermilevel) / self.width
-        x = x.clip(-100, 100)
+    def distribution(self, eig_n, fermi_level, f_n):
+        x = (eig_n - fermi_level) / self.width
+        #x = x.clip(-100, 100)
         y = np.exp(x)
         z = y + 1.0
-        kpt.f_n[:] = kpt.weight / z
-        n = kpt.f_n.sum()
-        dnde = (n - (kpt.f_n**2).sum() / kpt.weight) / self.width
+        f_n[:] = 1.0 / z
+        n = f_n.sum()
+        dnde = (n - (f_n**2).sum()) / self.width
         y *= x
         y /= z
         y -= np.log(z)
-        e_entropy = kpt.weight * y.sum() * self.width
-        sign = 1 - kpt.s * 2 if kpt.s is not None else 0.0
-        return np.array([n, dnde, n * sign, e_entropy])
+        e_entropy = y.sum() * self.width
+        return np.array([n, dnde, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):
         return E - 0.5 * self.e_entropy
 
 
 class MethfesselPaxton(SmoothDistribution):
-    def __init__(self, width, order=0, fixmagmom=False):
-        SmoothDistribution.__init__(self, width, fixmagmom)
+    def __init__(self, width, order=0):
+        SmoothDistribution.__init__(self, width)
         self.order = order
 
     def todict(self):
@@ -579,7 +416,7 @@ class MethfesselPaxton(SmoothDistribution):
 
     def __str__(self):
         s = '  Methfessel-Paxton: width={0:.4f} eV, order={1}\n'.format(
-            self.width * Hartree, self.order)
+            self.width * Ha, self.order)
         return SmoothDistribution.__str__(self) + s
 
     def distribution(self, kpt, fermilevel):
@@ -634,39 +471,39 @@ class MarzariVanderbilt(SmoothDistribution):
 
     def __str__(self):
         s = '  Marzari-Vanderbilt: width={0:.4f} eV\n'.format(
-            self.width * Hartree)
+            self.width * Ha)
         return SmoothDistribution.__str__(self) + s
 
-    def distribution(self, kpt, fermilevel):
-        x = (kpt.eps_n - fermilevel) / self.width
+    def distribution(self, eig_n, fermi_level, f_n):
+        x = (eig_n - fermi_level) / self.width
         x = x.clip(-100, 100)
 
         expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
 
         z = expterm / np.sqrt(2 * np.pi) + 0.5 * (1 - erf(1. / np.sqrt(2) + x))
-        kpt.f_n[:] = kpt.weight * z
-        n = kpt.f_n.sum()
+        f_n[:] = z
+        n = f_n.sum()
 
         dnde = expterm * (2 + np.sqrt(2) * x) / np.sqrt(np.pi)
-        dnde = dnde.sum() * kpt.weight / self.width
+        dnde = dnde.sum() / self.width
 
         s = expterm * (1 + np.sqrt(2) * x) / (2 * np.sqrt(np.pi))
 
-        e_entropy = -kpt.weight * s.sum() * self.width
+        e_entropy = -s.sum() * self.width
 
-        sign = 1 - kpt.s * 2
-        return np.array([n, dnde, n * sign, e_entropy])
+        return np.array([n, dnde, e_entropy])
 
     def extrapolate_energy_to_zero_width(self, E):
         # According to Nicola Marzari, one should not extrapolate M-V energies
-        # https://lists.quantum-espresso.org/pipermail/users/2005-October/003170.html
+        # https://lists.quantum-espresso.org/pipermail/users/
+        #         2005-October/003170.html
         return E
 
 
-class FixedOccupations(ZeroKelvin):
+class FixedOccupations(ZeroWidth):
     def __init__(self, occupation):
         self.occupation = np.array(occupation)
-        ZeroKelvin.__init__(self, True)
+        ZeroWidth.__init__(self, True)
 
     def spin_paired(self, wfs):
         return self.fixed_moment(wfs)
@@ -676,7 +513,7 @@ class FixedOccupations(ZeroKelvin):
             wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
 
 
-class TFOccupations(FermiDirac):
+class HMMMMMTFOccupations(FermiDirac):
     def __init__(self):
         FermiDirac.__init__(self, width=0.0, fixmagmom=False)
 

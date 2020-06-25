@@ -89,7 +89,6 @@ class GPAW(PAW, Calculator):
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
         'dtype': None,  # deprecated
-        'width': None,  # deprecated
         'verbose': 0}
 
     default_parallel: Dict[str, Any] = {
@@ -171,7 +170,7 @@ class GPAW(PAW, Calculator):
 
     def _write(self, writer, mode):
         from ase.io.trajectory import write_atoms
-        writer.write(version=2, gpaw_version=gpaw.__version__,
+        writer.write(version=3, gpaw_version=gpaw.__version__,
                      ha=Ha, bohr=Bohr)
 
         write_atoms(writer.child('atoms'), self.atoms)
@@ -180,7 +179,7 @@ class GPAW(PAW, Calculator):
 
         self.density.write(writer.child('density'))
         self.hamiltonian.write(writer.child('hamiltonian'))
-        self.occupations.write(writer.child('occupations'))
+        #self.occupations.write(writer.child('occupations'))
         self.scf.write(writer.child('scf'))
         self.wfs.write(writer.child('wave_functions'), mode == 'all')
 
@@ -228,9 +227,12 @@ class GPAW(PAW, Calculator):
 
         self.density.read(reader)
         self.hamiltonian.read(reader)
-        self.occupations.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
+        if reader.version < 3:
+            o = reader.occupations
+            self.wfs.fermi_level = o.fermilevel / reader.ha
+            self.wfs.fermi_level_split = o.split / reader.ha
 
         # We need to do this in a better way:  XXX
         from gpaw.utilities.partition import AtomPartition
@@ -335,7 +337,7 @@ class GPAW(PAW, Calculator):
                     self.log('{:4} {:2} ({:9.6f}, {:9.6f}, {:9.6f})'
                              .format(a, symbols[a], *mom_v))
                 self.log()
-                self.results['magmom'] = self.occupations.magmom
+                self.results['magmom'] = totmom_v[2]
                 self.results['magmoms'] = magmom_av[:, 2].copy()
 
             self.summary()
@@ -360,7 +362,7 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        efermi = self.occupations.fermilevel
+        efermi = self.wfs.fermi_level
         self.hamiltonian.summary(efermi, self.log)
         self.density.summary(self.atoms, self.occupations.magmom, self.log)
         self.occupations.summary(self.log)
@@ -806,32 +808,19 @@ class GPAW(PAW, Calculator):
             if orbital_free:
                 occ = {'name': 'orbital-free'}
             else:
-                width = self.parameters.width
-                if width is not None:
-                    warnings.warn('Please use occupations=FermiDirac({})'
-                                  .format(width))
-                elif self.atoms.pbc.any():
-                    width = 0.1  # eV
+                if self.atoms.pbc.any():
+                    occ = {'name': 'fermi-dirac',
+                           'width': 0.1}  # eV
                 else:
-                    width = 0.0
-                occ = {'name': 'fermi-dirac', 'width': width}
+                    occ = {'width': 0.0}
 
-        if isinstance(occ, dict):
-            occ = create_occupation_number_object(**occ)
-
-        if self.parameters.fixdensity:
-            occ.fixed_fermilevel = True
-            if self.occupations:
-                occ.fermilevel = self.occupations.fermilevel
-
-        self.occupations = occ
+        self.occupations = create_occupation_number_object(magmom=magmom,
+                                                           **occ)
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers
-        if self.wfs is not None:
-            self.occupations.calculate(self.wfs)
-
-        self.occupations.magmom = magmom
+        #if self.wfs is not None:
+        #    self.occupations.calculate(self.wfs)
 
         self.log(self.occupations)
 
