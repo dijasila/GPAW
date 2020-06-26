@@ -7,10 +7,10 @@ from math import pi, nan, inf
 from typing import List, Tuple, Optional, NamedTuple, Any
 
 import numpy as np
+from scipy.special import erf
 from ase.units import Ha
 
 from gpaw.band_descriptor import BandDescriptor
-from gpaw.utilities import erf
 from gpaw.mpi import serial_comm, broadcast_float
 
 MPICommunicator = Any
