@@ -1,6 +1,9 @@
+from typing import List, Optional
+
 import numpy as np
 from ase.units import Ha
 
+from gpaw.occupations import ParallelLayout, OccupationNumbers
 from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
@@ -53,8 +56,8 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
-        self.fermi_level = np.nan
-        self.fermi_level_split = np.nan
+        self.occupation_number_calculator: Optional[OccupationNumbers] = None
+        self.fermi_levels: Optional[List[float]] = None
 
         self.eigensolver = None
         self.positions_set = False
@@ -65,13 +68,11 @@ class WaveFunctions:
     def summary(self, log):
         log(eigenvalue_string(self))
 
-        if np.isfinite(self.fermi_level):
-            if np.isnan(self.fermi_level_split):
-                log(f'Fermi level: {self.fermi_level * Ha:.5f}\n')
-            else:
-                f1 = (self.fermi_level - 0.5 * self.fermi_level_split) * Ha
-                f2 = (self.fermi_level + 0.5 * self.fermi_level_split) * Ha
-                log(f'Fermi levels: {f1:.5f}, {f2:.5f}\n')
+        if len(self.fermi_levels) == 1:
+            log(f'Fermi level: {self.fermi_levels[0] * Ha:.5f}\n')
+        else:
+            f1, f2 = (f * Ha for f in self.fermi_levels)
+            log(f'Fermi levels: {f1:.5f}, {f2:.5f}\n')
 
     def set_setups(self, setups):
         self.setups = setups
@@ -180,14 +181,23 @@ class WaveFunctions:
                 D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
         D_asp.redistribute(self.atom_partition)
 
-    def calculate_occupation_numbers(self, occ):
-        f_qn, self.fermi_levels, e_entropy = occ(
-            nelectrons * self.nspins / 2,
+    def calculate_occupation_numbers(self):
+        nelectrons = self.nvalence * self.nspins / 2
+        if not self.collinear:
+            nelectrons *= 2
+
+        parallel = ParallelLayout(self.bd, self.kd.comm, self.gd.comm)
+
+        f_qn, self.fermi_levels, e_entropy = self.occupation_number_calculator(
+            nelectrons,
             [kpt.eps_n for kpt in self.kpt_u],
             [kpt.weight for kpt in self.kpt_u],
-            self.fermi_level)
+            parallel,
+            self.fermi_levels)
+
         for f_n, kpt in zip(f_qn, self.kpt_u):
-            kpt.f_n = f_n * ...
+            kpt.f_n = f_n * (kpt.weight * 2 / self.nspins)
+
         return e_entropy
 
     def set_positions(self, spos_ac, atom_partition=None):
@@ -459,7 +469,7 @@ class WaveFunctions:
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
-                writer.fill(self.collect_eigenvalues(k, s) * Hartree)
+                writer.fill(self.collect_eigenvalues(k, s) * Ha)
 
     def write_occupations(self, writer):
 
@@ -565,7 +575,7 @@ def eigenvalue_string(wfs, comment=' '):
 
     def eigs(k, s):
         eps_n = wfs.collect_eigenvalues(k, s)
-        return eps_n * Hartree
+        return eps_n * Ha
 
     occs = wfs.collect_occupations
 

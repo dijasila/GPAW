@@ -326,20 +326,21 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ, wfs):
+    def get_energy(self, e_entropy, wfs):
         """Sum up all eigenvalues weighted with occupation numbers"""
         e_band = 0.0
         for kpt in wfs.kpt_u:
             e_band += np.dot(kpt.f_n, kpt.eps_n)
         self.e_band = wfs.kptband_comm.sum(e_band)
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
+        self.e_kinetic = self.e_kinetic0 + e_band
+        self.e_entropy = e_entropy
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
+        self.e_total_extrapolated = (
+            self.e_total_free +
+            wfs.occupation_number_calculator.extrapolate_factor * e_entropy)
 
         if 0:
             print(self.e_total_free,

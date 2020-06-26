@@ -129,7 +129,6 @@ class GPAW(PAW, Calculator):
 
         self.scf = None
         self.wfs = None
-        self.occupations = None
         self.density = None
         self.hamiltonian = None
         self.spos_ac = None  # XXX store this in some better way.
@@ -288,7 +287,6 @@ class GPAW(PAW, Calculator):
             else:
                 # Drastic changes:
                 self.wfs = None
-                self.occupations = None
                 self.density = None
                 self.hamiltonian = None
                 self.scf = None
@@ -311,7 +309,7 @@ class GPAW(PAW, Calculator):
             with self.timer('SCF-cycle'):
                 yield from self.scf.irun(
                     self.wfs, self.hamiltonian,
-                    self.density, self.occupations,
+                    self.density,
                     self.log, self.call_observers)
 
             self.log('\nConverged after {} iterations.\n'
@@ -362,10 +360,10 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        efermi = self.wfs.fermi_level
+        efermi = np.mean(self.wfs.fermi_levels)
         self.hamiltonian.summary(efermi, self.log)
-        self.density.summary(self.atoms, self.occupations.magmom, self.log)
-        self.occupations.summary(self.log)
+        self.density.summary(self.atoms, self.results.get('magmom', 0.0),
+                             self.log)
         self.wfs.summary(self.log)
         try:
             bandgap(self, output=self.log.fd, efermi=efermi * Ha)
@@ -677,8 +675,6 @@ class GPAW(PAW, Calculator):
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
                              % (nvalence, nbands))
 
-        self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
-
         if self.scf is None:
             self.create_scf(nvalence, mode)
 
@@ -692,6 +688,9 @@ class GPAW(PAW, Calculator):
                                        cell_cv, pbc_c, N_c)
         else:
             self.wfs.set_setups(self.setups)
+
+        occ = self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
+        self.wfs.occupation_number_calculator = occ
 
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
@@ -733,8 +732,8 @@ class GPAW(PAW, Calculator):
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
 
-        xc.initialize(self.density, self.hamiltonian, self.wfs,
-                      self.occupations)
+        xc.initialize(self.density, self.hamiltonian, self.wfs, occ)
+
         description = xc.get_description()
         if description is not None:
             self.log('XC parameters: {}\n'
@@ -814,15 +813,21 @@ class GPAW(PAW, Calculator):
                 else:
                     occ = {'width': 0.0}
 
-        self.occupations = create_occupation_number_object(magmom=magmom,
-                                                           **occ)
+        if isinstance(occ, dict):
+            occupations = create_occupation_number_object(**occ)
+        else:
+            occupations = occ
+
+        if occupations.fixmagmom:
+            occupations.magmom = magmom
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers
         #if self.wfs is not None:
         #    self.occupations.calculate(self.wfs)
 
-        self.log(self.occupations)
+        self.log(occupations)
+        return occupations
 
     def create_scf(self, nvalence, mode):
         # if mode.name == 'lcao':
