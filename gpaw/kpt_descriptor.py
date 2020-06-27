@@ -273,7 +273,8 @@ class KPointDescriptor:
 
         for k in range(self.k0, self.k0 + self.mynk):
             q = k - self.k0
-            weight = self.weight_k[k] * 2 / self.nspins
+            weightk = self.weight_k[k]
+            weight = weightk * 2 / self.nspins
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
@@ -284,7 +285,8 @@ class KPointDescriptor:
             else:
                 spins = [None]
                 weight *= 0.5
-            kpt_qs.append([KPoint(weight, s, k, q, phase_cd) for s in spins])
+            kpt_qs.append([KPoint(weightk, weight, s, k, q, phase_cd)
+                           for s in spins])
 
         return kpt_qs
 

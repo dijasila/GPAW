@@ -191,14 +191,14 @@ class WaveFunctions:
         f_qn, fermi_levels, e_entropy = self.occupation_number_calculator(
             nelectrons,
             [kpt.eps_n for kpt in self.kpt_u],
-            [kpt.weight for kpt in self.kpt_u],
+            [kpt.weightk for kpt in self.kpt_u],
             parallel,
             self.fermi_levels)
 
         self.fermi_levels = np.array(fermi_levels)
 
         for f_n, kpt in zip(f_qn, self.kpt_u):
-            kpt.f_n = f_n * (kpt.weight * 2 / self.nspins)
+            kpt.f_n = f_n * (kpt.weightk * 2 / self.nspins)
 
         return e_entropy
 

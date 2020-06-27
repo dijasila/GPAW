@@ -243,10 +243,12 @@ class SmoothDistribution(OccupationNumbers):
                    parallel,
                    fermi_level_guess):
 
-        if np.isnan(fermi_level_guess):
+        if np.isnan(fermi_level_guess) or self.width == 0.0:
             zero = ZeroWidth()
             fermi_level_guess, _ = zero._calculate(
                 nelectrons, eig_qn, weight_q, f_qn, parallel)
+            if self.width == 0.0:
+                return fermi_level_guess, 0.0
 
         x = fermi_level_guess
 
@@ -402,20 +404,22 @@ class ZeroWidth(OccupationNumbers):
             w_m = w_kn.ravel()
             m_i = eig_m.argsort()
             w_i = w_m[m_i]
-            f_i = np.add.accumulate(w_i) - 0.5 * w_i
-            if f_i[-1] < nelectrons:
-                f_m[:] = 1.0
+            sum_i = np.add.accumulate(w_i)
+            filled_i = (sum_i < nelectrons)
+            print(sum_i, filled_i)
+            i = sum(filled_i)
+            f_m[m_i[:i]] = 1.0
+            if i == len(m_i):
                 fermi_level = inf
             else:
-                i = np.nonzero(f_i >= nelectrons)[0][0]
-                f_m[m_i[:i]] = 1.0
-                extra = nelectrons - f_kn.sum(axis=1).dot(weight_k)
-                if extra > 0.0:
+                extra = nelectrons - (sum_i[i - 1] if i > 0 else 0.0)
+                if extra > 0:
                     assert extra < w_i[i]
                     f_m[m_i[i]] = extra / w_i[i]
                     fermi_level = eig_m[m_i[i]]
                 else:
                     fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
+            print(fermi_level_guess, weight_k, f_kn, nelectrons)
         else:
             fermi_level = nan
 
