@@ -568,6 +568,8 @@ the initial value using::
 
     occupations={'name': ..., 'width': ..., 'fixmagmom': True}
 
+.. figure:: occupation_numbers.png
+
 
 .. _manual_lmax:
 

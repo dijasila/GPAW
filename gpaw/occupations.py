@@ -24,6 +24,7 @@ class ParallelLayout(NamedTuple):
 
 def fermi_dirac(eig, fermi_level, width):
     x = (eig - fermi_level) / width
+    x = np.clip(x, -100, 100)
     y = np.exp(x)
     z = y + 1.0
     f = 1.0 / z
@@ -186,6 +187,7 @@ class OccupationNumbers:
                       ) -> Tuple[List[np.ndarray],
                                  List[float],
                                  float]:
+        assert self.magmom is not None
         f1_qn, fermi_levels1, e_entropy1 = self._free_magmom(
             (nelectrons + self.magmom) / 2,
             eigenvalues[::2],

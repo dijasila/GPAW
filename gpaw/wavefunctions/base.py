@@ -188,12 +188,14 @@ class WaveFunctions:
 
         parallel = ParallelLayout(self.bd, self.kd.comm, self.gd.comm)
 
-        f_qn, self.fermi_levels, e_entropy = self.occupation_number_calculator(
+        f_qn, fermi_levels, e_entropy = self.occupation_number_calculator(
             nelectrons,
             [kpt.eps_n for kpt in self.kpt_u],
             [kpt.weight for kpt in self.kpt_u],
             parallel,
             self.fermi_levels)
+
+        self.fermi_levels = np.array(fermi_levels)
 
         for f_n, kpt in zip(f_qn, self.kpt_u):
             kpt.f_n = f_n * (kpt.weight * 2 / self.nspins)
@@ -436,8 +438,7 @@ class WaveFunctions:
 
     def write(self, writer):
         writer.write(version=1, ha=Ha)
-        writer.write(fermi_level=self.fermi_level * Ha,
-                     fermi_level_split=self.fermi_level_splitsplit * Ha)
+        writer.write(fermi_levels=self.fermi_levels * Ha)
         writer.write(kpts=self.kd)
         self.write_projections(writer)
         self.write_eigenvalues(writer)
@@ -494,6 +495,8 @@ class WaveFunctions:
             r.ha = reader.ha
         if 'version' not in r:
             r.version = reader.version
+
+        self.fermi_levels = r.fermi_levels / r.ha
 
         if reader.version >= 2:
             kpts = r.kpts
