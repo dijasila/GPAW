@@ -406,7 +406,6 @@ class ZeroWidth(OccupationNumbers):
             w_i = w_m[m_i]
             sum_i = np.add.accumulate(w_i)
             filled_i = (sum_i < nelectrons)
-            print(sum_i, filled_i)
             i = sum(filled_i)
             f_m[m_i[:i]] = 1.0
             if i == len(m_i):
@@ -414,12 +413,11 @@ class ZeroWidth(OccupationNumbers):
             else:
                 extra = nelectrons - (sum_i[i - 1] if i > 0 else 0.0)
                 if extra > 0:
-                    assert extra < w_i[i]
+                    assert extra <= w_i[i]
                     f_m[m_i[i]] = extra / w_i[i]
                     fermi_level = eig_m[m_i[i]]
                 else:
                     fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
-            print(fermi_level_guess, weight_k, f_kn, nelectrons)
         else:
             fermi_level = nan
 
