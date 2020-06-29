@@ -78,7 +78,7 @@ def hermite_poly(n, x):
                 2 * (n - 1) * hermite_poly(n - 2, x))
 
 
-def create_occupation_number_object(width,
+def create_occupation_number_object(width=None,
                                     name=None,
                                     fixmagmom=False,
                                     order=None):
@@ -92,29 +92,31 @@ def create_occupation_number_object(width,
     if name == 'marzari-vanderbilt':
         return MarzariVanderbilt(width, fixmagmom=fixmagmom)
     if name == 'orbital-free':
-        return TFOccupations()
+        return ThomasFermiOccupations()
     raise ValueError('Unknown occupation number object name: ' + name)
 
 
 class OccupationNumbers:
     """Base class for all occupation number objects."""
+    name = 'unknown'
+
     def __init__(self,
                  fixmagmom: bool = False):
         self.fixmagmom = fixmagmom
-        self.magmom: Optional[float] = None
+        self.fixed_magmom_value: Optional[float] = None
 
     def todict(self):
         return {'fixmagmom': self.fixmagmom}
 
-    def __call__(self,
-                 nelectrons: float,
-                 eigenvalues: List[List[float]],
-                 weights: List[float],
-                 parallel: ParallelLayout = None,
-                 fermi_levels_guess: List[float] = None
-                 ) -> Tuple[List[np.ndarray],
-                            List[float],
-                            float]:
+    def calculate(self,
+                  nelectrons: float,
+                  eigenvalues: List[List[float]],
+                  weights: List[float],
+                  parallel: ParallelLayout = None,
+                  fermi_levels_guess: List[float] = None
+                  ) -> Tuple[List[np.ndarray],
+                             List[float],
+                             float]:
         """Calculate occupation numbers from eigenvalues in eV.
 
         occ: dict
@@ -180,25 +182,26 @@ class OccupationNumbers:
 
     def _fixed_magmom(self,
                       nelectrons: float,
-                      eigenvalues: List[List[float]],
-                      weights: List[float],
+                      eig_qn: List[List[float]],
+                      weight_q: List[float],
                       parallel,
                       fermi_levels_guess: List[float]
                       ) -> Tuple[List[np.ndarray],
                                  List[float],
                                  float]:
-        assert self.magmom is not None
+        magmom = self.fixed_magmom_value
+        assert magmom is not None
         f1_qn, fermi_levels1, e_entropy1 = self._free_magmom(
-            (nelectrons + self.magmom) / 2,
-            eigenvalues[::2],
-            weights[::2],
+            (nelectrons + magmom) / 2,
+            eig_qn[::2],
+            weight_q[::2],
             parallel,
             fermi_levels_guess[0])
 
         f2_qn, fermi_levels2, e_entropy2 = self._free_magmom(
-            (nelectrons - self.magmom) / 2,
-            eigenvalues[1::2],
-            weights[1::2],
+            (nelectrons - magmom) / 2,
+            eig_qn[1::2],
+            weight_q[1::2],
             parallel,
             fermi_levels_guess[1])
 
@@ -275,6 +278,7 @@ class SmoothDistribution(OccupationNumbers):
 
 
 class FermiDirac(SmoothDistribution):
+    name = 'fermi-dirac'
     extrapolate_factor = -0.5
 
     def distribution(self, eig_n, fermi_level):
@@ -290,6 +294,7 @@ class FermiDirac(SmoothDistribution):
 
 
 class MarzariVanderbilt(SmoothDistribution):
+    name = 'marzari-vanderbilt'
     # According to Nicola Marzari, one should not extrapolate M-V energies
     # https://lists.quantum-espresso.org/pipermail/users/2005-October/003170.html
     extrapolate_factor = 0.0
@@ -309,6 +314,8 @@ class MarzariVanderbilt(SmoothDistribution):
 
 
 class MethfesselPaxton(SmoothDistribution):
+    name = 'methfessel_paxton'
+
     def __init__(self, width, order=0):
         SmoothDistribution.__init__(self, width)
         self.order = order
@@ -383,7 +390,14 @@ def findroot(func, x, tol=1e-10):
 
 
 class ZeroWidth(OccupationNumbers):
+    name = 'zero-width'
     extrapolate_factor = 0.0
+
+    def distribution(self, eig_n, fermi_level):
+        f_n = np.zeros_like(eig_n)
+        f_n[eig_n < fermi_level] = 1.0
+        f_n[eig_n == fermi_level] = 0.5
+        return f_n, np.zeros_like(eig_n), np.zeros_like(eig_n)
 
     def _calculate(self,
                    nelectrons,
@@ -405,7 +419,7 @@ class ZeroWidth(OccupationNumbers):
             m_i = eig_m.argsort()
             w_i = w_m[m_i]
             sum_i = np.add.accumulate(w_i)
-            filled_i = (sum_i < nelectrons)
+            filled_i = (sum_i <= nelectrons)
             i = sum(filled_i)
             f_m[m_i[:i]] = 1.0
             if i == len(m_i):
@@ -488,32 +502,40 @@ class ZeroWidth(OccupationNumbers):
                 k += 1
 
 
-class FixedOccupations(ZeroWidth):
-    def __init__(self, occupation):
-        self.occupation = np.array(occupation)
-        ZeroWidth.__init__(self, True)
+class FixedOccupations(OccupationNumbers):
+    extrapolate_factor = 0.0
 
-    def spin_paired(self, wfs):
-        return self.fixed_moment(wfs)
+    def __init__(self, f_sn):
+        OccupationNumbers.__init__(self)
+        self.f_sn = np.array(f_sn)
 
-    def fixed_moment(self, wfs):
-        for kpt in wfs.kpt_u:
-            wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   parallel,
+                   fermi_level_guess=nan):
+        for q, f_n in enumerate(f_qn):
+            s = q % len(self.f_sn)
+            parallel.bd.distribute(self.f_sn[s], f_n)
+
+        return inf, 0.0
 
 
-class TFOccupations:
-    def __init__(self):
-        FermiDirac.__init__(self, width=0.0, fixmagmom=False)
+class ThomasFermiOccupations(OccupationNumbers):
+    extrapolate_factor = 0.0
 
     def todict(self):
         return {'name': 'orbital-free'}
 
-    def occupy(self, f_n, eps_n, ne, weight=1):
-        """Fill in occupation numbers.
-
-        In TF mode only one band. Is guaranteed to work only
-        for spin-paired case.
-
-        return HOMO and LUMO energies."""
-        # Same as occupy in FermiDirac expect one band: weight = ne
-        return FermiDirac.occupy(self, f_n, eps_n, 1, ne * weight)
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   parallel,
+                   fermi_level_guess=nan):
+        assert len(f_qn) == 1
+        f_qn[0][:] = [nelectrons]
+        return inf, 0.0

@@ -178,7 +178,7 @@ class GPAW(PAW, Calculator):
 
         self.density.write(writer.child('density'))
         self.hamiltonian.write(writer.child('hamiltonian'))
-        #self.occupations.write(writer.child('occupations'))
+        # self.occupations.write(writer.child('occupations'))
         self.scf.write(writer.child('scf'))
         self.wfs.write(writer.child('wave_functions'), mode == 'all')
 
@@ -251,9 +251,9 @@ class GPAW(PAW, Calculator):
 
         self.hamiltonian.xc.read(reader)
 
-        if self.hamiltonian.xc.name == 'GLLBSC':
-            # XXX GLLB: See test/lcaotddft/gllbsc.py
-            self.occupations.calculate(self.wfs)
+        # if self.hamiltonian.xc.name == 'GLLBSC':
+        #     # XXX GLLB: See test/lcaotddft/gllbsc.py
+        #     self.occupations.calculate(self.wfs)
 
         return reader
 
@@ -360,13 +360,12 @@ class GPAW(PAW, Calculator):
                     self.results['stress'] = stress * (Ha / Bohr**3)
 
     def summary(self):
-        efermi = np.mean(self.wfs.fermi_levels)
-        self.hamiltonian.summary(efermi, self.log)
+        self.hamiltonian.summary(self.wfs, self.log)
         self.density.summary(self.atoms, self.results.get('magmom', 0.0),
                              self.log)
         self.wfs.summary(self.log)
         try:
-            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+            bandgap(self, output=self.log.fd, efermi=self.get_fermi_level())
         except ValueError:
             pass
         self.log.fd.flush()
@@ -690,7 +689,7 @@ class GPAW(PAW, Calculator):
             self.wfs.set_setups(self.setups)
 
         occ = self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
-        self.wfs.occupation_number_calculator = occ
+        self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
@@ -732,7 +731,7 @@ class GPAW(PAW, Calculator):
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
 
-        xc.initialize(self.density, self.hamiltonian, self.wfs, occ)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
 
         description = xc.get_description()
         if description is not None:
@@ -819,12 +818,12 @@ class GPAW(PAW, Calculator):
             occupations = occ
 
         if occupations.fixmagmom:
-            occupations.magmom = magmom
+            occupations.fixed_magmom_value = magmom
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers
-        #if self.wfs is not None:
-        #    self.occupations.calculate(self.wfs)
+        # if self.wfs is not None:
+        #     self.occupations.calculate(self.wfs)
 
         self.log(occupations)
         return occupations

@@ -77,7 +77,6 @@ class C_Response(Contribution):
         self.density = self.nlfunc.density
         self.symmetry = self.wfs.kd.symmetry
         self.nspins = self.nlfunc.nspins
-        self.occupations = self.nlfunc.occupations
         self.nvalence = self.nlfunc.nvalence
         self.kpt_comm = self.wfs.kd.comm
         self.band_comm = self.wfs.bd.comm
@@ -126,7 +125,8 @@ class C_Response(Contribution):
             self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
             return
 
-        if not self.occupations.ready:
+        # if not self.occupations.ready:
+        if self.wfs.fermi_levels is None:
             d('No occupations calculated yet')
             return
 
@@ -322,8 +322,10 @@ class C_Response(Contribution):
         nt_G = self.gd.empty()
 
         # Find the lumo-orbital of this spin
-        sign = 1 - s * 2
-        lumo_n = int((self.wfs.nvalence + sign * self.occupations.magmom) // 2)
+        eps_n = self.wfs.kpt_qs[0][s].eps_n
+        assert self.wfs.bd.comm.size == 1
+        lumo_n = (eps_n < self.wfs.fermi_level).sum() // 2
+
         gaps = [1000.0]
         for u, kpt in enumerate(self.kpt_u):
             if kpt.s == s:

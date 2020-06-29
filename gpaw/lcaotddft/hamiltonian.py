@@ -142,7 +142,6 @@ class TimeDependentHamiltonian(object):
         self.wfs = paw.wfs
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
-        self.occupations = paw.occupations
         niter = paw.niter
 
         # Reset the density mixer
@@ -190,8 +189,7 @@ class TimeDependentHamiltonian(object):
         # XXX: xc is not written to the gpw file
         # XXX: so we need to set it always
         xc = XC(xc_name)
-        xc.initialize(self.density, self.hamiltonian, self.wfs,
-                      self.occupations)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
         xc.set_positions(self.hamiltonian.spos_ac)
         self.hamiltonian.xc = xc
         self.update()

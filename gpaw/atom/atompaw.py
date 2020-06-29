@@ -116,7 +116,7 @@ class AtomEigensolver:
 
         self.initialized = True
 
-    def iterate(self, hamiltonian, wfs, occ):
+    def iterate(self, hamiltonian, wfs):
         if not self.initialized:
             self.initialize(wfs)
 

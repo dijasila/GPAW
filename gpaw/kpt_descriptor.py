@@ -145,8 +145,6 @@ class KPointDescriptor:
 
         # Point group and time-reversal symmetry neglected:
         self.weight_k = np.ones(self.nbzkpts) / self.nbzkpts
-        if self.N_c is None:
-            self.weight_k[:] = np.nan
         self.ibzk_kc = self.bzk_kc.copy()
         self.sym_k = np.zeros(self.nbzkpts, int)
         self.time_reversal_k = np.zeros(self.nbzkpts, bool)

@@ -56,7 +56,7 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
-        self.occupation_number_calculator: Optional[OccupationNumbers] = None
+        self.occupations: Optional[OccupationNumbers] = None
         self.fermi_levels: Optional[List[float]] = None
 
         self.eigensolver = None
@@ -65,8 +65,16 @@ class WaveFunctions:
 
         self.set_setups(setups)
 
+    @property
+    def fermi_level(self):
+        assert len(self.fermi_levels) == 1
+        return self.fermi_levels[0]
+
     def summary(self, log):
         log(eigenvalue_string(self))
+
+        if self.fermi_levels is None:
+            return
 
         if len(self.fermi_levels) == 1:
             log(f'Fermi level: {self.fermi_levels[0] * Ha:.5f}\n')
@@ -90,6 +98,12 @@ class WaveFunctions:
 
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
+
+    def calculate_band_energy(self):
+        e_band = 0.0
+        for kpt in self.kpt_u:
+            e_band += np.dot(kpt.f_n, kpt.eps_n)
+        return self.kptband_comm.sum(e_band)
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
@@ -182,25 +196,26 @@ class WaveFunctions:
         D_asp.redistribute(self.atom_partition)
 
     def calculate_occupation_numbers(self):
-        nelectrons = self.nvalence * self.nspins / 2
-        if not self.collinear:
-            nelectrons *= 2
+        if self.collinear and self.nspins == 1:
+            degeneracy = 2
+        else:
+            degeneracy = 1
 
         parallel = ParallelLayout(self.bd, self.kd.comm, self.gd.comm)
 
-        f_qn, fermi_levels, e_entropy = self.occupation_number_calculator(
-            nelectrons,
-            [kpt.eps_n for kpt in self.kpt_u],
-            [kpt.weightk for kpt in self.kpt_u],
-            parallel,
-            self.fermi_levels)
+        f_qn, fermi_levels, e_entropy = self.occupations.calculate(
+            nelectrons=self.nvalence / degeneracy,
+            eigenvalues=[kpt.eps_n for kpt in self.kpt_u],
+            weights=[kpt.weightk for kpt in self.kpt_u],
+            parallel=parallel,
+            fermi_levels_guess=self.fermi_levels)
 
         self.fermi_levels = np.array(fermi_levels)
 
         for f_n, kpt in zip(f_qn, self.kpt_u):
             kpt.f_n = f_n * (kpt.weightk * 2 / self.nspins)
 
-        return e_entropy
+        return e_entropy * degeneracy
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False

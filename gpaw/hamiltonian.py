@@ -129,7 +129,7 @@ class Hamiltonian:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s
 
-    def summary(self, fermilevel, log):
+    def summary(self, wfs, log):
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
 
@@ -167,8 +167,8 @@ class Hamiltonian:
                 else:
                     vacuum = np.nan
 
-            wf1 = (vacuum - fermilevel + correction) * Ha
-            wf2 = (vacuum - fermilevel - correction) * Ha
+            wf1 = (vacuum - wfs.fermi_level + correction) * Ha
+            wf2 = (vacuum - wfs.fermi_level - correction) * Ha
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
                 .format(wf1, wf2))
             log()
@@ -328,11 +328,8 @@ class Hamiltonian:
 
     def get_energy(self, e_entropy, wfs):
         """Sum up all eigenvalues weighted with occupation numbers"""
-        e_band = 0.0
-        for kpt in wfs.kpt_u:
-            e_band += np.dot(kpt.f_n, kpt.eps_n)
-        self.e_band = wfs.kptband_comm.sum(e_band)
-        self.e_kinetic = self.e_kinetic0 + e_band
+        self.e_band = wfs.calculate_band_energy()
+        self.e_kinetic = self.e_kinetic0 + self.e_band
         self.e_entropy = e_entropy
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
@@ -340,7 +337,7 @@ class Hamiltonian:
                              self.e_entropy)
         self.e_total_extrapolated = (
             self.e_total_free +
-            wfs.occupation_number_calculator.extrapolate_factor * e_entropy)
+            wfs.occupations.extrapolate_factor * e_entropy)
 
         if 0:
             print(self.e_total_free,

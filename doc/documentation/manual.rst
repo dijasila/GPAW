@@ -570,6 +570,8 @@ the initial value using::
 
 .. figure:: occupation_numbers.png
 
+    Occupation numbers for ``width=0.05``
+
 
 .. _manual_lmax:
 

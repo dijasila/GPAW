@@ -372,7 +372,7 @@ class LrTDDFT2:
                     raise RuntimeError('Converge wave functions first.')
 
                 spos_ac = self.calc.initialize_positions()
-                self.calc.occupations.calculate(self.calc.wfs)
+                self.calc.wfs.calculate_occupation_numbers()
                 self.calc.wfs.initialize(self.calc.density,
                                          self.calc.hamiltonian, spos_ac)
                 self.xc.initialize(self.calc.density, self.calc.hamiltonian,

@@ -1,7 +1,7 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
 from gpaw.mixer import MixerSum
-from gpaw.test import equal
 
 
 def test_fixmom():
@@ -12,10 +12,8 @@ def test_fixmom():
                  cell=(a, a, a),
                  pbc=True)
     mom0 = sum(bulk.get_initial_magnetic_moments())
-    h = 0.2
-    conv = {'eigenstates': 0.1, 'density': 0.1, 'energy': 0.01}
-    calc = GPAW(h=h,
-                eigensolver='rmm-diis',
+    conv = {'eigenstates': 0.1, 'density': 0.001, 'energy': 0.01}
+    calc = GPAW(mode='pw',
                 mixer=MixerSum(0.1, 3),
                 nbands=11,
                 kpts=(3, 3, 3),
@@ -24,4 +22,4 @@ def test_fixmom():
     bulk.calc = calc
     bulk.get_potential_energy()
     mom = calc.get_magnetic_moment()
-    equal(mom, mom0, 1e-5)
+    assert mom == pytest.approx(mom0, abs=0.005)

@@ -18,7 +18,7 @@ class TDDFTPES(BasePES):
                  shift=True, tolerance={}):
         self.tolerance = {
             'occupation': 1.e-10,
-            'magnetic': 1.e-10,
+            'magnetic': 1.e-6,
             'grid': 0,
         }
         for key in tolerance.keys():
@@ -220,6 +220,9 @@ class TDDFTPES(BasePES):
             raise RuntimeError('Not the same atomic positions')
         if np.abs(np.abs(self.c_m.get_magnetic_moment() -
                          self.c_d.get_magnetic_moment()) - 1) > mtol:
+            print(self.c_m.get_magnetic_moment(),
+                  self.c_d.get_magnetic_moment())
+            print(self.tolerance)
             raise RuntimeError(('Mother (%g) ' %
                                 self.c_m.get_magnetic_moment()) +
                                ('and daughter spin (%g) ' %

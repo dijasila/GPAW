@@ -43,6 +43,11 @@ Git master branch
 * Parallelization over spin is no longer possible.  This simplifies
   the code for handling non-collinear spins and spin-orbit coupling.
 
+* Code for calculating occupation numbers has been refactored.  New functions:
+  :func:`~gpaw.occupations.fermi_dirac`,
+  :func:`~gpaw.occupations.marzari_vanderbilt` and
+  :func:`~gpaw.occupations.methfessel_paxton`.
+
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 

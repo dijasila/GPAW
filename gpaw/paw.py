@@ -2,7 +2,6 @@
 # Copyright (C) 2003-2007  CAMP
 # Copyright (C) 2007-2008  CAMd
 # Please see the accompanying LICENSE file for further information.
-
 """This module defines a PAW-class.
 
 The central object that glues everything together!"""
@@ -47,8 +46,7 @@ class PAW:
         if isinstance(newxc, str):
             newxc = XC(newxc)
         self.log('Linearizing xc-hamiltonian to ' + str(newxc))
-        newxc.initialize(self.density, self.hamiltonian, self.wfs,
-                         self.occupations)
+        newxc.initialize(self.density, self.hamiltonian, self.wfs)
         self.hamiltonian.linearize_to_xc(newxc, self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
@@ -185,8 +183,7 @@ class PAW:
         if not self.initialized:
             self.initialize()
         nbands = self.wfs.diagonalize_full_hamiltonian(
-            self.hamiltonian, self.atoms,
-            self.occupations, self.log,
+            self.hamiltonian, self.atoms, self.log,
             nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
@@ -547,8 +544,7 @@ class PAW:
         if isinstance(xc, (str, dict)):
             xc = XC(xc)
         xc.set_grid_descriptor(self.density.finegd)
-        xc.initialize(self.density, self.hamiltonian, self.wfs,
-                      self.occupations)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
         xc.set_positions(self.spos_ac)
         if xc.orbital_dependent:
             self.converge_wave_functions()
