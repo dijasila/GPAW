@@ -158,12 +158,6 @@ class OccupationNumbers:
 
         f_qn = np.empty((len(weight_q), len(eig_qn[0])))
 
-        bd = parallel.bd
-        nbands = bd.nbands if bd is not None else len(eig_qn[0])
-        if nbands == nelectrons:
-            f_qn[:] = 1.0
-            return f_qn, [inf], 0.0
-
         result = np.empty(2)
 
         if domain_comm.rank == 0:
@@ -250,7 +244,7 @@ class SmoothDistribution(OccupationNumbers):
             zero = ZeroWidth()
             fermi_level_guess, _ = zero._calculate(
                 nelectrons, eig_qn, weight_q, f_qn, parallel)
-            if self.width == 0.0:
+            if self.width == 0.0 or np.isinf(fermi_level_guess):
                 return fermi_level_guess, 0.0
 
         x = fermi_level_guess
@@ -392,6 +386,7 @@ def findroot(func, x, tol=1e-10):
 class ZeroWidth(OccupationNumbers):
     name = 'zero-width'
     extrapolate_factor = 0.0
+    width = 0.0
 
     def distribution(self, eig_n, fermi_level):
         f_n = np.zeros_like(eig_n)

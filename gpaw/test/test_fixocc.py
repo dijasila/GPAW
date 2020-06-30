@@ -38,7 +38,7 @@ def test_fixocc():
     if 1:
         # test spin-paired vs spin-polarized
         c = GPAW(h=h, nbands=nbands,
-                 occupations=FixedOccupations([[1, 1]]),
+                 occupations=FixedOccupations([[0.5, 0.5]]),
                  convergence=convergence,
                  txt=txt)
         H2.calc = c

@@ -17,8 +17,8 @@ class TDDFTPES(BasePES):
     def __init__(self, mother, excited_daughter, daughter=None,
                  shift=True, tolerance={}):
         self.tolerance = {
-            'occupation': 1.e-10,
-            'magnetic': 1.e-6,
+            'occupation': 1e-10,
+            'magnetic': 2e-6,
             'grid': 0,
         }
         for key in tolerance.keys():
