@@ -262,7 +262,7 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
 class AtomOccupations(OccupationNumbers):
     def __init__(self, f_sln):
         self.f_sln = f_sln
-        OccupationNumbers.__init__(self, None)
+        OccupationNumbers.__init__(self)
         self.width = 0
 
     def calculate_occupation_numbers(self, wfs):

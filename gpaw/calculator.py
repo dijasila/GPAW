@@ -364,10 +364,13 @@ class GPAW(PAW, Calculator):
         self.density.summary(self.atoms, self.results.get('magmom', 0.0),
                              self.log)
         self.wfs.summary(self.log)
-        try:
-            bandgap(self, output=self.log.fd, efermi=self.get_fermi_level())
-        except ValueError:
-            pass
+        if len(self.wfs.fermi_levels) == 1:
+            try:
+                bandgap(self,
+                        output=self.log.fd,
+                        efermi=self.wfs.fermi_level * Ha)
+            except ValueError:
+                pass
         self.log.fd.flush()
 
     def set(self, **kwargs):

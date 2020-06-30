@@ -376,7 +376,7 @@ class LrTDDFT2:
                 self.calc.wfs.initialize(self.calc.density,
                                          self.calc.hamiltonian, spos_ac)
                 self.xc.initialize(self.calc.density, self.calc.hamiltonian,
-                                   self.calc.wfs, self.calc.occupations)
+                                   self.calc.wfs)
                 if mode == 'lcao':
                     self.calc.wfs.initialize_wave_functions_from_lcao()
                 self.calc_ready = True
