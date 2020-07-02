@@ -79,7 +79,8 @@ class HirshfeldDensity(RealSpaceDensity):
         # initialize
         self.initialize(setups,
                         self.calculator.timer,
-                        np.zeros((len(atoms), 3)), False)
+                        np.zeros((len(atoms), 3)), False,
+                        np.zeros(len(atoms)))
         self.set_mixer(None)
         rank_a = self.gd.get_ranks_from_positions(spos_ac)
         self.set_positions(spos_ac, AtomPartition(self.gd.comm, rank_a))
