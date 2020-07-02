@@ -8,8 +8,8 @@ from math import pi
 
 import numpy as np
 from ase.units import Hartree
+from scipy.special import erf
 
-from gpaw.utilities import erf
 from gpaw.mpi import serial_comm
 
 
@@ -45,6 +45,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
     * entropy as -S*T
     """
 
+    from types import SimpleNamespace
     from gpaw.grid_descriptor import GridDescriptor
 
     occ = create_occupation_number_object(**occ)
@@ -53,11 +54,6 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
     weight_k = np.asarray(weight_k)
     nspins, nkpts, nbands = eps_skn.shape
     f_skn = np.empty_like(eps_skn)
-
-    class SimpleNamespace:
-        """Same as types.SimpleNamespace from Python 3.3+."""
-        def __init__(self, **kwargs):
-            self.__dict__.update(kwargs)
 
     wfs = SimpleNamespace(kpt_u=[],
                           nvalence=nelectrons,
@@ -69,7 +65,7 @@ def occupation_numbers(occ, eps_skn, weight_k, nelectrons):
                           bd=SimpleNamespace(nbands=nbands,
                                              collect=lambda x: x,
                                              comm=serial_comm),
-                          kd=SimpleNamespace(mynks=nspins * nkpts,
+                          kd=SimpleNamespace(mynk=nkpts,
                                              comm=serial_comm,
                                              nspins=nspins,
                                              nibzkpts=nkpts,
@@ -485,7 +481,7 @@ class SmoothDistribution(ZeroKelvin):
 
         kd = wfs.kd
 
-        myeps_un = np.empty((kd.mynks, wfs.bd.nbands))
+        myeps_un = np.empty((kd.mynk * kd.nspins, wfs.bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             myeps_un[u] = wfs.bd.collect(kpt.eps_n)
 

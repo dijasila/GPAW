@@ -1,10 +1,11 @@
 import numpy as np
 from numpy import sqrt, pi, exp, abs
+from scipy.special import erf
 
 import _gpaw
 from gpaw import debug
 from gpaw.utilities.tools import coordinates
-from gpaw.utilities import erf, is_contiguous
+from gpaw.utilities import is_contiguous
 
 
 def Y_L(L, x, y, z, r2):

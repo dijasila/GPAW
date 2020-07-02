@@ -244,7 +244,7 @@ class GPAW(PAW, Calculator):
             obj.set_positions_without_ruining_everything(self.spos_ac,
                                                          new_atom_partition)
         if new_atom_partition != atom_partition:
-            for kpt in self.wfs.mykpts:
+            for kpt in self.wfs.kpt_u:
                 kpt.projections = kpt.projections.redist(new_atom_partition)
         self.wfs.atom_partition = new_atom_partition
 
@@ -268,6 +268,11 @@ class GPAW(PAW, Calculator):
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
+        for _ in self.icalculate(atoms, properties, system_changes):
+            pass
+
+    def icalculate(self, atoms=None, properties=['energy'],
+                   system_changes=['cell']):
         """Calculate things."""
 
         Calculator.calculate(self, atoms)
@@ -296,13 +301,16 @@ class GPAW(PAW, Calculator):
         if not (self.wfs.positions_set and self.hamiltonian.positions_set):
             self.set_positions(atoms)
 
+        yield
+
         if not self.scf.converged:
             print_cell(self.wfs.gd, self.atoms.pbc, self.log)
 
             with self.timer('SCF-cycle'):
-                self.scf.run(self.wfs, self.hamiltonian,
-                             self.density, self.occupations,
-                             self.log, self.call_observers)
+                yield from self.scf.irun(
+                    self.wfs, self.hamiltonian,
+                    self.density, self.occupations,
+                    self.log, self.call_observers)
 
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
@@ -1027,7 +1035,7 @@ class GPAW(PAW, Calculator):
         kd = self.create_kpoint_descriptor(nspins)
 
         parallelization = mpi.Parallelization(self.world,
-                                              nspins * kd.nibzkpts)
+                                              kd.nibzkpts)
 
         parsize_kpt = self.parallel['kpt']
         parsize_domain = self.parallel['domain']
