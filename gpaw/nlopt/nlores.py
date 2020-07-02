@@ -137,6 +137,92 @@ def check_sumrule(ni=None, nf=None, momname=None, basename=None):
     # Return the sum_rule
     return sum_rule
 
+
+# Check the sum rule nr 2
+
+
+def check_sumrule2(ik, bands=[0], ni=None, nf=None, momname=None, basename=None):
+    """
+    Check the sum rule 2
+
+    Input:
+        ni, nf          First and last bands in the calculations (def. 0 to nb)
+        momname         Suffix for the momentum file (default gs.gpw)
+        basename        Suffix for the gs file (default gs.gpw)
+    Output:
+        sumrule         It should be zero or one for complete basis set
+    """
+
+    timer = Timer()
+    parprint('Calculating the sum rule 2 (using {:d} cores).'.format(world.size))
+
+    # Load the required data only in the master
+    with timer('Load the calculations'):
+        calc, moms = load_gsmoms(basename, momname)
+
+    # Useful variables
+    Etol = 1.0e-10
+    nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
+    ni = int(ni) if ni is not None else 0
+    nf = int(nf) if nf is not None else nb
+    assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
+        nb)
+    nb2 = nf - ni
+    parprint('First/last bands: {}/{}, Total: {}, k-points: {}/{}'.format(
+        ni, nf - 1, nb, len(kd.bzk_kc[:, 0]), nk))
+
+    # Get the energy and fermi levels
+    with timer('Get energies and fermi levels'):
+        # Get the energy, fermi
+        if world.rank == 0:
+            nv = calc.get_number_of_electrons()
+            E_nk = calc.band_structure().todict()['energies'][0]
+        else:
+            nv = None
+            E_nk = None
+
+    # Distribute the k points between cores
+    nv = broadcast(nv, 0)
+
+    # Loop over the k points
+    sumrule = np.zeros((len(bands), 9), dtype=complex)
+    
+    if world.rank == 0:
+        mom = moms[:, ik, ni:nf, ni:nf]
+        E_n = E_nk[ik, ni:nf].real
+
+        # Loop over bands
+        with timer('Sum over bands'):
+            for ind, nni in enumerate(bands):
+                for mmi in range(nb2):
+                    Enm = E_n[nni] - E_n[mmi]
+                    if np.abs(Enm) < Etol:
+                        continue
+                    for pol in range(9):
+                        pnm0 = mom[pol % 3, nni, mmi]
+                        pnm1 = mom[floor(pol / 3), nni, mmi]
+                        pmn0 = mom[pol % 3, mmi, nni]
+                        pmn1 = mom[floor(pol / 3), mmi, nni]
+                        sumrule[ind, pol] += (pnm0 * pmn1 + pnm1 * pmn0) / Enm
+
+    # Sum over all nodes
+    world.sum(sumrule)
+
+    # Make the output and print it
+    gspin = 2.0
+    sum_rule = gspin * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) * sumrule.real
+    sum_rule = np.reshape(sum_rule, (len(bands), 3, 3), order='C')
+    parprint('The sum rule matrix is:')
+    # parprint(sum_rule)
+    parprint(np.array_str(sum_rule, precision=6, suppress_small=True))
+
+    # Print the timing
+    if world.rank == 0:
+        timer.write()
+
+    # Return the sum_rule
+    return sum_rule
+
 # Calculate the linear response
 
 
