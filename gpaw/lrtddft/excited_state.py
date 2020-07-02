@@ -430,8 +430,10 @@ class ExcitedStateDensity(RealSpaceDensity):
         self.wocc_sn = wocc_sn
         self.wunocc_sn = wunocc_sn
 
+        natoms = calc.spos_ac.shape[0]
         RealSpaceDensity.initialize(
-            self, calc.wfs.setups, calc.timer, None, False)
+            self, calc.wfs.setups, calc.timer, None, False,
+            np.zeros(natoms))
 
         self.set_positions(calc.spos_ac, calc.wfs.atom_partition)
 
