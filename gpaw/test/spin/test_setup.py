@@ -14,6 +14,13 @@ def test_H2plus():
                                            [distance, 0., 0.])))
     atoms.minimal_box(box, h=h)
 
+    # we are not interested in convergence, but just the initial setup
+    convergence = {'energy': 1e12, 'density': 1e12, 'eigenstates': 1e12}
+
+    # not setting initial charges should still work
+    atoms.calc = GPAW(h=h, charge=1, convergence=convergence)
+    atoms.get_potential_energy()
+
     # electron on left atom
     atoms.set_initial_charges([0, 1])
     atoms.set_initial_magnetic_moments([1, 0])
@@ -21,6 +28,5 @@ def test_H2plus():
     # does not converge
     atoms.calc = GPAW(h=h, charge=1,
                       occupations=FermiDirac(0.1, fixmagmom=True),
-                      convergence={'energy': 1e12, 'density': 1e12,
-                                   'eigenstates': 1e12})
+                      convergence=convergence)
     atoms.get_potential_energy()

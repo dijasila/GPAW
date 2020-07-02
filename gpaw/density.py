@@ -167,7 +167,11 @@ class Density:
         self.hund = hund
         self.magmom_av = magmom_av
 
-        assert charge_a.sum() == self.charge
+        if not charge_a.any():
+            # charges are probably not specified
+            charge_a = np.ones(charge_a.shape) * self.charge / len(charge_a)
+        else:
+            assert charge_a.sum() == self.charge
         self.charge_a = charge_a
 
     def reset(self):
