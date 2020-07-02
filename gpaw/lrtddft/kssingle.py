@@ -155,7 +155,7 @@ class KSSingles(ExcitationList):
                                 epsij = kpt.eps_n[j] - kpt.eps_n[i]
                                 if (fij > eps and
                                     epsij >= emin and epsij < emax and
-                                        i >= self.istart and j <= self.jend):
+                                        i >= istart and j <= jend):
                                     take[u, i, j] = 1
                     u += 1
         kpt_comm.sum(take)
