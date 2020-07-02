@@ -1,5 +1,6 @@
 """Occupation number objects."""
 
+import warnings
 from math import pi, nan, inf
 from typing import List, Tuple, Optional, NamedTuple, Any, Callable
 
@@ -486,11 +487,14 @@ class ZeroWidth(OccupationNumbers):
         for rank, nkpts in enumerate(nkpts_r):
             for q in range(nkpts):
                 if kpt_comm.rank == 0:
-                    if bd is None or bd.comm.rank == 0:
-                        if rank == 0:
+                    if rank == 0:
+                        if bd is None or bd.comm.size == 1:
                             f_qn[q] = f_kn[k]
                         else:
-                            kpt_comm.send(f_kn[k], rank)
+                            bd.distribute(None if f_kn is None else f_kn[k],
+                                          f_qn[q])
+                    elif f_kn is not None:
+                        kpt_comm.send(f_kn[k], rank)
                 elif rank == kpt_comm.rank:
                     if bd is None or bd.comm.size == 1:
                         kpt_comm.receive(f_qn[q], 0)
@@ -541,3 +545,39 @@ class ThomasFermiOccupations(OccupationNumbers):
         assert len(f_qn) == 1
         f_qn[0][:] = [nelectrons]
         return inf, 0.0
+
+
+def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
+    """Calculate occupation numbers from eigenvalues in eV.
+
+    occ: dict
+        Example: {'name': 'fermi-dirac', 'width': 0.05} (width in eV).
+    eps_skn: ndarray, shape=(nspins, nibzkpts, nbands)
+        Eigenvalues.
+    weight_k: ndarray, shape=(nibzkpts,)
+        Weights of k-points in IBZ (must sum to 1).
+    nelectrons: int or float
+        Number of electrons.
+
+    Returns a tuple containing:
+
+    * f_skn (sums to nelectrons)
+    * fermi-level
+    * magnetic moment
+    * entropy as -S*T
+    """
+
+    warnings.warn('...')
+    occ = create_occupation_number_object(**occ)
+    f_kn, (fermi_level,), e_entropy = occ.calculate(
+        nelectrons,
+        [eig_n for eig_kn in eig_skn for eig_n in eig_kn],
+        weight_k)
+
+    if len(eig_skn) == 1:
+        f_skn = [f_kn]
+        magmom = 0.0
+    else:
+        ...
+
+    return f_skn, fermi_level, magmom, e_entropy
