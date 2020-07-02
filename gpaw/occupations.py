@@ -1,6 +1,3 @@
-# Copyright (C) 2003  CAMP
-# Please see the accompanying LICENSE file for further information.
-
 """Occupation number objects."""
 
 from math import pi, nan, inf
@@ -465,9 +462,10 @@ class ZeroWidth(OccupationNumbers):
         k = 0
         for rank, nkpts in enumerate(nkpts_r):
             for q in range(nkpts):
-                eig_n = eig_qn[q]
-                if bd is not None:
-                    eig_n = bd.collect(eig_n)
+                if rank == kpt_comm.rank:
+                    eig_n = eig_qn[q]
+                    if bd is not None:
+                        eig_n = bd.collect(eig_n)
                 if bd is None or bd.comm.rank == 0:
                     if kpt_comm.rank == 0:
                         if k == 0:
@@ -476,7 +474,7 @@ class ZeroWidth(OccupationNumbers):
                             eig_kn[k] = eig_n
                         else:
                             kpt_comm.receive(eig_kn[k], rank)
-                    else:
+                    elif rank == kpt_comm.rank:
                         kpt_comm.send(eig_n, 0)
                 k += 1
         return eig_kn, weight_k, nkpts_r
@@ -493,7 +491,7 @@ class ZeroWidth(OccupationNumbers):
                             f_qn[q] = f_kn[k]
                         else:
                             kpt_comm.send(f_kn[k], rank)
-                else:
+                elif rank == kpt_comm.rank:
                     if bd is None or bd.comm.size == 1:
                         kpt_comm.receive(f_qn[q], 0)
                     else:

@@ -354,13 +354,13 @@ class WaveFunctions:
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
-                self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
+                self.kd.comm.send(np.ascontiguousarray(P_nI), 0, tag=117)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
             if not self.collinear:
                 nproj *= 2
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
-            self.kd.comm.receive(P_nI, kpt_rank)
+            self.kd.comm.receive(P_nI, kpt_rank, tag=117)
             return P_nI
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
