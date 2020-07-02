@@ -821,7 +821,10 @@ class GPAW(PAW, Calculator):
             occupations = occ
 
         if occupations.fixmagmom:
-            occupations.fixed_magmom_value = magmom
+            if self.wfs.nspins == 2:
+                occupations.fixed_magmom_value = magmom
+            else:
+                occupations.fixmagmom = False
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers

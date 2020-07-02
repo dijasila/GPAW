@@ -213,7 +213,7 @@ class WaveFunctions:
         self.fermi_levels = np.array(fermi_levels)
 
         for f_n, kpt in zip(f_qn, self.kpt_u):
-            kpt.f_n = f_n * (kpt.weightk * 2 / self.nspins)
+            kpt.f_n = f_n * (kpt.weightk * degeneracy)
 
         return e_entropy * degeneracy
 

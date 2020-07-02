@@ -4,7 +4,7 @@
 """Occupation number objects."""
 
 from math import pi, nan, inf
-from typing import List, Tuple, Optional, NamedTuple, Any
+from typing import List, Tuple, Optional, NamedTuple, Any, Callable
 
 import numpy as np
 from scipy.special import erf
@@ -330,8 +330,16 @@ class MethfesselPaxton(SmoothDistribution):
         return methfessel_paxton(eig_n, fermi_level, self.width, self.order)
 
 
-def findroot(func, x, tol=1e-10):
-    """Function used for locating Fermi level."""
+def findroot(func: Callable[[float], Tuple[float, float]],
+             x: float,
+             tol: float = 1e-10) -> Tuple[float, int]:
+    """Function used for locating Fermi level.
+
+    The function should return a (value, derivative) tuple:
+
+    >>> x, _ = findroot(lambda x: (x, 1.0), 1.0)
+    >>> assert abs(x) < 1e-10
+    """
     xmin = -np.inf
     xmax = np.inf
 
@@ -428,6 +436,7 @@ class ZeroWidth(OccupationNumbers):
                 else:
                     fermi_level = (eig_m[m_i[i]] + eig_m[m_i[i - 1]]) / 2
         else:
+            f_kn = None
             fermi_level = nan
 
         self._distribute_occupation_numbers(f_kn, f_qn, nkpts_r, parallel)

@@ -260,6 +260,8 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
 
 
 class AtomOccupations(OccupationNumbers):
+    extrapolate_factor = 0.0
+
     def __init__(self, f_sln):
         self.f_sln = f_sln
         OccupationNumbers.__init__(self)
@@ -311,7 +313,7 @@ class AtomPAW(GPAW):
         """Yield the tuples (l, n, f, eps, psit_G) of states.
 
         Skips degenerate states."""
-        f_sln = self.occupations.f_sln
+        f_sln = self.wfs.occupations.f_sln
         assert len(f_sln) == 1, 'Not yet implemented with more spins'
         f_ln = f_sln[0]
         kpt = self.wfs.kpt_u[0]
