@@ -526,6 +526,7 @@ class GPAW(PAW, Calculator):
         pbc_c = atoms.get_pbc()
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
+        charge_a = atoms.get_initial_charges()
 
         if par.experimental.get('magmoms') is not None:
             magmom_av = np.array(par.experimental['magmoms'], float)
@@ -715,7 +716,7 @@ class GPAW(PAW, Calculator):
         # But that parameter was supplied in Density constructor!
         # This surely is a bug!
         self.density.initialize(self.setups, self.timer,
-                                magmom_av, par.hund)
+                                magmom_av, par.hund, charge_a)
         self.density.set_mixer(par.mixer)
         if self.density.mixer.driver.name == 'dummy' or par.fixdensity:
             self.log('No density mixing\n')

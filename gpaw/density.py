@@ -160,12 +160,15 @@ class Density:
         except (TypeError, AttributeError):
             pass
 
-    def initialize(self, setups, timer, magmom_av, hund):
+    def initialize(self, setups, timer, magmom_av, hund, charge_a):
         self.timer = timer
         self.setups = setups
         self.Q = CompensationChargeExpansionCoefficients(setups, self.nspins)
         self.hund = hund
         self.magmom_av = magmom_av
+
+        assert charge_a.sum() == self.charge
+        self.charge_a = charge_a
 
     def reset(self):
         # TODO: reset other parameters?
@@ -282,7 +285,9 @@ class Density:
     def get_initial_occupations(self, a):
         # distribute charge on all atoms
         # XXX interaction with background charge may be finicky
-        c = (self.charge - self.background_charge.charge) / len(self.setups)
+        # XXX the background_charge should not contribute here
+        # c = (self.charge - self.background_charge.charge) / len(self.setups)
+        c = self.charge_a[a]
         M_v = self.magmom_av[a]
         M = np.linalg.norm(M_v)
         f_si = self.setups[a].calculate_initial_occupation_numbers(
@@ -658,8 +663,8 @@ class RealSpaceDensity(Density):
 
         self.interpolator = None
 
-    def initialize(self, setups, timer, magmom_a, hund):
-        Density.initialize(self, setups, timer, magmom_a, hund)
+    def initialize(self, setups, timer, magmom_a, hund, charge_a):
+        Density.initialize(self, setups, timer, magmom_a, hund, charge_a)
 
         # Interpolation function for the density:
         self.interpolator = Transformer(self.redistributor.aux_gd,
