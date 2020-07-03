@@ -1,4 +1,4 @@
-"""Occupation number objects."""
+"""Smearing functions and occupation number calculators."""
 
 import warnings
 from math import pi, nan, inf
@@ -11,10 +11,11 @@ from ase.units import Ha
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.mpi import serial_comm, broadcast_float
 
-MPICommunicator = Any
+MPICommunicator = Any  # typehint
 
 
 class ParallelLayout(NamedTuple):
+    """Collection of parallel stuff."""
     bd: Optional[BandDescriptor]
     kpt_comm: MPICommunicator
     domain_comm: MPICommunicator
@@ -387,6 +388,7 @@ def findroot(func: Callable[[float], Tuple[float, float]],
         else:
             xmin = x
         niter += 1
+        assert niter < 1000
 
 
 class ZeroWidth(OccupationNumbers):
@@ -574,10 +576,15 @@ def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
         [eig_n for eig_kn in eig_skn for eig_n in eig_kn],
         weight_k)
 
+    f_kn *= np.array(weight_k)[:, np.newaxis]
+
     if len(eig_skn) == 1:
         f_skn = [f_kn]
         magmom = 0.0
     else:
-        ...
+        f_skn = np.array([f_kn[::2], f_kn[1::2]])
+        print(f_skn.shape)
+        f1, f2 = f_skn.sum(axis=(1, 2))
+        magmom = f1 - f2
 
     return f_skn, fermi_level, magmom, e_entropy

@@ -103,6 +103,12 @@ class WaveFunctions:
         e_band = 0.0
         for kpt in self.kpt_u:
             e_band += np.dot(kpt.f_n, kpt.eps_n)
+
+        try:  # DCSF needs this ...
+            e_band += self.occupations.calculate_band_energy(self)
+        except AttributeError:
+            pass
+
         return self.kptband_comm.sum(e_band)
 
     def calculate_density_contribution(self, nt_sG):
