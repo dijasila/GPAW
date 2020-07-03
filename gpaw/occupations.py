@@ -572,19 +572,19 @@ def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
     warnings.warn('...')
     occ = create_occupation_number_object(**occ)
     f_kn, (fermi_level,), e_entropy = occ.calculate(
-        nelectrons,
+        nelectrons * len(eig_skn) / 2,
         [eig_n for eig_kn in eig_skn for eig_n in eig_kn],
-        weight_k)
+        list(weight_k) * len(eig_skn))
 
     f_kn *= np.array(weight_k)[:, np.newaxis]
 
     if len(eig_skn) == 1:
-        f_skn = [f_kn]
+        f_skn = np.array([f_kn]) * 2
+        e_entropy *= 2
         magmom = 0.0
     else:
         f_skn = np.array([f_kn[::2], f_kn[1::2]])
-        print(f_skn.shape)
         f1, f2 = f_skn.sum(axis=(1, 2))
         magmom = f1 - f2
 
-    return f_skn, fermi_level, magmom, e_entropy
+    return f_skn, fermi_level / Ha, magmom, e_entropy
