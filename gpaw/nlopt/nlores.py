@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 
 # Import the required modules: GPAW/ASE
 from gpaw import GPAW, PW, FermiDirac
-from ase.units import Bohr, _hbar, _e, _me, _eps0
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from ase.units import Bohr, _hbar, _e, _me, _eps0, alpha
+from gpaw.spinorbit import get_spinorbit_eigenvalues, get_radial_potential
 from ase.utils.timing import Timer
 from gpaw.mpi import world, broadcast
 
@@ -18,16 +18,21 @@ from gpaw.nlopt.output import is_file_exist, parprint
 from gpaw.nlopt.mml import get_dipole_transitions
 from gpaw.nlopt.mml import load_gsmoms, set_variables, distribute_data
 from gpaw.nlopt.mml import fermi_level, triangle_int, get_neighbors
+from gpaw.nlopt.mml import get_soc_momentum, get_soc_paw
 from gpaw.nlopt.symmetry import get_tensor_elements
 
 # Check the sum rule
 
 
-def check_sumrule(ni=None, nf=None, momname=None, basename=None):
+def check_sumrule(addsoc=False, socscale=1.0,
+        ni=None, nf=None,
+        momname=None, basename=None):
     """
     Check the sum rule sum fnm*(pnm0*pmn1+pnm1*pmn0)/Emn
 
     Input:
+        addsoc          Add spin-orbit coupling (default off)
+        socscale        SOC scale (default 1.0)
         ni, nf          First and last bands in the calculations (def. 0 to nb)
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
@@ -48,9 +53,11 @@ def check_sumrule(ni=None, nf=None, momname=None, basename=None):
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
+    nf = nb+nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     nb2 = nf - ni
+    gspin = 2.0
     parprint('First/last bands: {}/{}, Total: {}, k-points: {}/{}'.format(
         ni, nf - 1, nb, len(kd.bzk_kc[:, 0]), nk))
 
@@ -68,6 +75,39 @@ def check_sumrule(ni=None, nf=None, momname=None, basename=None):
             nv = None
             E_nk = None
             f_nk = None
+
+    # Get eigenvalues and wavefunctions with spin orbit coupling (along the
+    # z-direction)
+    if addsoc:
+        gspin = 1.0
+        nb2 = 2 * (nf - ni)
+        with timer('Spin-orbit coupling calculation'):
+            if world.rank == 0:
+                # Get the SOC
+                (e_mk, wfs_knm) = get_spinorbit_eigenvalues(
+                    calc, return_wfs=True, bands=np.arange(ni, nf),
+                    scale=socscale)
+
+                # Make the data ready
+                e_mk = e_mk.T
+                wfs_knm = np.array(wfs_knm)
+
+                # Update the Fermi level
+                mu = fermi_level(calc,
+                                 e_mk[np.newaxis],
+                                 2 * calc.get_number_of_electrons())
+            else:
+                e_mk = None
+                wfs_knm = None
+                mu = None
+            mu = broadcast(mu, 0)
+
+            # Distribute the SOC
+            k_info2 = distribute_data(
+                [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
+            
+            # Get SOC from PAW
+            dVL_avii, Pt_kasni = get_soc_paw(calc)
 
     # Distribute the k points between cores
     nv = broadcast(nv, 0)
@@ -87,14 +127,90 @@ def check_sumrule(ni=None, nf=None, momname=None, basename=None):
         length=50)
 
     # Loop over the k points
-    sumrule = np.zeros(9, dtype=np.float64)
+    sumrule = np.zeros(9, dtype=complex)
+    sumrule2 = np.zeros(9, dtype=complex)
+    sumrule0 = np.zeros(9, dtype=complex)
     for k_c, data_k in k_info.items():
         mom, E_n, f_n = tuple(data_k)
         mom = mom[:, ni:nf, ni:nf]
-        E_n = E_n[ni:nf].real
-        f_n = f_n[ni:nf].real
+        mom0 = mom.copy()
+        f_n0 = f_n.copy()
+        f_n0 = f_n0.real
+
+        # Make the position matrix elements and Delta
+        with timer('Position matrix elements calculation'):
+            pos0 = np.zeros((3, nb, nb), dtype=np.complex)
+            E_nm0 = np.tile(E_n[:, None], (1, nb)) - \
+                np.tile(E_n[None, :], (nb, 1))
+            zeroind = np.abs(E_nm0) < Etol
+            E_nm0[zeroind] = 1
+            for aa in range(3):
+                pos0[aa] = mom0[aa] / (1j * E_nm0)
+                pos0[aa, zeroind] = 0
+            # pos = pos0
+
+        # Need SOC or not
+        if addsoc:
+            E_n, wfs_nm = tuple(k_info2.get(k_c))
+            # tmp = (E_n - mu) / kbT
+            # tmp = np.clip(tmp, -100, 100)
+            # f_n = 1 / (np.exp(tmp) + 1.0)
+            f_n = np.zeros(nb2, float)
+            f_n[::2] = f_n0
+            f_n[1::2] = f_n0
+
+            # Make the new momentum
+            with timer('New momentum calculation'):
+                mom2 = np.zeros((3, nb2, nb2), dtype=complex)
+                mom2s = np.zeros((3, nb2, nb2), dtype=complex)
+                for pp in range(3):
+                    mom2[pp] = np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
+                                                mom0[pp]),
+                                        np.transpose(wfs_nm[:, 0::2]))
+                    mom2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
+                                                mom0[pp]),
+                                        np.transpose(wfs_nm[:, 1::2]))
+            
+                    # Get the soc correction to momentum
+                    p_vmm = socscale * \
+                            get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf)
+                    mom2[pp] -= 1* np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
+                                        np.transpose(wfs_nm))
+                mom = mom2
+        else:
+            E_n = E_n[ni:nf]
+            f_n = f_n[ni:nf]
+
+        # Make the position operator from another method
+        if addsoc:
+            pos2 = np.zeros((3, nb2, nb2), dtype=complex)
+            for pp in range(3):
+                pos2[pp] = np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
+                                            pos0[pp]),
+                                    np.transpose(wfs_nm[:, 0::2]))
+                pos2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
+                                            pos0[pp]),
+                                    np.transpose(wfs_nm[:, 1::2]))
+
+            E_nm2 = np.tile(E_n[:, None], (1, nb2)) - \
+                np.tile(E_n[None, :], (nb2, 1))
+            pos = pos2
+            mom3 = np.array([1j*pos2[v]*E_nm2 for v in range(3)]) 
+
+            # print(mom2[1, 25, 26])
+            # print(mom3[1, 25, 26])
+            # print(mom2[1, 25, 26]-50*mom2s[1, 25, 26])
+            # print(mom2s[1, 25, 26])
+            # print((mom3[1, 25, 26]-mom2[1, 25, 26])/mom2s[1, 25, 26])
+           
+            
+        # aa = np.dot(np.conj(wfs_nm), wfs_nm.T)
+        # parprint(np.allclose(aa, np.eye(nb2), rtol=1e-08, atol=1e-12))
 
         # Loop over bands
+        E_n = E_n.real
+        f_n = f_n.real
+        f_n0 = f_n0.real
         with timer('Sum over bands'):
             for nni in range(nb2):
                 for mmi in range(nb2):
@@ -103,13 +219,24 @@ def check_sumrule(ni=None, nf=None, momname=None, basename=None):
                     if np.abs(fnm) < ftol or np.abs(Emn) < Etol:
                         continue
                     for pol in range(9):
-                        pnm0 = mom[pol % 3, nni, mmi]
-                        pnm1 = mom[floor(pol / 3), nni, mmi]
-                        pmn0 = mom[pol % 3, mmi, nni]
-                        pmn1 = mom[floor(pol / 3), mmi, nni]
+                        aa, bb = pol % 3, floor(pol / 3)
                         sumrule[pol] += fnm * \
-                            (pnm0 * pmn1 + pnm1 * pmn0).real / \
-                            Emn * w_k[k_c] / 2.0
+                            (mom[aa, nni, mmi] * mom[bb, mmi, nni]) / \
+                            Emn * w_k[k_c] / 1.0
+                        sumrule2[pol] += fnm * \
+                            (mom3[aa, nni, mmi] * pos[bb, mmi, nni]) \
+                            * w_k[k_c] / 1.0
+
+            for nni in range(nb):
+                for mmi in range(nb):
+                    fnm = f_n0[nni] - f_n0[mmi]
+                    if np.abs(fnm) < ftol:
+                        continue
+                    for pol in range(9):
+                        aa, bb = pol % 3, floor(pol / 3)
+                        sumrule0[pol] += fnm * \
+                            (mom0[aa, nni, mmi] * pos0[bb, mmi, nni]) \
+                            * w_k[k_c] / 1.0
 
         # Print the progress
         count += 1
@@ -122,13 +249,24 @@ def check_sumrule(ni=None, nf=None, momname=None, basename=None):
 
     # Sum over all nodes
     world.sum(sumrule)
+    world.sum(sumrule2)
+    world.sum(sumrule0)
 
     # Make the output and print it
-    gspin = 2.0
     sum_rule = gspin * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) / nv * sumrule
     sum_rule = np.reshape(sum_rule, (3, 3), order='C')
     parprint('The sum rule matrix is:')
     parprint(np.array_str(sum_rule, precision=6, suppress_small=True))
+
+    sum_rule2 = gspin * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) / nv * (sumrule2*1j)
+    sum_rule2 = np.reshape(sum_rule2, (3, 3), order='C')
+    parprint('The sum rule matrix is:')
+    parprint(np.array_str(sum_rule2, precision=6, suppress_small=True))
+
+    sum_rule0 = 2 * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) / nv * (sumrule0*1j)
+    sum_rule0 = np.reshape(sum_rule0, (3, 3), order='C')
+    parprint('The sum rule matrix is:')
+    parprint(np.array_str(sum_rule0, precision=6, suppress_small=True))
 
     # Print the timing
     if world.rank == 0:
@@ -165,6 +303,7 @@ def check_sumrule2(ik, bands=[0], ni=None, nf=None, momname=None, basename=None)
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
+    nf = nb+nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     nb2 = nf - ni
@@ -278,6 +417,7 @@ def calculate_df(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
+    nf = nb+nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -324,13 +464,14 @@ def calculate_df(
                 e_mk = None
                 wfs_knm = None
                 mu = None
-
-            # Update the Fermi level
             mu = broadcast(mu, 0)
 
             # Distribute the SOC
             k_info2 = distribute_data(
                 [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
+            
+            # Get SOC from PAW
+            dVL_avii, Pt_kasni = get_soc_paw(calc)
 
     parprint(
         'Evaluating linear response for {}-polarization ({:.1f} meV).'.format(
@@ -344,6 +485,7 @@ def calculate_df(
     else:
         assert max(
             blist) < nb2, 'Maximum of blist should be smaller than nb.'
+
     if intmethod == 'no':
         # Initialize variables
         suml = np.zeros((nw), dtype=complex)
@@ -378,13 +520,21 @@ def calculate_df(
                 # Make the new momentum
                 with timer('New momentum calculation'):
                     mom2 = np.zeros((3, nb2, nb2), dtype=complex)
+                    mom2s = np.zeros((3, nb2, nb2), dtype=complex)
                     for pp in range(3):
-                        mom2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
+                        mom2[pp] += 1*np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
                                                   mom[pp]),
                                            np.transpose(wfs_nm[:, 0::2]))
-                        mom2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
+                        mom2[pp] += 1*np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
                                                   mom[pp]),
                                            np.transpose(wfs_nm[:, 1::2]))
+                
+                        # Get the soc correction to momentum
+                        p_vmm = socscale * \
+                                get_soc_momentum(dVL_avii, Pt_kasni[k_c],
+                                                 ni, nf)
+                        mom2s[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
+                                           np.transpose(wfs_nm))
                     mom = mom2
             else:
                 E_n = E_n[ni:nf]
@@ -590,6 +740,7 @@ def calculate_shg_rvg(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
+    nf = nb+nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -644,6 +795,9 @@ def calculate_shg_rvg(
             k_info2 = distribute_data(
                 [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
 
+            # Get SOC from PAW
+            dVL_avii, Pt_kasni = get_soc_paw(calc)
+
     # Initialize the outputs
     sum2 = np.zeros((nw), dtype=np.complex)
     sum2b_D = np.zeros((nw), dtype=np.complex)
@@ -680,6 +834,7 @@ def calculate_shg_rvg(
         for k_c, data_k in k_info.items():
             mom, E_n, f_n = tuple(data_k)
             mom = mom[:, ni:nf, ni:nf]
+            f_n0 = f_n.copy()
 
             # Add SOC or not
             if addsoc:
@@ -688,6 +843,9 @@ def calculate_shg_rvg(
                 tmp = (E_n - mu) / kbT
                 tmp = np.clip(tmp, -100, 100)
                 f_n = 1 / (np.exp(tmp) + 1.0)
+                f_n = np.zeros(nb2, complex)
+                f_n[::2] = f_n0
+                f_n[1::2] = f_n0
 
                 # Make the new momentum
                 with timer('New momentum calculation'):
@@ -699,6 +857,11 @@ def calculate_shg_rvg(
                         mom2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
                                                   mom[pp]),
                                            np.transpose(wfs_nm[:, 1::2]))
+
+                        # Get the soc correction to momentum
+                        p_vmm = get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf, socscale=socscale)
+                        mom2[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
+                                           np.transpose(wfs_nm))
                     mom = mom2
             else:
                 E_n = E_n[ni:nf].real
@@ -934,6 +1097,7 @@ def calculate_shg_rlg(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
+    nf = nb+nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -988,6 +1152,9 @@ def calculate_shg_rlg(
             k_info2 = distribute_data(
                 [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
 
+            # Get SOC from PAW
+            dVL_avii, Pt_kasni = get_soc_paw(calc)
+
     # Initialize the outputs
     sum2b_A = np.zeros((nw), dtype=np.complex)
     sum2b_B = np.zeros((nw), dtype=np.complex)
@@ -1024,6 +1191,7 @@ def calculate_shg_rlg(
         for k_c, data_k in k_info.items():
             mom, E_n, f_n = tuple(data_k)
             mom = mom[:, ni:nf, ni:nf]
+            f_n0 = f_n[ni:nf].copy()
 
             # Add SOC or not
             if addsoc:
@@ -1032,6 +1200,9 @@ def calculate_shg_rlg(
                 tmp = (E_n - mu) / kbT
                 tmp = np.clip(tmp, -100, 100)
                 f_n = 1 / (np.exp(tmp) + 1.0)
+                # f_n = np.zeros(nb2, complex)
+                # f_n[::2] = f_n0
+                # f_n[1::2] = f_n0
 
                 # Make the new momentum
                 with timer('New momentum calculation'):
@@ -1043,6 +1214,13 @@ def calculate_shg_rlg(
                         mom2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
                                                   mom[pp]),
                                            np.transpose(wfs_nm[:, 1::2]))
+
+                        # Get the soc correction to momentum
+                        p_vmm = socscale * \
+                                get_soc_momentum(dVL_avii, Pt_kasni[k_c],
+                                                 ni, nf)
+                        mom2[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
+                                           np.transpose(wfs_nm))
                     mom = mom2
             else:
                 E_n = E_n[ni:nf].real
@@ -1150,6 +1328,8 @@ def calculate_shg_rlg(
                             # Do not do zero calculations
                             if (np.abs(fnm) < ftol and np.abs(fnl) < ftol
                                     and np.abs(fml) < ftol):
+                                continue
+                            if np.abs(Eln - Eml) < Etol:
                                 continue
 
                             rnml = np.real(
@@ -1339,13 +1519,15 @@ def calculate_shg_rlg(
                                     and np.all(np.abs(fnl)) < ftol
                                     and np.all(np.abs(fml)) < ftol):
                                 continue
+                            if np.all(np.abs(Eln - Eml) < Etol):
+                                continue
 
                             rnml = np.real(
                                 r_nm[:, pol[0], nni, mmi]
                                 * (r_nm[:, pol[1], mmi, lli]
                                    * r_nm[:, pol[2], lli, nni]
                                    + r_nm[:, pol[2], mmi, lli]
-                                   * r_nm[:, pol[1], lli, nni]))
+                                   * r_nm[:, pol[1], lli, nni])) / (Eln - Eml)
                             if np.any(np.abs(fnm)) > ftol:
                                 Fval = 2 * fnm * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Emn,
@@ -1555,6 +1737,7 @@ def calculate_shift_current(
         intmethod='no',
         ni=None,
         nf=None,
+        blist=None,
         outname=None,
         momname=None,
         basename=None):
@@ -1568,6 +1751,7 @@ def calculate_shift_current(
         addsoc          Add spin-orbit coupling (default off)
         socscale        SOC scale (default 1.0)
         ni, nf          First and last bands in the calculations (0 to nb)
+        blist           List of bands in the sum
         intmethod       Integral method (defaul no)
         outname         Output filename (default is shg.npy)
         momname         Suffix for the momentum file (default gs.gpw)
@@ -1595,6 +1779,7 @@ def calculate_shift_current(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
+    nf = nb+nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -1648,6 +1833,11 @@ def calculate_shift_current(
             # Distribute the SOC
             k_info2 = distribute_data(
                 [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
+    if blist is None:
+        blist = list(range(nb2))
+    else:
+        assert max(
+            blist) < nb2, 'Maximum of blist should be smaller than nb.'
 
     # Depending on the integration method
     parprint(
@@ -1730,8 +1920,8 @@ def calculate_shift_current(
 
             # Loop over bands
             with timer('Sum over bands'):
-                for nni in range(nb2):
-                    for mmi in range(nb2):
+                for nni in blist:
+                    for mmi in blist:
                         # Remove the non important term
                         if mmi == nni:
                             continue
@@ -1828,8 +2018,8 @@ def calculate_shift_current(
 
             # Loop over bands
             with timer('Sum over bands'):
-                for nni in range(nb):
-                    for mmi in range(nb):
+                for nni in blist:
+                    for mmi in blist:
                         # Remove the non important term
                         if mmi == nni:
                             continue

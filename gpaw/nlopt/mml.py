@@ -9,7 +9,9 @@ from gpaw.mpi import world, broadcast, serial_comm
 from gpaw.nlopt.output import print_progressbar, parprint
 from gpaw.fd_operators import Gradient
 from gpaw.response.pair import PairDensity
-from ase.units import Bohr, _hbar, _e, _me
+from gpaw.gaunt import gaunt
+from gpaw.spinorbit import get_radial_potential
+from ase.units import Bohr, _hbar, _e, _me, alpha
 from ase.utils.timing import Timer
 
 
@@ -612,3 +614,124 @@ def get_neighbors(moms, E_nk, f_nk, kd, nb, qind=[
 
     # Return the k data
     return k_info, dA
+
+# Get spin-orbit correction to momentum
+
+def get_soc_momentum(dVL_avii, Pt_asni, ni, nf):
+    """
+    Get spin-orbit correction to momentum
+
+    Input:
+        dVL_avii        Derivative of the KS potential
+        Pt_asni         PAW corrections
+        ni, nf          The first and last band indices
+    Output:
+        p_vmm           Correction to the momentum
+    """
+
+    # Initialize variables
+    nb = nf-ni
+    Na = len(dVL_avii)
+    p_vmm = np.zeros((3, 2*nb, 2*nb), complex)
+
+    # Loop over atoms
+    for ai in range(Na):
+        Pt_sni = Pt_asni[ai][ni:nf]
+        Ni = len(Pt_sni[0])
+        P_sni = np.zeros((2, 2 * nb, Ni), complex)
+        dVL_vii = dVL_avii[ai]
+        P_sni[0, ::2] = Pt_sni
+        P_sni[1, 1::2] = Pt_sni
+
+        # The sigma cross rhat 
+        p_vssii = np.zeros((3, 2, 2, Ni, Ni), complex)
+        p_vssii[0, 0, 0] = - dVL_vii[1]
+        p_vssii[0, 0, 1] = + 1.0j * dVL_vii[2]
+        p_vssii[0, 1, 0] = - 1.0j * dVL_vii[2]
+        p_vssii[0, 1, 1] = + dVL_vii[1]
+        p_vssii[1, 0, 0] = + dVL_vii[0]
+        p_vssii[1, 0, 1] = - dVL_vii[2]
+        p_vssii[1, 1, 0] = - dVL_vii[2]
+        p_vssii[1, 1, 1] = - dVL_vii[0]
+        p_vssii[2, 0, 0] = 0
+        p_vssii[2, 0, 1] = dVL_vii[1] + 1.0j * dVL_vii[0]
+        p_vssii[2, 1, 0] = dVL_vii[1] - 1.0j * dVL_vii[0]
+        p_vssii[2, 1, 1] = 0
+
+        # Loop over spins and directions
+        for v in range(3):
+            for s1 in range(2):
+                for s2 in range(2):
+                    p_ii = p_vssii[v, s1, s2]
+                    P1_mi = P_sni[s1]
+                    P2_mi = P_sni[s2]
+                    p_vmm[v] += np.dot(np.dot(P1_mi.conj(), p_ii), P2_mi.T)
+
+    # Return output
+    return p_vmm
+
+# Get SOC part of calculations
+
+def get_soc_paw(calc):
+    """
+    Input:
+        calc        GPAW calculator (only in master)
+    Output
+        dVL_avii    Derivative of KS potential (in all cores)
+        Pt_kasni    PAW coefficients (in all cores)
+    """
+
+    if world.rank == 0:
+        # Compute the PAW correction
+        G_LLL = gaunt(lmax=2)
+        Na = len(calc.atoms)
+        dVL_avii = []
+        for ai in range(Na):
+            a = calc.wfs.setups[ai]
+
+            xc = calc.hamiltonian.xc
+            D_sp = calc.density.D_asp[ai]
+
+            v_g = get_radial_potential(a, xc, D_sp)
+            rgd = a.xc_correction.rgd
+            r_g = rgd.r_g.copy()
+            r_g[0] = 1.0e-12
+            v_g2 = v_g*r_g
+
+            Ng = len(v_g)
+            phi_jg = a.data.phi_jg
+
+            dVL_vii = np.zeros((3, a.ni, a.ni), complex)
+            N1 = 0
+            for j1, l1 in enumerate(a.l_j):
+                Nm1 = 2 * l1 + 1
+                N2 = 0
+                for j2, l2 in enumerate(a.l_j):
+                    Nm2 = 2 * l2 + 1
+                    # if (l1 == l2) or (l1 == l2 + 1) or (l1 == l2 - 1):
+                    f_g = phi_jg[j1][:Ng] * v_g * phi_jg[j2][:Ng]
+                    cc = a.xc_correction.rgd.integrate(f_g) / (4 * np.pi)
+                    
+                    for v in range(3):
+                        Lv = 1 + (v + 2) % 3
+                        # dVL_vii[v, N1:N1 + Nm1, N2:N2 + Nm2] = cc * G_LLL[Lv, N1:N1 + Nm1, N2:N2 + Nm2]
+                        dVL_vii[v, N1:N1 + Nm1, N2:N2 + Nm2] = cc * G_LLL[Lv, l2**2:l2**2 + Nm2, l1**2:l1**2 + Nm1].T
+                    N2 += Nm2
+                N1 += Nm1
+            tmp = dVL_vii * alpha**2 / (4.0) * (4 * np.pi / 3)**0.5
+            dVL_avii.append(tmp)
+
+        Pt_kasni = []
+        nk = len(calc.wfs.kpt_u)
+        for k_c in range(nk):
+            Pt_kasni.append(calc.wfs.kpt_u[k_c].P_ani)
+
+    else:
+        Pt_kasni = None
+        dVL_avii = None
+    
+    dVL_avii = broadcast(dVL_avii, 0)
+    Pt_kasni = broadcast(Pt_kasni, 0)
+
+    # Return the output
+    return dVL_avii, Pt_kasni
