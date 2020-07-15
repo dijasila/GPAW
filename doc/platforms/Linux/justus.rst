@@ -212,10 +212,10 @@ Running GPAW
 ------------
 
 A gpaw script :file:`test.py` can be submitted with the help
-of :file:`gpaw-runscript` to run on 32 cpus like this::
+of :file:`gpaw-runscript` to run on 48 cores like this::
 
   > module load gpaw
   > gpaw-runscript test.py 48
-  using justus
-  run.justus written
-  > msub run.justus
+  using justus2
+  run.justus2 written
+  > sbatch run.justus
