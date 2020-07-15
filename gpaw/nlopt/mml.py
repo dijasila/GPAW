@@ -579,8 +579,7 @@ def get_neighbors(moms, E_nk, f_nk, kd, nb, qind=[
         p2 = int((N_c[0] - 1) * N_c[1])
         nk2 = p2 - p1
         nei_ind = neighbors[:, p1:p2]
-        nei_ind = [kd.bz2ibz_k[nei_ind[0]], kd.bz2ibz_k[nei_ind[1]],
-                   kd.bz2ibz_k[nei_ind[2]], kd.bz2ibz_k[nei_ind[3]]]
+        nei_ind = [kd.bz2ibz_k[nei_ind[ii]] for ii in range(len(q_vecs)+1)]
         psigns = -2 * kd.time_reversal_k + 1
         dA = 2.0 / (N_c[0] * N_c[1])
     psigns = np.expand_dims(psigns, axis=(1, 2, 3))

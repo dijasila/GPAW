@@ -11,10 +11,11 @@ from ase.units import Bohr, _hbar, _e, _me, _eps0, alpha
 from gpaw.spinorbit import get_spinorbit_eigenvalues, get_radial_potential
 from ase.utils.timing import Timer
 from gpaw.mpi import world, broadcast
+from gpaw.berryphase import parallel_transport
 
 # Import the required modules: nlo
 from gpaw.nlopt.output import print_progressbar, plot_spectrum, plot_polar
-from gpaw.nlopt.output import is_file_exist, parprint
+from gpaw.nlopt.output import is_file_exist, parprint, plot_kfunction
 from gpaw.nlopt.mml import get_dipole_transitions
 from gpaw.nlopt.mml import load_gsmoms, set_variables, distribute_data
 from gpaw.nlopt.mml import fermi_level, triangle_int, get_neighbors
@@ -108,6 +109,7 @@ def check_sumrule(addsoc=False, socscale=1.0,
             
             # Get SOC from PAW
             dVL_avii, Pt_kasni = get_soc_paw(calc)
+            # phi_km, S_km = parallel_transport(calc, direction=0, spinors=True, scale=1.0e-6)
 
     # Distribute the k points between cores
     nv = broadcast(nv, 0)
@@ -279,7 +281,7 @@ def check_sumrule(addsoc=False, socscale=1.0,
 # Check the sum rule nr 2
 
 
-def check_sumrule2(ik, bands=[0], ni=None, nf=None, momname=None, basename=None):
+def check_sumrule2(bands=[0], ni=None, nf=None, momname=None, basename=None, figname=None):
     """
     Check the sum rule 2
 
@@ -314,53 +316,100 @@ def check_sumrule2(ik, bands=[0], ni=None, nf=None, momname=None, basename=None)
     with timer('Get energies and fermi levels'):
         # Get the energy, fermi
         if world.rank == 0:
-            nv = calc.get_number_of_electrons()
             E_nk = calc.band_structure().todict()['energies'][0]
         else:
-            nv = None
             E_nk = None
-
-    # Distribute the k points between cores
-    nv = broadcast(nv, 0)
-
-    # Loop over the k points
-    sumrule = np.zeros((len(bands), 9), dtype=complex)
     
+    # Only do the calculations in master
     if world.rank == 0:
-        mom = moms[:, ik, ni:nf, ni:nf]
-        E_n = E_nk[ik, ni:nf].real
+        # Loop over the k points
+        sumrule = np.zeros((3, 3, nk, len(bands)), dtype=complex)
+
+        mom = moms[:, :, ni:nf, ni:nf]
+        mom = np.swapaxes(mom, 0, 1)
+        p_nn = np.einsum('...ii->...i', mom)
+        p_nn = p_nn.real
+        E_kn = E_nk[:, ni:nf].real
+
+        # Useful variables
+        nk = len(kd.ibz2bz_k)
+        N_c = kd.N_c
+
+        # Find the neighbors
+        qind=[[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
+        Nq = len(qind)+1
+        assert N_c[2] == 1, 'Triangular method is only implemented for 2D systems.'
+        q_vecs = []
+        for ii, qq in enumerate(qind):
+            q_vecs.append([qq[0] / N_c[0], qq[1] / N_c[1], qq[2] / N_c[2]])
+        nkt = len(kd.bzk_kc)
+        neighbors = np.zeros((Nq, nkt), dtype=np.int32)
+        neighbors[0] = np.arange(nkt)
+        for ind, qpt in enumerate(q_vecs):
+            neighbors[ind + 1] = np.array(kd.find_k_plus_q(qpt))
+
+        # Depending on the tsym set variables
+        tsym = kd.symmetry.time_reversal
+        if tsym is False:
+            nei_ind = kd.bz2ibz_k[neighbors]
+            nei_ind = nei_ind[:, kd.ibz2bz_k]
+            p1 = 0
+            p2 = nk
+            psigns = np.ones((nk), dtype=int)
+        else:
+            # nei_ind = neighbors[:, kd.ibz2bz_k]
+            # nei_ind = [kd.bz2ibz_k[nei_ind[ii]] for ii in range(Nq)]
+            nei_ind = kd.bz2ibz_k[neighbors]
+            nei_ind = nei_ind[:, kd.ibz2bz_k]
+            psigns = -2 * kd.time_reversal_k + 1
+            psigns = psigns[neighbors[:, kd.ibz2bz_k]]
+            
+        # Compute the drivatives in ab directions
+        dp_vvkn = np.zeros((2, 3, nk, len(bands)))
+        dE_vkn = np.zeros((2, nk, len(bands)))
+        for nni, nn in enumerate(bands):
+            for v1 in range(2):
+                vv1 = v1*2+1
+                dE_vkn[v1, :, nni] = (E_kn[nei_ind[vv1], nn]-E_kn[nei_ind[vv1+1], nn]) / (2.0/N_c[v1])
+                for v2 in range(3):
+                    dp_vvkn[v1, v2, :, nni] = (psigns[vv1] * p_nn[v2, nei_ind[vv1], nn]
+                                              - psigns[vv1+1] * p_nn[v2, nei_ind[vv1+1], nn]) / (2.0/N_c[v1])
+
+        # Transform to xy
+        cell = calc.atoms.cell[:2, :2]
+        icell = 2*pi*calc.wfs.gd.icell_cv[:2, :2]
+        dp_vvkn2 = np.einsum('ij,jlkn->ilkn', icell, dp_vvkn)
+        dE_vkn2 = np.einsum('ij,jkn->ikn', icell, dE_vkn)
+        scale = (_me*(Bohr*1e-10)**2*_e/_hbar**2)
 
         # Loop over bands
         with timer('Sum over bands'):
-            for ind, nni in enumerate(bands):
-                for mmi in range(nb2):
-                    Enm = E_n[nni] - E_n[mmi]
-                    if np.abs(Enm) < Etol:
-                        continue
-                    for pol in range(9):
-                        pnm0 = mom[pol % 3, nni, mmi]
-                        pnm1 = mom[floor(pol / 3), nni, mmi]
-                        pmn0 = mom[pol % 3, mmi, nni]
-                        pmn1 = mom[floor(pol / 3), mmi, nni]
-                        sumrule[ind, pol] += (pnm0 * pmn1 + pnm1 * pmn0) / Enm
+            scale = (_hbar / (Bohr * 1e-10))**2 / (_e * _me)
+            for pol in range(9):
+                aa, bb = pol % 3, floor(pol / 3)
+                sumrule[aa, bb] = (aa == bb)*1
+                for nni, nn in enumerate(bands):
+                    for mmi in range(nf-ni):
+                        Enm = E_kn[:, nn] - E_kn[:, mmi]
+                        if np.all(np.abs(Enm)) < Etol:
+                            continue
+                        usind = np.where(np.abs(Enm)>Etol)[0]
+                        sumrule[aa, bb, usind, nni] += scale * (mom[aa, usind, nn, mmi] * mom[bb, usind, mmi, nn] 
+                                                    + mom[bb, usind, nn, mmi] * mom[aa, usind, mmi, nn]).real / Enm[usind]
 
-    # Sum over all nodes
-    world.sum(sumrule)
+    else:
+        sumrule = None
+    sumrule = broadcast(sumrule, 0)
 
-    # Make the output and print it
-    gspin = 2.0
-    sum_rule = gspin * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) * sumrule.real
-    sum_rule = np.reshape(sum_rule, (len(bands), 3, 3), order='C')
-    parprint('The sum rule matrix is:')
-    # parprint(sum_rule)
-    parprint(np.array_str(sum_rule, precision=6, suppress_small=True))
+    # plot_kfunction(kd, sumrule[1, 1, :, 0], figname='xx_band12_sum.png', tsymm='even', dtype='re', clim=(-3,3))
+    # plot_kfunction(kd, dp_vvkn2[1, 1, :, 0], figname='xx_band12_dp.png', tsymm='even', dtype='re', clim=(-3,3))
 
     # Print the timing
     if world.rank == 0:
         timer.write()
 
     # Return the sum_rule
-    return sum_rule
+    return sumrule
 
 # Calculate the linear response
 
@@ -859,7 +908,7 @@ def calculate_shg_rvg(
                                            np.transpose(wfs_nm[:, 1::2]))
 
                         # Get the soc correction to momentum
-                        p_vmm = get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf, socscale=socscale)
+                        p_vmm = socscale * get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf)
                         mom2[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
                                            np.transpose(wfs_nm))
                     mom = mom2
@@ -1200,9 +1249,9 @@ def calculate_shg_rlg(
                 tmp = (E_n - mu) / kbT
                 tmp = np.clip(tmp, -100, 100)
                 f_n = 1 / (np.exp(tmp) + 1.0)
-                # f_n = np.zeros(nb2, complex)
-                # f_n[::2] = f_n0
-                # f_n[1::2] = f_n0
+                f_n = np.zeros(nb2, complex)
+                f_n[::2] = f_n0
+                f_n[1::2] = f_n0
 
                 # Make the new momentum
                 with timer('New momentum calculation'):
