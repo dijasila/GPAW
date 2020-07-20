@@ -362,11 +362,6 @@ class BSE:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
 
-                        # Keep the old implementation here since it may be easier to talk about.
-
-                        # rho2_mGn = np.swapaxes(rho2_mnG, 1, 2)
-                        # H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += (
-                        #     np.dot(rho1ccV_mnG, rho2_mGn))
                         H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
                             'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG, optimize='optimal')
 
@@ -401,14 +396,6 @@ class BSE:
                                 rho_1mnG = np.dot(vec1_nm.T.conj(),
                                                   np.dot(vec3_nm.T, rho4_nnG))
                                 rho4_nnG = rho_0mnG + rho_1mnG
-
-                            # Keep old impl here since it may be easier to talk about.
-
-                            # rho3ccW_mmG = np.dot(rho3_mmG.conj(),
-                            #                      self.W_qGG[iq])
-                            # W_mmnn = np.dot(rho3ccW_mmG,
-                            #                 np.swapaxes(rho4_nnG, 1, 2))
-                            # W_mnmn = np.swapaxes(W_mmnn, 1, 2) * Ns * so
 
                             W_mnmn = np.einsum('ijk,km,pqm->ipjq', rho3_mmG.conj(), self.W_qGG[iq], rho4_nnG, optimize='optimal')
                             W_mnmn *= Ns * so
@@ -487,8 +474,6 @@ class BSE:
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[sym]
 
-            # Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-            #                U_ii.T).transpose(1, 0, 2)
             Q_Gii = np.einsum('ij,kjl,ml->kim', U_ii, Q_Gii * x_G[:, None, None], U_ii, optimize='optimal')
             if sign == -1:
                 Q_Gii = Q_Gii.conj()
