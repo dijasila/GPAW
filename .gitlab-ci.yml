@@ -6,7 +6,9 @@ master:
     - pip install flake8 mypy pytest
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - mkdir ~/.gpaw
-    - echo "scalapack = True; libraries += ['scalapack-openmpi']" > ~/.gpaw/siteconfig.py
+    - echo "scalapack = True" > ~/.gpaw/siteconfig.py
+    - echo "libraries += ['scalapack-openmpi']" >> ~/.gpaw/siteconfig.py
+    - echo "extra_compile_args = ['-Werror']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-install.output
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'

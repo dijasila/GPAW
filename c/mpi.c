@@ -400,6 +400,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
     }
 }
 
+
 static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
   PyArrayObject* a;
@@ -422,10 +423,11 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 static PyObject * mpi_name(MPIObject *self, PyObject *noargs)
 {
   char name[MPI_MAX_PROCESSOR_NAME];
-  Py_ssize_t resultlen;
+  int resultlen;
   MPI_Get_processor_name(name, &resultlen);
-  return Py_BuildValue("s#", name, resultlen);
+  return Py_BuildValue("s#", name, (Py_ssize_t)resultlen);
 }
+
 
 static PyObject * mpi_abort(MPIObject *self, PyObject *args)
 {
