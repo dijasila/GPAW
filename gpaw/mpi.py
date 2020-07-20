@@ -857,7 +857,7 @@ def alltoallv_string(send_dict, comm=world):
     rdict = {}
     for proc in range(comm.size):
         i = rdispls[proc]
-        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tobytes().decode()
 
     return rdict
 
