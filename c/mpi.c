@@ -3,6 +3,7 @@
  *  Copyright (C) 2005-2009  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #ifdef PARALLEL
@@ -421,7 +422,7 @@ static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 static PyObject * mpi_name(MPIObject *self, PyObject *noargs)
 {
   char name[MPI_MAX_PROCESSOR_NAME];
-  int resultlen;
+  Py_ssize_t resultlen;
   MPI_Get_processor_name(name, &resultlen);
   return Py_BuildValue("s#", name, resultlen);
 }
