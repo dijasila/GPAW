@@ -19,4 +19,4 @@ master:
     - python -c "assert int(open('nerr').read()) <= 2019, 'Please run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/
     - mypy -p gpaw
-    - interrogate -m -i -f 33.8 -e gpaw/test gpaw
+    - interrogate -m -i -f 33.7 -e gpaw/test gpaw
