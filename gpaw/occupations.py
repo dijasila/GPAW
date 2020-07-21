@@ -2,7 +2,7 @@
 
 import warnings
 from math import pi, nan, inf
-from typing import List, Tuple, Optional, NamedTuple, Any, Callable
+from typing import List, Tuple, Optional, NamedTuple, Any, Callable, TypeVar
 
 import numpy as np
 from scipy.special import erf
@@ -11,7 +11,44 @@ from ase.units import Ha
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.mpi import serial_comm, broadcast_float
 
-MPICommunicator = Any  # typehint
+
+def create_occupation_number_object(width: float = None,
+                                    name: str = None,
+                                    fixmagmom: bool = False,
+                                    order: int = None) -> 'OccupationNumbers':
+    """Surprise: Create occupation-number object.
+
+    The unit of width is eV and name must be one of:
+
+    * 'fermi-dirac'
+    * 'marzari-vanderbilt'
+    * 'methfessel-paxton'
+    * 'orbital-free'
+
+    >>> occ = create_occupation_number_object(width=0)
+    >>> occ.calculate(nelectrons=3,
+    ...               eigenvalues=[[0, 1, 2], [0, 2, 3]],
+    ...               weights=[1, 1])
+    (array([[1., 1., 0.],
+           [1., 0., 0.]]), [1.5], 0.0)
+    """
+    if width == 0.0:
+        return ZeroWidth(fixmagmom=fixmagmom)
+    if name == 'methfessel-paxton':
+        return MethfesselPaxton(width, order=order, fixmagmom=fixmagmom)
+    assert order is None
+    if name == 'fermi-dirac':
+        return FermiDirac(width, fixmagmom=fixmagmom)
+    if name == 'marzari-vanderbilt':
+        return MarzariVanderbilt(width, fixmagmom=fixmagmom)
+    if name == 'orbital-free':
+        return ThomasFermiOccupations()
+    raise ValueError(f'Unknown occupation number object name: {name}')
+
+
+# typehints:
+MPICommunicator = Any
+T = TypeVar('T', float, np.ndarray)
 
 
 class ParallelLayout(NamedTuple):
@@ -21,7 +58,15 @@ class ParallelLayout(NamedTuple):
     domain_comm: MPICommunicator
 
 
-def fermi_dirac(eig, fermi_level, width):
+def fermi_dirac(eig: T,
+                fermi_level: float,
+                width: float) -> Tuple[T, T, T]:
+    """Fermi-Dirac distribution function.
+
+    >>> ef, _, _ = fermi_dirac(0.0, 0.0, 0.1)
+    >>> ef
+    0.5
+    """
     x = (eig - fermi_level) / width
     x = np.clip(x, -100, 100)
     y = np.exp(x)
@@ -35,7 +80,13 @@ def fermi_dirac(eig, fermi_level, width):
     return f, dfde, e_entropy
 
 
-def marzari_vanderbilt(eig, fermi_level, width):
+def marzari_vanderbilt(eig: T,
+                       fermi_level: float,
+                       width: float) -> Tuple[T, T, T]:
+    """Marzari-Vanderbilt distribution (cold smearing).
+
+    See: https://doi.org/10.1103/PhysRevLett.82.3296
+    """
     x = (eig - fermi_level) / width
     expterm = np.exp(-(x + (1 / np.sqrt(2)))**2)
     f = expterm / np.sqrt(2 * np.pi) + 0.5 * (1 - erf(1. / np.sqrt(2) + x))
@@ -45,7 +96,11 @@ def marzari_vanderbilt(eig, fermi_level, width):
     return f, dfde, e_entropy
 
 
-def methfessel_paxton(eig, fermi_level, width, order=0):
+def methfessel_paxton(eig: T,
+                      fermi_level: float,
+                      width: float,
+                      order: int = 0) -> Tuple[T, T, T]:
+    """Methfessel-Paxton distribution."""
     x = (eig - fermi_level) / width
     f = 0.5 * (1 - erf(x))
     for i in range(order):
@@ -77,30 +132,17 @@ def hermite_poly(n, x):
                 2 * (n - 1) * hermite_poly(n - 2, x))
 
 
-def create_occupation_number_object(width=None,
-                                    name=None,
-                                    fixmagmom=False,
-                                    order=None):
-    if width == 0.0:
-        return ZeroWidth(fixmagmom=fixmagmom)
-    if name == 'methfessel-paxton':
-        return MethfesselPaxton(width, order=order, fixmagmom=fixmagmom)
-    assert order is None
-    if name == 'fermi-dirac':
-        return FermiDirac(width, fixmagmom=fixmagmom)
-    if name == 'marzari-vanderbilt':
-        return MarzariVanderbilt(width, fixmagmom=fixmagmom)
-    if name == 'orbital-free':
-        return ThomasFermiOccupations()
-    raise ValueError('Unknown occupation number object name: ' + name)
-
-
 class OccupationNumbers:
     """Base class for all occupation number objects."""
     name = 'unknown'
 
     def __init__(self,
                  fixmagmom: bool = False):
+        """Object for calculating fermi level(s) and occupation numbers.
+
+        If fixmagmom=True then the fixed_magmom_value attribute must be set
+        and two fermi levels will be calculated.
+        """
         self.fixmagmom = fixmagmom
         self.fixed_magmom_value: Optional[float] = None
 
@@ -116,23 +158,28 @@ class OccupationNumbers:
                   ) -> Tuple[List[np.ndarray],
                              List[float],
                              float]:
-        """Calculate occupation numbers from eigenvalues in eV.
+        """Calculate occupation numbers and fermi level(s) from eigenvalues.
 
-        occ: dict
-            Example: {'name': 'fermi-dirac', 'width': 0.05} (width in eV).
-        eps_skn: ndarray, shape=(nspins, nibzkpts, nbands)
-            Eigenvalues.
-        weight_k: ndarray, shape=(nibzkpts,)
-            Weights of k-points in IBZ (must sum to 1).
-        nelectrons: int or float
+        nelectrons:
             Number of electrons.
+        eigenvalues: ndarray, shape=(nibzkpts, nbands)
+            Eigenvalues in Hartree.
+        weights: ndarray, shape=(nibzkpts,)
+            Weights of k-points in IBZ (must sum to 1).
+        parallel:
+            Parallel distribution of eigenvalues.
+        fermi_level_guesses:
+            Optional guess(es) at fermi level(s).
 
         Returns a tuple containing:
 
-        * f_skn (sums to nelectrons)
-        * fermi-level
-        * magnetic moment
-        * entropy as -S*T
+        * occupation numbers (in the range 0 to 1)
+        * fermi-level in Hartree
+        * entropy as -S*T in Hartree
+
+        >>> occ = ZeroWidth()
+        >>> occ.calculate(1, [[0, 1]], [1])
+        (array([[1., 0.]]), [0.5], 0.0)
         """
 
         eig_qn = [np.asarray(eig_n) for eig_n in eigenvalues]
@@ -209,22 +256,18 @@ class OccupationNumbers:
 
 class SmoothDistribution(OccupationNumbers):
     """Base class for Fermi-Dirac and other smooth distributions."""
-    def __init__(self, width, **kwargs):
+    def __init__(self, width, fixmagmom=False):
         """Smooth distribution.
-
-        Find the Fermi level by integrating in energy until
-        the number of electrons is correct.
 
         width: float
             Width of distribution in eV.
         fixmagmom: bool
             Fix spin moment calculations.  A separate Fermi level for
-            spin up and down electrons is found: self.fermilevel +
-            self.split and self.fermilevel - self.split.
+            spin up and down electrons is found.
         """
 
         self.width = width / Ha
-        OccupationNumbers.__init__(self, **kwargs)
+        OccupationNumbers.__init__(self, fixmagmom)
 
     def todict(self):
         dct = OccupationNumbers.todict(self)
@@ -309,8 +352,8 @@ class MarzariVanderbilt(SmoothDistribution):
 class MethfesselPaxton(SmoothDistribution):
     name = 'methfessel_paxton'
 
-    def __init__(self, width, order=0):
-        SmoothDistribution.__init__(self, width)
+    def __init__(self, width, order=0, fixmagmom=False):
+        SmoothDistribution.__init__(self, width, fixmagmom)
         self.order = order
         self.extrapolate_factor = -1.0 / (self.order + 2)
 
@@ -514,6 +557,16 @@ class FixedOccupationNumbers(OccupationNumbers):
     extrapolate_factor = 0.0
 
     def __init__(self, f_sn):
+        """Fixed occupation numbers.
+
+        f_sn: ndarray, shape=(nspins, nbands)
+            Occupation numbers (in the range from 0 to 1)
+
+        Example (excited state with 4 electrons)::
+
+            occ = FixedOccupationNumbers([[1, 0, 1, 0], [1, 1, 0, 0]])
+
+        """
         OccupationNumbers.__init__(self)
         self.f_sn = np.array(f_sn)
 
@@ -572,16 +625,17 @@ def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
     Returns a tuple containing:
 
     * f_skn (sums to nelectrons)
-    * fermi-level
+    * fermi-level [Hartree]
     * magnetic moment
-    * entropy as -S*T
+    * entropy as -S*T [Hartree]
     """
 
-    warnings.warn('...')
+    warnings.warn('Please use one of the OccupationNumbers implementations',
+                  DeprecationWarning)
     occ = create_occupation_number_object(**occ)
     f_kn, (fermi_level,), e_entropy = occ.calculate(
         nelectrons * len(eig_skn) / 2,
-        [eig_n for eig_kn in eig_skn for eig_n in eig_kn],
+        [eig_n / Ha for eig_kn in eig_skn for eig_n in eig_kn],
         list(weight_k) * len(eig_skn))
 
     f_kn *= np.array(weight_k)[:, np.newaxis]
@@ -595,4 +649,4 @@ def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
         f1, f2 = f_skn.sum(axis=(1, 2))
         magmom = f1 - f2
 
-    return f_skn, fermi_level / Ha, magmom, e_entropy
+    return f_skn, fermi_level, magmom, e_entropy
