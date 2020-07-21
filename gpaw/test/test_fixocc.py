@@ -2,7 +2,7 @@ from ase.build import molecule
 from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.cluster import Cluster
-from gpaw.occupations import FixedOccupations, ZeroWidth
+from gpaw.occupations import FixedOccupationNumbers, ZeroWidth
 from gpaw.test import equal
 
 
@@ -27,7 +27,7 @@ def test_fixocc():
         E_zk = H2.get_potential_energy()
 
         c = GPAW(h=h, nbands=nbands,
-                 occupations=FixedOccupations([[1, 0]]),
+                 occupations=FixedOccupationNumbers([[1, 0]]),
                  convergence=convergence,
                  txt=txt)
         H2.calc = c
@@ -38,14 +38,14 @@ def test_fixocc():
     if 1:
         # test spin-paired vs spin-polarized
         c = GPAW(h=h, nbands=nbands,
-                 occupations=FixedOccupations([[0.5, 0.5]]),
+                 occupations=FixedOccupationNumbers([[0.5, 0.5]]),
                  convergence=convergence,
                  txt=txt)
         H2.calc = c
         E_ns = H2.get_potential_energy()
     if 1:
         c = GPAW(h=h, nbands=nbands, spinpol=True,
-                 occupations=FixedOccupations([[0.5, 0.5]] * 2),
+                 occupations=FixedOccupationNumbers([[0.5, 0.5]] * 2),
                  convergence=convergence,
                  txt=txt)
         H2.calc = c

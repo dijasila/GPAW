@@ -510,7 +510,7 @@ class ZeroWidth(OccupationNumbers):
                 k += 1
 
 
-class FixedOccupations(OccupationNumbers):
+class FixedOccupationNumbers(OccupationNumbers):
     extrapolate_factor = 0.0
 
     def __init__(self, f_sn):
@@ -529,6 +529,14 @@ class FixedOccupations(OccupationNumbers):
             parallel.bd.distribute(self.f_sn[s], f_n)
 
         return inf, 0.0
+
+
+class FixedOccupations(FixedOccupationNumbers):
+    def __init__(self, f_sn):
+        warnings.warn('Please use FixedOccupationNumbers() instead.')
+        if len(f_sn) == 1:
+            f_sn = np.array(f_sn) / 2
+        FixedOccupationNumbers.__init__(self, f_sn)
 
 
 class ThomasFermiOccupations(OccupationNumbers):
