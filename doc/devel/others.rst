@@ -23,3 +23,6 @@ Miscellaneous objects and functions
 
 .. autoclass:: gpaw.scf.SCFLoop
     :members:
+
+.. autoclass:: gpaw.band_descriptor.BandDescriptor
+    :members:

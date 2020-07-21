@@ -46,7 +46,7 @@ Git master branch
 * Code for calculating occupation numbers has been refactored.  New functions:
   :func:`~gpaw.occupations.fermi_dirac`,
   :func:`~gpaw.occupations.marzari_vanderbilt` and
-  :func:`~gpaw.occupations.methfessel_paxton`.  Deprecates:
+  :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
   :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
   for details.
 

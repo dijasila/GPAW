@@ -26,6 +26,7 @@ Developers should consult the :ref:`devel` pages.
    :maxdepth: 2
 
    manual
+   smearing
    tools/tools
    advanced_topics
    literature

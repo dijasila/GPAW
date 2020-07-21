@@ -2,7 +2,7 @@
 
 import warnings
 from math import pi, nan, inf
-from typing import List, Tuple, Optional, NamedTuple, Any, Callable, TypeVar
+from typing import List, Tuple, Optional, NamedTuple, Any, Callable
 
 import numpy as np
 from scipy.special import erf
@@ -48,7 +48,6 @@ def create_occupation_number_object(width: float = None,
 
 # typehints:
 MPICommunicator = Any
-T = TypeVar('T', float, np.ndarray)
 
 
 class ParallelLayout(NamedTuple):
@@ -58,9 +57,9 @@ class ParallelLayout(NamedTuple):
     domain_comm: MPICommunicator
 
 
-def fermi_dirac(eig: T,
+def fermi_dirac(eig: np.ndarray,
                 fermi_level: float,
-                width: float) -> Tuple[T, T, T]:
+                width: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Fermi-Dirac distribution function.
 
     >>> ef, _, _ = fermi_dirac(0.0, 0.0, 0.1)
@@ -80,9 +79,11 @@ def fermi_dirac(eig: T,
     return f, dfde, e_entropy
 
 
-def marzari_vanderbilt(eig: T,
+def marzari_vanderbilt(eig: np.ndarray,
                        fermi_level: float,
-                       width: float) -> Tuple[T, T, T]:
+                       width: float) -> Tuple[np.ndarray,
+                                              np.ndarray,
+                                              np.ndarray]:
     """Marzari-Vanderbilt distribution (cold smearing).
 
     See: https://doi.org/10.1103/PhysRevLett.82.3296
@@ -96,10 +97,12 @@ def marzari_vanderbilt(eig: T,
     return f, dfde, e_entropy
 
 
-def methfessel_paxton(eig: T,
+def methfessel_paxton(eig: np.ndarray,
                       fermi_level: float,
                       width: float,
-                      order: int = 0) -> Tuple[T, T, T]:
+                      order: int = 0) -> Tuple[np.ndarray,
+                                               np.ndarray,
+                                               np.ndarray]:
     """Methfessel-Paxton distribution."""
     x = (eig - fermi_level) / width
     f = 0.5 * (1 - erf(x))
@@ -611,7 +614,7 @@ class ThomasFermiOccupations(OccupationNumbers):
 
 
 def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
-    """Calculate occupation numbers from eigenvalues in eV.
+    """Calculate occupation numbers from eigenvalues in eV (**deprecated**).
 
     occ: dict
         Example: {'name': 'fermi-dirac', 'width': 0.05} (width in eV).
