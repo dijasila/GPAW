@@ -53,7 +53,7 @@ def dscf_calculation(paw, orbitals, atoms):
         paw.initialize(atoms)
     occ = paw.wfs.occupations
     if isinstance(occ, OccupationsDSCF):
-        paw.occupations.orbitals = orbitals
+        occ.orbitals = orbitals
     else:
         if occ.width == 0:
             occ = FermiDirac(width=1e-4, fixmagmom=occ.fixmagmom)
