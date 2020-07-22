@@ -517,7 +517,13 @@ class WaveFunctions:
         if 'version' not in r:
             r.version = reader.version
 
-        self.fermi_levels = r.fermi_levels / r.ha
+        if r.version >= 3:
+            self.fermi_levels = r.fermi_levels / r.ha
+        else:
+            o = reader.occupations
+            self.fermi_levels = np.array(
+                [o.fermilevel + o.split / 2,
+                 o.fermilevel - o.split / 2]) / r.ha
 
         if reader.version >= 2:
             kpts = r.kpts

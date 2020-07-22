@@ -228,10 +228,6 @@ class GPAW(PAW, Calculator):
         self.hamiltonian.read(reader)
         self.scf.read(reader)
         self.wfs.read(reader)
-        if reader.version < 3:
-            o = reader.occupations
-            self.wfs.fermi_level = o.fermilevel / reader.ha
-            self.wfs.fermi_level_split = o.split / reader.ha
 
         # We need to do this in a better way:  XXX
         from gpaw.utilities.partition import AtomPartition
