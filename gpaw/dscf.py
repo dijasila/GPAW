@@ -52,11 +52,11 @@ def dscf_calculation(paw, orbitals, atoms):
     if paw.wfs is None:
         paw.initialize(atoms)
     occ = paw.wfs.occupations
-    if occ.width == 0:
-        occ = FermiDirac(width=1e-4, fixmagmom=occ.fixmagmom)
     if isinstance(occ, OccupationsDSCF):
         paw.occupations.orbitals = orbitals
     else:
+        if occ.width == 0:
+            occ = FermiDirac(width=1e-4, fixmagmom=occ.fixmagmom)
         new_occ = OccupationsDSCF(occ, paw, orbitals)
         paw.wfs.occupations = new_occ
     # If the calculator has already converged (for the ground state),
@@ -309,7 +309,7 @@ class AEOrbital:
             # Inner product of pseudowavefunctions
             wf = np.reshape(wf_u[u], -1)
             Wf_n = kpt.psit_nG
-            Wf_n = np.reshape(Wf_n, (len(kpt.f_n), -1))
+            Wf_n = np.reshape(Wf_n, (len(Wf_n), -1))
             Porb_n = np.dot(Wf_n.conj(), wf) * wfs.gd.dv
 
             # Correction to obtain inner product of AE wavefunctions
