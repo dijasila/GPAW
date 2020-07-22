@@ -147,6 +147,14 @@ and edit the module file  :file:`trunk` that should read::
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
+matplotlib
+----------
+
+In order to use `ase gui` in it's full strength it is useful to install
+`matplotlib` via pip::
+
+  python3 -m pip install matplotlib
+
 Building GPAW
 -------------
 
