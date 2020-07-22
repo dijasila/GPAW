@@ -458,7 +458,7 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
-        writer.write(version=1, ha=Ha)
+        writer.write(version=2, ha=Ha)
         writer.write(fermi_levels=self.fermi_levels * Ha)
         writer.write(kpts=self.kd)
         self.write_projections(writer)
@@ -517,7 +517,7 @@ class WaveFunctions:
         if 'version' not in r:
             r.version = reader.version
 
-        if r.version >= 3:
+        if reader.version >= 3:
             self.fermi_levels = r.fermi_levels / r.ha
         else:
             o = reader.occupations
