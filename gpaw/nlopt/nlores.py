@@ -19,21 +19,26 @@ from gpaw.nlopt.output import is_file_exist, parprint, plot_kfunction
 from gpaw.nlopt.mml import get_dipole_transitions
 from gpaw.nlopt.mml import load_gsmoms, set_variables, distribute_data
 from gpaw.nlopt.mml import fermi_level, triangle_int, get_neighbors
-from gpaw.nlopt.mml import get_soc_momentum, get_soc_paw
+from gpaw.nlopt.mml import get_soc_momentum, get_soc_paw, trace_bands_path
 from gpaw.nlopt.symmetry import get_tensor_elements
 
 # Check the sum rule
 
 
-def check_sumrule(addsoc=False, socscale=1.0,
+def check_sumrule(
+        addsoc=False,
+        socscale=1.0,
+        Etol=1e-3, ftol=1e-4,
         ni=None, nf=None,
-        momname=None, basename=None):
+        momname=None,
+        basename=None):
     """
     Check the sum rule sum fnm*(pnm0*pmn1+pnm1*pmn0)/Emn
 
     Input:
         addsoc          Add spin-orbit coupling (default off)
         socscale        SOC scale (default 1.0)
+        Etol, ftol      Tol. in energy and fermi to consider degeneracy
         ni, nf          First and last bands in the calculations (def. 0 to nb)
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
@@ -49,8 +54,6 @@ def check_sumrule(addsoc=False, socscale=1.0,
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    ftol = 1e-6
-    Etol = 1.0e-10
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
@@ -301,7 +304,7 @@ def check_sumrule2(bands=[0], ni=None, nf=None, momname=None, basename=None, fig
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    Etol = 1.0e-10
+    Etol = 1.0e-3
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
@@ -421,10 +424,10 @@ def calculate_df(
         eshift=0.0,
         addsoc=False,
         socscale=1.0,
-        ni=None,
-        nf=None,
-        blist=None,
         intmethod='no',
+        Etol=1e-3, ftol=1e-4,
+        ni=None, nf=None,
+        blist=None,
         outname=None,
         momname=None,
         basename=None):
@@ -438,9 +441,10 @@ def calculate_df(
         eshift          scissors shift (default 0)
         addsoc          Add spin-orbit coupling (default off)
         socscale        SOC scale (default 1.0)
+        intmethod       Integral method (defaul no)
+        Etol, ftol      Tol. in energy and fermi to consider degeneracy
         ni, nf          First and last bands in the calculations (0 to nb)
         blist           List of bands in the sum
-        intmethod       Integral method (defaul no)
         outname         Output filename (default is df.npy)
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
@@ -458,8 +462,6 @@ def calculate_df(
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    ftol = 1e-6
-    Etol = 1.0e-10
     freqs = np.array(freqs)
     nw = len(freqs)
     w_lc = freqs + 1j * eta
@@ -743,8 +745,8 @@ def calculate_shg_rvg(
         socscale=1.0,
         intmethod='no',
         summethod='loop',
-        ni=None,
-        nf=None,
+        Etol=1e-3, ftol=1e-4,
+        ni=None, nf=None,
         blist=None,
         outname=None,
         momname=None,
@@ -758,10 +760,11 @@ def calculate_shg_rvg(
         pol             Tensor element
         addsoc          Add spin-orbit coupling (default off)
         socscale        SOC scale (default 1.0)
-        ni, nf          First and last bands in the calculations (0 to nb)
-        blist           List of bands in the sum
         intmethod       Integral method (defaul no)
         summethod       Fast summation flag (default loop)
+        Etol, ftol      Tol. in energy and fermi to consider degeneracy
+        ni, nf          First and last bands in the calculations (0 to nb)
+        blist           List of bands in the sum
         outname         Output filename (default is shg.npy)
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
@@ -779,8 +782,6 @@ def calculate_shg_rvg(
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    ftol = 1e-6
-    Etol = 1.0e-10
     freqs = np.array(freqs)
     nw = len(freqs)
     w_lc = freqs + 1j * eta
@@ -1100,8 +1101,8 @@ def calculate_shg_rlg(
         addsoc=False,
         socscale=1.0,
         intmethod='no',
-        ni=None,
-        nf=None,
+        Etol=1e-3, ftol=1e-4,
+        ni=None, nf=None,
         blist=None,
         outname=None,
         momname=None,
@@ -1116,9 +1117,10 @@ def calculate_shg_rlg(
         eshift          scissors shift (default 0)
         addsoc          Add spin-orbit coupling (default off)
         socscale        SOC scale (default 1.0)
+        intmethod       Integral method (defaul no)
+        Etol, ftol      Tol. in energy and fermi to consider degeneracy
         ni, nf          First and last bands in the calculations (0 to nb)
         blist           List of bands in the sum
-        intmethod       Integral method (defaul no)
         outname         Output filename (default is shg.npy)
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
@@ -1136,13 +1138,11 @@ def calculate_shg_rlg(
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    ftol = 1e-6
-    Etol = 1.0e-10
     freqs = np.array(freqs)
     nw = len(freqs)
     w_lc = freqs + 1j * eta
-    w_lc = np.hstack((-w_lc[-1::-1], w_lc))
-    nw = 2 * nw
+    # w_lc = np.hstack((-w_lc[-1::-1], w_lc))
+    # nw = 2 * nw
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
@@ -1306,7 +1306,7 @@ def calculate_shg_rlg(
                 for nni in blist:
                     for mmi in blist:
                         # Remove the non important term using time-reversal
-                        if mmi <= nni:
+                        if mmi == nni:
                             continue
                         fnm = f_n[nni] - f_n[mmi]
                         Emn = E_nm[mmi, nni] + fnm * eshift
@@ -1406,9 +1406,21 @@ def calculate_shg_rlg(
 
     elif intmethod == 'tri':
         # Useful variable
-        itype = 2
+        itype = 1
+        tri1=[0, 1, 3]
+        tri2=[0, 2, 3]
         w_l = w_lc.real
         nb2 = nf - ni
+
+        # with timer('Change the order of bands'):
+        #     if world.rank == 0:
+        #         u_knn = np.load('rot_{}.npy'.format(basename))
+        #         moms_new = np.zeros((nk, 3, nb, nb), complex)
+        #         for ik in range(nk):
+        #             E_nk[ik] = np.dot(E_nk[ik].T, u_knn[ik])
+        #             f_nk[ik] = np.dot(f_nk[ik].T, u_knn[ik])
+        #             for v in range(3):
+        #                 moms[ik, v] = np.dot(u_knn[ik].T, np.dot(moms[ik, v], u_knn[ik]))
 
         # Initialize variables
         assert not addsoc, 'Triangular method is only implemented without SOC.'
@@ -1481,7 +1493,7 @@ def calculate_shg_rlg(
                     for mmi in blist:
                         # Remove non important term using time-reversal
                         # symmtery
-                        if mmi <= nni:
+                        if mmi == nni:
                             continue
                         fnm = f_n[:, nni] - f_n[:, mmi]
                         Emn = E_nm[:, mmi, nni] + fnm * eshift
@@ -1494,7 +1506,7 @@ def calculate_shg_rlg(
                                 * (rnm_der[:, pol[1], pol[2], mmi, nni]
                                    + rnm_der[:, pol[2], pol[1], mmi, nni])) \
                                 / Emn
-                            val = triangle_int(Fval, Emn, 2 * w_l, itype=itype)
+                            val = triangle_int(Fval, Emn, 2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
                             # Term 2
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[1], mmi, nni]
@@ -1502,7 +1514,7 @@ def calculate_shg_rlg(
                                 + r_nm[:, pol[2], mmi, nni]
                                 * rnm_der[:, pol[1], pol[0], nni, mmi]) \
                                 / Emn
-                            val += triangle_int(Fval, Emn, w_l, itype=itype)
+                            val += triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
                             # Term 3
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[0], nni, mmi]
@@ -1511,9 +1523,9 @@ def calculate_shg_rlg(
                                    + r_nm[:, pol[2], mmi, nni]
                                    * D_nm[:, pol[1], mmi, nni])) \
                                 / Emn**2
-                            val += triangle_int(Fval, Emn, w_l, itype=itype)
+                            val += triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
                             val += -4 * \
-                                triangle_int(Fval, Emn, 2 * w_l, itype=itype)
+                                triangle_int(Fval, Emn, 2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
                             # Term 4
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[1], mmi, nni]
@@ -1522,7 +1534,7 @@ def calculate_shg_rlg(
                                 * rnm_der[:, pol[0], pol[1], nni, mmi]) \
                                 / (2 * Emn)
                             val += -1 * \
-                                triangle_int(Fval, Emn, w_l, itype=itype)
+                                triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
                             sum2b_B += 1j * val * dA / 4.0  # 1j for imag
 
                             # Three band term
@@ -1538,7 +1550,7 @@ def calculate_shg_rlg(
                             #         / (Eln - Eml)
                             #     Fval = 2 * fnm * rnml * dA / 4.0
                             #     sum2b_A += triangle_int(Fval, Emn,
-                            #                             2 * w_l, itype=itype)
+                            #                             2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
 
                             #     rnml = np.real(
                             #         r_nm[:, pol[0], lli, mmi]
@@ -1556,7 +1568,7 @@ def calculate_shg_rlg(
                             #         / (Emn + Eml)
                             #     Fval = fnm * rnml * dA / 4.0
                             #     sum2b_A += triangle_int(Fval, Emn,
-                            #                             w_l, itype=itype)
+                            #                             w_l, itype=itype, tri1=tri1, tri2=tri2)
                         for lli in blist:
                             fnl = f_n[:, nni] - f_n[:, lli]
                             fml = f_n[:, mmi] - f_n[:, lli]
@@ -1568,7 +1580,7 @@ def calculate_shg_rlg(
                                     and np.all(np.abs(fnl)) < ftol
                                     and np.all(np.abs(fml)) < ftol):
                                 continue
-                            if np.all(np.abs(Eln - Eml) < Etol):
+                            if np.any(np.abs(Eln - Eml) < Etol):
                                 continue
 
                             rnml = np.real(
@@ -1580,15 +1592,15 @@ def calculate_shg_rlg(
                             if np.any(np.abs(fnm)) > ftol:
                                 Fval = 2 * fnm * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Emn,
-                                                        2 * w_l, itype=itype)
+                                                        2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
                             if np.any(np.abs(fnl)) > ftol:
                                 Fval = -1 * fnl * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Eln,
-                                                        w_l, itype=itype)
+                                                        w_l, itype=itype, tri1=tri1, tri2=tri2)
                             if np.any(np.abs(fml)) > ftol:
                                 Fval = fml * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Eml,
-                                                        w_l, itype=itype)
+                                                        w_l, itype=itype, tri1=tri1, tri2=tri2)
 
             # Print the progress
             count += 1
@@ -1630,8 +1642,8 @@ def calculate_shg_rlg(
             with timer('Kramer-Kronig relation'):
                 from scipy.interpolate import interp1d
                 w_lf = np.linspace(w_l[0], w_l[-1], 10000)
-                sum2b_A2 = pi * np.imag(sum2b_A)
-                sum2b_B2 = pi * np.imag(sum2b_B)
+                sum2b_A2 = sum2b_A
+                sum2b_B2 = sum2b_B
                 interpA = interp1d(w_l, sum2b_A2, kind='linear')
                 interpB = interp1d(w_l, sum2b_B2, kind='linear')
                 suml2A = interpA(w_lf)
@@ -1640,17 +1652,17 @@ def calculate_shg_rlg(
                 suml_B = np.zeros(len(w_l), dtype=np.complex)
                 for ind, omega in enumerate(w_lc):
                     suml_A[ind] = np.trapz(
-                        suml2A * w_lf / (w_lf**2 - omega**2), w_lf)
+                        2 * suml2A * w_lf / (- w_lf**2 + omega**2), w_lf)
                     suml_B[ind] = np.trapz(
-                        suml2B * w_lf / (w_lf**2 - omega**2), w_lf)
-                chi2b[1, :] = -1j * dim_ee_SI * suml_A * 1 / pi
-                chi2b[2, :] = -1j * dim_ie_SI * suml_B * 1 / pi
+                        2 * suml2B * w_lf / (- w_lf**2 + omega**2), w_lf)
+                chi2b[1, :] = dim_ee_SI * suml_A
+                chi2b[2, :] = dim_ie_SI * suml_B
 
         chi2b[0, :] = chi2b[1, :] + chi2b[2, :] + chi2b[3, :] + chi2b[4, :]
         chi2 = chi2b[0, :]
-        nw = int(nw / 2)
-        chi2 = chi2[nw:] + chi2[nw - 1::-1]
-        chi2b = chi2b[:, int(nw):] + chi2b[:, nw - 1::-1]
+        # nw = int(nw / 2)
+        # chi2 = chi2[nw:] + chi2[nw - 1::-1]
+        # chi2b = chi2b[:, int(nw):] + chi2b[:, nw - 1::-1]
 
         shg = np.vstack((freqs, chi2, chi2b))
 
@@ -1784,8 +1796,8 @@ def calculate_shift_current(
         addsoc=False,
         socscale=1.0,
         intmethod='no',
-        ni=None,
-        nf=None,
+        Etol=1e-3, ftol=1e-4,
+        ni=None, nf=None,
         blist=None,
         outname=None,
         momname=None,
@@ -1799,9 +1811,10 @@ def calculate_shift_current(
         pol             Tensor element
         addsoc          Add spin-orbit coupling (default off)
         socscale        SOC scale (default 1.0)
+        intmethod       Integral method (defaul no)
+        Etol, ftol      Tol. in energy and fermi to consider degeneracy
         ni, nf          First and last bands in the calculations (0 to nb)
         blist           List of bands in the sum
-        intmethod       Integral method (defaul no)
         outname         Output filename (default is shg.npy)
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
@@ -1819,8 +1832,6 @@ def calculate_shift_current(
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    ftol = 1e-6
-    Etol = 1.0e-10
     freqs = np.array(freqs)
     nw = len(freqs)
     w_l = freqs
@@ -1897,6 +1908,16 @@ def calculate_shift_current(
     if intmethod == 'no':
         # Initialize the outputs
         sum2b = np.zeros((nw), dtype=np.complex)
+
+        # with timer('Change the order of bands'):
+        #     if world.rank == 0:
+        #         u_knn = np.load('rot_{}.npy'.format(basename))
+        #         moms_new = np.zeros((nk, 3, nb, nb), complex)
+        #         for ik in range(nk):
+        #             E_nk[ik] = np.dot(E_nk[ik].T, u_knn[ik])
+        #             f_nk[ik] = np.dot(f_nk[ik].T, u_knn[ik])
+        #             for v in range(3):
+        #                 moms[ik, v] = np.dot(u_knn[ik].T, np.dot(moms[ik, v], u_knn[ik]))
 
         # Distribute the k points between cores
         with timer('k-info distribution'):
@@ -1998,12 +2019,56 @@ def calculate_shift_current(
 
     elif intmethod == 'tri':
         # Useful variable
+        itype = 1
+        tri1=[0, 1, 2]
+        tri2=[1, 2, 3]
+        tri1=[0, 1, 3]
+        tri2=[0, 2, 3]
         w_l = w_lc.real
         # w_l = np.hstack((w_l, w_l[-1]+w_l))
         # nw = 2*nw
+        # with timer('Change the order of bands'):
+        #     if world.rank == 0:
+        #         u_knn = np.load('rot_{}.npy'.format(basename))
+        #         moms_new = np.zeros((nk, 3, nb, nb), complex)
+        #         for ik in range(nk):
+        #             E_nk[ik] = np.dot(E_nk[ik].T, u_knn[ik])
+        #             f_nk[ik] = np.dot(f_nk[ik].T, u_knn[ik])
+        #             for v in range(3):
+        #                 moms[ik, v] = np.dot(u_knn[ik].T, np.dot(moms[ik, v], u_knn[ik]))
+
+        
+        # N_c = kd.N_c
+        # kp0 = np.arange(0, nk, N_c[1])
+        # kp0[-1] += -int(N_c[1]/2-1)
+        # kp_jkc = []
+        # for k0 in kp0:
+        #     kp_jkc.append(np.arange(k0, k0+int(N_c[1]/2+1)))
+        #     if k0 != 0 and k0 != nk-int(N_c[1]/2+1):
+        #         kp_jkc.append(np.arange(k0, k0-int(N_c[1]/2), -1))
+        # parprint('There are {} k paths in the BZ.'.format(len(kp_jkc)))
+
+        # bi = 5
+        # bf = 20
+        # sel_kp = kp_jkc[1]
+        # sel_kp = kp0
+        # plt.plot(np.arange(0, len(sel_kp)), E_nk[sel_kp, :])
+        # # plt.ylim([-2, 0])
+        # plt.tight_layout()
+        # plt.savefig('mat.png', dpi=300)
+        # plt.subplot(1, 2, 1)
+        # plt.plot(np.arange(0, len(sel_kp)), np.abs(moms[sel_kp, 0, 11, bi:bf])**2+np.abs(moms[sel_kp, 1, 11, bi:bf])**2+np.abs(moms[sel_kp, 2, 11, bi:bf])**2)
+        # # plt.yscale('log')
+        # # plt.ylim([0, 0.15])
+        # plt.subplot(1, 2, 2)
+        # plt.plot(np.arange(0, len(sel_kp)), np.abs(moms_new[sel_kp, 0, 11, bi:bf])**2+np.abs(moms_new[sel_kp, 1, 11, bi:bf])**2+np.abs(moms_new[sel_kp, 2, 11, bi:bf])**2)
+        # # plt.ylim([0, 0.15])
+        # plt.tight_layout()
+        # plt.savefig('mat2.png', dpi=300)
 
         # Initialize variables
-        sum2b = np.zeros((nw), dtype=complex)
+        # moms = moms_new
+        sum2b = np.zeros((nw), dtype=float)
         assert not addsoc, 'Triangular method is only implemented without SOC.'
 
         # Distribute the k points between cores
@@ -2028,19 +2093,21 @@ def calculate_shift_current(
                 f_n0, f_n1, f_n2, f_n3 = tuple(data_k)
             mom = np.array([mom0[:, ni:nf, ni:nf], mom1[:, ni:nf, ni:nf],
                             mom2[:, ni:nf, ni:nf], mom3[:, ni:nf, ni:nf]])
-            E_n = np.array([E_n0[ni:nf], E_n1[ni:nf],
-                            E_n2[ni:nf], E_n3[ni:nf]])
-            f_n = np.array([f_n0[ni:nf], f_n1[ni:nf],
-                            f_n2[ni:nf], f_n3[ni:nf]])
+            E_n = np.array([E_n0[ni:nf].real, E_n1[ni:nf].real,
+                            E_n2[ni:nf].real, E_n3[ni:nf].real])
+            f_n = np.array([f_n0[ni:nf].real, f_n1[ni:nf].real,
+                            f_n2[ni:nf].real, f_n3[ni:nf].real])
 
             # Make the position matrix elements and Delta
             with timer('Position matrix elements calculation'):
-                r_nm = np.zeros((4, 3, nb, nb), dtype=np.complex)
-                D_nm = np.zeros((4, 3, nb, nb), dtype=np.complex)
-                E_nm = np.zeros((4, nb, nb), dtype=np.complex)
+                if k_c == 442:
+                    b = 1
+                r_nm = np.zeros((4, 3, nb2, nb2), dtype=complex)
+                D_nm = np.zeros((4, 3, nb2, nb2), dtype=complex)
+                E_nm = np.zeros((4, nb2, nb2), dtype=float)
                 for ii in range(4):
-                    tmp = (np.tile(E_n[ii, :, None], (1, nb))
-                           - np.tile(E_n[ii, None, :], (nb, 1)))
+                    tmp = (np.tile(E_n[ii, :, None], (1, nb2))
+                           - np.tile(E_n[ii, None, :], (nb2, 1)))
                     zeroind = np.abs(tmp) < Etol
                     tmp[zeroind] = 1
                     E_nm[ii] = tmp
@@ -2048,12 +2115,15 @@ def calculate_shift_current(
                         r_nm[ii, aa] = mom[ii, aa] / (1j * E_nm[ii])
                         r_nm[ii, aa, zeroind] = 0
                         p_nn = np.diag(mom[ii, aa])
-                        D_nm[ii, aa] = (np.tile(p_nn[:, None], (1, nb))
-                                        - np.tile(p_nn[None, :], (nb, 1)))
+                        D_nm[ii, aa] = (np.tile(p_nn[:, None], (1, nb2))
+                                        - np.tile(p_nn[None, :], (nb2, 1)))
 
                 # Make the generalized derivative of rnm
-                rnm_der = np.zeros((4, 3, 3, nb, nb), dtype=np.complex)
+                rnm_der = np.zeros((4, 3, 3, nb2, nb2), dtype=complex)
                 for ii in range(4):
+                    tmp1 = (np.tile(E_n[ii, :, None], (1, nb2))
+                           - np.tile(E_n[ii, None, :], (nb2, 1)))
+                    zeroind = np.abs(tmp1) < Etol
                     for aa in set(pol):
                         for bb in set(pol):
                             tmp = (r_nm[ii, aa] * np.transpose(D_nm[ii, bb])
@@ -2064,6 +2134,7 @@ def calculate_shift_current(
                                                  r_nm[ii, aa])) / E_nm[ii]
                             tmp[zeroind] = 0
                             rnm_der[ii, aa, bb] = tmp
+                    E_nm[ii, zeroind] = 0
 
             # Loop over bands
             with timer('Sum over bands'):
@@ -2076,7 +2147,7 @@ def calculate_shift_current(
                         Emn = E_nm[:, mmi, nni]
 
                         # Two band part
-                        if np.any(np.abs(fnm)) > ftol:
+                        if np.all(np.abs(fnm)) > ftol:
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[1], mmi, nni]
                                 * rnm_der[:, pol[0], pol[2], nni, mmi]
@@ -2084,8 +2155,9 @@ def calculate_shift_current(
                                 * rnm_der[:, pol[0], pol[1], nni, mmi])
 
                             # Use the triangle method for integration
-                            sum2b += (triangle_int(Fval, Emn,
-                                                   w_l, itype=1)) * 1j * dA / 2
+                            tmp = (triangle_int(Fval, Emn,
+                                                w_l, itype=itype, tri1=tri1, tri2=tri2)) * dA / 2
+                            sum2b += tmp.real
 
                 # Print the progress
                 count += 1
@@ -2106,7 +2178,7 @@ def calculate_shift_current(
     dim_init = -1j * gspin * _e**3 / (2 * _hbar * (2.0 * pi)**3)
     dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
         (_e**4 * (Bohr * 1e-10)**3) * (_hbar / _me)**3 * bz_vol
-    dim_SI = dim_init * dim_sum
+    dim_SI = 1j * dim_init * dim_sum # 1j due to imag in loop
     if intmethod == 'no':
         chi2 = dim_SI * sum2b
     elif intmethod == 'tri':
@@ -2123,7 +2195,7 @@ def calculate_shift_current(
                     suml2 * eta / (pi * ((w_lf - omega) ** 2
                                          + eta ** 2)), w_lf)
             chi2 = dim_SI * suml_b
-            # chi2 = dim_SI * sum2b
+            chi2 = dim_SI * sum2b#/100
 
             # chi2 = chi2[:int(nw/2)]
 

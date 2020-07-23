@@ -15,6 +15,7 @@ def parprint(*args, **kwargs):
     """MPI-safe print - prints only from master. """
     if world.rank == 0:
         print(*args, **kwargs)
+        sys.stdout.flush()
 
 # Print iterations progress
 
