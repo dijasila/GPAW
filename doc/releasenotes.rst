@@ -48,7 +48,10 @@ Git master branch
   :func:`~gpaw.occupations.marzari_vanderbilt` and
   :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
   :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
-  for details.
+  and :ref:`manulal_occ` for details.
+
+* New :class:`gpaw.occuptions.FixedOccupationNumbers` class.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
