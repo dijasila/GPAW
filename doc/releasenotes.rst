@@ -52,6 +52,9 @@ Git master branch
 
 * New :class:`gpaw.occuptions.FixedOccupationNumbers` class.
 
+* The Fermi-level is now updated also in a ``fixdensity=True`` calculation
+  so that it matches the calculated occupation numbers.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
