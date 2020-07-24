@@ -3,6 +3,7 @@ import json
 import sys
 from pathlib import Path
 from runpy import run_path
+from typing import Dict, Any
 
 
 def main(path: Path) -> None:
@@ -13,7 +14,7 @@ def main(path: Path) -> None:
         pass
 
     visualize.view = view
-    run_path(path)
+    run_path(str(path))
 
 
 def py2ipynb(path: Path) -> None:
@@ -28,7 +29,7 @@ def py2ipynb(path: Path) -> None:
             chunk = chunk.strip('"\n')
             cell_type = 'markdown'
 
-        cell = {
+        cell: Dict[str, Any] = {
             'cell_type': cell_type,
             'metadata': {},
             'source': chunk.splitlines(True)}
