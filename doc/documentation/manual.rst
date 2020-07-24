@@ -568,6 +568,20 @@ the initial value using::
 
     occupations={'name': ..., 'width': ..., 'fixmagmom': True}
 
+.. figure:: occupation_numbers.png
+
+    Occupation numbers for ``width=0.05``
+
+For fixed occupations numbers use the
+:class:`gpaw.occupations.FixedOccupationNumbers` class like this::
+
+    from gpaw.occupations import FixedOccupationNumbers
+    calc = GPAW(...,
+                occupations=FixedOccupationNumbers([[1, 1, ..., 0, 0],
+                                                    [1, 1, ..., 0, 0]]))
+
+See also :ref:`smearing`.
+
 
 .. _manual_lmax:
 

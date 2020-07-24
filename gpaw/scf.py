@@ -56,13 +56,12 @@ class SCFLoop:
         self.old_F_av = None
         self.converged = False
 
-    def irun(self, wfs, ham, dens, occ, log, callback):
+    def irun(self, wfs, ham, dens, log, callback):
         self.niter = 1
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs, occ)
-            occ.calculate(wfs)
-
-            energy = ham.get_energy(occ)
+            wfs.eigensolver.iterate(ham, wfs)
+            e_entropy = wfs.calculate_occupation_numbers()
+            energy = ham.get_energy(e_entropy, wfs)
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
 
@@ -75,7 +74,7 @@ class SCFLoop:
                 self.converged = True
 
             callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            self.log(log, self.niter, wfs, ham, dens, errors)
             yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
@@ -130,7 +129,7 @@ class SCFLoop:
 
         return errors
 
-    def log(self, log, niter, wfs, ham, dens, occ, errors):
+    def log(self, log, niter, wfs, ham, dens, errors):
         """Output from each iteration."""
 
         nvalence = wfs.nvalence
@@ -144,7 +143,7 @@ class SCFLoop:
         if niter == 1:
             header = """\
                      log10-error:    total        iterations:
-           time      wfs    density  energy       fermi  poisson"""
+           time      wfs    density  energy       poisson"""
             if wfs.nspins == 2:
                 header += '  magmom'
             if self.max_errors['force'] < np.inf:
@@ -166,12 +165,6 @@ class SCFLoop:
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
-
-        niterocc = occ.niter
-        if niterocc == -1:
-            niterocc = ''
-        else:
-            niterocc = '%d' % niterocc
 
         if ham.npoisson == 0:
             niterpoisson = ''
@@ -198,14 +191,15 @@ class SCFLoop:
         else:
             energy = ' ' * 11
 
-        log('%s    %-5s  %-7s' %
-            (energy, niterocc, niterpoisson), end='')
+        log('%s    %-7s' %
+            (energy, niterpoisson), end='')
 
-        if wfs.nspins == 2:
-            log('  %+.4f' % occ.magmom, end='')
-        elif not wfs.collinear:
-            totmom_v, magmom_av = dens.estimate_magnetic_moments()
-            log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
+        if wfs.nspins == 2 or not wfs.collinear:
+            totmom_v, _ = dens.estimate_magnetic_moments()
+            if wfs.collinear:
+                log(f'  {totmom_v[2]:+.4f}', end='')
+            else:
+                log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
 

@@ -1,6 +1,9 @@
-import numpy as np
-from ase.units import Hartree
+from typing import List, Optional
 
+import numpy as np
+from ase.units import Ha
+
+from gpaw.occupations import ParallelLayout, OccupationNumbers
 from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
@@ -53,14 +56,31 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
+        self.occupations: Optional[OccupationNumbers] = None
+        self.fermi_levels: Optional[List[float]] = None
+
         self.eigensolver = None
         self.positions_set = False
         self.spos_ac = None
 
         self.set_setups(setups)
 
+    @property
+    def fermi_level(self):
+        assert len(self.fermi_levels) == 1
+        return self.fermi_levels[0]
+
     def summary(self, log):
         log(eigenvalue_string(self))
+
+        if self.fermi_levels is None:
+            return
+
+        if len(self.fermi_levels) == 1:
+            log(f'Fermi level: {self.fermi_levels[0] * Ha:.5f}\n')
+        else:
+            f1, f2 = (f * Ha for f in self.fermi_levels)
+            log(f'Fermi levels: {f1:.5f}, {f2:.5f}\n')
 
     def set_setups(self, setups):
         self.setups = setups
@@ -78,6 +98,18 @@ class WaveFunctions:
 
     def add_orbital_density(self, nt_G, kpt, n):
         self.add_realspace_orbital_to_density(nt_G, kpt.psit_nG[n])
+
+    def calculate_band_energy(self):
+        e_band = 0.0
+        for kpt in self.kpt_u:
+            e_band += np.dot(kpt.f_n, kpt.eps_n)
+
+        try:  # DCSF needs this ...
+            e_band += self.occupations.calculate_band_energy(self)
+        except AttributeError:
+            pass
+
+        return self.kptband_comm.sum(e_band)
 
     def calculate_density_contribution(self, nt_sG):
         """Calculate contribution to pseudo density from wave functions.
@@ -168,6 +200,28 @@ class WaveFunctions:
                 setup = self.setups[a]
                 D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
         D_asp.redistribute(self.atom_partition)
+
+    def calculate_occupation_numbers(self):
+        if self.collinear and self.nspins == 1:
+            degeneracy = 2
+        else:
+            degeneracy = 1
+
+        parallel = ParallelLayout(self.bd, self.kd.comm, self.gd.comm)
+
+        f_qn, fermi_levels, e_entropy = self.occupations.calculate(
+            nelectrons=self.nvalence / degeneracy,
+            eigenvalues=[kpt.eps_n for kpt in self.kpt_u],
+            weights=[kpt.weightk for kpt in self.kpt_u],
+            parallel=parallel,
+            fermi_levels_guess=self.fermi_levels)
+
+        self.fermi_levels = np.array(fermi_levels)
+
+        for f_n, kpt in zip(f_qn, self.kpt_u):
+            kpt.f_n = f_n * (kpt.weightk * degeneracy)
+
+        return e_entropy * degeneracy
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False
@@ -306,13 +360,13 @@ class WaveFunctions:
             if self.world.rank == 0:
                 return P_nI
             if P_nI is not None:
-                self.kd.comm.send(np.ascontiguousarray(P_nI), 0)
+                self.kd.comm.send(np.ascontiguousarray(P_nI), 0, tag=117)
         if self.world.rank == 0:
             nproj = sum(setup.ni for setup in self.setups)
             if not self.collinear:
                 nproj *= 2
             P_nI = np.empty((self.bd.nbands, nproj), self.dtype)
-            self.kd.comm.receive(P_nI, kpt_rank)
+            self.kd.comm.receive(P_nI, kpt_rank, tag=117)
             return P_nI
 
     def get_wave_function_array(self, n, k, s, realspace=True, periodic=False):
@@ -404,7 +458,8 @@ class WaveFunctions:
         return np.array([homo, lumo])
 
     def write(self, writer):
-        writer.write(version=1, ha=Hartree)
+        writer.write(version=2, ha=Ha)
+        writer.write(fermi_levels=self.fermi_levels * Ha)
         writer.write(kpts=self.kd)
         self.write_projections(writer)
         self.write_eigenvalues(writer)
@@ -436,7 +491,7 @@ class WaveFunctions:
         writer.add_array('eigenvalues', shape)
         for s in range(self.nspins):
             for k in range(self.kd.nibzkpts):
-                writer.fill(self.collect_eigenvalues(k, s) * Hartree)
+                writer.fill(self.collect_eigenvalues(k, s) * Ha)
 
     def write_occupations(self, writer):
 
@@ -461,6 +516,14 @@ class WaveFunctions:
             r.ha = reader.ha
         if 'version' not in r:
             r.version = reader.version
+
+        if reader.version >= 3:
+            self.fermi_levels = r.fermi_levels / r.ha
+        else:
+            o = reader.occupations
+            self.fermi_levels = np.array(
+                [o.fermilevel + o.split / 2,
+                 o.fermilevel - o.split / 2]) / r.ha
 
         if reader.version >= 2:
             kpts = r.kpts
@@ -542,7 +605,7 @@ def eigenvalue_string(wfs, comment=' '):
 
     def eigs(k, s):
         eps_n = wfs.collect_eigenvalues(k, s)
-        return eps_n * Hartree
+        return eps_n * Ha
 
     occs = wfs.collect_occupations
 

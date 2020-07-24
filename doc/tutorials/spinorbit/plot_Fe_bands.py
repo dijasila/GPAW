@@ -3,7 +3,6 @@ import numpy as np
 import pylab as pl
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-#pl.rc('text', usetex=True)
 
 calc = GPAW('Fe_bands.gpw', txt=None)
 
@@ -27,7 +26,7 @@ s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
 pl.xticks(X, [r'$\Gamma$', '(010)   H   (001)', r'$\Gamma$'], size=20)
 pl.yticks(size=20)
 for i in range(len(X))[1:-1]:
-    pl.plot(2 * [X[i]], [1.1*np.min(e_nk), 1.1*np.max(e_nk)],
+    pl.plot(2 * [X[i]], [1.1 * np.min(e_nk), 1.1 * np.max(e_nk)],
             c='0.5', linewidth=0.5)
 
 pl.scatter(np.tile(x, len(e_nk)), e_nk.reshape(-1),
@@ -35,7 +34,7 @@ pl.scatter(np.tile(x, len(e_nk)), e_nk.reshape(-1),
            edgecolor=pl.get_cmap('jet')(s_nk.reshape(-1)),
            s=5,
            marker='+')
-pl.plot([0, x[-1]], 2*[0.0], '-', c='0.5')
+pl.plot([0, x[-1]], 2 * [0.0], '-', c='0.5')
 
 pl.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
 pl.axis([0, x[-1], -0.5, 0.5])
