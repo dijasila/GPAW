@@ -8,7 +8,7 @@ from gpaw.mpi import world
 from gpaw.lrtddft.excited_state import ExcitedState
 
 
-def test_lrtddft_1():
+def test_lrtddft_1(tmp_path):
     txt = '-'
     txt = '/dev/null'
     io_only = False
@@ -116,7 +116,7 @@ def test_lrtddft_1():
         equal(triplet[0].get_oscillator_strength()[0], 0)
 
     # io
-    fname = 'lr.dat.gz'
+    fname = str(tmp_path / 'lr.dat.gz')
     if not io_only:
         lr.write(fname)
         world.barrier()

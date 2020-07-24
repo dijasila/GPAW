@@ -14,13 +14,13 @@ def get_H2(calculator=None):
                cell=(a, a, c))
     
     if calculator is not None:
-        H2.set_calculator(calculator)
+        H2.calc = calculator
 
     return H2
 
 
-def run_and_delete(txt):
-    outfname = 'gpawlog.txt'
+def run_and_delete(tmp_path, txt):
+    outfname = str(tmp_path / 'gpawlog.txt')
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=outfname)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=txt)
@@ -28,23 +28,23 @@ def run_and_delete(txt):
     del(exlst)
     
 
-def test_log():
-    defname = 'gpawlog.txt'
+def test_log(tmp_path):
+    defname = str(tmp_path / 'gpawlog.txt')
     # LrTDDFT outputs to the same log like gpaw
-    run_and_delete(txt=defname)
+    run_and_delete(tmp_path, txt=defname)
     with open(defname) as f:
         string = f.read()
         assert 'Kohn-Sham single transitions' in string
         assert 'Linear response TDDFT calculation' in string
     
     # silent LrTDDFT
-    run_and_delete(txt=None)
+    run_and_delete(tmp_path, txt=None)
     with open(defname) as f:
         assert 'RPA kss[0]' not in f.read()
 
     # output to own file
-    ownfname = 'lrtddftlog.txt'
-    run_and_delete(txt=ownfname)
+    ownfname = str(tmp_path / 'lrtddftlog.txt')
+    run_and_delete(tmp_path, txt=ownfname)
     with open(defname) as f:
         assert 'Linear response TDDFT calculation' not in f.read()
     with open(ownfname) as f:
