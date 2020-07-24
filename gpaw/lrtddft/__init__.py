@@ -208,7 +208,7 @@ class LrTDDFT(ExcitationList):
     @classmethod
     def read(cls, filename=None, fh=None, restrict={}, log=None):
         """Read myself from a file"""
-        lr = cls(log=log)
+        lr = cls(log=log, txt=None)
         timer = lr.timer
         timer.start('name')
         if fh is None:
