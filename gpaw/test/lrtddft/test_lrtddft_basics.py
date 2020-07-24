@@ -14,19 +14,19 @@ def get_H2(calculator=None):
                cell=(a, a, c))
     
     if calculator is not None:
-        H2.set_calculator(calculator)
+        H2.calc = calculator
 
     return H2
 
 
-def test_io():
+def test_io(tmp_path):
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3})
     assert len(exlst) == 3
     assert exlst.kss.restrict['eps'] == 0.4
     
-    fname = 'lr.dat.gz'
+    fname = str(tmp_path / 'lr.dat.gz')
     exlst.write(fname)
 
     lr2 = LrTDDFT.read(fname)
