@@ -18,7 +18,9 @@ def main(path: Path) -> None:
 
 def py2ipynb(path: Path) -> None:
     cells = []
-    chunks = path.read_text().split('\n\n# %%\n')
+    text = path.read_text()
+    assert text.startswith('# %%\n')
+    chunks = text[5:].split('\n\n# %%\n')
 
     for chunk in chunks:
         cell_type = 'code'
