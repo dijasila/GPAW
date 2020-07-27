@@ -44,7 +44,7 @@ vectors `\left\{\vec{k}_i\right\}`.
 
 We are in general interested in finding the spectral function of the PC
 calculation starting from eigenvalues and eigenfunctions of the SC one.
-Such a spectral function can be calculated as follow:
+Such a spectral function can be calculated as follows:
 
   .. math::
     A(\vec{k},\epsilon) =

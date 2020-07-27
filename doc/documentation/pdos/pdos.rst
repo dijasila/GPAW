@@ -266,7 +266,7 @@ reproduces the total DOS (more efficiently computed using
 electrons contained in the region ascribed to atom `a` (more
 efficiently computed using ``calc.get_wigner_seitz_densities(spin)``.
 Notice that the domain ascribed to each atom is deduced purely on a
-geometrical criterion. A more advanced scheme for assigning the charge
+geometric criterion. A more advanced scheme for assigning the charge
 density to atoms is the :ref:`bader analysis` algorithm (all though the
 Wigner-Seitz approach is faster).
 

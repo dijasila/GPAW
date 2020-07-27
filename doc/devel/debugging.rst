@@ -90,7 +90,7 @@ execution. Breakpoints can be set also on the source-code window.
 C debugging
 ===========
 
-First of all, the C-extension should be compiled with the *-g* flag in
+First, the C-extension should be compiled with the *-g* flag in
 order to get the debug information into the library. Also, the
 optimizations should be switched off which could be done in
 :ref:`siteconfig.py <siteconfig>` as::

@@ -253,7 +253,7 @@ Memory consumption:
 Speed:
     For small systems with many **k**-points, PW mode beats everything else.
     For larger systems LCAO will be most efficient.  Whereas PW beats FD for
-    smallish systems, the opposite is true for very large systems where FD
+    smallish systems, the opposite is true for large systems where FD
     will parallelize better.
 
 Absolute convergence:
@@ -303,7 +303,7 @@ unoccupied bands will improve convergence.
 
 .. tip::
 
-    ``nbands='nao'`` will use the the same number of bands as there are
+    ``nbands='nao'`` will use the same number of bands as there are
     atomic orbitals. This corresponds to the maximum ``nbands`` value that
     can be used in LCAO mode.
 
@@ -458,7 +458,7 @@ a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
 
 If you are more used to think in terms of plane waves; a conversion
 formula between plane wave energy cutoffs and realspace grid spacings
-have been provided by Briggs *et. al* PRB **54**, 14362 (1996).  The
+have been provided by Briggs *et al.* PRB **54**, 14362 (1996).  The
 conversion can be done like this::
 
   >>> from gpaw.utilities.tools import cutoff2gridspacing, gridspacing2cutoff
@@ -838,7 +838,7 @@ convergence can be obtained with a different eigensolver. One option is the
 RMM-DIIS (Residual minimization method - direct inversion in iterative
 subspace), (``eigensolver='rmm-diis'``), which performs well when only a few
 unoccupied states are calculated. Another option is the conjugate gradient
-method (``eigensolver='cg'``), which is very stable but slower.
+method (``eigensolver='cg'``), which is stable but slower.
 
 If parallellization over bands is necessary, then Davidson or RMM-DIIS must
 be used.
@@ -1068,7 +1068,7 @@ at a later time, this can be done as follows:
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
-changed slightly.  This is very simple to do.  Suppose you want to
+changed slightly.  This is simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
