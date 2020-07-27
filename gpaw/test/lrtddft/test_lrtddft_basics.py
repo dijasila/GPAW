@@ -52,8 +52,3 @@ def test_invocation():
     h2.get_potential_energy()
     exlst2 = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
     assert hasattr(exlst2, 'Om')
-
-
-if __name__ == '__main__':
-    # test_io()
-    test_invocation()

@@ -392,6 +392,7 @@ class KSSRestrictor:
         
         res &= self['istart'] <= other['istart']
         res &= self['jend'] >= other['jend']
+        res &= self['eps'] < other['eps']
 
         return res
 

@@ -182,12 +182,10 @@ class LrTDDFT(ExcitationList):
 
     def diagonalize(self, **kwargs):
         """Diagonalize and save new Eigenvalues and Eigenvectors"""
-        self.restrict.update(kwargs.pop('restrict', {}))
-        
         self.set(**kwargs)
         self.timer.start('diagonalize')
         self.timer.start('omega')
-        self.Om.diagonalize(self.restrict)
+        self.Om.diagonalize(kwargs.pop('restrict', {}))
         self.timer.stop('omega')
         self.diagonalized = True
 
@@ -206,9 +204,9 @@ class LrTDDFT(ExcitationList):
         self.timer.stop('diagonalize')
 
     @classmethod
-    def read(cls, filename=None, fh=None, restrict={}, log=None):
+    def read(cls, filename=None, fh=None, restrict={}, log=None, txt=None):
         """Read myself from a file"""
-        lr = cls(log=log, txt=None)
+        lr = cls(log=log, txt=txt)
         timer = lr.timer
         timer.start('name')
         if fh is None:

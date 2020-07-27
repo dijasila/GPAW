@@ -556,13 +556,14 @@ class OmegaMatrix:
         emin, emax = rst.emin_emax()
         istart = rst['istart']
         jend = rst['jend']
+        eps = rst['eps']
         for ij, k in zip(range(len(self.fullkss)), self.fullkss):
             if energy_range is None:
-                if k.i >= istart and k.j <= jend:
+                if k.i >= istart and k.j <= jend and k.fij >= eps:
                     kss.append(k)
                     map.append(ij)
             else:
-                if k.energy >= emin and k.energy < emax:
+                if k.energy >= emin and k.energy < emax and k.fij >= eps:
                     kss.append(k)
                     map.append(ij)
         kss.update()
