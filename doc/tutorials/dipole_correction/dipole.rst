@@ -14,7 +14,7 @@ is constructed with a single Na adsorbed on one side of the surface.
 
 The :func:`ase.build.fcc100` function will create a slab
 with periodic boundary conditions in the xy-plane only and GPAW will
-therefore use zeros boundary conditions for the the wave functions and
+therefore use zeros boundary conditions for the wave functions and
 the electrostatic potential in the z-direction as shown here:
 
 .. image:: zero.png

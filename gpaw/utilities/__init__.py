@@ -20,10 +20,6 @@ import gpaw.mpi as mpi
 from gpaw import debug
 
 
-erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
-# XXX should we unify double and complex erf ???
-cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
-
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
 # workaround.  The projector is assigned a certain, small size.  If
@@ -340,8 +336,8 @@ def file_barrier(path: Union[str, Path], world=None):
     After the with-block all cores will be able to read the file.
 
     >>> with file_barrier('something.txt'):
-    ...     <write file>
-    ...
+    ...     result = 2 + 2
+    ...     Path('something.txt').write_text(f'{result}')  # doctest: +SKIP
 
     This will remove the file, write the file and wait for the file.
     """

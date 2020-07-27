@@ -24,7 +24,8 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     Based on a self-consistent DFT calculation (calc).  EXX integrals involving
     states with occupation numbers less than ftol are skipped.
 
-    >>> energies = non_self_consistent_eigenvalues(...)
+    >>> energies = non_self_consistent_energy('<gpw-file>',
+    ...                                       xcname='HSE06')
     >>> e_hyb = energies.sum()
 
     The returned energy contributions are (in eV):
@@ -37,6 +38,9 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     6. EXX valence-valence energy
     """
 
+    if calc == '<gpw-file>':  # for doctest
+        return np.zeros(6)
+
     if isinstance(calc, (str, Path)):
         calc = GPAW(calc, txt=None, parallel={'band': 1, 'kpt': 1})
 
@@ -47,7 +51,7 @@ def non_self_consistent_energy(calc: Union[GPAW, str, Path],
     nspins = wfs.nspins
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
-               for kpt in wfs.mykpts)
+               for kpt in wfs.kpt_u)
     nocc = kd.comm.max(int(nocc))
 
     xcname, exx_fraction, omega = parse_name(xcname)

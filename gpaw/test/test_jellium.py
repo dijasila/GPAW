@@ -48,7 +48,8 @@ def test_jellium(in_tmp_dir):
     phi1 = v[-1] - efermi
 
     equal(phi1, 2.715, 1e-3)
-    # Reference value: Lang and Kohn, 1971, Theory of Metal Surfaces: Work function
+    # Reference value: Lang and Kohn, 1971, Theory of Metal Surfaces:
+    # Work function
     # DOI 10.1103/PhysRevB.3.1215
     # r_s = 5, work function = 2.73 eV
 

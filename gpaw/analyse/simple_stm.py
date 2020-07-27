@@ -58,18 +58,21 @@ class SimpleStm(STM):
         if hasattr(bias, '__len__') and len(bias) == 3:
             n, k, s = bias
             # only a single wf requested
-            u = self.calc.wfs.kd.where_is(k, s)
-            if u is not None:
+            kd = self.calc.wfs.kd
+            rank, q = kd.who_has(k)
+            if kd.comm.rank == rank:
+                u = q * kd.nspins + s
                 self.add_wf_to_ldos(n, u, weight=1)
 
         else:
             # energy bias
             try:
-                if self.calc.occupations.fixmagmom:
+                if self.calc.wfs.occupations.fixmagmom:
                     efermi_s = self.calc.get_fermi_levels()
                 else:
                     efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:  # XXXXX except what?
+            except:
+                raise  # XXXXX except what?
                 efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
 
             if isinstance(bias, (int, float)):
@@ -220,11 +223,8 @@ class SimpleStm(STM):
             fname = file
         f = open(fname, 'w')
 
-        try:
-            import datetime
-            print('#', datetime.datetime.now().ctime(), file=f)
-        except:  # XXX except what?
-            pass
+        import datetime
+        print('#', datetime.datetime.now().ctime(), file=f)
         print('# Simulated STM picture', file=f)
         if hasattr(self, 'file'):
             print('# density read from', self.file, file=f)

@@ -15,7 +15,7 @@ import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.occupations import FermiDirac
+from gpaw.occupations import FermiDirac, ZeroWidth
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
@@ -669,7 +669,7 @@ class PairDensity:
 
         assert calc.wfs.kd.symmetry.symmorphic
         self.calc = calc
-        
+
         if ecut is not None:
             ecut /= Hartree
 
@@ -694,7 +694,7 @@ class PairDensity:
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-        self.fermi_level = self.calc.occupations.get_fermi_level()
+        self.fermi_level = self.calc.wfs.fermi_level
 
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
@@ -720,7 +720,8 @@ class PairDensity:
 
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
-        assert isinstance(self.calc.occupations, FermiDirac)
+        assert isinstance(self.calc.wfs.occupations,
+                          (FermiDirac, ZeroWidth))
         print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
               file=self.fd)
         self.fermi_level += gate_voltage
@@ -731,7 +732,7 @@ class PairDensity:
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
         fermi = self.fermi_level
-        width = self.calc.occupations.width
+        width = self.calc.wfs.occupations.width
         if width < 1e-9:
             return (eps_n < fermi).astype(float)
         else:
@@ -836,7 +837,8 @@ class PairDensity:
 
         shift_c += -shift0_c
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
 
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
@@ -1301,10 +1303,11 @@ class PairDensity:
         f_n = kpt.f_n
 
         # No carriers when T=0
-        width = self.calc.occupations.width
+        width = self.calc.wfs.occupations.width
 
         # Only works with Fermi-Dirac distribution
-        assert isinstance(self.calc.occupations, FermiDirac)
+        assert isinstance(self.calc.wfs.occupations,
+                          (FermiDirac, ZeroWidth))
         if width > 1e-15:
             dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
             partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
@@ -1549,7 +1552,8 @@ class PairDensity:
         A_cv = wfs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
         psit_nG = kpt.psit_nG
         iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
         ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)

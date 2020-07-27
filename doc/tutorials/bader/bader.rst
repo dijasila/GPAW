@@ -4,7 +4,7 @@
 Bader Analysis
 ==============
 
-Henkelman *et. al* have implemented a fast and robust algorithm for
+Henkelman *et al.* have implemented a fast and robust algorithm for
 calculating the electronic charges on individual atoms in molecules or
 crystals, based on the Bader partitioning scheme [Bader]_. In that
 method, the analysis is based purely on the electron density. The
@@ -14,7 +14,7 @@ program is freely available at
 http://theory.cm.utexas.edu/henkelman/research/bader/ where you will
 also find a description of the method.
 
-The algorithm is very well suited for large solid state physical
+The algorithm is well suited for large solid state physical
 systems, as well as large biomolecular systems. The computational time
 depends only on the size of the 3D grid used to represent the electron
 density, and scales linearly with the total number of grid points. As

@@ -18,6 +18,7 @@ calc = GPAW(mode=PW(200),
             txt='Si_gs.txt')
 si.calc = calc
 si.get_potential_energy()
+ef = calc.get_fermi_level()
 calc.write('Si_gs.gpw')
 # P2
 # Restart from ground state and fix potential:
@@ -31,4 +32,4 @@ calc = GPAW('Si_gs.gpw',
 calc.get_potential_energy()
 # P3
 bs = calc.band_structure()
-bs.plot(filename='bandstructure.png', show=True, emax=10.0)
+bs.plot(filename='bandstructure.png', show=True, emax=10.0, reference=ef)

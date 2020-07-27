@@ -126,7 +126,7 @@ pseudo density is simple.  For GGA functionals, a nearest neighbor
 finite difference stencil is used for the gradient operator.  In the
 PAW method, there is a correction to the XC-energy inside the
 augmentation spheres.  The integration is done on a non-linear radial
-grid - very dense close to the nuclei and less dense away from the
+grid - dense close to the nuclei and less dense away from the
 nuclei.
 
 
@@ -141,7 +141,7 @@ ASE interface
 =============
 
 The code has been designed to work together with the atomic
-simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`). ASE provides:
+simulation environment (`ASE <https://wiki.fysik.dtu.dk/ase>`_). ASE provides:
 
  * Structure optimization.
  * Molecular dynamics.

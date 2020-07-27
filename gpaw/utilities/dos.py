@@ -516,18 +516,19 @@ class RawLDOS:
 
             # Fermi energy
             try:
-                if self.paw.occupations.fixmagmom:
+                if self.paw.wfs.occupations.fixmagmom:
                     efermi = self.paw.get_fermi_levels()
                 else:
                     efermi = self.paw.get_fermi_level()
             except:
+                raise  # what do we get?
                 # set Fermi level half way between HOMO and LUMO
                 hl = wfs.get_homo_lumo()
                 efermi = (hl[0] + hl[1]) * Hartree / 2
 
             eshift = 0.0
 
-            if shift and not self.paw.occupations.fixmagmom:
+            if shift and not self.paw.wfs.occupations.fixmagmom:
                 eshift = -efermi
 
             # set de to sample 4 points in the width
@@ -537,7 +538,7 @@ class RawLDOS:
             string += append_weight_strings(ldbe, data)
 
             for s in range(wfs.nspins):
-                if self.paw.occupations.fixmagmom:
+                if self.paw.wfs.occupations.fixmagmom:
                     if not bound:
                         eshift = - efermi[s]
                     else:
@@ -639,8 +640,8 @@ class LCAODOS:
         for kpt in wfs.kpt_u:
             assert not np.isnan(kpt.eps_n).any()
 
-        w_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
-        eps_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        w_skn = np.zeros((kd.nspins, kd.nibzkpts, bd.nbands))
+        eps_skn = np.zeros((kd.nspins, kd.nibzkpts, bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             C_nM = kpt.C_nM
             from gpaw.kohnsham_layouts import BlacsOrbitalLayouts

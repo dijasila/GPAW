@@ -1,9 +1,9 @@
 # flake8: noqa
+from scipy.special import erf
 from gpaw.xc.gllb.contribution import Contribution
 from gpaw.xc import XC
 from gpaw.xc.pawcorrection import rnablaY_nLv
 from math import sqrt, pi, exp
-from gpaw.utilities import erf
 from gpaw.sphere.lebedev import weight_n
 import numpy as np
 
@@ -50,7 +50,6 @@ class C_GLLBScr(Contribution):
         return Exc
 
     def initialize(self):
-        self.occupations = self.nlfunc.occupations
         self.xc = XC(self.functional)
 
         # Always 1 spin, no matter what calculation nspins is

@@ -46,8 +46,6 @@ PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* add_to_density(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
-PyObject* errorfunction(PyObject *self, PyObject *args);
-PyObject* cerf(PyObject *self, PyObject *args);
 PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
@@ -179,8 +177,6 @@ static PyMethodDef functions[] = {
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
     {"pw_insert", pw_insert, METH_VARARGS, 0},
     {"pw_precond", pw_precond, METH_VARARGS, 0},
-    {"erf", errorfunction, METH_VARARGS, 0},
-    {"cerf", cerf, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},

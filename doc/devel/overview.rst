@@ -56,7 +56,7 @@ The :class:`gpaw.calculator.GPAW` inherits from:
 .. note::
 
     GPAW uses atomic units internally (`\hbar=e=m=1`) and ASE uses
-    Angstrom and eV (:mod:`~ase.units`).
+    Ångström and eV (:mod:`~ase.units`).
 
 
 Generating a GPAW instance from scratch

@@ -40,6 +40,21 @@ Git master branch
 
 * We are now using MyPy_ for static analysis of the source code.
 
+* Parallelization over spin is no longer possible.  This simplifies
+  the code for handling non-collinear spins and spin-orbit coupling.
+
+* Code for calculating occupation numbers has been refactored.  New functions:
+  :func:`~gpaw.occupations.fermi_dirac`,
+  :func:`~gpaw.occupations.marzari_vanderbilt` and
+  :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
+  :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
+  and :ref:`manual_occ` for details.
+
+* New :class:`gpaw.occupations.FixedOccupationNumbers` class.
+
+* The Fermi-level is now updated also in a ``fixdensity=True`` calculation
+  so that it matches the calculated occupation numbers.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
@@ -124,6 +139,15 @@ Version 19.8.1
 ==============
 
 8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+.. warning:: Upgrading from version 1.5.2
+
+    Some small changes in the code introduced between version 1.5.2 and
+    19.8.1 (improved handling of splines) may give rise to small changes in
+    the total energy calculated with version 19.8.1 compared
+    to version 1.5.2.  The changes should be in the meV/atom range, but may
+    add up to significant numbers if you are doing calculations for large
+    systems with many atoms.
 
 * Corresponding ASE release: ASE-3.18.0.
 
@@ -440,7 +464,7 @@ Version 1.2.0
 * The GPAW calculator object has a new
   :meth:`~ase.calculators.calculator.Calculator.band_structure`
   method that returns an :class:`ase.dft.band_structure.BandStructure`
-  object.  This makes it very easy to create band-structure plots as shown
+  object.  This makes it easy to create band-structure plots as shown
   in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
   http://psi-k.net/download/highlights/Highlight_134.pdf.
 
