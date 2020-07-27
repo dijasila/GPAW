@@ -1,14 +1,16 @@
+import pytest
 import numpy as np
-
 from ase.build import molecule
+
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.poisson import PoissonSolver
 from gpaw.mpi import world
-
 from gpaw.test import equal
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_tddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)

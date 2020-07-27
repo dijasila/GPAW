@@ -1,10 +1,13 @@
-from gpaw import GPAW, restart, FermiDirac
-from ase import Atoms
-from gpaw.test import equal, gen
 import os
+import pytest
+from ase import Atoms
+from gpaw import GPAW, restart, FermiDirac
+from gpaw.test import equal, gen
 from gpaw.mpi import world
 
 
+@pytest.mark.libxc
+@pytest.mark.gllb
 def test_gllb_restart_band_structure(in_tmp_dir):
     gen('Si', xcname='GLLBSC')
 

@@ -8,6 +8,7 @@ from gpaw import GPAW, MixerSum, Davidson
 def test_mgga_mgga_sc():
     n = Atoms('N', magmoms=[3])
     n.center(vacuum=2.5)
+
     def getkwargs():
         return dict(eigensolver=Davidson(4), mixer=MixerSum(0.5, 5, 10.0))
 

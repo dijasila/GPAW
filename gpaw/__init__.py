@@ -72,11 +72,11 @@ def parse_extra_parameters(arg):
 
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
 
-libs: Dict[str, str] = {}
+libraries: Dict[str, str] = {}
 if hasattr(_gpaw, 'lxcXCFunctional'):
-    libs['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
+    libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
 else:
-    libs['libxc'] = ''
+    libraries['libxc'] = ''
 
 
 def parse_arguments(argv):
