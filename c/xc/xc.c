@@ -24,6 +24,12 @@
 //         d(|\/n| )
 //
 
+#ifndef GPAW_WITHOUT_LIBXC
+void init_mgga(void** params, int code, int nspin);
+void calc_mgga(void** params, int nspin, int ng,
+               const double* n_g, const double* sigma_g, const double* tau_g,
+               double *e_g, double *v_g, double *dedsigma_g, double *dedtau_g);
+#endif
 double pbe_exchange(const xc_parameters* par,
                     double n, double rs, double a2,
                     double* dedrs, double* deda2);
@@ -54,6 +60,8 @@ typedef struct
                         bool gga, bool spinpol,
                         double* dedrs, double* dedzeta, double* deda2);
   xc_parameters par;
+  // below added by cpo for mgga functionals outside of libxc (TPSS, M06L, etc.)
+  void* mgga;
 } XCFunctionalObject;
 
 static void XCFunctional_dealloc(XCFunctionalObject *self)
@@ -69,9 +77,11 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
   PyArrayObject* v_array;
   PyArrayObject* sigma_array = 0;
   PyArrayObject* dedsigma_array = 0;
+  PyArrayObject* tau_array = 0;
+  PyArrayObject* dedtau_array = 0;
 
-  if (!PyArg_ParseTuple(args, "OOO|OO", &e_array, &n_array, &v_array,
-                        &sigma_array, &dedsigma_array))
+  if (!PyArg_ParseTuple(args, "OOO|OOOO", &e_array, &n_array, &v_array,
+                        &sigma_array, &dedsigma_array, &tau_array, &dedtau_array))
     return NULL;
 
   int ng = 1;
@@ -91,6 +101,20 @@ XCFunctional_calculate(XCFunctionalObject *self, PyObject *args)
       sigma_g = DOUBLEP(sigma_array);
       dedsigma_g = DOUBLEP(dedsigma_array);
     }
+
+#ifndef GPAW_WITHOUT_LIBXC
+  const double* tau_g = 0;
+  double* dedtau_g = 0;
+  if (self->mgga)
+    {
+      tau_g = DOUBLEP(tau_array);
+      dedtau_g = DOUBLEP(dedtau_array);
+      int nspin = PyArray_DIM(n_array, 0) == 1 ? 1 : 2;
+      calc_mgga(&self->mgga, nspin, ng, n_g, sigma_g, tau_g, e_g, v_g,
+                dedsigma_g, dedtau_g);
+      Py_RETURN_NONE;
+    }
+#endif
 
   if (PyArray_DIM(n_array, 0) == 1)
     for (int g = 0; g < ng; g++)
@@ -232,6 +256,8 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
   if (self == NULL)
     return NULL;
 
+  self->mgga = NULL;
+
   self->par.gga = 1;
 
   self->correlation = pbe_correlation;
@@ -257,6 +283,13 @@ PyObject * NewXCFunctionalObject(PyObject *obj, PyObject *args)
     // PW91
     self->exchange = pw91_exchange;
   }
+#ifndef GPAW_WITHOUT_LIBXC
+  else if (code == 20 || code == 21 || code == 22) {
+    // MGGA
+    const int nspin = 1; // a guess, perhaps corrected later in calc_mgga
+    init_mgga(&self->mgga,code,nspin);
+  }
+#endif
   else {
     assert (code == 17);
     // BEEF-vdW

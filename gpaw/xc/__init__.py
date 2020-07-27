@@ -92,7 +92,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name.endswith('PZ-SIC'):
             from gpaw.xc.sic import SIC
             return SIC(xc=name[:-7], **kwargs)
-        elif name in {'LDA', 'PBE', 'revPBE', 'RPBE', 'PW91'}:
+        elif name in {'LDA',
+                      'PBE', 'revPBE', 'RPBE', 'PW91',
+                      'TPSS', 'revTPSS', 'M06-L'}:
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):
