@@ -48,9 +48,9 @@ Git master branch
   :func:`~gpaw.occupations.marzari_vanderbilt` and
   :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
   :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
-  and :ref:`manulal_occ` for details.
+  and :ref:`manual_occ` for details.
 
-* New :class:`gpaw.occuptions.FixedOccupationNumbers` class.
+* New :class:`gpaw.occupations.FixedOccupationNumbers` class.
 
 * The Fermi-level is now updated also in a ``fixdensity=True`` calculation
   so that it matches the calculated occupation numbers.
