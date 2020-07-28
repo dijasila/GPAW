@@ -2,12 +2,14 @@ import sys
 
 from ase import Atoms
 from ase.utils.timing import Timer
+import pytest
 
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
+@pytest.mark.libxc
 def test_exx_coarse(in_tmp_dir):
     timer = Timer()
 

@@ -55,6 +55,10 @@ Git master branch
 * The Fermi-level is now updated also in a ``fixdensity=True`` calculation
   so that it matches the calculated occupation numbers.
 
+* New configuration option (``nolibxc = True``) for compiling GPAW
+  without LibXC.  This is mostly for debugging.  Only functionals available
+  are: LDA, PBE, revPBE, RPBE and PW91.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/

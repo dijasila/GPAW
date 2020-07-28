@@ -1,15 +1,14 @@
 from math import sqrt
-
+import pytest
 from ase import Atoms
-
 from gpaw import GPAW, Mixer, Davidson
 from gpaw.test import equal
 from gpaw.xc.vdw import VDWFunctional
 
 
+@pytest.mark.libxc
 def test_vdw_ar2(in_tmp_dir):
     energy_tolerance = 0.002
-
 
     def test():
         vdw = VDWFunctional('vdW-DF', verbose=1)

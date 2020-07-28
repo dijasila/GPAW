@@ -19,6 +19,7 @@ from gpaw.mpi import world
 
 
 @pytest.mark.gllb
+@pytest.mark.libxc
 def test_gllb_diamond(in_tmp_dir):
     xc = 'GLLBSC'
     gen('C', xcname=xc)

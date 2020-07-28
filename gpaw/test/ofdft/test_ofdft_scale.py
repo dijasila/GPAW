@@ -1,3 +1,4 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.mixer import Mixer
@@ -6,6 +7,7 @@ from gpaw.test import gen
 from gpaw.eigensolvers import CG
 
 
+@pytest.mark.libxc
 def test_ofdft_ofdft_scale(in_tmp_dir):
     h = 0.18
     a = 10.0
