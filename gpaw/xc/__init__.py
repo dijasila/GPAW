@@ -1,5 +1,4 @@
-import warnings
-
+from gpaw import libraries
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
@@ -92,9 +91,11 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name.endswith('PZ-SIC'):
             from gpaw.xc.sic import SIC
             return SIC(xc=name[:-7], **kwargs)
-        elif name in {'LDA',
-                      'PBE', 'revPBE', 'RPBE', 'PW91',
-                      'TPSS', 'revTPSS', 'M06-L'}:
+        elif name in {'TPSS', 'revTPSS', 'M06-L'}:
+            from gpaw.xc.kernel import XCKernel
+            kernel = XCKernel(name)
+        elif not libraries['libxc'] and name in {'LDA', 'PBE', 'revPBE',
+                                                 'RPBE', 'PW91'}:
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):

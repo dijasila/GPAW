@@ -1,4 +1,4 @@
-imoprt pytest
+import pytest
 from ase import Atoms
 from ase.parallel import parprint
 
