@@ -47,7 +47,7 @@ def pytest_configure(config):
 
 
 def pytest_runtest_setup(item):
-    print(item, '*' * 99)
+    """Skip tests that depend on libxc if not compiled with libxc."""
     from gpaw import libraries
     if libraries['libxc']:
         return
