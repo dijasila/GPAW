@@ -75,8 +75,8 @@ def test_response_pdens_tool(in_tmp_dir):
                                                     n_n, m_m,
                                                     *domainarg_d)
 
-    testNM_ibN = np.array([[[0], [4, 5, 6]], [[0], [7]],
-                           [[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [7]]])
+    testNM_ibN = [[[0], [4, 5, 6]], [[0], [7]],
+                  [[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [7]]]
     testts_iG = np.array([[0.07, 0.07, 0.07], [0.00, 0.00, 0.00],
                           [51.34, 51.34, 51.34], [22.69, 22.69, 22.69]])
 
@@ -106,9 +106,9 @@ def test_response_pdens_tool(in_tmp_dir):
                 degN_n = n_n[np.where(degmat_Nn[N])]
                 degM_m = m_m[np.where(degmat_Mm[M])]
 
-                for testn, n in zip(testNM_ibN[i, 0], degN_n):
+                for testn, n in zip(testNM_ibN[i][0], degN_n):
                     equal(testn, n, 0.5)
-                for testm, m in zip(testNM_ibN[i, 1], degM_m):
+                for testm, m in zip(testNM_ibN[i][1], degM_m):
                     equal(testm, m, 0.5)
 
                 for testts, ts in zip(testts_iG[i], ts_G):

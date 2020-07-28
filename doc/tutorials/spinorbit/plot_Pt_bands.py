@@ -6,7 +6,7 @@ from ase.dft.kpoints import bandpath
 from gpaw.spinorbit import soc_eigenstates
 
 calc = GPAW('Pt_bands.gpw', txt=None)
-ef = GPAW('Pt_gs.gpw').get_fermi_level()
+ef = GPAW('Pt_gs.gpw', txt=None).get_fermi_level()
 
 kpts, x, X = bandpath('GXWLGKX', calc.atoms.cell, npoints=200)
 

@@ -340,7 +340,6 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
 def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the sum of occupied spinorbit eigenvalues. Returns the result
     relative to the sum of eigenvalues without spinorbit coupling"""
-
     Ns = calc.wfs.nspins
     noncollinear = not calc.density.collinear
 
@@ -367,7 +366,8 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     e_km = soc_eigenstates(calc, theta=theta, phi=phi,
                            bands=range(nbands))['eigenvalues']
     if width is None:
-        width = calc.occupations.width * Ha
+        assert calc.wfs.occupations.name == 'fermi-dirac'
+        width = calc.wfs.occupations.width * Ha
     if width == 0.0:
         width = 1.e-6
     weight_k = np.ones(len(e_km)) / (2 * len(e_km))
@@ -378,6 +378,30 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
                               nelectrons=ne)[0][0]
     E_so = np.sum(e_km * f_km)
     return E_so - E
+
+
+def get_spinorbit_projections(calc, ik, v_nm):
+    # For spinors the number of projectors and bands are doubled
+    Na = len(calc.atoms)
+    Nk = len(calc.get_ibz_k_points())
+    Ns = calc.wfs.nspins
+
+    v0_mn = v_nm[::2].T
+    v1_mn = v_nm[1::2].T
+
+    P_ani = {}
+    for ia in range(Na):
+        P0_ni = calc.wfs.kpt_u[ik].P_ani[ia]
+        P1_ni = calc.wfs.kpt_u[(Ns - 1) * Nk + ik].P_ani[ia]
+
+        P0_mi = np.dot(v0_mn, P0_ni)
+        P1_mi = np.dot(v1_mn, P1_ni)
+        P_mi = np.zeros((len(P0_mi), 2 * len(P0_mi[0])), complex)
+        P_mi[:, ::2] = P0_mi
+        P_mi[:, 1::2] = P1_mi
+        P_ani[ia] = P_mi
+
+    return P_ani
 
 
 def get_spinorbit_wavefunctions(calc, ik, v_nm):
@@ -441,7 +465,8 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
 
     from gpaw.occupations import occupation_numbers
     if width is None:
-        width = calc.occupations.width * Ha
+        assert calc.wfs.occupations.name == 'fermi-dirac'
+        width = calc.wfs.occupations.width * Ha
     if width == 0.0:
         width = 1.e-6
     weight_k = calc.get_k_point_weights() / 2

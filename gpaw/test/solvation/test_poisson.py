@@ -1,3 +1,10 @@
+import warnings
+
+from ase.parallel import parprint
+from ase.units import Bohr
+import numpy as np
+from scipy.special import erf
+
 from gpaw.solvation.poisson import (WeightedFDPoissonSolver,
                                     ADM12PoissonSolver,
                                     PolarizationPoissonSolver)
@@ -5,12 +12,7 @@ from gpaw.solvation.dielectric import Dielectric
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.utilities.gauss import Gaussian
 from gpaw.fd_operators import Gradient
-from ase.units import Bohr
 from gpaw.test import equal
-from gpaw.utilities import erf
-from ase.parallel import parprint
-import numpy as np
-import warnings
 
 nn = 3
 accuracy = 2e-10
@@ -86,7 +88,6 @@ def test_solvation_poisson():
         parprint(ps, np.abs(phi - phi_expected).max())
         equal(phi, phi_expected, 1e-3)
 
-
     # test charged system with constant permittivity
     parprint('charged, constant permittivity')
     epsinf = 80.
@@ -103,7 +104,6 @@ def test_solvation_poisson():
         phi = solve(ps, eps, rho_gauss)
         parprint(ps, np.abs(phi - phi_expected).max())
         equal(phi, phi_expected, 1e-3)
-
 
     # test non-constant permittivity
     msgs = ('neutral, non-constant permittivity',

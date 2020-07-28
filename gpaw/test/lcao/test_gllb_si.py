@@ -1,3 +1,4 @@
+import pytest
 from ase.build import bulk
 from gpaw import GPAW, LCAO
 
@@ -6,6 +7,7 @@ from gpaw import GPAW, LCAO
 # calculation, physically speaking, is garbage.
 
 
+@pytest.mark.gllb
 def test_lcao_gllb_si(in_tmp_dir):
     si = bulk('Si', 'diamond', a=5.421)
     calc = GPAW(mode=LCAO(interpolation=2),
@@ -15,10 +17,8 @@ def test_lcao_gllb_si(in_tmp_dir):
                 kpts={'size': (2, 2, 2), 'gamma': True},
                 txt='si.txt')
 
-
     def stopcalc():
         calc.scf.converged = True
-
 
     calc.attach(stopcalc, 1)
 

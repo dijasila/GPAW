@@ -328,8 +328,8 @@ class VDWXC(XCFunctional):
         dct = dict(backend='libvdwxc',
                    semilocal_xc=self.semilocal_xc.name,
                    name=self.name,
-                   #mode=self._mode,
-                   #pfft_grid=self._pfft_grid,
+                   # mode=self._mode,
+                   # pfft_grid=self._pfft_grid,
                    libvdwxc_name=self._libvdwxc_name,
                    setup_name=self.setup_name,
                    vdwcoef=self._vdwcoef)
@@ -400,9 +400,9 @@ class VDWXC(XCFunctional):
     def set_positions(self, spos_ac):
         self.semilocal_xc.set_positions(spos_ac)
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.timer = hamiltonian.timer  # fragile object robbery
-        self.semilocal_xc.initialize(density, hamiltonian, wfs, occupations)
+        self.semilocal_xc.initialize(density, hamiltonian, wfs)
         gd = self.gd
         self._nspins = density.nspins
 
@@ -480,6 +480,7 @@ def vdw_df2(**kwargs):
     kwargs1.update(kwargs)
     return VDWXC(**kwargs1)
 
+
 def vdw_df_cx(**kwargs):
     # cx semilocal exchange is in libxc 2.2.2 or newer (or maybe from older)
     kernel = kwargs.get('kernel')
@@ -551,7 +552,7 @@ def get_libvdwxc_functional(name, **kwargs):
              'optPBE-vdW': vdw_optPBE,
              'optB88-vdW': vdw_optB88,
              'C09-vdW': vdw_C09,
-             'BEEF-vdW':  vdw_beef,
+             'BEEF-vdW': vdw_beef,
              'mBEEF-vdW': vdw_mbeef}
 
     semilocal_xc = kwargs.pop('semilocal_xc', None)

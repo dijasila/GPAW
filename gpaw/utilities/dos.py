@@ -518,7 +518,7 @@ class RawLDOS:
 
             # Fermi energy
             try:
-                if self.paw.occupations.fixmagmom:
+                if self.paw.wfs.occupations.fixmagmom:
                     efermi = self.paw.get_fermi_levels()
                 else:
                     efermi = self.paw.get_fermi_level()
@@ -530,7 +530,7 @@ class RawLDOS:
 
             eshift = 0.0
 
-            if shift and not self.paw.occupations.fixmagmom:
+            if shift and not self.paw.wfs.occupations.fixmagmom:
                 eshift = -efermi
 
             # set de to sample 4 points in the width
@@ -540,7 +540,7 @@ class RawLDOS:
             string += append_weight_strings(ldbe, data)
 
             for s in range(wfs.nspins):
-                if self.paw.occupations.fixmagmom:
+                if self.paw.wfs.occupations.fixmagmom:
                     if not bound:
                         eshift = - efermi[s]
                     else:

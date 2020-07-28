@@ -15,7 +15,7 @@ def test_fixdensity(in_tmp_dir):
 
     # Gamma point:
     e1 = slab.calc.get_eigenvalues(kpt=0)[0]
-    f1 = slab.calc.get_fermi_level()
+    # f1 = slab.calc.get_fermi_level()
 
     # Fix density and continue:
     kpts = [(0, 0, 0)]
@@ -41,7 +41,6 @@ def test_fixdensity(in_tmp_dir):
     e3 = calc.get_eigenvalues(kpt=0)[0]
     f3 = slab.calc.get_fermi_level()
 
-    equal(f2, f1, 1e-10)
-    equal(f3, f1, 1e-10)
+    equal(f2, f3, 1e-10)
     equal(e1, e2, 3e-5)
     equal(e1, e3, 3e-5)

@@ -6,20 +6,21 @@ from gpaw.spinorbit import soc_eigenstates
 
 
 calc = GPAW('WS2_bands.gpw', txt=None)
+ef = calc.get_fermi_level()
 
 x = np.loadtxt('WS2_kpath.dat')
 X = np.loadtxt('WS2_highsym.dat')
 e_kn = np.array([calc.get_eigenvalues(kpt=k)
                  for k in range(len(calc.get_ibz_k_points()))])
 e_nk = e_kn.T
-e_nk -= calc.get_fermi_level()
+e_nk -= ef
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
 soc = soc_eigenstates(calc)
-e_nk = soc['eigenvalues'].T
-s_kvn = soc['spin_projections']
-e_nk -= calc.get_fermi_level()
+e_nk = soc.eigenvalues.T
+s_kvn = soc.spin_projections
+e_nk -= ef
 s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
 
 plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$',

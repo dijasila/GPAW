@@ -49,6 +49,19 @@ Git master branch
 * Parallelization over spin is no longer possible.  This simplifies
   the code for handling non-collinear spins and spin-orbit coupling.
 
+* Code for calculating occupation numbers has been refactored.  New functions:
+  :func:`~gpaw.occupations.fermi_dirac`,
+  :func:`~gpaw.occupations.marzari_vanderbilt` and
+  :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
+  :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
+  and :ref:`manual_occ` for details.
+
+* New :class:`gpaw.occupations.FixedOccupationNumbers` class.
+
+* The Fermi-level is now updated also in a ``fixdensity=True`` calculation
+  so that it matches the calculated occupation numbers.
+
+
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
 

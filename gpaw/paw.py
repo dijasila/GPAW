@@ -2,7 +2,6 @@
 # Copyright (C) 2003-2007  CAMP
 # Copyright (C) 2007-2008  CAMd
 # Please see the accompanying LICENSE file for further information.
-
 """This module defines a PAW-class.
 
 The central object that glues everything together!"""
@@ -47,8 +46,7 @@ class PAW:
         if isinstance(newxc, str):
             newxc = XC(newxc)
         self.log('Linearizing xc-hamiltonian to ' + str(newxc))
-        newxc.initialize(self.density, self.hamiltonian, self.wfs,
-                         self.occupations)
+        newxc.initialize(self.density, self.hamiltonian, self.wfs)
         self.hamiltonian.linearize_to_xc(newxc, self.density)
 
     def attach(self, function, n=1, *args, **kwargs):
@@ -185,8 +183,7 @@ class PAW:
         if not self.initialized:
             self.initialize()
         nbands = self.wfs.diagonalize_full_hamiltonian(
-            self.hamiltonian, self.atoms,
-            self.occupations, self.log,
+            self.hamiltonian, self.atoms, self.log,
             nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
@@ -340,32 +337,16 @@ class PAW:
         return n_G / Bohr**3
 
     def get_fermi_level(self):
-        """Return the Fermi-level(s)."""
-        eFermi = self.occupations.get_fermi_level()
-        if eFermi is not None:
-            eFermi *= Ha
-        return eFermi
+        """Return the Fermi-level."""
+        assert self.wfs.fermi_levels is not None
+        assert len(self.wfs.fermi_levels) == 1
+        return self.wfs.fermi_levels[0] * Ha
 
     def get_fermi_levels(self):
         """Return the Fermi-levels in case of fixed-magmom."""
-        eFermi_np_array = self.occupations.get_fermi_levels()
-        if eFermi_np_array is not None:
-            eFermi_np_array *= Ha
-        return eFermi_np_array
-
-    def get_fermi_levels_mean(self):
-        """Return the mean of th Fermi-levels in case of fixed-magmom."""
-        eFermi_mean = self.occupations.get_fermi_levels_mean()
-        if eFermi_mean is not None:
-            eFermi_mean *= Ha
-        return eFermi_mean
-
-    def get_fermi_splitting(self):
-        """Return the Fermi-level-splitting in case of fixed-magmom."""
-        eFermi_splitting = self.occupations.get_fermi_splitting()
-        if eFermi_splitting is not None:
-            eFermi_splitting *= Ha
-        return eFermi_splitting
+        assert self.wfs.fermi_levels is not None
+        assert len(self.wfs.fermi_levels) == 2
+        return np.array(self.wfs.fermi_levels) * Ha
 
     def get_wigner_seitz_densities(self, spin):
         """Get the weight of the spin-density in Wigner-Seitz cells
@@ -563,8 +544,7 @@ class PAW:
         if isinstance(xc, (str, dict)):
             xc = XC(xc)
         xc.set_grid_descriptor(self.density.finegd)
-        xc.initialize(self.density, self.hamiltonian, self.wfs,
-                      self.occupations)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
         xc.set_positions(self.spos_ac)
         if xc.orbital_dependent:
             self.converge_wave_functions()

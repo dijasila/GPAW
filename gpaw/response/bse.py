@@ -338,9 +338,10 @@ class BSE:
                     for Q_c in self.qd.bzk_kc:
                         iK2 = self.kd.find_k_plus_q(Q_c, [kptv1.K])[0]
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
-                        rho2_mGn = np.swapaxes(rho2_mnG, 1, 2)
-                        H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += (
-                            np.dot(rho1ccV_mnG, rho2_mGn))
+
+                        H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
+                            'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG, optimize='optimal')
+
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
                             kptv2 = self.pair.get_k_point(s1, iK2, vi_s[s1],
@@ -373,11 +374,8 @@ class BSE:
                                                   np.dot(vec3_nm.T, rho4_nnG))
                                 rho4_nnG = rho_0mnG + rho_1mnG
 
-                            rho3ccW_mmG = np.dot(rho3_mmG.conj(),
-                                                 self.W_qGG[iq])
-                            W_mmnn = np.dot(rho3ccW_mmG,
-                                            np.swapaxes(rho4_nnG, 1, 2))
-                            W_mnmn = np.swapaxes(W_mmnn, 1, 2) * Ns * so
+                            W_mnmn = np.einsum('ijk,km,pqm->ipjq', rho3_mmG.conj(), self.W_qGG[iq], rho4_nnG, optimize='optimal')
+                            W_mnmn *= Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
             if iK1 % (myKsize // 5 + 1) == 0:
                 dt = time() - t0
@@ -452,8 +450,8 @@ class BSE:
             x_G = np.exp(1j * np.dot(G_Gv, (pos_av[a] -
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[sym]
-            Q_Gii = np.dot(np.dot(U_ii, Q_Gii * x_G[:, None, None]),
-                           U_ii.T).transpose(1, 0, 2)
+
+            Q_Gii = np.einsum('ij,kjl,ml->kim', U_ii, Q_Gii * x_G[:, None, None], U_ii, optimize='optimal')
             if sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
