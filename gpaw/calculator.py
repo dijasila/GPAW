@@ -49,7 +49,6 @@ class GPAW(PAW, Calculator):
 
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms']
-
     default_parameters: Dict[str, Any] = {
         'mode': 'fd',
         'xc': 'LDA',
@@ -150,6 +149,30 @@ class GPAW(PAW, Calculator):
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 
+    def fix_density(self,
+                    update_fermi_level: bool = False,
+                    communicator=None,
+                    txt='-',
+                    parallel=None,
+                    **kwargs) -> 'GPAW':
+        """Create new calculator with the density fixed."""
+        for key in kwargs:
+            assert key in {'occupations', 'poissonsolver', 'kpts',
+                           'eigensolver', 'random', 'maxiter',
+                           'symmetry', 'convergence', 'verbose'}
+        params = self.parameters.copy()
+        params.update(kwargs)
+        calc = GPAW(communicator=communicator,
+                    txt=txt,
+                    parallel=parallel,
+                    **params)
+        calc.initialize(self.atoms)
+        calc.density.initialize_from_other_density(self.density,
+                                                   self.wfs.kptband_comm)
+        calc.density.fixed = True
+        calc.wfs.fermi_levels = self.wfs.fermi_levels
+        return calc
+
     def __del__(self):
         # Write timings and close reader if necessary.
         # If we crashed in the constructor (e.g. a bad keyword), we may not
@@ -161,7 +184,7 @@ class GPAW(PAW, Calculator):
             self.reader.close()
 
     def write(self, filename, mode=''):
-        self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
+        self.log(f'Writing to {filename} (mode={mode!r})\n')
         writer = Writer(filename, self.world)
         self._write(writer, mode)
         writer.close()
@@ -264,7 +287,12 @@ class GPAW(PAW, Calculator):
         return system_changes
 
     def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=['cell']):
+                  system_changes=None):
+        if system_changes is None:
+            if atoms is None:
+                system_changes = []
+            else:
+                system_changes = ['cell']
         for _ in self.icalculate(atoms, properties, system_changes):
             pass
 
