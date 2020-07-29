@@ -32,5 +32,4 @@ calc = GPAW('Si_gs.gpw',
 calc.get_potential_energy()
 # P3
 bs = calc.band_structure()
-print(ef)
 bs.plot(filename='bandstructure.png', show=True, emax=10.0)
