@@ -11,7 +11,6 @@ calc = GPAW(mode='pw',
 ag.calc = calc
 ag.get_potential_energy()
 calc.write('Ag_GLLBSC.gpw')
-ef = calc.get_fermi_level()
 
 # Restart from ground state and fix potential:
 calc = GPAW('Ag_GLLBSC.gpw',
@@ -26,4 +25,4 @@ calc.get_potential_energy()
 
 # Plot the band structure
 band_structure = calc.band_structure()
-band_structure.plot(filename='Ag.png', emax=20.0, show=True, reference=ef)
+band_structure.plot(filename='Ag.png', emax=20.0, show=True)

@@ -22,7 +22,6 @@ def test_fixdensity(in_tmp_dir):
         txt='li-2.txt',
         nbands=5,
         kpts=kpts)
-    calc.calculate()
     e2 = calc.get_eigenvalues(kpt=0)[0]
     f2 = calc.get_fermi_level()
 
@@ -32,7 +31,6 @@ def test_fixdensity(in_tmp_dir):
         txt='li-3.txt',
         nbands=5,
         kpts=kpts)
-    calc.calculate()
     e3 = calc.get_eigenvalues(kpt=0)[0]
     f3 = calc.get_fermi_level()
 

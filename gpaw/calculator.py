@@ -157,8 +157,8 @@ class GPAW(PAW, Calculator):
                     **kwargs) -> 'GPAW':
         """Create new calculator with the density fixed."""
         for key in kwargs:
-            assert key in {'occupations', 'poissonsolver', 'kpts',
-                           'eigensolver', 'random', 'maxiter',
+            assert key in {'nbands', 'occupations', 'poissonsolver', 'kpts',
+                           'eigensolver', 'random', 'maxiter', 'basis',
                            'symmetry', 'convergence', 'verbose'}
         params = self.parameters.copy()
         params.update(kwargs)
@@ -171,6 +171,7 @@ class GPAW(PAW, Calculator):
                                                    self.wfs.kptband_comm)
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
+        calc.calculate(system_changes=[])
         return calc
 
     def __del__(self):
@@ -287,12 +288,7 @@ class GPAW(PAW, Calculator):
         return system_changes
 
     def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=None):
-        if system_changes is None:
-            if atoms is None:
-                system_changes = []
-            else:
-                system_changes = ['cell']
+                  system_changes=['cell']):
         for _ in self.icalculate(atoms, properties, system_changes):
             pass
 
