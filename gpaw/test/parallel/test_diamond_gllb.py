@@ -37,15 +37,13 @@ def test_parallel_diamond_gllb(in_tmp_dir):
         calc.write('Cgs.gpw')
 
         # Calculate accurate KS-band gap from band structure
-        calc = GPAW('Cgs.gpw',
-                    kpts={'path': 'GX', 'npoints': 12},
-                    fixdensity=True,
-                    symmetry='off',
-                    nbands=8,
-                    convergence=dict(bands=8),
-                    eigensolver=eigensolver,
-                    parallel={'band': band})
-        calc.get_atoms().get_potential_energy()
+        calc = GPAW('Cgs.gpw').fixed_density(
+            kpts={'path': 'GX', 'npoints': 12},
+            symmetry='off',
+            nbands=8,
+            convergence=dict(bands=8),
+            eigensolver=eigensolver,
+            parallel={'band': band})
         # Get the accurate KS-band gap
         homolumo = calc.get_homo_lumo()
         homo, lumo = homolumo

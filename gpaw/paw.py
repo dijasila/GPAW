@@ -18,9 +18,9 @@ class PAW:
     """ASE-calculator interface.
 
         The following parameters can be used: nbands, xc, kpts, kpt_refine,
-        spinpol, gpts, h, charge, symmetry, width, mixer,
-        hund, lmax, fixdensity, convergence, txt, parallel,
-        communicator, dtype, softgauss and stencils.
+        spinpol, gpts, h, charge, symmetry, mixer,
+        hund, convergence, txt, parallel,
+        and communicator.
 
         If you don't specify any parameters, you will get:
 
