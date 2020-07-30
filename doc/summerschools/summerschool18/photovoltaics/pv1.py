@@ -193,7 +193,6 @@ For the band structure calculation, the density is fixed to the previously calcu
 # Restart from ground state and fix potential:
 calc = GPAW(label + '_gs_LDA.gpw').fix_density(
     nbands=16,  # Write the number of bands you are going to compute here, try 2x nbands # student: nbands = ?
-    fixdensity=True,
     symmetry='off',
     kpts={'path': 'GXWKL',  # student: kpts={'path': ???,  # write your path here e.g. GXWKL/GMKG
           'npoints': 60},

@@ -12,6 +12,7 @@ Z = [0.5, 0.5, 0.5]
 kpts, x, X = bandpath([G, Z, F, G, L], a.cell, npoints=200)
 
 calc = GPAW('gs_Bi2Se3.gpw').fix_density(kpts=kpts,
+                                         symmetry='off',
                                          txt='Bi2Se3_bands.txt')
 calc.write('Bi2Se3_bands.gpw')
 
