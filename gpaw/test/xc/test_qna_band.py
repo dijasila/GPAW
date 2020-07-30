@@ -27,7 +27,7 @@ def test_xc_qna_band(in_tmp_dir):
     eigs = calc.get_eigenvalues(kpt=0)[:24]
     calc.write('gs.gpw')
 
-    calc = GPAW('gs.gpw').fix_density(
+    calc = GPAW('gs.gpw').fixed_density(
         parallel={'domain': 1},
         kpts=[[-0.25, 0.25, -0.25]])
     eigs_new = calc.get_eigenvalues(kpt=0)[:24]

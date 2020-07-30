@@ -160,7 +160,7 @@ class GPAW(PAW, Calculator):
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 
-    def fix_density(self, *,
+    def fixed_density(self, *,
                     update_fermi_level: bool = False,
                     communicator=None,
                     txt='-',
@@ -173,7 +173,7 @@ class GPAW(PAW, Calculator):
         Useful for band-structure calculations.  Given a ground-state
         calculation, ``gs_calc``, one can do::
 
-            bs_calc = gs_calc.fix_density(kpts=<path>,
+            bs_calc = gs_calc.fixed_density(kpts=<path>,
                                           symmetry='off')
             bs = bs_calc.get_band_structure()
         """
@@ -598,7 +598,7 @@ class GPAW(PAW, Calculator):
         if par.fixdensity and xc.name != 'GLLBSC':
             warnings.warn(
                 'The fixdensity keyword has been deprecated. '
-                'Please use the GPAW.fix_density() method instead.',
+                'Please use the GPAW.fixed_density() method instead.',
                 DeprecationWarning)
 
         mode = par.mode

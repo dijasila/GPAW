@@ -27,7 +27,7 @@ def test_generic_si(in_tmp_dir):
     eigs = calc.get_eigenvalues(kpt=0)
     calc.write('temp.gpw')
 
-    bulk.calc = GPAW('temp.gpw').fix_density()
+    bulk.calc = GPAW('temp.gpw').fixed_density()
     e2 = bulk.get_potential_energy()
     eigs2 = bulk.calc.get_eigenvalues(kpt=0)
     print('Orginal', eigs)

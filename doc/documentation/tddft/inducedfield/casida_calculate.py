@@ -13,7 +13,7 @@ calc = GPAW(nbands=100, h=0.4, setups={'Na': '1'})
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 
-calc = calc.fix_density(
+calc = calc.fixed_density(
     convergence={'bands' : 90})
 calc.write('na2_gs_casida.gpw', mode='all')
 

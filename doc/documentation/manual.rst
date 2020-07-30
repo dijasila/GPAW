@@ -705,7 +705,7 @@ Fixed density calculation
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
 density without updating it. This can be done using the
-:meth:`gpaw.GPAW.fix_density` method.  This will use the density
+:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
 (e.g. one read from .gpw or existing from previous calculation)
 throughout the SCF-cycles (so called Harris calculation).
 

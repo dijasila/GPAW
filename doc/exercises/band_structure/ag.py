@@ -13,7 +13,7 @@ ag.get_potential_energy()
 calc.write('Ag_LDA.gpw')
 
 # Restart from ground state and fix potential:
-calc = GPAW('Ag_LDA.gpw').fix_density(
+calc = GPAW('Ag_LDA.gpw').fixed_density(
     nbands=16,
     basis='dzp',
     symmetry='off',

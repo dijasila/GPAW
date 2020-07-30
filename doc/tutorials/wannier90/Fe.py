@@ -14,7 +14,7 @@ calc = GPAW(mode=PW(600),
 a.calc = calc
 a.get_potential_energy()
 
-calc.fix_density(
+calc.fixed_density(
     kpts={'size': (8, 8, 8), 'gamma': True},
     symmetry='off',
     nbands=40,

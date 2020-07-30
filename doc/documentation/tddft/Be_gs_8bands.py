@@ -18,7 +18,7 @@ atoms.calc = calc
 energy = atoms.get_potential_energy()
 
 # converge also the empty states (the density is converged already)
-calc = calc.fix_density(
+calc = calc.fixed_density(
     convergence={'bands': 8})
 
 # Save the ground state

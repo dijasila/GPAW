@@ -26,11 +26,11 @@ def test_symmetry_usesymm2():
     kpts = [(1 / 2.0, 1 / 3.0, 0)]
 
     # Calculate one K-point with symmetry:
-    calc = calc.fix_density(kpts=kpts)
+    calc = calc.fixed_density(kpts=kpts)
     eigs_True = calc.get_eigenvalues(kpt=0)
 
     # Redo with the same K-point without symmetry:
-    calc = calc.fix_density(kpts=kpts,
+    calc = calc.fixed_density(kpts=kpts,
                             symmetry='off')
     eigs_False = calc.get_eigenvalues(kpt=0)
 

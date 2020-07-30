@@ -18,7 +18,7 @@ def test_fixdensity(in_tmp_dir):
     kpts = [(0, 0, 0)]
 
     # Fix density and continue:
-    calc = slab.calc.fix_density(
+    calc = slab.calc.fixed_density(
         txt='li-2.txt',
         nbands=5,
         kpts=kpts)
@@ -27,7 +27,7 @@ def test_fixdensity(in_tmp_dir):
 
     # Start from gpw-file:
     calc = GPAW('li.gpw', txt=None)
-    calc = calc.fix_density(
+    calc = calc.fixed_density(
         txt='li-3.txt',
         nbands=5,
         kpts=kpts)

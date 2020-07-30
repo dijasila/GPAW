@@ -369,7 +369,7 @@ from gpaw import GPAW, PW
 a.calc = GPAW(kpts=(3, 3, 3), mode=PW(200), txt=None)
 a.get_potential_energy()
 # band-structure calculation for a fixed density
-calc = a.calc.fix_density(
+calc = a.calc.fixed_density(
     kpts=kpts,
     symmetry='off',
     nbands=-10,

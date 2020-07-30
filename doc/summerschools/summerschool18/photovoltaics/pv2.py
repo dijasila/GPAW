@@ -33,7 +33,7 @@ nval = calc_old.wfs.nvalence
 # Do new ground state calculations with more k-points.
 # This is because in general RPA calculations requires more k-poins to be converged.
 
-calc = GPAW('CdTe_gs_LDA.gpw').fix_density(  # student: calc = GPAW('???.gpw').fix_density(
+calc = GPAW('CdTe_gs_LDA.gpw').fixed_density(  # student: calc = GPAW('???.gpw').fixed_density(
     kpts=(12, 12, 4),  # student: kpts=???,
     nbands=8 * nval,  # number of bands to include in calculation
     convergence={'bands': 6 * nval},  # number of bands to convergence
