@@ -201,13 +201,9 @@ class BSE:
                 print('Calculating KS wavefunctions without symmetry ' +
                       'for spin-orbit', file=self.fd)
                 if not op.isfile('gs_nosym.gpw'):
-                    calc_so = GPAW(**param)
-                    calc_so.set(symmetry='off',
-                                fixdensity=True,
-                                txt='gs_nosym.txt')
-                    calc_so.atoms = self.calc.atoms
-                    calc_so.density = self.calc.density
-                    calc_so.get_potential_energy()
+                    calc_so = self.calc.fix_density(
+                        symmetry='off',
+                        txt='gs_nosym.txt')
                     with file_barrier('gs_nosym.gpw'):
                         calc_so.write('gs_nosym.gpw')
 

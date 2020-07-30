@@ -15,10 +15,9 @@ def test_gllb_restart_band_structure(in_tmp_dir):
 
     energy_tolerance = 0.001
 
-    e_ref = {'LDA': {'restart': -5.583306128278814},
-             'GLLBSC': {'restart': -5.458520154765278}}
+    e_ref = {'GLLBSC': {'restart': -5.458520154765278}}
 
-    for xc in ['LDA', 'GLLBSC']:
+    for xc in ['GLLBSC']:
         a = 4.23
         bulk = Atoms('Si2',
                      cell=(a, a, a),

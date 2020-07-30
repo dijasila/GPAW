@@ -149,14 +149,26 @@ class GPAW(PAW, Calculator):
         Calculator.__init__(self, restart, ignore_bad_restart_file, label,
                             atoms, **kwargs)
 
-    def fix_density(self,
+    def fix_density(self, *,
                     update_fermi_level: bool = False,
                     communicator=None,
                     txt='-',
-                    parallel=None,
+                    parallel: Dict[str, Any] = None,
                     **kwargs) -> 'GPAW':
-        """Create new calculator with the density fixed."""
+        """Create new calculator and do SCF calculation with fixed density.
+
+        Returns a new GPAW object fully converged.
+
+        Useful for band-structure calculations.  Given a ground-state
+        calculation, ``gs_calc``, one can do::
+
+            bs_calc = gs_calc.fix_density(kpts=<path>,
+                                          symmetry='off')
+            bs = bs_calc.get_band_structure()
+        """
+        assert not update_fermi_level  # for now ...
         assert self.hamiltonian.xc.name != 'GLLBSC'
+
         for key in kwargs:
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
