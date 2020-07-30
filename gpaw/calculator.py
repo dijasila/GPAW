@@ -156,10 +156,13 @@ class GPAW(PAW, Calculator):
                     parallel=None,
                     **kwargs) -> 'GPAW':
         """Create new calculator with the density fixed."""
+        assert self.hamiltonian.xc.name != 'GLLBSC'
         for key in kwargs:
-            assert key in {'nbands', 'occupations', 'poissonsolver', 'kpts',
+            if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
                            'eigensolver', 'random', 'maxiter', 'basis',
-                           'symmetry', 'convergence', 'verbose'}
+                           'symmetry', 'convergence', 'verbose'}:
+                raise TypeError(f'{key:!r} is an invalid keyword argument')
+
         params = self.parameters.copy()
         params.update(kwargs)
         calc = GPAW(communicator=communicator,
@@ -168,7 +171,7 @@ class GPAW(PAW, Calculator):
                     **params)
         calc.initialize(self.atoms)
         calc.density.initialize_from_other_density(self.density,
-                                                   self.wfs.kptband_comm)
+                                                   calc.wfs.kptband_comm)
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
         calc.calculate(system_changes=[])
