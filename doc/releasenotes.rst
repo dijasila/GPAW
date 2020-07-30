@@ -32,7 +32,7 @@ Git master branch
 
   * Code improvements.
 
-* New :meth:`~gpaw.calculator.GPAW.get_atomic_electrostatic_potentials`
+* New :meth:`~gpaw.GPAW.get_atomic_electrostatic_potentials`
   method.  Useful for aligning eigenvalues from different calculations.
   See :ref:`this example <potential>`.
 
@@ -54,7 +54,7 @@ Git master branch
 
 * The ``fixdensity`` keyword has been deprecated.
 
-* New :meth:`gpaw.calculator.GPAW.fixed_density` method added to replace use
+* New :meth:`gpaw.GPAW.fixed_density` method added to replace use
   of the deprecated ``fixdensity`` keyword.
 
 * New configuration option (``nolibxc = True``) for compiling GPAW
@@ -477,7 +477,7 @@ Version 1.2.0
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
   also.  See :ref:`dipole`.
 
-* New :meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
+* New :meth:`~gpaw.GPAW.get_electrostatic_potential` method.
 
 * When setting the default PAW-datasets or basis-sets using a dict, we
   must now use ``'default'`` as the key instead of ``None``:
@@ -526,7 +526,7 @@ Version 1.1.0
 
 * New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
 
-* The :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method
+* The :meth:`~gpaw.GPAW.get_pseudo_wave_function` method
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
 
