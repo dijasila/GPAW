@@ -23,7 +23,7 @@ def get_H2(calculator=None):
                cell=(a, a, c))
     
     if calculator is not None:
-        H2.set_calculator(calculator)
+        H2.calc = calculator
 
     return H2
 
@@ -38,7 +38,7 @@ def get_H3(calculator=None):
     H3.center()
     
     if calculator is not None:
-        H3.set_calculator(calculator)
+        H3.calc = calculator
 
     return H3
 
@@ -113,7 +113,7 @@ def test_lrtddft_excited_state():
     parprint("time used:", time.time() - t0)
 
 
-def test_io():
+def test_io(tmp_path):
     """Test output and input from files"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc, txt=None)
@@ -127,13 +127,13 @@ def test_io():
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
         
     parprint('----------- write trajectory')
-    ftraj = 'H2exst.traj'
+    ftraj = str(tmp_path / 'H2exst.traj')
     F = H2.get_forces()
     traj = io.Trajectory(ftraj, 'w')
     traj.write(H2)
 
     parprint('----------- write')
-    fname = 'exst_test_io'
+    fname = str(tmp_path / 'exst_test_io')
     print('----', exst.get_potential_energy())
     exst.write(fname)
 
@@ -149,8 +149,8 @@ def test_io():
     assert atoms.get_forces() == pytest.approx(F, 1.e-5)
 
     
-def test_log():
-    fname = 'ex0.out'
+def test_log(tmp_path):
+    fname = str(tmp_path / 'ex0.out')
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
@@ -165,7 +165,7 @@ def test_log():
             string = f.read()
             assert 'ExcitedState' in string
 
-    fname = 'ex0calc.out'
+    fname = str(tmp_path / 'ex0calc.out')
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
@@ -181,7 +181,6 @@ def test_log():
             assert 'ExcitedState' in string
             # one eq + 6 * 2 displacements = 13 calculations
             if world.size == 1:
-                assert 'keyword parallel ignored.' in string
                 # one eq + 6 * 2 displacements = 13 calculations
                 n = 13
             else:
