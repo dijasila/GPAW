@@ -62,7 +62,6 @@ class GPAW(PAW, Calculator):
         'setups': {},
         'basis': {},
         'spinpol': None,
-        'fixdensity': False,
         'filter': None,
         'mixer': None,
         'eigensolver': None,
@@ -87,8 +86,9 @@ class GPAW(PAW, Calculator):
                         'eigenstates': 4.0e-8,  # eV^2
                         'bands': 'occupied',
                         'forces': np.inf},  # eV / Ang
-        'dtype': None,  # deprecated
-        'verbose': 0}
+        'verbose': 0,
+        'fixdensity': False,  # deprecated
+        'dtype': None}  # deprecated
 
     default_parallel: Dict[str, Any] = {
         'kpt': None,
@@ -571,6 +571,12 @@ class GPAW(PAW, Calculator):
                 xc = par.xc
         else:
             xc = self.hamiltonian.xc
+
+        if par.fixdensity and xc.name != 'GLLBSC':
+            warnings.warn(
+                'The fixdensity keyword has been deprecated. '
+                'Please use the GPAW.fix_density() method instead.',
+                DeprecationWarning)
 
         mode = par.mode
         if isinstance(mode, str):
