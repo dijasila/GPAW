@@ -31,8 +31,7 @@ calc = GPAW(mode=PW(500),
 atoms.calc = calc
 atoms.get_potential_energy()
 
-calc.set(kpts=(20, 20, 7), fixdensity=True)
-atoms.get_potential_energy()
+calc = calc.fixed_de3nsity(kpts=(20, 20, 7))
 
 # The result should also be converged with respect to bands:
 calc.diagonalize_full_hamiltonian(nbands=60)

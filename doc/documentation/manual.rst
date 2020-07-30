@@ -111,10 +111,6 @@ given in the following sections.
       - Object
       -
       - :ref:`manual_external`
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -703,14 +699,15 @@ See also the documentation on :ref:`density mixing <densitymix>`.
 
 .. _manual_fixdensity:
 
-Fixed density
--------------
+Fixed density calculation
+-------------------------
 
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
-density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw or existing from previous calculation) is used
-throughout the SCF-cycle (so called Harris calculation).
+density without updating it. This can be done using the
+:meth:`gpaw.GPAW.fix_density` method.  This will use the density
+(e.g. one read from .gpw or existing from previous calculation)
+throughout the SCF-cycles (so called Harris calculation).
 
 
 .. _manual_setups:

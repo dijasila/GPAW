@@ -2,10 +2,7 @@ from gpaw import GPAW
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
 
 # Calculate ground state with full unoccupied space
-calc = GPAW('gs.gpw', nbands='nao', fixdensity=True,
-            txt='unocc.out')
-atoms = calc.get_atoms()
-energy = atoms.get_potential_energy()
+calc = GPAW('gs.gpw', txt=None).fix_density(nbands='nao', txt='unocc.out')
 calc.write('unocc.gpw', mode='all')
 
 # Construct KS electron-hole basis

@@ -22,14 +22,12 @@ ef = calc.get_fermi_level()
 calc.write('Si_gs.gpw')
 # P2
 # Restart from ground state and fix potential:
-calc = GPAW('Si_gs.gpw',
-            nbands=16,
-            fixdensity=True,
-            symmetry='off',
-            kpts={'path': 'GXWKL', 'npoints': 60},
-            convergence={'bands': 8})
+calc = GPAW('Si_gs.gpw').fixed_density(
+    nbands=16,
+    symmetry='off',
+    kpts={'path': 'GXWKL', 'npoints': 60},
+    convergence={'bands': 8})
 
-calc.get_potential_energy()
 # P3
 bs = calc.band_structure()
 bs.plot(filename='bandstructure.png', show=True, emax=10.0)

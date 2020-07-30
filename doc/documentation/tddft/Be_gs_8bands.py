@@ -18,10 +18,8 @@ atoms.calc = calc
 energy = atoms.get_potential_energy()
 
 # converge also the empty states (the density is converged already)
-calc.set(convergence={'bands': 8},
-         fixdensity=True,
-         eigensolver='cg')
-atoms.get_potential_energy()
+calc = calc.fix_density(
+    convergence={'bands': 8})
 
 # Save the ground state
 calc.write('Be_gs_8bands.gpw', 'all')

@@ -186,7 +186,7 @@ https://wiki.fysik.dtu.dk/ase/ase/dft/kpoints.html#ase.dft.kpoints.special_point
 
 If your system is in the fcc or the diamond structures, then, your path may look something like 'GXWKL'. For BN, 'GMKG'.
 
-For the band structure calculation, the density is fixed to the previously calculated ground state density (fixdensity=True), and as we want to calculate all k-points, symmetry is not used (symmetry='off').
+For the band structure calculation, the density is fixed to the previously calculated ground state density, and as we want to calculate all k-points, symmetry is not used (symmetry='off').
 """
 
 # %%

@@ -107,9 +107,20 @@ class GPAW(PAW, Calculator):
         'elpasolver': '2stage',
         'buffer_size': gpaw.buffer_size}
 
-    def __init__(self, restart=None, ignore_bad_restart_file=False, label=None,
-                 atoms=None, timer=None,
-                 communicator=None, txt='-', parallel=None, **kwargs):
+    def __init__(self,
+                 restart=None,
+                 *,
+                 ignore_bad_restart_file=False,
+                 label=None,
+                 atoms=None,
+                 timer=None,
+                 communicator=None,
+                 txt='?',
+                 parallel=None,
+                 **kwargs):
+
+        if txt == '?':
+            txt = '-' if restart is None else None
 
         self.parallel = dict(self.default_parallel)
         if parallel:
