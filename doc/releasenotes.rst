@@ -52,11 +52,10 @@ Git master branch
 
 * New :class:`gpaw.occupations.FixedOccupationNumbers` class.
 
-* New _meth:`GPAW.fixed_density` method to replace use of deprecated
-  ``fixdensity`` keyword.
+* The ``fixdensity`` keyword has been deprecated.
 
-* The Fermi-level is now updated also in a ``fixdensity=True`` calculation
-  so that it matches the calculated occupation numbers.
+* New :meth:`gpaw.calculator.GPAW.fixed_density` method added to replace use
+  of the deprecated ``fixdensity`` keyword.
 
 * New configuration option (``nolibxc = True``) for compiling GPAW
   without LibXC.  This is mostly for debugging.  Only functionals available
