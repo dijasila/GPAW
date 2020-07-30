@@ -52,6 +52,9 @@ Git master branch
 
 * New :class:`gpaw.occupations.FixedOccupationNumbers` class.
 
+* New _meth:`GPAW.fix_density` method to replace use of deprecated
+  ``fixdensity`` keyword.
+
 * The Fermi-level is now updated also in a ``fixdensity=True`` calculation
   so that it matches the calculated occupation numbers.
 
