@@ -161,11 +161,11 @@ class GPAW(PAW, Calculator):
                             atoms, **kwargs)
 
     def fixed_density(self, *,
-                    update_fermi_level: bool = False,
-                    communicator=None,
-                    txt='-',
-                    parallel: Dict[str, Any] = None,
-                    **kwargs) -> 'GPAW':
+                      update_fermi_level: bool = False,
+                      communicator=None,
+                      txt='-',
+                      parallel: Dict[str, Any] = None,
+                      **kwargs) -> 'GPAW':
         """Create new calculator and do SCF calculation with fixed density.
 
         Returns a new GPAW object fully converged.
@@ -174,7 +174,7 @@ class GPAW(PAW, Calculator):
         calculation, ``gs_calc``, one can do::
 
             bs_calc = gs_calc.fixed_density(kpts=<path>,
-                                          symmetry='off')
+                                            symmetry='off')
             bs = bs_calc.get_band_structure()
         """
         assert not update_fermi_level  # for now ...
