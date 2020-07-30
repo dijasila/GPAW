@@ -201,7 +201,7 @@ class WaveFunctions:
                 D_asp[a][s] = pack(setup.symmetrize(a, D_aii, a_sa))
         D_asp.redistribute(self.atom_partition)
 
-    def calculate_occupation_numbers(self):
+    def calculate_occupation_numbers(self, fixed_fermi_level=False):
         if self.collinear and self.nspins == 1:
             degeneracy = 2
         else:
@@ -216,7 +216,8 @@ class WaveFunctions:
             parallel=parallel,
             fermi_levels_guess=self.fermi_levels)
 
-        self.fermi_levels = np.array(fermi_levels)
+        if not fixed_fermi_level or self.fermi_levels is None:
+            self.fermi_levels = np.array(fermi_levels)
 
         for f_n, kpt in zip(f_qn, self.kpt_u):
             kpt.f_n = f_n * (kpt.weightk * degeneracy)

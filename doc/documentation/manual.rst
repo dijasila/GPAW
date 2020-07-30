@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.GPAW`
 calculator::
 
    _____________          ____________
@@ -111,10 +111,6 @@ given in the following sections.
       - Object
       -
       - :ref:`manual_external`
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -198,7 +194,7 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.calculator.GPAW.set` method:
+   by using the :meth:`~gpaw.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -703,14 +699,15 @@ See also the documentation on :ref:`density mixing <densitymix>`.
 
 .. _manual_fixdensity:
 
-Fixed density
--------------
+Fixed density calculation
+-------------------------
 
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
-density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw or existing from previous calculation) is used
-throughout the SCF-cycle (so called Harris calculation).
+density without updating it. This can be done using the
+:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
+(e.g. one read from .gpw or existing from previous calculation)
+throughout the SCF-cycles (so called Harris calculation).
 
 
 .. _manual_setups:
@@ -1106,7 +1103,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.calculator.GPAW.attach`.
+See also :meth:`~gpaw.GPAW.attach`.
 
 .. _command line options:
 

@@ -23,7 +23,7 @@ We will use ASE and GPAW packages and at the end of this notebook, you will be r
 
 # %%
 """
-As you have already learnd in the previous sesion, when investigating the electronic structure of a material, the first thing to be done is to find the atomic positions by relaxing the forces. 
+As you have already learnd in the previous sesion, when investigating the electronic structure of a material, the first thing to be done is to find the atomic positions by relaxing the forces.
 
 Here is some information to help you to build the ase.Atoms object:
 * Silicon crystalizes in the diamond structure with lattice constant a=5.43 Å
@@ -65,11 +65,11 @@ label = 'CdTe' # student: label = '???'
 We are now going to relax the structure. To do so, we need to add a calculator, GPAW, to get DFT energies, and forces. We are going to use PBE exchange correlation functional.
 
 Since we are going to relax the unit cell, we need to use the plane wave mode, since it is the only that includes the stress-tensor. In order to do so, remember this mode requires you to specify the plane wave cut-off
-(hint: We recommend plane wave cut-off of 600 eV and the k-point mesh size could be (6,6,6) if you want it to run reasonably fast and to get a reasonable result). We will discuss convergence further in the next section. 
+(hint: We recommend plane wave cut-off of 600 eV and the k-point mesh size could be (6,6,6) if you want it to run reasonably fast and to get a reasonable result). We will discuss convergence further in the next section.
 
 The materials we are looking at are semiconductors. Thus, the default value for the Fermi-Dirac smearing (i.e. occupations function) is too high (it is set up to 0.1 eV to work with metals). We recommend setting it to 0.01eV
 
-These links might be helpful for you: 
+These links might be helpful for you:
 * https://wiki.fysik.dtu.dk/gpaw/documentation/manual.html#manual-mode
 * https://wiki.fysik.dtu.dk/gpaw/tutorials/lattice_constants/lattice_constants.html
 """
@@ -94,7 +94,7 @@ We are going to relax the atomic positions and the unit cell at the same time. T
 
 # %%
 from ase.constraints import UnitCellFilter
-from ase.optimize import BFGS 
+from ase.optimize import BFGS
 
 filt = UnitCellFilter(atoms, mask=[1,1,1,0,0,0]) # student: filt = ???
 op = BFGS(filt) # student: op = ???
@@ -103,13 +103,13 @@ op = BFGS(filt) # student: op = ???
 # %%
 """
 Make sure that you have understand the difference of optimizing a bare atoms object and using a filter!
-**Bonus**: Would you like to visualize the trajectory using ase gui, you can attach a trajectory file now by creating a new cell. After you execute the op.run cell, you can create another cell saying 
-! ase gui filename.traj 
+**Bonus**: Would you like to visualize the trajectory using ase gui, you can attach a trajectory file now by creating a new cell. After you execute the op.run cell, you can create another cell saying
+! ase gui filename.traj
 and execute it
 """
 
 # %%
-# Run the optimization. This will take some time, do not get nervous. 
+# Run the optimization. This will take some time, do not get nervous.
 # Only if it takes longer than 4-5 minutes or if it does not print anything
 # contact us :)
 op.run(fmax=0.05)
@@ -141,7 +141,7 @@ atoms = read(label + '_gs.gpw')
 # %%
 """
 We are now going to restart the calculator and recompute the ground state, saving it to a new gpw file. As we are dealing with small bulk system, plane wave mode is the most appropriate here.
-It is generally a good idea to choose a finer kpoint mesh for the band structure, but we are going to make the opposite choice here. 
+It is generally a good idea to choose a finer kpoint mesh for the band structure, but we are going to make the opposite choice here.
 We are also going to use LDA, which is faster but not very good at predicting bandgaps (yes, we know, you are going to get a silly value here).
 """
 
@@ -155,9 +155,9 @@ atoms.calc = calc
 
 # %%
 """
-Lets use this calculator to get the energy, the *valence band maximum*, the *conduction band minimum*, and the *band gap*, as the difference of the two of the VBM and the CBM. 
+Lets use this calculator to get the energy, the *valence band maximum*, the *conduction band minimum*, and the *band gap*, as the difference of the two of the VBM and the CBM.
 
-For the VBM and CBM, we are going to use the get_homo_lumo method of the calculator. This method returns the energy of the highest Kohn-Sham occupied orbital (called HOMO here) and the energy lowest Kohn-Sham unoccupied orbital (the LUMO). We are going to compute the band gap at this level of theory from the difference between both. 
+For the VBM and CBM, we are going to use the get_homo_lumo method of the calculator. This method returns the energy of the highest Kohn-Sham occupied orbital (called HOMO here) and the energy lowest Kohn-Sham unoccupied orbital (the LUMO). We are going to compute the band gap at this level of theory from the difference between both.
 """
 
 # %%
@@ -186,21 +186,18 @@ https://wiki.fysik.dtu.dk/ase/ase/dft/kpoints.html#ase.dft.kpoints.special_point
 
 If your system is in the fcc or the diamond structures, then, your path may look something like 'GXWKL'. For BN, 'GMKG'.
 
-For the band structure calculation, the density is fixed to the previously calculated ground state density (fixdensity=True), and as we want to calculate all k-points, symmetry is not used (symmetry='off'). 
+For the band structure calculation, the density is fixed to the previously calculated ground state density, and as we want to calculate all k-points, symmetry is not used (symmetry='off').
 """
 
 # %%
 # Restart from ground state and fix potential:
-calc = GPAW(label + '_gs_LDA.gpw',
-            nbands= 16, # Write the number of bands you are going to compute here, try 2x nbands # student: nbands = ?
-            fixdensity=True,
-            symmetry='off',
-            kpts={'path': 'GXWKL', # student: kpts={'path': ???, # write your path here e.g. GXWKL/GMKG
-                  'npoints': 60},
-            convergence={'bands': 'occupied' #Your number of occupied orbitals comes here, e.g. 8/'occupied' # student: convergence= ???
-                        })
-
-calc.get_potential_energy()
+calc = GPAW(label + '_gs_LDA.gpw').fixed_density(
+    nbands=16,  # Write the number of bands you are going to compute here, try 2x nbands # student: nbands = ?
+    symmetry='off',
+    kpts={'path': 'GXWKL',  # student: kpts={'path': ???,  # write your path here e.g. GXWKL/GMKG
+          'npoints': 60},
+    convergence={'bands': 'occupied'}  # Your number of occupied orbitals comes here, e.g. 8/'occupied' # student: convergence=???
+    )
 
 # %%
 """
@@ -210,7 +207,7 @@ https://wiki.fysik.dtu.dk/ase/ase/dft/kpoints.html#ase.dft.band_structure.BandSt
 
 # %%
 # Have a look at the documentation of the band structure method
-... # student: calc.band_structure?
+...  # student: calc.band_structure?
 
 # %%
 bs = calc.band_structure()
@@ -238,9 +235,9 @@ In this section, we study the convergence of the results with the parameters tha
 Numerical convergence of DFT calculations should always be checked to avoid obtaining spurious results that are caused by a very coarse discretization. In this tutorial you can find an example on how to find a converged lattice constant for aluminum:
 https://wiki.fysik.dtu.dk/gpaw/tutorials/lattice_constants/lattice_constants.html
 
-The k-point mesh and the plane wave energy cut-off in the previous section were too low. 
+The k-point mesh and the plane wave energy cut-off in the previous section were too low.
 
-We suggest that you play around with the number of k-points and the plane wave cutoff rerunning the previous cells. Increasing their value produces better results, but also increases the computation time. 
+We suggest that you play around with the number of k-points and the plane wave cutoff rerunning the previous cells. Increasing their value produces better results, but also increases the computation time.
 
 Finally, we suggest you to explore the convergence of the band gap as in the tutorial for the lattice constant. To do so, You will have to write a script. You may want to use the tutorial and the previous cells as a guide.
 """
@@ -249,7 +246,7 @@ Finally, we suggest you to explore the convergence of the band gap as in the tut
 """
 ## The band gap with different exchange correlation functionals
 
-You are now about to complete the last part of the exercise. Now that you know how to do ground state plane wave calculations and to find the band structure of a semiconductor, we ask you to discuss the effect of choosing a functional at a given level of theory. 
+You are now about to complete the last part of the exercise. Now that you know how to do ground state plane wave calculations and to find the band structure of a semiconductor, we ask you to discuss the effect of choosing a functional at a given level of theory.
 We propose you to study the results with the following functionals:
 * LDA (the one you have just used)
 * PBE
@@ -257,10 +254,10 @@ We propose you to study the results with the following functionals:
 * mBEEF
 
 mBEEF is an meta GGA exchange correlation functional inspired from Bayesian statistics. An essential feature of these functionals is an ensemble of functionals around the optimum one, which allows an estimate of the computational error to be easily calculated in a non-self-consistent fashion. Further description can be found in:
-* J. J. Mortensen, K. Kaasbjerg, S. L. Frederiksen, J. K. Nørskov, J. P. Sethna, and K. W. Jacobsen (2005). Phys. Rev. Lett. 95, 216401 
+* J. J. Mortensen, K. Kaasbjerg, S. L. Frederiksen, J. K. Nørskov, J. P. Sethna, and K. W. Jacobsen (2005). Phys. Rev. Lett. 95, 216401
 * Wellendorff, J., Lundgaard, K. T., Jacobsen, K. W., & Bligaard, T. (2014). The Journal of Chemical Physics, 140(14), 144107.
 
-To complete this part of the exercise, we suggest that you write scripts and submit them (i.e. write one script for each functional) so that they can run in parallel. As a guide, you can use the LDA calculations you have already done. 
+To complete this part of the exercise, we suggest that you write scripts and submit them (i.e. write one script for each functional) so that they can run in parallel. As a guide, you can use the LDA calculations you have already done.
 
 Remember to choose a k-point mesh and an plane energy cut-off that make sense. In case of doubt, just ask.
 

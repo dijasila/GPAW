@@ -14,11 +14,9 @@ calc = GPAW(mode=PW(600),
 a.calc = calc
 a.get_potential_energy()
 
-calc.set(kpts={'size': (8, 8, 8), 'gamma': True},
-         symmetry='off',
-         nbands=40,
-         convergence={'bands': 30},
-         fixdensity=True,
-         txt='Fe_nscf.txt')
-calc.get_potential_energy()
-calc.write('Fe.gpw', mode='all')
+calc.fixed_density(
+    kpts={'size': (8, 8, 8), 'gamma': True},
+    symmetry='off',
+    nbands=40,
+    convergence={'bands': 30},
+    txt='Fe_nscf.txt').write('Fe.gpw', mode='all')
