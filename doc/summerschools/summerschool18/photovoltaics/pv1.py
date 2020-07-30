@@ -26,12 +26,12 @@ We will use ASE and GPAW packages and at the end of this notebook, you will be r
 As you have already learnd in the previous sesion, when investigating the electronic structure of a material, the first thing to be done is to find the atomic positions by relaxing the forces. 
 
 Here is some information to help you to build the ase.Atoms object:
-* Silicon crystalizes in the diamond structure with lattice constant $a=5.43\unicode{xC5}$
-* Germanium crystalizes in the diamond structure with lattice constant $a=5.66\unicode{xC5}$
-* Diamond has diamond structure (!) with lattice constant $a=3.56\unicode{xC5}$
-* CdTe crystalizes in the zincblende structure with lattice constant $a=6.48\unicode{xC5}$
-* GaAs crystalizes in the zincblende structure with lattice constant $a=5.65\unicode{xC5}$
-* Monolayer BN centered in a hexagonal unit cell with $a=2.5\unicode{xC5}$ (and $7\unicode{xC5}$ of vacuum at each side to prevent it from interacting with its periodic copies) and a basis of (0,0) and (0,$a / \sqrt{3}$)
+* Silicon crystalizes in the diamond structure with lattice constant a=5.43 Å
+* Germanium crystalizes in the diamond structure with lattice constant a=5.66 Å
+* Diamond has diamond structure (!) with lattice constant a=3.56 Å
+* CdTe crystalizes in the zincblende structure with lattice constant a=6.48 Å
+* GaAs crystalizes in the zincblende structure with lattice constant a=5.65 Å
+* Monolayer BN centered in a hexagonal unit cell with a=2.5 Å (and 7 Å of vacuum at each side to prevent it from interacting with its periodic copies) and a basis of (0,0) and (0,$a / \sqrt{3}$)
 
 The first thing you should do is to create an ase.Atoms object. In order to do so, you might find useful to use one of the crystal structures included in ase.build.bulk (hint, if you have an element of the IV group you might be interested on this link
 https://wiki.fysik.dtu.dk/ase/ase/build/build.html#module-ase.build).
