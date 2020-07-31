@@ -101,7 +101,7 @@ class KSSingles(ExcitationList):
         jend = self.restrict['jend']
         eps = self.restrict['eps']
 
-        if self.calculator is None:  # I'm read from a file
+        if not hasattr(self, 'calculator'):  # I'm read from a file
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or
