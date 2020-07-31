@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 from ase.parallel import parprint
 
@@ -6,12 +7,13 @@ from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.libxc
 def test_lrtddft_apmb():
     txt = '-'
     txt = '/dev/null'
 
     load = False
-        
+
     if not load:
         R = 0.7  # approx. experimental bond length
         a = 3.0
@@ -20,7 +22,7 @@ def test_lrtddft_apmb():
                     Atom('H', (a / 2, a / 2, (c + R) / 2))],
                    cell=(a, a, c))
         calc = GPAW(xc='PBE', nbands=2, spinpol=False, txt=txt)
-        H2.set_calculator(calc)
+        H2.calc = calc
         H2.get_potential_energy()
     else:
         calc = GPAW('H2.gpw', txt=txt)
@@ -47,7 +49,7 @@ def test_lrtddft_apmb():
         c_spin = GPAW(xc='PBE', nbands=2,
                       spinpol=True, parallel={'domain': mpi.world.size},
                       txt=txt)
-        H2.set_calculator(c_spin)
+        H2.calc = c_spin
         c_spin.calculate(H2)
     else:
         c_spin = GPAW('H2spin.gpw', txt=txt)
@@ -74,7 +76,7 @@ def test_lrtddft_apmb():
     parprint('ApmB=', lr_ApmB)
     equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-8)
     equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-8)
-        
+
     # with HF exchange
 
     xc = 'PBE0'

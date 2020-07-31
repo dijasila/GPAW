@@ -38,7 +38,7 @@ def test_response_bse_MoS2_cut(in_tmp_dir):
         pos[1][2] = pos[0][2] + 3.172 / 2
         pos[2][2] = pos[0][2] - 3.172 / 2
         layer.set_positions(pos)
-        layer.set_calculator(calc)
+        layer.calc = calc
         layer.get_potential_energy()
         calc.write('MoS2.gpw', mode='all')
 

@@ -25,7 +25,7 @@ def test_kpt_refine():
                 experimental={'kpt_refine': kpt_refine},
                 occupations=FermiDirac(0.026))
 
-    system.set_calculator(calc)
+    system.calc = calc
     energy = system.get_potential_energy()
 
     parprint('Energy', energy)

@@ -20,13 +20,13 @@ calc = GPAW(mode='pw',
             xc='LDA',
             occupations=FermiDirac(0.001))  # use small FD smearing
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()  # get ground state density
 
 # Restart Calculation with fixed density and dense kpoint sampling
-calc.set(kpts={'density': 15.0, 'gamma': False},  # dense kpoint sampling
-         fixdensity=True)
-atoms.get_potential_energy()
+calc = calc.fixed_density(
+    kpts={'density': 15.0, 'gamma': False})  # dense kpoint sampling
+
 calc.diagonalize_full_hamiltonian(nbands=70)  # diagonalize Hamiltonian
 calc.write('si_large.gpw', 'all')  # write wavefunctions
 

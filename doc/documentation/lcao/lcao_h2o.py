@@ -16,6 +16,6 @@ calc = GPAW(nbands=4,
             mode='lcao',
             basis='dzp')
 
-mol.set_calculator(calc)
+mol.calc = calc
 dyn = QuasiNewton(mol, trajectory='lcao_h2o.traj')
 dyn.run(fmax=0.05)

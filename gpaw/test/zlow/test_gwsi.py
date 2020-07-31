@@ -11,9 +11,9 @@ from gpaw import GPAW, PW, FermiDirac
 from gpaw.response.g0w0 import G0W0
 
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_response_gwsi(in_tmp_dir):
@@ -40,7 +40,6 @@ def test_response_gwsi(in_tmp_dir):
         results = gw.calculate()
         return e, results
 
-
     a = 5.43
     si1 = bulk('Si', 'diamond', a=a)
     si2 = si1.copy()
@@ -49,7 +48,10 @@ def test_response_gwsi(in_tmp_dir):
     i = 0
     results = []
     for si in [si1, si2]:
-        for symm in [{}, 'off', {'time_reversal': False}, {'point_group': False}]:
+        for symm in [{},
+                     'off',
+                     {'time_reversal': False},
+                     {'point_group': False}]:
             e, r = run(si, symm, str(i))
             G, X = r['eps'][0]
             results.append([e, G[0], G[1] - G[0], X[1] - G[0], X[2] - X[1]])
@@ -61,4 +63,4 @@ def test_response_gwsi(in_tmp_dir):
               [-9.25,
                5.44, 2.39, 0.40, 0,
                6.26, 3.57, 1.32, 0]).max(), 0, 0.025)
-    equal(np.ptp(results, 0).max(), 0, 0.006)
+    equal(np.ptp(results, 0).max(), 0, 0.007)

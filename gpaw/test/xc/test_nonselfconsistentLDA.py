@@ -9,7 +9,7 @@ def test_xc_nonselfconsistentLDA(in_tmp_dir):
     n = 16
     atoms = Atoms([Atom('He', (0.0, 0.0, 0.0))], cell=(a, a, a), pbc=True)
     calc = GPAW(gpts=(n, n, n), nbands=1, xc='LDA')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     e1ref = calc.get_reference_energy()

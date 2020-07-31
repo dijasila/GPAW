@@ -20,6 +20,6 @@ if True:
 slab.center(axis=2)
 
 calc = GPAW(mode='pw', kpts=(4, 4, 1))
-slab.set_calculator(calc)
+slab.calc = calc
 slab.get_potential_energy()
 calc.write('HAl100.gpw', 'all')

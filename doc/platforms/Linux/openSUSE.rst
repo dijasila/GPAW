@@ -4,7 +4,7 @@
 openSUSE
 ========
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.opensuse.org/>`_.
 
 System wide installation with yast

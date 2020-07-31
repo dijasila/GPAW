@@ -6,11 +6,10 @@ from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import world
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_ralda_ralda_energy_H2(in_tmp_dir):
@@ -22,7 +21,7 @@ def test_ralda_ralda_energy_H2(in_tmp_dir):
         scalapack2 = None
     else:
         scalapack1 = (2, world.size // 2, 32)
-        scalapack2 = (2, world.size // 4, 32)
+        scalapack2 = (2, world.size // 2, 32)
 
     # H2
     H2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)])
@@ -36,7 +35,7 @@ def test_ralda_ralda_energy_H2(in_tmp_dir):
                 nbands=8,
                 parallel={'domain': 1},
                 convergence={'density': 1.e-6})
-    H2.set_calculator(calc)
+    H2.calc = calc
     H2.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
     calc.write('H2.gpw', mode='all')
@@ -60,7 +59,7 @@ def test_ralda_ralda_energy_H2(in_tmp_dir):
                 hund=True,
                 parallel={'domain': 1},
                 convergence={'density': 1.e-6})
-    H.set_calculator(calc)
+    H.calc = calc
     H.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack2)
     calc.write('H.gpw', mode='all')

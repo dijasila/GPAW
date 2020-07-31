@@ -16,7 +16,7 @@ def test_fileio_refine(in_tmp_dir):
                     convergence={'eigenstates': 0.001,
                                  'energy': 0.1,
                                  'density': 0.1})
-        H.set_calculator(calc)
+        H.calc = calc
         H.get_potential_energy()
         calc.write(restart_wf, 'all')
 

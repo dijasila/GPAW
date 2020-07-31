@@ -9,6 +9,7 @@
 
 Compare to reference.
 """
+import pytest
 from ase.build import bulk
 from ase.units import Ha
 from gpaw import GPAW, Davidson, Mixer, restart
@@ -17,6 +18,8 @@ from gpaw import setup_paths
 from gpaw.mpi import world
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_gllb_diamond(in_tmp_dir):
     xc = 'GLLBSC'
     gen('C', xcname=xc)
@@ -34,19 +37,20 @@ def test_gllb_diamond(in_tmp_dir):
                 parallel=dict(domain=min(world.size, 2),
                               band=1),
                 eigensolver=Davidson(niter=2))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Cgs.gpw')
 
     # Calculate accurate KS-band gap from band structure
-    calc = GPAW('Cgs.gpw',
-                kpts={'path': 'GX', 'npoints': 12},
-                fixdensity=True,
-                symmetry='off',
-                nbands=8,
-                convergence=dict(bands=6),
-                eigensolver=Davidson(niter=4))
-    calc.get_atoms().get_potential_energy()
+    atoms, calc = restart(
+        'Cgs.gpw',
+        fixdensity=True,
+        kpts={'path': 'GX', 'npoints': 12},
+        symmetry='off',
+        nbands=8,
+        convergence=dict(bands=6),
+        eigensolver=Davidson(niter=4))
+    atoms.get_potential_energy()
     # Get the accurate KS-band gap
     homolumo = calc.get_homo_lumo()
     homo, lumo = homolumo
@@ -56,7 +60,7 @@ def test_gllb_diamond(in_tmp_dir):
     calc = GPAW(h=0.2, kpts=(4, 4, 4), xc=xc, nbands=8,
                 mixer=Mixer(0.5, 5, 10.0),
                 eigensolver=Davidson(niter=4))
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     # And calculate the discontinuity potential with accurate band gap
     response = calc.hamiltonian.xc.xcs['RESPONSE']

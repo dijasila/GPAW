@@ -3,20 +3,17 @@ import numpy as np
 from gpaw.mpi import serial_comm
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
-from .kpts import KPoint, RSKPoint, to_real_space
+from .kpts import PWKPoint, RSKPoint, to_real_space
 
 
 def apply1(kpt, Htpsit_xG, wfs, coulomb, sym, paw):
     kd = wfs.kd
-    K = kd.nibzkpts
-    k1 = kpt.s * K
-    k2 = k1 + K
-    kpts = [KPoint(kpt.psit,
-                   kpt.projections,
-                   kpt.f_n / kpt.weight,  # scale to [0, 1] range
-                   kd.ibzk_kc[kpt.k],
-                   kd.weight_k[kpt.k])
-            for kpt in wfs.mykpts[k1:k2]]
+    kpts = [PWKPoint(kpt.psit,
+                     kpt.projections,
+                     kpt.f_n / kpt.weight,  # scale to [0, 1] range
+                     kd.ibzk_kc[kpt.k],
+                     kd.weight_k[kpt.k])
+            for kpt in wfs.kpt_u[kpt.s::wfs.nspins]]
     evv, evc, ekin, v_knG = calculate(kpts, wfs, paw, sym, coulomb)
     return evc, evv, ekin, v_knG
 
@@ -238,26 +235,23 @@ def calculate_exx_for_pair(k1,
 
 def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
     kd = wfs.kd
-    K = kd.nibzkpts
-    k1 = kpt.s * K
-    k2 = k1 + K
 
     psit = kpt.psit.new(buf=psit_xG)
     P = kpt.projections.new()
     psit.matrix_elements(wfs.pt, out=P)
 
-    kpt1 = KPoint(psit,
-                  P,
-                  kpt.f_n + np.nan,
-                  kd.ibzk_kc[kpt.k],
-                  np.nan)
-
-    kpts2 = [KPoint(kpt.psit,
-                    kpt.projections,
-                    kpt.f_n / kpt.weight,  # scale to [0, 1] range
+    kpt1 = PWKPoint(psit,
+                    P,
+                    kpt.f_n + np.nan,
                     kd.ibzk_kc[kpt.k],
-                    kd.weight_k[kpt.k])
-             for kpt in wfs.mykpts[k1:k2]]
+                    np.nan)
+
+    kpts2 = [PWKPoint(kpt.psit,
+                      kpt.projections,
+                      kpt.f_n / kpt.weight,  # scale to [0, 1] range
+                      kd.ibzk_kc[kpt.k],
+                      kd.weight_k[kpt.k])
+             for kpt in wfs.kpt_u[kpt.s::wfs.nspins]]
     v_nG = calculate2(kpt1, kpts2, wfs, paw, sym, coulomb)
     return v_nG
 

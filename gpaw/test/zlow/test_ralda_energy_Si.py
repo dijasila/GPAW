@@ -30,7 +30,7 @@ def test_ralda_ralda_energy_Si(in_tmp_dir):
                 kpts=kpts,
                 occupations=FermiDirac(0.001),
                 communicator=serial_comm)
-    Si.set_calculator(calc)
+    Si.calc = calc
     E = Si.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 

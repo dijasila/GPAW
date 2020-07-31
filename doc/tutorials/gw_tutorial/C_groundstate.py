@@ -12,7 +12,7 @@ calc = GPAW(mode=PW(300),  # energy cutoff for plane wave basis (in eV)
             parallel={'domain': 1},
             txt='C_groundstate.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()  # determine all bands

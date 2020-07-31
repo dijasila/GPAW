@@ -19,7 +19,7 @@ H2O.center(vacuum=3.5)
 
 calc = GPAW(h=0.2, txt='h2o.txt', mode='lcao', basis='dzp')
 
-H2O.set_calculator(calc)
+H2O.calc = calc
 
 QuasiNewton(H2O).run(fmax=0.05)
 

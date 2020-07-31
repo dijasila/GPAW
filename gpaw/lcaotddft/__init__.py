@@ -11,14 +11,17 @@ from gpaw.tddft.units import attosec_to_autime
 
 
 class LCAOTDDFT(GPAW):
-    def __init__(self, filename=None, propagator=None,
+    def __init__(self, filename=None, propagator=None, scale=None,
                  fxc=None, td_potential=None, **kwargs):
         self.time = 0.0
         self.niter = 0
+        # TODO: deprecate kick keywords (and store them as td_potential)
         self.kick_strength = np.zeros(3)
+        self.kick_ext = None
         self.tddft_initialized = False
         self.action = None
-        tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential)
+        tdh = TimeDependentHamiltonian(fxc=fxc, td_potential=td_potential,
+                                       scale=scale)
         self.td_hamiltonian = tdh
 
         self.propagator = propagator
@@ -113,9 +116,26 @@ class LCAOTDDFT(GPAW):
         # Call observers after kick
         self.action = 'kick'
         self.call_observers(self.niter)
-
         self.niter += 1
+        self.timer.stop('Kick')
 
+    def kick(self, ext):
+        self.tddft_init()
+
+        self.timer.start('Kick')
+
+        self.log('----  Applying kick')
+        self.log('----  %s' % ext)
+
+        self.kick_ext = ext
+
+        # Propagate kick
+        self.propagator.kick(ext, self.time)
+
+        # Call observers after kick
+        self.action = 'kick'
+        self.call_observers(self.niter)
+        self.niter += 1
         self.timer.stop('Kick')
 
     def propagate(self, time_step=10, iterations=2000):

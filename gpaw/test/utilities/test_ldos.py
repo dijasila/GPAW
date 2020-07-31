@@ -1,4 +1,3 @@
-
 from ase import Atom, Atoms
 import numpy as np
 
@@ -9,7 +8,8 @@ import gpaw.mpi as mpi
 
 
 def test_utilities_ldos(in_tmp_dir):
-    comms = [mpi.world.new_communicator(np.array([r])) for r in range(mpi.size)]
+    comms = [mpi.world.new_communicator(np.array([r]))
+             for r in range(mpi.size)]
     comm = comms[mpi.rank]
 
     Hnospin = Atoms([Atom('H')], cell=[5, 5, 5], pbc=False)
@@ -25,28 +25,29 @@ def test_utilities_ldos(in_tmp_dir):
     LiH.translate(0.003234)
 
     calc = GPAW(gpts=(24, 24, 24), communicator=comm)
-    Hnospin.set_calculator(calc)
+    Hnospin.calc = calc
     e_Hnospin = Hnospin.get_potential_energy()
-    niter_Hnospin = calc.get_number_of_iterations()
     energies, sweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
     energies, pdfweight = raw_orbital_LDOS(calc, a=0, spin=0, angular='pdf')
 
-    calc = GPAW(gpts=(24, 24, 24), occupations=FermiDirac(width=0, fixmagmom=True),
+    calc = GPAW(gpts=(24, 24, 24),
+                occupations=FermiDirac(width=0, fixmagmom=True),
                 poissonsolver=PoissonSolver('fd'),
-                hund=True, communicator=comm)
-    Hspin.set_calculator(calc)
+                hund=True,
+                communicator=comm)
+    Hspin.calc = calc
     e_Hspin = Hspin.get_potential_energy()
-    niter_Hspin = calc.get_number_of_iterations()
     energies, sweight_spin = raw_orbital_LDOS(calc, a=0, spin=0, angular='s')
 
     calc = GPAW(gpts=(32, 32, 40), nbands=2,
                 poissonsolver=PoissonSolver('fd'),
                 communicator=comm)
-    LiH.set_calculator(calc)
+    LiH.calc = calc
     e_LiH = LiH.get_potential_energy()
-    niter_LiH = calc.get_number_of_iterations()
-    energies, Li_orbitalweight = raw_orbital_LDOS(calc, a=0, spin=0, angular=None)
-    energies, H_orbitalweight = raw_orbital_LDOS(calc, a=1, spin=0, angular=None)
+    energies, Li_orbitalweight = raw_orbital_LDOS(calc, a=0, spin=0,
+                                                  angular=None)
+    energies, H_orbitalweight = raw_orbital_LDOS(calc, a=1, spin=0,
+                                                 angular=None)
     energies, Li_wzweight = raw_wignerseitz_LDOS(calc, a=0, spin=0)
     energies, H_wzweight = raw_wignerseitz_LDOS(calc, a=1, spin=0)
     n_a = calc.get_wigner_seitz_densities(spin=0)
@@ -80,12 +81,16 @@ def test_utilities_ldos(in_tmp_dir):
     assert not H_orbitalweight.round(1).any()
 
     ldos = RawLDOS(calc)
-    fname = 'ldbe.dat'
-    ldos.by_element_to_file(fname, shift=False)
-    ldos.by_element_to_file(fname, 2.0, shift=False)
+    fname = 'ldbe'
+    ldos.by_element_to_file(fname + '.dat', shift=False)
+    ldos.by_element_to_file(fname + '_2.0.dat', 2.0, shift=False)
+    ldos.by_element_to_file(fname + '_indx0.dat', indices=[0])
+    # the hydrogen entries are missing for index 0 only
+    if mpi.world.rank == 0:
+        assert (np.loadtxt(fname + '_indx0.dat').shape[1] + 3 ==
+                np.loadtxt(fname + '.dat').shape[1])
 
     energy_tolerance = 0.001
-    niter_tolerance = 0
     equal(e_Hnospin, 0.153991, energy_tolerance)
     equal(e_Hspin, -0.782309, energy_tolerance)
     equal(e_LiH, -3.74582, energy_tolerance)

@@ -1,9 +1,9 @@
-from gpaw import GPAW, PW, restart
+from gpaw import GPAW, PW
 from ase.lattice.compounds import L1_2
 
 
 def test_xc_qna_band(in_tmp_dir):
-    name = 'Cu3Au'
+    """Cu3Au"""
     ecut = 300
     kpts = (2, 2, 2)
 
@@ -22,16 +22,14 @@ def test_xc_qna_band(in_tmp_dir):
                 parallel={'domain': 1},
                 txt='gs.txt')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     eigs = calc.get_eigenvalues(kpt=0)[:24]
     calc.write('gs.gpw')
 
-    atoms, calc = restart('gs.gpw',
-                          parallel={'domain': 1},
-                          fixdensity=True,
-                          kpts=[[-0.25, 0.25, -0.25]])
-    atoms.get_potential_energy()
+    calc = GPAW('gs.gpw').fixed_density(
+        parallel={'domain': 1},
+        kpts=[[-0.25, 0.25, -0.25]])
     eigs_new = calc.get_eigenvalues(kpt=0)[:24]
     for eold, enew in zip(eigs, eigs_new):
         print(eold, enew, eold - enew)

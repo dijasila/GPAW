@@ -26,6 +26,6 @@ pos = layer.get_positions()
 pos[1][2] = pos[0][2] + 3.172 / 2
 pos[2][2] = pos[0][2] - 3.172 / 2
 layer.set_positions(pos)
-layer.set_calculator(calc)
+layer.calc = calc
 layer.get_potential_energy()
 calc.write('WS2_gs.gpw')

@@ -3,7 +3,6 @@ from gpaw import GPAW
 import gpaw.dscf as dscf
 from gpaw.mixer import MixerSum
 from numpy import reshape, dot
-from gpaw.test import equal
 
 filename = 'excited'
 
@@ -21,13 +20,13 @@ calc = GPAW(nbands=120, h=0.2, xc='RPBE', kpts=(4, 6, 1),
 # Import Slab with relaxed CO
 slab = read('CO_Pt.traj')
 pos = slab.get_positions()
-slab.set_calculator(calc)
+slab.calc = calc
 E_gs = slab.get_potential_energy()
 
 # Molecule
 molecule = slab.copy()
 del molecule[:-2]
-molecule.set_calculator(c_mol)
+molecule.calc = c_mol
 
 del slab[-2:]
 
@@ -82,5 +81,5 @@ for d in ds:
     del slab[12:]
 
 F_d = (E_es[0] - E_es[2]) / 0.02 / 2
-equal(E_es[1], E_gs + 3.9, 0.1)
-equal(F_d, 3.8, 0.2)
+assert abs(E_es[1] - (E_gs + 3.9)) < 0.1
+assert abs(F_d - 3.8) < 0.2

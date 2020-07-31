@@ -1,5 +1,3 @@
-from collections import namedtuple
-
 import numpy as np
 
 from gpaw.kpt_descriptor import KPointDescriptor
@@ -9,22 +7,30 @@ from gpaw.wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.wavefunctions.pw import PWDescriptor
 
 
-KPoint = namedtuple(
-    'KPoint',
-    ['psit',   # plane-wave expansion of wfs
-     'proj',   # projections
-     'f_n',    # occupations numbers between 0 and 1
-     'k_c',    # k-vector in units of reciprocal cell
-     'weight'  # weight of k-point
-     ])
+class KPoint:
+    def __init__(self,
+                 proj,  # projections
+                 f_n,  # occupations numbers between 0 and 1
+                 k_c,  # k-vector in units of reciprocal cell
+                 weight,  # weight of k-point
+                 dPdR_aniv=[]):
+        self.proj = proj
+        self.f_n = f_n
+        self.k_c = k_c
+        self.weight = weight
+        self.dPdR_aniv = dPdR_aniv
 
-RSKPoint = namedtuple(
-    'RealSpaceKPoint',
-    ['u_nR',  # wfs on a real-space grid
-     'proj',  # same as above
-     'f_n',   # ...
-     'k_c',
-     'weight'])
+
+class PWKPoint(KPoint):
+    def __init__(self, psit, *args):  # plane-wave expansion of wfs
+        self.psit = psit
+        KPoint.__init__(self, *args)
+
+
+class RSKPoint(KPoint):
+    def __init__(self, u_nR, *args):
+        self.u_nR = u_nR
+        KPoint.__init__(self, *args)
 
 
 def to_real_space(psit, na=0, nb=None):
@@ -53,7 +59,7 @@ def get_kpt(wfs, k, spin, n1, n2):
 
     if wfs.world.size == wfs.gd.comm.size:
         # Easy:
-        kpt = wfs.mykpts[wfs.kd.nibzkpts * spin + k]
+        kpt = wfs.kpt_qs[k][spin]
         psit = kpt.psit.view(n1, n2)
         proj = kpt.projections.view(n1, n2)
         f_n = kpt.f_n[n1:n2]
@@ -103,4 +109,4 @@ def get_kpt(wfs, k, spin, n1, n2):
 
     f_n = f_n / (weight * (2 // wfs.nspins))  # scale to [0, 1]
 
-    return KPoint(psit, proj, f_n, k_c, weight)
+    return PWKPoint(psit, proj, f_n, k_c, weight)

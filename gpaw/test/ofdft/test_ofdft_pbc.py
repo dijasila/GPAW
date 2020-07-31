@@ -1,3 +1,4 @@
+import pytest
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mixer import Mixer
@@ -5,6 +6,7 @@ from gpaw.test import equal
 from gpaw.test import gen
 
 
+@pytest.mark.libxc
 def test_ofdft_ofdft_pbc(in_tmp_dir):
     symbol = 'C'
     result = -224.206
@@ -24,7 +26,7 @@ def test_ofdft_ofdft_pbc(in_tmp_dir):
                 eigensolver='cg',
                 mixer=mixer)
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
 
     e = atoms.get_potential_energy()
 

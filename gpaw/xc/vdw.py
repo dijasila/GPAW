@@ -519,7 +519,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         self.get_alphas()
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
         self.get_alphas()

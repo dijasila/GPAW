@@ -22,7 +22,7 @@ def test_fileio_file_reference(in_tmp_dir):
     calc = GPAW(h=0.30, kpts=(1, 1, 3),
                 setups={'Na': '1'},
                 nbands=3, convergence=conv)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e0 = atoms.get_potential_energy()
     wf0 = calc.get_pseudo_wave_function(2, 1, 1, broadcast=True)
 

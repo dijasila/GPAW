@@ -1,4 +1,4 @@
-from gpaw import GPAW, restart, FermiDirac
+from gpaw import GPAW, FermiDirac
 from ase import Atoms
 from gpaw.test import equal
 import numpy as np
@@ -22,15 +22,14 @@ def test_generic_si(in_tmp_dir):
                 occupations=FermiDirac(width=0.01),
                 verbose=1,
                 kpts=(1, 1, 1))
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     e1 = bulk.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
     eigs = calc.get_eigenvalues(kpt=0)
     calc.write('temp.gpw')
 
-    bulk, calc = restart('temp.gpw', fixdensity=True)
+    bulk.calc = GPAW('temp.gpw').fixed_density()
     e2 = bulk.get_potential_energy()
-    eigs2 = calc.get_eigenvalues(kpt=0)
+    eigs2 = bulk.calc.get_eigenvalues(kpt=0)
     print('Orginal', eigs)
     print('Fixdensity', eigs2)
     print('Difference', eigs2 - eigs)

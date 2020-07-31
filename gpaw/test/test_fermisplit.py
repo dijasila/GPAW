@@ -18,22 +18,22 @@ def test_fermisplit(in_tmp_dir):
     mm = [1] * 1
     mm[0] = 6.
     atoms.set_initial_magnetic_moments(mm)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
-    ef1 = calc.occupations.get_fermi_levels_mean()
-    efsplit1 = calc.occupations.get_fermi_splitting()
+    ef1 = calc.get_fermi_levels().mean()
+    efsplit1 = calc.get_fermi_levels().ptp()
 
-    ef3 = calc.occupations.get_fermi_levels()
+    ef3 = calc.get_fermi_levels()
     calc.write('test.gpw')
 
     # check number one: is the splitting value saved?
     readtest = GPAW('test.gpw')
-    ef2 = readtest.occupations.get_fermi_levels_mean()
-    efsplit2 = readtest.occupations.get_fermi_splitting()
+    ef2 = readtest.get_fermi_levels().mean()
+    efsplit2 = readtest.get_fermi_levels().ptp()
 
     # numpy arrays
-    ef4 = readtest.occupations.get_fermi_levels()
+    ef4 = readtest.get_fermi_levels()
 
     # These values should be identic
     equal(ef1, ef2, 1e-9)

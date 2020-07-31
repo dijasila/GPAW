@@ -53,5 +53,5 @@ calc = SJM(doublelayer={'upper_limit': 23},
            interactions=[SurfaceInteraction(surface_tension=gamma)])
 
 # Run the calculation
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()

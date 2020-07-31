@@ -1,15 +1,14 @@
-
+import pytest
 from ase import Atoms
 from ase.parallel import parprint
-from ase.utils.timing import Timer
 
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
+@pytest.mark.libxc
 def test_exx_unocc():
-    timer = Timer()
 
     loa = Atoms('Be2',
                 [(0, 0, 0), (2.45, 0, 0)],

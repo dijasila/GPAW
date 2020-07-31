@@ -60,7 +60,6 @@ class C_GLLBScr(Contribution):
         return Exc
 
     def initialize(self):
-        self.occupations = self.nlfunc.occupations
         self.xc = XC(self.functional)
 
         # Always 1 spin, no matter what calculation nspins is

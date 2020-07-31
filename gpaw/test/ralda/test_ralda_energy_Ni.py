@@ -27,7 +27,7 @@ def test_ralda_ralda_energy_Ni(in_tmp_dir):
                     setups={'Ni': '10'},
                     communicator=serial_comm)
         
-        Ni.set_calculator(calc)
+        Ni.calc = calc
         Ni.get_potential_energy()
         calc.diagonalize_full_hamiltonian()
         calc.write('Ni.gpw', mode='all')

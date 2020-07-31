@@ -1,6 +1,7 @@
-import numpy as np
 import time
 
+import pytest
+import numpy as np
 from ase.build import bulk
 from ase.parallel import parprint
 
@@ -10,6 +11,7 @@ from gpaw.response.df import DielectricFunction
 from gpaw.mpi import size, world
 
 
+@pytest.mark.libxc
 def test_response_aluminum_EELS_ALDA(in_tmp_dir):
     assert size <= 4**3
 
@@ -27,7 +29,7 @@ def test_response_aluminum_EELS_ALDA(in_tmp_dir):
                 idiotproof=False,  # allow uneven distribution of k-points
                 xc='LDA')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Al', 'all')
     t2 = time.time()

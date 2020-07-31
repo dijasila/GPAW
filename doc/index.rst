@@ -24,7 +24,7 @@ array([[ 5.  ,  0.  ,  0.  ],
 >>> h2.positions
 array([[ 2.5 ,  2.5 ,  2.5 ],
        [ 2.5 ,  2.5 ,  3.24]])
->>> h2.set_calculator(GPAW(xc='PBE', mode=PW(300), txt='h2.txt'))
+>>> h2.calc = GPAW(xc='PBE', mode=PW(300), txt='h2.txt')
 >>> h2.get_potential_energy()
 -6.6237575005960494
 >>> h2.get_forces()

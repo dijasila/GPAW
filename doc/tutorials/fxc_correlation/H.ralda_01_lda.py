@@ -15,7 +15,7 @@ calc = GPAW(mode=PW(300, force_complex_dtype=True),
             txt='H.ralda_01_lda.output.txt',
             xc='LDA')
 
-H.set_calculator(calc)
+H.calc = calc
 E_lda = H.get_potential_energy()
 E_c_lda = -calc.get_xc_difference('LDA_X')
 

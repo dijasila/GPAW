@@ -89,7 +89,11 @@ class Symmetry:
         if (U_cc == np.eye(3)).all() and not time_reversal:
             return rsk
 
-        u1_nR, proj1, f_n, k1_c, weight = rsk
+        u1_nR = rsk.u_nR
+        proj1 = rsk.proj
+        f_n = rsk.f_n
+        k1_c = rsk.k_c
+        weight = rsk.weight
 
         u2_nR = np.empty_like(u1_nR)
         proj2 = proj1.new()
@@ -165,7 +169,7 @@ class Symmetry:
                 u1_nR = to_real_space(k1.psit)
                 rsk1 = RSKPoint(u1_nR, k1.proj.broadcast(),
                                 k1.f_n, k1.k_c,
-                                k1.weight)
+                                k1.weight, k1.dPdR_aniv)
                 lasti1 = i1
             if i2 == i1:
                 if s == self.s0:

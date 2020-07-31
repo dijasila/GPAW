@@ -16,7 +16,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             txt='CO.ralda_01_CO_pbe.txt',
             convergence={'density': 1.e-6})
 
-CO.set_calculator(calc)
+CO.calc = calc
 E0_pbe = CO.get_potential_energy()
 
 E0_hf = nsc_energy(calc, 'EXX')
@@ -39,7 +39,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             txt='CO.ralda_01_C_pbe.txt',
             convergence={'density': 1.e-6})
 
-C.set_calculator(calc)
+C.calc = calc
 E1_pbe = C.get_potential_energy()
 
 E1_hf = nsc_energy(calc, 'EXX')
@@ -65,7 +65,7 @@ calc = GPAW(mode=PW(600, force_complex_dtype=True),
             txt='CO.ralda_01_O_pbe.txt',
             convergence={'density': 1.e-6})
 
-O.set_calculator(calc)
+O.calc = calc
 E2_pbe = O.get_potential_energy()
 
 E2_hf = nsc_energy(calc, 'EXX')

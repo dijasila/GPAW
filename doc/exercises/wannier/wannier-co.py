@@ -7,7 +7,7 @@ from gpaw.wannier import Wannier
 calc = GPAW(nbands=5)
 atoms = molecule('CO')
 atoms.center(vacuum=3.)
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 # Initialize the Wannier class

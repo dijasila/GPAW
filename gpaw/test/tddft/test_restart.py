@@ -1,14 +1,16 @@
+import pytest
 import numpy as np
-
 from ase.build import molecule
+
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.poisson import PoissonSolver
 from gpaw.mpi import world
-
 from gpaw.test import equal
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_tddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
@@ -19,7 +21,7 @@ def test_tddft_restart(in_tmp_dir):
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
                 txt='gs.out')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     _ = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 

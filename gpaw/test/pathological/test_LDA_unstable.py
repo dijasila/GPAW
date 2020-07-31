@@ -16,7 +16,7 @@ def test_pathological_LDA_unstable():
             calc.scf.converged = True
 
         calc.attach(stop, 1)
-        mol.set_calculator(calc)
+        mol.calc = calc
         e = mol.get_potential_energy()
         if i == 0:
             eref = e

@@ -12,7 +12,7 @@ calc = GPAW(mode=PW(600),
             kpts=[8, 8, 8],
             txt='Pt_gs.txt')
 
-a.set_calculator(calc)
+a.calc = calc
 a.get_potential_energy()
 
 calc.write('Pt_gs.gpw', mode='all')

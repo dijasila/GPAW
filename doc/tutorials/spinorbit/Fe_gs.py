@@ -11,7 +11,7 @@ calc = GPAW(mode=PW(600),
 
 bulk = bulk('Fe', 'bcc', a=2.87)
 bulk.set_initial_magnetic_moments([1.0])
-bulk.set_calculator(calc)
+bulk.calc = calc
 bulk.get_potential_energy()
 
 calc.write('Fe_gs.gpw', mode='all')

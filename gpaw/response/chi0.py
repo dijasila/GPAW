@@ -201,7 +201,7 @@ class Chi0:
             rate. Note, for consistency with the formalism the rate is
             implemented as omegap^2 / (omega + 1j * rate)^2 which differ from
             some literature by a factor of 2.
-            
+
 
         Attributes
         ----------
@@ -471,7 +471,7 @@ class Chi0:
             wings = True
         else:
             wings = False
-        
+
         # Reset PAW correction in case momentum has change
         self.Q_aGii = self.pair.initialize_paw_corrections(pd)
         A_wxx = chi0_wGG  # Change notation
@@ -546,7 +546,7 @@ class Chi0:
         if wings:
             chi0_wxvG /= prefactor
             chi0_wvv /= prefactor
-        
+
         # The functions that are integrated are defined in the bottom
         # of this file and take a number of constant keyword arguments
         # which the integrator class accepts through the use of the
@@ -943,12 +943,13 @@ class Chi0:
 
         ik1 = kd.bz2ibz_k[K1]
         ik2 = kd.bz2ibz_k[K2]
-        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik1]
+        kpt1 = wfs.kpt_qs[ik1][s]
+        assert wfs.kd.comm.size == 1
         if self.response in ['+-', '-+']:
             s2 = 1 - s
         else:
             s2 = s
-        kpt2 = wfs.kpt_u[s2 * wfs.kd.nibzkpts + ik2]
+        kpt2 = wfs.kpt_qs[ik2][s2]
         deps_nm = np.subtract(kpt1.eps_n[n1:n2][:, np.newaxis],
                               kpt2.eps_n[m1:m2])
 
@@ -970,7 +971,9 @@ class Chi0:
 
         if self.integrationmode is None:
             f_n = kpt1.f_n
-            width = self.calc.occupations.width
+            assert self.calc.wfs.occupations.name in ['fermi-dirac',
+                                                      'zero-width']
+            width = self.calc.wfs.occupations.width
             if width > 1e-15:
                 dfde_n = - 1. / width * (f_n - f_n**2.0)
             else:
@@ -996,7 +999,8 @@ class Chi0:
         k_c = np.dot(pd.gd.cell_cv, k_v) / (2 * np.pi)
         K1 = self.pair.find_kpoint(k_c)
         ik = kd.bz2ibz_k[K1]
-        kpt1 = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        kpt1 = wfs.kpt_qs[ik][s]
+        assert wfs.kd.comm.size == 1
 
         return kpt1.eps_n[n1:n2]
 

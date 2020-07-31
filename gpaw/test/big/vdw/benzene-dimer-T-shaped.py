@@ -3,7 +3,6 @@ from ase.build import molecule
 from ase.constraints import FixedPlane
 from ase.optimize import QuasiNewton
 from gpaw import GPAW, FermiDirac
-from gpaw.test import equal
 
 # Initialization
 molname = 'benzene-mol'
@@ -25,7 +24,7 @@ calc = GPAW(nbands=-1,
             xc=xc,
             occupations=FermiDirac(0.0),
             txt=molname + '_relax.txt')
-benz.set_calculator(calc)
+benz.calc = calc
 
 # qn constraint
 for i in range(len(benz)):
@@ -67,7 +66,7 @@ for i in np.linspace(-6, 6, 20):
                 xc=xc,
                 occupations=FermiDirac(0.0),
                 txt=dimername + '_' + k_str + '.txt')
-    dimer.set_calculator(calc)
+    dimer.calc = calc
     e_dimer = dimer.get_potential_energy()
     del calc
 
@@ -91,5 +90,5 @@ print('****************', file=f)
 print('Minimum (E_int,d):', e_0, d_0, file=f)
 f.close()
 
-equal(e_0, -0.11, 0.01)
-equal(d_0, 2.86, 0.05)
+assert abs(e_0 - -0.11) < 0.01
+assert abs(d_0 - 2.86) < 0.05

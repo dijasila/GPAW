@@ -21,6 +21,6 @@ calc = GPAW(mode='lcao', h=0.3, basis='pvalence.dz', xc='LDA', nbands=6,
             poissonsolver=ps,
             convergence={'density': 1e-12},
             txt='gs.out')
-atoms.set_calculator(calc)
+atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('gs.gpw', mode='all')

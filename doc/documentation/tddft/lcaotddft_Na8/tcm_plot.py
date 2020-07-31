@@ -7,6 +7,7 @@ from gpaw.tddft.units import au_to_eV
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
 from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
+from gpaw.lcaotddft.tcm import TCMPlotter
 
 # Load the objects
 calc = GPAW('unocc.gpw', txt=None)
@@ -14,6 +15,7 @@ ksd = KohnShamDecomposition(calc, 'ksd.ulm')
 dmat = DensityMatrix(calc)
 fdm = FrequencyDensityMatrix(calc, dmat, 'fdm.ulm')
 
+plt.figure(figsize=(8, 8))
 
 def do(w):
     # Select the frequency and the density matrix
@@ -41,19 +43,20 @@ def do(w):
         f.write(table)
 
     # Plot the decomposition as a TCM
-    r = ksd.plot_TCM(weight_p,
-                     occ_energy_min=-3, occ_energy_max=0.1,
-                     unocc_energy_min=-0.1, unocc_energy_max=3,
-                     delta_energy=0.01, sigma=0.1
-                     )
-    (ax_tcm, ax_occ_dos, ax_unocc_dos, ax_spec) = r
+    de = 0.01
+    energy_o = np.arange(-3, 0.1 + 1e-6, de)
+    energy_u = np.arange(-0.1, 3 + 1e-6, de)
+    plt.clf()
+    plotter = TCMPlotter(ksd, energy_o, energy_u, sigma=0.1)
+    plotter.plot_TCM(weight_p)
+    plotter.plot_DOS(fill={'color': '0.8'}, line={'color': 'k'})
+    plotter.plot_TCM_diagonal(freq.freq * au_to_eV, color='k')
+    plotter.set_title('Photoabsorption TCM of Na8 at %.2f eV' % frequency)
 
-    # Plot diagonal line at the analysis frequency
-    x = np.array([-4, 1])
-    y = x + freq.freq * au_to_eV
-    ax_tcm.plot(x, y, c='k')
-
-    ax_occ_dos.set_title('Photoabsorption TCM of Na8 at %.2f eV' % frequency)
+    # Check that TCM integrates to correct absorption
+    tcm_ou = ksd.get_TCM(weight_p, ksd.get_eig_n()[0],
+                         energy_o, energy_u, sigma=0.1)
+    print('TCM absorption: %.2f eV^-1' % (np.sum(tcm_ou) * de**2))
 
     # Save the plot
     plt.savefig('tcm_%.2f.png' % frequency)

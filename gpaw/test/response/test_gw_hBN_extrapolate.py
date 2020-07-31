@@ -34,7 +34,7 @@ def test_response_gw_hBN_extrapolate(in_tmp_dir):
         layer.pbc = (1, 1, 0)
         layer.center(axis=2, vacuum=4.0)
 
-        layer.set_calculator(calc)
+        layer.calc = calc
         layer.get_potential_energy()
 
         nbecut = 50

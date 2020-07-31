@@ -7,7 +7,6 @@ from gpaw.test import equal
 
 
 def test_utilities_simple_stm(in_tmp_dir):
-    load = True
     load = False
     txt = '/dev/null'
     txt = '-'
@@ -21,7 +20,6 @@ def test_utilities_simple_stm(in_tmp_dir):
     BH.center()
 
     f3dname = 'stm3d.plt'
-
 
     def testSTM(calc):
         stm = SimpleStm(calc)
@@ -44,15 +42,13 @@ def test_utilities_simple_stm(in_tmp_dir):
 
         return wf
 
-
     # finite system without spin and width
     fname = 'BH-nospin_wfs.gpw'
     if not load:
         BH.set_pbc(False)
         cf = GPAW(nbands=3, h=.3, txt=txt)
-        BH.set_calculator(cf)
+        BH.calc = cf
         e1 = BH.get_potential_energy()
-        niter1 = cf.get_number_of_iterations()
         cf.write(fname, 'all')
     else:
         cf = GPAW(fname, txt=txt)
@@ -67,9 +63,8 @@ def test_utilities_simple_stm(in_tmp_dir):
                   nbands=5,
                   h=0.3,
                   txt=txt)
-        BH.set_calculator(cf)
+        BH.calc = cf
         e2 = BH.get_potential_energy()
-        niter2 = cf.get_number_of_iterations()
         cf.write(fname, 'all')
     else:
         cf = GPAW(fname, txt=txt)
@@ -80,9 +75,8 @@ def test_utilities_simple_stm(in_tmp_dir):
         BH.set_pbc(True)
         cp = GPAW(spinpol=True, nbands=3, h=.3,
                   kpts=(2, 1, 1), txt=txt, symmetry='off')
-        BH.set_calculator(cp)
+        BH.calc = cp
         e3 = BH.get_potential_energy()
-        niter3 = cp.get_number_of_iterations()
         cp.write('BH-4kpts_wfs.gpw', 'all')
     else:
         cp = GPAW('BH-4kpts_wfs.gpw', txt=txt)
@@ -100,7 +94,6 @@ def test_utilities_simple_stm(in_tmp_dir):
     equal(2 * wf, stmp.gd.integrate(stmp.ldos), 0.02)
 
     energy_tolerance = 0.007
-    niter_tolerance = 0
     equal(e1, -2.54026, energy_tolerance)
     equal(e2, -1.51101, energy_tolerance)
     equal(e3, -2.83573, energy_tolerance)

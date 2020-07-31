@@ -3,9 +3,10 @@ from typing import Tuple, Union, Dict
 import numpy as np
 
 from gpaw.xc import XC
-from .scf import apply1, apply2
-from .coulomb import coulomb_inteaction
+from .coulomb import coulomb_interaction
+from .forces import calculate_forces
 from .paw import calculate_paw_stuff
+from .scf import apply1, apply2
 from .symmetry import Symmetry
 
 
@@ -26,7 +27,11 @@ class HybridXC:
         self.exx_fraction = exx_fraction
         self.omega = omega
 
-        self.description = f'{xcname}+{exx_fraction}*EXX(omega={omega})'
+        if xcname == 'null':
+            self.description = ''
+        else:
+            self.description = f'{xcname} + '
+        self.description += f'{exx_fraction} * EXX(omega = {omega} bohr^-1)'
 
         self.vlda_sR = None
         self.v_sknG: Dict[Tuple[int, int], np.ndarray] = {}
@@ -42,7 +47,7 @@ class HybridXC:
     def get_setup_name(self):
         return 'PBE'
 
-    def initialize(self, dens, ham, wfs, occupations):
+    def initialize(self, dens, ham, wfs):
         self.dens = dens
         self.wfs = wfs
         self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
@@ -56,9 +61,7 @@ class HybridXC:
 
     def calculate(self, gd, nt_sr, vt_sr):
         energy = self.ecc + self.evv + self.evc
-        e_r = gd.empty()
-        self.xc.calculate(gd, nt_sr, vt_sr, e_r)
-        energy += gd.integrate(e_r)
+        energy += self.xc.calculate(gd, nt_sr, vt_sr)
         return energy
 
     def calculate_paw_correction(self, setup, D_sp, dH_sp=None, a=None):
@@ -71,7 +74,8 @@ class HybridXC:
                                             Htpsit_xG=None, dH_asp=None):
         wfs = self.wfs
         if self.coulomb is None:
-            self.coulomb = coulomb_inteaction(self.omega, wfs.gd, wfs.kd)
+            self.coulomb = coulomb_interaction(self.omega, wfs.gd, wfs.kd)
+            self.description += f'\n{self.coulomb.description}'
             self.sym = Symmetry(wfs.kd)
 
         paw_s = calculate_paw_stuff(wfs, self.dens)  # ???????
@@ -127,7 +131,11 @@ class HybridXC:
         log(self.description)
 
     def add_forces(self, F_av):
-        pass
+        paw_s = calculate_paw_stuff(self.wfs, self.dens)
+        F_av += calculate_forces(self.wfs,
+                                 self.coulomb,
+                                 self.sym,
+                                 paw_s) * self.exx_fraction
 
     def correct_hamiltonian_matrix(self, kpt, H_nn):
         return
@@ -147,4 +155,3 @@ class HybridXC:
 
     def set_grid_descriptor(self, gd):
         pass
-

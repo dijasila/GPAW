@@ -15,7 +15,7 @@ def test_muffintinpot(in_tmp_dir):
         be = Atoms(symbols='Be',positions=[(0,0,0)])
         be.center(vacuum=5)
         calc = GPAW(gpts=(64,64,64), xc='LDA', nbands=1) #0.1 required for accuracy
-        be.set_calculator(calc)
+        be.calc = calc
         e = be.get_potential_energy()
         niter = calc.get_number_of_iterations()
         #calc.write("be.gpw")

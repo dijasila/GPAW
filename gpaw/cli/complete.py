@@ -69,10 +69,7 @@ commands = {
     'symmetry':
         [],
     'test':
-        ['-x', '--exclude', '-f', '--run-failed-tests-only', '--from',
-         '--after', '--range', '-j', '--jobs', '--reverse', '-k',
-         '--keep-temp-dir', '-d', '--directory', '-s',
-         '--show-output', '--list']}
+        []}
 # End of computer generated data
 
 
@@ -105,10 +102,11 @@ def complete(word, previous, line, point):
     return words
 
 
-word, previous = sys.argv[2:]
-line = os.environ['COMP_LINE']
-point = int(os.environ['COMP_POINT'])
-words = complete(word, previous, line, point)
-for w in words:
-    if w.startswith(word):
-        print(w)
+if __name__ == '__main__':
+    word, previous = sys.argv[2:]
+    line = os.environ['COMP_LINE']
+    point = int(os.environ['COMP_POINT'])
+    words = complete(word, previous, line, point)
+    for w in words:
+        if w.startswith(word):
+            print(w)
