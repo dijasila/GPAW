@@ -303,10 +303,6 @@ class GPAW(Calculator):
 
         self.hamiltonian.xc.read(reader)
 
-        # if self.hamiltonian.xc.type == 'GLLB':
-        #     # XXX GLLB: See test/lcaotddft/gllbsc.py
-        #     self.occupations.calculate(self.wfs)
-
         return reader
 
     def check_state(self, atoms, tol=1e-12):
