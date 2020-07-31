@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* GLLBSC exchange-correlation potential fixed for periodic metallic systems:
+  https://gitlab.com/gpaw/gpaw/-/merge_requests/651
+
 * New functions for non self-consistent hybrid calculations:
   :func:`gpaw.hybrids.energy.non_self_consistent_energy` and
   :func:`gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues`.
