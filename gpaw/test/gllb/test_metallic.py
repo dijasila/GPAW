@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from ase.build import bulk
 from gpaw import GPAW
@@ -22,6 +23,8 @@ def run(xc, repeat=1):
     return x_i, y_i
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_metallic_GLLBSC(in_tmp_dir):
     try:
         run(xc='GLLBSC')
@@ -31,6 +34,8 @@ def test_metallic_GLLBSC(in_tmp_dir):
         raise RuntimeError('GLLBSC should fail for metallic system')
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_metallic_GLLBSCM(in_tmp_dir):
     x1_i, y1_i = run(xc='GLLBSCM', repeat=1)
     x2_i, y2_i = run(xc='GLLBSCM', repeat=2)

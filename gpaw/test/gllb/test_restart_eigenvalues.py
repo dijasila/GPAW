@@ -32,6 +32,8 @@ refs = {'LDA':
         }
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 @pytest.mark.parametrize('xc', ['GLLBSC', 'GLLBSC_W0.1',
                                 'GLLBSCM', 'GLLBSCM_W0.1'])
 def test_restart_eigenvalues(xc, in_tmp_dir):
