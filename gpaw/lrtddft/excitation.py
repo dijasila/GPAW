@@ -21,6 +21,11 @@ def get_filehandle(cls, filename, mode='r'):
     return open(filename, mode)
 
 
+class ExcitationLogger(GPAWLogger):
+    def header(self):
+        pass
+
+
 class ExcitationList(list):
     """General Excitation List class.
     """
@@ -32,9 +37,9 @@ class ExcitationList(list):
         # set output
         if log is not None:
             self.log = log
-            return
-        self.log = GPAWLogger(world=mpi.world)
-        self.log.fd = txt
+        else:
+            self.log = ExcitationLogger(world=mpi.world)
+            self.log.fd = txt
 
     @property
     def calc(self):
