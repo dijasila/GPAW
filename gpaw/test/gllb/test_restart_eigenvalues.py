@@ -32,7 +32,7 @@ refs = {'LDA':
         }
 
 
-@pytest.mark.parametrize('xc', ['LDA', 'GLLBSC', 'GLLBSC_W0.1',
+@pytest.mark.parametrize('xc', ['GLLBSC', 'GLLBSC_W0.1',
                                 'GLLBSCM', 'GLLBSCM_W0.1'])
 def test_restart_eigenvalues(xc, in_tmp_dir):
     test_kpts = [[0, 0, 0], [1. / 3, 1. / 3, 1. / 3]]
