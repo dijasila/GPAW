@@ -303,10 +303,6 @@ class GPAW(Calculator):
 
         self.hamiltonian.xc.read(reader)
 
-        # if self.hamiltonian.xc.name == 'GLLBSC':
-        #     # XXX GLLB: See test/lcaotddft/gllbsc.py
-        #     self.occupations.calculate(self.wfs)
-
         return reader
 
     def check_state(self, atoms, tol=1e-12):
@@ -799,7 +795,7 @@ class GPAW(Calculator):
             self.log('XC parameters: {}\n'
                      .format('\n  '.join(description.splitlines())))
 
-        if xc.name == 'GLLBSC' and olddens is not None:
+        if xc.type == 'GLLB' and olddens is not None:
             xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
         self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)

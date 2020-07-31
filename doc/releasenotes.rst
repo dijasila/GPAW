@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* GLLBSC exchange-correlation potential fixed for periodic metallic systems:
+  https://gitlab.com/gpaw/gpaw/-/merge_requests/651
+
 * Forces are now available for hybrid functionals in
   plane-wave mode.
 

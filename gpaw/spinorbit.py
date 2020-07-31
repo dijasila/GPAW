@@ -66,7 +66,7 @@ def get_radial_potential(a, xc, D_sp):
     f_g = fc_g + fh_g
 
     # xc force
-    if xc.name != 'GLLBSC':
+    if xc.type != 'GLLB':
         v_sg = np.zeros_like(n_sg)
         xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
         fxc_g = np.mean([a.xc_correction.rgd.derivative(v_g) for v_g in v_sg],

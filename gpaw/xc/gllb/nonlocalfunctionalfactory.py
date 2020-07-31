@@ -41,27 +41,27 @@ class NonLocalFunctionalFactory:
             C_Response(functional, 1.0, C_GLLBScr(
                 functional, 1.0, metallic=True).get_coefficient_calculator())
             return functional
-        elif name == 'GLLBSC':
+        elif name.startswith('GLLBSC'):
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
             from gpaw.xc.gllb.c_response import C_Response
             from gpaw.xc.gllb.c_xc import C_XC
-            C_Response(functional, 1.0, C_GLLBScr(
-                functional,
-                1.0,
-                'GGA_X_PBE_SOL').get_coefficient_calculator())
-            C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
-            return functional
-        elif name == 'GLLBSCM':
-            from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
-            from gpaw.xc.gllb.c_response import C_Response
-            from gpaw.xc.gllb.c_xc import C_XC
-            C_Response(functional, 1.0, C_GLLBScr(
-                functional,
-                1.0,
-                'GGA_X_PBE_SOL', metallic=True).get_coefficient_calculator())
-            C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
-            return functional
 
+            if name == 'GLLBSC':
+                kwargs = dict()
+            elif name == 'GLLBSCM':
+                kwargs = dict(metallic=True)
+            elif name.startswith('GLLBSC_W'):
+                kwargs = dict(width=float(name.split('GLLBSC_W')[1]))
+            elif name.startswith('GLLBSCM_W'):
+                kwargs = dict(metallic=True,
+                              width=float(name.split('GLLBSCM_W')[1]))
+
+            functional = NonLocalFunctional(name, setup_name='GLLBSC')
+            C_Response(functional, 1.0,
+                       C_GLLBScr(functional, 1.0, 'GGA_X_PBE_SOL', **kwargs)
+                       .get_coefficient_calculator())
+            C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
+            return functional
         elif name == 'GLLBC':
             from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
             from gpaw.xc.gllb.c_response import C_Response
