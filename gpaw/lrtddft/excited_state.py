@@ -1,5 +1,4 @@
-import os
-import errno
+from pathlib import Path
 import numpy as np
 from typing import Dict, Any
 
@@ -74,28 +73,26 @@ class ExcitedState(GPAW, Calculator):
         self.atoms = atoms.copy()
         self.results = {}
 
-    def write(self, filename, mode=''):
+    def write(self, dirname, mode=''):
         """Write yourself to a directory
 
         Paramaters
         ----------
-        filenname: string
-          Write the files to the directory filename. The directory
+        dirname: string or path
+          Write the files to the directory dirname. The directory
           is created in case it does not exist.
         mode: string
           Mode for writing the calculator (GPAW object). Default ''.
         """
-        try:
-            os.makedirs(filename)
-        except OSError as exception:
-            if exception.errno != errno.EEXIST:
-                raise
+        directory = Path(dirname)
+        directory.mkdir(parents=True, exist_ok=True)
+        filename = str(directory / 'exst')
 
-        self.calculator.write(filename=filename + '/' + filename, mode=mode)
-        self.lrtddft.write(filename=filename + '/' + filename + '.lr.dat.gz')
+        self.calculator.write(filename=filename, mode=mode)
+        self.lrtddft.write(filename=filename + '.lr.dat.gz')
 
         if self.world.rank == 0:
-            with open(filename + '/' + filename + '.exst', 'w') as f:
+            with open(filename + '.exst', 'w') as f:
                 f.write('# ' + self.__class__.__name__ + __version__ + '\n')
                 f.write('Displacement: {0}'.format(self.d) + '\n')
                 f.write('Index: ' + self.index.__class__.__name__ + '\n')
@@ -104,20 +101,19 @@ class ExcitedState(GPAW, Calculator):
         self.world.barrier()
  
     @classmethod
-    def read(cls, filename, communicator=None, log=None, txt=None):
-        """Read ExcitedState from a file"""
-        atoms, calculator = restart(
-            filename + '/' + filename,
-            communicator=communicator, txt=txt)
+    def read(cls, dirname, communicator=None, log=None, txt=None):
+        """Read ExcitedState from a directory"""
+        filename = str(Path(dirname) / 'exst')
+        atoms, calculator = restart(filename,
+                                    communicator=communicator, txt=txt)
         if log is not None:
             calculator.log = log
         E0 = calculator.get_potential_energy()
-        lrtddft = LrTDDFT.read(filename + '/' +
-                               filename + '.lr.dat.gz',
+        lrtddft = LrTDDFT.read(filename + '.lr.dat.gz',
                                log=calculator.log)
         lrtddft.set_calculator(calculator)
         
-        f = open(filename + '/' + filename + '.exst', 'r')
+        f = open(filename + '.exst', 'r')
         f.readline()
         d = f.readline().replace('\n', '').split()[1]
         indextype = f.readline().replace('\n', '').split()[1]

@@ -38,7 +38,7 @@ class KSSingles(ExcitationList):
       The energy range [emin, emax] or emax for KS transitions to use as basis
     """
     def __init__(self,
-                 calculator=None,
+                 calculator=None,  # XXX remove from __init__
                  nspins=None,
                  restrict={},
                  log=None,
@@ -49,12 +49,17 @@ class KSSingles(ExcitationList):
         self.restrict = KSSRestrictor()
         self.restrict.update(restrict)
 
-        # LCAO calculation requires special actions
-        if calculator is not None:
-            self.lcao = calculator.parameters.mode == 'lcao'
+        if calculator is not None:  # XXXX remove from __init__
+            atoms = calculator.get_atoms().copy()
+            atoms.calc = calculator
+            self.calculate(atoms, nspins)
 
-        if calculator is None:
-            return  # leave the list empty
+    def calculate(self, atoms, nspins=None):
+        calculator = atoms.calc
+        self.calculator = calculator
+
+        # LCAO calculation requires special actions
+        self.lcao = calculator.parameters.mode == 'lcao'
 
         # deny hybrids as their empty states are wrong
 #        gsxc = calculator.hamiltonian.xc
@@ -79,6 +84,7 @@ class KSSingles(ExcitationList):
         pol = self.get_polarizabilities(lmax=3)
         self.log('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
                  tuple(pol.tolist()))
+        return self
 
     @staticmethod
     def emin_emax(energy_range):

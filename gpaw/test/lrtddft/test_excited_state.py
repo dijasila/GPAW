@@ -114,7 +114,7 @@ def test_lrtddft_excited_state():
     parprint("time used:", time.time() - t0)
 
 
-def test_io():
+def test_io(tmp_path):
     """Test output and input from files"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc, txt=None)
@@ -128,13 +128,13 @@ def test_io():
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
         
     parprint('----------- write trajectory')
-    ftraj = 'H2exst.traj'
+    ftraj = str(tmp_path / 'H2exst.traj')
     F = H2.get_forces()
     traj = io.Trajectory(ftraj, 'w')
     traj.write(H2)
 
     parprint('----------- write')
-    fname = 'exst_test_io'
+    fname = str(tmp_path / 'exst_test_io')
     print('----', exst.get_potential_energy())
     exst.write(fname)
 
