@@ -122,7 +122,7 @@ class C_GLLBScr(Contribution):
         if self.metallic:
             # Use Fermi level as reference levels
             assert homolumo is None
-            fermilevel = self.occupations.get_fermi_level()
+            fermilevel = self.nlfunc.wfs.fermi_level
             assert isinstance(fermilevel, float), 'GLLBSCM supports only a single Fermi level'
             for s in range(nspins):
                 eref_s.append(fermilevel)
