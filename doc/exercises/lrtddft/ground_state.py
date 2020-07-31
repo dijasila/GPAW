@@ -23,7 +23,8 @@ e = atoms.get_potential_energy()
 # unoccupied states converge often better with cg
 calc = calc.fixed_density(
     nbands=20,
-    convergence={'bands': 20})
+    convergence={'bands': 20},
+    eigensolver='cg')
 
 # write the wave functions to a file
 calc.write('na2_gs_unocc.gpw', 'all')
