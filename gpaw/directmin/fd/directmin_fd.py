@@ -971,12 +971,13 @@ class DirectMinFD(Eigensolver):
         wfs.timer.start('Initial Localization')
 
         # we need to fill also eps_n
-        for kpt in wfs.kpt_u:
-            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            super(DirectMinFD, self).subspace_diagonalize(
-                ham, wfs, kpt, True)
-            wfs.gd.comm.broadcast(kpt.eps_n, 0)
-        occ.calculate(wfs)  # fill occ numbers
+        if not self.force_init_localization:
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                super(DirectMinFD, self).subspace_diagonalize(
+                    ham, wfs, kpt, True)
+                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            occ.calculate(wfs)  # fill occ numbers
 
         io = self.initial_orbitals
         if io == 'PM':
