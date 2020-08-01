@@ -9,7 +9,8 @@ from ase.parallel import parprint
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50, g_tol=5.0e-4):
+    def __init__(self, odd_pot, wfs, nstates='all',
+                 tol=1.0e-3, maxiter=50, g_tol=5.0e-4):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -30,7 +31,12 @@ class InnerLoop:
         self.n_occ = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            self.n_occ[k] = get_n_occ(kpt)
+            if nstates == 'all':
+                self.n_occ[k] = wfs.bd.nbands
+            elif nstates == 'occupied':
+                self.n_occ[k] = get_n_occ(kpt)
+            else:
+                raise NotImplementedError
             self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
             self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
 
@@ -41,9 +47,6 @@ class InnerLoop:
         :param a_k: A
         :return:
         """
-
-        if self.odd_pot.name == 'SPZ_SIC2':
-            return self.get_energy_and_gradients2(a_k, wfs, dens)
 
         g_k = {}
         self.e_total = 0.0
@@ -156,16 +159,7 @@ class InnerLoop:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             d = self.n_occ[k]
-            # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
-            if self.run_count == 1 and self.dtype is complex\
-                    and small_random:
-                a = 0.01 * np.random.rand(d, d) * 1.0j
-                a = a - a.T.conj()
-                # a = np.zeros(shape=(d, d), dtype=self.dtype)
-                wfs.gd.comm.broadcast(a, 0)
-                a_k[k] = a
-            else:
-                a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
+            a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
         self.sd = LBFGS_P(wfs, memory=20)
         self.ls = SWC(
