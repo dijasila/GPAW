@@ -13,6 +13,7 @@ def run(xc, repeat=1):
                 setups={'Ag': '11'},
                 nbands=6 * repeat**3,
                 xc=xc,
+                parallel={'domain': 1},
                 kpts={'size': (k, k, k), 'gamma': False},
                 txt='-')
     atoms.calc = calc
