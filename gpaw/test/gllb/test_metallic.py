@@ -13,6 +13,7 @@ def run(xc, repeat=1):
                 setups={'Ag': '11'},
                 nbands=6 * repeat**3,
                 xc=xc,
+                parallel={'domain': 1},
                 kpts={'size': (k, k, k), 'gamma': False},
                 txt='-')
     atoms.calc = calc
@@ -25,7 +26,7 @@ def run(xc, repeat=1):
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_metallic_GLLBSC(in_tmp_dir):
+def test_metallic_GLLBSC():
     try:
         run(xc='GLLBSC')
     except RuntimeError as e:
@@ -36,7 +37,7 @@ def test_metallic_GLLBSC(in_tmp_dir):
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_metallic_GLLBSCM(in_tmp_dir):
+def test_metallic_GLLBSCM():
     x1_i, y1_i = run(xc='GLLBSCM', repeat=1)
     x2_i, y2_i = run(xc='GLLBSCM', repeat=2)
     # Test that the DOSes are the same
