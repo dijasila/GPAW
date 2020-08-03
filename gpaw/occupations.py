@@ -437,6 +437,70 @@ def findroot(func: Callable[[float], Tuple[float, float]],
         assert niter < 1000
 
 
+def collect_eigelvalues(eig_qn, weight_q, parallel):
+    kpt_comm = parallel.kpt_comm
+    bd = parallel.bd
+
+    nkpts_r = np.zeros(kpt_comm.size, int)
+    nkpts_r[kpt_comm.rank] = len(weight_q)
+    kpt_comm.sum(nkpts_r)
+    weight_k = np.zeros(nkpts_r.sum())
+    k1 = nkpts_r[:kpt_comm.rank].sum()
+    k2 = k1 + len(weight_q)
+    weight_k[k1:k2] = weight_q
+    kpt_comm.sum(weight_k, 0)
+
+    print(eig_qn, nkpts_r)
+    eig_kn = None
+    k = 0
+    for rank, nkpts in enumerate(nkpts_r):
+        for q in range(nkpts):
+            if rank == kpt_comm.rank:
+                eig_n = eig_qn[q]
+                if bd is not None:
+                    eig_n = bd.collect(eig_n)
+            if bd is None or bd.comm.rank == 0:
+                if kpt_comm.rank == 0:
+                    if k == 0:
+                        eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
+                    if rank == 0:
+                        eig_kn[k] = eig_n
+                    else:
+                        kpt_comm.receive(eig_kn[k], rank)
+                elif rank == kpt_comm.rank:
+                    kpt_comm.send(eig_n, 0)
+            k += 1
+    return eig_kn, weight_k, nkpts_r
+
+
+def distribute_occupation_numbers(f_kn, f_qn, nkpts_r, parallel):
+    kpt_comm = parallel.kpt_comm
+    bd = parallel.bd
+    k = 0
+    for rank, nkpts in enumerate(nkpts_r):
+        for q in range(nkpts):
+            if kpt_comm.rank == 0:
+                if rank == 0:
+                    if bd is None or bd.comm.size == 1:
+                        f_qn[q] = f_kn[k]
+                    else:
+                        bd.distribute(None if f_kn is None else f_kn[k],
+                                      f_qn[q])
+                elif f_kn is not None:
+                    kpt_comm.send(f_kn[k], rank)
+            elif rank == kpt_comm.rank:
+                if bd is None or bd.comm.size == 1:
+                    kpt_comm.receive(f_qn[q], 0)
+                else:
+                    if bd.comm.rank == 0:
+                        f_n = bd.empty(global_array=True)
+                        kpt_comm.receive(f_n, 0)
+                    else:
+                        f_n = None
+                    bd.distribute(f_n, f_qn[q])
+            k += 1
+
+
 class ZeroWidth(OccupationNumbers):
     name = 'zero-width'
     extrapolate_factor = 0.0
@@ -455,8 +519,8 @@ class ZeroWidth(OccupationNumbers):
                    f_qn,
                    parallel,
                    fermi_level_guess=nan):
-        eig_kn, weight_k, nkpts_r = self._collect_eigelvalues(
-            eig_qn, weight_q, parallel)
+        eig_kn, weight_k, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
+                                                        parallel)
 
         if eig_kn is not None:
             f_kn = np.zeros_like(eig_kn)
@@ -485,7 +549,7 @@ class ZeroWidth(OccupationNumbers):
             f_kn = None
             fermi_level = nan
 
-        self._distribute_occupation_numbers(f_kn, f_qn, nkpts_r, parallel)
+        distribute_occupation_numbers(f_kn, f_qn, nkpts_r, parallel)
 
         if parallel.kpt_comm.rank == 0 and parallel.bd is not None:
             fermi_level = broadcast_float(fermi_level, parallel.bd.comm)
@@ -493,67 +557,6 @@ class ZeroWidth(OccupationNumbers):
 
         e_entropy = 0.0
         return fermi_level, e_entropy
-
-    def _collect_eigelvalues(self, eig_qn, weight_q, parallel):
-        kpt_comm = parallel.kpt_comm
-        bd = parallel.bd
-
-        nkpts_r = np.zeros(kpt_comm.size, int)
-        nkpts_r[kpt_comm.rank] = len(weight_q)
-        kpt_comm.sum(nkpts_r)
-        weight_k = np.zeros(nkpts_r.sum())
-        k1 = nkpts_r[:kpt_comm.rank].sum()
-        k2 = k1 + len(weight_q)
-        weight_k[k1:k2] = weight_q
-        kpt_comm.sum(weight_k, 0)
-
-        eig_kn = None
-        k = 0
-        for rank, nkpts in enumerate(nkpts_r):
-            for q in range(nkpts):
-                if rank == kpt_comm.rank:
-                    eig_n = eig_qn[q]
-                    if bd is not None:
-                        eig_n = bd.collect(eig_n)
-                if bd is None or bd.comm.rank == 0:
-                    if kpt_comm.rank == 0:
-                        if k == 0:
-                            eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
-                        if rank == 0:
-                            eig_kn[k] = eig_n
-                        else:
-                            kpt_comm.receive(eig_kn[k], rank)
-                    elif rank == kpt_comm.rank:
-                        kpt_comm.send(eig_n, 0)
-                k += 1
-        return eig_kn, weight_k, nkpts_r
-
-    def _distribute_occupation_numbers(self, f_kn, f_qn, nkpts_r, parallel):
-        kpt_comm = parallel.kpt_comm
-        bd = parallel.bd
-        k = 0
-        for rank, nkpts in enumerate(nkpts_r):
-            for q in range(nkpts):
-                if kpt_comm.rank == 0:
-                    if rank == 0:
-                        if bd is None or bd.comm.size == 1:
-                            f_qn[q] = f_kn[k]
-                        else:
-                            bd.distribute(None if f_kn is None else f_kn[k],
-                                          f_qn[q])
-                    elif f_kn is not None:
-                        kpt_comm.send(f_kn[k], rank)
-                elif rank == kpt_comm.rank:
-                    if bd is None or bd.comm.size == 1:
-                        kpt_comm.receive(f_qn[q], 0)
-                    else:
-                        if bd.comm.rank == 0:
-                            f_n = bd.empty(global_array=True)
-                            kpt_comm.receive(f_n, 0)
-                        else:
-                            f_n = None
-                        bd.distribute(f_n, f_qn[q])
-                k += 1
 
 
 class FixedOccupationNumbers(OccupationNumbers):
