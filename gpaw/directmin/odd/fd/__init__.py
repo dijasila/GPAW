@@ -3,6 +3,7 @@ from ase.utils import basestring
 from gpaw.directmin.odd.fd.pz import PzCorrections
 from gpaw.directmin.odd.fd.spz import SPzCorrections
 from gpaw.directmin.odd.fd.spz_2 import SPzCorrections2
+from gpaw.directmin.odd.fd.zero import ZeroCorrections
 
 def odd_corrections(odd, wfs, dens, ham):
 
@@ -19,7 +20,7 @@ def odd_corrections(odd, wfs, dens, ham):
         elif name == 'SPZ_SIC2':
             return SPzCorrections2(wfs, dens, ham, **kwargs)
         elif name == 'Zero':
-            return None
+            return ZeroCorrections(wfs, dens, ham, **kwargs)
         else:
             raise NotImplementedError('Check name of the '
                                       'ODD corrections')
