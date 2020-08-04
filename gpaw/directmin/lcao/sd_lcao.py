@@ -383,7 +383,7 @@ class LBFGS_P(SteepestDescent):
         :param m: memory (amount of previous steps to use)
         """
         super(LBFGS_P, self).__init__(wfs)
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        # self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
         self.rho_k = np.zeros(shape=memory)
@@ -410,7 +410,10 @@ class LBFGS_P(SteepestDescent):
             self.k += 1
             self.p += 1
             self.kp[self.k] = self.p
-            p = self.apply_prec(hess_1, g_k1, -1.0)
+            if hess_1 is None:
+                p = self.minus(g_k1)
+            else:
+                p = self.apply_prec(hess_1, g_k1, -1.0)
             self.beta_0 = 1.0
             return p
 
@@ -436,17 +439,25 @@ class LBFGS_P(SteepestDescent):
             s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
             y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
 
-            try:
-                dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                              s_k[kp[k]],
-                                              wfs)
+            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+                                          s_k[kp[k]],
+                                          wfs)
+            if abs(dot_ys) > 1.0e-20:
                 rho_k[kp[k]] = 1.0 / dot_ys
-            except ZeroDivisionError:
-                rho_k[kp[k]] = 1.0e12
+            else:
+                rho_k[kp[k]] = 1.0e20
 
-            if dot_ys < 0.0:
+            # try:
+            #     dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
+            #                                   s_k[kp[k]],
+            #                                   wfs)
+            #     rho_k[kp[k]] = 1.0 / dot_ys
+            # except ZeroDivisionError:
+            #     rho_k[kp[k]] = 1.0e12
+
+            if rho_k[kp[k]] < 0.0:
                 # raise Exception('y_k^Ts_k is not positive!')
-                parprint("y_k^Ts_k is not positive!")
+                # parprint("y_k^Ts_k is not positive!")
                 self.stable = False
                 self.__init__(wfs, memory=self.m)
                 return self.update_data(wfs, x_k1, g_k1, hess_1)
@@ -468,23 +479,19 @@ class LBFGS_P(SteepestDescent):
 
                 # q -= alpha[kp[i]] * y_k[kp[i]]
 
-            try:
-                # t = np.maximum(1, k - m + 1)
+            t = k
+            dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
+                                          y_k[kp[t]], wfs)
 
-                t = k
-
-                dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                              y_k[kp[t]], wfs)
-
-                # r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
-
-                self.beta_0 = 1.0 / (rho_k[kp[t]] * dot_yy)
-
+            rhoyy = rho_k[kp[t]] * dot_yy
+            if hess_1 is not None:
                 r = self.apply_prec(hess_1, q)
-
-            except ZeroDivisionError:
-                # r = 1.0e12 * q
-                r = self.multiply(q, 1.0e12)
+            else:
+                if abs(rhoyy) > 1.0e-20:
+                    self.beta_0 = 1.0 / rhoyy
+                else:
+                    self.beta_0 = 1.0e20
+                r = self.multiply(q, self.beta_0)
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
                 dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
