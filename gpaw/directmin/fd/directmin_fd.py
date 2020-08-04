@@ -55,14 +55,10 @@ class DirectMinFD(Eigensolver):
                 xc_string_to_dict(self.odd_parameters)
 
         if 'SIC' in self.odd_parameters['name']:
-            if self.sda is None:
-                self.sda = 'LBFGS_P'
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'WER'
-        else:
-            if self.sda is None:
-                self.sda = 'LBFGS_P'
-
+        if self.sda is None:
+            self.sda = 'LBFGS_P'
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
