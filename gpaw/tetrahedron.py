@@ -1,4 +1,5 @@
-"""Improved tetrahedron method for Brillouin-zone integrations
+"""Improved tetrahedron method for Brillouin-zone integrations.
+
 Peter E. Blöchl, O. Jepsen, and O. K. Andersen
 Phys. Rev. B 49, 16223 – Published 15 June 1994
 
@@ -13,7 +14,7 @@ from scipy.spatial import Delaunay
 
 from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               distribute_occupation_numbers,
-                              OccupationNumbers)
+                              OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
 
 
@@ -65,22 +66,31 @@ def triangulate_everything(size_c, ABC_tqc, i_k):
     return i_ktq
 
 
-class TetrahedronMethod(OccupationNumbers):
+class TetrahedronMethod(OccupationNumberCalculator):
+    name = 'tetrahedron-method'
+
     def __init__(self,
+                 rcell: List[List[float]],
                  size: Tuple[int, int, int],
-                 bz2ibzmap: List[int],
-                 rcell: List[List[float]]):
+                 bz2ibzmap: List[int] = None,
+                 parallel_layout: ParallelLayout = None):
         """ . """
 
-        OccupationNumbers.__init__(self)
+        OccupationNumberCalculator.__init__(self, parallel_layout)
 
-        self.size_c = np.asarray(size)
-        self.i_k = np.asarray(bz2ibzmap)
         self.rcell_cv = np.asarray(rcell)
+        self.size_c = np.asarray(size)
+
+        nbzk = self.size_c.prod()
+
+        if bz2ibzmap is None:
+            bz2ibzmap = np.arange(nbzk)
+
+        self.i_k = np.asarray(bz2ibzmap)
 
         assert self.size_c.shape == (3,)
         assert self.rcell_cv.shape == (3, 3)
-        assert self.i_k.shape == (self.size_c.prod(),)
+        assert self.i_k.shape == (nbzk,)
 
         ABC_tqc = triangulate_submesh(
             self.rcell_cv / self.size_c[:, np.newaxis])
@@ -92,13 +102,12 @@ class TetrahedronMethod(OccupationNumbers):
                    eig_qn,
                    weight_q,
                    f_qn,
-                   parallel,
                    fermi_level_guess=nan):
 
         if np.isnan(fermi_level_guess):
             zero = ZeroWidth()
             fermi_level_guess, _ = zero._calculate(
-                nelectrons, eig_qn, weight_q, f_qn, parallel)
+                nelectrons, eig_qn, weight_q, f_qn)
             print(fermi_level_guess)
             if np.isinf(fermi_level_guess):
                 return fermi_level_guess, 0.0
@@ -106,7 +115,7 @@ class TetrahedronMethod(OccupationNumbers):
         x = fermi_level_guess
 
         eig_in, weight_k, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
-                                                        parallel)
+                                                        self.bd, self.kpt_comm)
 
         assert self.i_k.max() == len(eig_in) - 1
 
@@ -121,11 +130,12 @@ class TetrahedronMethod(OccupationNumbers):
             f_kn = None
             fermi_level = nan
 
-        distribute_occupation_numbers(f_kn, f_qn, nkpts_r, parallel)
+        distribute_occupation_numbers(f_kn, f_qn, nkpts_r,
+                                      self.bd, self.kpt_comm)
 
-        if parallel.kpt_comm.rank == 0 and parallel.bd is not None:
-            fermi_level = broadcast_float(fermi_level, parallel.bd.comm)
-        fermi_level = broadcast_float(fermi_level, parallel.kpt_comm)
+        if self.kpt_comm.rank == 0:
+            fermi_level = broadcast_float(fermi_level, self.bd.comm)
+        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
 
         return fermi_level, 0.0
 

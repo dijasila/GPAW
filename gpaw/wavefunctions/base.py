@@ -1,9 +1,9 @@
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 from ase.units import Ha
 
-from gpaw.occupations import ParallelLayout, OccupationNumbers
+from gpaw.occupations import OccupationNumberCalculator
 from gpaw.projections import Projections
 from gpaw.utilities import pack, unpack2
 from gpaw.utilities.blas import gemm, axpy
@@ -56,8 +56,8 @@ class WaveFunctions:
         self.kpt_qs = kd.create_k_points(self.gd.sdisp_cd, collinear)
         self.kpt_u = [kpt for kpt_s in self.kpt_qs for kpt in kpt_s]
 
-        self.occupations: Optional[OccupationNumbers] = None
-        self.fermi_levels: Optional[List[float]] = None
+        self.occupations: Optional[OccupationNumberCalculator] = None
+        self.fermi_levels: Optional[np.ndarray] = None
 
         self.eigensolver = None
         self.positions_set = False
@@ -207,22 +207,20 @@ class WaveFunctions:
         else:
             degeneracy = 1
 
-        parallel = ParallelLayout(self.bd, self.kd.comm, self.gd.comm)
-
         f_qn, fermi_levels, e_entropy = self.occupations.calculate(
             nelectrons=self.nvalence / degeneracy,
-            eigenvalues=[kpt.eps_n for kpt in self.kpt_u],
+            eigenvalues=[kpt.eps_n * Ha for kpt in self.kpt_u],
             weights=[kpt.weightk for kpt in self.kpt_u],
-            parallel=parallel,
-            fermi_levels_guess=self.fermi_levels)
+            fermi_levels_guess=self.fermi_levels * Ha
+            if self.fermi_levels is not None else None)
 
         if not fixed_fermi_level or self.fermi_levels is None:
-            self.fermi_levels = np.array(fermi_levels)
+            self.fermi_levels = np.array(fermi_levels) / Ha
 
         for f_n, kpt in zip(f_qn, self.kpt_u):
             kpt.f_n = f_n * (kpt.weightk * degeneracy)
 
-        return e_entropy * degeneracy
+        return e_entropy * degeneracy / Ha
 
     def set_positions(self, spos_ac, atom_partition=None):
         self.positions_set = False

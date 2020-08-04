@@ -32,7 +32,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
-from gpaw.occupations import create_occupation_number_object
+from gpaw.occupations import create_occ_calc, ParallelLayout
 from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
 from gpaw.scf import SCFLoop
@@ -749,7 +749,8 @@ class GPAW(Calculator):
         else:
             self.wfs.set_setups(self.setups)
 
-        occ = self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
+        occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
+                                      orbital_free)
         self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
@@ -860,34 +861,28 @@ class GPAW(Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, magmom, orbital_free):
-        occ = self.parameters.occupations
+    def create_occupations(self, cell_cv, magmom, orbital_free):
+        dct = self.parameters.occupations
 
-        if occ is None:
+        if dct is None:
             if orbital_free:
-                occ = {'name': 'orbital-free'}
+                dct = {'name': 'orbital-free'}
             else:
                 if self.atoms.pbc.any():
-                    occ = {'name': 'fermi-dirac',
+                    dct = {'name': 'fermi-dirac',
                            'width': 0.1}  # eV
                 else:
-                    occ = {'width': 0.0}
+                    dct = {'width': 0.0}
 
-        if isinstance(occ, dict):
-            occupations = create_occupation_number_object(**occ)
-        else:
-            occupations = occ
-
-        if occupations.fixmagmom:
-            if self.wfs.nspins == 2:
-                occupations.fixed_magmom_value = magmom
-            else:
-                occupations.fixmagmom = False
-
-        # If occupation numbers are changed, and we have wave functions,
-        # recalculate the occupation numbers
-        # if self.wfs is not None:
-        #     self.occupations.calculate(self.wfs)
+        occupations = create_occ_calc(
+            dct,
+            parallel_layout=ParallelLayout(self.wfs.bd,
+                                           self.wfs.kd.comm,
+                                           self.wfs.gd.comm),
+            fixed_magmom_value=magmom,
+            rcell=np.linalg.inv(cell_cv).T,
+            monkhorst_pack_size=self.wfs.kd.N_c,
+            bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
         self.log(occupations)
         return occupations

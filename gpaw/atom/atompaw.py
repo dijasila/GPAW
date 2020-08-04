@@ -8,7 +8,7 @@ from gpaw.calculator import GPAW
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.utilities import unpack
-from gpaw.occupations import OccupationNumbers
+from gpaw.occupations import OccupationNumberCalculator
 import gpaw.mpi as mpi
 
 
@@ -259,19 +259,18 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
         return (0, 0, 0)
 
 
-class AtomOccupations(OccupationNumbers):
+class AtomOccupations(OccupationNumberCalculator):
     extrapolate_factor = 0.0
 
     def __init__(self, f_sln):
         self.f_sln = f_sln
-        OccupationNumbers.__init__(self)
+        OccupationNumberCalculator.__init__(self)
 
     def _calculate(self,
                    nelectrons,
                    eig_qn,
                    weight_q,
                    f_qn,
-                   parallel,
                    fermi_level_guess):
         for s, f_n in enumerate(f_qn):
             n1 = 0
