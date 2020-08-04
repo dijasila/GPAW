@@ -376,15 +376,11 @@ class LBFGS_P(SteepestDescent):
 
         self.s_k = {i: None for i in range(memory)}
         self.y_k = {i: None for i in range(memory)}
-
         self.rho_k = np.zeros(shape=memory)
-
         self.kp = {}
         self.p = 0
         self.k = 0
-
         self.m = memory
-
         self.stable = True
 
     def __str__(self):
