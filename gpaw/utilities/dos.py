@@ -515,7 +515,7 @@ class RawLDOS:
             emax += 4 * width
 
             # Fermi energies
-            efermis = self.paw.fermi_levels
+            efermis = self.paw.wfs.fermi_levels
 
             eshift = 0.0
 

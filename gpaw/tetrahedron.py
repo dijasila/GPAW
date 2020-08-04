@@ -219,19 +219,24 @@ def weights(eig_in, i_ktq, f_in):
         (ntetra * (n2 - n1), 4))
     q_Tq = eig_Tq.argsort(axis=1)
     eig_Tq = np.take_along_axis(eig_Tq, q_Tq, 1)
-
-    eig_Tq = eig_Tq[
+    f_Tq = np.zeros_like(eig_Tq)
 
     mask0_T = eig_Tq[:, 0] > 0.0
-    mask1_T = (eig_Tq[:, 0] < 0.0) & (eig_Tq[:, 1] > 0.0)
-    mask2_T = ~mask1_T & (eig_Tq[:, 2] > 0.0)
-    mask3_T = ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
+    mask1_T = ~mask0_T & (eig_Tq[:, 1] > 0.0)
+    mask2_T = ~mask0_T & ~mask1_T & (eig_Tq[:, 2] > 0.0)
+    mask3_T = ~mask0_T & ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
 
     for mask_T, bja in [(mask1_T, bja1a), (mask2_T, bja2a), (mask3_T, bja3a)]:
         w_qT = bja(*eig_Tq[mask_T].T)
+        f_Tq[mask_T] += w_qT.T
 
-    # mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
-    # ne += mask4_T.sum() / ntetra
+    #mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
+    #ne += mask4_T.sum() / ntetra
+
+    ktn_T = np.unravel_index(np.arange(len(eig_Tq)),
+                             (len(i_ktq), 6, n2 - n1))
+    for f_q, q_q, (k, t, n) in zip(f_Tq, q_Tq, ktn_T):
+        f_in[i_ktq[k, t, q_q], n1 + n] += f_q
 
 
 def test():
