@@ -1,26 +1,30 @@
 # flake8: noqa
-from scipy.special import erf
-from gpaw.xc.gllb.contribution import Contribution
-from gpaw.xc import XC
-from gpaw.xc.pawcorrection import rnablaY_nLv
-from math import sqrt, pi, exp
-from gpaw.sphere.lebedev import weight_n
 import numpy as np
+from math import sqrt, pi, exp
+from scipy.special import erfcx
 
-K_G = 0.382106112167171
+from ase.units import Hartree
+from gpaw.xc.pawcorrection import rnablaY_nLv
+from gpaw.sphere.lebedev import weight_n
+from gpaw.xc import XC
+from gpaw.xc.gllb.contribution import Contribution
+
+
+K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
 
 class C_GLLBScr(Contribution):
     def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None,
-                 eps=0.05, damp=1e-10):
+                 eps=0.05, damp=1e-10, metallic=False):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
         self.old_coeffs = None
         self.iter = 0
         self.damp = damp
+        self.metallic = metallic
         if width is not None:
-            width = width / 27.21
-        self.eps = eps / 27.21
+            width = width / Hartree
+        self.eps = eps / Hartree
         self.width = width
 
     def get_name(self):
@@ -30,7 +34,13 @@ class C_GLLBScr(Contribution):
         self.damp = damp
 
     def get_desc(self):
-        return '(' + self.functional + ')'
+        desc = '({}'.format(self.functional)
+        if self.metallic:
+            desc += ', metallic'
+        if self.width is not None:
+            desc += ', width={:.4f} eV'.format(self.width * Hartree)
+        desc += ')'
+        return desc
 
     # Initialize GLLBScr functional
     def initialize_1d(self):
@@ -50,7 +60,6 @@ class C_GLLBScr(Contribution):
         return Exc
 
     def initialize(self):
-        self.occupations = self.nlfunc.occupations
         self.xc = XC(self.functional)
 
         # Always 1 spin, no matter what calculation nspins is
@@ -67,16 +76,12 @@ class C_GLLBScr(Contribution):
             else:
                 return 0.0
         else:
-            dEH = -f
-            w = self.width
-            if dEH / w < -100:
-                return sqrt(f)
-            Knew = -0.5 * erf(sqrt((max(0.0,dEH)-dEH)/w)) * \
-                    sqrt(w*pi) * exp(-dEH/w)
-            Knew += 0.5 * sqrt(w*pi)*exp(-dEH/w)
-            Knew += sqrt(max(0.0,dEH)-dEH)*exp(max(0.0,dEH)/w)
-            #print dEH, w, dEH/w, Knew, f**0.5
-            return Knew
+            width = self.width
+            if f > 0:
+                K = sqrt(f) + 0.5 * sqrt(pi * width) * erfcx(sqrt(f / width))
+            else:
+                K = 0.5 * sqrt(pi * width) * exp(f / width)
+            return K
 
     def get_coefficients(self, e_j, f_j):
         homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(f_j, e_j)] )
@@ -112,12 +117,25 @@ class C_GLLBScr(Contribution):
         #    if kpt_u[0].C_nM is None:
         #        return None
 
-        if homolumo is None:
+        eref_s = []
+        eref_lumo_s = []
+        if self.metallic:
+            # Use Fermi level as reference levels
+            assert homolumo is None
+            fermilevel = self.nlfunc.wfs.fermi_level
+            assert isinstance(fermilevel, float), 'GLLBSCM supports only a single Fermi level'
+            for s in range(nspins):
+                eref_s.append(fermilevel)
+                eref_lumo_s.append(fermilevel)
+        elif homolumo is None:
             # Find homo and lumo levels for each spin
-            eref_s = []
-            eref_lumo_s = []
             for s in range(nspins):
                 homo, lumo = self.nlfunc.wfs.get_homo_lumo(s)
+                # Check that homo and lumo are reasonable
+                if homo > lumo:
+                    raise RuntimeError("GLLBScr error: HOMO is higher than LUMO. "
+                                       "Are you using `xc='GLLBSC'` for a metallic system? "
+                                       "If yes, try using `xc='GLLBSCM'` instead.")
                 eref_s.append(homo)
                 eref_lumo_s.append(lumo)
         else:
@@ -128,23 +146,21 @@ class C_GLLBScr(Contribution):
 
         # The parameter ee might sometimes be set to small thereshold value to
         # achieve convergence on small systems with degenerate HOMO.
+        # XXX This parameter ee is not to used anywhere
         # if len(kpt_u) > nspins:
         #     ee = 0.0
         # else:
-        #     ee = 0.05 / 27.21
+        #     ee = 0.05 / Hartree
 
         if lumo_perturbation:
             return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
                                          -self.f(eref_s[kpt.s]-e))
                               for e, f in zip(kpt.eps_n, kpt.f_n) ])
                     for kpt in kpt_u]
-
-
         else:
             coeff = [ np.array([ f * K_G * self.f(eref_s[kpt.s] - e)
                      for e, f in zip(kpt.eps_n, kpt.f_n) ])
                      for kpt in kpt_u ]
-            #print coeff
             return coeff
 
 

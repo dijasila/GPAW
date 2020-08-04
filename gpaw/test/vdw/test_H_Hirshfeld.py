@@ -1,4 +1,4 @@
-"""Test Hirshfeld for spin/no spin consitency"""
+"""Test Hirshfeld for spin/no spin consistency."""
 from ase import Atom
 from gpaw import GPAW
 from ase.parallel import parprint
@@ -23,6 +23,7 @@ def test_vdw_H_Hirshfeld():
                     experimental={'niter_fixdensity': 2},
                     spinpol=spinpol)
         calc.calculate(atoms)
-        volumes.append(HirshfeldPartitioning(calc).get_effective_volume_ratios())
+        vol = HirshfeldPartitioning(calc).get_effective_volume_ratios()
+        volumes.append(vol)
     parprint(volumes)
     equal(volumes[0][0], volumes[1][0], 4e-9)

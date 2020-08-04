@@ -78,7 +78,7 @@ Common sources of bugs
 
      class A:
          def __init__(self, a=[]):
-             self.a = a # All instances get the same list!
+             self.a = a  # all instances get the same list!
 
   - There are subtle differences between ``x == y`` and ``x is y``.
 

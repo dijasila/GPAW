@@ -44,3 +44,13 @@ def pytest_configure(config):
         else:
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
+
+
+def pytest_runtest_setup(item):
+    """Skip tests that depend on libxc if not compiled with libxc."""
+    from gpaw import libraries
+    if libraries['libxc']:
+        return
+    if any(mark.name in {'libxc', 'mgga'}
+           for mark in item.iter_markers()):
+        pytest.skip('No LibXC.')

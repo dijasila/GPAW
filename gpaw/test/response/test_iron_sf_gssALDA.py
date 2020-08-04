@@ -106,7 +106,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
 
     # Magnon peak:
     equal(mw1, test_mw1, 0.1)
-    equal(mw2, test_mw2, eta * 350)
+    equal(mw2, test_mw2, eta * 650)
 
     # Scattering function intensity:
     equal(Ipeak1, test_Ipeak1, 5)

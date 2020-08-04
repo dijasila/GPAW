@@ -66,7 +66,7 @@ def get_radial_potential(a, xc, D_sp):
     f_g = fc_g + fh_g
 
     # xc force
-    if xc.name != 'GLLBSC':
+    if xc.type != 'GLLB':
         v_sg = np.zeros_like(n_sg)
         xc.calculate_spherical(a.xc_correction.rgd, n_sg, v_sg)
         fxc_g = np.mean([a.xc_correction.rgd.derivative(v_g) for v_g in v_sg],
@@ -257,36 +257,19 @@ def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None, return_spin=False,
             return np.array(e_km).T
 
 
-def set_calculator(calc, e_km, v_knm=None, width=None):
-    from gpaw.occupations import FermiDirac
-    from ase.units import Hartree
-
-    noncollinear = not calc.density.collinear
-
-    if width is None:
-        width = calc.occupations.width * Hartree
-    if not noncollinear:
-        calc.wfs.bd.nbands *= 2
-    # calc.wfs.nspins = 1
-    for kpt in calc.wfs.kpt_u:
-        kpt.eps_n = e_km[kpt.k] / Hartree
-        kpt.f_n = np.zeros_like(kpt.eps_n)
-        if not noncollinear:
-            kpt.weight /= 2
-    ef = calc.occupations.fermilevel
-    calc.occupations = FermiDirac(width)
-    calc.occupations.nvalence = calc.wfs.setups.nvalence - calc.density.charge
-    calc.occupations.fermilevel = ef
-    calc.occupations.calculate_occupation_numbers(calc.wfs)
-    for kpt in calc.wfs.kpt_u:
-        kpt.f_n *= 2
-        kpt.weight *= 2
+def fermi_level(calc, e_km):
+    assert calc.world.size == 1
+    occ = calc.wfs.occupations
+    f_kn, fermi_levels, e_entropy = occ.calculate(
+        calc.wfs.setups.nvalence,
+        e_km / Ha,
+        calc.wfs.kd.weight_k)
+    return fermi_levels[0] * Ha
 
 
 def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the sum of occupied spinorbit eigenvalues. Returns the result
     relative to the sum of eigenvalues without spinorbit coupling"""
-
     Ns = calc.wfs.nspins
     noncollinear = not calc.density.collinear
 
@@ -313,7 +296,8 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     e_mk = get_spinorbit_eigenvalues(calc, theta=theta, phi=phi,
                                      bands=range(nbands))
     if width is None:
-        width = calc.occupations.width * Ha
+        assert calc.wfs.occupations.name == 'fermi-dirac'
+        width = calc.wfs.occupations.width * Ha
     if width == 0.0:
         width = 1.e-6
     weight_k = calc.get_k_point_weights() / 2
@@ -334,7 +318,7 @@ def get_spinorbit_projections(calc, ik, v_nm):
 
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
-        
+
     P_ani = {}
     for ia in range(Na):
         P0_ni = calc.wfs.kpt_u[ik].P_ani[ia]
@@ -349,7 +333,7 @@ def get_spinorbit_projections(calc, ik, v_nm):
 
     return P_ani
 
-    
+
 def get_spinorbit_wavefunctions(calc, ik, v_nm):
     # For spinors the number of bands is doubled and a spin dimension is added
     Ns = calc.wfs.nspins
@@ -357,7 +341,7 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 
     v0_mn = v_nm[::2].T
     v1_mn = v_nm[1::2].T
-    
+
     u0_nG = np.array([calc.wfs.get_wave_function_array(n, ik, 0)
                       for n in range(Nn)])
     u1_nG = np.array([calc.wfs.get_wave_function_array(n, ik, (Ns - 1))
@@ -374,7 +358,7 @@ def get_spinorbit_wavefunctions(calc, ik, v_nm):
 
     return u_mG
 
-    
+
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     """Calculates the magnetic moments inside all PAW spheres"""
 
@@ -403,7 +387,8 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
 
     from gpaw.occupations import occupation_numbers
     if width is None:
-        width = calc.occupations.width * Ha
+        assert calc.wfs.occupations.name == 'fermi-dirac'
+        width = calc.wfs.occupations.width * Ha
     if width == 0.0:
         width = 1.e-6
     weight_k = calc.get_k_point_weights() / 2

@@ -19,7 +19,8 @@ class KPoint:
         k-point weight in supercell calculations.
     """
 
-    def __init__(self, weight: float, s: int, k: int, q: int, phase_cd):
+    def __init__(self, weightk: float, weight: float,
+                 s: int, k: int, q: int, phase_cd):
         """Construct k-point object.
 
         Parameters:
@@ -37,7 +38,8 @@ class KPoint:
             and direction d=0,1.
         """
 
-        self.weight = weight
+        self.weightk = weightk  # pure k-point weight
+        self.weight = weight  # old confusing weight
         self.s = s  # spin index
         self.k = k  # k-point index
         self.q = q  # local k-point index

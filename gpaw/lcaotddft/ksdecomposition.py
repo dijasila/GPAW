@@ -88,7 +88,7 @@ class KohnShamDecomposition(object):
             self.C0_dtype = complex
 
         # Take quantities
-        self.fermilevel = paw.occupations.get_fermi_level()
+        self.fermilevel = paw.wfs.fermi_level
         self.S_uMM = []
         self.C0_unM = []
         self.eig_un = []

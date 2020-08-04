@@ -87,8 +87,7 @@ class OmegaMatrix:
                 self.xc = XC(xc)
             else:
                 self.xc = xc
-            self.xc.initialize(self.paw.density, self.paw.hamiltonian,
-                               wfs, self.paw.occupations)
+            self.xc.initialize(self.paw.density, self.paw.hamiltonian, wfs)
 
             # check derivativeLevel
             if derivativeLevel is None:
