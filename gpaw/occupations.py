@@ -3,7 +3,6 @@
 import warnings
 from math import pi, nan, inf
 from typing import List, Tuple, NamedTuple, Any, Callable, Dict
-
 import numpy as np
 from scipy.special import erf
 from ase.units import Ha
@@ -256,7 +255,7 @@ class SmoothDistribution(OccupationNumberCalculator):
         OccupationNumberCalculator.__init__(self, parallel_layout)
 
     def todict(self):
-        return {'name': self.name, 'width': self.width}
+        return {'name': self.name, 'width': self._width}
 
     def _calculate(self,
                    nelectrons,
@@ -366,7 +365,7 @@ def findroot(func: Callable[[float], Tuple[float, float]],
         elif f > 0.0 and x < xmax:
             xmax = x
         dx = -f / max(dfdx, 1e-18)
-        if niter == 10 or abs(dx) > 0.01 or not (xmin < x + dx < xmax):
+        if niter == 10 or abs(dx) > 0.3 or not (xmin < x + dx < xmax):
             break  # try bisection
         x += dx
         niter += 1

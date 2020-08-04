@@ -873,6 +873,8 @@ class GPAW(Calculator):
                            'width': 0.1}  # eV
                 else:
                     dct = {'width': 0.0}
+        elif not isinstance(dct, dict):
+            return dct
 
         occupations = create_occ_calc(
             dct,
@@ -1532,14 +1534,16 @@ class GPAW(Calculator):
     def get_fermi_level(self):
         """Return the Fermi-level."""
         assert self.wfs.fermi_levels is not None
-        assert len(self.wfs.fermi_levels) == 1
+        if len(self.wfs.fermi_levels) != 1:
+            raise ValueError('There are two Fermi-levels!')
         return self.wfs.fermi_levels[0] * Ha
 
     def get_fermi_levels(self):
         """Return the Fermi-levels in case of fixed-magmom."""
         assert self.wfs.fermi_levels is not None
-        assert len(self.wfs.fermi_levels) == 2
-        return np.array(self.wfs.fermi_levels) * Ha
+        if len(self.wfs.fermi_levels) != 2:
+            raise ValueError('There is only one Fermi-level!')
+        return self.wfs.fermi_levels * Ha
 
     def get_wigner_seitz_densities(self, spin):
         """Get the weight of the spin-density in Wigner-Seitz cells

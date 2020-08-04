@@ -67,13 +67,9 @@ class SimpleStm(STM):
         else:
             # energy bias
             try:
-                if self.calc.wfs.occupations.fixmagmom:
-                    efermi_s = self.calc.get_fermi_levels()
-                else:
-                    efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:
-                raise  # XXXXX except what?
-                efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
+                efermi_s = self.calc.get_fermi_levels()
+            except ValueError:
+                efermi_s = np.array([self.calc.get_fermi_level()] * 2)
 
             if isinstance(bias, (int, float)):
                 # bias given

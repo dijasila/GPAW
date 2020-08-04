@@ -18,29 +18,58 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
 from gpaw.mpi import broadcast_float
 
 
-def bja1(e1, e2, e3, e4):
+def bja1a(e1, e2, e3, e4):
     """Eq. (A2) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e2 - e1) * (e3 - e1) * (e4 - e1))
-    return (-e1**3 * x,
-            3 * e1**2 * x)
+    return (-(e1**3).dot(x),
+            3 * (e1**2).dot(x))
 
 
-def bja2(e1, e2, e3, e4):
+def bja2a(e1, e2, e3, e4):
     x = 1.0 / ((e3 - e1) * (e4 - e1))
     y = (e3 - e1 + e4 - e2) / ((e3 - e2) * (e4 - e2))
-    return (x * ((e2 - e1)**2
-                 - 3 * (e2 - e1) * e2
-                 + 3 * e2**2
-                 + y * e2**3),
-            x * (3 * (e2 - e1)
-                 - 6 * e2
-                 - 3 * y * e2**2))
+    return (x.dot((e2 - e1)**2
+                  - 3 * (e2 - e1) * e2
+                  + 3 * e2**2
+                  + y * e2**3),
+            x.dot(3 * (e2 - e1)
+                  - 6 * e2
+                  - 3 * y * e2**2))
 
 
-def bja3(e1, e2, e3, e4):
+def bja3a(e1, e2, e3, e4):
     x = 1.0 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
-    return (1 - x * e4**3,
-            3 * x * e4**2)
+    return (1 - x.dot(e4**3),
+            3 * x.dot(e4**2))
+
+
+def bja1b(e1, e2, e3, e4):
+    C = -0.25 * e1**3 / ((e2 - e1) * (e3 - e1) * (e4 - e1))
+    w2 = -C * e1 / (e2 - e1)
+    w3 = -C * e1 / (e3 - e1)
+    w4 = -C * e1 / (e4 - e1)
+    w1 = C - w2 - w3 - w4
+    return w1, w2, w3, w4
+
+
+def bja2b(e1, e2, e3, e4):
+    C1 = 0.25 * e1**2 / ((e4 - e1) * (e3 - e1))
+    C2 = 0.25 * e1 * e2 * e3 / ((e4 - e1) * (e3 - e2) * (e3 - e1))
+    C3 = 0.25 * e2**2 * e4 / ((e4 - e2) * (e3 - e2) * (e4 - e1))
+    w1 = C1 + (C1 + C2) * e3 / (e3 - e1) + (C1 + C2 + C3) * e4 / (e4 - e1)
+    w2 = C1 + C2 + C3 + (C2 + C3) * e3 / (e3 - e2) + C3 * e4 / (e4 - e2)
+    w3 = (C1 + C2) * e1 / (e1 - e3) - (C2 + C3) * e2 / (e3 - e2)
+    w4 = (C1 + C2 + C3) * e1 / (e1 - e4) + C3 * e2 / (e2 - e4)
+    return w1, w2, w3, w4
+
+
+def bja3b(e1, e2, e3, e4):
+    C = -0.25 * e4**3 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
+    w1 = 0.25 - C * e4 / (e4 - e1)
+    w2 = 0.25 - C * e4 / (e4 - e2)
+    w3 = 0.25 - C * e4 / (e4 - e3)
+    w4 = 1.0 - 4 * C - w1 - w2 - w3
+    return w1, w2, w3, w4
 
 
 def triangulate_submesh(rcell_cv):
@@ -125,12 +154,13 @@ class TetrahedronMethod(OccupationNumberCalculator):
                 return n - nelectrons, dn
 
             fermi_level, niter = findroot(func, x)
-            f_kn = np.zeros_like(eig_in)
+            f_in = np.zeros_like(eig_in)
+            weights(eig_in - fermi_level, self.i_ktq, f_in)
         else:
-            f_kn = None
+            f_in = None
             fermi_level = nan
 
-        distribute_occupation_numbers(f_kn, f_qn, nkpts_r,
+        distribute_occupation_numbers(f_in, f_qn, nkpts_r,
                                       self.bd, self.kpt_comm)
 
         if self.kpt_comm.rank == 0:
@@ -163,10 +193,10 @@ def count(fermi_level, eig_in, i_ktq):
     mask2_T = ~mask1_T & (eig_Tq[:, 2] > 0.0)
     mask3_T = ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
 
-    for mask_T, bja in [(mask1_T, bja1), (mask2_T, bja2), (mask3_T, bja3)]:
-        n_T, dn_T = bja(*eig_Tq[mask_T].T)
-        ne += n_T.sum() / ntetra
-        dnedef += dn_T.sum() / ntetra
+    for mask_T, bjaa in [(mask1_T, bja1a), (mask2_T, bja2a), (mask3_T, bja3a)]:
+        n, dn = bjaa(*eig_Tq[mask_T].T)
+        ne += n / ntetra
+        dnedef += dn / ntetra
 
     mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
     ne += mask4_T.sum() / ntetra
@@ -174,10 +204,40 @@ def count(fermi_level, eig_in, i_ktq):
     return ne, dnedef
 
 
+def weights(eig_in, i_ktq, f_in):
+    nocc_i = (eig_in < 0.0).sum(axis=1)
+    n1 = nocc_i.min()
+    n2 = nocc_i.max()
+
+    f_in[:, :n1] = 1.0
+
+    if n1 == n2:
+        return
+
+    ntetra = 6 * i_ktq.shape[0]
+    eig_Tq = eig_in[i_ktq, n1:n2].transpose((0, 1, 3, 2)).reshape(
+        (ntetra * (n2 - n1), 4))
+    q_Tq = eig_Tq.argsort(axis=1)
+    eig_Tq = np.take_along_axis(eig_Tq, q_Tq, 1)
+
+    eig_Tq = eig_Tq[
+
+    mask0_T = eig_Tq[:, 0] > 0.0
+    mask1_T = (eig_Tq[:, 0] < 0.0) & (eig_Tq[:, 1] > 0.0)
+    mask2_T = ~mask1_T & (eig_Tq[:, 2] > 0.0)
+    mask3_T = ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
+
+    for mask_T, bja in [(mask1_T, bja1a), (mask2_T, bja2a), (mask3_T, bja3a)]:
+        w_qT = bja(*eig_Tq[mask_T].T)
+
+    # mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
+    # ne += mask4_T.sum() / ntetra
+
+
 def test():
-    t = TetrahedronMethod([2, 2, 1],
-                          [0, 1, 2, 1],
-                          np.diag([1.0, 1.0, 0.1]))
+    t = TetrahedronMethod(np.diag([1.0, 1.0, 0.1]),
+                          [2, 2, 1],
+                          [0, 1, 2, 1])
 
     eig_in = np.array([[1.0], [0.0], [0.0]])
     """
@@ -186,7 +246,7 @@ def test():
     plt.plot(x, [count(f, eig_in, t.i_ktq)[0] for f in x])
     plt.show()
     """
-    r = t.calculate(0.5, eig_in, [0.25, 0.5, 0.25], None, [0.5])
+    r = t.calculate(0.5, eig_in, [0.25, 0.5, 0.25], [0.5])
     print(r)
 
 

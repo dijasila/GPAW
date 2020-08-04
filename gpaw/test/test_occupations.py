@@ -2,6 +2,7 @@ from functools import partial
 
 import pytest
 from ase.units import Ha
+import numpy as np
 
 from gpaw.occupations import (fermi_dirac, marzari_vanderbilt,
                               methfessel_paxton, FermiDiracCalculator,
@@ -42,6 +43,6 @@ def test_occupations(func):
 def test_occupation_obj(e_kn, w_k, ne):
     for occ in [FermiDiracCalculator(0.1),
                 ZeroWidth()]:
-        f_kn, fl, s = occ.calculate(ne, e_kn, w_k)
-        print(f_kn, fl, s)
+        f_kn, fl, s = occ.calculate(ne, np.array(e_kn) * Ha, w_k)
+        print(f_kn, fl, s, f_kn.sum(1).dot(w_k))
         assert f_kn.sum(1).dot(w_k) == pytest.approx(ne, abs=1e-14)
