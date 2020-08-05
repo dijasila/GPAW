@@ -11,7 +11,7 @@ See::
 """
 
 from math import nan
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, TypeVar
 import numpy as np
 from scipy.spatial import Delaunay
 
@@ -20,7 +20,7 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
 
-Array = Any
+Array = TypeVar('Array')#np.ndarray#Any
 
 
 def bja1(e1: Array, e2: Array, e3: Array, e4: Array) -> Tuple[float, float]:
@@ -96,6 +96,16 @@ def triangulate_submesh(rcell_cv: Array) -> Array:
 def triangulate_everything(size_c: Array,
                            ABC_tqc: Array,
                            i_k: Array) -> Array:
+    """Triangulate the whole BZ.
+
+    Returns i_ktq ndarray mapping:
+
+    * k: BZ k-point index (0, 1, ...,  nbzk - 1)
+    * t: tetrahedron index (0, 1, ..., 5)
+    * q: tetrahedron corner index (0, 1, 2, 3)
+
+    to i: IBZ k-point index (0, 1, ...,  nibzk - 1).
+    """
     nbzk = size_c.prod()
     ABC_ck = np.unravel_index(np.arange(nbzk), size_c)
     ABC_tqck = ABC_tqc[..., np.newaxis] + ABC_ck
@@ -109,6 +119,7 @@ def triangulate_everything(size_c: Array,
 
 class TetrahedronMethod(OccupationNumberCalculator):
     name = 'tetrahedron-method'
+    extrapolate_factor = 0.0
 
     def __init__(self,
                  rcell: List[List[float]],
@@ -144,13 +155,22 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
         self.i_ktq = triangulate_everything(self.size_c, ABC_tqc, self.i_k)
 
+    def __repr__(self):
+        return (
+            'TetrahedronMethod('
+            f'rcell={self.rcell_cv.tolist()}, '
+            f'size={self.size_c.tolist()}, '
+            f'bz2ibzmap={self.i_k.tolist()}, '
+            'parallel_layout=<'
+            f'{self.bd.comm.size}x{self.kpt_comm.size}x{self.domain_comm.size}'
+            '>)')
+
     def _calculate(self,
                    nelectrons,
                    eig_qn,
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
-
         if np.isnan(fermi_level_guess):
             zero = ZeroWidth()
             fermi_level_guess, _ = zero._calculate(
@@ -167,6 +187,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
         if eig_in is not None:
             def func(x, eig_in=eig_in):
+                """Return excess electrons and derivative."""
                 n, dn = count(x, eig_in, self.i_ktq)
                 return n - nelectrons, dn
 
@@ -239,7 +260,7 @@ def weights(eig_in: Array, i_ktq: Array) -> Array:
         f_in[i, :n1] += 6.0
 
     if n1 == n2:
-        return
+        return f_in / 6
 
     ntetra = 6 * i_ktq.shape[0]
     eig_Tq = eig_in[i_ktq, n1:n2].transpose((0, 1, 3, 2)).reshape(

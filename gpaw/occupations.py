@@ -175,11 +175,11 @@ class OccupationNumberCalculator:
         return f_qn, [fermi_level], e_entropy
 
     def _calculate(self,
-                   nelectrons,
-                   eig_qn,
-                   weight_q,
-                   f_qn,
-                   fermi_level_guess):
+                   nelectrons: float,
+                   eig_qn: np.ndarray,
+                   weight_q: np.ndarray,
+                   f_qn: np.ndarray,
+                   fermi_level_guess: float) -> Tuple[float, float]:
         raise NotImplementedError
 
 
@@ -241,7 +241,7 @@ class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
 
 class SmoothDistribution(OccupationNumberCalculator):
     """Base class for Fermi-Dirac and other smooth distributions."""
-    def __init__(self, width, parallel_layout: ParallelLayout = None):
+    def __init__(self, width: float, parallel_layout: ParallelLayout = None):
         """Smooth distribution.
 
         width: float
@@ -300,7 +300,11 @@ class FermiDiracCalculator(SmoothDistribution):
     name = 'fermi-dirac'
     extrapolate_factor = -0.5
 
-    def distribution(self, eig_n, fermi_level):
+    def distribution(self,
+                     eig_n: np.ndarray,
+                     fermi_level: float) -> Tuple[np.ndarray,
+                                                  np.ndarray,
+                                                  np.ndarray]:
         return fermi_dirac(eig_n, fermi_level, self._width)
 
     def __str__(self):
@@ -403,7 +407,13 @@ def findroot(func: Callable[[float], Tuple[float, float]],
         assert niter < 1000
 
 
-def collect_eigelvalues(eig_qn, weight_q, bd, kpt_comm):
+def collect_eigelvalues(eig_qn: np.ndarray,
+                        weight_q: np.ndarray,
+                        bd: BandDescriptor,
+                        kpt_comm: MPICommunicator) -> Tuple[np.ndarray,
+                                                            np.ndarray,
+                                                            np.ndarray]:
+    """Collect eigenvalues from bd.comm and kpt_comm."""
     nkpts_r = np.zeros(kpt_comm.size, int)
     nkpts_r[kpt_comm.rank] = len(weight_q)
     kpt_comm.sum(nkpts_r)
@@ -434,7 +444,12 @@ def collect_eigelvalues(eig_qn, weight_q, bd, kpt_comm):
     return eig_kn, weight_k, nkpts_r
 
 
-def distribute_occupation_numbers(f_kn, f_qn, nkpts_r, bd, kpt_comm):
+def distribute_occupation_numbers(f_kn: np.ndarray,  # input
+                                  f_qn: np.ndarray,  # output
+                                  nkpts_r: np.ndarray,
+                                  bd: BandDescriptor,
+                                  kpt_comm: MPICommunicator) -> None:
+    """Distribute occupation numbers over bd.comm and kpt_comm."""
     k = 0
     for rank, nkpts in enumerate(nkpts_r):
         for q in range(nkpts):
