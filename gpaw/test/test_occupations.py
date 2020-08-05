@@ -7,6 +7,7 @@ import numpy as np
 from gpaw.occupations import (fermi_dirac, marzari_vanderbilt,
                               methfessel_paxton, FermiDiracCalculator,
                               ZeroWidth)
+from gpaw.tetrahedron import TetrahedronMethod
 
 
 funcs = []
@@ -40,9 +41,14 @@ def test_occupations(func):
      ([[0.0, 1.0], [0.0, 2.0]], [0.5, 0.5], 1.5),
      ([[0.0, 1.0, 2.0], [0.0, 2.0, 2.0]], [0.5, 0.5], 2)])
 @pytest.mark.ci
-def test_occupation_obj(e_kn, w_k, ne):
+def test_occ_obj(e_kn, w_k, ne):
+    print('*' * 42)
+    print(e_kn)
     for occ in [FermiDiracCalculator(0.1),
-                ZeroWidth()]:
-        f_kn, fl, s = occ.calculate(ne, np.array(e_kn) * Ha, w_k)
-        print(f_kn, fl, s, f_kn.sum(1).dot(w_k))
+                ZeroWidth(),
+                TetrahedronMethod(np.diag([2, 1, 1]), (len(w_k), 1, 1))]:
+        f_kn, fl, s = occ.calculate(ne, np.array(e_kn), w_k)
+        print(occ)
+        print(f_kn)
+        print(fl, s, f_kn.sum(1).dot(w_k))
         assert f_kn.sum(1).dot(w_k) == pytest.approx(ne, abs=1e-14)

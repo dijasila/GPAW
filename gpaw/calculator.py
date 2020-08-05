@@ -876,7 +876,7 @@ class GPAW(Calculator):
         elif not isinstance(dct, dict):
             return dct
 
-        occupations = create_occ_calc(
+        occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(self.wfs.bd,
                                            self.wfs.kd.comm,
@@ -886,8 +886,8 @@ class GPAW(Calculator):
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
-        self.log(occupations)
-        return occupations
+        self.log(occ)
+        return occ
 
     def create_scf(self, nvalence, mode):
         # if mode.name == 'lcao':
