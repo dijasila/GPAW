@@ -434,6 +434,7 @@ def collect_eigelvalues(eig_qn: np.ndarray,
                 if kpt_comm.rank == 0:
                     if k == 0:
                         eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
+                    assert eig_kn is not None  # help mypy
                     if rank == 0:
                         eig_kn[k] = eig_n
                     else:

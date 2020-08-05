@@ -20,7 +20,7 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
 
-Array = TypeVar('Array')#np.ndarray#Any
+Array = TypeVar('Array', bound=np.ndarray)
 
 
 def bja1(e1: Array, e2: Array, e3: Array, e4: Array) -> Tuple[float, float]:
