@@ -539,7 +539,7 @@ class ZeroWidth(OccupationNumberCalculator):
 class FixedOccupationNumbers(OccupationNumberCalculator):
     extrapolate_factor = 0.0
 
-    def __init__(self, f_sn, parallel_layout: ParallelLayout = None):
+    def __init__(self, numbers, parallel_layout: ParallelLayout = None):
         """Fixed occupation numbers.
 
         f_sn: ndarray, shape=(nspins, nbands)
@@ -551,7 +551,7 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
 
         """
         OccupationNumberCalculator.__init__(self, parallel_layout)
-        self.f_sn = np.array(f_sn)
+        self.f_sn = np.array(numbers)
 
     def _calculate(self,
                    nelectrons,
@@ -568,7 +568,7 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
 
 def FixedOccupations(f_sn):
     warnings.warn(
-        "Please use occupations={'name': 'fixed', 'f_sn': ...} instead.")
+        "Please use occupations={'name': 'fixed', 'numbers': ...} instead.")
     if len(f_sn) == 1:
         f_sn = np.array(f_sn) / 2
     return {'name': 'fixed', 'numbers': f_sn}
@@ -608,7 +608,6 @@ def create_occ_calc(dct: Dict[str, Any],
     * 'methfessel-paxton'
     * 'fixed'
     * 'tetrahedron-method'
-    * 'improved-tetrahedron-method'
     * 'orbital-free'
 
     >>> occ = create_occ_calc({'width': 0.0})
