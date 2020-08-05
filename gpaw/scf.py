@@ -254,7 +254,12 @@ class SCFLoop:
 
             if self.converged:
                 if wfs.mode == 'fd':
-                    if 'SIC' in wfs.eigensolver.odd_parameters['name']:
+                    if wfs.eigensolver.exstopt:
+                        wfs.eigensolver.choose_optimal_orbitals(
+                            wfs, ham, occ, dens)
+                        niter = wfs.eigensolver.iloop.total_eg_count
+                        log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
+                    elif 'SIC' in wfs.eigensolver.odd_parameters['name']:
                         wfs.eigensolver.choose_optimal_orbitals(
                             wfs, ham, occ, dens)
                         niter1 = wfs.eigensolver.eg_count

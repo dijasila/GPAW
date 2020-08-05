@@ -79,10 +79,10 @@ class InnerLoop:
         wfs.timer.stop('Energy and gradients')
         if kappa1 > self.kappa:
             self.kappa = kappa1
-        self.e_total += e_inner
+        self.e_total = e_inner
 
         self.kappa = wfs.kd.comm.max(self.kappa)
-        self.e_total = wfs.kd.comm.sum(self.e_total)
+        # self.e_total = wfs.kd.comm.sum(self.e_total)
         self.eg_count += 1
         self.total_eg_count += 1
 

@@ -39,10 +39,10 @@ class ZeroCorrections:
         energy = ham.get_energy(occ, False)
 
         for kpt in wfs.kpt_u:
-            energy += self.get_energy_and_gradients_kpt(
+            self.get_energy_and_gradients_kpt(
                 wfs, kpt, grad_knG, dens, U_k,
                 add_grad=add_grad, ham=ham, occ=occ)
-        energy = wfs.kd.comm.sum(energy)
+        # energy = wfs.kd.comm.sum(energy)
 
         return energy
 
