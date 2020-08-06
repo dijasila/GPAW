@@ -51,7 +51,7 @@ Git master branch
   and :ref:`manual_occ` for details.
 
 * Calculations with fixed occupation numbers are now done with
-  ``occupations={'name': 'fixed', 'number': ...}``.
+  ``occupations={'name': 'fixed', 'numbers': ...}``.
 
 * The ``fixdensity`` keyword has been deprecated.
 

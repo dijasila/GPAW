@@ -119,6 +119,10 @@ class OccupationNumberCalculator:
         self.kpt_comm = parallel_layout.kpt_comm
         self.domain_comm = parallel_layout.domain_comm
 
+    @property
+    def parallel_layout(self) -> ParallelLayout:
+        return ParallelLayout(self.bd, self.kpt_comm, self.domain_comm)
+
     def calculate(self,
                   nelectrons: float,
                   eigenvalues: List[List[float]],
@@ -265,9 +269,7 @@ class SmoothDistribution(OccupationNumberCalculator):
                    fermi_level_guess):
 
         if np.isnan(fermi_level_guess) or self._width == 0.0:
-            zero = ZeroWidth(ParallelLayout(self.bd,
-                                            self.kpt_comm,
-                                            self.domain_comm))
+            zero = ZeroWidth(self.parallel_layout)
             fermi_level_guess, _ = zero._calculate(
                 nelectrons, eig_qn, weight_q, f_qn)
             if self._width == 0.0 or np.isinf(fermi_level_guess):

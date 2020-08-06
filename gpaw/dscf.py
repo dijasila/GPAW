@@ -57,7 +57,7 @@ def dscf_calculation(paw, orbitals, atoms):
         occ.orbitals = orbitals
     else:
         if occ.name == 'zero-width':
-            occ = FermiDiracCalculator(1e-4)
+            occ = FermiDiracCalculator(1e-4, occ.parallel_layout)
         new_occ = OccupationsDSCF(occ, paw, orbitals)
         paw.wfs.occupations = new_occ
     # If the calculator has already converged (for the ground state),
