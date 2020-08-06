@@ -367,7 +367,7 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
                            bands=range(nbands))['eigenvalues']
     if width is None:
         assert calc.wfs.occupations.name == 'fermi-dirac'
-        width = calc.wfs.occupations.width * Ha
+        width = calc.wfs.occupations._width
     if width == 0.0:
         width = 1.e-6
     weight_k = np.ones(len(e_km)) / (2 * len(e_km))
@@ -466,7 +466,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
     from gpaw.occupations import occupation_numbers
     if width is None:
         assert calc.wfs.occupations.name == 'fermi-dirac'
-        width = calc.wfs.occupations.width * Ha
+        width = calc.wfs.occupations._width
     if width == 0.0:
         width = 1.e-6
     weight_k = calc.get_k_point_weights() / 2

@@ -872,6 +872,9 @@ class GPAW(Calculator):
         elif not isinstance(dct, dict):
             return dct
 
+        if self.wfs.nspins == 1:
+            dct.pop('fixmagmom', None)
+
         occ = create_occ_calc(
             dct,
             parallel_layout=ParallelLayout(self.wfs.bd,
