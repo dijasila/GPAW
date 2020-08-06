@@ -5,7 +5,7 @@ from ase.build import molecule
 from gpaw.lcao.tools import makeU, makeV
 from gpaw import GPAW, FermiDirac, restart
 from gpaw.lcao.pwf2 import LCAOwrap
-from gpaw.mpi import world, rank, MASTER, serial_comm
+from gpaw.mpi import world, rank, serial_comm
 from gpaw.test import equal
 
 pytestmark = pytest.mark.skipif(world.size > 1,
@@ -22,7 +22,7 @@ def test_lcao_pair_and_coulomb(in_tmp_dir):
     atoms.get_potential_energy()
     calc.write('lcao_pair.gpw')
 
-    if rank == MASTER:
+    if rank == 0:
         atoms, calc = restart('lcao_pair.gpw',
                               txt=None, communicator=serial_comm)
         lcao = LCAOwrap(calc)
