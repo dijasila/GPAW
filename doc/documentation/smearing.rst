@@ -7,12 +7,19 @@ Occupation number smearing
 
 .. seealso:: :ref:`manual_occ`
 
-.. autofunction:: create_occupation_number_object
+.. autofunction:: create_occ_calc
 .. autofunction:: fermi_dirac
 .. autofunction:: marzari_vanderbilt
 .. autofunction:: methfessel_paxton
-.. autoclass:: OccupationNumbers
+.. autoclass:: OccupationNumberCalculator
    :members:
 .. autoclass:: FixedOccupationNumbers
 .. autoclass:: ParallelLayout
 .. autofunction:: occupation_numbers
+
+
+Tetrahedron method
+==================
+
+.. module:: gpaw.tetrahedron
+.. autoclass:: TetrahedronMethod

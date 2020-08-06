@@ -53,7 +53,8 @@ Git master branch
   :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
   and :ref:`manual_occ` for details.
 
-* New :class:`gpaw.occupations.FixedOccupationNumbers` class.
+* Calculations with fixed occupation numbers are now done with
+  ``occupations={'name': 'fixed', 'numbers': ...}``.
 
 * The ``fixdensity`` keyword has been deprecated.
 
@@ -63,6 +64,9 @@ Git master branch
 * New configuration option (``nolibxc = True``) for compiling GPAW
   without LibXC.  This is mostly for debugging.  Only functionals available
   are: LDA, PBE, revPBE, RPBE and PW91.
+
+* Tetrahedron method for Brillouin-zone integrations (**experimental**).
+  Use ``occupations={'name': 'tetrahedron-method'}``.
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
