@@ -30,16 +30,15 @@ calc_old = GPAW('CdTe_gs_LDA.gpw', txt=None) # student: calc_old = GPAW('.gpw', 
 #Extract number of valence bands:
 nval = calc_old.wfs.nvalence
 
-#Do new ground state calculations with more k-points.
-#This is because in general RPA calculations requires more k-poins to be converged.
+# Do new ground state calculations with more k-points.
+# This is because in general RPA calculations requires more k-poins to be converged.
 
-calc = GPAW('CdTe_gs_LDA.gpw', # student: calc = GPAW('.gpw',
-             fixdensity=True, # student: fixdensity = ,
-             kpts=(12,12,4), # student: kpts =
-             nbands = 8*nval,                  #Number of bands to include in calculation
-             convergence={'bands': 6*nval},    #Number of bands to convergence
-             txt='es.txt', # student: txt = '',
-             occupations=FermiDirac(width=1e-4))
+calc = GPAW('CdTe_gs_LDA.gpw').fixed_density(  # student: calc = GPAW('???.gpw').fixed_density(
+    kpts=(12, 12, 4),  # student: kpts=???,
+    nbands=8 * nval,  # number of bands to include in calculation
+    convergence={'bands': 6 * nval},  # number of bands to convergence
+    txt='es.txt',  # student: txt = '???',
+    occupations=FermiDirac(width=1e-4))
 
 
 calc.get_potential_energy()

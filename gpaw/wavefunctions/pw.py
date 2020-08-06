@@ -1149,6 +1149,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             iu = None
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
+        self.occupations.bd = bd
 
         log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,

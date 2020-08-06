@@ -6,6 +6,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.gllb
+@pytest.mark.libxc
 def test_gllb_spin(in_tmp_dir):
     for spin in [False, True]:
         a = 3.56

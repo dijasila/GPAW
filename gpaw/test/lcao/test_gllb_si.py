@@ -8,6 +8,7 @@ from gpaw import GPAW, LCAO
 
 
 @pytest.mark.gllb
+@pytest.mark.libxc
 def test_lcao_gllb_si(in_tmp_dir):
     si = bulk('Si', 'diamond', a=5.421)
     calc = GPAW(mode=LCAO(interpolation=2),

@@ -19,6 +19,7 @@ from gpaw.mpi import world
 
 
 @pytest.mark.gllb
+@pytest.mark.libxc
 def test_gllb_diamond(in_tmp_dir):
     xc = 'GLLBSC'
     gen('C', xcname=xc)
@@ -41,14 +42,15 @@ def test_gllb_diamond(in_tmp_dir):
     calc.write('Cgs.gpw')
 
     # Calculate accurate KS-band gap from band structure
-    calc = GPAW('Cgs.gpw',
-                kpts={'path': 'GX', 'npoints': 12},
-                fixdensity=True,
-                symmetry='off',
-                nbands=8,
-                convergence=dict(bands=6),
-                eigensolver=Davidson(niter=4))
-    calc.get_atoms().get_potential_energy()
+    atoms, calc = restart(
+        'Cgs.gpw',
+        fixdensity=True,
+        kpts={'path': 'GX', 'npoints': 12},
+        symmetry='off',
+        nbands=8,
+        convergence=dict(bands=6),
+        eigensolver=Davidson(niter=4))
+    atoms.get_potential_energy()
     # Get the accurate KS-band gap
     homolumo = calc.get_homo_lumo()
     homo, lumo = homolumo

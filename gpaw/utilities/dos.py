@@ -516,22 +516,13 @@ class RawLDOS:
             emin -= 4 * width
             emax += 4 * width
 
-            # Fermi energy
-            try:
-                if self.paw.wfs.occupations.fixmagmom:
-                    efermi = self.paw.get_fermi_levels()
-                else:
-                    efermi = self.paw.get_fermi_level()
-            except:
-                raise  # what do we get?
-                # set Fermi level half way between HOMO and LUMO
-                hl = wfs.get_homo_lumo()
-                efermi = (hl[0] + hl[1]) * Hartree / 2
+            # Fermi energies
+            efermis = self.paw.wfs.fermi_levels
 
             eshift = 0.0
 
-            if shift and not self.paw.wfs.occupations.fixmagmom:
-                eshift = -efermi
+            if shift and len(efermis) == 1:
+                eshift = -efermis[0]
 
             # set de to sample 4 points in the width
             de = width / 4
@@ -540,11 +531,11 @@ class RawLDOS:
             string += append_weight_strings(ldbe, data)
 
             for s in range(wfs.nspins):
-                if self.paw.wfs.occupations.fixmagmom:
+                if len(efermis) == 2:
                     if not bound:
-                        eshift = - efermi[s]
+                        eshift = -efermis[s]
                     else:
-                        eshift = - efermi.max()
+                        eshift = -efermis.max()
 
                 print(fmf.data(data), end=' ', file=f)
 
@@ -554,7 +545,7 @@ class RawLDOS:
                     print('# Fermi energy was', end=' ', file=f)
                 else:
                     print('# Fermi energy', end=' ', file=f)
-                print(efermi, 'eV', file=f)
+                print(efermis, 'eV', file=f)
                 print(string, file=f)
 
                 # loop over energies

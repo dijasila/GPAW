@@ -60,7 +60,7 @@ class SCFLoop:
         self.niter = 1
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
-            e_entropy = wfs.calculate_occupation_numbers()
+            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             energy = ham.get_energy(e_entropy, wfs)
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)

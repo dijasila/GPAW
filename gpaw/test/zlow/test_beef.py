@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from ase.build import bulk
 from ase.dft.bee import BEEFEnsemble, readbee
@@ -7,6 +8,7 @@ from gpaw.mpi import world
 import _gpaw
 
 
+@pytest.mark.libxc
 def test_beef(in_tmp_dir):
     newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 

@@ -369,11 +369,10 @@ from gpaw import GPAW, PW
 a.calc = GPAW(kpts=(3, 3, 3), mode=PW(200), txt=None)
 a.get_potential_energy()
 # band-structure calculation for a fixed density
-a.calc.set(fixdensity=True,
-           kpts=kpts,
-           symmetry='off',
-           nbands=-10,
-           convergence={'bands': -5})
-a.get_potential_energy()
-bs = a.calc.band_structure()
+calc = a.calc.fixed_density(
+    kpts=kpts,
+    symmetry='off',
+    nbands=-10,
+    convergence={'bands': -5})
+bs = calc.band_structure()
 bs.plot(emax=10, filename='al-dft.png')

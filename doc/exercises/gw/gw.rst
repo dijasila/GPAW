@@ -32,7 +32,7 @@ quasiparticle energy (electron addition/removal energies) of the state
 `(\mathbf{k}, n)` is given by
 
 .. math::
-    
+
     \epsilon^\text{qp}_{n \mathbf{k}} =
     \epsilon_{n \mathbf{k}} + Z_{n \mathbf{k}} \cdot \text{Re}
     \left(\Sigma_{n \mathbf{k}}^{\vphantom{\text{XC}}} +
@@ -74,7 +74,7 @@ Note that in order to use the ``diagonalize_full_hamiltonian()`` method, the cal
 G0W0 calculation
 ----------------
 
-To do a GW calculation is very easy. First we must decide which states we actually want to perform the calculation for. For just finding the band gap we can many times just do with the locations of the conduction band minimum and valence band maximum. However the quasiparticle spectrum might be qualitatively different from the DFT spectrum, so its best to do the calculation for all k-points. Here's a script that does this:
+To do a GW calculation is easy. First we must decide which states we actually want to perform the calculation for. For just finding the band gap we can many times just do with the locations of the conduction band minimum and valence band maximum. However the quasiparticle spectrum might be qualitatively different from the DFT spectrum, so its best to do the calculation for all k-points. Here's a script that does this:
 
 .. literalinclude:: Si_g0w0_ppa.py
 
@@ -97,11 +97,11 @@ The fine features of the dielectric function are often averaged out in the integ
 
 - Try making the frequency grid denser or coarser by setting the parameter ``domega0`` to something different than its default value, which is ``domega0=0.025``. The calculation time scales linearly with the number of frequency points, so making it half as big doubles the time. Do your results depend a lot on the frequency grid? When can you safely say they are converged?
 
-Next, we need to make sure that we have enough plane waves to properly describe the wavefunctions, by adjusting the plane wave cut-off. This, however, does not come for free; The GW calculation scales quadratically in the number of plane waves and since we set the number of bands to the same number, it actually scales as the **third power** of the number of plane waves!!!
+Next, we need to make sure that we have enough plane waves to properly describe the wavefunctions, by adjusting the plane wave cut-off. This, however, does not come for free; The GW calculation scales quadratically in the number of plane waves and since we set the number of bands to the same number, it actually scales as the **third power** of the number of plane waves.
 
 - Try making a couple of calculations where you change the plane wave cut-off energy from say 25 eV to 150 eV. Just use the default frequency grid. If you wish, you can actually read off the number of plane waves used by looking in the generated log file for the screened potential that ends in ``.w.txt``.
 
-Lastly, we also need to make sure that the calculations is converged with respect to the k-point sampling. To do this, one must make new ground state calculations with different k-point samplings to be put into the G0W0 calculator. The calculation of the quasiparticle energy of one state scales quadratically in the number of k-points, but if one want the full band structure there's an extra factor of the number of k-points, so this quickly becomes very heavy!
+Lastly, we also need to make sure that the calculations is converged with respect to the k-point sampling. To do this, one must make new ground state calculations with different k-point samplings to be put into the G0W0 calculator. The calculation of the quasiparticle energy of one state scales quadratically in the number of k-points, but if one want the full band structure there's an extra factor of the number of k-points, so this quickly becomes very heavy.
 
 - Make new groundstate calculations with k-point samplings 4x4x4, 6x6x6 and 8x8x8 and so on and find the DFT band gap. When is it safe to say that the DFT band gap is converged?
 - Perform GW calculations (parallelize over minimum four cpus) for the different k-point samplings (4, 6 and 8 k-points only) and compare the gaps. How big is the variation in the gaps compared to the variation in the DFT result? When do you think the GW band gap is converged?

@@ -13,6 +13,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.gllb
+@pytest.mark.libxc
 def test_gllb_ne_disc(in_tmp_dir):
     atom = 'Ne'
     setup_paths.insert(0, '.')

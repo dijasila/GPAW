@@ -4,14 +4,21 @@ import numpy as np
 
 
 class NonLocalFunctional(XCFunctional):
-    def __init__(self, xcname):
+    def __init__(self, xcname, setup_name=None):
         self.contributions = []
         self.xcs = {}
         XCFunctional.__init__(self, xcname, 'GLLB')
+        if setup_name is None:
+            self.setup_name = self.name
+        else:
+            self.setup_name = setup_name
         self.mix = None
         self.mix_vt_sg = None
         self.old_vt_sg = None
         self.old_H_asp = {}
+
+    def get_setup_name(self):
+        return self.setup_name
 
     def set_mix(self, mix):
         self.mix = mix
@@ -146,16 +153,17 @@ class NonLocalFunctional(XCFunctional):
     def print_functional(self):
         if world.rank != 0:
             return
+        fmt = "| %-7s | %-10s | %-44s |"
+        header = fmt % ('Weight', 'Module', 'Description')
+        dashes = '-' * len(header)
         print()
         print("Functional being used consists of")
-        print("---------------------------------------------------")
-        print("| Weight    | Module           | Description      |")
-        print("---------------------------------------------------")
-        for contribution in self.contributions:
-            print("|%9.3f  | %-17s| %-17s|" %
-                  (contribution.weight, contribution.get_name(),
-                   contribution.get_desc()))
-        print("---------------------------------------------------")
+        print(dashes)
+        print(header)
+        print(dashes)
+        for c in self.contributions:
+            print(fmt % ('%7.3f' % c.weight, c.get_name(), c.get_desc()))
+        print(dashes)
         print()
 
     def read(self, reader):

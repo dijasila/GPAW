@@ -111,7 +111,7 @@ for cc in dists:
     energy = gra.get_potential_energy()
     # Append results to the list
     energies.append(energy)
-    
+
 
 # %%
 """
@@ -184,7 +184,7 @@ for ld in dists:
     energy = gra.get_potential_energy()
     # Append results to the list
     energies.append(energy)
-    
+
 poly = np.polynomial.Polynomial.fit(dists, energies, 3)
 layerdist = next (d for d in poly.deriv().roots() if poly.deriv(2)(d) > 0)
 print(layerdist)
@@ -194,10 +194,10 @@ print(layerdist)
 """
 Now both the optimal C-C distance and the interlayer distance is evaluated with EMT. Try to compare with the experimental numbers provided below.
 
-|                                         | Experimental values | EMT | LDA | PBE | BEEF-vdW |
-|-----------------------------------------|---------------------|-----|-----|-----|----------|
-| C-C  distance / $\unicode{x212B}$       |               1.420 |     |     |     |          |
-| Interlayer distance / $\unicode{x212B}$ |                3.35 |     |     |     |          |
+|                         | Experimental values | EMT | LDA | PBE | BEEF-vdW |
+|-------------------------|---------------------|-----|-----|-----|----------|
+| C-C  distance / Å       |               1.420 |     |     |     |          |
+| Interlayer distance / Å |                3.35 |     |     |     |          |
 
 """
 
@@ -291,7 +291,7 @@ Now we need to try a GGA type functional (e.g. PBE) and a functional taking into
 # %%
 """
 If the relaxation takes too long time, we can submit it to be run in parallel on the computer cluster. Remember we can then run different calculations simultaneously. There are two ways to achieve this:
-    
+
 A. Log in to the gbar terminal, save a full script in a file (e.g. `calc.py`) and submit that file to be calculated in parallel (e.g. `qsub.py -p 8 -t 5 calc.py` (5 hours on 8 cores)).
 
 or
@@ -346,7 +346,7 @@ Note the line `#%%writefile graphite_LDA.py` in the previous cell.  Remove the `
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 graphite_LDA.py # submits the calculation to 8 cores, 1 hour 
+# magic: !qsub.py -p 8 -t 1 graphite_LDA.py # submits the calculation to 8 cores, 1 hour
 
 
 # %%
@@ -403,9 +403,9 @@ Some hints:
 
 In the end try to compare the different functionals with experimental values:
 
-|                       | Experimental values | LDA | PBE | BEEF-vdW |
-|-----------------------|---------------------|-----|-----|----------|
-| a / $\unicode{x212B}$ |                3.51 |     |     |          |
+|       | Experimental values | LDA | PBE | BEEF-vdW |
+|-------|---------------------|-----|-----|----------|
+| a / Å |                3.51 |     |     |          |
 
 
 """
@@ -459,10 +459,10 @@ a = Li_metal.get_cell()[0][0]  # student: a =
 
 Now we will calculate the intercalation of Li in graphite. For simplicity we will represent the graphite with only one layer. Also try and compare the C-C and interlayer distances to experimental values.
 
-|                                         | Experimental values | LDA | PBE | BEEF-vdW |
-|-----------------------------------------|---------------------|-----|-----|----------|
-| C-C distance / $\unicode{x212B}$        |               1.441 |     |     |          |
-| Interlayer distance / $\unicode{x212B}$ |               3.706 |     |     |          |
+|                         | Experimental values | LDA | PBE | BEEF-vdW |
+|-------------------------|---------------------|-----|-----|----------|
+| C-C distance / Å        |               1.441 |     |     |          |
+| Interlayer distance / Å |               3.706 |     |     |          |
 
 """
 

@@ -1,7 +1,6 @@
 from math import sqrt
 
 import numpy as np
-
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
 from ase.io.cube import write_cube
@@ -9,7 +8,6 @@ from ase.io.plt import write_plt, read_plt
 from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
-from gpaw.mpi import MASTER
 from gpaw.grid_descriptor import GridDescriptor
 
 
@@ -67,13 +65,9 @@ class SimpleStm(STM):
         else:
             # energy bias
             try:
-                if self.calc.wfs.occupations.fixmagmom:
-                    efermi_s = self.calc.get_fermi_levels()
-                else:
-                    efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:
-                raise  # XXXXX except what?
-                efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
+                efermi_s = self.calc.get_fermi_levels()
+            except ValueError:
+                efermi_s = np.array([self.calc.get_fermi_level()] * 2)
 
             if isinstance(bias, (int, float)):
                 # bias given
@@ -133,7 +127,7 @@ class SimpleStm(STM):
         ldos = self.gd.collect(self.ldos)
 # print "write: integrated =", self.gd.integrate(self.ldos)
 
-        if mpi.rank != MASTER:
+        if mpi.rank != 0:
             return
 
         if filetype is None:
@@ -210,7 +204,7 @@ class SimpleStm(STM):
     def write(self, file=None):
         """Write STM data to a file in gnuplot readable tyle."""
 
-        if mpi.rank != MASTER:
+        if mpi.rank != 0:
             return
 
         xvals, yvals, heights = self.pylab_contour()
