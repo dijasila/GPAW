@@ -11,7 +11,7 @@ See::
 """
 
 from math import nan
-from typing import List, Tuple, Any, TypeVar
+from typing import List, Tuple, TypeVar
 import numpy as np
 from scipy.spatial import Delaunay
 
@@ -183,9 +183,9 @@ class TetrahedronMethod(OccupationNumberCalculator):
         eig_in, weight_i, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
                                                         self.bd, self.kpt_comm)
 
-        assert self.i_k.max() == len(eig_in) - 1
-
         if eig_in is not None:
+            assert self.i_k.max() == len(eig_in) - 1
+
             def func(x, eig_in=eig_in):
                 """Return excess electrons and derivative."""
                 n, dn = count(x, eig_in, self.i_ktq)
