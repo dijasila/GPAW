@@ -971,7 +971,9 @@ class Chi0:
 
         if self.integrationmode is None:
             f_n = kpt1.f_n
-            width = self.calc.occupations.width
+            assert self.calc.wfs.occupations.name in ['fermi-dirac',
+                                                      'zero-width']
+            width = self.calc.wfs.occupations.width
             if width > 1e-15:
                 dfde_n = - 1. / width * (f_n - f_n**2.0)
             else:

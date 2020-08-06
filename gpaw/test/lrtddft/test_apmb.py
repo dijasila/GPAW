@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 from ase.parallel import parprint
 
@@ -6,12 +7,13 @@ from gpaw import GPAW, mpi
 from gpaw.lrtddft import LrTDDFT
 
 
+@pytest.mark.libxc
 def test_lrtddft_apmb():
     txt = '-'
     txt = '/dev/null'
 
     load = False
-        
+
     if not load:
         R = 0.7  # approx. experimental bond length
         a = 3.0
@@ -74,7 +76,7 @@ def test_lrtddft_apmb():
     parprint('ApmB=', lr_ApmB)
     equal(lr[0].get_energy(), lr_ApmB[0].get_energy(), 5.e-8)
     equal(lr[1].get_energy(), lr_ApmB[1].get_energy(), 5.e-8)
-        
+
     # with HF exchange
 
     xc = 'PBE0'

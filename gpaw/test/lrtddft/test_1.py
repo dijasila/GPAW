@@ -132,4 +132,5 @@ def test_lrtddft_1(tmp_path):
 
 
 if __name__ == '__main__':
-    test_lrtddft_1()
+    from pathlib import Path
+    test_lrtddft_1(Path('.'))

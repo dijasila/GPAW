@@ -11,6 +11,7 @@ from gpaw import GPAW, __version__, restart
 from gpaw.density import RealSpaceDensity
 from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.finite_differences import FiniteDifference
+from gpaw.lrtddft.excitation import ExcitationLogger
 from gpaw.utilities.blas import axpy
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
@@ -20,7 +21,7 @@ class ExcitedState(GPAW, Calculator):
     implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
     
-    def __init__(self, lrtddft, index, d=0.001, txt='-',
+    def __init__(self, lrtddft, index, d=0.001, log=None, txt='-',
                  parallel=1, communicator=None):
         """ExcitedState object.
         parallel: Can be used to parallelize the numerical force calculation
@@ -52,8 +53,11 @@ class ExcitedState(GPAW, Calculator):
         self.parameters = {'d': d, 'index': self.index}
         
         # set output
-        self.log = self.calculator.log
-        self.log.fd = txt
+        if log:
+            self.log = log
+        else:
+            self.log = ExcitationLogger(mpi.world)
+            self.log.fd = txt
         
         self.log('#', self.__class__.__name__, __version__)
         self.log('#', self.index)
@@ -243,7 +247,7 @@ class ExcitedState(GPAW, Calculator):
                 propertyfunction=atoms.get_potential_energy,
                 save=save,
                 name="excited_state", ending='.gpw',
-                d=self.d, parallel=self.nparts)
+                d=self.d, log=self.log, parallel=self.nparts)
             F_av = finite.run()
 
             atoms.set_positions(p0)

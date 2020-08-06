@@ -41,7 +41,7 @@ The gpw-files stores all the necessary eigenvalues and eigenfunctions for the
 response calculation.
 
 Next the building blocks are created by using the *BuildingBlock* class.
-Essentially, a Dyson equation for the isolated layer is solved to obtain the
+Essentially, a Dyson equation for the isolated layer is solved to obtain
 the full response function `\chi(q,\omega)`. Starting from `\chi(q,\omega)`
 the monopole and dipole component of the response function and of the induced
 densities are condensed into the dielectric building block. Here is how to get
@@ -81,7 +81,7 @@ Here is the generated plot:
 
 .. image:: W_r.svg
 
-As expected the interaction does not diverge!
+As expected the interaction does not diverge.
 
 If one is also interested in the interlayer exciton binding energy, it can be
 readily calculated by appending the following lines in the script above:
@@ -89,7 +89,7 @@ readily calculated by appending the following lines in the script above:
 .. literalinclude:: interlayer.py
     :start-after: show
 
-We find an interlayer exciton binding energy of `\sim 0.3` eV!
+We find an interlayer exciton binding energy of `\sim 0.3` eV.
 
 
 .. [#interlayer] S. Latini, K.T. Winther, T. Olsen and K.S. Thygesen

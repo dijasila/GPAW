@@ -3,13 +3,14 @@
 import os.path
 import numpy as np
 from ase import parallel as mpi
-from ase.parallel import parprint
+
+from gpaw.lrtddft.excitation import ExcitationLogger
 
 
 class FiniteDifference:
     def __init__(self, atoms, propertyfunction,
                  save=False, name='fd', ending='',
-                 d=0.001, parallel=1, world=None):
+                 d=0.001, parallel=1, log=None, txt='-', world=mpi.world):
         """
     atoms: Atoms object
         The atoms to work on.
@@ -41,13 +42,16 @@ class FiniteDifference:
         self.name = name
         self.ending = ending
         self.d = d
-
-        if world is None:
-            world = mpi.world
         self.world = world
-        
+
+        if log is not None:
+            self.log = log
+        else:
+            self.log = ExcitationLogger(world=mpi.world)
+            self.log.fd = txt
+            
         if parallel > world.size:
-            parprint('#', (self.__class__.__name__ + ':'),
+            self.log('#', (self.__class__.__name__ + ':'),
                      'Serial calculation, keyword parallel ignored.')
             parallel = 1
         self.parallel = parallel
@@ -93,10 +97,10 @@ class FiniteDifference:
         self.value[a, i] = (eminus - eplus) / (2 * self.d)
         
         if self.parallel > 1 and self.world.rank == 0:
-            print('# rank', mpi.world.rank, 'Atom', a,
-                  'direction', i, 'FD: ', self.value[a, i])
+            self.log('# rank', mpi.world.rank, 'Atom', a,
+                     'direction', i, 'FD: ', self.value[a, i])
         else:
-            parprint('Atom', a, 'direction', i,
+            self.log('Atom', a, 'direction', i,
                      'FD: ', self.value[a, i])
 
     def run(self, **kwargs):

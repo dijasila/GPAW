@@ -725,6 +725,12 @@ def broadcast(obj, root=0, comm=world):
         return pickle.loads(b)
 
 
+def broadcast_float(x, comm):
+    array = np.array([x])
+    comm.broadcast(array, 0)
+    return array[0]
+
+
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
     """Synchronize atoms between multiple CPUs removing numerical noise.
 

@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import ase.io.ulm as ulm
 from ase.build import molecule
@@ -13,6 +14,8 @@ from gpaw.tddft.folding import frequencies
 from gpaw.test import equal
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_lcaotddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)

@@ -161,16 +161,16 @@ def test_log(tmp_path):
     del(exst)
     world.barrier()
    
-    if world.rank == 1:
+    if world.rank == 0:
         with open(fname) as f:
             string = f.read()
             assert 'ExcitedState' in string
 
     fname = str(tmp_path / 'ex0calc.out')
-    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
+    calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=fname)
     calc.calculate(get_H2(calc))
-    exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
-    exst = ExcitedState(exlst, 0, txt=fname, parallel=2)
+    exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, log=calc.log)
+    exst = ExcitedState(exlst, 0, log=exlst.log, parallel=2)
     exst.get_forces()
     del(calc)
     del(exlst)

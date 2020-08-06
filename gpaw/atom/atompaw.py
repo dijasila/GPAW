@@ -116,7 +116,7 @@ class AtomEigensolver:
 
         self.initialized = True
 
-    def iterate(self, hamiltonian, wfs, occ):
+    def iterate(self, hamiltonian, wfs):
         if not self.initialized:
             self.initialize(wfs)
 
@@ -260,28 +260,28 @@ class AtomGridDescriptor(EquidistantRadialGridDescriptor):
 
 
 class AtomOccupations(OccupationNumbers):
+    extrapolate_factor = 0.0
+
     def __init__(self, f_sln):
         self.f_sln = f_sln
-        OccupationNumbers.__init__(self, None)
-        self.width = 0
+        OccupationNumbers.__init__(self)
 
-    def calculate_occupation_numbers(self, wfs):
-        for s in range(wfs.nspins):
+    def _calculate(self,
+                   nelectrons,
+                   eig_qn,
+                   weight_q,
+                   f_qn,
+                   parallel,
+                   fermi_level_guess):
+        for s, f_n in enumerate(f_qn):
             n1 = 0
-            for l, f_n in enumerate(self.f_sln[s]):
-                for f in f_n:
+            for l, f0_n in enumerate(self.f_sln[s]):
+                for f in f0_n:
                     n2 = n1 + 2 * l + 1
-                    wfs.kpt_u[s].f_n[n1:n2] = f / float(2 * l + 1)
+                    f_n[n1:n2] = f / (2 * l + 1) / 2
                     n1 = n2
-        if wfs.nspins == 2:
-            self.magmom = wfs.kpt_u[0].f_n.sum() - wfs.kpt_u[1].f_n.sum()
-        self.e_entropy = 0.0
 
-    def get_fermi_level(self):
-        raise ValueError
-
-    def summary(self, log):
-        log('Occupation numbers:', self.f_sln)
+        return np.inf, 0.0
 
 
 class AtomPAW(GPAW):
@@ -313,7 +313,7 @@ class AtomPAW(GPAW):
         """Yield the tuples (l, n, f, eps, psit_G) of states.
 
         Skips degenerate states."""
-        f_sln = self.occupations.f_sln
+        f_sln = self.wfs.occupations.f_sln
         assert len(f_sln) == 1, 'Not yet implemented with more spins'
         f_ln = f_sln[0]
         kpt = self.wfs.kpt_u[0]

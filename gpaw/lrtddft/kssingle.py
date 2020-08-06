@@ -38,21 +38,14 @@ class KSSingles(ExcitationList):
       The energy range [emin, emax] or emax for KS transitions to use as basis
     """
     def __init__(self,
-                 calculator=None,  # XXX remove from __init__
-                 nspins=None,
                  restrict={},
                  log=None,
                  txt=None):
-        ExcitationList.__init__(self, calculator, log=log, txt=txt)
+        ExcitationList.__init__(self, log=log, txt=txt)
         self.world = mpi.world
 
         self.restrict = KSSRestrictor()
         self.restrict.update(restrict)
-
-        if calculator is not None:  # XXXX remove from __init__
-            atoms = calculator.get_atoms().copy()
-            atoms.calc = calculator
-            self.calculate(atoms, nspins)
 
     def calculate(self, atoms, nspins=None):
         calculator = atoms.calc
@@ -108,7 +101,7 @@ class KSSingles(ExcitationList):
         jend = self.restrict['jend']
         eps = self.restrict['eps']
 
-        if self.calculator is None:  # I'm read from a file
+        if not hasattr(self, 'calculator'):  # I'm read from a file
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or

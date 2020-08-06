@@ -1117,7 +1117,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return H_GG, S_GG
 
     @timer('Full diag')
-    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
+    def diagonalize_full_hamiltonian(self, ham, atoms, log,
                                      nbands=None, ecut=None, scalapack=None,
                                      expert=False):
 
@@ -1239,7 +1239,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         pb.finish()
 
-        occupations.calculate(self)
+        self.calculate_occupation_numbers()
 
         return nbands
 

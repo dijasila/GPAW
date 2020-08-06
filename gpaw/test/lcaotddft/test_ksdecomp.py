@@ -1,6 +1,6 @@
 import numpy as np
-
 from ase.build import molecule
+
 from gpaw import GPAW
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft import LCAOTDDFT
@@ -12,28 +12,28 @@ from gpaw.tddft.folding import frequencies
 from gpaw.tddft.units import au_to_eV
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.mpi import world
-
 from gpaw.test import equal
-
 
 
 def test_lcaotddft_ksdecomp(in_tmp_dir):
     def relative_equal(x, y, *args, **kwargs):
         return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
 
-
     # Atoms
     atoms = molecule('NaCl')
     atoms.center(vacuum=4.0)
 
     # Ground-state calculation
-    calc = GPAW(nbands=6, h=0.4, setups=dict(Na='1'),
-                basis='dzp', mode='lcao',
+    calc = GPAW(nbands=6,
+                h=0.4,
+                setups=dict(Na='1'),
+                basis='dzp',
+                mode='lcao',
                 poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
     atoms.calc = calc
-    energy = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
@@ -53,9 +53,7 @@ def test_lcaotddft_ksdecomp(in_tmp_dir):
     ref_wv = np.loadtxt('spec.dat')[:, 1:]
 
     # Calculate ground state with full unoccupied space
-    calc = GPAW('gs.gpw', nbands='nao', fixdensity=True, txt='unocc.out')
-    atoms = calc.get_atoms()
-    energy = atoms.get_potential_energy()
+    calc = GPAW('gs.gpw', txt=None).fixed_density(nbands='nao', txt='unocc.out')
     calc.write('unocc.gpw', mode='all')
 
     # Construct KS electron-hole basis

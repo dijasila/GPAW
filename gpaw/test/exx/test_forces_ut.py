@@ -85,7 +85,7 @@ class WFS:
         self.pt.set_positions(self.spos_ac)
         psit.matrix_elements(self.pt, out=proj)
         f_n = np.array([1.0, 0.5])
-        kpt = KPoint(1.0, 0, 0, 0, None)
+        kpt = KPoint(1.0, 1.0, 0, 0, 0, None)
         kpt.psit = psit
         kpt.projections = proj
         kpt.f_n = f_n

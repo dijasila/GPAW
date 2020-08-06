@@ -67,9 +67,10 @@ class LrTDDFT(ExcitationList):
         self.energy_to_eV_scale = Hartree
         self.timer = Timer()
         self.diagonalized = False
+        self.calculator = calculator
 
         self.set(**kwargs)
-        ExcitationList.__init__(self, calculator, log=log, txt=txt)
+        ExcitationList.__init__(self, log=log, txt=txt)
 
         if self.eh_comm is None:
             self.eh_comm = mpi.serial_comm
@@ -169,10 +170,10 @@ class LrTDDFT(ExcitationList):
             Om = ApmB
             name = 'LrTDDFThyb'
 
-        kss = KSSingles(calculator=self.calculator,
-                        nspins=self.nspins,
-                        restrict=self.restrict,
+        kss = KSSingles(restrict=self.restrict,
                         log=self.log)
+        atoms = self.calculator.get_atoms()
+        kss.calculate(atoms, self.nspins)
 
         self.Om = Om(self.calculator, kss,
                      self.xc, self.derivative_level, self.numscale,

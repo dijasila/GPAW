@@ -21,26 +21,25 @@ def get_filehandle(cls, filename, mode='r'):
     return open(filename, mode)
 
 
+class ExcitationLogger(GPAWLogger):
+    def header(self):
+        pass
+
+
 class ExcitationList(list):
     """General Excitation List class.
     """
-    def __init__(self, calculator=None, log=None, txt='-'):
+    def __init__(self, log=None, txt='-'):
         # initialise empty list
         list.__init__(self)
         self.energy_to_eV_scale = Ha
 
-        self.calculator = calculator
-
         # set output
         if log is not None:
             self.log = log
-            return
-        if calculator is not None:
-            if txt == calculator.log.oldfd:
-                self.log = calculator.log
-                return
-        self.log = GPAWLogger(world=mpi.world)
-        self.log.fd = txt
+        else:
+            self.log = ExcitationLogger(world=mpi.world)
+            self.log.fd = txt
 
     @property
     def calc(self):

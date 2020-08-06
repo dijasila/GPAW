@@ -13,12 +13,11 @@ pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
-
+@pytest.mark.elph
 def test_electronphonon(in_tmp_dir):
     if LooseVersion(__version__) < '3.18':
         from unittest import SkipTest
         raise SkipTest
-
 
     a = 0.90
     atoms = Atoms('H',
