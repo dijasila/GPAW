@@ -172,7 +172,9 @@ class TetrahedronMethod(OccupationNumberCalculator):
                    f_qn,
                    fermi_level_guess=nan):
         if np.isnan(fermi_level_guess):
-            zero = ZeroWidth()
+            zero = ZeroWidth(ParallelLayout(self.bd,
+                                            self.kpt_comm,
+                                            self.domain_comm))
             fermi_level_guess, _ = zero._calculate(
                 nelectrons, eig_qn, weight_q, f_qn)
             if np.isinf(fermi_level_guess):
