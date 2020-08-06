@@ -283,7 +283,7 @@ class SmoothDistribution(OccupationNumberCalculator):
                 f_n[:], dfde_n, e_entropy_n = self.distribution(eig_n, x)
                 data += [weight * x_n.sum()
                          for x_n in [f_n, dfde_n, e_entropy_n]]
-                self.bd.comm.sum(data)
+            self.bd.comm.sum(data)
             self.kpt_comm.sum(data)
             f, dfde = data[:2]
             df = f - nelectrons
@@ -564,6 +564,9 @@ class FixedOccupationNumbers(OccupationNumberCalculator):
             self.bd.distribute(self.f_sn[s], f_n)
 
         return inf, 0.0
+
+    def todict(self):
+        return {'name': 'fixed', 'numbers': self.f_sn}
 
 
 def FixedOccupations(f_sn):
