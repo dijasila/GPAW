@@ -11,7 +11,7 @@ See::
 """
 
 from math import nan
-from typing import List, Tuple, TypeVar
+from typing import List, Tuple, Any
 import numpy as np
 from scipy.spatial import Delaunay
 
@@ -20,17 +20,21 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
 
-Array = TypeVar('Array', bound=np.ndarray)
+Array1D = Any
+Array2D = Any
+Array3D = Any
 
 
-def bja1(e1: Array, e2: Array, e3: Array, e4: Array) -> Tuple[float, float]:
+def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
+         ) -> Tuple[float, float]:
     """Eq. (A2) and (C2) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e2 - e1) * (e3 - e1) * (e4 - e1))
     return (-(e1**3).dot(x),
             3 * (e1**2).dot(x))
 
 
-def bja2(e1: Array, e2: Array, e3: Array, e4: Array) -> Tuple[float, float]:
+def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
+         ) -> Tuple[float, float]:
     """Eq. (A3) and (C3) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e3 - e1) * (e4 - e1))
     y = (e3 - e1 + e4 - e2) / ((e3 - e2) * (e4 - e2))
@@ -43,14 +47,15 @@ def bja2(e1: Array, e2: Array, e3: Array, e4: Array) -> Tuple[float, float]:
                   - 3 * y * e2**2))
 
 
-def bja3(e1: Array, e2: Array, e3: Array, e4: Array) -> Tuple[float, float]:
+def bja3(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
+         ) -> Tuple[float, float]:
     """Eq. (A4) and (C4) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
     return (len(e1) - x.dot(e4**3),
             3 * x.dot(e4**2))
 
 
-def bja1b(e1: Array, e2: Array, e3: Array, e4: Array) -> Array:
+def bja1b(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D) -> Array2D:
     """Eq. (B2)-(B5) from Blöchl, Jepsen and Andersen."""
     C = -0.25 * e1**3 / ((e2 - e1) * (e3 - e1) * (e4 - e1))
     w2 = -C * e1 / (e2 - e1)
@@ -60,7 +65,7 @@ def bja1b(e1: Array, e2: Array, e3: Array, e4: Array) -> Array:
     return np.array([w1, w2, w3, w4])
 
 
-def bja2b(e1: Array, e2: Array, e3: Array, e4: Array) -> Array:
+def bja2b(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D) -> Array2D:
     """Eq. (B7)-(B10) from Blöchl, Jepsen and Andersen."""
     C1 = 0.25 * e1**2 / ((e4 - e1) * (e3 - e1))
     C2 = 0.25 * e1 * e2 * e3 / ((e4 - e1) * (e3 - e2) * (e3 - e1))
@@ -72,7 +77,7 @@ def bja2b(e1: Array, e2: Array, e3: Array, e4: Array) -> Array:
     return np.array([w1, w2, w3, w4])
 
 
-def bja3b(e1: Array, e2: Array, e3: Array, e4: Array) -> Array:
+def bja3b(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D) -> Array2D:
     """Eq. (B14)-(B17) from Blöchl, Jepsen and Andersen."""
     C = 0.25 * e4**3 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
     w1 = 0.25 - C * e4 / (e4 - e1)
@@ -82,7 +87,7 @@ def bja3b(e1: Array, e2: Array, e3: Array, e4: Array) -> Array:
     return np.array([w1, w2, w3, w4])
 
 
-def triangulate_submesh(rcell_cv: Array) -> Array:
+def triangulate_submesh(rcell_cv: Array2D) -> Array3D:
     """Find the 6 tetrahedra."""
     ABC_sc = np.array([[A, B, C]
                        for A in [0, 1] for B in [0, 1] for C in [0, 1]])
@@ -93,9 +98,9 @@ def triangulate_submesh(rcell_cv: Array) -> Array:
     return ABC_tqc
 
 
-def triangulate_everything(size_c: Array,
-                           ABC_tqc: Array,
-                           i_k: Array) -> Array:
+def triangulate_everything(size_c: Array1D,
+                           ABC_tqc: Array3D,
+                           i_k: Array1D) -> Array3D:
     """Triangulate the whole BZ.
 
     Returns i_ktq ndarray mapping:
@@ -211,8 +216,8 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
 
 def count(fermi_level: float,
-          eig_in: Array,
-          i_ktq: Array) -> Tuple[float, float]:
+          eig_in: Array2D,
+          i_ktq: Array3D) -> Tuple[float, float]:
     """Count electrons.
 
     Return number of electrons and derivative with respect to fermi level.
@@ -250,7 +255,7 @@ def count(fermi_level: float,
     return ne, dnedef
 
 
-def weights(eig_in: Array, i_ktq: Array) -> Array:
+def weights(eig_in: Array2D, i_ktq: Array3D) -> Array2D:
     """Calculate occupation numbers."""
     nocc_i = (eig_in < 0.0).sum(axis=1)
     n1 = nocc_i.min()
