@@ -817,8 +817,8 @@ class GPAW(PAW, Calculator):
                 occ.fermilevel = self.occupations.fermilevel
 
         self.occupations = occ
-        # FIXME: added this line to restart calc from
-        #  full SIC to SIC/2
+        # FIXME: added this line to restart calc
+        #  with different eigensolver
         self.occupations.magmom = magmom
 
         # If occupation numbers are changed, and we have wave functions,
