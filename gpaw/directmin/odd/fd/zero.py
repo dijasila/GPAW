@@ -23,6 +23,8 @@ class ZeroCorrections:
         self.name = 'Zero'
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
         self.grad = {}
+        self.total_sic = 0.0
+        self.eks = 0.0
 
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
@@ -43,7 +45,7 @@ class ZeroCorrections:
                 wfs, kpt, grad_knG, dens, U_k,
                 add_grad=add_grad, ham=ham, occ=occ)
         # energy = wfs.kd.comm.sum(energy)
-
+        self.eks = energy
         return energy
 
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,

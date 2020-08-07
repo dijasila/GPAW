@@ -819,7 +819,7 @@ class GPAW(PAW, Calculator):
         self.occupations = occ
         # FIXME: added this line to restart calc from
         #  full SIC to SIC/2
-        # self.occupations.magmom = magmom
+        self.occupations.magmom = magmom
 
         # If occupation numbers are changed, and we have wave functions,
         # recalculate the occupation numbers

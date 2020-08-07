@@ -1,16 +1,16 @@
 from gpaw.directmin.fd.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.lcao.sd_lcao import LSR1P
+from gpaw.directmin.lcao.sd_lcao import LSR1P, LBFGS_P
 from gpaw.directmin.lcao.ls_lcao import UnitStepLength
 from ase.units import Hartree
 import numpy as np
 import time
-
 from ase.parallel import parprint
+
 
 class InnerLoop:
 
     def __init__(self, odd_pot, wfs, nstates='all',
-                 tol=1.0e-3, maxiter=50, g_tol=5.0e-4):
+                 tol=1.0e-3, maxiter=50, g_tol=5.0e-4, useprec=False):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -30,6 +30,7 @@ class InnerLoop:
         self.Unew_k = {}
         self.e_total = 0.0
         self.n_occ = {}
+        self.useprec = useprec
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             if nstates == 'all':
@@ -165,7 +166,8 @@ class InnerLoop:
             a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
         self.sd = LSR1P(wfs, memory=20)
-        self.ls = UnitStepLength(self.evaluate_phi_and_der_phi)
+        self.ls = UnitStepLength(self.evaluate_phi_and_der_phi,
+                                 max_step=0.2)
 
         threelasten = []
         # get initial energy and gradients
@@ -208,7 +210,10 @@ class InnerLoop:
 
         outer_counter += 1
         if log is not None:
-            log_f(log, self.counter, self.kappa, e_ks, self.e_total,
+            # esic = self.e_total
+            esic = self.odd_pot.total_sic
+            e_ks = self.odd_pot.eks
+            log_f(log, self.counter, self.kappa, e_ks, esic,
                   outer_counter, g_max)
 
         alpha = 1.0
@@ -220,7 +225,7 @@ class InnerLoop:
         #     g_max > self.g_tol and counter < self.n_counter
         not_converged = True
         while not_converged:
-            self.precond = self.update_preconditioning(wfs, True)
+            self.precond = self.update_preconditioning(wfs, self.useprec)
 
             # calculate search direction fot current As and Gs
             p_k = self.get_search_direction(a_k, g_k, wfs)
@@ -271,8 +276,11 @@ class InnerLoop:
                 if outer_counter is not None:
                     outer_counter += 1
                 if log is not None:
+                    # esic = phi_0
+                    esic = self.odd_pot.total_sic
+                    e_ks = self.odd_pot.eks
                     log_f(
-                        log, self.counter, self.kappa, e_ks, phi_0,
+                        log, self.counter, self.kappa, e_ks, esic,
                         outer_counter, g_max)
 
                 not_converged = g_max > self.g_tol and \

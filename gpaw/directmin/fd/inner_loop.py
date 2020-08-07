@@ -9,7 +9,8 @@ from ase.parallel import parprint
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50, g_tol=5.0e-4):
+    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50,
+                 g_tol=5.0e-4, dim1=None, dim2=None):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -31,8 +32,13 @@ class InnerLoop:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             self.n_occ[k] = get_n_occ(kpt)
-            self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
-            self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
+            if dim1 is None:
+                dim1 = self.n_occ[k]
+            if dim2 is None:
+                dim2 = self.n_occ[k]
+            assert dim1 >= dim2
+            self.U_k[k] = np.eye(dim1, dtype=self.dtype)
+            self.Unew_k[k] = np.eye(dim2, dtype=self.dtype)
 
     def get_energy_and_gradients(self, a_k, wfs, dens):
         """
@@ -51,16 +57,17 @@ class InnerLoop:
         self.kappa = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
-            if n_occ == 0:
+            # n_occ = self.n_occ[k]
+            dim2 = self.Unew_k[k].shape[0]
+            if dim2 == 0:
                 g_k[k] = np.zeros_like(a_k[k])
                 continue
             wfs.timer.start('Unitary matrix')
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
             self.Unew_k[k] = u_mat.copy()
-            kpt.psit_nG[:n_occ] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
+            kpt.psit_nG[:dim2] = \
+                np.tensordot(u_mat.T, self.psit_knG[k][:dim2],
                              axes=1)
 
             # calc projectors
@@ -147,15 +154,16 @@ class InnerLoop:
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
+            # n_occ = self.n_occ[k]
+            dim1 = self.U_k[k].shape[0]
             self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                            kpt.psit_nG[:n_occ],
+                                            kpt.psit_nG[:dim1],
                                             axes=1)
 
         a_k = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            d = self.n_occ[k]
+            d = self.Unew_k[k].shape[0]
             # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
             if self.run_count == 1 and self.dtype is complex\
                     and small_random:
@@ -177,21 +185,33 @@ class InnerLoop:
         # get initial energy and gradients
         self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
         threelasten.append(self.e_total)
-        g_max = g_max_norm(g_k, wfs, self.n_occ)
+        g_max = g_max_norm(g_k, wfs)
         if g_max < self.g_tol:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                n_occ = self.n_occ[k]
-                kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
+                # n_occ = self.n_occ[k]
+                dim1 = self.U_k[k].shape[0]
+                kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
                                                    self.psit_knG[k],
                                                    axes=1)
                 # calc projectors
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-                self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+                dim2 = self.Unew_k[k].shape[0]
+                if dim1 == dim2:
+                    self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+                else:
+                    u_oo = self.Unew_k[k]
+                    u_ov = np.zeros(shape=(dim2, dim1-dim2),
+                                    dtype=self.dtype)
+                    u_vv = np.eye(dim1-dim2,dtype=self.dtype)
+                    unew = np.vstack([np.hstack([u_oo, u_ov]),
+                                      np.hstack([u_ov.T, u_vv])])
+                    self.U_k[k] = self.U_k[k] @ unew
+
             del self.psit_knG
             if outer_counter is None:
-                return self.e_total, counter
+                return self.e_total, self.counter
             else:
                 return self.e_total, outer_counter
 
@@ -268,7 +288,7 @@ class InnerLoop:
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
-                g_max = g_max_norm(g_k, wfs, self.n_occ)
+                g_max = g_max_norm(g_k, wfs)
 
                 # output
                 self.counter += 1
@@ -285,7 +305,8 @@ class InnerLoop:
                 threelasten.append(phi_0)
                 if len(threelasten) > 2:
                     threelasten = threelasten[-3:]
-                    if threelasten[0] < threelasten[1] and threelasten[1] < threelasten[2]:
+                    if threelasten[0] < threelasten[1] < \
+                            threelasten[2]:
                         if log is not None:
                            log(
                                 'Could not converge, leave the loop',
@@ -350,17 +371,28 @@ class InnerLoop:
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            n_occ = self.n_occ[k]
-            kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
-                                               self.psit_knG[k],
+            # n_occ = self.n_occ[k]
+            dim1 = self.U_k[k].shape[0]
+            kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
+                                               self.psit_knG[k][:dim1],
                                                axes=1)
             # calc projectors
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+            dim2 = self.Unew_k[k].shape[0]
+            if dim1 == dim2:
+                self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
+            else:
+                u_oo = self.Unew_k[k]
+                u_ov = np.zeros(shape=(dim2, dim1 - dim2),
+                                dtype=self.dtype)
+                u_vv = np.eye(dim1 - dim2, dtype=self.dtype)
+                unew = np.vstack([np.hstack([u_oo, u_ov]),
+                                  np.hstack([u_ov.T, u_vv])])
+                self.U_k[k] = self.U_k[k] @ unew
 
         del self.psit_knG
         if outer_counter is None:
-            return self.e_total, counter
+            return self.e_total, self.counter
         else:
             return self.e_total, outer_counter
 
@@ -569,14 +601,15 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
     log(flush=True)
 
 
-def g_max_norm(g_k, wfs, n_occ):
+def g_max_norm(g_k, wfs):
     # get maximum of gradients
     n_kps = wfs.kd.nks // wfs.kd.nspins
 
     max_norm = []
     for kpt in wfs.kpt_u:
         k = n_kps * kpt.s + kpt.q
-        if n_occ[k] == 0:
+        dim = g_k[k].shape[0]
+        if dim == 0:
             continue
         max_norm.append(np.max(np.absolute(g_k[k])))
     max_norm = np.max(np.asarray(max_norm))

@@ -4,6 +4,7 @@ from gpaw.directmin.odd.fd.pz import PzCorrections
 from gpaw.directmin.odd.fd.spz import SPzCorrections
 from gpaw.directmin.odd.fd.spz_2 import SPzCorrections2
 from gpaw.directmin.odd.fd.zero import ZeroCorrections
+from gpaw.directmin.odd.fd.dftpzxt import DftPzSicXT
 
 def odd_corrections(odd, wfs, dens, ham):
 
@@ -15,6 +16,8 @@ def odd_corrections(odd, wfs, dens, ham):
         name = kwargs.pop('name')
         if name == 'PZ_SIC':
             return PzCorrections(wfs, dens, ham, **kwargs)
+        elif name == 'PZ_SIC_XT':
+            return DftPzSicXT(wfs, dens, ham, **kwargs)
         elif name == 'SPZ_SIC':
             return SPzCorrections(wfs, dens, ham, **kwargs)
         elif name == 'SPZ_SIC2':

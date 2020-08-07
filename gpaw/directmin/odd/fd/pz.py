@@ -180,12 +180,12 @@ class PzCorrections:
         if add_grad:
             if U_k is not None:
                 grad_knG[k][:n_occ] += \
-                    np.tensordot(U_k[k].conj(), self.grad[k], axes=1)
+                    np.tensordot(U_k[k][:n_occ][::n_occ].conj(), self.grad[k], axes=1)
             else:
                 grad_knG[k][:n_occ] += self.grad[k]
         else:
             if U_k is not None:
-                self.grad[k][:] = np.tensordot(U_k[k].conj(), self.grad[k], axes=1)
+                self.grad[k][:] = np.tensordot(U_k[k][:n_occ][::n_occ].conj(), self.grad[k], axes=1)
 
         self.e_sic_by_orbitals[k] = \
             e_total_sic.reshape(e_total_sic.shape[0] // 2, 2)

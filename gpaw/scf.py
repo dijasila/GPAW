@@ -10,7 +10,9 @@ from gpaw.forces import calculate_forces
 
 class SCFLoop:
     """Self-consistent field loop."""
-    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1, force=np.inf,
+
+    def __init__(self, eigenstates=0.1, energy=0.1, density=0.1,
+                 force=np.inf,
                  maxiter=100, niter_fixdensity=None, nvalence=None):
         self.max_errors = {'eigenstates': eigenstates,
                            'energy': energy,
@@ -37,7 +39,7 @@ class SCFLoop:
             ('integral of absolute density change: {0:g} electrons',
              cc['density'] / self.nvalence),
             ('integral of absolute eigenstate change: {0:g} eV^2',
-             cc['eigenstates'] * Ha**2 / self.nvalence),
+             cc['eigenstates'] * Ha ** 2 / self.nvalence),
             ('change in atomic force: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
             ('number of iterations: {0}', self.maxiter)]:
@@ -129,7 +131,8 @@ class SCFLoop:
             with wfs.timer('Forces'):
                 F_av = calculate_forces(wfs, dens, ham)
             if self.old_F_av is not None:
-                errors['force'] = ((F_av - self.old_F_av)**2).sum(1).max()**0.5
+                errors['force'] = ((F_av - self.old_F_av) ** 2).sum(
+                    1).max() ** 0.5
             self.old_F_av = F_av
 
         return errors
@@ -139,7 +142,7 @@ class SCFLoop:
 
         nvalence = wfs.nvalence
         if nvalence > 0:
-            eigerr = errors['eigenstates'] * Ha**2 / nvalence
+            eigerr = errors['eigenstates'] * Ha ** 2 / nvalence
         else:
             eigerr = 0.0
 
@@ -151,8 +154,10 @@ class SCFLoop:
            time      wfs    density  energy       fermi  poisson"""
             if wfs.nspins == 2:
                 header += '  magmom'
-            if hasattr(wfs.eigensolver, 'iloop'):
-                if wfs.eigensolver.iloop is not None:
+            if hasattr(wfs.eigensolver, 'iloop') or \
+                    hasattr(wfs.eigensolver, 'iloop_outer'):
+                if wfs.eigensolver.iloop is not None or \
+                        wfs.eigensolver.iloop_outer is not None:
                     header += '  inner loop'
             if self.max_errors['force'] < np.inf:
                 l1 = header.find('total')
@@ -169,7 +174,7 @@ class SCFLoop:
         denserr = errors['density']
         assert denserr is not None
         if (denserr is None or np.isinf(denserr) or denserr == 0 or
-            nvalence == 0):
+                nvalence == 0):
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
@@ -196,7 +201,8 @@ class SCFLoop:
                 log('    -oo', end='')
             elif errors['force'] < np.inf:
                 log('  %+.2f' %
-                    (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
+                    (ln(errors['force'] * Ha / Bohr) / ln(10)),
+                    end='')
             else:
                 log('       ', end='')
 
@@ -210,9 +216,14 @@ class SCFLoop:
 
         if wfs.nspins == 2:
             log('  %+.4f' % occ.magmom, end='')
-        if hasattr(wfs.eigensolver, 'iloop'):
+        if hasattr(wfs.eigensolver, 'iloop') or \
+                hasattr(wfs.eigensolver, 'iloop_outer'):
+            iloop_counter = 0
             if wfs.eigensolver.iloop is not None:
-                log('  %d' % wfs.eigensolver.iloop.eg_count, end='')
+                iloop_counter +=  wfs.eigensolver.iloop.eg_count
+            if wfs.eigensolver.iloop_outer is not None:
+                iloop_counter += wfs.eigensolver.iloop_outer.eg_count
+            log('  %d' % iloop_counter, end='')
 
         elif not wfs.collinear:
             totmom_v, magmom_av = dens.estimate_magnetic_moments()
@@ -228,6 +239,9 @@ class SCFLoop:
         if hasattr(wfs.eigensolver, 'iloop'):
             if wfs.eigensolver.iloop is not None:
                 wfs.eigensolver.iloop.total_eg_count = 0
+        if hasattr(wfs.eigensolver, 'iloop_outer'):
+            if wfs.eigensolver.iloop_outer is not None:
+                wfs.eigensolver.iloop_outer.total_eg_count = 0
 
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
@@ -254,21 +268,38 @@ class SCFLoop:
 
             if self.converged:
                 if wfs.mode == 'fd':
-                    if wfs.eigensolver.exstopt:
-                        wfs.eigensolver.choose_optimal_orbitals(
-                            wfs, ham, occ, dens)
-                        niter = wfs.eigensolver.iloop.total_eg_count
-                        log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
-                    elif 'SIC' in wfs.eigensolver.odd_parameters['name']:
-                        wfs.eigensolver.choose_optimal_orbitals(
-                            wfs, ham, occ, dens)
-                        niter1 = wfs.eigensolver.eg_count
+                    wfs.eigensolver.choose_optimal_orbitals(
+                        wfs, ham, occ, dens)
+                    niter1 = wfs.eigensolver.eg_count
+                    niter2 = 0
+                    niter3 = 0
+
+                    iloop1 = wfs.eigensolver.iloop is not None
+                    iloop2 = wfs.eigensolver.iloop_outer is not None
+                    if iloop1:
                         niter2 = wfs.eigensolver.iloop.total_eg_count
-                        log('\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(niter1,
-                                                                                                            niter2))
+                    if iloop2:
+                        niter3 = wfs.eigensolver.iloop_outer.total_eg_count
+
+                    if iloop1 and iloop2:
+                        log(
+                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
+                                niter3,
+                                niter2 + niter3))
+                    elif not iloop1 and iloop2:
+                        log(
+                            '\nOccupied states converged after {:d} e/g evaluations'.format(
+                                niter3))
+                    elif iloop1 and not iloop2:
+                        log(
+                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
+                                niter1,
+                                niter2))
                     else:
-                        niter = wfs.eigensolver.eg_count
-                        log('\nOccupied states converged after {:d} e/g evaluations'.format(niter))
+                        log(
+                            '\nOccupied states converged after {:d} e/g evaluations'.format(
+                                niter1))
+
                     log('Converge unoccupied states:')
                     max_er = self.max_errors['eigenstates']
                     max_er *= Ha ** 2 / wfs.nvalence
@@ -299,6 +330,7 @@ class SCFLoop:
             log(oops)
             raise KohnShamConvergenceError(
                 'Did not converge!  See text output for help.')
+
 
 oops = """
 Did not converge!

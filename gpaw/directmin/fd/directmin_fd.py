@@ -220,22 +220,34 @@ class DirectMinFD(Eigensolver):
                 raise Exception('Check ODD Parameters')
             self.e_sic = 0.0
 
-            iloop = (self.inner_loop is None and
-                     'SIC' in self.odd_parameters['name']) or \
-                self.inner_loop is True
-
-            if iloop:
+            if 'SIC' in self.odd_parameters['name']:
                 self.iloop = InnerLoop(self.odd, wfs,
-                                       self.kappa_tol, self.maxiter,g_tol=self.g_tol)
+                                       self.kappa_tol,
+                                       self.maxiter,
+                                       g_tol=self.g_tol)
             else:
                 self.iloop = None
 
             if self.exstopt:
-                self.iloop=ILEXST(self.odd, wfs,
-                                  'all',
-                                  self.kappa_tol,
-                                  self.maxiter,
-                                  g_tol=self.g_tol)
+                if 'SIC' in self.odd_parameters['name']:
+                    oddparms = self.odd_parameters.copy()
+                    oddparms['name'] = 'PZ_SIC_XT'
+                    odd2 = odd_corrections(oddparms, wfs,
+                                           dens, ham)
+                else:
+                    odd2 = self.odd
+
+                self.iloop_outer = ILEXST(
+                    odd2, wfs,'all', self.kappa_tol, self.maxiter,
+                    g_tol=self.g_tol, useprec=True)
+                # if you have inner-outer loop then need to have
+                # U matrix of the same dimensionality in both loops
+                for kpt in wfs.kpt_u:
+                    k = self.n_kps * kpt.s + kpt.q
+                    self.iloop.U_k[k] = self.iloop_outer.U_k[k].copy()
+            else:
+                self.iloop_outer = None
+
         self.initialized = True
 
     def iterate(self, ham, wfs, dens, occ, log):
@@ -418,8 +430,8 @@ class DirectMinFD(Eigensolver):
             n_kps = self.n_kps
             for kpt in wfs.kpt_u:
                 grad[n_kps * kpt.s + kpt.q] = np.zeros_like(kpt.psit_nG[:])
-            self.run_inner_loop(ham, wfs, occ, dens, grad_knG=grad,
-                                log=None)
+            self.run_inner_loop(ham, wfs, occ, dens,
+                                grad_knG=grad, log=None)
             energy = self.etotal
 
         self.project_gradient(wfs, grad)
@@ -590,14 +602,6 @@ class DirectMinFD(Eigensolver):
             self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
                                               self.iloop.U_k,
                                               add_grad=True)
-            # for kpt in wfs.kpt_u:
-            #     k = self.n_kps * kpt.s + kpt.q
-            #     n_occ = get_n_occ(kpt)
-            #     grad_knG[k][:n_occ] += \
-            #         np.tensordot(self.iloop.U_k[k].conj(),
-            #                      self.iloop.odd_pot.grad[k], axes=1)
-
-
         for kpt in wfs.kpt_u:
 
             # TODO: if homo-lumo is around zero then
@@ -630,7 +634,6 @@ class DirectMinFD(Eigensolver):
                 # np.ones(shape=n_unocc) * np.inf)
                 # inf is not a good
                 # for example for ase get gap
-
                 self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
 
             if n_occ != 0:
@@ -652,7 +655,7 @@ class DirectMinFD(Eigensolver):
 
             kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
             # kpt.eps_n[n_occ + 1:] = +np.inf
-            # inf is not a good for example for ase get gap
+            # inf is not a good for example for ase to get gap
             kpt.eps_n[n_occ + dim:] *= 0.0
             kpt.eps_n[n_occ + dim:] +=\
                 np.absolute(5.0 * kpt.eps_n[n_occ+dim - 1])
@@ -821,9 +824,6 @@ class DirectMinFD(Eigensolver):
         return energy_t, grad
 
     def iterate_lumo(self, ham, wfs, dens):
-        if self.exstopt:
-            parprint("Convergence of LUMOs is not implemented\n")
-            return 0.0, 0.0
 
         n_kps = self.n_kps
         psi_copy = {}
@@ -912,81 +912,79 @@ class DirectMinFD(Eigensolver):
 
     def run_inner_loop(self, ham, wfs, occ, dens, log, grad_knG, niter=0):
 
+        if self.iloop is None and self.iloop_outer is None:
+            return niter, False
+
         wfs.timer.start('Inner loop')
+
         if self.printinnerloop:
             log = parprint
         else:
             log = None
 
-        if self.exstopt:
-            self.etotal, counter = self.iloop.run(
-                0.0, wfs, dens, log, niter,
-                small_random=False,
-                ham=ham, occ=occ)
-            if grad_knG is not None:
-                for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    n_occ = get_n_occ(kpt)
-                    grad_knG[k] += np.tensordot(self.iloop.U_k[k].conj(),
-                                                self.iloop.odd_pot.grad[k],
-                                                axes=1)
-        else:
-            if self.iloop is None:
-                return niter, False
-
-            # self.e_sic = self.odd.get_eg_and_estimate_error(wfs, grad_knG,
-            #                                                 self.U_k)
-            #
-            # if self.odd.kappa < 1.0e-4:
-            #     self.iloop.eg_count = 0
-            #     # energy += self.e_sic
-            #     return 0, True
-            #
-            # temp = {}
-            # psi_copy = {}
-            # for kpt in wfs.kpt_u:
-            #     k = self.n_kps * kpt.s + kpt.q
-            #     temp[k] = kpt.psit_nG[:].copy()
-            #     n_occ = get_n_occ(kpt)
-            #     kpt.psit_nG[:n_occ] = \
-            #         np.tensordot(
-            #             self.U_k[k].T, kpt.psit_nG[:n_occ], axes=1)
-            #     psi_copy[k] = kpt.psit_nG[:].copy()
-            #
-            e_total = ham.get_energy(occ,
-                                     kin_en_using_band=False,
-                                     e_sic=self.e_sic)
+        if self.iloop is not None:
+            if self.exstopt and self.iters == 0:
+                eks = self.update_ks_energy(ham, wfs, dens, occ)
+            else:
+                etotal = ham.get_energy(occ,
+                                        kin_en_using_band=False,
+                                        e_sic=self.e_sic)
+                eks = etotal - self.e_sic
             if wfs.read_from_file_init_wfs_dm:
                 intital_random = False
             else:
                 intital_random = True
             self.e_sic, counter = self.iloop.run(
-                e_total - self.e_sic,
-                wfs, dens, log, niter,
+                eks, wfs, dens, log, niter,
                 small_random=intital_random)
-            if grad_knG is not None:
-                for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    n_occ = get_n_occ(kpt)
-                    grad_knG[k][:n_occ] += \
-                        np.tensordot(self.iloop.U_k[k].conj(),
-                                     self.iloop.odd_pot.grad[k], axes=1)
-        wfs.timer.stop('Inner loop')
-            # for kpt in wfs.kpt_u:
-            #     k = self.n_kps * kpt.s + kpt.q
-            #     self.U_k[k] = self.U_k[k] @ self.iloop.U_k[k]
-            #
-            # self.e_sic = self.odd.get_energy_and_gradients(
-            #     wfs, grad_knG, dens, self.U_k)
-            #
-            # for kpt in wfs.kpt_u:
-            #     k = self.n_kps * kpt.s + kpt.q
-            #     np.save('psit_nG.npy', kpt.psit_nG)
-            #     kpt.psit_nG[:] = temp[k]
-            # del temp
-            # del psi_copy
-            # self.e_sic = self.odd.get_eg_and_estimate_error(wfs, grad_knG, self.U_k)
 
+            if self.iloop_outer is None:
+                if grad_knG is not None:
+                    for kpt in wfs.kpt_u:
+                        k = self.n_kps * kpt.s + kpt.q
+                        n_occ = get_n_occ(kpt)
+                        grad_knG[k][:n_occ] += \
+                            np.tensordot(self.iloop.U_k[k].conj(),
+                                         self.iloop.odd_pot.grad[k],
+                                         axes=1)
+                wfs.timer.stop('Inner loop')
+                return counter, True
+
+            for kpt in wfs.kpt_u:
+                k = self.iloop.n_kps * kpt.s + kpt.q
+                U = self.iloop.U_k[k]
+                n_occ = U.shape[0]
+                kpt.psit_nG[:n_occ] = \
+                    np.tensordot(U.T, kpt.psit_nG[:n_occ], axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+
+        self.etotal, counter = self.iloop_outer.run(
+            0.0, wfs, dens, log, niter,
+            small_random=False,
+            ham=ham, occ=occ)
+        self.e_sic = self.iloop_outer.odd_pot.total_sic
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            grad_knG[k] += np.tensordot(self.iloop_outer.U_k[k].conj(),
+                                        self.iloop_outer.odd_pot.grad[k],
+                                        axes=1)
+            if self.iloop is not None:
+                U = self.iloop.U_k[k]
+                n_occ = U.shape[0]
+                kpt.psit_nG[:n_occ] = \
+                    np.tensordot(U.conj(),
+                                 kpt.psit_nG[:n_occ], axes=1)
+                # calc projectors
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                grad_knG[k][:n_occ] = \
+                    np.tensordot(U.conj(),
+                                 grad_knG[k][:n_occ], axes=1)
+                self.iloop.U_k[k] = \
+                    self.iloop.U_k[k] @ self.iloop_outer.U_k[k]
+                self.iloop_outer.U_k[k] = np.eye(n_occ, dtype=self.dtype)
+
+        wfs.timer.stop('Inner loop')
 
         return counter, True
 
@@ -1062,18 +1060,31 @@ class DirectMinFD(Eigensolver):
         log("Done", flush=True)
 
     def choose_optimal_orbitals(self, wfs, ham, occ, dens):
-        if 'SIC' in self.odd_parameters['name'] or self.exstopt:
-            # choose optimal orbitals and store them in wfs.kpt_u
-            for kpt in wfs.kpt_u:
-                k = self.n_kps * kpt.s + kpt.q
-                dim=self.iloop.U_k[k].shape[0]
-                # n_occ=get_n_occ(kpt)
+        # choose optimal orbitals and store them in wfs.kpt_u
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            if self.iloop is not None:
+                dim = self.iloop.U_k[k].shape[0]
                 kpt.psit_nG[:dim] = \
                     np.tensordot(
-                        self.iloop.U_k[k].T, kpt.psit_nG[:dim], axes=1)
+                        self.iloop.U_k[k].T, kpt.psit_nG[:dim],
+                        axes=1)
                 self.iloop.U_k[k] = np.eye(self.iloop.U_k[k].shape[0])
-                self.iloop.Unew_k[k] = np.eye(self.iloop.Unew_k[k].shape[0])
-            self.run_inner_loop(ham, wfs, occ, dens, log=None, grad_knG=None)
+                self.iloop.Unew_k[k] = np.eye(
+                    self.iloop.Unew_k[k].shape[0])
+            if self.iloop_outer is not None:
+                dim = self.iloop_outer.U_k[k].shape[0]
+                kpt.psit_nG[:dim] = \
+                    np.tensordot(
+                        self.iloop_outer.U_k[k].T,
+                        kpt.psit_nG[:dim], axes=1)
+                self.iloop_outer.U_k[k] = np.eye(
+                    self.iloop_outer.U_k[k].shape[0])
+                self.iloop_outer.Unew_k[k] = np.eye(
+                    self.iloop_outer.Unew_k[k].shape[0])
+            if self.iloop is not None or \
+                    self.iloop_outer is not None:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
 
 def log_f(niter, e_total, eig_error, log):
