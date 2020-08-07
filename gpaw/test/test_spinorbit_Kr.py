@@ -19,7 +19,7 @@ def test_spinorbit_Kr():
     a.get_potential_energy()
 
     e_n = calc.get_eigenvalues()
-    e_m = soc_eigenstates(calc).kpts[0].eigenvalues()
+    e_m = soc_eigenstates(calc).wfs[0].eig_n
 
     assert e_n[0] - e_m[0] == pytest.approx(0.0, abs=1.0e-3)
     assert e_n[1] - e_m[2] == pytest.approx(0.452, abs=1.0e-3)

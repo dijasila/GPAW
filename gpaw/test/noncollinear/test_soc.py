@@ -48,6 +48,6 @@ def test_soc_self_non_consistent():
                   **params)
     a.get_potential_energy()
 
-    kpts = soc_eigenstates(a.calc, n2=14)
-    eigs = kpts.eigenvalues()[8]
+    bzwfs = soc_eigenstates(a.calc, n2=14)
+    eigs = bzwfs.eigenvalues()[8]
     check(eigs, 0.15, 0.007)
