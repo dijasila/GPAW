@@ -2,6 +2,7 @@ import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
+from gpaw.utilities.partition import AtomPartition
 
 
 class Projections:

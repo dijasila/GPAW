@@ -110,7 +110,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     from gpaw import GPAW
 
     if not isinstance(calc, GPAW):
-        calc = GPAW(calc, txt=None)
+        calc = GPAW(calc)
 
     if n2 == 0:
         n2 = calc.get_number_of_bands()
@@ -178,7 +178,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         else:
             eps1_n, eps2_n = eigenvalues[:, ibz_index]
 
-        ibzkpt = KPoint(1.0, None, 0, 0)
+        ibzkpt = KPoint(1.0 / kd.nbzkpts, None, None, None, None)
 
         ibzkpt.eps_n = np.empty((n2 - n1) * 2)
         ibzkpt.eps_n[::2] = eps1_n

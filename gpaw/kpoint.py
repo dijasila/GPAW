@@ -65,7 +65,7 @@ class KPoint:
         self.T_MM = None
 
     def __repr__(self):
-        return (f'KPoint(weight={self.weight}, '
+        return (f'KPoint(weight={self.weight}, weightk={self.weightk}, '
                 f's={self.s}, k={self.k}, q={self.q})')
 
     @property
@@ -101,7 +101,7 @@ class KPoint:
         else:
             assert len(projections.indices) == 0
 
-        kpt = KPoint(1.0 / kd.nbzkpts, None, bz_index, -1)
+        kpt = KPoint(1.0 / kd.nbzkpts, None, self.s, bz_index, -1)
         kpt.projections = projections
         kpt.eps_n = self.eps_n.copy()
         return kpt
