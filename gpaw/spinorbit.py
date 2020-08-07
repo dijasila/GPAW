@@ -1,14 +1,16 @@
 import warnings
-from typing import Union, List, TYPE_CHECKING, Dict, Any, Optional
+from typing import Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable
+from operator import attrgetter
 from pathlib import Path
 
 import numpy as np
 from ase.units import Ha, alpha, Bohr
 
 from gpaw.projections import Projections
-from gpaw.kpoint import KPoint
+from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
+from gpaw.utilities.ibz2bz import construct_symmetry_operators
 
 if TYPE_CHECKING:
     from gpaw import GPAW
@@ -22,44 +24,128 @@ Array2D = ArrayND
 Array3D = ArrayND
 
 
-class KPointCollection:
-    def __init__(self, kd, kpts: List[KPoint]):
+class WaveFunction:
+    def __init__(self, eigenvalues: Array1D, projections: Projections):
+        self.eig_n = eigenvalues
+        self.projections = projections
+        self.spin_projection_vn: Optional[Array2D] = None
+        self.v_snm: Optional[Array3D] = None
+
+    def transform(self,
+                  kd: KPointDescriptor,
+                  setups: List[Setup],
+                  spos_ac: Array2D,
+                  bz_index: int,
+                  atom_partition: AtomPartition) -> 'WaveFunction':
+        """Transforms PAW projections from IBZ to BZ k-point."""
+        a_a, U_aii, time_rev = construct_symmetry_operators(
+            kd, setups, spos_ac, bz_index)
+
+        projections = self.projections.new()
+
+        if projections.atom_partition.comm.rank == 0:
+            a = 0
+            for b, U_ii in zip(a_a, U_aii):
+                P_ni = self.projections[b].dot(U_ii)
+                if time_rev:
+                    P_ni = P_ni.conj()
+                projections[a][:] = P_ni
+                a += 1
+        else:
+            assert len(projections.indices) == 0
+
+        projections = projections.redist(atom_partition)
+        wf = WaveFunction(self.eig_n.copy(), projections)
+
+        return wf
+
+    def add_soc(self,
+                dVL_avii: Dict[int, Array3D],
+                s_vss: Array3D,
+                C_ss: Array2D) -> None:
+        """Evaluate H in a basis of S_z eigenstates."""
+        H_mm = np.diag(self.eig_n.astype(complex))
+        for a, dVL_vii in dVL_avii.items():
+            ni = dVL_vii.shape[1]
+            H_ssii = np.zeros((2, 2, ni, ni), complex)
+            H_ssii[0, 0] = dVL_vii[2]
+            H_ssii[0, 1] = dVL_vii[0] - 1.0j * dVL_vii[1]
+            H_ssii[1, 0] = dVL_vii[0] + 1.0j * dVL_vii[1]
+            H_ssii[1, 1] = -dVL_vii[2]
+
+            # Tranform to theta, phi basis
+            H_ssii = np.tensordot(C_ss, H_ssii, ([0, 1]))
+            H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, ([1, 1]))
+
+            P_msi = self.projections[a]
+            for s1 in range(2):
+                for s2 in range(2):
+                    H_ii = H_ssii[s1, s2]
+                    P1_mi = P_msi[:, s1]
+                    P2_mi = P_msi[:, s2]
+                    H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
+
+        self.eig_n, v_snm = np.linalg.eigh(H_mm)
+
+        P_msI = self.projections.array
+        m, s, I = P_msI.shape
+        P_msI[:] = v_snm.T.dot(P_msI.reshape((m, s * I))).reshape((m, s, I))
+
+        sx_m = []
+        sy_m = []
+        sz_m = []
+        for v_sn in v_snm.T:
+            v_sn = np.array([v_sn[::2], v_sn[1::2]])
+            sx_m.append(np.trace(v_sn.T.conj().dot(s_vss[0]).dot(v_sn)))
+            sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
+            sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
+
+        self.spin_projection_vn = np.array([sx_m, sy_m, sz_m]).real
+        self.v_snm = v_snm
+
+
+class BZWaveFunctions:
+    def __init__(self, kd, wfs: Dict[int, WaveFunction]):
         self.kd = kd
-        self.kpts = {kpt.k: kpt for kpt in kpts}
+        self.wfs = wfs
 
         # Initialize ranks:
         self.ranks = np.zeros(kd.nbzkpts, int)
-        for kpt in kpts:
-            self.ranks[kpt.k] = kd.comm.rank
+        for k in wfs:
+            self.ranks[k] = kd.comm.rank
         kd.comm.sum(self.ranks)
 
     def eigenvalues(self) -> Optional[Array2D]:
-        return self._collect('eps_n', Ha)
+        return self._collect(attrgetter('eig_n'))
 
     def spin_projections(self) -> Optional[Array3D]:
-        return self._collect('spin_projection_vn')
+        return self._collect(attrgetter('spin_projection_vn'))
 
-    def _collect(self, attr: str, scale: float = 1.0) -> Optional[ArrayND]:
-        if self.kpts[0].projections.atom_partition.comm.rank != 0:
-            return
-        if self.kpts[0].projections.bcomm.rank != 0:
-            return
+    def _collect(self,
+                 attr: Callable[[WaveFunction], ArrayND]
+                 ) -> Optional[ArrayND]:
+        if len(self.wfs) == 0:
+            return None
+        if self.wfs[0].projections.atom_partition.comm.rank != 0:
+            return None
 
         comm = self.kd.comm
         if comm.rank == 0:
-            kpt = next(iter(self.kpts.values()))
-            shape = getattr(kpt, attr).shape
+            wf = next(iter(self.wfs.values()))
+            shape = attr(wf).shape
             x_kn = np.empty((self.kd.nbzkpts,) + shape)
             for k, rank in enumerate(self.ranks):
-                if rank == comm.rank:
-                    x_kn[k] = getattr(self.kpts[k], attr) * scale
+                if rank == 0:
+                    x_kn[k] = attr(self.wfs[k])
                 else:
                     comm.receive(x_kn[k], rank)
             return x_kn
 
         for k, rank in enumerate(self.ranks):
-            if rank == self.kd.comm.rank:
-                comm.send(getattr(self.kpts[k], attr) * scale, 0)
+            if rank == comm.rank:
+                comm.send(attr(self.wfs[k]), 0)
+
+        return None
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
@@ -71,7 +157,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     phi: float = 0.0,
                     return_wfs: bool = False,
                     occupations: Dict = None
-                    ) -> KPointCollection:
+                    ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
     Parameters:
@@ -147,7 +233,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
              C_ss.T.conj().dot(sy_ss).dot(C_ss),
              C_ss.T.conj().dot(sz_ss).dot(C_ss)]
 
-    mykpts = []
+    wfs = {}
     for kpt_s in calc.wfs.kpt_qs:
         kpt1 = kpt_s[0]
         P1_nI = kpt1.projections.collect()
@@ -156,7 +242,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         if len(kpt_s) == 2:
             kpt2 = kpt_s[1]
             P2_nI = kpt2.projections.collect()
-            eps2_n = bd.collect(kpt2.eps_n, broadcast=True)
+            eps2_n = bd.collect(kpt2.eps_n)
         else:
             P2_nI = P1_nI
             eps2_n = eps1_n
@@ -178,30 +264,28 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         else:
             eps1_n, eps2_n = eigenvalues[:, ibz_index]
 
-        ibzkpt = KPoint(1.0 / kd.nbzkpts, None, None, None, None)
+        eps_n = np.empty((n2 - n1) * 2)
+        eps_n[::2] = eps1_n
+        eps_n[1::2] = eps2_n
 
-        ibzkpt.eps_n = np.empty((n2 - n1) * 2)
-        ibzkpt.eps_n[::2] = eps1_n
-        ibzkpt.eps_n[1::2] = eps2_n
-
-        ibzkpt.projections = Projections(
+        projections = Projections(
             nbands=2 * (n2 - n1),
             nproj_a=kpt1.projections.nproj_a,
             atom_partition=AtomPartition(gd.comm,
                                          np.zeros(len(spos_ac), int)),
             collinear=False)
-        ibzkpt.projections.array[:] = 0.0
-        ibzkpt.projections.array[::2, 0] = P1_nI
-        ibzkpt.projections.array[1::2, 1] = P2_nI
+        projections.array[:] = 0.0
+        projections.array[::2, 0] = P1_nI
+        projections.array[1::2, 1] = P2_nI
+
+        ibzwf = WaveFunction(eps_n / Ha, projections)
 
         for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
-            kpt = ibzkpt.transform(kd, setups, spos_ac, bz_index)
-            kpt.projections = kpt.projections.redist(atom_partition)
-            add_soc(kpt, dVL_avii, s_vss, C_ss)
-            kpt.q = bz_index
-            mykpts.append(kpt)
+            wf = ibzwf.transform(kd, setups, spos_ac, bz_index, atom_partition)
+            wf.add_soc(dVL_avii, s_vss, C_ss)
+            wfs[bz_index] = wf
 
-    return KPointCollection(kd, mykpts)
+    return BZWaveFunctions(kd, wfs)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
@@ -267,51 +351,6 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
         f_g += fxc_g
 
     return f_g / r_g
-
-
-def add_soc(kpt: KPoint,
-            dVL_avii: Dict[int, Array3D],
-            s_vss: Array3D,
-            C_ss: Array2D) -> None:
-    """Evaluate H in a basis of S_z eigenstates."""
-    H_mm = np.diag(kpt.eps_n.astype(complex))
-    for a, dVL_vii in dVL_avii.items():
-        ni = dVL_vii.shape[1]
-        H_ssii = np.zeros((2, 2, ni, ni), complex)
-        H_ssii[0, 0] = dVL_vii[2]
-        H_ssii[0, 1] = dVL_vii[0] - 1.0j * dVL_vii[1]
-        H_ssii[1, 0] = dVL_vii[0] + 1.0j * dVL_vii[1]
-        H_ssii[1, 1] = -dVL_vii[2]
-
-        # Tranform to theta, phi basis
-        H_ssii = np.tensordot(C_ss, H_ssii, ([0, 1]))
-        H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, ([1, 1]))
-
-        P_msi = kpt.projections[a]
-        for s1 in range(2):
-            for s2 in range(2):
-                H_ii = H_ssii[s1, s2]
-                P1_mi = P_msi[:, s1]
-                P2_mi = P_msi[:, s2]
-                H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
-
-    kpt.eps_n, v_snm = np.linalg.eigh(H_mm)
-
-    P_msI = kpt.projections.array
-    m, s, I = P_msI.shape
-    P_msI[:] = v_snm.T.dot(P_msI.reshape((m, s * I))).reshape((m, s, I))
-
-    sx_m = []
-    sy_m = []
-    sz_m = []
-    for v_sn in v_snm.T:
-        v_sn = np.array([v_sn[::2], v_sn[1::2]])
-        sx_m.append(np.trace(v_sn.T.conj().dot(s_vss[0]).dot(v_sn)))
-        sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
-        sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
-
-    kpt.spin_projection_vn = np.array([sx_m, sy_m, sz_m]).real
-    kpt.v_snm = v_snm
 
 
 def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None,
