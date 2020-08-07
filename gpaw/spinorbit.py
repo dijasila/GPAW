@@ -1,5 +1,6 @@
 import warnings
-from typing import Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable
+from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
+                    Tuple)
 from operator import attrgetter
 from pathlib import Path
 
@@ -28,7 +29,7 @@ class WaveFunction:
     def __init__(self, eigenvalues: Array1D, projections: Projections):
         self.eig_n = eigenvalues
         self.projections = projections
-        self.spin_projection_vn: Optional[Array2D] = None
+        self.spin_projection_nv: Optional[Array2D] = None
         self.v_snm: Optional[Array3D] = None
 
     def transform(self,
@@ -64,7 +65,8 @@ class WaveFunction:
                 s_vss: Array3D,
                 C_ss: Array2D) -> None:
         """Evaluate H in a basis of S_z eigenstates."""
-        H_mm = np.diag(self.eig_n.astype(complex))
+        M = len(self.eig_n)
+        H_mm = np.zeros((M, M), complex)
         for a, dVL_vii in dVL_avii.items():
             ni = dVL_vii.shape[1]
             H_ssii = np.zeros((2, 2, ni, ni), complex)
@@ -76,6 +78,7 @@ class WaveFunction:
             # Tranform to theta, phi basis
             H_ssii = np.tensordot(C_ss, H_ssii, ([0, 1]))
             H_ssii = np.tensordot(C_ss.T.conj(), H_ssii, ([1, 1]))
+            H_ssii *= Ha
 
             P_msi = self.projections[a]
             for s1 in range(2):
@@ -85,7 +88,16 @@ class WaveFunction:
                     P2_mi = P_msi[:, s2]
                     H_mm += np.dot(np.dot(P1_mi.conj(), H_ii), P2_mi.T)
 
-        self.eig_n, v_snm = np.linalg.eigh(H_mm)
+        domain_comm = self.projections.atom_partition.comm
+        domain_comm.sum(H_mm, 0)
+        if domain_comm.rank == 0:
+            H_mm += np.diag(self.eig_n)
+            self.eig_n, v_snm = np.linalg.eigh(H_mm)
+        else:
+            v_snm = np.empty_like(H_mm)
+
+        domain_comm.broadcast(self.eig_n, 0)
+        domain_comm.broadcast(v_snm, 0)
 
         P_msI = self.projections.array
         m, s, I = P_msI.shape
@@ -100,12 +112,14 @@ class WaveFunction:
             sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
             sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
 
-        self.spin_projection_vn = np.array([sx_m, sy_m, sz_m]).real
+        self.spin_projection_nv = np.array([sx_m, sy_m, sz_m]).real.T
         self.v_snm = v_snm
 
 
 class BZWaveFunctions:
-    def __init__(self, kd, wfs: Dict[int, WaveFunction]):
+    def __init__(self,
+                 kd: KPointDescriptor,
+                 wfs: Dict[int, WaveFunction]):
         self.kd = kd
         self.wfs = wfs
 
@@ -115,25 +129,33 @@ class BZWaveFunctions:
             self.ranks[k] = kd.comm.rank
         kd.comm.sum(self.ranks)
 
+        self.shape = None
+        if len(wfs) > 0:
+            wf = next(iter(wfs.values()))
+            if wf.projections.atom_partition.comm.rank == 0:
+                self.shape = (kd.nbzkpts, wf.projections.nbands)
+
     def eigenvalues(self) -> Optional[Array2D]:
         return self._collect(attrgetter('eig_n'))
 
     def spin_projections(self) -> Optional[Array3D]:
-        return self._collect(attrgetter('spin_projection_vn'))
+        sp_knv = self._collect(attrgetter('spin_projection_nv'), (3,))
+        if sp_knv is None:
+            return None
+        return sp_knv.transpose((0, 2, 1))
 
     def _collect(self,
-                 attr: Callable[[WaveFunction], ArrayND]
+                 attr: Callable[[WaveFunction], ArrayND],
+                 shape: Tuple[int] = None
                  ) -> Optional[ArrayND]:
-        if len(self.wfs) == 0:
+        if self.shape is None:
             return None
-        if self.wfs[0].projections.atom_partition.comm.rank != 0:
-            return None
+
+        total_shape = self.shape + (shape or ())
 
         comm = self.kd.comm
         if comm.rank == 0:
-            wf = next(iter(self.wfs.values()))
-            shape = attr(wf).shape
-            x_kn = np.empty((self.kd.nbzkpts,) + shape)
+            x_kn = np.empty(total_shape)
             for k, rank in enumerate(self.ranks):
                 if rank == 0:
                     x_kn[k] = attr(self.wfs[k])
@@ -278,7 +300,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         projections.array[::2, 0] = P1_nI
         projections.array[1::2, 1] = P2_nI
 
-        ibzwf = WaveFunction(eps_n / Ha, projections)
+        ibzwf = WaveFunction(eps_n * Ha, projections)
 
         for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
             wf = ibzwf.transform(kd, setups, spos_ac, bz_index, atom_partition)

@@ -39,7 +39,7 @@ def test_soc_self_consistent():
 
 
 @pytest.mark.soc
-def test_soc_self_non_consistent():
+def test_soc_non_self_consistent():
     """Non self-consistent SOC."""
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
