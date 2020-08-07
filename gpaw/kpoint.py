@@ -2,10 +2,12 @@
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a ``KPoint`` class."""
-from typing import List
+from math import nan
+from typing import List, Optional
 from ase.units import Ha
 
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
+from gpaw.projections import Projections
 
 
 class KPoint:
@@ -23,8 +25,13 @@ class KPoint:
         k-point weight in supercell calculations.
     """
 
-    def __init__(self, weightk: float, weight: float,
-                 s: int, k: int, q: int, phase_cd=None):
+    def __init__(self,
+                 weightk: float,
+                 weight: float,
+                 s: int,
+                 k: int,
+                 q: int,
+                 phase_cd=None):
         """Construct k-point object.
 
         Parameters:
@@ -53,7 +60,7 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.projections = None  # Projections
+        self.projections: Optional[Projections] = None
 
         # Only one of these two will be used:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
@@ -79,11 +86,13 @@ class KPoint:
             return self.psit.array
 
     def eigenvalues(self):
+        assert self.projections is not None
         assert self.projections.bcomm.size == 1
         return self.eps_n * Ha
 
     def transform(self, kd, setups: List, spos_ac, bz_index: int) -> 'KPoint':
         """Transforms PAW projections from IBZ to BZ k-point."""
+        assert self.projections is not None
         assert self.projections.bcomm.size == 1
         a_a, U_aii, time_rev = construct_symmetry_operators(
             kd, setups, spos_ac, bz_index)
@@ -101,7 +110,8 @@ class KPoint:
         else:
             assert len(projections.indices) == 0
 
-        kpt = KPoint(1.0 / kd.nbzkpts, None, self.s, bz_index, -1)
+        kpt = KPoint(1.0 / kd.nbzkpts, nan, self.s, bz_index, -1)
         kpt.projections = projections
+        assert self.eps_n is not None
         kpt.eps_n = self.eps_n.copy()
         return kpt

@@ -219,7 +219,7 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug: bool = 1#extra_parameters.pop('debug', sys.flags.debug)
+debug: bool = True  # extra_parameters.pop('debug', sys.flags.debug)
 benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
