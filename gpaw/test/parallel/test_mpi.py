@@ -6,4 +6,4 @@ def test_send_receive_object():
     if world.rank == 0:
         send(obj, 1, world)
     elif world.rank == 1:
-        assert obj == receive(1, world)
+        assert obj == receive(0, world)
