@@ -17,7 +17,7 @@ from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
 
 if TYPE_CHECKING:
-    from gpaw import GPAW
+    from gpaw import GPAW  # noqa
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
 
@@ -265,6 +265,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
 
     Units for eigenvalues and fermi_level are eV.
     """
+
+    from gpaw import GPAW  # noqa
 
     if not isinstance(calc, GPAW):
         calc = GPAW(calc)
