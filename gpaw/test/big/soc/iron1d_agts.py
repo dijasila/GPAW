@@ -40,4 +40,4 @@ def run() -> None:
 
 def create_tasks():
     from myqueue.task import task
-    return [task('iron1d.agts.py@run', cores=4)]
+    return [task('iron1d_agts.py@run', cores=4)]

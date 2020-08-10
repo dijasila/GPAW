@@ -187,17 +187,17 @@ class BSE:
     def calculate(self, optical=True, ac=1.0):
 
         if self.spinors:
-            """Calculate spinors. Here m is index of eigenvalues with SOC
-            and n is the basis of eigenstates withour SOC. Below m is used
-            for unoccupied states and n is used for occupied states so be
-            careful!"""
+            # Calculate spinors. Here m is index of eigenvalues with SOC
+            # and n is the basis of eigenstates without SOC. Below m is used
+            # for unoccupied states and n is used for occupied states so be
+            # careful!
 
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
-            dct = soc_eigenstates(self.calc,
+            soc = soc_eigenstates(self.calc,
                                   return_wfs=True,
                                   scale=self.scale)
-            e_mk = dct['eigenvalues']
-            v_knm = dct['eigenvalues']
+            e_mk = soc.eigenvalues().T
+            v_knm = soc.v_knm
             e_mk /= Hartree
 
         # Parallelization stuff
