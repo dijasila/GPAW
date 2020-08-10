@@ -9,6 +9,7 @@ from ase.units import Ha, alpha, Bohr
 
 from gpaw.projections import Projections
 from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.mpi import broadcast_array
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
@@ -129,39 +130,49 @@ class BZWaveFunctions:
             self.ranks[k] = kd.comm.rank
         kd.comm.sum(self.ranks)
 
-        self.shape = None
-        if len(wfs) > 0:
-            wf = next(iter(wfs.values()))
-            if wf.projections.atom_partition.comm.rank == 0:
-                self.shape = (kd.nbzkpts, wf.projections.nbands)
+        wf = next(iter(wfs.values()))  # get the first WaveFunction object
 
-    def eigenvalues(self) -> Optional[Array2D]:
-        return self._collect(attrgetter('eig_n'))
+        self.shape = (kd.nbzkpts, wf.projections.nbands)
+        self.domain_comm = wf.projections.atom_partition.comm
+        self.bcomm = wf.projections.bcomm
 
-    def spin_projections(self) -> Optional[Array3D]:
-        sp_knv = self._collect(attrgetter('spin_projection_nv'), (3,))
+    def eigenvalues(self, broadcast: bool = True) -> Optional[Array2D]:
+        return self._collect(attrgetter('eig_n'), broadcast=broadcast)
+
+    def spin_projections(self, broadcast: bool = True) -> Optional[Array3D]:
+        sp_knv = self._collect(attrgetter('spin_projection_nv'), (3,),
+                               broadcast)
         if sp_knv is None:
             return None
         return sp_knv.transpose((0, 2, 1))
 
     def _collect(self,
                  attr: Callable[[WaveFunction], ArrayND],
-                 shape: Tuple[int] = None
-                 ) -> Optional[ArrayND]:
-        if self.shape is None:
-            return None
+                 shape: Tuple[int] = None,
+                 broadcast: bool = True) -> Optional[ArrayND]:
+        """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
 
+        if broadcast:
+            array_knx = self._collect(attr, shape, False)
+            if array_knx is None:
+                array_knx = np.empty(total_shape)
+            return broadcast_array(array_knx,
+                                   self.kd.comm, self.bcomm, self.domain_comm)
+
+        if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
+            return None
+
         comm = self.kd.comm
         if comm.rank == 0:
-            x_kn = np.empty(total_shape)
+            array_knx = np.empty(total_shape)
             for k, rank in enumerate(self.ranks):
                 if rank == 0:
-                    x_kn[k] = attr(self.wfs[k])
+                    array_knx[k] = attr(self.wfs[k])
                 else:
-                    comm.receive(x_kn[k], rank)
-            return x_kn
+                    comm.receive(array_knx[k], rank)
+            return array_knx
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
@@ -259,36 +270,38 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     for kpt_s in calc.wfs.kpt_qs:
         kpt1 = kpt_s[0]
         P1_nI = kpt1.projections.collect()
-        eps1_n = bd.collect(kpt1.eps_n)
+        eig1_n = bd.collect(kpt1.eps_n)
 
         if len(kpt_s) == 2:
             kpt2 = kpt_s[1]
             P2_nI = kpt2.projections.collect()
-            eps2_n = bd.collect(kpt2.eps_n)
+            eig2_n = bd.collect(kpt2.eps_n)
         else:
             P2_nI = P1_nI
-            eps2_n = eps1_n
-
-        if bd.comm.rank != 0:
-            continue
+            eig2_n = eig1_n
 
         ibz_index = kpt1.k
 
-        if gd.comm.rank == 0:
-            P1_nI = P1_nI[n1:n2]
-            P2_nI = P2_nI[n1:n2]
-        else:
-            P1_nI = P2_nI = np.zeros((n2 - n1, 0), complex)
+        if bd.comm.rank == 0:
+            if gd.comm.rank == 0:
+                P1_nI = P1_nI[n1:n2]
+                P2_nI = P2_nI[n1:n2]
+            else:
+                P1_nI = P2_nI = np.zeros((n2 - n1, 0), complex)
 
-        if eigenvalues is None:
-            eps1_n = eps1_n[n1:n2]
-            eps2_n = eps2_n[n1:n2]
+            if eigenvalues is None:
+                eig1_n = eig1_n[n1:n2]
+                eig2_n = eig2_n[n1:n2]
+            else:
+                eig1_n, eig2_n = eigenvalues[:, ibz_index]
         else:
-            eps1_n, eps2_n = eigenvalues[:, ibz_index]
+            n1 = n2 = 0
+            P1_nI = P2_nI = np.zeros((0, 0), complex)
+            eig1_n = eig2_n = np.zeros(0)
 
-        eps_n = np.empty((n2 - n1) * 2)
-        eps_n[::2] = eps1_n
-        eps_n[1::2] = eps2_n
+        eig_n = np.empty((n2 - n1) * 2)
+        eig_n[::2] = eig1_n
+        eig_n[1::2] = eig2_n
 
         projections = Projections(
             nbands=2 * (n2 - n1),
@@ -300,7 +313,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         projections.array[::2, 0] = P1_nI
         projections.array[1::2, 1] = P2_nI
 
-        ibzwf = WaveFunction(eps_n * Ha, projections)
+        ibzwf = WaveFunction(eig_n * Ha, projections)
 
         for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
             wf = ibzwf.transform(kd, setups, spos_ac, bz_index, atom_partition)
