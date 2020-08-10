@@ -18,8 +18,9 @@ e_nk -= ef
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
-e_mk = soc_eigenstates(calc)['eigenvalues'].T
-e_mk -= ef
+soc = soc_eigenstates(calc)
+e_mk = soc.eigenvalues().T
+e_mk -= soc.fermi_level
 
 plt.xticks(X, [r'$\Gamma$', 'X', 'W', 'L', r'$\Gamma$', 'K', 'X'], size=20)
 plt.yticks(size=20)

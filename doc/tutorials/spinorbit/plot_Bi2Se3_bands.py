@@ -23,7 +23,7 @@ for e_k in e_nk:
 
 # Spin-orbit calculation
 soc = soc_eigenstates(calc, scale=1.0)
-e_kn = soc.eigenvalues - soc.fermi_level
+e_nk = soc.eigenvalues().T - soc.fermi_level
 
 plt.xticks(X, [r'$\Gamma$', 'Z', 'F', r'$\Gamma$', 'L'], size=24)
 plt.yticks(size=20)

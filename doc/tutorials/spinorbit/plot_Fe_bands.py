@@ -21,11 +21,11 @@ for e_k in e_snk[1]:
     pl.plot(x, e_k, '--', c='0.5')
 
 soc = soc_eigenstates(calc)
-e_nk = soc.eigenvalues.T
-s_kvn = soc.spin_projections
+e_nk = soc.eigenvalues().T
+s_knv = soc.spin_projections()
 
-e_nk -= ef
-s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
+e_nk -= soc.fermi_level
+s_nk = (s_knv[:, :, 2].T + 1.0) / 2.0
 
 pl.xticks(X, [r'$\Gamma$', '(010)   H   (001)', r'$\Gamma$'], size=20)
 pl.yticks(size=20)

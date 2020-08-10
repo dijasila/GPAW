@@ -18,19 +18,19 @@ for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
 soc = soc_eigenstates(calc)
-e_nk = soc.eigenvalues.T
-s_kvn = soc.spin_projections
-e_nk -= ef
-s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
+e_kn = soc.eigenvalues()
+s_knv = soc.spin_projections()
+e_kn -= soc.fermi_level
+s_nk = (s_knv[:, :, 2].T + 1.0) / 2.0
 
 plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$',
                r'$\mathrm{-K}$', r'$\mathrm{-M}$'], size=20)
 plt.yticks(size=20)
 for i in range(len(X))[1:-1]:
-    plt.plot(2 * [X[i]], [1.1 * np.min(e_nk), 1.1 * np.max(e_nk)],
+    plt.plot(2 * [X[i]], [1.1 * np.min(e_kn), 1.1 * np.max(e_kn)],
              c='0.5', linewidth=0.5)
 
-plt.scatter(np.tile(x, len(e_nk)), e_nk.reshape(-1),
+plt.scatter(np.tile(x, len(e_kn.T)), e_kn.T.reshape(-1),
             c=s_nk.reshape(-1),
             edgecolor=plt.get_cmap('jet')(s_nk.reshape(-1)),
             s=2,

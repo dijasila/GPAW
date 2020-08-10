@@ -124,7 +124,7 @@ class OccupationNumberCalculator:
         return ParallelLayout(self.bd, self.kpt_comm, self.domain_comm)
 
     def todict(self):
-        raise NotImplementedError
+        return {'name': self.name}
 
     def copy(self,
              parallel_layout: ParallelLayout = None,
@@ -591,10 +591,8 @@ def FixedOccupations(f_sn):
 
 
 class ThomasFermiOccupations(OccupationNumberCalculator):
+    name = 'orbital-free'
     extrapolate_factor = 0.0
-
-    def todict(self):
-        return {'name': 'orbital-free'}
 
     def _calculate(self,
                    nelectrons,
