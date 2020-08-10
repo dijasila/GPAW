@@ -18,6 +18,18 @@ def main(path: Path) -> None:
 
 
 def py2ipynb(path: Path) -> None:
+    """Convert Python script to ipynb file.
+
+    Hides cells marked with "# teacher" and replaces lines marked with
+    "# student: ..."::
+
+        answer = 42  # student: answer = ...
+
+    gives::
+
+        answer = ...
+
+    """
     cells = []
     text = path.read_text()
     assert text.startswith('# %%\n')
