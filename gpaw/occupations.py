@@ -100,7 +100,7 @@ def hermite_poly(n, x):
 
 
 class OccupationNumberCalculator:
-    """Base class for all occupation number objects."""
+    """Base class for all occupation number calculators."""
     name = 'unknown'
     extrapolate_factor: float
 
@@ -123,10 +123,13 @@ class OccupationNumberCalculator:
     def parallel_layout(self) -> ParallelLayout:
         return ParallelLayout(self.bd, self.kpt_comm, self.domain_comm)
 
+    def todict(self):
+        raise NotImplementedError
+
     def copy(self,
              parallel_layout: ParallelLayout = None,
              bz2ibzmap: List[int] = None
-             ) -> OccupationNumberCalculator:
+             ) -> 'OccupationNumberCalculator':
         return create_occ_calc(
             self.todict(),
             parallel_layout=parallel_layout or self.parallel_layout)
