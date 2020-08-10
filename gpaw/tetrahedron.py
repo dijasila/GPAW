@@ -133,10 +133,11 @@ class TetrahedronMethod(OccupationNumberCalculator):
                  parallel_layout: ParallelLayout = None):
         """Tetrahedron method for calculating occupation numbers.
 
-        The reciprocal cell (rcell) can be given in arbitrary units
-        (only the shape matters) and size is the size of the
+        The reciprocal cell, *rcell*, can be given in arbitrary units
+        (only the shape matters) and *size* is the size of the
         Monkhorst-Pack grid.  If k-points have been symmetry-reduced
-        the bz2ibzmap mapping BZ k-point indizes to IBZ -k-point indices.
+        the *bz2ibzmap* parameter  mapping BZ k-point indizes to
+        IBZ k-point indices must be given.
         """
 
         OccupationNumberCalculator.__init__(self, parallel_layout)
@@ -172,12 +173,12 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
     def copy(self,
              parallel_layout: ParallelLayout = None,
-             bz2ibzmap: List[int] = [-1]
+             bz2ibzmap: List[int] = None
              ) -> OccupationNumberCalculator:
         return TetrahedronMethod(
             self.rcell_cv,
             self.size_c,
-            bz2ibzmap ......,
+            self.i_k if bz2ibzmap is None else bz2ibzmap,
             parallel_layout or self.parallel_layout)
 
     def _calculate(self,

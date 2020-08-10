@@ -1,4 +1,5 @@
 import warnings
+from math import nan
 from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
                     Tuple)
 from operator import attrgetter
@@ -33,6 +34,8 @@ class WaveFunction:
         self.projections = projections
         self.spin_projection_nv: Optional[Array2D] = None
         self.v_snm: Optional[Array3D] = None
+        self.f_n = np.empty_like(self.eig_n)
+        self.f_n[:] = nan
 
     def transform(self,
                   kd: KPointDescriptor,
@@ -153,7 +156,7 @@ class BZWaveFunctions:
             eig_im,
             weight_i)
         for wf, f_n in zip(self, f_im):
-            wf.f_n = f_n
+            wf.f_n[:] = f_n
 
         return fermi_level
 
@@ -262,8 +265,6 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
 
     Units for eigenvalues and fermi_level are eV.
     """
-
-    from gpaw import GPAW
 
     if not isinstance(calc, GPAW):
         calc = GPAW(calc)
