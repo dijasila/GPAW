@@ -10,6 +10,7 @@ from ase.units import Ha, alpha, Bohr
 from gpaw.projections import Projections
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import broadcast_array
+from gpaw.occupations import OccupationNumberCalculator
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
@@ -120,9 +121,13 @@ class WaveFunction:
 class BZWaveFunctions:
     def __init__(self,
                  kd: KPointDescriptor,
-                 wfs: Dict[int, WaveFunction]):
+                 wfs: Dict[int, WaveFunction],
+                 occcalc: OccupationNumberCalculator,
+                 nelectrons: float):
         self.kd = kd
         self.wfs = wfs
+        self.occ = occcalc
+        self.nelectrons = nelectrons
 
         # Initialize ranks:
         self.ranks = np.zeros(kd.nbzkpts, int)
@@ -136,10 +141,42 @@ class BZWaveFunctions:
         self.domain_comm = wf.projections.atom_partition.comm
         self.bcomm = wf.projections.bcomm
 
-    def eigenvalues(self, broadcast: bool = True) -> Optional[Array2D]:
+        self.fermi_level = self._calculate_occ_numbers_and_fermi_level()
+
+    def _calculate_occ_numbers_and_fermi_level(self) -> float:
+        eig_im = [wf.eig_n for wf in self]
+        weight = 1.0 / self.kd.nbzkpts
+        weight_i = [weight] * len(eig_im)
+
+        f_im, (fermi_level,), _ = self.occ.calculate(
+            self.nelectrons,
+            eig_im,
+            weight_i)
+        for wf, f_n in zip(self, f_im):
+            wf.f_n = f_n
+
+        return fermi_level
+
+    def calculate_band_energy(self) -> float:
+        weight = 1.0 / self.kd.nbzkpts
+        e_band = sum(wf.eig_n.dot(wf.f_n) for wf in self) * weight
+        e_band = self.bcomm.sum(e_band)
+        e_band = self.kd.comm.sum(e_band)
+        return e_band
+
+    def __iter__(self):
+        yield from self.wfs.values()
+
+    def eigenvalues(self,
+                    broadcast: bool = True
+                    ) -> Optional[Array2D]:
+        """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_n'), broadcast=broadcast)
 
-    def spin_projections(self, broadcast: bool = True) -> Optional[Array3D]:
+    def spin_projections(self,
+                         broadcast: bool = True
+                         ) -> Optional[Array3D]:
+        """Spin projections for the whole BZ."""
         sp_knv = self._collect(attrgetter('spin_projection_nv'), (3,),
                                broadcast)
         if sp_knv is None:
@@ -320,7 +357,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             wf.add_soc(dVL_avii, s_vss, C_ss)
             wfs[bz_index] = wf
 
-    return BZWaveFunctions(kd, wfs)
+    occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts))
+
+    return BZWaveFunctions(kd, wfs, occ, calc.wfs.nvalence)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
@@ -411,47 +450,19 @@ def set_calculator(calc, e_km, v_knm=None, width=None):
         'instead.')
 
 
-def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=None, width=None):
-    """Calculates the sum of occupied spinorbit eigenvalues. Returns the result
-    relative to the sum of eigenvalues without spinorbit coupling"""
-    Ns = calc.wfs.nspins
-    noncollinear = not calc.density.collinear
+def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=0, width=None):
+    """Calculates the sum of occupied spinorbit eigenvalues.
 
-    e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
-                       for k in range(len(calc.get_ibz_k_points()))]
-                      for s in range(Ns)])
-    e_kn = np.reshape(np.swapaxes(e_skn, 0, 1), (len(e_skn[0]),
-                                                 Ns * len(e_skn[0, 0])))
-    e_kn = np.sort(e_kn, 1)
-    if nbands is None:
-        nbands = len(e_skn[0, 0])
-    f_skn = np.array([[calc.get_occupation_numbers(kpt=k, spin=s)
-                       for k in range(len(calc.get_ibz_k_points()))]
-                      for s in range(Ns)])
-    f_kn = np.reshape(np.swapaxes(f_skn, 0, 1), (len(f_skn[0]),
-                                                 Ns * len(f_skn[0, 0])))
-    f_kn = np.sort(f_kn, 1)[:, ::-1]
-    if noncollinear:
-        f_kn *= 2
+    Returns the result relative to the sum of eigenvalues without
+    spinorbit coupling.
+    """
+    bzwfs = soc_eigenstates(calc, theta=theta, phi=phi,
+                            n1=0, n2=nbands)
 
-    E = np.sum(e_kn * f_kn)
+    E_so = bzwfs.calculate_band_energy()
+    E_ref = calc.wfs.calculate_band_energy() * Ha
 
-    from gpaw.occupations import occupation_numbers
-    e_km = soc_eigenstates(calc, theta=theta, phi=phi,
-                           bands=range(nbands))['eigenvalues']
-    if width is None:
-        assert calc.wfs.occupations.name == 'fermi-dirac'
-        width = calc.wfs.occupations._width
-    if width == 0.0:
-        width = 1.e-6
-    weight_k = np.ones(len(e_km)) / (2 * len(e_km))
-    ne = calc.wfs.setups.nvalence - calc.density.charge
-    f_km = occupation_numbers({'name': 'fermi-dirac', 'width': width},
-                              e_km[np.newaxis],
-                              weight_k=weight_k,
-                              nelectrons=ne)[0][0]
-    E_so = np.sum(e_km * f_km)
-    return E_so - E
+    return E_so - E_ref
 
 
 def get_spinorbit_projections(calc, ik, v_nm):

@@ -261,6 +261,14 @@ class SmoothDistribution(OccupationNumberCalculator):
     def todict(self):
         return {'name': self.name, 'width': self._width}
 
+    def copy(self,
+             parallel_layout: ParallelLayout = None,
+             ibz2bzmap: List[int] = None
+             ) -> OccupationNumberCalculator:
+        return create_occ_calc(
+            self.todict(),
+            parallel_layout=parallel_layout or self.parallel_layout)
+
     def _calculate(self,
                    nelectrons,
                    eig_qn,

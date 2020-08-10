@@ -170,6 +170,16 @@ class TetrahedronMethod(OccupationNumberCalculator):
             f'{self.bd.comm.size}x{self.kpt_comm.size}x{self.domain_comm.size}'
             '>)')
 
+    def copy(self,
+             parallel_layout: ParallelLayout = None,
+             bz2ibzmap: List[int] = [-1]
+             ) -> OccupationNumberCalculator:
+        return TetrahedronMethod(
+            self.rcell_cv,
+            self.size_c,
+            bz2ibzmap ......,
+            parallel_layout or self.parallel_layout)
+
     def _calculate(self,
                    nelectrons,
                    eig_qn,
