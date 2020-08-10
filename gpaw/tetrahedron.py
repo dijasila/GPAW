@@ -160,6 +160,8 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
         self.i_ktq = triangulate_everything(self.size_c, ABC_tqc, self.i_k)
 
+        self.nibzkpts = self.i_k.max() + 1
+
     def __repr__(self):
         return (
             'TetrahedronMethod('
@@ -189,15 +191,32 @@ class TetrahedronMethod(OccupationNumberCalculator):
                                                         self.bd, self.kpt_comm)
 
         if eig_in is not None:
-            assert self.i_k.max() == len(eig_in) - 1
+            if len(eig_in) == self.nibzkpts:
+                nspins = 1
+            else:
+                nspins = 2
+                assert len(eig_in) == 2 * self.nibzkpts
 
             def func(x, eig_in=eig_in):
                 """Return excess electrons and derivative."""
-                n, dn = count(x, eig_in, self.i_ktq)
+                if nspins == 1:
+                    n, dn = count(x, eig_in, self.i_ktq)
+                else:
+                    n1, dn1 = count(x, eig_in[::2], self.i_ktq)
+                    n2, dn2 = count(x, eig_in[1::2], self.i_ktq)
+                    n = n1 + n2
+                    dn = dn1 + dn2
                 return n - nelectrons, dn
 
             fermi_level, niter = findroot(func, x)
-            f_in = weights(eig_in - fermi_level, self.i_ktq)
+
+            if nspins == 1:
+                f_in = weights(eig_in - fermi_level, self.i_ktq)
+            else:
+                f_in = np.zeros_like(eig_in)
+                f_in[::2] = weights(eig_in[::2] - fermi_level, self.i_ktq)
+                f_in[1::2] = weights(eig_in[1::2] - fermi_level, self.i_ktq)
+
             f_in *= 1 / (weight_i[:, np.newaxis] * len(self.i_k))
         else:
             f_in = None
