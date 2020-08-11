@@ -23,10 +23,9 @@ def test_bcast_array():
                  new(ranks[:, world.rank % 2])]
     elif world.size == 8:
         ranks = np.array([[[0, 1], [2, 3]], [[4, 5], [6, 7]]])
-        ranks = np.arange(8).reshape((2, 2, 2))
         comms = [new(ranks[world.rank // 4].ravel()),
                  new(ranks[:, world.rank // 2 % 2].ravel()),
-                 new(ranks[:, :, world.rank % 2]).ravel()]
+                 new(ranks[:, :, world.rank % 2].ravel())]
     else:
         return
 
@@ -34,5 +33,5 @@ def test_bcast_array():
     if world.rank == 0:
         array[:] = 42
 
-    out = broadcast_array(array, comms)
+    out = broadcast_array(array, *comms)
     assert (out == 42).all()
