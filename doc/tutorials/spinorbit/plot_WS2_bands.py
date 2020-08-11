@@ -20,7 +20,7 @@ for e_k in e_nk:
 soc = soc_eigenstates(calc)
 e_kn = soc.eigenvalues()
 s_knv = soc.spin_projections()
-e_kn -= soc.fermi_level
+e_kn -= ef
 s_nk = (s_knv[:, :, 2].T + 1.0) / 2.0
 
 plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$',

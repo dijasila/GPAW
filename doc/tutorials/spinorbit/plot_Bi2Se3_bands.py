@@ -30,7 +30,7 @@ plt.yticks(size=20)
 for i in range(len(X))[1:-1]:
     plt.plot(2 * [X[i]], [1.1 * np.min(e_nk), 1.1 * np.max(e_nk)],
              c='0.5', linewidth=0.5)
-for e_k in e_kn.T:
+for e_k in e_nk:
     plt.plot(x, e_k, c='b')
 
 plt.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
