@@ -180,11 +180,7 @@ class BZWaveFunctions:
                          broadcast: bool = True
                          ) -> Optional[Array3D]:
         """Spin projections for the whole BZ."""
-        sp_knv = self._collect(attrgetter('spin_projection_nv'), (3,),
-                               broadcast)
-        if sp_knv is None:
-            return None
-        return sp_knv.transpose((0, 2, 1))
+        return self._collect(attrgetter('spin_projection_nv'), (3,), broadcast)
 
     def _collect(self,
                  attr: Callable[[WaveFunction], ArrayND],
@@ -222,29 +218,23 @@ class BZWaveFunctions:
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
-                    n1: int = 0,
-                    n2: int = 0,
+                    n1: int = None,
+                    n2: int = None,
                     eigenvalues: Array3D = None,
                     scale: float = 1.0,
                     theta: float = 0.0,
-                    phi: float = 0.0,
-                    return_wfs: bool = False,
-                    occupations: Dict = None
+                    phi: float = 0.0
                     ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
     Parameters:
         calc: Calculator
             GPAW calculator or path to gpw-file.
-        bands: list of ints
-            List of band indices for which to calculate soc.
+        n1, n2: int
+            Range of bands to include (n1 <= n < n2).  Default is all
+            bands available.
         eigenvalues: (ns, nk, nb)-shaped ndarray [units: eV]
             Use these eigenvalues instead of those from calc.get_eigenvalues().
-        return_wfs: bool
-            Flag for returning wave functions.
-        occupations: dict
-            Example: {'name': 'fermi-dirac', 'width': 0.01} (width in eV).
-            This will calculate the Fermi-level also.
         scale: float
             Scale the spinorbit coupling by this amount.
         theta: float
@@ -271,8 +261,10 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     if not isinstance(calc, GPAW):
         calc = GPAW(calc)
 
-    if n2 == 0:
-        n2 = calc.get_number_of_bands()
+    n1 = n1 or 0
+    n2 = n2 or 0
+    if n2 <= 0:
+        n2 = calc.get_number_of_bands() + n2
 
     kd = calc.wfs.kd
     bd = calc.wfs.bd

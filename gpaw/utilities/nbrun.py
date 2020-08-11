@@ -2,19 +2,7 @@
 import json
 import sys
 from pathlib import Path
-from runpy import run_path
 from typing import Dict, Any
-
-
-def main(path: Path) -> None:
-    """Run code with ase.visualize.view() disabled."""
-    import ase.visualize as visualize
-
-    def view(atoms, repeat=None):
-        pass
-
-    visualize.view = view
-    run_path(str(path))
 
 
 def py2ipynb(path: Path) -> None:
@@ -37,8 +25,9 @@ def py2ipynb(path: Path) -> None:
 
     for chunk in chunks:
         cell_type = 'code'
-        if chunk.startswith(("'''", '"""')):
-            chunk = chunk.strip('"\n')
+        if chunk.startswith(('"""', 'r"""')):
+            chunk = chunk.strip('r\n')
+            chunk = chunk.strip('"')
             cell_type = 'markdown'
 
         cell: Dict[str, Any] = {
@@ -85,4 +74,4 @@ def py2ipynb(path: Path) -> None:
 
 
 if __name__ == '__main__':
-    main(Path(sys.argv[1]))
+    py2ipynb(Path(sys.argv[1]))

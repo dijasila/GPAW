@@ -1,4 +1,9 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Non-collinear magnetism - VI$_2$
 
@@ -20,7 +25,7 @@ from gpaw import GPAW, PW
 S = 3 / 2  # student: S = ???
 m = S * 2
 layer = read('VI2.xyz')
-layer.set_initial_magnetic_moments([m, 0, 0])        
+layer.set_initial_magnetic_moments([m, 0, 0])
 view(layer)
 
 calc = GPAW(mode=PW(400), xc='LDA', kpts=(4, 4, 1))
@@ -116,7 +121,7 @@ print('J = %1.2f meV' % (J * 1000))
 As it turn out the optimal spin structure of a hexagonal lattice with anti-ferromagntice coupling is taking all spins at 120$^\circ$ angles with respect to each other. Draw this structure and convince yourself that it can be done.
 
 1. What is the minimal number of magnetic atoms required in the magnetic unit cell
-2. Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration that the anti-aligned structure calculated above. The energy per site of this state should be 
+2. Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration that the anti-aligned structure calculated above. The energy per site of this state should be
 
 $$E_{\mathrm{NC}}=E_0+\frac{3}{2}S^2J.$$
 
@@ -132,7 +137,7 @@ from gpaw import GPAW, PW, MixerDif
 m = 3
 cell_cv = layer.get_cell()
 layer_nc = layer.repeat((3, 1, 1))
-new_cell_cv = [[3 * cell_cv[0, 0] / 2, 3**0.5 * cell_cv[0, 0] / 2, 0.0], 
+new_cell_cv = [[3 * cell_cv[0, 0] / 2, 3**0.5 * cell_cv[0, 0] / 2, 0.0],
                [3 * cell_cv[0, 0] / 2, -3**0.5 * cell_cv[0, 0] / 2, 0.0],
                [0.0, 0.0, cell_cv[2, 2]]]
 layer_nc.set_cell(new_cell_cv)

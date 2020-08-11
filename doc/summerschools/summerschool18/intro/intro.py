@@ -1,4 +1,9 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Introduction to Python and ASE and some useful libraries
 """
