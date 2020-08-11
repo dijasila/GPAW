@@ -220,7 +220,6 @@ class BZWaveFunctions:
 def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n1: int = None,
                     n2: int = None,
-                    eigenvalues: Array3D = None,
                     scale: float = 1.0,
                     theta: float = 0.0,
                     phi: float = 0.0
@@ -266,6 +265,17 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     if n2 <= 0:
         n2 = calc.get_number_of_bands() + n2
 
+    return soc_eigenstates_raw(ibz_extractor, n1, n2, scalem theta, phi)
+
+
+def soc_eigenstates_raw(ibzwfs,
+                        n1: int,
+                        n2: int,
+                        scale: float = 1.0,
+                        theta: float = 0.0,
+                        phi: float = 0.0
+                        ) -> BZWaveFunctions:
+
     kd = calc.wfs.kd
     bd = calc.wfs.bd
     gd = calc.wfs.gd
@@ -298,7 +308,20 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
              C_ss.T.conj().dot(sy_ss).dot(C_ss),
              C_ss.T.conj().dot(sz_ss).dot(C_ss)]
 
-    wfs = {}
+    bzwfs = {}
+    for ibz_index, ibzwf in enumerate(ibzwfs(n1, n2)):
+        for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
+            bzwf = ibzwf.transform(kd, setups, spos_ac, bz_index,
+                                   atom_partition)
+            bzwf.add_soc(dVL_avii, s_vss, C_ss)
+            bzwfs[bz_index] = bzwf
+
+    occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts))
+
+    return BZWaveFunctions(kd, bzwfs, occ, calc.wfs.nvalence)
+
+
+def extract_ibz_wave_functions():
     for kpt_s in calc.wfs.kpt_qs:
         kpt1 = kpt_s[0]
         P1_nI = kpt1.projections.collect()
@@ -308,9 +331,13 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             kpt2 = kpt_s[1]
             P2_nI = kpt2.projections.collect()
             eig2_n = bd.collect(kpt2.eps_n)
-        else:
+        elif collinear:
             P2_nI = P1_nI
             eig2_n = eig1_n
+        else:
+            P_nsI = P1_nI
+            print(P_nsI.shape)
+            sadfkl
 
         ibz_index = kpt1.k
 
@@ -321,11 +348,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             else:
                 P1_nI = P2_nI = np.zeros((n2 - n1, 0), complex)
 
-            if eigenvalues is None:
-                eig1_n = eig1_n[n1:n2]
-                eig2_n = eig2_n[n1:n2]
-            else:
-                eig1_n, eig2_n = eigenvalues[:, ibz_index]
+            eig1_n = eig1_n[n1:n2]
+            eig2_n = eig2_n[n1:n2]
         else:
             n1 = n2 = 0
             P1_nI = P2_nI = np.zeros((0, 0), complex)
@@ -346,15 +370,6 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         projections.array[1::2, 1] = P2_nI
 
         ibzwf = WaveFunction(eig_n * Ha, projections)
-
-        for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
-            wf = ibzwf.transform(kd, setups, spos_ac, bz_index, atom_partition)
-            wf.add_soc(dVL_avii, s_vss, C_ss)
-            wfs[bz_index] = wf
-
-    occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts))
-
-    return BZWaveFunctions(kd, wfs, occ, calc.wfs.nvalence)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:

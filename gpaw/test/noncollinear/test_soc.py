@@ -39,6 +39,25 @@ def test_soc_self_consistent():
 
 
 @pytest.mark.soc
+@pytest.mark.skipif(size > 1, reason='Does not work in parallel')
+def test_non_collinear_plus_soc():
+    a = mx2('MoS2')
+    a.center(vacuum=3, axis=2)
+
+    a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
+                                'soc': False},
+                  convergence={'bands': 28},
+                  **params)
+    a.get_potential_energy()
+
+    bzwfs = soc_eigenstates(a.calc, n2=14)
+    eigs = bzwfs.eigenvalues()[8]
+    check(eigs, 0.15, 0.002)
+
+
+ttttttttttttttttttttttest_non_collinear_plus_soc()
+
+@pytest.mark.soc
 def test_soc_non_self_consistent():
     """Non self-consistent SOC."""
     a = mx2('MoS2')
