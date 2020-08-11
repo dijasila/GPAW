@@ -2,9 +2,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues, set_calculator
+from gpaw.spinorbit import get_spinorbit_eigenvalues, fermi_level
 
-#plt.rc('text', usetex=True)
 
 calc1 = GPAW('Bi2Se3_bands.gpw', txt=None)
 calc2 = GPAW('gs_Bi2Se3.gpw', txt=None)
@@ -25,8 +24,7 @@ for e_k in e_nk:
 # Spin-orbit calculation
 
 e_nk = get_spinorbit_eigenvalues(calc2)
-set_calculator(calc2, e_nk.T)
-ef = calc2.get_fermi_level()
+ef = fermi_level(calc2, e_nk.T)
 e_nk = get_spinorbit_eigenvalues(calc1, scale=1.0)
 e_nk -= ef
 

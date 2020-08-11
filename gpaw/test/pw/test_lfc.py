@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from gpaw.test import equal
@@ -9,6 +10,7 @@ from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 from gpaw.kpt_descriptor import KPointDescriptor
 
 
+@pytest.mark.ci
 def test_pw_lfc():
     x = 2.0
     rc = 3.5

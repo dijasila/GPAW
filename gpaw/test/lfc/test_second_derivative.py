@@ -1,8 +1,11 @@
+import pytest
 import numpy as np
 from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 
+
+@pytest.mark.ci
 def test_lfc_second_derivative():
     gd = GridDescriptor([20, 16, 16], [(4, 2, 0), (0, 4, 0), (0, 0, 4)])
     spos_ac = np.array([[0.252, 0.15, 0.35], [0.503, 0.5, 0.5]])

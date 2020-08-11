@@ -13,12 +13,12 @@ def calculate_forces(wfs, coulomb, sym, paw_s, ftol=1e-9) -> np.ndarray:
     nspins = wfs.nspins
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
-               for kpt in wfs.mykpts)
+               for kpt in wfs.kpt_u)
     nocc = kd.comm.max(int(nocc))
 
     dPdR_skaniv = {(kpt.s, kpt.k): wfs.pt.derivative(kpt.psit_nG[:nocc],
                                                      q=kpt.k)
-                   for kpt in wfs.mykpts}
+                   for kpt in wfs.kpt_u}
 
     natoms = len(wfs.spos_ac)
     F_av = np.zeros((natoms, 3))

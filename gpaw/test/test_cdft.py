@@ -38,6 +38,7 @@ def test_cdft(in_tmp_dir):
                   minimizer_options={'gtol':0.01})
     sys.calc = cdft_b
     sys.get_potential_energy()
+    sys.get_forces()
 
     if size == 1:
         coupling = CouplingParameters(cdft_b, cdft_b, AE = False)

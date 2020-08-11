@@ -8,15 +8,12 @@ from .kpts import PWKPoint, RSKPoint, to_real_space
 
 def apply1(kpt, Htpsit_xG, wfs, coulomb, sym, paw):
     kd = wfs.kd
-    K = kd.nibzkpts
-    k1 = kpt.s * K
-    k2 = k1 + K
     kpts = [PWKPoint(kpt.psit,
                      kpt.projections,
                      kpt.f_n / kpt.weight,  # scale to [0, 1] range
                      kd.ibzk_kc[kpt.k],
                      kd.weight_k[kpt.k])
-            for kpt in wfs.mykpts[k1:k2]]
+            for kpt in wfs.kpt_u[kpt.s::wfs.nspins]]
     evv, evc, ekin, v_knG = calculate(kpts, wfs, paw, sym, coulomb)
     return evc, evv, ekin, v_knG
 
@@ -238,9 +235,6 @@ def calculate_exx_for_pair(k1,
 
 def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
     kd = wfs.kd
-    K = kd.nibzkpts
-    k1 = kpt.s * K
-    k2 = k1 + K
 
     psit = kpt.psit.new(buf=psit_xG)
     P = kpt.projections.new()
@@ -257,7 +251,7 @@ def apply2(kpt, psit_xG, Htpsit_xG, wfs, coulomb, sym, paw):
                       kpt.f_n / kpt.weight,  # scale to [0, 1] range
                       kd.ibzk_kc[kpt.k],
                       kd.weight_k[kpt.k])
-             for kpt in wfs.mykpts[k1:k2]]
+             for kpt in wfs.kpt_u[kpt.s::wfs.nspins]]
     v_nG = calculate2(kpt1, kpts2, wfs, paw, sym, coulomb)
     return v_nG
 

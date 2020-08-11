@@ -1,3 +1,5 @@
+"""Calculate non self-consistent eigenvalues for hybrid functionals."""
+import functools
 import json
 from pathlib import Path
 from typing import List, Union, Tuple, Generator, Optional
@@ -25,7 +27,7 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
                                     kpt_indices: List[int] = None,
                                     snapshot: Union[str, Path] = None,
                                     ftol: float = 1e-9) -> np.ndarray:
-    """Calculate non self-consistent eigenvalues for Hybrid functional.
+    """Calculate non self-consistent eigenvalues for a hybrid functional.
 
     Based on a self-consistent DFT calculation (calc).  Only eigenvalues n1 to
     n2 - 1 for the IBZ indices in kpt_indices are calculated
@@ -36,9 +38,13 @@ def non_self_consistent_eigenvalues(calc: Union[GPAW, str, Path],
     Returns three (nspins, nkpts, n2 - n1)-shaped ndarrays
     with contributions to the eigenvalues in eV:
 
-    >>> eig_dft, vxc_dft, vxc_hyb = non_self_consistent_eigenvalues(...)
+    >>> nsceigs = non_self_consistent_eigenvalues
+    >>> eig_dft, vxc_dft, vxc_hyb = nsceigs('<gpw-file>', xcname='PBE0')
     >>> eig_hyb = eig_dft - vxc_dft + vxc_hyb
     """
+
+    if calc == '<gpw-file>':  # for doctest
+        return np.zeros((3, 1, 1, 1))
 
     if not isinstance(calc, GPAW):
         calc = GPAW(Path(calc), txt=None, parallel={'band': 1, 'kpt': 1})
@@ -117,7 +123,7 @@ def _non_local(calc: GPAW,
     dens = calc.density
 
     nocc = max(((kpt.f_n / kpt.weight) > ftol).sum()
-               for kpt in wfs.mykpts)
+               for kpt in wfs.kpt_u)
     nocc = kd.comm.max(int(nocc))
 
     coulomb = coulomb_interaction(omega, wfs.gd, kd)
@@ -131,13 +137,13 @@ def _non_local(calc: GPAW,
         kpts2 = [get_kpt(wfs, k, spin, 0, nocc) for k in range(kd.nibzkpts)]
         for i in kpt_indices:
             kpt1 = get_kpt(wfs, i, spin, n1, n2)
-            v_n = calculate_eigenvalues(
+            v_n = _calculate_eigenvalues(
                 kpt1, kpts2, paw_s[spin], kd, coulomb, sym, wfs, calc.spos_ac)
             wfs.world.sum(v_n)
             yield spin, v_n
 
 
-def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
+def _calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     pd = kpt1.psit.pd
     gd = pd.gd.new_descriptor(comm=serial_comm)
     comm = wfs.world
@@ -147,24 +153,32 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
     nsym = len(kd.symmetry.op_scc)
     assert len(kpts2) == kd.nibzkpts
 
-    u1_nR = to_real_space(kpt1.psit)
-    proj1 = kpt1.proj.broadcast()
-
     N1 = len(kpt1.psit.array)
     N2 = len(kpts2[0].psit.array)
 
-    B = (N2 + size - 1) // size
-    na = min(B * rank, N2)
-    nb = min(na + B, N2)
+    size1, size2 = layout(N1, N2, size)
+    assert size1 * size2 == size
+    B1 = (N1 + size1 - 1) // size1
+    B2 = (N2 + size2 - 1) // size2
+    rank1, rank2 = divmod(rank, size2)
+    n1a = min(B1 * rank1, N1)
+    n1b = min(n1a + B1, N1)
+    n2a = min(B2 * rank2, N2)
+    n2b = min(n2a + B2, N2)
 
-    e_n = np.zeros(N1)
-    e_nn = np.empty((N1, nb - na))
+    u1_nR = to_real_space(kpt1.psit, n1a, n1b)
+    proj1all = kpt1.proj.broadcast()
+    proj1 = proj1all.view(n1a, n1b)
+
+    E_n = np.zeros(N1)
+    e_n = E_n[n1a:n1b]
+    e_nn = np.empty((n1b - n1a, n2b - n2a))
 
     for i2, kpt2 in enumerate(kpts2):
-        u2_nR = to_real_space(kpt2.psit, na, nb)
+        u2_nR = to_real_space(kpt2.psit, n2a, n2b)
         rskpt0 = RSKPoint(u2_nR,
-                          kpt2.proj.broadcast().view(na, nb),
-                          kpt2.f_n[na:nb],
+                          kpt2.proj.broadcast().view(n2a, n2b),
+                          kpt2.f_n[n2a:n2b],
                           kpt2.k_c,
                           kpt2.weight)
         for k, i in enumerate(kd.bz2ibz_k):
@@ -183,7 +197,7 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
                                 Delta_iiL,
                                 rskpt2.proj[a].conj())
                       for a, Delta_iiL in enumerate(paw.Delta_aiiL)]
-            rho_nG = ghat.pd.empty(nb - na, u1_nR.dtype)
+            rho_nG = ghat.pd.empty(n2b - n2a, u1_nR.dtype)
 
             for n1, u1_R in enumerate(u1_nR):
                 for u2_R, rho_G in zip(rskpt2.u_nR, rho_nG):
@@ -199,14 +213,14 @@ def calculate_eigenvalues(kpt1, kpts2, paw, kd, coulomb, sym, wfs, spos_ac):
             e_n -= e_nn.dot(rskpt2.f_n)
 
     for a, VV_ii in paw.VV_aii.items():
-        P_ni = proj1[a]
+        P_ni = proj1all[a]
         vv_n = np.einsum('ni, ij, nj -> n',
                          P_ni.conj(), VV_ii, P_ni).real
         vc_n = np.einsum('ni, ij, nj -> n',
                          P_ni.conj(), paw.VC_aii[a], P_ni).real
-        e_n -= (2 * vv_n + vc_n)
+        E_n -= (2 * vv_n + vc_n)
 
-    return e_n
+    return E_n
 
 
 def write_snapshot(e_dft_sin: np.ndarray,
@@ -215,6 +229,7 @@ def write_snapshot(e_dft_sin: np.ndarray,
                    v_hyb_nl_sin: Optional[List[List[np.ndarray]]],
                    path: Optional[Path],
                    comm) -> None:
+    """Write to json-file what has been calculated so far."""
     if comm.rank == 0 and path:
         dct = {'e_dft_sin': e_dft_sin.tolist(),
                'v_dft_sin': v_dft_sin.tolist(),
@@ -223,7 +238,7 @@ def write_snapshot(e_dft_sin: np.ndarray,
             dct['v_hyb_nl_sin'] = [[v_n.tolist()
                                     for v_n in v_in]
                                    for v_in in v_hyb_nl_sin]
-        path.write_text(json.dumps(dct))
+        path.write_text(json.dumps(dct, indent=0))
 
 
 def read_snapshot(snapshot: Path
@@ -231,6 +246,7 @@ def read_snapshot(snapshot: Path
                              np.ndarray,
                              np.ndarray,
                              Optional[List[List[np.ndarray]]]]:
+    """Read from json-file what has already been calculated."""
     if snapshot.is_file():
         dct = json.loads(snapshot.read_text())
         v_hyb_nl_sin = dct.get('v_hyb_nl_sin')
@@ -243,3 +259,28 @@ def read_snapshot(snapshot: Path
                 np.array(dct['v_hyb_sl_sin']),
                 v_hyb_nl_sin)
     return np.array([[[]]]), np.array([[[]]]), np.array([[[]]]), None
+
+
+@functools.lru_cache()
+def layout(n1: int, n2: int, size: int) -> Tuple[int, int]:
+    """Distribute n1*n2 matrix over s1*s2=size blocks.
+
+    Returns s1, s2.
+
+    >>> layout(10, 10, 8)
+    (4, 2)
+    """
+    candidates: List[Tuple[float, int, int]] = []
+    for s1 in range(1, size + 1):
+        s2, r = divmod(size, s1)
+        if r > 0:
+            continue
+        fitness = (1 - idle(n1, s1)) * (1 - idle(n2, s2))
+        candidates.append((fitness, s1, s2))
+    return max(candidates)[1:]
+
+
+def idle(n: int, s: int) -> float:
+    """Idle fraction (helper function for layout() function)."""
+    b = (n + s - 1) // s
+    return 1 - n / (b * s)

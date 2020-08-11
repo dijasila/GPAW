@@ -9,6 +9,7 @@ sys.path.append('.')
 extensions = ['images',
               'ext',
               'sphinx.ext.autodoc',
+              'sphinx.ext.doctest',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
@@ -29,6 +30,7 @@ intersphinx_mapping = {
     'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
     'pytest': ('https://docs.pytest.org/en/stable', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
+nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

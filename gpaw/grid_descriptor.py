@@ -64,10 +64,11 @@ class GridDescriptor(Domain):
      >>> a = np.zeros((2, 2, 2))
      >>> a.ravel()[:] = range(8)
      >>> a
-     array([[[0, 1],
-             [2, 3]],
-            [[4, 5],
-             [6, 7]]])
+     array([[[0., 1.],
+             [2., 3.]],
+     <BLANKLINE>
+            [[4., 5.],
+             [6., 7.]]])
      """
 
     ndim = 3  # dimension of ndarrays

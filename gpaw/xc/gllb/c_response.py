@@ -2,7 +2,7 @@
 from math import sqrt, pi
 
 import numpy as np
-from ase.units import Hartree, Bohr
+from ase.units import Ha, Bohr
 
 from gpaw.mpi import world
 from gpaw.sphere.lebedev import weight_n
@@ -77,7 +77,6 @@ class C_Response(Contribution):
         self.density = self.nlfunc.density
         self.symmetry = self.wfs.kd.symmetry
         self.nspins = self.nlfunc.nspins
-        self.occupations = self.nlfunc.occupations
         self.nvalence = self.nlfunc.nvalence
         self.kpt_comm = self.wfs.kd.comm
         self.band_comm = self.wfs.bd.comm
@@ -126,7 +125,8 @@ class C_Response(Contribution):
             self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
             return
 
-        if not self.occupations.ready:
+        # if not self.occupations.ready:
+        if self.wfs.fermi_levels is None:
             d('No occupations calculated yet')
             return
 
@@ -322,8 +322,10 @@ class C_Response(Contribution):
         nt_G = self.gd.empty()
 
         # Find the lumo-orbital of this spin
-        sign = 1 - s * 2
-        lumo_n = int((self.wfs.nvalence + sign * self.occupations.magmom) // 2)
+        eps_n = self.wfs.kpt_qs[0][s].eps_n
+        assert self.wfs.bd.comm.size == 1
+        lumo_n = (eps_n < self.wfs.fermi_level).sum()
+
         gaps = [1000.0]
         for u, kpt in enumerate(self.kpt_u):
             if kpt.s == s:
@@ -344,7 +346,6 @@ class C_Response(Contribution):
                 gaps.append(E - lumo)
 
         method2_dxc = -self.kpt_comm.max(-min(gaps))
-        Ha = 27.2116
         Ksgap *= Ha
         method1_dxc *= Ha
         method2_dxc *= Ha
@@ -498,12 +499,12 @@ class C_Response(Contribution):
         writer.add_array('gllb_pseudo_response_potential', shape)
         if kpt_comm.rank == 0:
             for vt_G in self.vt_sG:
-                writer.fill(gd.collect(vt_G) * Hartree)
+                writer.fill(gd.collect(vt_G) * Ha)
 
         writer.add_array('gllb_dxc_pseudo_response_potential', shape)
         if kpt_comm.rank == 0:
             for Dxc_vt_G in self.Dxc_vt_sG:
-                writer.fill(gd.collect(Dxc_vt_G) * (Hartree / Bohr))
+                writer.fill(gd.collect(Dxc_vt_G) * (Ha / Bohr))
 
         def pack(X0_asp):
             X_asp = self.wfs.setups.empty_atomic_matrix(

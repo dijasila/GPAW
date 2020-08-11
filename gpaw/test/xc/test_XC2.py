@@ -1,11 +1,15 @@
 from math import pi
+
+import numpy as np
+import pytest
+
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.xc import XC
-import numpy as np
 from gpaw.test import equal
 
 
+@pytest.mark.ci
 def test_xc_XC2():
     rgd = EquidistantRadialGridDescriptor(0.01, 100)
 
@@ -32,7 +36,6 @@ def test_xc_XC2():
                 ns[:] = n / 2
                 Es = xc.calculate_spherical(rgd, ns, 0 * ns)
                 equal(E, Es, 1e-13)
-            
 
     N = 20
     a = 1.0
@@ -67,7 +70,7 @@ def test_xc_XC2():
                 print(name, nspins, E, x, x2, x - x2)
                 equal(x, x2, 1e-11)
                 n[-1, 1, 2, 3] += 0.000001
-                
+
             if nspins == 1:
                 ns = gd.empty(2)
                 ns[:] = n / 2

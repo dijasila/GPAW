@@ -13,13 +13,11 @@ H_z = [H[0], -H[1], -H[2]]
 G_yz = [2 * H[0], 0.0, 0.0]
 
 kpts, x, X = bandpath([G, H, G_yz], layer.cell, npoints=1000)
-calc = GPAW('Fe_gs.gpw',
-            kpts=kpts,
-            fixdensity=True,
-            symmetry='off',
-            txt='Fe_bands.txt',
-            parallel={'band': 1})
-calc.get_potential_energy()
+calc = GPAW('Fe_gs.gpw').fixed_density(
+    kpts=kpts,
+    symmetry='off',
+    txt='Fe_bands.txt',
+    parallel={'band': 1})
 
 calc.write('Fe_bands.gpw')
 

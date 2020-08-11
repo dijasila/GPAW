@@ -93,10 +93,3 @@ import gpaw.dfpt.responsecalculator
 import gpaw.dfpt.phononperturbation
 import gpaw.dfpt.dynamicalmatrix
 import gpaw.dfpt.electronphononcoupling
-
-__all__ = []
-__all__.extend(gpaw.dfpt.phononcalculator.__all__)
-__all__.extend(gpaw.dfpt.responsecalculator.__all__)
-__all__.extend(gpaw.dfpt.phononperturbation.__all__)
-__all__.extend(gpaw.dfpt.dynamicalmatrix.__all__)
-__all__.extend(gpaw.dfpt.electronphononcoupling.__all__)

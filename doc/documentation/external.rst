@@ -5,7 +5,7 @@ External potential
 
 Examples
 --------
-    
+
 >>> # 2.5 eV/Ang along z:
 >>> from gpaw.external import ConstantElectricField
 >>> calc = GPAW(external=ConstantElectricField(2.5, [0, 0, 1]), ...)
@@ -23,4 +23,4 @@ Examples
 Your own potential
 ------------------
 
-See an example here: :git:`gpaw/test/ext_potential/harmonic.py`.
+See an example here: :git:`gpaw/test/ext_potential/test_harmonic.py`.
