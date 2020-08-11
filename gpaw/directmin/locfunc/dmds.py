@@ -1,9 +1,10 @@
 from ase.parallel import parprint
-from gpaw.directmin.fd.tools import get_n_occ, matrix_function
+from gpaw.directmin.fdpw.tools import get_n_occ
+from gpaw.directmin.lcao.tools import matrix_function
 import numpy as np
 from ase.units import Hartree
 from gpaw.directmin.locfunc.diis import dot
-from gpaw.directmin.fd.inner_loop import InnerLoop
+from gpaw.directmin.fdpw.inner_loop import InnerLoop
 
 
 def one_over_sqrt(x):

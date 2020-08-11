@@ -748,6 +748,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                                    gd=gd, nvalence=nvalence, setups=setups,
                                    bd=bd, dtype=dtype, world=world, kd=kd,
                                    kptband_comm=kptband_comm, timer=timer)
+        self.read_from_file_init_wfs_dm = False
 
     def empty(self, n=(), global_array=False, realspace=False, q=None):
         if isinstance(n, numbers.Integral):

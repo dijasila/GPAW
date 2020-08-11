@@ -5,12 +5,12 @@ from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.xc import xc_string_to_dict
 from gpaw.xc.hybrid import HybridXC
 from gpaw.utilities import unpack
-from gpaw.directmin.fd import sd_outer, ls_outer
+from gpaw.directmin.fdpw import sd_outer, ls_outer
 # from gpaw.utilities.lapack import diagonalize
-from gpaw.directmin.odd.fd import odd_corrections
-from gpaw.directmin.fd.tools import get_n_occ
-from gpaw.directmin.fd.inner_loop import InnerLoop
-from gpaw.directmin.fd.inner_loop_exst import InnerLoop as ILEXST
+from gpaw.directmin.odd.fdpw import odd_corrections
+from gpaw.directmin.fdpw.tools import get_n_occ
+from gpaw.directmin.fdpw.inner_loop import InnerLoop
+from gpaw.directmin.fdpw.inner_loop_exst import InnerLoop as ILEXST
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey
 from gpaw.pipekmezey.wannier_basic import WannierLocalization
 from gpaw.directmin.locfunc.dirmin import DirectMinLocalize
@@ -20,7 +20,7 @@ from ase.parallel import parprint
 # from gpaw.utilities.memory import maxrss
 
 
-class DirectMinFD(Eigensolver):
+class DirectMin(Eigensolver):
 
     def __init__(self,
                  searchdir_algo=None,
@@ -37,7 +37,7 @@ class DirectMinFD(Eigensolver):
                  blocksize=1,
                  exstopt=False):
 
-        super(DirectMinFD, self).__init__(keep_htpsit=False,
+        super(DirectMin, self).__init__(keep_htpsit=False,
                                           blocksize=blocksize)
 
         self.sda = searchdir_algo
@@ -153,7 +153,7 @@ class DirectMinFD(Eigensolver):
             else:
                 self.blocksize = 10
 
-        super(DirectMinFD, self).initialize(wfs)
+        super(DirectMin, self).initialize(wfs)
 
     def initialize_dm(self, wfs, dens, ham, log=None,
                       obj_func=None, lumo=False):
@@ -242,9 +242,10 @@ class DirectMinFD(Eigensolver):
                     g_tol=self.g_tol, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
-                for kpt in wfs.kpt_u:
-                    k = self.n_kps * kpt.s + kpt.q
-                    self.iloop.U_k[k] = self.iloop_outer.U_k[k].copy()
+                if 'SIC' in self.odd_parameters['name']:
+                    for kpt in wfs.kpt_u:
+                        k = self.n_kps * kpt.s + kpt.q
+                        self.iloop.U_k[k] = self.iloop_outer.U_k[k].copy()
             else:
                 self.iloop_outer = None
 
@@ -404,15 +405,15 @@ class DirectMinFD(Eigensolver):
                 if self.iters > 0:
                     self.run_inner_loop(ham, wfs, occ, dens, grad_knG=grad, log=None)
                 else:
-                    temp = {}
-                    for kpt in wfs.kpt_u:
-                        k = self.n_kps * kpt.s + kpt.q
-                        temp[k] = kpt.psit_nG[:].copy()
-                        n_occ = get_n_occ(kpt)
-                        # kpt.psit_nG[:n_occ] = \
-                        #     np.tensordot(
-                        #         self.U_k[k].T, kpt.psit_nG[:n_occ],
-                        #         axes=1)
+                    # temp = {}
+                    # for kpt in wfs.kpt_u:
+                    #     k = self.n_kps * kpt.s + kpt.q
+                    #     temp[k] = kpt.psit_nG[:].copy()
+                    #     n_occ = get_n_occ(kpt)
+                    #     kpt.psit_nG[:n_occ] = \
+                    #         np.tensordot(
+                    #             self.U_k[k].T, kpt.psit_nG[:n_occ],
+                    #             axes=1)
                     self.e_sic = self.odd.get_energy_and_gradients(
                         wfs, grad, dens, self.iloop.U_k, add_grad=True)
                     # for kpt in wfs.kpt_u:
@@ -490,20 +491,20 @@ class DirectMinFD(Eigensolver):
     def project_gradient_for_one_k_point(self, wfs, p_nG,
                                                    kpt):
 
-        def dot_2(psi_1, psi_2, wfs):
-            dot_prod = wfs.gd.integrate(psi_1, psi_2, False)
-            # ?
-            dot_prod = np.ascontiguousarray(dot_prod)
-            if len(psi_1.shape) == 3:
-                dot_prod = wfs.gd.comm.sum(dot_prod)
-                return dot_prod
-            else:
-                wfs.gd.comm.sum(dot_prod)
-                return dot_prod
+        # def dot_2(psi_1, psi_2, wfs):
+        #     dot_prod = wfs.integrate(psi_1, psi_2, True)
+        #     ?
+        #     dot_prod = np.ascontiguousarray(dot_prod)
+        #     if len(psi_1.shape) == 3:
+        #         dot_prod = wfs.gd.comm.sum(dot_prod)
+        #         return dot_prod
+        #     else:
+        #         wfs.gd.comm.sum(dot_prod)
+        #         return dot_prod
 
         k = self.n_kps * kpt.s + kpt.q
         n_occ = self.dimensions[k]
-        psc = dot_2(p_nG[:n_occ], kpt.psit_nG[:n_occ], wfs)
+        psc = wfs.integrate(p_nG[:n_occ], kpt.psit_nG[:n_occ], True)
         psc = 0.5 * (psc.conj() + psc.T)
         s_psit_nG = self.apply_S(wfs, kpt.psit_nG, kpt)
         p_nG[:n_occ] -= np.tensordot(psc, s_psit_nG[:n_occ], axes=1)
@@ -539,7 +540,7 @@ class DirectMinFD(Eigensolver):
         def dS(a, P_ni):
             return np.dot(P_ni, wfs.setups[a].dO_ii)
 
-        if len(psi_1.shape) == 3:
+        if len(psi_1.shape) == 3 or len(psi_1.shape) == 1:
             ndim = 1
         else:
             ndim = psi_1.shape[0]
@@ -548,7 +549,7 @@ class DirectMinFD(Eigensolver):
         P2_ai = wfs.pt.dict(shape=ndim)
         wfs.pt.integrate(psi_1, P1_ai, kpt.q)
         wfs.pt.integrate(psi_2, P2_ai, kpt.q)
-        dot_prod = wfs.gd.integrate(psi_1, psi_2, False)
+        dot_prod = wfs.integrate(psi_1, psi_2, global_integral=True)
 
         if ndim == 1:
             if self.dtype is complex:
@@ -559,19 +560,26 @@ class DirectMinFD(Eigensolver):
             for a in P1_ai.keys():
                 paw_dot_prod += \
                     np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
-            if len(psi_1.shape) == 4:
-                sum_dot = dot_prod + paw_dot_prod
-            else:
-                sum_dot = [[dot_prod]] + paw_dot_prod
-            # self.wfs.gd.comm.sum(sum_dot)
+            # if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
+            #     sum_dot = dot_prod + paw_dot_prod
+            # else:
+            #     sum_dot = [[dot_prod]] + paw_dot_prod
+            # # self.wfs.gd.comm.sum(sum_dot)
         else:
             paw_dot_prod = np.zeros_like(dot_prod)
             for a in P1_ai.keys():
                 paw_dot_prod += \
                     np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
+            # sum_dot = dot_prod + paw_dot_prod
+        # sum_dot = np.ascontiguousarray(sum_dot)
+
+        paw_dot_prod = np.ascontiguousarray(paw_dot_prod)
+        wfs.gd.comm.sum(paw_dot_prod)
+
+        if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
             sum_dot = dot_prod + paw_dot_prod
-        sum_dot = np.ascontiguousarray(sum_dot)
-        wfs.gd.comm.sum(sum_dot)
+        else:
+            sum_dot = [[dot_prod]] + paw_dot_prod
 
         return sum_dot
 
@@ -613,20 +621,20 @@ class DirectMinFD(Eigensolver):
             dim = self.bd.nbands - n_occ
             grad_knG[k][n_occ:n_occ + dim] = \
                 self.get_gradients_lumo(ham, wfs, kpt)
-            lamb = wfs.gd.integrate(kpt.psit_nG[:n_occ],
-                                    grad_knG[k][:n_occ],
-                                    False)
+            lamb = wfs.integrate(kpt.psit_nG[:n_occ],
+                                 grad_knG[k][:n_occ],
+                                 True)
             lamb = (lamb + lamb.T.conj()) / 2.0
-            lamb = np.ascontiguousarray(lamb)
 
-            lumo = wfs.gd.integrate(kpt.psit_nG[n_occ:n_occ + dim],
-                                    grad_knG[k][n_occ:n_occ + dim],
-                                    False)
+            # lamb = np.ascontiguousarray(lamb)
+
+            lumo = wfs.integrate(kpt.psit_nG[n_occ:n_occ + dim],
+                                 grad_knG[k][n_occ:n_occ + dim],
+                                 True)
             lumo = (lumo + lumo.T.conj()) / 2.0
-            lumo = np.ascontiguousarray(lumo)
-
-            wfs.gd.comm.sum(lamb)
-            wfs.gd.comm.sum(lumo)
+            # lumo = np.ascontiguousarray(lumo)
+            # wfs.gd.comm.sum(lamb)
+            # wfs.gd.comm.sum(lumo)
             if 'SIC' in self.odd_parameters['name']:
                 self.odd.lagr_diag_s[k] = np.append(
                     np.diagonal(lamb).real, np.diagonal(lumo).real)
@@ -736,7 +744,6 @@ class DirectMinFD(Eigensolver):
     def get_energy_and_tangent_gradients_lumo(self,
                                               ham, wfs,
                                               psit_knG=None):
-
         n_kps = self.n_kps
         if psit_knG is not None:
             for kpt in wfs.kpt_u:
@@ -779,7 +786,7 @@ class DirectMinFD(Eigensolver):
             # calculate energy
             if self.odd_parameters['name'] == 'Zero':
                 for i in range(dim):
-                    energy = wfs.gd.integrate(
+                    energy = wfs.integrate(
                         psi[i], Hpsi_nG[i], global_integral=True).real
                     kpt.eps_n[n_occ + i] = energy
                     # project gradients:
@@ -795,7 +802,7 @@ class DirectMinFD(Eigensolver):
             else:
                 psi = kpt.psit_nG[:n_occ + dim].copy()
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                lamb = wfs.gd.integrate(
+                lamb = wfs.integrate(
                         psi, Hpsi_nG, global_integral=True)
                 s_axi = {}
                 for a, P_xi in kpt.P_ani.items():
@@ -1004,7 +1011,7 @@ class DirectMinFD(Eigensolver):
         if not self.force_init_localization:
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                super(DirectMinFD, self).subspace_diagonalize(
+                super(DirectMin, self).subspace_diagonalize(
                     ham, wfs, kpt, True)
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
             occ.calculate(wfs)  # fill occ numbers
@@ -1026,27 +1033,33 @@ class DirectMinFD(Eigensolver):
             elif io == 'PM' or io == 'PMER':
                 lf_obj = PipekMezey(
                     wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
+                lf_obj.localize(tolerance=tol)
+                U = np.ascontiguousarray(
+                    lf_obj.W_k[kpt.q].T)
+                wfs.gd.comm.broadcast(U, 0)
+                dim = U.shape[0]
+                kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
+                                              U, kpt.psit_nG[:dim])
+                del lf_obj
             elif io == 'W' or io == 'WER':
                 lf_obj = WannierLocalization(
                     wfs=wfs, spin=kpt.s)
-            else:
-                raise ValueError('Check initial orbitals.')
-            lf_obj.localize(tolerance=tol)
-            if io == 'PM':
-                U = np.ascontiguousarray(
-                    lf_obj.W_k[kpt.q].T)
-            else:
+                lf_obj.localize(tolerance=tol)
                 U = np.ascontiguousarray(
                     lf_obj.U_kww[kpt.q].T)
                 if kpt.psit_nG.dtype == float:
                     U = U.real
-            wfs.gd.comm.broadcast(U, 0)
-            dim = U.shape[0]
-            kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                          U, kpt.psit_nG[:dim])
-            del lf_obj
+                wfs.gd.comm.broadcast(U, 0)
+                dim = U.shape[0]
+                kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
+                                              U, kpt.psit_nG[:dim])
+                del lf_obj
+            elif io == 'ER':
+                continue
+            else:
+                raise ValueError('Check initial orbitals.')
 
-        if io == 'PMER' or io == 'WER':
+        if io == 'PMER' or io == 'WER' or io == 'ER':
             log('Edmiston-Ruedenberg localisation', flush=True)
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,

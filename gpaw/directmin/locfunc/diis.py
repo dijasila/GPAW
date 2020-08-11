@@ -1,8 +1,8 @@
 from ase.parallel import parprint
-from gpaw.directmin.fd.tools import matrix_function, get_n_occ
+from gpaw.directmin.fdpw.tools import matrix_function, get_n_occ
 import numpy as np
 from ase.units import Hartree
-from gpaw.directmin.fd.tools import get_random_um
+from gpaw.directmin.fdpw.tools import get_random_um
 
 
 def one_over_sqrt(x):
@@ -204,7 +204,7 @@ def dot(wfs, psi_1, psi_2, kpt):
     P2_ai = wfs.pt.dict(shape=ndim)
     wfs.pt.integrate(psi_1, P1_ai, kpt.q)
     wfs.pt.integrate(psi_2, P2_ai, kpt.q)
-    dot_prod = wfs.gd.integrate(psi_1, psi_2, False)
+    dot_prod = wfs.integrate(psi_1, psi_2, True)
 
     if ndim == 1:
         if wfs.dtype is complex:
@@ -215,10 +215,6 @@ def dot(wfs, psi_1, psi_2, kpt):
         for a in P1_ai.keys():
             paw_dot_prod += \
                 np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj())
-        if len(psi_1.shape) == 4:
-            sum_dot = dot_prod + paw_dot_prod
-        else:
-            sum_dot = [[dot_prod]] + paw_dot_prod
         # self.wfs.gd.comm.sum(sum_dot)
     else:
         ind_u = np.triu_indices(dot_prod.shape[0], 1)
@@ -228,9 +224,12 @@ def dot(wfs, psi_1, psi_2, kpt):
         for a in P1_ai.keys():
             paw_dot_prod += \
                 np.dot(dS(a, P2_ai[a]), P1_ai[a].T.conj()).T
+    wfs.gd.comm.sum(paw_dot_prod)
+    if len(psi_1.shape) == 4 or len(psi_1.shape) == 2:
         sum_dot = dot_prod + paw_dot_prod
+    else:
+        sum_dot = [[dot_prod]] + paw_dot_prod
     sum_dot = np.ascontiguousarray(sum_dot)
-    wfs.gd.comm.sum(sum_dot)
 
     return sum_dot
 

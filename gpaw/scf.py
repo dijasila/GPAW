@@ -267,7 +267,7 @@ class SCFLoop:
             self.log(log, self.niter, wfs, ham, dens, occ, errors)
 
             if self.converged:
-                if wfs.mode == 'fd':
+                if wfs.mode == 'fd' or wfs.mode == 'pw':
                     wfs.eigensolver.choose_optimal_orbitals(
                         wfs, ham, occ, dens)
                     niter1 = wfs.eigensolver.eg_count
@@ -320,8 +320,8 @@ class SCFLoop:
                         '\nOccupied states converged after {:d} e/g evaluations'.format(
                             niter))
                     break
-                else:
-                    raise NotImplementedError
+                # else:
+                #     raise NotImplementedError
 
             ham.npoisson = 0
             self.niter += 1

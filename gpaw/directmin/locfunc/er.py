@@ -6,10 +6,10 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
-from gpaw.directmin.fd.tools import d_matrix
+from gpaw.directmin.fdpw.tools import d_matrix
 from gpaw.poisson import PoissonSolver
-from gpaw.directmin.fd.tools import get_n_occ
-
+from gpaw.directmin.fdpw.tools import get_n_occ
+import _gpaw
 
 class ERlocalization:
 
@@ -77,9 +77,19 @@ class ERlocalization:
                 n_occ = get_n_occ(kpt)
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
-    def get_orbdens_compcharge_dm_kpt(self, kpt, n):
+    def get_orbdens_compcharge_dm_kpt(self, wfs, kpt, n):
 
-        nt_G = np.absolute(kpt.psit_nG[n]**2)
+        if wfs.mode == 'pw':
+            nt_G = wfs.pd.gd.zeros(global_array=True)
+            psit_G = wfs.pd.alltoall1(kpt.psit.array[n:n + 1], kpt.q)
+            if psit_G is not None:
+                psit_R = wfs.pd.ifft(psit_G, kpt.q,
+                                     local=True, safe=False)
+                _gpaw.add_to_density(1.0, psit_R, nt_G)
+            wfs.pd.gd.comm.sum(nt_G)
+            nt_G = wfs.pd.gd.distribute(nt_G)
+        else:
+            nt_G = np.absolute(kpt.psit_nG[n] ** 2)
 
         # paw
         Q_aL = {}
@@ -103,18 +113,33 @@ class ERlocalization:
 
         for i in range(n_occ):
             nt_G, Q_aL, D_ap = \
-                self.get_orbdens_compcharge_dm_kpt(kpt, i)
+                self.get_orbdens_compcharge_dm_kpt(wfs, kpt, i)
 
             # calculate - SI Hartree
             e_sic, v_ht_g = \
                 self.get_pseudo_pot(nt_G, Q_aL, i, kpoint=k)
 
-            grad_knG[k][i] += kpt.psit_nG[i] * v_ht_g * kpt.f_n[i]
-
-
             # calculate PAW corrections
             e_sic_paw_m, dH_ap = \
                 self.get_paw_corrections(D_ap, v_ht_g)
+
+            if wfs.mode == 'pw':
+                v_ht_g = wfs.pd.gd.collect(v_ht_g, broadcast=True)
+                Q_G = wfs.pd.Q_qG[kpt.q]
+                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i+1], kpt.q)
+                if psit_G is not None:
+                    psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True,
+                                          safe=False)
+                    psit_R *= v_ht_g
+                    wfs.pd.fftplan.execute()
+                    vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
+                else:
+                    vtpsit_G = wfs.pd.tmp_G
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, grad_knG[k][i:i+1])
+                grad_knG[k][i] *= kpt.f_n[i]
+            else:
+                grad_knG[k][i] += kpt.psit_nG[i] * v_ht_g * kpt.f_n[i]
+
             # total sic:
             e_sic += e_sic_paw_m
             c_axi = {}
@@ -234,8 +259,7 @@ class ERlocalization:
 
         e_sic = self.get_energy_and_gradients_kpt(wfs, kpt, grad, dens)
 
-        l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
-                                   grad[k][:n_occ], False)
-        l_odd = np.ascontiguousarray(l_odd)
-        self.cgd.comm.sum(l_odd)
+        l_odd = wfs.integrate(kpt.psit_nG[:n_occ],
+                              grad[k][:n_occ], True)
+
         return e_sic, l_odd

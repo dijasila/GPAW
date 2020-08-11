@@ -570,24 +570,29 @@ class Hamiltonian:
             return self.calculate_kinetic_energy_using_kin_en_matrix(
                 density, wfs)
         elif wfs.mode == 'pw':
-            raise NotImplementedError
+            e_kin = 0.0
+            for kpt in wfs.kpt_u:
+                for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                    if f > 1.0e-10:
+                        G2_G = wfs.pd.G2_qG[kpt.q]
+                        e_kin += f * wfs.pd.integrate(0.5 * G2_G * psit_G,
+                                         psit_G).real
+        else:
+            e_kin = 0.0
+            def Lapl(psit_G, kpt):
+                Lpsit_G = np.zeros_like(psit_G)
+                wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
+                return Lpsit_G
 
-        e_kin = 0.0
+            for kpt in wfs.kpt_u:
+                for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
+                    if f > 1.0e-10:
+                        e_kin += f * wfs.integrate(Lapl(psit_G, kpt),
+                                                      psit_G, False)
+            e_kin = e_kin.real
+            e_kin = wfs.gd.comm.sum(e_kin)
 
-        def Lapl(psit_G, kpt):
-            Lpsit_G = np.zeros_like(psit_G)
-            wfs.kin.apply(psit_G, Lpsit_G, kpt.phase_cd)
-            return Lpsit_G
-
-        for kpt in wfs.kpt_u:
-            for f, psit_G in zip(kpt.f_n, kpt.psit_nG):
-                if f > 1.0e-10:
-                    e_kin += f * wfs.gd.integrate(Lapl(psit_G, kpt),
-                                                  psit_G, False)
-        e_kin = e_kin.real
         e_kin = wfs.kd.comm.sum(e_kin)  # ?
-        e_kin = density.gd.comm.sum(e_kin)
-
         # paw corrections
         e_kin_paw = 0.0
         for a, D_sp in density.D_asp.items():

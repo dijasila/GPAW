@@ -1,16 +1,16 @@
-from gpaw.directmin.fd.tools import get_n_occ, get_indices, expm_ed
-from gpaw.directmin.fd.sd_inner import LBFGS_P
-from gpaw.directmin.fd.ls_inner import StrongWolfeConditions as SWC
+from gpaw.directmin.fdpw.tools import get_n_occ, get_indices, expm_ed
+from gpaw.directmin.lcao.sd_lcao import LSR1P, LBFGS_P
+from gpaw.directmin.lcao.ls_lcao import UnitStepLength
 from ase.units import Hartree
 import numpy as np
 import time
-
 from ase.parallel import parprint
+
 
 class InnerLoop:
 
-    def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50,
-                 g_tol=5.0e-4, dim1=None, dim2=None):
+    def __init__(self, odd_pot, wfs, nstates='all',
+                 tol=1.0e-3, maxiter=50, g_tol=5.0e-4, useprec=False):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -18,8 +18,9 @@ class InnerLoop:
         self.tol = tol
         self.dtype = wfs.dtype
         self.get_en_and_grad_iters = 0
-        self.method = 'LBFGS'
-        self.line_search_method = 'AwcSwc'
+        self.precond={}
+        # self.method = 'LBFGS'
+        # self.line_search_method = 'AwcSwc'
         self.max_iter_line_search = 6
         self.n_counter = maxiter
         self.eg_count = 0
@@ -29,18 +30,19 @@ class InnerLoop:
         self.Unew_k = {}
         self.e_total = 0.0
         self.n_occ = {}
+        self.useprec = useprec
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            self.n_occ[k] = get_n_occ(kpt)
-            if dim1 is None:
-                dim1 = self.n_occ[k]
-            if dim2 is None:
-                dim2 = self.n_occ[k]
-            assert dim1 >= dim2
-            self.U_k[k] = np.eye(dim1, dtype=self.dtype)
-            self.Unew_k[k] = np.eye(dim2, dtype=self.dtype)
+            if nstates == 'all':
+                self.n_occ[k] = wfs.bd.nbands
+            elif nstates == 'occupied':
+                self.n_occ[k] = get_n_occ(kpt)
+            else:
+                raise NotImplementedError
+            self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
+            self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
 
-    def get_energy_and_gradients(self, a_k, wfs, dens):
+    def get_energy_and_gradients(self, a_k, wfs, dens, ham, occ):
         """
         Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
         Returns E[A] and G[A] at psi = exp(A).T kpt.psi
@@ -48,49 +50,47 @@ class InnerLoop:
         :return:
         """
 
-        if self.odd_pot.name == 'SPZ_SIC2':
-            return self.get_energy_and_gradients2(a_k, wfs, dens)
-
         g_k = {}
         self.e_total = 0.0
 
         self.kappa = 0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # n_occ = self.n_occ[k]
-            dim2 = self.Unew_k[k].shape[0]
-            if dim2 == 0:
+            n_occ = self.n_occ[k]
+            if n_occ == 0:
                 g_k[k] = np.zeros_like(a_k[k])
                 continue
             wfs.timer.start('Unitary matrix')
             u_mat, evecs, evals = expm_ed(a_k[k], evalevec=True)
             wfs.timer.stop('Unitary matrix')
             self.Unew_k[k] = u_mat.copy()
-            kpt.psit_nG[:dim2] = \
-                np.tensordot(u_mat.T, self.psit_knG[k][:dim2],
+            kpt.psit_nG[:n_occ] = \
+                np.tensordot(u_mat.T, self.psit_knG[k][:n_occ],
                              axes=1)
 
             # calc projectors
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             del u_mat
-            wfs.timer.start('Energy and gradients')
-            g_k[k], e_sic, kappa1 = \
-                self.odd_pot.get_energy_and_gradients_inner_loop(
-                    wfs, kpt, a_k[k], evals, evecs, dens)
-            wfs.timer.stop('Energy and gradients')
-            if kappa1 > self.kappa:
-                self.kappa = kappa1
-            self.e_total += e_sic
+
+        wfs.timer.start('Energy and gradients')
+        g_k, e_inner, kappa1 = \
+            self.odd_pot.get_energy_and_gradients_inner_loop(
+                wfs, a_k, evals, evecs, dens, ham=ham, occ=occ)
+        wfs.timer.stop('Energy and gradients')
+        if kappa1 > self.kappa:
+            self.kappa = kappa1
+        self.e_total = e_inner
 
         self.kappa = wfs.kd.comm.max(self.kappa)
-        self.e_total = wfs.kd.comm.sum(self.e_total)
+        # self.e_total = wfs.kd.comm.sum(self.e_total)
         self.eg_count += 1
         self.total_eg_count += 1
 
         return self.e_total, g_k
 
-    def evaluate_phi_and_der_phi(self, a_k, p_k, alpha, wfs, dens,
+    def evaluate_phi_and_der_phi(self, a_k, p_k, n_dim, alpha,
+                                 wfs, dens, ham, occ,
                                  phi=None, g_k=None):
         """
         phi = f(x_k + alpha_k*p_k)
@@ -100,7 +100,7 @@ class InnerLoop:
         if phi is None or g_k is None:
             x_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
             phi, g_k = \
-                self.get_energy_and_gradients(x_k, wfs, dens)
+                self.get_energy_and_gradients(x_k, wfs, dens, ham, occ)
             del x_k
         else:
             pass
@@ -128,7 +128,7 @@ class InnerLoop:
             a[k] = a_k[k][il1]
             g[k] = g_k[k][il1]
 
-        p = self.sd.update_data(wfs, a, g)
+        p = self.sd.update_data(wfs, a, g, self.precond)
         del a, g
 
         p_k = {}
@@ -144,7 +144,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True):
+            small_random=True, ham=None, occ=None):
 
         log = log
         self.run_count += 1
@@ -154,64 +154,40 @@ class InnerLoop:
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # n_occ = self.n_occ[k]
-            dim1 = self.U_k[k].shape[0]
+            n_occ = self.n_occ[k]
             self.psit_knG[k] = np.tensordot(self.U_k[k].T,
-                                            kpt.psit_nG[:dim1],
+                                            kpt.psit_nG[:n_occ],
                                             axes=1)
 
         a_k = {}
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            d = self.Unew_k[k].shape[0]
-            # a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
-            if self.run_count == 1 and self.dtype is complex\
-                    and small_random:
-                a = 0.01 * np.random.rand(d, d) * 1.0j
-                a = a - a.T.conj()
-                # a = np.zeros(shape=(d, d), dtype=self.dtype)
-                wfs.gd.comm.broadcast(a, 0)
-                a_k[k] = a
-            else:
-                a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
+            d = self.n_occ[k]
+            a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
-        self.sd = LBFGS_P(wfs, memory=20)
-        self.ls = SWC(
-            self.evaluate_phi_and_der_phi,
-            method=self.method, awc=True,
-            max_iter=self.max_iter_line_search)
+        self.sd = LSR1P(wfs, memory=20)
+        self.ls = UnitStepLength(self.evaluate_phi_and_der_phi,
+                                 max_step=0.2)
 
         threelasten = []
         # get initial energy and gradients
-        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens)
+        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens, ham, occ)
         threelasten.append(self.e_total)
-        g_max = g_max_norm(g_k, wfs)
+        g_max = g_max_norm(g_k, wfs, self.n_occ)
         if g_max < self.g_tol:
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
-                # n_occ = self.n_occ[k]
-                dim1 = self.U_k[k].shape[0]
-                kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
+                n_occ = self.n_occ[k]
+                kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
                                                    self.psit_knG[k],
                                                    axes=1)
                 # calc projectors
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-                dim2 = self.Unew_k[k].shape[0]
-                if dim1 == dim2:
-                    self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
-                else:
-                    u_oo = self.Unew_k[k]
-                    u_ov = np.zeros(shape=(dim2, dim1-dim2),
-                                    dtype=self.dtype)
-                    u_vv = np.eye(dim1-dim2,dtype=self.dtype)
-                    unew = np.vstack([np.hstack([u_oo, u_ov]),
-                                      np.hstack([u_ov.T, u_vv])])
-                    self.U_k[k] = self.U_k[k] @ unew
-
+                self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
             del self.psit_knG
             if outer_counter is None:
-                return self.e_total, self.counter
+                return self.e_total, counter
             else:
                 return self.e_total, outer_counter
 
@@ -234,7 +210,10 @@ class InnerLoop:
 
         outer_counter += 1
         if log is not None:
-            log_f(log, self.counter, self.kappa, e_ks, self.e_total,
+            # esic = self.e_total
+            esic = self.odd_pot.total_sic
+            e_ks = self.odd_pot.eks
+            log_f(log, self.counter, self.kappa, e_ks, esic,
                   outer_counter, g_max)
 
         alpha = 1.0
@@ -246,14 +225,16 @@ class InnerLoop:
         #     g_max > self.g_tol and counter < self.n_counter
         not_converged = True
         while not_converged:
+            self.precond = self.update_preconditioning(wfs, self.useprec)
 
             # calculate search direction fot current As and Gs
             p_k = self.get_search_direction(a_k, g_k, wfs)
 
             # calculate derivative along the search direction
             phi_0, der_phi_0, g_k = \
-                self.evaluate_phi_and_der_phi(a_k, p_k,
+                self.evaluate_phi_and_der_phi(a_k, p_k, None,
                                               0.0, wfs, dens,
+                                              ham=ham, occ=occ,
                                               phi=phi_0, g_k=g_k)
             if self.counter > 1:
                 phi_old = phi_0
@@ -263,10 +244,10 @@ class InnerLoop:
             # also get energy and gradients for optimal step
             alpha, phi_0, der_phi_0, g_k = \
                 self.ls.step_length_update(
-                    a_k, p_k, wfs, dens,
+                    a_k, p_k, None, wfs, dens, ham, occ,
                     phi_0=phi_0, der_phi_0=der_phi_0,
                     phi_old=phi_old_2, der_phi_old=der_phi_old_2,
-                    alpha_max=3.0, alpha_old=alpha)
+                    alpha_max=3.0, alpha_old=alpha, kpdescr=wfs.kd)
 
             # broadcast data is gd.comm > 1
             if wfs.gd.comm.size > 1:
@@ -288,30 +269,32 @@ class InnerLoop:
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
-                g_max = g_max_norm(g_k, wfs)
+                g_max = g_max_norm(g_k, wfs, self.n_occ)
 
                 # output
                 self.counter += 1
                 if outer_counter is not None:
                     outer_counter += 1
                 if log is not None:
+                    # esic = phi_0
+                    esic = self.odd_pot.total_sic
+                    e_ks = self.odd_pot.eks
                     log_f(
-                        log, self.counter, self.kappa, e_ks, phi_0,
+                        log, self.counter, self.kappa, e_ks, esic,
                         outer_counter, g_max)
 
                 not_converged = g_max > self.g_tol and \
                                 self.counter < self.n_counter
 
-                threelasten.append(phi_0)
-                if len(threelasten) > 2:
-                    threelasten = threelasten[-3:]
-                    if threelasten[0] < threelasten[1] < \
-                            threelasten[2]:
-                        if log is not None:
-                           log(
-                                'Could not converge, leave the loop',
-                                flush=True)
-                        break
+                # threelasten.append(phi_0)
+                # if len(threelasten) > 2:
+                #     threelasten = threelasten[-3:]
+                #     if threelasten[0] < threelasten[1] and threelasten[1] < threelasten[2]:
+                #         if log is not None:
+                #            log(
+                #                 'Could not converge, leave the loop',
+                #                 flush=True)
+                #         break
                         # reset things:
                         # threelasten = []
                         # self.sd = LBFGS_P(wfs, memory=20)
@@ -371,28 +354,17 @@ class InnerLoop:
 
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            # n_occ = self.n_occ[k]
-            dim1 = self.U_k[k].shape[0]
-            kpt.psit_nG[:dim1] = np.tensordot(self.U_k[k].conj(),
-                                               self.psit_knG[k][:dim1],
+            n_occ = self.n_occ[k]
+            kpt.psit_nG[:n_occ] = np.tensordot(self.U_k[k].conj(),
+                                               self.psit_knG[k],
                                                axes=1)
             # calc projectors
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            dim2 = self.Unew_k[k].shape[0]
-            if dim1 == dim2:
-                self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
-            else:
-                u_oo = self.Unew_k[k]
-                u_ov = np.zeros(shape=(dim2, dim1 - dim2),
-                                dtype=self.dtype)
-                u_vv = np.eye(dim1 - dim2, dtype=self.dtype)
-                unew = np.vstack([np.hstack([u_oo, u_ov]),
-                                  np.hstack([u_ov.T, u_vv])])
-                self.U_k[k] = self.U_k[k] @ unew
+            self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
 
         del self.psit_knG
         if outer_counter is None:
-            return self.e_total, self.counter
+            return self.e_total, counter
         else:
             return self.e_total, outer_counter
 
@@ -572,6 +544,59 @@ class InnerLoop:
 
         return e_sic, g_k
 
+    def update_preconditioning(self, wfs, use_prec):
+        counter = 30
+        if use_prec:
+            if self.counter % counter == 0 or self.counter == 1:
+                for kpt in wfs.kpt_u:
+                    k = self.n_kps * kpt.s + kpt.q
+                    hess = self.get_hessian(kpt)
+                    if self.dtype is float:
+                        self.precond[k] = np.zeros_like(hess)
+                        for i in range(hess.shape[0]):
+                            if abs(hess[i]) < 1.0e-4:
+                                self.precond[k][i] = 1.0
+                            else:
+                                self.precond[k][i] = \
+                                    1.0 / (hess[i].real)
+                    else:
+                        self.precond[k] = np.zeros_like(hess)
+                        for i in range(hess.shape[0]):
+                            if abs(hess[i]) < 1.0e-4:
+                                self.precond[k][i] = 1.0 + 1.0j
+                            else:
+                                self.precond[k][i] = \
+                                    1.0 / hess[i].real + \
+                                    1.0j / hess[i].imag
+                return self.precond
+            else:
+                return self.precond
+        else:
+            return None
+
+    def get_hessian(self, kpt):
+
+        f_n = kpt.f_n
+        eps_n = kpt.eps_n
+        il1 = get_indices(eps_n.shape[0], self.dtype)
+        il1 = list(il1)
+
+        hess = np.zeros(len(il1[0]), dtype=self.dtype)
+        x = 0
+        for l, m in zip(*il1):
+            df = f_n[l] - f_n[m]
+            hess[x] = -2.0 * (eps_n[l] - eps_n[m]) * df
+            if self.dtype is complex:
+                hess[x] += 1.0j * hess[x]
+                if abs(hess[x]) < 1.0e-10:
+                    hess[x] = 0.0 + 0.0j
+            else:
+                if abs(hess[x]) < 1.0e-10:
+                    hess[x] = 0.0
+            x += 1
+
+        return hess
+
 
 def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
 
@@ -601,15 +626,14 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
     log(flush=True)
 
 
-def g_max_norm(g_k, wfs):
+def g_max_norm(g_k, wfs, n_occ):
     # get maximum of gradients
     n_kps = wfs.kd.nks // wfs.kd.nspins
 
     max_norm = []
     for kpt in wfs.kpt_u:
         k = n_kps * kpt.s + kpt.q
-        dim = g_k[k].shape[0]
-        if dim == 0:
+        if n_occ[k] == 0:
             continue
         max_norm.append(np.max(np.absolute(g_k[k])))
     max_norm = np.max(np.asarray(max_norm))

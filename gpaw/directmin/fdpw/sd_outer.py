@@ -34,7 +34,7 @@ class SteepestDescent:
         wfs.pt.integrate(psi_1, P1_ai, kpt.q)
         wfs.pt.integrate(psi_2, P2_ai, kpt.q)
 
-        dot_prod = wfs.gd.integrate(psi_1, S(psi_2), False)
+        dot_prod = wfs.integrate(psi_1, S(psi_2), False)
 
         paw_dot_prod = 0.0
 
@@ -49,7 +49,7 @@ class SteepestDescent:
 
     def dot_2(self, psi_1, psi_2, wfs):
 
-        dot_prod = wfs.gd.integrate(psi_1, psi_2, False)
+        dot_prod = wfs.integrate(psi_1, psi_2, False)
         dot_prod = wfs.gd.comm.sum(dot_prod)
 
         return dot_prod
@@ -108,11 +108,23 @@ class SteepestDescent:
         return y
 
     def apply_prec(self, wfs, x, prec, const=1.0):
-        deg = (3.0 - wfs.kd.nspins)
-        for kpt in wfs.kpt_u:
-            k = self.n_kps * kpt.s + kpt.q
-            for i, y in enumerate(x[k]):
-                x[k][i] = - const * prec(y, kpt, None) / deg
+        if wfs.mode == 'pw':
+            deg = (3.0 - wfs.kd.nspins)
+            deg *= 2.0
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                for i, y in enumerate(x[k]):
+                    psit_G = kpt.psit.array[i]
+                    ekin = prec.calculate_kinetic_energy(psit_G, kpt)
+                    x[k][i] = - const * prec(y, kpt, ekin)/ deg
+
+
+        else:
+            deg = (3.0 - wfs.kd.nspins)
+            for kpt in wfs.kpt_u:
+                k = self.n_kps * kpt.s + kpt.q
+                for i, y in enumerate(x[k]):
+                    x[k][i] = - const * prec(y, kpt, None) / deg
 
 
 class HZcg(SteepestDescent):

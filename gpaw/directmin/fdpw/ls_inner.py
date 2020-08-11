@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.directmin.fd.tools import cubic_interpolation, \
+from gpaw.directmin.fdpw.tools import cubic_interpolation, \
     parabola_interpolation
 
 

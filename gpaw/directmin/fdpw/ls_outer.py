@@ -1,5 +1,5 @@
 import numpy as np
-from gpaw.directmin.fd.tools import cubic_interpolation, \
+from gpaw.directmin.fdpw.tools import cubic_interpolation, \
     parabola_interpolation, cubic_interpolation_2
 
 
@@ -354,7 +354,7 @@ class UnitStepLength:
         for kpt in wfs.kpt_u:
             k = wfs.kd.nks // wfs.kd.nspins * kpt.s + kpt.q
             for p in p_k[k]:
-                dot += wfs.gd.integrate(p, p, False)
+                dot += wfs.integrate(p, p, False)
         dot = dot.real
         dot = wfs.world.sum(dot)
         dot = np.sqrt(dot)

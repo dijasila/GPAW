@@ -4,7 +4,7 @@ from ase.units import Hartree, Bohr
 
 from gpaw.xc.hybrid import HybridXCBase
 from gpaw.utilities import unpack
-from gpaw.directmin.fd.tools import get_n_occ
+from gpaw.directmin.fdpw.tools import get_n_occ
 
 
 def calculate_forces(wfs, dens, ham, log=None):
@@ -16,7 +16,7 @@ def calculate_forces(wfs, dens, ham, log=None):
     egs_name = getattr(wfs.eigensolver, "name", None)
     odd_name = None
     if egs_name == 'direct_min':
-        if wfs.mode == 'fd':
+        if wfs.mode == 'fd' or wfs.mode == 'pw':
             return calculate_forces_using_non_diag_lagr_matrix(
                 wfs, dens, ham, log)
         elif wfs.mode == 'lcao':
@@ -29,8 +29,6 @@ def calculate_forces(wfs, dens, ham, log=None):
                     kpt.rho_MM = \
                         wfs.calculate_density_matrix(kpt.f_n,
                                                      kpt.C_nM)
-        else:
-            raise NotImplemenedError
 
     natoms = len(wfs.setups)
 
@@ -103,10 +101,10 @@ def calculate_forces_using_non_diag_lagr_matrix(wfs, dens, ham, log=None):
         k = esolv.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
 
-        lamb = wfs.gd.integrate(kpt.psit_nG[:n_occ],
-            grad_knG[k][:n_occ], False)
-        lamb = np.ascontiguousarray(lamb)
-        wfs.gd.comm.sum(lamb)
+        lamb = wfs.integrate(kpt.psit_nG[:n_occ],
+            grad_knG[k][:n_occ], True)
+        # lamb = np.ascontiguousarray(lamb)
+        # wfs.gd.comm.sum(lamb)
 
         P_ani = kpt.P_ani
         dP_aniv = wfs.pt.dict(n_occ, derivative=True)

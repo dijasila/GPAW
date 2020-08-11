@@ -6,10 +6,11 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
-from gpaw.directmin.fd.tools import get_n_occ, d_matrix
+from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
-from ase.parallel import parprint
-import time
+# from ase.parallel import parprint
+# import time
+import _gpaw
 
 class PzCorrections:
 
@@ -90,9 +91,19 @@ class PzCorrections:
         # self.t_paw_hartree = 0.0
         # self.t_waiting_time = 0.0
 
-    def get_orbdens_compcharge_dm_kpt(self, kpt, n):
+    def get_orbdens_compcharge_dm_kpt(self, wfs, kpt, n):
 
-        nt_G = np.absolute(kpt.psit_nG[n]**2)
+        if wfs.mode == 'pw':
+            nt_G = wfs.pd.gd.zeros(global_array=True)
+            psit_G = wfs.pd.alltoall1(kpt.psit.array[n:n+1], kpt.q)
+            if psit_G is not None:
+                psit_R = wfs.pd.ifft(psit_G, kpt.q,
+                                     local=True, safe=False)
+                _gpaw.add_to_density(1.0, psit_R, nt_G)
+            wfs.pd.gd.comm.sum(nt_G)
+            nt_G = wfs.pd.gd.distribute(nt_G)
+        else:
+            nt_G = np.absolute(kpt.psit_nG[n]**2)
 
         # paw
         Q_aL = {}
@@ -139,7 +150,7 @@ class PzCorrections:
         for i in range(n_occ):
             # t1 = time.time()
             nt_G, Q_aL, D_ap = \
-                self.get_orbdens_compcharge_dm_kpt(kpt, i)
+                self.get_orbdens_compcharge_dm_kpt(wfs, kpt, i)
             # t2 = time.time()
             # t_get_orbdens += t2 - t1
 
@@ -154,7 +165,22 @@ class PzCorrections:
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
 
-            self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+            if wfs.mode == 'pw':
+                vt_G = wfs.pd.gd.collect(vt_G, broadcast=True)
+                Q_G = wfs.pd.Q_qG[kpt.q]
+                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i+1], kpt.q)
+                if psit_G is not None:
+                    psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True,
+                                          safe=False)
+                    psit_R *= vt_G
+                    wfs.pd.fftplan.execute()
+                    vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
+                else:
+                    vtpsit_G = wfs.pd.tmp_G
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i:i+1])
+                self.grad[k][i] *= kpt.f_n[i]
+            else:
+                self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
             # t1 = time.time()
             c_axi = {}
             for a in kpt.P_ani.keys():
@@ -315,10 +341,10 @@ class PzCorrections:
                                                   add_grad=False)
         # parprint('energy_and_gradient total:', time.time() - t1)
         wfs.timer.start('Unitary gradients')
-        l_odd = self.cgd.integrate(kpt.psit_nG[:n_occ],
-                                   self.grad[k][:n_occ], False)
-        l_odd = np.ascontiguousarray(l_odd)
-        self.cgd.comm.sum(l_odd)
+        l_odd = wfs.integrate(kpt.psit_nG[:n_occ],
+                              self.grad[k][:n_occ], True)
+        # l_odd = np.ascontiguousarray(l_odd)
+        # self.cgd.comm.sum(l_odd)
         f = np.ones(n_occ)
         indz = np.absolute(l_odd) > 1.0e-4
         l_c = 2.0 * l_odd[indz]
@@ -349,7 +375,7 @@ class PzCorrections:
         k = n_kps * kpt.s + kpt.q
         for m in range(n_occ):
             # calculate Hartree pot, compans. charge and PAW corrects
-            nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(kpt, m)
+            nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
             e_sic, vt_G, v_ht_g = \
                 self.get_pseudo_pot(nt_G, Q_aL, m, kpoint=k)
             e_sic_paw_m, dH_ap = \

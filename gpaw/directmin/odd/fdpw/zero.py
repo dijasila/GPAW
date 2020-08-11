@@ -6,7 +6,7 @@ import numpy as np
 from gpaw.utilities import pack, unpack
 from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
-from gpaw.directmin.fd.tools import get_n_occ, d_matrix
+from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
 
 
@@ -107,9 +107,9 @@ class ZeroCorrections:
         kappa_tmp=0.0
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
-            l_odd = wfs.gd.integrate(kpt.psit_nG, self.grad[k], False)
-            l_odd = np.ascontiguousarray(l_odd)
-            wfs.gd.comm.sum(l_odd)
+            l_odd = wfs.integrate(kpt.psit_nG, self.grad[k], True)
+            # l_odd = np.ascontiguousarray(l_odd)
+            # wfs.gd.comm.sum(l_odd)
             f = np.ones(nbands)
             indz = np.absolute(l_odd) > 1.0e-4
             l_c = 2.0 * l_odd[indz]
