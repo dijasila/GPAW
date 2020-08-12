@@ -264,7 +264,10 @@ def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
     for ibz_index, ibzwf in ibzwfs:
         for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
             bzwf = ibzwf.transform(kd, setups, spos_ac, bz_index)
+
+            # Redistribute to match dVL_avii:
             bzwf = bzwf.redistribute_atoms(atom_partition)
+
             bzwf.add_soc(dVL_avii, s_vss, C_ss)
             bzwfs[bz_index] = bzwf
 
@@ -276,6 +279,13 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                                gd: GridDescriptor,
                                n1: int,
                                n2: int) -> Iterator[Tuple[int, WaveFunction]]:
+    """Yield tuples of IBZ-index and wave functions.
+
+    All atoms and bands will be on rank == 0 of gd.comm and bd.comm
+    rfespectively.  THis makes slicing the bands (from n1 to n2-1)
+    and symmetry operations on the projections easier.
+    """
+
     nproj_a = kpt_qs[0][0].projections.nproj_a
 
     collinear = kpt_qs[0][0].s is not None
