@@ -1016,7 +1016,7 @@ class DirectMin(Eigensolver):
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
             occ.calculate(wfs)  # fill occ numbers
 
-        elif wfs.mode == 'pw' and \
+        if wfs.mode == 'pw' and \
                 self.initial_orbitals != 'KS' and \
                 self.initial_orbitals is not None:
             parprint('WARNING: plane-waves mode '
