@@ -39,7 +39,6 @@ def test_soc_self_consistent():
 
 
 @pytest.mark.soc
-@pytest.mark.skipif(size > 1, reason='Does not work in parallel')
 def test_non_collinear_plus_soc():
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
@@ -50,12 +49,10 @@ def test_non_collinear_plus_soc():
                   **params)
     a.get_potential_energy()
 
-    bzwfs = soc_eigenstates(a.calc, n2=14)
+    bzwfs = soc_eigenstates(a.calc, n2=28)
     eigs = bzwfs.eigenvalues()[8]
-    check(eigs, 0.15, 0.002)
+    check(eigs, 0.15, 0.007)
 
-
-ttttttttttttttttttttttest_non_collinear_plus_soc()
 
 @pytest.mark.soc
 def test_soc_non_self_consistent():

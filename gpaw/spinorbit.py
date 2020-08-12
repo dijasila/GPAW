@@ -1,17 +1,18 @@
 import warnings
 from math import nan
 from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
-                    Tuple)
+                    Tuple, Iterable)
 from operator import attrgetter
 from pathlib import Path
 
 import numpy as np
 from ase.units import Ha, alpha, Bohr
 
+from gpaw.band_descriptor import BandDescriptor
 from gpaw.projections import Projections
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.mpi import broadcast_array
-from gpaw.occupations import OccupationNumberCalculator
+from gpaw.mpi import broadcast_array, serial_comm
+from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
@@ -33,7 +34,7 @@ class WaveFunction:
         self.eig_n = eigenvalues
         self.projections = projections
         self.spin_projection_nv: Optional[Array2D] = None
-        self.v_snm: Optional[Array3D] = None
+        self.v_snm: Optional[Array2D] = None
         self.f_n = np.empty_like(self.eig_n)
         self.f_n[:] = nan
 
@@ -41,8 +42,7 @@ class WaveFunction:
                   kd: KPointDescriptor,
                   setups: List[Setup],
                   spos_ac: Array2D,
-                  bz_index: int,
-                  atom_partition: AtomPartition) -> 'WaveFunction':
+                  bz_index: int) -> 'WaveFunction':
         """Transforms PAW projections from IBZ to BZ k-point."""
         a_a, U_aii, time_rev = construct_symmetry_operators(
             kd, setups, spos_ac, bz_index)
@@ -60,17 +60,23 @@ class WaveFunction:
         else:
             assert len(projections.indices) == 0
 
-        projections = projections.redist(atom_partition)
-        wf = WaveFunction(self.eig_n.copy(), projections)
+        return WaveFunction(self.eig_n.copy(), projections)
 
-        return wf
+    def redistribute_atoms(self,
+                           atom_partition: AtomPartition
+                           ) -> 'WaveFunction':
+        projections = self.projections.redist(atom_partition)
+        return WaveFunction(self.eig_n.copy(), projections)
 
     def add_soc(self,
                 dVL_avii: Dict[int, Array3D],
                 s_vss: Array3D,
                 C_ss: Array2D) -> None:
         """Evaluate H in a basis of S_z eigenstates."""
-        M = len(self.eig_n)
+        if self.projections.bcomm.rank > 0:
+            return
+
+        M = self.projections.nbands
         H_mm = np.zeros((M, M), complex)
         for a, dVL_vii in dVL_avii.items():
             ni = dVL_vii.shape[1]
@@ -101,7 +107,6 @@ class WaveFunction:
         else:
             v_snm = np.empty_like(H_mm)
 
-        domain_comm.broadcast(self.eig_n, 0)
         domain_comm.broadcast(v_snm, 0)
 
         P_msI = self.projections.array
@@ -125,11 +130,11 @@ class BZWaveFunctions:
     def __init__(self,
                  kd: KPointDescriptor,
                  wfs: Dict[int, WaveFunction],
-                 occcalc: OccupationNumberCalculator,
+                 occ: Optional[OccupationNumberCalculator],
                  nelectrons: float):
         self.kd = kd
         self.wfs = wfs
-        self.occ = occcalc
+        self.occ = occ
         self.nelectrons = nelectrons
 
         # Initialize ranks:
@@ -147,24 +152,37 @@ class BZWaveFunctions:
         self.fermi_level = self._calculate_occ_numbers_and_fermi_level()
 
     def _calculate_occ_numbers_and_fermi_level(self) -> float:
-        eig_im = [wf.eig_n for wf in self]
-        weight = 1.0 / self.kd.nbzkpts
-        weight_i = [weight] * len(eig_im)
+        if self.occ is not None:
+            eig_im = [wf.eig_n for wf in self]
+            weight = 1.0 / self.kd.nbzkpts
+            weight_i = [weight] * len(eig_im)
 
-        f_im, (fermi_level,), _ = self.occ.calculate(
-            self.nelectrons,
-            eig_im,
-            weight_i)
-        for wf, f_n in zip(self, f_im):
-            wf.f_n[:] = f_n
+            f_im, (fermi_level,), _ = self.occ.calculate(
+                self.nelectrons,
+                eig_im,
+                weight_i)
+            for wf, f_n in zip(self, f_im):
+                wf.f_n[:] = f_n
+        else:
+            fermi_level = 0.0
+
+        if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
+            fermi_level = self.bcomm.sum(fermi_level)
+        fermi_level = self.domain_comm.sum(fermi_level)
 
         return fermi_level
 
     def calculate_band_energy(self) -> float:
-        weight = 1.0 / self.kd.nbzkpts
-        e_band = sum(wf.eig_n.dot(wf.f_n) for wf in self) * weight
-        e_band = self.bcomm.sum(e_band)
-        e_band = self.kd.comm.sum(e_band)
+        if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
+            weight = 1.0 / self.kd.nbzkpts
+            e_band = sum(wf.eig_n.dot(wf.f_n) for wf in self) * weight
+            e_band = self.kd.comm.sum(e_band)
+        else:
+            e_band = 0.0
+
+        if self.domain_comm.rank == 0:
+            e_band = self.bcomm.sum(e_band)
+        e_band = self.domain_comm.sum(e_band)
         return e_band
 
     def __iter__(self):
@@ -217,6 +235,85 @@ class BZWaveFunctions:
         return None
 
 
+def soc_eigenstates_raw(ibzwfs: Iterable[WaveFunction],
+                        dVL_avii: Dict[int, Array3D],
+                        kd, spos_ac, setups, atom_partition,
+                        scale: float = 1.0,
+                        theta: float = 0.0,
+                        phi: float = 0.0
+                        ) -> Dict[int, WaveFunction]:
+
+    # Hamiltonian with SO in KS basis
+    # The even indices in H_mm are spin up along \hat n defined by \theta, phi
+    # Basis change matrix for constructing Pauli matrices in \theta,\phi basis:
+    #     \sigma_i^n = C^\dag\sigma_i C
+    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
+                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
+                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
+                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
+
+    sx_ss = np.array([[0, 1], [1, 0]], complex)
+    sy_ss = np.array([[0, -1.0j], [1.0j, 0]], complex)
+    sz_ss = np.array([[1, 0], [0, -1]], complex)
+    s_vss = [C_ss.T.conj().dot(sx_ss).dot(C_ss),
+             C_ss.T.conj().dot(sy_ss).dot(C_ss),
+             C_ss.T.conj().dot(sz_ss).dot(C_ss)]
+
+    bzwfs = {}
+    for ibz_index, ibzwf in enumerate(ibzwfs):
+        for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
+            bzwf = ibzwf.transform(kd, setups, spos_ac, bz_index)
+            bzwf = bzwf.redistribute_atoms(atom_partition)
+            bzwf.add_soc(dVL_avii, s_vss, C_ss)
+            bzwfs[bz_index] = bzwf
+
+    return bzwfs
+
+
+def extract_ibz_wave_functions(kpt_qs, bd, gd, n1, n2):
+    nproj_a = kpt_qs[0][0].projections.nproj_a
+
+    collinear = kpt_qs[0][0].s is not None
+
+    nbands = n2 - n1
+    if collinear:
+        nbands *= 2
+
+    # All atoms on rank-0:
+    atom_partition = AtomPartition(gd.comm, np.zeros_like(nproj_a))
+
+    # All bands on rank-0:
+    dist = (bd.comm, 1, 1)
+
+    for kpt_s in kpt_qs:
+        # Collect bands and atoms to bd.comm.rank == 0 and gd.comm.rank == 0:
+        eig_sn = [bd.collect(kpt.eps_n) for kpt in kpt_s]
+        P_snI = [kpt.projections.collect() for kpt in kpt_s]
+
+        projections = Projections(
+            nbands=nbands,
+            nproj_a=nproj_a,
+            atom_partition=atom_partition,
+            dist=dist,
+            collinear=False)
+
+        if bd.comm.rank == 0 and gd.comm.rank == 0:
+            if collinear:
+                eig_n = np.empty((n2 - n1) * 2)
+                eig_n[::2] = eig_sn[0][n1:n2]
+                eig_n[1::2] = eig_sn[-1][n1:n2]
+                projections.array[:] = 0.0
+                projections.array[::2, 0] = P_snI[0][n1:n2]
+                projections.array[1::2, 1] = P_snI[-1][n1:n2]
+            else:
+                eig_n = eig_sn[0][n1:n2]
+                projections.matrix.array[:] = P_snI[0][n1:n2]
+        else:
+            eig_n = np.empty(0)
+
+        yield WaveFunction(eig_n * Ha, projections)
+
+
 def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n1: int = None,
                     n2: int = None,
@@ -265,16 +362,11 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     if n2 <= 0:
         n2 = calc.get_number_of_bands() + n2
 
-    return soc_eigenstates_raw(ibz_extractor, n1, n2, scalem theta, phi)
-
-
-def soc_eigenstates_raw(ibzwfs,
-                        n1: int,
-                        n2: int,
-                        scale: float = 1.0,
-                        theta: float = 0.0,
-                        phi: float = 0.0
-                        ) -> BZWaveFunctions:
+    # <phi_i|dV_adr / r * L_v|phi_j>
+    dVL_avii = {a: soc(calc.wfs.setups[a],
+                       calc.hamiltonian.xc,
+                       D_sp) * scale
+                for a, D_sp in calc.density.D_asp.items()}
 
     kd = calc.wfs.kd
     bd = calc.wfs.bd
@@ -283,93 +375,24 @@ def soc_eigenstates_raw(ibzwfs,
     setups = calc.wfs.setups
     atom_partition = calc.density.atom_partition
 
-    if eigenvalues is not None:
-        assert eigenvalues.shape == (2, kd.nibzkpts, n2 - n1)
+    ibzwfs = extract_ibz_wave_functions(calc.wfs.kpt_qs,
+                                        bd, gd, n1, n2)
 
-    # <phi_i|dV_adr / r * L_v|phi_j>
-    dVL_avii = {a: soc(calc.wfs.setups[a],
-                       calc.hamiltonian.xc,
-                       D_sp) * scale
-                for a, D_sp in calc.density.D_asp.items()}
+    bzwfs = soc_eigenstates_raw(ibzwfs,
+                                dVL_avii,
+                                kd, spos_ac, setups, atom_partition,
+                                scale, theta, phi)
 
-    # Hamiltonian with SO in KS basis
-    # The even indices in H_mm are spin up along \hat n defined by \theta, phi
-    # Basis change matrix for constructing Pauli matrices in \theta,\phi basis:
-    #     \sigma_i^n = C^\dag\sigma_i C
-    C_ss = np.array([[np.cos(theta / 2) * np.exp(-1.0j * phi / 2),
-                      -np.sin(theta / 2) * np.exp(-1.0j * phi / 2)],
-                     [np.sin(theta / 2) * np.exp(1.0j * phi / 2),
-                      np.cos(theta / 2) * np.exp(1.0j * phi / 2)]])
-
-    sx_ss = np.array([[0, 1], [1, 0]], complex)
-    sy_ss = np.array([[0, -1.0j], [1.0j, 0]], complex)
-    sz_ss = np.array([[1, 0], [0, -1]], complex)
-    s_vss = [C_ss.T.conj().dot(sx_ss).dot(C_ss),
-             C_ss.T.conj().dot(sy_ss).dot(C_ss),
-             C_ss.T.conj().dot(sz_ss).dot(C_ss)]
-
-    bzwfs = {}
-    for ibz_index, ibzwf in enumerate(ibzwfs(n1, n2)):
-        for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
-            bzwf = ibzwf.transform(kd, setups, spos_ac, bz_index,
-                                   atom_partition)
-            bzwf.add_soc(dVL_avii, s_vss, C_ss)
-            bzwfs[bz_index] = bzwf
-
-    occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts))
+    if bd.comm.rank == 0 and gd.comm.rank == 0:
+        parallel_layout = ParallelLayout(BandDescriptor(1),
+                                         kd.comm,
+                                         serial_comm)
+        occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts),
+                                        parallel_layout=parallel_layout)
+    else:
+        occ = None
 
     return BZWaveFunctions(kd, bzwfs, occ, calc.wfs.nvalence)
-
-
-def extract_ibz_wave_functions():
-    for kpt_s in calc.wfs.kpt_qs:
-        kpt1 = kpt_s[0]
-        P1_nI = kpt1.projections.collect()
-        eig1_n = bd.collect(kpt1.eps_n)
-
-        if len(kpt_s) == 2:
-            kpt2 = kpt_s[1]
-            P2_nI = kpt2.projections.collect()
-            eig2_n = bd.collect(kpt2.eps_n)
-        elif collinear:
-            P2_nI = P1_nI
-            eig2_n = eig1_n
-        else:
-            P_nsI = P1_nI
-            print(P_nsI.shape)
-            sadfkl
-
-        ibz_index = kpt1.k
-
-        if bd.comm.rank == 0:
-            if gd.comm.rank == 0:
-                P1_nI = P1_nI[n1:n2]
-                P2_nI = P2_nI[n1:n2]
-            else:
-                P1_nI = P2_nI = np.zeros((n2 - n1, 0), complex)
-
-            eig1_n = eig1_n[n1:n2]
-            eig2_n = eig2_n[n1:n2]
-        else:
-            n1 = n2 = 0
-            P1_nI = P2_nI = np.zeros((0, 0), complex)
-            eig1_n = eig2_n = np.zeros(0)
-
-        eig_n = np.empty((n2 - n1) * 2)
-        eig_n[::2] = eig1_n
-        eig_n[1::2] = eig2_n
-
-        projections = Projections(
-            nbands=2 * (n2 - n1),
-            nproj_a=kpt1.projections.nproj_a,
-            atom_partition=AtomPartition(gd.comm,
-                                         np.zeros(len(spos_ac), int)),
-            collinear=False)
-        projections.array[:] = 0.0
-        projections.array[::2, 0] = P1_nI
-        projections.array[1::2, 1] = P2_nI
-
-        ibzwf = WaveFunction(eig_n * Ha, projections)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:

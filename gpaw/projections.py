@@ -9,10 +9,17 @@ class Projections:
     def __init__(self,
                  nbands: int,
                  nproj_a, atom_partition, bcomm=None,
-                 collinear=True, spin=0, dtype=None, data=None):
+                 collinear=True, spin=0, dtype=None, data=None,
+                 dist=None):
+        if dist is None:
+            self.bcomm = bcomm or serial_comm
+            dist = (self.bcomm, self.bcomm.size, 1)
+        else:
+            assert bcomm is None
+            self.bcomm = dist[0]
+
         self.nproj_a = np.asarray(nproj_a)
         self.atom_partition = atom_partition
-        self.bcomm = bcomm or serial_comm
         self.collinear = collinear
         self.spin = spin
         self.nbands = nbands
@@ -34,8 +41,7 @@ class Projections:
         if dtype is None:
             dtype = float if collinear else complex
 
-        self.matrix = Matrix(nbands, I1, dtype, data,
-                             dist=(self.bcomm, self.bcomm.size, 1))
+        self.matrix = Matrix(nbands, I1, dtype, data, dist=dist)
 
         if collinear:
             self.myshape = self.matrix.array.shape
