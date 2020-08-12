@@ -4,21 +4,22 @@ import numpy as np
 
 class DirectMinLocalize:
 
-    def __init__(self, obj_f, wfs, maxiter=333, g_tol=1.0e-3):
+    def __init__(self, obj_f, wfs, maxiter=300, g_tol=1.0e-3):
 
         self.obj_f = obj_f
         self.iloop = InnerLoop(
             obj_f, wfs, maxiter=maxiter,
             g_tol=g_tol)
 
-    def run(self, wfs, dens, log=None, max_iter=None, g_tol=None, rewritepsi=True):
+    def run(self, wfs, dens, log=None, max_iter=None,
+            g_tol=None, rewritepsi=True):
 
         if g_tol is not None:
             self.iloop.tol = g_tol
         if max_iter is not None:
             self.iloop.max_iter = max_iter
-        if log is None:
-            log = parprint
+        # if log is None:
+        #     log = parprint
 
         wfs.timer.start('Inner loop')
 

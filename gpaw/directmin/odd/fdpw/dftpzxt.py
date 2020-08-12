@@ -8,7 +8,7 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
-
+import _gpaw
 
 class DftPzSicXT:
 
@@ -159,7 +159,7 @@ class DftPzSicXT:
 
         for i in range(n_occ):
             nt_G, Q_aL, D_ap = \
-                self.get_orbdens_compcharge_dm_kpt(kpt, i)
+                self.get_orbdens_compcharge_dm_kpt(wfs, kpt, i)
             # calculate sic energy, sic pseudo-potential and Hartree
             e_sic, vt_G, dH_ap = \
                 self.get_pz_sic_ith_kpt(
@@ -167,8 +167,22 @@ class DftPzSicXT:
 
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
-
-            self.grad[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+            if wfs.mode == 'pw':
+                vt_G = wfs.pd.gd.collect(vt_G, broadcast=True)
+                Q_G = wfs.pd.Q_qG[kpt.q]
+                psit_G = wfs.pd.alltoall1(kpt.psit_nG[i:i+1], kpt.q)
+                if psit_G is not None:
+                    psit_R = wfs.pd.ifft(psit_G, kpt.q, local=True,
+                                          safe=False)
+                    psit_R *= vt_G
+                    wfs.pd.fftplan.execute()
+                    vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
+                else:
+                    vtpsit_G = wfs.pd.tmp_G
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i:i+1])
+                self.grad[k][i] *= kpt.f_n[i]
+            else:
+                self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
             c_axi = {}
             for a in kpt.P_ani.keys():
                 dH_ii = unpack(dH_ap[a])
@@ -263,9 +277,19 @@ class DftPzSicXT:
 
         return e_pz, vt_G, dH_ap
 
-    def get_orbdens_compcharge_dm_kpt(self, kpt, n):
+    def get_orbdens_compcharge_dm_kpt(self, wfs, kpt, n):
 
-        nt_G = np.absolute(kpt.psit_nG[n]**2)
+        if wfs.mode == 'pw':
+            nt_G = wfs.pd.gd.zeros(global_array=True)
+            psit_G = wfs.pd.alltoall1(kpt.psit.array[n:n + 1], kpt.q)
+            if psit_G is not None:
+                psit_R = wfs.pd.ifft(psit_G, kpt.q,
+                                     local=True, safe=False)
+                _gpaw.add_to_density(1.0, psit_R, nt_G)
+            wfs.pd.gd.comm.sum(nt_G)
+            nt_G = wfs.pd.gd.distribute(nt_G)
+        else:
+            nt_G = np.absolute(kpt.psit_nG[n] ** 2)
 
         # paw
         Q_aL = {}
@@ -393,7 +417,7 @@ class DftPzSicXT:
         k = n_kps * kpt.s + kpt.q
         for m in range(n_occ):
             # calculate Hartree pot, compans. charge and PAW corrects
-            nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(kpt, m)
+            nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
             e_sic, vt_G, v_ht_g = \
                 self.get_pseudo_pot(nt_G, Q_aL, m, kpoint=k)
             e_sic_paw_m, dH_ap = \

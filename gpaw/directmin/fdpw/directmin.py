@@ -1016,7 +1016,16 @@ class DirectMin(Eigensolver):
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
             occ.calculate(wfs)  # fill occ numbers
 
+        elif wfs.mode == 'pw' and \
+                self.initial_orbitals != 'KS' and \
+                self.initial_orbitals is not None:
+            parprint('WARNING: plane-waves mode '
+                     'can use ER localization only.\n'
+                     'Will change localization to ER now')
+            self.initial_orbitals = 'ER'
+
         io = self.initial_orbitals
+
         if io == 'PM':
             tol = 1.0e-6
         else:
