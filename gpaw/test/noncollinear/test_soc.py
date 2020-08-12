@@ -39,6 +39,7 @@ def test_soc_self_consistent():
 
 
 @pytest.mark.soc
+@pytest.mark.skipif(size > 2, reason='Does not work with more than 2 cores')
 def test_non_collinear_plus_soc():
     a = mx2('MoS2')
     a.center(vacuum=3, axis=2)
@@ -46,6 +47,7 @@ def test_non_collinear_plus_soc():
     a.calc = GPAW(experimental={'magmoms': np.zeros((3, 3)),
                                 'soc': False},
                   convergence={'bands': 28},
+                  parallel={'domain': 1},
                   **params)
     a.get_potential_energy()
 

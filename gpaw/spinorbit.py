@@ -1,7 +1,7 @@
 import warnings
 from math import nan
 from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
-                    Tuple, Iterable)
+                    Tuple, Iterable, Iterator)
 from operator import attrgetter
 from pathlib import Path
 
@@ -9,10 +9,12 @@ import numpy as np
 from ase.units import Ha, alpha, Bohr
 
 from gpaw.band_descriptor import BandDescriptor
-from gpaw.projections import Projections
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.kpoint import KPoint
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import broadcast_array, serial_comm
 from gpaw.occupations import OccupationNumberCalculator, ParallelLayout
+from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
@@ -235,13 +237,12 @@ class BZWaveFunctions:
         return None
 
 
-def soc_eigenstates_raw(ibzwfs: Iterable[WaveFunction],
+def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
                         dVL_avii: Dict[int, Array3D],
                         kd, spos_ac, setups, atom_partition,
                         scale: float = 1.0,
                         theta: float = 0.0,
-                        phi: float = 0.0
-                        ) -> Dict[int, WaveFunction]:
+                        phi: float = 0.0) -> Dict[int, WaveFunction]:
 
     # Hamiltonian with SO in KS basis
     # The even indices in H_mm are spin up along \hat n defined by \theta, phi
@@ -260,7 +261,7 @@ def soc_eigenstates_raw(ibzwfs: Iterable[WaveFunction],
              C_ss.T.conj().dot(sz_ss).dot(C_ss)]
 
     bzwfs = {}
-    for ibz_index, ibzwf in enumerate(ibzwfs):
+    for ibz_index, ibzwf in ibzwfs:
         for bz_index in np.nonzero(kd.bz2ibz_k == ibz_index)[0]:
             bzwf = ibzwf.transform(kd, setups, spos_ac, bz_index)
             bzwf = bzwf.redistribute_atoms(atom_partition)
@@ -270,7 +271,11 @@ def soc_eigenstates_raw(ibzwfs: Iterable[WaveFunction],
     return bzwfs
 
 
-def extract_ibz_wave_functions(kpt_qs, bd, gd, n1, n2):
+def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
+                               bd: BandDescriptor,
+                               gd: GridDescriptor,
+                               n1: int,
+                               n2: int) -> Iterator[Tuple[int, WaveFunction]]:
     nproj_a = kpt_qs[0][0].projections.nproj_a
 
     collinear = kpt_qs[0][0].s is not None
@@ -283,7 +288,7 @@ def extract_ibz_wave_functions(kpt_qs, bd, gd, n1, n2):
     atom_partition = AtomPartition(gd.comm, np.zeros_like(nproj_a))
 
     # All bands on rank-0:
-    dist = (bd.comm, 1, 1)
+    bdist = (bd.comm, 1, 1)
 
     for kpt_s in kpt_qs:
         # Collect bands and atoms to bd.comm.rank == 0 and gd.comm.rank == 0:
@@ -294,7 +299,7 @@ def extract_ibz_wave_functions(kpt_qs, bd, gd, n1, n2):
             nbands=nbands,
             nproj_a=nproj_a,
             atom_partition=atom_partition,
-            dist=dist,
+            bdist=bdist,
             collinear=False)
 
         if bd.comm.rank == 0 and gd.comm.rank == 0:
@@ -311,7 +316,9 @@ def extract_ibz_wave_functions(kpt_qs, bd, gd, n1, n2):
         else:
             eig_n = np.empty(0)
 
-        yield WaveFunction(eig_n * Ha, projections)
+        ibz_index = kpt_s[0].k
+
+        yield ibz_index, WaveFunction(eig_n * Ha, projections)
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],

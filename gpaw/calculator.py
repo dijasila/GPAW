@@ -1381,7 +1381,7 @@ class GPAW(Calculator):
             nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
-    def get_number_of_bands(self):
+    def get_number_of_bands(self) -> int:
         """Return the number of bands."""
         return self.wfs.bd.nbands
 
