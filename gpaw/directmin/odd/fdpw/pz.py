@@ -8,10 +8,12 @@ from gpaw.lfc import LFC
 from gpaw.transformers import Transformer
 from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
-from gpaw.wavefunctions.pw import PWLFC, integrate
+from gpaw.wavefunctions.pw import PWLFC
 # from ase.parallel import parprint
 # import time
 import _gpaw
+from gpaw.utilities.partition import AtomPartition
+
 
 class PzCorrections:
 
@@ -41,7 +43,10 @@ class PzCorrections:
             self.ghat = PWLFC([setup.ghat_l for setup in self.setups],
                               self.pd2,
                               )
-            self.ghat.set_positions(spos_ac)
+            rank_a = wfs.gd.get_ranks_from_positions(spos_ac)
+            atom_partition = AtomPartition(wfs.gd.comm, rank_a,
+                                           name='gd')
+            self.ghat.set_positions(spos_ac,atom_partition)
         else:
             if self.sic_coarse_grid:
                 self.ghat = LFC(self.cgd,
@@ -161,9 +166,7 @@ class PzCorrections:
 
         for i in range(n_occ):
             if wfs.mode == 'pw':
-                e_sic, vt_G, dH_ap = self.get_si_pot_dh_pw(wfs, kpt,
-                                                           i,
-                                                           timer=None)
+                e_sic, vt_G, dH_ap = self.get_si_pot_dh_pw(wfs, kpt, i)
             else:
                 # t1 = time.time()
                 nt_G, Q_aL, D_ap = \
@@ -384,9 +387,6 @@ class PzCorrections:
 
     def get_odd_corrections_to_forces(self, F_av, wfs, kpt):
 
-        if wfs.mode == 'pw':
-            raise NotImplementedError
-
         n_occ = get_n_occ(kpt)
         n_kps = self.n_kps
 
@@ -395,11 +395,18 @@ class PzCorrections:
         k = n_kps * kpt.s + kpt.q
         for m in range(n_occ):
             # calculate Hartree pot, compans. charge and PAW corrects
-            nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
-            e_sic, vt_G, v_ht_g = \
-                self.get_pseudo_pot(nt_G, Q_aL, m, kpoint=k)
-            e_sic_paw_m, dH_ap = \
-                self.get_paw_corrections(D_ap, v_ht_g)
+            if wfs.mode == 'fd':
+                nt_G, Q_aL, D_ap = self.get_orbdens_compcharge_dm_kpt(wfs, kpt, m)
+                e_sic, vt_G, v_ht_g = \
+                    self.get_pseudo_pot(nt_G, Q_aL, m, kpoint=k)
+                e_sic_paw_m, dH_ap = \
+                    self.get_paw_corrections(D_ap, v_ht_g)
+            elif wfs.mode == 'pw':
+                e_sic, vt_G, dH_ap, Q_aL, v_ht_g = \
+                    self.get_si_pot_dh_pw(wfs, kpt, m,
+                                          returnQalandVhq=True)
+            else:
+                raise NotImplementedError
 
             # Force from compensation charges:
             dF_aLv = self.ghat.dict(derivative=True)
@@ -455,16 +462,17 @@ class PzCorrections:
 
         return e_pz, vt_G, dH_ap
 
-    def get_si_pot_dh_pw(self, wfs, kpt, n, timer):
+    def get_si_pot_dh_pw(self, wfs, kpt, n, returnQalandVhq=False):
 
         nt_G = wfs.pd.gd.zeros(global_array=True)
         psit_G = wfs.pd.alltoall1(kpt.psit.array[n:n + 1], kpt.q)
         if psit_G is not None:
+            # real space wfs:
             psit_R = wfs.pd.ifft(psit_G, kpt.q,
-                                 local=True, safe=False)  # real space wfs
+                                 local=True, safe=False)
             _gpaw.add_to_density(1.0, psit_R, nt_G)
         wfs.pd.gd.comm.sum(nt_G)
-        nt_G = wfs.pd.gd.distribute(nt_G) # this is real space grid
+        nt_G = wfs.pd.gd.distribute(nt_G)  # this is real space grid
 
         # multipole moments and atomic dm
         Q_aL = {}
@@ -482,48 +490,31 @@ class PzCorrections:
         exc = self.xc.calculate(wfs.gd, nt_sg, vt_sg)
         vt_G = - vt_sg[0] * self.beta_x
         dH_ap = {}
+
+        excpaw = 0.0
         for a, D_p in D_ap.items():
             setup = self.setups[a]
             dH_sp = np.zeros((2, len(D_p)))
             D_sp = np.array([D_p, np.zeros_like(D_p)])
-            exc += self.xc.calculate_paw_correction(setup, D_sp,
+            excpaw += self.xc.calculate_paw_correction(setup, D_sp,
                                                     dH_sp,
                                                     addcoredensity=False)
             dH_ap[a] = -dH_sp[0] * self.beta_x
-        exc = wfs.gd.comm.sum(exc)
+        excpaw = wfs.gd.comm.sum(excpaw)
+        exc += excpaw
 
-        # let's get density in Q space to caclulate hartree potential
-        # nt_Q = wfs.pd.empty()
-        # nt_g, nt_Q = self.pd2.interpolate(nt_G, self.pd3)
-        nt_Q = self.pd2.fft(nt_G, kpt.q)
-        # print(np.allclose(nt_Q_tmp, nt_Q))
-        if wfs.gd.comm.rank == 0:
-            nt_Q[0] = 0.0
+        nt_Q = self.pd2.fft(nt_G)
         self.ghat.add(nt_Q, Q_aL)
-
-        # calculate hartree:
-        G2_q = self.pd2.G2_qG[0]
-        if self.pd2.gd.comm.rank == 0:
-            # Avoid division by zero:
-            G2_q[0] = 1.0
-        vHt_Q = 4 * np.pi * nt_Q
-        vHt_Q /= G2_q  # Hartree potential in Q space
-
-        # Hartree
-        ehart = 0.5 * integrate(self.pd2, vHt_Q, nt_Q)
-        vHt_G = wfs.gd.zeros()
-        self.poiss.solve(vHt_G, nt_G,
-                         zero_initial_phi=False)
-        # vHt_G = self.pd2.ifft(vHt_Q, kpt.q)
-
-        ehart2 = 0.5 * wfs.gd.integrate(nt_G, vHt_G)
-        from ase.units import Ha
-        print(ehart*Ha, ehart2*Ha, ehart2/ehart)
-
+        nt_G = self.pd2.ifft(nt_Q)
+        vHt = np.zeros_like(nt_G)
+        self.poiss.solve(vHt, nt_G, zero_initial_phi=False)
+        ehart = 0.5 * self.cgd.integrate(nt_G, vHt)
+        # ehart = self.cgd.comm.sum(ehart)
+        vHt_q = self.pd2.fft(vHt)
         # PAW to Hartree
         ehartpaw = 0.0
         W_aL = self.ghat.dict()
-        self.ghat.integrate(vHt_Q, W_aL)
+        self.ghat.integrate(vHt_q, W_aL)
 
         for a, D_p in D_ap.items():
             setup = self.setups[a]
@@ -534,7 +525,10 @@ class PzCorrections:
         ehartpaw = wfs.gd.comm.sum(ehartpaw)
         ehart += ehartpaw
 
-        vHt_G = self.pd2.ifft(vHt_Q, kpt.q)
-        vt_G -= vHt_G * self.beta_c
+        vt_G -= vHt * self.beta_c
 
-        return np.array([-ehart*self.beta_c, -exc * self.beta_x]), vt_G, dH_ap
+        if returnQalandVhq:
+            return np.array([-ehart * self.beta_c,
+                             -exc * self.beta_x]), vt_G, dH_ap, Q_aL, vHt_q
+        else:
+            return np.array([-ehart*self.beta_c, -exc * self.beta_x]), vt_G, dH_ap

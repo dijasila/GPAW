@@ -10,7 +10,7 @@ from ase.parallel import parprint
 class InnerLoop:
 
     def __init__(self, odd_pot, wfs, tol=1.0e-3, maxiter=50,
-                 g_tol=5.0e-4, dim1=None, dim2=None):
+                 g_tol=5.0e-4):
 
         self.odd_pot = odd_pot
         self.n_kps = wfs.kd.nks // wfs.kd.nspins
@@ -32,11 +32,8 @@ class InnerLoop:
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
             self.n_occ[k] = get_n_occ(kpt)
-            if dim1 is None:
-                dim1 = self.n_occ[k]
-            if dim2 is None:
-                dim2 = self.n_occ[k]
-            assert dim1 >= dim2
+            dim1 = self.n_occ[k]
+            dim2 = self.n_occ[k]
             self.U_k[k] = np.eye(dim1, dtype=self.dtype)
             self.Unew_k[k] = np.eye(dim2, dtype=self.dtype)
 
