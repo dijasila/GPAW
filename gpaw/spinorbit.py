@@ -124,7 +124,7 @@ class WaveFunction:
             sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
             sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
 
-        self.spin_projection_nv = np.array([sx_m, sy_m, sz_m]).real.T
+        self.spin_projection_nv = np.array([sx_m, sy_m, sz_m]).real.T.copy()
         self.v_snm = v_snm
 
 
