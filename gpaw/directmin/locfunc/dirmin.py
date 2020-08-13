@@ -32,6 +32,7 @@ class DirectMinLocalize:
                 kpt.psit_nG[:dim1] = np.tensordot(self.iloop.U_k[k].T,
                                                 kpt.psit_nG[:dim1],
                                                 axes=1)
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
         wfs.timer.stop('Inner loop')
 
         return counter

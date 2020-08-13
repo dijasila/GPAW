@@ -179,10 +179,11 @@ class DftPzSicXT:
                     vtpsit_G = wfs.pd.tmp_Q.ravel()[Q_G]
                 else:
                     vtpsit_G = wfs.pd.tmp_G
-                wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i:i+1])
-                self.grad[k][i] *= kpt.f_n[i]
+                tmp = np.zeros_like(self.grad[k][i:i+1])
+                wfs.pd.alltoall2(vtpsit_G, kpt.q, tmp)
+                self.grad[k][i] += tmp[0] *kpt.f_n[i]
             else:
-                self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+                self.grad[k][i] += kpt.psit_nG[i] * vt_G * kpt.f_n[i]
             c_axi = {}
             for a in kpt.P_ani.keys():
                 dH_ii = unpack(dH_ap[a])
