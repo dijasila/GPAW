@@ -1,7 +1,7 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 from gpaw.berryphase import get_overlap
-from gpaw.spinorbit import get_spinorbit_wavefunctions
+from gpaw.spinorbit import soc_eigenstates
 
 
 class Wannier90:
