@@ -33,12 +33,12 @@ Array3D = ArrayND
 
 class WaveFunction:
     def __init__(self, eigenvalues: Array1D, projections: Projections):
-        self.eig_n = eigenvalues
+        self.eig_m = eigenvalues
         self.projections = projections
-        self.spin_projection_nv: Optional[Array2D] = None
-        self.v_snm: Optional[Array2D] = None
-        self.f_n = np.empty_like(self.eig_n)
-        self.f_n[:] = nan
+        self.spin_projection_mv: Optional[Array2D] = None
+        self.v_msn: Optional[Array2D] = None
+        self.f_m = np.empty_like(self.eig_m)
+        self.f_m[:] = nan
 
     def transform(self,
                   kd: KPointDescriptor,
@@ -54,21 +54,21 @@ class WaveFunction:
         if projections.atom_partition.comm.rank == 0:
             a = 0
             for b, U_ii in zip(a_a, U_aii):
-                P_ni = self.projections[b].dot(U_ii)
+                P_mi = self.projections[b].dot(U_ii)
                 if time_rev:
-                    P_ni = P_ni.conj()
-                projections[a][:] = P_ni
+                    P_mi = P_mi.conj()
+                projections[a][:] = P_mi
                 a += 1
         else:
             assert len(projections.indices) == 0
 
-        return WaveFunction(self.eig_n.copy(), projections)
+        return WaveFunction(self.eig_m.copy(), projections)
 
     def redistribute_atoms(self,
                            atom_partition: AtomPartition
                            ) -> 'WaveFunction':
         projections = self.projections.redist(atom_partition)
-        return WaveFunction(self.eig_n.copy(), projections)
+        return WaveFunction(self.eig_m.copy(), projections)
 
     def add_soc(self,
                 dVL_avii: Dict[int, Array3D],
@@ -104,28 +104,28 @@ class WaveFunction:
         domain_comm = self.projections.atom_partition.comm
         domain_comm.sum(H_mm, 0)
         if domain_comm.rank == 0:
-            H_mm += np.diag(self.eig_n)
-            self.eig_n, v_snm = np.linalg.eigh(H_mm)
+            H_mm += np.diag(self.eig_m)
+            self.eig_m, v_mm = np.linalg.eigh(H_mm)
+            v_msn = v_mm.reshape((M // 2, 2, M)).T.copy()
+            del v_mm
         else:
-            v_snm = np.empty_like(H_mm)
+            v_msn = np.empty((M, 2, M // 2), complex)
 
-        domain_comm.broadcast(v_snm, 0)
+        domain_comm.broadcast(v_msn, 0)
 
-        P_msI = self.projections.array
-        m, s, I = P_msI.shape
-        P_msI[:] = v_snm.T.dot(P_msI.reshape((m, s * I))).reshape((m, s, I))
+        P_mI = self.projections.matrix.array
+        P_mI[:] = v_msn.reshape((M, M)).dot(P_mI)
 
         sx_m = []
         sy_m = []
         sz_m = []
-        for v_sn in v_snm.T:
-            v_sn = np.array([v_sn[::2], v_sn[1::2]])
+        for v_sn in v_msn:
             sx_m.append(np.trace(v_sn.T.conj().dot(s_vss[0]).dot(v_sn)))
             sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
             sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
 
         self.spin_projection_nv = np.array([sx_m, sy_m, sz_m]).real.T.copy()
-        self.v_snm = v_snm
+        self.v_msn = v_msn
 
 
 class BZWaveFunctions:
@@ -155,7 +155,7 @@ class BZWaveFunctions:
 
     def _calculate_occ_numbers_and_fermi_level(self) -> float:
         if self.occ is not None:
-            eig_im = [wf.eig_n for wf in self]
+            eig_im = [wf.eig_m for wf in self]
             weight = 1.0 / self.kd.nbzkpts
             weight_i = [weight] * len(eig_im)
 
@@ -163,8 +163,8 @@ class BZWaveFunctions:
                 self.nelectrons,
                 eig_im,
                 weight_i)
-            for wf, f_n in zip(self, f_im):
-                wf.f_n[:] = f_n
+            for wf, f_m in zip(self, f_im):
+                wf.f_m[:] = f_m
         else:
             fermi_level = 0.0
 
@@ -177,7 +177,7 @@ class BZWaveFunctions:
     def calculate_band_energy(self) -> float:
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
             weight = 1.0 / self.kd.nbzkpts
-            e_band = sum(wf.eig_n.dot(wf.f_n) for wf in self) * weight
+            e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
             e_band = self.kd.comm.sum(e_band)
         else:
             e_band = 0.0
@@ -194,27 +194,38 @@ class BZWaveFunctions:
                     broadcast: bool = True
                     ) -> Optional[Array2D]:
         """Eigenvalues in eV for the whole BZ."""
-        return self._collect(attrgetter('eig_n'), broadcast=broadcast)
+        return self._collect(attrgetter('eig_m'), broadcast=broadcast)
+
+    def eigenvectors(self,
+                     broadcast: bool = True
+                     ) -> Optional[Array3D]:
+        """Eigenvectors for the whole BZ."""
+        nbands = self.shape[1]
+        assert nbands % 2 == 0
+        return self._collect(attrgetter('v_msn'), (2, nbands // 2), complex,
+                             broadcast=broadcast)
 
     def spin_projections(self,
                          broadcast: bool = True
                          ) -> Optional[Array3D]:
         """Spin projections for the whole BZ."""
-        return self._collect(attrgetter('spin_projection_nv'), (3,), broadcast)
+        return self._collect(attrgetter('spin_projection_mv'), (3,),
+                             broadcast=broadcast)
 
     def _collect(self,
                  attr: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int] = None,
+                 dtype=float,
                  broadcast: bool = True) -> Optional[ArrayND]:
         """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
 
         if broadcast:
-            array_knx = self._collect(attr, shape, False)
-            if array_knx is None:
-                array_knx = np.empty(total_shape)
-            return broadcast_array(array_knx,
+            array_kmx = self._collect(attr, shape, dtype, False)
+            if array_kmx is None:
+                array_kmx = np.empty(total_shape, dtype)
+            return broadcast_array(array_kmx,
                                    self.kd.comm, self.bcomm, self.domain_comm)
 
         if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
@@ -222,13 +233,13 @@ class BZWaveFunctions:
 
         comm = self.kd.comm
         if comm.rank == 0:
-            array_knx = np.empty(total_shape)
+            array_kmx = np.empty(total_shape, dtype)
             for k, rank in enumerate(self.ranks):
                 if rank == 0:
-                    array_knx[k] = attr(self.wfs[k])
+                    array_kmx[k] = attr(self.wfs[k])
                 else:
-                    comm.receive(array_knx[k], rank)
-            return array_knx
+                    comm.receive(array_kmx[k], rank)
+            return array_kmx
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
@@ -314,21 +325,21 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
 
         if bd.comm.rank == 0 and gd.comm.rank == 0:
             if collinear:
-                eig_n = np.empty((n2 - n1) * 2)
-                eig_n[::2] = eig_sn[0][n1:n2]
-                eig_n[1::2] = eig_sn[-1][n1:n2]
+                eig_m = np.empty((n2 - n1) * 2)
+                eig_m[::2] = eig_sn[0][n1:n2]
+                eig_m[1::2] = eig_sn[-1][n1:n2]
                 projections.array[:] = 0.0
                 projections.array[::2, 0] = P_snI[0][n1:n2]
                 projections.array[1::2, 1] = P_snI[-1][n1:n2]
             else:
-                eig_n = eig_sn[0][n1:n2]
+                eig_m = eig_sn[0][n1:n2]
                 projections.matrix.array[:] = P_snI[0][n1:n2]
         else:
-            eig_n = np.empty(0)
+            eig_m = np.empty(0)
 
         ibz_index = kpt_s[0].k
 
-        yield ibz_index, WaveFunction(eig_n * Ha, projections)
+        yield ibz_index, WaveFunction(eig_m * Ha, projections)
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
@@ -711,11 +722,13 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
     psit_nG = np.array([calc.wfs.kpt_u[ik].psit_nG[n]
                         for n in bands])
     if spin_orbit:
-        v_knm = soc_eigenstates(calc,
-                                return_wfs=True,
-                                bands=bands)['eigenstates']
-        psit0_mG = np.dot(v_knm[ik][::2].T, psit_nG)
-        psit1_mG = np.dot(v_knm[ik][1::2].T, psit_nG)
+        n1 = bands[0]
+        n2 = bands[-1] + 1
+        assert (bands == np.arange(n1, n2)).all()
+        soc = soc_eigenstates(calc, n1=n1, n2=n2)
+        v_kmsn = soc.eigenvectors()
+        psit0_mG = np.dot(v_kmsn[ik, :, 0], psit_nG)
+        psit1_mG = np.dot(v_kmsn[ik, :, 1], psit_nG)
     for n in range(len(bands)):
         psit_nG[n] /= (np.sum(np.abs(psit_nG[n])**2))**0.5
     if spin_orbit:

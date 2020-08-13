@@ -194,10 +194,9 @@ class BSE:
 
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
             soc = soc_eigenstates(self.calc,
-                                  return_wfs=True,
                                   scale=self.scale)
             e_mk = soc.eigenvalues().T
-            v_knm = soc.v_knm
+            v_kmsn = soc.eigenvectors()
             e_mk /= Hartree
 
         # Parallelization stuff
@@ -293,14 +292,14 @@ class BSE:
                     df_Ksmn[iK, s, ::2, 1::2] = df_mn
                     df_Ksmn[iK, s, 1::2, ::2] = df_mn
                     df_Ksmn[iK, s, 1::2, 1::2] = df_mn
-                    vecv0_nm = v_knm[iK][::2][ni:nf, mvi:mvf]
-                    vecc0_nm = v_knm[iKq][::2][ni:nf, mci:mcf]
-                    rho_0mnG = np.dot(vecv0_nm.T.conj(),
-                                      np.dot(vecc0_nm.T, rho_mnG))
-                    vecv1_nm = v_knm[iK][1::2][ni:nf, mvi:mvf]
-                    vecc1_nm = v_knm[iKq][1::2][ni:nf, mci:mcf]
-                    rho_1mnG = np.dot(vecv1_nm.T.conj(),
-                                      np.dot(vecc1_nm.T, rho_mnG))
+                    vecv0_mn = v_kmsn[iK, mvi:mvf, 0, ni:nf]
+                    vecc0_mn = v_kmsn[iKq, mci:mcf, 0, ni:nf]
+                    rho_0mnG = np.dot(vecv0_mn.conj(),
+                                      np.dot(vecc0_mn, rho_mnG))
+                    vecv1_mn = v_kmsn[iK, mvi:mvf, 1, ni:nf]
+                    vecc1_mn = v_kmsn[iKq, mci:mcf, 1, ni:nf]
+                    rho_1mnG = np.dot(vecv1_mn.conj(),
+                                      np.dot(vecc1_mn, rho_mnG))
                     rhoex_KsmnG[iK, s] = rho_0mnG + rho_1mnG
                     if optical_limit:
                         rhoex_KsmnG[iK, s, :, :, 0] /= deps_ksmn[ik, s]
@@ -340,7 +339,8 @@ class BSE:
                         rho2_mnG = rhoex_KsmnG[iK2, s2]
 
                         H_ksmnKsmn[ik1, s1, :, :, iK2, s2, :, :] += np.einsum(
-                            'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG, optimize='optimal')
+                            'ijk,mnk->ijmn', rho1ccV_mnG, rho2_mnG,
+                            optimize='optimal')
 
                         if not self.mode == 'RPA' and s1 == s2:
                             ikq = ikq_k[iK2]
@@ -353,28 +353,30 @@ class BSE:
                             rho4_nnG, iq = self.get_density_matrix(kptc1,
                                                                    kptc2)
                             if self.spinors:
-                                vec0_nm = v_knm[iK1][::2][ni:nf, mvi:mvf]
-                                vec1_nm = v_knm[iK1][1::2][ni:nf, mvi:mvf]
-                                vec2_nm = v_knm[iK2][::2][ni:nf, mvi:mvf]
-                                vec3_nm = v_knm[iK2][1::2][ni:nf, mvi:mvf]
-                                rho_0mnG = np.dot(vec0_nm.T.conj(),
-                                                  np.dot(vec2_nm.T, rho3_mmG))
-                                rho_1mnG = np.dot(vec1_nm.T.conj(),
-                                                  np.dot(vec3_nm.T, rho3_mmG))
+                                vec0_mn = v_kmsn[iK1, mvi:mvf, 0, ni:nf]
+                                vec1_mn = v_kmsn[iK1, mvi:mvf, 1, ni:nf]
+                                vec2_mn = v_kmsn[iK2, mvi:mvf, 0, ni:nf]
+                                vec3_mn = v_kmsn[iK2, mvi:mvf, 1, ni:nf]
+                                rho_0mnG = np.dot(vec0_mn.conj(),
+                                                  np.dot(vec2_mn, rho3_mmG))
+                                rho_1mnG = np.dot(vec1_mn.conj(),
+                                                  np.dot(vec3_mn, rho3_mmG))
                                 rho3_mmG = rho_0mnG + rho_1mnG
-                                vec0_nm = v_knm[ikq_k[iK1]][::2][ni:nf,
-                                                                 mci:mcf]
-                                vec1_nm = v_knm[ikq_k[iK1]][1::2][ni:nf,
-                                                                  mci:mcf]
-                                vec2_nm = v_knm[ikq][::2][ni:nf, mci:mcf]
-                                vec3_nm = v_knm[ikq][1::2][ni:nf, mci:mcf]
-                                rho_0mnG = np.dot(vec0_nm.T.conj(),
-                                                  np.dot(vec2_nm.T, rho4_nnG))
-                                rho_1mnG = np.dot(vec1_nm.T.conj(),
-                                                  np.dot(vec3_nm.T, rho4_nnG))
+                                vec0_mn = v_kmsn[ikq_k[iK1], mci:mcf, 0, ni:nf]
+                                vec1_mn = v_kmsn[ikq_k[iK1], mci:mcf, 1, ni:nf]
+                                vec2_mn = v_kmsn[ikq, mci:mcf, 0, ni:nf]
+                                vec3_mn = v_kmsn[ikq, mci:mcf, 1, ni:nf]
+                                rho_0mnG = np.dot(vec0_mn.conj(),
+                                                  np.dot(vec2_mn, rho4_nnG))
+                                rho_1mnG = np.dot(vec1_mn.conj(),
+                                                  np.dot(vec3_mn, rho4_nnG))
                                 rho4_nnG = rho_0mnG + rho_1mnG
 
-                            W_mnmn = np.einsum('ijk,km,pqm->ipjq', rho3_mmG.conj(), self.W_qGG[iq], rho4_nnG, optimize='optimal')
+                            W_mnmn = np.einsum('ijk,km,pqm->ipjq',
+                                               rho3_mmG.conj(),
+                                               self.W_qGG[iq],
+                                               rho4_nnG,
+                                               optimize='optimal')
                             W_mnmn *= Ns * so
                             H_ksmnKsmn[ik1, s1, :, :, iK2, s1] -= 0.5 * W_mnmn
             if iK1 % (myKsize // 5 + 1) == 0:
@@ -451,7 +453,11 @@ class BSE:
                                             np.dot(M_vv, pos_av[a]))))
             U_ii = self.calc.wfs.setups[a].R_sii[sym]
 
-            Q_Gii = np.einsum('ij,kjl,ml->kim', U_ii, Q_Gii * x_G[:, None, None], U_ii, optimize='optimal')
+            Q_Gii = np.einsum('ij,kjl,ml->kim',
+                              U_ii,
+                              Q_Gii * x_G[:, None, None],
+                              U_ii,
+                              optimize='optimal')
             if sign == -1:
                 Q_Gii = Q_Gii.conj()
             Q_aGii.append(Q_Gii)
