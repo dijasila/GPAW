@@ -147,8 +147,6 @@ def write_input(calc,
 
     if len(bands) > Nw:
         ef = calc.get_fermi_level()
-        if hasattr(ef, 'dtype'):
-            ef = (ef[0] + ef[1]) / 2
         print('fermi_energy  = %2.3f' % ef, file=f)
         print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
         print('dis_num_iter  = %d' % dis_num_iter, file=f)
@@ -190,7 +188,7 @@ def write_input(calc,
     f.close()
 
 
-def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
+def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
@@ -229,7 +227,6 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     assert len(orbitals_ai) == Na
 
     if spinors:
-        soc_kpts = soc_eigenstates(calc)
         new_orbitals_ai = []
         for orbitals_i in orbitals_ai:
             new_orbitals_i = []

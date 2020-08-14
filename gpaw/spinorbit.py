@@ -1,4 +1,3 @@
-import warnings
 from math import nan
 from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
                     Tuple, Iterable, Iterator)
@@ -151,6 +150,14 @@ class WaveFunction:
         np.einsum('mn, nabc -> mabs', self.v_msn[:, 1], u_snR[-1], u_msR[:, 1])
 
         return u_msR
+
+    @property
+    def P_amj(self):
+        M = self.projections.nbands
+        dct = {}
+        for a, P_msn in self.projections.items():
+            dct[a] = P_msn.transpose((0, 2, 1)).reshape((M, -1))
+        return dct
 
 
 class BZWaveFunctions:
@@ -606,7 +613,7 @@ def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
         Delta_p = calc.density.setups[a].Delta_pL[:, 0].copy()
         Delta_ij = unpack(Delta_p)
         for ik in range(Nk):
-            P_ami = get_spinorbit_projections(calc, ik, v_knm[ik])
+            P_ami = ...  # get_spinorbit_projections(calc, ik, v_knm[ik])
             P_smi = np.array([P_ami[a][:, ::2], P_ami[a][:, 1::2]])
             P_smi = np.dot(C_ss, np.swapaxes(P_smi, 0, 1))
 

@@ -5,8 +5,7 @@ from gpaw.spinorbit import soc_eigenstates
 
 seed = 'Fe'
 
-calc = GPAW('Fe.gpw', txt=None)
-
+calc = GPAW('Fe.gpw')
 soc = soc_eigenstates(calc)
 
 w90.write_input(calc,
@@ -21,9 +20,8 @@ w90.write_input(calc,
 os.system('wannier90.x -pp ' + seed)
 
 w90.write_projections(calc,
-                      soc=soc,
-                      seed=seed)
-w90.write_eigenvalues(calc, soc=soc, seed=seed)
-w90.write_overlaps(calc, soc=soc, seed=seed)
+                      seed=seed, soc=soc)
+w90.write_eigenvalues(calc, seed=seed, soc=soc)
+w90.write_overlaps(calc, seed=seed, soc=soc)
 
 os.system('wannier90.x ' + seed)

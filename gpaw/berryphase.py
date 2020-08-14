@@ -329,14 +329,11 @@ def parallel_transport(calc,
                                phi=phi)
 
     def projections(bz_index):
-        P_amsi = soc_kpts.wfs[bz_index].projections
-        P_amj = {a: P_msi.reshape(())
-                 for a, P_msi in P_amsi.items()}
-        return P_amj
+        return soc_kpts.wfs[bz_index].P_amj
 
     def wavefunctions(bz_index):
         return soc_kpts.wfs[bz_index].wavefunctions(
-            calc, pseriodic=True)[bands]
+            calc, periodic=True)[bands]
 
     phi_km = np.zeros((Npar, len(bands)), float)
     S_km = np.zeros((Npar, len(bands)), float)

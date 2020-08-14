@@ -34,7 +34,8 @@ eigenvalues can be obtained with the :func:`~gpaw.spinorbit.soc_eigenstates`
 function::
 
     from gpaw.spinorbit import soc_eigenstates
-    e_km = soc_eigenstates(calc)['eigenvalues']
+    soc = soc_eigenstates(calc)
+    e_km = soc.eigenvalues()
 
 Here ``e_km`` is an array of dimension (Nk, 2 * Nb), where Nb is the number of
 bands and Nk is the number of irreducible k-points. Is is also possible to

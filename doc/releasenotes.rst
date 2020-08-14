@@ -13,10 +13,7 @@ Git master branch
 * Corresponding ASE release: ASE-3.20.0b1
 
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
-  and uses symmetry.  The functions
-  :func:`gpaw.spinorbit.get_spinorbit_eigenvalues` and
-  :func:`gpaw.spinorbit.set_calculator` are no longer needed and have been
-  deprecated.
+  and uses symmetry.
 
 * GLLBSC exchange-correlation potential fixed for periodic metallic systems:
   https://gitlab.com/gpaw/gpaw/-/merge_requests/651
