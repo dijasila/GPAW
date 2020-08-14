@@ -199,7 +199,10 @@ class BSE:
                 e_mk = soc.eigenvalues().T
                 v_kmsn = soc.eigenvectors()
                 e_mk /= Hartree
-            e_mk, v_kmsn = broadcast((e_mk, v_kmsn), 0, world)
+                data = (e_mk, v_kmsn)
+            else:
+                data = None
+            e_mk, v_kmsn = broadcast(data, 0, world)
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
