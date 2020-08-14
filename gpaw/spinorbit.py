@@ -32,13 +32,17 @@ Array3D = ArrayND
 
 
 class WaveFunction:
-    def __init__(self, eigenvalues: Array1D, projections: Projections):
+    def __init__(self,
+                 eigenvalues: Array1D,
+                 projections: Projections,
+                 bz_index: int = None):
         self.eig_m = eigenvalues
         self.projections = projections
         self.spin_projection_mv: Optional[Array2D] = None
         self.v_msn: Optional[Array2D] = None
         self.f_m = np.empty_like(self.eig_m)
         self.f_m[:] = nan
+        self.bz_index = bz_index
 
     def transform(self,
                   kd: KPointDescriptor,
@@ -62,7 +66,7 @@ class WaveFunction:
         else:
             assert len(projections.indices) == 0
 
-        return WaveFunction(self.eig_m.copy(), projections)
+        return WaveFunction(self.eig_m.copy(), projections, bz_index)
 
     def redistribute_atoms(self,
                            atom_partition: AtomPartition
@@ -126,6 +130,27 @@ class WaveFunction:
 
         self.spin_projection_nv = np.array([sx_m, sy_m, sz_m]).real.T.copy()
         self.v_msn = v_msn
+
+    def wavefunctions(self, calc, periodic=True):
+        assert periodic
+        kd = calc.wfs.kd
+        assert kd.nibzkpts == kd.nbzkpts
+
+        # For spinors the number of bands is doubled and a
+        # spin dimension is added
+        Ns = calc.wfs.nspins
+        Nn = calc.wfs.bd.nbands
+
+        u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
+                                                   periodic=True)
+                  for n in range(Nn)]
+                 for s in range(Ns)]
+        u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
+
+        np.einsum('mn, nabc -> mabs', self.v_msn[:, 0], u_snR[0], u_msR[:, 0])
+        np.einsum('mn, nabc -> mabs', self.v_msn[:, 1], u_snR[-1], u_msR[:, 1])
+
+        return u_msR
 
 
 class BZWaveFunctions:
@@ -488,29 +513,6 @@ def get_radial_potential(a: Setup, xc, D_sp: Array2D) -> Array1D:
     return f_g / r_g
 
 
-def get_spinorbit_eigenvalues(calc, bands=None, gw_kn=None,
-                              return_spin=False,
-                              return_wfs=False,
-                              scale=1.0,
-                              theta=0.0, phi=0.0):
-    warnings.warn('Please use soc_eigenstates() instead.')
-
-    results = soc_eigenstates(calc, bands, gw_kn, scale, theta, phi,
-                              return_wfs)
-    values = [results['eigenstates'].T]
-    if return_spin:
-        values.append(results['spin_projections'])
-    if return_wfs:
-        values.append(results['eigenstates'])
-    return tuple(values) if len(values) > 1 else values[0]
-
-
-def set_calculator(calc, e_km, v_knm=None, width=None):
-    raise DeprecationWarning(
-        "Please use ef = soc_eigenstates(..., occupations=...)['fermi_level'] "
-        'instead.')
-
-
 def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=0, width=None):
     """Calculates the sum of occupied spinorbit eigenvalues.
 
@@ -524,57 +526,6 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=0, width=None):
     E_ref = calc.wfs.calculate_band_energy() * Ha
 
     return E_so - E_ref
-
-
-def get_spinorbit_projections(calc, ik, v_nm):
-    # For spinors the number of projectors and bands are doubled
-    Na = len(calc.atoms)
-    Nk = len(calc.get_ibz_k_points())
-    Ns = calc.wfs.nspins
-
-    v0_mn = v_nm[::2].T
-    v1_mn = v_nm[1::2].T
-
-    P_ani = {}
-    for ia in range(Na):
-        P0_ni = calc.wfs.kpt_u[ik].P_ani[ia]
-        P1_ni = calc.wfs.kpt_u[(Ns - 1) * Nk + ik].P_ani[ia]
-
-        P0_mi = np.dot(v0_mn, P0_ni)
-        P1_mi = np.dot(v1_mn, P1_ni)
-        P_mi = np.zeros((len(P0_mi), 2 * len(P0_mi[0])), complex)
-        P_mi[:, ::2] = P0_mi
-        P_mi[:, 1::2] = P1_mi
-        P_ani[ia] = P_mi
-
-    return P_ani
-
-
-def get_spinorbit_wavefunctions(calc, ik, v_nm):
-    assert len(calc.get_bz_k_points()) == len(calc.get_ibz_k_points())
-
-    # For spinors the number of bands is doubled and a spin dimension is added
-    Ns = calc.wfs.nspins
-    Nn = calc.wfs.bd.nbands
-
-    v0_mn = v_nm[::2].T
-    v1_mn = v_nm[1::2].T
-
-    u0_nG = np.array([calc.wfs.get_wave_function_array(n, ik, 0)
-                      for n in range(Nn)])
-    u1_nG = np.array([calc.wfs.get_wave_function_array(n, ik, (Ns - 1))
-                      for n in range(Nn)])
-    u0_mG = np.swapaxes(np.dot(v0_mn, np.swapaxes(u0_nG, 0, 2)), 1, 2)
-    u1_mG = np.swapaxes(np.dot(v1_mn, np.swapaxes(u1_nG, 0, 2)), 1, 2)
-    u_mG = np.zeros((len(u0_mG),
-                     2,
-                     len(u0_mG[0]),
-                     len(u0_mG[0, 0]),
-                     len(u0_mG[0, 0, 0])), complex)
-    u_mG[:, 0] = u0_mG
-    u_mG[:, 1] = u1_mG
-
-    return u_mG
 
 
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):

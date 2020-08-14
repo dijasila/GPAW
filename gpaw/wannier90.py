@@ -254,7 +254,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
         if spinors:
             P_ani = soc_kpts.kpts[ik].projections
         else:
-            P_ani = calc.wfs.kpt_u[spin * Nk + ik].P_ani
+            P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -359,7 +359,7 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
         if spinors:
             P_kani.append(soc_kpts.kpts[ik].projections)
         else:
-            P_kani.append(calc.wfs.kpt_u[spin * Nk + ik].P_ani)
+            P_kani.append(calc.wfs.kpt_qs[ik][spin].P_ani)
 
     for ik1 in range(Nk):
         if less_memory:

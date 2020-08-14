@@ -131,33 +131,33 @@ class GWBands:
         if not dft:
             try:
                 e_kn = self.gw_file['qp'][0]
-            except:
+            except KeyError:
                 e_kn = self.gw_file[b'qp'][0]
         else:
             if eig_file is not None:
                 e_kn = pickle.load(open(eig_file))[0]
             else:
-                e_kn = self.get_dft_eigenvalues()[:,
-                                                  bandrange[0]:bandrange[-1]]
+                e_kn = self.get_dft_eigenvalues()[
+                    :, bandrange[0]:bandrange[-1] + 1]
 
-        dct = soc_eigenstates(
+        # this will fail - please write a test!
+        soc = soc_eigenstates(
             calc,
-            return_wfs=return_wfs,
-            bands=range(bandrange[0], bandrange[-1] + 1),
+            n1=bandrange[0],
+            n2=bandrange[-1] + 1,
             eigenvalues=e_kn[np.newaxis])
-        eSO_nk = dct['eigenvalues'].T
-        v_knm = dct['eigenstates']
+        eSO_nk = soc.eigenvalues().T
         e_kn = eSO_nk.T
-        return e_kn, v_knm
+        return e_kn
 
     def get_gw_bands(self, nk_Int=50, interpolate=False, SO=False,
                      gwqeh_file=None, dft=False, eig_file=None, vac=False):
         """Getting Eigenvalues along the path"""
         kd = self.kd
         if SO:
-            e_kn, v_knm = self.get_spinorbit_corrections(return_wfs=True,
-                                                         dft=dft,
-                                                         eig_file=eig_file)
+            e_kn = self.get_spinorbit_corrections(return_wfs=True,
+                                                  dft=dft,
+                                                  eig_file=eig_file)
             if gwqeh_file is not None:
                 gwqeh_file = pickle.load(open(gwqeh_file))
                 eqeh_noSO_kn = gwqeh_file['qp_sin'][0] * Ha
@@ -176,7 +176,7 @@ class GWBands:
             if not dft:
                 try:
                     e_kn = self.gw_file['qp'][0]
-                except:
+                except KeyError:
                     e_kn = self.gw_file[b'qp'][0]
             else:
                 e_kn = self.get_dft_eigenvalues()
