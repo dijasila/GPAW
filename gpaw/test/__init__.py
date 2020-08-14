@@ -1,3 +1,6 @@
+import inspect
+import os
+
 import numpy as np
 import pytest
 
@@ -5,6 +8,34 @@ from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters, tf_parameters
 from gpaw import setup_paths
 from gpaw import mpi
+
+
+mpi_size = int(os.environ.get('PYTEST_MPI_SIZE', '1'))
+
+
+def parallel(*sizes):
+    def wrap(f):
+        print(inspect.signature(f))
+        if mpi_size not in sizes:
+            def fs():
+                pytest.skip('...')
+            return fs
+        if mpi.world.size == mpi_size:
+            return f
+
+        mod = f.__module__
+        name = f.__name__
+
+        def f2(in_tmp_dir):
+            # print('ARGS:', arg)
+            import subprocess
+            cmd = ['mpiexec', '-n', '2', 'python3', '-c'
+                   f'from {mod} import {name}; {name}()']
+            subprocess.run(cmd)
+
+        return f2
+
+    return wrap
 
 
 def equal(x, y, tolerance=0):
