@@ -214,7 +214,7 @@ class BZWaveFunctions:
 
     def _collect(self,
                  attr: Callable[[WaveFunction], ArrayND],
-                 shape: Tuple[int] = None,
+                 shape: Tuple[int, ...] = None,
                  dtype=float,
                  broadcast: bool = True) -> Optional[ArrayND]:
         """Helper method for collecting (and broadcasting) ndarrays."""

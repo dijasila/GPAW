@@ -14,7 +14,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.spinorbit import soc_eigenstates
 from gpaw.blacs import BlacsGrid, Redistributor
-from gpaw.mpi import world, serial_comm
+from gpaw.mpi import world, serial_comm, broadcast
 from gpaw.response.chi0 import Chi0
 from gpaw.response.kernels import get_coulomb_kernel
 from gpaw.response.kernels import get_integrated_kernel
@@ -193,11 +193,13 @@ class BSE:
             # careful!
 
             print('Diagonalizing spin-orbit Hamiltonian', file=self.fd)
-            soc = soc_eigenstates(self.calc,
-                                  scale=self.scale)
-            e_mk = soc.eigenvalues().T
-            v_kmsn = soc.eigenvectors()
-            e_mk /= Hartree
+            if world.rank == 0:
+                soc = soc_eigenstates(self.calc,
+                                      scale=self.scale)
+                e_mk = soc.eigenvalues().T
+                v_kmsn = soc.eigenvectors()
+                e_mk /= Hartree
+            e_mk, v_kmsn = broadcast((e_mk, v_kmsn), 0, world)
 
         # Parallelization stuff
         nK = self.kd.nbzkpts
