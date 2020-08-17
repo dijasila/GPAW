@@ -28,7 +28,7 @@ class WDA(XCFunctional):
     def __init__(self, rcut_factor=None):
         XCFunctional.__init__(self, 'WDA', 'LDA')
         from ase.parallel import parprint
-        self.num_nbar = 100
+        self.num_nbar = 200
         self.rcut_factor = rcut_factor
         # Params:
         # - num nbar
@@ -45,7 +45,7 @@ class WDA(XCFunctional):
         wn_sg[wn_sg < 1e-20] = 1e-20
         wn_sg = self.density_correction(self.gd, wn_sg)
         wn_sg[wn_sg < 1e-20] = 1e-20
-
+        self.volume = self.gd.dv * self.gd.N_c.prod()
 
         nb_i = self.get_nbars(wn_sg, self.num_nbar)
         my_i = self.distribute_nbars(self.num_nbar, mpi.rank, mpi.size)
@@ -155,6 +155,7 @@ class WDA(XCFunctional):
                                        / (Z_isg[fg_g, S, X, Y, Z]
                                           - Z_isg[ll_g, S, X, Y, Z]))
 
+        assert np.allclose(np.sum(alpha_isg, axis=0), 1)
         return alpha_isg
     
     def wda_energy(self, n_g, alpha_ig, Grs_ik):
@@ -185,7 +186,7 @@ class WDA(XCFunctional):
         return np.sum(res_isg * alpha_isg, axis=0)
     
     def V1p(self, n_sg, alpha_isg, Grs_isk):
-        f_isk = self.fftn(n_sg[np.newaxis, :] * alpha_isg)
+        f_isk = self.fftn(n_sg[np.newaxis, ...] * alpha_isg)
         res_isg = self.ifftn(self.npp_conv(Grs_isk, f_isk))
         assert res_isg.shape == alpha_isg.shape
         
