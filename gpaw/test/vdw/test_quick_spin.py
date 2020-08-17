@@ -1,7 +1,9 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW, FermiDirac
 
 
+@pytest.mark.libxc
 def test_vdw_quick_spin(in_tmp_dir):
     L = 2.5
     a = Atoms('H', cell=(L, L, L), pbc=True)

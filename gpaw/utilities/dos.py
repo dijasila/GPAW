@@ -514,21 +514,13 @@ class RawLDOS:
             emin -= 4 * width
             emax += 4 * width
 
-            # Fermi energy
-            try:
-                if self.paw.occupations.fixmagmom:
-                    efermi = self.paw.get_fermi_levels()
-                else:
-                    efermi = self.paw.get_fermi_level()
-            except:
-                # set Fermi level half way between HOMO and LUMO
-                hl = wfs.get_homo_lumo()
-                efermi = (hl[0] + hl[1]) * Hartree / 2
+            # Fermi energies
+            efermis = self.paw.wfs.fermi_levels
 
             eshift = 0.0
 
-            if shift and not self.paw.occupations.fixmagmom:
-                eshift = -efermi
+            if shift and len(efermis) == 1:
+                eshift = -efermis[0]
 
             # set de to sample 4 points in the width
             de = width / 4
@@ -537,11 +529,11 @@ class RawLDOS:
             string += append_weight_strings(ldbe, data)
 
             for s in range(wfs.nspins):
-                if self.paw.occupations.fixmagmom:
+                if len(efermis) == 2:
                     if not bound:
-                        eshift = - efermi[s]
+                        eshift = -efermis[s]
                     else:
-                        eshift = - efermi.max()
+                        eshift = -efermis.max()
 
                 print(fmf.data(data), end=' ', file=f)
 
@@ -551,7 +543,7 @@ class RawLDOS:
                     print('# Fermi energy was', end=' ', file=f)
                 else:
                     print('# Fermi energy', end=' ', file=f)
-                print(efermi, 'eV', file=f)
+                print(efermis, 'eV', file=f)
                 print(string, file=f)
 
                 # loop over energies
@@ -639,8 +631,8 @@ class LCAODOS:
         for kpt in wfs.kpt_u:
             assert not np.isnan(kpt.eps_n).any()
 
-        w_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
-        eps_skn = np.zeros((kd.nspins, kd.nks, bd.nbands))
+        w_skn = np.zeros((kd.nspins, kd.nibzkpts, bd.nbands))
+        eps_skn = np.zeros((kd.nspins, kd.nibzkpts, bd.nbands))
         for u, kpt in enumerate(wfs.kpt_u):
             C_nM = kpt.C_nM
             from gpaw.kohnsham_layouts import BlacsOrbitalLayouts

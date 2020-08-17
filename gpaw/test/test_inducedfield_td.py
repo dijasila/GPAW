@@ -1,5 +1,7 @@
+import pytest
 import numpy as np
 from ase import Atoms
+
 from gpaw import GPAW
 from gpaw.tddft import TDDFT
 from gpaw.inducedfield.inducedfield_base import BaseInducedField
@@ -19,6 +21,7 @@ if do_print_values:
         i += 1
 
 
+@pytest.mark.ci
 def test_inducedfield_td(in_tmp_dir):
     poisson_eps = 1e-12
     density_eps = 1e-6

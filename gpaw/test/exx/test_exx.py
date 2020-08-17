@@ -1,4 +1,5 @@
 """Test EXX/HFT implementation."""
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.test import equal
@@ -10,6 +11,7 @@ def xc1(name):
     return dict(name=name, stencil=1)
 
 
+@pytest.mark.libxc
 def test_exx_exx(in_tmp_dir):
     be2 = Atoms('Be2', [(0, 0, 0), (2.45, 0, 0)])
     be2.center(vacuum=2.0)

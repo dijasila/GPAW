@@ -9,8 +9,8 @@ G, K, M = np.array([[0, 0, 0],
                     [0.5, 0, 0]])
 bp = atoms.cell.bandpath([M, K, G, -K, -M], npoints=1000)
 
-calc = GPAW('WS2_gs.gpw', kpts=bp.kpts, symmetry='off', fixdensity=True)
-calc.get_potential_energy()
+calc = GPAW('WS2_gs.gpw').fixed_density(
+    kpts=bp.kpts, symmetry='off')
 calc.write('WS2_bands.gpw')
 
 x, X, labels = bp.get_linear_kpoint_axis()

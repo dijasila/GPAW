@@ -20,11 +20,9 @@ zone ``kpts={'path': 'GXWKL', 'npoints': 60}``.  See
 :data:`ase.dft.kpoints.special_points` for the definition of the special
 points for an FCC lattice.
 
-For the band structure calculation, density is fixed to the previously
-calculated ground state density (``fixdensity=True``), and as we want to
-calculate all k-points, symmetry is not used (``symmetry='off'``). The
-unoccupied states can be sometimes converged faster with the conjugate gradient
-eigensolver.
+For the band structure calculation, the density is fixed to the previously
+calculated ground state density, and as we want to
+calculate all k-points, symmetry is not used (``symmetry='off'``).
 
 .. literalinclude:: bandstructure.py
     :start-after: P2

@@ -456,7 +456,7 @@ There are few points about the implementation that we emphasize:
 
 * The code employs the Hilbert transform in which the spectral function
   for the density-density response function is calculated before calculating
-  the the full density response. This speeds up the code significantly for
+  the full density response. This speeds up the code significantly for
   calculations with a lot of frequencies.
 
 * The non-linear frequency grid employed in the calculations is motivated

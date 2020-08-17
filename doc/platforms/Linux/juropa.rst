@@ -4,7 +4,7 @@
 juropa.fz-juelich.de   (Intel Xeon, Infiniband, MKL)
 ====================================================
 
-Here you find information about the the system
+Here you find information about the system
 http://www.fz-juelich.de/jsc/juropa.
 
 Numpy is installed system wide, so separate installation is not needed.
@@ -34,8 +34,8 @@ Use the compiler wrapper file :download:`icc.py`
 Internal libxc
 --------------
 
-Before revision 10429 libxc was internal,  
-the corresponding 
+Before revision 10429 libxc was internal,
+the corresponding
 configuration file is :download:`customize_juropa_icc.py`.
 
 .. literalinclude:: customize_juropa_icc.py
@@ -44,7 +44,7 @@ External libxc
 --------------
 
 After svn revision 10429 libxc has to be included as external library
-(see also the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). To install libxc we assume that MYLIBXCDIR is set to 
+(see also the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). To install libxc we assume that MYLIBXCDIR is set to
 the directory where you want to install::
 
   $ wget http://www.tddft.org/programs/octopus/down.php?file=libxc/libxc-2.0.2.tar.gz
@@ -55,7 +55,7 @@ the directory where you want to install::
   $ make |tee make.log
   $ make install
 
-This will have installed the libs $MYLIBXCDIR/libxc-2.0.2/install/lib 
+This will have installed the libs $MYLIBXCDIR/libxc-2.0.2/install/lib
 and the C header
 files to $MYLIBXCDIR/libxc-2.0.2/install/include.
 
@@ -98,8 +98,8 @@ Example batch job script for GPAW (512 cores, 30 minutes)::
 
   mpiexec -np 512 -x $GPAW_PYTHON my_input.py
 
-Note that **-x** flag for *mpiexec* is needed for exporting the environment 
-variables to MPI tasks. The environment variable ``PSP_ONDEMAND`` can decrease 
+Note that **-x** flag for *mpiexec* is needed for exporting the environment
+variables to MPI tasks. The environment variable ``PSP_ONDEMAND`` can decrease
 the running time with almost a factor of two with large process counts!
 
 Job scripts can be written also using::

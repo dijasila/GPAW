@@ -27,7 +27,7 @@ Here we will calculate the EELS for bulk silver, where band-structure effects
 (coupling to inter-band transitions) are seen to have a big impact on the
 plasmon resonance, which means that the Drude description for the plasmon
 energy given above is not expected to hold. First restart the ground state
-calculation with the GLLBSC functional, calculated in the bandstructure
+calculation with the LDA functional, calculated in the bandstructure
 exercise :ref:`band exercise` and converge a larger number of bands:
 
 .. literalinclude:: eels.py

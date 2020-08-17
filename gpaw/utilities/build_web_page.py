@@ -59,7 +59,7 @@ def build_both():
          f'cd {webpage}/_sources/setups',  # backwards compatibility
          'cp setups.rst.txt setups.txt',  # with old install-data script
          f'cd {webpage.parent}',
-         f'tar -czf gpaw-web-page.tar.gz gpaw-web-page',
+         'tar -czf gpaw-web-page.tar.gz gpaw-web-page',
          f'cp gpaw-web-page.tar.gz {home}/gpaw.test.tgz'])
     subprocess.run(cmds, shell=True, check=True)
 

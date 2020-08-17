@@ -3,7 +3,6 @@ from gpaw import GPAW
 import gpaw.dscf as dscf
 from gpaw.mixer import MixerSum
 from numpy import reshape, dot
-from gpaw.test import equal
 
 filename = 'excited'
 
@@ -82,5 +81,5 @@ for d in ds:
     del slab[12:]
 
 F_d = (E_es[0] - E_es[2]) / 0.02 / 2
-equal(E_es[1], E_gs + 3.9, 0.1)
-equal(F_d, 3.8, 0.2)
+assert abs(E_es[1] - (E_gs + 3.9)) < 0.1
+assert abs(F_d - 3.8) < 0.2
