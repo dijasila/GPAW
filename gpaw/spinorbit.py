@@ -71,7 +71,7 @@ class WaveFunction:
                            atom_partition: AtomPartition
                            ) -> 'WaveFunction':
         projections = self.projections.redist(atom_partition)
-        return WaveFunction(self.eig_m.copy(), projections)
+        return WaveFunction(self.eig_m.copy(), projections, self.bz_index)
 
     def add_soc(self,
                 dVL_avii: Dict[int, Array3D],
@@ -145,19 +145,19 @@ class WaveFunction:
                   for n in range(Nn)]
                  for s in range(Ns)]
         u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
-
-        np.einsum('mn, nabc -> mabs', self.v_msn[:, 0], u_snR[0], u_msR[:, 0])
-        np.einsum('mn, nabc -> mabs', self.v_msn[:, 1], u_snR[-1], u_msR[:, 1])
+        np.einsum('mn, nabc -> mabc', self.v_msn[:, 0], u_snR[0],
+                  out=u_msR[:, 0])
+        np.einsum('mn, nabc -> mabc', self.v_msn[:, 1], u_snR[-1],
+                  out=u_msR[:, 1])
 
         return u_msR
 
     @property
     def P_amj(self):
         M = self.projections.nbands
-        dct = {}
-        for a, P_msn in self.projections.items():
-            dct[a] = P_msn.transpose((0, 2, 1)).reshape((M, -1))
-        return dct
+        return {
+            a: P_msi.transpose((0, 2, 1)).copy().reshape((M, -1))
+            for a, P_msi in self.projections.items()}
 
 
 class BZWaveFunctions:
