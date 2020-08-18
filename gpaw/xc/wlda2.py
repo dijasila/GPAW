@@ -18,7 +18,7 @@ class WLDA(XCFunctional):
         if wlda_type not in ['1', '2', '3', 'c']:
             raise ValueError('WLDA type {} not recognized'.format(wlda_type))
         
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs, occupations=None):
         self.density = density
         self.hamiltonian = hamiltonian
         self.wfs = wfs
@@ -27,9 +27,13 @@ class WLDA(XCFunctional):
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         # 0. Collect density,
         # and get grid_descriptor appropriate for collected density
+        n_sg[n_sg < 1e-20] = 1e-40
         wn_sg = gd.collect(n_sg, broadcast=True)
         gd1 = gd.new_descriptor(comm=mpi.serial_comm)
         self.gd = gd1
+        assert np.allclose(gd.dv, gd1.dv)
+        assert not np.allclose(gd.n_c, gd1.n_c)
+        assert np.allclose(gd.N_c, gd1.N_c)
 
         alphas = self.setup_indicator_grid(self.nindicators, wn_sg)
         self.alphas = alphas
@@ -40,28 +44,32 @@ class WLDA(XCFunctional):
         # 1. Correct density
         # This or correct via self.get_ae_density(gd, n_sg)
         wn_sg = self.density_correction(self.gd, wn_sg)
-        wn_sg[wn_sg <  1e-20] = 1e-20
+        wn_sg[wn_sg < 1e-20] = 1e-20
         # 2. calculate weighted density
         # This contains contributions for the alphas at this
         # rank, i.e. we need a world.sum to get all contributions
         nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
         mpi.world.sum(nstar_sg)
+        assert (nstar_sg >= 0.0).all()
         if mpi.rank == 0:
             np.save("nstar_sg.npy", nstar_sg)
 
         # 3. Calculate LDA energy
         e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
+        
 
+        e_g *= 0.0
+        v_sg *= 0.0
         gd.distribute(e1_g, e_g)
         gd.distribute(v1_sg, v_sg)
-        
-        # Done
-        
+
     def setup_indicator_grid(self, nindicators, n_sg):
         md = np.min(n_sg)
         md = max(md, 1e-6)
         mad = np.max(n_sg)
         mad = max(mad, 1e-6)
+        if np.allclose(md, mad):
+            mad = 2 * mad
         # return np.exp(np.linspace(np.log(md * 0.9), np.log(mad * 1.1), nindicators))
         return np.linspace(md * 0.9, mad * 1.1, nindicators)
         
@@ -129,27 +137,27 @@ class WLDA(XCFunctional):
             if ia == 0:
                 def dind(x):
                     if x <= alphas[ia]:
-                        return 0
+                        return 0.0
                     elif x <= alphas[ia + 1]:
-                        return -1
+                        return -1.0
                     else:
-                        return 0
+                        return 0.0
             elif ia == len(alphas) - 1:
                 def dind(x):
                     if x >= alphas[ia]:
-                        return 0
+                        return 0.0
                     elif x >= alphas[ia - 1]:
-                        return 1
+                        return 1.0
                     else:
-                        return 0
+                        return 0.0
             else:
                 def dind(x):
                     if x >= alphas[ia - 1] and x <= alphas[ia]:
-                        return 1
+                        return 1.0
                     elif x >= alphas[ia] and x <= alphas[ia + 1]:
-                        return -1
+                        return -1.0
                     else:
-                        return 0
+                        return 0.0
 
             return dind
         self.get_dindicator_alpha = get_dind_alpha
@@ -184,9 +192,9 @@ class WLDA(XCFunctional):
         for ia in my_alpha_indices:
             nstar_sg += self.apply_kernel(wn_sg, ia, gd)
          
-        assert (wn_sg >= 0).all()
+        # assert (wn_sg >= 0).all()
         # assert (nstar_sg >= 0).all()        
-        nstar_sg[nstar_sg <  1e-20] = 1e-20
+        # nstar_sg[nstar_sg <  1e-20] = 1e-20
         
         return nstar_sg
 
@@ -211,7 +219,7 @@ class WLDA(XCFunctional):
                 sqrtN *= arr.shape[ax]
             sqrtN = np.sqrt(sqrtN)
 
-        return np.fft.fftn(arr, axes=axes, norm="ortho") / sqrtN
+        return np.fft.fftn(arr, axes=axes) #, norm="ortho") / sqrtN
     
     def ifftn(self, arr, axes=None):
         if axes is None:
@@ -222,7 +230,7 @@ class WLDA(XCFunctional):
                 sqrtN *= arr.shape[ax]
             sqrtN = np.sqrt(sqrtN)
 
-        return np.fft.ifftn(arr, axes=axes, norm="ortho") * sqrtN
+        return np.fft.ifftn(arr, axes=axes) #, norm="ortho") * sqrtN
 
     def get_weight_function(self, ia, gd, alphas):
         alpha = alphas[ia]
@@ -306,7 +314,7 @@ class WLDA(XCFunctional):
             self.lda_x(1, exc_g, na, vxc_sg[0], my_alpha_indices)
             self.lda_x(1, exc_g, nb, vxc_sg[1], my_alpha_indices)
             self.lda_c(1, exc_g, n, vxc_sg, zeta, my_alpha_indices)
-        
+            
         if t == '1':
             return exc_g, vxc_sg
         elif t == '2':
@@ -353,7 +361,9 @@ class WLDA(XCFunctional):
         t1 = rs * dexdrs / 3 * nstar_g / wn_g
         t2 = wn_g**(-2/3) * C1 / (C0I**(1/3)) * 1 / 3 * nstar_g
         assert np.allclose(-t1, t2)
-        v -= rs * dexdrs / 3 * nstar_g / wn_g
+        ratio = nstar_g / wn_g
+        ratio[np.isclose(wn_g, 0.0)] = 0.0
+        v -= rs * dexdrs / 3 * ratio
 
     def lda_x3(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         from gpaw.xc.lda import lda_constants
@@ -434,7 +444,9 @@ class WLDA(XCFunctional):
         if spin == 0:
             e[:] += nstar_g * ec
             v += self.fold_with_derivative(ec, wn_g, my_alpha_indices)
-            v -= rs * decdrs_0 / 3. * nstar_g / wn_g
+            ratio = nstar_g / wn_g
+            ratio[np.isclose(wn_g, 0.0)] = 0.0
+            v -= rs * decdrs_0 / 3. * ratio
             # v += ec
             # v -= self.fold_with_derivative(rs * decdrs_0 / 3. * wn_g / nstar_g,
                                  #          wn_g, my_alpha_indices)

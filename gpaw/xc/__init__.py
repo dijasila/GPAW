@@ -126,9 +126,11 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             kernel_type = kernel.get("kernel_type", None)
             kernel_param = kernel.get("kernel_param", None)
             wlda_type = kernel.get("wlda_type", None)
+            ninds = kernel.get('nindicators', None)
             return WLDA(rc=rc, kernel_type=kernel_type,
                         kernel_param=kernel_param,
-                        wlda_type=wlda_type)
+                        wlda_type=wlda_type,
+                        nindicators=ninds)
         elif name == 'WDA':
             from gpaw.xc.wda import WDA
             factor = kernel.get("rc", None)
