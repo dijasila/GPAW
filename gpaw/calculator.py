@@ -413,7 +413,9 @@ class GPAW(Calculator):
                              self.log)
         self.wfs.summary(self.log)
         try:
-            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+            bandgap(self,
+                    output=self.log.fd,
+                    efermi=self.wfs.fermi_level * Ha)
         except (ValueError, IndexError):
             pass
 
