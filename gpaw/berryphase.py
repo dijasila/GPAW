@@ -329,10 +329,10 @@ def parallel_transport(calc,
                                phi=phi)
 
     def projections(bz_index):
-        return soc_kpts.wfs[bz_index].P_amj
+        return soc_kpts[bz_index].P_amj
 
     def wavefunctions(bz_index):
-        return soc_kpts.wfs[bz_index].wavefunctions(
+        return soc_kpts[bz_index].wavefunctions(
             calc, periodic=True)[bands]
 
     phi_km = np.zeros((Npar, len(bands)), float)
@@ -432,7 +432,7 @@ def parallel_transport(calc,
         for q in range(Nloc):
             iq = qpts_q[q]
             U_mm = U_qmm[q]
-            v_msn = soc_kpts.wfs[iq].v_msn
+            v_msn = soc_kpts[iq].v_msn
             v_snm = np.einsum('xm, msn -> snm', U_mm, v_msn[bands])
             A_mm += np.dot(v_snm[0].T.conj(), v_snm[0])
             A_mm -= np.dot(v_snm[1].T.conj(), v_snm[1])

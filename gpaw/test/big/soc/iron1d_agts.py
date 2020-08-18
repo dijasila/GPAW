@@ -13,14 +13,21 @@ atoms = Atoms('Fe',
 
 def soc(params: Dict) -> list:
     """Do DFT + SOC calculations in memory and from gpw-file."""
-    atoms.calc = GPAW(**params)
+    name = 'Fe-sym-' + params.get('symmetry', 'on')
+    atoms.calc = GPAW(txt=name + '.txt', **params)
     atoms.get_potential_energy()
     s1 = soc_eigenstates(atoms.calc)
-    atoms.calc.write('Fe.gpw')
-    s2 = soc_eigenstates('Fe.gpw')
+    atoms.calc.write(name + '.gpw')
+    s2 = soc_eigenstates(name + '.gpw')
     assert abs(s1.fermi_level - s2.fermi_level) < 1e-10
     assert abs(s1.eigenvalues() - s2.eigenvalues()).max() < 1e-10
     assert abs(s1.spin_projections() - s2.spin_projections()).max() < 0.01
+    for wf1, wf2 in zip(s1, s2):
+        P1_msI = wf1.projections.array
+        P2_msI = wf2.projections.array
+        print(P1_msI.shape)
+        print(P1_msi[1,:,2:5])
+        print(P2_msi[1,:,2:5])
     return s1
 
 

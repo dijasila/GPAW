@@ -248,7 +248,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
         if spinors:
-            P_ani = soc.wfs[ik].P_amj
+            P_ani = soc[ik].P_amj
         else:
             P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
         for i in range(Nw):
@@ -283,7 +283,7 @@ def write_eigenvalues(calc, seed=None, spin=0, soc=None):
         if soc is None:
             e_n = calc.get_eigenvalues(kpt=ik, spin=spin)
         else:
-            e_n = soc.wfs[ik].eig_m
+            e_n = soc[ik].eig_m
         for i, n in enumerate(bands):
             data = (i + 1, ik + 1, e_n[n])
             print('%5d %5d %14.6f' % data, file=f)
@@ -339,7 +339,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
     wfs = calc.wfs
 
     def wavefunctions(bz_index):
-        return soc.wfs[bz_index].wavefunctions(
+        return soc[bz_index].wavefunctions(
             calc, periodic=True)[bands]
 
     if not less_memory:
@@ -357,7 +357,7 @@ def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
     P_kani = []
     for ik in range(Nk):
         if spinors:
-            P_kani.append(soc.wfs[ik].P_amj)
+            P_kani.append(soc[ik].P_amj)
         else:
             P_kani.append(calc.wfs.kpt_qs[ik][spin].P_ani)
 
@@ -445,7 +445,7 @@ def write_wavefunctions(calc, soc=None, spin=0, seed=None):
     for ik in range(Nk):
         if spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-            u_nG = soc.wfs[ik].wavefunctions(calc, periodic=True)
+            u_nG = soc[ik].wavefunctions(calc, periodic=True)
         else:
             # For non-spinors, G denotes grid: G = (gx, gy, gz)
             u_nG = np.array([wfs.get_wave_function_array(n, ik, spin)

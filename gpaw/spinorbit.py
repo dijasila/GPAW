@@ -57,10 +57,10 @@ class WaveFunction:
         if projections.atom_partition.comm.rank == 0:
             a = 0
             for b, U_ii in zip(a_a, U_aii):
-                P_mi = self.projections[b].dot(U_ii)
+                P_msi = self.projections[b].dot(U_ii)
                 if time_rev:
-                    P_mi = P_mi.conj()
-                projections[a][:] = P_mi
+                    P_msi = P_msi.conj()
+                projections[a][:] = P_msi
                 a += 1
         else:
             assert len(projections.indices) == 0
@@ -109,15 +109,14 @@ class WaveFunction:
         if domain_comm.rank == 0:
             H_mm += np.diag(self.eig_m)
             self.eig_m, v_mm = np.linalg.eigh(H_mm)
-            v_msn = v_mm.reshape((M // 2, 2, M)).T.copy()
-            del v_mm
+            v_msn = v_mm.copy().reshape((M // 2, 2, M)).T.copy()
         else:
             v_msn = np.empty((M, 2, M // 2), complex)
 
         domain_comm.broadcast(v_msn, 0)
 
         P_mI = self.projections.matrix.array
-        P_mI[:] = v_msn.reshape((M, M)).dot(P_mI)
+        P_mI[:] = v_msn.transpose((0, 2, 1)).copy().reshape((M, M)).dot(P_mI)
 
         sx_m = []
         sy_m = []
@@ -127,11 +126,10 @@ class WaveFunction:
             sy_m.append(np.trace(v_sn.T.conj().dot(s_vss[1]).dot(v_sn)))
             sz_m.append(np.trace(v_sn.T.conj().dot(s_vss[2]).dot(v_sn)))
 
-        self.spin_projection_nv = np.array([sx_m, sy_m, sz_m]).real.T.copy()
+        self.spin_projection_mv = np.array([sx_m, sy_m, sz_m]).real.T.copy()
         self.v_msn = v_msn
 
     def wavefunctions(self, calc, periodic=True):
-        assert periodic
         kd = calc.wfs.kd
         assert kd.nibzkpts == kd.nbzkpts
 
@@ -141,7 +139,7 @@ class WaveFunction:
         Nn = calc.wfs.bd.nbands
 
         u_snR = [[calc.wfs.get_wave_function_array(n, self.bz_index, s,
-                                                   periodic=True)
+                                                   periodic=periodic)
                   for n in range(Nn)]
                  for s in range(Ns)]
         u_msR = np.empty((2 * Nn, 2) + u_snR[0][0].shape, complex)
@@ -222,6 +220,9 @@ class BZWaveFunctions:
     def __iter__(self):
         yield from self.wfs.values()
 
+    def __getitem__(self, bz_index):
+        return self.wfs[bz_index]
+
     def eigenvalues(self,
                     broadcast: bool = True
                     ) -> Optional[Array2D]:
@@ -268,14 +269,14 @@ class BZWaveFunctions:
             array_kmx = np.empty(total_shape, dtype)
             for k, rank in enumerate(self.ranks):
                 if rank == 0:
-                    array_kmx[k] = attr(self.wfs[k])
+                    array_kmx[k] = attr(self[k])
                 else:
                     comm.receive(array_kmx[k], rank)
             return array_kmx
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
-                comm.send(attr(self.wfs[k]), 0)
+                comm.send(attr(self[k]), 0)
 
         return None
 
@@ -340,7 +341,7 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
     # All atoms on rank-0:
     atom_partition = AtomPartition(gd.comm, np.zeros_like(nproj_a))
 
-    # All bands on rank-0:
+    # All bands on rank-0 (nrow * ncol = 1 * 1):
     bdist = (bd.comm, 1, 1)
 
     for kpt_s in kpt_qs:

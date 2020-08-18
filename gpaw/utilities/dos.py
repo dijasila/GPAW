@@ -193,7 +193,7 @@ def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
     x = 0
     for k, w in enumerate(w_k):
         energies[x:x + nb] = e_mk[:, k]
-        P_amsi = soc.wfs[k].projections
+        P_amsi = soc[k].projections
         if ns == 2:
             weights_xi[x:x + nb, :] = w * np.absolute(P_amsi[a][:, spin])**2
         else:
