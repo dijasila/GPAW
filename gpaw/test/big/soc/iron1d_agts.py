@@ -41,7 +41,8 @@ def run() -> None:
     assert abs(A.eigenvalues() - B.eigenvalues()).max() < 0.003
     assert abs(A.spin_projections() - B.spin_projections()).max() < 0.15
 
-    assert B[1].wavefunctions(calc).shape == (18, 2, 12, 24, 24)
+    for wf in B:
+        assert wf.wavefunctions(calc).shape == (18, 2, 12, 24, 24)
 
 
 def create_tasks():

@@ -59,7 +59,7 @@ Examining the output ``GaAs.wout`` shows that the Wannier functions are Ga
 centered s and p orbitals for many iterations. Eventually, additional
 localization is obtained by formed four equivalent sp3 orbitals centered at
 the bonds. The Wannier90 code actually supports specifying sp3 projectors as
-input, but the GPAW interface does cannot handle this yet. The plot keyword
+input, but the GPAW interface does not handle this yet. The plot keyword
 writes the four Wannier functions in ``.xsf`` format, which can be plotted
 with ``xcrysden``. An example is shown below.
 
