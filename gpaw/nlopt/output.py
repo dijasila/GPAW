@@ -20,8 +20,8 @@ def parprint(*args, **kwargs):
 # Print iterations progress
 
 
-def print_progressbar(iteration, total, prefix='', suffix='',
-                      decimals=1, length=100, fill='#', printEnd="\r"):
+def print_progressbar(iteration, total, prefix='Progress:', suffix='Complete',
+                      decimals=1, length=50, fill='#', printEnd="\r"):
     """
     Call in a loop to create terminal progress bar
     @params:
