@@ -395,14 +395,14 @@ class Parabola:
             self.evaluate_phi_and_der_phi(A_s, P_s,
                                           1.0, *args)
 
-        if descent(phi_0, phi_i, eps=1.0e-2):
+        if descent(phi_0, phi_i, eps=1.0e-8):
             return 1.0, phi_i, der_phi_i, g_i
         else:
             a_star = parabola_interpolation(0.0, 1.0,
                                             phi_0, phi_i,
                                             der_phi_0)
             if a_star < 0.0:
-                a_star = 0.01
+                a_star = 1.0e-5
         phi_star, der_phi_star, g_star = \
             self.evaluate_phi_and_der_phi(A_s, P_s,
                                           a_star, *args)
