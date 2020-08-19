@@ -1385,13 +1385,15 @@ class GPAW(Calculator):
         """Return the number of bands."""
         return self.wfs.bd.nbands
 
-    def get_xc_functional(self):
+    def get_xc_functional(self) -> str:
         """Return the XC-functional identifier.
 
         'LDA', 'PBE', ..."""
 
-        return self.parameters.get('xc', 'LDA')
-        return self.hamiltonian.xc.name
+        xc = self.parameters.get('xc', 'LDA')
+        if isinstance(xc, dict):
+            xc = xc['name']
+        return xc
 
     def get_number_of_spins(self):
         return self.wfs.nspins
