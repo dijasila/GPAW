@@ -5,6 +5,7 @@ from _pytest.tmpdir import _mk_tmp
 from ase.utils import devnull
 
 from gpaw.cli.info import info
+from gpaw.test import mpi_size
 from gpaw.mpi import world, broadcast
 
 
@@ -46,11 +47,34 @@ def pytest_configure(config):
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
 
 
+def pytest_runtest_call(item) -> None:
+    if mpi_size == 1:
+        item.runtest()
+        return
+    for n in dir(item):
+        print(n, getattr(item, n))
+
+    mod = item.module.__name__
+    name = item.obj.__name__
+
+    import subprocess
+    cmd = ['mpiexec', '-n', '2', 'python3', '-c',
+           f'from {mod} import {name}; {name}(42)']
+    print(cmd)
+    r = subprocess.run(cmd)
+    print(r, dir(r), r.stdout, r.stderr)
+
+
 def pytest_runtest_setup(item):
     """Skip tests that depend on libxc if not compiled with libxc."""
     from gpaw import libraries
+    if mpi_size == 1 and any(mark.name == 'parallel'
+                             for mark in item.iter_markers()):
+        pytest.skip('Not parllel.')
     if libraries['libxc']:
         return
     if any(mark.name in {'libxc', 'mgga'}
            for mark in item.iter_markers()):
         pytest.skip('No LibXC.')
+
+
