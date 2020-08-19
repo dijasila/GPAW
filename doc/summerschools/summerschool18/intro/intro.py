@@ -35,6 +35,10 @@ print('Hello ' * 5)
 # help is useful for getting help of af method
 help(print)
 
+# you can also use a question mark to get help in a Jupyter notebook,
+# this opens up a new window (close it if you like)
+# magic: ?print
+
 # %%
 """
 ## Some datastructures
@@ -306,21 +310,24 @@ energy of the composite system.
 
 You can read more about the optimizers in ASE here:
 https://wiki.fysik.dtu.dk/ase/ase/optimize.html
-#### 1.  Calculate the adsorption energy of N2 on a 4x4x2 fcc111 slab (result= 0.324 eV)
-#### 2. Try a couple of different optimizers and see which one is the fastest
+
+#### 1. Try to go through the script so you understand what is going on
+#### 2. Calculate the adsorption energy of N2 on a 4x4x2 fcc111 slab (result= 0.324 eV)
+#### 3. Try a couple of different optimizers and see which one is the fastest
 """
 
 # %%
 from ase import Atoms
 from ase.calculators.emt import EMT
 from ase.constraints import FixAtoms
-from ase.optimize import QuasiNewton
+from ase.optimize import QuasiNewton, BFGS, FIRE
 from ase.build import fcc111, add_adsorbate
 from ase.visualize import view
 
 h = 2.85
 d = 1.10
 
+# Set up a slab:
 slab = fcc111('Cu', size=(4, 4, 2), vacuum=10.0)
 slab.calc = EMT()
 e_slab = slab.get_potential_energy()
@@ -333,7 +340,7 @@ add_adsorbate(slab, molecule, h, 'ontop')
 constraint = FixAtoms(mask=[a.symbol != 'N' for a in slab])
 slab.set_constraint(constraint)
 dyn = QuasiNewton(slab, trajectory='N2Cu.traj')
-dyn.run(fmax=0.05)
+dyn.run(fmax=0.025)
 
 print('Adsorption energy:', e_slab + e_N2 - slab.get_potential_energy())
 
@@ -344,7 +351,10 @@ print('Adsorption energy:', e_slab + e_N2 - slab.get_potential_energy())
 # %%
 """
 ## Band structure
-#### Using ASE to setup band structures
+#### Using ASE to setup band structures for Al using a Freelectron model and DFT
+#### 1. What is the crystal structure of Al?
+#### 2. Try and look up the recommeded Brillouin zone path for crystal structure [here](https://wiki.fysik.dtu.dk/ase/ase/dft/kpoints.html)
+#### 3. Can you figure out what the `nbands=-10` and `convergence={'bands': -5}` parameters means in the GPAW DFT input below ? (Hint try and look at the output file `Al.txt`)
 """
 
 # %%
@@ -366,7 +376,7 @@ bs.plot(emax=10, filename='al-free-electron.png')
 # setup a DFT calculation with GPAW and repeat
 from gpaw import GPAW, PW
 # calc the self-consistent electron density
-a.calc = GPAW(kpts=(3, 3, 3), mode=PW(200), txt=None)
+a.calc = GPAW(kpts=(3, 3, 3), mode=PW(200), txt='Al.txt')
 a.get_potential_energy()
 # band-structure calculation for a fixed density
 calc = a.calc.fixed_density(
