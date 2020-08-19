@@ -268,6 +268,15 @@ with broadcast_imports:
 
 RMM_DIIS = RMMDIIS
 
+if os.environ.get('GPAW_COVERAGE'):
+    import atexit
+    import coverage
+    from gpaw.mpi import rank
+    name = os.environ['GPAW_COVERAGE']
+    cov = coverage.Coverage(f'coverage-{name}-{rank}', True)
+    cov.start()
+    atexit.register(lambda: [cov.stop(), cov.save()])
+
 
 def restart(filename, Class=GPAW, **kwargs):
     calc = Class(filename, **kwargs)
