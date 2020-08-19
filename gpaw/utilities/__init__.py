@@ -20,14 +20,6 @@ import gpaw.mpi as mpi
 from gpaw import debug
 
 
-utilities_vdot = _gpaw.utilities_vdot
-utilities_vdot_self = _gpaw.utilities_vdot_self
-
-
-erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
-# XXX should we unify double and complex erf ???
-cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
-
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
 # workaround.  The projector is assigned a certain, small size.  If
@@ -117,7 +109,7 @@ def is_contiguous(array, dtype=None):
 #   r = max(r, r')
 #    >
 #
-def hartree(l, nrdr, r, vr):
+def hartree(l: int, nrdr: np.ndarray, r: np.ndarray, vr: np.ndarray) -> None:
     """Calculates radial Coulomb integral.
 
     The following integral is calculated::
@@ -169,6 +161,7 @@ corrections to the Hamiltonian, are constructed according to pack2 / unpack.
 def unpack(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack2``."""
     assert is_contiguous(M)
+    assert M.ndim == 1
     n = int(sqrt(0.25 + 2.0 * len(M)))
     M2 = np.zeros((n, n), M.dtype.char)
     if M.dtype == complex:
@@ -186,7 +179,7 @@ def unpack2(M):
     return M2
 
 
-def pack(A):
+def pack(A: np.ndarray) -> np.ndarray:
     r"""Pack a 2D array to 1D, adding offdiagonal terms.
 
     The matrix::
@@ -227,7 +220,7 @@ def pack2(M2, tolerance=1e-10):
 
 
 for method in (unpack, unpack2, pack, pack2):
-    method.__doc__ += packing_conventions
+    method.__doc__ += packing_conventions  # type: ignore
 
 
 def element_from_packed(M, i, j):
@@ -343,8 +336,8 @@ def file_barrier(path: Union[str, Path], world=None):
     After the with-block all cores will be able to read the file.
 
     >>> with file_barrier('something.txt'):
-    ...     <write file>
-    ...
+    ...     result = 2 + 2
+    ...     Path('something.txt').write_text(f'{result}')  # doctest: +SKIP
 
     This will remove the file, write the file and wait for the file.
     """

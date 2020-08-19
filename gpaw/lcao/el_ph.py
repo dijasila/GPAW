@@ -5,7 +5,7 @@ from gpaw.mpi import world
 from gpaw.utilities import unpack2
 from gpaw.lcao.projected_wannier import dots
 from gpaw.utilities.tools import tri2full
-from gpaw.lfc import NewLocalizedFunctionsCollection as LFC
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from ase.units import Bohr, Ha
 from gpaw.utilities.timing import StepTimer, nulltimer
 
@@ -41,7 +41,7 @@ class ElectronPhononCouplingMatrix:
 
         if indices is None:
             indices = range(len(self.atoms))
-        self.calc = atoms.get_calculator()
+        self.calc = atoms.calc
         self.atoms = atoms
         self.indices = np.asarray(indices)
         self.name = name

@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import warnings
 # silence matplotlib.use() warning
@@ -66,13 +65,15 @@ def get_statistics(result, reference):
     toremove = list(set(res1).symmetric_difference(set(ref1)))
     for c in toremove:
         if c in res1:
-            print(result + ' vs ' + reference + ': ' + result + ' removed ' + c)
+            print(result + ' vs ' + reference + ': ' + result +
+                  ' removed ' + c)
             i = res1.index(c)
             res1.pop(i)
             res2.pop(i)
             resrm.append(c)
         if c in ref1:
-            print(result + ' vs ' + reference + ': ' + reference + ' removed ' + c)
+            print(result + ' vs ' + reference + ': ' + reference +
+                  ' removed ' + c)
             i = ref1.index(c)
             ref1.pop(i)
             ref2.pop(i)
@@ -166,14 +167,14 @@ def plot(xdata, ydata, std,
     prop = matplotlib.font_manager.FontProperties(size=12)
     leg = pylab.legend(loc='upper right', fancybox=True, prop=prop)
     leg.get_frame().set_alpha(0.5)
-    #pylab.savefig(directory_name + os.path.sep + out_prefix +'.eps', format='eps')
 
 def plot_save(directory_name, out_prefix):
     from os.path import exists
     assert exists(directory_name)
     import pylab
 
-    pylab.savefig(directory_name + os.path.sep + out_prefix +'.png', bbox_inches='tight')
+    pylab.savefig(directory_name + os.path.sep + out_prefix +'.png',
+                  bbox_inches='tight')
 
 import matplotlib
 matplotlib.use('Agg')
@@ -249,7 +250,8 @@ for n, l in enumerate(largest):
         pylab.annotate(label,
                        xy=(n + 0.05, e),
                        xytext=formulaslocation(n, n1),
-                       arrowprops=dict(width=0.05, headwidth=5.0, facecolor='black', shrink=1.00),
+                       arrowprops=dict(width=0.05, headwidth=5.0,
+                                       facecolor='black', shrink=1.00),
                        horizontalalignment='left', verticalalignment='center',
                        fontsize=ann_fontsize)
 #pylab.show()

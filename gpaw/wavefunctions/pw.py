@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
 import numbers
-from math import pi
-from math import factorial as fac
+from math import pi, factorial as fac
 
 import numpy as np
 from ase.units import Ha, Bohr
 from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
-from gpaw import dry_run
+import gpaw
 from gpaw.arraydict import ArrayDict
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
@@ -76,7 +74,7 @@ class PW(Mode):
         self.gammacentered = gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
-        self.fftwflags = fftwflags if not dry_run else fftw.MEASURE
+        self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None
@@ -268,7 +266,7 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=None):
+    def zeros(self, x=(), dtype=None, q=None, global_array=False):
         """Return zeroed array.
 
         The shape of the array will be x + (ng,) where ng is the number
@@ -276,11 +274,11 @@ class PWDescriptor:
         different values for ng.  Therefore, the q index must be given,
         unless we are describibg a real-valued function."""
 
-        a_xG = self.empty(x, dtype, q)
+        a_xG = self.empty(x, dtype, q, global_array)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None):
+    def empty(self, x=(), dtype=None, q=None, global_array=False):
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
@@ -289,7 +287,10 @@ class PWDescriptor:
         if q is None:
             assert self.only_one_k_point
             q = 0
-        shape = x + (self.myng_q[q],)
+        if global_array:
+            shape = x + (self.ng_q[q],)
+        else:
+            shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
 
     def fft(self, f_R, q=None, Q_G=None, local=False):
@@ -337,6 +338,7 @@ class PWDescriptor:
         If local=True, all cores will do an iFFT without any
         gather/distribute.
         """
+        assert q is not None or self.only_one_k_point
         q = q or 0
         if not local:
             c_G = self.gather(c_G, q)
@@ -349,7 +351,9 @@ class PWDescriptor:
             #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
             #
             # but much faster:
-            _gpaw.pw_insert(c_G, self.Q_qG[q], scale, self.tmp_Q)
+            Q_G = self.Q_qG[q]
+            assert len(c_G) == len(Q_G)
+            _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -938,7 +942,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
     def get_wave_function_array(self, n, k, s, realspace=True,
                                 cut=True, periodic=False):
-        kpt_rank, u = self.kd.get_rank_and_index(s, k)
+        kpt_rank, q = self.kd.get_rank_and_index(k)
+        u = q * self.nspins + s
         band_rank, myn = self.bd.who_has(n)
 
         rank = self.world.rank
@@ -950,7 +955,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 psit_G = self.gd.collect(psit_G)
             else:
                 assert not cut
-                tmp_G = self.pd.gather(psit_G, self.mykpts[u].q)
+                tmp_G = self.pd.gather(psit_G, self.kpt_u[u].q)
                 if tmp_G is not None:
                     ng = self.pd.ngmax
                     if self.collinear:
@@ -1018,11 +1023,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
         Q_G = np.empty(self.pd.ngmax, np.int32)
         kk = 0
         for r in range(self.kd.comm.size):
-            for q, ks in enumerate(self.kd.get_indices(r)):
-                s, k = divmod(ks, self.kd.nibzkpts)
+            for q, k in enumerate(self.kd.get_indices(r)):
                 ng = self.ng_k[k]
-                if s == 1:
-                    return
                 if r == self.kd.comm.rank:
                     Q_G[:ng] = self.pd.Q_qG[q]
                     if r > 0:
@@ -1052,7 +1054,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         c = reader.bohr**1.5
         if reader.version < 0:
             c = 1  # old gpw file
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             ng = self.ng_k[kpt.k]
             index = (kpt.s, kpt.k) if self.collinear else (kpt.k,)
             psit_nG = reader.wave_functions.proxy('coefficients', *index)
@@ -1115,7 +1117,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return H_GG, S_GG
 
     @timer('Full diag')
-    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
+    def diagonalize_full_hamiltonian(self, ham, atoms, log,
                                      nbands=None, ecut=None, scalapack=None,
                                      expert=False):
 
@@ -1125,7 +1127,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if self.gd.comm.size > 1:
             raise ValueError(
-                "Please use mode=PW(..., parallel={'domain': 1})")
+                "Please use parallel={'domain': 1}")
 
         S = self.bd.comm.size
 
@@ -1147,6 +1149,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             iu = None
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
+        self.occupations.bd = bd
 
         log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,
@@ -1163,6 +1166,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         if S > 1:
             if isinstance(scalapack, (list, tuple)):
                 nprow, npcol, b = scalapack
+                assert nprow * npcol == S, (nprow, npcol, S)
             else:
                 nprow = int(round(S**0.5))
                 while S % nprow != 0:
@@ -1175,11 +1179,10 @@ class PWWaveFunctions(FDPWWaveFunctions):
             bg2 = BlacsGrid(bd.comm, nprow, npcol)
             scalapack = True
         else:
-            nprow = npcol = 1
             scalapack = False
 
         self.set_positions(atoms.get_scaled_positions())
-        self.mykpts[0].P = None
+        self.kpt_u[0].projections = None
         self.allocate_arrays_for_projections(self.pt.my_atom_indices)
 
         myslice = bd.get_slice()
@@ -1237,14 +1240,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         pb.finish()
 
-        occupations.calculate(self)
+        self.calculate_occupation_numbers()
 
         return nbands
 
     def initialize_from_lcao_coefficients(self, basis_functions):
         psit_nR = self.gd.empty(1, self.dtype)
 
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             if self.kd.gamma:
                 emikr_R = 1.0
             else:
@@ -1412,8 +1415,7 @@ class PWLFC(BaseLFC):
                 self.s_J[J] = s
                 J += 1
 
-        # self.lmax = max(self.l_s, default=-1)  # needs Python 3.4
-        self.lmax = max(self.l_s) if len(self.l_s) > 0 else -1
+        self.lmax = max(self.l_s, default=-1)
 
         # Spherical harmonics:
         for q, K_v in enumerate(self.pd.K_qv):
@@ -1557,6 +1559,7 @@ class PWLFC(BaseLFC):
             assert q == -1 and a_xG.ndim == 1
             c_xI[:] = c_axi
         else:
+            assert q != -1 or self.pd.only_one_k_point
             if self.comm.size != 1:
                 c_xI[:] = 0.0
             for a, I1, I2 in self.my_indices:
@@ -1619,13 +1622,16 @@ class PWLFC(BaseLFC):
         P_ani = {a: P_in.T for a, P_in in out.items()}
         self.integrate(psit.array, P_ani, psit.kpt)
 
-    def derivative(self, a_xG, c_axiv, q=-1):
+    def derivative(self, a_xG, c_axiv=None, q=-1):
         c_vxI = np.zeros((3,) + a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
-        b_vxI = c_vxI.reshape((3, np.prod(c_vxI.shape[1:-1], dtype=int),
-                               self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        nx = np.prod(c_vxI.shape[1:-1], dtype=int)
+        b_vxI = c_vxI.reshape((3, nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
+
+        if c_axiv is None:
+            c_axiv = self.dict(a_xG.shape[:-1], derivative=True)
 
         K_v = self.pd.K_qv[q]
 
@@ -1660,6 +1666,8 @@ class PWLFC(BaseLFC):
                 for a, I1, I2 in self.my_indices:
                     c_axiv[a][..., v] = (1.0j * self.eikR_qa[q][a] *
                                          c_vxI[v, ..., I1:I2])
+
+        return c_axiv
 
     def stress_tensor_contribution(self, a_xG, c_axi=1.0, q=-1):
         cache = {}

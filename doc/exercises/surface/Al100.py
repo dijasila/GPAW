@@ -9,7 +9,7 @@ def energy(N, k, a=4.05):
                 kpts=(k, k, 1),
                 h=0.25,
                 txt='slab-%d.txt' % N)
-    fcc.set_calculator(calc)
+    fcc.calc = calc
     e = fcc.get_potential_energy()
     calc.write('slab-%d.gpw' % N)
     return e

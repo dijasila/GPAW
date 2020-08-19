@@ -34,9 +34,7 @@ def get_density(rho_MM, wfs, density, density_type='comp', u=0):
             D_ii = np.dot(np.dot(P_Mi.T.conj(), rho_MM), P_Mi)
             D_sp[:] = pack(D_ii)[np.newaxis, :]
             Q_aL[a] = np.dot(D_sp.sum(axis=0), wfs.setups[a].Delta_pL)
-        tmp_g = density.finegd.zeros()
-        density.ghat.add(tmp_g, Q_aL)
-        rho_g += tmp_g
+        density.ghat.add(rho_g, Q_aL)
         return rho_g
 
     raise RuntimeError('Unknown density type: %s' % density_type)
@@ -71,7 +69,7 @@ class DensityMatrix(object):
     def get_density_matrix(self, tag=None):
         if tag is None or self.tag != tag:
             self.rho_uMM = []
-            for u, kpt in enumerate(self.wfs.kpt_u):
+            for kpt in self.wfs.kpt_u:
                 rho_MM = self._calculate_density_matrix(self.wfs, kpt)
                 self.rho_uMM.append(rho_MM)
             self.tag = tag

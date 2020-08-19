@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 
 import functools
 import numbers
@@ -8,7 +7,7 @@ from math import pi
 import numpy as np
 from scipy.spatial import Delaunay, cKDTree
 
-from ase.units import Hartree
+from ase.units import Ha
 from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 
@@ -16,7 +15,6 @@ import gpaw.mpi as mpi
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.occupations import FermiDirac
 from gpaw.response.math_func import (two_phi_planewave_integrals,
                                      two_phi_nabla_planewave_integrals)
 from gpaw.utilities.blas import gemm
@@ -571,11 +569,13 @@ class PWSymmetryAnalyzer:
 
         reds = s % self.nU
         if self.timereversal(s):
-            TR = lambda x: x.conj()
+            TR = np.conj
             sign = -1
         else:
             sign = 1
-            TR = lambda x: x
+
+            def TR(x):
+                return x
 
         return U_scc[reds], sign, TR, self.shift_sc[s], ft_sc[reds]
 
@@ -632,17 +632,48 @@ class PWSymmetryAnalyzer:
 
 
 class PairDensity:
-    def __init__(self, calc, ecut=50, response='density',
+    def __init__(self, gs, ecut=50, response='density',
                  ftol=1e-6, threshold=1,
                  real_space_derivatives=False,
                  world=mpi.world, txt='-', timer=None,
-                 nblocks=1, gate_voltage=None):
+                 nblocks=1, gate_voltage=None, **unused):
+        """Density matrix elements
+
+        Parameters
+        ----------
+        ftol : float
+            Threshold determining whether a band is completely filled
+            (f > 1 - ftol) or completely empty (f < ftol).
+        threshold : float
+            Numerical threshold for the optical limit k dot p perturbation
+            theory expansion.
+        real_space_derivatives : bool
+            Calculate nabla matrix elements (in the optical limit)
+            using a real space finite difference approximation.
+        gate_voltage : float
+            Shift the fermi level by gate_voltage [Hartree].
+        """
+        self.world = world
+        self.fd = convert_string_to_fd(txt, world)
+        self.timer = timer or Timer()
+
+        with self.timer('Read ground state'):
+            if isinstance(gs, str):
+                print('Reading ground state calculation:\n  %s' % gs,
+                      file=self.fd)
+                calc = GPAW(gs, txt=None, communicator=mpi.serial_comm)
+            else:
+                calc = gs
+                assert calc.wfs.world.size == 1
+
+        assert calc.wfs.kd.symmetry.symmorphic
+        self.calc = calc
 
         if ecut is not None:
-            ecut /= Hartree
+            ecut /= Ha
 
         if gate_voltage is not None:
-            gate_voltage = gate_voltage / Hartree
+            gate_voltage = gate_voltage / Ha
 
         self.response = response
         self.ecut = ecut
@@ -650,10 +681,6 @@ class PairDensity:
         self.threshold = threshold
         self.real_space_derivatives = real_space_derivatives
         self.gate_voltage = gate_voltage
-
-        self.timer = timer or Timer()
-
-        self.world = world
 
         if nblocks == 1:
             self.blockcomm = world.new_communicator([world.rank])
@@ -666,20 +693,7 @@ class PairDensity:
             ranks = range(world.rank % nblocks, world.size, nblocks)
             self.kncomm = self.world.new_communicator(ranks)
 
-        self.fd = convert_string_to_fd(txt, world)
-
-        with self.timer('Read ground state'):
-            if isinstance(calc, str):
-                print('Reading ground state calculation:\n  %s' % calc,
-                      file=self.fd)
-                calc = GPAW(calc, txt=None, communicator=mpi.serial_comm)
-            else:
-                assert calc.wfs.world.size == 1
-
-        assert calc.wfs.kd.symmetry.symmorphic
-        self.calc = calc
-
-        self.fermi_level = self.calc.occupations.get_fermi_level()
+        self.fermi_level = self.calc.wfs.fermi_level
 
         if gate_voltage is not None:
             self.add_gate_voltage(gate_voltage)
@@ -705,8 +719,8 @@ class PairDensity:
 
     def add_gate_voltage(self, gate_voltage=0):
         """Shifts the Fermi-level by e * Vg. By definition e = 1."""
-        assert isinstance(self.calc.occupations, FermiDirac)
-        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Hartree),
+        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
+        print('Shifting Fermi-level by %.2f eV' % (gate_voltage * Ha),
               file=self.fd)
         self.fermi_level += gate_voltage
         for kpt in self.calc.wfs.kpt_u:
@@ -716,7 +730,7 @@ class PairDensity:
     def shift_occupations(self, eps_n, gate_voltage):
         """Shift fermilevel."""
         fermi = self.fermi_level
-        width = self.calc.occupations.width
+        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
         if width < 1e-9:
             return (eps_n < fermi).astype(float)
         else:
@@ -821,7 +835,8 @@ class PairDensity:
 
         shift_c += -shift0_c
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
 
         assert n2 <= len(kpt.eps_n), \
             'Increase GS-nbands or decrease chi0-nbands!'
@@ -1195,7 +1210,6 @@ class PairDensity:
             n_R = ut1cc_R * ut_R
             with self.timer('fft'):
                 n_G[:] = pd.fft(n_R, 0, Q_G) * dv
-
         # PAW corrections:
         with self.timer('gemm'):
             for C1_Gi, P2_mi in zip(C1_aGi, kpt2.P_ani):
@@ -1275,8 +1289,8 @@ class PairDensity:
         vel_nv = np.zeros((nb - na, 3), dtype=complex)
         if n_n is None:
             n_n = np.arange(na, nb)
-        assert np.max(n_n) < nb, print('This is too many bands')
-        assert np.min(n_n) >= na, print('This is too few bands')
+        assert np.max(n_n) < nb, 'This is too many bands'
+        assert np.min(n_n) >= na, 'This is too few bands'
 
         # Load kpoints
         kd = self.calc.wfs.kd
@@ -1286,11 +1300,12 @@ class PairDensity:
         atomdata_a = self.calc.wfs.setups
         f_n = kpt.f_n
 
-        # No carriers when T=0
-        width = self.calc.occupations.width
-
         # Only works with Fermi-Dirac distribution
-        assert isinstance(self.calc.occupations, FermiDirac)
+        assert self.calc.wfs.occupations.name in {'fermi-dirac', 'zero-width'}
+
+        # No carriers when T=0
+        width = getattr(self.calc.wfs.occupations, '_width', 0.0) / Ha
+
         if width > 1e-15:
             dfde_n = -1 / width * (f_n - f_n**2.0)  # Analytical derivative
             partocc_n = np.abs(dfde_n) > 1e-5  # Is part. occupied?
@@ -1417,16 +1432,21 @@ class PairDensity:
         shift_c = shift_c.round().astype(int)
 
         if (U_cc == np.eye(3)).all():
-            T = lambda f_R: f_R
+            def T(f_R):
+                return f_R
         else:
             N_c = self.calc.wfs.gd.N_c
             i_cr = np.dot(U_cc.T, np.indices(N_c).reshape((3, -1)))
             i = np.ravel_multi_index(i_cr, N_c, 'wrap')
-            T = lambda f_R: f_R.ravel()[i].reshape(N_c)
+
+            def T(f_R):
+                return f_R.ravel()[i].reshape(N_c)
 
         if time_reversal:
             T0 = T
-            T = lambda f_R: T0(f_R).conj()
+
+            def T(f_R):
+                return T0(f_R).conj()
             shift_c *= -1
 
         a_a = []
@@ -1530,7 +1550,8 @@ class PairDensity:
         A_cv = wfs.gd.cell_cv
         M_vv = np.dot(np.dot(A_cv.T, U_cc.T), np.linalg.inv(A_cv).T)
         ik = wfs.kd.bz2ibz_k[K]
-        kpt = wfs.kpt_u[s * wfs.kd.nibzkpts + ik]
+        assert wfs.kd.comm.size == 1
+        kpt = wfs.kpt_qs[ik][s]
         psit_nG = kpt.psit_nG
         iG_Gv = 1j * wfs.pd.get_reciprocal_vectors(q=ik, add_q=False)
         ut_nvR = wfs.gd.zeros((n2 - n1, 3), complex)

@@ -1,69 +1,78 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-from __future__ import print_function
-import Numeric as num
+# creates: 2sigma.png, co_wavefunctions.png
+import numpy as np
+import matplotlib.pyplot as plt
+from ase import Atoms
+from ase.units import Bohr
+
 from gpaw import GPAW
 from gpaw.spherical_harmonics import Y
 
-a = 6.0
-c = a / 2
+L = 6.0
 d = 1.13
-paw = GPAW('co.gpw', txt=None)
+co = Atoms('CO',
+           cell=[L, L, L],
+           positions=[(0, 0, 0), (d, 0, 0)])
+co.center()
+co.calc = GPAW(mode='lcao',
+               txt='CO.txt')
+e = co.get_potential_energy()
+print(co.positions[:, 0] - L / 2)
 
-import pylab as p
-dpi = 2*80
-p.figure(figsize=(4, 3), dpi=dpi)
-p.axes([0.15, 0.15, 0.8, 0.8])
-import sys
-if len(sys.argv) == 1:
-    N = 1
-else:
-    N = int(sys.argv[1])
-psit = paw.kpt_u[0].psit_nG[N]
-psit = psit[:, 0, 0]
-ng = len(psit)
-x = num.arange(ng) * a / ng - c
-p.plot(x, psit, 'bx', mew=2, label=r'$\tilde{\psi}$')
-
+dpi = 100
 C = 'g'
-for n in paw.nuclei:
-    s = n.setup
-    phi_j, phit_j = s.get_partial_waves()[:2]
-    print(s.rcut_j[0])
-    r = num.arange(30) * s.rcut_j[0] / 30
-    phi_i = num.empty((s.ni, 59), num.Float)
-    phit_i = num.empty((s.ni, 59), num.Float)
-    x = num.empty(59, num.Float)
-    x[29:] = r
-    x[29::-1] = -r
-    x *= paw.a0
+N = 100
+for a, pp in enumerate(co.calc.wfs.setups):
+    rc = max(pp.rcut_j)
+    print(pp.rcut_j)
+    x = np.linspace(-rc, rc, 2 * N + 1)
+    P_i = co.calc.wfs.kpt_u[0].projections[a][1] / Bohr**1.5
+    phi_i = np.empty((len(P_i), len(x)))
+    phit_i = np.empty((len(P_i), len(x)))
     i = 0
-    nj = len(phi_j)
-    for j in range(nj):
-        f = phi_j[j]
-        ft = phit_j[j]
-        l = f.get_angular_momentum_number()
-        f = num.array([f(R) for R in r]) * r**l
-        ft = num.array([ft(R) for R in r]) * r**l
+    for l, phi_g, phit_g in zip(pp.l_j, pp.data.phi_jg, pp.data.phit_jg):
+        f = pp.rgd.spline(phi_g, rc + 0.3, l).map(x[N:]) * x[N:]**l
+        ft = pp.rgd.spline(phit_g, rc + 0.3, l).map(x[N:]) * x[N:]**l
         for m in range(2 * l + 1):
-            L = l**2 + m
-            phi_i[i + m, 29:] = f * Y(L, 1, 0, 0)
-            phi_i[i + m, 29::-1] = f * Y(L, -1, 0, 0)
-            phit_i[i + m, 29:] = ft * Y(L, 1, 0, 0)
-            phit_i[i + m, 29::-1] = ft * Y(L, -1, 0, 0)
-        i += 2 * l + 1
-    assert i == s.ni
-    P_i = n.P_uni[0, N]
-    X = n.spos_c[0] * a - c
-    p.plot(X + x, num.dot(P_i, phit_i), C + '-', lw=1,
-           label=r'$\tilde{\psi}^%s$' % s.symbol)
-    p.plot(X + x, num.dot(P_i, phi_i), C + '-', lw=2,
-           label=r'$\psi^%s$' % s.symbol)
+            ll = l**2 + m
+            phi_i[i, N:] = f * Y(ll, 1, 0, 0)
+            phi_i[i, N::-1] = f * Y(ll, -1, 0, 0)
+            phit_i[i, N:] = ft * Y(ll, 1, 0, 0)
+            phit_i[i, N::-1] = ft * Y(ll, -1, 0, 0)
+            i += 1
+    x0 = co.positions[a, 0] - L / 2
+    symbol = co.symbols[a]
+    print(symbol, x0, rc)
+    plt.plot([x0], [0], 'o', ms=dpi * rc * 2 / 2.33 * 1.3 * Bohr,
+             mfc='None', label='_nolegend_')
+    plt.plot(x * Bohr + x0, P_i.dot(phit_i), C + '-', lw=1,
+             label=r'$\tilde{\psi}^%s$' % symbol)
+    plt.plot(x * Bohr + x0, P_i.dot(phi_i), C + '-', lw=2,
+             label=r'$\psi^%s$' % symbol)
     C = 'r'
-p.plot([-d / 2], [0], 'go', ms=2*0.8*4*80/a*1.0*0.53, mfc=None, label='_nolegend_')
-p.plot([d / 2], [0], 'ro', ms=2*0.8*4*80/a*1.2*0.53, mfc=None, label='_nolegend_')
-p.legend(loc='best')
-p.xlabel(u'x [Å]')
-p.ylabel(r'$\psi$')
-#p.show()
-p.savefig('co_wavefunctions.png', dpi=dpi)
+
+psit = co.calc.get_pseudo_wave_function(band=1)
+n = len(psit)
+psit2 = psit[:, :, n // 2]
+psit1 = psit2[:, n // 2]
+
+x = np.linspace(-L / 2, L / 2, n, endpoint=False)
+plt.plot(x, psit1, 'bx', mew=2, label=r'$\tilde{\psi}$')
+
+plt.legend(loc='best')
+plt.xlabel('x [Å]')
+plt.ylabel(r'$\psi$')
+plt.ylim(ymin=-2, ymax=2)
+# plt.show()
+plt.savefig('co_wavefunctions.png', dpi=dpi)
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+m = abs(psit2).max() * 1.1
+cax = ax.contour(x, x, psit2.T, np.linspace(-m, m, 31))
+ax.text(-d / 2, 0, 'C', ha='center', va='center')
+ax.text(d / 2, 0, 'O', ha='center', va='center')
+cbar = fig.colorbar(cax)
+ax.set_xlabel('x (Angstrom)')
+ax.set_ylabel('y (Angstrom)')
+# plt.show()
+fig.savefig('2sigma.png')

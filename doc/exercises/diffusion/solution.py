@@ -18,7 +18,7 @@ def aual100(site, height, calc=None):
         calc = GPAW(mode=PW(200), kpts=(2, 2, 1), xc='PBE', txt=site + '.txt',
                     eigensolver='rmm-diis', nbands=40)
 
-    slab.set_calculator(calc)
+    slab.calc = calc
     qn = QuasiNewton(slab, trajectory=site + calc.name + '.traj')
     qn.run(fmax=0.05)
 

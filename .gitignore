@@ -2,8 +2,14 @@
 build/
 /dist
 MANIFEST
+_gpaw*.so
 .DS_Store
 */.DS_Store
+gpaw.egg-info/
+.eggs/
+/siteconfig.py
+.coverage*
+htmlcov/
 
 # If you build the documentation in the source tree, you will create a
 # lot of files that we don't want to see with "git status":
@@ -53,5 +59,7 @@ doc/setups/[A-Z]*.rst
 # Emacs lock files:
 .\#*
 
-# This one is OK:
+# These are OK:
 !requirements.txt
+!mypy.ini
+!pytest.ini

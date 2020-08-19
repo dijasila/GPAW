@@ -16,8 +16,7 @@ charges are expanded with correct multipole moments up to
 `\ell_{max}=2`.  Open-shell atoms are treated as non-spherical with
 integer occupation numbers, and zero-point energy is not included in
 the atomization energies. The numbers are compared to very accurate,
-state-of-the-art, PBE calculations [1]_.  The script that does the
-calculations is :git:`~gpaw/testing/molecule_test.py`.
+state-of-the-art, PBE calculations [1]_.
 
 
 Bond lengths

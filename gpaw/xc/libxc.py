@@ -13,9 +13,9 @@ short_names = {
     'HCTH407': 'GGA_XC_HCTH_407',
     'WC': 'GGA_X_WC+GGA_C_PBE',
     'AM05': 'GGA_X_AM05+GGA_C_AM05',
-    # 'M06-L': 'MGGA_X_M06_L+MGGA_C_M06_L',
-    # 'TPSS': 'MGGA_X_TPSS+MGGA_C_TPSS',
-    # 'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
+    'M06-L': 'MGGA_X_M06_L+MGGA_C_M06_L',
+    'TPSS': 'MGGA_X_TPSS+MGGA_C_TPSS',
+    'revTPSS': 'MGGA_X_REVTPSS+MGGA_C_REVTPSS',
     'mBEEF': 'MGGA_X_MBEEF+GGA_C_PBE_SOL',
     'SCAN': 'MGGA_X_SCAN+MGGA_C_SCAN'}
 
@@ -23,6 +23,9 @@ short_names = {
 class LibXC(XCKernel):
     """Functionals from libxc."""
     def __init__(self, name):
+        if not hasattr(_gpaw, 'lxcXCFuncNum'):
+            raise NameError(
+                f'Unable to use {name}: GPAW not compiled with LibXC!')
         self.name = name
         self.omega = None
         self.initialize(nspins=1)

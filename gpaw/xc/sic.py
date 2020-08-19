@@ -37,7 +37,6 @@ from math import pi
 
 import numpy as np
 from ase.units import Bohr, Hartree
-from ase.utils import basestring
 from scipy.linalg import eigh
 
 from gpaw.utilities.blas import gemm
@@ -169,7 +168,7 @@ class SIC(XCFunctional):
             Use fine grid for energy functional evaluations?
         """
 
-        if isinstance(xc, basestring):
+        if isinstance(xc, str):
             xc = XC(xc)
 
         if xc.orbital_dependent:
@@ -188,14 +187,14 @@ class SIC(XCFunctional):
             'finegrid': self.finegrid,
             'parameters': dict(self.parameters)}
 
-    def initialize(self, density, hamiltonian, wfs, occ=None):
+    def initialize(self, density, hamiltonian, wfs):
         assert wfs.kd.gamma
         assert not wfs.gd.pbc_c.any()
         assert wfs.bd.comm.size == 1  # band parallelization unsupported
 
         self.wfs = wfs
         self.dtype = float
-        self.xc.initialize(density, hamiltonian, wfs, occ)
+        self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.nbands = wfs.bd.nbands

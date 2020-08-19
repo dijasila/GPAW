@@ -1,8 +1,4 @@
-from __future__ import print_function
-import warnings
-
-from ase.utils import basestring
-
+from gpaw import libraries
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
@@ -38,7 +34,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
     In this way one has access to all the functionals defined in libxc.
     See xc_funcs.h for the complete list.  """
 
-    if isinstance(kernel, basestring):
+    if isinstance(kernel, str):
         kernel = xc_string_to_dict(kernel)
 
     kwargs = {}
@@ -54,9 +50,9 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.libvdwxc import get_libvdwxc_functional
             return get_libvdwxc_functional(name=name, **kwargs)
         elif backend:
-            error_msg = "A special backend for the XC functional was given, "\
-                "but not understood. Please check if there's a typo."
-            raise ValueError(error_msg)
+            raise ValueError(
+                'A special backend for the XC functional was given, '
+                'but not understood. Please check if there is a typo.')
 
         if name in ['vdW-DF', 'vdW-DF2', 'optPBE-vdW', 'optB88-vdW',
                     'C09-vdW', 'mBEEF-vdW', 'BEEF-vdW']:
@@ -71,8 +67,8 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.hybrid import HybridXC
             return HybridXC(parts[0], omega=float(parts[1][:-1]))
         elif name in ['HSE03', 'HSE06']:
-            from gpaw.xc.exx import EXX
-            return EXX(name, **kwargs)
+            from gpaw.hybrids import HybridXC
+            return HybridXC(name, **kwargs)
         elif name == 'BEE1':
             from gpaw.xc.bee import BEE1
             kernel = BEE1(parameters)
@@ -95,10 +91,11 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name.endswith('PZ-SIC'):
             from gpaw.xc.sic import SIC
             return SIC(xc=name[:-7], **kwargs)
-        elif name in ['TPSS', 'M06-L', 'M06L', 'revTPSS']:
-            if name == 'M06L':
-                name = 'M06-L'
-                warnings.warn('Please use M06-L instead of M06L')
+        elif name in {'TPSS', 'revTPSS', 'M06-L'}:
+            from gpaw.xc.kernel import XCKernel
+            kernel = XCKernel(name)
+        elif not libraries['libxc'] and name in {'LDA', 'PBE', 'revPBE',
+                                                 'RPBE', 'PW91'}:
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):
@@ -136,27 +133,3 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         return GGA(kernel, **kwargs)
     else:
         return MGGA(kernel, **kwargs)
-
-
-def xc(filename, xc, ecut=None):
-    """Calculate non self-consitent energy.
-
-    filename: str
-        Name of restart-file.
-    xc: str
-        Functional
-    ecut: float
-        Plane-wave cutoff for exact exchange.
-    """
-    name, ext = filename.rsplit('.', 1)
-    assert ext == 'gpw'
-    if xc in ['EXX', 'PBE0', 'B3LYP']:
-        from gpaw.xc.exx import EXX
-        exx = EXX(filename, xc, ecut=ecut, txt=name + '-exx.txt')
-        exx.calculate()
-        e = exx.get_total_energy()
-    else:
-        from gpaw import GPAW
-        calc = GPAW(filename, txt=None)
-        e = calc.get_potential_energy() + calc.get_xc_difference(xc)
-    print(e, 'eV')

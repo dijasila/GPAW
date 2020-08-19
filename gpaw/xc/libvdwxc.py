@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import numpy as np
 
 from gpaw.mpi import have_mpi
@@ -10,7 +8,7 @@ from gpaw.xc.functional import XCFunctional
 from gpaw.xc.gga import GGA, gga_vars, add_gradient_correction
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.mgga import MGGA
-
+import gpaw
 import _gpaw
 
 
@@ -112,10 +110,9 @@ class LibVDWXC(object):
             assert comm.size == 1, ('You cannot run in serial with %d cores'
                                     % comm.size)
             _gpaw.libvdwxc_init_serial(self._ptr)
-        elif comm.get_c_object() is None:
-            from gpaw.mpi import DryRunCommunicator
+        elif gpaw.dry_run:
+            pass
             # XXXXXX liable to cause really nasty errors.
-            assert isinstance(comm, DryRunCommunicator)
         elif mode == 'mpi':
             if not libvdwxc_has_mpi():
                 raise ImportError('libvdwxc not compiled with MPI')
@@ -305,11 +302,12 @@ class VDWXC(XCFunctional):
 
         # XXXXXXXXXXXXXXXXX
         self.calculate_paw_correction = semilocal_xc.calculate_paw_correction
-        #self.stress_tensor_contribution = semilocal_xc.stress_tensor_contribution
         self.calculate_spherical = semilocal_xc.calculate_spherical
-        self.apply_orbital_dependent_hamiltonian = semilocal_xc.apply_orbital_dependent_hamiltonian
+        self.apply_orbital_dependent_hamiltonian = \
+            semilocal_xc.apply_orbital_dependent_hamiltonian
         self.add_forces = semilocal_xc.add_forces
-        self.get_kinetic_energy_correction = semilocal_xc.get_kinetic_energy_correction
+        self.get_kinetic_energy_correction = \
+            semilocal_xc.get_kinetic_energy_correction
         self.rotate = semilocal_xc.rotate
 
     def __str__(self):
@@ -330,8 +328,8 @@ class VDWXC(XCFunctional):
         dct = dict(backend='libvdwxc',
                    semilocal_xc=self.semilocal_xc.name,
                    name=self.name,
-                   #mode=self._mode,
-                   #pfft_grid=self._pfft_grid,
+                   # mode=self._mode,
+                   # pfft_grid=self._pfft_grid,
                    libvdwxc_name=self._libvdwxc_name,
                    setup_name=self.setup_name,
                    vdwcoef=self._vdwcoef)
@@ -402,9 +400,9 @@ class VDWXC(XCFunctional):
     def set_positions(self, spos_ac):
         self.semilocal_xc.set_positions(spos_ac)
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.timer = hamiltonian.timer  # fragile object robbery
-        self.semilocal_xc.initialize(density, hamiltonian, wfs, occupations)
+        self.semilocal_xc.initialize(density, hamiltonian, wfs)
         gd = self.gd
         self._nspins = density.nspins
 
@@ -482,6 +480,7 @@ def vdw_df2(**kwargs):
     kwargs1.update(kwargs)
     return VDWXC(**kwargs1)
 
+
 def vdw_df_cx(**kwargs):
     # cx semilocal exchange is in libxc 2.2.2 or newer (or maybe from older)
     kernel = kwargs.get('kernel')
@@ -553,7 +552,7 @@ def get_libvdwxc_functional(name, **kwargs):
              'optPBE-vdW': vdw_optPBE,
              'optB88-vdW': vdw_optB88,
              'C09-vdW': vdw_C09,
-             'BEEF-vdW':  vdw_beef,
+             'BEEF-vdW': vdw_beef,
              'mBEEF-vdW': vdw_mbeef}
 
     semilocal_xc = kwargs.pop('semilocal_xc', None)
@@ -737,7 +736,7 @@ def test_selfconsistent():
                     setups='sg15',
                     txt='gpaw.%s.txt' % str(xc)  # .kernel.name
                     )
-        system.set_calculator(calc)
+        system.calc = calc
         return system.get_potential_energy()
 
     libxc_results = {}

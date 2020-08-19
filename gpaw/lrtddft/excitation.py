@@ -25,8 +25,9 @@ class ExcitationList(list):
             txt = calculator.log.fd
         self.txt = convert_string_to_fd(txt, mpi.world)
 
-    def get_calculator(self):
-        return self.calculator
+    @property
+    def calc(self):
+        1 / 0
 
     def get_energies(self):
         """Get excitation energies in Hartrees"""
@@ -53,9 +54,6 @@ class ExcitationList(list):
             for l in range(lmax + 1):
                 S[l] += e ** (-2 * l) * f
         return S
-
-    def set_calculator(self, calculator):
-        self.calculator = calculator
 
     def __truediv__(self, x):
         return self.__mul__(1. / x)
@@ -136,7 +134,7 @@ class Excitation:
             me = self.muv * np.sqrt(self.fij * self.energy)
         else:
             raise RuntimeError('Unknown form >' + form + '<')
-        
+
         return 2 * np.outer(me, me.conj())
 
     def get_oscillator_strength(self, form='r'):

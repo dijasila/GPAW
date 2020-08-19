@@ -9,6 +9,7 @@ import ase.units as units
 
 from gpaw.utilities.tools import tri2full
 
+
 class TightBinding:
     """Simple class for tight-binding calculations."""
 
@@ -53,7 +54,7 @@ class TightBinding:
         Parameters
         ----------
         N_c: tuple or ndarray
-            Number of unit cells in each direction of the basis vectors. 
+            Number of unit cells in each direction of the basis vectors.
 
         """
 
@@ -70,7 +71,7 @@ class TightBinding:
         N_c = np.array(self.N_c)[:, np.newaxis]
         R_cN += N_c // 2
         R_cN %= N_c
-        R_cN -= N_c // 2        
+        R_cN -= N_c // 2
         self.R_cN = R_cN
 
     def lattice_vectors(self):
@@ -114,14 +115,15 @@ class TightBinding:
             # Time-reversal symmetry
             if not len(self.ibzk_kc) == len(self.bzk_kc):
                 # Broadcast Gamma component
-                gamma = np.where(np.sum(np.abs(self.ibzk_kc), axis=1) == 0.0)[0]
+                gamma = np.where(np.sum(np.abs(self.ibzk_kc),
+                                        axis=1) == 0.0)[0]
                 rank, myu = self.kd.get_rank_and_index(0, gamma)
-                # 
-                if self.kd.comm.rank == rank[0]:
+                #
+                if self.kd.comm.rank == rank[0]:  # rank is an int ????
                     A0_xMM = A_qxMM[myu[0]]
                 else:
                     A0_xMM = np.zeros_like(A_xMM)
-                # 
+                #
                 self.kd.comm.broadcast(A0_xMM, rank[0])
 
                 # Add conjugate and subtract double counted Gamma component
@@ -132,7 +134,8 @@ class TightBinding:
             try:
                 assert np.all(np.abs(A_xMM.imag) < 1e-10)
             except AssertionError:
-                raise ValueError("MAX Im(A_MM): % .2e" % np.amax(np.abs(A_xMM.imag)))
+                raise ValueError("MAX Im(A_MM): % .2e" %
+                                 np.amax(np.abs(A_xMM.imag)))
 
             A_NxMM.append(A_xMM.real)
 
@@ -154,13 +157,13 @@ class TightBinding:
             S_MM = wfs.S_qMM[kpt.q]
             #XXX Converting to full matrices here
             tri2full(H_MM)
-            tri2full(S_MM)           
+            tri2full(S_MM)
             H_kMM.append(H_MM)
             S_kMM.append(S_MM)
 
         # Convert to arrays
         H_kMM = np.array(H_kMM)
-        S_kMM = np.array(S_kMM)    
+        S_kMM = np.array(S_kMM)
 
         H_NMM = self.bloch_to_real_space(H_kMM)
         S_NMM = self.bloch_to_real_space(S_kMM)

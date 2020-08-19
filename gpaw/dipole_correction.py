@@ -1,8 +1,6 @@
 import numpy as np
+from scipy.special import erf
 from ase.units import Bohr
-from ase.utils import basestring
-
-from gpaw.utilities import erf
 
 
 class DipoleCorrection:
@@ -40,7 +38,7 @@ class DipoleCorrection:
         self.check_direction(gd, gd.pbc_c)
 
     def check_direction(self, gd, pbc_c):
-        if isinstance(self.c, basestring):
+        if isinstance(self.c, str):
             axes = ['xyz'.index(d) for d in self.c]
             for c in range(3):
                 if abs(gd.cell_cv[c, axes]).max() < 1e-12:

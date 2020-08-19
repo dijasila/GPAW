@@ -2,7 +2,7 @@ import numpy as np
 import ase.io.ulm as ulm
 
 from gpaw import GPAW
-from gpaw.mpi import world
+from gpaw.mpi import world, serial_comm
 
 
 def ibz2bz(input_gpw, output_gpw=None):
@@ -21,7 +21,7 @@ def ibz2bz(input_gpw, output_gpw=None):
     if world.rank > 0:
         return
 
-    calc = GPAW(input_gpw, txt=None)
+    calc = GPAW(input_gpw, txt=None, communicator=serial_comm)
     spos_ac = calc.atoms.get_scaled_positions()
     kd = calc.wfs.kd
 
@@ -49,9 +49,10 @@ def ibz2bz(input_gpw, output_gpw=None):
             e_sKn = np.empty((ns, nK, nbands))
             f_sKn = np.empty((ns, nK, nbands))
 
+        weight = kd.weight_k[k] * (2 // kd.nspins)
         for s in range(ns):
             e_sKn[s, K] = calc.get_eigenvalues(k, s)
-            f_sKn[s, K] = calc.get_occupation_numbers(k, s)
+            f_sKn[s, K] = calc.get_occupation_numbers(k, s) / weight
             P_nI = calc.wfs.collect_projections(k, s)
             P2_nI = P_sKnI[s, K]
             a = 0

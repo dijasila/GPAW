@@ -3,21 +3,18 @@ from gpaw import GPAW
 from gpaw.lrtddft import LrTDDFT
 
 # Na2 cluster
-atoms = Atoms(symbols='Na2', 
+atoms = Atoms(symbols='Na2',
               positions=[(0, 0, 0), (3.0, 0, 0)],
               pbc=False)
 atoms.center(vacuum=6.0)
 
 # Standard ground state calculation with empty states
 calc = GPAW(nbands=100, h=0.4, setups={'Na': '1'})
-atoms.set_calculator(calc)
+atoms.calc = calc
 energy = atoms.get_potential_energy()
 
-calc.set(convergence={'bands' : 90}, 
-         fixdensity=True,
-         eigensolver='cg')
-atoms.get_potential_energy()
-
+calc = calc.fixed_density(
+    convergence={'bands' : 90})
 calc.write('na2_gs_casida.gpw', mode='all')
 
 # Standard Casida calculation

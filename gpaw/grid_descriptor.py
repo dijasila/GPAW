@@ -64,16 +64,17 @@ class GridDescriptor(Domain):
      >>> a = np.zeros((2, 2, 2))
      >>> a.ravel()[:] = range(8)
      >>> a
-     array([[[0, 1],
-             [2, 3]],
-            [[4, 5],
-             [6, 7]]])
+     array([[[0., 1.],
+             [2., 3.]],
+     <BLANKLINE>
+            [[4., 5.],
+             [6., 7.]]])
      """
 
     ndim = 3  # dimension of ndarrays
 
     def __init__(self, N_c, cell_cv=[1, 1, 1], pbc_c=True,
-                 comm=None, parsize_c=None):
+                 comm=None, parsize_c=None, allow_empty_domains=False):
         """Construct grid-descriptor object.
 
         parameters:
@@ -88,6 +89,8 @@ class GridDescriptor(Domain):
             Communicator for domain-decomposition.
         parsize_c: tuple of 3 ints, a single int or None
             Number of domains.
+        allow_empty_domains: bool
+            Allow parallelization that would generate empty domains.
 
         Note that if pbc_c[c] is False, then the actual number of gridpoints
         along axis c is one less than N_c[c].
@@ -131,11 +134,16 @@ class GridDescriptor(Domain):
             if not self.pbc_c[c]:
                 n_p[0] = 1
 
-            if not np.all(n_p[1:] - n_p[:-1] > 0):
-                raise BadGridError('Grid {0} too small for {1} cores!'
-                                   .format('x'.join(str(n) for n in self.N_c),
-                                           'x'.join(str(n) for n
-                                                    in self.parsize_c)))
+            if np.any(n_p[1:] == n_p[:-1]):
+                if allow_empty_domains:
+                    # If there are empty domains, sort them to the end
+                    n_p[:] = (np.arange(self.parsize_c[c] + 1) +
+                              1 - self.pbc_c[c]).clip(0, self.N_c[c])
+                else:
+                    msg = ('Grid {0} too small for {1} cores!'
+                           .format('x'.join(str(n) for n in self.N_c),
+                                   'x'.join(str(n) for n in self.parsize_c)))
+                    raise BadGridError(msg)
 
             self.beg_c[c] = n_p[self.parpos_c[c]]
             self.end_c[c] = n_p[self.parpos_c[c] + 1]
@@ -164,7 +172,7 @@ class GridDescriptor(Domain):
                    self.comm.size, pcoords, self.parsize_c.tolist()))
 
     def new_descriptor(self, N_c=None, cell_cv=None, pbc_c=None,
-                       comm=None, parsize_c=None):
+                       comm=None, parsize_c=None, allow_empty_domains=False):
         """Create new descriptor based on this one.
 
         The new descriptor will use the same class (possibly a subclass)
@@ -180,7 +188,8 @@ class GridDescriptor(Domain):
             comm = self.comm
         if parsize_c is None and comm.size == self.comm.size:
             parsize_c = self.parsize_c
-        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c)
+        return self.__class__(N_c, cell_cv, pbc_c, comm, parsize_c,
+                              allow_empty_domains)
 
     def coords(self, c, pad=True):
         """Return coordinates along one of the three axes.

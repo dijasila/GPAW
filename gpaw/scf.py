@@ -56,13 +56,12 @@ class SCFLoop:
         self.old_F_av = None
         self.converged = False
 
-    def run(self, wfs, ham, dens, occ, log, callback):
+    def irun(self, wfs, ham, dens, log, callback):
         self.niter = 1
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs, occ)
-            occ.calculate(wfs)
-
-            energy = ham.get_energy(occ)
+            wfs.eigensolver.iterate(ham, wfs)
+            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            energy = ham.get_energy(e_entropy, wfs)
             self.old_energies.append(energy)
             errors = self.collect_errors(dens, ham, wfs)
 
@@ -75,7 +74,8 @@ class SCFLoop:
                 self.converged = True
 
             callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            self.log(log, self.niter, wfs, ham, dens, errors)
+            yield
 
             if self.converged and self.niter >= self.niter_fixdensity:
                 break
@@ -110,7 +110,9 @@ class SCFLoop:
             errors['density'] = 0.0
 
         if len(self.old_energies) >= 3:
-            errors['energy'] = np.ptp(self.old_energies[-3:])
+            energies = self.old_energies[-3:]
+            if np.isfinite(energies).all():
+                errors['energy'] = np.ptp(energies)
 
         # We only want to calculate the (expensive) forces if we have to:
         check_forces = (self.max_errors['force'] < np.inf and
@@ -127,7 +129,7 @@ class SCFLoop:
 
         return errors
 
-    def log(self, log, niter, wfs, ham, dens, occ, errors):
+    def log(self, log, niter, wfs, ham, dens, errors):
         """Output from each iteration."""
 
         nvalence = wfs.nvalence
@@ -141,7 +143,7 @@ class SCFLoop:
         if niter == 1:
             header = """\
                      log10-error:    total        iterations:
-           time      wfs    density  energy       fermi  poisson"""
+           time      wfs    density  energy       poisson"""
             if wfs.nspins == 2:
                 header += '  magmom'
             if self.max_errors['force'] < np.inf:
@@ -158,16 +160,11 @@ class SCFLoop:
 
         denserr = errors['density']
         assert denserr is not None
-        if denserr is None or np.isinf(denserr) or denserr == 0 or nvalence == 0:
+        if (denserr is None or np.isinf(denserr) or denserr == 0 or
+            nvalence == 0):
             denserr = ''
         else:
             denserr = '%+.2f' % (ln(denserr / nvalence) / ln(10))
-
-        niterocc = occ.niter
-        if niterocc == -1:
-            niterocc = ''
-        else:
-            niterocc = '%d' % niterocc
 
         if ham.npoisson == 0:
             niterpoisson = ''
@@ -181,22 +178,28 @@ class SCFLoop:
              denserr), end='')
 
         if self.max_errors['force'] < np.inf:
-            if errors['force'] < np.inf:
+            if errors['force'] == 0:
+                log('    -oo', end='')
+            elif errors['force'] < np.inf:
                 log('  %+.2f' %
                     (ln(errors['force'] * Ha / Bohr) / ln(10)), end='')
             else:
                 log('       ', end='')
 
-        log('%11.6f    %-5s  %-7s' %
-            (Ha * ham.e_total_extrapolated,
-             niterocc,
-             niterpoisson), end='')
+        if np.isfinite(ham.e_total_extrapolated):
+            energy = '{:11.6f}'.format(Ha * ham.e_total_extrapolated)
+        else:
+            energy = ' ' * 11
 
-        if wfs.nspins == 2:
-            log('  %+.4f' % occ.magmom, end='')
-        elif not wfs.collinear:
-            totmom_v, magmom_av = dens.estimate_magnetic_moments()
-            log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
+        log('%s    %-7s' %
+            (energy, niterpoisson), end='')
+
+        if wfs.nspins == 2 or not wfs.collinear:
+            totmom_v, _ = dens.estimate_magnetic_moments()
+            if wfs.collinear:
+                log(f'  {totmom_v[2]:+.4f}', end='')
+            else:
+                log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
 
         log(flush=True)
 

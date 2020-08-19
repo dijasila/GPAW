@@ -10,10 +10,8 @@ from contextlib import contextmanager
 
 import numpy as np
 
-from gpaw import debug
-from gpaw import dry_run as dry_run_size
+import gpaw
 from .broadcast_imports import world
-
 import _gpaw
 
 MASTER = 0
@@ -574,16 +572,16 @@ class _Communicator:
 
         Example::
 
-          >>> world.rank, world.size
+          >>> world.rank, world.size  # doctest: +SKIP
           (3, 4)
-          >>> world.get_members()
+          >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))
-          >>> comm.rank, comm.size
+          >>> comm = world.new_communicator(array([2, 3]))  # doctest: +SKIP
+          >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
-          >>> comm.get_members()
+          >>> comm.get_members()  # doctest: +SKIP
           array([2, 3])
-          >>> comm.get_members()[comm.rank] == world.rank
+          >>> comm.get_members()[comm.rank] == world.rank  # doctest: +SKIP
           True
 
         """
@@ -652,7 +650,9 @@ class SerialCommunicator:
     def new_communicator(self, ranks):
         if self.rank not in ranks:
             return None
-        return SerialCommunicator(parent=self)
+        comm = SerialCommunicator(parent=self)
+        comm.size = len(ranks)
+        return comm
 
     def test(self, request):
         return 1
@@ -683,73 +683,31 @@ class SerialCommunicator:
 
     def translate_ranks(self, other, ranks):
         if isinstance(other, SerialCommunicator):
-            assert all(rank == 0 for rank in ranks)
+            assert all(rank == 0 for rank in ranks) or gpaw.dry_run
             return np.zeros(len(ranks), dtype=int)
         raise NotImplementedError(
             'Translate non-trivial ranks with serial comm')
 
     def get_c_object(self):
+        if gpaw.dry_run:
+            return None  # won't actually be passed to C
         raise NotImplementedError('Should not get C-object for serial comm')
 
 
 serial_comm = SerialCommunicator()
 
+have_mpi = world is not None
+
 if world is None:
     world = serial_comm
 
-
-class DryRunCommunicator(SerialCommunicator):
-    def __init__(self, size=1, parent=None):
-        self.size = size
-        self.parent = parent
-
-    def new_communicator(self, ranks):
-        return DryRunCommunicator(len(ranks), parent=self)
-
-    def get_c_object(self):
-        return None  # won't actually be passed to C
-
-    def translate_ranks(self, comm, ranks):
-        return np.zeros_like(ranks)
-
-
-if dry_run_size > 1:
-    world = DryRunCommunicator(dry_run_size)
-
-
-if debug:
-    serial_comm = _Communicator(serial_comm)
-    world = _Communicator(world)
-
+if gpaw.debug:
+    serial_comm = _Communicator(serial_comm)  # type: ignore
+    world = _Communicator(world)  # type: ignore
 
 rank = world.rank
 size = world.size
 parallel = (size > 1)
-try:
-    world.get_c_object()
-except NotImplementedError:
-    have_mpi = False
-else:
-    have_mpi = True
-
-
-# XXXXXXXXXX for easier transition to Parallelization class
-def distribute_cpus(parsize_domain, parsize_bands,
-                    nspins, nibzkpts, comm=world,
-                    idiotproof=True, mode='fd'):
-    nsk = nspins * nibzkpts
-    if mode in ['fd', 'lcao']:
-        if parsize_bands is None:
-            parsize_bands = 1
-    else:
-        # Plane wave mode:
-        if parsize_bands is None:
-            from ase.utils import gcd
-            parsize_bands = comm.size // gcd(nsk, comm.size)
-
-    p = Parallelization(comm, nsk)
-    return p.build_communicators(domain=np.prod(parsize_domain),
-                                 band=parsize_bands)
 
 
 def broadcast(obj, root=0, comm=world):
@@ -765,6 +723,12 @@ def broadcast(obj, root=0, comm=world):
         return obj
     else:
         return pickle.loads(b)
+
+
+def broadcast_float(x, comm):
+    array = np.array([x])
+    comm.broadcast(array, 0)
+    return array[0]
 
 
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
@@ -808,7 +772,7 @@ def synchronize_atoms(atoms, comm, tolerance=1e-8):
     comm.all_gather(my_fail, all_fail)
 
     if all_fail.any():
-        if debug:
+        if gpaw.debug:
             with open('synchronize_atoms_r%d.pckl' % comm.rank, 'wb') as fd:
                 pickle.dump((atoms.positions, atoms.cell,
                              atoms.numbers, atoms.pbc,
@@ -865,7 +829,7 @@ def alltoallv_string(send_dict, comm=world):
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
-            data = np.fromstring(send_dict[proc], np.int8)
+            data = np.frombuffer(send_dict[proc].encode(), np.int8)
             scounts[proc] = data.size
             sdispls[proc] = stotal
             stotal += scounts[proc]
@@ -885,7 +849,7 @@ def alltoallv_string(send_dict, comm=world):
     sbuffer = np.zeros(stotal, dtype=np.int8)
     for proc in range(comm.size):
         sbuffer[sdispls[proc]:(sdispls[proc] + scounts[proc])] = (
-            np.fromstring(send_dict[proc], np.int8))
+            np.frombuffer(send_dict[proc].encode(), np.int8))
 
     rbuffer = np.zeros(rtotal, dtype=np.int8)
     comm.alltoallv(sbuffer, scounts, sdispls, rbuffer, rcounts, rdispls)
@@ -893,7 +857,7 @@ def alltoallv_string(send_dict, comm=world):
     rdict = {}
     for proc in range(comm.size):
         i = rdispls[proc]
-        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tobytes().decode()
 
     return rdict
 
@@ -948,10 +912,10 @@ def run(iterators):
 
 
 class Parallelization:
-    def __init__(self, comm, nspinkpts):
+    def __init__(self, comm, nkpts):
         self.comm = comm
         self.size = comm.size
-        self.nspinkpts = nspinkpts
+        self.nkpts = nkpts
 
         self.kpt = None
         self.domain = None
@@ -1077,7 +1041,7 @@ class Parallelization:
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:
             # Try to use all the CPUs for k-point parallelization
-            ncpus = min(self.nspinkpts, self.navail)
+            ncpus = min(self.nkpts, self.navail)
             return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
         scores = ((self.navail // ncpuvalues) *
@@ -1087,16 +1051,16 @@ class Parallelization:
         return ncpus
 
     def find_kpt_parallelizations(self):
-        nspinkpts = self.nspinkpts
+        nkpts = self.nkpts
         ncpuvalues = []
         wastevalues = []
 
-        ncpus = nspinkpts
+        ncpus = nkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmax = -(-nspinkpts // ncpus)
+                nkptsmax = -(-nkpts // ncpus)
                 effort = nkptsmax * ncpus
-                efficiency = nspinkpts / float(effort)
+                efficiency = nkpts / float(effort)
                 waste = 1.0 - efficiency
                 wastevalues.append(waste)
                 ncpuvalues.append(ncpus)
@@ -1107,7 +1071,7 @@ class Parallelization:
 def cleanup():
     error = getattr(sys, 'last_type', None)
     if error is not None:  # else: Python script completed or raise SystemExit
-        if parallel and not (dry_run_size > 1):
+        if parallel and not (gpaw.dry_run > 1):
             sys.stdout.flush()
             sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  '
                               'Calling MPI_Abort!\n') % (world.rank, error))
@@ -1150,7 +1114,7 @@ if world.size > 1:  # Triggers for dry-run communicators too, but we care not.
 def exit(error='Manual exit'):
     # Note that exit must be called on *all* MPI tasks
     atexit._exithandlers = []  # not needed because we are intentially exiting
-    if parallel and not (dry_run_size > 1):
+    if parallel and not (gpaw.dry_run > 1):
         sys.stdout.flush()
         sys.stderr.write(('GPAW CLEANUP (node %d): %s occurred.  ' +
                           'Calling MPI_Finalize!\n') % (world.rank, error))

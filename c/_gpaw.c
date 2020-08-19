@@ -9,7 +9,9 @@
 #ifdef PARALLEL
 #include <mpi.h>
 #endif
+#ifndef GPAW_WITHOUT_LIBXC
 #include <xc.h>
+#endif
 
 #ifdef GPAW_HPM
 PyObject* ibm_hpm_start(PyObject *self, PyObject *args);
@@ -30,20 +32,13 @@ PyObject* symmetrize_wavefunction(PyObject *self, PyObject *args);
 PyObject* symmetrize_return_index(PyObject *self, PyObject *args);
 PyObject* symmetrize_with_index(PyObject *self, PyObject *args);
 PyObject* map_k_points(PyObject *self, PyObject *args);
-PyObject* scal(PyObject *self, PyObject *args);
-PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* tetrahedron_weight(PyObject *self, PyObject *args);
+#ifndef GPAW_WITHOUT_BLAS
+PyObject* mmm(PyObject *self, PyObject *args);
 PyObject* gemm(PyObject *self, PyObject *args);
-PyObject* gemv(PyObject *self, PyObject *args);
-PyObject* axpy(PyObject *self, PyObject *args);
-PyObject* czher(PyObject *self, PyObject *args);
 PyObject* rk(PyObject *self, PyObject *args);
 PyObject* r2k(PyObject *self, PyObject *args);
-PyObject* dotc(PyObject *self, PyObject *args);
-PyObject* dotu(PyObject *self, PyObject *args);
-PyObject* multi_dotu(PyObject *self, PyObject *args);
-PyObject* multi_axpy(PyObject *self, PyObject *args);
-PyObject* NewLocalizedFunctionsObject(PyObject *self, PyObject *args);
+#endif
 PyObject* NewOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewWOperatorObject(PyObject *self, PyObject *args);
 PyObject* NewSplineObject(PyObject *self, PyObject *args);
@@ -51,25 +46,22 @@ PyObject* NewTransformerObject(PyObject *self, PyObject *args);
 PyObject* pc_potential(PyObject *self, PyObject *args);
 PyObject* add_to_density(PyObject *self, PyObject *args);
 PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args);
-PyObject* utilities_vdot(PyObject *self, PyObject *args);
-PyObject* utilities_vdot_self(PyObject *self, PyObject *args);
-PyObject* errorfunction(PyObject *self, PyObject *args);
-PyObject* cerf(PyObject *self, PyObject *args);
 PyObject* pack(PyObject *self, PyObject *args);
 PyObject* unpack(PyObject *self, PyObject *args);
 PyObject* unpack_complex(PyObject *self, PyObject *args);
 PyObject* hartree(PyObject *self, PyObject *args);
 PyObject* localize(PyObject *self, PyObject *args);
 PyObject* NewXCFunctionalObject(PyObject *self, PyObject *args);
+#ifndef GPAW_WITHOUT_LIBXC
 PyObject* NewlxcXCFunctionalObject(PyObject *self, PyObject *args);
 PyObject* lxcXCFuncNum(PyObject *self, PyObject *args);
+#endif
 PyObject* exterior_electron_density_region(PyObject *self, PyObject *args);
 PyObject* plane_wave_grid(PyObject *self, PyObject *args);
 PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject *pwlfc_expand(PyObject *self, PyObject *args);
 PyObject *pw_insert(PyObject *self, PyObject *args);
 PyObject *pw_precond(PyObject *self, PyObject *args);
-PyObject* overlap(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
@@ -104,6 +96,8 @@ PyObject* pblas_r2k(PyObject *self, PyObject *args);
 PyObject* pblas_rk(PyObject *self, PyObject *args);
 #if defined(GPAW_WITH_ELPA)
 #include <elpa/elpa.h>
+PyObject* pyelpa_init(PyObject *self, PyObject *args);
+PyObject* pyelpa_uninit(PyObject *self, PyObject *args);
 PyObject* pyelpa_version(PyObject *self, PyObject *args);
 PyObject* pyelpa_allocate(PyObject *self, PyObject *args);
 PyObject* pyelpa_set(PyObject *self, PyObject *args);
@@ -165,44 +159,34 @@ static PyMethodDef functions[] = {
     {"symmetrize_return_index", symmetrize_return_index, METH_VARARGS, 0},
     {"symmetrize_with_index", symmetrize_with_index, METH_VARARGS, 0},
     {"map_k_points", map_k_points, METH_VARARGS, 0},
-    {"scal", scal, METH_VARARGS, 0},
-    {"mmm", mmm, METH_VARARGS, 0},
     {"tetrahedron_weight", tetrahedron_weight, METH_VARARGS, 0},
+#ifndef GPAW_WITHOUT_BLAS
+    {"mmm", mmm, METH_VARARGS, 0},
     {"gemm", gemm, METH_VARARGS, 0},
-    {"gemv", gemv, METH_VARARGS, 0},
-    {"axpy", axpy, METH_VARARGS, 0},
-    {"czher", czher, METH_VARARGS, 0},
     {"rk",  rk,  METH_VARARGS, 0},
     {"r2k", r2k, METH_VARARGS, 0},
-    {"dotc", dotc, METH_VARARGS, 0},
-    {"dotu", dotu, METH_VARARGS, 0},
-    {"multi_dotu", multi_dotu, METH_VARARGS, 0},
-    {"multi_axpy", multi_axpy, METH_VARARGS, 0},
-    {"LocalizedFunctions", NewLocalizedFunctionsObject, METH_VARARGS, 0},
+#endif
     {"Operator", NewOperatorObject, METH_VARARGS, 0},
     {"WOperator", NewWOperatorObject, METH_VARARGS, 0},
     {"Spline", NewSplineObject, METH_VARARGS, 0},
     {"Transformer", NewTransformerObject, METH_VARARGS, 0},
     {"add_to_density", add_to_density, METH_VARARGS, 0},
     {"utilities_gaussian_wave", utilities_gaussian_wave, METH_VARARGS, 0},
-    {"utilities_vdot", utilities_vdot, METH_VARARGS, 0},
-    {"utilities_vdot_self", utilities_vdot_self, METH_VARARGS, 0},
     {"eed_region", exterior_electron_density_region, METH_VARARGS, 0},
     {"plane_wave_grid", plane_wave_grid, METH_VARARGS, 0},
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
     {"pw_insert", pw_insert, METH_VARARGS, 0},
     {"pw_precond", pw_precond, METH_VARARGS, 0},
-    {"erf", errorfunction, METH_VARARGS, 0},
-    {"cerf", cerf, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
     {"hartree", hartree, METH_VARARGS, 0},
     {"localize", localize, METH_VARARGS, 0},
     {"XCFunctional", NewXCFunctionalObject, METH_VARARGS, 0},
+#ifndef GPAW_WITHOUT_LIBXC
     {"lxcXCFunctional", NewlxcXCFunctionalObject, METH_VARARGS, 0},
     {"lxcXCFuncNum", lxcXCFuncNum, METH_VARARGS, 0},
-    {"overlap", overlap, METH_VARARGS, 0},
+#endif
     {"tci_overlap", tci_overlap, METH_VARARGS, 0},
     {"vdw", vdw, METH_VARARGS, 0},
     {"vdw2", vdw2, METH_VARARGS, 0},
@@ -242,6 +226,8 @@ static PyMethodDef functions[] = {
     {"pblas_r2k", pblas_r2k, METH_VARARGS, 0},
     {"pblas_rk", pblas_rk, METH_VARARGS, 0},
 #if defined(GPAW_WITH_ELPA)
+    {"pyelpa_init", pyelpa_init, METH_VARARGS, 0},
+    {"pyelpa_uninit", pyelpa_uninit, METH_VARARGS, 0},
     {"pyelpa_version", pyelpa_version, METH_VARARGS, 0},
     {"pyelpa_allocate", pyelpa_allocate, METH_VARARGS, 0},
     {"pyelpa_set", pyelpa_set, METH_VARARGS, 0},
@@ -297,13 +283,14 @@ extern PyTypeObject GPAW_MPI_Request_type;
 #endif
 
 extern PyTypeObject LFCType;
-extern PyTypeObject LocalizedFunctionsType;
 extern PyTypeObject OperatorType;
 extern PyTypeObject WOperatorType;
 extern PyTypeObject SplineType;
 extern PyTypeObject TransformerType;
 extern PyTypeObject XCFunctionalType;
+#ifndef GPAW_WITHOUT_LIBXC
 extern PyTypeObject lxcXCFunctionalType;
+#endif
 
 PyObject* globally_broadcast_bytes(PyObject *self, PyObject *args)
 {
@@ -362,8 +349,6 @@ static PyObject* moduleinit(void)
 
     if (PyType_Ready(&LFCType) < 0)
         return NULL;
-    if (PyType_Ready(&LocalizedFunctionsType) < 0)
-        return NULL;
     if (PyType_Ready(&OperatorType) < 0)
         return NULL;
     if (PyType_Ready(&WOperatorType) < 0)
@@ -374,8 +359,10 @@ static PyObject* moduleinit(void)
         return NULL;
     if (PyType_Ready(&XCFunctionalType) < 0)
         return NULL;
+#ifndef GPAW_WITHOUT_LIBXC
     if (PyType_Ready(&lxcXCFunctionalType) < 0)
         return NULL;
+#endif
 
     PyObject* m = PyModule_Create(&moduledef);
 
@@ -388,20 +375,23 @@ static PyObject* moduleinit(void)
     PyModule_AddObject(m, "Communicator", (PyObject *)&MPIType);
 #endif
 
-#if XC_MAJOR_VERSION >= 3
+#ifndef GPAW_WITHOUT_LIBXC
+# if XC_MAJOR_VERSION >= 3
     PyObject_SetAttrString(m,
                            "libxc_version",
                            PyUnicode_FromString(xc_version_string()));
+# endif
 #endif
 
     Py_INCREF(&LFCType);
-    Py_INCREF(&LocalizedFunctionsType);
     Py_INCREF(&OperatorType);
     Py_INCREF(&WOperatorType);
     Py_INCREF(&SplineType);
     Py_INCREF(&TransformerType);
     Py_INCREF(&XCFunctionalType);
+#ifndef GPAW_WITHOUT_LIBXC
     Py_INCREF(&lxcXCFunctionalType);
+#endif
 #ifndef GPAW_INTERPRETER
     // gpaw-python needs to import arrays at the right time, so this is
     // done in gpaw_main().  In serial, we just do it here:

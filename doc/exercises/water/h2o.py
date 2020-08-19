@@ -1,4 +1,3 @@
-from __future__ import print_function
 from ase.build import molecule
 from gpaw import GPAW
 
@@ -18,7 +17,7 @@ for name in ['H2O', 'H', 'O']:
     if name == 'H' or name == 'O':
         calc.set(hund=True)
 
-    system.set_calculator(calc)
+    system.calc = calc
 
     energy = system.get_potential_energy()
     energies[name] = energy

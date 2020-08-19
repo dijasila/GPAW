@@ -20,7 +20,6 @@ info            Show versions of GPAW and its dependencies
 dos             Calculate (projected) density of states from gpw-file
 gpw             Write summary of GPAW-restart file
 completion      Add tab-completion for Bash
-test            Run the GPAW test suite
 atom            Solve radial equation for an atom
 python          Run GPAW's parallel Python interpreter
 sbatch          Submit a GPAW Python script via sbatch

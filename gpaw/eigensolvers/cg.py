@@ -6,7 +6,7 @@ import numpy as np
 from numpy import dot
 from ase.units import Hartree
 
-from gpaw.utilities.blas import axpy, gemv
+from gpaw.utilities.blas import axpy
 from gpaw.utilities import unpack
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw import extra_parameters
@@ -144,8 +144,7 @@ class CG(Eigensolver):
                 self.timer.stop('CG: overlap2')
                 comm.sum(overlap_n)
 
-                gemv(-1.0, psit.array[:N].view(wfs.dtype), overlap_n,
-                     1.0, phi_G.view(wfs.dtype), 'n')
+                phi_G -= psit.array[:N].T.dot(overlap_n).T
 
                 for a, P2_i in P2_ai.items():
                     P_ni = kpt.P_ani[a]

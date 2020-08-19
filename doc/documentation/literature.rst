@@ -88,7 +88,7 @@ Citations of the GPAW method papers
 .. image:: citations.png
    :width: 750
 
-(updated on May 18, 2013)
+(updated on Sep 7, 2017)
 
 The total number of citations above is the number of publications
 citing at least one of the other papers, not the sum of all citation

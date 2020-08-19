@@ -1,6 +1,5 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 import hashlib
 import os
 import re
@@ -420,7 +419,7 @@ You need to set the GPAW_SETUP_PATH environment variable to point to
 the directories where PAW dataset and basis files are stored.  See
 https://wiki.fysik.dtu.dk/gpaw/install.html#install-paw-datasets
 for details."""
-        raise RuntimeError('%s\n%s' % (err, helpful_message))
+        raise RuntimeError('%s\n%s\n' % (err, helpful_message))
 
     return filename, source
 

@@ -1,13 +1,17 @@
 .. _inducedfield:
 
-======================================
-Induced electric near field from TDDFT
-======================================
+===============================================================
+Induced density oscillations and electric near field from TDDFT
+===============================================================
 
-Induced electric near field can be calculated for finite systems from
+Calculating Fourier transform of the density oscillation at
+the resonant frequencies of a systems is a great way of analyzing
+the excitations.
+Induced density oscillations and the resulting electric near field
+can be calculated for finite systems from
 :ref:`inducedfield_timepropagation` or :ref:`inducedfield_casida`.
 
-The implementation is described in Ref. [#Rossi2013]_.
+For details of the implementation, see Ref. [#Rossi2013]_.
 
 .. _inducedfield_timepropagation:
 
@@ -15,6 +19,11 @@ Time-propagation TDDFT
 ===========================================
 
 See :ref:`timepropagation` for instructions how to use time-propagation TDDFT.
+
+Within time-propagation TDDFT, the induced density is obtained as an on-the-fly
+Fourier transform.
+A restriction of this iterative approach is that the frequencies of interest
+must be given at initialization, that is, before time propagation.
 
 Example code for time-propagation calculation
 

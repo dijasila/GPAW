@@ -1,28 +1,25 @@
-from __future__ import print_function
-from ase.dft.kpoints import bandpath
+import numpy as np
 from ase.parallel import paropen
 from gpaw import GPAW
 
-layer = GPAW('WS2_gs.gpw', txt=None).atoms
+atoms = GPAW('WS2_gs.gpw', txt=None).atoms
 
-G = [0, 0, 0]
-K = [1 / 3., 1 / 3., 0]
-M = [0.5, 0, 0]
-M_ = [-0.5, 0, 0]
-K_ = [-1 / 3., -1 / 3., 0]
-kpts, x, X = bandpath([M, K, G, K_, M_], layer.cell, npoints=1000)
+G, K, M = np.array([[0, 0, 0],
+                    [1 / 3, 1 / 3, 0],
+                    [0.5, 0, 0]])
+bp = atoms.cell.bandpath([M, K, G, -K, -M], npoints=1000)
 
-calc = GPAW('WS2_gs.gpw', kpts=kpts, symmetry='off', fixdensity=True)
-calc.get_potential_energy()
-
+calc = GPAW('WS2_gs.gpw').fixed_density(
+    kpts=bp.kpts, symmetry='off')
 calc.write('WS2_bands.gpw')
 
-f = paropen('WS2_kpath.dat', 'w')
-for k in x:
-    print(k, file=f)
-f.close()
+x, X, labels = bp.get_linear_kpoint_axis()
 
-f = paropen('WS2_highsym.dat', 'w')
-for k in X:
-    print(k, file=f)
-f.close()
+with paropen('WS2_kpath.dat', 'w') as f:
+    for k in x:
+        print(k, file=f)
+
+
+with paropen('WS2_highsym.dat', 'w') as f:
+    for k in X:
+        print(k, file=f)

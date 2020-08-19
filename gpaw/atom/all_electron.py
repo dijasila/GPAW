@@ -5,7 +5,6 @@
 Atomic Density Functional Theory
 """
 
-from __future__ import print_function
 from math import pi, sqrt, log
 import tempfile
 import pickle
@@ -77,15 +76,9 @@ class AllElectron:
                         f = 1.0
                     else:
                         f = float(conf[2:])
-                    #try:
                     assert n == self.n_j[j]
                     assert l == self.l_j[j]
                     self.f_j[j] = f
-                    #except IndexError:
-                    #    self.n_j.append(n)
-                    #    self.l_j.append(l)
-                    #    self.f_j.append(f)
-                    #    self.e_j.append(self.e_j[-1])
                     j += 1
                 else:
                     j += {'He': 1,
@@ -106,7 +99,6 @@ class AllElectron:
             self.l_j = [0]
             self.f_j = [self.Z]
             self.e_j = [self.e_j[-1]]
-
 
         t = self.text
         t()
@@ -251,7 +243,7 @@ class AllElectron:
             mix = 0.01
             nitermax = 2000
             e_j[0] /= self.tw_coeff
-            if Z > 10 : #help convergence for third row elements
+            if Z > 10:  # help convergence for third row elements
                 mix = 0.002
                 nitermax = 10000
 
@@ -342,11 +334,12 @@ class AllElectron:
 
         if self.orbital_free:
             # e and vr are not scaled back
-            # instead Ekin is scaled for total energy (printed and inside setup)
+            # instead Ekin is scaled for total energy
+            # (printed and inside setup)
             Ekin *= self.tw_coeff
             t()
             t('Lambda:{0}'.format(self.tw_coeff))
-            t('Correct eigenvalue:{0}'.format(e_j[0]*self.tw_coeff))
+            t('Correct eigenvalue:{0}'.format(e_j[0] * self.tw_coeff))
             t()
 
         t()
@@ -776,6 +769,8 @@ def shoot(u, l, vr, e, r2dvdr, r, dr, c10, c2, scalarrel, gmax=None):
         # at the turning point
         gtp = g + 1
         utp = u[gtp]
+        if gtp == len(u) - 1:
+            return 100, 0.0
         dudrplus = 0.5 * (u[gtp + 1] - u[gtp - 1]) / dr[gtp]
     else:
         gtp = gmax
@@ -890,6 +885,7 @@ guess for the density).
     A = (dudrplus - dudrminus) * utp
 
     return nodes, A
+
 
 if __name__ == '__main__':
     a = AllElectron('Cu', scalarrel=True)

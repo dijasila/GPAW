@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.GPAW`
 calculator::
 
    _____________          ____________
@@ -42,7 +42,7 @@ calculator::
 In Python code, it looks like this:
 
 .. literalinclude:: h2.py
-    :start-after: from __future__
+    :start-after: creates
 
 If the above code was executed, a calculation for a single `\rm{H}_2`
 molecule would be started.  The calculation would be done using a
@@ -111,10 +111,6 @@ given in the following sections.
       - Object
       -
       - :ref:`manual_external`
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -198,7 +194,7 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.calculator.GPAW.set` method:
+   by using the :meth:`~gpaw.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -253,7 +249,7 @@ Memory consumption:
 Speed:
     For small systems with many **k**-points, PW mode beats everything else.
     For larger systems LCAO will be most efficient.  Whereas PW beats FD for
-    smallish systems, the opposite is true for very large systems where FD
+    smallish systems, the opposite is true for large systems where FD
     will parallelize better.
 
 Absolute convergence:
@@ -303,7 +299,7 @@ unoccupied bands will improve convergence.
 
 .. tip::
 
-    ``nbands='nao'`` will use the the same number of bands as there are
+    ``nbands='nao'`` will use the same number of bands as there are
     atomic orbitals. This corresponds to the maximum ``nbands`` value that
     can be used in LCAO mode.
 
@@ -353,11 +349,11 @@ Hybrid functionals (the feature is described at :ref:`exx`)
 require the setups containing exx information to be generated.
 Check available setups for the presence of exx information, for example::
 
-     [~]$ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
+    $ zcat $GPAW_SETUP_PATH/O.PBE.gz | grep "<exact_exchange_"
 
 and generate setups with missing exx information::
 
-     [~]$ gpaw-setup --exact-exchange -f PBE H C
+    $ gpaw-setup --exact-exchange -f PBE H C
 
 Currently all the hybrid functionals use the PBE setup as a *base* setup.
 
@@ -458,7 +454,7 @@ a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
 
 If you are more used to think in terms of plane waves; a conversion
 formula between plane wave energy cutoffs and realspace grid spacings
-have been provided by Briggs *et. al* PRB **54**, 14362 (1996).  The
+have been provided by Briggs *et al.* PRB **54**, 14362 (1996).  The
 conversion can be done like this::
 
   >>> from gpaw.utilities.tools import cutoff2gridspacing, gridspacing2cutoff
@@ -543,8 +539,11 @@ Occupation numbers
 
 The smearing of the occupation numbers is controlled like this::
 
-  from gpaw import GPAW, FermiDirac
-  calc = GPAW(..., occupations=FermiDirac(width), ...)
+  from gpaw import GPAW
+  calc = GPAW(...,
+              occupations={'name': 'fermi-dirac',
+                           'width': 0.05},
+              ...)
 
 The distribution looks like this (width = `k_B T`):
 
@@ -555,8 +554,29 @@ is 0.1 eV and the total energies are extrapolated to *T* = 0 Kelvin.
 For a molecule (no periodic boundaries) the default value is ``width=0``,
 which gives integer occupation numbers.
 
-For a spin-polarized calculation, one can fix the magnetic moment at
-the initial value using ``FermiDirac(width, fixmagmom=True)``.
+Other distribution functions:
+
+* ``{'name': 'marzari-vanderbilt', 'width': ...}``
+* ``{'name': 'methfessel-paxton', 'width': ..., 'order': ...}``
+
+For a spin-polarized calculation, one can fix the total magnetic moment at
+the initial value using::
+
+    occupations={'name': ..., 'width': ..., 'fixmagmom': True}
+
+.. figure:: occupation_numbers.png
+
+    Occupation numbers for ``width=0.05``
+
+For fixed occupations numbers use the
+:class:`gpaw.occupations.FixedOccupationNumbers` class like this::
+
+    from gpaw.occupations import FixedOccupationNumbers
+    calc = GPAW(...,
+                occupations=FixedOccupationNumbers([[1, 1, ..., 0, 0],
+                                                    [1, 1, ..., 0, 0]]))
+
+See also :ref:`smearing`.
 
 
 .. _manual_lmax:
@@ -679,14 +699,15 @@ See also the documentation on :ref:`density mixing <densitymix>`.
 
 .. _manual_fixdensity:
 
-Fixed density
--------------
+Fixed density calculation
+-------------------------
 
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
-density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw or existing from previous calculation) is used
-throughout the SCF-cycle (so called Harris calculation).
+density without updating it. This can be done using the
+:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
+(e.g. one read from .gpw or existing from previous calculation)
+throughout the SCF-cycles (so called Harris calculation).
 
 
 .. _manual_setups:
@@ -814,7 +835,7 @@ convergence can be obtained with a different eigensolver. One option is the
 RMM-DIIS (Residual minimization method - direct inversion in iterative
 subspace), (``eigensolver='rmm-diis'``), which performs well when only a few
 unoccupied states are calculated. Another option is the conjugate gradient
-method (``eigensolver='cg'``), which is very stable but slower.
+method (``eigensolver='cg'``), which is stable but slower.
 
 If parallellization over bands is necessary, then Davidson or RMM-DIIS must
 be used.
@@ -1044,7 +1065,7 @@ at a later time, this can be done as follows:
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
-changed slightly.  This is very simple to do.  Suppose you want to
+changed slightly.  This is simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
@@ -1082,7 +1103,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.calculator.GPAW.attach`.
+See also :meth:`~gpaw.GPAW.attach`.
 
 .. _command line options:
 
@@ -1090,63 +1111,31 @@ See also :meth:`~gpaw.calculator.GPAW.attach`.
 Command-line options
 --------------------
 
-The behaviour of GPAW can be controlled with some command line
-arguments. The arguments for GPAW should be specified after the
-python-script, i.e.::
+I order to run GPAW in debug-mode, e.g. check consistency of arrays passed
+to C-extensions, use Python's :option:`python:-c` option`:
 
-    $ python3 script.py --gpaw key1=val1,key2=val2,...
+    $ python3 -d script.py
 
-The possible keys are:
+If you run Python through the ``gpaw python`` command, then you run your
+script in dry-run mode::
 
-* ``debug=True``: run in debug-mode, e.g. check consistency of arrays passed
-  to c-extensions.
+    $ gpaw python --dry-run=N script.py
 
-* ``dry_run=nprocs``: Print out the computational parameters and estimate
-  memory usage, do not perform actual calculation.
-  Print also which parallelization settings would be employed when run on
-  ``nprocs`` processors.
+This will print out the computational parameters and estimate
+memory usage, and not perform an actual calculation.
+Parallelization settings that would be employed when run on
+``N`` cores will also be printed.
 
 .. tip::
 
-    Extra key-value pairs will be available for development work::
+    If you need extra parameters from the command-line for development work::
 
-        $ python3 - --gpaw a=1,b=2.3
-        >>> from gpaw import extra_parameters
-        >>> extra_parameters
-        {'a': 1, 'b': 2.3}
+        $ python3 -X a=1 -X b
+        >>> import sys
+        >>> sys._xoptions
+        {'a': '1', 'b': True}
 
-
-Other command-line arguments are accepted directly by ``gpaw-python``:
-
-===============================  =============================================
-argument                         description
-===============================  =============================================
-``--memory-estimate-depth[=n]``
-                                 Print out an itemized memory estimate by
-                                 stepping recursively through the object
-                                 hierarchy of the calculator. If ``n`` is
-                                 specified, print a summary for depths
-                                 greater than the specified value.
-                                 Default: ``n=2``
-``--domain-decomposition=comp``
-                                 Specify the domain decomposition with
-                                 ``comp`` as a positive integer or, for
-                                 greater control, a tuple of three integers.
-                                 Allowed values are equivalent to those of
-                                 the ``domain`` argument in the
-                                 :ref:`parallel <manual_parallel>` keyword,
-                                 with tuples specified as ``nx,ny,nz``.
-                                 See :ref:`manual_parsize_domain` for details.
-``--state-parallelization=nbg``
-                                 Specify the parallelization over Kohn-Sham
-                                 orbitals with ``nbg`` as a positive integer.
-                                 Allowed values are equivalent to those of
-                                 the ``band`` argument in the
-                                 :ref:`parallel <manual_parallel>` keyword.
-                                 See :ref:`manual_parsize_bands` for details.
-===============================  =============================================
-
-Please see ``gpaw-python --help`` for details.
+    See also Python's :option:`python:-X` option.
 
 
 .. [#LDA]    J. P. Perdew and Y. Wang,
