@@ -1,13 +1,17 @@
-======
-justus
-======
+=======
+justus2
+=======
 
-Information about `justus <https://www.bwhpc-c5.de/wiki/index.php/BwForCluster_Chemistry>`__.
+Information about `justus2 <https://wiki.bwhpc.de/e/Category:BwForCluster_JUSTUS_2>`__.
 
 Building GPAW
 =============
 
-We assume that the installation will be located in ``$HOME/source``.
+We assume that the installation will be located in ``$SOURCEDIR``, which might be set to::
+
+  export SOURCEDIR=$HOME/source
+
+for example.
 
 Setups
 ------
@@ -16,7 +20,7 @@ The setups of your choice must be installed
 (see also :ref:`installation of paw datasets`)::
 
   cd
-  GPAW_SETUP_SOURCE=$PWD/source/gpaw-setups
+  GPAW_SETUP_SOURCE=$SOURCEDIR/gpaw-setups
   mkdir -p $GPAW_SETUP_SOURCE
   cd $GPAW_SETUP_SOURCE
   wget https://wiki.fysik.dtu.dk/gpaw-files/gpaw-setups-0.9.11271.tar.gz
@@ -51,33 +55,33 @@ libxc
 GPAW relies on libxc (see the `libxc web site <http://www.tddft.org/programs/octopus/wiki/index.php/Libxc:download>`__). 
 To install libxc we assume that ``MYLIBXCDIR`` is set to 
 the directory where you want to install 
-(e.g. ``MYLIBXCDIR=$HOME/source/libxc``)::
+(e.g. ``MYLIBXCDIR=$SOURCEDIR/libxc``)::
 
  mkdir -p $MYLIBXCDIR
  cd $MYLIBXCDIR
- wget http://www.tddft.org/programs/libxc/down.php?file=4.3.4/libxc-4.3.4.tar.gz -O libxc-4.3.4.tar.gz
- tar xvzf libxc-4.3.4.tar.gz
- cd libxc-4.3.4
+ wget -O libxc-5.0.0.tar.gz http://www.tddft.org/programs/libxc/down.php?file=5.0.0/libxc-5.0.0.tar.gz
+ tar xzf libxc-5.0.0.tar.gz
+ cd libxc-5.0.0
  mkdir install
  ./configure CFLAGS="-fPIC" --prefix=$PWD/install -enable-shared
  make |tee make.log
  make install
 
-This will have installed the libs ``$MYLIBXCDIR/libxc-4.3.4/install/lib`` 
+This will have installed the libs ``$MYLIBXCDIR/libxc-5.0.0/install/lib`` 
 and the C header
-files to ``$MYLIBXCDIR/libxc-4.3.4/install/include``.
+files to ``$MYLIBXCDIR/libxc-5.0.0/install/include``.
 We create a module for libxc::
 
   cd
   mkdir modulefiles/libxc
   cd modulefiles/libxc
 
-and edit the module file  :file:`4.3.4` that should read::
+and edit the module file  :file:`5.0.0` that should read::
 
   #%Module1.0
 
   #                                    change this to your path
-  set             libxchome            /home/fr/fr_fr/fr_mw767/source/libxc/libxc-4.3.4/install
+  set             libxchome            /home/fr/fr_fr/fr_mw767/source/libxc/libxc-5.0.0/install
   prepend-path    C_INCLUDE_PATH       $libxchome/include
   prepend-path    LIBRARY_PATH         $libxchome/lib
   prepend-path    LD_LIBRARY_PATH      $libxchome/lib
@@ -136,27 +140,32 @@ and edit the module file  :file:`trunk` that should read::
 
   #%Module1.0
 
-  if {![is-loaded numlib/python_scipy]} {module load numlib/python_scipy/1.1.0-python_numpy-1.14.0-python-3.5.0}
+  if {![is-loaded numlib/python_scipy]} {module load numlib/python_scipy}
 
   #           change this to your path
   set asehome /home/fr/fr_fr/fr_mw767/source/ase/trunk
   prepend-path       PYTHONPATH    $asehome
   prepend-path       PATH          $asehome/tools
 
+matplotlib
+----------
+
+In order to use `ase gui` in it's full strength it is useful to install
+`matplotlib` via pip::
+
+  python3 -m pip install matplotlib
+
 Building GPAW
 -------------
 
-We create a place for gpaw and get the trunk version::
+We create a place for gpaw and get it::
 
- cd
- GPAW_SOURCE=$PWD/source/gpaw
- mkdir -p $GPAW_SOURCE
- cd $GPAW_SOURCE
- git clone https://gitlab.com/gpaw/gpaw.git trunk
+ cd $SOURCEDIR
+ git clone https://gitlab.com/gpaw/gpaw.git
 
-The current trunk version can then be updated by::
+The current version can then be updated by::
 
- cd $GPAW_SOURCE/trunk
+ cd $SOURCEDIR/gpaw
  git pull
 
 A specific tag can be loaded by::
@@ -177,6 +186,7 @@ To build GPAW use::
  module purge
  module load libxc
  module load ase
+ module load compiler/intel
  module load mpi/impi
 
  cd $GPAW_SOURCE/trunk
@@ -189,30 +199,31 @@ We create a module that creates the necessary definitions::
   mkdir -p modulefiles/gpaw
   cd modulefiles/gpaw
 
-The file  :file:`trunk` that should read::
+The file  :file:`master` that should read::
 
  #%Module1.0
 
  if {![is-loaded ase]} {module load ase}
  if {![is-loaded libxc]} {module load libxc}
  if {![is-loaded mpi]}  {module load mpi/impi}
+ if {![is-loaded compiler/intel]} {module load compiler/intel}
  if {![is-loaded gpaw-setups]}  {module load gpaw-setups}
 
  # change the following directory definition to your needs
- set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw/trunk
+ set gpawhome /home/fr/fr_fr/fr_mw767/source/gpaw
  # this can stay as is
- prepend-path    PATH                 $gpawhome/tools:$gpawhome/build/scripts-3.6
- prepend-path    PYTHONPATH           $gpawhome:$gpawhome/build/lib.linux-x86_64-3.6
+ prepend-path    PATH                 $gpawhome/tools:$gpawhome/build/scripts-3.8
+ prepend-path    PYTHONPATH           $gpawhome:$gpawhome/build/lib.linux-x86_64-3.8
  
 
 Running GPAW
 ------------
 
 A gpaw script :file:`test.py` can be submitted with the help
-of :file:`gpaw-runscript` to run on 32 cpus like this::
+of :file:`gpaw-runscript` to run on 48 cores like this::
 
   > module load gpaw
-  > gpaw-runscript test.py 32
-  using justus
-  run.justus written
-  > msub run.justus
+  > gpaw-runscript test.py 48
+  using justus2
+  run.justus2 written
+  > sbatch run.justus

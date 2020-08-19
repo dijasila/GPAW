@@ -647,12 +647,10 @@ class Density:
 
         new_nt_sG = redistribute_array(dens.nt_sG, dens.gd, self.gd,
                                        self.nspins, kptband_comm)
-
         self.atom_partition, self.atomdist, D_asp = \
             redistribute_atomic_matrices(dens.D_asp, self.gd, self.nspins,
                                          self.setups, self.redistributor,
                                          kptband_comm)
-
         self.initialize_directly_from_arrays(new_nt_sG, None, D_asp)
 
 

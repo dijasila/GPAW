@@ -4,7 +4,7 @@
 neolith.nsc.liu.se
 ==================
 
-Here you find information about the the system
+Here you find information about the system
 http://www.nsc.liu.se/systems/neolith.
 
 The installation of user's packages on neolith described below uses

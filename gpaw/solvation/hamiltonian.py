@@ -186,9 +186,10 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     fixed * del_g_del_r_vg[v],
                     global_integral=False)
 
-    def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
+    def get_energy(self, e_entropy, wfs):
+        e_band = wfs.calculate_band_energy()
+        self.e_kinetic = self.e_kinetic0 + e_band
+        self.e_entropy = e_entropy
         self.e_el_free = (
             self.e_kinetic + self.e_coulomb + self.e_external + self.e_zero +
             self.e_xc + self.e_entropy)
@@ -196,10 +197,12 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         for ia in self.interactions:
             e_total_free += getattr(self, 'e_' + ia.subscript)
         self.e_total_free = e_total_free
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
-        self.e_el_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_el_free)
+        self.e_total_extrapolated = (
+            self.e_total_free +
+            wfs.occupations.extrapolate_factor * e_entropy)
+        self.e_el_extrapolated = (
+            self.e_el_free +
+            wfs.occupations.extrapolate_factor * e_entropy)
         return self.e_total_free
 
     def grad_squared(self, x):

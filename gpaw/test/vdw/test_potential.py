@@ -1,4 +1,5 @@
 """Test correctness of vdW-DF potential."""
+import pytest
 from math import pi
 from gpaw.grid_descriptor import GridDescriptor
 import numpy as np
@@ -7,11 +8,11 @@ from gpaw.xc import XC
 from gpaw.mpi import world
 
 
+@pytest.mark.libxc
 def test_vdw_potential():
     N = 10
     a = 2.0
     gd = GridDescriptor((N, N, N), (a, a, a))
-
 
     def paired():
         xc = XC('vdW-DF')
@@ -29,7 +30,6 @@ def test_vdw_potential():
         x2 = E2 / 0.00004
         print(i, x, x2, x - x2, x / x2)
         equal(x, x2, 2e-11)
-
 
     def polarized():
         xc = XC('vdW-DF')
@@ -49,7 +49,6 @@ def test_vdw_potential():
         x2 = E2 / 0.00004
         print(i, x, x2, x - x2, x / x2)
         equal(x, x2, 2e-10)
-
 
     if world.size == 1:
         polarized()

@@ -3,24 +3,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
 from gpaw.spinorbit import get_spinorbit_eigenvalues
-#plt.rc('text', usetex=True)
 
 calc = GPAW('WS2_bands.gpw', txt=None)
+ef = GPAW('WS2_gs.gpw', txt=None).get_fermi_level()
 
 x = np.loadtxt('WS2_kpath.dat')
 X = np.loadtxt('WS2_highsym.dat')
 e_kn = np.array([calc.get_eigenvalues(kpt=k)
                  for k in range(len(calc.get_ibz_k_points()))])
 e_nk = e_kn.T
-e_nk -= calc.get_fermi_level()
+e_nk -= ef
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
 e_nk, s_kvn = get_spinorbit_eigenvalues(calc, return_spin=True)
-e_nk -= calc.get_fermi_level()
+e_nk -= ef
 s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
 
-plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$', 
+plt.xticks(X, [r'$\mathrm{M}$', r'$\mathrm{K}$', r'$\Gamma$',
                r'$\mathrm{-K}$', r'$\mathrm{-M}$'], size=20)
 plt.yticks(size=20)
 for i in range(len(X))[1:-1]:

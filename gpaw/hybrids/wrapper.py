@@ -47,7 +47,7 @@ class HybridXC:
     def get_setup_name(self):
         return 'PBE'
 
-    def initialize(self, dens, ham, wfs, occupations):
+    def initialize(self, dens, ham, wfs):
         self.dens = dens
         self.wfs = wfs
         self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
