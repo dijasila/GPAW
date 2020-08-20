@@ -60,7 +60,7 @@ class DirectMin(Eigensolver):
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'WER'
         if self.sda is None:
-            self.sda = 'LBFGS_P'
+            self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
             self.sda = xc_string_to_dict(self.sda)
         if isinstance(self.lsa, basestring):
