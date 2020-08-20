@@ -116,7 +116,21 @@ class WaveFunction:
         domain_comm.broadcast(v_msn, 0)
 
         P_mI = self.projections.matrix.array
-        P_mI[:] = v_msn.transpose((0, 2, 1)).copy().reshape((M, M)).dot(P_mI)
+        if 1:
+            P_mI[:] = v_msn.transpose((0, 2, 1)).copy().reshape((M, M)).dot(P_mI)
+        else:
+            P_msI = self.projections.array
+            P0_ni = P_msI[::2, 0]
+            #if self.bz_index == 1:
+            #    print(P0_ni[:,0])
+            #    print(v_msn[1,0])
+            P1_ni = P_msI[1::2, 1]
+            P0_mi = v_msn[:, 0].dot(P0_ni)
+            P1_mi = v_msn[:, 1].dot(P1_ni)
+            P_msI[:, 0] = P0_mi
+            P_msI[:, 1] = P1_mi
+            #if self.bz_index == 1:
+            #    print(P0_mi[1, 0])
 
         sx_m = []
         sy_m = []

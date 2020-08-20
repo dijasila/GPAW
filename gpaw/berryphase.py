@@ -433,7 +433,7 @@ def parallel_transport(calc,
             iq = qpts_q[q]
             U_mm = U_qmm[q]
             v_msn = soc_kpts[iq].v_msn
-            v_snm = np.einsum('xm, msn -> snm', U_mm, v_msn[bands])
+            v_snm = np.einsum('xm, msn -> snx', U_mm, v_msn[bands])
             A_mm += np.dot(v_snm[0].T.conj(), v_snm[0])
             A_mm -= np.dot(v_snm[1].T.conj(), v_snm[1])
         A_mm /= Nloc
@@ -443,6 +443,6 @@ def parallel_transport(calc,
     world.sum(S_km)
 
     if name is not None:
-        np.savez('phases_%s.npz' % name, phi_km=phi_km, S_km=S_km)
+        np.savez(f'phases_{name}.npz', phi_km=phi_km, S_km=S_km)
 
     return phi_km, S_km
