@@ -35,6 +35,7 @@ class DirectMin(Eigensolver):
                  g_tol=5.0e-4,
                  printinnerloop=False,
                  blocksize=1,
+                 convergelumo=True,
                  exstopt=False):
 
         super(DirectMin, self).__init__(keep_htpsit=False,
@@ -51,6 +52,7 @@ class DirectMin(Eigensolver):
         self.kappa_tol=kappa_tol
         self.g_tol=g_tol
         self.printinnerloop = printinnerloop
+        self.convergelumo = convergelumo
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
@@ -686,7 +688,7 @@ class DirectMin(Eigensolver):
 
         k = self.n_kps * kpt.s + kpt.q
         n_occ = get_n_occ(kpt)
-        dim = self.dimensions[k]
+        dim = self.bd.nbands - n_occ
         # calculate gradients:
         psi = kpt.psit_nG[n_occ:n_occ + dim].copy()
         P1_ai = wfs.pt.dict(shape=dim)

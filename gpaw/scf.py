@@ -299,12 +299,15 @@ class SCFLoop:
                         log(
                             '\nOccupied states converged after {:d} e/g evaluations'.format(
                                 niter1))
-
-                    log('Converge unoccupied states:')
-                    max_er = self.max_errors['eigenstates']
-                    max_er *= Ha ** 2 / wfs.nvalence
-                    wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
-                                             max_er, log)
+                    if wfs.eigensolver.convergelumo:
+                        log('Converge unoccupied states:')
+                        max_er = self.max_errors['eigenstates']
+                        max_er *= Ha ** 2 / wfs.nvalence
+                        wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
+                                                 max_er, log)
+                    else:
+                        wfs.eigensolver.initialized=False
+                        log('Unoccupied states are not converged.')
                     rewrite_psi = True
                     if 'SIC' in wfs.eigensolver.odd_parameters['name']:
                         rewrite_psi = False
