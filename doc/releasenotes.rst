@@ -76,6 +76,8 @@ Git master branch
   :func:`gpaw.mpi.send` and :func:`gpaw.mpi.receive` functions for general
   Python objects.
 
+* Atoms with fractional atomic numbers can now be handled.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/

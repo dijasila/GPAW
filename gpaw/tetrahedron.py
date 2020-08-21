@@ -93,8 +93,12 @@ def triangulate_submesh(rcell_cv: Array2D) -> Array3D:
                        for A in [0, 1] for B in [0, 1] for C in [0, 1]])
     dt = Delaunay(ABC_sc.dot(rcell_cv))
     s_tq = dt.simplices
-    assert s_tq.shape == (6, 4)
     ABC_tqc = ABC_sc[s_tq]
+
+    # Remove zero-volume slivers:
+    ABC_tqc = ABC_tqc[np.linalg.det(ABC_tqc[:, 1:] - ABC_tqc[:, :1]) != 0]
+
+    assert ABC_tqc.shape == (6, 4, 3)
     return ABC_tqc
 
 
