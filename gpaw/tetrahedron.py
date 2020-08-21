@@ -93,8 +93,12 @@ def triangulate_submesh(rcell_cv: Array2D) -> Array3D:
                        for A in [0, 1] for B in [0, 1] for C in [0, 1]])
     dt = Delaunay(ABC_sc.dot(rcell_cv))
     s_tq = dt.simplices
-    assert s_tq.shape == (6, 4)
     ABC_tqc = ABC_sc[s_tq]
+
+    # Remove zero-volume slivers:
+    ABC_tqc = ABC_tqc[np.linalg.det(ABC_tqc[:, 1:] - ABC_tqc[:, :1]) != 0]
+
+    assert ABC_tqc.shape == (6, 4, 3)
     return ABC_tqc
 
 
@@ -133,10 +137,11 @@ class TetrahedronMethod(OccupationNumberCalculator):
                  parallel_layout: ParallelLayout = None):
         """Tetrahedron method for calculating occupation numbers.
 
-        The reciprocal cell (rcell) can be given in arbitrary units
-        (only the shape matters) and size is the size of the
+        The reciprocal cell, *rcell*, can be given in arbitrary units
+        (only the shape matters) and *size* is the size of the
         Monkhorst-Pack grid.  If k-points have been symmetry-reduced
-        the bz2ibzmap mapping BZ k-point indizes to IBZ -k-point indices.
+        the *bz2ibzmap* parameter  mapping BZ k-point indizes to
+        IBZ k-point indices must be given.
         """
 
         OccupationNumberCalculator.__init__(self, parallel_layout)
@@ -171,6 +176,16 @@ class TetrahedronMethod(OccupationNumberCalculator):
             'parallel_layout=<'
             f'{self.bd.comm.size}x{self.kpt_comm.size}x{self.domain_comm.size}'
             '>)')
+
+    def copy(self,
+             parallel_layout: ParallelLayout = None,
+             bz2ibzmap: List[int] = None
+             ) -> OccupationNumberCalculator:
+        return TetrahedronMethod(
+            self.rcell_cv,
+            self.size_c,
+            self.i_k if bz2ibzmap is None else bz2ibzmap,
+            parallel_layout or self.parallel_layout)
 
     def _calculate(self,
                    nelectrons,

@@ -68,6 +68,8 @@ Git master branch
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
   Use ``occupations={'name': 'tetrahedron-method'}``.
 
+* Atoms with fractional atomic numbers can now be handled.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
