@@ -157,6 +157,9 @@ class WaveFunction:
             a: P_msi.transpose((0, 2, 1)).copy().reshape((M, -1))
             for a, P_msi in self.projections.items()}
 
+    def ldos(self):
+        return eneriges, weights
+
 
 class BZWaveFunctions:
     def __init__(self,

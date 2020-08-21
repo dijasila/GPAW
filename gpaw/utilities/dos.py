@@ -171,20 +171,17 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
 def raw_spinorbit_orbital_LDOS(soc, setups, a, spin, angular='spdf'):
     """Like former, but with spinorbit coupling."""
 
-    e_mk = soc.eigenvalues().T
-    e_mk /= Hartree
-    ns = paw.wfs.nspins
-    w_k = paw.wfs.kd.weight_k
-    nk = len(w_k)
-    nb = len(e_mk)
-
     if a < 0:
         # Allow list-style negative indices; we'll need the positive a for the
         # dictionary lookup later
-        a = len(paw.wfs.setups) + a
+        a = len(setups) + a
 
-    setup = paw.wfs.setups[a]
-    energies = np.empty(nb * nk)
+    nbzkpts = len(soc_bz_wfs)
+    nbands = soc_bz_wfs.nbands
+
+    setup = setups[a]
+
+    energies = np.empty(nbands * nk)
     weights_xi = np.empty((nb * nk, setup.ni))
     x = 0
     for k, w in enumerate(w_k):
