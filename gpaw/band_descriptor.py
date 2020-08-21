@@ -51,7 +51,7 @@ class BandDescriptor:
             [ 2.,  5.,  8., 11.]])
      """
 
-    def __init__(self, nbands, comm=None, strided=False):
+    def __init__(self, nbands: int, comm=None, strided=False):
         """Construct band-descriptor object.
 
         Parameters:

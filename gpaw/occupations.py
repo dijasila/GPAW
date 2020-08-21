@@ -100,7 +100,7 @@ def hermite_poly(n, x):
 
 
 class OccupationNumberCalculator:
-    """Base class for all occupation number objects."""
+    """Base class for all occupation number calculators."""
     name = 'unknown'
     extrapolate_factor: float
 
@@ -122,6 +122,17 @@ class OccupationNumberCalculator:
     @property
     def parallel_layout(self) -> ParallelLayout:
         return ParallelLayout(self.bd, self.kpt_comm, self.domain_comm)
+
+    def todict(self):
+        return {'name': self.name}
+
+    def copy(self,
+             parallel_layout: ParallelLayout = None,
+             bz2ibzmap: List[int] = None
+             ) -> 'OccupationNumberCalculator':
+        return create_occ_calc(
+            self.todict(),
+            parallel_layout=parallel_layout or self.parallel_layout)
 
     def calculate(self,
                   nelectrons: float,
@@ -580,10 +591,8 @@ def FixedOccupations(f_sn):
 
 
 class ThomasFermiOccupations(OccupationNumberCalculator):
+    name = 'orbital-free'
     extrapolate_factor = 0.0
-
-    def todict(self):
-        return {'name': 'orbital-free'}
 
     def _calculate(self,
                    nelectrons,

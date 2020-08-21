@@ -1,4 +1,9 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Battery project
 """
@@ -14,7 +19,7 @@ Today you will study the LiPO$_4$ cathode. You will calculate the equilibrium po
 
 -  The volume change during charge/discharge.
 
--  The maximum gravimetric and volumetric energy density of a FePO$_4$/C battery assuming the majority of weight and volume will be given by the electrodes. 
+-  The maximum gravimetric and volumetric energy density of a FePO$_4$/C battery assuming the majority of weight and volume will be given by the electrodes.
 
 -  Uncertainty in the calculations.
 
@@ -105,7 +110,7 @@ For better convergence of calculations you should specify initial magnetic momen
 # Teacher:
 for atom in fepo4:
     if atom.symbol == 'Fe':
-        atom.magmom = 5.0  # student: atom.magmom = ? 
+        atom.magmom = 5.0  # student: atom.magmom = ?
 
 # %%
 """
@@ -141,7 +146,7 @@ DFT suffers from a so-called self-interaction error. An electron interacts with 
 
 # %%
 """
-Make a GPAW calculator and attach it to the atoms object. Here you will use [get_potential_energy](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms.get_potential_energy) to start the calculation. 
+Make a GPAW calculator and attach it to the atoms object. Here you will use [get_potential_energy](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms.get_potential_energy) to start the calculation.
 """
 
 # %%
@@ -151,7 +156,7 @@ You will use the ensemble capability of the BEEF-vdW functional. You will need t
 
 # %%
 """
-Print the energy differences to file. This is not the most efficient way of printing to file but can allow easier subsequent data treatment. 
+Print the energy differences to file. This is not the most efficient way of printing to file but can allow easier subsequent data treatment.
 """
 
 # %%
@@ -167,7 +172,7 @@ from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
 
 # Read in the structure you made and wrote to file above
-fepo4 = read('fepo4.traj')   
+fepo4 = read('fepo4.traj')
 
 params_GPAW = {...}
 
@@ -184,11 +189,11 @@ from ase.io import read, write
 from ase.io.trajectory import Trajectory
 from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
-fepo4 = read('fepo4.traj')   
+fepo4 = read('fepo4.traj')
 
 params_GPAW = {}
 params_GPAW['mode']        = PW(500)                     #The used plane wave energy cutoff
-params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired 
+params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired
 params_GPAW['kpts']        = {'size':  (2,4,5),            #The k-point mesh
                               'gamma': True}
 params_GPAW['spinpol']     = True                          #Performing spin polarized calculations
@@ -208,7 +213,7 @@ print('E_Pot=', epot_fepo4_cell)
 
 write('fepo4_out.traj', fepo4)
 
-ens = BEEFEnsemble(calc)   
+ens = BEEFEnsemble(calc)
 dE = ens.get_ensemble_energies(2000)
 
 with paropen('ensemble_fepo4.dat', 'a') as result:
@@ -217,11 +222,11 @@ with paropen('ensemble_fepo4.dat', 'a') as result:
 
 # %%
 """
-Uncomment the `%%writefile` line and execute the cell again and submit the calculation to the HPC cluster. The calculation should take around 10 minutes. 
+Uncomment the `%%writefile` line and execute the cell again and submit the calculation to the HPC cluster. The calculation should take around 10 minutes.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 fepo4.py  # submits the calculation to 8 cores, 1 hour 
+# magic: !qsub.py -p 8 -t 1 fepo4.py  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -265,11 +270,11 @@ except FileNotFoundError:
 
 # %%
 """
-You will now do similar for LiFePO$_4$. In this case you will load in a template structure called `lifepo4_wo_li.traj` missing only the Li atoms. It is located in the resources folder. 
+You will now do similar for LiFePO$_4$. In this case you will load in a template structure called `lifepo4_wo_li.traj` missing only the Li atoms. It is located in the resources folder.
 """
 
 # %%
-lifepo4_wo_li = read('lifepo4_wo_li.traj')     
+lifepo4_wo_li = read('lifepo4_wo_li.traj')
 
 # %%
 """
@@ -305,13 +310,13 @@ from ase import Atom
 
 lifepo4 = lifepo4_wo_li.copy()
 cell = lifepo4.get_cell()
-xyzcell = identity(3) 
+xyzcell = identity(3)
 lifepo4.set_cell(xyzcell, scale_atoms=True)  # Set the unit cell and rescale
 lifepo4.append(Atom('Li', (0, 0, 0)))
 lifepo4.append(Atom('Li', (0, 0.5, 0)))
 lifepo4.append(Atom('Li', (0.5, 0.5, 0.5)))
 lifepo4.append(Atom('Li', (0.5, 0, 0.5)))
-lifepo4.set_cell(cell, scale_atoms=True) 
+lifepo4.set_cell(cell, scale_atoms=True)
 
 # %%
 """
@@ -330,7 +335,7 @@ Ensure that the magnetic moments are as they should be, once again assuming ferr
 # ...
 
 # teacher
-print(lifepo4.get_initial_magnetic_moments())  
+print(lifepo4.get_initial_magnetic_moments())
 
 # %%
 """
@@ -342,7 +347,7 @@ write('lifepo4.traj', lifepo4)
 
 # %%
 """
-You should now calculate the potential energy of this sytem using the method and same calculational parameters as for FePO$_4$ above. Make a full script in the cell below similar to what you did above for FePO$_4$ and make sure that it runs. 
+You should now calculate the potential energy of this sytem using the method and same calculational parameters as for FePO$_4$ above. Make a full script in the cell below similar to what you did above for FePO$_4$ and make sure that it runs.
 """
 
 # %%
@@ -353,7 +358,7 @@ from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
 
 # Read in the structure you made and wrote to file above
-lifepo4 = read('lifepo4.traj')   
+lifepo4 = read('lifepo4.traj')
 
 params_GPAW = {...}
 
@@ -371,11 +376,11 @@ from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
 
 #Read in the structure you made and wrote to file above
-lifepo4 = read('lifepo4.traj')   
+lifepo4 = read('lifepo4.traj')
 
 params_GPAW = {}
 params_GPAW['mode']        = PW(500)                     #The used plane wave energy cutoff
-params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired 
+params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired
 params_GPAW['kpts']        = {'size':  (2,4,5),            #The k-point mesh
                               'gamma': True}
 params_GPAW['spinpol']     = True                          #Performing spin polarized calculations
@@ -396,7 +401,7 @@ print('E_Pot=', epot_lifepo4_cell)
 traj=Trajectory('lifepo4_out.traj', mode='w', atoms=lifepo4)
 traj.write()
 
-ens = BEEFEnsemble(calc)   
+ens = BEEFEnsemble(calc)
 dE = ens.get_ensemble_energies(2000)
 result = paropen('ensemble_lifepo4.dat','a')
 for e in dE:
@@ -409,7 +414,7 @@ If the code runs, submit to the HPC cluster as you did above. The calculation ta
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 lifepo4.py  # submits the calculation to 8 cores, 1 hour 
+# magic: !qsub.py -p 8 -t 1 lifepo4.py  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -480,7 +485,7 @@ Now calculate the ensemble in the same way as for FePO$_4$ and LiFePO$_4$.
 
 # %%
 ens = BEEFEnsemble(calc)
-li_metal_ens_cell= ens.get_ensemble_energies(2000)  
+li_metal_ens_cell= ens.get_ensemble_energies(2000)
 with paropen('ensemble_li_metal.dat', 'a') as result:
     for e in li_metal_ens_cell:
         print(e, file=result)
@@ -528,7 +533,7 @@ print(V_eq)
 
 # %%
 """
-You will now calculate the error estimate for the Li intercallation energy in FePO$_4$ using the BEEF ensemble results. Start by loading in the files. Wait a few minutes and rerun the cell if the number is not 2000 for all of them. 
+You will now calculate the error estimate for the Li intercallation energy in FePO$_4$ using the BEEF ensemble results. Start by loading in the files. Wait a few minutes and rerun the cell if the number is not 2000 for all of them.
 """
 
 # %%

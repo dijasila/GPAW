@@ -2,9 +2,7 @@ from myqueue.task import task
 
 
 def create_tasks():
-    nbrun = 'gpaw.utilities.nbrun'
     return [
-        task(nbrun, args=['pv1.py'], tmax='13h'),
-        task(nbrun, args=['pv2.py'], tmax='13h', cores=8,
-             deps=nbrun + '+pv1.py'),
-        task(nbrun, args=['pv3.py'], tmax='13h', deps=nbrun + '+pv2.py')]
+        task('pv1.py', tmax='13h'),
+        task('pv2.py', tmax='13h', cores=8, deps='pv1.py'),
+        task('pv3.py', tmax='13h', deps='pv2.py')]

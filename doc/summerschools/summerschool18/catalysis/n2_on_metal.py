@@ -1,4 +1,9 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Catalysis: Dissociative adsorbtion of N<sub>2</sub> on a metal surface
 
@@ -10,7 +15,7 @@ This is the rate limiting step for ammonia synthesis.
 # %%
 """
 ## N<sub>2</sub> Adsorption on a metal surface
-This notebook shows how to calculate the adsorption energy of an N<sub>2</sub> molecule on a closepacked Ru surface. The first cell imports some modules from the ASE and GPAW packages 
+This notebook shows how to calculate the adsorption energy of an N<sub>2</sub> molecule on a closepacked Ru surface. The first cell imports some modules from the ASE and GPAW packages
 """
 
 # %%
@@ -28,9 +33,9 @@ import time
 """
 ### Setting up the metal surface
 
-Ru crystalises in the hcp structure with a lattice constants a = 2.706 Å and c = 4.282 Å.  It is often better to use the lattice constants corresponding to the DFT variant used (here PBE with PAW).  We get this from http://oqmd.org.  
+Ru crystalises in the hcp structure with a lattice constants a = 2.706 Å and c = 4.282 Å.  It is often better to use the lattice constants corresponding to the DFT variant used (here PBE with PAW).  We get this from http://oqmd.org.
 
-We model the surface by a 2 layer slab of metal atoms, and add 5Å vacuum on each side. 
+We model the surface by a 2 layer slab of metal atoms, and add 5Å vacuum on each side.
 
 We visualize the system with ASE GUI, so you can check that everything looks right.  This pops up a new window.
 """
@@ -56,13 +61,13 @@ To optimise the slab we need a calculator. We use the GPAW calculator in plane w
 # %%
 calc = GPAW(xc='PBE',
             mode=PW(350),
-            kpts={'size': (4, 4, 1), 'gamma': True}, 
+            kpts={'size': (4, 4, 1), 'gamma': True},
             convergence={'eigenstates': 1e-6})
 slab.calc = calc
 
 # %%
 """
-The bottom layer of the slab is fixed during optimisation. The structure is optimised until the forces on all atoms are below 0.05eV/Å. 
+The bottom layer of the slab is fixed during optimisation. The structure is optimised until the forces on all atoms are below 0.05eV/Å.
 """
 
 # %%
@@ -130,7 +135,7 @@ How does this compare with the experimental value?
 """
 ### Adsorbing the molecule
 
-Now we adsorb the molecule on top of one of the Ru atoms. 
+Now we adsorb the molecule on top of one of the Ru atoms.
 
 Here, it would be natural to just add the molecule to the slab, and minimize.  However, that takes 45 minutes to an hour to converge, **so we cheat to speed up the calculation.**
 
@@ -145,7 +150,7 @@ slab.positions[4, 2] += 0.2  # pre-relax the binding metal atom.
 molecule = Atoms('2N', positions=[(0, 0, 0), (0, 0, d)])
 p = slab.get_positions()[4]
 molecule.translate(p + (0, 0, h))
-slabN2 = slab + molecule 
+slabN2 = slab + molecule
 constraint = FixAtoms(mask=(z < z.min() + 1.0))
 slabN2.set_constraint(constraint)
 view(slabN2)
@@ -197,9 +202,9 @@ print('N2 bond length:', slabN2.get_distance(8, 9))
 
 1) Make a new notebook and set up an adsorption configuration where the N<sub>2</sub> molecule is lying down with the center of mass above a three-fold hollow site as shown below. Use an adsorption height of 1.7 Å.
 
-<img src="N2Ru_hollow.png"> 
+<img src="N2Ru_hollow.png">
 
-Remember that you can read in the `traj` files you have saved, so you don't need to optimise the surface again. 
+Remember that you can read in the `traj` files you have saved, so you don't need to optimise the surface again.
 
 View the combined system before you optimize the structure to ensure that you created what you intended.
 """
@@ -212,7 +217,7 @@ view(slab)
 """
 Note that when viewing the structure, you can find the index of the individual atoms in the ``slab`` object by clicking on them.
 
-You might also find the [`get_center_of_mass()`](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms.get_center_of_mass) and [`rotate()`](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms.rotate) methods useful.   
+You might also find the [`get_center_of_mass()`](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms.get_center_of_mass) and [`rotate()`](https://wiki.fysik.dtu.dk/ase/ase/atoms.html#ase.Atoms.rotate) methods useful.
 """
 
 # %%

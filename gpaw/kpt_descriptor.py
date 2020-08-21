@@ -86,7 +86,7 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1):
+    def __init__(self, kpts, nspins: int = 1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
         Parameters

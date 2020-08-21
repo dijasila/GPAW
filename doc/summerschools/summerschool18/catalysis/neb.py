@@ -1,7 +1,12 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 ## Introduction to Nudged Elastic Band (NEB) calculations
-This tutorial describes how to use the NEB method to calculate the diffusion barrier for an Au atom on Al(001). If you are not familiar with the NEB method some relevant references are listed [here.](https://wiki.fysik.dtu.dk/ase/ase/neb.html) 
+This tutorial describes how to use the NEB method to calculate the diffusion barrier for an Au atom on Al(001). If you are not familiar with the NEB method some relevant references are listed [here.](https://wiki.fysik.dtu.dk/ase/ase/neb.html)
 
 The tutorial uses the EMT potential in stead of DFT, as this is a lot faster. It is based on a [tutorial found on the ASE webpage](https://wiki.fysik.dtu.dk/ase/tutorials/neb/diffusion.html#diffusion-tutorial).
 
@@ -63,7 +68,7 @@ qn.run(fmax=0.05)
 """
 Now we make a NEB calculation with 3 images between the inital and final states. The images are initially made as copies of the initial state and the command `interpolate()` makes a linear interpolation between the initial and final state. As always, we check that everything looks ok before we run the calculation.
 
-NOTE: The linear interpolation works well in this case but not for e.g. rotations. In this case an improved starting guess can be made with the [IDPP method.](https://wiki.fysik.dtu.dk/ase/tutorials/neb/idpp.html#idpp-tutorial)  
+NOTE: The linear interpolation works well in this case but not for e.g. rotations. In this case an improved starting guess can be made with the [IDPP method.](https://wiki.fysik.dtu.dk/ase/tutorials/neb/idpp.html#idpp-tutorial)
 """
 
 # %%
@@ -122,14 +127,14 @@ nebtools.plot_band(ax)
 """
 ## Exercise
 
-Now you should make your own NEB using the configuration with N<sub>2</sub> lying down as the initial state and the configuration with two N atoms adsorbed on the surface as the final state. The NEB needs to run in parallel so you should make it as a python script, however you can use the Notebook to test your configurations (but not the parallelisation) if you like and export it as a script in the end. 
+Now you should make your own NEB using the configuration with N<sub>2</sub> lying down as the initial state and the configuration with two N atoms adsorbed on the surface as the final state. The NEB needs to run in parallel so you should make it as a python script, however you can use the Notebook to test your configurations (but not the parallelisation) if you like and export it as a script in the end.
 
 ### Parallelisation
-The NEB should be parallelised over images. An example can be found in [this GPAW tutorial](https://wiki.fysik.dtu.dk/gpaw/tutorials/neb/neb.html). The script enumerates the cpu's and uses this number (``rank``) along with the total number of cpu's (``size``) to distribute the tasks. 
+The NEB should be parallelised over images. An example can be found in [this GPAW tutorial](https://wiki.fysik.dtu.dk/gpaw/tutorials/neb/neb.html). The script enumerates the cpu's and uses this number (``rank``) along with the total number of cpu's (``size``) to distribute the tasks.
 """
 
 # %%
-# This code is just for illustration 
+# This code is just for illustration
 from ase.parallel import rank, size
 n_im = 4              # Number of images
 n = size // n_im      # number of cpu's per image
@@ -138,12 +143,12 @@ assert n_im * n == size
 
 # %%
 """
-For each image we assign a set of cpu's identified by their rank. The rank numbers are given to the calculator associated with this image. 
+For each image we assign a set of cpu's identified by their rank. The rank numbers are given to the calculator associated with this image.
 """
 
 # %%
 # This code is just for illustration
-from gpaw import GPAW, PW 
+from gpaw import GPAW, PW
 images = [initial]
 for i in range(n_im):
     ranks = range(i * n, (i + 1) * n)
@@ -176,28 +181,28 @@ Some suitable parameters for the NEB are given below:
 
 # %%
 # teacher:
-from gpaw import GPAW, PW 
-from ase.visualize import view 
-from ase.optimize import BFGS 
-from ase.io import Trajectory 
-from ase.parallel import rank, size 
+from gpaw import GPAW, PW
+from ase.visualize import view
+from ase.optimize import BFGS
+from ase.io import Trajectory
+from ase.parallel import rank, size
 
 initial = read('N2Ru.traj')
-final = read('2Nads.traj') 
+final = read('2Nads.traj')
 
-images = [initial] 
-N = 4  # No. of images 
+images = [initial]
+N = 4  # No. of images
 
-z = initial.positions[:, 2] 
-constraint = FixAtoms(mask=(z < z.min() + 1.0)) 
+z = initial.positions[:, 2]
+constraint = FixAtoms(mask=(z < z.min() + 1.0))
 
 j = rank * N // size
-n = size // N  # number of cpu's per image 
+n = size // N  # number of cpu's per image
 
 for i in range(N):
     ranks = range(i * n, (i + 1) * n)
-    image = initial.copy() 
-    image.set_constraint(constraint) 
+    image = initial.copy()
+    image.set_constraint(constraint)
     if rank in ranks:
         calc = GPAW(xc='PBE',
                     mode=PW(350),
@@ -206,14 +211,14 @@ for i in range(N):
                     txt='{}.txt'.format(i),
                     kpts={'size': (4, 4, 1), 'gamma': True},
                     convergence={'eigenstates': 1e-7})
-        image.calc = calc 
-    images.append(image) 
-images.append(final) 
+        image.calc = calc
+    images.append(image)
+images.append(final)
 
 neb = NEB(images, k=1.0, parallel=True)
 neb.interpolate()
 qn = BFGS(neb, logfile='neb.log', trajectory='neb.traj')
-qn.run(fmax=0.1) 
+qn.run(fmax=0.1)
 neb.climb = True
 qn.run(fmax=0.05)
 

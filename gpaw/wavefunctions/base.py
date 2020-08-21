@@ -247,7 +247,7 @@ class WaveFunctions:
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.kpt_u[0].projections is not None:
+        if not self.positions_set and self.kpt_u[0]._projections is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
