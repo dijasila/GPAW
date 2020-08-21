@@ -218,7 +218,8 @@ class BZWaveFunctions:
         return e_band
 
     def __iter__(self):
-        yield from self.wfs.values()
+        for bz_index in sorted(self.wfs):
+            yield self[bz_index]
 
     def __getitem__(self, bz_index):
         return self.wfs[bz_index]

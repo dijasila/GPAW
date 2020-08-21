@@ -72,7 +72,9 @@ Git master branch
   Use ``occupations={'name': 'tetrahedron-method'}``.
 
 * New :func:`gpaw.mpi.broadcast_array` function for broadcasting
-  an ``np.ndarray`` across several MPI-communicators.
+  an ``np.ndarray`` across several MPI-communicators.  New
+  :func:`gpaw.mpi.send` and :func:`gpaw.mpi.receive` functions for general
+  Python objects.
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html

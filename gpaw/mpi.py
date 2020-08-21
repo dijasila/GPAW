@@ -7,6 +7,7 @@ import traceback
 import atexit
 import pickle
 from contextlib import contextmanager
+from typing import Any
 
 import numpy as np
 
@@ -826,7 +827,7 @@ def send(obj, rank: int, comm) -> None:
     comm.send(np.frombuffer(b, np.int8).copy(), rank)
 
 
-def receive(rank: int, comm):
+def receive(rank: int, comm) -> Any:
     """Receive object from rank on the MPI communicator comm."""
     n = np.array(0)
     comm.receive(n, rank)
