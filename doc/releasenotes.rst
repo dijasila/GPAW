@@ -71,6 +71,9 @@ Git master branch
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
   Use ``occupations={'name': 'tetrahedron-method'}``.
 
+* New :func:`gpaw.mpi.broadcast_array` function for broadcasting
+  an ``np.ndarray`` across several MPI-communicators.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
