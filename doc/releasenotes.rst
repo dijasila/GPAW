@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
+  and uses symmetry.
+
 * GLLBSC exchange-correlation potential fixed for periodic metallic systems:
   https://gitlab.com/gpaw/gpaw/-/merge_requests/651
 
@@ -67,6 +70,11 @@ Git master branch
 
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
   Use ``occupations={'name': 'tetrahedron-method'}``.
+
+* New :func:`gpaw.mpi.broadcast_array` function for broadcasting
+  an ``np.ndarray`` across several MPI-communicators.  New
+  :func:`gpaw.mpi.send` and :func:`gpaw.mpi.receive` functions for general
+  Python objects.
 
 * Atoms with fractional atomic numbers can now be handled.
 

@@ -171,11 +171,11 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
 def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
     """Like former, but with spinorbit coupling."""
 
-    from gpaw.spinorbit import get_spinorbit_eigenvalues
-    from gpaw.spinorbit import get_spinorbit_projections
+    from gpaw.spinorbit import soc_eigenstates
 
-    e_mk, v_knm = get_spinorbit_eigenvalues(paw, return_wfs=True,
-                                            theta=theta, phi=phi)
+    soc = soc_eigenstates(paw,
+                          theta=theta, phi=phi)
+    e_mk = soc.eigenvalues().T
     e_mk /= Hartree
     ns = paw.wfs.nspins
     w_k = paw.wfs.kd.weight_k
@@ -193,13 +193,13 @@ def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
     x = 0
     for k, w in enumerate(w_k):
         energies[x:x + nb] = e_mk[:, k]
-        P_ami = get_spinorbit_projections(paw, k, v_knm[k])
+        P_amsi = soc[k].projections
         if ns == 2:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, spin::2])**2
+            weights_xi[x:x + nb, :] = w * np.absolute(P_amsi[a][:, spin])**2
         else:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, 0::2])**2 / 2
+            weights_xi[x:x + nb, :] = w * np.absolute(P_amsi[a][:, 0])**2 / 2
             weights_xi[x:x + nb, :] += (w *
-                                        np.absolute(P_ami[a][:, 1::2])**2 / 2)
+                                        np.absolute(P_amsi[a][:, 1])**2 / 2)
         x += nb
 
     if angular is None:
@@ -237,7 +237,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     if wf_k is None:
         if lc is None:
             lc = [[1, 0, 0, 0] for a in mol]
-        for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
+        for k, kpt in enumerate(kpt_s[spin] for kpt_s in paw.wfs.kpt_qs):
             N = 0
             for atom, w_a in zip(mol, lc):
                 i = 0
@@ -249,7 +249,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
 
     else:
         P_aui = [np.array(P_ui).conj() for P_ui in P_aui]
-        for k, kpt in enumerate(paw.wfs.kpt_u[spin * nk:(spin + 1) * nk]):
+        for k, kpt in enumerate(kpt_s[spin] for kpt_s in paw.wfs.kpt_qs):
             for n in range(nb):
                 P_kn[k][n] = paw.wfs.integrate(wf_k[k], kpt.psit_nG[n])
                 for a, b in zip(mol, range(len(mol))):

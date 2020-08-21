@@ -1,4 +1,9 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Non-collinear magnetism - VI$_2$
 
@@ -20,7 +25,7 @@ from gpaw import GPAW, PW
 S = 3 / 2  # student: S = ???
 m = S * 2
 layer = read('VI2.xyz')
-layer.set_initial_magnetic_moments([m, 0, 0])        
+layer.set_initial_magnetic_moments([m, 0, 0])
 view(layer)
 
 calc = GPAW(mode=PW(400), xc='LDA', kpts=(4, 4, 1))
@@ -47,8 +52,8 @@ from gpaw.spinorbit import get_anisotropy
 from math import pi
 
 calc = GPAW('VI2_relaxed.gpw', txt=None)
-e_x = get_anisotropy(calc, theta=pi/2, phi=0)
-e_y = get_anisotropy(calc, theta=pi/2, phi=pi/2)
+e_x = get_anisotropy(calc, theta=pi / 2, phi=0)
+e_y = get_anisotropy(calc, theta=pi / 2, phi=pi / 2)
 e_z = get_anisotropy(calc, theta=0, phi=0)
 de_zx = e_z - e_x
 de_zy = e_z - e_y
@@ -116,7 +121,7 @@ print('J = %1.2f meV' % (J * 1000))
 As it turn out the optimal spin structure of a hexagonal lattice with anti-ferromagntice coupling is taking all spins at 120$^\circ$ angles with respect to each other. Draw this structure and convince yourself that it can be done.
 
 1. What is the minimal number of magnetic atoms required in the magnetic unit cell
-2. Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration that the anti-aligned structure calculated above. The energy per site of this state should be 
+2. Verrify that the Heisenberg model with classical spins gives a lower energy with this configuration that the anti-aligned structure calculated above. The energy per site of this state should be
 
 $$E_{\mathrm{NC}}=E_0+\frac{3}{2}S^2J.$$
 
@@ -132,7 +137,7 @@ from gpaw import GPAW, PW, MixerDif
 m = 3
 cell_cv = layer.get_cell()
 layer_nc = layer.repeat((3, 1, 1))
-new_cell_cv = [[3 * cell_cv[0, 0] / 2, 3**0.5 * cell_cv[0, 0] / 2, 0.0], 
+new_cell_cv = [[3 * cell_cv[0, 0] / 2, 3**0.5 * cell_cv[0, 0] / 2, 0.0],
                [3 * cell_cv[0, 0] / 2, -3**0.5 * cell_cv[0, 0] / 2, 0.0],
                [0.0, 0.0, cell_cv[2, 2]]]
 layer_nc.set_cell(new_cell_cv)
@@ -175,9 +180,22 @@ calc.write('fm_nosoc.gpw')
 # %%
 """
 ### Anisotropy and exhange coupling from the non-collinear configuration
-In the cell above we could have set 'soc'=True' to include spin-orbit coupling in the self-consistent non-collinear solution. However, it is more convenient for us to exclude it such that we can explicitly obtain the anisotropy based on this calculation.
 
-If the Heisenberg Hamiltonian with nearest neighbor interactions is a good model we should be able to obtain both $J$ and $A$ from the non-collinear calculation as well. Write some python code in the cell below that return $J$ and $A$ based on the non-collinear calculation. The calculation of $J$ requires two spin configurations and we could use the ferromagnetic calculation in the simple unit cell obtained at the top of the notebook as one of them. But, since the energy differences are rather small it is much better if you can obtain a ferromagnetic state with the same unit cell and parameters as we used for the non-collinear calculation. You may thus run the cell above once more, but with ferromagnetic alignment.
+In the cell above we could have set 'soc'=True' to include spin-orbit
+coupling in the self-consistent non-collinear solution. However, it is more
+convenient for us to exclude it such that we can explicitly obtain the
+anisotropy based on this calculation.
+
+If the Heisenberg Hamiltonian with nearest neighbor interactions is a good
+model we should be able to obtain both $J$ and $A$ from the non-collinear
+calculation as well. Write some python code in the cell below that return $J$
+and $A$ based on the non-collinear calculation. The calculation of $J$
+requires two spin configurations and we could use the ferromagnetic
+calculation in the simple unit cell obtained at the top of the notebook as
+one of them. But, since the energy differences are rather small it is much
+better if you can obtain a ferromagnetic state with the same unit cell and
+parameters as we used for the non-collinear calculation. You may thus run the
+cell above once more, but with ferromagnetic alignment.
 """
 
 # %%
@@ -187,8 +205,8 @@ from math import pi
 # teacher:
 calc = GPAW('nc_nosoc.gpw', txt=None)
 E_nc = calc.get_potential_energy() / 3
-e_x = get_anisotropy(calc, theta=pi/2, phi=0) / 3
-e_y = get_anisotropy(calc, theta=pi/2, phi=pi/2) / 3
+e_x = get_anisotropy(calc, theta=pi / 2, phi=0) / 3
+e_y = get_anisotropy(calc, theta=pi / 2, phi=pi / 2) / 3
 e_z = get_anisotropy(calc, theta=0, phi=0) / 3
 de_zx = e_z - e_x
 de_zy = e_z - e_y
@@ -198,8 +216,8 @@ print()
 
 calc = GPAW('fm_nosoc.gpw', txt=None)
 E_fm = calc.get_potential_energy() / 3
-e_x = get_anisotropy(calc, theta=pi/2, phi=0) / 3
-e_y = get_anisotropy(calc, theta=pi/2, phi=pi/2) / 3
+e_x = get_anisotropy(calc, theta=pi / 2, phi=0) / 3
+e_y = get_anisotropy(calc, theta=pi / 2, phi=pi / 2) / 3
 e_z = get_anisotropy(calc, theta=0, phi=0) / 3
 de_zx = e_z - e_x
 de_zy = e_z - e_y
@@ -223,12 +241,25 @@ print('J = %1.2f meV' % (J * 1000))
 ### Critical temperature?
 Now answer the following questions:
 
-1.  What is the easy axis? (Hint: the anisotropy is calculated by rotating the initial spin configuration first by $\theta$ and then by $\varphi$). Does it agree with waht you found above for the simple ferromagnetic state?
-2.  Is there any rotational freedom left in the non-collinear ground state if we assume in plane isotropy?
+1. What is the easy axis? (Hint: the anisotropy is calculated by rotating
+   the initial spin configuration first by $\theta$ and then by $\varphi$).
+   Does it agree with waht you found above for the simple ferromagnetic state?
 
-You might be able to convince yourself that some degree of in-plane anisotropy is required as well to obtain a finite critical temperature for magnetic order.
+2. Is there any rotational freedom left in the non-collinear ground state if
+   we assume in plane isotropy?
 
-Clearly the non-collinear spin state of VI$_2$ is more difficult to describe than the ferromagnetic state in CrI$_3$ and we do not yet have a simple theoretical expression fot the critical temperature as a function of anisotropy and exchange coupling constants. However, with the rapid development of excperimental techniques to synthesize and characterize 2D materials it does seem plausible that such a non-collinear 2D material may be observed in the near future.
+You might be able to convince yourself that some degree of in-plane
+anisotropy is required as well to obtain a finite critical temperature for
+magnetic order.
 
-Again, bear in mind that all the calculations in the present notebook ought to be properly converged with respect to $k$-points, plane wave cutoff etc.
+Clearly the non-collinear spin state of VI$_2$ is more difficult to describe
+than the ferromagnetic state in CrI$_3$ and we do not yet have a simple
+theoretical expression fot the critical temperature as a function of
+anisotropy and exchange coupling constants. However, with the rapid
+development of excperimental techniques to synthesize and characterize 2D
+materials it does seem plausible that such a non-collinear 2D material may be
+observed in the near future.
+
+Again, bear in mind that all the calculations in the present notebook ought
+to be properly converged with respect to $k$-points, plane wave cutoff etc.
 """
