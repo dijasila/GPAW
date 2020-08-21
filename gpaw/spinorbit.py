@@ -323,7 +323,9 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                                bd: BandDescriptor,
                                gd: GridDescriptor,
                                n1: int,
-                               n2: int) -> Iterator[Tuple[int, WaveFunction]]:
+                               n2: int,
+                               eigenvalues: Array3D = None
+                               ) -> Iterator[Tuple[int, WaveFunction]]:
     """Yield tuples of IBZ-index and wave functions.
 
     All atoms and bands will be on rank == 0 of gd.comm and bd.comm
@@ -360,8 +362,12 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
         if bd.comm.rank == 0 and gd.comm.rank == 0:
             if collinear:
                 eig_m = np.empty((n2 - n1) * 2)
-                eig_m[::2] = eig_sn[0][n1:n2]
-                eig_m[1::2] = eig_sn[-1][n1:n2]
+                if eigenvalues is None:
+                    eig_m[::2] = eig_sn[0][n1:n2]
+                    eig_m[1::2] = eig_sn[-1][n1:n2]
+                else:
+                    for s in range(2):
+                        eig_m[s::2] = eigenvalues[-s, kpt_s[-s].k]
                 projections.array[:] = 0.0
                 projections.array[::2, 0] = P_snI[0][n1:n2]
                 projections.array[1::2, 1] = P_snI[-1][n1:n2]
@@ -381,7 +387,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n2: int = None,
                     scale: float = 1.0,
                     theta: float = 0.0,
-                    phi: float = 0.0
+                    phi: float = 0.0,
+                    eigenvalues: Array3D = None
                     ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
@@ -397,6 +404,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             Angle in radians.
         phi: float
             Angle in radians.
+        eigenvalues: ndarray
+            Optionally use these eigenvalues instead for those from *calc*.
+            The shape must be: (nspins, nibzkpts, n2 - n1).
 
     Returns a BZWaveFunctions object covering the whole BZ.
     """
@@ -424,8 +434,11 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     setups = calc.wfs.setups
     atom_partition = calc.density.atom_partition
 
+    if eigenvalues is not None:
+        assert eigenvalues.shape == (kd.nspins, kd.nibzkpts, n2 - n1)
+
     ibzwfs = extract_ibz_wave_functions(calc.wfs.kpt_qs,
-                                        bd, gd, n1, n2)
+                                        bd, gd, n1, n2, eigenvalues)
 
     bzwfs = soc_eigenstates_raw(ibzwfs,
                                 dVL_avii,

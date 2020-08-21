@@ -168,13 +168,9 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
         return energies, weights
 
 
-def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
+def raw_spinorbit_orbital_LDOS(soc, setups, a, spin, angular='spdf'):
     """Like former, but with spinorbit coupling."""
 
-    from gpaw.spinorbit import soc_eigenstates
-
-    soc = soc_eigenstates(paw,
-                          theta=theta, phi=phi)
     e_mk = soc.eigenvalues().T
     e_mk /= Hartree
     ns = paw.wfs.nspins
