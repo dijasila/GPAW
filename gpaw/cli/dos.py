@@ -1,3 +1,4 @@
+"""CLI-code for dos-subcommand."""
 from pathlib import Path
 import sys
 from typing import List, Tuple, Dict, Any, Union
@@ -53,28 +54,36 @@ Array3D = Any
 
 
 class IBZWaveFunctions:
+    """Container for eigenvalues and PAW projections (only IBZ)."""
     def __init__(self, calc: GPAW):
         self.calc = calc
         self.fermi_level = self.calc.get_fermi_level()
 
     def weights(self) -> Array1D:
+        """Weigths of IBZ k-points (adds to 1.0)."""
         return self.calc.wfs.kd.weight_k
 
     def eigenvalues(self) -> Array3D:
+        """All eigenvalues."""
         kd = self.calc.wfs.kd
         eigs = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
                           for k in range(kd.nibzkpts)]
                          for s in range(kd.nspins)])
         return eigs
 
-    def ldos(self,
-             indices: List[Tuple[int, List[int]]]
-             ) -> Array3D:
+    def pdos_weights(self,
+                     indices: List[Tuple[int, List[int]]]
+                     ) -> Array3D:
+        """Projections for PDOS.
 
+        Returns (nibzkpts, nbands, nspins, nindices)-shaped ndarray
+        of the square of absolute value of the projections.  The *indices*
+        list contains (atom-number, projector-numbers) tuples.
+        """
         kd = self.calc.wfs.kd
         dos_knsp = np.zeros((kd.nibzkpts,
                              self.calc.wfs.bd.nbands,
-                             2,
+                             kd.nspins,
                              len(indices)))
         bands = self.calc.wfs.bd.get_slice()
 
@@ -180,7 +189,7 @@ def dos(filename: Union[Path, str],
         symbols = calc.atoms.get_chemical_symbols()
         indices, plabels = parse_projection_string(
             projection, symbols, calc.setups)
-        weight_sknp = wfs.ldos(indices).transpose((2, 0, 1, 3))
+        weight_sknp = wfs.pdos_weights(indices).transpose((2, 0, 1, 3))
         for label, pp in plabels.items():
             for eig_kn, spinlabel, weight_knp in zip(eig_skn,
                                                      spinlabels,
@@ -218,6 +227,16 @@ def parse_projection_string(projection: str,
                             setups: List[Setup]
                             ) -> Tuple[List[Tuple[int, List[int]]],
                                        Dict[str, List[int]]]:
+    """Don't ask.
+
+    >>> from gpaw.setup import create_setup
+    >>> setup = create_setup('Li')
+    >>> a, b = parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
+    >>> a
+    [(0, [0]), (1, [0]), (0, [1, 2, 3]), (1, [1, 2, 3])]
+    >>> b
+    {'Li-s': [0, 1], 'Li-p': [2, 3]}
+   """
     p = 0
     indices: List[Tuple[int, List[int]]] = []
     plabels: Dict[str, List[int]] = {}
@@ -245,7 +264,8 @@ def parse_projection_string(projection: str,
     return indices, plabels
 
 
-def _dos1(eig_kn, weight_kn, energies, width):
+def _dos1(eig_kn, weight_kn, energies, width: float) -> Array1D:
+    """Simple broadening with a Gaussian."""
     dos = 0.0
     for e_n, w_n in zip(eig_kn, weight_kn):
         for e, w in zip(e_n, w_n):
@@ -253,7 +273,8 @@ def _dos1(eig_kn, weight_kn, energies, width):
     return dos / (np.pi**0.5 * width)
 
 
-def _dos2(eig_kn, weight_kn, energies, cell, kd):
+def _dos2(eig_kn, weight_kn, energies, cell, kd) -> Array1D:
+    """Linear-tetrahedron method."""
     if len(eig_kn) != kd.nbzkpts:
         assert len(eig_kn) == kd.nibzkpts
         eig_kn = eig_kn[kd.bz2ibz_k]

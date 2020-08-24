@@ -158,10 +158,10 @@ class WaveFunction:
             a: P_msi.transpose((0, 2, 1)).copy().reshape((M, -1))
             for a, P_msi in self.projections.items()}
 
-    def ldos(self,
-             indices: List[Tuple[int, List[int]]]
-             ) -> Array3D:
-
+    def pdos_weights(self,
+                     indices: List[Tuple[int, List[int]]]
+                     ) -> Array3D:
+        """PDOS weights."""
         dos_msp = np.zeros((self.projections.nbands, 2, len(indices)))
 
         P_amsi = self.projections
@@ -177,6 +177,7 @@ class WaveFunction:
 
 
 class BZWaveFunctions:
+    """Container for eigenvalues and PAW projections (all of BZ)."""
     def __init__(self,
                  kd: KPointDescriptor,
                  wfs: Dict[int, WaveFunction],
@@ -258,7 +259,7 @@ class BZWaveFunctions:
 
     def eigenvectors(self,
                      broadcast: bool = True
-                     ) -> Optional[Array4D]:
+                     ) -> Array4D:
         """Eigenvectors for the whole BZ."""
         nbands = self.shape[1]
         assert nbands % 2 == 0
@@ -267,18 +268,23 @@ class BZWaveFunctions:
 
     def spin_projections(self,
                          broadcast: bool = True
-                         ) -> Optional[Array3D]:
+                         ) -> Array3D:
         """Spin projections for the whole BZ."""
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
-    def ldos(self,
-             indices: List[Tuple[int, List[int]]],
-             broadcast: bool = True
-             ) -> Array4D:
-        """"""
+    def pdos_weights(self,
+                     indices: List[Tuple[int, List[int]]],
+                     broadcast: bool = True
+                     ) -> Array4D:
+        """Projections for PDOS.
+
+        Returns (nbzkpts, nbands, nspins, nindices)-shaped ndarray
+        of the square of absolute value of the projections.  The *indices*
+        list contains (atom-number, projector-numbers) tuples.
+        """
         def func(wf):
-            return wf.ldos(indices)
+            return wf.pdos_weights(indices)
 
         return self._collect(func, (2, len(indices)),
                              broadcast=broadcast)
@@ -287,7 +293,7 @@ class BZWaveFunctions:
                  func: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int, ...] = None,
                  dtype=float,
-                 broadcast: bool = True) -> Optional[ArrayND]:
+                 broadcast: bool = True) -> ArrayND:
         """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
