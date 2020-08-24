@@ -28,6 +28,7 @@ ArrayND = Any
 Array1D = ArrayND
 Array2D = ArrayND
 Array3D = ArrayND
+Array4D = ArrayND
 
 
 class WaveFunction:
@@ -157,8 +158,22 @@ class WaveFunction:
             a: P_msi.transpose((0, 2, 1)).copy().reshape((M, -1))
             for a, P_msi in self.projections.items()}
 
-    def ldos(self):
-        return eneriges, weights
+    def ldos(self,
+             indices: Dict[int, Tuple[int, int]]
+             ) -> Array3D:
+
+        dos_msp = np.zeros((self.projections.nbands, 2, len(indices)))
+
+        P_amsi = self.projections
+
+        p = 0
+        for a, (i1, i2) in indices.items():
+            if a in P_amsi:
+                dos_msp[:, :, p] = (abs(P_amsi[a][:, :, i1:i2])**2).sum(2)
+            p += 1
+
+        self.projections.atom_partition.comm.sum(dos_msp)
+        return dos_msp
 
 
 class BZWaveFunctions:
@@ -235,7 +250,7 @@ class BZWaveFunctions:
 
     def eigenvectors(self,
                      broadcast: bool = True
-                     ) -> Optional[Array3D]:
+                     ) -> Optional[Array4D]:
         """Eigenvectors for the whole BZ."""
         nbands = self.shape[1]
         assert nbands % 2 == 0
@@ -249,8 +264,19 @@ class BZWaveFunctions:
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
+    def ldos(self,
+             indices: Dict[int, Tuple[int, int]],
+             broadcast: bool = True
+             ) -> Optional[Array4D]:
+        """"""
+        def func(wf):
+            return wf.ldos(indices)
+
+        return self._collect(func, (2, len(indices)),
+                             broadcast=broadcast)
+
     def _collect(self,
-                 attr: Callable[[WaveFunction], ArrayND],
+                 func: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int, ...] = None,
                  dtype=float,
                  broadcast: bool = True) -> Optional[ArrayND]:
@@ -259,7 +285,7 @@ class BZWaveFunctions:
         total_shape = self.shape + (shape or ())
 
         if broadcast:
-            array_kmx = self._collect(attr, shape, dtype, False)
+            array_kmx = self._collect(func, shape, dtype, False)
             if array_kmx is None:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
@@ -273,14 +299,14 @@ class BZWaveFunctions:
             array_kmx = np.empty(total_shape, dtype)
             for k, rank in enumerate(self.ranks):
                 if rank == 0:
-                    array_kmx[k] = attr(self[k])
+                    array_kmx[k] = func(self[k])
                 else:
                     comm.receive(array_kmx[k], rank)
             return array_kmx
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
-                comm.send(attr(self[k]), 0)
+                comm.send(func(self[k]), 0)
 
         return None
 
@@ -352,7 +378,8 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
 
     for kpt_s in kpt_qs:
         # Collect bands and atoms to bd.comm.rank == 0 and gd.comm.rank == 0:
-        eig_sn = [bd.collect(kpt.eps_n) for kpt in kpt_s]
+        if eigenvalues is None:
+            eig_sn = [bd.collect(kpt.eps_n) for kpt in kpt_s]
         P_snI = [kpt.projections.collect() for kpt in kpt_s]
 
         projections = Projections(

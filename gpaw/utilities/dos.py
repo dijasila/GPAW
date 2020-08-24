@@ -77,7 +77,8 @@ def get_angular_projectors(setup, angular, type='bound'):
 
     # Choose the relevant projectors
     projectors = []
-    i = j = 0
+    i = 0
+    j = 0
     for j in range(nj):
         m = 2 * setup.l_j[j] + 1
         if 'spdf'[setup.l_j[j]] in angular:
