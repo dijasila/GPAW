@@ -159,7 +159,7 @@ class WaveFunction:
             for a, P_msi in self.projections.items()}
 
     def ldos(self,
-             indices: Dict[int, Tuple[int, int]]
+             indices: List[Tuple[int, List[int]]]
              ) -> Array3D:
 
         dos_msp = np.zeros((self.projections.nbands, 2, len(indices)))
@@ -167,9 +167,9 @@ class WaveFunction:
         P_amsi = self.projections
 
         p = 0
-        for a, (i1, i2) in indices.items():
+        for a, ii in indices:
             if a in P_amsi:
-                dos_msp[:, :, p] = (abs(P_amsi[a][:, :, i1:i2])**2).sum(2)
+                dos_msp[:, :, p] = (abs(P_amsi[a][:, :, ii])**2).sum(2)
             p += 1
 
         self.projections.atom_partition.comm.sum(dos_msp)
@@ -182,10 +182,11 @@ class BZWaveFunctions:
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float):
-        self.kd = kd
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
+
+        self.nbzkpts = kd.nbzkpts
 
         # Initialize ranks:
         self.ranks = np.zeros(kd.nbzkpts, int)
@@ -198,13 +199,17 @@ class BZWaveFunctions:
         self.shape = (kd.nbzkpts, wf.projections.nbands)
         self.domain_comm = wf.projections.atom_partition.comm
         self.bcomm = wf.projections.bcomm
+        self.kpt_comm = kd.comm
 
         self.fermi_level = self._calculate_occ_numbers_and_fermi_level()
+
+    def weights(self):
+        return np.zeros(len(self)) + 1 / self.nbzkpts
 
     def _calculate_occ_numbers_and_fermi_level(self) -> float:
         if self.occ is not None:
             eig_im = [wf.eig_m for wf in self]
-            weight = 1.0 / self.kd.nbzkpts
+            weight = 1.0 / self.nbzkpts
             weight_i = [weight] * len(eig_im)
 
             f_im, (fermi_level,), _ = self.occ.calculate(
@@ -224,9 +229,9 @@ class BZWaveFunctions:
 
     def calculate_band_energy(self) -> float:
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
-            weight = 1.0 / self.kd.nbzkpts
+            weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
-            e_band = self.kd.comm.sum(e_band)
+            e_band = self.kpt_comm.sum(e_band)
         else:
             e_band = 0.0
 
@@ -242,9 +247,12 @@ class BZWaveFunctions:
     def __getitem__(self, bz_index):
         return self.wfs[bz_index]
 
+    def __len__(self):
+        return len(self.wfs)
+
     def eigenvalues(self,
                     broadcast: bool = True
-                    ) -> Optional[Array2D]:
+                    ) -> Array2D:
         """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_m'), broadcast=broadcast)
 
@@ -265,9 +273,9 @@ class BZWaveFunctions:
                              broadcast=broadcast)
 
     def ldos(self,
-             indices: Dict[int, Tuple[int, int]],
+             indices: List[Tuple[int, List[int]]],
              broadcast: bool = True
-             ) -> Optional[Array4D]:
+             ) -> Array4D:
         """"""
         def func(wf):
             return wf.ldos(indices)
@@ -289,12 +297,12 @@ class BZWaveFunctions:
             if array_kmx is None:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
-                                   self.kd.comm, self.bcomm, self.domain_comm)
+                                   self.kpt_comm, self.bcomm, self.domain_comm)
 
         if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
             return None
 
-        comm = self.kd.comm
+        comm = self.kpt_comm
         if comm.rank == 0:
             array_kmx = np.empty(total_shape, dtype)
             for k, rank in enumerate(self.ranks):

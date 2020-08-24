@@ -1,12 +1,13 @@
+from pathlib import Path
 import sys
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any, Union
 
 import numpy as np
-from ase.dft.dos import DOS, linear_tetrahedron_integration as lti
-from ase.units import Ha
+from ase.dft.dos import linear_tetrahedron_integration as lti
 
 from gpaw import GPAW
-from gpaw.utilities.dos import raw_orbital_LDOS, delta
+from gpaw.setup import Setup
+from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
 
 
 class CLICommand:
@@ -47,22 +48,59 @@ class CLICommand:
             emin, emax, args.points, args.total)
 
 
-class IBZWaveFunctions:
-    def __init__(self, calc):
-        self.calc = calc
+Array1D = Any
+Array3D = Any
 
-    def weights(self):
+
+class IBZWaveFunctions:
+    def __init__(self, calc: GPAW):
+        self.calc = calc
+        self.fermi_level = self.calc.get_fermi_level()
+
+    def weights(self) -> Array1D:
         return self.calc.wfs.kd.weight_k
 
-    def eigenvalues(self):
+    def eigenvalues(self) -> Array3D:
         kd = self.calc.wfs.kd
         eigs = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
                           for k in range(kd.nibzkpts)]
                          for s in range(kd.nspins)])
-        return eigs - self.calc.get_fermi_level()
+        return eigs
+
+    def ldos(self,
+             indices: List[Tuple[int, List[int]]]
+             ) -> Array3D:
+
+        kd = self.calc.wfs.kd
+        dos_knsp = np.zeros((kd.nibzkpts,
+                             self.calc.wfs.bd.nbands,
+                             2,
+                             len(indices)))
+        bands = self.calc.wfs.bd.get_slice()
+
+        for wf in self.calc.wfs.kpt_u:
+            P_ani = wf.projections
+            p = 0
+            for a, ii in indices:
+                if a in P_ani:
+                    P_ni = P_ani[a][:, ii]
+                    dos_knsp[wf.k, bands, wf.s, p] = (abs(P_ni)**2).sum(1)
+                p += 1
+
+        self.calc.world.sum(dos_knsp)
+        return dos_knsp
 
 
-def get_projector_numbers(setup, ell: int) -> List[int]:
+def get_projector_numbers(setup: Setup, ell: int) -> List[int]:
+    """Find indices of bound-state PAW projector functions.
+
+    >>> from gpaw.setup import create_setup
+    >>> setup = create_setup('Li')
+    >>> get_projector_numbers(setup, 0)
+    [0]
+    >>> get_projector_numbers(setup, 1)
+    [1, 2, 3]
+    """
     indices = []
     i1 = 0
     for n, l in zip(setup.n_j, setup.l_j):
@@ -73,7 +111,7 @@ def get_projector_numbers(setup, ell: int) -> List[int]:
     return indices
 
 
-def dos(filename,
+def dos(filename: Union[Path, str],
         plot=False,
         output='dos.csv',
         width=0.1,
@@ -99,34 +137,44 @@ def dos(filename,
 
     """
     calc = GPAW(filename, txt=None)
-    # dos = DOS(calc, width, (emin, emax), npoints)
-    wfs = IBZWaveFunctions(calc)
+
+    wfs: Union[BZWaveFunctions, IBZWaveFunctions]
+    if soc:
+        wfs = soc_eigenstates(calc)
+    else:
+        wfs = IBZWaveFunctions(calc)
 
     nspins = calc.get_number_of_spins()
     spinlabels = [''] if nspins == 1 else [' up', ' dn']
 
-    eigs = wfs.eigenvalues()
-    weights = wfs.weights()
+    eig_skn = wfs.eigenvalues() - wfs.fermi_level
+    if soc:
+        eig_skn = eig_skn[np.newaxis]
 
-    emin = emin if emin is not None else eigs.min() - 0.1
-    emax = emax if emax is not None else eigs.max() - 0.1
+    emin = emin if emin is not None else eig_skn.min() - 0.1
+    emax = emax if emax is not None else eig_skn.max() - 0.1
 
     energies = np.linspace(emin, emax, npoints)
-    print(emin, emax, energies)
 
-    if soc:
-        eigs = eigs[np.newaxis]
+    weight_k = wfs.weights()
+    weight_kn = np.empty_like(eig_skn[0])
+    weight_kn[:] = weight_k[:, np.newaxis]
 
-    def dos(eigs, weigths):
-        return _dos(eigs, weights, energies, width)
+    if width > 0.0:
+        def dos(eig_kn, weight_kn):
+            return _dos1(eig_kn, weight_kn, energies, width)
+    else:
+        def dos(eig_kn, weight_kn):
+            return _dos2(eig_kn, weight_kn,
+                         energies, calc.atoms.cell, calc.wfs.kd)
 
     D = []
     labels = []
 
     if projection is None or show_total:
-        for eig, label in zip(eigs, spinlabels):
-            D.append(dos(eig, weights))
-            labels.append(label)
+        for eig_kn, label in zip(eig_skn, spinlabels):
+            D.append(dos(eig_kn, weight_kn))
+            labels.append('DOS' + label)
 
     if projection is not None:
         symbols = calc.atoms.get_chemical_symbols()
@@ -134,16 +182,16 @@ def dos(filename,
             projection, symbols, calc.setups)
         weight_sknp = wfs.ldos(indices).transpose((2, 0, 1, 3))
         for label, pp in plabels.items():
-            for eig, spinlabel, weight_knp in zip(eigs,
-                                                  spinlabels,
-                                                  weight_sknp):
-                d = dos(eig, weight_knp[:, :, pp].sum(2))
+            for eig_kn, spinlabel, weight_knp in zip(eig_skn,
+                                                     spinlabels,
+                                                     weight_sknp):
+                d = dos(eig_kn, weight_knp[:, :, pp].sum(2) * weight_kn)
                 D.append(d)
                 labels.append(label + spinlabel)
 
     if integrated:
-        de = dos.energies[1] - dos.energies[0]
-        dos.energies += de / 2
+        de = energies[1] - energies[0]
+        energies += de / 2
         D = [np.cumsum(d) * de for d in D]
         ylabel = 'iDOS [electrons]'
     else:
@@ -151,21 +199,25 @@ def dos(filename,
 
     if output:
         fd = sys.stdout if output == '-' else open(output, 'w')
-        for x in zip(dos.energies, *D):
+        for x in zip(energies, *D):
             print(*x, sep=', ', file=fd)
         if output != '-':
             fd.close()
     if plot:
         import matplotlib.pyplot as plt
         for y, label in zip(D, labels):
-            plt.plot(dos.energies, y, label=label)
+            plt.plot(energies, y, label=label)
         plt.legend()
         plt.ylabel(ylabel)
         plt.xlabel(r'$\epsilon-\epsilon_F$ [eV]')
         plt.show()
 
 
-def parse_projection_string(projection, symbols, setups):
+def parse_projection_string(projection: str,
+                            symbols: List[str],
+                            setups: List[Setup]
+                            ) -> Tuple[List[Tuple[int, List[int]]],
+                                       Dict[str, List[int]]]:
     p = 0
     indices: List[Tuple[int, List[int]]] = []
     plabels: Dict[str, List[int]] = {}
@@ -181,7 +233,7 @@ def parse_projection_string(projection, symbols, setups):
             if not A:
                 raise ValueError('No such atom: ' + s)
         for l in ll:
-            ell = int(l)
+            ell = 'spdf'.index(l)
             ii = get_projector_numbers(setups[A[0]], ell)
             label = s + '-' + l
             plabels[label] = []
@@ -193,22 +245,24 @@ def parse_projection_string(projection, symbols, setups):
     return indices, plabels
 
 
-def _dos(eigs, weights, energies, width):
+def _dos1(eig_kn, weight_kn, energies, width):
     dos = 0.0
-    for e, w in zip(eigs, weights):
-        print(e.shape, w, energies.shape, width)
-        dos += w * delta(energies, e, width)
-    return dos
+    for e_n, w_n in zip(eig_kn, weight_kn):
+        for e, w in zip(e_n, w_n):
+            dos += w * np.exp(-((energies - e) / width)**2)
+    return dos / (np.pi**0.5 * width)
 
 
-def _dos2():
-    kd = calc.wfs.kd
-    eigs.shape = (kd.nibzkpts, -1)
-    eigs = eigs[kd.bz2ibz_k]
-    eigs.shape = tuple(kd.N_c) + (-1,)
-    weights.shape = (kd.nibzkpts, -1)
-    weights /= kd.weight_k[:, np.newaxis]
-    w = weights[kd.bz2ibz_k]
-    w.shape = tuple(kd.N_c) + (-1,)
-    dos = lti(calc.atoms.cell, eigs, energies, w)
+def _dos2(eig_kn, weight_kn, energies, cell, kd):
+    if len(eig_kn) != kd.nbzkpts:
+        assert len(eig_kn) == kd.nibzkpts
+        eig_kn = eig_kn[kd.bz2ibz_k]
+        weight_kn = weight_kn[kd.bz2ibz_k]
+
+    weight_kn *= kd.nbzkpts
+
+    eig_kn.shape = tuple(kd.N_c) + (-1,)
+    weight_kn.shape = tuple(kd.N_c) + (-1,)
+
+    dos = lti(cell, eig_kn, energies, weight_kn)
     return dos
