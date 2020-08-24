@@ -2,6 +2,7 @@ import os
 
 import pytest
 from _pytest.tmpdir import _mk_tmp
+from _pytest.config import hookimpl
 from ase.utils import devnull
 
 from gpaw.cli.info import info
@@ -46,13 +47,13 @@ def pytest_configure(config):
             tw._file = devnull
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
 
-
+@hookimpl(tryfirst=True)
 def pytest_runtest_call(item) -> None:
     if mpi_size == 1:
         item.runtest()
         return
-    for n in dir(item):
-        print(n, getattr(item, n))
+    # for n in dir(item):
+    #     print(n, getattr(item, n))
 
     mod = item.module.__name__
     name = item.obj.__name__
@@ -61,9 +62,10 @@ def pytest_runtest_call(item) -> None:
     cmd = ['mpiexec', '-n', '2', 'python3', '-c',
            f'from {mod} import {name}; {name}(42)']
     print(cmd)
+    return True
     r = subprocess.run(cmd)
     print(r, dir(r), r.stdout, r.stderr)
-
+    return True
 
 def pytest_runtest_setup(item):
     """Skip tests that depend on libxc if not compiled with libxc."""
