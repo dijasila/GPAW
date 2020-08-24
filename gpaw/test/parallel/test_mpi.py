@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from gpaw.mpi import world, send, receive, broadcast_array
 
@@ -12,6 +13,7 @@ def test_send_receive_object():
         assert obj == receive(0, world)
 
 
+@pytest.mark.intel
 def test_bcast_array():
     new = world.new_communicator
 
