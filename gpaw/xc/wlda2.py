@@ -50,10 +50,10 @@ class WLDA(XCFunctional):
         # rank, i.e. we need a world.sum to get all contributions
         nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
         mpi.world.sum(nstar_sg)
-        assert (nstar_sg >= 0.0).all()
-        if mpi.rank == 0:
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
+        if mpi.rank == 0 and not (nstar_sg >= 0.0).all():
             np.save("nstar_sg.npy", nstar_sg)
-
+        assert (nstar_sg >= 0.0).all()
         # 3. Calculate LDA energy
         e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
         
