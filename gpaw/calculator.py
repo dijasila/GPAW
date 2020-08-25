@@ -1966,3 +1966,7 @@ class GPAW(Calculator):
         pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
+
+    def dos(self, soc=False):
+        from gpaw.dos import DOSCalculator
+        return DOSCalculator.from_calculator(self, soc=soc)

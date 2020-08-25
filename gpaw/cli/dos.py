@@ -1,14 +1,14 @@
 """CLI-code for dos-subcommand."""
 from pathlib import Path
-import sys
-from typing import List, Tuple, Dict, Any, Union
+from typing import Any, Union, List, Tuple
 
 import numpy as np
-from ase.dft.dos import linear_tetrahedron_integration as lti
+from ase.spectrum.dosdata import GridDOSData
+from ase.spectrum.doscollection import GridDOSCollection
 
 from gpaw import GPAW
 from gpaw.setup import Setup
-from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
+from gpaw.dos import DOSCalculator
 
 
 class CLICommand:
@@ -53,71 +53,38 @@ Array1D = Any
 Array3D = Any
 
 
-class IBZWaveFunctions:
-    """Container for eigenvalues and PAW projections (only IBZ)."""
-    def __init__(self, calc: GPAW):
-        self.calc = calc
-        self.fermi_level = self.calc.get_fermi_level()
-
-    def weights(self) -> Array1D:
-        """Weigths of IBZ k-points (adds to 1.0)."""
-        return self.calc.wfs.kd.weight_k
-
-    def eigenvalues(self) -> Array3D:
-        """All eigenvalues."""
-        kd = self.calc.wfs.kd
-        eigs = np.array([[self.calc.get_eigenvalues(kpt=k, spin=s)
-                          for k in range(kd.nibzkpts)]
-                         for s in range(kd.nspins)])
-        return eigs
-
-    def pdos_weights(self,
-                     indices: List[Tuple[int, List[int]]]
-                     ) -> Array3D:
-        """Projections for PDOS.
-
-        Returns (nibzkpts, nbands, nspins, nindices)-shaped ndarray
-        of the square of absolute value of the projections.  The *indices*
-        list contains (atom-number, projector-numbers) tuples.
-        """
-        kd = self.calc.wfs.kd
-        dos_knsp = np.zeros((kd.nibzkpts,
-                             self.calc.wfs.bd.nbands,
-                             kd.nspins,
-                             len(indices)))
-        bands = self.calc.wfs.bd.get_slice()
-
-        for wf in self.calc.wfs.kpt_u:
-            P_ani = wf.projections
-            p = 0
-            for a, ii in indices:
-                if a in P_ani:
-                    P_ni = P_ani[a][:, ii]
-                    dos_knsp[wf.k, bands, wf.s, p] = (abs(P_ni)**2).sum(1)
-                p += 1
-
-        self.calc.world.sum(dos_knsp)
-        return dos_knsp
-
-
-def get_projector_numbers(setup: Setup, ell: int) -> List[int]:
-    """Find indices of bound-state PAW projector functions.
+def parse_projection_string(projection: str,
+                            symbols: List[str],
+                            setups: List[Setup]
+                            ) -> List[Tuple[str, List[Tuple[int, int]]]]:
+    """Don't ask.
 
     >>> from gpaw.setup import create_setup
     >>> setup = create_setup('Li')
-    >>> get_projector_numbers(setup, 0)
-    [0]
-    >>> get_projector_numbers(setup, 1)
-    [1, 2, 3]
+    >>> a, b = parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
+    >>> a
+    [(0, [0]), (1, [0]), (0, [1, 2, 3]), (1, [1, 2, 3])]
+    >>> b
+    {'Li-s': [0, 1], 'Li-p': [2, 3]}
     """
-    indices = []
-    i1 = 0
-    for n, l in zip(setup.n_j, setup.l_j):
-        i2 = i1 + 2 * l + 1
-        if l == ell and n >= 0:
-            indices += list(range(i1, i2))
-        i1 = i2
-    return indices
+    result: List[Tuple[str, List[Tuple[int, int]]]] = []
+    for proj in projection.split(','):
+        s, ll = proj.split('-')
+        if s.isdigit():
+            A = [int(s)]
+            s = '#' + s
+        else:
+            A = [a for a, symbol in
+                 enumerate(symbols)
+                 if symbol == s]
+            if not A:
+                raise ValueError('No such atom: ' + s)
+        for l in ll:
+            ell = 'spdf'.index(l)
+            label = s + '-' + l
+            result.append((label, [(a, ell) for a in A]))
+
+    return result
 
 
 def dos(filename: Union[Path, str],
@@ -129,7 +96,7 @@ def dos(filename: Union[Path, str],
         soc=False,
         emin=None,
         emax=None,
-        npoints=400,
+        npoints=200,
         show_total=None):
     """Calculate density of states.
 
@@ -145,145 +112,49 @@ def dos(filename: Union[Path, str],
         Calculate integrated DOS.
 
     """
-    calc = GPAW(filename, txt=None)
+    calc = GPAW(filename)
 
-    wfs: Union[BZWaveFunctions, IBZWaveFunctions]
-    if soc:
-        wfs = soc_eigenstates(calc)
-    else:
-        wfs = IBZWaveFunctions(calc)
+    doscalc = DOSCalculator.from_calculator(calc, emin, emax, npoints, soc)
 
-    nspins = calc.get_number_of_spins()
+    energies = doscalc.energies
+    nspins = doscalc.nspins
     spinlabels = [''] if nspins == 1 else [' up', ' dn']
+    spins = [None] if nspins == 1 else [0, 1]
 
-    eig_skn = wfs.eigenvalues() - wfs.fermi_level
-    if soc:
-        eig_skn = eig_skn[np.newaxis]
-
-    emin = emin if emin is not None else eig_skn.min() - 0.1
-    emax = emax if emax is not None else eig_skn.max() - 0.1
-
-    energies = np.linspace(emin, emax, npoints)
-
-    weight_k = wfs.weights()
-    weight_kn = np.empty_like(eig_skn[0])
-    weight_kn[:] = weight_k[:, np.newaxis]
-
-    if width > 0.0:
-        def dos(eig_kn, weight_kn):
-            return _dos1(eig_kn, weight_kn, energies, width)
-    else:
-        def dos(eig_kn, weight_kn):
-            return _dos2(eig_kn, weight_kn,
-                         energies, calc.atoms.cell, calc.wfs.kd)
-
-    D = []
-    labels = []
+    dosobjs = GridDOSCollection([], energies)
 
     if projection is None or show_total:
-        for eig_kn, label in zip(eig_skn, spinlabels):
-            D.append(dos(eig_kn, weight_kn))
-            labels.append('DOS' + label)
+        for spin, label in zip(spins, spinlabels):
+            dosobjs += doscalc.dos(spin=spin, width=width)
 
     if projection is not None:
         symbols = calc.atoms.get_chemical_symbols()
-        indices, plabels = parse_projection_string(
+        projs = parse_projection_string(
             projection, symbols, calc.setups)
-        weight_sknp = wfs.pdos_weights(indices).transpose((2, 0, 1, 3))
-        for label, pp in plabels.items():
-            for eig_kn, spinlabel, weight_knp in zip(eig_skn,
-                                                     spinlabels,
-                                                     weight_sknp):
-                d = dos(eig_kn, weight_knp[:, :, pp].sum(2) * weight_kn)
-                D.append(d)
-                labels.append(label + spinlabel)
+        for label, contributions in projs:
+            for spin, spinlabel in zip(spins, spinlabels):
+                dos = np.zeros_like(energies)
+                for a, indices in contributions:
+                    obj = doscalc.pdos(a, indices, spin=spin, width=width)
+                    dos += obj.get_weights()
+                dosobjs += GridDOSData(energies, dos,
+                                       {'label': label + spinlabel})
 
     if integrated:
         de = energies[1] - energies[0]
-        energies += de / 2
-        D = [np.cumsum(d) * de for d in D]
+        energies = energies + de / 2
+        dosobjs = GridDOSCollection(
+            [GridDOSData(energies,
+                         np.cumsum(obj.get_weights()) * de,
+                         obj.info)
+             for obj in dosobjs])
         ylabel = 'iDOS [electrons]'
     else:
         ylabel = 'DOS [electrons/eV]'
 
-    if output:
-        fd = sys.stdout if output == '-' else open(output, 'w')
-        for x in zip(energies, *D):
-            print(*x, sep=', ', file=fd)
-        if output != '-':
-            fd.close()
     if plot:
+        ax = dosobjs.plot()
+        ax.set_xlabel(r'$\epsilon-\epsilon_F$ [eV]')
+        ax.set_ylabel(ylabel)
         import matplotlib.pyplot as plt
-        for y, label in zip(D, labels):
-            plt.plot(energies, y, label=label)
-        plt.legend()
-        plt.ylabel(ylabel)
-        plt.xlabel(r'$\epsilon-\epsilon_F$ [eV]')
         plt.show()
-
-
-def parse_projection_string(projection: str,
-                            symbols: List[str],
-                            setups: List[Setup]
-                            ) -> Tuple[List[Tuple[int, List[int]]],
-                                       Dict[str, List[int]]]:
-    """Don't ask.
-
-    >>> from gpaw.setup import create_setup
-    >>> setup = create_setup('Li')
-    >>> a, b = parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
-    >>> a
-    [(0, [0]), (1, [0]), (0, [1, 2, 3]), (1, [1, 2, 3])]
-    >>> b
-    {'Li-s': [0, 1], 'Li-p': [2, 3]}
-   """
-    p = 0
-    indices: List[Tuple[int, List[int]]] = []
-    plabels: Dict[str, List[int]] = {}
-    for proj in projection.split(','):
-        s, ll = proj.split('-')
-        if s.isdigit():
-            A = [int(s)]
-            s = '#' + s
-        else:
-            A = [a for a, symbol in
-                 enumerate(symbols)
-                 if symbol == s]
-            if not A:
-                raise ValueError('No such atom: ' + s)
-        for l in ll:
-            ell = 'spdf'.index(l)
-            ii = get_projector_numbers(setups[A[0]], ell)
-            label = s + '-' + l
-            plabels[label] = []
-            for a in A:
-                indices.append((a, ii))
-                plabels[label].append(p)
-                p += 1
-
-    return indices, plabels
-
-
-def _dos1(eig_kn, weight_kn, energies, width: float) -> Array1D:
-    """Simple broadening with a Gaussian."""
-    dos = 0.0
-    for e_n, w_n in zip(eig_kn, weight_kn):
-        for e, w in zip(e_n, w_n):
-            dos += w * np.exp(-((energies - e) / width)**2)
-    return dos / (np.pi**0.5 * width)
-
-
-def _dos2(eig_kn, weight_kn, energies, cell, kd) -> Array1D:
-    """Linear-tetrahedron method."""
-    if len(eig_kn) != kd.nbzkpts:
-        assert len(eig_kn) == kd.nibzkpts
-        eig_kn = eig_kn[kd.bz2ibz_k]
-        weight_kn = weight_kn[kd.bz2ibz_k]
-
-    weight_kn *= kd.nbzkpts
-
-    eig_kn.shape = tuple(kd.N_c) + (-1,)
-    weight_kn.shape = tuple(kd.N_c) + (-1,)
-
-    dos = lti(cell, eig_kn, energies, weight_kn)
-    return dos

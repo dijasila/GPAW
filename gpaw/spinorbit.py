@@ -204,6 +204,9 @@ class BZWaveFunctions:
 
         self.fermi_level = self._calculate_occ_numbers_and_fermi_level()
 
+        self.size = kd.N_c
+        self.bz2ibz_map = np.arange(self.nbzkpts)
+
     def weights(self):
         return np.zeros(len(self)) + 1 / self.nbzkpts
 
