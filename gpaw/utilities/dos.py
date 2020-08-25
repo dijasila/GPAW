@@ -1,6 +1,5 @@
 from math import pi, sqrt
 import numpy as np
-from ase.units import Hartree
 from ase.parallel import paropen
 from gpaw.utilities import pack
 from gpaw.analyse.wignerseitz import wignerseitz
