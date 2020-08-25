@@ -1,6 +1,6 @@
 """CLI-code for dos-subcommand."""
 from pathlib import Path
-from typing import Any, Union, List, Tuple
+from typing import Any, Union, List, Tuple, Optional
 
 import numpy as np
 from ase.spectrum.dosdata import GridDOSData
@@ -57,15 +57,18 @@ def parse_projection_string(projection: str,
                             symbols: List[str],
                             setups: List[Setup]
                             ) -> List[Tuple[str, List[Tuple[int, int]]]]:
-    """Don't ask.
+    """Create labels and lists of (a, l)-tuples.
+
+    Example:
 
     >>> from gpaw.setup import create_setup
     >>> setup = create_setup('Li')
-    >>> a, b = parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
-    >>> a
-    [(0, [0]), (1, [0]), (0, [1, 2, 3]), (1, [1, 2, 3])]
-    >>> b
-    {'Li-s': [0, 1], 'Li-p': [2, 3]}
+    >>> parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
+    >>> [('Li-s', [(0, 0), (1, 0)]), ('Li-p', [(0, 1), (1, 1)])]
+
+    * "Li-s" will have contributions from l=0 and atoms 0 and 1
+    * "Li-p" will have contributions from l=1 and atoms 0 and 1
+
     """
     result: List[Tuple[str, List[Tuple[int, int]]]] = []
     for proj in projection.split(','):
@@ -119,7 +122,7 @@ def dos(filename: Union[Path, str],
     energies = doscalc.energies
     nspins = doscalc.nspins
     spinlabels = [''] if nspins == 1 else [' up', ' dn']
-    spins = [None] if nspins == 1 else [0, 1]
+    spins: List[Optional[int]] = [None] if nspins == 1 else [0, 1]
 
     dosobjs = GridDOSCollection([], energies)
 
