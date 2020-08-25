@@ -92,7 +92,7 @@ def parse_projection_string(projection: str,
 
 def dos(filename: Union[Path, str],
         plot=False,
-        output='dos.csv',
+        output='dos.json',
         width=0.1,
         integrated=False,
         projection=None,
@@ -154,6 +154,9 @@ def dos(filename: Union[Path, str],
         ylabel = 'iDOS [electrons]'
     else:
         ylabel = 'DOS [electrons/eV]'
+
+    if output:
+        dosobjs.write(output)
 
     if plot:
         ax = dosobjs.plot()

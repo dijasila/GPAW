@@ -159,21 +159,19 @@ class WaveFunction:
             for a, P_msi in self.projections.items()}
 
     def pdos_weights(self,
-                     indices: List[Tuple[int, List[int]]]
+                     a: int,
+                     indices: List[int]
                      ) -> Array3D:
         """PDOS weights."""
-        dos_msp = np.zeros((self.projections.nbands, 2, len(indices)))
+        dos_ms = np.zeros((self.projections.nbands, 2))
 
         P_amsi = self.projections
 
-        p = 0
-        for a, ii in indices:
-            if a in P_amsi:
-                dos_msp[:, :, p] = (abs(P_amsi[a][:, :, ii])**2).sum(2)
-            p += 1
+        if a in P_amsi:
+            dos_ms[:, :] = (abs(P_amsi[a][:, :, indices])**2).sum(2)
 
-        self.projections.atom_partition.comm.sum(dos_msp)
-        return dos_msp
+        self.projections.atom_partition.comm.sum(dos_ms)
+        return dos_ms
 
 
 class BZWaveFunctions:
@@ -277,20 +275,19 @@ class BZWaveFunctions:
                              broadcast=broadcast)
 
     def pdos_weights(self,
-                     indices: List[Tuple[int, List[int]]],
+                     a: int,
+                     indices: List[int],
                      broadcast: bool = True
                      ) -> Array4D:
         """Projections for PDOS.
 
-        Returns (nbzkpts, nbands, nspins, nindices)-shaped ndarray
-        of the square of absolute value of the projections.  The *indices*
-        list contains (atom-number, projector-numbers) tuples.
+        Returns (nbzkpts, nbands, nspins)-shaped ndarray
+        of the square of absolute value of the projections.
         """
         def func(wf):
-            return wf.pdos_weights(indices)
+            return wf.pdos_weights(a, indices)
 
-        return self._collect(func, (2, len(indices)),
-                             broadcast=broadcast)
+        return self._collect(func, (2,), broadcast=broadcast)
 
     def _collect(self,
                  func: Callable[[WaveFunction], ArrayND],
