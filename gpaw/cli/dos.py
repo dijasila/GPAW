@@ -64,7 +64,7 @@ def parse_projection_string(projection: str,
     >>> from gpaw.setup import create_setup
     >>> setup = create_setup('Li')
     >>> parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
-    >>> [('Li-s', [(0, 0), (1, 0)]), ('Li-p', [(0, 1), (1, 1)])]
+    [('Li-s', [(0, 0), (1, 0)]), ('Li-p', [(0, 1), (1, 1)])]
 
     * "Li-s" will have contributions from l=0 and atoms 0 and 1
     * "Li-p" will have contributions from l=1 and atoms 0 and 1
