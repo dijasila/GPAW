@@ -132,7 +132,7 @@ class DOSCalculator:
 
         self.eig_skn = wfs.eigenvalues() - wfs.fermi_level
         if self.eig_skn.ndim == 2:
-            self.eig_skn = self.eig_skn[np.newaxis]
+            self.eig_skn = np.array([self.eig_skn, self.eig_skn])
 
         emin = self.eig_skn.min() - 0.5 if emin is None else emin
         emax = self.eig_skn.max() + 0.5 if emax is None else emax
@@ -147,7 +147,7 @@ class DOSCalculator:
     def from_calculator(cls,
                         filename: Union[GPAW, Path, str],
                         emin=None, emax=None, npoints=200,
-                        soc=False):
+                        soc=False, theta=0.0, phi=0.0):
         """
 
         filename: str
@@ -160,7 +160,7 @@ class DOSCalculator:
 
         wfs: Union[BZWaveFunctions, IBZWaveFunctions]
         if soc:
-            wfs = soc_eigenstates(calc)
+            wfs = soc_eigenstates(calc, theta=theta, phi=phi)
         else:
             wfs = IBZWaveFunctions(calc)
 
@@ -176,9 +176,25 @@ class DOSCalculator:
                 eig_kn, weight_kn, self.energies,
                 self.cell, self.wfs.size, self.wfs.bz2ibz_map)
 
+    def dos_at(self, energies: Array1D) -> Array1D:
+        """Calclate DOS en given energies.
+
+        Use::
+
+            dos_fermi = doscalc.dos_at([0.0])[0]
+
+        to get the DOS at the Fermi level.
+        """
+        old = self.energies
+        self.energies = np.asarray(energies)
+        dos = sum(self.calculate(eig_kn, width=0.0)
+                  for eig_kn in self.eig_skn) * 2 / self.nspins
+        self.energies = old
+        return dos
+
     def dos(self,
-            spin=None,
-            width=0.1):
+            spin: Union[int, None] = None,
+            width: float = 0.1) -> GridDOSData:
         """Calculate density of states.
 
         width: float
@@ -195,7 +211,11 @@ class DOSCalculator:
 
         return GridDOSData(self.energies, dos, {'label': label})
 
-    def pdos(self, a, l, spin=None, width=0.1):
+    def pdos(self,
+             a: int,
+             l: int,
+             spin: int = None,
+             width: float = 0.1) -> GridDOSData:
         if (a, l) in self.cache:
             weight_kns = self.cache[(a, l)]
         else:

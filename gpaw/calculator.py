@@ -1967,6 +1967,7 @@ class GPAW(Calculator):
         self.set(external=pc)
         return pc
 
-    def dos(self, soc=False):
+    def dos(self, soc=False, theta=0.0, phi=0.0):
         from gpaw.dos import DOSCalculator
-        return DOSCalculator.from_calculator(self, soc=soc)
+        return DOSCalculator.from_calculator(self, soc=soc,
+                                             theta=theta, phi=phi)
