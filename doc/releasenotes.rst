@@ -78,6 +78,10 @@ Git master branch
 
 * Atoms with fractional atomic numbers can now be handled.
 
+* When creating a ``GPAW`` calculator object from a gpw-file, the ``txt``
+  defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
+  behavior.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
