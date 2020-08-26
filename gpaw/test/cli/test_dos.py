@@ -1,3 +1,4 @@
+"""Test CLI-dos command."""
 import pytest
 from ase.build import bulk
 from gpaw import GPAW
@@ -5,14 +6,16 @@ from gpaw.cli.main import main
 from gpaw.mpi import size
 
 
-@pytest.fixture
-def gpw(tmp_path):
+@pytest.fixture(scope='module')
+def gpw(tmp_path_factory):
+    """Create gpw-file."""
     li = bulk('Li', 'bcc', 3.49)
     li.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
                    kpts=(3, 3, 3))
     li.get_potential_energy()
-    li.calc.write(tmp_path / 'li.gpw')
-    return str(tmp_path / 'li.gpw')
+    path = tmp_path_factory.mktemp('gpw-files') / 'li.gpw'
+    li.calc.write(path)
+    return str(path)
 
 
 @pytest.mark.skipif(size > 1, reason='Not serial')
