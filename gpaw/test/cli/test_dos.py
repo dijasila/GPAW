@@ -3,7 +3,6 @@ import pytest
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.cli.main import main
-from gpaw.mpi import size
 
 
 @pytest.fixture(scope='module')
