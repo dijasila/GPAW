@@ -1,6 +1,5 @@
 from math import pi, sqrt
 import numpy as np
-from ase.units import Hartree
 from ase.parallel import paropen
 from gpaw.utilities import pack
 from gpaw.analyse.wignerseitz import wignerseitz
@@ -77,7 +76,8 @@ def get_angular_projectors(setup, angular, type='bound'):
 
     # Choose the relevant projectors
     projectors = []
-    i = j = 0
+    i = 0
+    j = 0
     for j in range(nj):
         m = 2 * setup.l_j[j] + 1
         if 'spdf'[setup.l_j[j]] in angular:
@@ -156,51 +156,6 @@ def raw_orbital_LDOS(paw, a, spin, angular='spdf', nbands=None):
 
     wfs.world.broadcast(energies, 0)
     wfs.world.broadcast(weights_xi, 0)
-
-    if angular is None:
-        return energies, weights_xi
-    elif isinstance(angular, int):
-        return energies, weights_xi[:, angular]
-    else:
-        projectors = get_angular_projectors(setup, angular, type='bound')
-        weights = np.sum(np.take(weights_xi,
-                                 indices=projectors, axis=1), axis=1)
-        return energies, weights
-
-
-def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
-    """Like former, but with spinorbit coupling."""
-
-    from gpaw.spinorbit import soc_eigenstates
-
-    soc = soc_eigenstates(paw,
-                          theta=theta, phi=phi)
-    e_mk = soc.eigenvalues().T
-    e_mk /= Hartree
-    ns = paw.wfs.nspins
-    w_k = paw.wfs.kd.weight_k
-    nk = len(w_k)
-    nb = len(e_mk)
-
-    if a < 0:
-        # Allow list-style negative indices; we'll need the positive a for the
-        # dictionary lookup later
-        a = len(paw.wfs.setups) + a
-
-    setup = paw.wfs.setups[a]
-    energies = np.empty(nb * nk)
-    weights_xi = np.empty((nb * nk, setup.ni))
-    x = 0
-    for k, w in enumerate(w_k):
-        energies[x:x + nb] = e_mk[:, k]
-        P_amsi = soc[k].projections
-        if ns == 2:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_amsi[a][:, spin])**2
-        else:
-            weights_xi[x:x + nb, :] = w * np.absolute(P_amsi[a][:, 0])**2 / 2
-            weights_xi[x:x + nb, :] += (w *
-                                        np.absolute(P_amsi[a][:, 1])**2 / 2)
-        x += nb
 
     if angular is None:
         return energies, weights_xi

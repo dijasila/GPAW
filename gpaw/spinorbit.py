@@ -28,6 +28,7 @@ ArrayND = Any
 Array1D = ArrayND
 Array2D = ArrayND
 Array3D = ArrayND
+Array4D = ArrayND
 
 
 class WaveFunction:
@@ -157,17 +158,34 @@ class WaveFunction:
             a: P_msi.transpose((0, 2, 1)).copy().reshape((M, -1))
             for a, P_msi in self.projections.items()}
 
+    def pdos_weights(self,
+                     a: int,
+                     indices: List[int]
+                     ) -> Array3D:
+        """PDOS weights."""
+        dos_ms = np.zeros((self.projections.nbands, 2))
+
+        P_amsi = self.projections
+
+        if a in P_amsi:
+            dos_ms[:, :] = (abs(P_amsi[a][:, :, indices])**2).sum(2)
+
+        self.projections.atom_partition.comm.sum(dos_ms)
+        return dos_ms
+
 
 class BZWaveFunctions:
+    """Container for eigenvalues and PAW projections (all of BZ)."""
     def __init__(self,
                  kd: KPointDescriptor,
                  wfs: Dict[int, WaveFunction],
                  occ: Optional[OccupationNumberCalculator],
                  nelectrons: float):
-        self.kd = kd
         self.wfs = wfs
         self.occ = occ
         self.nelectrons = nelectrons
+
+        self.nbzkpts = kd.nbzkpts
 
         # Initialize ranks:
         self.ranks = np.zeros(kd.nbzkpts, int)
@@ -180,13 +198,20 @@ class BZWaveFunctions:
         self.shape = (kd.nbzkpts, wf.projections.nbands)
         self.domain_comm = wf.projections.atom_partition.comm
         self.bcomm = wf.projections.bcomm
+        self.kpt_comm = kd.comm
 
         self.fermi_level = self._calculate_occ_numbers_and_fermi_level()
+
+        self.size = kd.N_c
+        self.bz2ibz_map = np.arange(self.nbzkpts)
+
+    def weights(self):
+        return np.zeros(len(self)) + 1 / self.nbzkpts
 
     def _calculate_occ_numbers_and_fermi_level(self) -> float:
         if self.occ is not None:
             eig_im = [wf.eig_m for wf in self]
-            weight = 1.0 / self.kd.nbzkpts
+            weight = 1.0 / self.nbzkpts
             weight_i = [weight] * len(eig_im)
 
             f_im, (fermi_level,), _ = self.occ.calculate(
@@ -206,9 +231,9 @@ class BZWaveFunctions:
 
     def calculate_band_energy(self) -> float:
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
-            weight = 1.0 / self.kd.nbzkpts
+            weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
-            e_band = self.kd.comm.sum(e_band)
+            e_band = self.kpt_comm.sum(e_band)
         else:
             e_band = 0.0
 
@@ -224,15 +249,18 @@ class BZWaveFunctions:
     def __getitem__(self, bz_index):
         return self.wfs[bz_index]
 
+    def __len__(self):
+        return len(self.wfs)
+
     def eigenvalues(self,
                     broadcast: bool = True
-                    ) -> Optional[Array2D]:
+                    ) -> Array2D:
         """Eigenvalues in eV for the whole BZ."""
         return self._collect(attrgetter('eig_m'), broadcast=broadcast)
 
     def eigenvectors(self,
                      broadcast: bool = True
-                     ) -> Optional[Array3D]:
+                     ) -> Array4D:
         """Eigenvectors for the whole BZ."""
         nbands = self.shape[1]
         assert nbands % 2 == 0
@@ -241,43 +269,58 @@ class BZWaveFunctions:
 
     def spin_projections(self,
                          broadcast: bool = True
-                         ) -> Optional[Array3D]:
+                         ) -> Array3D:
         """Spin projections for the whole BZ."""
         return self._collect(attrgetter('spin_projection_mv'), (3,),
                              broadcast=broadcast)
 
+    def pdos_weights(self,
+                     a: int,
+                     indices: List[int],
+                     broadcast: bool = True
+                     ) -> Array4D:
+        """Projections for PDOS.
+
+        Returns (nbzkpts, nbands, nspins)-shaped ndarray
+        of the square of absolute value of the projections.
+        """
+        def func(wf):
+            return wf.pdos_weights(a, indices)
+
+        return self._collect(func, (2,), broadcast=broadcast)
+
     def _collect(self,
-                 attr: Callable[[WaveFunction], ArrayND],
+                 func: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int, ...] = None,
                  dtype=float,
-                 broadcast: bool = True) -> Optional[ArrayND]:
+                 broadcast: bool = True) -> ArrayND:
         """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
 
         if broadcast:
-            array_kmx = self._collect(attr, shape, dtype, False)
+            array_kmx = self._collect(func, shape, dtype, False)
             if array_kmx is None:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
-                                   self.kd.comm, self.bcomm, self.domain_comm)
+                                   self.kpt_comm, self.bcomm, self.domain_comm)
 
         if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
             return None
 
-        comm = self.kd.comm
+        comm = self.kpt_comm
         if comm.rank == 0:
             array_kmx = np.empty(total_shape, dtype)
             for k, rank in enumerate(self.ranks):
                 if rank == 0:
-                    array_kmx[k] = attr(self[k])
+                    array_kmx[k] = func(self[k])
                 else:
                     comm.receive(array_kmx[k], rank)
             return array_kmx
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
-                comm.send(attr(self[k]), 0)
+                comm.send(func(self[k]), 0)
 
         return None
 
@@ -323,7 +366,9 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                                bd: BandDescriptor,
                                gd: GridDescriptor,
                                n1: int,
-                               n2: int) -> Iterator[Tuple[int, WaveFunction]]:
+                               n2: int,
+                               eigenvalues: Array3D = None
+                               ) -> Iterator[Tuple[int, WaveFunction]]:
     """Yield tuples of IBZ-index and wave functions.
 
     All atoms and bands will be on rank == 0 of gd.comm and bd.comm
@@ -347,7 +392,8 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
 
     for kpt_s in kpt_qs:
         # Collect bands and atoms to bd.comm.rank == 0 and gd.comm.rank == 0:
-        eig_sn = [bd.collect(kpt.eps_n) for kpt in kpt_s]
+        if eigenvalues is None:
+            eig_sn = [bd.collect(kpt.eps_n) for kpt in kpt_s]
         P_snI = [kpt.projections.collect() for kpt in kpt_s]
 
         projections = Projections(
@@ -360,8 +406,12 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
         if bd.comm.rank == 0 and gd.comm.rank == 0:
             if collinear:
                 eig_m = np.empty((n2 - n1) * 2)
-                eig_m[::2] = eig_sn[0][n1:n2]
-                eig_m[1::2] = eig_sn[-1][n1:n2]
+                if eigenvalues is None:
+                    eig_m[::2] = eig_sn[0][n1:n2]
+                    eig_m[1::2] = eig_sn[-1][n1:n2]
+                else:
+                    for s in range(2):
+                        eig_m[s::2] = eigenvalues[-s, kpt_s[-s].k]
                 projections.array[:] = 0.0
                 projections.array[::2, 0] = P_snI[0][n1:n2]
                 projections.array[1::2, 1] = P_snI[-1][n1:n2]
@@ -381,7 +431,8 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n2: int = None,
                     scale: float = 1.0,
                     theta: float = 0.0,
-                    phi: float = 0.0
+                    phi: float = 0.0,
+                    eigenvalues: Array3D = None
                     ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
@@ -397,6 +448,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             Angle in radians.
         phi: float
             Angle in radians.
+        eigenvalues: ndarray
+            Optionally use these eigenvalues instead for those from *calc*.
+            The shape must be: (nspins, nibzkpts, n2 - n1).
 
     Returns a BZWaveFunctions object covering the whole BZ.
     """
@@ -424,8 +478,11 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     setups = calc.wfs.setups
     atom_partition = calc.density.atom_partition
 
+    if eigenvalues is not None:
+        assert eigenvalues.shape == (kd.nspins, kd.nibzkpts, n2 - n1)
+
     ibzwfs = extract_ibz_wave_functions(calc.wfs.kpt_qs,
-                                        bd, gd, n1, n2)
+                                        bd, gd, n1, n2, eigenvalues)
 
     bzwfs = soc_eigenstates_raw(ibzwfs,
                                 dVL_avii,
