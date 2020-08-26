@@ -56,6 +56,11 @@ def pytest_runtest_setup(item):
     """
     from gpaw import libraries
 
+    if world.size > 1:
+        for mark in item.iter_markers():
+            if mark.name == 'serial':
+                pytest.skip('Only run in serial')
+
     if item.location[0] <= os.environ.get('PYTEST_START_AFTER', ''):
         pytest.skip('Not after $PYTEST_START_AFTER')
         return
