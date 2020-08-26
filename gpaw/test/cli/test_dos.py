@@ -18,7 +18,7 @@ def gpw(tmp_path_factory):
     return str(path)
 
 
-@pytest.mark.skipif(size > 1, reason='Not serial')
+@pytest.mark.serial
 @pytest.mark.parametrize(
     'options',
     ['',
