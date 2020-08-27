@@ -29,7 +29,7 @@ calculate all k-points, symmetry is not used (``symmetry='off'``).
     :end-before: P3
 
 Finally, the bandstructure can be plotted (using ASE's band-structure tool
-:class:`ase.dft.band_structure.BandStructure`):
+:class:`ase.spectrum.band_structure.BandStructure`):
 
 .. literalinclude:: bandstructure.py
     :start-after: P3

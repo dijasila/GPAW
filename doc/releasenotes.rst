@@ -490,7 +490,7 @@ Version 1.2.0
 
 * The GPAW calculator object has a new
   :meth:`~ase.calculators.calculator.Calculator.band_structure`
-  method that returns an :class:`ase.dft.band_structure.BandStructure`
+  method that returns an :class:`ase.spectrum.band_structure.BandStructure`
   object.  This makes it easy to create band-structure plots as shown
   in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
   http://psi-k.net/download/highlights/Highlight_134.pdf.
