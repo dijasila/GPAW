@@ -3,7 +3,9 @@ import os
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase.utils import devnull
+from ase.build import bulk
 
+from gpaw import GPAW
 from gpaw.cli.info import info
 from gpaw.mpi import world, broadcast
 
@@ -21,6 +23,18 @@ def in_tmp_dir(request, tmp_path_factory):
         yield path
     finally:
         os.chdir(cwd)
+
+
+@pytest.fixture(scope='session')
+def bcc_li_gpw(tmp_path_factory):
+    """Create gpw-file."""
+    li = bulk('Li', 'bcc', 3.49)
+    li.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
+                   kpts=(3, 3, 3))
+    li.get_potential_energy()
+    path = tmp_path_factory.mktemp('gpw-files') / 'li.gpw'
+    li.calc.write(path)
+    return str(path)
 
 
 class GPAWPlugin:

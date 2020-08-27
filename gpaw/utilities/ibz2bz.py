@@ -1,5 +1,6 @@
 import numpy as np
 import ase.io.ulm as ulm
+from ase.units import Ha
 
 from gpaw.mpi import world, serial_comm
 
@@ -78,6 +79,7 @@ def ibz2bz(input_gpw, output_gpw=None):
 
     wfs = out.child('wave_functions')
     wfs.write(eigenvalues=e_sKn,
+              fermi_levels=calc.wfs.fermi_levels * Ha,
               occupations=f_sKn,
               projections=P_sKnI)
 
