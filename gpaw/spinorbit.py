@@ -281,7 +281,7 @@ class BZWaveFunctions:
                      ) -> Array4D:
         """Projections for PDOS.
 
-        Returns (nbzkpts, nbands, nspins)-shaped ndarray
+        Returns (nbzkpts, nbands, 2)-shaped ndarray
         of the square of absolute value of the projections.
         """
         def func(wf):
@@ -463,7 +463,11 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     n1 = n1 or 0
     n2 = n2 or 0
     if n2 <= 0:
-        n2 = calc.get_number_of_bands() + n2
+        if eigenvalues is None:
+            nbands = calc.get_number_of_bands()
+        else:
+            nbands = eigenvalues.shape[1]
+        n2 += nbands
 
     # <phi_i|dV_adr / r * L_v|phi_j>
     dVL_avii = {a: soc(calc.wfs.setups[a],

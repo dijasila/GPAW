@@ -131,8 +131,13 @@ class DOSCalculator:
         self.cell = cell
 
         self.eig_skn = wfs.eigenvalues() - wfs.fermi_level
-        if self.eig_skn.ndim == 2:
+
+        self.collinear = (self.eig_skn.ndim == 3)
+        if self.collinear:
+            self.degeneracy = 2 / len(self.eig_skn)
+        else:
             self.eig_skn = np.array([self.eig_skn, self.eig_skn])
+            self.degeneracy = 0.5
 
         emin = self.eig_skn.min() - 0.5 if emin is None else emin
         emax = self.eig_skn.max() + 0.5 if emax is None else emax
@@ -188,7 +193,7 @@ class DOSCalculator:
         old = self.energies
         self.energies = np.asarray(energies)
         dos = sum(self.calculate(eig_kn, width=0.0)
-                  for eig_kn in self.eig_skn) * 2 / self.nspins
+                  for eig_kn in self.eig_skn) * self.degeneracy
         self.energies = old
         return dos
 
@@ -203,7 +208,7 @@ class DOSCalculator:
         if spin is None:
             dos = sum(self.calculate(eig_kn, width=width)
                       for eig_kn in self.eig_skn)
-            dos *= 2 / self.nspins
+            dos *= self.degeneracy
             label = 'DOS'
         else:
             dos = self.calculate(self.eig_skn[spin], width=width)
@@ -216,6 +221,7 @@ class DOSCalculator:
              l: int,
              spin: int = None,
              width: float = 0.1) -> GridDOSData:
+
         if (a, l) in self.cache:
             weight_kns = self.cache[(a, l)]
         else:
@@ -229,7 +235,7 @@ class DOSCalculator:
         if spin is None:
             dos = sum(self.calculate(eig_kn, weight_nk.T, width=width)
                       for eig_kn, weight_nk in zip(self.eig_skn, weight_kns.T))
-            dos *= 2 / self.nspins
+            dos *= self.degeneracy
         else:
             dos = self.calculate(self.eig_skn[spin], weight_kns[:, :, spin],
                                  width=width)
