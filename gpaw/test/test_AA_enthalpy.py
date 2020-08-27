@@ -14,7 +14,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-@pytest.makr.slow
+@pytest.mark.slow
 def test_exx_AA_enthalpy(in_tmp_dir):
     data = {}
 
