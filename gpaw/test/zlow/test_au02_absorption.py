@@ -7,11 +7,12 @@ from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
-
+@pytest.mark.slow
 def test_response_au02_absorption(in_tmp_dir):
     GS = 1
     ABS = 1
@@ -72,7 +73,8 @@ def test_response_au02_absorption(in_tmp_dir):
         w, I = findpeak(np.linspace(0, 14., 141), a.imag)
         equal(w, w_, 0.05)
         equal(I, I_, 0.5)
-        # The Wigner-Seitz truncation does not give exactly the same for small cell
+        # The Wigner-Seitz truncation does not give exactly the
+        # same for small cell
         w, I = findpeak(np.linspace(0, 14., 141), a_ws.imag)
         equal(w, w_, 0.2)
         equal(I, I_, 8.0)

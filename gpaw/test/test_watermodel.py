@@ -1,15 +1,17 @@
+import time
+import pytest
 from ase import Atoms
 from ase.calculators.tip3p import TIP3P, rOH, angleHOH
 from ase.md import Langevin
 import ase.units as units
 from ase.io.trajectory import Trajectory
 from ase.constraints import FixBondLengths
-from gpaw.utilities.watermodel import FixBondLengthsWaterModel, TIP3PWaterModel
 import numpy as np
-import time
 from ase.io import read
+from gpaw.utilities.watermodel import FixBondLengthsWaterModel, TIP3PWaterModel
 
 
+@pytest.mark.slow
 def test_watermodel(in_tmp_dir):
     NSTEPS = 600
     SCALE = 200

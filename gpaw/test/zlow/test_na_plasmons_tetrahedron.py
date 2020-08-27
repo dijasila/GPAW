@@ -1,7 +1,7 @@
 import pytest
+from ase import Atoms
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.response.df import DielectricFunction
 from gpaw.test import equal, findpeak
@@ -14,6 +14,7 @@ pytestmark = pytest.mark.skipif(
     reason='world.size < 4 or not compiled_with_sl()')
 
 
+@pytest.mark.slow
 def test_response_na_plasmons_tetrahedron(in_tmp_dir):
     a = 4.23 / 2.0
     a1 = Atoms('Na',

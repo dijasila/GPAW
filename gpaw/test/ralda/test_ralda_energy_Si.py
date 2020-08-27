@@ -12,11 +12,12 @@ from gpaw.test import equal
 from gpaw.xc.rpa import RPACorrelation
 from gpaw.xc.fxc import FXCCorrelation
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
-
+@pytest.mark.slow
 def test_ralda_ralda_energy_Si(in_tmp_dir):
     a0 = 5.43
     cell = bulk('Si', 'fcc', a=a0).get_cell()
@@ -31,7 +32,7 @@ def test_ralda_ralda_energy_Si(in_tmp_dir):
                 occupations=FermiDirac(0.001),
                 communicator=serial_comm)
     Si.calc = calc
-    E = Si.get_potential_energy()
+    Si.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 
     rpa = RPACorrelation(calc)

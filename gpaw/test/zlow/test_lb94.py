@@ -1,4 +1,4 @@
-
+import pytest
 from ase import Atoms
 from gpaw.mpi import world
 from gpaw import GPAW, FermiDirac, setup_paths, Mixer, MixerSum, Davidson
@@ -7,6 +7,7 @@ from gpaw.atom.generator import Generator
 from gpaw.atom.configurations import parameters
 
 
+@pytest.mark.slow
 def test_xc_lb94(in_tmp_dir):
     ref1 = 'R. v. Leeuwen PhysRevA 49, 2421 (1994)'
     ref2 = 'Gritsenko IntJQuanChem 76, 407 (2000)'
@@ -28,7 +29,8 @@ def test_xc_lb94(in_tmp_dir):
             ae.run()
             e_homo = int(ae.e_j[-1] * 10000 + .5) / 10.
             diff = e_HOMO_cs[atom] + e_homo
-            print('%2s %8g %6.1f %4.1g' % (atom, e_HOMO_cs[atom], -e_homo, diff))
+            print('%2s %8g %6.1f %4.1g' %
+                  (atom, e_HOMO_cs[atom], -e_homo, diff))
             assert abs(diff) < 6
     world.barrier()
 
@@ -66,7 +68,6 @@ def test_xc_lb94(in_tmp_dir):
         diff = e_ref + e_homo
         print('%2s %8g %6.1f %4.1f' % (atom, e_ref, -e_homo, diff))
         assert abs(diff) < 7
-
 
     # HOMO energy in mHa and magn. mom. for open shell atoms
     e_HOMO_os = {'He': [851, 0],  # added for cross check

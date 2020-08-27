@@ -14,6 +14,7 @@ from gpaw.response.chi0 import Chi0
 # equal to a tolerance of 1e-10.
 
 
+@pytest.mark.slow
 def test_response_symmetry(in_tmp_dir):
     pwcutoff = 400.0
     k = 4

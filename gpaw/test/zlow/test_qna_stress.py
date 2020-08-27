@@ -1,12 +1,14 @@
+import pytest
 import numpy as np
-from gpaw import GPAW, PW, Mixer, Davidson
 from ase.parallel import parprint
 from ase.lattice.compounds import L1_2
+from gpaw import GPAW, PW, Mixer, Davidson
 
 
+@pytest.mark.slow
 def test_xc_qna_stress(in_tmp_dir):
     name = 'Cu3Au'
-    structure = 'L1_2'
+    # structure = 'L1_2'
     ecut = 300
     kpts = (2, 2, 2)
 

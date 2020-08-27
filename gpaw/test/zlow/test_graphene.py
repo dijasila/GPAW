@@ -1,5 +1,5 @@
+import pytest
 import numpy as np
-
 from ase import Atoms
 
 from gpaw import GPAW, FermiDirac
@@ -12,6 +12,7 @@ from gpaw.mpi import world
 # should be equal, are.
 
 
+@pytest.mark.slow
 def test_response_graphene(in_tmp_dir):
     a = 2.5
     c = 3.22
@@ -24,10 +25,11 @@ def test_response_graphene(in_tmp_dir):
                      (0.0, 0.0, c * 2.0)])
     GR.set_pbc((True, True, True))
     atoms = GR
-    GSsettings = [{'symmetry': 'off', 'kpts': {'density': 2.5, 'gamma': False}},
-                  {'symmetry': {}, 'kpts': {'density': 2.5, 'gamma': False}},
-                  {'symmetry': 'off', 'kpts': {'density': 2.5, 'gamma': True}},
-                  {'symmetry': {}, 'kpts': {'density': 2.5, 'gamma': True}}]
+    GSsettings = [
+        {'symmetry': 'off', 'kpts': {'density': 2.5, 'gamma': False}},
+        {'symmetry': {}, 'kpts': {'density': 2.5, 'gamma': False}},
+        {'symmetry': 'off', 'kpts': {'density': 2.5, 'gamma': True}},
+        {'symmetry': {}, 'kpts': {'density': 2.5, 'gamma': True}}]
 
     DFsettings = [{'disable_point_group': True,
                    'disable_time_reversal': True},
@@ -42,13 +44,13 @@ def test_response_graphene(in_tmp_dir):
         DFsettings.append({'disable_point_group': False,
                            'disable_time_reversal': False,
                            'nblocks': 2})
-                  
+
     for GSkwargs in GSsettings:
         calc = GPAW(h=0.18,
                     mode=PW(600),
                     occupations=FermiDirac(0.2),
                     **GSkwargs)
-     
+
         atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('gr.gpw', 'all')
@@ -77,7 +79,8 @@ def test_response_graphene(in_tmp_dir):
                     print(np.max(np.abs((df - df2) / df)))
                 except AssertionError:
                     print('Some symmetry or block-par. related problems')
-                    print('for calculation with following ground state settings')
+                    print('for calculation with following ground state')
+                    print('settings')
                     print('Ground state settings:', GSkwargs)
                     print('The following DF settings do not return the ' +
                           'same results')

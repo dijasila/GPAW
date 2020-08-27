@@ -9,6 +9,7 @@ import _gpaw
 
 
 @pytest.mark.libxc
+@pytest.mark.slow
 def test_beef(in_tmp_dir):
     newlibxc = _gpaw.lxcXCFuncNum('MGGA_X_MBEEF') is not None
 
