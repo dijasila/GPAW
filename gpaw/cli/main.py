@@ -30,6 +30,9 @@ commands = [
 def hook(parser, args):
     parser.add_argument('-P', '--parallel', type=int, metavar='N',
                         help='Run on N CPUs.')
+    parser.add_argument('-S', '--serial', action='store_true',
+                        help='Run script on rank-0 only.')
+
     args, extra = parser.parse_known_args(args)
     if extra:
         assert not args.arguments
@@ -72,6 +75,10 @@ def hook(parser, args):
             # Use a clean set of environment variables without any MPI stuff:
             p = subprocess.run(arguments, check=not True, env=os.environ)
             sys.exit(p.returncode)
+
+        if world.size > 1 and args.serial:
+            from gpaw.parallel import start
+            start()
 
     return args
 

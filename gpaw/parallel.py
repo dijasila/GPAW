@@ -1,12 +1,16 @@
+import atexit
 import importlib
+from typing import Dict, Any
 from gpaw.mpi import world, broadcast
 
-objects = {}
+objects: Dict[int, Any] = {}
 
 
 def start():
     if world.rank == 0:
-
+        atexit.register(broadcast, -1)
+        import ase.parallel
+        ase.parallel.world = ase.parallel.DummyMPI()
         return
     while True:
         stuff = broadcast(None)
@@ -18,16 +22,12 @@ def start():
             call(*stuff)
 
 
-def stop():
-    broadcast(-1)
-
-
-def create(id):
+def create(id: int) -> Any:
     return objects[id]
 
 
 class ParallelObject:
-    def __init__(self, obj, id):
+    def __init__(self, obj, id: int):
         self._obj = obj
         self._id = id
 
@@ -45,7 +45,7 @@ class ParallelObject:
 
 
 class ParallelFunction:
-    def __init__(self, pobj, name):
+    def __init__(self, pobj: ParallelObject, name: str):
         self.pobj = pobj
         self.name = name
 
@@ -55,7 +55,7 @@ class ParallelFunction:
         return call(*stuff)
 
 
-def parallel(func, *args, **kwargs):
+def parallel(func, *args, **kwargs) -> ParallelObject:
     stuff = (func.__module__, func.__name__, args, kwargs)
     broadcast(stuff)
     return call(*stuff)
