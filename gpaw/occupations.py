@@ -622,6 +622,7 @@ def create_occ_calc(dct: Dict[str, Any],
     * 'methfessel-paxton'
     * 'fixed'
     * 'tetrahedron-method'
+    * 'improved-tetrahedron-method'
     * 'orbital-free'
 
     >>> occ = create_occ_calc({'width': 0.0})
@@ -647,9 +648,12 @@ def create_occ_calc(dct: Dict[str, Any],
         occ = FermiDiracCalculator(**kwargs)
     elif name == 'marzari-vanderbilt':
         occ = MarzariVanderbiltCalculator(**kwargs)
-    elif name == 'tetrahedron-method':
+    elif name in {'tetrahedron-method', 'improved-tetrahedron-method'}:
         from gpaw.tetrahedron import TetrahedronMethod
-        occ = TetrahedronMethod(rcell, monkhorst_pack_size, bz2ibzmap,
+        occ = TetrahedronMethod(rcell,
+                                monkhorst_pack_size,
+                                name == 'improved-tetrahedron-method',
+                                bz2ibzmap,
                                 **kwargs)
     elif name == 'orbital-free':
         return ThomasFermiOccupations(**kwargs)
