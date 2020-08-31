@@ -26,13 +26,17 @@ def in_tmp_dir(request, tmp_path_factory):
 
 
 @pytest.fixture(scope='session')
-def bcc_li_gpw(tmp_path_factory):
+def bcc_li_gpw(request, tmp_path_factory):
     """Create gpw-file."""
     li = bulk('Li', 'bcc', 3.49)
     li.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
                    kpts=(3, 3, 3))
     li.get_potential_energy()
-    path = tmp_path_factory.mktemp('gpw-files') / 'li.gpw'
+    if world.rank == 0:
+        path = _mk_tmp(request, tmp_path_factory) / 'li.gpw'
+    else:
+        path = None
+    path = broadcast(path)
     li.calc.write(path)
     return str(path)
 
