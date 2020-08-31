@@ -8,6 +8,7 @@ from ase.spectrum.doscollection import GridDOSCollection
 
 from gpaw import GPAW
 from gpaw.setup import Setup
+from gpaw.spherical_harmonics import names as ylmnames
 from gpaw.dos import DOSCalculator
 
 
@@ -82,11 +83,36 @@ def parse_projection_string(projection: str,
                  if symbol == s]
             if not A:
                 raise ValueError('No such atom: ' + s)
-        for l in ll:
-            ell = 'spdf'.index(l)
-            label = s + '-' + l
-            result.append((label, [(a, ell) for a in A]))
+        for l, m in parse_lm_string(ll):
+            label = s + '-' + 'spdfg'[l]
+            if m is not None:
+                name = ylmnames[l][m]
+                label += f'({name})'
+            result.append((label, [(a, l, m) for a in A]))
 
+    return result
+
+
+def parse_lm_string(s: str) -> List[Tuple[int, Union[None, int]]]:
+    """Parse 'spdf' kind of string to numbers.
+
+    Return list of (l, m) tuples with m=None if not specified:
+
+    >>> parse_lm_string('sp')
+    [(0, None), (1, None)]
+    >>> parse_lm_string('p0p1p2')
+    [(1, 0), (1, 1), (1, 2)]
+    """
+    result = []
+    while s:
+        l = 'spdfg'.index(s[0])
+        if s[1:2].isnumeric():
+            m = int(s[1:2])
+            s = s[2:]
+        else:
+            m = None
+            s = s[1:]
+        result.append((l, m))
     return result
 
 
@@ -137,8 +163,8 @@ def dos(filename: Union[Path, str],
         for label, contributions in projs:
             for spin, spinlabel in zip(spins, spinlabels):
                 dos = np.zeros_like(energies)
-                for a, indices in contributions:
-                    obj = doscalc.pdos(a, indices, spin=spin, width=width)
+                for a, l, m in contributions:
+                    obj = doscalc.pdos(a, l, m, spin=spin, width=width)
                     dos += obj.get_weights()
                 dosobjs += GridDOSData(energies, dos,
                                        {'label': label + spinlabel})
