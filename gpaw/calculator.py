@@ -64,7 +64,7 @@ class GPAW(Calculator):
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
         'nbands': None,
-        'charge': 0,
+        'charge': 0,  # deprecated
         'setups': {},
         'basis': {},
         'spinpol': None,
@@ -578,6 +578,15 @@ class GPAW(Calculator):
         magmom_a = atoms.get_initial_magnetic_moments()
         charge_a = atoms.get_initial_charges()
 
+        if par.charge:
+            warnings.warn(
+                'The keyword charge been deprecated. '
+                'Please use the atoms.set_initial_charges() method instead.',
+                DeprecationWarning)
+            assert not charge_a.any()
+            charge_a == np.ones(charge_a.shape) * par.charge / len(charge_a)
+        self.charge = charge_a.sum()
+
         if par.experimental.get('magmoms') is not None:
             magmom_av = np.array(par.experimental['magmoms'], float)
             collinear = False
@@ -632,7 +641,8 @@ class GPAW(Calculator):
             if natoms != 1:
                 raise ValueError('hund=True arg only valid for single atoms!')
             spinpol = True
-            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(par.charge)
+            magmom_av[0, 2] = self.setups[0].get_hunds_rule_moment(
+                self.charge)
 
         if collinear:
             magnetic = magmom_av.any()
@@ -684,7 +694,7 @@ class GPAW(Calculator):
             background = par.background_charge
 
         nao = self.setups.nao
-        nvalence = self.setups.nvalence - par.charge
+        nvalence = self.setups.nvalence - self.charge
         if par.background_charge is not None:
             nvalence += background.charge
 
@@ -726,7 +736,7 @@ class GPAW(Calculator):
         if nvalence < 0:
             raise ValueError(
                 'Charge %f is not possible - not enough valence electrons' %
-                par.charge)
+                self.charge)
 
         if nvalence > 2 * nbands and not orbital_free:
             raise ValueError('Too few bands!  Electrons: %f, bands: %d'
@@ -985,7 +995,7 @@ class GPAW(Calculator):
             gd=gd, finegd=finegd,
             nspins=self.wfs.nspins,
             collinear=self.wfs.collinear,
-            charge=self.parameters.charge + self.wfs.setups.core_charge,
+            charge=self.charge + self.wfs.setups.core_charge,
             redistributor=redistributor,
             background_charge=background)
 

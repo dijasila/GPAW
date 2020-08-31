@@ -25,8 +25,7 @@ def test_H2plus():
     atoms.set_initial_charges([0, 1])
     atoms.set_initial_magnetic_moments([1, 0])
 
-    # does not converge
-    atoms.calc = GPAW(h=h, charge=1,
+    atoms.calc = GPAW(h=h,
                       occupations=FermiDirac(0.1, fixmagmom=True),
                       convergence=convergence)
     atoms.get_potential_energy()
