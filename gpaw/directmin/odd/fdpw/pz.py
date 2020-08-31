@@ -9,6 +9,7 @@ from gpaw.transformers import Transformer
 from gpaw.directmin.fdpw.tools import get_n_occ, d_matrix
 from gpaw.poisson import PoissonSolver
 from gpaw.wavefunctions.pw import PWLFC
+from gpaw.utilities.ewald import madelung
 # from ase.parallel import parprint
 # import time
 import _gpaw
@@ -36,6 +37,7 @@ class PzCorrections:
         self.sic_coarse_grid = sic_coarse_grid
         self.pd2 = None
         self.pd3 = None
+        self.corr = None
         if wfs.mode == 'pw':
             assert self.sic_coarse_grid
             self.pd2 = dens.pd2
@@ -47,6 +49,17 @@ class PzCorrections:
             atom_partition = AtomPartition(wfs.gd.comm, rank_a,
                                            name='gd')
             self.ghat.set_positions(spos_ac,atom_partition)
+            self.corr = madelung(wfs.gd.cell_cv)
+            self.corr_q = 1.0
+            for nc in self.pd2.gd.N_c:
+                self.corr_q *= nc
+            self.corr_q *= self.corr
+            # corr = np.zeros_like(dens.nt_sG[0]) + self.corr
+            # self.corr_q = self.pd2.fft(corr)
+
+            self.G2 = self.pd2.G2_qG[0].copy()
+            if self.pd2.gd.comm.rank == 0:
+                self.G2[0] = 1.0
         else:
             if self.sic_coarse_grid:
                 self.ghat = LFC(self.cgd,
@@ -505,12 +518,27 @@ class PzCorrections:
 
         nt_Q = self.pd2.fft(nt_G)
         self.ghat.add(nt_Q, Q_aL)
-        nt_G = self.pd2.ifft(nt_Q)
-        vHt = np.zeros_like(nt_G)
-        self.poiss.solve(vHt, nt_G, zero_initial_phi=False)
-        ehart = 0.5 * self.cgd.integrate(nt_G, vHt)
-        # ehart = self.cgd.comm.sum(ehart)
-        vHt_q = self.pd2.fft(vHt)
+
+        realspace = False
+        if realspace:
+            nt_G = self.pd2.ifft(nt_Q)
+            vHt = np.zeros_like(nt_G)
+            self.poiss.solve(vHt, nt_G, zero_initial_phi=False)
+            ehart = 0.5 * self.cgd.integrate(nt_G, vHt)
+            vHt_q = self.pd2.fft(vHt)
+        else:
+            if self.pd2.gd.comm.rank == 0:
+                nt_Q[0] = 0.0
+            vHt_q = 4 * np.pi * nt_Q / self.G2
+            ehart = 0.5 * self.pd2.integrate(vHt_q, nt_Q)
+            # correct for uniform background
+            if self.pd2.gd.comm.rank == 0:
+                vHt_q[0] += self.corr_q
+            vHt = self.pd2.ifft(vHt_q)
+            # vHt = self.pd2.ifft(vHt_q) + self.corr
+            # vHt_q = self.pd2.fft(vHt)
+            ehart += self.corr/2.0
+
         # PAW to Hartree
         ehartpaw = 0.0
         W_aL = self.ghat.dict()
