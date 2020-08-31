@@ -69,7 +69,10 @@ Git master branch
   are: LDA, PBE, revPBE, RPBE and PW91.
 
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
-  Use ``occupations={'name': 'tetrahedron-method'}``.
+  Use ``occupations={'name': 'tetrahedron-method'}`` or
+  ``occupations={'name': 'improved-tetrahedron-method'}``.
+  See `Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_
+  for details.
 
 * New :func:`gpaw.mpi.broadcast_array` function for broadcasting
   an ``np.ndarray`` across several MPI-communicators.  New

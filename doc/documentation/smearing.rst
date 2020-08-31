@@ -7,6 +7,12 @@ Occupation number smearing
 
 .. seealso:: :ref:`manual_occ`
 
+Bulk Cu with diferent smearing methods:
+
+.. figure:: cu.png
+
+(made with :download:`cu.py`).
+
 .. autofunction:: create_occ_calc
 .. autofunction:: fermi_dirac
 .. autofunction:: marzari_vanderbilt
@@ -19,7 +25,7 @@ Occupation number smearing
 
 
 Tetrahedron method
-==================
+------------------
 
 .. module:: gpaw.tetrahedron
 .. autoclass:: TetrahedronMethod
