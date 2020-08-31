@@ -28,7 +28,8 @@ class CLICommand:
             help='Width of Gaussian.  Use 0.0 to use linear tetrahedron '
             'interpolation.')
         add('-a', '--atom', help='Project onto atoms: "Cu-spd,H-s" or use '
-            'atom indices "12-spdf".')
+            'atom indices "12-spdf".  Particular m-values can be obtained '
+            'like this: "N-p0,N-p1,N-p2".')
         add('-t', '--total', action='store_true',
             help='Show both PDOS and total DOS.')
         add('-r', '--range', nargs=2, metavar=('emin', 'emax'),
