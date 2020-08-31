@@ -57,7 +57,10 @@ Array3D = Any
 def parse_projection_string(projection: str,
                             symbols: List[str],
                             setups: List[Setup]
-                            ) -> List[Tuple[str, List[Tuple[int, int]]]]:
+                            ) -> List[Tuple[str,
+                                            List[Tuple[int,
+                                                       int,
+                                                       Union[None, int]]]]]:
     """Create labels and lists of (a, l)-tuples.
 
     Example:
@@ -71,7 +74,7 @@ def parse_projection_string(projection: str,
     * "Li-p" will have contributions from l=1 and atoms 0 and 1
 
     """
-    result: List[Tuple[str, List[Tuple[int, int]]]] = []
+    result: List[Tuple[str, List[Tuple[int, int, Union[None, int]]]]] = []
     for proj in projection.split(','):
         s, ll = proj.split('-')
         if s.isdigit():
@@ -106,6 +109,7 @@ def parse_lm_string(s: str) -> List[Tuple[int, Union[None, int]]]:
     result = []
     while s:
         l = 'spdfg'.index(s[0])
+        m: Union[None, int]
         if s[1:2].isnumeric():
             m = int(s[1:2])
             s = s[2:]
