@@ -166,8 +166,6 @@ class Density:
         self.Q = CompensationChargeExpansionCoefficients(setups, self.nspins)
         self.hund = hund
         self.magmom_av = magmom_av
-
-        assert charge_a.sum() == self.charge
         self.charge_a = charge_a
 
     def reset(self):
