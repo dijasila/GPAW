@@ -186,6 +186,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
         return TetrahedronMethod(
             self.rcell_cv,
             self.size_c,
+            self.improved,
             self.i_k if bz2ibzmap is None else bz2ibzmap,
             parallel_layout or self.parallel_layout)
 
@@ -218,7 +219,6 @@ class TetrahedronMethod(OccupationNumberCalculator):
                 """Return excess electrons and derivative."""
                 if nspins == 1:
                     n, dn = count(x, eig_in, self.i_ktq)
-                    print(dn)
                 else:
                     n1, dn1 = count(x, eig_in[::2], self.i_ktq)
                     n2, dn2 = count(x, eig_in[1::2], self.i_ktq)
@@ -235,8 +235,8 @@ class TetrahedronMethod(OccupationNumberCalculator):
                 f_in = w(eig_in - fermi_level)
             else:
                 f_in = np.zeros_like(eig_in)
-                f_in[::2] = weights(eig_in[::2] - fermi_level)
-                f_in[1::2] = weights(eig_in[1::2] - fermi_level)
+                f_in[::2] = w(eig_in[::2] - fermi_level)
+                f_in[1::2] = w(eig_in[1::2] - fermi_level)
 
             f_in *= 1 / (weight_i[:, np.newaxis] * len(self.i_k))
         else:
@@ -324,9 +324,9 @@ def weights(eig_in: Array2D, i_ktq: Array3D, improved=False) -> Array2D:
         f_Tq[mask_T] += w_qT.T
 
     if improved:
-        for mask_T, bja in [(mask1_T, bja1b),
-                            (mask2_T, bja2b),
-                            (mask3_T, bja3b)]:
+        for mask_T, bja in [(mask1_T, bja1),
+                            (mask2_T, bja2),
+                            (mask3_T, bja3)]:
             e_Tq = eig_Tq[mask_T]
             _, d_T = bja(*e_Tq.T)
             f_Tq[mask_T] += (d_T * (e_Tq.sum(1) - 4 * e_Tq.T)).T / 40

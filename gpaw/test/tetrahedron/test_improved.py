@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import numpy as np
 from gpaw.tetrahedron import TetrahedronMethod
 from gpaw.dos import DOSCalculator
@@ -5,12 +6,12 @@ from gpaw.dos import DOSCalculator
 rcell = np.diag([1, 0.1, 0.1])
 
 
-def f(N):
+def f(N, i):
     k = (np.linspace(-0.5, 0.5, N, endpoint=False) + 0.5 / N) * 2 * np.pi
     e = -np.cos(k)[:, np.newaxis]
     f = np.empty((N, 1))
     w = np.zeros(N) + 1 / N
-    t = TetrahedronMethod(rcell, (N, 1, 1))
+    t = TetrahedronMethod(rcell, (N, 1, 1), improved=i)
     ef, _ = t._calculate(0.5, e, w, f)
     wfs = WFS(e, ef)
     dos = DOSCalculator(wfs, ef, ef, 1, cell=np.linalg.inv(rcell))
@@ -33,5 +34,15 @@ class WFS:
         return self.eig_skn
 
 
+data = []
 for N in range(4, 100, 8):
-    print(f(N))
+    data.append((N, f(N, 0)[1]))
+x, y = np.array(data).T
+plt.plot(1 / x**2, y)
+data = []
+for N in range(4, 100, 8):
+    data.append((N, f(N, 1)[1]))
+x, y = np.array(data).T
+plt.plot(1 / x**2, y)
+plt.show()
+
