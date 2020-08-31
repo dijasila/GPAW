@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union, List, Any
+from typing import Union, List, Any, Optional
 
 import numpy as np
 from ase.spectrum.dosdata import GridDOSData
@@ -7,6 +7,7 @@ from ase.spectrum.dosdata import GridDOSData
 from gpaw import GPAW
 from ase.dft.dos import linear_tetrahedron_integration as lti
 from gpaw.setup import Setup
+from gpaw.spherical_harmonics import names as ylmnames
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
 
 Array1D = Any
@@ -153,10 +154,10 @@ class DOSCalculator:
                         filename: Union[GPAW, Path, str],
                         emin=None, emax=None, npoints=200,
                         soc=False, theta=0.0, phi=0.0):
-        """
+        """Create DOSCalculator from a GPAW calculation.
 
         filename: str
-            Name of restart-file.
+            Name of restart-file or GPAW calculator object.
         """
         if isinstance(filename, GPAW):
             calc = filename
@@ -203,7 +204,8 @@ class DOSCalculator:
         """Calculate density of states.
 
         width: float
-            Width of Gaussians in eV. LT.......
+            Width of Gaussians in eV.  Use width=0.0 to use the
+            linear-tetrahedron-interpolation method.
         """
         if spin is None:
             dos = sum(self.calculate(eig_kn, width=width)
@@ -219,18 +221,38 @@ class DOSCalculator:
     def pdos(self,
              a: int,
              l: int,
+             m: Optional[int] = None,
              spin: int = None,
              width: float = 0.1) -> GridDOSData:
+        """Calculate projected density of states.
 
-        if (a, l) in self.cache:
-            weight_kns = self.cache[(a, l)]
+        a:
+            Atom index.
+        l:
+            Angular momentum quantum number.
+        m:
+            Magnetic quantum number.  Default is None meaning sum over all m.
+        spin:
+            Must be 0, 1 or None meaning spin-up, down or total respectively.
+        width: float
+            Width of Gaussians in eV.  Use width=0.0 to use the
+            linear-tetrahedron-interpolation method.
+        """
+        if (a, l, m) in self.cache:
+            weight_kns = self.cache[(a, l, m)]
         else:
             indices = get_projector_numbers(self.setups[a], l)
+            if m is not None:
+                indices = indices[m::(2 * l) + 1]
             weight_kns = self.wfs.pdos_weights(a, indices)
             self.cache.clear()
-            self.cache[(a, l)] = weight_kns
+            self.cache[(a, l, m)] = weight_kns
 
         label = 'atom #{}-{}'.format(a, 'spdfg'[l])
+
+        if m is not None and l > 0:
+            name = ylmnames[l][m]
+            label += f'-({name})'
 
         if spin is None:
             dos = sum(self.calculate(eig_kn, weight_nk.T, width=width)

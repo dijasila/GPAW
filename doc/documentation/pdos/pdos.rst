@@ -312,3 +312,11 @@ Last part of :git:`~doc/documentation/pdos/lcaodos_plt.py` script:
 
 .. literalinclude:: lcaodos_plt.py
    :start-after: things
+
+
+---
+WIP
+---
+
+.. autoclass:: gpaw.dos.DOSCalculator
+    :members:
