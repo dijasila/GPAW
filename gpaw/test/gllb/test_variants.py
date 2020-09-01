@@ -47,14 +47,21 @@ refs = {'GLLB':
          6.49494071, 6.49896814, 7.43709444],
         'GLLBNORESP':
         [-11.08041529, 1.29983637, 1.30174632, 1.30174632, 3.22508733,
-         3.95890694, 3.95890694, 3.96210188]
+         3.95890694, 3.95890694, 3.96210188],
+        'GLLBSC':
+        [-8.30692283, 4.08893353, 4.08969201, 4.08969201, 7.08814258,
+         7.08814258, 7.09267773, 8.05448801],
+        'GLLBSCM':
+        [-6.64285287, 5.81684766, 5.81869048, 5.81869048, 8.73473982,
+         8.73473982, 8.73812616, 9.56188223]
         }
 
 
 @pytest.mark.gllb
 @pytest.mark.libxc
 @pytest.mark.parametrize('xc', ['GLLB', 'GLLBM', 'GLLBC',
-                                'GLLBCP86', 'GLLBNORESP'])
+                                'GLLBCP86', 'GLLBNORESP',
+                                'GLLBSC', 'GLLBSCM'])
 def test_eigenvalues(xc, in_tmp_dir):
     eig_n = run(xc)
     ref_eig_n = refs[xc]
