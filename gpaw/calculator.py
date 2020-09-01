@@ -1622,8 +1622,7 @@ class GPAW(Calculator):
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
-        from gpaw.utilities.dos import (raw_orbital_LDOS,
-                                        raw_spinorbit_orbital_LDOS, fold)
+        from gpaw.utilities.dos import raw_orbital_LDOS, fold
         if width is None:
             width = 0.1
 
@@ -1631,8 +1630,9 @@ class GPAW(Calculator):
             energies, weights = raw_orbital_LDOS(self, a, spin, angular,
                                                  nbands)
         else:
-            energies, weights = raw_spinorbit_orbital_LDOS(self, a, spin,
-                                                           angular)
+            raise DeprecationWarning(
+                'Please use GPAW.dos(soc=True, ...).pdos(...)')
+
         return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,
