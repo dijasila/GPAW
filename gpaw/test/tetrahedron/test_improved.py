@@ -1,13 +1,14 @@
-import matplotlib.pyplot as plt
+"""Test ITM with half-filled 1-d cosine band."""
+from math import pi
+import pytest
 import numpy as np
 from gpaw.tetrahedron import TetrahedronMethod
 from gpaw.dos import DOSCalculator
 
-rcell = np.diag([1, 0.1, 0.1])
 
-
-def f(N, i):
-    k = (np.linspace(-0.5, 0.5, N, endpoint=False) + 0.5 / N) * 2 * np.pi
+def f(N: int, i: bool):
+    rcell = np.diag([1, 0.1, 0.1])
+    k = (np.linspace(-0.5, 0.5, N, endpoint=False) + 0.5 / N) * 2 * pi
     e = -np.cos(k)[:, np.newaxis]
     f = np.empty((N, 1))
     w = np.zeros(N) + 1 / N
@@ -15,8 +16,8 @@ def f(N, i):
     ef, _ = t._calculate(0.5, e, w, f)
     wfs = WFS(e, ef)
     dos = DOSCalculator(wfs, ef, ef, 1, cell=np.linalg.inv(rcell))
-    df = dos.dos(spin=0, width=0.0).get_weights()[0]
-    return f.sum() / N, (f * e).sum() / N * np.pi + 1, ef, df * np.pi
+    dosef = dos.dos(spin=0, width=0.0).get_weights()[0]
+    return f.sum() / N, (f * e).sum() / N, ef, dosef
 
 
 class WFS:
@@ -34,15 +35,24 @@ class WFS:
         return self.eig_skn
 
 
-data = []
-for N in range(4, 100, 8):
-    data.append((N, f(N, 0)[1]))
-x, y = np.array(data).T
-plt.plot(1 / x**2, y)
-data = []
-for N in range(4, 100, 8):
-    data.append((N, f(N, 1)[1]))
-x, y = np.array(data).T
-plt.plot(1 / x**2, y)
-plt.show()
+@pytest.mark.serial
+def test_tm_1d():
+    # Improved:
+    nelectrons, eband, efermi, dosefermi = f(100, True)
+    assert nelectrons == pytest.approx(0.5, abs=1e-9)
+    assert eband == pytest.approx(-1 / pi, abs=1e-5)
+    assert efermi == pytest.approx(0.0, abs=1e-9)
+    assert dosefermi == pytest.approx(1 / pi, abs=1e-4)
 
+    # Standard:
+    nelectrons, eband100, efermi, dosefermi = f(100, not True)
+    assert nelectrons == pytest.approx(0.5, abs=1e-9)
+    assert efermi == pytest.approx(0.0, abs=1e-9)
+    assert dosefermi == pytest.approx(1 / pi, abs=1e-4)
+
+    # ebands converges as 1/N^2.
+    # Extrapolate to infinite number of k-points:
+    eband80 = f(80, not True)[1]
+    eband = np.polyval(np.polyfit([100**-2, 80**-2],
+                                  [eband100, eband80], 1), 0.0)
+    assert eband == pytest.approx(-1 / pi, abs=1e-7)
