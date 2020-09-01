@@ -13,8 +13,6 @@ import pytest
 from ase.build import bulk
 from ase.units import Ha
 from gpaw import GPAW, Davidson, Mixer, restart
-from gpaw.test import gen
-from gpaw import setup_paths
 from gpaw.mpi import world
 
 
@@ -22,9 +20,6 @@ from gpaw.mpi import world
 @pytest.mark.libxc
 def test_gllb_diamond(in_tmp_dir):
     xc = 'GLLBSC'
-    gen('C', xcname=xc)
-    setup_paths.insert(0, '.')
-
     # Calculate ground state
     atoms = bulk('C', 'diamond', a=3.567)
     # We want sufficiently many grid points that the calculator
