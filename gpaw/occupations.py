@@ -200,7 +200,7 @@ class OccupationNumberCalculator:
 
 class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
     """Base class for all occupation number objects."""
-    name = 'unknown'
+    name = 'fixmagmom'
 
     def __init__(self,
                  occ: OccupationNumberCalculator,

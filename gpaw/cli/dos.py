@@ -62,17 +62,22 @@ def parse_projection_string(projection: str,
                                             List[Tuple[int,
                                                        int,
                                                        Union[None, int]]]]]:
-    """Create labels and lists of (a, l)-tuples.
+    """Create labels and lists of (a, l, m)-tuples.
 
     Example:
 
     >>> from gpaw.setup import create_setup
     >>> setup = create_setup('Li')
-    >>> parse_projection_string('Li-sp', ['Li', 'Li'], [setup, setup])
-    [('Li-s', [(0, 0), (1, 0)]), ('Li-p', [(0, 1), (1, 1)])]
+    >>> s, py = parse_projection_string('Li-sp0',
+    ...                                 ['Li', 'Li'],
+    ...                                 [setup, setup])
+    >>> s
+    ('Li-s', [(0, 0, None), (1, 0, None)])
+    >>> py
+    ('Li-p(y)', [(0, 1, 0), (1, 1, 0)])
 
     * "Li-s" will have contributions from l=0 and atoms 0 and 1
-    * "Li-p" will have contributions from l=1 and atoms 0 and 1
+    * "Li-p(y)" will have contributions from l=1, m=0 and atoms 0 and 1
 
     """
     result: List[Tuple[str, List[Tuple[int, int, Union[None, int]]]]] = []

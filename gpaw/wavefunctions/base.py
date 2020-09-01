@@ -523,6 +523,9 @@ class WaveFunctions:
             self.fermi_levels = np.array(
                 [o.fermilevel + o.split / 2,
                  o.fermilevel - o.split / 2]) / r.ha
+            if self.occupations.name != 'fixmagmom':
+                assert o.split == 0.0
+                self.fermi_levels = self.fermi_levels[:1]
 
         if reader.version >= 2:
             kpts = r.kpts
