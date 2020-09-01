@@ -72,7 +72,7 @@ Git master branch
   Use ``occupations={'name': 'tetrahedron-method'}`` or
   ``occupations={'name': 'improved-tetrahedron-method'}``.
   See `Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_
-  for details.
+  and :ref:`smearing` for details.
 
 * New :func:`gpaw.mpi.broadcast_array` function for broadcasting
   an ``np.ndarray`` across several MPI-communicators.  New

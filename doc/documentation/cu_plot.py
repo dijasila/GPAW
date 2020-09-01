@@ -17,8 +17,8 @@ for name in ['ITM', 'TM', 'FD-0.05', 'MV-0.2']:
 
 ax.set_xlabel(r'$1/k^2$')
 ax.set_ylabel(r'$\Delta E$ [meV]')
-ax.set_xlim(left=0.002)
-ax2 = ax.secondary_xaxis('top', functions=(lambda x: x**-0.5, lambda k: k**-2))
+ax2 = ax.secondary_xaxis('top', functions=(lambda x: (x + 1e-10)**-0.5,
+                                           lambda k: (k + 1e-10)**-2))
 ax2.set_xlabel('Number of k-points (k)')
 plt.legend()
 plt.savefig('cu.png')
