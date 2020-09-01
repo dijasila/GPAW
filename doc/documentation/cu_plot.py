@@ -5,7 +5,7 @@ from ase.io import read
 fig, ax = plt.subplots(constrained_layout=True)
 
 e0 = None
-k = np.arange(6, 21, dtype=float)
+k = np.arange(8, 21, dtype=float)
 for name in ['ITM', 'TM', 'FD-0.05', 'MV-0.2']:
     energies = []
     for n in k:
@@ -13,7 +13,7 @@ for name in ['ITM', 'TM', 'FD-0.05', 'MV-0.2']:
         energies.append(e)
     if e0 is None:
         e0 = e
-    ax.plot(k**-2, (np.array(energies) - e0) * 1000, 'o-', label=name)
+    ax.plot(k**-2, (np.array(energies) - e0) * 1000, label=name)
 
 ax.set_xlabel(r'$1/k^2$')
 ax.set_ylabel(r'$\Delta E$ [meV]')

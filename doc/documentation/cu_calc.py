@@ -12,7 +12,7 @@ for smearing in [{'name': 'improved-tetrahedron-method'},
     if width:
         name += f'-{width}'
 
-    for k in range(6, 21):
+    for k in range(8, 21):
         cu.calc = GPAW(
             mode=PW(400),
             kpts=(k, k, k),
