@@ -14,7 +14,9 @@ diferent smearing methods:
 
 .. figure:: cu.png
 
-(made with :download:`cu_plot.py`).
+(made with :download:`cu_plot.py`).  See also figure 3 in
+`Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_.
+
 
 .. autofunction:: create_occ_calc
 .. autofunction:: fermi_dirac

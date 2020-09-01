@@ -32,7 +32,8 @@ intersphinx_mapping = {
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
 nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
-                  ('py:class', 'GPAW')]
+                  ('py:class', 'GPAW'),
+                  ('py:class', 'ase.spectrum.dosdata.GridDOSData')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

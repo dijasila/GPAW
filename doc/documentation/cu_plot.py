@@ -15,9 +15,10 @@ for name in ['ITM', 'TM', 'FD-0.05', 'MV-0.2']:
         e0 = e
     ax.plot(k**-2, (np.array(energies) - e0) * 1000, 'o-', label=name)
 
-ax2 = ax.secondary_xaxis('top', functions=(lambda x: x**-0.5, lambda k: k**-2))
 ax.set_xlabel(r'$1/k^2$')
 ax.set_ylabel(r'$\Delta E$ [meV]')
+ax.set_xlim(left=0.002)
+ax2 = ax.secondary_xaxis('top', functions=(lambda x: x**-0.5, lambda k: k**-2))
 ax2.set_xlabel('Number of k-points (k)')
 plt.legend()
 plt.savefig('cu.png')

@@ -3,10 +3,10 @@ from gpaw import GPAW, PW
 
 cu = bulk('Cu', 'fcc', a=3.6)
 
-for smearing in [{'name': 'tetrahedron-method'},
-                 {'name': 'improved-tetrahedron-method'},
-                 {'name': 'marzari-vanderbilt', 'width': 0.2},
-                 {'name': 'fermi-dirac', 'width': 0.05}]:
+for smearing in [{'name': 'improved-tetrahedron-method'},
+                 {'name': 'tetrahedron-method'},
+                 {'name': 'fermi-dirac', 'width': 0.05},
+                 {'name': 'marzari-vanderbilt', 'width': 0.2}]:
     name = ''.join(word[0].upper() for word in smearing['name'].split('-'))
     width = smearing.get('width')
     if width:
