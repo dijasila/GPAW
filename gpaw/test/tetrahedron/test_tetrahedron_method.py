@@ -4,6 +4,7 @@ import pytest
 import gpaw.tetrahedron as T
 
 
+@pytest.mark.serial
 def test_bja():
     """Test formulas from Blöchl et al. paper."""
     eigs = np.linspace(1.0, 4.0, 4).reshape((4, 1))
@@ -21,10 +22,12 @@ def test_bja():
         assert dfde1 == pytest.approx(dfde2)
 
 
+@pytest.mark.serial
 def test_tetra():
     """Test 2-d BZ exapmle."""
     t = T.TetrahedronMethod(np.diag([1.0, 1.0, 0.1]),
                             [2, 2, 1],
+                            False,
                             [0, 1, 2, 1])
 
     eig_in = np.array([[0.0, 2.0], [0.0, 1.0], [0.0, 1.0]])
