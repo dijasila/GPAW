@@ -5,7 +5,7 @@ from ase.io import read
 fig, ax = plt.subplots(constrained_layout=True)
 
 e0 = None
-k = np.arange(6, 9, dtype=float)
+k = np.arange(6, 21, dtype=float)
 for name in ['ITM', 'TM', 'FD-0.05', 'MV-0.2']:
     energies = []
     for n in k:

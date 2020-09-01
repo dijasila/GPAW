@@ -7,11 +7,14 @@ Occupation number smearing
 
 .. seealso:: :ref:`manual_occ`
 
-Bulk Cu with diferent smearing methods:
+Convergence with respect to number of k-point for bulk Cu energy with
+diferent smearing methods:
+
+.. literalinclude:: cu_calc.py
 
 .. figure:: cu.png
 
-(made with :download:`cu.py`).
+(made with :download:`cu_plot.py`).
 
 .. autofunction:: create_occ_calc
 .. autofunction:: fermi_dirac

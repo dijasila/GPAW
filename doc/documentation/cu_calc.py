@@ -12,11 +12,10 @@ for smearing in [{'name': 'tetrahedron-method'},
     if width:
         name += f'-{width}'
 
-    # for n in range(6, 21):
-    for n in range(6, 9):
+    for k in range(6, 21):
         cu.calc = GPAW(
             mode=PW(400),
-            kpts=(n, n, n),
+            kpts=(k, k, k),
             occupations=smearing,
-            txt=f'Cu-{name}-{n}.txt')
+            txt=f'Cu-{name}-{k}.txt')
         e = cu.get_potential_energy()
