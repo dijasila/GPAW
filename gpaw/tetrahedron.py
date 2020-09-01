@@ -26,11 +26,11 @@ Array3D = Any
 
 
 def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
-         ) -> Tuple[float, float]:
+         ) -> Tuple[float, Array1D]:
     """Eq. (A2) and (C2) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e2 - e1) * (e3 - e1) * (e4 - e1))
     return (-(e1**3).dot(x),
-            3 * (e1**2).dot(x))
+            3 * e1**2 * x)
 
 
 def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
@@ -42,9 +42,9 @@ def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
                   - 3 * (e2 - e1) * e2
                   + 3 * e2**2
                   + y * e2**3),
-            x.dot(3 * (e2 - e1)
-                  - 6 * e2
-                  - 3 * y * e2**2))
+            x * (3 * (e2 - e1)
+                 - 6 * e2
+                 - 3 * y * e2**2))
 
 
 def bja3(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
@@ -52,7 +52,7 @@ def bja3(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
     """Eq. (A4) and (C4) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
     return (len(e1) - x.dot(e4**3),
-            3 * x.dot(e4**2))
+            3 * x * e4**2)
 
 
 def bja1b(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D) -> Array2D:
@@ -133,6 +133,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
     def __init__(self,
                  rcell: List[List[float]],
                  size: Tuple[int, int, int],
+                 improved=False,
                  bz2ibzmap: List[int] = None,
                  parallel_layout: ParallelLayout = None):
         """Tetrahedron method for calculating occupation numbers.
@@ -148,6 +149,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
         self.rcell_cv = np.asarray(rcell)
         self.size_c = np.asarray(size)
+        self.improved = improved
 
         nbzk = self.size_c.prod()
 
@@ -184,6 +186,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
         return TetrahedronMethod(
             self.rcell_cv,
             self.size_c,
+            self.improved,
             self.i_k if bz2ibzmap is None else bz2ibzmap,
             parallel_layout or self.parallel_layout)
 
@@ -192,7 +195,7 @@ class TetrahedronMethod(OccupationNumberCalculator):
                    eig_qn,
                    weight_q,
                    f_qn,
-                   fermi_level_guess=nan):
+                   fermi_level_guess=nan) -> Tuple[float, float]:
         if np.isnan(fermi_level_guess):
             zero = ZeroWidth(self.parallel_layout)
             fermi_level_guess, _ = zero._calculate(
@@ -225,12 +228,15 @@ class TetrahedronMethod(OccupationNumberCalculator):
 
             fermi_level, niter = findroot(func, x)
 
+            def w(de_in):
+                return weights(de_in, self.i_ktq, self.improved)
+
             if nspins == 1:
-                f_in = weights(eig_in - fermi_level, self.i_ktq)
+                f_in = w(eig_in - fermi_level)
             else:
                 f_in = np.zeros_like(eig_in)
-                f_in[::2] = weights(eig_in[::2] - fermi_level, self.i_ktq)
-                f_in[1::2] = weights(eig_in[1::2] - fermi_level, self.i_ktq)
+                f_in[::2] = w(eig_in[::2] - fermi_level)
+                f_in[1::2] = w(eig_in[1::2] - fermi_level)
 
             f_in *= 1 / (weight_i[:, np.newaxis] * len(self.i_k))
         else:
@@ -277,9 +283,9 @@ def count(fermi_level: float,
     mask3_T = ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
 
     for mask_T, bjaa in [(mask1_T, bja1), (mask2_T, bja2), (mask3_T, bja3)]:
-        n, dn = bjaa(*eig_Tq[mask_T].T)
+        n, dn_T = bjaa(*eig_Tq[mask_T].T)
         ne += n / ntetra
-        dnedef += dn / ntetra
+        dnedef += dn_T.sum() / ntetra
 
     mask4_T = ~mask1_T & ~mask2_T & ~mask3_T
     ne += mask4_T.sum() / ntetra
@@ -287,7 +293,7 @@ def count(fermi_level: float,
     return ne, dnedef
 
 
-def weights(eig_in: Array2D, i_ktq: Array3D) -> Array2D:
+def weights(eig_in: Array2D, i_ktq: Array3D, improved=False) -> Array2D:
     """Calculate occupation numbers."""
     nocc_i = (eig_in < 0.0).sum(axis=1)
     n1 = nocc_i.min()
@@ -316,6 +322,14 @@ def weights(eig_in: Array2D, i_ktq: Array3D) -> Array2D:
     for mask_T, bja in [(mask1_T, bja1b), (mask2_T, bja2b), (mask3_T, bja3b)]:
         w_qT = bja(*eig_Tq[mask_T].T)
         f_Tq[mask_T] += w_qT.T
+
+    if improved:
+        for mask_T, bja in [(mask1_T, bja1),
+                            (mask2_T, bja2),
+                            (mask3_T, bja3)]:
+            e_Tq = eig_Tq[mask_T]
+            _, d_T = bja(*e_Tq.T)
+            f_Tq[mask_T] += (d_T * (e_Tq.sum(1) - 4 * e_Tq.T)).T / 40
 
     mask4_T = ~mask0_T & ~mask1_T & ~mask2_T & ~mask3_T
     f_Tq[mask4_T] += 0.25
