@@ -43,17 +43,6 @@ def get_nonlocal_functional(name,
         xc_functional = 'GGA_C_PBE_SOL'
         setup_name = 'GLLBSC'
         metallic = True
-    elif name.startswith('GLLBSC_W'):
-        scr_functional = 'GGA_X_PBE_SOL'
-        xc_functional = 'GGA_C_PBE_SOL'
-        setup_name = 'GLLBSC'
-        width = float(name.split('GLLBSC_W')[1])
-    elif name.startswith('GLLBSCM_W'):
-        scr_functional = 'GGA_X_PBE_SOL'
-        xc_functional = 'GGA_C_PBE_SOL'
-        setup_name = 'GLLBSC'
-        metallic = True
-        width = float(name.split('GLLBSCM_W')[1])
     elif name == 'GLLBC':
         scr_functional = 'GGA_X_PBE'
         xc_functional = 'GGA_C_PBE'

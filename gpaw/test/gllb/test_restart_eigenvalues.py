@@ -32,6 +32,11 @@ refs = {'GLLBSC':
 @pytest.mark.parametrize('xc', ['GLLBSC', 'GLLBSC_W0.1',
                                 'GLLBSCM', 'GLLBSCM_W0.1'])
 def test_restart_eigenvalues(xc, in_tmp_dir):
+    xcname = xc
+    if '_W' in xc:
+        name, width = xc.split('_W')
+        xc = {'name': name, 'width': float(width)}
+
     test_kpts = [[0, 0, 0], [1. / 3, 1. / 3, 1. / 3]]
 
     atoms = bulk('Si')
@@ -54,9 +59,9 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
     calc.write('gs.gpw')
 
     # Check calculation against reference
-    ref_eig_in = refs[xc]
+    ref_eig_in = refs[xcname]
     assert np.allclose(eig_in, ref_eig_in, rtol=0, atol=1e-6), \
-        "{} error = {}".format(xc, np.max(np.abs(eig_in - ref_eig_in)))
+        "{} error = {}".format(xcname, np.max(np.abs(eig_in - ref_eig_in)))
 
     # Restart
     calc = GPAW('gs.gpw', fixdensity=True,
@@ -72,4 +77,4 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
 
     # Check restarted eigenvalues
     assert np.allclose(eig_in, eig2_in, rtol=0, atol=1e-8), \
-        "{} restart error = {}".format(xc, np.max(np.abs(eig_in - eig2_in)))
+        "{} restart error = {}".format(xcname, np.max(np.abs(eig_in - eig2_in)))
