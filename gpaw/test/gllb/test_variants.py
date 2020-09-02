@@ -6,7 +6,11 @@ from gpaw import GPAW
 
 
 def run(xc):
-    gen('Si', xcname=xc, write_xml=True)
+    setup_name = {'GLLBLDA': 'LDA', 'GLLBGGA': 'PBE', 'GLLBM': 'GLLB'}.get(xc,
+                                                                           xc)
+    if setup_name in ['GLLB', 'GLLBC', 'GLLBCP86', 'GLLBNORESP']:
+        gen('Si', xcname=setup_name, write_xml=True)
+
     atoms = bulk('Si')
     calc = GPAW(mode='lcao',
                 basis='sz(dzp)',
