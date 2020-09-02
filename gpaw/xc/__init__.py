@@ -78,8 +78,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 get_nonlocal_functional
-            # Pass kwargs somewhere?
-            xc = get_nonlocal_functional(name)
+            xc = get_nonlocal_functional(name, **kwargs)
             xc.print_functional()
             return xc
         elif name == 'LB94':
