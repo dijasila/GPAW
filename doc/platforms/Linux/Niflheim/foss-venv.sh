@@ -1,7 +1,6 @@
 #!/usr/bin/bash
-# Install gpaw, ase, ase_ext, spglib, and myqueue on Niflheim in a venv
+# Install gpaw, ase, ase-ext, spglib, sklearn and myqueue on Niflheim in a venv
 
-######deactivate > /dev/null 2>&1
 set -e  # stop if there are errors
 
 FOLDERNAME=$1
@@ -45,8 +44,8 @@ CMD="cd $VENV && . bin/activate && pip install $URL -v > ase_ext.out 2>&1"
 echo $CMD
 ssh fjorm $CMD
 
-# Install spglib:
-CMD="cd $VENV && . bin/activate && pip install spglib"
+# Install spglib and sklearn:
+CMD="cd $VENV && . bin/activate && pip install spglib sklearn"
 echo $CMD
 ssh fjorm $CMD
 
@@ -61,10 +60,14 @@ do
   echo $CMD
   ssh $HOST $CMD
 done
-(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.6)
+(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.7)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 cd ..
+
+gpaw install-data --basis --version=20000 . --no-register
+export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/gpaw-basis-pvalence-0.9.20000
+echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 
 # Tab completion:
 ase completion >> bin/activate

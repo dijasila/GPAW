@@ -1,7 +1,6 @@
 #!/usr/bin/bash
-# Install gpaw, ase, ase_ext, spglib, and myqueue on Niflheim in a venv
+# Install gpaw, ase, ase-ext, spglib, sklearn and myqueue on Niflheim in a venv
 
-deactivate > /dev/null 2>&1
 set -e  # stop if there are errors
 
 FOLDERNAME=$1
@@ -9,9 +8,8 @@ mkdir -p $FOLDERNAME
 cd $FOLDERNAME
 
 module purge
-module load Python/3.6.6-intel-2018b
-module load libxc/4.2.3-intel-2018b
-# module load libvdwxc/0.3.2-intel-2018b
+module load matplotlib/3.1.1-intel-2019b-Python-3.7.4
+module load libxc/4.3.4-iccifort-2019.5.281
 
 # Create venv:
 python3 -m venv venv --prompt=$FOLDERNAME --system-site-packages
@@ -24,10 +22,10 @@ $PIP install --upgrade pip -qq
 # Load modules in activate script:
 mv bin/activate .
 echo "module purge" > bin/activate
-echo "module load Python/3.6.6-intel-2018b" >> bin/activate
-echo "module load libxc/4.2.3-intel-2018b" >> bin/activate
-# echo "module load libvdwxc/0.3.2-intel-2018b" >> bin/activate
-echo "module load Tkinter/3.6.6-intel-2018b-Python-3.6.6" >> bin/activate
+echo "module load matplotlib/3.1.1-intel-2019b-Python-3.7.4" >> bin/activate
+echo "module load libxc/4.3.4-iccifort-2019.5.281" >> bin/activate
+echo "module load GPAW-setups/0.9.20000" >> bin/activate
+
 cat activate >> bin/activate
 rm activate
 
@@ -44,8 +42,8 @@ CMD="cd $VENV && . bin/activate && pip install $URL -v > ase_ext.out 2>&1"
 echo $CMD
 ssh fjorm $CMD
 
-# Install spglib:
-CMD="cd $VENV && . bin/activate && pip install spglib"
+# Install spglib and sklearn:
+CMD="cd $VENV && . bin/activate && pip install spglib sklearn"
 echo $CMD
 ssh fjorm $CMD
 
@@ -55,21 +53,18 @@ cd gpaw
 cp doc/platforms/Linux/Niflheim/el7-intel.py siteconfig.py
 for HOST in fjorm svol thul slid
 do
-  CMD="cd $VENV && . bin/activate && pip install -e gpaw -v > gpaw/$HOST.out 2>&1"
+  CMD="cd $VENV && . bin/activate && pip install -e gpaw -v > $HOST.out 2>&1"
   echo Compiling GPAW on $HOST
   echo $CMD
   ssh $HOST $CMD
 done
-(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.6)
+(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.7)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 cd ..
 
-# Install PAW-datasets:
-gpaw install-data paw-datasets --no-register
-gpaw install-data --basis --version=20000 paw-datasets --no-register
-GPAW_SETUP_PATH=$VENV/paw-datasets/gpaw-setups-0.9.20000
-export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/paw-datasets/gpaw-basis-pvalence-0.9.20000
+gpaw install-data --basis --version=20000 . --no-register
+export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/gpaw-basis-pvalence-0.9.20000
 echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 
 # Tab completion:
