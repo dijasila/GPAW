@@ -42,19 +42,6 @@ class C_Response(Contribution):
     def set_damp(self, damp):
         self.damp = damp
 
-    def set_positions(self, atoms):
-        # d('Response::set_positions', len(self.Dresp_asp),
-        #   'not doing anything now')
-        return
-
-        def get_empty(a):
-            ni = self.wfs.setups[a].ni
-            return np.empty((self.ns, ni * (ni + 1) // 2))
-
-        # atom_partition.redistribute(atom_partition, self.Dresp_asp,
-        #                             get_empty)
-        # atom_partition.redistribute(atom_partition, self.D_asp, get_empty)
-
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
         w_i = self.coefficients.get_coefficients_1d()
@@ -67,17 +54,6 @@ class C_Response(Contribution):
         Contribution.initialize(self, density, hamiltonian, wfs)
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
-            # if self.density.D_asp is not None:
-            #     self.Dresp_asp = self.empty_atomic_matrix()
-            #     self.D_asp = self.empty_atomic_matrix()
-            #     for a in self.density.D_asp:
-            #         self.Dresp_asp[a][:] = 0.0
-            #         self.D_asp[a][:] = 0.0
-            # XXX Might as well not initialize, as it seems.
-            #     self.Drespdist_asp = self.distribute_Dresp_asp(
-            #         self.Dresp_asp)
-            #     self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-
             # The response discontinuity is stored here
             self.Dxc_vt_sG = None
             self.Dxc_Dresp_asp = None

@@ -102,19 +102,6 @@ class C_GLLBScr(Contribution):
 
 
     def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False, homolumo=None, nspins=1):
-        #if not hasattr(kpt_u[0],'orbitals_ready'):
-        #    kpt_u[0].orbitals_ready = True
-        #    return None
-        #if not hasattr(self.occupations, 'nvalence'):
-        #    print "occupations not ready"
-        #    return None
-        #if self.occupations.nvalence is None:
-        #    return None
-        #if kpt_u[0].psit_nG is None or isinstance(kpt_u[0].psit_nG,
-        #                                          TarFileReference):
-        #    if kpt_u[0].C_nM is None:
-        #        return None
-
         eref_s = []
         eref_lumo_s = []
         if self.metallic:
@@ -141,14 +128,6 @@ class C_GLLBScr(Contribution):
             if not isinstance(eref_s, (list, tuple)):
                 eref_s = [ eref_s ]
                 eref_lumo_s = [ eref_lumo_s ]
-
-        # The parameter ee might sometimes be set to small thereshold value to
-        # achieve convergence on small systems with degenerate HOMO.
-        # XXX This parameter ee is not to used anywhere
-        # if len(kpt_u) > nspins:
-        #     ee = 0.0
-        # else:
-        #     ee = 0.05 / Hartree
 
         if lumo_perturbation:
             return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s]-e)

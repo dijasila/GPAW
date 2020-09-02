@@ -98,8 +98,6 @@ class NonLocalFunctional(XCFunctional):
             H_sp += (1 - cmix) * self.old_H_asp[a]
             self.old_H_asp[a][:] = H_sp.copy()
 
-        # if a == 0:
-        #     print('eh', H_sp.sum())
         H0_sp += H_sp
         Exc -= setup.xc_correction.e_xc0
         return Exc
