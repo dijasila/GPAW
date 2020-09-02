@@ -20,8 +20,8 @@ def d(*args):
 
 
 class C_Response(Contribution):
-    def __init__(self, nlfunc, weight, coefficients):
-        Contribution.__init__(self, nlfunc, weight)
+    def __init__(self, weight, coefficients):
+        Contribution.__init__(self, weight)
         d('In c_Response __init__', self)
         self.coefficients = coefficients
         self.vt_sg = None
@@ -48,16 +48,12 @@ class C_Response(Contribution):
         return
 
         def get_empty(a):
-            ni = self.setups[a].ni
+            ni = self.wfs.setups[a].ni
             return np.empty((self.ns, ni * (ni + 1) // 2))
 
         # atom_partition.redistribute(atom_partition, self.Dresp_asp,
         #                             get_empty)
         # atom_partition.redistribute(atom_partition, self.D_asp, get_empty)
-
-    # Initialize Response functional
-    def initialize_1d(self):
-        self.ae = self.nlfunc.ae
 
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
@@ -67,20 +63,8 @@ class C_Response(Contribution):
             np.dot(self.ae.f_j, u2_j) + self.damp)
         return 0.0  # Response part does not contribute to energy
 
-    def initialize(self):
-        d('In C_response initialize')
-        self.gd = self.nlfunc.gd
-        self.finegd = self.nlfunc.finegd
-        self.wfs = self.nlfunc.wfs
-        self.kpt_u = self.wfs.kpt_u
-        self.setups = self.wfs.setups
-        self.density = self.nlfunc.density
-        self.symmetry = self.wfs.kd.symmetry
-        self.nspins = self.nlfunc.nspins
-        self.nvalence = self.nlfunc.nvalence
-        self.kpt_comm = self.wfs.kd.comm
-        self.band_comm = self.wfs.bd.comm
-        self.grid_comm = self.gd.comm
+    def initialize(self, density, hamiltonian, wfs):
+        Contribution.initialize(self, density, hamiltonian, wfs)
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
             # if self.density.D_asp is not None:
@@ -131,14 +115,14 @@ class C_Response(Contribution):
             return
 
         nspins = len(nt_sg)
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.kpt_u,
+        w_kn = self.coefficients.get_coefficients_by_kpt(self.wfs.kpt_u,
                                                          nspins=nspins)
-        f_kn = [kpt.f_n for kpt in self.kpt_u]
+        f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
             self.vt_sG = self.gd.zeros(self.nspins)
             self.nt_sG = self.gd.zeros(self.nspins)
 
-            for kpt, w_n in zip(self.kpt_u, w_kn):
+            for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(
                     self.vt_sG, kpt, w_n)
                 self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
@@ -148,8 +132,8 @@ class C_Response(Contribution):
 
             if self.wfs.kd.symmetry:
                 for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
-                    self.symmetry.symmetrize(nt_G, self.gd)
-                    self.symmetry.symmetrize(vt_G, self.gd)
+                    self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
+                    self.wfs.kd.symmetry.symmetrize(vt_G, self.gd)
 
             d('response update D_asp', world.rank, self.Dresp_asp.keys(),
               self.D_asp.keys())
@@ -222,7 +206,7 @@ class C_Response(Contribution):
         return 0.0
 
     def integrate_sphere(self, a, Dresp_sp, D_sp, Dwf_p, spin=0):
-        c = self.nlfunc.setups[a].xc_correction
+        c = self.wfs.setups[a].xc_correction
         Dresp_p, D_p = Dresp_sp[spin], D_sp[spin]
         D_Lq = np.dot(c.B_pqL.T, D_p)
         n_Lg = np.dot(D_Lq, c.n_qg)  # Construct density
@@ -276,23 +260,23 @@ class C_Response(Contribution):
         self.Dxc_Dresp_asp = self.empty_atomic_matrix()
         self.Dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
-            ni = self.setups[a].ni
-            self.Dxc_Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
+            ni = self.wfs.setups[a].ni
+            self.Dxc_Dresp_asp[a] = np.zeros((self.nspins, ni *
                                               (ni + 1) // 2))
-            self.Dxc_D_asp[a] = np.zeros((self.nlfunc.nspins, ni *
+            self.Dxc_D_asp[a] = np.zeros((self.nspins, ni *
                                           (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference
         w_kn = self.coefficients.get_coefficients_by_kpt(
-            self.kpt_u,
+            self.wfs.kpt_u,
             lumo_perturbation=True,
             homolumo=homolumo,
             nspins=self.nspins)
-        f_kn = [kpt.f_n for kpt in self.kpt_u]
+        f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
 
-        vt_sG = self.gd.zeros(self.nlfunc.nspins)
-        nt_sG = self.gd.zeros(self.nlfunc.nspins)
-        for kpt, w_n in zip(self.kpt_u, w_kn):
+        vt_sG = self.gd.zeros(self.nspins)
+        nt_sG = self.gd.zeros(self.nspins)
+        for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
             self.wfs.add_to_density_from_k_point_with_occupation(vt_sG, kpt,
                                                                  w_n)
             self.wfs.add_to_density_from_k_point(nt_sG, kpt)
@@ -302,8 +286,8 @@ class C_Response(Contribution):
 
         if self.wfs.kd.symmetry:
             for nt_G, vt_G in zip(nt_sG, vt_sG):
-                self.symmetry.symmetrize(nt_G, self.gd)
-                self.symmetry.symmetrize(vt_G, self.gd)
+                self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
+                self.wfs.kd.symmetry.symmetrize(vt_G, self.gd)
 
         vt_sG /= nt_sG + self.damp
         self.Dxc_vt_sG = vt_sG.copy()
@@ -327,7 +311,7 @@ class C_Response(Contribution):
         lumo_n = (eps_n < self.wfs.fermi_level).sum()
 
         gaps = [1000.0]
-        for u, kpt in enumerate(self.kpt_u):
+        for u, kpt in enumerate(self.wfs.kpt_u):
             if kpt.s == s:
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
@@ -340,12 +324,12 @@ class C_Response(Contribution):
                                           P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,
                                                spin=s)
-                E = self.grid_comm.sum(E)
+                E = self.gd.comm.sum(E)
                 E += self.gd.integrate(nt_G * self.Dxc_vt_sG[s])
                 E += kpt.eps_n[lumo_n]
                 gaps.append(E - lumo)
 
-        method2_dxc = -self.kpt_comm.max(-min(gaps))
+        method2_dxc = -self.wfs.kd.comm.max(-min(gaps))
         Ksgap *= Ha
         method1_dxc *= Ha
         method2_dxc *= Ha
@@ -379,10 +363,11 @@ class C_Response(Contribution):
         # Initialize 'response-density' and density-matrices
         # print('Initializing from atomic orbitals')
         self.Dresp_asp = self.empty_atomic_matrix()
+        setups = self.wfs.setups
 
         for a in self.density.D_asp.keys():
-            ni = self.setups[a].ni
-            self.Dresp_asp[a] = np.zeros((self.nlfunc.nspins, ni *
+            ni = setups[a].ni
+            self.Dresp_asp[a] = np.zeros((self.nspins, ni *
                                           (ni + 1) // 2))
 
         self.D_asp = self.empty_atomic_matrix()
@@ -390,27 +375,26 @@ class C_Response(Contribution):
         w_asi = {}
 
         for a in basis_functions.atom_indices:
-            if self.setups[a].type == 'ghost':
+            if setups[a].type == 'ghost':
                 w_j = [0.0]
             else:
-                w_j = self.setups[a].extra_xc_data['w_j']
+                w_j = setups[a].extra_xc_data['w_j']
 
             # Basis function coefficients based of response weights
-            w_si = self.setups[a].calculate_initial_occupation_numbers(
+            w_si = setups[a].calculate_initial_occupation_numbers(
                 0, False,
                 charge=0,
                 nspins=self.nspins,
                 f_j=w_j)
             # Basis function coefficients based on density
-            f_si = self.setups[a].calculate_initial_occupation_numbers(
+            f_si = setups[a].calculate_initial_occupation_numbers(
                 0, False,
                 charge=0,
                 nspins=self.nspins)
 
             if a in basis_functions.my_atom_indices:
-                self.Dresp_asp[a] = self.setups[a].initialize_density_matrix(
-                    w_si)
-                self.D_asp[a] = self.setups[a].initialize_density_matrix(f_si)
+                self.Dresp_asp[a] = setups[a].initialize_density_matrix(w_si)
+                self.D_asp[a] = setups[a].initialize_density_matrix(f_si)
 
             f_asi[a] = f_si
             w_asi[a] = w_si
@@ -507,8 +491,8 @@ class C_Response(Contribution):
                 writer.fill(gd.collect(Dxc_vt_G) * (Ha / Bohr))
 
         def pack(X0_asp):
-            X_asp = self.wfs.setups.empty_atomic_matrix(
-                self.wfs.nspins, self.wfs.atom_partition)
+            X_asp = wfs.setups.empty_atomic_matrix(
+                wfs.nspins, wfs.atom_partition)
             # XXX some of the provided X0_asp contain strangely duplicated
             # elements.  Take only the minimal set:
             for a in X_asp:
@@ -522,8 +506,9 @@ class C_Response(Contribution):
             gllb_dxc_atomic_response_matrices=pack(self.Dxc_Dresp_asp))
 
     def empty_atomic_matrix(self):
-        return self.setups.empty_atomic_matrix(self.density.nspins,
-                                               self.density.atom_partition)
+        assert self.wfs.atom_partition is self.density.atom_partition
+        return self.wfs.setups.empty_atomic_matrix(self.wfs.nspins,
+                                                   self.wfs.atom_partition)
 
     def read(self, reader):
         r = reader.hamiltonian.xc

@@ -4,8 +4,8 @@ import numpy as np
 
 
 class C_XC(Contribution):
-    def __init__(self, nlfunc, weight, functional):
-        Contribution.__init__(self, nlfunc, weight)
+    def __init__(self, weight, functional):
+        Contribution.__init__(self, weight)
         self.functional = functional
 
     def get_name(self):
@@ -13,21 +13,22 @@ class C_XC(Contribution):
 
     def get_desc(self):
         return "(" + self.functional + ")"
-        
-    def initialize(self):
-        self.xc = XC(self.functional)
-        self.vt_sg = self.nlfunc.finegd.empty(self.nlfunc.nspins)
-        self.e_g = self.nlfunc.finegd.empty()
 
-    def initialize_1d(self):
-        self.ae = self.nlfunc.ae
+    def initialize(self, density, hamiltonian, wfs):
+        Contribution.initialize(self, density, hamiltonian, wfs)
+        self.xc = XC(self.functional)
+        self.vt_sg = self.finegd.empty(self.nspins)
+        self.e_g = self.finegd.empty()
+
+    def initialize_1d(self, ae):
+        Contribution.initialize_1d(self, ae)
         self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
-        self.xc.calculate(self.nlfunc.finegd, n_g[None, ...], self.vt_sg,
+        self.xc.calculate(self.finegd, n_g[None, ...], self.vt_sg,
                           self.e_g)
         v_g += self.weight * self.vt_sg[0]
         e_g += self.weight * self.e_g
@@ -35,7 +36,7 @@ class C_XC(Contribution):
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
-        self.xc.calculate(self.nlfunc.finegd, n_sg, self.vt_sg, self.e_g)
+        self.xc.calculate(self.finegd, n_sg, self.vt_sg, self.e_g)
         v_sg[0] += self.weight * self.vt_sg[0]
         v_sg[1] += self.weight * self.vt_sg[1]
         e_g += self.weight * self.e_g

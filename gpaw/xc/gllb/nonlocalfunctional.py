@@ -23,38 +23,17 @@ class NonLocalFunctional(XCFunctional):
         self.mix = mix
 
     def initialize(self, density, hamiltonian, wfs):
-        self.gd = density.gd  # smooth grid describtor
-        self.finegd = density.finegd  # fine grid describtor
-        self.nt_sg = density.nt_sg  # smooth density
-        self.setups = wfs.setups  # All the setups
-        self.nspins = wfs.nspins  # number of spins
-        self.wfs = wfs
-        self.density = density
-        self.hamiltonian = hamiltonian
-        self.nvalence = wfs.nvalence
-
-        # self.vt_sg = paw.vt_sg # smooth potential
-        # self.kpt_u = kpt_u # kpoints object
-        # self.interpolate = interpolate # interpolation function
-        # self.nuclei = nuclei
-
-        # Is this OK place?
-        self.initialize0()
+        self.nspins = wfs.nspins
+        for contribution in self.contributions:
+            contribution.initialize(density, hamiltonian, wfs)
 
     def set_positions(self, spos_ac):
         for contribution in self.contributions:
             contribution.set_positions(spos_ac)
 
-    def pass_stuff_1d(self, ae):
-        self.ae = ae
-
-    def initialize0(self):
+    def initialize_1d(self, ae):
         for contribution in self.contributions:
-            contribution.initialize()
-
-    def initialize_1d(self):
-        for contribution in self.contributions:
-            contribution.initialize_1d()
+            contribution.initialize_1d(ae)
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         if self.nspins == 1:

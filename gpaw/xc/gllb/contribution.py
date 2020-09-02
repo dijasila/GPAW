@@ -1,14 +1,16 @@
 class Contribution:
-    def __init__(self, nlfunc, weight):
+    def __init__(self, weight):
         self.weight = weight
-        self.nlfunc = nlfunc
-        nlfunc.add_contribution(self)
 
-    def initialize(self):
-        raise NotImplementedError
+    def initialize(self, density, hamiltonian, wfs):
+        self.density = density
+        self.gd = density.gd
+        self.finegd = density.finegd
+        self.nspins = wfs.nspins
+        self.wfs = wfs
 
-    def initialize_1d(self):
-        raise NotImplementedError
+    def initialize_1d(self, ae):
+        self.ae = ae
 
     def get_name(self):
         raise NotImplementedError
@@ -27,7 +29,7 @@ class Contribution:
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp):
         raise NotImplementedError
-    
+
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         raise NotImplementedError
 

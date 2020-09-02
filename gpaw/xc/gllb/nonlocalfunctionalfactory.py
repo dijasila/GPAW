@@ -64,10 +64,13 @@ def get_nonlocal_functional(name,
     # Construct functional
     functional = NonLocalFunctional(name, setup_name=setup_name)
     if scr_functional is not None:
-        scr = C_GLLBScr(functional, 1.0, functional=scr_functional,
+        scr = C_GLLBScr(1.0, functional=scr_functional,
                         width=width, metallic=metallic)
+        functional.add_contribution(scr)
         if response:
-            C_Response(functional, 1.0, scr.get_coefficient_calculator())
+            resp = C_Response(1.0, scr.get_coefficient_calculator())
+            functional.add_contribution(resp)
     if xc_functional is not None:
-        C_XC(functional, 1.0, functional=xc_functional)
+        xc = C_XC(1.0, functional=xc_functional)
+        functional.add_contribution(xc)
     return functional

@@ -14,12 +14,10 @@ K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
 
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight, functional, width=None,
+    def __init__(self, weight, functional, width=None,
                  eps=0.05, damp=1e-10, metallic=False):
-        Contribution.__init__(self, nlfunc, weight)
+        Contribution.__init__(self, weight)
         self.functional = functional
-        self.old_coeffs = None
-        self.iter = 0
         self.damp = damp
         self.metallic = metallic
         if width is not None:
@@ -42,9 +40,8 @@ class C_GLLBScr(Contribution):
         desc += ')'
         return desc
 
-    # Initialize GLLBScr functional
-    def initialize_1d(self):
-        self.ae = self.nlfunc.ae
+    def initialize_1d(self, ae):
+        Contribution.initialize_1d(self, ae)
         self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
         self.e_g = np.zeros(self.ae.N)
@@ -59,12 +56,13 @@ class C_GLLBScr(Contribution):
         Exc = self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
         return Exc
 
-    def initialize(self):
+    def initialize(self, density, hamiltonian, wfs):
+        Contribution.initialize(self, density, hamiltonian, wfs)
         self.xc = XC(self.functional)
 
         # Always 1 spin, no matter what calculation nspins is
-        self.vt_sg = self.nlfunc.finegd.empty(1)
-        self.e_g = self.nlfunc.finegd.empty()#.ravel()
+        self.vt_sg = self.finegd.empty(1)
+        self.e_g = self.finegd.empty()
 
     def get_coefficient_calculator(self):
         return self
@@ -122,7 +120,7 @@ class C_GLLBScr(Contribution):
         if self.metallic:
             # Use Fermi level as reference levels
             assert homolumo is None
-            fermilevel = self.nlfunc.wfs.fermi_level
+            fermilevel = self.wfs.fermi_level
             assert isinstance(fermilevel, float), 'GLLBSCM supports only a single Fermi level'
             for s in range(nspins):
                 eref_s.append(fermilevel)
@@ -130,7 +128,7 @@ class C_GLLBScr(Contribution):
         elif homolumo is None:
             # Find homo and lumo levels for each spin
             for s in range(nspins):
-                homo, lumo = self.nlfunc.wfs.get_homo_lumo(s)
+                homo, lumo = self.wfs.get_homo_lumo(s)
                 # Check that homo and lumo are reasonable
                 if homo > lumo:
                     raise RuntimeError("GLLBScr error: HOMO is higher than LUMO. "
@@ -167,7 +165,7 @@ class C_GLLBScr(Contribution):
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
-        self.xc.calculate(self.nlfunc.finegd, n_g[None, ...], self.vt_sg,
+        self.xc.calculate(self.finegd, n_g[None, ...], self.vt_sg,
                           self.e_g)
         self.e_g[:] = np.where(n_g<self.damp, 0, self.e_g)
         v_g += self.weight * 2 * self.e_g / (n_g + self.damp)
@@ -178,7 +176,7 @@ class C_GLLBScr(Contribution):
         for n, v in [ (n_sg[0], v_sg[0]), (n_sg[1], v_sg[1]) ]:
             self.e_g[:] = 0.0
             self.vt_sg[:] = 0.0
-            self.xc.calculate(self.nlfunc.finegd, 2*n[None, ...], self.vt_sg, self.e_g)
+            self.xc.calculate(self.finegd, 2*n[None, ...], self.vt_sg, self.e_g)
             self.e_g[:] = np.where(n<self.damp, 0, self.e_g)
             v += self.weight * 2 * self.e_g / (2 * n + self.damp)
             e_g += self.weight * self.e_g / 2
@@ -186,7 +184,7 @@ class C_GLLBScr(Contribution):
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
-        nspins = self.nlfunc.nspins
+        nspins = self.nspins
 
         E = 0
         for D_p, dEdD_p in zip(D_sp, H_sp):
