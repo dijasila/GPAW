@@ -1,4 +1,5 @@
 def get_nonlocal_functional(name,
+                            stencil=2,
                             metallic=False,
                             width=None):
     """Function for building GLLB functionals.
@@ -61,9 +62,11 @@ def get_nonlocal_functional(name,
     else:
         raise RuntimeError('Unkown nonlocal density functional: ' + name)
 
+
     # Construct functional
     functional = NonLocalFunctional(name, setup_name=setup_name)
     if scr_functional is not None:
+        scr_functional = {'name': scr_functional, 'stencil': stencil}
         scr = C_GLLBScr(1.0, functional=scr_functional,
                         width=width, metallic=metallic)
         functional.add_contribution(scr)
@@ -71,6 +74,8 @@ def get_nonlocal_functional(name,
             resp = C_Response(1.0, scr.get_coefficient_calculator())
             functional.add_contribution(resp)
     if xc_functional is not None:
+        if xc_functional != 'LDA':
+            xc_functional = {'name': xc_functional, 'stencil': stencil}
         xc = C_XC(1.0, functional=xc_functional)
         functional.add_contribution(xc)
     return functional

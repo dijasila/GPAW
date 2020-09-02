@@ -12,7 +12,7 @@ class C_XC(Contribution):
         return 'XC'
 
     def get_desc(self):
-        return "(" + self.functional + ")"
+        return "({})".format(self.xc.name)
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)

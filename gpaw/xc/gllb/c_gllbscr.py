@@ -31,7 +31,7 @@ class C_GLLBScr(Contribution):
         self.damp = damp
 
     def get_desc(self):
-        desc = '({}'.format(self.functional)
+        desc = '({}'.format(self.xc.name)
         if self.metallic:
             desc += ', metallic'
         if self.width is not None:
