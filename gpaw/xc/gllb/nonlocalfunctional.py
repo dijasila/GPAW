@@ -27,10 +27,6 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.initialize(density, hamiltonian, wfs)
 
-    def set_positions(self, spos_ac):
-        for contribution in self.contributions:
-            contribution.set_positions(spos_ac)
-
     def initialize_1d(self, ae):
         for contribution in self.contributions:
             contribution.initialize_1d(ae)
