@@ -14,26 +14,21 @@ def get_nonlocal_functional(name):
                NonLocalFunctional framework)
     """
     from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
+    from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
+    from gpaw.xc.gllb.c_response import C_Response
+    from gpaw.xc.gllb.c_xc import C_XC
+
     functional = NonLocalFunctional(name)
 
     if name == 'GLLB':
-        from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
-        from gpaw.xc.gllb.c_response import C_Response
         C_Response(functional, 1.0,
                    C_GLLBScr(functional, 1.0).get_coefficient_calculator())
         return functional
     elif name == 'GLLBM':
-        from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
-        from gpaw.xc.gllb.c_response import C_Response
-        from gpaw.xc.gllb.c_xc import C_XC
         C_Response(functional, 1.0, C_GLLBScr(
             functional, 1.0, metallic=True).get_coefficient_calculator())
         return functional
     elif name.startswith('GLLBSC'):
-        from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
-        from gpaw.xc.gllb.c_response import C_Response
-        from gpaw.xc.gllb.c_xc import C_XC
-
         if name == 'GLLBSC':
             kwargs = dict()
         elif name == 'GLLBSCM':
@@ -51,40 +46,24 @@ def get_nonlocal_functional(name):
         C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
         return functional
     elif name == 'GLLBC':
-        from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
-        from gpaw.xc.gllb.c_response import C_Response
-        from gpaw.xc.gllb.c_xc import C_XC
         C_Response(functional, 1.0,
                    C_GLLBScr(functional, 1.0, 'GGA_X_PBE')
                    .get_coefficient_calculator())
         C_XC(functional, 1.0, 'GGA_C_PBE')
         return functional
     elif name == 'GLLBCP86':
-        from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
-        from gpaw.xc.gllb.c_response import C_Response
-        from gpaw.xc.gllb.c_xc import C_XC
         C_Response(functional, 1.0,
                    C_GLLBScr(functional, 1.0).get_coefficient_calculator())
         C_XC(functional, 1.0, 'GGA_C_P86')
         return functional
     elif name == 'GLLBLDA':
-        from gpaw.xc.gllb.c_xc import C_XC
         C_XC(functional, 1.0,'LDA')
         return functional
     elif name == 'GLLBGGA':
-        from gpaw.xc.gllb.c_xc import C_XC
         C_XC(functional, 1.0,'PBE')
         return functional
     elif name == 'GLLBNORESP':
-        from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
         C_GLLBScr(functional, 1.0)
-        return functional
-    elif name == 'KLI':
-        raise RuntimeError('KLI functional not implemented')
-        from gpaw.xc.gllb.c_slater import C_Slater
-        from gpaw.xc.gllb.c_response import C_Response
-        C_Response(functional, 1.0,
-                   C_Slater(functional, 1.0).get_coefficient_calculator())
         return functional
     else:
         raise RuntimeError('Unkown NonLocal density functional: ' + name)
