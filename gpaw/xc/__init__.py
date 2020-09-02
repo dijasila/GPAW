@@ -15,6 +15,14 @@ def xc_string_to_dict(string):
     d = {'name': tokens[0]}
     for token in tokens[1:]:
         kw, val = token.split('=')
+        # Convert value to int or float if possible
+        try:
+            val = int(val)
+        except ValueError:
+            try:
+                val = float(val)
+            except ValueError:
+                pass
         d[kw] = val
     return d
 
