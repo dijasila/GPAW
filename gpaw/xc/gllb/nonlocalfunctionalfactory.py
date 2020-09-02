@@ -1,4 +1,6 @@
-def get_nonlocal_functional(name):
+def get_nonlocal_functional(name,
+                            metallic=False,
+                            width=None):
     """Function for building GLLB functionals.
 
     Recognized names and implied parameters:
@@ -20,50 +22,63 @@ def get_nonlocal_functional(name):
 
     functional = NonLocalFunctional(name)
 
-    if name == 'GLLB':
-        C_Response(functional, 1.0,
-                   C_GLLBScr(functional, 1.0).get_coefficient_calculator())
-        return functional
-    elif name == 'GLLBM':
-        C_Response(functional, 1.0, C_GLLBScr(
-            functional, 1.0, metallic=True).get_coefficient_calculator())
-        return functional
-    elif name.startswith('GLLBSC'):
-        if name == 'GLLBSC':
-            kwargs = dict()
-        elif name == 'GLLBSCM':
-            kwargs = dict(metallic=True)
-        elif name.startswith('GLLBSC_W'):
-            kwargs = dict(width=float(name.split('GLLBSC_W')[1]))
-        elif name.startswith('GLLBSCM_W'):
-            kwargs = dict(metallic=True,
-                          width=float(name.split('GLLBSCM_W')[1]))
+    scr_functional = None
+    xc_functional = None
+    response = True
+    setup_name = None
 
-        functional = NonLocalFunctional(name, setup_name='GLLBSC')
-        C_Response(functional, 1.0,
-                   C_GLLBScr(functional, 1.0, 'GGA_X_PBE_SOL', **kwargs)
-                   .get_coefficient_calculator())
-        C_XC(functional, 1.0, 'GGA_C_PBE_SOL')
-        return functional
+    # Set parameters based on the name
+    if name == 'GLLB':
+        scr_functional = 'GGA_X_B88'
+    elif name == 'GLLBM':
+        scr_functional = 'GGA_X_B88'
+        setup_name = 'GLLB'
+        metallic = True
+    elif name == 'GLLBSC':
+        scr_functional = 'GGA_X_PBE_SOL'
+        xc_functional = 'GGA_C_PBE_SOL'
+        setup_name = 'GLLBSC'
+    elif name == 'GLLBSCM':
+        scr_functional = 'GGA_X_PBE_SOL'
+        xc_functional = 'GGA_C_PBE_SOL'
+        setup_name = 'GLLBSC'
+        metallic = True
+    elif name.startswith('GLLBSC_W'):
+        scr_functional = 'GGA_X_PBE_SOL'
+        xc_functional = 'GGA_C_PBE_SOL'
+        setup_name = 'GLLBSC'
+        width = float(name.split('GLLBSC_W')[1])
+    elif name.startswith('GLLBSCM_W'):
+        scr_functional = 'GGA_X_PBE_SOL'
+        xc_functional = 'GGA_C_PBE_SOL'
+        setup_name = 'GLLBSC'
+        metallic = True
+        width = float(name.split('GLLBSCM_W')[1])
     elif name == 'GLLBC':
-        C_Response(functional, 1.0,
-                   C_GLLBScr(functional, 1.0, 'GGA_X_PBE')
-                   .get_coefficient_calculator())
-        C_XC(functional, 1.0, 'GGA_C_PBE')
-        return functional
+        scr_functional = 'GGA_X_PBE'
+        xc_functional = 'GGA_C_PBE'
     elif name == 'GLLBCP86':
-        C_Response(functional, 1.0,
-                   C_GLLBScr(functional, 1.0).get_coefficient_calculator())
-        C_XC(functional, 1.0, 'GGA_C_P86')
-        return functional
+        scr_functional = 'GGA_X_B88'
+        xc_functional = 'GGA_C_P86'
     elif name == 'GLLBLDA':
-        C_XC(functional, 1.0,'LDA')
-        return functional
+        xc_functional = 'LDA'
+        setup_name = 'LDA'
     elif name == 'GLLBGGA':
-        C_XC(functional, 1.0,'PBE')
-        return functional
+        xc_functional = 'PBE'
+        setup_name = 'PBE'
     elif name == 'GLLBNORESP':
-        C_GLLBScr(functional, 1.0)
-        return functional
+        scr_functional = 'GGA_X_B88'
+        response = False
     else:
-        raise RuntimeError('Unkown NonLocal density functional: ' + name)
+        raise RuntimeError('Unkown nonlocal density functional: ' + name)
+
+    # Construct functional
+    functional = NonLocalFunctional(name, setup_name=setup_name)
+    if scr_functional is not None:
+        scr = C_GLLBScr(functional, 1.0, functional=scr_functional,
+                        width=width, metallic=metallic)
+        if response:
+            C_Response(functional, 1.0, scr.get_coefficient_calculator())
+    if xc_functional is not None:
+        C_XC(functional, 1.0, functional=xc_functional)
+    return functional
