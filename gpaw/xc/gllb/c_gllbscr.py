@@ -16,7 +16,7 @@ class C_GLLBScr(Contribution):
     def __init__(self, weight, functional, width=None,
                  eps=0.05, damp=1e-10, metallic=False):
         Contribution.__init__(self, weight)
-        self.functional = functional
+        self.xc = XC(functional)
         self.damp = damp
         self.metallic = metallic
         if width is not None:
@@ -41,7 +41,6 @@ class C_GLLBScr(Contribution):
 
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
-        self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
         self.e_g = np.zeros(self.ae.N)
 
@@ -57,7 +56,6 @@ class C_GLLBScr(Contribution):
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)
-        self.xc = XC(self.functional)
 
         # Always 1 spin, no matter what calculation nspins is
         self.vt_sg = self.finegd.empty(1)

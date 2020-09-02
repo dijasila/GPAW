@@ -6,7 +6,7 @@ from gpaw.xc.gllb.contribution import Contribution
 class C_XC(Contribution):
     def __init__(self, weight, functional):
         Contribution.__init__(self, weight)
-        self.functional = functional
+        self.xc = XC(functional)
 
     def get_name(self):
         return 'XC'
@@ -16,13 +16,11 @@ class C_XC(Contribution):
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)
-        self.xc = XC(self.functional)
         self.vt_sg = self.finegd.empty(self.nspins)
         self.e_g = self.finegd.empty()
 
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
-        self.xc = XC(self.functional)
         self.v_g = np.zeros(self.ae.N)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
