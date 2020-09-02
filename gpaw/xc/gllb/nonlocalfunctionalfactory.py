@@ -4,7 +4,7 @@ def get_nonlocal_functional(name,
     """Function for building GLLB functionals.
 
     Recognized names and implied parameters:
-    * GLLB (Contains screening part from GGA functional
+    * GLLB (Contains screening part from B88 functional
             and response part based on simple square root expression
             of orbital energy differences)
     * GLLBC (GLLB with screening part from PBE + PBE Correlation)
@@ -12,7 +12,7 @@ def get_nonlocal_functional(name,
     * GLLBNORESP (Just GLLB Screening)
     * GLLBLDA (A test functional, which is just LDA but via
                NonLocalFunctional framework)
-    * GLLBGGA (A test functional, which is just GGA but via
+    * GLLBPBE (A test functional, which is just PBE but via
                NonLocalFunctional framework)
     """
     from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
@@ -63,7 +63,7 @@ def get_nonlocal_functional(name,
     elif name == 'GLLBLDA':
         xc_functional = 'LDA'
         setup_name = 'LDA'
-    elif name == 'GLLBGGA':
+    elif name == 'GLLBPBE':
         xc_functional = 'PBE'
         setup_name = 'PBE'
     elif name == 'GLLBNORESP':

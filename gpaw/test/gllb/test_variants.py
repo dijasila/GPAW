@@ -6,7 +6,7 @@ from gpaw import GPAW
 
 
 def run(xc):
-    setup_name = {'GLLBLDA': 'LDA', 'GLLBGGA': 'PBE', 'GLLBM': 'GLLB'}.get(xc,
+    setup_name = {'GLLBLDA': 'LDA', 'GLLBPBE': 'PBE', 'GLLBM': 'GLLB'}.get(xc,
                                                                            xc)
     if setup_name in ['GLLB', 'GLLBC', 'GLLBCP86', 'GLLBNORESP']:
         gen('Si', xcname=setup_name, write_xml=True)
@@ -27,12 +27,12 @@ def run(xc):
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-@pytest.mark.parametrize('xc', ['GLLBLDA', 'GLLBGGA'])
+@pytest.mark.parametrize('xc', ['GLLBLDA', 'GLLBPBE'])
 def test_wrappers(xc, in_tmp_dir):
     eig_n = run(xc)
 
     # Check values against regular xc
-    ref_eig_n = run({'GLLBLDA': 'LDA', 'GLLBGGA': 'PBE'}[xc])
+    ref_eig_n = run({'GLLBLDA': 'LDA', 'GLLBPBE': 'PBE'}[xc])
     assert np.allclose(eig_n, ref_eig_n, rtol=0, atol=1e-8), \
         "{} error = {}".format(xc, np.max(np.abs(eig_n - ref_eig_n)))
 
