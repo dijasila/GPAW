@@ -79,7 +79,6 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
                 get_nonlocal_functional
             xc = get_nonlocal_functional(name, **kwargs)
-            xc.print_functional()
             return xc
         elif name == 'LB94':
             from gpaw.xc.lb94 import LB94

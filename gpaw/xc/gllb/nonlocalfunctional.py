@@ -1,6 +1,5 @@
-from gpaw.xc.functional import XCFunctional
-from gpaw.mpi import world
 import numpy as np
+from gpaw.xc.functional import XCFunctional
 
 
 class NonLocalFunctional(XCFunctional):
@@ -150,21 +149,18 @@ class NonLocalFunctional(XCFunctional):
         self.contributions.append(contribution)
         self.xcs[contribution.get_name()] = contribution
 
-    def print_functional(self):
-        if world.rank != 0:
-            return
-        fmt = "| %-7s | %-10s | %-44s |"
+    def get_description(self):
+        fmt = '| %-7s | %-10s | %-44s |'
         header = fmt % ('Weight', 'Module', 'Description')
         dashes = '-' * len(header)
-        print()
-        print("Functional being used consists of")
-        print(dashes)
-        print(header)
-        print(dashes)
+        s = ['Functional being used consists of']
+        s += [dashes]
+        s += [header]
+        s += [dashes]
         for c in self.contributions:
-            print(fmt % ('%7.3f' % c.weight, c.get_name(), c.get_desc()))
-        print(dashes)
-        print()
+            s += [fmt % ('%7.3f' % c.weight, c.get_name(), c.get_desc())]
+        s += [dashes]
+        return '\n'.join(s)
 
     def read(self, reader):
         for contribution in self.contributions:
