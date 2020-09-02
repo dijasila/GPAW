@@ -23,19 +23,28 @@ refs = {'GLLBSC':
         [[-6.51118445, 5.85791198, 5.86187878, 5.86187878, 8.95128038,
           8.95128038, 8.95261673, 9.19621624],
          [-5.08260244, 0.3129949, 4.60331705, 4.60331705, 8.32039946,
-          11.06096213, 11.06096213, 15.89026172]]
+          11.06096213, 11.06096213, 15.89026172]],
+        'GLLBSC_S1':
+         [[-6.96553391, 5.39977866, 5.40347256, 5.40347256, 8.5044520,
+           8.50445200, 8.50610892, 8.79785566],
+          [-5.53673488, -0.14290236, 4.14161043, 4.14161043, 7.90076722,
+           10.62164739, 10.62164739, 15.47627092]]
         }
 
 
 @pytest.mark.gllb
 @pytest.mark.libxc
 @pytest.mark.parametrize('xc', ['GLLBSC', 'GLLBSC_W0.1',
-                                'GLLBSCM', 'GLLBSCM_W0.1'])
+                                'GLLBSCM', 'GLLBSCM_W0.1',
+                                'GLLBSC_S1'])
 def test_restart_eigenvalues(xc, in_tmp_dir):
     xcname = xc
     if '_W' in xc:
         name, width = xc.split('_W')
         xc = {'name': name, 'width': float(width)}
+    if '_S' in xc:
+        name, stencil = xc.split('_S')
+        xc = {'name': name, 'stencil': int(stencil)}
 
     test_kpts = [[0, 0, 0], [1. / 3, 1. / 3, 1. / 3]]
 
