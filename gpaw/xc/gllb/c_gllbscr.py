@@ -14,7 +14,7 @@ K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
 
 class C_GLLBScr(Contribution):
-    def __init__(self, nlfunc, weight, functional='GGA_X_B88', width=None,
+    def __init__(self, nlfunc, weight, functional, width=None,
                  eps=0.05, damp=1e-10, metallic=False):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional

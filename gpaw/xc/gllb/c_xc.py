@@ -4,7 +4,7 @@ import numpy as np
 
 
 class C_XC(Contribution):
-    def __init__(self, nlfunc, weight, functional='LDA'):
+    def __init__(self, nlfunc, weight, functional):
         Contribution.__init__(self, nlfunc, weight)
         self.functional = functional
 
