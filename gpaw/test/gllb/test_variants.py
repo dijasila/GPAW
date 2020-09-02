@@ -69,5 +69,5 @@ refs = {'GLLB':
 def test_eigenvalues(xc, in_tmp_dir):
     eig_n = run(xc)
     ref_eig_n = refs[xc]
-    assert np.allclose(eig_n, ref_eig_n, rtol=0, atol=1e-6), \
+    assert np.allclose(eig_n, ref_eig_n, rtol=0, atol=2e-6), \
         "{} error = {}".format(xc, np.max(np.abs(eig_n - ref_eig_n)))
