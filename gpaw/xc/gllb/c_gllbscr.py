@@ -1,4 +1,3 @@
-# flake8: noqa
 import numpy as np
 from math import sqrt, pi, exp
 from scipy.special import erfcx
@@ -82,33 +81,36 @@ class C_GLLBScr(Contribution):
             return K
 
     def get_coefficients(self, e_j, f_j):
-        homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(f_j, e_j)] )
-        return [ f * K_G * self.f(homo_e - e) for e,f in zip(e_j, f_j) ]
+        homo_e = max([np.where(f > 1e-3, e, -1000) for f, e in zip(f_j, e_j)])
+        return [f * K_G * self.f(homo_e - e) for e, f in zip(e_j, f_j)]
 
-    def get_coefficients_1d(self, smooth=False, lumo_perturbation = False):
-        homo_e = max( [ np.where(f>1e-3, e, -1000) for f,e in zip(self.ae.f_j, self.ae.e_j)])
+    def get_coefficients_1d(self, smooth=False, lumo_perturbation=False):
+        homo_e = max([np.where(f > 1e-3, e, -1000)
+                      for f, e in zip(self.ae.f_j, self.ae.e_j)])
         if not smooth:
             if lumo_perturbation:
-                lumo_e = min( [ np.where(f<1e-3, e, 1000) for f,e in zip(self.ae.f_j, self.ae.e_j)])
-                return np.array([ f * K_G * (self.f(lumo_e - e) - self.f(homo_e -e))
-                                        for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+                lumo_e = min([np.where(f < 1e-3, e, 1000)
+                              for f, e in zip(self.ae.f_j, self.ae.e_j)])
+                return np.array([f * K_G * (self.f(lumo_e - e)
+                                            - self.f(homo_e - e))
+                                 for e, f in zip(self.ae.e_j, self.ae.f_j)])
             else:
-                return np.array([ f * K_G * (self.f(homo_e - e))
-                                   for e,f in zip(self.ae.e_j, self.ae.f_j) ])
+                return np.array([f * K_G * (self.f(homo_e - e))
+                                 for e, f in zip(self.ae.e_j, self.ae.f_j)])
         else:
-            return [ [ f * K_G * self.f(homo_e - e)
-                    for e,f in zip(e_n, f_n) ]
-                     for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln) ]
+            return [[f * K_G * self.f(homo_e - e) for e, f in zip(e_n, f_n)]
+                    for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln)]
 
-
-    def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False, homolumo=None, nspins=1):
+    def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False,
+                                homolumo=None, nspins=1):
         eref_s = []
         eref_lumo_s = []
         if self.metallic:
             # Use Fermi level as reference levels
             assert homolumo is None
             fermilevel = self.wfs.fermi_level
-            assert isinstance(fermilevel, float), 'GLLBSCM supports only a single Fermi level'
+            assert isinstance(fermilevel, float), \
+                'GLLBSCM supports only a single Fermi level'
             for s in range(nspins):
                 eref_s.append(fermilevel)
                 eref_lumo_s.append(fermilevel)
@@ -118,56 +120,60 @@ class C_GLLBScr(Contribution):
                 homo, lumo = self.wfs.get_homo_lumo(s)
                 # Check that homo and lumo are reasonable
                 if homo > lumo:
-                    raise RuntimeError("GLLBScr error: HOMO is higher than LUMO. "
-                                       "Are you using `xc='GLLBSC'` for a metallic system? "
-                                       "If yes, try using `xc='GLLBSCM'` instead.")
+                    m = ("GLLBScr error: HOMO is higher than LUMO. "
+                         "Are you using `xc='GLLBSC'` for a metallic system? "
+                         "If yes, try using `xc='GLLBSCM'` instead.")
+                    raise RuntimeError(m)
+
                 eref_s.append(homo)
                 eref_lumo_s.append(lumo)
         else:
             eref_s, eref_lumo_s = homolumo
             if not isinstance(eref_s, (list, tuple)):
-                eref_s = [ eref_s ]
-                eref_lumo_s = [ eref_lumo_s ]
+                eref_s = [eref_s]
+                eref_lumo_s = [eref_lumo_s]
 
         if lumo_perturbation:
-            return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s]-e)
-                                         -self.f(eref_s[kpt.s]-e))
-                              for e, f in zip(kpt.eps_n, kpt.f_n) ])
+            return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s] - e)
+                                         - self.f(eref_s[kpt.s] - e))
+                              for e, f in zip(kpt.eps_n, kpt.f_n)])
                     for kpt in kpt_u]
         else:
-            coeff = [ np.array([ f * K_G * self.f(eref_s[kpt.s] - e)
-                     for e, f in zip(kpt.eps_n, kpt.f_n) ])
-                     for kpt in kpt_u ]
+            coeff = [np.array([f * K_G * self.f(eref_s[kpt.s] - e)
+                     for e, f in zip(kpt.eps_n, kpt.f_n)])
+                     for kpt in kpt_u]
             return coeff
-
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
         self.xc.calculate(self.finegd, n_g[None, ...], self.vt_sg,
                           self.e_g)
-        self.e_g[:] = np.where(n_g<self.damp, 0, self.e_g)
+        self.e_g[:] = np.where(n_g < self.damp, 0, self.e_g)
         v_g += self.weight * 2 * self.e_g / (n_g + self.damp)
         e_g += self.weight * self.e_g
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):
-        # Calculate spinpolarized exchange screening as two spin-paired calculations n=2*n_s
-        for n, v in [ (n_sg[0], v_sg[0]), (n_sg[1], v_sg[1]) ]:
+        # Calculate spinpolarized exchange screening
+        # as two spin-paired calculations n=2*n_s
+        for n, v in [(n_sg[0], v_sg[0]), (n_sg[1], v_sg[1])]:
             self.e_g[:] = 0.0
             self.vt_sg[:] = 0.0
-            self.xc.calculate(self.finegd, 2*n[None, ...], self.vt_sg, self.e_g)
-            self.e_g[:] = np.where(n<self.damp, 0, self.e_g)
+            self.xc.calculate(self.finegd, 2 * n[None, ...],
+                              self.vt_sg, self.e_g)
+            self.e_g[:] = np.where(n < self.damp, 0, self.e_g)
             v += self.weight * 2 * self.e_g / (2 * n + self.damp)
             e_g += self.weight * self.e_g / 2
 
-    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a, addcoredensity=True):
+    def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
+                                         addcoredensity=True):
         # Get the XC-correction instance
         c = setup.xc_correction
         nspins = self.nspins
 
         E = 0
         for D_p, dEdD_p in zip(D_sp, H_sp):
-            D_Lq = np.dot(c.B_pqL.T, nspins*D_p)
+            D_Lq = np.dot(c.B_pqL.T, nspins * D_p)
             n_Lg = np.dot(D_Lq, c.n_qg)
             if addcoredensity:
                 n_Lg[0] += c.nc_g * sqrt(4 * pi)
@@ -205,14 +211,15 @@ class C_GLLBScr(Contribution):
                 # Calculate pseudo GGA energy density (potential is discarded)
                 self.xc.kernel.calculate(e_g, nt_g.reshape((1, -1)),
                                          vt_g.reshape((1, -1)),
-                                     a2_g.reshape((1, -1)),
-                                     deda2_g.reshape((1, -1)))
+                                         a2_g.reshape((1, -1)),
+                                         deda2_g.reshape((1, -1)))
 
                 # Calculate pseudo GLLB-potential from GGA-energy density
                 vt_g[:] = 2 * e_g / (nt_g + self.damp)
 
                 dEdD_p -= self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
-                                      np.dot(c.nt_qg, vt_g * c.rgd.dv_g))
+                                                   np.dot(c.nt_qg,
+                                                          vt_g * c.rgd.dv_g))
 
                 E -= w * np.dot(e_g, c.rgd.dv_g) / nspins
 
@@ -241,7 +248,8 @@ class C_GLLBScr(Contribution):
                 v_g[:] = 2 * e_g / (n_g + self.damp)
 
                 dEdD_p += self.weight * w * np.dot(np.dot(c.B_pqL, Y_L),
-                                      np.dot(c.n_qg, v_g * c.rgd.dv_g))
+                                                   np.dot(c.n_qg,
+                                                          v_g * c.rgd.dv_g))
                 E += w * np.dot(e_g, c.rgd.dv_g) / nspins
 
         return E * self.weight

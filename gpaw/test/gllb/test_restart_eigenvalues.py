@@ -77,4 +77,5 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
 
     # Check restarted eigenvalues
     assert np.allclose(eig_in, eig2_in, rtol=0, atol=1e-8), \
-        "{} restart error = {}".format(xcname, np.max(np.abs(eig_in - eig2_in)))
+        "{} restart error = {}".format(xcname,
+                                       np.max(np.abs(eig_in - eig2_in)))
