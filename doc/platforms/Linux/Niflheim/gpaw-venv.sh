@@ -39,17 +39,15 @@ rm activate
 
 cd $FOLDER
 
-# Install MyQueue:
-$PIP install myqueue
-
 # Install ASE:
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-# Install ase-ext, spglib and sklearn:
+$PIP install myqueue graphviz pytest-xdist
+
 CMD="cd $VENV &&
      . bin/activate &&
-     pip install spglib sklearn ase-ext pytest-xdist"
+     pip install spglib sklearn ase-ext"
 echo $CMD
 ssh fjorm $CMD
 
