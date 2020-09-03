@@ -60,19 +60,3 @@ class C_XC(Contribution):
                                           self.v_g.reshape((1, -1)))
         vt_g += self.weight * self.v_g
         return self.weight * Exc
-
-    def initialize_from_atomic_orbitals(self, basis_functions):
-        # LDA needs only density, which is already initialized
-        pass
-
-    def add_extra_setup_data(self, dict):
-        # LDA has not any special data
-        pass
-
-    def write(self, writer):
-        # LDA has not any special data to be written
-        pass
-
-    def read(self, reader):
-        # LDA has not any special data to be read
-        pass

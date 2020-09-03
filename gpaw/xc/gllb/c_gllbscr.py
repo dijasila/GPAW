@@ -259,19 +259,3 @@ class C_GLLBScr(Contribution):
                                     self.v_g.reshape((1, -1)), self.e_g)
         vt_g += 2 * self.weight * self.e_g / (self.ae.nt + self.damp)
         return self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
-
-    def initialize_from_atomic_orbitals(self, basis_functions):
-        # GLLBScr needs only density which is already initialized
-        pass
-
-    def add_extra_setup_data(self, dict):
-        # GLLBScr has not any special data
-        pass
-
-    def read(self, reader):
-        # GLLBScr has no special data to be read
-        pass
-
-    def write(self, writer):
-        # GLLBScr has no special data to be written
-        pass

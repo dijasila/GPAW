@@ -30,5 +30,15 @@ class Contribution:
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         raise NotImplementedError
 
-    def add_extra_setup_date(self, dict):
-        raise NotImplementedError
+    def initialize_from_atomic_orbitals(self, basis_functions):
+        # Pass if contribution needs only density which is already initialized
+        pass
+
+    def add_extra_setup_data(self, dict):
+        pass
+
+    def write(self, writer):
+        pass
+
+    def read(self, reader):
+        pass
