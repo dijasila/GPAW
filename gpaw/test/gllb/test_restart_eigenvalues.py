@@ -65,10 +65,8 @@ def test_restart_eigenvalues(xc, in_tmp_dir):
         "{} error = {}".format(xc, np.max(np.abs(eig_in - ref_eig_in)))
 
     # Restart
-    calc = GPAW('gs.gpw', fixdensity=True,
-                kpts=test_kpts,
-                txt='gs2.out')
-    calc.get_potential_energy()
+    calc = GPAW('gs.gpw')
+    calc = calc.fixed_density(kpts=test_kpts, txt='gs2.out')
     # Check that calculation was triggered
     scf = calc.scf
     assert scf is not None and scf.niter is not None and scf.niter > 0, \

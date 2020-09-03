@@ -184,7 +184,6 @@ class GPAW(Calculator):
             bs = bs_calc.get_band_structure()
         """
         assert not update_fermi_level  # for now ...
-        assert self.hamiltonian.xc.name != 'GLLBSC'
 
         for key in kwargs:
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
@@ -203,6 +202,16 @@ class GPAW(Calculator):
                                                    calc.wfs.kptband_comm)
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
+        if calc.hamiltonian.xc.type == 'GLLB':
+            resp = calc.hamiltonian.xc.xcs['RESPONSE']
+            old = self.hamiltonian.xc.xcs['RESPONSE']
+            for attr in ['vt_sg', 'D_asp', 'Dresp_asp',
+                         # Uncomment these if needed...
+                         # 'Dxc_vt_sG', 'Dxc_D_asp', 'Dxc_Dresp_asp'
+                         ]:
+                setattr(resp, attr, getattr(old, attr).copy())
+            resp.just_read = True
+
         calc.calculate(system_changes=[])
         return calc
 
@@ -597,7 +606,7 @@ class GPAW(Calculator):
         else:
             xc = self.hamiltonian.xc
 
-        if par.fixdensity and xc.name != 'GLLBSC':
+        if par.fixdensity:
             warnings.warn(
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
