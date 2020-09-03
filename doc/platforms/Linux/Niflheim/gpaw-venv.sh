@@ -4,13 +4,23 @@
 set -e  # stop if there are errors
 
 FOLDERNAME=$1
+TOOLCHAIN=foss
 mkdir -p $FOLDERNAME
 cd $FOLDERNAME
 
-module purge
-module load matplotlib/3.1.1-foss-2019b-Python-3.7.4
-module load libxc/4.3.4-GCC-8.3.0
-module load libvdwxc/0.4.0-foss-2019b
+echo "module purge" > module.sh
+echo "module load GPAW-setups/0.9.20000" >> modules.sh
+
+if [ "$TOOLCHAIN" = foss ]; then
+    echo "module load matplotlib/3.1.1-foss-2019b-Python-3.7.4" >> module.sh
+    echo "module load libxc/4.3.4-GCC-8.3.0" >> module.sh
+    echo "module load libvdwxc/0.4.0-foss-2019b" >> module.sh
+else
+    echo "module load matplotlib/3.1.1-intel-2019b-Python-3.7.4" >> module.sh
+    echo "module load libxc/4.3.4-iccifort-2019.5.281" >> module.sh
+fi
+
+. modules.sh
 
 # Create venv:
 python3 -m venv venv --prompt=$FOLDERNAME --system-site-packages
@@ -22,12 +32,7 @@ $PIP install --upgrade pip -qq
 
 # Load modules in activate script:
 mv bin/activate .
-echo "module purge" > bin/activate
-echo "module load matplotlib/3.1.1-foss-2019b-Python-3.7.4" >> bin/activate
-echo "module load libxc/4.3.4-GCC-8.3.0" >> bin/activate
-echo "module load libvdwxc/0.4.0-foss-2019b" >> bin/activate
-echo "module load GPAW-setups/0.9.20000" >> bin/activate
-
+mv ../modules.sh bin/activate
 cat activate >> bin/activate
 rm activate
 
@@ -38,21 +43,15 @@ $PIP install myqueue
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-# Install ASE C-extension (ase_ext):
-URL="git+https://gitlab.com/ase/ase_ext.git@master"
-CMD="cd $VENV && . bin/activate && pip install $URL -v > ase_ext.out 2>&1"
-echo $CMD
-ssh fjorm $CMD
-
-# Install spglib and sklearn:
-CMD="cd $VENV && . bin/activate && pip install spglib sklearn"
+# Install ase-ext, spglib and sklearn:
+CMD="cd $VENV && . bin/activate && pip install spglib sklearn ase-ext"
 echo $CMD
 ssh fjorm $CMD
 
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git
 cd gpaw
-cp doc/platforms/Linux/Niflheim/el7-foss.py siteconfig.py
+cp doc/platforms/Linux/Niflheim/el7-$TOOLCHAIN.py siteconfig.py
 for HOST in fjorm svol thul slid
 do
   CMD="cd $VENV && . bin/activate && pip install -e gpaw -v > $HOST.out 2>&1"
