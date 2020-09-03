@@ -7,17 +7,18 @@ FOLDERNAME=$1
 TOOLCHAIN=foss
 mkdir -p $FOLDERNAME
 cd $FOLDERNAME
+FOLDER=$PWD
 
-echo "module purge" > module.sh
+echo "module purge" > modules.sh
 echo "module load GPAW-setups/0.9.20000" >> modules.sh
 
 if [ "$TOOLCHAIN" = foss ]; then
-    echo "module load matplotlib/3.1.1-foss-2019b-Python-3.7.4" >> module.sh
-    echo "module load libxc/4.3.4-GCC-8.3.0" >> module.sh
-    echo "module load libvdwxc/0.4.0-foss-2019b" >> module.sh
+    echo "module load matplotlib/3.1.1-foss-2019b-Python-3.7.4" >> modules.sh
+    echo "module load libxc/4.3.4-GCC-8.3.0" >> modules.sh
+    echo "module load libvdwxc/0.4.0-foss-2019b" >> modules.sh
 else
-    echo "module load matplotlib/3.1.1-intel-2019b-Python-3.7.4" >> module.sh
-    echo "module load libxc/4.3.4-iccifort-2019.5.281" >> module.sh
+    echo "module load matplotlib/3.1.1-intel-2019b-Python-3.7.4" >> modules.sh
+    echo "module load libxc/4.3.4-iccifort-2019.5.281" >> modules.sh
 fi
 
 . modules.sh
@@ -36,6 +37,8 @@ mv ../modules.sh bin/activate
 cat activate >> bin/activate
 rm activate
 
+cd $FOLDER
+
 # Install MyQueue:
 $PIP install myqueue
 
@@ -44,7 +47,9 @@ git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
 # Install ase-ext, spglib and sklearn:
-CMD="cd $VENV && . bin/activate && pip install spglib sklearn ase-ext"
+CMD="cd $VENV &&
+     . bin/activate &&
+     pip install spglib sklearn ase-ext pytest-xdist"
 echo $CMD
 ssh fjorm $CMD
 
@@ -54,7 +59,9 @@ cd gpaw
 cp doc/platforms/Linux/Niflheim/el7-$TOOLCHAIN.py siteconfig.py
 for HOST in fjorm svol thul slid
 do
-  CMD="cd $VENV && . bin/activate && pip install -e gpaw -v > $HOST.out 2>&1"
+  CMD="cd $FOLDER &&
+       . venv/bin/activate &&
+       pip install -e gpaw -v > $HOST.out 2>&1"
   echo Compiling GPAW on $HOST
   echo $CMD
   ssh $HOST $CMD
@@ -64,8 +71,10 @@ rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 cd ..
 
+# Install extra basis-functions:
 gpaw install-data --basis --version=20000 . --no-register
-export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/gpaw-basis-pvalence-0.9.20000
+export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$FOLDER/gpaw-basis-pvalence-0.9.20000
+cd $VENV
 echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 
 # Tab completion:
