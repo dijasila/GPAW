@@ -135,11 +135,11 @@ The NEB should be parallelised over images. An example can be found in [this GPA
 
 # %%
 # This code is just for illustration
-from ase.parallel import rank, size
+from ase.parallel import world
 n_im = 4              # Number of images
-n = size // n_im      # number of cpu's per image
-j = 1 + rank // n     # image number on this cpu
-assert n_im * n == size
+n = world.size // n_im      # number of cpu's per image
+j = 1 + world.rank // n     # image number on this cpu
+assert n_im * n == world.size
 
 # %%
 """
@@ -154,7 +154,7 @@ for i in range(n_im):
     ranks = range(i * n, (i + 1) * n)
     image = initial.copy()
     image.set_constraint(constraint)
-    if rank in ranks:
+    if world.rank in ranks:
         calc = GPAW(mode=PW(350),
                     nbands='130%',
                     xc='PBE',  # student: ...,
@@ -185,7 +185,7 @@ from gpaw import GPAW, PW
 from ase.visualize import view
 from ase.optimize import BFGS
 from ase.io import Trajectory
-from ase.parallel import rank, size
+from ase.parallel import world
 
 initial = read('N2Ru.traj')
 final = read('2Nads.traj')
@@ -196,8 +196,8 @@ N = 4  # No. of images
 z = initial.positions[:, 2]
 constraint = FixAtoms(mask=(z < z.min() + 1.0))
 
-j = rank * N // size
-n = size // N  # number of cpu's per image
+j = world.rank * N // world.size
+n = world.size // N  # number of cpu's per image
 
 for i in range(N):
     ranks = range(i * n, (i + 1) * n)
