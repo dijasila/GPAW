@@ -2,7 +2,7 @@ from myqueue.task import task
 
 
 def create_tasks():
-    t1 = task('cu_calc.py', cores=4)
+    t1 = task('cu_calc.py', cores=4, tmax='1h')
     t2 = task('cu_plot.py', deps=t1, creates='cu.png')
     t3 = task('cu_agts.py', deps=t1)
     return [t1, t2, t3]
