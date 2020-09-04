@@ -1,11 +1,11 @@
 """This calculation has the following structure.
 
-1) Calculate the ground state of Diamond.
-2) Calculate the band structure of diamond in order to obtain accurate KS
-   band gap for Diamond.
-3) Calculate ground state again, and calculate the potential discontinuity
-   using accurate band gap.
-4) Calculate band structure again, and apply the discontinuity to CBM.
+1) Calculate the ground state of diamond.
+2) Calculate the band structure of diamond in order to obtain
+   accurate KS band gap.
+3) Calculate the potential discontinuity using the ground state calculator
+   and the accurate band gap.
+4) Apply the discontinuity to CBM using the band structure calculator.
 
 Compare to reference.
 """
@@ -36,40 +36,34 @@ def test_gllb_diamond(in_tmp_dir):
                 mixer=Mixer(0.5, 5, 10.0),
                 parallel=dict(domain=min(world.size, 2), band=1),
                 eigensolver=Davidson(niter=2),
-                txt='1.out')
+                txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('gs.gpw', mode='all')
 
     # Calculate accurate KS-band gap from band structure
-    calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
-                              symmetry='off',
-                              nbands=8,
-                              convergence={'bands': 6},
-                              eigensolver=Davidson(niter=4),
-                              txt='2.out')
+    bs_calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
+                                 symmetry='off',
+                                 nbands=8,
+                                 convergence={'bands': 6},
+                                 eigensolver=Davidson(niter=4),
+                                 txt='bs.out')
     # Get the accurate KS-band gap
-    homolumo = calc.get_homo_lumo()
+    homolumo = bs_calc.get_homo_lumo()
     homo, lumo = homolumo
     KS_gap = lumo - homo
     print('KS gap', KS_gap)
     assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
 
-    # Read the ground state calculation
-    calc = GPAW('gs.gpw',
-                txt='3.out')
-    # And calculate the discontinuity potential with accurate band gap
+    # Calculate the discontinuity potential with accurate band gap
     response = calc.hamiltonian.xc.xcs['RESPONSE']
     response.calculate_delta_xc(homolumo=homolumo / Ha)
 
     # Redo the band structure calculation
-    calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
-                              symmetry='off',
-                              convergence={'bands': 6},
-                              eigensolver=Davidson(niter=4),
-                              txt='4.out')
-    response = calc.hamiltonian.xc.xcs['RESPONSE']
-    KS, dxc = response.calculate_delta_xc_perturbation()
+    bs_response = bs_calc.hamiltonian.xc.xcs['RESPONSE']
+    bs_response.Dxc_vt_sG = response.Dxc_vt_sG
+    bs_response.Dxc_D_asp = response.Dxc_D_asp
+    bs_response.Dxc_Dresp_asp = response.Dxc_Dresp_asp
+    KS, dxc = bs_response.calculate_delta_xc_perturbation()
     print('KS gap 2', KS)
 
     QP_gap = KS + dxc
