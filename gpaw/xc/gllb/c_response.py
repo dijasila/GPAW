@@ -428,7 +428,7 @@ class C_Response(Contribution):
             #       (self.hardness * 27.2107))
 
     def write(self, writer):
-        """Writes response specific data to disc.
+        """Writes response specific data.
 
         During the writing process, the DeltaXC is calculated
         (if not yet calculated).
@@ -441,17 +441,8 @@ class C_Response(Contribution):
         kpt_comm = wfs.kd.comm
         gd = wfs.gd
 
-        nadm = 0
-        for setup in wfs.setups:
-            ni = setup.ni
-            nadm += ni * (ni + 1) // 2
-
-        # Not yet tested for parallerization
-        # assert world.size == 1
-
-        shape = (wfs.nspins,) + tuple(gd.get_size_of_global_array())
-
         # Write the pseudodensity on the coarse grid:
+        shape = (wfs.nspins,) + tuple(gd.get_size_of_global_array())
         writer.add_array('gllb_pseudo_response_potential', shape)
         if kpt_comm.rank == 0:
             for vt_G in self.vt_sG:
@@ -485,7 +476,6 @@ class C_Response(Contribution):
     def read(self, reader):
         r = reader.hamiltonian.xc
         wfs = self.wfs
-        domain_comm = wfs.gd.comm
 
         self.vt_sG = wfs.gd.empty(wfs.nspins)
         self.Dxc_vt_sG = wfs.gd.empty(wfs.nspins)
@@ -496,10 +486,6 @@ class C_Response(Contribution):
         self.gd.distribute(r.gllb_dxc_pseudo_response_potential *
                            (reader.bohr / reader.ha), self.Dxc_vt_sG)
 
-        d('Integration over vt_sG',
-          domain_comm.sum(np.sum(self.vt_sG.ravel())))
-        d('Integration over Dxc_vt_sG',
-          domain_comm.sum(np.sum(self.Dxc_vt_sG.ravel())))
         self.vt_sg = self.density.finegd.zeros(wfs.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
