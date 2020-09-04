@@ -34,13 +34,12 @@ def test_gllb_diamond(in_tmp_dir):
                 xc=xc,
                 nbands=8,
                 mixer=Mixer(0.5, 5, 10.0),
-                parallel=dict(domain=min(world.size, 2),
-                              band=1),
+                parallel=dict(domain=min(world.size, 2), band=1),
                 eigensolver=Davidson(niter=2),
                 txt='1.out')
     atoms.calc = calc
     atoms.get_potential_energy()
-    calc.write('Cgs.gpw')
+    calc.write('gs.gpw', mode='all')
 
     # Calculate accurate KS-band gap from band structure
     calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
@@ -56,17 +55,12 @@ def test_gllb_diamond(in_tmp_dir):
     print('KS gap', KS_gap)
     assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
 
-    # Redo the ground state calculation
-    calc = GPAW(h=0.2, kpts=(4, 4, 4), xc=xc, nbands=8,
-                mixer=Mixer(0.5, 5, 10.0),
-                eigensolver=Davidson(niter=4),
+    # Read the ground state calculation
+    calc = GPAW('gs.gpw',
                 txt='3.out')
-    atoms.calc = calc
-    atoms.get_potential_energy()
     # And calculate the discontinuity potential with accurate band gap
     response = calc.hamiltonian.xc.xcs['RESPONSE']
     response.calculate_delta_xc(homolumo=homolumo / Ha)
-    calc.write('CGLLBSC.gpw')
 
     # Redo the band structure calculation
     calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
