@@ -207,7 +207,10 @@ class GPAW(Calculator):
             old = self.hamiltonian.xc.xcs['RESPONSE']
             for attr in ['vt_sG', 'vt_sg', 'D_asp', 'Dresp_asp',
                          'Dxc_vt_sG', 'Dxc_D_asp', 'Dxc_Dresp_asp']:
-                setattr(resp, attr, getattr(old, attr).copy())
+                val = getattr(old, attr)
+                if val is not None:
+                    val = val.copy()
+                setattr(resp, attr, val)
             resp.just_read = True
 
         calc.calculate(system_changes=[])
