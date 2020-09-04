@@ -20,6 +20,11 @@ from gpaw.mpi import world
 @pytest.mark.libxc
 def test_gllb_diamond(in_tmp_dir):
     xc = 'GLLBSC'
+    KS_gap_ref = 4.180237125868162
+    QP_gap_ref = 5.469387490357182
+    # M. Kuisma et. al, https://doi.org/10.1103/PhysRevB.82.115106
+    #     C: KS gap 4.14 eV, QP gap 5.41eV, expt. 5.48 eV
+
     # Calculate ground state
     atoms = bulk('C', 'diamond', a=3.567)
     # We want sufficiently many grid points that the calculator
@@ -49,7 +54,9 @@ def test_gllb_diamond(in_tmp_dir):
     # Get the accurate KS-band gap
     homolumo = calc.get_homo_lumo()
     homo, lumo = homolumo
-    print('band gap', lumo - homo)
+    KS_gap = lumo - homo
+    print('KS gap', KS_gap)
+    assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
 
     # Redo the ground state calculation
     calc = GPAW(h=0.2, kpts=(4, 4, 4), xc=xc, nbands=8,
@@ -72,12 +79,8 @@ def test_gllb_diamond(in_tmp_dir):
     atoms.get_potential_energy()
     response = calc.hamiltonian.xc.xcs['RESPONSE']
     KS, dxc = response.calculate_delta_xc_perturbation()
+    print('KS gap 2', KS)
 
-    energy = KS + dxc
-    ref = 5.41
-    err = abs(energy - ref)
-    if calc.wfs.world.rank == 0:
-        print('energy', energy, 'ref', ref)
-    assert err < 0.10, err
-    # M. Kuisma et. al, Phys. Rev. B 82, 115106:
-    #     QP gap for C, 5.41eV, expt. 5.48eV
+    QP_gap = KS + dxc
+    print('QP gap', QP_gap)
+    assert QP_gap == pytest.approx(QP_gap_ref, abs=1e-4)
