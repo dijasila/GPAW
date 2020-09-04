@@ -236,10 +236,8 @@ class C_Response(Contribution):
         self.Dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
             ni = self.wfs.setups[a].ni
-            self.Dxc_Dresp_asp[a] = np.zeros((self.nspins, ni *
-                                              (ni + 1) // 2))
-            self.Dxc_D_asp[a] = np.zeros((self.nspins, ni *
-                                          (ni + 1) // 2))
+            self.Dxc_Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
+            self.Dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference
         w_kn = self.coefficients.get_coefficients_by_kpt(
@@ -342,8 +340,7 @@ class C_Response(Contribution):
 
         for a in self.density.D_asp.keys():
             ni = setups[a].ni
-            self.Dresp_asp[a] = np.zeros((self.nspins, ni *
-                                          (ni + 1) // 2))
+            self.Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         self.D_asp = self.empty_atomic_matrix()
         f_asi = {}

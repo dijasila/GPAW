@@ -57,8 +57,8 @@ class NonLocalFunctional(XCFunctional):
             self.mix_vt_sg[:] = 0.0
             for contribution in self.contributions:
                 contribution.calculate_spinpaired(e_g, n_g, self.mix_vt_sg)
-            self.mix_vt_sg = (cmix * self.mix_vt_sg +
-                              (1.0 - cmix) * self.old_vt_sg)
+            self.mix_vt_sg = (cmix * self.mix_vt_sg
+                              + (1.0 - cmix) * self.old_vt_sg)
             v_g += self.mix_vt_sg
             self.old_vt_sg[:] = self.mix_vt_sg
 

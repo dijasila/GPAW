@@ -62,7 +62,6 @@ def get_nonlocal_functional(name,
     else:
         raise RuntimeError('Unkown nonlocal density functional: ' + name)
 
-
     # Construct functional
     functional = NonLocalFunctional(name, setup_name=setup_name)
     if scr_functional is not None:
