@@ -36,21 +36,19 @@ def test_gllb_diamond(in_tmp_dir):
                 mixer=Mixer(0.5, 5, 10.0),
                 parallel=dict(domain=min(world.size, 2),
                               band=1),
-                eigensolver=Davidson(niter=2))
+                eigensolver=Davidson(niter=2),
+                txt='1.out')
     atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Cgs.gpw')
 
     # Calculate accurate KS-band gap from band structure
-    atoms, calc = restart(
-        'Cgs.gpw',
-        fixdensity=True,
-        kpts={'path': 'GX', 'npoints': 12},
-        symmetry='off',
-        nbands=8,
-        convergence=dict(bands=6),
-        eigensolver=Davidson(niter=4))
-    atoms.get_potential_energy()
+    calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
+                              symmetry='off',
+                              nbands=8,
+                              convergence={'bands': 6},
+                              eigensolver=Davidson(niter=4),
+                              txt='2.out')
     # Get the accurate KS-band gap
     homolumo = calc.get_homo_lumo()
     homo, lumo = homolumo
@@ -61,7 +59,8 @@ def test_gllb_diamond(in_tmp_dir):
     # Redo the ground state calculation
     calc = GPAW(h=0.2, kpts=(4, 4, 4), xc=xc, nbands=8,
                 mixer=Mixer(0.5, 5, 10.0),
-                eigensolver=Davidson(niter=4))
+                eigensolver=Davidson(niter=4),
+                txt='3.out')
     atoms.calc = calc
     atoms.get_potential_energy()
     # And calculate the discontinuity potential with accurate band gap
@@ -70,13 +69,11 @@ def test_gllb_diamond(in_tmp_dir):
     calc.write('CGLLBSC.gpw')
 
     # Redo the band structure calculation
-    atoms, calc = restart('CGLLBSC.gpw',
-                          kpts={'path': 'GX', 'npoints': 12},
-                          fixdensity=True,
-                          symmetry='off',
-                          convergence=dict(bands=6),
-                          eigensolver=Davidson(niter=4))
-    atoms.get_potential_energy()
+    calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
+                              symmetry='off',
+                              convergence={'bands': 6},
+                              eigensolver=Davidson(niter=4),
+                              txt='4.out')
     response = calc.hamiltonian.xc.xcs['RESPONSE']
     KS, dxc = response.calculate_delta_xc_perturbation()
     print('KS gap 2', KS)
