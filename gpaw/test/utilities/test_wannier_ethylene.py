@@ -7,7 +7,8 @@ from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.mpi import size
-from gpaw.wannier import Wannier
+from gpaw.wannier.overlaps import calculate_overlaps
+from gpaw.wannier.edmiston_ruedenberg import localize
 
 pytestmark = pytest.mark.ci
 
@@ -42,10 +43,9 @@ def test_ethylene_energy(ethylene):
 
 
 def check(calc):
-    wannier = Wannier(calc, nbands=6)
-    wannier.localize()
+    wannier = localize(calculate_overlaps(calc, n1=0, n2=6))
 
-    centers = wannier.get_centers()
+    centers = wannier.centers
     print(centers)
     expected = [[1.950, 2.376, 3.000],
                 [1.950, 3.624, 3.000],

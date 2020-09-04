@@ -4,7 +4,7 @@ from typing import Any, Tuple
 import numpy as np
 
 import _gpaw
-from .overlap import WannierOverlaps
+from .overlaps import WannierOverlaps
 
 Array2D = Any
 
@@ -14,7 +14,7 @@ class LocalizationNotConvergedError(Exception):
 
 
 class WannierFunctions:
-    def __init__(self, U_nn, centers, values):
+    def __init__(self, U_nn, centers, value):
         self.U_nn = U_nn
         self.centers = centers
         self.value = value
@@ -23,11 +23,11 @@ class WannierFunctions:
 def localize(overlaps: WannierOverlaps,
              maxiter: int = 100,
              tolerance: float = 1e-5,
-             verbose: bool = False) -> Tuple[Array2D, Array2D, float]:
+             verbose: bool = not False) -> WannierFunctions:
     """"""
-    if (np.diag(overlaps.cell.diag()) != overlaps.cell).any():
+    if (np.diag(overlaps.cell.diagonal()) != overlaps.cell).any():
         raise NotImplementedError('An orthogonal cell is required')
-    assert overlaps.monkhors_pack_size == (1, 1, 1)
+    assert overlaps.monkhorst_pack_size == (1, 1, 1)
 
     Z_nnc = np.empty((overlaps.nbands, overlaps.nbands, 3), complex)
     for c, direction in enumerate([(1, 0, 0), (0, 1, 0), (0, 0, 1)]):
@@ -35,13 +35,18 @@ def localize(overlaps: WannierOverlaps,
 
     U_nn = np.identity(overlaps.nbands)
 
-    old = -1.0
+    if verbose:
+        print('iter      value     change')
+        print('---- ---------- ----------')
+
+    old = 0.0
     for iter in range(maxiter):
         value = _gpaw.localize(Z_nnc, U_nn)
         if verbose:
-            print(iter, value)
+            print(f'{iter:4} {value:10.3f} {value - old:10.6f}')
         if value - old < tolerance:
             break
+        old = value
     else:
         raise LocalizationNotConvergedError(
             f'Did not converge in {maxiter} iterations')
