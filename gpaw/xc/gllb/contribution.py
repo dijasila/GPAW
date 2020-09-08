@@ -2,6 +2,12 @@ class Contribution:
     def __init__(self, weight):
         self.weight = weight
 
+    def get_name(self):
+        raise NotImplementedError
+
+    def get_desc(self):
+        raise NotImplementedError
+
     def initialize(self, density, hamiltonian, wfs):
         self.density = density
         self.gd = density.gd
@@ -12,11 +18,9 @@ class Contribution:
     def initialize_1d(self, ae):
         self.ae = ae
 
-    def get_name(self):
-        raise NotImplementedError
-
-    def get_desc(self):
-        raise NotImplementedError
+    def initialize_from_atomic_orbitals(self, basis_functions):
+        # Pass if contribution needs only density which is already initialized
+        pass
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         raise NotImplementedError
@@ -29,10 +33,6 @@ class Contribution:
 
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         raise NotImplementedError
-
-    def initialize_from_atomic_orbitals(self, basis_functions):
-        # Pass if contribution needs only density which is already initialized
-        pass
 
     def add_extra_setup_data(self, dict):
         pass

@@ -32,22 +32,14 @@ class C_Response(Contribution):
         self.just_read = False
         self.damp = damp
 
+    def set_damp(self, damp):
+        self.damp = damp
+
     def get_name(self):
         return 'RESPONSE'
 
     def get_desc(self):
         return self.coefficients.get_description()
-
-    def set_damp(self, damp):
-        self.damp = damp
-
-    # Calcualte the GLLB potential and energy 1d
-    def add_xc_potential_and_energy_1d(self, v_g):
-        w_i = self.coefficients.get_coefficients_1d()
-        u2_j = safe_sqr(self.ae.u_j)
-        v_g += self.weight * np.dot(w_i, u2_j) / (
-            np.dot(self.ae.f_j, u2_j) + self.damp)
-        return 0.0  # Response part does not contribute to energy
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)
@@ -62,6 +54,14 @@ class C_Response(Contribution):
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
         self.coefficients.initialize_1d(ae)
+
+    # Calcualte the GLLB potential and energy 1d
+    def add_xc_potential_and_energy_1d(self, v_g):
+        w_i = self.coefficients.get_coefficients_1d()
+        u2_j = safe_sqr(self.ae.u_j)
+        v_g += self.weight * np.dot(w_i, u2_j) / (
+            np.dot(self.ae.f_j, u2_j) + self.damp)
+        return 0.0  # Response part does not contribute to energy
 
     def update_potentials(self, nt_sg):
         d('In update response potential')

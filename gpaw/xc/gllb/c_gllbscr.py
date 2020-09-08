@@ -13,15 +13,21 @@ class C_GLLBScr(Contribution):
         self.xc = XC(functional)
         self.damp = damp
 
-    def get_name(self):
-        return 'SCREENING'
-
     def set_damp(self, damp):
         self.damp = damp
+
+    def get_name(self):
+        return 'SCREENING'
 
     def get_desc(self):
         desc = '({})'.format(self.xc.name)
         return desc
+
+    def initialize(self, density, hamiltonian, wfs):
+        Contribution.initialize(self, density, hamiltonian, wfs)
+        # Always 1 spin, no matter what calculation nspins is
+        self.vt_sg = self.finegd.empty(1)
+        self.e_g = self.finegd.empty()
 
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
@@ -37,13 +43,6 @@ class C_GLLBScr(Contribution):
         v_g += 2 * self.weight * self.e_g / (self.ae.n + self.damp)
         Exc = self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
         return Exc
-
-    def initialize(self, density, hamiltonian, wfs):
-        Contribution.initialize(self, density, hamiltonian, wfs)
-
-        # Always 1 spin, no matter what calculation nspins is
-        self.vt_sg = self.finegd.empty(1)
-        self.e_g = self.finegd.empty()
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
         self.e_g[:] = 0.0
