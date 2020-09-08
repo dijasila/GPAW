@@ -57,19 +57,23 @@ class Coefficients:
             desc += ['width={:.4f} eV'.format(self.width * Ha)]
         return ', '.join(desc)
 
-    def f(self, f):
+    def f(self, energy: float) -> float:
+        """Calculate the sqrt(E)-like coefficient.
+
+        See the class description for details.
+        """
         if self.width is None:
-            if f > self.eps:
-                return sqrt(f)
+            if energy > self.eps:
+                return sqrt(energy)
             else:
                 return 0.0
         else:
-            width = self.width
-            if f > 0:
-                K = sqrt(f) + 0.5 * sqrt(pi * width) * erfcx(sqrt(f / width))
+            prefactor = 0.5 * sqrt(pi * self.width)
+            rel_energy = energy / self.width
+            if energy > 0:
+                return sqrt(energy) + prefactor * erfcx(sqrt(rel_energy))
             else:
-                K = 0.5 * sqrt(pi * width) * exp(f / width)
-            return K
+                return prefactor * exp(rel_energy)
 
     def get_coefficients(self, e_j, f_j):
         homo_e = max([np.where(f > 1e-3, e, -1000) for f, e in zip(f_j, e_j)])
