@@ -7,7 +7,7 @@ from gpaw.test import equal
 
 @pytest.mark.gllb
 @pytest.mark.libxc
-def test_gllb_spin(in_tmp_dir):
+def test_gllb_spin():
     for spin in [False, True]:
         a = 3.56
         atoms = bulk('C', 'diamond', a=a)
@@ -19,18 +19,22 @@ def test_gllb_spin(in_tmp_dir):
                     occupations=FermiDirac(width=0.005))
         atoms.calc = calc
         atoms.get_potential_energy()
-        calc.write('temp.gpw')
-        response = calc.hamiltonian.xc.xcs['RESPONSE']
-        response.calculate_delta_xc()
+        xc = calc.hamiltonian.xc
         # Eks is the Kohn-Sham gap and Dxc is the derivative discontinuity
         if spin:
-            (Eksa, Dxca), (Eksb, Dxcb) = \
-                response.calculate_delta_xc_perturbation()
+            homoa, lumoa = calc.get_homo_lumo(spin=0)
+            homob, lumob = calc.get_homo_lumo(spin=1)
+            Dxc_pot = xc.calculate_discontinuity_potential((homoa, homob),
+                                                           (lumoa, lumob))
+            Eksa, Dxca = xc.calculate_discontinuity(Dxc_pot, spin=0)
+            Eksb, Dxcb = xc.calculate_discontinuity(Dxc_pot, spin=1)
             Gapa = Eksa + Dxca
             Gapb = Eksb + Dxcb
             print("GAP", spin, Gapa, Gapb)
         else:
-            Eks, Dxc = response.calculate_delta_xc_perturbation()
+            homo, lumo = calc.get_homo_lumo()
+            Dxc_pot = xc.calculate_discontinuity_potential(homo, lumo)
+            Eks, Dxc = xc.calculate_discontinuity(Dxc_pot)
             Gap = Eks + Dxc
             print("GAP", spin, Gap)
 

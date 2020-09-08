@@ -26,11 +26,10 @@ def test_lcao_gllb_si(in_tmp_dir):
     si.calc = calc
     si.get_potential_energy()
 
-    response = calc.hamiltonian.xc.xcs['RESPONSE']
-    response.calculate_delta_xc()
-    EKs, Dxc = response.calculate_delta_xc_perturbation()
+    homo, lumo = calc.get_homo_lumo()
+    Dxc_pot = calc.hamiltonian.xc.calculate_discontinuity_potential(homo, lumo)
+    EKs, Dxc = calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
     refgap = 3.02333
     gap = EKs + Dxc
     print('GAP', gap)
-    err = abs(gap - refgap)
-    assert err < 1e-4, err
+    assert gap == pytest.approx(refgap, abs=1e-4)

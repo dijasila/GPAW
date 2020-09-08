@@ -32,9 +32,10 @@ def test_gllb_ne(in_tmp_dir):
         Ne.calc = calc
         e = Ne.get_potential_energy()
         # Calculate the discontinuity
-        response = calc.hamiltonian.xc.xcs['RESPONSE']
-        response.calculate_delta_xc()
-        response.calculate_delta_xc_perturbation()
+        homo, lumo = calc.get_homo_lumo()
+        xc = calc.hamiltonian.xc
+        Dxc_pot = xc.calculate_discontinuity_potential(homo, lumo)
+        xc.calculate_discontinuity(Dxc_pot)
 
         eps3d = calc.wfs.kpt_u[0].eps_n[3]
         # if world.rank == 0:
