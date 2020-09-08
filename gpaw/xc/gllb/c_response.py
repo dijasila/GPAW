@@ -2,7 +2,7 @@ import warnings
 from math import sqrt, pi
 import numpy as np
 
-from ase.units import Ha, Bohr
+from ase.units import Ha
 from gpaw.mpi import world
 from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack, pack_atomic_matrices, unpack_atomic_matrices
@@ -16,6 +16,14 @@ debug = False
 def d(*args):
     if debug:
         print(args)
+
+
+class DiscontinuityPotential:
+    """Container for discontinuity potential"""
+    def __init__(self, vt_sG, Dresp_asp, D_asp):
+        self.vt_sG = vt_sG
+        self.D_asp = D_asp
+        self.Dresp_asp = Dresp_asp
 
 
 class C_Response(Contribution):
@@ -46,10 +54,6 @@ class C_Response(Contribution):
         self.coefficients.initialize(wfs)
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
-            # The response discontinuity is stored here
-            self.Dxc_vt_sG = None
-            self.Dxc_Dresp_asp = None
-            self.Dxc_D_asp = None
 
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
@@ -242,10 +246,10 @@ class C_Response(Contribution):
             # warnings.warn('Calculating KS-gap directly from the k-points, '
             #               'can be inaccurate.')
             # homolumo = self.occupations.get_homo_lumo(self.wfs)
-        Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp = self.calculate_discontinuity_potential(homolumo)
-        self.Dxc_vt_sG = Dxc_vt_sG
-        self.Dxc_D_asp = Dxc_D_asp
-        self.Dxc_Dresp_asp = Dxc_Dresp_asp
+        Dxc = self.calculate_discontinuity_potential(homolumo)
+        self.Dxc_vt_sG = Dxc.vt_sG
+        self.Dxc_D_asp = Dxc.D_asp
+        self.Dxc_Dresp_asp = Dxc.Dresp_asp
 
     def calculate_discontinuity_potential(self, homolumo):
         r"""Calculate the derivative discontinuity potential.
@@ -294,7 +298,8 @@ class C_Response(Contribution):
             Dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
             Dxc_D_asp, f_kn)
-        return Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp
+        Dxc = DiscontinuityPotential(Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp)
+        return Dxc
 
     def calculate_delta_xc_perturbation(self):
         warnings.warn(
@@ -302,31 +307,33 @@ class C_Response(Contribution):
             'Please use calculate_discontinuity() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        return self.calculate_discontinuity()
+        Dxc = DiscontinuityPotential(self.Dxc_vt_sG, self.Dxc_Dresp_asp,
+                                     self.Dxc_D_asp)
+        return self.calculate_discontinuity(Dxc)
 
-    def calculate_discontinuity(self):
-        gaps = []
-        for s in range(0, self.nspins):
-            gaps.append(self.calculate_discontinuity_spin(s))
+    def calculate_discontinuity(self, Dxc):
         if self.nspins == 1:
-            return gaps[0]
+            return self.calculate_discontinuity_spin(Dxc, s=0)
         else:
-            return gaps
+            dxcs = []
+            for s in range(0, self.nspins):
+                dxcs.append(self.calculate_discontinuity_spin(Dxc, s=s))
+            return dxcs
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
         warnings.warn(
-            'The function calculate_delta_xc_perturbation_spin() is deprecated. '
-            'Please use calculate_discontinuity_spin() instead. '
+            'The function calculate_delta_xc_perturbation_spin() is '
+            'deprecated. Please use calculate_discontinuity_spin() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
         return self.calculate_discontinuity_spin(s)
 
-    def calculate_discontinuity_spin(self, s=0):
+    def calculate_discontinuity_spin(self, Dxc, s=0):
         homo, lumo = self.wfs.get_homo_lumo(s)
         Ksgap = lumo - homo
 
         # Calculate average of lumo reference response potential
-        method1_dxc = np.average(self.Dxc_vt_sG[s])
+        method1_dxc = np.average(Dxc.vt_sG[s])
         nt_G = self.gd.empty()
 
         # Find the lumo-orbital of this spin
@@ -340,16 +347,16 @@ class C_Response(Contribution):
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
-                for a in self.density.D_asp:
-                    D_sp = self.Dxc_D_asp[a]
-                    Dresp_sp = self.Dxc_Dresp_asp[a]
+                for a in Dxc.D_asp:
+                    D_sp = Dxc.D_asp[a]
+                    Dresp_sp = Dxc.Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(),
                                           P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,
                                                spin=s)
                 E = self.gd.comm.sum(E)
-                E += self.gd.integrate(nt_G * self.Dxc_vt_sG[s])
+                E += self.gd.integrate(nt_G * Dxc.vt_sG[s])
                 E += kpt.eps_n[lumo_n] - lumo
                 min_energy = min(min_energy, E)
 
@@ -482,11 +489,6 @@ class C_Response(Contribution):
             for vt_G in self.vt_sG:
                 writer.fill(gd.collect(vt_G) * Ha)
 
-        writer.add_array('gllb_dxc_pseudo_response_potential', shape)
-        if kpt_comm.rank == 0:
-            for Dxc_vt_G in self.Dxc_vt_sG:
-                writer.fill(gd.collect(Dxc_vt_G) * (Ha / Bohr))
-
         def pack(X0_asp):
             X_asp = wfs.setups.empty_atomic_matrix(
                 wfs.nspins, wfs.atom_partition)
@@ -498,9 +500,6 @@ class C_Response(Contribution):
 
         writer.write(gllb_atomic_density_matrices=pack(self.D_asp))
         writer.write(gllb_atomic_response_matrices=pack(self.Dresp_asp))
-        writer.write(gllb_dxc_atomic_density_matrices=pack(self.Dxc_D_asp))
-        writer.write(
-            gllb_dxc_atomic_response_matrices=pack(self.Dxc_Dresp_asp))
 
     def empty_atomic_matrix(self):
         assert self.wfs.atom_partition is self.density.atom_partition
@@ -512,14 +511,9 @@ class C_Response(Contribution):
         wfs = self.wfs
 
         self.vt_sG = wfs.gd.empty(wfs.nspins)
-        self.Dxc_vt_sG = wfs.gd.empty(wfs.nspins)
         d('Reading vt_sG')
         self.gd.distribute(r.gllb_pseudo_response_potential / reader.ha,
                            self.vt_sG)
-        d('Reading Dxc_vt_sG')
-        self.gd.distribute(r.gllb_dxc_pseudo_response_potential *
-                           (reader.bohr / reader.ha), self.Dxc_vt_sG)
-
         self.vt_sg = self.density.finegd.zeros(wfs.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
@@ -529,8 +523,6 @@ class C_Response(Contribution):
         # Read atomic density matrices and non-local part of hamiltonian:
         self.D_asp = unpack(r.gllb_atomic_density_matrices)
         self.Dresp_asp = unpack(r.gllb_atomic_response_matrices)
-        self.Dxc_D_asp = unpack(r.gllb_dxc_atomic_density_matrices)
-        self.Dxc_Dresp_asp = unpack(r.gllb_dxc_atomic_response_matrices)
 
         # Dsp and Dresp need to be redistributed
         self.just_read = True
@@ -543,7 +535,3 @@ class C_Response(Contribution):
         self.vt_sG = redistribute_array(self.vt_sG,
                                         olddens.gd, self.gd,
                                         self.wfs.nspins, self.wfs.kptband_comm)
-        self.Dxc_vt_sG = redistribute_array(self.Dxc_vt_sG,
-                                            olddens.gd, self.gd,
-                                            self.wfs.nspins,
-                                            self.wfs.kptband_comm)

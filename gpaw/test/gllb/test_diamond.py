@@ -56,14 +56,11 @@ def test_gllb_diamond(in_tmp_dir):
 
     # Calculate the discontinuity potential with accurate band gap
     response = calc.hamiltonian.xc.xcs['RESPONSE']
-    response.calculate_delta_xc(homolumo=homolumo / Ha)
+    Dxc_pot = response.calculate_discontinuity_potential(homolumo=homolumo / Ha)
 
     # Redo the band structure calculation
     bs_response = bs_calc.hamiltonian.xc.xcs['RESPONSE']
-    bs_response.Dxc_vt_sG = response.Dxc_vt_sG
-    bs_response.Dxc_D_asp = response.Dxc_D_asp
-    bs_response.Dxc_Dresp_asp = response.Dxc_Dresp_asp
-    KS, dxc = bs_response.calculate_delta_xc_perturbation()
+    KS, dxc = bs_response.calculate_discontinuity(Dxc_pot)
     print('KS gap 2', KS)
 
     QP_gap = KS + dxc
