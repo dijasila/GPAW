@@ -9,11 +9,36 @@ K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
 
 
 class Coefficients:
-    def __init__(self, eps=0.05, width=None, metallic=False):
+    r"""Coefficient calculator for GLLB functionals.
+
+    This class implements the calculation of sqrt(E) coefficients as given by
+    Eq. (16) of https://doi.org/10.1103/PhysRevB.82.115106.
+
+    Parameters:
+
+    eps (in eV):
+        This parameter cuts sqrt(E) to zero for E < eps.
+        The cut is supposed to help convergence with degenerate systems.
+        This parameter should be small.
+    width (in eV):
+        If this parameter is set, then a smoothed variant of the sqrt(E)
+        expression is used. This parameter sets the energy width of
+        the smoothing.
+        The eps parameter is ignored when the width parameter is set.
+    metallic:
+        If this parameter is set, then Fermi level is used as the reference
+        energy in the sqrt(E) expression instead of the HOMO energy.
+        This is necessary to get sensible results in metallic systems.
+    """
+    def __init__(self,
+                 eps: float = 0.05,
+                 width: float = None,
+                 metallic: bool = False):
         self.eps = eps / Ha
         self.metallic = metallic
         if width is not None:
             width = width / Ha
+            self.eps = None  # Make sure that eps is not used with width
         self.width = width
 
     def initialize(self, wfs):
@@ -23,12 +48,14 @@ class Coefficients:
         self.ae = ae
 
     def get_description(self):
-        desc = 'eps={:.4f} eV'.format(self.eps * Ha)
+        desc = []
+        if self.eps is not None:
+            desc += ['eps={:.4f} eV'.format(self.eps * Ha)]
         if self.metallic:
-            desc += 'metallic'
+            desc += ['metallic']
         if self.width is not None:
-            desc += 'width={:.4f} eV'.format(self.width * Ha)
-        return desc
+            desc += ['width={:.4f} eV'.format(self.width * Ha)]
+        return ', '.join(desc)
 
     def f(self, f):
         if self.width is None:
