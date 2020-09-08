@@ -1,30 +1,28 @@
+"""Edmiston-ruedenberg localization."""
 from math import pi
-from typing import Any, Tuple
+from typing import Any
 
 import numpy as np
 
 import _gpaw
 from .overlaps import WannierOverlaps
+from .functions import WannierFunctions
 
 Array2D = Any
 
 
 class LocalizationNotConvergedError(Exception):
-    """Error raised if maxiter exceeded."""
-
-
-class WannierFunctions:
-    def __init__(self, U_nn, centers, value):
-        self.U_nn = U_nn
-        self.centers = centers
-        self.value = value
+    """Error raised if maxiter is exceeded."""
 
 
 def localize(overlaps: WannierOverlaps,
              maxiter: int = 100,
              tolerance: float = 1e-5,
              verbose: bool = not False) -> WannierFunctions:
-    """"""
+    """Simple localization.
+
+    Orthorhombic cell, no k-points, only occupied states.
+    """
     if (np.diag(overlaps.cell.diagonal()) != overlaps.cell).any():
         raise NotImplementedError('An orthogonal cell is required')
     assert overlaps.monkhorst_pack_size == (1, 1, 1)
@@ -65,5 +63,5 @@ if __name__ == '__main__':
 
     calc = GPAW(sys.argv[1])
     overlaps = calculate_overlaps(calc)
-    wan = localize(overlaps, verbose=True)
+    wan = overlaps.localize(verbose=True)
     print(wan.centers)

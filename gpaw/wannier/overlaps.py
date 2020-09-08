@@ -5,6 +5,7 @@ import numpy as np
 from gpaw import GPAW
 from gpaw.projections import Projections
 from gpaw.utilities.partition import AtomPartition
+from .functions import WannierFunctions
 
 Array2D = Any
 Array4D = Any
@@ -32,6 +33,13 @@ class WannierOverlaps:
                 bz_index: int,
                 direction: Tuple[int, int, int]) -> Array2D:
         return self._overlaps[bz_index, self.directions[direction]]
+
+    def localize(self,
+                 maxiter: int = 100,
+                 tolerance: float = 1e-5,
+                 verbose: bool = not False) -> WannierFunctions:
+        from .edmiston_ruedenberg import localize
+        return localize(self, maxiter, tolerance, verbose)
 
     def write(self, filename):
         1 / 0
