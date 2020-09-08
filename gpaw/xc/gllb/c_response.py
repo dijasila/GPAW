@@ -311,39 +311,39 @@ class C_Response(Contribution):
                                      self.Dxc_D_asp)
         return self.calculate_discontinuity(Dxc)
 
-    def calculate_discontinuity(self, Dxc):
-        if self.nspins == 1:
-            return self.calculate_discontinuity_spin(Dxc, s=0)
-        else:
-            dxcs = []
-            for s in range(0, self.nspins):
-                dxcs.append(self.calculate_discontinuity_spin(Dxc, s=s))
-            return dxcs
-
     def calculate_delta_xc_perturbation_spin(self, s=0):
         warnings.warn(
             'The function calculate_delta_xc_perturbation_spin() is '
             'deprecated. Please use calculate_discontinuity_spin() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        return self.calculate_discontinuity_spin(s)
+        Dxc = DiscontinuityPotential(self.Dxc_vt_sG, self.Dxc_Dresp_asp,
+                                     self.Dxc_D_asp)
+        return self.calculate_discontinuity(Dxc, spin=s)
 
-    def calculate_discontinuity_spin(self, Dxc, s=0):
-        homo, lumo = self.wfs.get_homo_lumo(s)
+    def calculate_discontinuity(self,
+                                Dxc: DiscontinuityPotential,
+                                spin: int = None):
+        if spin is None:
+            if self.nspins != 1:
+                raise ValueError('Specify spin for the discontinuity.')
+            spin = 0
+
+        homo, lumo = self.wfs.get_homo_lumo(spin)
         Ksgap = lumo - homo
 
         # Calculate average of lumo reference response potential
-        method1_dxc = np.average(Dxc.vt_sG[s])
+        method1_dxc = np.average(Dxc.vt_sG[spin])
         nt_G = self.gd.empty()
 
         # Find the lumo-orbital of this spin
-        eps_n = self.wfs.kpt_qs[0][s].eps_n
+        eps_n = self.wfs.kpt_qs[0][spin].eps_n
         assert self.wfs.bd.comm.size == 1
         lumo_n = (eps_n < self.wfs.fermi_level).sum()
 
         min_energy = np.inf
         for u, kpt in enumerate(self.wfs.kpt_u):
-            if kpt.s == s:
+            if kpt.s == spin:
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
@@ -354,9 +354,9 @@ class C_Response(Contribution):
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(),
                                           P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,
-                                               spin=s)
+                                               spin=spin)
                 E = self.gd.comm.sum(E)
-                E += self.gd.integrate(nt_G * Dxc.vt_sG[s])
+                E += self.gd.integrate(nt_G * Dxc.vt_sG[spin])
                 E += kpt.eps_n[lumo_n] - lumo
                 min_energy = min(min_energy, E)
 
