@@ -203,8 +203,8 @@ class GPAW(Calculator):
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
         if calc.hamiltonian.xc.type == 'GLLB':
-            resp = calc.hamiltonian.xc.xcs['RESPONSE']
-            old = self.hamiltonian.xc.xcs['RESPONSE']
+            resp = calc.hamiltonian.xc.response
+            old = self.hamiltonian.xc.response
             for attr in ['vt_sG', 'vt_sg', 'D_asp', 'Dresp_asp']:
                 val = getattr(old, attr)
                 if val is not None:
