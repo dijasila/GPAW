@@ -49,17 +49,16 @@ def test_gllb_diamond(in_tmp_dir):
                                  txt='bs.out')
     # Get the accurate KS-band gap
     homo, lumo = bs_calc.get_homo_lumo()
-    KS_gap = lumo - homo
-    print('KS gap', KS_gap)
-    assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
 
     # Calculate the discontinuity potential with accurate band gap
     Dxc_pot = calc.hamiltonian.xc.calculate_discontinuity_potential(homo, lumo)
 
     # Calculate the discontinuity using the band structure calculator
-    KS, dxc = bs_calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
-    print('KS gap 2', KS)
+    KS_gap, dxc = bs_calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
+    assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
+    assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
+    print('KS gap', KS_gap)
 
-    QP_gap = KS + dxc
+    QP_gap = KS_gap + dxc
     print('QP gap', QP_gap)
     assert QP_gap == pytest.approx(QP_gap_ref, abs=1e-4)
