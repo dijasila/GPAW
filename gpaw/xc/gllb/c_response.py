@@ -486,7 +486,7 @@ class C_Response(Contribution):
         lumo_e = min(l)
         homo_e = max(h)
         if lumo_e < 999:  # If there is unoccpied orbital
-            w_j = self.coefficients.get_coefficients_1d(lumo_perturbation=True)
+            w_j = self.coefficients.get_coefficients_1d_for_lumo_perturbation()
             v_g = self.weight * np.dot(w_j, u2_j) / (
                 np.dot(self.ae.f_j, u2_j) + self.damp)
             e2 = [e + np.dot(u2 * v_g, self.ae.dr)

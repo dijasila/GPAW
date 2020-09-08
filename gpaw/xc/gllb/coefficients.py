@@ -77,22 +77,39 @@ class Coefficients:
             w_n[flt_n] = prefactor * np.exp(rel_energy_n[flt_n])
         return w_n
 
-    def get_coefficients_1d(self, smooth=False, lumo_perturbation=False):
-        homo_e = max([np.where(f > 1e-3, e, -1000)
-                      for f, e in zip(self.ae.f_j, self.ae.e_j)])
-        if not smooth:
-            if lumo_perturbation:
-                lumo_e = min([np.where(f < 1e-3, e, 1000)
-                              for f, e in zip(self.ae.f_j, self.ae.e_j)])
-                return np.array([f * K_G * (self.f(lumo_e - e)
-                                            - self.f(homo_e - e))
-                                 for e, f in zip(self.ae.e_j, self.ae.f_j)])
-            else:
-                return np.array([f * K_G * (self.f(homo_e - e))
-                                 for e, f in zip(self.ae.e_j, self.ae.f_j)])
+    def get_reference_homo_1d(self):
+        e_j = np.asarray(self.ae.e_j)
+        f_j = np.asarray(self.ae.f_j)
+        homo = np.max(e_j[f_j > 1e-3])
+        return homo
+
+    def get_reference_lumo_1d(self):
+        e_j = np.asarray(self.ae.e_j)
+        f_j = np.asarray(self.ae.f_j)
+        lumo = np.min(e_j[f_j < 1e-3])
+        return lumo
+
+    def get_coefficients_1d(self, smooth=False):
+        homo = self.get_reference_homo_1d()
+        if smooth:
+            w_ln = []
+            for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln):
+                e_n = np.asarray(e_n)
+                f_n = np.asarray(f_n)
+                w_n = f_n * K_G * self.f(homo - e_n)
+                w_ln.append(w_n)
+            return w_ln
         else:
-            return [[f * K_G * self.f(homo_e - e) for e, f in zip(e_n, f_n)]
-                    for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln)]
+            e_j = np.asarray(self.ae.e_j)
+            f_j = np.asarray(self.ae.f_j)
+            return f_j * K_G * self.f(homo - e_j)
+
+    def get_coefficients_1d_for_lumo_perturbation(self, smooth=False):
+        homo = self.get_reference_homo_1d()
+        lumo = self.get_reference_lumo_1d()
+        e_j = np.asarray(self.ae.e_j)
+        f_j = np.asarray(self.ae.f_j)
+        return f_j * K_G * (self.f(lumo - e_j) - self.f(homo - e_j))
 
     def get_reference_energies(self, homolumo=None):
         eref_s = []
