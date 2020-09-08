@@ -36,7 +36,7 @@ class C_Response(Contribution):
         return 'RESPONSE'
 
     def get_desc(self):
-        return ''
+        return self.coefficients.get_description()
 
     def set_damp(self, damp):
         self.damp = damp
@@ -51,12 +51,17 @@ class C_Response(Contribution):
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)
+        self.coefficients.initialize(wfs)
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
             # The response discontinuity is stored here
             self.Dxc_vt_sG = None
             self.Dxc_Dresp_asp = None
             self.Dxc_D_asp = None
+
+    def initialize_1d(self, ae):
+        Contribution.initialize_1d(self, ae)
+        self.coefficients.initialize_1d(ae)
 
     def update_potentials(self, nt_sg):
         d('In update response potential')

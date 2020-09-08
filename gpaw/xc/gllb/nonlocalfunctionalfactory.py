@@ -20,6 +20,7 @@ def get_nonlocal_functional(name,
     from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
     from gpaw.xc.gllb.c_response import C_Response
     from gpaw.xc.gllb.c_xc import C_XC
+    from gpaw.xc.gllb.coefficients import Coefficients
 
     functional = NonLocalFunctional(name)
 
@@ -66,11 +67,11 @@ def get_nonlocal_functional(name,
     functional = NonLocalFunctional(name, setup_name=setup_name)
     if scr_functional is not None:
         scr_functional = {'name': scr_functional, 'stencil': stencil}
-        scr = C_GLLBScr(1.0, functional=scr_functional,
-                        width=width, metallic=metallic)
+        scr = C_GLLBScr(1.0, functional=scr_functional)
         functional.add_contribution(scr)
         if response:
-            resp = C_Response(1.0, scr.get_coefficient_calculator())
+            coef = Coefficients(width=width, metallic=metallic)
+            resp = C_Response(1.0, coef)
             functional.add_contribution(resp)
     if xc_functional is not None:
         if xc_functional != 'LDA':
