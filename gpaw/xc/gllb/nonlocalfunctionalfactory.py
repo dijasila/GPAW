@@ -53,9 +53,11 @@ def get_nonlocal_functional(name,
         xc_functional = 'GGA_C_P86'
     elif name == 'GLLBLDA':
         xc_functional = 'LDA'
+        response = False
         setup_name = 'LDA'
     elif name == 'GLLBPBE':
         xc_functional = 'PBE'
+        response = False
         setup_name = 'PBE'
     elif name == 'GLLBNORESP':
         scr_functional = 'GGA_X_B88'
