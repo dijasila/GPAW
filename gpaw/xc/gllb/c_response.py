@@ -19,7 +19,7 @@ def d(*args):
 
 
 class C_Response(Contribution):
-    def __init__(self, weight, coefficients):
+    def __init__(self, weight, coefficients, damp=1e-10):
         Contribution.__init__(self, weight)
         d('In c_Response __init__', self)
         self.coefficients = coefficients
@@ -30,7 +30,7 @@ class C_Response(Contribution):
         self.Dresp_asp = None
         self.Drespdist_asp = None
         self.just_read = False
-        self.damp = 1e-10
+        self.damp = damp
 
     def get_name(self):
         return 'RESPONSE'
