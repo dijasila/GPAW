@@ -470,15 +470,7 @@ class C_Response(Contribution):
             #       (self.hardness * 27.2107))
 
     def write(self, writer):
-        """Writes response specific data.
-
-        During the writing process, the DeltaXC is calculated
-        (if not yet calculated).
-        """
-
-        if self.Dxc_vt_sG is None:
-            self.calculate_delta_xc()
-
+        """Writes response specific data."""
         wfs = self.wfs
         kpt_comm = wfs.kd.comm
         gd = wfs.gd
