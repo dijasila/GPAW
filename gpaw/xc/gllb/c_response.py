@@ -261,7 +261,6 @@ class C_Response(Contribution):
 
         homolumo: homo and lumo energies in atomic units
         """
-
         Dxc_Dresp_asp = self.empty_atomic_matrix()
         Dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
@@ -324,19 +323,41 @@ class C_Response(Contribution):
     def calculate_discontinuity(self,
                                 Dxc: DiscontinuityPotential,
                                 spin: int = None):
+        r"""Calculate the derivative discontinuity.
+
+        This function evaluates the perturbation theory expression
+        for the derivative discontinuity value as given by
+        Eq. (25) of https://doi.org/10.1103/PhysRevB.82.115106
+
+        Parameters:
+
+        Dxc:
+            Discontinuity potential.
+        spin:
+            Spin value.
+
+        Returns:
+
+        KSgap:
+            Kohn-Sham gap in eV
+        dxc:
+            Derivative discontinuity in eV
+        """
         if spin is None:
             if self.nspins != 1:
                 raise ValueError('Specify spin for the discontinuity.')
             spin = 0
 
         homo, lumo = self.wfs.get_homo_lumo(spin)
-        Ksgap = lumo - homo
+        KSgap = lumo - homo
 
         # Find the lumo-orbital of this spin
         eps_n = self.wfs.kpt_qs[0][spin].eps_n
         assert self.wfs.bd.comm.size == 1
         lumo_n = (eps_n < self.wfs.fermi_level).sum()
 
+        # Calculate the expectation value for all k points, and keep
+        # the smallest energy value
         nt_G = self.gd.empty()
         min_energy = np.inf
         for u, kpt in enumerate(self.wfs.kpt_u):
@@ -357,11 +378,9 @@ class C_Response(Contribution):
                 E += kpt.eps_n[lumo_n] - lumo
                 min_energy = min(min_energy, E)
 
+        # Take the smallest value over all distributed k points
         dxc = self.wfs.kd.comm.min(min_energy)
-
-        Ksgap *= Ha
-        dxc *= Ha
-        return Ksgap, dxc
+        return KSgap * Ha, dxc * Ha
 
     def calculate_discontinuity_from_average(self,
                                              Dxc: DiscontinuityPotential,
@@ -377,8 +396,7 @@ class C_Response(Contribution):
 
         # Calculate average of lumo reference response potential
         dxc = np.average(Dxc.vt_sG[spin])
-        dxc *= Ha
-        return dxc
+        return dxc * Ha
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initialize 'response-density' and density-matrices
