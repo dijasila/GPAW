@@ -138,7 +138,7 @@ class Coefficients:
                 eref_lumo_s.append(lumo)
         else:
             eref_s, eref_lumo_s = homolumo
-            if not isinstance(eref_s, (list, tuple)):
+            if not isinstance(eref_s, (list, tuple, np.ndarray)):
                 eref_s = [eref_s]
                 eref_lumo_s = [eref_lumo_s]
         return eref_s, eref_lumo_s

@@ -158,7 +158,7 @@ class NonLocalFunctional(XCFunctional):
             except AttributeError:
                 pass
 
-    def calculate_discontinuity_potential(self, homo: float, lumo: float):
+    def calculate_discontinuity_potential(self, homo, lumo):
         r"""Calculate the derivative discontinuity potential.
 
         This function calculates $`\Delta_{xc}(r)`$ as given by
@@ -167,15 +167,15 @@ class NonLocalFunctional(XCFunctional):
         Parameters:
 
         homo:
-            homo energy in eV
+            homo energy (or energies in spin-polarized case) in eV
         lumo:
-            lumo energy in eV
+            lumo energy (or energies in spin-polarized case) in eV
 
         Returns:
 
         Dxc: Discontinuity potential
         """
-        homolumo = (homo / Ha, lumo / Ha)
+        homolumo = np.asarray((homo, lumo)) / Ha
         return self.response.calculate_discontinuity_potential(homolumo)
 
     def calculate_discontinuity(self,
