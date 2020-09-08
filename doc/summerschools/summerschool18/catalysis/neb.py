@@ -203,7 +203,7 @@ for i in range(N):
     ranks = range(i * n, (i + 1) * n)
     image = initial.copy()
     image.set_constraint(constraint)
-    if rank in ranks:
+    if world.rank in ranks:
         calc = GPAW(xc='PBE',
                     mode=PW(350),
                     nbands='130%',
