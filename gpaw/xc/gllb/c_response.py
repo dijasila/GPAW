@@ -283,7 +283,7 @@ class C_Response(Contribution):
         assert self.wfs.bd.comm.size == 1
         lumo_n = (eps_n < self.wfs.fermi_level).sum()
 
-        gaps = [1000.0]
+        min_energy = np.inf
         for u, kpt in enumerate(self.wfs.kpt_u):
             if kpt.s == s:
                 nt_G[:] = 0.0
@@ -299,10 +299,10 @@ class C_Response(Contribution):
                                                spin=s)
                 E = self.gd.comm.sum(E)
                 E += self.gd.integrate(nt_G * self.Dxc_vt_sG[s])
-                E += kpt.eps_n[lumo_n]
-                gaps.append(E - lumo)
+                E += kpt.eps_n[lumo_n] - lumo
+                min_energy = min(min_energy, E)
 
-        method2_dxc = -self.wfs.kd.comm.max(-min(gaps))
+        method2_dxc = self.wfs.kd.comm.min(min_energy)
         Ksgap *= Ha
         method1_dxc *= Ha
         method2_dxc *= Ha
