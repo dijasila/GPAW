@@ -260,6 +260,10 @@ class C_Response(Contribution):
         Parameters:
 
         homolumo: homo and lumo energies in atomic units
+
+        Returns:
+
+        Dxc: Discontinuity potential
         """
         Dxc_Dresp_asp = self.empty_atomic_matrix()
         Dxc_D_asp = self.empty_atomic_matrix()

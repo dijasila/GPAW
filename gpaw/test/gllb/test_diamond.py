@@ -48,19 +48,16 @@ def test_gllb_diamond(in_tmp_dir):
                                  eigensolver=Davidson(niter=4),
                                  txt='bs.out')
     # Get the accurate KS-band gap
-    homolumo = bs_calc.get_homo_lumo()
-    homo, lumo = homolumo
+    homo, lumo = bs_calc.get_homo_lumo()
     KS_gap = lumo - homo
     print('KS gap', KS_gap)
     assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
 
     # Calculate the discontinuity potential with accurate band gap
-    response = calc.hamiltonian.xc.xcs['RESPONSE']
-    Dxc_pot = response.calculate_discontinuity_potential(homolumo=homolumo / Ha)
+    Dxc_pot = calc.hamiltonian.xc.calculate_discontinuity_potential(homo, lumo)
 
-    # Redo the band structure calculation
-    bs_response = bs_calc.hamiltonian.xc.xcs['RESPONSE']
-    KS, dxc = bs_response.calculate_discontinuity(Dxc_pot)
+    # Calculate the discontinuity using the band structure calculator
+    KS, dxc = bs_calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
     print('KS gap 2', KS)
 
     QP_gap = KS + dxc

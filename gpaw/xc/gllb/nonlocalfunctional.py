@@ -1,10 +1,14 @@
 import numpy as np
+from ase.units import Ha
 from gpaw.xc.functional import XCFunctional
+from gpaw.xc.gllb.c_response import DiscontinuityPotential
 
 
 class NonLocalFunctional(XCFunctional):
     def __init__(self, xcname, setup_name=None):
         self.contributions = []
+        # TODO: remove self.xcs once deprecated calculate_delta_xc()
+        # in c_response.py is removed
         self.xcs = {}
         XCFunctional.__init__(self, xcname, 'GLLB')
         if setup_name is None:
@@ -15,6 +19,7 @@ class NonLocalFunctional(XCFunctional):
         self.mix_vt_sg = None
         self.old_vt_sg = None
         self.old_H_asp = {}
+        self.response = None
 
     def get_setup_name(self):
         return self.setup_name
@@ -121,6 +126,9 @@ class NonLocalFunctional(XCFunctional):
     def add_contribution(self, contribution):
         self.contributions.append(contribution)
         self.xcs[contribution.get_name()] = contribution
+        if contribution.get_name() == 'RESPONSE':
+            assert self.response is None
+            self.response = contribution
 
     def get_description(self):
         fmt = '| %-7s | %-10s | %-44s |'
@@ -149,3 +157,48 @@ class NonLocalFunctional(XCFunctional):
                 contribution.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
             except AttributeError:
                 pass
+
+    def calculate_discontinuity_potential(self, homo: float, lumo: float):
+        r"""Calculate the derivative discontinuity potential.
+
+        This function calculates $`\Delta_{xc}(r)`$ as given by
+        Eq. (24) of https://doi.org/10.1103/PhysRevB.82.115106
+
+        Parameters:
+
+        homo:
+            homo energy in eV
+        lumo:
+            lumo energy in eV
+
+        Returns:
+
+        Dxc: Discontinuity potential
+        """
+        homolumo = (homo / Ha, lumo / Ha)
+        return self.response.calculate_discontinuity_potential(homolumo)
+
+    def calculate_discontinuity(self,
+                                Dxc: DiscontinuityPotential,
+                                spin: int = None):
+        r"""Calculate the derivative discontinuity.
+
+        This function evaluates the perturbation theory expression
+        for the derivative discontinuity value as given by
+        Eq. (25) of https://doi.org/10.1103/PhysRevB.82.115106
+
+        Parameters:
+
+        Dxc:
+            Discontinuity potential.
+        spin:
+            Spin value.
+
+        Returns:
+
+        KSgap:
+            Kohn-Sham gap in eV
+        dxc:
+            Derivative discontinuity in eV
+        """
+        return self.response.calculate_discontinuity(Dxc, spin)
