@@ -77,10 +77,6 @@ class Coefficients:
             w_n[flt_n] = prefactor * np.exp(rel_energy_n[flt_n])
         return w_n
 
-    def get_coefficients(self, e_j, f_j):
-        homo_e = max([np.where(f > 1e-3, e, -1000) for f, e in zip(f_j, e_j)])
-        return [f * K_G * self.f(homo_e - e) for e, f in zip(e_j, f_j)]
-
     def get_coefficients_1d(self, smooth=False, lumo_perturbation=False):
         homo_e = max([np.where(f > 1e-3, e, -1000)
                       for f, e in zip(self.ae.f_j, self.ae.e_j)])
