@@ -98,7 +98,7 @@ class Coefficients:
             return [[f * K_G * self.f(homo_e - e) for e, f in zip(e_n, f_n)]
                     for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln)]
 
-    def get_reference_energies(self, homolumo=None, nspins=1):
+    def get_reference_energies(self, homolumo=None):
         eref_s = []
         eref_lumo_s = []
         if self.metallic:
@@ -107,12 +107,12 @@ class Coefficients:
             fermilevel = self.wfs.fermi_level
             assert isinstance(fermilevel, float), \
                 'GLLBSCM supports only a single Fermi level'
-            for s in range(nspins):
+            for s in range(self.wfs.nspins):
                 eref_s.append(fermilevel)
                 eref_lumo_s.append(fermilevel)
         elif homolumo is None:
             # Find homo and lumo levels for each spin
-            for s in range(nspins):
+            for s in range(self.wfs.nspins):
                 homo, lumo = self.wfs.get_homo_lumo(s)
                 # Check that homo and lumo are reasonable
                 if homo > lumo:
@@ -130,9 +130,8 @@ class Coefficients:
                 eref_lumo_s = [eref_lumo_s]
         return eref_s, eref_lumo_s
 
-    def get_coefficients(self, kpt_u, homolumo=None, nspins=1):
-        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo,
-                                                          nspins=nspins)
+    def get_coefficients(self, kpt_u, homolumo=None):
+        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo)
         w_kn = []
         for kpt in kpt_u:
             w_n = self.f(eref_s[kpt.s] - kpt.eps_n)
@@ -140,10 +139,8 @@ class Coefficients:
             w_kn.append(w_n)
         return w_kn
 
-    def get_coefficients_for_lumo_perturbation(self, kpt_u, homolumo=None,
-                                               nspins=1):
-        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo,
-                                                          nspins=nspins)
+    def get_coefficients_for_lumo_perturbation(self, kpt_u, homolumo=None):
+        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo)
         w_kn = []
         for kpt in kpt_u:
             w_n = (self.f(eref_lumo_s[kpt.s] - kpt.eps_n)

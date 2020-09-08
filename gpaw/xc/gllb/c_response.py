@@ -98,9 +98,7 @@ class C_Response(Contribution):
             d('No occupations calculated yet')
             return
 
-        nspins = len(nt_sg)
-        w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u,
-                                                  nspins=nspins)
+        w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
             self.vt_sG = self.gd.zeros(self.nspins)
@@ -132,7 +130,7 @@ class C_Response(Contribution):
 
             self.vt_sG /= self.nt_sG + self.damp
 
-        self.vt_sg = self.finegd.zeros(nspins)
+        self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
     def calculate_spinpaired(self, e_g, n_g, v_g):
@@ -275,8 +273,7 @@ class C_Response(Contribution):
         # Calculate new response potential with LUMO reference
         w_kn = self.coefficients.get_coefficients_for_lumo_perturbation(
             self.wfs.kpt_u,
-            homolumo=homolumo,
-            nspins=self.nspins)
+            homolumo=homolumo)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
 
         Dxc_vt_sG = self.gd.zeros(self.nspins)
