@@ -296,6 +296,15 @@ class C_Response(Contribution):
             Dxc_D_asp, f_kn)
         return Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp
 
+    def calculate_delta_xc_perturbation(self):
+        gaps = []
+        for s in range(0, self.nspins):
+            gaps.append(self.calculate_delta_xc_perturbation_spin(s))
+        if self.nspins == 1:
+            return gaps[0]
+        else:
+            return gaps
+
     def calculate_delta_xc_perturbation_spin(self, s=0):
         homo, lumo = self.wfs.get_homo_lumo(s)
         Ksgap = lumo - homo
@@ -348,15 +357,6 @@ class C_Response(Contribution):
             print('-----------------------------------------------')
             print()
         return (Ksgap, method2_dxc)
-
-    def calculate_delta_xc_perturbation(self):
-        gaps = []
-        for s in range(0, self.nspins):
-            gaps.append(self.calculate_delta_xc_perturbation_spin(s))
-        if self.nspins == 1:
-            return gaps[0]
-        else:
-            return gaps
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initialize 'response-density' and density-matrices
