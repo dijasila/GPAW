@@ -332,15 +332,12 @@ class C_Response(Contribution):
         homo, lumo = self.wfs.get_homo_lumo(spin)
         Ksgap = lumo - homo
 
-        # Calculate average of lumo reference response potential
-        method1_dxc = np.average(Dxc.vt_sG[spin])
-        nt_G = self.gd.empty()
-
         # Find the lumo-orbital of this spin
         eps_n = self.wfs.kpt_qs[0][spin].eps_n
         assert self.wfs.bd.comm.size == 1
         lumo_n = (eps_n < self.wfs.fermi_level).sum()
 
+        nt_G = self.gd.empty()
         min_energy = np.inf
         for u, kpt in enumerate(self.wfs.kpt_u):
             if kpt.s == spin:
@@ -360,26 +357,28 @@ class C_Response(Contribution):
                 E += kpt.eps_n[lumo_n] - lumo
                 min_energy = min(min_energy, E)
 
-        method2_dxc = self.wfs.kd.comm.min(min_energy)
-        Ksgap *= Ha
-        method1_dxc *= Ha
-        method2_dxc *= Ha
-        if world.rank != 0:
-            return (Ksgap, method2_dxc)
+        dxc = self.wfs.kd.comm.min(min_energy)
 
-        if 0:  # TODO print properly, not to stdout!
-            print()
-            print('Delta XC calulation')
-            print('-----------------------------------------------')
-            print('| Method      |  KS-Gap |  Delta XC |  QP-Gap |')
-            print('-----------------------------------------------')
-            print('| Averaging   | %7.2f | %9.2f | %7.2f |' %
-                  (Ksgap, method1_dxc, Ksgap + method1_dxc))
-            print('| Lumo pert.  | %7.2f | %9.2f | %7.2f |' %
-                  (Ksgap, method2_dxc, Ksgap + method2_dxc))
-            print('-----------------------------------------------')
-            print()
-        return (Ksgap, method2_dxc)
+        Ksgap *= Ha
+        dxc *= Ha
+        return Ksgap, dxc
+
+    def calculate_discontinuity_from_average(self,
+                                             Dxc: DiscontinuityPotential,
+                                             spin: int,
+                                             testing: bool = False):
+        msg = ('This function estimates discontinuity by calculating '
+               'the average of the discontinuity potential. '
+               'Use only for testing and debugging.')
+        if not testing:
+            raise RuntimeError(msg)
+        else:
+            warnings.warn(msg)
+
+        # Calculate average of lumo reference response potential
+        dxc = np.average(Dxc.vt_sG[spin])
+        dxc *= Ha
+        return dxc
 
     def initialize_from_atomic_orbitals(self, basis_functions):
         # Initialize 'response-density' and density-matrices
