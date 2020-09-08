@@ -69,10 +69,10 @@ def get_nonlocal_functional(name,
         scr_functional = {'name': scr_functional, 'stencil': stencil}
         scr = C_GLLBScr(1.0, functional=scr_functional)
         functional.add_contribution(scr)
-        if response:
-            coef = Coefficients(width=width, metallic=metallic)
-            resp = C_Response(1.0, coef)
-            functional.add_contribution(resp)
+    if response:
+        coef = Coefficients(width=width, metallic=metallic)
+        resp = C_Response(1.0, coef)
+        functional.add_contribution(resp)
     if xc_functional is not None:
         if xc_functional != 'LDA':
             xc_functional = {'name': xc_functional, 'stencil': stencil}
