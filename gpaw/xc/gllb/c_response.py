@@ -308,6 +308,11 @@ class C_Response(Contribution):
             DeprecationWarning)
         Dxc = DiscontinuityPotential(self.Dxc_vt_sG, self.Dxc_Dresp_asp,
                                      self.Dxc_D_asp)
+        if self.nspins != 1:
+            ret = []
+            for spin in range(self.nspins):
+                ret.append(self.calculate_discontinuity(Dxc, spin=spin))
+            return ret
         return self.calculate_discontinuity(Dxc)
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
