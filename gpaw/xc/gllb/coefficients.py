@@ -1,11 +1,10 @@
 import numpy as np
-from math import sqrt, pi, exp
 from scipy.special import erfcx
 
 from ase.units import Ha
 
 
-K_G = 8 * sqrt(2) / (3 * pi**2)  # 0.382106112167171
+K_G = 8 * np.sqrt(2) / (3 * np.pi**2)  # 0.382106112167171
 
 
 class Coefficients:
@@ -57,23 +56,26 @@ class Coefficients:
             desc += ['width={:.4f} eV'.format(self.width * Ha)]
         return ', '.join(desc)
 
-    def f(self, energy: float) -> float:
+    def f(self, energy_n):
         """Calculate the sqrt(E)-like coefficient.
 
         See the class description for details.
         """
+        w_n = np.zeros_like(energy_n, dtype=float)
         if self.width is None:
-            if energy > self.eps:
-                return sqrt(energy)
-            else:
-                return 0.0
+            flt_n = energy_n > self.eps
+            w_n[flt_n] = np.sqrt(energy_n[flt_n])
         else:
-            prefactor = 0.5 * sqrt(pi * self.width)
-            rel_energy = energy / self.width
-            if energy > 0:
-                return sqrt(energy) + prefactor * erfcx(sqrt(rel_energy))
-            else:
-                return prefactor * exp(rel_energy)
+            prefactor = 0.5 * np.sqrt(np.pi * self.width)
+            rel_energy_n = energy_n / self.width
+            # Evaluate positive energies
+            flt_n = energy_n > 0.0
+            w_n[flt_n] = (np.sqrt(energy_n[flt_n])
+                          + prefactor * erfcx(np.sqrt(rel_energy_n[flt_n])))
+            # Evaluate negative energies
+            flt_n = np.logical_not(flt_n)
+            w_n[flt_n] = prefactor * np.exp(rel_energy_n[flt_n])
+        return w_n
 
     def get_coefficients(self, e_j, f_j):
         homo_e = max([np.where(f > 1e-3, e, -1000) for f, e in zip(f_j, e_j)])
@@ -96,8 +98,7 @@ class Coefficients:
             return [[f * K_G * self.f(homo_e - e) for e, f in zip(e_n, f_n)]
                     for e_n, f_n in zip(self.ae.e_ln, self.ae.f_ln)]
 
-    def get_coefficients_by_kpt(self, kpt_u, lumo_perturbation=False,
-                                homolumo=None, nspins=1):
+    def get_reference_energies(self, homolumo=None, nspins=1):
         eref_s = []
         eref_lumo_s = []
         if self.metallic:
@@ -127,14 +128,26 @@ class Coefficients:
             if not isinstance(eref_s, (list, tuple)):
                 eref_s = [eref_s]
                 eref_lumo_s = [eref_lumo_s]
+        return eref_s, eref_lumo_s
 
-        if lumo_perturbation:
-            return [np.array([f * K_G * (self.f(eref_lumo_s[kpt.s] - e)
-                                         - self.f(eref_s[kpt.s] - e))
-                              for e, f in zip(kpt.eps_n, kpt.f_n)])
-                    for kpt in kpt_u]
-        else:
-            coeff = [np.array([f * K_G * self.f(eref_s[kpt.s] - e)
-                     for e, f in zip(kpt.eps_n, kpt.f_n)])
-                     for kpt in kpt_u]
-            return coeff
+    def get_coefficients(self, kpt_u, homolumo=None, nspins=1):
+        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo,
+                                                          nspins=nspins)
+        w_kn = []
+        for kpt in kpt_u:
+            w_n = self.f(eref_s[kpt.s] - kpt.eps_n)
+            w_n *= kpt.f_n * K_G
+            w_kn.append(w_n)
+        return w_kn
+
+    def get_coefficients_for_lumo_perturbation(self, kpt_u, homolumo=None,
+                                               nspins=1):
+        eref_s, eref_lumo_s = self.get_reference_energies(homolumo=homolumo,
+                                                          nspins=nspins)
+        w_kn = []
+        for kpt in kpt_u:
+            w_n = (self.f(eref_lumo_s[kpt.s] - kpt.eps_n)
+                   - self.f(eref_s[kpt.s] - kpt.eps_n))
+            w_n *= kpt.f_n * K_G
+            w_kn.append(w_n)
+        return w_kn

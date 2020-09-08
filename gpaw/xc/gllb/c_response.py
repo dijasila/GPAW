@@ -99,8 +99,8 @@ class C_Response(Contribution):
             return
 
         nspins = len(nt_sg)
-        w_kn = self.coefficients.get_coefficients_by_kpt(self.wfs.kpt_u,
-                                                         nspins=nspins)
+        w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u,
+                                                  nspins=nspins)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
             self.vt_sG = self.gd.zeros(self.nspins)
@@ -273,9 +273,8 @@ class C_Response(Contribution):
             Dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference
-        w_kn = self.coefficients.get_coefficients_by_kpt(
+        w_kn = self.coefficients.get_coefficients_for_lumo_perturbation(
             self.wfs.kpt_u,
-            lumo_perturbation=True,
             homolumo=homolumo,
             nspins=self.nspins)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
