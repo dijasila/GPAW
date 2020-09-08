@@ -297,15 +297,31 @@ class C_Response(Contribution):
         return Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp
 
     def calculate_delta_xc_perturbation(self):
+        warnings.warn(
+            'The function calculate_delta_xc_perturbation() is deprecated. '
+            'Please use calculate_discontinuity() instead. '
+            'See documentation on calculating band gap with GLLBSC.',
+            DeprecationWarning)
+        return self.calculate_discontinuity()
+
+    def calculate_discontinuity(self):
         gaps = []
         for s in range(0, self.nspins):
-            gaps.append(self.calculate_delta_xc_perturbation_spin(s))
+            gaps.append(self.calculate_discontinuity_spin(s))
         if self.nspins == 1:
             return gaps[0]
         else:
             return gaps
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
+        warnings.warn(
+            'The function calculate_delta_xc_perturbation_spin() is deprecated. '
+            'Please use calculate_discontinuity_spin() instead. '
+            'See documentation on calculating band gap with GLLBSC.',
+            DeprecationWarning)
+        return self.calculate_discontinuity_spin(s)
+
+    def calculate_discontinuity_spin(self, s=0):
         homo, lumo = self.wfs.get_homo_lumo(s)
         Ksgap = lumo - homo
 
