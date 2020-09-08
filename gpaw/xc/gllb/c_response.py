@@ -1,8 +1,8 @@
+import warnings
 from math import sqrt, pi
-
 import numpy as np
-from ase.units import Ha, Bohr
 
+from ase.units import Ha, Bohr
 from gpaw.mpi import world
 from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack, pack_atomic_matrices, unpack_atomic_matrices
@@ -220,6 +220,12 @@ class C_Response(Contribution):
         return 0.0  # Response part does not contribute to energy
 
     def calculate_delta_xc(self, homolumo=None):
+        warnings.warn(
+            'The function calculate_delta_xc() is deprecated. '
+            'Please use calculate_discontinuity_potential() instead. '
+            'See documentation on calculating band gap with GLLBSC.',
+            DeprecationWarning)
+
         if homolumo is None:
             # Calculate band gap
             pass
@@ -231,13 +237,28 @@ class C_Response(Contribution):
             # warnings.warn('Calculating KS-gap directly from the k-points, '
             #               'can be inaccurate.')
             # homolumo = self.occupations.get_homo_lumo(self.wfs)
+        Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp = self.calculate_discontinuity_potential(homolumo)
+        self.Dxc_vt_sG = Dxc_vt_sG
+        self.Dxc_D_asp = Dxc_D_asp
+        self.Dxc_Dresp_asp = Dxc_Dresp_asp
 
-        self.Dxc_Dresp_asp = self.empty_atomic_matrix()
-        self.Dxc_D_asp = self.empty_atomic_matrix()
+    def calculate_discontinuity_potential(self, homolumo):
+        r"""Calculate the derivative discontinuity potential.
+
+        This function calculates $`\Delta_{xc}(r)`$ as given by
+        Eq. (24) of https://doi.org/10.1103/PhysRevB.82.115106
+
+        Parameters:
+
+        homolumo: homo and lumo energies in atomic units
+        """
+
+        Dxc_Dresp_asp = self.empty_atomic_matrix()
+        Dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
             ni = self.wfs.setups[a].ni
-            self.Dxc_Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
-            self.Dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
+            Dxc_Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
+            Dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference
         w_kn = self.coefficients.get_coefficients_by_kpt(
@@ -247,28 +268,28 @@ class C_Response(Contribution):
             nspins=self.nspins)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
 
-        vt_sG = self.gd.zeros(self.nspins)
+        Dxc_vt_sG = self.gd.zeros(self.nspins)
         nt_sG = self.gd.zeros(self.nspins)
         for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
-            self.wfs.add_to_density_from_k_point_with_occupation(vt_sG, kpt,
-                                                                 w_n)
+            self.wfs.add_to_density_from_k_point_with_occupation(Dxc_vt_sG,
+                                                                 kpt, w_n)
             self.wfs.add_to_density_from_k_point(nt_sG, kpt)
 
         self.wfs.kptband_comm.sum(nt_sG)
-        self.wfs.kptband_comm.sum(vt_sG)
+        self.wfs.kptband_comm.sum(Dxc_vt_sG)
 
         if self.wfs.kd.symmetry:
-            for nt_G, vt_G in zip(nt_sG, vt_sG):
+            for nt_G, Dxc_vt_G in zip(nt_sG, Dxc_vt_sG):
                 self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
-                self.wfs.kd.symmetry.symmetrize(vt_G, self.gd)
+                self.wfs.kd.symmetry.symmetrize(Dxc_vt_G, self.gd)
 
-        vt_sG /= nt_sG + self.damp
-        self.Dxc_vt_sG = vt_sG.copy()
+        Dxc_vt_sG /= nt_sG + self.damp
 
         self.wfs.calculate_atomic_density_matrices_with_occupation(
-            self.Dxc_Dresp_asp, w_kn)
+            Dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
-            self.Dxc_D_asp, f_kn)
+            Dxc_D_asp, f_kn)
+        return Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
         homo, lumo = self.wfs.get_homo_lumo(s)
