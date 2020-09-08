@@ -454,7 +454,7 @@ class C_Response(Contribution):
         self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
-    def add_extra_setup_data(self, dict):
+    def get_extra_setup_data(self, extra_data):
         ae = self.ae
         njcore = ae.njcore
         w_ln = self.coefficients.get_coefficients_1d(smooth=True)
@@ -462,13 +462,13 @@ class C_Response(Contribution):
         for w_n in w_ln:
             for w in w_n:
                 w_j.append(w)
-        dict['w_j'] = w_j
+        extra_data['w_j'] = w_j
 
         w_j = self.coefficients.get_coefficients_1d()
         x_g = np.dot(w_j[:njcore], safe_sqr(ae.u_j[:njcore]))
         x_g[1:] /= ae.r[1:] ** 2 * 4 * np.pi
         x_g[0] = x_g[1]
-        dict['core_response'] = x_g
+        extra_data['core_response'] = x_g
 
         # For debugging purposes
         w_j = self.coefficients.get_coefficients_1d()
@@ -476,7 +476,7 @@ class C_Response(Contribution):
         v_g = self.weight * np.dot(w_j, u2_j) / (
             np.dot(self.ae.f_j, u2_j) + self.damp)
         v_g[0] = v_g[1]
-        dict['all_electron_response'] = v_g
+        extra_data['all_electron_response'] = v_g
 
         # Calculate Hardness of spherical atom, for debugging purposes
         l = [np.where(f < 1e-3, e, 1000)

@@ -119,9 +119,9 @@ class NonLocalFunctional(XCFunctional):
         for contribution in self.contributions:
             contribution.initialize_from_atomic_orbitals(basis_functions)
 
-    def get_extra_setup_data(self, dict):
+    def get_extra_setup_data(self, extra_data):
         for contribution in self.contributions:
-            contribution.add_extra_setup_data(dict)
+            contribution.get_extra_setup_data(extra_data)
 
     def add_contribution(self, contribution):
         self.contributions.append(contribution)

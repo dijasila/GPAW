@@ -34,7 +34,7 @@ class Contribution:
     def add_smooth_xc_potential_and_energy_1d(self, vt_g):
         raise NotImplementedError
 
-    def add_extra_setup_data(self, dict):
+    def get_extra_setup_data(self, extra_data):
         pass
 
     def write(self, writer):
