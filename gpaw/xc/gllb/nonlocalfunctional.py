@@ -1,7 +1,5 @@
 import numpy as np
-from ase.units import Ha
 from gpaw.xc.functional import XCFunctional
-from gpaw.xc.gllb.c_response import ResponsePotential
 
 
 class NonLocalFunctional(XCFunctional):
@@ -156,48 +154,3 @@ class NonLocalFunctional(XCFunctional):
                 contribution.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
             except AttributeError:
                 pass
-
-    def calculate_discontinuity_potential(self, homo, lumo):
-        r"""Calculate the derivative discontinuity potential.
-
-        This function calculates $`\Delta_{xc}(r)`$ as given by
-        Eq. (24) of https://doi.org/10.1103/PhysRevB.82.115106
-
-        Parameters:
-
-        homo:
-            homo energy (or energies in spin-polarized case) in eV
-        lumo:
-            lumo energy (or energies in spin-polarized case) in eV
-
-        Returns:
-
-        Dxc: Discontinuity potential
-        """
-        homolumo = np.asarray((homo, lumo)) / Ha
-        return self.response.calculate_discontinuity_potential(homolumo)
-
-    def calculate_discontinuity(self,
-                                Dxc: ResponsePotential,
-                                spin: int = None):
-        r"""Calculate the derivative discontinuity.
-
-        This function evaluates the perturbation theory expression
-        for the derivative discontinuity value as given by
-        Eq. (25) of https://doi.org/10.1103/PhysRevB.82.115106
-
-        Parameters:
-
-        Dxc:
-            Discontinuity potential.
-        spin:
-            Spin value.
-
-        Returns:
-
-        KSgap:
-            Kohn-Sham gap in eV
-        dxc:
-            Derivative discontinuity in eV
-        """
-        return self.response.calculate_discontinuity(Dxc, spin)

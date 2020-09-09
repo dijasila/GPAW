@@ -19,22 +19,22 @@ def test_gllb_spin():
                     occupations=FermiDirac(width=0.005))
         atoms.calc = calc
         atoms.get_potential_energy()
-        xc = calc.hamiltonian.xc
+        resp = calc.hamiltonian.xc.response
         # Eks is the Kohn-Sham gap and Dxc is the derivative discontinuity
         if spin:
             homoa, lumoa = calc.get_homo_lumo(spin=0)
             homob, lumob = calc.get_homo_lumo(spin=1)
-            Dxc_pot = xc.calculate_discontinuity_potential((homoa, homob),
-                                                           (lumoa, lumob))
-            Eksa, Dxca = xc.calculate_discontinuity(Dxc_pot, spin=0)
-            Eksb, Dxcb = xc.calculate_discontinuity(Dxc_pot, spin=1)
+            Dxc_pot = resp.calculate_discontinuity_potential((homoa, homob),
+                                                             (lumoa, lumob))
+            Eksa, Dxca = resp.calculate_discontinuity(Dxc_pot, spin=0)
+            Eksb, Dxcb = resp.calculate_discontinuity(Dxc_pot, spin=1)
             Gapa = Eksa + Dxca
             Gapb = Eksb + Dxcb
             print("GAP", spin, Gapa, Gapb)
         else:
             homo, lumo = calc.get_homo_lumo()
-            Dxc_pot = xc.calculate_discontinuity_potential(homo, lumo)
-            Eks, Dxc = xc.calculate_discontinuity(Dxc_pot)
+            Dxc_pot = resp.calculate_discontinuity_potential(homo, lumo)
+            Eks, Dxc = resp.calculate_discontinuity(Dxc_pot)
             Gap = Eks + Dxc
             print("GAP", spin, Gap)
 

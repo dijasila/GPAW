@@ -11,8 +11,7 @@ Compare to reference.
 """
 import pytest
 from ase.build import bulk
-from ase.units import Ha
-from gpaw import GPAW, Davidson, Mixer, restart
+from gpaw import GPAW, Davidson, Mixer
 from gpaw.mpi import world
 
 
@@ -51,11 +50,13 @@ def test_gllb_diamond(in_tmp_dir):
     homo, lumo = bs_calc.get_homo_lumo()
 
     # Calculate the discontinuity potential with accurate band gap
-    Dxc_pot = calc.hamiltonian.xc.calculate_discontinuity_potential(homo, lumo)
+    response = calc.hamiltonian.xc.response
+    Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 
     # Calculate the discontinuity using the band structure calculator
-    Dxc_pot.redistribute(bs_calc.hamiltonian.xc.response)
-    KS_gap, dxc = bs_calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
+    bs_response = bs_calc.hamiltonian.xc.response
+    Dxc_pot.redistribute(bs_response)
+    KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
     assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
     assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
     print('KS gap', KS_gap)

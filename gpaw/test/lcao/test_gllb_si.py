@@ -27,8 +27,9 @@ def test_lcao_gllb_si(in_tmp_dir):
     si.get_potential_energy()
 
     homo, lumo = calc.get_homo_lumo()
-    Dxc_pot = calc.hamiltonian.xc.calculate_discontinuity_potential(homo, lumo)
-    EKs, Dxc = calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
+    response = calc.hamiltonian.xc.response
+    Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+    EKs, Dxc = response.calculate_discontinuity(Dxc_pot)
     refgap = 3.02333
     gap = EKs + Dxc
     print('GAP', gap)

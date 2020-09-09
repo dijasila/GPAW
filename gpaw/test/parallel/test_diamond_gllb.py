@@ -36,17 +36,18 @@ def test_parallel_diamond_gllb(in_tmp_dir):
                                      symmetry='off',
                                      nbands=8,
                                      convergence={'bands': 8},
-                                     parallel={'band': band},
                                      eigensolver=eigensolver)
         # Get the accurate KS-band gap
         homo, lumo = bs_calc.get_homo_lumo()
 
         # Calculate the discontinuity potential with accurate band gap
-        Dxc_pot = calc.hamiltonian.xc.calculate_discontinuity_potential(homo,
-                                                                        lumo)
+        response = calc.hamiltonian.xc.response
+        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 
         # Calculate the discontinuity using the band structure calculator
-        KS_gap, dxc = bs_calc.hamiltonian.xc.calculate_discontinuity(Dxc_pot)
+        bs_response = bs_calc.hamiltonian.xc.response
+        Dxc_pot.redistribute(bs_response)
+        KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
         assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
         assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
 

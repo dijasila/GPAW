@@ -265,7 +265,7 @@ class C_Response(Contribution):
         self.Dxc_D_asp = Dxc.D_asp
         self.Dxc_Dresp_asp = Dxc.Dresp_asp
 
-    def calculate_discontinuity_potential(self, homolumo):
+    def calculate_discontinuity_potential(self, homo, lumo):
         r"""Calculate the derivative discontinuity potential.
 
         This function calculates $`\Delta_{xc}(r)`$ as given by
@@ -273,12 +273,17 @@ class C_Response(Contribution):
 
         Parameters:
 
-        homolumo: homo and lumo energies in atomic units
+        homo:
+            homo energy (or energies in spin-polarized case) in eV
+        lumo:
+            lumo energy (or energies in spin-polarized case) in eV
 
         Returns:
 
         Dxc: Discontinuity potential
         """
+        homolumo = np.asarray((homo, lumo)) / Ha
+
         Dxc_Dresp_asp = self.empty_atomic_matrix()
         Dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
