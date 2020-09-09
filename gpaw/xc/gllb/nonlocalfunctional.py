@@ -1,7 +1,7 @@
 import numpy as np
 from ase.units import Ha
 from gpaw.xc.functional import XCFunctional
-from gpaw.xc.gllb.c_response import DiscontinuityPotential
+from gpaw.xc.gllb.c_response import ResponsePotential
 
 
 class NonLocalFunctional(XCFunctional):
@@ -179,7 +179,7 @@ class NonLocalFunctional(XCFunctional):
         return self.response.calculate_discontinuity_potential(homolumo)
 
     def calculate_discontinuity(self,
-                                Dxc: DiscontinuityPotential,
+                                Dxc: ResponsePotential,
                                 spin: int = None):
         r"""Calculate the derivative discontinuity.
 

@@ -19,9 +19,9 @@ def d(*args):
         print(args)
 
 
-class DiscontinuityPotential:
-    """Container for discontinuity potential"""
-    def __init__(self, response, vt_sG, Dresp_asp, D_asp):
+class ResponsePotential:
+    """Container for response potential"""
+    def __init__(self, response, vt_sG, D_asp, Dresp_asp):
         self.response = response
         self.vt_sG = vt_sG
         self.D_asp = D_asp
@@ -321,7 +321,7 @@ class C_Response(Contribution):
             Dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
             Dxc_D_asp, f_kn)
-        Dxc = DiscontinuityPotential(self, Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp)
+        Dxc = ResponsePotential(self, Dxc_vt_sG, Dxc_D_asp, Dxc_Dresp_asp)
         return Dxc
 
     def calculate_delta_xc_perturbation(self):
@@ -330,8 +330,8 @@ class C_Response(Contribution):
             'Please use calculate_discontinuity() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = DiscontinuityPotential(self, self.Dxc_vt_sG, self.Dxc_Dresp_asp,
-                                     self.Dxc_D_asp)
+        Dxc = ResponsePotential(self, self.Dxc_vt_sG, self.Dxc_D_asp,
+                                self.Dxc_Dresp_asp)
         if self.nspins != 1:
             ret = []
             for spin in range(self.nspins):
@@ -345,12 +345,12 @@ class C_Response(Contribution):
             'deprecated. Please use calculate_discontinuity_spin() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = DiscontinuityPotential(self, self.Dxc_vt_sG, self.Dxc_Dresp_asp,
-                                     self.Dxc_D_asp)
+        Dxc = ResponsePotential(self, self.Dxc_vt_sG, self.Dxc_D_asp,
+                                self.Dxc_Dresp_asp)
         return self.calculate_discontinuity(Dxc, spin=s)
 
     def calculate_discontinuity(self,
-                                Dxc: DiscontinuityPotential,
+                                Dxc: ResponsePotential,
                                 spin: int = None):
         r"""Calculate the derivative discontinuity.
 
@@ -412,7 +412,7 @@ class C_Response(Contribution):
         return KSgap * Ha, dxc * Ha
 
     def calculate_discontinuity_from_average(self,
-                                             Dxc: DiscontinuityPotential,
+                                             Dxc: ResponsePotential,
                                              spin: int,
                                              testing: bool = False):
         msg = ('This function estimates discontinuity by calculating '
