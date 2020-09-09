@@ -98,9 +98,7 @@ class C_Response(Contribution):
             np.dot(self.ae.f_j, u2_j) + self.damp)
         return 0.0  # Response part does not contribute to energy
 
-    def update_potentials(self, nt_sg):
-        # XXX This function doesn't use nt_sg for anything but (re)calculates
-        # density from scratch.
+    def update_potentials(self):
         d('In update response potential')
         if self.fix_potential:
             # Skip the evaluation of the potential so that
@@ -156,7 +154,7 @@ class C_Response(Contribution):
         self.calculate_spinpolarized(e_g, n_sg, v_sg)
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):
-        self.update_potentials(n_sg)
+        self.update_potentials()
         v_sg += self.weight * self.vt_sg
 
     def distribute_Dresp_asp(self, Dresp_asp):
