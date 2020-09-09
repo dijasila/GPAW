@@ -64,7 +64,6 @@ class C_Response(Contribution):
         self.coefficients = coefficients
         self.vt_sg = None
         self.vt_sG = None
-        self.nt_sG = None
         self.D_asp = None
         self.Dresp_asp = None
         self.Ddist_asp = None
@@ -100,6 +99,8 @@ class C_Response(Contribution):
         return 0.0  # Response part does not contribute to energy
 
     def update_potentials(self, nt_sg):
+        # XXX This function doesn't use nt_sg for anything but (re)calculates
+        # density from scratch.
         d('In update response potential')
         if self.fix_potential:
             # Skip the evaluation of the potential so that
@@ -120,18 +121,18 @@ class C_Response(Contribution):
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
             self.vt_sG = self.gd.zeros(self.nspins)
-            self.nt_sG = self.gd.zeros(self.nspins)
+            nt_sG = self.gd.zeros(self.nspins)
 
             for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
                 self.wfs.add_to_density_from_k_point_with_occupation(
                     self.vt_sG, kpt, w_n)
-                self.wfs.add_to_density_from_k_point(self.nt_sG, kpt)
+                self.wfs.add_to_density_from_k_point(nt_sG, kpt)
 
-            self.wfs.kptband_comm.sum(self.nt_sG)
+            self.wfs.kptband_comm.sum(nt_sG)
             self.wfs.kptband_comm.sum(self.vt_sG)
 
             if self.wfs.kd.symmetry:
-                for nt_G, vt_G in zip(self.nt_sG, self.vt_sG):
+                for nt_G, vt_G in zip(nt_sG, self.vt_sG):
                     self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
                     self.wfs.kd.symmetry.symmetrize(vt_G, self.gd)
 
@@ -146,7 +147,7 @@ class C_Response(Contribution):
                 self.D_asp, f_kn)
             self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
 
-            self.vt_sG /= self.nt_sG + self.damp
+            self.vt_sG /= nt_sG + self.damp
 
         self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
@@ -463,13 +464,13 @@ class C_Response(Contribution):
 
         self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
         self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-        self.nt_sG = self.gd.zeros(self.nspins)
-        basis_functions.add_to_density(self.nt_sG, f_asi)
+        nt_sG = self.gd.zeros(self.nspins)
+        basis_functions.add_to_density(nt_sG, f_asi)
         self.vt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(self.vt_sG, w_asi)
         # Update vt_sG to correspond atomic response potential. This will be
         # used until occupations and eigenvalues are available.
-        self.vt_sG /= self.nt_sG + self.damp
+        self.vt_sG /= nt_sG + self.damp
         self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
