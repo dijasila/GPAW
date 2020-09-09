@@ -38,33 +38,32 @@ class NonLocalFunctional(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         if self.nspins == 1:
-            self.calculate_spinpaired(e_g, n_sg[0], v_sg[0])
+            self.calculate_spinpaired(e_g, n_sg, v_sg)
         else:
             self.calculate_spinpolarized(e_g, n_sg, v_sg)
-        return gd.integrate(e_g)
 
     def calculate_paw_correction(self, setup, D_sp, dEdD_sp, a=None,
                                  addcoredensity=True):
         return self.calculate_energy_and_derivatives(setup, D_sp, dEdD_sp, a,
                                                      addcoredensity)
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
+    def calculate_spinpaired(self, e_g, n_sg, v_sg):
         e_g[:] = 0.0
         if self.mix is None:
             for contribution in self.contributions:
-                contribution.calculate_spinpaired(e_g, n_g, v_g)
+                contribution.calculate_spinpaired(e_g, n_sg, v_sg)
         else:
             cmix = self.mix
             if self.mix_vt_sg is None:
-                self.mix_vt_sg = np.zeros_like(v_g)
-                self.old_vt_sg = np.zeros_like(v_g)
+                self.mix_vt_sg = np.zeros_like(v_sg)
+                self.old_vt_sg = np.zeros_like(v_sg)
                 cmix = 1.0
             self.mix_vt_sg[:] = 0.0
             for contribution in self.contributions:
-                contribution.calculate_spinpaired(e_g, n_g, self.mix_vt_sg)
+                contribution.calculate_spinpaired(e_g, n_sg, self.mix_vt_sg)
             self.mix_vt_sg = (cmix * self.mix_vt_sg
                               + (1.0 - cmix) * self.old_vt_sg)
-            v_g += self.mix_vt_sg
+            v_sg += self.mix_vt_sg
             self.old_vt_sg[:] = self.mix_vt_sg
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):

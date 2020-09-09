@@ -152,15 +152,12 @@ class C_Response(Contribution):
         self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
-        self.update_potentials([n_g])
-        v_g[:] += self.weight * self.vt_sg[0]
-        return 0.0
+    def calculate_spinpaired(self, e_g, n_sg, v_sg):
+        self.calculate_spinpolarized(e_g, n_sg, v_sg)
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):
         self.update_potentials(n_sg)
         v_sg += self.weight * self.vt_sg
-        return 0.0
 
     def distribute_Dresp_asp(self, Dresp_asp):
         d('distribute_Dresp_asp')

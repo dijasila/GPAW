@@ -44,13 +44,12 @@ class C_GLLBScr(Contribution):
         Exc = self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
         return Exc
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
+    def calculate_spinpaired(self, e_g, n_sg, v_sg):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
-        self.xc.calculate(self.finegd, n_g[None, ...], self.vt_sg,
-                          self.e_g)
-        self.e_g[:] = np.where(n_g < self.damp, 0, self.e_g)
-        v_g += self.weight * 2 * self.e_g / (n_g + self.damp)
+        self.xc.calculate(self.finegd, n_sg, self.vt_sg, self.e_g)
+        self.e_g[:] = np.where(n_sg[0] < self.damp, 0, self.e_g)
+        v_sg[0] += self.weight * 2 * self.e_g / (n_sg[0] + self.damp)
         e_g += self.weight * self.e_g
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):

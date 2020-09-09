@@ -23,20 +23,14 @@ class C_XC(Contribution):
         Contribution.initialize_1d(self, ae)
         self.v_g = np.zeros(self.ae.N)
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
-        self.e_g[:] = 0.0
-        self.vt_sg[:] = 0.0
-        self.xc.calculate(self.finegd, n_g[None, ...], self.vt_sg,
-                          self.e_g)
-        v_g += self.weight * self.vt_sg[0]
-        e_g += self.weight * self.e_g
+    def calculate_spinpaired(self, e_g, n_sg, v_sg):
+        self.calculate_spinpolarized(e_g, n_sg, v_sg)
 
     def calculate_spinpolarized(self, e_g, n_sg, v_sg):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
         self.xc.calculate(self.finegd, n_sg, self.vt_sg, self.e_g)
-        v_sg[0] += self.weight * self.vt_sg[0]
-        v_sg[1] += self.weight * self.vt_sg[1]
+        v_sg += self.weight * self.vt_sg
         e_g += self.weight * self.e_g
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,

@@ -22,10 +22,10 @@ class Contribution:
         # Pass if contribution needs only density which is already initialized
         pass
 
-    def calculate_spinpaired(self, e_g, n_g, v_g):
+    def calculate_spinpaired(self, e_g, n_sg, v_sg):
         raise NotImplementedError
 
-    def calculate_spinpolarized(self, e_g, na_g, va_g, nb_g, vb_g):
+    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
         raise NotImplementedError
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp):
