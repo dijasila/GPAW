@@ -4,6 +4,7 @@ import numpy as np
 
 from ase.units import Ha
 from gpaw.mpi import world
+from gpaw.density import redistribute_array, redistribute_atomic_matrices
 from gpaw.sphere.lebedev import weight_n
 from gpaw.utilities import pack, pack_atomic_matrices, unpack_atomic_matrices
 from gpaw.xc.gllb import safe_sqr
@@ -20,10 +21,33 @@ def d(*args):
 
 class DiscontinuityPotential:
     """Container for discontinuity potential"""
-    def __init__(self, vt_sG, Dresp_asp, D_asp):
+    def __init__(self, response, vt_sG, Dresp_asp, D_asp):
+        self.response = response
         self.vt_sG = vt_sG
         self.D_asp = D_asp
         self.Dresp_asp = Dresp_asp
+
+    def redistribute(self, new_response):
+        old_response = self.response
+        new_wfs = new_response.wfs
+        new_density = new_response.density
+        self.vt_sG = redistribute_array(self.vt_sG,
+                                        old_response.density.gd,
+                                        new_density.gd,
+                                        new_wfs.nspins,
+                                        new_wfs.kptband_comm)
+
+        def redist_asp(D_asp):
+            return redistribute_atomic_matrices(D_asp,
+                                                new_density.gd,
+                                                new_wfs.nspins,
+                                                new_density.setups,
+                                                new_density.atom_partition,
+                                                new_wfs.kptband_comm)
+
+        self.D_asp = redist_asp(self.D_asp)
+        self.Dresp_asp = redist_asp(self.Dresp_asp)
+        self.response = new_response
 
 
 class C_Response(Contribution):
@@ -297,7 +321,7 @@ class C_Response(Contribution):
             Dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
             Dxc_D_asp, f_kn)
-        Dxc = DiscontinuityPotential(Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp)
+        Dxc = DiscontinuityPotential(self, Dxc_vt_sG, Dxc_Dresp_asp, Dxc_D_asp)
         return Dxc
 
     def calculate_delta_xc_perturbation(self):
@@ -306,7 +330,7 @@ class C_Response(Contribution):
             'Please use calculate_discontinuity() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = DiscontinuityPotential(self.Dxc_vt_sG, self.Dxc_Dresp_asp,
+        Dxc = DiscontinuityPotential(self, self.Dxc_vt_sG, self.Dxc_Dresp_asp,
                                      self.Dxc_D_asp)
         if self.nspins != 1:
             ret = []
@@ -321,7 +345,7 @@ class C_Response(Contribution):
             'deprecated. Please use calculate_discontinuity_spin() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = DiscontinuityPotential(self.Dxc_vt_sG, self.Dxc_Dresp_asp,
+        Dxc = DiscontinuityPotential(self, self.Dxc_vt_sG, self.Dxc_Dresp_asp,
                                      self.Dxc_D_asp)
         return self.calculate_discontinuity(Dxc, spin=s)
 
