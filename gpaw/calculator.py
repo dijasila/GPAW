@@ -20,6 +20,7 @@ import gpaw.wavefunctions.pw as pw
 from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
+from gpaw.density import redistribute_array, redistribute_atomic_matrices
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
@@ -205,13 +206,30 @@ class GPAW(Calculator):
         if calc.hamiltonian.xc.type == 'GLLB':
             resp = calc.hamiltonian.xc.response
             old = self.hamiltonian.xc.response
-            for attr in ['vt_sG', 'vt_sg', 'D_asp', 'Dresp_asp']:
-                val = getattr(old, attr)
-                if val is not None:
-                    val = val.copy()
-                setattr(resp, attr, val)
-            resp.just_read = True
+            wfs = resp.wfs
+            density = resp.density
+            resp.vt_sG = redistribute_array(old.vt_sG,
+                                            old.density.gd,
+                                            density.gd,
+                                            wfs.nspins,
+                                            wfs.kptband_comm)
+            resp.vt_sg = redistribute_array(old.vt_sg,
+                                            old.density.finegd,
+                                            density.finegd,
+                                            wfs.nspins,
+                                            wfs.kptband_comm)
 
+            def redist_asp(D_asp):
+                return redistribute_atomic_matrices(D_asp,
+                                                    density.gd,
+                                                    wfs.nspins,
+                                                    density.setups,
+                                                    density.atom_partition,
+                                                    wfs.kptband_comm)
+
+            resp.D_asp = redist_asp(old.D_asp)
+            resp.Dresp_asp = redist_asp(old.Dresp_asp)
+            resp.just_read = True
         calc.calculate(system_changes=[])
         return calc
 
