@@ -20,7 +20,6 @@ import gpaw.wavefunctions.pw as pw
 from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
-from gpaw.density import redistribute_array, redistribute_atomic_matrices
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
@@ -204,32 +203,21 @@ class GPAW(Calculator):
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
         if calc.hamiltonian.xc.type == 'GLLB':
-            resp = calc.hamiltonian.xc.response
-            old = self.hamiltonian.xc.response
-            wfs = resp.wfs
-            density = resp.density
-            resp.vt_sG = redistribute_array(old.vt_sG,
-                                            old.density.gd,
-                                            density.gd,
-                                            wfs.nspins,
-                                            wfs.kptband_comm)
-            resp.vt_sg = redistribute_array(old.vt_sg,
-                                            old.density.finegd,
-                                            density.finegd,
-                                            wfs.nspins,
-                                            wfs.kptband_comm)
+            from gpaw.xc.gllb.c_response import ResponsePotential
 
-            def redist_asp(D_asp):
-                return redistribute_atomic_matrices(D_asp,
-                                                    density.gd,
-                                                    wfs.nspins,
-                                                    density.setups,
-                                                    density.atom_partition,
-                                                    wfs.kptband_comm)
-
-            resp.D_asp = redist_asp(old.D_asp)
-            resp.Dresp_asp = redist_asp(old.Dresp_asp)
-            resp.just_read = True
+            new_response = calc.hamiltonian.xc.response
+            old_response = self.hamiltonian.xc.response
+            pot = ResponsePotential(old_response,
+                                    old_response.vt_sG,
+                                    old_response.vt_sg,
+                                    old_response.D_asp,
+                                    old_response.Dresp_asp)
+            pot.redistribute(new_response)
+            new_response.vt_sG = pot.vt_sG
+            new_response.vt_sg = pot.vt_sg
+            new_response.D_asp = pot.D_asp
+            new_response.Dresp_asp = pot.Dresp_asp
+            new_response.just_read = True
         calc.calculate(system_changes=[])
         return calc
 

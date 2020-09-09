@@ -21,9 +21,10 @@ def d(*args):
 
 class ResponsePotential:
     """Container for response potential"""
-    def __init__(self, response, vt_sG, D_asp, Dresp_asp):
+    def __init__(self, response, vt_sG, vt_sg, D_asp, Dresp_asp):
         self.response = response
         self.vt_sG = vt_sG
+        self.vt_sg = vt_sg
         self.D_asp = D_asp
         self.Dresp_asp = Dresp_asp
 
@@ -36,6 +37,12 @@ class ResponsePotential:
                                         new_density.gd,
                                         new_wfs.nspins,
                                         new_wfs.kptband_comm)
+        if self.vt_sg is not None:
+            self.vt_sg = redistribute_array(self.vt_sg,
+                                            old_response.density.finegd,
+                                            new_density.finegd,
+                                            new_wfs.nspins,
+                                            new_wfs.kptband_comm)
 
         def redist_asp(D_asp):
             return redistribute_atomic_matrices(D_asp,
@@ -321,7 +328,8 @@ class C_Response(Contribution):
             Dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
             Dxc_D_asp, f_kn)
-        Dxc = ResponsePotential(self, Dxc_vt_sG, Dxc_D_asp, Dxc_Dresp_asp)
+        Dxc = ResponsePotential(self, Dxc_vt_sG, None,
+                                Dxc_D_asp, Dxc_Dresp_asp)
         return Dxc
 
     def calculate_delta_xc_perturbation(self):
@@ -330,7 +338,7 @@ class C_Response(Contribution):
             'Please use calculate_discontinuity() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = ResponsePotential(self, self.Dxc_vt_sG, self.Dxc_D_asp,
+        Dxc = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
                                 self.Dxc_Dresp_asp)
         if self.nspins != 1:
             ret = []
@@ -345,7 +353,7 @@ class C_Response(Contribution):
             'deprecated. Please use calculate_discontinuity_spin() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = ResponsePotential(self, self.Dxc_vt_sG, self.Dxc_D_asp,
+        Dxc = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
                                 self.Dxc_Dresp_asp)
         return self.calculate_discontinuity(Dxc, spin=s)
 
