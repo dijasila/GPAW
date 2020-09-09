@@ -106,7 +106,7 @@ def find_directions(icell: Array2D,
     from scipy.spatial import Voronoi
 
     d_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
-    d_iv = d_ic.dot((icell.T & mpsize).T)
+    d_iv = d_ic.dot((icell.T / mpsize).T)
     voro = Voronoi(d_iv)
     directions = []
     for i1, i2 in voro.ridge_points:
@@ -131,9 +131,10 @@ def calculate_overlaps(calc: GPAW,
     gd = bzwfs.gd
     size = kd.N_c
 
+    icell = calc.atoms.cell.reciprocal()
     directions = {direction: i
                   for i, direction
-                  in enumerate(find_directions(calc.cell.reciprocal(), size))}
+                  in enumerate(find_directions(icell, size))}
     Z_kdnn = np.empty((kd.nbzkpts, len(directions), n2 - n1, n2 - n1), complex)
 
     spos_ac = calc.spos_ac
