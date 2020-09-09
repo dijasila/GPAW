@@ -44,6 +44,7 @@ class GPWFiles:
 
     def __getitem__(self, name):
         if name not in self.gpw_files:
+            print('gpw_files fixture:', name)
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
             path = self.path / (rawname + '.gpw')
@@ -58,15 +59,16 @@ class GPWFiles:
         return self.bcc_li({'name': 'pw', 'ecut': 200})
 
     def bcc_li_fd(self):
-        return self.bcc_li('fd')
+        return self.bcc_li({'name': 'fd'})
 
     def bcc_li_lcao(self):
-        return self.bcc_li('lcao')
+        return self.bcc_li({'name': 'lcao'})
 
     def bcc_li(self, mode):
         li = bulk('Li', 'bcc', 3.49)
         li.calc = GPAW(mode=mode,
-                       kpts=(3, 3, 3))
+                       kpts=(3, 3, 3),
+                       txt=self.path / f'bcc_li_{mode["name"]}.txt')
         li.get_potential_energy()
         return li.calc
 
@@ -74,15 +76,16 @@ class GPWFiles:
         return self.h2({'name': 'pw', 'ecut': 200})
 
     def h2_fd(self):
-        return self.h2('fd')
+        return self.h2({'name': 'fd'})
 
     def h2_lcao(self):
-        return self.h2('lcao')
+        return self.h2({'name': 'lcao'})
 
     def h2(self, mode):
         h2 = Atoms('H2', positions=[[0, 0, 0], [0.74, 0, 0]])
         h2.center(vacuum=2.5)
-        h2.calc = GPAW(mode=mode)
+        h2.calc = GPAW(mode=mode,
+                       txt=self.path / f'h2_{mode["name"]}.txt')
         h2.get_potential_energy()
         return h2.calc
 

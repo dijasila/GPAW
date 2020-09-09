@@ -65,6 +65,9 @@ class BZRealSpaceWaveFunctions:
         wfs = calc.wfs
         kd = wfs.kd
 
+        if wfs.mode == 'lcao' and not wfs.positions_set:
+            calc.initialize_positions()
+
         gd = wfs.gd.new_descriptor(comm=calc.world)
 
         nproj_a = wfs.kpt_qs[0][0].projections.nproj_a
