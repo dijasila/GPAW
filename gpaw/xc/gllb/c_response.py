@@ -85,6 +85,8 @@ class C_Response(Contribution):
         self.coefficients.initialize(wfs)
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
+        self.vt_sG = self.gd.empty(self.nspins)
+        self.vt_sg = self.finegd.empty(self.nspins)
 
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
@@ -118,7 +120,7 @@ class C_Response(Contribution):
         w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
         if w_kn is not None:
-            self.vt_sG = self.gd.zeros(self.nspins)
+            self.vt_sG[:] = 0.0
             nt_sG = self.gd.zeros(self.nspins)
 
             for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
@@ -147,7 +149,6 @@ class C_Response(Contribution):
 
             self.vt_sG /= nt_sG + self.damp
 
-        self.vt_sg = self.finegd.zeros(self.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
     def calculate_spinpaired(self, e_g, n_sg, v_sg):
@@ -552,11 +553,9 @@ class C_Response(Contribution):
         r = reader.hamiltonian.xc
         wfs = self.wfs
 
-        self.vt_sG = wfs.gd.empty(wfs.nspins)
         d('Reading vt_sG')
         self.gd.distribute(r.gllb_pseudo_response_potential / reader.ha,
                            self.vt_sG)
-        self.vt_sg = self.density.finegd.zeros(wfs.nspins)
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
         def unpack(D_sP):
