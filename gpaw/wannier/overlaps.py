@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, Sequence
+from typing import Tuple, Dict, Any, Sequence, List
 
 import numpy as np
 
@@ -7,6 +7,7 @@ from gpaw.projections import Projections
 from gpaw.utilities.partition import AtomPartition
 from .functions import WannierFunctions
 
+Array1D = Any
 Array2D = Any
 Array4D = Any
 
@@ -41,8 +42,8 @@ class WannierOverlaps:
         from .edmiston_ruedenberg import localize
         return localize(self, maxiter, tolerance, verbose)
 
-    def write(self, filename):
-        1 / 0
+    def write_wannier90_input_files(self, prefix, **kwargs):
+        ...
 
 
 class BZRealSpaceWaveFunctions:
@@ -93,6 +94,29 @@ class BZRealSpaceWaveFunctions:
         return BZRealSpaceWaveFunctions(kd, gd, u_knR, P_k)
 
 
+def find_directions(icell: Array2D,
+                    mpsize: Sequence[int]) -> List[Tuple[int, int, int]]:
+    """Find nearest neighbors k-points.
+
+    If dk is a vector pointing at a neighbor k-points then we don't
+    also include -dk in the list.  Examples: for simple cubic there
+    will be 3 neighbors and for FCC there will be 6.
+    """
+
+    from scipy.spatial import Voronoi
+
+    d_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
+    d_iv = d_ic.dot((icell.T & mpsize).T)
+    voro = Voronoi(d_iv)
+    directions = []
+    for i1, i2 in voro.ridge_points:
+        if i1 == 13 and i2 > 13:
+            directions.append(tuple(d_ic[i2]))
+        elif i2 == 13 and i1 > 13:
+            directions.append(tuple(d_ic[i1]))
+    return directions
+
+
 def calculate_overlaps(calc: GPAW,
                        n1: int = 0,
                        n2: int = 0,
@@ -105,11 +129,13 @@ def calculate_overlaps(calc: GPAW,
 
     kd = bzwfs.kd
     gd = bzwfs.gd
+    size = kd.N_c
 
-    directions = {(1, 0, 0): 0, (0, 1, 0): 1, (0, 0, 1): 2}
+    directions = {direction: i
+                  for i, direction
+                  in enumerate(find_directions(calc.cell.reciprocal(), size))}
     Z_kdnn = np.empty((kd.nbzkpts, len(directions), n2 - n1, n2 - n1), complex)
 
-    size = kd.N_c
     spos_ac = calc.spos_ac
     setups = calc.wfs.setups
 
