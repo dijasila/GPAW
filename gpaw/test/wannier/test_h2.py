@@ -9,3 +9,5 @@ def test_h2(gpw_files, mode):
     overlaps = calculate_overlaps(calc, n1=0, n2=1)
     wan = overlaps.localize(verbose=True)
     print(wan.centers)
+    x = calc.atoms.positions[:, 0].mean()
+    assert wan.centers[0, 0] == pytest.approx(x, abs=1e-7)

@@ -5,6 +5,9 @@ import numpy as np
 from gpaw import GPAW
 from gpaw.projections import Projections
 from gpaw.utilities.partition import AtomPartition
+from gpaw.setup import Setup
+from gpaw.kpt_descriptor import KPointDescriptor
+from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from .functions import WannierFunctions
 
 Array1D = Any
@@ -46,80 +49,6 @@ class WannierOverlaps:
         ...
 
 
-class BZRealSpaceWaveFunctions:
-    def __init__(self, kd, gd, u_knR, P_k):
-        self.kd = kd
-        self.gd = gd
-        self.u_knR = u_knR
-        self.P_k = P_k
-
-    def __getitem__(self, bz_index):
-        return self.u_knR[bz_index], self.P_k[bz_index]
-
-    @classmethod
-    def from_calculation(cls,
-                         calc: GPAW,
-                         n1: int = 0,
-                         n2: int = 0,
-                         spin=0) -> 'BZRealSpaceWaveFunctions':
-        wfs = calc.wfs
-        kd = wfs.kd
-
-        if wfs.mode == 'lcao' and not wfs.positions_set:
-            calc.initialize_positions()
-
-        gd = wfs.gd.new_descriptor(comm=calc.world)
-
-        nproj_a = wfs.kpt_qs[0][0].projections.nproj_a
-        # All atoms on rank-0:
-        atom_partition = AtomPartition(gd.comm, np.zeros_like(nproj_a))
-
-        u_nR = gd.empty((n2 - n1), complex, global_array=True)
-
-        u_knR = gd.empty((kd.nbzkpts, n2 - n1), complex)
-        P_k = []
-        for ibz_index in range(kd.nibzkpts):
-            for n in range(n1, n2):
-                u_nR[n - n1] = wfs.get_wave_function_array(n=n,
-                                                           k=ibz_index,
-                                                           s=spin,
-                                                           periodic=True)
-            gd.distribute(u_nR, u_knR[ibz_index])
-
-            P_nI = wfs.collect_projections(ibz_index, spin)
-            projections = Projections(
-                nbands=n2 - n1,
-                nproj_a=nproj_a,
-                atom_partition=atom_partition,
-                data=P_nI[n1:n2])
-            P_k.append(projections)
-
-        return BZRealSpaceWaveFunctions(kd, gd, u_knR, P_k)
-
-
-def find_directions(icell: Array2D,
-                    mpsize: Sequence[int]) -> List[Tuple[int, int, int]]:
-    """Find nearest neighbors k-points.
-
-    If dk is a vector pointing at a neighbor k-points then we don't
-    also include -dk in the list.  Examples: for simple cubic there
-    will be 3 neighbors and for FCC there will be 6.
-    """
-
-    from scipy.spatial import Voronoi
-
-    d_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
-    d_iv = d_ic.dot((icell.T / mpsize).T)
-    voro = Voronoi(d_iv)
-    directions = []
-    for i1, i2 in voro.ridge_points:
-        if i1 == 13 and i2 > 13:
-            directions.append(tuple(d_ic[i2]))
-        elif i2 == 13 and i1 > 13:
-            directions.append(tuple(d_ic[i1]))
-    return directions
-
-
 def calculate_overlaps(calc: GPAW,
                        n1: int = 0,
                        n2: int = 0,
@@ -144,20 +73,21 @@ def calculate_overlaps(calc: GPAW,
     setups = calc.wfs.setups
 
     for bz_index1 in range(kd.nbzkpts):
-        u1_nR, P1_ani = bzwfs[bz_index1]
+        wf1 = bzwfs[bz_index1]
         i1_c = np.unravel_index(bz_index1, size)
         for direction, d in directions.items():
             i2_c = np.array(i1_c) + direction
             bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
-            u2_nR, P2_ani = bzwfs[bz_index2]
+            wf2 = bzwfs[bz_index2]
             phase_c = (i2_c % size - i2_c) // size
+            u2_nR = wf2.u_nR
             if phase_c.any():
                 u2_nR = u2_nR * gd.plane_wave(phase_c)
-            Z_kdnn[bz_index1, d] = gd.integrate(u1_nR, u2_nR,
+            Z_kdnn[bz_index1, d] = gd.integrate(wf1.u_nR, u2_nR,
                                                 global_integral=False)
-            for a, P1_ni in P1_ani.items():
+            for a, P1_ni in wf1.projections.items():
                 dO_ii = setups[a].dO_ii
-                P2_ni = P2_ani[a]
+                P2_ni = wf2.projections[a]
                 Z_nn = P1_ni.conj().dot(dO_ii).dot(P2_ni.T).astype(complex)
                 if phase_c.any():
                     Z_nn *= np.exp(2j * np.pi * phase_c.dot(spos_ac[a]))
@@ -170,3 +100,150 @@ def calculate_overlaps(calc: GPAW,
                                directions,
                                Z_kdnn)
     return overlaps
+
+
+def find_directions(icell: Array2D,
+                    mpsize: Sequence[int]) -> List[Tuple[int, int, int]]:
+    """Find nearest neighbors k-points.
+
+    icell:
+        Reciprocal cell.
+    mpsize:
+        Size of Monkhorst-Pack grid.
+
+    If dk is a vector pointing at a neighbor k-points then we don't
+    also include -dk in the list.  Examples: for simple cubic there
+    will be 3 neighbors and for FCC there will be 6.
+
+    For a hexagonal cell you get three directions in plane and one
+    out of plane:
+
+    >>> hex = np.array([[1, 0, 0], [0.5, 3**0.5 / 2, 0], [0, 0, 1]])
+    >>> find_directions(hex, (4, 4, 4))
+    [(0, 0, 1), (1, -1, 0), (1, 0, 0), (0, 1, 0)]
+    """
+
+    from scipy.spatial import Voronoi
+
+    d_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
+    d_iv = d_ic.dot((icell.T / mpsize).T)
+    voro = Voronoi(d_iv)
+    directions: List[Tuple[int, int, int]] = []
+    for i1, i2 in voro.ridge_points:
+        if i1 == 13 and i2 > 13:
+            directions.append(tuple(d_ic[i2]))  # type: ignore
+        elif i2 == 13 and i1 > 13:
+            directions.append(tuple(d_ic[i1]))  # type: ignore
+    return directions
+
+
+class WaveFunction:
+    def __init__(self,
+                 u_nR,
+                 projections: Projections):
+        self.u_nR = u_nR
+        self.projections = projections
+
+    def transform(self,
+                  kd: KPointDescriptor,
+                  gd,
+                  setups: List[Setup],
+                  spos_ac: Array2D,
+                  bz_index: int) -> 'WaveFunction':
+        """Transforms PAW projections from IBZ to BZ k-point."""
+        a_a, U_aii, time_rev = construct_symmetry_operators(
+            kd, setups, spos_ac, bz_index)
+
+        projections = self.projections.new()
+
+        if projections.atom_partition.comm.rank == 0:
+            a = 0
+            for b, U_ii in zip(a_a, U_aii):
+                P_msi = self.projections[b].dot(U_ii)
+                if time_rev:
+                    P_msi = P_msi.conj()
+                projections[a][:] = P_msi
+                a += 1
+        else:
+            assert len(projections.indices) == 0
+
+        return WaveFunction(u_nR, projections)
+
+    def redistribute_atoms(self,
+                           gd,
+                           atom_partition: AtomPartition
+                           ) -> 'WaveFunction':
+        projections = self.projections.redist(atom_partition)
+        u_nR = gd.distribute(self.u_nR)
+        return WaveFunction(u_nR, projections)
+
+
+class BZRealSpaceWaveFunctions:
+    """Container for wave-functions and PAW projections (all of BZ)."""
+    def __init__(self,
+                 kd: KPointDescriptor,
+                 gd,
+                 wfs: Dict[int, WaveFunction]):
+        self.kd = kd
+        self.gd = gd
+        self.wfs = wfs
+
+    def __getitem__(self, bz_index):
+        return self.wfs[bz_index]
+
+    @classmethod
+    def from_calculation(cls,
+                         calc: GPAW,
+                         n1: int = 0,
+                         n2: int = 0,
+                         spin=0) -> 'BZRealSpaceWaveFunctions':
+        wfs = calc.wfs
+        kd = wfs.kd
+
+        if wfs.mode == 'lcao' and not wfs.positions_set:
+            calc.initialize_positions()
+
+        gd = wfs.gd.new_descriptor(comm=calc.world)
+
+        nproj_a = wfs.kpt_qs[0][0].projections.nproj_a
+        # All atoms on rank-0:
+        rank_a = np.zeros_like(nproj_a)
+        atom_partition = AtomPartition(gd.comm, rank_a)
+
+        rank_a = np.arange(len(rank_a)) % gd.comm.size
+        atom_partition2 = AtomPartition(gd.comm, rank_a)
+
+        spos_ac = calc.spos_ac
+        setups = calc.wfs.setups
+
+        u_nR = gd.empty((n2 - n1), complex, global_array=True)
+
+        bzwfs = {}
+        for ibz_index in range(kd.nibzkpts):
+            for n in range(n1, n2):
+                u_nR[n - n1] = wfs.get_wave_function_array(n=n,
+                                                           k=ibz_index,
+                                                           s=spin,
+                                                           periodic=True)
+            P_nI = wfs.collect_projections(ibz_index, spin)
+            if P_nI is not None:
+                P_nI = P_nI[n1:n2]
+            projections = Projections(
+                nbands=n2 - n1,
+                nproj_a=nproj_a,
+                atom_partition=atom_partition,
+                data=P_nI)
+
+            wf = WaveFunction(u_nR, projections)
+
+            for bz_index, ibz_index2 in enumerate(kd.bz2ibz_k):
+                if ibz_index2 != ibz_index:
+                    continue
+                if kd.ibz2bz_k[ibz_index] == bz_index:
+                    wf1 = wf
+                else:
+                    wf1 = wf.transform(kd, gd, setups, spos_ac, bz_index)
+
+                bzwfs[bz_index] = wf1.redistribute_atoms(gd, atom_partition2)
+
+        return BZRealSpaceWaveFunctions(kd, gd, bzwfs)
