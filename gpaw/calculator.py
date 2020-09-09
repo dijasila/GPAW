@@ -220,6 +220,7 @@ class GPAW(Calculator):
             distribute = new_response.distribute_Dresp_asp
             new_response.Ddist_asp = distribute(pot.D_asp)
             new_response.Drespdist_asp = distribute(pot.Dresp_asp)
+            new_response.fix_potential = True
         calc.calculate(system_changes=[])
         return calc
 

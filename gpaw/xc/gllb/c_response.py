@@ -70,6 +70,7 @@ class C_Response(Contribution):
         self.Ddist_asp = None
         self.Drespdist_asp = None
         self.damp = damp
+        self.fix_potential = False
 
     def set_damp(self, damp):
         self.damp = damp
@@ -100,6 +101,13 @@ class C_Response(Contribution):
 
     def update_potentials(self, nt_sg):
         d('In update response potential')
+        if self.fix_potential:
+            # Skip the evaluation of the potential so that
+            # the existing potential is used. This is relevant for
+            # band structure calculation so that the potential
+            # does not get updated with the other k-point sampling.
+            return
+
         if self.wfs.kpt_u[0].eps_n is None:
             # This skips the evaluation of the potential so that
             # the existing one is used.
