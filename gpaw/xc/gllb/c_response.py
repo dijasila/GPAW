@@ -251,7 +251,6 @@ class C_Response(Contribution):
 
         if homolumo is None:
             # Calculate band gap
-            pass
 
             # This always happens, so we don't warn.
             # We should perhaps print it as an ordinary message,
@@ -259,8 +258,9 @@ class C_Response(Contribution):
             # import warnings
             # warnings.warn('Calculating KS-gap directly from the k-points, '
             #               'can be inaccurate.')
-            # homolumo = self.occupations.get_homo_lumo(self.wfs)
-        Dxc = self.calculate_discontinuity_potential(homolumo)
+            homolumo = self.wfs.get_homo_lumo()
+        homo, lumo = homolumo
+        Dxc = self.calculate_discontinuity_potential(homo * Ha, lumo * Ha)
         self.Dxc_vt_sG = Dxc.vt_sG
         self.Dxc_D_asp = Dxc.D_asp
         self.Dxc_Dresp_asp = Dxc.Dresp_asp
