@@ -217,7 +217,9 @@ class GPAW(Calculator):
             new_response.vt_sg = pot.vt_sg
             new_response.D_asp = pot.D_asp
             new_response.Dresp_asp = pot.Dresp_asp
-            new_response.just_read = True
+            distribute = new_response.distribute_Dresp_asp
+            new_response.Ddist_asp = distribute(pot.D_asp)
+            new_response.Drespdist_asp = distribute(pot.Dresp_asp)
         calc.calculate(system_changes=[])
         return calc
 

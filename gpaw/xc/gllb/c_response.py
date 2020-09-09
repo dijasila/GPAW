@@ -67,8 +67,8 @@ class C_Response(Contribution):
         self.nt_sG = None
         self.D_asp = None
         self.Dresp_asp = None
+        self.Ddist_asp = None
         self.Drespdist_asp = None
-        self.just_read = False
         self.damp = damp
 
     def set_damp(self, damp):
@@ -100,33 +100,12 @@ class C_Response(Contribution):
 
     def update_potentials(self, nt_sg):
         d('In update response potential')
-        if self.just_read:
-            # This is very hackish.
-            # Reading GLLB-SC loads all density matrices to all cores.
-            # This code first removes them to match density.D_asp.
-            # and then further distributes the density matricies for
-            # xc-corrections.
-            d('Just read')
-
-            Dresp_asp = self.empty_atomic_matrix()
-            D_asp = self.empty_atomic_matrix()
-            for a in self.density.D_asp:
-                Dresp_asp[a][:] = self.Dresp_asp[a]
-                D_asp[a][:] = self.D_asp[a]
-            self.Dresp_asp = Dresp_asp
-            self.D_asp = D_asp
-
-            assert len(self.Dresp_asp) == len(self.density.D_asp)
-            self.just_read = False
-            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-            d('Core ', world.rank, 'self.Dresp_asp', self.Dresp_asp.items(),
-              'self.Drespdist_asp', self.Drespdist_asp.items())
-            self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-            return
-
-        # if not self.occupations.ready:
-        if self.wfs.fermi_levels is None:
-            d('No occupations calculated yet')
+        if self.wfs.kpt_u[0].eps_n is None:
+            # This skips the evaluation of the potential so that
+            # the existing one is used.
+            # This happens typically after reading when occupations
+            # haven't been calculated yet and the potential read earlier
+            # is used.
             return
 
         w_kn = self.coefficients.get_coefficients(self.wfs.kpt_u)
@@ -575,11 +554,21 @@ class C_Response(Contribution):
             return unpack_atomic_matrices(D_sP, wfs.setups)
 
         # Read atomic density matrices and non-local part of hamiltonian:
-        self.D_asp = unpack(r.gllb_atomic_density_matrices)
-        self.Dresp_asp = unpack(r.gllb_atomic_response_matrices)
+        D_asp = unpack(r.gllb_atomic_density_matrices)
+        Dresp_asp = unpack(r.gllb_atomic_response_matrices)
 
-        # Dsp and Dresp need to be redistributed
-        self.just_read = True
+        # All density matrices are loaded to all cores
+        # First distribute them to match density.D_asp
+        self.D_asp = self.empty_atomic_matrix()
+        self.Dresp_asp = self.empty_atomic_matrix()
+        for a in self.density.D_asp:
+            self.D_asp[a][:] = D_asp[a]
+            self.Dresp_asp[a][:] = Dresp_asp[a]
+        assert len(self.Dresp_asp) == len(self.density.D_asp)
+
+        # Further distributes the density matricies for xc-corrections
+        self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
         from gpaw.density import redistribute_array
