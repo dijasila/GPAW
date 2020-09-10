@@ -151,10 +151,7 @@ class C_Response(Contribution):
 
         self.density.distribute_and_interpolate(self.vt_sG, self.vt_sg)
 
-    def calculate_spinpaired(self, e_g, n_sg, v_sg):
-        self.calculate_spinpolarized(e_g, n_sg, v_sg)
-
-    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
+    def calculate(self, e_g, n_sg, v_sg):
         self.update_potentials()
         v_sg += self.weight * self.vt_sg
 

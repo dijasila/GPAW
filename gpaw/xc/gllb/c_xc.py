@@ -23,10 +23,7 @@ class C_XC(Contribution):
         Contribution.initialize_1d(self, ae)
         self.v_g = np.zeros(self.ae.N)
 
-    def calculate_spinpaired(self, e_g, n_sg, v_sg):
-        self.calculate_spinpolarized(e_g, n_sg, v_sg)
-
-    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
+    def calculate(self, e_g, n_sg, v_sg):
         self.e_g[:] = 0.0
         self.vt_sg[:] = 0.0
         self.xc.calculate(self.finegd, n_sg, self.vt_sg, self.e_g)

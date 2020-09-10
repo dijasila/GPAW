@@ -44,20 +44,20 @@ class C_GLLBScr(Contribution):
         Exc = self.weight * np.sum(self.e_g * self.ae.rgd.dv_g)
         return Exc
 
-    def calculate_spinpaired(self, e_g, n_sg, v_sg, mult=1.0):
-        self.e_g[:] = 0.0
-        self.vt_sg[:] = 0.0
-        self.xc.calculate(self.finegd, mult * n_sg, self.vt_sg, self.e_g)
-        self.e_g[:] = np.where(n_sg[0] < self.damp, 0, self.e_g)
-        v_sg[0] += self.weight * 2 * self.e_g / (mult * n_sg[0] + self.damp)
-        e_g += self.weight * self.e_g / mult
-
-    def calculate_spinpolarized(self, e_g, n_sg, v_sg):
-        # Calculate spinpolarized exchange screening
+    def calculate(self, e_g, n_sg, v_sg):
+        # Calculate spin-paired exchange screening
+        # as Eqs. (21-22) of https://doi.org/10.1103/PhysRevB.82.115106
+        # and spin-polarized exchange screening
         # as two spin-paired calculations n=2*n_s
+        mult = self.nspins  # mult = 1 for spin-paired and 2 for spin-polarized
         for n_g, v_g in zip(n_sg, v_sg):
-            self.calculate_spinpaired(e_g, n_g[np.newaxis], v_g[np.newaxis],
-                                      mult=2.0)
+            self.e_g[:] = 0.0
+            self.vt_sg[:] = 0.0  # Note: this array has nspins=1 always
+            self.xc.calculate(self.finegd, mult * n_g[np.newaxis],
+                              self.vt_sg, self.e_g)
+            self.e_g[:] = np.where(n_g < self.damp, 0, self.e_g)
+            v_g += self.weight * 2 * self.e_g / (mult * n_g + self.damp)
+            e_g += self.weight * self.e_g / mult
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
