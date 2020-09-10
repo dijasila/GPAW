@@ -85,8 +85,15 @@ class C_Response(Contribution):
         self.coefficients.initialize(wfs)
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
-        self.vt_sG = self.gd.empty(self.nspins)
-        self.vt_sg = self.finegd.empty(self.nspins)
+        # XXX With the deprecated `fixdensity=True` option this
+        # initialize() function is called both before AND after read()!
+        # Thus, the second call of initialize() would discard the read
+        # potential unless we check if it was already allocated.
+        # Remove this if statement once `fixdensity=True` option has
+        # been removed from the calculator.
+        if self.vt_sg is None:
+            self.vt_sG = self.gd.empty(self.nspins)
+            self.vt_sg = self.finegd.empty(self.nspins)
 
     def initialize_1d(self, ae):
         Contribution.initialize_1d(self, ae)
