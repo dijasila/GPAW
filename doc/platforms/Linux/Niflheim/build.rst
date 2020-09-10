@@ -25,11 +25,13 @@ Creating the venv
 
 Download the :download:`gpaw-venv.sh` script and run it like this::
 
-    $ cd
-    $ ./gpaw-venv.sh <folder-name>
+    $ ./gpaw-venv.sh <venv-name>
     ...
 
-After a few minutes, you will have a folder with a venv inside.
+After a few minutes, you will have a ``<venv-name>`` folder with
+a GPAW installation inside.
+In the following, we will assume that your venv folder is ``~/venv1/``.
+
 The ``gpaw-venv.sh`` script does the following:
 
 * load relevant modules from the foss toolchain
@@ -52,7 +54,7 @@ Using the venv
 
 The venv needs to be activated like this::
 
-    $ source ~/<folder-name>/venv/bin/activate
+    $ source ~/venv1/bin/activate
 
 and you can deactivate it when you no longer need to use it::
 
@@ -68,7 +70,7 @@ submit to Niflheim.  Here are three ways to do it:
    then add this to your ``~/.bashrc``::
 
        if [[ $SLURM_SUBMIT_DIR/ = $HOME/project-1* ]]; then
-           source ~/<folder-name>/venv/bin/activate
+           source ~/venv1/bin/activate
        fi
 
    Now, SLURM-jobs submitted inside your ``~/project-1/``
@@ -77,7 +79,7 @@ submit to Niflheim.  Here are three ways to do it:
 3) Use the "automatic discovery of venv's" feature of MyQueue::
 
        $ cd ~/project-1
-       $ ln -s ~/<folder-name>/venv
+       $ ln -s ~/venv1 venv
        $ mq submit job.py
 
    MyQueue will look for ``venv/`` folders (or soft-links as in the example)
@@ -94,3 +96,14 @@ and then you can ``pip install`` packages.  Here sre three ways to install ASR::
     $ pip install asr  # from PyPI
     $ pip install <path-to-asr>  # from a git clone
     $ pip install -e <path-to-asr>  # use source code from a git clone dirctly
+
+
+Problems
+========
+
+Sometimes, packages in your ``~/.local/`` folder will be used insted of
+those in your new venv.  This can cause problems.  Try uninstalling them::
+
+    $ deactivate
+    $ pip uninstall <trouble-maker>
+    $ source ~/venv1/bin/activate

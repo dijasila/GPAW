@@ -3,9 +3,8 @@
 
 set -e  # stop if there are errors
 
-FOLDERNAME=$1
-mkdir -p $FOLDERNAME
-cd $FOLDERNAME
+NAME=$1
+
 FOLDER=$PWD
 
 echo "module purge
@@ -16,8 +15,8 @@ module load libvdwxc/0.4.0-foss-2019b" > modules.sh
 . modules.sh
 
 # Create venv:
-python3 -m venv venv --prompt=$FOLDERNAME --system-site-packages
-cd venv
+python3 -m venv $NAME --system-site-packages
+cd $NAME
 VENV=$PWD
 . bin/activate
 PIP="python3 -m pip"
@@ -30,7 +29,6 @@ cat old >> bin/activate
 rm old
 
 # Install ASE from git:
-cd $FOLDER
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
@@ -45,11 +43,11 @@ ssh fjorm $CMD
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git
 cd gpaw
-cp doc/platforms/Linux/Niflheim/siteconfig-$TOOLCHAIN.py siteconfig.py
+cp doc/platforms/Linux/Niflheim/siteconfig-foss.py siteconfig.py
 for HOST in fjorm svol thul slid
 do
-  CMD="cd $FOLDER &&
-       . venv/bin/activate &&
+  CMD="cd $VENV &&
+       . bin/activate &&
        pip install -e gpaw -v > $HOST.out 2>&1"
   echo Compiling GPAW on $HOST
   echo $CMD
@@ -58,12 +56,11 @@ done
 (cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.7)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
-cd ..
 
 # Install extra basis-functions:
-gpaw install-data --basis --version=20000 . --no-register
-export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$FOLDER/gpaw-basis-pvalence-0.9.20000
 cd $VENV
+gpaw install-data --basis --version=20000 . --no-register
+export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/gpaw-basis-pvalence-0.9.20000
 echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 
 # Tab completion:
