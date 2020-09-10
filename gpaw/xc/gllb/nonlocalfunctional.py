@@ -137,6 +137,8 @@ class NonLocalFunctional(XCFunctional):
             contribution.write(writer)
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
+        # XXX This function should be removed once the deprecated
+        # `fixdensity=True` option is removed.
         for contribution in self.contributions:
             try:
                 contribution.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)

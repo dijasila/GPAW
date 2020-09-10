@@ -583,6 +583,8 @@ class C_Response(Contribution):
         self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
+        # XXX This function should be removed once the deprecated
+        # `fixdensity=True` option is removed.
         from gpaw.density import redistribute_array
         self.vt_sg = redistribute_array(self.vt_sg,
                                         olddens.finegd, self.finegd,
