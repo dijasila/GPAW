@@ -1,6 +1,7 @@
 from typing import Tuple, Dict, Any, Sequence, List
 
 import numpy as np
+from ase import Atoms
 
 from gpaw import GPAW
 from gpaw.projections import Projections
@@ -17,13 +18,13 @@ Array4D = Any
 
 class WannierOverlaps:
     def __init__(self,
-                 cell: Sequence[Sequence[float]],
+                 atoms: Atoms,
                  monkhorst_pack_size: Sequence[int],
                  directions: Dict[Tuple[int, int, int], int],
                  overlaps: Array4D):
 
+        self.atoms = atoms
         self.monkhorst_pack_size = tuple(monkhorst_pack_size)
-        self.cell = np.array(cell)
         self.directions = directions
 
         nkpts, ndirs, self.nbands, nbands = overlaps.shape
@@ -95,7 +96,7 @@ def calculate_overlaps(calc: GPAW,
 
     gd.comm.sum(Z_kdnn)
 
-    overlaps = WannierOverlaps(calc.atoms.cell,
+    overlaps = WannierOverlaps(calc.atoms,
                                kd.N_c,
                                directions,
                                Z_kdnn)

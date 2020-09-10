@@ -1,4 +1,7 @@
 from typing import Any
+
+from ase import Atoms
+
 from gpaw import GPAW
 
 Array2D = Any
@@ -7,11 +10,13 @@ Array3D = Any
 
 class WannierFunctions:
     def __init__(self,
+                 atoms: Atoms,
                  U_nn,
                  centers,
                  value,
                  n1=0,
                  spin=0):
+        self.atoms = atoms
         self.U_nn = U_nn
         self.centers = centers
         self.value = value
@@ -25,3 +30,6 @@ class WannierFunctions:
                                                        s=self.spin,
                                                        k=0)
         return wf
+
+    def centers_as_atoms(self):
+        return self.atoms + Atoms(f'X{len(self.centers)}', self.centers)

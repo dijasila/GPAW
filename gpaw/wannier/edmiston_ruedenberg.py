@@ -23,7 +23,7 @@ def localize(overlaps: WannierOverlaps,
 
     Orthorhombic cell, no k-points, only occupied states.
     """
-    if (np.diag(overlaps.cell.diagonal()) != overlaps.cell).any():
+    if not overlaps.atoms.cell.orthorhombic:
         raise NotImplementedError('An orthogonal cell is required')
     assert overlaps.monkhorst_pack_size == (1, 1, 1)
 
@@ -51,9 +51,9 @@ def localize(overlaps: WannierOverlaps,
 
     # Find centers:
     scaled_nc = -np.angle(Z_nnc.diagonal()).T / (2 * pi)
-    centers_nv = (scaled_nc % 1.0).dot(overlaps.cell)
+    centers_nv = (scaled_nc % 1.0).dot(overlaps.atoms.cell)
 
-    return WannierFunctions(U_nn, centers_nv, value)
+    return WannierFunctions(overlaps.atoms, U_nn, centers_nv, value)
 
 
 if __name__ == '__main__':
@@ -65,3 +65,4 @@ if __name__ == '__main__':
     overlaps = calculate_overlaps(calc)
     wan = overlaps.localize(verbose=True)
     print(wan.centers)
+    wan.centers_as_atoms().edit()
