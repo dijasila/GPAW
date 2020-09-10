@@ -1,177 +1,96 @@
 .. _build on niflheim:
 
-=========================
-Building GPAW on Niflheim
-=========================
-
-Information about the Niflheim cluster can be found at
-`<https://wiki.fysik.dtu.dk/niflheim>`_.
+==========================================
+Building GPAW in a Python venv on Niflheim
+==========================================
 
 This document explains how to compile a developer version of GPAW on
 Niflheim.  If you just want to run the pre-installed version, please
 read the guide :ref:`Using a pre-installed GPAW on Niflheim <load on niflheim>`.
+.. seealso::
 
+    * :mod:`venv`.
+    * Information about the Niflheim cluster can be found at
+      `<https://wiki.fysik.dtu.dk/niflheim>`_.
+    * `MyQueue <https://myqueue.readthedocs.io/>`__.
+
+.. content::
 
 .. highlight:: bash
 
-Get the ASE and GPAW source code
-================================
 
-Here, we install the development versions of ASE and GPAW in ``~/ase`` and
-``~/gpaw``.  Make sure the folders do not exist, remove them if they
-do (or update with ``git pull`` if you have done this step previously)::
+Creating the venv
+=================
+
+Download the :download:`gpaw-venv.sh` script and run it like this::
 
     $ cd
-    $ git clone https://gitlab.com/ase/ase.git
-    $ git clone https://gitlab.com/gpaw/gpaw.git
+    $ ./gpaw-venv.sh <folder-name>
+    ...
+    ...
 
-	       
-Choose the right compiler suite
-===============================
+After a few minutes, you will have a folder with a venv inside.
+The `gpaw-venv.sh` script does the following:
 
-GPAW has traditionally been compiled with the standard GNU compilers,
-but compiling with the Intel compiler suite and the Intel Math Kernel
-Library (MKL) gives approximately 30% better performance.
+* load relevant modules from the foss toolchain
+* create the venv
+* clone and install ASE and GPAW from gitlab
+* install some other Python packages from PyPI: sklearn, graphviz,
+  pytest-xdist, myqueue, ase-ext, spglib
+* enable tab-completion for command-line tools:
+  `ase <https://wiki.fysik.dtu.dk/ase/cmdline.html>`__,
+  `gpaw <https://wiki.fysik.dtu.dk/gpaw/documentation/cmdline.html>`__,
+  `mq <https://myqueue.readthedocs.io/en/latest/cli.html>`__
 
-**We strongly recommend using the Intel compiler!**  To do so, put
-this in your .bashrc::
+Here is the full script:
 
-  ASE=~/ase
-  GPAW=~/gpaw
-  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
-
-The first two lines specify where you keep your developer checkouts of
-ASE and GPAW.
-
-If you insist on using the GNU compilers (at a **performance
-penalty**) do this instead::
-
-  ASE=~/ase
-  GPAW=~/gpaw
-  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-foss.sh
-
-Note that these files import Python and matplotlib compiled with the
-same compilers as you will use for GPAW.  This means that any other
-module you import should be with the same compiler (intel or foss).
-For example if you need scikit-learn, it should be imported as
-``scikit-learn/0.20.0-intel-2018b-Python-3.6.6`` to get the intel
-version.  The files above sets a variable ``$MYPYTHON`` to make this
-easier, and you can import e.g. scikit-learn with::
-
-  module load scikit-learn/0.20.0-$MYPYTHON   # Just an example
+.. literalinclude:: gpaw-venv.sh
 
 
-Optional: Select libxc and perhaps libvdwxc
-===========================================
+Using the venv
+==============
 
-Per default, GPAW is compiled with libxv version 3.0.1 since there
-appear to be rare circumstances where newer libxc versions give wrong
-results (probably only related to users generating their own PAW
-setups).
+The venv needs to be activated like this::
 
-If you want a newer version you should load it explicitly *before*
-sourcing the ``gpaw-intel.sh`` or ``gpaw-foss.sh`` file::
+    $ source ~/<folder-name>/venv/bin/activate
 
-  ASE=~/ase
-  GPAW=~/gpaw
-  module load libxc/4.2.3-intel-2018b
-  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
+and you can deactivate it when you no longer need to use it::
 
-Similarly, if you need XC potentials from ``libvdwxc`` you should manually load
-this module as well.  It is currently only available with the foss
-compiler suite due to an incompatibility between the FFTW and MKL
-libraries.  **IMPORTANT:** GPAW support van der Waals correlation
-even without ``libvdwxc`` loaded!
+    $ deactivate
 
+You will want the activation to happen automatically for the jobs you
+submit to Niflheim.  Here are three ways to do it:
 
+1) If you always want to use one venv then just put the activation
+   command in your ``~/.bashrc``.
 
+2) If you only want job running inside a certain folder to use the venv,
+   then add this to your ``~/.bashrc``::
 
-Installing GPAW on all Niflheim architectures
-=============================================
+       if [[ $SLURM_SUBMIT_DIR/ = $HOME/project-1* ]]; then
+           source ~/<folder-name>/venv/bin/activate
+       fi
 
-Compile GPAW's C-extension using the :download:`compile.sh` script::
+   Now, SLURM-jobs submitted inside your ``~/project-1/``
+   folder will use the venv.
 
-    $ source ~/.bashrc    # Only needed if you changed your .bashrc file.
-    $ cd gpaw
-    $ sh doc/platforms/Linux/Niflheim/compile.sh
+3) Use the "automatic discovery of venv's" feature of MyQueue::
 
-Submit jobs to the queue with::
+       $ cd ~/project-1
+       $ ln -s ~/<folder-name>/venv
+       $ mq submit job.py
 
-    $ gpaw sbatch -- -p xeon8 -N 2 -n 16 my-script.py
-
-Type ``gpaw sbatch -h`` for help.
+   MyQueue will look ``venv/`` folders (or soft-links as in the axample)
+   in one of the parent folders and activate the venv automatically when
+   your job starts running.
 
 
-Using more than one version of GPAW
-===================================
+Adding additional packages
+==========================
 
-Here, we install an additional version of GPAW for, say, test runs::
+In order to add more Python packages to your venv, you need to activate it
+and then you can `pip install` packages.  Here is how to install ASR::
 
-    $ cd ~
-    $ mkdir testing
-    $ cd testing
-    $ ... clone gpaw and compile ...
-
-Add this to your ``~/.bashrc``::
-
-    if [[ $SLURM_SUBMIT_DIR/ = $HOME/test-runs* ]]; then
-        GPAW=~/testing/gpaw
-    fi
-
-right before sourcing the ``gpaw-foss.sh`` or ``gpaw-intel.sh`` script
-mentioned above. Now, SLURM-jobs submitted inside your ``~/test-runs/``
-folder will use the version of GPAW from the ``~/testing/`` folder.
-
-Using more than one compiler with GPAW
-======================================
-
-If we want to run different versions of GPAW with different compilers, we
-again make an additional clone of the GPAW repository::
-
-    $ cd ~
-    $ mkdir performancetest
-    $ cd performancetest
-    $ ... clone gpaw ...
-
-Say you normally use the foss compiler and want to try out the intel one
-for performance. Then we have to create the right bash environment, both
-before compiling and upon ssh'ing into each login node. The latter is
-done by specifying what bash commands the compile script should run
-immediately after ssh'ing into each node. These commands can be given to
-the compile script as inputs::
-
-    $ module purge
-    $ GPAW=~/performancetest/gpaw
-    $ source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
-    $ cd ~/performancetest/gpaw
-    $ sh doc/platforms/Linux/Niflheim/compile.sh 'module purge' 'GPAW=~/performancetest/gpaw' 'source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh'
-
-Instead of typing all your commands into the terminal, you can write them
-in a file. Say you write a file ``~/perfomancetest/gpaw-intel-env.sh``::
-
-  module purge
-  GPAW=~/performancetest/gpaw
-  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
-  module list
-
-where the ``module list`` command has been added to track your modules.
-Then you can compile your performance test version of gpaw by::
-
-    $ source ~/performancetest/gpaw-intel-env.sh
-    $ cd ~/performancetest/gpaw
-    $ sh doc/platforms/Linux/Niflheim/compile.sh 'source ~/performancetest/gpaw-intel-env.sh'
-
-Finally, you need to load the right modules, when you are using the
-performance test version of gpaw. This is done in your ``~/.bashrc``
-by choosing the specific compiler toolchain together with the
-version of gpaw::
-
-  if [[ $SLURM_SUBMIT_DIR/ = $HOME/performancetest-runs* ]]; then
-      GPAW=~/performancetest/gpaw
-      source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
-  fi
-
-  if [[ -z $GPAW ]]; then
-      GPAW=~/gpaw
-      source $GPAW/doc/platforms/Linux/Niflheim/gpaw-foss.sh
-  fi
+    $ pip install asr  # from PyPI
+    $ pip install <path-to-asr>  # from a git clone
+    $ pip install -e <path-to-asr>  # use source code from a git clone dirctly
