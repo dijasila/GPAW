@@ -7,14 +7,15 @@ Building GPAW in a Python venv on Niflheim
 This document explains how to compile a developer version of GPAW on
 Niflheim.  If you just want to run the pre-installed version, please
 read the guide :ref:`Using a pre-installed GPAW on Niflheim <load on niflheim>`.
+
 .. seealso::
 
-    * :mod:`venv`.
+    * :mod:`Creation of Python virtual environments <venv>`.
     * Information about the Niflheim cluster can be found at
       `<https://wiki.fysik.dtu.dk/niflheim>`_.
     * `MyQueue <https://myqueue.readthedocs.io/>`__.
 
-.. content::
+.. contents::
 
 .. highlight:: bash
 
@@ -27,10 +28,9 @@ Download the :download:`gpaw-venv.sh` script and run it like this::
     $ cd
     $ ./gpaw-venv.sh <folder-name>
     ...
-    ...
 
 After a few minutes, you will have a folder with a venv inside.
-The `gpaw-venv.sh` script does the following:
+The ``gpaw-venv.sh`` script does the following:
 
 * load relevant modules from the foss toolchain
 * create the venv
@@ -80,7 +80,7 @@ submit to Niflheim.  Here are three ways to do it:
        $ ln -s ~/<folder-name>/venv
        $ mq submit job.py
 
-   MyQueue will look ``venv/`` folders (or soft-links as in the axample)
+   MyQueue will look for ``venv/`` folders (or soft-links as in the example)
    in one of the parent folders and activate the venv automatically when
    your job starts running.
 
@@ -89,7 +89,7 @@ Adding additional packages
 ==========================
 
 In order to add more Python packages to your venv, you need to activate it
-and then you can `pip install` packages.  Here is how to install ASR::
+and then you can ``pip install`` packages.  Here sre three ways to install ASR::
 
     $ pip install asr  # from PyPI
     $ pip install <path-to-asr>  # from a git clone
