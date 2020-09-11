@@ -1,22 +1,41 @@
-def get_nonlocal_functional(name,
-                            stencil=2,
-                            metallic=False,
-                            width=None):
+from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
+
+
+def get_nonlocal_functional(name: str,
+                            stencil: int = 2,
+                            metallic: bool = False,
+                            width: float = None,
+                            eps: float = 0.05) -> NonLocalFunctional:
     """Function for building GLLB functionals.
+
+    Parameters:
+
+    name:
+        name of the functional
+    stencil:
+        parameter passed to :class:`~gpaw.xc.gga.GGA`
+    metallic:
+        parameter passed to :class:`~gpaw.xc.gllb.coefficients.Coefficients`
+    width:
+        parameter passed to :class:`~gpaw.xc.gllb.coefficients.Coefficients`
+    eps:
+        parameter passed to :class:`~gpaw.xc.gllb.coefficients.Coefficients`
 
     Recognized names and implied parameters:
     * GLLB (Contains screening part from B88 functional
             and response part based on simple square root expression
             of orbital energy differences)
-    * GLLBC (GLLB with screening part from PBE + PBE Correlation)
-    * GLLBSC (GLLB with screening part from PBE_SOL + PBE Correlation)
-    * GLLBNORESP (Just GLLB Screening)
+    * GLLBM (GLLB with `metallic=True`)
+    * GLLBC (GLLB with screening part from PBE + correlation from PBE)
+    * GLLBCP86 (GLLB with screening part from B88 + correlation from P86)
+    * GLLBSC (GLLB with screening part from PBEsol + correlation from PBEsol)
+    * GLLBSCM (GLLBSC with `metallic=True`)
+    * GLLBNORESP (Just GLLB screening)
     * GLLBLDA (A test functional, which is just LDA but via
                NonLocalFunctional framework)
     * GLLBPBE (A test functional, which is just PBE but via
                NonLocalFunctional framework)
     """
-    from gpaw.xc.gllb.nonlocalfunctional import NonLocalFunctional
     from gpaw.xc.gllb.c_gllbscr import C_GLLBScr
     from gpaw.xc.gllb.c_response import C_Response
     from gpaw.xc.gllb.c_xc import C_XC
@@ -72,7 +91,7 @@ def get_nonlocal_functional(name,
         scr = C_GLLBScr(1.0, functional=scr_functional)
         functional.add_contribution(scr)
     if response:
-        coef = Coefficients(width=width, metallic=metallic)
+        coef = Coefficients(eps=eps, width=width, metallic=metallic)
         resp = C_Response(1.0, coef)
         functional.add_contribution(resp)
     if xc_functional is not None:
