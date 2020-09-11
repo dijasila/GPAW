@@ -22,6 +22,8 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     xc = 'GLLBSC'
     KS_gap_ref = 4.180237125868162
     QP_gap_ref = 5.469387490357182
+    KS_gap_direct_ref = 5.682571428480924
+    QP_gap_direct_ref = 7.452331561454596
     dxc_ave_ref = 1.33769712051036
     # M. Kuisma et. al, https://doi.org/10.1103/PhysRevB.82.115106
     #     C: KS gap 4.14 eV, QP gap 5.41eV, expt. 5.48 eV
@@ -40,6 +42,26 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
+
+    if deprecated_syntax:
+        with pytest.warns(DeprecationWarning):
+            # Calculate the discontinuity directly
+            response = calc.hamiltonian.xc.xcs['RESPONSE']
+            response.calculate_delta_xc()
+            KS_gap, dxc = response.calculate_delta_xc_perturbation()
+    else:
+        # Calculate the discontinuity directly
+        homo, lumo = calc.get_homo_lumo()
+        response = calc.hamiltonian.xc.response
+        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        KS_gap, dxc = response.calculate_discontinuity(Dxc_pot)
+
+    assert KS_gap == pytest.approx(KS_gap_direct_ref, abs=1e-4)
+    print('KS gap direct', KS_gap)
+
+    QP_gap = KS_gap + dxc
+    print('QP gap direct', QP_gap)
+    assert QP_gap == pytest.approx(QP_gap_direct_ref, abs=1e-4)
 
     if deprecated_syntax:
         with pytest.warns(DeprecationWarning):
