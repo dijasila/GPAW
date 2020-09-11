@@ -17,6 +17,7 @@ def run(xc):
                 h=0.3,
                 nbands=8,
                 xc=xc,
+                convergence={'density': 1e-5},
                 kpts={'size': (1, 1, 1), 'gamma': True},
                 txt='{}.out'.format(xc))
     atoms.calc = calc
