@@ -84,19 +84,22 @@ def get_nonlocal_functional(name: str,
     else:
         raise RuntimeError('Unkown nonlocal density functional: ' + name)
 
+    def func_name_to_dict(name):
+        dct = {'name': name}
+        if name != 'LDA':
+            dct['stencil'] = stencil
+        return dct
+
     # Construct functional
     functional = NonLocalFunctional(name, setup_name=setup_name)
     if scr_functional is not None:
-        scr_functional = {'name': scr_functional, 'stencil': stencil}
-        scr = C_GLLBScr(1.0, functional=scr_functional)
+        scr = C_GLLBScr(1.0, functional=func_name_to_dict(scr_functional))
         functional.add_contribution(scr)
     if response:
         coef = Coefficients(eps=eps, width=width, metallic=metallic)
         resp = C_Response(1.0, coef)
         functional.add_contribution(resp)
     if xc_functional is not None:
-        if xc_functional != 'LDA':
-            xc_functional = {'name': xc_functional, 'stencil': stencil}
-        xc = C_XC(1.0, functional=xc_functional)
+        xc = C_XC(1.0, functional=func_name_to_dict(xc_functional))
         functional.add_contribution(xc)
     return functional
