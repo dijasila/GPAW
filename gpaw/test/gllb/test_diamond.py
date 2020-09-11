@@ -56,11 +56,10 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
         Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
         KS_gap, dxc = response.calculate_discontinuity(Dxc_pot)
 
-    assert KS_gap == pytest.approx(KS_gap_direct_ref, abs=1e-4)
-    print('KS gap direct', KS_gap)
-
     QP_gap = KS_gap + dxc
+    print('KS gap direct', KS_gap)
     print('QP gap direct', QP_gap)
+    assert KS_gap == pytest.approx(KS_gap_direct_ref, abs=1e-4)
     assert QP_gap == pytest.approx(QP_gap_direct_ref, abs=1e-4)
 
     if deprecated_syntax:
@@ -132,10 +131,9 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
                     Dxc_pot, 0, True)
             assert dxc_ave == pytest.approx(dxc_ave_ref, abs=1e-4)
 
+    QP_gap = KS_gap + dxc
+    print('KS gap', KS_gap)
+    print('QP gap', QP_gap)
     assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
     assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
-    print('KS gap', KS_gap)
-
-    QP_gap = KS_gap + dxc
-    print('QP gap', QP_gap)
     assert QP_gap == pytest.approx(QP_gap_ref, abs=1e-4)
