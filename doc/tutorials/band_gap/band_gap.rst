@@ -1,4 +1,4 @@
-.. _bandgab:
+.. _band_gap:
 
 =================================================
 Calculating band gap using the GLLB-sc functional

@@ -23,7 +23,7 @@ Git master branch
   * `General fixes and improvements
     <https://gitlab.com/gpaw/gpaw/-/merge_requests/700>`_.
     Syntax for the discontinuity and band gap calculations has also been
-    updated. See :ref:`the updated tutorial <bandgab>` for a detailed
+    updated. See :ref:`the updated tutorial <band_gap>` for a detailed
     description of these calculations.
 
 * Forces are now available for hybrid functionals in
