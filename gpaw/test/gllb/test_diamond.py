@@ -53,8 +53,8 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
         # Calculate the discontinuity directly
         homo, lumo = calc.get_homo_lumo()
         response = calc.hamiltonian.xc.response
-        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
-        KS_gap, dxc = response.calculate_discontinuity(Dxc_pot)
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        KS_gap, dxc = response.calculate_discontinuity(dxc_pot)
 
     QP_gap = KS_gap + dxc
     print('KS gap direct', KS_gap)
@@ -118,17 +118,17 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     else:
         # Calculate the discontinuity potential with accurate band gap
         response = calc.hamiltonian.xc.response
-        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 
         # Calculate the discontinuity using the band structure calculator
         bs_response = bs_calc.hamiltonian.xc.response
-        KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
+        KS_gap, dxc = bs_response.calculate_discontinuity(dxc_pot)
 
         # Test alternative (testing) implementation
         if world.size == 1:
             with pytest.warns(Warning):
                 dxc_ave = bs_response.calculate_discontinuity_from_average(
-                    Dxc_pot, 0, True)
+                    dxc_pot, 0, True)
             assert dxc_ave == pytest.approx(dxc_ave_ref, abs=1e-4)
 
     QP_gap = KS_gap + dxc

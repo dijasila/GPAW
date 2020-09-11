@@ -34,11 +34,11 @@ homo, lumo = bs_calc.get_homo_lumo()
 # Calculate the discontinuity potential using the ground state calculator and
 # the accurate HOMO and LUMO
 response = calc.hamiltonian.xc.response
-Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 
 # Calculate the discontinuity using the band structure calculator
 bs_response = bs_calc.hamiltonian.xc.response
-KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
+KS_gap, dxc = bs_response.calculate_discontinuity(dxc_pot)
 
 # Fundamental band gap = Kohn-Sham band gap + derivative discontinuity
 QP_gap = KS_gap + dxc

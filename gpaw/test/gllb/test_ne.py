@@ -34,8 +34,8 @@ def test_gllb_ne(in_tmp_dir):
         # Calculate the discontinuity
         homo, lumo = calc.get_homo_lumo()
         response = calc.hamiltonian.xc.response
-        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
-        response.calculate_discontinuity(Dxc_pot)
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        response.calculate_discontinuity(dxc_pot)
 
         eps3d = calc.wfs.kpt_u[0].eps_n[3]
         # if world.rank == 0:

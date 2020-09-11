@@ -810,8 +810,8 @@ energy = atoms.get_potential_energy()
 # included in the used k-point grid).
 homo, lumo = calc.get_homo_lumo()
 response = calc.hamiltonian.xc.response
-Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
-KS_gap, dxc = response.calculate_discontinuity(Dxc_pot)
+dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+KS_gap, dxc = response.calculate_discontinuity(dxc_pot)
 gap = KS_gap + dxc
 
 # %%

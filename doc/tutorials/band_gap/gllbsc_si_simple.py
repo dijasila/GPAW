@@ -19,8 +19,8 @@ atoms.get_potential_energy()
 # Calculate the discontinuity potential and the discontinuity
 homo, lumo = calc.get_homo_lumo()
 response = calc.hamiltonian.xc.response
-Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
-KS_gap, dxc = response.calculate_discontinuity(Dxc_pot)
+dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+KS_gap, dxc = response.calculate_discontinuity(dxc_pot)
 
 # Fundamental band gap = Kohn-Sham band gap + derivative discontinuity
 QP_gap = KS_gap + dxc

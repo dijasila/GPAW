@@ -263,10 +263,10 @@ class C_Response(Contribution):
             #               'can be inaccurate.')
             homolumo = self.wfs.get_homo_lumo()
         homo, lumo = homolumo
-        Dxc = self.calculate_discontinuity_potential(homo * Ha, lumo * Ha)
-        self.Dxc_vt_sG = Dxc.vt_sG
-        self.Dxc_D_asp = Dxc.D_asp
-        self.Dxc_Dresp_asp = Dxc.Dresp_asp
+        dxc_pot = self.calculate_discontinuity_potential(homo * Ha, lumo * Ha)
+        self.Dxc_vt_sG = dxc_pot.vt_sG
+        self.Dxc_D_asp = dxc_pot.D_asp
+        self.Dxc_Dresp_asp = dxc_pot.Dresp_asp
 
     def calculate_discontinuity_potential(self, homo, lumo):
         r"""Calculate the derivative discontinuity potential.
@@ -283,16 +283,16 @@ class C_Response(Contribution):
 
         Returns:
 
-        Dxc: Discontinuity potential
+        dxc_pot: Discontinuity potential
         """
         homolumo = np.asarray((homo, lumo)) / Ha
 
-        Dxc_Dresp_asp = self.empty_atomic_matrix()
-        Dxc_D_asp = self.empty_atomic_matrix()
+        dxc_Dresp_asp = self.empty_atomic_matrix()
+        dxc_D_asp = self.empty_atomic_matrix()
         for a in self.density.D_asp:
             ni = self.wfs.setups[a].ni
-            Dxc_Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
-            Dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
+            dxc_Dresp_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
+            dxc_D_asp[a] = np.zeros((self.nspins, ni * (ni + 1) // 2))
 
         # Calculate new response potential with LUMO reference
         w_kn = self.coefficients.get_coefficients_for_lumo_perturbation(
@@ -300,30 +300,30 @@ class C_Response(Contribution):
             homolumo=homolumo)
         f_kn = [kpt.f_n for kpt in self.wfs.kpt_u]
 
-        Dxc_vt_sG = self.gd.zeros(self.nspins)
+        dxc_vt_sG = self.gd.zeros(self.nspins)
         nt_sG = self.gd.zeros(self.nspins)
         for kpt, w_n in zip(self.wfs.kpt_u, w_kn):
-            self.wfs.add_to_density_from_k_point_with_occupation(Dxc_vt_sG,
+            self.wfs.add_to_density_from_k_point_with_occupation(dxc_vt_sG,
                                                                  kpt, w_n)
             self.wfs.add_to_density_from_k_point(nt_sG, kpt)
 
         self.wfs.kptband_comm.sum(nt_sG)
-        self.wfs.kptband_comm.sum(Dxc_vt_sG)
+        self.wfs.kptband_comm.sum(dxc_vt_sG)
 
         if self.wfs.kd.symmetry:
-            for nt_G, Dxc_vt_G in zip(nt_sG, Dxc_vt_sG):
+            for nt_G, dxc_vt_G in zip(nt_sG, dxc_vt_sG):
                 self.wfs.kd.symmetry.symmetrize(nt_G, self.gd)
-                self.wfs.kd.symmetry.symmetrize(Dxc_vt_G, self.gd)
+                self.wfs.kd.symmetry.symmetrize(dxc_vt_G, self.gd)
 
-        Dxc_vt_sG /= nt_sG + self.damp
+        dxc_vt_sG /= nt_sG + self.damp
 
         self.wfs.calculate_atomic_density_matrices_with_occupation(
-            Dxc_Dresp_asp, w_kn)
+            dxc_Dresp_asp, w_kn)
         self.wfs.calculate_atomic_density_matrices_with_occupation(
-            Dxc_D_asp, f_kn)
-        Dxc = ResponsePotential(self, Dxc_vt_sG, None,
-                                Dxc_D_asp, Dxc_Dresp_asp)
-        return Dxc
+            dxc_D_asp, f_kn)
+        dxc_pot = ResponsePotential(self, dxc_vt_sG, None,
+                                    dxc_D_asp, dxc_Dresp_asp)
+        return dxc_pot
 
     def calculate_delta_xc_perturbation(self):
         warnings.warn(
@@ -331,14 +331,14 @@ class C_Response(Contribution):
             'Please use calculate_discontinuity() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
-                                self.Dxc_Dresp_asp)
+        dxc_pot = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
+                                    self.Dxc_Dresp_asp)
         if self.nspins != 1:
             ret = []
             for spin in range(self.nspins):
-                ret.append(self.calculate_discontinuity(Dxc, spin=spin))
+                ret.append(self.calculate_discontinuity(dxc_pot, spin=spin))
             return ret
-        return self.calculate_discontinuity(Dxc)
+        return self.calculate_discontinuity(dxc_pot)
 
     def calculate_delta_xc_perturbation_spin(self, s=0):
         warnings.warn(
@@ -346,12 +346,12 @@ class C_Response(Contribution):
             'deprecated. Please use calculate_discontinuity_spin() instead. '
             'See documentation on calculating band gap with GLLBSC.',
             DeprecationWarning)
-        Dxc = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
-                                self.Dxc_Dresp_asp)
-        return self.calculate_discontinuity(Dxc, spin=s)
+        dxc_pot = ResponsePotential(self, self.Dxc_vt_sG, None, self.Dxc_D_asp,
+                                    self.Dxc_Dresp_asp)
+        return self.calculate_discontinuity(dxc_pot, spin=s)
 
     def calculate_discontinuity(self,
-                                Dxc: ResponsePotential,
+                                dxc_pot: ResponsePotential,
                                 spin: int = None):
         r"""Calculate the derivative discontinuity.
 
@@ -361,7 +361,7 @@ class C_Response(Contribution):
 
         Parameters:
 
-        Dxc:
+        dxc_pot:
             Discontinuity potential.
         spin:
             Spin value.
@@ -379,8 +379,8 @@ class C_Response(Contribution):
             spin = 0
 
         # Redistribute discontinuity potential
-        if Dxc.response is not self:
-            Dxc.redistribute(self)
+        if dxc_pot.response is not self:
+            dxc_pot.redistribute(self)
 
         homo, lumo = self.wfs.get_homo_lumo(spin)
         KSgap = lumo - homo
@@ -399,16 +399,16 @@ class C_Response(Contribution):
                 nt_G[:] = 0.0
                 self.wfs.add_orbital_density(nt_G, kpt, lumo_n)
                 E = 0.0
-                for a in Dxc.D_asp:
-                    D_sp = Dxc.D_asp[a]
-                    Dresp_sp = Dxc.Dresp_asp[a]
+                for a in dxc_pot.D_asp:
+                    D_sp = dxc_pot.D_asp[a]
+                    Dresp_sp = dxc_pot.Dresp_asp[a]
                     P_ni = kpt.P_ani[a]
                     Dwf_p = pack(np.outer(P_ni[lumo_n].T.conj(),
                                           P_ni[lumo_n]).real)
                     E += self.integrate_sphere(a, Dresp_sp, D_sp, Dwf_p,
                                                spin=spin)
                 E = self.gd.comm.sum(E)
-                E += self.gd.integrate(nt_G * Dxc.vt_sG[spin])
+                E += self.gd.integrate(nt_G * dxc_pot.vt_sG[spin])
                 E += kpt.eps_n[lumo_n] - lumo
                 min_energy = min(min_energy, E)
 
@@ -417,7 +417,7 @@ class C_Response(Contribution):
         return KSgap * Ha, dxc * Ha
 
     def calculate_discontinuity_from_average(self,
-                                             Dxc: ResponsePotential,
+                                             dxc_pot: ResponsePotential,
                                              spin: int,
                                              testing: bool = False):
         msg = ('This function estimates discontinuity by calculating '
@@ -430,7 +430,7 @@ class C_Response(Contribution):
         assert self.wfs.world.size == 1
 
         # Calculate average of lumo reference response potential
-        dxc = np.average(Dxc.vt_sG[spin])
+        dxc = np.average(dxc_pot.vt_sG[spin])
         return dxc * Ha
 
     def initialize_from_atomic_orbitals(self, basis_functions):

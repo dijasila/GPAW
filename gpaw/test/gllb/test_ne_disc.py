@@ -36,8 +36,8 @@ def test_gllb_ne_disc(in_tmp_dir):
         Ne.get_potential_energy()
         homo, lumo = calc.get_homo_lumo()
         response = calc.hamiltonian.xc.response
-        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
-        KS, dxc = response.calculate_discontinuity(Dxc_pot)
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        KS, dxc = response.calculate_discontinuity(dxc_pot)
         if xcname == 'GLLB':
             equal(KS + dxc, 24.89, 1.5e-1)
         else:
@@ -48,8 +48,8 @@ def test_gllb_ne_disc(in_tmp_dir):
         atoms, calc = restart('Ne_temp.gpw')
         homo, lumo = calc.get_homo_lumo()
         response = calc.hamiltonian.xc.response
-        Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
-        KS2, dxc2 = response.calculate_discontinuity(Dxc_pot)
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        KS2, dxc2 = response.calculate_discontinuity(dxc_pot)
         equal(KS, KS2, 1e-5)
         equal(dxc2, dxc, 1e-5)
 
