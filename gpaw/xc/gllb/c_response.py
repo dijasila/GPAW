@@ -378,6 +378,10 @@ class C_Response(Contribution):
                 raise ValueError('Specify spin for the discontinuity.')
             spin = 0
 
+        # Redistribute discontinuity potential
+        if Dxc.response is not self:
+            Dxc.redistribute(self)
+
         homo, lumo = self.wfs.get_homo_lumo(spin)
         KSgap = lumo - homo
 

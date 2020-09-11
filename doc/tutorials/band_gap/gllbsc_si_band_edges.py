@@ -38,7 +38,6 @@ Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 
 # Calculate the discontinuity using the band structure calculator
 bs_response = bs_calc.hamiltonian.xc.response
-Dxc_pot.redistribute(bs_response)
 KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
 
 # Fundamental band gap = Kohn-Sham band gap + derivative discontinuity

@@ -100,7 +100,6 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
 
         # Calculate the discontinuity using the band structure calculator
         bs_response = bs_calc.hamiltonian.xc.response
-        Dxc_pot.redistribute(bs_response)
         KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
 
     assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
