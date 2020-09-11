@@ -30,6 +30,7 @@ class WLDA(XCFunctional):
         self.rcut_factor = rc
         self.kernel_type = kernel_type
         self.kernel_param = kernel_param
+        wlda_type = 'c'
         self.wlda_type = wlda_type
         if wlda_type not in ['1', '2', '3', 'c']:
             raise ValueError('WLDA type {} not recognized'.format(wlda_type))
@@ -799,10 +800,14 @@ class WLDA(XCFunctional):
         """Apply the correction to the Hartree energy.
         
         Calculate
-            Delta E = -0.5 int drdr' (n-n*)(r)(n-n*)(r')/|r-r'|
+            Delta E = -0.5 int dr' (n-n*)(r)(n-n*)(r')/|r-r'|
 
         This corrects the Hartree energy so it is effectively
         calculated with n* instead of n.
+
+        Also calculate the resulting correction to the
+        potential:
+            Delta v = dDeltaE/dn
         """
         if mpi.rank != 0:
             # We should only calculate the Hartree
@@ -817,6 +822,299 @@ class WLDA(XCFunctional):
         total_G *= -2 * np.pi / K_G**2
 
         e_g[:] += (total_g * self.ifftn(total_G).real)
+
+        raise NotImplementedError()
+
+    def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
+        """Calculate the XC energy and potential for an atomic system.
+
+        Is called when using GPAW's atom module with WLDA.
+
+        We assume this function is never called in parallel.
+
+        Modifies:
+            v_sg to contain the XC potential
+
+        Returns:
+            The /total/ XC energy
+        """
+        assert len(n_sg) == 1
+        if e_g is None:
+            e_g = rgd.empty()
+        self.rgd = rgd
+
+        self.setup_radial_indicators(n_sg)
+
+        nstar_sg = self.radial_weighted_density(rgd, n_sg)
+
+        self.radial_wldaxc(n_sg, nstar_sg, v_sg, e_g)
+        self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
+
+        return rgd.integrate(e_g)
+
+    def setup_radial_indicators(self, n_sg):
+        """Set up the indicator functions for an atomic system.
+
+        We first define a grid of indicator-values/anchors.
+
+        Then we evaluate the indicator functions on the
+        density.
+        """
+        if n_sg.ndim == 1:
+            spin = 1
+        else:
+            spin = n_sg.shape[0]
+
+        minn = np.min(n_sg)
+        maxn = np.max(n_sg)
+        # The indicator anchors
+        nalphas = 100
+        alphas = np.linspace(minn , maxn, nalphas)
+
+        i_asg = np.zeros((nalphas,) + n_sg.shape)
+        di_asg = np.zeros((nalphas,) + n_sg.shape)
+
+        na = np.logical_and
+        for ia, alpha in enumerate(alphas):
+            if ia == 0:
+                def _i(n_g):
+                    res_g = np.zeros_like(n_g)
+                    inds = n_g < alphas[1]
+                    res_g[inds] = (alphas[1] - n_g[inds]) / (alphas[1] - alphas[0])
+                    return res_g
+
+                def _di(n_g):
+                    res_g = np.zeros_like(n_g)
+                    inds = n_g < alphas[1]
+                    res_g[inds] = -1.0
+                    return res_g
+
+
+            elif ia == nalphas - 1:
+                def _i(n_g):
+                    res_g = np.zeros_like(n_g)
+                    inds = n_g >= alphas[ia - 1]
+                    res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[-1] - alphas[-2])
+                    return res_g
+
+                def _di(n_g):
+                    res_g = np.zeros_like(n_g)
+                    inds = n_g >= alphas[ia - 1]
+                    res_g[inds] = 1.0
+                    return res_g
+            else:
+                def _i(n_g):
+                    res_g = np.zeros_like(n_g)
+                    inds = na(n_g >= alphas[ia - 1], n_g < alphas[ia])
+                    res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+                    inds = na(n_g >= alphas[ia], n_g < alphas[ia + 1])
+                    res_g[inds] = (alphas[ia + 1] - n_g[inds]) / (alphas[ia + 1] - alphas[ia])
+                    return res_g
+
+                def _di(n_g):
+                    res_g = np.zeros_like(n_g)
+                    inds = na(n_g >= alphas[ia - 1], n_g < alphas[ia])
+                    res_g[inds] = 1.0
+                    inds = na(n_g >= alphas[ia], n_g < alphas[ia + 1])
+                    res_g[inds] = -1.0
+                    return res_g
+
+            for s in range(spin):
+                    i_asg[ia, s, :] = _i(n_sg[s])
+                    di_asg[ia, s, :] = _di(n_sg[s])
+
+        self.alphas = alphas
+        self.i_asg = i_asg
+        self.di_asg = di_asg
+
+    def radial_weighted_density(self, rgd, n_sg):
+        """Calculate the weighted density for an atomic system.
+
+        n*(k) = sum_a phi(k, a)(i_a[n]n)(k)
+
+        where f(k) is found using spherical Bessel transforms.
+        This is just the standard Fourier transform
+        specialized to a spherically symmetric function.
+
+        The spherical Bessel transform is implemented
+        in gpaw.atom.radialgd.fsbt, where we need the
+        l = 0 version only.
+
+        First we need to define a grid with regular spacing.
+        Then we need to transfer the density to the regular grid.
+        Then we can do the Fourier transform via fsbt.
+        We multiply the weight function and the FT'ed 
+        indicator times density and do inverse FT via fsbt.
+        Finally, we transfer the resulting array back to the
+        radial grid (with uneven spacing probably).
+        """
+        from gpaw.atom.radialgd import fsbt
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        N = 2**13
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        na, ns = self.i_asg.shape[:2]
+
+        nstar_sg = np.zeros_like(n_sg)
+        for ia in range(na):
+            for s in range(ns):
+                n_x = rgd.interpolate(n_sg[s], r_x)
+                i_x = rgd.interpolate(self.i_asg[ia, s, :], r_x)
+
+                in_k = fsbt(0, n_x * i_x,
+                           r_x, G_k) * 4 * np.pi
+                phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+                nstar_sg[s, :] += IUS(r_x, fsbt(0, in_k * phi_k, G_k, r_x) * 2)(rgd.r_g)
+        
+        return nstar_sg
+
+    def radial_weight_function(self, alpha, G_k):
+        kF = (3 * np.pi**2 * alpha)**(1 / 3)
+        return 1 / (1 + 0.005 * (G_k / (kF + 0.0001)**5)**2)
+
+    def radial_wldaxc(self, n_sg, nstar_sg, v_sg, e_g):
+        """Calculate XC energy and potential for an atomic system."""
+        spin = 0
+        e1_g = np.zeros_like(e_g)
+        e2_g = np.zeros_like(e_g)
+        e3_g = np.zeros_like(e_g)
+
+        v1_sg = np.zeros_like(v_sg)
+        v2_sg = np.zeros_like(v_sg)
+        v3_sg = np.zeros_like(v_sg)
+
+        self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg)
+        self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg)
+        self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg)
+        
+        assert np.allclose(e1_g, e1_g.real), f"real: {np.mean(e1_g.real)}, imag: {np.mean(e1_g.imag)}"
+        assert np.allclose(e2_g, e2_g.real)
+        assert np.allclose(e3_g, e3_g.real)
+        assert not np.isnan(e1_g).any()
+        assert not np.isnan(e2_g).any()
+        assert not np.isnan(e3_g).any()
+
+        e_g = e1_g + e2_g - e3_g
+        v_sg = v1_sg + v2_sg - v3_sg
+
+    def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
+        """Calculate e[n*]n and potential."""
+        from gpaw.xc.lda import lda_constants
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+
+        rs = (C0I / nstar_g)**(1. / 3.)
+        ex = C1 / rs
+        
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e_g[:] += n_g * ex
+        else:
+            e_g[:] += 0.5 * n_g * ex
+
+        v_g += ex
+        t1 = rs * dexdrs / 3.0
+        ratio = n_g / nstar_g
+        ratio[np.isclose(nstar_g, 0.0)] = 0.0
+        v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
+
+    def radial_x2(self, spin, e_g, n_g, nstar_g, v_g):
+        """Calculate e[n]n* and potential."""
+        from gpaw.xc.lda import lda_constants
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+
+        rs = (C0I / n_g)**(1. / 3.)
+        ex = C1 / rs
+        
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e_g[:] += ex * nstar_g
+        else:
+            e_g[:] += 0.5 * nstar_g * ex
+
+        v_g += self.radial_derivative_fold(ex, n_g, spin)
+        t1 = rs * dexdrs / 3.0
+        ratio = nstar_g / n_g
+        ratio[np.isclose(n_g, 0.0)] = 0.0
+        v_g += -rs * dexdrs / 3.0 * ratio
+
+    def radial_x3(self, spin, e_g, n_g, nstar_g, v_g):
+        """Calculate e[n*]n* and potential."""
+        from gpaw.xc.lda import lda_constants
+        C0I, C1, CC1, CC2, IF2 = lda_constants()
+
+        rs = (C0I / nstar_g)**(1. / 3.)
+        ex = C1 / rs
+        
+        dexdrs = -ex / rs
+
+        if spin == 0:
+            e_g[:] += ex * nstar_g
+        else:
+            e_g[:] += 0.5 * nstar_g * ex
+
+        v_g = ex - rs * dexdrs / 3.0
+        v_g = self.radial_derivative_fold(v_g, n_g, spin)
+
+    def radial_derivative_fold(self, f_g, n_g, spin):
+        """Calculate folding expression that appears in
+        the derivative of the energy.
+
+        Implements
+            F(r) = int f(r') dn*(r') / dn(r)
+        
+        Calculates
+            sum_a [(f_g * phi_a) * (i_a + di_a n)]        
+        """
+        from gpaw.atom.radialgd import fsbt
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
+        N = 2**13
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        res_g = np.zeros_like(f_g)
+        
+        for ia, a in enumerate(self.alphas):
+            f_x = rgd.interpolate(f_g, r_x)
+            f_k = fsbt(0, f_x, r_x, G_k) * 4 * np.pi
+            phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+            
+            res_g += (IUS(r_x, fsbt(0, f_k * phi_k, G_k, r_x) * 2)(rgd.r_g)
+                      * (self.i_asg[ia, spin, :] + self.di_asg[ia, spin, :] * n_g))
+
+        return res_g
+                    
+    def radial_hartree_correction(self, rgd, n_sg, nstar_sg, v_sg, e_g):
+        """Calculate energy correction -(n-n*)int (n-n*)(r')/(r-r').
+
+        Also potential.
+        """
+        from gpaw.atom.radialgd import fsbt
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        N = 2**13
+        r_x = np.linspace(0, rgd.r_g[-1], N)
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        nstar_g = nstar_sg.sum(axis=0)
+        n_g = n_sg.sum(axis=0)
+
+        dn_g = n_g - nstar_g
+
+        dn_x = rgd.interpolate(dn_g, r_x)
+        dn_k = fsbt(0, dn_x, r_x, G_k) * 4 * np.pi
+        pot_k = np.zeros_like(dn_k)
+        pot_k[1:] = dn_k[1:] / G_k[:1]**2 * 4 * np.pi
+        pot_x = fsbt(0, pot_k, G_k, r_x) * 2
+        pot_g = IUS(r_x, pot_x)(rgd.r_g)
+        
+        e_g -= pot_g * dn_g
+        
+        v_sg[0, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 0))
+        if len(v_sg) == 2:    
+            v_sg[1, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 1))
 
     ###### Abandon all hope ye who enter here #######
     def _calculate_impl(self, gd, n_sg, v_sg, e_g):
