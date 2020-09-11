@@ -116,15 +116,15 @@ class NonLocalFunctional(XCFunctional):
             self.response = contribution
 
     def get_description(self):
-        fmt = '| %-7s | %-10s | %-44s |'
+        fmt = '| %-6s | %-10s | %-45s |'
         header = fmt % ('Weight', 'Module', 'Description')
         dashes = '-' * len(header)
-        s = ['Functional being used consists of']
+        s = ['{} functional being used consists of'.format(self.name)]
         s += [dashes]
         s += [header]
         s += [dashes]
         for c in self.contributions:
-            s += [fmt % ('%7.3f' % c.weight, c.get_name(), c.get_desc())]
+            s += [fmt % ('%6.3f' % c.weight, c.get_name(), c.get_desc())]
         s += [dashes]
         return '\n'.join(s)
 

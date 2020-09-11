@@ -12,7 +12,8 @@ class C_XC(Contribution):
         return 'XC'
 
     def get_desc(self):
-        return "({})".format(self.xc.name)
+        desc = self.xc.get_description()
+        return self.xc.name if desc is None else desc
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)

@@ -20,8 +20,8 @@ class C_GLLBScr(Contribution):
         return 'SCREENING'
 
     def get_desc(self):
-        desc = '({})'.format(self.xc.name)
-        return desc
+        desc = self.xc.get_description()
+        return self.xc.name if desc is None else desc
 
     def initialize(self, density, hamiltonian, wfs):
         Contribution.initialize(self, density, hamiltonian, wfs)
