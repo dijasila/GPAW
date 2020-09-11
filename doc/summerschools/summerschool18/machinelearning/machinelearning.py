@@ -804,10 +804,15 @@ calc = GPAW(mode=PW(500),
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 
-response = calc.hamiltonian.xc.xcs['RESPONSE']
-response.calculate_delta_xc()
-EKs, Dxc = response.calculate_delta_xc_perturbation()
-gap = EKs + Dxc
+# Note! An accurate discontinuity calculation requires a k-point grid that
+# gives accurate HOMO/VBM and LUMO/CBM levels (in other words, the k-points of
+# the valence band maximum and the conduction band minimum should be
+# included in the used k-point grid).
+homo, lumo = calc.get_homo_lumo()
+response = calc.hamiltonian.xc.response
+Dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+KS_gap, dxc = response.calculate_discontinuity(Dxc_pot)
+gap = KS_gap + dxc
 
 # %%
 """
