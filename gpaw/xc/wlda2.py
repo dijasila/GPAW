@@ -2,6 +2,22 @@ from gpaw.xc.functional import XCFunctional
 import numpy as np
 from gpaw.utilities.tools import construct_reciprocal
 import gpaw.mpi as mpi
+import datetime
+from functools import wraps
+from time import time
+from ase.parallel import parprint
+
+def timer(f):
+    
+    @wraps(f)
+    def wrapped(*args):
+        t1 = time()
+        res = f(*args)
+        t2 = time()
+        parprint(f"{f.__name__} took {t2-t1} seconds")
+        return res
+
+    return wrapped
 
 
 class WLDA(XCFunctional):
@@ -17,6 +33,8 @@ class WLDA(XCFunctional):
         self.wlda_type = wlda_type
         if wlda_type not in ['1', '2', '3', 'c']:
             raise ValueError('WLDA type {} not recognized'.format(wlda_type))
+        self.energies = []
+        self._K_G = None
         
     def initialize(self, density, hamiltonian, wfs, occupations=None):
         self.density = density
@@ -25,53 +43,6 @@ class WLDA(XCFunctional):
         self.occupations = occupations
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
-        """Interface for GPAW."""
-        # 0. Collect density,
-        # and get grid_descriptor appropriate for collected density
-        n_sg[n_sg < 1e-20] = 1e-40
-        wn_sg = gd.collect(n_sg, broadcast=True)
-        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
-        self.gd = gd1
-
-        alphas = self.setup_indicator_grid(self.nindicators, wn_sg)
-        self.alphas = alphas
-        self.setup_indicators(alphas)
-        my_alpha_indices = self.distribute_alphas(self.nindicators,
-                                                  mpi.rank, mpi.size)
-        
-        # 1. Correct density
-        # This or correct via self.get_ae_density(gd, n_sg)
-        wn_sg = self.density_correction(self.gd, wn_sg)
-        wn_sg[wn_sg < 1e-20] = 1e-20
-        # 2. calculate weighted density
-        # This contains contributions for the alphas at this
-        # rank, i.e. we need a world.sum to get all contributions
-        nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
-        mpi.world.sum(nstar_sg)
-        nstar_sg[nstar_sg < 1e-20] = 1e-40
-        if mpi.rank == 0 and not (nstar_sg >= 0.0).all():
-            np.save("nstar_sg.npy", nstar_sg)
-        assert (nstar_sg >= 0.0).all()
-        # 3. Calculate LDA energy
-        e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
-        
-        e_g *= 0.0
-        v_sg *= 0.0
-        gd.distribute(e1_g, e_g)
-        gd.distribute(v1_sg, v_sg)
-
-        if hasattr(self, "niter") and hasattr(self, "energies"):
-            if len(self.energies) >= 2:
-                err = abs(self.energies[-1] - self.energies[-2])
-                if self.niter > 5 and err > 1:
-                    if mpi.rank == 0:
-                        np.save(f"{self.niter}wn_sg.npy", wn_sg)
-                        np.save(f"{self.niter}v_sg.npy", v_sg)
-
-        else:
-            print("Dont have niter")
-
-    def new_calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
         wn_sg = self.get_working_density(n_sg, gd)
 
@@ -82,11 +53,15 @@ class WLDA(XCFunctional):
         # If spin-paired we can reuse the weighted density
         nstar_sg, alpha_indices = self.wlda_x(wn_sg, exc_g, vxc_sg)
 
-        self.wlda_c(wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices)
+        nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
+                               nstar_sg, alpha_indices)
+
+        self.hartree_correction(self.gd, exc_g, wn_sg, nstar_sg)
 
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
 
+    @timer
     def get_working_density(self, n_sg, gd):
         """Construct the "working" density.
 
@@ -114,6 +89,7 @@ class WLDA(XCFunctional):
 
         return wn_sg
 
+    @timer
     def wlda_x(self, wn_sg, exc_g, vxc_sg):
         """
         Calculate WLDA exchange energy.
@@ -179,6 +155,7 @@ class WLDA(XCFunctional):
             vxc_sg[:] = v1_sg + v2_sg - v3_sg
             return None, None
 
+    @timer
     def wlda_c(self, wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices):
         """Calculate the WLDA correlation energy.
         
@@ -224,8 +201,9 @@ class WLDA(XCFunctional):
 
         exc_g[:] += e1_g + e2_g - e3_g
         vxc_sg[:] += v1_sg + v2_sg - v3_sg
-        return
+        return nstar_sg
 
+    @timer
     def get_weighted_density(self, wn_sg):
         """Set up the weighted density.
 
@@ -258,7 +236,7 @@ class WLDA(XCFunctional):
 
         nstar_sg[nstar_sg < 1e-20] = 1e-40
 
-        return nstar_sg
+        return nstar_sg, alpha_indices
 
     def construct_alphas(self, wn_sg):
         """Construct indicator data.
@@ -371,8 +349,8 @@ class WLDA(XCFunctional):
 
             return ind_sg
 
-        self.get_indicator_sg = get_ind_sg
-        self.get_indicator_g = get_ind_sg
+        self.get_indicator_sg = timer(get_ind_sg)
+        self.get_indicator_g = timer(get_ind_sg)
 
         def get_dind_alpha(ia):
             if ia == 0:
@@ -410,8 +388,8 @@ class WLDA(XCFunctional):
                                in wn_sg.reshape(-1)]).reshape(wn_sg.shape)
 
             return dind_g
-        self.get_dindicator_sg = get_dind_g
-        self.get_dindicator_g = get_dind_g
+        self.get_dindicator_sg = timer(get_dind_g)
+        self.get_dindicator_g = timer(get_dind_g)
 
     def distribute_alphas(self, nindicators, rank, size):
         """Distribute alphas across mpi ranks."""
@@ -516,10 +494,13 @@ class WLDA(XCFunctional):
 
     def _get_K_G(self, gd):
         """Get the norms of the reciprocal lattice vectors."""
+        if self._K_G is not None:
+            return self._K_G
         assert gd.comm.size == 1
         k2_Q, _ = construct_reciprocal(gd)
         k2_Q[0, 0, 0] = 0
-        return k2_Q**(1 / 2)
+        self._K_G = k2_Q**(1 / 2)
+        return self._K_G
 
     def lda_x1(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-1 exchange functional.
@@ -763,7 +744,8 @@ class WLDA(XCFunctional):
             v[1] += ec - (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta)
             v[1] = self.fold_with_derivative(v[1],
                                              wn_g, my_alpha_indices)
-            
+
+    @timer            
     def fold_with_derivative(self, f_g, n_g, my_alpha_indices):
         """Fold function f_g with the derivative of the weighted density.
 
@@ -812,7 +794,82 @@ class WLDA(XCFunctional):
         else:
             return n_sg
 
-    # Abandon all hope ye who enter here
+    @timer
+    def hartree_correction(self, gd, e_g, wn_sg, nstar_sg):
+        """Apply the correction to the Hartree energy.
+        
+        Calculate
+            Delta E = -0.5 int drdr' (n-n*)(r)(n-n*)(r')/|r-r'|
+
+        This corrects the Hartree energy so it is effectively
+        calculated with n* instead of n.
+        """
+        if mpi.rank != 0:
+            # We should only calculate the Hartree
+            # correction once.
+            return
+        if nstar_sg is None:
+            nstar_sg, _ = self.get_weighted_density(wn_sg)
+
+        K_G = self._get_K_G(gd)
+        total_g = (wn_sg - nstar_sg).sum(axis=0)
+        total_G = self.fftn(total_g)
+        total_G *= -2 * np.pi / K_G**2
+
+        e_g[:] += (total_g * self.ifftn(total_G).real)
+
+    ###### Abandon all hope ye who enter here #######
+    def _calculate_impl(self, gd, n_sg, v_sg, e_g):
+        """Interface for GPAW."""
+        # 0. Collect density,
+        # and get grid_descriptor appropriate for collected density
+        n_sg[n_sg < 1e-20] = 1e-40
+        wn_sg = gd.collect(n_sg, broadcast=True)
+        gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+        self.gd = gd1
+
+        alphas = self.setup_indicator_grid(self.nindicators, wn_sg)
+        self.alphas = alphas
+        self.setup_indicators(alphas)
+        my_alpha_indices = self.distribute_alphas(self.nindicators,
+                                                  mpi.rank, mpi.size)
+        
+        # 1. Correct density
+        # This or correct via self.get_ae_density(gd, n_sg)
+        wn_sg = self.density_correction(self.gd, wn_sg)
+        wn_sg[wn_sg < 1e-20] = 1e-20
+        # 2. calculate weighted density
+        # This contains contributions for the alphas at this
+        # rank, i.e. we need a world.sum to get all contributions
+        nstar_sg = self.alt_weight(wn_sg, my_alpha_indices, gd1)
+        mpi.world.sum(nstar_sg)
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
+        if mpi.rank == 0 and not (nstar_sg >= 0.0).all():
+            np.save("nstar_sg.npy", nstar_sg)
+        assert (nstar_sg >= 0.0).all()
+        # 3. Calculate LDA energy
+        e1_g, v1_sg = self.calculate_wlda(wn_sg, nstar_sg, my_alpha_indices)
+        
+        e_g *= 0.0
+        v_sg *= 0.0
+        gd.distribute(e1_g, e_g)
+        gd.distribute(v1_sg, v_sg)
+
+        if hasattr(self, "energies"):
+            niter = getattr(self, "niter", 0)
+            ms = datetime.datetime.microsecond
+            print("AWDOJAWPDO")
+            if len(self.energies) >= 2:
+                print("Have and energies")
+                err = abs(self.energies[-1] - self.energies[-2])
+                if self.niter > 5 and err > 1:
+                    if mpi.rank == 0:
+                        np.save(f"{niter}_{ms}_wn_sg.npy", wn_sg)
+                        np.save(f"{niter}_{ms}_v_sg.npy", v_sg)
+
+        else:
+            print("Dont have energies")
+
     def calculate_wlda(self, wn_sg, nstar_sg, my_alpha_indices):
         """Perform the old wlda implementation."""
         # Calculate the XC energy and potential that corresponds
