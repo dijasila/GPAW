@@ -22,6 +22,7 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     xc = 'GLLBSC'
     KS_gap_ref = 4.180237125868162
     QP_gap_ref = 5.469387490357182
+    dxc_ave_ref = 1.33769712051036
     # M. Kuisma et. al, https://doi.org/10.1103/PhysRevB.82.115106
     #     C: KS gap 4.14 eV, QP gap 5.41eV, expt. 5.48 eV
 
@@ -101,6 +102,13 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
         # Calculate the discontinuity using the band structure calculator
         bs_response = bs_calc.hamiltonian.xc.response
         KS_gap, dxc = bs_response.calculate_discontinuity(Dxc_pot)
+
+        # Test alternative (testing) implementation
+        if world.size == 1:
+            with pytest.warns(Warning):
+                dxc_ave = bs_response.calculate_discontinuity_from_average(
+                    Dxc_pot, 0, True)
+            assert dxc_ave == pytest.approx(dxc_ave_ref, abs=1e-4)
 
     assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
     assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)

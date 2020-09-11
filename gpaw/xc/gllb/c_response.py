@@ -427,6 +427,7 @@ class C_Response(Contribution):
             raise RuntimeError(msg)
         else:
             warnings.warn(msg)
+        assert self.wfs.world.size == 1
 
         # Calculate average of lumo reference response potential
         dxc = np.average(Dxc.vt_sG[spin])
