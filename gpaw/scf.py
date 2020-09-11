@@ -313,6 +313,8 @@ class SCFLoop:
                         rewrite_psi = False
                     wfs.eigensolver.get_canonical_representation(
                         ham, wfs, occ, dens, rewrite_psi)
+                    wfs.eigensolver.get_energy_and_tangent_gradients(
+                        ham, wfs, dens, occ)
                     break
                 elif wfs.mode == 'lcao':
                     occ.calculate(wfs)

@@ -78,6 +78,11 @@ class DirectMin(Eigensolver):
         self.exstopt = exstopt
         self.etotal=0.0
 
+        if self.exstopt and self.convergelumo:
+            self.convergelumo = False
+            parprint('WARNING: converge lumo for excited states is '
+                     'not implemented')
+
     def __repr__(self):
 
         sds = {'SD': 'Steepest Descent',
@@ -341,9 +346,10 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-        # occ.calculate(wfs)
+        occ.calculate(wfs)
         dens.update(wfs)
         ham.update(dens, wfs, False)
+
         wfs.timer.stop('Update Kohn-Sham energy')
 
         return ham.get_energy(occ, False)
@@ -442,7 +448,7 @@ class DirectMin(Eigensolver):
         self.eg_count += 1
         return energy, grad
 
-    def get_gradients_2(self, ham, wfs):
+    def get_gradients_2(self, ham, wfs, scalewithocc=True):
 
         """
         :return: H |psi_i>
@@ -453,11 +459,11 @@ class DirectMin(Eigensolver):
 
         for kpt in wfs.kpt_u:
             grad_knG[n_kps * kpt.s + kpt.q] = \
-                self.get_gradients_from_one_k_point_2(ham, wfs, kpt)
+                self.get_gradients_from_one_k_point_2(ham, wfs, kpt, scalewithocc)
 
         return grad_knG
 
-    def get_gradients_from_one_k_point_2(self, ham, wfs, kpt):
+    def get_gradients_from_one_k_point_2(self, ham, wfs, kpt, scalewithocc=True):
 
         nbands = wfs.bd.mynbands
         Hpsi_nG = wfs.empty(nbands, q=kpt.q)
@@ -477,9 +483,9 @@ class DirectMin(Eigensolver):
         # add projectors to the H|psi_i>
         wfs.pt.add(Hpsi_nG, c_axi, kpt.q)
         # scale with occupation numbers
-        for i, f in enumerate(kpt.f_n):
-            Hpsi_nG[i] *= f
-
+        if scalewithocc:
+            for i, f in enumerate(kpt.f_n):
+                Hpsi_nG[i] *= f
         return Hpsi_nG
 
     def project_gradient(self, wfs, p_knG):
@@ -607,79 +613,102 @@ class DirectMin(Eigensolver):
     def get_canonical_representation(self, ham, wfs, occ, dens,
                                      rewrite_psi=True):
 
-        grad_knG = self.get_gradients_2(ham, wfs)
-        if 'SIC' in self.odd_parameters['name']:
-            self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
-                                              self.iloop.U_k,
-                                              add_grad=True)
-        for kpt in wfs.kpt_u:
-
-            # TODO: if homo-lumo is around zero then
-            #  it is not good to do diagonalization
-            #  of occupied and unoccupied states
-
-            k = self.n_kps * kpt.s + kpt.q
-            n_occ = get_n_occ(kpt)
-            dim = self.bd.nbands - n_occ
-            grad_knG[k][n_occ:n_occ + dim] = \
-                self.get_gradients_lumo(ham, wfs, kpt)
-            lamb = wfs.integrate(kpt.psit_nG[:n_occ],
-                                 grad_knG[k][:n_occ],
-                                 True)
-            lamb = (lamb + lamb.T.conj()) / 2.0
-
-            # lamb = np.ascontiguousarray(lamb)
-
-            lumo = wfs.integrate(kpt.psit_nG[n_occ:n_occ + dim],
-                                 grad_knG[k][n_occ:n_occ + dim],
-                                 True)
-            lumo = (lumo + lumo.T.conj()) / 2.0
-            # lumo = np.ascontiguousarray(lumo)
-            # wfs.gd.comm.sum(lamb)
-            # wfs.gd.comm.sum(lumo)
+        if self.exstopt:
+            grad_knG = self.get_gradients_2(ham, wfs, scalewithocc=False)
+        else:
+            grad_knG = self.get_gradients_2(ham, wfs)
             if 'SIC' in self.odd_parameters['name']:
-                self.odd.lagr_diag_s[k] = np.append(
-                    np.diagonal(lamb).real, np.diagonal(lumo).real)
-                # self.odd.lagr_diag_s[k][n_occ] = lumo.real
-                # np.ones(shape=n_unocc) * np.inf)
-                # inf is not a good
-                # for example for ase get gap
-                self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
-
-            if n_occ != 0:
+                self.odd.get_energy_and_gradients(wfs, grad_knG, dens,
+                                                  self.iloop.U_k,
+                                                  add_grad=True)
+        for kpt in wfs.kpt_u:
+            if self.exstopt:
+                k = self.n_kps * kpt.s + kpt.q
+                lamb = wfs.integrate(kpt.psit_nG[:],
+                                     grad_knG[k][:],
+                                     True)
+                lamb = (lamb + lamb.T.conj()) / 2.0
                 evals, lamb = np.linalg.eigh(lamb)
-                # evals = np.empty(lamb.shape[0])
-                # diagonalize(lamb, evals)
                 wfs.gd.comm.broadcast(evals, 0)
                 wfs.gd.comm.broadcast(lamb, 0)
-                lamb = lamb.T
+                kpt.eps_n[:] = evals.copy()
+                if rewrite_psi:
+                    lamb = lamb.conj().T
+                    kpt.psit_nG[:] = \
+                        np.tensordot(lamb, kpt.psit_nG[:],
+                                     axes=1)
+                    for a in kpt.P_ani.keys():
+                        kpt.P_ani[a][:] = \
+                            np.dot(lamb,
+                                   kpt.P_ani[a][:])
+            else:
+                # TODO: if homo-lumo is around zero then
+                #  it is not good to do diagonalization
+                #  of occupied and unoccupied states
 
-                kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
+                # separete diagonaliztion of two subspaces:
+                k = self.n_kps * kpt.s + kpt.q
+                n_occ = get_n_occ(kpt)
+                dim = self.bd.nbands - n_occ
+                grad_knG[k][n_occ:n_occ + dim] = \
+                    self.get_gradients_lumo(ham, wfs, kpt)
+                lamb = wfs.integrate(kpt.psit_nG[:n_occ],
+                                     grad_knG[k][:n_occ],
+                                     True)
+                lamb = (lamb + lamb.T.conj()) / 2.0
 
-            # evals_lumo = np.empty(lumo.shape[0])
-            # diagonalize(lumo, evals_lumo)
-            evals_lumo, lumo = np.linalg.eigh(lumo)
-            wfs.gd.comm.broadcast(evals_lumo, 0)
-            wfs.gd.comm.broadcast(lumo, 0)
-            lumo = lumo.T
+                # lamb = np.ascontiguousarray(lamb)
 
-            kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-            # kpt.eps_n[n_occ + 1:] = +np.inf
-            # inf is not a good for example for ase to get gap
-            kpt.eps_n[n_occ + dim:] *= 0.0
-            kpt.eps_n[n_occ + dim:] +=\
-                np.absolute(5.0 * kpt.eps_n[n_occ+dim - 1])
-            if rewrite_psi:
-                # TODO:
-                # Do we need sort wfs according to eps_n
-                # or they will be automatically sorted?
-                kpt.psit_nG[:n_occ] = \
-                    np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
-                                 axes=1)
-                for a in kpt.P_ani.keys():
-                    kpt.P_ani[a][:n_occ] = \
-                        np.dot(lamb.conj(),
-                               kpt.P_ani[a][:n_occ ])
+                lumo = wfs.integrate(kpt.psit_nG[n_occ:n_occ + dim],
+                                     grad_knG[k][n_occ:n_occ + dim],
+                                     True)
+                lumo = (lumo + lumo.T.conj()) / 2.0
+                # lumo = np.ascontiguousarray(lumo)
+                # wfs.gd.comm.sum(lamb)
+                # wfs.gd.comm.sum(lumo)
+                if 'SIC' in self.odd_parameters['name']:
+                    self.odd.lagr_diag_s[k] = np.append(
+                        np.diagonal(lamb).real, np.diagonal(lumo).real)
+                    # self.odd.lagr_diag_s[k][n_occ] = lumo.real
+                    # np.ones(shape=n_unocc) * np.inf)
+                    # inf is not a good
+                    # for example for ase get gap
+                    self.odd.lagr_diag_s[k][:n_occ] /= kpt.f_n[:n_occ]
+
+                if n_occ != 0:
+                    evals, lamb = np.linalg.eigh(lamb)
+                    # evals = np.empty(lamb.shape[0])
+                    # diagonalize(lamb, evals)
+                    wfs.gd.comm.broadcast(evals, 0)
+                    wfs.gd.comm.broadcast(lamb, 0)
+                    lamb = lamb.T
+
+                    kpt.eps_n[:n_occ] = evals[:n_occ] / kpt.f_n[:n_occ]
+
+                # evals_lumo = np.empty(lumo.shape[0])
+                # diagonalize(lumo, evals_lumo)
+                evals_lumo, lumo = np.linalg.eigh(lumo)
+                wfs.gd.comm.broadcast(evals_lumo, 0)
+                wfs.gd.comm.broadcast(lumo, 0)
+                lumo = lumo.T
+
+                kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
+                # kpt.eps_n[n_occ + 1:] = +np.inf
+                # inf is not a good for example for ase to get gap
+                kpt.eps_n[n_occ + dim:] *= 0.0
+                kpt.eps_n[n_occ + dim:] +=\
+                    np.absolute(5.0 * kpt.eps_n[n_occ+dim - 1])
+                if rewrite_psi:
+                    # TODO:
+                    # Do we need sort wfs according to eps_n
+                    # or they will be automatically sorted?
+                    kpt.psit_nG[:n_occ] = \
+                        np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
+                                     axes=1)
+                    for a in kpt.P_ani.keys():
+                        kpt.P_ani[a][:n_occ] = \
+                            np.dot(lamb.conj(),
+                                   kpt.P_ani[a][:n_occ ])
 
         # update fermi level?
         occ.calculate(wfs)
