@@ -20,11 +20,13 @@ class WannierOverlaps:
     def __init__(self,
                  atoms: Atoms,
                  monkhorst_pack_size: Sequence[int],
+                 fermi_level: float,
                  directions: Dict[Tuple[int, int, int], int],
                  overlaps: Array4D):
 
         self.atoms = atoms
         self.monkhorst_pack_size = tuple(monkhorst_pack_size)
+        self.fermi_level = fermi_level
         self.directions = directions
 
         nkpts, ndirs, self.nbands, nbands = overlaps.shape
@@ -47,7 +49,9 @@ class WannierOverlaps:
         return localize(self, maxiter, tolerance, verbose)
 
     def write_wannier90_input_files(self, prefix, **kwargs):
-        ...
+        import gpaw.wannier.w90 as w90
+        w90.write_win(prefix, self)
+        w90.write_mmn(prefix, self)
 
 
 def calculate_overlaps(calc: GPAW,
@@ -98,6 +102,7 @@ def calculate_overlaps(calc: GPAW,
 
     overlaps = WannierOverlaps(calc.atoms,
                                kd.N_c,
+                               calc.get_fermi_level(),
                                directions,
                                Z_kdnn)
     return overlaps
