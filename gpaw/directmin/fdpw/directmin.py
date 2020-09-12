@@ -335,6 +335,14 @@ class DirectMin(Eigensolver):
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
+        if self.iloop_outer is not None:
+            if self.iloop_outer.odd_pot.restart:
+                self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                self.get_canonical_representation(ham, wfs, occ, dens)
+                self.iters = 0
+                self.initialized = False
+                self.need_init_odd = True
+
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
 
@@ -346,7 +354,6 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-        occ.calculate(wfs)
         dens.update(wfs)
         ham.update(dens, wfs, False)
 
