@@ -254,6 +254,7 @@ class MOMConstraint:
             for a, p_a in self.p_uai.items():
                 p_ai = np.dot(wfs.setups[a].dO_ii, p_a)
                 P_n[ini:fin] += np.dot(kpt.P_ani[a][ini:fin].conj(), p_ai)
+            wfs.gd.comm.sum(P_n)
         P_n = P_n ** 2
 
         # Update index of target orbital
