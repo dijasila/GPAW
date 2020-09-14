@@ -110,8 +110,8 @@ class C_Response(Contribution):
         self.vt_sg = pot.vt_sg
         self.D_asp = pot.D_asp
         self.Dresp_asp = pot.Dresp_asp
-        self.Ddist_asp = self.distribute_Dresp_asp(pot.D_asp)
-        self.Drespdist_asp = self.distribute_Dresp_asp(pot.Dresp_asp)
+        self.Ddist_asp = self.distribute_D_asp(pot.D_asp)
+        self.Drespdist_asp = self.distribute_D_asp(pot.Dresp_asp)
 
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
@@ -161,12 +161,12 @@ class C_Response(Contribution):
               self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.Dresp_asp, w_kn)
-            self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+            self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
             d('response update Drespdist_asp', world.rank,
               self.Dresp_asp.keys(), self.D_asp.keys())
             self.wfs.calculate_atomic_density_matrices_with_occupation(
                 self.D_asp, f_kn)
-            self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+            self.Ddist_asp = self.distribute_D_asp(self.D_asp)
 
             self.vt_sG /= nt_sG + self.damp
 
@@ -176,9 +176,8 @@ class C_Response(Contribution):
         self.update_potentials()
         v_sg += self.weight * self.vt_sg
 
-    def distribute_Dresp_asp(self, Dresp_asp):
-        d('distribute_Dresp_asp')
-        return self.density.atomdist.to_work(Dresp_asp)
+    def distribute_D_asp(self, D_asp):
+        return self.density.atomdist.to_work(D_asp)
 
     def calculate_energy_and_derivatives(self, setup, D_sp, H_sp, a,
                                          addcoredensity=True):
@@ -486,8 +485,8 @@ class C_Response(Contribution):
             f_asi[a] = f_si
             w_asi[a] = w_si
 
-        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-        self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+        self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
+        self.Ddist_asp = self.distribute_D_asp(self.D_asp)
         nt_sG = self.gd.zeros(self.nspins)
         basis_functions.add_to_density(nt_sG, f_asi)
         self.vt_sG = self.gd.zeros(self.nspins)
@@ -598,8 +597,8 @@ class C_Response(Contribution):
         assert len(self.Dresp_asp) == len(self.density.D_asp)
 
         # Further distributes the density matricies for xc-corrections
-        self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
-        self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
+        self.Ddist_asp = self.distribute_D_asp(self.D_asp)
+        self.Drespdist_asp = self.distribute_D_asp(self.Dresp_asp)
 
     def heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(self, olddens):
         # XXX This function should be removed once the deprecated
