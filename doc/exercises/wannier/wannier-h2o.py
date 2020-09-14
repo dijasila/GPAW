@@ -2,7 +2,7 @@ from ase.build import molecule
 from ase.visualize import view
 from ase import Atoms
 from gpaw import GPAW
-from gpaw.wannier import Wannier
+from gpaw.wannier import calculate_overlaps
 
 calc = GPAW(nbands=4)
 
@@ -12,8 +12,7 @@ atoms.calc = calc
 atoms.get_potential_energy()
 
 # Initialize the Wannier class
-w = Wannier(calc)
-w.localize()
+w = calculate_overlaps(calc).localize()
 centers = w.get_centers()
 
 view(atoms + Atoms(symbols='X4', positions=centers))
