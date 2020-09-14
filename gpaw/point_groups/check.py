@@ -16,7 +16,7 @@ class SymmetryChecker:
     def __init__(self,
                  group: PointGroup,
                  center: Sequence[float],
-                 radius: float = None,
+                 radius: float = 2.0,
                  grid_spacing: float = 0.2):
         self.group = group
         self.points = sphere(radius, grid_spacing)

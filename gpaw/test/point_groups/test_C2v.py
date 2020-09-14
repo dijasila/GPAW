@@ -1,18 +1,12 @@
 import pytest
 import numpy as np
-from ase.build import molecule
 from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker, PointGroup
 
 
-def test_c2v():
-    atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
-    atoms.center()
-    atoms.calc = calc = GPAW(mode='lcao', txt='h2o.txt')
-    atoms.get_potential_energy()
-    calc.write('h2o.gpw', mode='all')
-    C = atoms.positions[0]
-    C = atoms.cell.sum(0) / 2
+def test_c2v(gpw_files):
+    calc = GPAW(gpw_files['h2o_lcao_wfs'])
+    C = calc.atoms.positions[0]
     pg = PointGroup('C2v')
     sc = SymmetryChecker(pg, C, 2.0)
     symmetries = ''

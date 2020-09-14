@@ -6,8 +6,9 @@ class PointGroup:
     Upper class for point groups that includes general routines
     such as rotations and mirroring operations.
     """
-    def __init__(self, name):
+    def __init__(self, name: str):
         import gpaw.point_groups.groups as groups
+        self.name = name
         group = getattr(groups, name)()
         self.character_table = np.array(group.character_table)
         self.operations = {}
@@ -16,34 +17,17 @@ class PointGroup:
                 op = op(np.eye(3))
             self.operations[opname] = op
         self.symmetries = group.symmetries
+        self.nops = group.nof_operations
+        self.complex = getattr(group, 'complex', False)
+        self.translations = (group.Tx_i, group.Ty_i, group.Tz_i)
 
     def __str__(self) -> str:
-        name = self.__class__.__name__
-        lines = [[name] + self.opnames]
-        for sym, coefs in zip(self.symnames, self.character_table):
+        lines = [[self.name] + list(self.operations)]
+        for sym, coefs in zip(self.symmetries, self.character_table):
             lines.append([sym] + list(coefs))
-        return '\n'.join(f'{line[0]}' +
-                         ''.join(f'{word:>8}' for word in line[1:])
+        return '\n'.join(f'{line[0]:5}' +
+                         ''.join(f'{word:>10}' for word in line[1:])
                          for line in lines) + '\n'
-
-    def make_reducable_table(self):
-        """
-        Create a reducable table out of the irreducable one.
-        Create also symmetry representations for translation operators
-        Tx,Ty,Tz.
-        """
-
-        reducable_character_table = []
-        for i, row in enumerate(self.character_table):
-            reducable_character_table.append([])
-            for j, num in enumerate(row):
-                for k in range(self.nof_operations[j]):
-                    reducable_character_table[-1].append(num)
-        self.reducable_character_table = reducable_character_table
-        self.Tx = self.reducable_character_table[self.Tx_i]
-        self.Ty = self.reducable_character_table[self.Ty_i]
-        self.Tz = self.reducable_character_table[self.Tz_i]
-        return 1
 
     def get_normalized_table(self):
         self.D = [row[0] for row in self.character_table]  # degeneracies

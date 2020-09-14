@@ -130,6 +130,14 @@ class GPWFiles:
         pe.get_potential_energy()
         return pe.calc
 
+    def h2o_lcao(self):
+        from ase.build import molecule
+        atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
+        atoms.center()
+        atoms.calc = GPAW(mode='lcao', txt='h2o.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
+
 
 class GPAWPlugin:
     def __init__(self):
