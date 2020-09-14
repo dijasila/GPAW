@@ -42,7 +42,8 @@ Git master branch
   method.  Useful for aligning eigenvalues from different calculations.
   See :ref:`this example <potential>`.
 
-* We are using pytest_ for :ref:`testing`.
+* We are using pytest_ for testing.  Read about special GPAW-fixtures here:
+  :ref:`testing`.
 
 * We are now using MyPy_ for static analysis of the source code.
 

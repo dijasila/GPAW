@@ -14,6 +14,7 @@ from gpaw.mpi import world, broadcast
 
 @pytest.fixture
 def in_tmp_dir(request, tmp_path_factory):
+    """Run test in a temporary directory."""
     if world.rank == 0:
         path = _mk_tmp(request, tmp_path_factory)
     else:
@@ -29,6 +30,16 @@ def in_tmp_dir(request, tmp_path_factory):
 
 @pytest.fixture(scope='session')
 def gpw_files(request, tmp_path_factory):
+    """Reuse gpw-files.
+
+    Returns a dict mapping names to paths to gpw-files.
+
+    Example::
+
+        def test_something(gpw_files):
+            calc = GPAW(gpw_files['h2_lcao_wfs'])
+            ...
+    """
     if world.rank == 0:
         path = _mk_tmp(request, tmp_path_factory)
     else:
