@@ -203,23 +203,9 @@ class GPAW(Calculator):
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
         if calc.hamiltonian.xc.type == 'GLLB':
-            from gpaw.xc.gllb.c_response import ResponsePotential
-
             new_response = calc.hamiltonian.xc.response
             old_response = self.hamiltonian.xc.response
-            pot = ResponsePotential(old_response,
-                                    old_response.vt_sG,
-                                    old_response.vt_sg,
-                                    old_response.D_asp,
-                                    old_response.Dresp_asp)
-            pot.redistribute(new_response)
-            new_response.vt_sG = pot.vt_sG
-            new_response.vt_sg = pot.vt_sg
-            new_response.D_asp = pot.D_asp
-            new_response.Dresp_asp = pot.Dresp_asp
-            distribute = new_response.distribute_Dresp_asp
-            new_response.Ddist_asp = distribute(pot.D_asp)
-            new_response.Drespdist_asp = distribute(pot.Dresp_asp)
+            new_response.initialize_from_other_response(old_response)
             new_response.fix_potential = True
         calc.calculate(system_changes=[])
         return calc

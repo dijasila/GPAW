@@ -99,6 +99,20 @@ class C_Response(Contribution):
         Contribution.initialize_1d(self, ae)
         self.coefficients.initialize_1d(ae)
 
+    def initialize_from_other_response(self, response):
+        pot = ResponsePotential(response,
+                                response.vt_sG,
+                                response.vt_sg,
+                                response.D_asp,
+                                response.Dresp_asp)
+        pot.redistribute(self)
+        self.vt_sG = pot.vt_sG
+        self.vt_sg = pot.vt_sg
+        self.D_asp = pot.D_asp
+        self.Dresp_asp = pot.Dresp_asp
+        self.Ddist_asp = self.distribute_Dresp_asp(pot.D_asp)
+        self.Drespdist_asp = self.distribute_Dresp_asp(pot.Dresp_asp)
+
     # Calcualte the GLLB potential and energy 1d
     def add_xc_potential_and_energy_1d(self, v_g):
         w_i = self.coefficients.get_coefficients_1d()
