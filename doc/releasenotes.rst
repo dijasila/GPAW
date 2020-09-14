@@ -12,6 +12,9 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
+  and uses symmetry.
+
 * GLLBSC exchange-correlation potential fixed for periodic metallic systems:
   https://gitlab.com/gpaw/gpaw/-/merge_requests/651
 
@@ -66,7 +69,21 @@ Git master branch
   are: LDA, PBE, revPBE, RPBE and PW91.
 
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
-  Use ``occupations={'name': 'tetrahedron-method'}``.
+  Use ``occupations={'name': 'tetrahedron-method'}`` or
+  ``occupations={'name': 'improved-tetrahedron-method'}``.
+  See `Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_
+  and :ref:`smearing` for details.
+
+* New :func:`gpaw.mpi.broadcast_array` function for broadcasting
+  an ``np.ndarray`` across several MPI-communicators.  New
+  :func:`gpaw.mpi.send` and :func:`gpaw.mpi.receive` functions for general
+  Python objects.
+
+* Atoms with fractional atomic numbers can now be handled.
+
+* When creating a ``GPAW`` calculator object from a gpw-file, the ``txt``
+  defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
+  behavior.
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
@@ -476,7 +493,7 @@ Version 1.2.0
 
 * The GPAW calculator object has a new
   :meth:`~ase.calculators.calculator.Calculator.band_structure`
-  method that returns an :class:`ase.dft.band_structure.BandStructure`
+  method that returns an :class:`ase.spectrum.band_structure.BandStructure`
   object.  This makes it easy to create band-structure plots as shown
   in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
   http://psi-k.net/download/highlights/Highlight_134.pdf.

@@ -247,7 +247,7 @@ class WaveFunctions:
         self.spos_ac = spos_ac
 
     def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.kpt_u[0].projections is not None:
+        if not self.positions_set and self.kpt_u[0]._projections is not None:
             # Projections have been read from file - don't delete them!
             pass
         else:
@@ -523,6 +523,9 @@ class WaveFunctions:
             self.fermi_levels = np.array(
                 [o.fermilevel + o.split / 2,
                  o.fermilevel - o.split / 2]) / r.ha
+            if self.occupations.name != 'fixmagmom':
+                assert o.split == 0.0
+                self.fermi_levels = self.fermi_levels[:1]
 
         if reader.version >= 2:
             kpts = r.kpts

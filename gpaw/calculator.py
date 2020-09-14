@@ -1381,17 +1381,19 @@ class GPAW(Calculator):
             nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
-    def get_number_of_bands(self):
+    def get_number_of_bands(self) -> int:
         """Return the number of bands."""
         return self.wfs.bd.nbands
 
-    def get_xc_functional(self):
+    def get_xc_functional(self) -> str:
         """Return the XC-functional identifier.
 
         'LDA', 'PBE', ..."""
 
-        return self.parameters.get('xc', 'LDA')
-        return self.hamiltonian.xc.name
+        xc = self.parameters.get('xc', 'LDA')
+        if isinstance(xc, dict):
+            xc = xc['name']
+        return xc
 
     def get_number_of_spins(self):
         return self.wfs.nspins
@@ -1620,8 +1622,7 @@ class GPAW(Calculator):
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
-        from gpaw.utilities.dos import (raw_orbital_LDOS,
-                                        raw_spinorbit_orbital_LDOS, fold)
+        from gpaw.utilities.dos import raw_orbital_LDOS, fold
         if width is None:
             width = 0.1
 
@@ -1629,8 +1630,9 @@ class GPAW(Calculator):
             energies, weights = raw_orbital_LDOS(self, a, spin, angular,
                                                  nbands)
         else:
-            energies, weights = raw_spinorbit_orbital_LDOS(self, a, spin,
-                                                           angular)
+            raise DeprecationWarning(
+                'Please use GPAW.dos(soc=True, ...).pdos(...)')
+
         return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,
@@ -1964,3 +1966,8 @@ class GPAW(Calculator):
         pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
+
+    def dos(self, soc=False, theta=0.0, phi=0.0):
+        from gpaw.dos import DOSCalculator
+        return DOSCalculator.from_calculator(self, soc=soc,
+                                             theta=theta, phi=phi)

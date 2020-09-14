@@ -1,8 +1,6 @@
 import numpy as np
 from gpaw.utilities.blas import gemmdot
 from gpaw.berryphase import get_overlap
-from gpaw.spinorbit import get_spinorbit_projections
-from gpaw.spinorbit import get_spinorbit_wavefunctions
 
 
 class Wannier90:
@@ -148,8 +146,6 @@ def write_input(calc,
 
     if len(bands) > Nw:
         ef = calc.get_fermi_level()
-        if hasattr(ef, 'dtype'):
-            ef = (ef[0] + ef[1]) / 2
         print('fermi_energy  = %2.3f' % ef, file=f)
         print('dis_froz_max  = %2.3f' % (ef + dis_froz_max), file=f)
         print('dis_num_iter  = %d' % dis_num_iter, file=f)
@@ -191,7 +187,7 @@ def write_input(calc,
     f.close()
 
 
-def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
+def write_projections(calc, seed=None, spin=0, orbitals_ai=None, soc=None):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
@@ -230,7 +226,6 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     assert len(orbitals_ai) == Na
 
     if spinors:
-        assert v_knm is not None
         new_orbitals_ai = []
         for orbitals_i in orbitals_ai:
             new_orbitals_i = []
@@ -253,9 +248,9 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     P_kni = np.zeros((Nk, Nn, Nw), complex)
     for ik in range(Nk):
         if spinors:
-            P_ani = get_spinorbit_projections(calc, ik, v_knm[ik])
+            P_ani = soc[ik].P_amj
         else:
-            P_ani = calc.wfs.kpt_u[spin * Nk + ik].P_ani
+            P_ani = calc.wfs.kpt_qs[ik][spin].P_ani
         for i in range(Nw):
             icount = 0
             for ai in range(Na):
@@ -275,7 +270,7 @@ def write_projections(calc, seed=None, spin=0, orbitals_ai=None, v_knm=None):
     f.close()
 
 
-def write_eigenvalues(calc, seed=None, spin=0, e_km=None):
+def write_eigenvalues(calc, seed=None, spin=0, soc=None):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
@@ -285,10 +280,10 @@ def write_eigenvalues(calc, seed=None, spin=0, e_km=None):
     f = open(seed + '.eig', 'w')
 
     for ik in range(len(calc.get_bz_k_points())):
-        if e_km is None:
+        if soc is None:
             e_n = calc.get_eigenvalues(kpt=ik, spin=spin)
         else:
-            e_n = e_km[ik]
+            e_n = soc[ik].eig_m
         for i, n in enumerate(bands):
             data = (i + 1, ik + 1, e_n[n])
             print('%5d %5d %14.6f' % data, file=f)
@@ -296,12 +291,12 @@ def write_eigenvalues(calc, seed=None, spin=0, e_km=None):
     f.close()
 
 
-def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
+def write_overlaps(calc, seed=None, spin=0, soc=None, less_memory=False):
 
     if seed is None:
         seed = calc.atoms.get_chemical_formula()
 
-    if v_knm is None:
+    if soc is None:
         spinors = False
     else:
         spinors = True
@@ -343,12 +338,16 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
 
     wfs = calc.wfs
 
+    def wavefunctions(bz_index):
+        return soc[bz_index].wavefunctions(
+            calc, periodic=True)[bands]
+
     if not less_memory:
         u_knG = []
         for ik in range(Nk):
             if spinors:
                 # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-                u_nG = get_spinorbit_wavefunctions(calc, ik, v_knm[ik])
+                u_nG = wavefunctions(ik)
                 u_knG.append(u_nG[bands])
             else:
                 # For non-spinors, G denotes grid: G = (gx, gy, gz)
@@ -358,15 +357,14 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
     P_kani = []
     for ik in range(Nk):
         if spinors:
-            P_kani.append(get_spinorbit_projections(calc, ik, v_knm[ik]))
+            P_kani.append(soc[ik].P_amj)
         else:
-            P_kani.append(calc.wfs.kpt_u[spin * Nk + ik].P_ani)
+            P_kani.append(calc.wfs.kpt_qs[ik][spin].P_ani)
 
     for ik1 in range(Nk):
         if less_memory:
             if spinors:
-                u1_nG = get_spinorbit_wavefunctions(calc, ik1,
-                                                    v_knm[ik])[bands]
+                u1_nG = wavefunctions(ik1)
             else:
                 u1_nG = np.array([wfs.get_wave_function_array(n, ik1, spin)
                                   for n in bands])
@@ -378,8 +376,7 @@ def write_overlaps(calc, seed=None, spin=0, v_knm=None, less_memory=False):
             ik2 = int(line[1]) - 1
             if less_memory:
                 if spinors:
-                    u2_nG = get_spinorbit_wavefunctions(calc, ik2,
-                                                        v_knm[ik])[bands]
+                    u2_nG = wavefunctions(ik2)
                 else:
                     u2_nG = np.array([wfs.get_wave_function_array(n, ik2, spin)
                                       for n in bands])
@@ -429,11 +426,11 @@ def get_bands(seed):
     return bands
 
 
-def write_wavefunctions(calc, v_knm=None, spin=0, seed=None):
+def write_wavefunctions(calc, soc=None, spin=0, seed=None):
 
     wfs = calc.wfs
 
-    if v_knm is None:
+    if soc is None:
         spinors = False
     else:
         spinors = True
@@ -448,7 +445,7 @@ def write_wavefunctions(calc, v_knm=None, spin=0, seed=None):
     for ik in range(Nk):
         if spinors:
             # For spinors, G denotes spin and grid: G = (s, gx, gy, gz)
-            u_nG = get_spinorbit_wavefunctions(calc, ik, v_knm[ik])
+            u_nG = soc[ik].wavefunctions(calc, periodic=True)
         else:
             # For non-spinors, G denotes grid: G = (gx, gy, gz)
             u_nG = np.array([wfs.get_wave_function_array(n, ik, spin)

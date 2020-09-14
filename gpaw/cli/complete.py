@@ -46,7 +46,7 @@ commands = {
     'dos':
         ['-p', '--plot', '-i', '--integrated', '-w', '--width', '-a',
          '--atom', '-t', '--total', '-r', '--range', '-n',
-         '--points'],
+         '--points', '--soc'],
     'gpw':
         ['-w', '--remove-wave-functions'],
     'info':
