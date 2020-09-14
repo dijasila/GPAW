@@ -1,33 +1,4 @@
-import gpaw.pgs.pointgroups as pointgroups
-from gpaw.pgs import SymmetryCalculator
-from gpaw.test import equal
-import gpaw.mpi
-from ase import Atoms
-import numpy as np
-
-pglib = pointgroups.list_of_pointgroups
-
-
-class TestSymmetryCalculator(SymmetryCalculator):
-    """
-    Calculator for a given numpy N*M*P array.
-    """
-
-    def initialize(self, array):
-        self.array = array
-        self.load_data()
-
-    def get_atoms(self):
-        return Atoms()
-
-    def load_data(self):
-        return 1
-
-    def get_wf(self, n, k=0, s=0):
-        return self.array
-
-    def get_energy(self, band):
-        return 0.0
+from gpaw.point_groups import groups, SymmetryChecker
 
 
 N = 50
