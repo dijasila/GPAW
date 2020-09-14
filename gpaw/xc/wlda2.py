@@ -796,7 +796,7 @@ class WLDA(XCFunctional):
             return n_sg
 
     @timer
-    def hartree_correction(self, gd, e_g, wn_sg, nstar_sg):
+    def hartree_correction(self, gd, e_g, v_sg, wn_sg, nstar_sg):
         """Apply the correction to the Hartree energy.
         
         Calculate
@@ -808,6 +808,11 @@ class WLDA(XCFunctional):
         Also calculate the resulting correction to the
         potential:
             Delta v = dDeltaE/dn
+        With
+            V := int dr (n-n*)(r')/|r-r'| 
+        Delta v is equal to
+            Delta v(r) = -2 * (V(r)
+                    -    int dr' dn*(r')/dn(r) V(r')
         """
         if mpi.rank != 0:
             # We should only calculate the Hartree
@@ -815,15 +820,19 @@ class WLDA(XCFunctional):
             return
         if nstar_sg is None:
             nstar_sg, _ = self.get_weighted_density(wn_sg)
+        if len(wn_sg) == 2:
+            raise NotImplementedError
 
         K_G = self._get_K_G(gd)
-        total_g = (wn_sg - nstar_sg).sum(axis=0)
-        total_G = self.fftn(total_g)
-        total_G *= -2 * np.pi / K_G**2
+        N_g = (wn_sg - nstar_sg).sum(axis=0)
+        V_G = self.fftn(N_g)
+        V_G *= -2 * np.pi / K_G**2
 
-        e_g[:] += (total_g * self.ifftn(total_G).real)
+        e_g[:] += (N_g * self.ifftn(V_G).real)
 
-        raise NotImplementedError()
+        V_g = self.ifftn(V_G).real
+        v_sg[0, :] += -2 * (V_g - self.fold_with_derivative(V_g, wn_sg[0], 
+                                                            self.alphas))
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         """Calculate the XC energy and potential for an atomic system.
@@ -842,6 +851,7 @@ class WLDA(XCFunctional):
         if e_g is None:
             e_g = rgd.empty()
         self.rgd = rgd
+        n_sg[n_sg < 1e-20] = 1e-40
 
         self.setup_radial_indicators(n_sg)
 
@@ -850,7 +860,15 @@ class WLDA(XCFunctional):
         self.radial_wldaxc(n_sg, nstar_sg, v_sg, e_g)
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
 
-        return rgd.integrate(e_g)
+        E = rgd.integrate(e_g)
+        print(f"E = {E}", flush=True)
+        print(f"Mean e_g = {np.mean(e_g)}")
+        print(f"Mean v_sg = {np.mean(v_sg)}", flush=True)
+        print(f"Mean nstar_sg = {np.mean(nstar_sg)}", flush=True)
+        print(f"Mean n_sg = {np.mean(n_sg)}", flush=True)
+        print(f"Integral of n_sg = {rgd.integrate(n_sg)}")
+        print(f"Integral of nstar_sg = {rgd.integrate(nstar_sg)}", flush=True)
+        return E
 
     def setup_radial_indicators(self, n_sg):
         """Set up the indicator functions for an atomic system.
@@ -871,8 +889,22 @@ class WLDA(XCFunctional):
         nalphas = 100
         alphas = np.linspace(minn , maxn, nalphas)
 
+        from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        N = 2**14
+        r_x = np.linspace(0, self.rgd.r_g[-1], N)
+        G_k = np.linspace(0, 2 * np.pi / r_x[1], N)
+
+        ns = len(n_sg)
+        n_sx = np.zeros((ns, len(r_x)))
+        for s in range(ns):
+            n_sx[s, :] = self.rgd.interpolate(n_sg[s], r_x)
+
+
         i_asg = np.zeros((nalphas,) + n_sg.shape)
         di_asg = np.zeros((nalphas,) + n_sg.shape)
+        i_asx = np.zeros((nalphas,) + n_sx.shape)
+        di_asx = np.zeros((nalphas,) + n_sx.shape)
+
 
         na = np.logical_and
         for ia, alpha in enumerate(alphas):
@@ -920,11 +952,19 @@ class WLDA(XCFunctional):
                     return res_g
 
             for s in range(spin):
-                    i_asg[ia, s, :] = _i(n_sg[s])
-                    di_asg[ia, s, :] = _di(n_sg[s])
+                i_asg[ia, s, :] = _i(n_sg[s])
+                di_asg[ia, s, :] = _di(n_sg[s])
+                i_asx[ia, s, :] = _i(n_sx[s])
+                di_asx[ia, s, :] = _di(n_sx[s])
 
         self.alphas = alphas
         self.i_asg = i_asg
+        assert np.allclose(self.i_asg.sum(axis=0), 1.0)
+        assert (self.i_asg >= 0.0).all()
+        assert self.i_asg.ndim == 3
+        self.i_asx = i_asx
+        assert (self.i_asx >= 0.0).all()
+        self.di_asx = di_asx
         self.di_asg = di_asg
 
     def radial_weighted_density(self, rgd, n_sg):
@@ -948,11 +988,14 @@ class WLDA(XCFunctional):
         Finally, we transfer the resulting array back to the
         radial grid (with uneven spacing probably).
         """
+        import matplotlib.pyplot as plt
+
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
-        N = 2**13
+        N = 2**14
         r_x = np.linspace(0, rgd.r_g[-1], N)
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+        
 
         na, ns = self.i_asg.shape[:2]
 
@@ -960,18 +1003,52 @@ class WLDA(XCFunctional):
         for ia in range(na):
             for s in range(ns):
                 n_x = rgd.interpolate(n_sg[s], r_x)
-                i_x = rgd.interpolate(self.i_asg[ia, s, :], r_x)
+                i_x = self.i_asx[ia, s, :]
+                in_k = self.radial_fft(r_x, n_x * i_x)
 
-                in_k = fsbt(0, n_x * i_x,
-                           r_x, G_k) * 4 * np.pi
                 phi_k = self.radial_weight_function(self.alphas[ia], G_k)
-                nstar_sg[s, :] += IUS(r_x, fsbt(0, in_k * phi_k, G_k, r_x) * 2)(rgd.r_g)
-        
+                phi_x = self.radial_ifft(r_x, phi_k)
+                res_x = self.radial_ifft(r_x, in_k * phi_k)
+
+                bling = IUS(r_x, res_x)(rgd.r_g)
+                bling[bling < 0] = 0.0
+                nstar_sg[s, :] += bling
+
+        nstar_sg[nstar_sg < 1e-20] = 1e-40
+        assert np.allclose(self.rgd.integrate(nstar_sg[0]), self.rgd.integrate(n_sg[0]))
         return nstar_sg
 
+    def radial_fft(self, r_x, f_x):
+        # Verify that we have a uniform grid
+        assert np.allclose(r_x[0], 0.0)
+        assert np.allclose(r_x[1], r_x[2] - r_x[1])
+        from gpaw.atom.radialgd import fsbt
+        N = len(r_x)
+        assert N % 2 == 0
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+        return fsbt(0, f_x, r_x, G_k) * 4 * np.pi
+
+    def radial_ifft(self, r_x, f_k):
+        from gpaw.atom.radialgd import fsbt
+        N = len(r_x)
+        assert N % 2 == 0
+        G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+        res = fsbt(0, f_k, G_k, r_x[:N // 2 + 1]) / (2 * np.pi**2)
+        res_x = np.zeros_like(r_x)
+        res_x[:len(res)] = res
+        # integral = np.sum(r_x[1] * r_x**2 * res_x) * 4 * np.pi
+        # fk = f_k[0]
+        # assert np.allclose(fk, integral), f"oijwadoiåajwdoijwad {fk} --- {integral}"
+        return res_x
+
     def radial_weight_function(self, alpha, G_k):
+        assert np.allclose(alpha, alpha.real)
+        assert alpha >= 0.0
         kF = (3 * np.pi**2 * alpha)**(1 / 3)
-        return 1 / (1 + 0.005 * (G_k / (kF + 0.0001)**5)**2)
+        norm = 1 / (1 + 0.005 * (0 / (kF + 0.0001)**5)**2)
+        phi_k =  (1 / (1 + 0.005 * (G_k / (kF + 0.0001)**5)**2)) / norm
+        assert np.allclose(phi_k[0], 1.0)
+        return phi_k
 
     def radial_wldaxc(self, n_sg, nstar_sg, v_sg, e_g):
         """Calculate XC energy and potential for an atomic system."""
@@ -995,8 +1072,8 @@ class WLDA(XCFunctional):
         assert not np.isnan(e2_g).any()
         assert not np.isnan(e3_g).any()
 
-        e_g = e1_g + e2_g - e3_g
-        v_sg = v1_sg + v2_sg - v3_sg
+        e_g[:] = e1_g + e2_g - e3_g
+        v_sg[:] = v1_sg + v2_sg - v3_sg
 
     def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e[n*]n and potential."""
@@ -1106,7 +1183,7 @@ class WLDA(XCFunctional):
         dn_x = rgd.interpolate(dn_g, r_x)
         dn_k = fsbt(0, dn_x, r_x, G_k) * 4 * np.pi
         pot_k = np.zeros_like(dn_k)
-        pot_k[1:] = dn_k[1:] / G_k[:1]**2 * 4 * np.pi
+        pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi
         pot_x = fsbt(0, pot_k, G_k, r_x) * 2
         pot_g = IUS(r_x, pot_x)(rgd.r_g)
         
