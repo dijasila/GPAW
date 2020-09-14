@@ -3,6 +3,7 @@ import os
 import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
+from ase.io import read
 from ase.utils import devnull
 from ase.build import bulk
 
@@ -88,6 +89,35 @@ class GPWFiles:
                        txt=self.path / f'h2_{mode["name"]}.txt')
         h2.get_potential_energy()
         return h2.calc
+
+    def c2h4_pw_nosym(self):
+        d = 1.54
+        h = 1.1
+        x = d * (2 / 3)**0.5
+        z = d / 3**0.5
+        pe = Atoms('C2H4',
+                   positions=[[0, 0, 0],
+                              [x, 0, z],
+                              [0, -h * (2 / 3)**0.5, -h / 3**0.5],
+                              [0, h * (2 / 3)**0.5, -h / 3**0.5],
+                              [x, -h * (2 / 3)**0.5, z + h / 3**0.5],
+                              [x, h * (2 / 3)**0.5, z + h / 3**0.5]],
+                   cell=[2 * x, 0, 0],
+                   pbc=(1, 0, 0))
+        pe.center(vacuum=2.0, axis=(1, 2))
+        pe.calc = GPAW(mode='pw',
+                       kpts=(3, 1, 1),
+                       symmetry='off',
+                       txt=self.path / 'c2h4_pw_nosym.txt')
+        pe.get_potential_energy()
+        return pe.calc
+
+    def c6h12_pw(self):
+        pe = read(self['c2h4_pw_nosym'])
+        pe = pe.repeat((3, 1, 1))
+        pe.calc = GPAW(mode='pw', txt=self.path / 'c6h12_pw.txt')
+        pe.get_potential_energy()
+        return pe.calc
 
 
 class GPAWPlugin:

@@ -173,6 +173,7 @@ class WaveFunction:
         else:
             assert len(projections.indices) == 0
 
+        u_nR = 1 / 0
         return WaveFunction(u_nR, projections)
 
     def redistribute_atoms(self,

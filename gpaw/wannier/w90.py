@@ -27,16 +27,16 @@ def write_win(name: str,
                 print(f'{key} = {val}', file=fd)
 
 
+"""
 def write_mmn(name: str,
               overlaps: WannierOverlaps,
               **kwargs) -> None:
     with open(f'{name}.mmn', 'w') as fd:
         print('Input generated from GPAW', file=fd)
         print('%10d %6d %6d' % (Nn, Nk, Nb), file=f)
-            print('%3d %3d %4d %3d %3d' % indices, file=f)
-            for m1 in range(len(M_mm)):
-                for m2 in range(len(M_mm)):
-                    M = M_mm[m2, m1]
-                    print('%20.12f %20.12f' % (M.real, M.imag), file=f)
-
-    f.close()
+        print('%3d %3d %4d %3d %3d' % indices, file=f)
+        for m1 in range(len(M_mm)):
+            for m2 in range(len(M_mm)):
+                M = M_mm[m2, m1]
+                print('%20.12f %20.12f' % (M.real, M.imag), file=f)
+"""
