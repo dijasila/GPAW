@@ -1,4 +1,4 @@
-from gpaw.point_groups import groups, SymmetryChecker
+from gpaw.point_groups import SymmetryChecker
 
 
 N = 50
@@ -26,13 +26,26 @@ def fz(x, y, z):
     return z * np.exp(-0.5 * r)
 
 
-def test_pg(in_tmp_dir):
+def xxxxtest_pg(in_tmp_dir):
     # Go through each point group class:
     for pgname in pglib:
         # Pass the upper class:
         if pgname == 'Pointgroup':
             continue
         pgtest(pgname)
+
+if __name__ == '__main__':
+    """
+    Test for various errors.
+    """
+    import pointgroups
+    names = pointgroups.list_of_pointgroups
+
+    for i in names:
+        p = names[i]()
+        print(p)
+        p.make_reducable_table()
+        p.get_normalized_table()
 
 
 def pgtest(pgname):

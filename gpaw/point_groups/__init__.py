@@ -1,10 +1,16 @@
+"""Point Group Symmetry.
+
+The code was originally written for the paper:
+
+    S. Kaappa, S. Malola, H. Hakkinen
+
+    J. Phys. Chem. A; vol. 122, 43, pp. 8576-8584 (2018)
+
 """
-This module contains the SymmetryCalculator class and interfaces
-to GPAW.
 
-PGS refers to Point Group Symmetry.
+from .group import PointGroup
+from .check import SymmetryChecker
 
-The code was originally written for the paper
-S. Kaappa, S. Malola, H. Hakkinen; J. Phys. Chem. A; vol. 122, 43, pp. 8576-8584 (2018)
-"""
+__all__ = ['PointGroup', 'SymmetryChecker', 'point_group_names']
 
+point_group_names = ['C2v']
