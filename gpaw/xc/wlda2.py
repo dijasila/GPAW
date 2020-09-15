@@ -887,7 +887,8 @@ class WLDA(XCFunctional):
         maxn = np.max(n_sg)
         # The indicator anchors
         nalphas = 100
-        alphas = np.linspace(minn , maxn, nalphas)
+        minn = max(minn, 1e-8)
+        alphas = np.linspace(minn, maxn, nalphas)
 
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
         N = 2**14
@@ -898,6 +899,7 @@ class WLDA(XCFunctional):
         n_sx = np.zeros((ns, len(r_x)))
         for s in range(ns):
             n_sx[s, :] = self.rgd.interpolate(n_sg[s], r_x)
+
 
 
         i_asg = np.zeros((nalphas,) + n_sg.shape)
@@ -913,6 +915,8 @@ class WLDA(XCFunctional):
                     res_g = np.zeros_like(n_g)
                     inds = n_g < alphas[1]
                     res_g[inds] = (alphas[1] - n_g[inds]) / (alphas[1] - alphas[0])
+                    inds = n_g <= alphas[0]
+                    res_g[inds] = 1.0
                     return res_g
 
                 def _di(n_g):
@@ -927,6 +931,8 @@ class WLDA(XCFunctional):
                     res_g = np.zeros_like(n_g)
                     inds = n_g >= alphas[ia - 1]
                     res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[-1] - alphas[-2])
+                    inds = n_g >= alphas[ia]
+                    res_g[inds] = 1.0
                     return res_g
 
                 def _di(n_g):
@@ -964,6 +970,8 @@ class WLDA(XCFunctional):
         assert self.i_asg.ndim == 3
         self.i_asx = i_asx
         assert (self.i_asx >= 0.0).all()
+        assert np.allclose(self.i_asx.sum(axis=0), 1.0)
+        assert self.i_asx.ndim == 3
         self.di_asx = di_asx
         self.di_asg = di_asg
 
@@ -997,28 +1005,34 @@ class WLDA(XCFunctional):
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
         
 
-        na, ns = self.i_asg.shape[:2]
+        na, ns = self.i_asx.shape[:2]
 
         nstar_sg = np.zeros_like(n_sg)
         for ia in range(na):
             for s in range(ns):
                 n_x = rgd.interpolate(n_sg[s], r_x)
+                
+                assert (n_sg[s] >= 0.0).all()
                 i_x = self.i_asx[ia, s, :]
                 in_k = self.radial_fft(r_x, n_x * i_x)
 
                 phi_k = self.radial_weight_function(self.alphas[ia], G_k)
-                phi_x = self.radial_ifft(r_x, phi_k)
                 res_x = self.radial_ifft(r_x, in_k * phi_k)
-
-                bling = IUS(r_x, res_x)(rgd.r_g)
-                bling[bling < 0] = 0.0
-                nstar_sg[s, :] += bling
+                nstar_sg[s, :] += IUS(r_x, res_x)(rgd.r_g)
 
         nstar_sg[nstar_sg < 1e-20] = 1e-40
-        assert np.allclose(self.rgd.integrate(nstar_sg[0]), self.rgd.integrate(n_sg[0]))
         return nstar_sg
 
     def radial_fft(self, r_x, f_x):
+        """Calculate the FT for a spherically symmetric function.
+
+        Calculates
+            int d^3r e^(-ikr)f(||r||)
+
+        By a simple calculation this can be shown to be
+        equal to the spherical Bessel transform for l = 0
+        times 4pi.
+        """
         # Verify that we have a uniform grid
         assert np.allclose(r_x[0], 0.0)
         assert np.allclose(r_x[1], r_x[2] - r_x[1])
@@ -1036,9 +1050,6 @@ class WLDA(XCFunctional):
         res = fsbt(0, f_k, G_k, r_x[:N // 2 + 1]) / (2 * np.pi**2)
         res_x = np.zeros_like(r_x)
         res_x[:len(res)] = res
-        # integral = np.sum(r_x[1] * r_x**2 * res_x) * 4 * np.pi
-        # fk = f_k[0]
-        # assert np.allclose(fk, integral), f"oijwadoiåajwdoijwad {fk} --- {integral}"
         return res_x
 
     def radial_weight_function(self, alpha, G_k):
@@ -1063,7 +1074,7 @@ class WLDA(XCFunctional):
             c1 = 3 * 8 * pi^2 / 2^(3/2)
         """
         c1 = 3 * 8 * np.pi**2 / 2**(3/2)
-        return np.exp(-0.25 * (G_k / (c1 * alpha**(1 / 3))))
+        return np.exp(-0.25 * (G_k / (c1 * alpha**(1 / 3)))**2)
 
     def _radial_weight_function(self, alpha, G_k):
         assert np.allclose(alpha, alpha.real)
