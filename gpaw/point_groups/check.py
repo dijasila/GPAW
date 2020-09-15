@@ -27,13 +27,14 @@ class SymmetryChecker:
         self.points = sphere(radius, grid_spacing)
         self.center = center
         self.grid_spacing = grid_spacing
+        self.rotation = rotation_matrix([x, y, z])
 
     def check_function(self,
                        function: Array3D,
-                       grid: Array2D) -> Dict[str, Any]:
-        dv = abs(det(grid))
+                       grid_vectors: Array2D) -> Dict[str, Any]:
+        dv = abs(det(grid_vectors))
         norm1 = (function**2).sum() * dv
-        M = inv(grid).T
+        M = inv(grid_vectors.dot(self.rotation)).T
 
         overlaps: List[float] = []
         for op in self.group.operations.values():
@@ -71,6 +72,29 @@ def sphere(radius: float, grid_spacing: float) -> Array2D:
     points = np.array(np.meshgrid(x, x, x, indexing='ij')).reshape((3, -1)).T
     points = points[(points**2).sum(1) <= radius**2]
     return points
+
+
+def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
+    if all(axis is None for axis in axes):
+        return np.eye(3)
+
+    j = -1
+    for i, axis in enumerate(axes):
+        if axis is None:
+            assert j == -1
+            j = i
+    assert j != -1
+
+    axes = [normalize(axis) for axis in axes]
+    axes[j] = np.cross(axes[j - 2], axes[j - 1])
+
+    return np.array(axes)
+
+
+def normalize(vector):
+    if isinstance(vector, str):
+        return {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[vector]
+    return np.array(vector) / np.linalg.nor(vector)
 
 
 '''

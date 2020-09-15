@@ -1,11 +1,10 @@
+from typing import Any
 import numpy as np
+
+Array2D = Any
 
 
 class PointGroup:
-    """
-    Upper class for point groups that includes general routines
-    such as rotations and mirroring operations.
-    """
     def __init__(self, name: str):
         import gpaw.point_groups.groups as groups
         self.name = name
@@ -30,6 +29,6 @@ class PointGroup:
                          ''.join(f'{word:>10}' for word in line[1:])
                          for line in lines) + '\n'
 
-    def get_normalized_table(self):
+    def get_normalized_table(self) -> Array2D:
         # Divide by degeneracies:
         return self.character_table / self.character_table[:, :1]

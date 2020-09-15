@@ -1293,11 +1293,12 @@ class D3h(Pointgroup):
 class D2d(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
-        self.operations = [('E', self.unit), ('S4_1', self.S4(angle=90.)),
+        self.operations = [('E', self.unit),
+                           ('S4_1', self.S4(angle=90.)),
                            ('S4_2', self.S4(angle=-90.)),
                            ('C2_0', self.C2(angle=180.)),
-                           ('C2_0', self.C2p(angle=45.)),
-                           ('C2_1', self.C2p(angle=-45.)),
+                           ("C2'_0", self.C2p(angle=45.)),
+                           ("C2'_1", self.C2p(angle=-45.)),
                            ('sigma_d1', self.sigma_d(angle=0.)),
                            ('sigma_d2', self.sigma_d(angle=90.))]
         self.operation_names = [pair[0] for pair in self.operations]
