@@ -2,6 +2,7 @@
 import sys
 from typing import Sequence, Any, Dict, List, Union
 
+from ase import Atoms
 from ase.units import Bohr
 import numpy as np
 from numpy.linalg import inv, det, solve
@@ -38,16 +39,32 @@ class SymmetryChecker:
         self.grid_spacing = grid_spacing
         self.rotation = rotation_matrix([x, y, z])
 
+    def check_atoms(self, atoms: Atoms, tol: float = 1e-5) -> bool:
+        """Check if atoms have all the symmetries.
+
+        Unit of *tol* is Angstrom.
+        """
+        numbers = atoms.numbers
+        positions = (atoms.positions - self.center).dot(self.rotation.T)
+        for op in self.group.operations.values():
+            P = positions.dot(op.T)
+            for i, pos in enumerate(P):
+                dist2 = ((pos - positions)**2).sum(1)
+                j = dist2.argmin()
+                if dist2[j] > tol**2 or numbers[j] != numbers[i]:
+                    return False
+        return True
+
     def check_function(self,
                        function: Array3D,
                        grid_vectors: Array2D) -> Dict[str, Any]:
         """Check function on uniform grid."""
         dv = abs(det(grid_vectors))
         norm1 = (function**2).sum() * dv
-        M = inv(grid_vectors.dot(self.rotation)).T
-
+        M = inv(grid_vectors).T
         overlaps: List[float] = []
         for op in self.group.operations.values():
+            op = self.rotation.T.dot(op).dot(self.rotation)
             pts = (self.points.dot(op.T) + self.center).dot(M.T)
             values = map_coordinates(function, pts.T, mode='wrap')
             if not overlaps:
