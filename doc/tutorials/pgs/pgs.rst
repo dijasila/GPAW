@@ -1,4 +1,6 @@
-.. _pgs:
+.. _point groups:
+
+.. module:: gpaw.point_groups
 
 ====================================
 Point group symmetry representations
@@ -14,7 +16,7 @@ resolve the representations.
 In this implementation, the wave functions are operated with rotations
 and mirroring with cubic interpolation onto the same grid, and the
 overlap of the resulting function with the original one is calculated.
-The representations are then given as weights that are the coefficients 
+The representations are then given as weights that are the coefficients
 of the linear combination of the overlaps in the basis of the character
 table rows ie. the irreducible representations.
 
@@ -27,31 +29,57 @@ includes the wave functions, and knowledge of
   to the point group
 * The atom indices whose center-of-mass is shifted to the center of the unit
   cell ie. to the crossing of the main and secondary axes.
-* The atom indices around which you want to perform the analysis 
+* The atom indices around which you want to perform the analysis
   (optional)
 
 Example: The water molecule
 ---------------------------
 
-To resolve the symmetry representations of occupied states of the water 
-molecule in C2v point group, the following script can be used:
+To resolve the symmetry representations of occupied states of the water
+molecule in C2v point group, the :download:`h2o.py` script can be used:
 
-.. literalinclude:: h2o-C2v.py
+.. literalinclude:: h2o.py
+    :start-after: creates:
+    :end-before: Analyze
 
-The output of the representations looks like this:
+In order to analyze the symmetry, you need to create a
+:class:`SymmetryChecker` object and call its
+:meth:`~SymmetryChecker.check_band` method like this:
+
+.. literalinclude:: h2o.py
+    :start-after: Analyze
+    :end-before: Write
+
+You can also write the wave functions to a file:
+
+.. literalinclude:: h2o.py
+    :start-after: Write
+    :end-before: Create
+
+and do the analysis later:
+
+>>> from gpaw import GPAW
+>>> from gpaw.point_groups import SymmetryChecker
+>>> calc = GPAW('h2o.gpw')
+>>> center = calc.atoms.positions[0]  # oxygen atom
+>>> checker = SymmetryChecker('C2v', center, radius=2.0)
+>>> checker.check_calculation(calc, n1=0, n2=4)
+
+This will produce the following output:
 
 .. literalinclude:: symmetries-h2o.txt
 
 The bands have very distinct representations as expected.
 
+.. autoclass:: PointGroup
+.. autoclass:: SymmetryChecker
 
 .. [1] K. C. Molloy. Group Theory for Chemists: Fundamental Theory and
                      Applications. Woodhead Publishing 2011
 
-.. [2] J. F. Cornwell. Group Theory in Physics: An Introduction. Elsevier 
+.. [2] J. F. Cornwell. Group Theory in Physics: An Introduction. Elsevier
        Science and Technology (1997)
 
 .. [3] Kaappa, Malola, Häkkinen; Point Group Symmetry Analysis of the
-       Electronic Structure of Bare and Protected Metal Nanocrystals 
+       Electronic Structure of Bare and Protected Metal Nanocrystals
        J. Phys. Chem. A; vol. 122, 43, pp. 8576-8584 (2018)
-

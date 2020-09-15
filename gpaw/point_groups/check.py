@@ -1,4 +1,5 @@
 """Symmetry checking code."""
+import sys
 from typing import Sequence, Any, Dict, List, Union
 
 from ase.units import Bohr
@@ -16,7 +17,7 @@ Axis = Union[str, Sequence[float], None]
 
 class SymmetryChecker:
     def __init__(self,
-                 group: PointGroup,
+                 group: Union[str, PointGroup],
                  center: Sequence[float],
                  radius: float = 2.0,
                  x: Axis = None,
@@ -28,6 +29,8 @@ class SymmetryChecker:
         If a non-standard orientation is desired then two of
         *x*, *y*, *z* can be specified.
         """
+        if isinstance(group, str):
+            group = PointGroup(group)
         self.group = group
         self.normalized_table = group.get_normalized_table()
         self.points = sphere(radius, grid_spacing)
@@ -72,6 +75,23 @@ class SymmetryChecker:
         """Check wave function from GPAW calculation."""
         wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
         return self.check_function(wfs, calc.wfs.gd.h_cv * Bohr)
+
+    def check_calculation(self, calc, n1, n2, spin=0, output='-'):
+        lines = ['band    energy     norm     best      ' +
+                 ''.join(f'{sym:8}' for sym in self.group.symmetries)]
+        for n in range(n1, n2):
+            dct = self.check_band(calc, n, spin)
+            best = dct['symmetry']
+            norm = dct['norm']
+            eig = calc.get_eigenvalues(spin=spin)[n]
+            lines.append(f'{n:4} {eig:9.3f} {norm:8.3f} {best:>8}' +
+                         ''.join(f'{x:8.3f}'
+                                 for x in dct['characters'].values()))
+
+        fd = sys.stdout if output == '-' else open(output, 'w')
+        fd.write('\n'.join(lines) + '\n')
+        if output != '-':
+            fd.close()
 
 
 def sphere(radius: float, grid_spacing: float) -> Array2D:
@@ -124,117 +144,4 @@ def normalize(vector: Union[str, Sequence[float]]) -> Array1D:
             return -np.array(normalize(vector[1:]))
         return {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[vector]
     return np.array(vector) / np.linalg.norm(vector)
-
-
-'''
-    def print_out(self):
-        f = open(self.overlapfile, 'a')
-        try:
-            for i in range(self.n):
-                f.write('\n%12d' % self.statelist[i])
-                f.write('%12.06f' % self.get_energy(self.statelist[i]))
-                for overlap in self.overlaps[i]:
-                    f.write('%12.08f' % overlap)
-        finally:
-            f.close()
-
-    def format_file(self):
-        f = open(self.overlapfile, 'w')
-        try:
-            f.write('#%11s%12s' % ('band', 'energy'))
-            for name in self.pointgroup.operation_names:
-                f.write('%12s' % name)
-        finally:
-            f.close()
-
-    def analyze(self, gridspacing=None):
-        """
-        The symmetry representations are
-        resolved from the overlap matrix.
-
-        Parameters
-        ----------
-        gridspacing : array_like
-            Grid spacings along the x, y and z axes
-        """
-
-        tofile = self.symmetryfile
-        if self.mpi is not None:
-            if self.mpi.rank != 0:
-                return 0
-
-        # Format the analysis file:
-        f = open(tofile, 'w')
-        try:
-            f.write('%s %s\n' % ('# INPUTFILE ', self.filename))
-            f.write('%s %s\n' % ('# POINTGROUP', str(self.pointgroup)))
-            f.write('# REPRESENTATIONS ')
-            for s in self.pointgroup.symmetries:
-                f.write('%6s' % s)
-            f.write('\n# \n#')
-            f.write('%11s%12s%12s' % ('band', 'energy', 'full_norm'))
-            for s in self.pointgroup.symmetries:
-                f.write('%12s' % s)
-            f.write('%16s\n' % 'best_symmetry')
-        finally:
-            f.close()
-
-        # Go through each state:
-        for index, state in enumerate(self.statelist):
-            reduced_table = []
-
-            # Sum the overlaps belonging to same symmetry operation
-            # ie. reduce the overlaps table:
-            start = 0
-            for j in self.pointgroup.nof_operations:
-                reduced_table.append(sum(
-                    self.overlaps[index][start:(start+j)])/j)
-                start += j
-
-            # Solve the linear equation for the
-            # wavefunction symmetry coefficients:
-            coefficients = np.linalg.solve(
-                np.array(self.pointgroup.get_normalized_table()).transpose(),
-                reduced_table)
-
-            # If the norms are not calculated, lets do it:
-            if not self.norms_calculated:
-                wf = self.get_wf(state)
-                self.calculate_fullnorm(index, wf)
-                if self.cutarea is not None:
-                    wf *= self.cutarea
-                self.calculate_cutnorm(index, wf)
-
-            gridspacing = self.h
-
-            # Normalize:
-
-            # shrink to cut area and
-            # remove the effect of grid spacing in the norms:
-            coefficients *= self.cutnorms[index] * np.prod(gridspacing)
-
-            # remove the effect of grid spacing in the norms:
-            fullnorm = self.fullnorms[index] * np.prod(gridspacing)
-
-            # Look for the best candidate for the symmetry:
-            symmetry = self.pointgroup.symmetries[np.argmax(coefficients)]
-
-            # Write to file:
-            f = open(tofile, 'a')
-            try:
-                f.write("%12d%12.06f%12.06f" % (state,
-                                                self.get_energy(state),
-                                                fullnorm))
-                for c in coefficients:
-                    f.write('%12.06f' % c)
-
-                f.write('%16s\n' % symmetry)
-
-            finally:
-                f.close()
-
-        self.norms_calculated = True
-
-        return 1
-
-'''
+    
