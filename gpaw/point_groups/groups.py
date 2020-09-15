@@ -1611,14 +1611,3 @@ class Oh(Pointgroup):
         if data is None:
             return do_it
         return do_it(data)
-
-
-"""
-# Create the dictionary of point groups:
-list_of_pointgroups = {}
-g = globals().copy()
-for name, obj in g.items():
-    if inspect.isclass(obj):
-        list_of_pointgroups.update({name: obj})
-
-"""

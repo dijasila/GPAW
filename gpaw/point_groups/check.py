@@ -1,3 +1,4 @@
+"""Symmetry checking code."""
 from typing import Sequence, Any, Dict, List, Union
 
 from ase.units import Bohr
@@ -22,6 +23,11 @@ class SymmetryChecker:
                  y: Axis = None,
                  z: Axis = None,
                  grid_spacing: float = 0.2):
+        """Check point-group symmetries.
+
+        If a non-standard orientation is desired then two of
+        *x*, *y*, *z* can be specified.
+        """
         self.group = group
         self.normalized_table = group.get_normalized_table()
         self.points = sphere(radius, grid_spacing)
@@ -32,6 +38,7 @@ class SymmetryChecker:
     def check_function(self,
                        function: Array3D,
                        grid_vectors: Array2D) -> Dict[str, Any]:
+        """Check function on uniform grid."""
         dv = abs(det(grid_vectors))
         norm1 = (function**2).sum() * dv
         M = inv(grid_vectors.dot(self.rotation)).T
@@ -62,11 +69,18 @@ class SymmetryChecker:
                                in zip(self.group.symmetries, characters)}}
 
     def check_band(self, calc, band, spin=0):
+        """Check wave function from GPAW calculation."""
         wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
         return self.check_function(wfs, calc.wfs.gd.h_cv * Bohr)
 
 
 def sphere(radius: float, grid_spacing: float) -> Array2D:
+    """Return sphere of grid-points.
+
+    >>> points = sphere(1.1, 1.0)
+    >>> points.shape
+    (7, 3)
+    """
     npts = int(radius / grid_spacing) + 1
     x = np.linspace(-npts, npts, 2 * npts + 1) * grid_spacing
     points = np.array(np.meshgrid(x, x, x, indexing='ij')).reshape((3, -1)).T
@@ -75,6 +89,13 @@ def sphere(radius: float, grid_spacing: float) -> Array2D:
 
 
 def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
+    """Calculate rotation matrix.
+
+    >>> rotation_matrix(['-y', 'x', None])
+    array([[ 0, -1,  0],
+           [ 1,  0,  0],
+           [ 0,  0,  1]])
+    """
     if all(axis is None for axis in axes):
         return np.eye(3)
 
@@ -85,16 +106,24 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
             j = i
     assert j != -1
 
-    axes = [normalize(axis) for axis in axes]
+    axes = [normalize(axis) if axis is not None else None
+            for axis in axes]
     axes[j] = np.cross(axes[j - 2], axes[j - 1])
 
     return np.array(axes)
 
 
-def normalize(vector):
+def normalize(vector: Union[str, Sequence[float]]) -> Array1D:
+    """Normalize a vector.
+
+    The *vector* must be a sequence of three numbers or one of the following
+    strings: x, y, z, -z, -y, -z.
+    """
     if isinstance(vector, str):
+        if vector[0] == '-':
+            return -np.array(normalize(vector[1:]))
         return {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[vector]
-    return np.array(vector) / np.linalg.nor(vector)
+    return np.array(vector) / np.linalg.norm(vector)
 
 
 '''

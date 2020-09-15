@@ -1,3 +1,4 @@
+"""Point-group object."""
 from typing import Any
 import numpy as np
 
@@ -6,6 +7,11 @@ Array2D = Any
 
 class PointGroup:
     def __init__(self, name: str):
+        """Point-group object.
+
+        Name must be one of: C2, C2v, C3v, D2d, D3h, D5, D5h,
+        Ico, Ih, Oh, Td or Th.
+        """
         import gpaw.point_groups.groups as groups
         self.name = name
         group = getattr(groups, name)()
@@ -30,5 +36,6 @@ class PointGroup:
                          for line in lines) + '\n'
 
     def get_normalized_table(self) -> Array2D:
+        """Normalized character table."""
         # Divide by degeneracies:
         return self.character_table / self.character_table[:, :1]
