@@ -15,6 +15,14 @@ def xc_string_to_dict(string):
     d = {'name': tokens[0]}
     for token in tokens[1:]:
         kw, val = token.split('=')
+        # Convert value to int or float if possible
+        try:
+            val = int(val)
+        except ValueError:
+            try:
+                val = float(val)
+            except ValueError:
+                pass
         d[kw] = val
     return d
 
@@ -77,10 +85,8 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             kernel = BEE2(parameters)
         elif name.startswith('GLLB'):
             from gpaw.xc.gllb.nonlocalfunctionalfactory import \
-                NonLocalFunctionalFactory
-            # Pass kwargs somewhere?
-            xc = NonLocalFunctionalFactory().get_functional_by_name(name)
-            xc.print_functional()
+                get_nonlocal_functional
+            xc = get_nonlocal_functional(name, **kwargs)
             return xc
         elif name == 'LB94':
             from gpaw.xc.lb94 import LB94
