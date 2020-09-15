@@ -60,13 +60,14 @@ class Pointgroup:
         return self.mirror_xy(self.mirror_yz(self.mirror_xz(data)))
 
     def mirror_xy(self, data):
+        return np.array([[1, 0, 0], [0, 1, 0], [0, 0, -1.1]]).dot(data)
         return data[:, :, ::-1]
 
     def mirror_xz(self, data):
         return np.array([[1, 0, 0], [0, -1.0, 0], [0, 0, 1]]).dot(data)
 
     def mirror_yz(self, data):
-        return data[::-1, :, :]
+        return np.array([[-1.0, 0, 0], [0, 1, 0], [0, 0, 1]]).dot(data)
 
 
 class D5(Pointgroup):

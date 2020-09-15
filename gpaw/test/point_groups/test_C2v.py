@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker, PointGroup
 
@@ -12,8 +11,8 @@ def test_c2v(gpw_files):
     symmetries = ''
     for n in range(4):
         print('-' * 70)
-        norm, ovl, characters = sc.check_band(calc, n)
-        index = np.argmax(characters)
-        symmetries += pg.symmetries[index]
-        assert characters[index] == pytest.approx(norm, abs=0.05)
+        dct = sc.check_band(calc, n)
+        sym = dct['symmetry']
+        symmetries += sym
+        assert dct['characters'][sym] == pytest.approx(dct['norm'], abs=0.05)
     assert symmetries == 'A1B2A1B1'

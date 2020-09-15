@@ -19,7 +19,8 @@ class PointGroup:
         self.symmetries = group.symmetries
         self.nops = group.nof_operations
         self.complex = getattr(group, 'complex', False)
-        self.translations = (group.Tx_i, group.Ty_i, group.Tz_i)
+        self.translations = [self.symmetries[t]
+                             for t in (group.Tx_i, group.Ty_i, group.Tz_i)]
 
     def __str__(self) -> str:
         lines = [[self.name] + list(self.operations)]
@@ -30,7 +31,5 @@ class PointGroup:
                          for line in lines) + '\n'
 
     def get_normalized_table(self):
-        self.D = [row[0] for row in self.character_table]  # degeneracies
-        self.normalized_table = list(map(lambda x, y: list(np.array(x) / y),
-                                     self.character_table, self.D))
-        return self.normalized_table
+        # Divide by degeneracies:
+        return self.character_table / self.character_table[:, :1]

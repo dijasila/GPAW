@@ -1,4 +1,4 @@
-from typing import Sequence, Any, Tuple
+from typing import Sequence, Any, Dict, List, Union
 
 from ase.units import Bohr
 import numpy as np
@@ -10,6 +10,7 @@ from .group import PointGroup
 Array1D = Any
 Array2D = Any
 Array3D = Any
+Axis = Union[str, Sequence[float], None]
 
 
 class SymmetryChecker:
@@ -17,27 +18,47 @@ class SymmetryChecker:
                  group: PointGroup,
                  center: Sequence[float],
                  radius: float = 2.0,
+                 x: Axis = None,
+                 y: Axis = None,
+                 z: Axis = None,
                  grid_spacing: float = 0.2):
         self.group = group
+        self.normalized_table = group.get_normalized_table()
         self.points = sphere(radius, grid_spacing)
         self.center = center
         self.grid_spacing = grid_spacing
 
     def check_function(self,
                        function: Array3D,
-                       grid: Array2D) -> Tuple[float, Array1D, Array1D]:
+                       grid: Array2D) -> Dict[str, Any]:
         dv = abs(det(grid))
         norm1 = (function**2).sum() * dv
         M = inv(grid).T
-        overlaps = []
+
+        overlaps: List[float] = []
         for op in self.group.operations.values():
             pts = (self.points.dot(op.T) + self.center).dot(M.T)
             values = map_coordinates(function, pts.T, mode='wrap')
             if not overlaps:
                 values1 = values
             overlaps.append(values.dot(values1) * self.grid_spacing**3)
-        characters = solve(self.group.character_table.T, overlaps)
-        return norm1, overlaps, characters
+
+        reduced_overlaps = []
+        i1 = 0
+        for n in self.group.nops:
+            i2 = i1 + n
+            reduced_overlaps.append(sum(overlaps[i1:i2]) / n)
+            i1 = i2
+
+        characters = solve(self.normalized_table.T, reduced_overlaps)
+        best = self.group.symmetries[characters.argmax()]
+
+        return {'symmetry': best,
+                'norm': norm1,
+                'overlaps': overlaps,
+                'characters': {symmetry: value
+                               for symmetry, value
+                               in zip(self.group.symmetries, characters)}}
 
     def check_band(self, calc, band, spin=0):
         wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
@@ -47,7 +68,7 @@ class SymmetryChecker:
 def sphere(radius: float, grid_spacing: float) -> Array2D:
     npts = int(radius / grid_spacing) + 1
     x = np.linspace(-npts, npts, 2 * npts + 1) * grid_spacing
-    points = np.array(np.meshgrid(x, x, x)).reshape((3, -1)).T
+    points = np.array(np.meshgrid(x, x, x, indexing='ij')).reshape((3, -1)).T
     points = points[(points**2).sum(1) <= radius**2]
     return points
 
