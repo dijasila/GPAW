@@ -86,6 +86,9 @@ Git master branch
   defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
   behavior.
 
+* New :mod:`gpaw.point_groups` module.  See this tutorial:
+  :ref:`point group`.
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/

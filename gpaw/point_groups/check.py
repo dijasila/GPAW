@@ -7,7 +7,7 @@ import numpy as np
 from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
-from .group import PointGroup
+from . import PointGroup
 
 Array1D = Any
 Array2D = Any
@@ -77,6 +77,7 @@ class SymmetryChecker:
         return self.check_function(wfs, calc.wfs.gd.h_cv * Bohr)
 
     def check_calculation(self, calc, n1, n2, spin=0, output='-'):
+        """Check several wave functions from GPAW calculation."""
         lines = ['band    energy     norm     best      ' +
                  ''.join(f'{sym:8}' for sym in self.group.symmetries)]
         for n in range(n1, n2):

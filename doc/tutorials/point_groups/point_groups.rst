@@ -1,6 +1,6 @@
-.. _point groups:
-
 .. module:: gpaw.point_groups
+
+.. _point groups:
 
 ====================================
 Point group symmetry representations
@@ -67,12 +67,15 @@ and do the analysis later:
 
 This will produce the following output:
 
-.. literalinclude:: symmetries-h2o.txt
+.. literalinclude:: h2o-symmetries.txt
 
 The bands have very distinct representations as expected.
 
-.. autoclass:: PointGroup
 .. autoclass:: SymmetryChecker
+    :members:
+.. autoclass:: PointGroup
+    :members:
+
 
 .. [1] K. C. Molloy. Group Theory for Chemists: Fundamental Theory and
                      Applications. Woodhead Publishing 2011
