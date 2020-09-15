@@ -3,20 +3,33 @@ from ase.io import read
 from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker
 
-charges = {'Ico': -2,
-           'I': -2,
+charges = {'Ih': -2,
+           'Ico': -2,
            'Th': 2}
 
 for path in Path().glob('*-*.xyz'):
     print(path)
     pg = path.name.split('-')[0]
     atoms = read(path)
-    atoms.center(vacuum=3.5)
+    atoms.center(vacuum=5)
     atoms.calc = GPAW(mode='lcao',
                       charge=charges.get(pg, 0.0),
                       txt=path.with_suffix('.txt'))
     atoms.get_potential_energy()
+    atoms.calc.write(path.with_suffix('.gpw'), mode='all')
     center = atoms.get_center_of_mass()
-    checker = SymmetryChecker(pg, center, 2.5)
-    result = checker.check_band(atoms.calc, 0)
-    print(result)
+    print(center, atoms.cell)
+    R = atoms.positions
+    checker = SymmetryChecker(pg, center, 4.5,
+                              z=R[17] - R[23],
+                              x=R[0] - R[20])
+    checker.check_calculation(atoms.calc,
+                              0, atoms.calc.get_number_of_bands(),
+                              output=path.with_suffix('.sym'))
+    for n in range(atoms.calc.get_number_of_bands()):
+        result = checker.check_band(atoms.calc, n)
+        characters = result['characters']
+        best = result['symmetry']
+        for sym, value in characters.items():
+            if sym != best:
+                assert abs(value) < 0.1 * characters[best]
