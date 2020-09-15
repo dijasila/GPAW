@@ -857,8 +857,22 @@ class WLDA(XCFunctional):
 
         nstar_sg = self.radial_weighted_density(rgd, n_sg)
 
-        self.radial_wldaxc(n_sg, nstar_sg, v_sg, e_g)
+        v1_sg, v2_sg, v3_sg = self.radial_wldaxc(n_sg, nstar_sg, v_sg, e_g)
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
+        import matplotlib.pyplot as plt
+        plt.subplot(121)
+        plt.plot(n_sg[0], label="Density")
+        plt.plot(nstar_sg[0], label="Weighted Density")
+        plt.legend()
+        plt.subplot(122)
+        plt.plot(v_sg[0], label="XC potential")
+        plt.plot(v1_sg[0], label="XC1 potential")
+        plt.plot(v2_sg[0], label="XC2 potential")
+        plt.plot(v3_sg[0], label="XC3 potential")
+        plt.legend()
+        # plt.show()
+        plt.savefig("wldatest.png")
+        plt.close()
 
         E = rgd.integrate(e_g)
         print(f"E = {E}", flush=True)
@@ -887,7 +901,8 @@ class WLDA(XCFunctional):
         maxn = np.max(n_sg)
         # The indicator anchors
         nalphas = 100
-        minn = max(minn, 1e-8)
+        minn = max(minn, 1e-4)
+        # delta = (maxn - minn) / 5
         alphas = np.linspace(minn, maxn, nalphas)
 
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
@@ -923,6 +938,8 @@ class WLDA(XCFunctional):
                     res_g = np.zeros_like(n_g)
                     inds = n_g < alphas[1]
                     res_g[inds] = -1.0
+                    inds = n_g < alphas[0]
+                    res_g[inds] = 0.0
                     return res_g
 
 
@@ -939,6 +956,8 @@ class WLDA(XCFunctional):
                     res_g = np.zeros_like(n_g)
                     inds = n_g >= alphas[ia - 1]
                     res_g[inds] = 1.0
+                    inds = n_g >= alphas[ia]
+                    res_g[inds] = 0.0
                     return res_g
             else:
                 def _i(n_g):
@@ -965,15 +984,18 @@ class WLDA(XCFunctional):
 
         self.alphas = alphas
         self.i_asg = i_asg
-        assert np.allclose(self.i_asg.sum(axis=0), 1.0)
-        assert (self.i_asg >= 0.0).all()
-        assert self.i_asg.ndim == 3
-        self.i_asx = i_asx
-        assert (self.i_asx >= 0.0).all()
-        assert np.allclose(self.i_asx.sum(axis=0), 1.0)
-        assert self.i_asx.ndim == 3
         self.di_asx = di_asx
         self.di_asg = di_asg
+        self.i_asx = i_asx
+
+        assert np.allclose(self.i_asg.sum(axis=0), 1.0)
+        assert np.allclose(self.di_asg.sum(axis=0), 0.0)
+        assert (self.i_asg >= 0.0).all()
+        assert self.i_asg.ndim == 3
+        assert (self.i_asx >= 0.0).all()
+        assert np.allclose(self.i_asx.sum(axis=0), 1.0)
+        assert np.allclose(self.di_asx.sum(axis=0), 0.0)
+        assert self.i_asx.ndim == 3
 
     def radial_weighted_density(self, rgd, n_sg):
         """Calculate the weighted density for an atomic system.
@@ -1017,6 +1039,9 @@ class WLDA(XCFunctional):
                 in_k = self.radial_fft(r_x, n_x * i_x)
 
                 phi_k = self.radial_weight_function(self.alphas[ia], G_k)
+                phi_x = self.radial_ifft(r_x, phi_k)
+                phinorm = np.sum(r_x[1] * r_x**2 * phi_x) * 4 * np.pi
+                assert np.allclose(phinorm, 1.0, atol=1e-3) or ia == 0, f"Phi norm was not 1.0: {phinorm}"
                 res_x = self.radial_ifft(r_x, in_k * phi_k)
                 nstar_sg[s, :] += IUS(r_x, res_x)(rgd.r_g)
 
@@ -1050,6 +1075,7 @@ class WLDA(XCFunctional):
         res = fsbt(0, f_k, G_k, r_x[:N // 2 + 1]) / (2 * np.pi**2)
         res_x = np.zeros_like(r_x)
         res_x[:len(res)] = res
+        assert np.allclose(res[-1], 0.0), res[-1]
         return res_x
 
     def radial_weight_function(self, alpha, G_k):
@@ -1063,27 +1089,14 @@ class WLDA(XCFunctional):
 
         c1 is a free parameter.
 
-        e^(-qt^2 / 4) has zero second derivative
-        at qt = sqrt(2).
+        If we choose
+            c1 = 2.20629
 
-        If we choose c1 such that qt(2k_F) = sqrt(2)
-        then phi(q) has zero second derivative at
-        q = 2k_F.
-
-        Thus
-            c1 = 3 * 8 * pi^2 / 2^(3/2)
+        then the kernel truncation function will
+        have zero second derivative at 2k_F.
         """
-        c1 = 3 * 8 * np.pi**2 / 2**(3/2)
+        c1 = 2.20629
         return np.exp(-0.25 * (G_k / (c1 * alpha**(1 / 3)))**2)
-
-    def _radial_weight_function(self, alpha, G_k):
-        assert np.allclose(alpha, alpha.real)
-        assert alpha >= 0.0
-        kF = (3 * np.pi**2 * alpha)**(1 / 3)
-        norm = 1 / (1 + 0.005 * (0 / (kF + 0.0001)**5)**2)
-        phi_k =  (1 / (1 + 0.005 * (G_k / (kF + 0.0001)**5)**2)) / norm
-        assert np.allclose(phi_k[0], 1.0)
-        return phi_k
 
     def radial_wldaxc(self, n_sg, nstar_sg, v_sg, e_g):
         """Calculate XC energy and potential for an atomic system."""
@@ -1109,6 +1122,8 @@ class WLDA(XCFunctional):
 
         e_g[:] = e1_g + e2_g - e3_g
         v_sg[:] = v1_sg + v2_sg - v3_sg
+
+        return v1_sg, v2_sg, v3_sg
 
     def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e[n*]n and potential."""
@@ -1147,10 +1162,20 @@ class WLDA(XCFunctional):
             e_g[:] += 0.5 * nstar_g * ex
 
         v_g += self.radial_derivative_fold(ex, n_g, spin)
-        t1 = rs * dexdrs / 3.0
         ratio = nstar_g / n_g
         ratio[np.isclose(n_g, 0.0)] = 0.0
-        v_g += -rs * dexdrs / 3.0 * ratio
+        v_g += - rs * dexdrs / 3.0 * ratio
+        """
+        TODO HERE THERE BE BUGS
+        SOMETHING WRONG WITH rs * dexdrs / 3.0 * ratio
+        """
+        import matplotlib.pyplot as plt
+        plt.subplot(211)
+        plt.plot(ex)
+        plt.subplot(212)
+        plt.plot(rs * dexdrs / 3.0 * ratio)
+        plt.savefig("x2_ex.png")
+        plt.close()
 
     def radial_x3(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e[n*]n* and potential."""
@@ -1167,8 +1192,8 @@ class WLDA(XCFunctional):
         else:
             e_g[:] += 0.5 * nstar_g * ex
 
-        v_g = ex - rs * dexdrs / 3.0
-        v_g = self.radial_derivative_fold(v_g, n_g, spin)
+        v_g += ex - rs * dexdrs / 3.0
+        v_g += self.radial_derivative_fold(v_g, n_g, spin)
 
     def radial_derivative_fold(self, f_g, n_g, spin):
         """Calculate folding expression that appears in
@@ -1178,12 +1203,12 @@ class WLDA(XCFunctional):
             F(r) = int f(r') dn*(r') / dn(r)
         
         Calculates
-            sum_a [(f_g * phi_a) * (i_a + di_a n)]        
+            sum_a [(f_g * phi_a) FOLD (i_a + di_a * n)]        
         """
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
         rgd = self.rgd
-        N = 2**13
+        N = 2**14
         r_x = np.linspace(0, rgd.r_g[-1], N)
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
 
@@ -1191,10 +1216,10 @@ class WLDA(XCFunctional):
         
         for ia, a in enumerate(self.alphas):
             f_x = rgd.interpolate(f_g, r_x)
-            f_k = fsbt(0, f_x, r_x, G_k) * 4 * np.pi
+            f_k = self.radial_fft(r_x, f_x)
             phi_k = self.radial_weight_function(self.alphas[ia], G_k)
             
-            res_g += (IUS(r_x, fsbt(0, f_k * phi_k, G_k, r_x) * 2)(rgd.r_g)
+            res_g += (IUS(r_x, self.radial_ifft(r_x, f_k * phi_k))(rgd.r_g)
                       * (self.i_asg[ia, spin, :] + self.di_asg[ia, spin, :] * n_g))
 
         return res_g
@@ -1206,7 +1231,7 @@ class WLDA(XCFunctional):
         """
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
-        N = 2**13
+        N = 2**14
         r_x = np.linspace(0, rgd.r_g[-1], N)
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
 
@@ -1214,19 +1239,35 @@ class WLDA(XCFunctional):
         n_g = n_sg.sum(axis=0)
 
         dn_g = n_g - nstar_g
+        totaldn = rgd.integrate(dn_g)
+        assert np.allclose(totaldn, 0.0)
 
         dn_x = rgd.interpolate(dn_g, r_x)
-        dn_k = fsbt(0, dn_x, r_x, G_k) * 4 * np.pi
+        dn_k = self.radial_fft(r_x, dn_x)
+        # dn_k = fsbt(0, dn_x, r_x, G_k) * 4 * np.pi
         pot_k = np.zeros_like(dn_k)
         pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi
-        pot_x = fsbt(0, pot_k, G_k, r_x) * 2
+        # pot_x = fsbt(0, pot_k, G_k, r_x) * 2
+        pot_x = self.radial_ifft(r_x, pot_k)
         pot_g = IUS(r_x, pot_x)(rgd.r_g)
-        
+            
         e_g -= pot_g * dn_g
         
         v_sg[0, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 0))
         if len(v_sg) == 2:    
             v_sg[1, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 1))
+
+        blup_g = self.radial_derivative_fold(pot_g, n_g, 0)
+        import matplotlib.pyplot as plt
+        plt.subplot(311)
+        plt.plot(rgd.r_g, 2 * n_g - nstar_g)
+        plt.plot([min(rgd.r_g), max(rgd.r_g)], [0, 0], "k--")
+        plt.subplot(312)
+        plt.plot(rgd.r_g, -2*(pot_g - blup_g))
+        plt.subplot(313)
+        plt.plot(rgd.r_g, v_sg[0])
+        plt.savefig("hartreestuff.png")
+        plt.close()
 
     ###### Abandon all hope ye who enter here #######
     def _calculate_impl(self, gd, n_sg, v_sg, e_g):
