@@ -1042,6 +1042,30 @@ class WLDA(XCFunctional):
         return res_x
 
     def radial_weight_function(self, alpha, G_k):
+        """Evaluates and returns phi(q, alpha).
+        
+        The weight function is 
+            phi(q, n) = e^(-qt^2 / 4)
+
+        with
+            qt = q / (c1 n^(1/3))
+
+        c1 is a free parameter.
+
+        e^(-qt^2 / 4) has zero second derivative
+        at qt = sqrt(2).
+
+        If we choose c1 such that qt(2k_F) = sqrt(2)
+        then phi(q) has zero second derivative at
+        q = 2k_F.
+
+        Thus
+            c1 = 3 * 8 * pi^2 / 2^(3/2)
+        """
+        c1 = 3 * 8 * np.pi**2 / 2**(3/2)
+        return np.exp(-0.25 * (G_k / (c1 * alpha**(1 / 3))))
+
+    def _radial_weight_function(self, alpha, G_k):
         assert np.allclose(alpha, alpha.real)
         assert alpha >= 0.0
         kF = (3 * np.pi**2 * alpha)**(1 / 3)
