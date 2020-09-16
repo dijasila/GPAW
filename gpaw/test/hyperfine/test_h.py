@@ -3,11 +3,13 @@ from gpaw.setup import create_setup
 from gpaw import GPAW
 
 
-def test_h(gpw_file):
-    calc = GPAW(gpw_file['h_pw'])
+def test_h(gpw_files):
+    calc = GPAW(gpw_files['h_pw'])
     dens = calc.density
-    nt_sR = dens.nt_sg
-    hyper(nt_sR[0] - nt_sR[1], dens.finegd, calc.spoc_ac)
+    nt_sR = dens.nt_sG
+    hyper(nt_sR[0] - nt_sR[1], dens.gd,
+          calc.atoms.get_scaled_positions())
+    paw_correction(calc.density.D_asp[0], calc.wfs.setups[0])
 
 
 def t():
