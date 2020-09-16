@@ -7,7 +7,9 @@ Frequently Asked Questions
 General
 =======
 
-Citation: how should I cite GPAW?
+.. _citation:
+
+Citation: How should I cite GPAW?
 ---------------------------------
 
 If you find GPAW useful in your research please cite the original reference:
