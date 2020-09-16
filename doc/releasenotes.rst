@@ -80,7 +80,7 @@ Git master branch
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
   Use ``occupations={'name': 'tetrahedron-method'}`` or
   ``occupations={'name': 'improved-tetrahedron-method'}``.
-  See `Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_
+  See :doi:`Blöchl et. al <10.1103/PhysRevB.49.16223>`
   and :ref:`smearing` for details.
 
 * New :func:`gpaw.mpi.broadcast_array` function for broadcasting

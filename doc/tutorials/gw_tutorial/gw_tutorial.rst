@@ -179,12 +179,10 @@ More information can be found here:
 
     \P. S. Schmidt, C. E. Patrick, and K. S. Thygesen
 
-    `Simple vertex correction improves GW band energies of bulk and
-    two-dimensional crystals`__
+    :arxiv:`Simple vertex correction improves GW band energies of bulk and
+    two-dimensional crystals <1711.02922>`
 
     To appear in Physical Review B.
-
-    __ https://arxiv.org/abs/1711.02922
 
 .. note::
     Including vertex corrections is currently not possible for spin-polarized systems.

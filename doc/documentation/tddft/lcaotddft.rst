@@ -521,14 +521,14 @@ References
    Atomistic first-principles time-dependent density functional theory
    calculations,
    *Phys. Rev. B* **69**, 245419 (2004).
-   `doi:10.1103/PhysRevB.91.115431 <https://doi.org/10.1103/PhysRevB.91.115431>`_
+   :doi:`10.1103/PhysRevB.91.115431`
 
 .. [#Rossi2015]
    T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
    Nanoplasmonics simulations at the basis set limit
    through completeness-optimized, local numerical basis sets,
    *J. Chem. Phys.* **142**, 094114 (2015).
-   `doi:10.1063/1.4913739 <https://doi.org/10.1063/1.4913739>`_
+   :doi:`10.1063/1.4913739`
 
 .. [#Rossi2017]
    T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
@@ -536,4 +536,4 @@ References
    Density-Functional Theory:
    An Efficient Tool for Analyzing Plasmonic Excitations,
    *J. Chem. Theory Comput.* **13**, 4779 (2017).
-   `doi:10.1021/acs.jctc.7b00589 <https://doi.org/10.1021/acs.jctc.7b00589>`_
+   :doi:`10.1021/acs.jctc.7b00589`

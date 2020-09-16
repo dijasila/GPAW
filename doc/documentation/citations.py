@@ -81,7 +81,7 @@ plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
 fd = open('citations.csv', 'w')
 n = len(allpapers)
 for date, doi, title in allpapers[::-1]:
-    fd.write('%d,"`%s <http://dx.doi.org/%s>`__"\n' % (n, title, doi))
+    fd.write('%d,":doi:`%s <%s>`"\n' % (n, title, doi))
     n -= 1
 fd.close()
 

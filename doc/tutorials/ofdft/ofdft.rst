@@ -289,7 +289,7 @@ References
 .. [#teller] E. Teller, On the Stability of Molecules in the Thomas-Fermi Theory, Rev. Mod. Phys. 34, 627 (1962).
 .. [#levy]    M. Levy, J. P. Perdew, and V. Sahni, Exact differential equation for the density and ionization energy of a many-particle system, Phys. Rev. A 30, 2745 (1984).
 .. [#lehtomaki]  J. Lehtomäki, I. Makkonen, M. A. Caro, A. Harju, and O. Lopez-Acevedo, Orbital-free density functional theory implementation with the projector augmented-wave method, J. Chem. Phys. 141, 234102 (2014).
-.. [#espinosa]  L. A. Espinosa Leal, A. Karpenko, M. A. Caro, and O. Lopez-Acevedo, Optimizing a parametrized Thomas-Fermi-Dirac-Weizsäcker density functional for atoms, Phys. Chem. Chem. Phys. , (2015) DOI: 10.1039/C5CP01211B.
+.. [#espinosa]  L. A. Espinosa Leal, A. Karpenko, M. A. Caro, and O. Lopez-Acevedo, Optimizing a parametrized Thomas-Fermi-Dirac-Weizsäcker density functional for atoms, Phys. Chem. Chem. Phys. , (2015) :doi:`10.1039/C5CP01211B`.
 .. [#karasiev]    V. V. Karasiev, S. B. Trickey, Issues and challenges in orbital-free density functional calculations, Comp. Phys. Comm. 183, 2519 (2012).
 .. [#chan]    G. K.-L. Chan, A. J. Cohen and N. C. Handy, Thomas-Fermi-Dirac-von Weizsäcker models in finite systems, J. Chem. Phys. 114, 631 (2001).
 .. [#ludena]    E. V. Ludeña and V. V. Karasiev, Kinetic energy functionals: history, challenges and prospects, in Reviews of Modern Quantum Chemistry Vol. 1, pp612 (World Scientific, Singapore, 2002).

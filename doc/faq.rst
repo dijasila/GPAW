@@ -13,61 +13,46 @@ Citation: how should I cite GPAW?
 If you find GPAW useful in your research please cite the original reference:
 
    | J. J. Mortensen, L. B. Hansen , and K. W. Jacobsen
-   | `Real-space grid implementation of the projector augmented wave method`__
+   | :doi:`Real-space grid implementation of the projector augmented wave method <10.1103/PhysRevB.71.035109>`
    | Physical Review B, Vol. **71**, 035109, 2005
-
-   __ http://dx.doi.org/10.1103/PhysRevB.71.035109
 
 and the major GPAW review:
 
    | J. Enkovaara, C. Rostgaard, J. J. Mortensen et al.
-   | `Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method`__
+   | :doi:`Electronic structure calculations with GPAW: a real-space implementation of the projector augmented-wave method <10.1088/0953-8984/22/25/253202>`
    | J. Phys.: Condens. Matter **22**, 253202 (2010)
-
-   __ http://stacks.iop.org/0953-8984/22/253202
-
 
 together with ASE citation (see :ref:`ase:cite`).
 
 If you are using the time-dependent DFT part of the code, please cite also:
 
    | M. Walter, H. Häkkinen, L. Lehtovaara, M. Puska, J. Enkovaara, C. Rostgaard and J. J. Mortensen
-   | `Time-dependent density-functional theory in the projector augmented-wave method`__
+   | :doi:`Time-dependent density-functional theory in the projector augmented-wave method <10.1063/1.2943138>`
    | Journal of Chemical Physics, Vol. **128**, 244101, 2008
-
-   __ http://link.aip.org/link/?JCP/128/244101
 
 If you use the :ref:`localized basis set <lcao>`, please cite also:
 
    | A. H. Larsen, M. Vanin, J. J. Mortensen, K. S. Thygesen, and K. W. Jacobsen
-   | `Localized atomic basis set in the projector augmented wave method`__
+   | :doi:`Localized atomic basis set in the projector augmented wave method <10.1103/PhysRevB.80.195112>`
    | Physical Review B, Vol. **80**, 195112, 2009
-
-   __ http://dx.doi.org/10.1103/PhysRevB.80.195112
 
 If you use the :ref:`df_tutorial`, please cite also:
 
    | Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
-   | `Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces`__
+   | :doi:`Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces <10.1103/PhysRevB.83.245122>`
    | Physical Review B Vol. **83**, 245122, 2011
-
-   __ http://link.aps.org/doi/10.1103/PhysRevB.83.245122
 
 If you use the :ref:`gw tutorial`, please cite also:
 
    | F. Hüser, T. Olsen, and K. S. Thygesen
-   | `Quasiparticle GW calculations for solids, molecules, and two-dimensional materials`__
+   | :doi:`Quasiparticle GW calculations for solids, molecules, and two-dimensional materials <10.1103/PhysRevB.87.235132>`
    | Physical Review B Vol. **87**, 235132, 2013
-
-   __ http://link.aps.org/doi/10.1103/PhysRevB.87.235132
 
 If you use the :ref:`continuum_solvent_model`, please cite also:
 
    | A. Held and M. Walter
-   | `Simplified continuum solvent model with a smooth cavity based on volumetric data`__
+   | :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`
    | The Journal of Chemical Physics Vol. **141**, 174108, 2014
-
-   __ http://dx.doi.org/10.1063/1.4900838
 
 BibTex (:git:`doc/GPAW.bib`):
 
