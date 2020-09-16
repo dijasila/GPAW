@@ -14,11 +14,11 @@ See:
 """
 import numpy as np
 
-from gpaw.wavefunctions.pw import PlaneWaveDescriptor
+from gpaw.wavefunctions.pw import PWDescriptor
 
 
 def hyper(spin_density_R, gd, spos_ac, ecut=None):
-    pd = PlaneWaveDescriptor(ecut, gd)
+    pd = PWDescriptor(ecut, gd)
 
     spin_density_G = pd.fft(spin_density_R)
 
@@ -36,3 +36,14 @@ def hyper(spin_density_R, gd, spos_ac, ecut=None):
     W2_vva -= spin_density_G.dot(eiGR_Ga) / 3
 
     return W1_a - W2_vva
+
+
+def paw_correction(D_sp, setup):
+    s = setup
+    print(dir(setup))
+    print(dir(setup.data))
+    print(s.l_j, s.n_j, np.pi**.5)
+    setup.rgd.plot(s.data.phi_jg[0])
+    setup.rgd.plot(s.data.phit_jg[0], show=True)
+    print((s.data.phi_jg[0]**2 * s.rgd.r_g**2).dot(s.rgd.dr_g))
+    
