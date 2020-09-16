@@ -466,7 +466,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         if eigenvalues is None:
             nbands = calc.get_number_of_bands()
         else:
-            nbands = eigenvalues.shape[1]
+            nbands = eigenvalues.shape[2]
         n2 += nbands
 
     # <phi_i|dV_adr / r * L_v|phi_j>

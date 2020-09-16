@@ -3,43 +3,32 @@
 
 set -e  # stop if there are errors
 
-FOLDERNAME=$1
-TOOLCHAIN=foss
-mkdir -p $FOLDERNAME
-cd $FOLDERNAME
+NAME=$1
+
 FOLDER=$PWD
 
-echo "module purge" > modules.sh
-echo "module load GPAW-setups/0.9.20000" >> modules.sh
-
-if [ "$TOOLCHAIN" = foss ]; then
-    echo "module load matplotlib/3.1.1-foss-2019b-Python-3.7.4" >> modules.sh
-    echo "module load libxc/4.3.4-GCC-8.3.0" >> modules.sh
-    echo "module load libvdwxc/0.4.0-foss-2019b" >> modules.sh
-else
-    echo "module load matplotlib/3.1.1-intel-2019b-Python-3.7.4" >> modules.sh
-    echo "module load libxc/4.3.4-iccifort-2019.5.281" >> modules.sh
-fi
-
+echo "module purge
+module load GPAW-setups/0.9.20000
+module load matplotlib/3.1.1-foss-2019b-Python-3.7.4
+module load libxc/4.3.4-GCC-8.3.0
+module load libvdwxc/0.4.0-foss-2019b" > modules.sh
 . modules.sh
 
 # Create venv:
-python3 -m venv venv --prompt=$FOLDERNAME --system-site-packages
-cd venv
+python3 -m venv $NAME --system-site-packages
+cd $NAME
 VENV=$PWD
 . bin/activate
 PIP="python3 -m pip"
 $PIP install --upgrade pip -qq
 
 # Load modules in activate script:
-mv bin/activate .
+mv bin/activate old
 mv ../modules.sh bin/activate
-cat activate >> bin/activate
-rm activate
+cat old >> bin/activate
+rm old
 
-cd $FOLDER
-
-# Install ASE:
+# Install ASE from git:
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
@@ -54,11 +43,11 @@ ssh fjorm $CMD
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git
 cd gpaw
-cp doc/platforms/Linux/Niflheim/el7-$TOOLCHAIN.py siteconfig.py
+cp doc/platforms/Linux/Niflheim/siteconfig-foss.py siteconfig.py
 for HOST in fjorm svol thul slid
 do
-  CMD="cd $FOLDER &&
-       . venv/bin/activate &&
+  CMD="cd $VENV &&
+       . bin/activate &&
        pip install -e gpaw -v > $HOST.out 2>&1"
   echo Compiling GPAW on $HOST
   echo $CMD
@@ -67,12 +56,11 @@ done
 (cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.7)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
-cd ..
 
 # Install extra basis-functions:
-gpaw install-data --basis --version=20000 . --no-register
-export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$FOLDER/gpaw-basis-pvalence-0.9.20000
 cd $VENV
+gpaw install-data --basis --version=20000 . --no-register
+export GPAW_SETUP_PATH=$GPAW_SETUP_PATH:$VENV/gpaw-basis-pvalence-0.9.20000
 echo "export GPAW_SETUP_PATH=$GPAW_SETUP_PATH" >> bin/activate
 
 # Tab completion:
@@ -81,10 +69,7 @@ gpaw completion >> bin/activate
 mq completion >> bin/activate
 
 # Set matlplotlib backend:
-echo "export MPLBACKEND=Agg" >> bin/activate
-
-# DFTD3:
-# export ASE_DFTD3_COMMAND=~/source/dftd3/dftd3
+echo "unset MPLBACKEND" >> bin/activate
 
 # Run tests:
 mq --version

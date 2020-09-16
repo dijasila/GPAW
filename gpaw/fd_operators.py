@@ -214,7 +214,7 @@ class Gradient(FDOperator):
 
         # Find nearest neighbors.  If h is a vector pointing at a
         # neighbor grid-points then we don't also include -h in the list:
-        M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
+        M_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
         voro = Voronoi(h_iv)
         i_d = []  # List[int]
