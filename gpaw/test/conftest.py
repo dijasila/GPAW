@@ -49,6 +49,8 @@ def gpw_files(request, tmp_path_factory):
     * Bulk BCC-Li with 3x3x3 k-points: ``bcc_li_pw``, ``bcc_li_fd``,
       ``bcc_li_lcao``.
 
+    * O2 molecule: ``o2_pw``.
+
     * H2 molecule: ``h2_pw``, ``h2_fd``, ``h2_lcao``.
 
     * Spin-polarized H atom: ``h_pw``.
@@ -128,6 +130,15 @@ class GPWFiles:
         h.center(vacuum=4.0)
         h.calc = GPAW(mode={'name': 'pw', 'ecut': 500},
                       txt=self.path / 'h_pw.txt')
+        h.get_potential_energy()
+        return h.calc
+
+    def o2_pw(self):
+        d = 1.1
+        h = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
+        h.center(vacuum=2.0)
+        h.calc = GPAW(mode={'name': 'pw', 'ecut': 400},
+                      txt=self.path / 'o2_pw.txt')
         h.get_potential_energy()
         return h.calc
 
