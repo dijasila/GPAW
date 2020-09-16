@@ -51,22 +51,23 @@ def f(filename):
 
 
 # The papers here are:
-# gpaw1:
-#   Mortensen et al., Phys. Rev. B (2005)
-#   http://doi.org/10.1103/PhysRevB.71.035109
-# gpaw2:
-#   Enkovaara et al., J. Phys.: Condens. Matter (2010)
-#   http://doi.org/10.1088/0953-8984/22/25/253202
-# lcao:
-#   Larsen et al., Phys. Rev. B (2009)
-#   http://doi.org/10.1103/PhysRevB.80.195112
-# tddft:
-#   Walter et al., J. Chem. Phys. (2008)
-#   http://doi.org/10.1063/1.2943138
-# response:
-#   Yan et al., Phys. Rev. B (2011)
-#   http://doi.org/10.1103/PhysRevB.83.245122
-
+label_bib = {
+    'gpaw1':
+        'Mortensen et al., Phys. Rev. B (2005)',
+        # http://doi.org/10.1103/PhysRevB.71.035109
+    'gpaw2':
+        'Enkovaara et al., J. Phys.: Condens. Matter (2010)',
+        # http://doi.org/10.1088/0953-8984/22/25/253202
+    'lcao':
+        'Larsen et al., Phys. Rev. B (2009)',
+        # http://doi.org/10.1103/PhysRevB.80.195112
+    'tddft':
+        'Walter et al., J. Chem. Phys. (2008)',
+        # http://doi.org/10.1063/1.2943138
+    'response':
+        'Yan et al., Phys. Rev. B (2011)',
+        # http://doi.org/10.1103/PhysRevB.83.245122
+}
 
 plt.figure(figsize=(8, 4))
 total = {}
@@ -80,7 +81,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
         papers.update(f(bib + '.bib'))
     papers = sorted((papers[doi][0], doi, papers[doi][1]) for doi in papers)
     plt.plot([paper[0] for paper in papers], range(1, len(papers) + 1),
-             '-o', label=bib)
+             '-o', label=label_bib[bib])
     fd = open(bib + '.txt', 'w')
     for date, doi, title in papers:
         fd.write('%d-%02d-%02d %s %s\n' % (date.year, date.month, date.day,
@@ -94,7 +95,7 @@ for bib in ['gpaw1', 'tddft', 'lcao', 'gpaw2', 'response']:
 
 allpapers = sorted((paper[0], doi, paper[1]) for doi, paper in total.items())
 plt.plot([paper[0] for paper in allpapers], range(1, len(allpapers) + 1),
-         '-o', label='total')
+         '-o', label='Total')
 
 fd = open('citations.csv', 'w')
 n = len(allpapers)
