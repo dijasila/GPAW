@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 from _pytest.tmpdir import _mk_tmp
@@ -32,7 +33,10 @@ def in_tmp_dir(request, tmp_path_factory):
 def gpw_files(request, tmp_path_factory):
     """Reuse gpw-files.
 
-    Returns a dict mapping names to paths to gpw-files.
+    Returns a dict mapping names to paths to gpw-files.  If you
+    want to reuse gpw-files from an earlier pytest session then set the
+    ``$GPW_TEST_FILES`` environment variable and the files will be written
+    to that folder.
 
     Example::
 
@@ -47,24 +51,30 @@ def gpw_files(request, tmp_path_factory):
 
     * H2 molecule: ``h2_pw``, ``h2_fd``, ``h2_lcao``.
 
+    * Spin-polarized H atom: ``h_pw``.
+
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
       ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
 
     Files with wave functions are also availabel (add ``_wfs`` to the names).
     """
-    if world.rank == 0:
-        path = _mk_tmp(request, tmp_path_factory)
-    else:
-        path = None
-    path = broadcast(path)
-    return GPWFiles(path)
+    path = os.environ.get('GPW_TEST_FILES')
+    if path is None:
+        if world.rank == 0:
+            path = _mk_tmp(request, tmp_path_factory)
+        else:
+            path = None
+        path = broadcast(path)
+    return GPWFiles(Path(path))
 
 
 class GPWFiles:
     """Create gpw-files."""
-    def __init__(self, path):
+    def __init__(self, path: Path):
         self.path = path
         self.gpw_files = {}
+        for file in path.glob('*.gpw'):
+            self.gpw_files[file.name[:-4]] = file
 
     def __getitem__(self, name):
         if name not in self.gpw_files:
@@ -112,6 +122,14 @@ class GPWFiles:
                        txt=self.path / f'h2_{mode["name"]}.txt')
         h2.get_potential_energy()
         return h2.calc
+
+    def h_pw(self):
+        h = Atoms('H', magmoms=[1])
+        h.center(vacuum=4.0)
+        h.calc = GPAW(mode={'name': 'pw', 'ecut': 500},
+                      txt=self.path / 'h_pw.txt')
+        h.get_potential_energy()
+        return h.calc
 
     def c2h4_pw_nosym(self):
         d = 1.54
