@@ -14,7 +14,7 @@ Citation: How should I cite GPAW?
 
 If you find GPAW useful in your research please cite the original reference:
 
-   | J. J. Mortensen, L. B. Hansen , and K. W. Jacobsen
+   | J. J. Mortensen, L. B. Hansen, and K. W. Jacobsen
    | :doi:`Real-space grid implementation of the projector augmented wave method <10.1103/PhysRevB.71.035109>`
    | Phys. Rev. B **71**, 035109 (2005)
 
@@ -40,7 +40,7 @@ If you use the :ref:`localized basis set <lcao>`, please cite also:
 
 If you use the :ref:`df_tutorial`, please cite also:
 
-   | Jun Yan, Jens. J. Mortensen, Karsten W. Jacobsen, and Kristian S. Thygesen
+   | J. Yan, J. J. Mortensen, K. W. Jacobsen, and K. S. Thygesen
    | :doi:`Linear density response function in the projector augmented wave method: Applications to solids, surfaces, and interfaces <10.1103/PhysRevB.83.245122>`
    | Phys. Rev. B **83**, 245122 (2011)
 
