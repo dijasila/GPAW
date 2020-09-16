@@ -56,6 +56,19 @@ If you use the :ref:`continuum_solvent_model`, please cite also:
    | :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`
    | J. Chem. Phys. **141**, 174108 (2014)
 
+If you use the :ref:`lcaotddft`, please cite also:
+
+   | M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
+   | :doi:`Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density functional theory calculations <10.1103/PhysRevB.91.115431>`
+   | Phys. Rev. B **91**, 115431 (2015)
+
+If you use the :ref:`ksdecomposition` in the :ref:`lcaotddft`, please cite also:
+
+   | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
+   | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
+   | J. Chem. Theory Comput. **13**, 4779 (2017)
+
+
 BibTex (:git:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
