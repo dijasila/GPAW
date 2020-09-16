@@ -72,6 +72,7 @@ If you use the :ref:`ksdecomposition` in the :ref:`lcaotddft`, please cite also:
 BibTex (:git:`doc/GPAW.bib`):
 
 .. literalinclude:: GPAW.bib
+   :language: bibtex
 
 
 How do you pronounce GPAW?
