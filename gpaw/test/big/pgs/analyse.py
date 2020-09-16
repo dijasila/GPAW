@@ -12,16 +12,17 @@ for path in Path().glob('*-*.xyz'):
     pg = path.name.split('-')[0]
     atoms = read(path)
     atoms.center(vacuum=5)
-    if 1:
+    if 0:
         atoms.calc = GPAW(mode='lcao',
                           charge=charges.get(pg, 0.0),
                           txt=path.with_suffix('.txt'))
         atoms.get_potential_energy()
         atoms.calc.write(path.with_suffix('.gpw'), mode='all')
-    else:
+    elif 0:
         atoms.calc = GPAW(path.with_suffix('.gpw'))
+    else:
+        pass
     center = atoms.get_center_of_mass()
-    print(center, atoms.cell)
     R = atoms.positions
     if pg == 'Ico':
         z = R[17] - R[23]
@@ -32,6 +33,8 @@ for path in Path().glob('*-*.xyz'):
     checker = SymmetryChecker(pg, center, 4.5,
                               x=x, z=z)
     c = checker.check_atoms(atoms)
+    print(c)
+    continue
     if not c:
         continue
 

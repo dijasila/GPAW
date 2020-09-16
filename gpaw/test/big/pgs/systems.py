@@ -160,6 +160,9 @@ for corner in ico:
     system.append(Atom('B', position=corner))
     Hpos = corner + BH * corner / np.linalg.norm(corner)
     system.append(Atom('H', position=Hpos))
+R = system.positions
+system.rotate(R[5] - R[3], 'z')
+system.rotate(36, 'z')
 systems['Ih'] = (name, system)
 
 name = 'dodecaborate'
