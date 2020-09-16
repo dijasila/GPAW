@@ -29,7 +29,9 @@ class CLICommand:
             'interpolation.')
         add('-a', '--atom', help='Project onto atoms: "Cu-spd,H-s" or use '
             'atom indices "12-spdf".  Particular m-values can be obtained '
-            'like this: "N-p0,N-p1,N-p2".')
+            'like this: "N-p0,N-p1,N-p2. For p-orbitals, m=0,1,2 translates '
+            'to y, z and x. For d-orbitals, m=0,1,2,3,4 translates '
+            'to xy, yz, 3z2-r2, zx and x2-y2.')
         add('-t', '--total', action='store_true',
             help='Show both PDOS and total DOS.')
         add('-r', '--range', nargs=2, metavar=('emin', 'emax'),
