@@ -18,7 +18,7 @@ for path in Path().glob('*-*.xyz'):
                           txt=path.with_suffix('.txt'))
         atoms.get_potential_energy()
         atoms.calc.write(path.with_suffix('.gpw'), mode='all')
-    elif 0:
+    elif 1:
         atoms.calc = GPAW(path.with_suffix('.gpw'))
     else:
         pass
@@ -33,10 +33,7 @@ for path in Path().glob('*-*.xyz'):
     checker = SymmetryChecker(pg, center, 4.5,
                               x=x, z=z)
     c = checker.check_atoms(atoms)
-    print(c)
-    continue
-    if not c:
-        continue
+    print(path, pg, c)
 
     checker.check_calculation(atoms.calc,
                               0, atoms.calc.get_number_of_bands(),
@@ -50,3 +47,9 @@ for path in Path().glob('*-*.xyz'):
                 if abs(value) > 0.1 * characters[best]:
                     print(result)
                 # assert abs(value) < 0.1 * characters[best]
+
+"""
+D5h-ferrocene.xyz D5h True
+Oh-F6S.xyz Oh True
+Ih-dodecaborate.xyz Ih False
+"""

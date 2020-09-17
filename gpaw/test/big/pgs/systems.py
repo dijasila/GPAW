@@ -211,6 +211,7 @@ rotmat = np.array([[math.cos(beta), - math.sin(beta), 0.],
 for i in range(3):
     atom0[0].position = rotmat.dot(atom0[0].position)
     system.append(atom0[0])
+system.rotate(180, 'z')
 systems['Td'] = (name, system)
 
 name = 'Mg-H2O-6'
@@ -248,6 +249,8 @@ for atom in h2o:
     atom.position *= -1
     atoms.append(atom)
 system = atoms
+system.rotate([1, 1, 1], 'z')
+system.rotate(75, 'z')
 systems['Th'] = (name, system)
 
 for group_name, (name, system) in systems.items():
