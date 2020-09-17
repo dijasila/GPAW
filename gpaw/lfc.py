@@ -1093,6 +1093,10 @@ class BasisFunctions(LocalizedFunctionsCollection):
                 f"C_xM has type {C_xM.dtype}, but expected one of {self.dtype}"
             )
 
+        assert C_xM.ndim == 2
+        assert psit_xG.ndim == 4
+        assert C_xM.shape[0] == psit_xG.shape[0]
+
         C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
         psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
 
