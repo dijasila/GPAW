@@ -1083,8 +1083,15 @@ class BasisFunctions(LocalizedFunctionsCollection):
         if C_xM.size == 0:
             return
 
-        assert np.iscomplexobj(psit_xG), "psit_xG needs to have a complex dtype (either 'complex128' or 'complex64'"
-        assert np.iscomplexobj(C_xM), "C_xM needs to have a complex dtype (either 'complex128' or 'complex64'"
+        if psit_xG.dtype != self.dtype:
+            raise TypeError(
+                f"psit_xG has type {psit_xG.dtype}, but expected one of {self.dtype}"
+            )
+
+        if C_xM.dtype != self.dtype:
+            raise TypeError(
+                f"C_xM has type {C_xM.dtype}, but expected one of {self.dtype}"
+            )
 
         C_xM = C_xM.reshape((-1,) + C_xM.shape[-1:])
         psit_xG = psit_xG.reshape((-1,) + psit_xG.shape[-3:])
