@@ -4,7 +4,7 @@ from gpaw import GPAW
 from gpaw.utilities import unpack2
 
 
-def test_h(gpw_files):
+def atest_h(gpw_files):
     calc = GPAW(gpw_files['h_pw'])
     dens = calc.density
     nt_sR = dens.nt_sG

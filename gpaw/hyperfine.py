@@ -63,8 +63,10 @@ def paw_correction(spin_density_ii, setup):
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
     n2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
     n2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
-    # nt2_mg[:, 100:] = 0.0
+    n2_mg[:, 1500:] = 0.0
     w_g = rgd.poisson(n2_mg[0], 2)
+    print(rgd.integrate(n2_mg[0], -3) / 5)
+    print(w_g[1:5] / rgd.r_g[1:5]**3)
     rgd.plot(n2_mg[0])
     rgd.plot(w_g, n=-3, show=1)
 
