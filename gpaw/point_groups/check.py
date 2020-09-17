@@ -57,8 +57,10 @@ class SymmetryChecker:
 
     def check_function(self,
                        function: Array3D,
-                       grid_vectors: Array2D) -> Dict[str, Any]:
+                       grid_vectors: Array2D = None) -> Dict[str, Any]:
         """Check function on uniform grid."""
+        if grid_vectors is None:
+            grid_vectors = np.eye(3)
         dv = abs(det(grid_vectors))
         norm1 = (function**2).sum() * dv
         M = inv(grid_vectors).T
@@ -66,6 +68,7 @@ class SymmetryChecker:
         for op in self.group.operations.values():
             op = self.rotation.T.dot(op).dot(self.rotation)
             pts = (self.points.dot(op.T) + self.center).dot(M.T)
+            pts %= function.shape
             values = map_coordinates(function, pts.T, mode='wrap')
             if not overlaps:
                 values1 = values
@@ -75,7 +78,7 @@ class SymmetryChecker:
         i1 = 0
         for n in self.group.nops:
             i2 = i1 + n
-            reduced_overlaps.append(sum(overlaps[i1:i2]) / n)
+            reduced_overlaps.append(sum(overlaps[i1:i2]) / n / overlaps[0])
             i1 = i2
 
         characters = solve(self.normalized_table.T, reduced_overlaps)
@@ -95,16 +98,18 @@ class SymmetryChecker:
 
     def check_calculation(self, calc, n1, n2, spin=0, output='-'):
         """Check several wave functions from GPAW calculation."""
-        lines = ['band    energy     norm     best      ' +
+        lines = ['band    energy     norm  normcut     best      ' +
                  ''.join(f'{sym:8}' for sym in self.group.symmetries)]
         for n in range(n1, n2):
             dct = self.check_band(calc, n, spin)
             best = dct['symmetry']
             norm = dct['norm']
+            normcut = dct['overlaps'][0]
             eig = calc.get_eigenvalues(spin=spin)[n]
-            lines.append(f'{n:4} {eig:9.3f} {norm:8.3f} {best:>8}' +
-                         ''.join(f'{x:8.3f}'
-                                 for x in dct['characters'].values()))
+            lines.append(
+                f'{n:4} {eig:9.3f} {norm:8.3f} {normcut:8.3f} {best:>8}' +
+                ''.join(f'{x:8.3f}'
+                        for x in dct['characters'].values()))
 
         fd = sys.stdout if output == '-' else open(output, 'w')
         fd.write('\n'.join(lines) + '\n')
