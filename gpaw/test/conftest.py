@@ -135,9 +135,9 @@ class GPWFiles:
 
     def o2_pw(self):
         d = 1.1
-        h = Atoms('O2', positions=[[0, 0, 0], [d, 0, 0]], magmoms=[1, 1])
-        h.center(vacuum=2.0)
-        h.calc = GPAW(mode={'name': 'pw', 'ecut': 400},
+        h = Atoms('O2', positions=[[0, 0, 0], [d, 0.2, 0]], magmoms=[1, 1])
+        h.center(vacuum=4.0)
+        h.calc = GPAW(mode={'name': 'pw', 'ecut': 800},
                       txt=self.path / 'o2_pw.txt')
         h.get_potential_energy()
         return h.calc

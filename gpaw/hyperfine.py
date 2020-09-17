@@ -21,15 +21,29 @@ from gpaw.gaunt import gaunt
 
 def hyper(spin_density_R, gd, spos_ac, ecut=None):
     print(spin_density_R.shape)
-    print(spin_density_R[:, 10, 10] * 0.6666666666666666)
-    pd = PWDescriptor(ecut, gd)
+    #import matplotlib.pyplot as plt
+    #x = np.linspace(-4/0.529177, 5.1/0.529177, 60, 0)
+    # x = np.linspace(-4/0.529177, 4/0.529177, 42, 0)
+    #print(x)
+    #plt.plot(x,
+    #         spin_density_R[:, 27, 27] * 0.6666666666666666)
+    # plt.plot(np.linspace(-4/0.529177, 4/0.529177, 42, 0),
+    #          spin_density_R[:, 21, 21] * 0.6666666666666666)
+    pd = PWDescriptor(ecut, gd, complex)
 
     spin_density_G = pd.fft(spin_density_R)
-
+    #print(spin_density_G[0], gd.cell_cv, spos_ac)
     G_Gv = pd.get_reciprocal_vectors()
-    eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
-
+    eiGR_aG = np.exp(1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
     W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
+    #print(W1_a)
+    #spos_ac = np.zeros((60, 3)) + 0.5
+    #spos_ac[:, 0] = np.linspace(0, 1, 60, 0)
+    # spos_ac[:, 0] = x / (8/0.529177) + .5
+    #eiGR_aG = np.exp(1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
+
+    #W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
+    #plt.plot(x, W1_a)
 
     spin_density_G[0] = 0.0
     G2_G = pd.G2_qG[0].copy()
@@ -57,16 +71,18 @@ def paw_correction(spin_density_ii, setup):
     phit_jg = np.array(setup.data.phit_jg)
     phi_jg = np.array(setup.data.phi_jg)
 
+    rgd = setup.rgd
+
     nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * np.pi)**0.5
     n0 = phit_jg[:, 0].dot(D0_jj).dot(phi_jg[:, 0]) / (4 * np.pi)**0.5
-    print(n0, nt0)
-
-    D0_mjj = expand(spin_density_ii, setup.l_j, 2)
-    nt2_mg = np.einsum('mab, ag, bg -> mg', D0_mjj, phit_jg, phit_jg)
-    rgd = setup.rgd
+    print(n0*0.666, nt0*0.666)
+    nt0_g = np.einsum('ab, ag, bg -> g', D0_jj, phit_jg, phit_jg)
+    rgd.plot(nt0_g / (4 * np.pi)**0.5 * 0.666, show=1)
+    D2_mjj = expand(spin_density_ii, setup.l_j, 2)
+    nt2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
     w_g = rgd.poisson(nt2_mg[0], 2)
-    rgd.plot(nt2_mg[0])
-    rgd.plot(w_g, show=1)
+    # rgd.plot(nt2_mg[0])
+    # rgd.plot(w_g, show=1)
 
 
 def expand(D_ii, l_j, l):

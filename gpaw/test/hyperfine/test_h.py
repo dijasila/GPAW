@@ -13,7 +13,7 @@ def test_h(gpw_files):
     print(W1)
     print(W2)
     D_asp = calc.density.D_asp
-    paw_correction(unpack2(D_asp[0][0]) - D_asp[0][1], calc.wfs.setups[0])
+    paw_correction(unpack2(D_asp[0][0] - D_asp[0][1]), calc.wfs.setups[0])
 
 
 def test_o2(gpw_files):
@@ -25,7 +25,7 @@ def test_o2(gpw_files):
     print(W1)
     print(W2)
     D_asp = calc.density.D_asp
-    paw_correction(unpack2(D_asp[0][0]) - D_asp[0][1], calc.wfs.setups[0])
+    paw_correction(unpack2(D_asp[0][0] - D_asp[0][1]), calc.wfs.setups[0])
 
 
 def t():
