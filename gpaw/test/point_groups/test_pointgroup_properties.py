@@ -103,4 +103,3 @@ def test_pg(name):
                     # Check orthogonality:
                     norm = (row1 * row2).dot(pg.nops)
                     assert norm == 0
-

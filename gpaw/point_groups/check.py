@@ -167,4 +167,3 @@ def normalize(vector: Union[str, Sequence[float]]) -> Array1D:
             return -np.array(normalize(vector[1:]))
         return {'x': [1, 0, 0], 'y': [0, 1, 0], 'z': [0, 0, 1]}[vector]
     return np.array(vector) / np.linalg.norm(vector)
-    
