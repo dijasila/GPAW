@@ -20,30 +20,12 @@ from gpaw.gaunt import gaunt
 
 
 def hyper(spin_density_R, gd, spos_ac, ecut=None):
-    print(spin_density_R.shape)
-    #import matplotlib.pyplot as plt
-    #x = np.linspace(-4/0.529177, 5.1/0.529177, 60, 0)
-    # x = np.linspace(-4/0.529177, 4/0.529177, 42, 0)
-    #print(x)
-    #plt.plot(x,
-    #         spin_density_R[:, 27, 27] * 0.6666666666666666)
-    # plt.plot(np.linspace(-4/0.529177, 4/0.529177, 42, 0),
-    #          spin_density_R[:, 21, 21] * 0.6666666666666666)
-    pd = PWDescriptor(ecut, gd, complex)
-
+    pd = PWDescriptor(ecut, gd)
     spin_density_G = pd.fft(spin_density_R)
-    #print(spin_density_G[0], gd.cell_cv, spos_ac)
     G_Gv = pd.get_reciprocal_vectors()
-    eiGR_aG = np.exp(1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
-    W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
-    #print(W1_a)
-    #spos_ac = np.zeros((60, 3)) + 0.5
-    #spos_ac[:, 0] = np.linspace(0, 1, 60, 0)
-    # spos_ac[:, 0] = x / (8/0.529177) + .5
-    #eiGR_aG = np.exp(1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
+    eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
 
-    #W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
-    #plt.plot(x, W1_a)
+    W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
 
     spin_density_G[0] = 0.0
     G2_G = pd.G2_qG[0].copy()
@@ -65,7 +47,6 @@ def hyper(spin_density_R, gd, spos_ac, ecut=None):
 
 
 def paw_correction(spin_density_ii, setup):
-    print(spin_density_ii.diagonal())
     D0_jj = expand(spin_density_ii, setup.l_j, 0)[0]
 
     phit_jg = np.array(setup.data.phit_jg)
@@ -76,13 +57,16 @@ def paw_correction(spin_density_ii, setup):
     nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * np.pi)**0.5
     n0 = phit_jg[:, 0].dot(D0_jj).dot(phi_jg[:, 0]) / (4 * np.pi)**0.5
     print(n0*0.666, nt0*0.666)
-    nt0_g = np.einsum('ab, ag, bg -> g', D0_jj, phit_jg, phit_jg)
-    rgd.plot(nt0_g / (4 * np.pi)**0.5 * 0.666, show=1)
+    print(phit_jg.shape)
+    print(phit_jg[:,1500])
+    print(phi_jg[:,1500])
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
-    nt2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
-    w_g = rgd.poisson(nt2_mg[0], 2)
-    # rgd.plot(nt2_mg[0])
-    # rgd.plot(w_g, show=1)
+    n2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
+    n2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
+    # nt2_mg[:, 100:] = 0.0
+    w_g = rgd.poisson(n2_mg[0], 2)
+    rgd.plot(n2_mg[0])
+    rgd.plot(w_g, n=-3, show=1)
 
 
 def expand(D_ii, l_j, l):
