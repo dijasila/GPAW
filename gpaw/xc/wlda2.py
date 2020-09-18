@@ -847,7 +847,6 @@ class WLDA(XCFunctional):
         Returns:
             The /total/ XC energy
         """
-        assert len(n_sg) == 1
         if e_g is None:
             e_g = rgd.empty()
         self.rgd = rgd
@@ -855,13 +854,57 @@ class WLDA(XCFunctional):
 
         self.setup_radial_indicators(n_sg)
 
-        nstar_sg = self.radial_weighted_density(rgd, n_sg)
-
-        v1_sg, v2_sg, v3_sg = self.radial_wldaxc(n_sg, nstar_sg, v_sg, e_g)
+        nstar_sg = self.radial_x(n_sg, e_g, v_sg)
+        
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
 
         E = rgd.integrate(e_g)
         return E
+
+    def radial_x(self, n_sg, e_g, v_sg):
+        """Calculate WLDA exchange energy.
+
+        Returns nstar_sg if the calculation is spin-paired
+        so it can be reused.
+        """
+        if len(n_sg) == 2:
+            n_sg *= 2
+        spin = len(n_sg) - 1
+
+        self.setup_radial_indicators(n_sg)
+
+        nstar_sg = self.radial_weighted_density(n_sg)
+
+        e1_g = np.zeros_like(e_g)
+        e2_g = np.zeros_like(e_g)
+        e3_g = np.zeros_like(e_g)
+
+        v1_sg = np.zeros_like(v_sg)
+        v2_sg = np.zeros_like(v_sg)
+        v3_sg = np.zeros_like(v_sg)
+
+        if spin == 0:
+            self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg)
+            self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg)
+            self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg)
+
+            e_g[:] = e1_g + e2_g - e3_g
+            v_sg[:] = v1_sg + v2_sg - v3_sg
+
+            return nstar_sg
+        else:
+            self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
+            self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
+            self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg[0])
+
+            self.radial_x1(spin, e1_g, n_sg[1], nstar_sg[1], v1_sg[1])
+            self.radial_x2(spin, e2_g, n_sg[1], nstar_sg[1], v2_sg[1])
+            self.radial_x3(spin, e3_g, n_sg[1], nstar_sg[1], v3_sg[1])
+
+            e_g[:] = e1_g + e2_g - e3_g
+            v_sg[:] = v1_sg + v2_sg - v3_sg
+
+            return None
         
     def setup_radial_indicators(self, n_sg):
         """Set up the indicator functions for an atomic system.
@@ -967,7 +1010,7 @@ class WLDA(XCFunctional):
         self.di_asg = di_asg
         self.i_asx = i_asx
 
-    def radial_weighted_density(self, rgd, n_sg):
+    def radial_weighted_density(self, n_sg):
         """Calculate the weighted density for an atomic system.
 
         n*(k) = sum_a phi(k, a)(i_a[n]n)(k)
@@ -992,6 +1035,7 @@ class WLDA(XCFunctional):
 
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        rgd = self.rgd
         N = 2**14
         r_x = np.linspace(0, rgd.r_g[-1], N)
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
@@ -1064,26 +1108,6 @@ class WLDA(XCFunctional):
         """
         c1 = 2.20629
         return np.exp(-0.25 * (G_k / (c1 * abs(alpha)**(1 / 3)))**2)
-
-    def radial_wldaxc(self, n_sg, nstar_sg, v_sg, e_g):
-        """Calculate XC energy and potential for an atomic system."""
-        spin = 0
-        e1_g = np.zeros_like(e_g)
-        e2_g = np.zeros_like(e_g)
-        e3_g = np.zeros_like(e_g)
-
-        v1_sg = np.zeros_like(v_sg)
-        v2_sg = np.zeros_like(v_sg)
-        v3_sg = np.zeros_like(v_sg)
-
-        self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg)
-        self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg)
-        self.radial_x3(spin, e3_g, n_sg[0], nstar_sg[0], v3_sg)
-
-        e_g[:] = e1_g + e2_g - e3_g
-        v_sg[:] = v1_sg + v2_sg - v3_sg
-
-        return v1_sg, v2_sg, v3_sg
 
     def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e[n*]n and potential."""
@@ -1177,6 +1201,11 @@ class WLDA(XCFunctional):
 
         Also potential.
         """
+        if len(n_sg) == 2:
+            n_sg *= 0.5
+            self.setup_radial_indicators(n_sg)
+            nstar_sg = self.radial_weighted_density(n_sg)
+
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
         N = 2**14
