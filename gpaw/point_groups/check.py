@@ -98,8 +98,9 @@ class SymmetryChecker:
 
     def check_calculation(self, calc, n1, n2, spin=0, output='-'):
         """Check several wave functions from GPAW calculation."""
-        lines = ['band    energy     norm  normcut     best      ' +
+        lines = ['band    energy     norm  normcut     best     ' +
                  ''.join(f'{sym:8}' for sym in self.group.symmetries)]
+        n2 = n2 or calc.get_number_of_bands()
         for n in range(n1, n2):
             dct = self.check_band(calc, n, spin)
             best = dct['symmetry']
