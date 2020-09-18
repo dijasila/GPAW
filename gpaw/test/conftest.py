@@ -39,6 +39,18 @@ def gpw_files(request, tmp_path_factory):
         def test_something(gpw_files):
             calc = GPAW(gpw_files['h2_lcao_wfs'])
             ...
+
+    Possible systems are:
+
+    * Bulk BCC-Li with 3x3x3 k-points: ``bcc_li_pw``, ``bcc_li_fd``,
+      ``bcc_li_lcao``.
+
+    * H2 molecule: ``h2_pw``, ``h2_fd``, ``h2_lcao``.
+
+    * Polyethylene chain.  One unit, 3 k-points, no symmetry:
+      ``c2h4_pw_nosym``.  Three units: ``c6h12_pw``.
+
+    Files with wave functions are also availabel (add ``_wfs`` to the names).
     """
     if world.rank == 0:
         path = _mk_tmp(request, tmp_path_factory)

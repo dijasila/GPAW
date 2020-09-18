@@ -15,8 +15,16 @@ Git master branch
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
   and uses symmetry.
 
-* GLLBSC exchange-correlation potential fixed for periodic metallic systems:
-  https://gitlab.com/gpaw/gpaw/-/merge_requests/651
+* Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
+
+  * `Fix for periodic metallic systems
+    <https://gitlab.com/gpaw/gpaw/-/merge_requests/651>`_
+
+  * `General fixes and improvements
+    <https://gitlab.com/gpaw/gpaw/-/merge_requests/700>`_.
+    Syntax for the discontinuity and band gap calculations has also been
+    updated. See :ref:`the updated tutorial <band_gap>` for a detailed
+    description of these calculations.
 
 * Forces are now available for hybrid functionals in
   plane-wave mode.
