@@ -1142,7 +1142,7 @@ class WLDA(XCFunctional):
             e_g[:] += 0.5 * nstar_g * ex
 
         v_g += (ex - rs * dexdrs / 3.0)
-        v_g += self.radial_derivative_fold(v_g, n_g, spin)
+        v_g[:] = self.radial_derivative_fold(v_g, n_g, spin)
 
     def radial_derivative_fold(self, f_g, n_g, spin):
         """Calculate folding expression that appears in
@@ -1167,7 +1167,6 @@ class WLDA(XCFunctional):
             f_x = rgd.interpolate(f_g, r_x)
             f_k = self.radial_fft(r_x, f_x)
             phi_k = self.radial_weight_function(self.alphas[ia], G_k)
-            
             res_g += (IUS(r_x, self.radial_ifft(r_x, f_k * phi_k))(rgd.r_g)
                       * (self.i_asg[ia, spin, :] + self.di_asg[ia, spin, :] * n_g))
 
