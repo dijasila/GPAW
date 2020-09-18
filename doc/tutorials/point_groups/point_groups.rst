@@ -71,6 +71,9 @@ This will produce the following output:
 
 The bands have very distinct representations as expected.
 
+.. note::
+
+    There is also a simple command-line in
 .. autoclass:: SymmetryChecker
     :members:
 .. autoclass:: PointGroup
