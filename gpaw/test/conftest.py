@@ -68,7 +68,6 @@ class GPWFiles:
 
     def __getitem__(self, name):
         if name not in self.gpw_files:
-            print('gpw_files fixture:', name)
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
             path = self.path / (rawname + '.gpw')
