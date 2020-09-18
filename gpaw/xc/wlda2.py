@@ -1152,7 +1152,7 @@ class WLDA(XCFunctional):
             F(r) = int f(r') dn*(r') / dn(r)
         
         Calculates
-            sum_a [(f_g * phi_a) FOLD (i_a + di_a * n)]        
+            sum_a [(f_g FOLD phi_a) * (i_a + di_a * n)]        
         """
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
