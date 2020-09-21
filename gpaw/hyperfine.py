@@ -113,7 +113,7 @@ def paw_correction(spin_density_ii: Array2D,
     dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
     A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) * (4 * pi)
     A_m *= Y2_m
-    W2_vv = A_m.dot(Y2_mvv)
+    W2_vv = Y2_mvv.T.dot(A_m)
     W2 = np.trace(W2_vv) / 3
     for v in range(3):
         W2_vv[v, v] -= W2

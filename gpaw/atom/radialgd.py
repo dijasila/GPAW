@@ -458,7 +458,9 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
         The radial grid is r(g) = h0 + g*h,  g = 0, 1, ..., N - 1."""
 
-        RadialGridDescriptor.__init__(self, h * np.arange(N) + h0, h)
+        RadialGridDescriptor.__init__(self,
+                                      h * np.arange(N) + h0,
+                                      h + np.zeros(N))
 
     def r2g(self, r):
         return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
