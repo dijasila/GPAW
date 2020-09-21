@@ -1,13 +1,30 @@
 import argparse
-from typing import List, Any
+from typing import List, Any, Union
 
 from ase import Atoms
 import numpy as np
 
+from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker, point_group_names
 
 Array1D = Any
 Array3D = Any
+
+
+class CubeCalc:
+    """Wrap cube-file in a calculator."""
+    def __init__(self, function: Array3D, atoms: Atoms):
+        self.function = function
+        self.atoms = atoms
+
+    def get_pseudo_wave_function(self,
+                                 band: int,
+                                 spin: int,
+                                 pad: bool) -> Array3D:
+        return self.function
+
+    def get_eigenvalues(self, spin: int) -> Array1D:
+        return np.zeros(1)
 
 
 def main(argv: List[str] = None) -> None:
@@ -27,8 +44,9 @@ def main(argv: List[str] = None) -> None:
         help='Band range.')
     args = parser.parse_args(argv)
 
+    calc: Union[None, GPAW, CubeCalc]
+
     if args.file.endswith('.gpw'):
-        from gpaw import GPAW
         calc = GPAW(args.file)
         atoms = calc.atoms
         n1, n2 = (int(x) if x else 0 for x in args.bands.split(':'))
@@ -67,18 +85,3 @@ def main(argv: List[str] = None) -> None:
 
     if calc:
         checker.check_calculation(calc, n1, n2)
-
-
-class CubeCalc:
-    def __init__(self, function: Array3D, atoms: Atoms):
-        self.function = function
-        self.atoms = atoms
-
-    def get_pseudo_wave_function(self,
-                                 band: int,
-                                 spin: int,
-                                 pad: bool) -> Array3D:
-        return self.function
-
-    def get_eigenvalues(self, spin: int) -> Array1D:
-        return np.zeros(1)

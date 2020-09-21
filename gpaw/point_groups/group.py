@@ -1,5 +1,5 @@
 """Point-group object."""
-from typing import Any
+from typing import Any, Dict
 import numpy as np
 
 Array2D = Any
@@ -16,7 +16,7 @@ class PointGroup:
         self.name = name
         group = getattr(groups, name)()
         self.character_table = np.array(group.character_table)
-        self.operations = {}
+        self.operations: Dict[str, Array2D] = {}
         for opname, op in group.operations:
             assert opname not in self.operations, opname
             if not isinstance(op, np.ndarray):
