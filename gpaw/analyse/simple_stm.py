@@ -4,7 +4,7 @@ import numpy as np
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
 from ase.io.cube import write_cube
-from ase.io.plt import write_plt, read_plt
+from ase.io.plt import read_plt
 from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
@@ -137,8 +137,6 @@ class SimpleStm(STM):
 
         if filetype == 'cube':
             write_cube(file, self.calc.get_atoms(), ldos / Bohr ** 3)
-        elif filetype == 'plt':
-            write_plt(file, self.calc.get_atoms(), ldos / Bohr ** 3)
         else:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
