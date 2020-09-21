@@ -42,7 +42,10 @@ def main(argv: List[str] = None) -> None:
         help='Cutoff radius (in Å) used for wave function overlaps.')
     add('-b', '--bands', default=':', metavar='N1:N2',
         help='Band range.')
-    args = parser.parse_args(argv)
+    if hasattr(parser, 'parse_intermixed_args'):
+        args = parser.parse_intermixed_args(argv)
+    else:
+        args = parser.parse_args(argv)
 
     calc: Union[None, GPAW, CubeCalc]
 
