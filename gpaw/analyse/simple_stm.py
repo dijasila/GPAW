@@ -3,8 +3,7 @@ from math import sqrt
 import numpy as np
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
-from ase.io.cube import write_cube
-from ase.io.plt import read_plt
+from ase.io.cube import read_cube_data, write_cube
 from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
@@ -133,7 +132,7 @@ class SimpleStm(STM):
         if filetype is None:
             # estimate file type from name ending
             filetype = file.split('.')[-1]
-        filetype.lower()
+        filetype = filetype.lower()
 
         if filetype == 'cube':
             write_cube(file, self.calc.get_atoms(), ldos / Bohr ** 3)
@@ -146,10 +145,10 @@ class SimpleStm(STM):
         if filetype is None:
             # estimate file type from name ending
             filetype = file.split('.')[-1]
-        filetype.lower()
 
-        if filetype == 'plt':
-            data, self.cell = read_plt(file)
+        if filetype == 'cube':
+            data, atoms = read_cube_data(file)
+            self.cell = atoms.cell.array
 
             pbc_c = [True, True, True]
             N_c = np.array(data.shape)
