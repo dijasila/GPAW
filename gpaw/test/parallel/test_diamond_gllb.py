@@ -2,21 +2,17 @@
 import pytest
 from gpaw.mpi import world
 from ase.build import bulk
-from ase.units import Ha
-from gpaw import GPAW, restart, Mixer
-from gpaw.test import gen
-from gpaw import setup_paths
+from gpaw import GPAW, Mixer
 
 
-pytestmark = pytest.mark.skipif(world.size < 4,
-                                reason='world.size < 4')
-
-
+@pytest.mark.skipif(world.size < 4,
+                    reason='world.size < 4')
 def test_parallel_diamond_gllb(in_tmp_dir):
     xc = 'GLLBSC'
-    gen('C', xcname=xc)
-    setup_paths.insert(0, '.')
-
+    KS_gap_ref = 4.180237125868162
+    QP_gap_ref = 5.469387490357182
+    # M. Kuisma et. al, https://doi.org/10.1103/PhysRevB.82.115106
+    #     C: KS gap 4.14 eV, QP gap 5.41eV, expt. 5.48 eV
     KSb = []
     dxcb = []
 
@@ -34,52 +30,30 @@ def test_parallel_diamond_gllb(in_tmp_dir):
                     parallel={'band': band})
         atoms.calc = calc
         atoms.get_potential_energy()
-        calc.write('Cgs.gpw')
 
         # Calculate accurate KS-band gap from band structure
-        calc = GPAW('Cgs.gpw',
-                    kpts={'path': 'GX', 'npoints': 12},
-                    fixdensity=True,
-                    symmetry='off',
-                    nbands=8,
-                    convergence=dict(bands=8),
-                    eigensolver=eigensolver,
-                    parallel={'band': band})
-        calc.get_atoms().get_potential_energy()
+        bs_calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
+                                     symmetry='off',
+                                     nbands=8,
+                                     convergence={'bands': 8},
+                                     eigensolver=eigensolver)
         # Get the accurate KS-band gap
-        homolumo = calc.get_homo_lumo()
-        homo, lumo = homolumo
-        print('band gap', lumo - homo)
+        homo, lumo = bs_calc.get_homo_lumo()
 
-        # Redo the ground state calculation
-        calc = GPAW(h=0.15,
-                    kpts=(4, 4, 4),
-                    xc=xc,
-                    nbands=8,
-                    mixer=Mixer(0.5, 5, 50.0),
-                    eigensolver=eigensolver,
-                    parallel={'band': band})
-        atoms.calc = calc
-        atoms.get_potential_energy()
-        # And calculate the discontinuity potential with accurate band gap
-        response = calc.hamiltonian.xc.xcs['RESPONSE']
-        response.calculate_delta_xc(homolumo=homolumo / Ha)
-        calc.write('CGLLBSC.gpw')
+        # Calculate the discontinuity potential with accurate band gap
+        response = calc.hamiltonian.xc.response
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
 
-        # Redo the band structure calculation
-        atoms, calc = restart('CGLLBSC.gpw',
-                              kpts={'path': 'GX', 'npoints': 12},
-                              fixdensity=True,
-                              symmetry='off',
-                              convergence=dict(bands=8))
-        atoms.get_potential_energy()
-        response = calc.hamiltonian.xc.xcs['RESPONSE']
-        KS, dxc = response.calculate_delta_xc_perturbation()
-        KSb.append(KS)
+        # Calculate the discontinuity using the band structure calculator
+        bs_response = bs_calc.hamiltonian.xc.response
+        KS_gap, dxc = bs_response.calculate_discontinuity(dxc_pot)
+        assert KS_gap == pytest.approx(lumo - homo, abs=1e-10)
+        assert KS_gap == pytest.approx(KS_gap_ref, abs=1e-4)
+
+        QP_gap = KS_gap + dxc
+        assert QP_gap == pytest.approx(QP_gap_ref, abs=1e-4)
+        KSb.append(KS_gap)
         dxcb.append(dxc)
-        assert abs(KS + dxc - 5.41) < 0.10
-        # M. Kuisma et. al, Phys. Rev. B 82, 115106,
-        # QP gap for C, 5.41eV, expt. 5.48eV
 
     assert abs(KSb[0] - KSb[1]) < 1e-6
     assert abs(KSb[0] - KSb[2]) < 1e-6

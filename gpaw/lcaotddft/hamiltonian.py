@@ -142,7 +142,6 @@ class TimeDependentHamiltonian(object):
         self.wfs = paw.wfs
         self.density = paw.density
         self.hamiltonian = paw.hamiltonian
-        self.occupations = paw.occupations
         niter = paw.niter
 
         # Reset the density mixer
@@ -190,8 +189,7 @@ class TimeDependentHamiltonian(object):
         # XXX: xc is not written to the gpw file
         # XXX: so we need to set it always
         xc = XC(xc_name)
-        xc.initialize(self.density, self.hamiltonian, self.wfs,
-                      self.occupations)
+        xc.initialize(self.density, self.hamiltonian, self.wfs)
         xc.set_positions(self.hamiltonian.spos_ac)
         self.hamiltonian.xc = xc
         self.update()
@@ -227,7 +225,8 @@ class TimeDependentHamiltonian(object):
     def get_hamiltonian_matrix(self, kpt, time, addfxc=True, addpot=True,
                                scale=True):
         self.timer.start('Calculate H_MM')
-        kpt_rank, u = self.wfs.kd.get_rank_and_index(kpt.s, kpt.k)
+        kpt_rank, q = self.wfs.kd.get_rank_and_index(kpt.k)
+        u = q * self.wfs.nspins + kpt.s
         assert kpt_rank == self.wfs.kd.comm.rank
 
         get_matrix = self.wfs.eigensolver.calculate_hamiltonian_matrix

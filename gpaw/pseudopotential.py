@@ -1,11 +1,12 @@
 import numpy as np
+from scipy.special import erf
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
 from gpaw.basis_data import Basis, BasisFunction
 from gpaw.setup import BaseSetup, LocalCorrectionVar
 from gpaw.spline import Spline
-from gpaw.utilities import erf, divrl, hartree as hartree_solve
+from gpaw.utilities import divrl, hartree as hartree_solve
 
 
 null_spline = Spline(0, 1.0, [0., 0., 0.])

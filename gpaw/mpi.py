@@ -7,6 +7,7 @@ import traceback
 import atexit
 import pickle
 from contextlib import contextmanager
+from typing import Any
 
 import numpy as np
 
@@ -710,25 +711,6 @@ size = world.size
 parallel = (size > 1)
 
 
-# XXXXXXXXXX for easier transition to Parallelization class
-def distribute_cpus(parsize_domain, parsize_bands,
-                    nspins, nibzkpts, comm=world,
-                    idiotproof=True, mode='fd'):
-    nsk = nspins * nibzkpts
-    if mode in ['fd', 'lcao']:
-        if parsize_bands is None:
-            parsize_bands = 1
-    else:
-        # Plane wave mode:
-        if parsize_bands is None:
-            from ase.utils import gcd
-            parsize_bands = comm.size // gcd(nsk, comm.size)
-
-    p = Parallelization(comm, nsk)
-    return p.build_communicators(domain=np.prod(parsize_domain),
-                                 band=parsize_bands)
-
-
 def broadcast(obj, root=0, comm=world):
     """Broadcast a Python object across an MPI communicator and return it."""
     if comm.rank == root:
@@ -742,6 +724,12 @@ def broadcast(obj, root=0, comm=world):
         return obj
     else:
         return pickle.loads(b)
+
+
+def broadcast_float(x, comm):
+    array = np.array([x])
+    comm.broadcast(array, 0)
+    return array[0]
 
 
 def synchronize_atoms(atoms, comm, tolerance=1e-8):
@@ -822,6 +810,32 @@ def broadcast_bytes(b=None, root=0, comm=world):
     return b.tobytes()
 
 
+def broadcast_array(array: np.ndarray, *communicators) -> np.ndarray:
+    """Broadcast np.ndarray across sequence of MPI-communicators."""
+    comms = list(communicators)
+    while comms:
+        comm = comms.pop()
+        if all(comm.rank == 0 for comm in comms):
+            comm.broadcast(array, 0)
+    return array
+
+
+def send(obj, rank: int, comm) -> None:
+    """Send object to rank on the MPI communicator comm."""
+    b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+    comm.send(np.array(len(b)), rank)
+    comm.send(np.frombuffer(b, np.int8).copy(), rank)
+
+
+def receive(rank: int, comm) -> Any:
+    """Receive object from rank on the MPI communicator comm."""
+    n = np.array(0)
+    comm.receive(n, rank)
+    buf = np.empty(n, np.int8)
+    comm.receive(buf, rank)
+    return pickle.loads(buf.tobytes())
+
+
 def send_string(string, rank, comm=world):
     b = string.encode()
     comm.send(np.array(len(b)), rank)
@@ -870,7 +884,7 @@ def alltoallv_string(send_dict, comm=world):
     rdict = {}
     for proc in range(comm.size):
         i = rdispls[proc]
-        rdict[proc] = rbuffer[i:i + rcounts[proc]].tostring().decode()
+        rdict[proc] = rbuffer[i:i + rcounts[proc]].tobytes().decode()
 
     return rdict
 
@@ -925,10 +939,10 @@ def run(iterators):
 
 
 class Parallelization:
-    def __init__(self, comm, nspinkpts):
+    def __init__(self, comm, nkpts):
         self.comm = comm
         self.size = comm.size
-        self.nspinkpts = nspinkpts
+        self.nkpts = nkpts
 
         self.kpt = None
         self.domain = None
@@ -1054,7 +1068,7 @@ class Parallelization:
     def get_optimal_kpt_parallelization(self, kptprioritypower=1.4):
         if self.domain and self.band:
             # Try to use all the CPUs for k-point parallelization
-            ncpus = min(self.nspinkpts, self.navail)
+            ncpus = min(self.nkpts, self.navail)
             return ncpus
         ncpuvalues, wastevalues = self.find_kpt_parallelizations()
         scores = ((self.navail // ncpuvalues) *
@@ -1064,16 +1078,16 @@ class Parallelization:
         return ncpus
 
     def find_kpt_parallelizations(self):
-        nspinkpts = self.nspinkpts
+        nkpts = self.nkpts
         ncpuvalues = []
         wastevalues = []
 
-        ncpus = nspinkpts
+        ncpus = nkpts
         while ncpus > 0:
             if self.navail % ncpus == 0:
-                nkptsmax = -(-nspinkpts // ncpus)
+                nkptsmax = -(-nkpts // ncpus)
                 effort = nkptsmax * ncpus
-                efficiency = nspinkpts / float(effort)
+                efficiency = nkpts / float(effort)
                 waste = 1.0 - efficiency
                 wastevalues.append(waste)
                 ncpuvalues.append(ncpus)

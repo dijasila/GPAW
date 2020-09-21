@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from gpaw import GPAW
+from ase.io import read
 
 
 def test_fileio_read_old_gpw():
@@ -8,4 +9,6 @@ def test_fileio_read_old_gpw():
     if dir:
         for f in Path(dir).glob('*.gpw'):
             print(f)
-            GPAW(str(f), txt=None)
+            calc = GPAW(str(f))
+            calc.get_fermi_level()
+            read(f)

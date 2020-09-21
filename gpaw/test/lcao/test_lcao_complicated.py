@@ -22,7 +22,7 @@ from gpaw import FermiDirac, LCAO
 # Written November 24, 2011, r8567
 
 
-def test_lcao_lcao_complicated():
+def test_lcao_complicated():
     system = fcc111('Au', size=(1, 3, 1))
     system.numbers[0] = 8
     # It is important that the number of atoms is uneven; this
@@ -37,7 +37,6 @@ def test_lcao_lcao_complicated():
 
     # system.set_pbc(0)
     # system.center(vacuum=3.5)
-
 
     def calculate(parallel, comm=world, Eref=None, Fref=None):
         calc = GPAW(mode=LCAO(atomic_correction='sparse'),
@@ -69,7 +68,6 @@ def test_lcao_lcao_complicated():
             assert Ferr < 1e-6, 'Bad F: err=%f; parallel=%s' % (Ferr, parallel)
         return E, F
 
-
     # First calculate reference energy and forces E and F
     #
     # If we want to really dumb things down, enable this to force an
@@ -87,10 +85,8 @@ def test_lcao_lcao_complicated():
         # that case is covered well by other tests, so we can probably trust it
         E, F = calculate({}, world)
 
-
     def check(parallel):
         return calculate(parallel, comm=world, Eref=E, Fref=F)
-
 
     assert world.size in [1, 2, 4, 8], ('Number of CPUs %d not supported'
                                         % world.size)

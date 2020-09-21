@@ -1,9 +1,12 @@
+import pytest
 from ase import Atom, Atoms
 from gpaw import GPAW, Davidson, Mixer
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
+@pytest.mark.mgga
+@pytest.mark.libxc
 def test_xc_atomize(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}
@@ -23,7 +26,6 @@ def test_xc_atomize(in_tmp_dir):
     atom.calc = calc
 
     e1 = atom.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
     print('start')
     de1t = calc.get_xc_difference(xc('TPSS'))
     de1m = calc.get_xc_difference(xc('M06-L'))
@@ -40,7 +42,6 @@ def test_xc_atomize(in_tmp_dir):
     calc.set(txt='H2.txt')
     molecule.calc = calc
     e2 = molecule.get_potential_energy()
-    niter2 = calc.get_number_of_iterations()
     de2t = calc.get_xc_difference(xc('TPSS'))
     de2m = calc.get_xc_difference(xc('M06-L'))
     de2x = calc.get_xc_difference(HybridXC('EXX', stencil=1, finegrid=True))
@@ -49,10 +50,14 @@ def test_xc_atomize(in_tmp_dir):
     print('hydrogen atom energy:     %5.2f eV' % e1)
     print('hydrogen molecule energy: %5.2f eV' % e2)
     print('atomization energy:       %5.2f eV' % (2 * e1 - e2))
-    print('atomization energy  TPSS: %5.2f eV' % (2 * (e1 + de1t) - (e2 + de2t)))
-    print('atomization energy  M06-L: %5.2f eV' % (2 * (e1 + de1m) - (e2 + de2m)))
-    print('atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1x) - (e2 + de2x)))
-    print('atomization energy   EXX: %5.2f eV' % (2 * (e1 + de1xb) - (e2 + de2xb)))
+    print('atomization energy  TPSS: %5.2f eV' %
+          (2 * (e1 + de1t) - (e2 + de2t)))
+    print('atomization energy  M06-L: %5.2f eV' %
+          (2 * (e1 + de1m) - (e2 + de2m)))
+    print('atomization energy   EXX: %5.2f eV' %
+          (2 * (e1 + de1x) - (e2 + de2x)))
+    print('atomization energy   EXX: %5.2f eV' %
+          (2 * (e1 + de1xb) - (e2 + de2xb)))
     PBETPSSdifference = (2 * e1 - e2) - (2 * (e1 + de1t) - (e2 + de2t))
     PBEM06Ldifference = (2 * e1 - e2) - (2 * (e1 + de1m) - (e2 + de2m))
     PBEEXXdifference = (2 * e1 - e2) - (2 * (e1 + de1x) - (e2 + de2x))
@@ -70,6 +75,5 @@ def test_xc_atomize(in_tmp_dir):
     equal(PBEEXXbdifference, 0.91, 0.005)
 
     energy_tolerance = 0.002
-    niter_tolerance = 0
     equal(e1, -1.081638, energy_tolerance)
     equal(e2, -6.726356, energy_tolerance)

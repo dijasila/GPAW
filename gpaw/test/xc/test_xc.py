@@ -6,6 +6,7 @@ from gpaw.test import equal
 
 
 @pytest.mark.ci
+@pytest.mark.libxc
 def test_xc_xc():
     funcs = []
     modes = []

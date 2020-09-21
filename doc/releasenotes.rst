@@ -12,6 +12,20 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.0b1
 
+* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
+  and uses symmetry.
+
+* Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
+
+  * `Fix for periodic metallic systems
+    <https://gitlab.com/gpaw/gpaw/-/merge_requests/651>`_
+
+  * `General fixes and improvements
+    <https://gitlab.com/gpaw/gpaw/-/merge_requests/700>`_.
+    Syntax for the discontinuity and band gap calculations has also been
+    updated. See :ref:`the updated tutorial <band_gap>` for a detailed
+    description of these calculations.
+
 * Forces are now available for hybrid functionals in
   plane-wave mode.
 
@@ -32,13 +46,56 @@ Git master branch
 
   * Code improvements.
 
-* New :meth:`~gpaw.calculator.GPAW.get_atomic_electrostatic_potentials`
+* New :meth:`~gpaw.GPAW.get_atomic_electrostatic_potentials`
   method.  Useful for aligning eigenvalues from different calculations.
   See :ref:`this example <potential>`.
 
-* We are using pytest_ for :ref:`testing`.
+* We are using pytest_ for testing.  Read about special GPAW-fixtures here:
+  :ref:`testing`.
 
 * We are now using MyPy_ for static analysis of the source code.
+
+* Parallelization over spin is no longer possible.  This simplifies
+  the code for handling non-collinear spins and spin-orbit coupling.
+
+* Code for calculating occupation numbers has been refactored.  New functions:
+  :func:`~gpaw.occupations.fermi_dirac`,
+  :func:`~gpaw.occupations.marzari_vanderbilt` and
+  :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
+  :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
+  and :ref:`manual_occ` for details.
+
+* Calculations with fixed occupation numbers are now done with
+  ``occupations={'name': 'fixed', 'numbers': ...}``.
+
+* The ``fixdensity`` keyword has been deprecated.
+
+* New :meth:`gpaw.GPAW.fixed_density` method added to replace use
+  of the deprecated ``fixdensity`` keyword.
+
+* New configuration option (``nolibxc = True``) for compiling GPAW
+  without LibXC.  This is mostly for debugging.  Only functionals available
+  are: LDA, PBE, revPBE, RPBE and PW91.
+
+* Tetrahedron method for Brillouin-zone integrations (**experimental**).
+  Use ``occupations={'name': 'tetrahedron-method'}`` or
+  ``occupations={'name': 'improved-tetrahedron-method'}``.
+  See `Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_
+  and :ref:`smearing` for details.
+
+* New :func:`gpaw.mpi.broadcast_array` function for broadcasting
+  an ``np.ndarray`` across several MPI-communicators.  New
+  :func:`gpaw.mpi.send` and :func:`gpaw.mpi.receive` functions for general
+  Python objects.
+
+* Atoms with fractional atomic numbers can now be handled.
+
+* When creating a ``GPAW`` calculator object from a gpw-file, the ``txt``
+  defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
+  behavior.
+
+* New :mod:`gpaw.point_groups` module.  See this tutorial:
+  :ref:`point groups`.
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
@@ -448,15 +505,15 @@ Version 1.2.0
 
 * The GPAW calculator object has a new
   :meth:`~ase.calculators.calculator.Calculator.band_structure`
-  method that returns an :class:`ase.dft.band_structure.BandStructure`
-  object.  This makes it very easy to create band-structure plots as shown
+  method that returns an :class:`ase.spectrum.band_structure.BandStructure`
+  object.  This makes it easy to create band-structure plots as shown
   in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
   http://psi-k.net/download/highlights/Highlight_134.pdf.
 
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
   also.  See :ref:`dipole`.
 
-* New :meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
+* New :meth:`~gpaw.GPAW.get_electrostatic_potential` method.
 
 * When setting the default PAW-datasets or basis-sets using a dict, we
   must now use ``'default'`` as the key instead of ``None``:
@@ -505,7 +562,7 @@ Version 1.1.0
 
 * New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
 
-* The :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method
+* The :meth:`~gpaw.GPAW.get_pseudo_wave_function` method
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
 

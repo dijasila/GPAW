@@ -46,10 +46,10 @@ the limit of an infinitely large supercell, the dilute limit of a single,
 isolated defect should be achieved. In practice however, a variety of finite
 size effects can lead to slow convergence with supercell size [#Lany]_. In the
 case of nonzero charge states, the electrostatic interaction between the
-periodically-repeated array of defects leads to particularly slow convergence.
+periodically repeated array of defects leads to particularly slow convergence.
 In this tutorial, we apply the method proposed by Freysoldt, Neugebauer and Van
 de Walle (FNV) [#FNV]_ to correct for this effect in a bulk system, namely the
-triply-charged gallium vacancy in GaAs, as well as in a 2D system.
+triply charged gallium vacancy in GaAs, as well as in a 2D system.
 
 
 Theoretical background: The FNV scheme
@@ -57,7 +57,7 @@ Theoretical background: The FNV scheme
 
 Here we outline the FNV approach to correcting for the electrostatic
 interactions; more details can be found in [#FNV]_.  A practical example is
-given in the next section. The electrostatic energy of a periodically-
+given in the next section. The electrostatic energy of a periodically
 repeated charged system is divergent.  Therefore, the calculation of `E[X^q]`
 in periodic boundary conditions is only possible if one adds a homogeneous
 neutralising background charge of density `-q/\Omega` (where `\Omega` is the
@@ -75,7 +75,7 @@ The uncorrected term in brackets is the total energy difference one obtains
 from calculations employing periodic boundary conditions, which include the
 background charge. The first correction term, the *lattice term*
 `E_{\mathrm{l}}`, is the electrostatic energy per unit cell of a
-periodically-repeated array of model charges immersed in the neutralising
+periodically repeated array of model charges immersed in the neutralising
 background, minus the interaction of the model charge with itself. The second
 correction term, the *alignment term* `q\Delta V`, ensures that the zero
 point (d.c. component) of the electrostatic potential of the calculation with

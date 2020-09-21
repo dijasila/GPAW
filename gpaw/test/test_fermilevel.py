@@ -12,14 +12,8 @@ def test_fermilevel(in_tmp_dir):
     atoms = Atoms('He', pbc=True, calculator=calc)
     atoms.center(vacuum=3)
 
-    e0 = atoms.get_potential_energy()
-    niter0 = calc.get_number_of_iterations()
-    try:
-        calc.get_fermi_level()
-    except ValueError:
-        pass  # It *should* raise an error
-    else:
-        raise RuntimeError('get_fermi_level should not be possible for width=0')
+    _ = atoms.get_potential_energy()
+    assert np.isinf(calc.get_fermi_level())
     calc.set(nbands=3, convergence={'bands': 2})
     atoms.get_potential_energy()
     homo, lumo = calc.get_homo_lumo()
@@ -31,8 +25,7 @@ def test_fermilevel(in_tmp_dir):
     equal(ef, -7.85196, 0.01)
 
     calc.set(occupations=FermiDirac(0.1))
-    e1 = atoms.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
+    _ = atoms.get_potential_energy()
     ef = calc.get_fermi_level()
     equal(ef, -7.85196, 0.01)
     calc.write('test')

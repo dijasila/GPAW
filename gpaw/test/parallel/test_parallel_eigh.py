@@ -58,6 +58,7 @@ def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
         return None, None
 
 
+@pytest.mark.intel
 def test_parallel_parallel_eigh(in_tmp_dir):
     # Test script which should be run on 1, 2, 4, or 8 CPUs
 

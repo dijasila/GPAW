@@ -1,7 +1,6 @@
 from math import sqrt
 
 import numpy as np
-
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
 from ase.io.cube import write_cube
@@ -9,7 +8,6 @@ from ase.io.plt import write_plt, read_plt
 from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
-from gpaw.mpi import MASTER
 from gpaw.grid_descriptor import GridDescriptor
 
 
@@ -58,19 +56,18 @@ class SimpleStm(STM):
         if hasattr(bias, '__len__') and len(bias) == 3:
             n, k, s = bias
             # only a single wf requested
-            u = self.calc.wfs.kd.where_is(k, s)
-            if u is not None:
+            kd = self.calc.wfs.kd
+            rank, q = kd.who_has(k)
+            if kd.comm.rank == rank:
+                u = q * kd.nspins + s
                 self.add_wf_to_ldos(n, u, weight=1)
 
         else:
             # energy bias
             try:
-                if self.calc.occupations.fixmagmom:
-                    efermi_s = self.calc.get_fermi_levels()
-                else:
-                    efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:  # XXXXX except what?
-                efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
+                efermi_s = self.calc.get_fermi_levels()
+            except ValueError:
+                efermi_s = np.array([self.calc.get_fermi_level()] * 2)
 
             if isinstance(bias, (int, float)):
                 # bias given
@@ -130,7 +127,7 @@ class SimpleStm(STM):
         ldos = self.gd.collect(self.ldos)
 # print "write: integrated =", self.gd.integrate(self.ldos)
 
-        if mpi.rank != MASTER:
+        if mpi.rank != 0:
             return
 
         if filetype is None:
@@ -207,7 +204,7 @@ class SimpleStm(STM):
     def write(self, file=None):
         """Write STM data to a file in gnuplot readable tyle."""
 
-        if mpi.rank != MASTER:
+        if mpi.rank != 0:
             return
 
         xvals, yvals, heights = self.pylab_contour()
@@ -220,11 +217,8 @@ class SimpleStm(STM):
             fname = file
         f = open(fname, 'w')
 
-        try:
-            import datetime
-            print('#', datetime.datetime.now().ctime(), file=f)
-        except:  # XXX except what?
-            pass
+        import datetime
+        print('#', datetime.datetime.now().ctime(), file=f)
         print('# Simulated STM picture', file=f)
         if hasattr(self, 'file'):
             print('# density read from', self.file, file=f)

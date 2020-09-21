@@ -471,15 +471,14 @@ class TDDFT(GPAW):
             self.eps_tmp *= self.wfs.gd.dv
             kpt.eps_n[:] = self.eps_tmp.real
 
-        self.occupations.calculate_band_energy(self.wfs)
-
         H = self.td_hamiltonian.hamiltonian
 
         # Nonlocal
         self.Enlkin = H.xc.get_kinetic_energy_correction()
 
         # PAW
-        self.Ekin = H.e_kinetic0 + self.occupations.e_band + self.Enlkin
+        e_band = self.wfs.calculate_band_energy()
+        self.Ekin = H.e_kinetic0 + e_band + self.Enlkin
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
         self.Ebar = H.e_zero
@@ -529,4 +528,4 @@ class TDDFT(GPAW):
 
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-            self.hamiltonian.poisson.set_kick(kick = self.kick_strength)
+            self.hamiltonian.poisson.set_kick(kick=self.kick_strength)

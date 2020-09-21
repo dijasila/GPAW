@@ -1,8 +1,10 @@
+import pytest
 from ase import Atoms
 from ase.calculators.test import numeric_force
 from gpaw import GPAW, PW, Davidson
 
 
+@pytest.mark.libxc
 def test_exx_double_cell(in_tmp_dir):
     L = 4.0
     a = Atoms('H2',

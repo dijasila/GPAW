@@ -59,6 +59,7 @@ mpi_define_macros = []
 parallel_python_interpreter = False
 compiler = None
 noblas = False
+nolibxc = False
 fftw = False
 scalapack = False
 libvdwxc = False
@@ -135,6 +136,7 @@ if compiler is not None:
             vars[key] = ' '.join(value)
 
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
+                   (nolibxc, 'GPAW_WITHOUT_LIBXC'),
                    (fftw, 'GPAW_WITH_FFTW'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
@@ -145,6 +147,11 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
 sources += Path('c/xc').glob('*.c')
+if nolibxc:
+    for name in ['libxc.c', 'm06l.c',
+                 'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
+                 'xc_mgga.c']:
+        sources.remove(Path(f'c/xc/{name}'))
 # Make build process deterministic (for "reproducible build")
 sources = [str(source) for source in sources]
 sources.sort()

@@ -14,14 +14,14 @@ is constructed with a single Na adsorbed on one side of the surface.
 
 The :func:`ase.build.fcc100` function will create a slab
 with periodic boundary conditions in the xy-plane only and GPAW will
-therefore use zeros boundary conditions for the the wave functions and
+therefore use zeros boundary conditions for the wave functions and
 the electrostatic potential in the z-direction as shown here:
 
 .. image:: zero.png
 
 The blue line is the xy-averaged potential and the green line is the
 fermi-level.  See below how to extract the potential using the
-:meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
+:meth:`~gpaw.GPAW.get_electrostatic_potential` method.
 
 If we use periodic boundary conditions in all directions:
 

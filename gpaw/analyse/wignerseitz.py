@@ -1,6 +1,6 @@
 from math import sqrt, pi
-import numpy as np
 
+import numpy as np
 from ase.units import Bohr
 
 from gpaw.utilities import pack
