@@ -1424,15 +1424,15 @@ class Oh(Pointgroup):
                            ('6S6', self.S6(corner=5)),
                            ('7S6', self.S6(corner=6)),
                            ('8S6', self.S6(corner=7)),
-                           ('sigma_h1', self.sigma_h(face=0)),
-                           ('sigma_h1', self.sigma_h(face=1)),
-                           ('sigma_h1', self.sigma_h(face=2)),
-                           ('sigma_d1', self.sigma_d(face=0)),
-                           ('sigma_d1', self.sigma_d(face=1)),
-                           ('sigma_d1', self.sigma_d(face=2)),
-                           ('sigma_d1', self.sigma_d(face=3)),
-                           ('sigma_d1', self.sigma_d(face=4)),
-                           ('sigma_d1', self.sigma_d(face=5))]
+                           ('1sigma_h1', self.sigma_h(face=0)),
+                           ('2sigma_h1', self.sigma_h(face=1)),
+                           ('3sigma_h1', self.sigma_h(face=2)),
+                           ('1sigma_d1', self.sigma_d(face=0)),
+                           ('2sigma_d1', self.sigma_d(face=1)),
+                           ('3sigma_d1', self.sigma_d(face=2)),
+                           ('4sigma_d1', self.sigma_d(face=3)),
+                           ('5sigma_d1', self.sigma_d(face=4)),
+                           ('6sigma_d1', self.sigma_d(face=5))]
         self.operation_names = [pair[0] for pair in self.operations]
         self.symmetries = [
             'A1g', 'A2g', 'Eg', 'T1g', 'T2g', 'A1u', 'A2u', 'Eu', 'T1u', 'T2u'

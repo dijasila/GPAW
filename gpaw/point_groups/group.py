@@ -18,6 +18,7 @@ class PointGroup:
         self.character_table = np.array(group.character_table)
         self.operations = {}
         for opname, op in group.operations:
+            assert opname not in self.operations, opname
             if not isinstance(op, np.ndarray):
                 op = op(np.eye(3))
             self.operations[opname] = op

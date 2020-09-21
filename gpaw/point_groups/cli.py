@@ -1,6 +1,7 @@
 import argparse
 from typing import List, Any
 
+from ase import Atoms
 import numpy as np
 
 from gpaw.point_groups import SymmetryChecker, point_group_names
@@ -10,13 +11,20 @@ Array3D = Any
 
 
 def main(argv: List[str] = None) -> None:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        prog='python3 -m gpaw.point_groups',
+        description='Analyse point-group of atoms and wave-functions.')
     add = parser.add_argument
-    add('pg', metavar='point-group', choices=point_group_names)
-    add('file', metavar='input-file')
-    add('-c', '--center')
-    add('-r', '--radius', default=2.5)
-    add('-b', '--bands', default=':')
+    add('pg', metavar='point-group', choices=point_group_names,
+        help='Name of point-group: C2, C2v, C3v, D2d, D3h, D5, D5h, '
+        'Ico, Ih, Oh, Td or Th.')
+    add('file', metavar='input-file',
+        help='Cube-file, gpw-file or something else with atoms in it.')
+    add('-c', '--center', help='Center specified as one or more atoms.')
+    add('-r', '--radius', default=2.5,
+        help='Cutoff radius (in Å) used for wave function overlaps.')
+    add('-b', '--bands', default=':', metavar='N1:N2',
+        help='Band range.')
     args = parser.parse_args(argv)
 
     if args.file.endswith('.gpw'):
@@ -26,8 +34,9 @@ def main(argv: List[str] = None) -> None:
         n1, n2 = (int(x) if x else 0 for x in args.bands.split(':'))
     elif args.file.endswith('.cube'):
         from ase.io.cube import read_cube
-        dct = read_cube(args.file)
-        calc = CubeCalc(dct['data'])
+        with open(args.file) as fd:
+            dct = read_cube(fd)
+        calc = CubeCalc(dct['data'], dct['atoms'])
         atoms = dct['atoms']
         n1 = 0
         n2 = 1
@@ -61,8 +70,9 @@ def main(argv: List[str] = None) -> None:
 
 
 class CubeCalc:
-    def __init__(self, function: Array3D):
+    def __init__(self, function: Array3D, atoms: Atoms):
         self.function = function
+        self.atoms = atoms
 
     def get_pseudo_wave_function(self,
                                  band: int,

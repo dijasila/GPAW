@@ -94,7 +94,8 @@ class SymmetryChecker:
     def check_band(self, calc, band, spin=0):
         """Check wave function from GPAW calculation."""
         wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
-        return self.check_function(wfs, calc.wfs.gd.h_cv * Bohr)
+        grid_vectors = (calc.atoms.cell.T / wfs.shape).T
+        return self.check_function(wfs, grid_vectors)
 
     def check_calculation(self, calc, n1, n2, spin=0, output='-'):
         """Check several wave functions from GPAW calculation."""

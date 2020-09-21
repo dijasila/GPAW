@@ -6,6 +6,7 @@ from gpaw.point_groups import (PointGroup, SymmetryChecker,
                                point_group_names as names)
 
 
+@pytest.mark.serial
 @pytest.mark.parametrize('name', names)
 def test_for_various_errors(name):
     pg = PointGroup(name)
@@ -13,6 +14,7 @@ def test_for_various_errors(name):
     pg.get_normalized_table()
 
 
+@pytest.mark.serial
 @pytest.mark.parametrize('name', names)
 def test_translations(name):
     pg = PointGroup(name)
@@ -28,6 +30,7 @@ def test_translations(name):
         assert dct['symmetry'] == pg.translations[i]
 
 
+@pytest.mark.serial
 @pytest.mark.parametrize('name', names)
 def test_pg(name):
     pg = PointGroup(name)
