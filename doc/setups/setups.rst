@@ -93,8 +93,6 @@ See also `NIST Atomic Reference Data`_.
 .. toctree::
    :maxdepth: 2
 
-   molecule_tests
-   bulk_tests
    g2_1
    dcdft
    generation_of_setups
