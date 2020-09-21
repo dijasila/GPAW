@@ -135,7 +135,8 @@ class SimpleStm(STM):
         filetype = filetype.lower()
 
         if filetype == 'cube':
-            write_cube(file, self.calc.get_atoms(), ldos / Bohr ** 3)
+            with open(file, 'w') as fd:
+                write_cube(fd, self.calc.get_atoms(), ldos / Bohr ** 3)
         else:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
