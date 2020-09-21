@@ -3,7 +3,6 @@ import sys
 from typing import Sequence, Any, Dict, List, Union
 
 from ase import Atoms
-from ase.units import Bohr
 import numpy as np
 from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
@@ -91,13 +90,21 @@ class SymmetryChecker:
                                for symmetry, value
                                in zip(self.group.symmetries, characters)}}
 
-    def check_band(self, calc, band, spin=0):
+    def check_band(self,
+                   calc,
+                   band: int,
+                   spin: int = 0) -> Dict[str, Any]:
         """Check wave function from GPAW calculation."""
         wfs = calc.get_pseudo_wave_function(band, spin=spin, pad=True)
         grid_vectors = (calc.atoms.cell.T / wfs.shape).T
         return self.check_function(wfs, grid_vectors)
 
-    def check_calculation(self, calc, n1, n2, spin=0, output='-'):
+    def check_calculation(self,
+                          calc,
+                          n1: int,
+                          n2: int,
+                          spin: int = 0,
+                          output: str = '-') -> None:
         """Check several wave functions from GPAW calculation."""
         lines = ['band    energy     norm  normcut     best     ' +
                  ''.join(f'{sym:8}' for sym in self.group.symmetries)]

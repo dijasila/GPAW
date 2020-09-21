@@ -75,7 +75,7 @@ The bands have very distinct representations as expected.
 
     There is also a simple command-line interface::
 
-        $ python3 -m gpaw.point_groups C2v h2o.gpw -C O -b 0:4
+        $ python3 -m gpaw.point_groups C2v h2o.gpw -c O -b 0:4
 
 
 .. autoclass:: SymmetryChecker

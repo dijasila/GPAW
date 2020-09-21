@@ -95,7 +95,7 @@ Git master branch
   behavior.
 
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
-  :ref:`point group`.
+  :ref:`point groups`.
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
