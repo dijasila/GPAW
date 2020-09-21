@@ -42,6 +42,12 @@ Rb_ Sr_ Y_  Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb_ Te_ I_  Xe_
 Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_
 === === === === === === === === === === === === === === === === === ===
 
+.. toctree::
+   :glob:
+   :hidden:
+
+   [A-Z]*
+
 
 .. _installation of paw datasets:
 
@@ -97,13 +103,6 @@ See also `NIST Atomic Reference Data`_.
    dcdft
    generation_of_setups
    pawxml
-
-
-.. toctree::
-   :glob:
-   :hidden:
-
-   [A-Z]*
 
 
 .. _gpaw-setups-0.9.20000.tar.gz:
