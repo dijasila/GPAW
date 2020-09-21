@@ -6,12 +6,14 @@ Atomic PAW Setups
 =================
 
 A setup is to the PAW method what a pseudo-potential is to the
-pseudo-potential method.  All available setups are contained in this
-tar-file: gpaw-setups-0.9.11271.tar.gz_.  There are setups for the LDA,
+pseudo-potential method.  All available setups are contained in
+:ref:`tar-files <setup releases>`.  There are setups for the LDA,
 PBE, revPBE, RPBE and GLLBSC functionals.  Install them as described
 in the :ref:`installation of paw datasets` section.  The setups are stored as
 compressed :ref:`pawxml` files.
 
+
+.. _setup releases:
 
 Setup releases
 ==============
