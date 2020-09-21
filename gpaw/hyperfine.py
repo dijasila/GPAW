@@ -12,14 +12,45 @@ See:
     https://doi.org/10.1103/PhysRevB.62.6158
 
 """
+from typing import Any, Tuple, List
+from math import pi
+
 import numpy as np
 
+from gpaw import GPAW
+from gpaw.setup import Setup
+from gpaw.grid_descriptor import GridDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
-# from gpaw.utilities import unpack2
+from gpaw.utilities import unpack2
 from gpaw.gaunt import gaunt
 
+Array1D = Any
+Array2D = Any
+Array3D = Any
 
-def hyper(spin_density_R, gd, spos_ac, ecut=None):
+
+def hyperfine_parameters(calc: GPAW) -> Tuple[Array1D, Array3D]:
+    dens = calc.density
+    nt_sR = dens.nt_sG
+    W1_a, W2_avv = smooth_part(
+        nt_sR[0] - nt_sR[1],
+        dens.gd,
+        calc.atoms.get_scaled_positions())
+
+    D_asp = calc.density.D_asp
+    for a, D_sp in D_asp.items():
+        W1, W2_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
+                                   calc.wfs.setups[a])
+        W1_a[a] += W1
+        W2_avv[a] += W2_vv
+
+    return W1_a, W2_avv
+
+
+def smooth_part(spin_density_R: Array3D,
+                gd: GridDescriptor,
+                spos_ac: Array2D,
+                ecut: float = None) -> Tuple[Array1D, Array3D]:
     pd = PWDescriptor(ecut, gd)
     spin_density_G = pd.fft(spin_density_R)
     G_Gv = pd.get_reciprocal_vectors()
@@ -37,16 +68,35 @@ def hyper(spin_density_R, gd, spos_ac, ecut=None):
         for v2 in range(3):
             W_a = pd.integrate(G_Gv[:, v1] * G_Gv[:, v2] * spin_density_G,
                                eiGR_aG)
-            W2_vva[v1, v2] = -W_a
+            W2_vva[v1, v2] = -W_a / gd.dv
 
     W2_a = np.trace(W2_vva) / 3
     for v in range(3):
         W2_vva[v, v] -= W2_a
 
-    return W1_a, W2_vva
+    return W1_a, W2_vva.transpose((2, 0, 1))
 
 
-def paw_correction(spin_density_ii, setup):
+Y2_m = (np.array([15 / 4, 15 / 4, 5 / 16, 15 / 4, 15 / 16]) / pi)**0.5
+Y2_mvv = np.array([[[0, 1, 0],
+                    [1, 0, 0],
+                    [0, 0, 0]],
+                   [[0, 0, 0],
+                    [0, 0, 1],
+                    [0, 1, 0]],
+                   [[-2, 0, 0],
+                    [0, -2, 0],
+                    [0, 0, 4]],
+                   [[0, 0, 1],
+                    [0, 0, 0],
+                    [1, 0, 0]],
+                   [[2, 0, 0],
+                    [0, -1, 0],
+                    [0, 0, 0]]])
+
+
+def paw_correction(spin_density_ii: Array2D,
+                   setup: Setup) -> Tuple[float, Array2D]:
     D0_jj = expand(spin_density_ii, setup.l_j, 0)[0]
 
     phit_jg = np.array(setup.data.phit_jg)
@@ -54,24 +104,26 @@ def paw_correction(spin_density_ii, setup):
 
     rgd = setup.rgd
 
-    nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * np.pi)**0.5
-    n0 = phit_jg[:, 0].dot(D0_jj).dot(phi_jg[:, 0]) / (4 * np.pi)**0.5
-    print(n0*0.666, nt0*0.666)
-    print(phit_jg.shape)
-    print(phit_jg[:,1500])
-    print(phi_jg[:,1500])
+    nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
+    n0 = phit_jg[:, 0].dot(D0_jj).dot(phi_jg[:, 0]) / (4 * pi)**0.5
+    W1 = (n0 - nt0) * 2 / 3
+
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
-    n2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
-    n2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
-    n2_mg[:, 1500:] = 0.0
-    w_g = rgd.poisson(n2_mg[0], 2)
-    print(rgd.integrate(n2_mg[0], -3) / 5)
-    print(w_g[1:5] / rgd.r_g[1:5]**3)
-    rgd.plot(n2_mg[0])
-    rgd.plot(w_g, n=-3, show=1)
+    dn2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
+    dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
+    A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) * (4 * pi)
+    A_m *= Y2_m
+    W2_vv = A_m.dot(Y2_mvv)
+    W2 = np.trace(W2_vv) / 3
+    for v in range(3):
+        W2_vv[v, v] -= W2
+
+    return W1, W2_vv
 
 
-def expand(D_ii, l_j, l):
+def expand(D_ii: Array2D,
+           l_j: List[int],
+           l: int) -> Array3D:
     G_LLm = gaunt(lmax=2)[:, :, l**2:(l + 1)**2]
     D_mjj = np.empty((2 * l + 1, len(l_j), len(l_j)))
     i1a = 0
