@@ -20,12 +20,20 @@ the imaginary parts.
 """
 
 
+def rotation(vec):
+    rot = Rotation.from_rotvec(vec)
+    try:
+        return rot.as_matrix()  # new in scipy-1.4.0
+    except AttributeError:
+        return rot.as_dcm()  # will be removed in scipy-1.6.0
+
+
 class Pointgroup:
     def unit(self, data):
         return np.eye(3)
 
     def rotate_mainaxis(self, angle, data=None):
-        return Rotation.from_rotvec([0, 0, angle / 180 * pi]).as_matrix()
+        return rotation([0, 0, angle / 180 * pi])
 
     def rotate(self, angle, data=None, axis='z'):
         """
@@ -40,7 +48,7 @@ class Pointgroup:
         """
         vec = [0, 0, 0]
         vec['xyz'.index(axis)] = angle / 180 * pi
-        return Rotation.from_rotvec(vec).as_matrix().dot(data)
+        return rotation(vec).dot(data)
 
     def C2prime(self, data, angle):
         """180 degree rotation around the secondary axis"""
