@@ -125,8 +125,9 @@ def find_directions(icell: Array2D,
     out of plane:
 
     >>> hex = np.array([[1, 0, 0], [0.5, 3**0.5 / 2, 0], [0, 0, 1]])
-    >>> find_directions(hex, (4, 4, 4))
-    [(0, 0, 1), (1, -1, 0), (1, 0, 0), (0, 1, 0)]
+    >>> dirs = find_directions(hex, (4, 4, 4))
+    >>> sorted(dirs)
+    [(0, 0, 1), (0, 1, 0), (1, -1, 0), (1, 0, 0)]
     """
 
     from scipy.spatial import Voronoi
