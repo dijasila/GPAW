@@ -12,7 +12,7 @@ See:
     https://doi.org/10.1103/PhysRevB.62.6158
 
 """
-from typing import Any, Tuple, List
+from typing import Any, List
 from math import pi
 
 import numpy as np
@@ -29,28 +29,27 @@ Array2D = Any
 Array3D = Any
 
 
-def hyperfine_parameters(calc: GPAW) -> Tuple[Array1D, Array3D]:
+def hyperfine_parameters(calc: GPAW) -> Array3D:
     dens = calc.density
     nt_sR = dens.nt_sG
-    W1_a, W2_avv = smooth_part(
+    W_avv = smooth_part(
         nt_sR[0] - nt_sR[1],
         dens.gd,
         calc.atoms.get_scaled_positions())
 
     D_asp = calc.density.D_asp
     for a, D_sp in D_asp.items():
-        W1, W2_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
-                                   calc.wfs.setups[a])
-        W1_a[a] += W1
-        W2_avv[a] += W2_vv
+        W_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
+                              calc.wfs.setups[a])
+        W_avv[a] += W_vv
 
-    return W1_a, W2_avv
+    return W_avv
 
 
 def smooth_part(spin_density_R: Array3D,
                 gd: GridDescriptor,
                 spos_ac: Array2D,
-                ecut: float = None) -> Tuple[Array1D, Array3D]:
+                ecut: float = None) -> Array3D:
     pd = PWDescriptor(ecut, gd)
     spin_density_G = pd.fft(spin_density_R)
     G_Gv = pd.get_reciprocal_vectors()
@@ -63,18 +62,19 @@ def smooth_part(spin_density_R: Array3D,
     G2_G[0] = 1.0
     spin_density_G /= G2_G
 
-    W2_vva = np.empty((3, 3, len(spos_ac)))
+    W_vva = np.empty((3, 3, len(spos_ac)))
     for v1 in range(3):
         for v2 in range(3):
             W_a = pd.integrate(G_Gv[:, v1] * G_Gv[:, v2] * spin_density_G,
                                eiGR_aG)
-            W2_vva[v1, v2] = -W_a / gd.dv
+            W_vva[v1, v2] = -W_a / gd.dv
 
-    W2_a = np.trace(W2_vva) / 3
+    W_a = np.trace(W_vva) / 3
     for v in range(3):
-        W2_vva[v, v] -= W2_a
+        W_vva[v, v] -= W_a
+        W_vva[v, v] += W1_a
 
-    return W1_a, W2_vva.transpose((2, 0, 1))
+    return W_vva.transpose((2, 0, 1))
 
 
 Y2_m = (np.array([15 / 4,
@@ -95,12 +95,12 @@ Y2_mvv = np.array([[[0, 1, 0],
                     [0, 0, 0],
                     [1, 0, 0]],
                    [[2, 0, 0],
-                    [0, -1, 0],
+                    [0, -2, 0],
                     [0, 0, 0]]])
 
 
 def paw_correction(spin_density_ii: Array2D,
-                   setup: Setup) -> Tuple[float, Array2D]:
+                   setup: Setup) -> Array2D:
     D0_jj = expand(spin_density_ii, setup.l_j, 0)[0]
 
     phit_jg = np.array(setup.data.phit_jg)
@@ -109,22 +109,34 @@ def paw_correction(spin_density_ii: Array2D,
     rgd = setup.rgd
 
     nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
-    n0 = phit_jg[:, 0].dot(D0_jj).dot(phi_jg[:, 0]) / (4 * pi)**0.5
-    W1 = (n0 - nt0) * 2 / 3
+    n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
+
+    import ase.units as units
+    # Velocity of light in atomic units:
+    c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
+    alpha = (1 - (setup.Z / c)**2)**0.5 - 1
+    rT = setup.Z / c**2
+    print(alpha, rT, rgd.r_g[:3])
+    import matplotlib.pyplot as plt
+    #plt.plot(np.log(rgd.r_g), np.log(phi_jg[0]))
+    #plt.show()
+    b = phi_jg[0, 1] * (1*rgd.r_g[1])**(-1 * alpha)
+    rgd.plot(phi_jg[0])
+    rgd.plot(rgd.r_g**(1 * alpha) * b, show=1)
+    W1 = (n0 - nt0_g[0]) * 2 / 3
 
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
     dn2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
     dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
-    print(D2_mjj)
-    A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) * (4 * pi)
-    print(A_m)
+    A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) / 5
     A_m *= Y2_m
-    W2_vv = Y2_mvv.T.dot(A_m)
-    W2 = np.trace(W2_vv) / 3
+    W_vv = Y2_mvv.T.dot(A_m)
+    W = np.trace(W_vv) / 3
     for v in range(3):
-        W2_vv[v, v] -= W2
+        W_vv[v, v] -= W
+        W_vv[v, v] += W1
 
-    return W1, W2_vv
+    return W_vv
 
 
 def expand(D_ii: Array2D,
@@ -145,3 +157,75 @@ def expand(D_ii: Array2D,
             i2a = i2b
         i1a = i1b
     return D_mjj
+
+
+# from https://en.wikipedia.org/wiki/Gyromagnetic_ratio
+gyromagnetic_ratios = {'H': 42.6,
+                       'O': -5.8}
+
+
+def main(argv: List[str] = None) -> None:
+    import argparse
+    parser = argparse.ArgumentParser(
+        prog='python3 -m gpaw.hyperfine',
+        description='Calculate hyperfine parameters.')
+    add = parser.add_argument
+    add('file', metavar='input-file',
+        help='GPW-file (with or without wave functions).')
+    add('-g', '--gyromagnetic-ratios',
+        help='Gyromagnetic ratios (in MHz/T).')
+    if hasattr(parser, 'parse_intermixed_args'):
+        args = parser.parse_intermixed_args(argv)
+    else:
+        args = parser.parse_args(argv)
+
+    calc = GPAW(args.file)
+    atoms = calc.get_atoms()
+
+    ratios = gyromagnetic_ratios.copy()
+    if args.gyromagnetic_ratios:
+        for symbol, value in (part.split(':')
+                              for part in args.gyromagnetic_ratios.split(',')):
+            ratios[symbol] = float(value)
+
+    A_avv = hyperfine_parameters(calc)
+
+    print('Isotropic and anisotropic hyperfine coupling paramters in MHz/T:\n')
+    print('atom   symbol  magmom       ',
+          '      '.join(['iso', 'xx', 'yy', 'zz', 'yz', 'xz', 'xy']))
+    symbols = atoms.symbols
+    magmoms = atoms.get_magnetic_moments()
+    used = {}
+    for a, A_vv in enumerate(A_avv):
+        symbol = symbols[a]
+        magmom = magmoms[a]
+        ratio = ratios.get(symbol, 1.0)
+        used[symbol] = ratio
+        A_vv *= ratio * 1450 / 8.538  # ?????????????????????????????
+        A = np.trace(A_vv) / 3
+        print(f'{a:4}       {symbol:>2}  {magmom:6.3f}  ',
+              ''.join(f'{x:8.3f}' for x in
+                      [A,
+                       A_vv[0, 0] - A, A_vv[1, 1] - A, A_vv[2, 2] - A,
+                       A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]))
+
+    magmom = atoms.get_magnetic_moment()
+    print(f'\nTotal magnetic moment: {magmom:.3f}')
+    print('\nGyromagnetic ratios used:')
+    for symbo, ratio in used.items():
+        print(f'{symbol:2} {ratio:10.3f} MHz/T')
+
+
+def thomson():
+    from sympy import var, integrate, oo
+    x, a = var('x, a')
+    print(integrate(x**-a / (1 + x)**2, (x, 0, oo)))
+    # pi*a/sin(pi*a)
+
+
+if __name__ == '__main__':
+    # import ase.units as u
+    # print(u._mu0 * u._hbar**2 * u._e**2 * 2.000 * 5.5 /
+    #      (6 * np.pi * (u.Bohr * 1e-10)**3 * u._me * u._mp * u._e))
+    thomson()
+    #main()

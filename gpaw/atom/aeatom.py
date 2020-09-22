@@ -14,7 +14,8 @@ from ase.utils import seterr
 from gpaw.xc import XC
 from gpaw.gaunt import gaunt
 from gpaw.atom.configurations import configurations
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.atom.radialgd import (AERadialGridDescriptor,
+                                AbinitRadialGridDescriptor)
 
 
 # Velocity of light in atomic units:
@@ -499,11 +500,20 @@ class AllElectronAtom:
         if alpha2 is None:
             alpha2 = 50.0 * self.Z**2
 
-        # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
-        a = 1 / alpha2**0.5 / 20
-        b = (rcut - a * ngpts) / (rcut * ngpts)
-        b = 1 / round(1 / b)
-        self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        if 0:
+            # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
+            a = 1 / alpha2**0.5 / 20
+            b = (rcut - a * ngpts) / (rcut * ngpts)
+            b = 1 / round(1 / b)
+            self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        else:
+            from scipy.optimize import root
+            r1 = 1 / alpha2**0.5 / 20
+            sol = root(lambda d: r1 / d * (np.exp(d * (ngpts - 1)) - 1) - rcut,
+                       1.0)
+            d = sol.x
+            a = r1 / d
+            self.rgd = AbinitRadialGridDescriptor(a, d, ngpts)
 
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
                  ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
@@ -809,8 +819,8 @@ class CLICommand:
             help='Plot logarithmic derivatives. ' +
             'Example: -l spdf,-1:1:0.05,1.3. ' +
             'Energy range and/or radius can be left out.')
-        add('-n', '--ngrid', help='Specify number of grid points')
-        add('-R', '--rcut', help='Radial cutoff')
+        add('-n', '--ngrid', help='Specify number of grid points.')
+        add('-R', '--rcut', help='Radial cutoff.')
         add('-r', '--refine', action='store_true')
         add('-s', '--scalar-relativistic', action='store_true')
         add('--no-ee-interaction', action='store_true',
@@ -887,6 +897,13 @@ def main(args):
     if args.scalar_relativistic:
         aea.scalar_relativistic = True
         aea.refine()
+        phi_ng = aea.channels[0].phi_ng
+        r = aea.rgd
+        x = (1 - (8 / 137)**2)**0.5 - 1
+        r.plot(phi_ng[0])
+        r.plot(phi_ng[1])
+        r.plot(r.r_g**x * (phi_ng[1, 0] * (0.1 * r.r_g[1])**-x))
+        r.plot(r.r_g**x * (phi_ng[0, 0] * (0.1 * r.r_g[1])**-x), show=1)
 
     if args.logarithmic_derivatives:
         lvalues, energies, r = parse_ld_str(args.logarithmic_derivatives,
