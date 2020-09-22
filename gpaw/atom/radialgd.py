@@ -545,5 +545,8 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d
 
+    def d2gdr2(self):
+        return -1 / (self.a**2 * self.d * (self.r_g / self.a + 1)**2)
+
     def new(self, N):
         return AbinitRadialGridDescriptor(self.a, self.d, N)

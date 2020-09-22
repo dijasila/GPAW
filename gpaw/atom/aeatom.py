@@ -510,9 +510,10 @@ class AllElectronAtom:
             from scipy.optimize import root
             r1 = 1 / alpha2**0.5 / 20
             sol = root(lambda d: r1 / d * (np.exp(d * (ngpts - 1)) - 1) - rcut,
-                       1.0)
+                       0.0001)
             d = sol.x
             a = r1 / d
+            print(d, a, r1, self.Z / 137**2)
             self.rgd = AbinitRadialGridDescriptor(a, d, ngpts)
 
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
