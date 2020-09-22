@@ -77,7 +77,11 @@ def smooth_part(spin_density_R: Array3D,
     return W1_a, W2_vva.transpose((2, 0, 1))
 
 
-Y2_m = (np.array([15 / 4, 15 / 4, 5 / 16, 15 / 4, 15 / 16]) / pi)**0.5
+Y2_m = (np.array([15 / 4,
+                  15 / 4,
+                  5 / 16,
+                  15 / 4,
+                  15 / 16]) / pi)**0.5
 Y2_mvv = np.array([[[0, 1, 0],
                     [1, 0, 0],
                     [0, 0, 0]],
@@ -111,7 +115,9 @@ def paw_correction(spin_density_ii: Array2D,
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
     dn2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
     dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
+    print(D2_mjj)
     A_m = dn2_mg[:, 1:].dot(rgd.dr_g[1:] / rgd.r_g[1:]) * (4 * pi)
+    print(A_m)
     A_m *= Y2_m
     W2_vv = Y2_mvv.T.dot(A_m)
     W2 = np.trace(W2_vv) / 3

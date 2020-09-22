@@ -71,6 +71,12 @@ class RadialGridDescriptor:
     def __len__(self):
         return self.N
 
+    @classmethod
+    def new(cls, name, *args, **kwargs):
+        if name == 'equidistant':
+            return EquidistantRadialGridDescriptor(*args, **kwargs)
+        raise ValueError(f'Unknown grid-type: {name}')
+
     def zeros(self, x=()):
         a_xg = self.empty(x)
         a_xg[:] = 0
