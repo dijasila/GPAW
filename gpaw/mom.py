@@ -1,13 +1,16 @@
 import warnings
+
 import numpy as np
+
 from ase.units import Hartree
+
 from gpaw.occupations import ZeroKelvin
 
 
 class OccupationsMOM(ZeroKelvin):
     def __init__(self, occupations,
                  constraints=None,
-                 space='reduced',
+                 space='full',
                  width=0.0,
                  width_increment=0.01,
                  niter_smearing=None):
@@ -58,14 +61,17 @@ class OccupationsMOM(ZeroKelvin):
                 else:
                     occ[kpt.s].fill(0)
 
-                    # Compute projections within each occupied subspace
-                    for f in self.c_ref[kpt.s].keys():
-                        n_occ = len(self.c_ref[kpt.s][f])
-                        P = self.calculate_projections(wfs, kpt, f)
-                        P_max = np.argpartition(P, -n_occ)[-n_occ:]
-                        P_max.sort() # Do we need this?
+                    # Compute projections within equally occupied subspaces
+                    f_n_unique = np.unique(kpt.f_n)
+                    for f in f_n_unique:
+                        if f >= 1.0e-10:
+                            occupied = kpt.f_n == f
+                            n_occ = len(kpt.f_n[occupied])
+                            P = self.calculate_mom_projections(wfs, kpt, f)
+                            P_max = np.argpartition(P, -n_occ)[-n_occ:]
+                            P_max.sort() # Do we need this?
 
-                        occ[kpt.s][P_max] = f
+                            occ[kpt.s][P_max] = f
 
             elif self.space == 'reduced':
                 for c in self.constraints:
@@ -120,32 +126,64 @@ class OccupationsMOM(ZeroKelvin):
         self.magmom = wfs.kptband_comm.sum(magmom)
 
     def initialize_reference_orbitals(self, wfs):
-        self.c_ref = {}
-
         if wfs.mode == 'lcao':
+            self.c_ref = {}
+
             for kpt in wfs.kpt_u:
                 self.c_ref[kpt.s] = {}
 
-                # Initialize reference orbitals for each occupied subspace
+                # Initialize ref orbitals for each equally occupied subspace
                 f_n_unique = np.unique(kpt.f_n)
                 for f in f_n_unique:
                     if f >= 1.0e-10:
                         occupied = kpt.f_n == f
-
                         self.c_ref[kpt.s][f] = kpt.C_nM[occupied].copy()
+        else:
+            self.wf = {}
+            self.p_an = {}
+            for kpt in wfs.kpt_u:
+                self.wf[kpt.s] = {}
+                self.p_an[kpt.s] = {}
 
-    def calculate_projections(self, wfs, kpt, f):
+                # Initialize ref orbitals for each equally occupied subspace
+                f_n_unique = np.unique(kpt.f_n)
+                for f in f_n_unique:
+                    if f >= 1.0e-10:
+                        occupied = kpt.f_n == f
+                        # Pseudo wave functions
+                        self.wf[kpt.s][f] = kpt.psit_nG[occupied].copy()
+                        # PAW projection
+                        self.p_an[kpt.s][f] = \
+                            dict([(a, np.dot(wfs.setups[a].dO_ii,
+                                             P_ni[occupied].T))
+                                  for a, P_ni in kpt.P_ani.items()])
+
+    def calculate_mom_projections(self, wfs, kpt, f):
         if wfs.mode == 'lcao':
             P = np.dot(self.c_ref[kpt.s][f].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM.T))
             P = np.sum(P**2, axis=0)
             P = P ** 0.5
         else:
-            raise NotImplementedError('Full MOM available only in LCAO mode')
+            # Pseudo wave functions overlaps
+            P = wfs.integrate(self.wf[kpt.s][f][:], kpt.psit_nG[:], True)
+
+            # PAW corrections
+            P_corr = np.zeros_like(P)
+            for a, p_a in self.p_an[kpt.s][f].items():
+                P_corr += np.dot(kpt.P_ani[a].conj(), p_a).T
+            P_corr = np.ascontiguousarray(P_corr)
+            wfs.gd.comm.sum(P_corr)
+
+            # Sum pseudo wave and PAW contributions
+            P += P_corr
+            P = np.sum(P ** 2, axis=0)
+            P = P ** 0.5
 
         return P
 
     def sort_wavefunctions(self, kpt, sort_eps=False):
+        # Works only for LCAO calculations
         occupied = kpt.f_n > 1.0e-10
         n_occ = len(kpt.f_n[occupied])
 
@@ -221,10 +259,10 @@ class MOMConstraint:
 
     def update_target_orbital(self, wfs, kpt):
         if wfs.mode == 'lcao':
-            self.c_u = kpt.C_nM[self.n].copy()
+            self.c_n = kpt.C_nM[self.n].copy()
         else:
-            self.wf_u = kpt.psit_nG[self.n].copy()
-            self.p_uai = dict([(a, P_ni[self.n].copy())
+            self.wf_n = kpt.psit_nG[self.n].copy()
+            self.p_an = dict([(a, np.dot(wfs.setups[a].dO_ii, P_ni[self.n]))
                                for a, P_ni in kpt.P_ani.items()])
 
     def get_maximum_overlap(self, wfs, kpt, c, iters):
@@ -241,20 +279,18 @@ class MOMConstraint:
             if kpt.S_MM is None:
                 return self.n
             else:
-                P_n[ini:fin] = np.dot(self.c_u.conj(),
+                P_n[ini:fin] = np.dot(self.c_n.conj(),
                                   np.dot(kpt.S_MM, kpt.C_nM[ini:fin].T))
         else:
             # Pseudo wave functions overlaps
-            wf = np.reshape(self.wf_u, -1)
-            Wf_n = kpt.psit_nG
-            Wf_n = np.reshape(Wf_n, (self.nbands, -1))
-            P_n[ini:fin] = np.dot(Wf_n[ini:fin].conj(), wf) * wfs.gd.dv
+            P_n[ini:fin] = wfs.integrate(self.wf_n, kpt.psit_nG[ini:fin], False)
 
-            # Add PAW corrections
-            for a, p_a in self.p_uai.items():
-                p_ai = np.dot(wfs.setups[a].dO_ii, p_a)
-                P_n[ini:fin] += np.dot(kpt.P_ani[a][ini:fin].conj(), p_ai)
+            if iters > 1:
+                # Add PAW corrections
+                for a, p_a in self.p_an.items():
+                    P_n[ini:fin] += np.dot(kpt.P_ani[a][ini:fin].conj(), p_a)
             wfs.gd.comm.sum(P_n)
+
         P_n = P_n ** 2
 
         # Update index of target orbital
@@ -266,3 +302,4 @@ class MOMConstraint:
             self.update_target_orbital(wfs, kpt)
 
         return self.n
+
