@@ -150,6 +150,7 @@ class InnerLoop:
         self.run_count += 1
         self.counter = 0
         self.eg_count = 0
+        self.odd_pot.momcounter = 1
         # initial things
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
@@ -165,9 +166,9 @@ class InnerLoop:
             d = self.n_occ[k]
             a_k[k] = np.zeros(shape=(d, d), dtype=self.dtype)
 
-        self.sd = LSR1P(wfs, memory=20)
+        self.sd = LSR1P(wfs, memory=50)
         self.ls = UnitStepLength(self.evaluate_phi_and_der_phi,
-                                 max_step=0.2)
+                                 max_step=0.25)
 
         threelasten = []
         # get initial energy and gradients
@@ -190,6 +191,9 @@ class InnerLoop:
                 return self.e_total, counter
             else:
                 return self.e_total, outer_counter
+
+        if self.odd_pot.restart:
+            return 0.0, 0
 
         # get maximum of gradients
         # max_norm = []
@@ -266,6 +270,8 @@ class InnerLoop:
             phi_old_2 = phi_old
             der_phi_old_2 = der_phi_old
 
+            if self.odd_pot.restart:
+                break
             if alpha > 1.0e-10:
                 # calculate new matrices at optimal step lenght
                 a_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
@@ -328,7 +334,6 @@ class InnerLoop:
 
                 # if not not_converged and self.counter < 2:
                 #     not_converged = True
-
             else:
                 break
 

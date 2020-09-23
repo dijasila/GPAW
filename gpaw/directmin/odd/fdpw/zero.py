@@ -27,6 +27,8 @@ class ZeroCorrections:
         self.eks = 0.0
         self.changedocc = 0
         self.restart = 0
+        self.momevery = 15
+        self.momcounter = 0
 
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
@@ -38,21 +40,23 @@ class ZeroCorrections:
         for kpt in wfs.kpt_u:
             wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
-        f_sn = {}
-        for kpt in wfs.kpt_u:
-            n_kps = wfs.kd.nks // wfs.kd.nspins
-            u = n_kps * kpt.s + kpt.q
-            f_sn[u] = kpt.f_n.copy()
-        occ.calculate(wfs)
-        self.changedocc = 0
-        for kpt in wfs.kpt_u:
-            n_kps = wfs.kd.nks // wfs.kd.nspins
-            u = n_kps * kpt.s + kpt.q
-            self.changedocc = int(
-                not np.allclose(f_sn[u], kpt.f_n.copy()))
-        self.changedocc = wfs.kd.comm.max(self.changedocc)
-        if self.changedocc:
-            self.restart = 1
+        if self.momcounter % self.momevery == 0:
+            f_sn = {}
+            for kpt in wfs.kpt_u:
+                n_kps = wfs.kd.nks // wfs.kd.nspins
+                u = n_kps * kpt.s + kpt.q
+                f_sn[u] = kpt.f_n.copy()
+                occ.calculate(wfs)
+            self.changedocc = 0
+            for kpt in wfs.kpt_u:
+                n_kps = wfs.kd.nks // wfs.kd.nspins
+                u = n_kps * kpt.s + kpt.q
+                self.changedocc = int(
+                    not np.allclose(f_sn[u], kpt.f_n.copy()))
+            self.changedocc = wfs.kd.comm.max(self.changedocc)
+            if self.changedocc:
+                self.restart = 1
+        self.momcounter += 1
 
         dens.update(wfs)
         ham.update(dens, wfs, False)
