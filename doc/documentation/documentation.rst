@@ -28,6 +28,7 @@ Developers should consult the :ref:`devel` pages.
    manual
    smearing
    tools/tools
+   hyperfine
    advanced_topics
    literature
    introduction_to_paw
