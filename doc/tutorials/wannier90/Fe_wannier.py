@@ -10,7 +10,7 @@ soc = soc_eigenstates(calc)
 
 w90.write_input(calc,
                 bands=range(30),
-                # spinors=True,
+                spinors=True,
                 num_iter=200,
                 dis_num_iter=500,
                 dis_mix_ratio=1.0,
@@ -20,8 +20,8 @@ w90.write_input(calc,
 os.system('wannier90.x -pp ' + seed)
 
 w90.write_projections(calc,
-                      seed=seed)#, soc=soc)
-w90.write_eigenvalues(calc, seed=seed)#, soc=soc)
-w90.write_overlaps(calc, seed=seed)#, soc=soc)
+                      seed=seed, soc=soc)
+w90.write_eigenvalues(calc, seed=seed, soc=soc)
+w90.write_overlaps(calc, seed=seed, soc=soc)
 
 os.system('wannier90.x ' + seed)
