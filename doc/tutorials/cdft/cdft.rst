@@ -201,13 +201,13 @@ References
 ==========
 
 .. [#cdft1] B. Kaduk, T. Kowalczyk, T. Van Voorhis,
-            `Constrained Density Functional Theory <https://pubs.acs.org/doi/pdf/10.1021/cr200148b>`_,
+            :doi:`Constrained Density Functional Theory <10.1021/cr200148b>`,
             *Chem. Rev.*, **112** 321–370 (2012)
 
 .. [#cdft2] M. Melander, E. Jońsson, J.J. Mortensen, T. Vegge,J.M. Garcia-Lastra,
-            `Implementation of Constrained DFT for Computing Charge Transfer Rates within the Projector Augmented Wave Method <https://pubs.acs.org/doi/pdf/10.1021/acs.jctc.6b00815>`_,
+            :doi:`Implementation of Constrained DFT for Computing Charge Transfer Rates within the Projector Augmented Wave Method <10.1021/acs.jctc.6b00815>`,
             *J. Chem. Theory Comput.*, **12**, 5367−5378 (2016)
 
 .. [#cdft3] A. Migliore,
-        `Nonorthogonality Problem and Effective Electronic Coupling Calculation: Application to Charge Transfer in π-Stacks Relevant to Biochemistry and Molecular Electronics <https://pubs.acs.org/doi/abs/10.1021/ct200192d>`_,
+        :doi:`Nonorthogonality Problem and Effective Electronic Coupling Calculation: Application to Charge Transfer in π-Stacks Relevant to Biochemistry and Molecular Electronics <10.1021/ct200192d>`,
         *J. Chem. Theory Comput.*, **7**, 1712-1725 (2011)

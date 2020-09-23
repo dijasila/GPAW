@@ -10,9 +10,12 @@ extensions = ['images',
               'ext',
               'sphinx.ext.autodoc',
               'sphinx.ext.doctest',
+              'sphinx.ext.extlinks',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
+extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
+            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:')}
 templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
