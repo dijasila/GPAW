@@ -94,6 +94,9 @@ Git master branch
   defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
   behavior.
 
+* Work in progress / preview / experimental / danger / be careful:
+  :ref:`hyperfine`.
+
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
   :ref:`point groups`.
 

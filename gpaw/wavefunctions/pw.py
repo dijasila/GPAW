@@ -354,6 +354,7 @@ class PWDescriptor:
             Q_G = self.Q_qG[q]
             assert len(c_G) == len(Q_G)
             _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
+
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
