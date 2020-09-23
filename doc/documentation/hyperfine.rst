@@ -10,4 +10,5 @@ Use the :func:`hyperfine_parameters` function or the CLI tool::
 
 .. autofunction:: hyperfine_parameters
 
-See :doi:``.
+See Peter E. Blöchl: https://doi.org/10.1103/PhysRevB.62.6158.
+

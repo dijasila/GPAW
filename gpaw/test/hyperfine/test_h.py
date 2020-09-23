@@ -119,3 +119,11 @@ def test_h(gpw_files):
     A_vv = hyperfine_parameters(calc)[0]
     print(A_vv)
     assert abs(A_vv - np.eye(3) * 0.2).max() < 1e-2
+
+
+def thomson():
+    """Analytic integrals for testing."""
+    from sympy import var, integrate, oo, E, expint
+    x, a, b = var('x, a, b')
+    print(integrate(E**(-b * x) / (1 + x)**2, (x, 0, oo)))
+    print(expint(2, 1.0))

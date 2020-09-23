@@ -17,6 +17,7 @@ from math import pi
 
 import numpy as np
 from scipy.integrate import simps
+import ase.units as units
 
 from gpaw import GPAW
 from gpaw.atom.radialgd import RadialGridDescriptor
@@ -32,26 +33,32 @@ Array3D = Any
 
 
 def hyperfine_parameters(calc: GPAW) -> Array3D:
+    """Calculate isotropic and anisotropic hyperfine coupling paramters.
+
+    One tensor per atom is returned.  The isotropic part is a=trace(A)/3
+    and the anisotropic part is A-a.
+    """
     dens = calc.density
     nt_sR = dens.nt_sG
-    W_avv = smooth_part(
+    A_avv = smooth_part(
         nt_sR[0] - nt_sR[1],
         dens.gd,
         calc.atoms.get_scaled_positions())
 
     D_asp = calc.density.D_asp
     for a, D_sp in D_asp.items():
-        W_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
+        A_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
                               calc.wfs.setups[a])
-        W_avv[a] += W_vv
+        A_avv[a] += A_vv
 
-    return W_avv
+    return A_avv
 
 
 def smooth_part(spin_density_R: Array3D,
                 gd: GridDescriptor,
                 spos_ac: Array2D,
                 ecut: float = None) -> Array3D:
+    """Contribution from pseudo spin-density."""
     pd = PWDescriptor(ecut, gd)
     spin_density_G = pd.fft(spin_density_R)
     G_Gv = pd.get_reciprocal_vectors()
@@ -79,11 +86,13 @@ def smooth_part(spin_density_R: Array3D,
     return W_vva.transpose((2, 0, 1))
 
 
+# Normalization constants for xy, yz, 3z^2-r^2, xz, x^2-y^2:
 Y2_m = (np.array([15 / 4,
                   15 / 4,
                   5 / 16,
                   15 / 4,
                   15 / 16]) / pi)**0.5
+# Second derivatives:
 Y2_mvv = np.array([[[0, 1, 0],
                     [1, 0, 0],
                     [0, 0, 0]],
@@ -103,6 +112,8 @@ Y2_mvv = np.array([[[0, 1, 0],
 
 def paw_correction(spin_density_ii: Array2D,
                    setup: Setup) -> Array2D:
+    """Corrections from 1-center expansions of spin-density."""
+    # Spherical part:
     D0_jj = expand(spin_density_ii, setup.l_j, 0)[0]
 
     phit_jg = np.array(setup.data.phit_jg)
@@ -110,17 +121,21 @@ def paw_correction(spin_density_ii: Array2D,
 
     rgd = setup.rgd
 
+    # Spin-density from pseudo density:
     nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
-    n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
 
-    import ase.units as units
+    # All-electron contribution diveges as r^-beta and must be integrated
+    # over a small region of size rT:
+    n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
     # Velocity of light in atomic units:
     c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
     beta = 2 * (1 - (1 - (setup.Z / c)**2)**0.5)
     rT = setup.Z / c**2
     n0 = integrate(n0_g, rgd, rT, beta)
-    W1 = (n0 - nt0) * 2 / 3
 
+    W1 = (n0 - nt0) * 2 / 3  # isotropic result
+
+    # Now the anisotropic part from the l=2 part of the density:
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
     dn2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
     dn2_mg -= np.einsum('mab, ag, bg -> mg', D2_mjj, phit_jg, phit_jg)
@@ -138,6 +153,7 @@ def paw_correction(spin_density_ii: Array2D,
 def expand(D_ii: Array2D,
            l_j: List[int],
            l: int) -> Array3D:
+    """Get expansion coefficients."""
     G_LLm = gaunt(lmax=2)[:, :, l**2:(l + 1)**2]
     D_mjj = np.empty((2 * l + 1, len(l_j), len(l_j)))
     i1a = 0
@@ -155,7 +171,8 @@ def expand(D_ii: Array2D,
     return D_mjj
 
 
-def delta(r, rT):
+def delta(r: float, rT: float) -> float:
+    """Extended delta function."""
     return 2 / rT / (1 + 2 * r / rT)**2
 
 
@@ -163,6 +180,7 @@ def integrate(n0_g: Array1D,
               rgd: RadialGridDescriptor,
               rT: float,
               beta: float) -> float:
+    """Take care of r^-beta divergence."""
     r_g = rgd.r_g
     a_i = np.polyfit(r_g[1:5], n0_g[1:5] * r_g[1:5]**beta, 3)
     r4 = r_g[4]
@@ -244,17 +262,8 @@ def main(argv: List[str] = None) -> None:
         print(f'{symbol:2} {ratio:10.3f} MHz/T')
 
 
-def thomson():
-    from sympy import var, integrate, oo, E, expint
-    x, a, b = var('x, a, b')
-    print(integrate(E**(-b * x) / (1 + x)**2, (x, 0, oo)))
-    # pi*a/sin(pi*a)
-    print(expint(2, 1.0))
-
-
 if __name__ == '__main__':
     # import ase.units as u
     # print(u._mu0 * u._hbar**2 * u._e**2 * 2.000 * 5.5 /
     #      (6 * np.pi * (u.Bohr * 1e-10)**3 * u._me * u._mp * u._e))
-    # thomson()
     main()

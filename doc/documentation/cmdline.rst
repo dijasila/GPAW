@@ -43,8 +43,8 @@ to get help (or ``-h`` for short).
 Other command-line tools
 ========================
 
-There are also CLI tools for analysing point-groups and for :ref:`hyperfine`.
-Try:
+There are also CLI tools for analysing :ref:`point groups`
+and for :ref:`hyperfine`.  Try:
 
     $ python3 -m gpaw.point_groups --help
     $ python3 -m gpaw.hyperfine --help
