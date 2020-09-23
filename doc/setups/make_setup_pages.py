@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # creates: H.rst, H.default.png
 # ... and all the rest.
-from __future__ import print_function
 import json
 import sys
 
@@ -98,24 +97,25 @@ Egg-box errors in finite-difference mode:
     fig = plt.figure(figsize=(8, 5))
 
     ax1 = plt.subplot(121)
-    ax1.semilogy(cutoffs[:-1], epw[:-1], 'r',
-                 label='pw, absolute')
-    ax1.semilogy(cutoffs[:-1], depw[:-1], 'g',
-                 label='pw, atomization')
-    plt.xticks([200, 400, 600])
-    plt.xlabel('plane-wave cutoff [eV]')
-    plt.ylabel('error [eV/atom]')
+    ax1.semilogy(cutoffs[:-1], epw[:-1], 'C0-',
+                 label='PW, absolute')
+    ax1.semilogy(cutoffs[:-1], depw[:-1], 'C1--',
+                 label='PW, atomization')
+    plt.xticks([200, 400, 600, 800], fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.xlabel('Planewave cutoff [eV]', fontsize=15)
+    plt.ylabel('Error [eV/atom]', fontsize=15)
     plt.legend(loc='best')
 
     ax2 = plt.subplot(122, sharey=ax1)
     h = [4.0 / g for g in [20, 24, 28]]
-    ax2.semilogy(h, efd, '-rs', label='fd, absolute')
-    ax2.semilogy(h, defd, '-gs', label='fd, atomization')
-    ax2.semilogy(h, elcao, '-ro', label='lcao, absolute')
-    ax2.semilogy(h, delcao, '-go', label='lcao, atomization')
-    plt.xticks([0.16, 0.18, 0.2])
+    ax2.semilogy(h, efd, 'C0s-', label='FD, absolute')
+    ax2.semilogy(h, defd, 'C1s--', label='FD, atomization')
+    ax2.semilogy(h, elcao, 'C0o-', label='LCAO, absolute')
+    ax2.semilogy(h, delcao, 'C1o--', label='LCAO, atomization')
+    plt.xticks([0.16, 0.18, 0.2], fontsize=15)
     plt.xlim(0.14, 0.2)
-    plt.xlabel(u'grid-spacing [Å]')
+    plt.xlabel(u'grid-spacing [Å]', fontsize=15)
     plt.legend(loc='best')
     plt.setp(ax2.get_yticklabels(), visible=False)
 

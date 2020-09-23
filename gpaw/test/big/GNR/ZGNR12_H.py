@@ -14,6 +14,6 @@ GNR.append(Atom('H', pos))
 GNR.set_pbc((0,0,1))
 kpts = (1,1,10)
 calc = GPAW(kpts=kpts, spinpol=True)
-GNR.set_calculator(calc)
+GNR.calc = calc
 dyn = QuasiNewton(GNR, trajectory='GNR_H.traj')
 dyn.run(fmax=0.05)

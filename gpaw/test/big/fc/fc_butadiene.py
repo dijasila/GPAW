@@ -9,6 +9,7 @@ from ase.vibrations import Vibrations
 from ase.vibrations.franck_condon import FranckCondon
 
 from gpaw import GPAW
+from gpaw.mpi import world
 from gpaw.cluster import Cluster
 from gpaw.utilities.folder import Folder
 
@@ -29,7 +30,7 @@ H       7.580803493981530      5.034479218283977      4.877211530909463
 h = 0.3
 atoms = Cluster(read(io.StringIO(butadiene), format='xyz'))
 atoms.minimal_box(3.0, h)
-atoms.set_calculator(GPAW(h=h))
+atoms.calc = GPAW(h=h)
 if 0:
     dyn = FIRE(atoms)
     dyn.run(fmax=0.05)
@@ -68,17 +69,18 @@ labels = ['normal modes with #quanta=1,-1 and the 0-0 transition',
 
 S = np.append(1, S)
 fq = np.append(0, fq)
-plt.vlines(fq, 0, S, color='darkblue',
-           label='Huang-Rhys factors', linewidth=2.0)
-
-plt.legend(loc='upper right')
-plt.axis([-1000, 6000, 0, 1.05])
-plt.ylabel('HR factors [a.u.]')
-plt.xlabel('frequency [cm-1]')
-plt.show()
+if world.rank == 0:
+    plt.vlines(fq, 0, S, color='darkblue',
+               label='Huang-Rhys factors', linewidth=2.0)
+    
+    plt.legend(loc='upper right')
+    plt.axis([-1000, 6000, 0, 1.05])
+    plt.ylabel('HR factors [a.u.]')
+    plt.xlabel('frequency [cm-1]')
+    plt.show()
 
 # Plot Franck-Condon factors
-FC, f = a.get_Franck_Condon_factors(n, T, F)
+FC, f = a.get_Franck_Condon_factors(T, F, order=n)
 for l in range(len(FC)):
     plt.vlines(f[l], 0, FC[l], color=colors[l], label=labels[l], linewidth=2.0)
 
@@ -88,13 +90,15 @@ folding = 'Gauss'
 x = [j for j in chain(*f)]
 y = [j for j in chain(*FC)]
 
-X, Y = Folder(width, folding).fold(x, y)
-plt.plot(X, Y * 750, color='black', linewidth=2.0,
-         label='Temperature=' + str(T) + 'K, #quanta=' + str(n) +
-         ', width of gaussian=' + str(width) + 'cm^-1', linestyle='dashed')
+if world.rank == 0:
+    X, Y = Folder(width, folding).fold(x, y)
+    plt.plot(X, Y * 750, color='black', linewidth=2.0,
+             label='Temperature=' + str(T) + 'K, #quanta=' + str(n) +
+             ', width of gaussian=' + str(width) + 'cm^-1',
+             linestyle='dashed')
 
-plt.legend(loc='upper right')
-plt.axis([-1000, 6000, 0, 0.6])
-plt.ylabel('FC factors [a.u.]')
-plt.xlabel('frequency [cm-1]')
-plt.show()
+    plt.legend(loc='upper right')
+    plt.axis([-1000, 6000, 0, 0.6])
+    plt.ylabel('FC factors [a.u.]')
+    plt.xlabel('frequency [cm-1]')
+    plt.show()

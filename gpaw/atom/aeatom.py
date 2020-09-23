@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import copy
 import sys
 from math import pi
@@ -15,7 +14,8 @@ from ase.utils import seterr
 from gpaw.xc import XC
 from gpaw.gaunt import gaunt
 from gpaw.atom.configurations import configurations
-from gpaw.atom.radialgd import AERadialGridDescriptor
+from gpaw.atom.radialgd import (AERadialGridDescriptor,
+                                AbinitRadialGridDescriptor)
 
 
 # Velocity of light in atomic units:
@@ -366,6 +366,7 @@ class AllElectronAtom:
     def __init__(self, symbol, xc='LDA', spinpol=False, dirac=False,
                  configuration=None,
                  ee_interaction=True,
+                 Z=None,
                  log=None):
         """All-electron calculation for spherically symmetric atom.
 
@@ -389,7 +390,7 @@ class AllElectronAtom:
         if isinstance(symbol, int):
             symbol = chemical_symbols[symbol]
         self.symbol = symbol
-        self.Z = atomic_numbers[symbol]
+        self.Z = Z or atomic_numbers[symbol]
 
         self.nspins = 1 + int(bool(spinpol))
 
@@ -426,7 +427,7 @@ class AllElectronAtom:
         self.initialize_configuration(self.configuration)
 
         self.log('Z:              ', self.Z)
-        self.log('Name:           ', atomic_names[self.Z])
+        self.log('Name:           ', atomic_names[atomic_numbers[symbol]])
         self.log('Symbol:         ', symbol)
         self.log('XC-functional:  ', self.xc.name)
         self.log('Equation:       ', ['Schrödinger', 'Dirac'][self.dirac])
@@ -499,11 +500,21 @@ class AllElectronAtom:
         if alpha2 is None:
             alpha2 = 50.0 * self.Z**2
 
-        # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
-        a = 1 / alpha2**0.5 / 20
-        b = (rcut - a * ngpts) / (rcut * ngpts)
-        b = 1 / round(1 / b)
-        self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        if 1:
+            # Use grid with r(0)=0, r(1)=a and r(ngpts)=rcut:
+            a = 1 / alpha2**0.5 / 20
+            b = (rcut - a * ngpts) / (rcut * ngpts)
+            b = 1 / round(1 / b)
+            self.rgd = AERadialGridDescriptor(a, b, ngpts)
+        else:
+            from scipy.optimize import root
+            rT = self.Z / 137**2
+            r1 = rT / 10 / 5
+            sol = root(lambda d: r1 / d * (np.exp(d * (ngpts - 1)) - 1) - rcut,
+                       0.1)
+            d = sol.x[0]
+            a = r1 / d
+            self.rgd = AbinitRadialGridDescriptor(a, d, ngpts)
 
         self.log('Grid points:     %d (%.5f, %.5f, %.5f, ..., %.3f, %.3f)' %
                  ((self.rgd.N,) + tuple(self.rgd.r_g[[0, 1, 2, -2, -1]])))
@@ -809,8 +820,8 @@ class CLICommand:
             help='Plot logarithmic derivatives. ' +
             'Example: -l spdf,-1:1:0.05,1.3. ' +
             'Energy range and/or radius can be left out.')
-        add('-n', '--ngrid', help='Specify number of grid points')
-        add('-R', '--rcut', help='Radial cutoff')
+        add('-n', '--ngrid', help='Specify number of grid points.')
+        add('-R', '--rcut', help='Radial cutoff.')
         add('-r', '--refine', action='store_true')
         add('-s', '--scalar-relativistic', action='store_true')
         add('--no-ee-interaction', action='store_true',

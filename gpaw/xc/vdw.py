@@ -343,7 +343,7 @@ class VDWFunctionalBase:
             np.savetxt(name, self.phi_ij, header=header)
 
     def make_prl_plot(self, multiply_by_4_pi_D_squared=True):
-        import pylab as plt
+        import matplotlib.pyplot as plt
         x = np.linspace(0, 8.0, 100)
         for delta in [0, 0.5, 0.9]:
             y = [self.phi(D * (1.0 + delta), D * (1.0 - delta))
@@ -519,7 +519,7 @@ class FFTVDWFunctional(VDWFunctionalBase):
 
         self.get_alphas()
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         self.timer = wfs.timer
         self.world = wfs.world
         self.get_alphas()

@@ -186,8 +186,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
                     fixed * del_g_del_r_vg[v],
                     global_integral=False)
 
-    def get_energy(self, occ):
-        RealSpaceHamiltonian.get_energy(self, occ)
+    def get_energy(self, e_entropy, wfs):
+        RealSpaceHamiltonian.get_energy(self, e_entropy, wfs)
         # The total energy calculated by the parent class includes the
         # solvent electrostatic contributions but not the interaction
         # energies. We add those here and store the electrostatic energies.
@@ -195,8 +195,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.e_el_extrapolated = self.e_total_extrapolated
         for ia in self.interactions:
             self.e_total_free += getattr(self, 'e_' + ia.subscript)
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
+        self.e_total_extrapolated = (self.e_total_free +
+            wfs.occupations.extrapolate_factor * e_entropy)
         return self.e_total_free
 
     def grad_squared(self, x):

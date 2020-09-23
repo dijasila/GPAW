@@ -129,7 +129,7 @@ class Hamiltonian:
             s += '  External potential:\n    {0}\n'.format(self.vext)
         return s
 
-    def summary(self, fermilevel, log):
+    def summary(self, wfs, log):
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
 
@@ -150,7 +150,7 @@ class Hamiltonian:
         self.xc.summary(log)
 
         try:
-            workfunctions = self.get_workfunctions(fermilevel)
+            workfunctions = self.get_workfunctions(wfs.fermi_level)
         except ValueError:
             pass
         else:
@@ -340,15 +340,18 @@ class Hamiltonian:
 
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, occ):
-        self.e_kinetic = self.e_kinetic0 + occ.e_band
-        self.e_entropy = occ.e_entropy
+    def get_energy(self, e_entropy, wfs):
+        """Sum up all eigenvalues weighted with occupation numbers"""
+        self.e_band = wfs.calculate_band_energy()
+        self.e_kinetic = self.e_kinetic0 + self.e_band
+        self.e_entropy = e_entropy
 
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
-        self.e_total_extrapolated = occ.extrapolate_energy_to_zero_width(
-            self.e_total_free)
+        self.e_total_extrapolated = (
+            self.e_total_free +
+            wfs.occupations.extrapolate_factor * e_entropy)
 
         return self.e_total_free
 

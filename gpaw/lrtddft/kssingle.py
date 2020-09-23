@@ -50,6 +50,7 @@ class KSSingles(ExcitationList):
                  filehandle=None,
                  txt=None):
 
+        self.energy_to_eV_scale = Hartree
         self.eps = None
         self.world = mpi.world
 
@@ -104,7 +105,7 @@ class KSSingles(ExcitationList):
                 emin, emax = energy_range
                 emin /= Hartree
                 emax /= Hartree
-            except:
+            except TypeError:
                 emax = energy_range / Hartree
         return emin, emax
 
@@ -145,13 +146,13 @@ class KSSingles(ExcitationList):
         self.npspins = wfs.nspins
         fijscale = 1
         ispins = [0]
-        nks = wfs.kd.nks
+        nks = wfs.kd.nibzkpts * wfs.kd.nspins
         if self.nvspins < 2:
             if (nspins or 0) > self.nvspins:
                 self.npspins = nspins
                 fijscale = 0.5
                 ispins = [0, 1]
-                nks = 2 * wfs.kd.nks
+                nks *= 2
 
         kpt_comm = self.calculator.wfs.kd.comm
         nbands = len(self.kpt_u[0].f_n)
@@ -160,41 +161,43 @@ class KSSingles(ExcitationList):
         take = np.zeros((nks, nbands, nbands), dtype=int)
         u = 0
         for ispin in ispins:
-            for ks in range(wfs.kd.nks):
-                myks = ks - wfs.kd.ks0
-                if myks >= 0 and myks < wfs.kd.mynks:
-                    kpt = self.kpt_u[myks]
-                    for i in range(nbands):
-                        for j in range(i + 1, nbands):
-                            fij = (kpt.f_n[i] - kpt.f_n[j]) / kpt.weight
-                            epsij = kpt.eps_n[j] - kpt.eps_n[i]
-                            if (fij > eps and
-                                epsij >= emin and epsij < emax and
-                                    i >= self.istart and j <= self.jend):
-                                take[u, i, j] = 1
-                u += 1
+            for k in range(wfs.kd.nibzkpts):
+                q = k - wfs.kd.k0
+                for s in range(wfs.nspins):
+                    if q >= 0 and q < wfs.kd.mynk:
+                        kpt = wfs.kpt_qs[q][s]
+                        for i in range(nbands):
+                            for j in range(i + 1, nbands):
+                                fij = (kpt.f_n[i] - kpt.f_n[j]) / kpt.weight
+                                epsij = kpt.eps_n[j] - kpt.eps_n[i]
+                                if (fij > eps and
+                                    epsij >= emin and epsij < emax and
+                                        i >= self.istart and j <= self.jend):
+                                    take[u, i, j] = 1
+                    u += 1
         kpt_comm.sum(take)
 
         # calculate in parallel
         u = 0
         for ispin in ispins:
-            for ks in range(wfs.kd.nks):
-                myks = ks - wfs.kd.ks0
-                for i in range(nbands):
-                    for j in range(i + 1, nbands):
-                        if take[u, i, j]:
-                            if myks >= 0 and myks < wfs.kd.mynks:
-                                kpt = self.kpt_u[myks]
-                                pspin = max(kpt.s, ispin)
-                                self.append(
-                                    KSSingle(i, j, pspin, kpt, paw,
-                                             fijscale=fijscale,
-                                             dtype=self.dtype))
-                            else:
-                                self.append(KSSingle(i, j, pspin=0,
-                                                     kpt=None, paw=paw,
-                                                     dtype=self.dtype))
-                u += 1
+            for k in range(wfs.kd.nibzkpts):
+                q = k - wfs.kd.k0
+                for s in range(wfs.kd.nspins):
+                    for i in range(nbands):
+                        for j in range(i + 1, nbands):
+                            if take[u, i, j]:
+                                if q >= 0 and q < wfs.kd.mynk:
+                                    kpt = wfs.kpt_qs[q][s]
+                                    pspin = max(kpt.s, ispin)
+                                    self.append(
+                                        KSSingle(i, j, pspin, kpt, paw,
+                                                 fijscale=fijscale,
+                                                 dtype=self.dtype))
+                                else:
+                                    self.append(KSSingle(i, j, pspin=0,
+                                                         kpt=None, paw=paw,
+                                                         dtype=self.dtype))
+                    u += 1
 
         # distribute
         for kss in self:
@@ -311,7 +314,7 @@ class KSSingles(ExcitationList):
             return
 
         if fh is None:
-            if filename.endswith('.gz') and mpi.rank == mpi.MASTER:
+            if filename.endswith('.gz') and mpi.rank == 0:
                 import gzip
                 f = gzip.open(filename, 'wt')
             else:

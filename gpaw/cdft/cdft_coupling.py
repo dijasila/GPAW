@@ -222,7 +222,7 @@ class CouplingParameters:
 
             # Weights, i.e., lagrange multipliers
             self.Va = Va
-            self.Vb = Va
+            self.Vb = Vb
 
             regionsA = []
             if charge_regions_A is not None:
@@ -1017,7 +1017,7 @@ class CouplingParameters:
 
         cdft = self.cdft_A
         # set cdft_a on geometry of B
-        geometry.set_calculator(cdft)
+        geometry.calc = cdft
         self.reorg = geometry.get_potential_energy()
         self.reorg -= self.EA
         return self.reorg
@@ -1030,7 +1030,7 @@ class CouplingParameters:
 
         cdft = self.cdft_B
         # set cdft_a on geometry of B
-        geometry.set_calculator(cdft)
+        geometry.calc = cdft
         self.energy_gap = geometry.get_potential_energy()
         self.energy_gap -= self.EA
         return self.energy_gap

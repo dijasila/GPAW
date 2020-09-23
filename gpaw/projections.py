@@ -1,16 +1,34 @@
+from typing import List, Any
+
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
 
+MPIComm = Any
+
 
 class Projections:
-    def __init__(self, nbands, nproj_a, atom_partition, bcomm,
-                 collinear=True, spin=0, dtype=float, data=None):
+    def __init__(self,
+                 nbands: int,
+                 nproj_a: List[int],
+                 atom_partition: AtomPartition,
+                 bcomm: MPIComm = None,
+                 collinear=True,
+                 spin=0,
+                 dtype=None,
+                 data=None,
+                 bdist=None):
+        if bdist is None:
+            self.bcomm = bcomm or serial_comm
+            bdist = (self.bcomm, self.bcomm.size, 1)
+        else:
+            assert bcomm is None
+            self.bcomm = bdist[0]
+
         self.nproj_a = np.asarray(nproj_a)
         self.atom_partition = atom_partition
-        self.bcomm = bcomm
         self.collinear = collinear
         self.spin = spin
         self.nbands = nbands
@@ -29,8 +47,10 @@ class Projections:
         if not collinear:
             I1 *= 2
 
-        self.matrix = Matrix(nbands, I1, dtype, data,
-                             dist=(bcomm, bcomm.size, 1))
+        if dtype is None and data is None:
+            dtype = float if collinear else complex
+
+        self.matrix = Matrix(nbands, I1, dtype, data, dist=bdist)
 
         if collinear:
             self.myshape = self.matrix.array.shape
@@ -91,35 +111,6 @@ class Projections:
         arraydict = self.toarraydict()
         arraydict.redistribute(atom_partition)
         P.fromarraydict(arraydict)
-        return P
-
-    def xxx_old_redist(self, atom_partition):
-        P = self.new(atom_partition=atom_partition)
-        rank_a = atom_partition.rank_a
-        P_In = self.collect_atoms(self.matrix)
-        if self.atom_partition.comm.rank == 0:
-            mynbands = P_In.shape[1]
-            for rank in range(self.atom_partition.comm.size):
-                nI = self.nproj_a[rank_a == rank].sum()
-                if nI == 0:
-                    continue
-                P2_nI = np.empty((mynbands, nI), P_In.dtype)
-                I1 = 0
-                myI1 = 0
-                for a, ni in enumerate(self.nproj_a):
-                    I2 = I1 + ni
-                    if rank == rank_a[a]:
-                        myI2 = myI1 + ni
-                        P2_nI[:, myI1:myI2] = P_In[I1:I2].T
-                        myI1 = myI2
-                    I1 = I2
-                if rank == 0:
-                    P.matrix.array[:] = P2_nI
-                else:
-                    self.atom_partition.comm.send(P2_nI, rank)
-        else:
-            if P.matrix.array.size > 0:
-                self.atom_partition.comm.receive(P.matrix.array, 0)
         return P
 
     def collect(self):

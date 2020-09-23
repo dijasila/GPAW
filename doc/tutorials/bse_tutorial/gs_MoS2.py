@@ -12,7 +12,7 @@ calc = GPAW(mode=PW(400),
             txt='gs_MoS2.txt')
 
 slab = mx2(formula='MoS2', a=3.16, thickness=3.17, vacuum=5.0)
-slab.set_calculator(calc)
+slab.calc = calc
 slab.get_potential_energy()
 
 calc.write('gs_MoS2.gpw', mode='all')

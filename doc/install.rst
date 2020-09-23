@@ -53,7 +53,7 @@ There are several ways to install GPAW:
 Requirements
 ============
 
-* Python_ 3.5 or later
+* Python_ 3.6 or later
 * NumPy_ 1.9 or later (base N-dimensional array package)
 * SciPy_ 0.14 or later (library for scientific computing)
 * ASE_ 3.18.0 or later (atomic simulation environment)
@@ -120,31 +120,25 @@ tests as described below.
 
 
 .. index:: test
-.. _run the tests:
+.. _run a tests:
 
-Run the tests
-=============
+Run a simple test calculation
+=============================
 
-Make sure that everything works by running the test suite::
+Make sure that everything works by running a simple test::
 
     $ gpaw test
 
-This will take a couple of hours.  You can speed it up by using more than
-one core::
+If this worked then try also a parallel calculation::
 
-    $ gpaw test -j 4
+    $ gpaw -P 4 test
 
 Please report errors to the ``gpaw-users`` mailing list so that we
 can fix them (see :ref:`mail list`).
 
-If tests pass, and the parallel version is built, test the parallel code
-on 2, 4 and 8 cores::
+.. seealso::
 
-    $ gpaw -P 2 test
-
-or equivalently::
-
-    $ mpiexec -np 2 python3 -m gpaw test
+    :ref:`testing` for how to run the complete test suite.
 
 
 .. _download:

@@ -3,10 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gpaw import GPAW
 from ase.dft.kpoints import bandpath
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 
 calc = GPAW('Pt_bands.gpw', txt=None)
-ef = GPAW('Pt_gs.gpw').get_fermi_level()
+ef = GPAW('Pt_gs.gpw', txt=None).get_fermi_level()
 
 kpts, x, X = bandpath('GXWLGKX', calc.atoms.cell, npoints=200)
 
@@ -18,8 +18,9 @@ e_nk -= ef
 for e_k in e_nk:
     plt.plot(x, e_k, '--', c='0.5')
 
-e_mk = get_spinorbit_eigenvalues(calc)
-e_mk -= ef
+soc = soc_eigenstates(calc)
+e_mk = soc.eigenvalues().T
+e_mk -= soc.fermi_level
 
 plt.xticks(X, [r'$\Gamma$', 'X', 'W', 'L', r'$\Gamma$', 'K', 'X'], size=20)
 plt.yticks(size=20)
@@ -35,4 +36,4 @@ plt.ylabel(r'$\varepsilon_n(k)$ [eV]', size=24)
 plt.axis([0, x[-1], -11, 13])
 plt.tight_layout()
 # plt.show()
-plt.savefig('Pt_bands.png')
+plt.savefig('Pt_bands2.png')

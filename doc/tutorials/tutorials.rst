@@ -40,6 +40,7 @@ Specialized tutorials
    spinorbit/spinorbit
    dipole_correction/dipole
    hubbardu/hubbardu
+   point_groups/point_groups
    jellium/jellium
    hydrogen/h
    muonsites/mnsi

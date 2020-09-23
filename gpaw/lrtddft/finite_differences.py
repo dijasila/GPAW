@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function
 import os.path
 import numpy as np
 from ase import parallel as mpi
@@ -79,13 +78,13 @@ class FiniteDifference:
         self.atoms.positions[a, i] += self.d
         eplus = self.propertyfunction(**kwargs)
         if self.save is True:
-            savecalc = self.atoms.get_calculator()
+            savecalc = self.atoms.calc
             savecalc.write(filename + '+' + self.ending)
 
         self.atoms.positions[a, i] -= 2 * self.d
         eminus = self.propertyfunction(**kwargs)
         if self.save is True:
-            savecalc = self.atoms.get_calculator()
+            savecalc = self.atoms.calc
             savecalc.write(filename + '-' + self.ending)
         self.atoms.positions[a, i] = p0
 
@@ -154,7 +153,7 @@ class FiniteDifference:
         assert self.world.size == 1 or self.world.size % self.parallel == 0
         assert len(self.atoms) % self.parallel == 0
 
-        calc = self.atoms.get_calculator()
+        calc = self.atoms.calc
         calc.write(self.name + '_eq' + self.ending)
         self.locvalue = np.empty([len(self.atoms) // self.parallel, 3])
         ranks = np.array(range(self.world.size), dtype=int)
@@ -167,7 +166,7 @@ class FiniteDifference:
                 calc2 = calc.__class__(
                     restart=self.name + '_eq' + self.ending,
                     communicator=self.comm[i], txt=None)
-                self.atoms.set_calculator(calc2)
+                self.atoms.calc = calc2
                 calc2.calculate(atoms=self.atoms)
 
         return

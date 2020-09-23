@@ -14,7 +14,7 @@ calc = GPAW(mode=PW(300),
             occupations=FermiDirac(0.001),
             txt='C_groundstate_freq.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()

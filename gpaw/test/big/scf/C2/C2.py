@@ -14,5 +14,5 @@ calc = GPAW(h=0.18,
             occupations={'name': 'fermi-dirac', 'width': 0.0},
             txt='C2_conv2.txt')
 
-m.set_calculator(calc)
+m.calc = calc
 e2 = m.get_potential_energy()

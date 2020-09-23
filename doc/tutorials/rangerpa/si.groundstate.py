@@ -10,7 +10,7 @@ calc = GPAW(mode=PW(400.0),
             parallel={'domain': 1},
             txt='si.gs.txt')
 
-bulk_si.set_calculator(calc)
+bulk_si.calc = calc
 E_lda = bulk_si.get_potential_energy()
 calc.diagonalize_full_hamiltonian()
 calc.write('si.lda_wfcs.gpw', mode='all')

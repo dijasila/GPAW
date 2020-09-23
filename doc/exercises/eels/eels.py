@@ -1,12 +1,12 @@
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 
-calc = GPAW('Ag_GLLBSC.gpw', parallel={'domain': 1})
+calc = GPAW('Ag_LDA.gpw', parallel={'domain': 1})
 calc.diagonalize_full_hamiltonian(nbands=30)
-calc.write('Ag_GLLBSC_full.gpw', 'all')
+calc.write('Ag_LDA_full.gpw', 'all')
 
 # Set up dielectric function:
-df = DielectricFunction(calc='Ag_GLLBSC_full.gpw',  # Ground state input
+df = DielectricFunction(calc='Ag_LDA_full.gpw',  # Ground state input
                         domega0=0.05)  # energy grid spacing at omega=0
 
 # Momentum transfer, must be the difference between two kpoints!
