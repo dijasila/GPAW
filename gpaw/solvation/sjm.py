@@ -579,7 +579,7 @@ class SJM(SolvationGPAW):
 
     def summary(self):
         p = self.sjm_parameters
-        efermi = self.occupations.fermilevel
+        efermi = self.wfs.fermi_level
         self.hamiltonian.summary(efermi, self.log)
         # Add grand-canonical terms.
         self.sog()
@@ -599,13 +599,14 @@ class SJM(SolvationGPAW):
         self.sog()
 
         # Back to standard output.
-        self.density.summary(self.atoms, self.occupations.magmom, self.log)
-        self.occupations.summary(self.log)
+        self.density.summary(self.atoms, self.results.get('magmom', 0.),
+                             self.log)
         self.wfs.summary(self.log)
-        try:
-            bandgap(self, output=self.log.fd, efermi=efermi * Ha)
-        except ValueError:
-            pass
+        if len(self.wfs.fermi_levels) == 1:
+            try:
+                bandgap(self, output=self.log.fd, efermi=efermi * Ha)
+            except ValueError:
+                pass
         self.log.fd.flush()
 
         if p.verbose:
@@ -708,8 +709,7 @@ class SJM(SolvationGPAW):
     def get_electrode_potential(self):
         """Returns the potential of the simulated electrode, in V, relative
         to the vacuum. This comes directly from the work function."""
-        return self.hamiltonian.get_workfunctions(
-            self.occupations.fermilevel)[1] * Ha
+        return self.hamiltonian.get_workfunctions(self.wfs.fermi_level)[1] * Ha
 
     """Various tools for writing global functions"""
 
