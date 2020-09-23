@@ -34,6 +34,7 @@ nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
                   ('py:class', 'GPAW'),
                   ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
+                  ('py:class', 'ase.atoms.Atoms'),
                   ('py:class', 'gpaw.point_groups.group.PointGroup')]
 
 html_theme = 'sphinx_rtd_theme'
