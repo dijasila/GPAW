@@ -16,8 +16,10 @@ from typing import Any, List
 from math import pi
 
 import numpy as np
+from scipy.integrate import simps
 
 from gpaw import GPAW
+from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.setup import Setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -114,16 +116,10 @@ def paw_correction(spin_density_ii: Array2D,
     import ase.units as units
     # Velocity of light in atomic units:
     c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
-    alpha = (1 - (setup.Z / c)**2)**0.5 - 1
+    beta = 2 * (1 - (1 - (setup.Z / c)**2)**0.5)
     rT = setup.Z / c**2
-    print(alpha, rT, rgd.r_g[:3])
-    import matplotlib.pyplot as plt
-    #plt.plot(np.log(rgd.r_g), np.log(phi_jg[0]))
-    #plt.show()
-    b = phi_jg[0, 1] * (1*rgd.r_g[1])**(-1 * alpha)
-    rgd.plot(phi_jg[0])
-    rgd.plot(rgd.r_g**(1 * alpha) * b, show=1)
-    W1 = (n0 - nt0_g[0]) * 2 / 3
+    n0 = integrate(n0_g, rgd, rT, beta)
+    W1 = (n0 - nt0) * 2 / 3
 
     D2_mjj = expand(spin_density_ii, setup.l_j, 2)
     dn2_mg = np.einsum('mab, ag, bg -> mg', D2_mjj, phi_jg, phi_jg)
@@ -159,6 +155,38 @@ def expand(D_ii: Array2D,
     return D_mjj
 
 
+def delta(r, rT):
+    return 2 / rT / (1 + 2 * r / rT)**2
+
+
+def integrate(n0_g: Array1D,
+              rgd: RadialGridDescriptor,
+              rT: float,
+              beta: float) -> float:
+    r_g = rgd.r_g
+    a_i = np.polyfit(r_g[1:5], n0_g[1:5] * r_g[1:5]**beta, 3)
+    r4 = r_g[4]
+    dr = rT / 50
+    n = max(int(r4 / dr / 2) * 2 + 1, 3)
+    r_j = np.linspace(0, r4, n)
+
+    b_i = np.arange(3, -1, -1) + 1 - beta
+    d0 = delta(0, rT)
+    d1 = -8 / rT**2
+    n0 = a_i.dot(d0 * r4**b_i / b_i + d1 * r4**(b_i + 1) / (b_i + 1))
+
+    d_j = delta(r_j, rT) - (d0 + d1 * r_j)
+
+    head_j = d_j * np.polyval(a_i, r_j)
+    head_j[1:] *= r_j[1:]**-beta
+    n0 += simps(head_j, r_j)
+
+    tail_g = n0_g[4:] * delta(r_g[4:], rT)
+    n0 += simps(tail_g, r_g[4:], even='first')
+
+    return n0
+
+
 # from https://en.wikipedia.org/wiki/Gyromagnetic_ratio
 gyromagnetic_ratios = {'H': 42.6,
                        'O': -5.8}
@@ -191,8 +219,8 @@ def main(argv: List[str] = None) -> None:
     A_avv = hyperfine_parameters(calc)
 
     print('Isotropic and anisotropic hyperfine coupling paramters in MHz/T:\n')
-    print('atom   symbol  magmom       ',
-          '      '.join(['iso', 'xx', 'yy', 'zz', 'yz', 'xz', 'xy']))
+    print('  atom  magmom      ',
+          '       '.join(['iso', 'xx', 'yy', 'zz', 'yz', 'xz', 'xy']))
     symbols = atoms.symbols
     magmoms = atoms.get_magnetic_moments()
     used = {}
@@ -203,8 +231,8 @@ def main(argv: List[str] = None) -> None:
         used[symbol] = ratio
         A_vv *= ratio * 1450 / 8.538  # ?????????????????????????????
         A = np.trace(A_vv) / 3
-        print(f'{a:4}       {symbol:>2}  {magmom:6.3f}  ',
-              ''.join(f'{x:8.3f}' for x in
+        print(f'{a:3} {symbol:>2}  {magmom:6.3f}',
+              ''.join(f'{x:9.2f}' for x in
                       [A,
                        A_vv[0, 0] - A, A_vv[1, 1] - A, A_vv[2, 2] - A,
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]))
@@ -217,15 +245,16 @@ def main(argv: List[str] = None) -> None:
 
 
 def thomson():
-    from sympy import var, integrate, oo
-    x, a = var('x, a')
-    print(integrate(x**-a / (1 + x)**2, (x, 0, oo)))
+    from sympy import var, integrate, oo, E, expint
+    x, a, b = var('x, a, b')
+    print(integrate(E**(-b * x) / (1 + x)**2, (x, 0, oo)))
     # pi*a/sin(pi*a)
+    print(expint(2, 1.0))
 
 
 if __name__ == '__main__':
     # import ase.units as u
     # print(u._mu0 * u._hbar**2 * u._e**2 * 2.000 * 5.5 /
     #      (6 * np.pi * (u.Bohr * 1e-10)**3 * u._me * u._mp * u._e))
-    thomson()
-    #main()
+    # thomson()
+    main()
