@@ -33,7 +33,9 @@ intersphinx_mapping = {
 nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
                   ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
                   ('py:class', 'GPAW'),
-                  ('py:class', 'ase.spectrum.dosdata.GridDOSData')]
+                  ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
+                  ('py:class', 'ase.atoms.Atoms'),
+                  ('py:class', 'gpaw.point_groups.group.PointGroup')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

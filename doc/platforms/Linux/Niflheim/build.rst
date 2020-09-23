@@ -44,10 +44,6 @@ The ``gpaw-venv.sh`` script does the following:
   `gpaw <https://wiki.fysik.dtu.dk/gpaw/documentation/cmdline.html>`__,
   `mq <https://myqueue.readthedocs.io/en/latest/cli.html>`__
 
-Here is the full script:
-
-.. literalinclude:: gpaw-venv.sh
-
 
 Using the venv
 ==============
@@ -91,11 +87,12 @@ Adding additional packages
 ==========================
 
 In order to add more Python packages to your venv, you need to activate it
-and then you can ``pip install`` packages.  Here sre three ways to install ASR::
+and then you can ``pip install`` packages.  Here are three ways
+to install ASR::
 
     $ pip install asr  # from PyPI
     $ pip install <path-to-asr>  # from a git clone
-    $ pip install -e <path-to-asr>  # use source code from a git clone dirctly
+    $ pip install -e <path-to-asr>  # use source code from a git clone directly
 
 
 Problems
@@ -107,3 +104,9 @@ those in your new venv.  This can cause problems.  Try uninstalling them::
     $ deactivate
     $ pip uninstall <trouble-maker>
     $ source ~/venv1/bin/activate
+
+
+Full script
+===========
+
+.. literalinclude:: gpaw-venv.sh

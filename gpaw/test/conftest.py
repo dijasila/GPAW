@@ -80,7 +80,6 @@ class GPWFiles:
 
     def __getitem__(self, name):
         if name not in self.gpw_files:
-            print('gpw_files fixture:', name)
             rawname, _, _ = name.partition('_wfs')
             calc = getattr(self, rawname)()
             path = self.path / (rawname + '.gpw')
@@ -170,6 +169,14 @@ class GPWFiles:
         pe.calc = GPAW(mode='pw', txt=self.path / 'c6h12_pw.txt')
         pe.get_potential_energy()
         return pe.calc
+
+    def h2o_lcao(self):
+        from ase.build import molecule
+        atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
+        atoms.center()
+        atoms.calc = GPAW(mode='lcao', txt='h2o.txt')
+        atoms.get_potential_energy()
+        return atoms.calc
 
 
 class GPAWPlugin:
