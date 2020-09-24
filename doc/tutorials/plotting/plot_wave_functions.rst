@@ -68,21 +68,3 @@ files) with the pull-down menu labeled "Vol".
 
 **IMPORTANT:** This works best for molecules.  In solids, the
 wavefunctions will be complex, VMD does not handle this well.
-
-Creating cube to plt files (gOpenMol)
--------------------------------------
-
-**Warning** this section is obsolete!
-
-The cube files can be transformed to plt format using the program g94cub2pl from the gOpenMol utilities.
-
-----------------------------------------------
-Creating wave function plt files with gOpenMol
-----------------------------------------------
-
-**Warning** this section is obsolete!
-
-One can write out the wave functions in the very compact (binary) `gOpenMol <http://www.csc.fi/gopenmol/>`_ plt format directly:
-
-.. literalinclude:: CO2plt.py
-

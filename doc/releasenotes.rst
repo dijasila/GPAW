@@ -80,7 +80,7 @@ Git master branch
 * Tetrahedron method for Brillouin-zone integrations (**experimental**).
   Use ``occupations={'name': 'tetrahedron-method'}`` or
   ``occupations={'name': 'improved-tetrahedron-method'}``.
-  See `Blöchl et. al <https://doi.org/10.1103/PhysRevB.49.16223>`_
+  See :doi:`Blöchl et. al <10.1103/PhysRevB.49.16223>`
   and :ref:`smearing` for details.
 
 * New :func:`gpaw.mpi.broadcast_array` function for broadcasting
@@ -93,6 +93,9 @@ Git master branch
 * When creating a ``GPAW`` calculator object from a gpw-file, the ``txt``
   defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
   behavior.
+
+* Work in progress / preview / experimental / danger / be careful:
+  :ref:`hyperfine`.
 
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
   :ref:`point groups`.

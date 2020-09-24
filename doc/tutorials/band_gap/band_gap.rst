@@ -86,10 +86,10 @@ References
 .. [#Kuisma2010] M. Kuisma, J. Ojanen, J. Enkovaara, and T. T. Rantala,
    *Kohn-Sham potential with discontinuity for band gap materials*,
    Phys. Rev. B **82**, 115106 (2010),
-   `doi:10.1103/PhysRevB.82.115106 <https://doi.org/10.1103/PhysRevB.82.115106>`_
+   :doi:`10.1103/PhysRevB.82.115106`
 
 .. [#Castelli2012] Ivano E. Castelli, Thomas Olsen, Soumendu Datta,
    David D. Landis, Søren Dahl, Kristian S. Thygesen, and Karsten W. Jacobsen,
    *Computational screening of perovskite metal oxides for optimal solar light
    capture*, Energy Environ. Sci. **5**, 5814 (2012),
-   `doi:10.1039/c1ee02717d <https://doi.org/10.1039/c1ee02717d>`_
+   :doi:`10.1039/c1ee02717d`
