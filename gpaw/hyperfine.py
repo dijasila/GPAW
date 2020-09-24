@@ -64,6 +64,7 @@ def smooth_part(spin_density_R: Array3D,
     G_Gv = pd.get_reciprocal_vectors()
     eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
 
+    # Isotropic term:
     W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
 
     spin_density_G[0] = 0.0
@@ -71,6 +72,7 @@ def smooth_part(spin_density_R: Array3D,
     G2_G[0] = 1.0
     spin_density_G /= G2_G
 
+    # Anisotropic term:
     W_vva = np.empty((3, 3, len(spos_ac)))
     for v1 in range(3):
         for v2 in range(3):
