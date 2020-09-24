@@ -1155,7 +1155,12 @@ class WLDA(XCFunctional):
         v_g += self.radial_derivative_fold(-t1 * ratio, n_g, spin)
 
     def radial_x2(self, spin, e_g, n_g, nstar_g, v_g):
-        """Calculate e[n]n* and potential."""
+        """Calculate e[n]n* and potential.
+        
+        It is necessary to regularize the potential as
+        below to avoid the full potential increasing
+        unphysically.
+        """
         from gpaw.xc.lda import lda_constants
         C0I, C1, CC1, CC2, IF2 = lda_constants()
 
