@@ -945,7 +945,7 @@ class WLDA(XCFunctional):
         minn = np.min(n_sg)
         maxn = np.max(n_sg)
         # The indicator anchors
-        nalphas = 50
+        nalphas = 200
         minanchor = 1e-5 # 1e-4 * 200 / nalphas + 5*1e-4
         minn = max(minn, minanchor)
         # alphas = np.linspace(minn, maxn, nalphas)
