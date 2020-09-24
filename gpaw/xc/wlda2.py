@@ -854,11 +854,34 @@ class WLDA(XCFunctional):
 
         self.setup_radial_indicators(n_sg)
 
-        nstar_sg = self.radial_x(n_sg, e_g, v_sg)
+        nstar_sg, v1, v2, v3 = self.radial_x(n_sg, e_g, v_sg)
         
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
 
+        import matplotlib.pyplot as plt
+        plt.plot(rgd.r_g, n_sg[0])
+        plt.savefig("nsg.png")
+        plt.close()
+
+        plt.plot(rgd.r_g, nstar_sg[0])
+        plt.savefig("nstarsg.png")
+        plt.close()
+
+        inds = rgd.r_g < 20
+        plt.plot(rgd.r_g[inds], v_sg[0, inds])
+        plt.plot(rgd.r_g[inds], v1[0, inds], label="v1")
+        plt.plot(rgd.r_g[inds], v2[0, inds], label="v2")
+        plt.plot(rgd.r_g[inds], v3[0, inds], label="v3")
+        plt.legend()
+        plt.savefig("vsg.png")
+        plt.close()
+
+        plt.plot(rgd.r_g, e_g)
+        plt.savefig("eg.png")
+        plt.close()
+
         E = rgd.integrate(e_g)
+        print(f"E = {E}", flush=True)
         return E
 
     def radial_x(self, n_sg, e_g, v_sg):
@@ -891,7 +914,7 @@ class WLDA(XCFunctional):
             e_g[:] = e1_g + e2_g - e3_g
             v_sg[:] = v1_sg + v2_sg - v3_sg
 
-            return nstar_sg
+            return nstar_sg, v1_sg, v2_sg, v3_sg
         else:
             self.radial_x1(spin, e1_g, n_sg[0], nstar_sg[0], v1_sg[0])
             self.radial_x2(spin, e2_g, n_sg[0], nstar_sg[0], v2_sg[0])
@@ -922,10 +945,11 @@ class WLDA(XCFunctional):
         minn = np.min(n_sg)
         maxn = np.max(n_sg)
         # The indicator anchors
-        nalphas = 200
-        minanchor = 1e-4 * 200 / nalphas
+        nalphas = 50
+        minanchor = 1e-5 # 1e-4 * 200 / nalphas + 5*1e-4
         minn = max(minn, minanchor)
-        alphas = np.linspace(minn, maxn, nalphas)
+        # alphas = np.linspace(minn, maxn, nalphas)
+        alphas = np.exp(np.linspace(np.log(minn), np.log(maxn), nalphas))
 
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
         N = 2**14
@@ -953,13 +977,13 @@ class WLDA(XCFunctional):
                     inds = n_g < alphas[1]
                     res_g[inds] = (alphas[1] - n_g[inds]) / (alphas[1] - alphas[0])
                     inds = n_g <= alphas[0]
-                    res_g[inds] = 1.0
+                    res_g[inds] = 1.0 
                     return res_g
 
                 def _di(n_g):
                     res_g = np.zeros_like(n_g)
                     inds = n_g < alphas[1]
-                    res_g[inds] = -1.0
+                    res_g[inds] = -1.0 / (alphas[1] - alphas[0])
                     inds = n_g <= alphas[0]
                     res_g[inds] = 0.0
                     return res_g
@@ -977,7 +1001,7 @@ class WLDA(XCFunctional):
                 def _di(n_g):
                     res_g = np.zeros_like(n_g)
                     inds = n_g >= alphas[ia - 1]
-                    res_g[inds] = 1.0
+                    res_g[inds] = 1.0 / (alphas[-1] - alphas[-2])
                     inds = n_g >= alphas[ia]
                     res_g[inds] = 0.0
                     return res_g
@@ -993,9 +1017,9 @@ class WLDA(XCFunctional):
                 def _di(n_g):
                     res_g = np.zeros_like(n_g)
                     inds = na(n_g > alphas[ia - 1], n_g <= alphas[ia])
-                    res_g[inds] = 1.0
+                    res_g[inds] = 1.0 / (alphas[ia] - alphas[ia - 1])
                     inds = na(n_g > alphas[ia], n_g < alphas[ia + 1])
-                    res_g[inds] = -1.0
+                    res_g[inds] = -1.0 / (alphas[ia + 1] - alphas[ia])
                     return res_g
 
             for s in range(spin):
@@ -1148,7 +1172,7 @@ class WLDA(XCFunctional):
         v_g += self.radial_derivative_fold(ex, n_g, spin)
         ratio = nstar_g / n_g
         ratio[np.isclose(n_g, 0.0)] = 0.0
-        v_g += -rs * dexdrs / 3.0 * ratio
+        v_g += -rs * dexdrs / 3.0 * ratio * np.isclose(rs * dexdrs / 3.0, 0.0)
 
     def radial_x3(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e[n*]n* and potential."""
