@@ -22,6 +22,7 @@ class WannierOverlaps:
     def __init__(self,
                  atoms: Atoms,
                  monkhorst_pack_size: Sequence[int],
+                 nwannier: int,
                  fermi_level: float,
                  directions: Dict[Tuple[int, int, int], int],
                  overlaps: Array4D,
@@ -29,6 +30,7 @@ class WannierOverlaps:
 
         self.atoms = atoms
         self.monkhorst_pack_size = tuple(monkhorst_pack_size)
+        self.nwannier = nwannier
         self.fermi_level = fermi_level
         self.directions = directions
 
@@ -58,10 +60,11 @@ class WannierOverlaps:
     def localize_w90(self,
                      prefix: str = 'wannier',
                      folder: Union[Path, str] = 'W90',
+                     nwannier: int = None,
                      **kwargs) -> WannierFunctions:
         from .w90 import Wannier90
         w90 = Wannier90(prefix, folder)
-        w90.write_input_files(overlaps=self, **kwargs)
+        w90.write_input_files(overlaps=self, nwannier=nwannier, **kwargs)
         w90.run_wannier90()
         return w90.read_result()
 
@@ -93,6 +96,7 @@ def dict_to_proj_indices(dct: Dict[Union[int, str], str],
 
 
 def calculate_overlaps(calc: GPAW,
+                       nwannier: int,
                        projections: Dict[Union[int, str], str] = None,
                        n1: int = 0,
                        n2: int = 0,

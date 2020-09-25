@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Union
 
 from ase import Atoms
+from ase.io.wannier90 import read_wout_all
 import numpy as np
 
 from .overlaps import WannierOverlaps
@@ -37,8 +38,9 @@ class Wannier90:
                   overlaps: WannierOverlaps,
                   **kwargs) -> None:
         kwargs['num_bands'] = overlaps.nbands
+        kwargs['num_wann'] = overlaps.projections.shape[1]
         kwargs['fermi_energy'] = overlaps.fermi_level
-        kwargs['unit_cell_cart'] = overlaps.atoms.cell
+        kwargs['unit_cell_cart'] = overlaps.atoms.cell.tolist()
         kwargs['atoms_frac'] = [[symbol] + list(spos_c)
                                 for symbol, spos_c
                                 in zip(overlaps.atoms.symbols,
@@ -95,7 +97,9 @@ class Wannier90:
                               file=fd)
 
     def read_result(self):
-        return Wannier90Functions()
+        with (self.folder / f'{self.prefix}.wout').open() as fd:
+            atoms, centers, widths = read_wout_all(fd)
+        return Wannier90Functions(atoms, centers)
 
 
 class Wannier90Functions(WannierFunctions):

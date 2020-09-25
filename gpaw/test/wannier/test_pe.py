@@ -9,5 +9,5 @@ def test_pe(gpw_files):
     o = calculate_overlaps(calc, n2=6)
     calc = GPAW(gpw_files['c6h12_pw_wfs'])
     o = calculate_overlaps(calc, n2=3 * 6)
-    w = o.localize()
+    w = o.localize_er()
     print(w)
