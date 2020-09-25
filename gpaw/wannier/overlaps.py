@@ -1,4 +1,5 @@
 from typing import Tuple, Dict, Any, Sequence, List
+from pathlib import Path
 
 import numpy as np
 from ase import Atoms
@@ -13,16 +14,18 @@ from .functions import WannierFunctions
 
 Array1D = Any
 Array2D = Any
+Array3D = Any
 Array4D = Any
 
 
-class WannierOverlaps:
+class WannierInput:
     def __init__(self,
                  atoms: Atoms,
                  monkhorst_pack_size: Sequence[int],
                  fermi_level: float,
                  directions: Dict[Tuple[int, int, int], int],
-                 overlaps: Array4D):
+                 overlaps: Array4D,
+                 projections: Array3D = None):
 
         self.atoms = atoms
         self.monkhorst_pack_size = tuple(monkhorst_pack_size)
@@ -36,20 +39,33 @@ class WannierOverlaps:
 
         self._overlaps = overlaps
 
+    def write(self, filename):
+        ...
+
     def overlap(self,
                 bz_index: int,
                 direction: Tuple[int, int, int]) -> Array2D:
         return self._overlaps[bz_index, self.directions[direction]]
 
-    def localize(self,
-                 maxiter: int = 100,
-                 tolerance: float = 1e-5,
-                 verbose: bool = not False) -> WannierFunctions:
+    def localize_er(self,
+                    maxiter: int = 100,
+                    tolerance: float = 1e-5,
+                    verbose: bool = not False) -> WannierFunctions:
         from .edmiston_ruedenberg import localize
         return localize(self, maxiter, tolerance, verbose)
 
-    def write_wannier90_input_files(self, prefix, **kwargs):
+    def localize_w90(self,
+                     maxiter: int = 100,
+                     tolerance: float = 1e-5,
+                     verbose: bool = not False) -> WannierFunctions:
+        self.write_wannier90_input_files(...)
+        subprocess.run(folder=...)
+
+    def write_wannier90_input_files(self, prefix, folder='W90', **kwargs):
         import gpaw.wannier.w90 as w90
+        folder = Path(folder)
+        folder.mkdir(exist_ok=True)
+        prefix = folder / prefix
         w90.write_win(prefix, self)
         w90.write_mmn(prefix, self)
 
