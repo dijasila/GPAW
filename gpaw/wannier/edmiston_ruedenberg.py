@@ -53,7 +53,7 @@ def localize(overlaps: WannierOverlaps,
     scaled_nc = -np.angle(Z_nnc.diagonal()).T / (2 * pi)
     centers_nv = (scaled_nc % 1.0).dot(overlaps.atoms.cell)
 
-    return WannierFunctions(overlaps.atoms, U_nn, centers_nv, value)
+    return WannierFunctions(overlaps.atoms, centers_nv, value, U_nn)
 
 
 if __name__ == '__main__':
