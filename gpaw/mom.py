@@ -51,7 +51,7 @@ class OccupationsMOM(ZeroKelvin):
     def calculate(self, wfs):
         occ = self.occupations.copy()
 
-        if self.iters == 1 and self.space == 'full':
+        if self.iters == 0 and self.space == 'full':
             self.initialize_reference_orbitals(wfs)
 
         for kpt in wfs.kpt_u:
@@ -182,7 +182,7 @@ class OccupationsMOM(ZeroKelvin):
 
         return P
 
-    def sort_wavefunctions(self, kpt, sort_eps=False):
+    def sort_wavefunctions(self, wfs, kpt):
         # Works only for LCAO calculations
         occupied = kpt.f_n > 1.0e-10
         n_occ = len(kpt.f_n[occupied])
@@ -196,10 +196,13 @@ class OccupationsMOM(ZeroKelvin):
             ind = np.vstack((ind_occ, ind_unocc))
 
             # Sort coefficients, occupation numbers, eigenvalues
-            kpt.C_nM = np.squeeze(kpt.C_nM[ind])
+            if wfs.mode == 'lcao':
+                kpt.C_nM = np.squeeze(kpt.C_nM[ind])
+            else:
+                kpt.psit_nG[:] = np.squeeze(kpt.psit_nG[ind])
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
             kpt.f_n = np.squeeze(kpt.f_n[ind])
-            if sort_eps:
-                kpt.eps_n = np.squeeze(kpt.eps_n[ind])
+            kpt.eps_n = np.squeeze(kpt.eps_n[ind])
 
     def smear_gaussian(self, kpt, occ, c, n):
         if c < 0:

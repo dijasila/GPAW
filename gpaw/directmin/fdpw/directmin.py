@@ -719,6 +719,10 @@ class DirectMin(Eigensolver):
 
         # update fermi level?
         occ.calculate(wfs)
+        occ_name = getattr(occ, 'name', None)
+        if occ_name == 'mom':
+            for kpt in wfs.kpt_u:
+                occ.sort_wavefunctions(wfs, kpt)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
@@ -1039,7 +1043,14 @@ class DirectMin(Eigensolver):
 
         if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
                 and not self.force_init_localization:
+            for kpt in wfs.kpt_u:
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            wfs.orthonormalize()
             occ.calculate(wfs)
+            occ_name = getattr(occ, 'name', None)
+            if occ_name == 'mom':
+                for kpt in wfs.kpt_u:
+                    occ.sort_wavefunctions(wfs, kpt)
             return
 
         log("Initial Localization: ...", flush=True)
@@ -1053,6 +1064,10 @@ class DirectMin(Eigensolver):
                     ham, wfs, kpt, True)
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
             occ.calculate(wfs)  # fill occ numbers
+            occ_name = getattr(occ, 'name', None)
+            if occ_name == 'mom':
+                for kpt in wfs.kpt_u:
+                    occ.sort_wavefunctions(wfs, kpt)
 
         if wfs.mode == 'pw' and \
                 self.initial_orbitals != 'KS' and \
