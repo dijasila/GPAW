@@ -21,16 +21,18 @@ Array4D = Any
 class WannierOverlaps:
     def __init__(self,
                  atoms: Atoms,
-                 monkhorst_pack_size: Sequence[int],
                  nwannier: int,
+                 monkhorst_pack_size: Sequence[int],
+                 kpoints: Array2D,
                  fermi_level: float,
                  directions: Dict[Tuple[int, int, int], int],
                  overlaps: Array4D,
                  projections: Array3D = None):
 
         self.atoms = atoms
-        self.monkhorst_pack_size = tuple(monkhorst_pack_size)
         self.nwannier = nwannier
+        self.monkhorst_pack_size = tuple(monkhorst_pack_size)
+        self.kpoints = kpoints
         self.fermi_level = fermi_level
         self.directions = directions
 
@@ -64,7 +66,7 @@ class WannierOverlaps:
                      **kwargs) -> WannierFunctions:
         from .w90 import Wannier90
         w90 = Wannier90(prefix, folder)
-        w90.write_input_files(overlaps=self, nwannier=nwannier, **kwargs)
+        w90.write_input_files(overlaps=self, **kwargs)
         w90.run_wannier90()
         return w90.read_result()
 
@@ -109,7 +111,10 @@ def calculate_overlaps(calc: GPAW,
 
     proj_indices_a = dict_to_proj_indices(projections or {},
                                           calc.setups)
-    nwan = sum(len(indices) for I, indices in proj_indices_a)
+    nproj = sum(len(indices) for I, indices in proj_indices_a)
+
+    if projections is not None:
+        assert nproj == nwannier
 
     kd = bzwfs.kd
     gd = bzwfs.gd
@@ -119,12 +124,15 @@ def calculate_overlaps(calc: GPAW,
     directions = {direction: i
                   for i, direction
                   in enumerate(find_directions(icell, size))}
+    directions.update([(len(directions) + i, (-a, -b, -c))
+                       for (a, b, c), i in directions.items()])
+
     Z_kdnn = np.empty((kd.nbzkpts, len(directions), n2 - n1, n2 - n1), complex)
 
     spos_ac = calc.spos_ac
     setups = calc.wfs.setups
 
-    proj_kmn = np.zeros((kd.nbzkpts, nwan, n2 - n1), complex)
+    proj_kmn = np.zeros((kd.nbzkpts, nproj, n2 - n1), complex)
 
     for bz_index1 in range(kd.nbzkpts):
         wf1 = bzwfs[bz_index1]
@@ -155,7 +163,9 @@ def calculate_overlaps(calc: GPAW,
     gd.comm.sum(proj_kmn)
 
     overlaps = WannierOverlaps(calc.atoms,
+                               nwannier,
                                kd.N_c,
+                               kd.bzk_kc,
                                calc.get_fermi_level(),
                                directions,
                                Z_kdnn,

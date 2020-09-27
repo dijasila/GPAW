@@ -36,9 +36,10 @@ class Wannier90:
 
     def write_win(self,
                   overlaps: WannierOverlaps,
+
                   **kwargs) -> None:
         kwargs['num_bands'] = overlaps.nbands
-        kwargs['num_wann'] = overlaps.projections.shape[1]
+        kwargs['num_wann'] = overlaps.nwannier
         kwargs['fermi_energy'] = overlaps.fermi_level
         kwargs['unit_cell_cart'] = overlaps.atoms.cell.tolist()
         kwargs['atoms_frac'] = [[symbol] + list(spos_c)
@@ -46,6 +47,7 @@ class Wannier90:
                                 in zip(overlaps.atoms.symbols,
                                        overlaps.atoms.get_scaled_positions())]
         kwargs['mp_grid'] = overlaps.monkhorst_pack_size
+        kwargs['kpoints'] = overlaps.kpoints
 
         with (self.folder / f'{self.prefix}.win').open('w') as fd:
             for key, val in kwargs.items():
@@ -54,7 +56,7 @@ class Wannier90:
                 elif isinstance(val, (list, np.ndarray)):
                     print(f'begin {key}', file=fd)
                     for line in val:
-                        print(*line, file=fd)
+                        print('   ', *line, file=fd)
                     print(f'end {key}', file=fd)
                 else:
                     print(f'{key} = {val}', file=fd)
@@ -74,8 +76,8 @@ class Wannier90:
                 for direction, d in overlaps.directions.items():
                     i2_c = np.array(i1_c) + direction
                     bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
-                    a, b, c = (i2_c % size - i2_c) // size
-                    print(f'{bz_index1} {bz_index2} {a} {b} {c}', file=fd)
+                    d_c = (i2_c % size - i2_c) // size
+                    print(bz_index1 + 1, bz_index2 + 1, *d_c, file=fd)
                     M_nn = overlaps.overlap(bz_index1, direction)
                     for M_n in M_nn:
                         for M in M_n:
