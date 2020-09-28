@@ -6,7 +6,7 @@ import numpy as np
 def create_tasks():
     t1 = task('GaAs.py')
     t2 = task('GaAs_wannier.py', deps=t1)
-    t3 = task('Fe.py')
+    t3 = task('Fe.py', cores=8)
     t4 = task('Fe_wannier.py', deps=t3)
     t5 = task('agts.py', deps=[t2, t4])
     return [t1, t2, t3, t4, t5]
