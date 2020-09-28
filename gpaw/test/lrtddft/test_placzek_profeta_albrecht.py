@@ -68,17 +68,17 @@ def test_lrtddft_placzek_profeta_albrecht(tmp_path):
 
     om = 5
     pz = Placzek(H2, KSSingles, name=name, exname=exname, txt=txt)
-    pzi = pz.absolute_intensity(omega=om)[-1]
+    pzi = pz.get_absolute_intensities(omega=om)[-1]
 
     pr = Profeta(H2, KSSingles, name=name, exname=exname,
                  approximation='Placzek', txt=txt)
-    pri = pr.absolute_intensity(omega=om)[-1]
+    pri = pr.get_absolute_intensities(omega=om)[-1]
     equal(pzi, pri, 0.1)
 
     pr = Profeta(H2, KSSingles, name=name, exname=exname,
                  overlap=True,
                  approximation='Placzek', txt=txt)
-    pri = pr.absolute_intensity(omega=om)[-1]
+    pri = pr.get_absolute_intensities(omega=om)[-1]
     equal(pzi, pri, 0.1)
 
     """Albrecht and Placzek are approximately equal"""
@@ -86,7 +86,7 @@ def test_lrtddft_placzek_profeta_albrecht(tmp_path):
     al = Albrecht(H2, KSSingles, name=name, exname=exname,
                   overlap=True,
                   approximation='Albrecht', txt=txt)
-    ali = al.absolute_intensity(omega=om)[-1]
+    ali = al.get_absolute_intensities(omega=om)[-1]
     equal(pzi, ali, 1.5)
 
     """Albrecht A and P-P are approximately equal"""
@@ -94,12 +94,12 @@ def test_lrtddft_placzek_profeta_albrecht(tmp_path):
     pr = Profeta(H2, KSSingles, name=name, exname=exname,
                  overlap=True,
                  approximation='P-P', txt=txt)
-    pri = pr.absolute_intensity(omega=om)[-1]
+    pri = pr.get_absolute_intensities(omega=om)[-1]
 
     al = Albrecht(H2, KSSingles, name=name, exname=exname,
                   overlap=True,
                   approximation='Albrecht A', txt=txt)
-    ali = al.absolute_intensity(omega=om)[-1]
+    ali = al.get_absolute_intensities(omega=om)[-1]
     equal(pri, ali, 3)
 
     """Albrecht B+C and Profeta are approximately equal"""
@@ -107,10 +107,10 @@ def test_lrtddft_placzek_profeta_albrecht(tmp_path):
     pr = Profeta(H2, KSSingles, name=name, exname=exname,
                  overlap=True,
                  approximation='Profeta', txt=txt)
-    pri = pr.absolute_intensity(omega=om)[-1]
+    pri = pr.get_absolute_intensities(omega=om)[-1]
 
     al = Albrecht(H2, KSSingles, name=name, exname=exname,
                   overlap=True,
                   approximation='Albrecht BC', txt=txt)
-    ali = al.absolute_intensity(omega=om)[-1]
+    ali = al.get_absolute_intensities(omega=om)[-1]
     equal(pri, ali, 3)
