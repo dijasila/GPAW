@@ -53,7 +53,13 @@ class WannierOverlaps:
         dindex = self.directions.get(direction)
         if dindex is not None:
             return self._overlaps[bz_index, dindex]
-        dindex = self.directions[tuple([-d for d in direction])]
+
+        size = self.monkhorst_pack_size
+        i_c = np.unravel_index(bz_index, size)
+        j_c = np.array(i_c) + direction
+        bz_index = np.ravel_multi_index(j_c, size, 'wrap')
+        direction = tuple([-d for d in direction])
+        dindex = self.directions[direction]
         return self._overlaps[bz_index, dindex].T.conj()
 
     def localize_er(self,
@@ -76,19 +82,18 @@ class WannierOverlaps:
 
 
 def dict_to_proj_indices(dct: Dict[Union[int, str], str],
-                         setups: List[Setup]) -> List[Tuple[int, List[int]]]:
+                         setups: List[Setup]) -> List[List[int]]:
     """
     >>> from gpaw.setup import create_setup
-    >>> setup = create_setup('Si')
+    >>> setup = create_setup('Si')  # 3s, 3p, *s, *p, *d
     >>> setup.n_j
     [3, 3, -1, -1, -1]
     >>> setup.l_j
     [0, 1, 0, 1, 2]
     >>> dict_to_proj_indices({'Si': 'sp', 1: 's'}, [setup, setup])
-    [(0, [0, 1, 2, 3]), (13, [0])]
+    [[0, 1, 2, 3], [0]]
     """
     indices_a = []
-    I = 0
     for a, setup in enumerate(setups):
         ll = dct.get(a)
         if ll is None:
@@ -99,8 +104,7 @@ def dict_to_proj_indices(dct: Dict[Union[int, str], str],
             if n > 0 and 'spdf'[l] in ll:
                 indices += list(range(i, i + 2 * l + 1))
             i += 2 * l + 1
-        indices_a.append((I, indices))
-        I += i
+        indices_a.append(indices)
     return indices_a
 
 
@@ -118,7 +122,11 @@ def calculate_overlaps(calc: GPAW,
 
     proj_indices_a = dict_to_proj_indices(projections or {},
                                           calc.setups)
-    nproj = sum(len(indices) for I, indices in proj_indices_a)
+
+    offsets = [0]
+    for indices in proj_indices_a:
+        offsets.append(offsets[-1] + len(indices))
+    nproj = offsets.pop()
 
     if projections is not None:
         assert nproj == nwannier
@@ -131,7 +139,6 @@ def calculate_overlaps(calc: GPAW,
     directions = {direction: i
                   for i, direction
                   in enumerate(find_directions(icell, size))}
-
     Z_kdnn = np.empty((kd.nbzkpts, len(directions), n2 - n1, n2 - n1), complex)
 
     spos_ac = calc.spos_ac
@@ -152,6 +159,7 @@ def calculate_overlaps(calc: GPAW,
                 u2_nR = u2_nR * gd.plane_wave(phase_c)
             Z_kdnn[bz_index1, d] = gd.integrate(wf1.u_nR, u2_nR,
                                                 global_integral=False)
+
             for a, P1_ni in wf1.projections.items():
                 dO_ii = setups[a].dO_ii
                 P2_ni = wf2.projections[a]
@@ -161,8 +169,9 @@ def calculate_overlaps(calc: GPAW,
                 Z_kdnn[bz_index1, d] += Z_nn
 
         for a, P1_ni in wf1.projections.items():
-            I, indices = proj_indices_a[a]
-            proj_kmn[bz_index1, I:I + len(indices)] = P1_ni.T[indices]
+            indices = proj_indices_a[a]
+            m = offsets[a]
+            proj_kmn[bz_index1, m:m + len(indices)] = P1_ni.T[indices]
 
     gd.comm.sum(Z_kdnn)
     gd.comm.sum(proj_kmn)
@@ -312,7 +321,7 @@ class BZRealSpaceWaveFunctions:
                 atom_partition=atom_partition,
                 data=P_nI)
 
-            wf = WaveFunction(u_nR, projections)
+            wf = WaveFunction(u_nR.copy(), projections)
 
             for bz_index, ibz_index2 in enumerate(kd.bz2ibz_k):
                 if ibz_index2 != ibz_index:
