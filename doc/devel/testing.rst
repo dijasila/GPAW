@@ -11,9 +11,13 @@ small and quick tests and by a weekly set of larger test.
 "Quick" test suite
 ==================
 
-Use pytest_ pytest-xdist_ to run the tests::
+.. warning::
 
-    $ pytest -v -n <number-of-prcesses>
+    It's not really quick - it will take almost an hour to run all the tests!
+
+Use pytest_ and pytest-xdist_ to run the tests::
+
+    $ pytest -v -n <number-of-processes>
 
 The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
@@ -31,12 +35,35 @@ can fix them (see :ref:`mail list`).
 .. _pytest-xdist: https://github.com/pytest-dev/pytest-xdist
 
 
+.. highlight:: python
+
+
+Special fixtures and marks
+--------------------------
+
+Tests that should only run in serial can be marked like this::
+
+    import pytest
+
+    @pytest.mark.serial
+    def test_something():
+        ...
+
+There are two special GPAW-fixtures:
+
+.. autofunction:: gpaw.test.conftest.in_tmp_dir
+.. autofunction:: gpaw.test.conftest.gpw_files
+
+Check the :git:`~gpaw/test/conftest.py` to see which gpw-files are available.
+Use a ``_wfs`` postfix to get a gpw-file that contains the wave functions.
+
+
 Adding new tests
 ----------------
 
 A test script should fulfill a number of requirements:
 
-* It should be quick.  Preferably not more than a few seconds.
+* It should be quick.  Preferably not more than a few milliseconds.
   If the test takes several minutes or more, consider making the
   test a :ref:`big test <big-test>`.
 

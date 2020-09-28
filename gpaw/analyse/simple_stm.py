@@ -1,15 +1,12 @@
 from math import sqrt
 
 import numpy as np
-
 from ase.atoms import Atoms
 from ase.units import Bohr, Hartree
-from ase.io.cube import write_cube
-from ase.io.plt import write_plt, read_plt
+from ase.io.cube import read_cube_data, write_cube
 from ase.dft.stm import STM
 
 import gpaw.mpi as mpi
-from gpaw.mpi import MASTER
 from gpaw.grid_descriptor import GridDescriptor
 
 
@@ -67,13 +64,9 @@ class SimpleStm(STM):
         else:
             # energy bias
             try:
-                if self.calc.wfs.occupations.fixmagmom:
-                    efermi_s = self.calc.get_fermi_levels()
-                else:
-                    efermi_s = np.array([self.calc.get_fermi_level()] * 2)
-            except:
-                raise  # XXXXX except what?
-                efermi_s = np.array([self.calc.get_homo_lumo().mean()] * 2)
+                efermi_s = self.calc.get_fermi_levels()
+            except ValueError:
+                efermi_s = np.array([self.calc.get_fermi_level()] * 2)
 
             if isinstance(bias, (int, float)):
                 # bias given
@@ -133,18 +126,17 @@ class SimpleStm(STM):
         ldos = self.gd.collect(self.ldos)
 # print "write: integrated =", self.gd.integrate(self.ldos)
 
-        if mpi.rank != MASTER:
+        if mpi.rank != 0:
             return
 
         if filetype is None:
             # estimate file type from name ending
             filetype = file.split('.')[-1]
-        filetype.lower()
+        filetype = filetype.lower()
 
         if filetype == 'cube':
-            write_cube(file, self.calc.get_atoms(), ldos / Bohr ** 3)
-        elif filetype == 'plt':
-            write_plt(file, self.calc.get_atoms(), ldos / Bohr ** 3)
+            with open(file, 'w') as fd:
+                write_cube(fd, self.calc.get_atoms(), ldos / Bohr ** 3)
         else:
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
@@ -154,10 +146,10 @@ class SimpleStm(STM):
         if filetype is None:
             # estimate file type from name ending
             filetype = file.split('.')[-1]
-        filetype.lower()
 
-        if filetype == 'plt':
-            data, self.cell = read_plt(file)
+        if filetype == 'cube':
+            data, atoms = read_cube_data(file)
+            self.cell = atoms.cell.array
 
             pbc_c = [True, True, True]
             N_c = np.array(data.shape)
@@ -210,7 +202,7 @@ class SimpleStm(STM):
     def write(self, file=None):
         """Write STM data to a file in gnuplot readable tyle."""
 
-        if mpi.rank != MASTER:
+        if mpi.rank != 0:
             return
 
         xvals, yvals, heights = self.pylab_contour()

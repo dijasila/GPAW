@@ -354,6 +354,7 @@ class PWDescriptor:
             Q_G = self.Q_qG[q]
             assert len(c_G) == len(Q_G)
             _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
+
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -1149,6 +1150,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             iu = None
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
+        self.occupations.bd = bd
 
         log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,

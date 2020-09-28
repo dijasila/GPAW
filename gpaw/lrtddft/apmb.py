@@ -322,7 +322,7 @@ class ApmB(OmegaMatrix):
 
     def read(self, filename=None, fh=None):
         """Read myself from a file"""
-        if mpi.rank == mpi.MASTER:
+        if mpi.rank == 0:
             if fh is None:
                 f = open(filename, 'r')
             else:
@@ -357,7 +357,7 @@ class ApmB(OmegaMatrix):
 
     def write(self, filename=None, fh=None):
         """Write current state to a file."""
-        if mpi.rank == mpi.MASTER:
+        if mpi.rank == 0:
             if fh is None:
                 f = open(filename, 'w')
             else:

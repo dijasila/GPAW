@@ -47,7 +47,8 @@ def test_exx_coarse(in_tmp_dir):
             fname = 'exx_load.gpw'
             calc.write(fname)
             calcl = GPAW(fname)
-            func = calcl.get_xc_functional()
+            func = calcl.parameters.xc
+
             assert func['name'] == 'PBE0', 'wrong name for functional'
             assert func['hybrid'] == 0.25, 'wrong factor for functional'
 

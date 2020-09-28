@@ -64,4 +64,4 @@ show the right extrema in the shortest CPU time.
 .. [Amato14]  A. Amato et al.
    Phys. Rev. B. 89, 184425 (2014)
    *Understanding  the μSR spectra of MnSi without magnetic polarons*
-   DOI: 10.1103/PhysRevB.1.4555
+   :doi:`10.1103/PhysRevB.1.4555`

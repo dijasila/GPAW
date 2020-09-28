@@ -7,7 +7,7 @@ from scipy.optimize import fsolve
 from scipy.linalg import eigh
 from scipy.special import erf
 from ase.units import Hartree
-from ase.data import atomic_numbers
+from ase.data import atomic_numbers, chemical_symbols
 
 from gpaw import __version__ as version
 from gpaw.basis_data import Basis, BasisFunction, BasisPlotter
@@ -1223,11 +1223,15 @@ class PAWSetupGenerator:
 
 
 def get_parameters(symbol, args):
+    Z = atomic_numbers.get(symbol)
+    if Z is None:
+        Z = float(symbol)
+        symbol = chemical_symbols[int(round(Z))]
+
     if args.electrons:
         par = parameters[symbol + str(args.electrons)]
     else:
-        Z = atomic_numbers[symbol]
-        par = parameters[symbol + str(default[Z])]
+        par = parameters[symbol + str(default[int(round(Z))])]
 
     projectors, radii = par[:2]
     if len(par) == 3:
@@ -1276,6 +1280,7 @@ def get_parameters(symbol, args):
         rcore *= -1
 
     return dict(symbol=symbol,
+                Z=Z,
                 xc=args.xc_functional,
                 configuration=configuration,
                 projectors=projectors,
@@ -1289,6 +1294,7 @@ def get_parameters(symbol, args):
 
 
 def generate(symbol,
+             Z,
              projectors,
              radii,
              r0, v0,
@@ -1304,7 +1310,8 @@ def generate(symbol,
              yukawa_gamma=0.0):
     if isinstance(output, str):
         output = open(output, 'w')
-    aea = AllElectronAtom(symbol, xc, configuration=configuration, log=output)
+    aea = AllElectronAtom(symbol, xc, Z=Z,
+                          configuration=configuration, log=output)
     gen = PAWSetupGenerator(aea, projectors, scalar_relativistic, core_hole,
                             fd=output, yukawa_gamma=yukawa_gamma)
 

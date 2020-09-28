@@ -11,13 +11,13 @@ tutorial assumes that ``Wannier90`` is installed and ``wannier90.x``,
 to be regarded as a tutorial on the GPAW interface to ``Wannier90``. Details
 and tutorials on the ``Wannier90`` code itself can be found at the `Wannier90
 home page <http://www.wannier.org>`_. For details on the theory the review
-paper [#Wannier_code]_ may be consulted. The interface is 
+paper [#Wannier_code]_ may be consulted. The interface is
 documented in Ref. [#Olsen]_
 
 
 Wannier functions of GaAs
 =========================
- 
+
 As a first example we generate the maximally localized Wannier functions of
 GaAs. The ground state is calculated and saved with the following script
 :download:`GaAs.py`. Note that symmetry has been swtched off in the
@@ -29,7 +29,7 @@ bands.
 .. literalinclude:: GaAs_wannier.py
 
 In general ``Wannier90``, needs an .win input file that the user should
-write. This contains the `k`-point grid ,unit cell, positions of atoms, and a
+write. This contains the `k`-point grid, unit cell, positions of atoms, and a
 range of parameters specifying the Wannier calculations. Here, we have
 provided a helper function ``write_input_file`` that provides the most basic
 input. In addition, the input file needs to specify the bands contributing to
@@ -59,14 +59,14 @@ Examining the output ``GaAs.wout`` shows that the Wannier functions are Ga
 centered s and p orbitals for many iterations. Eventually, additional
 localization is obtained by formed four equivalent sp3 orbitals centered at
 the bonds. The Wannier90 code actually supports specifying sp3 projectors as
-input, but the GPAW interface does cannot handle this yet. The plot keyword
+input, but the GPAW interface does not handle this yet. The plot keyword
 writes the four Wannier functions in ``.xsf`` format, which can be plotted
 with ``xcrysden``. An example is shown below.
 
 .. image:: GaAs.png
     :height: 400 px
 
-    
+
 Fermi surface of Cu
 ===================
 
@@ -103,11 +103,11 @@ is shown below. We emphasize that the ``write_input_file`` function is just
 for generating the basic stuff that should be in the ``Cu.win`` input file.
 In general this file should be modified according to need before running
 ``wannier90.x``.
- 
+
 .. image:: Cu.png
     :height: 400 px
 
-    
+
 Berry curvature and anomalous Hall conductivity of Fe
 =====================================================
 

@@ -19,7 +19,7 @@ def test_vdw_H_Hirshfeld():
     volumes = []
     for spinpol in [False, True]:
         calc = GPAW(h=h,
-                    occupations=FermiDirac(0.1, fixmagmom=True),
+                    occupations=FermiDirac(0.1, fixmagmom=spinpol),
                     experimental={'niter_fixdensity': 2},
                     spinpol=spinpol)
         calc.calculate(atoms)

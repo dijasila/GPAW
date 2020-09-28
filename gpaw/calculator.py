@@ -32,7 +32,7 @@ from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
 from gpaw.kohnsham_layouts import get_KohnSham_layouts
 from gpaw.matrix import suggest_blocking
-from gpaw.occupations import create_occupation_number_object
+from gpaw.occupations import create_occ_calc, ParallelLayout
 from gpaw.output import (print_cell, print_positions,
                          print_parallelization_details)
 from gpaw.scf import SCFLoop
@@ -184,7 +184,6 @@ class GPAW(Calculator):
             bs = bs_calc.get_band_structure()
         """
         assert not update_fermi_level  # for now ...
-        assert self.hamiltonian.xc.name != 'GLLBSC'
 
         for key in kwargs:
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
@@ -203,6 +202,11 @@ class GPAW(Calculator):
                                                    calc.wfs.kptband_comm)
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
+        if calc.hamiltonian.xc.type == 'GLLB':
+            new_response = calc.hamiltonian.xc.response
+            old_response = self.hamiltonian.xc.response
+            new_response.initialize_from_other_response(old_response)
+            new_response.fix_potential = True
         calc.calculate(system_changes=[])
         return calc
 
@@ -597,7 +601,7 @@ class GPAW(Calculator):
         else:
             xc = self.hamiltonian.xc
 
-        if par.fixdensity and xc.name != 'GLLBSC':
+        if par.fixdensity:
             warnings.warn(
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
@@ -745,7 +749,8 @@ class GPAW(Calculator):
         else:
             self.wfs.set_setups(self.setups)
 
-        occ = self.create_occupations(magmom_av[:, 2].sum(), orbital_free)
+        occ = self.create_occupations(cell_cv, magmom_av[:, 2].sum(),
+                                      orbital_free)
         self.wfs.occupations = occ
 
         if not self.wfs.eigensolver:
@@ -856,37 +861,36 @@ class GPAW(Calculator):
         return GridDescriptor(N_c, cell_cv, pbc_c, domain_comm,
                               parsize_domain)
 
-    def create_occupations(self, magmom, orbital_free):
-        occ = self.parameters.occupations
+    def create_occupations(self, cell_cv, magmom, orbital_free):
+        dct = self.parameters.occupations
 
-        if occ is None:
+        if dct is None:
             if orbital_free:
-                occ = {'name': 'orbital-free'}
+                dct = {'name': 'orbital-free'}
             else:
                 if self.atoms.pbc.any():
-                    occ = {'name': 'fermi-dirac',
+                    dct = {'name': 'fermi-dirac',
                            'width': 0.1}  # eV
                 else:
-                    occ = {'width': 0.0}
+                    dct = {'width': 0.0}
+        elif not isinstance(dct, dict):
+            return dct
 
-        if isinstance(occ, dict):
-            occupations = create_occupation_number_object(**occ)
-        else:
-            occupations = occ
+        if self.wfs.nspins == 1:
+            dct.pop('fixmagmom', None)
 
-        if occupations.fixmagmom:
-            if self.wfs.nspins == 2:
-                occupations.fixed_magmom_value = magmom
-            else:
-                occupations.fixmagmom = False
+        occ = create_occ_calc(
+            dct,
+            parallel_layout=ParallelLayout(self.wfs.bd,
+                                           self.wfs.kd.comm,
+                                           self.wfs.gd.comm),
+            fixed_magmom_value=magmom,
+            rcell=np.linalg.inv(cell_cv).T,
+            monkhorst_pack_size=self.wfs.kd.N_c,
+            bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
-        # If occupation numbers are changed, and we have wave functions,
-        # recalculate the occupation numbers
-        # if self.wfs is not None:
-        #     self.occupations.calculate(self.wfs)
-
-        self.log(occupations)
-        return occupations
+        self.log(occ)
+        return occ
 
     def create_scf(self, nvalence, mode):
         # if mode.name == 'lcao':
@@ -1381,17 +1385,19 @@ class GPAW(Calculator):
             nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
-    def get_number_of_bands(self):
+    def get_number_of_bands(self) -> int:
         """Return the number of bands."""
         return self.wfs.bd.nbands
 
-    def get_xc_functional(self):
+    def get_xc_functional(self) -> str:
         """Return the XC-functional identifier.
 
         'LDA', 'PBE', ..."""
 
-        return self.parameters.get('xc', 'LDA')
-        return self.hamiltonian.xc.name
+        xc = self.parameters.get('xc', 'LDA')
+        if isinstance(xc, dict):
+            xc = xc['name']
+        return xc
 
     def get_number_of_spins(self):
         return self.wfs.nspins
@@ -1533,14 +1539,16 @@ class GPAW(Calculator):
     def get_fermi_level(self):
         """Return the Fermi-level."""
         assert self.wfs.fermi_levels is not None
-        assert len(self.wfs.fermi_levels) == 1
+        if len(self.wfs.fermi_levels) != 1:
+            raise ValueError('There are two Fermi-levels!')
         return self.wfs.fermi_levels[0] * Ha
 
     def get_fermi_levels(self):
         """Return the Fermi-levels in case of fixed-magmom."""
         assert self.wfs.fermi_levels is not None
-        assert len(self.wfs.fermi_levels) == 2
-        return np.array(self.wfs.fermi_levels) * Ha
+        if len(self.wfs.fermi_levels) != 2:
+            raise ValueError('There is only one Fermi-level!')
+        return self.wfs.fermi_levels * Ha
 
     def get_wigner_seitz_densities(self, spin):
         """Get the weight of the spin-density in Wigner-Seitz cells
@@ -1618,8 +1626,7 @@ class GPAW(Calculator):
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
-        from gpaw.utilities.dos import (raw_orbital_LDOS,
-                                        raw_spinorbit_orbital_LDOS, fold)
+        from gpaw.utilities.dos import raw_orbital_LDOS, fold
         if width is None:
             width = 0.1
 
@@ -1627,8 +1634,9 @@ class GPAW(Calculator):
             energies, weights = raw_orbital_LDOS(self, a, spin, angular,
                                                  nbands)
         else:
-            energies, weights = raw_spinorbit_orbital_LDOS(self, a, spin,
-                                                           angular)
+            raise DeprecationWarning(
+                'Please use GPAW.dos(soc=True, ...).pdos(...)')
+
         return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,
@@ -1962,3 +1970,8 @@ class GPAW(Calculator):
         pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
+
+    def dos(self, soc=False, theta=0.0, phi=0.0):
+        from gpaw.dos import DOSCalculator
+        return DOSCalculator.from_calculator(self, soc=soc,
+                                             theta=theta, phi=phi)

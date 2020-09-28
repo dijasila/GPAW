@@ -13,7 +13,7 @@ Quick links to all features:
       - :ref:`LCAO <lcao>`
     * - :ref:`XC-functionals <xc>`
       - :ref:`DFT+U <hubbardu>`
-      - :ref:`GLLB-SC <bandgab>`
+      - :ref:`GLLB-SC <band_gap>`
     * - :ref:`DOS <pdos>`
       - :ref:`STM <stm tutorial>`
       - :ref:`Wannier functions <wannier>`
@@ -28,7 +28,7 @@ Quick links to all features:
       - :ref:`BSE <bse theory>`
     * - :ref:`Parallelization <parallel_runs>`
       - :ref:`Continuum Solvent Model <continuum_solvent_model>`
-      -
+      - :ref:`point groups`
 
 This Page gives a quick overview of the algorithms used.  We have
 written some :ref:`papers <gpaw_publications>` about the implementation,

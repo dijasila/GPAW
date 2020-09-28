@@ -16,8 +16,9 @@ import numpy as np
 
 from ase.parallel import paropen
 from ase.utils import devnull
+from ase.units import Ha
 
-from gpaw.occupations import FermiDirac
+from gpaw.occupations import FermiDiracCalculator
 
 
 def dscf_calculation(paw, orbitals, atoms):
@@ -55,8 +56,8 @@ def dscf_calculation(paw, orbitals, atoms):
     if isinstance(occ, OccupationsDSCF):
         occ.orbitals = orbitals
     else:
-        if occ.width == 0:
-            occ = FermiDirac(width=1e-4, fixmagmom=occ.fixmagmom)
+        if occ.name == 'zero-width':
+            occ = FermiDiracCalculator(1e-4, occ.parallel_layout)
         new_occ = OccupationsDSCF(occ, paw, orbitals)
         paw.wfs.occupations = new_occ
     # If the calculator has already converged (for the ground state),
@@ -89,22 +90,20 @@ class OccupationsDSCF:
                   nelectrons,
                   eigenvalues,
                   weights,
-                  parallel,
                   fermi_levels_guess):
         f_qn, fermi_levels, e_entropy = self.occ.calculate(
             nelectrons - self.cnoe,
             eigenvalues,
             weights,
-            parallel,
             fermi_levels_guess)
 
         # Get the expansion coefficients c_un for each dscf-orbital
         # and incorporate their respective occupations into kpt.ne_o
         c_oun = []
         for orb in self.orbitals:
-            c_oun.append(orb[1].expand(fermi_levels,
+            c_oun.append(orb[1].expand([e / Ha for e in fermi_levels],
                                        self.wfs,
-                                       self.occ.fixmagmom))
+                                       self.occ.todict().get('fixmagmom')))
 
         for u, kpt in enumerate(self.wfs.kpt_u):
             kpt.ne_o = np.zeros(self.norbitals, dtype=float)

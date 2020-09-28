@@ -1,8 +1,13 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Curie temperature of CrI$_3$
 
-In this exercise we will examine the magnetic poperties of 2D materials. In particular we would to determine the Curie temperature from first principles and try to predict a new 2D material that exhibits magnetic order above room temperature. 
+In this exercise we will examine the magnetic poperties of 2D materials. In particular we would to determine the Curie temperature from first principles and try to predict a new 2D material that exhibits magnetic order above room temperature.
 
 In 2017, ferromagnetic order was observed in a monolayer of CrI$_3$ below 45 K (*Nature* **546** 270 (2017)). It comprises the first demonstration of magnetic order in a 2D material and has received a lot of attention due to the peculiar properties of magnetism in 2D. The physics of magnetic order in 2D is rather different than in 3D and in order to understand what is going on we will need to introduce a bit of theory. But before we get to that let us get started with the calculations.
 """
@@ -68,7 +73,7 @@ calc.write('CrI3_relaxed.gpw')
 
 # %%
 """
-## A bit of theory 
+## A bit of theory
 
 ### The Heisenberg model
 
@@ -78,7 +83,7 @@ Instead we will consider the Heisenberg Hamiltonian, which captures the basic ph
 
 $$H = -\frac{1}{2}\sum_{ij}J_{ij}\mathbf{S}_i\cdot \mathbf{S}_j,$$
 
-where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ and $J_{ij}$ are magnetic exchange coupling constants. If we want to model a real material with the Heisenberg model we then need to identify a set of magnetic sites and calculate the exchange coupling constants $J_{ij}$. 
+where $\mathbf{S}_i$ denotes the spin operator at site $i$ in units of $\hbar$ and $J_{ij}$ are magnetic exchange coupling constants. If we want to model a real material with the Heisenberg model we then need to identify a set of magnetic sites and calculate the exchange coupling constants $J_{ij}$.
 
 1.   What are the magnetic sites of CrI$_3$?
 2.   How many nearest neighbors does each magnetic site have?
@@ -100,7 +105,7 @@ We now want to make a first principles calculation of the nearest neighbor excha
 
 $$J=\frac{E_{\mathrm{AFM}}-E_{\mathrm{FM}}}{3S^2},$$
 
-where $E_{\mathrm{FM}}$ is the energy of the anti-ferromagnetic configuration and $E_{\mathrm{AFM}}$ is the energy of the ferromagnetic configuration. Try to derive this expression from the Heisenberg model with classical spins. In particular, where did the factor of 3 come from? 
+where $E_{\mathrm{FM}}$ is the energy of the anti-ferromagnetic configuration and $E_{\mathrm{AFM}}$ is the energy of the ferromagnetic configuration. Try to derive this expression from the Heisenberg model with classical spins. In particular, where did the factor of 3 come from?
 
 We have compiled a database of various 2D materials at https://cmrdb.fysik.dtu.dk/?project=c2db, which are relaxed with the PBE functional. We will therefore refrain from doing a full coverged geometry optimization and simply download the optimized structure from the database. Search the database for CrI$_3$ and select the ferromagnetic structure (The present material has the prototype BiI$_3$). You can now look at various properties of the material like band structure and stability if you like. Download the .xyz filem, save it as CrI3.xyz, and run the cell below to obtain a .gpw file containing a converged ferromagnetic calculation. The calculation will take about 30 minutes. To speed it up, you can submit this and the next job to DTU computers on multiple CPU cores, i.e. parallelize over 8 k-points. Follow instructions [here](https://wiki.fysik.dtu.dk/gpaw/summerschools/summerschool18/submitting.html). If the relaxation in the cell above did not finish you may kill it. It is not crucial to complete the rest of the exercise. Continue with the theory below while you wait for the calculations to finish.
 """
@@ -158,14 +163,14 @@ print('T_c(MF) = %1.1f K' %  T_c)
 
 # %%
 """
-## More theory 
+## More theory
 
 ### The Mermin-Wagner theorem
 You should obtain a value of $T_c$, which is on the order of 100 K. This is much larger than the experimental value.  However in 2D materials mean-field theory fails miserably and the result cannot be trusted. In fact, at finite temperatures the Heisenberg model stated above does not exhibit magnetic order in 2D. The reason is that entropy tends to dominate over internal energy in 2D, such that the free energy is always minimized by disordered configurations at finite temperatures. This is the content of the Mermin-Wagner theorem which states that:
 
 *Continuous symmetries cannot be spontaneously broken at finite temperature in systems with short-range interactions in dimensions $d\le2$*.
 
-The Heisenberg model above has a continuous rotational symmetry of the spins and magnetic order is obtained by choosing a certain direction for all the spins. This is known as a spontaneously broken symmetry, because the magnetically ordered state has broken the symmetry of the Hamiltonian. The direction of magnetization is arbitrary and can be rotated at no energy cost, but the spins are aligned with respect to each other and the system is therefore magnetically ordered. 
+The Heisenberg model above has a continuous rotational symmetry of the spins and magnetic order is obtained by choosing a certain direction for all the spins. This is known as a spontaneously broken symmetry, because the magnetically ordered state has broken the symmetry of the Hamiltonian. The direction of magnetization is arbitrary and can be rotated at no energy cost, but the spins are aligned with respect to each other and the system is therefore magnetically ordered.
 
 In the Heisenberg model it is straightforward to calculate the magnetic excitations in the spin-wave approximation, which yields the dispersion
 
@@ -175,7 +180,7 @@ for small values of $q$. The excitations are bosons and the magnetization can th
 
 $$M=M_0 - \int_0^\infty\frac{g(\epsilon)d\varepsilon}{e^{\varepsilon/k_bT} - 1}$$
 
-where $M_0$ is the ground state magnetization and $g(\varepsilon)$ is the density of states. 
+where $M_0$ is the ground state magnetization and $g(\varepsilon)$ is the density of states.
 
 1.  Show that the integral diverges for $d\le2$ in the lower limit. (Hint you should start by calculating $g(\varepsilon)$. If you do not remember how to do that we give it here: $g(\varepsilon)=b\varepsilon^{(d-2)/2}$, where $d$ is the dimension of the problem).
 

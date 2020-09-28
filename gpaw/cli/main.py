@@ -76,5 +76,6 @@ def hook(parser, args):
     return args
 
 
-def main():
-    ase_main('gpaw', 'GPAW command-line tool', __version__, commands, hook)
+def main(args=None):
+    ase_main('gpaw', 'GPAW command-line tool', __version__,
+             commands, hook, args)

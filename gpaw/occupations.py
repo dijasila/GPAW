@@ -2,8 +2,7 @@
 
 import warnings
 from math import pi, nan, inf
-from typing import List, Tuple, Optional, NamedTuple, Any, Callable
-
+from typing import List, Tuple, NamedTuple, Any, Callable, Dict
 import numpy as np
 from scipy.special import erf
 from ase.units import Ha
@@ -11,48 +10,13 @@ from ase.units import Ha
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.mpi import serial_comm, broadcast_float
 
-
-def create_occupation_number_object(width: float = None,
-                                    name: str = None,
-                                    fixmagmom: bool = False,
-                                    order: int = None) -> 'OccupationNumbers':
-    """Surprise: Create occupation-number object.
-
-    The unit of width is eV and name must be one of:
-
-    * 'fermi-dirac'
-    * 'marzari-vanderbilt'
-    * 'methfessel-paxton'
-    * 'orbital-free'
-
-    >>> occ = create_occupation_number_object(width=0)
-    >>> occ.calculate(nelectrons=3,
-    ...               eigenvalues=[[0, 1, 2], [0, 2, 3]],
-    ...               weights=[1, 1])
-    (array([[1., 1., 0.],
-           [1., 0., 0.]]), [1.5], 0.0)
-    """
-    if width == 0.0:
-        return ZeroWidth(fixmagmom=fixmagmom)
-    if name == 'methfessel-paxton':
-        return MethfesselPaxton(width, order=order, fixmagmom=fixmagmom)
-    assert order is None
-    if name == 'fermi-dirac':
-        return FermiDirac(width, fixmagmom=fixmagmom)
-    if name == 'marzari-vanderbilt':
-        return MarzariVanderbilt(width, fixmagmom=fixmagmom)
-    if name == 'orbital-free':
-        return ThomasFermiOccupations()
-    raise ValueError(f'Unknown occupation number object name: {name}')
-
-
 # typehints:
 MPICommunicator = Any
 
 
 class ParallelLayout(NamedTuple):
     """Collection of parallel stuff."""
-    bd: Optional[BandDescriptor]
+    bd: BandDescriptor
     kpt_comm: MPICommunicator
     domain_comm: MPICommunicator
 
@@ -62,8 +26,8 @@ def fermi_dirac(eig: np.ndarray,
                 width: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Fermi-Dirac distribution function.
 
-    >>> ef, _, _ = fermi_dirac(0.0, 0.0, 0.1)
-    >>> ef
+    >>> f, _, _ = fermi_dirac(0.0, 0.0, 0.1)
+    >>> f
     0.5
     """
     x = (eig - fermi_level) / width
@@ -135,28 +99,45 @@ def hermite_poly(n, x):
                 2 * (n - 1) * hermite_poly(n - 2, x))
 
 
-class OccupationNumbers:
-    """Base class for all occupation number objects."""
+class OccupationNumberCalculator:
+    """Base class for all occupation number calculators."""
     name = 'unknown'
+    extrapolate_factor: float
 
     def __init__(self,
-                 fixmagmom: bool = False):
+                 parallel_layout: ParallelLayout = None):
         """Object for calculating fermi level(s) and occupation numbers.
 
         If fixmagmom=True then the fixed_magmom_value attribute must be set
         and two fermi levels will be calculated.
         """
-        self.fixmagmom = fixmagmom
-        self.fixed_magmom_value: Optional[float] = None
+        if parallel_layout is None:
+            parallel_layout = ParallelLayout(BandDescriptor(1),
+                                             serial_comm,
+                                             serial_comm)
+        self.bd = parallel_layout.bd
+        self.kpt_comm = parallel_layout.kpt_comm
+        self.domain_comm = parallel_layout.domain_comm
+
+    @property
+    def parallel_layout(self) -> ParallelLayout:
+        return ParallelLayout(self.bd, self.kpt_comm, self.domain_comm)
 
     def todict(self):
-        return {'fixmagmom': self.fixmagmom}
+        return {'name': self.name}
+
+    def copy(self,
+             parallel_layout: ParallelLayout = None,
+             bz2ibzmap: List[int] = None
+             ) -> 'OccupationNumberCalculator':
+        return create_occ_calc(
+            self.todict(),
+            parallel_layout=parallel_layout or self.parallel_layout)
 
     def calculate(self,
                   nelectrons: float,
                   eigenvalues: List[List[float]],
                   weights: List[float],
-                  parallel: ParallelLayout = None,
                   fermi_levels_guess: List[float] = None
                   ) -> Tuple[List[np.ndarray],
                              List[float],
@@ -188,65 +169,81 @@ class OccupationNumbers:
         eig_qn = [np.asarray(eig_n) for eig_n in eigenvalues]
         weight_q = np.asarray(weights)
 
-        if parallel is None:
-            parallel = ParallelLayout(None, serial_comm, serial_comm)
-
         if fermi_levels_guess is None:
-            fermi_levels_guess = [nan] * (1 + int(self.fixmagmom))
-
-        if self.fixmagmom:
-            return self._fixed_magmom(
-                nelectrons, eig_qn, weight_q, parallel, fermi_levels_guess)
-        else:
-            return self._free_magmom(
-                nelectrons, eig_qn, weight_q, parallel, fermi_levels_guess[0])
-
-    def _free_magmom(self, nelectrons, eig_qn, weight_q,
-                     parallel, fermi_level_guess):
-        domain_comm = parallel.domain_comm
+            fermi_levels_guess = [nan]
 
         f_qn = np.empty((len(weight_q), len(eig_qn[0])))
 
         result = np.empty(2)
 
-        if domain_comm.rank == 0:
+        if self.domain_comm.rank == 0:
             # Let the master domain do the work and broadcast results:
             result[:] = self._calculate(
-                nelectrons, eig_qn, weight_q, f_qn,
-                parallel, fermi_level_guess)
+                nelectrons, eig_qn, weight_q, f_qn, fermi_levels_guess[0])
 
-        domain_comm.broadcast(result, 0)
+        self.domain_comm.broadcast(result, 0)
 
         for f_n in f_qn:
-            domain_comm.broadcast(f_n, 0)
+            self.domain_comm.broadcast(f_n, 0)
 
         fermi_level, e_entropy = result
         return f_qn, [fermi_level], e_entropy
 
-    def _fixed_magmom(self,
-                      nelectrons: float,
-                      eig_qn: List[List[float]],
-                      weight_q: List[float],
-                      parallel,
-                      fermi_levels_guess: List[float]
-                      ) -> Tuple[List[np.ndarray],
-                                 List[float],
-                                 float]:
-        magmom = self.fixed_magmom_value
-        assert magmom is not None
-        f1_qn, fermi_levels1, e_entropy1 = self._free_magmom(
-            (nelectrons + magmom) / 2,
-            eig_qn[::2],
-            weight_q[::2],
-            parallel,
-            fermi_levels_guess[0])
+    def _calculate(self,
+                   nelectrons: float,
+                   eig_qn: np.ndarray,
+                   weight_q: np.ndarray,
+                   f_qn: np.ndarray,
+                   fermi_level_guess: float) -> Tuple[float, float]:
+        raise NotImplementedError
 
-        f2_qn, fermi_levels2, e_entropy2 = self._free_magmom(
+
+class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
+    """Base class for all occupation number objects."""
+    name = 'fixmagmom'
+
+    def __init__(self,
+                 occ: OccupationNumberCalculator,
+                 magmom: float):
+        """Object for calculating fermi level(s) and occupation numbers.
+
+        If fixmagmom=True then the fixed_magmom_value attribute must be set
+        and two fermi levels will be calculated.
+        """
+        self.occ = occ
+        self.fixed_magmom_value = magmom
+        self.extrapolate_factor = occ.extrapolate_factor
+
+    def todict(self):
+        dct = self.occ.todict()
+        dct['fixmagmom'] = True
+        return dct
+
+    def calculate(self,
+                  nelectrons: float,
+                  eigenvalues: List[List[float]],
+                  weights: List[float],
+                  fermi_levels_guess: List[float] = None
+                  ) -> Tuple[List[np.ndarray],
+                             List[float],
+                             float]:
+
+        magmom = self.fixed_magmom_value
+
+        if fermi_levels_guess is None:
+            fermi_levels_guess = [nan, nan]
+
+        f1_qn, fermi_levels1, e_entropy1 = self.occ.calculate(
+            (nelectrons + magmom) / 2,
+            eigenvalues[::2],
+            weights[::2],
+            fermi_levels_guess[:1])
+
+        f2_qn, fermi_levels2, e_entropy2 = self.occ.calculate(
             (nelectrons - magmom) / 2,
-            eig_qn[1::2],
-            weight_q[1::2],
-            parallel,
-            fermi_levels_guess[1])
+            eigenvalues[1::2],
+            weights[1::2],
+            fermi_levels_guess[1:])
 
         f_qn = []
         for f1_n, f2_n in zip(f1_qn, f2_qn):
@@ -257,9 +254,9 @@ class OccupationNumbers:
                 e_entropy1 + e_entropy2)
 
 
-class SmoothDistribution(OccupationNumbers):
+class SmoothDistribution(OccupationNumberCalculator):
     """Base class for Fermi-Dirac and other smooth distributions."""
-    def __init__(self, width, fixmagmom=False):
+    def __init__(self, width: float, parallel_layout: ParallelLayout = None):
         """Smooth distribution.
 
         width: float
@@ -269,27 +266,24 @@ class SmoothDistribution(OccupationNumbers):
             spin up and down electrons is found.
         """
 
-        self.width = width / Ha
-        OccupationNumbers.__init__(self, fixmagmom)
+        self._width = width
+        OccupationNumberCalculator.__init__(self, parallel_layout)
 
     def todict(self):
-        dct = OccupationNumbers.todict(self)
-        dct['width'] = self.width * Ha
-        return dct
+        return {'name': self.name, 'width': self._width}
 
     def _calculate(self,
                    nelectrons,
                    eig_qn,
                    weight_q,
                    f_qn,
-                   parallel,
                    fermi_level_guess):
 
-        if np.isnan(fermi_level_guess) or self.width == 0.0:
-            zero = ZeroWidth()
+        if np.isnan(fermi_level_guess) or self._width == 0.0:
+            zero = ZeroWidth(self.parallel_layout)
             fermi_level_guess, _ = zero._calculate(
-                nelectrons, eig_qn, weight_q, f_qn, parallel)
-            if self.width == 0.0 or np.isinf(fermi_level_guess):
+                nelectrons, eig_qn, weight_q, f_qn)
+            if self._width == 0.0 or np.isinf(fermi_level_guess):
                 return fermi_level_guess, 0.0
 
         x = fermi_level_guess
@@ -302,9 +296,8 @@ class SmoothDistribution(OccupationNumbers):
                 f_n[:], dfde_n, e_entropy_n = self.distribution(eig_n, x)
                 data += [weight * x_n.sum()
                          for x_n in [f_n, dfde_n, e_entropy_n]]
-            if parallel.bd is not None:
-                parallel.bd.comm.sum(data)
-            parallel.kpt_comm.sum(data)
+            self.bd.comm.sum(data)
+            self.kpt_comm.sum(data)
             f, dfde = data[:2]
             df = f - nelectrons
             return df, dfde
@@ -316,63 +309,53 @@ class SmoothDistribution(OccupationNumbers):
         return fermi_level, e_entropy
 
 
-class FermiDirac(SmoothDistribution):
+class FermiDiracCalculator(SmoothDistribution):
     name = 'fermi-dirac'
     extrapolate_factor = -0.5
 
-    def distribution(self, eig_n, fermi_level):
-        return fermi_dirac(eig_n, fermi_level, self.width)
-
-    def todict(self):
-        dct = SmoothDistribution.todict(self)
-        dct['name'] = 'fermi-dirac'
-        return dct
+    def distribution(self,
+                     eig_n: np.ndarray,
+                     fermi_level: float) -> Tuple[np.ndarray,
+                                                  np.ndarray,
+                                                  np.ndarray]:
+        return fermi_dirac(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        return f'  Fermi-Dirac: width={self.width * Ha:.4f} eV\n'
+        return f'  Fermi-Dirac: width={self._width:.4f} eV\n'
 
 
-class MarzariVanderbilt(SmoothDistribution):
+class MarzariVanderbiltCalculator(SmoothDistribution):
     name = 'marzari-vanderbilt'
     # According to Nicola Marzari, one should not extrapolate M-V energies
     # https://lists.quantum-espresso.org/pipermail/users/2005-October/003170.html
     extrapolate_factor = 0.0
 
     def distribution(self, eig_n, fermi_level):
-        return marzari_vanderbilt(eig_n, fermi_level, self.width)
-
-    def todict(self):
-        dct = SmoothDistribution.todict(self)
-        dct['name'] = 'marzari-vanderbilt'
-        return dct
+        return marzari_vanderbilt(eig_n, fermi_level, self._width)
 
     def __str__(self):
-        s = '  Marzari-Vanderbilt: width={0:.4f} eV\n'.format(
-            self.width * Ha)
-        return SmoothDistribution.__str__(self) + s
+        return f'  Marzari-Vanderbilt: width={self._width:.4f} eV\n'
 
 
-class MethfesselPaxton(SmoothDistribution):
+class MethfesselPaxtonCalculator(SmoothDistribution):
     name = 'methfessel_paxton'
 
-    def __init__(self, width, order=0, fixmagmom=False):
-        SmoothDistribution.__init__(self, width, fixmagmom)
+    def __init__(self, width, order=0, parallel_layout: ParallelLayout = None):
+        SmoothDistribution.__init__(self, width, parallel_layout)
         self.order = order
         self.extrapolate_factor = -1.0 / (self.order + 2)
 
     def todict(self):
         dct = SmoothDistribution.todict(self)
-        dct['name'] = 'methfessel-paxton'
         dct['order'] = self.order
         return dct
 
     def __str__(self):
-        s = '  Methfessel-Paxton: width={0:.4f} eV, order={1}\n'.format(
-            self.width * Ha, self.order)
-        return SmoothDistribution.__str__(self) + s
+        return (f'  Methfessel-Paxton: width={self._width:.4f} eV, ' +
+                f'order={self.order}\n')
 
     def distribution(self, eig_n, fermi_level):
-        return methfessel_paxton(eig_n, fermi_level, self.width, self.order)
+        return methfessel_paxton(eig_n, fermi_level, self._width, self.order)
 
 
 def findroot(func: Callable[[float], Tuple[float, float]],
@@ -399,7 +382,7 @@ def findroot(func: Callable[[float], Tuple[float, float]],
         elif f > 0.0 and x < xmax:
             xmax = x
         dx = -f / max(dfdx, 1e-18)
-        if niter == 10 or abs(dx) > 0.01 or not (xmin < x + dx < xmax):
+        if niter == 10 or abs(dx) > 0.3 or not (xmin < x + dx < xmax):
             break  # try bisection
         x += dx
         niter += 1
@@ -437,10 +420,81 @@ def findroot(func: Callable[[float], Tuple[float, float]],
         assert niter < 1000
 
 
-class ZeroWidth(OccupationNumbers):
+def collect_eigelvalues(eig_qn: np.ndarray,
+                        weight_q: np.ndarray,
+                        bd: BandDescriptor,
+                        kpt_comm: MPICommunicator) -> Tuple[np.ndarray,
+                                                            np.ndarray,
+                                                            np.ndarray]:
+    """Collect eigenvalues from bd.comm and kpt_comm."""
+    nkpts_r = np.zeros(kpt_comm.size, int)
+    nkpts_r[kpt_comm.rank] = len(weight_q)
+    kpt_comm.sum(nkpts_r)
+    weight_k = np.zeros(nkpts_r.sum())
+    k1 = nkpts_r[:kpt_comm.rank].sum()
+    k2 = k1 + len(weight_q)
+    weight_k[k1:k2] = weight_q
+    kpt_comm.sum(weight_k, 0)
+
+    eig_kn = None
+    k = 0
+    for rank, nkpts in enumerate(nkpts_r):
+        for q in range(nkpts):
+            if rank == kpt_comm.rank:
+                eig_n = eig_qn[q]
+                eig_n = bd.collect(eig_n)
+            if bd.comm.rank == 0:
+                if kpt_comm.rank == 0:
+                    if k == 0:
+                        eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
+                    assert eig_kn is not None  # help mypy
+                    if rank == 0:
+                        eig_kn[k] = eig_n
+                    else:
+                        kpt_comm.receive(eig_kn[k], rank)
+                elif rank == kpt_comm.rank:
+                    kpt_comm.send(eig_n, 0)
+            k += 1
+    return eig_kn, weight_k, nkpts_r
+
+
+def distribute_occupation_numbers(f_kn: np.ndarray,  # input
+                                  f_qn: np.ndarray,  # output
+                                  nkpts_r: np.ndarray,
+                                  bd: BandDescriptor,
+                                  kpt_comm: MPICommunicator) -> None:
+    """Distribute occupation numbers over bd.comm and kpt_comm."""
+    k = 0
+    for rank, nkpts in enumerate(nkpts_r):
+        for q in range(nkpts):
+            if kpt_comm.rank == 0:
+                if rank == 0:
+                    if bd.comm.size == 1:
+                        f_qn[q] = f_kn[k]
+                    else:
+                        bd.distribute(None if f_kn is None else f_kn[k],
+                                      f_qn[q])
+                elif f_kn is not None:
+                    kpt_comm.send(f_kn[k], rank)
+            elif rank == kpt_comm.rank:
+                if bd.comm.size == 1:
+                    kpt_comm.receive(f_qn[q], 0)
+                else:
+                    if bd.comm.rank == 0:
+                        f_n = bd.empty(global_array=True)
+                        kpt_comm.receive(f_n, 0)
+                    else:
+                        f_n = None
+                    bd.distribute(f_n, f_qn[q])
+            k += 1
+
+
+class ZeroWidth(OccupationNumberCalculator):
     name = 'zero-width'
     extrapolate_factor = 0.0
-    width = 0.0
+
+    def todict(self):
+        return {'width': 0.0}
 
     def distribution(self, eig_n, fermi_level):
         f_n = np.zeros_like(eig_n)
@@ -453,10 +507,9 @@ class ZeroWidth(OccupationNumbers):
                    eig_qn,
                    weight_q,
                    f_qn,
-                   parallel,
                    fermi_level_guess=nan):
-        eig_kn, weight_k, nkpts_r = self._collect_eigelvalues(
-            eig_qn, weight_q, parallel)
+        eig_kn, weight_k, nkpts_r = collect_eigelvalues(eig_qn, weight_q,
+                                                        self.bd, self.kpt_comm)
 
         if eig_kn is not None:
             f_kn = np.zeros_like(eig_kn)
@@ -485,81 +538,21 @@ class ZeroWidth(OccupationNumbers):
             f_kn = None
             fermi_level = nan
 
-        self._distribute_occupation_numbers(f_kn, f_qn, nkpts_r, parallel)
+        distribute_occupation_numbers(f_kn, f_qn, nkpts_r,
+                                      self.bd, self.kpt_comm)
 
-        if parallel.kpt_comm.rank == 0 and parallel.bd is not None:
-            fermi_level = broadcast_float(fermi_level, parallel.bd.comm)
-        fermi_level = broadcast_float(fermi_level, parallel.kpt_comm)
+        if self.kpt_comm.rank == 0:
+            fermi_level = broadcast_float(fermi_level, self.bd.comm)
+        fermi_level = broadcast_float(fermi_level, self.kpt_comm)
 
         e_entropy = 0.0
         return fermi_level, e_entropy
 
-    def _collect_eigelvalues(self, eig_qn, weight_q, parallel):
-        kpt_comm = parallel.kpt_comm
-        bd = parallel.bd
 
-        nkpts_r = np.zeros(kpt_comm.size, int)
-        nkpts_r[kpt_comm.rank] = len(weight_q)
-        kpt_comm.sum(nkpts_r)
-        weight_k = np.zeros(nkpts_r.sum())
-        k1 = nkpts_r[:kpt_comm.rank].sum()
-        k2 = k1 + len(weight_q)
-        weight_k[k1:k2] = weight_q
-        kpt_comm.sum(weight_k, 0)
-
-        eig_kn = None
-        k = 0
-        for rank, nkpts in enumerate(nkpts_r):
-            for q in range(nkpts):
-                if rank == kpt_comm.rank:
-                    eig_n = eig_qn[q]
-                    if bd is not None:
-                        eig_n = bd.collect(eig_n)
-                if bd is None or bd.comm.rank == 0:
-                    if kpt_comm.rank == 0:
-                        if k == 0:
-                            eig_kn = np.empty((nkpts_r.sum(), len(eig_n)))
-                        if rank == 0:
-                            eig_kn[k] = eig_n
-                        else:
-                            kpt_comm.receive(eig_kn[k], rank)
-                    elif rank == kpt_comm.rank:
-                        kpt_comm.send(eig_n, 0)
-                k += 1
-        return eig_kn, weight_k, nkpts_r
-
-    def _distribute_occupation_numbers(self, f_kn, f_qn, nkpts_r, parallel):
-        kpt_comm = parallel.kpt_comm
-        bd = parallel.bd
-        k = 0
-        for rank, nkpts in enumerate(nkpts_r):
-            for q in range(nkpts):
-                if kpt_comm.rank == 0:
-                    if rank == 0:
-                        if bd is None or bd.comm.size == 1:
-                            f_qn[q] = f_kn[k]
-                        else:
-                            bd.distribute(None if f_kn is None else f_kn[k],
-                                          f_qn[q])
-                    elif f_kn is not None:
-                        kpt_comm.send(f_kn[k], rank)
-                elif rank == kpt_comm.rank:
-                    if bd is None or bd.comm.size == 1:
-                        kpt_comm.receive(f_qn[q], 0)
-                    else:
-                        if bd.comm.rank == 0:
-                            f_n = bd.empty(global_array=True)
-                            kpt_comm.receive(f_n, 0)
-                        else:
-                            f_n = None
-                        bd.distribute(f_n, f_qn[q])
-                k += 1
-
-
-class FixedOccupationNumbers(OccupationNumbers):
+class FixedOccupationNumbers(OccupationNumberCalculator):
     extrapolate_factor = 0.0
 
-    def __init__(self, f_sn):
+    def __init__(self, numbers, parallel_layout: ParallelLayout = None):
         """Fixed occupation numbers.
 
         f_sn: ndarray, shape=(nspins, nbands)
@@ -570,47 +563,110 @@ class FixedOccupationNumbers(OccupationNumbers):
             occ = FixedOccupationNumbers([[1, 0, 1, 0], [1, 1, 0, 0]])
 
         """
-        OccupationNumbers.__init__(self)
-        self.f_sn = np.array(f_sn)
+        OccupationNumberCalculator.__init__(self, parallel_layout)
+        self.f_sn = np.array(numbers)
 
     def _calculate(self,
                    nelectrons,
                    eig_qn,
                    weight_q,
                    f_qn,
-                   parallel,
                    fermi_level_guess=nan):
         for q, f_n in enumerate(f_qn):
             s = q % len(self.f_sn)
-            parallel.bd.distribute(self.f_sn[s], f_n)
+            self.bd.distribute(self.f_sn[s], f_n)
 
         return inf, 0.0
 
-
-class FixedOccupations(FixedOccupationNumbers):
-    def __init__(self, f_sn):
-        warnings.warn('Please use FixedOccupationNumbers() instead.')
-        if len(f_sn) == 1:
-            f_sn = np.array(f_sn) / 2
-        FixedOccupationNumbers.__init__(self, f_sn)
-
-
-class ThomasFermiOccupations(OccupationNumbers):
-    extrapolate_factor = 0.0
-
     def todict(self):
-        return {'name': 'orbital-free'}
+        return {'name': 'fixed', 'numbers': self.f_sn}
+
+
+def FixedOccupations(f_sn):
+    warnings.warn(
+        "Please use occupations={'name': 'fixed', 'numbers': ...} instead.")
+    if len(f_sn) == 1:
+        f_sn = np.array(f_sn) / 2
+    return {'name': 'fixed', 'numbers': f_sn}
+
+
+class ThomasFermiOccupations(OccupationNumberCalculator):
+    name = 'orbital-free'
+    extrapolate_factor = 0.0
 
     def _calculate(self,
                    nelectrons,
                    eig_qn,
                    weight_q,
                    f_qn,
-                   parallel,
                    fermi_level_guess=nan):
         assert len(f_qn) == 1
         f_qn[0][:] = [nelectrons]
         return inf, 0.0
+
+
+def create_occ_calc(dct: Dict[str, Any],
+                    *,
+                    parallel_layout: ParallelLayout = None,
+                    fixed_magmom_value=None,
+                    rcell=None,
+                    monkhorst_pack_size=None,
+                    bz2ibzmap=None,
+                    ) -> OccupationNumberCalculator:
+    """Surprise: Create occupation-number object.
+
+    The unit of width is eV and name must be one of:
+
+    * 'fermi-dirac'
+    * 'marzari-vanderbilt'
+    * 'methfessel-paxton'
+    * 'fixed'
+    * 'tetrahedron-method'
+    * 'improved-tetrahedron-method'
+    * 'orbital-free'
+
+    >>> occ = create_occ_calc({'width': 0.0})
+    >>> occ.calculate(nelectrons=3,
+    ...               eigenvalues=[[0, 1, 2], [0, 2, 3]],
+    ...               weights=[1, 1])
+    (array([[1., 1., 0.],
+           [1., 0., 0.]]), [1.5], 0.0)
+    """
+    kwargs = dct.copy()
+    fix_the_magnetic_moment = kwargs.pop('fixmagmom', False)
+    name = kwargs.pop('name', '')
+    kwargs['parallel_layout'] = parallel_layout
+
+    occ: OccupationNumberCalculator
+
+    if kwargs.get('width') == 0.0:
+        del kwargs['width']
+        occ = ZeroWidth(**kwargs)
+    elif name == 'methfessel-paxton':
+        occ = MethfesselPaxtonCalculator(**kwargs)
+    elif name == 'fermi-dirac':
+        occ = FermiDiracCalculator(**kwargs)
+    elif name == 'marzari-vanderbilt':
+        occ = MarzariVanderbiltCalculator(**kwargs)
+    elif name in {'tetrahedron-method', 'improved-tetrahedron-method'}:
+        from gpaw.tetrahedron import TetrahedronMethod
+        occ = TetrahedronMethod(rcell,
+                                monkhorst_pack_size,
+                                name == 'improved-tetrahedron-method',
+                                bz2ibzmap,
+                                **kwargs)
+    elif name == 'orbital-free':
+        return ThomasFermiOccupations(**kwargs)
+    elif name == 'fixed':
+        return FixedOccupationNumbers(**kwargs)
+    else:
+        raise ValueError(f'Unknown occupation number object name: {name}')
+
+    if fix_the_magnetic_moment:
+        occ = FixMagneticMomentOccupationNumberCalculator(
+            occ, fixed_magmom_value)
+
+    return occ
 
 
 def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
@@ -635,10 +691,10 @@ def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
 
     warnings.warn('Please use one of the OccupationNumbers implementations',
                   DeprecationWarning)
-    occ = create_occupation_number_object(**occ)
+    occ = create_occ_calc(occ)
     f_kn, (fermi_level,), e_entropy = occ.calculate(
         nelectrons * len(eig_skn) / 2,
-        [eig_n / Ha for eig_kn in eig_skn for eig_n in eig_kn],
+        [eig_n for eig_kn in eig_skn for eig_n in eig_kn],
         list(weight_k) * len(eig_skn))
 
     f_kn *= np.array(weight_k)[:, np.newaxis]
@@ -652,4 +708,17 @@ def occupation_numbers(occ, eig_skn, weight_k, nelectrons):
         f1, f2 = f_skn.sum(axis=(1, 2))
         magmom = f1 - f2
 
-    return f_skn, fermi_level, magmom, e_entropy
+    return f_skn, fermi_level * Ha, magmom, e_entropy * Ha
+
+
+def FermiDirac(width, fixmagmom=False):
+    return dict(name='fermi-dirac', width=width, fixmagmom=fixmagmom)
+
+
+def MarzariVanderbilt(width, fixmagmom=False):
+    return dict(name='marzari-vanderbilt', width=width, fixmagmom=fixmagmom)
+
+
+def MethfesselPaxton(width, order=0, fixmagmom=False):
+    return dict(name='methfessel-paxton', width=width, order=order,
+                fixmagmom=fixmagmom)

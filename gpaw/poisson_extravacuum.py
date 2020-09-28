@@ -139,7 +139,8 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
             # Check the consistency of the grids
             gd1 = self.gd_large_coar
             gd2 = self.gd_large_coar_from_aux
-            assert np.all(gd1.N_c == gd2.N_c) and np.all(gd1.h_cv == gd2.h_cv)
+            assert np.all(gd1.N_c == gd2.N_c)
+            assert np.allclose(gd1.h_cv, gd2.h_cv, rtol=0, atol=1e-12)
 
         self._initialized = False
 
