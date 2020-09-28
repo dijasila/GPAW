@@ -43,7 +43,7 @@ def test_ethylene_energy(ethylene):
 
 
 def check(calc):
-    wannier = localize(calculate_overlaps(calc, n1=0, n2=6))
+    wannier = localize(calculate_overlaps(calc, n1=0, n2=6, nwannier=6))
 
     centers = wannier.centers
     print(centers)

@@ -78,9 +78,12 @@ class WannierOverlaps:
 def dict_to_proj_indices(dct: Dict[Union[int, str], str],
                          setups: List[Setup]) -> List[Tuple[int, List[int]]]:
     """
+    >>> from gpaw.setup import create_setup
     >>> setup = create_setup('Si')
     >>> setup.n_j
+    [3, 3, -1, -1, -1]
     >>> setup.l_j
+    [0, 1, 0, 1, 2]
     >>> dict_to_proj_indices({'Si': 'sp', 1: 's'}, [setup, setup])
     [(0, [0, 1, 2, 3]), (13, [0])]
     """
@@ -94,7 +97,7 @@ def dict_to_proj_indices(dct: Dict[Union[int, str], str],
         i = 0
         for n, l in zip(setup.n_j, setup.l_j):
             if n > 0 and 'spdf'[l] in ll:
-                indices += list(range(2 * l + 1))
+                indices += list(range(i, i + 2 * l + 1))
             i += 2 * l + 1
         indices_a.append((I, indices))
         I += i
