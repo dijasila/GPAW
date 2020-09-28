@@ -10,6 +10,10 @@ from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
 
 
+class Wannier90Error(Exception):
+    """Wannier90 error."""
+
+
 class Wannier90:
     def __init__(self,
                  prefix: str = 'wannier',
@@ -24,8 +28,9 @@ class Wannier90:
         args = [self.executable, self.prefix]
         if postprocess:
             args[1:1] = ['-pp']
-        result = subprocess.run(args, cwd=self.folder)
-        print(result)
+        result = subprocess.run(args, cwd=self.folder, capture_output=True)
+        if b'Error:' in result.stdout:
+            raise Wannier90Error(result.stdout.decode())
 
     def write_input_files(self,
                           overlaps: WannierOverlaps,
@@ -63,17 +68,21 @@ class Wannier90:
 
     def write_mmn(self,
                   overlaps: WannierOverlaps) -> None:
-        nbzkpts, nwan, nbands = overlaps.projections.shape
+        nbzkpts, nproj, nbands = overlaps.projections.shape
         size = overlaps.monkhorst_pack_size
         assert np.prod(size) == nbzkpts
 
+        directions = list(overlaps.directions)
+        directions += [(-a, -b, -c) for (a, b, c) in directions]
+        ndirections = len(directions)
+
         with (self.folder / f'{self.prefix}.mmn').open('w') as fd:
             print('Input generated from GPAW', file=fd)
-            print(f'{nwan} {nbzkpts} {nbands}', file=fd)
+            print(f'{nbands} {nbzkpts} {ndirections}', file=fd)
 
             for bz_index1 in range(nbzkpts):
                 i1_c = np.unravel_index(bz_index1, size)
-                for direction, d in overlaps.directions.items():
+                for direction in directions:
                     i2_c = np.array(i1_c) + direction
                     bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
                     d_c = (i2_c % size - i2_c) // size
@@ -86,11 +95,11 @@ class Wannier90:
     def write_amn(self,
                   overlaps: WannierOverlaps) -> None:
         proj_kmn = overlaps.projections
-        nbzkpts, nwan, nbands = proj_kmn.shape
+        nbzkpts, nproj, nbands = proj_kmn.shape
 
         with (self.folder / f'{self.prefix}.amn').open('w') as fd:
             print('Input generated from GPAW', file=fd)
-            print(f'{nbands} {nbzkpts} {nwan}', file=fd)
+            print(f'{nbands} {nbzkpts} {nproj}', file=fd)
 
             for bz_index, proj_mn in enumerate(proj_kmn):
                 for m, proj_n in enumerate(proj_mn):
@@ -100,7 +109,7 @@ class Wannier90:
 
     def read_result(self):
         with (self.folder / f'{self.prefix}.wout').open() as fd:
-            atoms, centers, widths = read_wout_all(fd)
+            atoms, centers, spreads = read_wout_all(fd)
         return Wannier90Functions(atoms, centers)
 
 
@@ -108,4 +117,4 @@ class Wannier90Functions(WannierFunctions):
     def __init__(self,
                  atoms: Atoms,
                  centers):
-        WannierFunctions.__init__(self, atoms, centers)
+        WannierFunctions.__init__(self, atoms, centers, 0.0, [])

@@ -50,7 +50,11 @@ class WannierOverlaps:
     def overlap(self,
                 bz_index: int,
                 direction: Tuple[int, int, int]) -> Array2D:
-        return self._overlaps[bz_index, self.directions[direction]]
+        dindex = self.directions.get(direction)
+        if dindex is not None:
+            return self._overlaps[bz_index, dindex]
+        dindex = self.directions[tuple([-d for d in direction])]
+        return self._overlaps[bz_index, dindex].T.conj()
 
     def localize_er(self,
                     maxiter: int = 100,
@@ -124,8 +128,6 @@ def calculate_overlaps(calc: GPAW,
     directions = {direction: i
                   for i, direction
                   in enumerate(find_directions(icell, size))}
-    directions.update([(len(directions) + i, (-a, -b, -c))
-                       for (a, b, c), i in directions.items()])
 
     Z_kdnn = np.empty((kd.nbzkpts, len(directions), n2 - n1, n2 - n1), complex)
 
