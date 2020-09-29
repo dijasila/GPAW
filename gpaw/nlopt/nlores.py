@@ -921,8 +921,9 @@ def calculate_shg_rvg(
                             continue
 
                         # Useful variables
-                        Emn = E_n[mmi] - E_n[nni]
                         fnm = f_n[nni] - f_n[mmi]
+                        Emn = E_n[mmi] - E_n[nni] + fnm * eshift
+                        
 
                         # Comute the 2-band term
                         if np.abs(Emn) > Etol and np.abs(fnm) > ftol:
@@ -946,7 +947,7 @@ def calculate_shg_rvg(
                             # Comute the 3-band term
                             if np.abs(Emn) > Etol:
                                 if np.any(np.abs(fnl)) > ftol:
-                                    Eln = E_n[blist] - E_n[nni]
+                                    Eln = E_n[blist] - E_n[nni] + fnl * eshift
                                     pnml = (mom[pol[0], nni, mmi]
                                             * (mom[pol[1], mmi, blist]
                                                * mom[pol[2], blist, nni]
@@ -959,7 +960,7 @@ def calculate_shg_rvg(
                                     sum2b_D += (Fval * w_k[k_c]
                                                 / 2 / (w_lc - Emn / 2))
                                 if np.any(np.abs(fml)) > ftol:
-                                    Eml = E_n[mmi] - E_n[blist]
+                                    Eml = E_n[mmi] - E_n[blist] - fml * eshift
                                     pnml = (mom[pol[0], nni, mmi]
                                             * (mom[pol[1], mmi, blist]
                                                * mom[pol[2], blist, nni]
@@ -972,7 +973,7 @@ def calculate_shg_rvg(
                                     sum2b_D += Fval * \
                                         w_k[k_c] / 2 / (w_lc - Emn / 2)
                                 if np.any(np.abs(fnm)) > ftol:
-                                    Eln = E_n[blist] - E_n[nni]
+                                    Eln = E_n[blist] - E_n[nni] + fnl * eshift
                                     pnml = (mom[pol[0], nni, blist]
                                             * (mom[pol[1], blist, mmi]
                                                * mom[pol[2], mmi, nni]
@@ -984,7 +985,7 @@ def calculate_shg_rvg(
                                                      / (2 * Emn - Eln)))
                                     sum2b_D += Fval * \
                                         w_k[k_c] / 2 / (w_lc - Emn)
-                                    Eml = E_n[mmi] - E_n[blist]
+                                    Eml = E_n[mmi] - E_n[blist] - fml * eshift
                                     pnml = (mom[pol[0], blist, mmi]
                                             * (mom[pol[1], mmi, nni]
                                                * mom[pol[2], nni, blist]
@@ -1008,8 +1009,8 @@ def calculate_shg_rvg(
                                     continue
 
                                 # Compute the susceptibility with 1/w form
-                                Eln = E_n[lli] - E_n[nni]
-                                Eml = E_n[mmi] - E_n[lli]
+                                Eln = E_n[lli] - E_n[nni] + fnl * eshift
+                                Eml = E_n[mmi] - E_n[lli] - fml * eshift
                                 pnml = (mom[pol[0], nni, mmi]
                                         * (mom[pol[1], mmi, lli]
                                            * mom[pol[2], lli, nni]
@@ -1325,7 +1326,8 @@ def calculate_shg_rlg(
             f_nk = None
     
     # Find the neighboring points
-    nei_ind, psigns, q_vecs = find_neighbors(kd, qind=[[1, 0, 0], [0, 1, 0]])
+    # nei_ind, psigns, q_vecs = find_neighbors(kd, qind=[[1, 0, 0], [0, 1, 0]])
+
     # if world.rank == 0:
     #     # u_knn = np.load('rot_{}.npy'.format(basename))
     #     u_knn_0 = np.load('rot_{}_0.npy'.format(basename))
@@ -1912,10 +1914,10 @@ def get_shg_polarized(
         prename='shg_',
         postname='',
         wind=[1],
-        theta=0,
-        phi=0,
+        theta=0.0,
+        phi=0.0,
         pte=[1.0],
-        ptm=[1.0],
+        ptm=[0.0],
         E0=[1.0],
         outname=None,
         outbasis='xyz'):
@@ -2237,6 +2239,7 @@ def calculate_shift_current(
 
             # Make the position matrix elements and Delta
             with timer('Position matrix elements calculation'):
+                # print(nb2)
                 r_nm = np.zeros((3, nb2, nb2), complex)
                 D_nm = np.zeros((3, nb2, nb2), complex)
                 E_nm = np.tile(E_n[:, None], (1, nb2)) - \
@@ -2273,11 +2276,12 @@ def calculate_shift_current(
                     # parprint(np.linalg.inv(icell_cv))
                     # get_derivative_new(calc, blist, timer=timer)
 
-                    rd_vvnn = get_derivative(calc, nei_ind[:, k_c], q_vecs, ni+blist, ovth=0.5, u_knn=u_knn, timer=timer, psigns=psigns[:, k_c])
-
+                    rd_vvnn2 = get_derivative(calc, nei_ind[:, k_c], q_vecs, ni+blist, ovth=0.5, u_knn=u_knn, timer=timer, psigns=psigns[:, k_c])
+                    rd_vvnn = np.zeros((3, 3, nb2, nb2), complex)
                     scale = (_me*(Bohr*1e-10)**2*_e/_hbar**2)#/Bohr
                     for v1 in range(3):
                         for v2 in range(3):
+                            rd_vvnn[v1, v2][np.ix_(ni+blist, ni+blist)] = rd_vvnn2[v1, v2]
                             rnm_der[v1, v2] = r_nm[v2]*(rd_vvnn[v1, v2]*(-1)*scale-D_nm[v1]/E_nm)
                 else:
                     parprint('Derivative mode ' + dermethod + ' not implemented.')
@@ -2563,8 +2567,8 @@ def calculate_eop_rlg(
     freqs = np.array(freqs)
     nw = len(freqs)
     w_lc = freqs + 1j * eta
-    w_lc = np.hstack((-w_lc[-1::-1], w_lc))
-    nw = 2 * nw
+    # w_lc = np.hstack((-w_lc[-1::-1], w_lc))
+    # nw = 2 * nw
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
@@ -2578,17 +2582,19 @@ def calculate_eop_rlg(
     parprint('First/last bands: {}/{}, Total: {}, k-points: {}/{}'.format(
         ni, nf - 1, nb, len(kd.bzk_kc[:, 0]), nk))
 
-    x1 = 0.01/1.01
-    x2 = 1.0-x1
-    w_lc = 1.01*w_lc
+    # x1 = 0.01/1.01
+    # x2 = 1.0-x1
+    # w_lc = 1.01*w_lc
 
     # x1 = 0.5
     # x2 = 0.5
     # w_lc = 2.0*w_lc
-
-    # x1 = 1/3
-    # x2 = 2/3
-    # w_lc = 1.5*w_lc
+    w1 = freqs + 1j * eta
+    w2 = -0.98*w1
+    w_lc =  w1+w2
+    x1 = w1/w_lc
+    x2 = w2/w_lc
+    
 
     # Get the energy and fermi levels
     with timer('Get energies and fermi levels'):
@@ -2752,7 +2758,7 @@ def calculate_eop_rlg(
                 for nni in blist:
                     for mmi in blist:
                         # Remove the non important term using time-reversal
-                        if mmi <= nni:
+                        if mmi == nni:
                             continue
                         fnm = f_n[nni] - f_n[mmi]
                         Emn = E_nm[mmi, nni] + fnm * eshift
@@ -2991,9 +2997,9 @@ def calculate_eop_rlg(
 
         chi2b[0, :] = chi2b[1, :] + chi2b[2, :] + chi2b[3, :] + chi2b[4, :]
         chi2 = chi2b[0, :]
-        nw = int(nw / 2)
-        chi2 = chi2[nw:] + chi2[nw - 1::-1]
-        chi2b = chi2b[:, int(nw):] + chi2b[:, nw - 1::-1]
+        # nw = int(nw / 2)
+        # chi2 = chi2[nw:] + chi2[nw - 1::-1]
+        # chi2b = chi2b[:, int(nw):] + chi2b[:, nw - 1::-1]
 
         # A multi-col output
         eop = np.vstack((freqs, chi2, chi2b))
