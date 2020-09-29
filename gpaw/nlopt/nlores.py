@@ -7,19 +7,18 @@ import matplotlib.pyplot as plt
 
 # Import the required modules: GPAW/ASE
 from gpaw import GPAW, PW, FermiDirac
-from ase.units import Bohr, _hbar, _e, _me, _eps0, alpha
-from gpaw.spinorbit import get_spinorbit_eigenvalues, get_radial_potential
+from ase.units import Bohr, _hbar, _e, _me, _eps0
+from gpaw.spinorbit import get_spinorbit_eigenvalues
 from ase.utils.timing import Timer
-from gpaw.mpi import world, broadcast, serial_comm
-from gpaw.berryphase import parallel_transport
-from gpaw.fd_operators import Gradient
-from ase.dft.dos import linear_tetrahedron_integration
-from gpaw.response.pair import PairDensity
+from gpaw.mpi import world, broadcast
 
 # Import the required modules: nlo
 from gpaw.nlopt.output import print_progressbar, plot_spectrum, plot_polar
-from gpaw.nlopt.output import is_file_exist, parprint, plot_kfunction
-from gpaw.nlopt.mml import *
+from gpaw.nlopt.output import is_file_exist, parprint
+from gpaw.nlopt.mml import get_dipole_transitions, set_variables, load_gsmoms
+from gpaw.nlopt.mml import distribute_data, fermi_level, triangle_int
+from gpaw.nlopt.mml import get_neighbors, find_neighbors, get_derivative
+from gpaw.nlopt.mml import get_soc_paw, get_soc_momentum
 from gpaw.nlopt.symmetry import get_tensor_elements
 
 # Check the sum rule
@@ -57,7 +56,7 @@ def check_sumrule(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
+    nf = nb + nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     nb2 = nf - ni
@@ -109,10 +108,9 @@ def check_sumrule(
             # Distribute the SOC
             k_info2 = distribute_data(
                 [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
-            
+
             # Get SOC from PAW
             dVL_avii, Pt_kasni = get_soc_paw(calc)
-            # phi_km, S_km = parallel_transport(calc, direction=0, spinors=True, scale=1.0e-6)
 
     # Distribute the k points between cores
     nv = broadcast(nv, 0)
@@ -162,20 +160,19 @@ def check_sumrule(
             # Make the new momentum
             with timer('New momentum calculation'):
                 mom2 = np.zeros((3, nb2, nb2), dtype=complex)
-                mom2s = np.zeros((3, nb2, nb2), dtype=complex)
                 for pp in range(3):
                     mom2[pp] = np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
-                                                mom0[pp]),
-                                        np.transpose(wfs_nm[:, 0::2]))
+                                             mom0[pp]),
+                                      np.transpose(wfs_nm[:, 0::2]))
                     mom2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
-                                                mom0[pp]),
-                                        np.transpose(wfs_nm[:, 1::2]))
-            
+                                              mom0[pp]),
+                                       np.transpose(wfs_nm[:, 1::2]))
+
                     # Get the soc correction to momentum
                     p_vmm = socscale * \
-                            get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf)
-                    mom2[pp] -= 1* np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
-                                        np.transpose(wfs_nm))
+                        get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf)
+                    mom2[pp] -= 1 * np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
+                                           np.transpose(wfs_nm))
                 mom = mom2
         else:
             E_n = E_n[ni:nf]
@@ -186,24 +183,23 @@ def check_sumrule(
             pos2 = np.zeros((3, nb2, nb2), complex)
             for pp in range(3):
                 pos2[pp] = np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
-                                            pos0[pp]),
-                                    np.transpose(wfs_nm[:, 0::2]))
+                                         pos0[pp]),
+                                  np.transpose(wfs_nm[:, 0::2]))
                 pos2[pp] += np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
-                                            pos0[pp]),
-                                    np.transpose(wfs_nm[:, 1::2]))
+                                          pos0[pp]),
+                                   np.transpose(wfs_nm[:, 1::2]))
 
             E_nm2 = np.tile(E_n[:, None], (1, nb2)) - \
                 np.tile(E_n[None, :], (nb2, 1))
             pos = pos2
-            mom3 = np.array([1j*pos2[v]*E_nm2 for v in range(3)]) 
+            mom3 = np.array([1j * pos2[v] * E_nm2 for v in range(3)])
 
             # print(mom2[1, 25, 26])
             # print(mom3[1, 25, 26])
             # print(mom2[1, 25, 26]-50*mom2s[1, 25, 26])
             # print(mom2s[1, 25, 26])
             # print((mom3[1, 25, 26]-mom2[1, 25, 26])/mom2s[1, 25, 26])
-           
-            
+
         # aa = np.dot(np.conj(wfs_nm), wfs_nm.T)
         # parprint(np.allclose(aa, np.eye(nb2), rtol=1e-08, atol=1e-12))
 
@@ -253,12 +249,14 @@ def check_sumrule(
     parprint('The sum rule matrix is:')
     parprint(np.array_str(sum_rule, precision=6, suppress_small=True))
 
-    sum_rule2 = gspin * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) / nv * (sumrule2*1j)
+    sum_rule2 = gspin * (_hbar / (Bohr * 1e-10))**2 / \
+        (_e * _me) / nv * (sumrule2 * 1j)
     sum_rule2 = np.reshape(sum_rule2, (3, 3), order='C')
     parprint('The sum rule matrix is:')
     parprint(np.array_str(sum_rule2, precision=6, suppress_small=True))
 
-    sum_rule0 = 2 * (_hbar / (Bohr * 1e-10))**2 / (_e * _me) / nv * (sumrule0*1j)
+    sum_rule0 = 2 * (_hbar / (Bohr * 1e-10))**2 / \
+        (_e * _me) / nv * (sumrule0 * 1j)
     sum_rule0 = np.reshape(sum_rule0, (3, 3), order='C')
     parprint('The sum rule matrix is:')
     parprint(np.array_str(sum_rule0, precision=6, suppress_small=True))
@@ -270,144 +268,6 @@ def check_sumrule(
     # Return the sum_rule
     return sum_rule
 
-
-# Check the sum rule nr 2
-
-
-def check_sumrule2(
-        bands=[0],
-        ni=None, nf=None,
-        momname=None,
-        basename=None,
-        figname=None):
-    """
-    Check the sum rule 2
-
-    Input:
-        ni, nf          First and last bands in the calculations (def. 0 to nb)
-        momname         Suffix for the momentum file (default gs.gpw)
-        basename        Suffix for the gs file (default gs.gpw)
-    Output:
-        sumrule         It should be zero or one for complete basis set
-    """
-
-    timer = Timer()
-    parprint('Calculating the sum rule 2 (using {:d} cores).'.format(world.size))
-
-    # Load the required data only in the master
-    with timer('Load the calculations'):
-        calc, moms = load_gsmoms(basename, momname)
-
-    # Useful variables
-    Etol = 1.0e-3
-    nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
-    ni = int(ni) if ni is not None else 0
-    nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
-    assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
-        nb)
-    nb2 = nf - ni
-    parprint('First/last bands: {}/{}, Total: {}, k-points: {}/{}'.format(
-        ni, nf - 1, nb, len(kd.bzk_kc[:, 0]), nk))
-
-    # Get the energy and fermi levels
-    with timer('Get energies and fermi levels'):
-        # Get the energy, fermi
-        if world.rank == 0:
-            E_nk = calc.band_structure().todict()['energies'][0]
-        else:
-            E_nk = None
-    
-    # Only do the calculations in master
-    if world.rank == 0:
-        # Loop over the k points
-        sumrule = np.zeros((3, 3, nk, len(bands)), dtype=complex)
-
-        mom = moms[:, :, ni:nf, ni:nf]
-        mom = np.swapaxes(mom, 0, 1)
-        p_nn = np.einsum('...ii->...i', mom)
-        p_nn = p_nn.real
-        E_kn = E_nk[:, ni:nf].real
-
-        # Useful variables
-        nk = len(kd.ibz2bz_k)
-        N_c = kd.N_c
-
-        # Find the neighbors
-        qind=[[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0]]
-        Nq = len(qind)+1
-        assert N_c[2] == 1, 'Triangular method is only implemented for 2D systems.'
-        q_vecs = []
-        for ii, qq in enumerate(qind):
-            q_vecs.append([qq[0] / N_c[0], qq[1] / N_c[1], qq[2] / N_c[2]])
-        nkt = len(kd.bzk_kc)
-        neighbors = np.zeros((Nq, nkt), dtype=np.int32)
-        neighbors[0] = np.arange(nkt)
-        for ind, qpt in enumerate(q_vecs):
-            neighbors[ind + 1] = np.array(kd.find_k_plus_q(qpt))
-
-        # Depending on the tsym set variables
-        tsym = kd.symmetry.time_reversal
-        if tsym is False:
-            nei_ind = kd.bz2ibz_k[neighbors]
-            nei_ind = nei_ind[:, kd.ibz2bz_k]
-            p1 = 0
-            p2 = nk
-            psigns = np.ones((nk), dtype=int)
-        else:
-            # nei_ind = neighbors[:, kd.ibz2bz_k]
-            # nei_ind = [kd.bz2ibz_k[nei_ind[ii]] for ii in range(Nq)]
-            nei_ind = kd.bz2ibz_k[neighbors]
-            nei_ind = nei_ind[:, kd.ibz2bz_k]
-            psigns = -2 * kd.time_reversal_k + 1
-            psigns = psigns[neighbors[:, kd.ibz2bz_k]]
-            
-        # Compute the drivatives in ab directions
-        dp_vvkn = np.zeros((2, 3, nk, len(bands)))
-        dE_vkn = np.zeros((2, nk, len(bands)))
-        for nni, nn in enumerate(bands):
-            for v1 in range(2):
-                vv1 = v1*2+1
-                dE_vkn[v1, :, nni] = (E_kn[nei_ind[vv1], nn]-E_kn[nei_ind[vv1+1], nn]) / (2.0/N_c[v1])
-                for v2 in range(3):
-                    dp_vvkn[v1, v2, :, nni] = (psigns[vv1] * p_nn[v2, nei_ind[vv1], nn]
-                                              - psigns[vv1+1] * p_nn[v2, nei_ind[vv1+1], nn]) / (2.0/N_c[v1])
-
-        # Transform to xy
-        cell = calc.atoms.cell[:2, :2]
-        icell = 2*pi*calc.wfs.gd.icell_cv[:2, :2]
-        dp_vvkn2 = np.einsum('ij,jlkn->ilkn', icell, dp_vvkn)
-        dE_vkn2 = np.einsum('ij,jkn->ikn', icell, dE_vkn)
-        scale = (_me*(Bohr*1e-10)**2*_e/_hbar**2)
-
-        # Loop over bands
-        with timer('Sum over bands'):
-            scale = (_hbar / (Bohr * 1e-10))**2 / (_e * _me)
-            for pol in range(9):
-                aa, bb = pol % 3, floor(pol / 3)
-                sumrule[aa, bb] = (aa == bb)*1
-                for nni, nn in enumerate(bands):
-                    for mmi in range(nf-ni):
-                        Enm = E_kn[:, nn] - E_kn[:, mmi]
-                        if np.all(np.abs(Enm)) < Etol:
-                            continue
-                        usind = np.where(np.abs(Enm)>Etol)[0]
-                        sumrule[aa, bb, usind, nni] += scale * (mom[aa, usind, nn, mmi] * mom[bb, usind, mmi, nn] 
-                                                    + mom[bb, usind, nn, mmi] * mom[aa, usind, mmi, nn]).real / Enm[usind]
-
-    else:
-        sumrule = None
-    sumrule = broadcast(sumrule, 0)
-
-    # plot_kfunction(kd, sumrule[1, 1, :, 0], figname='xx_band12_sum.png', tsymm='even', dtype='re', clim=(-3,3))
-    # plot_kfunction(kd, dp_vvkn2[1, 1, :, 0], figname='xx_band12_dp.png', tsymm='even', dtype='re', clim=(-3,3))
-
-    # Print the timing
-    if world.rank == 0:
-        timer.write()
-
-    # Return the sum_rule
-    return sumrule
 
 # Calculate the linear response
 
@@ -463,7 +323,7 @@ def calculate_df(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
+    nf = nb + nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -515,7 +375,7 @@ def calculate_df(
             # Distribute the SOC
             k_info2 = distribute_data(
                 [e_mk, wfs_knm], [(nk, nb2), (nk, nb2, nb2)])
-            
+
             # Get SOC from PAW
             dVL_avii, Pt_kasni = get_soc_paw(calc)
 
@@ -563,19 +423,19 @@ def calculate_df(
                     mom2 = np.zeros((3, nb2, nb2), dtype=complex)
                     mom2s = np.zeros((3, nb2, nb2), dtype=complex)
                     for pp in range(3):
-                        mom2[pp] += 1*np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
-                                                  mom[pp]),
-                                           np.transpose(wfs_nm[:, 0::2]))
-                        mom2[pp] += 1*np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
-                                                  mom[pp]),
-                                           np.transpose(wfs_nm[:, 1::2]))
-                
+                        mom2[pp] += 1 * np.dot(np.dot(np.conj(wfs_nm[:, 0::2]),
+                                                      mom[pp]),
+                                               np.transpose(wfs_nm[:, 0::2]))
+                        mom2[pp] += 1 * np.dot(np.dot(np.conj(wfs_nm[:, 1::2]),
+                                                      mom[pp]),
+                                               np.transpose(wfs_nm[:, 1::2]))
+
                         # Get the soc correction to momentum
                         p_vmm = socscale * \
-                                get_soc_momentum(dVL_avii, Pt_kasni[k_c],
-                                                 ni, nf)
+                            get_soc_momentum(dVL_avii, Pt_kasni[k_c],
+                                             ni, nf)
                         mom2s[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
-                                           np.transpose(wfs_nm))
+                                            np.transpose(wfs_nm))
                     mom = mom2
             else:
                 E_n = E_n[ni:nf]
@@ -589,7 +449,7 @@ def calculate_df(
                         # Get Emn
                         fnm = f_n[nni] - f_n[mmi]
                         Emn = E_n[mmi] - E_n[nni]
-                        
+
                         if np.abs(fnm) < ftol or np.abs(Emn) < Etol:
                             continue
                         pnm = mom[pol[0], nni, mmi] * mom[pol[1], mmi, nni]
@@ -645,8 +505,8 @@ def calculate_df(
 
                         # Comput the value of integrand on triangles
                         pnmn = np.real(mom[:, pol[0], nni, mmi]
-                                * mom[:, pol[1], mmi, nni])
-                        # Factor 2 is due for area of rectangles 
+                                       * mom[:, pol[1], mmi, nni])
+                        # Factor 2 is due for area of rectangles
                         Fval = -1j * pnmn * (f_n[:, nni] - f_n[:, mmi]) \
                             / (E_n[:, mmi] - E_n[:, nni]) * dA / 2.0
                         Eval = E_n[:, mmi] - E_n[:, nni]
@@ -657,33 +517,6 @@ def calculate_df(
             # Print the progress
             count += 1
             print_progressbar(count, ncount)
-
-    # elif intmethod == 'tri2':
-    #     w_l = w_lc.real
-    #     # Extend the frequency list for Hilbert transform
-    #     w_l = np.hstack((w_l, w_l[-1] + w_l))
-    #     nw = 2 * nw
-    #     nb2 = nf - ni
-    #     suml = np.zeros((nw), dtype=complex)
-    #     bz2ibz = calc.get_bz_to_ibz_map()
-
-    #     # Loop over bands
-    #     with timer('Sum over bands'):
-    #         for nni in blist:
-    #             for mmi in blist:
-    #                 fnm = f_nk[:, nni]-f_nk[:, mmi]
-    #                 Emn = E_nk[:, mmi]-E_nk[:, nni]
-    #                 zeroind = np.abs(Emn) < Etol
-    #                 Emn[zeroind] = 1
-    #                 fnm[zeroind] = 0
-    #                 pnmn = np.real(moms[:, pol[0], nni, mmi]
-    #                                * moms[:, pol[1], mmi, nni])
-    #                 weight = fnm*pnmn/Emn
-    #                 Emn[zeroind] = 0
-    #                 suml += linear_tetrahedron_integration(calc.atoms.cell, 
-    #                                                np.reshape(Emn[bz2ibz], (kd.N_c[0], kd.N_c[1])),
-    #                                                w_l,
-    #                                                weight)
 
     else:
         parprint('Integration mode ' + intmethod + ' not implemented.')
@@ -786,7 +619,7 @@ def calculate_shg_rvg(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
+    nf = nb + nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -900,7 +733,8 @@ def calculate_shg_rvg(
                                            np.transpose(wfs_nm[:, 1::2]))
 
                         # Get the soc correction to momentum
-                        p_vmm = socscale * get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf)
+                        p_vmm = socscale * \
+                            get_soc_momentum(dVL_avii, Pt_kasni[k_c], ni, nf)
                         mom2[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
                                            np.transpose(wfs_nm))
                     mom = mom2
@@ -923,7 +757,6 @@ def calculate_shg_rvg(
                         # Useful variables
                         fnm = f_n[nni] - f_n[mmi]
                         Emn = E_n[mmi] - E_n[nni] + fnm * eshift
-                        
 
                         # Comute the 2-band term
                         if np.abs(Emn) > Etol and np.abs(fnm) > ftol:
@@ -1042,13 +875,13 @@ def calculate_shg_rvg(
         itype = 1
         # tri1=[0, 1, 2]
         # tri2=[1, 2, 3]
-        tri1=[0, 1, 3]
-        tri2=[0, 2, 3]
+        tri1 = [0, 1, 3]
+        tri2 = [0, 2, 3]
         w_l = w_lc.real
 
         # Initialize variables
         # moms = moms_new
-        sum2b = np.zeros((nw), dtype=float)
+        # sum2b = np.zeros((nw), dtype=float)
         assert not addsoc, 'Triangular method is only implemented without SOC.'
 
         # Distribute the k points between cores
@@ -1099,7 +932,7 @@ def calculate_shg_rvg(
                 rnm_der = np.zeros((4, 3, 3, nb2, nb2), dtype=complex)
                 for ii in range(4):
                     tmp1 = (np.tile(E_n[ii, :, None], (1, nb2))
-                           - np.tile(E_n[ii, None, :], (nb2, 1)))
+                            - np.tile(E_n[ii, None, :], (nb2, 1)))
                     zeroind = np.abs(tmp1) < Etol
                     for aa in set(pol):
                         for bb in set(pol):
@@ -1130,7 +963,8 @@ def calculate_shg_rvg(
                         fnm = f_n[:, nni] - f_n[:, mmi]
 
                         # Comute the 2-band term
-                        if np.any(np.abs(fnm) > ftol) and np.all(np.abs(Emn) > Etol):
+                        if np.any(np.abs(fnm) > ftol) and np.all(
+                                np.abs(Emn) > Etol):
                             pnml = (mom[:, pol[0], nni, mmi]
                                     * (mom[:, pol[1], mmi, nni]
                                        * (mom[:, pol[2], mmi, mmi]
@@ -1142,11 +976,13 @@ def calculate_shg_rvg(
                             Fval += fnm * np.imag(pnml) / (Emn**4)
                             # Use the triangle method for integration
                             tmp1 = (triangle_int(Fval, Emn,
-                                                w_l, itype=itype, 
-                                                tri1=tri1, tri2=tri2)) * dA / 2
+                                                 w_l, itype=itype,
+                                                 tri1=tri1,
+                                                 tri2=tri2)) * dA / 2
                             tmp2 = -16 * (triangle_int(Fval, Emn,
-                                                2 * w_l, itype=itype, 
-                                                tri1=tri1, tri2=tri2)) * dA / 2
+                                                       2 * w_l, itype=itype,
+                                                       tri1=tri1,
+                                                       tri2=tri2)) * dA / 2
                             sum2b_d += 1j * (tmp1 + tmp2)
 
                         # Loop over the last band index
@@ -1155,7 +991,8 @@ def calculate_shg_rvg(
                             fml = f_n[:, mmi] - f_n[:, lli]
 
                             # Do not do zero calculations
-                            if np.all(np.abs(fnl) < ftol) and np.all(np.abs(fml) < ftol):
+                            if np.all(np.abs(fnl) < ftol) and np.all(
+                                    np.abs(fml) < ftol):
                                 continue
 
                             # Compute the susceptibility with 1/w form
@@ -1171,21 +1008,25 @@ def calculate_shg_rvg(
                             # Compute the divergence-free terms
                             ftermD = 0
                             if np.all(np.abs(Emn) > Etol):
-                                Fval = pnml / Emn**3 * (fnl / (Emn - 2 * Eln) + fml / (Emn - 2 * Eml))
+                                Fval = pnml / Emn**3 * \
+                                    (fnl / (Emn - 2 * Eln)
+                                     + fml / (Emn - 2 * Eml))
                                 ftermD += 16 * (triangle_int(Fval, Emn,
-                                                2 * w_l, itype=itype, 
-                                                tri1=tri1, tri2=tri2))
+                                                             2 * w_l,
+                                                             itype=itype,
+                                                             tri1=tri1,
+                                                             tri2=tri2))
                             if np.all(np.abs(Eln) > Etol):
                                 Fval = fnl * pnml / (Eln**3 * (2 * Eln - Emn))
                                 ftermD += (triangle_int(Fval, Eln,
-                                           w_l, itype=itype, 
-                                           tri1=tri1, tri2=tri2))  
+                                                        w_l, itype=itype,
+                                                        tri1=tri1, tri2=tri2))
                             if np.all(np.abs(Eml) > Etol):
                                 Fval = fml * pnml / (Eml**3 * (2 * Eml - Emn))
                                 ftermD += (triangle_int(Fval, Eml,
-                                           w_l, itype=itype, 
-                                           tri1=tri1, tri2=tri2))
-                                
+                                                        w_l, itype=itype,
+                                                        tri1=tri1, tri2=tri2))
+
                                 sum2b_D += 1j * ftermD * dA / 2
             # Print the progress
             count += 1
@@ -1302,7 +1143,7 @@ def calculate_shg_rlg(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
+    nf = nb + nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -1324,9 +1165,6 @@ def calculate_shg_rlg(
         else:
             E_nk = None
             f_nk = None
-    
-    # Find the neighboring points
-    # nei_ind, psigns, q_vecs = find_neighbors(kd, qind=[[1, 0, 0], [0, 1, 0]])
 
     # if world.rank == 0:
     #     # u_knn = np.load('rot_{}.npy'.format(basename))
@@ -1335,7 +1173,7 @@ def calculate_shg_rlg(
     # else:
     #     u_knn = None
     #     u_knn_0 = None
-    #     u_knn_1 = None       
+    #     u_knn_1 = None
     # # u_knn = broadcast(u_knn)
     # u_knn_0 = broadcast(u_knn_0)
     # u_knn_1 = broadcast(u_knn_1)
@@ -1395,61 +1233,6 @@ def calculate_shg_rlg(
     if intmethod == 'no':
 
         u_knn = None
-        # if world.rank == 0:
-        #     u_knn = np.load('rot_{}.npy'.format(basename))
-        # else:
-        #     u_knn = None
-        # u_knn = broadcast(u_knn)
-        # if world.rank == 0:
-        #     for ik in range(nk):
-        #         u_nn = np.dot(u_knn[ik].T, np.arange(0, nb)).astype(int)
-        #         E_nk[ik] = E_nk[ik][u_nn]
-        #         f_nk[ik] = f_nk[ik][u_nn]
-        #         for v in range(3):
-        #             moms[ik, v] = moms[ik, v][np.ix_(u_nn, u_nn)]
-
-        # with timer('Change the order of bands'):
-        #     if world.rank == 0:
-        #         # u_knn = np.load('rot_{}.npy'.format(basename))
-        #         moms_new = np.zeros((nk, 3, nb, nb), complex)
-        #         for ik in range(nk):
-        #             u_nn = np.dot(u_knn[ik].T, np.arange(0, nb)).astype(int)
-        #             E_nk[ik] = E_nk[ik][u_nn]
-        #             f_nk[ik] = f_nk[ik][u_nn]
-        #             for v in range(3):
-        #                 moms[ik, v] = moms[ik, v][np.ix_(u_nn, u_nn)]
-                    # E_nk[ik] = np.dot(E_nk[ik].T, u_knn[ik])
-                    # f_nk[ik] = np.dot(f_nk[ik].T, u_knn[ik])
-                    # for v in range(3):
-                    #     moms[ik, v] = np.dot(u_knn[ik].T, np.dot(moms[ik, v], u_knn[ik]))
-        # from mpl_toolkits.mplot3d import Axes3D
-        # from matplotlib import cm
-        # fig = plt.figure()
-        # ax = fig.gca(projection='3d')
-        # ax.plot_surface(np.arange(0, kd.N_c[0]), np.arange(0, kd.N_c[1]), E_nk[kd.bz2ibz_k, 14].reshape(kd.N_c[0], kd.N_c[1]),
-        #                 cmap=cm.coolwarm, linewidth=0, antialiased=False)
-        # # plt.tight_layout()
-        # fig.savefig('mat.png', dpi=300)
-        # plt.close()
-        # if world.rank == 0:
-        #     N_c = kd.N_c
-        #     kp0 = np.arange(0, nk, N_c[1])
-        #     kp0[-1] += -int(N_c[1]/2-1)
-        #     kp0 -= 2
-        #     kp0 = np.delete(kp0, [0, -1])
-        #     # kp0 = np.arange(21, 59)+2*38
-        #     Enew_kn = np.array([E_nk[ik][np.dot(u_knn_0[ik].T, np.arange(0, nb)).astype(int)] for ik in kp0])
-        #     # Enew_kn = np.array([np.dot(u_knn[ik].T, E_nk[ik]) for ik in kp0])
-        #     plt.plot(np.arange(0, len(kp0)), Enew_kn[:, 8:18])
-        #     plt.tight_layout()
-        #     plt.savefig('mat.png', dpi=300)
-        #     plt.close()
-        #     plt.plot(np.arange(0, len(kp0)), E_nk[kp0, 8:18], '--')
-        #     # plt.ylim([0, 5])
-        #     plt.tight_layout()
-        #     plt.savefig('mat2.png', dpi=300)
-        #     plt.close()
-
         # Distribute the k points between cores
         with timer('k-info distribution'):
             k_info = distribute_data(
@@ -1459,7 +1242,7 @@ def calculate_shg_rlg(
         count = 0
         ncount = len(k_info)
         print_progressbar(count, ncount)
-        sum_d = np.zeros((3, 3), complex)
+        # sum_d = np.zeros((3, 3), complex)
 
         # Loop over k points
         for k_c, data_k in k_info.items():
@@ -1491,8 +1274,8 @@ def calculate_shg_rlg(
 
                         # Get the soc correction to momentum
                         p_vmm = socscale * \
-                                get_soc_momentum(dVL_avii, Pt_kasni[k_c],
-                                                 ni, nf)
+                            get_soc_momentum(dVL_avii, Pt_kasni[k_c],
+                                             ni, nf)
                         mom2[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
                                            np.transpose(wfs_nm))
                     mom = mom2
@@ -1523,29 +1306,45 @@ def calculate_shg_rlg(
                     for aa in set(pol):
                         for bb in set(pol):
                             tmp = (r_nm[aa] * np.transpose(D_nm[bb])
-                                + r_nm[bb] * np.transpose(D_nm[aa])
-                                + 1j * np.dot(r_nm[aa], r_nm[bb] * E_nm)
-                                - 1j * np.dot(r_nm[bb] * E_nm, r_nm[aa])) / E_nm
+                                   + r_nm[bb] * np.transpose(D_nm[aa])
+                                   + 1j * np.dot(r_nm[aa], r_nm[bb] * E_nm)
+                                   - 1j * np.dot(r_nm[bb] * E_nm, r_nm[aa])) \
+                                / E_nm
                             tmp[zeroind] = 0
                             rnm_der[aa, bb] = tmp
                             # np.fill_diagonal(rnm_der[aa, bb], 0.0)
                 elif dermethod == 'log':
-                    rd_vvnn = get_derivative(calc, nei_ind[:, k_c], q_vecs, ni+blist, ovth=0.5, u_knn=u_knn, timer=timer, psigns=psigns[:, k_c])
-                    scale = (_me*(Bohr*1e-10)**2*_e/_hbar**2)
+                    # Find the neighboring points
+                    nei_ind, psigns, q_vecs = find_neighbors(kd,
+                                                             qind=[[1, 0, 0],
+                                                                   [0, 1, 0]])
+                    rd_vvnn = get_derivative(calc,
+                                             nei_ind[:,
+                                                     k_c],
+                                             q_vecs,
+                                             ni + blist,
+                                             ovth=0.5,
+                                             u_knn=u_knn,
+                                             timer=timer,
+                                             psigns=psigns[:,
+                                                           k_c])
+                    scale = (_me * (Bohr * 1e-10)**2 * _e / _hbar**2)
                     for v1 in range(3):
                         for v2 in range(3):
-                            rnm_der[v1, v2] = r_nm[v2]*(rd_vvnn[v1, v2]*(-1)*scale-1*D_nm[v1]/E_nm)
+                            rnm_der[v1,
+                                    v2] = - r_nm[v2] * (rd_vvnn[v1, v2] * scale
+                                                        + D_nm[v1] / E_nm)
                 else:
-                    parprint('Derivative mode ' + dermethod + ' not implemented.')
+                    parprint(
+                        'Derivative mode ' +
+                        dermethod +
+                        ' not implemented.')
                     raise NotImplementedError
 
             # Loop over bands
             with timer('Sum over bands'):
                 for nni in blist:
                     for mmi in blist:
-                        # for v1 in range(3):
-                        #     for v2 in range(3):
-                        #         sum_d[v1, v2] += (f_n[nni] - f_n[mmi])*(rd_vvnn[v1, v2, nni, mmi]*(-1)*scale*mom[v2, nni, mmi]).real*w_k[k_c]
                         # Remove the non important term using time-reversal
                         if mmi <= nni:
                             continue
@@ -1643,8 +1442,8 @@ def calculate_shg_rlg(
     elif intmethod == 'tri':
         # Useful variable
         itype = 1
-        tri1=[0, 1, 3]
-        tri2=[0, 2, 3]
+        tri1 = [0, 1, 3]
+        tri2 = [0, 2, 3]
         w_l = w_lc.real
         nb2 = nf - ni
 
@@ -1656,7 +1455,8 @@ def calculate_shg_rlg(
         #             E_nk[ik] = np.dot(E_nk[ik].T, u_knn[ik])
         #             f_nk[ik] = np.dot(f_nk[ik].T, u_knn[ik])
         #             for v in range(3):
-        #                 moms[ik, v] = np.dot(u_knn[ik].T, np.dot(moms[ik, v], u_knn[ik]))
+        #                 moms[ik, v] = np.dot(u_knn[ik].T,
+        #                                      np.dot(moms[ik, v], u_knn[ik]))
 
         # Initialize variables
         assert not addsoc, 'Triangular method is only implemented without SOC.'
@@ -1737,7 +1537,9 @@ def calculate_shg_rlg(
                                 * (rnm_der[:, pol[1], pol[2], mmi, nni]
                                    + rnm_der[:, pol[2], pol[1], mmi, nni])) \
                                 / Emn
-                            val = triangle_int(Fval, Emn, 2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            val = triangle_int(
+                                Fval, Emn, 2 * w_l, itype=itype,
+                                tri1=tri1, tri2=tri2)
                             # Term 2
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[1], mmi, nni]
@@ -1745,7 +1547,10 @@ def calculate_shg_rlg(
                                 + r_nm[:, pol[2], mmi, nni]
                                 * rnm_der[:, pol[1], pol[0], nni, mmi]) \
                                 / Emn
-                            val += triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            val += triangle_int(Fval, Emn, w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
                             # Term 3
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[0], nni, mmi]
@@ -1754,9 +1559,16 @@ def calculate_shg_rlg(
                                    + r_nm[:, pol[2], mmi, nni]
                                    * D_nm[:, pol[1], mmi, nni])) \
                                 / Emn**2
-                            val += triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            val += triangle_int(Fval, Emn, w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
                             val += -4 * \
-                                triangle_int(Fval, Emn, 2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                triangle_int(
+                                    Fval, Emn, 2 * w_l,
+                                    itype=itype,
+                                    tri1=tri1,
+                                    tri2=tri2)
                             # Term 4
                             Fval = fnm * np.imag(
                                 r_nm[:, pol[1], mmi, nni]
@@ -1765,7 +1577,11 @@ def calculate_shg_rlg(
                                 * rnm_der[:, pol[0], pol[1], nni, mmi]) \
                                 / (2 * Emn)
                             val += -1 * \
-                                triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                triangle_int(
+                                    Fval, Emn, w_l,
+                                    itype=itype,
+                                    tri1=tri1,
+                                    tri2=tri2)
                             sum2b_B += 1j * val * dA / 4.0  # 1j for imag
 
                             # Three band term
@@ -1781,7 +1597,7 @@ def calculate_shg_rlg(
                             #         / (Eln - Eml)
                             #     Fval = 2 * fnm * rnml * dA / 4.0
                             #     sum2b_A += triangle_int(Fval, Emn,
-                            #                             2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            # 2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
 
                             #     rnml = np.real(
                             #         r_nm[:, pol[0], lli, mmi]
@@ -1799,13 +1615,13 @@ def calculate_shg_rlg(
                             #         / (Emn + Eml)
                             #     Fval = fnm * rnml * dA / 4.0
                             #     sum2b_A += triangle_int(Fval, Emn,
-                            #                             w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            # w_l, itype=itype, tri1=tri1, tri2=tri2)
                         for lli in blist:
                             fnl = f_n[:, nni] - f_n[:, lli]
                             fml = f_n[:, mmi] - f_n[:, lli]
                             Eml = E_nm[:, mmi, lli] - fml * eshift
                             Eln = E_nm[:, lli, nni] + fnl * eshift
-                            
+
                             # Do not do zero calculations
                             if (np.all(np.abs(fnm)) < ftol
                                     and np.all(np.abs(fnl)) < ftol
@@ -1823,15 +1639,24 @@ def calculate_shg_rlg(
                             if np.any(np.abs(fnm)) > ftol:
                                 Fval = 2 * fnm * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Emn,
-                                                        2 * w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                                        2 * w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
                             if np.any(np.abs(fnl)) > ftol:
                                 Fval = -1 * fnl * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Eln,
-                                                        w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                                        w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
                             if np.any(np.abs(fml)) > ftol:
                                 Fval = fml * rnml * dA / 4.0
                                 sum2b_A += triangle_int(Fval, Eml,
-                                                        w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                                        w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
 
             # Print the progress
             count += 1
@@ -2003,7 +1828,7 @@ def get_shg_polarized(
                     pte + chipol[1, :, ind] * ptm
                 chipol_new[1, :, ind] = -chipol[0, :, ind] * \
                     ptm + chipol[1, :, ind] * pte
-            
+
         else:
             parprint('Output basis should be either "xyz" or "pol"')
             raise NotImplementedError
@@ -2075,7 +1900,7 @@ def calculate_shift_current(
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
+    nf = nb + nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -2146,58 +1971,17 @@ def calculate_shift_current(
         # Initialize the outputs
         w_l = w_lc.real
         sum2b = np.zeros((nw), complex)
-        
+
         u_knn = None
-        # if world.rank == 0:
-        #     u_knn = np.load('rot_{}.npy'.format(basename))
-        # u_knn = broadcast(u_knn)
-        # if world.rank == 0:
-        #     for ik in range(nk):
-        #         u_nn = np.dot(u_knn[ik].T, np.arange(0, nb)).astype(int)
-        #         E_nk[ik] = E_nk[ik][u_nn]
-        #         f_nk[ik] = f_nk[ik][u_nn]
-        #         for v in range(3):
-        #             moms[ik, v] = moms[ik, v][np.ix_(u_nn, u_nn)]
 
-        #     N_c = kd.N_c
-        #     kp0 = np.arange(N_c[1], nk, N_c[1])
-        #     kp0[-1] += -int(N_c[1]/2-1)
-        #     kp0 += 1
-        #     kp_kc = kp0
-        #     E_kn = calc.band_structure().todict()['energies'][0]
-        #     Enew_kn = np.array([np.dot(u_knn[ik].T, E_kn[ik]) for ik in kp_kc])
-            
-        #     plt.plot(np.arange(0, len(kp_kc)), Enew_kn[:, 8:18])
-        #     plt.tight_layout()
-        #     plt.savefig('mat.png', dpi=300)
-        #     plt.close()
-        #     plt.plot(np.arange(0, len(kp_kc)), E_kn[kp_kc, 8:18], '--')
-        #     plt.tight_layout()
-        #     plt.savefig('mat2.png', dpi=300)
-        #     plt.close()
-
-        # from mpl_toolkits.mplot3d import Axes3D
-        # from matplotlib import cm
-        # fig = plt.figure()
-        # ax = fig.gca(projection='3d')
-        # ax.plot_surface(np.arange(0, kd.N_c[0]), np.arange(0, kd.N_c[1]), E_nk[kd.bz2ibz_k, 12].reshape(kd.N_c[0], kd.N_c[1]),
-        #                 cmap=cm.coolwarm, linewidth=0, antialiased=False)
-        # fig.savefig('mat.png', dpi=300)
-        # plt.close()
-        
         # Find the neighboring points
-        nei_ind, psigns, q_vecs = find_neighbors(kd, qind=[[1, 0, 0], [0, 1, 0]])
-        nei_ind0, psigns, q_vecs0 = find_neighbors(kd, qind=[[1, 0, 0], [-1, 0, 0]])
-        nei_ind1, psigns, q_vecs1 = find_neighbors(kd, qind=[[0, 1, 0], [0, -1, 0]])
-        # if world.rank == 0:
-        #     u_knn0 = np.load('rot_{}_0.npy'.format(basename))
-        #     u_knn1 = np.load('rot_{}_1.npy'.format(basename))
-        # else:
-        #     u_knn0 = None
-        #     u_knn1 = None            
-        # u_knn0 = broadcast(u_knn0)
-        # u_knn1 = broadcast(u_knn1)
-        # get_derivative_new(calc, blist, ovth=0.9, out_name='der.npy', timer=None)
+        if dermethod == 'log':
+            nei_ind, psigns, q_vecs = find_neighbors(
+                kd, qind=[[1, 0, 0], [0, 1, 0]])
+            nei_ind0, psigns, q_vecs0 = find_neighbors(
+                kd, qind=[[1, 0, 0], [-1, 0, 0]])
+            nei_ind1, psigns, q_vecs1 = find_neighbors(
+                kd, qind=[[0, 1, 0], [0, -1, 0]])
 
         # Distribute the k points between cores
         with timer('k-info distribution'):
@@ -2261,30 +2045,38 @@ def calculate_shift_current(
                     for aa in pol:
                         for bb in pol:
                             tmp = (r_nm[aa] * np.transpose(D_nm[bb])
-                                + r_nm[bb] * np.transpose(D_nm[aa])
-                                + 1j * np.dot(r_nm[aa], r_nm[bb] * E_nm)
-                                - 1j * np.dot(r_nm[bb] * E_nm, r_nm[aa])) / E_nm
+                                   + r_nm[bb] * np.transpose(D_nm[aa])
+                                   + 1j * np.dot(r_nm[aa], r_nm[bb] * E_nm)
+                                   - 1j * np.dot(r_nm[bb] * E_nm, r_nm[aa])) \
+                                / E_nm
                             tmp[zeroind] = 0
                             rnm_der[aa, bb] = tmp
                             # np.fill_diagonal(rnm_der[aa, bb], 0.0)
                 elif dermethod == 'log':
-                    # rd_vvnn = np.zeros((3, 3, nb2, nb2), complex)
-                    # rd_vvnn[0] = get_derivative_full(calc, nei_ind0[:, k_c], q_vecs0, ni+blist, ovth=0.5, timer=timer)
-                    # rd_vvnn[1] = get_derivative_full(calc, nei_ind1[:, k_c], q_vecs1, ni+blist, ovth=0.5, timer=timer)
-                    # icell_cv = (2 * np.pi) * np.linalg.inv(calc.wfs.gd.cell_cv).T
-                    # rd_vvnn = np.einsum('ij,jknm->iknm', np.linalg.inv(icell_cv), rd_vvnn)
-                    # parprint(np.linalg.inv(icell_cv))
-                    # get_derivative_new(calc, blist, timer=timer)
-
-                    rd_vvnn2 = get_derivative(calc, nei_ind[:, k_c], q_vecs, ni+blist, ovth=0.5, u_knn=u_knn, timer=timer, psigns=psigns[:, k_c])
+                    rd_vvnn2 = get_derivative(calc,
+                                              nei_ind[:,
+                                                      k_c],
+                                              q_vecs,
+                                              ni + blist,
+                                              ovth=0.5,
+                                              u_knn=u_knn,
+                                              timer=timer,
+                                              psigns=psigns[:,
+                                                            k_c])
                     rd_vvnn = np.zeros((3, 3, nb2, nb2), complex)
-                    scale = (_me*(Bohr*1e-10)**2*_e/_hbar**2)#/Bohr
+                    scale = (_me * (Bohr * 1e-10)**2 * _e / _hbar**2)  # /Bohr
                     for v1 in range(3):
                         for v2 in range(3):
-                            rd_vvnn[v1, v2][np.ix_(ni+blist, ni+blist)] = rd_vvnn2[v1, v2]
-                            rnm_der[v1, v2] = r_nm[v2]*(rd_vvnn[v1, v2]*(-1)*scale-D_nm[v1]/E_nm)
+                            rd_vvnn[v1, v2][np.ix_(
+                                ni + blist, ni + blist)] = rd_vvnn2[v1, v2]
+                            rnm_der[v1,
+                                    v2] = - r_nm[v2] * (rd_vvnn[v1, v2] * scale
+                                                        + D_nm[v1] / E_nm)
                 else:
-                    parprint('Derivative mode ' + dermethod + ' not implemented.')
+                    parprint(
+                        'Derivative mode ' +
+                        dermethod +
+                        ' not implemented.')
                     raise NotImplementedError
 
                 # plt.matshow(np.abs(rnm_der[0, 0]), vmin=0, vmax=0.1)
@@ -2295,7 +2087,7 @@ def calculate_shift_current(
                 # plt.tight_layout()
                 # plt.savefig('mat2.png', dpi=300)
                 # plt.close()
-                
+
             # if np.any(np.abs(r_nm)>10):
             #     aa=1
             # Loop over bands
@@ -2315,8 +2107,10 @@ def calculate_shift_current(
                                 * rnm_der[pol[0], pol[2], nni, mmi]
                                 + r_nm[pol[2], mmi, nni]
                                 * rnm_der[pol[0], pol[1], nni, mmi]) \
-                                * (eta / (pi * ((w_l - Emn) ** 2 + eta ** 2)) - eta / (pi * ((w_l + Emn) ** 2 + eta ** 2)))
-                            sum2b += fnm * tmp * w_k[k_c] 
+                                * (eta / (pi * ((w_l - Emn) ** 2 + eta ** 2))
+                                   - eta / (pi * ((w_l + Emn) ** 2
+                                                  + eta ** 2)))
+                            sum2b += fnm * tmp * w_k[k_c]
 
                 # Print the progress
                 count += 1
@@ -2327,49 +2121,9 @@ def calculate_shift_current(
         itype = 1
         # tri1=[0, 1, 2]
         # tri2=[1, 2, 3]
-        tri1=[0, 1, 3]
-        tri2=[0, 2, 3]
+        tri1 = [0, 1, 3]
+        tri2 = [0, 2, 3]
         w_l = w_lc.real
-        # w_l = np.hstack((w_l, w_l[-1]+w_l))
-        # nw = 2*nw
-        # with timer('Change the order of bands'):
-        #     if world.rank == 0:
-        #         u_knn = np.load('rot_{}.npy'.format(basename))
-        #         moms_new = np.zeros((nk, 3, nb, nb), complex)
-        #         for ik in range(nk):
-        #             E_nk[ik] = np.dot(E_nk[ik].T, u_knn[ik])
-        #             f_nk[ik] = np.dot(f_nk[ik].T, u_knn[ik])
-        #             for v in range(3):
-        #                 moms[ik, v] = np.dot(u_knn[ik].T, np.dot(moms[ik, v], u_knn[ik]))
-
-        
-        # N_c = kd.N_c
-        # kp0 = np.arange(0, nk, N_c[1])
-        # kp0[-1] += -int(N_c[1]/2-1)
-        # kp_jkc = []
-        # for k0 in kp0:
-        #     kp_jkc.append(np.arange(k0, k0+int(N_c[1]/2+1)))
-        #     if k0 != 0 and k0 != nk-int(N_c[1]/2+1):
-        #         kp_jkc.append(np.arange(k0, k0-int(N_c[1]/2), -1))
-        # parprint('There are {} k paths in the BZ.'.format(len(kp_jkc)))
-
-        # bi = 5
-        # bf = 20
-        # sel_kp = kp_jkc[1]
-        # sel_kp = kp0
-        # plt.plot(np.arange(0, len(sel_kp)), E_nk[sel_kp, :])
-        # # plt.ylim([-2, 0])
-        # plt.tight_layout()
-        # plt.savefig('mat.png', dpi=300)
-        # plt.subplot(1, 2, 1)
-        # plt.plot(np.arange(0, len(sel_kp)), np.abs(moms[sel_kp, 0, 11, bi:bf])**2+np.abs(moms[sel_kp, 1, 11, bi:bf])**2+np.abs(moms[sel_kp, 2, 11, bi:bf])**2)
-        # # plt.yscale('log')
-        # # plt.ylim([0, 0.15])
-        # plt.subplot(1, 2, 2)
-        # plt.plot(np.arange(0, len(sel_kp)), np.abs(moms_new[sel_kp, 0, 11, bi:bf])**2+np.abs(moms_new[sel_kp, 1, 11, bi:bf])**2+np.abs(moms_new[sel_kp, 2, 11, bi:bf])**2)
-        # # plt.ylim([0, 0.15])
-        # plt.tight_layout()
-        # plt.savefig('mat2.png', dpi=300)
 
         # Initialize variables
         # moms = moms_new
@@ -2424,7 +2178,7 @@ def calculate_shift_current(
                 rnm_der = np.zeros((4, 3, 3, nb2, nb2), dtype=complex)
                 for ii in range(4):
                     tmp1 = (np.tile(E_n[ii, :, None], (1, nb2))
-                           - np.tile(E_n[ii, None, :], (nb2, 1)))
+                            - np.tile(E_n[ii, None, :], (nb2, 1)))
                     zeroind = np.abs(tmp1) < Etol
                     for aa in set(pol):
                         for bb in set(pol):
@@ -2458,12 +2212,16 @@ def calculate_shift_current(
 
                             # Use the triangle method for integration
                             tmp = (triangle_int(Fval, Emn,
-                                                w_l, itype=itype, 
-                                                tri1=tri1, tri2=tri2)) * dA / 2
+                                                w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)) * dA / 2
                             tmp2 = (triangle_int(Fval, -Emn,
-                                                w_l, itype=itype, 
-                                                tri1=tri1, tri2=tri2)) * dA / 2
-                            sum2b += tmp.real-tmp2.real
+                                                 w_l,
+                                                 itype=itype,
+                                                 tri1=tri1,
+                                                 tri2=tri2)) * dA / 2
+                            sum2b += tmp.real - tmp2.real
 
                 # Print the progress
                 count += 1
@@ -2479,7 +2237,7 @@ def calculate_shift_current(
     dim_init = -1j * gspin * _e**3 / (2 * _hbar * (2.0 * pi)**3)
     dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
         (_e**4 * (Bohr * 1e-10)**3) * (_hbar / _me)**3 * bz_vol
-    dim_SI = 1j * dim_init * dim_sum # 1j due to imag in loop
+    dim_SI = 1j * dim_init * dim_sum  # 1j due to imag in loop
     if intmethod == 'no':
         sigma2 = dim_SI * sum2b
         sigma2b = sigma2
@@ -2493,7 +2251,7 @@ def calculate_shift_current(
                                          + eta ** 2)), w_l)
             sigma2 = dim_SI * sum2b_conv
             sigma2b = dim_SI * sum2b
-    # A multi-col output 
+    # A multi-col output
     # nw = int(nw / 2)
     # sigma2 = sigma2[nw:] - sigma2[nw - 1::-1]
     # sigma2b = sigma2b[nw:] - sigma2b[nw - 1::-1]
@@ -2518,8 +2276,9 @@ def calculate_shift_current(
 # length gauge, reqularized version
 
 
-def calculate_eop_rlg(
-        freqs=1.0,
+def calculate_soe_rlg(
+        freqs1=1.0,
+        freqs2=1.0,
         eta=0.05,
         pol='yyy',
         eshift=0.0,
@@ -2537,7 +2296,8 @@ def calculate_eop_rlg(
     Calculate EOP spectrum in length gauge (nonmagnetic semiconductors)
 
     Input:
-        freqs           Excitation frequency array (a numpy array or list)
+        freqs1          Excitation frequency 1 array (a numpy array or list)
+        freqs2          Excitation frequency 2 array (a numpy array or list)
         eta             Broadening (a single number or an array)
         pol             Tensor element
         eshift          scissors shift (default 0)
@@ -2551,7 +2311,7 @@ def calculate_eop_rlg(
         momname         Suffix for the momentum file (default gs.gpw)
         basename        Suffix for the gs file (default gs.gpw)
     Output:
-        eop.npy          Numpy array containing spectrum and frequencies
+        soe.npy         Numpy array containing spectrum and frequencies
     """
 
     timer = Timer()
@@ -2564,15 +2324,13 @@ def calculate_eop_rlg(
         calc, moms = load_gsmoms(basename, momname)
 
     # Useful variables
-    freqs = np.array(freqs)
-    nw = len(freqs)
-    w_lc = freqs + 1j * eta
-    # w_lc = np.hstack((-w_lc[-1::-1], w_lc))
-    # nw = 2 * nw
+    freqs1 = np.array(freqs1)
+    freqs2 = np.array(freqs2)
+    nw = len(freqs1)
     nb, nk, mu, kbT, bz_vol, w_k, kd = set_variables(calc)
     ni = int(ni) if ni is not None else 0
     nf = int(nf) if nf is not None else nb
-    nf = nb+nf if (nf < 0) else nf
+    nf = nb + nf if (nf < 0) else nf
     assert nf <= nb, 'nf should be less than the number of bands ({})'.format(
         nb)
     polstr = pol
@@ -2582,19 +2340,11 @@ def calculate_eop_rlg(
     parprint('First/last bands: {}/{}, Total: {}, k-points: {}/{}'.format(
         ni, nf - 1, nb, len(kd.bzk_kc[:, 0]), nk))
 
-    # x1 = 0.01/1.01
-    # x2 = 1.0-x1
-    # w_lc = 1.01*w_lc
-
-    # x1 = 0.5
-    # x2 = 0.5
-    # w_lc = 2.0*w_lc
-    w1 = freqs + 1j * eta
-    w2 = -0.98*w1
-    w_lc =  w1+w2
-    x1 = w1/w_lc
-    x2 = w2/w_lc
-    
+    w1 = freqs1 + 1j * eta
+    w2 = freqs2 + 1j * eta
+    w_lc = w1 + w2
+    x1 = w1 / w_lc
+    x2 = w2 / w_lc
 
     # Get the energy and fermi levels
     with timer('Get energies and fermi levels'):
@@ -2608,7 +2358,7 @@ def calculate_eop_rlg(
         else:
             E_nk = None
             f_nk = None
-    
+
     # Find the neighboring points
     nei_ind, psigns, q_vecs = find_neighbors(kd, qind=[[1, 0, 0], [0, 1, 0]])
 
@@ -2649,7 +2399,7 @@ def calculate_eop_rlg(
     # Initialize the outputs
     sum2b_A = np.zeros((nw), dtype=np.complex)
     sum2b_B = np.zeros((nw), dtype=np.complex)
-    sum2b_C = np.zeros((nw), dtype=np.complex)
+    # sum2b_C = np.zeros((nw), dtype=np.complex)
     if blist is None:
         blist = list(range(nb2))
     else:
@@ -2673,7 +2423,7 @@ def calculate_eop_rlg(
         count = 0
         ncount = len(k_info)
         print_progressbar(count, ncount)
-        sum_d = np.zeros((3, 3), complex)
+        # sum_d = np.zeros((3, 3), complex)
 
         # Loop over k points
         for k_c, data_k in k_info.items():
@@ -2705,8 +2455,8 @@ def calculate_eop_rlg(
 
                         # Get the soc correction to momentum
                         p_vmm = socscale * \
-                                get_soc_momentum(dVL_avii, Pt_kasni[k_c],
-                                                 ni, nf)
+                            get_soc_momentum(dVL_avii, Pt_kasni[k_c],
+                                             ni, nf)
                         mom2[pp] += np.dot(np.dot(np.conj(wfs_nm), p_vmm[pp]),
                                            np.transpose(wfs_nm))
                     mom = mom2
@@ -2737,20 +2487,34 @@ def calculate_eop_rlg(
                     for aa in set(pol):
                         for bb in set(pol):
                             tmp = (r_nm[aa] * np.transpose(D_nm[bb])
-                                + r_nm[bb] * np.transpose(D_nm[aa])
-                                + 1j * np.dot(r_nm[aa], r_nm[bb] * E_nm)
-                                - 1j * np.dot(r_nm[bb] * E_nm, r_nm[aa])) / E_nm
+                                   + r_nm[bb] * np.transpose(D_nm[aa])
+                                   + 1j * np.dot(r_nm[aa], r_nm[bb] * E_nm)
+                                   - 1j * np.dot(r_nm[bb] * E_nm, r_nm[aa])) \
+                                / E_nm
                             tmp[zeroind] = 0
                             rnm_der[aa, bb] = tmp
                             # np.fill_diagonal(rnm_der[aa, bb], 0.0)
                 elif dermethod == 'log':
-                    rd_vvnn = get_derivative(calc, nei_ind[:, k_c], q_vecs, ni+blist, ovth=0.5, timer=timer, psigns=psigns[:, k_c])
-                    scale = (_me*(Bohr*1e-10)**2*_e/_hbar**2)
+                    rd_vvnn = get_derivative(calc,
+                                             nei_ind[:,
+                                                     k_c],
+                                             q_vecs,
+                                             ni + blist,
+                                             ovth=0.5,
+                                             timer=timer,
+                                             psigns=psigns[:,
+                                                           k_c])
+                    scale = (_me * (Bohr * 1e-10)**2 * _e / _hbar**2)
                     for v1 in range(3):
                         for v2 in range(3):
-                            rnm_der[v1, v2] = r_nm[v2]*(rd_vvnn[v1, v2]*(-1)*scale-D_nm[v1]/E_nm)
+                            rnm_der[v1,
+                                    v2] = - r_nm[v2] * (rd_vvnn[v1, v2] * scale
+                                                        + D_nm[v1] / E_nm)
                 else:
-                    parprint('Derivative mode ' + dermethod + ' not implemented.')
+                    parprint(
+                        'Derivative mode ' +
+                        dermethod +
+                        ' not implemented.')
                     raise NotImplementedError
 
             # Loop over bands
@@ -2765,33 +2529,75 @@ def calculate_eop_rlg(
 
                         # Two band part
                         if np.abs(fnm) > ftol:
-                            iterm = np.imag(r_nm[pol[0], nni, mmi]*(rnm_der[pol[2], pol[1], mmi, nni]/x2+rnm_der[pol[1], pol[2], mmi, nni]/x1))/(Emn*(w_lc - Emn))
+                            iterm = np.imag(
+                                r_nm[pol[0], nni, mmi] *
+                                (rnm_der[pol[2], pol[1], mmi, nni] / x2
+                                 + rnm_der[pol[1], pol[2], mmi, nni] / x1)) \
+                                / (Emn * (w_lc - Emn))
 
-                            iterm += np.imag(r_nm[pol[1], mmi, nni]*rnm_der[pol[2], pol[0], nni, mmi]*x1/x2)/(Emn*(x1*w_lc - Emn))
-                            iterm += np.imag(r_nm[pol[2], mmi, nni]*rnm_der[pol[1], pol[0], nni, mmi]*x2/x1)/(Emn*(x2*w_lc - Emn))
+                            iterm += np.imag(
+                                r_nm[pol[1], mmi, nni] *
+                                rnm_der[pol[2], pol[0], nni, mmi]
+                                * x1 / x2) \
+                                / (Emn * (x1 * w_lc - Emn))
+                            iterm += np.imag(
+                                r_nm[pol[2], mmi, nni] *
+                                rnm_der[pol[1], pol[0], nni, mmi]
+                                * x2 / x1) \
+                                / (Emn * (x2 * w_lc - Emn))
 
-                            iterm -= np.imag(r_nm[pol[0], nni, mmi]*(r_nm[pol[1], mmi, nni]*D_nm[pol[2], mmi, nni]/x2**2+r_nm[pol[2], mmi, nni]*D_nm[pol[1], mmi, nni]/x1**2)) \
+                            iterm -= np.imag(
+                                r_nm[pol[0], nni, mmi] *
+                                (r_nm[pol[1], mmi, nni] *
+                                    D_nm[pol[2], mmi, nni]
+                                    / x2**2
+                                 + r_nm[pol[2], mmi, nni] *
+                                    D_nm[pol[1], mmi, nni]
+                                    / x1**2)) \
                                 / (w_lc - Emn) / Emn**2
 
-                            iterm += np.imag(r_nm[pol[1], mmi, nni]*r_nm[pol[0], nni, mmi]*D_nm[pol[2], mmi, nni])*x1**2/(x2**2*(x1*w_lc-Emn)*Emn**2)
-                            iterm += np.imag(r_nm[pol[2], mmi, nni]*r_nm[pol[0], nni, mmi]*D_nm[pol[1], mmi, nni])*x2**2/(x1**2*(x2*w_lc-Emn)*Emn**2)   
+                            iterm += np.imag(
+                                r_nm[pol[1], mmi, nni] *
+                                r_nm[pol[0], nni, mmi] *
+                                D_nm[pol[2], mmi, nni]) * x1**2 \
+                                / (x2**2 * (x1 * w_lc - Emn) * Emn**2)
+                            iterm += np.imag(
+                                r_nm[pol[2], mmi, nni] *
+                                r_nm[pol[0], nni, mmi] *
+                                D_nm[pol[1], mmi, nni]) * x2**2 \
+                                / (x1**2 * (x2 * w_lc - Emn) * Emn**2)
 
-                            iterm -= np.imag(r_nm[pol[1], mmi, nni]*rnm_der[pol[0], pol[2], nni, mmi])/((x1*w_lc-Emn)*w_lc)
-                            iterm -= np.imag(r_nm[pol[2], mmi, nni]*rnm_der[pol[0], pol[1], nni, mmi])/((x2*w_lc-Emn)*w_lc)
+                            iterm -= np.imag(
+                                r_nm[pol[1], mmi, nni] *
+                                rnm_der[pol[0], pol[2], nni, mmi]) \
+                                / ((x1 * w_lc - Emn) * w_lc)
+                            iterm -= np.imag(
+                                r_nm[pol[2], mmi, nni] *
+                                rnm_der[pol[0], pol[1], nni, mmi]) \
+                                / ((x2 * w_lc - Emn) * w_lc)
 
-                            iterm -= np.imag(r_nm[pol[1], nni, mmi]*r_nm[pol[2], mmi, nni]*D_nm[pol[0], mmi, nni])/((x2*w_lc-Emn)*w_lc**2)
-                            iterm -= np.imag(r_nm[pol[2], nni, mmi]*r_nm[pol[1], mmi, nni]*D_nm[pol[0], mmi, nni])/((x1*w_lc-Emn)*w_lc**2)
+                            iterm -= np.imag(
+                                r_nm[pol[1], nni, mmi] *
+                                r_nm[pol[2], mmi, nni] *
+                                D_nm[pol[0], mmi, nni]) \
+                                / ((x2 * w_lc - Emn) * w_lc**2)
+                            iterm -= np.imag(
+                                r_nm[pol[2], nni, mmi] *
+                                r_nm[pol[1], mmi, nni] *
+                                D_nm[pol[0], mmi, nni]) \
+                                / ((x1 * w_lc - Emn) * w_lc**2)
 
-                            sum2b_B += 1j *fnm * iterm * w_k[k_c] / 2  # 1j imag
+                            sum2b_B += 1j * fnm * iterm * \
+                                w_k[k_c] / 2  # 1j imag
 
                         for lli in blist:
                             fnl = f_n[nni] - f_n[lli]
                             fml = f_n[mmi] - f_n[lli]
                             Eml = E_nm[mmi, lli] - fml * eshift
                             Eln = E_nm[lli, nni] + fnl * eshift
-                            E12 = x1*Eln-x2*Eml
+                            E12 = x1 * Eln - x2 * Eml
                             # E12 = 1.0 if np.abs(E12)<Etol else E12
-                            E21 = x2*Eln-x1*Eml
+                            E21 = x2 * Eln - x1 * Eml
                             # E21 = 1.0 if np.abs(E21)<Etol else E21
 
                             # Do not do zero calculations
@@ -2799,16 +2605,30 @@ def calculate_eop_rlg(
                                     and np.abs(fml) < ftol):
                                 continue
 
-                            rnml1 = np.real(r_nm[pol[0], nni, mmi]*r_nm[pol[1], mmi, lli]*r_nm[pol[2], lli, nni]) 
-                            rnml2 = np.real(r_nm[pol[0], nni, mmi]*r_nm[pol[2], mmi, lli]*r_nm[pol[1], lli, nni])
+                            rnml1 = np.real(
+                                r_nm[pol[0], nni, mmi] *
+                                r_nm[pol[1], mmi, lli] *
+                                r_nm[pol[2], lli, nni])
+                            rnml2 = np.real(
+                                r_nm[pol[0], nni, mmi] *
+                                r_nm[pol[2], mmi, lli] *
+                                r_nm[pol[1], lli, nni])
                             if np.abs(fnm) > ftol:
-                                sum2b_A += fnm / (w_lc - Emn) * (rnml1 / E12 + rnml1 / E21) * w_k[k_c] / 2
+                                sum2b_A += fnm / \
+                                    (w_lc - Emn) * (rnml1 / E12 +
+                                                    rnml1 / E21) * w_k[k_c] / 2
                             if np.abs(fnl) > ftol:
-                                sum2b_A += -x2 * fnl * rnml1 / E12 / (x2*w_lc - Eln) * w_k[k_c] / 2
-                                sum2b_A += -x1 * fnl * rnml2 / E21 / (x1*w_lc - Eln) * w_k[k_c] / 2
+                                sum2b_A += -x2 * fnl * rnml1 / E12 / \
+                                    (x2 * w_lc - Eln) * w_k[k_c] / 2
+                                sum2b_A += -x1 * fnl * rnml2 / E21 / \
+                                    (x1 * w_lc - Eln) * w_k[k_c] / 2
                             if np.abs(fml) > ftol:
-                                sum2b_A += x1 * fml / (x1*w_lc - Eml) * rnml1 / E12 * w_k[k_c] / 2
-                                sum2b_A += x2 * fml / (x2*w_lc - Eml) * rnml2 / E21 * w_k[k_c] / 2
+                                sum2b_A += x1 * fml / \
+                                    (x1 * w_lc - Eml) * \
+                                    rnml1 / E12 * w_k[k_c] / 2
+                                sum2b_A += x2 * fml / \
+                                    (x2 * w_lc - Eml) * \
+                                    rnml2 / E21 * w_k[k_c] / 2
 
                 # Print the progress
                 count += 1
@@ -2816,8 +2636,8 @@ def calculate_eop_rlg(
     elif intmethod == 'tri':
         # Useful variable
         itype = 1
-        tri1=[0, 1, 3]
-        tri2=[0, 2, 3]
+        tri1 = [0, 1, 3]
+        tri2 = [0, 2, 3]
         w_l = w_lc.real
         nb2 = nf - ni
 
@@ -2895,31 +2715,113 @@ def calculate_eop_rlg(
                         # Two band part
                         if np.any(np.abs(fnm)) > ftol:
 
-                            iterm = fnm * np.imag(r_nm[:, pol[0], nni, mmi]*(rnm_der[:, pol[2], pol[1], mmi, nni]/x2+rnm_der[:, pol[1], pol[2], mmi, nni]/x1))/(Emn)
-                            val = triangle_int(iterm, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            iterm = fnm * np.imag(
+                                r_nm[:, pol[0], nni, mmi] *
+                                (rnm_der[:, pol[2], pol[1], mmi, nni] / x2
+                                 + rnm_der[:, pol[1], pol[2], mmi, nni] /
+                                 x1)) / (Emn)
+                            val = triangle_int(
+                                iterm, Emn, w_l,
+                                itype=itype,
+                                tri1=tri1,
+                                tri2=tri2)
 
-                            iterm = fnm * np.imag(r_nm[:, pol[1], mmi, nni]*rnm_der[:, pol[2], pol[0], nni, mmi]*x1/x2)/(Emn)
-                            val += triangle_int(iterm, Emn, x1*w_l, itype=itype, tri1=tri1, tri2=tri2)
-                            iterm = fnm * np.imag(r_nm[:, pol[2], mmi, nni]*rnm_der[:, pol[1], pol[0], nni, mmi]*x2/x1)/(Emn)
-                            val += triangle_int(iterm, Emn, x2*w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            iterm = fnm * np.imag(
+                                r_nm[:, pol[1], mmi, nni] *
+                                rnm_der[:, pol[2], pol[0], nni, mmi] *
+                                x1 / x2) / (Emn)
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x1 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
+                            iterm = fnm * np.imag(
+                                r_nm[:, pol[2], mmi, nni] *
+                                rnm_der[:, pol[1], pol[0], nni, mmi] *
+                                x2 / x1) / (Emn)
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x2 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
 
-                            iterm = -fnm * np.imag(r_nm[:, pol[0], nni, mmi]*(r_nm[:, pol[1], mmi, nni]*D_nm[:, pol[2], mmi, nni]/x2**2+r_nm[:, pol[2], mmi, nni]*D_nm[:, pol[1], mmi, nni]/x1**2))/Emn**2
-                            val += triangle_int(iterm, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            iterm = -fnm * np.imag(
+                                r_nm[:, pol[0], nni, mmi] *
+                                (r_nm[:, pol[1], mmi, nni] *
+                                 D_nm[:, pol[2], mmi, nni] / x2**2
+                                 + r_nm[:, pol[2], mmi, nni] *
+                                 D_nm[:, pol[1], mmi, nni] / x1**2)) / Emn**2
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
 
-                            iterm = fnm * np.imag(r_nm[:, pol[1], mmi, nni]*r_nm[:, pol[0], nni, mmi]*D_nm[:, pol[2], mmi, nni])*x1**2/(x2**2*Emn**2)
-                            val += triangle_int(iterm, Emn, x1*w_l, itype=itype, tri1=tri1, tri2=tri2)
-                            iterm = fnm * np.imag(r_nm[:, pol[2], mmi, nni]*r_nm[:, pol[0], nni, mmi]*D_nm[:, pol[1], mmi, nni])*x2**2/(x1**2*Emn**2) 
-                            val += triangle_int(iterm, Emn, x2*w_l, itype=itype, tri1=tri1, tri2=tri2)
+                            iterm = fnm * np.imag(
+                                r_nm[:, pol[1], mmi, nni] *
+                                r_nm[:, pol[0], nni, mmi] *
+                                D_nm[:, pol[2], mmi, nni]) \
+                                * x1**2 / (x2**2 * Emn**2)
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x1 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
+                            iterm = fnm * np.imag(
+                                r_nm[:, pol[2], mmi, nni] *
+                                r_nm[:, pol[0], nni, mmi] *
+                                D_nm[:, pol[1], mmi, nni]) \
+                                * x2**2 / (x1**2 * Emn**2)
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x2 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2)
 
-                            iterm = -fnm * np.imag(r_nm[:, pol[1], mmi, nni]*rnm_der[:, pol[0], pol[2], nni, mmi])
-                            val += triangle_int(iterm, Emn, x1*w_l, itype=itype, tri1=tri1, tri2=tri2)/(w_l)
-                            iterm = -fnm * np.imag(r_nm[:, pol[2], mmi, nni]*rnm_der[:, pol[0], pol[1], nni, mmi])
-                            val += triangle_int(iterm, Emn, x2*w_l, itype=itype, tri1=tri1, tri2=tri2)/(w_l)
+                            iterm = -fnm * \
+                                np.imag(r_nm[:, pol[1], mmi, nni] *
+                                        rnm_der[:, pol[0], pol[2], nni, mmi])
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x1 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2) / (w_l)
+                            iterm = -fnm * \
+                                np.imag(r_nm[:, pol[2], mmi, nni] *
+                                        rnm_der[:, pol[0], pol[1], nni, mmi])
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x2 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2) / (w_l)
 
-                            iterm = -fnm * np.imag(r_nm[:, pol[1], nni, mmi]*r_nm[:, pol[2], mmi, nni]*D_nm[:, pol[0], mmi, nni])
-                            val += triangle_int(iterm, Emn, x2*w_l, itype=itype, tri1=tri1, tri2=tri2)/(w_l**2)
-                            iterm = -fnm * np.imag(r_nm[:, pol[2], nni, mmi]*r_nm[:, pol[1], mmi, nni]*D_nm[:, pol[0], mmi, nni])
-                            val += triangle_int(iterm, Emn, x1*w_l, itype=itype, tri1=tri1, tri2=tri2)/(w_l**2)
+                            iterm = -fnm * np.imag(
+                                r_nm[:, pol[1], nni, mmi] *
+                                r_nm[:, pol[2], mmi, nni] *
+                                D_nm[:, pol[0], mmi, nni])
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x2 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2) / (w_l**2)
+                            iterm = -fnm * np.imag(
+                                r_nm[:, pol[2], nni, mmi] *
+                                r_nm[:, pol[1], mmi, nni] *
+                                D_nm[:, pol[0], mmi, nni])
+                            val += triangle_int(iterm,
+                                                Emn,
+                                                x1 * w_l,
+                                                itype=itype,
+                                                tri1=tri1,
+                                                tri2=tri2) / (w_l**2)
 
                             sum2b_B += 1j * val * dA / 4.0  # 1j for imag
 
@@ -2928,31 +2830,62 @@ def calculate_eop_rlg(
                             fml = f_n[:, mmi] - f_n[:, lli]
                             Eml = E_nm[:, mmi, lli] - fml * eshift
                             Eln = E_nm[:, lli, nni] + fnl * eshift
-                            E12 = x1*Eln-x2*Eml
-                            E21 = x2*Eln-x1*Eml
-                            
+                            E12 = x1 * Eln - x2 * Eml
+                            E21 = x2 * Eln - x1 * Eml
+
                             # Do not do zero calculations
                             if (np.all(np.abs(fnm)) < ftol
                                     and np.all(np.abs(fnl)) < ftol
                                     and np.all(np.abs(fml)) < ftol):
                                 continue
 
-                            rnml1 = np.real(r_nm[:, pol[0], nni, mmi]*r_nm[:, pol[1], mmi, lli]*r_nm[:, pol[2], lli, nni]) 
-                            rnml2 = np.real(r_nm[:, pol[0], nni, mmi]*r_nm[:, pol[2], mmi, lli]*r_nm[:, pol[1], lli, nni])
+                            rnml1 = np.real(
+                                r_nm[:, pol[0], nni, mmi] *
+                                r_nm[:, pol[1], mmi, lli] *
+                                r_nm[:, pol[2], lli, nni])
+                            rnml2 = np.real(
+                                r_nm[:, pol[0], nni, mmi] *
+                                r_nm[:, pol[2], mmi, lli] *
+                                r_nm[:, pol[1], lli, nni])
                             if np.any(np.abs(fnm) > ftol):
-                                Fval = fnm * (rnml1 / E12 + rnml1 / E21) * dA / 4.0
-                                sum2b_A += triangle_int(Fval, Emn, w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                Fval = fnm * (rnml1 / E12 +
+                                              rnml1 / E21) * dA / 4.0
+                                sum2b_A += triangle_int(Fval,
+                                                        Emn,
+                                                        w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
                             if np.any(np.abs(fnl) > ftol):
                                 Fval = -x2 * fnl * rnml1 / E12 * dA / 4.0
-                                sum2b_A += triangle_int(Fval, Eln, x2*w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                sum2b_A += triangle_int(Fval,
+                                                        Eln,
+                                                        x2 * w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
                                 Fval = -x1 * fnl * rnml2 / E21 * dA / 4.0
-                                sum2b_A += triangle_int(Fval, Eln, x1*w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                sum2b_A += triangle_int(Fval,
+                                                        Eln,
+                                                        x1 * w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
                             if np.any(np.abs(fml) > ftol):
                                 Fval = x1 * fml * rnml1 / E12 * dA / 4.0
-                                sum2b_A += triangle_int(Fval, Eml, x1*w_l, itype=itype, tri1=tri1, tri2=tri2)
+                                sum2b_A += triangle_int(Fval,
+                                                        Eml,
+                                                        x1 * w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
                                 Fval = x2 * fml * rnml2 / E21 * dA / 4.0
-                                sum2b_A += triangle_int(Fval, Eml, x2*w_l, itype=itype, tri1=tri1, tri2=tri2)
-
+                                sum2b_A += triangle_int(Fval,
+                                                        Eml,
+                                                        x2 * w_l,
+                                                        itype=itype,
+                                                        tri1=tri1,
+                                                        tri2=tri2)
 
             # Print the progress
             count += 1
@@ -3002,21 +2935,21 @@ def calculate_eop_rlg(
         # chi2b = chi2b[:, int(nw):] + chi2b[:, nw - 1::-1]
 
         # A multi-col output
-        eop = np.vstack((freqs, chi2, chi2b))
+        soe = np.vstack((freqs1, freqs2, chi2, chi2b))
 
         # Save it to the file
         if outname is None:
-            np.save('shg.npy', eop)
+            np.save('soe.npy', soe)
         else:
-            np.save('{}.npy'.format(outname), eop)
+            np.save('{}.npy'.format(outname), soe)
 
         # Print the timing
         timer.write()
     else:
-        eop = None
+        soe = None
 
-    # Return EOP respnse
-    return eop
+    # Return SOE respnse
+    return soe
 
 # Test the script
 

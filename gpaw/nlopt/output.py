@@ -286,8 +286,8 @@ def is_file_exist(filename):
     return calc_required
 
 
-
-def plot_kfunction(kd, fk, figname='output.png', tsymm='even', dtype='re', clim=None):
+def plot_kfunction(kd, fk, figname='output.png',
+                   tsymm='even', dtype='re', clim=None):
 
     # Useful variables
     if world.rank == 0:
@@ -295,38 +295,6 @@ def plot_kfunction(kd, fk, figname='output.png', tsymm='even', dtype='re', clim=
         N_c = kd.N_c
         kx = np.reshape(kd.bzk_kc[:, 0], (N_c[0], N_c[1]))
         ky = np.reshape(kd.bzk_kc[:, 1], (N_c[0], N_c[1]))
-        # k1 = (2*np.arange(N_c[0])-N_c[0]+1)/(2*N_c[0])+kd.offset_c[0]
-        # k2 = (2*np.arange(N_c[1])-N_c[1]+1)/(2*N_c[1])+kd.offset_c[1]
-        # kx = k1*icell[0, 0]+k2*icell[1, 0]
-        # ky = k1*icell[0, 1]+k2*icell[1, 1]
-        # plt.subplot(2,1,1)
-        # zk = np.reshape(p_nn[1, kd.bz2ibz_k, 13]*psigns, (N_c[0], N_c[1]))
-        # plt.pcolor(kx, ky, zk)
-        # plt.colorbar()
-        # plt.subplot(2,1,2)
-        # zk = np.reshape(scale*dE_vkn2[1, kd.bz2ibz_k, 13]*psigns, (N_c[0], N_c[1]))
-        # plt.pcolor(kx, ky, zk)
-        # plt.colorbar()
-        # plt.tight_layout()
-        # plt.savefig('pnn.png', dpi=300)
-        # plt.clf()
-        # plt.close()
-        # plt.subplot(2,1,1)
-        # zk = np.reshape(sumrule[0, 0, kd.bz2ibz_k, band], (N_c[0], N_c[1]))
-        # ax.pcolor(kx, ky, zk)
-        # plt.clim(-3, 3)
-        # plt.colorbar()
-        # plt.subplot(2,1,2)
-        # zk = np.reshape(dp_vvkn2[0, 0, kd.bz2ibz_k, band], (N_c[0], N_c[1]))
-        # plt.pcolor(kx, ky, zk)
-        # plt.clim(-3, 3)
-        # plt.colorbar()
-        # plt.tight_layout()
-        # if figname == None:
-        #     figname = 'dpnn_band{}'.format()
-        # plt.savefig(figname, dpi=300)
-        # plt.clf()
-        # plt.close()
 
         figW = 6.0
         figH = 4.0
@@ -337,7 +305,7 @@ def plot_kfunction(kd, fk, figname='output.png', tsymm='even', dtype='re', clim=
         if tsymm == 'even':
             zk = np.reshape(fk[kd.bz2ibz_k], (N_c[0], N_c[1]))
         else:
-            zk = np.reshape(fk[kd.bz2ibz_k]*psigns, (N_c[0], N_c[1]))
+            zk = np.reshape(fk[kd.bz2ibz_k] * psigns, (N_c[0], N_c[1]))
         if dtype == 're':
             zk = np.real(zk)
         elif dtype == 'im':
@@ -345,9 +313,9 @@ def plot_kfunction(kd, fk, figname='output.png', tsymm='even', dtype='re', clim=
         elif dtype == 'abs':
             zk = np.abs(zk)
         else:
-            raise 'Error in dtype'   
+            raise 'Error in dtype'
         plt.pcolor(kx, ky, zk)
-        if clim != None:
+        if clim is not None:
             plt.clim(clim)
         plt.colorbar()
 
