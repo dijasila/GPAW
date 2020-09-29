@@ -28,7 +28,7 @@ class WannierFunctions:
 
     def get_function(self, calc: GPAW, n: int) -> Array3D:
         wf = 0.0
-        for m, u in enumerate(self.U_nn[:, n]):
+        for m, u in enumerate(self.U_knn[0][:, n]):
             wf += u * calc.wfs.get_wave_function_array(n=self.n1 + m,
                                                        s=self.spin,
                                                        k=0)

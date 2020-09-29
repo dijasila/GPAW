@@ -25,7 +25,7 @@ class WannierOverlaps:
                  monkhorst_pack_size: Sequence[int],
                  kpoints: Array2D,
                  fermi_level: float,
-                 directions: Dict[Tuple[int, int, int], int],
+                 directions: Dict[Tuple[int, ...], int],
                  overlaps: Array4D,
                  projections: Array3D = None,
                  proj_indices_a: List[List[int]] = None):
@@ -48,18 +48,18 @@ class WannierOverlaps:
 
     def overlap(self,
                 bz_index: int,
-                direction: Tuple[int, int, int]) -> Array2D:
+                direction: Tuple[int, ...]) -> Array2D:
         dindex = self.directions.get(direction)
         if dindex is not None:
             return self._overlaps[bz_index, dindex]
 
         size = self.monkhorst_pack_size
         i_c = np.unravel_index(bz_index, size)
-        j_c = np.array(i_c) + direction
-        bz_index = np.ravel_multi_index(j_c, size, 'wrap')
-        direction = tuple([-d for d in direction])
-        dindex = self.directions[direction]
-        return self._overlaps[bz_index, dindex].T.conj()
+        i2_c = np.array(i_c) + direction
+        bz_index2 = np.ravel_multi_index(i2_c, size, 'wrap')
+        direction2 = tuple([-d for d in direction])
+        dindex2 = self.directions[direction2]
+        return self._overlaps[bz_index2, dindex2].T.conj()
 
     def localize_er(self,
                     maxiter: int = 100,
@@ -95,9 +95,7 @@ def dict_to_proj_indices(dct: Dict[Union[int, str], str],
     """
     indices_a = []
     for a, setup in enumerate(setups):
-        ll = dct.get(a)
-        if ll is None:
-            ll = dct.get(setup.symbol, '')
+        ll = dct.get(a, dct.get(setup.symbol, ''))
         indices = []
         i = 0
         for n, l in zip(setup.n_j, setup.l_j):
@@ -193,7 +191,7 @@ def calculate_overlaps(calc: GPAW,
 
 
 def find_directions(icell: Array2D,
-                    mpsize: Sequence[int]) -> List[Tuple[int, int, int]]:
+                    mpsize: Sequence[int]) -> List[Tuple[int, ...]]:
     """Find nearest neighbors k-points.
 
     icell:
@@ -219,12 +217,12 @@ def find_directions(icell: Array2D,
     d_ic = np.indices((3, 3, 3)).reshape((3, -1)).T - 1
     d_iv = d_ic.dot((icell.T / mpsize).T)
     voro = Voronoi(d_iv)
-    directions: List[Tuple[int, int, int]] = []
+    directions: List[Tuple[int, ...]] = []
     for i1, i2 in voro.ridge_points:
         if i1 == 13 and i2 > 13:
-            directions.append(tuple(d_ic[i2]))  # type: ignore
+            directions.append(tuple(d_ic[i2]))
         elif i2 == 13 and i1 > 13:
-            directions.append(tuple(d_ic[i1]))  # type: ignore
+            directions.append(tuple(d_ic[i1]))
     return directions
 
 

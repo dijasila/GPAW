@@ -8,6 +8,8 @@ import numpy as np
 from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
 
+Array3D = Any
+
 
 class Wannier90Error(Exception):
     """Wannier90 error."""
@@ -36,7 +38,8 @@ class Wannier90:
                           **kwargs) -> None:
         self.write_win(overlaps, **kwargs)
         self.write_mmn(overlaps)
-        self.write_amn(overlaps)
+        if overlaps.projections is not None:
+            self.write_amn(overlaps.projections)
 
     def write_win(self,
                   overlaps: WannierOverlaps,
@@ -52,12 +55,13 @@ class Wannier90:
                                        overlaps.atoms.get_scaled_positions())]
         kwargs['mp_grid'] = overlaps.monkhorst_pack_size
         kwargs['kpoints'] = overlaps.kpoints
-        kwargs['guiding_centres'] = True
-        centers = []
-        for (x, y, z), indices in zip(overlaps.atoms.positions,
-                                      overlaps.proj_indices_a):
-            centers += [[f'c={x},{y},{z}: s']] * len(indices)
-        kwargs['projections'] = centers
+        if overlaps.proj_indices_a:
+            kwargs['guiding_centres'] = True
+            centers = []
+            for (x, y, z), indices in zip(overlaps.atoms.positions,
+                                          overlaps.proj_indices_a):
+                centers += [[f'c={x},{y},{z}: s']] * len(indices)
+            kwargs['projections'] = centers
 
         with (self.folder / f'{self.prefix}.win').open('w') as fd:
             for key, val in kwargs.items():
@@ -73,9 +77,9 @@ class Wannier90:
 
     def write_mmn(self,
                   overlaps: WannierOverlaps) -> None:
-        nbzkpts, nproj, nbands = overlaps.projections.shape
         size = overlaps.monkhorst_pack_size
-        assert np.prod(size) == nbzkpts
+        nbzkpts = np.prod(size)
+        nbands = overlaps.nbands
 
         directions = list(overlaps.directions)
         directions += [(-a, -b, -c) for (a, b, c) in directions]
@@ -98,8 +102,7 @@ class Wannier90:
                             print(f'{M.real} {M.imag}', file=fd)
 
     def write_amn(self,
-                  overlaps: WannierOverlaps) -> None:
-        proj_kmn = overlaps.projections
+                  proj_kmn: Array3D) -> None:
         nbzkpts, nproj, nbands = proj_kmn.shape
 
         with (self.folder / f'{self.prefix}.amn').open('w') as fd:
