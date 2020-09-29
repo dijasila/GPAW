@@ -286,41 +286,41 @@ def is_file_exist(filename):
     return calc_required
 
 
-def plot_kfunction(kd, fk, figname='output.png',
-                   tsymm='even', dtype='re', clim=None):
+# def plot_kfunction(kd, fk, figname='output.png',
+#                    tsymm='even', dtype='re', clim=None):
 
-    # Useful variables
-    if world.rank == 0:
-        psigns = -2 * kd.time_reversal_k + 1
-        N_c = kd.N_c
-        kx = np.reshape(kd.bzk_kc[:, 0], (N_c[0], N_c[1]))
-        ky = np.reshape(kd.bzk_kc[:, 1], (N_c[0], N_c[1]))
+#     # Useful variables
+#     if world.rank == 0:
+#         psigns = -2 * kd.time_reversal_k + 1
+#         N_c = kd.N_c
+#         kx = np.reshape(kd.bzk_kc[:, 0], (N_c[0], N_c[1]))
+#         ky = np.reshape(kd.bzk_kc[:, 1], (N_c[0], N_c[1]))
 
-        figW = 6.0
-        figH = 4.0
-        dpiVal = 300
-        plt.figure(figsize=(figW, figH), dpi=dpiVal)
+#         figW = 6.0
+#         figH = 4.0
+#         dpiVal = 300
+#         plt.figure(figsize=(figW, figH), dpi=dpiVal)
 
-        # Plot the color map
-        if tsymm == 'even':
-            zk = np.reshape(fk[kd.bz2ibz_k], (N_c[0], N_c[1]))
-        else:
-            zk = np.reshape(fk[kd.bz2ibz_k] * psigns, (N_c[0], N_c[1]))
-        if dtype == 're':
-            zk = np.real(zk)
-        elif dtype == 'im':
-            zk = np.imag(zk)
-        elif dtype == 'abs':
-            zk = np.abs(zk)
-        else:
-            raise 'Error in dtype'
-        plt.pcolor(kx, ky, zk)
-        if clim is not None:
-            plt.clim(clim)
-        plt.colorbar()
+#         # Plot the color map
+#         if tsymm == 'even':
+#             zk = np.reshape(fk[kd.bz2ibz_k], (N_c[0], N_c[1]))
+#         else:
+#             zk = np.reshape(fk[kd.bz2ibz_k] * psigns, (N_c[0], N_c[1]))
+#         if dtype == 're':
+#             zk = np.real(zk)
+#         elif dtype == 'im':
+#             zk = np.imag(zk)
+#         elif dtype == 'abs':
+#             zk = np.abs(zk)
+#         else:
+#             raise 'Error in dtype'
+#         plt.pcolor(kx, ky, zk)
+#         if clim is not None:
+#             plt.clim(clim)
+#         plt.colorbar()
 
-        # Save the figure
-        plt.tight_layout()
-        plt.savefig(figname, dpi=dpiVal)
-        plt.clf()
-        plt.close()
+#         # Save the figure
+#         plt.tight_layout()
+#         plt.savefig(figname, dpi=dpiVal)
+#         plt.clf()
+#         plt.close()
