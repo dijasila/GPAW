@@ -208,8 +208,21 @@ def integrate(n0_g: Array1D,
 
 
 # from https://en.wikipedia.org/wiki/Gyromagnetic_ratio
-gyromagnetic_ratios = {'H': 42.6,
-                       'O': -5.8}
+gyromagnetic_ratios = {'H': 42.577478518,
+                       'He': -32.434,
+                       'Li': 16.546,
+                       'C': 10.7084,
+                       'N': 3.077,
+                       'O': -5.772,
+                       'F': 40.052,
+                       'Na': 11.262,
+                       'Al': 11.103,
+                       'Si': -8.465,
+                       'P': 17.235,
+                       'Fe': 1.382,
+                       'Cu': 11.319,
+                       'Zn': 2.669,
+                       'Xe': -11.777}
 
 
 def main(argv: List[str] = None) -> None:
@@ -260,7 +273,7 @@ def main(argv: List[str] = None) -> None:
     magmom = atoms.get_magnetic_moment()
     print(f'\nTotal magnetic moment: {magmom:.3f}')
     print('\nGyromagnetic ratios used:')
-    for symbo, ratio in used.items():
+    for symbol, ratio in used.items():
         print(f'{symbol:2} {ratio:10.3f} MHz/T')
 
 

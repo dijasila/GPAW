@@ -389,6 +389,9 @@ class GPAW(Calculator):
                 self.log()
                 self.results['magmom'] = totmom_v[2]
                 self.results['magmoms'] = magmom_av[:, 2].copy()
+            else:
+                self.results['magmom'] = 0.0
+                self.results['magmoms'] = np.zeros(len(self.atoms))
 
             self.summary()
 
