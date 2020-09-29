@@ -8,7 +8,7 @@ def test_pe(gpw_files):
     calc = GPAW(gpw_files['c2h4_pw_nosym_wfs'])
     o = calculate_overlaps(calc, n2=6, nwannier=6,
                            projections={'C': 's', 'H': 's'})
-    o.localize_w90('pe', num_iter=100)#, guiding_centres=True)
+    o.localize_w90('pe', num_iter=100, guiding_centres=True)
     return
 
 

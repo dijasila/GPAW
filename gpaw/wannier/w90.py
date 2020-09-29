@@ -1,9 +1,8 @@
 import subprocess
 from pathlib import Path
-from typing import Union
+from typing import Union, IO, Dict, Any
 
 from ase import Atoms
-from ase.io.wannier90 import read_wout_all
 import numpy as np
 
 from .overlaps import WannierOverlaps
@@ -53,6 +52,12 @@ class Wannier90:
                                        overlaps.atoms.get_scaled_positions())]
         kwargs['mp_grid'] = overlaps.monkhorst_pack_size
         kwargs['kpoints'] = overlaps.kpoints
+        kwargs['guiding_centres'] = True
+        centers = []
+        for (x, y, z), indices in zip(overlaps.atoms.positions,
+                                      overlaps.proj_indices_a):
+            centers += [[f'c={x},{y},{z}: s']] * len(indices)
+        kwargs['projections'] = centers
 
         with (self.folder / f'{self.prefix}.win').open('w') as fd:
             for key, val in kwargs.items():
@@ -88,7 +93,7 @@ class Wannier90:
                     d_c = (i2_c - i2_c % size) // size
                     print(bz_index1 + 1, bz_index2 + 1, *d_c, file=fd)
                     M_nn = overlaps.overlap(bz_index1, direction)
-                    for M_n in M_nn:
+                    for M_n in M_nn.T:
                         for M in M_n:
                             print(f'{M.real} {M.imag}', file=fd)
 
@@ -104,7 +109,7 @@ class Wannier90:
             for bz_index, proj_mn in enumerate(proj_kmn):
                 for m, proj_n in enumerate(proj_mn):
                     for n, P in enumerate(proj_n):
-                        print(n + 1, m + 1, bz_index + 1, P.real, P.imag,
+                        print(n + 1, m + 1, bz_index + 1, P.real, -P.imag,
                               file=fd)
 
     def read_result(self):
@@ -118,3 +123,64 @@ class Wannier90Functions(WannierFunctions):
                  atoms: Atoms,
                  centers):
         WannierFunctions.__init__(self, atoms, centers, 0.0, [])
+
+
+def read_wout_all(fileobj: IO[str]) -> Dict[str, Any]:
+    """Read atoms, wannier function centers and spreads."""
+    lines = fileobj.readlines()
+
+    for n, line in enumerate(lines):
+        if line.strip().lower().startswith('lattice vectors (ang)'):
+            break
+    else:
+        raise ValueError('Could not fine lattice vectors')
+
+    cell = [[float(x) for x in line.split()[-3:]]
+            for line in lines[n + 1:n + 4]]
+
+    for n, line in enumerate(lines):
+        if 'cartesian coordinate (ang)' in line.lower():
+            break
+    else:
+        raise ValueError('Could not find coordinates')
+
+    positions = []
+    symbols = []
+    n += 2
+    while True:
+        words = lines[n].split()
+        if len(words) == 1:
+            break
+        positions.append([float(x) for x in words[-4:-1]])
+        symbols.append(words[1])
+        n += 1
+
+    atoms = Atoms(symbols, positions, cell=cell)
+
+    n = len(lines) - 1
+    while n > 0:
+        if lines[n].strip().lower().startswith('final state'):
+            break
+        n -= 1
+    else:
+        return {'atoms': atoms,
+                'centers': np.zeros((0, 3)),
+                'spreads': np.zeros((0,))}
+
+    n += 1
+    centers = []
+    spreads = []
+    while True:
+        line = lines[n].strip()
+        if line.startswith('WF'):
+            centers.append([float(x)
+                            for x in
+                            line.split('(')[1].split(')')[0].split(',')])
+            spreads.append(float(line.split()[-1]))
+            n += 1
+        else:
+            break
+
+    return {'atoms': atoms,
+            'centers': np.array(centers),
+            'spreads': np.array(spreads)}

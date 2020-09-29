@@ -1,4 +1,4 @@
-from ase.io.wannier90 import read_wout_all
+from gpaw.wannier.w90 import read_wout_all
 from myqueue.task import task
 import numpy as np
 

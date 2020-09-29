@@ -27,7 +27,8 @@ class WannierOverlaps:
                  fermi_level: float,
                  directions: Dict[Tuple[int, int, int], int],
                  overlaps: Array4D,
-                 projections: Array3D = None):
+                 projections: Array3D = None,
+                 proj_indices_a: List[List[int]] = None):
 
         self.atoms = atoms
         self.nwannier = nwannier
@@ -43,9 +44,7 @@ class WannierOverlaps:
 
         self._overlaps = overlaps
         self.projections = projections
-
-    def write(self, filename):
-        ...
+        self.proj_indices_a = proj_indices_a
 
     def overlap(self,
                 bz_index: int,
@@ -83,7 +82,8 @@ class WannierOverlaps:
 
 def dict_to_proj_indices(dct: Dict[Union[int, str], str],
                          setups: List[Setup]) -> List[List[int]]:
-    """
+    """Convert dict to lists of projector function indices.
+
     >>> from gpaw.setup import create_setup
     >>> setup = create_setup('Si')  # 3s, 3p, *s, *p, *d
     >>> setup.n_j
@@ -115,6 +115,10 @@ def calculate_overlaps(calc: GPAW,
                        n2: int = 0,
                        spinors: bool = False,
                        spin: int = 0) -> WannierOverlaps:
+    """Create WannierOverlaps object from DFT calculation.
+    """
+    assert not spinors
+
     if n2 <= 0:
         n2 += calc.get_number_of_bands()
 
@@ -183,7 +187,8 @@ def calculate_overlaps(calc: GPAW,
                                calc.get_fermi_level(),
                                directions,
                                Z_kdnn,
-                               proj_kmn)
+                               proj_kmn,
+                               proj_indices_a)
     return overlaps
 
 
