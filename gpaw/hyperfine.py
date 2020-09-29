@@ -37,6 +37,8 @@ def hyperfine_parameters(calc: GPAW) -> Array3D:
 
     One tensor per atom is returned.  The isotropic part is a=trace(A)/3
     and the anisotropic part is A-a.
+
+
     """
     dens = calc.density
     nt_sR = dens.nt_sG
@@ -278,7 +280,9 @@ def main(argv: List[str] = None) -> None:
 
 
 if __name__ == '__main__':
-    # import ase.units as u
-    # print(u._mu0 * u._hbar**2 * u._e**2 * 2.000 * 5.5 /
-    #      (6 * np.pi * (u.Bohr * 1e-10)**3 * u._me * u._mp * u._e))
+    import ase.units as u
+    density = 1 / pi / (u.Bohr * 1e-10)**3
+    gp = 5.5856946893
+    A = 2 / 3 * u._mu0 * u._e**2 * 2 / 2 / u._me * gp * u._hbar**2 / 2 / u._mp
+    # print(A * density / u._e)
     main()
