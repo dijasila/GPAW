@@ -156,7 +156,6 @@ def dos(filename: Union[Path, str],
     calc = GPAW(filename)
 
     doscalc = DOSCalculator.from_calculator(calc, emin, emax, npoints, soc)
-
     energies = doscalc.energies
     nspins = doscalc.nspins
     spinlabels = [''] if nspins == 1 else [' up', ' dn']

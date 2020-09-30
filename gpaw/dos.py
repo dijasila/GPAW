@@ -126,12 +126,17 @@ class DOSCalculator:
                  emax=None,
                  npoints=200,
                  setups=None,
-                 cell=None):
+                 cell=None,
+                 shift_fermi_level=True):
         self.wfs = wfs
         self.setups = setups
         self.cell = cell
 
-        self.eig_skn = wfs.eigenvalues() - wfs.fermi_level
+        self.eig_skn = wfs.eigenvalues()
+        self.fermi_level = wfs.fermi_level
+
+        if shift_fermi_level:
+            self.eig_skn -= wfs.fermi_level
 
         self.collinear = (self.eig_skn.ndim == 3)
         if self.collinear:
@@ -153,7 +158,8 @@ class DOSCalculator:
     def from_calculator(cls,
                         filename: Union[GPAW, Path, str],
                         emin=None, emax=None, npoints=200,
-                        soc=False, theta=0.0, phi=0.0):
+                        soc=False, theta=0.0, phi=0.0,
+                        shift_fermi_level=True):
         """Create DOSCalculator from a GPAW calculation.
 
         filename: str
@@ -171,7 +177,8 @@ class DOSCalculator:
             wfs = IBZWaveFunctions(calc)
 
         return DOSCalculator(wfs, emin, emax, npoints,
-                             calc.setups, calc.atoms.cell)
+                             calc.setups, calc.atoms.cell,
+                             shift_fermi_level)
 
     def calculate(self, eig_kn, weight_kn=None, width=0.1):
         if width > 0.0:
@@ -185,11 +192,15 @@ class DOSCalculator:
     def dos_at(self, energies: Array1D) -> Array1D:
         """Calclate DOS en given energies.
 
-        Use::
+        To get the DOS at the Fermi level, use::
 
             dos_fermi = doscalc.dos_at([0.0])[0]
 
-        to get the DOS at the Fermi level.
+        or::
+
+            dos_fermi = doscalc.dos_at([doscalc.fermi_level])[0]
+
+        if the Fermi level has not been shifted to zero.
         """
         old = self.energies
         self.energies = np.asarray(energies)
