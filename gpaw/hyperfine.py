@@ -32,12 +32,27 @@ Array2D = Any
 Array3D = Any
 
 
+# Fine-structure constant: (~1/137)
+alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck
+
+g_factor_e = 2.00231930436256
+
+
 def hyperfine_parameters(calc: GPAW) -> Array3D:
     """Calculate isotropic and anisotropic hyperfine coupling paramters.
 
-    One tensor per atom is returned.  The isotropic part is a=trace(A)/3
-    and the anisotropic part is A-a.
+    One tensor per atom is returned in eV units.  The isotropic part
+    is a=trace(A)/3 and the anisotropic part is A-a.
 
+    Remember to multiply each tensor by the g-factors of the nuclei
+    and divide by the total electron spin.
+
+    =======  ========
+    nucleus  g-factor
+    =======  ========
+    proton    5.586
+    O`^17`   -0.757
+    =======  ========
 
     """
     dens = calc.density
@@ -53,6 +68,7 @@ def hyperfine_parameters(calc: GPAW) -> Array3D:
                               calc.wfs.setups[a])
         A_avv[a] += A_vv
 
+    A_avv *= pi * alpha**2 * g_factor_e * units._me / units._mp * units.Ha
     return A_avv
 
 
@@ -131,10 +147,8 @@ def paw_correction(spin_density_ii: Array2D,
     # All-electron contribution diveges as r^-beta and must be integrated
     # over a small region of size rT:
     n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
-    # Velocity of light in atomic units:
-    c = 2 * units._hplanck / (units._mu0 * units._c * units._e**2)
-    beta = 2 * (1 - (1 - (setup.Z / c)**2)**0.5)
-    rT = setup.Z / c**2
+    beta = 2 * (1 - (1 - (setup.Z * alpha)**2)**0.5)
+    rT = setup.Z * alpha**2
     n0 = integrate(n0_g, rgd, rT, beta)
 
     W1 = (n0 - nt0) * 2 / 3  # isotropic result
@@ -209,7 +223,8 @@ def integrate(n0_g: Array1D,
     return n0
 
 
-# from https://en.wikipedia.org/wiki/Gyromagnetic_ratio
+# From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
+# Units: MHz/T
 gyromagnetic_ratios = {'H': 42.577478518,
                        'He': -32.434,
                        'Li': 16.546,
@@ -235,8 +250,10 @@ def main(argv: List[str] = None) -> None:
     add = parser.add_argument
     add('file', metavar='input-file',
         help='GPW-file (with or without wave functions).')
-    add('-g', '--gyromagnetic-ratios',
-        help='Gyromagnetic ratios (in MHz/T).')
+    add('-g', '--g-factors',
+        help='G-factors.  Example: "-g H:5.6,O:-0.76".')
+    add('-u', '--units', default='ueV', choices=['ueV', 'MHz'],
+        help='Units.  Must be "uev" (micro-eV, default) or "MHz".')
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
     else:
@@ -245,26 +262,40 @@ def main(argv: List[str] = None) -> None:
     calc = GPAW(args.file)
     atoms = calc.get_atoms()
 
-    ratios = gyromagnetic_ratios.copy()
-    if args.gyromagnetic_ratios:
+    symbols = atoms.symbols
+    magmoms = atoms.get_magnetic_moments()
+    total_magmom = atoms.get_magnetic_moment()
+    assert total_magmom != 0.0
+
+    g_factors = {symbol: ratio * 1e6 * 4 * pi * units._mp / units._e
+                 for symbol, ratio in gyromagnetic_ratios.items()}
+
+    if args.g_factors:
         for symbol, value in (part.split(':')
-                              for part in args.gyromagnetic_ratios.split(',')):
-            ratios[symbol] = float(value)
+                              for part in args.g_factors.split(',')):
+            g_factors[symbol] = float(value)
+
+    if args.units == 'ueV':
+        scale = 1e6
+        unit = 'μeV'
+    else:
+        scale = units._e / units._hplanck * 1e-6
+        unit = 'MHz'
 
     A_avv = hyperfine_parameters(calc)
 
-    print('Isotropic and anisotropic hyperfine coupling paramters in MHz/T:\n')
+    print('Isotropic and anisotropic hyperfine coupling paramters '
+          f'in {unit}:\n')
     print('  atom  magmom      ',
           '       '.join(['iso', 'xx', 'yy', 'zz', 'yz', 'xz', 'xy']))
-    symbols = atoms.symbols
-    magmoms = atoms.get_magnetic_moments()
+
     used = {}
     for a, A_vv in enumerate(A_avv):
         symbol = symbols[a]
         magmom = magmoms[a]
-        ratio = ratios.get(symbol, 1.0)
-        used[symbol] = ratio
-        A_vv *= ratio * 1450 / 8.538  # ?????????????????????????????
+        g_factor = g_factors.get(symbol, 1.0)
+        used[symbol] = g_factor
+        A_vv *= g_factor / total_magmom * scale
         A = np.trace(A_vv) / 3
         print(f'{a:3} {symbol:>2}  {magmom:6.3f}',
               ''.join(f'{x:9.2f}' for x in
@@ -272,17 +303,11 @@ def main(argv: List[str] = None) -> None:
                        A_vv[0, 0] - A, A_vv[1, 1] - A, A_vv[2, 2] - A,
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]))
 
-    magmom = atoms.get_magnetic_moment()
-    print(f'\nTotal magnetic moment: {magmom:.3f}')
-    print('\nGyromagnetic ratios used:')
-    for symbol, ratio in used.items():
-        print(f'{symbol:2} {ratio:10.3f} MHz/T')
+    print(f'\nTotal magnetic moment: {total_magmom:.3f}')
+    print('\nG-factors used:')
+    for symbol, g in used.items():
+        print(f'{symbol:2} {g:10.3f}')
 
 
 if __name__ == '__main__':
-    import ase.units as u
-    density = 1 / pi / (u.Bohr * 1e-10)**3
-    gp = 5.5856946893
-    A = 2 / 3 * u._mu0 * u._e**2 * 2 / 2 / u._me * gp * u._hbar**2 / 2 / u._mp
-    # print(A * density / u._e)
     main()

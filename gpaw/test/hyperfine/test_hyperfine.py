@@ -1,10 +1,11 @@
 import numpy as np
 import pytest
 from scipy.special import expn
+import ase.units as units
 
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
-                            integrate)
+                            integrate, alpha, g_factor_e)
 from gpaw import GPAW
 from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.lfc import LFC
@@ -118,7 +119,10 @@ def test_h(gpw_files):
     calc = GPAW(gpw_files['h_pw'])
     A_vv = hyperfine_parameters(calc)[0]
     print(A_vv)
-    assert abs(A_vv - np.eye(3) * 0.2).max() < 1e-2
+    ref = 2 / 3 * alpha**2 * units.Ha * units._me / units._mp * g_factor_e
+    ref *= 0.94  # density at nucleus is slightly below 1/pi for PBE
+    print(ref)
+    assert abs(A_vv - np.eye(3) * ref).max() < 1e-2
 
 
 def thomson():
