@@ -11,6 +11,5 @@ atoms.calc = calc
 atoms.get_potential_energy()
 
 # Initialize the Wannier class
-w = calculate_overlaps(calc).localize()
-centers = w.get_centers()
-view(atoms + Atoms(symbols='X5', positions=centers))
+w = calculate_overlaps(calc, nwannier=5).localize_er()
+view(w.centers_as_atoms())
