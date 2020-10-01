@@ -20,7 +20,12 @@ master:
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
-    - flake8 --exit-zero --exclude "doc/platforms/*,gpaw/lrtddft2/*,doc/summerschools/summerschool18/*/*" gpaw doc > f8.out
+    - >
+      flake8 --exit-zero --doctests
+      --exclude "doc/platforms/*"
+      --exclude "gpaw/lrtddft2/*"
+      --exclude "doc/summerschools/summerschool18/*/*"
+      gpaw doc > f8.out
     - cat f8.out | wc -l | tee nerr
     - python -c "assert int(open('nerr').read()) <= 1681, 'Please run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/
