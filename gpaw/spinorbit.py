@@ -407,8 +407,8 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
             if collinear:
                 eig_m = np.empty((n2 - n1) * 2)
                 if eigenvalues is None:
-                    eig_m[::2] = eig_sn[0][n1:n2]
-                    eig_m[1::2] = eig_sn[-1][n1:n2]
+                    eig_m[::2] = eig_sn[0][n1:n2] * Ha
+                    eig_m[1::2] = eig_sn[-1][n1:n2] * Ha
                 else:
                     for s in range(2):
                         eig_m[s::2] = eigenvalues[-s, kpt_s[-s].k]
@@ -416,14 +416,14 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                 projections.array[::2, 0] = P_snI[0][n1:n2]
                 projections.array[1::2, 1] = P_snI[-1][n1:n2]
             else:
-                eig_m = eig_sn[0][n1:n2]
+                eig_m = eig_sn[0][n1:n2] * Ha
                 projections.matrix.array[:] = P_snI[0][n1:n2]
         else:
             eig_m = np.empty(0)
 
         ibz_index = kpt_s[0].k
 
-        yield ibz_index, WaveFunction(eig_m * Ha, projections)
+        yield ibz_index, WaveFunction(eig_m, projections)
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
