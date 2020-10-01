@@ -117,8 +117,8 @@ class Wannier90:
 
     def read_result(self):
         with (self.folder / f'{self.prefix}.wout').open() as fd:
-            atoms, centers, spreads = read_wout_all(fd)
-        return Wannier90Functions(atoms, centers)
+            w = read_wout_all(fd)
+        return Wannier90Functions(w['atoms'], w['centers'])
 
 
 class Wannier90Functions(WannierFunctions):
@@ -158,7 +158,7 @@ def read_wout_all(fileobj: IO[str]) -> Dict[str, Any]:
         symbols.append(words[1])
         n += 1
 
-    atoms = Atoms(symbols, positions, cell=cell)
+    atoms = Atoms(symbols, positions, cell=cell, pbc=True)
 
     n = len(lines) - 1
     while n > 0:
