@@ -223,7 +223,7 @@ class CouplingParameters:
             # Weights, i.e., lagrange multipliers
             self.Va = Va
             self.Vb = Vb
-
+            regionsA = []
             if charge_regions_A is not None:
                 regionsA += charge_regions_A
             if spin_regions_A is not None:
