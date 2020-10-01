@@ -224,17 +224,16 @@ class CouplingParameters:
             self.Va = Va
             self.Vb = Vb
 
-            regionsA = []
             if charge_regions_A is not None:
-                regionsA.append(charge_regions_A)
+                regionsA += charge_regions_A
             if spin_regions_A is not None:
-                regionsA.append(spin_regions_A)
+                regionsA += spin_regions_A
 
             regionsB = []
             if charge_regions_B is not None:
-                regionsB.append(charge_regions_B)
+                regionsB += charge_regions_B
             if spin_regions_B is not None:
-                regionsB.append(spin_regions_B)
+                regionsB += spin_regions_B
 
             self.regionsA = regionsA
             self.regionsB = regionsB
