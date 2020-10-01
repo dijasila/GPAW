@@ -26,6 +26,7 @@ def test_fd_ops_nabla():
     c.add(psi, d0)
     d1 = c.dict(m, derivative=True)
     c.derivative(psi, d1)
+
     class TestSetup(Setup):
         l_j = range(lmax + 1)
         nj = lmax + 1
