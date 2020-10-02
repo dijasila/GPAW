@@ -64,7 +64,7 @@ class GPAW(Calculator):
         'gpts': None,
         'kpts': [(0.0, 0.0, 0.0)],
         'nbands': None,
-        'charge': 0,  # deprecated
+        'charge': None,
         'setups': {},
         'basis': {},
         'spinpol': None,
@@ -583,15 +583,12 @@ class GPAW(Calculator):
         pbc_c = atoms.get_pbc()
         assert len(pbc_c) == 3
         magmom_a = atoms.get_initial_magnetic_moments()
-        charge_a = atoms.get_initial_charges()
 
-        if par.charge:
-            warnings.warn(
-                'The keyword charge been deprecated. '
-                'Please use the atoms.set_initial_charges() method instead.',
-                DeprecationWarning)
-            assert not charge_a.any()
-            charge_a == np.ones(charge_a.shape) * par.charge / len(charge_a)
+        if par.charge is not None:
+            # setting charge overwrites initial charges
+            charge_a = np.ones(len(atoms)) / len(atoms)
+        else:
+            charge_a = atoms.get_initial_charges()
         self.charge = charge_a.sum()
 
         if par.experimental.get('magmoms') is not None:

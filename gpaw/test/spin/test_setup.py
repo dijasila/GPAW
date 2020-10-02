@@ -1,3 +1,4 @@
+from pytest import approx
 from ase import Atoms
 
 from gpaw import GPAW, FermiDirac
@@ -18,7 +19,8 @@ def test_H2plus():
     convergence = {'energy': 1e12, 'density': 1e12, 'eigenstates': 1e12}
 
     # not setting initial charges should still work
-    atoms.calc = GPAW(h=h, charge=1, convergence=convergence)
+    atoms.calc = GPAW(h=h, charge=1,
+                      convergence=convergence)
     atoms.get_potential_energy()
 
     # electron on left atom
@@ -29,3 +31,6 @@ def test_H2plus():
                       occupations=FermiDirac(0.1, fixmagmom=True),
                       convergence=convergence)
     atoms.get_potential_energy()
+
+    assert atoms.calc.get_occupation_numbers(0, 0)[0] == approx(1, abs=1e-5)
+    assert atoms.calc.get_occupation_numbers(0, 1)[0] == approx(0, abs=1e-5)
