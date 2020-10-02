@@ -29,7 +29,9 @@ class Wannier90:
         args = [self.executable, self.prefix]
         if postprocess:
             args[1:1] = ['-pp']
-        result = subprocess.run(args, cwd=self.folder, capture_output=True)
+        result = subprocess.run(args,
+                                cwd=self.folder,
+                                stdout=subprocess.PIPE)
         if b'Error:' in result.stdout:
             raise Wannier90Error(result.stdout.decode())
 
