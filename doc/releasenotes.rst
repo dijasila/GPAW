@@ -100,6 +100,8 @@ Git master branch
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
   :ref:`point groups`.
 
+* mixer ...
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
