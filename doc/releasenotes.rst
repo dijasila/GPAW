@@ -100,7 +100,13 @@ Git master branch
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
   :ref:`point groups`.
 
-* mixer ...
+* Default mixer (see :ref:`densitymix`) for spin-polarized systems has been
+  changed from ``MixerSum`` to ``MixerDif``.  Now, both the total density
+  and the magnetization density are mixed compared to before where only
+  the total density was mixed.  To get the
+  old behavior, use ``mixer=MixerSum(beta=0.05, history=5, weight=50)``
+  for periodic systems
+  and ``mixer=MixerSum(beta=0.25, history=3, weight=1)`` for molecules.
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
@@ -694,7 +700,7 @@ Version 0.10.0
 * Default density mixer parameters have been changed for calculations
   with periodic boundary conditions.  Parameters for that case:
   ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
-  calculations.  Old parameters: ``0.1, 3, 50``.
+  calculations).  Old parameters: ``0.1, 3, 50``.
 
 * Default is now ``occupations=FermiDirac(0.1)`` if a
   calculation is periodic in at least one direction,
