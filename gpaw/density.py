@@ -283,9 +283,7 @@ class Density:
     def get_initial_occupations(self, a):
         # distribute charge on all atoms
         # XXX interaction with background charge may be finicky
-        # XXX the background_charge should not contribute here
-        # c = (self.charge - self.background_charge.charge) / len(self.setups)
-        c = self.charge_a[a]
+        c = self.charge_a[a] - self.background_charge.charge / len(self.setups)
         M_v = self.magmom_av[a]
         M = np.linalg.norm(M_v)
         f_si = self.setups[a].calculate_initial_occupation_numbers(
