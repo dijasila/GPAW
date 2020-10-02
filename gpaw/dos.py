@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union, List, Any, Optional
+from typing import Union, List, Any, Optional, Sequence
 
 import numpy as np
 from ase.spectrum.dosdata import GridDOSData
@@ -11,6 +11,7 @@ from gpaw.spherical_harmonics import names as ylmnames
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
 
 Array1D = Any
+Array2D = Any
 Array3D = Any
 
 
@@ -178,7 +179,12 @@ class DOSCalculator:
                              calc.setups, calc.atoms.cell,
                              shift_fermi_level)
 
-    def calculate(self, energies, eig_kn, weight_kn=None, width=0.1):
+    def calculate(self,
+                  energies: Sequence[float],
+                  eig_kn: Array2D,
+                  weight_kn: Array2D = None,
+                  width: float = 0.1):
+        energies = np.asarray(energies)
         if width > 0.0:
             return gaussian_dos(eig_kn, weight_kn,
                                 self.weight_k, energies, width)
@@ -188,7 +194,7 @@ class DOSCalculator:
                 self.cell, self.wfs.size, self.wfs.bz2ibz_map)
 
     def dos(self,
-            energies: Array1D,
+            energies: Sequence[float],
             spin: Union[int, None] = None,
             width: float = 0.1) -> GridDOSData:
         """Calculate density of states.
@@ -209,7 +215,7 @@ class DOSCalculator:
         return GridDOSData(energies, dos, {'label': label})
 
     def pdos(self,
-             energies: Array1D,
+             energies: Sequence[float],
              a: int,
              l: int,
              m: Optional[int] = None,
