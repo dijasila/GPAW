@@ -158,8 +158,8 @@ def do_nao_ngto_basis(atom, xc, naobasis, gbsfname, label, rmax=100.0,
     basis = bm.generate(zetacount, polarizationcount, txt=None)
 
     # Increase basis function max radius
-    h = basis.rgd.dr_g
-    assert isinstance(h, float)
+    assert isinstance(basis.rgd, EquidistantRadialGridDescriptor)
+    h = basis.rgd.dr_g[0]
     assert basis.rgd.r_g[0] == 0.0
     N = int(rmax / h) + 1
     basis.rgd = EquidistantRadialGridDescriptor(h, N)

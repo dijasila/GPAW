@@ -5,4 +5,13 @@ from gpaw.cli.main import commands
 
 
 def test_complete():
-    update(path, commands, test=True)
+    try:
+        update(path, commands, test=True)
+    except ValueError:
+        raise ValueError(
+            'Please update gpaw/cli/complete.py using '
+            '"python3 -m gpaw.test.test_complete".')
+
+
+if __name__ == '__main__':
+    update(path, commands, test=False)

@@ -1,12 +1,11 @@
 import pytest
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
-from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid, Redistributor
 
-pytestmark = pytest.mark.skipif(world.size == 1 or not compiled_with_sl(),
-                                reason='world.size == 1 or not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size == 1 or not compiled_with_sl(),
+    reason='world.size == 1 or not compiled_with_sl()')
 
 
 def test_parallel_submatrix_redist():

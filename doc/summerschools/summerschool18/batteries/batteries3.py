@@ -1,4 +1,9 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Battery Project
 
@@ -9,9 +14,9 @@
 """
 Today you will calculate the energy barriers for transport of Li intercalated in the graphite anode. You will examine how sensitive this barrier is to the interlayer distance in graphite.  You will also examine the energy of intermediate states during the charge/discharge process. This will allow some basic discussion of the voltage profile of the battery.
 
-You will in general be provided less code than yesterday, especially towards the end of this notebook. You will have to use what you have already seen and learned so far. 
+You will in general be provided less code than yesterday, especially towards the end of this notebook. You will have to use what you have already seen and learned so far.
 
-There will be some natural pauses while you wait for calculations to finish. If you do not finish this entire notebook today, do not despair. 
+There will be some natural pauses while you wait for calculations to finish. If you do not finish this entire notebook today, do not despair.
 """
 
 # %%
@@ -40,7 +45,7 @@ from ase.constraints import FixAtoms
 """
 You will now calculate the energy barrier for Li diffusion in the graphite anode. You will do this using the [Nudged Elastic Band (NEB) method](https://wiki.fysik.dtu.dk/ase/ase/neb.html#module-ase.neb)
 
-You can use your work from Day 2, but for simplicity you are advised to load in the initial atomic configuration from file. 
+You can use your work from Day 2, but for simplicity you are advised to load in the initial atomic configuration from file.
 """
 
 # %%
@@ -82,7 +87,7 @@ view(final)
 
 # %%
 """
-Make a band consisting of 7 images including the initial and final. 
+Make a band consisting of 7 images including the initial and final.
 """
 
 # %%
@@ -109,7 +114,7 @@ view(images)
 
 # %%
 """
-It turns out, that while running the NEB calculation, the largest amount of resources will be spend translating the carbon layer without any noticeable buckling. You will thus [constrain](https://wiki.fysik.dtu.dk/ase/ase/constraints.html#constraints) the positions of the carbon atoms to save computational time. 
+It turns out, that while running the NEB calculation, the largest amount of resources will be spend translating the carbon layer without any noticeable buckling. You will thus [constrain](https://wiki.fysik.dtu.dk/ase/ase/constraints.html#constraints) the positions of the carbon atoms to save computational time.
 
 Each image in the NEB requires a unique calculator.
 
@@ -118,19 +123,19 @@ This very simple case is highly symmetric. To better illustrate how the NEB meth
 
 # %%
 """
-Start by calculating the energy and forces of the first (`initial`) and last (`final`) images as this is not done during the actual NEB calculation. 
+Start by calculating the energy and forces of the first (`initial`) and last (`final`) images as this is not done during the actual NEB calculation.
 
 Note, that this can take a while if you opt to do it inside the notebook.
 """
 
 # %%
 """
-You can run the NEB calculation by running an optimization on the NEB object the same way you would on an atoms object. Note the `fmax` is larger for this tutorial example than you would normally use. 
+You can run the NEB calculation by running an optimization on the NEB object the same way you would on an atoms object. Note the `fmax` is larger for this tutorial example than you would normally use.
 """
 
 # %%
 """
-Submit the calculation to the HPC cluster. Do this by first building a complete script in the cell below using the cells above (minus the `view()` commands). Make sure the cell runs and then interrupt the kernel. 
+Submit the calculation to the HPC cluster. Do this by first building a complete script in the cell below using the cells above (minus the `view()` commands). Make sure the cell runs and then interrupt the kernel.
 """
 
 # %%
@@ -177,7 +182,7 @@ for image in images[0:7]:
     calc = GPAW(mode=PW(500), kpts=(5, 5, 6), xc='LDA', symmetry={'point_group': False})
     image.calc = calc
     image.set_constraint(FixAtoms(mask=[atom.symbol == 'C' for atom in image]))
-    
+
 images[3].rattle(stdev=0.05, seed=42)
 
 images[0].get_potential_energy()
@@ -194,7 +199,7 @@ You can use the cell below to submit the calculation in the same way as on earli
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 NEB.py  # submits the calculation to 8 cores, 1 hour 
+# magic: !qsub.py -p 8 -t 1 NEB.py  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -261,7 +266,7 @@ For more complicated MEP's, use the [climbing image method](https://wiki.fysik.d
 """
 ## Bonus
 
-You will now study the influence of changing the interlayer graphite distance on the energy barrier. Due to the high degree of symmetry, this can be done easily in this case. Load in the initial state (IS) and transition state (TS) images from the converged MEP. 
+You will now study the influence of changing the interlayer graphite distance on the energy barrier. Due to the high degree of symmetry, this can be done easily in this case. Load in the initial state (IS) and transition state (TS) images from the converged MEP.
 """
 
 # %%
@@ -385,9 +390,9 @@ print('Energy barrier:', barrier103)
 
 # %%
 """
-You will now calculate the energy gain of adding a single Li atom into the FePO$_4$ cell you made on Day 3. This corresponds to a charge of 25 %. You can compare this energy to the equilibrium potential. 
+You will now calculate the energy gain of adding a single Li atom into the FePO$_4$ cell you made on Day 3. This corresponds to a charge of 25 %. You can compare this energy to the equilibrium potential.
 
-Load in the FePO$_4$ structure you wrote to file on in a previous exercise and add Li. Assume that the cell dimension remain unchanged. 
+Load in the FePO$_4$ structure you wrote to file on in a previous exercise and add Li. Assume that the cell dimension remain unchanged.
 """
 
 # %%
@@ -427,8 +432,8 @@ fepo4=Atoms('FeFeFeFeOOOOOOOOOOOOOOOOPPPP',
 
 for atom in fepo4:
     if atom.symbol == 'Fe':
-        atom.magmom = 5.0 
-        
+        atom.magmom = 5.0
+
 fepo4_1li = fepo4.copy()
 
 # %%
@@ -453,7 +458,7 @@ Adjust the total magnetic moment of the cell such that it is 19.
 # %%
 for atom in fepo4_1li:
     if atom.symbol == 'Fe':
-        atom.magmom = 4.75  
+        atom.magmom = 4.75
 
 print(sum(fepo4_1li.get_initial_magnetic_moments()))
 
@@ -467,7 +472,7 @@ write('fepo4_1li.traj', fepo4_1li)
 
 # %%
 """
-Make a full script in the cell below similar to those you made yesterday. Make sure the cell runs before interupting the notebook kernel. 
+Make a full script in the cell below similar to those you made yesterday. Make sure the cell runs before interupting the notebook kernel.
 """
 
 # %%
@@ -478,14 +483,14 @@ Make a full script in the cell below similar to those you made yesterday. Make s
 #from gpaw import GPAW, FermiDirac, Mixer, PW
 
 # Read in the structure you made and wrote to file above
-fepo4_1li = read('fepo4_1li.traj')   
-    
+fepo4_1li = read('fepo4_1li.traj')
+
 #...
 #...
 
 # write('fepo4_1li_out.traj', fepo4_1li)
 
-# ens = BEEFEnsemble(calc) 
+# ens = BEEFEnsemble(calc)
 # with paropen('ensemble_fepo4_1li.dat', 'a') as result:
 #     for e in dE:
 #         print(e, file=result)
@@ -497,11 +502,11 @@ from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
 
 #Read in the structure you made and wrote to file above
-fepo4_1li=read('fepo4_1li.traj')   
-    
+fepo4_1li=read('fepo4_1li.traj')
+
 params_GPAW = {}
 params_GPAW['mode']        = PW(500)                     #The used plane wave energy cutoff
-params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired 
+params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired
 params_GPAW['kpts']        = {'size':  (2,4,5),            #The k-point mesh
                               'gamma': True}
 params_GPAW['spinpol']     = True                          #Performing spin polarized calculations
@@ -521,7 +526,7 @@ print('E_Pot=', epot_fepo4_1li_cell)
 
 write('fepo4_1li_out.traj', fepo4_1li)
 
-ens = BEEFEnsemble(calc)   
+ens = BEEFEnsemble(calc)
 dE = ens.get_ensemble_energies(2000)
 result = paropen('ensemble_fepo4_1li.dat','a')
 for i in range(0,len(dE)):
@@ -534,7 +539,7 @@ Submit this calculation to the HPC cluster as you did on exercise day 3.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 fepo4_1li.py  # submits the calculation to 8 cores, 1 hour 
+# magic: !qsub.py -p 8 -t 1 fepo4_1li.py  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -569,7 +574,7 @@ except FileNotFoundError:
 
 # %%
 """
-You are now ready to calculate the energy gained by intercalating a single Li ion into the cathode. Start by loading in the relevant reference structures and obtain the potential energies. This should not require any DFT calculations. 
+You are now ready to calculate the energy gained by intercalating a single Li ion into the cathode. Start by loading in the relevant reference structures and obtain the potential energies. This should not require any DFT calculations.
 """
 
 # %%
@@ -607,7 +612,7 @@ print(li_cost)
 
 # %%
 """
-If time permits, you will now do a similar calculation but this time with LiFePO$_4$ contraining one vacancy. Once again you should assume that the cell dimension remain unchanged compaired to LiFePO$_4$. 
+If time permits, you will now do a similar calculation but this time with LiFePO$_4$ contraining one vacancy. Once again you should assume that the cell dimension remain unchanged compaired to LiFePO$_4$.
 
 There are numerous ways to obtain this structure. You can get inspiration from the way LiFePO$_4$ was made on Exercise day 3, use the [`del` or `pop()` methods](https://wiki.fysik.dtu.dk/ase/ase/atoms.html?highlight=pop#list-methods), or even use the GUI to delete an atom and save the structure afterwards.
 """
@@ -620,16 +625,16 @@ There are numerous ways to obtain this structure. You can get inspiration from t
 # ...
 
 # teacher
-lifepo4_wo_li=read('lifepo4_wo_li.traj') 
+lifepo4_wo_li=read('lifepo4_wo_li.traj')
 from numpy import identity
 cell=lifepo4_wo_li.get_cell()
-xyzcell = identity(3) 
+xyzcell = identity(3)
 lifepo4_wo_li.set_cell(xyzcell, scale_atoms=True)  # Set the unit cell and rescale
 #lifepo4_wo_li.append(Atom('Li', (0, 0, 0)))
 lifepo4_wo_li.append(Atom('Li', (0, 0.5, 0)))
 lifepo4_wo_li.append(Atom('Li', (0.5, 0.5, 0.5)))
 lifepo4_wo_li.append(Atom('Li', (0.5, 0, 0.5)))
-lifepo4_wo_li.set_cell(cell, scale_atoms=True) 
+lifepo4_wo_li.set_cell(cell, scale_atoms=True)
 lifepo4_vac=lifepo4_wo_li.copy()
 
 # %%
@@ -648,7 +653,7 @@ Now ensure that the total magnetic moment is equal to 17.
 # %%
 for atom in fepo4_1li:
     if atom.symbol == 'Fe':
-        atom.magmom = 4.25  
+        atom.magmom = 4.25
 
 print(sum(fepo4_1li.get_initial_magnetic_moments()))
 
@@ -676,14 +681,14 @@ Make a full script in the cell below similar to that you made above. Make sure t
 # from gpaw import GPAW, FermiDirac, Mixer, PW
 
 # Read in the structure you made and wrote to file above
-# lifepo4_vac = read('lifepo4_vac.traj')   
+# lifepo4_vac = read('lifepo4_vac.traj')
 
 
 # ...
 
 # write('lifepo4_vac_out.traj', lifepo4_vac)
 
-# ens = BEEFEnsemble(calc) 
+# ens = BEEFEnsemble(calc)
 # dE = ens.get_ensemble_energies(2000)
 # with paropen('ensemble_lifepo4_vac.dat','a') as results:
 #     for e in dE:
@@ -696,11 +701,11 @@ from ase.dft.bee import BEEFEnsemble
 from gpaw import GPAW, FermiDirac, Mixer, PW
 
 # Read in the structure you made and wrote to file above
-lifepo4_vac=read('lifepo4_vac.traj')   
+lifepo4_vac=read('lifepo4_vac.traj')
 
 params_GPAW = {}
 params_GPAW['mode']        = PW(500)                     #The used plane wave energy cutoff
-params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired 
+params_GPAW['nbands']      = -40                           #The number on empty bands had the system been spin-paired
 params_GPAW['kpts']        = {'size':  (2,4,5),            #The k-point mesh
                               'gamma': True}
 params_GPAW['spinpol']     = True                          #Performing spin polarized calculations
@@ -720,7 +725,7 @@ print('E_Pot=', epot_lifepo4_vac_cell)
 
 write('lifepo4_vac_out.traj', lifepo4_vac)
 
-ens = BEEFEnsemble(calc)   
+ens = BEEFEnsemble(calc)
 dE = ens.get_ensemble_energies(2000)
 result = paropen('ensemble_lifepo4_vac.dat','a')
 for i in range(0,len(dE)):
@@ -733,7 +738,7 @@ Once you have made sure the cell runs, submit it to the HPC cluster.
 """
 
 # %%
-# magic: !qsub.py -p 8 -t 1 lifepo4_vac.py  # submits the calculation to 8 cores, 1 hour 
+# magic: !qsub.py -p 8 -t 1 lifepo4_vac.py  # submits the calculation to 8 cores, 1 hour
 
 # %%
 """
@@ -749,7 +754,7 @@ except FileNotFoundError:
 
 # %%
 """
-Once the calculation has finished you are ready to calculate the energy cost of creating a li vacancy in the fully lithiated LiFePO$_4$. Start by loading in the relevant reference structures and obtain the potential energies. This should not require any calculations. 
+Once the calculation has finished you are ready to calculate the energy cost of creating a li vacancy in the fully lithiated LiFePO$_4$. Start by loading in the relevant reference structures and obtain the potential energies. This should not require any calculations.
 """
 
 # %%
@@ -783,7 +788,7 @@ How does this energy compare with the equilibirum potential? What can it tell yo
 # %%
 """
 ## Bonus
-Calculate the error estimates of the energy for the added Li atom and vacancy formation using the ensembles. 
+Calculate the error estimates of the energy for the added Li atom and vacancy formation using the ensembles.
 """
 
 # %%

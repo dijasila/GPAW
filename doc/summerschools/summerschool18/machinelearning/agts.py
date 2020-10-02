@@ -10,6 +10,4 @@ def create_tasks():
         file = Path('organometal.db')
         if not file.is_file():
             shutil.copyfile(dir / file, file)
-    nbrun = 'gpaw.utilities.nbrun'
-    return [
-        task(nbrun, args=['machinelearning.py'], tmax='8h')]
+    return [task('machinelearning.py', tmax='8h')]

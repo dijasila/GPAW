@@ -184,7 +184,6 @@ class GPAW(Calculator):
             bs = bs_calc.get_band_structure()
         """
         assert not update_fermi_level  # for now ...
-        assert self.hamiltonian.xc.name != 'GLLBSC'
 
         for key in kwargs:
             if key not in {'nbands', 'occupations', 'poissonsolver', 'kpts',
@@ -203,6 +202,11 @@ class GPAW(Calculator):
                                                    calc.wfs.kptband_comm)
         calc.density.fixed = True
         calc.wfs.fermi_levels = self.wfs.fermi_levels
+        if calc.hamiltonian.xc.type == 'GLLB':
+            new_response = calc.hamiltonian.xc.response
+            old_response = self.hamiltonian.xc.response
+            new_response.initialize_from_other_response(old_response)
+            new_response.fix_potential = True
         calc.calculate(system_changes=[])
         return calc
 
@@ -385,6 +389,9 @@ class GPAW(Calculator):
                 self.log()
                 self.results['magmom'] = totmom_v[2]
                 self.results['magmoms'] = magmom_av[:, 2].copy()
+            else:
+                self.results['magmom'] = 0.0
+                self.results['magmoms'] = np.zeros(len(self.atoms))
 
             self.summary()
 
@@ -607,7 +614,7 @@ class GPAW(Calculator):
         else:
             xc = self.hamiltonian.xc
 
-        if par.fixdensity and xc.name != 'GLLBSC':
+        if par.fixdensity:
             warnings.warn(
                 'The fixdensity keyword has been deprecated. '
                 'Please use the GPAW.fixed_density() method instead.',
@@ -1392,7 +1399,7 @@ class GPAW(Calculator):
             nbands, ecut, scalapack, expert)
         self.parameters.nbands = nbands
 
-    def get_number_of_bands(self):
+    def get_number_of_bands(self) -> int:
         """Return the number of bands."""
         return self.wfs.bd.nbands
 
@@ -1633,8 +1640,7 @@ class GPAW(Calculator):
         calculation if one has many bands in the calculator but is only
         interested in the DOS at low energies.
         """
-        from gpaw.utilities.dos import (raw_orbital_LDOS,
-                                        raw_spinorbit_orbital_LDOS, fold)
+        from gpaw.utilities.dos import raw_orbital_LDOS, fold
         if width is None:
             width = 0.1
 
@@ -1642,8 +1648,9 @@ class GPAW(Calculator):
             energies, weights = raw_orbital_LDOS(self, a, spin, angular,
                                                  nbands)
         else:
-            energies, weights = raw_spinorbit_orbital_LDOS(self, a, spin,
-                                                           angular)
+            raise DeprecationWarning(
+                'Please use GPAW.dos(soc=True, ...).pdos(...)')
+
         return fold(energies * Ha, weights, npts, width)
 
     def get_lcao_dos(self, atom_indices=None, basis_indices=None,
@@ -1977,3 +1984,10 @@ class GPAW(Calculator):
         pc = PointChargePotential(q_p, rc=rc, rc2=rc2, width=width)
         self.set(external=pc)
         return pc
+
+    def dos(self, soc=False, theta=0.0, phi=0.0, shift_fermi_level=True):
+        from gpaw.dos import DOSCalculator
+        return DOSCalculator.from_calculator(
+            self, soc=soc,
+            theta=theta, phi=phi,
+            shift_fermi_level=shift_fermi_level)

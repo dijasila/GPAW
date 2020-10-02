@@ -2,7 +2,7 @@
 import numpy as np
 import pylab as pl
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 
 calc = GPAW('Fe_bands.gpw', txt=None)
 
@@ -13,15 +13,19 @@ e_skn = np.array([[calc.get_eigenvalues(kpt=k, spin=s)
                    for k in range(len(calc.get_ibz_k_points()))]
                   for s in range(2)])
 e_snk = np.swapaxes(e_skn, 1, 2)
-e_snk -= GPAW('Fe_gs.gpw').get_fermi_level()
+ef = GPAW('Fe_gs.gpw').get_fermi_level()
+e_snk -= ef
 for e_k in e_snk[0]:
     pl.plot(x, e_k, '--', c='0.5')
 for e_k in e_snk[1]:
     pl.plot(x, e_k, '--', c='0.5')
 
-e_nk, s_kvn = get_spinorbit_eigenvalues(calc, return_spin=True)
-e_nk -= GPAW('Fe_gs.gpw').get_fermi_level()
-s_nk = (s_kvn[:, 2].T + 1.0) / 2.0
+soc = soc_eigenstates(calc)
+e_nk = soc.eigenvalues().T
+s_knv = soc.spin_projections()
+
+e_nk -= soc.fermi_level
+s_nk = (s_knv[:, :, 2].T + 1.0) / 2.0
 
 pl.xticks(X, [r'$\Gamma$', '(010)   H   (001)', r'$\Gamma$'], size=20)
 pl.yticks(size=20)

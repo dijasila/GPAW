@@ -1,8 +1,18 @@
 # %%
+# teacher
+import ase.visualize as viz
+viz.view = lambda atoms, repeat=None: None
+
+# %%
 """
 # Introduction
 
-In this series of excercises, you will learn how to work with ase databases, and do some simple machine learning for electronic structure properties. The driving idea is to predict complex properties of compounds from simpler properties, under the slogan that the fastest calculation is the one you don't have to run. We start by importing some relevant packages for scientific python and ase in particular.
+In this series of excercises, you will learn how to work with ase databases,
+and do some simple machine learning for electronic structure properties. The
+driving idea is to predict complex properties of compounds from simpler
+properties, under the slogan that the fastest calculation is the one you
+don't have to run. We start by importing some relevant packages for
+scientific python and ase in particular.
 """
 
 # %%
@@ -13,7 +23,13 @@ from ase.db import connect
 
 # %%
 """
-In current directory, there is an ase database file called 'organometal.db'. It contains information about organometallic perovskites, and the goal is to predict properties for these. Along with the perovskite compounds, there are also reference calculations of the elements in their standard states. We start by connecting to the database (more info on the `ase db` module can be found [here]( https://wiki.fysik.dtu.dk/ase/ase/db/db.html#module-ase.db)), and inspecting a single row:
+In current directory, there is an ase database file called 'organometal.db'.
+It contains information about organometallic perovskites, and the goal is to
+predict properties for these. Along with the perovskite compounds, there are
+also reference calculations of the elements in their standard states. We
+start by connecting to the database (more info on the `ase db` module can be
+found [here]( https://wiki.fysik.dtu.dk/ase/ase/db/db.html#module-ase.db)),
+and inspecting a single row:
 """
 
 # %%
@@ -61,7 +77,7 @@ view(row.toatoms())
 When doing any kind of data analysis, the first step is always to become familiar with the data in question, on a basic level. The `select()` method of the database applies a query to the database and returns an iterator of all the rows matching that query. To select all rows with a user of `einstein`, we would type `db.select(user='einstein')`. To select all rows with a gllbsc direct gap greater than 0.5 eV, we would type `db.select('gllbsc_dir_gap>0.5')`.
 Counting the number of hits can be be done using `db.count(key=value)` for some key-value pair.
 
-How many rows are there in the database? 
+How many rows are there in the database?
 How many belong to the `organometal` project? And how many to the `references` subproject?
 """
 
@@ -73,23 +89,32 @@ print(db.count(subproject='references'))
 
 # %%
 """
-The structures in the database were generated from the general formula ABX, and then varying A, B and X. X represents a combination of 3 halogen atoms, chosen from ["Cl", "Br", "I"].
-The A, B and X is encoded in value for the key `name`, i.e. `row.name -> 'CsPbI3'`.
-We have also distorted some of the structures, giving four different symmetry types for each atomic composition.
+The structures in the database were generated from the general formula ABX,
+and then varying A, B and X. X represents a combination of 3 halogen atoms,
+chosen from ["Cl", "Br", "I"]. The A, B and X is encoded in value for the key
+`name`, i.e. `row.name -> 'CsPbI3'`. We have also distorted some of the
+structures, giving four different symmetry types for each atomic composition.
 
-1. Try to identity the possible values of A and B. (Hint: A and B is labeled with two characters `row.name`, i.e `A='Cs'` and `B='Pb'` in `'CsPbI3'`)
+1. Try to identity the possible values of A and B.
+   (Hint: A and B is labeled with two characters `row.name`,
+   i.e `A='Cs'` and `B='Pb'` in `'CsPbI3'`)
+
 2. Can you identify the four different symmetry classes?
-3. By making all possible combinations of both A, B, X, and symmetires, how many structures could be generated in total? And how many unique are there, i.e. without considering the different symmetries?
+
+3. By making all possible combinations of both A, B, X, and symmetires, how
+   many structures could be generated in total? And how many unique are there,
+   i.e. without considering the different symmetries?
 """
 
 # %%
 # teacher
-# general formula ABX 
+# general formula ABX
 print('example of a name: {}'.format((next(db.select('project')).name)))
 As = {r.name[:2] for r in db.select('project')}
 Bs = {r.name[2:4] for r in db.select('project')}
 symclasses = {r.symmetry for r in db.select('project')}
-Xs = ['I3', 'Br3', 'Cl3', 'I2Br', 'IBr2', 'I2Cl', 'ICl2', 'IBrCl', 'Br2Cl', 'BrCl2']
+Xs = ['I3', 'Br3', 'Cl3', 'I2Br', 'IBr2', 'I2Cl', 'ICl2',
+      'IBrCl', 'Br2Cl', 'BrCl2']
 print('{} As: {}'.format(len(As), As))
 print('{} Bs: {}'.format(len(Bs), Bs))
 print('{} Xs: {}'.format(len(Xs), Xs))
@@ -139,7 +164,7 @@ x4 = [x.gllbsc_disc for x in organometal_rows];x5 = [x.gllbsc_ind_gap for x in o
 X = np.zeros((N,len(attributeNames)))
 for i,x in enumerate([x2,x3,x4,x5]):
     X[:,i] = np.array(x)
-# now plot that 
+# now plot that
 plt.figure(figsize=(10,8))
 u = np.floor(np.sqrt(M)); v = np.ceil(float(M)/u)
 for i in range(M):
@@ -179,7 +204,7 @@ en_cubic = row.energy
 en_refs = {}
 for row in db.select(subproject='references'):
     en_refs[row.element] = row.energy / row.natoms
-    
+
 E_standard = en_cubic - (8 * en_refs['MA'] + en_refs['Pb'] + 3 * en_refs['I'])
 print('hof={:.3f} eV/atom'.format(E_standard / row.natoms))
 
@@ -192,7 +217,7 @@ Based on this, can you calculate the heat of formation per formula unit of MAPbI
 # teacher
 row_c = db.get(name='MAPbI3', symmetry='cubic')
 view(row_c.toatoms())
-row_t = db.get(name='MAPbI3', symmetry='tetragonal') 
+row_t = db.get(name='MAPbI3', symmetry='tetragonal')
 de = row_c.energy / row_c.natoms - row_t.energy / row_t.natoms
 de_form = 12 * de  # 12 atoms per formula unit
 print('E(cubic) - E(tetragonal)={:.4f} eV/Fu'.format(de_form))
@@ -216,7 +241,7 @@ To start, we use a one-hot encoding of each of the different categories of data 
 def calculate_input_vector(row):
     symm_vec = [0, 0, 0, 0]
     A_vec = [0, 0, 0]
-    B_vec = [0, 0]     
+    B_vec = [0, 0]
     X_vec = [0, 0, 0]  # i.e I3->[0, 3, 0], I2Cl->[1, 2, 0], Br3->[0, 0, 3]
     constant = [1,]
     symm_vec[['cubic',
@@ -226,12 +251,12 @@ def calculate_input_vector(row):
     A_vec[['Cs', 'FA', 'MA'].index(row.name[:2])] = 1
     B_vec[0] = 1 if 'Pb' in row.name else 0
     B_vec[1] = 1 if 'Sn' in row.name else 0
-    
+
     Xs = ['Cl', 'I', 'Br']
     nhalo = sum([s in Xs for s in row.symbols])
     for i, X in enumerate(Xs):
         X_vec[i] = 3 * sum([s == X for s in row.symbols]) // nhalo
-    
+
     vec = symm_vec + A_vec + B_vec + X_vec + constant
     return vec
 
@@ -268,38 +293,66 @@ print('X.shape = ', np.shape(X))
 print('Y.shape =', np.shape(y))
 
 # %%
-"""
+r"""
 ## Modelling
 
-With the input and output in place, we are ready to do some first machine learning. All supervised machine learning processes do the following, in a generalized sense:
+With the input and output in place, we are ready to do some first machine
+learning. All supervised machine learning processes do the following, in a
+generalized sense:
 
-    - Select a general functional form for the model, parametrized in a suitable way.
-    - Find a loss function to evaluate the performance of a given set of parameters.
-    - Optimize the parameters of the model to minimize the loss.
+- Select a general functional form for the model, parametrized in
+  a suitable way.
 
-All the hard work is usually in the last step, since for complex models the relationship between the parameters and the loss function can be very difficult. However, for simpler models, we can sometimes find a closed form for the loss function.
-    
-The very simplest class of machine learning models are just generalized linear models, where the target, $y$, is assumed to be a linear function of the input variables. You can read more about them [here](http://scikit-learn.org/stable/modules/linear_model.html#ordinary-least-squares). For a linear function, we guess a functional form $f(\mathbf{x}) = \sum_n w_n x_n = \mathbf w \cdot \mathbf x$, and seek to optimize the weight vector, $\mathbf w$.
+- Find a loss function to evaluate the performance of a given set
+  of parameters.
 
-If we choose the loss function $L = \sum_i (f(\mathbf{x}_i) - y_i))^2 = \sum_{i} (\sum_{n}w_i x_{in} - y_i)^2$, we will recover ordinary least squares regression. In matrix terms, the loss corresponds to the norm $ L = \left\| \mathbf{y} - \mathbf{X} \mathbf{w} \right\|^2$. The loss is minimal when the derivative with respect to the weight vector is zero. A bit of rearranging gives that this is true when
-$\mathbf w = (\mathbf{X}^T\mathbf{X}) ^ {-1} \mathbf{X}^T \mathbf{y}$
+- Optimize the parameters of the model to minimize the loss.
 
-Here $\mathbf w$ is an (n_features, 1) weight vector that we are trying to find, $\mathbf{X}$ is an (n_samples , n_features) matrix of our observed inputs and $\mathbf y$ is the (n_samples, 1) output vector that we are trying to predict.
-                                                                   
-Write a function `fit`, which takes as input a matrix $\mathbf X$, and a target vector $\mathbf y$, and performs this linear regression, returning the list of weights and an estimate of the loss for this list of weights.
+All the hard work is usually in the last step, since for complex models the
+relationship between the parameters and the loss function can be very
+difficult. However, for simpler models, we can sometimes find a closed form
+for the loss function.
 
-Hint: useful functions are `np.dot()` and `np.linalg.inv()`, which calculate the dot product and inverse, respectively, of their arguments.
+The very simplest class of machine learning models are just generalized
+linear models, where the target, $y$, is assumed to be a linear function of
+the input variables. You can read more about them
+[here](http://scikit-learn.org/stable/modules/linear_model.html#ordinary-least-squares). For a
+linear function, we guess a functional form $f(\mathbf{x}) = \sum_n w_n x_n =
+\mathbf w \cdot \mathbf x$, and seek to optimize the weight vector, $\mathbf
+w$.
+
+If we choose the loss function $L = \sum_i (f(\mathbf{x}_i) - y_i))^2 =
+\sum_{i} (\sum_{n}w_i x_{in} - y_i)^2$, we will recover ordinary least
+squares regression. In matrix terms, the loss corresponds to the norm $ L =
+\left\| \mathbf{y} - \mathbf{X} \mathbf{w} \right\|^2$. The loss is minimal
+when the derivative with respect to the weight vector is zero. A bit of
+rearranging gives that this is true when $\mathbf w =
+(\mathbf{X}^T\mathbf{X}) ^ {-1} \mathbf{X}^T \mathbf{y}$
+
+Here $\mathbf w$ is an (n_features, 1) weight vector that we are trying to
+find, $\mathbf{X}$ is an (n_samples , n_features) matrix of our observed
+inputs and $\mathbf y$ is the (n_samples, 1) output vector that we are trying
+to predict.
+
+Write a function `fit`, which takes as input a matrix $\mathbf X$, and a
+target vector $\mathbf y$, and performs this linear regression, returning the
+list of weights and an estimate of the loss for this list of weights.
+
+Hint: useful functions are `np.dot()` and `np.linalg.inv()`, which calculate
+the dot product and inverse, respectively, of their arguments.
 """
+
 
 # %%
 def fit(X, y):
-    '''
+    """
     code goes here
-    '''
+    """
 # teacher
     w = np.linalg.inv(X.T @ X) @ X.T @ y
     loss = np.linalg.norm(y - X @ w)**2
     return w, loss
+
 
 # %%
 """
@@ -332,7 +385,7 @@ except np.linalg.LinAlgError:
     pass
 else:
     assert abs(w).max() > 1e10
-    
+
 plt.show()
 print(w)
 
@@ -557,11 +610,11 @@ import graphviz
 feature_names = ['first_cs','first_FA','first_MA','lead','tin','chlorine','iodine','bromine','reg']
 target_names = ['cubic', 'tetragonal', 'orthorhombic_1', 'orthorhombic_2']
 dot_data = tree.export_graphviz(clf, out_file=None,
-                                feature_names = feature_names,  
-                                class_names = target_names,  
-                                filled=True, rounded=True,  
-                                special_characters=True)  
-graph = graphviz.Source(dot_data)  
+                                feature_names = feature_names,
+                                class_names = target_names,
+                                filled=True, rounded=True,
+                                special_characters=True)
+graph = graphviz.Source(dot_data)
 graph
 
 # %%
@@ -657,7 +710,7 @@ for length in lengths:
     kernel = RBF(length_scale=length)
     model = GaussianProcessRegressor(kernel=kernel)
     print(length, model_selection.cross_val_score(model, X, y, cv=folds))
-    
+
 
 # %%
 """
@@ -751,10 +804,15 @@ calc = GPAW(mode=PW(500),
 atoms.calc = calc
 energy = atoms.get_potential_energy()
 
-response = calc.hamiltonian.xc.xcs['RESPONSE']
-response.calculate_delta_xc()
-EKs, Dxc = response.calculate_delta_xc_perturbation()
-gap = EKs + Dxc
+# Note! An accurate discontinuity calculation requires a k-point grid that
+# gives accurate HOMO/VBM and LUMO/CBM levels (in other words, the k-points of
+# the valence band maximum and the conduction band minimum should be
+# included in the used k-point grid).
+homo, lumo = calc.get_homo_lumo()
+response = calc.hamiltonian.xc.response
+dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+KS_gap, dxc = response.calculate_discontinuity(dxc_pot)
+gap = KS_gap + dxc
 
 # %%
 """

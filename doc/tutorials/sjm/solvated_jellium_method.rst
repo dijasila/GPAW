@@ -134,11 +134,11 @@ References
 ==========
 
 .. [#SJM18] G. Kastlunger, P. Lindgren, A. A. Peterson,
-            `Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <http://dx.doi.org/10.1021/acs.jpcc.8b02465>`_,
+            :doi:`Controlled-Potential Simulation of Elementary Electrochemical Reactions: Proton Discharge on Metal Surfaces <10.1021/acs.jpcc.8b02465>`,
             *J. Phys. Chem. C* **122** (24), 12771 (2018)
 .. [#NEB00] G. Henkelman and H. Jonsson,
-            `Improved Tangent Estimate in the NEB method for Finding Minimum Energy Paths and Saddle Points <http://dx.doi.org/10.1063/1.1323224>`_,
+            :doi:`Improved Tangent Estimate in the NEB method for Finding Minimum Energy Paths and Saddle Points <10.1063/1.1323224>`,
             *J. Chem. Phys.* **113**, 9978 (2000)
 .. [#HW14] A. Held and M. Walter,
-           `Simplified continuum solvent model with a smooth cavity based on volumetric data <http://dx.doi.org/10.1063/1.4900838>`_,
+           :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
            *J. Chem. Phys.* **141**, 174108 (2014).

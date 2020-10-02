@@ -1,13 +1,12 @@
 import pytest
-from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW, PW
 from gpaw.mpi import world, serial_comm
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_pw_fulldiag(in_tmp_dir):
@@ -23,7 +22,7 @@ def test_pw_fulldiag(in_tmp_dir):
                   basis='dzp', txt=None)
 
     a.get_potential_energy()
-    w1 = a.calc.get_pseudo_wave_function(0)
+    _ = a.calc.get_pseudo_wave_function(0)
     e1 = a.calc.get_eigenvalues()
 
     a.calc.write('H2')

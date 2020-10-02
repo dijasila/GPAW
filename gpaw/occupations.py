@@ -100,7 +100,7 @@ def hermite_poly(n, x):
 
 
 class OccupationNumberCalculator:
-    """Base class for all occupation number objects."""
+    """Base class for all occupation number calculators."""
     name = 'unknown'
     extrapolate_factor: float
 
@@ -122,6 +122,17 @@ class OccupationNumberCalculator:
     @property
     def parallel_layout(self) -> ParallelLayout:
         return ParallelLayout(self.bd, self.kpt_comm, self.domain_comm)
+
+    def todict(self):
+        return {'name': self.name}
+
+    def copy(self,
+             parallel_layout: ParallelLayout = None,
+             bz2ibzmap: List[int] = None
+             ) -> 'OccupationNumberCalculator':
+        return create_occ_calc(
+            self.todict(),
+            parallel_layout=parallel_layout or self.parallel_layout)
 
     def calculate(self,
                   nelectrons: float,
@@ -189,7 +200,7 @@ class OccupationNumberCalculator:
 
 class FixMagneticMomentOccupationNumberCalculator(OccupationNumberCalculator):
     """Base class for all occupation number objects."""
-    name = 'unknown'
+    name = 'fixmagmom'
 
     def __init__(self,
                  occ: OccupationNumberCalculator,
@@ -580,10 +591,8 @@ def FixedOccupations(f_sn):
 
 
 class ThomasFermiOccupations(OccupationNumberCalculator):
+    name = 'orbital-free'
     extrapolate_factor = 0.0
-
-    def todict(self):
-        return {'name': 'orbital-free'}
 
     def _calculate(self,
                    nelectrons,
@@ -613,6 +622,7 @@ def create_occ_calc(dct: Dict[str, Any],
     * 'methfessel-paxton'
     * 'fixed'
     * 'tetrahedron-method'
+    * 'improved-tetrahedron-method'
     * 'orbital-free'
 
     >>> occ = create_occ_calc({'width': 0.0})
@@ -638,9 +648,12 @@ def create_occ_calc(dct: Dict[str, Any],
         occ = FermiDiracCalculator(**kwargs)
     elif name == 'marzari-vanderbilt':
         occ = MarzariVanderbiltCalculator(**kwargs)
-    elif name == 'tetrahedron-method':
+    elif name in {'tetrahedron-method', 'improved-tetrahedron-method'}:
         from gpaw.tetrahedron import TetrahedronMethod
-        occ = TetrahedronMethod(rcell, monkhorst_pack_size, bz2ibzmap,
+        occ = TetrahedronMethod(rcell,
+                                monkhorst_pack_size,
+                                name == 'improved-tetrahedron-method',
+                                bz2ibzmap,
                                 **kwargs)
     elif name == 'orbital-free':
         return ThomasFermiOccupations(**kwargs)

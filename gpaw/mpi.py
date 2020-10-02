@@ -7,6 +7,7 @@ import traceback
 import atexit
 import pickle
 from contextlib import contextmanager
+from typing import Any
 
 import numpy as np
 
@@ -576,7 +577,7 @@ class _Communicator:
           (3, 4)
           >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))  # doctest: +SKIP
+          >>> comm = world.new_communicator(np.array([2, 3]))  # doctest: +SKIP
           >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
           >>> comm.get_members()  # doctest: +SKIP
@@ -807,6 +808,32 @@ def broadcast_bytes(b=None, root=0, comm=world):
         b = np.zeros(n, np.int8)
     comm.broadcast(b, root)
     return b.tobytes()
+
+
+def broadcast_array(array: np.ndarray, *communicators) -> np.ndarray:
+    """Broadcast np.ndarray across sequence of MPI-communicators."""
+    comms = list(communicators)
+    while comms:
+        comm = comms.pop()
+        if all(comm.rank == 0 for comm in comms):
+            comm.broadcast(array, 0)
+    return array
+
+
+def send(obj, rank: int, comm) -> None:
+    """Send object to rank on the MPI communicator comm."""
+    b = pickle.dumps(obj, pickle.HIGHEST_PROTOCOL)
+    comm.send(np.array(len(b)), rank)
+    comm.send(np.frombuffer(b, np.int8).copy(), rank)
+
+
+def receive(rank: int, comm) -> Any:
+    """Receive object from rank on the MPI communicator comm."""
+    n = np.array(0)
+    comm.receive(n, rank)
+    buf = np.empty(n, np.int8)
+    comm.receive(buf, rank)
+    return pickle.loads(buf.tobytes())
 
 
 def send_string(string, rank, comm=world):

@@ -184,8 +184,7 @@ class AllElectron:
 
         # Initialize for non-local functionals
         if self.xc.type == 'GLLB':
-            self.xc.pass_stuff_1d(self)
-            self.xc.initialize_1d()
+            self.xc.initialize_1d(self)
 
         n_j = self.n_j
         l_j = self.l_j

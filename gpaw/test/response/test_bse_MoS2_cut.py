@@ -64,7 +64,8 @@ def test_response_bse_MoS2_cut(in_tmp_dir):
     w0, I0 = findpeak(w_w[:1100], alpha_w.imag[:1100])
     w1, I1 = findpeak(w_w[1100:1300], alpha_w.imag[1100:1300])
     w1 += 1.1
-    equal(w0, 1.01, 0.01)
-    equal(I0, 13.65, 0.35)
+
+    equal(w0, 1.02, 0.01)
+    equal(I0, 13.1, 0.35)
     equal(w1, 1.16, 0.01)
-    equal(I1, 12.6, 0.35)
+    equal(I1, 12.8, 0.35)
