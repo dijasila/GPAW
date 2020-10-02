@@ -686,12 +686,11 @@ For small molecules, the best choice is to use
 will choose if the system has zero-boundary conditions.
 
 If your system is a big molecule or a cluster, it is an advantage to
-use something like ``mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0)``,
+use something like ``mixer=Mixer(beta=0.05, nmaxold=5, weight=50.0)``,
 which is also what GPAW will choose if the system has periodic
 boundary conditions in one or more directions.
 
-In spin-polarized calculations using Fermi-distribution
-occupations one has to use ``MixerSum`` instead of
+In spin-polarized calculations ``MixerDif`` will be used instead of
 ``Mixer``.
 
 See also the documentation on :ref:`density mixing <densitymix>`.
