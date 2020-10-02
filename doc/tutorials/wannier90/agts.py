@@ -13,13 +13,15 @@ def create_tasks():
 
 
 if __name__ == '__main__':
-    dct = read_wout_all('GaAs.wout')
+    with open('GaAs.wout') as fd:
+        dct = read_wout_all(fd)
     x, y, z = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
     a = 5.68
     assert abs(np.array([x, y, z, w]) - [a, a, a, 4.14]).max() < 0.01
 
-    dct = read_wout_all('Fe.wout')
+    with open('Fe.wout') as fd:
+        dct = read_wout_all(fd)
     x, y, z = dct['centers'].sum(axis=0)
     w = dct['spreads'].sum()
     assert abs(np.array([x, y, z, w]) - [0, 0, 0, 14.49]).max() < 0.01
