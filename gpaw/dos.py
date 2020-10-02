@@ -122,9 +122,6 @@ def linear_tetrahedron_dos(eig_kn,
 class DOSCalculator:
     def __init__(self,
                  wfs,
-                 emin=None,
-                 emax=None,
-                 npoints=200,
                  setups=None,
                  cell=None,
                  shift_fermi_level=True):
@@ -145,19 +142,20 @@ class DOSCalculator:
             self.eig_skn = np.array([self.eig_skn, self.eig_skn])
             self.degeneracy = 0.5
 
-        emin = self.eig_skn.min() - 0.5 if emin is None else emin
-        emax = self.eig_skn.max() + 0.5 if emax is None else emax
-        self.energies = np.linspace(emin, emax, npoints)
-
         self.nspins = len(self.eig_skn)
         self.weight_k = wfs.weights()
 
-        self.cache = {}
+    def get_energies(self,
+                     emin: Optional[float] = None,
+                     emax: Optional[float] = None,
+                     npoints: int = 100):
+        emin = emin if emin is not None else self.eig_skn.min()
+        emax = emax if emax is not None else self.eig_skn.max()
+        return np.linspace(emin, emax, npoints)
 
     @classmethod
     def from_calculator(cls,
                         filename: Union[GPAW, Path, str],
-                        emin=None, emax=None, npoints=200,
                         soc=False, theta=0.0, phi=0.0,
                         shift_fermi_level=True):
         """Create DOSCalculator from a GPAW calculation.
@@ -176,40 +174,21 @@ class DOSCalculator:
         else:
             wfs = IBZWaveFunctions(calc)
 
-        return DOSCalculator(wfs, emin, emax, npoints,
+        return DOSCalculator(wfs,
                              calc.setups, calc.atoms.cell,
                              shift_fermi_level)
 
-    def calculate(self, eig_kn, weight_kn=None, width=0.1):
+    def calculate(self, energies, eig_kn, weight_kn=None, width=0.1):
         if width > 0.0:
             return gaussian_dos(eig_kn, weight_kn,
-                                self.weight_k, self.energies, width)
+                                self.weight_k, energies, width)
         else:
             return linear_tetrahedron_dos(
-                eig_kn, weight_kn, self.energies,
+                eig_kn, weight_kn, energies,
                 self.cell, self.wfs.size, self.wfs.bz2ibz_map)
 
-    def dos_at(self, energies: Array1D) -> Array1D:
-        """Calclate DOS en given energies.
-
-        To get the DOS at the Fermi level, use::
-
-            dos_fermi = doscalc.dos_at([0.0])[0]
-
-        or::
-
-            dos_fermi = doscalc.dos_at([doscalc.fermi_level])[0]
-
-        if the Fermi level has not been shifted to zero.
-        """
-        old = self.energies
-        self.energies = np.asarray(energies)
-        dos = sum(self.calculate(eig_kn, width=0.0)
-                  for eig_kn in self.eig_skn) * self.degeneracy
-        self.energies = old
-        return dos
-
     def dos(self,
+            energies: Array1D,
             spin: Union[int, None] = None,
             width: float = 0.1) -> GridDOSData:
         """Calculate density of states.
@@ -219,17 +198,18 @@ class DOSCalculator:
             linear-tetrahedron-interpolation method.
         """
         if spin is None:
-            dos = sum(self.calculate(eig_kn, width=width)
+            dos = sum(self.calculate(energies, eig_kn, width=width)
                       for eig_kn in self.eig_skn)
             dos *= self.degeneracy
             label = 'DOS'
         else:
-            dos = self.calculate(self.eig_skn[spin], width=width)
+            dos = self.calculate(energies, self.eig_skn[spin], width=width)
             label = 'DOS ({})'.format('up' if spin == 0 else 'dn')
 
-        return GridDOSData(self.energies, dos, {'label': label})
+        return GridDOSData(energies, dos, {'label': label})
 
     def pdos(self,
+             energies: Array1D,
              a: int,
              l: int,
              m: Optional[int] = None,
@@ -252,15 +232,10 @@ class DOSCalculator:
             Width of Gaussians in eV.  Use width=0.0 to use the
             linear-tetrahedron-interpolation method.
         """
-        if (a, l, m) in self.cache:
-            weight_kns = self.cache[(a, l, m)]
-        else:
-            indices = get_projector_numbers(self.setups[a], l)
-            if m is not None:
-                indices = indices[m::(2 * l) + 1]
-            weight_kns = self.wfs.pdos_weights(a, indices)
-            self.cache.clear()
-            self.cache[(a, l, m)] = weight_kns
+        indices = get_projector_numbers(self.setups[a], l)
+        if m is not None:
+            indices = indices[m::(2 * l) + 1]
+        weight_kns = self.wfs.pdos_weights(a, indices)
 
         label = 'atom #{}-{}'.format(a, 'spdfg'[l])
 
@@ -269,12 +244,18 @@ class DOSCalculator:
             label += f'-({name})'
 
         if spin is None:
-            dos = sum(self.calculate(eig_kn, weight_nk.T, width=width)
-                      for eig_kn, weight_nk in zip(self.eig_skn, weight_kns.T))
+            dos = sum(self.calculate(energies,
+                                     eig_kn,
+                                     weight_nk.T,
+                                     width=width)
+                      for eig_kn, weight_nk
+                      in zip(self.eig_skn, weight_kns.T))
             dos *= self.degeneracy
         else:
-            dos = self.calculate(self.eig_skn[spin], weight_kns[:, :, spin],
+            dos = self.calculate(energies,
+                                 self.eig_skn[spin],
+                                 weight_kns[:, :, spin],
                                  width=width)
             label += ' ({})'.format('up' if spin == 0 else 'dn')
 
-        return GridDOSData(self.energies, dos, {'label': label})
+        return GridDOSData(energies, dos, {'label': label})
