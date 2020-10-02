@@ -168,7 +168,7 @@ class InnerLoop:
 
         self.sd = LSR1P(wfs, memory=50)
         self.ls = UnitStepLength(self.evaluate_phi_and_der_phi,
-                                 max_step=0.25)
+                                 max_step=0.2)
 
         threelasten = []
         # get initial energy and gradients
