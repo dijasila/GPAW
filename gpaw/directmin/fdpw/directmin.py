@@ -146,6 +146,7 @@ class DirectMin(Eigensolver):
         return {'name': 'direct_min_fd',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
+                'convergelumo': self.convergelumo,
                 'use_prec': self.use_prec,
                 'odd_parameters': self.odd_parameters
                 }
@@ -260,6 +261,10 @@ class DirectMin(Eigensolver):
 
     def iterate(self, ham, wfs, dens, occ, log):
 
+        if self.lsa['name'] == 'UnitStep':
+            self.iteratenols(ham, wfs, dens, occ, log)
+            return
+
         assert dens.mixer.driver.name == 'dummy', \
             'Please, use: mixer={\'method\': \'dummy\'}'
         assert wfs.bd.comm.size == 1, \
@@ -335,6 +340,69 @@ class DirectMin(Eigensolver):
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
+        if self.iloop_outer is not None:
+            if self.iloop_outer.odd_pot.restart:
+                self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                self.get_canonical_representation(ham, wfs, occ, dens)
+                self.iters = 0
+                self.initialized = False
+                self.need_init_odd = True
+
+        wfs.timer.stop('Direct Minimisation step')
+        self.iters += 1
+
+    def iteratenols(self, ham, wfs, dens, occ, log):
+
+        assert dens.mixer.driver.name == 'dummy', \
+            'Please, use: mixer={\'method\': \'dummy\'}'
+        assert wfs.bd.comm.size == 1, \
+            'Band parallelization is not supported'
+        assert occ.width < 1.0e-5, \
+            'Zero Kelvin only.'
+
+        if not self.initialized:
+            if isinstance(ham.xc, HybridXC):
+                self.blocksize = wfs.bd.mynbands
+            self.initialize_super(wfs)
+            self.init_wfs(wfs, dens, ham, occ, log)
+            self.initialize_dm(wfs, dens, ham, log)
+
+        n_kps = self.n_kps
+        psi_copy = {}
+        phi_2i = self.phi_2i
+
+        wfs.timer.start('Direct Minimisation step')
+        phi_2i[0], grad_knG = \
+            self.get_energy_and_tangent_gradients(ham, wfs, dens,
+                                                  occ)
+        wfs.timer.start('Get Search Direction')
+        for kpt in wfs.kpt_u:
+            k = n_kps * kpt.s + kpt.q
+            psi_copy[k] = kpt.psit_nG.copy()
+        p_knG = self.search_direction.update_data(psi_copy, grad_knG,
+                                                  wfs, self.prec)
+        self.project_search_direction(wfs, p_knG)
+        wfs.timer.stop('Get Search Direction')
+        dot = 0.0
+        for kpt in wfs.kpt_u:
+            k = wfs.kd.nks // wfs.kd.nspins * kpt.s + kpt.q
+            for p in p_knG[k]:
+                dot += wfs.integrate(p, p, False)
+        dot = dot.real
+        dot = wfs.world.sum(dot)
+        dot = np.sqrt(dot)
+        if dot > self.line_search.maxstep:
+            a_star = self.line_search.maxstep/dot
+        else:
+            a_star = 1.0
+        for kpt in wfs.kpt_u:
+            k = n_kps * kpt.s + kpt.q
+            kpt.psit_nG[:] = psi_copy[k] + a_star * p_knG[k]
+        del psi_copy
+        del p_knG
+        del grad_knG
+        wfs.orthonormalize()
+        self.alpha = a_star
         if self.iloop_outer is not None:
             if self.iloop_outer.odd_pot.restart:
                 self.choose_optimal_orbitals(wfs, ham, occ, dens)
@@ -718,6 +786,7 @@ class DirectMin(Eigensolver):
                                    kpt.P_ani[a][:n_occ ])
 
         # update fermi level?
+        del grad_knG
         occ.calculate(wfs)
         occ_name = getattr(occ, 'name', None)
         if occ_name == 'mom':

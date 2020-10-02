@@ -52,6 +52,8 @@ class OccupationsMOM(ZeroKelvin):
         occ = self.occupations.copy()
 
         if self.iters == 0 and self.space == 'full':
+            self.occupation = occ
+            ZeroKelvin.calculate(self, wfs)
             self.initialize_reference_orbitals(wfs)
 
         for kpt in wfs.kpt_u:
