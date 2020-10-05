@@ -114,15 +114,24 @@ def test_gaussian2(things):
     assert abs(W_avv[0] + W1_vv).max() < 1e-6
 
 
+g_factor_proton = 5.586
+
+
 @pytest.mark.serial
 def test_h(gpw_files):
     calc = GPAW(gpw_files['h_pw'])
-    A_vv = hyperfine_parameters(calc)[0]
+    A_vv = hyperfine_parameters(calc)[0] * g_factor_proton
     print(A_vv)
-    ref = 2 / 3 * alpha**2 * units.Ha * units._me / units._mp * g_factor_e
-    ref *= 0.94  # density at nucleus is slightly below 1/pi for PBE
-    print(ref)
-    assert abs(A_vv - np.eye(3) * ref).max() < 1e-2
+
+    energy = (2 / 3 * alpha**2 * units.Ha * units._me / units._mp *
+              g_factor_e * g_factor_proton)  # in eV
+    frequency = energy * units._e / units._hplanck  # Hz
+    wavelength = units._c / frequency  # meters
+    assert wavelength == pytest.approx(0.211, abs=0.001)
+
+    energy *= 0.94  # density at nucleus is slightly below 1/pi for PBE
+    print(energy)
+    assert abs(A_vv - np.eye(3) * energy).max() < 1e-7
 
 
 def thomson():
