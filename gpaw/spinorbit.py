@@ -332,6 +332,9 @@ def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
                         theta: float = 0.0,
                         phi: float = 0.0) -> Dict[int, WaveFunction]:
 
+    theta *= np.pi / 180
+    phi *= np.pi / 180
+
     # Hamiltonian with SO in KS basis
     # The even indices in H_mm are spin up along \hat n defined by \theta, phi
     # Basis change matrix for constructing Pauli matrices in \theta,\phi basis:
@@ -430,9 +433,10 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n1: int = None,
                     n2: int = None,
                     scale: float = 1.0,
-                    theta: float = 0.0,
-                    phi: float = 0.0,
-                    eigenvalues: Array3D = None
+                    theta: float = 0.0,  # degrees
+                    phi: float = 0.0,  # degrees
+                    eigenvalues: Array3D = None,  # eV
+                    occcalc: OccupationNumberCalculator = None
                     ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
@@ -445,9 +449,9 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         scale: float
             Scale the spinorbit coupling by this amount.
         theta: float
-            Angle in radians.
+            Angle in degrees.
         phi: float
-            Angle in radians.
+            Angle in degrees.
         eigenvalues: ndarray
             Optionally use these eigenvalues instead for those from *calc*.
             The shape must be: (nspins, nibzkpts, n2 - n1).
@@ -497,12 +501,13 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         parallel_layout = ParallelLayout(BandDescriptor(1),
                                          kd.comm,
                                          serial_comm)
-        occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts),
-                                        parallel_layout=parallel_layout)
+        occcalc = occcalc or calc.wfs.occupations
+        occcalc = occcalc.copy(bz2ibzmap=np.arange(kd.nbzkpts),
+                               parallel_layout=parallel_layout)
     else:
-        occ = None
+        occcalc = None
 
-    return BZWaveFunctions(kd, bzwfs, occ, calc.wfs.nvalence)
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
@@ -576,6 +581,7 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=0, width=None):
     Returns the result relative to the sum of eigenvalues without
     spinorbit coupling.
     """
+    1 / 0
     bzwfs = soc_eigenstates(calc, theta=theta, phi=phi,
                             n1=0, n2=nbands)
 
