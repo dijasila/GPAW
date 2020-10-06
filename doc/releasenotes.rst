@@ -15,10 +15,10 @@ Git master branch
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
   and uses symmetry.  Angles are given in degrees (was radians before).
 
-* The ``gpaw.spinorbit.get_anisotropy()`` method has been remove.  Use
+* The ``gpaw.spinorbit.get_anisotropy()`` method has been removed.  Use the
   :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
-  :meth:`gpaw.spinorbit.BZWaveFunctions.calculate_band_energy` method.
-  See: :ref:`magnetic anisotropy`.
+  :meth:`~gpaw.spinorbit.BZWaveFunctions.calculate_band_energy` method.
+  See this tutorial: :ref:`magnetic anisotropy`.
 
 * Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
 
