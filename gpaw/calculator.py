@@ -117,9 +117,7 @@ class GPAW(Calculator):
     def __init__(self,
                  restart=None,
                  *,
-                 ignore_bad_restart_file=False,
                  label=None,
-                 atoms=None,
                  timer=None,
                  communicator=None,
                  txt='?',
@@ -164,8 +162,7 @@ class GPAW(Calculator):
 
         self.reader = None
 
-        Calculator.__init__(self, restart, ignore_bad_restart_file, label,
-                            atoms, **kwargs)
+        Calculator.__init__(self, restart, label=label, **kwargs)
 
     def fixed_density(self, *,
                       update_fermi_level: bool = False,
