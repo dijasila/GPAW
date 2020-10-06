@@ -20,6 +20,7 @@ import gpaw.wavefunctions.pw as pw
 from gpaw import memory_estimate_depth
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.density import RealSpaceDensity
+from gpaw.dos import DOSCalculator
 from gpaw.eigensolvers import get_eigensolver
 from gpaw.external import PointChargePotential
 from gpaw.forces import calculate_forces
@@ -1971,8 +1972,16 @@ class GPAW(Calculator):
         self.set(external=pc)
         return pc
 
-    def dos(self, soc=False, theta=0.0, phi=0.0, shift_fermi_level=True):
-        from gpaw.dos import DOSCalculator
+    def dos(self,
+            soc: bool = False,
+            theta: float = 0.0,
+            phi: float = 0.0,
+            shift_fermi_level: bool = True) -> DOSCalculator:
+        """Create DOS-calculator.
+
+        Default is to shift_fermi_level to 0.0 eV.  For soc=True, angles
+        can be given in degrees.
+        """
         return DOSCalculator.from_calculator(
             self, soc=soc,
             theta=theta, phi=phi,
