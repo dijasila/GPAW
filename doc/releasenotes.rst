@@ -13,7 +13,12 @@ Git master branch
 * Corresponding ASE release: ASE-3.20.0b1
 
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
-  and uses symmetry.
+  and uses symmetry.  Angles are given in degrees (was radians before).
+
+* The ``gpaw.spinorbit.get_anisotropy()`` method has been remove.  Use
+  :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
+  :meth:`gpaw.spinorbit.BWWaveFunctions.calculate_band_energy` method.
+  See: :ref:`magnetic anisotropy`.
 
 * Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
 

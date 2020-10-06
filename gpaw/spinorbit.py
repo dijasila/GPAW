@@ -230,6 +230,7 @@ class BZWaveFunctions:
         return fermi_level
 
     def calculate_band_energy(self) -> float:
+        """Calculate sum over occupied eigenvalues."""
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
             weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
