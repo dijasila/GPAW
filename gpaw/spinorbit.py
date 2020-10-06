@@ -581,14 +581,8 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=0, width=None):
     Returns the result relative to the sum of eigenvalues without
     spinorbit coupling.
     """
-    1 / 0
-    bzwfs = soc_eigenstates(calc, theta=theta, phi=phi,
-                            n1=0, n2=nbands)
-
-    E_so = bzwfs.calculate_band_energy()
-    E_ref = calc.wfs.calculate_band_energy() * Ha
-
-    return E_so - E_ref
+    raise RuntimeError('Please use BZWaveFunctions.calculate_band_energy() '
+                       'instead.')
 
 
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):
