@@ -35,3 +35,9 @@ Miscellaneous objects and functions
 
 .. autoclass:: gpaw.kpt_descriptor.KPointDescriptor
     :members:
+
+.. autoclass:: gpaw.projections.Projections
+    :members:
+
+.. autoclass:: gpaw.utilities.partition.AtomPartition
+    :members:
