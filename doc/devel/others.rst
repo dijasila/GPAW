@@ -41,3 +41,7 @@ Miscellaneous objects and functions
 
 .. autoclass:: gpaw.utilities.partition.AtomPartition
     :members:
+
+.. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements
+
+.. autofunction:: gpaw.utilities.dipole.dipole_matrix_elements_from_calc

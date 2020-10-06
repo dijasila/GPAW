@@ -18,6 +18,7 @@ Array3D = Any
 def dipole_matrix_elements(gd: GridDescriptor,
                            psit_nR: List[Array3D],
                            P_nI: Array2D,
+                           position_av: Array2D,
                            setups: List[Setup]) -> Array3D:
     """Calculate dipole matrix-elements.
 
@@ -41,8 +42,12 @@ def dipole_matrix_elements(gd: GridDescriptor,
             dipole_nnv[na, nb] = d_v
             dipole_nnv[nb, na] = d_v
 
-    R_aiiv = [setup.Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
-              for setup in setups]
+    R_aiiv = []
+    for setup, position_v in zip(setups, position_av):
+        Delta_iiL = setup.Delta_iiL
+        R_iiv = Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
+        R_iiv += position_v * setup.Delta_iiL[:, :, :1] * (4 * pi)**0.5
+        R_aiiv.append(R_iiv)
 
     I1 = 0
     for R_iiv in R_aiiv:
@@ -57,15 +62,17 @@ def dipole_matrix_elements(gd: GridDescriptor,
 def dipole_matrix_elements_from_calc(calc: GPAW,
                                      n1: int,
                                      n2: int) -> List[Array3D]:
-    """Calculate dipole matrix-elements.  Units: Å."""
+    """Calculate dipole matrix-elements (units: Å)."""
     wfs = calc.wfs
     assert wfs.kd.gamma
 
     gd = wfs.gd.new_descriptor(comm=serial_comm)
+    position_av = calc.atoms.positions / Bohr
 
     d_snnv = []
     for spin in range(calc.get_number_of_spins()):
-        psit_nR = [calc.get_pseudo_wave_function(band=n, spin=spin) * Bohr**1.5
+        psit_nR = [calc.get_pseudo_wave_function(band=n, spin=spin,
+                                                 pad=False) * Bohr**1.5
                    for n in range(n1, n2)]
         projections = wfs.kpt_qs[0][spin].projections.view(n1, n2)
         P_nI = projections.collect()
@@ -74,6 +81,7 @@ def dipole_matrix_elements_from_calc(calc: GPAW,
             d_nnv = dipole_matrix_elements(gd,
                                            psit_nR,
                                            P_nI,
+                                           position_av,
                                            wfs.setups) * Bohr
             d_snnv.append(d_nnv)
     return d_snnv
