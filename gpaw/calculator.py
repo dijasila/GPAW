@@ -1639,7 +1639,7 @@ class GPAW(Calculator):
                                                  nbands)
         else:
             raise DeprecationWarning(
-                'Please use GPAW.dos(soc=True, ...).pdos(...)')
+                'Please use GPAW.dos(soc=True, ...).raw_pdos(...)')
 
         return fold(energies * Ha, weights, npts, width)
 

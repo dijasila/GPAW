@@ -16,7 +16,7 @@ def f(N: int, i: bool):
     ef, _ = t._calculate(0.5, e, w, f)
     wfs = WFS(e, ef)
     dos = DOSCalculator(wfs, cell=np.linalg.inv(rcell))
-    dosef = dos.dos([ef], spin=0, width=0.0).get_weights()[0]
+    dosef = dos.raw_dos([ef], spin=0, width=0.0)[0]
     return f.sum() / N, (f * e).sum() / N, ef, dosef
 
 

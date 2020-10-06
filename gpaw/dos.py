@@ -2,11 +2,9 @@ from pathlib import Path
 from typing import Union, List, Any, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
-from ase.spectrum.dosdata import GridDOSData
-
 from ase.dft.dos import linear_tetrahedron_integration as lti
+
 from gpaw.setup import Setup
-from gpaw.spherical_harmonics import names as ylmnames
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
 
 if TYPE_CHECKING:
@@ -197,10 +195,10 @@ class DOSCalculator:
                 eig_kn, weight_kn, energies,
                 self.cell, self.wfs.size, self.wfs.bz2ibz_map)
 
-    def dos(self,
-            energies: Sequence[float],
-            spin: Union[int, None] = None,
-            width: float = 0.1) -> GridDOSData:
+    def raw_dos(self,
+                energies: Sequence[float],
+                spin: Union[int, None] = None,
+                width: float = 0.1) -> Array1D:
         """Calculate density of states.
 
         width: float
@@ -211,20 +209,18 @@ class DOSCalculator:
             dos = sum(self.calculate(energies, eig_kn, width=width)
                       for eig_kn in self.eig_skn)
             dos *= self.degeneracy
-            label = 'DOS'
         else:
             dos = self.calculate(energies, self.eig_skn[spin], width=width)
-            label = 'DOS ({})'.format('up' if spin == 0 else 'dn')
 
-        return GridDOSData(energies, dos, {'label': label})
+        return dos
 
-    def pdos(self,
-             energies: Sequence[float],
-             a: int,
-             l: int,
-             m: Optional[int] = None,
-             spin: int = None,
-             width: float = 0.1) -> GridDOSData:
+    def raw_pdos(self,
+                 energies: Sequence[float],
+                 a: int,
+                 l: int,
+                 m: Optional[int] = None,
+                 spin: int = None,
+                 width: float = 0.1) -> Array1D:
         """Calculate projected density of states.
 
         a:
@@ -247,12 +243,6 @@ class DOSCalculator:
             indices = indices[m::(2 * l) + 1]
         weight_kns = self.wfs.pdos_weights(a, indices)
 
-        label = 'atom #{}-{}'.format(a, 'spdfg'[l])
-
-        if m is not None and l > 0:
-            name = ylmnames[l][m]
-            label += f'-({name})'
-
         if spin is None:
             dos = sum(self.calculate(energies,
                                      eig_kn,
@@ -266,6 +256,5 @@ class DOSCalculator:
                                  self.eig_skn[spin],
                                  weight_kns[:, :, spin],
                                  width=width)
-            label += ' ({})'.format('up' if spin == 0 else 'dn')
 
-        return GridDOSData(energies, dos, {'label': label})
+        return dos

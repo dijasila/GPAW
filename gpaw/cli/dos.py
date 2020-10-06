@@ -165,7 +165,8 @@ def dos(filename: Union[Path, str],
 
     if projection is None or show_total:
         for spin, label in zip(spins, spinlabels):
-            dosobjs += doscalc.dos(energies, spin=spin, width=width)
+            dos = doscalc.raw_dos(energies, spin=spin, width=width)
+            dosobjs += GridDOSData(energies, dos, {'label': 'DOS' + label})
 
     if projection is not None:
         symbols = calc.atoms.get_chemical_symbols()
@@ -175,9 +176,8 @@ def dos(filename: Union[Path, str],
             for spin, spinlabel in zip(spins, spinlabels):
                 dos = np.zeros_like(energies)
                 for a, l, m in contributions:
-                    obj = doscalc.pdos(energies,
-                                       a, l, m, spin=spin, width=width)
-                    dos += obj.get_weights()
+                    dos += doscalc.raw_pdos(energies,
+                                            a, l, m, spin=spin, width=width)
                 dosobjs += GridDOSData(energies, dos,
                                        {'label': label + spinlabel})
 
