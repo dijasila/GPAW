@@ -455,7 +455,10 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
             Angle in degrees.
         eigenvalues: ndarray
             Optionally use these eigenvalues instead for those from *calc*.
-            The shape must be: (nspins, nibzkpts, n2 - n1).
+            The shape must be: (nspins, nibzkpts, n2 - n1).  Units: eV.
+        occcalc:
+            Occupation-number calculator.  By default, the one from *calc*
+            will be used.
 
     Returns a BZWaveFunctions object covering the whole BZ.
     """

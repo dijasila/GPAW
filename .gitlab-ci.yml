@@ -2,7 +2,9 @@ master:
   image: python:3.8
   script:
     - apt-get update -qy
-    - apt-get install -qy libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
+    - >
+      apt-get install -qy
+      libopenblas-dev libscalapack-mpi-dev libxc-dev > apt-get.output
     - pip install flake8 mypy pytest interrogate
     - pip install git+https://gitlab.com/ase/ase.git@master > ase-install.output
     - mkdir ~/.gpaw
@@ -16,7 +18,7 @@ master:
     - su user -c 'pytest -v -m ci'
     - mypy -p gpaw
     - >
-      interrogate -m -i -f 34.4
+      interrogate -m -i -f 34.6
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
@@ -24,6 +26,6 @@ master:
       flake8 --exit-zero --doctests --statistics --count -qq
       --exclude "doc/platforms/*,gpaw/lrtddft2/*,doc/*/summerschool18/*/*"
       gpaw doc | tee f8
-    - python -c "assert int(open('f8').readlines()[-1]) <= 1423,
+    - python -c "assert int(open('f8').readlines()[-1]) <= 1415,
                  'Please run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/
