@@ -7,6 +7,7 @@ from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
 
 MPIComm = Any
+Array2D = Any
 
 
 class Projections:
@@ -106,14 +107,16 @@ class Projections:
             P1_ni[:] = P_ni
         return P
 
-    def redist(self, atom_partition):
+    def redist(self, atom_partition) -> 'Projections':
+        """Redistribute atoms."""
         P = self.new(atom_partition=atom_partition)
         arraydict = self.toarraydict()
         arraydict.redistribute(atom_partition)
         P.fromarraydict(arraydict)
         return P
 
-    def collect(self):
+    def collect(self) -> Array2D:
+        """Collect all bands and atoms to master."""
         if self.bcomm.size == 1:
             P = self.matrix
         else:

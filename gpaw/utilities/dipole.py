@@ -1,29 +1,82 @@
 """Calculate dipole matrix elements."""
 
+from math import pi
 from typing import List, Any
 
 from ase.units import Bohr
 import numpy as np
 
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.projections import Projections
 from gpaw import GPAW
+from gpaw.grid_descriptor import GridDescriptor
+from gpaw.setup import Setup
+from gpaw.mpi import serial_comm
 
+Array2D = Any
 Array3D = Any
-Array4D = Any
 
 
 def dipole_matrix_elements(gd: GridDescriptor,
-                           psit_nR: Array4D,
-                           projections: Projections) -> Array3D:
+                           psit_nR: List[Array3D],
+                           P_nI: Array2D,
+                           setups: List[Setup]) -> Array3D:
+    """Calculate dipole matrix-elements.
+
+    gd:
+        Grid-descriptor.
+    psit_nG:
+        Wave functions in atomic units.
+    P_nI:
+        PAW projections.
+    setups:
+        PAW setups.
+
+    Returns matrix elements in atomic units.
+    """
+    assert gd.comm.size == 1
     dipole_nnv = np.empty((len(psit_nR), len(psit_nR), 3))
+
     for na, psita_R in enumerate(psit_nR):
         for nb, psitb_R in enumerate(psit_nR[:na + 1]):
-            d_v = gd.calculate_dipole_moment(psita_R * psitb_R)
-
+            d_v = -gd.calculate_dipole_moment(psita_R * psitb_R)
             dipole_nnv[na, nb] = d_v
             dipole_nnv[nb, na] = d_v
+
+    R_aiiv = [setup.Delta_iiL[:, :, [3, 1, 2]] * (4 * pi / 3)**0.5
+              for setup in setups]
+
+    I1 = 0
+    for R_iiv in R_aiiv:
+        I2 = I1 + len(R_iiv)
+        P_ni = P_nI[:, I1:I2]
+        dipole_nnv += np.einsum('mi, ijv, nj -> mnv', P_ni, R_iiv, P_ni)
+        I1 = I2
+
     return dipole_nnv
+
+
+def dipole_matrix_elements_from_calc(calc: GPAW,
+                                     n1: int,
+                                     n2: int) -> List[Array3D]:
+    """Calculate dipole matrix-elements.  Units: Å."""
+    wfs = calc.wfs
+    assert wfs.kd.gamma
+
+    gd = wfs.gd.new_descriptor(comm=serial_comm)
+
+    d_snnv = []
+    for spin in range(calc.get_number_of_spins()):
+        psit_nR = [calc.get_pseudo_wave_function(band=n, spin=spin) * Bohr**1.5
+                   for n in range(n1, n2)]
+        projections = wfs.kpt_qs[0][spin].projections.view(n1, n2)
+        P_nI = projections.collect()
+
+        if wfs.world.rank == 0:
+            d_nnv = dipole_matrix_elements(gd,
+                                           psit_nR,
+                                           P_nI,
+                                           wfs.setups) * Bohr
+            d_snnv.append(d_nnv)
+    return d_snnv
 
 
 def main(argv: List[str] = None) -> None:
@@ -31,13 +84,14 @@ def main(argv: List[str] = None) -> None:
 
     parser = argparse.ArgumentParser(
         prog='python3 -m gpaw.utilities.dipole',
-        description='Calculate dipole matrix elements.')
+        description='Calculate dipole matrix elements.  Units: Å.')
 
     add = parser.add_argument
 
     add('file', metavar='input-file',
         help='GPW-file with wave functions.')
-    add('-n', '--band-range', nargs=2, type=int)
+    add('-n', '--band-range', nargs=2, type=int, default=[0, 0],
+        metavar=('n1', 'n2'), help='Include bands: n1 <= n < n2.')
 
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
@@ -47,16 +101,26 @@ def main(argv: List[str] = None) -> None:
     calc = GPAW(args.file)
 
     n1, n2 = args.band_range
+    nbands = calc.get_number_of_bands()
+    n2 = n2 or n2 + nbands
 
-    wfs = calc.wfs
-    psit_nR = np.array([calc.get_pseudo_wave_function(band=n)
-                        for n in range(n1, n2)])
-    psit_nR = wfs.gd.distribute(psit_nR) * Bohr**1.5
-    projections = wfs.kpt_u[0].projections.view(n1, n2)
-    d_nnv = dipole_matrix_elements(wfs.gd,
-                                   psit_nR,
-                                   projections) * Bohr
-    print(d_nnv)
+    d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2)
+
+    if calc.wfs.world.rank > 0:
+        return
+
+    print('Number of bands:', nbands)
+    print('Number of valence electrons:', calc.get_number_of_electrons())
+    print()
+
+    for spin, d_nnv in enumerate(d_snnv):
+        print(f'Spin={spin}')
+
+        for direction, d_nn in zip('xyz', d_nnv.T):
+            print(f' <{direction}>',
+                  ''.join(f'{n:8}' for n in range(n1, n2)))
+            for n in range(n1, n2):
+                print(f'{n:4}', ''.join(f'{d:8.3f}' for d in d_nn[n - n1]))
 
 
 if __name__ == '__main__':
