@@ -192,22 +192,29 @@ We assume that CrI$_3$ is isotropic in the plane of the monolayer and introduce 
 
 $$H_{\mathrm{ani}}=A\sum_i(S_i^z)^2,$$
 
-where we have chosen the $z$-direction to be orthogonal to the plane. Try to describe the physics of this term in the cases of $A<0$ and $A>0$. Does the term fully break rotational symmetry of the ground state in both cases?
+where we have chosen the $z$-direction to be orthogonal to the plane. Try to
+describe the physics of this term in the cases of $A<0$ and $A>0$. Does the
+term fully break rotational symmetry of the ground state in both cases?
 
 ## Magnetic anisotropy from DFT
-In the cell below the magnetic anisotropy is calculated for the ferromagnetic ground state. The function get_anisotropy() will return the correction to the ground states when spin-orbit coupling is included ($E_{\mathrm{SOC}}-E_0$). This correction will depend on the direction of the spins, which is specified by the polar and azimuthal angles $\theta$ and $\varphi$ respectively.
 
-What is the sign of $A$ in the Hamiltonian above? Does spin-orbit coupling break the rotational symmetry of the ground state?
+In the cell below the magnetic anisotropy is calculated for the ferromagnetic
+ground state. The function calculate_band_energy() will return the sum over
+occupied SOC corrected states. This energy will depend on the direction of
+the spins, which is specified by the polar and azimuthal angles $\theta$ and
+$\varphi$ respectively.
+
+What is the sign of $A$ in the Hamiltonian above? Does spin-orbit coupling
+break the rotational symmetry of the ground state?
 
 """
 
 # %%
-from gpaw.spinorbit import get_anisotropy
-from math import pi
+from gpaw.spinorbit import soc_eigenstates
 
-e_x = get_anisotropy(calc_fm, theta=pi/2, phi=0) / 2
-e_y = get_anisotropy(calc_fm, theta=pi/2, phi=pi/2) / 2
-e_z = get_anisotropy(calc_fm, theta=0, phi=0) / 2
+e_x = soc_eigenstates(calc_fm, theta=90, phi=0).calculate_band_energy() / 2
+e_y = soc_eigenstates(calc_fm, theta=90, phi=90).calculate_band_energy() / 2
+e_z = soc_eigenstates(calc_fm, theta=0, phi=0).calculate_band_energy() / 2
 de_zx = e_z - e_x
 de_zy = e_z - e_y
 print('dE_zx = %1.3f meV' %  (de_zx * 1000))
@@ -217,34 +224,42 @@ A = de_zx  # student: A = ???
 
 # %%
 """
-We can also plot the total energy of the ground state as a function of angle with the out of plane direction. This is done by the cell below.
+We can also plot the total energy of the ground state as a function of angle
+with the out of plane direction. This is done by the cell below.
 
 Run the cell and inspect the plot. Does it look like you would expect?
 """
 
 # %%
-import pylab as plt
+import matplotlib.pyplot as plt
+import numpy as np
 
-N = 12
+thetas = np.linspace(0, 180, 13)
 
 e_n = []
-for n in range(N + 1):
-    e_n.append((get_anisotropy(calc_fm, theta=n*pi/(N), phi=0) / 2 - e_z) * 1000)
+for theta in thetas:
+    soc = soc_eigenstates(calc_fm, theta=theta, phi=0)
+    e_n.append(soc.calculate_band_energy() / 2)
+
+e_n = np.array(e_n) - e_n[0]
+
 plt.figure()
-plt.plot(range(N + 1), e_n, 'o-')
-plt.xticks([0, N / 2, N], [r'$0$', r'$\pi/2$', r'$\pi$'], size=16)
-plt.yticks(size=16)
+plt.plot(thetas, e_n * 1000, 'o-')
 plt.xlabel(r'$\theta$', size=18)
 plt.ylabel('E [meV]', size=18)
 
 
 # %%
 """
-Now we have obtained the the anisotropy constant A. But how do we get the critical temperature if we cannot apply mean-field theory? One way is to perform Monte-Carlo simulations of the Heisenberg model at different temperature and find the point where the total magnetization vanishes. The results are well approximated by the expression
+Now we have obtained the the anisotropy constant A. But how do we get the critical temperature if we cannot apply mean-field theory? One
+way is to perform Monte-Carlo simulations of the Heisenberg model at different temperature and find the point where the total magnetization
+vanishes. The results are well approximated by the expression
 
 $$T_c=T_c^{\mathrm{Ising}}\tanh^{1/4}\Big[\frac{6}{N}\log\Big(1-0.033\frac{A}{J}\Big)\Big],$$
 
-where $N$ is the number of nearest neighbors and and $T_c^{\mathrm{Ising}}=1.52\cdot S^2J/k_B$ is the critical temperature of the corresponding Ising model. Calculate the critical temperature from this expression using the values of $A$ and $J$ found above. Do with python in the cell below.
+where $N$ is the number of nearest neighbors and and $T_c^{\mathrm{Ising}}=1.52\cdot S^2J/k_B$ is the critical temperature of the
+corresponding Ising model. Calculate the critical temperature from this expression using the values of $A$ and $J$ found above. Do with
+python in the cell below.
 
 """
 
@@ -258,5 +273,7 @@ print('T_c = %1.f K' % T_c)
 
 # %%
 """
-The result for $T_c$ should be in reasonable agreement with the experimental value. Of course, one should carefully check the convergence of all calculations in the present notebook. In fact a converged calculation yields $J = 3.1$ meV and $A=-0.38$ meV, which results in $T_c = 36$ K.
+The result for $T_c$ should be in reasonable agreement with the experimental value. Of course, one should carefully check the convergence
+of all calculations in the present notebook. In fact a converged calculation yields $J = 3.1$ meV and $A=-0.38$ meV, which results in $T_c
+= 36$ K.
 """

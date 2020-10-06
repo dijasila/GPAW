@@ -1,14 +1,16 @@
 from pathlib import Path
-from typing import Union, List, Any, Optional, Sequence
+from typing import Union, List, Any, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
 from ase.spectrum.dosdata import GridDOSData
 
-from gpaw import GPAW
 from ase.dft.dos import linear_tetrahedron_integration as lti
 from gpaw.setup import Setup
 from gpaw.spherical_harmonics import names as ylmnames
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
+
+if TYPE_CHECKING:
+    from gpaw import GPAW
 
 Array1D = Any
 Array2D = Any
@@ -17,7 +19,7 @@ Array3D = Any
 
 class IBZWaveFunctions:
     """Container for eigenvalues and PAW projections (only IBZ)."""
-    def __init__(self, calc: GPAW):
+    def __init__(self, calc: 'GPAW'):
         self.calc = calc
         self.fermi_level = self.calc.get_fermi_level()
         self.size = calc.wfs.kd.N_c
@@ -156,7 +158,7 @@ class DOSCalculator:
 
     @classmethod
     def from_calculator(cls,
-                        filename: Union[GPAW, Path, str],
+                        filename: Union['GPAW', Path, str],
                         soc=False, theta=0.0, phi=0.0,
                         shift_fermi_level=True):
         """Create DOSCalculator from a GPAW calculation.
@@ -164,6 +166,8 @@ class DOSCalculator:
         filename: str
             Name of restart-file or GPAW calculator object.
         """
+        from gpaw import GPAW
+
         if isinstance(filename, GPAW):
             calc = filename
         else:

@@ -89,8 +89,8 @@ class KPointDescriptor:
     def __init__(self, kpts, nspins: int = 1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
-        Parameters
-        ----------
+        Parameters:
+
         kpts: None, sequence of 3 ints, or (n,3)-shaped array
             Specification of the k-point grid. None=Gamma, list of
             ints=Monkhorst-Pack, ndarray=user specified.
@@ -388,8 +388,8 @@ class KPointDescriptor:
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
 
-        Parameters
-        ----------
+        Parameters:
+
         q_c: ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.
