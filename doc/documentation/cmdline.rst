@@ -48,6 +48,7 @@ and for :ref:`hyperfine`.  Try:
 
     $ python3 -m gpaw.point_groups --help
     $ python3 -m gpaw.hyperfine --help
+    $ python3 -m gpaw.utilities.dipole --help
 
 
 .. _bash completion:

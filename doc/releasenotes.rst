@@ -112,6 +112,12 @@ Git master branch
   for periodic systems
   and ``mixer=MixerSum(beta=0.25, history=3, weight=1)`` for molecules.
 
+* New :func:`~gpaw.utilities.dipole.dipole_matrix_elements` and
+  :func:`~gpaw.utilities.dipole.dipole_matrix_elements_from_calc`
+  functions.  Command-line interface::
+
+      $ python3 -m gpaw.utilities.dipole <gpw-file>
+
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
 .. _mypy: https://mypy.readthedocs.io/en/stable/
