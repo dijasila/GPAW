@@ -11,7 +11,7 @@ See::
 """
 
 from math import nan
-from typing import List, Tuple, Any
+from typing import List, Tuple
 import numpy as np
 from scipy.spatial import Delaunay
 
