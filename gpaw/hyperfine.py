@@ -39,19 +39,25 @@ g_factor_e = 2.00231930436256
 def hyperfine_parameters(calc: GPAW) -> Array3D:
     r"""Calculate isotropic and anisotropic hyperfine coupling paramters.
 
-    One tensor per atom is returned in eV units.  The isotropic part
-    is a=trace(A)/3 and the anisotropic part is A-a.
+    One tensor (:math:`A_{ij}`) per atom is returned in eV units.
+    In Hartree atomic units, we have the isotropic part
+    :math:`a = \text{Tr}(\mathbf{A}) / 3`:
+
+    .. math::
+
+        a = \frac{2 \alpha^2 g_e m_e}{3 m_p}
+            \int \delta_T(\mathbf{r}) \rho_s(\mathbf{r}) d\mathbf{r},
+
+    and the anisotropic part :math:`\mathbf{A} - a`:
+
+    .. math::
+
+        \frac{\alpha^2 g_e m_e}{4 \pi m_p}
+        \int \frac{3 r_i r_j - \delta_{ij} r^2}{r^5}
+        \rho_s(\mathbf{r}) d\mathbf{r}.
 
     Remember to multiply each tensor by the g-factors of the nuclei
     and divide by the total electron spin.
-
-    ================  ========
-    nucleus           g-factor
-    ================  ========
-    proton              5.586
-    O\ :math:`^{17}`   -0.757
-    ================  ========
-
     """
     dens = calc.density
     nt_sR = dens.nt_sG
@@ -223,21 +229,21 @@ def integrate(n0_g: Array1D,
 
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
 # Units: MHz/T
-gyromagnetic_ratios = {'H': 42.577478518,
-                       'He': -32.434,
-                       'Li': 16.546,
-                       'C': 10.7084,
-                       'N': 3.077,
-                       'O': -5.772,
-                       'F': 40.052,
-                       'Na': 11.262,
-                       'Al': 11.103,
-                       'Si': -8.465,
-                       'P': 17.235,
-                       'Fe': 1.382,
-                       'Cu': 11.319,
-                       'Zn': 2.669,
-                       'Xe': -11.777}
+gyromagnetic_ratios = {'H': (1, 42.577478518),
+                       'He': (3, -32.434),
+                       'Li': (7, 16.546),
+                       'C': (13, 10.7084),
+                       'N': (14, 3.077),
+                       'O': (17, -5.772),
+                       'F': (19, 40.052),
+                       'Na': (23, 11.262),
+                       'Al': (27, 11.103),
+                       'Si': (29, -8.465),
+                       'P': (31, 17.235),
+                       'Fe': (57, 1.382),
+                       'Cu': (63, 11.319),
+                       'Zn': (67, 2.669),
+                       'Xe': (129, -11.777)}
 
 
 def main(argv: List[str] = None) -> None:
@@ -266,7 +272,7 @@ def main(argv: List[str] = None) -> None:
     assert total_magmom != 0.0
 
     g_factors = {symbol: ratio * 1e6 * 4 * pi * units._mp / units._e
-                 for symbol, ratio in gyromagnetic_ratios.items()}
+                 for symbol, (n, ratio) in gyromagnetic_ratios.items()}
 
     if args.g_factors:
         for symbol, value in (part.split(':')
