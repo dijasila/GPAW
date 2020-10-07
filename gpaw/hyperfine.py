@@ -12,7 +12,7 @@ See:
     https://doi.org/10.1103/PhysRevB.62.6158
 
 """
-from typing import Any, List
+from typing import List
 from math import pi
 
 import numpy as np
@@ -27,9 +27,7 @@ from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities import unpack2
 from gpaw.gaunt import gaunt
 
-Array1D = Any
-Array2D = Any
-Array3D = Any
+from gpaw.hints import Array1D, Array2D, Array3D
 
 
 # Fine-structure constant: (~1/137)
@@ -39,7 +37,7 @@ g_factor_e = 2.00231930436256
 
 
 def hyperfine_parameters(calc: GPAW) -> Array3D:
-    """Calculate isotropic and anisotropic hyperfine coupling paramters.
+    r"""Calculate isotropic and anisotropic hyperfine coupling paramters.
 
     One tensor per atom is returned in eV units.  The isotropic part
     is a=trace(A)/3 and the anisotropic part is A-a.
@@ -47,12 +45,12 @@ def hyperfine_parameters(calc: GPAW) -> Array3D:
     Remember to multiply each tensor by the g-factors of the nuclei
     and divide by the total electron spin.
 
-    =======  ========
-    nucleus  g-factor
-    =======  ========
-    proton    5.586
-    O`^17`   -0.757
-    =======  ========
+    ================  ========
+    nucleus           g-factor
+    ================  ========
+    proton              5.586
+    O\ :math:`^{17}`   -0.757
+    ================  ========
 
     """
     dens = calc.density

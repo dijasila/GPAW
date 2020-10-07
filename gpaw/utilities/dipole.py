@@ -1,7 +1,7 @@
 """Calculate dipole matrix elements."""
 
 from math import pi
-from typing import List, Any
+from typing import List
 
 from ase.units import Bohr
 import numpy as np
@@ -10,9 +10,7 @@ from gpaw import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.mpi import serial_comm
-
-Array2D = Any
-Array3D = Any
+from gpaw.hints import Array2D, Array3D
 
 
 def dipole_matrix_elements(gd: GridDescriptor,
