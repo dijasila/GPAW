@@ -294,7 +294,7 @@ class BZWaveFunctions:
 
         if broadcast:
             array_kmx = self._collect(func, shape, dtype, False)
-            if array_kmx is None:
+            if array_kmx.ndim == 0:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
                                    self.kpt_comm, self.bcomm, self.domain_comm)
