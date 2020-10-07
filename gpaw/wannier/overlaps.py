@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, Sequence, List, Union
+from typing import Tuple, Dict, Sequence, List, Union
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +11,7 @@ from gpaw.setup import Setup
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
 from .functions import WannierFunctions
-
-Array1D = Any
-Array2D = Any
-Array3D = Any
-Array4D = Any
+from gpaw.hints import Array2D, Array3D, Array4D
 
 
 class WannierOverlaps:

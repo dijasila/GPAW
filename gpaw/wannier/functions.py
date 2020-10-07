@@ -1,11 +1,7 @@
-from typing import Any
-
 from ase import Atoms
 
 from gpaw import GPAW
-
-Array2D = Any
-Array3D = Any
+from ..hints import Array3D
 
 
 class WannierFunctions:
@@ -27,7 +23,7 @@ class WannierFunctions:
         return self.atoms + Atoms(f'X{len(self.centers)}', self.centers)
 
     def get_function(self, calc: GPAW, n: int) -> Array3D:
-        wf = 0.0
+        wf = calc.wfs.gd.zeros()
         for m, u in enumerate(self.U_knn[0][:, n]):
             wf += u * calc.wfs.get_wave_function_array(n=self.n1 + m,
                                                        s=self.spin,

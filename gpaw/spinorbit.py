@@ -1,5 +1,5 @@
 from math import nan
-from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
+from typing import (Union, List, TYPE_CHECKING, Dict, Optional, Callable,
                     Tuple, Iterable, Iterator)
 from operator import attrgetter
 from pathlib import Path
@@ -17,18 +17,11 @@ from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
-
+from gpaw.hints import Array1D, Array2D, Array3D, Array4D, ArrayND
 if TYPE_CHECKING:
     from gpaw import GPAW  # noqa
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
-
-# typehints:
-ArrayND = Any
-Array1D = ArrayND
-Array2D = ArrayND
-Array3D = ArrayND
-Array4D = ArrayND
 
 
 class WaveFunction:
@@ -76,7 +69,7 @@ class WaveFunction:
 
     def add_soc(self,
                 dVL_avii: Dict[int, Array3D],
-                s_vss: Array3D,
+                s_vss: List[Array2D],
                 C_ss: Array2D) -> None:
         """Evaluate H in a basis of S_z eigenstates."""
         if self.projections.bcomm.rank > 0:
@@ -307,7 +300,7 @@ class BZWaveFunctions:
                                    self.kpt_comm, self.bcomm, self.domain_comm)
 
         if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
-            return None
+            return np.empty(shape=())
 
         comm = self.kpt_comm
         if comm.rank == 0:
@@ -323,7 +316,7 @@ class BZWaveFunctions:
             if rank == comm.rank:
                 comm.send(func(self[k]), 0)
 
-        return None
+        return np.empty(shape=())
 
 
 def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
@@ -408,6 +401,10 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
             collinear=False)
 
         if bd.comm.rank == 0 and gd.comm.rank == 0:
+            P1_nI = P_snI[0]
+            P2_nI = P_snI[-1]
+            assert P1_nI is not None
+            assert P2_nI is not None
             if collinear:
                 eig_m = np.empty((n2 - n1) * 2)
                 if eigenvalues is None:
@@ -417,11 +414,11 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
                     for s in range(2):
                         eig_m[s::2] = eigenvalues[-s, kpt_s[-s].k]
                 projections.array[:] = 0.0
-                projections.array[::2, 0] = P_snI[0][n1:n2]
-                projections.array[1::2, 1] = P_snI[-1][n1:n2]
+                projections.array[::2, 0] = P1_nI[n1:n2]
+                projections.array[1::2, 1] = P2_nI[n1:n2]
             else:
                 eig_m = eig_sn[0][n1:n2] * Ha
-                projections.matrix.array[:] = P_snI[0][n1:n2]
+                projections.matrix.array[:] = P1_nI[n1:n2]
         else:
             eig_m = np.empty(0)
 

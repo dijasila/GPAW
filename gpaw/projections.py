@@ -1,13 +1,13 @@
-from typing import List, Any
+from typing import List, Any, Optional
 
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
+from .hints import Array2D
 
 MPIComm = Any
-Array2D = Any
 
 
 class Projections:
@@ -115,7 +115,7 @@ class Projections:
         P.fromarraydict(arraydict)
         return P
 
-    def collect(self) -> Array2D:
+    def collect(self) -> Optional[Array2D]:
         """Collect all bands and atoms to master."""
         if self.bcomm.size == 1:
             P = self.matrix
@@ -132,6 +132,8 @@ class Projections:
         P_In = self.collect_atoms(P)
         if P_In is not None:
             return P_In.T
+
+        return None
 
     def toarraydict(self):
         shape = self.myshape[:-1]

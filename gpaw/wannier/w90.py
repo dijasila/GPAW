@@ -7,8 +7,7 @@ import numpy as np
 
 from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
-
-Array3D = Any
+from ..hints import Array3D
 
 
 class Wannier90Error(Exception):

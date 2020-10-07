@@ -19,10 +19,7 @@ from gpaw.occupations import (ZeroWidth, findroot, collect_eigelvalues,
                               distribute_occupation_numbers,
                               OccupationNumberCalculator, ParallelLayout)
 from gpaw.mpi import broadcast_float
-
-Array1D = Any
-Array2D = Any
-Array3D = Any
+from gpaw.hints import Array1D, Array2D, Array3D
 
 
 def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
@@ -34,7 +31,7 @@ def bja1(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
 
 
 def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
-         ) -> Tuple[float, float]:
+         ) -> Tuple[float, Array1D]:
     """Eq. (A3) and (C3) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e3 - e1) * (e4 - e1))
     y = (e3 - e1 + e4 - e2) / ((e3 - e2) * (e4 - e2))
@@ -48,7 +45,7 @@ def bja2(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
 
 
 def bja3(e1: Array1D, e2: Array1D, e3: Array1D, e4: Array1D
-         ) -> Tuple[float, float]:
+         ) -> Tuple[float, Array1D]:
     """Eq. (A4) and (C4) from Blöchl, Jepsen and Andersen."""
     x = 1.0 / ((e4 - e1) * (e4 - e2) * (e4 - e3))
     return (len(e1) - x.dot(e4**3),
@@ -319,8 +316,8 @@ def weights(eig_in: Array2D, i_ktq: Array3D, improved=False) -> Array2D:
     mask2_T = ~mask0_T & ~mask1_T & (eig_Tq[:, 2] > 0.0)
     mask3_T = ~mask0_T & ~mask1_T & ~mask2_T & (eig_Tq[:, 3] > 0.0)
 
-    for mask_T, bja in [(mask1_T, bja1b), (mask2_T, bja2b), (mask3_T, bja3b)]:
-        w_qT = bja(*eig_Tq[mask_T].T)
+    for mask_T, bjab in [(mask1_T, bja1b), (mask2_T, bja2b), (mask3_T, bja3b)]:
+        w_qT = bjab(*eig_Tq[mask_T].T)
         f_Tq[mask_T] += w_qT.T
 
     if improved:

@@ -1,14 +1,11 @@
 """Edmiston-ruedenberg localization."""
 from math import pi
-from typing import Any
 
 import numpy as np
 
 import _gpaw
 from .overlaps import WannierOverlaps
 from .functions import WannierFunctions
-
-Array2D = Any
 
 
 class LocalizationNotConvergedError(Exception):

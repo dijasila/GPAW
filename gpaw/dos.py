@@ -1,18 +1,15 @@
 from pathlib import Path
-from typing import Union, List, Any, Optional, Sequence, TYPE_CHECKING
+from typing import Union, List, Optional, Sequence, TYPE_CHECKING
 
 import numpy as np
 from ase.dft.dos import linear_tetrahedron_integration as lti
 
 from gpaw.setup import Setup
 from gpaw.spinorbit import soc_eigenstates, BZWaveFunctions
+from gpaw.hints import Array1D, Array2D, Array3D
 
 if TYPE_CHECKING:
     from gpaw import GPAW
-
-Array1D = Any
-Array2D = Any
-Array3D = Any
 
 
 class IBZWaveFunctions:

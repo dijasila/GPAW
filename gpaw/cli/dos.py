@@ -10,6 +10,7 @@ from gpaw import GPAW
 from gpaw.setup import Setup
 from gpaw.spherical_harmonics import names as ylmnames
 from gpaw.dos import DOSCalculator
+from ..hints import Array1D, Array3D
 
 
 class CLICommand:
@@ -51,10 +52,6 @@ class CLICommand:
             args.atom,
             args.soc,
             emin, emax, args.points, args.total)
-
-
-Array1D = Any
-Array3D = Any
 
 
 def parse_projection_string(projection: str,
