@@ -4,17 +4,56 @@ import numpy as np
 
 from ase.units import Ha
 
-from gpaw.occupations import ZeroKelvin
+from gpaw.occupations import FixedOccupationNumbers
 
 
-class OccupationsMOM(ZeroKelvin):
-    def __init__(self, occupations,
+def mom_calculation(calc,
+                    atoms,
+                    occupations,
+                    constraints=None,
+                    space='full',
+                    width=0.0,
+                    width_increment=0.01,
+                    niter_smearing=None):
+
+    if space == 'reduced':
+        assert constraints is not None, \
+            'Provide constraints as MOMConstraint objects'
+    if space == 'full' and width != 0.0:
+        warnings.warn("Smearing not available for space='full'")
+
+    if calc.wfs is None:
+        calc.initialize(atoms)
+
+    parallel_layout = calc.wfs.occupations.parallel_layout
+    occ = FixedOccupationNumbers(occupations, parallel_layout)
+    occ_mom = OccupationsMOM(calc, occ,
+                             occupations,
+                             constraints,
+                             space, width,
+                             width_increment,
+                             niter_smearing)
+    if calc.scf.converged:
+        calc.set(occupations=occ_mom)
+    else:
+        calc.wfs.occupations = occ_mom
+
+    calc.log(occ_mom)
+
+
+class OccupationsMOM:
+    def __init__(self,
+                 calc,
+                 occ,
+                 occupations,
                  constraints=None,
                  space='full',
                  width=0.0,
                  width_increment=0.01,
                  niter_smearing=None):
-        ZeroKelvin.__init__(self, True)
+        self.wfs = calc.wfs
+        self.occ = occ
+        self.extrapolate_factor = occ.extrapolate_factor
         self.occupations = np.array(occupations)
         self.constraints = constraints
         self.space = space
@@ -25,12 +64,6 @@ class OccupationsMOM(ZeroKelvin):
         self.name = 'mom'
         self.iters = 0
         self.ne = None
-
-        if self.space == 'reduced':
-            assert self.constraints is not None, \
-                'Provide constraints as MOMConstraint objects'
-        if self.space == 'full' and self.width != 0:
-            warnings.warn("Smearing is not used when space='full'")
 
     def todict(self):
         dct = {'name': self.name}
@@ -48,30 +81,39 @@ class OccupationsMOM(ZeroKelvin):
             s += '{0:.4f} eV\n'.format(self.width * Ha)
         return s
 
-    def calculate(self, wfs):
-        occ = self.occupations.copy()
+    def calculate(self,
+                  nelectrons,
+                  eigenvalues,
+                  weights,
+                  fermi_levels_guess):
+        f_sn = self.occupations.copy()
 
         if self.iters == 0 and self.space == 'full':
-            self.initialize_reference_orbitals(wfs)
+            self.f_sn_unique = {}
+            for s, f_n in enumerate(f_sn):
+                self.f_sn_unique[s] = {}
+                for f_n_unique in np.unique(f_n):
+                    if f_n_unique >= 1.0e-10:
+                        self.f_sn_unique[s][f_n_unique] = f_n == f_n_unique
 
-        for kpt in wfs.kpt_u:
+            self.initialize_reference_orbitals()
+
+        for kpt in self.wfs.kpt_u:
             if self.space == 'full':
                 if self.iters == 0:
                     continue
                 else:
-                    occ[kpt.s].fill(0)
+                    f_sn[kpt.s].fill(0)
 
                     # Compute projections within equally occupied subspaces
-                    f_n_unique = np.unique(kpt.f_n)
-                    for f in f_n_unique:
-                        if f >= 1.0e-10:
-                            occupied = kpt.f_n == f
-                            n_occ = len(kpt.f_n[occupied])
-                            P = self.calculate_mom_projections(wfs, kpt, f)
-                            P_max = np.argpartition(P, -n_occ)[-n_occ:]
-                            P_max.sort() # Do we need this?
+                    for f_n_unique in self.f_sn_unique[kpt.s]:
+                        occupied = self.f_sn_unique[kpt.s][f_n_unique]
+                        n_occ = len(f_sn[kpt.s][occupied])
+                        P = self.calculate_mom_projections(kpt, f_n_unique)
+                        P_max = np.argpartition(P, -n_occ)[-n_occ:]
+                        P_max.sort() # Do we need this?
 
-                            occ[kpt.s][P_max] = f
+                        f_sn[kpt.s][P_max] = f_n_unique
 
             elif self.space == 'reduced':
                 for c in self.constraints:
@@ -79,100 +121,85 @@ class OccupationsMOM(ZeroKelvin):
                         continue
 
                     orb = c[1]
-                    max_overlap = orb.get_maximum_overlap(wfs, kpt,
+                    max_overlap = orb.get_maximum_overlap(self.wfs, kpt,
                                                           c[0], self.iters)
 
-                    occ_new = occ[kpt.s][max_overlap] + c[0]
+                    occ_new = f_sn[kpt.s][max_overlap] + c[0]
                     if (occ_new < 0.0) or (occ_new > kpt.weight):
                         continue
 
                     if self.width != 0.0:
                         # Gaussian smearing of constraints
-                        mask, gauss = self.smear_gaussian(kpt, occ,
+                        mask, gauss = self.smear_gaussian(kpt, f_sn,
                                                           c[0], max_overlap)
-                        occ[kpt.s][mask] += (c[0] * gauss)
+                        f_sn[kpt.s][mask] += (c[0] * gauss)
                     else:
-                        occ[kpt.s][max_overlap] += c[0]
+                        f_sn[kpt.s][max_overlap] += c[0]
 
         if self.ne is None:
-            self.ne = occ.sum(1)
+            self.ne = f_sn.sum(1)
         else:
             # TODO: Works only for spin polarized calculations
-            for kpt in wfs.kpt_u:
-                 occ[kpt.s] = self.check_number_of_electrons(kpt, occ[kpt.s])
+            for kpt in self.wfs.kpt_u:
+                 f_sn[kpt.s] = self.check_number_of_electrons(kpt,
+                                                              f_sn[kpt.s])
 
-        self.occupation = occ
-        ZeroKelvin.calculate(self, wfs)
+        self.occ.f_sn = f_sn
+        f_qn, fermi_levels, e_entropy = self.occ.calculate(nelectrons,
+                                                           eigenvalues,
+                                                           weights,
+                                                           fermi_levels_guess)
 
         self.iters += 1
 
-    def spin_paired(self, wfs):
-        return self.fixed_moment(wfs)
+        return f_qn, fermi_levels, e_entropy
 
-    def fixed_moment(self, wfs):
-        magmom = 0.0
-
-        for kpt in wfs.kpt_u:
-            wfs.bd.distribute(self.occupation[kpt.s], kpt.f_n)
-
-            # Compute the magnetic moment
-            if wfs.nspins == 2:
-                if kpt.s == 0:
-                    magmom += self.occupation[kpt.s].sum()
-                else:
-                    magmom -= self.occupation[kpt.s].sum()
-
-        self.magmom = wfs.kptband_comm.sum(magmom)
-
-    def initialize_reference_orbitals(self, wfs):
-        if wfs.mode == 'lcao':
+    def initialize_reference_orbitals(self):
+        if self.wfs.mode == 'lcao':
             self.c_ref = {}
 
-            for kpt in wfs.kpt_u:
+            for kpt in self.wfs.kpt_u:
                 self.c_ref[kpt.s] = {}
 
                 # Initialize ref orbitals for each equally occupied subspace
-                f_n_unique = np.unique(kpt.f_n)
-                for f in f_n_unique:
-                    if f >= 1.0e-10:
-                        occupied = kpt.f_n == f
-                        self.c_ref[kpt.s][f] = kpt.C_nM[occupied].copy()
+                for f_n_unique in self.f_sn_unique[kpt.s]:
+                    occupied = self.f_sn_unique[kpt.s][f_n_unique]
+                    self.c_ref[kpt.s][f_n_unique] = kpt.C_nM[occupied].copy()
         else:
             self.wf = {}
             self.p_an = {}
-            for kpt in wfs.kpt_u:
+            for kpt in self.wfs.kpt_u:
                 self.wf[kpt.s] = {}
                 self.p_an[kpt.s] = {}
 
                 # Initialize ref orbitals for each equally occupied subspace
-                f_n_unique = np.unique(kpt.f_n)
-                for f in f_n_unique:
-                    if f >= 1.0e-10:
-                        occupied = kpt.f_n == f
-                        # Pseudo wave functions
-                        self.wf[kpt.s][f] = kpt.psit_nG[occupied].copy()
-                        # PAW projection
-                        self.p_an[kpt.s][f] = \
-                            dict([(a, np.dot(wfs.setups[a].dO_ii,
-                                             P_ni[occupied].T))
-                                  for a, P_ni in kpt.P_ani.items()])
+                for f_n_unique in self.f_sn_unique[kpt.s]:
+                    occupied = self.f_sn_unique[kpt.s][f_n_unique]
+                    # Pseudo wave functions
+                    self.wf[kpt.s][f_n_unique] = kpt.psit_nG[occupied].copy()
+                    # PAW projection
+                    self.p_an[kpt.s][f_n_unique] = \
+                        dict([(a, np.dot(self.wfs.setups[a].dO_ii,
+                                         P_ni[occupied].T))
+                              for a, P_ni in kpt.P_ani.items()])
 
-    def calculate_mom_projections(self, wfs, kpt, f):
-        if wfs.mode == 'lcao':
-            P = np.dot(self.c_ref[kpt.s][f].conj(),
+    def calculate_mom_projections(self, kpt, f_n_unique):
+        if self.wfs.mode == 'lcao':
+            P = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM.T))
             P = np.sum(P**2, axis=0)
             P = P ** 0.5
         else:
             # Pseudo wave functions overlaps
-            P = wfs.integrate(self.wf[kpt.s][f][:], kpt.psit_nG[:], True)
+            P = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
+                                   kpt.psit_nG[:], True)
 
             # PAW corrections
             P_corr = np.zeros_like(P)
-            for a, p_a in self.p_an[kpt.s][f].items():
+            for a, p_a in self.p_an[kpt.s][f_n_unique].items():
                 P_corr += np.dot(kpt.P_ani[a].conj(), p_a).T
             P_corr = np.ascontiguousarray(P_corr)
-            wfs.gd.comm.sum(P_corr)
+            self.wfs.gd.comm.sum(P_corr)
 
             # Sum pseudo wave and PAW contributions
             P += P_corr
@@ -182,7 +209,6 @@ class OccupationsMOM(ZeroKelvin):
         return P
 
     def sort_wavefunctions(self, wfs, kpt):
-        # Works only for LCAO calculations
         occupied = kpt.f_n > 1.0e-10
         n_occ = len(kpt.f_n[occupied])
 
