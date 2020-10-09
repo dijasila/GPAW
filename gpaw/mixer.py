@@ -579,7 +579,7 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
     if nspins == 1:
         kwargs['method'] = SeparateSpinMixerDriver
     else:
-        kwargs['method'] = SpinSumMixerDriver
+        kwargs['method'] = SpinDifferenceMixerDriver
 
     # Clean up mixerkwargs (compatibility)
     if 'nmaxold' in mixerkwargs:

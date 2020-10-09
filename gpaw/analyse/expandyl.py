@@ -238,9 +238,9 @@ class ExpandYl(AngularIntegral):
 
 
 class Vector3d(list):
-    def __init__(self,vector=None):
+    def __init__(self, vector=None):
         if vector is None:
-            vector = [0,0,0]
+            vector = [0, 0, 0]
         vector = string2vector(vector)
         list.__init__(self)
         for c in range(3):
@@ -253,26 +253,26 @@ class Vector3d(list):
             result[c] += other[c]
         return result
 
-    def __truediv__(self,other):
+    def __truediv__(self, other):
         return Vector3d(np.array(self) / other)
 
     __div__ = __truediv__
-    
+
     def __mul__(self, x):
         if isinstance(x, type(self)):
-            return np.dot( self, x )
+            return np.dot(self, x)
         else:
             return Vector3d(x * np.array(self))
-        
+
     def __rmul__(self, x):
         return self.__mul__(x)
-        
+
     def __lmul__(self, x):
         return self.__mul__(x)
 
     def __neg__(self):
         return -1 * self
-        
+
     def __str__(self):
         return "(%g,%g,%g)" % tuple(self)
 
@@ -290,16 +290,16 @@ class Vector3d(list):
         if not ll > 0:
             return None
         return acos((self * other) / ll)
-        
+
     def copy(self):
         return Vector3d(self)
 
-    def distance(self,vector):
+    def distance(self, vector):
         if not isinstance(vector, type(self)):
-            vector=Vector3d(vector)
+            vector = Vector3d(vector)
         return (self - vector).length()
 
-    def length(self,value=None):
+    def length(self, value=None):
         if value:
             fac = value / self.length()
             for c in range(3):
@@ -310,9 +310,9 @@ class Vector3d(list):
         return self.l
 
     def norm(self):
-        #return np.sum( self*self )
-        return self*self  #  XXX drop this class and use numpy arrays ...
-                         
+        # return np.sum( self*self )
+        return self * self  # XXX drop this class and use numpy arrays ...
+
     def x(self):
         return self[0]
 

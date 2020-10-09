@@ -2,6 +2,8 @@
 # Please see the accompanying LICENSE file for further information.
 
 """This module defines a ``KPoint`` class."""
+from typing import Optional
+from gpaw.projections import Projections
 
 
 class KPoint:
@@ -19,13 +21,21 @@ class KPoint:
         k-point weight in supercell calculations.
     """
 
-    def __init__(self, weight: float, s: int, k: int, q: int, phase_cd):
+    def __init__(self,
+                 weightk: float,
+                 weight: float,
+                 s: int,
+                 k: int,
+                 q: int,
+                 phase_cd=None):
         """Construct k-point object.
 
         Parameters:
 
-        weight: float
+        weightk:
             Weight of this k-point.
+        weight:
+            Old confusing weight.
         s: int
             Spin index: up or down (0 or 1).
         k: int
@@ -37,7 +47,8 @@ class KPoint:
             and direction d=0,1.
         """
 
-        self.weight = weight
+        self.weightk = weightk  # pure k-point weight
+        self.weight = weight  # old confusing weight
         self.s = s  # spin index
         self.k = k  # k-point index
         self.q = q  # local k-point index
@@ -45,7 +56,7 @@ class KPoint:
 
         self.eps_n = None
         self.f_n = None
-        self.projections = None  # Projections
+        self._projections: Optional[Projections] = None
 
         # Only one of these two will be used:
         self.psit = None  # UniformGridMatrix/PWExpansionMatrix
@@ -57,12 +68,21 @@ class KPoint:
         self.T_MM = None
 
     def __repr__(self):
-        return (f'KPoint(weight={self.weight}, '
+        return (f'KPoint(weight={self.weight}, weightk={self.weightk}, '
                 f's={self.s}, k={self.k}, q={self.q})')
 
     @property
+    def projections(self) -> Projections:
+        assert self._projections is not None
+        return self._projections
+
+    @projections.setter
+    def projections(self, value):
+        self._projections = value
+
+    @property
     def P_ani(self):
-        if self.projections is not None:
+        if self._projections is not None:
             return {a: P_ni for a, P_ni in self.projections.items()}
 
     @property

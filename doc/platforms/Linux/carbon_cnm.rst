@@ -4,7 +4,7 @@
 carbon
 ======
 
-Here you find information about the the system
+Here you find information about the system
 `<http://www.top500.org/system/9025>`_.
 
 The Carbon machine is a cluster of dual socket, quad-core Intel Xeon

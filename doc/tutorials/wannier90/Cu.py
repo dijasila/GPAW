@@ -11,12 +11,9 @@ calc = GPAW(mode=PW(600),
 a.calc = calc
 a.get_potential_energy()
 
-calc.set(kpts={'size': (4, 4, 4), 'gamma': True},
-         nbands=30,
-         symmetry='off',
-         fixdensity=True,
-         txt='Cu_nscf.txt',
-         convergence={'bands': 20})
-calc.get_potential_energy()
-
-calc.write('Cu.gpw', mode='all')
+calc.fixed_density(
+    kpts={'size': (4, 4, 4), 'gamma': True},
+    nbands=30,
+    symmetry='off',
+    txt='Cu_nscf.txt',
+    convergence={'bands': 20}).write('Cu.gpw', mode='all')

@@ -354,6 +354,7 @@ class PWDescriptor:
             Q_G = self.Q_qG[q]
             assert len(c_G) == len(Q_G)
             _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
+
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -398,7 +399,7 @@ class PWDescriptor:
         """Gather coefficients from a_rG[r] on rank r.
 
         On rank r, an array of all G-vector coefficients will be returned.
-        These will be gathers from a_rG[r] on all the cores.
+        These will be gathered from a_rG[r] on all the cores.
         """
         comm = self.gd.comm
         if comm.size == 1:
@@ -1117,7 +1118,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         return H_GG, S_GG
 
     @timer('Full diag')
-    def diagonalize_full_hamiltonian(self, ham, atoms, occupations, log,
+    def diagonalize_full_hamiltonian(self, ham, atoms, log,
                                      nbands=None, ecut=None, scalapack=None,
                                      expert=False):
 
@@ -1149,6 +1150,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
             iu = None
 
         self.bd = bd = BandDescriptor(nbands, self.bd.comm)
+        self.occupations.bd = bd
 
         log('Diagonalizing full Hamiltonian ({} lowest bands)'.format(nbands))
         log('Matrix size (min, max): {}, {}'.format(self.pd.ngmin,
@@ -1239,7 +1241,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         pb.finish()
 
-        occupations.calculate(self)
+        self.calculate_occupation_numbers()
 
         return nbands
 

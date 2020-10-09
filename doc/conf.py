@@ -10,9 +10,12 @@ extensions = ['images',
               'ext',
               'sphinx.ext.autodoc',
               'sphinx.ext.doctest',
+              'sphinx.ext.extlinks',
               'sphinx.ext.viewcode',
               'sphinx.ext.mathjax',
               'sphinx.ext.intersphinx']
+extlinks = {'doi': ('https://doi.org/%s', 'doi:'),
+            'arxiv': ('https://arxiv.org/abs/%s', 'arXiv:')}
 templates_path = ['templates']
 source_suffix = '.rst'
 master_doc = 'index'
@@ -30,6 +33,12 @@ intersphinx_mapping = {
     'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
     'pytest': ('https://docs.pytest.org/en/stable', None),
     'mayavi': ('http://docs.enthought.com/mayavi/mayavi', None)}
+nitpick_ignore = [('py:class', 'gpaw.calculator.GPAW'),
+                  ('py:class', 'gpaw.spinorbit.BZWaveFunctions'),
+                  ('py:class', 'GPAW'),
+                  ('py:class', 'ase.spectrum.dosdata.GridDOSData'),
+                  ('py:class', 'ase.atoms.Atoms'),
+                  ('py:class', 'gpaw.point_groups.group.PointGroup')]
 
 html_theme = 'sphinx_rtd_theme'
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]

@@ -53,7 +53,7 @@ class Eigensolver:
     def reset(self):
         self.initialized = False
 
-    def weights(self, wfs, occ):
+    def weights(self, wfs):
         """Calculate convergence weights for all eigenstates."""
         weight_un = np.zeros((len(wfs.kpt_u), self.bd.mynbands))
 
@@ -81,7 +81,7 @@ class Eigensolver:
                 weight_un[:] = np.inf  # no eigenvalues yet
             else:
                 # Collect all eigenvalues and calculate band gap:
-                efermi = occ.fermilevel
+                efermi = np.mean(wfs.fermi_levels)
                 eps_skn = np.array(
                     [[wfs.collect_eigenvalues(k, spin) - efermi
                       for k in range(wfs.kd.nibzkpts)]
@@ -114,7 +114,7 @@ class Eigensolver:
 
         return weight_un
 
-    def iterate(self, ham, wfs, occ):
+    def iterate(self, ham, wfs):
         """Solves eigenvalue problem iteratively
 
         This method is inherited by the actual eigensolver which should
@@ -127,7 +127,7 @@ class Eigensolver:
                 self.blocksize = wfs.bd.mynbands
             self.initialize(wfs)
 
-        weight_un = self.weights(wfs, occ)
+        weight_un = self.weights(wfs)
 
         error = 0.0
         for kpt, weights in zip(wfs.kpt_u, weight_un):

@@ -1,3 +1,4 @@
+import pytest
 from ase import Atoms
 from ase.parallel import parprint
 
@@ -6,6 +7,7 @@ from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
+@pytest.mark.libxc
 def test_exx_unocc():
 
     loa = Atoms('Be2',

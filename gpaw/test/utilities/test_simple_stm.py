@@ -19,19 +19,18 @@ def test_utilities_simple_stm(in_tmp_dir):
                cell=[5, 6, 6.5])
     BH.center()
 
-    f3dname = 'stm3d.plt'
+    f3dname = 'stm3d.cube'
 
     def testSTM(calc):
         stm = SimpleStm(calc)
         stm.write_3D([1, 0, 0], f3dname)  # single wf
         wf = stm.gd.integrate(stm.ldos)
-    #    print "wf=", wf
 
-        if size == 1:  # XXXX we have problem with reading plt in parallel
+        if size == 1:  # XXXX might have trouble reading in parallel
             stm2 = SimpleStm(f3dname)
             wf2 = stm2.gd.integrate(stm2.ldos)
             print('Integrals: written, read=', wf, wf2)
-            equal(wf, wf2, 2.e-7)
+            equal(wf, wf2, 2.e-6)
 
         stm.scan_const_current(0.02, 5)
     #    print eigenvalue_string(calc)

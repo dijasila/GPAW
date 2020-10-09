@@ -37,9 +37,7 @@ for d in ds:
                 txt='gs_%s.txt' % d)
     slab.calc = calc
     E = slab.get_potential_energy()
-    exx = EXX(calc, txt='exx_%s.txt' % d)
-    exx.calculate()
-    E_hf = nsc_energy(exx.get_total_energy()
+    E_hf = nsc_energy(calc, 'EXX')
 
     calc.diagonalize_full_hamiltonian()
     calc.write('gs_%s.gpw' % d, mode='all')

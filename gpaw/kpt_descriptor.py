@@ -86,11 +86,11 @@ def kpts2sizeandoffsets(size=None, density=None, gamma=None, even=None,
 class KPointDescriptor:
     """Descriptor-class for k-points."""
 
-    def __init__(self, kpts, nspins=1):
+    def __init__(self, kpts, nspins: int = 1):
         """Construct descriptor object for kpoint/spin combinations (ks-pair).
 
-        Parameters
-        ----------
+        Parameters:
+
         kpts: None, sequence of 3 ints, or (n,3)-shaped array
             Specification of the k-point grid. None=Gamma, list of
             ints=Monkhorst-Pack, ndarray=user specified.
@@ -271,7 +271,8 @@ class KPointDescriptor:
 
         for k in range(self.k0, self.k0 + self.mynk):
             q = k - self.k0
-            weight = self.weight_k[k] * 2 / self.nspins
+            weightk = self.weight_k[k]
+            weight = weightk * 2 / self.nspins
             if self.gamma:
                 phase_cd = np.ones((3, 2), complex)
             else:
@@ -282,7 +283,8 @@ class KPointDescriptor:
             else:
                 spins = [None]
                 weight *= 0.5
-            kpt_qs.append([KPoint(weight, s, k, q, phase_cd) for s in spins])
+            kpt_qs.append([KPoint(weightk, weight, s, k, q, phase_cd)
+                           for s in spins])
 
         return kpt_qs
 
@@ -337,10 +339,7 @@ class KPointDescriptor:
             b_g = np.zeros_like(psit_G)
             kbz_c = np.dot(self.symmetry.op_scc[s], kibz_c)
             if index_G is not None:
-                assert index_G.shape == psit_G.shape == phase_G.shape,\
-                    'Shape mismatch %s vs %s vs %s' % (index_G.shape,
-                                                       psit_G.shape,
-                                                       phase_G.shape)
+                assert index_G.shape == psit_G.shape == phase_G.shape
                 _gpaw.symmetrize_with_index(psit_G, b_g, index_G, phase_G)
             else:
                 _gpaw.symmetrize_wavefunction(psit_G, b_g, op_cc.copy(),
@@ -389,8 +388,8 @@ class KPointDescriptor:
         In case that k+q is outside the BZ, the k-point inside the BZ
         corresponding to k+q is given.
 
-        Parameters
-        ----------
+        Parameters:
+
         q_c: ndarray
             Coordinates for the q-vector in units of the reciprocal
             lattice vectors.

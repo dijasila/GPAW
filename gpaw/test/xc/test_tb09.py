@@ -1,9 +1,11 @@
 """Test Tran Blaha potential."""
+import pytest
 from ase.dft.bandgap import bandgap
 from ase.build import bulk
 from gpaw import GPAW, PW, Mixer
 
 
+@pytest.mark.libxc
 def test_xc_tb09(in_tmp_dir):
     def xc(name):
         return {'name': name, 'stencil': 1}

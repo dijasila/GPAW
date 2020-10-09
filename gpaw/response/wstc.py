@@ -13,11 +13,11 @@ import sys
 from math import pi
 
 import numpy as np
+from scipy.special import erf
 from ase.units import Bohr
 from ase.utils import seterr
 
 import gpaw.mpi as mpi
-from gpaw.utilities import erf
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
 

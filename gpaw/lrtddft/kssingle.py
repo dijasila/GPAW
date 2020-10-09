@@ -314,7 +314,7 @@ class KSSingles(ExcitationList):
             return
 
         if fh is None:
-            if filename.endswith('.gz') and mpi.rank == mpi.MASTER:
+            if filename.endswith('.gz') and mpi.rank == 0:
                 import gzip
                 f = gzip.open(filename, 'wt')
             else:
