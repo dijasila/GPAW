@@ -8,7 +8,6 @@ from gpaw.occupations import FixedOccupationNumbers
 
 
 def mom_calculation(calc,
-                    atoms,
                     occupations,
                     constraints=None,
                     space='full',
