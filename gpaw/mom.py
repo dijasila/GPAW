@@ -45,9 +45,7 @@ def mom_calculation(calc,
 
 
 class OccupationsMOM:
-    def __init__(self,
-                 calc,
-                 occ,
+    def __init__(self, calc, occ,
                  occupations,
                  constraints=None,
                  space='full',
@@ -91,13 +89,7 @@ class OccupationsMOM:
         f_sn = self.occupations.copy()
 
         if self.iters == 0 and self.space == 'full':
-            self.f_sn_unique = {}
-            for s, f_n in enumerate(f_sn):
-                self.f_sn_unique[s] = {}
-                for f_n_unique in np.unique(f_n):
-                    if f_n_unique >= 1.0e-10:
-                        self.f_sn_unique[s][f_n_unique] = f_n == f_n_unique
-
+            self.f_sn_unique = self.find_unique_occupations(f_sn)
             self.initialize_reference_orbitals()
 
         for kpt in self.wfs.kpt_u:
@@ -192,7 +184,7 @@ class OccupationsMOM:
             P = np.sum(P**2, axis=0)
             P = P ** 0.5
         else:
-            # Pseudo wave functions overlaps
+            # Pseudo wave function overlaps
             P = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
                                    kpt.psit_nG[:], True)
 
@@ -209,27 +201,6 @@ class OccupationsMOM:
             P = P ** 0.5
 
         return P
-
-    def sort_wavefunctions(self, wfs, kpt):
-        occupied = kpt.f_n > 1.0e-10
-        n_occ = len(kpt.f_n[occupied])
-
-        if n_occ == 0.0:
-            return
-
-        if np.min(kpt.f_n[:n_occ]) == 0:
-            ind_occ = np.argwhere(occupied)
-            ind_unocc = np.argwhere(~occupied)
-            ind = np.vstack((ind_occ, ind_unocc))
-
-            # Sort coefficients, occupation numbers, eigenvalues
-            if wfs.mode == 'lcao':
-                kpt.C_nM = np.squeeze(kpt.C_nM[ind])
-            else:
-                kpt.psit_nG[:] = np.squeeze(kpt.psit_nG[ind])
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            kpt.f_n = np.squeeze(kpt.f_n[ind])
-            kpt.eps_n = np.squeeze(kpt.eps_n[ind])
 
     def smear_gaussian(self, kpt, occ, c, n):
         if c < 0:
@@ -262,6 +233,16 @@ class OccupationsMOM:
                 ne_diff -= 1
 
         return occ
+
+    def find_unique_occupations(self, f_sn):
+        f_sn_unique = {}
+        for s, f_n in enumerate(f_sn):
+            f_sn_unique[s] = {}
+            for f_n_unique in np.unique(f_n):
+                if f_n_unique >= 1.0e-10:
+                   f_sn_unique[s][f_n_unique] = f_n == f_n_unique
+
+        return f_sn_unique
 
     def reset(self):
         if self.iters > 1:
