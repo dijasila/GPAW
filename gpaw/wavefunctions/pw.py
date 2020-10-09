@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
 import numbers
-from math import pi
-from math import factorial as fac
+from math import pi, factorial as fac
 
 import numpy as np
 from ase.units import Ha, Bohr
 from ase.utils.timing import timer
 
 import gpaw.fftw as fftw
-from gpaw import dry_run
+import gpaw
 from gpaw.arraydict import ArrayDict
 from gpaw.band_descriptor import BandDescriptor
 from gpaw.blacs import BlacsGrid, BlacsDescriptor, Redistributor
@@ -76,7 +74,7 @@ class PW(Mode):
         self.gammacentered = gammacentered
         self.ecut = ecut / Ha
         # Don't do expensive planning in dry-run mode:
-        self.fftwflags = fftwflags if not dry_run else fftw.MEASURE
+        self.fftwflags = fftwflags if not gpaw.dry_run else fftw.MEASURE
         self.dedecut = dedecut
         self.pulay_stress = (None
                              if pulay_stress is None
@@ -144,16 +142,11 @@ class PWDescriptor:
         N_c = gd.N_c
         self.comm = gd.comm
 
-        ecutmax = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
-
+        ecut0 = 0.5 * pi**2 / (self.gd.h_cv**2).sum(1).max()
         if ecut is None:
-            ecut = ecutmax * 0.9999
+            ecut = 0.9999 * ecut0
         else:
-            if ecut > ecutmax:
-                raise ValueError(
-                    'You have a weird unit cell!  '
-                    'Try to use the maximally reduced Niggli cell.  '
-                    'See the ase.build.niggli_reduce() function.')
+            assert ecut <= ecut0
 
         self.ecut = ecut
 
@@ -233,7 +226,6 @@ class PWDescriptor:
         self.maxmyng = (self.ngmax + S - 1) // S
         ng1 = gd.comm.rank * self.maxmyng
         ng2 = ng1 + self.maxmyng
-        assert ng1 <= self.ngmin
 
         self.G2_qG = []
         self.myQ_qG = []
@@ -274,7 +266,7 @@ class PWDescriptor:
     def bytecount(self, dtype=float):
         return self.ngmax * 16
 
-    def zeros(self, x=(), dtype=None, q=None, cuda=False):
+    def zeros(self, x=(), dtype=None, q=None, global_array=False, cuda=False):
         """Return zeroed array.
 
         The shape of the array will be x + (ng,) where ng is the number
@@ -282,11 +274,11 @@ class PWDescriptor:
         different values for ng.  Therefore, the q index must be given,
         unless we are describibg a real-valued function."""
 
-        a_xG = self.empty(x, dtype, q)
+        a_xG = self.empty(x, dtype, q, global_array)
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None, cuda=False):
+    def empty(self, x=(), dtype=None, q=None, global_array=False), cuda=False:
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
@@ -295,7 +287,10 @@ class PWDescriptor:
         if q is None:
             assert self.only_one_k_point
             q = 0
-        shape = x + (self.myng_q[q],)
+        if global_array:
+            shape = x + (self.ng_q[q],)
+        else:
+            shape = x + (self.myng_q[q],)
         return np.empty(shape, complex)
 
     def fft(self, f_R, q=None, Q_G=None, local=False):
@@ -343,6 +338,7 @@ class PWDescriptor:
         If local=True, all cores will do an iFFT without any
         gather/distribute.
         """
+        assert q is not None or self.only_one_k_point
         q = q or 0
         if not local:
             c_G = self.gather(c_G, q)
@@ -355,7 +351,9 @@ class PWDescriptor:
             #    self.tmp_Q.ravel()[self.Q_qG[q]] = scale * c_G
             #
             # but much faster:
-            _gpaw.pw_insert(c_G, self.Q_qG[q], scale, self.tmp_Q)
+            Q_G = self.Q_qG[q]
+            assert len(c_G) == len(Q_G)
+            _gpaw.pw_insert(c_G, Q_G, scale, self.tmp_Q)
             if self.dtype == float:
                 t = self.tmp_Q[:, :, 0]
                 n, m = self.gd.N_c[:2] // 2 - 1
@@ -411,11 +409,11 @@ class PWDescriptor:
         ssize_r[:N] = self.myng_q[q]
         soffset_r = np.arange(comm.size) * self.myng_q[q]
         soffset_r[N:] = 0
+        roffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
         rsize_r = np.zeros(comm.size, int)
         if comm.rank < N:
-            rsize_r[:-1] = self.maxmyng
-            rsize_r[-1] = ng - self.maxmyng * (comm.size - 1)
-        roffset_r = np.arange(0, ng, self.maxmyng)
+            rsize_r[:-1] = roffset_r[1:] - roffset_r[:-1]
+            rsize_r[-1] = ng - roffset_r[-1]
         b_G = self.tmp_G[:ng]
         comm.alltoallv(a_rG, ssize_r, soffset_r, b_G, rsize_r, roffset_r)
         if comm.rank < N:
@@ -433,11 +431,11 @@ class PWDescriptor:
         rsize_r[:N] = self.myng_q[q]
         roffset_r = np.arange(comm.size) * self.myng_q[q]
         roffset_r[N:] = 0
+        soffset_r = (np.arange(comm.size) * self.maxmyng).clip(max=ng)
         ssize_r = np.zeros(comm.size, int)
         if comm.rank < N:
-            ssize_r[:-1] = self.maxmyng
-            ssize_r[-1] = ng - self.maxmyng * (comm.size - 1)
-        soffset_r = np.arange(0, ng, self.maxmyng)
+            ssize_r[:-1] = soffset_r[1:] - soffset_r[:-1]
+            ssize_r[-1] = ng - soffset_r[-1]
         tmp_rG = self.tmp_G[:b_rG.size].reshape(b_rG.shape)
         comm.alltoallv(a_G, ssize_r, soffset_r, tmp_rG, rsize_r, roffset_r)
         b_rG += tmp_rG
@@ -463,8 +461,14 @@ class PWDescriptor:
             assert self.dtype == float and self.gd.comm.size == 1
             return a_xg[..., 0].real * self.gd.dv
 
-        A_xg = a_xg.reshape((-1, a_xg.shape[-1]))
-        B_yg = b_yg.reshape((-1, b_yg.shape[-1]))
+        if a_xg.ndim == 1:
+            A_xg = a_xg.reshape((1, len(a_xg)))
+        else:
+            A_xg = a_xg
+        if b_yg.ndim == 1:
+            B_yg = b_yg.reshape((1, len(b_yg)))
+        else:
+            B_yg = b_yg
 
         alpha = self.gd.dv / self.gd.N_c.prod()
 
@@ -503,6 +507,9 @@ class PWDescriptor:
             return result
 
     def interpolate(self, a_R, pd):
+        if (pd.gd.N_c <= self.gd.N_c).any():
+            raise ValueError('Too few points in target grid!')
+
         self.gd.collect(a_R, self.tmp_R[:])
 
         if self.gd.comm.rank == 0:
@@ -1123,7 +1130,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         if self.gd.comm.size > 1:
             raise ValueError(
-                "Please use mode=PW(..., parallel={'domain': 1})")
+                "Please use parallel={'domain': 1}")
 
         S = self.bd.comm.size
 
@@ -1253,12 +1260,14 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 dist=(self.bd.comm, -1, 1),
                 spin=kpt.s, collinear=self.collinear)
             psit_nG = kpt.psit.array
-            for n, psit_G in enumerate(psit_nG.reshape((-1,
-                                                        psit_nG.shape[-1]))):
+            if psit_nG.ndim == 3:
+                N, S, G = psit_nG.shape
+                psit_nG = psit_nG.reshape((N * S, G))
+            for n, psit_G in enumerate(psit_nG):
                 psit_nR[:] = 0.0
-                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1], psit_nR, kpt.q)
+                basis_functions.lcao_to_grid(kpt.C_nM[n:n + 1],
+                                             psit_nR, kpt.q)
                 psit_G[:] = self.pd.fft(psit_nR[0] * emikr_R, kpt.q)
-
             kpt.C_nM = None
 
     def random_wave_functions(self, mynao):
@@ -1377,7 +1386,7 @@ class PWLFC(BaseLFC):
         if self.initialized:
             return
 
-        splines = {}
+        splines = {}  # Dict[Spline, int]
         for spline_j in self.spline_aj:
             for spline in spline_j:
                 if spline not in splines:
@@ -1393,7 +1402,7 @@ class PWLFC(BaseLFC):
 
         # Fourier transform radial functions:
         J = 0
-        done = set()
+        done = set()  # Set[Spline]
         for a, spline_j in enumerate(self.spline_aj):
             for spline in spline_j:
                 s = splines[spline]  # get spline index
@@ -1553,6 +1562,7 @@ class PWLFC(BaseLFC):
             assert q == -1 and a_xG.ndim == 1
             c_xI[:] = c_axi
         else:
+            assert q != -1 or self.pd.only_one_k_point
             if self.comm.size != 1:
                 c_xI[:] = 0.0
             for a, I1, I2 in self.my_indices:
@@ -1560,8 +1570,9 @@ class PWLFC(BaseLFC):
             if self.comm.size != 1:
                 self.comm.sum(c_xI)
 
-        c_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1])).view(self.pd.dtype)
+        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        c_xI = c_xI.reshape((nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1])).view(self.pd.dtype)
 
         for G1, G2 in self.block(q):
             if f0_IG is None:
@@ -1581,8 +1592,9 @@ class PWLFC(BaseLFC):
     def integrate(self, a_xG, c_axi=None, q=-1):
         c_xI = np.zeros(a_xG.shape[:-1] + (self.nI,), self.pd.dtype)
 
-        b_xI = c_xI.reshape((np.prod(c_xI.shape[:-1], dtype=int), self.nI))
-        a_xG = a_xG.reshape((-1, a_xG.shape[-1]))
+        nx = np.prod(c_xI.shape[:-1], dtype=int)
+        b_xI = c_xI.reshape((nx, self.nI))
+        a_xG = a_xG.reshape((nx, a_xG.shape[-1]))
 
         alpha = 1.0 / self.pd.gd.N_c.prod()
         if self.pd.dtype == float:
@@ -1750,14 +1762,17 @@ class PseudoCoreKineticEnergyDensityLFC(PWLFC):
 
 
 class ReciprocalSpaceDensity(Density):
-    def __init__(self, gd, finegd, nspins, collinear, charge, redistributor,
+    def __init__(self, ecut,
+                 gd, finegd, nspins, collinear, charge, redistributor,
                  background_charge=None):
         Density.__init__(self, gd, finegd, nspins, collinear, charge,
                          redistributor=redistributor,
                          background_charge=background_charge)
 
-        self.pd2 = PWDescriptor(None, gd)
-        self.pd3 = PWDescriptor(None, finegd)
+        ecut0 = 0.5 * pi**2 / (gd.h_cv**2).sum(1).max()
+        ecut = min(ecut, ecut0)
+        self.pd2 = PWDescriptor(ecut, gd)
+        self.pd3 = PWDescriptor(4 * ecut, finegd)
 
         self.map23 = PWMapping(self.pd2, self.pd3)
 

@@ -1,5 +1,7 @@
-from __future__ import print_function
-import os, sys, time
+# flake8: noqa
+import os
+import sys
+import time
 import numpy as np
 
 from ase.build import molecule
@@ -15,10 +17,11 @@ from gpaw.tddft import TDDFT
 from gpaw.tddft.units import attosec_to_autime
 
 from gpaw.test.ut_common import TestCase, \
-    TextTestRunner, defaultTestLoader, \
+    TextTestRunner, CustomTextTestRunner, defaultTestLoader, \
     initialTestLoader, create_parsize_maxbands
 
 mpl = None
+
 
 class UTGroundStateSetup(TestCase):
     """
@@ -75,7 +78,7 @@ class UTGroundStateSetup(TestCase):
         #XXX DEBUG END
 
         self.atoms.set_calculator(self.gscalc)
-        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.06198, 4)
+        self.assertAlmostEqual(self.atoms.get_potential_energy(), -1.0621, 4)
         self.gscalc.write(self.gsname + '.gpw', mode='all')
         self.assertTrue(os.path.isfile(self.gsname + '.gpw'))
 
@@ -122,7 +125,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
         t0 = time.time()
         f = paropen('%s_%d.log' % (self.tdname, t), 'w')
         print('propagator: %s, duration: %6.1f as, timestep: %5.2f as, ' \
-            'niter: %d' % (self.propagator, self.duration, timestep, niter), file=f)
+              'niter: %d' %
+              (self.propagator, self.duration, timestep, niter), file=f)
 
         for i in range(1, niter+1):
             # XXX bare bones propagation without all the nonsense
@@ -209,8 +213,8 @@ class UTStaticPropagatorSetup(UTGroundStateSetup):
 
 def UTStaticPropagatorFactory(timesteps, propagator):
     sep = '_'
-    classname = 'UTStaticPropagatorSetup' \
-    + sep + propagator
+    classname = 'UTStaticPropagatorSetup' + sep + propagator
+
     class MetaPrototype(UTStaticPropagatorSetup, object):
         __doc__ = UTStaticPropagatorSetup.__doc__
         timesteps = timesteps
@@ -225,16 +229,13 @@ def UTStaticPropagatorFactory(timesteps, propagator):
 
 # -------------------------------------------------------------------
 
-if __name__ in ['__main__', '__builtin__', 'builtins']:
-    # XXX Not sure whether we should use the CustomTextTestRunner sometimes.
-    #   --askhl
-    #
+if __name__ in ['__main__', '__builtin__']:
     # We may have been imported by test.py, if so we should redirect to logfile
-    # if 0: #__name__ in ['__builtin__', 'builtins']:
-    #     testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
-    # else:
-    stream = (world.rank == 0) and sys.stdout or devnull
-    testrunner = TextTestRunner(stream=stream, verbosity=2)
+    if __name__ == '__builtin__':
+        testrunner = CustomTextTestRunner('ut_tddft.log', verbosity=2)
+    else:
+        stream = (world.rank == 0) and sys.stdout or devnull
+        testrunner = TextTestRunner(stream=stream, verbosity=2)
 
     parinfo = []
     for test in [UTGroundStateSetup]:
@@ -263,4 +264,3 @@ if __name__ in ['__main__', '__builtin__', 'builtins']:
         # Provide feedback on failed tests if imported by test.py
         if __name__ == '__builtin__' and not testresult.wasSuccessful():
             raise SystemExit('Test failed. Check ut_tddft.log for details.')
-

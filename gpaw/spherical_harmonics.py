@@ -1,7 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
-"""
+r"""
 Real-valued spherical harmonics
 
 
@@ -32,12 +32,14 @@ Gaunt coefficients::
 
 """
 
+import numpy as np
 
-from math import pi, sqrt
+from math import pi, sqrt  # noqa
 
 from gpaw import debug
 from _gpaw import spherical_harmonics as Yl
 
+__all__ = ['Y', 'YL', 'nablarlYL', 'Yl', 'gam']
 
 # Computer generated tables - do not touch!
 YL = [# s:
@@ -143,7 +145,7 @@ YL = [# s:
       [(1, (6, 0, 1)), (-1, (0, 6, 1)), (-15, (4, 2, 1)), (15, (2, 4, 1))],
       [(1, (7, 0, 0)), (-21, (5, 2, 0)), (35, (3, 4, 0)), (-7, (1, 6, 0))]]
 
-norms = ['sqrt(1./4/pi)', 'sqrt(3./4/pi)', 'sqrt(3./4/pi)', 'sqrt(3./4/pi)', 'sqrt(15./4/pi)', 'sqrt(15./4/pi)', 'sqrt(5./16/pi)', 'sqrt(15./4/pi)', 'sqrt(15./16/pi)', 'sqrt(35./32/pi)', 'sqrt(105./4/pi)', 'sqrt(21./32/pi)', 'sqrt(7./16/pi)', 'sqrt(21./32/pi)', 'sqrt(105./16/pi)', 'sqrt(35./32/pi)', 'sqrt(315./16/pi)', 'sqrt(315./32/pi)', 'sqrt(45./16/pi)', 'sqrt(45./32/pi)', 'sqrt(9./256/pi)', 'sqrt(45./32/pi)', 'sqrt(45./64/pi)', 'sqrt(315./32/pi)', 'sqrt(315./256/pi)', 'sqrt(693./512/pi)', 'sqrt(3465./16/pi)', 'sqrt(385./512/pi)', 'sqrt(1155./16/pi)', 'sqrt(165./256/pi)', 'sqrt(11./256/pi)', 'sqrt(165./256/pi)', 'sqrt(1155./64/pi)', 'sqrt(385./512/pi)', 'sqrt(3465./256/pi)', 'sqrt(693./512/pi)', 'sqrt(3003./512/pi)', 'sqrt(9009./512/pi)', 'sqrt(819./64/pi)', 'sqrt(1365./512/pi)', 'sqrt(1365./512/pi)', 'sqrt(273./256/pi)', 'sqrt(13./1024/pi)', 'sqrt(273./256/pi)', 'sqrt(1365./2048/pi)', 'sqrt(1365./512/pi)', 'sqrt(819./1024/pi)', 'sqrt(9009./512/pi)', 'sqrt(3003./2048/pi)', 'sqrt(6435./4096/pi)', 'sqrt(45045./512/pi)', 'sqrt(3465./4096/pi)', 'sqrt(3465./64/pi)', 'sqrt(315./4096/pi)', 'sqrt(315./512/pi)', 'sqrt(105./4096/pi)', 'sqrt(15./1024/pi)', 'sqrt(105./4096/pi)', 'sqrt(315./2048/pi)', 'sqrt(315./4096/pi)', 'sqrt(3465./1024/pi)', 'sqrt(3465./4096/pi)', 'sqrt(45045./2048/pi)', 'sqrt(6435./4096/pi)']
+norms = ['sqrt(1./4/pi)', 'sqrt(3./4/pi)', 'sqrt(3./4/pi)', 'sqrt(3./4/pi)', 'sqrt(15./4/pi)', 'sqrt(15./4/pi)', 'sqrt(5./16/pi)', 'sqrt(15./4/pi)', 'sqrt(15./16/pi)', 'sqrt(35./32/pi)', 'sqrt(105./4/pi)', 'sqrt(21./32/pi)', 'sqrt(7./16/pi)', 'sqrt(21./32/pi)', 'sqrt(105./16/pi)', 'sqrt(35./32/pi)', 'sqrt(315./16/pi)', 'sqrt(315./32/pi)', 'sqrt(45./16/pi)', 'sqrt(45./32/pi)', 'sqrt(9./256/pi)', 'sqrt(45./32/pi)', 'sqrt(45./64/pi)', 'sqrt(315./32/pi)', 'sqrt(315./256/pi)', 'sqrt(693./512/pi)', 'sqrt(3465./16/pi)', 'sqrt(385./512/pi)', 'sqrt(1155./16/pi)', 'sqrt(165./256/pi)', 'sqrt(11./256/pi)', 'sqrt(165./256/pi)', 'sqrt(1155./64/pi)', 'sqrt(385./512/pi)', 'sqrt(3465./256/pi)', 'sqrt(693./512/pi)', 'sqrt(3003./512/pi)', 'sqrt(9009./512/pi)', 'sqrt(819./64/pi)', 'sqrt(1365./512/pi)', 'sqrt(1365./512/pi)', 'sqrt(273./256/pi)', 'sqrt(13./1024/pi)', 'sqrt(273./256/pi)', 'sqrt(1365./2048/pi)', 'sqrt(1365./512/pi)', 'sqrt(819./1024/pi)', 'sqrt(9009./512/pi)', 'sqrt(3003./2048/pi)', 'sqrt(6435./4096/pi)', 'sqrt(45045./512/pi)', 'sqrt(3465./4096/pi)', 'sqrt(3465./64/pi)', 'sqrt(315./4096/pi)', 'sqrt(315./512/pi)', 'sqrt(105./4096/pi)', 'sqrt(15./1024/pi)', 'sqrt(105./4096/pi)', 'sqrt(315./2048/pi)', 'sqrt(315./4096/pi)', 'sqrt(3465./1024/pi)', 'sqrt(3465./4096/pi)', 'sqrt(45045./2048/pi)', 'sqrt(6435./4096/pi)']  # noqa
 # End of computer generated code
 
 Lmax = len(norms)
@@ -189,6 +191,18 @@ def Y(L, x, y, z):
     for c, n in YL[L]:
         result += c * x**n[0] * y**n[1] * z**n[2]
     return result
+
+
+def Yarr(L_M, R_Av):
+    """
+    Calculate spherical harmonics L_M at positions R_Av, where
+    A is some array like index.
+    """
+    Y_MA = np.zeros((len(L_M), *R_Av.shape[:-1]))
+    for M, L in enumerate(L_M):
+        for c, n in YL[L]:  # could be vectorized further
+            Y_MA[M] += c * np.prod(np.power(R_Av, n), axis=-1)
+    return Y_MA
 
 
 def nablarlYL(L, R):

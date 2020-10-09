@@ -9,7 +9,7 @@ helper functins for parallel domain decomposition.  """
 import numpy as np
 
 UNIFORM = False  # distribute grid points uniformly
-                 # XXX import this from gpaw.extra_parameters dict ?
+# XXX import this from gpaw.extra_parameters dict ?
 
 
 class Domain:

@@ -207,7 +207,8 @@ class KPointDescriptor:
                            (w_k[k], self.nbzkpts)))
                 else:
                     s += ('%4d:   %12.8f  %12.8f  %12.8f     %12.8f\n' %
-                          ((k,) + tuple(self.ibzk_kc[k]) + (self.weight_k[k],)))
+                          ((k,) + tuple(self.ibzk_kc[k]) +
+                           (self.weight_k[k],)))
             elif k == 10:
                 s += '          ...\n'
         return s
@@ -633,3 +634,6 @@ class KPointDescriptor:
         writer.write('bzkpts', self.bzk_kc)
         writer.write('bz2ibz', self.bz2ibz_k)
         writer.write('weights', self.weight_k)
+        writer.write('rotations', self.symmetry.op_scc)
+        writer.write('translations', self.symmetry.ft_sc)
+        writer.write('atommap', self.symmetry.a_sa)

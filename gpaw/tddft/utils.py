@@ -1,10 +1,11 @@
 # Written by Lauri Lehtovaara 2008
 
-from gpaw.utilities.blas import axpy, dotc, dotu, scal
+from gpaw.utilities.blas import axpy, scal
 from gpaw.utilities.mblas import multi_axpy, multi_dotc, multi_dotu, multi_scal
 
 import _gpaw
 import gpaw.cuda
+
 
 class MultiBlas:
     def __init__(self, gd, timer=None):
@@ -140,7 +141,8 @@ class StaticOverlapMonitor:
 
             if calculate_P_ani:
                 #wfs.pt.integrate(psit_nG, P_ani, kpt.q)
-                raise NotImplementedError('In case you were wondering, TODO XXX')
+                raise NotImplementedError(
+                    'In case you were wondering, TODO XXX')
 
             for a, P_ni in P_ani.items():
                 sP_i = self.P_aui[a][u]
@@ -197,7 +199,8 @@ class DynamicOverlapMonitor:
 
             if calculate_P_ani:
                 #wfs.pt.integrate(psit_nG, P_ani, kpt.q)
-                raise NotImplementedError('In case you were wondering, TODO XXX')
+                raise NotImplementedError(
+                    'In case you were wondering, TODO XXX')
 
             # Construct the overlap matrix:
             S = lambda x: x
@@ -222,4 +225,3 @@ class DynamicOverlapWriter(DynamicOverlapMonitor):
 
     def __del__(self):
         self.fileobj.close()
-

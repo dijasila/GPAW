@@ -44,8 +44,8 @@ class C_Response(Contribution):
         self.damp = damp
 
     def set_positions(self, atoms):
-        #d('Response::set_positions', len(self.Dresp_asp),
-        #  'not doing anything now')
+        # d('Response::set_positions', len(self.Dresp_asp),
+        #   'not doing anything now')
         return
 
         def get_empty(a):
@@ -85,15 +85,16 @@ class C_Response(Contribution):
         self.grid_comm = self.gd.comm
         if self.Dresp_asp is None:
             assert self.density.D_asp is None
-            #if self.density.D_asp is not None:
-            #    self.Dresp_asp = self.empty_atomic_matrix()
-            #    self.D_asp = self.empty_atomic_matrix()
-            #    for a in self.density.D_asp:
-            #        self.Dresp_asp[a][:] = 0.0
-            #        self.D_asp[a][:] = 0.0
-                # XXX Might as well not initialize, as it seems.
-            #    self.Drespdist_asp = self.distribute_Dresp_asp(self.Dresp_asp)
-            #    self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
+            # if self.density.D_asp is not None:
+            #     self.Dresp_asp = self.empty_atomic_matrix()
+            #     self.D_asp = self.empty_atomic_matrix()
+            #     for a in self.density.D_asp:
+            #         self.Dresp_asp[a][:] = 0.0
+            #         self.D_asp[a][:] = 0.0
+            # XXX Might as well not initialize, as it seems.
+            #     self.Drespdist_asp = self.distribute_Dresp_asp(
+            #         self.Dresp_asp)
+            #     self.Ddist_asp = self.distribute_Dresp_asp(self.D_asp)
 
             # The response discontinuity is stored here
             self.Dxc_vt_sG = None
@@ -268,9 +269,9 @@ class C_Response(Contribution):
             # This always happens, so we don't warn.
             # We should perhaps print it as an ordinary message,
             # but we do not have a file here to which to print.
-            #import warnings
-            #warnings.warn('Calculating KS-gap directly from the k-points, '
-            #              'can be inaccurate.')
+            # import warnings
+            # warnings.warn('Calculating KS-gap directly from the k-points, '
+            #               'can be inaccurate.')
             # homolumo = self.occupations.get_homo_lumo(self.wfs)
 
         self.Dxc_Dresp_asp = self.empty_atomic_matrix()
@@ -353,9 +354,9 @@ class C_Response(Contribution):
 
         if 0:  # TODO print properly, not to stdout!
             print()
-            print('\Delta XC calulation')
+            print('Delta XC calulation')
             print('-----------------------------------------------')
-            print('| Method      |  KS-Gap | \Delta XC |  QP-Gap |')
+            print('| Method      |  KS-Gap |  Delta XC |  QP-Gap |')
             print('-----------------------------------------------')
             print('| Averaging   | %7.2f | %9.2f | %7.2f |' %
                   (Ksgap, method1_dxc, Ksgap + method1_dxc))
@@ -390,7 +391,7 @@ class C_Response(Contribution):
 
         for a in basis_functions.atom_indices:
             if self.setups[a].type == 'ghost':
-                w_j = [ 0.0 ]
+                w_j = [0.0]
             else:
                 w_j = self.setups[a].extra_xc_data['w_j']
 

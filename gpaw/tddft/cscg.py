@@ -6,39 +6,39 @@ for complex symmetric matrices. Requires Numpy and GPAW's own BLAS."""
 import numpy as np
 
 from gpaw.utilities.blas import axpy
-from gpaw.utilities.blas import dotu
 from gpaw.utilities.linalg import change_sign
 from gpaw.mpi import rank
 from gpaw.tddft.utils import MultiBlas
 
 import gpaw.cuda
 
+
 class CSCG:
     """Conjugate gradient for complex symmetric matrices
-    
-    This class solves a set of linear equations A.x = b using conjugate 
-    gradient for complex symmetric matrices. The matrix A is a complex, 
-    symmetric, and non-singular matrix. The method requires only access 
-    to matrix-vector product A.x = b, which is called A.dot(x). Thus A 
-    must provide the member function dot(self,x,b), where x and b are 
-    complex arrays (numpy.array([], complex), and x is the known vector, 
+
+    This class solves a set of linear equations A.x = b using conjugate
+    gradient for complex symmetric matrices. The matrix A is a complex,
+    symmetric, and non-singular matrix. The method requires only access
+    to matrix-vector product A.x = b, which is called A.dot(x). Thus A
+    must provide the member function dot(self,x,b), where x and b are
+    complex arrays (numpy.array([], complex), and x is the known vector,
     and b is the result.
 
     Now x and b are multivectors, i.e., list of vectors.
     """
-    
+
     def __init__( self, wfs, timer = None,
                   tolerance = 1e-15, max_iterations = 1000, eps=1e-15,
                   blocksize=16, cuda=False ):
         """Create the CSCG-object.
-        
-        Tolerance should not be smaller than attainable accuracy, which is 
-        order of kappa(A) * eps, where kappa(A) is the (spectral) condition 
-        number of the matrix. The maximum number of iterations should be 
-        significantly less than matrix size, approximately 
+
+        Tolerance should not be smaller than attainable accuracy, which is
+        order of kappa(A) * eps, where kappa(A) is the (spectral) condition
+        number of the matrix. The maximum number of iterations should be
+        significantly less than matrix size, approximately
         .5 sqrt(kappa) ln(2/tolerance). A small number is treated as zero
         if it's magnitude is smaller than argument eps.
-        
+
         Parameters
         ----------
         wfs: Wavefunctions
@@ -50,17 +50,19 @@ class CSCG:
         max_iterations: integer
             maximum number of iterations
         eps: float
-            if abs(rho) or (omega) < eps, it's regarded as zero 
+            if abs(rho) or (omega) < eps, it's regarded as zero
             and the method breaks down
 
         """
-        
+
         self.tol = tolerance
         self.max_iter = max_iterations
         if ( eps <= tolerance ):
             self.eps = eps
         else:
-            raise RuntimeError("CSCG method got invalid tolerance (tol = %le < eps = %le)." % (tolerance,eps))
+            raise RuntimeError(
+                "CSCG method got invalid tolerance (tol = %le < eps = %le)." %
+                (tolerance,eps))
 
         self.iterations = -1
 
@@ -79,11 +81,11 @@ class CSCG:
                                  max(1, (224 * 224 * 224) * wfs.gd.comm.size
                                      / (wfs.gd.N_c[0] * wfs.gd.N_c[1]
                                         * wfs.gd.N_c[2])))
-        
+
 
     def solve(self, A, x, b):
         """Solve a set of linear equations A.x = b.
-        
+
         Parameters:
         A           matrix A
         x           initial guess x_0 (on entry) and the result (on exit)
@@ -216,4 +218,3 @@ class CSCG:
             self.timer.stop('CSCG')
 
         return self.iterations
-

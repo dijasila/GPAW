@@ -3,16 +3,31 @@
 # Please see the accompanying LICENSE file for further information.
 
 """Main gpaw module."""
-
+import os
 import sys
-from gpaw.broadcast_imports import broadcast_imports
+from sysconfig import get_platform
+from os.path import join, isfile
+
+plat = get_platform()
+platform_id = os.getenv('CPU_ARCH')
+if platform_id:
+    plat += '-' + platform_id
+build_path = join(__path__[0], '..', 'build')  # noqa
+arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
+
+# If we are running the code from the source directory, then we will
+# want to use the extension from the distutils build directory:
+sys.path.insert(0, join(build_path, 'lib.' + arch))
+
+if 'OMP_NUM_THREADS' not in os.environ:
+    os.environ['OMP_NUM_THREADS'] = '1'
+
+from gpaw.broadcast_imports import broadcast_imports  # noqa
 
 with broadcast_imports:
     import os
     import runpy
     import warnings
-    from sysconfig import get_platform
-    from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import gpaw.cuda
@@ -20,17 +35,17 @@ with broadcast_imports:
     import numpy as np
     from ase.cli.run import str2dict
 
-
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.5.2'
-__ase_version_required__ = '3.17.0'
+__version__ = '20.1.0'
+__ase_version_required__ = '3.19.0'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
+           'MarzariVanderbilt',
            'PW', 'LCAO', 'restart', 'FD']
 
 
@@ -222,7 +237,8 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', False)
+debug = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -245,14 +261,6 @@ if debug:
     np.empty = empty
 
 
-build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (get_platform(), sys.version[0:3])
-
-# If we are running the code from the source directory, then we will
-# want to use the extension from the distutils build directory:
-sys.path.insert(0, join(build_path, 'lib.' + arch))
-
-
 def get_gpaw_python_path():
     paths = os.environ['PATH'].split(os.pathsep)
     paths.insert(0, join(build_path, 'bin.' + arch))
@@ -265,25 +273,13 @@ def get_gpaw_python_path():
 setup_paths = []
 
 
-def initialize_data_paths():
-    try:
-        setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
-    except KeyError:
-        if os.pathsep == ';':
-            setup_paths[:] = [r'C:\gpaw-setups']
-        else:
-            setup_paths[:] = ['/usr/local/share/gpaw-setups',
-                              '/usr/share/gpaw-setups']
-
-
-initialize_data_paths()
-
 with broadcast_imports:
     from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
-    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                                  MarzariVanderbilt)
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
@@ -340,4 +336,26 @@ def read_rc_file():
                 exec(fd.read())
 
 
+def initialize_data_paths():
+    try:
+        setup_paths[:0] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+    except KeyError:
+        if len(setup_paths) == 0:
+            if os.pathsep == ';':
+                setup_paths[:] = [r'C:\gpaw-setups']
+            else:
+                setup_paths[:] = ['/usr/local/share/gpaw-setups',
+                                  '/usr/share/gpaw-setups']
+
+
 read_rc_file()
+initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))

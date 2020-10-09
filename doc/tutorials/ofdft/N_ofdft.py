@@ -5,7 +5,6 @@ from gpaw.mixer import Mixer
 from gpaw.eigensolvers import CG
 from gpaw.poisson import PoissonSolver
 from gpaw import setup_paths
-from ase.units import Bohr, Hartree
 setup_paths.insert(0, '.')
 
 # Usual GPAW definitions
@@ -31,12 +30,12 @@ for symbol in elements:
     mixer = Mixer()
 
     eigensolver = CG(tw_coeff=lambda_coeff)
-    
+
     poissonsolver=PoissonSolver()
     molecule = Atoms(symbol,
                      positions=[(c,c,c)] ,
                      cell=(a,a,a))
-    
+
     calc = GPAW(h=h,
                 xc=xcname,
                 maxiter=240,
@@ -44,7 +43,7 @@ for symbol in elements:
                 mixer=mixer,
                 setups=name,
                 poissonsolver=poissonsolver)
-        
+
     molecule.set_calculator(calc)
 
     E = molecule.get_total_energy()

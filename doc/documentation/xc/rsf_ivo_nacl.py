@@ -5,7 +5,6 @@ from ase.build import molecule
 from gpaw.cluster import Cluster
 from gpaw import GPAW, KohnShamConvergenceError, FermiDirac
 from gpaw.eigensolvers import CG, RMMDIIS
-from gpaw.mixer import MixerDif
 
 calc_parms = [
     {'xc': 'PBE0:unocc=True',
@@ -38,9 +37,7 @@ def calc_me(atoms, nbands):
                     'energy': 0.005,
                     'bands': nbands,
                     'eigenstates': 1e-4,
-                    'density': 1e-3,
-                    }
-               )
+                    'density': 1e-3})
     atoms.set_calculator(calc)
     try:
         atoms.get_potential_energy()

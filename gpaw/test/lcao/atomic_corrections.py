@@ -7,16 +7,13 @@
 
 from ase.build import molecule, bulk
 from gpaw import GPAW, LCAO
-from gpaw.lcao.atomic_correction import (DenseAtomicCorrection,
-                                         SparseAtomicCorrection)
 from gpaw.mpi import world
 from itertools import count
 
 
 
 def test(system, **kwargs):
-    corrections = [DenseAtomicCorrection(),
-                   SparseAtomicCorrection(tolerance=0.0)]
+    corrections = ['dense', 'sparse']
 
     counter = count()
     energies = []
@@ -51,10 +48,9 @@ def test(system, **kwargs):
     errs = []
     for energy, c in zip(energies, corrections):
         err = abs(energy - eref)
-        nops = calc.wfs.world.sum(c.nops)
         errs.append(err)
         if master:
-            print('err=%e :: name=%s :: nops=%d' % (err, c.name, nops))
+            print('err=%e :: name=%s' % (err, correction))
 
     maxerr = max(errs)
     assert maxerr < 1e-11, maxerr
@@ -66,6 +62,9 @@ system.center(vacuum=3.0)
 system.pbc = (0, 1, 1)
 system = system.repeat((1, 1, 2))
 system.rattle(stdev=0.05)
+
+test(system)
+
 
 system2 = bulk('Cu', orthorhombic=True) * (2, 1, 2)
 test(system2, kpts=[2, 3, 4])

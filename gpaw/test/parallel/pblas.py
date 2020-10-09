@@ -5,7 +5,6 @@ The test generates random matrices A0, B0, X0, etc. on a
 BLACS grid, BLAS operations are performed in parallel, and
 results are compared against BLAS.
 """
-from __future__ import print_function
 
 import numpy as np
 
@@ -13,7 +12,7 @@ from gpaw.mpi import world, rank
 from gpaw.test import equal
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import compiled_with_sl
-from gpaw.utilities.blas import gemm, gemv, r2k, rk
+from gpaw.utilities.blas import gemm, r2k, rk
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_simple_gemv, \
     pblas_simple_r2k, pblas_simple_rk, pblas_simple_hemm
 
@@ -73,7 +72,8 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
         print(A0.shape, Z0.shape)
         Z0[:] = np.dot(A0.T, A0)
         # Y0[:] = np.dot(A0, X0)
-        gemv(1.0, A0, X0.ravel(), 0.0, Y0.ravel())
+        # gemv(1.0, A0, X0.ravel(), 0.0, Y0.ravel())
+        Y0[:, 0] = A0.dot(X0.ravel())
         r2k(1.0, A0, D0, 0.0, S0)
         rk(1.0, A0, 0.0, U0)
 

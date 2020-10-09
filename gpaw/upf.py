@@ -14,7 +14,6 @@ except ImportError:  # python2.6 compatibility
 
 import numpy as np
 from ase.data import atomic_numbers
-from ase.utils import basestring
 
 from gpaw.atom.atompaw import AtomPAW
 from gpaw.atom.radialgd import EquidistantRadialGridDescriptor
@@ -235,9 +234,10 @@ def parse_upf(fname):
     return pp
 
 
-sg15_special_valence_states = {'Re': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 5.]),
-                               'Os': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 6.]),
-                               'Ir': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 7.])}
+sg15_special_valence_states = {
+    'Re': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 5.]),
+    'Os': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 6.]),
+    'Ir': ([5, 5, 6, 5], [0, 1, 0, 2], [2., 6., 2., 7.])}
 
 
 def read_sg15(fname):
@@ -261,7 +261,7 @@ class UPFSetupData:
         # or dict (that's what we are looking for).
         # Maybe just a symbol would also be fine if we know the
         # filename to look for.
-        if isinstance(data, basestring):
+        if isinstance(data, str):
             filename = data
             data = parse_upf(data)
         elif filename is None:

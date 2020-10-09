@@ -115,9 +115,63 @@ Here, we install an additional version of GPAW for, say, test runs::
 Add this to your ``~/.bashrc``::
 
     if [[ $SLURM_SUBMIT_DIR/ = $HOME/test-runs* ]]; then
-        GPAW=~/testing
+        GPAW=~/testing/gpaw
     fi
 
 right before sourcing the ``gpaw-foss.sh`` or ``gpaw-intel.sh`` script
 mentioned above. Now, SLURM-jobs submitted inside your ``~/test-runs/``
 folder will use the version of GPAW from the ``~/testing/`` folder.
+
+Using more than one compiler with GPAW
+======================================
+
+If we want to run different versions of GPAW with different compilers, we
+again make an additional clone of the GPAW repository::
+
+    $ cd ~
+    $ mkdir performancetest
+    $ cd performancetest
+    $ ... clone gpaw ...
+
+Say you normally use the foss compiler and want to try out the intel one
+for performance. Then we have to create the right bash environment, both
+before compiling and upon ssh'ing into each login node. The latter is
+done by specifying what bash commands the compile script should run
+immediately after ssh'ing into each node. These commands can be given to
+the compile script as inputs::
+
+    $ module purge
+    $ GPAW=~/performancetest/gpaw
+    $ source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
+    $ cd ~/performancetest/gpaw
+    $ sh doc/platforms/Linux/Niflheim/compile.sh 'module purge' 'GPAW=~/performancetest/gpaw' 'source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh'
+
+Instead of typing all your commands into the terminal, you can write them
+in a file. Say you write a file ``~/perfomancetest/gpaw-intel-env.sh``::
+
+  module purge
+  GPAW=~/performancetest/gpaw
+  source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
+  module list
+
+where the ``module list`` command has been added to track your modules.
+Then you can compile your performance test version of gpaw by::
+
+    $ source ~/performancetest/gpaw-intel-env.sh
+    $ cd ~/performancetest/gpaw
+    $ sh doc/platforms/Linux/Niflheim/compile.sh 'source ~/performancetest/gpaw-intel-env.sh'
+
+Finally, you need to load the right modules, when you are using the
+performance test version of gpaw. This is done in your ``~/.bashrc``
+by choosing the specific compiler toolchain together with the
+version of gpaw::
+
+  if [[ $SLURM_SUBMIT_DIR/ = $HOME/performancetest-runs* ]]; then
+      GPAW=~/performancetest/gpaw
+      source $GPAW/doc/platforms/Linux/Niflheim/gpaw-intel.sh
+  fi
+
+  if [[ -z $GPAW ]]; then
+      GPAW=~/gpaw
+      source $GPAW/doc/platforms/Linux/Niflheim/gpaw-foss.sh
+  fi

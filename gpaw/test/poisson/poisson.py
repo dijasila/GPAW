@@ -23,7 +23,6 @@ def f(n, p):
     I0 = gd.integrate(a)
     a -= I0 / L**3
 
-    I = gd.integrate(a)
     b = gd.zeros()
     p.solve(b, a, charge=0, eps=1e-20)
     return gd.collect(b, broadcast=1)

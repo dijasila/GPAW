@@ -1,16 +1,16 @@
+import os
+
 scalapack = True
-platform_id = os.environ['CPU_ARCH'] + '-el7'
+fftw = True
 
 # Clean out any autodetected things, we only want the EasyBuild
 # definitions to be used.
-libraries = ['openblas', 'readline', 'gfortran']
+libraries = ['openblas', 'fftw3', 'readline', 'gfortran']
 mpi_libraries = []
 include_dirs = []
 
 # Use EasyBuild scalapack from the active toolchain
-mpi_libraries += ['scalapack']
-mpi_define_macros += [('GPAW_NO_UNDERSCORE_CBLACS', '1')]
-mpi_define_macros += [('GPAW_NO_UNDERSCORE_CSCALAPACK', '1')]
+libraries += ['scalapack']
 
 # Use EasyBuild libxc
 libxc = os.getenv('EBROOTLIBXC')
@@ -28,7 +28,3 @@ if libvdwxc:
 
 # Now add a EasyBuild "cover-all-bases" library_dirs
 library_dirs = os.getenv('LD_LIBRARY_PATH').split(':')
-
-# Build separate gpaw-python
-mpicompiler = 'mpicc'
-mpilinker = mpicompiler

@@ -29,7 +29,7 @@ for mode in ['fd',
         if world.rank == 0:
             print(mode, augment_grids)
         calc = GPAW(mode=mode,
-                    gpts=(16, 16, 16),
+                    gpts=(20, 20, 20),
                     txt='gpaw.%s.%d.txt' % (mode, int(augment_grids)),
                     eigensolver=eigensolver,
                     parallel=dict(augment_grids=augment_grids,

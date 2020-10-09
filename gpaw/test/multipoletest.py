@@ -1,12 +1,11 @@
-from __future__ import print_function
 from math import sqrt, pi
 import numpy as np
 from gpaw.setup import create_setup
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.localized_functions import create_localized_functions
+from gpaw.lfc import LFC
 from gpaw.xc import XC
 
-n = 60#40 /8 * 10
+n = 60  # 40 /8 * 10
 a = 10.0
 gd = GridDescriptor((n, n, n), (a, a, a))
 c_LL = np.identity(9, float)
@@ -16,9 +15,10 @@ xc = XC('LDA')
 for soft in [False]:
     s = create_setup('Cu', xc, lmax=2)
     ghat_l = s.ghat_l
-    ghat_Lg = create_localized_functions(ghat_l, gd, (0.54321, 0.5432, 0.543))
+    ghat_Lg = LFC(gd, [ghat_l])
+    ghat_Lg.set_positions([(0.54321, 0.5432, 0.543)])
     a_Lg[:] = 0.0
-    ghat_Lg.add(a_Lg, c_LL)
+    ghat_Lg.add(a_Lg, {0: c_LL} if ghat_Lg.my_atom_indices else {})
     for l in range(3):
         for m in range(2 * l + 1):
             L = l**2 + m

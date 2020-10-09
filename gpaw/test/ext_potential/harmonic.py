@@ -18,6 +18,9 @@ class HarmonicPotential(ExternalPotential):
         r_vg = gd.get_grid_point_coordinates()
         self.vext_g = 0.5 * ((r_vg - a / Bohr / 2)**2).sum(0)
 
+    def get_name(self):
+        return 'HarmonicPotential'
+
 
 calc = GPAW(charge=-8,
             nbands=4,

@@ -1,11 +1,11 @@
-
+# flake8: noqa
 import sys
 import time
 import numpy as np
 
 from gpaw.mpi import world
 from gpaw.test.parunittest import ParallelTestCase, ParallelTextTestRunner, \
-     defaultParallelTestLoader, main
+     defaultParallelTestLoader
 
 # ------------------------------------------------------------------
 

@@ -12,8 +12,8 @@ http://www.netlib.org/lapack/lug/node145.html
 """
 
 import numpy as np
+import scipy.linalg.blas as blas
 
-from gpaw.utilities import is_contiguous
 from gpaw import debug
 from gpaw import gpuarray
 import _gpaw
@@ -325,26 +325,6 @@ def axpy(alpha, x, y, cuda=None):
             y_gpu.set(y_cpu)
 
 
-def czher(alpha, x, a):
-    """alpha x * x.conj() + a.
-
-    Performs the operation::
-
-      y <- alpha * x * x.conj() + a
-
-    where x is a N element vector and a is a N by N hermitian matrix, alpha
-    is a real scalar.
-    """
-
-    assert isinstance(alpha, float)
-    assert is_contiguous(x, complex) and is_contiguous(a, complex)
-    assert x.flags.contiguous and a.flags.contiguous
-    assert x.ndim == 1 and a.ndim == 2
-    assert x.shape[0] == a.shape[0]
-
-    _gpaw.czher(alpha, x, a)
-
-
 def rk(alpha, a, beta, c, trans='c', cuda=None, hybrid=False):
     """Rank-k update of a matrix.
 
@@ -595,15 +575,9 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     if a.ndim == 1 and b.ndim == 1:
         assert out is None
         if trans == 'c':
-            return alpha * _gpaw.dotc(b, a)  # dotc conjugates *first* argument
+            return alpha * np.vdot(b, a)  # dotc conjugates *first* argument
         else:
-            return alpha * _gpaw.dotu(a, b)
-
-##     # Use gemv if a or b is a vector, and the other is a matrix??
-##     if a.ndim == 1 and trans == 'n':
-##         gemv(alpha, b, a, beta, out, trans='n')
-##     if b.ndim == 1 and trans == 'n':
-##         gemv(alpha, a, b, beta, out, trans='t')
+            return alpha * a.dot(b)
 
     # Map all arrays to 2D arrays
     a = a.reshape(-1, a.shape[-1])
@@ -630,36 +604,67 @@ def _gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
     return out.reshape(outshape)
 
 
-def _rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
-    """Perform matrix rotation using gemm
+if not hasattr(_gpaw, 'mmm'):
+    def gemm(alpha, a, b, beta, c, transa='n'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if transa == 'n':
+            c += alpha * b.dot(a.reshape((len(a), -1))).reshape(c.shape)
+        elif transa == 't':
+            c += alpha * b.reshape((len(b), -1)).dot(
+                a.reshape((len(a), -1)).T)
+        else:
+            c += alpha * b.reshape((len(b), -1)).dot(
+                a.reshape((len(a), -1)).T.conj())
 
-    For the 2D input matrices in, U, do the rotation::
+    def rk(alpha, a, beta, c, trans='c'):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        if trans == 'n':
+            c += alpha * a.conj().T.dot(a)
+        else:
+            a = a.reshape((len(a), -1))
+            c += alpha * a.dot(a.conj().T)
 
-      out <- a * U . in . U^d + b * out
+    def r2k(alpha, a, b, beta, c):  # noqa
+        if c.size == 0:
+            return
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        c += (alpha * a.reshape((len(a), -1))
+              .dot(b.reshape((len(b), -1)).conj().T) +
+              alpha * b.reshape((len(b), -1))
+              .dot(a.reshape((len(a), -1)).conj().T))
 
-    where '.' denotes matrix multiplication and '^d' the hermitian conjugate.
+    def op(o, m):
+        if o == 'N':
+            return m
+        if o == 'T':
+            return m.T
+        return m.conj().T
 
-    work_ij is a temporary work array for storing the intermediate product.
-    out_ii, and work_ij are created if not given.
+    def mmm(alpha, a, opa, b, opb, beta, c):  # noqa
+        if beta == 0.0:
+            c[:] = 0.0
+        else:
+            c *= beta
+        c += alpha * op(opa, a).dot(op(opb, b))
 
-    The method returns a reference to out.
-    """
-    if work_ij is None:
-        work_ij = np.zeros_like(U_ij)
-    if out_ii is None:
-        out_ii = np.zeros(U_ij.shape[:1] * 2, U_ij.dtype)
-    if in_jj.dtype == float:
-        trans = 't'
-    else:
-        trans = 'c'
-    gemm(1., in_jj, U_ij, 0., work_ij, 'n')
-    gemm(a, U_ij, work_ij, b, out_ii, trans)
-    return out_ii
-
-
-if not debug:
     gemmdot = _gemmdot
-    rotate = _rotate
+
+elif not debug:
+    gemmdot = _gemmdot
+
 else:
     def gemmdot(a, b, alpha=1.0, beta=1.0, out=None, trans='n'):
         assert a.flags.contiguous
@@ -678,18 +683,3 @@ else:
             else:
                 assert out.shape == a.shape[:-1] + b.shape[:-1]
         return _gemmdot(a, b, alpha, beta, out, trans)
-
-    def rotate(in_jj, U_ij, a=1., b=0., out_ii=None, work_ij=None):
-        assert in_jj.dtype == U_ij.dtype
-        assert in_jj.flags.contiguous
-        assert U_ij.flags.contiguous
-        assert in_jj.shape == U_ij.shape[1:] * 2
-        if out_ii is not None:
-            assert out_ii.dtype == in_jj.dtype
-            assert out_ii.flags.contiguous
-            assert out_ii.shape == U_ij.shape[:1] * 2
-        if work_ij is not None:
-            assert work_ij.dtype == in_jj.dtype
-            assert work_ij.flags.contiguous
-            assert work_ij.shape == U_ij.shape
-        return _rotate(in_jj, U_ij, a, b, out_ii, work_ij)

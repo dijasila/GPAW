@@ -134,11 +134,17 @@ class LCAOWfsMover:
         # Avoid calculating T
         Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
         S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
+
+        oldcorr = self.atomic_correction
+        from gpaw.lcao.atomic_correction import DenseAtomicCorrection
+        corr = DenseAtomicCorrection(P_aqMi, oldcorr.dS_aii, Mstart, Mstop)
+
         wfs.timer.stop('tci calculate')
-        self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
+        #self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
-        self.atomic_correction.add_overlap_correction(wfs, S_qMM)
+        corr.add_overlap_correction(S_qMM)
+        #self.atomic_correction.add_overlap_correction(S_qMM)
         wfs.timer.stop('lcao overlap correction')
         wfs.gd.comm.sum(S_qMM)
         c_unM = []
@@ -149,7 +155,7 @@ class LCAOWfsMover:
             with wfs.timer('wfs overlap'):
                 opsit = kpt.psit.new()
                 opsit.array[:] = kpt.psit.array
-                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.P))
+                opsit.add(wfs.pt, wfs.setups.dS.apply(kpt.projections))
 
             with wfs.timer('bfs integrate'):
                 bfs.integrate2(opsit.array, c_xM=X_nM, q=kpt.q)
@@ -246,7 +252,9 @@ class FDPWWaveFunctions(WaveFunctions):
         self.orthonormalized = flag
 
     def set_positions(self, spos_ac, atom_partition=None):
-        move_wfs = (self.kpt_u[0].psit_nG is not None and
+        # We don't move the wave functions if psit_nG is None or an
+        # NDArrayReader instance (and we need positions also):
+        move_wfs = (isinstance(self.kpt_u[0].psit_nG, np.ndarray) and
                     self.spos_ac is not None)
 
         if move_wfs:
@@ -384,7 +392,7 @@ class FDPWWaveFunctions(WaveFunctions):
             return
 
         psit = kpt.psit
-        P = kpt.P
+        P = kpt.projections
 
         with self.timer('projections'):
             psit.matrix_elements(self.pt, out=P)
@@ -406,7 +414,7 @@ class FDPWWaveFunctions(WaveFunctions):
             mmm(1.0, S, 'N', psit, 'N', 0.0, psit2)
             mmm(1.0, S, 'N', P, 'N', 0.0, P2)
             psit[:] = psit2
-            kpt.P = P2
+            kpt.projections = P2
 
     def calculate_forces(self, hamiltonian, F_av):
         # Calculate force-contribution from k-points:
@@ -428,7 +436,7 @@ class FDPWWaveFunctions(WaveFunctions):
                     dH_ssii = np.array(
                         [[dH_ii + dH_vii[2], dH_vii[0] - 1j * dH_vii[1]],
                          [dH_vii[0] + 1j * dH_vii[1], dH_ii - dH_vii[2]]])
-                    P_nsi = kpt.P[a]
+                    P_nsi = kpt.projections[a]
                     F_v = np.einsum('nsiv,stij,ntj', F_nsiv, dH_ssii, P_nsi)
                     F_nsiv *= kpt.eps_n[:, np.newaxis, np.newaxis, np.newaxis]
                     dO_ii = self.setups[a].dO_ii

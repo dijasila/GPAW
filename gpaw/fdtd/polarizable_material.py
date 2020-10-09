@@ -2,10 +2,10 @@
 
 """
 
+# flake8: noqa
+
 from ase.units import Hartree, Bohr
 from gpaw.fd_operators import Gradient
-from gpaw.transformers import Transformer
-from numpy.fft import fftn, ifftn, fft2, ifft2
 import numpy as np
 
 # in atomic units, 1/(4*pi*e_0) = 1
@@ -29,8 +29,8 @@ class PolarizableMaterial():
             self.components = []
         else:
             self.components  = components
-    
-    
+
+
     def add_component(self, component):
         self.components.append(component)
 
@@ -45,42 +45,42 @@ class PolarizableMaterial():
             return
         self.initialized = True
         self.messages.append("Polarizable Material:")
-        
+
         try:
             self.Nj = max(component.permittivity.Nj for component in self.components)
         except:
             self.Nj = 0
-            
+
         self.gd = gd
-        
+
         # 3-dimensional scalar array: rho, eps_infty
         self.charge_density = self.gd.zeros()
         self.eps_infty = np.ones(self.gd.empty().shape) * _eps0_au
-        
+
         # 3-dimensional vector arrays:
         #        electric field, total polarization density
         dims = [3] + list(self.gd.empty().shape)
         self.electric_field = np.zeros(dims)
         self.polarization_total = np.zeros(dims)
-        
+
         # 4-dimensional vector arrays:
         #        currents, polarizations
         dims = [3, self.Nj] + list(self.gd.empty().shape)
         self.currents      = np.zeros(dims)
         self.polarizations = np.zeros(dims)
-        
+
         # 4-dimensional scalar arrays:
         #        oscillator parameters alpha, beta, bar_omega, eps_infty
         dims = [self.Nj] + list(self.gd.empty().shape)
         self.alpha     = np.zeros(dims)
         self.beta      = np.zeros(dims)
         self.bar_omega = np.ones(dims)
-        
+
         # Set the permittivity for each grid point
         for component in self.components:
             self.apply_mask(mask = component.get_mask(self.gd),
                            permittivity = component.permittivity)
-    
+
     # Restart by regenerating the structures
     # TODO: is everything always fully reproduced? Should there be a test for it (e.g. checksum[mask])
     def read(self, reader):
@@ -90,7 +90,7 @@ class PolarizableMaterial():
             eps_infty = component['eps_infty']
             eps = component['eps']  # Data as array
             eval('self.add_component(%s(permittivity = Permittivity(data=eps), %s))' % (name, arguments))
-            
+
     # Save information on the structures for restarting
     def write(self, writer):
         writer.write(components=[
@@ -99,14 +99,14 @@ class PolarizableMaterial():
                           'eps_infty': component.permittivity.eps_infty,
                           'eps': component.permittivity.data_eVA()}
                          for component in self.components])
-            
+
     # Here the 3D-arrays are filled with material-specific information
     def apply_mask(self, mask, permittivity):
         for j in range(permittivity.Nj):
             self.bar_omega[j] = np.logical_not(mask) * self.bar_omega[j] + mask * permittivity.oscillators[j].bar_omega
             self.alpha    [j] = np.logical_not(mask) * self.alpha[j]    + mask * permittivity.oscillators[j].alpha
             self.beta     [j] = np.logical_not(mask) * self.beta[j]     + mask * permittivity.oscillators[j].beta
-        
+
         # Add dummy oscillators if needed
         for j in range(permittivity.Nj, self.Nj):
             self.bar_omega  [j] = np.logical_not(mask) * self.bar_omega[j] + mask * 1.0
@@ -126,8 +126,8 @@ class PolarizableMaterial():
         masksum  = self.gd.comm.sum(int(np.sum(mask)))
         masksize = self.gd.comm.sum(int(np.size(mask)))
         self.messages.append("Fill ratio: %f percent" % (100.0 * float(masksum)/float(masksize)))
-        
-        
+
+
     # E(r) = -Grad V(r)
     # NB: Here -V(r) is used (if/when sign=-1), because in GPAW the
     #     electron unit charge is +1 so that the calculated V(r) is
@@ -156,7 +156,7 @@ class PolarizableMaterial():
         for v in range(3):
             self.polarizations[v] = self.polarizations[v] + timestep * self.currents[v]
         self.polarization_total = np.sum(self.polarizations, axis=1)
-    
+
     def propagate_currents(self, timestep):
         c1 = (1.0 - 0.5 * self.alpha*timestep)/(1.0 + 0.5 * self.alpha*timestep)
         c2 = - timestep / (1.0 + 0.5 * self.alpha*timestep) * (self.bar_omega**2.0)
@@ -178,17 +178,17 @@ class PolarizableBox():
         self.corner1      = np.array(corner1)/Bohr # from Angstroms to atomic units
         self.corner2      = np.array(corner2)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity
-        
+
         self.name = 'PolarizableBox'
         self.arguments = 'corner1=[%f, %f, %f], corner2=[%f, %f, %f]' % (corner1[0], corner1[1], corner1[2],
                                                                          corner2[0], corner2[1], corner2[2])
 
     # Setup grid descriptor and the permittivity values inside the box
     def get_mask(self, gd):
-        
+
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        
+
         # inside or outside
         return np.logical_and(np.logical_and( # z
                 np.logical_and(np.logical_and( # y
@@ -199,7 +199,7 @@ class PolarizableBox():
                                r_gv[:, :, :, 1] < self.corner2[1]),
                 r_gv[:, :, :, 2] > self.corner1[2]),
                               r_gv[:, :, :, 2] < self.corner2[2])
-        
+
 
 # Shape from atom positions (surrounding region)
 class PolarizableAtomisticRegion():
@@ -209,19 +209,19 @@ class PolarizableAtomisticRegion():
             self.atom_positions = np.array(atoms.get_positions())
         else:
             self.atom_positions = np.array(atom_positions)
-        
+
         # sanity check
         assert(len(self.atom_positions)>1)
-        
+
         self.permittivity = permittivity
         self.name = 'PolarizableAtomisticRegion'
-        
+
         # use the minimum interatomic distance
         if distance<1e-10:
             self.distance = np.sqrt(np.min([np.sort(np.sum((self.atom_positions-ap)**2, axis=1))[1] for ap in self.atom_positions]))/Bohr
         else:
             self.distance   = distance/Bohr # from Angstroms to atomic units
-       
+
         dbohr = self.distance*Bohr
         self.arguments = 'distance = %20.12e, atom_positions=[' % dbohr
         for ap in self.atom_positions:
@@ -230,10 +230,10 @@ class PolarizableAtomisticRegion():
 
     # Setup grid descriptor and the permittivity values inside the box
     def get_mask(self, gd):
-        
+
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        
+
         # inside or outside
         mask_tbl = False * np.ones(r_gv.shape[:-1])
         for ap in self.atom_positions:
@@ -241,25 +241,25 @@ class PolarizableAtomisticRegion():
                                                          (r_gv[:, :, :, 1] - ap[1]/Bohr)**2.0 +
                                                          (r_gv[:, :, :, 2] - ap[2]/Bohr)**2.0 < self.distance**2))
         return mask_tbl
-    
+
 # Sphere-shaped classical material
 class PolarizableSphere():
     def __init__(self, center, radius, permittivity):
         self.permittivity = permittivity
         self.center      = np.array(center)/Bohr # from Angstroms to atomic units
         self.radius      = radius/Bohr # from Angstroms to atomic units
-        
+
         # sanity check
         assert(len(self.center)==3)
-        
+
         self.name = 'PolarizableSphere'
         self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radius=%20.12e' % (center[0], center[1], center[2], radius)
 
     def get_mask(self, gd):
-        
+
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        
+
         # inside or outside
         return  np.array( (r_gv[:, :, :, 0] - self.center[0])**2.0 +
                           (r_gv[:, :, :, 1] - self.center[1])**2.0 +
@@ -271,20 +271,20 @@ class PolarizableEllipsoid():
         # sanity check
         assert(len(center)==3)
         assert(len(radii)==3)
-        
+
         self.center       = np.array(center)/Bohr # from Angstroms to atomic units
         self.radii        = np.array(radii)/Bohr   # from Angstroms to atomic units
         self.permittivity = permittivity
-        
+
         self.name = 'PolarizableEllipsoid'
         self.arguments = 'center=[%20.12e, %20.12e, %20.12e], radii=[%20.12e, %20.12e, %20.12e]' % (center[0], center[1], center[2], radii[0], radii[1], radii[2])
-        
+
 
     def get_mask(self, gd):
-        
+
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
-        
+
         # inside or outside
         return  np.array( (r_gv[:, :, :, 0] - self.center[0])**2.0/self.radii[0]**2.0 +
                           (r_gv[:, :, :, 1] - self.center[1])**2.0/self.radii[1]**2.0 +
@@ -296,25 +296,25 @@ class PolarizableRod():
         # sanity check
         assert(np.array(corners).shape[0]>1)  # at least two points
         assert(np.array(corners).shape[1]==3) # 3D
-        
+
         self.name = 'PolarizableRod'
         self.arguments = 'radius = %20.12e, corners=[' % radius
         for c in corners:
             self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
         self.arguments = self.arguments[:-1] + ']'
-        
+
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.radius       = radius/Bohr  # from Angstroms to atomic units
         self.round_corners = round_corners
         self.permittivity = permittivity
 
     def get_mask(self, gd):
-        
+
         # 3D coordinates at each grid point
         r_gv = gd.get_grid_point_coordinates().transpose((1, 2, 3, 0))
         ng = r_gv.shape[0:-1]
         ngv = r_gv.shape
-        
+
         a = self.corners[0]
 
         mask = False * np.ones(ng)
@@ -339,7 +339,7 @@ class PolarizableRod():
             para = np.sum([pa[w]*ra[:, :, :, w] for w in range(3)], axis=0)
             ll2   = pa.dot(pa)*np.sum([ra[:, :, :, w]*ra[:, :, :, w] for w in range(3)], axis=0)
             angle1 = np.arccos(para/(1.0e-9+np.sqrt(ll2)))
-            
+
             # angle between (a-p) and (r-p):
             ap = a-p # (3)
             rp = np.array([r_gv[:, :, :, w]-p[w] for w in range(3)]).transpose((1, 2, 3, 0)) # (ng1, ng2, ng3, 3)
@@ -424,13 +424,13 @@ class PolarizableTetrahedron():
         # sanity check
         assert(len(corners)==4)     # exactly 4 points
         assert(len(corners[0])==3)  # 3D
-        
+
         self.name = 'PolarizableTetrahedron'
         self.arguments = 'corners=['
         for c in corners:
             self.arguments += '[%20.12e, %20.12e, %20.12e],' % (c[0], c[1], c[2])
         self.arguments += ']'
-        
+
         self.corners      = np.array(corners)/Bohr # from Angstroms to atomic units
         self.permittivity = permittivity
 
@@ -451,9 +451,9 @@ class PolarizableTetrahedron():
         x2, y2, z2 = self.corners[1]
         x3, y3, z3 = self.corners[2]
         x4, y4, z4 = self.corners[3]
-        
+
         mask = np.ones(ng)==0
-        
+
         # TODO: associate a determinant for each point, and use numpy tools to determine
         #       the mask without the *very slow* loop over grid points
         for ind, pt in np.ndenumerate(r_gv[:, :, :, 0]):
@@ -483,14 +483,14 @@ class PolarizableTetrahedron():
             s2 = np.linalg.det(d2)
             s3 = np.linalg.det(d3)
             s4 = np.linalg.det(d4)
-            
+
             if (np.sign(s0) == np.sign(s1) or abs(s1) < 1e-12) and \
                (np.sign(s0) == np.sign(s2) or abs(s2) < 1e-12) and \
                (np.sign(s0) == np.sign(s3) or abs(s3) < 1e-12) and \
                (np.sign(s0) == np.sign(s4) or abs(s4) < 1e-12):
                 mask[ind] = True
         return mask
-       
+
 # Lorentzian oscillator function: L(omega) = eps0 * beta / (w**2 - i*alpha*omega - omega**2)    // Coomar2011, Eq. 2
 class LorentzOscillator:
     def __init__(self, bar_omega, alpha, beta):
@@ -533,14 +533,14 @@ class Permittivity:
                 self.oscillators.append(LorentzOscillator(bar_omega, alpha, beta))
             return
 
-            
+
 
     def value(self, omega = 0):
         return self.eps_infty + sum([osc.value(omega) for osc in self.oscillators])
-    
+
     def data(self):
         return [[osc.bar_omega, osc.alpha, osc.beta] for osc in self.oscillators]
-    
+
     def data_eVA(self):
         return [[osc.bar_omega*Hartree, osc.alpha*Hartree, osc.beta*Hartree*Hartree] for osc in self.oscillators]
 
@@ -548,13 +548,13 @@ class Permittivity:
 class PermittivityPlus(Permittivity):
     def __init__(self, fname=None, data=None, eps_infty = _eps0_au, epsZero = _eps0_au, newbar_omega = 0.01, new_alpha = 0.10, **kwargs):
         Permittivity.__init__(self, fname=fname, data=data, eps_infty=eps_infty)
-                
+
         # Convert given values from eVs to Hartrees
         _newbar_omega = newbar_omega / Hartree
         _new_alpha    = new_alpha / Hartree
-        
+
         # Evaluate the new value
         _new_beta = ((epsZero - self.value(0.0))*_newbar_omega**2.0/_eps0_au).real
         self.oscillators.append(LorentzOscillator(_newbar_omega, _new_alpha, _new_beta))
         self.Nj = len(self.oscillators)
-        
+

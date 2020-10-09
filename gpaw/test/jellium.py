@@ -14,7 +14,8 @@ k = 6           # number of k-points (k*k*1)
 
 ne = a**2 * L / (4 * np.pi / 3 * rs**3)
 
-bc = JelliumSlab(ne, z1=v, z2=v + L)
+x = h / 4  # make sure surfaces are between grid-points
+bc = JelliumSlab(ne, z1=v - x, z2=v + L + x)
 
 surf = Atoms(pbc=(True, True, False),
              cell=(a, a, v + L + v))
@@ -42,7 +43,7 @@ v = (ham.finegd.collect(ham.vHt_g,
 # Get the work function
 phi1 = v[-1] - efermi
 
-equal(phi1, 2.7162036108, 1e-3)
+equal(phi1, 2.715, 1e-3)
 # Reference value: Lang and Kohn, 1971, Theory of Metal Surfaces: Work function
 # DOI 10.1103/PhysRevB.3.1215
 # r_s = 5, work function = 2.73 eV

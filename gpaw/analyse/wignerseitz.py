@@ -6,7 +6,6 @@ from ase.units import Bohr
 from gpaw.utilities import pack
 from gpaw.analyse.hirshfeld import HirshfeldDensity
 from gpaw.utilities.tools import coordinates
-from gpaw.mpi import MASTER
 
 
 def wignerseitz(gd, atoms, scale=None):
@@ -141,6 +140,7 @@ class LDOSbyBand:
         return elemi
 
 
+'''
 class WignerSeitzLDOS(LDOSbyBand):
 
     """Class to get the unfolded LDOS defined by Wigner-Seitz cells"""
@@ -169,3 +169,4 @@ class WignerSeitzLDOS(LDOSbyBand):
                     for n in range(paw.nbands):
                         # avery: Added dummy loop body to make compiling work.
                         1
+'''

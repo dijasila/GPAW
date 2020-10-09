@@ -13,7 +13,7 @@ from gpaw.lrtddft.kssingle import KSSingles
 Be = Atoms('Be')
 Be.center(vacuum=4)
 if 1:
-# introduce a sligth non-orthgonality
+    # introduce a sligth non-orthgonality
     cell = Be.get_cell()
     cell[1] += 0.001 * cell[0]
     Be.set_cell(cell)

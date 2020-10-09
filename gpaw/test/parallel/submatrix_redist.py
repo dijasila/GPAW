@@ -34,4 +34,3 @@ if world.rank == 0:
     xa = a0[ia:ia + M, ja:ja + N]
     xb = b0[ib:ib + M, jb:jb + N]
     assert (xa == xb).all()
-    

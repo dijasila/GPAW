@@ -15,7 +15,6 @@ from ase.io import Trajectory
 from gpaw import GPAW
 from gpaw.mpi import serial_comm, rank
 from gpaw.kpt_descriptor import KPointDescriptor
-#from gpaw.dfpt.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.poisson import PoissonSolver, FFTPoissonSolver
 from gpaw.dfpt.responsecalculator import ResponseCalculator
 from gpaw.dfpt.phononperturbation import PhononPerturbation
@@ -24,6 +23,7 @@ from gpaw.dfpt.dynamicalmatrix import DynamicalMatrix
 from gpaw.dfpt.electronphononcoupling import ElectronPhononCoupling
 
 from gpaw.symmetry import Symmetry
+
 
 class PhononCalculator:
     """This class defines the interface for phonon calculations."""
@@ -94,7 +94,7 @@ class PhononCalculator:
         # Boundary conditions
         pbc_c = self.calc.atoms.get_pbc()
 
-        if np.all(pbc_c == False):
+        if not pbc_c.any():
             self.gamma = True
             self.dtype = float
             kpts = None
@@ -294,8 +294,10 @@ class PhononCalculator:
     def get_filename_string(self):
         """Return string template for force constant filenames."""
 
-        name_str = (self.name + '.' + 'q_%%0%ii_' % len(str(self.kd.nibzkpts)) +
-                    'a_%%0%ii_' % len(str(len(self.atoms))) + 'v_%i' + '.pckl')
+        name_str = (self.name + '.' +
+                    'q_%%0%ii_' % len(str(self.kd.nibzkpts)) +
+                    'a_%%0%ii_' % len(str(len(self.atoms))) +
+                    'v_%i' + '.pckl')
 
         return name_str
 
@@ -416,7 +418,7 @@ class PhononCalculator:
                 # multiply with mass prefactor
                 u_nav = u_avn[:, omega2_n.argsort()].T.copy() * m_inv_av
                 # Multiply with mass prefactor
-                u_kn.append(u_nav.reshape((3*N, -1, 3)))
+                u_kn.append(u_nav.reshape((3 * N, -1, 3)))
             else:
                 omega2_n = la.eigvalsh(D_q, UPLO='L')
 
@@ -448,7 +450,7 @@ class PhononCalculator:
 
         return omega_kn
 
-    def write_modes(self, q_c, branches=0, kT=units.kB*300, repeat=(1, 1, 1),
+    def write_modes(self, q_c, branches=0, kT=units.kB * 300, repeat=(1, 1, 1),
                     nimages=30, acoustic=True):
         """Write mode to trajectory file.
 
@@ -511,11 +513,12 @@ class PhononCalculator:
             mode_av = np.zeros((len(self.atoms), 3), dtype=self.dtype)
             indices = self.dyn.get_indices()
             mode_av[indices] = u_av
-            mode_mav = (np.vstack([mode_av]*M) * phase_ma[:, np.newaxis]).real
+            mode_mav = (np.vstack([mode_av] * M) *
+                        phase_ma[:, np.newaxis]).real
 
             traj = Trajectory('%s.mode.%d.traj' % (self.name, n), 'w')
 
-            for x in np.linspace(0, 2*pi, nimages, endpoint=False):
+            for x in np.linspace(0, 2 * pi, nimages, endpoint=False):
                 # XXX Is it correct to take out the sine component here ?
                 atoms.set_positions(pos_mav + sin(x) * mode_mav)
                 traj.write(atoms)

@@ -3,7 +3,7 @@ processes, each process working on a separate system."""
 from __future__ import print_function
 from gpaw import GPAW, mpi
 import numpy as np
-from ase import Atoms, Atom
+from ase import Atoms
 
 cell = (8., 8., 8.)
 p = 4.
@@ -16,7 +16,7 @@ if rank == 0:
     system = Atoms('N', [(p, p, p)], magmoms=[3], cell=cell)
 elif rank == 1:
     system = Atoms('N2', [(p, p, p + separation / 2.),
-                          (p, p, p - separation / 2.)], 
+                          (p, p, p - separation / 2.)],
                    cell=cell)
 else:
     raise Exception('This example uses only two processes')

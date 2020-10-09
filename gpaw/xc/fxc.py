@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import sys
 from time import time
@@ -648,9 +647,10 @@ class KernelWave:
                             # min_Gpq > cutoff wavevector
 
                             min_Gpq = np.amin(mod_Gpq)
-                            small_ind = np.where(min_Gpq <=
-                                                 np.sqrt(-4.0 * np.pi /
-                                                         self.get_PBE_fxc(self.n_g, self.s2_g)))
+                            small_ind = np.where(
+                                min_Gpq <=
+                                np.sqrt(-4.0 * np.pi /
+                                        self.get_PBE_fxc(self.n_g, self.s2_g)))
 
                         else:
 
@@ -918,7 +918,8 @@ class KernelWave:
             jgm_n = 3.0/(4.0*np.pi * rs**3.0)
             fHxc_Gr = (1.0 + 0.0j) * (np.exp(-jgm_kappa *
                                       q[:, np.newaxis]**2.0) *
-                                      np.exp(-scaled_Eg**2.0/(4.0*np.pi*jgm_n)))
+                                      np.exp(-scaled_Eg**2.0 /
+                                             (4.0*np.pi*jgm_n)))
 
         # Integrate over r with phase
         fHxc_Gr *= Gphase
@@ -1095,7 +1096,8 @@ class KernelWave:
 
 
 class range_separated:
-    def __init__(self, calc, fd, frequencies, freqweights, l_l, lweights, range_rc, xc):
+    def __init__(self, calc, fd, frequencies, freqweights, l_l, lweights,
+                 range_rc, xc):
 
         self.calc = calc
         self.fd = fd
@@ -1109,7 +1111,8 @@ class range_separated:
         self.cutoff_rs = 36.278317
 
         if self.xc == 'range_RPA':
-            print('Using range-separated RPA approach, with parameter %s Bohr' %
+            print('Using range-separated RPA approach, with parameter %s Bohr'
+                  %
                   (self.range_rc), file=self.fd)
 
         nval_g = calc.get_all_electron_density(gridrefinement=4, skip_core=True
@@ -1381,7 +1384,8 @@ class KernelDens:
         for i, R_v in enumerate(R_Rv):
             # Loop over r'. f_rr and V_rr are functions of r (dim. as r_vg[0])
             if i == 1:
-                print('      Finished 1 cell in %s seconds' % int(time() - t0) +
+                print('      Finished 1 cell in %s seconds' %
+                      int(time() - t0) +
                       ' - estimated %s seconds left' %
                       int((len(R_Rv) - 1) * (time() - t0)),
                       file=self.fd)
@@ -1744,15 +1748,15 @@ def set_flags(self):
             # Two-point scheme default for rALDA and rAPBE
 
         self.spin_kernel = True
-            # rALDA/rAPBE are the only kernels which have spin-dependent forms
+        # rALDA/rAPBE are the only kernels which have spin-dependent forms
 
     else:
         self.spin_kernel = False
 
     if self.av_scheme == 'density':
         assert (self.xc == 'rALDA' or self.xc == 'rAPBE' or self.xc == 'ALDA'
-               ), ('Two-point density average ' +
-                   'only implemented for rALDA and rAPBE')
+                ), ('Two-point density average ' +
+                    'only implemented for rALDA and rAPBE')
 
     elif self.xc not in ('RPA', 'range_RPA'):
         self.av_scheme = 'wavevector'
@@ -1761,7 +1765,7 @@ def set_flags(self):
 
     if self.xc in ('rALDAns', 'rAPBEns', 'range_RPA', 'JGMsx',
                    'RPA', 'rALDA', 'rAPBE', 'range_rALDA','ALDA'):
-            self.linear_kernel = True  # Scales linearly with coupling constant
+        self.linear_kernel = True  # Scales linearly with coupling constant
     else:
         self.linear_kernel = False
 

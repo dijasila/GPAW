@@ -4,11 +4,11 @@
 from __future__ import print_function, absolute_import
 import functools
 from math import pi, sqrt
+from io import StringIO
 
 import numpy as np
 import ase.units as units
 from ase.data import chemical_symbols
-from ase.utils import basestring, StringIO
 
 from gpaw.setup_data import SetupData, search_for_file
 from gpaw.basis_data import Basis
@@ -17,17 +17,16 @@ from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
 from gpaw.utilities.ekin import ekin, dekindecut
 from gpaw.rotation import rotation
-from gpaw.atom.radialgd import AERadialGridDescriptor
 from gpaw.xc import XC
 
 
 def create_setup(symbol, xc='LDA', lmax=0,
                  type='paw', basis=None, setupdata=None,
                  filter=None, world=None):
-    if isinstance(xc, basestring):
+    if isinstance(xc, str):
         xc = XC(xc)
 
-    if isinstance(type, basestring) and ':' in type:
+    if isinstance(type, str) and ':' in type:
         # Parse DFT+U parameters from type-string:
         # Examples: "type:l,U" or "type:l,U,scale"
         type, lu = type.split(':')
@@ -96,6 +95,31 @@ def create_setup(symbol, xc='LDA', lmax=0,
         return setupdata
 
 
+def correct_occ_numbers(f_j,
+                        degeneracy_j,
+                        jsorted,
+                        correction: float,
+                        eps=1e-12) -> None:
+    """Correct f_j ndarray in-place."""
+
+    if correction > 0:
+        # Add electrons to the lowest eigenstates:
+        for j in jsorted:
+            c = min(correction, degeneracy_j[j] - f_j[j])
+            f_j[j] += c
+            correction -= c
+            if correction < eps:
+                break
+    elif correction < 0:
+        # Add electrons to the highest eigenstates:
+        for j in jsorted[::-1]:
+            c = min(-correction, f_j[j])
+            f_j[j] -= c
+            correction += c
+            if correction > -eps:
+                break
+
+
 class LocalCorrectionVar:
     """Class holding data for local the calculation of local corr."""
     def __init__(self, s=None):
@@ -158,44 +182,40 @@ class BaseSetup:
             f_j = self.f_j
         f_j = np.array(f_j, float)
         l_j = np.array(self.l_j)
-        if len(l_j) == 0:
-            l_j = np.ones(1)
 
-        def correct_for_charge(f_j, charge, degeneracy_j, use_complete=True):
-            nj = len(f_j)
-            # correct for the charge
-            if charge >= 0:
-                # reduce the higher levels first
-                for j in range(nj - 1, -1, -1):
-                    f = f_j[j]
-                    if use_complete or f < degeneracy_j[j]:
-                        c = min(f, charge)
-                        f_j[j] -= c
-                        charge -= c
-            else:
-                # add to the lower levels first
-                for j in range(nj):
-                    f = f_j[j]
-                    if use_complete or f > 0:
-                        c = min(degeneracy_j[j] - f, -charge)
-                        f_j[j] += c
-                        charge += c
-            if charge != 0 and c != 0:
-                correct_for_charge(f_j, charge, degeneracy_j, True)
-            elif charge != 0 and c == 0:
-                # print('Stopping electron distribution, ran out of '
-                #       'projector functions to fill.')
-                # Then there are more electrons in the
-                # calculation than can be distributed over the
-                # atomic projector functions. Leave remaining density
-                # undistributed.
-                return
+        if hasattr(self, 'data') and hasattr(self.data, 'eps_j'):
+            eps_j = np.array(self.data.eps_j)
+        else:
+            eps_j = np.ones(len(self.n_j))
+            # Bound states:
+            for j, n in enumerate(self.n_j):
+                if n > 0:
+                    eps_j[j] = -1.0
+
+        deg_j = 2 * (2 * l_j + 1)
+
+        # Sort after:
+        #
+        # 1) empty state (f == 0)
+        # 2) open shells (d - f)
+        # 3) eigenvalues (e)
+
+        states = []
+        for j, (f, d, e) in enumerate(zip(f_j, deg_j, eps_j)):
+            if e < 0.0:
+                states.append((f == 0, d - f, e, j))
+        states.sort()
+        jsorted = [j for _, _, _, j in states]
+
+        # if len(l_j) == 0:
+        #     l_j = np.ones(1)
+
         # distribute the charge to the radial orbitals
         if nspins == 1:
             assert magmom == 0.0
             f_sj = np.array([f_j])
             if not self.orbital_free:
-                correct_for_charge(f_sj[0], charge, 2 * (2 * l_j + 1))
+                correct_occ_numbers(f_sj[0], deg_j, jsorted, -charge)
             else:
                 # ofdft degeneracy of one orbital is infinite
                 f_sj[0] += -charge
@@ -207,11 +227,10 @@ class BaseSetup:
                                    (magmom, nval))
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
-            ndown = 0.5 * (nval - magmom)
-            correct_for_charge(f_sj[0], f_sj[0].sum() - nup,
-                               2 * l_j + 1, False)
-            correct_for_charge(f_sj[1], f_sj[1].sum() - ndown,
-                               2 * l_j + 1, False)
+            ndn = 0.5 * (nval - magmom)
+            deg_j //= 2
+            correct_occ_numbers(f_sj[0], deg_j, jsorted, nup - f_sj[0].sum())
+            correct_occ_numbers(f_sj[1], deg_j, jsorted, ndn - f_sj[1].sum())
 
         # Projector function indices:
         nj = len(self.n_j)  # or l_j?  Seriously.
@@ -256,7 +275,7 @@ class BaseSetup:
                              % (magmom, self.symbol))
         assert i == nao
 
-#        print "fsi=", f_si
+        # print('fsi=', f_si)
         return f_si
 
     def get_hunds_rule_moment(self, charge=0):
@@ -275,7 +294,7 @@ class BaseSetup:
 
         D_sii = np.zeros((nspins, ni, ni))
         D_sp = np.zeros((nspins, ni * (ni + 1) // 2))
-        nj = len(self.l_j)
+        nj = len(self.pt_j)
         j = 0
         i = 0
         ib = 0
@@ -573,7 +592,6 @@ class LeanSetup(BaseSetup):
 
         self.lmax = s.lmax
         self.ghat_l = s.ghat_l
-        self.rcgauss = s.rcgauss
         self.vbar = s.vbar
 
         self.Delta_pL = s.Delta_pL
@@ -789,9 +807,11 @@ class Setup(BaseSetup):
 
         vbar_g = data.vbar_g
 
-        if data.generator_version < 2:
+        if float(data.version) < 0.7 and data.generator_version < 2:
+            # Old-style Fourier-filtered datatsets.
             # Find Fourier-filter cutoff radius:
             gcutfilter = rgd.get_cutoff(pt_jg[0])
+
         elif filter:
             rc = rcutmax
             vbar_g = vbar_g.copy()
@@ -811,11 +831,13 @@ class Setup(BaseSetup):
                     pt_jg[j] = pt_ng[n]
             gcutfilter = rgd.get_cutoff(pt_jg[0])
         else:
-            rcutfilter = max(rcut_j)
-            gcutfilter = rgd.ceil(rcutfilter)
+            gcutfilter = rgd.ceil(max(rcut_j))
+
+        if (vbar_g[gcutfilter:] != 0.0).any():
+            gcutfilter = rgd.get_cutoff(vbar_g)
+            assert r_g[gcutfilter] < 2.0 * max(rcut_j)
 
         self.rcutfilter = rcutfilter = r_g[gcutfilter]
-        assert (vbar_g[gcutfilter:] == 0).all()
 
         ni = 0
         i = 0
@@ -856,7 +878,10 @@ class Setup(BaseSetup):
 
         # Construct splines for core kinetic energy density:
         tauct_g = data.tauct_g
-        self.tauct = rgd.spline(tauct_g, self.rcore)
+        if tauct_g is not None:
+            self.tauct = rgd.spline(tauct_g, self.rcore)
+        else:
+            self.tauct = None
 
         self.pt_j = self.create_projectors(pt_jg, rcutfilter)
 
@@ -876,8 +901,7 @@ class Setup(BaseSetup):
             l = phit.get_angular_momentum_number()
             self.nao += 2 * l + 1
 
-        rgd2 = self.local_corr.rgd2 = \
-            AERadialGridDescriptor(rgd.a, rgd.b, gcut2)
+        rgd2 = self.local_corr.rgd2 = rgd.new(gcut2)
         r_g = rgd2.r_g
         dr_g = rgd2.dr_g
         phi_jg = np.array([phi_g[:gcut2].copy() for phi_g in phi_jg])
@@ -969,10 +993,8 @@ class Setup(BaseSetup):
         self.Nct = data.get_smooth_core_density_integral(self.Delta0)
         self.K_p = data.get_linear_kinetic_correction(self.local_corr.T_Lqp[0])
 
-        r = 0.02 * rcut2 * np.arange(51, dtype=float)
-        alpha = data.rcgauss**-2
-        self.ghat_l = data.get_ghat(lmax, alpha, r, rcut2)
-        self.rcgauss = data.rcgauss
+        self.ghat_l = [rgd2.spline(g_g, rcut2, l, 50)
+                       for l, g_g in enumerate(self.g_lg)]
 
         self.xc_correction = data.get_xc_correction(rgd2, xc, gcut2, lcut)
         self.nabla_iiv = self.get_derivative_integrals(rgd2, phi_jg, phit_jg)
@@ -1294,8 +1316,8 @@ class Setups(list):
             # Due to the "szp(dzp)" syntax this is complicated!
             # The name has to go as "szp(name.dzp)".
             basis = basis_a[a]
-            if isinstance(basis, basestring):
-                if isinstance(_type, basestring):
+            if isinstance(basis, str):
+                if isinstance(_type, str):
                     setupname = _type
                 else:
                     setupname = _type.name  # _type is an object like SetupData
@@ -1328,12 +1350,12 @@ class Setups(list):
                 Z, type, basis = id
                 symbol = chemical_symbols[Z]
                 setupdata = None
-                if not isinstance(type, basestring):
+                if not isinstance(type, str):
                     setupdata = type
                 # Basis may be None (meaning that the setup decides), a string
                 # (meaning we load the basis set now from a file) or an actual
                 # pre-created Basis object (meaning we just pass it along)
-                if isinstance(basis, basestring):
+                if isinstance(basis, str):
                     basis = Basis(symbol, basis, world=world)
                 setup = create_setup(symbol, xc, 2, type,
                                      basis, setupdata=setupdata,
@@ -1438,7 +1460,7 @@ def types2atomtypes(symbols, types, default):
     default.
     """
     natoms = len(symbols)
-    if isinstance(types, basestring):
+    if isinstance(types, str):
         return [types] * natoms
 
     # If present, None will map to the default type,
@@ -1449,8 +1471,8 @@ def types2atomtypes(symbols, types, default):
     for symbol, type in types.items():
         # Types are given either by strings or they are objects that
         # have a 'symbol' attribute (SetupData, Pseudopotential, Basis, etc.).
-        assert isinstance(type, basestring) or hasattr(type, 'symbol')
-        if isinstance(symbol, basestring):
+        assert isinstance(type, str) or hasattr(type, 'symbol')
+        if isinstance(symbol, str):
             for a, symbol2 in enumerate(symbols):
                 if symbol == symbol2:
                     type_a[a] = type

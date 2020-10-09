@@ -1,6 +1,5 @@
 from gpaw import GPAW, ConvergenceError, restart
 from gpaw.mixer import MixerSum
-from gpaw.test import equal
 from ase.build import bulk
 
 # bulk Fe with k-point, band, and domain parallelization
@@ -32,5 +31,3 @@ try:
     atoms.get_potential_energy()
 except ConvergenceError:
     pass
-e = calc.hamiltonian.e_total_free
-equal(e, -0.37233154327, 0.00001)

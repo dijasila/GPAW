@@ -1,6 +1,7 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+# flake8: noqa
 # Computer generated code:
 # format:
 #    'element': (atomic number, [(n, l, occ, energy), ...])
@@ -1226,8 +1227,8 @@ parameters_extra = {
  'Li': {'name': 'hard', 'rcut': 1.5, 'extra': {1: [-0.0413]}}, # No core
  'Be': {'name': 'soft', 'core': '[He]', 'rcut': 1.9},
  'N' : {'name': 'v08',  'core': '[He]', 'rcut': 1.1},  # ver. 0.8
- 'O' : {'name': 'v08',  'core': '[He]', 'rcut': 1.4,
-        'filter': (0.5, 1.75)},   # ver. 0.8
+# 'O' : {'name': 'v08',  'core': '[He]', 'rcut': 1.4,
+#        'filter': (0.5, 1.75)},   # ver. 0.8
  'O' : {'name': 'hard', 'core': '[He]', 'rcut': 1.2},
  'Na': {'name': '1',    'core': '[Ne]', 'rcut': 2.55},  # ver. 0.8
  'Mg': {'name': '2',    'core': '[Ne]', 'rcut': [1.9, 2.0]},  # ver. 0.8

@@ -1,4 +1,4 @@
-from pylab import *
+from pylab import gcf, gca, draw_if_interactive
 def twiny(ay=None):
     """
     Make a second axes overlay ay (or the current axes if ay is None)

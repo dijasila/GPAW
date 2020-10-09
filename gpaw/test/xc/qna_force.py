@@ -45,4 +45,4 @@ parprint('Numerical  force = ', F_num)
 parprint('Difference       = ', F_err)
 assert abs(F_err) < 0.01, F_err
 eerr = abs(E[-1] - 270.17901094)
-assert eerr < 4e-6, eerr
+assert eerr < 1e-3, eerr

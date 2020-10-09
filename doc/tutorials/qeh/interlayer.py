@@ -38,4 +38,3 @@ ee, ev = HS.get_exciton_binding_energies(eff_mass=inter_mass,
                                          h_distr=hl_array)
 
 print('The interlayer exciton binding energy is:', -ee[0])
-

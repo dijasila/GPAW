@@ -103,7 +103,8 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
             phit_g[1:] /= rgd.r_g[1:]
             gcut = rgd.ceil(rsplit)
             #tailnorm = np.dot(rgd.dr_g[gcut:],
-            #                  (rgd.r_g[gcut:] * orbital_bf.phit_g[gcut:])**2)**0.5
+            #                  (rgd.r_g[gcut:] *
+            #                   orbital_bf.phit_g[gcut:])**2)**0.5
             #print 'tailnorm', tailnorm
             dphit_g = orbital_bf.phit_g[:gcut+1] - phit_g[:gcut+1]
             bf = BasisFunction(l=orbital_bf.l,
@@ -115,7 +116,7 @@ def get_orbitals_by_energy_shift(opts, setup, **kwargs):
 
     #rpol = None
     for l in range(3):
-        if not l in ldict:
+        if l not in ldict:
             lpol = l
             source_bf = ldict[lpol - 1]
             break

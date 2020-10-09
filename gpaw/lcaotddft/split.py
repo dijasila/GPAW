@@ -1,7 +1,5 @@
-from __future__ import print_function
 from gpaw.mpi import world
 import numpy as np
-import time
 from gpaw.lfc import LFC
 from gpaw.analyse.observers import Observer
 from math import sqrt, pi
@@ -19,8 +17,8 @@ class VRespCollector(Observer):
         x_sg = self.lcao.density.gd.collect(x_sg, broadcast=False)
         iter = self.niter
         if world.rank==0:
-             fname = self.filename+"."+str(iter)+".vresp"
-             x_sg.astype(np.float32).tofile(fname)
+            fname = self.filename+"."+str(iter)+".vresp"
+            x_sg.astype(np.float32).tofile(fname)
 
 class DensityCollector(Observer):
     def __init__(self, filename, lcao, ranges_str='full'):
@@ -44,7 +42,9 @@ class DensityCollector(Observer):
                     start = rng
             self.ranges.append(range(start, self.nbands))
             print(self.ranges)
-            self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l for setup in self.lcao.density.setups],
+            self.ghat = LFC(self.lcao.wfs.gd, [setup.ghat_l
+                                               for setup in
+                                               self.lcao.density.setups],
                             integral=sqrt(4 * pi), forces=False)
             self.ghat.set_positions(self.lcao.wfs.spos_ac)
 
@@ -54,9 +54,10 @@ class DensityCollector(Observer):
                 print("# Density file", file=f)
                 N_c = self.lcao.wfs.gd.N_c
                 print(N_c[0], N_c[1], N_c[2], file=f)
-                print("# This header is 10 lines long, then double precision binary data starts.", file=f)
+                print("# This header is 10 lines long, then double precision "
+                      "binary data starts.", file=f)
                 for i in range(7):
-                     print("#", file=f)
+                    print("#", file=f)
                 f.close()
 
         #self.lcao.timer.start('Dump density')
@@ -66,7 +67,7 @@ class DensityCollector(Observer):
             for n in range(self.lcao.wfs.bd.nbands):
                 band_rank, myn = self.lcao.wfs.bd.who_has(n)
                 if self.lcao.wfs.bd.rank == band_rank:
-                    if not n in rng:
+                    if n not in rng:
                         f_un[0][myn] = 0.0
             n_sG = self.lcao.wfs.gd.zeros(1)
             self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sG,
@@ -78,7 +79,8 @@ class DensityCollector(Observer):
             for a in self.lcao.density.D_asp:
                 ni = self.lcao.density.setups[a].ni
                 D_asp[a] = np.zeros((1, ni * (ni + 1) // 2))
-            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(D_asp, f_un)
+            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(
+                D_asp, f_un)
             Q_aL = {}
             for a, D_sp in D_asp.items():
                 Q_aL[a] = np.dot(D_sp.sum(0),
@@ -96,7 +98,8 @@ class DensityCollector(Observer):
                 print(s[0],s[1],s[2], file=f)
                 f.close()
 
-#TODO: Remove
+# TODO: Remove
+"""
 class ObsoleteSplitDensityCollector(Observer):
     def __init__(self, filename, lcao, splitstr):
         Observer.__init__(self)
@@ -142,12 +145,14 @@ class ObsoleteSplitDensityCollector(Observer):
         kpt = self.lcao.wfs.kpt_u[0]
         for i, (f_n, n_sg) in enumerate(zip(self.f_xn, self.n_xsg)):
             n_sg[:] = 0.0 # XXX n_sg just temporary here
-            self.lcao.wfs.add_to_density_from_k_point_with_occupation(n_sg, kpt, f_n)
+            self.lcao.wfs.add_to_density_from_k_point_with_occupation(
+                n_sg, kpt, f_n)
             D_asp={}
             for a in self.lcao.density.D_asp:
                 ni = self.lcao.density.setups[a].ni
                 D_asp[a] = np.zeros((1, ni * (ni + 1) // 2))
-            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(D_asp, f_n)
+            self.lcao.wfs.calculate_atomic_density_matrices_with_occupation(
+                D_asp, f_n)
             for a, D_sp in D_asp.items():
                 Q_aL = np.dot(D_sp.sum(0),
                                    self.lcao.density.setups[a].Delta_pL)
@@ -156,7 +161,11 @@ class ObsoleteSplitDensityCollector(Observer):
                 qfile.close()
             if self.lcao.wfs.bd.comm.rank == 0:
                 gd = self.lcao.wfs.gd
-                fname = self.filename+"."+str(i)+".%.5f.%d.%d.%d-%d.%d.%d.density" % (self.lcao.time, gd.beg_c[0], gd.beg_c[1], gd.beg_c[2], gd.end_c[0], gd.end_c[1], gd.end_c[2])
+                fname = (self.filename+"."+str(i)+
+                         ".%.5f.%d.%d.%d-%d.%d.%d.density" %
+                         (self.lcao.time, gd.beg_c[0], gd.beg_c[1],
+                          gd.beg_c[2], gd.end_c[0], gd.end_c[1],
+                          gd.end_c[2])
                 n_sg.astype(np.float32).tofile(fname)
         took = time.time()-start
         if world.rank == 0:
@@ -164,11 +173,11 @@ class ObsoleteSplitDensityCollector(Observer):
         self.lcao.timer.stop('Split density dump')
 
 
-"""
 atoms = read('../geometries/ag13.traj')
 atoms.center(vacuum=5)
 
-calc = LCAOTDDFT(mode='lcao', dtype=complex, width=0.01, basis='LDA.dz+5p', xc='LDA', h=0.3,
+calc = LCAOTDDFT(mode='lcao', dtype=complex, width=0.01,
+                 basis='LDA.dz+5p', xc='LDA', h=0.3,
                  mixer=Mixer(0.1,4,weight=100))
 atoms.set_calculator(calc)
 atoms.get_potential_energy()

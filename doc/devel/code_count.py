@@ -1,5 +1,4 @@
 # creates: lines.png
-from __future__ import division
 import datetime as dt
 import os
 import subprocess
@@ -29,9 +28,9 @@ def polygon(x, y1, y2, *args, **kwargs):
 def plot_count(dpi=70):
     year, month, f, c, py, test, doc, rst = np.loadtxt('lines.data').T
     date = year + (month - 1) / 12
-    
+
     fig = pl.figure(1, figsize=(10, 5), dpi=dpi)
-    ax = fig.add_subplot(111)
+    fig.add_subplot(111)
     polygon(date, c + py + test + doc, c + py + test + doc + rst,
             facecolor='m', label='Documentation (.rst)')
     polygon(date, c + py + test, c + py + test + doc,
@@ -56,29 +55,28 @@ def count_lines():
     stop = now.year, now.month
     year = 2005
     month = 11
-    
+
     fd = open('lines.data', 'w')
-    results = []
     while (year, month) <= stop:
         hash = subprocess.check_output(
             'git rev-list -n 1 --before="{}-{}-01 12:00" master'
             .format(year, month), shell=True).strip()
         print(year, month, hash)
         subprocess.call(['git', 'checkout', hash])
-        
-        c = count('c', '\*.[ch]')
-        py = count('.', '\*.py')
-        test = count('gpaw/test', '\*.py')
-        test += count('test', '\*.py')
-        doc = count('doc', '\*.py')
+
+        c = count('c', r'\*.[ch]')
+        py = count('.', r'\*.py')
+        test = count('gpaw/test', r'\*.py')
+        test += count('test', r'\*.py')
+        doc = count('doc', r'\*.py')
         py -= test + doc  # avoid double counting
-        rst = count('.', '\*.rst')
+        rst = count('.', r'\*.rst')
         print(year, month, 0, c, py, test, doc, rst, file=fd)
         month += 1
         if month == 13:
             month = 1
             year += 1
-    
+
     fd.close()
 
 

@@ -17,7 +17,7 @@ x = t.gd.coords(2) * Bohr
 plt.plot(x, ps[i, i], '--', label=r'$\tilde v$')
 plt.plot(x, ae[i, i], '-', label=r'$v$')
 
-# Raw PS wfs:
+# Raw PS potential:
 ps0 = calc.get_electrostatic_potential()
 gd = calc.hamiltonian.finegd
 i = ps0.shape[0] // 2

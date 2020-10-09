@@ -173,7 +173,7 @@ def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
     """Like former, but with spinorbit coupling."""
 
     from gpaw.spinorbit import get_spinorbit_eigenvalues
-    from gpaw.wannier90 import get_spinorbit_projections
+    from gpaw.spinorbit import get_spinorbit_projections
 
     e_mk, v_knm = get_spinorbit_eigenvalues(paw, return_wfs=True,
                                             theta=theta, phi=phi)
@@ -199,7 +199,8 @@ def raw_spinorbit_orbital_LDOS(paw, a, spin, angular='spdf', theta=0, phi=0):
             weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, spin::2])**2
         else:
             weights_xi[x:x + nb, :] = w * np.absolute(P_ami[a][:, 0::2])**2 / 2
-            weights_xi[x:x + nb, :] += w * np.absolute(P_ami[a][:, 1::2])**2  / 2
+            weights_xi[x:x + nb, :] += (w *
+                                        np.absolute(P_ami[a][:, 1::2])**2 / 2)
         x += nb
 
     if angular is None:

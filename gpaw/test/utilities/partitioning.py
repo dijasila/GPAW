@@ -33,10 +33,11 @@ def run(lastres=[]):
             for result in expected:
                 indicees, result = result
                 full, gd = hd.get_density(indicees, gridrefinement)
-                parprint('indicees', indicees, end=': ') 
+                parprint('indicees', indicees, end=': ')
                 parprint('result, expected:', gd.integrate(full), result)
                 if gridrefinement < 4:
-                    #The highest level of gridrefinement gets wrong electron numbers
+                    # The highest level of gridrefinement gets wrong
+                    # electron numbers
                     equal(gd.integrate(full), result, 1.e-8)
                 else:
                     equal(gd.integrate(full), result, 1.e-4)
@@ -68,7 +69,7 @@ mol.minimal_box(2.5, h=h)
 if 1:
     parprint('### fresh:')
     calc = GPAW(nbands=6,
-                h = h, 
+                h = h,
                 txt=None)
 if 1:
     calc.calculate(mol)
@@ -89,5 +90,3 @@ mol.translate(-mol[0].position)
 mol.translate([-1.e-24, 0, 0])
 calc.calculate(mol)
 run()
-
-

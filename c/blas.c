@@ -3,6 +3,7 @@
  *  Copyright (C) 2007       CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#ifndef GPAW_WITHOUT_BLAS
 #include <Python.h>
 #define PY_ARRAY_UNIQUE_SYMBOL GPAW_ARRAY_API
 #define NO_IMPORT_ARRAY
@@ -15,7 +16,6 @@
 #  define daxpy_  daxpy
 #  define zaxpy_  zaxpy
 #  define dsyrk_  dsyrk
-#  define zher_   zher
 #  define zherk_  zherk
 #  define dsyr2k_ dsyr2k
 #  define zher2k_ zher2k
@@ -28,6 +28,7 @@
 #  define zdotc_  zdotc
 #endif
 
+
 void dscal_(int*n, double* alpha, double* x, int* incx);
 
 void zscal_(int*n, void* alpha, void* x, int* incx);
@@ -38,13 +39,9 @@ void daxpy_(int* n, double* alpha,
 void zaxpy_(int* n, void* alpha,
             void* x, int *incx,
             void* y, int *incy);
-
 void dsyrk_(char *uplo, char *trans, int *n, int *k,
             double *alpha, double *a, int *lda, double *beta,
             double *c, int *ldc);
-void zher_(char *uplo, int *n,
-           double *alpha, void *x, int *incx,
-           void *a, int *lda);
 void zherk_(char *uplo, char *trans, int *n, int *k,
             double *alpha, void *a, int *lda,
             double *beta,
@@ -281,28 +278,6 @@ PyObject* axpy(PyObject *self, PyObject *args)
   Py_RETURN_NONE;
 }
 
-PyObject* czher(PyObject *self, PyObject *args)
-{
-  double alpha;
-  PyArrayObject* x;
-  PyArrayObject* a;
-  if (!PyArg_ParseTuple(args, "dOO", &alpha, &x, &a))
-    return NULL;
-  int n = PyArray_DIMS(x)[0];
-  Py_BEGIN_ALLOW_THREADS;
-  for (int d = 1; d < PyArray_NDIM(x); d++)
-    n *= PyArray_DIMS(x)[d];
-
-  int incx = 1;
-  int lda = MAX(1, n);
-
-  zher_("l", &n, &(alpha),
-        (void*)COMPLEXP(x), &incx,
-        (void*)COMPLEXP(a), &lda);
-  Py_END_ALLOW_THREADS;
-  Py_RETURN_NONE;
-}
-
 PyObject* rk(PyObject *self, PyObject *args)
 {
     double alpha;
@@ -323,11 +298,11 @@ PyObject* rk(PyObject *self, PyObject *args)
         k = PyArray_DIMS(a)[1];
         for (int d = 2; d < PyArray_NDIM(a); d++)
             k *= PyArray_DIMS(a)[d];
-        lda = k;
+        lda = MAX(k, 1);
     }
     else {
         k = PyArray_DIMS(a)[0];
-        lda = n;
+        lda = MAX(n, 1);
     }
 
     int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
@@ -357,16 +332,17 @@ PyObject* r2k(PyObject *self, PyObject *args)
   Py_BEGIN_ALLOW_THREADS;
   for (int d = 2; d < PyArray_NDIM(a); d++)
     k *= PyArray_DIMS(a)[d];
+  int lda = MAX(k, 1);
   int ldc = PyArray_STRIDES(c)[0] / PyArray_STRIDES(c)[1];
   if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
     dsyr2k_("u", "t", &n, &k,
-            (double*)(&alpha), DOUBLEP(a), &k,
-            DOUBLEP(b), &k, &beta,
+            (double*)(&alpha), DOUBLEP(a), &lda,
+            DOUBLEP(b), &lda, &beta,
             DOUBLEP(c), &ldc);
   else
     zher2k_("u", "c", &n, &k,
-            (void*)(&alpha), (void*)COMPLEXP(a), &k,
-            (void*)COMPLEXP(b), &k, &beta,
+            (void*)(&alpha), (void*)COMPLEXP(a), &lda,
+            (void*)COMPLEXP(b), &lda, &beta,
             (void*)COMPLEXP(c), &ldc);
   Py_END_ALLOW_THREADS;
   Py_RETURN_NONE;
@@ -436,98 +412,4 @@ PyObject* dotu(PyObject *self, PyObject *args)
       return PyComplex_FromDoubles(creal(z), cimag(z));
     }
 }
-
-PyObject* multi_dotu(PyObject *self, PyObject *args)
-{
-  PyArrayObject* a;
-  PyArrayObject* b;
-  PyArrayObject* c;
-  if (!PyArg_ParseTuple(args, "OOO", &a, &b, &c))
-    return NULL;
-  Py_BEGIN_ALLOW_THREADS;
-  int n0 = PyArray_DIMS(a)[0];
-  int n = PyArray_DIMS(a)[1];
-  for (int i = 2; i < PyArray_NDIM(a); i++)
-    n *= PyArray_DIMS(a)[i];
-  int incx = 1;
-  int incy = 1;
-  if (PyArray_DESCR(a)->type_num == NPY_DOUBLE)
-    {
-      double *ap = DOUBLEP(a);
-      double *bp = DOUBLEP(b);
-      double *cp = DOUBLEP(c);
-
-      for (int i = 0; i < n0; i++)
-        {
-          cp[i] = ddot_(&n, (void*)ap,
-             &incx, (void*)bp, &incy);
-          ap += n;
-          bp += n;
-        }
-    }
-  else
-    {
-      double_complex* ap = COMPLEXP(a);
-      double_complex* bp = COMPLEXP(b);
-      double_complex* cp = COMPLEXP(c);
-      for (int i = 0; i < n0; i++)
-        {
-          cp[i] = 0.0;
-          for (int j = 0; j < n; j++)
-              cp[i] += ap[j] * bp[j];
-          ap += n;
-          bp += n;
-        }
-    }
-  Py_END_ALLOW_THREADS;
-  Py_RETURN_NONE;
-}
-
-PyObject* multi_axpy(PyObject *self, PyObject *args)
-{
-  PyArrayObject* alpha;
-  PyArrayObject* x;
-  PyArrayObject* y;
-  if (!PyArg_ParseTuple(args, "OOO", &alpha, &x, &y))
-    return NULL;
-  int n0 = PyArray_DIMS(x)[0];
-  int n = PyArray_DIMS(x)[1];
-  Py_BEGIN_ALLOW_THREADS;
-  for (int d = 2; d < PyArray_NDIM(x); d++)
-    n *= PyArray_DIMS(x)[d];
-  int incx = 1;
-  int incy = 1;
-
-   if (PyArray_DESCR(alpha)->type_num == NPY_DOUBLE)
-    {
-      if (PyArray_DESCR(x)->type_num == NPY_CDOUBLE)
-        n *= 2;
-      double *ap = DOUBLEP(alpha);
-      double *xp = DOUBLEP(x);
-      double *yp = DOUBLEP(y);
-      for (int i = 0; i < n0; i++)
-        {
-          daxpy_(&n, &ap[i],
-                 (void*)xp, &incx,
-                 (void*)yp, &incy);
-          xp += n;
-          yp += n;
-        }
-    }
-  else
-    {
-      double_complex *ap = COMPLEXP(alpha);
-      double_complex *xp = COMPLEXP(x);
-      double_complex *yp = COMPLEXP(y);
-      for (int i = 0; i < n0; i++)
-        {
-          zaxpy_(&n, (void*)(&ap[i]),
-                 (void*)xp, &incx,
-                 (void*)yp, &incy);
-          xp += n;
-          yp += n;
-        }
-    }
-  Py_END_ALLOW_THREADS;
-  Py_RETURN_NONE;
-}
+#endif

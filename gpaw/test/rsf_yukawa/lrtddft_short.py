@@ -8,6 +8,12 @@ from gpaw.occupations import FermiDirac
 from gpaw.test import equal
 from gpaw.eigensolvers import RMMDIIS
 from gpaw.lrtddft import LrTDDFT
+import _gpaw
+
+libxc_version = getattr(_gpaw, 'libxc_version', '2.x.y')
+if int(libxc_version.split('.')[0]) < 3:
+    from unittest import SkipTest
+    raise SkipTest
 
 o_plus = Cluster(Atoms('Be', positions=[[0, 0, 0]]))
 o_plus.set_initial_magnetic_moments([1.0])
@@ -29,7 +35,8 @@ calc_plus = get_paw()
 calc_plus.set(txt='Be_plus_LCY_PBE_083.log', charge=1)
 o_plus.set_calculator(calc_plus)
 e_o_plus = o_plus.get_potential_energy()
-calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True', experimental={'niter_fixdensity': 2})
+calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True',
+              experimental={'niter_fixdensity': 2})
 e_o_plus = o_plus.get_potential_energy()
 lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log', istart=0, jend=1)
 equal(lr.xc.omega, 0.83)

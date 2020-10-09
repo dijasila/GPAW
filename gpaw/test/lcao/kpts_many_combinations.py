@@ -1,17 +1,22 @@
+from itertools import count
 from ase.build import bulk
 from gpaw import GPAW
 from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 
+
 def ikwargs():
     for augment_grids in [False, True]:
-        for sl_auto in [0, 1] if compiled_with_sl() else [0]:
-            if world.size == 8:
-                parsizes = [[2, 2, 2]] # We need also [4, 2, 2]]
+        for sl_auto in ([0, 1] if compiled_with_sl() else [0]):
+            if world.size == 16:
+                # This won't happen in ordinary test suite
+                parsizes = [[4, 2, 2], [2, 4, 2], [2, 2, 4]]
+            elif world.size == 8:
+                parsizes = [[2, 2, 2]]
             elif world.size == 4:
-                parsizes = [[2, 2, 1], [1, 2, 2]]
+                parsizes = [[1, 2, 2]]
             elif world.size == 2:
-                parsizes = [[1, 2, 1], [1, 1, 2]]
+                parsizes = [[1, 1, 2]]
             else:
                 assert world.size == 1
                 parsizes = [[1, 1, 1]]
@@ -24,7 +29,6 @@ def ikwargs():
                 yield dict(parallel=parallel)
 
 
-from itertools import count
 counter = count()
 
 
@@ -46,7 +50,6 @@ for spinpol in [False, True]:
     forces = []
     ferrs = []
 
-
     from time import time
     for kwargs in ikwargs():
         i = next(counter)
@@ -54,12 +57,15 @@ for spinpol in [False, True]:
         if world.rank == 0:
             print(i, kwargs)
 
+        if kwargs['parallel']['kpt'] == 4 and not spinpol:
+            continue  # Core without kpoints
+
         calc = GPAW(mode='lcao',
                     basis='sz(dzp)',
                     xc='PBE', h=0.3,
                     symmetry={'point_group': False},  # No symmetry here anyway
                     txt='gpaw.{:02d}.spin{}.txt'.format(int(spinpol), i),
-                    kpts=(4,1,1),
+                    kpts=(4, 1, 1),
                     **kwargs)
 
         def stopcalc():
@@ -98,5 +104,5 @@ for spinpol in [False, True]:
         maxferr = max(ferrs)
         print('maxeerr', maxeerr)
         print('maxferr', maxferr)
-        assert maxeerr < 1e-10, maxeerr
+        assert maxeerr < 1e-9, maxeerr
         assert maxferr < 1e-10, maxferr

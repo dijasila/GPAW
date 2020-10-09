@@ -46,21 +46,23 @@ class FDOperator:
             if sum([offset != 0 for offset in offset_c]) >= 2:
                 cfd = False
 
-        maxoffset_c = [max([offset_c[c] for offset_c in offset_pc])
-                       for c in range(3)]
+        mp = np.abs(offset_pc).max()  # padding
 
-        mp = maxoffset_c[0]
-        if maxoffset_c[1] != mp or maxoffset_c[2] != mp:
-            mp = max(maxoffset_c)
+        # If stencil is strictly larger than any domain, some CPU will
+        # need data from the second-nearest-neighbour domain.
+        # We don't support that.  (Typically happens with 1D distributions)
+        assert (mp <= gd.n_c).all(), 'Stencil longer than domain'
         n_c = gd.n_c
         M_c = n_c + 2 * mp
         stride_c = np.array([M_c[1] * M_c[2], M_c[2], 1])
         offset_p = np.dot(offset_pc, stride_c)
         coef_p = np.ascontiguousarray(coef_p, float)
         neighbor_cd = gd.neighbor_cd
+
         assert coef_p.ndim == 1
         assert coef_p.shape == offset_p.shape
         assert dtype in [float, complex]
+
         self.dtype = dtype
         self.shape = tuple(n_c)
 
@@ -70,7 +72,7 @@ class FDOperator:
             comm = None
 
         assert neighbor_cd.flags.c_contiguous and offset_p.flags.c_contiguous
-        self.mp = mp  # padding
+        self.mp = mp
         self.gd = gd
         self.npoints = len(coef_p)
         self.coef_p = coef_p
@@ -176,11 +178,11 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 
-def Laplace(gd, scale=1.0, n=1, dtype=float, cuda=False):
-        if n == 9:
-            return FTLaplace(gd, scale, dtype)
-        else:
-            return GUCLaplace(gd, scale, n, dtype, cuda=cuda)
+def Laplace(gd, scale=1.0, n=1, dtype=float):
+    if n == 9:
+        return FTLaplace(gd, scale, dtype)
+    else:
+        return GUCLaplace(gd, scale, n, dtype, cuda=cuda)
 
 
 class GUCLaplace(FDOperator):
@@ -263,7 +265,7 @@ class Gradient(FDOperator):
         M_ic = np.indices((3, 3, 3)).reshape((3, -3)).T - 1
         h_iv = M_ic.dot(gd.h_cv)
         voro = Voronoi(h_iv)
-        i_d = []
+        i_d = []  # List[int]
         for i1, i2 in voro.ridge_points:
             if i1 == 13 and i2 > 13:
                 i_d.append(i2)

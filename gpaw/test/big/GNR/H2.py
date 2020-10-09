@@ -1,5 +1,4 @@
 from ase.build import molecule
-from ase.build import graphene_nanoribbon
 from ase.optimize import QuasiNewton
 from gpaw import GPAW
 
@@ -9,6 +8,3 @@ calc = GPAW()
 H2.set_calculator(calc)
 dyn = QuasiNewton(H2, trajectory='H2.traj')
 dyn.run(fmax=0.05)
-
-
-

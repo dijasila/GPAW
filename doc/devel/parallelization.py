@@ -8,7 +8,7 @@ from gpaw.utilities.dscftools import mpi_debug
 W = world.size
 N = 32
 
-assert N%W == 0
+assert N % W == 0
 M = N//W
 
 # Create my share of data
@@ -144,4 +144,3 @@ else:
 """
 
 mpi_debug('result: %s' % result)
-
