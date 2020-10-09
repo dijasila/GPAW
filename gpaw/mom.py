@@ -22,6 +22,8 @@ def mom_calculation(calc, atoms,
         warnings.warn("Smearing not available for space='full'")
 
     if calc.wfs is None:
+        # We need the wfs object to initialize OccupationsMOM
+        # so initialize calculator
         occ = FixedOccupationNumbers(occupations)
         calc.initialize(atoms)
     else:
@@ -35,9 +37,8 @@ def mom_calculation(calc, atoms,
                              width_increment,
                              niter_smearing)
     if calc.scf.converged:
-        # If we have guess wave functions (e.g ground state)
-        # set new occupations and let calculator.py take
-        # care of the rest
+        # If the scf has already converged (e.g. for ground-state calculation)
+        # set new occupations and let calculator.py take care of the rest
         calc.set(occupations=occ_mom)
     else:
         calc.wfs.occupations = occ_mom
