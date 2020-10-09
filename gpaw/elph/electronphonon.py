@@ -77,6 +77,7 @@ from gpaw.lcao.tightbinding import TightBinding
 from gpaw.kpt_descriptor import KPointDescriptor
 from gpaw.mpi import rank
 from ase.utils import opencew
+from gpaw import GPAW
 
 
 class ElectronPhononCoupling(Displacement):
@@ -148,6 +149,8 @@ class ElectronPhononCoupling(Displacement):
 
         # Get calculator
         calc = atoms_N.calc
+        if not isinstance(calc, GPAW):
+            calc = calc.dft  # unwrap DFTD3 wrapper
 
         # Effective potential (in Hartree) and projector coefficients
         Vt_G = calc.hamiltonian.vt_sG[0]
