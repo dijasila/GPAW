@@ -7,7 +7,7 @@ from ase.units import Ha
 from gpaw.occupations import FixedOccupationNumbers
 
 
-def mom_calculation(calc,
+def mom_calculation(calc, atoms,
                     occupations,
                     constraints=None,
                     space='full',
@@ -23,6 +23,7 @@ def mom_calculation(calc,
 
     if calc.wfs is None:
         occ = FixedOccupationNumbers(occupations)
+        calc.initialize(atoms)
     else:
         parallel_layout = calc.wfs.occupations.parallel_layout
         occ = FixedOccupationNumbers(occupations, parallel_layout)
@@ -33,13 +34,13 @@ def mom_calculation(calc,
                              space, width,
                              width_increment,
                              niter_smearing)
-    if calc.wfs is None:
-        calc.parameters['occupations'] = occ
-    else:
+    if calc.scf.converged:
         # If we have guess wave functions (e.g ground state)
         # set new occupations and let calculator.py take
         # care of the rest
         calc.set(occupations=occ_mom)
+    else:
+        calc.wfs.occupations = occ_mom
 
     calc.log(occ_mom)
 
