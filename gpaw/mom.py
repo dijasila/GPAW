@@ -102,13 +102,12 @@ class OccupationsMOM:
                     f_sn[kpt.s].fill(0)
 
                     # Compute projections within equally occupied subspaces
+                    # and occupy orbitals with biggest projections
                     for f_n_unique in self.f_sn_unique[kpt.s]:
                         occupied = self.f_sn_unique[kpt.s][f_n_unique]
                         n_occ = len(f_sn[kpt.s][occupied])
                         P = self.calculate_mom_projections(kpt, f_n_unique)
                         P_max = np.argpartition(P, -n_occ)[-n_occ:]
-                        P_max.sort() # Do we need this?
-
                         f_sn[kpt.s][P_max] = f_n_unique
 
             elif self.space == 'reduced':
