@@ -4,7 +4,7 @@ The central object that glues everything together.
 """
 
 import warnings
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Iterable, Generator
 
 import numpy as np
 from ase import Atoms
@@ -18,36 +18,37 @@ import gpaw
 import gpaw.mpi as mpi
 import gpaw.wavefunctions.pw as pw
 from gpaw import memory_estimate_depth
-from gpaw.band_descriptor import BandDescriptor
-from gpaw.density import RealSpaceDensity
-from gpaw.dos import DOSCalculator
-from gpaw.eigensolvers import get_eigensolver
-from gpaw.external import PointChargePotential
-from gpaw.forces import calculate_forces
-from gpaw.grid_descriptor import GridDescriptor
-from gpaw.hamiltonian import RealSpaceHamiltonian
-from gpaw.io.logger import GPAWLogger
-from gpaw.io import Reader, Writer
-from gpaw.jellium import create_background_charge
-from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.kpt_refine import create_kpoint_descriptor_with_refinement
-from gpaw.kohnsham_layouts import get_KohnSham_layouts
-from gpaw.matrix import suggest_blocking
-from gpaw.occupations import create_occ_calc, ParallelLayout
-from gpaw.output import (print_cell, print_positions,
-                         print_parallelization_details)
-from gpaw.scf import SCFLoop
-from gpaw.setup import Setups
-from gpaw.symmetry import Symmetry
-from gpaw.stress import calculate_stress
-from gpaw.utilities import check_atoms_too_close
-from gpaw.utilities.gpts import get_number_of_grid_points
-from gpaw.utilities.grid import GridRedistributor
-from gpaw.utilities.memory import MemNode, maxrss
-from gpaw.utilities.partition import AtomPartition
-from gpaw.wavefunctions.mode import create_wave_function_mode
-from gpaw.xc import XC
-from gpaw.xc.sic import SIC
+from .band_descriptor import BandDescriptor
+from .density import RealSpaceDensity
+from .dos import DOSCalculator
+from .eigensolvers import get_eigensolver
+from .external import PointChargePotential
+from .interpolate import interpolate
+from .forces import calculate_forces
+from .grid_descriptor import GridDescriptor
+from .hamiltonian import RealSpaceHamiltonian
+from .io.logger import GPAWLogger
+from .io import Reader, Writer
+from .jellium import create_background_charge
+from .kpt_descriptor import KPointDescriptor
+from .kpt_refine import create_kpoint_descriptor_with_refinement
+from .kohnsham_layouts import get_KohnSham_layouts
+from .matrix import suggest_blocking
+from .occupations import create_occ_calc, ParallelLayout
+from .output import (print_cell, print_positions,
+                     print_parallelization_details)
+from .scf import SCFLoop
+from .setup import Setups
+from .symmetry import Symmetry
+from .stress import calculate_stress
+from .utilities import check_atoms_too_close
+from .utilities.gpts import get_number_of_grid_points
+from .utilities.grid import GridRedistributor
+from .utilities.memory import MemNode, maxrss
+from .utilities.partition import AtomPartition
+from .wavefunctions.mode import create_wave_function_mode
+from .xc import XC
+from .xc.sic import SIC
 
 
 class GPAW(Calculator):
@@ -317,23 +318,33 @@ class GPAW(Calculator):
                         system_changes.append('positions')
         return system_changes
 
-    def calculate(self, atoms=None, properties=['energy'],
-                  system_changes=['cell']):
+    def calculate(self,
+                  atoms: Atoms = None,
+                  properties: Iterable[str] = {'energy'},
+                  system_changes: Iterable[str] = {'numbers'}) -> None:
         for _ in self.icalculate(atoms, properties, system_changes):
             pass
 
-    def icalculate(self, atoms=None, properties=['energy'],
-                   system_changes=['cell']):
+    def icalculate(self,
+                   atoms: Atoms = None,
+                   properties: Iterable[str] = {'energy'},
+                   system_changes: Iterable[str] = {'numbers'}
+                   ) -> Generator[None, None, None]:
         """Calculate things."""
 
         Calculator.calculate(self, atoms)
         atoms = self.atoms
 
         if system_changes:
+            changes = set(system_changes)
             self.log('System changes:', ', '.join(system_changes), '\n')
-            if system_changes == ['positions']:
+            if changes == {'positions'}:
                 # Only positions have changed:
                 self.density.reset()
+            elif changes <= {'positions', 'cell'}:
+                # Only positions and/or cell have changed:
+                self.wfs, self.density, self.hamiltonian = interpolate(
+                    self.wfs, atoms)
             else:
                 # Drastic changes:
                 self.wfs = None
@@ -603,10 +614,9 @@ class GPAW(Calculator):
             xc = self.hamiltonian.xc
 
         if par.fixdensity:
-            warnings.warn(
-                'The fixdensity keyword has been deprecated. '
-                'Please use the GPAW.fixed_density() method instead.',
-                DeprecationWarning)
+            raise TypeError(
+                'The fixdensity keyword has been removed. '
+                'Please use the GPAW.fixed_density() method instead.')
 
         mode = par.mode
         if isinstance(mode, str):
@@ -757,17 +767,10 @@ class GPAW(Calculator):
         if not self.wfs.eigensolver:
             self.create_eigensolver(xc, nbands, mode)
 
-        if self.density is None and not reading:
-            assert not par.fixdensity, 'No density to fix!'
-
-        olddens = None
         if (self.density is not None and
             (self.density.gd.parsize_c != self.wfs.gd.parsize_c).any()):
             # Domain decomposition has changed, so we need to
             # reinitialize density and hamiltonian:
-            if par.fixdensity:
-                olddens = self.density
-
             self.density = None
             self.hamiltonian = None
 
@@ -787,10 +790,6 @@ class GPAW(Calculator):
         self.density.fixed = par.fixdensity
         self.density.log = self.log
 
-        if olddens is not None:
-            self.density.initialize_from_other_density(olddens,
-                                                       self.wfs.kptband_comm)
-
         if self.hamiltonian is None:
             self.create_hamiltonian(realspace, mode, xc)
 
@@ -800,9 +799,6 @@ class GPAW(Calculator):
         if description is not None:
             self.log('XC parameters: {}\n'
                      .format('\n  '.join(description.splitlines())))
-
-        if xc.type == 'GLLB' and olddens is not None:
-            xc.heeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeelp(olddens)
 
         self.print_memory_estimate(maxdepth=memory_estimate_depth + 1)
 
