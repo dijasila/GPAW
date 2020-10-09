@@ -23,20 +23,24 @@ def mom_calculation(calc,
         warnings.warn("Smearing not available for space='full'")
 
     if calc.wfs is None:
-        calc.initialize(atoms)
+        occ = FixedOccupationNumbers(occupations)
+    else:
+        parallel_layout = calc.wfs.occupations.parallel_layout
+        occ = FixedOccupationNumbers(occupations, parallel_layout)
 
-    parallel_layout = calc.wfs.occupations.parallel_layout
-    occ = FixedOccupationNumbers(occupations, parallel_layout)
     occ_mom = OccupationsMOM(calc, occ,
                              occupations,
                              constraints,
                              space, width,
                              width_increment,
                              niter_smearing)
-    if calc.scf.converged:
-        calc.set(occupations=occ_mom)
+    if calc.wfs is None:
+        calc.parameters['occupations'] = occ
     else:
-        calc.wfs.occupations = occ_mom
+        # If we have guess wave functions (e.g ground state)
+        # set new occupations and let calculator.py take
+        # care of the rest
+        calc.set(occupations=occ_mom)
 
     calc.log(occ_mom)
 
