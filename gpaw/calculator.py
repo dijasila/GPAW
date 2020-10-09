@@ -672,23 +672,7 @@ class GPAW(Calculator):
 
         self.create_symmetry(magmom_av, cell_cv, reading)
 
-        if par.gpts is not None:
-            if par.h is not None:
-                raise ValueError("""You can't use both "gpts" and "h"!""")
-            N_c = np.array(par.gpts)
-            h = None
-        else:
-            h = par.h
-            if h is not None:
-                h /= Bohr
-            if h is None and reading:
-                shape = self.reader.density.proxy('density').shape[-3:]
-                N_c = 1 - pbc_c + shape
-            elif h is None and self.density is not None:
-                N_c = self.density.gd.N_c
-            else:
-                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
-                                                self.symmetry, self.log)
+        N_c, h = self.choose_number_of_grid_points()
 
         self.setups.set_symmetry(self.symmetry)
 
@@ -787,7 +771,6 @@ class GPAW(Calculator):
             self.log('No density mixing\n')
         else:
             self.log(self.density.mixer, '\n')
-        self.density.fixed = par.fixdensity
         self.density.log = self.log
 
         if self.hamiltonian is None:
@@ -829,6 +812,27 @@ class GPAW(Calculator):
 
         self.initialized = True
         self.log('... initialized\n')
+
+    def choose_number_of_grid_points(self):
+        par = self.parameters
+        if par.gpts is not None:
+            if par.h is not None:
+                raise ValueError("""You can't use both "gpts" and "h"!""")
+            N_c = np.array(par.gpts)
+            h = None
+        else:
+            h = par.h
+            if h is not None:
+                h /= Bohr
+            if h is None and reading:
+                shape = self.reader.density.proxy('density').shape[-3:]
+                N_c = 1 - pbc_c + shape
+            elif h is None and self.density is not None:
+                N_c = self.density.gd.N_c
+            else:
+                N_c = get_number_of_grid_points(cell_cv, h, mode, realspace,
+                                                self.symmetry, self.log)
+        return N_c, h
 
     def create_setups(self, mode, xc):
         if self.parameters.filter is None and mode.name != 'pw':

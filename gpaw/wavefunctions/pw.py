@@ -742,6 +742,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
         self.dedepsilon = dedepsilon  # Pulay correction for stress tensor
 
         self.ng_k = None  # number of G-vectors for all IBZ k-points
+        self.pd: PWDescriptor
 
         FDPWWaveFunctions.__init__(self, parallel, initksl,
                                    reuse_wfs_method=reuse_wfs_method,
