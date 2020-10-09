@@ -72,8 +72,7 @@ class OccupationsMOM:
         return dct
 
     def __str__(self):
-        s = 'Occupation numbers:\n'
-        s += '  Delta SCF with Maximum Overlap Method\n'
+        s = 'Excited-state calculation with Maximum Overlap Method\n'
         s += '  Smearing of constraints: '
         if self.width == 0.0:
             s += 'off\n'
