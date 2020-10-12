@@ -98,6 +98,8 @@ class DftPzSicXT:
                 n_occ = get_n_occ(kpt)
                 self.old_pot[k] = self.cgd.zeros(n_occ, dtype=float)
 
+        self.restart = False
+
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
                                  add_grad=False,

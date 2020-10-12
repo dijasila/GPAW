@@ -147,17 +147,20 @@ class PzCorrections:
         return nt_G, Q_aL, D_ap
 
     def get_energy_and_gradients(self, wfs, grad_knG=None,
-                                 dens=None, U_k=None, add_grad=False):
+                                 dens=None, U_k=None, add_grad=False,
+                                 scalewithocc=True):
 
         e_sic = 0.0
         for kpt in wfs.kpt_u:
             e_sic += self.get_energy_and_gradients_kpt(
-                wfs, kpt, grad_knG, dens, U_k, add_grad=add_grad)
+                wfs, kpt, grad_knG, dens, U_k, add_grad=add_grad,
+                scalewithocc=scalewithocc)
         self.total_sic = wfs.kd.comm.sum(e_sic)
         return self.total_sic
 
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG=None,
-                                     dens=None, U_k=None, add_grad=False):
+                                     dens=None, U_k=None, add_grad=False,
+                                     scalewithocc=True):
 
         wfs.timer.start('SIC e/g grid calculations')
         k = self.n_kps * kpt.s + kpt.q
@@ -195,10 +198,8 @@ class PzCorrections:
                         nt_G, Q_aL, D_ap, i, k, wfs.timer)
                 # t_get_pz_sic += time.time() - t1
 
-
             e_total_sic = np.append(e_total_sic,
                                     kpt.f_n[i] * e_sic, axis=0)
-
             if wfs.mode == 'pw':
                 vt_G = wfs.pd.gd.collect(vt_G, broadcast=True)
                 Q_G = wfs.pd.Q_qG[kpt.q]
@@ -212,9 +213,13 @@ class PzCorrections:
                 else:
                     vtpsit_G = wfs.pd.tmp_G
                 wfs.pd.alltoall2(vtpsit_G, kpt.q, self.grad[k][i:i+1])
-                self.grad[k][i] *= kpt.f_n[i]
+                if scalewithocc:
+                    self.grad[k][i] *= kpt.f_n[i]
             else:
-                self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+                if scalewithocc:
+                    self.grad[k][i] = kpt.psit_nG[i] * vt_G * kpt.f_n[i]
+                else:
+                    self.grad[k][i] = kpt.psit_nG[i] * vt_G
             # t1 = time.time()
             c_axi = {}
             for a in kpt.P_ani.keys():
