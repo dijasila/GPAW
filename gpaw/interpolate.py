@@ -19,8 +19,11 @@ def interpolate_wave_functions(calc: 'GPAW',
     dens = calc.density
     ham = calc.hamiltonian
 
+    calc.density = None
+
     cell_cv = atoms.cell / Bohr
-    N_c, h = calc.choose_number_of_grid_points(cell_cv, atoms.pbc)
+    N_c, h = calc.choose_number_of_grid_points(cell_cv, atoms.pbc,
+                                               mode=calc.mode)
     gd = wfs1.gd.new_descriptor(N_c=N_c, cell_cv=cell_cv)
 
     wfs2 = PWWaveFunctions(
@@ -62,7 +65,7 @@ def interpolate_wave_functions(calc: 'GPAW',
     xc = ham.xc
     calc.create_eigensolver(xc, wfs1.bd.nbands, calc.mode)
 
-    totmom_v, magmom_av = calc.density.estimate_magnetic_moments()
+    totmom_v, magmom_av = dens.estimate_magnetic_moments()
     calc.create_density(False, 'pw', dens.background_charge, h)
     calc.density.initialize(calc.setups, calc.timer,
                             magmom_av=magmom_av, hund=calc.parameters.hund)
