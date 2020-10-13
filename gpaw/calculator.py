@@ -23,7 +23,7 @@ from .density import RealSpaceDensity
 from .dos import DOSCalculator
 from .eigensolvers import get_eigensolver
 from .external import PointChargePotential
-from .interpolate import interpolate
+from .interpolate import interpolate_wave_functions
 from .forces import calculate_forces
 from .grid_descriptor import GridDescriptor
 from .hamiltonian import RealSpaceHamiltonian
@@ -148,6 +148,7 @@ class GPAW(Calculator):
         self.density = None
         self.hamiltonian = None
         self.spos_ac = None  # XXX store this in some better way.
+        self.mode = None
 
         self.observers = []  # XXX move to self.scf
         self.initialized = False
@@ -343,8 +344,7 @@ class GPAW(Calculator):
                 self.density.reset()
             elif changes <= {'positions', 'cell'}:
                 # Only positions and/or cell have changed:
-                self.wfs, self.density, self.hamiltonian = interpolate(
-                    self.wfs, atoms)
+                interpolate_wave_functions(self, atoms)
             else:
                 # Drastic changes:
                 self.wfs = None
@@ -623,6 +623,7 @@ class GPAW(Calculator):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)
+        self.mode = mode
 
         if par.dtype == complex:
             warnings.warn('Use mode={}(..., force_complex_dtype=True) '
@@ -672,7 +673,8 @@ class GPAW(Calculator):
 
         self.create_symmetry(magmom_av, cell_cv, reading)
 
-        N_c, h = self.choose_number_of_grid_points()
+        N_c, h = self.choose_number_of_grid_points(
+            cell_cv, pbc_c, reading, mode, realspace)
 
         self.setups.set_symmetry(self.symmetry)
 
@@ -813,7 +815,12 @@ class GPAW(Calculator):
         self.initialized = True
         self.log('... initialized\n')
 
-    def choose_number_of_grid_points(self):
+    def choose_number_of_grid_points(self,
+                                     cell_cv,
+                                     pbc_c,
+                                     reading=False,
+                                     mode=None,
+                                     realspace=False):
         par = self.parameters
         if par.gpts is not None:
             if par.h is not None:

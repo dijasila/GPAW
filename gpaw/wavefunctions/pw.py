@@ -605,11 +605,14 @@ class PWDescriptor:
 
 
 class PWMapping:
-    def __init__(self, pd1, pd2):
+    def __init__(self, pd1, pd2, q=None):
         """Mapping from pd1 to pd2."""
+        if q is None:
+            assert pd1.only_one_k_point
+            q = 0
         N_c = np.array(pd1.tmp_Q.shape)
         N2_c = pd2.tmp_Q.shape
-        Q1_G = pd1.Q_qG[0]
+        Q1_G = pd1.Q_qG[q]
         Q1_Gc = np.empty((len(Q1_G), 3), int)
         Q1_Gc[:, 0], r_G = divmod(Q1_G, N_c[1] * N_c[2])
         Q1_Gc.T[1:] = divmod(r_G, N_c[2])
@@ -624,7 +627,7 @@ class PWMapping:
         Q2_G = Q1_Gc[:, 2] + N2_c[2] * (Q1_Gc[:, 1] + N2_c[1] * Q1_Gc[:, 0])
         G2_Q = np.empty(N2_c, int).ravel()
         G2_Q[:] = -1
-        G2_Q[pd2.myQ_qG[0]] = np.arange(pd2.myng_q[0])
+        G2_Q[pd2.myQ_qG[q]] = np.arange(pd2.myng_q[q])
         G2_G1 = G2_Q[Q2_G]
 
         if pd1.gd.comm.size == 1:
