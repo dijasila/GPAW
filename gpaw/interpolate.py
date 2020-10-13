@@ -1,13 +1,16 @@
+from typing import TYPE_CHECKING
 from ase import Atoms
 from ase.units import Bohr
 
-from . import GPAW
-from .wavefuntions.pw import PWWaweFunctions
+from .wavefunctions.pw import PWWaveFunctions
+
+if TYPE_CHECKING:
+    from . import GPAW
 
 # check cell symm
 
 
-def interpolate(calc: GPAW,
+def interpolate(calc: 'GPAW',
                 atoms: Atoms):
     wfs = calc.wfs
 
