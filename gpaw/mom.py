@@ -238,9 +238,13 @@ class OccupationsMOM(ZeroKelvin):
 
         return occ
 
-    def reset(self):
+    def reset(self, wfs):
         if self.iters > 1:
             self.iters = 0
+            if self.space == 'full':
+                for u, kpt in enumerate(wfs.kpt_u):
+                    self.occupations[u] = kpt.f_n
+
 
 class MOMConstraint:
     def __init__(self, n, nstart=0, nend=None):

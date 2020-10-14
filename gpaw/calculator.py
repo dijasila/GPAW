@@ -278,6 +278,9 @@ class GPAW(PAW, Calculator):
             if system_changes == ['positions']:
                 # Only positions have changed:
                 self.density.reset()
+                occ_name = getattr(self.occupations, "name", None)
+                if occ_name == 'mom':
+                    self.occupations.reset(self.wfs)
             else:
                 # Drastic changes:
                 self.wfs = None
