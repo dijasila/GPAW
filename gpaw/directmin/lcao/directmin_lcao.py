@@ -272,10 +272,10 @@ class DirectMinLCAO(DirectLCAO):
         if occ_name == 'mom':
             self.restart = self.sort_wavefunctions_mom(occ, wfs, ham)
 
+        self.update_ref_orbitals(wfs, ham)
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
-        self.update_ref_orbitals(wfs, ham)
 
         if str(self.search_direction) == 'LBFGS_P2':
             for kpt in wfs.kpt_u:
