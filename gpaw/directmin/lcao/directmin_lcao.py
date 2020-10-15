@@ -267,6 +267,11 @@ class DirectMinLCAO(DirectLCAO):
             #     self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
 
+        occ.calculate(wfs)
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.restart = self.sort_wavefunctions_mom(occ, wfs, ham)
+
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
@@ -758,6 +763,24 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Sort WFS')
 
         return
+
+    def sort_wavefunctions_mom(self, occ, wfs, ham, sort_eps=False):
+        changedocc = False
+        for kpt in wfs.kpt_u:
+            f_sn = kpt.f_n.copy()
+            if wfs.gd.comm.rank == 0:
+                occ.sort_wavefunctions(wfs, kpt)
+            # Broadcast coefficients, occupation numbers, eigenvalues
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            wfs.gd.comm.broadcast(kpt.f_n, 0)
+            wfs.gd.comm.broadcast(kpt.C_nM, 0)
+
+            if not np.allclose(kpt.f_n, f_sn) and self.iters > 1:
+                changedocc = True
+
+            wfs.atomic_correction.calculate_projections(wfs, kpt)
+
+        return changedocc
 
     def todict(self):
         return {'name': 'direct_min_lcao',
