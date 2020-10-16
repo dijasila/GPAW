@@ -1188,7 +1188,7 @@ class PWWaveFunctions(FDPWWaveFunctions):
 
         self.set_positions(atoms.get_scaled_positions())
         self.kpt_u[0].projections = None
-        self.allocate_arrays_for_projections(self.pt.my_atom_indices)
+        self.allocate_arrays_for_projections()
 
         myslice = bd.get_slice()
 

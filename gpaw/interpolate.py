@@ -2,8 +2,6 @@ from typing import TYPE_CHECKING
 
 from ase import Atoms
 from ase.units import Bohr
-import numpy as np
-
 from .wavefunctions.pw import PWWaveFunctions, PWMapping
 from .wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 
@@ -16,8 +14,8 @@ if TYPE_CHECKING:
 def interpolate_wave_functions(calc: 'GPAW',
                                atoms: Atoms):
     wfs1 = calc.wfs
-    dens = calc.density
-    ham = calc.hamiltonian
+    dens1 = calc.density
+    ham1 = calc.hamiltonian
 
     calc.density = None
 
@@ -62,17 +60,17 @@ def interpolate_wave_functions(calc: 'GPAW',
     wfs2.occupations = wfs1.occupations
 
     calc.wfs = wfs2
-    xc = ham.xc
+    xc = ham1.xc
     calc.create_eigensolver(xc, wfs1.bd.nbands, calc.mode)
 
-    totmom_v, magmom_av = dens.estimate_magnetic_moments()
-    calc.create_density(False, 'pw', dens.background_charge, h)
+    totmom_v, magmom_av = dens1.estimate_magnetic_moments()
+    calc.create_density(False, 'pw', dens1.background_charge, h)
     calc.density.initialize(calc.setups, calc.timer,
                             magmom_av=magmom_av, hund=calc.parameters.hund)
     calc.density.set_mixer(calc.parameters.mixer)
     calc.density.log = calc.log
 
-    calc.create_hamiltonian(realspace=False, mode=None, xc=xc)
+    calc.create_hamiltonian(realspace=False, mode=calc.mode, xc=xc)
 
     xc.initialize(calc.density, calc.hamiltonian, wfs2)
 
