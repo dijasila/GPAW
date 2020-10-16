@@ -11,11 +11,10 @@ from gpaw.hints import Array2D
 if TYPE_CHECKING:
     from . import GPAW
 
-# check cell symm
-
 
 def interpolate_wave_functions(calc: 'GPAW',
                                atoms: Atoms):
+    """Raises NotImplementedError if ..."""
     if calc.mode.name != 'pw':
         raise NotImplementedError
 
@@ -96,6 +95,7 @@ def interpolate_wave_functions(calc: 'GPAW',
 
 
 def equal_symms(symm1, symm2):
+    """Compare two symmetry objects."""
     return (len(symm1.op_scc) == len(symm2.op_scc) and
             (symm1.op_scc == symm2.op_scc).all() and
             (symm1.ft_sc == symm2.ft_sc).all() and
@@ -107,6 +107,7 @@ def interpolate(pd1: PWDescriptor,
                 q: int,
                 a1_nG: Array2D,
                 a2_nG: Array2D) -> None:
+    """Interpolate wave functions from one cell to another."""
     map12 = PWMapping(pd1, pd2, q)
     a2_nG[:] = 0.0
     for a1_G, a2_G in zip(a1_nG, a2_nG):
