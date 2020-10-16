@@ -929,7 +929,7 @@ class GPAW(Calculator):
             nv)
         self.log(self.scf)
 
-    def create_symmetry(self, magmom_av, cell_cv, reading):
+    def create_symmetry(self, magmom_av, cell_cv, reading=False):
         symm = self.parameters.symmetry
         if symm == 'off':
             symm = {'point_group': False, 'time_reversal': False}

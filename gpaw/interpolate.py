@@ -1,7 +1,9 @@
 from typing import TYPE_CHECKING
 
+import numpy as np
 from ase import Atoms
 from ase.units import Bohr
+
 from .wavefunctions.pw import PWWaveFunctions, PWMapping, PWDescriptor
 from .wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
 from gpaw.hints import Array2D
@@ -20,10 +22,23 @@ def interpolate_wave_functions(calc: 'GPAW',
     wfs1 = calc.wfs
     dens1 = calc.density
     ham1 = calc.hamiltonian
+    symm1 = calc.symmetry
 
     calc.density = None
 
     cell_cv = atoms.cell / Bohr
+
+    magmom_av = np.zeros((len(atoms), 3))
+    magmom_av[:, 2] = atoms.get_initial_magnetic_moments()
+    calc.create_symmetry(magmom_av, cell_cv)
+    if not equal_symms(symm1, calc.symmetry):
+        calc.symmtries = symm1
+        raise NotImplementedError
+
+    kd2 = calc.create_kpoint_descriptor(wfs1.nspins)
+    if (kd2.N_c != wfs1.kd.N_c).any():
+        raise NotImplementedError
+
     N_c, h = calc.choose_number_of_grid_points(cell_cv, atoms.pbc,
                                                mode=calc.mode)
     gd = wfs1.gd.new_descriptor(N_c=N_c, cell_cv=cell_cv)
@@ -77,6 +92,13 @@ def interpolate_wave_functions(calc: 'GPAW',
     calc.create_hamiltonian(realspace=False, mode=calc.mode, xc=xc)
 
     xc.initialize(calc.density, calc.hamiltonian, wfs2)
+
+
+def equal_symms(symm1, symm2):
+    return (len(symm1.op_scc) == len(symm2.op_scc) and
+            (symm1.op_scc == symm2.op_scc).all() and
+            (symm1.ft_sc == symm2.ft_sc).all() and
+            (symm1.a_sa == symm2.a_sa).all())
 
 
 def interpolate(pd1: PWDescriptor,
