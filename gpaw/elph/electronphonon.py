@@ -118,8 +118,13 @@ class ElectronPhononCoupling(Displacement):
 
         # Init base class and make the center cell in the supercell the
         # reference cell
-        Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
-                              name=name, delta=delta, refcell='center')
+        try:
+            Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
+                                  name=name, delta=delta, refcell='center')
+        except TypeError:
+            Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
+                                  name=name, delta=delta,
+                                  center_refcell=True)
 
         self.calculate_forces = calculate_forces
         # Log

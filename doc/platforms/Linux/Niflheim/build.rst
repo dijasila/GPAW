@@ -38,7 +38,7 @@ The ``gpaw-venv.sh`` script does the following:
 * create the venv
 * clone and install ASE and GPAW from gitlab
 * install some other Python packages from PyPI: sklearn, graphviz,
-  pytest-xdist, myqueue, ase-ext, spglib
+  matplotlib, pytest-xdist, myqueue, ase-ext, spglib
 * enable tab-completion for command-line tools:
   `ase <https://wiki.fysik.dtu.dk/ase/cmdline.html>`__,
   `gpaw <https://wiki.fysik.dtu.dk/gpaw/documentation/cmdline.html>`__,
@@ -88,22 +88,15 @@ Adding additional packages
 
 In order to add more Python packages to your venv, you need to activate it
 and then you can ``pip install`` packages.  Here are three ways
-to install ASR::
+to install ASR_::
 
     $ pip install asr  # from PyPI
-    $ pip install <path-to-asr>  # from a git clone
-    $ pip install -e <path-to-asr>  # use source code from a git clone directly
+    $ git clone https://gitlab.com/mortengjerding/asr.git
+    $ pip install ./asr  # from a git clone
+    $ pip install -e asr  # use source code from a git clone directly
 
 
-Problems
-========
-
-Sometimes, packages in your ``~/.local/`` folder will be used insted of
-those in your new venv.  This can cause problems.  Try uninstalling them::
-
-    $ deactivate
-    $ pip uninstall <trouble-maker>
-    $ source ~/venv1/bin/activate
+.. _ASR: https://asr.readthedocs.io/en/latest/
 
 
 Full script
