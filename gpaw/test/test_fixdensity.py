@@ -38,16 +38,3 @@ def test_fixdensity(in_tmp_dir):
     assert f3 == pytest.approx(f1, abs=1e-10)
     assert e2 == pytest.approx(e1, abs=3e-5)
     assert e3 == pytest.approx(e1, abs=3e-5)
-
-    calc = GPAW('li.gpw',
-                txt='li-4.txt',
-                fixdensity=True,
-                nbands=5,
-                kpts=kpts,
-                symmetry='off')
-
-    with pytest.warns(DeprecationWarning):
-        calc.get_potential_energy()
-    e4 = calc.get_eigenvalues(kpt=0)[0]
-
-    assert e4 == pytest.approx(e1, abs=3e-5)

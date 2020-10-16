@@ -1187,8 +1187,6 @@ class PWWaveFunctions(FDPWWaveFunctions):
             scalapack = False
 
         self.set_positions(atoms.get_scaled_positions())
-        self.kpt_u[0].projections = None
-        self.allocate_arrays_for_projections()
 
         myslice = bd.get_slice()
 
@@ -1238,12 +1236,15 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 spin=kpt.s, collinear=self.collinear)
             del psit_nG
 
-            with self.timer('Projections'):
-                self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            #with self.timer('Projections'):
+            #    self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             kpt.f_n = None
 
         pb.finish()
+
+        self.kpt_u[0].projections = None
+        self.allocate_arrays_for_projections()
 
         self.calculate_occupation_numbers()
 

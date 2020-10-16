@@ -2,8 +2,9 @@ from typing import TYPE_CHECKING
 
 from ase import Atoms
 from ase.units import Bohr
-from .wavefunctions.pw import PWWaveFunctions, PWMapping
+from .wavefunctions.pw import PWWaveFunctions, PWMapping, PWDescriptor
 from .wavefunctions.arrays import PlaneWaveExpansionWaveFunctions
+from gpaw.hints import Array2D
 
 if TYPE_CHECKING:
     from . import GPAW
@@ -13,6 +14,9 @@ if TYPE_CHECKING:
 
 def interpolate_wave_functions(calc: 'GPAW',
                                atoms: Atoms):
+    if calc.mode.name != 'pw':
+        raise NotImplementedError
+
     wfs1 = calc.wfs
     dens1 = calc.density
     ham1 = calc.hamiltonian
@@ -75,7 +79,11 @@ def interpolate_wave_functions(calc: 'GPAW',
     xc.initialize(calc.density, calc.hamiltonian, wfs2)
 
 
-def interpolate(pd1, pd2, q, a1_nG, a2_nG) -> None:
+def interpolate(pd1: PWDescriptor,
+                pd2: PWDescriptor,
+                q: int,
+                a1_nG: Array2D,
+                a2_nG: Array2D) -> None:
     map12 = PWMapping(pd1, pd2, q)
     a2_nG[:] = 0.0
     for a1_G, a2_G in zip(a1_nG, a2_nG):

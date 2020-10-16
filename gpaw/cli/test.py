@@ -1,11 +1,12 @@
 import sys
 from pathlib import Path
 
-from ase import Atoms
+from ase import Atoms, __version__ as ase_version
 from ase.parallel import parprint
 
 from .info import info
-from gpaw import GPAW, PW, setup_paths
+from gpaw import (GPAW, PW, setup_paths,
+                  __ase_version_required__ as ase_version_required)
 from gpaw.mpi import size
 
 
@@ -23,6 +24,9 @@ class CLICommand:
 
 
 def test():
+    if ase_version < ase_version_required:
+        print(f'...')
+
     for path in setup_paths:
         if Path(path).is_dir():
             break

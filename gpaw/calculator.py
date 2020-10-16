@@ -341,11 +341,18 @@ class GPAW(Calculator):
             self.log('System changes:', ', '.join(system_changes), '\n')
             if changes == {'positions'}:
                 # Only positions have changed:
+                changes = set()
                 self.density.reset()
             elif changes <= {'positions', 'cell'}:
-                # Only positions and/or cell have changed:
-                interpolate_wave_functions(self, atoms)
-            else:
+                # Only cell and/or positions have changed:
+                try:
+                    interpolate_wave_functions(self, atoms)
+                except NotImplementedError:
+                    pass
+                else:
+                    changes = set()
+
+            if changes:
                 # Drastic changes:
                 self.wfs = None
                 self.density = None
