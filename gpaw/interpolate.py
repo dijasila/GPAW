@@ -84,6 +84,7 @@ def interpolate_wave_functions(calc: 'GPAW',
 
     totmom_v, magmom_av = dens1.estimate_magnetic_moments()
     calc.create_density(False, 'pw', dens1.background_charge, h)
+    assert calc.density is not None
     calc.density.initialize(calc.setups, calc.timer,
                             magmom_av=magmom_av, hund=calc.parameters.hund)
     calc.density.set_mixer(calc.parameters.mixer)
