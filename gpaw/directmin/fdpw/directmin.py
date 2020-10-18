@@ -1076,13 +1076,13 @@ class DirectMin(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
 
-        max_iter = 500
+        max_iter = 300
         while self.iters < max_iter:
             en, er = self.iterate_lumo(ham, wfs, dens)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
-            if er < max_err * 10.:
+            if er < 5.0e-4:
                 log('\nUnoccupied states converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
