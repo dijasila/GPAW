@@ -283,7 +283,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
 
         # Supercell atoms
         if atoms is None:
-            atoms_N = self.atoms * self.N_c
+            atoms_N = self.atoms * self.supercell
         else:
             atoms_N = atoms
 
@@ -408,7 +408,7 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
                     g_MM = tb.bloch_to_real_space(g_qMM, R_c=(0, 0, 0))[0]
 
                 # Reshape to global unit cell indices
-                N = np.prod(self.N_c)
+                N = np.prod(self.supercell)
                 # Number of basis function in the primitive cell
                 assert (nao % N) == 0, "Alarm ...!"
                 nao_cell = nao // N
