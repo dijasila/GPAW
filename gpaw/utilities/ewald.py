@@ -1,12 +1,7 @@
-import numpy as np
-
-from gpaw.utilities import erf
 from math import pi
 
-
-def erfc(x):
-    """The complimentary error function."""
-    return 1. - erf(x)
+import numpy as np
+from scipy.special import erf, erfc
 
 
 class Ewald:

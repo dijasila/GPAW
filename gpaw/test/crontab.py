@@ -10,13 +10,20 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install -U pip
+pip install -U pip -qq
+pip install pytest sphinx-rtd-theme
 pip install -q git+https://gitlab.com/ase/ase.git@master
-pip install -q git+https://gitlab.com/gpaw/gpaw.git@master
-gpaw test > test-1.out
-gpaw -P 2 test > test-2.out
-gpaw -P 4 test > test-4.out
-gpaw -P 8 test > test-8.out"""
+git clone git@gitlab.com:gpaw/gpaw
+cd gpaw
+pip install -e .
+export GPAW_COVERAGE=test
+pytest -x > test-1.out
+gpaw -P 2 python -m pytest -- -x > test-2.out
+gpaw -P 4 python -m pytest -- -x > test-4.out
+gpaw -P 8 python -m pytest -- -x > test-8.out
+export GPAW_COVERAGE=docs
+cd doc
+make"""
 
 
 def run_tests():
@@ -32,7 +39,7 @@ def run_tests():
     if p.returncode == 0:
         status = 'ok'
         for n in [1, 2, 4, 8]:
-            shutil.copy2(root / f'test-{n}.out', home)
+            shutil.copy2(root / f'gpaw/test-{n}.out', home)
     else:
         print('FAILED!', file=sys.stdout)
         status = 'error'

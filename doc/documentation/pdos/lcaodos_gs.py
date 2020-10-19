@@ -24,6 +24,6 @@ calc = GPAW(mode='lcao',
             txt=None,
             occupations=FermiDirac(width=0.01))
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 calc.write(name + '.gpw')

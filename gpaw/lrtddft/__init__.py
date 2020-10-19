@@ -69,6 +69,7 @@ class LrTDDFT(ExcitationList):
 
     def __init__(self, calculator=None, **kwargs):
 
+        self.energy_to_eV_scale = Hartree
         self.timer = Timer()
         self.diagonalized = False
 
@@ -414,7 +415,7 @@ class LrTDDFT(ExcitationList):
         ov_pp: array
             Overlap
         """
-        #ov_pp = self.kss.overlap(ov_nn, other.kss)
+        # ov_pp = self.kss.overlap(ov_nn, other.kss)
         ov_pp = self.Om.kss.overlap(ov_nn, other.Om.kss)
         self.diagonalize()
         other.diagonalize()

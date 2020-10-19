@@ -1,10 +1,7 @@
 # Creates: si-gaps.csv
-from __future__ import print_function
-import numpy as np
 from ase.build import bulk
 from ase.parallel import paropen
-from gpaw.xc.exx import EXX
-from gpaw.xc.tools import vxc
+from gpaw.hybrids.eigenvalues import non_self_consistent_eigenvalues
 from gpaw import GPAW, PW
 
 a = 5.43
@@ -28,35 +25,30 @@ for k in range(2, 9, 2):
 
     ibzkpts = si.calc.get_ibz_k_points()
     kpt_indices = []
-    pbeeigs = []
-    for kpt in [(0, 0, 0), (0.5, 0.5, 0)]:
+    for kpt in [(0, 0, 0), (0.5, 0.5, 0)]:  # Gamma and X
         # Find k-point index:
         i = abs(ibzkpts - kpt).sum(1).argmin()
         kpt_indices.append(i)
-        pbeeigs.append(si.calc.get_eigenvalues(i)[n1:n2])
-
-    # DFT eigenvalues:
-    pbeeigs = np.array(pbeeigs)
-
-    # PBE contribution:
-    dpbeeigs = vxc(si.calc, 'PBE')[0, kpt_indices, n1:n2]
 
     # Do PBE0 calculation:
-    pbe0 = EXX(name + '.gpw',
-               'PBE0',
-               kpts=kpt_indices,
-               bands=[n1, n2],
-               txt=name + '.pbe0.txt')
-    pbe0.calculate(restart=name + '.json')
+    epbe, vpbe, vpbe0 = non_self_consistent_eigenvalues(
+        name + '.gpw',
+        'PBE0',
+        n1, n2,
+        kpt_indices,
+        snapshot=name + '.json')
 
-    dpbe0eigs = pbe0.get_eigenvalue_contributions()[0]
-    pbe0eigs = pbeeigs - dpbeeigs + dpbe0eigs
+    epbe0 = epbe - vpbe + vpbe0
 
-    print('{0}, {1:.3f}, {2:.3f}, {3:.3f}, {4:.3f}'
-          .format(k,
-                  pbeeigs[0, 1] - pbeeigs[0, 0],
-                  pbeeigs[1, 1] - pbeeigs[0, 0],
-                  pbe0eigs[0, 1] - pbe0eigs[0, 0],
-                  pbe0eigs[1, 1] - pbe0eigs[0, 0]),
-          file=fd)
+    gg = epbe[0, 0, 1] - epbe[0, 0, 0]
+    gx = epbe[0, 1, 1] - epbe[0, 0, 0]
+    gg0 = epbe0[0, 0, 1] - epbe0[0, 0, 0]
+    gx0 = epbe0[0, 1, 1] - epbe0[0, 0, 0]
+
+    print(f'{k}, {gg:.3f}, {gx:.3f}, {gg0:.3f}, {gx0:.3f}', file=fd)
     fd.flush()
+
+assert abs(gg - 2.559) < 0.01
+assert abs(gx - 0.707) < 0.01
+assert abs(gg0 - 3.873) < 0.01
+assert abs(gx0 - 1.828) < 0.01

@@ -1,7 +1,8 @@
 import numpy as np
-from gpaw.mpi import world, MASTER
+from gpaw.mpi import world
 from gpaw.blacs import BlacsGrid
 from gpaw.blacs import Redistributor
+from gpaw.utilities import scalapack
 
 
 def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
@@ -9,14 +10,14 @@ def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
     assert np.prod(blacsgrid) == world.size
     grid = BlacsGrid(world, *blacsgrid)
 
-    if world.rank == MASTER:
+    if world.rank == 0:
         H_MM = np.load(matrixfile)
         assert H_MM.ndim == 2
         assert H_MM.shape[0] == H_MM.shape[1]
         NM = len(H_MM)
     else:
         NM = 0
-    NM = world.sum(NM) # Distribute matrix shape to all nodes
+    NM = world.sum(NM)  # distribute matrix shape to all nodes
 
     # descriptor for the individual blocks
     block_desc = grid.new_descriptor(NM, NM, blocksize, blocksize)
@@ -25,7 +26,7 @@ def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
     local_desc = grid.new_descriptor(NM, NM, NM, NM)
 
     # Make some dummy array on all the slaves
-    if world.rank != MASTER:
+    if world.rank != 0:
         H_MM = local_desc.zeros()
     assert local_desc.check(H_MM)
 
@@ -47,16 +48,15 @@ def parallel_eigh(matrixfile, blacsgrid=(4, 2), blocksize=64):
     redistributor2.redistribute(C_mm, C_MM)
 
     # Return eigenvalues and -vectors on Master
-    if world.rank == MASTER:
+    if world.rank == 0:
         return eps_M, C_MM
     else:
         return None, None
 
 
-from gpaw.utilities import scalapack
 if __name__ == '__main__' and scalapack():
     # Test script which should be run on 1, 2, 4, or 8 CPUs
-    
+
     if world.size == 1:
         blacsgrid = (1, 1)
     elif world.size == 2:
@@ -67,13 +67,13 @@ if __name__ == '__main__' and scalapack():
         blacsgrid = (4, 2)
     else:
         raise RuntimeError('Please use 1, 2, 4, or 8 nodes for this test')
-    
-    if world.rank == MASTER:
-        a = np.diag(range(1,51)).astype(float)
+
+    if world.rank == 0:
+        a = np.diag(range(1, 51)).astype(float)
         a.dump('H_50x50.pckl')
         eps, U = np.linalg.eigh(a)
 
     eps, U = parallel_eigh('H_50x50.pckl', blacsgrid, blocksize=6)
-    if world.rank == MASTER:
+    if world.rank == 0:
         assert abs(eps - range(1, 51)).sum() < 1e-5
         assert abs(U - np.identity(50)).sum() < 1e-5

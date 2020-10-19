@@ -23,4 +23,4 @@ Examples
 Your own potential
 ------------------
 
-See an example here: :git:`gpaw/test/ext_potential/harmonic.py`.
+See an example here: :git:`gpaw/test/ext_potential/test_harmonic.py`.

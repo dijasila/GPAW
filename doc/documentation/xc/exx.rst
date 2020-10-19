@@ -39,7 +39,7 @@ One way to speed up an exact-exchange (or hybrid) calculation is to use the
 coarse grid (used for wave functions) instead of the finegrid (used for for
 densities) for the Fock potentials. This should give a speed-up factor of 8.
 This can be specified in the ``xc`` keyword like in this example
-:git:`~gpaw/test/exx/coarse.py`
+:git:`~gpaw/test/exx/test_coarse.py`
 
 Parallelization using domain decomposition is fully supported.
 
@@ -115,6 +115,9 @@ the IVOs:
 
 Non self-consistent plane-wave implementation
 =============================================
+
+.. autofunction:: gpaw.hybrids.energy.non_self_consistent_energy
+.. autofunction:: gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues
 
 See this tutorial: :ref:`pbe0_tut`.
 

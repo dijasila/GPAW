@@ -8,7 +8,7 @@ atoms = bulk('Al', 'fcc', a=4.043)  # generate fcc crystal structure
 k = 13
 calc = GPAW(mode='pw', kpts=(k, k, k))
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()  # ground state calculation is performed
 calc.write('Al.gpw', 'all')  # use 'all' option to write wavefunctions
 

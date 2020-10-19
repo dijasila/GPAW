@@ -11,7 +11,7 @@ for symbol in ['Ar', 'Kr']:
                   cell=(L, L, L))
     dimer.center()
     calc = GPAW(h=0.2, xc='revPBE', txt=symbol + '-dimer.txt')
-    dimer.set_calculator(calc)
+    dimer.calc = calc
     for r in d:
         dimer.set_distance(0, 1, r)
         e = dimer.get_potential_energy()
@@ -26,7 +26,7 @@ dimer += dimer
 dimer.positions[12:, 2] += 5.5
 dimer.center(vacuum=4.0)
 calc = GPAW(h=0.2, xc='revPBE', txt='benzene-dimer.txt')
-dimer.set_calculator(calc)
+dimer.calc = calc
 for r in d:
     dimer.positions[12:, 2] = dimer.positions[:12, 2] + r
     dimer.center()

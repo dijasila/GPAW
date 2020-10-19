@@ -1,5 +1,5 @@
-from ase.utils.extrapolate import extrapolate
 import numpy as np
+from gpaw.utilities.extrapolate import extrapolate
 
 CO_rpa = np.loadtxt('CO.ralda_rpa_CO.dat')
 C_rpa = np.loadtxt('CO.ralda_rpa_C.dat')

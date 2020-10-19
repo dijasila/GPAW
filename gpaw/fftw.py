@@ -1,7 +1,7 @@
 """Python wrapper for FFTW3 library."""
 
 import os
-
+from typing import Union, Type
 import numpy as np
 
 import _gpaw
@@ -16,15 +16,15 @@ EXHAUSTIVE = 8
 if os.environ.get('GPAW_FFTWSO'):
     import warnings
     warnings.warn('GPAW_FFTWSO is set to "{}"; ignoring.  '
-                  'Please use customize.py to link FFTW instead.'
+                  'Please use siteconf.py to link FFTW instead.'
                   .format(os.environ['GPAW_FFTWSO']))
 
 
-def have_fftw():
+def have_fftw() -> bool:
     return hasattr(_gpaw, 'FFTWPlan')
 
 
-def check_fft_size(n):
+def check_fft_size(n: int) -> bool:
     """Check if n is an efficient fft size.
 
     Efficient means that n can be factored into small primes (2, 3, 5, 7)."""
@@ -37,7 +37,7 @@ def check_fft_size(n):
     return False
 
 
-def get_efficient_fft_size(N, n=1):
+def get_efficient_fft_size(N: int, n=1) -> int:
     """Return smallest efficient fft size.
 
     Must be greater than or equal to N and divisible by n.
@@ -82,7 +82,7 @@ class FFTWPlan:
         _gpaw.FFTWExecute(self._ptr)
 
     def __del__(self):
-        if getattr(self, '_ptr', None):
+        if getattr(self, '_ptr', None) and _gpaw is not None:
             _gpaw.FFTWDestroy(self._ptr)
         self._ptr = None
 
@@ -118,6 +118,8 @@ def empty(shape, dtype=float):
     a.shape = shape
     return a
 
+
+FFTPlan: Union[Type[FFTWPlan], Type[NumpyFFTPlan]]
 
 if have_fftw():
     FFTPlan = FFTWPlan

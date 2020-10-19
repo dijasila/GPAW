@@ -6,12 +6,14 @@ Atomic PAW Setups
 =================
 
 A setup is to the PAW method what a pseudo-potential is to the
-pseudo-potential method.  All available setups are contained in this
-tar-file: gpaw-setups-0.9.11271.tar.gz_.  There are setups for the LDA,
+pseudo-potential method.  All available setups are contained in
+:ref:`tar-files <setup releases>`.  There are setups for the LDA,
 PBE, revPBE, RPBE and GLLBSC functionals.  Install them as described
 in the :ref:`installation of paw datasets` section.  The setups are stored as
 compressed :ref:`pawxml` files.
 
+
+.. _setup releases:
 
 Setup releases
 ==============
@@ -41,6 +43,12 @@ K_  Ca_ Sc_ Ti_ V_  Cr_ Mn_ Fe_ Co_ Ni_ Cu_ Zn_ Ga_ Ge_ As_ Se_ Br_ Kr_
 Rb_ Sr_ Y_  Zr_ Nb_ Mo_ Tc  Ru_ Rh_ Pd_ Ag_ Cd_ In_ Sn_ Sb_ Te_ I_  Xe_
 Cs_ Ba_ La_ Hf_ Ta_ W_  Re_ Os_ Ir_ Pt_ Au_ Hg_ Tl_ Pb_ Bi_ Po  At  Rn_
 === === === === === === === === === === === === === === === === === ===
+
+.. toctree::
+   :glob:
+   :hidden:
+
+   [A-Z]*
 
 
 .. _installation of paw datasets:
@@ -90,22 +98,24 @@ See also `NIST Atomic Reference Data`_.
 .. _NIST Atomic Reference Data: http://physics.nist.gov/PhysRefData/DFTdata/Tables/ptable.html
 
 
-.. toctree::
-   :maxdepth: 2
+Tests
+=====
 
-   molecule_tests
-   bulk_tests
+.. toctree::
+   :titlesonly:
+
    g2_1
    dcdft
-   generation_of_setups
-   pawxml
 
+
+Advanced topics
+===============
 
 .. toctree::
-   :glob:
-   :hidden:
+   :titlesonly:
 
-   [A-Z]*
+   generation_of_setups
+   pawxml
 
 
 .. _gpaw-setups-0.9.20000.tar.gz:

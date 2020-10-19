@@ -16,7 +16,7 @@ for k in [6, 8, 10, 12]:
                 occupations=FermiDirac(0.001),
                 txt='C_groundstate_{k}.txt'.format(k=k))
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian()

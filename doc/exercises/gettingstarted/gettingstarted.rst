@@ -31,7 +31,7 @@ are in order:
   quantities such as energies and forces on a collection of atoms.
   There are different kinds of calculators, and EMT is a particularly
   simple one.  The calculator is associated with the :class:`~ase.Atoms`
-  object by calling ``atoms.set_calculator(calc)``.
+  object by calling ``atoms.calc = calc``.
 * An :mod:`optimizer <ase.optimize>` is created and
   associated with the
   :class:`~ase.Atoms` object.  It is also given an optional argument,

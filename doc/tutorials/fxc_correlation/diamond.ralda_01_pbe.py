@@ -1,11 +1,10 @@
-from __future__ import print_function
 from ase import Atoms
 from ase.build import bulk
 from ase.dft import monkhorst_pack
 from ase.parallel import paropen
 from gpaw import GPAW, FermiDirac
 from gpaw.wavefunctions.pw import PW
-from gpaw.xc.exx import EXX
+from gpaw.hybrids.energy import non_self_consistent_energy as nsc_energy
 import numpy as np
 
 # Monkhorst-Pack grid shifted to be gamma centered
@@ -25,12 +24,10 @@ calc = GPAW(mode=PW(600),
             parallel={'domain': 1},
             txt='diamond.ralda_01_pbe.txt')
 
-a.set_calculator(calc)
+a.calc = calc
 E_pbe = a.get_potential_energy()
 
-exx = EXX(calc, txt='diamond.ralda_01_exx.txt')
-exx.calculate()
-E_hf = exx.get_total_energy()
+E_hf = nsc_energy(calc, 'ECC')
 
 E_C = np.loadtxt('CO.ralda.PBE_HF_C.dat')
 

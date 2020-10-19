@@ -322,11 +322,12 @@ def md5_array(data, numeric=False):
 
     Example:
 
-     >>> data = np.linspace(0,np.pi,1000000)
+     >>> data = np.linspace(0, np.pi, 1000000)
      >>> eps = 1e-6
      >>> a = md5_array(data.round(3))
-     >>> b = md5_array((data+eps).round(3))
-     >>> assert a==b, 'Mismatch between %s and %s' % (a,b)
+     >>> b = md5_array((data + eps).round(3))
+     >>> a == b
+     False
 
     This is due to the inexact nature of the floating point representation.
     """
@@ -378,10 +379,10 @@ class Spline:
 
         Example usage::
 
-          >>> xi = arange(.1, 5, .5)    # known data points
-          >>> yi = cos(xi)              # known data points
+          >>> xi = np.arange(.1, 5, .5)    # known data points
+          >>> yi = np.cos(xi)              # known data points
           >>> sp = Spline(xi, yi)       # make spline
-          >>> x = arange(-.5, 5.5, .05) # points to interpolate to
+          >>> x = np.arange(-.5, 5.5, .05) # points to interpolate to
           >>> y = sp(x)  # get spline value on an entire list
           >>> y2 = sp(4) # get spline value at a single point
 

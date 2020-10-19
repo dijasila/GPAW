@@ -535,13 +535,14 @@ def aglomerate_points(k_kc, tol):
                  c] = k_kc[inds_kc[pt_K[i], c], c]
 
 
-def atoms2symmetry(atoms, id_a=None):
+def atoms2symmetry(atoms, id_a=None, tolerance=1e-7):
     """Create symmetry object from atoms object."""
     if id_a is None:
         id_a = atoms.get_atomic_numbers()
     symmetry = Symmetry(id_a, atoms.cell, atoms.pbc,
                         symmorphic=False,
-                        time_reversal=False)
+                        time_reversal=False,
+                        tolerance=tolerance)
     symmetry.analyze(atoms.get_scaled_positions())
     return symmetry
 

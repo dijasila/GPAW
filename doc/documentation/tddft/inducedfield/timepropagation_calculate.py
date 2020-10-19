@@ -11,7 +11,7 @@ atoms.center(vacuum=6.0)
 
 # Standard ground state calculation
 calc = GPAW(nbands=2, h=0.4, setups={'Na': '1'})
-atoms.set_calculator(calc)
+atoms.calc = calc
 energy = atoms.get_potential_energy()
 calc.write('na2_gs.gpw', mode='all')
 
