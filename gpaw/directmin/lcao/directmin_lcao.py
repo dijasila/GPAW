@@ -22,6 +22,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals=None,
                  initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=20,
+                 update_ref_orbs_canonical=True,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
@@ -36,11 +37,13 @@ class DirectMinLCAO(DirectLCAO):
         self.initial_orbitals = initial_orbitals
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
+        self.update_ref_orbs_canonical = update_ref_orbs_canonical
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
         self.representation = representation
         self.iters = 0
+        self.restart = False
         self.name = 'direct_min'
 
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
@@ -267,10 +270,15 @@ class DirectMinLCAO(DirectLCAO):
             #     self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
 
+        occ.calculate(wfs)
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.restart = self.sort_wavefunctions_mom(occ, wfs)
+
+        self.update_ref_orbitals(wfs, ham, occ)
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
-        self.update_ref_orbitals(wfs, ham)
 
         if str(self.search_direction) == 'LBFGS_P2':
             for kpt in wfs.kpt_u:
@@ -562,19 +570,23 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs, ham):
+    def update_ref_orbitals(self, wfs, ham, occ):
         if str(self.search_direction) == 'LBFGS_P2':
             return 0
 
         counter = self.update_ref_orbs_counter
-        if self.iters % counter == 0 and self.iters > 1:
+        if (self.iters % counter == 0 and self.iters > 1) or \
+                self.restart:
             self.iters = 1
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                # self.sort_wavefunctions(ham, wfs, kpt)
-                self.c_nm_ref[u] = kpt.C_nM.copy()
-                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-                # self.sort_wavefunctions(ham, wfs, kpt)
+            if self.update_ref_orbs_canonical:
+                self.get_canonical_representation(ham, wfs, occ)
+            else:
+                for kpt in wfs.kpt_u:
+                    u = kpt.s * self.n_kps + kpt.q
+                    # self.sort_wavefunctions(ham, wfs, kpt)
+                    self.c_nm_ref[u] = kpt.C_nM.copy()
+                    self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+                    # self.sort_wavefunctions(ham, wfs, kpt)
 
             # choose search direction and line search algorithm
             if isinstance(self.sda, (basestring, dict)):
@@ -671,7 +683,7 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs):
+    def get_canonical_representation(self, ham, wfs, occ):
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. it's probably necessary
@@ -710,6 +722,13 @@ class DirectMinLCAO(DirectLCAO):
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
+
+        occ.calculate(wfs)
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.sort_wavefunctions_mom(occ, wfs)
+
+        for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.c_nm_ref[u] = kpt.C_nM.copy()
             self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
@@ -758,6 +777,23 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Sort WFS')
 
         return
+
+    def sort_wavefunctions_mom(self, occ, wfs):
+        changedocc = False
+        for kpt in wfs.kpt_u:
+            f_sn = kpt.f_n.copy()
+            if wfs.gd.comm.rank == 0:
+                occ.sort_wavefunctions(wfs, kpt)
+            # Broadcast coefficients, occupation numbers, eigenvalues
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            wfs.gd.comm.broadcast(kpt.f_n, 0)
+            wfs.gd.comm.broadcast(kpt.C_nM, 0)
+
+            if not np.allclose(kpt.f_n, f_sn) and self.iters > 1:
+                changedocc = True
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
+
+        return changedocc
 
     def todict(self):
         return {'name': 'direct_min_lcao',
@@ -917,6 +953,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Unitary rotation')
 
     def init_wave_functions(self, wfs, ham, occ, log):
+        occ_name = getattr(occ, "name", None)
 
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
@@ -925,10 +962,12 @@ class DirectMinLCAO(DirectLCAO):
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
+            if occ_name == 'mom':
+               self.sort_wavefunctions_mom(occ, wfs)
             self.localize_wfs(wfs, log)
 
         # if one want to use coefficients saved in gpw file
-        # or to use coefficients from the previous scf circle
+        # or to use coefficients from the previous scf cicle
         else:
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
@@ -939,6 +978,8 @@ class DirectMinLCAO(DirectLCAO):
                 kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
+            if occ_name == 'mom':
+               self.sort_wavefunctions_mom(occ, wfs)
 
     def localize_wfs(self, wfs, log):
 
