@@ -54,9 +54,10 @@ def interpolate_wave_functions(calc: 'GPAW',
         interpolate(wfs1.pd, wfs2.pd, kpt2.q,
                     kpt1.psit.array, psit2.array)
 
+        kpt2.eps_n = kpt1.eps_n#?
         kpt2.f_n = kpt1.f_n
 
-        kpt1.psit = None
+        kpt1.psit = None  # save memory
         kpt2.psit = psit2
 
     wfs2.occupations = wfs1.occupations
@@ -72,7 +73,7 @@ def interpolate_wave_functions(calc: 'GPAW',
     calc.density.set_mixer(calc.parameters.mixer)
     calc.density.log = calc.log
 
-    calc.create_hamiltonian(realspace=False, mode=None, xc=xc)
+    calc.create_hamiltonian(realspace=False, mode=calc.mode, xc=xc)
 
     xc.initialize(calc.density, calc.hamiltonian, wfs2)
 
