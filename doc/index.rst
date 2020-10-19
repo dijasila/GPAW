@@ -44,6 +44,8 @@ array([[  9.37566400e-14,   4.40256983e-14,  -6.44750360e-01],
 News
 ====
 
+* :ref:`GPAW version 20.10.0 <releasenotes>` released (19 Oct 2020).
+
 * :ref:`GPAW version 20.1.0 <releasenotes>` released (30 Jan 2020).
 
 * :ref:`GPAW version 19.8.1 <releasenotes>` released (8 Aug 2019).
