@@ -41,6 +41,7 @@ class DirectMinLCAO(DirectLCAO):
         self.matrix_exp = matrix_exp
         self.representation = representation
         self.iters = 0
+        self.restart = False
         self.name = 'direct_min'
 
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
@@ -270,7 +271,7 @@ class DirectMinLCAO(DirectLCAO):
         occ.calculate(wfs)
         occ_name = getattr(occ, "name", None)
         if occ_name == 'mom':
-            self.restart = self.sort_wavefunctions_mom(occ, wfs, ham)
+            self.restart = self.sort_wavefunctions_mom(occ, wfs)
 
         self.update_ref_orbitals(wfs, ham)
         wfs.timer.start('Preconditioning:')
@@ -572,7 +573,8 @@ class DirectMinLCAO(DirectLCAO):
             return 0
 
         counter = self.update_ref_orbs_counter
-        if self.iters % counter == 0 and self.iters > 1:
+        if (self.iters % counter == 0 and self.iters > 1) or \
+                self.restart:
             self.iters = 1
             for kpt in wfs.kpt_u:
                 u = kpt.s * self.n_kps + kpt.q
@@ -676,7 +678,7 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs):
+    def get_canonical_representation(self, ham, wfs, occ):
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. it's probably necessary
@@ -715,6 +717,13 @@ class DirectMinLCAO(DirectLCAO):
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
+
+        occ.calculate(wfs)
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.sort_wavefunctions_mom(occ, wfs)
+
+        for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.c_nm_ref[u] = kpt.C_nM.copy()
             self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
@@ -764,7 +773,7 @@ class DirectMinLCAO(DirectLCAO):
 
         return
 
-    def sort_wavefunctions_mom(self, occ, wfs, ham, sort_eps=False):
+    def sort_wavefunctions_mom(self, occ, wfs):
         changedocc = False
         for kpt in wfs.kpt_u:
             f_sn = kpt.f_n.copy()
@@ -777,8 +786,7 @@ class DirectMinLCAO(DirectLCAO):
 
             if not np.allclose(kpt.f_n, f_sn) and self.iters > 1:
                 changedocc = True
-
-            wfs.atomic_correction.calculate_projections(wfs, kpt)
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
 
         return changedocc
 
@@ -940,6 +948,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Unitary rotation')
 
     def init_wave_functions(self, wfs, ham, occ, log):
+        occ_name = getattr(occ, "name", None)
 
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
@@ -948,10 +957,12 @@ class DirectMinLCAO(DirectLCAO):
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
+            if occ_name == 'mom':
+               self.sort_wavefunctions_mom(occ, wfs)
             self.localize_wfs(wfs, log)
 
         # if one want to use coefficients saved in gpw file
-        # or to use coefficients from the previous scf circle
+        # or to use coefficients from the previous scf cicle
         else:
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
@@ -962,6 +973,8 @@ class DirectMinLCAO(DirectLCAO):
                 kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
+            if occ_name == 'mom':
+               self.sort_wavefunctions_mom(occ, wfs)
 
     def localize_wfs(self, wfs, log):
 
