@@ -842,10 +842,10 @@ class DirectMin(Eigensolver):
                     kpt.psit_nG[:n_occ] = \
                         np.tensordot(lamb.conj(), kpt.psit_nG[:n_occ],
                                      axes=1)
-                    for a in kpt.P_ani.keys():
-                        kpt.P_ani[a][:n_occ] = \
-                            np.dot(lamb.conj(),
-                                   kpt.P_ani[a][:n_occ ])
+                    kpt.psit_nG[n_occ:n_occ + dim] = \
+                        np.tensordot(lumo.conj(), kpt.psit_nG[n_occ:n_occ + dim],
+                                     axes=1)
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
         # update fermi level?
         del grad_knG
