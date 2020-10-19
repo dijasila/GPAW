@@ -22,6 +22,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals=None,
                  initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=20,
+                 update_ref_orbs_canonical=True,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
@@ -36,6 +37,7 @@ class DirectMinLCAO(DirectLCAO):
         self.initial_orbitals = initial_orbitals
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
+        self.update_ref_orbs_canonical = update_ref_orbs_canonical
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
@@ -273,7 +275,7 @@ class DirectMinLCAO(DirectLCAO):
         if occ_name == 'mom':
             self.restart = self.sort_wavefunctions_mom(occ, wfs)
 
-        self.update_ref_orbitals(wfs, ham)
+        self.update_ref_orbitals(wfs, ham, occ)
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
@@ -568,7 +570,7 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs, ham):
+    def update_ref_orbitals(self, wfs, ham, occ):
         if str(self.search_direction) == 'LBFGS_P2':
             return 0
 
@@ -576,12 +578,15 @@ class DirectMinLCAO(DirectLCAO):
         if (self.iters % counter == 0 and self.iters > 1) or \
                 self.restart:
             self.iters = 1
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                # self.sort_wavefunctions(ham, wfs, kpt)
-                self.c_nm_ref[u] = kpt.C_nM.copy()
-                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-                # self.sort_wavefunctions(ham, wfs, kpt)
+            if self.update_ref_orbs_canonical:
+                self.get_canonical_representation(ham, wfs, occ)
+            else:
+                for kpt in wfs.kpt_u:
+                    u = kpt.s * self.n_kps + kpt.q
+                    # self.sort_wavefunctions(ham, wfs, kpt)
+                    self.c_nm_ref[u] = kpt.C_nM.copy()
+                    self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+                    # self.sort_wavefunctions(ham, wfs, kpt)
 
             # choose search direction and line search algorithm
             if isinstance(self.sda, (basestring, dict)):
