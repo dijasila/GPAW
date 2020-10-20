@@ -62,36 +62,16 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
     assert KS_gap == pytest.approx(KS_gap_direct_ref, abs=1e-4)
     assert QP_gap == pytest.approx(QP_gap_direct_ref, abs=1e-4)
 
-    if deprecated_syntax:
-        with pytest.warns(DeprecationWarning):
-            from gpaw import restart
+    # Calculate accurate KS-band gap from band structure
+    bs_calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
+                                 symmetry='off',
+                                 nbands=8,
+                                 convergence={'bands': 6},
+                                 eigensolver=Davidson(niter=4),
+                                 txt='bs.out')
 
-            calc.write('gs.gpw')
-            # Calculate accurate KS-band gap from band structure
-            atoms, bs_calc = restart('gs.gpw',
-                                     fixdensity=True,
-                                     kpts={'path': 'GX', 'npoints': 12},
-                                     symmetry='off',
-                                     nbands=8,
-                                     convergence={'bands': 6},
-                                     eigensolver=Davidson(niter=4),
-                                     txt='bs.out')
-            atoms.get_potential_energy()
-
-        # Get the accurate KS-band gap
-        homolumo = bs_calc.get_homo_lumo()
-        homo, lumo = homolumo
-    else:
-        # Calculate accurate KS-band gap from band structure
-        bs_calc = calc.fixed_density(kpts={'path': 'GX', 'npoints': 12},
-                                     symmetry='off',
-                                     nbands=8,
-                                     convergence={'bands': 6},
-                                     eigensolver=Davidson(niter=4),
-                                     txt='bs.out')
-
-        # Get the accurate KS-band gap
-        homo, lumo = bs_calc.get_homo_lumo()
+    # Get the accurate KS-band gap
+    homo, lumo = bs_calc.get_homo_lumo()
 
     if deprecated_syntax:
         with pytest.warns(DeprecationWarning):
@@ -100,7 +80,7 @@ def test_gllb_diamond(in_tmp_dir, deprecated_syntax):
 
             # Calculate the discontinuity potential with accurate band gap
             response = calc.hamiltonian.xc.xcs['RESPONSE']
-            response.calculate_delta_xc(homolumo=homolumo / Ha)
+            response.calculate_delta_xc(homolumo=(homo / Ha, lumo / Ha))
 
             # Calculate the discontinuity using the band structure calculator
             bs_response = bs_calc.hamiltonian.xc.xcs['RESPONSE']

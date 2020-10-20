@@ -40,7 +40,8 @@ def interpolate_wave_functions(calc: 'GPAW',
 
     N_c, h = calc.choose_number_of_grid_points(cell_cv, atoms.pbc,
                                                mode=calc.mode)
-    gd = wfs1.gd.new_descriptor(N_c=N_c, cell_cv=cell_cv)
+    gd1 = wfs1.gd
+    gd2 = gd1.new_descriptor(N_c=N_c, cell_cv=cell_cv)
 
     wfs2 = PWWaveFunctions(
         wfs1.ecut,
@@ -51,7 +52,7 @@ def interpolate_wave_functions(calc: 'GPAW',
         wfs1.initksl,
         wfs1.wfs_mover,
         wfs1.collinear,
-        gd,
+        gd2,
         wfs1.nvalence,
         wfs1.setups,
         wfs1.bd,
@@ -70,7 +71,7 @@ def interpolate_wave_functions(calc: 'GPAW',
         interpolate(wfs1.pd, wfs2.pd, kpt2.q,
                     kpt1.psit.array, psit2.array)
 
-        kpt2.eps_n = kpt1.eps_n#?
+        #kpt2.eps_n = kpt1.eps_n#?
         kpt2.f_n = kpt1.f_n
 
         kpt1.psit = None  # save memory
