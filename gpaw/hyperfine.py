@@ -36,7 +36,8 @@ alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck
 g_factor_e = 2.00231930436256
 
 
-def hyperfine_parameters(calc: GPAW) -> Array3D:
+def hyperfine_parameters(calc: GPAW,
+                         exclude_core=False) -> Array3D:
     r"""Calculate isotropic and anisotropic hyperfine coupling paramters.
 
     One tensor (:math:`A_{ij}`) per atom is returned in eV units.
@@ -68,11 +69,18 @@ def hyperfine_parameters(calc: GPAW) -> Array3D:
 
     D_asp = calc.density.D_asp
     for a, D_sp in D_asp.items():
-        A_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
-                              calc.wfs.setups[a])
+        spin_density_ii = unpack2(D_sp[0] - D_sp[1])
+        setup = calc.wfs.setups[a]
+
+        A_vv = paw_correction(spin_density_ii, setup)
+
+        if not exclude_core:
+            A_vv += core_contribution(spin_density_ii, setup)
+
         A_avv[a] += A_vv
 
     A_avv *= pi * alpha**2 * g_factor_e * units._me / units._mp * units.Ha
+
     return A_avv
 
 
@@ -227,6 +235,13 @@ def integrate(n0_g: Array1D,
     return n0
 
 
+def core_contribution(spin_density_ii: Array2D,
+                      setup: Setup) -> Array2D:
+    if setup.Nc > 0:
+        raise NotImplementedError
+    return np.zeros((3, 3))
+
+
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
 # Units: MHz/T
 gyromagnetic_ratios = {'H': (1, 42.577478518),
@@ -258,6 +273,7 @@ def main(argv: List[str] = None) -> None:
         help='G-factors.  Example: "-g H:5.6,O:-0.76".')
     add('-u', '--units', default='ueV', choices=['ueV', 'MHz'],
         help='Units.  Must be "uev" (micro-eV, default) or "MHz".')
+    add('-x', '--exclude-core', action='store_true')
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
     else:
@@ -286,7 +302,7 @@ def main(argv: List[str] = None) -> None:
         scale = units._e / units._hplanck * 1e-6
         unit = 'MHz'
 
-    A_avv = hyperfine_parameters(calc)
+    A_avv = hyperfine_parameters(calc, args.exclude_core)
 
     print('Isotropic and anisotropic hyperfine coupling paramters '
           f'in {unit}:\n')

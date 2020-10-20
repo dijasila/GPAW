@@ -2,13 +2,21 @@ import time
 import pytest
 from ase import Atoms
 from ase.calculators.tip3p import TIP3P, rOH, angleHOH
-from ase.md import Langevin
+from ase.md import Langevin as Langevin0
 import ase.units as units
 from ase.io.trajectory import Trajectory
 from ase.constraints import FixBondLengths
 import numpy as np
 from ase.io import read
 from gpaw.utilities.watermodel import FixBondLengthsWaterModel, TIP3PWaterModel
+
+
+def Langevin(*args, **kwargs):
+    try:
+        return Langevin0(*args, **kwargs)
+    except TypeError:
+        kT = kwargs.pop('temperature_K') * units.kB
+        return Langevin0(*args, **kwargs, temperature=kT)
 
 
 @pytest.mark.slow
@@ -48,7 +56,7 @@ def test_watermodel(in_tmp_dir):
     atoms_ref.calc = TIP3P(rc=cutoff)
 
     np.random.seed(123)
-    md = Langevin(atoms, 1 * units.fs, temperature=300 * units.kB,
+    md = Langevin(atoms, 1 * units.fs, temperature_K=300,
                   friction=0.01, logfile='C.log')
     traj = Trajectory('C.traj', 'w', atoms)
     md.attach(traj.write, interval=1)
@@ -63,7 +71,7 @@ def test_watermodel(in_tmp_dir):
     traj.close()
 
     np.random.seed(123)
-    md_ref = Langevin(atoms_ref, 1 * units.fs, temperature=300 * units.kB,
+    md_ref = Langevin(atoms_ref, 1 * units.fs, temperature_K=300,
                       friction=0.01, logfile='ref.log')
     traj_ref = Trajectory('ref.traj', 'w', atoms_ref)
     md_ref.attach(traj_ref.write, interval=1)

@@ -1085,13 +1085,13 @@ class BasisFunctions(LocalizedFunctionsCollection):
 
         if psit_xG.dtype != self.dtype:
             raise TypeError(
-                f"psit_xG has type {psit_xG.dtype}, but expected one of {self.dtype}"
-            )
+                f'psit_xG has type {psit_xG.dtype}, '
+                f'but expected one of {self.dtype}')
 
         if C_xM.dtype != self.dtype:
             raise TypeError(
-                f"C_xM has type {C_xM.dtype}, but expected one of {self.dtype}"
-            )
+                f'C_xM has type {C_xM.dtype}, '
+                f'but expected one of {self.dtype}')
 
         xshape = C_xM.shape[:-1]
         assert psit_xG.shape[:-3] == xshape

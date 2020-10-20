@@ -80,7 +80,20 @@ from ase.utils import opencew
 from gpaw import GPAW
 
 
-class ElectronPhononCoupling(Displacement):
+class BackwardsCompatibleDisplacement(Displacement):
+    def __init__(self, atoms, calc, supercell,
+                 name, delta):
+        if hasattr(Displacement, 'compute_lattice_vectors'):
+            Displacement.__init__(self, atoms, calc, supercell,
+                                  name, delta, center_refcell=True)
+        else:
+            Displacement.__init__(self, atoms, calc, supercell,
+                                  name, delta, refcell='center')
+            self.supercell = self.N_c
+            self.compute_lattice_vectors = self.lattice_vectors
+
+
+class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
     """Class for calculating the electron-phonon coupling in an LCAO basis.
 
     The derivative of the effective potential wrt atomic displacements is
@@ -118,13 +131,9 @@ class ElectronPhononCoupling(Displacement):
 
         # Init base class and make the center cell in the supercell the
         # reference cell
-        try:
-            Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
-                                  name=name, delta=delta, refcell='center')
-        except TypeError:
-            Displacement.__init__(self, atoms, calc=calc, supercell=supercell,
-                                  name=name, delta=delta,
-                                  center_refcell=True)
+        BackwardsCompatibleDisplacement.__init__(
+            self, atoms, calc=calc, supercell=supercell,
+            name=name, delta=delta)
 
         self.calculate_forces = calculate_forces
         # Log
@@ -274,7 +283,7 @@ class ElectronPhononCoupling(Displacement):
 
         # Supercell atoms
         if atoms is None:
-            atoms_N = self.atoms * self.N_c
+            atoms_N = self.atoms * self.supercell
         else:
             atoms_N = atoms
 
@@ -399,7 +408,7 @@ class ElectronPhononCoupling(Displacement):
                     g_MM = tb.bloch_to_real_space(g_qMM, R_c=(0, 0, 0))[0]
 
                 # Reshape to global unit cell indices
-                N = np.prod(self.N_c)
+                N = np.prod(self.supercell)
                 # Number of basis function in the primitive cell
                 assert (nao % N) == 0, "Alarm ...!"
                 nao_cell = nao // N
@@ -512,7 +521,7 @@ class ElectronPhononCoupling(Displacement):
 
         # Number of atoms and primitive cells
         N_atoms = len(self.indices)
-        N = np.prod(self.N_c)
+        N = np.prod(self.supercell)
         nao = g_xNNMM.shape[-1]
 
         # Reshape array
@@ -529,7 +538,7 @@ class ElectronPhononCoupling(Displacement):
             slice_a.append(s)
 
         # Lattice vectors
-        R_cN = self.lattice_vectors()
+        R_cN = self.compute_lattice_vectors()
 
         # Unit cell vectors
         cell_vc = self.atoms.cell.transpose()
@@ -700,9 +709,9 @@ class ElectronPhononCoupling(Displacement):
         assert nao == g_xNNMM.shape[-1]
 
         # Lattice vectors
-        R_cN = self.lattice_vectors()
+        R_cN = self.compute_lattice_vectors()
         # Number of unit cell in supercell
-        N = np.prod(self.N_c)
+        N = np.prod(self.supercell)
 
         # Allocate array for couplings
         g_qklnn = np.zeros((kd_qpts.nbzkpts, len(kpts_kc), nmodes,
@@ -800,7 +809,7 @@ class ElectronPhononCoupling(Displacement):
         pbc_c = np.array(self.atoms.get_pbc(), dtype=bool)
 
         # Supercell atoms and cell
-        atoms_N = self.atoms * self.N_c
+        atoms_N = self.atoms * self.supercell
         supercell_cv = atoms_N.get_cell() / units.Bohr
 
         # q-grid in units of the grid spacing (FFT ordering)

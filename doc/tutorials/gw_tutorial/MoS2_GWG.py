@@ -10,7 +10,7 @@ gw = G0W0(calc='MoS2_fulldiag.gpw',
           truncation='2D',
           nblocksmax=True,
           q0_correction=True,
-          filename='MoS2_g0w0g_%s' %ecut,
+          filename='MoS2_g0w0g_%s' % ecut,
           savepckl=True)
 
 gw.calculate()

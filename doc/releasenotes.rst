@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.20.0b1
+* Corresponding ASE release: ASE-3.20.1b1
+
+
+Version 20.10.0
+===============
+
+19 Oct 2020: :git:`20.10.0 <../20.10.0>`
+
+* Corresponding ASE release: ASE-3.20.1.
 
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
   and uses symmetry.  Angles are given in degrees (was radians before).
