@@ -22,7 +22,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals=None,
                  initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=20,
-                 update_ref_orbs_canonical=True,
+                 update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
@@ -578,7 +578,7 @@ class DirectMinLCAO(DirectLCAO):
         if (self.iters % counter == 0 and self.iters > 1) or \
                 self.restart:
             self.iters = 1
-            if self.update_ref_orbs_canonical:
+            if self.update_ref_orbs_canonical or self.restart:
                 self.get_canonical_representation(ham, wfs, occ)
             else:
                 for kpt in wfs.kpt_u:
@@ -697,27 +697,21 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             tri2full(h_mm)
             if self.odd.name == 'Zero':
-                n_init = 0
-                while True:
-                    n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
-                    kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
-                        rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                    n_init += n_fin
-                    if n_init == len(kpt.f_n):
-                        break
-                    elif n_init > len(kpt.f_n):
-                        raise SystemExit('Bug is here!')
-                    # this function rotates occpuied subspace
-                    # n_occ = 0
-                    # nbands = len(kpt.f_n)
-                    # while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-                    #     n_occ += 1
-                    # n_unocc = len(kpt.f_n) - n_occ
-                    #
-                    # for x in [0, n_occ]:
-                    #     y = (x // n_occ) * (n_unocc - n_occ) + n_occ
-                    #     kpt.C_nM[x:x + y, :], kpt.eps_n[x:x + y] = \
-                    #         rotate_subspace(h_mm, kpt.C_nM[x:x + y, :])
+                if self.update_ref_orbs_canonical or self.restart:
+                    # Diagonalize entire Hamiltonian matrix
+                    kpt.C_nM, kpt.eps_n = rotate_subspace(h_mm, kpt.C_nM)
+                else:
+                    # Diagonalize equally occupied subspaces separately
+                    n_init = 0
+                    while True:
+                        n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
+                        kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
+                            rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                        n_init += n_fin
+                        if n_init == len(kpt.f_n):
+                            break
+                        elif n_init > len(kpt.f_n):
+                            raise SystemExit('Bug is here!')
             elif self.odd.name == 'PZ_SIC':
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
