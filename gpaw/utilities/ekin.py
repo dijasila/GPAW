@@ -14,7 +14,7 @@ def ekin(dataset: Setup) -> Tuple[Array1D, Array1D, float]:
     de_j = ds.data.e_kin_jj.diagonal()
     phit_j = ds.pseudo_partial_waves_j
     e0 = -ds.Kc
-    e_k = 0.0
+    e_k: Array1D = 0.0  # type: ignore
 
     for f, l, de, phit in zip(ds.f_j, ds.l_j, de_j, phit_j):
         if f == 0.0:
