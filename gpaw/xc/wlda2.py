@@ -858,7 +858,6 @@ class WLDA(XCFunctional):
 
         nstar_sg = self.radial_c(n_sg, e_g, v_sg,
                                  nstar_sg)
-        
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
 
         import matplotlib.pyplot as plt
@@ -1280,7 +1279,7 @@ class WLDA(XCFunctional):
         v_g[:] += self.radial_derivative_fold(ex, n_g, spin)
         ratio = nstar_g / n_g
         ratio[np.isclose(n_g, 0.0)] = 0.0
-        v_g[:] += -rs * dexdrs / 3.0 * ratio * np.isclose(rs * dexdrs / 3.0, 0.0)
+        v_g[:] += -rs * dexdrs / 3.0 * ratio * np.logical_not(np.isclose(rs * dexdrs / 3.0, 0.0))
 
     def radial_c2(self, spin, e_g, n_g, nstar_g, v_g, zeta):
         """Calculate e_c[n]n* and potential."""
@@ -1298,7 +1297,7 @@ class WLDA(XCFunctional):
             v_g[:] += self.radial_derivative_fold(ec, n_g, spin)
             ratio = nstar_g / n_g
             ratio[np.isclose(n_g, 0.0)] = 0.0
-            v_g[:] += -rs * decdrs_0 / 3.0 * ratio * np.isclose(rs * decdrs_0 / 3.0, 0.0)
+            v_g[:] += -rs * decdrs_0 / 3.0 * ratio * np.logical_not(np.isclose(rs * decdrs_0 / 3.0, 0.0))
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
@@ -1326,7 +1325,7 @@ class WLDA(XCFunctional):
 
             ratio = nstar_g / n_g
             ratio[np.isclose(n_g, 0.0)] = 0.0
-            ratio *= np.isclose(rs * decdrs / 3.0, 0.0)
+            ratio *= np.logical_not(np.isclose(rs * decdrs / 3.0, 0.0))
             
             v_g[0] += self.radial_derivative_fold(ec, n_g, 0) - rs * decdrs / 3.0 * ratio - (zeta - 1.0) * decdzeta
             v_g[1] += self.radial_derivative_fold(ec, n_g, 0) - rs * decdrs / 3.0 * ratio - (zeta + 1.0) * decdzeta
