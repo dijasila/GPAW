@@ -273,7 +273,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac, atom_partition)
-        self.allocate_arrays_for_projections(self.pt.my_atom_indices)
+        self.allocate_arrays_for_projections()
         self.positions_set = True
 
     def initialize(self, density, hamiltonian, spos_ac):

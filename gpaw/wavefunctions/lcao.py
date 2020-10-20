@@ -250,7 +250,7 @@ class LCAOWaveFunctions(WaveFunctions):
         if self.debug_tci:
             self.atomic_correction.add_overlap_correction(oldS_qMM)
 
-        self.allocate_arrays_for_projections(my_atom_indices)
+        self.allocate_arrays_for_projections()
 
         # S_MM = None  # allow garbage collection of old S_qMM after redist
         if self.debug_tci:

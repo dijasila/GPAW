@@ -246,9 +246,10 @@ class WaveFunctions:
         self.kd.symmetry.check(spos_ac)
         self.spos_ac = spos_ac
 
-    def allocate_arrays_for_projections(self, my_atom_indices):  # XXX unused
-        if not self.positions_set and self.kpt_u[0]._projections is not None:
-            # Projections have been read from file - don't delete them!
+    def allocate_arrays_for_projections(self):
+        if self.kpt_u[0]._projections is not None:
+            # Projections have been read from file or
+            # interpolated - don't delete them!
             pass
         else:
             nproj_a = [setup.ni for setup in self.setups]
@@ -258,6 +259,8 @@ class WaveFunctions:
                     self.atom_partition,
                     self.bd.comm,
                     collinear=self.collinear, spin=kpt.s, dtype=self.dtype)
+                if isinstance(kpt.psit_nG, np.ndarray):
+                    kpt.psit.matrix_elements(self.pt, out=kpt.projections)
 
     def collect_eigenvalues(self, k, s):
         return self.collect_array('eps_n', k, s)
