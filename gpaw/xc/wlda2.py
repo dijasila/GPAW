@@ -860,27 +860,27 @@ class WLDA(XCFunctional):
                                  nstar_sg)
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
 
-        import matplotlib.pyplot as plt
-        plt.plot(rgd.r_g, n_sg[0])
-        plt.savefig("nsg.png")
-        plt.close()
+        # import matplotlib.pyplot as plt
+        # plt.plot(rgd.r_g, n_sg[0])
+        # plt.savefig("nsg.png")
+        # plt.close()
 
-        plt.plot(rgd.r_g, nstar_sg[0])
-        plt.savefig("nstarsg.png")
-        plt.close()
+        # plt.plot(rgd.r_g, nstar_sg[0])
+        # plt.savefig("nstarsg.png")
+        # plt.close()
 
-        inds = rgd.r_g < 20
-        plt.plot(rgd.r_g[inds], v_sg[0, inds])
-        plt.plot(rgd.r_g[inds], v1[0, inds], label="v1")
-        plt.plot(rgd.r_g[inds], v2[0, inds], label="v2")
-        plt.plot(rgd.r_g[inds], v3[0, inds], label="v3")
-        plt.legend()
-        plt.savefig("vsg.png")
-        plt.close()
+        # inds = rgd.r_g < 20
+        # plt.plot(rgd.r_g[inds], v_sg[0, inds])
+        # plt.plot(rgd.r_g[inds], v1[0, inds], label="v1")
+        # plt.plot(rgd.r_g[inds], v2[0, inds], label="v2")
+        # plt.plot(rgd.r_g[inds], v3[0, inds], label="v3")
+        # plt.legend()
+        # plt.savefig("vsg.png")
+        # plt.close()
 
-        plt.plot(rgd.r_g, e_g)
-        plt.savefig("eg.png")
-        plt.close()
+        # plt.plot(rgd.r_g, e_g)
+        # plt.savefig("eg.png")
+        # plt.close()
 
         E = rgd.integrate(e_g)
         # print(f"E = {E}", flush=True)
@@ -966,7 +966,7 @@ class WLDA(XCFunctional):
             
             return nstar_sg
         else:
-            n_g = np.array([n_sg.sum(axis=0)])
+            n_g = np.array([n_sg.sum(axis=0)]) * 0.5
             self.setup_radial_indicators(n_g)
             nstar_g = self.radial_weighted_density(n_g)
             zeta_g = (n_sg[0] - n_sg[1]) / (n_sg[0] + n_sg[1])
@@ -975,7 +975,6 @@ class WLDA(XCFunctional):
             self.radial_c1(spin, e1_g, n_g[0], nstar_g[0], v1_sg, zeta_g)
             self.radial_c2(spin, e2_g, n_g[0], nstar_g[0], v2_sg, zeta_g)
             self.radial_c3(spin, e3_g, n_g[0], nstar_g[0], v3_sg, zeta_g)
-
 
             e_g[:] += e1_g + e2_g - e3_g
             v_sg[:] += v1_sg + v2_sg - v3_sg
