@@ -71,7 +71,6 @@ def interpolate_wave_functions(calc: 'GPAW',
         interpolate(wfs1.pd, wfs2.pd, kpt2.q,
                     kpt1.psit.array, psit2.array)
 
-        #kpt2.eps_n = kpt1.eps_n#?
         kpt2.f_n = kpt1.f_n
 
         kpt1.psit = None  # save memory
@@ -110,7 +109,10 @@ def interpolate(pd1: PWDescriptor,
                 a1_nG: Array2D,
                 a2_nG: Array2D) -> None:
     """Interpolate wave functions from one cell to another."""
+    scale = (pd2.gd.N_c.prod() / pd1.gd.N_c.prod() *
+             (pd1.gd.volume / pd2.gd.volume)**0.5)
     map12 = PWMapping(pd1, pd2, q)
     a2_nG[:] = 0.0
     for a1_G, a2_G in zip(a1_nG, a2_nG):
         map12.add_to2(a2_G, a1_G)
+    a2_nG *= scale
