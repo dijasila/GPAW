@@ -1,9 +1,13 @@
 from math import pi
+from typing import Tuple
 import numpy as np
 from ase.units import Ha
 
+from gpaw.hints import Array1D
+from gpaw.setup import Setup
 
-def ekin(dataset):
+
+def ekin(dataset: Setup) -> Tuple[Array1D, Array1D, float]:
     """Calculate PAW kinetic energy contribution as a function of G."""
     ds = dataset
     rgd = dataset.rgd
@@ -23,11 +27,11 @@ def ekin(dataset):
     return G_k, e_k, e0
 
 
-def dekindecut(G, de, ecut):
+def dekindecut(G: Array1D, de: Array1D, ecut: float) -> float:
+    """Linear interpolation."""
     dG = G[1]
     G0 = (2 * ecut)**0.5
     g = int(G0 / dG)
-    # linear interpolation:
     dedG = np.polyval(np.polyfit(G[g:g + 2], de[g:g + 2], 1), G0)
     dedecut = dedG / G0
     return dedecut
