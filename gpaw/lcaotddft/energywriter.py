@@ -30,7 +30,8 @@ class EnergyWriter(TDDFTObserver):
             return
         line = '# %s[version=%s]\n' % (self.__class__.__name__, self.version)
         line += ('# %15s %22s %22s %22s %22s %22s %22s\n' %
-                 ('time', 'kinetic0', 'coulomb', 'zero', 'external', 'xc', 'band'))
+                 ('time', 'kinetic0', 'coulomb', 'zero', 'external',
+                  'xc', 'band'))
         self._write(line)
 
     def _write_kick(self, paw):
@@ -82,8 +83,9 @@ class EnergyWriter(TDDFTObserver):
     def _write_energy(self, paw):
         time = paw.time
         energy_i = self._get_energies(paw) - self.energy0_i
-        line = ('%20.8lf %22.12le %22.12le %22.12le %22.12le %22.12le %22.12le\n' %
-                ((time, ) + tuple(energy_i)))
+        line = (
+            '%20.8lf %22.12le %22.12le %22.12le %22.12le %22.12le %22.12le\n' %
+            ((time, ) + tuple(energy_i)))
         self._write(line)
 
     def _update(self, paw):

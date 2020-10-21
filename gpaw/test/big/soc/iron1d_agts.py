@@ -7,7 +7,7 @@ from gpaw.spinorbit import soc_eigenstates
 
 atoms = Atoms('Fe',
               magmoms=[2.5],
-              cell=[2.5, 5, 5],
+              cell=[2.3, 5, 5],
               pbc=True)
 
 
@@ -47,7 +47,7 @@ def soc(params: Dict) -> list:
 
 def run() -> None:
     """Compare with and without symmetry."""
-    params = dict(mode=PW(400),
+    params = dict(mode=PW(500),
                   xc='PBE',
                   kpts=[7, 1, 1],
                   convergence={'eigenstates': 1e-10})

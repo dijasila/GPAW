@@ -577,7 +577,7 @@ class _Communicator:
           (3, 4)
           >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))  # doctest: +SKIP
+          >>> comm = world.new_communicator(np.array([2, 3]))  # doctest: +SKIP
           >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
           >>> comm.get_members()  # doctest: +SKIP

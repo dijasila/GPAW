@@ -1,14 +1,12 @@
 import argparse
-from typing import List, Any, Union
+from typing import List, Union
 
 from ase import Atoms
 import numpy as np
 
 from gpaw import GPAW
 from gpaw.point_groups import SymmetryChecker, point_group_names
-
-Array1D = Any
-Array3D = Any
+from gpaw.hints import Array1D, Array3D
 
 
 class CubeCalc:
