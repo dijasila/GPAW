@@ -26,7 +26,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities import unpack2
 from gpaw.gaunt import gaunt
-
+from gpaw.xc.functional import XCFunctional
 from gpaw.hints import Array1D, Array2D, Array3D
 
 
@@ -69,13 +69,13 @@ def hyperfine_parameters(calc: GPAW,
 
     D_asp = calc.density.D_asp
     for a, D_sp in D_asp.items():
-        spin_density_ii = unpack2(D_sp[0] - D_sp[1])
+        density_sii = unpack2(D_sp)
         setup = calc.wfs.setups[a]
 
-        A_vv = paw_correction(spin_density_ii, setup)
+        A_vv = paw_correction(density_sii[0] - density_sii[1], setup)
 
         if not exclude_core:
-            A_vv += core_contribution(spin_density_ii, setup)
+            A_vv += core_contribution(density_sii, setup, calc.hamiltonian.xc)
 
         A_avv[a] += A_vv
 
@@ -156,7 +156,7 @@ def paw_correction(spin_density_ii: Array2D,
     # Spin-density from pseudo density:
     nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
 
-    # All-electron contribution diveges as r^-beta and must be integrated
+    # All-electron contribution diverges as r^-beta and must be integrated
     # over a small region of size rT:
     n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
     beta = 2 * (1 - (1 - (setup.Z * alpha)**2)**0.5)
@@ -235,11 +235,22 @@ def integrate(n0_g: Array1D,
     return n0
 
 
-def core_contribution(spin_density_ii: Array2D,
-                      setup: Setup) -> Array2D:
-    if setup.Nc > 0:
-        raise NotImplementedError
-    return np.zeros((3, 3))
+def core_contribution(density_sii: Array3D,
+                      setup: Setup,
+                      xc: XCFunctional) -> Array2D:
+    if setup.Nc == 0:
+        return np.zeros((3, 3))
+
+    # Spherical part:
+    D_sjj = [expand(density_ii, setup.l_j, 0)[0] for density_ii in density_sii]
+
+    phi_jg = np.array(setup.data.phi_jg)
+
+    rgd = setup.rgd
+
+    # Spin-density from pseudo density:
+    nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
+
 
 
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
