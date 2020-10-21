@@ -5,10 +5,12 @@ import ase.units as units
 
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
-                            integrate, alpha, g_factor_e)
+                            integrate, alpha, g_factor_e, core_contribution)
 from gpaw import GPAW
 from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.lfc import LFC
+from gpaw.setup import create_setup
+from gpaw.xc import XC
 
 
 @pytest.mark.serial
@@ -45,6 +47,7 @@ class Setup:
         self.data = Data(self.rgd)
         self.l_j = [0, 1]
         self.Z = 1
+        self.Nc = 0
 
 
 class Data:
@@ -85,9 +88,9 @@ def test_gaussian(things):
     print(W_avv)
     assert abs(W_avv[0] - np.eye(3) * W_avv[0, 0, 0]).max() < 1e-7
 
-    spin_denisty_ii = np.zeros((4, 4))
-    spin_denisty_ii[0, 0] = 1.0
-    W1_vv = paw_correction(spin_denisty_ii, setup)
+    denisty_sii = np.zeros((2, 4, 4))
+    denisty_sii[0, 0, 0] = 1.0
+    W1_vv = paw_correction(denisty_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-7
 
@@ -107,9 +110,9 @@ def test_gaussian2(things):
                                     [0, 0, 1],
                                     [0, 1, 0]]) * W_avv[0, 1, 2]).max() < 1e-7
 
-    spin_denisty_ii = np.zeros((4, 4))
-    spin_denisty_ii[2, 1] = 1.0
-    W1_vv = paw_correction(spin_denisty_ii, setup)
+    denisty_sii = np.zeros((2, 4, 4))
+    denisty_sii[0, 2, 1] = 1.0
+    W1_vv = paw_correction(denisty_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-6
 
@@ -140,3 +143,12 @@ def thomson():
     x, a, b = var('x, a, b')
     print(integrate(E**(-b * x) / (1 + x)**2, (x, 0, oo)))
     print(expint(2, 1.0))
+
+
+def test_hyper_core():
+    setup = create_setup('N')
+    xc = XC('LDA')
+    print(setup.n_j)
+    D_sii = np.zeros((2, 13, 13))
+    cc = core_contribution(D_sii, setup, xc)
+    

@@ -72,10 +72,10 @@ def hyperfine_parameters(calc: GPAW,
         density_sii = unpack2(D_sp)
         setup = calc.wfs.setups[a]
 
-        A_vv = paw_correction(density_sii[0] - density_sii[1], setup)
-
-        if not exclude_core:
-            A_vv += core_contribution(density_sii, setup, calc.hamiltonian.xc)
+        A_vv = paw_correction(density_sii,
+                              setup,
+                              calc.hamiltonian.xc,
+                              exclude_core)
 
         A_avv[a] += A_vv
 
@@ -142,11 +142,14 @@ Y2_mvv = np.array([[[0, 1, 0],
                     [0, 0, 0]]])
 
 
-def paw_correction(spin_density_ii: Array2D,
-                   setup: Setup) -> Array2D:
+def paw_correction(density_sii: Array3D,
+                   setup: Setup,
+                   xc: XCFunctional = None,
+                   exclude_core: bool = False) -> Array2D:
     """Corrections from 1-center expansions of spin-density."""
     # Spherical part:
-    D0_jj = expand(spin_density_ii, setup.l_j, 0)[0]
+    spin_density_ii = density_sii[0] - density_sii[1]
+    D0_jj = expand(spin_density_ii, setup.l_j, l=0)[0]
 
     phit_jg = np.array(setup.data.phit_jg)
     phi_jg = np.array(setup.data.phi_jg)
@@ -159,6 +162,9 @@ def paw_correction(spin_density_ii: Array2D,
     # All-electron contribution diverges as r^-beta and must be integrated
     # over a small region of size rT:
     n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
+    if not exclude_core and setup.Nc > 0 and xc is not None:
+        n0_g += core_contribution(density_sii, setup, xc)
+
     beta = 2 * (1 - (1 - (setup.Z * alpha)**2)**0.5)
     rT = setup.Z * alpha**2
     n0 = integrate(n0_g, rgd, rT, beta)
@@ -237,20 +243,24 @@ def integrate(n0_g: Array1D,
 
 def core_contribution(density_sii: Array3D,
                       setup: Setup,
-                      xc: XCFunctional) -> Array2D:
-    if setup.Nc == 0:
-        return np.zeros((3, 3))
-
+                      xc: XCFunctional) -> Array1D:
     # Spherical part:
-    D_sjj = [expand(density_ii, setup.l_j, 0)[0] for density_ii in density_sii]
+    D_sjj = [expand(density_ii, setup.l_j, 0)[0]
+             for density_ii in density_sii]
 
     phi_jg = np.array(setup.data.phi_jg)
 
     rgd = setup.rgd
 
-    # Spin-density from pseudo density:
-    nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
+    n_sg = np.einsum('ag, sab, bg -> sg', phi_jg, D_sjj, phi_jg)
+    n_sg += setup.data.nc_g
 
+    v_sg = np.zeros_like(n_sg)
+    xc.calculate_spherical(rgd, n_sg, v_sg)
+    # Z
+    for v_g in v_sg:
+        channel = Channel(l=0)
+        channel.e_n = []
 
 
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio

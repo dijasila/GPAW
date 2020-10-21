@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import copy
 import sys
 from math import pi
