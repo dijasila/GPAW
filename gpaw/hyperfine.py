@@ -21,6 +21,8 @@ import ase.units as units
 
 from gpaw import GPAW
 from gpaw.atom.radialgd import RadialGridDescriptor
+from gpaw.atom.aeatom import Channel
+from gpaw.atom.configurations import configurations
 from gpaw.setup import Setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
@@ -248,6 +250,7 @@ def core_contribution(density_sii: Array3D,
     D_sjj = [expand(density_ii, setup.l_j, 0)[0]
              for density_ii in density_sii]
 
+    print(D_sjj)
     phi_jg = np.array(setup.data.phi_jg)
 
     rgd = setup.rgd
@@ -257,11 +260,27 @@ def core_contribution(density_sii: Array3D,
 
     v_sg = np.zeros_like(n_sg)
     xc.calculate_spherical(rgd, n_sg, v_sg)
-    # Z
-    for v_g in v_sg:
-        channel = Channel(l=0)
-        channel.e_n = []
+    vr_sg = v_sg * rgd.r_g
+    vr_sg -= setup.Z
+    vr_sg += rgd.poisson(n_sg.sum(axis=0))
 
+    for n0, l in zip(setup.n_j, setup.l_j):
+        if l == 0:
+            assert n0 > 0
+            break
+    else:
+        1 / 0
+
+    eigs = [e for n, l, f, e in configurations[setup.symbol][1]
+            if n < n0]
+    print(n0, eigs)
+
+    for vr_g in vr_sg:
+        channel = Channel(l=0, f_n=[1] * len(eigs))
+        channel.e_n = eigs
+        channel.solve2(vr_g, rgd=rgd)
+        assert channel.solve2ok
+        print(channel.e_n)
 
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
 # Units: MHz/T

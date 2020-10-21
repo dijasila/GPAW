@@ -150,5 +150,7 @@ def test_hyper_core():
     xc = XC('LDA')
     print(setup.n_j)
     D_sii = np.zeros((2, 13, 13))
+    D_sii[:, 0, 0] = 1.0
+    D_sii[0, 1:4, 1:4] = np.eye(3)
     cc = core_contribution(D_sii, setup, xc)
     
