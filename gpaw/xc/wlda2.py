@@ -20,6 +20,74 @@ def timer(f):
     return wrapped
 
 
+def define_indicator(ia, alphas):
+    nalphas = len(alphas)
+    na = np.logical_and
+    if ia == 0:
+        def _i(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g < alphas[1]
+            res_g[inds] = (alphas[1] - n_g[inds]) / (alphas[1] - alphas[0])
+            inds = n_g <= alphas[0]
+            res_g[inds] = 1.0 
+            return res_g
+            
+        def _di(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g < alphas[1]
+            res_g[inds] = -1.0 / (alphas[1] - alphas[0])
+            inds = n_g <= alphas[0]
+            res_g[inds] = 0.0
+            return res_g
+
+
+    elif ia == nalphas - 1:
+        def _i(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g >= alphas[ia - 1]
+            res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[-1] - alphas[-2])
+            inds = n_g >= alphas[ia]
+            res_g[inds] = 1.0
+            return res_g
+            
+        def _di(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = n_g >= alphas[ia - 1]
+            res_g[inds] = 1.0 / (alphas[-1] - alphas[-2])
+            inds = n_g >= alphas[ia]
+            res_g[inds] = 0.0
+            return res_g
+    else:
+        def _i(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = na(n_g >= alphas[ia - 1], n_g < alphas[ia])
+            res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
+            inds = na(n_g >= alphas[ia], n_g < alphas[ia + 1])
+            res_g[inds] = (alphas[ia + 1] - n_g[inds]) / (alphas[ia + 1] - alphas[ia])
+            return res_g
+
+        def _di(n_g):
+            res_g = np.zeros_like(n_g)
+            inds = na(n_g > alphas[ia - 1], n_g <= alphas[ia])
+            res_g[inds] = 1.0 / (alphas[ia] - alphas[ia - 1])
+            inds = na(n_g > alphas[ia], n_g < alphas[ia + 1])
+            res_g[inds] = -1.0 / (alphas[ia + 1] - alphas[ia])
+            return res_g
+
+    return _i, _di
+
+def define_alphas(n_sg, nalphas):
+    minn = np.min(n_sg)
+    maxn = np.max(n_sg)
+    # The indicator anchors
+    minanchor = 1e-5 # 1e-4 * 200 / nalphas + 5*1e-4
+    minn = max(minn, minanchor)
+    # alphas = np.linspace(minn, maxn, nalphas)
+    alphas = np.exp(np.linspace(np.log(minn), np.log(maxn), nalphas))
+    
+    return alphas
+
+
 class WLDA(XCFunctional):
     def __init__(self, rc=None, kernel_type=None,
                  kernel_param=None, wlda_type=None,
@@ -57,7 +125,7 @@ class WLDA(XCFunctional):
         nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
                                nstar_sg, alpha_indices)
 
-        self.hartree_correction(self.gd, exc_g, wn_sg, nstar_sg)
+        self.hartree_correction(self.gd, exc_g, vxc_sg, wn_sg, nstar_sg, alpha_indices)
 
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
@@ -230,6 +298,7 @@ class WLDA(XCFunctional):
         numerically inaccuracy to avoid complex energies.
         """
         alpha_indices = self.construct_alphas(wn_sg)
+        assert type(alpha_indices[0]) == int
 
         nstar_sg = self.alt_weight(wn_sg, alpha_indices, self.gd)
 
@@ -252,19 +321,16 @@ class WLDA(XCFunctional):
         After setting up the full grid of alphas, each rank
         determines which alphas it should calculate.
         """
-        all_alphas = self.setup_indicator_grid(self.nindicators,
-                                               wn_sg)
-
-        self.alphas = all_alphas
-        
-        self.setup_indicators(all_alphas)
+        #self.setup_radial_indicators(wn_sg, self.nindicators)
 
         alpha_indices = self.distribute_alphas(self.nindicators,
                                                mpi.rank, mpi.size)
+        self.alphas = define_alphas(wn_sg, self.nindicators)
+        self.wn_sg = wn_sg
 
         return alpha_indices
 
-    def setup_indicator_grid(self, nindicators, n_sg):
+    def _setup_indicator_grid(self, nindicators, n_sg):
         """Set up indicator values.
         
         These values are used to calculate
@@ -289,8 +355,8 @@ class WLDA(XCFunctional):
         # return np.exp(np.linspace(np.log(md * 0.9),
         # np.log(mad * 1.1), nindicators))
         return np.linspace(md * 0.9, mad * 1.1, nindicators)
-        
-    def setup_indicators(self, alphas):
+
+    def _setup_indicators(self, alphas):
         """Set up indicator functions and derivatives.
 
         TODO Refactor
@@ -392,6 +458,24 @@ class WLDA(XCFunctional):
         self.get_dindicator_sg = timer(get_dind_g)
         self.get_dindicator_g = timer(get_dind_g)
 
+    def ind_asg(self, ia, spin):
+        if type(ia) != int:
+            raise ValueError(f"Incorrect type: {ia}, {type(ia)}")
+        _i, _ = define_indicator(ia, self.alphas)
+
+        if type(spin) == list:
+            return np.array([_i(self.wn_sg[s]) for s in spin])
+        else:
+            return _i(self.wn_sg[spin])
+
+    def dind_asg(self, ia, spin):
+        _, _di = define_indicator(ia, self.alphas)
+
+        if type(spin) == list:
+            return np.array([_di(self.wn_sg[s]) for s in spin])
+        else:        
+            return _di(self.wn_sg[spin])
+
     def distribute_alphas(self, nindicators, rank, size):
         """Distribute alphas across mpi ranks."""
         nalphas = nindicators // size
@@ -430,7 +514,9 @@ class WLDA(XCFunctional):
         
         Applies the kernel via the convolution theorem.
         """
-        f_sg = self.get_indicator_sg(wn_sg, ia) * wn_sg
+        #f_sg = self.get_indicator_sg(wn_sg, ia) * wn_sg
+        spins = list(range(wn_sg.shape[0]))
+        f_sg = self.ind_asg(ia, spins) * wn_sg
         f_sG = self.fftn(f_sg, axes=(1, 2, 3))
 
         w_sG = self.get_weight_function(ia, gd, self.alphas)
@@ -464,17 +550,27 @@ class WLDA(XCFunctional):
         return np.fft.ifftn(arr, axes=axes)  # , norm="ortho") * sqrtN
 
     def get_weight_function(self, ia, gd, alphas):
-        """Construct the weight function/kernel in fourier space."""
+        """Evaluates and returns phi(q, alpha).
+        
+        The weight function is 
+            phi(q, n) = e^(-qt^2 / 4)
+
+        with
+            qt = q / (c1 n^(1/3))
+
+        c1 is a free parameter.
+
+        If we choose
+            c1 = 2.20629
+
+        then the kernel truncation function will
+        have zero second derivative at 2k_F.
+        """
         alpha = alphas[ia]
-        kF = (3 * np.pi**2 * alpha)**(1 / 3)
+        c1 = 2.20629
         K_G = self._get_K_G(gd)
-
-        kernel_fn = self.get_kernel_fn(self.kernel_type, self.kernel_param)
-        res = kernel_fn(kF, K_G)
-
-        res = (res / res[0, 0, 0]).astype(np.complex128)
-        assert not np.isnan(res).any()
-        return res
+        
+        return np.exp(-0.25 * (K_G / (c1 * abs(alpha)**(1/3)))**2)
 
     def get_kernel_fn(self, kernel_type, kernel_param):
         """Select kernel type.
@@ -526,7 +622,7 @@ class WLDA(XCFunctional):
         ratio = wn_g / nstar_g
         ratio[np.isclose(nstar_g, 0.0)] = 0.0
         v += self.fold_with_derivative(-t1 * ratio,
-                                       wn_g, my_alpha_indices)
+                                       wn_g, my_alpha_indices, spin)
 
     def lda_x2(self, spin, e, wn_g, nstar_g, v, my_alpha_indices):
         """Apply the WLDA-2 exchange functional.
@@ -544,7 +640,7 @@ class WLDA(XCFunctional):
             e[:] += nstar_g * ex
         else:
             e[:] += 0.5 * nstar_g * ex
-        v += self.fold_with_derivative(ex, wn_g, my_alpha_indices)
+        v += self.fold_with_derivative(ex, wn_g, my_alpha_indices, spin)
         ratio = nstar_g / wn_g
         ratio[np.isclose(wn_g, 0.0)] = 0.0
         v -= rs * dexdrs / 3 * ratio
@@ -566,7 +662,7 @@ class WLDA(XCFunctional):
         else:
             e[:] += 0.5 * nstar_g * ex
         v[:] = ex - rs * dexdrs / 3.
-        v[:] = self.fold_with_derivative(v, wn_g, my_alpha_indices)
+        v[:] = self.fold_with_derivative(v, wn_g, my_alpha_indices, spin)
 
     def lda_c1(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
         """Apply the WLDA-1 correlation functional.
@@ -590,7 +686,7 @@ class WLDA(XCFunctional):
             ratio = wn_g / nstar_g
             ratio[np.isclose(nstar_g, 0.0)] = 0.0
             v -= self.fold_with_derivative(rs * decdrs_0 / 3. * ratio,
-                                           wn_g, my_alpha_indices)
+                                           wn_g, my_alpha_indices, spin)
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189,
@@ -623,13 +719,13 @@ class WLDA(XCFunctional):
             v[0] -= self.fold_with_derivative((rs * decdrs / 3.0
                                                - (zeta - 1.0)
                                                * decdzeta * ratio[0]),
-                                              wn_g, my_alpha_indices)
+                                              wn_g, my_alpha_indices, 0)
             
             v[1] += ec
             v[1] -= self.fold_with_derivative((rs * decdrs / 3.0
                                                - (zeta + 1.0)
                                                * decdzeta * ratio[1]),
-                                              wn_g, my_alpha_indices)
+                                              wn_g, my_alpha_indices, 1)
 
     def lda_c2(self, spin, e, wn_g, nstar_g, v, zeta, my_alpha_indices):
         """Apply the WLDA-2 correlation functional.
@@ -649,7 +745,7 @@ class WLDA(XCFunctional):
         
         if spin == 0:
             e[:] += nstar_g * ec
-            v += self.fold_with_derivative(ec, wn_g, my_alpha_indices)
+            v += self.fold_with_derivative(ec, wn_g, my_alpha_indices, spin)
             ratio = nstar_g / wn_g
             ratio[np.isclose(wn_g, 0.0)] = 0.0
             v -= rs * decdrs_0 / 3. * ratio
@@ -679,14 +775,14 @@ class WLDA(XCFunctional):
             ec += alpha * IF2 * f * x + (e1 - ec) * f * zeta4
             e[:] += wn_g * ec
 
-            v[0] += self.fold_with_derivative(ec, wn_g, my_alpha_indices)
+            v[0] += self.fold_with_derivative(ec, wn_g, my_alpha_indices, 0)
             ratio = nstar_g / wn_g
             ratio[np.isclose(wn_g, 0.0)] = 0.0
             v[0] -= (rs * decdrs / 3.0
                      - (zeta - 1.0)
                      * decdzeta * ratio[0])
 
-            v[1] += self.fold_with_derivative(ec, wn_g, my_alpha_indices)
+            v[1] += self.fold_with_derivative(ec, wn_g, my_alpha_indices, 1)
             v[1] -= (rs * decdrs / 3.0
                      - (zeta + 1.0) * decdzeta) * ratio[1]
 
@@ -711,7 +807,7 @@ class WLDA(XCFunctional):
             v_place = np.zeros_like(v)
             v_place += ec - rs * decdrs_0 / 3.
             v += self.fold_with_derivative(v_place,
-                                           wn_g, my_alpha_indices)
+                                           wn_g, my_alpha_indices, spin)
         else:
             e1, decdrs_1 = G(rs ** 0.5,
                              0.015545, 0.20548, 14.1189,
@@ -740,14 +836,14 @@ class WLDA(XCFunctional):
 
             v[0] += ec - (rs * decdrs / 3.0 - (zeta - 1.0) * decdzeta)
             v[0] = self.fold_with_derivative(v[0],
-                                             wn_g, my_alpha_indices)
+                                             wn_g, my_alpha_indices, 0)
             
             v[1] += ec - (rs * decdrs / 3.0 - (zeta + 1.0) * decdzeta)
             v[1] = self.fold_with_derivative(v[1],
-                                             wn_g, my_alpha_indices)
+                                             wn_g, my_alpha_indices, 1)
 
     @timer            
-    def fold_with_derivative(self, f_g, n_g, my_alpha_indices):
+    def fold_with_derivative(self, f_g, n_g, my_alpha_indices, spin):
         """Fold function f_g with the derivative of the weighted density.
 
         Calculate
@@ -755,12 +851,15 @@ class WLDA(XCFunctional):
         """
         assert np.allclose(f_g, f_g.real)
         assert np.allclose(n_g, n_g.real)
+        assert type(my_alpha_indices[0]) == int
 
         res_g = np.zeros_like(f_g)
 
         for ia in my_alpha_indices:
-            ind_g = self.get_indicator_g(n_g, ia)
-            dind_g = self.get_dindicator_g(n_g, ia)
+            # ind_g = self.get_indicator_g(n_g, ia)
+            # dind_g = self.get_dindicator_g(n_g, ia)
+            ind_g = self.ind_asg(ia, spin)
+            dind_g = self.dind_asg(ia, spin)
             
             fac_g = ind_g + dind_g * n_g
             int_G = self.fftn(f_g)
@@ -769,6 +868,7 @@ class WLDA(XCFunctional):
             res_g += r_g.real * fac_g
             assert np.allclose(res_g, res_g.real)
 
+        res_g = np.ascontiguousarray(res_g)
         mpi.world.sum(res_g)
         assert res_g.shape == f_g.shape
         assert res_g.shape == n_g.shape
@@ -796,7 +896,7 @@ class WLDA(XCFunctional):
             return n_sg
 
     @timer
-    def hartree_correction(self, gd, e_g, v_sg, wn_sg, nstar_sg):
+    def hartree_correction(self, gd, e_g, v_sg, wn_sg, nstar_sg, my_alpha_indices):
         """Apply the correction to the Hartree energy.
         
         Calculate
@@ -814,25 +914,30 @@ class WLDA(XCFunctional):
             Delta v(r) = -2 * (V(r)
                     -    int dr' dn*(r')/dn(r) V(r')
         """
-        if mpi.rank != 0:
-            # We should only calculate the Hartree
-            # correction once.
-            return
-        if nstar_sg is None:
-            nstar_sg, _ = self.get_weighted_density(wn_sg)
         if len(wn_sg) == 2:
-            raise NotImplementedError
-
+            wn_sg *= 0.5
+            nstar_sg, my_alpha_indices = self.get_weighted_density(wn_sg)
+        
         K_G = self._get_K_G(gd)
-        N_g = (wn_sg - nstar_sg).sum(axis=0)
-        V_G = self.fftn(N_g)
-        V_G *= -2 * np.pi / K_G**2
+        K_G[0, 0, 0] = 1.0
+        
+        nstar_g = nstar_sg.sum(axis=0)
+        n_g = wn_sg.sum(axis=0)
 
-        e_g[:] += (N_g * self.ifftn(V_G).real)
+        dn_g = n_g - nstar_g
 
+        V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
         V_g = self.ifftn(V_G).real
-        v_sg[0, :] += -2 * (V_g - self.fold_with_derivative(V_g, wn_sg[0], 
-                                                            self.alphas))
+
+        e_g[:] -= (dn_g * V_g)
+
+        im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 0))
+        if mpi.rank == 0:
+            v_sg[0, :] -= im 
+        if len(v_sg) == 2:
+            im = 2* (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 1))
+            if mpi.rank == 0:
+                v_sg[1, :] -= im 
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         """Calculate the XC energy and potential for an atomic system.
@@ -981,7 +1086,7 @@ class WLDA(XCFunctional):
 
             return nstar_g
         
-    def setup_radial_indicators(self, n_sg):
+    def setup_radial_indicators(self, n_sg, nalphas=200):
         """Set up the indicator functions for an atomic system.
 
         We first define a grid of indicator-values/anchors.
@@ -995,14 +1100,7 @@ class WLDA(XCFunctional):
         else:
             spin = n_sg.shape[0]
 
-        minn = np.min(n_sg)
-        maxn = np.max(n_sg)
-        # The indicator anchors
-        nalphas = 200
-        minanchor = 1e-5 # 1e-4 * 200 / nalphas + 5*1e-4
-        minn = max(minn, minanchor)
-        # alphas = np.linspace(minn, maxn, nalphas)
-        alphas = np.exp(np.linspace(np.log(minn), np.log(maxn), nalphas))
+        alphas = define_alphas(n_sg, nalphas)
 
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
         N = 2**14
@@ -1022,58 +1120,8 @@ class WLDA(XCFunctional):
         di_asx = np.zeros((nalphas,) + n_sx.shape)
 
 
-        na = np.logical_and
         for ia, alpha in enumerate(alphas):
-            if ia == 0:
-                def _i(n_g):
-                    res_g = np.zeros_like(n_g)
-                    inds = n_g < alphas[1]
-                    res_g[inds] = (alphas[1] - n_g[inds]) / (alphas[1] - alphas[0])
-                    inds = n_g <= alphas[0]
-                    res_g[inds] = 1.0 
-                    return res_g
-
-                def _di(n_g):
-                    res_g = np.zeros_like(n_g)
-                    inds = n_g < alphas[1]
-                    res_g[inds] = -1.0 / (alphas[1] - alphas[0])
-                    inds = n_g <= alphas[0]
-                    res_g[inds] = 0.0
-                    return res_g
-
-
-            elif ia == nalphas - 1:
-                def _i(n_g):
-                    res_g = np.zeros_like(n_g)
-                    inds = n_g >= alphas[ia - 1]
-                    res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[-1] - alphas[-2])
-                    inds = n_g >= alphas[ia]
-                    res_g[inds] = 1.0
-                    return res_g
-
-                def _di(n_g):
-                    res_g = np.zeros_like(n_g)
-                    inds = n_g >= alphas[ia - 1]
-                    res_g[inds] = 1.0 / (alphas[-1] - alphas[-2])
-                    inds = n_g >= alphas[ia]
-                    res_g[inds] = 0.0
-                    return res_g
-            else:
-                def _i(n_g):
-                    res_g = np.zeros_like(n_g)
-                    inds = na(n_g >= alphas[ia - 1], n_g < alphas[ia])
-                    res_g[inds] = (n_g[inds] - alphas[ia - 1]) / (alphas[ia] - alphas[ia - 1])
-                    inds = na(n_g >= alphas[ia], n_g < alphas[ia + 1])
-                    res_g[inds] = (alphas[ia + 1] - n_g[inds]) / (alphas[ia + 1] - alphas[ia])
-                    return res_g
-
-                def _di(n_g):
-                    res_g = np.zeros_like(n_g)
-                    inds = na(n_g > alphas[ia - 1], n_g <= alphas[ia])
-                    res_g[inds] = 1.0 / (alphas[ia] - alphas[ia - 1])
-                    inds = na(n_g > alphas[ia], n_g < alphas[ia + 1])
-                    res_g[inds] = -1.0 / (alphas[ia + 1] - alphas[ia])
-                    return res_g
+            _i, _di = define_indicator(ia, alphas)
 
             for s in range(spin):
                 i_asg[ia, s, :] = _i(n_sg[s])
@@ -1441,7 +1489,7 @@ class WLDA(XCFunctional):
         dn_x = rgd.interpolate(dn_g, r_x)
         dn_k = self.radial_fft(r_x, dn_x)
         pot_k = np.zeros_like(dn_k)
-        pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi
+        pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi * 0.5
         pot_x = self.radial_ifft(r_x, pot_k)
         pot_g = IUS(r_x, pot_x)(rgd.r_g)
             
