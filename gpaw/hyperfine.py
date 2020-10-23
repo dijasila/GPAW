@@ -246,34 +246,38 @@ def integrate(n0_g: Array1D,
 def core_contribution(density_sii: Array3D,
                       setup: Setup,
                       xc: XCFunctional) -> Array1D:
+    """Calculate spin-density from "frozen" core."""
     # Spherical part:
     D_sjj = [expand(density_ii, setup.l_j, 0)[0]
              for density_ii in density_sii]
-
     phi_jg = np.array(setup.data.phi_jg)
-
     rgd = setup.rgd
 
+    # Densities with frozen core:
     n_sg = np.einsum('ag, sab, bg -> sg',
                      phi_jg, D_sjj, phi_jg) / (4 * pi)**0.5
     n_sg += setup.data.nc_g * (0.5 / (4 * pi)**0.5)
 
+    # Potential:
     v_sg = np.zeros_like(n_sg)
     xc.calculate_spherical(rgd, n_sg, v_sg)
     vr_sg = v_sg * rgd.r_g
     vr_sg -= setup.Z
     vr_sg += rgd.poisson(n_sg.sum(axis=0))
 
+    # Find first bound s-state includes in PAW potential:
     for n0, l in zip(setup.n_j, setup.l_j):
         if l == 0:
             assert n0 > 0
             break
     else:
-        1 / 0
+        assert False, (setup.n_j, setup.l_j)
 
+    # Initial guesses for core s-states:
     eigs = [e for n, l, f, e in configurations[setup.symbol][1]
-            if n < n0]
+            if n < n0 and l == 0]
 
+    # Solve spherical scalar-relativistic Schrödinger equation:
     core_spin_density_g = rgd.zeros()
     sign = 1.0
     for vr_g in vr_sg:
