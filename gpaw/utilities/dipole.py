@@ -1,7 +1,7 @@
 """Calculate dipole matrix elements."""
 
 from math import pi
-from typing import List
+from typing import List, Iterable
 
 from ase.units import Bohr
 import numpy as np
@@ -10,14 +10,15 @@ from gpaw import GPAW
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.setup import Setup
 from gpaw.mpi import serial_comm
-from gpaw.hints import Array2D, Array3D
+from gpaw.hints import Array2D, Array3D, Array4D
 
 
 def dipole_matrix_elements(gd: GridDescriptor,
                            psit_nR: List[Array3D],
                            P_nI: Array2D,
                            position_av: Array2D,
-                           setups: List[Setup]) -> Array3D:
+                           setups: List[Setup],
+                           center: Iterable[float]) -> Array3D:
     """Calculate dipole matrix-elements.
 
     gd:
@@ -59,7 +60,8 @@ def dipole_matrix_elements(gd: GridDescriptor,
 
 def dipole_matrix_elements_from_calc(calc: GPAW,
                                      n1: int,
-                                     n2: int) -> List[Array3D]:
+                                     n2: int,
+                                     center: Iterable[float]) -> List[Array4D]:
     """Calculate dipole matrix-elements (units: Å)."""
     wfs = calc.wfs
     assert wfs.kd.gamma
@@ -80,7 +82,8 @@ def dipole_matrix_elements_from_calc(calc: GPAW,
                                            psit_nR,
                                            P_nI,
                                            position_av,
-                                           wfs.setups) * Bohr
+                                           wfs.setups,
+                                           center) * Bohr
             d_snnv.append(d_nnv)
     return d_snnv
 
