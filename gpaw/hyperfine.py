@@ -250,13 +250,13 @@ def core_contribution(density_sii: Array3D,
     D_sjj = [expand(density_ii, setup.l_j, 0)[0]
              for density_ii in density_sii]
 
-    print(D_sjj)
     phi_jg = np.array(setup.data.phi_jg)
 
     rgd = setup.rgd
 
-    n_sg = np.einsum('ag, sab, bg -> sg', phi_jg, D_sjj, phi_jg)
-    n_sg += setup.data.nc_g
+    n_sg = np.einsum('ag, sab, bg -> sg',
+                     phi_jg, D_sjj, phi_jg) / (4 * pi)**0.5
+    n_sg += setup.data.nc_g * (0.5 / (4 * pi)**0.5)
 
     v_sg = np.zeros_like(n_sg)
     xc.calculate_spherical(rgd, n_sg, v_sg)
@@ -273,14 +273,20 @@ def core_contribution(density_sii: Array3D,
 
     eigs = [e for n, l, f, e in configurations[setup.symbol][1]
             if n < n0]
-    print(n0, eigs)
 
+    core_spin_density_g = rgd.zeros()
+    sign = 1.0
     for vr_g in vr_sg:
         channel = Channel(l=0, f_n=[1] * len(eigs))
         channel.e_n = eigs
-        channel.solve2(vr_g, rgd=rgd)
+        channel.phi_ng = rgd.empty(len(eigs))
+        channel.solve2(vr_g, rgd=rgd, scalar_relativistic=True, Z=setup.Z)
         assert channel.solve2ok
-        print(channel.e_n)
+        core_spin_density_g += sign * channel.calculate_density()
+        sign = -1.0
+
+    return core_spin_density_g
+
 
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
 # Units: MHz/T
@@ -312,7 +318,7 @@ def main(argv: List[str] = None) -> None:
     add('-g', '--g-factors',
         help='G-factors.  Example: "-g H:5.6,O:-0.76".')
     add('-u', '--units', default='ueV', choices=['ueV', 'MHz'],
-        help='Units.  Must be "uev" (micro-eV, default) or "MHz".')
+        help='Units.  Must be "ueV" (micro-eV, default) or "MHz".')
     add('-x', '--exclude-core', action='store_true')
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)

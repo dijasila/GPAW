@@ -1,3 +1,5 @@
+from math import pi
+
 import numpy as np
 import pytest
 from scipy.special import expn
@@ -7,6 +9,7 @@ from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
                             integrate, alpha, g_factor_e, core_contribution)
 from gpaw import GPAW
+from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.lfc import LFC
 from gpaw.setup import create_setup
@@ -146,11 +149,38 @@ def thomson():
 
 
 def test_hyper_core():
+    """Test polarization of "frozen" nitrogen-1s core."""
+    # Calculate 1s spin-density from 2s and 2p polarizarion:
     setup = create_setup('N')
     xc = XC('LDA')
-    print(setup.n_j)
     D_sii = np.zeros((2, 13, 13))
     D_sii[:, 0, 0] = 1.0
     D_sii[0, 1:4, 1:4] = np.eye(3)
-    cc = core_contribution(D_sii, setup, xc)
-    
+    spin_density1_g = core_contribution(D_sii, setup, xc)
+
+    assert setup.rgd.integrate(spin_density1_g) == pytest.approx(0, abs=1e-11)
+
+    # Do all-electron calculation:
+    aea = AllElectronAtom('N', spinpol=True)
+    aea.initialize()
+    aea.run()
+    aea.scalar_relativistic = True
+    aea.refine()
+
+    # 1s:
+    spin_density2_g = (aea.channels[0].phi_ng[0]**2 -
+                       aea.channels[1].phi_ng[0]**2) / (4 * pi)
+    # 2s:
+    spin_density3_g = (aea.channels[0].phi_ng[1]**2 -
+                       aea.channels[1].phi_ng[1]**2) / (4 * pi)
+
+    assert aea.rgd.integrate(spin_density2_g) == pytest.approx(0, abs=1e-11)
+    assert aea.rgd.integrate(spin_density3_g) == pytest.approx(0, abs=1e-11)
+
+    if 0:
+        import matplotlib.pyplot as plt
+        plt.plot(setup.rgd.r_g, spin_density1_g)
+        plt.plot(aea.rgd.r_g, spin_density2_g)
+        plt.show()
+
+    assert spin_density1_g[0] == pytest.approx(spin_density2_g[0], abs=0.04)
