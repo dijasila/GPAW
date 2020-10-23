@@ -1177,12 +1177,33 @@ class DirectMin(Eigensolver):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
-        if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                and not self.force_init_localization:
+        if 'SIC' in self.odd_parameters['name']:
+            if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
+                    and not self.force_init_localization:
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                wfs.orthonormalize()
+                occ.calculate(wfs)
+                occ_name = getattr(occ, 'name', None)
+                if occ_name == 'mom':
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                return
+        else:
+            # we need to do it in order to initialize mom..
+            occ.calculate(wfs)  # fill occ numbers
+            occ_name = getattr(occ, 'name', None)
+            if occ_name == 'mom':
+                for kpt in wfs.kpt_u:
+                    occ.sort_wavefunctions(wfs, kpt)
+
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            wfs.orthonormalize()
-            occ.calculate(wfs)
+                super(DirectMin, self).subspace_diagonalize(
+                    ham, wfs, kpt, True)
+                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+
+            occ.calculate(wfs)  # fill occ numbers
             occ_name = getattr(occ, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
