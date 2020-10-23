@@ -78,10 +78,10 @@ class DirectMin(Eigensolver):
         self.exstopt = exstopt
         self.etotal=0.0
 
-        if self.exstopt and self.convergelumo:
-            self.convergelumo = False
-            parprint('WARNING: converge lumo for excited states is '
-                     'not implemented')
+        # if self.exstopt and self.convergelumo:
+        #     self.convergelumo = False
+        #     parprint('WARNING: converge lumo for excited states is '
+        #              'not implemented')
 
     def __repr__(self):
 
