@@ -245,6 +245,10 @@ class OccupationsMOM(ZeroKelvin):
                 for u, kpt in enumerate(wfs.kpt_u):
                     self.occupations[u] = kpt.f_n
 
+    def init_ref_orb2(self,wfs):
+        self.iters = 0
+        self.initialize_reference_orbitals(wfs)
+        self.iters += 1
 
 class MOMConstraint:
     def __init__(self, n, nstart=0, nend=None):

@@ -1191,11 +1191,12 @@ class DirectMin(Eigensolver):
                 return
         else:
             # we need to do it in order to initialize mom..
-            occ.calculate(wfs)  # fill occ numbers
+            # it will take occupied orbitals from previous step
             occ_name = getattr(occ, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    occ.sort_wavefunctions(wfs, kpt)
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                occ.init_ref_orb2(wfs)
 
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
@@ -1204,7 +1205,6 @@ class DirectMin(Eigensolver):
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
 
             occ.calculate(wfs)  # fill occ numbers
-            occ_name = getattr(occ, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
                     occ.sort_wavefunctions(wfs, kpt)
