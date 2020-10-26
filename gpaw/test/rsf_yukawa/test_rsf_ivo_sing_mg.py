@@ -40,9 +40,10 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     calc.write('mg.gpw')
 
     c2 = GPAW('mg.gpw')
+    ihomo = int(c2.get_occupation_numbers().sum() / 2 + 0.5) - 1
     assert c2.hamiltonian.xc.excitation == 'singlet'
     lr = LrTDDFT(calc, txt='LCY_TDDFT_Mg.log',
-                 restrict={'istart':0, 'jend':1}, nspins=2)
+                 restrict={'istart':ihomo, 'jend':ihomo + 1}, nspins=2)
     lr.write('LCY_TDDFT_Mg.ex.gz')
     if world.rank == 0:
         lr2 = LrTDDFT.read('LCY_TDDFT_Mg.ex.gz')
