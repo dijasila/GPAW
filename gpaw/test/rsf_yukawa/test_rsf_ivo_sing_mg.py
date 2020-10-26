@@ -38,12 +38,14 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     e_ex = eps_lumo - eps_homo
     equal(e_singlet, e_ex, 0.15)
     calc.write('mg.gpw')
+
     c2 = GPAW('mg.gpw')
     assert c2.hamiltonian.xc.excitation == 'singlet'
-    lr = LrTDDFT(calc, txt='LCY_TDDFT_Mg.log', istart=4, jend=5, nspins=2)
+    lr = LrTDDFT(calc, txt='LCY_TDDFT_Mg.log',
+                 restrict={'istart':0, 'jend':1}, nspins=2)
     lr.write('LCY_TDDFT_Mg.ex.gz')
     if world.rank == 0:
-        lr2 = LrTDDFT('LCY_TDDFT_Mg.ex.gz')
+        lr2 = LrTDDFT.read('LCY_TDDFT_Mg.ex.gz')
         lr2.diagonalize()
         ex_lr = lr2[1].get_energy() * Hartree
         equal(e_singlet_lr, ex_lr, 0.15)

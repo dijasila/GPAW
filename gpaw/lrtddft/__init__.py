@@ -240,11 +240,9 @@ class LrTDDFT(ExcitationList):
         timer.stop('init_kss')
         timer.start('init_obj')
         if lr.name == 'LrTDDFT':
-            lr.Om = OmegaMatrix(kss=kss, filehandle=f,
-                                log=lr.log)
+            lr.Om = OmegaMatrix(kss=kss, filehandle=f, log=lr.log)
         else:
-            lr.Om = ApmB(kss=kss, filehandle=f,
-                         txt=lr.txt)
+            lr.Om = ApmB(kss=kss, filehandle=f, log=lr.log)
         timer.stop('init_obj')
 
         if not len(restrict):
