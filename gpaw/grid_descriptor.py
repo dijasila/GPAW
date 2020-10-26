@@ -590,6 +590,29 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
+    def dipole_moment(self, rho_R, center_v=None):
+        """Calculate dipole moment of density."""
+        index_cr = [np.arange(self.beg_c[c], self.end_c[c], dtype=float)
+                    for c in range(3)]
+
+        if center_v is not None:
+            corner_c = (np.linalg.solve(self.h_cv.T,
+                                        center_v) % self.N_c) - self.N_c / 2
+            for corner, index_r, N in zip(corner_c, index_cr, self.N_c):
+                index_r -= corner
+                index_r %= N
+                index_r += corner
+
+        rho_ijk = rho_R
+        rho_ij = rho_ijk.sum(axis=2)
+        rho_ik = rho_ijk.sum(axis=1)
+        rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
+        print(index_cr[0])
+        d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
+        d_v = -np.dot(d_c, self.h_cv) * self.dv
+        self.comm.sum(d_v)
+        return d_v
+
     def calculate_dipole_moment(self, rho_g, center=False, origin_c=None):
         """Calculate dipole moment of density."""
         r_cz = [np.arange(self.beg_c[c], self.end_c[c]) for c in range(3)]

@@ -37,9 +37,16 @@ def dipole_matrix_elements(gd: GridDescriptor,
 
     for na, psita_R in enumerate(psit_nR):
         for nb, psitb_R in enumerate(psit_nR[:na + 1]):
-            d_v = -gd.calculate_dipole_moment(psita_R * psitb_R)
+            d_v = -gd.dipole_moment(psita_R * psitb_R, center)
             dipole_nnv[na, nb] = d_v
             dipole_nnv[nb, na] = d_v
+
+    scenter_c = np.linalg.solve(gd.cell_cv.T, center)
+    spos_ac = np.linalg.solve(gd.cell_cv.T, position_av.T).T % 1.0
+    spos_ac -= scenter_c - 0.5
+    spos_ac %= 1.0
+    spos_ac += scenter_c - 0.5
+    position_av = spos_ac.dot(gd.cell_cv)
 
     R_aiiv = []
     for setup, position_v in zip(setups, position_av):
@@ -61,13 +68,17 @@ def dipole_matrix_elements(gd: GridDescriptor,
 def dipole_matrix_elements_from_calc(calc: GPAW,
                                      n1: int,
                                      n2: int,
-                                     center: Iterable[float]) -> List[Array4D]:
+                                     center: Iterable[float] = None
+                                     ) -> List[Array4D]:
     """Calculate dipole matrix-elements (units: Å)."""
     wfs = calc.wfs
     assert wfs.kd.gamma
 
     gd = wfs.gd.new_descriptor(comm=serial_comm)
     position_av = calc.atoms.positions / Bohr
+
+    if center is None:
+        center = gd.cell_cv.sum(axis=0) / 2
 
     d_snnv = []
     for spin in range(calc.get_number_of_spins()):
@@ -101,6 +112,9 @@ def main(argv: List[str] = None) -> None:
         help='GPW-file with wave functions.')
     add('-n', '--band-range', nargs=2, type=int, default=[0, 0],
         metavar=('n1', 'n2'), help='Include bands: n1 <= n < n2.')
+    add('-c', '--center', metavar='x,y,z',
+        help='Center of charge distribution.  Default is middle of unit '
+        'cell.')
 
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
@@ -113,7 +127,12 @@ def main(argv: List[str] = None) -> None:
     nbands = calc.get_number_of_bands()
     n2 = n2 or n2 + nbands
 
-    d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2)
+    if args.center:
+        center = [float(x) for x in args.center.split(',')]
+    else:
+        center = None  # center of cell
+
+    d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
     if calc.wfs.world.rank > 0:
         return
