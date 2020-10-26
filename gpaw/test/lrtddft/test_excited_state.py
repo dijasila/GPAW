@@ -44,7 +44,7 @@ def get_H3(calculator=None):
     return H3
 
 
-def test_split():
+def test_split(in_tmp_dir):
     fname = 'exlst.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc, txt=None)
@@ -150,8 +150,8 @@ def test_io(tmp_path):
     assert atoms.get_forces() == pytest.approx(F, 1.e-5)
 
     
-def test_log(tmp_path):
-    fname = str(tmp_path / 'ex0.out')
+def test_log(in_tmp_dir):
+    fname = 'ex0.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
@@ -166,7 +166,7 @@ def test_log(tmp_path):
             string = f.read()
             assert 'ExcitedState' in string
 
-    fname = str(tmp_path / 'ex0calc.out')
+    fname = 'ex0calc.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=fname)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, log=calc.log)
@@ -180,14 +180,13 @@ def test_log(tmp_path):
         with paropen(fname) as f:
             string = f.read()
             assert 'ExcitedState' in string
-            # one eq + 6 * 2 displacements = 13 calculations
             if world.size == 1:
-                # one eq + 6 * 2 displacements = 13 calculations
-                n = 13
+                # one eq + 6 * 2 displacements + one eq. = 14 calculations
+                n = 14
             else:
                 # we see only half of the calculations in parallel
-                # one eq + 3 * 2 displacements = 7 calculations
-                n = 7
+                # one eq + 3 * 2 displacements + one eq. = 8 calculations
+                n = 8
             assert string.count('Converged after') == n
             assert string.count('Kohn-Sham single transitions') == n
             assert string.count('Linear response TDDFT calculation') == n
