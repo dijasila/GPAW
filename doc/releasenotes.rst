@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.1b1
 
+* Now with contribution from "frozen" core: :ref:`hyperfine`.
+
 
 Version 20.10.0
 ===============

@@ -143,6 +143,11 @@ class ElectronPhononCoupling(BackwardsCompatibleDisplacement):
         # Supercell matrix
         self.g_xNNMM = None
 
+    def calculate(self, atoms_N, filename, fd):
+        output = self(atoms_N)
+        if rank == 0:
+            pickle.dump(output, fd, protocol=2)
+
     def __call__(self, atoms_N):
         """Extract effective potential and projector coefficients."""
 

@@ -1,3 +1,5 @@
+from math import pi
+
 import numpy as np
 import pytest
 from scipy.special import expn
@@ -5,10 +7,13 @@ import ase.units as units
 
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hyperfine import (hyperfine_parameters, paw_correction, smooth_part,
-                            integrate, alpha, g_factor_e)
+                            integrate, alpha, g_factor_e, core_contribution)
 from gpaw import GPAW
+from gpaw.atom.aeatom import AllElectronAtom
 from gpaw.atom.radialgd import RadialGridDescriptor
 from gpaw.lfc import LFC
+from gpaw.setup import create_setup
+from gpaw.xc import XC
 
 
 @pytest.mark.serial
@@ -45,6 +50,7 @@ class Setup:
         self.data = Data(self.rgd)
         self.l_j = [0, 1]
         self.Z = 1
+        self.Nc = 0
 
 
 class Data:
@@ -85,9 +91,9 @@ def test_gaussian(things):
     print(W_avv)
     assert abs(W_avv[0] - np.eye(3) * W_avv[0, 0, 0]).max() < 1e-7
 
-    spin_denisty_ii = np.zeros((4, 4))
-    spin_denisty_ii[0, 0] = 1.0
-    W1_vv = paw_correction(spin_denisty_ii, setup)
+    denisty_sii = np.zeros((2, 4, 4))
+    denisty_sii[0, 0, 0] = 1.0
+    W1_vv = paw_correction(denisty_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-7
 
@@ -107,9 +113,9 @@ def test_gaussian2(things):
                                     [0, 0, 1],
                                     [0, 1, 0]]) * W_avv[0, 1, 2]).max() < 1e-7
 
-    spin_denisty_ii = np.zeros((4, 4))
-    spin_denisty_ii[2, 1] = 1.0
-    W1_vv = paw_correction(spin_denisty_ii, setup)
+    denisty_sii = np.zeros((2, 4, 4))
+    denisty_sii[0, 2, 1] = 1.0
+    W1_vv = paw_correction(denisty_sii, setup)
     print(W1_vv)
     assert abs(W_avv[0] + W1_vv).max() < 1e-6
 
@@ -140,3 +146,41 @@ def thomson():
     x, a, b = var('x, a, b')
     print(integrate(E**(-b * x) / (1 + x)**2, (x, 0, oo)))
     print(expint(2, 1.0))
+
+
+def test_hyper_core():
+    """Test polarization of "frozen" nitrogen-1s core."""
+    # Calculate 1s spin-density from 2s and 2p polarizarion:
+    setup = create_setup('N')
+    xc = XC('LDA')
+    D_sii = np.zeros((2, 13, 13))
+    D_sii[:, 0, 0] = 1.0
+    D_sii[0, 1:4, 1:4] = np.eye(3)
+    spin_density1_g = core_contribution(D_sii, setup, xc)
+
+    assert setup.rgd.integrate(spin_density1_g) == pytest.approx(0, abs=1e-11)
+
+    # Do all-electron calculation:
+    aea = AllElectronAtom('N', spinpol=True)
+    aea.initialize()
+    aea.run()
+    aea.scalar_relativistic = True
+    aea.refine()
+
+    # 1s:
+    spin_density2_g = (aea.channels[0].phi_ng[0]**2 -
+                       aea.channels[1].phi_ng[0]**2) / (4 * pi)
+    # 2s:
+    spin_density3_g = (aea.channels[0].phi_ng[1]**2 -
+                       aea.channels[1].phi_ng[1]**2) / (4 * pi)
+
+    assert aea.rgd.integrate(spin_density2_g) == pytest.approx(0, abs=1e-11)
+    assert aea.rgd.integrate(spin_density3_g) == pytest.approx(0, abs=1e-11)
+
+    if 0:
+        import matplotlib.pyplot as plt
+        plt.plot(setup.rgd.r_g, spin_density1_g)
+        plt.plot(aea.rgd.r_g, spin_density2_g)
+        plt.show()
+
+    assert spin_density1_g[0] == pytest.approx(spin_density2_g[0], abs=0.04)
