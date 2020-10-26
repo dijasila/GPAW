@@ -115,7 +115,7 @@ class ExcitedState(GPAW, Calculator):
         E0 = calculator.get_potential_energy()
         lrtddft = LrTDDFT.read(filename + '.lr.dat.gz',
                                log=calculator.log)
-        lrtddft.set_calculator(calculator)
+        lrtddft.calculator = calculator
         
         f = open(filename + '.exst', 'r')
         f.readline()
@@ -240,7 +240,7 @@ class ExcitedState(GPAW, Calculator):
             # do the ground state calculation to set all
             # ranks to the same density to start with
             p0 = atoms.get_positions().copy()
-            atoms.set_calculator(self)
+            atoms.calc = self
             
             finite = FiniteDifference(
                 atoms=atoms,
