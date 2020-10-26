@@ -17,7 +17,7 @@ git clone git@gitlab.com:gpaw/gpaw
 cd gpaw
 pip install -e .
 export GPAW_COVERAGE=test
-pytest -x > test-1.out
+pytest > test-1.out
 gpaw -P 2 python -m pytest -- -x > test-2.out
 gpaw -P 4 python -m pytest -- -x > test-4.out
 gpaw -P 8 python -m pytest -- -x > test-8.out
