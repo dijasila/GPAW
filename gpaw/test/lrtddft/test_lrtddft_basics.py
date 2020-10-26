@@ -43,8 +43,9 @@ def test_io(tmp_path):
 
 def test_invocation():
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
-    exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
-    exlst.calculate(get_H2())
+    H2 = get_H2(calc)
+    exlst = LrTDDFT(restrict={'eps': 0.4, 'jend': 3}, txt=None)
+    exlst.calculate(H2)
     assert hasattr(exlst, 'Om')
 
     # traditional way
