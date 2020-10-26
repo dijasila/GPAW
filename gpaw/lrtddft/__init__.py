@@ -287,11 +287,11 @@ class LrTDDFT(ExcitationList):
     def singlets_triplets(self):
         """Split yourself into a singlet and triplet object"""
 
-        slr = LrTDDFT(None, nspins=self.nspins, xc=self.xc,
+        slr = LrTDDFT(nspins=self.nspins, xc=self.xc,
                       restrict=self.kss.restrict.values,
                       derivative_level=self.derivative_level,
                       numscale=self.numscale)
-        tlr = LrTDDFT(None, nspins=self.nspins, xc=self.xc,
+        tlr = LrTDDFT(nspins=self.nspins, xc=self.xc,
                       restrict=self.kss.restrict.values,
                       derivative_level=self.derivative_level,
                       numscale=self.numscale)

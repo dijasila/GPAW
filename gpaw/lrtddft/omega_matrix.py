@@ -498,9 +498,9 @@ class OmegaMatrix:
         nkss = len(skss)
 
         # define the singlet and the triplet omega-matrices
-        sOm = OmegaMatrix(kss=skss)
+        sOm = OmegaMatrix(kss=skss, log=self.log)
         sOm.full = np.empty((nkss, nkss))
-        tOm = OmegaMatrix(kss=tkss)
+        tOm = OmegaMatrix(kss=tkss, log=self.log)
         tOm.full = np.empty((nkss, nkss))
         for ij in range(nkss):
             for kl in range(nkss):
