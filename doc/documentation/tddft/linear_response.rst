@@ -54,7 +54,7 @@ the basis in the diagonalisation step, e.g.::
   from gpaw.lrtddft import LrTDDFT 
 
   lr = LrTDDFT.read('lr.dat.gz')
-  lr.diagonalize(energy_range=2.)
+  lr.diagonalize(restrict={'energy_range':2.})
 
 This can be automated by using the check_convergence function::
 
