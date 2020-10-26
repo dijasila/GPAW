@@ -53,7 +53,7 @@ class LrTDDFT(ExcitationList):
     default_parameters: Dict[str, Any] = {
         'nspins': None,
         'restrict': {},
-        'xc': 'GS',
+        'xc': None,
         'derivative_level': 1,
         'numscale': 0.00001,
         'filename': None,
@@ -83,7 +83,7 @@ class LrTDDFT(ExcitationList):
             self.eh_comm = mpi.world.new_communicator(
                 np.asarray(self.eh_comm))
 
-        if calculator is not None and self.xc == 'GS':
+        if calculator is not None and self.xc == None:
             if calculator.initialized:
                 self.xc = calculator.hamiltonian.xc
             else:
@@ -124,11 +124,6 @@ class LrTDDFT(ExcitationList):
 
         return changed
 
-    def set_calculator(self, calculator):
-        self.calculator = calculator
-#        self.force_ApmB = parameters['force_ApmB']
-        self.force_ApmB = None  # XXX
-
     def analyse(self, what=None, out=None, min=0.1):
         """Print info about the transitions.
 
@@ -149,6 +144,7 @@ class LrTDDFT(ExcitationList):
             print(str(i) + ':', self[i].analyse(min=min), file=out)
 
     def calculate(self, atoms):
+        self.calculator = atoms.calc
         if not hasattr(self, 'Om') or self.calculator.check_state(atoms):
             self.calculator.get_potential_energy(atoms)
             self.forced_update()
