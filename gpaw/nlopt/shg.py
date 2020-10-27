@@ -23,7 +23,7 @@ def get_shg(
         out_name='shg.npy',
         mml_name='mml.npz'):
     """
-    Calculate RPA SHG spectrum  for nonmagnetic semiconductors
+    Calculate RPA SHG spectrum for nonmagnetic semiconductors
 
     Input:
         freqs           Excitation frequency array (a numpy array or list)
@@ -131,7 +131,7 @@ def get_shg(
 
 def calc_shg_rvg(
         w_l, f_n, E_n, p_vnn, band_n, pol_v,
-        ftol=1e-6, Etol=1e-9, eshift=0):
+        ftol=1e-4, Etol=1e-6, eshift=0):
     """
     Loop over bands for computing in velocity gauge
 
@@ -215,7 +215,7 @@ def calc_shg_rvg(
 
 def calc_shg_rlg(
         w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, band_n, pol_v,
-        ftol=1e-6, Etol=1e-9, eshift=0):
+        ftol=1e-4, Etol=1e-6, eshift=0):
     """
     Loop over bands for computing in length gauge
 
