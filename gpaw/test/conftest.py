@@ -131,7 +131,7 @@ class GPWFiles:
                    positions=[[-0.37, 0, 0], [0.37, 0, 0]],
                    cell=[5.74, 5, 5])
         h2.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
-                       txt=self.path / f'h2_pw_0.txt')
+                       txt=self.path / 'h2_pw_0.txt')
         h2.get_potential_energy()
         return h2.calc
 
