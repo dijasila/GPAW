@@ -8,7 +8,7 @@ from ase.utils.timing import Timer
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, broadcast, serial_comm
-from basic import print_progressbar, parprint
+from gpaw.nlopt.basic import print_progressbar, parprint
 
 # Compute the momentum matrix elements
 

@@ -6,8 +6,8 @@ import numpy as np
 from ase.units import Bohr, _hbar, _e, _me, _eps0
 from ase.utils.timing import Timer
 from gpaw.mpi import world
-from basic import load_data, parprint, print_progressbar
-from nlobas import get_rml, calc_gender
+from gpaw.nlopt.basic import load_data, parprint, print_progressbar
+from gpaw.nlopt.nlobas import get_rml, calc_gender
 
 # Compute the SHG spectrum and save it
 
