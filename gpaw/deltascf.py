@@ -26,7 +26,7 @@ class DeltaSCF(OccupationNumberCalculator):
         OccupationNumberCalculator.__init__(self)
 
         self.signatures: List[Tuple[int, float, Array1D]] = []
-        self.bands = []
+        self.bands: List[int] = []
 
     def calculate(self,
                   nelectrons: float,
