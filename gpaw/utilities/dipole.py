@@ -79,6 +79,8 @@ def dipole_matrix_elements_from_calc(calc: GPAW,
 
     if center is None:
         center = gd.cell_cv.sum(axis=0) / 2
+    else:
+        center = np.asarray(center) / Bohr
 
     d_snnv = []
     for spin in range(calc.get_number_of_spins()):
