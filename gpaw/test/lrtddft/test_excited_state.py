@@ -14,6 +14,12 @@ from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.excited_state import ExcitedState
 
 
+"""
+Run parallel tests with
+mpiexec -n 4 pytest gpaw/test/lrtddft/test_excited_state.py
+"""
+
+
 def get_H2(calculator=None):
     """Define H2 and set calculator if given"""
     R = 0.7  # approx. experimental bond length
@@ -114,7 +120,7 @@ def test_lrtddft_excited_state():
     parprint("time used:", time.time() - t0)
 
 
-def test_io(tmp_path):
+def test_io(in_tmp_dir):
     """Test output and input from files"""
     calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
     exlst = LrTDDFT(calc, txt=None)
@@ -128,20 +134,21 @@ def test_io(tmp_path):
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
         
     parprint('----------- write trajectory')
-    ftraj = str(tmp_path / 'H2exst.traj')
+    ftraj = 'H2exst.traj'
     F = H2.get_forces()
     traj = io.Trajectory(ftraj, 'w')
     traj.write(H2)
 
     parprint('----------- write')
-    fname = str(tmp_path / 'exst_test_io')
-    print('----', exst.get_potential_energy())
+    fname = 'exst_test_io'
+    parprint('----', exst.get_potential_energy())
     exst.write(fname)
+    world.barrier()
 
     parprint('----------- read')
     exst = ExcitedState.read(fname, txt=None)
     E1 = exst.get_potential_energy()
-    print('-----', exst.get_potential_energy(), E0 + dE1)
+    parprint('-----', exst.get_potential_energy(), E0 + dE1)
     assert E1 == pytest.approx(E0 + dE1, 1.e-5)
     
     parprint('----------- read trajectory')
@@ -241,12 +248,3 @@ def test_unequal_parralel_work():
     forcesp = H3.get_forces()
 
     assert forcesp == pytest.approx(forces, abs=0.01)
-    
-
-if __name__ == '__main__':
-    # test_unequal_parralel_work()
-    # test_forces()
-    test_log(Path('.'))
-    # test_io()
-    # test_split()
-    # test_lrtddft_excited_state()
