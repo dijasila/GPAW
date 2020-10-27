@@ -10,6 +10,7 @@ For radial grid descriptors, look atom/radialgd.py.
 
 import numbers
 from math import pi
+from typing import Iterable
 
 import numpy as np
 from scipy.ndimage import map_coordinates
@@ -18,6 +19,7 @@ import _gpaw
 import gpaw.mpi as mpi
 from gpaw.domain import Domain
 from gpaw.utilities.blas import rk, r2k, gemm
+from gpaw.hints import Array1D, Array3D
 
 
 # Remove this:  XXX
@@ -590,8 +592,14 @@ class GridDescriptor(Domain):
         b_xg[..., npbx:, npby:, npbz:] = a_xg
         return b_xg
 
-    def dipole_moment(self, rho_R, center_v=None):
-        """Calculate dipole moment of density."""
+    def dipole_moment(self,
+                      rho_R: Array3D,
+                      center_v: Iterable[float] = None) -> Array1D:
+        """Calculate dipole moment of density.
+
+        Integration region will be centered on center_v.  Default center
+        is center of unit cell.
+        """
         index_cr = [np.arange(self.beg_c[c], self.end_c[c], dtype=float)
                     for c in range(3)]
 
@@ -607,7 +615,7 @@ class GridDescriptor(Domain):
         rho_ij = rho_ijk.sum(axis=2)
         rho_ik = rho_ijk.sum(axis=1)
         rho_cr = [rho_ij.sum(axis=1), rho_ij.sum(axis=0), rho_ik.sum(axis=0)]
-        print(index_cr[0])
+
         d_c = [np.dot(index_cr[c], rho_cr[c]) for c in range(3)]
         d_v = -np.dot(d_c, self.h_cv) * self.dv
         self.comm.sum(d_v)

@@ -130,7 +130,7 @@ def main(argv: List[str] = None) -> None:
     if args.center:
         center = [float(x) for x in args.center.split(',')]
     else:
-        center = None  # center of cell
+        center = calc.atoms.cell.sum(axis=0) / 2  # center of cell
 
     d_snnv = dipole_matrix_elements_from_calc(calc, n1, n2, center)
 
