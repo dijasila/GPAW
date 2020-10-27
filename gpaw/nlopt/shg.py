@@ -110,17 +110,21 @@ def get_shg(
 
     # Make the output in SI unit (2 is for spin)
     chi_l = 2 * make_output(gauge, sum2_l, sum3_l)
+    # A multi-col output
+    nw = len(freqs)
+    chi_l = chi_l[nw:] + chi_l[nw - 1::-1]
+    shg = np.vstack((freqs, chi_l))
 
     # Save it to the file
     if world.rank == 0:
-        # A multi-col output
-        nw = len(freqs)
-        chi_l = chi_l[nw:] + chi_l[nw - 1::-1]
-        shg = np.vstack((freqs, chi_l))
         np.save(out_name, shg)
 
         # Print the timing
         timer.write()
+    
+    # Return
+    return shg
+
 
 # Implement the velocity gauge equation
 

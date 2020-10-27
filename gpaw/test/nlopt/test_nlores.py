@@ -6,9 +6,9 @@ import numpy as np
 # Import the required modules: GPAW/ASE
 from gpaw import GPAW, PW, FermiDirac
 from ase.build import mx2
-from gpaw.nlopt.nlores import calculate_shg_rvg, calculate_shg_rlg
-from gpaw.nlopt.mml import get_dipole_transitions
-from gpaw.nlopt.output import is_file_exist
+from gpaw.nlopt.shg import get_shg
+from gpaw.nlopt.nlobas import make_nlodata
+from gpaw.nlopt.basic import is_file_exist
 
 # Test the nlores functions
 
@@ -44,8 +44,8 @@ def test_nlores(in_tmp_dir):
         atoms.calc.write('gs.gpw', mode='all')
 
     # Compute momentum matrix
-    if is_file_exist('dip_vknm.npy'):
-        get_dipole_transitions(atoms)
+    if is_file_exist('mml.npz'):
+        make_nlodata()
 
     # Compute responses
     pols = ['yyy', 'xxy', 'xxx']
@@ -53,28 +53,18 @@ def test_nlores(in_tmp_dir):
     shg_lg = {}
     for pol in pols:
 
-        res = calculate_shg_rvg(
+        res = get_shg(
             freqs=w_ls,
             eta=eta,
             pol=pol,
-            addsoc=False,
-            socscale=1.0,
-            ni=0,
-            nf=None,
-            intmethod='no',
-            outname='shg_{}_vg.npy'.format(pol))
+            out_name='shg_{}_vg.npy'.format(pol))
         shg_vg[pol] = res[1]
 
-        res = calculate_shg_rlg(
+        res = get_shg(
             freqs=w_ls,
             eta=eta,
             pol=pol,
-            addsoc=False,
-            socscale=1.0,
-            ni=0,
-            nf=None,
-            intmethod='no',
-            outname='shg_{}_lg.npy'.format(pol))
+            out_name='shg_{}_lg.npy'.format(pol))
         shg_lg[pol] = res[1]
 
     # Now check the results
