@@ -5,9 +5,9 @@ from gpaw import GPAW
 from gpaw.lrtddft.kssingle import KSSingles
 
 
-def test_old_io(tmp_path):
+def test_old_io(in_tmp_dir):
     """Test reading of old style output files"""
-    fname = str(tmp_path / 'veryold.dat')
+    fname = 'veryold.dat'
     if world.rank == 0:
         with open(fname, 'w') as f:
             f.write("""# KSSingles
@@ -20,7 +20,7 @@ def test_old_io(tmp_path):
     kss = KSSingles.read(fname)
     assert len(kss) == 2
 
-    fname = str(tmp_path / 'old.dat')
+    fname = 'old.dat'
     if world.rank == 0:
         with open(fname, 'w') as f:
             f.write("""# KSSingles
@@ -36,7 +36,7 @@ def test_old_io(tmp_path):
     assert kss.restrict['eps'] == 0.024
 
 
-def test_io(tmp_path):
+def test_io(in_tmp_dir):
     ch4 = molecule('CH4')
     ch4.center(vacuum=2)
     ch4.calc = GPAW(h=0.25, nbands=8, txt=None)
@@ -45,7 +45,7 @@ def test_io(tmp_path):
     # full KSSingles
     kssfull = KSSingles(restrict={'eps': 0.9})
     kssfull.calculate(ch4)
-    fullname = str(tmp_path / 'kssfull.dat')
+    fullname = 'kssfull.dat'
     kssfull.write(fullname)
     world.barrier()
 
@@ -57,7 +57,7 @@ def test_io(tmp_path):
     istart, jend = 1, 4
     kss = KSSingles(restrict={'eps': 0.9, 'istart': istart, 'jend': jend})
     kss.calculate(ch4)
-    f14name = str(tmp_path / 'kss_1_4.dat')
+    f14name = 'kss_1_4.dat'
     kss.write(f14name)
     world.barrier()
 
@@ -72,9 +72,3 @@ def test_io(tmp_path):
     assert len(kss3) == len(kss)
     assert kss3.restrict['istart'] == istart
     assert kss3.restrict['jend'] == jend
-
-
-if __name__ == '__main__':
-    from pathlib import Path
-    test_old_io(Path('tst'))
-    test_io(Path('tst'))
