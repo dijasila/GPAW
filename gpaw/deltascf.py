@@ -59,6 +59,8 @@ class DeltaSCF(OccupationNumberCalculator):
             find_band(self.bd, self.domain_comm, P_snI[spin], P_I)
             for spin, occ, P_I in self.signatures]
 
+        self.atoms.calc.log('Delta-SCF bands:', self.bands)
+
         return OccupationNumberCalculator.calculate(self,
                                                     nelectrons,
                                                     eigenvalues,
@@ -71,7 +73,8 @@ class DeltaSCF(OccupationNumberCalculator):
                    weight_q,
                    f_qn,
                    fermi_level_guess=nan):
-        f_sn = [self.bd.zeros(), self.bd.zeros()]
+        f_sn = [self.bd.zeros(global_array=True),
+                self.bd.zeros(global_array=True)]
         f_sn[0][:self.neup] = 1.0
         f_sn[1][:self.nedown] = 1.0
 
