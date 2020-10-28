@@ -13,6 +13,9 @@ Git master branch
 * Corresponding ASE release: ASE-3.20.1b1
 
 * Now with contribution from "frozen" core: :ref:`hyperfine`.
+* Change in parameters of :ref:`linear response TDDFT <lrtddft>`
+* Improved relaxation in the excited states in parallel,
+  see  :ref:`linear response TDDFT <lrtddft>`
 
 
 Version 20.10.0

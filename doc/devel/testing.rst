@@ -23,7 +23,7 @@ The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
 and in parallel.
 
-In order to run the tests in parallel, do this:
+In order to run the tests in parallel, do this::
 
     $ mpiexec -n <number-of-processes> pytest -v
 

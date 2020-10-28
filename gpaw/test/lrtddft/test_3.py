@@ -43,24 +43,27 @@ def test_lrtddft_3(in_tmp_dir):
     # selections
     for obj in [KSSingles, LrTDDFT]:
         # selection using state numbers
-        el = obj(calc, istart=3, jend=6, txt=txt)
+        el = obj(restrict={'istart': 3, 'jend': 6}, txt=txt)
+        el.calculate(N2)
         if hasattr(obj, 'diagonalize'):
             el.diagonalize()
     #    print "*************** obj, len(obj)", obj.__name__, len(el)
         assert len(el) == 8
         # selection using an energy range
-        el = obj(calc, energy_range=8, txt=txt)
+        el = obj(restrict={'energy_range': 8}, txt=txt)
+        el.calculate(N2)
         if hasattr(obj, 'diagonalize'):
             el.diagonalize()
     #    print "*************** obj, len(obj)", obj.__name__, len(el)
         assert len(el) == 4
-        el = obj(calc, energy_range=11.5, txt=txt)
+        el = obj(restrict={'energy_range': 11.5}, txt=txt)
+        el.calculate(N2)
     #    print "*************** obj, len(obj)", obj.__name__, len(el)
         if hasattr(obj, 'diagonalize'):
             el.diagonalize()
         assert len(el) == 18
         if hasattr(obj, 'diagonalize'):
-            el.diagonalize(energy_range=8)
+            el.diagonalize(restrict={'energy_range': 8})
             assert len(el) == 4
 
     lr = LrTDDFT(calc, nspins=2)
@@ -70,7 +73,7 @@ def test_lrtddft_3(in_tmp_dir):
     world.barrier()
 
     # This is done to test if writing and reading again yields the same result
-    lr2 = LrTDDFT('lrtddft3.dat.gz')
+    lr2 = LrTDDFT.read('lrtddft3.dat.gz')
     lr2.diagonalize()
 
     # Unfortunately not all of the lrtddft code is parallel
