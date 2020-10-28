@@ -350,6 +350,8 @@ class GPAW(Calculator):
                 except NotImplementedError:
                     pass
                 else:
+                    self.log('Reusing old wave functions')
+                    print(self.initialized)
                     changes = set()
 
             if changes:
