@@ -34,16 +34,10 @@ calculations in parallel.
 Extracting the spectrum
 =======================
 
-The dipole spectrum can be evaluated from the Omega matrix and written to a file::
+The dipole spectrum can be evaluated from the Omega matrix and written to
+a file:
 
-  from gpaw.lrtddft import LrTDDFT
-  from gpaw.lrtddft import photoabsorption_spectrum
-
-  lr = LrTDDFT.read('lr.dat.gz')
-  lr.diagonalize()
-  # write the spectrum to the data file
-  photoabsorption_spectrum(lr, 'spectrum_w.05eV.dat', # data file name
-                           width=0.05)                # width in eV
+.. literalinclude:: Be_spectrum.py
 
 Testing convergence
 ===================
@@ -91,9 +85,17 @@ The single transitions (or a list of transitions) can be analysed as follows
 Relaxation in the excited state
 ===============================
 
-This example shows how to relax in the B excited state of the sodium dimer:
+Despite that we do not have analytical gradients in linear response TDDFT,
+we may use finite differences for relaxation in the excited state.
+This example shows how to relax the sodium dimer
+in the B excited state:
 
 .. literalinclude:: Na2_relax_excited.py
+
+The example runs on a single core. If started on 8 cores, it will split
+``world`` into 4 independent parts (2 cores each) that can calculate
+4 displacements in parallel at the same time.
+
 
 Quick reference
 ===============

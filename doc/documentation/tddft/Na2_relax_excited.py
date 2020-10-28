@@ -13,6 +13,7 @@ R = 2.99      # starting distance
 iex = 1       # excited state index
 d = 0.01      # step for numerical force evaluation
 exc = 'LDA'   # xc for the linear response TDDFT kernel
+parallel = 4  # number of independent parrallel workers for force evaluation
 
 s = Cluster([Atom('Na'), Atom('Na', [0, 0, R])])
 s.minimal_box(box, h=h)
@@ -24,7 +25,7 @@ c = GPAW(h=h, nbands=nbands, eigensolver='cg',
 c.calculate(s)
 lr = LrTDDFT(c, xc=exc, restrict={'eps': 0.1, 'jend': nconv - 1})
 
-ex = ExcitedState(lr, iex, d=d)
+ex = ExcitedState(lr, iex, d=d, parallel=parallel)
 s.calc = ex
 
 ftraj = 'relax_ex' + str(iex)
