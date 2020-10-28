@@ -13,12 +13,6 @@ from gpaw.lrtddft import LrTDDFT
 from gpaw.lrtddft.excited_state import ExcitedState
 
 
-"""
-Run parallel tests with
-mpiexec -n 4 pytest gpaw/test/lrtddft/test_excited_state.py
-"""
-
-
 def get_H2(calculator=None):
     """Define H2 and set calculator if given"""
     R = 0.7  # approx. experimental bond length
