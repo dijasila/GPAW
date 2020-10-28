@@ -1,7 +1,6 @@
 import time
 import pytest
 import numpy as np
-from pathlib import Path
 
 from ase import Atom, Atoms, io
 from ase.parallel import parprint, paropen
@@ -52,8 +51,8 @@ def get_H3(calculator=None):
 
 def test_split(in_tmp_dir):
     fname = 'exlst.out'
-    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=None)
-    exlst = LrTDDFT(calc, txt=None)
+    calc = GPAW(xc='PBE', h=0.25, nbands=3, txt=fname)
+    exlst = LrTDDFT(calc, txt=fname)
     exst = ExcitedState(exlst, 0, txt=fname)
     H2 = get_H2(exst)
     H2.get_potential_energy()
@@ -62,7 +61,7 @@ def test_split(in_tmp_dir):
     exst.split(n)
     H2.get_potential_energy()
     
-    if world.rank == 1:
+    if world.rank == 0:
         with open(fname) as f:
             string = f.read()
             assert 'Total number of cores used: {0}'.format(n) in string
@@ -158,7 +157,7 @@ def test_io(in_tmp_dir):
 
     
 def test_log(in_tmp_dir):
-    fname = 'ex0.out'
+    fname = 'ex0_silent.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=None)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, txt=None)
@@ -172,8 +171,10 @@ def test_log(in_tmp_dir):
         with open(fname) as f:
             string = f.read()
             assert 'ExcitedState' in string
+            assert '  ___ ___ ___ _ _ _' not in string
+            assert 'Linear response TDDFT calculation' not in string
 
-    fname = 'ex0calc.out'
+    fname = 'ex0_split.out'
     calc = GPAW(xc='PBE', h=0.25, nbands=5, txt=fname)
     calc.calculate(get_H2(calc))
     exlst = LrTDDFT(calc, restrict={'eps': 0.4, 'jend': 3}, log=calc.log)

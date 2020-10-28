@@ -17,13 +17,17 @@ from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class ExcitedState(GPAW, Calculator):
-    has_been_split = False
+    nparts = 1
     implemented_properties = ['energy', 'forces']
     default_parameters: Dict[str, Any] = {}
     
     def __init__(self, lrtddft, index, d=0.001, log=None, txt='-',
                  parallel=1, communicator=None):
         """ExcitedState object.
+        lrtddft:
+          LrTDDFT object
+        index:
+          Excited state index
         parallel: int
           Can be used to parallelize the numerical force calculation
           over images. Splits world into # parallel workers.
@@ -210,12 +214,14 @@ class ExcitedState(GPAW, Calculator):
 
     def split(self, nparts):
         """Split world into parts and allow log in masters' part"""
-        self.nparts = nparts
-        if self.has_been_split or self.world.size == 1:
-            return
+        # only split once
+        assert self.nparts == 1
         
-        assert self.world.size % nparts == 0
+        if self.world.size == 1 or nparts == 1:
+            return
 
+        assert self.world.size % nparts == 0
+        self.nparts = nparts
         allranks = np.array(range(self.world.size), dtype=int)
         allranks = allranks.reshape(nparts, self.world.size // nparts)
         
@@ -231,7 +237,6 @@ class ExcitedState(GPAW, Calculator):
                 if 0 not in ranks:
                     self.calculator.log.fd = None
                     self.lrtddft.log.fd = None
-                self.has_been_split = True
                 return
                     
     def get_forces(self, atoms=None, save=False):
