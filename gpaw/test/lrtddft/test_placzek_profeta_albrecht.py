@@ -33,12 +33,12 @@ class GPAW_with_classmethod_read(GPAW):
         return gpw
 
 
-def test_lrtddft_placzek_profeta_albrecht(tmp_path):
+def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
 
-    name = exname = str(tmp_path / 'rraman')
+    name = exname = 'rraman'
     exkwargs = {'restrict': {'eps': 0.0, 'jend': 3}}
 
     if 1:
