@@ -80,8 +80,3 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
         # periodic and non-periodic should be roughly equal
         equal(energy['zero_bc'], energy['periodic'], 5.e-2)
         equal(osz['zero_bc'], osz['periodic'], 2.e-2)
-
-
-if __name__ == '__main__':
-    from pathlib import Path
-    test_lrtddft_kssingles_Be(Path('tst'))

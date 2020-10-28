@@ -92,7 +92,3 @@ def test_lrtddft_apmb():
     parprint('lr=', lr)
     equal(lr[0].get_energy(), lr_spin[0].get_energy(), 3.8e-6)
     equal(lr[1].get_energy(), lr_spin[1].get_energy(), 3.4e-6)
-
-
-if __name__ == '__main__':
-    test_lrtddft_apmb()
