@@ -24,7 +24,12 @@ class ExcitedState(GPAW, Calculator):
     def __init__(self, lrtddft, index, d=0.001, log=None, txt='-',
                  parallel=1, communicator=None):
         """ExcitedState object.
-        parallel: Can be used to parallelize the numerical force calculation
+        parallel: int
+          Can be used to parallelize the numerical force calculation
+          over images. Splits world into # parallel workers.
+          E. g. if world.size is 20 and parallel is 10, then 2 cores
+          are used per GPAW and LrTDDFT calculation.
+          Defaults to 1 (i.e. use all cores).
         over images.
         """
 
