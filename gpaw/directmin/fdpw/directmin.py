@@ -31,8 +31,10 @@ class DirectMin(Eigensolver):
                  inner_loop=None,
                  initial_orbitals=None,
                  maxiter=50,
+                 maxiterxst=5.0e-4,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
+                 g_tolxst=5.0e-4,
                  printinnerloop=False,
                  blocksize=1,
                  convergelumo=True,
@@ -49,8 +51,10 @@ class DirectMin(Eigensolver):
         self.inner_loop = inner_loop
         self.initial_orbitals = initial_orbitals
         self.maxiter=maxiter
+        self.maxiterxst = maxiterxst
         self.kappa_tol=kappa_tol
         self.g_tol=g_tol
+        self.g_tolxst=g_tolxst
         self.printinnerloop = printinnerloop
         self.convergelumo = convergelumo
 
@@ -246,8 +250,8 @@ class DirectMin(Eigensolver):
                     odd2 = self.odd
 
                 self.iloop_outer = ILEXST(
-                    odd2, wfs,'all', self.kappa_tol, self.maxiter,
-                    g_tol=self.g_tol, useprec=True)
+                    odd2, wfs,'all', self.kappa_tol, self.maxiterxst,
+                    g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
                 if 'SIC' in self.odd_parameters['name']:
