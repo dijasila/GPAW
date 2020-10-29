@@ -11,19 +11,24 @@ cmds = """\
 python3 -m venv venv
 . venv/bin/activate
 pip install -U pip -qq
-pip install pytest sphinx-rtd-theme
+pip install pytest sphinx-rtd-theme coverage
 pip install -q git+https://gitlab.com/ase/ase.git@master
 git clone git@gitlab.com:gpaw/gpaw
 cd gpaw
 pip install -e .
 export GPAW_COVERAGE=test
-pytest -x > test-1.out
+pytest > test-1.out
 gpaw -P 2 python -m pytest -- -x > test-2.out
 gpaw -P 4 python -m pytest -- -x > test-4.out
 gpaw -P 8 python -m pytest -- -x > test-8.out
 export GPAW_COVERAGE=docs
 cd doc
-make"""
+make
+cd ..
+mkdir cov
+cp coverage-test-* cov/
+coverage combine coverage-test-*
+coverage html"""
 
 
 def run_tests():

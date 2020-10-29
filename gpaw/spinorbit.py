@@ -322,7 +322,6 @@ class BZWaveFunctions:
 def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
                         dVL_avii: Dict[int, Array3D],
                         kd, spos_ac, setups, atom_partition,
-                        scale: float = 1.0,
                         theta: float = 0.0,
                         phi: float = 0.0) -> Dict[int, WaveFunction]:
 
@@ -496,7 +495,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     bzwfs = soc_eigenstates_raw(ibzwfs,
                                 dVL_avii,
                                 kd, spos_ac, setups, atom_partition,
-                                scale, theta, phi)
+                                theta, phi)
 
     if bd.comm.rank == 0 and gd.comm.rank == 0:
         parallel_layout = ParallelLayout(BandDescriptor(1),

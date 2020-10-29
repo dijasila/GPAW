@@ -40,14 +40,15 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
     calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True',
                   experimental={'niter_fixdensity': 2})
     e_o_plus = o_plus.get_potential_energy()
-    lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log', istart=0, jend=1)
+    lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log',
+                 restrict={'istart':0, 'jend':1})
     equal(lr.xc.omega, 0.83)
     lr.write('LCY_TDDFT_Be.ex.gz')
     e_ion = 9.3
     ip_i = 13.36
     # reading is problematic with EXX on more than one core
     if world.rank == 0:
-        lr2 = LrTDDFT('LCY_TDDFT_Be.ex.gz')
+        lr2 = LrTDDFT.read('LCY_TDDFT_Be.ex.gz')
         lr2.diagonalize()
         equal(lr2.xc.omega, 0.83)
         ion_i = lr2[0].get_energy() * Hartree + e_ion
