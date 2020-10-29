@@ -963,17 +963,27 @@ class DirectMinLCAO(DirectLCAO):
         # if one want to use coefficients saved in gpw file
         # or to use coefficients from the previous scf cicle
         else:
+            if occ_name == 'mom':
+                # If positions have changed we need to initialize
+                # the MOM reference orbitals before orthogonalization
+                occ.calculate(wfs)
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
-                if self.c_nm_ref is not None:
-                    C = self.c_nm_ref[u]
-                else:
-                    C = kpt.C_nM
-                kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                if self.odd.name == 'Zero':
+                    super(DirectMinLCAO, self).iterate(ham, wfs)
+                elif self.odd.name == 'PZ_SIC':
+                    if self.c_nm_ref is not None:
+                        C = self.c_nm_ref[u]
+                    else:
+                        C = kpt.C_nM
+                    kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
             if occ_name == 'mom':
-               self.sort_wavefunctions_mom(occ, wfs)
+                self.sort_wavefunctions_mom(occ, wfs)
+                # Reset MOM so that MOM reference orbitals will
+                # be initialized again after orthogonalization
+                occ.reset(wfs)
 
     def localize_wfs(self, wfs, log):
 
