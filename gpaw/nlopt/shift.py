@@ -74,8 +74,8 @@ def get_shift(
 
         with timer('Sum over bands'):
             tmp = shift_current(
-                eta, w_l, f_n, E_n, r_vnn, rd_vvnn, band_n, pol_v,
-                ftol=ftol, Etol=Etol)
+                eta, w_l, f_n, E_n, r_vnn, rd_vvnn, pol_v,
+                band_n, ftol, Etol)
 
         # Add it to previous with a weight
         sum2_l += tmp * we
@@ -112,8 +112,8 @@ def get_shift(
 
 
 def shift_current(
-        eta, w_l, f_n, E_n, r_vnn, rd_vvnn, band_n, pol_v,
-        ftol=1e-4, Etol=1e-6):
+        eta, w_l, f_n, E_n, r_vnn, rd_vvnn, pol_v,
+        band_n=None, ftol=1e-4, Etol=1e-6):
     """
     Loop over bands for computing in length gauge
 
@@ -132,6 +132,9 @@ def shift_current(
     """
 
     # Initialize variable
+    nb = len(f_n)
+    if band_n is None:
+        band_n = list(range(nb))
     sum2_l = np.zeros((w_l.size), complex)
 
     # Loop over bands

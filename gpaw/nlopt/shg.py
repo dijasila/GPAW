@@ -8,8 +8,6 @@ from gpaw.nlopt.basic import load_data
 from gpaw.nlopt.matrixel import get_rml, get_derivative
 from gpaw.utilities.progressbar import ProgressBar
 
-# Compute the SHG spectrum and save it
-
 
 def get_shg(
         freqs=[1.0],
@@ -79,8 +77,8 @@ def get_shg(
         if gauge == 'vg':
             with timer('Sum over bands'):
                 tmp = shg_velocity_gauge(
-                    w_l, f_n, E_n, p_vnn, band_n, pol_v,
-                    ftol=ftol, Etol=Etol, eshift=eshift)
+                    w_l, f_n, E_n, p_vnn, pol_v,
+                    band_n, ftol, Etol, eshift)
         elif gauge == 'lg':
             with timer('Position matrix elements calculation'):
                 r_vnn, D_vnn = get_rml(E_n, p_vnn, pol_v, Etol=Etol)
@@ -90,8 +88,8 @@ def get_shg(
 
             with timer('Sum over bands'):
                 tmp = shg_length_gauge(
-                    w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, band_n, pol_v,
-                    ftol=ftol, Etol=Etol, eshift=eshift)
+                    w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, pol_v,
+                    band_n, ftol, Etol, eshift)
         else:
             parprint('Gauge ' + gauge + ' not implemented.')
             raise NotImplementedError
@@ -129,8 +127,8 @@ def get_shg(
 
 
 def shg_velocity_gauge(
-        w_l, f_n, E_n, p_vnn, band_n, pol_v,
-        ftol=1e-4, Etol=1e-6, eshift=0):
+        w_l, f_n, E_n, p_vnn, pol_v,
+        band_n=None, ftol=1e-4, Etol=1e-6, eshift=0):
     """
     Loop over bands for computing in velocity gauge
 
@@ -148,6 +146,9 @@ def shg_velocity_gauge(
     """
 
     # Initialize variables
+    nb = len(f_n)
+    if band_n is None:
+        band_n = list(range(nb))
     sum2_l = np.zeros(w_l.size, complex)
     sum3_l = np.zeros(w_l.size, complex)
 
@@ -210,8 +211,8 @@ def shg_velocity_gauge(
 
 
 def shg_length_gauge(
-        w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, band_n, pol_v,
-        ftol=1e-4, Etol=1e-6, eshift=0):
+        w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, pol_v,
+        band_n=None, ftol=1e-4, Etol=1e-6, eshift=0):
     """
     Loop over bands for computing in length gauge
 
@@ -231,6 +232,9 @@ def shg_length_gauge(
     """
 
     # Initialize variables
+    nb = len(f_n)
+    if band_n is None:
+        band_n = list(range(nb))
     sum2_l = np.zeros(w_l.size, complex)
     sum3_l = np.zeros(w_l.size, complex)
 
