@@ -278,7 +278,7 @@ class PWDescriptor:
         a_xG.fill(0.0)
         return a_xG
 
-    def empty(self, x=(), dtype=None, q=None, global_array=False), cuda=False:
+    def empty(self, x=(), dtype=None, q=None, global_array=False, cuda=False):
         """Return empty array."""
         if dtype is not None:
             assert dtype == self.dtype
