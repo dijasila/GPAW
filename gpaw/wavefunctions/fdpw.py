@@ -35,10 +35,15 @@ class PseudoPartialWaveWfsMover:
     """
     description = 'Improved wavefunction reuse through dual PAW basis'
 
+    paste = False
+
     def initialize(self, lcaowfs):
         pass
 
     def cut_wfs(self, wfs, spos_ac):
+        if self.paste:
+            return self.paste
+
         ni_a = {}
 
         for a in range(len(wfs.setups)):
@@ -49,7 +54,6 @@ class PseudoPartialWaveWfsMover:
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
-        phit.set_positions(wfs.spos_ac, wfs.atom_partition)
 
         # XXX See also wavefunctions.lcao.update_phases
         if wfs.dtype == complex:
@@ -57,20 +61,23 @@ class PseudoPartialWaveWfsMover:
                               np.dot(wfs.kd.ibzk_qc,
                                      (spos_ac - wfs.spos_ac).T.round()))
 
-        def add_phit_to_wfs(multiplier):
-            for kpt in wfs.kpt_u:
+        def add_phit_to_wfs(multiplier, wfs2):
+            for kpt, kpt2 in zip(wfs.kpt_u, wfs2.kpt_u):
                 P_ani = {}
                 for a in kpt.P_ani:
                     P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
                     if multiplier > 0 and wfs.dtype == complex:
                         P_ani[a] *= phase_qa[kpt.q, a]
-                phit.add(kpt.psit_nG, c_axi=P_ani, q=kpt.q)
+                phit.add(kpt2.psit_nG, c_axi=P_ani, q=kpt.q)
 
-        add_phit_to_wfs(-1.0)
+        phit.set_positions(wfs.spos_ac, wfs.atom_partition)
+        add_phit_to_wfs(-1.0, wfs)
 
-        def paste():
+        def paste(wfs2):
             phit.set_positions(spos_ac, wfs.atom_partition)
-            add_phit_to_wfs(1.0)
+            add_phit_to_wfs(1.0, wfs2)
+
+        self.paste = paste
 
         return paste
 
@@ -192,9 +199,14 @@ class LCAOWfsMover:
         wfs.timer.stop('reuse wfs')
 
 
+from gpaw.utilities.debug import frozen
+
+
+@frozen
 class FDPWWaveFunctions(WaveFunctions):
     """Base class for finite-difference and planewave classes."""
     def __init__(self, parallel, initksl, reuse_wfs_method=None, **kwargs):
+        self.pt = None
         WaveFunctions.__init__(self, **kwargs)
 
         ranks = [rbd * self.gd.comm.size + rgd
@@ -218,6 +230,7 @@ class FDPWWaveFunctions(WaveFunctions):
 
         self.wfs_mover = wfs_mover
 
+        self.orthonormalized = False
         self.set_orthonormalized(False)
 
         self._work_matrix_nn = None  # storage for H, S, ...
@@ -257,6 +270,7 @@ class FDPWWaveFunctions(WaveFunctions):
     def set_positions(self, spos_ac, atom_partition=None):
         # We don't move the wave functions if psit_nG is None or an
         # NDArrayReader instance (and we need positions also):
+        print(type(self.kpt_u[0].psit_nG))
         move_wfs = (isinstance(self.kpt_u[0].psit_nG, np.ndarray) and
                     self.spos_ac is not None)
 
@@ -268,8 +282,14 @@ class FDPWWaveFunctions(WaveFunctions):
         # the wavefunctions.
         WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
+        print('MMMMMMMMMMM', move_wfs, self.spos_ac)
         if move_wfs and paste_wfs is not None:
-            paste_wfs()
+            import matplotlib.pyplot as plt
+            f = self.pd.ifft(self.kpt_u[0].psit_nG[0])
+            #plt.plot(f[0, 0], label='a2')
+            paste_wfs(self)
+            f = self.pd.ifft(self.kpt_u[0].psit_nG[0])
+            #plt.plot(f[0, 0], label='b2')
 
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac, atom_partition)

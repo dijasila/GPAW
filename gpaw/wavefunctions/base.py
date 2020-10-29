@@ -62,7 +62,7 @@ class WaveFunctions:
         self.eigensolver = None
         self.positions_set = False
         self.spos_ac = None
-
+        self.setups = None
         self.set_setups(setups)
 
     @property

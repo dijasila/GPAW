@@ -38,6 +38,14 @@ def interpolate_wave_functions(calc: 'GPAW',
     if (kd2.N_c != wfs1.kd.N_c).any():
         raise NotImplementedError
 
+    import matplotlib.pyplot as plt
+    f = wfs1.pd.ifft(wfs1.kpt_u[0].psit_nG[0])
+    plt.plot(f[0, 0], 'x', label='a')
+    spos_ac = atoms.get_scaled_positions() % 1.0
+    wfs1.wfs_mover.cut_wfs(wfs1, spos_ac)
+    f = wfs1.pd.ifft(wfs1.kpt_u[0].psit_nG[0])
+    plt.plot(f[0, 0], 'o', label='b')
+
     N_c, h = calc.choose_number_of_grid_points(cell_cv, atoms.pbc,
                                                mode=calc.mode)
     gd1 = wfs1.gd
@@ -77,6 +85,7 @@ def interpolate_wave_functions(calc: 'GPAW',
         kpt2.psit = psit2
 
     wfs2.occupations = wfs1.occupations
+    wfs2.spos_ac = '?'
 
     calc.wfs = wfs2
     xc = ham1.xc
@@ -115,4 +124,5 @@ def interpolate(pd1: PWDescriptor,
     a2_nG[:] = 0.0
     for a1_G, a2_G in zip(a1_nG, a2_nG):
         map12.add_to2(a2_G, a1_G)
+    print('S' * 55, scale)
     a2_nG *= scale
