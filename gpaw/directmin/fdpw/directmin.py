@@ -31,8 +31,11 @@ class DirectMin(Eigensolver):
                  inner_loop=None,
                  initial_orbitals=None,
                  maxiter=50,
+                 maxiterxst=20,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
+                 g_tolxst=5.0e-4,
+                 momevery=5,
                  printinnerloop=False,
                  blocksize=1,
                  convergelumo=True,
@@ -49,10 +52,16 @@ class DirectMin(Eigensolver):
         self.inner_loop = inner_loop
         self.initial_orbitals = initial_orbitals
         self.maxiter=maxiter
+        self.maxiterxst = maxiterxst
         self.kappa_tol=kappa_tol
         self.g_tol=g_tol
+        self.g_tolxst=g_tolxst
         self.printinnerloop = printinnerloop
         self.convergelumo = convergelumo
+        self.momevery=momevery
+
+        self.total_eg_count_iloop=0
+        self.total_eg_count_iloop_outer=0
 
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
@@ -78,10 +87,10 @@ class DirectMin(Eigensolver):
         self.exstopt = exstopt
         self.etotal=0.0
 
-        if self.exstopt and self.convergelumo:
-            self.convergelumo = False
-            parprint('WARNING: converge lumo for excited states is '
-                     'not implemented')
+        # if self.exstopt and self.convergelumo:
+        #     self.convergelumo = False
+        #     parprint('WARNING: converge lumo for excited states is '
+        #              'not implemented')
 
     def __repr__(self):
 
@@ -246,8 +255,8 @@ class DirectMin(Eigensolver):
                     odd2 = self.odd
 
                 self.iloop_outer = ILEXST(
-                    odd2, wfs,'all', self.kappa_tol, self.maxiter,
-                    g_tol=self.g_tol, useprec=True)
+                    odd2, wfs,'all', self.kappa_tol, self.maxiterxst,
+                    g_tol=self.g_tolxst, useprec=True)
                 # if you have inner-outer loop then need to have
                 # U matrix of the same dimensionality in both loops
                 if 'SIC' in self.odd_parameters['name']:
@@ -340,13 +349,21 @@ class DirectMin(Eigensolver):
         phi_2i[1], der_phi_2i[1] = phi_2i[0], der_phi_2i[0]
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
-        if self.iloop_outer is not None:
-            if self.iloop_outer.odd_pot.restart:
-                self.choose_optimal_orbitals(wfs, ham, occ, dens)
-                self.get_canonical_representation(ham, wfs, occ, dens)
-                self.iters = 0
-                self.initialized = False
-                self.need_init_odd = True
+        occ_name = getattr(occ, 'name', None)
+        if (self.iters + 1) % self.momevery == 0 and occ_name == 'mom':
+            self.choose_optimal_orbitals(wfs, ham, occ, dens)
+            self.get_canonical_representation(ham, wfs, occ, dens)
+            self.iters = 0
+            self.initialized = False
+            self.need_init_odd = True
+
+        # if self.iloop_outer is not None:
+        #     if self.iloop_outer.odd_pot.restart:
+        #         self.choose_optimal_orbitals(wfs, ham, occ, dens)
+        #         self.get_canonical_representation(ham, wfs, occ, dens)
+        #         self.iters = 0
+        #         self.initialized = False
+        #         self.need_init_odd = True
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
@@ -403,13 +420,47 @@ class DirectMin(Eigensolver):
         del grad_knG
         wfs.orthonormalize()
         self.alpha = a_star
-        if self.iloop_outer is not None:
-            if self.iloop_outer.odd_pot.restart:
-                self.choose_optimal_orbitals(wfs, ham, occ, dens)
-                self.get_canonical_representation(ham, wfs, occ, dens)
-                self.iters = 0
-                self.initialized = False
-                self.need_init_odd = True
+        # if self.iloop_outer is not None:
+        #     if self.iloop_outer.odd_pot.restart:
+        #         self.choose_optimal_orbitals(wfs, ham, occ, dens)
+        #         self.get_canonical_representation(ham, wfs, occ, dens)
+        #         self.iters = 0
+        #         self.initialized = False
+        #         self.need_init_odd = True
+        #
+        occ_name = getattr(occ, 'name', None)
+        if (self.iters + 1) % self.momevery == 0 and occ_name == 'mom':
+            self.choose_optimal_orbitals(wfs, ham, occ, dens)
+            self.get_canonical_representation(ham, wfs, occ, dens)
+            self.iters = 0
+            self.initialized = False
+            self.need_init_odd = True
+        # if self.iloop_outer is not None:
+        #     occ_name = getattr(occ, 'name', None)
+        #     if self.iters % self.momevery == 0 and occ_name == 'mom':
+        #         f_sn = {}
+        #         for kpt in wfs.kpt_u:
+        #             n_kps = wfs.kd.nks // wfs.kd.nspins
+        #             u = n_kps * kpt.s + kpt.q
+        #             f_sn[u] = kpt.f_n.copy()
+        #         occ.calculate(wfs)
+        #         changedocc = 0
+        #         for kpt in wfs.kpt_u:
+        #             n_kps = wfs.kd.nks // wfs.kd.nspins
+        #             u = n_kps * kpt.s + kpt.q
+        #             changedocc = int(
+        #                 not np.allclose(f_sn[u], kpt.f_n.copy()))
+        #         changedocc = wfs.kd.comm.max(changedocc)
+        #         for kpt in wfs.kpt_u:
+        #             occ.sort_wavefunctions(wfs, kpt)
+        #
+        #         if self.iloop_outer.odd_pot.restart or changedocc:
+        #             self.choose_optimal_orbitals(wfs, ham, occ, dens)
+        #             self.get_canonical_representation(ham, wfs, occ, dens)
+        #             self.iters = 0
+        #             self.initialized = False
+        #             self.need_init_odd = True
+
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
@@ -1076,13 +1127,13 @@ class DirectMin(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
 
-        max_iter = 500
+        max_iter = 300
         while self.iters < max_iter:
             en, er = self.iterate_lumo(ham, wfs, dens)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
-            if er < max_err * 10.:
+            if er < 5.0e-4:
                 log('\nUnoccupied states converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
@@ -1119,6 +1170,7 @@ class DirectMin(Eigensolver):
             self.e_sic, counter = self.iloop.run(
                 eks, wfs, dens, log, niter,
                 small_random=intital_random)
+            self.total_eg_count_iloop += self.iloop.eg_count
 
             if self.iloop_outer is None:
                 if grad_knG is not None:
@@ -1145,6 +1197,7 @@ class DirectMin(Eigensolver):
             0.0, wfs, dens, log, niter,
             small_random=False,
             ham=ham, occ=occ)
+        self.total_eg_count_iloop_outer += self.iloop_outer.eg_count
         self.e_sic = self.iloop_outer.odd_pot.total_sic
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
@@ -1177,13 +1230,34 @@ class DirectMin(Eigensolver):
         # initial orbitals can be localised using Pipek-Mezey
         # or Wannier functions.
 
-        if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
-                and not self.force_init_localization:
+        if 'SIC' in self.odd_parameters['name']:
+            if (not self.need_init_orbs or wfs.read_from_file_init_wfs_dm) \
+                    and not self.force_init_localization:
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                wfs.orthonormalize()
+                occ.calculate(wfs)
+                occ_name = getattr(occ, 'name', None)
+                if occ_name == 'mom':
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                return
+        else:
+            # we need to do it in order to initialize mom..
+            # it will take occupied orbitals from previous step
+            occ_name = getattr(occ, 'name', None)
+            if occ_name == 'mom':
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                occ.init_ref_orb2(wfs)
+
             for kpt in wfs.kpt_u:
                 wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-            wfs.orthonormalize()
-            occ.calculate(wfs)
-            occ_name = getattr(occ, 'name', None)
+                super(DirectMin, self).subspace_diagonalize(
+                    ham, wfs, kpt, True)
+                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+
+            occ.calculate(wfs)  # fill occ numbers
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
                     occ.sort_wavefunctions(wfs, kpt)

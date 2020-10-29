@@ -277,9 +277,9 @@ class SCFLoop:
                     iloop1 = wfs.eigensolver.iloop is not None
                     iloop2 = wfs.eigensolver.iloop_outer is not None
                     if iloop1:
-                        niter2 = wfs.eigensolver.iloop.total_eg_count
+                        niter2 = wfs.eigensolver.total_eg_count_iloop
                     if iloop2:
-                        niter3 = wfs.eigensolver.iloop_outer.total_eg_count
+                        niter3 = wfs.eigensolver.total_eg_count_iloop_outer
 
                     if iloop1 and iloop2:
                         log(
