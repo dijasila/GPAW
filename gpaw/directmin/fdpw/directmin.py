@@ -60,6 +60,9 @@ class DirectMin(Eigensolver):
         self.convergelumo = convergelumo
         self.momevery=momevery
 
+        self.total_eg_count_iloop=0
+        self.total_eg_count_iloop_outer=0
+
         if isinstance(self.odd_parameters, basestring):
             self.odd_parameters = \
                 xc_string_to_dict(self.odd_parameters)
@@ -1167,6 +1170,7 @@ class DirectMin(Eigensolver):
             self.e_sic, counter = self.iloop.run(
                 eks, wfs, dens, log, niter,
                 small_random=intital_random)
+            self.total_eg_count_iloop += self.iloop.eg_count
 
             if self.iloop_outer is None:
                 if grad_knG is not None:
@@ -1193,6 +1197,7 @@ class DirectMin(Eigensolver):
             0.0, wfs, dens, log, niter,
             small_random=False,
             ham=ham, occ=occ)
+        self.total_eg_count_iloop_outer += self.iloop_outer.eg_count
         self.e_sic = self.iloop_outer.odd_pot.total_sic
         for kpt in wfs.kpt_u:
             k = self.n_kps * kpt.s + kpt.q
