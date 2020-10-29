@@ -8,6 +8,7 @@ from gpaw.utilities import unpack
 from gpaw.utilities.timing import nulltimer
 from gpaw.wavefunctions.base import WaveFunctions
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions, update_phases
+from gpaw.utilities.debug import frozen
 
 
 class NullWfsMover:
@@ -201,9 +202,6 @@ class LCAOWfsMover:
             bfs.lcao_to_grid(C_xM=c_unM[u], psit_xG=kpt.psit_nG, q=kpt.q)
         wfs.timer.stop('re-add wfs')
         wfs.timer.stop('reuse wfs')
-
-
-from gpaw.utilities.debug import frozen
 
 
 @frozen

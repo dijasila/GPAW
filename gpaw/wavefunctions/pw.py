@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numbers
 from math import pi, factorial as fac
 
@@ -1236,8 +1235,8 @@ class PWWaveFunctions(FDPWWaveFunctions):
                 spin=kpt.s, collinear=self.collinear)
             del psit_nG
 
-            #with self.timer('Projections'):
-            #    self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            # with self.timer('Projections'):
+            #     self.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
 
             kpt.f_n = None
 
