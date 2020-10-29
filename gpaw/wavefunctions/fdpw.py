@@ -52,8 +52,11 @@ class PseudoPartialWaveWfsMover:
                    for phit in setup.get_partial_waves_for_atomic_orbitals()]
             # assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
+            assert l_j == setup.l_j[:len(l_j)]
+            for n in setup.n_j[:len(l_j)]:
+                assert n > 0
 
-        phit = wfs.get_pseudo_partial_waves()
+        # phit = wfs.get_pseudo_partial_waves()
 
         # XXX See also wavefunctions.lcao.update_phases
         if wfs.dtype == complex:
@@ -61,21 +64,22 @@ class PseudoPartialWaveWfsMover:
                               np.dot(wfs.kd.ibzk_qc,
                                      (spos_ac - wfs.spos_ac).T.round()))
 
-        def add_phit_to_wfs(multiplier, wfs2):
+        def add_phit_to_wfs(multiplier, wfs2, spos_ac):
+            phit = wfs2.get_pseudo_partial_waves()
+            phit.set_positions(spos_ac, wfs2.atom_partition)
             for kpt, kpt2 in zip(wfs.kpt_u, wfs2.kpt_u):
                 P_ani = {}
                 for a in kpt.P_ani:
                     P_ani[a] = multiplier * kpt.P_ani[a][:, :ni_a[a]]
                     if multiplier > 0 and wfs.dtype == complex:
                         P_ani[a] *= phase_qa[kpt.q, a]
+                print(P_ani)
                 phit.add(kpt2.psit_nG, c_axi=P_ani, q=kpt.q)
 
-        phit.set_positions(wfs.spos_ac, wfs.atom_partition)
-        add_phit_to_wfs(-1.0, wfs)
+        add_phit_to_wfs(-1.0, wfs, wfs.spos_ac)
 
         def paste(wfs2):
-            phit.set_positions(spos_ac, wfs.atom_partition)
-            add_phit_to_wfs(1.0, wfs2)
+            add_phit_to_wfs(1.0, wfs2, spos_ac)
 
         self.paste = paste
 
@@ -285,10 +289,10 @@ class FDPWWaveFunctions(WaveFunctions):
         print('MMMMMMMMMMM', move_wfs, self.spos_ac)
         if move_wfs and paste_wfs is not None:
             import matplotlib.pyplot as plt
-            f = self.pd.ifft(self.kpt_u[0].psit_nG[0])
+            f = self.pd.ifft(self.kpt_u[0].psit_nG[0], 0)
             #plt.plot(f[0, 0], label='a2')
             paste_wfs(self)
-            f = self.pd.ifft(self.kpt_u[0].psit_nG[0])
+            f = self.pd.ifft(self.kpt_u[0].psit_nG[0], 0)
             #plt.plot(f[0, 0], label='b2')
 
         self.set_orthonormalized(False)

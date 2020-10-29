@@ -372,7 +372,7 @@ class GPAW(Calculator):
             self.set_positions(atoms)
 
         import matplotlib.pyplot as plt
-        f = self.wfs.pd.ifft(self.wfs.kpt_u[0].psit_nG[0])
+        f = self.wfs.pd.ifft(self.wfs.kpt_u[0].psit_nG[0], 0)
         plt.plot(f[0, 0], label=f'A{atoms.cell[0, 0]}')
 
         yield
@@ -386,7 +386,7 @@ class GPAW(Calculator):
                     self.density,
                     self.log, self.call_observers)
 
-            f = self.wfs.pd.ifft(self.wfs.kpt_u[0].psit_nG[0])
+            f = self.wfs.pd.ifft(self.wfs.kpt_u[0].psit_nG[0], 0)
             plt.plot(f[0, 0], label=f'B{atoms.cell[0, 0]}')
             self.log('\nConverged after {} iterations.\n'
                      .format(self.scf.niter))
