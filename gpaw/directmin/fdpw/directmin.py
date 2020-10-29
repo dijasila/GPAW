@@ -31,7 +31,7 @@ class DirectMin(Eigensolver):
                  inner_loop=None,
                  initial_orbitals=None,
                  maxiter=50,
-                 maxiterxst=5.0e-4,
+                 maxiterxst=20,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
                  g_tolxst=5.0e-4,
