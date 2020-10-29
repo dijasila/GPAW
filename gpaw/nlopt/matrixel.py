@@ -1,16 +1,12 @@
 
-# Import the required modules: General
 import numpy as np
 from os import path
-
-# Import the required modules: GPAW/ASE
 from ase.utils.timing import Timer
+from ase.parallel import parprint
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, broadcast, serial_comm
-from gpaw.nlopt.basic import print_progressbar, parprint
-
-# Compute the momentum matrix elements
+from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
@@ -79,7 +75,7 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
 
     # Initial call to print 0% progress
     ik = 0
-    print_progressbar(ik, nkcore)
+    if world.rank == 0: pb = ProgressBar()
 
     # Loop over k points
     for ik in range(nkcore):
@@ -138,8 +134,10 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
         p_kvnn[ik] = -1j * p_vnn
 
         # Print the progress
+        if world.rank == 0: pb.update(ik/nkcore)
         ik += 1
-        print_progressbar(ik, nkcore)
+
+    if world.rank == 0: pb.finish()
 
     # Gather all data to the master
     p_kvnn2 = None
@@ -160,11 +158,8 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
     if rank == 0:
         timer.write()
 
-    # Return the matrix elements (only in master)
     return p_kvnn2
 
-
-# Generate required data and save them
 
 def make_nlodata(gs_name='gs.gpw', out_name='mml.npz', ni=None, nf=None):
     """
@@ -227,11 +222,6 @@ def make_nlodata(gs_name='gs.gpw', out_name='mml.npz', ni=None, nf=None):
         np.savez(out_name, w_k=w_k,
                  f_kn=f_kn[:, ni:nf], E_kn=E_kn[:, ni:nf], p_kvnn=p_kvnn)
 
-    # Return the output
-    # return f_kn, E_kn, p_kvnn, w_k
-
-
-# Make the r matrix elements
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
     """
@@ -262,15 +252,12 @@ def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):
         D_vnn[v1] = np.tile(p_n[:, None], (1, nb)) - \
             np.tile(p_n[None, :], (nb, 1))
 
-    # Return the matrix elements
     return r_vnn, D_vnn
 
-# Compute the generlized derivative
 
-
-def calc_gender(E_n, r_vnn, D_vnn, pol_v, Etol=1e-6):
+def get_derivative(E_n, r_vnn, D_vnn, pol_v, Etol=1e-6):
     """
-    Compute the position matrix elements
+    Compute the generalized derivative of position matrix elements
 
     Input:
         E_n             Energies
@@ -298,5 +285,4 @@ def calc_gender(E_n, r_vnn, D_vnn, pol_v, Etol=1e-6):
             tmp[zeroind] = 0
             rd_vvnn[v1, v2] = tmp
 
-    # Return the generlized derivative
     return rd_vvnn

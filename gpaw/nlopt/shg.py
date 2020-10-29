@@ -1,13 +1,12 @@
 
-# Import the required modules: General
 import numpy as np
-
-# Import the required modules: GPAW/ASE
 from ase.units import Bohr, _hbar, _e, _me, _eps0
 from ase.utils.timing import Timer
+from ase.parallel import parprint
 from gpaw.mpi import world
-from gpaw.nlopt.basic import load_data, parprint, print_progressbar
-from gpaw.nlopt.nlobas import get_rml, calc_gender
+from gpaw.nlopt.basic import load_data
+from gpaw.nlopt.matrixel import get_rml, get_derivative
+from gpaw.utilities.progressbar import ProgressBar
 
 # Compute the SHG spectrum and save it
 
@@ -67,7 +66,7 @@ def get_shg(
     # Initial call to print 0% progress
     count = 0
     ncount = len(k_info)
-    print_progressbar(count, ncount)
+    if world.rank == 0: pb = ProgressBar()
 
     # Initialize the outputs
     sum2_l = np.zeros((nw), complex)
@@ -78,7 +77,7 @@ def get_shg(
         # Which gauge
         if gauge == 'vg':
             with timer('Sum over bands'):
-                tmp = calc_shg_rvg(
+                tmp = shg_velocity_gauge(
                     w_l, f_n, E_n, p_vnn, band_n, pol_v,
                     ftol=ftol, Etol=Etol, eshift=eshift)
         elif gauge == 'lg':
@@ -86,10 +85,10 @@ def get_shg(
                 r_vnn, D_vnn = get_rml(E_n, p_vnn, pol_v, Etol=Etol)
 
             with timer('Compute generalized derivative'):
-                rd_vvnn = calc_gender(E_n, r_vnn, D_vnn, pol_v, Etol=Etol)
+                rd_vvnn = get_derivative(E_n, r_vnn, D_vnn, pol_v, Etol=Etol)
 
             with timer('Sum over bands'):
-                tmp = calc_shg_rlg(
+                tmp = shg_length_gauge(
                     w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, band_n, pol_v,
                     ftol=ftol, Etol=Etol, eshift=eshift)
         else:
@@ -101,9 +100,10 @@ def get_shg(
         sum3_l += tmp[1] * we
 
         # Print the progress
+        if world.rank == 0: pb.update(count/ncount)
         count += 1
-        print_progressbar(count, ncount)
 
+    if world.rank == 0: pb.finish()
     with timer('Gather data from cores'):
         world.sum(sum2_l)
         world.sum(sum3_l)
@@ -122,14 +122,10 @@ def get_shg(
         # Print the timing
         timer.write()
     
-    # Return
     return shg
 
 
-# Implement the velocity gauge equation
-
-
-def calc_shg_rvg(
+def shg_velocity_gauge(
         w_l, f_n, E_n, p_vnn, band_n, pol_v,
         ftol=1e-4, Etol=1e-6, eshift=0):
     """
@@ -207,13 +203,10 @@ def calc_shg_rvg(
                                  * (w_l - Eml))
                     sum3_l += pnml * ftermD
 
-    # Return outputs
     return sum2_l, sum3_l
 
-# Implement the length gauge equation
 
-
-def calc_shg_rlg(
+def shg_length_gauge(
         w_l, f_n, E_n, r_vnn, rd_vvnn, D_vnn, band_n, pol_v,
         ftol=1e-4, Etol=1e-6, eshift=0):
     """
@@ -302,11 +295,8 @@ def calc_shg_rlg(
                 if np.abs(fml) > ftol:
                     sum3_l += fml / (w_l - Eml) * rnml
 
-    # Return outputs
     return sum2_l, sum3_l
 
-
-# Make the output in SI unit
 
 def make_output(gauge, sum2_l, sum3_l):
     """
@@ -338,5 +328,4 @@ def make_output(gauge, sum2_l, sum3_l):
         parprint('Gauge ' + gauge + ' not implemented.')
         raise NotImplementedError
 
-    # Return output
     return chi_l

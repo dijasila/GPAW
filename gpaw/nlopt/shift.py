@@ -1,15 +1,13 @@
 
-# Import the required modules: General
 import numpy as np
-
-# Import the required modules: GPAW/ASE
 from ase.units import Bohr, _hbar, _e, _me
 from ase.utils.timing import Timer
+from ase.parallel import parprint
 from gpaw.mpi import world
-from gpaw.nlopt.basic import load_data, parprint, print_progressbar
-from gpaw.nlopt.nlobas import get_rml, calc_gender
+from gpaw.nlopt.basic import load_data
+from gpaw.nlopt.matrixel import get_rml, get_derivative
+from gpaw.utilities.progressbar import ProgressBar
 
-# Compute the SHG spectrum and save it
 
 
 def get_shift(
@@ -61,7 +59,7 @@ def get_shift(
     # Initial call to print 0% progress
     count = 0
     ncount = len(k_info)
-    print_progressbar(count, ncount)
+    if world.rank == 0: pb = ProgressBar()
 
     # Initialize the outputs
     sum2_l = np.zeros((nw), complex)
@@ -72,10 +70,10 @@ def get_shift(
             r_vnn, D_vnn = get_rml(E_n, p_vnn, pol_v, Etol=Etol)
 
         with timer('Compute generalized derivative'):
-            rd_vvnn = calc_gender(E_n, r_vnn, D_vnn, pol_v, Etol=Etol)
+            rd_vvnn = get_derivative(E_n, r_vnn, D_vnn, pol_v, Etol=Etol)
 
         with timer('Sum over bands'):
-            tmp = calc_shift(
+            tmp = shift_current(
                 eta, w_l, f_n, E_n, r_vnn, rd_vvnn, band_n, pol_v,
                 ftol=ftol, Etol=Etol)
 
@@ -83,9 +81,11 @@ def get_shift(
         sum2_l += tmp * we
 
         # Print the progress
+        if world.rank == 0: pb.update(count/ncount)
         count += 1
-        print_progressbar(count, ncount)
 
+    if world.rank == 0: pb.finish()
+        
     with timer('Gather data from cores'):
         world.sum(sum2_l)
 
@@ -106,11 +106,10 @@ def get_shift(
         # Print the timing
         timer.write()
 
-    # Return
     return shift
 
 
-def calc_shift(
+def shift_current(
         eta, w_l, f_n, E_n, r_vnn, rd_vvnn, band_n, pol_v,
         ftol=1e-4, Etol=1e-6):
     """
@@ -154,5 +153,4 @@ def calc_shift(
 
                 sum2_l += fnm * tmp
 
-    # Return the output
     return sum2_l

@@ -1,12 +1,9 @@
-# Import the required modules: General
+
 import numpy as np
 from pathlib import Path
 import sys
-
-# Import the required modules: GPAW/ASE
+from ase.parallel import parprint
 from gpaw.mpi import world, broadcast
-
-# Load the mometum and gs file in master
 
 
 def load_data(mml_name='mml.npz'):
@@ -32,11 +29,8 @@ def load_data(mml_name='mml.npz'):
     k_info = distribute_data(
         [nlo['w_k'], nlo['f_kn'], nlo['E_kn'], nlo['p_kvnn']])
 
-    # Return the output dict
     return k_info
 
-
-# Distribute the data among the cores
 
 def distribute_data(arr_list):
     """
@@ -89,44 +83,8 @@ def distribute_data(arr_list):
                     dataset.append(data_k)
                 k_info[kk] = dataset
 
-    # Return the dictionary
+
     return k_info
-
-
-# Print iterations progress
-
-
-def print_progressbar(iteration, total, prefix='Progress:', suffix='Complete',
-                      decimals=1, length=50, fill='#', printEnd="\r"):
-    """
-    Call in a loop to create terminal progress bar
-
-    Input:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals complete
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-    """
-    if world.rank == 0:
-        percent = ("{0:." + str(decimals) + "f}").format(
-            100 * (iteration / float(total)))
-        filledLength = int(length * iteration // total)
-        bar = fill * filledLength + '-' * (length - filledLength)
-        print(
-            '\r%s |%s| %s%% %s' %
-            (prefix, bar, percent, suffix), end=printEnd)
-        sys.stdout.flush()
-
-        # Print New Line on Complete
-        if iteration == total:
-            print()
-            sys.stdout.flush()
-
-# Check if the file exist or not
 
 
 def is_file_exist(filename):
@@ -148,15 +106,5 @@ def is_file_exist(filename):
 
     file_exist = broadcast(file_exist, 0)
 
-    # Return the output
     return file_exist
 
-
-# Prints only from master
-
-
-def parprint(*args, **kwargs):
-    """MPI-safe print - prints only from master. """
-    if world.rank == 0:
-        print(*args, **kwargs)
-        sys.stdout.flush()
