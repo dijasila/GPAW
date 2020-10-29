@@ -2,12 +2,13 @@
 import numpy as np
 from gpaw import GPAW, PW
 from ase import Atoms
-from gpaw.nlopt.shg import get_shg
+from gpaw.nlopt.shift import get_shift
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
 from gpaw.nlopt.basic import is_file_exist
 
-def test_shg(in_tmp_dir):
+
+def test_shift(in_tmp_dir):
 
     # Check for Hydrogen atom
     atoms = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
@@ -25,18 +26,14 @@ def test_shg(in_tmp_dir):
     if is_file_exist('mml.npz'):
         make_nlodata()
 
-    # Do a SHG
-    get_shg(freqs=np.linspace(0, 5, 100))
-    get_shg(freqs=np.linspace(0, 5, 100), gauge='vg', out_name='shg2.npy')
+    # Do a shift current caclulation
+    get_shift(freqs=np.linspace(0, 5, 100))
 
     # Check it
     if world.rank == 0:
-        shg = np.load('shg.npy')
-        shg2 = np.load('shg2.npy')
+        shift = np.load('shift.npy')
+
         # Check for nan's
-        assert not np.isnan(shg).any()
-        assert not np.isnan(shg2).any()
-        # Check the two gauges
-        assert np.all(np.abs(shg2[1] - shg[1]) < 1e-3)
+        assert not np.isnan(shift).any()
         # It should be zero (small) since H2 is centro-symm.
-        assert np.all(np.abs(shg[1]) < 1e-8)
+        assert np.all(np.abs(shift[1]) < 1e-8)
