@@ -75,7 +75,8 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
 
     # Initial call to print 0% progress
     ik = 0
-    if world.rank == 0: pb = ProgressBar()
+    if world.rank == 0:
+        pb = ProgressBar()
 
     # Loop over k points
     for ik in range(nkcore):
@@ -134,10 +135,12 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
         p_kvnn[ik] = -1j * p_vnn
 
         # Print the progress
-        if world.rank == 0: pb.update(ik/nkcore)
+        if world.rank == 0:
+            pb.update(ik / nkcore)
         ik += 1
 
-    if world.rank == 0: pb.finish()
+    if world.rank == 0:
+        pb.finish()
 
     # Gather all data to the master
     p_kvnn2 = None

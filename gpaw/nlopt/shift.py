@@ -9,7 +9,6 @@ from gpaw.nlopt.matrixel import get_rml, get_derivative
 from gpaw.utilities.progressbar import ProgressBar
 
 
-
 def get_shift(
         freqs=[1.0],
         eta=0.05,
@@ -59,7 +58,8 @@ def get_shift(
     # Initial call to print 0% progress
     count = 0
     ncount = len(k_info)
-    if world.rank == 0: pb = ProgressBar()
+    if world.rank == 0:
+        pb = ProgressBar()
 
     # Initialize the outputs
     sum2_l = np.zeros((nw), complex)
@@ -81,10 +81,12 @@ def get_shift(
         sum2_l += tmp * we
 
         # Print the progress
-        if world.rank == 0: pb.update(count/ncount)
+        if world.rank == 0:
+            pb.update(count / ncount)
         count += 1
 
-    if world.rank == 0: pb.finish()
+    if world.rank == 0:
+        pb.finish()
         
     with timer('Gather data from cores'):
         world.sum(sum2_l)

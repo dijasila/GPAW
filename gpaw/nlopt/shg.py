@@ -66,7 +66,8 @@ def get_shg(
     # Initial call to print 0% progress
     count = 0
     ncount = len(k_info)
-    if world.rank == 0: pb = ProgressBar()
+    if world.rank == 0:
+        pb = ProgressBar()
 
     # Initialize the outputs
     sum2_l = np.zeros((nw), complex)
@@ -100,10 +101,12 @@ def get_shg(
         sum3_l += tmp[1] * we
 
         # Print the progress
-        if world.rank == 0: pb.update(count/ncount)
+        if world.rank == 0:
+            pb.update(count / ncount)
         count += 1
 
-    if world.rank == 0: pb.finish()
+    if world.rank == 0:
+        pb.finish()
     with timer('Gather data from cores'):
         world.sum(sum2_l)
         world.sum(sum3_l)

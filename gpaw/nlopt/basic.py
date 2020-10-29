@@ -1,8 +1,6 @@
 
 import numpy as np
 from pathlib import Path
-import sys
-from ase.parallel import parprint
 from gpaw.mpi import world, broadcast
 
 
@@ -83,7 +81,6 @@ def distribute_data(arr_list):
                     dataset.append(data_k)
                 k_info[kk] = dataset
 
-
     return k_info
 
 
@@ -107,4 +104,3 @@ def is_file_exist(filename):
     file_exist = broadcast(file_exist, 0)
 
     return file_exist
-
