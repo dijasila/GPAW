@@ -274,7 +274,6 @@ class FDPWWaveFunctions(WaveFunctions):
     def set_positions(self, spos_ac, atom_partition=None):
         # We don't move the wave functions if psit_nG is None or an
         # NDArrayReader instance (and we need positions also):
-        print(type(self.kpt_u[0].psit_nG))
         move_wfs = (isinstance(self.kpt_u[0].psit_nG, np.ndarray) and
                     self.spos_ac is not None)
 
@@ -286,14 +285,8 @@ class FDPWWaveFunctions(WaveFunctions):
         # the wavefunctions.
         WaveFunctions.set_positions(self, spos_ac, atom_partition)
 
-        print('MMMMMMMMMMM', move_wfs, self.spos_ac)
         if move_wfs and paste_wfs is not None:
-            import matplotlib.pyplot as plt
-            f = self.pd.ifft(self.kpt_u[0].psit_nG[0], 0)
-            #plt.plot(f[0, 0], label='a2')
             paste_wfs(self)
-            f = self.pd.ifft(self.kpt_u[0].psit_nG[0], 0)
-            #plt.plot(f[0, 0], label='b2')
 
         self.set_orthonormalized(False)
         self.pt.set_positions(spos_ac, atom_partition)
