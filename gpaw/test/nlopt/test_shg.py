@@ -7,6 +7,7 @@ from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
 from gpaw.nlopt.basic import is_file_exist
 
+
 def test_shg(in_tmp_dir):
 
     # Check for Hydrogen atom
