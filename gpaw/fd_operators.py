@@ -178,7 +178,7 @@ if debug:
             _FDOperator.relax(self, relax_method, f_g, s_g, n, w)
 
 
-def Laplace(gd, scale=1.0, n=1, dtype=float):
+def Laplace(gd, scale=1.0, n=1, dtype=float, cuda=False):
     if n == 9:
         return FTLaplace(gd, scale, dtype)
     else:
