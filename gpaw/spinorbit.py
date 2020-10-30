@@ -1,5 +1,5 @@
 from math import nan
-from typing import (Union, List, TYPE_CHECKING, Dict, Any, Optional, Callable,
+from typing import (Union, List, TYPE_CHECKING, Dict, Optional, Callable,
                     Tuple, Iterable, Iterator)
 from operator import attrgetter
 from pathlib import Path
@@ -17,18 +17,11 @@ from gpaw.projections import Projections
 from gpaw.setup import Setup
 from gpaw.utilities.partition import AtomPartition
 from gpaw.utilities.ibz2bz import construct_symmetry_operators
-
+from gpaw.hints import Array1D, Array2D, Array3D, Array4D, ArrayND
 if TYPE_CHECKING:
     from gpaw import GPAW  # noqa
 
 _L_vlmm: List[List[np.ndarray]] = []  # see get_L_vlmm() below
-
-# typehints:
-ArrayND = Any
-Array1D = ArrayND
-Array2D = ArrayND
-Array3D = ArrayND
-Array4D = ArrayND
 
 
 class WaveFunction:
@@ -76,7 +69,7 @@ class WaveFunction:
 
     def add_soc(self,
                 dVL_avii: Dict[int, Array3D],
-                s_vss: Array3D,
+                s_vss: List[Array2D],
                 C_ss: Array2D) -> None:
         """Evaluate H in a basis of S_z eigenstates."""
         if self.projections.bcomm.rank > 0:
@@ -230,6 +223,7 @@ class BZWaveFunctions:
         return fermi_level
 
     def calculate_band_energy(self) -> float:
+        """Calculate sum over occupied eigenvalues."""
         if self.domain_comm.rank == 0 and self.bcomm.rank == 0:
             weight = 1.0 / self.nbzkpts
             e_band = sum(wf.eig_m.dot(wf.f_m) for wf in self) * weight
@@ -300,13 +294,13 @@ class BZWaveFunctions:
 
         if broadcast:
             array_kmx = self._collect(func, shape, dtype, False)
-            if array_kmx is None:
+            if array_kmx.ndim == 0:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
                                    self.kpt_comm, self.bcomm, self.domain_comm)
 
         if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
-            return None
+            return np.empty(shape=())
 
         comm = self.kpt_comm
         if comm.rank == 0:
@@ -322,15 +316,17 @@ class BZWaveFunctions:
             if rank == comm.rank:
                 comm.send(func(self[k]), 0)
 
-        return None
+        return np.empty(shape=())
 
 
 def soc_eigenstates_raw(ibzwfs: Iterable[Tuple[int, WaveFunction]],
                         dVL_avii: Dict[int, Array3D],
                         kd, spos_ac, setups, atom_partition,
-                        scale: float = 1.0,
                         theta: float = 0.0,
                         phi: float = 0.0) -> Dict[int, WaveFunction]:
+
+    theta *= np.pi / 180
+    phi *= np.pi / 180
 
     # Hamiltonian with SO in KS basis
     # The even indices in H_mm are spin up along \hat n defined by \theta, phi
@@ -404,35 +400,40 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
             collinear=False)
 
         if bd.comm.rank == 0 and gd.comm.rank == 0:
+            P1_nI = P_snI[0]
+            P2_nI = P_snI[-1]
+            assert P1_nI is not None
+            assert P2_nI is not None
             if collinear:
                 eig_m = np.empty((n2 - n1) * 2)
                 if eigenvalues is None:
-                    eig_m[::2] = eig_sn[0][n1:n2]
-                    eig_m[1::2] = eig_sn[-1][n1:n2]
+                    eig_m[::2] = eig_sn[0][n1:n2] * Ha
+                    eig_m[1::2] = eig_sn[-1][n1:n2] * Ha
                 else:
                     for s in range(2):
                         eig_m[s::2] = eigenvalues[-s, kpt_s[-s].k]
                 projections.array[:] = 0.0
-                projections.array[::2, 0] = P_snI[0][n1:n2]
-                projections.array[1::2, 1] = P_snI[-1][n1:n2]
+                projections.array[::2, 0] = P1_nI[n1:n2]
+                projections.array[1::2, 1] = P2_nI[n1:n2]
             else:
-                eig_m = eig_sn[0][n1:n2]
-                projections.matrix.array[:] = P_snI[0][n1:n2]
+                eig_m = eig_sn[0][n1:n2] * Ha
+                projections.matrix.array[:] = P1_nI[n1:n2]
         else:
             eig_m = np.empty(0)
 
         ibz_index = kpt_s[0].k
 
-        yield ibz_index, WaveFunction(eig_m * Ha, projections)
+        yield ibz_index, WaveFunction(eig_m, projections)
 
 
 def soc_eigenstates(calc: Union['GPAW', str, Path],
                     n1: int = None,
                     n2: int = None,
                     scale: float = 1.0,
-                    theta: float = 0.0,
-                    phi: float = 0.0,
-                    eigenvalues: Array3D = None
+                    theta: float = 0.0,  # degrees
+                    phi: float = 0.0,  # degrees
+                    eigenvalues: Array3D = None,  # eV
+                    occcalc: OccupationNumberCalculator = None
                     ) -> BZWaveFunctions:
     """Calculate SOC eigenstates.
 
@@ -445,12 +446,15 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
         scale: float
             Scale the spinorbit coupling by this amount.
         theta: float
-            Angle in radians.
+            Angle in degrees.
         phi: float
-            Angle in radians.
+            Angle in degrees.
         eigenvalues: ndarray
             Optionally use these eigenvalues instead for those from *calc*.
-            The shape must be: (nspins, nibzkpts, n2 - n1).
+            The shape must be: (nspins, nibzkpts, n2 - n1).  Units: eV.
+        occcalc:
+            Occupation-number calculator.  By default, the one from *calc*
+            will be used.
 
     Returns a BZWaveFunctions object covering the whole BZ.
     """
@@ -491,18 +495,19 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
     bzwfs = soc_eigenstates_raw(ibzwfs,
                                 dVL_avii,
                                 kd, spos_ac, setups, atom_partition,
-                                scale, theta, phi)
+                                theta, phi)
 
     if bd.comm.rank == 0 and gd.comm.rank == 0:
         parallel_layout = ParallelLayout(BandDescriptor(1),
                                          kd.comm,
                                          serial_comm)
-        occ = calc.wfs.occupations.copy(bz2ibzmap=np.arange(kd.nbzkpts),
-                                        parallel_layout=parallel_layout)
+        occcalc = occcalc or calc.wfs.occupations
+        occcalc = occcalc.copy(bz2ibzmap=np.arange(kd.nbzkpts),
+                               parallel_layout=parallel_layout)
     else:
-        occ = None
+        occcalc = None
 
-    return BZWaveFunctions(kd, bzwfs, occ, calc.wfs.nvalence)
+    return BZWaveFunctions(kd, bzwfs, occcalc, calc.wfs.nvalence)
 
 
 def soc(a: Setup, xc, D_sp: Array2D) -> Array3D:
@@ -576,13 +581,8 @@ def get_anisotropy(calc, theta=0.0, phi=0.0, nbands=0, width=None):
     Returns the result relative to the sum of eigenvalues without
     spinorbit coupling.
     """
-    bzwfs = soc_eigenstates(calc, theta=theta, phi=phi,
-                            n1=0, n2=nbands)
-
-    E_so = bzwfs.calculate_band_energy()
-    E_ref = calc.wfs.calculate_band_energy() * Ha
-
-    return E_so - E_ref
+    raise RuntimeError('Please use BZWaveFunctions.calculate_band_energy() '
+                       'instead.')
 
 
 def get_magnetic_moments(calc, theta=0.0, phi=0.0, nbands=None, width=None):

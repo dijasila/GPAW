@@ -1,10 +1,11 @@
-from typing import List, Any
+from typing import List, Any, Optional
 
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
+from .hints import Array2D
 
 MPIComm = Any
 
@@ -106,14 +107,16 @@ class Projections:
             P1_ni[:] = P_ni
         return P
 
-    def redist(self, atom_partition):
+    def redist(self, atom_partition) -> 'Projections':
+        """Redistribute atoms."""
         P = self.new(atom_partition=atom_partition)
         arraydict = self.toarraydict()
         arraydict.redistribute(atom_partition)
         P.fromarraydict(arraydict)
         return P
 
-    def collect(self):
+    def collect(self) -> Optional[Array2D]:
+        """Collect all bands and atoms to master."""
         if self.bcomm.size == 1:
             P = self.matrix
         else:
@@ -129,6 +132,8 @@ class Projections:
         P_In = self.collect_atoms(P)
         if P_In is not None:
             return P_In.T
+
+        return None
 
     def toarraydict(self):
         shape = self.myshape[:-1]

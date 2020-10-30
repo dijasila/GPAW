@@ -10,10 +10,28 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.20.0b1
+* Corresponding ASE release: ASE-3.20.1b1
+
+* Now with contribution from "frozen" core: :ref:`hyperfine`.
+* Change in parameters of :ref:`linear response TDDFT <lrtddft>`
+* Improved relaxation in the excited states in parallel,
+  see  :ref:`linear response TDDFT <lrtddft>`
+
+
+Version 20.10.0
+===============
+
+19 Oct 2020: :git:`20.10.0 <../20.10.0>`
+
+* Corresponding ASE release: ASE-3.20.1.
 
 * New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
-  and uses symmetry.
+  and uses symmetry.  Angles are given in degrees (was radians before).
+
+* The ``gpaw.spinorbit.get_anisotropy()`` method has been removed.  Use the
+  :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
+  :meth:`~gpaw.spinorbit.BZWaveFunctions.calculate_band_energy` method.
+  See this tutorial: :ref:`magnetic anisotropy`.
 
 * Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
 
@@ -94,11 +112,24 @@ Git master branch
   defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
   behavior.
 
-* Work in progress / preview / experimental / danger / be careful:
-  :ref:`hyperfine`.
+* :ref:`hyperfine`.
 
 * New :mod:`gpaw.point_groups` module.  See this tutorial:
   :ref:`point groups`.
+
+* Default mixer (see :ref:`densitymix`) for spin-polarized systems has been
+  changed from ``MixerSum`` to ``MixerDif``.  Now, both the total density
+  and the magnetization density are mixed compared to before where only
+  the total density was mixed.  To get the
+  old behavior, use ``mixer=MixerSum(beta=0.05, history=5, weight=50)``
+  for periodic systems
+  and ``mixer=MixerSum(beta=0.25, history=3, weight=1)`` for molecules.
+
+* New :func:`~gpaw.utilities.dipole.dipole_matrix_elements` and
+  :func:`~gpaw.utilities.dipole.dipole_matrix_elements_from_calc`
+  functions.  Command-line interface::
+
+      $ python3 -m gpaw.utilities.dipole <gpw-file>
 
 
 .. _pytest: http://doc.pytest.org/en/latest/contents.html
@@ -692,7 +723,7 @@ Version 0.10.0
 * Default density mixer parameters have been changed for calculations
   with periodic boundary conditions.  Parameters for that case:
   ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
-  calculations.  Old parameters: ``0.1, 3, 50``.
+  calculations).  Old parameters: ``0.1, 3, 50``.
 
 * Default is now ``occupations=FermiDirac(0.1)`` if a
   calculation is periodic in at least one direction,

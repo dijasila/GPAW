@@ -53,6 +53,8 @@ def gpw_files(request, tmp_path_factory):
 
     * H2 molecule: ``h2_pw``, ``h2_fd``, ``h2_lcao``.
 
+    * H2 molecule (not centered): ``h2_pw_0``.
+
     * Spin-polarized H atom: ``h_pw``.
 
     * Polyethylene chain.  One unit, 3 k-points, no symmetry:
@@ -121,6 +123,15 @@ class GPWFiles:
         h2.center(vacuum=2.5)
         h2.calc = GPAW(mode=mode,
                        txt=self.path / f'h2_{mode["name"]}.txt')
+        h2.get_potential_energy()
+        return h2.calc
+
+    def h2_pw_0(self):
+        h2 = Atoms('H2',
+                   positions=[[-0.37, 0, 0], [0.37, 0, 0]],
+                   cell=[5.74, 5, 5])
+        h2.calc = GPAW(mode={'name': 'pw', 'ecut': 200},
+                       txt=self.path / 'h2_pw_0.txt')
         h2.get_potential_energy()
         return h2.calc
 

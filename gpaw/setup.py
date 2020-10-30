@@ -14,7 +14,6 @@ from gpaw.basis_data import Basis
 from gpaw.overlap import OverlapCorrections
 from gpaw.gaunt import gaunt, nabla
 from gpaw.utilities import unpack, pack
-from gpaw.utilities.ekin import ekin, dekindecut
 from gpaw.rotation import rotation
 from gpaw.xc import XC
 
@@ -1416,6 +1415,7 @@ class Setups(list):
         return atom_partition.arraydict(Dshapes_a, dtype)
 
     def estimate_dedecut(self, ecut):
+        from gpaw.utilities.ekin import ekin, dekindecut
         dedecut = 0.0
         e = {}
         for id in self.id_a:

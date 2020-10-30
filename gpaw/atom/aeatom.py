@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import copy
 import sys
 from math import pi
@@ -148,8 +147,8 @@ class Channel:
         self.C_nb = C_bn.T
         self.phi_ng = self.basis.expand(self.C_nb[:len(self.f_n)])
 
-    def solve2(self, vr_g, scalar_relativistic=False, Z=None):
-        rgd = self.basis.rgd
+    def solve2(self, vr_g, scalar_relativistic=False, Z=None, rgd=None):
+        rgd = rgd or self.basis.rgd
         r_g = rgd.r_g
         l = self.l
         u_g = rgd.empty()

@@ -18,7 +18,6 @@ def test_ase_features_asewannier(in_tmp_dir):
     atoms = molecule('H2', calculator=calc)
     atoms.center(vacuum=3.)
     e = atoms.get_potential_energy()
-    niter = calc.get_number_of_iterations()
 
     pos = atoms.positions + np.array([[0, 0, .2339], [0, 0, -.2339]])
     com = atoms.get_center_of_mass()

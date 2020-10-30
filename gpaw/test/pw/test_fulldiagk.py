@@ -1,5 +1,4 @@
 import pytest
-from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 from ase import Atoms
 from gpaw import GPAW

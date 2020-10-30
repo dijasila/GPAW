@@ -8,10 +8,8 @@ from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
 from . import PointGroup
+from gpaw.hints import Array2D, Array3D
 
-Array1D = Any
-Array2D = Any
-Array3D = Any
 Axis = Union[str, Sequence[float], None]
 
 
@@ -165,7 +163,7 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
     return np.array(axes)
 
 
-def normalize(vector: Union[str, Sequence[float]]) -> Array1D:
+def normalize(vector: Union[str, Sequence[float]]) -> Sequence[float]:
     """Normalize a vector.
 
     The *vector* must be a sequence of three numbers or one of the following
