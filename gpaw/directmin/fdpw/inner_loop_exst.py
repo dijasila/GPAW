@@ -151,6 +151,7 @@ class InnerLoop:
         self.counter = 0
         self.eg_count = 0
         self.odd_pot.momcounter = 1
+        self.converged=False
         # initial things
         self.psit_knG = {}
         for kpt in wfs.kpt_u:
@@ -176,6 +177,7 @@ class InnerLoop:
         threelasten.append(self.e_total)
         g_max = g_max_norm(g_k, wfs, self.n_occ)
         if g_max < self.g_tol:
+            self.converged = True
             for kpt in wfs.kpt_u:
                 k = self.n_kps * kpt.s + kpt.q
                 n_occ = self.n_occ[k]
@@ -292,7 +294,8 @@ class InnerLoop:
 
                 not_converged = g_max > self.g_tol and \
                                 self.counter < self.n_counter
-
+                if not g_max > self.g_tol:
+                    self.converged = True
                 # threelasten.append(phi_0)
                 # if len(threelasten) > 2:
                 #     threelasten = threelasten[-3:]

@@ -31,11 +31,11 @@ class DirectMin(Eigensolver):
                  inner_loop=None,
                  initial_orbitals=None,
                  maxiter=50,
-                 maxiterxst=20,
+                 maxiterxst=10,
                  kappa_tol=5.0e-4,
                  g_tol=5.0e-4,
                  g_tolxst=5.0e-4,
-                 momevery=5,
+                 momevery=3,
                  printinnerloop=False,
                  blocksize=1,
                  convergelumo=True,
@@ -350,20 +350,36 @@ class DirectMin(Eigensolver):
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         occ_name = getattr(occ, 'name', None)
-        if (self.iters + 1) % self.momevery == 0 and occ_name == 'mom':
-            self.choose_optimal_orbitals(wfs, ham, occ, dens)
-            self.get_canonical_representation(ham, wfs, occ, dens)
-            self.iters = 0
-            self.initialized = False
-            self.need_init_odd = True
-
-        # if self.iloop_outer is not None:
-        #     if self.iloop_outer.odd_pot.restart:
-        #         self.choose_optimal_orbitals(wfs, ham, occ, dens)
-        #         self.get_canonical_representation(ham, wfs, occ, dens)
-        #         self.iters = 0
-        #         self.initialized = False
-        #         self.need_init_odd = True
+        if self.iloop_outer is not None and occ_name == 'mom':
+            if (self.iters + 1) % self.momevery == 0:
+                if not self.iloop_outer.converged:
+                    self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                    self.get_canonical_representation(ham, wfs, occ, dens)
+                    self.iters = 0
+                    self.initialized = False
+                    self.need_init_odd = True
+                else:
+                    f_sn = {}
+                    for kpt in wfs.kpt_u:
+                        n_kps = wfs.kd.nks // wfs.kd.nspins
+                        u = n_kps * kpt.s + kpt.q
+                        f_sn[u] = kpt.f_n.copy()
+                    occ.calculate(wfs)
+                    changedocc = 0
+                    for kpt in wfs.kpt_u:
+                        n_kps = wfs.kd.nks // wfs.kd.nspins
+                        u = n_kps * kpt.s + kpt.q
+                        changedocc = int(
+                            not np.allclose(f_sn[u], kpt.f_n.copy()))
+                    changedocc = wfs.kd.comm.max(changedocc)
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                    if changedocc:
+                        self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                        self.get_canonical_representation(ham, wfs, occ, dens)
+                        self.iters = 0
+                        self.initialized = False
+                        self.need_init_odd = True
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
@@ -420,47 +436,37 @@ class DirectMin(Eigensolver):
         del grad_knG
         wfs.orthonormalize()
         self.alpha = a_star
-        # if self.iloop_outer is not None:
-        #     if self.iloop_outer.odd_pot.restart:
-        #         self.choose_optimal_orbitals(wfs, ham, occ, dens)
-        #         self.get_canonical_representation(ham, wfs, occ, dens)
-        #         self.iters = 0
-        #         self.initialized = False
-        #         self.need_init_odd = True
-        #
         occ_name = getattr(occ, 'name', None)
-        if (self.iters + 1) % self.momevery == 0 and occ_name == 'mom':
-            self.choose_optimal_orbitals(wfs, ham, occ, dens)
-            self.get_canonical_representation(ham, wfs, occ, dens)
-            self.iters = 0
-            self.initialized = False
-            self.need_init_odd = True
-        # if self.iloop_outer is not None:
-        #     occ_name = getattr(occ, 'name', None)
-        #     if self.iters % self.momevery == 0 and occ_name == 'mom':
-        #         f_sn = {}
-        #         for kpt in wfs.kpt_u:
-        #             n_kps = wfs.kd.nks // wfs.kd.nspins
-        #             u = n_kps * kpt.s + kpt.q
-        #             f_sn[u] = kpt.f_n.copy()
-        #         occ.calculate(wfs)
-        #         changedocc = 0
-        #         for kpt in wfs.kpt_u:
-        #             n_kps = wfs.kd.nks // wfs.kd.nspins
-        #             u = n_kps * kpt.s + kpt.q
-        #             changedocc = int(
-        #                 not np.allclose(f_sn[u], kpt.f_n.copy()))
-        #         changedocc = wfs.kd.comm.max(changedocc)
-        #         for kpt in wfs.kpt_u:
-        #             occ.sort_wavefunctions(wfs, kpt)
-        #
-        #         if self.iloop_outer.odd_pot.restart or changedocc:
-        #             self.choose_optimal_orbitals(wfs, ham, occ, dens)
-        #             self.get_canonical_representation(ham, wfs, occ, dens)
-        #             self.iters = 0
-        #             self.initialized = False
-        #             self.need_init_odd = True
-
+        if self.iloop_outer is not None and occ_name == 'mom':
+            if (self.iters + 1) % self.momevery == 0:
+                if not self.iloop_outer.converged:
+                    self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                    self.get_canonical_representation(ham, wfs, occ, dens)
+                    self.iters = 0
+                    self.initialized = False
+                    self.need_init_odd = True
+                else:
+                    f_sn = {}
+                    for kpt in wfs.kpt_u:
+                        n_kps = wfs.kd.nks // wfs.kd.nspins
+                        u = n_kps * kpt.s + kpt.q
+                        f_sn[u] = kpt.f_n.copy()
+                    occ.calculate(wfs)
+                    changedocc = 0
+                    for kpt in wfs.kpt_u:
+                        n_kps = wfs.kd.nks // wfs.kd.nspins
+                        u = n_kps * kpt.s + kpt.q
+                        changedocc = int(
+                            not np.allclose(f_sn[u], kpt.f_n.copy()))
+                    changedocc = wfs.kd.comm.max(changedocc)
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                    if changedocc:
+                        self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                        self.get_canonical_representation(ham, wfs, occ, dens)
+                        self.iters = 0
+                        self.initialized = False
+                        self.need_init_odd = True
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
