@@ -20,6 +20,8 @@ def create_occupation_number_object(name, **kwargs):
         return MethfesselPaxton(**kwargs)
     if name == 'marzari-vanderbilt':
         return MarzariVanderbilt(**kwargs)
+    if name == 'mom':
+        return ZeroKelvin(True)
     if name == 'orbital-free':
         return TFOccupations()
     raise ValueError('Unknown occupation number object name: ' + name)
