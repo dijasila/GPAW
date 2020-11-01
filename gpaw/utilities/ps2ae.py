@@ -52,6 +52,7 @@ class PS2AE:
         self.interpolator = Interpolator(gd1, gd2, self.calc.wfs.dtype)
 
         self.dphi = None  # PAW correction (will be initialized when needed)
+        self.dv = self.gd.dv * Bohr**3
 
     def _initialize_corrections(self):
         if self.dphi is not None:
@@ -105,6 +106,27 @@ class PS2AE:
                 self.dphi.add(psi_R, P_ai, k)
             wfs.world.broadcast(psi_R, 0)
         return psi_R * Bohr**-1.5
+
+    def get_pseudo_density(self, add_compensation_charges=True):
+        dens = self.calc.density
+        gd1 = dens.gd
+        interpolator = Interpolator(gd1, self.gd)
+        dens_r = dens.nt_sG[:dens.nspins].sum(axis=0)
+        dens_R = interpolator.interpolate(dens_r)
+        print(dens_R.sum() * self.gd.dv)
+
+        if add_compensation_charges:
+            dens.calculate_multipole_moments()
+            ghat = LFC(self.gd, [setup.ghat_l for setup in dens.setups],
+                       integral=sqrt(4 * pi))
+            ghat.set_positions(self.calc.spos_ac)
+            Q_aL = {}
+            for a, Q_L in dens.Q_aL.items():
+                Q_aL[a] = Q_L.copy()
+                Q_aL[a][0] += dens.setups[a].Nv / (4 * pi)**0.5
+            ghat.add(dens_R, Q_aL)
+
+        return dens_R / Bohr**3
 
     def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
         """Interpolate electrostatic potential.
