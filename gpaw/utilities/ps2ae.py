@@ -8,7 +8,7 @@ from gpaw import GPAW
 from gpaw.atom.shapefunc import shape_functions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.lfc import LFC
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.mpi import serial_comm
@@ -63,7 +63,7 @@ class PS2AE:
         gd2 = self.gd = GridDescriptor(N_c, gd.cell_cv, comm=serial_comm)
         self.interpolator = Interpolator(gd1, gd2, self.calc.wfs.dtype)
 
-        self.dphi = None  # PAW correction (will be initialized when needed)
+        self.dphi: LFC  # PAW correction (will be initialized when needed)
         self.dv = self.gd.dv * Bohr**3
 
     def _initialize_corrections(self):
