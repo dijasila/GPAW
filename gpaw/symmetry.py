@@ -2,6 +2,8 @@
 # Copyright (C) 2014 R. Warmbier Materials for Energy Research Group,
 # Wits University
 # Please see the accompanying LICENSE file for further information.
+import itertools
+
 from ase.io import read
 from ase.utils import gcd
 import numpy as np
@@ -115,38 +117,32 @@ class Symmetry:
         metric_cc = np.dot(self.cell_cv, self.cell_cv.T)
 
         # Generate all possible 3x3 symmetry matrices using base-3 integers
-        power = (6561, 2187, 729, 243, 81, 27, 9, 3, 1)
+        pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
 
         # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
-        for base3id in range(19683):
-            op_cc = np.empty((3, 3), dtype=int)
-            m = base3id
-            for ip, p in enumerate(power):
-                d, m = divmod(m, p)
-                op_cc[ip // 3, ip % 3] = 1 - d
+        # op_cc = np.empty((3, 3))#, dtype=int)
+        # op_cc_flat = op_cc.reshape((9,))
+        op_scc = np.array(
+            list(itertools.product([-1.0, 0.0, 1.0],
+                                   repeat=9))).reshape(19683, 3, 3)
+        o = np.einsum('sij, jk, skl -> sil', op_scc, metric_cc, op_scc,
+                      optimize=True)
+        ok = abs(o - metric_cc).sum(2).sum(1) <= self.tol
+        op_scc = op_scc[ok]
 
-            # The metric of the cell should be conserved after applying
-            # the operation
-            opmetric_cc = np.dot(np.dot(op_cc, metric_cc), op_cc.T)
+        # Operation must not swap axes that don't have same PBC
+        ok = ~op_scc[:, pbc_cc].any(axis=1)
+        op_scc = op_scc[ok]
 
-            if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
-                continue
+        if not self.allow_invert_aperiodic_axes:
+            ok = (op_scc[:, np.diag(~self.pbc_c)] == 1).all(axis=1)
+            op_scc = op_scc[ok]
 
-            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
-            if op_cc[pbc_cc].any():
-                # Operation must not swap axes that don't have same PBC
-                continue
+        # Operation is a valid symmetry of the unit cell
+        self.op_scc = op_scc
 
-            if not self.allow_invert_aperiodic_axes:
-                if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
-                    # Operation must not invert axes that are not periodic
-                    continue
-
-            # Operation is a valid symmetry of the unit cell
-            self.op_scc.append(op_cc)
-
-        self.op_scc = np.array(self.op_scc)
+        # self.op_scc = np.array(self.op_scc)
         self.ft_sc = np.zeros((len(self.op_scc), 3))
 
     def prune_symmetries_atoms(self, spos_ac):
