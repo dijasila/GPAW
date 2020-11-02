@@ -109,6 +109,46 @@ class Symmetry:
 
     def find_lattice_symmetry(self):
         """Determine list of symmetry operations."""
+        self.old()
+        o = self.op_scc
+
+        # Metric tensor
+        metric_cc = np.dot(self.cell_cv, self.cell_cv.T)
+
+        # Symmetry operations as matrices in 123 basis:
+        # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
+        # there are 3**9 = 19683 possible matrices
+        U_scc = np.array(
+            list(itertools.product([1, 0, -1],
+                                   repeat=9))).reshape(3**9, 3, 3)
+
+        metric_scc = np.einsum('sij, jk, slk -> sil',
+                               U_scc, metric_cc, U_scc,
+                               optimize=True)
+        mask_s = abs(metric_scc - metric_cc).sum(2).sum(1) <= self.tol
+        U_scc = U_scc[mask_s]
+        # Generate all possible 3x3 symmetry matrices using base-3 integers
+        pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+
+        # Operation must not swap axes that don't have same PBC
+        mask_s = ~U_scc[:, pbc_cc].any(axis=1)
+        U_scc = U_scc[mask_s]
+
+        if not self.allow_invert_aperiodic_axes:
+            mask_s = (U_scc[:, np.diag(~self.pbc_c)] == 1).all(axis=1)
+            U_scc = U_scc[mask_s]
+
+        # Operation is a valid symmetry of the unit cell
+        self.op_scc = U_scc#.copy()
+
+        #print(self.op_scc.shape, o.shape)
+        assert (self.op_scc == o).all(), (self.op_scc, o)
+
+        # self.op_scc = np.array(self.op_scc)
+        self.ft_sc = np.zeros((len(self.op_scc), 3))
+
+    def old(self):
+        """Determine list of symmetry operations."""
 
         # Symmetry operations as matrices in 123 basis
         self.op_scc = []
@@ -117,32 +157,40 @@ class Symmetry:
         metric_cc = np.dot(self.cell_cv, self.cell_cv.T)
 
         # Generate all possible 3x3 symmetry matrices using base-3 integers
-        pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+        power = (6561, 2187, 729, 243, 81, 27, 9, 3, 1)
 
         # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
-        # op_cc = np.empty((3, 3))#, dtype=int)
-        # op_cc_flat = op_cc.reshape((9,))
-        op_scc = np.array(
-            list(itertools.product([-1.0, 0.0, 1.0],
-                                   repeat=9))).reshape(19683, 3, 3)
-        o = np.einsum('sij, jk, skl -> sil', op_scc, metric_cc, op_scc,
-                      optimize=True)
-        ok = abs(o - metric_cc).sum(2).sum(1) <= self.tol
-        op_scc = op_scc[ok]
+        x1 = 0
+        for base3id in range(19683):
+            op_cc = np.empty((3, 3), dtype=int)
+            m = base3id
+            for ip, p in enumerate(power):
+                d, m = divmod(m, p)
+                op_cc[ip // 3, ip % 3] = 1 - d
 
-        # Operation must not swap axes that don't have same PBC
-        ok = ~op_scc[:, pbc_cc].any(axis=1)
-        op_scc = op_scc[ok]
+            # The metric of the cell should be conserved after applying
+            # the operation
+            opmetric_cc = np.dot(np.dot(op_cc, metric_cc), op_cc.T)
 
-        if not self.allow_invert_aperiodic_axes:
-            ok = (op_scc[:, np.diag(~self.pbc_c)] == 1).all(axis=1)
-            op_scc = op_scc[ok]
+            if np.abs(metric_cc - opmetric_cc).sum() > self.tol:
+                x1 += 1
+                continue
 
-        # Operation is a valid symmetry of the unit cell
-        self.op_scc = op_scc
+            pbc_cc = np.logical_xor.outer(self.pbc_c, self.pbc_c)
+            if op_cc[pbc_cc].any():
+                # Operation must not swap axes that don't have same PBC
+                continue
 
-        # self.op_scc = np.array(self.op_scc)
+            if not self.allow_invert_aperiodic_axes:
+                if not (op_cc[np.diag(~self.pbc_c)] == 1).all():
+                    # Operation must not invert axes that are not periodic
+                    continue
+
+            # Operation is a valid symmetry of the unit cell
+            self.op_scc.append(op_cc)
+
+        self.op_scc = np.array(self.op_scc)
         self.ft_sc = np.zeros((len(self.op_scc), 3))
 
     def prune_symmetries_atoms(self, spos_ac):
