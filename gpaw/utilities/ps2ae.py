@@ -1,5 +1,6 @@
 from math import pi, sqrt
 from warnings import warn
+from typing import Optional, List, Dict
 
 import numpy as np
 from ase.units import Bohr, Ha
@@ -12,6 +13,8 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.mpi import serial_comm
+from gpaw.setup import Setup
+from gpaw.spline import Spline
 from gpaw.hints import Array3D
 
 
@@ -63,13 +66,16 @@ class PS2AE:
         gd2 = self.gd = GridDescriptor(N_c, gd.cell_cv, comm=serial_comm)
         self.interpolator = Interpolator(gd1, gd2, self.calc.wfs.dtype)
 
-        self.dphi: LFC  # PAW correction (will be initialized when needed)
+        self._dphi: Optional[LFC] = None  # PAW correction
+
         self.dv = self.gd.dv * Bohr**3
 
-    def _initialize_corrections(self):
-        if self.dphi is not None:
-            return
-        splines = {}
+    @property
+    def dphi(self) -> LFC:
+        if self._dphi is not None:
+            return self._dphi
+
+        splines: Dict[Setup, List[Spline]] = {}
         dphi_aj = []
         for setup in self.calc.wfs.setups:
             dphi_j = splines.get(setup)
@@ -83,11 +89,14 @@ class PS2AE:
                     dphi_g = (phi_g - phit_g)[:gcut]
                     dphi_j.append(setup.rgd.spline(dphi_g, rcut, l,
                                                    points=200))
+                splines[setup] = dphi_j
             dphi_aj.append(dphi_j)
 
-        self.dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
-                        dtype=self.calc.wfs.dtype)
-        self.dphi.set_positions(self.calc.spos_ac)
+        self._dphi = LFC(self.gd, dphi_aj, kd=self.calc.wfs.kd.copy(),
+                         dtype=self.calc.wfs.dtype)
+        self._dphi.set_positions(self.calc.spos_ac)
+
+        return self._dphi
 
     def get_wave_function(self,
                           n: int,
@@ -109,7 +118,7 @@ class PS2AE:
                                                    pad=True, periodic=True)
         psi_R = self.interpolator.interpolate(psi_r * Bohr**1.5)
         if ae:
-            self._initialize_corrections()
+            dphi = self.dphi
             wfs = self.calc.wfs
             P_nI = wfs.collect_projections(k, s)
             if wfs.world.rank == 0:
@@ -119,7 +128,7 @@ class PS2AE:
                     I2 = I1 + setup.ni
                     P_ai[a] = P_nI[n, I1:I2]
                     I1 = I2
-                self.dphi.add(psi_R, P_ai, k)
+                dphi.add(psi_R, P_ai, k)
             wfs.world.broadcast(psi_R, 0)
         return psi_R * Bohr**-1.5
 
