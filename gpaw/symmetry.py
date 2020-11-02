@@ -118,9 +118,8 @@ class Symmetry:
         # Symmetry operations as matrices in 123 basis:
         # Operation is a 3x3 matrix, with possible elements -1, 0, 1, thus
         # there are 3**9 = 19683 possible matrices
-        U_scc = np.array(
-            list(itertools.product([1, 0, -1],
-                                   repeat=9))).reshape(3**9, 3, 3)
+        U_scc = (
+            1 - np.indices([3] * 9).reshape((3, 3, 3**9)).transpose((2, 0, 1)))
 
         metric_scc = np.einsum('sij, jk, slk -> sil',
                                U_scc, metric_cc, U_scc,
