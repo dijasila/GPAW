@@ -1,15 +1,18 @@
 from math import pi, sqrt
+from warnings import warn
 
 import numpy as np
 from ase.units import Bohr, Ha
 
+from gpaw import GPAW
 from gpaw.atom.shapefunc import shape_functions
 from gpaw.fftw import get_efficient_fft_size
 from gpaw.grid_descriptor import GridDescriptor
-from gpaw.lfc import LFC
+from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.utilities import h2gpts
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.mpi import serial_comm
+from gpaw.hints import Array3D
 
 
 class Interpolator:
@@ -30,28 +33,38 @@ class PS2AE:
     Interpolates PS wave functions to a fine grid and adds PAW
     corrections in order to obtain true AE wave functions.
     """
-    def __init__(self, calc, h=0.05, n=2):
+    def __init__(self,
+                 calc: GPAW,
+                 grid_spacing: float = 0.05,
+                 n: int = 2,
+                 h=None  # deprecated
+                 ):
         """Create transformation object.
 
         calc: GPAW calculator object
             The calcalator that has the wave functions.
-        h: float
+        grid_spacing: float
             Desired grid-spacing in Angstrom.
         n: int
             Force number of points to be a mulitiple of n.
         """
+        if h is not None:
+            warn('Please use grid_spacing=... instead of h=...')
+            grid_spacing = h
+
         self.calc = calc
         gd = calc.wfs.gd
 
         gd1 = GridDescriptor(gd.N_c, gd.cell_cv, comm=serial_comm)
 
         # Descriptor for the final grid:
-        N_c = h2gpts(h / Bohr, gd.cell_cv)
+        N_c = h2gpts(grid_spacing / Bohr, gd.cell_cv)
         N_c = np.array([get_efficient_fft_size(N, n) for N in N_c])
         gd2 = self.gd = GridDescriptor(N_c, gd.cell_cv, comm=serial_comm)
         self.interpolator = Interpolator(gd1, gd2, self.calc.wfs.dtype)
 
-        self.dphi = None  # PAW correction (will be initialized when needed)
+        self.dphi: LFC  # PAW correction (will be initialized when needed)
+        self.dv = self.gd.dv * Bohr**3
 
     def _initialize_corrections(self):
         if self.dphi is not None:
@@ -76,7 +89,11 @@ class PS2AE:
                         dtype=self.calc.wfs.dtype)
         self.dphi.set_positions(self.calc.spos_ac)
 
-    def get_wave_function(self, n, k=0, s=0, ae=True):
+    def get_wave_function(self,
+                          n: int,
+                          k: int = 0,
+                          s: int = 0,
+                          ae: bool = True) -> Array3D:
         """Interpolate wave function.
 
         n: int
@@ -106,7 +123,32 @@ class PS2AE:
             wfs.world.broadcast(psi_R, 0)
         return psi_R * Bohr**-1.5
 
-    def get_electrostatic_potential(self, ae=True, rcgauss=0.02):
+    def get_pseudo_density(self,
+                           add_compensation_charges: bool = True) -> Array3D:
+        """Interpolate pseudo density."""
+        dens = self.calc.density
+        gd1 = dens.gd
+        interpolator = Interpolator(gd1, self.gd)
+        dens_r = dens.nt_sG[:dens.nspins].sum(axis=0)
+        dens_R = interpolator.interpolate(dens_r)
+        print(dens_R.sum() * self.gd.dv)
+
+        if add_compensation_charges:
+            dens.calculate_multipole_moments()
+            ghat = LFC(self.gd, [setup.ghat_l for setup in dens.setups],
+                       integral=sqrt(4 * pi))
+            ghat.set_positions(self.calc.spos_ac)
+            Q_aL = {}
+            for a, Q_L in dens.Q_aL.items():
+                Q_aL[a] = Q_L.copy()
+                Q_aL[a][0] += dens.setups[a].Nv / (4 * pi)**0.5
+            ghat.add(dens_R, Q_aL)
+
+        return dens_R / Bohr**3
+
+    def get_electrostatic_potential(self,
+                                    ae: bool = True,
+                                    rcgauss: float = 0.02) -> Array3D:
         """Interpolate electrostatic potential.
 
         Return value in eV.
@@ -128,7 +170,9 @@ class PS2AE:
 
         return v_R * Ha
 
-    def add_potential_correction(self, v_R, rcgauss: float) -> None:
+    def add_potential_correction(self,
+                                 v_R: Array3D,
+                                 rcgauss: float) -> None:
         dens = self.calc.density
         dens.D_asp.redistribute(dens.atom_partition.as_serial())
         dens.Q_aL.redistribute(dens.atom_partition.as_serial())

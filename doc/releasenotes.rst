@@ -12,8 +12,14 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.1b1
 
+* New method for interpolating pseudo density to fine grids:
+  :meth:`gpaw.utilities.ps2ae.PS2AE.get_pseudo_density`
+  (useful for Bader analysis and other things).
+
 * Now with contribution from "frozen" core: :ref:`hyperfine`.
+
 * Change in parameters of :ref:`linear response TDDFT <lrtddft>`
+
 * Improved relaxation in the excited states in parallel,
   see  :ref:`linear response TDDFT <lrtddft>`
 
