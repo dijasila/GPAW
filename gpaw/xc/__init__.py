@@ -1,4 +1,3 @@
-from gpaw import libraries
 from gpaw.xc.libxc import LibXC
 from gpaw.xc.lda import LDA
 from gpaw.xc.gga import GGA
@@ -84,8 +83,8 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
             from gpaw.xc.bee import BEE2
             kernel = BEE2(parameters)
         elif name.startswith('GLLB'):
-            from gpaw.xc.gllb.nonlocalfunctionalfactory import \
-                get_nonlocal_functional
+            from gpaw.xc.gllb.nonlocalfunctionalfactory import (
+                get_nonlocal_functional)
             xc = get_nonlocal_functional(name, **kwargs)
             return xc
         elif name == 'LB94':
@@ -100,8 +99,7 @@ def XC(kernel, parameters=None, atoms=None, collinear=True):
         elif name in {'TPSS', 'revTPSS', 'M06-L'}:
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
-        elif not libraries['libxc'] and name in {'LDA', 'PBE', 'revPBE',
-                                                 'RPBE', 'PW91'}:
+        elif name in {'LDA', 'PBE', 'revPBE', 'RPBE', 'PW91'}:
             from gpaw.xc.kernel import XCKernel
             kernel = XCKernel(name)
         elif name.startswith('old'):
