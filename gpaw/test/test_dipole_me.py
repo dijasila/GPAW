@@ -11,7 +11,7 @@ def test_dipole_me(gpw_files):
     calc = GPAW(gpw_files['h2_pw_wfs'])
 
     # Method 1: evaluate all-electron wave functions on fine grid:
-    t = PS2AE(calc, h=0.05)
+    t = PS2AE(calc, grid_spacing=0.05)
     psi0 = t.get_wave_function(0) * Bohr**1.5
     psi1 = t.get_wave_function(1) * Bohr**1.5
     d1_v = -t.gd.calculate_dipole_moment(psi0 * psi1) * Bohr
