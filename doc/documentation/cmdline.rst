@@ -44,11 +44,15 @@ Other command-line tools
 ========================
 
 There are also CLI tools for analysing :ref:`point groups`
-and for :ref:`hyperfine`.  Try:
+and for :ref:`hyperfine`.  Try::
 
     $ python3 -m gpaw.point_groups --help
     $ python3 -m gpaw.hyperfine --help
+
+See also::
+
     $ python3 -m gpaw.utilities.dipole --help
+    $ python3 -m gpaw.utilities.ekin --help
 
 
 .. _bash completion:
