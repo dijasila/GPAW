@@ -28,7 +28,7 @@ class CLICommand:
             exec(args.cmd, d, d)
         elif args.module:
             sys.argv[:] = [args.module] + args.arguments
-            runpy.run_module(args.module, run_name='__main__')
+            runpy.run_module(args.module, run_name='__main__', alter_sys=False)
         else:
             sys.argv[:] = args.arguments
             runpy.run_path(args.arguments[0], run_name='__main__')
