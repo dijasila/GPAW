@@ -68,8 +68,9 @@ def main(argv: List[str] = None) -> None:
         symbols = set(args.center.split(','))
         center = np.zeros(3)
         n = 0
-        for symbol, position in zip(atoms.symbols, atoms.positions):
-            if symbol in symbols:
+        for a, (symbol, position) in enumerate(zip(atoms.symbols,
+                                                   atoms.positions)):
+            if symbol in symbols or str(a) in symbols:
                 center += position
                 n += 1
         center /= n
@@ -79,7 +80,7 @@ def main(argv: List[str] = None) -> None:
 
     radius = float(args.radius)
 
-    checker = SymmetryChecker(args.pg, center, radius)
+    checker = SymmetryChecker(args.pg, center, radius, z='x', x='y')
 
     ok = checker.check_atoms(atoms)
     print(f'{args.pg}-symmetry:', 'Yes' if ok else 'No')

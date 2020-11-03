@@ -43,7 +43,9 @@ class SymmetryChecker:
         """
         numbers = atoms.numbers
         positions = (atoms.positions - self.center).dot(self.rotation.T)
+        print(self.rotation.T)
         for opname, op in self.group.operations.items():
+            print(opname, op)
             P = positions.dot(op.T)
             for i, pos in enumerate(P):
                 dist2 = ((pos - positions)**2).sum(1)
