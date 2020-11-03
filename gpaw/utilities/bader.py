@@ -24,7 +24,7 @@ if __name__ == '__main__':
     from gpaw.utilities.ps2ae import PS2AE
 
     calc = GPAW(sys.argv[1])
-    converter = PS2AE(calc, h=0.05)
+    converter = PS2AE(calc, grid_spacing=0.05)
     density = converter.get_pseudo_density()
     ne = density.sum() * converter.dv
     print(ne, 'electrons')
