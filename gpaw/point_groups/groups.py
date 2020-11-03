@@ -77,6 +77,27 @@ class Pointgroup:
         return np.array([[-1.0, 0, 0], [0, 1, 0], [0, 0, 1]]).dot(data)
 
 
+class Cs(Pointgroup):
+    # main axis should be the z-axis!
+    def __init__(self):
+        self.operations = [('E', self.unit),
+                           ('sigma_v', self.mirror_yz(np.diag((1,1,1))))]
+        self.operation_names = [pair[0] for pair in self.operations]
+        self.symmetries = ['A1', 'A2']
+        self.character_table = [[ 
+            1.,
+            1.,
+        ], [1., -1.]]
+
+        self.nof_operations = [1, 1]
+        self.Tx_i = 0
+        self.Ty_i = 0
+        self.Tz_i = 1
+
+    def __str__(self):
+        return 'Cs' 
+
+
 class D5(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
