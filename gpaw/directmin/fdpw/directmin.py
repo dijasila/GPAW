@@ -1278,11 +1278,12 @@ class DirectMin(Eigensolver):
                     for kpt in wfs.kpt_u:
                         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
                     occ.init_ref_orb2(wfs)
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                wfs.orthonormalize()
+                # for kpt in wfs.kpt_u:
+                #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                #     super(DirectMin, self).subspace_diagonalize(
+                #         ham, wfs, kpt, True)
+                #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
                 occ.calculate(wfs)  # fill occ numbers
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
