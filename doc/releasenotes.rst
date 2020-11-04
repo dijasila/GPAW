@@ -4,6 +4,8 @@
 Release notes
 =============
 
+Nonlinear optical responses can now be calculated in the independent particle approximations. See the nonlinear optical response tutorial for how to use it to compute the second-harmonic generation and shift current spectra.
+
 
 Git master branch
 =================
