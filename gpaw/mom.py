@@ -247,6 +247,8 @@ class OccupationsMOM(ZeroKelvin):
 
     def init_ref_orb2(self,wfs):
         self.iters = 0
+        self.occupation = self.occupations.copy()
+        ZeroKelvin.calculate(self, wfs)
         self.initialize_reference_orbitals(wfs)
         self.iters += 1
 
