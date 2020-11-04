@@ -28,7 +28,7 @@ params_gs = dict(
 # Start a ground state calculation, if that has not been done earlier
 resetc = True
 gs_name = 'gs.gpw'
-if is_file_exist(gs_name) or resetc:
+if is_file(gs_name) or resetc:
     calc = GPAW(**params_gs)
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -37,7 +37,7 @@ if is_file_exist(gs_name) or resetc:
 # P2
 # The momentum matrix are calculated if not available
 mml_name = 'mml.npz'
-if is_file_exist(mml_name) or resetc:
+if is_file(mml_name) or resetc:
     make_nlodata(gs_name=gs_name, out_name=mml_name)
 
 # P3
@@ -48,14 +48,14 @@ pol = 'yyy'
 
 # LG calculation
 shg_name1 = 'shg_' + pol + '_lg.npy'
-if is_file_exist(shg_name1) or resetc:
+if is_file(shg_name1) or resetc:
     get_shg(
         freqs=w_ls, eta=eta, pol=pol, gauge='lg',
         out_name=shg_name1, mml_name=mml_name)
 
 # VG calculation
 shg_name2 = 'shg_' + pol + '_vg.npy'
-if is_file_exist(shg_name2) or resetc:
+if is_file(shg_name2) or resetc:
     get_shg(
         freqs=w_ls, eta=eta, pol=pol, gauge='vg',
         out_name=shg_name2, mml_name=mml_name)
