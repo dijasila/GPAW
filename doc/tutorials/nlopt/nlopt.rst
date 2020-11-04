@@ -44,14 +44,15 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
     :end-before: P2
 
   In this script a normal ground state calculation is performed with coarse
-  kpoint grid. Note that LCAO basis is used here, but the PW basis set can also be used.
-  For a smoother spectrum, a finer mesh should be employed.
+  kpoint grid. Note that LCAO basis is used here, but the PW basis set can
+  also be used. For a smoother spectrum, a finer mesh should be employed.
 
 
-2. Get the required matrix elements from the GS.
-   Here, the matrix elements of momentum are computed. Then, all required quantities
-   such as energies, occupations, and momentum matrix elements are saved in a file ('mml.npz').
-   The GS file cane be removed after this step.
+2. Get the required matrix elements from the GS
+
+   Here, the matrix elements of momentum are computed. Then, all required
+   quantities such as energies, occupations, and momentum matrix elements are
+   saved in a file ('mml.npz'). The GS file cane be removed after this step.
 
    .. literalinclude:: shg_MoS2.py
      :start-after: P2
@@ -63,13 +64,14 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
 3. Compute the SHG spectrum
 
    In this step, the SHG spectrum is calculated using the saved data.
-   There are two well-known gauges that can be used: length gauge or velocity gauge.
-   Formally, they are equivalnent but they may generate different results.
-   Here, SHG susceptibility is computed in both gauges and saved.
-   The SHG susceptibility is a rank-3 symmteric tensor with at most 18 independent components.
-   In addition, the point group symmtery reduce the number of independent tensor elements.
-   Monolayer MoS2 has only one independent tensor element: yyy.
-   A broadening is necessary to obtain smooth graphs, and here 50 meV has been used.
+   There are two well-known gauges that can be used: length gauge or velocity
+   gauge. Formally, they are equivalnent but they may generate different
+   results.   Here, SHG susceptibility is computed in both gauges and saved.
+   The SHG susceptibility is a rank-3 symmteric tensor with at most 18
+   independent components.   In addition, the point group symmtery reduce the
+   number of independent tensor elements.   Monolayer MoS2 has only one
+   independent tensor element: yyy. A broadening is necessary to obtain smooth
+   graphs, and here 50 meV has been used.
 
    .. literalinclude:: shg_MoS2.py
      :start-after: P3
@@ -79,15 +81,15 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
 Result
 ------
 
-Now the calculated SHG spectra are plotted at the end.
-Both real and imaginary parts of the computed SHG susceptibilities, obtained
-from two gauges are shown. The gauge invariance is confirmed from the calculation.
-Note that the bulk susceptibility (with SI units of m/V) is ill-defined for 2D materials,
-since the volume cannot be defined without ambiguity in 2D systems.
-Instead, the sheet susceptibility, expressed in unit of m`^2`/V,
-is an unambiguous quantity for 2D materials.
-Hence, the bulk susceptibility is transformed to the unambiguous sheet susceptibility
-by multiplying with the width of the unit cell in the `z`-direction.
+Now the calculated SHG spectra are plotted at the end. Both real and
+imaginary parts of the computed SHG susceptibilities, obtained from two
+gauges are shown. The gauge invariance is confirmed from the calculation.
+Note that the bulk susceptibility (with SI units of m/V) is ill-defined for
+2D materials, since the volume cannot be defined without ambiguity in 2D
+systems. Instead, the sheet susceptibility, expressed in unit of m`^2`/V, is
+an unambiguous quantity for 2D materials. Hence, the bulk susceptibility is
+transformed to the unambiguous sheet susceptibility by multiplying with the
+width of the unit cell in the `z`-direction.
 
 .. literalinclude:: shg_MoS2.py
     :start-after: P4
