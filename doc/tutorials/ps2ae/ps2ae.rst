@@ -52,4 +52,4 @@ Pseudo density
 
 See:
 
-.. automethod:: gpaw.utilities.ps2ae.PS2AE.get_pseudo_potential
+.. automethod:: gpaw.utilities.ps2ae.PS2AE.get_pseudo_density
