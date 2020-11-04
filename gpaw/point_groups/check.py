@@ -43,12 +43,13 @@ class SymmetryChecker:
         """
         numbers = atoms.numbers
         positions = (atoms.positions - self.center).dot(self.rotation.T)
-        print(self.rotation.T)
+        icell = np.linalg.inv(atoms.cell.dot(self.rotation.T))
         for opname, op in self.group.operations.items():
-            print(opname, op)
             P = positions.dot(op.T)
             for i, pos in enumerate(P):
-                dist2 = ((pos - positions)**2).sum(1)
+                sdiff = (pos - positions).dot(icell)
+                sdiff -= sdiff.round() * atoms.pbc
+                dist2 = (sdiff.dot(atoms.cell)**2).sum(1)
                 j = dist2.argmin()
                 if dist2[j] > tol**2 or numbers[j] != numbers[i]:
                     return False

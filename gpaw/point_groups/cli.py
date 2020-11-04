@@ -40,6 +40,8 @@ def main(argv: List[str] = None) -> None:
         help='Cutoff radius (in Å) used for wave function overlaps.')
     add('-b', '--bands', default=':', metavar='N1:N2',
         help='Band range.')
+    add('-a', '--axes', default='',
+        help='example: "-a z=x,x=-y".')
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
     else:
@@ -80,7 +82,12 @@ def main(argv: List[str] = None) -> None:
 
     radius = float(args.radius)
 
-    checker = SymmetryChecker(args.pg, center, radius, z='x', x='y')
+    kwargs = {}
+    for axis in args.axes.split(',') if args.axes else []:
+        axis1, axis2 = axis.split('=')
+        kwargs[axis1] = axis2
+
+    checker = SymmetryChecker(args.pg, center, radius, **kwargs)
 
     ok = checker.check_atoms(atoms)
     print(f'{args.pg}-symmetry:', 'Yes' if ok else 'No')
