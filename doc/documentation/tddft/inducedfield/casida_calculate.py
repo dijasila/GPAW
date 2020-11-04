@@ -14,7 +14,7 @@ atoms.calc = calc
 energy = atoms.get_potential_energy()
 
 calc = calc.fixed_density(
-    convergence={'bands' : 90})
+    convergence={'bands': 90})
 calc.write('na2_gs_casida.gpw', mode='all')
 
 # Standard Casida calculation

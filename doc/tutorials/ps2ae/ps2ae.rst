@@ -45,3 +45,11 @@ with the
 :meth:`~gpaw.GPAW.get_atomic_electrostatic_potentials` method.
 
 .. automethod:: gpaw.utilities.ps2ae.PS2AE.get_electrostatic_potential
+
+
+Pseudo density
+--------------
+
+See:
+
+.. automethod:: gpaw.utilities.ps2ae.PS2AE.get_pseudo_density

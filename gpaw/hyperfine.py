@@ -21,12 +21,14 @@ import ase.units as units
 
 from gpaw import GPAW
 from gpaw.atom.radialgd import RadialGridDescriptor
+from gpaw.atom.aeatom import Channel
+from gpaw.atom.configurations import configurations
 from gpaw.setup import Setup
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.utilities import unpack2
 from gpaw.gaunt import gaunt
-
+from gpaw.xc.functional import XCFunctional
 from gpaw.hints import Array1D, Array2D, Array3D
 
 
@@ -36,7 +38,8 @@ alpha = 0.5 * units._mu0 * units._c * units._e**2 / units._hplanck
 g_factor_e = 2.00231930436256
 
 
-def hyperfine_parameters(calc: GPAW) -> Array3D:
+def hyperfine_parameters(calc: GPAW,
+                         exclude_core=False) -> Array3D:
     r"""Calculate isotropic and anisotropic hyperfine coupling paramters.
 
     One tensor (:math:`A_{ij}`) per atom is returned in eV units.
@@ -68,11 +71,18 @@ def hyperfine_parameters(calc: GPAW) -> Array3D:
 
     D_asp = calc.density.D_asp
     for a, D_sp in D_asp.items():
-        A_vv = paw_correction(unpack2(D_sp[0] - D_sp[1]),
-                              calc.wfs.setups[a])
+        density_sii = unpack2(D_sp)
+        setup = calc.wfs.setups[a]
+
+        A_vv = paw_correction(density_sii,
+                              setup,
+                              calc.hamiltonian.xc,
+                              exclude_core)
+
         A_avv[a] += A_vv
 
     A_avv *= pi * alpha**2 * g_factor_e * units._me / units._mp * units.Ha
+
     return A_avv
 
 
@@ -134,11 +144,14 @@ Y2_mvv = np.array([[[0, 1, 0],
                     [0, 0, 0]]])
 
 
-def paw_correction(spin_density_ii: Array2D,
-                   setup: Setup) -> Array2D:
+def paw_correction(density_sii: Array3D,
+                   setup: Setup,
+                   xc: XCFunctional = None,
+                   exclude_core: bool = False) -> Array2D:
     """Corrections from 1-center expansions of spin-density."""
     # Spherical part:
-    D0_jj = expand(spin_density_ii, setup.l_j, 0)[0]
+    spin_density_ii = density_sii[0] - density_sii[1]
+    D0_jj = expand(spin_density_ii, setup.l_j, l=0)[0]
 
     phit_jg = np.array(setup.data.phit_jg)
     phi_jg = np.array(setup.data.phi_jg)
@@ -148,9 +161,12 @@ def paw_correction(spin_density_ii: Array2D,
     # Spin-density from pseudo density:
     nt0 = phit_jg[:, 0].dot(D0_jj).dot(phit_jg[:, 0]) / (4 * pi)**0.5
 
-    # All-electron contribution diveges as r^-beta and must be integrated
+    # All-electron contribution diverges as r^-beta and must be integrated
     # over a small region of size rT:
     n0_g = np.einsum('ab, ag, bg -> g', D0_jj, phi_jg, phi_jg) / (4 * pi)**0.5
+    if not exclude_core and setup.Nc > 0 and xc is not None:
+        n0_g += core_contribution(density_sii, setup, xc)
+
     beta = 2 * (1 - (1 - (setup.Z * alpha)**2)**0.5)
     rT = setup.Z * alpha**2
     n0 = integrate(n0_g, rgd, rT, beta)
@@ -227,6 +243,55 @@ def integrate(n0_g: Array1D,
     return n0
 
 
+def core_contribution(density_sii: Array3D,
+                      setup: Setup,
+                      xc: XCFunctional) -> Array1D:
+    """Calculate spin-density from "frozen" core."""
+    # Spherical part:
+    D_sjj = [expand(density_ii, setup.l_j, 0)[0]
+             for density_ii in density_sii]
+    phi_jg = np.array(setup.data.phi_jg)
+    rgd = setup.rgd
+
+    # Densities with frozen core:
+    n_sg = np.einsum('ag, sab, bg -> sg',
+                     phi_jg, D_sjj, phi_jg) / (4 * pi)**0.5
+    n_sg += setup.data.nc_g * (0.5 / (4 * pi)**0.5)
+
+    # Potential:
+    v_sg = np.zeros_like(n_sg)
+    xc.calculate_spherical(rgd, n_sg, v_sg)
+    vr_sg = v_sg * rgd.r_g
+    vr_sg -= setup.Z
+    vr_sg += rgd.poisson(n_sg.sum(axis=0))
+
+    # Find first bound s-state includes in PAW potential:
+    for n0, l in zip(setup.n_j, setup.l_j):
+        if l == 0:
+            assert n0 > 0
+            break
+    else:
+        assert False, (setup.n_j, setup.l_j)
+
+    # Initial guesses for core s-states:
+    eigs = [e for n, l, f, e in configurations[setup.symbol][1]
+            if n < n0 and l == 0]
+
+    # Solve spherical scalar-relativistic Schrödinger equation:
+    core_spin_density_g = rgd.zeros()
+    sign = 1.0
+    for vr_g in vr_sg:
+        channel = Channel(l=0, f_n=[1] * len(eigs))
+        channel.e_n = eigs
+        channel.phi_ng = rgd.empty(len(eigs))
+        channel.solve2(vr_g, rgd=rgd, scalar_relativistic=True, Z=setup.Z)
+        assert channel.solve2ok
+        core_spin_density_g += sign * channel.calculate_density()
+        sign = -1.0
+
+    return core_spin_density_g
+
+
 # From https://en.wikipedia.org/wiki/Gyromagnetic_ratio
 # Units: MHz/T
 gyromagnetic_ratios = {'H': (1, 42.577478518),
@@ -257,7 +322,8 @@ def main(argv: List[str] = None) -> None:
     add('-g', '--g-factors',
         help='G-factors.  Example: "-g H:5.6,O:-0.76".')
     add('-u', '--units', default='ueV', choices=['ueV', 'MHz'],
-        help='Units.  Must be "uev" (micro-eV, default) or "MHz".')
+        help='Units.  Must be "ueV" (micro-eV, default) or "MHz".')
+    add('-x', '--exclude-core', action='store_true')
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
     else:
@@ -286,7 +352,7 @@ def main(argv: List[str] = None) -> None:
         scale = units._e / units._hplanck * 1e-6
         unit = 'MHz'
 
-    A_avv = hyperfine_parameters(calc)
+    A_avv = hyperfine_parameters(calc, args.exclude_core)
 
     print('Isotropic and anisotropic hyperfine coupling paramters '
           f'in {unit}:\n')

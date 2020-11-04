@@ -173,6 +173,8 @@ def unpack(M):
 
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
+    if M.ndim == 2:
+        return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
     M2 *= 0.5  # divide all by 2
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size

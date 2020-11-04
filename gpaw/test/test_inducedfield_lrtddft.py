@@ -21,7 +21,8 @@ def test_inducedfield_lrtddft(in_tmp_dir):
                   pbc=False)
     atoms.center(vacuum=3.0)
 
-    calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'}, poissonsolver=poissonsolver,
+    calc = GPAW(nbands=20, h=0.6, setups={'Na': '1'},
+                poissonsolver=poissonsolver,
                 experimental={'niter_fixdensity': 2},
                 convergence={'density': density_eps})
     atoms.calc = calc
@@ -32,7 +33,8 @@ def test_inducedfield_lrtddft(in_tmp_dir):
     calc = GPAW('na2_gs_casida.gpw')
     istart = 0
     jend = 20
-    lr = LrTDDFT(calc, xc='LDA', istart=istart, jend=jend)
+    lr = LrTDDFT(calc, xc='LDA',
+                 restrict={'istart':istart, 'jend':jend})
     lr.diagonalize()
     lr.write('na2_lr.dat.gz')
 
@@ -42,7 +44,7 @@ def test_inducedfield_lrtddft(in_tmp_dir):
     calc = GPAW('na2_gs_casida.gpw')
     # calc.initialize_positions()
     # calc.set_positions()
-    lr = LrTDDFT('na2_lr.dat.gz')
+    lr = LrTDDFT.read('na2_lr.dat.gz')
 
     # 3) Calculate induced field
     frequencies = [1.0, 2.08]  # Frequencies of interest in eV

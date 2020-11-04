@@ -2,28 +2,44 @@
 
 """
 from math import sqrt
-
 import numpy as np
 
+from ase.units import Ha
+
 import gpaw.mpi as mpi
-from ase.utils import convert_string_to_fd
+from gpaw.io.logger import GPAWLogger
+
+
+def get_filehandle(cls, filename, mode='r'):
+    cls.filename = filename
+    if filename.endswith('.gz'):
+        try:
+            import gzip
+            return gzip.open(filename, mode + 't')
+        except ModuleNotFoundError:
+            pass
+    return open(filename, mode)
+
+
+class ExcitationLogger(GPAWLogger):
+    def header(self):
+        pass
 
 
 class ExcitationList(list):
-
     """General Excitation List class.
-
     """
-
-    def __init__(self, calculator=None, txt=None):
-
+    def __init__(self, log=None, txt='-'):
         # initialise empty list
         list.__init__(self)
+        self.energy_to_eV_scale = Ha
 
-        self.calculator = calculator
-        if not txt and calculator:
-            txt = calculator.log.fd
-        self.txt = convert_string_to_fd(txt, mpi.world)
+        # set output
+        if log is not None:
+            self.log = log
+        else:
+            self.log = ExcitationLogger(world=mpi.world)
+            self.log.fd = txt
 
     @property
     def calc(self):

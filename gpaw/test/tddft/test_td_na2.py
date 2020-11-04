@@ -4,13 +4,13 @@ from gpaw import GPAW
 from gpaw.tddft import TDDFT, photoabsorption_spectrum
 from gpaw.tddft.abc import LinearAbsorbingBoundary, P4AbsorbingBoundary, PML
 
-# Sodium dimer, Na2
 
 def test_tddft_td_na2(in_tmp_dir):
+    """Sodium dimer, Na2."""
     d = 1.5
     atoms = Atoms(symbols='Na2',
-                  positions=[( 0, 0, d),
-                             ( 0, 0,-d)],
+                  positions=[(0, 0, d),
+                             (0, 0,-d)],
                   pbc=False)
 
 

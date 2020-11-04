@@ -849,7 +849,6 @@ class GGARealSpaceVDWFunctional(RealSpaceVDWFunctional, GGA):
 
     def set_grid_descriptor(self, gd):
         GGA.set_grid_descriptor(self, gd)
-        RealSpaceVDWFunctional.set_grid_descriptor(self, gd)
 
 
 class MGGAFFTVDWFunctional(FFTVDWFunctional, MGGA):

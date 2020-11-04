@@ -52,8 +52,8 @@ def test_fdtd_ed_wrapper(in_tmp_dir):
                             iterations=5, dipole_moment_file='dm.dat')
 
     # Test
-    ref_cl_dipole_moment = [  5.25374117e-14,  5.75811267e-14,  3.08349334e-02]
-    ref_qm_dipole_moment = [  1.78620337e-11, -1.57782578e-11,  5.21368300e-01]
+    ref_cl_dipole_moment = [5.25374117e-14,  5.75811267e-14,  3.08349334e-02]
+    ref_qm_dipole_moment = [1.78620337e-11, -1.57782578e-11,  5.21368300e-01]
 
     tol = 1e-4
     equal(qsfdtd.td_calc.hamiltonian.poisson.get_classical_dipole_moment(),
