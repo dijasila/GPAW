@@ -1,3 +1,5 @@
+.. module:: gpaw.nlopt
+
 .. _nlo_tutorial:
 
 ================================================
@@ -25,7 +27,7 @@ susceptibility tensor, defined via
     \sum_{\alpha\beta} \chi_{\gamma\alpha\beta}^{(2)}(\omega,\omega)
     E_{\alpha}E_{\beta} e^{-2i\omega t}+\textrm{c.c.}
 
-where `\alpha,\beta=\{x,y,z}` denotes the Cartezain coordinates, and
+where `\alpha,\beta={x,y,z}` denotes the Cartezain coordinates, and
 `E_{\alpha}` and `E_{\alpha}` are the polarization and electric fields,
 respectivly. For bulk systems, `\chi_{\gamma\alpha\beta}^{(2)}` is expressed
 in the units of m/V. The details of computing
@@ -40,8 +42,7 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
 1. Ground state (GS) calculation
 
   .. literalinclude:: shg_MoS2.py
-    :start-after: P1
-    :end-before: P2
+    :end-before: momentum
 
   In this script a normal ground state calculation is performed with coarse
   kpoint grid. Note that LCAO basis is used here, but the PW basis set can
@@ -55,11 +56,12 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
    saved in a file ('mml.npz'). The GS file cane be removed after this step.
 
    .. literalinclude:: shg_MoS2.py
-     :start-after: P2
-     :end-before: P3
+     :start-after: write
+     :end-before: Shift
 
-   Note that, two optional paramters are available in `make_nlodata` function:
-   `ni` and `nf` as the first and last bands used for calculations of SHG.
+   Note that, two optional paramters are available in the
+   :func:`gpaw.nlopt.matrixel.make_nlodata` function:
+   ``ni`` and ``nf`` as the first and last bands used for calculations of SHG.
 
 3. Compute the SHG spectrum
 
@@ -74,8 +76,7 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
    graphs, and here 50 meV has been used.
 
    .. literalinclude:: shg_MoS2.py
-     :start-after: P3
-     :end-before: P4
+     :start-after: make_nlodata(gs_name=gs_name, out_name=mml_name)
 
 
 Result
@@ -86,16 +87,15 @@ imaginary parts of the computed SHG susceptibilities, obtained from two
 gauges are shown. The gauge invariance is confirmed from the calculation.
 Note that the bulk susceptibility (with SI units of m/V) is ill-defined for
 2D materials, since the volume cannot be defined without ambiguity in 2D
-systems. Instead, the sheet susceptibility, expressed in unit of m`^2`/V, is
+systems. Instead, the sheet susceptibility, expressed in unit of m\ `^2`/V, is
 an unambiguous quantity for 2D materials. Hence, the bulk susceptibility is
 transformed to the unambiguous sheet susceptibility by multiplying with the
 width of the unit cell in the `z`-direction.
 
-.. literalinclude:: shg_MoS2.py
-    :start-after: P4
+.. literalinclude:: shg_plot.py
 
-The figure shown here is generated from script :
-:download:`shg_MoS2.py`.
+The figure shown here is generated from scripts:
+:download:`shg_MoS2.py` and :download:`shg_plot.py`.
 It takes 30 minutes with 16 cpus on Intel Xeon X5570 2.93GHz.
 
 .. image:: shg.png
@@ -112,7 +112,7 @@ There are few points about the implementation that we emphasize:
 
 * The code employs only the time reversal symmtery to improve the speed.
 
-* Refer to :ref:`nlo_theory` for the details on the NLO theory.
+* Refer to [#Taghizadeh]_ for the details on the NLO theory.
 
 
 Useful tips
@@ -123,14 +123,21 @@ heavy calculations!)::
 
     $ python3 filename.py --gpaw=df-dry-run=8
 
-It's important to converge the results with respect to::
+It's important to converge the results with respect to:
 
-    nbands,
-    nkpt (number of kpoints in gs calc.),
-    eta,
-    ecut,
-    ftol,
-    vacuum (if there is)
+    * ``nbands``
+    * ``nkpt`` (number of kpoints in gs calc.)
+    * ``eta``
+    * ``ecut``
+    * ``ftol``
+    * vacuum (if there is)
+
+
+API
+===
+
+.. autofunction:: gpaw.nlopt.matrixel.make_nlodata
+.. autofunction:: gpaw.nlopt.shg.get_shg
 
 
 .. [#Taghizadeh] A. Taghizadeh, K. S. Thygesen and T. G. Pedersen
