@@ -5,7 +5,6 @@ from ase import Atoms
 from gpaw.nlopt.shg import get_shg
 from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
-from gpaw.nlopt.basic import is_file_exist
 
 
 def test_shg(in_tmp_dir):
@@ -14,17 +13,15 @@ def test_shg(in_tmp_dir):
     atoms = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
 
     # Do a GS and save it
-    if is_file_exist('gs.gpw'):
-        calc = GPAW(
-            mode=PW(600), symmetry={'point_group': False},
-            kpts={'size': (2, 2, 2)}, nbands=5, txt=None)
-        atoms.calc = calc
-        atoms.get_potential_energy()
-        calc.write('gs.gpw', 'all')
+    calc = GPAW(
+        mode=PW(600), symmetry={'point_group': False},
+        kpts={'size': (2, 2, 2)}, nbands=5, txt=None)
+    atoms.calc = calc
+    atoms.get_potential_energy()
+    calc.write('gs.gpw', 'all')
 
     # Get the mml
-    if is_file_exist('mml.npz'):
-        make_nlodata()
+    make_nlodata()
 
     # Do a SHG
     get_shg(freqs=np.linspace(0, 5, 100))

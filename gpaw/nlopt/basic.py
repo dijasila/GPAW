@@ -84,7 +84,7 @@ def distribute_data(arr_list):
     return k_info
 
 
-def is_file_exist(filename):
+def is_file(filename):
     """
     Check if the file exist
 

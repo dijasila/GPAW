@@ -4,16 +4,16 @@ import matplotlib.pyplot as plt
 from ase.build import mx2
 from gpaw import GPAW, FermiDirac
 from gpaw.nlopt.matrixel import make_nlodata
-from gpaw.nlopt.basic import is_file_exist
+from gpaw.nlopt.basic import is_file
 from gpaw.nlopt.shg import get_shg
 
-
+# P1
 # Make the structure and add the vaccum around the layer
 atoms = mx2(formula='MoS2', a=3.16, thickness=3.17, vacuum=5.0)
 atoms.center(vacuum=15, axis=2)
 
 # GPAW parameters
-nk = 30
+nk = 40
 params_gs = dict(
     mode='lcao',
     symmetry={'point_group': False, 'time_reversal': True},
@@ -34,11 +34,13 @@ if is_file_exist(gs_name) or resetc:
     atoms.get_potential_energy()
     atoms.calc.write(gs_name, mode='all')
 
+# P2
 # The momentum matrix are calculated if not available
 mml_name = 'mml.npz'
 if is_file_exist(mml_name) or resetc:
     make_nlodata(gs_name=gs_name, out_name=mml_name)
 
+# P3
 # Shift parameters
 eta = 0.05  # Broadening in eV
 w_ls = np.linspace(0, 6, 500)  # in eV
@@ -58,6 +60,7 @@ if is_file_exist(shg_name2) or resetc:
         freqs=w_ls, eta=eta, pol=pol, gauge='vg',
         out_name=shg_name2, mml_name=mml_name)
 
+# P4
 # Plot and save both spectra
 cell = atoms.get_cell()
 cellsize = atoms.get_cell_lengths_and_angles()

@@ -22,7 +22,9 @@ the second-order (quadratic) susceptibility tensor, defined via
 
 where `\alpha,\beta=\{x,y,z}` denotes the Cartezain coordinates, 
 and  `E_{\alpha}` and `E_{\alpha}` are the polarization and electric 
-fields, respectivly.
+fields, respectivly. For bulk systems, `\chi_{\gamma\alpha\beta}^{(2)}` is expressed in the units of m/V.
+The details of computing `\chi_{\gamma\alpha\beta}^{(2)}` is
+documented in Ref. [#Taghizadeh]_
 
 
 Example 1: SHG spectrum of semiconductor: Monolayer MoS2
@@ -33,7 +35,8 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
 1. Ground state (GS) calculation
 
   .. literalinclude:: shg_MoS2.py
-      :lines: 1-35
+    :start-after: P1
+    :end-before: P2
 
   In this script a normal ground state calculation is performed with coarse
   kpoint grid. Note that LCAO basis is used here, but the PW basis set can also be used. 
@@ -46,7 +49,8 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
   The GS file cane be removed after this step.
 
   .. literalinclude:: shg_MoS2.py
-      :lines: 37-40
+    :start-after: P2
+    :end-before: P3
 
   Note that, two optional paramters are available in `make_nlodata` function:
   `ni` and `nf` as the first and last bands used for calculations of SHG.
@@ -63,7 +67,8 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
   A broadening is necessary to obtain smooth graph, and here 50 meV has been used.
 
   .. literalinclude:: shg_MoS2.py
-      :lines: 47-59
+    :start-after: P3
+    :end-before: P4
 
 Result
 ------
@@ -71,9 +76,15 @@ Result
 Now the calculated SHG spectra are plotted at the end.
 Both real and imaginary parts of the computed SHG susceptibilities, obtained 
 from two gauges are shown. The gauge invaerinece is confirmed from the calculation.
+Note that the bulk susceptibility (with SI units of m/V) is ill-defined for 2D materials, 
+since the volume cannot be defined without ambiguity in 2D systems. 
+Instead, the sheet susceptibility, expressed in unit of m`$^2$`/V, 
+is an unambiguous quantity for 2D materials. 
+Hence, the bulk susceptibility is transformed to the unambiguous sheet susceptibility
+by multiplying with the width of the unit cell in the `$z$`-direction.
 
 .. literalinclude:: shg_MoS2.py
-      :lines: 61-80
+    :start-after: P4
 
 The figure shown here is generated from script :
 :download:`shg_MoS2.py`.
@@ -82,11 +93,6 @@ It takes 30 minutes with 16 cpus on Intel Xeon X5570 2.93GHz.
 .. image:: shg.png
     :height: 300 px
     :align: center
-
-
-
-.. csv-table::
-   :file: mac_eps.csv
 
 
 
@@ -100,19 +106,6 @@ There are few points about the implementation that we emphasize:
 * The code employs only the time reversal symmtery to improve the speed.
 
 * Refer to :ref:`nlo_theory` for the details on the NLO theory.
-
-
-
-to set a scattering rate of 0.1 eV. If rate='eta' then the code with use the
-specified ``eta`` parameter. Note that the implementation of the rate parameter
-differs from some literature by a factor of 2 for consistency with the linear
-response formalism. In practice the Drude rate is implemented as
-
-.. math::
-
-    \frac{\omega_\mathrm{p}^2}{(\omega + i\gamma)^2}
-
-where `\gamma` is the rate parameter.
 
 Useful tips
 ===========
@@ -130,3 +123,6 @@ It's important to converge the results with respect to::
     ecut,
     ftol,
     vacuum (if there is)
+
+[#Taghizadeh] A. Taghizadeh, K. S. Thygesen and T. G. Pedersen
+            *Arxiv*, 2010.11596 (2020)
