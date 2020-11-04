@@ -64,7 +64,7 @@ To compute the SHG spectrum of given structure, 3 steps are performed:
   The SHG susceptibility is a rank-3 symmteric tensor with at most 18 independent components.
   In addition, the point group symmtery reduce the number of independent tensor elements.
   Monolayer MoS2 has only one independent tensor element: yyy.
-  A broadening is necessary to obtain smooth graph, and here 50 meV has been used.
+  A broadening is necessary to obtain smooth graphs, and here 50 meV has been used.
 
   .. literalinclude:: shg_MoS2.py
     :start-after: P3
@@ -75,13 +75,13 @@ Result
 
 Now the calculated SHG spectra are plotted at the end.
 Both real and imaginary parts of the computed SHG susceptibilities, obtained 
-from two gauges are shown. The gauge invaerinece is confirmed from the calculation.
+from two gauges are shown. The gauge invariance is confirmed from the calculation.
 Note that the bulk susceptibility (with SI units of m/V) is ill-defined for 2D materials, 
 since the volume cannot be defined without ambiguity in 2D systems. 
-Instead, the sheet susceptibility, expressed in unit of m`$^2$`/V, 
+Instead, the sheet susceptibility, expressed in unit of m`^2`/V, 
 is an unambiguous quantity for 2D materials. 
 Hence, the bulk susceptibility is transformed to the unambiguous sheet susceptibility
-by multiplying with the width of the unit cell in the `$z$`-direction.
+by multiplying with the width of the unit cell in the `z`-direction.
 
 .. literalinclude:: shg_MoS2.py
     :start-after: P4
