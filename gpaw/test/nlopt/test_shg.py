@@ -7,7 +7,7 @@ from gpaw.nlopt.matrixel import make_nlodata
 from gpaw.mpi import world
 
 
-@pytest.mark.skipif(world.size > 4, 'System too small')
+@pytest.mark.skipif(world.size > 4, reason='System too small')
 def test_shg(in_tmp_dir):
     # Check for Hydrogen atom
     atoms = Atoms('H', cell=(3 * np.eye(3)), pbc=True)
