@@ -1,5 +1,4 @@
 from os import path
-from typing import Optional
 
 import numpy as np
 from ase.utils.timing import Timer
