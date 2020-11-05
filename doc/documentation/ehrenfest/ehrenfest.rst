@@ -1,4 +1,4 @@
-﻿.. _ehrenfest:
+.. _ehrenfest:
 
 =============================
 Ehrenfest dynamics (TDDFT/MD)
@@ -107,4 +107,7 @@ References
                    electron excitations and projectile ionization",
                    *Phys. Rev. B* **89**, 035120 (2014).
 
-.. [#Brand2019] C. Brand et al., to be published.
+.. [#Brand2019] C. Brand, M. Debiossac, T. Susi, F. Aguillon, J. Kotakoski,
+                P. Roncin, M. Arndt, "Coherent diffraction of hydrogen 
+                through the 246 pm lattice of graphene",
+                *New J. Phys.* **21**, 033004 (2019).

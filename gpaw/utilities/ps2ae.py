@@ -137,10 +137,10 @@ class PS2AE:
         """Interpolate pseudo density."""
         dens = self.calc.density
         gd1 = dens.gd
+        assert gd1.comm.size == 1
         interpolator = Interpolator(gd1, self.gd)
         dens_r = dens.nt_sG[:dens.nspins].sum(axis=0)
         dens_R = interpolator.interpolate(dens_r)
-        print(dens_R.sum() * self.gd.dv)
 
         if add_compensation_charges:
             dens.calculate_multipole_moments()

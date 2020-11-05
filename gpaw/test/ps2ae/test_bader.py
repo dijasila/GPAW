@@ -7,6 +7,7 @@ from gpaw.utilities.ps2ae import PS2AE
 from gpaw.utilities.bader import read_bader_charges
 
 
+@pytest.mark.serial
 def test_bader(gpw_files, in_tmp_dir):
     """Test bader analysis on interpolated density."""
     calc = GPAW(gpw_files['c2h4_pw_nosym'])
