@@ -27,6 +27,7 @@ class DeltaSCF(OccupationNumberCalculator):
 
         self.signatures: List[Tuple[int, float, Array1D]] = []
         self.bands: List[int] = []
+        self.niter = 0
 
     def calculate(self,
                   nelectrons: float,
@@ -41,11 +42,12 @@ class DeltaSCF(OccupationNumberCalculator):
         P_snI = [wfs.kpt_u[s].projections.array
                  for s in [0, 1]]
 
-        if not self.signatures:
+        if self.niter == 0:
             self.bd = wfs.bd
             self.kpt_comm = wfs.kd.comm
             self.domain_comm = wfs.gd.comm
 
+        if not self.signatures and self.niter > 20:
             for spin, band, occ in self.excitations:
                 rank, myn = self.bd.who_has(band)
                 if self.bd.comm.rank == rank:
@@ -55,11 +57,14 @@ class DeltaSCF(OccupationNumberCalculator):
                 self.bd.comm.broadcast(P_I, rank)
                 self.signatures.append((spin, occ, P_I))
 
-        self.bands = [
-            find_band(self.bd, self.domain_comm, P_snI[spin], P_I)
-            for spin, occ, P_I in self.signatures]
+        if self.signatures:
+            self.bands = [
+                find_band(self.bd, self.domain_comm, P_snI[spin], P_I)
+                for spin, occ, P_I in self.signatures]
 
         self.atoms.calc.log('Delta-SCF bands:', self.bands)
+
+        self.niter += 1
 
         return OccupationNumberCalculator.calculate(self,
                                                     nelectrons,
@@ -78,9 +83,13 @@ class DeltaSCF(OccupationNumberCalculator):
         f_sn[0][:self.neup] = 1.0
         f_sn[1][:self.nedown] = 1.0
 
-        for band, signature in zip(self.bands, self.signatures):
-            spin, occ, _ = signature
-            f_sn[spin][band] += occ
+        if self.signatures:
+            for band, signature in zip(self.bands, self.signatures):
+                spin, occ, _ = signature
+                f_sn[spin][band] += occ
+        else:
+            f_sn[0][self.neup] = 1.0
+            f_sn[1][self.nedown] = 1.0
 
         for F_n, f_n in zip(f_sn, f_qn):
             self.bd.distribute(F_n, f_n)
@@ -93,4 +102,7 @@ def find_band(bd, domain_comm, P_nI, P_I) -> int:
     domain_comm.sum(P_n)
     P_n *= P_n
     P_n = bd.collect(P_n, broadcast=True)
+    if domain_comm.rank == 0:
+        print(np.argsort(P_n)[-10:])
+        print(sorted(P_n)[-10:])
     return P_n.argmax()
