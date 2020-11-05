@@ -10,8 +10,7 @@ from gpaw.utilities.progressbar import ProgressBar
 
 
 def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
-    """
-    Compute the momentum matrix elements
+    """Compute the momentum matrix elements.
 
     Input:
         gs_name         Ground state file name
@@ -164,16 +163,23 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
     return p_kvnn2
 
 
-def make_nlodata(gs_name='gs.gpw', out_name='mml.npz', ni=None, nf=None):
-    """
-    Get all required NLO data and store it in a file
+def make_nlodata(gs_name: str = 'gs.gpw',
+                 out_name: str = 'mml.npz',
+                 ni: int = None,
+                 nf: int = None) -> None:
+    """Get all required NLO data and store it in a file.
 
-    Input:
-        gs_name         Ground state file name
-        out_name        Output filename
-        ni, nf          First and last band to compute the mml (0 to nb)
-    Output:
-        NLO data        w_k, f_kn, E_kn, p_kvnn are sotred
+    Writes NLO data to file: w_k, f_kn, E_kn, p_kvnn.
+
+    Parameters:
+
+    gs_name:
+        Ground state file name
+    out_name:
+        Output filename
+    ni, nf:
+        First and last band to compute the mml (0 to nb)
+
     """
 
     # Start the timer

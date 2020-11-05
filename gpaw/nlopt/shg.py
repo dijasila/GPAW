@@ -19,20 +19,29 @@ def get_shg(
         band_n=None,
         out_name='shg.npy',
         mml_name='mml.npz'):
-    """
-    Calculate RPA SHG spectrum for nonmagnetic semiconductors
+    """Calculate RPA SHG spectrum for nonmagnetic semiconductors.
 
-    Input:
-        freqs           Excitation frequency array (a numpy array or list)
-        eta             Broadening, a number or an array (default 0.05 eV)
-        pol             Tensor element (default 'yyy')
-        gauge           Choose the gauge (lg or vg)
-        Etol, ftol      Tol. in energy and fermi to consider degeneracy
-        band_n          List of bands in the sum (default 0 to nb)
-        out_name        Output filename (default 'shg.npy')
-        mml_name        The momentum filename (default 'mml.npz')
-    Output:
-        shg.npy         Numpy array containing the spectrum and frequencies
+    Output: shg.npy file with numpy array containing the spectrum and
+    frequencies.
+
+    Parameters:
+
+    freqs:
+        Excitation frequency array (a numpy array or list)
+    eta:
+        Broadening, a number or an array (default 0.05 eV)
+    pol:
+        Tensor element (default 'yyy')
+    gauge:
+        Choose the gauge (lg or vg)
+    Etol, ftol:
+        Tol. in energy and fermi to consider degeneracy
+    band_n:
+        List of bands in the sum (default 0 to nb)
+    out_name:
+        Output filename (default 'shg.npy')
+    mml_name:
+        The momentum filename (default 'mml.npz')
     """
 
     # Start a timer
@@ -122,7 +131,7 @@ def get_shg(
 
         # Print the timing
         timer.write()
-    
+
     return shg
 
 
