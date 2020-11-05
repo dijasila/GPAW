@@ -1,8 +1,10 @@
+from os import path
+from typing import Optional
 
 import numpy as np
-from os import path
 from ase.utils.timing import Timer
 from ase.parallel import parprint
+
 from gpaw import GPAW
 from gpaw.fd_operators import Gradient
 from gpaw.mpi import world, broadcast, serial_comm
@@ -165,8 +167,8 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
 
 def make_nlodata(gs_name: str = 'gs.gpw',
                  out_name: str = 'mml.npz',
-                 ni: int = None,
-                 nf: int = None) -> None:
+                 ni: int = 0,
+                 nf: int = 0) -> None:
     """Get all required NLO data and store it in a file.
 
     Writes NLO data to file: w_k, f_kn, E_kn, p_kvnn.
@@ -177,8 +179,11 @@ def make_nlodata(gs_name: str = 'gs.gpw',
         Ground state file name
     out_name:
         Output filename
-    ni, nf:
-        First and last band to compute the mml (0 to nb)
+    ni:
+        First band to compute the mml.
+    nf:
+        Last band to compute the mml (relative to number of bands
+        for nf <= 0).
 
     """
 
@@ -195,11 +200,9 @@ def make_nlodata(gs_name: str = 'gs.gpw',
             assert not calc.symmetry.point_group, \
                 'Point group symmtery should be off.'
 
-            # Useful variables
             nbt = calc.get_number_of_bands()
-            ni = int(ni) if ni is not None else 0
-            nf = int(nf) if nf is not None else nbt
-            nf = nbt + nf if (nf < 0) else nf
+            if nf <= 0:
+                nf += nbt
 
             # Get the data
             w_k = calc.get_k_point_weights()
@@ -211,16 +214,9 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                 f_kn[ik] = calc.get_occupation_numbers(
                     kpt=ik, spin=0) / w_k[ik] / 2.0
             w_k *= bz_vol
+            broadcast(nf, root=0)
         else:
-            # In other cores set them to none
-            ni = None
-            nf = None
-            nbt = None
-
-    # Broadcast to all cores
-    ni = broadcast(ni, root=0)
-    nf = broadcast(nf, root=0)
-    nbt = broadcast(nbt, root=0)
+            nf = broadcast(None, root=0)
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
