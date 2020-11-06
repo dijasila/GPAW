@@ -35,15 +35,16 @@ def main(argv: List[str] = None) -> None:
         'Ico, Ih, Oh, Td or Th.')
     add('file', metavar='input-file',
         help='Cube-file, gpw-file or something else with atoms in it.')
-    add('-c', '--center', help='Center specified as one or more atoms.')
+    add('-c', '--center', help='Center specified as one or more atoms.  '
+        'Use chemical symbols or sequence numbers.')
     add('-r', '--radius', default=2.5,
         help='Cutoff radius (in Å) used for wave function overlaps.')
     add('-b', '--bands', default=':', metavar='N1:N2',
         help='Band range.')
     add('-a', '--axes', default='',
-        help='example: "-a z=x,x=-y".')
+        help='Example: "-a z=x,x=-y".')
     if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
+        args = parser.parse_intermixed_args(argv)  # needs Python 3.7
     else:
         args = parser.parse_args(argv)
 
@@ -78,7 +79,7 @@ def main(argv: List[str] = None) -> None:
         center /= n
     else:
         center = atoms.cell.sum(0) / 2
-    print('Center:', center)
+    print('Center:', center, f'(atoms: {n}')
 
     radius = float(args.radius)
 
@@ -93,4 +94,8 @@ def main(argv: List[str] = None) -> None:
     print(f'{args.pg}-symmetry:', 'Yes' if ok else 'No')
 
     if calc:
-        checker.check_calculation(calc, n1, n2)
+        nspins = calc.get_number_of_spins()
+        for spin in range(nspins):
+            if nspins == 2:
+                print('Spin', ['up', 'down'][spin])
+            checker.check_calculation(calc, n1, n2, spin=spin)
