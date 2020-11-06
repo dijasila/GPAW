@@ -21,6 +21,6 @@ calc.write('na2_gs_casida.gpw', mode='all')
 calc = GPAW('na2_gs_casida.gpw')
 istart = 0
 jend = 90
-lr = LrTDDFT(calc, xc='LDA', istart=istart, jend=jend)
+lr = LrTDDFT(calc, xc='LDA', restrict={'istart': istart, 'jend': jend})
 lr.diagonalize()
 lr.write('na2_lr.dat.gz')
