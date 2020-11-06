@@ -12,6 +12,11 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.1b1
 
+* Nonlinear optical responses can now be calculated in the independent
+  particle approximations. See the :ref:`nlo_tutorial` tutorial for how
+  to use it to compute the second-harmonic generation and shift current
+  spectra.
+
 * New method for interpolating pseudo density to fine grids:
   :meth:`gpaw.utilities.ps2ae.PS2AE.get_pseudo_density`
   (useful for Bader analysis and other things).
