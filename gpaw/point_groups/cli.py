@@ -24,6 +24,9 @@ class CubeCalc:
     def get_eigenvalues(self, spin: int) -> Array1D:
         return np.zeros(1)
 
+    def get_number_of_spins(self):
+        return 1
+
 
 def main(argv: List[str] = None) -> None:
     parser = argparse.ArgumentParser(
