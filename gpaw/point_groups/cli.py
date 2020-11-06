@@ -82,7 +82,7 @@ def main(argv: List[str] = None) -> None:
         center /= n
     else:
         center = atoms.cell.sum(0) / 2
-    print('Center:', center, f'(atoms: {n}')
+    print('Center:', center, f'(atoms: {n})')
 
     radius = float(args.radius)
 
