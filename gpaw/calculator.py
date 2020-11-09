@@ -573,7 +573,7 @@ class GPAW(Calculator):
         natoms = len(atoms)
 
         mode = par.mode
-        if isinstance(mode, basestring):
+        if isinstance(mode, str):
             mode = {'name': mode}
         if isinstance(mode, dict):
             mode = create_wave_function_mode(**mode)

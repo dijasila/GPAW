@@ -41,7 +41,7 @@ class TBWaveFunctions(LCAOWaveFunctions):
         my_atom_indices = self.basis_functions.my_atom_indices
         self.Vt_qMM = [Vt_MM.toarray()
                        for Vt_MM in manytci.P_qIM(my_atom_indices)]
-        #print(self.Vt_qMM[0]);asdf
+        # print(self.Vt_qMM[0]);asdf
 
 
 class TB(Mode):
@@ -57,7 +57,7 @@ class TB(Mode):
 
 
 class TBEigenSolver(DirectLCAO):
-    def iterate(self, ham, wfs) -> None:
+    def iterate(self, ham, wfs, occ=None) -> None:
         for kpt in wfs.kpt_u:
             self.iterate_one_k_point(ham, wfs, kpt, [wfs.Vt_qMM[kpt.q]])
 
