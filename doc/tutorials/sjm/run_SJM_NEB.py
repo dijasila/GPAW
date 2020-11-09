@@ -103,7 +103,7 @@ if relax_end_states:
 
     system = ['IS', 'FS']
     for i in endstates:
-        images[i].set_calculator(calculator())
+        images[i].calc = calculator()
         images[i].calc.set(txt=system[i]+'.txt')
         images[i].calc.ne = ne_img[i]
 
@@ -120,7 +120,7 @@ else:
 
 # Combine NEB images with their respective calculators
 for i in range(1, nimg+1):
-    images[i].set_calculator(calculator())
+    images[i].calc = calculator()
     images[i].calc.set(txt='image_%i.txt' % (i))
     images[i].calc.ne = ne_img[i]
 

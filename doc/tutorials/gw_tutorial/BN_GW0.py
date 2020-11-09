@@ -1,4 +1,3 @@
-from __future__ import print_function
 import pickle
 import numpy as np
 from gpaw import GPAW, FermiDirac
@@ -15,7 +14,7 @@ calc = GPAW(mode=PW(300),
             occupations=FermiDirac(0.001),
             txt='BN_groundstate.txt')
 
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()
 
 calc.diagonalize_full_hamiltonian()
@@ -38,6 +37,3 @@ for i in range(result['iqp'].shape[0]):
           'Gap:',
           np.min(result['iqp'][i, 0, :, 3]) -
           np.max(result['iqp'][i, 0, :, 2]))
-
-
-

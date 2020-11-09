@@ -3,6 +3,7 @@
  *  Copyright (C) 2005-2009  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
 #ifdef PARALLEL
@@ -23,7 +24,7 @@
                          || !PyArray_ISCARRAY(a) || !PyArray_ISNUMBER(a)) { \
     PyErr_SetString(PyExc_TypeError,                                        \
                     "Not a proper NumPy array for MPI communication.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that array is well-behaved, read-only  and contains data that
 // can be sent.
@@ -32,7 +33,7 @@
                          || !PyArray_ISNUMBER(a)) {                         \
     PyErr_SetString(PyExc_TypeError,                                        \
                     "Not a proper NumPy array for MPI communication.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that two arrays have the same type, and the size of the
 // second is a given multiple of the size of the first
@@ -41,22 +42,22 @@
       || (PyArray_SIZE(b) != PyArray_SIZE(a) * n)) {                    \
     PyErr_SetString(PyExc_ValueError,                                   \
                     "Incompatible array types or sizes.");              \
-      return NULL; }
+      return NULL; } else
 
 // Check that a processor number is valid
 #define CHK_PROC(n) if (n < 0 || n >= self->size) {\
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that a processor number is valid or is -1
 #define CHK_PROC_DEF(n) if (n < -1 || n >= self->size) {\
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
-    return NULL; }
+    return NULL; } else
 
 // Check that a processor number is valid and is not this processor
 #define CHK_OTHER_PROC(n) if (n < 0 || n >= self->size || n == self->rank) { \
     PyErr_SetString(PyExc_ValueError, "Invalid processor number.");     \
-    return NULL; }
+    return NULL; } else
 
 // MPI request object, so we can store a reference to the buffer,
 // preventing its early deallocation.
@@ -201,13 +202,54 @@ static GPAW_MPI_Request *NewMPIRequest(void)
   return self;
 }
 
+
+static void mpi_ensure_finalized(void)
+{
+    int already_finalized = 1;
+    int ierr = MPI_SUCCESS;
+
+    MPI_Finalized(&already_finalized);
+    if (!already_finalized)
+    {
+        ierr = MPI_Finalize();
+    }
+    if (ierr != MPI_SUCCESS)
+        PyErr_SetString(PyExc_RuntimeError, "MPI_Finalize error occurred");
+}
+
+
+// MPI initialization
+static void mpi_ensure_initialized(void)
+{
+    int already_initialized = 1;
+    int ierr = MPI_SUCCESS;
+
+    // Check whether MPI is already initialized
+    MPI_Initialized(&already_initialized);
+    if (!already_initialized)
+    {
+        // if not, let's initialize it
+        ierr = MPI_Init(NULL, NULL);
+        if (ierr == MPI_SUCCESS)
+        {
+            // No problem: register finalization when at Python exit
+            Py_AtExit(*mpi_ensure_finalized);
+        }
+        else
+        {
+            // We have a problem: raise an exception
+            char err[MPI_MAX_ERROR_STRING];
+            int resultlen;
+            MPI_Error_string(ierr, err, &resultlen);
+            PyErr_SetString(PyExc_RuntimeError, err);
+        }
+    }
+}
+
+
 static void mpi_dealloc(MPIObject *obj)
 {
-    if (obj->comm == MPI_COMM_WORLD) {
-#       ifndef GPAW_INTERPRETER
-            MPI_Finalize();
-#       endif
-    } else
+    if (obj->comm != MPI_COMM_WORLD)
         MPI_Comm_free(&(obj->comm));
     Py_XDECREF(obj->parent);
     free(obj->members);
@@ -358,6 +400,7 @@ static PyObject * mpi_send(MPIObject *self, PyObject *args, PyObject *kwargs)
     }
 }
 
+
 static PyObject * mpi_ssend(MPIObject *self, PyObject *args, PyObject *kwargs)
 {
   PyArrayObject* a;
@@ -382,8 +425,9 @@ static PyObject * mpi_name(MPIObject *self, PyObject *noargs)
   char name[MPI_MAX_PROCESSOR_NAME];
   int resultlen;
   MPI_Get_processor_name(name, &resultlen);
-  return Py_BuildValue("s#", name, resultlen);
+  return Py_BuildValue("s#", name, (Py_ssize_t)resultlen);
 }
+
 
 static PyObject * mpi_abort(MPIObject *self, PyObject *args)
 {
@@ -827,7 +871,11 @@ static PyObject * mpi_broadcast(MPIObject *self, PyObject *args)
   int root;
   if (!PyArg_ParseTuple(args, "Oi:broadcast", &buf, &root))
     return NULL;
-  CHK_ARRAY(buf);
+  if (root == self->rank)
+      CHK_ARRAY_RO(buf);
+  else
+      CHK_ARRAY(buf);
+
   CHK_PROC(root);
   int n = PyArray_DESCR(buf)->elsize;
   for (int d = 0; d < PyArray_NDIM(buf); d++)
@@ -1066,9 +1114,7 @@ static PyObject *NewMPIObject(PyTypeObject* type, PyObject *args,
     if (self == NULL)
         return NULL;
 
-#   ifndef GPAW_INTERPRETER
-        MPI_Init(NULL, NULL);
-#   endif
+    mpi_ensure_initialized();
 
     MPI_Comm_size(MPI_COMM_WORLD, &(self->size));
     MPI_Comm_rank(MPI_COMM_WORLD, &(self->rank));

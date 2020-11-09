@@ -10,7 +10,7 @@ Linux:
    :maxdepth: 1
 
    gbar/gbar
-   Linux/CentOS
+   Linux/centos
    Linux/Fedora
    Linux/openSUSE
    Linux/ubuntu
@@ -68,9 +68,6 @@ BGP:
    :maxdepth: 2
 
    BGP/jugene
-   BGP/rbgc
-   BGP/surveyor
-
    BGP/performance
 
 BGQ:

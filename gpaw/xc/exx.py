@@ -1,36 +1,22 @@
-from __future__ import division, print_function
-
+import json
 import sys
 from math import pi
+from pathlib import Path
+from typing import Union
 
 import numpy as np
 from ase.units import Hartree
 
 import gpaw.mpi as mpi
+from gpaw.hybrids.paw import pawexxvv
 from gpaw.xc import XC
 from gpaw.xc.tools import vxc
 from gpaw.xc.kernel import XCNull
 from gpaw.response.pair import PairDensity
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.kpt_descriptor import KPointDescriptor
-from gpaw.utilities import unpack, unpack2, packed_index
+from gpaw.utilities import unpack, unpack2
 from gpaw.response.wstc import WignerSeitzTruncatedCoulomb
-
-
-def pawexxvv(atomdata, D_ii):
-    """PAW correction for valence-valence EXX energy."""
-    ni = len(D_ii)
-    V_ii = np.empty((ni, ni))
-    for i1 in range(ni):
-        for i2 in range(ni):
-            V = 0.0
-            for i3 in range(ni):
-                p13 = packed_index(i1, i3, ni)
-                for i4 in range(ni):
-                    p24 = packed_index(i2, i4, ni)
-                    V += atomdata.M_pp[p13, p24] * D_ii[i3, i4]
-            V_ii[i1, i2] = V
-    return V_ii
 
 
 def select_kpts(kpts, calc):
@@ -52,7 +38,8 @@ def select_kpts(kpts, calc):
         d_Kc -= d_Kc.round()
         K = abs(d_Kc).sum(1).argmin()
         if not np.allclose(d_Kc[K], 0):
-            raise ValueError('Could not find k-point: {0}'.format(k_c))
+            raise ValueError('Could not find k-point: {k_c}'
+                             .format(k_c=k_c))
         k = calc.wfs.kd.bz2ibz_k[K]
         indices.append(k)
     return indices
@@ -62,6 +49,29 @@ class EXX(PairDensity):
     def __init__(self, calc, xc=None, kpts=None, bands=None, ecut=None,
                  stencil=2,
                  omega=None, world=mpi.world, txt=sys.stdout, timer=None):
+        """Non self-consistent hybrid functional calculations.
+
+        Eigenvalues and total energy can be calculated.
+
+        calc: str or PAW object
+            GPAW calculator object or filename of saved calculator object.
+        xc: str
+            Name of functional.  Use one of EXX, PBE0, HSE03, HSE06 or B3LYP.
+            Default is EXX.
+        kpts: list of in or list of list of int
+            List of indices of the IBZ k-points to calculate the quasi particle
+            energies for.  Default is all k-points.  One can also specify the
+            coordiantes of the k-point.  As an example, Gamma and X for an
+            FCC crystal would be: kpts=[[0, 0, 0], [1 / 2, 1 / 2, 0]].
+        bands: tuple of two ints
+            Range of band indices, like (n1, n2), to calculate the quasi
+            particle energies for. Bands n where n1<=n<n2 will be
+            calculated.  Note that the second band index is not included.
+            Default is all occupied bands.
+        ecut: float
+            Plane wave cut-off energy in eV.  Default it the same as was used
+            for the ground-state calculations.
+        """
 
         PairDensity.__init__(self, calc, ecut, world=world, txt=txt,
                              timer=timer)
@@ -141,12 +151,43 @@ class EXX(PairDensity):
         self.C_aii = []   # valence-core correction
         self.initialize_paw_exx_corrections()
 
-    def calculate(self):
+    def calculate(self, restart: Union[Path, str] = None):
+        """Do the calculation.
+
+        restart_filename: str or Path
+            Name of restart json-file.  Allows for incremental calculation
+            of eigenvalues.
+        """
         kd = self.calc.wfs.kd
         nspins = self.calc.wfs.nspins
 
+        if restart:
+            if isinstance(restart, str):
+                restart = Path(restart)
+
+            if restart.is_file():
+                data = json.loads(restart.read_text())
+                n = len(data)
+                print('Restarting from {restart}.  '
+                      'Read {n} spin+k-point pairs.'
+                      .format(**locals()),
+                      file=self.fd)
+            else:
+                data = []
+        else:
+            data = []
+
+        n = 0
         for s in range(nspins):
             for i, k1 in enumerate(self.kpts):
+                if n < len(data):
+                    f_n, exxvv_n, exxvc_n = data[n]
+                    self.f_sin[s, i] = f_n
+                    self.exxvc_sin[s, i] = exxvc_n
+                    self.exxvv_sin[s, i] = exxvv_n
+                    n += 1
+                    continue
+
                 K1 = kd.ibz2bz_k[k1]
                 kpt1 = self.get_k_point(s, K1, *self.bands)
                 self.f_sin[s, i] = kpt1.f_n
@@ -156,7 +197,21 @@ class EXX(PairDensity):
 
                 self.calculate_paw_exx_corrections(i, kpt1)
 
-        self.world.sum(self.exxvv_sin)
+                self.world.sum(self.exxvv_sin[s, i])
+
+                if restart and self.world.rank == 0:
+                    data.append([x_n.tolist()
+                                 for x_n in [self.f_sin[s, i],
+                                             self.exxvc_sin[s, i],
+                                             self.exxvv_sin[s, i]]])
+                    assert isinstance(restart, Path)  # for mypy
+                    tmp = restart.with_name(restart.name + '.tmp')
+                    tmp.write_text(json.dumps(data))
+                    # Overwrite restart-file in in almost atomic step that
+                    # hopefully does not crash due to job running out of time:
+                    tmp.rename(restart)
+
+                n += 1
 
         # Calculate total energy if we have everything needed:
         if (len(self.kpts) == kd.nibzkpts and
@@ -213,10 +268,10 @@ class EXX(PairDensity):
                       for Q_Gii, P1_ni in zip(Q_aGii, kpt1.P_ani)]
             n_mG = self.calculate_pair_densities(ut1cc_R, C1_aGi, kpt2,
                                                  pd, Q_G)
-            e = self.calculate_n(pd, n, n_mG, kpt2)
+            e = self.calculate_n(pd, n_mG, kpt2)
             self.exxvv_sin[kpt1.s, i, n] += e
 
-    def calculate_n(self, pd, n, n_mG, kpt2):
+    def calculate_n(self, pd, n_mG, kpt2):
         iG_G = self.get_coulomb_kernel(pd)
         x = 4 * pi / self.calc.wfs.kd.nbzkpts / pd.gd.dv**2
 

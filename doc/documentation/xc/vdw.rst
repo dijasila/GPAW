@@ -58,7 +58,7 @@ Selfconsistent vdW-DF calculations
 >>> vdw = 'vdW-DF'
 >>> atoms = ...
 >>> calc = GPAW(xc=vdw, ...)
->>> atoms.set_calculator(calc)
+>>> atoms.calc = calc
 >>> e = atoms.get_potential_energy()
 
 
@@ -96,7 +96,7 @@ The example below redefines the number of interpolating cubic splines
 >>> vdw = VDWFunctional('vdW-DF2', Nalpha=24)
 >>> atoms = ...
 >>> calc = GPAW(xc=vdw, ...)
->>> atoms.set_calculator(calc)
+>>> atoms.calc = calc
 >>> e = atoms.get_potential_energy()
 
 
@@ -141,7 +141,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> h2.center(vacuum=3)
 >>> cell = h2.get_cell()
 >>> calc = GPAW(xc=xc)
->>> h2.set_calculator(calc)
+>>> h2.calc = calc
 >>> e_h2 = h2.get_potential_energy()
 >>> ens = BEEFEnsemble(calc)
 >>> de_h2 = ens.get_ensemble_energies()
@@ -150,7 +150,7 @@ as well as an ensemble estimate of the binding energy error (dE_bind)
 >>> h.set_cell(cell)
 >>> h.center()
 >>> calc = GPAW(xc=xc)
->>> h.set_calculator(calc)
+>>> h.calc = calc
 >>> e_h = h.get_potential_energy()
 >>> ens = BEEFEnsemble(calc)
 >>> de_h = ens.get_ensemble_energies()

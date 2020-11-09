@@ -11,7 +11,7 @@ calc = GPAW(h=0.2,
             mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0),
             txt='CO.txt')
 
-CO.set_calculator(calc)
+CO.calc = calc
 CO.get_potential_energy()
 
 # Write wave functions to gpw file

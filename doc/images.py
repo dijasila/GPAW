@@ -10,7 +10,6 @@ This must (probably) be done *after* compilation because otherwise dirs
 may not exist.
 
 """
-from __future__ import print_function
 try:
     from urllib2 import urlopen, HTTPError
 except ImportError:
@@ -65,7 +64,6 @@ get('exercises/wavefunctions', ['co_bonding.jpg'])
 
 get('tutorials/H2', ['ensemble.png'])
 
-get('.', ['2sigma.png', 'co_wavefunctions.png'], 'documentation')
 get('exercises/lrtddft', ['spectrum.png'])
 get('documentation/xc', 'g2test_pbe0.png  g2test_pbe.png  results.png'.split())
 get('performance', 'dacapoperf.png  goldwire.png  gridperf.png'.split(),
@@ -84,15 +82,6 @@ get('workshop16', ['gpaw2016-photo.jpg'], 'static')
 
 
 # files from http://wiki.fysik.dtu.dk/gpaw-files/things/
-
-scf_conv_eval_stuff = """
-scf_g2_1_pbe0_fd_calculator_steps.png
-scf_g2_1_pbe0_fd_energy.csv
-scf_dcdft_pbe_pw_calculator_steps.png
-scf_dcdft_pbe_pw_energy.csv
-""".split()
-
-get('things', scf_conv_eval_stuff, target='documentation/scf_conv_eval')
 
 # Warning: for the moment dcdft runs are not run (files are static)!
 dcdft_pbe_aims_stuff = """

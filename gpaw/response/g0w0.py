@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import functools
 import itertools
 import os
@@ -453,7 +451,8 @@ class G0W0(PairDensity):
                     print('Summing all q:', file=self.fd)
                     pb = ProgressBar(self.fd)
                 for u, kpt1 in enumerate(mykpts):
-                    pb.update((nQ + 1) * u / nkpt / len(self.qd))
+                    pb.update((nQ + 1) * u /
+                              (nkpt * self.qd.mynk * self.qd.nspins))
                     K2 = kd.find_k_plus_q(q_c, [kpt1.K])[0]
                     kpt2 = self.get_k_point(kpt1.s, K2, 0, m2,
                                             block=True)

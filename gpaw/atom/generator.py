@@ -1,16 +1,15 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
-from __future__ import print_function
 from math import pi, sqrt
 
 import numpy as np
 from numpy.linalg import solve, inv
+from scipy.linalg import eigh
 
 from gpaw.setup_data import SetupData
 from gpaw.atom.configurations import configurations
 from gpaw import __version__ as version
 from gpaw.atom.all_electron import AllElectron, shoot
-from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities import hartree
 from gpaw.xc.hybrid import constructX, atomic_exact_exchange
 from gpaw.atom.filter import Filter
@@ -28,7 +27,7 @@ class Generator(AllElectron):
     def run(self, core='', rcut=1.0, extra=None,
             logderiv=False, vbar=None, exx=False, name=None,
             normconserving='', filter=(0.4, 1.75), rcutcomp=None,
-            write_xml=True, use_restart_file=True,
+            write_xml=True, use_restart_file=not True,
             empty_states='', yukawa_gamma=0.0):
 
         self.name = name
@@ -753,7 +752,8 @@ class Generator(AllElectron):
 
         setup.rgd = self.rgd
 
-        setup.rcgauss = self.rcutcomp / sqrt(self.gamma)
+        setup.shape_function = {'type': 'gauss',
+                                'rc': self.rcutcomp / sqrt(self.gamma)}
         setup.e_kin_jj = self.dK_jj
         setup.ExxC = ExxC
         setup.phi_jg = divide_all_by_r(vu_j)
@@ -788,6 +788,7 @@ class Generator(AllElectron):
         setup.generatorattrs = attrs
         setup.generatordata = data
         setup.orbital_free = self.orbital_free
+        setup.version = '0.6'
 
         self.id_j = []
         for l, n in zip(vl_j, vn_j):
@@ -840,8 +841,7 @@ class Generator(AllElectron):
             H.ravel()[1::ng + 1] -= 0.5 / h**2
             H.ravel()[ng::ng + 1] -= 0.5 / h**2
             S.ravel()[::ng + 1] += 1.0
-            e_n = np.zeros(ng)
-            general_diagonalize(H, e_n, S)
+            e_n, _ = eigh(H, S)
             ePAW = e_n[0]
             if l <= self.lmax and self.n_ln[l][0] > 0:
                 eAE = self.e_ln[l][0]

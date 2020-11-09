@@ -10,7 +10,7 @@ setup_paths.insert(0, '.')
 # Usual GPAW definitions
 h = 0.18
 a = 12.00
-c = a/2
+c = a / 2
 
 # XC functional + kinetic functional (minus the Tw contribution) to be used
 xcname = '1.0_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'
@@ -20,9 +20,9 @@ lambda_coeff = 1.0
 
 name = 'lambda_{0}'.format(lambda_coeff)
 
-filename = 'atoms_'+name+'.dat'
+filename = 'atoms_' + name + '.dat'
 
-f = paropen(filename,'w')
+f = paropen(filename, 'w')
 
 elements = ['N']
 
@@ -31,10 +31,10 @@ for symbol in elements:
 
     eigensolver = CG(tw_coeff=lambda_coeff)
 
-    poissonsolver=PoissonSolver()
+    poissonsolver = PoissonSolver()
     molecule = Atoms(symbol,
-                     positions=[(c,c,c)] ,
-                     cell=(a,a,a))
+                     positions=[(c, c, c)],
+                     cell=(a, a, a))
 
     calc = GPAW(h=h,
                 xc=xcname,
@@ -44,8 +44,8 @@ for symbol in elements:
                 setups=name,
                 poissonsolver=poissonsolver)
 
-    molecule.set_calculator(calc)
+    molecule.calc = calc
 
     E = molecule.get_total_energy()
 
-    f.write('{0}\t{1}\n'.format(symbol,E))
+    f.write('{0}\t{1}\n'.format(symbol, E))

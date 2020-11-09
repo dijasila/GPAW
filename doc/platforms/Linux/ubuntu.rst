@@ -1,22 +1,23 @@
-====================================
-Manual installation on Ubuntu 18.04+
-====================================
+=============
+Ubuntu 18.04+
+=============
 
 Install these Ubuntu_ packages::
 
-    $ sudo apt install python3-dev libopenblas-dev liblapack-dev libxc-dev libscalapack-mpi-dev libblacs-mpi-dev
+    $ sudo apt install python3-dev libopenblas-dev libxc-dev libscalapack-mpi-dev libfftw3-dev
 
-Then install ASE_, Numpy and SciPy::
+Create a :ref:`siteconfig.py <siteconfig>` file::
 
-    $ python3 -m pip install ase
+    $ mkdir -p ~/.gpaw
+    $ cat > ~/.gpaw/siteconfig.py
+    fftw = True
+    scalapack = True
+    libraries = ['xc', 'blas', 'fftw3', 'scalapack-openmpi']
+    ^D
 
-And finally, GPAW with ScaLAPACK::
+Then install GPAW (and dependencies: ASE_, Numpy, SciPy)::
 
-    $ wget https://pypi.org/packages/source/g/gpaw/gpaw-1.4.0.tar.gz
-    $ tar -xf gpaw-1.4.0.tar.gz
-    $ cd gpaw
-    $ sed -i "s/scalapack = False/scalapack = True/" customize.py
-    $ python3 setup.py install --user
+    $ pip install gpaw
 
 
 .. _Ubuntu: http://www.ubuntu.com/

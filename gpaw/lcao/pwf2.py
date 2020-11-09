@@ -153,9 +153,10 @@ class ProjectedWannierFunctionsIBL:
         self.S_ww = self.rotate_matrix(np.ones(1), S_MM)
         P_uw = np.dot(V_uM, self.U_Mw)
         self.norms_n = np.hstack((
-            np.dot(U_ow, np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
-            np.dot(P_uw, np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()
-            ))
+            np.dot(U_ow,
+                   np.linalg.solve(self.S_ww, U_ow.T.conj())).diagonal(),
+            np.dot(P_uw,
+                   np.linalg.solve(self.S_ww, P_uw.T.conj())).diagonal()))
 
     def rotate_matrix(self, A_o, A_MM):
         assert A_o.ndim == 1
@@ -317,7 +318,7 @@ class PWF2:
             return self.S_qww[q].take(indices, 0).take(indices, 1)
 
     def get_projections(self, q=0, indices=None):
-        kpt = self.calc.wfs.kpt_u[self.spin * self.nk + q]
+        kpt = self.calc.wfs.kpt_qs[q][self.spin]
         if not hasattr(self, 'P_awi'):
             if self.ibl:
                 M = self.M_k[q]
@@ -333,7 +334,7 @@ class PWF2:
 
     def get_orbitals(self, q=0, indices=None):
         self.calc.wfs.initialize_wave_functions_from_restart_file()
-        kpt = self.calc.wfs.kpt_u[self.spin * self.nk + q]
+        kpt = self.calc.wfs.kpt_qs[q][self.spin]
         if not hasattr(self, 'w_wG'):
             if self.ibl:
                 self.w_wG = self.pwf_q[q].rotate_function(

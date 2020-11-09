@@ -3,33 +3,49 @@
 # Please see the accompanying LICENSE file for further information.
 
 """Main gpaw module."""
-
+import os
 import sys
+from sysconfig import get_platform
+from os.path import join, isfile
+from typing import List, Dict
 
-from gpaw.broadcast_imports import broadcast_imports
+plat = get_platform()
+platform_id = os.getenv('CPU_ARCH')
+if platform_id:
+    plat += '-' + platform_id
+build_path = join(__path__[0], '..', 'build')  # type: ignore
+arch = '{}-{}.{}'.format(plat, *sys.version_info[0:2])
+
+# If we are running the code from the source directory, then we will
+# want to use the extension from the distutils build directory:
+sys.path.insert(0, join(build_path, 'lib.' + arch))
+
+if 'OMP_NUM_THREADS' not in os.environ:
+    os.environ['OMP_NUM_THREADS'] = '1'
+
+from gpaw.broadcast_imports import broadcast_imports  # noqa
 
 with broadcast_imports:
     import os
     import runpy
     import warnings
-    from sysconfig import get_platform
-    from os.path import join, isfile
     from argparse import ArgumentParser, REMAINDER, RawDescriptionHelpFormatter
 
     import numpy as np
     from ase.cli.run import str2dict
-
+    import _gpaw
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '1.5.2b1'
-__ase_version_required__ = '3.17.1b1'
+__version__ = '20.10.1b1'
+__ase_version_required__ = '3.21.0b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
            'CG', 'Davidson', 'RMMDIIS', 'DirectLCAO',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
+           'MarzariVanderbilt',
            'PW', 'LCAO', 'restart', 'FD']
 
 
@@ -55,6 +71,12 @@ def parse_extra_parameters(arg):
 
 
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
+
+libraries: Dict[str, str] = {}
+if hasattr(_gpaw, 'lxcXCFunctional'):
+    libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
+else:
+    libraries['libxc'] = ''
 
 
 def parse_arguments(argv):
@@ -173,18 +195,10 @@ extra_parameters.update(parse_gpaw_args())
 
 # Check for special command line arguments:
 memory_estimate_depth = gpaw_args.memory_estimate_depth
-parsize_domain = gpaw_args.parsize_domain
-parsize_bands = gpaw_args.parsize_bands
-augment_grids = gpaw_args.augment_grids
-# We deprecate the sl_xxx parameters being set from command line.
-# People can satisfy their lusts by setting gpaw.sl_default = something
-# if they are perverted enough to use global variables.
-sl_default = None
-sl_diagonalize = None
-sl_inverse_cholesky = None
-sl_lcao = None
-sl_lrtddft = None
-buffer_size = gpaw_args.buffer_size
+parsize_domain: int = gpaw_args.parsize_domain
+parsize_bands: int = gpaw_args.parsize_bands
+augment_grids: int = gpaw_args.augment_grids
+buffer_size: int = gpaw_args.buffer_size
 profile = gpaw_args.profile
 
 
@@ -205,7 +219,8 @@ def main():
 
 
 dry_run = extra_parameters.pop('dry_run', 0)
-debug = extra_parameters.pop('debug', False)
+debug: bool = extra_parameters.pop('debug', sys.flags.debug)
+benchmark_imports = extra_parameters.pop('benchmark_imports', False)
 
 # Check for typos:
 for p in extra_parameters:
@@ -228,14 +243,6 @@ if debug:
     np.empty = empty
 
 
-build_path = join(__path__[0], '..', 'build')
-arch = '%s-%s' % (get_platform(), sys.version[0:3])
-
-# If we are running the code from the source directory, then we will
-# want to use the extension from the distutils build directory:
-sys.path.insert(0, join(build_path, 'lib.' + arch))
-
-
 def get_gpaw_python_path():
     paths = os.environ['PATH'].split(os.pathsep)
     paths.insert(0, join(build_path, 'bin.' + arch))
@@ -245,33 +252,30 @@ def get_gpaw_python_path():
     raise RuntimeError('Could not find gpaw-python!')
 
 
-setup_paths = []
+setup_paths: List[str] = []
 
-
-def initialize_data_paths():
-    try:
-        setup_paths[:] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
-    except KeyError:
-        if os.pathsep == ';':
-            setup_paths[:] = [r'C:\gpaw-setups']
-        else:
-            setup_paths[:] = ['/usr/local/share/gpaw-setups',
-                              '/usr/share/gpaw-setups']
-
-
-initialize_data_paths()
 
 with broadcast_imports:
     from gpaw.calculator import GPAW
     from gpaw.mixer import Mixer, MixerSum, MixerDif, MixerSum2
     from gpaw.eigensolvers import Davidson, RMMDIIS, CG, DirectLCAO
     from gpaw.poisson import PoissonSolver
-    from gpaw.occupations import FermiDirac, MethfesselPaxton
+    from gpaw.occupations import (FermiDirac, MethfesselPaxton,
+                                  MarzariVanderbilt)
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
 
 RMM_DIIS = RMMDIIS
+
+if os.environ.get('GPAW_COVERAGE'):
+    import atexit
+    import coverage
+    from gpaw.mpi import rank
+    name = os.environ['GPAW_COVERAGE']
+    cov = coverage.Coverage(f'coverage-{name}-{rank}', True)
+    cov.start()
+    atexit.register(lambda: [cov.stop(), cov.save()])
 
 
 def restart(filename, Class=GPAW, **kwargs):
@@ -323,4 +327,26 @@ def read_rc_file():
                 exec(fd.read())
 
 
+def initialize_data_paths():
+    try:
+        setup_paths[:0] = os.environ['GPAW_SETUP_PATH'].split(os.pathsep)
+    except KeyError:
+        if len(setup_paths) == 0:
+            if os.pathsep == ';':
+                setup_paths[:] = [r'C:\gpaw-setups']
+            else:
+                setup_paths[:] = ['/usr/local/share/gpaw-setups',
+                                  '/usr/share/gpaw-setups']
+
+
 read_rc_file()
+initialize_data_paths()
+
+if benchmark_imports:
+    with broadcast_imports:
+        from ase.parallel import parprint
+
+    parprint('Benchmarking imports: {} modules broadcasted'
+             .format(len(broadcast_imports.cached_modules)))
+    if benchmark_imports == 'list_modules':
+        parprint('  ' + '\n  '.join(sorted(broadcast_imports.cached_modules)))

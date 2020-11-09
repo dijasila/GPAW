@@ -70,7 +70,7 @@ class DirectLCAO(object):
         #
         name = wfs.atomic_correction.__class__.__name__
         wfs.timer.start(name)
-        wfs.atomic_correction.calculate_hamiltonian(wfs, kpt, dH_asp, H_MM, yy)
+        wfs.atomic_correction.calculate_hamiltonian(kpt, dH_asp, H_MM, yy)
         wfs.timer.stop(name)
 
         wfs.timer.start('Distribute overlap matrix')
@@ -82,7 +82,7 @@ class DirectLCAO(object):
             H_MM += wfs.T_qMM[kpt.q]
         return H_MM
 
-    def iterate(self, hamiltonian, wfs):
+    def iterate(self, hamiltonian, wfs, occ=None):
         wfs.timer.start('LCAO eigensolver')
 
         s = -1

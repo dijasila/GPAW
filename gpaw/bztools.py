@@ -1,4 +1,3 @@
-from __future__ import division, print_function
 
 import numpy as np
 
@@ -489,5 +488,3 @@ def convex_hull_volume(pts):
     vol = np.sum(tetrahedron_volume(tets[:, 0], tets[:, 1],
                                     tets[:, 2], tets[:, 3]))
     return vol
-
-

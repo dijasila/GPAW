@@ -7,7 +7,6 @@ evaluation of exact exchange.
 
 from math import exp, ceil
 import numpy as np
-from ase.utils import basestring
 
 from gpaw.atom.configurations import core_states
 from gpaw.gaunt import gaunt
@@ -108,7 +107,7 @@ class HybridXCBase(XCFunctional):
             xc = XC(rsf_functional['xc'])
             hybrid = self.cam_alpha + self.cam_beta
 
-        if isinstance(xc, (basestring, dict)):
+        if isinstance(xc, (str, dict)):
             xc = XC(xc)
 
         self.hybrid = float(hybrid)
@@ -177,9 +176,9 @@ class HybridXC(HybridXCBase):
         return self.xc.calculate_paw_correction(setup, D_sp, dEdD_sp,
                                                 addcoredensity, a)
 
-    def initialize(self, density, hamiltonian, wfs, occupations):
+    def initialize(self, density, hamiltonian, wfs):
         assert wfs.kd.gamma
-        self.xc.initialize(density, hamiltonian, wfs, occupations)
+        self.xc.initialize(density, hamiltonian, wfs)
         self.kpt_comm = wfs.kd.comm
         self.nspins = wfs.nspins
         self.setups = wfs.setups

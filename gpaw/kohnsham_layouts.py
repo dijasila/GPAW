@@ -2,13 +2,14 @@
 # Copyright (C) 2010  Argonne National Laboratory
 # Please see the accompanying LICENSE file for further information.
 import numpy as np
+from scipy.linalg import eigh
 
+from gpaw import debug
 from gpaw.matrix_descriptor import MatrixDescriptor
 from gpaw.mpi import broadcast_exception
 from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import uncamelcase
 from gpaw.utilities.blas import gemm, r2k
-from gpaw.utilities.lapack import general_diagonalize
 from gpaw.utilities.scalapack import (pblas_simple_gemm, pblas_tran,
                                       scalapack_tri2full)
 from gpaw.utilities.tools import tri2full
@@ -447,7 +448,13 @@ class OrbitalLayouts(KohnShamLayouts):
         """Serial diagonalize via LAPACK."""
         # This is replicated computation but ultimately avoids
         # additional communication
-        general_diagonalize(H_MM, eps_M, S_MM)
+        if eps_M.size == 0:
+            return
+        eps_M[:], H_MM.T[:] = eigh(H_MM, S_MM,
+                                   overwrite_a=True,
+                                   check_finite=debug)
+        if H_MM.dtype == complex:
+            np.negative(H_MM.imag, H_MM.imag)
 
     def estimate_memory(self, mem, dtype):
         itemsize = mem.itemsize[dtype]

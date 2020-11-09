@@ -5,7 +5,7 @@ from ase.units import Hartree
 
 from gpaw import GPAW
 from gpaw.kpt_descriptor import to1bz
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 from gpaw.wavefunctions.pw import PWDescriptor
 import gpaw.mpi as mpi
 
@@ -43,13 +43,14 @@ class Unfold:
 
         self.nb = self.calc.get_number_of_bands()
 
-        self.v_Knm = None
+        self.v_Kmsn = None
         if spinorbit:
             if mpi.world.rank == 0:
                 print('Calculating spinorbit Corrections')
             self.nb = 2 * self.calc.get_number_of_bands()
-            self.e_mK, self.v_Knm = get_spinorbit_eigenvalues(self.calc,
-                                                              return_wfs=True)
+            soc = soc_eigenstates(self.calc)
+            self.e_mK = soc.eigenvalues().T
+            self.v_Kmsn = soc.eigenvectors()
             if mpi.world.rank == 0:
                 print('Done with the spinorbit Corrections')
 
@@ -104,7 +105,7 @@ class Unfold:
         dimension is added."""
 
         psi_mgrid = get_rs_wavefunctions_k(self.calc, iK, self.spinorbit,
-                                           self.v_Knm)
+                                           self.v_Kmsn)
         if not self.spinorbit:
             psi_list_mG = []
             for i in range(len(psi_mgrid)):
@@ -131,7 +132,7 @@ class Unfold:
             return u_mG
 
     def get_spectral_weights_k(self, k_t):
-        """Returns the spectral weights for a given k in the PC:
+        r"""Returns the spectral weights for a given k in the PC:
 
             P_mK(k_t) = \sum_n |<Km|k_t n>|**2
 
@@ -219,7 +220,7 @@ class Unfold:
 
     def spectral_function(self, kpts, x, X, points_name, width=0.002,
                           npts=10000, filename=None):
-        """Returns the spectral function for all the ks in kpoints:
+        r"""Returns the spectral function for all the ks in kpoints:
 
                                               eta / pi
 
@@ -272,7 +273,7 @@ def find_K_from_k(k, M):
     return KG, G
 
 
-def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
+def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Kmsn=None):
     """Get the list of WaveFunction for a given iK. For spinors the number of
     bands is doubled and a spin dimension is added."""
 
@@ -291,9 +292,9 @@ def get_rs_wavefunctions_k(calc, iK, spinorbit=False, v_Knm=None):
                                eikr_R for m in range(Nb)])
         return psit_mgrid
     else:
-        v_nm = v_Knm[iK].copy()
-        v0_mn = v_nm[::2].T
-        v1_mn = v_nm[1::2].T
+        v_msn = v_Kmsn[iK]
+        v0_mn = v_msn[:, 0]
+        v1_mn = v_msn[:, 1]
 
         u0_ngrid = np.array(
             [calc.wfs.get_wave_function_array(n, iK, 0) * eikr_R

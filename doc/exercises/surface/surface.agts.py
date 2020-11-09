@@ -6,4 +6,8 @@ def create_tasks():
 
 
 if __name__ == '__main__':
-    exec(open('Al100.py').read(), {'k': 6, 'N': 5})
+    from pathlib import Path
+    source = Path('Al100.py').read_text()
+    source = source.replace('k = ...', 'k = 6')
+    source = source.replace('N = ...', 'N = 5')
+    exec(source)

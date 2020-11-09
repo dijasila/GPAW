@@ -31,9 +31,9 @@ calc.set(txt='H2O_LCY_PBE_083.log')
 calc_plus = get_paw()
 calc_plus.set(txt='H2O_plus_LCY_PBE_083.log', charge=1)
 
-h2o.set_calculator(calc)
+h2o.calc = calc
 e_h2o = h2o.get_potential_energy()
-h2o_plus.set_calculator(calc_plus)
+h2o_plus.calc = calc_plus
 e_h2o_plus = h2o_plus.get_potential_energy()
 e_ion = e_h2o_plus - e_h2o
 

@@ -1,4 +1,3 @@
-from __future__ import division
 import numbers
 from math import pi, factorial as fac
 
@@ -8,7 +7,7 @@ from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
 
 
-def radial_grid_descriptor(eq, **kwargs):
+def radial_grid_descriptor(eq: str, **kwargs) -> 'RadialGridDescriptor':
     if eq == 'r=d*i':
         assert int(kwargs['istart']) == 0
         return EquidistantRadialGridDescriptor(float(kwargs['d']),
@@ -61,7 +60,7 @@ def fsbt(l, f_g, r_g, G_k):
 class RadialGridDescriptor:
     ndim = 1  # dimension of ndarrays
 
-    def __init__(self, r_g, dr_g, default_spline_points=25):
+    def __init__(self, r_g: np.ndarray, dr_g, default_spline_points=25):
         """Grid descriptor for radial grid."""
         self.r_g = r_g
         self.dr_g = dr_g
@@ -71,6 +70,12 @@ class RadialGridDescriptor:
 
     def __len__(self):
         return self.N
+
+    @classmethod
+    def new(cls, name, *args, **kwargs):
+        if name == 'equidistant':
+            return EquidistantRadialGridDescriptor(*args, **kwargs)
+        raise ValueError(f'Unknown grid-type: {name}')
 
     def zeros(self, x=()):
         a_xg = self.empty(x)
@@ -88,7 +93,7 @@ class RadialGridDescriptor:
                       (self.r_g**(2 + n) * self.dr_g)[1:]) * (4 * pi)
 
     def yukawa(self, n_g, l=0, gamma=1e-6):
-        """Calculates the radial grid yukawa integral.
+        r"""Calculates the radial grid yukawa integral.
 
         The the integral kernel for the Yukawa interaction:
 
@@ -459,7 +464,9 @@ class EquidistantRadialGridDescriptor(RadialGridDescriptor):
 
         The radial grid is r(g) = h0 + g*h,  g = 0, 1, ..., N - 1."""
 
-        RadialGridDescriptor.__init__(self, h * np.arange(N) + h0, h)
+        RadialGridDescriptor.__init__(self,
+                                      h * np.arange(N) + h0,
+                                      h + np.zeros(N))
 
     def r2g(self, r):
         return int(np.ceil((r - self.r_g[0]) / (self.r_g[1] - self.r_g[0])))
@@ -502,6 +509,9 @@ class AERadialGridDescriptor(RadialGridDescriptor):
         beta = self.a / self.b
         return ng * r / (beta + r)
 
+    def new(self, N):
+        return AERadialGridDescriptor(self.a, self.b, N)
+
     def xml(self, id='grid1'):
         if abs(self.N - 1 / self.b) < 1e-5:
             return (('<radial_grid eq="r=a*i/(n-i)" a="%r" n="%d" ' +
@@ -534,3 +544,9 @@ class AbinitRadialGridDescriptor(RadialGridDescriptor):
 
     def r2g(self, r):
         return np.log(r / self.a + 1) / self.d
+
+    def d2gdr2(self):
+        return -1 / (self.a**2 * self.d * (self.r_g / self.a + 1)**2)
+
+    def new(self, N):
+        return AbinitRadialGridDescriptor(self.a, self.d, N)

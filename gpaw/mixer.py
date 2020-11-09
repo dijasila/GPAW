@@ -8,6 +8,7 @@ See Kresse, Phys. Rev. B 54, 11169 (1996)
 import numpy as np
 from numpy.fft import fftn, ifftn
 
+import gpaw.mpi as mpi
 from gpaw.utilities.blas import axpy
 from gpaw.fd_operators import FDOperator
 from gpaw.utilities.tools import construct_reciprocal
@@ -230,25 +231,42 @@ class FFTBaseMixer(BaseMixer):
     """Mix the density in Fourier space"""
     def __init__(self, beta, nmaxold, weight):
         BaseMixer.__init__(self, beta, nmaxold, weight)
+        self.gd1 = None
 
     def initialize_metric(self, gd):
         self.gd = gd
-        k2_Q, N3 = construct_reciprocal(self.gd)
 
-        self.metric = ReciprocalMetric(self.weight, k2_Q)
-        self.mR_G = gd.empty(dtype=complex)
+        if gd.comm.rank == 0:
+            self.gd1 = gd.new_descriptor(comm=mpi.serial_comm)
+            k2_Q, _ = construct_reciprocal(self.gd1)
+            self.metric = ReciprocalMetric(self.weight, k2_Q)
+            self.mR_G = self.gd1.empty(dtype=complex)
+        else:
+            self.metric = lambda R_Q, mR_Q: None
+            self.mR_G = np.empty((0, 0, 0), dtype=complex)
 
     def calculate_charge_sloshing(self, R_Q):
-        return self.gd.integrate(np.fabs(ifftn(R_Q).real))
+        if self.gd.comm.rank == 0:
+            cs = self.gd1.integrate(np.fabs(ifftn(R_Q).real))
+        else:
+            cs = 0.0
+        return self.gd.comm.sum(cs)
 
     def mix_single_density(self, nt_G, D_ap):
         # Transform real-space density to Fourier space
-        nt_Q = np.ascontiguousarray(fftn(nt_G))
+        nt1_G = self.gd.collect(nt_G)
+        if self.gd.comm.rank == 0:
+            nt_Q = np.ascontiguousarray(fftn(nt1_G))
+        else:
+            nt_Q = np.empty((0, 0, 0), dtype=complex)
 
         dNt = BaseMixer.mix_single_density(self, nt_Q, D_ap)
 
         # Return density in real space
-        nt_G[:] = np.ascontiguousarray(ifftn(nt_Q).real)
+        if self.gd.comm.rank == 0:
+            nt1_G = ifftn(nt_Q).real
+        self.gd.distribute(nt1_G, nt_G)
+
         return dNt
 
 
@@ -535,16 +553,20 @@ class SpinDifferenceMixerDriver:
 _backends = {}
 _methods = {}
 for cls in [FFTBaseMixer, BroydenBaseMixer, BaseMixer]:
-    _backends[cls.name] = cls
-for cls in [SeparateSpinMixerDriver, SpinSumMixerDriver, SpinSumMixerDriver2,
-            SpinDifferenceMixerDriver, DummyMixer]:
-    _methods[cls.name] = cls
+    _backends[cls.name] = cls  # type:ignore
+for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
+             SpinSumMixerDriver2,
+             SpinDifferenceMixerDriver, DummyMixer]:
+    _methods[dcls.name] = dcls  # type:ignore
 
 
 # This function is used by Density to decide mixer parameters
 # that the user did not explicitly provide, i.e., it fills out
 # everything that is missing and returns a mixer "driver".
 def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
+    if mixerkwargs.get('name') == 'dummy':
+        return DummyMixer()
+
     # The plan is to first establish a kwargs dictionary with all the
     # defaults, then we update it with values from the user.
     kwargs = {'backend': BaseMixer}
@@ -557,7 +579,7 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
     if nspins == 1:
         kwargs['method'] = SeparateSpinMixerDriver
     else:
-        kwargs['method'] = SpinSumMixerDriver
+        kwargs['method'] = SpinDifferenceMixerDriver
 
     # Clean up mixerkwargs (compatibility)
     if 'nmaxold' in mixerkwargs:

@@ -10,13 +10,301 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.17.1b1
+* Corresponding ASE release: ASE-3.20.1b1
+
+* Nonlinear optical responses can now be calculated in the independent
+  particle approximations. See the :ref:`nlo_tutorial` tutorial for how
+  to use it to compute the second-harmonic generation and shift current
+  spectra.
+
+* New method for interpolating pseudo density to fine grids:
+  :meth:`gpaw.utilities.ps2ae.PS2AE.get_pseudo_density`
+  (useful for Bader analysis and other things).
+
+* Now with contribution from "frozen" core: :ref:`hyperfine`.
+
+* Change in parameters of :ref:`linear response TDDFT <lrtddft>`
+
+* Improved relaxation in the excited states in parallel,
+  see  :ref:`linear response TDDFT <lrtddft>`
+
+
+Version 20.10.0
+===============
+
+19 Oct 2020: :git:`20.10.0 <../20.10.0>`
+
+* Corresponding ASE release: ASE-3.20.1.
+
+* New :func:`gpaw.spinorbit.soc_eigenstates` function.  Handles parallelization
+  and uses symmetry.  Angles are given in degrees (was radians before).
+
+* The ``gpaw.spinorbit.get_anisotropy()`` method has been removed.  Use the
+  :func:`~gpaw.spinorbit.soc_eigenstates` function combined with the
+  :meth:`~gpaw.spinorbit.BZWaveFunctions.calculate_band_energy` method.
+  See this tutorial: :ref:`magnetic anisotropy`.
+
+* Improvements on GLLBSC and other GLLB-type exchange-correlation potentials:
+
+  * `Fix for periodic metallic systems
+    <https://gitlab.com/gpaw/gpaw/-/merge_requests/651>`_
+
+  * `General fixes and improvements
+    <https://gitlab.com/gpaw/gpaw/-/merge_requests/700>`_.
+    Syntax for the discontinuity and band gap calculations has also been
+    updated. See :ref:`the updated tutorial <band_gap>` for a detailed
+    description of these calculations.
+
+* Forces are now available for hybrid functionals in
+  plane-wave mode.
+
+* New functions for non self-consistent hybrid calculations:
+  :func:`gpaw.hybrids.energy.non_self_consistent_energy` and
+  :func:`gpaw.hybrids.eigenvalues.non_self_consistent_eigenvalues`.
+
+* Python 3.6 or later is required now.
+
+* Updates in :ref:`LCAOTDDFT <lcaotddft>` module:
+
+  * User-defined time-dependent potentials and general kicks supported.
+
+  * New observers for analysis.
+
+  * Syntax updates for Kohn--Sham decomposition,
+    see :ref:`examples <ksdecomposition>`.
+
+  * Code improvements.
+
+* New :meth:`~gpaw.GPAW.get_atomic_electrostatic_potentials`
+  method.  Useful for aligning eigenvalues from different calculations.
+  See :ref:`this example <potential>`.
+
+* We are using pytest_ for testing.  Read about special GPAW-fixtures here:
+  :ref:`testing`.
+
+* We are now using MyPy_ for static analysis of the source code.
+
+* Parallelization over spin is no longer possible.  This simplifies
+  the code for handling non-collinear spins and spin-orbit coupling.
+
+* Code for calculating occupation numbers has been refactored.  New functions:
+  :func:`~gpaw.occupations.fermi_dirac`,
+  :func:`~gpaw.occupations.marzari_vanderbilt` and
+  :func:`~gpaw.occupations.methfessel_paxton`.  Deprecated:
+  :func:`~gpaw.occupations.occupation_numbers`.  See :ref:`smearing`
+  and :ref:`manual_occ` for details.
+
+* Calculations with fixed occupation numbers are now done with
+  ``occupations={'name': 'fixed', 'numbers': ...}``.
+
+* The ``fixdensity`` keyword has been deprecated.
+
+* New :meth:`gpaw.GPAW.fixed_density` method added to replace use
+  of the deprecated ``fixdensity`` keyword.
+
+* New configuration option (``nolibxc = True``) for compiling GPAW
+  without LibXC.  This is mostly for debugging.  Only functionals available
+  are: LDA, PBE, revPBE, RPBE and PW91.
+
+* Tetrahedron method for Brillouin-zone integrations (**experimental**).
+  Use ``occupations={'name': 'tetrahedron-method'}`` or
+  ``occupations={'name': 'improved-tetrahedron-method'}``.
+  See :doi:`Blöchl et. al <10.1103/PhysRevB.49.16223>`
+  and :ref:`smearing` for details.
+
+* New :func:`gpaw.mpi.broadcast_array` function for broadcasting
+  an ``np.ndarray`` across several MPI-communicators.  New
+  :func:`gpaw.mpi.send` and :func:`gpaw.mpi.receive` functions for general
+  Python objects.
+
+* Atoms with fractional atomic numbers can now be handled.
+
+* When creating a ``GPAW`` calculator object from a gpw-file, the ``txt``
+  defaults to ``None``.  Use ``GPAW('abc.gpw', txt='-')`` to get the old
+  behavior.
+
+* :ref:`hyperfine`.
+
+* New :mod:`gpaw.point_groups` module.  See this tutorial:
+  :ref:`point groups`.
+
+* Default mixer (see :ref:`densitymix`) for spin-polarized systems has been
+  changed from ``MixerSum`` to ``MixerDif``.  Now, both the total density
+  and the magnetization density are mixed compared to before where only
+  the total density was mixed.  To get the
+  old behavior, use ``mixer=MixerSum(beta=0.05, history=5, weight=50)``
+  for periodic systems
+  and ``mixer=MixerSum(beta=0.25, history=3, weight=1)`` for molecules.
+
+* New :func:`~gpaw.utilities.dipole.dipole_matrix_elements` and
+  :func:`~gpaw.utilities.dipole.dipole_matrix_elements_from_calc`
+  functions.  Command-line interface::
+
+      $ python3 -m gpaw.utilities.dipole <gpw-file>
+
+
+.. _pytest: http://doc.pytest.org/en/latest/contents.html
+.. _mypy: https://mypy.readthedocs.io/en/stable/
+
+
+Version 20.1.0
+==============
+
+30 Jan 2020: :git:`20.1.0 <../20.1.0>`
+
+* Corresponding ASE release: ASE-3.19.0.
+
+* Self-consistent calculations with hybrid functionals are now possible in
+  plane-wave mode.  You have to parallelize over plane-waves and you must
+  use the Davidson eigensolver with one iteration per scf step::
+
+      from gpaw import GPAW, PW, Davidson
+      calc = GPAW(mode=PW(ecut=...),
+                  xc='HSE06',
+                  parallel={'band': 1, 'kpt': 1},
+                  eigensolver=Davidson(niter=1),
+                  ...)
+
+* We are now using setuptools_ instead of :mod:`distutils`.
+  This means that installation with pip works much better.
+
+* No more ``gpaw-python``.
+  By default, an MPI-enabled Python interpreter is not built
+  (use ``parallel_python_interpreter=True`` if you want a gpaw-python).
+  The ``_gpaw.so`` C-extension file (usually only used for serial calculations)
+  will now be compiled with ``mpicc`` and contain what is necessary for both
+  serial and parallel calculations.  In order to run GPAW in parallel, you
+  do one of these three::
+
+      $ mpiexec -n 24 gpaw python script.py
+      $ gpaw -P 24 python script.py
+      $ mpiexec -n 24 python3 script.py
+
+  The first two are the recommended ones:  The *gpaw* script will make sure
+  that imports are done in an efficient way.
+
+* Configuration/customization:
+  The ``customize.py`` file in the root folder of the Git repository is no
+  longer used.  Instead, the first of the following three files that exist
+  will be used:
+
+  1) the file that ``$GPAW_CONFIG`` points at
+  2) ``<git-root>/siteconfig.py``
+  3) ``~/.gpaw/siteconfig.py``
+
+  This will be used to configure things
+  (BLAS, FFTW, ScaLapack, libxc, libvdwxc, ...).  If no configuration file
+  is found then you get ``libraries = ['xc', 'blas']``.
+
+* A Lapack library is no longer needed for compiling GPAW.  We are using
+  :mod:`scipy.linalg` from now on.
+
+* Debug mode is now enabled with::
+
+      $ python3 -d script.py
+
+* Dry-run mode is now enabled with::
+
+      $ gpaw python --dry-run=N script.py
+
+* New convergence criterium.  Example: ``convergence={'bands': 'CBM+2.5'}``
+  will converge bands up to conduction band minimum plus 2.5 eV.
+
+* Point-group symmetries now also used for non-periodic systems.
+  Use ``symmetry={'point_group': False}`` if you don't want that.
+
+* :ref:`Marzari-Vanderbilt distribution function <manual_occ>` added.
+
+* New configuration option: ``noblas = True``.  Useful for compiling GPAW
+  without a BLAS library.  :mod:`scipy.linalg.blas` and :func:`numpy.dot`
+  will be used instead.
+
+.. _setuptools: https://setuptools.readthedocs.io/en/latest/
+
+
+Version 19.8.1
+==============
+
+8 Aug 2019: :git:`19.8.1 <../19.8.1>`
+
+.. warning:: Upgrading from version 1.5.2
+
+    Some small changes in the code introduced between version 1.5.2 and
+    19.8.1 (improved handling of splines) may give rise to small changes in
+    the total energy calculated with version 19.8.1 compared
+    to version 1.5.2.  The changes should be in the meV/atom range, but may
+    add up to significant numbers if you are doing calculations for large
+    systems with many atoms.
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* *Important bug fixed*: reading of some old gpw-files did not work.
+
+
+Version 19.8.0
+==============
+
+1 Aug 2019: :git:`19.8.0 <../19.8.0>`
+
+* Corresponding ASE release: ASE-3.18.0.
+
+* The ``"You have a weird unit cell"`` and
+  ``"Real space grid not compatible with symmetry operation"``
+  errors are now gone.  GPAW now handles these cases by
+  choosing the number of real-space grid-points in a more clever way.
+
+* The angular part of the PAW correction to the ALDA kernel is now calculated
+  analytically by expanding the correction in spherical harmonics.
 
 * Berry phases can now be calculated.  See the :ref:`berry tutorial` tutorial
   for how to use it to calculate spontaneous polarization, Born effective
   charges and other physical properties.
 
 * How to do :ref:`ehrenfest` has now been documented.
+
+* Non self-consistent hybrid functional calculations can now be continued if
+  they run out of time.  See :meth:`gpaw.xc.exx.EXX.calculate`.
+
+* When using a convergence criteria on the accuracy of the forces
+  (see :ref:`manual_convergence`), the foceces will only be calculated when the
+  other convergence criteria (energy, eigenstates and density) are fulfilled.
+  This can save a bit of time.
+
+* Experimental support for JTH_ PAW-datasets.
+
+* Fast C implementation of bond-length constraints and associated hidden
+  constraints for water models. This allows efficient explicit solvent QMMM
+  calculations for GPAW up to tens of thousands of solvent molecules with
+  watermodels such as SPC, TIPnP etc.  See :git:`gpaw/utilities/watermodel.py`
+  and :git:`gpaw/test/test_rattle.py` for examples.
+
+* New "metallic boundary conditions" have been added to the for PoissonSolver.
+  This enables simulating charged 2D systems without counter charges.
+  See: :git:`gpaw/test/poisson/test_metallic_poisson.py`
+
+* Removed unnecessary application of H-operator in davidson algorithm making
+  it a bit faster.
+
+.. _JTH: https://www.abinit.org/psp-tables
+
+
+Version 1.5.2
+=============
+
+8 May 2019: :git:`1.5.2 <../1.5.2>`
+
+* Corresponding ASE release: ASE-3.17.0.
+
+* **Important bugfix release**:
+
+  There was a bug which was triggered when combining
+  ScaLAPACK, LCAO and k-points in GPAW 1.5.0/1.5.1 from January.  The
+  projections were calculated incorrectly which affected the SCF
+  loop.
+
+  If you use ScaLAPACK+LCAO+kpoints and see the line "Atomic Correction:
+  distributed and sparse using scipy" in the output, then please rerun
+  after updating.
 
 
 Version 1.5.1
@@ -93,7 +381,7 @@ Version 1.5.0
   :ref:`photovoltaics`, :ref:`batteries` and :ref:`intro`.
 
 * New experimental local **k**-point refinement feature:
-  :git:`gpaw/test/kpt_refine.py`.
+  :git:`gpaw/test/test_kpt_refine.py`.
 
 * A module and tutorial have been added for calculating electrostatic
   corrections to DFT total energies for charged systems involving localised
@@ -262,15 +550,15 @@ Version 1.2.0
 
 * The GPAW calculator object has a new
   :meth:`~ase.calculators.calculator.Calculator.band_structure`
-  method that returns an :class:`ase.dft.band_structure.BandStructure`
-  object.  This makes it very easy to create band-structure plots as shown
+  method that returns an :class:`ase.spectrum.band_structure.BandStructure`
+  object.  This makes it easy to create band-structure plots as shown
   in section 9 of this awesome Psi-k *Scientfic Highlight Of The Month*:
   http://psi-k.net/download/highlights/Highlight_134.pdf.
 
 * Dipole-layer corrections for slab calculations can now be done in PW-mode
   also.  See :ref:`dipole`.
 
-* New :meth:`~gpaw.paw.PAW.get_electrostatic_potential` method.
+* New :meth:`~gpaw.GPAW.get_electrostatic_potential` method.
 
 * When setting the default PAW-datasets or basis-sets using a dict, we
   must now use ``'default'`` as the key instead of ``None``:
@@ -319,7 +607,7 @@ Version 1.1.0
 
 * New band structure unfolding tool and :ref:`tutorial <unfolding tutorial>`.
 
-* The :meth:`~gpaw.calculator.GPAW.get_pseudo_wave_function` method
+* The :meth:`~gpaw.GPAW.get_pseudo_wave_function` method
   has a new keyword:  Use ``periodic=True`` to get the periodic part of the
   wave function.
 
@@ -446,7 +734,7 @@ Version 0.10.0
 * Default density mixer parameters have been changed for calculations
   with periodic boundary conditions.  Parameters for that case:
   ``Mixer(0.05, 5, 50)`` (or ``MixerSum(0.05, 5, 50)`` for spin-paired
-  calculations.  Old parameters: ``0.1, 3, 50``.
+  calculations).  Old parameters: ``0.1, 3, 50``.
 
 * Default is now ``occupations=FermiDirac(0.1)`` if a
   calculation is periodic in at least one direction,

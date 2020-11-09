@@ -1,6 +1,10 @@
 from time import localtime
 import pickle
+
 import numpy as np
+from ase.units import Ha
+from ase.calculators.singlepoint import SinglePointCalculator
+
 
 from gpaw.utilities import pack
 from gpaw.utilities.tools import tri2full
@@ -8,15 +12,12 @@ from gpaw.utilities.blas import rk, gemm
 from gpaw.basis_data import Basis
 from gpaw.setup import types2atomtypes
 from gpaw.coulomb import CoulombNEW as Coulomb
-from gpaw.mpi import world, rank, MASTER, serial_comm
+from gpaw.mpi import world, rank, serial_comm
 from gpaw import GPAW
-
-from ase.units import Hartree
-from ase.calculators.singlepoint import SinglePointCalculator
 
 
 def get_bf_centers(atoms, basis=None):
-    calc = atoms.get_calculator()
+    calc = atoms.calc
     if calc is None or isinstance(calc, SinglePointCalculator):
         symbols = atoms.get_chemical_symbols()
         basis_a = types2atomtypes(symbols, basis, 'dzp')
@@ -103,7 +104,8 @@ def get_realspace_hs(h_skmm, s_kmm, bzk_kc, weight_k,
     # kpts in the transverse directions
     offset = np.zeros((3,))
     offset[:len(transverse_dirs)] = kpts_shift[transverse_dirs]
-    bzk_t_kc = monkhorst_pack(tuple(kpts_grid[transverse_dirs]) + (1, )) + offset
+    bzk_t_kc = monkhorst_pack(
+        tuple(kpts_grid[transverse_dirs]) + (1, )) + offset
     if 'time_reversal' not in symmetry:
         symmetry['time_reversal'] = True
     if symmetry['time_reversal']:
@@ -233,7 +235,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
         d = 'xyz'.index(direction)
 
     if Ef is not None:
-        Ef = Ef / Hartree
+        Ef = Ef / Ha
 
     calc = atoms.calc
     wfs = calc.wfs
@@ -272,7 +274,7 @@ def dump_hamiltonian_parallel(filename, atoms, direction=None, Ef=None):
 
     if wfs.gd.comm.rank == 0:
         fd = open(filename + '%i.pckl' % wfs.kd.comm.rank, 'wb')
-        H_qMM *= Hartree
+        H_qMM *= Ha
         pickle.dump((H_qMM, S_qMM), fd, 2)
         pickle.dump(calc_data, fd, 2)
         fd.close()
@@ -295,11 +297,11 @@ def get_lcao_hamiltonian(calc):
         if kpt.s == 0:
             S_kMM[kpt.k] = calc.wfs.S_qMM[kpt.q]
             tri2full(S_kMM[kpt.k])
-        H_skMM[kpt.s, kpt.k] = H_MM * Hartree
+        H_skMM[kpt.s, kpt.k] = H_MM * Ha
         tri2full(H_skMM[kpt.s, kpt.k])
-    calc.wfs.kd.comm.sum(S_kMM, MASTER)
-    calc.wfs.kd.comm.sum(H_skMM, MASTER)
-    if rank == MASTER:
+    calc.wfs.kd.comm.sum(S_kMM, 0)
+    calc.wfs.kd.comm.sum(H_skMM, 0)
+    if rank == 0:
         return H_skMM, S_kMM
     else:
         return None, None
@@ -307,7 +309,7 @@ def get_lcao_hamiltonian(calc):
 
 def get_lead_lcao_hamiltonian(calc, direction='x'):
     H_skMM, S_kMM = get_lcao_hamiltonian(calc)
-    if rank == MASTER:
+    if rank == 0:
         return lead_kspace2realspace(H_skMM, S_kMM,
                                      bzk_kc=calc.wfs.kd.bzk_kc,
                                      weight_k=calc.wfs.kd.weight_k,
@@ -448,7 +450,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     # Tolerance is used for truncation of optimized pairorbitals
     # calc = GPAW(gpwfile, txt=None)
     from gpaw import GPAW
-    from gpaw.mpi import world, MASTER
+    from gpaw.mpi import world
     calc = GPAW(gpwfile, txt='pairorb.txt')  # XXX
     gd = calc.wfs.gd
     setups = calc.wfs.setups
@@ -456,7 +458,7 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
     del calc
 
     # Load orbitals on master and distribute to slaves
-    if world.rank == MASTER:
+    if world.rank == 0:
         wglobal_wG, P_awi = pickle.load(open(orbitalfile, 'rb'))
         Nw = len(wglobal_wG)
         print('Estimated total (serial) mem usage: %0.3f GB' % (
@@ -491,9 +493,9 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             # D_pp += np.dot(P_pp, np.dot(I4_pp, P_pp.T))
 
     # Summ all contributions to master
-    gd.comm.sum(D_pp, MASTER)
+    gd.comm.sum(D_pp, 0)
 
-    if world.rank == MASTER:
+    if world.rank == 0:
         if S_w is not None:
             print('renormalizing pairorb overlap matrix (D_pp)')
             S2 = np.sqrt(S_w)
@@ -522,12 +524,12 @@ def makeU(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
         pickle.dump((eps_q, U_pq), open(rotationfile, 'wb'), 2)
 
     if writeoptimizedpairs is not False:
-        assert world.size == 1 # works in parallel if U and eps are broadcast
+        assert world.size == 1  # works in parallel if U and eps are broadcast
         Uisq_qp = (U_pq / np.sqrt(eps_q)).T.copy()
         g_qG = gd.zeros(n=len(eps_q))
         gemm(1.0, f_pG, Uisq_qp, 0.0, g_qG)
         g_qG = gd.collect(g_qG)
-        if world.rank == MASTER:
+        if world.rank == 0:
             P_app = dict([(a, np.array([pack(np.outer(P_wi[w1], P_wi[w2]),
                                              tolerance=1e3)
                                         for w1, w2 in np.ndindex(Nw, Nw)]))
@@ -541,7 +543,7 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
           rotationfile='eps_q__U_pq.pckl', coulombfile='V_qq.pckl',
           log='V_qq.log', fft=False):
 
-    if isinstance(log, str) and world.rank == MASTER:
+    if isinstance(log, str) and world.rank == 0:
         log = open(log, 'w')
 
     # Extract data from files
@@ -602,7 +604,7 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
             P2_ap = dict([(a, P_qp[q2]) for a, P_qp in P2_aqp.items()])
             V_qq[q2 + q2start, q1] = coulomb.calculate(g1_qG[q1], g2_qG[q2],
                                                        P1_ap, P2_ap)
-            if q2 == 0 and world.rank == MASTER:
+            if q2 == 0 and world.rank == 0:
                 T = localtime()
                 log.write(
                     'Block %i/%i is %4.1f percent done at %02i:%02i:%02i\n' %
@@ -611,14 +613,14 @@ def makeV(gpwfile='grid.gpw', orbitalfile='w_wG__P_awi.pckl',
                 log.flush()
 
     # Collect V_qq array on master node
-    if world.rank == MASTER:
+    if world.rank == 0:
         T = localtime()
         log.write('Starting collect at %02i:%02i:%02i\n' % (
             T[3], T[4], T[5]))
         log.flush()
 
-    V_qq = collect_orbitals(V_qq, coords=nq_r, root=MASTER)
-    if world.rank == MASTER:
+    V_qq = collect_orbitals(V_qq, coords=nq_r, root=0)
+    if world.rank == 0:
         # V can be slightly asymmetric due to numerics
         V_qq = 0.5 * (V_qq + V_qq.T)
         V_qq.dump(coulombfile)

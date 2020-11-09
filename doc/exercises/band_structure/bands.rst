@@ -19,5 +19,4 @@ Ag instead of Si.
 
 The bandstructure is plotted in the end of the script.  Where is the d-band
 located? Experimentally it's found to be approximately 4 eV below the Fermi-
-level.  Now modify the script so the bandstructure is calculated with the
-GLLBSC functional. Is the energy position of the d-band improved?
+level.

@@ -1,14 +1,15 @@
 """BLACS distributed matrix object."""
+from typing import Dict, Tuple
 import numpy as np
 import scipy.linalg as linalg
 
 import _gpaw
 from gpaw import debug
-from gpaw.mpi import serial_comm
+from gpaw.mpi import serial_comm, _Communicator
 import gpaw.utilities.blas as blas
 
 
-_global_blacs_context_store = {}
+_global_blacs_context_store: Dict[Tuple[_Communicator, int, int], int] = {}
 
 
 def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
@@ -19,14 +20,14 @@ def matrix_matrix_multiply(alpha, a, opa, b, opb, beta=0.0, c=None,
     equivalent PBLAS functions for distributed matrices.
 
     The coefficients alpha and beta are of type float.  Matrices a, b and c
-    must have same type (float or complex).  The strings apa and opb must be
+    must have same type (float or complex).  The strings opa and opb must be
     'N', 'T', or 'C' .  For opa='N' and opb='N', the operation performed is
     equivalent to::
 
         c.array[:] =  alpha * np.dot(a.array, b.array) + beta * c.array
 
     Replace a.array with a.array.T or a.array.T.conj() for opa='T' and 'C'
-    resprctively (similarly for opb).
+    respectively (similarly for opb).
 
     Use symmetric=True if the result matrix is symmetric/hermetian
     (only lower half of c will be evaluated).
@@ -546,13 +547,12 @@ def fastmmm2(a, b, out):
             m1 = min(((comm.rank - r) % comm.size) * m, M)
             m2 = min(m1 + m, M)
             if r == 0:
-                #symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
+                # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc
                 blas.mmm(1.0, aa, 'N', bb, 'C', 1.0, out.array[:, m1:m2])
             else:
                 beta = 1.0 if r <= comm.rank else 0.0
                 blas.mmm(1.0, aa, 'N', buf2[:m2 - m1], 'C',
                          beta, out.array[:, m1:m2])
-                #print(comm.rank, r, beta, out.array, m1, m2)
             # out.array[:, m1:m2] = m12.array[:, :m2 - m1]
 
         if rrequest:
@@ -623,7 +623,7 @@ def fastmmm2notsym(a, b, out):
 
         m1 = min(((comm.rank - r) % comm.size) * m, M)
         m2 = min(m1 + m, M)
-        #symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
+        # symmmmmmmmmmmmmmmmmmmmmmetricccccccccccccccc ??
         blas.mmm(1.0, aa, 'N', bb[:m2 - m1], 'C', 1.0, out.array[:, m1:m2])
 
         if rrequest:

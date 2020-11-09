@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 from ase.utils.timing import timer
 
@@ -46,7 +45,7 @@ class PseudoPartialWaveWfsMover:
             setup = wfs.setups[a]
             l_j = [phit.get_angular_momentum_number()
                    for phit in setup.get_partial_waves_for_atomic_orbitals()]
-            #assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
+            # assert l_j == setup.l_j[:len(l_j)]  # Relationship to l_orb_j?
             ni_a[a] = sum(2 * l + 1 for l in l_j)
 
         phit = wfs.get_pseudo_partial_waves()
@@ -134,11 +133,17 @@ class LCAOWfsMover:
         # Avoid calculating T
         Mstart, Mstop = wfs.initksl.Mstart, wfs.initksl.Mstop
         S_qMM, T_qMM = manytci.O_qMM_T_qMM(wfs.gd.comm, Mstart, Mstop)
+
+        oldcorr = self.atomic_correction
+        from gpaw.lcao.atomic_correction import DenseAtomicCorrection
+        corr = DenseAtomicCorrection(P_aqMi, oldcorr.dS_aii, Mstart, Mstop)
+
         wfs.timer.stop('tci calculate')
-        self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
+        # self.atomic_correction.initialize(P_aqMi, Mstart, Mstop)
         # self.atomic_correction.gobble_data(wfs)
         wfs.timer.start('lcao overlap correction')
-        self.atomic_correction.add_overlap_correction(wfs, S_qMM)
+        corr.add_overlap_correction(S_qMM)
+        # self.atomic_correction.add_overlap_correction(S_qMM)
         wfs.timer.stop('lcao overlap correction')
         wfs.gd.comm.sum(S_qMM)
         c_unM = []
@@ -192,7 +197,11 @@ class FDPWWaveFunctions(WaveFunctions):
     def __init__(self, parallel, initksl, reuse_wfs_method=None, **kwargs):
         WaveFunctions.__init__(self, **kwargs)
 
-        self.scalapack_parameters = parallel
+        ranks = [rbd * self.gd.comm.size + rgd
+                 for rgd in range(self.gd.comm.size)
+                 for rbd in range(self.bd.comm.size)]
+        slcomm = parallel[0].new_communicator(ranks)
+        self.scalapack_parameters = (slcomm, ) + parallel[1:]
 
         self.initksl = initksl
         if reuse_wfs_method is None or reuse_wfs_method == 'keep':
@@ -246,7 +255,9 @@ class FDPWWaveFunctions(WaveFunctions):
         self.orthonormalized = flag
 
     def set_positions(self, spos_ac, atom_partition=None):
-        move_wfs = (self.kpt_u[0].psit_nG is not None and
+        # We don't move the wave functions if psit_nG is None or an
+        # NDArrayReader instance (and we need positions also):
+        move_wfs = (isinstance(self.kpt_u[0].psit_nG, np.ndarray) and
                     self.spos_ac is not None)
 
         if move_wfs:
@@ -271,7 +282,7 @@ class FDPWWaveFunctions(WaveFunctions):
         Return (nlcao, nrand) tuple with number of bands intialized from
         LCAO and random numbers, respectively."""
 
-        if self.mykpts[0].psit is None:
+        if self.kpt_u[0].psit is None:
             basis_functions = BasisFunctions(self.gd,
                                              [setup.phit_j
                                               for setup in self.setups],
@@ -281,7 +292,7 @@ class FDPWWaveFunctions(WaveFunctions):
         else:
             self.initialize_wave_functions_from_restart_file()
 
-        if self.mykpts[0].psit is not None:
+        if self.kpt_u[0].psit is not None:
             density.initialize_from_wavefunctions(self)
         elif density.nt_sG is None:
             density.initialize_from_atomic_densities(basis_functions)
@@ -295,7 +306,7 @@ class FDPWWaveFunctions(WaveFunctions):
             density.calculate_normalized_charges_and_mix()
         hamiltonian.update(density)
 
-        if self.mykpts[0].psit is None:
+        if self.kpt_u[0].psit is None:
             if 1:  # self.collinear:
                 nlcao = self.initialize_wave_functions_from_basis_functions(
                     basis_functions, density, hamiltonian, spos_ac)
@@ -311,7 +322,7 @@ class FDPWWaveFunctions(WaveFunctions):
         return nlcao, nrand
 
     def initialize_wave_functions_from_restart_file(self):
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             if not kpt.psit.in_memory:
                 kpt.psit.read_from_file()
 
@@ -378,7 +389,7 @@ class FDPWWaveFunctions(WaveFunctions):
     @timer('Orthonormalize')
     def orthonormalize(self, kpt=None):
         if kpt is None:
-            for kpt in self.mykpts:
+            for kpt in self.kpt_u:
                 self.orthonormalize(kpt)
             self.orthonormalized = True
             return

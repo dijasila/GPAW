@@ -2,7 +2,6 @@
 functional theory calculations.
 
 """
-from __future__ import print_function
 import time
 from math import log
 
@@ -116,6 +115,7 @@ class TDDFT(GPAW):
 
         self.default_parameters = GPAW.default_parameters.copy()
         self.default_parameters['mixer'] = DummyMixer()
+        self.default_parameters['symmetry'] = {'point_group': False}
 
         # NB: TDDFT restart files contain additional information which
         #     will override the initial settings for time/kick/niter.
@@ -216,9 +216,11 @@ class TDDFT(GPAW):
                 self.td_hamiltonian, self.td_overlap, self.solver,
                 self.preconditioner, wfs.gd, self.timer, **propagator_kwargs)
         elif propagator.startswith('SITE') or propagator.startswith('SIKE'):
-            raise DeprecationWarning('Use propagator_kwargs to specify degree.')
+            raise DeprecationWarning(
+                'Use propagator_kwargs to specify degree.')
         else:
-            raise RuntimeError('Time propagator %s not supported.' % propagator)
+            raise RuntimeError(
+                'Time propagator %s not supported.' % propagator)
 
         if self.rank == 0:
             if wfs.kd.comm.size > 1:
@@ -340,7 +342,7 @@ class TDDFT(GPAW):
         self.dump_interval = dump_interval
 
         niterpropagator = 0
-        self.tdmaxiter = self.niter + iterations
+        self.maxiter = self.niter + iterations
 
         # Let FDTD part know the time step
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
@@ -348,7 +350,7 @@ class TDDFT(GPAW):
             self.hamiltonian.poisson.set_time_step(self.time_step)
 
         self.timer.start('Propagate')
-        while self.niter < self.tdmaxiter:
+        while self.niter < self.maxiter:
             norm = self.density.finegd.integrate(self.density.rhot_g)
 
             # Write dipole moment at every iteration
@@ -375,10 +377,10 @@ class TDDFT(GPAW):
             # Propagate the Kohn-Shame wavefunctions a single timestep
             niterpropagator = self.propagator.propagate(self.time, time_step)
             self.time += time_step
-            self.niter += 1
 
             # Call registered callback functions
             self.call_observers(self.niter)
+            self.niter += 1
 
             # Write restart data
             if restart_file is not None and self.niter % dump_interval == 0:
@@ -469,15 +471,14 @@ class TDDFT(GPAW):
             self.eps_tmp *= self.wfs.gd.dv
             kpt.eps_n[:] = self.eps_tmp.real
 
-        self.occupations.calculate_band_energy(self.wfs)
-
         H = self.td_hamiltonian.hamiltonian
 
         # Nonlocal
         self.Enlkin = H.xc.get_kinetic_energy_correction()
 
         # PAW
-        self.Ekin = H.e_kinetic0 + self.occupations.e_band + self.Enlkin
+        e_band = self.wfs.calculate_band_energy()
+        self.Ekin = H.e_kinetic0 + e_band + self.Enlkin
         self.e_coulomb = H.e_coulomb
         self.Eext = H.e_external
         self.Ebar = H.e_zero
@@ -527,4 +528,4 @@ class TDDFT(GPAW):
 
         # Kick the classical part, if it is present
         if self.hamiltonian.poisson.get_description() == 'FDTD+TDDFT':
-            self.hamiltonian.poisson.set_kick(kick = self.kick_strength)
+            self.hamiltonian.poisson.set_kick(kick=self.kick_strength)
