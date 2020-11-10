@@ -554,6 +554,10 @@ class GPAW(Calculator):
 
         self.wfs.eigensolver.reset()
         self.scf.reset()
+        occ_name = getattr(self.wfs.occupations, "name", None)
+        if occ_name == 'mom':
+            # Initialize MOM reference orbitals
+            self.wfs.occupations.initialize_reference_orbitals()
         print_positions(self.atoms, self.log, self.density.magmom_av)
 
     def initialize(self, atoms=None, reading=False):

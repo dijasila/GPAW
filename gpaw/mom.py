@@ -40,6 +40,10 @@ def mom_calculation(calc, atoms,
         # If the scf has already converged (e.g. for ground-state calculation)
         # set new occupations and let calculator.py take care of the rest
         calc.set(occupations=occ_mom)
+        # We need to calculate the occupation numbers according to the supplied
+        # occupations to initialize the MOM reference orbitals correctly
+        calc.wfs.occupations = occ
+        calc.wfs.calculate_occupation_numbers()
     else:
         calc.wfs.occupations = occ_mom
 
@@ -66,6 +70,7 @@ class OccupationsMOM:
 
         self.name = 'mom'
         self.iters = 0
+        self.initialized = False
         self.ne = None
 
     def todict(self):
@@ -90,8 +95,7 @@ class OccupationsMOM:
                   fermi_levels_guess):
         f_sn = self.occupations.copy()
 
-        if self.iters == 0 and self.space == 'full':
-            self.f_sn_unique = self.find_unique_occupations(f_sn)
+        if not self.initialized and self.space == 'full':
             self.initialize_reference_orbitals()
 
         for kpt in self.wfs.kpt_u:
@@ -150,6 +154,8 @@ class OccupationsMOM:
         return f_qn, fermi_levels, e_entropy
 
     def initialize_reference_orbitals(self):
+        self.iters = 0
+        self.f_sn_unique = self.find_unique_occupations()
         if self.wfs.mode == 'lcao':
             self.c_ref = {}
 
@@ -177,6 +183,8 @@ class OccupationsMOM:
                         dict([(a, np.dot(self.wfs.setups[a].dO_ii,
                                          P_ni[occupied].T))
                               for a, P_ni in kpt.P_ani.items()])
+
+        self.initialized = True
 
     def calculate_mom_projections(self, kpt, f_n_unique):
         if self.wfs.mode == 'lcao':
@@ -235,19 +243,22 @@ class OccupationsMOM:
 
         return occ
 
-    def find_unique_occupations(self, f_sn):
+    def find_unique_occupations(self):
         f_sn_unique = {}
-        for s, f_n in enumerate(f_sn):
-            f_sn_unique[s] = {}
-            for f_n_unique in np.unique(f_n):
+        for kpt in self.wfs.kpt_u:
+            f_sn_unique[kpt.s] = {}
+            for f_n_unique in np.unique(kpt.f_n):
                 if f_n_unique >= 1.0e-10:
-                   f_sn_unique[s][f_n_unique] = f_n == f_n_unique
+                   f_sn_unique[kpt.s][f_n_unique] = kpt.f_n == f_n_unique
 
         return f_sn_unique
 
     def reset(self):
-        if self.iters > 1:
-            self.iters = 0
+        self.iters = 0
+        if self.space == 'full':
+            for u, kpt in enumerate(self.wfs.kpt_u):
+                self.occupations[u] = kpt.f_n
+
 
 class MOMConstraint:
     def __init__(self, n, nstart=0, nend=None):
