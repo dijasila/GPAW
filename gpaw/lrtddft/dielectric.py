@@ -7,7 +7,7 @@ from gpaw.utilities.folder import Folder
 
 
 def get_dielectric(exlist, volume,
-                   emin=None,
+                   emin=0,
                    emax=None,
                    de=None,
                    energyunit='eV',
@@ -21,7 +21,7 @@ def get_dielectric(exlist, volume,
     =============== ===================================================
     ``exlist``      ExcitationList
     ``volume``      Unit cell volume in Angstrom**3
-    ``emin``        min. energy, set to cover all energies if not given
+    ``emin``        min. energy, set to zero if not given
     ``emax``        max. energy, set to cover all energies if not given
     ``de``          energy spacing
     ``energyunit``  Energy unit 'eV' or 'nm', default 'eV'
@@ -66,7 +66,7 @@ def get_dielectric(exlist, volume,
 def dielectric(exlist,
                volume,
                filename=None,
-               emin=None,
+               emin=0,
                emax=None,
                de=None,
                energyunit='eV',
@@ -81,7 +81,7 @@ def dielectric(exlist,
     ``exlist``      ExcitationList
     ``volume``      Unit cell volume in Angstrom**3
     ``filename``    File name for the output file, STDOUT if not given
-    ``emin``        min. energy, set to cover all energies if not given
+    ``emin``        min. energy, set to zero if not given
     ``emax``        max. energy, set to cover all energies if not given
     ``de``          energy spacing
     ``energyunit``  Energy unit 'eV' or 'nm', default 'eV'
