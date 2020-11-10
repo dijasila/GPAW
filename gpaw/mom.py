@@ -254,6 +254,7 @@ class OccupationsMOM:
         return f_sn_unique
 
     def reset(self):
+        # TODO: We should probably get rid of this
         self.iters = 0
         if self.space == 'full':
             for u, kpt in enumerate(self.wfs.kpt_u):
