@@ -39,7 +39,7 @@ def mom_calculation(calc, atoms,
     # Set new occupations and let calculator.py take care of the rest
     calc.set(occupations=occ_mom)
 
-    if calc.scf.converged:
+    if calc.scf is not None:
         # We need to set the occupation numbers according to the supplied
         # occupations to initialize the MOM reference orbitals correctly
         calc.wfs.occupations = occ
