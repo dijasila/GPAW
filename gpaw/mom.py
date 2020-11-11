@@ -24,11 +24,10 @@ def mom_calculation(calc, atoms,
     if calc.wfs is None:
         # We need the wfs object to initialize OccupationsMOM
         # so initialize calculator
-        occ = FixedOccupationNumbers(occupations)
         calc.initialize(atoms)
-    else:
-        parallel_layout = calc.wfs.occupations.parallel_layout
-        occ = FixedOccupationNumbers(occupations, parallel_layout)
+
+    parallel_layout = calc.wfs.occupations.parallel_layout
+    occ = FixedOccupationNumbers(occupations, parallel_layout)
 
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              occupations,
