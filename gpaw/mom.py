@@ -36,16 +36,14 @@ def mom_calculation(calc, atoms,
                              space, width,
                              width_increment,
                              niter_smearing)
+    # Set new occupations and let calculator.py take care of the rest
+    calc.set(occupations=occ_mom)
+
     if calc.scf.converged:
-        # If the scf has already converged (e.g. for ground-state calculation)
-        # set new occupations and let calculator.py take care of the rest
-        calc.set(occupations=occ_mom)
         # We need to set the occupation numbers according to the supplied
         # occupations to initialize the MOM reference orbitals correctly
         calc.wfs.occupations = occ
         calc.wfs.calculate_occupation_numbers()
-    else:
-        calc.wfs.occupations = occ_mom
 
     calc.log(occ_mom)
 
