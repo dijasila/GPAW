@@ -16,19 +16,11 @@ pip install -q git+https://gitlab.com/ase/ase.git@master
 git clone git@gitlab.com:gpaw/gpaw
 cd gpaw
 pip install -e .
-export GPAW_COVERAGE=test
-pytest > test-1.out
+coverage run -m pytest > test-1.out
+coverage html
 gpaw -P 2 python -m pytest -- -x > test-2.out
 gpaw -P 4 python -m pytest -- -x > test-4.out
-gpaw -P 8 python -m pytest -- -x > test-8.out
-export GPAW_COVERAGE=docs
-cd doc
-make
-cd ..
-mkdir cov
-cp coverage-test-* cov/
-coverage combine coverage-test-*
-coverage html"""
+gpaw -P 8 python -m pytest -- -x > test-8.out"""
 
 
 def run_tests():

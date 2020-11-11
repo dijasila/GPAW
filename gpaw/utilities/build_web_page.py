@@ -49,9 +49,11 @@ def build_both():
         Path('/tmp/gpaw-docs-master-ok/gpaw/dist/').glob('gpaw-*.tar.gz'))
     master = Path('/tmp/gpaw-docs-master-ok/gpaw/doc/gpaw-web-page')
     webpage = Path('/tmp/gpaw-docs-web-page-ok/gpaw/doc/gpaw-web-page')
+    coverage = Path('/tmp/gpaw-test-ok/gpaw/htmlcov')
     home = Path.home() / 'web-pages'
     cmds = ' && '.join(
         [f'cp -rp {master} {webpage}/dev',
+         f'cp -r {coverage} {webpage}',
          f'cp {tar} {webpage}',
          f'cp {tar} {webpage}/dev',
          f'find {webpage} -name install.html | '
