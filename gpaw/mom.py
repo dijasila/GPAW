@@ -40,7 +40,7 @@ def mom_calculation(calc, atoms,
         # If the scf has already converged (e.g. for ground-state calculation)
         # set new occupations and let calculator.py take care of the rest
         calc.set(occupations=occ_mom)
-        # We need to calculate the occupation numbers according to the supplied
+        # We need to set the occupation numbers according to the supplied
         # occupations to initialize the MOM reference orbitals correctly
         calc.wfs.occupations = occ
         calc.wfs.calculate_occupation_numbers()
@@ -100,11 +100,14 @@ class OccupationsMOM:
 
         for kpt in self.wfs.kpt_u:
             if self.space == 'full':
-                if self.iters == 0:
+                if not self.initialized:
+                    # If the MOM reference orbitals are not initialized
+                    # (e.g. when the density is initialized from atomic
+                    # densities) set the occupation numbers according to
+                    # the supplied occupations
                     continue
                 else:
                     f_sn[kpt.s].fill(0)
-
                     # Compute projections within equally occupied subspaces
                     # and occupy orbitals with biggest projections
                     for f_n_unique in self.f_sn_unique[kpt.s]:
@@ -154,6 +157,11 @@ class OccupationsMOM:
         return f_qn, fermi_levels, e_entropy
 
     def initialize_reference_orbitals(self):
+        if self.wfs.kpt_u[0].f_n is None:
+            # If the density is initialized from atomic densities
+            # the occupation numbers are not available yet
+            return
+
         self.iters = 0
         self.f_sn_unique = self.find_unique_occupations()
         if self.wfs.mode == 'lcao':
