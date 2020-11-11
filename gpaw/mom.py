@@ -29,6 +29,12 @@ def mom_calculation(calc, atoms,
     parallel_layout = calc.wfs.occupations.parallel_layout
     occ = FixedOccupationNumbers(occupations, parallel_layout)
 
+    if calc.scf.converged:
+        # We need to set the occupation numbers according to the supplied
+        # occupations to initialize the MOM reference orbitals correctly
+        calc.wfs.occupations = occ
+        calc.wfs.calculate_occupation_numbers()
+
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              occupations,
                              constraints,
@@ -36,13 +42,7 @@ def mom_calculation(calc, atoms,
                              width_increment,
                              niter_smearing)
 
-    if calc.scf.converged:
-        # We need to set the occupation numbers according to the supplied
-        # occupations to initialize the MOM reference orbitals correctly
-        calc.wfs.occupations = occ
-        calc.wfs.calculate_occupation_numbers()
-
-    # Set new occupations and let calculator.py take care of the rest
+    # Set MOM occupations and let calculator.py take care of the rest
     calc.set(occupations=occ_mom)
 
     calc.log(occ_mom)
