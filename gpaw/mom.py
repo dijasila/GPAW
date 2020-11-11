@@ -30,33 +30,34 @@ def mom_calculation(calc, atoms,
         parallel_layout = calc.wfs.occupations.parallel_layout
         occ = FixedOccupationNumbers(occupations, parallel_layout)
 
-    occ_mom = OccupationsMOM(calc, occ,
+    occ_mom = OccupationsMOM(calc.wfs, occ,
                              occupations,
                              constraints,
                              space, width,
                              width_increment,
                              niter_smearing)
-    # Set new occupations and let calculator.py take care of the rest
-    calc.set(occupations=occ_mom)
 
-    if calc.scf is not None:
+    if calc.scf.converged:
         # We need to set the occupation numbers according to the supplied
         # occupations to initialize the MOM reference orbitals correctly
         calc.wfs.occupations = occ
         calc.wfs.calculate_occupation_numbers()
 
+    # Set new occupations and let calculator.py take care of the rest
+    calc.set(occupations=occ_mom)
+
     calc.log(occ_mom)
 
 
 class OccupationsMOM:
-    def __init__(self, calc, occ,
+    def __init__(self, wfs, occ,
                  occupations,
                  constraints=None,
                  space='full',
                  width=0.0,
                  width_increment=0.01,
                  niter_smearing=None):
-        self.wfs = calc.wfs
+        self.wfs = wfs
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.occupations = np.array(occupations)
