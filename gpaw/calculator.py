@@ -894,6 +894,18 @@ class GPAW(Calculator):
             monkhorst_pack_size=self.wfs.kd.N_c,
             bz2ibzmap=self.wfs.kd.bz2ibz_k)
 
+        kwargs = dct.copy()
+        name = kwargs.pop('name', '')
+        if name == 'mom':
+            if self.wfs.kpt_u[0].f_n is not None:
+                # We need to set the occupation numbers according
+                # to the supplied occupation numbers to initialize
+                # the MOM reference orbitals correctly
+                self.wfs.occupations = occ
+                self.wfs.calculate_occupation_numbers()
+            from gpaw.mom import OccupationsMOM
+            occ = OccupationsMOM(self.wfs, occ, **kwargs)
+
         self.log(occ)
         return occ
 

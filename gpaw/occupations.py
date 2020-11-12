@@ -667,6 +667,11 @@ def create_occ_calc(dct: Dict[str, Any],
         return ThomasFermiOccupations(**kwargs)
     elif name == 'fixed':
         return FixedOccupationNumbers(**kwargs)
+    elif name == 'mom':
+        for key in kwargs.keys():
+            if key not in ['numbers', 'parallel_layout']:
+                del kwargs[key]
+        return FixedOccupationNumbers(**kwargs)
     else:
         raise ValueError(f'Unknown occupation number object name: {name}')
 
