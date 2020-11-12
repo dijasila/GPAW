@@ -8,7 +8,7 @@ from gpaw.occupations import FixedOccupationNumbers
 
 
 def mom_calculation(calc, atoms,
-                    occupations,
+                    numbers,
                     constraints=None,
                     space='full',
                     width=0.0,
@@ -27,16 +27,16 @@ def mom_calculation(calc, atoms,
         calc.initialize(atoms)
 
     parallel_layout = calc.wfs.occupations.parallel_layout
-    occ = FixedOccupationNumbers(occupations, parallel_layout)
+    occ = FixedOccupationNumbers(numbers, parallel_layout)
 
     if calc.scf.converged:
         # We need to set the occupation numbers according to the supplied
-        # occupations to initialize the MOM reference orbitals correctly
+        # occupation numbers to initialize the MOM reference orbitals correctly
         calc.wfs.occupations = occ
         calc.wfs.calculate_occupation_numbers()
 
     occ_mom = OccupationsMOM(calc.wfs, occ,
-                             occupations,
+                             numbers,
                              constraints,
                              space, width,
                              width_increment,
@@ -50,7 +50,7 @@ def mom_calculation(calc, atoms,
 
 class OccupationsMOM:
     def __init__(self, wfs, occ,
-                 occupations,
+                 numbers,
                  constraints=None,
                  space='full',
                  width=0.0,
@@ -59,7 +59,7 @@ class OccupationsMOM:
         self.wfs = wfs
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
-        self.occupations = np.array(occupations)
+        self.numbers = np.array(numbers)
         self.constraints = constraints
         self.space = space
         self.width = width / Ha
@@ -72,7 +72,8 @@ class OccupationsMOM:
         self.ne = None
 
     def todict(self):
-        dct = {'name': self.name}
+        dct = {'name': self.name,
+               'numbers': self.numbers}
         if self.width != 0.0:
             dct['width'] = self.width * Ha
         return dct
@@ -91,7 +92,7 @@ class OccupationsMOM:
                   eigenvalues,
                   weights,
                   fermi_levels_guess):
-        f_sn = self.occupations.copy()
+        f_sn = self.numbers.copy()
 
         if not self.initialized and self.space == 'full':
             self.initialize_reference_orbitals()
@@ -102,7 +103,7 @@ class OccupationsMOM:
                     # If the MOM reference orbitals are not initialized
                     # (e.g. when the density is initialized from atomic
                     # densities) set the occupation numbers according to
-                    # the supplied occupations
+                    # the supplied occupation numbers
                     continue
                 else:
                     f_sn[kpt.s].fill(0)
@@ -264,7 +265,7 @@ class OccupationsMOM:
         self.iters = 0
         if self.space == 'full':
             for u, kpt in enumerate(self.wfs.kpt_u):
-                self.occupations[u] = kpt.f_n
+                self.numbers[u] = kpt.f_n
 
 
 class MOMConstraint:
