@@ -40,5 +40,5 @@ Here is how to calculate the famous hydrogen spectral line of 21 cm:
     :end-before: assert
 
 The output will be ``23.2 cm``.
-It's slightly off because the LDA spin-density at the positions of the hydrogen
+It's slightly off because the LDA spin-density at the position of the hydrogen
 nucleus is a bit too low (should be `1/\pi` in atomic units).
