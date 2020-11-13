@@ -28,6 +28,8 @@ Git master branch
 * Improved relaxation in the excited states in parallel,
   see  :ref:`linear response TDDFT <lrtddft>`
 
+* We now have a :ref:`code coverage` report updated every night.
+
 
 Version 20.10.0
 ===============
