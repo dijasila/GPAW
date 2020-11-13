@@ -5,7 +5,7 @@ from gpaw import GPAW
 def test_h2():
     # a = Atoms('H')
     a = Atoms('H2', positions=[[0, 0, 0], [0, 0, 0.75]])
-    if 0:
+    if 1:
         # a.center(vacuum=5.2)
         a.calc = GPAW(mode='tb')
     else:

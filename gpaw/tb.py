@@ -39,9 +39,16 @@ class TBWaveFunctions(LCAOWaveFunctions):
             self.timer)
         manytci.Pindices = manytci.Mindices
         my_atom_indices = self.basis_functions.my_atom_indices
-        self.Vt_qMM = [Vt_MM.toarray()
-                       for Vt_MM in manytci.P_qIM(my_atom_indices)]
-        # print(self.Vt_qMM[0]);asdf
+        self.Vt_qMM = []
+        for Vt_MM in manytci.P_qIM(my_atom_indices):
+            Vt_MM = Vt_MM.toarray()
+            Vt_MM += Vt_MM.T.conj().copy()
+            M1 = 0
+            for m in manytci.Mindices.nm_a:
+                M2 = M1 + m
+                Vt_MM[M1:M2, M1:M2] *= 0.5
+                M1 = M2
+            self.Vt_qMM.append(Vt_MM)
 
 
 class TB(Mode):
