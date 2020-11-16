@@ -11,7 +11,7 @@ cmds = """\
 python3 -m venv venv
 . venv/bin/activate
 pip install sphinx-rtd-theme pillow
-pip install git+https://gitlab.com/ase/ase.git@master
+pip install git+https://gitlab.com/ase/ase.git@{branch}
 git clone http://gitlab.com/gpaw/gpaw.git
 cd gpaw
 git checkout {branch}
