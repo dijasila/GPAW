@@ -38,7 +38,7 @@ class TBWaveFunctions(LCAOWaveFunctions):
         self.Vt_qMM = []
         for Vt_MM in manytci.P_qIM(my_atom_indices):
             Vt_MM = Vt_MM.toarray()
-            print(spos_ac[1, 2], Vt_MM[0, 1])
+            # print(spos_ac[1, 2], Vt_MM[0, 1])
             Vt_MM += Vt_MM.T.conj().copy()
             M1 = 0
             for m in manytci.Mindices.nm_a:
