@@ -61,6 +61,8 @@ def hyperfine_parameters(calc: GPAW,
 
     Remember to multiply each tensor by the g-factors of the nuclei
     and divide by the total electron spin.
+
+    Use ``exclude_core=True`` to exclude contribution from "frozen" core.
     """
     dens = calc.density
     nt_sR = dens.nt_sG
@@ -265,7 +267,7 @@ def core_contribution(density_sii: Array3D,
     vr_sg -= setup.Z
     vr_sg += rgd.poisson(n_sg.sum(axis=0))
 
-    # Find first bound s-state includes in PAW potential:
+    # Find first bound s-state included in PAW potential:
     for n0, l in zip(setup.n_j, setup.l_j):
         if l == 0:
             assert n0 > 0
@@ -373,7 +375,9 @@ def main(argv: List[str] = None) -> None:
                        A_vv[0, 0] - A, A_vv[1, 1] - A, A_vv[2, 2] - A,
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]))
 
-    print(f'\nTotal magnetic moment: {total_magmom:.3f}')
+    print('\nCore correction',
+          'NOT included!' if args.exclude_core else 'included')
+    print(f'Total magnetic moment: {total_magmom:.3f}')
     print('\nG-factors used:')
     for symbol, g in used.items():
         print(f'{symbol:2} {g:10.3f}')

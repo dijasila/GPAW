@@ -299,7 +299,11 @@ class Channel:
         g = gmax - 2
         agp1 = 1.0
         u_g[gmax - 1] = agp1 * r_g[gmax - 1]**(l + x)
-        ag = np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1]))
+        with np.errstate(over='raise'):
+            try:
+                ag = np.exp(-(-2 * e)**0.5 * (r_g[gmax - 2] - r_g[gmax - 1]))
+            except FloatingPointError:
+                ag = 2e50
 
         while True:
             u_g[g] = ag * r_g[g]**(l + x)
