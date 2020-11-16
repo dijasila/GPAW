@@ -218,7 +218,6 @@ Some suitable parameters for the NEB are given below:
 from gpaw import GPAW, PW
 from ase.visualize import view
 from ase.optimize import BFGS
-from ase.io import Trajectory
 from ase.parallel import world
 
 initial = read('N2Ru.traj')
