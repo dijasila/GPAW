@@ -40,7 +40,8 @@ from gpaw.scf import SCFLoop
 from gpaw.setup import Setups
 from gpaw.symmetry import Symmetry
 from gpaw.stress import calculate_stress
-from gpaw.tb import TBDensity, TBHamiltonian
+from gpaw.tb.density import TBDensity
+from gpaw.tb.hamiltonian import TBHamiltonian
 from gpaw.utilities import check_atoms_too_close
 from gpaw.utilities.gpts import get_number_of_grid_points
 from gpaw.utilities.grid import GridRedistributor

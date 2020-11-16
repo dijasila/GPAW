@@ -2,13 +2,9 @@ from math import pi
 
 import numpy as np
 
-from .density import Density
-from .hamiltonian import Hamiltonian
-from .lcao.eigensolver import DirectLCAO
-from .lcao.tci import TCIExpansions
-from .spline import Spline
-from .wavefunctions.lcao import LCAOWaveFunctions
-from .wavefunctions.mode import Mode
+from gpaw.lcao.tci import TCIExpansions
+from gpaw.spline import Spline
+from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 
 
 class TBWaveFunctions(LCAOWaveFunctions):
@@ -42,6 +38,7 @@ class TBWaveFunctions(LCAOWaveFunctions):
         self.Vt_qMM = []
         for Vt_MM in manytci.P_qIM(my_atom_indices):
             Vt_MM = Vt_MM.toarray()
+            print(spos_ac[1, 2], Vt_MM[0, 1])
             Vt_MM += Vt_MM.T.conj().copy()
             M1 = 0
             for m in manytci.Mindices.nm_a:
@@ -49,80 +46,3 @@ class TBWaveFunctions(LCAOWaveFunctions):
                 Vt_MM[M1:M2, M1:M2] *= 0.5
                 M1 = M2
             self.Vt_qMM.append(Vt_MM)
-
-
-class TB(Mode):
-    name = 'tb'
-    interpolation = 1
-    force_complex_dtype = False
-
-    def __init__(self) -> None:
-        pass
-
-    def __call__(self, ksl, **kwargs) -> TBWaveFunctions:
-        return TBWaveFunctions(ksl, **kwargs)
-
-
-class TBEigenSolver(DirectLCAO):
-    def iterate(self, ham, wfs, occ=None) -> None:
-        for kpt in wfs.kpt_u:
-            self.iterate_one_k_point(ham, wfs, kpt, [wfs.Vt_qMM[kpt.q].copy()])
-
-
-class TBDensity(Density):
-    def set_positions(self, spos_ac, atom_partition):
-        self.set_positions_without_ruining_everything(spos_ac, atom_partition)
-
-    def initialize_density_from_atomic_densities(self, basis_functions, f_asi):
-        pass
-
-    def mix(self, comp_charge):
-        self.error = 0.0
-
-    def normalize(self, comp_charge):
-        pass
-
-    def calculate_pseudo_density(self, wfs):
-        pass
-
-    def calculate_dipole_moment(self):
-        return np.zeros(3)
-
-
-class TBPoissonSolver:
-    def get_description(self):
-        return 'TB'
-
-
-class LFC:
-    def set_positions(self, spos_ac, atom_partition):
-        pass
-
-
-class TBHamiltonian(Hamiltonian):
-    poisson = TBPoissonSolver()
-    npoisson = 0
-
-    def __init__(self, *args, **kwargs):
-        Hamiltonian.__init__(self, *args, **kwargs)
-        self.vbar = LFC()
-
-    def update_pseudo_potential(self, dens):
-        e_coulomb = 0.0
-        energies = np.array([e_coulomb, 0.0, 0.0, 0.0])
-        return energies
-
-    def calculate_kinetic_energy(self, density):
-        return 0.0
-
-    def calculate_atomic_hamiltonians(self, dens):
-        from gpaw.arraydict import ArrayDict
-
-        def getshape(a):
-            return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
-
-        W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
-        for W_L in W_aL.values():
-            W_L[:] = 0.0
-
-        return self.atomdist.to_work(self.atomdist.from_aux(W_aL))

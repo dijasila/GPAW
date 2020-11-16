@@ -5,7 +5,7 @@ from gpaw.eigensolvers.cg import CG
 from gpaw.eigensolvers.davidson import Davidson
 from gpaw.eigensolvers.direct import DirectPW
 from gpaw.lcao.eigensolver import DirectLCAO
-from gpaw.tb import TBEigenSolver
+from gpaw.tb.eigensolver import TBEigenSolver
 
 
 def get_eigensolver(eigensolver, mode, convergence=None):

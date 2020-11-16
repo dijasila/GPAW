@@ -102,7 +102,7 @@ class DirectLCAO(object):
         if wfs.bd.comm.size > 1 and wfs.bd.strided:
             raise NotImplementedError
 
-        print(Vt_xMM)
+        # print(Vt_xMM)
         H_MM = self.calculate_hamiltonian_matrix(hamiltonian, wfs, kpt, Vt_xMM,
                                                  root=0)
 
