@@ -10,12 +10,13 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install sphinx-rtd-theme pillow
-pip install git+https://gitlab.com/ase/ase.git@{branch}
+pip install -U pip -qq
+pip install sphinx-rtd-theme pillow pytest
+pip install -q git+https://gitlab.com/ase/ase.git@{branch}
 git clone http://gitlab.com/gpaw/gpaw.git
 cd gpaw
-git checkout {branch}
-pip install .
+git checkout -q {branch}
+pip install -e .
 python setup.py sdist
 cd doc
 make
@@ -62,7 +63,7 @@ def build_both():
          'cp setups.rst.txt setups.txt',  # with old install-data script
          f'cd {webpage.parent}',
          'tar -czf gpaw-web-page.tar.gz gpaw-web-page',
-         f'cp gpaw-web-page.tar.gz {home}/gpaw.test.tgz'])
+         f'cp gpaw-web-page.tar.gz {home}'])
     subprocess.run(cmds, shell=True, check=True)
 
 
