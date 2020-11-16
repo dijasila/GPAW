@@ -375,7 +375,9 @@ def main(argv: List[str] = None) -> None:
                        A_vv[0, 0] - A, A_vv[1, 1] - A, A_vv[2, 2] - A,
                        A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]))
 
-    print(f'\nTotal magnetic moment: {total_magmom:.3f}')
+    print('\nCore correction',
+          'NOT included!' if args.exclude_core else 'included')
+    print(f'Total magnetic moment: {total_magmom:.3f}')
     print('\nG-factors used:')
     for symbol, g in used.items():
         print(f'{symbol:2} {g:10.3f}')
