@@ -326,6 +326,9 @@ def main(argv: List[str] = None) -> None:
     add('-u', '--units', default='ueV', choices=['ueV', 'MHz'],
         help='Units.  Must be "ueV" (micro-eV, default) or "MHz".')
     add('-x', '--exclude-core', action='store_true')
+    add('-d', '--diagonalize', action='store_true',
+        help='Show eigenvalues of tensor.')
+
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
     else:
@@ -356,10 +359,14 @@ def main(argv: List[str] = None) -> None:
 
     A_avv = hyperfine_parameters(calc, args.exclude_core)
 
-    print('Isotropic and anisotropic hyperfine coupling paramters '
+    print('Hyperfine coupling paramters '
           f'in {unit}:\n')
-    print('  atom  magmom      ',
-          '       '.join(['iso', 'xx', 'yy', 'zz', 'yz', 'xz', 'xy']))
+
+    if args.diagonalize:
+        columns = ['1.', '2.', '3.']
+    else:
+        columns = ['xx', 'yy', 'zz', 'yz', 'xz', 'xy']
+    print('  atom  magmom      ', '       '.join(columns))
 
     used = {}
     for a, A_vv in enumerate(A_avv):
@@ -368,16 +375,18 @@ def main(argv: List[str] = None) -> None:
         g_factor = g_factors.get(symbol, 1.0)
         used[symbol] = g_factor
         A_vv *= g_factor / total_magmom * scale
-        A = np.trace(A_vv) / 3
+        if args.diagonalize:
+            numbers = np.linalg.eigvalsh(A_vv)
+        else:
+            numbers = [A_vv[0, 0], A_vv[1, 1], A_vv[2, 2],
+                       A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]
         print(f'{a:3} {symbol:>2}  {magmom:6.3f}',
-              ''.join(f'{x:9.2f}' for x in
-                      [A,
-                       A_vv[0, 0] - A, A_vv[1, 1] - A, A_vv[2, 2] - A,
-                       A_vv[1, 2], A_vv[0, 2], A_vv[0, 1]]))
+              ''.join(f'{x:9.2f}' for x in numbers))
 
     print('\nCore correction',
           'NOT included!' if args.exclude_core else 'included')
     print(f'Total magnetic moment: {total_magmom:.3f}')
+
     print('\nG-factors used:')
     for symbol, g in used.items():
         print(f'{symbol:2} {g:10.3f}')
