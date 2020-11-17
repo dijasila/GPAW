@@ -46,7 +46,7 @@ __all__ = ['GPAW',
            'PoissonSolver',
            'FermiDirac', 'MethfesselPaxton',
            'MarzariVanderbilt',
-           'PW', 'LCAO', 'restart', 'FD']
+           'PW', 'LCAO', 'restart', 'FD', 'TB']
 
 
 class ConvergenceError(Exception):
@@ -265,6 +265,7 @@ with broadcast_imports:
     from gpaw.wavefunctions.lcao import LCAO
     from gpaw.wavefunctions.pw import PW
     from gpaw.wavefunctions.fd import FD
+    from gpaw.tb.mode import TB
 
 RMM_DIIS = RMMDIIS
 

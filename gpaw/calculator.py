@@ -1038,7 +1038,7 @@ class GPAW(Calculator):
             psolver=self.parameters.poissonsolver)
         if mode.name == 'tb':
             del kwargs['psolver']
-            self.hamiltonian = TBHamiltonian(**kwargs)
+            self.hamiltonian = TBHamiltonian(mode.parameters, **kwargs)
         elif realspace:
             self.hamiltonian = RealSpaceHamiltonian(stencil=mode.interpolation,
                                                     **kwargs)

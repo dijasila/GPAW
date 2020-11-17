@@ -1,6 +1,8 @@
 import numpy as np
+from ase.units import Bohr, Ha
 
 from gpaw.hamiltonian import Hamiltonian
+from gpaw.tb.repulsion import evaluate_pair_potential
 
 
 class TBPoissonSolver:
@@ -17,13 +19,27 @@ class TBHamiltonian(Hamiltonian):
     poisson = TBPoissonSolver()
     npoisson = 0
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, repulsion_parameters, *args, **kwargs):
         Hamiltonian.__init__(self, *args, **kwargs)
         self.vbar = LFC()
+        self.repulsion_parameters = repulsion_parameters
+
+    def set_positions(self, spos_ac, atom_partition):
+        cell_cv = self.gd.cell_cv * Bohr
+        position_av = spos_ac @ cell_cv
+
+        energy, forces = evaluate_pair_potential(
+            self.repulsion_parameters,
+            [setup.symbol for setup in self.setups],
+            position_av, cell_cv, self.gd.pbc_c)
+
+        self.e_pair = energy / Ha
+        self.force_av = forces * (Bohr / Ha)
+
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
 
     def update_pseudo_potential(self, dens):
-        e_coulomb = 0.0
-        energies = np.array([e_coulomb, 0.0, 0.0, 0.0])
+        energies = np.array([self.e_pair, 0.0, 0.0, 0.0])
         return energies
 
     def calculate_kinetic_energy(self, density):

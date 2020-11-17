@@ -1,17 +1,21 @@
 import numpy as np
 from ase import Atoms
+from ase.data import atomic_numbers
+from ase.neighborlist import primitive_neighbor_list as neighbors
 from scipy.optimize import minimize
-
-from gpaw import GPAW
 
 
 class Repulsion:
-    def __init__(self, params):
-        self.params = params
+    def __init__(self, a, b, c, eps=1e-6):
+        self.params = a, b, c
+        self.cutoff = -c * np.log(eps)
 
-    def __call__(self, r):
+    def __call__(self, r, nderivs: int = 0) -> float:
         a, b, c = self.params
-        return (a + r * b) * np.exp(-r / c)
+        if nderivs == 0:
+            return (a + b * r) * np.exp(-r / c)
+        assert nderivs == 1
+        return (b - (a + b * r) / c) * np.exp(-r / c)
 
     def __repr__(self):
         return f'Repulsion({self.params})'
@@ -23,13 +27,61 @@ class Repulsion:
         plt.show()
 
 
+def evaluate_pair_potential(repulsions, symbol_a, position_av, cell_cv, pbc_c):
+    """Evaluate pair-potential.
+
+    >>> rep = Repulsion(np.e, 0.0, 1.0)
+    >>> rep(1.0)
+    1.0
+    >>> energy, forces = evaluate_pair_potential(
+    ...    {('H', 'Li'): rep},
+    ...    ['H', 'Li'],
+    ...    np.array([[0, 0, 0], [0, 0, 1.0]]),
+    ...    np.eye(3),
+    ...    np.zeros(3, bool))
+    >>> energy
+    1.0
+    >>> forces
+    array([[ 0.,  0., -1.],
+           [ 0.,  0.,  1.]])
+    """
+    cutoffs = {}
+    repulsions2 = {}
+    symbols = set(symbol_a)
+    for s1 in symbols:
+        for s2 in symbols:
+            rep = repulsions.get((s1, s2))
+            if rep is None:
+                rep = repulsions.get((s2, s1))
+                if rep is None:
+                    rep = Repulsion(0.0, 0.0, 0.0)
+            repulsions2[(s1, s2)] = rep
+            cutoffs[(s1, s2)] = rep.cutoff
+
+    ijdD = neighbors('ijdD',
+                     pbc_c, cell_cv, position_av, cutoffs,
+                     np.array([atomic_numbers[symb] for symb in symbol_a]))
+    energy = 0.0
+    forces = np.zeros_like(position_av)
+    for i, j, d, D in zip(*ijdD):
+        rep = repulsions2[(symbol_a[i], symbol_a[j])]
+        energy += rep(d)
+        force = rep(d, nderivs=1) * D / d
+        forces[i] += force
+        forces[j] -= force
+    return 0.5 * energy, 0.5 * forces
+
+
 def fit(system: Atoms, atom: Atoms, eps: float = 0.01):
+    from gpaw import GPAW, TB
+    from gpaw.tb.parameters import ZeroRepulsion
     d0 = system.get_distance(0, 1)
     energies = np.zeros(3)
     distances = np.linspace((1 - eps) * d0, (1 + eps) * d0, 3)
+    zero_repulsion = ZeroRepulsion()
     sign = -1
-    for calc in [GPAW(mode='tb', txt='tb.txt'),
-                 GPAW(mode='lcao', txt='lcao.txt')]:
+    for calc in [GPAW(mode=TB(zero_repulsion), txt='tb.txt'),
+                 GPAW(mode='lcao', basis='dzp', txt='lcao.txt')]:
         atom.calc = calc
         e0 = atom.get_potential_energy()
         atoms = system.copy()
@@ -44,15 +96,16 @@ def fit(system: Atoms, atom: Atoms, eps: float = 0.01):
     print(distances, energies)
 
     def f(params):
-        rep = Repulsion(params)
+        rep = Repulsion(*params)
         return sum((rep(d) - e)**2 for d, e in zip(distances, energies))
 
     res = minimize(f, [1.0, 0.0, 1.0])
     print(res)
-    return Repulsion(res.x)
+    return Repulsion(*res.x)
 
 
 if __name__ == '__main__':
-    rep = fit(Atoms('H2', [(0, 0, 0), (0, 0, 0.74)], cell=[9, 9, 9], pbc=True),
-              Atoms('H', cell=[9, 9, 9], pbc=True))
+    rep = fit(Atoms('H2', [(0, 0, 0), (0, 0, 0.78)], cell=[9, 9, 9], pbc=True),
+              Atoms('H', cell=[9, 9, 9], pbc=True),
+              0.1)
     rep.plot()
