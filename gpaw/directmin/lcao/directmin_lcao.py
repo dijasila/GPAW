@@ -869,6 +869,69 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_a, g_n
 
+    def get_numerical_hessian(self, n_dim, ham, wfs, dens, occ,
+                              c_nm_ref, eps=1.0e-5):
+
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.sort_wavefunctions_mom(occ, wfs)
+            for kpt in wfs.kpt_u:
+                u = self.n_kps * kpt.s + kpt.q
+                c_nm_ref[u] = kpt.C_nM.copy()
+
+        self.matrix_exp = 'egdecomp'
+
+        h = [eps, -eps]
+        coeif = [1.0, -1.0]
+
+        if self.dtype == complex:
+            range_z = 2
+            complex_gr = [1.0, 1.0j]
+        else:
+            range_z = 1
+            complex_gr = [1.0]
+
+        a_m = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            a_m[u] = np.zeros_like(self.a_mat_u[u])
+
+        hess_a = {}
+        hess_n = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            hess_a[u] = self.get_hessian(kpt)
+
+            m2 = self.a_mat_u[u].shape[0]
+            hess_n[u] = np.zeros((m2, m2))
+
+            for z in range(range_z):
+                r = 0
+                for i in range(m2):
+                    a = a_m[u][i]
+                    hess = np.zeros(m2)
+                    for l in range(2):
+                        # Does this work when self.dtype == complex?
+                        if z == 0:
+                            a_m[u][i] = a + h[l]
+                        else:
+                            a_m[u][i] = a + 1.0j * h[l]
+
+                        g = self.get_energy_and_gradients(a_m, n_dim, ham,
+                                                              wfs, dens, occ,
+                                                              c_nm_ref)[1]
+
+                        hess += g[u] * coeif[l]
+
+                    hess *= 1.0 / (2.0 * eps)
+
+                    hess_n[u][r] += hess * complex_gr[z]
+                    a_m[u][i] = a
+
+                    r += 1
+
+        return hess_a, hess_n
+
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
         wfs.timer.start('Unitary rotation')
