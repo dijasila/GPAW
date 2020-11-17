@@ -39,9 +39,11 @@ for name in ['zero', 'periodic', 'corrected', 'pwcorrected']:
     plt.title(title + ' boundary conditions')
     plt.savefig(name + '.png')
 
-write('slab.pov', calc.atoms,
-      rotation='-90x',
-      show_unit_cell=2,
-      transparent=False,
-      display=False,
-      run_povray=True)
+write('slab.pov',
+      calc.atoms,
+      generic_projection_settings=dict(
+          rotation='-90x',
+          show_unit_cell=2),
+      povray_settings=dict(
+          transparent=False,
+          display=False)).render()

@@ -13,7 +13,6 @@ def test_send_receive_object():
         assert obj == receive(0, world)
 
 
-@pytest.mark.intel
 def test_bcast_array():
     new = world.new_communicator
 
@@ -24,10 +23,15 @@ def test_bcast_array():
         comms = [new(ranks[world.rank // 2]),
                  new(ranks[:, world.rank % 2])]
     elif world.size == 8:
-        ranks = np.array([[[0, 1], [2, 3]], [[4, 5], [6, 7]]])
-        comms = [new(ranks[world.rank // 4].ravel()),
-                 new(ranks[:, world.rank // 2 % 2].ravel()),
-                 new(ranks[:, :, world.rank % 2].ravel())]
+        ranks = [[[0, 1], [0, 2], [0, 4]],
+                 [[0, 1], [1, 3], [1, 5]],
+                 [[2, 3], [0, 2], [2, 6]],
+                 [[2, 3], [1, 3], [3, 7]],
+                 [[4, 5], [4, 6], [0, 4]],
+                 [[4, 5], [5, 7], [1, 5]],
+                 [[6, 7], [4, 6], [2, 6]],
+                 [[6, 7], [5, 7], [3, 7]]]
+        comms = [new(r) for r in ranks[world.rank]]
     else:
         return
 

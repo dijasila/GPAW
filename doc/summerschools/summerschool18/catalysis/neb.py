@@ -6,9 +6,15 @@ viz.view = lambda atoms, repeat=None: None
 # %%
 """
 ## Introduction to Nudged Elastic Band (NEB) calculations
-This tutorial describes how to use the NEB method to calculate the diffusion barrier for an Au atom on Al(001). If you are not familiar with the NEB method some relevant references are listed [here.](https://wiki.fysik.dtu.dk/ase/ase/neb.html)
 
-The tutorial uses the EMT potential in stead of DFT, as this is a lot faster. It is based on a [tutorial found on the ASE webpage](https://wiki.fysik.dtu.dk/ase/tutorials/neb/diffusion.html#diffusion-tutorial).
+This tutorial describes how to use the NEB method to calculate the diffusion
+barrier for an Au atom on Al(001). If you are not familiar with the NEB
+method some relevant references are listed
+[here.](https://wiki.fysik.dtu.dk/ase/ase/neb.html)
+
+The tutorial uses the EMT potential in stead of DFT, as this is a lot faster.
+It is based on a [tutorial found on the ASE
+webpage](https://wiki.fysik.dtu.dk/ase/tutorials/neb/diffusion.html#diffusion-tutorial).
 
 """
 
@@ -55,7 +61,8 @@ qn.run(fmax=0.05)
 
 # %%
 """
-We make the final state by moving the Au atom one lattice constant and optimise again.
+We make the final state by moving the Au atom one lattice constant and
+optimise again.
 """
 
 # %%
@@ -66,9 +73,15 @@ qn.run(fmax=0.05)
 
 # %%
 """
-Now we make a NEB calculation with 3 images between the inital and final states. The images are initially made as copies of the initial state and the command `interpolate()` makes a linear interpolation between the initial and final state. As always, we check that everything looks ok before we run the calculation.
+Now we make a NEB calculation with 3 images between the inital and final
+states. The images are initially made as copies of the initial state and the
+command `interpolate()` makes a linear interpolation between the initial and
+final state. As always, we check that everything looks ok before we run the
+calculation.
 
-NOTE: The linear interpolation works well in this case but not for e.g. rotations. In this case an improved starting guess can be made with the [IDPP method.](https://wiki.fysik.dtu.dk/ase/tutorials/neb/idpp.html#idpp-tutorial)
+NOTE: The linear interpolation works well in this case but not for e.g.
+rotations. In this case an improved starting guess can be made with the [IDPP
+method.](https://wiki.fysik.dtu.dk/ase/tutorials/neb/idpp.html#idpp-tutorial)
 """
 
 # %%
@@ -77,7 +90,7 @@ final = read('final.traj')
 
 constraint = FixAtoms(mask=[atom.tag > 1 for atom in initial])
 
-n_im = 3 #Number of images
+n_im = 3  # number of images
 images = [initial]
 for i in range(n_im):
     image = initial.copy()
@@ -105,7 +118,11 @@ view(images)
 
 # %%
 """
-You can find the barrier by selecting Tools->NEB in the gui (unfortunately, the gui cannot show graphs when started from a notebook), or you can make a script using [NEBTools](https://wiki.fysik.dtu.dk/ase/ase/neb.html#ase.neb.NEBTools), e.g.:
+You can find the barrier by selecting Tools->NEB in the gui (unfortunately,
+the gui cannot show graphs when started from a notebook), or you can make a
+script using
+[NEBTools](https://wiki.fysik.dtu.dk/ase/ase/neb.html#ase.neb.NEBTools),
+e.g.:
 """
 
 # %%
@@ -120,17 +137,27 @@ Ef, dE = nebtools.get_barrier()
 print('Barrier:', Ef)
 print('Reaction energy:', dE)
 
-fig, ax = plt.subplots()   # Generate new matplotlib axis - otherwise nebtools plot double.
+# Generate new matplotlib axis - otherwise nebtools plot double.
+fig, ax = plt.subplots()
 nebtools.plot_band(ax)
 
 # %%
 """
 ## Exercise
 
-Now you should make your own NEB using the configuration with N<sub>2</sub> lying down as the initial state and the configuration with two N atoms adsorbed on the surface as the final state. The NEB needs to run in parallel so you should make it as a python script, however you can use the Notebook to test your configurations (but not the parallelisation) if you like and export it as a script in the end.
+Now you should make your own NEB using the configuration with N<sub>2</sub>
+lying down as the initial state and the configuration with two N atoms
+adsorbed on the surface as the final state. The NEB needs to run in parallel
+so you should make it as a python script, however you can use the Notebook to
+test your configurations (but not the parallelisation) if you like and export
+it as a script in the end.
 
 ### Parallelisation
-The NEB should be parallelised over images. An example can be found in [this GPAW tutorial](https://wiki.fysik.dtu.dk/gpaw/tutorials/neb/neb.html). The script enumerates the cpu's and uses this number (``rank``) along with the total number of cpu's (``size``) to distribute the tasks.
+
+The NEB should be parallelised over images. An example can be found in [this
+GPAW tutorial](https://wiki.fysik.dtu.dk/gpaw/tutorials/neb/neb.html). The
+script enumerates the cpu's and uses this number (``rank``) along with the
+total number of cpu's (``size``) to distribute the tasks.
 """
 
 # %%
@@ -143,7 +170,8 @@ assert n_im * n == world.size
 
 # %%
 """
-For each image we assign a set of cpu's identified by their rank. The rank numbers are given to the calculator associated with this image.
+For each image we assign a set of cpu's identified by their rank. The rank
+numbers are given to the calculator associated with this image.
 """
 
 # %%
@@ -166,13 +194,19 @@ images.append(final)
 
 # %%
 """
-When running the parallel NEB, you should choose the number of CPU cores properly.  Let Ncore = N_im * Nk where N_im is the number of images, and Nk is a divisor of the number of k-points; i.e. if there are 6 irreducible k-point, Nk should be 1, 2, 3 or 6.  Keep the total number of cores to 24 or less, or your job will wait too long in the queue.
+When running the parallel NEB, you should choose the number of CPU cores
+properly.  Let Ncore = N_im * Nk where N_im is the number of images, and Nk
+is a divisor of the number of k-points; i.e. if there are 6 irreducible
+k-point, Nk should be 1, 2, 3 or 6.  Keep the total number of cores to 24 or
+less, or your job will wait too long in the queue.
 """
 
 # %%
 """
 ### Input parameters
+
 Some suitable parameters for the NEB are given below:
+
 * Use the same calculator and constraints as for the initial and final images, but remember to set the `communicator` as described above
 * Use 6 images. This gives a reasonable description of the energy landscape and can be run e.g. on 12 cores.
 * Use a spring constant of 1.0 between the images. A lower value will slow the convergence
@@ -184,7 +218,6 @@ Some suitable parameters for the NEB are given below:
 from gpaw import GPAW, PW
 from ase.visualize import view
 from ase.optimize import BFGS
-from ase.io import Trajectory
 from ase.parallel import world
 
 initial = read('N2Ru.traj')
@@ -224,7 +257,10 @@ qn.run(fmax=0.05)
 
 # %%
 """
-Once the calculation is done you should check that the final path looks reasonable. What is the N-N distance at the saddle point? Use NEBTools to calculate the barrier. Is N<sub>2</sub> likely to dissociate on the surface at room temperature?
+Once the calculation is done you should check that the final path looks
+reasonable. What is the N-N distance at the saddle point? Use NEBTools to
+calculate the barrier. Is N<sub>2</sub> likely to dissociate on the surface
+at room temperature?
 """
 
 # %%
@@ -236,4 +272,4 @@ emax = max(energies)
 assert energies[2] == emax
 assert abs(emax - energies[0] - 1.32) < 0.02
 d = images[2].get_distance(-1, -2)
-assert abs(d - 1.772) < 0.004
+assert abs(d - 1.777) < 0.004

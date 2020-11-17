@@ -22,6 +22,7 @@ class HybridXC:
             xcname, exx_fraction, omega = parse_name(kind)
         else:
             xcname, exx_fraction, omega = kind
+            self.name = f'{xcname}-{exx_fraction:.3f}-{omega:.3f}'
 
         self.xc = XC(xcname)
         self.exx_fraction = exx_fraction
