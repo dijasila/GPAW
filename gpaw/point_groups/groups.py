@@ -113,6 +113,26 @@ class Cs(Pointgroup):
         return 'Cs' 
 
 
+class Ci(Pointgroup):
+    # main axis should be the z-axis!
+    def __init__(self):
+        self.operations = [('E', self.unit),
+                           ('i', self.invert())]
+        self.operation_names = [pair[0] for pair in self.operations]
+        self.symmetries = ['Ag', 'Au']
+        self.character_table = [
+        [1.,  1.],
+        [1., -1.]]
+
+        self.nof_operations = [1, 1]
+        self.Tx_i = 1
+        self.Ty_i = 1
+        self.Tz_i = 1
+
+    def __str__(self):
+        return 'Ci' 
+
+
 class D5(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
