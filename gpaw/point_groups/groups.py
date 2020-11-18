@@ -1234,6 +1234,41 @@ class C2v(Pointgroup):
         return do_it(data)
 
 
+class C2h(Pointgroup):
+    # main axis should be the z-axis!
+    def __init__(self):
+        self.operations = [('E', self.unit),
+                           ('C2', self.rotate_mainaxis(angle=180.)),
+                           ('i', self.invert(np.diag((1,1,1)))),
+                           ('sigma_h', self.sigma_h(np.diag((1,1,1))))]
+        self.operation_names = [pair[0] for pair in self.operations]
+        self.symmetries = ['Ag', 'Bg', 'Au', 'Bu']
+        self.character_table = [[1.,  1.,  1.,  1.],
+                                [1., -1.,  1., -1.],
+                                [1.,  1., -1., -1.],
+                                [1., -1., -1.,  1.]]
+        self.nof_operations = [1, 1, 1, 1]
+        self.Tx_i = 3
+        self.Ty_i = 3
+        self.Tz_i = 2
+
+    def __str__(self):
+        return 'C2h'
+
+    def C2(self, angle, data=None):
+        angle = angle
+
+        def do_it(data):
+            return self.C2prime(data, angle)
+
+        if data is None:
+            return do_it
+        return do_it(data)
+
+    def sigma_h(self, data=None):
+        return self.mirror_xy(data)
+
+
 class C3v(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
