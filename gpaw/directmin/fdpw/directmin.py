@@ -86,6 +86,7 @@ class DirectMin(Eigensolver):
         self.force_init_localization = force_init_localization
         self.exstopt = exstopt
         self.etotal=0.0
+        self.globaliters=0
 
         # if self.exstopt and self.convergelumo:
         #     self.convergelumo = False
@@ -350,37 +351,40 @@ class DirectMin(Eigensolver):
         phi_2i[0], der_phi_2i[0] = phi_alpha, der_phi_alpha,
 
         occ_name = getattr(occ, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom':
-            if (self.iters + 1) % self.momevery == 0:
+        if self.iloop_outer is not None and occ_name == 'mom' and 'SIC' not in \
+                                self.odd_parameters['name']:
+            if self.iloop_outer.odd_pot.restart:
+                self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    super(DirectMin, self).subspace_diagonalize(
+                        ham, wfs, kpt, True)
+                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                occ.calculate(wfs)  # fill occ numbers
+                if occ_name == 'mom':
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                self.iters = 0
+                self.initialized = False
+                self.need_init_odd = True
+            elif (self.iters + 1) % self.momevery == 0:
                 if not self.iloop_outer.converged:
                     self.choose_optimal_orbitals(wfs, ham, occ, dens)
-                    self.get_canonical_representation(ham, wfs, occ, dens)
+                    for kpt in wfs.kpt_u:
+                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
+                                         kpt.q)
+                        super(DirectMin, self).subspace_diagonalize(
+                            ham, wfs, kpt, True)
+                        wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                    occ.calculate(wfs)  # fill occ numbers
+                    if occ_name == 'mom':
+                        for kpt in wfs.kpt_u:
+                            occ.sort_wavefunctions(wfs, kpt)
                     self.iters = 0
                     self.initialized = False
                     self.need_init_odd = True
-                else:
-                    f_sn = {}
-                    for kpt in wfs.kpt_u:
-                        n_kps = wfs.kd.nks // wfs.kd.nspins
-                        u = n_kps * kpt.s + kpt.q
-                        f_sn[u] = kpt.f_n.copy()
-                    occ.calculate(wfs)
-                    changedocc = 0
-                    for kpt in wfs.kpt_u:
-                        n_kps = wfs.kd.nks // wfs.kd.nspins
-                        u = n_kps * kpt.s + kpt.q
-                        changedocc = int(
-                            not np.allclose(f_sn[u], kpt.f_n.copy()))
-                    changedocc = wfs.kd.comm.max(changedocc)
-                    for kpt in wfs.kpt_u:
-                        occ.sort_wavefunctions(wfs, kpt)
-                    if changedocc:
-                        self.choose_optimal_orbitals(wfs, ham, occ, dens)
-                        self.get_canonical_representation(ham, wfs, occ, dens)
-                        self.iters = 0
-                        self.initialized = False
-                        self.need_init_odd = True
 
+        self.globaliters += 1
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
 
@@ -431,45 +435,50 @@ class DirectMin(Eigensolver):
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
             kpt.psit_nG[:] = psi_copy[k] + a_star * p_knG[k]
+            wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            wfs.orthonormalize(kpt)
+
         del psi_copy
         del p_knG
         del grad_knG
-        wfs.orthonormalize()
         self.alpha = a_star
         occ_name = getattr(occ, 'name', None)
-        if self.iloop_outer is not None and occ_name == 'mom':
-            if (self.iters + 1) % self.momevery == 0:
+        if self.iloop_outer is not None and occ_name == 'mom' and 'SIC' not in \
+                                self.odd_parameters['name']:
+            if self.iloop_outer.odd_pot.restart:
+                self.choose_optimal_orbitals(wfs, ham, occ, dens)
+                for kpt in wfs.kpt_u:
+                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    super(DirectMin, self).subspace_diagonalize(
+                        ham, wfs, kpt, True)
+                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                occ.calculate(wfs)  # fill occ numbers
+                if occ_name == 'mom':
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                self.iters = 0
+                self.initialized = False
+                self.need_init_odd = True
+            elif (self.iters + 1) % self.momevery == 0:
                 if not self.iloop_outer.converged:
                     self.choose_optimal_orbitals(wfs, ham, occ, dens)
-                    self.get_canonical_representation(ham, wfs, occ, dens)
+                    for kpt in wfs.kpt_u:
+                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
+                                         kpt.q)
+                        super(DirectMin, self).subspace_diagonalize(
+                            ham, wfs, kpt, True)
+                        wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                    occ.calculate(wfs)  # fill occ numbers
+                    if occ_name == 'mom':
+                        for kpt in wfs.kpt_u:
+                            occ.sort_wavefunctions(wfs, kpt)
                     self.iters = 0
                     self.initialized = False
                     self.need_init_odd = True
-                else:
-                    f_sn = {}
-                    for kpt in wfs.kpt_u:
-                        n_kps = wfs.kd.nks // wfs.kd.nspins
-                        u = n_kps * kpt.s + kpt.q
-                        f_sn[u] = kpt.f_n.copy()
-                    occ.calculate(wfs)
-                    changedocc = 0
-                    for kpt in wfs.kpt_u:
-                        n_kps = wfs.kd.nks // wfs.kd.nspins
-                        u = n_kps * kpt.s + kpt.q
-                        changedocc = int(
-                            not np.allclose(f_sn[u], kpt.f_n.copy()))
-                    changedocc = wfs.kd.comm.max(changedocc)
-                    for kpt in wfs.kpt_u:
-                        occ.sort_wavefunctions(wfs, kpt)
-                    if changedocc:
-                        self.choose_optimal_orbitals(wfs, ham, occ, dens)
-                        self.get_canonical_representation(ham, wfs, occ, dens)
-                        self.iters = 0
-                        self.initialized = False
-                        self.need_init_odd = True
 
         wfs.timer.stop('Direct Minimisation step')
         self.iters += 1
+        self.globaliters += 1
 
     def update_ks_energy(self, ham, wfs, dens, occ):
 
@@ -556,6 +565,8 @@ class DirectMin(Eigensolver):
                     #             axes=1)
                     self.e_sic = self.odd.get_energy_and_gradients(
                         wfs, grad, dens, self.iloop.U_k, add_grad=True)
+                    ham.get_energy(occ, kin_en_using_band=False,
+                                   e_sic=self.e_sic)
                     # for kpt in wfs.kpt_u:
                     #     k = self.n_kps * kpt.s + kpt.q
                     #     kpt.psit_nG[:] = temp[k]
@@ -761,66 +772,70 @@ class DirectMin(Eigensolver):
                                                   self.iloop.U_k,
                                                   add_grad=True)
 
-        typediag = 'separate'
         for kpt in wfs.kpt_u:
             if self.exstopt:
+                if 'SIC' in self.odd_parameters['name']:
+                    typediag = 'separate'
+                else:
+                    typediag = 'full'
                 k = self.n_kps * kpt.s + kpt.q
                 lamb = wfs.integrate(kpt.psit_nG[:],
                                      grad_knG[k][:],
                                      True)
-                if 'SIC' in self.odd_parameters['name']:
-                    if typediag == 'upptr':
-                        iu1 = np.triu_indices(lamb.shape[0], 1)
-                        il1 = np.tril_indices(lamb.shape[0], -1)
-                        lamb[il1] = lamb[iu1]
+                if typediag == 'upptr':
+                    iu1 = np.triu_indices(lamb.shape[0], 1)
+                    il1 = np.tril_indices(lamb.shape[0], -1)
+                    lamb[il1] = lamb[iu1]
+                    if 'SIC' in self.odd_parameters['name']:
                         self.odd.lagr_diag_s[k] = np.append(
                             np.diagonal(lamb).real)
-                        evals, lamb = np.linalg.eigh(lamb)
-                        wfs.gd.comm.broadcast(evals, 0)
-                        wfs.gd.comm.broadcast(lamb, 0)
-                        kpt.eps_n[:] = evals.copy()
-                        if rewrite_psi:
-                            lamb = lamb.conj().T
-                            kpt.psit_nG[:] = \
-                                np.tensordot(lamb, kpt.psit_nG[:],
-                                             axes=1)
-                            for a in kpt.P_ani.keys():
-                                kpt.P_ani[a][:] = \
-                                    np.dot(lamb, kpt.P_ani[a][:])
-                    else:
-                        n_occ = get_n_occ(kpt)
-                        dim = self.bd.nbands - n_occ
-                        lamb1 = (lamb[:n_occ, :n_occ] +
-                                lamb[:n_occ, :n_occ].T.conj()) / 2.0
-                        lumo = (lamb[n_occ:, n_occ:] +
-                                lamb[n_occ:, n_occ:].T.conj()) / 2.0
+                    evals, lamb = np.linalg.eigh(lamb)
+                    wfs.gd.comm.broadcast(evals, 0)
+                    wfs.gd.comm.broadcast(lamb, 0)
+                    kpt.eps_n[:] = evals.copy()
+                    if rewrite_psi:
+                        lamb = lamb.conj().T
+                        kpt.psit_nG[:] = \
+                            np.tensordot(lamb, kpt.psit_nG[:],
+                                         axes=1)
+                        for a in kpt.P_ani.keys():
+                            kpt.P_ani[a][:] = \
+                                np.dot(lamb, kpt.P_ani[a][:])
+                elif typediag == 'separate':
+                    n_occ = get_n_occ(kpt)
+                    dim = self.bd.nbands - n_occ
+                    lamb1 = (lamb[:n_occ, :n_occ] +
+                            lamb[:n_occ, :n_occ].T.conj()) / 2.0
+                    lumo = (lamb[n_occ:, n_occ:] +
+                            lamb[n_occ:, n_occ:].T.conj()) / 2.0
+                    if 'SIC' in self.odd_parameters['name']:
                         self.odd.lagr_diag_s[k] = np.append(
                             np.diagonal(lamb1).real,
                             np.diagonal(lumo).real)
-                        if n_occ != 0:
-                            evals, lamb1 = np.linalg.eigh(lamb1)
-                            wfs.gd.comm.broadcast(evals, 0)
-                            wfs.gd.comm.broadcast(lamb1, 0)
-                            lamb1 = lamb1.T
-                            kpt.eps_n[:n_occ] = evals[:n_occ]
-                        evals_lumo, lumo = np.linalg.eigh(lumo)
-                        wfs.gd.comm.broadcast(evals_lumo, 0)
-                        wfs.gd.comm.broadcast(lumo, 0)
-                        kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
-                        kpt.eps_n[n_occ + dim:] *= 0.0
-                        kpt.eps_n[n_occ + dim:] += \
-                            np.absolute(
-                                5.0 * kpt.eps_n[n_occ + dim - 1])
-                        if rewrite_psi:
-                            kpt.psit_nG[:n_occ] = \
-                                np.tensordot(lamb1.conj(),
-                                             kpt.psit_nG[:n_occ],
-                                             axes=1)
-                            for a in kpt.P_ani.keys():
-                                kpt.P_ani[a][:n_occ] = \
-                                    np.dot(lamb1.conj(),
-                                           kpt.P_ani[a][:n_occ])
-                else:
+                    if n_occ != 0:
+                        evals, lamb1 = np.linalg.eigh(lamb1)
+                        wfs.gd.comm.broadcast(evals, 0)
+                        wfs.gd.comm.broadcast(lamb1, 0)
+                        lamb1 = lamb1.T
+                        kpt.eps_n[:n_occ] = evals[:n_occ]
+                    evals_lumo, lumo = np.linalg.eigh(lumo)
+                    wfs.gd.comm.broadcast(evals_lumo, 0)
+                    wfs.gd.comm.broadcast(lumo, 0)
+                    kpt.eps_n[n_occ:n_occ + dim] = evals_lumo.real
+                    kpt.eps_n[n_occ + dim:] *= 0.0
+                    kpt.eps_n[n_occ + dim:] += \
+                        np.absolute(
+                            5.0 * kpt.eps_n[n_occ + dim - 1])
+                    if rewrite_psi:
+                        kpt.psit_nG[:n_occ] = \
+                            np.tensordot(lamb1.conj(),
+                                         kpt.psit_nG[:n_occ],
+                                         axes=1)
+                        for a in kpt.P_ani.keys():
+                            kpt.P_ani[a][:n_occ] = \
+                                np.dot(lamb1.conj(),
+                                       kpt.P_ani[a][:n_occ])
+                elif typediag == 'full':
                     lamb = (lamb + lamb.T.conj()) / 2.0
                     evals, lamb = np.linalg.eigh(lamb)
                     wfs.gd.comm.broadcast(evals, 0)
@@ -835,6 +850,8 @@ class DirectMin(Eigensolver):
                             kpt.P_ani[a][:] = \
                                 np.dot(lamb,
                                        kpt.P_ani[a][:])
+                else:
+                    raise KeyError
             else:
                 # TODO: if homo-lumo is around zero then
                 #  it is not good to do diagonalization
@@ -1188,6 +1205,9 @@ class DirectMin(Eigensolver):
                                          self.iloop.odd_pot.grad[k],
                                          axes=1)
                 wfs.timer.stop('Inner loop')
+
+                ham.get_energy(occ, kin_en_using_band=False,
+                               e_sic=self.e_sic)
                 return counter, True
 
             for kpt in wfs.kpt_u:
@@ -1251,22 +1271,28 @@ class DirectMin(Eigensolver):
         else:
             # we need to do it in order to initialize mom..
             # it will take occupied orbitals from previous step
-            occ_name = getattr(occ, 'name', None)
-            if occ_name == 'mom':
+            if self.globaliters == 0:
+                occ_name = getattr(occ, 'name', None)
+                if occ_name == 'mom':
+                    log(" MOM reference orbitals initialized.\n", flush=True)
+                    for kpt in wfs.kpt_u:
+                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                    occ.init_ref_orb2(wfs)
+                # wfs.orthonormalize()
                 for kpt in wfs.kpt_u:
                     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                occ.init_ref_orb2(wfs)
+                    super(DirectMin, self).subspace_diagonalize(
+                        ham, wfs, kpt, True)
+                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
 
-            for kpt in wfs.kpt_u:
-                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                super(DirectMin, self).subspace_diagonalize(
-                    ham, wfs, kpt, True)
-                wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                occ.calculate(wfs)  # fill occ numbers
+                if occ_name == 'mom':
+                    for kpt in wfs.kpt_u:
+                        occ.sort_wavefunctions(wfs, kpt)
+                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
+                                         kpt.q)
+                    occ.init_ref_orb2(wfs)
 
-            occ.calculate(wfs)  # fill occ numbers
-            if occ_name == 'mom':
-                for kpt in wfs.kpt_u:
-                    occ.sort_wavefunctions(wfs, kpt)
             return
 
         log("Initial Localization: ...", flush=True)

@@ -236,6 +236,7 @@ class SCFLoop:
         self.niter = 1
 
         wfs.eigensolver.eg_count = 0
+        wfs.eigensolver.globaliters = 0
         if hasattr(wfs.eigensolver, 'iloop'):
             if wfs.eigensolver.iloop is not None:
                 wfs.eigensolver.iloop.total_eg_count = 0

@@ -27,7 +27,7 @@ class ZeroCorrections:
         self.eks = 0.0
         self.changedocc = 0
         self.restart = 0
-        self.momevery = 15
+        self.momevery = 7
         self.momcounter = 0
 
     def get_energy_and_gradients(self, wfs, grad_knG=None,

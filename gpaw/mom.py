@@ -164,7 +164,7 @@ class OccupationsMOM(ZeroKelvin):
         if wfs.mode == 'lcao':
             P = np.dot(self.c_ref[kpt.s][f].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM.T))
-            P = np.sum(P**2, axis=0)
+            P = np.sum(np.absolute(P)**2, axis=0)
             P = P ** 0.5
         else:
             # Pseudo wave functions overlaps
@@ -179,7 +179,7 @@ class OccupationsMOM(ZeroKelvin):
 
             # Sum pseudo wave and PAW contributions
             P += P_corr
-            P = np.sum(P ** 2, axis=0)
+            P = np.sum(np.absolute(P)**2, axis=0)
             P = P ** 0.5
 
         return P
