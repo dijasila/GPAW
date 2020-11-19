@@ -320,7 +320,8 @@ class SCFLoop:
                 elif wfs.mode == 'lcao':
                     occ.calculate(wfs)
                     wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs)
+                                                                 wfs,
+                                                                 occ)
                     niter = wfs.eigensolver.eg_count
                     log(
                         '\nOccupied states converged after {:d} e/g evaluations'.format(

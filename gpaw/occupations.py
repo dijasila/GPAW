@@ -24,6 +24,8 @@ def create_occupation_number_object(name, **kwargs):
         return ZeroKelvin(True)
     if name == 'orbital-free':
         return TFOccupations()
+    if name == 'mom':
+        return ZeroKelvin(True)
     raise ValueError('Unknown occupation number object name: ' + name)
 
 

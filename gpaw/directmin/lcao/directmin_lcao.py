@@ -22,6 +22,7 @@ class DirectMinLCAO(DirectLCAO):
                  initial_orbitals=None,
                  initial_rotation='zero',  # not used right now
                  update_ref_orbs_counter=20,
+                 update_ref_orbs_canonical=False,
                  update_precond_counter=1000,
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
@@ -36,11 +37,13 @@ class DirectMinLCAO(DirectLCAO):
         self.initial_orbitals = initial_orbitals
         self.eg_count = 0
         self.update_ref_orbs_counter = update_ref_orbs_counter
+        self.update_ref_orbs_canonical = update_ref_orbs_canonical
         self.update_precond_counter = update_precond_counter
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
         self.representation = representation
         self.iters = 0
+        self.restart = False
         self.name = 'direct_min'
 
         self.a_mat_u = None  # skew-hermitian matrix to be exponented
@@ -267,10 +270,15 @@ class DirectMinLCAO(DirectLCAO):
             #     self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
 
+        occ.calculate(wfs)
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.restart = self.sort_wavefunctions_mom(occ, wfs)
+
+        self.update_ref_orbitals(wfs, ham, occ)
         wfs.timer.start('Preconditioning:')
         precond = self.update_preconditioning(wfs, self.use_prec)
         wfs.timer.stop('Preconditioning:')
-        self.update_ref_orbitals(wfs, ham)
 
         if str(self.search_direction) == 'LBFGS_P2':
             for kpt in wfs.kpt_u:
@@ -562,19 +570,23 @@ class DirectMinLCAO(DirectLCAO):
 
         return phi, der_phi, g_mat_u
 
-    def update_ref_orbitals(self, wfs, ham):
+    def update_ref_orbitals(self, wfs, ham, occ):
         if str(self.search_direction) == 'LBFGS_P2':
             return 0
 
         counter = self.update_ref_orbs_counter
-        if self.iters % counter == 0 and self.iters > 1:
-            # TODO: you need to recompute the gradients now
-            for kpt in wfs.kpt_u:
-                u = kpt.s * self.n_kps + kpt.q
-                # self.sort_wavefunctions(ham, wfs, kpt)
-                self.c_nm_ref[u] = kpt.C_nM.copy()
-                self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
-                # self.sort_wavefunctions(ham, wfs, kpt)
+        if (self.iters % counter == 0 and self.iters > 1) or \
+                self.restart:
+            self.iters = 1
+            if self.update_ref_orbs_canonical or self.restart:
+                self.get_canonical_representation(ham, wfs, occ)
+            else:
+                for kpt in wfs.kpt_u:
+                    u = kpt.s * self.n_kps + kpt.q
+                    # self.sort_wavefunctions(ham, wfs, kpt)
+                    self.c_nm_ref[u] = kpt.C_nM.copy()
+                    self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
+                    # self.sort_wavefunctions(ham, wfs, kpt)
 
             # choose search direction and line search algorithm
             if isinstance(self.sda, (basestring, dict)):
@@ -671,7 +683,7 @@ class DirectMinLCAO(DirectLCAO):
     def calculate_residual(self, kpt, H_MM, S_MM, wfs):
         return np.inf
 
-    def get_canonical_representation(self, ham, wfs):
+    def get_canonical_representation(self, ham, wfs, occ):
 
         # choose canonical orbitals which diagonalise
         # lagrange matrix. it's probably necessary
@@ -685,31 +697,32 @@ class DirectMinLCAO(DirectLCAO):
             h_mm = self.calculate_hamiltonian_matrix(ham, wfs, kpt)
             tri2full(h_mm)
             if self.odd.name == 'Zero':
-                n_init = 0
-                while True:
-                    n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
-                    kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
-                        rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
-                    n_init += n_fin
-                    if n_init == len(kpt.f_n):
-                        break
-                    elif n_init > len(kpt.f_n):
-                        raise SystemExit('Bug is here!')
-                    # this function rotates occpuied subspace
-                    # n_occ = 0
-                    # nbands = len(kpt.f_n)
-                    # while n_occ < nbands and kpt.f_n[n_occ] > 1e-10:
-                    #     n_occ += 1
-                    # n_unocc = len(kpt.f_n) - n_occ
-                    #
-                    # for x in [0, n_occ]:
-                    #     y = (x // n_occ) * (n_unocc - n_occ) + n_occ
-                    #     kpt.C_nM[x:x + y, :], kpt.eps_n[x:x + y] = \
-                    #         rotate_subspace(h_mm, kpt.C_nM[x:x + y, :])
+                if self.update_ref_orbs_canonical or self.restart:
+                    # Diagonalize entire Hamiltonian matrix
+                    kpt.C_nM, kpt.eps_n = rotate_subspace(h_mm, kpt.C_nM)
+                else:
+                    # Diagonalize equally occupied subspaces separately
+                    n_init = 0
+                    while True:
+                        n_fin = find_equally_occupied_subspace(kpt.f_n, n_init)
+                        kpt.C_nM[n_init:n_init + n_fin, :], kpt.eps_n[n_init:n_init + n_fin] = \
+                            rotate_subspace(h_mm, kpt.C_nM[n_init:n_init + n_fin, :])
+                        n_init += n_fin
+                        if n_init == len(kpt.f_n):
+                            break
+                        elif n_init > len(kpt.f_n):
+                            raise SystemExit('Bug is here!')
             elif self.odd.name == 'PZ_SIC':
                 self.odd.get_lagrange_matrices(h_mm, kpt.C_nM,
                                                kpt.f_n, kpt, wfs,
                                                update_eigenvalues=True)
+
+        occ.calculate(wfs)
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.sort_wavefunctions_mom(occ, wfs)
+
+        for kpt in wfs.kpt_u:
             u = kpt.s * self.n_kps + kpt.q
             self.c_nm_ref[u] = kpt.C_nM.copy()
             self.a_mat_u[u] = np.zeros_like(self.a_mat_u[u])
@@ -758,6 +771,23 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Sort WFS')
 
         return
+
+    def sort_wavefunctions_mom(self, occ, wfs):
+        changedocc = False
+        for kpt in wfs.kpt_u:
+            f_sn = kpt.f_n.copy()
+            if wfs.gd.comm.rank == 0:
+                occ.sort_wavefunctions(wfs, kpt)
+            # Broadcast coefficients, occupation numbers, eigenvalues
+            wfs.gd.comm.broadcast(kpt.eps_n, 0)
+            wfs.gd.comm.broadcast(kpt.f_n, 0)
+            wfs.gd.comm.broadcast(kpt.C_nM, 0)
+
+            if not np.allclose(kpt.f_n, f_sn) and self.iters > 1:
+                changedocc = True
+                wfs.atomic_correction.calculate_projections(wfs, kpt)
+
+        return changedocc
 
     def todict(self):
         return {'name': 'direct_min_lcao',
@@ -839,6 +869,69 @@ class DirectMinLCAO(DirectLCAO):
 
         return g_a, g_n
 
+    def get_numerical_hessian(self, n_dim, ham, wfs, dens, occ,
+                              c_nm_ref, eps=1.0e-5):
+
+        occ_name = getattr(occ, "name", None)
+        if occ_name == 'mom':
+            self.sort_wavefunctions_mom(occ, wfs)
+            for kpt in wfs.kpt_u:
+                u = self.n_kps * kpt.s + kpt.q
+                c_nm_ref[u] = kpt.C_nM.copy()
+
+        self.matrix_exp = 'egdecomp'
+
+        h = [eps, -eps]
+        coeif = [1.0, -1.0]
+
+        if self.dtype == complex:
+            range_z = 2
+            complex_gr = [1.0, 1.0j]
+        else:
+            range_z = 1
+            complex_gr = [1.0]
+
+        a_m = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            a_m[u] = np.zeros_like(self.a_mat_u[u])
+
+        hess_a = {}
+        hess_n = {}
+        for kpt in wfs.kpt_u:
+            u = self.n_kps * kpt.s + kpt.q
+            hess_a[u] = self.get_hessian(kpt)
+
+            m2 = self.a_mat_u[u].shape[0]
+            hess_n[u] = np.zeros((m2, m2))
+
+            for z in range(range_z):
+                r = 0
+                for i in range(m2):
+                    a = a_m[u][i]
+                    hess = np.zeros(m2)
+                    for l in range(2):
+                        # Does this work when self.dtype == complex?
+                        if z == 0:
+                            a_m[u][i] = a + h[l]
+                        else:
+                            a_m[u][i] = a + 1.0j * h[l]
+
+                        g = self.get_energy_and_gradients(a_m, n_dim, ham,
+                                                              wfs, dens, occ,
+                                                              c_nm_ref)[1]
+
+                        hess += g[u] * coeif[l]
+
+                    hess *= 1.0 / (2.0 * eps)
+
+                    hess_n[u][r] += hess * complex_gr[z]
+                    a_m[u][i] = a
+
+                    r += 1
+
+        return hess_a, hess_n
+
     def rotate_wavefunctions(self, wfs, a_mat_u, n_dim, c_nm_ref):
 
         wfs.timer.start('Unitary rotation')
@@ -917,6 +1010,7 @@ class DirectMinLCAO(DirectLCAO):
         wfs.timer.stop('Unitary rotation')
 
     def init_wave_functions(self, wfs, ham, occ, log):
+        occ_name = getattr(occ, "name", None)
 
         # if it is the first use of the scf then initialize
         # coefficient matrix using eigensolver
@@ -925,20 +1019,34 @@ class DirectMinLCAO(DirectLCAO):
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             occ.calculate(wfs)
+            if occ_name == 'mom':
+               self.sort_wavefunctions_mom(occ, wfs)
             self.localize_wfs(wfs, log)
 
         # if one want to use coefficients saved in gpw file
-        # or to use coefficients from the previous scf circle
+        # or to use coefficients from the previous scf cicle
         else:
+            if occ_name == 'mom':
+                # If positions have changed we need to initialize
+                # the MOM reference orbitals before orthogonalization
+                occ.calculate(wfs)
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
-                if self.c_nm_ref is not None:
-                    C = self.c_nm_ref[u]
-                else:
-                    C = kpt.C_nM
-                kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                if self.odd_parameters['name'] == 'Zero':
+                    super(DirectMinLCAO, self).iterate(ham, wfs)
+                elif self.odd_parameters['name'] == 'PZ_SIC':
+                    if self.c_nm_ref is not None:
+                        C = self.c_nm_ref[u]
+                    else:
+                        C = kpt.C_nM
+                    kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
+            if occ_name == 'mom':
+                self.sort_wavefunctions_mom(occ, wfs)
+                # Reset MOM so that MOM reference orbitals will
+                # be initialized again after orthogonalization
+                occ.reset(wfs)
 
     def localize_wfs(self, wfs, log):
 
