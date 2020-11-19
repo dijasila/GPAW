@@ -471,7 +471,7 @@ class InnerLoop:
 
         return G, Gr_n
 
-    def get_numerical_hessian(self, A_s, wfs, dens, log, eps=1.0e-5,
+    def get_numerical_hessian(self, A_s, wfs, dens, ham, occ, log, eps=1.0e-5,
                                 dtype=None):
 
         dtype=self.dtype
@@ -497,7 +497,7 @@ class InnerLoop:
                 for l in range(2):
                     A_s[k][i][j] = A + h[l]
                     A_s[k][j][i] = -(A + h[l])
-                    g = self.get_energy_and_gradients(A_s, wfs, dens)[1]
+                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[1]
                     g = g[k][iut]
                     hessian[ih, :] += g * coef[l]
 
