@@ -1032,9 +1032,9 @@ class DirectMinLCAO(DirectLCAO):
                 occ.calculate(wfs)
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
-                if self.odd.name == 'Zero':
+                if self.odd_parameters['name'] == 'Zero':
                     super(DirectMinLCAO, self).iterate(ham, wfs)
-                elif self.odd.name == 'PZ_SIC':
+                elif self.odd_parameters['name'] == 'PZ_SIC':
                     if self.c_nm_ref is not None:
                         C = self.c_nm_ref[u]
                     else:
