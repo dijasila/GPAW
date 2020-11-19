@@ -377,14 +377,24 @@ class InnerLoop:
         else:
             return self.e_total, outer_counter
 
-    def get_numerical_gradients(self, A_s, wfs, dens, log, eps=1.0e-5,
-                                dtype=None):
+    def get_numerical_gradients(self, A_s, wfs, dens,  ham, occ, log, eps=1.0e-5):
+
+        # initial things
+        self.psit_knG = {}
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            n_occ = self.n_occ[k]
+            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
+                                            kpt.psit_nG[:n_occ],
+                                            axes=1)
+
         dtype=self.dtype
+        assert dtype is float
         h = [eps, -eps]
         coef = [1.0, -1.0]
         Gr_n_x = {}
         Gr_n_y = {}
-        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens)
+        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)
         log("Estimating gradients using finite differences..")
         log(flush=True)
 
@@ -422,8 +432,7 @@ class InnerLoop:
                                     A_s[k][j][i] = -np.conjugate(
                                         A + h[l])
                             E =\
-                                self.get_energy_and_gradients(
-                                    A_s, wfs, dens)[0]
+                                self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[0]
                             grad_num[igr] += E * coef[l]
                         grad_num[igr]*= 1.0 / (2.0 * eps)
                         if i == j:
@@ -457,7 +466,7 @@ class InnerLoop:
                     for l in range(2):
                         A_s[k][i][j] = A + h[l]
                         A_s[k][j][i] = -(A + h[l])
-                        E = self.get_energy_and_gradients(A_s, wfs, dens)[0]
+                        E = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[0]
                         grad_num[igr] += E * coef[l]
                     grad_num[igr] *= 1.0 / (2.0 * eps)
                     A_s[k][i][j] = A
@@ -471,10 +480,19 @@ class InnerLoop:
 
         return G, Gr_n
 
-    def get_numerical_hessian(self, A_s, wfs, dens, log, eps=1.0e-5,
-                                dtype=None):
+    def get_numerical_hessian(self, A_s, wfs, dens, ham, occ, log, eps=1.0e-5):
+
+        # initial things
+        self.psit_knG = {}
+        for kpt in wfs.kpt_u:
+            k = self.n_kps * kpt.s + kpt.q
+            n_occ = self.n_occ[k]
+            self.psit_knG[k] = np.tensordot(self.U_k[k].T,
+                                            kpt.psit_nG[:n_occ],
+                                            axes=1)
 
         dtype=self.dtype
+        assert dtype is float
         h = [eps, -eps]
         coef = [1.0, -1.0]
         log("Estimating Hessian using finite differences..")
@@ -497,7 +515,7 @@ class InnerLoop:
                 for l in range(2):
                     A_s[k][i][j] = A + h[l]
                     A_s[k][j][i] = -(A + h[l])
-                    g = self.get_energy_and_gradients(A_s, wfs, dens)[1]
+                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[1]
                     g = g[k][iut]
                     hessian[ih, :] += g * coef[l]
 
