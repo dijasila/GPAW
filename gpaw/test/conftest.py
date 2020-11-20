@@ -7,8 +7,9 @@ from ase import Atoms
 from ase.io import read
 from ase.utils import devnull
 from ase.build import bulk
+import numpy as np
 
-from gpaw import GPAW
+from gpaw import GPAW, FermiDirac, Davidson, PW
 from gpaw.cli.info import info
 from gpaw.mpi import world, broadcast
 
@@ -185,9 +186,53 @@ class GPWFiles:
         from ase.build import molecule
         atoms = molecule('H2O', cell=[8, 8, 8], pbc=1)
         atoms.center()
-        atoms.calc = GPAW(mode='lcao', txt='h2o.txt')
+        atoms.calc = GPAW(mode='lcao', txt=self.path / 'h2o.txt')
         atoms.get_potential_energy()
         return atoms.calc
+
+    def ti2o4(self, symmetry):
+        pwcutoff = 400.0
+        k = 4
+        a = 4.59
+        c = 2.96
+        u = 0.305
+
+        rutile_cell = [[a, 0, 0],
+                       [0, a, 0],
+                       [0, 0, c]]
+
+        TiO2_basis = np.array([[0.0, 0.0, 0.0],
+                               [0.5, 0.5, 0.5],
+                               [u, u, 0.0],
+                               [-u, -u, 0.0],
+                               [0.5 + u, 0.5 - u, 0.5],
+                               [0.5 - u, 0.5 + u, 0.5]])
+
+        bulk_crystal = Atoms(symbols=['Ti', 'Ti', 'O', 'O', 'O', 'O'],
+                             scaled_positions=TiO2_basis,
+                             cell=rutile_cell,
+                             pbc=(1, 1, 1))
+
+        tag = '_nosym' if symmetry == 'off' else ''
+        bulk_calc = GPAW(mode=PW(pwcutoff),
+                         nbands=42,
+                         eigensolver=Davidson(1),
+                         kpts={'size': (k, k, k), 'gamma': True},
+                         xc='PBE',
+                         occupations=FermiDirac(0.00001),
+                         parallel={'band': 1},
+                         symmetry=symmetry,
+                         txt=self.path / f'ti2o4_pw{tag}.txt')
+
+        bulk_crystal.calc = bulk_calc
+        bulk_crystal.get_potential_energy()
+        return bulk_calc
+
+    def ti2o4_pw(self):
+        return self.ti2o4({})
+
+    def ti2o4_pw_nosym(self):
+        return self.ti2o4('off')
 
 
 class GPAWPlugin:
