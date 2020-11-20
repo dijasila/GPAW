@@ -30,6 +30,11 @@ Git master branch
 
 * We now have a :ref:`code coverage` report updated every night.
 
+* Plane-wave mode implementation of hybrid functionals can now be selected
+  via a *dict*: ``xc={'name': ..., 'backend': 'pw'}``, where then name must be
+  one of EXX, PBE0, HSE03, HSE06 or B3LYP.  The EXX fraction and damping
+  parameter can also be given in the dict.
+
 
 Version 20.10.0
 ===============
