@@ -1292,6 +1292,9 @@ class DirectMin(Eigensolver):
                         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
                                          kpt.q)
                     occ.init_ref_orb2(wfs)
+                    log(
+                        " Reinitialize reference orbitals after subspace diagon.\n",
+                        flush=True)
 
             return
 
