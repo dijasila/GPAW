@@ -12,8 +12,19 @@ See::
 """
 
 
-def zfs(calc) -> Array2D:
-    smooth_part()
+def zfs(calc, n1, n2) -> Array2D:
+    psit1, psit2 = (kpt.psit for kpt in calc.wfs.kpt_qs[0])
+    proj1, proj2 = (kpt.projections for kpt in calc.wfs.kpt_qs[0])
+
+    compensation_charge = LFS()
+
+    zfs1(psit1, proj1, psit2, proj2, compensation_charge)
+
+
+class Wavefuntions:
+    def __init__(self, psit, projections):
+        self.psit = psit
+        self.projections = projections
 
 
 class Densities:
@@ -21,6 +32,11 @@ class Densities:
         spin
         P_ani -> Q
         psit_G -> psit_R -> n_R -> n_G + Q * g_G
+
+
+def zfs1(psit1, proj1, psit2, proj2, compensation_charge):
+    for n, psit1_G in enumerate(psit1.array):
+        if
 def smooth_part(s1, s2, psit_,
                 spos_ac: Array2D) -> Array2D:
     """Contribution from pseudo spin-density."""
