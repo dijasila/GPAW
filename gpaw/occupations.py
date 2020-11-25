@@ -645,6 +645,9 @@ def create_occ_calc(dct: Dict[str, Any],
     name = kwargs.pop('name', '')
     kwargs['parallel_layout'] = parallel_layout
 
+    if name == 'unknown':
+        return OccupationNumberCalculator(**kwargs)
+
     occ: OccupationNumberCalculator
 
     if kwargs.get('width') == 0.0:

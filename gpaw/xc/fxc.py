@@ -17,6 +17,7 @@ from gpaw.utilities.blas import gemmdot, axpy
 from gpaw.wavefunctions.pw import PWDescriptor
 from gpaw.xc.rpa import RPACorrelation
 
+
 class FXCCorrelation(RPACorrelation):
     def __init__(self, calc, xc='RPA', filename=None,
                  skip_gamma=False, qsym=True, nlambda=8,
@@ -467,6 +468,7 @@ class FXCCorrelation(RPACorrelation):
         self.blockcomm.all_gather(np.array(e_w), E_w)
         energy = np.dot(E_w, self.weight_w) / (2 * np.pi)
         return energy
+
 
 class KernelWave:
 

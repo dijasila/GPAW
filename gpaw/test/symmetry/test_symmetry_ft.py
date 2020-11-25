@@ -73,8 +73,8 @@ def test_symmetry_symmetry_ft():
     a = 2.465250000
     b = 1.423312751
     c = 4.148733333
-    a1 = np.array([     a,-1.0*b, c])
-    a2 = np.array([ 0.0  , 2.0*b, c])
+    a1 = np.array([a,-1.0*b, c])
+    a2 = np.array([0.0  , 2.0*b, c])
     a3 = np.array([-1.0*a,-1.0*b, c])
     cell_cv = np.array([a1,a2,a3])
     id_a = [1, 1, 2, 2, 2, 2, 2, 2]

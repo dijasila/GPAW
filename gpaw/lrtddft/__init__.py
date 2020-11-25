@@ -83,7 +83,7 @@ class LrTDDFT(ExcitationList):
             self.eh_comm = mpi.world.new_communicator(
                 np.asarray(self.eh_comm))
 
-        if calculator is not None and self.xc == None:
+        if calculator is not None and self.xc is None:
             if calculator.initialized:
                 self.xc = calculator.hamiltonian.xc
             else:
@@ -108,7 +108,7 @@ class LrTDDFT(ExcitationList):
                                           calculator.hamiltonian, spos_ac)
 
             self.forced_update()
- 
+
     def set(self, **kwargs):
         """Change parameters."""
         changed = []
@@ -148,7 +148,7 @@ class LrTDDFT(ExcitationList):
         if not hasattr(self, 'Om') or self.calculator.check_state(atoms):
             self.calculator.get_potential_energy(atoms)
             self.forced_update()
-        
+
     def forced_update(self):
         """Recalc yourself."""
         if not self.force_ApmB:
@@ -270,7 +270,7 @@ class LrTDDFT(ExcitationList):
             timer.start('diagonalize')
             lr.diagonalize(restrict=restrict)
             timer.stop('diagonalize')
-            
+
         if fh is None:
             f.close()
 

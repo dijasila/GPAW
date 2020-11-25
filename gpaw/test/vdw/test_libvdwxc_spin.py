@@ -22,8 +22,8 @@ def test_vdw_libvdwxc_spin():
         gen = np.random.RandomState(17)
         n_sg = gd.zeros(2)
         n_sg[:] = gen.rand(*n_sg.shape)
-        #sigma_xg = gd.zeros(3)
-        #sigma_xg[:] = gen.random.rand(*sigma_xg.shape)
+        # sigma_xg = gd.zeros(3)
+        # sigma_xg[:] = gen.random.rand(*sigma_xg.shape)
 
         if hasattr(xc, 'libvdwxc'):
             xc._nspins = 2
@@ -43,7 +43,7 @@ def test_vdw_libvdwxc_spin():
         for testindex in all_indices:
             n1_sg = n_sg.copy()
             n2_sg = n_sg.copy()
-            v = v_sg[testindex]  * gd.dv
+            v = v_sg[testindex] * gd.dv
             n1_sg[testindex] -= dn
             n2_sg[testindex] += dn
 

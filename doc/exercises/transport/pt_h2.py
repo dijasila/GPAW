@@ -18,5 +18,6 @@ atoms.positions[-5:, 0] = [(i - 2.5) * a + b + 2 * c for i in range(4, 9)]
 atoms.positions[5:7, 0] = [1.5 * a + c, 1.5 * a + c + b]
 atoms.positions[:, 1:] = L / 2.
 
-write('pt_h2.pov', atoms, show_unit_cell=2,
-      transparent=False, display=False, run_povray=True)
+write('pt_h2.pov', atoms,
+      generic_projection_settings={'show_unit_cell': 2},
+      povray_settings={'transparent': False}).render()
