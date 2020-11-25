@@ -241,8 +241,8 @@ class SCFLoop:
                 e_sic = wfs.eigensolver.e_sic
             else:
                 e_sic = 0.0
-            # We need to calculate the occupation numbers here
-            # because get_energy wants e_entropy
+            # TODO: We need to calculate the occupation numbers here
+            #  because get_energy wants e_entropy
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             energy = ham.get_energy(e_entropy, wfs,
                                     kin_en_using_band=False,
