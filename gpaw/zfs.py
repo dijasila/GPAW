@@ -10,48 +10,58 @@ See::
     Phys. Rev. Research 2, 022024(R) – Published 30 April 2020
 
 """
+from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
+from gpaw.hints import Array2D
 
 
 def zfs(calc, n1, n2) -> Array2D:
-    psit1, psit2 = (kpt.psit for kpt in calc.wfs.kpt_qs[0])
-    proj1, proj2 = (kpt.projections for kpt in calc.wfs.kpt_qs[0])
+    """"""
+    wfs = calc.wfs
 
-    compensation_charge = LFS()
+    kpt_s = wfs.kpt_qs[0]
 
-    zfs1(psit1, proj1, psit2, proj2, compensation_charge)
+    wf1, wf2 = (WaveFunctions.from_kpt(kpt, wfs.setups)
+                for kpt in kpt_s)
+    compensation_charge = PWLFC([data.ghat_l for data in wfs.setups], wfs.pd)
+    compensation_charge.set_positions(wfs.spos_ac)
+
+    zfs1(*wf_s, compensation_charge)
 
 
-class Wavefuntions:
-    def __init__(self, psit, projections):
-        self.psit = psit
+class WaveFuntions:
+    def __init__(self, psit, projections, setups):
+        pd = psit.pd
+        N = len(psit)
+        self.psit_nR = pd.gd.empty(N)
+        for n, psit_G in enumerate(self.psit.array):
+            self.psit_nR[n] = pd.ifft(psit_G)
         self.projections = projections
+        self.setups = setups
+
+    @staticmethod
+    def from_kpt(kpt, setups):
+        return WaveFunctions(kpt.psit, kpt.projections, setups)
+
+    def __len__(self):
+        return len(self.psit_nR)
 
 
-class Densities:
-    def __init__(self):
-        spin
-        P_ani -> Q
-        psit_G -> psit_R -> n_R -> n_G + Q * g_G
-
-
-def zfs1(psit1, proj1, psit2, proj2, compensation_charge):
-    for n, psit1_G in enumerate(psit1.array):
-        if
-def smooth_part(s1, s2, psit_,
-                spos_ac: Array2D) -> Array2D:
-    """Contribution from pseudo spin-density."""
+def zfs1(wf1, wf2, compensation_charge) -> Array2D:
+    pd = wf1.psit.pd
+    G_Gv = pd.get_reciprocal_vectors()
     D_vv = np.zeros((3, 3))
 
-    for s1, psit1 in enumerate(psit_s):
-        for s2, psit2 in enumerate(psit_s):
-            density
-    pd = PWDescriptor(ecut, gd)
-    spin_density_G = pd.fft(spin_density_R)
-    G_Gv = pd.get_reciprocal_vectors()
-    eiGR_aG = np.exp(-1j * spos_ac.dot(gd.cell_cv).dot(G_Gv.T))
+    for n, psit1_R in enumerate(wf1.psit_nR):
+        D_anii = {}
+        for a, P1_ni in wf1.projections.items():
+            D_nii = np.einsum('i, nj -> nij', P1_ni[n1], wf2.projections[a])
+            D_anii[a] = D_nii
 
-    # Isotropic term:
-    W1_a = pd.integrate(spin_density_G, eiGR_aG) / gd.dv * (2 / 3)
+        n_nG = pd.empty(N)
+        for n_G, psit2_R in zip(n_nG, wf2.psit_nR):
+            n_G[:] = pf.fft(psit1_R * psit2_R)
+
+        compensation_charge.add(n_nG, Q_anL)
 
     spin_density_G[0] = 0.0
     G2_G = pd.G2_qG[0].copy()
