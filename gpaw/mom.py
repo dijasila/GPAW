@@ -218,6 +218,28 @@ class OccupationsMOM:
 
         return P
 
+    def sort_wavefunctions(self, wfs, kpt):
+        # Works only for LCAO calculations
+        occupied = kpt.f_n > 1.0e-10
+        n_occ = len(kpt.f_n[occupied])
+
+        if n_occ == 0.0:
+            return
+
+        if np.min(kpt.f_n[:n_occ]) == 0:
+            ind_occ = np.argwhere(occupied)
+            ind_unocc = np.argwhere(~occupied)
+            ind = np.vstack((ind_occ, ind_unocc))
+
+            # Sort coefficients, occupation numbers, eigenvalues
+            if wfs.mode == 'lcao':
+                kpt.C_nM = np.squeeze(kpt.C_nM[ind])
+            else:
+                kpt.psit_nG[:] = np.squeeze(kpt.psit_nG[ind])
+                wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+            kpt.f_n = np.squeeze(kpt.f_n[ind])
+            kpt.eps_n = np.squeeze(kpt.eps_n[ind])
+
     def smear_gaussian(self, kpt, occ, c, n):
         if c < 0:
             mask = (occ[kpt.s] != 0)

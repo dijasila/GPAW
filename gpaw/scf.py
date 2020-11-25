@@ -57,6 +57,12 @@ class SCFLoop:
         self.converged = False
 
     def irun(self, wfs, ham, dens, log, callback):
+
+        egs_name = getattr(wfs.eigensolver, "name", None)
+        if egs_name == 'direct_min':
+            self.run_dm(wfs, ham, dens, occ, log, callback)
+            return
+
         self.niter = 1
         while self.niter <= self.maxiter:
             wfs.eigensolver.iterate(ham, wfs)
@@ -146,6 +152,11 @@ class SCFLoop:
            time      wfs    density  energy       poisson"""
             if wfs.nspins == 2:
                 header += '  magmom'
+            if hasattr(wfs.eigensolver, 'iloop') or \
+                    hasattr(wfs.eigensolver, 'iloop_outer'):
+                if wfs.eigensolver.iloop is not None or \
+                        wfs.eigensolver.iloop_outer is not None:
+                    header += '  inner loop'
             if self.max_errors['force'] < np.inf:
                 l1 = header.find('total')
                 header = header[:l1] + '       ' + header[l1:]
@@ -200,8 +211,123 @@ class SCFLoop:
                 log(f'  {totmom_v[2]:+.4f}', end='')
             else:
                 log(' {:+.1f},{:+.1f},{:+.1f}'.format(*totmom_v), end='')
+        if hasattr(wfs.eigensolver, 'iloop') or \
+                hasattr(wfs.eigensolver, 'iloop_outer'):
+            iloop_counter = 0
+            if wfs.eigensolver.iloop is not None:
+                iloop_counter +=  wfs.eigensolver.iloop.eg_count
+            if wfs.eigensolver.iloop_outer is not None:
+                iloop_counter += wfs.eigensolver.iloop_outer.eg_count
+            log('  %d' % iloop_counter, end='')
 
         log(flush=True)
+
+    def run_dm(self, wfs, ham, dens, occ, log, callback):
+
+        self.niter = 1
+
+        wfs.eigensolver.eg_count = 0
+        wfs.eigensolver.globaliters = 0
+        if hasattr(wfs.eigensolver, 'iloop'):
+            if wfs.eigensolver.iloop is not None:
+                wfs.eigensolver.iloop.total_eg_count = 0
+        if hasattr(wfs.eigensolver, 'iloop_outer'):
+            if wfs.eigensolver.iloop_outer is not None:
+                wfs.eigensolver.iloop_outer.total_eg_count = 0
+
+        while self.niter <= self.maxiter:
+            wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
+            if hasattr(wfs.eigensolver, 'e_sic'):
+                e_sic = wfs.eigensolver.e_sic
+            else:
+                e_sic = 0.0
+            energy = ham.get_energy(occ, kin_en_using_band=False,
+                                    e_sic=e_sic)
+
+            self.old_energies.append(energy)
+            errors = self.collect_errors(dens, ham, wfs)
+
+            # Converged?
+            for kind, error in errors.items():
+                if error > self.max_errors[kind]:
+                    self.converged = False
+                    break
+            else:
+                self.converged = True
+
+            callback(self.niter)
+            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+
+            if self.converged:
+                if wfs.mode == 'fd' or wfs.mode == 'pw':
+                    wfs.eigensolver.choose_optimal_orbitals(
+                        wfs, ham, occ, dens)
+                    niter1 = wfs.eigensolver.eg_count
+                    niter2 = 0
+                    niter3 = 0
+
+                    iloop1 = wfs.eigensolver.iloop is not None
+                    iloop2 = wfs.eigensolver.iloop_outer is not None
+                    if iloop1:
+                        niter2 = wfs.eigensolver.total_eg_count_iloop
+                    if iloop2:
+                        niter3 = wfs.eigensolver.total_eg_count_iloop_outer
+
+                    if iloop1 and iloop2:
+                        log(
+                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
+                                niter3,
+                                niter2 + niter3))
+                    elif not iloop1 and iloop2:
+                        log(
+                            '\nOccupied states converged after {:d} e/g evaluations'.format(
+                                niter3))
+                    elif iloop1 and not iloop2:
+                        log(
+                            '\nOccupied states converged after {:d} KS and {:d} SIC e/g evaluations'.format(
+                                niter1,
+                                niter2))
+                    else:
+                        log(
+                            '\nOccupied states converged after {:d} e/g evaluations'.format(
+                                niter1))
+                    if wfs.eigensolver.convergelumo:
+                        log('Converge unoccupied states:')
+                        max_er = self.max_errors['eigenstates']
+                        max_er *= Ha ** 2 / wfs.nvalence
+                        wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
+                                                 max_er, log)
+                    else:
+                        wfs.eigensolver.initialized=False
+                        log('Unoccupied states are not converged.')
+                    rewrite_psi = True
+                    if 'SIC' in wfs.eigensolver.odd_parameters['name']:
+                        rewrite_psi = False
+                    wfs.eigensolver.get_canonical_representation(
+                        ham, wfs, occ, dens, rewrite_psi)
+                    wfs.eigensolver.get_energy_and_tangent_gradients(
+                        ham, wfs, dens, occ)
+                    break
+                elif wfs.mode == 'lcao':
+                    occ.calculate(wfs)
+                    wfs.eigensolver.get_canonical_representation(ham,
+                                                                 wfs,
+                                                                 occ)
+                    niter = wfs.eigensolver.eg_count
+                    log(
+                        '\nOccupied states converged after {:d} e/g evaluations'.format(
+                            niter))
+                    break
+                # else:
+                #     raise NotImplementedError
+
+            ham.npoisson = 0
+            self.niter += 1
+
+        if not self.converged:
+            log(oops)
+            raise KohnShamConvergenceError(
+                'Did not converge!  See text output for help.')
 
 
 oops = """
