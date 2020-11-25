@@ -626,7 +626,7 @@ class WaveFunctions:
             for x in lagr:
                 i = lagr_labeled[str(round(x, 12))]
                 log('%5d  %11.5f  %9.5f' % (
-                    i, Hartree * x, f_sn[0][i]))
+                    i, Ha * x, f_sn[0][i]))
             #
             # log("\nCanonical\n"
             #     "band:  Eigenvalues:")
@@ -706,10 +706,10 @@ class WaveFunctions:
 
                     log('%5d  %11.5f  %9.5f'
                         '%5d  %11.5f  %9.5f' %
-                        (i0, Hartree * x,
+                        (i0, Ha * x,
                          f_sn[0][i0],
                          i1,
-                         Hartree * y,
+                         Ha * y,
                          f_sn[1][i1]))
 
                 # log('\nCanonical    Up          Down')
@@ -775,9 +775,9 @@ class WaveFunctions:
                     log('band: %3d ' %
                         (i), end='')
                     log('%11.6f%11.6f%11.6f %8.3f%7.3f' %
-                        (-Hartree * u / (f[0] * f_sn[s][i]),
-                         -Hartree * xc / (f[1] * f_sn[s][i]),
-                         -Hartree * (u / (f[0] * f_sn[s][i]) +
+                        (-Ha * u / (f[0] * f_sn[s][i]),
+                         -Ha * xc / (f[1] * f_sn[s][i]),
+                         -Ha * (u / (f[0] * f_sn[s][i]) +
                                      xc/(f[1] * f_sn[s][i])),
                          f[0], f[1]), end='')
                     log(flush=True)
@@ -787,9 +787,9 @@ class WaveFunctions:
                     '-------------------------')
                 log('Total     ', end='')
                 log('%11.6f%11.6f%11.6f' %
-                    (-Hartree * u_s,
-                     -Hartree * xc_s,
-                     -Hartree * (u_s + xc_s)
+                    (-Ha * u_s,
+                     -Ha * xc_s,
+                     -Ha * (u_s + xc_s)
                      ), end='')
                 log("\n")
                 log(flush=True)
