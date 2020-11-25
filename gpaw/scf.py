@@ -60,7 +60,7 @@ class SCFLoop:
 
         egs_name = getattr(wfs.eigensolver, "name", None)
         if egs_name == 'direct_min':
-            self.run_dm(wfs, ham, dens, occ, log, callback)
+            self.run_dm(wfs, ham, dens, log, callback)
             return
 
         self.niter = 1
@@ -222,7 +222,7 @@ class SCFLoop:
 
         log(flush=True)
 
-    def run_dm(self, wfs, ham, dens, occ, log, callback):
+    def run_dm(self, wfs, ham, dens, log, callback):
 
         self.niter = 1
 
@@ -236,12 +236,16 @@ class SCFLoop:
                 wfs.eigensolver.iloop_outer.total_eg_count = 0
 
         while self.niter <= self.maxiter:
-            wfs.eigensolver.iterate(ham, wfs, dens, occ, log)
+            wfs.eigensolver.iterate(ham, wfs, dens, log)
             if hasattr(wfs.eigensolver, 'e_sic'):
                 e_sic = wfs.eigensolver.e_sic
             else:
                 e_sic = 0.0
-            energy = ham.get_energy(occ, kin_en_using_band=False,
+            # We need to calculate the occupation numbers here
+            # because get_energy wants e_entropy
+            e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
+            energy = ham.get_energy(e_entropy, wfs,
+                                    kin_en_using_band=False,
                                     e_sic=e_sic)
 
             self.old_energies.append(energy)
@@ -256,12 +260,12 @@ class SCFLoop:
                 self.converged = True
 
             callback(self.niter)
-            self.log(log, self.niter, wfs, ham, dens, occ, errors)
+            self.log(log, self.niter, wfs, ham, dens, errors)
 
             if self.converged:
                 if wfs.mode == 'fd' or wfs.mode == 'pw':
                     wfs.eigensolver.choose_optimal_orbitals(
-                        wfs, ham, occ, dens)
+                        wfs, ham, dens)
                     niter1 = wfs.eigensolver.eg_count
                     niter2 = 0
                     niter3 = 0
@@ -295,7 +299,7 @@ class SCFLoop:
                         log('Converge unoccupied states:')
                         max_er = self.max_errors['eigenstates']
                         max_er *= Ha ** 2 / wfs.nvalence
-                        wfs.eigensolver.run_lumo(ham, wfs, dens, occ,
+                        wfs.eigensolver.run_lumo(ham, wfs, dens,
                                                  max_er, log)
                     else:
                         wfs.eigensolver.initialized=False
@@ -304,15 +308,15 @@ class SCFLoop:
                     if 'SIC' in wfs.eigensolver.odd_parameters['name']:
                         rewrite_psi = False
                     wfs.eigensolver.get_canonical_representation(
-                        ham, wfs, occ, dens, rewrite_psi)
+                        ham, wfs, dens, rewrite_psi)
                     wfs.eigensolver.get_energy_and_tangent_gradients(
-                        ham, wfs, dens, occ)
+                        ham, wfs, dens)
                     break
                 elif wfs.mode == 'lcao':
-                    occ.calculate(wfs)
+                    # Do we need to calculate the occupation numbers here?
+                    wfs.calculate_occupation_numbers(dens.fixed)
                     wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs,
-                                                                 occ)
+                                                                 wfs)
                     niter = wfs.eigensolver.eg_count
                     log(
                         '\nOccupied states converged after {:d} e/g evaluations'.format(
