@@ -461,7 +461,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
 
     from gpaw import GPAW  # noqa
 
-    if not isinstance(calc, GPAW):
+    if isinstance(calc, (str, Path)):
         calc = GPAW(calc)
 
     n1 = n1 or 0
