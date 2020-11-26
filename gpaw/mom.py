@@ -282,13 +282,6 @@ class OccupationsMOM:
 
         return f_sn_unique
 
-    def reset(self):
-        # TODO: We should probably get rid of this
-        self.iters = 0
-        if self.space == 'full':
-            for u, kpt in enumerate(self.wfs.kpt_u):
-                self.numbers[u] = kpt.f_n
-
 
 class MOMConstraint:
     def __init__(self, n, nstart=0, nend=None):

@@ -1036,10 +1036,6 @@ class DirectMinLCAO(DirectLCAO):
         # if one want to use coefficients saved in gpw file
         # or to use coefficients from the previous scf cicle
         else:
-            if occ_name == 'mom':
-                # If positions have changed we need to initialize
-                # the MOM reference orbitals before orthogonalization
-                wfs.calculate_occupation_numbers()
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nbzkpts + kpt.q
                 if self.odd_parameters['name'] == 'Zero':
@@ -1054,9 +1050,9 @@ class DirectMinLCAO(DirectLCAO):
             wfs.calculate_occupation_numbers()
             if occ_name == 'mom':
                 self.sort_wavefunctions_mom(wfs)
-                # Reset MOM so that MOM reference orbitals will
-                # be initialized again after orthogonalization
-                wfs.occupations.reset(wfs)
+                # Reinitialize MOM reference orbitals
+                # after orthogonalization
+                wfs.occupations.initialize_reference_orbitals()
 
     def localize_wfs(self, wfs, log):
 
