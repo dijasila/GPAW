@@ -254,8 +254,12 @@ class DirectMinLCAO(DirectLCAO):
             'Please, use: nbands=\'nao\''
         assert wfs.bd.comm.size == 1, \
             'Band parallelization is not supported'
-        assert wfs.occupations.width < 1.0e-5, \
-            'Zero Kelvin only.'
+
+        occ_dct = wfs.occupations.todict()
+        width = occ_dct.get('width')
+        if width is not None:
+            assert width < 1.0e-5, \
+                'Zero Kelvin only.'
 
         wfs.timer.start('Direct Minimisation step')
 
