@@ -316,7 +316,8 @@ class SCFLoop:
                     # Do we need to calculate the occupation numbers here?
                     wfs.calculate_occupation_numbers(dens.fixed)
                     wfs.eigensolver.get_canonical_representation(ham,
-                                                                 wfs)
+                                                                 wfs,
+                                                                 dens)
                     niter = wfs.eigensolver.eg_count
                     log(
                         '\nOccupied states converged after {:d} e/g evaluations'.format(
