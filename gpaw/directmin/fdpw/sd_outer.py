@@ -7,7 +7,7 @@ class SteepestDescent:
         """
         """
         self.iters = 0
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.dimensions = dimensions
 
     def __str__(self):
@@ -805,7 +805,7 @@ class LSR1P(SteepestDescent):
 #         :param m: memory (number of previous steps to use)
 #         """
 #
-#         self.n_kps = wfs.kd.nks // wfs.kd.nspins
+#         self.n_kps = wfs.kd.nibzkpts
 #         self.n_bands = wfs.bd.nbands
 #
 #         self.s_k = {i: None for i in range(m)}

@@ -179,7 +179,7 @@ class DirectMin(Eigensolver):
         if obj_func is None:
             obj_func = self.evaluate_phi_and_der_phi
         self.dtype = wfs.dtype
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         # dimensionality, number of state to be converged:
         self.dimensions = {}
         for kpt in wfs.kpt_u:
@@ -427,7 +427,7 @@ class DirectMin(Eigensolver):
         wfs.timer.stop('Get Search Direction')
         dot = 0.0
         for kpt in wfs.kpt_u:
-            k = wfs.kd.nks // wfs.kd.nspins * kpt.s + kpt.q
+            k = wfs.kd.nibzkpts * kpt.s + kpt.q
             for p in p_knG[k]:
                 dot += wfs.integrate(p, p, False)
         dot = dot.real
@@ -740,7 +740,7 @@ class DirectMin(Eigensolver):
 
     def error_eigv(self, wfs, grad_knG):
 
-        n_kps = wfs.kd.nks // wfs.kd.nspins
+        n_kps = wfs.kd.nibzkpts
         norm = [0.0]
         for kpt in wfs.kpt_u:
             k = n_kps * kpt.s + kpt.q
