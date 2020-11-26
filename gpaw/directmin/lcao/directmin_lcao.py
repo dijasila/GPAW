@@ -274,7 +274,7 @@ class DirectMinLCAO(DirectLCAO):
             #     self.sort_wavefunctions(ham, wfs, kpt)
             self.initialize_2(wfs, dens, ham)
 
-        wfs.calculate_occupation_numbers(dens.fixed)
+        self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
         occ_name = getattr(wfs.occupations, "name", None)
         if occ_name == 'mom':
             self.restart = self.sort_wavefunctions_mom(wfs)
@@ -423,11 +423,7 @@ class DirectMinLCAO(DirectLCAO):
         ham.update(dens, wfs, False)
         wfs.timer.stop('Update Kohn-Sham energy')
 
-        # TODO: Is it fine to calculate the occupations numbers here?
-        #  Or should we do it earlier and pass e_entropy?
-        e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
-
-        return ham.get_energy(e_entropy, wfs, False)
+        return ham.get_energy(self._e_entropy, wfs, False)
 
     def get_gradients(self, h_mm, c_nm, f_n, evec, evals, kpt, timer):
 
@@ -1028,7 +1024,7 @@ class DirectMinLCAO(DirectLCAO):
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver:
             super(DirectMinLCAO, self).iterate(ham, wfs)
             # TODO: Do we need to pass dens.fixed here?
-            wfs.calculate_occupation_numbers()
+            self._e_entropy = wfs.calculate_occupation_numbers()
             if occ_name == 'mom':
                self.sort_wavefunctions_mom(wfs)
             self.localize_wfs(wfs, log)
@@ -1047,7 +1043,7 @@ class DirectMinLCAO(DirectLCAO):
                         C = kpt.C_nM
                     kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
-            wfs.calculate_occupation_numbers()
+            self._e_entropy = wfs.calculate_occupation_numbers()
             if occ_name == 'mom':
                 self.sort_wavefunctions_mom(wfs)
                 # Reinitialize MOM reference orbitals
