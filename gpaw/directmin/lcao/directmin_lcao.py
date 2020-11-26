@@ -1027,7 +1027,8 @@ class DirectMinLCAO(DirectLCAO):
         if (not wfs.coefficients_read_from_file and
                 self.c_nm_ref is None) or self.init_from_ks_eigsolver:
             super(DirectMinLCAO, self).iterate(ham, wfs)
-            wfs.occupations.calculate(wfs)
+            # TODO: Do we need to pass dens.fixed here?
+            wfs.calculate_occupation_numbers()
             if occ_name == 'mom':
                self.sort_wavefunctions_mom(wfs)
             self.localize_wfs(wfs, log)
@@ -1038,7 +1039,7 @@ class DirectMinLCAO(DirectLCAO):
             if occ_name == 'mom':
                 # If positions have changed we need to initialize
                 # the MOM reference orbitals before orthogonalization
-                wfs.occupations.calculate(wfs)
+                wfs.calculate_occupation_numbers()
             for kpt in wfs.kpt_u:
                 u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
                 if self.odd_parameters['name'] == 'Zero':
@@ -1050,7 +1051,7 @@ class DirectMinLCAO(DirectLCAO):
                         C = kpt.C_nM
                     kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
-            wfs.occupations.calculate(wfs)
+            wfs.calculate_occupation_numbers()
             if occ_name == 'mom':
                 self.sort_wavefunctions_mom(wfs)
                 # Reset MOM so that MOM reference orbitals will
