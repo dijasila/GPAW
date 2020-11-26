@@ -117,7 +117,7 @@ class DirectMinLCAO(DirectLCAO):
     def initialize_2(self, wfs, dens, ham):
 
         self.dtype = wfs.dtype
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
 
         # dimensionality of the problem.
         # this implementation rotates among all bands
@@ -1041,7 +1041,7 @@ class DirectMinLCAO(DirectLCAO):
                 # the MOM reference orbitals before orthogonalization
                 wfs.calculate_occupation_numbers()
             for kpt in wfs.kpt_u:
-                u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
+                u = kpt.s * wfs.kd.nbzkpts + kpt.q
                 if self.odd_parameters['name'] == 'Zero':
                     super(DirectMinLCAO, self).iterate(ham, wfs)
                 elif self.odd_parameters['name'] == 'PZ_SIC':
