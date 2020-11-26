@@ -366,7 +366,7 @@ class DirectMin(Eigensolver):
                 self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(wfs, kpt)
+                        wfs.occupations.sort_wavefunctions(kpt)
                 self.iters = 0
                 self.initialized = False
                 self.need_init_odd = True
@@ -382,7 +382,7 @@ class DirectMin(Eigensolver):
                     wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
-                            wfs.occupations.sort_wavefunctions(wfs, kpt)
+                            wfs.occupations.sort_wavefunctions(kpt)
                     self.iters = 0
                     self.initialized = False
                     self.need_init_odd = True
@@ -460,7 +460,7 @@ class DirectMin(Eigensolver):
                 wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(wfs, kpt)
+                        wfs.occupations.sort_wavefunctions(kpt)
                 self.iters = 0
                 self.initialized = False
                 self.need_init_odd = True
@@ -476,7 +476,7 @@ class DirectMin(Eigensolver):
                     wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
                     if occ_name == 'mom':
                         for kpt in wfs.kpt_u:
-                            wfs.occupations.sort_wavefunctions(wfs, kpt)
+                            wfs.occupations.sort_wavefunctions(kpt)
                     self.iters = 0
                     self.initialized = False
                     self.need_init_odd = True
@@ -933,7 +933,7 @@ class DirectMin(Eigensolver):
         elif occ_name == 'mom' and 'SIC' not in self.odd_parameters['name']:
             self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             for kpt in wfs.kpt_u:
-                wfs.occupations.sort_wavefunctions(wfs, kpt)
+                wfs.occupations.sort_wavefunctions(kpt)
 
     def get_gradients_lumo(self, ham, wfs, kpt):
 
@@ -1270,7 +1270,7 @@ class DirectMin(Eigensolver):
                 occ_name = getattr(wfs.occupations, 'name', None)
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(wfs, kpt)
+                        wfs.occupations.sort_wavefunctions(kpt)
                 return
         else:
             # we need to do it in order to initialize mom..
@@ -1293,7 +1293,7 @@ class DirectMin(Eigensolver):
                 self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)  # fill occ numbers
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
-                        wfs.occupations.sort_wavefunctions(wfs, kpt)
+                        wfs.occupations.sort_wavefunctions(kpt)
                         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
                                          kpt.q)
                     wfs.occupations.initialize_reference_orbitals()
@@ -1314,7 +1314,7 @@ class DirectMin(Eigensolver):
             occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    wfs.occupations.sort_wavefunctions(wfs, kpt)
+                    wfs.occupations.sort_wavefunctions(kpt)
 
         if wfs.mode == 'pw' and \
                 self.initial_orbitals != 'KS' and \

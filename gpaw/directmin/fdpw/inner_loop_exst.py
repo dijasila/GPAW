@@ -13,7 +13,7 @@ class InnerLoop:
                  tol=1.0e-3, maxiter=50, g_tol=5.0e-4, useprec=False):
 
         self.odd_pot = odd_pot
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.g_tol = g_tol / Hartree
         self.tol = tol
         self.dtype = wfs.dtype
@@ -42,7 +42,7 @@ class InnerLoop:
             self.U_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
             self.Unew_k[k] = np.eye(self.n_occ[k], dtype=self.dtype)
 
-    def get_energy_and_gradients(self, a_k, wfs, dens, ham, occ):
+    def get_energy_and_gradients(self, a_k, wfs, dens, ham):
         """
         Energy E = E[A]. Gradients G_ij[A] = dE/dA_ij
         Returns E[A] and G[A] at psi = exp(A).T kpt.psi
@@ -76,7 +76,7 @@ class InnerLoop:
         wfs.timer.start('Energy and gradients')
         g_k, e_inner, kappa1 = \
             self.odd_pot.get_energy_and_gradients_inner_loop(
-                wfs, a_k, evals, evecs, dens, ham=ham, occ=occ)
+                wfs, a_k, evals, evecs, dens, ham=ham)
         wfs.timer.stop('Energy and gradients')
         if kappa1 > self.kappa:
             self.kappa = kappa1
@@ -90,7 +90,7 @@ class InnerLoop:
         return self.e_total, g_k
 
     def evaluate_phi_and_der_phi(self, a_k, p_k, n_dim, alpha,
-                                 wfs, dens, ham, occ,
+                                 wfs, dens, ham,
                                  phi=None, g_k=None):
         """
         phi = f(x_k + alpha_k*p_k)
@@ -100,7 +100,7 @@ class InnerLoop:
         if phi is None or g_k is None:
             x_k = {k: a_k[k] + alpha * p_k[k] for k in a_k.keys()}
             phi, g_k = \
-                self.get_energy_and_gradients(x_k, wfs, dens, ham, occ)
+                self.get_energy_and_gradients(x_k, wfs, dens, ham)
             del x_k
         else:
             pass
@@ -144,7 +144,7 @@ class InnerLoop:
         return p_k
 
     def run(self, e_ks, wfs, dens, log, outer_counter=0,
-            small_random=True, ham=None, occ=None):
+            small_random=True, ham=None):
 
         log = log
         self.run_count += 1
@@ -173,7 +173,7 @@ class InnerLoop:
 
         threelasten = []
         # get initial energy and gradients
-        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens, ham, occ)
+        self.e_total, g_k = self.get_energy_and_gradients(a_k, wfs, dens, ham)
         threelasten.append(self.e_total)
         g_max = g_max_norm(g_k, wfs, self.n_occ)
         if g_max < self.g_tol:
@@ -241,7 +241,7 @@ class InnerLoop:
             phi_0, der_phi_0, g_k = \
                 self.evaluate_phi_and_der_phi(a_k, p_k, None,
                                               0.0, wfs, dens,
-                                              ham=ham, occ=occ,
+                                              ham=ham,
                                               phi=phi_0, g_k=g_k)
             if self.counter > 1:
                 phi_old = phi_0
@@ -251,7 +251,7 @@ class InnerLoop:
             # also get energy and gradients for optimal step
             alpha, phi_0, der_phi_0, g_k = \
                 self.ls.step_length_update(
-                    a_k, p_k, None, wfs, dens, ham, occ,
+                    a_k, p_k, None, wfs, dens, ham,
                     phi_0=phi_0, der_phi_0=der_phi_0,
                     phi_old=phi_old_2, der_phi_old=der_phi_old_2,
                     alpha_max=3.0, alpha_old=alpha, kpdescr=wfs.kd)
@@ -377,7 +377,7 @@ class InnerLoop:
         else:
             return self.e_total, outer_counter
 
-    def get_numerical_gradients(self, A_s, wfs, dens,  ham, occ, log, eps=1.0e-5):
+    def get_numerical_gradients(self, A_s, wfs, dens,  ham, log, eps=1.0e-5):
 
         # initial things
         self.psit_knG = {}
@@ -394,7 +394,7 @@ class InnerLoop:
         coef = [1.0, -1.0]
         Gr_n_x = {}
         Gr_n_y = {}
-        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)
+        E_0, G = self.get_energy_and_gradients(A_s, wfs, dens, ham)
         log("Estimating gradients using finite differences..")
         log(flush=True)
 
@@ -432,7 +432,7 @@ class InnerLoop:
                                     A_s[k][j][i] = -np.conjugate(
                                         A + h[l])
                             E =\
-                                self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[0]
+                                self.get_energy_and_gradients(A_s, wfs, dens, ham)[0]
                             grad_num[igr] += E * coef[l]
                         grad_num[igr]*= 1.0 / (2.0 * eps)
                         if i == j:
@@ -466,7 +466,7 @@ class InnerLoop:
                     for l in range(2):
                         A_s[k][i][j] = A + h[l]
                         A_s[k][j][i] = -(A + h[l])
-                        E = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[0]
+                        E = self.get_energy_and_gradients(A_s, wfs, dens, ham)[0]
                         grad_num[igr] += E * coef[l]
                     grad_num[igr] *= 1.0 / (2.0 * eps)
                     A_s[k][i][j] = A
@@ -480,7 +480,7 @@ class InnerLoop:
 
         return G, Gr_n
 
-    def get_numerical_hessian(self, A_s, wfs, dens, ham, occ, log, eps=1.0e-5):
+    def get_numerical_hessian(self, A_s, wfs, dens, ham, log, eps=1.0e-5):
 
         # initial things
         self.psit_knG = {}
@@ -515,7 +515,7 @@ class InnerLoop:
                 for l in range(2):
                     A_s[k][i][j] = A + h[l]
                     A_s[k][j][i] = -(A + h[l])
-                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham, occ)[1]
+                    g = self.get_energy_and_gradients(A_s, wfs, dens, ham)[1]
                     g = g[k][iut]
                     hessian[ih, :] += g * coef[l]
 
@@ -655,7 +655,7 @@ def log_f(log, niter, kappa, e_ks, e_sic, outer_counter=None, g_max=np.inf):
 
 def g_max_norm(g_k, wfs, n_occ):
     # get maximum of gradients
-    n_kps = wfs.kd.nks // wfs.kd.nspins
+    n_kps = wfs.kd.nibzkpts
 
     max_norm = []
     for kpt in wfs.kpt_u:

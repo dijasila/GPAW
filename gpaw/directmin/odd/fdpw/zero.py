@@ -33,7 +33,7 @@ class ZeroCorrections:
     def get_energy_and_gradients(self, wfs, grad_knG=None,
                                  dens=None, U_k=None,
                                  add_grad=False,
-                                 ham=None, occ=None):
+                                 ham=None):
 
         wfs.timer.start('Update Kohn-Sham energy')
         # calc projectors
@@ -46,7 +46,7 @@ class ZeroCorrections:
                 n_kps = wfs.kd.nibzkpts
                 u = n_kps * kpt.s + kpt.q
                 f_sn[u] = kpt.f_n.copy()
-            occ.calculate(wfs)
+            self._e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             self.changedocc = 0
             for kpt in wfs.kpt_u:
                 n_kps = wfs.kd.nibzkpts
@@ -54,23 +54,29 @@ class ZeroCorrections:
                 self.changedocc = int(
                     not np.allclose(f_sn[u], kpt.f_n.copy()))
             self.changedocc = wfs.kd.comm.max(self.changedocc)
-            occ_name = getattr(occ, 'name', None)
+            occ_name = getattr(wfs.occupations, 'name', None)
             if occ_name == 'mom':
                 for kpt in wfs.kpt_u:
-                    occ.sort_wavefunctions(wfs, kpt)
+                    wfs.occupations.sort_wavefunctions(wfs, kpt)
             if self.changedocc:
                 self.restart = 1
         self.momcounter += 1
 
         dens.update(wfs)
         ham.update(dens, wfs, False)
+        # TODO: We need to pass e_entropy to ham.get_energy
+        #  but e_entropy requires the calculation of the
+        #  occupation numbers. Setting e_entropy = 0.0
+        #  should work only for zero temperature calculations
+        if not hasattr(self, '_e_entropy'):
+            self._e_entropy = 0.0
         wfs.timer.stop('Update Kohn-Sham energy')
-        energy = ham.get_energy(occ, False)
+        energy = ham.get_energy(self._e_entropy, wfs, False)
 
         for kpt in wfs.kpt_u:
             self.get_energy_and_gradients_kpt(
                 wfs, kpt, grad_knG, dens, U_k,
-                add_grad=add_grad, ham=ham, occ=occ)
+                add_grad=add_grad, ham=ham)
         # energy = wfs.kd.comm.sum(energy)
         self.eks = energy
         return energy
@@ -78,7 +84,7 @@ class ZeroCorrections:
     def get_energy_and_gradients_kpt(self, wfs, kpt, grad_knG,
                                      dens=None, U_k=None,
                                      add_grad=False,
-                                     ham=None, occ=None):
+                                     ham=None):
 
         k = self.n_kps * kpt.s + kpt.q
         nbands = wfs.bd.nbands
@@ -122,13 +128,13 @@ class ZeroCorrections:
 
     def get_energy_and_gradients_inner_loop(self, wfs, a_mat,
                                             evals, evec, dens,
-                                            ham, occ):
+                                            ham):
         nbands = wfs.bd.nbands
         e_sic = self.get_energy_and_gradients(wfs,
                                               grad_knG=None,
                                               dens=dens, U_k=None,
                                               add_grad=False,
-                                              ham=ham, occ=occ)
+                                              ham=ham)
         wfs.timer.start('Unitary gradients')
         g_k = {}
         kappa_tmp=0.0
