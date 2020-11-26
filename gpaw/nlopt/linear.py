@@ -4,6 +4,7 @@ from ase.units import Bohr, _hbar, _e, _me, _eps0
 from gpaw.nlopt.basic import load_data
 from gpaw.mpi import world
 
+
 def get_chi_tensor(
         freqs=[1.0], eta=0.05,
         ftol=1e-4, Etol=1e-6, eshift=0.0,
