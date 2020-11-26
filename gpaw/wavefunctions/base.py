@@ -603,7 +603,7 @@ class WaveFunctions:
         # evals = {}
         f_sn = {}
         for kpt in self.kpt_u:
-            u = kpt.s * self.kd.nks // self.kd.nspins + kpt.q
+            u = kpt.s * self.kd.nibzkpts + kpt.q
             # evals[u] = kpt.eps_n
             f_sn[u] = kpt.f_n
 
