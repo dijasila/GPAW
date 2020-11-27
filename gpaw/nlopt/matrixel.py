@@ -215,14 +215,15 @@ def make_nlodata(gs_name='gs.gpw', out_name='mml.npz',
             w_sk = np.array(w_sk, float)
             bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
             nk = len(w_sk[0])
-            E_skn = [calc.band_structure().todict()['energies'][s1] for s1 in spin]
+            E_skn = [calc.band_structure().todict()['energies'][s1]
+                     for s1 in spin]
             E_skn = np.array(E_skn, float)
             f_skn = np.zeros((len(spin), nk, nbt), dtype=float)
             for sind, s1 in enumerate(spin):
                 for ik in range(nk):
                     f_skn[sind, ik] = calc.get_occupation_numbers(
                         kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
-            w_sk *= bz_vol * 2.0 / ns 
+            w_sk *= bz_vol * 2.0 / ns
         else:
             # In other cores set them to none
             ni = None
@@ -240,15 +241,16 @@ def make_nlodata(gs_name='gs.gpw', out_name='mml.npz',
     with timer('Compute the momentum matrix elements'):
         p_skvnn = []
         for s1 in spin:
-            p_kvnn = get_mml(gs_name=gs_name, spin=s1, ni=ni, nf=nf, timer=timer)
+            p_kvnn = get_mml(gs_name=gs_name, spin=s1,
+                             ni=ni, nf=nf, timer=timer)
             p_skvnn.append(p_kvnn)
         if world.rank == 0:
             p_skvnn = np.array(p_skvnn, complex)
 
     # Save the output to the file
     if world.rank == 0:
-        np.savez(out_name, w_sk=w_sk,
-                 f_skn=f_skn[:, :, ni:nf], E_skn=E_skn[:, :, ni:nf], p_skvnn=p_skvnn)
+        np.savez(out_name, w_sk=w_sk, f_skn=f_skn[:, :, ni:nf],
+                 E_skn=E_skn[:, :, ni:nf], p_skvnn=p_skvnn)
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):

@@ -91,8 +91,8 @@ def get_shift(
     with timer('Gather data from cores'):
         world.sum(sum2_l)
 
-    # Make the output in SI unit (2 is for spin)
-    dim_init = -1j * 2 * _e**3 / (2 * _hbar * (2.0 * np.pi)**3)
+    # Make the output in SI unit
+    dim_init = -1j * _e**3 / (2 * _hbar * (2.0 * np.pi)**3)
     dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
         (_e**4 * (Bohr * 1e-10)**3) * (_hbar / _me)**3
     dim_SI = 1j * dim_init * dim_sum  # 1j due to imag in loop
