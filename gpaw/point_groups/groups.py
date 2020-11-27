@@ -97,7 +97,7 @@ class Cs(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
         self.operations = [('E', self.unit),
-                           ('sigma_v', self.mirror_yz(np.diag((1,1,1))))]
+                           ('sigma_v', self.mirror_yz)]
         self.operation_names = [pair[0] for pair in self.operations]
         self.symmetries = ['A1', 'A2']
         self.character_table = [
@@ -1239,8 +1239,8 @@ class C2h(Pointgroup):
     def __init__(self):
         self.operations = [('E', self.unit),
                            ('C2', self.rotate_mainaxis(angle=180.)),
-                           ('i', self.invert(np.diag((1,1,1)))),
-                           ('sigma_h', self.sigma_h(np.diag((1,1,1))))]
+                           ('i', self.invert),
+                           ('sigma_h', self.sigma_h)]
         self.operation_names = [pair[0] for pair in self.operations]
         self.symmetries = ['Ag', 'Bg', 'Au', 'Bu']
         self.character_table = [[1.,  1.,  1.,  1.],
