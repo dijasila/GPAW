@@ -9,12 +9,13 @@ from gpaw.mpi import world, broadcast, serial_comm
 from gpaw.utilities.progressbar import ProgressBar
 
 
-def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
+def get_mml(gs_name='gs.gpw', spin=0, ni=None, nf=None, timer=None):
     """
     Compute the momentum matrix elements
 
     Input:
         gs_name         Ground state file name
+        spin            Which spin channel (for spin-polarized systems 0 or 1)
         ni, nf          First and last band to compute the mml (0 to nb)
         timer           Timer to keep track of time
     Output:
@@ -45,6 +46,8 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
     nf = int(nf) if nf is not None else nbt
     nf = nbt + nf if (nf < 0) else nf
     blist = list(range(ni, nf))
+    ns = calc.wfs.nspins
+    assert spin < ns, 'Wrong spin input'
     nb = len(blist)
     nk = np.shape(bzk_kc)[0]
     cell_cv = calc.wfs.gd.cell_cv
@@ -90,7 +93,7 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
         with timer('Get wavefunctions and projections'):
             un_R = np.array(
                 [calc.wfs.get_wave_function_array(
-                    ib, k_ind, 0,
+                    ib, k_ind, spin,
                     realspace=True,
                     periodic=True)
                     for ib in blist], complex)
@@ -143,7 +146,7 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
         pb.finish()
 
     # Gather all data to the master
-    p_kvnn2 = None
+    p_kvnn2 = []
     with timer('Gather the data to master'):
         parprint('Gathering date to the master.')
         recv_buf = None
@@ -164,13 +167,15 @@ def get_mml(gs_name='gs.gpw', ni=None, nf=None, timer=None):
     return p_kvnn2
 
 
-def make_nlodata(gs_name='gs.gpw', out_name='mml.npz', ni=None, nf=None):
+def make_nlodata(gs_name='gs.gpw', out_name='mml.npz',
+                 spin='all', ni=None, nf=None):
     """
     Get all required NLO data and store it in a file
 
     Input:
         gs_name         Ground state file name
         out_name        Output filename
+        spin            Which spin channel ('all', 's0' , 's1')
         ni, nf          First and last band to compute the mml (0 to nb)
     Output:
         NLO data        w_k, f_kn, E_kn, p_kvnn are sotred
@@ -194,36 +199,56 @@ def make_nlodata(gs_name='gs.gpw', out_name='mml.npz', ni=None, nf=None):
             ni = int(ni) if ni is not None else 0
             nf = int(nf) if nf is not None else nbt
             nf = nbt + nf if (nf < 0) else nf
+            ns = calc.wfs.nspins
+            if spin == 'all':
+                spin = list(range(ns))
+            elif spin == 's0':
+                spin = [0]
+            elif spin == 's1':
+                spin = [1]
+                assert spin[0] < ns, 'Wrong spin input'
+            else:
+                raise NotImplementedError
 
             # Get the data
-            w_k = calc.get_k_point_weights()
-            nk = len(w_k)
+            w_sk = [calc.get_k_point_weights() for s1 in spin]
+            w_sk = np.array(w_sk, float)
             bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
-            E_kn = calc.band_structure().todict()['energies'][0]
-            f_kn = np.zeros((nk, nbt), dtype=float)
-            for ik in range(nk):
-                f_kn[ik] = calc.get_occupation_numbers(
-                    kpt=ik, spin=0) / w_k[ik] / 2.0
-            w_k *= bz_vol
+            nk = len(w_sk[0])
+            E_skn = [calc.band_structure().todict()['energies'][s1] for s1 in spin]
+            E_skn = np.array(E_skn, float)
+            f_skn = np.zeros((len(spin), nk, nbt), dtype=float)
+            for sind, s1 in enumerate(spin):
+                for ik in range(nk):
+                    f_skn[sind, ik] = calc.get_occupation_numbers(
+                        kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
+            w_sk *= bz_vol * 2.0 / ns 
         else:
             # In other cores set them to none
             ni = None
             nf = None
             nbt = None
+            spin = None
 
     # Broadcast to all cores
     ni = broadcast(ni, root=0)
     nf = broadcast(nf, root=0)
     nbt = broadcast(nbt, root=0)
+    spin = broadcast(spin, root=0)
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
-        p_kvnn = get_mml(gs_name=gs_name, ni=ni, nf=nf, timer=timer)
+        p_skvnn = []
+        for s1 in spin:
+            p_kvnn = get_mml(gs_name=gs_name, spin=s1, ni=ni, nf=nf, timer=timer)
+            p_skvnn.append(p_kvnn)
+        if world.rank == 0:
+            p_skvnn = np.array(p_skvnn, complex)
 
     # Save the output to the file
     if world.rank == 0:
-        np.savez(out_name, w_k=w_k,
-                 f_kn=f_kn[:, ni:nf], E_kn=E_kn[:, ni:nf], p_kvnn=p_kvnn)
+        np.savez(out_name, w_sk=w_sk,
+                 f_skn=f_skn[:, :, ni:nf], E_skn=E_skn[:, :, ni:nf], p_skvnn=p_skvnn)
 
 
 def get_rml(E_n, p_vnn, pol_v, Etol=1e-6):

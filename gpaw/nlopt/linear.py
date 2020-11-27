@@ -28,11 +28,12 @@ def get_chi_tensor(
 
     freqs = np.array(freqs)
     nw = len(freqs)
-    w_lc = freqs + 1j * eta  # Add small value to avoid 0
+    w_lc = freqs + 1j * eta
 
     # Load the required data
     k_info = load_data(mml_name=mml_name)
     _, tmp = k_info.popitem()
+    # print(tmp[1])
     nb = len(tmp[1])
     if band_n is None:
         band_n = list(range(nb))
@@ -47,7 +48,7 @@ def get_chi_tensor(
             for v2 in range(v1, 3):
                 sum_l = calc_chi(
                     w_lc, f_n, E_n, p_vnn, [v1, v2],
-                    band_n, ftol, Etol, eshift=0)
+                    band_n, ftol, Etol, eshift=eshift)
                 tmp[v1, v2] = sum_l
                 tmp[v2, v1] = sum_l
         # Add it to previous with a weight
@@ -56,7 +57,7 @@ def get_chi_tensor(
     world.sum(sum_vvl)
 
     # Make the output in SI unit
-    dim_sigma = 2 * 1j * _e**2 * _hbar / (_me**2 * (2 * np.pi)**3)
+    dim_sigma = 1j * _e**2 * _hbar / (_me**2 * (2 * np.pi)**3)
     dim_chi = 1j * _hbar / (_eps0 * _e)
     dim_sum = (_hbar / (Bohr * 1e-10))**2 / \
         (_e**2 * (Bohr * 1e-10)**3)
