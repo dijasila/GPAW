@@ -199,7 +199,7 @@ def make_nlodata(gs_name='gs.gpw', out_name='mml.npz',
             ni = int(ni) if ni is not None else 0
             nf = int(nf) if nf is not None else nbt
             nf = nbt + nf if (nf < 0) else nf
-            ns = calc.wfs.nspins
+            ns = calc.get_number_of_spins()
             if spin == 'all':
                 spin = list(range(ns))
             elif spin == 's0':
