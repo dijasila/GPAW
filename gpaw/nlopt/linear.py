@@ -22,7 +22,7 @@ def get_chi_tensor(
         mml_name        The momentum filename (default 'mml.npz')
     Output:
         chi_vvl         The output tensor (3, 3, nw)
-        chi.npy         Numpy array containing the spectrum and frequencies
+        chi.npy         If specified: array containing the spectrum and freqs
 
     """
 
@@ -33,7 +33,6 @@ def get_chi_tensor(
     # Load the required data
     k_info = load_data(mml_name=mml_name)
     _, tmp = k_info.popitem()
-    # print(tmp[1])
     nb = len(tmp[1])
     if band_n is None:
         band_n = list(range(nb))
@@ -89,7 +88,7 @@ def calc_chi(
         Etol, ftol      Tol. in energy and fermi to consider degeneracy
         eshift          Bandgap correction
     Output:
-        sum2_l, sum3_l  Output 2 and 3 bands terms
+        sum_l           Output sum value (array with length of w_l)
     """
 
     # Initialize variables
@@ -101,6 +100,7 @@ def calc_chi(
     # Loop over bands
     for nni in band_n:
         for mmi in band_n:
+            # Use TRS to reduce
             if mmi <= nni:
                 continue
             fnm = f_n[nni] - f_n[mmi]
