@@ -227,7 +227,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
             E_skn = [calc.band_structure().todict()['energies'][s1]
                      for s1 in spins]
             E_skn = np.array(E_skn, float)
-            f_skn = np.zeros((len(spin), nk, nbt), dtype=float)
+            f_skn = np.zeros((len(spins), nk, nbt), dtype=float)
             for sind, s1 in enumerate(spins):
                 for ik in range(nk):
                     f_skn[sind, ik] = calc.get_occupation_numbers(
