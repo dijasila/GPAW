@@ -174,7 +174,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                  nf: int = 0) -> None:
     """Get all required NLO data and store it in a file.
 
-    Writes NLO data to file: w_k, f_kn, E_kn, p_kvnn.
+    Writes NLO data to file: w_sk, f_skn, E_skn, p_skvnn.
 
     Parameters:
 
@@ -234,10 +234,10 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                         kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
             w_sk *= bz_vol * 2.0 / ns
             broadcast(nf, root=0)
+            broadcast(spin, root=0)
         else:
             nf = broadcast(None, root=0)
-            spin = None
-        spin = broadcast(spin, root=0)
+            spin = broadcast(None, root=0)
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
