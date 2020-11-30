@@ -210,39 +210,39 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                 nf += nbt
             ns = calc.get_number_of_spins()
             if spin == 'all':
-                spin = list(range(ns))
+                spins = list(range(ns))
             elif spin == 's0':
-                spin = [0]
+                spins = [0]
             elif spin == 's1':
-                spin = [1]
-                assert spin[0] < ns, 'Wrong spin input'
+                spins = [1]
+                assert spins[0] < ns, 'Wrong spin input'
             else:
                 raise NotImplementedError
 
             # Get the data
-            w_sk = [calc.get_k_point_weights() for s1 in spin]
+            w_sk = [calc.get_k_point_weights() for s1 in spins]
             w_sk = np.array(w_sk, float)
             bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
             nk = len(w_sk[0])
             E_skn = [calc.band_structure().todict()['energies'][s1]
-                     for s1 in spin]
+                     for s1 in spins]
             E_skn = np.array(E_skn, float)
             f_skn = np.zeros((len(spin), nk, nbt), dtype=float)
-            for sind, s1 in enumerate(spin):
+            for sind, s1 in enumerate(spins):
                 for ik in range(nk):
                     f_skn[sind, ik] = calc.get_occupation_numbers(
                         kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
             w_sk *= bz_vol * 2.0 / ns
             broadcast(nf, root=0)
-            broadcast(spin, root=0)
+            broadcast(spins, root=0)
         else:
             nf = broadcast(None, root=0)
-            spin = broadcast(None, root=0)
+            spins = broadcast(None, root=0)
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):
         p_skvnn = []
-        for s1 in spin:
+        for s1 in spins:
             p_kvnn = get_mml(gs_name=gs_name, spin=s1,
                              ni=ni, nf=nf, timer=timer)
             p_skvnn.append(p_kvnn)
