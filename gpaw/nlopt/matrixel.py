@@ -233,11 +233,11 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                     f_skn[sind, ik] = calc.get_occupation_numbers(
                         kpt=ik, spin=s1) / w_sk[sind, ik] * ns / 2.0
             w_sk *= bz_vol * 2.0 / ns
-            spin = broadcast(spin, root=0)
             broadcast(nf, root=0)
         else:
-            spin = broadcast(None, root=0)
             nf = broadcast(None, root=0)
+            spin = None
+        spin = broadcast(spin, root=0)
 
     # Compute the momentum matrix elements
     with timer('Compute the momentum matrix elements'):

@@ -47,7 +47,6 @@ def distribute_data(arr_list):
         nk = 0
         arr_shape = []
         for ii, arr in enumerate(arr_list):
-            arr_shape.append(arr.shape)
             ar_shape = arr.shape
             arr_shape.append(ar_shape)
             if nk == 0:
