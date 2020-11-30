@@ -46,7 +46,7 @@ def get_shift(
     # Load the required data
     with timer('Load and distribute the data'):
         k_info = load_data(mml_name=mml_name)
-        k_ind, tmp = k_info.popitem()
+        _, tmp = k_info.popitem()
         nb = len(tmp[1])
         nk = len(k_info) * world.size  # Approximately
         if band_n is None:
@@ -65,7 +65,7 @@ def get_shift(
     sum2_l = np.zeros((nw), complex)
 
     # Do the calculations
-    for k_ind, (we, f_n, E_n, p_vnn) in k_info.items():
+    for _, (we, f_n, E_n, p_vnn) in k_info.items():
         with timer('Position matrix elements calculation'):
             r_vnn, D_vnn = get_rml(E_n, p_vnn, pol_v, Etol=Etol)
 
@@ -75,7 +75,7 @@ def get_shift(
         with timer('Sum over bands'):
             tmp = shift_current(
                 eta, w_l, f_n, E_n, r_vnn, rd_vvnn, pol_v,
-                band_n, ftol, Etol)
+                band_n, ftol, Etol, eshift)
 
         # Add it to previous with a weight
         sum2_l += tmp * we
@@ -91,8 +91,8 @@ def get_shift(
     with timer('Gather data from cores'):
         world.sum(sum2_l)
 
-    # Make the output in SI unit (2 is for spin)
-    dim_init = -1j * 2 * _e**3 / (2 * _hbar * (2.0 * np.pi)**3)
+    # Make the output in SI unit
+    dim_init = -1j * _e**3 / (2 * _hbar * (2.0 * np.pi)**3)
     dim_sum = (_hbar / (Bohr * 1e-10))**3 / \
         (_e**4 * (Bohr * 1e-10)**3) * (_hbar / _me)**3
     dim_SI = 1j * dim_init * dim_sum  # 1j due to imag in loop
@@ -113,7 +113,7 @@ def get_shift(
 
 def shift_current(
         eta, w_l, f_n, E_n, r_vnn, rd_vvnn, pol_v,
-        band_n=None, ftol=1e-4, Etol=1e-6):
+        band_n=None, ftol=1e-4, Etol=1e-6, eshift=0):
     """
     Loop over bands for computing in length gauge
 
@@ -127,6 +127,7 @@ def shift_current(
         pol_v           Tensor element
         band_n          Band list
         Etol, ftol      Tol. in energy and fermi to consider degeneracy
+        eshift          Bandgap correction
     Output:
         sum2_l          Output array
     """
@@ -144,7 +145,7 @@ def shift_current(
             if mmi <= nni:
                 continue
             fnm = f_n[nni] - f_n[mmi]
-            Emn = E_n[mmi] - E_n[nni]
+            Emn = E_n[mmi] - E_n[nni] + fnm * eshift
 
             # Two band part
             if np.abs(fnm) > ftol:

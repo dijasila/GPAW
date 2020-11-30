@@ -21,11 +21,11 @@ def load_data(mml_name='mml.npz'):
         # print(nlo.files)
         # print(nlo['p_kvnn'])
     else:
-        nlo = dict.fromkeys(['w_k', 'f_kn', 'E_kn', 'p_kvnn'])
+        nlo = dict.fromkeys(['w_sk', 'f_skn', 'E_skn', 'p_skvnn'])
 
     # Distribute the data among cores
     k_info = distribute_data(
-        [nlo['w_k'], nlo['f_kn'], nlo['E_kn'], nlo['p_kvnn']])
+        [nlo['w_sk'], nlo['f_skn'], nlo['E_skn'], nlo['p_skvnn']])
 
     return k_info
 
@@ -35,9 +35,9 @@ def distribute_data(arr_list):
     Distribute the data among the cores
 
     Input:
-        arr_list        A list of numpy array (the first index should be k)
+        arr_list        A list of numpy array (the first two should be s,k)
     Output:
-        k_info          A  dictionary of data with key of k index
+        k_info          A  dictionary of data with key of s,k index
     """
 
     # Check the array shape
@@ -48,38 +48,43 @@ def distribute_data(arr_list):
         arr_shape = []
         for ii, arr in enumerate(arr_list):
             arr_shape.append(arr.shape)
+            ar_shape = arr.shape
+            arr_shape.append(ar_shape)
             if nk == 0:
-                nk = arr_shape[-1][0]
+                ns = ar_shape[0]
+                nk = ar_shape[1]
             else:
-                # print(arr_shape[-1])
-                assert arr_shape[-1][0] == nk, 'Wrong shape for array.'
+                assert ar_shape[1] == nk, 'Wrong shape for array.'
     else:
         arr_shape = None
         nk = None
+        ns = None
     arr_shape = broadcast(arr_shape, root=0)
     nk = broadcast(nk, root=0)
+    ns = broadcast(ns, root=0)
 
     # Distribute the data of k-points between cores
     k_info = {}
 
     # Loop over k points
-    for kk in range(nk):
-        if rank == 0:
-            if kk % size == rank:
-                k_info[kk] = [arr[kk] for arr in arr_list]
+    for s1 in range(ns):
+        for kk in range(nk):
+            if rank == 0:
+                if kk % size == rank:
+                    k_info[s1 * nk + kk] = [arr[s1, kk] for arr in arr_list]
+                else:
+                    for ii, arr in enumerate(arr_list):
+                        data_k = np.array(arr[s1, kk], dtype=complex)
+                        world.send(
+                            data_k, dest=kk % size, tag=ii * nk + kk)
             else:
-                for ii, arr in enumerate(arr_list):
-                    data_k = np.array(arr[kk], dtype=complex)
-                    world.send(
-                        data_k, dest=kk % size, tag=ii * nk + kk)
-        else:
-            if kk % size == rank:
-                dataset = []
-                for ii, cshape in enumerate(arr_shape):
-                    data_k = np.empty(cshape[1:], dtype=complex)
-                    world.receive(data_k, src=0, tag=ii * nk + kk)
-                    dataset.append(data_k)
-                k_info[kk] = dataset
+                if kk % size == rank:
+                    dataset = []
+                    for ii, cshape in enumerate(arr_shape):
+                        data_k = np.empty(cshape[2:], dtype=complex)
+                        world.receive(data_k, src=0, tag=ii * nk + kk)
+                        dataset.append(data_k)
+                    k_info[s1 * nk + kk] = dataset
 
     return k_info
 
