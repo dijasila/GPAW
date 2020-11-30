@@ -208,7 +208,7 @@ def make_nlodata(gs_name: str = 'gs.gpw',
             nbt = calc.get_number_of_bands()
             if nf <= 0:
                 nf += nbt
-            ns = calc.get_number_of_spins()
+            ns = calc.wfs.nspins
             if spin == 'all':
                 spins = list(range(ns))
             elif spin == 's0':
