@@ -220,13 +220,11 @@ def make_nlodata(gs_name: str = 'gs.gpw',
                 raise NotImplementedError
 
             # Get the data
-            w_sk = [calc.get_k_point_weights() for s1 in spins]
-            w_sk = np.array(w_sk, float)
+            w_sk = np.array([calc.get_k_point_weights() for s1 in spins])
             bz_vol = np.linalg.det(2 * np.pi * calc.wfs.gd.icell_cv)
             nk = len(w_sk[0])
-            E_skn = [calc.band_structure().todict()['energies'][s1]
-                     for s1 in spins]
-            E_skn = np.array(E_skn, float)
+            E_skn = np.array([calc.band_structure().todict()['energies'][s1]
+                              for s1 in spins])
             f_skn = np.zeros((len(spins), nk, nbt), dtype=float)
             for sind, s1 in enumerate(spins):
                 for ik in range(nk):
