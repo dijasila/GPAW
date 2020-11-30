@@ -43,6 +43,7 @@ class WaveFunctions:
             self.psit_nR[n] = self.pd.ifft(psit_G)
         self.projections = projections
         self.setups = setups
+        self.spin = self.pd.spin
 
     @staticmethod
     def from_kpt(kpt, setups):
@@ -61,6 +62,7 @@ def zfs1(wf1, wf2, compensation_charge) -> Array2D:
     G_G[0] = 1.0
     G_Gv = pd.get_reciprocal_vectors() / G_G[:, np.newaxis]
 
+    ns_G = pd.zeros(2)
     n_nG = pd.empty(N)
     D_vv = np.zeros((3, 3))
 
@@ -78,9 +80,16 @@ def zfs1(wf1, wf2, compensation_charge) -> Array2D:
 
         compensation_charge.add(n_nG, Q_anL)
 
+        n_G += n_nG[n]
+
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
 
-        D_vv += np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+        D_vv -= np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+
+    if wf1.spin == wf2.spin:
+
+
+    sign = 1.0 if wf1.spin == wf2.spin else -1.0
 
     # / gd.dv
 
