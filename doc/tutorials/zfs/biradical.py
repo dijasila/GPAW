@@ -38,11 +38,11 @@ def cnh2n(n):
 
 
 if __name__ == '__main__':
-    n = 9
+    n = 5
     a = cnh2n(n)
     # a.edit()
     a.center(vacuum=4.0)
     a.calc = GPAW(mode='pw', xc='PBE', txt=f'c{n}h{2 * n}.txt')
     a.get_potential_energy()
-    a.calc.wrote(f'c{n}h{2 * n}.gpw', 'all')
+    a.calc.write(f'c{n}h{2 * n}.gpw', 'all')
     
