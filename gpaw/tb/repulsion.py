@@ -105,7 +105,11 @@ def fit(system: Atoms, atom: Atoms, eps: float = 0.01):
 
 
 if __name__ == '__main__':
-    rep = fit(Atoms('H2', [(0, 0, 0), (0, 0, 0.78)], cell=[9, 9, 9], pbc=True),
-              Atoms('H', cell=[9, 9, 9], pbc=True),
-              0.1)
+    if 0:
+        rep = fit(Atoms('H2', [(0, 0, 0), (0, 0, 0.78)], cell=[9, 9, 9], pbc=True),
+                  Atoms('H', cell=[9, 9, 9], pbc=True),
+                  0.1)
+    rep = fit(Atoms('Al2', [(0, 0, 0), (0, 0, 2.1)], cell=[9, 9, 9], pbc=True),
+              Atoms('Al', cell=[9, 9, 9], pbc=True),
+              0.02)
     rep.plot()
