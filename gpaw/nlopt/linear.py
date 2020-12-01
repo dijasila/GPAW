@@ -1,6 +1,6 @@
-
 import numpy as np
 from ase.units import Bohr, _hbar, _e, _me, _eps0
+
 from gpaw.nlopt.basic import load_data
 from gpaw.mpi import world
 
@@ -10,7 +10,7 @@ def get_chi_tensor(
         ftol=1e-4, Etol=1e-6, eshift=0.0,
         band_n=None, mml_name='mml.npz', out_name=None):
     """
-    Calculate full linear susceptibility tensor for nonmagnetic semiconductors
+    Calculate full linear susceptibility tensor for nonmagnetic semiconductors.
 
     Input:
         freqs           Excitation frequency array (a numpy array or list)
