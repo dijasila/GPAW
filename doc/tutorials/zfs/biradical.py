@@ -2,13 +2,14 @@ import numpy as np
 from ase import Atoms
 from gpaw import GPAW
 
+d = 1.54
+dx = d * (2 / 3)**0.5
+dz = d / 3**0.5
+h = 1.1
+
 
 def cnh2n(n):
     assert n % 2 == 1
-    d = 1.54
-    h = 1.1
-    dx = d * (2 / 3)**0.5
-    dz = d / 3**0.5
     positions = []
     for i in range(n):
         x = i * dx
@@ -38,11 +39,24 @@ def cnh2n(n):
 
 
 if __name__ == '__main__':
-    n = 5
-    a = cnh2n(n)
-    # a.edit()
-    a.center(vacuum=4.0)
-    a.calc = GPAW(mode='pw', xc='PBE', txt=f'c{n}h{2 * n}.txt')
-    a.get_potential_energy()
-    a.calc.write(f'c{n}h{2 * n}.gpw', 'all')
+    for n in range(3, 13, 2):
+        break
+        n = 11
+        a = cnh2n(n)
+        a.center(vacuum=4.0)
+        a.calc = GPAW(mode='pw', xc='PBE', txt=f'c{n}h{2 * n}.txt')
+        a.get_potential_energy()
+        a.calc.write(f'c{n}h{2 * n}.gpw', 'all')
+    from gpaw.zero_field_splitting import main
+    import matplotlib.pyplot as plt
+    r = []
+    D = []
+    for n in range(3, 13, 2):
+        gpw = f'c{n}h{2 * n}.gpw'
+        d = main([gpw])[0, 0]
+        r.append((n - 1) * dx)
+        D.append(d)
+
+    plt.plot(r, D)
+    plt.show()
     
