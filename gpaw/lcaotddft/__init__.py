@@ -8,6 +8,9 @@ from gpaw.lcaotddft.hamiltonian import TimeDependentHamiltonian
 from gpaw.lcaotddft.logger import TDDFTLogger
 from gpaw.lcaotddft.propagators import create_propagator
 from gpaw.tddft.units import attosec_to_autime
+# Vlad import Ehrenfest MD
+from gpaw.tddft.tdopers import  TimeDependentDensity
+#from gpaw.wavefunctions.lcao import LCAO
 
 
 class LCAOTDDFT(GPAW):
@@ -33,8 +36,12 @@ class LCAOTDDFT(GPAW):
 
         # Restarting from a file
         if filename is not None:
-            # self.initialize()
+#            self.initialize()
             self.set_positions()
+
+#        self.td_overlap = self.wfs.overlap  #
+        self.td_density = TimeDependentDensity(self)
+
 
     def _write(self, writer, mode):
         GPAW._write(self, writer, mode)
@@ -93,7 +100,7 @@ class LCAOTDDFT(GPAW):
 
         self.tddft_initialized = True
         self.timer.stop('Initialize TDDFT')
-
+        
     def absorption_kick(self, kick_strength):
         self.tddft_init()
 
@@ -162,3 +169,17 @@ class LCAOTDDFT(GPAW):
         self.propagator = create_propagator(**kwargs)
         self.tddft_init()
         self.propagator.control_paw(self)
+# Vlad Ehrenfest
+    def get_td_energy(self):
+        """Calculate the time-dependent total energy"""
+
+#        if not self.calculate_energy:
+#           self.Etot = 0.0
+#           return 0.0
+
+#        self.td_overlap.update(self.wfs)
+#        self.td_density.update()
+#        self.td_hamiltonian.update(self.td_density.get_density(),self.time)
+#        self.update_eigenvalues()
+
+#        return self.Etot
