@@ -13,7 +13,7 @@ See::
 from typing import List
 
 import numpy as np
-from ase.units import Bohr, Ha
+from ase.units import Ha
 
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.hints import Array2D
@@ -21,7 +21,7 @@ from gpaw.hyperfine import alpha  # alpha ~= 1/137
 
 
 def zfs(calc,
-        # n1, n2
+        method=1,
         ) -> Array2D:
     """"""
     wfs = calc.wfs
@@ -33,7 +33,7 @@ def zfs(calc,
     compensation_charge = PWLFC([data.ghat_l for data in wfs.setups], wfs.pd)
     compensation_charge.set_positions(calc.spos_ac)
 
-    if 0:
+    if method == 1:
         n1 = len(wf1)
         wf = wf1.view(n1 - 2, n1)
         return zfs1(wf, wf, compensation_charge)
@@ -119,18 +119,21 @@ def zfs1(wf1, wf2, compensation_charge) -> Array2D:
 
         for n_G, psit2_R in zip(n_nG, wf2.psit_nR):
             n_G[:] = pd.fft(psit1_R * psit2_R)
+        # print(N2, n_nG[:, 0] * pd.gd.dv)
 
         compensation_charge.add(n_nG, Q_anL)
+        # print(N2, n_nG[:, 0] * pd.gd.dv)
 
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
         D_vv -= np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
 
-    D_vv -= np.trace(D_vv) / 3 * np.eye(3)
+    D_vv *= pd.gd.dv / pd.gd.N_c.prod()
+
+    D_vv -= np.trace(D_vv) / 3 * np.eye(3)  # should be traceless
 
     sign = 1.0 if wf1.spin == wf2.spin else -1.0
 
-    return sign * alpha**2 / 4 * D_vv * Ha * Bohr**2
-    return sign * alpha**2 / 4 * D_vv / pd.gd.dv * Ha * Bohr**2
+    return sign * alpha**2 * 3 / 4 * D_vv * Ha
 
 
 def main(argv: List[str] = None) -> None:
@@ -145,6 +148,7 @@ def main(argv: List[str] = None) -> None:
         help='GPW-file with wave functions.')
     add('-u', '--units', default='ueV', choices=['ueV', 'MHz'],
         help='Units.  Must be "ueV" (micro-eV, default) or "MHz".')
+    add('-m', '--method', default=1)
 
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
@@ -160,7 +164,7 @@ def main(argv: List[str] = None) -> None:
         scale = units._e / units._hplanck * 1e-6
         unit = 'MHz'
 
-    D_vv = zfs(calc) * scale
+    D_vv = zfs(calc, args.method) * scale
 
     print(D_vv, unit)
 

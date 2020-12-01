@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW
+from gpaw import GPAW, PW
 
 d = 1.54
 dx = d * (2 / 3)**0.5
@@ -40,13 +40,14 @@ def cnh2n(n):
 
 if __name__ == '__main__':
     for n in range(3, 13, 2):
-        break
-        n = 11
+        n = 5
         a = cnh2n(n)
         a.center(vacuum=4.0)
-        a.calc = GPAW(mode='pw', xc='PBE', txt=f'c{n}h{2 * n}.txt')
+        a.calc = GPAW(mode=PW(600),
+                      xc='PBE', txt=f'c{n}h{2 * n}.txt')
         a.get_potential_energy()
-        a.calc.write(f'c{n}h{2 * n}.gpw', 'all')
+        a.calc.write(f'c{n}h{2 * n}.600.gpw', 'all')
+        break
     from gpaw.zero_field_splitting import main
     import matplotlib.pyplot as plt
     r = []
