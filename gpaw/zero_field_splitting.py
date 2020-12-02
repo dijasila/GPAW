@@ -15,14 +15,14 @@ from typing import List
 import numpy as np
 from ase.units import Ha
 
+from gpaw import GPAW
 from gpaw.wavefunctions.pw import PWLFC
 from gpaw.hints import Array2D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
 
 
-def zfs(calc,
-        method=1,
-        ) -> Array2D:
+def zfs(calc: GPAW,
+        method: int = 1) -> Array2D:
     """"""
     wfs = calc.wfs
     kpt_s, = wfs.kpt_qs
@@ -45,12 +45,6 @@ def zfs(calc,
             print(d_vv)
 
     return D_vv
-
-
-def create_compensation_charge(wf, spos_ac):
-    compensation_charge = PWLFC([data.ghat_l for data in wf.setups], wf.pd)
-    compensation_charge.set_positions(spos_ac)
-    return compensation_charge
 
 
 class WaveFunctions:
@@ -87,7 +81,15 @@ class WaveFunctions:
         return len(self.psit_nR)
 
 
-def zfs1(wf1, wf2, compensation_charge) -> Array2D:
+def create_compensation_charge(wf: WaveFunctions, spos_ac: Array2D) -> PWLFC:
+    compensation_charge = PWLFC([data.ghat_l for data in wf.setups], wf.pd)
+    compensation_charge.set_positions(spos_ac)
+    return compensation_charge
+
+
+def zfs1(wf1: WaveFunctions,
+         wf2: WaveFunctions,
+         compensation_charge: PWLFC) -> Array2D:
     pd = wf1.pd
     setups = wf1.setups
     N2 = len(wf2)
@@ -144,7 +146,7 @@ def zfs1(wf1, wf2, compensation_charge) -> Array2D:
     return sign * alpha**2 * 3 / 4 * D_vv * Ha
 
 
-def main(argv: List[str] = None) -> None:
+def main(argv: List[str] = None) -> Array2D:
     import argparse
     import ase.units as units
     from gpaw import GPAW
