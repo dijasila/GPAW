@@ -22,4 +22,3 @@ def nv(n):
 
 if __name__ == '__main__':
     nv(4)
-    from gpaw.zero_field_splitting import main

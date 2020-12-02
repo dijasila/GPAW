@@ -60,4 +60,3 @@ if __name__ == '__main__':
 
     plt.plot(r, D)
     plt.show()
-    
