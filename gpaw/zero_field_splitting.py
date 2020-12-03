@@ -115,7 +115,7 @@ def zfs1(wf1: WaveFunctions,
         print(n_G[0] * pd.gd.dv)
 
     nn_G = (n_sG[0] * n_sG[1].conj()).real
-    D_vv = np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+    D_vv = zfs2(G_Gv, nn_G)
 
     n_nG = pd.empty(N2)
     for n1, psit1_R in enumerate(wf1.psit_nR):
@@ -135,7 +135,7 @@ def zfs1(wf1: WaveFunctions,
         print(N2, n_nG[:, 0] * pd.gd.dv)
 
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
-        D_vv -= np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+        D_vv -= zfs2(G_Gv, nn_G)
 
     D_vv *= pd.gd.dv / pd.gd.N_c.prod()
 
@@ -144,6 +144,10 @@ def zfs1(wf1: WaveFunctions,
     sign = 1.0 if wf1.spin == wf2.spin else -1.0
 
     return sign * alpha**2 * 3 / 4 * D_vv * Ha
+
+
+def zfs2(G_Gv, nn_G):
+    return np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
 
 
 def main(argv: List[str] = None) -> Array2D:

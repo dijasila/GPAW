@@ -16,9 +16,10 @@ def nv(n):
                       mode=PW(ecut=500),
                       charge=-1,
                       txt=name + '.txt')
-    atoms.get_potential_energy()
+    atoms.get_forces()
     atoms.calc.write(name + '.gpw', 'all')
 
 
 if __name__ == '__main__':
-    nv(4)
+    for n in range(2, 5):
+        nv(n)
