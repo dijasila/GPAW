@@ -253,6 +253,57 @@ class FRcg(SteepestDescent):
             return self.p_k
 
 
+class PFRcg(SteepestDescent):
+    """
+    The Fletcher-Reeves conj. grad. method
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 121)
+    """
+
+    def __init__(self, wfs, dimensions):
+
+        """
+        """
+        super().__init__(wfs, dimensions)
+
+    def __str__(self):
+        return 'Preconditioned Fletcher-Reeves conjugate gradient method'
+
+    def update_data(self, psi, g_k1, wfs, prec):
+
+        if self.iters == 0:
+            self.p_k = self.minus(wfs, g_k1)
+            self.apply_prec(wfs, self.p_k, prec, 1.0)
+            # save the step
+            self.g_k = g_k1
+            self.iters += 1
+            return self.p_k
+        else:
+            pg = copy.deepcopy(self.g_k)
+            self.apply_prec(wfs, pg, prec, 1.0)
+            dot_gg_k = self.dot_all_k_and_b(self.g_k, pg, wfs)
+
+            pg =  copy.deepcopy(g_k1)
+            self.apply_prec(wfs, pg, prec, 1.0)
+            dot_gg_k1 = self.dot_all_k_and_b(g_k1, pg, wfs)
+            beta_k = dot_gg_k1 / dot_gg_k
+
+            self.p_k = self.calc_diff(pg, self.p_k, wfs,
+                                      const_0=-1.0,
+                                      const=-beta_k)
+            # self.p_k = -g_k1 + beta_k * self.p_k
+            # save this step
+            self.g_k = g_k1
+            self.iters += 1
+
+            if self.iters > 10:
+                self.iters = 0
+
+            del pg
+
+            return self.p_k
+
+
 class PRcg(SteepestDescent):
 
     """

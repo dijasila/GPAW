@@ -97,6 +97,7 @@ class DirectMin(Eigensolver):
 
         sds = {'SD': 'Steepest Descent',
                'FRcg': 'Fletcher-Reeves conj. grad. method',
+               'PFRcg': 'Preconditioned Fletcher-Reeves conj. grad. method',
                'HZcg': 'Hager-Zhang conj. grad. method',
                'PRcg': 'Polak-Ribiere conj. grad. method',
                'PRpcg': 'Polak-Ribiere+ conj. grad. method',
@@ -452,6 +453,7 @@ class DirectMin(Eigensolver):
                     super(DirectMin, self).subspace_diagonalize(
                         ham, wfs, kpt, True)
                     wfs.gd.comm.broadcast(kpt.eps_n, 0)
+
                 occ.calculate(wfs)  # fill occ numbers
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
@@ -830,6 +832,11 @@ class DirectMin(Eigensolver):
                         kpt.psit_nG[:n_occ] = \
                             np.tensordot(lamb1.conj(),
                                          kpt.psit_nG[:n_occ],
+                                         axes=1)
+
+                        kpt.psit_nG[n_occ:n_occ + dim] = \
+                            np.tensordot(lumo.conj(), kpt.psit_nG[
+                                                      n_occ:n_occ + dim],
                                          axes=1)
                         for a in kpt.P_ani.keys():
                             kpt.P_ani[a][:n_occ] = \
@@ -1274,27 +1281,28 @@ class DirectMin(Eigensolver):
             if self.globaliters == 0:
                 occ_name = getattr(occ, 'name', None)
                 if occ_name == 'mom':
-                    log(" MOM reference orbitals initialized.\n", flush=True)
                     for kpt in wfs.kpt_u:
-                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                        wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
+                                         kpt.q)
+                    log(" MOM reference orbitals initialized.\n", flush=True)
                     occ.init_ref_orb2(wfs)
-                # wfs.orthonormalize()
-                for kpt in wfs.kpt_u:
-                    wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
-                    super(DirectMin, self).subspace_diagonalize(
-                        ham, wfs, kpt, True)
-                    wfs.gd.comm.broadcast(kpt.eps_n, 0)
-
+                wfs.orthonormalize()
+                # for kpt in wfs.kpt_u:
+                #     wfs.pt.integrate(kpt.psit_nG, kpt.P_ani, kpt.q)
+                #     super(DirectMin, self).subspace_diagonalize(
+                #         ham, wfs, kpt, True)
+                #     wfs.gd.comm.broadcast(kpt.eps_n, 0)
+                #
                 occ.calculate(wfs)  # fill occ numbers
                 if occ_name == 'mom':
                     for kpt in wfs.kpt_u:
                         occ.sort_wavefunctions(wfs, kpt)
                         wfs.pt.integrate(kpt.psit_nG, kpt.P_ani,
                                          kpt.q)
-                    occ.init_ref_orb2(wfs)
-                    log(
-                        " Reinitialize reference orbitals after subspace diagon.\n",
-                        flush=True)
+                #     occ.init_ref_orb2(wfs)
+                #     log(
+                #         " Reinitialize reference orbitals after subspace diagon.\n",
+                #         flush=True)
 
             return
 
