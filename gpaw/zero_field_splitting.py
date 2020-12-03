@@ -10,6 +10,7 @@ See::
     Phys. Rev. Research 2, 022024(R) – Published 30 April 2020
 
 """
+from math import pi
 from typing import List
 
 import numpy as np
@@ -42,7 +43,6 @@ def zfs(calc: GPAW,
         for wfb in [wf1, wf2]:
             d_vv = zfs1(wfa, wfb, compensation_charge)
             D_vv += d_vv
-            print(d_vv)
 
     return D_vv
 
@@ -137,13 +137,15 @@ def zfs1(wf1: WaveFunctions,
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
         D_vv -= zfs2(G_Gv, nn_G)
 
-    D_vv *= pd.gd.dv / pd.gd.N_c.prod()
+    D_vv *= 2 * pd.gd.dv / pd.gd.N_c.prod()
+
+    print(np.trace(D_vv))
 
     D_vv -= np.trace(D_vv) / 3 * np.eye(3)  # should be traceless
 
     sign = 1.0 if wf1.spin == wf2.spin else -1.0
 
-    return sign * alpha**2 * 3 / 4 * D_vv * Ha
+    return sign * alpha**2 * pi * D_vv * Ha
 
 
 def zfs2(G_Gv, nn_G):
