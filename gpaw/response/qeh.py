@@ -3,7 +3,7 @@ import numpy as np
 from math import pi
 import ase.units
 from ase.parallel import world
-from ase.utils import devnull
+from gpaw.utilities import devnull
 import sys
 import os
 

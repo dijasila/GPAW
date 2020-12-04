@@ -15,7 +15,7 @@ import sys
 import numpy as np
 
 from ase.parallel import paropen
-from ase.utils import devnull
+from gpaw.utilities import devnull
 from ase.units import Ha
 
 from gpaw.occupations import FermiDiracCalculator
