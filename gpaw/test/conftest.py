@@ -5,7 +5,6 @@ import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.io import read
-from ase.utils import devnull
 from ase.build import bulk
 
 from gpaw import GPAW
@@ -209,7 +208,7 @@ def pytest_configure(config):
         except AttributeError:
             pass
         else:
-            tw._file = devnull
+            tw._file = open(os.devnull, 'w')
     config.pluginmanager.register(GPAWPlugin(), 'pytest_gpaw')
 
 

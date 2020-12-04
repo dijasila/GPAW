@@ -2,8 +2,6 @@ import pytest
 from gpaw.mpi import world
 import sys
 
-from ase.utils import devnull
-
 from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
@@ -74,27 +72,26 @@ def test_parallel_fd_parallel_kpt():
             print('Errs', eerr, ferr)
 
         if eerr > tolerance or ferr > tolerance:
-            if calc.wfs.world.rank == 0:
-                stderr = sys.stderr
-            else:
-                stderr = devnull
             if eerr > tolerance:
-                print('Failed!', file=stderr)
-                print('E = %f, Eref = %f' % (E, Eref), file=stderr)
+                if calc.wfs.world.rank == 0:
+                    print('Failed!')
+                    print('E = %f, Eref = %f' % (E, Eref))
                 msg = 'Energy err larger than tolerance: %f' % eerr
             if ferr > tolerance:
-                print('Failed!', file=stderr)
-                print('Forces:', file=stderr)
-                print(F_av, file=stderr)
-                print(file=stderr)
-                print('Ref forces:', file=stderr)
-                print(Fref_av, file=stderr)
-                print(file=stderr)
+                if calc.wfs.world.rank == 0:
+                    print('Failed!')
+                    print('Forces:')
+                    print(F_av)
+                    print()
+                    print('Ref forces:')
+                    print(Fref_av)
+                    print()
                 msg = 'Force err larger than tolerance: %f' % ferr
-            print(file=stderr)
-            print('Args:', file=stderr)
-            print(formula, vacuum, cell, pbc, morekwargs, file=stderr)
-            print(parallel, file=stderr)
+            if calc.wfs.world.rank == 0:
+                print()
+                print('Args:')
+                print(formula, vacuum, cell, pbc, morekwargs)
+                print(parallel)
             raise AssertionError(msg)
 
     # reference:
