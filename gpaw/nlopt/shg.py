@@ -61,14 +61,14 @@ def get_shg(
     # Load the required data
     with timer('Load and distribute the data'):
         k_info = load_data(mml_name=mml_name)
-        _, tmp = k_info.popitem()
-        nb = len(tmp[1])
-        nk = len(k_info) * world.size  # Approximately
-        if band_n is None:
-            band_n = list(range(nb))
-        est_mem = 6 * 3 * nk * nb**2 * 16 / 2**20
-        parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
-        # print(k_info.keys())
+        if k_info:
+            tmp = list(k_info.values())[0]
+            nb = len(tmp[1])
+            nk = len(k_info) * world.size  # Approximately
+            if band_n is None:
+                band_n = list(range(nb))
+            est_mem = 6 * 3 * nk * nb**2 * 16 / 2**20
+            parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
 
     # Initial call to print 0% progress
     count = 0
