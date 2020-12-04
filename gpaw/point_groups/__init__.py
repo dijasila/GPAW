@@ -13,5 +13,6 @@ from .check import SymmetryChecker
 
 __all__ = ['PointGroup', 'SymmetryChecker', 'point_group_names']
 
-point_group_names = ['C2', 'C2v', 'C3v', 'D2d', 'D3h', 'D5', 'D5h',
+point_group_names = ['C1', 'Cs', 'Ci', 'C2', 'D3', 'D5',
+                     'C2v', 'C3v', 'C4v', 'C2h', 'D2d', 'D3h', 'D5h',
                      'Ico', 'Ih', 'Oh', 'Td', 'Th']
