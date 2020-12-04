@@ -5,7 +5,7 @@ import pytest
 from _pytest.tmpdir import _mk_tmp
 from ase import Atoms
 from ase.io import read
-from ase.utils import devnull
+from gpaw.utilities import devnull
 from ase.build import bulk
 
 from gpaw import GPAW
