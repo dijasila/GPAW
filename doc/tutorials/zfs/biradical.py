@@ -1,6 +1,6 @@
 import numpy as np
 from ase import Atoms
-from gpaw import GPAW, PW
+from gpaw import GPAW
 
 d = 1.54
 dx = d * (2 / 3)**0.5
