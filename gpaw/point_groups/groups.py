@@ -666,6 +666,96 @@ class D2d(Pointgroup):
         return do_it(data)
 
 
+class D3d(Pointgroup):
+    # main axis should be the z-axis!
+    def __init__(self):
+        self.operations = [('E', self.unit),
+                           ('C3_0', self.C2(angle=120.)),
+                           ('C3_1', self.C2(angle=-120.)),
+                           ("C2'_0", self.C2p(angle=45.)),
+                           ("C2'_1", self.C2p(angle=-45.)),
+                           ("C2'_2", self.C2p(angle=-45.)),
+                           ('i', self.inversion),
+                           ('S6_1', self.S4(angle=90.)),
+                           ('S6_2', self.S4(angle=-90.)),
+                           ('sigma_d1', self.sigma_d(angle=0.)),
+                           ('sigma_d2', self.sigma_d(angle=0.)),
+                           ('sigma_d3', self.sigma_d(angle=90.))]
+        self.operation_names = [pair[0] for pair in self.operations]
+        self.symmetries = ['A1g', 'A2g', 'Eg', 'A1u', 'A2u', 'Eu']
+        self.character_table = [
+             [1., 1., 1., 1., 1., 1.],
+             [1., 1.,-1., 1., 1.,-1.],
+             [2.,-1., 0., 2.,-1., 0.],
+             [1., 1., 1.,-1.,-1.,-1.],
+             [1., 1.,-1.,-1.,-1., 1.],
+             [2.,-1., 0.,-2., 1., 0.]]
+        self.nof_operations = [1, 2, 2, 3, 1, 3]
+        self.Tx_i = 5
+        self.Ty_i = 5
+        self.Tz_i = 4
+
+    def __str__(self):
+        return 'D3d'
+
+    def S4(self, angle, data=None):
+        angle = angle
+
+        # first, bring an edge center to z-axis:
+
+        def do_it(data):
+            # do the actual rotation:
+            data = self.S(angle=angle, data=data)
+            return data
+
+        if data is None:
+            return do_it
+        return do_it(data)
+
+    def C2(self, angle, data=None):
+        angle = angle
+
+        def do_it(data):
+            return self.rotate(angle=angle, data=data, axis='z')
+
+        if data is None:
+            return do_it
+        return do_it(data)
+
+    def C2p(self, angle=90., data=None):
+        angle = angle
+
+        def do_it(data):
+            data = self.rotate(angle=angle, data=data, axis='z')
+            data = self.rotate(angle=90., data=data, axis='x')
+
+            # do the actual rotation:
+            data = self.rotate(angle=180., data=data, axis='z')
+
+            # rotate back:
+            data = self.rotate(angle=-90., data=data, axis='x')
+            data = self.rotate(angle=-angle, data=data, axis='z')
+            return data
+
+        if data is None:
+            return do_it
+        return do_it(data)
+
+    def sigma_d(self, angle, data=None):
+        # first rotate so that the plane is xz plane, flip, and rotate back
+        angle = angle
+
+        def do_it(data):
+            first = self.rotate(data=data, angle=angle)
+            second = self.mirror_xz(first)
+            third = self.rotate(data=second, angle=-angle)
+            return third
+
+        if data is None:
+            return do_it
+        return do_it(data)
+
+
 class Th(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
