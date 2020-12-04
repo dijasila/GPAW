@@ -14,9 +14,10 @@ from math import pi
 from typing import List, Tuple
 
 import numpy as np
-from ase.units import Ha, _c, _e, _hplanck
+from ase.units import Ha, _c, _e, _hplanck, Bohr
 
 from gpaw import GPAW
+from gpaw.grid_descriptor import GridDescriptor
 from gpaw.hints import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
 from gpaw.projections import Projections
@@ -30,11 +31,7 @@ def zfs(calc: GPAW,
 
     Calculate magnetic dipole coupling tennsor in eV.
     """
-    wfs = calc.wfs
-    kpt_s, = wfs.kpt_qs
-
-    wf1, wf2 = (WaveFunctions.from_kpt(kpt, wfs.setups)
-                for kpt in kpt_s)
+    wf1, wf2 = (WaveFunctions.from_kpt(calc, spin) for spin in [0, 1])
 
     compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
 
@@ -54,13 +51,15 @@ def zfs(calc: GPAW,
 
 class WaveFunctions:
     def __init__(self,
-                 pd: PWDescriptor,
                  psit_nR: Array4D,
                  projections: Projections,
                  spin: int,
-                 setups: List[Setup]):
-        """Container for wave function in real-space and projections.,"""
-        self.pd = pd
+                 setups: List[Setup],
+                 gd: GridDescriptor = None,
+                 pd: PWDescriptor = None):
+        """Container for wave function in real-space and projections."""
+
+        self.pd = pd or PWDescriptor(ecut=None, gd=gd)
         self.psit_nR = psit_nR
         self.projections = projections
         self.spin = spin
@@ -68,26 +67,28 @@ class WaveFunctions:
 
     def view(self, n1: int, n2: int) -> 'WaveFunctions':
         """Create WaveFuntions object with view of data."""
-        return WaveFunctions(self.pd,
-                             self.psit_nR[n1:n2],
+        return WaveFunctions(self.psit_nR[n1:n2],
                              self.projections.view(n1, n2),
                              self.spin,
-                             self.setups)
+                             self.setups,
+                             pd=self.pd)
 
     @staticmethod
-    def from_kpt(kpt, setups) -> 'WaveFunctions':
+    def from_kpt(calc, spin) -> 'WaveFunctions':
         """Create WaveFunctions object from PW-mode representation."""
+        kpt = calc.wfs.kpt_qs[0][spin]
         nocc = (kpt.f_n > 0.5).sum()
-        psit = kpt.psit
-        pd = psit.pd
-        psit_nR = pd.gd.empty(nocc)
-        for psit_R, psit_G in zip(psit_nR, psit.array):
-            psit_R[:] = pd.ifft(psit_G)
-        return WaveFunctions(pd,
-                             psit_nR,
+        gd = calc.wfs.gd.new_descriptor(pbc_c=np.ones(3, bool))
+        psit_nR = gd.empty(nocc)
+        for band, psit_R in enumerate(psit_nR):
+            psit_R[:] = calc.get_pseudo_wave_function(band,
+                                                      spin=spin,
+                                                      pad=True) * Bohr**1.5
+        return WaveFunctions(psit_nR,
                              kpt.projections.view(0, nocc),
-                             psit.spin,
-                             setups)
+                             spin,
+                             calc.setups,
+                             gd=gd)
 
     def __len__(self) -> int:
         return len(self.psit_nR)
@@ -166,7 +167,7 @@ def zfs2(pd: PWDescriptor,
 
 
 def convert_tensor(D_vv: Array2D,
-                   unit: str = 'eV') -> Tuple[float, float, Array1D]:
+                   unit: str = 'eV') -> Tuple[float, float, Array1D, Array2D]:
     """Convert 3x3 tensor to D, E and easy axis.
 
     Input tensor must be in eV and the result can be returned in
