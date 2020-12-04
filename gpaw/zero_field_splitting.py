@@ -11,20 +11,25 @@ See::
 
 """
 from math import pi
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
-from ase.units import Ha
+from ase.units import Ha, _c, _e, _hplanck
 
 from gpaw import GPAW
-from gpaw.wavefunctions.pw import PWLFC
-from gpaw.hints import Array2D
+from gpaw.hints import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
+from gpaw.projections import Projections
+from gpaw.setup import Setup
+from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
 
 
 def zfs(calc: GPAW,
         method: int = 1) -> Array2D:
-    """"""
+    """Zero-field splitting.
+
+    Calculate magnetic dipole coupling tennsor in eV.
+    """
     wfs = calc.wfs
     kpt_s, = wfs.kpt_qs
 
@@ -48,7 +53,13 @@ def zfs(calc: GPAW,
 
 
 class WaveFunctions:
-    def __init__(self, pd, psit_nR, projections, spin, setups):
+    def __init__(self,
+                 pd: PWDescriptor,
+                 psit_nR: Array4D,
+                 projections: Projections,
+                 spin: int,
+                 setups: List[Setup]):
+        """Container for wave function in real-space and projections.,"""
         self.pd = pd
         self.psit_nR = psit_nR
         self.projections = projections
@@ -56,6 +67,7 @@ class WaveFunctions:
         self.setups = setups
 
     def view(self, n1: int, n2: int) -> 'WaveFunctions':
+        """Create WaveFuntions object with view of data."""
         return WaveFunctions(self.pd,
                              self.psit_nR[n1:n2],
                              self.projections.view(n1, n2),
@@ -64,8 +76,8 @@ class WaveFunctions:
 
     @staticmethod
     def from_kpt(kpt, setups) -> 'WaveFunctions':
+        """Create WaveFunctions object from PW-mode representation."""
         nocc = (kpt.f_n > 0.5).sum()
-        print(nocc)
         psit = kpt.psit
         pd = psit.pd
         psit_nR = pd.gd.empty(nocc)
@@ -77,11 +89,12 @@ class WaveFunctions:
                              psit.spin,
                              setups)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.psit_nR)
 
 
-def create_compensation_charge(wf: WaveFunctions, spos_ac: Array2D) -> PWLFC:
+def create_compensation_charge(wf: WaveFunctions,
+                               spos_ac: Array2D) -> PWLFC:
     compensation_charge = PWLFC([data.ghat_l for data in wf.setups], wf.pd)
     compensation_charge.set_positions(spos_ac)
     return compensation_charge
@@ -90,6 +103,7 @@ def create_compensation_charge(wf: WaveFunctions, spos_ac: Array2D) -> PWLFC:
 def zfs1(wf1: WaveFunctions,
          wf2: WaveFunctions,
          compensation_charge: PWLFC) -> Array2D:
+    """Compute dipole coupling."""
     pd = wf1.pd
     setups = wf1.setups
     N2 = len(wf2)
@@ -110,12 +124,10 @@ def zfs1(wf1: WaveFunctions,
         for psit_R in wf.psit_nR:
             n_G += pd.fft(psit_R**2)
 
-        print(n_G[0] * pd.gd.dv)
         compensation_charge.add(n_G, Q_aL)
-        print(n_G[0] * pd.gd.dv)
 
     nn_G = (n_sG[0] * n_sG[1].conj()).real
-    D_vv = zfs2(G_Gv, nn_G)
+    D_vv = zfs2(pd, G_Gv, nn_G)
 
     n_nG = pd.empty(N2)
     for n1, psit1_R in enumerate(wf1.psit_nR):
@@ -129,15 +141,11 @@ def zfs1(wf1: WaveFunctions,
 
         for n_G, psit2_R in zip(n_nG, wf2.psit_nR):
             n_G[:] = pd.fft(psit1_R * psit2_R)
-        print(N2, n_nG[:, 0] * pd.gd.dv)
 
         compensation_charge.add(n_nG, Q_anL)
-        print(N2, n_nG[:, 0] * pd.gd.dv)
 
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
-        D_vv -= zfs2(G_Gv, nn_G)
-
-    D_vv *= 2 * pd.gd.dv / pd.gd.N_c.prod()
+        D_vv -= zfs2(pd, G_Gv, nn_G)
 
     print(np.trace(D_vv))
 
@@ -148,50 +156,35 @@ def zfs1(wf1: WaveFunctions,
     return sign * alpha**2 * pi * D_vv * Ha
 
 
-def zfs2(G_Gv, nn_G):
-    return np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+def zfs2(pd: PWDescriptor,
+         G_Gv: Array2D,
+         nn_G: Array1D) -> Array2D:
+    """Integral."""
+    D_vv = np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
+    D_vv *= 2 * pd.gd.dv / pd.gd.N_c.prod()
+    return D_vv
 
 
-def main(argv: List[str] = None) -> Array2D:
-    import argparse
-    import ase.units as units
-    from gpaw import GPAW
-    parser = argparse.ArgumentParser(
-        prog='python3 -m gpaw.zero_field_splitting',
-        description='...')
-    add = parser.add_argument
-    add('file', metavar='input-file',
-        help='GPW-file with wave functions.')
-    add('-u', '--units', default='ueV', choices=['ueV', 'MHz', 'cm-1'],
-        help='Units.  Must be "ueV" (micro-eV, default), "MHz" or "cm-1".')
-    add('-m', '--method', type=int, default=1)
+def convert_tensor(D_vv: Array2D,
+                   unit: str = 'eV') -> Tuple[float, float, Array1D]:
+    """Convert 3x3 tensor to D, E and easy axis.
 
-    if hasattr(parser, 'parse_intermixed_args'):
-        args = parser.parse_intermixed_args(argv)
-    else:
-        args = parser.parse_args(argv)
-
-    calc = GPAW(args.file)
-
-    if args.units == 'ueV':
+    Input tensor must be in eV and the result can be returned in
+    eV, μeV, MHz or 1/cm acording to the value uf *unit*
+    (must be one of "eV", "ueV", "MHz", "1/cm").
+    """
+    if unit == 'ueV':
         scale = 1e6
-        unit = 'μeV'
-    elif args.units == 'MHz':
-        scale = units._e / units._hplanck * 1e-6
-        unit = 'MHz'
+    elif unit == 'MHz':
+        scale = _e / _hplanck * 1e-6
+    elif unit == '1/cm':
+        scale = _e / _hplanck / _c / 100
+    elif unit == 'eV':
+        scale = 1.0
     else:
-        scale = units._e / units._hplanck / units._c / 100
-        unit = '1/cm'
+        raise ValueError(f'Unknown unit: {unit}')
 
-    D_vv = zfs(calc, args.method) * scale
-
-    print('D_ij = (' +
-          ',\n        '.join('(' + ', '.join(f'{d:10.3f}' for d in D_v) + ')'
-                             for D_v in D_vv) +
-          ') ', unit)
-    print('i, j = x, y, z')
-
-    (e1, e2, e3), U = np.linalg.eigh(D_vv)
+    (e1, e2, e3), U = np.linalg.eigh(D_vv * scale)
 
     if abs(e1) > abs(e3):
         D = 1.5 * e1
@@ -202,6 +195,43 @@ def main(argv: List[str] = None) -> Array2D:
         E = 0.5 * (e2 - e1)
         axis = U[:, 2]
 
+    return D, E, axis, D_vv * scale
+
+
+def main(argv: List[str] = None) -> Array2D:
+    """CLI interface."""
+    import argparse
+
+    from gpaw import GPAW
+    parser = argparse.ArgumentParser(
+        prog='python3 -m gpaw.zero_field_splitting',
+        description='...')
+    add = parser.add_argument
+    add('file', metavar='input-file',
+        help='GPW-file with wave functions.')
+    add('-u', '--unit', default='ueV', choices=['ueV', 'MHz', '1/cm'],
+        help='Unit.  Must be "ueV" (micro-eV, default), "MHz" or "1/cm".')
+    add('-m', '--method', type=int, default=1)
+
+    if hasattr(parser, 'parse_intermixed_args'):
+        args = parser.parse_intermixed_args(argv)
+    else:
+        args = parser.parse_args(argv)
+
+    calc = GPAW(args.file)
+
+    D_vv = zfs(calc, args.method)
+    D, E, axis, D_vv = convert_tensor(D_vv, args.unit)
+
+    unit = args.unit
+    if unit == 'ueV':
+        unit = 'μeV'
+
+    print('D_ij = (' +
+          ',\n        '.join('(' + ', '.join(f'{d:10.3f}' for d in D_v) + ')'
+                             for D_v in D_vv) +
+          ') ', unit)
+    print('i, j = x, y, z')
     print()
     print(f'D = {D:.3f} {unit}')
     print(f'E = {E:.3f} {unit}')

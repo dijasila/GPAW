@@ -40,23 +40,13 @@ def cnh2n(n):
 
 if __name__ == '__main__':
     for n in range(3, 13, 2):
-        n = 5
-        a = cnh2n(n)
-        a.center(vacuum=4.0)
-        a.calc = GPAW(mode=PW(600),
-                      xc='PBE', txt=f'c{n}h{2 * n}.txt')
-        a.get_potential_energy()
-        a.calc.write(f'c{n}h{2 * n}.600.gpw', 'all')
-        break
-    from gpaw.zero_field_splitting import main
-    import matplotlib.pyplot as plt
-    r = []
-    D = []
-    for n in range(3, 13, 2):
-        gpw = f'c{n}h{2 * n}.gpw'
-        d = main([gpw])[0, 0]
-        r.append((n - 1) * dx)
-        D.append(d)
-
-    plt.plot(r, D)
-    plt.show()
+        atoms = cnh2n(n)
+        d = atoms.get_distance(0, -3)
+        atoms.center(vacuum=2 * d)
+        name = f'C{n}H{2 * n}'
+        atoms.calc = GPAW(mode='lcao',
+                          basis='dzp',
+                          xc='PBE',
+                          txt=name + '.txt')
+        atoms.get_potential_energy()
+        atoms.calc.write(name + '.gpw', 'all')
