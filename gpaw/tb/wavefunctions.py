@@ -17,10 +17,14 @@ class TBWaveFunctions(LCAOWaveFunctions):
         for setup in self.setups.setups.values():
             vt = setup.vt
             vtphit_j = []
+            import matplotlib.pyplot as plt
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
+                plt.plot(r_g, vt_g)
+                plt.plot(r_g, phit.map(r_g))
+                plt.show(); asdfg
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit.map(r_g)))
             vtphit[setup] = vtphit_j
 
@@ -46,3 +50,22 @@ class TBWaveFunctions(LCAOWaveFunctions):
                 Vt_MM[M1:M2, M1:M2] *= 0.5
                 M1 = M2
             self.Vt_qMM.append(Vt_MM)
+
+
+
+def pseudo_potential(setup: Setup,
+                     xc: XCFunctional) -> Array1D:
+    phit_jg = np.array(setup.data.phi_jg)
+    rgd = setup.rgd
+
+    # Densities with frozen core:
+    nt_g = np.einsum('jg, j, jg -> g',
+                     phit_jg, setup.f_j, phit_jg) / (4 * pi)**0.5
+    nt_g += setup.data.nct_g * (1 / (4 * pi)**0.5)
+
+    # Potential:
+    vt_g = np.zeros_like(nt_sg)
+    xc.calculate_spherical(rgd, nt_g, vt_g)
+    vr_sg = v_sg * rgd.r_g
+    vr_sg -= setup.Z
+    vr_sg += rgd.poisson(n_sg.sum(axis=0))
