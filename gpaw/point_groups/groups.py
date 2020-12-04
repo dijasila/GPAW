@@ -307,6 +307,48 @@ class C3v(Pointgroup):
         return do_it(data)
 
 
+class C4v(Pointgroup):
+    # main axis should be the z-axis!
+    def __init__(self):
+        self.operations = [('E', self.unit),
+                           ('C2', self.rotate_mainaxis(angle=180.)),
+                           ('1C4', self.rotate_mainaxis(angle=90.)),
+                           ('2C4', self.rotate_mainaxis(angle=-90.)),
+                           ('sigma_v0', self.mirror_xz),
+                           ('sigma_v1', self.mirror_yz),
+                           ('sigma_d0', self.sigma_d(angle=45.)),
+                           ('sigma_d1', self.sigma_d(angle=-45.))]
+        self.operation_names = [pair[0] for pair in self.operations]
+        self.symmetries = ['A1', 'A2', 'B1', 'B2', 'E']
+        self.character_table = [
+            [1., 1., 1., 1., 1.],
+            [1., 1., 1.,-1.,-1.],
+            [1., 1.,-1., 1.,-1.],
+            [1., 1.,-1.,-1., 1.],
+            [2.,-2., 0., 0., 0.]]
+        self.nof_operations = [1, 1, 2, 2, 2]
+        self.Tx_i = 4
+        self.Ty_i = 4
+        self.Tz_i = 0
+
+    def __str__(self):
+        return 'C4v'
+
+    def sigma_d(self, angle, data=None):
+        # first rotate so that the plane is xz plane, flip, and rotate back
+        angle = angle
+
+        def do_it(data):
+            first = self.rotate(data=data, angle=angle)
+            second = self.mirror_xz(first)
+            third = self.rotate(data=second, angle=-angle)
+            return third
+
+        if data is None:
+            return do_it
+        return do_it(data)
+
+
 class C2h(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
