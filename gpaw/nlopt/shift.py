@@ -52,8 +52,8 @@ def get_shift(
             nk = len(k_info) * world.size  # Approximately
             if band_n is None:
                 band_n = list(range(nb))
-            est_mem = 6 * 3 * nk * nb**2 * 16 / 2**20
-            parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
+            mem = 6 * 3 * nk * nb**2 * 16 / 2**20
+            parprint('At least {:.2f} MB of memory is required.'.format(mem))
 
     # Initial call to print 0% progress
     count = 0
