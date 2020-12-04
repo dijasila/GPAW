@@ -5,6 +5,9 @@ import numpy as np
 from gpaw.lcao.tci import TCIExpansions
 from gpaw.spline import Spline
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
+from gpaw.setup import Setup
+from gpaw.xc.functional import XCFunctional
+from gpaw.hints import Array1D
 
 
 class TBWaveFunctions(LCAOWaveFunctions):
@@ -52,7 +55,6 @@ class TBWaveFunctions(LCAOWaveFunctions):
             self.Vt_qMM.append(Vt_MM)
 
 
-
 def pseudo_potential(setup: Setup,
                      xc: XCFunctional) -> Array1D:
     phit_jg = np.array(setup.data.phi_jg)
@@ -64,8 +66,8 @@ def pseudo_potential(setup: Setup,
     nt_g += setup.data.nct_g * (1 / (4 * pi)**0.5)
 
     # Potential:
-    vt_g = np.zeros_like(nt_sg)
+    vt_g = np.zeros_like(nt_g)
     xc.calculate_spherical(rgd, nt_g, vt_g)
-    vr_sg = v_sg * rgd.r_g
+    vr_sg = vt_g * rgd.r_g
     vr_sg -= setup.Z
-    vr_sg += rgd.poisson(n_sg.sum(axis=0))
+    vr_sg += rgd.poisson(nt_g)
