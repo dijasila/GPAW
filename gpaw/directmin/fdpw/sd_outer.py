@@ -253,6 +253,57 @@ class FRcg(SteepestDescent):
             return self.p_k
 
 
+class PFRcg(SteepestDescent):
+    """
+    The Fletcher-Reeves conj. grad. method
+    See Jorge Nocedal and Stephen J. Wright 'Numerical
+    Optimization' Second Edition, 2006 (p. 121)
+    """
+
+    def __init__(self, wfs, dimensions):
+
+        """
+        """
+        super().__init__(wfs, dimensions)
+
+    def __str__(self):
+        return 'Preconditioned Fletcher-Reeves conjugate gradient method'
+
+    def update_data(self, psi, g_k1, wfs, prec):
+
+        if self.iters == 0:
+            self.p_k = self.minus(wfs, g_k1)
+            self.apply_prec(wfs, self.p_k, prec, 1.0)
+            # save the step
+            self.g_k = g_k1
+            self.iters += 1
+            return self.p_k
+        else:
+            pg = copy.deepcopy(self.g_k)
+            self.apply_prec(wfs, pg, prec, 1.0)
+            dot_gg_k = self.dot_all_k_and_b(self.g_k, pg, wfs)
+
+            pg =  copy.deepcopy(g_k1)
+            self.apply_prec(wfs, pg, prec, 1.0)
+            dot_gg_k1 = self.dot_all_k_and_b(g_k1, pg, wfs)
+            beta_k = dot_gg_k1 / dot_gg_k
+
+            self.p_k = self.calc_diff(pg, self.p_k, wfs,
+                                      const_0=-1.0,
+                                      const=-beta_k)
+            # self.p_k = -g_k1 + beta_k * self.p_k
+            # save this step
+            self.g_k = g_k1
+            self.iters += 1
+
+            if self.iters > 10:
+                self.iters = 0
+
+            del pg
+
+            return self.p_k
+
+
 class PRcg(SteepestDescent):
 
     """
@@ -405,7 +456,7 @@ class LBFGS(SteepestDescent):
 
         return 'LBFGS'
 
-    def update_data(self, psi, g_k1, wfs, prec):
+    def update_data(self, x_k1, g_k1, wfs, prec):
 
         if prec is not None:
             self.apply_prec(wfs, g_k1, prec, 1.0)
@@ -413,7 +464,7 @@ class LBFGS(SteepestDescent):
         if self.k == 0:
 
             self.kp[self.k] = self.p
-            self.x_k = psi
+            self.x_k = x_k1
             self.g_k = g_k1
             self.s_k[self.kp[self.k]] = self.zeros(g_k1)
             self.y_k[self.kp[self.k]] = self.zeros(g_k1)
@@ -429,24 +480,16 @@ class LBFGS(SteepestDescent):
                 self.p = 0
                 self.kp[self.k] = self.p
 
-            s_k = self.s_k
-            x_k = self.x_k
-            y_k = self.y_k
-            g_k = self.g_k
-
-            x_k1 = psi
-
             rho_k = self.rho_k
-
             kp = self.kp
             k = self.k
             m = self.m
 
-            s_k[kp[k]] = self.calc_diff(x_k1, x_k, wfs)
-            y_k[kp[k]] = self.calc_diff(g_k1, g_k, wfs)
+            self.s_k[kp[k]] = self.calc_diff(x_k1, self.x_k, wfs)
+            self.y_k[kp[k]] = self.calc_diff(g_k1, self.g_k, wfs)
 
-            dot_ys = self.dot_all_k_and_b(y_k[kp[k]],
-                                          s_k[kp[k]], wfs)
+            dot_ys = self.dot_all_k_and_b(self.y_k[kp[k]],
+                                          self.s_k[kp[k]], wfs)
             if abs(dot_ys) > 0.0:
                 rho_k[kp[k]] = 1.0 / dot_ys
             else:
@@ -478,11 +521,11 @@ class LBFGS(SteepestDescent):
 
             for i in range(k, j, -1):
 
-                dot_sq = self.dot_all_k_and_b(s_k[kp[i]], q, wfs)
+                dot_sq = self.dot_all_k_and_b(self.s_k[kp[i]], q, wfs)
 
                 alpha[kp[i]] = rho_k[kp[i]] * dot_sq
 
-                q = self.calc_diff(q, y_k[kp[i]],
+                q = self.calc_diff(q, self.y_k[kp[i]],
                                    wfs, const=alpha[kp[i]])
 
                 # q -= alpha[kp[i]] * y_k[kp[i]]
@@ -490,8 +533,8 @@ class LBFGS(SteepestDescent):
             try:
                 t = np.maximum(1, k - m + 1)
 
-                dot_yy = self.dot_all_k_and_b(y_k[kp[t]],
-                                              y_k[kp[t]], wfs)
+                dot_yy = self.dot_all_k_and_b(self.y_k[kp[t]],
+                                              self.y_k[kp[t]], wfs)
 
                 r = self.multiply(q, 1.0 / (rho_k[kp[t]] * dot_yy))
 
@@ -503,11 +546,11 @@ class LBFGS(SteepestDescent):
 
             for i in range(np.maximum(0, k - m + 1), k + 1):
 
-                dot_yr = self.dot_all_k_and_b(y_k[kp[i]], r, wfs)
+                dot_yr = self.dot_all_k_and_b(self.y_k[kp[i]], r, wfs)
 
                 beta = rho_k[kp[i]] * dot_yr
 
-                r = self.calc_diff(r, s_k[kp[i]], wfs,
+                r = self.calc_diff(r, self.s_k[kp[i]], wfs,
                                    const=(beta-alpha[kp[i]]))
 
                 # r += s_k[kp[i]] * (alpha[kp[i]] - beta)

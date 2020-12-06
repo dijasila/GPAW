@@ -1,7 +1,7 @@
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.fdpw.sd_outer import SteepestDescent, FRcg, HZcg, \
-    PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P, LSR1P
+    PRcg, PRpcg, QuickMin, LBFGS, LBFGS_P, LSR1P, PFRcg
 from gpaw.directmin.fdpw.ls_outer import UnitStepLength, \
     StrongWolfeConditions, Parabola, TwoStepParabola, \
     TwoStepParabolaAwc, TwoStepParabolaCubicAwc, \
@@ -19,6 +19,8 @@ def sd_outer(method, wfs, dim):
             return SteepestDescent(wfs, dim)
         elif name == 'FRcg':
             return FRcg(wfs, dim)
+        elif name == 'PFRcg':
+            return PFRcg(wfs, dim)
         elif name == 'PRcg':
             return PRcg(wfs, dim)
         elif name == 'PRpcg':

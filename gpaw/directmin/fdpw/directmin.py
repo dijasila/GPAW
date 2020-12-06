@@ -82,6 +82,7 @@ class DirectMin(Eigensolver):
 
         sds = {'SD': 'Steepest Descent',
                'FRcg': 'Fletcher-Reeves conj. grad. method',
+               'PFRcg': 'Preconditioned Fletcher-Reeves conj. grad. method',
                'HZcg': 'Hager-Zhang conj. grad. method',
                'PRcg': 'Polak-Ribiere conj. grad. method',
                'PRpcg': 'Polak-Ribiere+ conj. grad. method',
@@ -141,6 +142,7 @@ class DirectMin(Eigensolver):
         return {'name': 'direct_min_fd',
                 'searchdir_algo': self.sda,
                 'linesearch_algo': self.lsa,
+                'convergelumo': self.convergelumo,
                 'use_prec': self.use_prec,
                 'odd_parameters': self.odd_parameters
                 }
@@ -418,6 +420,8 @@ class DirectMin(Eigensolver):
                     #             axes=1)
                     self.e_sic = self.odd.get_energy_and_gradients(
                         wfs, grad, dens, self.iloop.U_k, add_grad=True)
+                    ham.get_energy(occ, kin_en_using_band=False,
+                                   e_sic=self.e_sic)
                     # for kpt in wfs.kpt_u:
                     #     k = self.n_kps * kpt.s + kpt.q
                     #     kpt.psit_nG[:] = temp[k]
@@ -903,13 +907,13 @@ class DirectMin(Eigensolver):
             wfs, dens, ham,
             obj_func=self.evaluate_phi_and_der_phi_lumo, lumo=True)
 
-        max_iter = 500
+        max_iter = 300
         while self.iters < max_iter:
             en, er = self.iterate_lumo(ham, wfs, dens)
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
-            if er < max_err * 10.:
+            if er < max(max_err, 5.0e-4):
                 log('\nUnoccupied states converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
@@ -957,6 +961,9 @@ class DirectMin(Eigensolver):
                                          self.iloop.odd_pot.grad[k],
                                          axes=1)
                 wfs.timer.stop('Inner loop')
+
+                ham.get_energy(occ, kin_en_using_band=False,
+                               e_sic=self.e_sic)
                 return counter, True
 
             for kpt in wfs.kpt_u:
@@ -994,6 +1001,9 @@ class DirectMin(Eigensolver):
                 self.iloop_outer.U_k[k] = np.eye(n_occ, dtype=self.dtype)
 
         wfs.timer.stop('Inner loop')
+
+        ham.get_energy(occ, kin_en_using_band=False,
+                       e_sic=self.e_sic)
 
         return counter, True
 

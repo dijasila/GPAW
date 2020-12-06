@@ -187,7 +187,7 @@ class InnerLoop:
                 self.U_k[k] = self.U_k[k] @ self.Unew_k[k]
             del self.psit_knG
             if outer_counter is None:
-                return self.e_total, counter
+                return self.e_total, self.counter
             else:
                 return self.e_total, outer_counter
 
@@ -364,7 +364,7 @@ class InnerLoop:
 
         del self.psit_knG
         if outer_counter is None:
-            return self.e_total, counter
+            return self.e_total, self.counter
         else:
             return self.e_total, outer_counter
 
