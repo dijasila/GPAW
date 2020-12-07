@@ -102,7 +102,7 @@ csvwriter2.writerow(h2)
 
 refs = np.loadtxt(reffile,
                   dtype={'names': ('element', 'V0', 'B0', 'BP'),
-                         'formats': ('S2', np.float, np.float, np.float)})
+                         'formats': ('S2', float, float, float)})
 # convert into dict
 refsd = {}
 for e, v, b0, b1 in refs:

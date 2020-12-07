@@ -164,7 +164,7 @@ class SimpleStm(STM):
             raise NotImplementedError('unknown file type "' + filetype + '"')
 
         self.file = file
-        self.ldos = np.array(data * Bohr ** 3, np.float)
+        self.ldos = np.array(data * Bohr ** 3)
 # print "read: integrated =", self.gd.integrate(self.ldos)
 
     def current_to_density(self, current):
