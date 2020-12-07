@@ -90,7 +90,7 @@ class C1(Pointgroup):
         self.Tz_i = 0
 
     def __str__(self):
-        return 'C1' 
+        return 'C1'
 
 
 class Cs(Pointgroup):
@@ -117,7 +117,7 @@ class Ci(Pointgroup):
     # main axis should be the z-axis!
     def __init__(self):
         self.operations = [('E', self.unit),
-                           ('i', self.invert())]
+                           ('i', self.invert)]
         self.operation_names = [pair[0] for pair in self.operations]
         self.symmetries = ['Ag', 'Au']
         self.character_table = [
