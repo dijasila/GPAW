@@ -32,10 +32,11 @@ def get_chi_tensor(
 
     # Load the required data
     k_info = load_data(mml_name=mml_name)
-    _, tmp = k_info.popitem()
-    nb = len(tmp[1])
-    if band_n is None:
-        band_n = list(range(nb))
+    if k_info:
+        tmp = list(k_info.values())[0]
+        nb = len(tmp[1])
+        if band_n is None:
+            band_n = list(range(nb))
 
     # Initialize the outputs
     sum_vvl = np.zeros((3, 3, nw), complex)
