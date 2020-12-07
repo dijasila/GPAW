@@ -9,7 +9,6 @@ def test_parallel_augment_grid(in_tmp_dir):
     system.cell = (4, 4, 4)
     system.pbc = 1
 
-
     for mode in ['fd',
                  'pw',
                  'lcao'

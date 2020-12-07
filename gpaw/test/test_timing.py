@@ -5,7 +5,6 @@ from gpaw.transformers import Transformer
 from time import perf_counter as clock
 
 
-
 def test_timing():
     n = 6
     gda = GridDescriptor((n, n, n))

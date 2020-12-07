@@ -6,7 +6,7 @@ from gpaw.test import equal
 def test_generic_IP_oxygen():
     a = 6.0
     calc = GPAW(gpts=(32, 36, 32), nbands=4)
-    O = Atoms([Atom('O', (a/2, a/2 + 0.5, a/2), magmom=2)],
+    O = Atoms([Atom('O', (a / 2, a / 2 + 0.5, a / 2), magmom=2)],
               pbc=False, cell=(a, a + 1, a), calculator=calc)
     e0 = O.get_potential_energy()
     niter0 = calc.get_number_of_iterations()

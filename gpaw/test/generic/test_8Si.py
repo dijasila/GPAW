@@ -4,6 +4,7 @@ from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.test import equal
 from gpaw.xc.tools import vxc
 
+
 def test_generic_8Si():
     a = 5.404
     bulk = Atoms(symbols='Si8',

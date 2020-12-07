@@ -8,6 +8,7 @@ import _gpaw
 
 # Find coefs for polynomial:
 
+
 def test_ext_potential_point_charge(in_tmp_dir):
     c = np.linalg.solve([[1, 1, 1, 1],
                          [0, 2, 4, 6],
@@ -37,10 +38,10 @@ def test_ext_potential_point_charge(in_tmp_dir):
     vext_G = np.zeros((1, 1, 1))
     rhot_G = np.ones((1, 1, 1))
 
-
     def f(rc):
         vext_G[:] = 0.0
-        _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc, np.inf, 1.0, vext_G, None)
+        _gpaw.pc_potential(beg_v, h_v, q_p, R_pv, rc,
+                           np.inf, 1.0, vext_G, None)
         return -vext_G[0, 0, 0]
 
     d = (R_pv[0]**2).sum()**0.5

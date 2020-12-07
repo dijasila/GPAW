@@ -4,10 +4,10 @@ import pylab
 
 # onsite energies 0.0, nearest neighbor hopping -1.0, and
 # second nearest neighbor hopping 0.2
-H_lead = np.array([[0., -1.,  0.2,  0.],
-                   [-1.,  0., -1.,  0.2],
-                   [0.2, -1.,  0., -1.],
-                   [0.,  0.2, -1.,  0.]])
+H_lead = np.array([[0., -1., 0.2, 0.],
+                   [-1., 0., -1., 0.2],
+                   [0.2, -1., 0., -1.],
+                   [0., 0.2, -1., 0.]])
 
 H_scat = np.zeros((6, 6))
 

@@ -10,7 +10,6 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
-
 def test_pw_moleculecg():
     m = molecule('H')
     m.center(vacuum=2.0)

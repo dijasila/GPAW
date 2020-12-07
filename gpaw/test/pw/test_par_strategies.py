@@ -44,6 +44,9 @@ def test_pw_par_strategies(in_tmp_dir):
                     serr = np.abs(s2 - s1).max()
                     if world.rank == 0:
                         print('errs', d, k, eerr, ferr, serr)
-                    assert eerr < 1e-11, 'bad {} energy: err={}'.format(xc, eerr)
-                    assert ferr < 3e-11, 'bad {} forces: err={}'.format(xc, ferr)
-                    assert serr < 1e-11, 'bad {} stress: err={}'.format(xc, serr)
+                    assert eerr < 1e-11, 'bad {} energy: err={}'.format(
+                        xc, eerr)
+                    assert ferr < 3e-11, 'bad {} forces: err={}'.format(
+                        xc, ferr)
+                    assert serr < 1e-11, 'bad {} stress: err={}'.format(
+                        xc, serr)
