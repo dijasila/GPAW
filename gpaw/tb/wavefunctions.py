@@ -64,10 +64,12 @@ def pseudo_potential(setup: Setup,
     nt_g = np.einsum('jg, j, jg -> g',
                      phit_jg, setup.f_j, phit_jg) / (4 * pi)**0.5
     nt_g += setup.data.nct_g * (1 / (4 * pi)**0.5)
+    nt_sg = nt_g[np.newaxis]
 
     # Potential:
-    vt_g = np.zeros_like(nt_g)
-    xc.calculate_spherical(rgd, nt_g, vt_g)
-    vr_sg = vt_g * rgd.r_g
-    vr_sg -= setup.Z
-    vr_sg += rgd.poisson(nt_g)
+    vt_sg = np.zeros_like(nt_sg)
+    xc.calculate_spherical(rgd, nt_sg, vt_sg)
+    vr_g = vt_sg[0] * rgd.r_g
+    vr_g -= setup.Z
+    vr_g += rgd.poisson(nt_g)
+    rgd.plot(vr_g, show=1)
