@@ -22,7 +22,7 @@ for symbol in elements:
         rcut = 1.4
     else:
         rcut = 1.0
-    
+
     # If the lambda scaling is used change name to differentiate the setup
     name = 'lambda_{0}'.format(lambda_coeff)
 
@@ -35,6 +35,6 @@ for symbol in elements:
                   orbital_free=True, tw_coeff=lambda_coeff,
                   gpernode=gpernode)
 
-    g.run(exx=False, name=name, use_restart_file=False, 
+    g.run(exx=False, name=name, use_restart_file=False,
           rcut=rcut,
-          write_xml=True) 
+          write_xml=True)
