@@ -184,7 +184,7 @@ class BaseInducedField(object):
         # Always extend a bit to get field without jumps
         if extend_N_cd is None:
             extend_N = max(8, 2**int(np.ceil(np.log(gradient_n) / np.log(2.))))
-            extend_N_cd = extend_N * np.ones(shape=(3, 2), dtype=np.int)
+            extend_N_cd = extend_N * np.ones(shape=(3, 2), dtype=int)
             deextend = True
 
         # Extend grid
