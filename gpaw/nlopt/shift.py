@@ -53,7 +53,7 @@ def get_shift(
             if band_n is None:
                 band_n = list(range(nb))
             mem = 6 * 3 * nk * nb**2 * 16 / 2**20
-            parprint('At least {:.2f} MB of memory is required.'.format(mem))
+            parprint(f'At least {mem:.2f} MB of memory is required.')
 
     # Initial call to print 0% progress
     count = 0
