@@ -284,7 +284,7 @@ class FDPWWaveFunctions(WaveFunctions):
                                              [setup.phit_j
                                               for setup in self.setups],
                                              self.kd, dtype=self.dtype,
-                                             cut=True)
+                                             cut=True, cuda=self.cuda)
             basis_functions.set_positions(spos_ac)
         else:
             self.initialize_wave_functions_from_restart_file()
