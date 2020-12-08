@@ -480,14 +480,13 @@ class OrbitalLayouts(KohnShamLayouts):
         # Although that requires knowing C_Mn and not C_nM.
         # that also conforms better to the usual conventions in literature
 
-        # TODO: check that it doesn't break parallel calculations
-        n_occ = get_n_occ(f_n)
-
+        # Use only occupied bands to construct density matrix
+        occupied = abs(f_n) > 1.0e-10
         if C2_nM is None:
             C2_nM = C_nM
         Cf_Mn = \
-            np.ascontiguousarray(C2_nM[:n_occ].T.conj() * f_n[:n_occ])
-        gemm(1.0, C_nM[:n_occ], Cf_Mn, 0.0, rho_MM, 'n')
+            np.ascontiguousarray(C2_nM[occupied].T.conj() * f_n[occupied])
+        gemm(1.0, C_nM[occupied], Cf_Mn, 0.0, rho_MM, 'n')
         return rho_MM
 
     def get_transposed_density_matrix(self, f_n, C_nM, rho_MM=None):
@@ -530,13 +529,3 @@ class OrbitalLayouts(KohnShamLayouts):
     def get_transposed_density_matrix_delta(self, d_nn, C_nM, rho_MM=None):
         return self.calculate_density_matrix_delta(d_nn, C_nM, rho_MM).T.copy()
 
-
-def get_n_occ(f):
-    # sometimes f can be f_n * eps,
-    # for example when we calculate forces
-    # and therefore, we use here abs(f_n)
-    nbands = len(f)
-    n_occ = 0
-    while n_occ < nbands and abs(f[n_occ]) > 1e-10:
-        n_occ += 1
-    return n_occ
