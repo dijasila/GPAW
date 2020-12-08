@@ -1055,8 +1055,7 @@ class GPAW(Calculator):
                     aux_gd = gd.new_descriptor(comm=self.world)
                 except BadGridError as err:
                     import warnings
-                    warnings.warn('Ignoring augment_grids: {}'
-                                  .format(err))
+                    warnings.warn(f'Ignoring augment_grids: {err}')
                 else:
                     bcast_comm = dens.redistributor.broadcast_comm
                     xc_redist = GridRedistributor(self.world, bcast_comm,

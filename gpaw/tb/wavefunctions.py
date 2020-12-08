@@ -13,19 +13,23 @@ from gpaw.xc.functional import XCFunctional
 class TBWaveFunctions(LCAOWaveFunctions):
     mode = 'tb'
 
-    def __init__(self, xc, *args, **kwargs):
+    def __init__(self,
+                 xc: XCFunctional,
+                 *args, **kwargs):
         LCAOWaveFunctions.__init__(self, *args, **kwargs)
 
         vtphit: Dict[Setup, List[Spline]] = {}
         for setup in self.setups.setups.values():
+            print(setup.data.eps_j)
             vt = calculate_potential(setup, xc)
             vtphit_j = []
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
-                phir_g = phit.map(r_g)
-                eig = ...
+                phit_g = phit.map(r_g)
+                eig = (phit_g**2).dot(vt_g * r_g**2) * r_g[1]
+                print(eig)
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
@@ -43,13 +47,14 @@ class TBWaveFunctions(LCAOWaveFunctions):
         self.Vt_qMM = []
         for Vt_MM in manytci.P_qIM(my_atom_indices):
             Vt_MM = Vt_MM.toarray()
-            # print(spos_ac[1, 2], Vt_MM[0, 1])
+            print(Vt_MM)
             Vt_MM += Vt_MM.T.conj().copy()
             M1 = 0
             for m in manytci.Mindices.nm_a:
                 M2 = M1 + m
                 Vt_MM[M1:M2, M1:M2] *= 0.5
                 M1 = M2
+            print(Vt_MM)
             self.Vt_qMM.append(Vt_MM)
 
 

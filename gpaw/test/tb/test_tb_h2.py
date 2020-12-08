@@ -20,6 +20,7 @@ def test_h2():
         e = a.get_potential_energy()# + rep(d)
         print(d, e, rep(d))
         E.append(e)
+        return
     import matplotlib.pyplot as plt
     plt.plot(D, E)
     plt.show()

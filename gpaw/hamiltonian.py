@@ -183,7 +183,8 @@ class Hamiltonian:
         # XXX what purpose does this serve?  In what case does it happen?
         # How would one even go about figuring it out?  Why does it all have
         # to be so unreadable? -Ask
-        #
+        # Thanks for the nice words. It warms my heart. -JJ
+
         if (self.atom_partition is not None and
             self.dH_asp is None and (rank_a == self.gd.comm.rank).any()):
             self.update_atomic_hamiltonians({})
