@@ -1,4 +1,5 @@
 from math import pi
+from typing import List, Dict
 
 import numpy as np
 
@@ -7,27 +8,22 @@ from gpaw.spline import Spline
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.setup import Setup
 from gpaw.xc.functional import XCFunctional
-from gpaw.hints import Array1D
 
 
 class TBWaveFunctions(LCAOWaveFunctions):
     mode = 'tb'
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, xc, *args, **kwargs):
         LCAOWaveFunctions.__init__(self, *args, **kwargs)
 
-        vtphit = {}  # Dict[Setup, List[Spline]]
+        vtphit: Dict[Setup, List[Spline]] = {}
         for setup in self.setups.setups.values():
-            vt = setup.vt
+            vt = calculate_potential(setup, xc)
             vtphit_j = []
-            import matplotlib.pyplot as plt
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
-                plt.plot(r_g, vt_g)
-                plt.plot(r_g, phit.map(r_g))
-                plt.show(); asdfg
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit.map(r_g)))
             vtphit[setup] = vtphit_j
 
@@ -55,21 +51,26 @@ class TBWaveFunctions(LCAOWaveFunctions):
             self.Vt_qMM.append(Vt_MM)
 
 
-def pseudo_potential(setup: Setup,
-                     xc: XCFunctional) -> Array1D:
-    phit_jg = np.array(setup.data.phi_jg)
+def calculate_potential(setup: Setup,
+                        xc: XCFunctional) -> Spline:
+    phit_jg = np.array(setup.data.phit_jg)
     rgd = setup.rgd
 
     # Densities with frozen core:
     nt_g = np.einsum('jg, j, jg -> g',
-                     phit_jg, setup.f_j, phit_jg) / (4 * pi)**0.5
+                     phit_jg, setup.f_j, phit_jg) / (4 * pi)
     nt_g += setup.data.nct_g * (1 / (4 * pi)**0.5)
-    nt_sg = nt_g[np.newaxis]
 
-    # Potential:
+    # XC potential:
+    nt_sg = nt_g[np.newaxis]
     vt_sg = np.zeros_like(nt_sg)
     xc.calculate_spherical(rgd, nt_sg, vt_sg)
-    vr_g = vt_sg[0] * rgd.r_g
-    vr_g -= setup.Z
-    vr_g += rgd.poisson(nt_g)
-    rgd.plot(vr_g, show=1)
+    vt_sg[0] += setup.vbar.map(rgd.r_g) / (4 * pi)**0.5
+    vtr_g = vt_sg[0] * rgd.r_g
+    g_g = setup.ghat_l[0].map(rgd.r_g)
+    Q = -rgd.integrate(nt_g) / rgd.integrate(g_g)
+    nt_g += Q * g_g
+    vtr_g += rgd.poisson(nt_g)
+    vtr_g[1:] /= rgd.r_g[1:]
+    vtr_g[0] = vtr_g[1]
+    return rgd.spline(vtr_g * (4 * pi)**0.5, points=300)

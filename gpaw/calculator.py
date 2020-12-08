@@ -758,7 +758,7 @@ class GPAW(Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c)
+                                       cell_cv, pbc_c, N_c, xc)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -847,7 +847,7 @@ class GPAW(Calculator):
         self.log('... initialized\n')
 
     def create_setups(self, mode, xc):
-        if self.parameters.filter is None and mode.name != 'pw':
+        if self.parameters.filter is None and mode.name in ['lcao', 'fd']:
             gamma = 1.6
             N_c = self.parameters.get('gpts')
             if N_c is None:
@@ -1107,7 +1107,7 @@ class GPAW(Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c):
+                              setups, cell_cv, pbc_c, N_c, xc):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)
@@ -1184,6 +1184,8 @@ class GPAW(Calculator):
                                            gd, bd, domainband_comm, dtype,
                                            nao=nao, timer=self.timer,
                                            elpasolver=elpasolver)
+            if mode.name == 'tb':
+                wfs_kwargs['xc'] = xc
 
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
