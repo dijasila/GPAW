@@ -24,7 +24,9 @@ class TBWaveFunctions(LCAOWaveFunctions):
                 rc = phit.get_cutoff()
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
-                vtphit_j.append(Spline(phit.l, rc, vt_g * phit.map(r_g)))
+                phir_g = phit.map(r_g)
+                eig = ...
+                vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
         self.vtciexpansions = TCIExpansions([s.phit_j for s in self.setups],
