@@ -40,7 +40,7 @@ for arg in sys.argv[1:]:
         cmd += arg
 
 flags = "-w -O3 -std=c99"
-cmd = "mpicc %s %s"%(flags, cmd)
+cmd = f"mpicc {flags} {cmd}"
 
 call(cmd, shell=True)
 

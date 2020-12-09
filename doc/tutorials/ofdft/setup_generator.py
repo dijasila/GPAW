@@ -24,11 +24,11 @@ for symbol in elements:
         rcut = 1.0
 
     # If the lambda scaling is used change name to differentiate the setup
-    name = 'lambda_{0}'.format(lambda_coeff)
+    name = f'lambda_{lambda_coeff}'
 
     # Use of Kinetic functional (minus the Tw contribution) inside the
     # xc definition
-    pauliname = '{0}_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'.format(gamma_coeff)
+    pauliname = f'{gamma_coeff}_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'
 
     # Calculate OFDFT density
     g = Generator(symbol, xcname=pauliname, scalarrel=False,

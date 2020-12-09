@@ -39,7 +39,7 @@ assert s == N * (N - 1) // 2
 
 # Subtract the global mean
 data -= s / N
-mpi_debug('data: %s' % data)
+mpi_debug(f'data: {data}')
 
 # -------------------------------------------------------------------
 
@@ -92,7 +92,7 @@ aux = np.empty(N, dtype=float)
 if world.rank == 0:
     np.random.seed(1234567)
     aux[:] = np.random.uniform(0, 1, size=N).round(2)
-    print('MASTER aux: %s, mean=%f' % (aux, aux.mean()))
+    print(f'MASTER aux: {aux}, mean={aux.mean():f}')
 
 # Allocate space for my part of the auxiliary data
 myaux = np.empty(M, dtype=float)
@@ -122,7 +122,7 @@ del aux
 
 # Try to calculate mean now
 meanaux = world.sum(myaux.mean()) / world.size
-mpi_debug('myaux: %s, mean=%f' % (myaux, meanaux))
+mpi_debug(f'myaux: {myaux}, mean={meanaux:f}')
 
 # -------------------------------------------------------------------
 
@@ -137,7 +137,7 @@ else:
 
 # Do something to our auxiliary data
 myaux[:] = np.sin(2 * np.pi * myaux).round(3)
-mpi_debug('myaux: %s' % myaux)
+mpi_debug(f'myaux: {myaux}')
 
 # Gather parts from everyone on the master
 world.gather(myaux, 0, result)
@@ -160,4 +160,4 @@ else:
     world.send(myaux, 0, tag=123)
 """
 
-mpi_debug('result: %s' % result)
+mpi_debug(f'result: {result}')
