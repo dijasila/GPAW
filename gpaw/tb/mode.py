@@ -10,6 +10,8 @@ from gpaw.tb.parameters import DefaultParameters
 from gpaw.spline import Spline
 from gpaw.setup import Setup
 from gpaw.xc.functional import XCFunctional
+from gpaw.hints import Array1D
+from gpaw.utilities import pack
 
 
 class TB(Mode):
@@ -25,18 +27,25 @@ class TB(Mode):
     def __call__(self, ksl, xc, **kwargs) -> TBWaveFunctions:
         return TBWaveFunctions(xc, ksl, **kwargs)
 
-    def fix_setups(self,
-                   setups: Sequence[Setup],
-                   xc: XCFunctional) -> None:
+    def manipulate_setups_hook(self,
+                               setups: Sequence[Setup],
+                               xc: XCFunctional) -> None:
         for setup in setups:
-            print(setup.data.eps_j)
-            print(setup)
-            if setup.vt is None:
-                setup.vt = calculate_potential(setup, xc)
+            setup.vt, delta_eig_j = calculate_potential(setup, xc)
+            K_i = sum(([e] * (2 * l + 1)
+                      for e, l in zip(delta_eig_j, setup.l_j)),
+                      [])
+            setup.K_p = pack(np.diag(K_i))
+            setup.M_p[:] = 0.0
+            setup.MB_p[:] = 0.0
+            setup.M_pp[:] = 0.0
+            setup.M = 0.0
+            setup.MB = 0.0
+            setup.Kc = 0.0
 
 
 def calculate_potential(setup: Setup,
-                        xc: XCFunctional) -> Spline:
+                        xc: XCFunctional) -> Tuple[Spline, Array1D]:
     phit_jg = np.array(setup.data.phit_jg)
     rgd = setup.rgd
 
@@ -55,6 +64,11 @@ def calculate_potential(setup: Setup,
     Q = -rgd.integrate(nt_g) / rgd.integrate(g_g)
     nt_g += Q * g_g
     vtr_g += rgd.poisson(nt_g)
-    vtr_g[1:] /= rgd.r_g[1:]
-    vtr_g[0] = vtr_g[1]
-    return rgd.spline(vtr_g * (4 * pi)**0.5, points=300)
+    vt_g = vtr_g
+    vt_g[1:] /= rgd.r_g[1:]
+    vt_g[0] = vt_g[1]
+
+    delta_eig_j = (rgd.integrate(phit_jg**2 * vt_g) / (4 * pi) -
+                   setup.data.eps_j)
+
+    return rgd.spline(vtr_g * (4 * pi)**0.5, points=300), delta_eig_j

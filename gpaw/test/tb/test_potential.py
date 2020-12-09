@@ -1,4 +1,4 @@
-from gpaw.tb.wavefunctions import calculate_potential
+from gpaw.tb.mode import calculate_potential
 from gpaw.setup import create_setup
 from gpaw.xc import XC
 

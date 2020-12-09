@@ -61,25 +61,6 @@ class TBHamiltonian(Hamiltonian):
 
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
 
-    def xupdate(self, dens):
-        D_asp = self.atomdist.to_work(dens.D_asp)
-        self.dH_asp = self.setups.empty_atomic_matrix(1, D_asp.partition)
-
-        e_kinetic = 0.0
-        e_zero = 0.0
-        e_xc = 0.0
-        for a, D_sp in D_asp.items():
-            setup = self.setups[a]
-            D_p = D_sp[0]
-            dH_p = setup.K_p + setup.MB_p
-            e_kinetic += np.dot(setup.K_p, D_p) + setup.Kc
-            e_zero += setup.MB + np.dot(setup.MB_p, D_p)
-            self.dH_asp[a][0] = dH_p
-
-        e_coulomb = self.e_pair
-        e_external = 0.0
-        return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
-
     def update_pseudo_potential(self, dens):
         energies = np.array([self.e_pair, 0.0, 0.0, 0.0])
         return energies

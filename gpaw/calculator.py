@@ -868,7 +868,7 @@ class GPAW(Calculator):
                              self.parameters.setups, self.parameters.basis,
                              xc, filter, self.world)
         if mode.name == 'tb':
-            mode.fix_setups(self.setups.setups.values(), xc)
+            mode.manipulate_setups_hook(self.setups.setups.values(), xc)
 
         self.log(self.setups)
 

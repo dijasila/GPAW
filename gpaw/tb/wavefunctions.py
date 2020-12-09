@@ -28,8 +28,6 @@ class TBWaveFunctions(LCAOWaveFunctions):
                 r_g = np.linspace(0, rc, 150)
                 vt_g = vt.map(r_g) / (4 * pi)**0.5
                 phit_g = phit.map(r_g)
-                eig = (phit_g**2).dot(vt_g * r_g**2) * r_g[1]
-                print(eig)
                 vtphit_j.append(Spline(phit.l, rc, vt_g * phit_g))
             vtphit[setup] = vtphit_j
 
