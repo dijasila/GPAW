@@ -867,6 +867,9 @@ class GPAW(Calculator):
         self.setups = Setups(Z_a,
                              self.parameters.setups, self.parameters.basis,
                              xc, filter, self.world)
+        if mode.name == 'tb':
+            mode.fix_setups(self.setups.setups.values(), xc)
+
         self.log(self.setups)
 
     def create_grid_descriptor(self, N_c, cell_cv, pbc_c,

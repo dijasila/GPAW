@@ -15,15 +15,37 @@ class LFC:
         pass
 
 
+class TBXC:
+    def __init__(self, name, type):
+        self.name = name
+        self.type = type
+
+    def set_positions(self, spos_ac):
+        pass
+
+    def calculate_paw_correction(self, setup, D_sp, dH_sp, a=None):
+        return 0.0
+
+    def get_kinetic_energy_correction(self):
+        return 0.0
+
+    def summary(self, logger):
+        pass
+
+
 class TBHamiltonian(Hamiltonian):
     poisson = TBPoissonSolver()
-    xnpoisson = 0
+    npoisson = 0
 
     def __init__(self,
                  repulsion_parameters,
+                 xc,
                  **kwargs):
         self.repulsion_parameters = repulsion_parameters
-        Hamiltonian.__init__(self, **kwargs)
+        self.vbar = LFC()
+
+        xc = TBXC(xc.name, xc.type)
+        Hamiltonian.__init__(self, xc=xc, **kwargs)
 
     def set_positions(self, spos_ac, atom_partition):
         cell_cv = self.gd.cell_cv * Bohr
@@ -37,12 +59,9 @@ class TBHamiltonian(Hamiltonian):
         self.e_pair = energy / Ha
         self.force_av = forces * (Bohr / Ha)
 
-        self.atom_partition = atom_partition
-        self.atomdist = self.redistributor.get_atom_distributions(spos_ac)
+        Hamiltonian.set_positions(self, spos_ac, atom_partition)
 
-        self.positions_set = True
-
-    def update(self, dens):
+    def xupdate(self, dens):
         D_asp = self.atomdist.to_work(dens.D_asp)
         self.dH_asp = self.setups.empty_atomic_matrix(1, D_asp.partition)
 
@@ -61,29 +80,14 @@ class TBHamiltonian(Hamiltonian):
         e_external = 0.0
         return np.array([e_kinetic, e_coulomb, e_zero, e_external, e_xc])
 
-    def get_energy(self, e_entropy, wfs):
-        """Sum up all eigenvalues weighted with occupation numbers"""
-        self.e_band = wfs.calculate_band_energy()
-        self.e_kinetic = self.e_kinetic0 + self.e_band
-        self.e_entropy = e_entropy
-
-        self.e_total_free = (self.e_kinetic + self.e_coulomb +
-                             self.e_external + self.e_zero + self.e_xc +
-                             self.e_entropy)
-        self.e_total_extrapolated = (
-            self.e_total_free +
-            wfs.occupations.extrapolate_factor * e_entropy)
-
-        return self.e_total_free
-
-    def xupdate_pseudo_potential(self, dens):
+    def update_pseudo_potential(self, dens):
         energies = np.array([self.e_pair, 0.0, 0.0, 0.0])
         return energies
 
-    def xcalculate_kinetic_energy(self, density):
+    def calculate_kinetic_energy(self, density):
         return 0.0
 
-    def xcalculate_atomic_hamiltonians(self, dens):
+    def calculate_atomic_hamiltonians(self, dens):
         from gpaw.arraydict import ArrayDict
 
         def getshape(a):
