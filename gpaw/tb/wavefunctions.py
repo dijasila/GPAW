@@ -14,7 +14,6 @@ class TBWaveFunctions(LCAOWaveFunctions):
     mode = 'tb'
 
     def __init__(self,
-                 xc: XCFunctional,
                  *args, **kwargs):
         LCAOWaveFunctions.__init__(self, *args, **kwargs)
 

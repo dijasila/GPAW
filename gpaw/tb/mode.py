@@ -22,8 +22,8 @@ class TB(Mode):
             parameters = DefaultParameters()
         self.parameters = parameters
 
-    def __call__(self, ksl, xc, **kwargs) -> TBWaveFunctions:
-        return TBWaveFunctions(xc, ksl, **kwargs)
+    def __call__(self, ksl, **kwargs) -> TBWaveFunctions:
+        return TBWaveFunctions(ksl, **kwargs)
 
     def manipulate_setups_hook(self,
                                setups: Sequence[Setup],

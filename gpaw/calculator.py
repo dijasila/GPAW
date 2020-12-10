@@ -1186,8 +1186,6 @@ class GPAW(Calculator):
                                            gd, bd, domainband_comm, dtype,
                                            nao=nao, timer=self.timer,
                                            elpasolver=elpasolver)
-            if mode.name == 'tb':
-                wfs_kwargs['xc'] = xc
 
             self.wfs = mode(lcaoksl, **wfs_kwargs)
 
