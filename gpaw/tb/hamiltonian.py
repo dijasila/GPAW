@@ -1,8 +1,12 @@
+from typing import Dict
+
 import numpy as np
 from ase.units import Bohr, Ha
 
 from gpaw.tb.repulsion import evaluate_pair_potential
 from gpaw.hamiltonian import Hamiltonian
+from gpaw.density import Density
+from gpaw.hints import Array2D
 
 
 class TBPoissonSolver:
@@ -16,15 +20,27 @@ class LFC:
 
 
 class TBXC:
-    def __init__(self, name, type):
-        self.name = name
-        self.type = type
+    def __init__(self, xc):
+        self.xc = xc
+        self.name = xc.name
+        self.type = xc.type
+
+        self.e_xc: float = np.nan
+        self.dH_asp: Dict[int, Array2D] = {}
 
     def set_positions(self, spos_ac):
         pass
 
-    def calculate_paw_correction(self, setup, D_sp, dH_sp, a=None):
-        return 0.0
+    def calculate_paw_correction(self, setup, D_sp, dH_sp, a):
+        if a not in self.dH_asp:
+            dH0_sp = np.zeros_like(D_sp)
+            self.e_xc = self.xc.calculate_paw_correction(
+                setup, D_sp, dH0_sp, a)
+            self.dH_asp[a] = dH0_sp
+
+        dH_sp += self.dH_asp[a]
+
+        return self.e_xc
 
     def get_kinetic_energy_correction(self):
         return 0.0
@@ -44,7 +60,7 @@ class TBHamiltonian(Hamiltonian):
         self.repulsion_parameters = repulsion_parameters
         self.vbar = LFC()
 
-        xc = TBXC(xc.name, xc.type)
+        xc = TBXC(xc)
         Hamiltonian.__init__(self, xc=xc, **kwargs)
 
     def set_positions(self, spos_ac, atom_partition):
@@ -61,11 +77,11 @@ class TBHamiltonian(Hamiltonian):
 
         Hamiltonian.set_positions(self, spos_ac, atom_partition)
 
-    def update_pseudo_potential(self, dens):
+    def update_pseudo_potential(self, dens: Density):
         energies = np.array([self.e_pair, 0.0, 0.0, 0.0])
         return energies
 
-    def calculate_kinetic_energy(self, density):
+    def calculate_kinetic_energy(self, dens: Density) -> float:
         return 0.0
 
     def calculate_atomic_hamiltonians(self, dens):
@@ -75,7 +91,8 @@ class TBHamiltonian(Hamiltonian):
             return sum(2 * l + 1 for l, _ in enumerate(self.setups[a].ghat_l)),
 
         W_aL = ArrayDict(self.atomdist.aux_partition, getshape, float)
-        for W_L in W_aL.values():
+        for a, W_L in W_aL.items():
             W_L[:] = 0.0
+            W_L[0] = self.setups[a].W
 
         return self.atomdist.to_work(self.atomdist.from_aux(W_aL))
