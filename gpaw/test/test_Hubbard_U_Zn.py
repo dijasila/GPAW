@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 
 def test_Hubbard_U_Zn():
-    h =.35
+    h = .35
     box = 3.
     energy_tolerance = 0.0004
 

@@ -10,12 +10,13 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install sphinx-rtd-theme pillow
-pip install git+https://gitlab.com/ase/ase.git@master
+pip install -U pip -qq
+pip install sphinx-rtd-theme pillow pytest
+pip install -q git+https://gitlab.com/ase/ase.git@{branch}
 git clone http://gitlab.com/gpaw/gpaw.git
 cd gpaw
-git checkout {branch}
-pip install .
+git checkout -q {branch}
+pip install -e .
 python setup.py sdist
 cd doc
 make
@@ -49,9 +50,11 @@ def build_both():
         Path('/tmp/gpaw-docs-master-ok/gpaw/dist/').glob('gpaw-*.tar.gz'))
     master = Path('/tmp/gpaw-docs-master-ok/gpaw/doc/gpaw-web-page')
     webpage = Path('/tmp/gpaw-docs-web-page-ok/gpaw/doc/gpaw-web-page')
+    coverage = Path('/tmp/gpaw-test-ok/gpaw/htmlcov')
     home = Path.home() / 'web-pages'
     cmds = ' && '.join(
         [f'cp -rp {master} {webpage}/dev',
+         f'cp -r {coverage} {webpage}',
          f'cp {tar} {webpage}',
          f'cp {tar} {webpage}/dev',
          f'find {webpage} -name install.html | '
@@ -60,7 +63,7 @@ def build_both():
          'cp setups.rst.txt setups.txt',  # with old install-data script
          f'cd {webpage.parent}',
          'tar -czf gpaw-web-page.tar.gz gpaw-web-page',
-         f'cp gpaw-web-page.tar.gz {home}/gpaw.test.tgz'])
+         f'cp gpaw-web-page.tar.gz {home}'])
     subprocess.run(cmds, shell=True, check=True)
 
 

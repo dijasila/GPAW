@@ -512,22 +512,30 @@ class ZeroWidth(OccupationNumberCalculator):
                                                         self.bd, self.kpt_comm)
 
         if eig_kn is not None:
+            # Try to use integer weights (avoid round-off errors):
+            N = int(round(1 / min(weight_k)))
+            w_k = (weight_k * N).round().astype(int)
+            if abs(w_k - N * weight_k).max() > 1e-10:
+                # Did not work.  Use original fractional weights:
+                w_k = weight_k
+                N = 1
+
             f_kn = np.zeros_like(eig_kn)
             f_m = f_kn.ravel()
-            w_kn = np.empty_like(eig_kn)
-            w_kn[:] = weight_k[:, np.newaxis]
+            w_kn = np.empty_like(eig_kn, dtype=w_k.dtype)
+            w_kn[:] = w_k[:, np.newaxis]
             eig_m = eig_kn.ravel()
             w_m = w_kn.ravel()
             m_i = eig_m.argsort()
             w_i = w_m[m_i]
             sum_i = np.add.accumulate(w_i)
-            filled_i = (sum_i <= nelectrons)
+            filled_i = (sum_i <= nelectrons * N)
             i = sum(filled_i)
             f_m[m_i[:i]] = 1.0
             if i == len(m_i):
                 fermi_level = inf
             else:
-                extra = nelectrons - (sum_i[i - 1] if i > 0 else 0.0)
+                extra = nelectrons * N - (sum_i[i - 1] if i > 0 else 0.0)
                 if extra > 0:
                     assert extra <= w_i[i]
                     f_m[m_i[i]] = extra / w_i[i]
@@ -636,6 +644,9 @@ def create_occ_calc(dct: Dict[str, Any],
     fix_the_magnetic_moment = kwargs.pop('fixmagmom', False)
     name = kwargs.pop('name', '')
     kwargs['parallel_layout'] = parallel_layout
+
+    if name == 'unknown':
+        return OccupationNumberCalculator(**kwargs)
 
     occ: OccupationNumberCalculator
 

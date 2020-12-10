@@ -6,7 +6,6 @@ from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
-
 def test_generic_asym_box(in_tmp_dir):
     h = 0.2
     s = Cluster(Atoms('He'))

@@ -58,7 +58,6 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     test_wpeak2 = 15.728889329  # eV
     test_Ipeak2 = 26.4625750021  # eV
 
-
     if np.abs(test_wpeak1 - wpeak1) < 1e-2 and np.abs(test_wpeak2 - wpeak2) < 1e-2:
         pass
     else:

@@ -2,6 +2,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.mpi import rank, size
 
+
 def test_parallel_compare():
     a = 3.0
     H = Atoms('H',

@@ -4,6 +4,7 @@
 
 """Utility functions and classes."""
 
+import os
 import re
 import sys
 import time
@@ -12,7 +13,6 @@ from contextlib import contextmanager
 from typing import Union
 from pathlib import Path
 
-from ase.utils import devnull
 import numpy as np
 
 import _gpaw
@@ -173,6 +173,8 @@ def unpack(M):
 
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
+    if M.ndim == 2:
+        return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
     M2 *= 0.5  # divide all by 2
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
@@ -356,3 +358,6 @@ def file_barrier(path: Union[str, Path], world=None):
     while not path.is_file():
         time.sleep(1.0)
     world.barrier()
+
+
+devnull = open(os.devnull, 'w')

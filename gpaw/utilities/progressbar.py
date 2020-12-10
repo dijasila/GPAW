@@ -2,7 +2,7 @@ import sys
 import functools
 from time import time, sleep
 
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw.utilities.memory import maxrss
 

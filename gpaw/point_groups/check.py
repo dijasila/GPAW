@@ -8,10 +8,8 @@ from numpy.linalg import inv, det, solve
 from scipy.ndimage import map_coordinates
 
 from . import PointGroup
+from gpaw.hints import Array2D, Array3D
 
-Array1D = Any
-Array2D = Any
-Array3D = Any
 Axis = Union[str, Sequence[float], None]
 
 
@@ -45,10 +43,13 @@ class SymmetryChecker:
         """
         numbers = atoms.numbers
         positions = (atoms.positions - self.center).dot(self.rotation.T)
+        icell = np.linalg.inv(atoms.cell.dot(self.rotation.T))
         for opname, op in self.group.operations.items():
             P = positions.dot(op.T)
             for i, pos in enumerate(P):
-                dist2 = ((pos - positions)**2).sum(1)
+                sdiff = (pos - positions).dot(icell)
+                sdiff -= sdiff.round() * atoms.pbc
+                dist2 = (sdiff.dot(atoms.cell)**2).sum(1)
                 j = dist2.argmin()
                 if dist2[j] > tol**2 or numbers[j] != numbers[i]:
                     return False
@@ -165,7 +166,7 @@ def rotation_matrix(axes: Sequence[Axis]) -> Array3D:
     return np.array(axes)
 
 
-def normalize(vector: Union[str, Sequence[float]]) -> Array1D:
+def normalize(vector: Union[str, Sequence[float]]) -> Sequence[float]:
     """Normalize a vector.
 
     The *vector* must be a sequence of three numbers or one of the following

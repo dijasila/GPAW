@@ -48,7 +48,7 @@ def plot(fname, fiteps):
     plt.xlabel('Energy (eV)')
     plt.ylabel(r'Imaginary($\epsilon$)')
     plt.tight_layout()
-    plt.savefig('%s.png' % fname)
+    plt.savefig(f'{fname}.png')
 
 # Permittivity of Gold
 # Source:

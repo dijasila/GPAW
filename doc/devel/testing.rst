@@ -23,7 +23,7 @@ The test suite consists of a large number of small and quick tests
 found in the :git:`gpaw/test/` directory.  The tests run nightly in serial
 and in parallel.
 
-In order to run the tests in parallel, do this:
+In order to run the tests in parallel, do this::
 
     $ mpiexec -n <number-of-processes> pytest -v
 
@@ -122,3 +122,18 @@ create_tasks_.  Start the workflow with ``mq workflow -p agts.py .``
 
 .. _create_tasks: https://myqueue.readthedocs.io/en/latest/
     workflows.html#create_tasks
+
+
+.. _code coverage:
+
+Code coverage
+=============
+
+We use the coverage_ tool to generate a `coverage report`_ every night. It
+is not 100% accurate because it does not include coverage from running our test
+suite in parallel.  Also not included are the :ref:`agts` and building this
+web-page which would add some extra coverage.
+
+
+.. _coverage:  https://coverage.readthedocs.io/
+.. _coverage report: https://wiki.fysik.dtu.dk/gpaw/htmlcov/index.html

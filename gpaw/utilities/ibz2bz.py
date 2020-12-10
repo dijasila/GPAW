@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import Union
+
 import numpy as np
 import ase.io.ulm as ulm
 from ase.units import Ha
@@ -5,7 +8,8 @@ from ase.units import Ha
 from gpaw.mpi import world, serial_comm
 
 
-def ibz2bz(input_gpw, output_gpw=None):
+def ibz2bz(input_gpw: Union[Path, str],
+           output_gpw: Union[Path, str] = None) -> None:
     """Unfold IBZ to full BZ and write new gpw-file.
 
     Example::
@@ -21,6 +25,8 @@ def ibz2bz(input_gpw, output_gpw=None):
 
     if world.rank > 0:
         return
+
+    input_gpw = str(input_gpw)
 
     calc = GPAW(input_gpw, txt=None, communicator=serial_comm)
     spos_ac = calc.atoms.get_scaled_positions()

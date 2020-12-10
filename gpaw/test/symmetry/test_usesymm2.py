@@ -31,7 +31,7 @@ def test_symmetry_usesymm2():
 
     # Redo with the same K-point without symmetry:
     calc = calc.fixed_density(kpts=kpts,
-                            symmetry='off')
+                              symmetry='off')
     eigs_False = calc.get_eigenvalues(kpt=0)
 
     assert abs(eigs_True[0] - eigs_False[0]) < 1e-4

@@ -27,7 +27,6 @@ def test_generic_relax(in_tmp_dir):
     calc.write('H2f.gpw')
     calc.write('H2fa.gpw', mode='all')
 
-
     def timer(func, *args, **kwargs):
         t0 = time()
         ret = func(*args, **kwargs)
@@ -81,7 +80,6 @@ def test_generic_relax(in_tmp_dir):
     print('PBE energy minimum:')
     print('hydrogen molecule energy: %7.3f eV' % e2)
     print('bondlength              : %7.3f Ang' % d0)
-
 
     molecule = GPAW('H2fa.gpw', txt='H2.txt').get_atoms()
     relax = BFGS(molecule)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2003-2016  CAMP
+# Copyright (C) 2003-2020  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 import distutils.util
@@ -239,7 +239,7 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.18.0'],
+      install_requires=['ase>=3.20.1'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'build_ext': build_ext,
@@ -254,4 +254,5 @@ setup(name='gpaw',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
+          'Programming Language :: Python :: 3.9',
           'Topic :: Scientific/Engineering :: Physics'])

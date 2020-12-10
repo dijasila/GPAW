@@ -5,6 +5,7 @@ from ase import Atoms
 
 # H2
 
+
 def test_fileio_wfs_auto(in_tmp_dir):
     H = Atoms('HH', [(0, 0, 0), (0, 0, 1)])
     H.center(vacuum=2.0)

@@ -4,6 +4,7 @@ from gpaw import GPAW
 import warnings
 # Silence those warnings.
 
+
 def test_fileio_idiotproof_setup(in_tmp_dir):
     warnings.filterwarnings('ignore', 'Setup for',)
 

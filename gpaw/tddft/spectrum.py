@@ -90,7 +90,8 @@ def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
 
 def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
     omega_w = foldedfrequencies.frequencies
-    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies)
+    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv,
+                                        foldedfrequencies)
     abs_wv = 2 / np.pi * omega_w[:, np.newaxis] * alpha_wv.imag
 
     kick_magnitude = np.sqrt(np.sum(kick_v**2))

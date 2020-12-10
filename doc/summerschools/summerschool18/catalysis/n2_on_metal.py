@@ -77,7 +77,7 @@ slab.set_constraint(constraint)
 dyn = QuasiNewton(slab, trajectory='Ru.traj')
 t = time.time()
 dyn.run(fmax=0.05)
-print('Wall time: {} min.'.format((time.time() - t) / 60))
+print(f'Wall time: {(time.time() - t) / 60} min.')
 
 # %%
 """
@@ -165,7 +165,7 @@ slabN2.calc = calc
 dyn = QuasiNewton(slabN2, trajectory='N2Ru-top.traj', maxstep=0.02)
 t = time.time()
 dyn.run(fmax=0.05)
-print('Wall time: {} min.'.format((time.time() - t) / 60))
+print(f'Wall time: {(time.time() - t) / 60} min.')
 
 # %%
 """

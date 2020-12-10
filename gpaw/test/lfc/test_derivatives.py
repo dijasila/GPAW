@@ -3,6 +3,7 @@ from gpaw.lfc import LocalizedFunctionsCollection as LFC
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.spline import Spline
 
+
 def test_lfc_derivatives():
     a = 4.0
     gd = GridDescriptor(N_c=[16, 20, 20], cell_cv=[a, a + 1, a + 2],

@@ -288,7 +288,7 @@ class _Communicator:
         assert sbuffer.dtype == rbuffer.dtype
 
         for arr in [scounts, sdispls, rcounts, rdispls]:
-            assert arr.dtype == np.int, arr.dtype
+            assert arr.dtype == int, arr.dtype
             assert len(arr) == self.size
 
         assert np.all(0 <= sdispls)
@@ -577,7 +577,7 @@ class _Communicator:
           (3, 4)
           >>> world.get_members()  # doctest: +SKIP
           array([0, 1, 2, 3])
-          >>> comm = world.new_communicator(array([2, 3]))  # doctest: +SKIP
+          >>> comm = world.new_communicator(np.array([2, 3]))  # doctest: +SKIP
           >>> comm.rank, comm.size  # doctest: +SKIP
           (1, 2)
           >>> comm.get_members()  # doctest: +SKIP
@@ -851,8 +851,8 @@ def receive_string(rank, comm=world):
 
 
 def alltoallv_string(send_dict, comm=world):
-    scounts = np.zeros(comm.size, dtype=np.int)
-    sdispls = np.zeros(comm.size, dtype=np.int)
+    scounts = np.zeros(comm.size, dtype=int)
+    sdispls = np.zeros(comm.size, dtype=int)
     stotal = 0
     for proc in range(comm.size):
         if proc in send_dict:
@@ -861,12 +861,12 @@ def alltoallv_string(send_dict, comm=world):
             sdispls[proc] = stotal
             stotal += scounts[proc]
 
-    rcounts = np.zeros(comm.size, dtype=np.int)
-    comm.alltoallv(scounts, np.ones(comm.size, dtype=np.int),
-                   np.arange(comm.size, dtype=np.int),
-                   rcounts, np.ones(comm.size, dtype=np.int),
-                   np.arange(comm.size, dtype=np.int))
-    rdispls = np.zeros(comm.size, dtype=np.int)
+    rcounts = np.zeros(comm.size, dtype=int)
+    comm.alltoallv(scounts, np.ones(comm.size, dtype=int),
+                   np.arange(comm.size, dtype=int),
+                   rcounts, np.ones(comm.size, dtype=int),
+                   np.arange(comm.size, dtype=int))
+    rdispls = np.zeros(comm.size, dtype=int)
     rtotal = 0
     for proc in range(comm.size):
         rdispls[proc] = rtotal

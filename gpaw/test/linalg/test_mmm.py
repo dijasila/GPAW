@@ -3,7 +3,6 @@ import numpy as np
 from gpaw.utilities.blas import mmm
 
 
-
 def test_linalg_mmm():
     def op(o, m):
         if o == 'N':
@@ -12,12 +11,10 @@ def test_linalg_mmm():
             return m.T
         return m.T.conj()
 
-
     def matrix(shape, dtype):
         if dtype == float:
             return np.random.random(shape)
         return np.random.random(shape) + 1j * np.random.random(shape)
-
 
     for dtype in [float, complex]:
         a = matrix((2, 3), dtype)
