@@ -34,12 +34,12 @@ class SCFLoop:
              cc['energy'] * Ha / self.nvalence),
             ('                         (or): {0:g} eV',
              cc['energy'] * Ha),
-            ('Maximum integral of absolute [density] change: {0:g} electrons',
+            ('Maximum integral of absolute [dens]ity change: {0:g} electrons',
              cc['density'] / self.nvalence),
             ('Maximum integral of absolute eigenstate [wfs] change:'
              ' {0:g} eV^2',
              cc['eigenstates'] * Ha**2 / self.nvalence),
-            ('Maximum change in atomic [force]: {0:g} eV / Ang',
+            ('Maximum change in atomic [forces]: {0:g} eV / Ang',
              cc['force'] * Ha / Bohr),
             ('Maximum work function [wkfxn] change: {0:g} eV',
              cc['workfunction'] * Ha),
@@ -163,8 +163,8 @@ class SCFLoop:
 
         if niter == 1:
             header = """\
-                     log10-error:    total        iterations:
-           time      wfs    density  energy       poisson"""
+                 log10-change:          total poisson
+             time   wfs   dens         energy   iters"""
             if wfs.nspins == 2:
                 header += '  magmom'
             if self.max_errors['workfunction'] < np.inf:
@@ -173,10 +173,10 @@ class SCFLoop:
                 l2 = header.find('energy') - 7
                 header = header[:l2] + 'wkfxn  ' + header[l2:]
             if self.max_errors['force'] < np.inf:
-                l1 = header.find('total') - 7
+                l1 = header.find('total') - 8
                 header = header[:l1] + '       ' + header[l1:]
-                l2 = header.find('energy') - 7
-                header = header[:l2] + 'force  ' + header[l2:]
+                l2 = header.find('energy') - 8
+                header = header[:l2] + 'forces ' + header[l2:]
             log(header)
 
         c = {k: 'c' if v else ' ' for k, v in self.converged_items.items()}
@@ -184,14 +184,14 @@ class SCFLoop:
         nvalence = wfs.nvalence
         eigerr = errors['eigenstates'] * Ha**2
         if (np.isinf(eigerr) or eigerr == 0 or nvalence == 0):
-            eigerr = ''
+            eigerr = '-'
         else:
             eigerr = '{:+.2f}'.format(np.log10(eigerr / nvalence))
 
         denserr = errors['density']
         if (denserr is None or np.isinf(denserr) or denserr == 0 or
             nvalence == 0):
-            denserr = ''
+            denserr = '-'
         else:
             denserr = '{:+.2f}'.format(np.log10(denserr / nvalence))
 
@@ -201,7 +201,7 @@ class SCFLoop:
             niterpoisson = '{:d}'.format(ham.npoisson)
 
         T = time.localtime()
-        log('iter:{:3d} {:02d}:{:02d}:{:02d} {:5s}{:s} {:5s}{:s} '
+        log('iter:{:3d} {:02d}:{:02d}:{:02d} {:>5s}{:s} {:>5s}{:s} '
             .format(niter, T[3], T[4], T[5],
                     eigerr, c['eigenstates'],
                     denserr, c['density']), end='')
@@ -211,17 +211,17 @@ class SCFLoop:
                 wfkerr = max(np.ptp(self.old_workfunctions, axis=0)) * Ha
                 wfkerr = '{:+.2f}'.format(np.log10(wfkerr))
             else:
-                wfkerr = ''
-            log('{:5s}{:s} '.format(wfkerr, c['workfunction']), end='')
+                wfkerr = '-'
+            log('{:>5s}{:s} '.format(wfkerr, c['workfunction']), end='')
 
         if self.max_errors['force'] < np.inf:
             if errors['force'] == 0:
-                forceerr = '-oo'  # XXX What does this mean?
+                forceerr = '-oo'
             elif errors['force'] < np.inf:
                 forceerr = '{:+.2f}'.format(
                     np.log10(errors['force'] * Ha / Bohr))
             else:
-                forceerr = 'n/a'
+                forceerr = '-'
             log('{:>5s}{:s} '.format(forceerr, c['force']), end='')
 
         if np.isfinite(ham.e_total_extrapolated):
@@ -229,7 +229,7 @@ class SCFLoop:
         else:
             energy = ''
 
-        log(' {:>12s}{:s}  {:>7s}'.format(
+        log(' {:>12s}{:s}   {:>4s}'.format(
             energy, c['energy'], niterpoisson), end='')
 
         if wfs.nspins == 2 or not wfs.collinear:

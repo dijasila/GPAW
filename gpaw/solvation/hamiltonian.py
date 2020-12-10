@@ -217,6 +217,9 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         # This is almost duplicate code to gpaw/hamiltonian's
         # Hamiltonian.summary, but with the cavity and interactions added.
 
+        # FIXME: GPAW's Hamiltonian.summary now takes wfs as argument,
+        # should we update here for consistency?
+
         log('Energy contributions relative to reference atoms:',
             '(reference = {0:.6f})\n'.format(self.setups.Eref * Ha))
 

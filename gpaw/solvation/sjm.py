@@ -31,25 +31,43 @@ class SJM(SolvationGPAW):
     """Solvated Jellium method.
     (Implemented as a subclass of the SolvationGPAW class.)
 
-    The method allows the simulation of an electrochemical environment
-    by calculating constant-potential quantities on the basis of constant-
-    charge DFT runs. For this purpose, it allows the usage of non-neutral
-    periodic slab systems. Cell neutrality is achieved by adding a
-    background charge in the solvent region above the slab
+    The method allows the simulation of an electrochemical environment,
+    where the potential can be varied by changing the charging (that is,
+    number of electrons) of the system. For this purpose, it allows the usage
+    of non-neutral periodic slab systems. Cell neutrality is achieved by adding
+    a background charge in the solvent region above the slab
 
-    Further detail are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+    Further details are given in http://dx.doi.org/10.1021/acs.jpcc.8b02465
+
+    The method can be run in two modes:
+
+        - Constant charge: The number of excess electrons in the simulation
+          can be directly specified with the ne keyword, leaving potential=None.
+        - Constant potential: The target potential (expressed as a work
+          function) can be specified with the `potential` keyword. Optionally,
+          the `ne` keyword can also be used to specify the initial guess of
+          the number of electrons.
+
+    By default, this method writes the grand-potential energy to the output;
+    that is, the energy that has been adjusted with "- mu N" (in this case, 
+    mu is the workfunction and N is the excess electrons). This is the energy
+    that is compatible with the forces in constant-potential mode and thus
+    will behave well with optimizers, NEBs, etc. It is also frequently used in
+    subsequent free-energy calculations.
+
 
     Parameters:
 
     ne: float
         Number of electrons added in the atomic system and (with opposite
-        sign) in the background charge region. At the start it can be an
-        initial guess for the needed number of electrons and will be
-        changed to the current number in the course of the calculation
+        sign) in the background charge region. If the `potential` keyword is
+        also supplied, `ne` is taken as  an initial guess for the needed
+        number of electrons.
     potential: float
         The potential that should be reached or kept in the course of the
         calculation. If set to "None" (default) a constant-charge
         calculation based on the value of `ne` is performed.
+        Expressed as a workfunction, on the top side of the slab.
     dpot: float
         Tolerance for the deviation of the target potential.
         If the potential is outside the defined range `ne` will be
@@ -124,7 +142,7 @@ class SJM(SolvationGPAW):
     # in the doublelayer section. We can definitely change the wording.
     # AP: created issue #5.
 
-    def __init__(self, restart=None, ne=0, jelliumregion=None, potential=None,
+    def __init__(self, restart=None, ne=0., jelliumregion=None, potential=None,
                  write_grandcanonical_energy=True, dpot=0.01,
                  always_adjust_ne=False, verbose=False,
                  max_poteq_iters=10,

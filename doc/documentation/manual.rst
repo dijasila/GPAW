@@ -634,6 +634,8 @@ In words:
 * The maximum change in the magnitude of the vector representing the
   difference in forces for each atom.  Setting this to infinity (default)
   disables this functionality, saving computational time and memory usage.
+  To save computations, force convergence is not checked until after all
+  other convergence criteria are satisfied.
 
 The individual criteria can be changed by giving only the specific
 entry of dictionary e.g. ``convergence={'energy': 0.0001}`` would set
