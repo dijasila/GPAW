@@ -287,7 +287,7 @@ class BasisPlotter:
         for j, bf in enumerate(basis.bf_j):
             ng = len(bf.phit_g)
             rphit_g = r_g[:ng] * bf.phit_g
-            norm = (rphit_g**2 * basis.rgd.dr_g).sum()
+            norm = (rphit_g**2 * basis.rgd.dr_g[:ng]).sum()
             norm_j.append(norm)
             print(bf.type, '[norm=%0.4f]' % norm)
 
