@@ -86,7 +86,12 @@ class Basis:
             filename = '%s.basis' % self.symbol
         else:
             filename = '%s.%s.basis' % (self.symbol, self.name)
-        write = open(filename, 'w').write
+
+        with open(filename, 'w') as fd:
+            self.write_to(fd)
+
+    def write_to(self, fd):
+        write = fd.write
         write('<paw_basis version="0.1">\n')
 
         generatorattrs = ' '.join(['%s="%s"' % (key, value)
