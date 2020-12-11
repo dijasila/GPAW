@@ -4,6 +4,7 @@ import numpy as np
 
 # spin paired H2
 
+
 def test_xc_pplda():
     d = 0.75
     h2 = Atoms('H2', [[0, 0, 0], [0, 0, d]])
@@ -15,7 +16,7 @@ def test_xc_pplda():
     for xc in ['LDA', 'PPLDA']:
         calc = GPAW(nbands=-1, xc=xc, convergence={'eigenstates': 1.e-9}, txt=None,
                     mode='lcao', basis='szp(dzp)', h=0.3)
-        h2.set_calculator(calc)
+        h2.calc = calc
         e = np.append(e, h2.get_potential_energy())
         f = np.append(f, h2.get_forces())
         del calc
@@ -24,7 +25,6 @@ def test_xc_pplda():
     print(f[0], f[1], np.sum(np.abs(f[0] - f[1])))
     assert np.abs(e[0] - e[1]) < 1.e-8
     assert np.sum(np.abs(f[0] - f[1])) < 1.e-8
-
 
     # spin polarized O2
     d = 1.2
@@ -37,7 +37,7 @@ def test_xc_pplda():
     for xc in ['LDA', 'PPLDA']:
         calc = GPAW(nbands=-2, xc=xc, convergence={'energy': 1.e-9}, txt=None,
                     mode='lcao', basis='szp(dzp)', h=0.3)
-        o2.set_calculator(calc)
+        o2.calc = calc
         e = np.append(e, o2.get_potential_energy())
         f = np.append(f, o2.get_forces())
         del calc

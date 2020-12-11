@@ -6,7 +6,7 @@ from gpaw.test import equal
 
 
 def test_Hubbard_U_Zn():
-    h =.35
+    h = .35
     box = 3.
     energy_tolerance = 0.0004
 
@@ -23,7 +23,7 @@ def test_Hubbard_U_Zn():
                  parallel=dict(kpt=1),
                  charge=1, occupations=FermiDirac(width=0.1, fixmagmom=spin)
                  )
-        s.set_calculator(c)
+        s.calc = c
         E[spin] = s.get_potential_energy()
         c.set(setups=':d,3.0,1')
         E_U[spin] = s.get_potential_energy()

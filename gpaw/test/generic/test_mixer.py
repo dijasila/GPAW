@@ -14,8 +14,8 @@ def test_generic_mixer(in_tmp_dir):
     k = 2
     g = 16
     calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2,
-                      mixer=Mixer(nmaxold=5))
-    bulk.set_calculator(calc)
+                mixer=Mixer(nmaxold=5))
+    bulk.calc = calc
     e = bulk.get_potential_energy()
     niter = calc.get_number_of_iterations()
     calc.write('Li.gpw')

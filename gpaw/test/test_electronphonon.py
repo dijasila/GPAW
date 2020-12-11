@@ -13,12 +13,11 @@ pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
-
+@pytest.mark.elph
 def test_electronphonon(in_tmp_dir):
     if LooseVersion(__version__) < '3.18':
         from unittest import SkipTest
         raise SkipTest
-
 
     a = 0.90
     atoms = Atoms('H',
@@ -35,7 +34,7 @@ def test_electronphonon(in_tmp_dir):
                   'symmetry': {'point_group': False},
                   'xc': 'PBE'}
     elph_calc = GPAW(**parameters)
-    atoms.set_calculator(elph_calc)
+    atoms.calc = elph_calc
     atoms.get_potential_energy()
     gamma_bands = elph_calc.wfs.kpt_u[0].C_nM
 

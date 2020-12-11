@@ -14,7 +14,7 @@ def test_eigen_keep_htpsit():
                 eigensolver=RMMDIIS(keep_htpsit=True),
                 convergence=convergence,
                 maxiter=20)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e0 = atoms.get_potential_energy()
 
     # Do not keep htpsit
@@ -22,7 +22,7 @@ def test_eigen_keep_htpsit():
                 eigensolver=RMMDIIS(keep_htpsit=False),
                 convergence=convergence,
                 maxiter=20)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e1 = atoms.get_potential_energy()
 
     equal(e0, e1, 1e-12)

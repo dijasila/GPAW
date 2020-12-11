@@ -1,3 +1,4 @@
+import pytest
 from ase.build import molecule
 from gpaw import GPAW
 import gpaw.dscf as dscf
@@ -6,6 +7,7 @@ from gpaw.test import equal
 # Ground state calculation
 
 
+@pytest.mark.dscf
 def test_dscf_dscf_lcao():
     calc = GPAW(mode='lcao',
                 basis='dzp',
@@ -19,7 +21,7 @@ def test_dscf_dscf_lcao():
 
     CO = molecule('CO')
     CO.center(vacuum=3)
-    CO.set_calculator(calc)
+    CO.calc = calc
 
     E_gs = CO.get_potential_energy()
 
@@ -36,7 +38,7 @@ def test_dscf_dscf_lcao():
                                 'density': 1e-3,
                                 'bands': -1})
 
-    CO.set_calculator(calc_es)
+    CO.calc = calc_es
     lumo = dscf.MolecularOrbital(calc,
                                  weights={0: [0, 0, 0, 1], 1: [0, 0, 0, -1]})
     dscf.dscf_calculation(calc_es, [[1.0, lumo, 1]], CO)

@@ -11,6 +11,7 @@ from gpaw.test import equal
 
 # Atoms
 
+
 def test_lcaotddft_fxc_is_xc(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -22,7 +23,7 @@ def test_lcaotddft_fxc_is_xc(in_tmp_dir):
                 convergence={'density': 1e-8},
                 xc='LDA',
                 txt='gs.out')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 

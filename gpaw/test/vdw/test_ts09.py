@@ -17,7 +17,6 @@ def test_vdw_ts09(in_tmp_dir):
     s = Cluster(molecule('LiH'))
     s.minimal_box(3., h=h)
 
-
     def print_charge_and_check(hp, q=0, label='unpolarized'):
         q_a = np.array(hp.get_charges())
         parprint('Charges ({0})='.format(label), q_a, ', sum=', q_a.sum())
@@ -38,7 +37,7 @@ def test_vdw_ts09(in_tmp_dir):
         hp = HirshfeldPartitioning(cc)
         c = vdWTkatchenko09prl(hp,
                                vdWradii(s.get_chemical_symbols(), 'PBE'))
-        s.set_calculator(c)
+        s.calc = c
         E = s.get_potential_energy()
         F_ac = s.get_forces()
         s.write(out_traj)
@@ -61,7 +60,7 @@ def test_vdw_ts09(in_tmp_dir):
                    txt=None)
         hps = HirshfeldPartitioning(ccs)
         cs = vdWTkatchenko09prl(hps, vdWradii(s.get_chemical_symbols(), 'PBE'))
-        s.set_calculator(cs)
+        s.calc = cs
         Es = s.get_potential_energy()
         Fs_ac = s.get_forces()
 
@@ -78,7 +77,7 @@ def test_vdw_ts09(in_tmp_dir):
         hpp = HirshfeldPartitioning(cc)
         cp = vdWTkatchenko09prl(hpp,
                                 vdWradii(s.get_chemical_symbols(), 'PBE'))
-        s.set_calculator(cp)
+        s.calc = cp
         E = s.get_potential_energy()
-        
+
         print_charge_and_check(hpp, 1, label='+1')

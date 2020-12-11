@@ -1,3 +1,4 @@
+import pytest
 from ase.build import bulk
 from gpaw import GPAW, LCAO
 
@@ -6,6 +7,8 @@ from gpaw import GPAW, LCAO
 # calculation, physically speaking, is garbage.
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_lcao_gllb_si(in_tmp_dir):
     si = bulk('Si', 'diamond', a=5.421)
     calc = GPAW(mode=LCAO(interpolation=2),
@@ -15,21 +18,19 @@ def test_lcao_gllb_si(in_tmp_dir):
                 kpts={'size': (2, 2, 2), 'gamma': True},
                 txt='si.txt')
 
-
     def stopcalc():
         calc.scf.converged = True
 
-
     calc.attach(stopcalc, 1)
 
-    si.set_calculator(calc)
+    si.calc = calc
     si.get_potential_energy()
 
-    response = calc.hamiltonian.xc.xcs['RESPONSE']
-    response.calculate_delta_xc()
-    EKs, Dxc = response.calculate_delta_xc_perturbation()
+    homo, lumo = calc.get_homo_lumo()
+    response = calc.hamiltonian.xc.response
+    dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+    EKs, Dxc = response.calculate_discontinuity(dxc_pot)
     refgap = 3.02333
     gap = EKs + Dxc
     print('GAP', gap)
-    err = abs(gap - refgap)
-    assert err < 1e-4, err
+    assert gap == pytest.approx(refgap, abs=1e-4)

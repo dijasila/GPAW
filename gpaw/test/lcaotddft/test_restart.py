@@ -1,16 +1,21 @@
+import pytest
 import numpy as np
-
+import ase.io.ulm as ulm
 from ase.build import molecule
+
 from gpaw import GPAW
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
+from gpaw.lcaotddft.densitymatrix import DensityMatrix
+from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.mpi import world
-
+from gpaw.tddft.folding import frequencies
 from gpaw.test import equal
 
-# Atoms
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_lcaotddft_restart(in_tmp_dir):
     atoms = molecule('SiH4')
     atoms.center(vacuum=4.0)
@@ -22,26 +27,35 @@ def test_lcaotddft_restart(in_tmp_dir):
                 convergence={'density': 1e-8},
                 xc='GLLBSC',
                 txt='gs.out')
-    atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
+    atoms.calc = calc
+    _ = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
     td_calc = LCAOTDDFT('gs.gpw', txt='td.out')
     DipoleMomentWriter(td_calc, 'dm.dat')
+    dmat = DensityMatrix(td_calc)
+    freqs = frequencies(np.arange(0.05, 6.01, 1.0), None, None)
+    fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=freqs)
     td_calc.absorption_kick(np.ones(3) * 1e-5)
     td_calc.propagate(20, 3)
 
     # Write a restart point
     td_calc.write('td.gpw', mode='all')
+    fdm.write('fdm_restart_point.ulm')
 
     # Keep propagating
     td_calc.propagate(20, 3)
+    fdm.write('fdm_final_ref.ulm')
 
     # Restart from the restart point
     td_calc = LCAOTDDFT('td.gpw', txt='td2.out')
     DipoleMomentWriter(td_calc, 'dm.dat')
+    dmat = DensityMatrix(td_calc)
+    fdm = FrequencyDensityMatrix(td_calc, dmat,
+                                 filename='fdm_restart_point.ulm')
     td_calc.propagate(20, 3)
+    fdm.write('fdm_final_check.ulm')
     world.barrier()
 
     # Check dipole moment file
@@ -53,6 +67,13 @@ def test_lcaotddft_restart(in_tmp_dir):
 
     tol = 1e-10
     equal(data_i, ref_i, tol)
+
+    tol = 1e-8
+    # Check frequency density matrix file
+    with ulm.open('fdm_final_ref.ulm') as fdm_ref:
+        with ulm.open('fdm_final_check.ulm') as fdm_check:
+            for key in ['FReDrho_wuMM', 'FImDrho_wuMM', 'rho0_uMM', 'time']:
+                equal(fdm_ref.get(key), fdm_check.get(key), tol)
 
     # Test the absolute values
     data = np.loadtxt('dm.dat')[:8].ravel()

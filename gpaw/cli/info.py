@@ -30,7 +30,13 @@ def info():
                 githash = '-{:.10}'.format(githash)
             results.append((name + '-' + module.__version__ + githash,
                             module.__file__.rsplit('/', 1)[0] + '/'))
-    results.append(('libxc-' + getattr(_gpaw, 'libxc_version', '2.x.y'), ''))
+
+    libxc = gpaw.libraries['libxc']
+    if libxc:
+        results.append((f'libxc-{libxc}', True))
+    else:
+        results.append(('libxc', False))
+
     module = import_module('_gpaw')
     if hasattr(module, 'githash'):
         githash = '-{:.10}'.format(module.githash())
@@ -74,10 +80,10 @@ def info():
              for a, b in results]
     n1 = max(len(a) for a, _ in lines)
     n2 = max(len(b) for _, b in lines)
-    print('-' * n1 + '-+-' + '-' * n2)
-    for a, b in results:
-        print(f'{a:{n1}} | {b}')
-    print('-' * n1 + '-+-' + '-' * n2)
+    print(' ' + '-' * (n1 + 4 + n2))
+    for a, b in lines:
+        print(f'| {a:{n1}}  {b:{n2}} |')
+    print(' ' + '-' * (n1 + 4 + n2))
 
 
 class CLICommand:

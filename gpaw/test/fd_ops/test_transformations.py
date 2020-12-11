@@ -1,15 +1,16 @@
 # Copyright (C) 2003  CAMP
 # Please see the accompanying LICENSE file for further information.
 
+import pytest
 import numpy as np
 from gpaw.grid_descriptor import GridDescriptor
 from gpaw.transformers import Transformer
 
 
-
+@pytest.mark.ci
 def test_fd_ops_transformations():
     n = 20
-    gd = GridDescriptor((n,n,n))
+    gd = GridDescriptor((n, n, n))
     np.random.seed(8)
     a = gd.empty()
     a[:] = np.random.random(a.shape)

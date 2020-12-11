@@ -33,7 +33,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     mm = 2.21
 
     # Part 2: magnetic response calculation
-    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N path
+    q_qc = [[0.0, 0.0, 0.0], [0.0, 0.0, 1. / 4.]]  # Two q-points along G-N
     frq_qw = [np.linspace(-0.080, 0.120, 26), np.linspace(0.100, 0.300, 26)]
     fxc = 'ALDA'
     fxc_scaling = [True, None]
@@ -57,7 +57,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                 idiotproof=False,
                 parallel={'domain': 1})
 
-    Febcc.set_calculator(calc)
+    Febcc.calc = calc
     Febcc.get_potential_energy()
     calc.write('Fe', 'all')
     t2 = time.time()
@@ -72,8 +72,9 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
                                            nblocks=1)
 
     for q in range(2):
-        tms.get_macroscopic_component('+-', q_qc[q], frq_qw[q],
-                                      filename='iron_dsus' + '_%d.csv' % (q + 1))
+        tms.get_macroscopic_component(
+            '+-', q_qc[q], frq_qw[q],
+            filename='iron_dsus' + '_%d.csv' % (q + 1))
         tms.write_timer()
 
     t3 = time.time()
@@ -105,7 +106,7 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
 
     # Magnon peak:
     equal(mw1, test_mw1, 0.1)
-    equal(mw2, test_mw2, eta * 300)
+    equal(mw2, test_mw2, eta * 650)
 
     # Scattering function intensity:
     equal(Ipeak1, test_Ipeak1, 5)

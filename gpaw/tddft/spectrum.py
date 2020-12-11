@@ -1,21 +1,69 @@
+import re
 import numpy as np
 
 from gpaw import __version__ as version
 from gpaw.mpi import world
-from gpaw.tddft.units import (au_to_as, au_to_fs, au_to_eV)
+from gpaw.tddft.units import au_to_as, au_to_fs, au_to_eV
 from gpaw.tddft.folding import FoldedFrequencies
 from gpaw.tddft.folding import Folding
 
 
+def calculate_fourier_transform(x_t, y_ti, foldedfrequencies):
+    ff = foldedfrequencies
+    X_w = ff.frequencies
+    envelope = ff.folding.envelope
+
+    x_t = x_t - x_t[0]
+    dx_t = np.insert(x_t[1:] - x_t[:-1], 0, 0.0)
+    y_ti = y_ti[:] - y_ti[0]
+
+    f_wt = np.exp(1.0j * np.outer(X_w, x_t))
+    y_it = np.swapaxes(y_ti, 0, 1)
+    Y_wi = np.tensordot(f_wt, dx_t * envelope(x_t) * y_it, axes=(1, 1))
+    return Y_wi
+
+
+def read_td_file(fname, remove_duplicates=True):
+    # Read data
+    data_tj = np.loadtxt(fname)
+    time_t = data_tj[:, 0]
+    data_ti = data_tj[:, 1:]
+
+    # Remove duplicates due to abruptly stopped and restarted calculation
+    if remove_duplicates:
+        flt_t = np.ones_like(time_t, dtype=bool)
+        maxtime = time_t[0]
+        for t in range(1, len(time_t)):
+            if time_t[t] > maxtime:
+                maxtime = time_t[t]
+            else:
+                flt_t[t] = False
+        time_t = time_t[flt_t]
+        data_ti = data_ti[flt_t]
+        ndup = len(flt_t) - flt_t.sum()
+        if ndup > 0:
+            print('Removed %d duplicates' % ndup)
+    return time_t, data_ti
+
+
 def read_dipole_moment_file(fname, remove_duplicates=True):
     def parse_kick_line(line):
-        kick_str_v = line.split('[', 1)[1].split(']', 1)[0].split(',')
-        kick_v = np.array([float(x) for x in kick_str_v])
-        data_i = line.split('Time =')
-        if len(data_i) == 1:
+        # Kick
+        regexp = (r"Kick = \["
+                  r"(?P<k0>[-+0-9\.e\ ]+), "
+                  r"(?P<k1>[-+0-9\.e\ ]+), "
+                  r"(?P<k2>[-+0-9\.e\ ]+)\]")
+        m = re.search(regexp, line)
+        assert m is not None, 'Kick not found'
+        kick_v = np.array([float(m.group('k%d' % v)) for v in range(3)])
+        # Time
+        regexp = r"Time = (?P<time>[-+0-9\.e\ ]+)"
+        m = re.search(regexp, line)
+        if m is None:
+            print('time not found')
             time = 0.0
         else:
-            time = float(data_i[1])
+            time = float(m.group('time'))
         return kick_v, time
 
     # Search kicks
@@ -27,47 +75,14 @@ def read_dipole_moment_file(fname, remove_duplicates=True):
                 kick_i.append({'strength_v': kick_v, 'time': time})
 
     # Read data
-    data_tj = np.loadtxt(fname)
-    time_t = data_tj[:, 0]
-    norm_t = data_tj[:, 1]
-    dm_tv = data_tj[:, 2:]
-
-    # Remove duplicates due to abruptly stopped and restarted calculation
-    if remove_duplicates:
-        flt_t = np.ones_like(time_t, dtype=bool)
-        maxtime = time_t[0]
-        for t in range(1, len(time_t)):
-            if time_t[t] > maxtime:
-                maxtime = time_t[t]
-            else:
-                flt_t[t] = False
-
-        time_t = time_t[flt_t]
-        norm_t = norm_t[flt_t]
-        dm_tv = dm_tv[flt_t]
-
-        ndup = len(flt_t) - flt_t.sum()
-        if ndup > 0:
-            print('Removed %d duplicates' % ndup)
-
+    time_t, data_ti = read_td_file(fname, remove_duplicates)
+    norm_t = data_ti[:, 0]
+    dm_tv = data_ti[:, 1:]
     return kick_i, time_t, norm_t, dm_tv
 
 
 def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
-    ff = foldedfrequencies
-    omega_w = ff.frequencies
-    envelope = ff.folding.envelope
-
-    time_t = time_t - time_t[0]
-    dt_t = np.insert(time_t[1:] - time_t[:-1], 0, 0.0)
-    dm_tv = dm_tv[:] - dm_tv[0]
-
-    Nw = len(omega_w)
-    alpha_wv = np.zeros((Nw, 3), dtype=complex)
-    f_wt = np.exp(1.0j * np.outer(omega_w, time_t))
-    dm_vt = np.swapaxes(dm_tv, 0, 1)
-    alpha_wv = np.tensordot(f_wt, dt_t * envelope(time_t) * dm_vt, axes=(1, 1))
-
+    alpha_wv = calculate_fourier_transform(time_t, dm_tv, foldedfrequencies)
     kick_magnitude = np.sqrt(np.sum(kick_v**2))
     alpha_wv /= kick_magnitude
     return alpha_wv
@@ -75,7 +90,8 @@ def calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies):
 
 def calculate_photoabsorption(kick_v, time_t, dm_tv, foldedfrequencies):
     omega_w = foldedfrequencies.frequencies
-    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv, foldedfrequencies)
+    alpha_wv = calculate_polarizability(kick_v, time_t, dm_tv,
+                                        foldedfrequencies)
     abs_wv = 2 / np.pi * omega_w[:, np.newaxis] * alpha_wv.imag
 
     kick_magnitude = np.sqrt(np.sum(kick_v**2))

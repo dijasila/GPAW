@@ -16,7 +16,6 @@ def test_symmetry_fractional_translations(in_tmp_dir):
     atoms = crystal(['Si', 'O'], basis=[p0, p1],
                     spacegroup=136, cellpar=[a, a, c, 90, 90, 90])
 
-
     # with fractional translation
     calc = GPAW(mode=PW(),
                 xc='LDA',
@@ -27,7 +26,7 @@ def test_symmetry_fractional_translations(in_tmp_dir):
                 eigensolver='rmm-diis',
                 txt='with.txt')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy_fractrans = atoms.get_potential_energy()
 
     assert(len(calc.wfs.kd.ibzk_kc) == 6)
@@ -42,7 +41,7 @@ def test_symmetry_fractional_translations(in_tmp_dir):
                 eigensolver='rmm-diis',
                 txt='without.txt')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy_no_fractrans = atoms.get_potential_energy()
 
     assert(len(calc.wfs.kd.ibzk_kc) == 8)

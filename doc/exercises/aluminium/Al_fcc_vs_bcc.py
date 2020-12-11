@@ -11,15 +11,15 @@ for kdens in [2.0, 3.0]:
         fcc = bulk('Al', 'fcc', a=afcc)
         calc = GPAW(mode=PW(ecut),
                     kpts={'density': kdens},
-                    txt='bulk-fcc-%.1f-%.1f.txt' % (ecut, kdens))
-        fcc.set_calculator(calc)
+                    txt=f'bulk-fcc-{ecut:.1f}-{kdens:.1f}.txt')
+        fcc.calc = calc
         efcc = fcc.get_potential_energy()
 
         bcc = bulk('Al', 'bcc', a=abcc)
         calc = GPAW(mode=PW(ecut),
                     kpts={'density': 4.0},
-                    txt='bulk-bcc-%.1f-%.1f.txt' % (ecut, kdens))
-        bcc.set_calculator(calc)
+                    txt=f'bulk-bcc-{ecut:.1f}-{kdens:.1f}.txt')
+        bcc.calc = calc
         ebcc = bcc.get_potential_energy()
 
         print(kdens, ecut, efcc, ebcc, efcc - ebcc)

@@ -52,7 +52,8 @@ def test_generic_hydrogen(in_tmp_dir):
 
     # Test parsing of GPAW's text output:
     h = read('h.txt')
-    error = abs(h.calc.get_eigenvalues() - hydrogen.calc.get_eigenvalues()).max()
+    error = abs(h.calc.get_eigenvalues() -
+                hydrogen.calc.get_eigenvalues()).max()
     assert error < 1e-5, error
 
     # Test get_electrostatic_potential() method

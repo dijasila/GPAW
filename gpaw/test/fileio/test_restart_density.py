@@ -8,7 +8,6 @@ from gpaw import GPAW, restart
 from gpaw.test import equal
 
 
-
 def test_fileio_restart_density(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
@@ -24,9 +23,8 @@ def test_fileio_restart_density(in_tmp_dir):
     calc = GPAW(h=0.30, nbands=3,
                 setups={'Na': '1'},
                 convergence=conv)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e0 = atoms.get_potential_energy()
-    niter0 = calc.get_number_of_iterations()
     f0 = atoms.get_forces()
     m0 = atoms.get_magnetic_moments()
     eig00 = calc.get_eigenvalues(spin=0)
@@ -61,6 +59,5 @@ def test_fileio_restart_density(in_tmp_dir):
     for eig0, eig1 in zip(eig01, eig11):
         equal(eig0, eig1, 2e-2)
 
-    niter1 = calc.get_number_of_iterations()
     # Check that after restart everythnig is writable
     calc.write('tmp2.gpw')

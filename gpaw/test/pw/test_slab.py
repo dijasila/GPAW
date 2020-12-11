@@ -18,6 +18,6 @@ def test_pw_slab():
                 parallel={'band': min(world.size, 4)},
                 idiotproof=0,
                 kpts=(k, k, 1))
-    slab.set_calculator(calc)
+    slab.calc = calc
     BFGS(slab).run(fmax=0.01)
-    assert abs(slab.get_distance(0, 1) - 2.4594) < 0.001, slab.get_distance(0, 1)
+    assert abs(slab.get_distance(0, 1) - 2.46) < 0.01

@@ -27,16 +27,17 @@ def test_pseudopotential_hgh_h2o():
                 poissonsolver=PoissonSolver('fd'),
                 gpts=(32, 40, 40),
                 setups='hgh',
-                convergence=dict(eigenstates=1e-9, density=1e-5, energy=0.3e-5),
+                convergence=dict(eigenstates=1e-9,
+                                 density=1e-5,
+                                 energy=0.3e-5),
                 txt='-')
-    mol.set_calculator(calc)
+    mol.calc = calc
     e = mol.get_potential_energy()
-    niter = calc.get_number_of_iterations()
     F_ac = mol.get_forces()
 
-    F_ac_ref = np.array([[ 7.33077718,  3.81069249, -6.07405156],
-                         [-0.9079617 , -1.18203514,  3.43777589],
-                         [-0.61642527, -0.41889306,  2.332415  ]])
+    F_ac_ref = np.array([[7.33077718, 3.81069249, -6.07405156],
+                         [-0.9079617, -1.18203514, 3.43777589],
+                         [-0.61642527, -0.41889306, 2.332415]])
 
     eref = -468.527121304
 
@@ -84,24 +85,24 @@ def test_pseudopotential_hgh_h2o():
     for a, dH_sp in dH_asp.items():
         dH_p = dH_sp[0]
         K_p = wfs.setups[a].K_p
-        #B_ii = wfs.setups[a].B_ii
-        #assert np.abs(B_ii.diagonal() - 1).max() < 1e-3
-        #print 'B_ii'
-        #print wfs.setups[a].B_ii
+        # B_ii = wfs.setups[a].B_ii
+        # assert np.abs(B_ii.diagonal() - 1).max() < 1e-3
+        # print 'B_ii'
+        # print wfs.setups[a].B_ii
         # Actually, H2O might not be such a good test, since there'll only
         # be one element in the atomic Hamiltonian for O and zero for H.
-        #print 'dH_p', dH_p
-        #print 'K_p', K_p
+        # print 'dH_p', dH_p
+        # print 'K_p', K_p
 
         assert np.abs(dH_p - K_p).max() < 1e-10, 'atomic Hamiltonian changed'
 
-        #h_ii = setup.data.h_ii
-        #print 'h_ii', h_ii
-        #print 'dH_ii', dH_ii
+        # h_ii = setup.data.h_ii
+        # print 'h_ii', h_ii
+        # print 'dH_ii', dH_ii
 
     # Sanity check: HGH is normconserving
     for psit_G in psit_nG:
-        norm = gd.integrate(psit_G**2) # Around 1e-15 !  Surprisingly good.
+        norm = gd.integrate(psit_G**2)  # around 1e-15 !  Surprisingly good.
         assert abs(1 - norm) < 1e-10, 'Not normconserving'
 
     energy_tolerance = 0.0003

@@ -58,11 +58,6 @@ class ElectronPhononCoupling:
 
         return state
 
-    def set_calculator(self, calc):
-        """Set ground-state calculator."""
-
-        self.calc = calc
-
     def collect(self):
         """Collect derivatives from slaves."""
 

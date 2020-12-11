@@ -11,7 +11,6 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
                                 reason='world.size != 1 and not compiled_with_sl()')
 
 
-
 def test_response_gw0_hBN(in_tmp_dir):
     atoms = bulk('BN', 'zincblende', a=3.615)
 
@@ -22,7 +21,7 @@ def test_response_gw0_hBN(in_tmp_dir):
                 parallel={'domain': 1},
                 occupations=FermiDirac(0.001))
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     e0 = atoms.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian(scalapack=True)

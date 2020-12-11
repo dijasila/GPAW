@@ -2,6 +2,7 @@ from gpaw import GPAW, restart, FD
 from ase.build import molecule
 from gpaw.test import equal
 
+
 def test_complex(in_tmp_dir):
     Eini0 = -17.8037610364
     energy_eps = 0.0005
@@ -15,7 +16,7 @@ def test_complex(in_tmp_dir):
 
     mol = molecule('N2')
     mol.center(vacuum=3.0)
-    mol.set_calculator(calc)
+    mol.calc = calc
 
     Eini = mol.get_potential_energy()
     Iini = calc.get_number_of_iterations()
@@ -29,7 +30,7 @@ def test_complex(in_tmp_dir):
 
         assert calc.wfs.dtype == complex
         assert calc.wfs.kpt_u[0].psit_nG.dtype == complex
-        
+
         calc.set(convergence={'eigenstates': 3.5e-9, 'energy': energy_eps})
         calc.set(eigensolver=esolver)
         E = mol.get_potential_energy()

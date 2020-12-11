@@ -5,7 +5,7 @@ a = 8.0
 h = 0.2
 
 energies = {}
-resultfile = open('results-%.2f.txt' % h, 'w')
+resultfile = open(f'results-{h:.2f}.txt', 'w')
 
 for name in ['H2O', 'H', 'O']:
     system = molecule(name)
@@ -13,11 +13,11 @@ for name in ['H2O', 'H', 'O']:
     system.center()
 
     calc = GPAW(h=h,
-                txt='gpaw-%s-%.2f.txt' % (name, h))
+                txt=f'gpaw-{name}-{h:.2f}.txt')
     if name == 'H' or name == 'O':
         calc.set(hund=True)
 
-    system.set_calculator(calc)
+    system.calc = calc
 
     energy = system.get_potential_energy()
     energies[name] = energy

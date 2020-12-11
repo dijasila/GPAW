@@ -30,7 +30,7 @@ def test_solvation_sss09():
     rho0 = 1.0 / Bohr ** 3
     beta = 2.4
     st = 72. * 1e-3 * Pascal * m
-    atomic_radii = lambda atoms: [2.059]
+    def atomic_radii(atoms): return [2.059]
     convergence = {
         'energy': 0.05 / 8.,
         'density': 10.,

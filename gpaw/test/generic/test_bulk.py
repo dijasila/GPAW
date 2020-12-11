@@ -8,23 +8,14 @@ def test_generic_bulk():
     bulk = Atoms([Atom('Li')], pbc=True)
     k = 4
     g = 8
-    calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2)#, txt=None)
-    bulk.set_calculator(calc)
+    calc = GPAW(gpts=(g, g, g), kpts=(k, k, k), nbands=2)
+    bulk.calc = calc
     a = np.linspace(2.6, 2.8, 5)
     e = []
     for x in a:
         bulk.set_cell((x, x, x))
         e1 = bulk.get_potential_energy()
-        niter1 = calc.get_number_of_iterations()
         e.append(e1)
-
-    try:
-        from gpaw.io.etsf import ETSFWriter
-    except ImportError:
-        pass  # Scientific.IO.NetCDF was not installed
-    else:
-        if calc.wfs.world.size == 1:
-            ETSFWriter().write(calc)
 
     fit = np.polyfit(a, e, 2)
     a0 = np.roots(np.polyder(fit, 1))[0]

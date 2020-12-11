@@ -9,7 +9,6 @@ def test_parallel_augment_grid(in_tmp_dir):
     system.cell = (4, 4, 4)
     system.pbc = 1
 
-
     for mode in ['fd',
                  'pw',
                  'lcao'
@@ -43,7 +42,7 @@ def test_parallel_augment_grid(in_tmp_dir):
                 calc.scf.converged = True
             # Iterate enough for density to update so it depends on potential
             calc.attach(stopcalc, 3 if mode == 'lcao' else 5)
-            system.set_calculator(calc)
+            system.calc = calc
             energy.append(system.get_potential_energy())
             force.append(system.get_forces())
             if mode == 'pw':

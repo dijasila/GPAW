@@ -1,13 +1,11 @@
 import pytest
 from gpaw.utilities.elpa import LibElpa
 import numpy as np
-from gpaw.utilities.elpa import LibElpa
 from gpaw.blacs import BlacsGrid
 from gpaw.mpi import world
 
 pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
                                 reason='not LibElpa.have_elpa()')
-
 
 
 def test_libelpa():
@@ -40,7 +38,6 @@ def test_libelpa():
 
     desc.diagonalize_dc(A.copy(), C1, eps1),
 
-    eps = np.zeros(M)
     elpa.diagonalize(A.copy(), C2, eps2)
 
     print(eps1)

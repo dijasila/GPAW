@@ -30,7 +30,7 @@ def test_response_graphene_refined_response(in_tmp_dir):
                     kpts={'size': [nk, nk, 1], 'gamma': True},
                     experimental={'kpt_refine': kpt_refine},
                     occupations=FermiDirac(0.026))
-        system.set_calculator(calc)
+        system.calc = calc
         system.get_potential_energy()
         calc.write('graphene.gpw', 'all')
 

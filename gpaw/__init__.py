@@ -7,7 +7,7 @@ import os
 import sys
 from sysconfig import get_platform
 from os.path import join, isfile
-from typing import List
+from typing import List, Dict
 
 plat = get_platform()
 platform_id = os.getenv('CPU_ARCH')
@@ -33,11 +33,12 @@ with broadcast_imports:
 
     import numpy as np
     from ase.cli.run import str2dict
+    import _gpaw
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '20.1.1b1'
-__ase_version_required__ = '3.20.0b1'
+__version__ = '20.10.1b1'
+__ase_version_required__ = '3.21.0b1'
 
 __all__ = ['GPAW',
            'Mixer', 'MixerSum', 'MixerDif', 'MixerSum2',
@@ -70,6 +71,12 @@ def parse_extra_parameters(arg):
 
 
 is_gpaw_python = '_gpaw' in sys.builtin_module_names
+
+libraries: Dict[str, str] = {}
+if hasattr(_gpaw, 'lxcXCFunctional'):
+    libraries['libxc'] = getattr(_gpaw, 'libxc_version', '2.x.y')
+else:
+    libraries['libxc'] = ''
 
 
 def parse_arguments(argv):
@@ -260,6 +267,15 @@ with broadcast_imports:
     from gpaw.wavefunctions.fd import FD
 
 RMM_DIIS = RMMDIIS
+
+if os.environ.get('GPAW_COVERAGE'):
+    import atexit
+    import coverage
+    from gpaw.mpi import rank
+    name = os.environ['GPAW_COVERAGE']
+    cov = coverage.Coverage(f'coverage-{name}-{rank}', True)
+    cov.start()
+    atexit.register(lambda: [cov.stop(), cov.save()])
 
 
 def restart(filename, Class=GPAW, **kwargs):

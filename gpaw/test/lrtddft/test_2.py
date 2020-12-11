@@ -7,8 +7,6 @@ from gpaw.lrtddft.spectrum import spectrum
 def test_lrtddft_2(in_tmp_dir):
     txt = '-'
     txt = None
-    load = True
-    load = False
     xc = 'LDA'
 
     R = 0.7  # approx. experimental bond length
@@ -19,12 +17,15 @@ def test_lrtddft_2(in_tmp_dir):
                 (a / 2, a / 2, (c + R) / 2)],
                cell=(a, a, c))
 
-    calc = GPAW(xc=xc, nbands=2, spinpol=False, eigensolver='rmm-diis', txt=txt)
-    H2.set_calculator(calc)
+    calc = GPAW(xc=xc,
+                nbands=2,
+                spinpol=False,
+                eigensolver='rmm-diis',
+                txt=txt)
+    H2.calc = calc
     H2.get_potential_energy()
     calc.write('H2saved_wfs.gpw', 'all')
     calc.write('H2saved.gpw')
-    wfs_error = calc.wfs.eigensolver.error
 
     print('-> starting directly after a gs calculation')
     lr = LrTDDFT(calc, txt='-')

@@ -25,10 +25,10 @@ for i in range(3):
 
         calc = GPAW(h=0.3,
                     kpts=(2, 2, 1),
-                    txt='neb{}.txt'.format(j),
+                    txt=f'neb{j}.txt',
                     communicator=ranks)
 
-        image.set_calculator(calc)
+        image.calc = calc
 
     image.set_constraint(constraint)
     images.append(image)

@@ -11,8 +11,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
-def test_response_bse_aluminum():
+def test_response_bse_aluminum(in_tmp_dir):
     GS = 1
     df = 1
     bse = 1
@@ -26,8 +25,8 @@ def test_response_bse_aluminum():
                     xc='LDA',
                     nbands=4,
                     convergence={'bands': 'all'})
-        
-        atoms.set_calculator(calc)
+
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('Al.gpw', 'all')
 
@@ -49,7 +48,7 @@ def test_response_bse_aluminum():
                                       q_c=q_c,
                                       w_w=w_w,
                                       eta=eta)[1]
-        
+
     if df:
         df = DielectricFunction(calc='Al.gpw',
                                 frequencies=w_w,

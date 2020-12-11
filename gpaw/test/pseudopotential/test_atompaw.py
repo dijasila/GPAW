@@ -5,7 +5,6 @@ import gpaw.test.pseudopotential.O_pz_hgh as O_hgh
 from gpaw.mpi import world
 
 
-
 def test_pseudopotential_atompaw(in_tmp_dir):
     def check(title, calc, epsref_n, threshold):
         eps_n = calc.wfs.kpt_u[0].eps_n
@@ -14,14 +13,14 @@ def test_pseudopotential_atompaw(in_tmp_dir):
             err = abs(epsref - eps_n[i])
             ok = (err <= threshold)
             status = 'ok' if ok else 'FAILED'
-            print('state %d | eps=%f | ref=%f | err=%f | tol=%s | %s' % (i,
-                                                                         eps_n[i],
-                                                                         epsref,
-                                                                         err,
-                                                                         threshold,
-                                                                         status))
+            print('state %d | eps=%f | ref=%f | err=%f | tol=%s | %s' %
+                  (i,
+                   eps_n[i],
+                   epsref,
+                   err,
+                   threshold,
+                   status))
             assert ok
-
 
     # Load pseudopotential from Python module as string, then
     # write the string to a file, then load the file.
@@ -29,7 +28,6 @@ def test_pseudopotential_atompaw(in_tmp_dir):
         with open(fname, 'w') as fd:
             fd.write(upf_module.ps_txt)
         return UPFSetupData(fname)
-
 
     if world.rank == 0:  # This test is not really parallel
         kwargs = dict(txt=None)

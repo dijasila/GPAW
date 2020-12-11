@@ -1,6 +1,4 @@
 import pytest
-from gpaw.mpi import world
-from gpaw.utilities import compiled_with_sl
 import numpy as np
 
 from ase.build import molecule
@@ -9,16 +7,17 @@ from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
 from gpaw.mpi import world
+from gpaw.utilities import compiled_with_sl
 
 from gpaw.test import equal
 
 # Atoms
-pytestmark = pytest.mark.skipif(world.size == 1 or not compiled_with_sl(),
-                                reason='world.size == 1 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size == 1 or not compiled_with_sl(),
+    reason='world.size == 1 or not compiled_with_sl()')
 
 
-
-def test_lcaotddft_parallel_options():
+def test_lcaotddft_parallel_options(in_tmp_dir):
     atoms = molecule('NaCl')
     atoms.center(vacuum=4.0)
 
@@ -28,8 +27,8 @@ def test_lcaotddft_parallel_options():
                 poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
-    atoms.set_calculator(calc)
-    energy = atoms.get_potential_energy()
+    atoms.calc = calc
+    _ = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     # Reference time-propagation calculation

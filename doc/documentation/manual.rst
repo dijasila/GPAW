@@ -29,7 +29,7 @@ Doing a PAW calculation
 -----------------------
 
 To do a PAW calculation with the GPAW code, you need an ASE
-:class:`~ase.Atoms` object and a :class:`~gpaw.calculator.GPAW`
+:class:`~ase.Atoms` object and a :class:`~gpaw.GPAW`
 calculator::
 
    _____________          ____________
@@ -111,10 +111,6 @@ given in the following sections.
       - Object
       -
       - :ref:`manual_external`
-    * - ``fixdensity``
-      - ``bool``
-      - ``False``
-      - Use :ref:`manual_fixdensity`
     * - ``gpts``
       - *seq*
       -
@@ -198,7 +194,7 @@ given in the following sections.
 .. note::
 
    Parameters can be changed after the calculator has been constructed
-   by using the :meth:`~gpaw.calculator.GPAW.set` method:
+   by using the :meth:`~gpaw.GPAW.set` method:
 
    >>> calc.set(txt='H2.txt', charge=1)
 
@@ -253,7 +249,7 @@ Memory consumption:
 Speed:
     For small systems with many **k**-points, PW mode beats everything else.
     For larger systems LCAO will be most efficient.  Whereas PW beats FD for
-    smallish systems, the opposite is true for very large systems where FD
+    smallish systems, the opposite is true for large systems where FD
     will parallelize better.
 
 Absolute convergence:
@@ -303,7 +299,7 @@ unoccupied bands will improve convergence.
 
 .. tip::
 
-    ``nbands='nao'`` will use the the same number of bands as there are
+    ``nbands='nao'`` will use the same number of bands as there are
     atomic orbitals. This corresponds to the maximum ``nbands`` value that
     can be used in LCAO mode.
 
@@ -458,7 +454,7 @@ a grid-point density of `1/h^3`.  For more details, see :ref:`grids`.
 
 If you are more used to think in terms of plane waves; a conversion
 formula between plane wave energy cutoffs and realspace grid spacings
-have been provided by Briggs *et. al* PRB **54**, 14362 (1996).  The
+have been provided by Briggs *et al.* PRB **54**, 14362 (1996).  The
 conversion can be done like this::
 
   >>> from gpaw.utilities.tools import cutoff2gridspacing, gridspacing2cutoff
@@ -568,6 +564,20 @@ the initial value using::
 
     occupations={'name': ..., 'width': ..., 'fixmagmom': True}
 
+.. figure:: occupation_numbers.png
+
+    Occupation numbers for ``width=0.05``
+
+For fixed occupations numbers use the
+:class:`gpaw.occupations.FixedOccupationNumbers` class like this::
+
+    from gpaw.occupations import FixedOccupationNumbers
+    calc = GPAW(...,
+                occupations=FixedOccupationNumbers([[1, 1, ..., 0, 0],
+                                                    [1, 1, ..., 0, 0]]))
+
+See also :ref:`smearing`.
+
 
 .. _manual_lmax:
 
@@ -676,12 +686,11 @@ For small molecules, the best choice is to use
 will choose if the system has zero-boundary conditions.
 
 If your system is a big molecule or a cluster, it is an advantage to
-use something like ``mixer=Mixer(beta=0.1, nmaxold=5, weight=50.0)``,
+use something like ``mixer=Mixer(beta=0.05, nmaxold=5, weight=50.0)``,
 which is also what GPAW will choose if the system has periodic
 boundary conditions in one or more directions.
 
-In spin-polarized calculations using Fermi-distribution
-occupations one has to use ``MixerSum`` instead of
+In spin-polarized calculations ``MixerDif`` will be used instead of
 ``Mixer``.
 
 See also the documentation on :ref:`density mixing <densitymix>`.
@@ -689,14 +698,15 @@ See also the documentation on :ref:`density mixing <densitymix>`.
 
 .. _manual_fixdensity:
 
-Fixed density
--------------
+Fixed density calculation
+-------------------------
 
 When calculating band structures or when adding unoccupied states to
 calculation (and wanting to converge them) it is often useful to use existing
-density without updating it. By using ``fixdensity=True`` the initial density
-(e.g. one read from .gpw or existing from previous calculation) is used
-throughout the SCF-cycle (so called Harris calculation).
+density without updating it. This can be done using the
+:meth:`gpaw.GPAW.fixed_density` method.  This will use the density
+(e.g. one read from .gpw or existing from previous calculation)
+throughout the SCF-cycles (so called Harris calculation).
 
 
 .. _manual_setups:
@@ -824,7 +834,7 @@ convergence can be obtained with a different eigensolver. One option is the
 RMM-DIIS (Residual minimization method - direct inversion in iterative
 subspace), (``eigensolver='rmm-diis'``), which performs well when only a few
 unoccupied states are calculated. Another option is the conjugate gradient
-method (``eigensolver='cg'``), which is very stable but slower.
+method (``eigensolver='cg'``), which is stable but slower.
 
 If parallellization over bands is necessary, then Davidson or RMM-DIIS must
 be used.
@@ -1054,7 +1064,7 @@ at a later time, this can be done as follows:
 
 Everything will be just as before we wrote the :file:`H2.gpw` file.
 Often, one wants to restart the calculation with one or two parameters
-changed slightly.  This is very simple to do.  Suppose you want to
+changed slightly.  This is simple to do.  Suppose you want to
 change the number of grid points:
 
 >>> atoms, calc = restart('H2.gpw', gpts=(20, 20, 20))
@@ -1092,7 +1102,7 @@ example saves a differently named restart file every 5 iterations::
 
   calc.attach(OccasionalWriter().write, occasionally)
 
-See also :meth:`~gpaw.calculator.GPAW.attach`.
+See also :meth:`~gpaw.GPAW.attach`.
 
 .. _command line options:
 

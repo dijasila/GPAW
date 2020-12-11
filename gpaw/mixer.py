@@ -564,6 +564,9 @@ for dcls in [SeparateSpinMixerDriver, SpinSumMixerDriver,
 # that the user did not explicitly provide, i.e., it fills out
 # everything that is missing and returns a mixer "driver".
 def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
+    if mixerkwargs.get('name') == 'dummy':
+        return DummyMixer()
+
     # The plan is to first establish a kwargs dictionary with all the
     # defaults, then we update it with values from the user.
     kwargs = {'backend': BaseMixer}
@@ -576,7 +579,7 @@ def get_mixer_from_keywords(pbc, nspins, **mixerkwargs):
     if nspins == 1:
         kwargs['method'] = SeparateSpinMixerDriver
     else:
-        kwargs['method'] = SpinSumMixerDriver
+        kwargs['method'] = SpinDifferenceMixerDriver
 
     # Clean up mixerkwargs (compatibility)
     if 'nmaxold' in mixerkwargs:

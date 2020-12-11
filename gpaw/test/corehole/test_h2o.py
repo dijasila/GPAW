@@ -11,7 +11,8 @@ import gpaw.mpi as mpi
 
 def test_corehole_h2o(in_tmp_dir):
     # Generate setup for oxygen with half a core-hole:
-    gen = generate('O', '2s,s,2p,p,d', [1.2], 1.0, None, 2, core_hole='1s,0.5')
+    gen = generate('O', 8, '2s,s,2p,p,d', [1.2], 1.0, None, 2,
+                   core_hole='1s,0.5')
     setup = gen.make_paw_setup('hch1s')
     setup.write_xml()
     if setup_paths[0] != '.':
@@ -28,7 +29,7 @@ def test_corehole_h2o(in_tmp_dir):
     calc = GPAW(nbands=10, h=0.2, setups={'O': 'hch1s'},
                 experimental={'niter_fixdensity': 2},
                 poissonsolver=FDPoissonSolver(use_charge_center=True))
-    H2O.set_calculator(calc)
+    H2O.calc = calc
     _ = H2O.get_potential_energy()
 
     if mpi.size == 1:

@@ -26,7 +26,7 @@ def test_pathological_numpy_zdotc_graphite():
 
     calc = GPAW(gpts=(8, 8, 20), nbands=9, kpts=kpts, maxiter=1)
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
 
     try:
         atoms.get_potential_energy()

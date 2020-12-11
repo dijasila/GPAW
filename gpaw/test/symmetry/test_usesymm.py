@@ -10,14 +10,13 @@ def test_symmetry_usesymm():
     a1.center()
     atoms = a1.repeat((4, 1, 1))
 
-
     def energy(symm={}):
-        atoms.set_calculator(GPAW(h=0.3,
-                                  occupations=FermiDirac(width=0.1),
-                                  symmetry=symm,
-                                  convergence=dict(energy=1e-6),
-                                  kpts=(3, 1, 1),
-                                  mode='lcao'))
+        atoms.calc = GPAW(h=0.3,
+                          occupations=FermiDirac(width=0.1),
+                          symmetry=symm,
+                          convergence=dict(energy=1e-6),
+                          kpts=(3, 1, 1),
+                          mode='lcao')
         return atoms.get_potential_energy()
 
     e1 = energy()

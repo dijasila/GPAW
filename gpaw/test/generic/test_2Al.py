@@ -16,12 +16,12 @@ def test_generic_2Al():
                 kpts=(1, 1, 4),
                 convergence={'eigenstates': 2.3e-9},
                 xc='LDA')
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     e2 = bulk.get_potential_energy()
     niter2 = calc.get_number_of_iterations()
 
     bulk = bulk.repeat((1, 1, 2))
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     calc.set(nbands=16,
              kpts=(1, 1, 2),
              gpts=(2 * n, 2 * n, 2 * n))

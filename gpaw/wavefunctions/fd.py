@@ -159,20 +159,22 @@ class FDWaveFunctions(FDPWWaveFunctions):
         weight = 2.0 / kd.nspins / kd.nbzkpts
 
         # Build new list of k-points:
+        kpt_qs = []
         kpt_u = []
-        for s in range(self.nspins):
-            for k in range(kd.nbzkpts):
+        for k in range(kd.nbzkpts):
+            kpt_s = []
+            for s in range(self.nspins):
                 # Index of symmetry related point in the IBZ
                 ik = self.kd.bz2ibz_k[k]
-                r, u = self.kd.get_rank_and_index(s, ik)
+                r, q = self.kd.get_rank_and_index(ik)
                 assert r == 0
-                kpt = self.mykpts[u]
+                kpt = self.kpt_qs[q][s]
 
                 phase_cd = np.exp(2j * np.pi * self.gd.sdisp_cd *
                                   kd.bzk_kc[k, :, np.newaxis])
 
                 # New k-point:
-                kpt2 = KPoint(weight, s, k, k, phase_cd)
+                kpt2 = KPoint(1.0 / kd.nbzkpts, weight, s, k, k, phase_cd)
                 kpt2.f_n = kpt.f_n / kpt.weight / kd.nbzkpts * 2 / self.nspins
                 kpt2.eps_n = kpt.eps_n.copy()
 
@@ -196,10 +198,13 @@ class FDWaveFunctions(FDPWWaveFunctions):
                     collinear=True, spin=s, dtype=self.dtype)
 
                 kpt2.psit.matrix_elements(self.pt, out=kpt2.projections)
+                kpt_s.append(kpt2)
                 kpt_u.append(kpt2)
+            kpt_qs.append(kpt_s)
 
         self.kd = kd
-        self.mykpts = kpt_u
+        self.kpt_qs = kpt_qs
+        self.kpt_u = kpt_u
 
     def _get_wave_function_array(self, u, n, realspace=True, periodic=False):
         assert realspace
@@ -256,7 +261,7 @@ class FDWaveFunctions(FDPWWaveFunctions):
                 kpt.psit.read_from_file()
 
     def initialize_from_lcao_coefficients(self, basis_functions):
-        for kpt in self.mykpts:
+        for kpt in self.kpt_u:
             kpt.psit = UniformGridWaveFunctions(
                 self.bd.nbands, self.gd, self.dtype, kpt=kpt.q,
                 dist=(self.bd.comm, self.bd.comm.size, 1),

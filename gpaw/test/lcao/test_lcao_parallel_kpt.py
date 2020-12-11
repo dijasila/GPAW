@@ -2,7 +2,7 @@ import sys
 
 import pytest
 from ase.build import molecule
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import GPAW, LCAO, FermiDirac, KohnShamConvergenceError
 from gpaw.utilities import compiled_with_sl
@@ -36,7 +36,7 @@ def test_lcao_lcao_parallel_kpt():
         kwargs = dict(basekwargs)
         kwargs.update(morekwargs)
         calc = GPAW(**kwargs)
-        system.set_calculator(calc)
+        system.calc = calc
         system.center(vacuum)
         if cell is None:
             system.center(vacuum)

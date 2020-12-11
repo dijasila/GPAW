@@ -13,14 +13,12 @@ pytestmark = pytest.mark.skipif(world.size > 2,
                                 reason='world.size > 2')
 
 
-
 def test_poisson_poisson_restart(in_tmp_dir):
     name = 'Na2'
     poissoneps = 1e-16
     gpts = np.array([16, 16, 24])
     # Uncomment the following line if you want to run the test with 4 cpus
     # gpts *= 2
-
 
     def PS(**kwargs):
         return PoissonSolver(eps=poissoneps, **kwargs)
@@ -56,7 +54,7 @@ def test_poisson_poisson_restart(in_tmp_dir):
                         convergence={'energy': 1.0,
                                      'density': 1.0,
                                      'eigenstates': 1.0})
-            atoms.set_calculator(calc)
+            atoms.calc = calc
             energy = atoms.get_potential_energy()
             descr = calc.hamiltonian.poisson.get_description()
             calc.write('%s_gs.gpw' % name, mode='all')

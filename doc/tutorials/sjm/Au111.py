@@ -43,7 +43,7 @@ calc = SJM(doublelayer={'upper_limit': 23},
            poissonsolver={'dipolelayer': 'xy'},
            kpts=(9, 9, 1),
            xc='PBE',
-           txt='Au_pot_%1.2f.txt' % (potential),
+           txt=f'Au_pot_{potential:1.2f}.txt',
            occupations=FermiDirac(0.1),
            cavity=EffectivePotentialCavity(
                effective_potential=SJMPower12Potential(atomic_radii, u0),
@@ -53,5 +53,5 @@ calc = SJM(doublelayer={'upper_limit': 23},
            interactions=[SurfaceInteraction(surface_tension=gamma)])
 
 # Run the calculation
-atoms.set_calculator(calc)
+atoms.calc = calc
 atoms.get_potential_energy()

@@ -1,3 +1,4 @@
+import pytest
 from ase import Atom, Atoms
 
 from gpaw import GPAW, restart, Davidson, Mixer
@@ -11,13 +12,15 @@ from gpaw.test import equal
 # first on 3D without restart. Then does restart and recalculates.
 
 
+@pytest.mark.gllb
+@pytest.mark.libxc
 def test_gllb_ne_disc(in_tmp_dir):
     atom = 'Ne'
     setup_paths.insert(0, '.')
 
-    for xcname in ['GLLB','GLLBSC']:
+    for xcname in ['GLLB', 'GLLBSC']:
         if world.rank == 0:
-            g = Generator(atom, xcname =xcname, scalarrel=False,nofiles=True)
+            g = Generator(atom, xcname=xcname, scalarrel=False, nofiles=True)
             g.run(**parameters[atom])
             eps = g.e_j[-1]
         world.barrier()
@@ -29,20 +32,24 @@ def test_gllb_ne_disc(in_tmp_dir):
         calc = GPAW(eigensolver=Davidson(4), nbands=10, h=0.18, xc=xcname,
                     basis='dzp',
                     mixer=Mixer(0.6))
-        Ne.set_calculator(calc)
-        e = Ne.get_potential_energy()
-        response = calc.hamiltonian.xc.xcs['RESPONSE']
-        response.calculate_delta_xc()
-        KS, dxc = response.calculate_delta_xc_perturbation()
-        if xcname=='GLLB':
-            equal(KS+dxc, 24.89, 1.5e-1)
+        Ne.calc = calc
+        Ne.get_potential_energy()
+        homo, lumo = calc.get_homo_lumo()
+        response = calc.hamiltonian.xc.response
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        KS, dxc = response.calculate_discontinuity(dxc_pot)
+        if xcname == 'GLLB':
+            equal(KS + dxc, 24.89, 1.5e-1)
         else:
-            equal(KS+dxc, 27.70, 6.0e-2)
+            equal(KS + dxc, 27.70, 6.0e-2)
         eps3d = calc.wfs.kpt_u[0].eps_n[3]
-        calc.write('Ne_temp.gpw')
+        calc.write('Ne_temp.gpw', mode='all')
 
         atoms, calc = restart('Ne_temp.gpw')
-        KS2, dxc2 = response.calculate_delta_xc_perturbation()
+        homo, lumo = calc.get_homo_lumo()
+        response = calc.hamiltonian.xc.response
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        KS2, dxc2 = response.calculate_discontinuity(dxc_pot)
         equal(KS, KS2, 1e-5)
         equal(dxc2, dxc, 1e-5)
 
@@ -53,5 +60,5 @@ def test_gllb_ne_disc(in_tmp_dir):
 
         if world.rank == 0:
             equal(eps, eps3d, 1e-3)
-        if xcname=='GLLB':
-            equal(24.89, KS2+dxc2, 1.2e-1)
+        if xcname == 'GLLB':
+            equal(24.89, KS2 + dxc2, 1.2e-1)

@@ -21,7 +21,7 @@ calc = GPAW(mode=PW(),
             occupations=FermiDirac(0.0, fixmagmom=True),
             txt='H.out',
             )
-atom.set_calculator(calc)
+atom.calc = calc
 
 e1 = atom.get_potential_energy()
 calc.write('H.gpw')
@@ -36,12 +36,12 @@ molecule = Atoms('H2',
 calc.set(txt='H2.out')
 calc.set(hund=False)  # No hund rule for molecules
 
-molecule.set_calculator(calc)
+molecule.calc = calc
 e2 = molecule.get_potential_energy()
 calc.write('H2.gpw')
 
 fd = open('atomization.txt', 'w')
-print('  hydrogen atom energy:     %5.2f eV' % e1, file=fd)
-print('  hydrogen molecule energy: %5.2f eV' % e2, file=fd)
-print('  atomization energy:       %5.2f eV' % (2 * e1 - e2), file=fd)
+print(f'  hydrogen atom energy:     {e1:5.2f} eV', file=fd)
+print(f'  hydrogen molecule energy: {e2:5.2f} eV', file=fd)
+print(f'  atomization energy:       {2 * e1 - e2:5.2f} eV', file=fd)
 fd.close()

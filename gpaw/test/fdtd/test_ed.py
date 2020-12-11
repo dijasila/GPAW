@@ -33,19 +33,18 @@ def test_fdtd_ed(in_tmp_dir):
     classical_material = PolarizableMaterial()
     sphere_center = np.array([10.0, 10.0, 10.0])
     classical_material.add_component(
-        PolarizableSphere(permittivity = PermittivityPlus('ed.txt'),
-                          center = sphere_center,
-                          radius = 5.0
-                          ))
+        PolarizableSphere(permittivity=PermittivityPlus('ed.txt'),
+                          center=sphere_center,
+                          radius=5.0))
 
     # Combined Poisson solver
-    poissonsolver = FDTDPoissonSolver(classical_material  = classical_material,
-                                      qm_spacing          = 0.40,
-                                      cl_spacing          = 0.40*4,
-                                      cell                = large_cell,
-                                      remove_moments      = (1, 4),
-                                      communicator        = world,
-                                      potential_coupler   = 'Refiner')
+    poissonsolver = FDTDPoissonSolver(classical_material=classical_material,
+                                      qm_spacing=0.40,
+                                      cl_spacing=0.40 * 4,
+                                      cell=large_cell,
+                                      remove_moments=(1, 4),
+                                      communicator=world,
+                                      potential_coupler='Refiner')
     poissonsolver.set_calculation_mode('iterate')
 
     # Combined system
@@ -54,13 +53,13 @@ def test_fdtd_ed(in_tmp_dir):
                                                      vacuum=2.50)
 
     # Initialize GPAW
-    gs_calc = GPAW(gpts          = gpts,
+    gs_calc = GPAW(gpts=gpts,
                    experimental={'niter_fixdensity': 2},
-                   eigensolver   = 'cg',
-                   nbands        = -1,
-                   poissonsolver = poissonsolver,
-                   convergence   = {'energy': energy_eps})
-    atoms.set_calculator(gs_calc)
+                   eigensolver='cg',
+                   nbands=-1,
+                   poissonsolver=poissonsolver,
+                   convergence={'energy': energy_eps})
+    atoms.calc = gs_calc
 
     # Ground state
     energy = atoms.get_potential_energy()
@@ -80,21 +79,21 @@ def test_fdtd_ed(in_tmp_dir):
     # Initialize TDDFT and FDTD
     kick = [0.0, 0.0, 1.0e-3]
     time_step = 10.0
-    max_time = 100 # 0.1 fs
+    max_time = 100  # 0.1 fs
 
     td_calc = TDDFT('gs.gpw')
     td_calc.absorption_kick(kick_strength=kick)
     td_calc.hamiltonian.poisson.set_kick(kick)
 
     # Propagate TDDFT and FDTD
-    td_calc.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+    td_calc.propagate(time_step, max_time / time_step / 2, 'dm.dat', 'td.gpw')
 
     td_calc2 = TDDFT('td.gpw')
-    td_calc2.propagate(time_step,  max_time/time_step/2, 'dm.dat', 'td.gpw')
+    td_calc2.propagate(time_step, max_time / time_step / 2, 'dm.dat', 'td.gpw')
 
     # Test
-    ref_cl_dipole_moment = [  5.25374117e-14,  5.75811267e-14,  3.08349334e-02]
-    ref_qm_dipole_moment = [  1.78620337e-11, -1.57782578e-11,  5.21368300e-01]
+    ref_cl_dipole_moment = [5.25374117e-14, 5.75811267e-14, 3.08349334e-02]
+    ref_qm_dipole_moment = [1.78620337e-11, -1.57782578e-11, 5.21368300e-01]
 
     tol = 1e-4
     equal(td_calc2.hamiltonian.poisson.get_classical_dipole_moment(),

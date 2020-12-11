@@ -9,8 +9,7 @@ pytestmark = pytest.mark.skipif(world.size < 4,
                                 reason='world.size < 4')
 
 
-
-def test_fileio_parallel():
+def test_fileio_parallel(in_tmp_dir):
     a = 2.87
     atoms = bulk('Fe', 'bcc', a=a)
     atoms.set_initial_magnetic_moments([2.2])
@@ -22,7 +21,7 @@ def test_fileio_parallel():
                 kpts=(4, 4, 4),
                 parallel={'band': 2, 'domain': (2, 1, 1)},
                 maxiter=4)
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     try:
         atoms.get_potential_energy()
     except ConvergenceError:

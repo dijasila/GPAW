@@ -4,7 +4,6 @@ from gpaw.test import equal
 from ase.build import molecule
 
 
-
 def test_pathological_LDA_unstable():
     for i in range(12):
         mol = molecule('H2')
@@ -16,7 +15,7 @@ def test_pathological_LDA_unstable():
             calc.scf.converged = True
 
         calc.attach(stop, 1)
-        mol.set_calculator(calc)
+        mol.calc = calc
         e = mol.get_potential_energy()
         if i == 0:
             eref = e

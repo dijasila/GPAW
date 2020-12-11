@@ -1,13 +1,12 @@
-import os 
+import os
 import gpaw.wannier90 as w90
 from gpaw import GPAW
-from gpaw.spinorbit import get_spinorbit_eigenvalues
+from gpaw.spinorbit import soc_eigenstates
 
 seed = 'Fe'
 
-calc = GPAW('Fe.gpw', txt=None)
-
-e_mk, v_knm = get_spinorbit_eigenvalues(calc, return_wfs=True)
+calc = GPAW('Fe.gpw')
+soc = soc_eigenstates(calc)
 
 w90.write_input(calc,
                 bands=range(30),
@@ -21,9 +20,8 @@ w90.write_input(calc,
 os.system('wannier90.x -pp ' + seed)
 
 w90.write_projections(calc,
-                      v_knm=v_knm,
-                      seed=seed)
-w90.write_eigenvalues(calc, e_km=e_mk.T, seed=seed)
-w90.write_overlaps(calc, v_knm=v_knm, seed=seed)
+                      seed=seed, soc=soc)
+w90.write_eigenvalues(calc, seed=seed, soc=soc)
+w90.write_overlaps(calc, seed=seed, soc=soc)
 
 os.system('wannier90.x ' + seed)

@@ -20,22 +20,18 @@ def test_symmetry_usesymm2():
                 occupations=FermiDirac(width=0.15),
                 kpts=(1, 1, 1),
                 xc='LDA')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
-
 
     kpts = [(1 / 2.0, 1 / 3.0, 0)]
 
     # Calculate one K-point with symmetry:
-    calc.set(kpts=kpts, fixdensity=True)
-    calc.get_potential_energy()
+    calc = calc.fixed_density(kpts=kpts)
     eigs_True = calc.get_eigenvalues(kpt=0)
 
     # Redo with the same K-point without symmetry:
-    calc.set(kpts=kpts,
-             symmetry='off',
-             fixdensity=True)
-    calc.get_potential_energy()
+    calc = calc.fixed_density(kpts=kpts,
+                              symmetry='off')
     eigs_False = calc.get_eigenvalues(kpt=0)
 
     assert abs(eigs_True[0] - eigs_False[0]) < 1e-4

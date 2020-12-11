@@ -1,3 +1,4 @@
+import pytest
 from ase import Atoms
 from gpaw import GPAW
 from gpaw.basis_data import get_basis_name, parse_basis_name
@@ -7,13 +8,14 @@ from gpaw.basis_data import get_basis_name, parse_basis_name
 # it looks for do not exist; we just verify the filenames.
 
 
+@pytest.mark.ci
 def test_setup_basis_spec():
     system = Atoms('Na')
     system.center(vacuum=3.0)
 
     def check(setups, basis, refname):
         calc = GPAW(setups=setups, basis=basis)
-        system.set_calculator(calc)
+        system.calc = calc
         try:
             calc.initialize(system)
         except RuntimeError as err:
@@ -38,5 +40,6 @@ def test_setup_basis_spec():
         zetacount2, polarizationcount2 = parse_basis_name(normalized_name)
         assert zetacount == zetacount2
         assert polarizationcount == polarizationcount2
-        if polarizationcount < 2 and len(basisname) < 4 and basisname.isalpha():
+        if (polarizationcount < 2 and
+            len(basisname) < 4 and basisname.isalpha()):
             assert normalized_name == basisname

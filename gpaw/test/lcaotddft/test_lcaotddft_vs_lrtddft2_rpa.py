@@ -13,6 +13,7 @@ from gpaw.test import equal
 
 # Atoms
 
+
 def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)
@@ -23,7 +24,7 @@ def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa(in_tmp_dir):
                 poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
                 txt='gs.out')
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     energy = atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
@@ -35,10 +36,10 @@ def test_lcaotddft_lcaotddft_vs_lrtddft2_rpa(in_tmp_dir):
     photoabsorption_spectrum('dm.dat', 'spec.dat',
                              e_max=10, width=0.5, delta_e=0.1)
 
-
     # LrTDDFT2 calculation
     calc = GPAW('gs.gpw', txt='lr.out')
-    lr = LrTDDFT2('lr2', calc, fxc='LDA')  # It doesn't matter which fxc is here
+    # It doesn't matter which fxc is here
+    lr = LrTDDFT2('lr2', calc, fxc='LDA')
     lr.K_matrix.fxc_pre = 0.0  # Ignore fxc part
     lr.calculate()
     lr.get_spectrum('lr_spec.dat', 0, 10.1, 0.1, width=0.5)

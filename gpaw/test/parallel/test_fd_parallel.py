@@ -2,7 +2,7 @@ import pytest
 import sys
 
 from ase.build import molecule
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError
@@ -12,8 +12,8 @@ from gpaw.forces import calculate_forces
 
 # Calculates energy and forces for various parallelizations
 
-pytestmark = pytest.mark.skipif(world.size < 4,
-                                reason='world.size < 4')
+pytestmark = pytest.mark.skipif(world.size != 4,
+                                reason='world.size != 4')
 
 
 def test_parallel_fd_parallel():
@@ -36,7 +36,7 @@ def test_parallel_fd_parallel():
         kwargs = dict(basekwargs)
         kwargs.update(morekwargs)
         calc = GPAW(**kwargs)
-        system.set_calculator(calc)
+        system.calc = calc
         system.center(vacuum)
         if cell is None:
             system.center(vacuum)

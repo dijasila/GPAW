@@ -27,7 +27,7 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
                 idiotproof=False,  # allow uneven distribution of k-points
                 xc='LDA')
 
-    atoms.set_calculator(calc)
+    atoms.calc = calc
     atoms.get_potential_energy()
     calc.write('Al', 'all')
     t2 = time.time()
@@ -57,7 +57,6 @@ def test_response_aluminum_EELS_RPA(in_tmp_dir):
     test_Ipeak1 = 29.0721098689  # eV
     test_wpeak2 = 15.728889329  # eV
     test_Ipeak2 = 26.4625750021  # eV
-
 
     if np.abs(test_wpeak1 - wpeak1) < 1e-2 and np.abs(test_wpeak2 - wpeak2) < 1e-2:
         pass

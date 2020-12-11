@@ -4,6 +4,7 @@ from gpaw import GPAW, FermiDirac, PoissonSolver
 from gpaw.test import equal
 from gpaw.xc.tools import vxc
 
+
 def test_generic_8Si():
     a = 5.404
     bulk = Atoms(symbols='Si8',
@@ -25,7 +26,7 @@ def test_generic_8Si():
                 kpts=(2, 2, 2),
                 convergence={'energy': 1e-7}
                 )
-    bulk.set_calculator(calc)
+    bulk.calc = calc
     f1 = bulk.get_forces()[0, 2]
     e1 = bulk.get_potential_energy()
     v_xc = vxc(calc)

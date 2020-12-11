@@ -1,6 +1,8 @@
 .. image:: https://badge.fury.io/py/gpaw.svg
     :target: https://pypi.org/project/gpaw/
 
+Coverage_
+
 GPAW
 ====
 
@@ -103,3 +105,4 @@ look at the GPAW exercises_ and tutorials_.
 .. _gitlab-issues: https://gitlab.com/gpaw/gpaw/issues
 .. _exercises: https://wiki.fysik.dtu.dk/gpaw/exercises/exercises.html
 .. _tutorials: https://wiki.fysik.dtu.dk/gpaw/tutorials/tutorials.html
+.. _Coverage: https://wiki.fysik.dtu.dk/gpaw/htmlcov/index.html

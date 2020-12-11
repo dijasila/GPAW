@@ -7,12 +7,12 @@ from gpaw import GPAW, FermiDirac
 from gpaw.response.bse import BSE
 from gpaw.test import findpeak, equal
 
-pytestmark = pytest.mark.skipif(world.size != 4 or not compiled_with_sl(),
-                                reason='world.size != 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size != 4 or not compiled_with_sl(),
+    reason='world.size != 4 or not compiled_with_sl()')
 
 
-
-def test_response_bse_silicon():
+def test_response_bse_silicon(in_tmp_dir):
     GS = 1
     nosym = 1
     bse = 1
@@ -27,7 +27,7 @@ def test_response_bse_silicon():
                     occupations=FermiDirac(0.001),
                     nbands=12,
                     convergence={'bands': -4})
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('Si.gpw', 'all')
 
@@ -59,7 +59,7 @@ def test_response_bse_silicon():
                     nbands=12,
                     symmetry='off',
                     convergence={'bands': -4})
-        atoms.set_calculator(calc)
+        atoms.calc = calc
         atoms.get_potential_energy()
         calc.write('Si.gpw', 'all')
 

@@ -24,11 +24,12 @@ from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
 
 
-pytestmark = pytest.mark.skipif(world.size < 4 or not compiled_with_sl(),
-                                reason='world.size < 4 or not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size < 4 or not compiled_with_sl(),
+    reason='world.size < 4 or not compiled_with_sl()')
 
 
-def test_response_iron_sf_ALDA():
+def test_response_iron_sf_ALDA(in_tmp_dir):
     # ------------------- Inputs ------------------- #
 
     # Part 1: ground state calculation
@@ -84,26 +85,29 @@ def test_response_iron_sf_ALDA():
                 idiotproof=False,
                 parallel={'domain': 1})
 
-    Febcc.set_calculator(calc)
+    Febcc.calc = calc
     Febcc.get_potential_energy()
     t2 = time.time()
 
     # Part 2: magnetic response calculation
 
-    for s, ((rshelmax, rshewmin, bandsummation, bundle_integrals, bundle_kptpairs),
+    for s, ((rshelmax, rshewmin, bandsummation,
+             bundle_integrals, bundle_kptpairs),
             frq_w) in enumerate(zip(strat_sd, frq_sw)):
-        tms = TransverseMagneticSusceptibility(calc,
-                                               fxc=fxc,
-                                               eta=eta,
-                                               ecut=ecut,
-                                               bandsummation=bandsummation,
-                                               fxckwargs={'rshelmax': rshelmax,
-                                                          'rshewmin': rshewmin},
-                                               bundle_integrals=bundle_integrals,
-                                               bundle_kptpairs=bundle_kptpairs,
-                                               nblocks=2)
-        tms.get_macroscopic_component('+-', q_c, frq_w,
-                                      filename='iron_dsus' + '_G%d.csv' % (s + 1))
+        tms = TransverseMagneticSusceptibility(
+            calc,
+            fxc=fxc,
+            eta=eta,
+            ecut=ecut,
+            bandsummation=bandsummation,
+            fxckwargs={'rshelmax': rshelmax,
+                       'rshewmin': rshewmin},
+            bundle_integrals=bundle_integrals,
+            bundle_kptpairs=bundle_kptpairs,
+            nblocks=2)
+        tms.get_macroscopic_component(
+            '+-', q_c, frq_w,
+            filename='iron_dsus' + '_G%d.csv' % (s + 1))
         tms.write_timer()
 
     t3 = time.time()

@@ -2,12 +2,14 @@ import sys
 
 from ase import Atoms
 from ase.utils.timing import Timer
+import pytest
 
 from gpaw import GPAW
 from gpaw.test import equal
 from gpaw.xc.hybrid import HybridXC
 
 
+@pytest.mark.libxc
 def test_exx_coarse(in_tmp_dir):
     timer = Timer()
 
@@ -19,9 +21,6 @@ def test_exx_coarse(in_tmp_dir):
 
     fgl = [False, True]
     # fgl = [True, False]
-
-    txt = '-'
-    txt = '/dev/null'
 
     E = {}
     niter = {}
@@ -38,7 +37,7 @@ def test_exx_coarse(in_tmp_dir):
                     nbands=4,
                     convergence={'eigenstates': 1e-4},
                     charge=-1)
-        loa.set_calculator(calc)
+        loa.calc = calc
         E[fg] = loa.get_potential_energy()
         calc.set(xc=HybridXC('PBE0', stencil=1, finegrid=fg))
         E[fg] = loa.get_potential_energy()
@@ -48,7 +47,8 @@ def test_exx_coarse(in_tmp_dir):
             fname = 'exx_load.gpw'
             calc.write(fname)
             calcl = GPAW(fname)
-            func = calcl.get_xc_functional()
+            func = calcl.parameters.xc
+
             assert func['name'] == 'PBE0', 'wrong name for functional'
             assert func['hybrid'] == 0.25, 'wrong factor for functional'
 

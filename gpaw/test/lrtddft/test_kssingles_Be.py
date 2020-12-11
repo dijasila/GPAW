@@ -10,7 +10,6 @@ from gpaw.test import equal
 from gpaw.lrtddft.kssingle import KSSingles
 
 
-
 def test_lrtddft_kssingles_Be(in_tmp_dir):
     Be = Atoms('Be')
     Be.center(vacuum=4)
@@ -21,11 +20,9 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
         Be.set_cell(cell)
 
     txt = None
-    #txt='-'
     eigensolver = None
-    #eigensolver = 'rmm-diis'
 
-    #modes = ['lcao', 'fd']
+    # modes = ['lcao', 'fd']
     modes = ['fd']
 
     for mode in modes:
@@ -35,19 +32,24 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             Be.set_pbc(pbc)
             if pbc:
                 name = 'periodic'
-                calc = GPAW(h=0.25, nbands=4, kpts=(1,2,2), mode=mode,
+                calc = GPAW(h=0.25,
+                            nbands=4,
+                            kpts=(1, 2, 2),
+                            mode=mode,
                             poissonsolver={'name': 'fd'},
                             symmetry='off',
-                            eigensolver=eigensolver, txt=txt)
+                            eigensolver=eigensolver,
+                            txt=txt)
             else:
                 name = 'zero_bc'
                 calc = GPAW(h=0.25, nbands=4, mode=mode,
                             poissonsolver={'name': 'fd'},
                             eigensolver=eigensolver, txt=txt)
-            Be.set_calculator(calc)
+            Be.calc = calc
             Be.get_potential_energy()
 
-            kss = KSSingles(calc, eps=0.9)
+            kss = KSSingles(restrict={'eps': 0.9})
+            kss.calculate(Be)
             # all s->p transitions at the same energy [Ha] and
             # oscillator_strength
             for ks in kss:
@@ -71,9 +73,9 @@ def test_lrtddft_kssingles_Be(in_tmp_dir):
             fname = 'kss_' + name + '.dat'
             kss.write(fname)
             mpi.world.barrier()
-            kss = KSSingles(fname)
-            kss1 = KSSingles(fname, jend=1)
-            assert(len(kss1) == calc.wfs.kd.nks)
+            kss = KSSingles.read(fname)
+            kss1 = KSSingles.read(fname, restrict={'jend': 1})
+            assert(len(kss1) == calc.wfs.kd.nibzkpts * calc.wfs.nspins)
 
         # periodic and non-periodic should be roughly equal
         equal(energy['zero_bc'], energy['periodic'], 5.e-2)

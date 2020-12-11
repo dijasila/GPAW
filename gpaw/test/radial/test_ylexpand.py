@@ -29,7 +29,7 @@ def test_radial_ylexpand(in_tmp_dir):
                     convergence={'eigenstates': 1.e-6},
                     txt=None,
                     )
-        H2.set_calculator(calc)
+        H2.calc = calc
         H2.get_potential_energy()
         if not donot:
             calc.write(fname)
@@ -55,7 +55,6 @@ def test_radial_ylexpand(in_tmp_dir):
 
     yl = ExpandYl(H2.positions.mean(0), calc.wfs.gd, Rmax=1.5)
 
-
     def max_index(l):
         mi = 0
         limax = l[0]
@@ -64,7 +63,6 @@ def test_radial_ylexpand(in_tmp_dir):
                 limax = li
                 mi = i
         return mi
-
 
     # check numbers
     for n in [0, 1]:

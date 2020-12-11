@@ -18,7 +18,7 @@ def test_generic_relax(in_tmp_dir):
                      pbc=False)
     calc = GPAW(h=0.2, nbands=1, xc={'name': 'PBE', 'stencil': 1}, txt=None,
                 poissonsolver={'name': 'fd'})
-    molecule.set_calculator(calc)
+    molecule.calc = calc
     e1 = molecule.get_potential_energy()
     niter1 = calc.get_number_of_iterations()
     calc.write('H2.gpw')
@@ -26,7 +26,6 @@ def test_generic_relax(in_tmp_dir):
     molecule.get_forces()
     calc.write('H2f.gpw')
     calc.write('H2fa.gpw', mode='all')
-
 
     def timer(func, *args, **kwargs):
         t0 = time()
@@ -81,7 +80,6 @@ def test_generic_relax(in_tmp_dir):
     print('PBE energy minimum:')
     print('hydrogen molecule energy: %7.3f eV' % e2)
     print('bondlength              : %7.3f Ang' % d0)
-
 
     molecule = GPAW('H2fa.gpw', txt='H2.txt').get_atoms()
     relax = BFGS(molecule)

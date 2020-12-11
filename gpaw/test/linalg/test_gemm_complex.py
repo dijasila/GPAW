@@ -6,7 +6,7 @@ import numpy as np
 
 
 def test_linalg_gemm_complex():
-    n = 5 # works for n = 4
+    n = 5  # works for n = 4
     a1 = np.eye(n) + 1.j
     a2 = a1 + 1.j
 
@@ -20,11 +20,11 @@ def test_linalg_gemm_complex():
     thresh = 1.0e-7
     ref_max_value = -9.0
 
-    #print b
-    #print c
+    # print b
+    # print c
     numpy_dot = np.max(b).real
     gpaw_gemm = np.max(c).real
-    #print gpaw_gemm
-    assert abs(gpaw_gemm-numpy_dot) < thresh, (gpaw_gemm, numpy_dot, thresh)
-    assert abs(gpaw_gemm-ref_max_value) < thresh, (gpaw_gemm,
-                                                   ref_max_value, thresh)
+    # print gpaw_gemm
+    assert abs(gpaw_gemm - numpy_dot) < thresh, (gpaw_gemm, numpy_dot, thresh)
+    assert abs(gpaw_gemm - ref_max_value) < thresh, (gpaw_gemm,
+                                                     ref_max_value, thresh)

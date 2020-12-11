@@ -6,11 +6,10 @@ from ase.build import molecule
 from gpaw import GPAW, PW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import world
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_ralda_ralda_energy_N2(in_tmp_dir):
@@ -22,7 +21,7 @@ def test_ralda_ralda_energy_N2(in_tmp_dir):
         scalapack2 = None
     else:
         scalapack1 = (2, world.size // 2, 32)
-        scalapack2 = (2, world.size // 4, 32)
+        scalapack2 = (2, world.size // 2, 32)
 
     # N2
     N2 = molecule('N2')
@@ -35,7 +34,7 @@ def test_ralda_ralda_energy_N2(in_tmp_dir):
                 basis='dzp',
                 parallel={'domain': 1},
                 convergence={'density': 1.e-6})
-    N2.set_calculator(calc)
+    N2.calc = calc
     N2.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack1)
     calc.write('N2.gpw', mode='all')
@@ -55,7 +54,7 @@ def test_ralda_ralda_energy_N2(in_tmp_dir):
                 hund=True,
                 parallel={'domain': 1},
                 convergence={'density': 1.e-6})
-    N.set_calculator(calc)
+    N.calc = calc
     N.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=80, scalapack=scalapack2)
     calc.write('N.gpw', mode='all')

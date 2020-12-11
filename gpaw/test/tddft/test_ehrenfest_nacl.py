@@ -12,7 +12,7 @@ def test_tddft_ehrenfest_nacl(in_tmp_dir):
 
     gs_calc = GPAW(nbands=4, eigensolver='cg', gpts=(32, 32, 44), xc='LDA',
                    setups={'Na': '1'})
-    atoms.set_calculator(gs_calc)
+    atoms.calc = gs_calc
     atoms.get_potential_energy()
 
     gs_calc.write('nacl_gs.gpw', 'all')
