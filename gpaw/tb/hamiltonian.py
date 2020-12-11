@@ -1,4 +1,5 @@
-from typing import Dict
+from collections import Counter
+from typing import Dict, List
 
 import numpy as np
 from ase.units import Bohr, Ha
@@ -6,7 +7,7 @@ from ase.units import Bohr, Ha
 from gpaw.tb.repulsion import evaluate_pair_potential
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.density import Density
-from gpaw.hints import Array2D
+from gpaw.hints import Array1D, Array2D
 from gpaw.utilities import pack
 
 
@@ -50,21 +51,38 @@ class TBXC:
         pass
 
 
-def reference_occupation_numbers(setup):
-    f_i = sum(([f] * (2 * l + 1) for f, l in zip(setup.f_j, setup.l_j)), [])
-    return np.array(f_i)
+def reference_occupation_numbers(setup) -> List[float]:
+    f_i = sum(([f] * (2 * l + 1)
+               for f, l in zip(setup.f_j, setup.l_j)),
+              [])
+    return f_i
 
 
-def calculate_reference_energies(setups):
-    energies = {}
-    for setup in setups.setups.values():
+def calculate_reference_energies(setups, xc):
+    count = Counter(setups)
+    e_kin = 0.0
+    e_zero = 0.0
+    e_coulomb = 0.0
+    e_xc = 0.0
+    for setup, n in count.items():
         f_i = reference_occupation_numbers(setup)
         D_p = pack(np.diag(f_i))
-        energies[setup] = (
-            np.dot(setup.K_p, D_p) + setup.Kc,
-            setup.MB + np.dot(setup.MB_p, D_p),
-            setup.M + np.dot(D_p, (setup.M_p + np.dot(setup.M_pp, D_p))))
-    return sum((energies[setup] for setup in setups), np.zeros(3))
+        D_sp = D_p[np.newaxis]
+        dH_sp = np.zeros_like(D_sp)
+
+        e_xc += xc.calculate_paw_correction(setup, D_sp, dH_sp, a=None)
+        e_kin += n * (np.dot(setup.K_p, D_p) + setup.Kc)
+        e_zero += n * (setup.MB + np.dot(setup.MB_p, D_p))
+        e_coulomb += n * (setup.M + D_p.dot(setup.M_p + setup.M_pp.dot(D_p)))
+
+        e_kin -= D_p @ (dH_sp[0] +
+                        setup.K_p +
+                        setup.MB_p +
+                        setup.M_p + 2 * setup.M_pp @ D_p +
+                        setup.Delta_pL[:, 0] * setup.W)
+        e_kin += np.dot(setup.data.eps_j, setup.f_j)
+
+    return e_xc, e_kin, e_zero, e_coulomb
 
 
 class TBHamiltonian(Hamiltonian):
@@ -81,8 +99,8 @@ class TBHamiltonian(Hamiltonian):
         xc = TBXC(xc)
         Hamiltonian.__init__(self, xc=xc, **kwargs)
 
-        self.e_kin_0, self.e_zero_0, self.e_coulomb_0 = (
-            calculate_reference_energies(self.setups))
+        self.e_xc_0, self.e_kin_0, self.e_zero_0, self.e_coulomb_0 = (
+            calculate_reference_energies(self.setups, xc))
 
     def set_positions(self, spos_ac, atom_partition):
         cell_cv = self.gd.cell_cv * Bohr
@@ -102,7 +120,7 @@ class TBHamiltonian(Hamiltonian):
         e_coulomb = self.e_pair - self.e_coulomb_0
         e_zero = -self.e_zero_0
         e_external = 0.0
-        e_xc = -self.xc.e_xc
+        e_xc = -self.e_xc_0
         return np.array([e_coulomb, e_zero, e_external, e_xc])
 
     def calculate_kinetic_energy(self, dens: Density) -> float:
