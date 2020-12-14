@@ -1,4 +1,3 @@
-from subprocess import check_output
 from pathlib import Path
 from gpaw.lcao.analyse_basis import main
 
