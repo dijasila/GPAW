@@ -7,7 +7,7 @@ from ase.units import Bohr, Ha
 from gpaw.tb.repulsion import evaluate_pair_potential
 from gpaw.hamiltonian import Hamiltonian
 from gpaw.density import Density
-from gpaw.hints import Array1D, Array2D
+from gpaw.hints import Array2D
 from gpaw.utilities import pack
 
 
@@ -52,9 +52,9 @@ class TBXC:
 
 
 def reference_occupation_numbers(setup) -> List[float]:
-    f_i = sum(([f] * (2 * l + 1)
-               for f, l in zip(setup.f_j, setup.l_j)),
-              [])
+    f_i: List[float] = sum(([f] * (2 * l + 1)
+                            for f, l in zip(setup.f_j, setup.l_j)),
+                           [])
     return f_i
 
 
@@ -81,6 +81,7 @@ def calculate_reference_energies(setups, xc):
                         setup.M_p + 2 * setup.M_pp @ D_p +
                         setup.Delta_pL[:, 0] * setup.W)
         e_kin += np.dot(setup.data.eps_j, setup.f_j)
+        print('BAND:', np.dot(setup.data.eps_j, setup.f_j))
 
     return e_xc, e_kin, e_zero, e_coulomb
 

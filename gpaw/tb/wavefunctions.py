@@ -7,7 +7,6 @@ from gpaw.lcao.tci import TCIExpansions
 from gpaw.spline import Spline
 from gpaw.wavefunctions.lcao import LCAOWaveFunctions
 from gpaw.setup import Setup
-from gpaw.xc.functional import XCFunctional
 
 
 class TBWaveFunctions(LCAOWaveFunctions):
@@ -20,7 +19,6 @@ class TBWaveFunctions(LCAOWaveFunctions):
         vtphit: Dict[Setup, List[Spline]] = {}
         for setup in self.setups.setups.values():
             vt = setup.vt
-            print(setup, vt)
             vtphit_j = []
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()

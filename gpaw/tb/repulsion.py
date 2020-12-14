@@ -6,6 +6,28 @@ from scipy.optimize import minimize
 
 
 class Repulsion:
+    cutoff: float
+
+    def __call__(self,
+                 r: float,
+                 nderivs: int = 0) -> float:
+        raise NotImplementedError
+
+    def plot(self):
+        import matplotlib.pyplot as plt
+        r = np.linspace(0, 4, 101)
+        plt.plot(r, self(r))
+        plt.show()
+
+
+class ZeroRepulsion(Repulsion):
+    cutoff = 0.0
+
+    def __call__(self, r, nderivs=0):
+        return np.zeros_like(r)
+
+
+class ExpRepulsion(Repulsion):
     def __init__(self, a, b, c, eps=1e-6):
         self.params = a, b, c
         self.cutoff = -c * np.log(eps)
@@ -43,7 +65,7 @@ def evaluate_pair_potential(repulsions, symbol_a, position_av, cell_cv, pbc_c):
     1.0
     >>> forces
     array([[ 0.,  0., -1.],
-           [ 0.,  0.,  1.]])
+          [ 0.,  0.,  1.]])
     """
     cutoffs = {}
     repulsions2 = {}
@@ -54,7 +76,7 @@ def evaluate_pair_potential(repulsions, symbol_a, position_av, cell_cv, pbc_c):
             if rep is None:
                 rep = repulsions.get((s2, s1))
                 if rep is None:
-                    rep = Repulsion(0.0, 0.0, 0.0)
+                    rep = ZeroRepulsion()
             repulsions2[(s1, s2)] = rep
             cutoffs[(s1, s2)] = rep.cutoff
 
@@ -74,13 +96,11 @@ def evaluate_pair_potential(repulsions, symbol_a, position_av, cell_cv, pbc_c):
 
 def fit(system: Atoms, atom: Atoms, eps: float = 0.01):
     from gpaw import GPAW, TB
-    from gpaw.tb.parameters import ZeroRepulsion
     d0 = system.get_distance(0, 1)
     energies = np.zeros(3)
     distances = np.linspace((1 - eps) * d0, (1 + eps) * d0, 3)
-    zero_repulsion = ZeroRepulsion()
     sign = -1
-    for calc in [GPAW(mode=TB(zero_repulsion), txt='tb.txt'),
+    for calc in [GPAW(mode=TB({}), txt='tb.txt'),
                  GPAW(mode='lcao', basis='dzp', txt='lcao.txt')]:
         atom.calc = calc
         e0 = atom.get_potential_energy()
@@ -96,17 +116,18 @@ def fit(system: Atoms, atom: Atoms, eps: float = 0.01):
     print(distances, energies)
 
     def f(params):
-        rep = Repulsion(*params)
+        rep = ExpRepulsion(*params)
         return sum((rep(d) - e)**2 for d, e in zip(distances, energies))
 
     res = minimize(f, [1.0, 0.0, 1.0])
     print(res)
-    return Repulsion(*res.x)
+    return ExpRepulsion(*res.x)
 
 
 if __name__ == '__main__':
     if 0:
-        rep = fit(Atoms('H2', [(0, 0, 0), (0, 0, 0.78)], cell=[9, 9, 9], pbc=True),
+        rep = fit(Atoms('H2', [(0, 0, 0), (0, 0, 0.78)],
+                        cell=[9, 9, 9], pbc=True),
                   Atoms('H', cell=[9, 9, 9], pbc=True),
                   0.1)
     rep = fit(Atoms('Al2', [(0, 0, 0), (0, 0, 2.1)], cell=[9, 9, 9], pbc=True),

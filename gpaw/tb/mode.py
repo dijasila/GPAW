@@ -29,7 +29,9 @@ class TB(Mode):
                                setups: Sequence[Setup],
                                xc: XCFunctional) -> None:
         for setup in setups:
+            print(setup.W)
             setup.vt, setup.W = calculate_potential(setup, xc)
+            print(setup.W)
 
 
 def calculate_potential(setup: Setup,
@@ -45,7 +47,6 @@ def calculate_potential(setup: Setup,
     # XC:
     vt_g = rgd.zeros()
     xc.calculate_spherical(rgd, nt_g[np.newaxis], vt_g[np.newaxis])
-
     vt_g += setup.vbar.map(rgd.r_g) / (4 * pi)**0.5
 
     # Coulomb:

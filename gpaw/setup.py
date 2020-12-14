@@ -871,8 +871,10 @@ class Setup(BaseSetup):
         self.vbar = rgd.spline(vbar_g, rcutfilter)
         if data.vt_g is not None:
             self.vt = rgd.spline(data.vt_g, points=200)
+            self.W = data.W
         else:
             self.vt = None
+            self.W = None
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore
@@ -1007,6 +1009,8 @@ class Setup(BaseSetup):
                                                           phi_jg, phit_jg)
         except NotImplementedError:
             self.rxnabla_iiv = None
+
+        self.W: float
 
     def create_projectors(self, pt_jg, rcut):
         pt_j = []

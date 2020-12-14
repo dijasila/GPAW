@@ -336,6 +336,13 @@ class Hamiltonian:
         self.e_total_free = (self.e_kinetic + self.e_coulomb +
                              self.e_external + self.e_zero + self.e_xc +
                              self.e_entropy)
+        print(self.e_band,
+              self.e_kinetic,
+              self.e_coulomb,
+              self.e_external,
+              self.e_zero,
+              self.e_xc,
+              self.e_entropy)
         self.e_total_extrapolated = (
             self.e_total_free +
             wfs.occupations.extrapolate_factor * e_entropy)

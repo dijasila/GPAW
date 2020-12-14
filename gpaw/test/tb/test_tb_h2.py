@@ -1,8 +1,8 @@
 import numpy as np
 from ase import Atoms
 from gpaw import GPAW, TB
-from gpaw.tb.parameters import ZeroRepulsion
 from gpaw.tb.repulsion import Repulsion
+
 
 def test_h2():
     D = np.linspace(0.5, 1.0, 20)
