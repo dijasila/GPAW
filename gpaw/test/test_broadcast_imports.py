@@ -21,4 +21,4 @@ def test_bcast_imports_good():
 def test_bcast_imports_bad():
     with broadcast_imports:
         with pytest.raises(ModuleNotFoundError):
-            import gpaw.module_not_to_be_found
+            import gpaw.module_not_to_be_found  # noqa
