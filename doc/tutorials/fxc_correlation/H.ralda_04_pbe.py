@@ -18,7 +18,7 @@ H.calc = calc
 E_lda = H.get_potential_energy()
 E_c_lda = -calc.get_xc_difference('GGA_X_PBE')
 
-resultfile.write('PBE correlation: %s eV' % E_c_lda)
+resultfile.write(f'PBE correlation: {E_c_lda} eV')
 resultfile.write('\n')
 
 calc.diagonalize_full_hamiltonian()

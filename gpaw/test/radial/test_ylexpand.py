@@ -55,7 +55,6 @@ def test_radial_ylexpand(in_tmp_dir):
 
     yl = ExpandYl(H2.positions.mean(0), calc.wfs.gd, Rmax=1.5)
 
-
     def max_index(l):
         mi = 0
         limax = l[0]
@@ -64,7 +63,6 @@ def test_radial_ylexpand(in_tmp_dir):
                 limax = li
                 mi = i
         return mi
-
 
     # check numbers
     for n in [0, 1]:

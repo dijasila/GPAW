@@ -19,7 +19,7 @@ from gpaw.atom.basis import BasisMaker
 
 def test_lcao_largecellforce():
     hbasis = BasisMaker('H').generate(1, 0, energysplit=1.8, tailnorm=0.03**.5)
-    basis = {'H' : hbasis}
+    basis = {'H': hbasis}
 
     atom = Atoms('H')
     atom.center(vacuum=.8)
@@ -32,7 +32,7 @@ def test_lcao_largecellforce():
     calc = GPAW(h=0.23,
                 mode='lcao',
                 basis=basis,
-                convergence={'density':1e-4, 'energy': 1e-7},
+                convergence={'density': 1e-4, 'energy': 1e-7},
                 )
 
     system.calc = calc

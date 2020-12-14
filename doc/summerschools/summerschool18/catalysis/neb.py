@@ -186,7 +186,7 @@ for i in range(n_im):
         calc = GPAW(mode=PW(350),
                     nbands='130%',
                     xc='PBE',  # student: ...,
-                    txt='{}.txt'.format(i),
+                    txt=f'{i}.txt',
                     communicator=ranks)
         image.calc = calc
     images.append(image)
@@ -241,7 +241,7 @@ for i in range(N):
                     mode=PW(350),
                     nbands='130%',
                     communicator=ranks,
-                    txt='{}.txt'.format(i),
+                    txt=f'{i}.txt',
                     kpts={'size': (4, 4, 1), 'gamma': True},
                     convergence={'eigenstates': 1e-7})
         image.calc = calc

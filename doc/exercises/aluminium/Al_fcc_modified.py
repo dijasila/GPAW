@@ -6,7 +6,7 @@ from gpaw import GPAW, PW
 A = [3.9, 4.0, 4.1, 4.2]
 E = []
 for a in A:
-    name = 'bulk-fcc-%.1f' % a
+    name = f'bulk-fcc-{a:.1f}'
     b = a / 2
 
     bulk = Atoms('Al',

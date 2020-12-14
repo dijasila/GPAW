@@ -6,7 +6,6 @@ import numpy as np
 from itertools import product
 
 
-
 def test_symmetry_kpoint_mapping():
     def test_mapping(bz2bz_ks, U_scc, bzk_kc, time_reversal=False):
         eps = 1e-7
@@ -19,7 +18,6 @@ def test_symmetry_kpoint_mapping():
                         bzk_kc[bz2bz_s, :])[bz2bz_s >= 0]
             delta_sc = np.abs(delta_sc - delta_sc.round())
             assert delta_sc.max() < eps
-
 
     # Test kpoint mapping functionality of the gpaw.symmetry module
     atoms = bulk('C')

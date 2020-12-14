@@ -19,4 +19,4 @@ relax = BFGS(uf)
 relax.run(fmax=0.05)  # Consider much tighter fmax!
 
 a = np.linalg.norm(si.cell[0]) * 2**0.5
-print('Relaxed lattice parameter: a = {} Ang'.format(a))
+print(f'Relaxed lattice parameter: a = {a} Ang')

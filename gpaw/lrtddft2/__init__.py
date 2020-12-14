@@ -8,7 +8,7 @@ import glob
 import numpy as np
 
 import ase.units
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw.xc import XC
 

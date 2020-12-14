@@ -8,7 +8,6 @@ pytestmark = pytest.mark.skipif(world.size > 1,
                                 reason='world.size > 1')
 
 
-
 def test_pw_davidson_pw():
     a = 4.05
     d = a / 2**0.5

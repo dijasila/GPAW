@@ -40,8 +40,8 @@ Datasets:
     for e, nlfer, energies in data[symbol]:
         nv, txt = rst1(symbol + '.' + e, nlfer, energies)
         if e != 'default':
-            e = "``'{}'``".format(e)
-        table += '    {},{},{}\n'.format(e, nv, Z - nv)
+            e = f"``'{e}'``"
+        table += f'    {e},{nv},{Z - nv}\n'
         rst += txt
 
     with open(symbol + '.rst', 'w') as fd:
@@ -55,9 +55,9 @@ def rst1(dataset, nlfer, energies):
         n, l, f = (int(x) for x in [n, l, f])
         if n == -1:
             n = ''
-        table1 += '    {}{},{},{:.3f},'.format(n, 'spdf'[l], f, e * Hartree)
+        table1 += f"    {n}{'spdf'[l]},{f},{e * Hartree:.3f},"
         if rcut:
-            table1 += '{:.2f}'.format(rcut)
+            table1 += f'{rcut:.2f}'
             nv += f
         table1 += '\n'
 
@@ -92,7 +92,7 @@ Egg-box errors in finite-difference mode:
 
     table2 = ''
     for h, e in zip([0.16, 0.18, 0.2], deegg):
-        table2 += '    {:.2f},{:.4f}\n'.format(h, e)
+        table2 += f'    {h:.2f},{e:.4f}\n'
 
     fig = plt.figure(figsize=(8, 5))
 

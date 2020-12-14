@@ -6,6 +6,7 @@ import gpaw.mpi as mpi
 
 # Generate non-scalar-relativistic setup for Cu:
 
+
 def test_generic_Cu(in_tmp_dir):
     setup = gen('Cu', scalarrel=False)
 

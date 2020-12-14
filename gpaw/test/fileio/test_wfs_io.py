@@ -12,7 +12,7 @@ def test_fileio_wfs_io(in_tmp_dir):
     r0 = calc.wfs.eigensolver.error * Hartree**2 / 2
     assert r0 < 1e-3
     calc.write('h2', 'all')
-        
+
     # refine the restart file containing the wfs
     calc = GPAW('h2', convergence={'eigenstates': 1e-5})
     e1 = calc.get_atoms().get_potential_energy()

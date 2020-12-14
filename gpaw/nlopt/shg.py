@@ -61,14 +61,14 @@ def get_shg(
     # Load the required data
     with timer('Load and distribute the data'):
         k_info = load_data(mml_name=mml_name)
-        k_ind, tmp = k_info.popitem()
-        nb = len(tmp[1])
-        nk = len(k_info) * world.size  # Approximately
-        if band_n is None:
-            band_n = list(range(nb))
-        est_mem = 6 * 3 * nk * nb**2 * 16 / 2**20
-        parprint('At least {:.2f} MB of memory is required.'.format(est_mem))
-        # print(k_info.keys())
+        if k_info:
+            tmp = list(k_info.values())[0]
+            nb = len(tmp[1])
+            nk = len(k_info) * world.size  # Approximately
+            if band_n is None:
+                band_n = list(range(nb))
+            mem = 6 * 3 * nk * nb**2 * 16 / 2**20
+            parprint(f'At least {mem:.2f} MB of memory is required.')
 
     # Initial call to print 0% progress
     count = 0
@@ -81,7 +81,7 @@ def get_shg(
     sum3_l = np.zeros((nw), complex)
 
     # Do the calculations
-    for k_ind, (we, f_n, E_n, p_vnn) in k_info.items():
+    for _, (we, f_n, E_n, p_vnn) in k_info.items():
         # Which gauge
         if gauge == 'vg':
             with timer('Sum over bands'):
@@ -118,8 +118,8 @@ def get_shg(
         world.sum(sum2_l)
         world.sum(sum3_l)
 
-    # Make the output in SI unit (2 is for spin)
-    chi_l = 2 * make_output(gauge, sum2_l, sum3_l)
+    # Make the output in SI unit
+    chi_l = make_output(gauge, sum2_l, sum3_l)
     # A multi-col output
     nw = len(freqs)
     chi_l = chi_l[nw:] + chi_l[nw - 1::-1]

@@ -20,7 +20,7 @@ min_vac = 4.0
 u0 = .180
 epsinf = 80.
 T = 298.15
-atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+def atomic_radii(atoms): return [vdw_radii[n] for n in atoms.numbers]
 
 
 def test_solvation_forces_symmetry():

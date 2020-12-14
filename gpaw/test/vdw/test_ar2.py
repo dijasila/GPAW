@@ -41,5 +41,4 @@ def test_vdw_ar2(in_tmp_dir):
         equal(e2, -0.005, energy_tolerance)
         equal(e, -0.005, energy_tolerance)
 
-
     test()

@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from gpaw.mpi import world, send, receive, broadcast_array
 

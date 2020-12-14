@@ -34,7 +34,7 @@ def test_inducedfield_lrtddft(in_tmp_dir):
     istart = 0
     jend = 20
     lr = LrTDDFT(calc, xc='LDA',
-                 restrict={'istart':istart, 'jend':jend})
+                 restrict={'istart': istart, 'jend': jend})
     lr.diagonalize()
     lr.write('na2_lr.dat.gz')
 

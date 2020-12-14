@@ -21,17 +21,15 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
     o_plus.set_initial_magnetic_moments([1.0])
     o_plus.minimal_box(2.5, h=0.35)
 
-
     def get_paw():
         """Return calculator object."""
         c = {'energy': 0.05, 'eigenstates': 0.05, 'density': 0.05}
         return GPAW(convergence=c, eigensolver=RMMDIIS(),
                     nbands=3,
                     xc='PBE',
-    #                experimental={'niter_fixdensity': 2},
+                    #                experimental={'niter_fixdensity': 2},
                     parallel={'domain': world.size}, h=0.35,
                     occupations=FermiDirac(width=0.0, fixmagmom=True))
-
 
     calc_plus = get_paw()
     calc_plus.set(txt='Be_plus_LCY_PBE_083.log', charge=1)
@@ -41,7 +39,7 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
                   experimental={'niter_fixdensity': 2})
     e_o_plus = o_plus.get_potential_energy()
     lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log',
-                 restrict={'istart':0, 'jend':1})
+                 restrict={'istart': 0, 'jend': 1})
     equal(lr.xc.omega, 0.83)
     lr.write('LCY_TDDFT_Be.ex.gz')
     e_ion = 9.3
