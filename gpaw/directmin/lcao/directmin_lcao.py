@@ -9,7 +9,7 @@ from gpaw.directmin.lcao import search_direction, line_search_algorithm
 from gpaw.xc import xc_string_to_dict
 from ase.utils import basestring
 from gpaw.directmin.odd.lcao import odd_corrections
-from gpaw.directmin.lcao.tools import loewdin
+from gpaw.directmin.lcao.tools import loewdin, gramschmidt
 from gpaw.pipekmezey.pipek_mezey_wannier import PipekMezey as pm
 from gpaw.pipekmezey.wannier_basic import WannierLocalization as wl
 
@@ -27,7 +27,8 @@ class DirectMinLCAO(DirectLCAO):
                  use_prec=True, matrix_exp='pade_approx',
                  representation='sparse',
                  odd_parameters='Zero',
-                 init_from_ks_eigsolver=False):
+                 init_from_ks_eigsolver=False,
+                 orthonormalization='gramschmidt'):
 
         super(DirectMinLCAO, self).__init__(diagonalizer, error)
 
@@ -42,6 +43,7 @@ class DirectMinLCAO(DirectLCAO):
         self.use_prec = use_prec
         self.matrix_exp = matrix_exp
         self.representation = representation
+        self.orthonormalization = orthonormalization
         self.iters = 0
         self.restart = False
         self.name = 'direct_min'
@@ -67,9 +69,17 @@ class DirectMinLCAO(DirectLCAO):
             self.representation = \
                 xc_string_to_dict(self.representation)
 
+        if isinstance(self.orthonormalization, basestring):
+            assert self.orthonormalization in ['gramschmidt', 'loewdin', 'diag'], \
+                'Value Error'
+            self.orthonormalization = \
+                xc_string_to_dict(self.orthonormalization)
+
         if self.odd_parameters['name'] == 'PZ_SIC':
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'W'
+            assert self.orthonormalization['name'] == 'loewdin', \
+                'Use loewdin orthonormalization with PZ_SIC'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
@@ -179,6 +189,7 @@ class DirectMinLCAO(DirectLCAO):
                     n_occ = get_n_occ(kpt)
                     u = self.n_kps * kpt.s + kpt.q
                     zero_ind = ((M - n_occ) * (M - n_occ - 1)) // 2
+                    # TODO: This breaks if there is only one unoccupied band
                     self.ind_up[u] = (ind_up[0][:-zero_ind].copy(),
                                       ind_up[1][:-zero_ind].copy())
                 del ind_up
@@ -1030,16 +1041,19 @@ class DirectMinLCAO(DirectLCAO):
                 # If positions have changed we need to initialize
                 # the MOM reference orbitals before orthogonalization
                 occ.calculate(wfs)
-            for kpt in wfs.kpt_u:
-                u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
-                if self.odd_parameters['name'] == 'Zero':
-                    super(DirectMinLCAO, self).iterate(ham, wfs)
-                elif self.odd_parameters['name'] == 'PZ_SIC':
+            if self.orthonormalization['name'] == 'diag':
+                super(DirectMinLCAO, self).iterate(ham, wfs)
+            else:
+                for kpt in wfs.kpt_u:
+                    u = kpt.s * wfs.kd.nks // wfs.kd.nspins + kpt.q
                     if self.c_nm_ref is not None:
                         C = self.c_nm_ref[u]
                     else:
                         C = kpt.C_nM
-                    kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                    if self.orthonormalization['name'] == 'loewdin':
+                        kpt.C_nM[:] = loewdin(C, kpt.S_MM.conj())
+                    elif self.orthonormalization['name'] == 'gramschmidt':
+                        kpt.C_nM[:] = gramschmidt(C, kpt.S_MM.conj())
             wfs.coefficients_read_from_file = False
             occ.calculate(wfs)
             if occ_name == 'mom':
