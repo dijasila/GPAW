@@ -1,6 +1,5 @@
-# Emacs: treat this as -*- python -*-
-
 import os
+import sys
 from optparse import OptionParser
 
 
@@ -22,9 +21,9 @@ def build_parser():
     return parser
 
 
-def main():
+def main(argv=sys.argv):
     parser = build_parser()
-    opts, files = parser.parse_args()
+    opts, files = parser.parse_args(argv)
 
     import matplotlib.pyplot as plt
     from gpaw.basis_data import Basis, BasisPlotter
