@@ -591,6 +591,7 @@ class LeanSetup(BaseSetup):
         self.ghat_l = s.ghat_l
         self.vbar = s.vbar
         self.vt = getattr(s, 'vt', None)
+        self.W = getattr(s, 'W', None)
 
         self.Delta_pL = s.Delta_pL
         self.Delta0 = s.Delta0

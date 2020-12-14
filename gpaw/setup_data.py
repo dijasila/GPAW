@@ -348,7 +348,7 @@ class SetupData:
                 print('\n  </%s>' % name, file=xml)
 
         if self.vt_g is not None:
-            xml.write('  <pseudo_potential grid="g1">\n')
+            xml.write(f'  <pseudo_potential W="{self.W}" grid="g1">\n')
             for x in self.vt_g:
                 print('%r' % x, end=' ', file=xml)
             print('\n  </pseudo_potential>', file=xml)
@@ -522,8 +522,7 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
                       'localized_potential', 'yukawa_exchange_X_matrix',
                       'kinetic_energy_differences', 'exact_exchange_X_matrix',
                       'ae_core_kinetic_energy_density',
-                      'pseudo_core_kinetic_energy_density',
-                      'pseudo_potential']:
+                      'pseudo_core_kinetic_energy_density']:
             self.data = []
         elif name.startswith('GLLB_'):
             self.data = []
@@ -558,6 +557,9 @@ class PAWXMLParser(xml.sax.handler.ContentHandler):
         elif name == 'generator':
             setup.type = attrs['type']
             setup.generator_version = int(attrs.get('version', '1'))
+        elif name == 'pseudo_potential':
+            setup.W = float(attrs['W'])
+            self.data = []
         else:
             self.data = None
 
