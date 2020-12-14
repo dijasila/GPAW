@@ -273,12 +273,18 @@ class OccupationsMOM:
         return occ
 
     def find_unique_occupations(self):
+        if self.wfs.collinear and self.wfs.nspins == 1:
+            degeneracy = 2
+        else:
+            degeneracy = 1
+
         f_sn_unique = {}
         for kpt in self.wfs.kpt_u:
             f_sn_unique[kpt.s] = {}
-            for f_n_unique in np.unique(kpt.f_n):
+            f_n = kpt.f_n / degeneracy
+            for f_n_unique in np.unique(f_n):
                 if f_n_unique >= 1.0e-10:
-                   f_sn_unique[kpt.s][f_n_unique] = kpt.f_n == f_n_unique
+                    f_sn_unique[kpt.s][f_n_unique] = f_n == f_n_unique
 
         return f_sn_unique
 
