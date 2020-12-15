@@ -1,4 +1,6 @@
 from gpaw.atom.generator2 import generate
+from gpaw.setup import Setup
+from gpaw.xc import XC
 
 
 def test_lithium(in_tmp_dir):
@@ -17,3 +19,10 @@ def test_pseudo_h(in_tmp_dir):
     basis.write_xml()
     setup = G.make_paw_setup('test')
     setup.write_xml()
+
+    xc = XC('PBE')
+    T_Lqp = Setup(setup,
+                  xc,
+                  lmax=2).calculate_T_Lqp(1, 3, 2,
+                                          jlL_i=[(0, 0, 0), (1, 0, 0)])
+    

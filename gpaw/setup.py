@@ -1021,7 +1021,6 @@ class Setup(BaseSetup):
         G_LLL = gaunt(max(self.l_j))[:, :, :Lcut]
         LGcut = G_LLL.shape[2]
         T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
-        #assert G_LLL[:Lcut].shape[2] == Lcut, '!!!!!!!!!!!!!!!!!!!'
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:
@@ -1080,7 +1079,6 @@ class Setup(BaseSetup):
         for l in range(lmax + 1):
             Delta_lq[l] = np.dot(n_qg - nt_qg, r_g**(2 + l) * dr_g)
 
-        #print(T_Lqp, T_Lqp.shape)
         Lmax = (lmax + 1)**2
         Delta_pL = np.zeros((_np, Lmax))
         for l in range(lmax + 1):
