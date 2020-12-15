@@ -69,7 +69,7 @@ class SCFLoop:
             wfs.eigensolver.iterate(ham, wfs)
             e_entropy = wfs.calculate_occupation_numbers(dens.fixed)
             energy = ham.get_energy(e_entropy, wfs)
-            self.old_energies.append(energy)
+            self.old_energies.append(energy)  # Pops off > 3!
             errors = self.collect_errors(dens, ham, wfs)
 
             # Converged?
@@ -110,7 +110,8 @@ class SCFLoop:
                 'Did not converge!  See text output for help.')
 
     def collect_errors(self, dens, ham, wfs):
-        """Check convergence of eigenstates, energy and density."""
+        """Check convergence of eigenstates, energy, density,
+        and work function."""
 
         # XXX Make sure all agree on the density error:
         denserror = broadcast_float(dens.error, wfs.world)
@@ -126,14 +127,14 @@ class SCFLoop:
             if np.isfinite(self.old_energies).all():
                 errors['energy'] = np.ptp(self.old_energies)
 
-        errors['workfunction'] = np.inf
         if self.max_errors['workfunction'] < np.inf:
             try:
                 workfunctions = ham.get_workfunctions(wfs.fermi_level)
             except NotImplementedError:
-                raise Exception('System has no well-defined work function, '
-                    'so please do not specify this convergence keyword. '
-                    'Consider adding a dipole correction.')
+                msg = ('System has no well-defined work function, '
+                       'so please do not specify this convergence keyword. '
+                       'Consider adding a dipole correction.')
+                raise Exception(msg)
             else:
                 old = self.old_workfunctions
                 old.append(workfunctions)  # Pops off > 3!
@@ -208,11 +209,11 @@ class SCFLoop:
 
         if self.max_errors['workfunction'] < np.inf:
             if len(self.old_workfunctions) == 3:
-                wfkerr = max(np.ptp(self.old_workfunctions, axis=0)) * Ha
-                wfkerr = '{:+.2f}'.format(np.log10(wfkerr))
+                wkferr = ('{:+.2f}'
+                          .format(np.log10(Ha * errors['workfunction'])))
             else:
-                wfkerr = '-'
-            log('{:>5s}{:s} '.format(wfkerr, c['workfunction']), end='')
+                wkferr = '-'
+            log('{:>5s}{:s} '.format(wkferr, c['workfunction']), end='')
 
         if self.max_errors['force'] < np.inf:
             if errors['force'] == 0:

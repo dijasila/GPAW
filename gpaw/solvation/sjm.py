@@ -120,8 +120,8 @@ class SJM(SolvationGPAW):
         'cube':
             In addition to 'True', also write the cavity on the
             3D-grid into a cube file.
-    write_grandcanonical_energy: bool
-        Write the constant-potential energy into output files such as
+    write_grandpotential_energy: bool
+        Write the grand-potential energy into output files such as
         trajectory files. Default: True
     always_adjust_ne: bool
         Adjust ne again even when potential is within tolerance.
@@ -138,7 +138,7 @@ class SJM(SolvationGPAW):
         {'sj': {'ne': 0.,
                 'jelliumregion': None,  # FIXME: put in defaults?
                 'target_potential': None,
-                'write_grandcanonical_energy': True,
+                'write_grandpotential_energy': True,
                 'tol': 0.01,  # FIXME: was dpot (fixed, i think)
                 'always_adjust_ne': False,
                 'verbose': False,
@@ -560,10 +560,10 @@ class SJM(SolvationGPAW):
 
         # Note that grand-potential energies are assembled in summary.
 
-        if p.write_grandcanonical_energy:
+        if p.write_grandpotential_energy:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
-            self.sog('Grand-canonical energy was written into results.\n')
+            self.sog('Grand-potential energy was written into results.\n')
         else:
             self.sog('Canonical energy was written into results.\n')
 
@@ -622,7 +622,7 @@ class SJM(SolvationGPAW):
     def summary(self):
         p = self.parameters['sj']
         efermi = self.wfs.fermi_level
-        self.hamiltonian.summary(efermi, self.log)
+        self.hamiltonian.summary(self.wfs, self.log)
         # Add grand-canonical terms.
         self.sog()
         self.omega_free = (self.hamiltonian.e_total_free +

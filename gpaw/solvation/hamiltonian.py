@@ -213,7 +213,7 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         gs += tmp
         return gs
 
-    def summary(self, fermilevel, log):
+    def summary(self, wfs, log):
         # This is almost duplicate code to gpaw/hamiltonian's
         # Hamiltonian.summary, but with the cavity and interactions added.
 
@@ -249,8 +249,8 @@ class SolvationRealSpaceHamiltonian(RealSpaceHamiltonian):
         self.xc.summary(log)
 
         try:
-            workfunctions = self.get_workfunctions(fermilevel)
-        except NotImplementedError:
+            workfunctions = self.get_workfunctions(wfs.fermi_level)
+        except ValueError:
             pass
         else:
             log('Dipole-layer corrected work functions: {:.6f}, {:.6f} eV'
