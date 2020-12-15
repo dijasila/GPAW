@@ -5,19 +5,38 @@ set -e  # stop if there are errors
 
 NAME=$1
 
+if [[ "$2" == "intel" || "$2" == "Intel" ]]; then
+    TCHAIN=intel
+    echo "Using Intel toolchain."
+else
+    TCHAIN=foss
+fi
+
 FOLDER=$PWD
 
+# Some modules are not yet loaded.  Once they are installed, this
+# script is changed to load them instead of pip-installing them.
+
 echo "
-unset PYTHONPATH
 module purge
+unset PYTHONPATH
 module load GPAW-setups/0.9.20000
-module load Python/3.7.4-GCCcore-8.3.0
-module load Tkinter/3.7.4-GCCcore-8.3.0
-module load libxc/4.3.4-GCC-8.3.0
-module load libvdwxc/0.4.0-foss-2019b" > modules.sh
+module load matplotlib/3.3.3-${TCHAIN}-2020b
+# module load spglib-python/1.16.0-${TCHAIN}-2020b
+# module load scikit-learn/0.23.2-${TCHAIN}-2020b
+" > modules.sh
+
+if [[ "$TCHAIN" == "intel" ]]; then
+echo "module load libxc/4.3.4-iccifort-2020.4.304" >> modules.sh
+else    
+echo "module load libxc/4.3.4-GCC-10.2.0" >> modules.sh
+# echo "module load libvdwxc/0.4.0-foss-2020b" >> modules.sh  # Disabled until installed
+fi
+
 . modules.sh
 
 # Create venv:
+echo "Creating virtual environment $NAME"
 python3 -m venv $NAME
 cd $NAME
 VENV=$PWD
@@ -35,19 +54,21 @@ rm old
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-$PIP install myqueue graphviz matplotlib pytest-xdist
+$PIP install myqueue graphviz pytest-xdist
 
 CMD="cd $VENV &&
      . bin/activate &&
-     pip install spglib sklearn ase-ext"
+     pip install spglib scikit-learn ase-ext"
 echo $CMD
-ssh fjorm $CMD
+#ssh fjorm $CMD
+ssh thul $CMD
 
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git
 cd gpaw
-cp doc/platforms/Linux/Niflheim/siteconfig-foss.py siteconfig.py
-for HOST in fjorm svol thul slid
+cp doc/platforms/Linux/Niflheim/siteconfig-${TCHAIN}.py siteconfig.py
+#for HOST in fjorm svol thul slid
+for HOST in svol thul slid
 do
   CMD="cd $VENV &&
        . bin/activate &&
