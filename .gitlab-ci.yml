@@ -18,7 +18,7 @@ master:
     - su user -c 'pytest -v -m ci'
     - mypy -p gpaw
     - >
-      interrogate -m -i -f 34.6
+      interrogate -m -i -f 34.9
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
@@ -28,5 +28,5 @@ master:
       gpaw doc | tee f8
     - >
       python -c
-      "assert int(open('f8').readlines()[-1]) <= 1076, 'Run flake8 on your code'"
+      "assert int(open('f8').readlines()[-1]) <= 430, 'Run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/

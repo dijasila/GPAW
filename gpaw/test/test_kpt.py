@@ -2,6 +2,7 @@ import numpy as np
 from ase.dft.kpoints import monkhorst_pack
 from gpaw.kpt_descriptor import KPointDescriptor, to1bz
 
+
 def test_kpt():
     k = 70
     k_kc = monkhorst_pack((k, k, 1))

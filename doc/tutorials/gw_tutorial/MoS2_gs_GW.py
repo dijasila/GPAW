@@ -30,7 +30,7 @@ for ecut in [80]:
               truncation='2D',
               nblocksmax=True,
               q0_correction=True,
-              filename='MoS2_g0w0_{}'.format(ecut),
+              filename=f'MoS2_g0w0_{ecut}',
               savepckl=True)
 
     gw.calculate()

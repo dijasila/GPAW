@@ -10,9 +10,8 @@ def test_tddft_td_na2(in_tmp_dir):
     d = 1.5
     atoms = Atoms(symbols='Na2',
                   positions=[(0, 0, d),
-                             (0, 0,-d)],
+                             (0, 0, -d)],
                   pbc=False)
-
 
     # Calculate ground state for TDDFT
 
@@ -26,10 +25,10 @@ def test_tddft_td_na2(in_tmp_dir):
     gs_calc.write('na2_gs.gpw', 'all')
 
     # 16 fs run with 8.0 attosec time step
-    time_step = 8.0 # 8.0 as (1 as = 0.041341 autime)5D
+    time_step = 8.0  # 8.0 as (1 as = 0.041341 autime)5D
     iters = 10     # 2000 x 8 as => 16 fs
     # Weak delta kick to z-direction
-    kick = [0,0,1e-3]
+    kick = [0, 0, 1e-3]
 
     # TDDFT calculator
     td_calc = TDDFT('na2_gs.gpw')
@@ -39,7 +38,6 @@ def test_tddft_td_na2(in_tmp_dir):
     td_calc.propagate(time_step, iters, 'na2_dmz.dat', 'na2_td.gpw')
     # Linear absorption spectrum
     photoabsorption_spectrum('na2_dmz.dat', 'na2_spectrum_z.dat', width=0.3)
-
 
     iters = 3
 
@@ -71,20 +69,17 @@ def test_tddft_td_na2(in_tmp_dir):
     td_pmlabs.set_absorbing_boundary(pml_abc)
     td_pmlabs.propagate(time_step, iters, 'na2_dmz6.dat', 'na2_td6.gpw')
 
-
-
-
     # photoabsorption_spectrum('na2_dmz2.dat', 'na2_spectrum_z2.dat', width=0.3)
 
-    #os.remove('na2_gs.gpw')
-    #os.remove('na2_td.gpw')
-    #os.remove('na2_dmz.dat')
-    #os.remove('na2_spectrum_z.dat')
-    #os.remove('na2_td2.gpw')
-    #os.remove('na2_dmz2.dat')
+    # os.remove('na2_gs.gpw')
+    # os.remove('na2_td.gpw')
+    # os.remove('na2_dmz.dat')
+    # os.remove('na2_spectrum_z.dat')
+    # os.remove('na2_td2.gpw')
+    # os.remove('na2_dmz2.dat')
     # os.remove('na2_spectrum_z2.dat')
 
     #energy_tolerance = 0.0001
     #niter_tolerance = 0
-    #equal(e, -1.24941356939, energy_tolerance) # svnversion 5252
-    #equal(niter, 21, niter_tolerance) # svnversion 5252
+    # equal(e, -1.24941356939, energy_tolerance) # svnversion 5252
+    # equal(niter, 21, niter_tolerance) # svnversion 5252

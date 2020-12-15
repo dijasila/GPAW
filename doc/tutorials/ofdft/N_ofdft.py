@@ -18,7 +18,7 @@ xcname = '1.0_LDA_K_TF+1.0_LDA_X+1.0_LDA_C_PW'
 # Fraction of Tw
 lambda_coeff = 1.0
 
-name = 'lambda_{0}'.format(lambda_coeff)
+name = f'lambda_{lambda_coeff}'
 
 filename = 'atoms_' + name + '.dat'
 
@@ -48,4 +48,4 @@ for symbol in elements:
 
     E = molecule.get_total_energy()
 
-    f.write('{0}\t{1}\n'.format(symbol, E))
+    f.write(f'{symbol}\t{E}\n')

@@ -9,7 +9,6 @@ from ase.build import molecule
 # are handled correctly when unprojecting/reprojecting the wavefunctions.
 
 
-
 def test_reuse_wfs_celldisp(in_tmp_dir):
     def check(reuse):
         atoms = molecule('H2')
@@ -22,7 +21,8 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
         calc = GPAW(mode='pw',
                     txt='gpaw.txt',
                     nbands=1,
-                    experimental=dict(reuse_wfs_method='paw' if reuse else None),
+                    experimental=dict(
+                        reuse_wfs_method='paw' if reuse else None),
                     kpts=[[-0.3, 0.4, 0.2]],
                     symmetry='off',
                     mixer=Mixer(0.7, 5, 50.0))
@@ -55,7 +55,6 @@ def test_reuse_wfs_celldisp(in_tmp_dir):
             gain = logerr2 - logerr1
             print('gain', gain)
         return logerr2
-
 
     noreuse_logerr = check(0)
     reuse_logerr = check(1)

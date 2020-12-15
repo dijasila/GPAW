@@ -81,7 +81,7 @@ from ase.calculators.emt import EMT
 calc = EMT()
 structure.calc = calc
 energy = structure.get_potential_energy()
-print('Energy of graphite: {0:.2f} eV'.format(energy))
+print(f'Energy of graphite: {energy:.2f} eV')
 
 
 # %%
@@ -238,7 +238,7 @@ We will start by using the LDA exchange-correlation functional. Later you will t
 from gpaw import GPAW, PW
 
 xc = 'LDA'
-calcname = 'graphite-{}'.format(xc)
+calcname = f'graphite-{xc}'
 calc = GPAW(mode=PW(500), kpts=(10, 10, 6), xc=xc,
             txt=calcname + '.log')
 
@@ -329,7 +329,7 @@ from gpaw import GPAW, PW
 
 xc = 'LDA'
 calc = GPAW(mode=PW(500), kpts=(10, 10, 6), xc=xc,
-            txt='graphite-{}.log'.format(xc))
+            txt=f'graphite-{xc}.log')
 
 gra.calc = calc  # Connect system and calculator
 from ase.constraints import StrainFilter
@@ -338,7 +338,7 @@ from ase.io import Trajectory
 
 sf = StrainFilter(gra, mask=[1, 1, 1, 0, 0, 0])
 opt = BFGS(sf)
-traj = Trajectory('graphite-{}.traj'.format(xc), 'w', gra)
+traj = Trajectory(f'graphite-{xc}.traj', 'w', gra)
 opt.attach(traj)
 opt.run(fmax=0.01)
 
@@ -432,7 +432,7 @@ Li_metal = bulk('Li', crystalstructure='bcc', a=3.3)
 calc = GPAW(mode=PW(500),
             kpts=(8, 8, 8),
             nbands=-10,
-            txt='Li-metal-{}.log'.format(xc),
+            txt=f'Li-metal-{xc}.log',
             xc=xc)
 
 Li_metal.calc = calc
@@ -541,7 +541,7 @@ e_Li_gra = Li_gra.get_potential_energy()
 e_Li = Li_metal.get_potential_energy() / len(Li_metal)
 e_C6 = 6 * gra.get_potential_energy() / len(gra)
 intercalation_energy = e_Li_gra - (e_Li + e_C6)
-print('Intercalation energy: {:.2f}eV'.format(intercalation_energy))
+print(f'Intercalation energy: {intercalation_energy:.2f}eV')
 
 # %%
 """

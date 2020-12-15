@@ -52,9 +52,9 @@ stable_version = '20.10.0'  # This line auto-edited by newrelease script
 html_context = {
     'current_version': __version__,
     'versions':
-        [('{} (development)'.format(dev_version),
+        [(f'{dev_version} (development)',
           'https://wiki.fysik.dtu.dk/gpaw/dev'),
-         ('{} (latest stable)'.format(stable_version),
+         (f'{stable_version} (latest stable)',
           'https://wiki.fysik.dtu.dk/gpaw')]}
 mathjax_config = {
     'TeX': {

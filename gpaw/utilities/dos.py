@@ -188,7 +188,7 @@ def all_electron_LDOS(paw, mol, spin, lc=None, wf_k=None, P_aui=None):
     nk = len(w_k)
     nb = paw.wfs.bd.nbands
 
-    P_kn = np.zeros((nk, nb), np.complex)
+    P_kn = np.zeros((nk, nb), complex)
     if wf_k is None:
         if lc is None:
             lc = [[1, 0, 0, 0] for a in mol]

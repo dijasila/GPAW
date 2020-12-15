@@ -27,7 +27,7 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     gen('Mg', xcname='PBE', scalarrel=True, exx=True, yukawa_gamma=0.38)
 
     c = {'energy': 0.05, 'eigenstates': 3, 'density': 3}
-    na2 = Cluster(Atoms('Mg', positions=[[0,0,0]]))
+    na2 = Cluster(Atoms('Mg', positions=[[0, 0, 0]]))
     na2.minimal_box(2.5, h=h)
     calc = GPAW(txt='mg_ivo.txt', xc='LCY-PBE:omega=0.38:excitation=singlet',
                 eigensolver=RMMDIIS(), h=h, occupations=FermiDirac(width=0.0),
@@ -43,7 +43,7 @@ def test_rsf_yukawa_rsf_ivo_sing_mg(in_tmp_dir):
     ihomo = int(c2.get_occupation_numbers().sum() / 2 + 0.5) - 1
     assert c2.hamiltonian.xc.excitation == 'singlet'
     lr = LrTDDFT(calc, txt='LCY_TDDFT_Mg.log',
-                 restrict={'istart':ihomo, 'jend':ihomo + 1}, nspins=2)
+                 restrict={'istart': ihomo, 'jend': ihomo + 1}, nspins=2)
     lr.write('LCY_TDDFT_Mg.ex.gz')
     if world.rank == 0:
         lr2 = LrTDDFT.read('LCY_TDDFT_Mg.ex.gz')

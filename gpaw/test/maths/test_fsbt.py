@@ -3,7 +3,6 @@ import numpy as np
 from gpaw.atom.radialgd import fsbt, RadialGridDescriptor as RGD
 
 
-
 def test_maths_fsbt():
     N = 1024
     L = 50.0

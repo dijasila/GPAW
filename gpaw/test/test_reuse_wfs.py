@@ -32,7 +32,6 @@ def test_reuse_wfs():
             niter2 = calc.scf.niter
             results.append([mode, method, E1, E2, niter1, niter2])
 
-
     if calc.wfs.world.rank == 0:
         for result in results:
             print(' '.join(str(x) for x in result))

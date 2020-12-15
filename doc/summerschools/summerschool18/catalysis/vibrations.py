@@ -155,7 +155,7 @@ for T in temp:
     U2.append(adsfin.get_internal_energy(T, verbose=False))
     Efree = ads.get_helmholtz_energy(T, verbose=False)
     Efreefin = adsfin.get_helmholtz_energy(T, verbose=False)
-    print('Reaction free energy at {} K: '.format(T),
+    print(f'Reaction free energy at {T} K: ',
           Ufin + Efreefin - (Uini + Efree))
 plt.plot(temp, Sini, 'r', label='-T*S ini')
 plt.plot(temp, U, 'b', label='U ini')

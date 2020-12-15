@@ -21,7 +21,7 @@ def test_sjm():
     epsinf = 78.36  # Dielectric constant of water at 298 K
     gamma = 0.00114843767916  # 18.4*1e-3 * Pascal* m
     T = 298.15   # K
-    atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+    def atomic_radii(atoms): return [vdw_radii[n] for n in atoms.numbers]
 
     # Structure is created
     atoms = fcc111('Au', size=(1, 1, 3))

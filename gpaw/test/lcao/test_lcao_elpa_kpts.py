@@ -10,7 +10,6 @@ pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
                                 reason='not LibElpa.have_elpa()')
 
 
-
 def test_lcao_lcao_elpa_kpts():
     energies = []
 
@@ -33,4 +32,5 @@ def test_lcao_lcao_elpa_kpts():
         energies.append(E)
 
         err = abs(E - energies[0])
-        assert err < 1e-10, ' '.join(['err', str(err), 'energies:', str(energies)])
+        assert err < 1e-10, ' '.join(['err',
+                                      str(err), 'energies:', str(energies)])

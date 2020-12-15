@@ -33,5 +33,5 @@ def test_xc_nonselfconsistentLDA(in_tmp_dir):
 
     energy_tolerance = 0.0007
     niter_tolerance = 0
-    equal(e1, -0.0961003634812, energy_tolerance) # svnversion 5252
-    equal(e2, -0.0790249564625, energy_tolerance) # svnversion 5252
+    equal(e1, -0.0961003634812, energy_tolerance)  # svnversion 5252
+    equal(e2, -0.0790249564625, energy_tolerance)  # svnversion 5252

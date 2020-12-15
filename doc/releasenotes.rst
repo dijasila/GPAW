@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.1b1
 
+* New :ref:`zfs` module.
+
 * Nonlinear optical responses can now be calculated in the independent
   particle approximations. See the :ref:`nlo_tutorial` tutorial for how
   to use it to compute the second-harmonic generation and shift current
@@ -27,6 +29,13 @@ Git master branch
 
 * Improved relaxation in the excited states in parallel,
   see  :ref:`linear response TDDFT <lrtddft>`
+
+* We now have a :ref:`code coverage` report updated every night.
+
+* Plane-wave mode implementation of hybrid functionals can now be selected
+  via a *dict*: ``xc={'name': ..., 'backend': 'pw'}``, where then name must be
+  one of EXX, PBE0, HSE03, HSE06 or B3LYP.  The EXX fraction and damping
+  parameter can also be given in the dict.
 
 
 Version 20.10.0

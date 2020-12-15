@@ -7,15 +7,15 @@ kT = 0
 h = 0.18
 
 a = 5.4
-b = a/2
+b = a / 2
 atoms = Atoms('Si2',
               positions=([0, 0, 0],
-                         [b/2, b/2, b/2]),
+                         [b / 2, b / 2, b / 2]),
               cell=([0, b, b],
                     [b, 0, b],
                     [b, b, 0]),
               pbc=True)
-   
+
 calc = GPAW(kpts=(k, k, k),
             setups='ah',
             symmetry='off',

@@ -3,6 +3,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.grid_descriptor import GridBoundsError
 
+
 def test_pbc():
     a = 4.0
     x = 0.1

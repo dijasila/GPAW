@@ -15,7 +15,6 @@ def test_tddft_be_nltd_ip(in_tmp_dir):
 
     calc.write('be_gs.gpw', 'all')
 
-
     td_calc = TDDFT('be_gs.gpw',
                     td_potential=CWField(1e-3, 2.0 * np.pi / 50.0, 150.0))
     td_calc.set_absorbing_boundary(LinearAbsorbingBoundary(5.0, 0.01,

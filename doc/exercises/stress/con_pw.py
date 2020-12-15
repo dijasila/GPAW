@@ -15,7 +15,7 @@ for x in [100, 200, 300, 400, 500, 600, 700, 800]:
                 # h=x,
                 xc='PBE',
                 kpts=(4, 4, 4),
-                txt='convergence_%s.txt' % x)
+                txt=f'convergence_{x}.txt')
 
     si.calc = calc
 

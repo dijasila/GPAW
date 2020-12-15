@@ -17,7 +17,6 @@ def test_lcao_bsse():
     system = molecule('H2')
     system.center(vacuum=6.0)
 
-
     def prepare(setups):
         calc = GPAW(basis={'H': b}, mode='lcao',
                     setups=setups, h=0.2,
@@ -26,7 +25,6 @@ def test_lcao_bsse():
                     nbands=1)
         system.calc = calc
         return calc
-
 
     calc = prepare({0: 'paw', 1: 'ghost'})
     system.calc = calc
