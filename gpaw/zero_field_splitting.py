@@ -29,7 +29,7 @@ def zfs(calc: GPAW,
         method: int = 1) -> Array2D:
     """Zero-field splitting.
 
-    Calculate magnetic dipole coupling tennsor in eV.
+    Calculate magnetic dipole coupling tensor in eV.
     """
     wf1, wf2 = (WaveFunctions.from_kpt(calc, spin) for spin in [0, 1])
 
@@ -148,8 +148,6 @@ def zfs1(wf1: WaveFunctions,
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
         D_vv -= zfs2(pd, G_Gv, nn_G)
 
-    print(np.trace(D_vv))
-
     D_vv -= np.trace(D_vv) / 3 * np.eye(3)  # should be traceless
 
     sign = 1.0 if wf1.spin == wf2.spin else -1.0
@@ -173,6 +171,13 @@ def convert_tensor(D_vv: Array2D,
     Input tensor must be in eV and the result can be returned in
     eV, μeV, MHz or 1/cm acording to the value uf *unit*
     (must be one of "eV", "ueV", "MHz", "1/cm").
+
+    >>> D_vv = np.diag([1, 2, 3])
+    >>> D, E, axis, _ = convert(D_vv)
+    >>> D
+    >>> E
+    >>> axis
+    asdlfg
     """
     if unit == 'ueV':
         scale = 1e6
