@@ -520,7 +520,13 @@ class GPAW(Calculator):
             elif key in ['basis']:
                 self.wfs = None
             else:
-                raise TypeError('Unknown keyword argument: "%s"' % key)
+                # raise TypeError('Unknown keyword argument: "%s"' % key)
+                # TODO(AP) I don't think this error is really necessary for
+                # the code. I guess it's to ensure good coding when one
+                # adds new keywords? I.e., if the user does feed in a bad
+                # keyword, it's already caught at the very top of this
+                # routine when its looked at versus default_parameters.
+                pass
 
     def initialize_positions(self, atoms=None):
         """Update the positions of the atoms."""

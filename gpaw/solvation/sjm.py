@@ -2,9 +2,11 @@ import traceback
 from io import StringIO
 import numbers
 import numpy as np
+import copy
+import inspect
 
 from ase.units import Bohr, Ha
-from ase.calculators.calculator import Parameters
+from ase.calculators.calculator import Parameters, equal
 from ase.dft.bandgap import bandgap
 
 from gpaw.jellium import Jellium, JelliumSlab
@@ -22,6 +24,7 @@ from gpaw.solvation.poisson import WeightedFDPoissonSolver
 def get_traceback_string():
     # FIXME. Temporary function for debugging.
     # (Will delete right before merge request.)
+    # I guess traceback.format_stack would work easier!
     filelike = StringIO()
     traceback.print_stack(file=filelike)
     return filelike.getvalue()
@@ -42,40 +45,58 @@ class SJM(SolvationGPAW):
     The method can be run in two modes:
 
         - Constant charge: The number of excess electrons in the simulation
-          can be directly specified with the ne keyword, leaving potential=None.
+          can be directly specified with the `ne` keyword, leaving
+          target_potential=None.
         - Constant potential: The target potential (expressed as a work
-          function) can be specified with the `potential` keyword. Optionally,
-          the `ne` keyword can also be used to specify the initial guess of
-          the number of electrons.
+          function) can be specified with the `target_potential` keyword.
+          Optionally, the `ne` keyword can also be used to specify the initial
+          guess of the number of electrons.
 
     By default, this method writes the grand-potential energy to the output;
-    that is, the energy that has been adjusted with "- mu N" (in this case, 
+    that is, the energy that has been adjusted with "- mu N" (in this case,
     mu is the workfunction and N is the excess electrons). This is the energy
     that is compatible with the forces in constant-potential mode and thus
     will behave well with optimizers, NEBs, etc. It is also frequently used in
     subsequent free-energy calculations.
 
+    The SJM class takes a single argument, the sj dictionary. All other
+    arguments are fed to the parent SolvationGPAW (and therefore GPAW)
+    calculator.
 
     Parameters:
 
-    ne: float
+    sj: dict
+        Dictionary of parameters for the solvated jellium method, whose
+        possible keys are given below.
+
+    Parameters in sj dictionary:
+
+    ne: float  FIXME should this be 'excess_electrons' if we are going
+    verbose on other names?????
         Number of electrons added in the atomic system and (with opposite
         sign) in the background charge region. If the `potential` keyword is
         also supplied, `ne` is taken as  an initial guess for the needed
         number of electrons.
-    potential: float
+    target_potential: float
         The potential that should be reached or kept in the course of the
         calculation. If set to "None" (default) a constant-charge
         calculation based on the value of `ne` is performed.
         Expressed as a workfunction, on the top side of the slab.
-    dpot: float
+    tol: float
         Tolerance for the deviation of the target potential.
         If the potential is outside the defined range `ne` will be
         changed in order to get inside again. Default: 0.01 V.
+    max_iters: int
+        In constant-potential mode, the maximum number of iterations to try
+        to equilibrate the potential (by varying ne). Default: 10.
     jelliumregion: dict
         Parameters regarding the shape of the counter charge region
         Implemented keys:
 
+        'upper_limit': float
+            Upper boundary of the counter charge region in terms of
+            coordinate in Angstrom (default: z).
+            Default: atoms.cell[2][2] - 1.
         'lower_limit': float or 'cavity_like'
             If a float is given it corresponds to the lower
             boundary coordinate (default: z), where the counter charge
@@ -86,13 +107,9 @@ class SJM(SolvationGPAW):
             Thickness of the counter charge region in Angstrom.
             Can only be used if start is not 'cavity_like' and will
             be overwritten by 'upper_limit'. Default: None
-        'upper_limit': float
-            Upper boundary of the counter charge region in terms of
-            coordinate in Angstrom (default: z).
-            Default: atoms.cell[2][2] - 1.
         'fix_lower_limit': bool
             Do not allow the lower limit of the jellium region to adapt
-            to a change in the atimic geometry during a relaxation.
+            to a change in the atomic geometry during a relaxation.
             Omitted in a 'cavity_like' jelliumregion.
             Default: False
 
@@ -106,14 +123,26 @@ class SJM(SolvationGPAW):
     write_grandcanonical_energy: bool
         Write the constant-potential energy into output files such as
         trajectory files. Default: True
-    always_adjust_ne:
+    always_adjust_ne: bool
         Adjust ne again even when potential is within tolerance.
         This is useful to set to True along with a loose potential
-        tolerance (dpot) to allow the potential and structure to be
+        tolerance (tol) to allow the potential and structure to be
         simultaneously optimized in a geometry optimization, for example.
+        Default: False.
     """
     implemented_properties = ['energy', 'forces', 'stress', 'dipole',
                               'magmom', 'magmoms', 'ne', 'electrode_potential']
+
+    default_parameters = copy.deepcopy(SolvationGPAW.default_parameters)
+    default_parameters.update(
+        {'sj': {'ne': 0.,
+                'jelliumregion': None,  # FIXME: put in defaults?
+                'target_potential': None,
+                'write_grandcanonical_energy': True,
+                'tol': 0.01,  # FIXME: was dpot (fixed, i think)
+                'always_adjust_ne': False,
+                'verbose': False,
+                'max_iters': 10.}})
 
     # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
     # E.g., verbose (and max_iter) could easily collide with a parent
@@ -142,19 +171,29 @@ class SJM(SolvationGPAW):
     # in the doublelayer section. We can definitely change the wording.
     # AP: created issue #5.
 
-    def __init__(self, restart=None, ne=0., jelliumregion=None, potential=None,
-                 write_grandcanonical_energy=True, dpot=0.01,
-                 always_adjust_ne=False, verbose=False,
-                 max_poteq_iters=10,
-                 # For transition period
-                 doublelayer=None, potential_equilibration_mode='seq',
-                 **gpaw_kwargs):
+    def __init__(self, restart=None, **gpaw_kwargs):
 
-        p = self.sjm_parameters = Parameters()
+        deprecated_keys = ['ne', 'potential', 'write_grandcanonical_energy',
+                           'potential_equilibration_mode', 'dpot',
+                           'max_pot_deviation', 'doublelayer', 'verbose']
+        msg = ('{:s} is no longer a supported keyword argument for the SJM '
+               'class. All SJM arguments should be sent in via the "sj" '
+               'dict.')
+        for key in deprecated_keys:
+            if key in gpaw_kwargs:
+                raise TypeError(msg.format(key))
+
         SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
+        p = self.parameters['sj']  # Local parameters.
+        p.slope = None
 
         if restart:
-            p = self.sjm_parameters
+            p = self.parameters['sj']
+            # AP: I haven't figured out how everything is supposed to work
+            # on restart, but in the last version you were storing an empty
+            # parameters dictionary here. Is that right? And what happens
+            # if the user feeds some sj parameters? Should we raise an
+            # error?
         else:
 
             # FIXME. There seems to be two ways that parameters are being set.
@@ -167,36 +206,16 @@ class SJM(SolvationGPAW):
             # I understand set is always just called manually and __init__
             # starts up things. That's why I made it that way. I can not see
             # a call of set in here. Did you already fix this?
-            p.ne = ne
-
-            p.target_potential = potential
-            p.dpot = dpot
-            p.jelliumregion = jelliumregion
-
-            p.verbose = verbose
-            p.write_grandcanonical = write_grandcanonical_energy
-            p.always_adjust_ne = always_adjust_ne
+            # AP: Far down the line, Calculator.__init__ calls set.
 
             p.slope = None
-            p.max_iters = max_poteq_iters
-
-            # Just for transition
-            p.doublelayer = doublelayer
-
-            self.add_backwards_compatibility('doublelayer', 'jelliumregion')
-            self.add_backwards_compatibility('start', 'lower_limit',
-                                             indict=p.jelliumregion)
-            if potential_equilibration_mode != 'sim':
-                p.potential_equilibration_mode = False
-            else:
-                p.potential_equilibration_mode = True
-
-            self.add_backwards_compatibility('potential_equilibration_mode',
-                                             'always_adjust_ne')
-
-            #####
 
         # GK: Would it make sense to add a defaults dictionary here as well?
+        # AP: Great idea! I did this. Hate to says this, but...
+        # Also, I deleted your nice add_backwards_compatibility function,
+        # since the syntax is so different I think we should just raise an
+        # error and make the user switch, since they would have to in a
+        # future version anyway.
 
         self.sog('Solvated jellium method (SJM) parameters:')
         if not p.target_potential:
@@ -205,48 +224,136 @@ class SJM(SolvationGPAW):
         else:
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
-                     .format(p.target_potential, p.dpot))
+                     .format(p.target_potential, p.tol))
             if not 2 < p.target_potential < 7:
                 self.sog('Warning! Your target potential might be '
                          'unphysical. Keep in mind 0 V_SHE is ~4.4 '
                          'in the input')
             self.sog(' Guessed excess electrons: {:.5f}' .format(p.ne))
 
+    def set(self, **kwargs):
+        """Change parameters for calculator.
+
+        It differs from the standard `set` function in two ways:
+        - SJM specific keywords can be set
+        - It does not reinitialize and delete `self.wfs` if the
+          background charge is changed.
+
+        """
+        # FIXME/ap When is major_change used?? Maybe it needs a name telling
+        # us what it will be used for. I.e., resetting density, wfs,
+        # initialized keyword...
+        old_sj_parameters = copy.deepcopy(self.parameters['sj'])
+
+        major_change = False
+        sj_dict = kwargs['sj'] if 'sj' in kwargs else {}
+        try:
+            changes = [key for key, value in sj_dict.items() if not
+                       equal(value, self.parameters['sj'].get(key))]
+        except KeyError:
+            raise KeyError('Unexpected key provided to sj dict. '
+                           'Only keys allowed are {}'.format(
+                               self.default_parameters['sj'].keys()))
+        if any(key != 'sj' for key in kwargs):
+            major_change = True  # something in parent changed
+
+        # XXX/ap: Note for Issue 7: the next command deletes the density
+        # if background_charge key provided.
+        SolvationGPAW.set(self, **kwargs)
+        if not isinstance(self.parameters['sj'], Parameters):
+            self.parameters['sj'] = Parameters(self.parameters['sj'])
+        p = self.parameters['sj']
+        # ase's Calculator.set() loses the dict items not being set.
+        # Add them back.
+        for key, value in old_sj_parameters.items():
+            if key not in p:
+                p[key] = value
+
+        # FIXME: make sure all key names are still right.
+        if 'target_potential' in changes:
+            self.results = {}
+            if p.target_potential is None:
+                self.sog('Potential equilibration has been turned off')
+            else:
+                self.sog('Target electrode potential set to {:1.4f} V'
+                         .format(p.target_potential))
+        if 'jelliumregion' in changes:
+            self.results = {}
+            self.sog(' Jellium size parameters:')
+            if 'start' in p.jelliumregion:
+                # FIXME/ap: Since 'start' is no longer a keyword, should we
+                # change this?
+                self.sog('  Lower boundary: %s' % p.jelliumregion['start'])
+            if 'upper_limit' in p.jelliumregion:
+                self.sog('  Upper boundary: %s'
+                         % p.jelliumregion['upper_limit'])
+            if self.atoms:
+                # FIXME/AP: Is this needed here? Isn't called everytime in
+                # self.calculate, and since the results are {}'d out above
+                # it will be called then?
+                self.set(background_charge=self.define_jellium(self.atoms))
+        if 'ne' in changes:
+            self.results = {}
+            self.sog('Number of Excess electrons manually changed '
+                     'to %1.8f' % (p.ne))
+        if 'tol' in changes:
+            self.sog('Potential tolerance has been changed to %1.4f V'
+                     % changes[key])
+            try:
+                true_potential = self.get_electrode_potential()
+            except AttributeError:
+                pass
+            else:
+                if (abs(true_potential - p.target_potential) > changes[key]):
+                    self.results = {}
+                    self.sog('Recalculating...\n')
+                else:
+                    self.sog('Potential already reached the criterion.\n')
+        if 'background_charge' in kwargs:
+            # background_charge is a GPAW parameter.
+            if self.wfs is not None:
+                if major_change:
+                    self.density = None
+                else:
+                    if self.density.nct_G is None:
+                        self.initialize_positions()
+
+                    self.density.reset()
+
+                    if self.density.background_charge:
+                        self.density.background_charge = \
+                            kwargs['background_charge']
+                        self.density.background_charge.set_grid_descriptor(
+                            self.density.finegd)
+
+                    self.spos_ac = self.atoms.get_scaled_positions() % 1.0
+                    self.density.mixer.reset()
+                    self.wfs.initialize(self.density, self.hamiltonian,
+                                        self.spos_ac)
+                    self.wfs.eigensolver.reset()
+                    self.scf.reset()
+
+                self.wfs.nvalence = self.setups.nvalence + p.ne
+                self.sog('Number of valence electrons is now {:.5f}'
+                         .format(self.wfs.nvalence))
+                # FIXME: background_charge not always called when ne
+                # changes? Doesn't this screw up nvalence in wfs?
+                # (I.e., see below where key == 'ne'.)
+                # GK: Have think about this one, but I'm fairly certain
+                # it was needed in order to avoid what you mentioned
+                # AP: Ok, I don't fully get what's going on in this part,
+                # so please check that it's doing what you want with the
+                # new layout.
+
+            # FIXME: ASE or GPAW calculator returns something, should we
+            # too? In case it's used by something else we don't know about?
+            return
+
     def sog(self, message=''):
         # FIXME: Delete after all is set up.
         message = 'SJ: ' + str(message)
         self.log(message)
         self.log.flush()
-
-    def add_backwards_compatibility(self, oldkey, newkey, indict=None):
-        if indict is None:
-            p = self.sjm_parameters
-        else:
-            p = indict
-
-        if oldkey in p.keys():
-
-            if newkey not in p.keys():
-                p[newkey] = None
-
-            if p[oldkey]:
-
-                if p[newkey]:
-                    self.sog("Both the {0} and {1} keys are given. "
-                             "This might be due to your adaptation "
-                             "to the changed SJ code."
-                             .format(oldkey, newkey))
-                    self.sog("Please only use {0} from now on. For now the "
-                             "information in {0} will be used.\n"
-                             .format(newkey))
-                else:
-                    self.sog("Warning the '{0}' key has been changed to "
-                             "'{1}'.".format(oldkey, newkey))
-                    self.sog("Please only use '{1}' from now on. For now the "
-                             "information in '{0}' will be used.\n"
-                             .format(oldkey, newkey))
-                    p[newkey] = p[oldkey]
-                    del p[oldkey]
 
     def create_hamiltonian(self, realspace, mode, xc):
         """
@@ -277,118 +384,11 @@ class SJM(SolvationGPAW):
         xc.set_grid_descriptor(self.hamiltonian.finegd)
 
     # GK: I had to add this again. How did it work without??
+    # AP: self._set_atoms is in gpaw.calculator.GPAW.
+    # Maybe there's a syntax change in ASE calculators?
     def set_atoms(self, atoms):
         self.atoms = atoms
         self.spos_ac = atoms.get_scaled_positions() % 1.0
-
-    def set(self, **kwargs):
-        """Change parameters for calculator.
-
-        It differs from the standard `set` function in two ways:
-        - SJM specific keywords can be set
-        - It does not reinitialize and delete `self.wfs` if the
-          background charge is changed.
-
-        """
-
-        SJM_keys = ['background_charge', 'ne', 'potential', 'dpot',
-                    'jelliumregion', 'always_adjust_ne',
-                    # FIXME: Delete the following after transition'
-                    'doublelayer', 'potential_equilibration_mode']
-
-        SJM_changes = {key: kwargs.pop(key) for key in list(kwargs)
-                       if key in SJM_keys}
-        self.sog('SJM_changes: {:s}'.format(str(SJM_changes)))
-
-        major_changes = False
-        if kwargs:
-            SolvationGPAW.set(self, **kwargs)
-            major_changes = True
-
-        p = self.sjm_parameters
-
-        # SJM custom `set` for the new keywords
-        for key in SJM_changes:
-
-            if key == 'always_adjust_ne':
-                p.always_adjust_ne = SJM_changes[key]
-
-            if key in ['potential', 'jelliumregion', 'ne']:
-                self.results = {}
-
-            if key == 'potential':
-                p.target_potential = SJM_changes[key]
-                if p.target_potential is None:
-                    self.sog('Potential equilibration has been turned off')
-                else:
-                    self.sog('Target electrode potential set to {:1.4f} V'
-                             .format(p.target_potential))
-
-            if key == 'jelliumregion':
-                p.jelliumregion = SJM_changes[key]
-                self.sog(' Jellium size parameters:')
-                if 'start' in p.jelliumregion:
-                    self.sog('  Lower boundary: %s' % p.jelliumregion['start'])
-                if 'upper_limit' in p.jelliumregion:
-                    self.sog('  Upper boundary: %s'
-                             % p.jelliumregion['upper_limit'])
-                self.set(background_charge=self.define_jellium(self.atoms))
-
-            if key == 'dpot':
-                self.sog('Potential tolerance has been changed to %1.4f V'
-                         % SJM_changes[key])
-                try:
-                    true_potential = self.get_electrode_potential()
-                except AttributeError:
-                    pass
-                else:
-                    if (abs(true_potential - p.target_potential) >
-                            SJM_changes[key]):
-                        self.results = {}
-                        self.sog('Recalculating...\n')
-                    else:
-                        self.sog('Potential already reached the criterion.\n')
-                p.dpot = SJM_changes[key]
-
-            if key == 'background_charge':
-                # background_charge is a GPAW parameter.
-                self.parameters[key] = SJM_changes[key]
-                if self.wfs is not None:
-                    if major_changes:
-                        self.density = None
-                    else:
-                        if self.density.nct_G is None:
-                            self.initialize_positions()
-
-                        self.density.reset()
-
-                        if self.density.background_charge:
-                            self.density.background_charge = \
-                                SJM_changes['background_charge']
-                            self.density.background_charge.set_grid_descriptor(
-                                self.density.finegd)
-
-                        self.spos_ac = self.atoms.get_scaled_positions() % 1.0
-                        self.density.mixer.reset()
-                        self.wfs.initialize(self.density, self.hamiltonian,
-                                            self.spos_ac)
-                        self.wfs.eigensolver.reset()
-                        self.scf.reset()
-
-                    self.wfs.nvalence = self.setups.nvalence + p.ne
-                    self.sog('Number of valence electrons is now {:.5f}'
-                             .format(self.wfs.nvalence))
-                    # FIXME: background_charge not always called when ne
-                    # changes? Doesn't this screw up nvalence in wfs?
-                    # (I.e., see below where key == 'ne'.)
-                    # GK: Have think about this one, but I'm fairly certain
-                    # it was needed in order to avoid what you mentioned
-
-            if key == 'ne':
-                p.ne = SJM_changes['ne']
-                self.sog('Number of Excess electrons manually changed '
-                         'to %1.8f' % (p.ne))
-            return
 
     def calculate(self, atoms=None, properties=['energy'],
                   system_changes=['cell']):
@@ -399,6 +399,7 @@ class SJM(SolvationGPAW):
         It is essentially a wrapper around GPAW.calculate()
 
         """
+        
         if atoms is not None:
             # Need to be set before ASE's Calculator.calculate gets to it.
             self.atoms = atoms.copy()
@@ -408,7 +409,7 @@ class SJM(SolvationGPAW):
         # and we can calculate things directly.
         # GK: In general yes. However, some keywords might not need it
         # e.g. dpot
-        p = self.sjm_parameters
+        p = self.parameters['sj']
 
         if not p.target_potential:
             self.sog('Constant-charge calculation with {:.5f} excess '
@@ -418,6 +419,9 @@ class SJM(SolvationGPAW):
             SolvationGPAW.calculate(self, atoms, ['energy'], system_changes)
             self.sog('Potential found to be {:.5f} V (with {:+.5f} '
                      'electrons)'.format(self.get_electrode_potential(), p.ne))
+            # FIXME: I think we can do a return here and cut out the next
+            # else statement and indents? Or maybe not, there's junk at
+            # the end?
 
         else:
             iteration = 0
@@ -429,14 +433,34 @@ class SJM(SolvationGPAW):
             while not equilibrated:
                 self.sog('Attempt {:d} to equilibrate potential to {:.3f} +/-'
                          ' {:.3f} V'
-                         .format(iteration, p.target_potential, p.dpot))
+                         .format(iteration, p.target_potential, p.tol))
                 self.sog('Current guess of excess electrons: {:+.5f}'
                          .format(p.ne))
-                if iteration == 1:
+                if iteration == 0:
+                    # If we don't do this, GPAW.calculate *may* try to call
+                    # self.density.reset(), which will not exist.
+                    # FIXME/ap: to GK, I'm not clear on what things (like
+                    # density, wfs, hamiltonian, scf) should be deleted
+                    # and/or reset when. In the behavior here, gpaw is
+                    # going to delete all of those at the beginning of
+                    # every potential equilibration loop, but this seems
+                    # wasteful. Note this is done when
+                    # set(background_charge) is called.
+                    system_changes += ['background_charge']
+                elif iteration == 1:
                     self.timer.start('Potential equilibration loop')
                     # We don't want SolvationGPAW to see any more system
                     # changes, like positions, after attempt 0.
                     system_changes = []
+
+                # XXX: should it really be calling this every time?
+                # Meaning: if the number of electrons did not change, then
+                # I would think this would stay the same. Another question
+                # is why it did not crash the first time through, shouldn't
+                # density also be None then? But even given all that, we
+                # need a way for this to work, as otherwise what happens
+                # when a user changes ne or target potential manually? Oh,
+                # I just tried that, let's see.
                 self.set(background_charge=self.define_jellium(atoms))
                 SolvationGPAW.calculate(self, atoms, ['energy'],
                                         system_changes)
@@ -466,7 +490,7 @@ class SJM(SolvationGPAW):
                     self.sog('And a capacitance of {:.4f} muF/cm2'
                              .format(Cap))
 
-                if abs(true_potential - p.target_potential) < p.dpot:
+                if abs(true_potential - p.target_potential) < p.tol:
                     equilibrated = True
                     self.sog('Potential is within tolerance. Equilibrated.')
                     if iteration >= 1:
@@ -517,7 +541,7 @@ class SJM(SolvationGPAW):
                 if iteration == p.max_iters:
                     msg = ('Potential could not be reached after {:d} '
                            'iterations. This may indicate your workfunction '
-                           'is noisier than dpot. You may try setting the '
+                           'is noisier than tol. You may try setting the '
                            'convergence["workfunction"] keyword in GPAW. '
                            'Aborting!'.format(iteration))
                     self.sog(msg)
@@ -536,7 +560,7 @@ class SJM(SolvationGPAW):
 
         # Note that grand-potential energies are assembled in summary.
 
-        if p.write_grandcanonical:
+        if p.write_grandcanonical_energy:
             self.results['energy'] = self.omega_extrapolated * Ha
             self.results['free_energy'] = self.omega_free * Ha
             self.sog('Grand-canonical energy was written into results.\n')
@@ -558,12 +582,12 @@ class SJM(SolvationGPAW):
             self.write_cavity_and_bckcharge()
 
     def calculate_slope(self, coeff=1.):
-        p = self.sjm_parameters
+        p = self.parameters['sj']
         return coeff * (np.diff(p.previous_potentials[-2:]) /
                         np.diff(p.previous_nes[-2:]))[0]
 
     def half_last_step(self):
-        p = self.sjm_parameters
+        p = self.parameters['sj']
         self.sog('-' * 13 + '\n'
                  'Warning! Your last step lead to a '
                  'dangerously low potential.\n '
@@ -584,7 +608,7 @@ class SJM(SolvationGPAW):
         return p.previous_potentials[-1]
 
     def write_cavity_and_bckcharge(self):
-        p = self.sjm_parameters
+        p = self.parameters['sj']
         self.write_parallel_func_in_z(self.hamiltonian.cavity.g_g,
                                       name='cavity_')
         if p.verbose == 'cube':
@@ -596,7 +620,7 @@ class SJM(SolvationGPAW):
                                       name='background_charge_')
 
     def summary(self):
-        p = self.sjm_parameters
+        p = self.parameters['sj']
         efermi = self.wfs.fermi_level
         self.hamiltonian.summary(efermi, self.log)
         # Add grand-canonical terms.
@@ -607,8 +631,7 @@ class SJM(SolvationGPAW):
                                    self.get_electrode_potential() * p.ne / Ha)
         self.sog('Legendre-transformed energies (Omega = E - N mu)')
         self.sog('  (grand potential energies)')
-        self.sog('  N (excess electrons):  {:+11.6f}'
-                 .format(self.sjm_parameters.ne))
+        self.sog('  N (excess electrons):  {:+11.6f}'.format(p.ne))
         self.sog('  mu (workfunction, eV): {:+11.6f}'
                  .format(self.get_electrode_potential()))
         self.sog('-' * 26)
@@ -635,21 +658,36 @@ class SJM(SolvationGPAW):
     def define_jellium(self, atoms):
         """Method to define the explicit and counter charge."""
 
-        p = self.sjm_parameters
+        p = self.parameters['sj']
 
-        if not np.around(p.ne, 5):
+        if np.isclose(p.ne, 0., atol=1e-5):
             return None
 
         if p.jelliumregion is None:
+            # FIXME/ap: I don't think this case should ever be observed with
+            # the new parameter scheme. If the user does not specify, they
+            # will get the default values. Safe to delete?
+            # Actually, no, because we put p.jelliumregion = None as
+            # default. Should we make that default be better? Or maybe
+            # okay as is, especially since dicts are mutable.
             p.jelliumregion = {}
+
+        # FIXME/ap: From "The Zen of Python":
+        #   There should be one-- and preferably only one --obvious way to
+        #   do it.
+        # Right now one can equivalently specify the (lower_limit +
+        # thickness) or the (lower_limit + upper_limit) or the (upper_limit
+        # + thickness), I think. Is there a reason to have so many ways to
+        # define two boundaries? Can we drop a keyword? That would make our
+        # lives easier below.
 
         if 'upper_limit' in p.jelliumregion:
             pass
         elif 'thickness' in p.jelliumregion:
-            if p.jelliumregion['start'] == 'cavity_like':
-                raise RuntimeError("With a cavity-like counter charge only"
-                                   "the keyword upper_limit(not thickness)"
-                                   "can be used.")
+            if p.jelliumregion['lower_limit'] == 'cavity_like':
+                raise RuntimeError("With a cavity-like counter charge only "
+                                   "the keyword 'upper_limit' (not "
+                                   "'thickness') can be used.")
             else:
                 p.jelliumregion['upper_limit'] = (p.jelliumregion['start'] +
                                                   p.jelliumregion['thickness'])
@@ -694,9 +732,9 @@ class SJM(SolvationGPAW):
                 if p.jelliumregion['lower_limit'] > \
                         p.jelliumregion['upper_limit']:
 
-                    raise IOError('The lower limit of the jellium region '
-                                  'lies above the upper limit. Recheck your '
-                                  'input.')
+                    raise RuntimeError('The lower limit of the jellium region '
+                                       'lies above the upper limit. Recheck '
+                                       'your input.')
 
                 p.jelliumregion['start'] = p.jelliumregion['lower_limit']
             else:
@@ -712,10 +750,13 @@ class SJM(SolvationGPAW):
 
             p.jelliumregion['start'] = max(atoms.positions[:, 2]) + 3.
 
+        # FIXME/ap: We should get rid of the 'start' keyword I think, making
+        # lower_limit.
         self.sog('Lower jellium boundary: %s' % p.jelliumregion['start'])
         self.sog('Upper jellium boundary: %s' % p.jelliumregion['upper_limit'])
 
         if p.jelliumregion['start'] > p.jelliumregion['upper_limit']:
+            # FIXME/ap: This was checked once earlier, too? Can we cut one?
             raise IOError('The lower limit of the jellium region '
                           'lies above the upper limit. Increase your unit '
                           'cell size or translate the atomic system down '
@@ -770,16 +811,18 @@ class SJM(SolvationGPAW):
     #    self.world.barrier()
 
     def _write(self, writer, mode):
+        self.sog('in method ' + inspect.stack()[0][3])
         SolvationGPAW._write(self, writer, mode)
-        writer.child('SJM').write(**self.sjm_parameters)
+        writer.child('SJM').write(**self.parameters['sj'])
 
     def read(self, filename):
+        self.sog('in method ' + inspect.stack()[0][3])
         reader = SolvationGPAW.read(self, filename)
 
         if 'SJM' in reader:
-            self.sjm_parameters = Parameters()
+            self.parameters['sj'] = Parameters()
             for sj_key in reader.SJM.keys():
-                self.sjm_parameters[sj_key] = reader.SJM.asdict()[sj_key]
+                self.parameters['sj'][sj_key] = reader.SJM.asdict()[sj_key]
 
 
 class SJMPower12Potential(Power12Potential):
