@@ -1,5 +1,5 @@
 import numpy as np
-
+import scipy as sp
 
 def expm_ed(a_mat, evalevec=False):
 
@@ -200,3 +200,16 @@ def loewdin(C_nM, S_MM):
     S = np.dot(np.dot(S_overlapp, ev_sqrt), S_overlapp.T.conj())
 
     return np.dot(S.T, C_nM)
+
+
+def gramschmidt(C_nM, S_MM):
+
+    S_nn = np.dot(C_nM.conj(), np.dot(S_MM, C_nM.T))
+    L_nn = sp.linalg.cholesky(S_nn,
+                           lower=True,
+                           overwrite_a=True,
+                           check_finite=False)
+    S_nn = sp.linalg.inv(L_nn,
+                         overwrite_a=True,
+                         check_finite=False)
+    return np.dot(S_nn, C_nM)
