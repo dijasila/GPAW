@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.1b1
 
+* New :ref:`zfs` module.
+
 * Nonlinear optical responses can now be calculated in the independent
   particle approximations. See the :ref:`nlo_tutorial` tutorial for how
   to use it to compute the second-harmonic generation and shift current
