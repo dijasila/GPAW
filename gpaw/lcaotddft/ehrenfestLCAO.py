@@ -30,12 +30,12 @@ from gpaw.forces import calculate_forces
 class EhrenfestVelocityVerletLCAO:
     
     def __init__(self, calc, mass_scale=1.0, setups='paw'):
-        """Initializes the Ehrenfest MD calculator.
+        """Initializes the Ehrenfest MD LCAO calculator.
 
         Parameters
         ----------
 
-        calc: TDDFT Object
+        calc: LCAOTDDFT Object
 
         mass_scale: 1.0
             Scaling coefficient for atomic masses
@@ -46,9 +46,8 @@ class EhrenfestVelocityVerletLCAO:
         Note
         ------
 
-        Use propagator = 'EFSICN' for when creating the TDDFT object from a
-        PAW ground state calculator and propagator = 'EFSICN_HGH' for HGH
-        pseudopotentials
+        Use propagator = 'SICN' for when creating the LCAOTDDFT object from a
+        PAW ground state calculator.
         
         """
         self.calc = calc
@@ -74,7 +73,7 @@ class EhrenfestVelocityVerletLCAO:
         self.an = self.a.copy()
         self.F = self.a.copy()
 
-#        self.calc.get_td_energy()
+        self.calc.get_td_energy()    # Need modification
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
@@ -82,23 +81,9 @@ class EhrenfestVelocityVerletLCAO:
 
     def get_forces(self):
         return calculate_forces(self.calc.wfs,
-                               self.calc.td_density.get_density(),
+                                self.calc.td_density.get_density(),
                                 self.calc.td_hamiltonian.hamiltonian,
                                 self.calc.log)
-# Vlad EhrenfestLCAO Begin
-#        print (type(self.calc))
-#        print (dir(self.calc))
-#        print (self.calc.wfs)
-#        print ('--------')
-#        print (self.calc.td_hamiltonian)
-#        print (dir(self.calc.td_hamiltonian))
-#        print (self.calc.td_density.get_density())
-#        return calculate_forces(self.calc.wfs,
-#                                self.calc.td_density.get_density(),
-#                                self.calc.td_hamiltonian.hamiltonian,
-#                                self.calc.td_hamiltonian,   # Vlad Ehrenfest
-#                                self.calc.log)
-# Vlad EhrenfestLCAO end
 
     def propagate(self, dt):
         """Performs one Ehrenfest MD propagation step
@@ -110,7 +95,7 @@ class EhrenfestVelocityVerletLCAO:
             Time step (in attoseconds) used for the Ehrenfest MD step
 
         """
-        
+
         self.x = self.calc.atoms.positions.copy() / Bohr
         self.v = self.calc.atoms.get_velocities() / (Bohr / AUT)
 
@@ -119,7 +104,7 @@ class EhrenfestVelocityVerletLCAO:
         # m a(t+dt)   = F[psi(t),x(t)]
         self.calc.atoms.positions = self.x * Bohr
         self.calc.set_positions(self.calc.atoms)
-#        self.calc.get_td_energy()  # Vlad Ehrenfest
+        self.calc.get_td_energy() 
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
@@ -133,7 +118,7 @@ class EhrenfestVelocityVerletLCAO:
         # m a(t+dt/2) = F[psi(t),x(t+dt/2)a]
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
- #       self.calc.get_td_energy() # Vlad Ehrenfest
+        self.calc.get_td_energy()
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
@@ -149,7 +134,7 @@ class EhrenfestVelocityVerletLCAO:
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
-#        self.calc.get_td_energy() # Vlad Ehrenfest
+        self.calc.get_td_energy()
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
@@ -163,8 +148,8 @@ class EhrenfestVelocityVerletLCAO:
         # m a(t+dt)   = F[psi(t+dt),x(t+dt)]
         self.calc.atoms.positions = self.xn * Bohr
         self.calc.set_positions(self.calc.atoms)
-#        self.calc.get_td_energy()  # Vlad Ehrenfest
-#        self.calc.update_eigenvalues()  # Vlad Ehrenfest
+        self.calc.get_td_energy()
+        self.calc.update_eigenvalues()  # Need modification
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
@@ -183,8 +168,8 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
 
     def propagate_single(self, dt):
-#        if self.setups == 'paw': # Vlad Ehrenfest
-        if self.setups == 'lcao':
+
+        if self.setups == 'paw' and self.calc.name == 'tddft':
             self.calc.propagator.propagate(self.time, dt, self.vh)
         else:
             self.calc.propagator.propagate(self.time, dt)
