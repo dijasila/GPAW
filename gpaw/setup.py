@@ -1487,7 +1487,7 @@ def types2atomtypes(symbols, types, default):
 
 if __name__ == '__main__':
     print("""\
-You are using the wrong setup.py script!  This setup.py defines a
+This is not the setup.py you are looking for!  This setup.py defines a
 Setup class used to hold the atomic data needed for a specific atom.
 For building the GPAW code you must use the setup.py distutils script
 at the root of the code tree.  Just do "cd .." and you will be at the
