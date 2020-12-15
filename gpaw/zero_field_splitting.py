@@ -14,7 +14,7 @@ from math import pi
 from typing import List, Tuple
 
 import numpy as np
-from ase.units import Ha, _c, _e, _hplanck, Bohr
+from ase.units import Bohr, Ha, _c, _e, _hplanck
 
 from gpaw import GPAW
 from gpaw.grid_descriptor import GridDescriptor
@@ -31,7 +31,7 @@ def zfs(calc: GPAW,
 
     Calculate magnetic dipole coupling tensor in eV.
     """
-    wf1, wf2 = (WaveFunctions.from_kpt(calc, spin) for spin in [0, 1])
+    wf1, wf2 = (WaveFunctions.from_calc(calc, spin) for spin in [0, 1])
 
     compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
 
@@ -74,7 +74,7 @@ class WaveFunctions:
                              pd=self.pd)
 
     @staticmethod
-    def from_kpt(calc, spin) -> 'WaveFunctions':
+    def from_calc(calc, spin) -> 'WaveFunctions':
         """Create WaveFunctions object from PW-mode representation."""
         kpt = calc.wfs.kpt_qs[0][spin]
         nocc = (kpt.f_n > 0.5).sum()
@@ -173,11 +173,13 @@ def convert_tensor(D_vv: Array2D,
     (must be one of "eV", "ueV", "MHz", "1/cm").
 
     >>> D_vv = np.diag([1, 2, 3])
-    >>> D, E, axis, _ = convert(D_vv)
+    >>> D, E, axis, _ = convert_tensor(D_vv)
     >>> D
+    4.5
     >>> E
+    0.5
     >>> axis
-    asdlfg
+    array([0., 0., 1.])
     """
     if unit == 'ueV':
         scale = 1e6
