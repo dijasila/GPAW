@@ -1,5 +1,4 @@
 .. _zfs:
-.. module:: gpaw.zero_field_splitting
 
 ====================
 Zero-field splitting
@@ -7,6 +6,7 @@ Zero-field splitting
 
 .. warning:: **Work in progress**
 
+.. module:: gpaw.zero_field_splitting
 .. autofunction:: zfs
 .. autofunction:: convert_tensor
 
@@ -17,7 +17,7 @@ Examples
 Diamond NV- center
 ------------------
 
-:download:`diamond-nv-minus.py`.
+:download:`diamond_nv_minus.py`.
 
 
 Biradical
