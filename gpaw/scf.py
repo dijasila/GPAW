@@ -118,7 +118,9 @@ class SCFLoop:
 
         errors = {'eigenstates': wfs.eigensolver.error,
                   'density': denserror,
-                  'energy': np.inf}
+                  'energy': np.inf,
+                  'workfunction': np.inf,
+                  'force': np.inf}
 
         if dens.fixed:
             errors['density'] = 0.0
@@ -146,9 +148,8 @@ class SCFLoop:
                         all(error <= self.max_errors[kind]
                             for kind, error in errors.items()))
 
-        errors['force'] = np.inf
         # XXX Note this checks just the difference in the last 2
-        # iterations, whereas other quantities (at least energy) does
+        # iterations, whereas other quantities (energy, workfunction) do
         # a peak-to-peak on 3. Ok?
         if check_forces:
             with wfs.timer('Forces'):
