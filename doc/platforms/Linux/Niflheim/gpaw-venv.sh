@@ -28,7 +28,7 @@ module load matplotlib/3.3.3-${TCHAIN}-2020b
 
 if [[ "$TCHAIN" == "intel" ]]; then
 echo "module load libxc/4.3.4-iccifort-2020.4.304" >> modules.sh
-else    
+else
 echo "module load libxc/4.3.4-GCC-10.2.0" >> modules.sh
 # echo "module load libvdwxc/0.4.0-foss-2020b" >> modules.sh  # Disabled until installed
 fi
@@ -75,7 +75,7 @@ do
   echo $CMD
   ssh $HOST $CMD
 done
-(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.7)
+(cd build && ln -sf lib.linux-x86_64-{sandybridge,ivybridge}-3.8)
 rm -r build/temp.linux-x86_64-*
 rm _gpaw.*.so
 
