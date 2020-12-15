@@ -78,8 +78,8 @@ class DirectMinLCAO(DirectLCAO):
         if self.odd_parameters['name'] == 'PZ_SIC':
             if self.initial_orbitals is None:
                 self.initial_orbitals = 'W'
-            assert self.orthonormalization['name'] == 'loewdin', \
-                'Use loewdin orthonormalization with PZ_SIC'
+            assert self.orthonormalization['name'] in ['gramschmidt', 'loewdin'], \
+                'Use loewdin or gram-schmidt orthonormalization with PZ_SIC'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
