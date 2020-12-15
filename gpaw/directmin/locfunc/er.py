@@ -68,7 +68,7 @@ class ERlocalization:
         self.e_sic_by_orbitals = {}
         self.counter = 0  # number of calls of this class
 
-        self.n_kps = wfs.kd.nks // wfs.kd.nspins
+        self.n_kps = wfs.kd.nibzkpts
         self.store_potentials = store_potentials
         if store_potentials:
             self.old_pot = {}
