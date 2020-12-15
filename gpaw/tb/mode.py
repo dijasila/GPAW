@@ -25,9 +25,9 @@ class TB(Mode):
     def __call__(self, ksl, **kwargs) -> TBWaveFunctions:
         return TBWaveFunctions(ksl, **kwargs)
 
-    def manipulate_setups_hook(self,
-                               setups: Sequence[Setup],
-                               xc: XCFunctional) -> None:
+    def fix_old_setups(self,
+                       setups: Sequence[Setup],
+                       xc: XCFunctional) -> None:
         for setup in setups:
             print(setup.W)
             setup.vt, setup.W = calculate_potential(setup, xc)

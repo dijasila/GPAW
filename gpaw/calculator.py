@@ -758,7 +758,7 @@ class GPAW(Calculator):
             self.create_wave_functions(mode, realspace,
                                        nspins, collinear, nbands, nao,
                                        nvalence, self.setups,
-                                       cell_cv, pbc_c, N_c, xc)
+                                       cell_cv, pbc_c, N_c)
         else:
             self.wfs.set_setups(self.setups)
 
@@ -868,7 +868,7 @@ class GPAW(Calculator):
                              self.parameters.setups, self.parameters.basis,
                              xc, filter, self.world)
         if mode.name == 'tb':
-            mode.manipulate_setups_hook(self.setups.setups.values(), xc)
+            mode.fix_old_setups(self.setups.setups.values(), xc)
 
         self.log(self.setups)
 
@@ -1109,7 +1109,7 @@ class GPAW(Calculator):
 
     def create_wave_functions(self, mode, realspace,
                               nspins, collinear, nbands, nao, nvalence,
-                              setups, cell_cv, pbc_c, N_c, xc):
+                              setups, cell_cv, pbc_c, N_c):
         par = self.parameters
 
         kd = self.create_kpoint_descriptor(nspins)

@@ -124,7 +124,6 @@ class DirectLCAO(object):
         diagonalization_string = repr(self.diagonalizer)
         wfs.timer.start(diagonalization_string)
         # May overwrite S_MM (so the results will be stored as decomposed)
-        print(H_MM)
         self.diagonalizer.diagonalize(H_MM, kpt.C_nM, kpt.eps_n, S_MM,
                                       is_already_decomposed)
         wfs.timer.stop(diagonalization_string)

@@ -80,6 +80,7 @@ class SetupData:
         self.nvt_g = None
         self.vbar_g = None
         self.vt_g = None
+        self.W = None
 
         # Kinetic energy densities of core electrons
         self.tauc_g = None
