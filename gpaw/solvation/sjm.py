@@ -139,37 +139,10 @@ class SJM(SolvationGPAW):
                 'jelliumregion': None,  # FIXME: put in defaults?
                 'target_potential': None,
                 'write_grandpotential_energy': True,
-                'tol': 0.01,  # FIXME: was dpot (fixed, i think)
+                'tol': 0.01,
                 'always_adjust_ne': False,
                 'verbose': False,
                 'max_iters': 10.}})
-
-    # FIXME: Should SJM keywords go in a dict to separate them from GPAW's?
-    # E.g., verbose (and max_iter) could easily collide with a parent
-    # class's future or present keywords.
-    # GK: Did you already implement this?
-    # No, I mean there could be one keyword called sj or something, where the
-    # user feeds in all sj-specific keywords as a dictionary. E.g.,
-    # sj = {'potential': 4.4,
-    #       'dpot': 0.01,
-    #       'ne': 0.17,
-    #       'verbose': True,
-    #       'jelliumregion': ...}
-    # this would just future-proof things a bit in case a 'potential'  or
-    # 'verbose' keyword gets added to the GPAW class at some point.
-    # This might be nice for a couple of other reasons...it's more obvious
-    # to the user what parameters make this special compared to a standard
-    # GPAW calculation.
-    # GK: Fully agree, that sounds like an awesome idea
-
-    # FIXME In a test script from GK, it only specifies the upper_limit of
-    # the double layer, and I think the "cavity" keyword is supplied
-    # instead? It isn't clear to me from reading the keywords above how I
-    # do this. That cavity keyword comes from SolvationGPAW, so I wouldn't
-    # have expected it to affect the jellium.
-    # GK: Are you refering to the "cavity_like" keyword? It is described
-    # in the doublelayer section. We can definitely change the wording.
-    # AP: created issue #5.
 
     def __init__(self, restart=None, **gpaw_kwargs):
 
@@ -185,39 +158,17 @@ class SJM(SolvationGPAW):
 
         SolvationGPAW.__init__(self, restart, **gpaw_kwargs)
         p = self.parameters['sj']  # Local parameters.
+
+        # FIXME/ap: do we really want to hold local variables like the
+        # slope inside of the parameters dictionary? I think everything
+        # else in here is user-defined. Not sure if it creates any
+        # problems.
         p.slope = None
 
-        if restart:
-            p = self.parameters['sj']
-            # AP: I haven't figured out how everything is supposed to work
-            # on restart, but in the last version you were storing an empty
-            # parameters dictionary here. Is that right? And what happens
-            # if the user feeds some sj parameters? Should we raise an
-            # error?
-        else:
+        # FIXME/ap: Need to add back restart stuff, unless it's automagic
+        # now that we're using GPAW's parameter scheme.
 
-            # FIXME. There seems to be two ways that parameters are being set.
-            # If they come from the __init__ keywords they are set here.
-            # If they are set with the set method they are set according to
-            # different # criteria. Yet 'set' is also invoked here; would it
-            # make more sense # to have these keywords just fed to 'set' to not
-            # duplicate things?
-            # GK: I guess this is due to my limited experience in coding. As
-            # I understand set is always just called manually and __init__
-            # starts up things. That's why I made it that way. I can not see
-            # a call of set in here. Did you already fix this?
-            # AP: Far down the line, Calculator.__init__ calls set.
-
-            p.slope = None
-
-        # GK: Would it make sense to add a defaults dictionary here as well?
-        # AP: Great idea! I did this. Hate to says this, but...
-        # Also, I deleted your nice add_backwards_compatibility function,
-        # since the syntax is so different I think we should just raise an
-        # error and make the user switch, since they would have to in a
-        # future version anyway.
-
-        self.sog('Solvated jellium method (SJM) parameters:')
+        self.sog('Solvated jellium method (SJM):')
         if not p.target_potential:
             self.sog(' Constant-charge mode. Excess electrons: {:.5f}'
                      .format(p.ne))
@@ -225,11 +176,11 @@ class SJM(SolvationGPAW):
             self.sog(' Constant-potential mode.')
             self.sog(' Target potential: {:.5f} +/- {:.5f}'
                      .format(p.target_potential, p.tol))
-            if not 2 < p.target_potential < 7:
+            if not 2. < p.target_potential < 7.:
                 self.sog('Warning! Your target potential might be '
                          'unphysical. Keep in mind 0 V_SHE is ~4.4 '
                          'in the input')
-            self.sog(' Guessed excess electrons: {:.5f}' .format(p.ne))
+            self.sog(' Initial guess of excess electrons: {:.5f}'.format(p.ne))
 
     def set(self, **kwargs):
         """Change parameters for calculator.
@@ -386,7 +337,9 @@ class SJM(SolvationGPAW):
     # GK: I had to add this again. How did it work without??
     # AP: self._set_atoms is in gpaw.calculator.GPAW.
     # Maybe there's a syntax change in ASE calculators?
-    def set_atoms(self, atoms):
+    # I've XXX'd it out and it works on my install; if it works
+    # for you we'll delete.
+    def XXXset_atoms(self, atoms):
         self.atoms = atoms
         self.spos_ac = atoms.get_scaled_positions() % 1.0
 
@@ -484,11 +437,11 @@ class SJM(SolvationGPAW):
                              .format(p.slope * np.product(np.diag(
                                  atoms.cell[:2, :2]))))
 
-                    Area = np.product(np.diag(atoms.cell[:2, :2]))
-                    Cap = -1.6022 * 1e3 / (Area * p.slope)
+                    area = np.product(np.diag(atoms.cell[:2, :2]))
+                    cap = -1.6022 * 1e3 / (area * p.slope)
 
                     self.sog('And a capacitance of {:.4f} muF/cm2'
-                             .format(Cap))
+                             .format(cap))
 
                 if abs(true_potential - p.target_potential) < p.tol:
                     equilibrated = True
@@ -558,7 +511,8 @@ class SJM(SolvationGPAW):
 
             SolvationGPAW.calculate(self, atoms, properties, [])
 
-        # Note that grand-potential energies are assembled in summary.
+        # Note that grand-potential energies were assembled in summary,
+        # which in turn was called by GPAW.calculate.
 
         if p.write_grandpotential_energy:
             self.results['energy'] = self.omega_extrapolated * Ha
@@ -664,12 +618,6 @@ class SJM(SolvationGPAW):
             return None
 
         if p.jelliumregion is None:
-            # FIXME/ap: I don't think this case should ever be observed with
-            # the new parameter scheme. If the user does not specify, they
-            # will get the default values. Safe to delete?
-            # Actually, no, because we put p.jelliumregion = None as
-            # default. Should we make that default be better? Or maybe
-            # okay as is, especially since dicts are mutable.
             p.jelliumregion = {}
 
         # FIXME/ap: From "The Zen of Python":
@@ -801,14 +749,6 @@ class SJM(SolvationGPAW):
             out = open(name, 'wb')
             pickle.dump(G, out)
             out.close()
-
-    # def write(self, filename, mode=''):
-    #    from gpaw.io import Reader, Writer
-    #    self.log('Writing to {} (mode={!r})\n'.format(filename, mode))
-    #    writer = Writer(filename, self.world)
-    #    self._write(writer, mode)
-    #    writer.close()
-    #    self.world.barrier()
 
     def _write(self, writer, mode):
         self.sog('in method ' + inspect.stack()[0][3])
@@ -1136,18 +1076,14 @@ class CavityShapedJellium(Jellium):
 
         Parameters:
         ----------
-
+        charge: float
+            The total jellium background charge.
         g_g: array
             The g function from the implicit solvent model, representing the
             percentage of the actual dielectric constant on the grid.
         z2: float
             Position of upper surface in Angstrom units.
         """
-        # FIXME add charge to parameters documentation above.
-        # GK: The amount of charge is never used in this class. It only
-        # defines the counter charge shape
-        # AP: It is the first argument to __init__ but is not documented;
-        # we just need to tell the user what this is.
 
         Jellium.__init__(self, charge)
         self.g_g = g_g
