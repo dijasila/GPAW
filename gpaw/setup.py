@@ -1017,9 +1017,11 @@ class Setup(BaseSetup):
         return -np.dot(dO_ii, np.linalg.inv(np.identity(ni) + xO_ii))
 
     def calculate_T_Lqp(self, lcut, _np, nj, jlL_i):
-        G_LLL = gaunt(max(self.l_j))
         Lcut = (2 * lcut + 1)**2
+        G_LLL = gaunt(max(self.l_j))[:, :, :Lcut]
+        LGcut = G_LLL.shape[2]
         T_Lqp = np.zeros((Lcut, self.local_corr.nq, _np))
+        #assert G_LLL[:Lcut].shape[2] == Lcut, '!!!!!!!!!!!!!!!!!!!'
         p = 0
         i1 = 0
         for j1, l1, L1 in jlL_i:
@@ -1028,7 +1030,7 @@ class Setup(BaseSetup):
                     q = j2 + j1 * nj - j1 * (j1 + 1) // 2
                 else:
                     q = j1 + j2 * nj - j2 * (j2 + 1) // 2
-                T_Lqp[:, q, p] = G_LLL[L1, L2, :Lcut]
+                T_Lqp[:LGcut, q, p] = G_LLL[L1, L2]
                 p += 1
             i1 += 1
         return T_Lqp
@@ -1078,6 +1080,7 @@ class Setup(BaseSetup):
         for l in range(lmax + 1):
             Delta_lq[l] = np.dot(n_qg - nt_qg, r_g**(2 + l) * dr_g)
 
+        #print(T_Lqp, T_Lqp.shape)
         Lmax = (lmax + 1)**2
         Delta_pL = np.zeros((_np, Lmax))
         for l in range(lmax + 1):
