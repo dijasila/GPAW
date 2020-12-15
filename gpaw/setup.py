@@ -68,7 +68,7 @@ def create_setup(symbol, xc='LDA', lmax=0,
             setupdata = GhostSetupData(symbol)
         elif type == 'sg15':
             from gpaw.upf import read_sg15
-            upfname = '%s_ONCV_PBE-*.upf' % symbol
+            upfname = f'{symbol}_ONCV_PBE-*.upf'
             upfpath, source = search_for_file(upfname, world=world)
             if source is None:
                 raise IOError('Could not find pseudopotential file %s '
@@ -220,9 +220,9 @@ class BaseSetup:
         else:
             nval = f_j.sum() - charge
             if np.abs(magmom) > nval:
-                raise RuntimeError('Magnetic moment larger than number ' +
-                                   'of valence electrons (|%g| > %g)' %
-                                   (magmom, nval))
+                raise RuntimeError(
+                    'Magnetic moment larger than number ' +
+                    f'of valence electrons (|{magmom:g}| > {nval:g})')
             f_sj = 0.5 * np.array([f_j, f_j])
             nup = 0.5 * (nval + magmom)
             ndn = 0.5 * (nval - magmom)
@@ -269,8 +269,8 @@ class BaseSetup:
             j += 1
 
         if hund and magmom != 0:
-            raise ValueError('Bad magnetic moment %g for %s atom!'
-                             % (magmom, self.symbol))
+            raise ValueError(
+                f'Bad magnetic moment {magmom:g} for {self.symbol} atom!')
         assert i == nao
 
         # print('fsi=', f_si)
@@ -1332,9 +1332,9 @@ class Setups(list):
                             reduced, name = basis.split('(')
                             assert name.endswith(')')
                             name = name[:-1]
-                            fullname = '%s(%s.%s)' % (reduced, setupname, name)
+                            fullname = f'{reduced}({setupname}.{name})'
                         else:
-                            fullname = '%s.%s' % (setupname, basis_a[a])
+                            fullname = f'{setupname}.{basis_a[a]}'
                         basis_a[a] = fullname
 
         # Construct necessary PAW-setup objects:
@@ -1396,7 +1396,7 @@ class Setups(list):
             basis_descr = basis_descr.replace('\n  ', '\n    ')
             s += txt + '  ' + basis_descr + '\n\n'
 
-        s += 'Reference energy: %.6f\n' % (self.Eref * units.Hartree)
+        s += f'Reference energy: {self.Eref * units.Hartree:.6f}\n'
         return s
 
     def set_symmetry(self, symmetry):
