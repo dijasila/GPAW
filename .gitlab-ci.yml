@@ -18,7 +18,7 @@ master:
     - su user -c 'pytest -v -m ci'
     - mypy -p gpaw
     - >
-      interrogate -m -i -f 34.8
+      interrogate -m -i -f 34.9
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
