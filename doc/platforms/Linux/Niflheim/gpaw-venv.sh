@@ -60,15 +60,13 @@ CMD="cd $VENV &&
      . bin/activate &&
      pip install spglib scikit-learn ase-ext"
 echo $CMD
-#ssh fjorm $CMD
-ssh thul $CMD
+ssh fjorm $CMD
 
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git
 cd gpaw
 cp doc/platforms/Linux/Niflheim/siteconfig-${TCHAIN}.py siteconfig.py
-#for HOST in fjorm svol thul slid
-for HOST in svol thul slid
+for HOST in fjorm svol thul slid
 do
   CMD="cd $VENV &&
        . bin/activate &&
