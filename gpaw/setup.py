@@ -587,8 +587,8 @@ class LeanSetup(BaseSetup):
         self.lmax = s.lmax
         self.ghat_l = s.ghat_l
         self.vbar = s.vbar
-        self.vt = getattr(s, 'vt', None)
-        self.W = getattr(s, 'W', None)
+        self.vt_g = s.data.vt_g
+        self.W = s.data.W
 
         self.Delta_pL = s.Delta_pL
         self.Delta0 = s.Delta0
@@ -867,12 +867,6 @@ class Setup(BaseSetup):
 
         # Construct splines:
         self.vbar = rgd.spline(vbar_g, rcutfilter)
-        if data.vt_g is not None:
-            self.vt = rgd.spline(data.vt_g, points=200)
-            self.W = data.W
-        else:
-            self.vt = None
-            self.W = None
 
         rcore, nc_g, nct_g, nct = self.construct_core_densities(data)
         self.rcore = rcore
@@ -1065,7 +1059,6 @@ class Setup(BaseSetup):
         nq = self.local_corr.nq
 
         g_lg = self.data.create_compensation_charge_functions(lmax)
-
         n_qg = np.zeros((nq, gcut2))
         nt_qg = np.zeros((nq, gcut2))
         q = 0  # q: common index for j1, j2

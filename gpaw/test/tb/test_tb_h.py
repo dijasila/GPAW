@@ -5,8 +5,10 @@ from gpaw import GPAW
 
 @pytest.mark.tb
 def test_h():
-    a = Atoms('Al', cell=[9, 9, 9], pbc=1)
-    a.calc = GPAW(mode='tb', txt='tb.txt', setups='sz')
+    # a = Atoms('Al', cell=[9, 9, 9], pbc=1)
+    a = Atoms('H', cell=[9, 9, 9], pbc=1)
+    a.center()
+    a.calc = GPAW(mode='lcao', h=0.15, txt='tb.txt', setups='sz')
     # a.calc = GPAW(mode='lcao', txt='lcao.txt')
     e = a.get_potential_energy()
     print(e)

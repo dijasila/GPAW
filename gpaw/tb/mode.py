@@ -29,9 +29,9 @@ class TB(Mode):
                        setups: Sequence[Setup],
                        xc: XCFunctional) -> None:
         for setup in setups:
-            print(setup.W)
-            setup.vt, setup.W = calculate_potential(setup, xc)
-            print(setup.W)
+            print('W', setup.data.W)
+            vt, W = calculate_potential(setup, xc)
+            print('W', W);asdfg
 
 
 def calculate_potential(setup: Setup,

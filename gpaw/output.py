@@ -77,7 +77,7 @@ def plot(atoms):
 
     cell_cv = atoms.get_cell()
     if ((cell_cv - np.diag(cell_cv.diagonal())).any() or
-        atoms.number_of_lattice_vectors < 3):
+        atoms.cell.rank < 3):
         atoms = atoms.copy()
         atoms.cell = [1, 1, 1]
         atoms.center(vacuum=2.0)
