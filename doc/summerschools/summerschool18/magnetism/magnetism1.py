@@ -268,7 +268,7 @@ from numpy import tanh, log
 
 T0 = 1.52
 T_c = T0 * S**2 * J / kB * (tanh(2 * log(1 - 0.033 * A / J)))**(0.25)  # student: T_c = ???
-print(f'T_c = {T_c:1.f} K')
+print(f'T_c = {T_c:.1f} K')
 
 
 # %%
