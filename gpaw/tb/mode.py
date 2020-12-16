@@ -58,5 +58,7 @@ def calculate_potential(setup: Setup,
     vt_g[0] += vHtr_g[1] / rgd.r_g[1]
 
     W = rgd.integrate(g_g * vHtr_g, n=-1) / (4 * pi)**0.5
-
+    print(rgd.integrate(g_g) / (4 * pi))
+    rgd.plot(g_g)
+    rgd.plot(vHtr_g, show=1)
     return rgd.spline(vt_g * (4 * pi)**0.5, points=300), W
