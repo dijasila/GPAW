@@ -13,6 +13,8 @@ def test_li_pdos_pxyz(gpw_files):
 
 def test_pdos_soc(gpw_files):
     """Test pdos method with and without m."""
-    dos = GPAW(gpw_files['c6h12_pw']).dos(soc=True)
-    energies = dos.get_energies(npoints=10)
-    _ = dos.raw_pdos(energies, a=0, l=0)
+    dos = GPAW(gpw_files['c6h12_pw'], txt='-').dos(soc=True)
+    energies = dos.get_energies(npoints=3)
+    p = dos.raw_pdos(energies, a=0, l=0)
+    print(p)
+    
