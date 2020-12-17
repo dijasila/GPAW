@@ -603,6 +603,7 @@ class PAWSetupGenerator:
 
         self.v0r_g = self.vtr_g - self.vHtr_g - self.vxct_g * self.rgd.r_g
         self.v0r_g[self.rgd.round(self.rcmax):] = 0.0
+        self.rgd.plot(self.vtr_g)
 
     def summarize(self):
         self.log('\nProjectors:')

@@ -7,9 +7,9 @@ from gpaw.wavefunctions.mode import Mode
 from gpaw.tb.wavefunctions import TBWaveFunctions
 from gpaw.tb.repulsion import Repulsion
 from gpaw.tb.parameters import DefaultParameters
-from gpaw.spline import Spline
 from gpaw.setup import Setup
 from gpaw.xc.functional import XCFunctional
+from gpaw.hints import Array1D
 
 
 class TB(Mode):
@@ -29,13 +29,16 @@ class TB(Mode):
                        setups: Sequence[Setup],
                        xc: XCFunctional) -> None:
         for setup in setups:
-            print('W', setup.data.W)
-            vt, W = calculate_potential(setup, xc)
-            print('W', W);asdfg
+            if 1:#not hasattr(setup, 'vt_g'):
+                vt_g, W = calculate_potential(setup, xc)
+                setup.data.W = W
+                setup.rgd.plot(vt_g)
+                setup.rgd.plot(setup.vt_g, show=1)
+                setup.vt_g = vt_g
 
 
 def calculate_potential(setup: Setup,
-                        xc: XCFunctional) -> Tuple[Spline, float]:
+                        xc: XCFunctional) -> Tuple[Array1D, float]:
     phit_jg = np.array(setup.data.phit_jg)
     rgd = setup.rgd
 
@@ -54,11 +57,13 @@ def calculate_potential(setup: Setup,
     Q = -rgd.integrate(nt_g) / rgd.integrate(g_g)
     rhot_g = nt_g + Q * g_g
     vHtr_g = rgd.poisson(rhot_g)
-    vt_g[1:] += vHtr_g[1:] / rgd.r_g[1:]
-    vt_g[0] += vHtr_g[1] / rgd.r_g[1]
 
     W = rgd.integrate(g_g * vHtr_g, n=-1) / (4 * pi)**0.5
-    print(rgd.integrate(g_g) / (4 * pi))
-    rgd.plot(g_g)
-    rgd.plot(vHtr_g, show=1)
-    return rgd.spline(vt_g * (4 * pi)**0.5, points=300), W
+
+    vtr_g = vt_g * rgd.r_g + vHtr_g
+    #rgd.plot(vtr_g, show=1);asdf
+
+    vtr_g[1:] /= rgd.r_g[1:]
+    vtr_g[0] = vtr_g[1]
+
+    return vtr_g * (4 * pi)**0.5, W
