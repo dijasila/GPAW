@@ -163,7 +163,7 @@ class WaveFunction:
         if a in P_amsi:
             dos_ms[:, :] = (abs(P_amsi[a][:, :, indices])**2).sum(2)
 
-        self.projections.atom_partition.comm.sum(dos_ms)
+        # self.projections.atom_partition.comm.sum(dos_ms)
         return dos_ms
 
 
@@ -281,13 +281,14 @@ class BZWaveFunctions:
         def func(wf):
             return wf.pdos_weights(a, indices)
 
-        return self._collect(func, (2,), broadcast=broadcast)
+        return self._collect(func, (2,), broadcast=broadcast, atoms=True)
 
     def _collect(self,
                  func: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int, ...] = None,
                  dtype=float,
-                 broadcast: bool = True) -> ArrayND:
+                 broadcast: bool = True,
+                 atoms: bool = False) -> ArrayND:
         """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
@@ -299,7 +300,10 @@ class BZWaveFunctions:
             return broadcast_array(array_kmx,
                                    self.kpt_comm, self.bcomm, self.domain_comm)
 
-        if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
+        if self.bcomm.rank != 0:
+            return np.empty(shape=())
+
+        if not atoms and self.domain_comm.rank != 0:
             return np.empty(shape=())
 
         comm = self.kpt_comm
@@ -310,7 +314,12 @@ class BZWaveFunctions:
                     array_kmx[k] = func(self[k])
                 else:
                     comm.receive(array_kmx[k], rank)
-            return array_kmx
+            if atoms:
+                self.domain_comm.sum(array_kmx)
+            if self.domain_comm.rank == 0:
+                return array_kmx
+            else:
+                return np.empty(shape=())
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
