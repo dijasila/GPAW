@@ -377,7 +377,7 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
     """Yield tuples of IBZ-index and wave functions.
 
     All atoms and bands will be on rank == 0 of gd.comm and bd.comm
-    rfespectively.  THis makes slicing the bands (from n1 to n2-1)
+    respectively.  This makes slicing the bands (from n1 to n2-1)
     and symmetry operations on the projections easier.
     """
 

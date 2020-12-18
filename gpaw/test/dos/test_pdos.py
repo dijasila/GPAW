@@ -1,4 +1,5 @@
 """PDOS tests."""
+import pytest
 from gpaw import GPAW
 
 
@@ -12,9 +13,8 @@ def test_li_pdos_pxyz(gpw_files):
 
 
 def test_pdos_soc(gpw_files):
-    """Test pdos method with and without m."""
+    """Test pdos with soc."""
     dos = GPAW(gpw_files['c6h12_pw'], txt='-').dos(soc=True)
-    energies = dos.get_energies(npoints=3)
+    energies = [-10.0]
     p = dos.raw_pdos(energies, a=0, l=0)
-    print(p)
-    
+    assert p[0] == pytest.approx(1.236, abs=0.01)
