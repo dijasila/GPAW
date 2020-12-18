@@ -89,20 +89,22 @@ def define_alphas(n_sg, nalphas):
 
 
 class WLDA(XCFunctional):
-    def __init__(self, rc=None, kernel_type=None,
-                 kernel_param=None, wlda_type=None,
-                 nindicators=None):
+    def __init__(self, settings):
+        """Init WLDA.
+
+        Allowed keys and values for settings:
+        weightfunction: "lorentz", "gauss", "exponential"
+        c1: positive float
+        hartreexc: bool 
+        """
         XCFunctional.__init__(self, 'WLDA', 'LDA')
 
-        self.nindicators = nindicators or int(5 * 1e2)
-        self.rcut_factor = rc
-        self.kernel_type = kernel_type
-        self.kernel_param = kernel_param
-        wlda_type = 'c'
-        self.wlda_type = wlda_type
-        if wlda_type not in ['1', '2', '3', 'c']:
-            raise ValueError('WLDA type {} not recognized'.format(wlda_type))
-        self.energies = []
+        self.nindicators = settings.get('nindicators', None) or int(5 * 1e2)
+        self.rcut_factor = settings.get("rc", None)
+        self.settings = settings
+        # self.wlda_type = 'c'
+        # self.energies = []
+        
         self._K_G = None
         
     def initialize(self, density, hamiltonian, wfs, occupations=None):
@@ -122,8 +124,8 @@ class WLDA(XCFunctional):
         # If spin-paired we can reuse the weighted density
         nstar_sg, alpha_indices = self.wlda_x(wn_sg, exc_g, vxc_sg)
 
-        nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
-                               nstar_sg, alpha_indices)
+        # nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
+        #                        nstar_sg, alpha_indices)
 
         self.hartree_correction(self.gd, exc_g, vxc_sg, wn_sg, nstar_sg, alpha_indices)
 
@@ -553,7 +555,7 @@ class WLDA(XCFunctional):
         """Evaluates and returns phi(q, alpha).
         
         The weight function is 
-            phi(q, n) = e^(-qt^2 / 4)
+            phi(q, n) = e^(-qt)
 
         with
             qt = q / (c1 n^(1/3))
@@ -561,33 +563,45 @@ class WLDA(XCFunctional):
         c1 is a free parameter.
 
         If we choose
-            c1 = 2.20629
+            c1 = 5.8805
 
-        then the kernel truncation function will
-        have zero second derivative at 2k_F.
+        then the kernel will give a good representation
+        of the exact kernel in the HEG.
         """
         alpha = alphas[ia]
-        c1 = 2.20629
+        c1 = self.settings.get("c1", None) or 5.8805
+        if c1 <= 0:
+            raise ValueError(f'c1 must be positive. Got c1 = {c1}')
+
         K_G = self._get_K_G(gd)
-        
-        return np.exp(-0.25 * (K_G / (c1 * abs(alpha)**(1/3)))**2)
+        qt = K_G / (c1 * abs(alpha)**(1/3))
 
-    def get_kernel_fn(self, kernel_type, kernel_param):
-        """Select kernel type.
-
-        Select the functional form for the weight kernel
-        based on settings.
-        """
-        p = self.kernel_param or 1
-        if kernel_type == "lorentz5":
-            def kernel(kF, K_G):
-                return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**5)**2)
-            return kernel
+        weightfunc = self.settings.get("weightfunction", None)
+        if weightfunc == "lorentz" or weightfunc is None:
+            return np.exp(-qt)
+        elif weightfunc == "gauss":
+            return np.exp(-qt**2 / 4)
+        elif weightfunc == "exponential":
+            return 1 / (1 + qt**2)**2
         else:
-            def kernel(kF, K_G):
-                return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**6)**2)
-            return kernel
-        return kernel
+            raise ValueError(f'Weightfunction type "{weightfunc}" not allowed.')
+
+    # def get_kernel_fn(self, kernel_type, kernel_param):
+    #     """Select kernel type.
+
+    #     Select the functional form for the weight kernel
+    #     based on settings.
+    #     """
+    #     p = self.kernel_param or 1
+    #     if kernel_type == "lorentz5":
+    #         def kernel(kF, K_G):
+    #             return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**5)**2)
+    #         return kernel
+    #     else:
+    #         def kernel(kF, K_G):
+    #             return 1 / (1 + 0.005 * p * (K_G / (kF + 0.0001)**6)**2)
+    #         return kernel
+    #     return kernel
 
     def _get_K_G(self, gd):
         """Get the norms of the reciprocal lattice vectors."""
@@ -914,30 +928,82 @@ class WLDA(XCFunctional):
             Delta v(r) = -2 * (V(r)
                     -    int dr' dn*(r')/dn(r) V(r')
         """
-        if len(wn_sg) == 2:
+        if len(wn_sg) == 2 and not self.settings.get("hartreexc", False):
+            # Undo modification of density performed by wlda_x
             wn_sg *= 0.5
+
             nstar_sg, my_alpha_indices = self.get_weighted_density(wn_sg)
+            self.do_hartree_corr(gd, wn_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                 e_g, v_sg, [0, 1], my_alpha_indices)
+        elif len(wn_sg) == 2 and self.settings.get("hartreexc", False):
+            nstar_sg, my_alpha_indices = self.get_weighted_density(wn_sg)
+
+            # Density already multipled by 2 so don't need to do it
+            # here
+            self.do_hartree_corr(gd, n_g[0], nstar_sg[0], e_g, v_sg, [0], my_alpha_indices)
+            self.do_hartree_corr(gd, n_g[1], nstar_sg[1], e_g, v_sg, [1], my_alpha_indices)
+
+            e_g *= 0.5
+            v_sg *= 0.5
+
+            # K_G[0, 0, 0] = 1.0
+            
+            # nstar_g = nstar_sg.sum(axis=0)
+            # n_g = wn_sg.sum(axis=0)
+            
+            # dn_g = n_g - nstar_g
+            
+            # V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
+            # V_g = self.ifftn(V_G).real
+            
+            # e_g[:] -= (dn_g * V_g)
+            
+            # im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 0))
+            # if mpi.rank == 0:
+            #     v_sg[0, :] -= im 
+            # if len(v_sg) == 2:
+            #     im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 1))
+            #     if mpi.rank == 0:
+            #         v_sg[1, :] -= im
+        else:
+            self.do_hartree_corr(gd, wn_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                 e_g, v_sg, [0], my_alpha_indices)
+        # K_G = self._get_K_G(gd)
+        # K_G[0, 0, 0] = 1.0
+            
+        # nstar_g = nstar_sg.sum(axis=0)
+        # n_g = wn_sg.sum(axis=0)
+            
+        # dn_g = n_g - nstar_g
+            
+        # V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
+        # V_g = self.ifftn(V_G).real
         
+        # e_g[:] -= (dn_g * V_g)
+            
+        # im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 0))
+        # if mpi.rank == 0:
+        #     v_sg[0, :] -= im 
+        # if len(v_sg) == 2:
+        #     im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 1))
+        #     if mpi.rank == 0:
+        #         v_sg[1, :] -= im
+
+    def do_hartree_corr(self, gd, n_g, nstar_g, e_g, v_sg, spins, my_alpha_indices):
         K_G = self._get_K_G(gd)
         K_G[0, 0, 0] = 1.0
-        
-        nstar_g = nstar_sg.sum(axis=0)
-        n_g = wn_sg.sum(axis=0)
-
+            
         dn_g = n_g - nstar_g
-
+            
         V_G = self.fftn(dn_g) / K_G**2 * 4 * np.pi * 0.5
         V_g = self.ifftn(V_G).real
-
+        
         e_g[:] -= (dn_g * V_g)
-
-        im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 0))
-        if mpi.rank == 0:
-            v_sg[0, :] -= im 
-        if len(v_sg) == 2:
-            im = 2* (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, 1))
+            
+        for s in spins:
+            im = 2 * (V_g - self.fold_with_derivative(V_g, n_g, my_alpha_indices, s))
             if mpi.rank == 0:
-                v_sg[1, :] -= im 
+                v_sg[s, :] -= im
 
     def calculate_spherical(self, rgd, n_sg, v_sg, e_g=None):
         """Calculate the XC energy and potential for an atomic system.
@@ -961,8 +1027,8 @@ class WLDA(XCFunctional):
 
         nstar_sg, v1, v2, v3 = self.radial_x(n_sg, e_g, v_sg)
 
-        nstar_sg = self.radial_c(n_sg, e_g, v_sg,
-                                 nstar_sg)
+        # nstar_sg = self.radial_c(n_sg, e_g, v_sg,
+        #                          nstar_sg)
         self.radial_hartree_correction(rgd, n_sg, nstar_sg, v_sg, e_g)
 
         # import matplotlib.pyplot as plt
@@ -1218,7 +1284,7 @@ class WLDA(XCFunctional):
         """Evaluates and returns phi(q, alpha).
         
         The weight function is 
-            phi(q, n) = e^(-qt^2 / 4)
+            phi(q, n) = e^(-qt)
 
         with
             qt = q / (c1 n^(1/3))
@@ -1226,13 +1292,26 @@ class WLDA(XCFunctional):
         c1 is a free parameter.
 
         If we choose
-            c1 = 2.20629
+            c1 = 5.8805
 
-        then the kernel truncation function will
-        have zero second derivative at 2k_F.
+        then the kernel will give a good representation
+        of the exact kernel in the HEG.
         """
-        c1 = 2.20629
-        return np.exp(-0.25 * (G_k / (c1 * abs(alpha)**(1 / 3)))**2)
+        c1 = self.settings.get("c1", None) or 5.8805
+        if c1 <= 0:
+            raise ValueError(f'c1 must be positive. Got c1 = {c1}')
+            
+        qt = (G_k / (c1 * abs(alpha)**(1 / 3)))
+
+        wf = self.settings.get("weightfunction", None)
+        if wf == "lorentz" or wf is None:        
+            return np.exp(-qt)
+        elif wf == "gauss":
+            return np.exp(-qt**2 / 4)
+        elif wf == "exponential":
+            return 1 / (1 + qt**2)**2
+        else:
+            raise ValueError(f'Weightfunction type "{weightfunc}" not allowed.')
 
     def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n*]n and potential."""
@@ -1470,19 +1549,56 @@ class WLDA(XCFunctional):
 
         Also potential.
         """
-        if len(n_sg) == 2:
+        if len(n_sg) == 2 and not self.settings.get("hartreexc", False):
+            # Undo modification by radial_x
             n_sg *= 0.5
+
             self.setup_radial_indicators(n_sg)
             nstar_sg = self.radial_weighted_density(n_sg)
+            self.do_radial_hartree_corr(rgd, n_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                        e_g, v_sg, [0, 1])
+        elif len(n_sg) == 2 and self.settings.get("hartreexc", False):
+            self.setup_radial_indicators(n_sg)
+            nstar_sg = self.radial_weighted_density(n_sg)
+            self.do_radial_hartree_corr(rgd, n_sg[0], nstart_sg[0], e_g, v_sg, [0])
+            self.do_radial_hartree_corr(rgd, n_sg[1], nstart_sg[1], e_g, v_sg, [1])
+            
+            e_g *= 0.5
+            v_sg *= 0.5
+        else:
+            self.do_radial_hartree_corr(rgd, n_sg.sum(axis=0), nstar_sg.sum(axis=0),
+                                        e_g, v_sg, [0])
 
+        # from gpaw.atom.radialgd import fsbt
+        # from scipy.interpolate import InterpolatedUnivariateSpline as IUS
+        # N = 2**14
+        # r_x = np.linspace(0, rgd.r_g[-1], N)
+        # G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
+
+        # nstar_g = nstar_sg.sum(axis=0)
+        # n_g = n_sg.sum(axis=0)
+
+        # dn_g = n_g - nstar_g
+        
+        # dn_x = rgd.interpolate(dn_g, r_x)
+        # dn_k = self.radial_fft(r_x, dn_x)
+        # pot_k = np.zeros_like(dn_k)
+        # pot_k[1:] = dn_k[1:] / G_k[1:]**2 * 4 * np.pi * 0.5
+        # pot_x = self.radial_ifft(r_x, pot_k)
+        # pot_g = IUS(r_x, pot_x)(rgd.r_g)
+            
+        # e_g -= pot_g * dn_g
+        
+        # v_sg[0, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 0))
+        # if len(v_sg) == 2:    
+        #     v_sg[1, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 1))
+
+    def do_radial_hartree_corr(self, rgd, n_g, nstar_g, e_g, v_sg, spins):
         from gpaw.atom.radialgd import fsbt
         from scipy.interpolate import InterpolatedUnivariateSpline as IUS
         N = 2**14
         r_x = np.linspace(0, rgd.r_g[-1], N)
         G_k = np.linspace(0, np.pi / r_x[1], N // 2 + 1)
-
-        nstar_g = nstar_sg.sum(axis=0)
-        n_g = n_sg.sum(axis=0)
 
         dn_g = n_g - nstar_g
         
@@ -1495,9 +1611,8 @@ class WLDA(XCFunctional):
             
         e_g -= pot_g * dn_g
         
-        v_sg[0, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 0))
-        if len(v_sg) == 2:    
-            v_sg[1, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, 1))
+        for s in spins:
+            v_sg[s, :] -= 2 * (pot_g - self.radial_derivative_fold(pot_g, n_g, s))
 
     ###### Abandon all hope ye who enter here #######
     def _calculate_impl(self, gd, n_sg, v_sg, e_g):
