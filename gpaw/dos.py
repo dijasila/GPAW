@@ -38,9 +38,9 @@ class IBZWaveFunctions:
                      ) -> Array3D:
         """Projections for PDOS.
 
-        Returns (nibzkpts, nbands, nspins, nindices)-shaped ndarray
+        Returns (nibzkpts, nbands, nspins)-shaped ndarray
         of the square of absolute value of the projections.  The *indices*
-        list contains (atom-number, projector-numbers) tuples.
+        list contains projector-indices.
         """
         kd = self.calc.wfs.kd
         dos_kns = np.zeros((kd.nibzkpts,
