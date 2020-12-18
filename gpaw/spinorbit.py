@@ -729,8 +729,8 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             e_in.append(n_n)
 
     print()
-    print(' Inversion center at: %s' % inversion_center)
-    print(' Calculating inversion eigenvalues at k = %s' % kpt_c)
+    print(f' Inversion center at: {inversion_center}')
+    print(f' Calculating inversion eigenvalues at k = {kpt_c}')
     print()
 
     center_v = np.array(inversion_center) / Bohr
@@ -785,12 +785,12 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                 Pm = np.sign(P_eig).tolist().count(-1)
                 Pp = np.sign(P_eig).tolist().count(1)
                 P_n = Pm // 2 * [-1] + Pp // 2 * [1]
-            print('%s: %s' % (str(n_n)[1:-1], str(P_n)[1:-1]))
+            print(f'{str(n_n)[1:-1]}: {str(P_n)[1:-1]}')
             p_n += P_n
         else:
-            print('  %s are not parity eigenstates' % n_n)
-            print('     P_n: %s' % P_eig)
-            print('     e_n: %s' % eig_n[n_n])
+            print(f'  {n_n} are not parity eigenstates')
+            print(f'     P_n: {P_eig}')
+            print(f'     e_n: {eig_n[n_n]}')
             p_n += [0 for n in n_n]
 
     return np.ravel(p_n)
