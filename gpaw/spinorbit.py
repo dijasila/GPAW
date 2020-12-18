@@ -163,7 +163,6 @@ class WaveFunction:
         if a in P_amsi:
             dos_ms[:, :] = (abs(P_amsi[a][:, :, indices])**2).sum(2)
 
-        # self.projections.atom_partition.comm.sum(dos_ms)
         return dos_ms
 
 
@@ -281,20 +280,27 @@ class BZWaveFunctions:
         def func(wf):
             return wf.pdos_weights(a, indices)
 
-        return self._collect(func, (2,), broadcast=broadcast, atoms=True)
+        return self._collect(func,
+                             (2,),
+                             broadcast=broadcast,
+                             sum_over_domain=True)
 
     def _collect(self,
                  func: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int, ...] = None,
                  dtype=float,
                  broadcast: bool = True,
-                 atoms: bool = False) -> ArrayND:
+                 sum_over_domain: bool = False) -> ArrayND:
         """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
 
         if broadcast:
-            array_kmx = self._collect(func, shape, dtype, False)
+            array_kmx = self._collect(func,
+                                      shape,
+                                      dtype,
+                                      False,
+                                      sum_over_domain)
             if array_kmx.ndim == 0:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
@@ -303,7 +309,7 @@ class BZWaveFunctions:
         if self.bcomm.rank != 0:
             return np.empty(shape=())
 
-        if not atoms and self.domain_comm.rank != 0:
+        if not sum_over_domain and self.domain_comm.rank != 0:
             return np.empty(shape=())
 
         comm = self.kpt_comm
@@ -314,7 +320,7 @@ class BZWaveFunctions:
                     array_kmx[k] = func(self[k])
                 else:
                     comm.receive(array_kmx[k], rank)
-            if atoms:
+            if sum_over_domain:
                 self.domain_comm.sum(array_kmx)
             if self.domain_comm.rank == 0:
                 return array_kmx
