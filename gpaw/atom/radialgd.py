@@ -2,7 +2,6 @@ import numbers
 from math import pi, factorial as fac
 
 import numpy as np
-
 from gpaw.spline import Spline
 from gpaw.utilities import hartree, divrl
 

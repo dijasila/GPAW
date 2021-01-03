@@ -18,7 +18,7 @@ class TBWaveFunctions(LCAOWaveFunctions):
 
         vtphit: Dict[Setup, List[Spline]] = {}
         for setup in self.setups.setups.values():
-            vt = setup.vt
+            vt = setup.rgd.spline(setup.vt_g, points=300)
             vtphit_j = []
             for phit in setup.phit_j:
                 rc = phit.get_cutoff()

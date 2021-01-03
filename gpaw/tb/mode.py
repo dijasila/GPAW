@@ -29,11 +29,9 @@ class TB(Mode):
                        setups: Sequence[Setup],
                        xc: XCFunctional) -> None:
         for setup in setups:
-            if 1:#not hasattr(setup, 'vt_g'):
+            if not hasattr(setup, 'vt_g'):
                 vt_g, W = calculate_potential(setup, xc)
                 setup.data.W = W
-                setup.rgd.plot(vt_g)
-                setup.rgd.plot(setup.vt_g, show=1)
                 setup.vt_g = vt_g
 
 
@@ -50,7 +48,9 @@ def calculate_potential(setup: Setup,
     # XC:
     vt_g = rgd.zeros()
     xc.calculate_spherical(rgd, nt_g[np.newaxis], vt_g[np.newaxis])
-    vt_g += setup.vbar.map(rgd.r_g) / (4 * pi)**0.5
+
+    # Zero-potential:
+    vt_g += setup.data.vbar_g / (4 * pi)**0.5
 
     # Coulomb:
     g_g = setup.ghat_l[0].map(rgd.r_g)
@@ -61,7 +61,6 @@ def calculate_potential(setup: Setup,
     W = rgd.integrate(g_g * vHtr_g, n=-1) / (4 * pi)**0.5
 
     vtr_g = vt_g * rgd.r_g + vHtr_g
-    #rgd.plot(vtr_g, show=1);asdf
 
     vtr_g[1:] /= rgd.r_g[1:]
     vtr_g[0] = vtr_g[1]
