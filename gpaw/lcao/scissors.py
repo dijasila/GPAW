@@ -9,7 +9,7 @@ class Scissors(DirectLCAO):
         self.components = []
         for homo, lumo, calc in components:
             nocc = calc.setups.nvalence // 2
-            C_qnM = [kpt.C_nM for kpt in calc.wfs.mykpts]
+            C_qnM = [kpt.C_nM for kpt in calc.wfs.kpt_u]
             natoms = len(calc.atoms)
             self.components.append((homo / Ha, lumo / Ha, nocc, natoms, C_qnM))
 
