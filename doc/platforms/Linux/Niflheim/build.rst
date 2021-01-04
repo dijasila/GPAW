@@ -25,11 +25,14 @@ Creating the venv
 
 Download the :download:`gpaw-venv.sh` script and run it like this::
 
-    $ ./gpaw-venv.sh <venv-name>
+    $ ./gpaw-venv.sh <venv-name> [intel]
     ...
 
 After a few minutes, you will have a ``<venv-name>`` folder with
-a GPAW installation inside.
+a GPAW installation inside.  If you add the word ``intel`` as the
+second argument it will have been built with the Intel compilers,
+otherwise it will be built with the FOSS compilers.
+
 In the following, we will assume that your venv folder is ``~/venv1/``.
 
 The ``gpaw-venv.sh`` script does the following:

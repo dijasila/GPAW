@@ -12,6 +12,8 @@ Git master branch
 
 * Corresponding ASE release: ASE-3.20.1b1
 
+* New :ref:`zfs` module.
+
 * Nonlinear optical responses can now be calculated in the independent
   particle approximations. See the :ref:`nlo_tutorial` tutorial for how
   to use it to compute the second-harmonic generation and shift current
@@ -408,7 +410,7 @@ Version 1.4.0
 * Improved parallelization of operations with localized functions in
   PW mode.  This solves the current size bottleneck in PW mode.
 
-* Added QNA XC functional.
+* Added QNA XC functional: :ref:`qna`.
 
 * Major refactoring of the LCAOTDDFT code and added Kohn--Sham decomposition
   analysis within LCAOTDDFT, see :ref:`the documentation <lcaotddft>`.
