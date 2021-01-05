@@ -10,7 +10,7 @@ a12.calc = GPAW(mode='lcao',
                 basis='dzp',
                 kpts=(k, k, 1),
                 eigensolver=Scissors([(-0.5, 0.5, c1),
-                                      (-0.3, -0.3, c2)]),
+                                      (-0.3, 0.3, c2)]),
                 txt='12_s.txt')
 a12.get_potential_energy()
 a12.calc.write('12_s.gpw')
