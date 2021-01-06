@@ -75,11 +75,11 @@ plt.imshow(d_proj, interpolation='bicubic', origin='lower',
 # Plot atoms
 # switch x and y orientation for yx plot
 pos = atoms.get_positions()
-pos[:,[0, 1]] = pos[:,[1, 0]]
+pos[:, [0, 1]] = pos[:, [1, 0]]
 atoms.set_positions(pos)
 
 cell = atoms.get_cell()
-cell[:,[0, 1]] = cell[:,[1, 0]]
+cell[:, [0, 1]] = cell[:, [1, 0]]
 atoms.set_cell(cell)
 
 # ASE plot atoms function
@@ -90,8 +90,10 @@ offset = np.array(
      poisson_solver.qm.corner1[j]]) * 2 * Bohr
 
 bbox = np.array(
-    [poisson_solver.qm.corner1[i], poisson_solver.qm.corner1[j],
-     poisson_solver.qm.corner2[i], poisson_solver.qm.corner2[j]]) * Bohr
+    [poisson_solver.qm.corner1[i],
+     poisson_solver.qm.corner1[j],
+     poisson_solver.qm.corner2[i],
+     poisson_solver.qm.corner2[j]]) * Bohr
 
 plot_atoms(atoms, ax=None, show_unit_cell=2, offset=offset, bbox=bbox)
 
