@@ -79,7 +79,7 @@ class Wannier90:
     def write_mmn(self,
                   overlaps: WannierOverlaps) -> None:
         size = overlaps.monkhorst_pack_size
-        nbzkpts = np.prod(size)
+        nbzkpts: int = np.prod(size)  # type: ignore
         nbands = overlaps.nbands
 
         directions = list(overlaps.directions)
