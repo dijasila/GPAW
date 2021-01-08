@@ -4,6 +4,9 @@ from gpaw.utilities import pack
 
 
 def get_density(rho_MM, wfs, density, density_type='comp', u=0):
+    if wfs.ksl.using_blacs:
+        raise NotImplementedError('Scalapack is not supported')
+
     rho_G = density.gd.zeros()
     kpt = wfs.kpt_u[u]
     assert kpt.q == 0

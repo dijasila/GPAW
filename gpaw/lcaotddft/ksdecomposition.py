@@ -410,6 +410,9 @@ class KohnShamDecomposition(object):
     def get_density(self, wfs, rho_up, density='comp'):
         from gpaw.lcaotddft.densitymatrix import get_density
 
+        if self.ksl.using_blacs:
+            raise NotImplementedError('Scalapack is not supported')
+
         density_type = density
         assert len(rho_up) == 1, 'K-points not implemented'
         u = 0
