@@ -47,7 +47,7 @@ There are several ways to install GPAW:
     * Tips and tricks for installation on many :ref:`platforms and
       architectures`
     * :ref:`troubleshooting`
-    * In case of trouble: :ref:`Our mail list and IRC channel <contact>`
+    * In case of trouble: :ref:`Our mail list and #gpaw chat channel <contact>`
 
 
 Requirements
