@@ -12,9 +12,8 @@ from gpaw.lcaotddft.utilities import distribute_nM
 from gpaw.lcaotddft.utilities import read_uMM
 from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import read_uX, write_uX
-from gpaw.utilities.scalapack import pblas_simple_gemm
-from gpaw.utilities.scalapack import pblas_simple_hemm
-from gpaw.utilities.scalapack import scalapack_tri2full
+from gpaw.utilities.scalapack import \
+    pblas_simple_gemm, pblas_simple_hemm, scalapack_tri2full
 from gpaw.utilities.tools import tri2full
 
 
@@ -339,11 +338,10 @@ class KohnShamDecomposition(object):
         # KS decomposition
         if self.ksl.using_blacs:
             tmp_nM = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
-            pblas_simple_hemm(self.ksl.mmdescriptor,
+            pblas_simple_gemm(self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
-                              rho_MM, C0S_nM, tmp_nM,
-                              side='R', uplo='L')
+                              C0S_nM, rho_MM, tmp_nM)
             rho_nn = self.ksl.mmdescriptor.zeros(dtype=rho_MM.dtype)
             pblas_simple_gemm(self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
