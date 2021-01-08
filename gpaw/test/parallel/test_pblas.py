@@ -17,19 +17,26 @@ from gpaw.utilities.blas import gemm, r2k, rk
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_simple_gemv, \
     pblas_simple_r2k, pblas_simple_rk, pblas_simple_hemm, pblas_simple_symm
 
-pytestmark = pytest.mark.skipif(
-    world.size < 4 or not compiled_with_sl(),
-    reason='world.size < 4 or not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(not compiled_with_sl(),
+                                reason='not compiled_with_sl()')
 
 # may need to be be increased if the mprocs-by-nprocs
 # BLACS grid becomes larger
 tol = 4.0e-13
 
+mnprocs_i = [(1, 1)]
+if world.size >= 2:
+    mnprocs_i += [(1, 2), (2, 1)]
+if world.size >= 4:
+    mnprocs_i += [(2, 2)]
+if world.size >= 8:
+    mnprocs_i += [(2, 4), (4, 2)]
 
+
+@pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_parallel_pblas(dtype, M=160, N=120, K=140, seed=42,
-                        mprocs=2, nprocs=2):
+def test_parallel_pblas(dtype, mprocs, nprocs,
+                        M=160, N=120, K=140, seed=42):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
 
