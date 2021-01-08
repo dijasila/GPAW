@@ -13,7 +13,6 @@ from gpaw.tddft.folding import frequencies
 from gpaw.tddft.units import au_to_eV, eV_to_au
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.mpi import world
-from gpaw.test import equal
 from gpaw.utilities import compiled_with_sl
 
 
@@ -31,7 +30,7 @@ if compiled_with_sl():
 
 # Options used in the fixtures and tests
 kick_v = np.ones(3) * 1e-5
-e_min = 0.1
+e_min = 0.0
 e_max = 30.0
 delta_e = 5.0
 freq_w = np.arange(e_min, e_max + 0.5 * delta_e, delta_e)
@@ -99,8 +98,8 @@ def load_ksdecomp(build_ksdecomp, in_tmp_dir, request):
 
 
 def test_ksdecomp(calculate_system, load_ksdecomp, in_tmp_dir):
-    def relative_equal(x, y, *args, **kwargs):
-        return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
+    atol = 1e-12
+    rtol = 2e-3
 
     using_blacs, calc, ksd, dmat, fdm = load_ksdecomp
 
@@ -119,9 +118,7 @@ def test_ksdecomp(calculate_system, load_ksdecomp, in_tmp_dir):
         dmrho_vp = ksd.get_dipole_moment_contributions(rho_up)
         spec_vp = 2 * freq / np.pi * dmrho_vp.imag / au_to_eV
         spec_v = np.sum(spec_vp, axis=1)
-
-        tol = 2e-3
-        relative_equal(ref_wv[w], spec_v, tol)
+        assert np.allclose(spec_v, ref_wv[w], atol=atol, rtol=rtol)
 
         # The remaining operations do not support scalapack
         if using_blacs:
@@ -131,14 +128,10 @@ def test_ksdecomp(calculate_system, load_ksdecomp, in_tmp_dir):
         rho_g = dmat.get_density([rho_uMM[0].imag])
         dm_v = dmat.density.finegd.calculate_dipole_moment(rho_g)
         spec_v = 2 * freq / np.pi * dm_v / au_to_eV
-
-        tol = 2e-3
-        relative_equal(ref_wv[w], spec_v, tol)
+        assert np.allclose(spec_v, ref_wv[w], atol=atol, rtol=rtol)
 
         # Calculate dipole moment from induced density
         rho_g = ksd.get_density(calc.wfs, [rho_up[0].imag])
         dm_v = ksd.density.finegd.calculate_dipole_moment(rho_g)
         spec_v = 2 * freq / np.pi * dm_v / au_to_eV
-
-        tol = 2e-3
-        relative_equal(ref_wv[w], spec_v, tol)
+        assert np.allclose(spec_v, ref_wv[w], atol=atol, rtol=rtol)
