@@ -14,6 +14,7 @@ from gpaw.lcaotddft.utilities import write_uMM
 from gpaw.lcaotddft.utilities import read_uX, write_uX
 from gpaw.utilities.scalapack import pblas_simple_gemm
 from gpaw.utilities.scalapack import pblas_simple_hemm
+from gpaw.utilities.scalapack import scalapack_tri2full
 from gpaw.utilities.tools import tri2full
 
 
@@ -97,6 +98,8 @@ class KohnShamDecomposition(object):
             S_MM = kpt.S_MM
             assert np.max(np.absolute(S_MM.imag)) == 0.0
             S_MM = S_MM.real
+            if self.ksl.using_blacs:
+                scalapack_tri2full(self.ksl.mmdescriptor, S_MM)
             self.S_uMM.append(S_MM)
 
             C_nM = kpt.C_nM
