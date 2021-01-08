@@ -97,7 +97,7 @@ class KohnShamDecomposition(object):
         for kpt in paw.wfs.kpt_u:
             S_MM = kpt.S_MM
             assert np.max(np.absolute(S_MM.imag)) == 0.0
-            S_MM = S_MM.real
+            S_MM = np.ascontiguousarray(S_MM.real)
             if self.ksl.using_blacs:
                 scalapack_tri2full(self.ksl.mmdescriptor, S_MM)
             self.S_uMM.append(S_MM)
@@ -105,7 +105,7 @@ class KohnShamDecomposition(object):
             C_nM = kpt.C_nM
             if self.C0_dtype == float:
                 assert np.max(np.absolute(C_nM.imag)) == 0.0
-                C_nM = C_nM.real
+                C_nM = np.ascontiguousarray(C_nM.real)
             C_nM = distribute_nM(self.ksl, C_nM)
             self.C0_unM.append(C_nM)
 
