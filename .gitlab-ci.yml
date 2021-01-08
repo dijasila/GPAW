@@ -29,5 +29,5 @@ master:
       gpaw doc | tee f8
     - >
       python -c
-      "assert int(open('f8').readlines()[-1]) <= 430, 'Run flake8 on your code'"
+      "assert int(open('f8').readlines()[-1]) <= 432, 'Run flake8 on your code'"
     - python -We:invalid -m compileall -f -q gpaw/
