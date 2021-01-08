@@ -15,7 +15,7 @@ from gpaw.blacs import BlacsGrid, Redistributor
 from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.blas import gemm, r2k, rk
 from gpaw.utilities.scalapack import pblas_simple_gemm, pblas_simple_gemv, \
-    pblas_simple_r2k, pblas_simple_rk, pblas_simple_hemm
+    pblas_simple_r2k, pblas_simple_rk, pblas_simple_hemm, pblas_simple_symm
 
 pytestmark = pytest.mark.skipif(
     world.size < 4 or not compiled_with_sl(),
@@ -47,8 +47,6 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     globS = grid.new_descriptor(M, M, M, M)
     globU = grid.new_descriptor(M, M, M, M)
 
-    globHEC = grid.new_descriptor(K, K, K, K)
-
     # print globA.asarray()
     # Populate matrices local to master:
     A0 = gen.rand(*globA.shape) + epsilon * gen.rand(*globA.shape)
@@ -57,10 +55,15 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     X0 = gen.rand(*globX.shape) + epsilon * gen.rand(*globX.shape)
 
     # HEC = HEA * B
-    HEA0 = gen.rand(*globHEC.shape) + epsilon * gen.rand(*globHEC.shape)
+    HEA0 = gen.rand(*globZ.shape) + epsilon * gen.rand(*globZ.shape)
     if world.rank == 0:
         HEA0 = HEA0 + HEA0.T.conjugate()  # Make H0 hermitean
         HEA0 = np.ascontiguousarray(HEA0)
+
+    SYA0 = gen.rand(*globZ.shape) + epsilon * gen.rand(*globZ.shape)
+    if world.rank == 0:
+        SYA0 = SYA0 + SYA0.T  # Make matrix symmetric
+        SYA0 = np.ascontiguousarray(SYA0)
 
     # Local result matrices
     Y0 = globY.empty(dtype=dtype)
@@ -69,6 +72,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     S0 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U0 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC0 = globB.zeros(dtype=dtype)
+    SYC0 = globB.empty(dtype=dtype)
 
     # Local reference matrix product:
     if rank == 0:
@@ -84,12 +88,16 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
         rk(1.0, A0, 0.0, U0)
 
         HEC0[:] = np.dot(HEA0, B0)
-        sM, sN = HEA0.shape
-        # We don't use upper diagonal
+        SYC0[:] = np.dot(SYA0, B0)
+
+        # hemm and symm don't use upper diagonal, so
+        # fill it with NaN to detect errors
+        sM, sN = globZ.shape
         for i in range(sM):
             for j in range(sN):
                 if i < j:
-                    HEA0[i][j] = 99999.0
+                    HEA0[i][j] = np.nan + epsilon * np.nan
+                    SYA0[i][j] = np.nan + epsilon * np.nan
         if world.rank == 0:
             print(HEA0)
     assert globA.check(A0) and globB.check(B0) and globC.check(C0)
@@ -120,11 +128,14 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     U = distU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC = distB.zeros(dtype=dtype)
     HEA = distHE.zeros(dtype=dtype)
+    SYC = distB.zeros(dtype=dtype)
+    SYA = distHE.empty(dtype=dtype)
     Redistributor(world, globA, distA).redistribute(A0, A)
     Redistributor(world, globB, distB).redistribute(B0, B)
     Redistributor(world, globX, distX).redistribute(X0, X)
     Redistributor(world, globD, distD).redistribute(D0, D)
-    Redistributor(world, globHEC, distHE).redistribute(HEA0, HEA)
+    Redistributor(world, globZ, distHE).redistribute(HEA0, HEA)
+    Redistributor(world, globZ, distHE).redistribute(SYA0, SYA)
 
     pblas_simple_gemm(distA, distB, distC, A, B, C)
     pblas_simple_gemm(distA, distA, distZ, A, A, Z, transa='T')
@@ -132,6 +143,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     pblas_simple_r2k(distA, distD, distS, A, D, S)
     pblas_simple_rk(distA, distU, A, U)
     pblas_simple_hemm(distHE, distB, distB, HEA, B, HEC, uplo='L', side='L')
+    pblas_simple_symm(distHE, distB, distB, SYA, B, SYC, uplo='L', side='L')
 
     # Collect result back on master
     C1 = globC.empty(dtype=dtype)
@@ -139,11 +151,13 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     S1 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U1 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC1 = globB.zeros(dtype=dtype)
+    SYC1 = globB.empty(dtype=dtype)
     Redistributor(world, distC, globC).redistribute(C, C1)
     Redistributor(world, distY, globY).redistribute(Y, Y1)
     Redistributor(world, distS, globS).redistribute(S, S1)
     Redistributor(world, distU, globU).redistribute(U, U1)
     Redistributor(world, distB, globB).redistribute(HEC, HEC1)
+    Redistributor(world, distB, globB).redistribute(SYC, SYC1)
 
     if rank == 0:
         gemm_err = abs(C1 - C0).max()
@@ -151,29 +165,34 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
         r2k_err = abs(S1 - S0).max()
         rk_err = abs(U1 - U0).max()
         hemm_err = abs(HEC1 - HEC0).max()
+        symm_err = abs(SYC1 - SYC0).max()
         print('gemm err', gemm_err)
         print('gemv err', gemv_err)
         print('r2k err', r2k_err)
         print('rk_err', rk_err)
         print('hemm_err', hemm_err)
+        print('symm_err', symm_err)
     else:
         gemm_err = 0.0
         gemv_err = 0.0
         r2k_err = 0.0
         rk_err = 0.0
         hemm_err = 0.0
+        symm_err = 0.0
 
     gemm_err = world.sum(gemm_err)  # We don't like exceptions on only one cpu
     gemv_err = world.sum(gemv_err)
     r2k_err = world.sum(r2k_err)
     rk_err = world.sum(rk_err)
     hemm_err = world.sum(hemm_err)
+    symm_err = world.sum(symm_err)
 
     equal(gemm_err, 0, tol)
     equal(gemv_err, 0, tol)
     equal(r2k_err, 0, tol)
     equal(rk_err, 0, tol)
     equal(hemm_err, 0, tol)
+    equal(symm_err, 0, tol)
 
 
 def test_parallel_pblas():
