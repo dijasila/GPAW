@@ -16,6 +16,7 @@ bp = a12.cell.bandpath('GMKG', npoints=80)
 
 a1.calc = GPAW(mode='lcao',
                basis='dzp',
+               nbands='nao',
                kpts=(k, k, 1),
                txt='1.txt')
 a1.get_potential_energy()
@@ -29,6 +30,7 @@ bs.write('1bs.json')
 
 a2.calc = GPAW(mode='lcao',
                basis='dzp',
+               nbands='nao',
                kpts=(k, k, 1),
                txt='2.txt')
 a2.get_potential_energy()
