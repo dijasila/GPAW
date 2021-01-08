@@ -22,10 +22,9 @@ a1.calc = GPAW(mode='lcao',
 a1.get_potential_energy()
 a1.calc.write('1.gpw', mode='all')
 
-a1.calc.set(fixdensity=True, kpts=bp, symmetry='off')
-a1.get_potential_energy()
-a1.calc.write('1bs.gpw', mode='all')
-bs = a1.calc.band_structure()
+c1 = a1.calc.fixed_density(kpts=bp, symmetry='off')
+c1.write('1bs.gpw', mode='all')
+bs = c1.band_structure()
 bs.write('1bs.json')
 
 a2.calc = GPAW(mode='lcao',
@@ -36,10 +35,9 @@ a2.calc = GPAW(mode='lcao',
 a2.get_potential_energy()
 a2.calc.write('2.gpw', mode='all')
 
-a2.calc.set(fixdensity=True, kpts=bp, symmetry='off')
-a2.get_potential_energy()
-a2.calc.write('2bs.gpw', mode='all')
-bs = a2.calc.band_structure()
+c2 = a2.calc.fixed_density(kpts=bp, symmetry='off')
+c2.write('2bs.gpw', mode='all')
+bs = c2.band_structure()
 bs.write('2bs.json')
 
 a12.calc = GPAW(mode='lcao',
@@ -49,8 +47,7 @@ a12.calc = GPAW(mode='lcao',
 a12.get_potential_energy()
 a12.calc.write('12.gpw')
 
-a12.calc.set(fixdensity=True, kpts=bp, symmetry='off')
-a12.get_potential_energy()
-a12.calc.write('12bs.gpw', mode='all')
-bs = a12.calc.band_structure()
+c12 = a12.calc.fixed_density(kpts=bp, symmetry='off')
+c12.write('12bs.gpw', mode='all')
+bs = c12.band_structure()
 bs.write('12bs.json')
