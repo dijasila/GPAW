@@ -10,8 +10,8 @@ master:
     - mkdir ~/.gpaw
     - echo "scalapack = True" > ~/.gpaw/siteconfig.py
     - echo "libraries += ['scalapack-openmpi']" >> ~/.gpaw/siteconfig.py
-    - echo "extra_compile_args += ['-Werror', '-fopenmp']
-    - extra_link_args += ['-fopenmp']" >> ~/.gpaw/siteconfig.py
+    - echo "extra_compile_args += ['-Werror', '-fopenmp']" >> ~/.gpaw/siteconfig.py
+    - echo "extra_link_args += ['-fopenmp']" >> ~/.gpaw/siteconfig.py
     - python setup.py install > gpaw-install.output
     - useradd -m user
     - su user -c 'gpaw install-data --register gpaw-datasets'
