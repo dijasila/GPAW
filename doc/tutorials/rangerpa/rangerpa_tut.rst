@@ -4,7 +4,7 @@
 Correlation energies within the range-separated RPA
 ===================================================
 
-One of the less attractive features of calculating the electronic correlation energy within the random-phase approximation 
+One of the less attractive features of calculating the electronic correlation energy within the random-phase approximation
 (RPA) is having to describe the `1/r` divergence of the Coulomb interaction.  Describing this divergence in a plane-wave
 basis set requires in turn a large basis set for the response function `\chi^{KS}(\omega)`, and this soon becomes
 very demanding on computational resources.
@@ -41,7 +41,7 @@ where
   \varepsilon_c^{SR}(n,r_c) = \varepsilon_c^{RPA}(n) - \varepsilon_c^{LR}(n,r_c).
 
 The quantities `\varepsilon_c^{RPA}(n)` and `\varepsilon_c^{LR}(n,r_c)`
-are the correlation energies (normalized to the appropriate number of electrons) 
+are the correlation energies (normalized to the appropriate number of electrons)
 of the homogeneous electron gas (HEG), calculated with the full Coulomb interaction
 and with only the long-range part, respectively.  The total correlation energy
 is evaluted as `E_c^{LR-RPA} + E_c^{SR-RPA}`.  Note that the quantity `n^v(\vec{r})`
@@ -65,7 +65,7 @@ We start with a converged ground-state calculation to get the electronic wavefun
 
 This calculation will take about a minute on a single CPU.
 Now we use the following script to get the RPA correlation in the range-separated
-approach, using a number of different values for `r_c`.  For the values
+approach, using a number of values for `r_c`.  For the values
 of the plane-wave cutoff and number of bands used to evaluate `\chi^{KS}`, we
 use the values reported in Ref. [#Bruneval]_:
 

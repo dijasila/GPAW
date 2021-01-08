@@ -11,6 +11,7 @@ from gpaw.test import equal
 
 # Atoms
 
+
 def test_lcaotddft_fxc_is_xc(in_tmp_dir):
     atoms = molecule('Na2')
     atoms.center(vacuum=4.0)

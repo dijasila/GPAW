@@ -1,11 +1,15 @@
+from pathlib import Path
+from typing import Union
+
 import numpy as np
 import ase.io.ulm as ulm
+from ase.units import Ha
 
-from gpaw import GPAW
 from gpaw.mpi import world, serial_comm
 
 
-def ibz2bz(input_gpw, output_gpw=None):
+def ibz2bz(input_gpw: Union[Path, str],
+           output_gpw: Union[Path, str] = None) -> None:
     """Unfold IBZ to full BZ and write new gpw-file.
 
     Example::
@@ -17,9 +21,12 @@ def ibz2bz(input_gpw, output_gpw=None):
         $ python3 -m gpaw.utilities.ibz2bz abc.gpw
 
     """
+    from gpaw import GPAW
 
     if world.rank > 0:
         return
+
+    input_gpw = str(input_gpw)
 
     calc = GPAW(input_gpw, txt=None, communicator=serial_comm)
     spos_ac = calc.atoms.get_scaled_positions()
@@ -32,8 +39,8 @@ def ibz2bz(input_gpw, output_gpw=None):
     I_a = None
 
     for K, k in enumerate(kd.bz2ibz_k):
-        a_a, U_aii, time_rev = construct_symmetry_operators(calc.wfs,
-                                                            spos_ac, K)
+        a_a, U_aii, time_rev = construct_symmetry_operators(
+            calc.wfs.kd, calc.wfs.setups, spos_ac, K)
 
         if I_a is None:
             # First time:
@@ -78,6 +85,7 @@ def ibz2bz(input_gpw, output_gpw=None):
 
     wfs = out.child('wave_functions')
     wfs.write(eigenvalues=e_sKn,
+              fermi_levels=calc.wfs.fermi_levels * Ha,
               occupations=f_sKn,
               projections=P_sKnI)
 
@@ -88,7 +96,7 @@ def ibz2bz(input_gpw, output_gpw=None):
     out.close()
 
 
-def construct_symmetry_operators(wfs, spos_ac, K):
+def construct_symmetry_operators(kd, setups, spos_ac, K):
     """Construct symmetry operators for PAW projections.
 
     We want to transform a k-point in the irreducible part of the BZ to
@@ -102,8 +110,6 @@ def construct_symmetry_operators(wfs, spos_ac, K):
       conjugated.
     """
 
-    kd = wfs.kd
-
     s = kd.sym_k[K]
     U_cc = kd.symmetry.op_scc[s]
     time_reversal = kd.time_reversal_k[K]
@@ -112,11 +118,11 @@ def construct_symmetry_operators(wfs, spos_ac, K):
 
     a_a = []
     U_aii = []
-    for a, id in enumerate(wfs.setups.id_a):
+    for a, id in enumerate(setups.id_a):
         b = kd.symmetry.a_sa[s, a]
         S_c = np.dot(spos_ac[a], U_cc) - spos_ac[b]
         x = np.exp(2j * np.pi * np.dot(ik_c, S_c))
-        U_ii = wfs.setups[a].R_sii[s].T * x
+        U_ii = setups[a].R_sii[s].T * x
         a_a.append(b)
         U_aii.append(U_ii)
 

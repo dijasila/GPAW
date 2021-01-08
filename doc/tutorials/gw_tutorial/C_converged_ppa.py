@@ -33,7 +33,7 @@ for ecut in [300, 400]:
               bands=(3, 5),
               ecut=ecut,
               ppa=True,
-              filename='C-g0w0_ppa_{}'.format(ecut))
+              filename=f'C-g0w0_ppa_{ecut}')
 
     gw.calculate()
 

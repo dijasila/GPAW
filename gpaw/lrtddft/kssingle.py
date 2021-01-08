@@ -2,22 +2,20 @@
 
 """
 import sys
-from math import pi, sqrt
-
+import json
 import numpy as np
+
 from ase.units import Bohr, Hartree, alpha
-from ase.parallel import paropen
 
 import gpaw.mpi as mpi
 from gpaw.utilities import packed_index
-from gpaw.lrtddft.excitation import Excitation, ExcitationList
+from gpaw.lrtddft.excitation import Excitation, ExcitationList, get_filehandle
 from gpaw.pair_density import PairDensity
 from gpaw.fd_operators import Gradient
 from gpaw.utilities.tools import coordinates
 
 
 class KSSingles(ExcitationList):
-
     """Kohn-Sham single particle excitations
 
     Input parameters:
@@ -39,39 +37,22 @@ class KSSingles(ExcitationList):
     energy_range:
       The energy range [emin, emax] or emax for KS transitions to use as basis
     """
-
     def __init__(self,
-                 calculator=None,
-                 nspins=None,
-                 eps=0.001,
-                 istart=0,
-                 jend=sys.maxsize,
-                 energy_range=None,
-                 filehandle=None,
+                 restrict={},
+                 log=None,
                  txt=None):
-
-        self.energy_to_eV_scale = Hartree
-        self.eps = None
+        ExcitationList.__init__(self, log=log, txt=txt)
         self.world = mpi.world
 
-        self.calculator = None
-        if isinstance(calculator, str):
-            self.read(calculator)
-            return self.select(eps=eps, istart=istart, jend=jend,
-                               energy_range=energy_range)
-        if filehandle is not None:
-            self.read(fh=filehandle)
-            return self.select(eps, istart=istart, jend=jend,
-                               energy_range=energy_range)
+        self.restrict = KSSRestrictor()
+        self.restrict.update(restrict)
+
+    def calculate(self, atoms, nspins=None):
+        calculator = atoms.calc
+        self.calculator = calculator
 
         # LCAO calculation requires special actions
-        if calculator is not None:
-            self.lcao = calculator.parameters.mode == 'lcao'
-
-        ExcitationList.__init__(self, calculator, txt=txt)
-
-        if calculator is None:
-            return  # leave the list empty
+        self.lcao = calculator.parameters.mode == 'lcao'
 
         # deny hybrids as their empty states are wrong
 #        gsxc = calculator.hamiltonian.xc
@@ -85,16 +66,18 @@ class KSSingles(ExcitationList):
         # parallelization over bands not yet supported
         assert(calculator.wfs.bd.comm.size == 1)
 
-        self.select(nspins, eps, istart, jend, energy_range)
+        # do the evaluation
+        self.select(nspins)
 
         trkm = self.get_trk()
-        print(file=self.txt)
-        print('KSS %d transitions' % len(self), file=self.txt)
-        print('KSS TRK sum %g (%g,%g,%g)' %
-              (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]), file=self.txt)
+        self.log('KSS {0} transitions (restrict={1})'.format(
+            len(self), self.restrict))
+        self.log('KSS TRK sum %g (%g,%g,%g)' %
+                 (np.sum(trkm) / 3., trkm[0], trkm[1], trkm[2]))
         pol = self.get_polarizabilities(lmax=3)
-        print('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
-              tuple(pol.tolist()), file=self.txt)
+        self.log('KSS polarisabilities(l=0-3) %g, %g, %g, %g' %
+                 tuple(pol.tolist()))
+        return self
 
     @staticmethod
     def emin_emax(energy_range):
@@ -105,21 +88,20 @@ class KSSingles(ExcitationList):
                 emin, emax = energy_range
                 emin /= Hartree
                 emax /= Hartree
-            except:
+            except TypeError:
                 emax = energy_range / Hartree
         return emin, emax
 
-    def select(self, nspins=None, eps=0.001,
-               istart=0, jend=sys.maxsize, energy_range=None):
+    def select(self, nspins=None):
         """Select KSSingles according to the given criterium."""
 
         # criteria
-        emin, emax = self.emin_emax(energy_range)
-        self.istart = istart
-        self.jend = jend
-        self.eps = eps
+        emin, emax = self.restrict.emin_emax()
+        istart = self.restrict['istart']
+        jend = self.restrict['jend']
+        eps = self.restrict['eps']
 
-        if self.calculator is None:  # I'm read from a file
+        if not hasattr(self, 'calculator'):  # I'm read from a file
             # throw away all not needed entries
             for i, ks in reversed(list(enumerate(self))):
                 if ((ks.fij / ks.weight) <= eps or
@@ -146,13 +128,13 @@ class KSSingles(ExcitationList):
         self.npspins = wfs.nspins
         fijscale = 1
         ispins = [0]
-        nks = wfs.kd.nks
+        nks = wfs.kd.nibzkpts * wfs.kd.nspins
         if self.nvspins < 2:
             if (nspins or 0) > self.nvspins:
                 self.npspins = nspins
                 fijscale = 0.5
                 ispins = [0, 1]
-                nks = 2 * wfs.kd.nks
+                nks *= 2
 
         kpt_comm = self.calculator.wfs.kd.comm
         nbands = len(self.kpt_u[0].f_n)
@@ -161,57 +143,62 @@ class KSSingles(ExcitationList):
         take = np.zeros((nks, nbands, nbands), dtype=int)
         u = 0
         for ispin in ispins:
-            for ks in range(wfs.kd.nks):
-                myks = ks - wfs.kd.ks0
-                if myks >= 0 and myks < wfs.kd.mynks:
-                    kpt = self.kpt_u[myks]
-                    for i in range(nbands):
-                        for j in range(i + 1, nbands):
-                            fij = (kpt.f_n[i] - kpt.f_n[j]) / kpt.weight
-                            epsij = kpt.eps_n[j] - kpt.eps_n[i]
-                            if (fij > eps and
-                                epsij >= emin and epsij < emax and
-                                    i >= self.istart and j <= self.jend):
-                                take[u, i, j] = 1
-                u += 1
+            for k in range(wfs.kd.nibzkpts):
+                q = k - wfs.kd.k0
+                for s in range(wfs.nspins):
+                    if q >= 0 and q < wfs.kd.mynk:
+                        kpt = wfs.kpt_qs[q][s]
+                        for i in range(nbands):
+                            for j in range(i + 1, nbands):
+                                fij = (kpt.f_n[i] - kpt.f_n[j]) / kpt.weight
+                                epsij = kpt.eps_n[j] - kpt.eps_n[i]
+                                if (fij > eps and
+                                    epsij >= emin and epsij < emax and
+                                        i >= istart and j <= jend):
+                                    take[u, i, j] = 1
+                    u += 1
         kpt_comm.sum(take)
+
+        self.log()
+        self.log('Kohn-Sham single transitions')
+        self.log()
 
         # calculate in parallel
         u = 0
         for ispin in ispins:
-            for ks in range(wfs.kd.nks):
-                myks = ks - wfs.kd.ks0
-                for i in range(nbands):
-                    for j in range(i + 1, nbands):
-                        if take[u, i, j]:
-                            if myks >= 0 and myks < wfs.kd.mynks:
-                                kpt = self.kpt_u[myks]
-                                pspin = max(kpt.s, ispin)
-                                self.append(
-                                    KSSingle(i, j, pspin, kpt, paw,
-                                             fijscale=fijscale,
-                                             dtype=self.dtype))
-                            else:
-                                self.append(KSSingle(i, j, pspin=0,
-                                                     kpt=None, paw=paw,
-                                                     dtype=self.dtype))
-                u += 1
+            for k in range(wfs.kd.nibzkpts):
+                q = k - wfs.kd.k0
+                for s in range(wfs.kd.nspins):
+                    for i in range(nbands):
+                        for j in range(i + 1, nbands):
+                            if take[u, i, j]:
+                                if q >= 0 and q < wfs.kd.mynk:
+                                    kpt = wfs.kpt_qs[q][s]
+                                    pspin = max(kpt.s, ispin)
+                                    self.append(
+                                        KSSingle(i, j, pspin, kpt, paw,
+                                                 fijscale=fijscale,
+                                                 dtype=self.dtype))
+                                else:
+                                    self.append(KSSingle(i, j, pspin=0,
+                                                         kpt=None, paw=paw,
+                                                         dtype=self.dtype))
+                    u += 1
 
         # distribute
         for kss in self:
             kss.distribute()
 
-    def read(self, filename=None, fh=None):
+    @classmethod
+    def read(cls, filename=None, fh=None, restrict={}, log=None):
         """Read myself from a file"""
+        assert (filename is not None) or (fh is not None)
+        
         def fail(f):
             raise RuntimeError(f.name + ' does not contain ' +
-                               self.__class__.__name__ + ' data')
+                               cls.__class__.__name__ + ' data')
         if fh is None:
-            if filename.endswith('.gz'):
-                import gzip
-                f = gzip.open(filename, 'rt')
-            else:
-                f = open(filename, 'r')
+            f = get_filehandle(cls, filename)
 
             # there can be other information, i.e. the LrTDDFT header
             try:
@@ -229,24 +216,35 @@ class KSSingles(ExcitationList):
 
         words = f.readline().split()
         n = int(words[0])
+        kssl = cls(log=log)
         if len(words) == 1:
-            # old output style for real wave functions (finite systems)
-            self.dtype = float
+            # very old output style for real wave functions (finite systems)
+            kssl.dtype = float
+            restrict_from_file = {}
         else:
             if words[1].startswith('complex'):
-                self.dtype = complex
+                kssl.dtype = complex
             else:
-                self.dtype = float
-            self.eps = float(f.readline())
-        self.npspins = 1
+                kssl.dtype = float
+            restrict_from_file = json.loads(f.readline())
+            if not isinstance(restrict_from_file, dict):  # old output style
+                restrict_from_file = {'eps': restrict_from_file}
+        kssl.npspins = 1
         for i in range(n):
-            kss = KSSingle(string=f.readline(), dtype=self.dtype)
-            self.append(kss)
-            self.npspins = max(self.npspins, kss.pspin + 1)
-        self.update()
-
+            kss = KSSingle(string=f.readline(), dtype=kssl.dtype)
+            kssl.append(kss)
+            kssl.npspins = max(kssl.npspins, kss.pspin + 1)
+        
         if fh is None:
             f.close()
+
+        kssl.update()
+        kssl.restrict.update(restrict_from_file)
+        if len(restrict):
+            kssl.restrict.update(restrict)
+            kssl.select()
+        
+        return kssl
 
     def update(self):
         istart = self[0].i
@@ -260,8 +258,7 @@ class KSSingles(ExcitationList):
                 npspins = 2
             if kss.spin == 1:
                 nvspins = 2
-        self.istart = istart
-        self.jend = jend
+        self.restrict.update({'istart': istart, 'jend': jend})
         self.npspins = npspins
         self.nvspins = nvspins
 
@@ -312,17 +309,13 @@ class KSSingles(ExcitationList):
             return
 
         if fh is None:
-            if filename.endswith('.gz') and mpi.rank == mpi.MASTER:
-                import gzip
-                f = gzip.open(filename, 'wt')
-            else:
-                f = paropen(filename, 'w')
+            f = get_filehandle(self, filename, mode='w')
         else:
             f = fh
 
         f.write('# KSSingles\n')
         f.write('{0} {1}\n'.format(len(self), np.dtype(self.dtype)))
-        f.write('{0}\n'.format(self.eps))
+        f.write(json.dumps(self.restrict.values) + '\n')
         for kss in self:
             f.write(kss.outstring())
         if fh is None:
@@ -355,11 +348,63 @@ class KSSingles(ExcitationList):
         return ov_pp
 
 
+class KSSRestrictor:
+    """Object to handle KSSingles restrictions"""
+    defaults = {'eps': 0.01,
+                'istart': 0,
+                'jend': sys.maxsize,
+                'energy_range': None}
+    
+    def __init__(self, dictionary={}):
+        self._vals = {}
+        self.update(dictionary)
+
+    def __getitem__(self, index):
+        assert index in self.defaults
+        return self._vals.get(index, self.defaults[index])
+    
+    def __setitem__(self, index, value):
+        assert index in self.defaults
+        self._vals[index] = value
+        
+    def update(self, dictionary):
+        for key, value in dictionary.items():
+            self[key] = value
+            
+    def emin_emax(self):
+        emin = -sys.float_info.max
+        emax = sys.float_info.max
+        if self['energy_range'] is not None:
+            try:
+                emin, emax = self['energy_range']
+                emin /= Hartree
+                emax /= Hartree
+            except TypeError:
+                emax = self['energy_range'] / Hartree
+        return emin, emax
+
+    def __ge__(self, other):
+        """am I less or equal restricting than the other?"""
+        emin, emax = self.emin_emax()
+        omin, omax = other.emin_emax()
+        res = (emin <= omin) & (emax >= omax)
+        
+        res &= self['istart'] <= other['istart']
+        res &= self['jend'] >= other['jend']
+        res &= self['eps'] < other['eps']
+
+        return res
+
+    @property
+    def values(self):
+        return dict(self._vals)
+
+    def __str__(self):
+        return str(self.values)
+
+
 class KSSingle(Excitation, PairDensity):
-
     """Single Kohn-Sham transition containing all it's indicees
-
-    ::
 
       pspin=physical spin
       spin=virtual  spin, i.e. spin in the ground state calc.
@@ -437,10 +482,10 @@ class KSSingle(Excitation, PairDensity):
                         # L=1:y L=2:z; L=3:x
                         ma1 += np.array([Delta_pL[ij, 3], Delta_pL[ij, 1],
                                          Delta_pL[ij, 2]]) * pij
-            ma += sqrt(4 * pi / 3) * ma1 + Ra * sqrt(4 * pi) * ma0
+            ma += np.sqrt(4 * np.pi / 3) * ma1 + Ra * np.sqrt(4 * np.pi) * ma0
         gd.comm.sum(ma)
 
-        self.me = sqrt(self.energy * self.fij) * (me + ma)
+        self.me = np.sqrt(self.energy * self.fij) * (me + ma)
         self.mur = - (me + ma)
 
         # velocity form .............................
@@ -578,7 +623,7 @@ class KSSingle(Excitation, PairDensity):
         self.energy = float(l.pop(0))
         self.fij = float(l.pop(0))
         self.mur = np.array([dtype(l.pop(0)) for i in range(3)])
-        self.me = - self.mur * sqrt(self.energy * self.fij)
+        self.me = - self.mur * np.sqrt(self.energy * self.fij)
         self.muv = self.magn = None
         if len(l):
             self.muv = np.array([dtype(l.pop(0)) for i in range(3)])

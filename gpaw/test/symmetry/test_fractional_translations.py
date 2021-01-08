@@ -16,7 +16,6 @@ def test_symmetry_fractional_translations(in_tmp_dir):
     atoms = crystal(['Si', 'O'], basis=[p0, p1],
                     spacegroup=136, cellpar=[a, a, c, 90, 90, 90])
 
-
     # with fractional translation
     calc = GPAW(mode=PW(),
                 xc='LDA',

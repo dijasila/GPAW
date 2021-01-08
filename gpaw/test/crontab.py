@@ -10,16 +10,17 @@ from pathlib import Path
 cmds = """\
 python3 -m venv venv
 . venv/bin/activate
-pip install -U pip
-pip install pytest
+pip install -U pip -qq
+pip install pytest sphinx-rtd-theme coverage
 pip install -q git+https://gitlab.com/ase/ase.git@master
 git clone git@gitlab.com:gpaw/gpaw
 cd gpaw
 pip install -e .
-pytest > test-1.out
-gpaw -P 2 python -m pytest > test-2.out
-gpaw -P 4 python -m pytest > test-4.out
-gpaw -P 8 python -m pytest > test-8.out"""
+coverage run -m pytest > test-1.out
+coverage html
+gpaw -P 2 python -m pytest -- -x > test-2.out
+gpaw -P 4 python -m pytest -- -x > test-4.out
+gpaw -P 8 python -m pytest -- -x > test-8.out"""
 
 
 def run_tests():

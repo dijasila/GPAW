@@ -11,7 +11,6 @@ pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
                                 reason='world.size != 1 and not compiled_with_sl()')
 
 
-
 def test_response_gw0_hBN(in_tmp_dir):
     atoms = bulk('BN', 'zincblende', a=3.615)
 

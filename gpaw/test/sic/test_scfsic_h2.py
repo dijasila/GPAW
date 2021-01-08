@@ -3,10 +3,12 @@ from gpaw import GPAW, restart
 
 from gpaw.test import equal
 
+
 def test_sic_scfsic_h2(in_tmp_dir):
     a = 6.0
     atom = Atoms('H', magmoms=[1.0], cell=(a, a, a))
-    molecule = Atoms('H2', positions=[(0, 0, 0), (0, 0, 0.737)], cell=(a, a, a))
+    molecule = Atoms('H2', positions=[
+                     (0, 0, 0), (0, 0, 0.737)], cell=(a, a, a))
     atom.center()
     molecule.center()
 

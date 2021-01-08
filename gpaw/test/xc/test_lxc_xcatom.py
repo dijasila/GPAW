@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
@@ -5,6 +6,7 @@ from gpaw.xc import XC
 from gpaw.test import equal, gen
 
 
+@pytest.mark.libxc
 def test_xc_lxc_xcatom(in_tmp_dir):
     if 1:
         setups = {}

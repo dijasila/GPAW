@@ -8,7 +8,6 @@ pytestmark = pytest.mark.skipif(not LibElpa.have_elpa(),
                                 reason='not LibElpa.have_elpa()')
 
 
-
 def test_lcao_lcao_elpa():
     size = (world.size // 2, 2) if world.size > 1 else (1, 1)
 

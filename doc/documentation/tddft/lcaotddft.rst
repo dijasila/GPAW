@@ -317,6 +317,7 @@ The ``update`` keyword in ``replay()`` has following options:
    even with splitted files.
 
 
+.. _ksdecomposition:
 
 Kohn--Sham decomposition of density matrix
 ------------------------------------------
@@ -514,25 +515,16 @@ References
 ==========
 
 .. [#Kuisma2015]
-   M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara,
-   L. Lehtovaara, and T. T. Rantala,
-   Localized surface plasmon resonance in silver nanoparticles:
-   Atomistic first-principles time-dependent density functional theory
-   calculations,
-   *Phys. Rev. B* **69**, 245419 (2004).
-   `doi:10.1103/PhysRevB.91.115431 <https://doi.org/10.1103/PhysRevB.91.115431>`_
+   | M. Kuisma, A. Sakko, T. P. Rossi, A. H. Larsen, J. Enkovaara, L. Lehtovaara, and T. T. Rantala,
+   | :doi:`Localized surface plasmon resonance in silver nanoparticles: Atomistic first-principles time-dependent density functional theory calculations <10.1103/PhysRevB.91.115431>`
+   | Phys. Rev. B **91**, 115431 (2015)
 
 .. [#Rossi2015]
-   T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
-   Nanoplasmonics simulations at the basis set limit
-   through completeness-optimized, local numerical basis sets,
-   *J. Chem. Phys.* **142**, 094114 (2015).
-   `doi:10.1063/1.4913739 <https://doi.org/10.1063/1.4913739>`_
+   | T. P. Rossi, S. Lehtola, A. Sakko, M. J. Puska, and R. M. Nieminen,
+   | :doi:`Nanoplasmonics simulations at the basis set limit through completeness-optimized, local numerical basis sets <10.1063/1.4913739>`
+   | J. Chem. Phys. **142**, 094114 (2015)
 
 .. [#Rossi2017]
-   T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
-   Kohn--Sham Decomposition in Real-Time Time-Dependent
-   Density-Functional Theory:
-   An Efficient Tool for Analyzing Plasmonic Excitations,
-   *J. Chem. Theory Comput.* **13**, 4779 (2017).
-   `doi:10.1021/acs.jctc.7b00589 <https://doi.org/10.1021/acs.jctc.7b00589>`_
+   | T. P. Rossi, M. Kuisma, M. J. Puska, R. M. Nieminen, and P. Erhart,
+   | :doi:`Kohn--Sham Decomposition in Real-Time Time-Dependent Density-Functional Theory: An Efficient Tool for Analyzing Plasmonic Excitations <10.1021/acs.jctc.7b00589>`
+   | J. Chem. Theory Comput. **13**, 4779 (2017)

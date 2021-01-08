@@ -4,6 +4,7 @@
 
 """Utility functions and classes."""
 
+import os
 import re
 import sys
 import time
@@ -12,17 +13,12 @@ from contextlib import contextmanager
 from typing import Union
 from pathlib import Path
 
-from ase.utils import devnull
 import numpy as np
 
 import _gpaw
 import gpaw.mpi as mpi
 from gpaw import debug
 
-
-erf = np.vectorize(_gpaw.erf, (float,), 'Error function')
-# XXX should we unify double and complex erf ???
-cerf = np.vectorize(_gpaw.cerf, (complex,), 'Complex error function')
 
 # Code will crash for setups without any projectors.  Setups that have
 # no projectors therefore receive a dummy projector as a hacky
@@ -177,6 +173,8 @@ def unpack(M):
 
 def unpack2(M):
     """Unpack 1D array to 2D, assuming a packing as in ``pack``."""
+    if M.ndim == 2:
+        return np.array([unpack2(m) for m in M])
     M2 = unpack(M)
     M2 *= 0.5  # divide all by 2
     M2.flat[0::len(M2) + 1] *= 2  # rescale diagonal to original size
@@ -340,8 +338,8 @@ def file_barrier(path: Union[str, Path], world=None):
     After the with-block all cores will be able to read the file.
 
     >>> with file_barrier('something.txt'):
-    ...     <write file>
-    ...
+    ...     result = 2 + 2
+    ...     Path('something.txt').write_text(f'{result}')  # doctest: +SKIP
 
     This will remove the file, write the file and wait for the file.
     """
@@ -360,3 +358,6 @@ def file_barrier(path: Union[str, Path], world=None):
     while not path.is_file():
         time.sleep(1.0)
     world.barrier()
+
+
+devnull = open(os.devnull, 'w')

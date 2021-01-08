@@ -26,18 +26,18 @@ spectrum in separate calculations::
 and::
 
   from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
-  lr = LrTDDFT(filename='excitations_Na2.gz')
+  lr = LrTDDFT.read('excitations_Na2.gz')
   photoabsorption_spectrum(lr, 'Na2_spectrum.dat', e_min=0.0, e_max=10)
 
 The number of electron-hole pairs used in the calculation can be controlled with
 ``istart`` and ``jend`` options of LrTDDFT::
 
-  LrTDDFT(calc, istart=0, jend=10)
+  LrTDDFT(calc, restrict={'istart':0, 'jend': 10})
 
 By default only singlet-singlet transitions are calculated, singlet-triplet
 transitions can be calculated by giving the ``nspins`` parameter::
 
-  LrTDDFT(calc, istart=0, jend=10, nspins=2)
+  LrTDDFT(calc, restrict={'istart': 0, 'jend': 10}, nspins=2)
 
 
 1. Check how the results vary with the number of unoccupied states in

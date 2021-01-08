@@ -39,19 +39,9 @@ def print_positions(atoms, log, magmom_av):
 
 
 def print_parallelization_details(wfs, ham, log):
-    nibzkpts = wfs.kd.nibzkpts
-
-    # Print parallelization details
-    log('Total number of cores used: %d' % wfs.world.size)
-    if wfs.kd.comm.size > 1:  # kpt/spin parallization
-        if wfs.nspins == 2 and nibzkpts == 1:
-            log('Parallelization over spin')
-        elif wfs.nspins == 2:
-            log('Parallelization over k-points and spin: %d' %
-                wfs.kd.comm.size)
-        else:
-            log('Parallelization over k-points: %d' %
-                wfs.kd.comm.size)
+    log('Total number of cores used:', wfs.world.size)
+    if wfs.kd.comm.size > 1:
+        log('Parallelization over k-points:', wfs.kd.comm.size)
 
     # Domain decomposition settings:
     coarsesize = tuple(wfs.gd.parsize_c)
@@ -62,7 +52,6 @@ def print_parallelization_details(wfs, ham, log):
     except AttributeError:
         xc_gd = ham.finegd
     xcsize = tuple(xc_gd.parsize_c)
-
 
     if any(np.prod(size) != 1 for size in [coarsesize, finesize, xcsize]):
         title = 'Domain decomposition:'

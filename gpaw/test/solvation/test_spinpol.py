@@ -27,7 +27,7 @@ def test_solvation_spinpol():
     epsinf = 80.
     T = 298.15
     vdw_radii[1] = 1.09
-    atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+    def atomic_radii(atoms): return [vdw_radii[n] for n in atoms.numbers]
 
     atoms = Cluster(molecule('CN'))
     atoms.minimal_box(vac, h)

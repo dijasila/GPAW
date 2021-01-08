@@ -1,10 +1,11 @@
-
+import pytest
 from ase import Atom
 from gpaw import GPAW
 from gpaw.cluster import Cluster
 from gpaw.test import equal
 
 
+@pytest.mark.mgga
 def test_mgga_mgga_restart(in_tmp_dir):
     fname = 'H2_PBE.gpw'
     fwfname = 'H2_wf_PBE.gpw'

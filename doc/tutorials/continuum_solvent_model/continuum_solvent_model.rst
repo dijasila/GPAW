@@ -136,17 +136,17 @@ References
 ==========
 
 .. [#HW14] A. Held and M. Walter,
-           `Simplified continuum solvent model with a smooth cavity based on volumetric data <http://dx.doi.org/10.1063/1.4900838>`_,
+           :doi:`Simplified continuum solvent model with a smooth cavity based on volumetric data <10.1063/1.4900838>`,
            *J. Chem. Phys.* **141**, 174108 (2014).
 
 .. [#SSS09] V. M. Sanchez, M. Sued and D. A. Scherlis,
-            `First-principles molecular dynamics simulations at solid-liquid interfaces with a continuum solvent <http://dx.doi.org/10.1063/1.3254385>`_,
+            :doi:`First-principles molecular dynamics simulations at solid-liquid interfaces with a continuum solvent <10.1063/1.3254385>`,
             *J. Chem. Phys.* **131** 174108 (2009).
 
 .. [#IBR98] W. Im, D. Beglov and B. Roux,
-            `Continuum solvation model: Computation of electrostatic forces from numerical solutions to the Poisson-Boltzmann equation <http://dx.doi.org/10.1016/S0010-4655(98)00016-2>`_,
+            :doi:`Continuum solvation model: Computation of electrostatic forces from numerical solutions to the Poisson-Boltzmann equation <10.1016/S0010-4655(98)00016-2>`,
             *Comput. Phys. Commun.* **111** 59 (1998).
 
 .. [#KCT06] C. P. Kelly, C. J. Cramer and D. G. Truhlar,
-            `Aqueous Solvation Free Energies of Ions and Ion-Water Clusters Based on an Accurate Value for the Absolute Aqueous Solvation Free Energy of the Proton <http://dx.doi.org/10.1021/jp063552y>`_,
+            :doi:`Aqueous Solvation Free Energies of Ions and Ion-Water Clusters Based on an Accurate Value for the Absolute Aqueous Solvation Free Energy of the Proton <10.1021/jp063552y>`,
             *J. Phys. Chem. B* **110** 16066 (2006)

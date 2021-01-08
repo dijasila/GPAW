@@ -4,6 +4,7 @@ import numpy as np
 
 # spin paired H2
 
+
 def test_xc_pplda():
     d = 0.75
     h2 = Atoms('H2', [[0, 0, 0], [0, 0, d]])
@@ -24,7 +25,6 @@ def test_xc_pplda():
     print(f[0], f[1], np.sum(np.abs(f[0] - f[1])))
     assert np.abs(e[0] - e[1]) < 1.e-8
     assert np.sum(np.abs(f[0] - f[1])) < 1.e-8
-
 
     # spin polarized O2
     d = 1.2

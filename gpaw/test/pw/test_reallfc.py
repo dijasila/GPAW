@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from gpaw.test import equal
 from gpaw.fftw import FFTPlan
@@ -8,7 +9,7 @@ import gpaw.mpi as mpi
 from gpaw.wavefunctions.pw import PWDescriptor, PWLFC
 
 
-
+@pytest.mark.ci
 def test_pw_reallfc():
     x = 2.0
     rc = 3.5

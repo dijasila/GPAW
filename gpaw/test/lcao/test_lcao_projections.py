@@ -19,7 +19,6 @@ def test_lcao_lcao_projections():
     V_qnM, H_qMM, S_qMM, P_aqMi = get_lcao_projections_HSP(
         calc, bfs=None, spin=0, projectionsonly=False)
 
-
     # Test H and S
     eig = sorted(np.linalg.eigvals(np.linalg.solve(S_qMM[0], H_qMM[0])).real)
     eig_ref = np.array([-17.879394403125634, -13.248793622886552,

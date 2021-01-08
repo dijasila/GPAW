@@ -6,11 +6,10 @@ from gpaw import GPAW
 from gpaw.wavefunctions.pw import PW
 from gpaw.xc.fxc import FXCCorrelation
 from gpaw.test import equal
-from gpaw.mpi import world
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
-
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_ralda_ralda_energy_H2(in_tmp_dir):
@@ -22,7 +21,7 @@ def test_ralda_ralda_energy_H2(in_tmp_dir):
         scalapack2 = None
     else:
         scalapack1 = (2, world.size // 2, 32)
-        scalapack2 = (2, world.size // 4, 32)
+        scalapack2 = (2, world.size // 2, 32)
 
     # H2
     H2 = Atoms('H2', [(0, 0, 0), (0, 0, 0.7413)])

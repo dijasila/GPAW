@@ -8,7 +8,7 @@ from ase.io import read
 
 def do(freq):
     # Read cube file
-    cube = read('ind_%.2f.cube' % freq, full_output=True)
+    cube = read(f'ind_{freq:.2f}.cube', full_output=True)
     d_g = cube['data']
     atoms = cube['atoms']
     box = np.diag(atoms.get_cell())
@@ -40,9 +40,9 @@ def do(freq):
     plt.ylim([y[0], y[-1]])
     ax.set_aspect('equal')
 
-    plt.title('Induced density of Na8 at %.2f eV' % freq)
+    plt.title(f'Induced density of Na8 at {freq:.2f} eV')
     plt.tight_layout()
-    plt.savefig('ind_%.2f.png' % freq)
+    plt.savefig(f'ind_{freq:.2f}.png')
 
 
 do(1.12)

@@ -6,18 +6,20 @@ from gpaw.helmholtz import HelmholtzSolver, ScreenedPoissonGaussian
 
 # Initialize classes
 
+
 def test_poisson_screened_poisson():
-    a = 20 # Size of cell
-    inv_width = 31 # inverse width of the gaussian
-    N = 48 # Number of grid points
-    coupling = -0.4 # dampening
+    a = 20  # Size of cell
+    inv_width = 31  # inverse width of the gaussian
+    N = 48  # Number of grid points
+    coupling = -0.4  # dampening
     Nc = (N, N, N)                # Number of grid points along each axis
-    gd = GridDescriptor(Nc, (a,a,a), 0)    # Grid-descriptor object
+    gd = GridDescriptor(Nc, (a, a, a), 0)    # Grid-descriptor object
     solver = HelmholtzSolver(k2=coupling, nn=3)  # Numerical poisson solver
     # solver = PoissonSolver(nn=3)  # Numerical poisson solver
     # solver = HelmholtzSolver(0.16)  # Numerical poisson solver
     solver.set_grid_descriptor(gd)
-    xyz, r2 = coordinates(gd)     # Matrix with the square of the radial coordinate
+    # Matrix with the square of the radial coordinate
+    xyz, r2 = coordinates(gd)
     gauss = Gaussian(gd, a=inv_width)          # An instance of Gaussian
     test_screened_poisson = ScreenedPoissonGaussian(gd, a=inv_width)
 

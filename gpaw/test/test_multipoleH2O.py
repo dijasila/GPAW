@@ -30,9 +30,9 @@ def test_multipoleH2O(in_tmp_dir):
         calc.write(gpwname)
 
     dipole_c = calc.get_dipole_moment()
-    parprint('Dipole', dipole_c) 
+    parprint('Dipole', dipole_c)
 
-    center = np.array([1,1,1]) * 50.
+    center = np.array([1, 1, 1]) * 50.
     mp = Multipole(center, calc, lmax=2)
     q_L = mp.expand(-calc.density.rhot_g)
     parprint('Multipole', q_L)

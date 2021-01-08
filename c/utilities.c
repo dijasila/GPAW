@@ -433,16 +433,6 @@ PyObject* utilities_gaussian_wave(PyObject *self, PyObject *args)
 }
 
 
-PyObject* errorfunction(PyObject *self, PyObject *args)
-{
-  double x;
-  if (!PyArg_ParseTuple(args, "d", &x))
-    return NULL;
-
-  return Py_BuildValue("d", erf(x));
-}
-
-
 PyObject* pack(PyObject *self, PyObject *args)
 {
     PyArrayObject* a_obj;

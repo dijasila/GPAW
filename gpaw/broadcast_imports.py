@@ -106,7 +106,7 @@ class BroadcastImporter:
                 return None
 
             if spec.loader is None:
-                raise ImportError
+                return None
 
             code = spec.loader.get_code(fullname)
             if code is None:  # C extensions

@@ -1,10 +1,11 @@
+import pytest
 import numpy as np
 import numpy.random as ra
 from gpaw.setup import create_setup
 from gpaw.xc import XC
 
 
-
+@pytest.mark.ci
 def test_radial_integral4():
     x = 0.000001
     ra.seed(8)

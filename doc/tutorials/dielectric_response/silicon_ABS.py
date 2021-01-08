@@ -24,9 +24,9 @@ atoms.calc = calc
 atoms.get_potential_energy()  # get ground state density
 
 # Restart Calculation with fixed density and dense kpoint sampling
-calc.set(kpts={'density': 15.0, 'gamma': False},  # dense kpoint sampling
-         fixdensity=True)
-atoms.get_potential_energy()
+calc = calc.fixed_density(
+    kpts={'density': 15.0, 'gamma': False})  # dense kpoint sampling
+
 calc.diagonalize_full_hamiltonian(nbands=70)  # diagonalize Hamiltonian
 calc.write('si_large.gpw', 'all')  # write wavefunctions
 
@@ -53,9 +53,9 @@ epsrefLF = 12.66  # from [1] in top
 
 with paropen('mac_eps.csv', 'w') as f:
     print(' , Without LFE, With LFE', file=f)
-    print('%s, %.6f, %.6f' % ('GPAW-linear response', epsNLF, epsLF), file=f)
-    print('%s, %.6f, %.6f' % ('[1]', epsrefNLF, epsrefLF), file=f)
-    print('%s, %.6f, %.6f' % ('Exp.', 11.90, 11.90), file=f)
+    print(f"{'GPAW-linear response'}, {epsNLF:.6f}, {epsLF:.6f}", file=f)
+    print(f"{'[1]'}, {epsrefNLF:.6f}, {epsrefLF:.6f}", file=f)
+    print(f"{'Exp.'}, {11.9:.6f}, {11.9:.6f}", file=f)
 
 if world.rank == 0:
     Path('si_large.gpw').unlink()

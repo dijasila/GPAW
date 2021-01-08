@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (C) 2003-2016  CAMP
+# Copyright (C) 2003-2020  CAMP
 # Please see the accompanying LICENSE file for further information.
 
 import distutils.util
@@ -59,6 +59,7 @@ mpi_define_macros = []
 parallel_python_interpreter = False
 compiler = None
 noblas = False
+nolibxc = False
 fftw = False
 scalapack = False
 libvdwxc = False
@@ -135,6 +136,7 @@ if compiler is not None:
             vars[key] = ' '.join(value)
 
 for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
+                   (nolibxc, 'GPAW_WITHOUT_LIBXC'),
                    (fftw, 'GPAW_WITH_FFTW'),
                    (scalapack, 'GPAW_WITH_SL'),
                    (libvdwxc, 'GPAW_WITH_LIBVDWXC'),
@@ -145,11 +147,20 @@ for flag, name in [(noblas, 'GPAW_WITHOUT_BLAS'),
 sources = [Path('c/bmgs/bmgs.c')]
 sources += Path('c').glob('*.c')
 sources += Path('c/xc').glob('*.c')
+if nolibxc:
+    for name in ['libxc.c', 'm06l.c',
+                 'tpss.c', 'revtpss.c', 'revtpss_c_pbe.c',
+                 'xc_mgga.c']:
+        sources.remove(Path(f'c/xc/{name}'))
 # Make build process deterministic (for "reproducible build")
 sources = [str(source) for source in sources]
 sources.sort()
 
 check_dependencies(sources)
+
+# Convert Path objects to str:
+library_dirs = [str(dir) for dir in library_dirs]
+include_dirs = [str(dir) for dir in include_dirs]
 
 extensions = [Extension('_gpaw',
                         sources,
@@ -215,7 +226,7 @@ class develop(_develop):
 
 
 files = ['gpaw-analyse-basis', 'gpaw-basis',
-         'gpaw-mpisim', 'gpaw-plot-parallel-timings', 'gpaw-runscript',
+         'gpaw-plot-parallel-timings', 'gpaw-runscript',
          'gpaw-setup', 'gpaw-upfplot']
 scripts = [str(Path('tools') / script) for script in files]
 
@@ -232,7 +243,7 @@ setup(name='gpaw',
       packages=find_packages(),
       entry_points={'console_scripts': ['gpaw = gpaw.cli.main:main']},
       setup_requires=['numpy'],
-      install_requires=['ase>=3.18.0'],
+      install_requires=['ase>=3.20.1'],
       ext_modules=extensions,
       scripts=scripts,
       cmdclass={'build_ext': build_ext,
@@ -247,4 +258,5 @@ setup(name='gpaw',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
+          'Programming Language :: Python :: 3.9',
           'Topic :: Scientific/Engineering :: Physics'])

@@ -1,7 +1,6 @@
 import sys
 
 
-
 def test_stdout():
     class Out:
         def write(self, x):

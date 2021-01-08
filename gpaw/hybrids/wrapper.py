@@ -1,4 +1,4 @@
-from typing import Tuple, Union, Dict
+from typing import Tuple, Dict
 
 import numpy as np
 
@@ -15,23 +15,29 @@ class HybridXC:
     type = 'HYB'
 
     def __init__(self,
-                 kind: Union[str, Tuple[str, float, float]]):
+                 xcname: str,
+                 fraction: float = None,
+                 omega: float = None):
         from . import parse_name
-        if isinstance(kind, str):
-            self.name = kind
-            xcname, exx_fraction, omega = parse_name(kind)
+        if xcname in ['EXX', 'PBE0', 'HSE03', 'HSE06', 'B3LYP']:
+            if fraction is not None or omega is not None:
+                raise ValueError
+            self.name = xcname
+            xcname, fraction, omega = parse_name(xcname)
         else:
-            xcname, exx_fraction, omega = kind
+            if fraction is None or omega is None:
+                raise ValueError
+            self.name = f'{xcname}-{fraction:.3f}-{omega:.3f}'
 
         self.xc = XC(xcname)
-        self.exx_fraction = exx_fraction
+        self.exx_fraction = fraction
         self.omega = omega
 
         if xcname == 'null':
             self.description = ''
         else:
             self.description = f'{xcname} + '
-        self.description += f'{exx_fraction} * EXX(omega = {omega} bohr^-1)'
+        self.description += f'{fraction} * EXX(omega = {omega} bohr^-1)'
 
         self.vlda_sR = None
         self.v_sknG: Dict[Tuple[int, int], np.ndarray] = {}
@@ -47,7 +53,7 @@ class HybridXC:
     def get_setup_name(self):
         return 'PBE'
 
-    def initialize(self, dens, ham, wfs, occupations):
+    def initialize(self, dens, ham, wfs):
         self.dens = dens
         self.wfs = wfs
         self.ecc = sum(setup.ExxC for setup in wfs.setups) * self.exx_fraction
