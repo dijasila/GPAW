@@ -228,7 +228,7 @@ static void mpi_ensure_initialized(void)
     if (!already_initialized)
     {
         // if not, let's initialize it
-#ifdef _OPENMP
+#ifndef _OPENMP
         ierr = MPI_Init(NULL, NULL);
         if (ierr == MPI_SUCCESS)
         {
@@ -243,7 +243,6 @@ static void mpi_ensure_initialized(void)
             MPI_Error_string(ierr, err, &resultlen);
             PyErr_SetString(PyExc_RuntimeError, err);
         }
-    }
 #else
         int granted;
         ierr = MPI_Init_thread(NULL, NULL, MPI_THREAD_MULTIPLE, &granted);
@@ -266,9 +265,8 @@ static void mpi_ensure_initialized(void)
             MPI_Error_string(ierr, err, &resultlen);
             PyErr_SetString(PyExc_RuntimeError, err);
         }
-
-    }
 #endif
+    }
 }
 
 
