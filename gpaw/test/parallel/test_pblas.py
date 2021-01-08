@@ -71,7 +71,7 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     Z0 = globZ.zeros(dtype=dtype)
     S0 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U0 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
-    HEC0 = globB.zeros(dtype=dtype)
+    HEC0 = globB.empty(dtype=dtype)
     SYC0 = globB.empty(dtype=dtype)
 
     # Local reference matrix product:
@@ -114,7 +114,6 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     distD = grid.new_descriptor(M, K, 2, 3)
     distS = grid.new_descriptor(M, M, 2, 2)
     distU = grid.new_descriptor(M, M, 2, 2)
-    distHE = grid.new_descriptor(K, K, 2, 4)
 
     # Distributed matrices:
     A = distA.empty(dtype=dtype)
@@ -127,30 +126,30 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     S = distS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U = distU.zeros(dtype=dtype)  # zeros needed for rank-updates
     HEC = distB.zeros(dtype=dtype)
-    HEA = distHE.zeros(dtype=dtype)
+    HEA = distZ.empty(dtype=dtype)
     SYC = distB.zeros(dtype=dtype)
-    SYA = distHE.empty(dtype=dtype)
+    SYA = distZ.empty(dtype=dtype)
     Redistributor(world, globA, distA).redistribute(A0, A)
     Redistributor(world, globB, distB).redistribute(B0, B)
     Redistributor(world, globX, distX).redistribute(X0, X)
     Redistributor(world, globD, distD).redistribute(D0, D)
-    Redistributor(world, globZ, distHE).redistribute(HEA0, HEA)
-    Redistributor(world, globZ, distHE).redistribute(SYA0, SYA)
+    Redistributor(world, globZ, distZ).redistribute(HEA0, HEA)
+    Redistributor(world, globZ, distZ).redistribute(SYA0, SYA)
 
     pblas_simple_gemm(distA, distB, distC, A, B, C)
     pblas_simple_gemm(distA, distA, distZ, A, A, Z, transa='T')
     pblas_simple_gemv(distA, distX, distY, A, X, Y)
     pblas_simple_r2k(distA, distD, distS, A, D, S)
     pblas_simple_rk(distA, distU, A, U)
-    pblas_simple_hemm(distHE, distB, distB, HEA, B, HEC, uplo='L', side='L')
-    pblas_simple_symm(distHE, distB, distB, SYA, B, SYC, uplo='L', side='L')
+    pblas_simple_hemm(distZ, distB, distB, HEA, B, HEC, uplo='L', side='L')
+    pblas_simple_symm(distZ, distB, distB, SYA, B, SYC, uplo='L', side='L')
 
     # Collect result back on master
     C1 = globC.empty(dtype=dtype)
     Y1 = globY.empty(dtype=dtype)
     S1 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U1 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
-    HEC1 = globB.zeros(dtype=dtype)
+    HEC1 = globB.empty(dtype=dtype)
     SYC1 = globB.empty(dtype=dtype)
     Redistributor(world, distC, globC).redistribute(C, C1)
     Redistributor(world, distY, globY).redistribute(Y, Y1)
