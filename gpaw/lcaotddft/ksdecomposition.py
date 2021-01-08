@@ -346,7 +346,7 @@ class KohnShamDecomposition(object):
             pblas_simple_gemm(self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
                               self.ksl.mmdescriptor,
-                              tmp_nM, C0S_nM.conj(), rho_nn, transb='T')
+                              tmp_nM, C0S_nM, rho_nn, transb='C')
         else:
             rho_nn = np.dot(np.dot(C0S_nM, rho_MM), C0S_nM.T.conj())
 
