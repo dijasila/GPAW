@@ -1,8 +1,11 @@
+from functools import wraps
 import numpy as np
 import pytest
+
 from ase.build import molecule
 
 from gpaw import GPAW
+from gpaw.mpi import world, serial_comm
 from gpaw.poisson import PoissonSolver
 from gpaw.lcaotddft import LCAOTDDFT
 from gpaw.lcaotddft.dipolemomentwriter import DipoleMomentWriter
@@ -12,8 +15,18 @@ from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
 from gpaw.tddft.folding import frequencies
 from gpaw.tddft.units import au_to_eV, eV_to_au
 from gpaw.tddft.spectrum import photoabsorption_spectrum
-from gpaw.mpi import world
 from gpaw.utilities import compiled_with_sl
+
+
+def only_on_master(comm):
+    def wrap(func):
+        @wraps(func)
+        def wrapped_func(*args, **kwargs):
+            if comm.rank == 0:
+                func(*args, **kwargs)
+            comm.barrier()
+        return wrapped_func
+    return wrap
 
 
 # Generate different parallelization options
@@ -37,6 +50,7 @@ freq_w = np.arange(e_min, e_max + 0.5 * delta_e, delta_e)
 
 
 @pytest.fixture
+@only_on_master(world)
 def calculate_system(in_tmp_dir):
     # Atoms
     atoms = molecule('NaCl')
@@ -50,6 +64,7 @@ def calculate_system(in_tmp_dir):
                 mode='lcao',
                 poissonsolver=PoissonSolver(eps=1e-16),
                 convergence={'density': 1e-8},
+                communicator=serial_comm,
                 txt='gs.out')
     atoms.calc = calc
     atoms.get_potential_energy()
@@ -57,7 +72,9 @@ def calculate_system(in_tmp_dir):
 
     # Time-propagation calculation
     width = 0.1
-    td_calc = LCAOTDDFT('gs.gpw', txt='td.out')
+    td_calc = LCAOTDDFT('gs.gpw',
+                        communicator=serial_comm,
+                        txt='td.out')
     dmat = DensityMatrix(td_calc)
     ffreqs = frequencies(freq_w, 'Gauss', width)
     fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
@@ -71,9 +88,10 @@ def calculate_system(in_tmp_dir):
                              delta_e=delta_e, width=width)
 
     # Calculate ground state with full unoccupied space
-    calc = GPAW('gs.gpw', txt=None).fixed_density(
-        nbands='nao', txt='unocc.out')
-    calc.write('unocc.gpw', mode='all')
+    unocc_calc = calc.fixed_density(nbands='nao',
+                                    communicator=serial_comm,
+                                    txt='unocc.out')
+    unocc_calc.write('unocc.gpw', mode='all')
 
 
 @pytest.fixture(params=parallel_i)
