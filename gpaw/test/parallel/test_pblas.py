@@ -27,7 +27,9 @@ pytestmark = pytest.mark.skipif(
 tol = 4.0e-13
 
 
-def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_parallel_pblas(dtype, M=160, N=120, K=140, seed=42,
+                        mprocs=2, nprocs=2):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
 
@@ -192,8 +194,3 @@ def main(M=160, N=120, K=140, seed=42, mprocs=2, nprocs=2, dtype=float):
     equal(rk_err, 0, tol)
     equal(hemm_err, 0, tol)
     equal(symm_err, 0, tol)
-
-
-def test_parallel_pblas():
-    main(dtype=float)
-    main(dtype=complex)
