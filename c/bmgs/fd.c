@@ -3,8 +3,8 @@
 
  *  Please see the accompanying LICENSE file for further information. */
 
-#include "bmgs.h"
 #include "../extensions.h"
+#include "bmgs.h"
 
 void
 Z(bmgs_fd)(const bmgsstencil* s, const T* a, T* b)

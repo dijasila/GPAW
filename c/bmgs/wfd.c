@@ -4,20 +4,8 @@
  *  Copyright (C) 2003-2007  CAMP
  *  Please see the accompanying LICENSE file for further information. */
 
-#include "bmgs.h"
-#include <pthread.h>
 #include "../extensions.h"
-
-struct Z(wfds){
-  int thread_id;
-  int nthds;
-  int nweights;
-  const bmgsstencil* s;
-  const double** w;
-  const T* a;
-  T* b;
-};
-
+#include "bmgs.h"
 
 void Z(bmgs_wfd)(int nweights, const bmgsstencil* stencils, const double** weights, const T* a, T* b)
 {
