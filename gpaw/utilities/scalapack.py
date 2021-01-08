@@ -356,11 +356,21 @@ def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
                      desca.asarray(), descc.asarray())
 
 
-def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
-               side='L', uplo='L'):
-    # Hermitean matrix multiply, only lower or upper diagonal of a_MK
-    # is used. By default, C = beta*C + alpha*A*B
-    # Executes PBLAS method pzhemm for complex and pdsymm for real matrices.
+def _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+                     side, uplo, hemm):
+    """Hermitian or symmetric matrix-matrix product.
+
+    Do not call this function directly but
+    use :func:`pblas_hemm` or :func:`pblas_symm` instead.
+
+    Only lower or upper diagonal of a_MK is used.
+    By default, C = beta*C + alpha*A*B.
+
+    This function executes the following PBLAS routine:
+    * pzhemm if matrices are complex and hemm == True
+    * pzsymm if matrices are complex and hemm == False
+    * pdsymm if matrices are real
+    """
     desca.checkassert(a_MK)
     descb.checkassert(b_KN)
     descc.checkassert(c_MN)
@@ -377,9 +387,42 @@ def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     if side == 'R':
         M, N = N, M
 
-    _gpaw.pblas_hemm(fortran_side[side], fortran_uplo[uplo],
-                     N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
-                     desca.asarray(), descb.asarray(), descc.asarray())
+    _gpaw.pblas_hemm_symm(fortran_side[side], fortran_uplo[uplo],
+                          N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
+                          desca.asarray(), descb.asarray(), descc.asarray(),
+                          hemm)
+
+
+def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+               side='L', uplo='L'):
+    """Hermitian matrix-matrix product.
+
+    Only lower or upper diagonal of a_MK is used.
+    By default, C = beta*C + alpha*A*B.
+
+    This function executes the following PBLAS routine:
+    * pzhemm if matrices are complex
+    * pdsymm if matrices are real
+    """
+    return _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN,
+                            desca, descb, descc,
+                            side, uplo, hemm=True)
+
+
+def pblas_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+               side='L', uplo='L'):
+    """Symmetric matrix-matrix product.
+
+    Only lower or upper diagonal of a_MK is used.
+    By default, C = beta*C + alpha*A*B.
+
+    This function executes the following PBLAS routine:
+    * pzsymm if matrices are complex
+    * pdsymm if matrices are real
+    """
+    return _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN,
+                            desca, descb, descc,
+                            side, uplo, hemm=False)
 
 
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
@@ -450,6 +493,13 @@ def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN,
     alpha = 1.0
     beta = 0.0
     pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
+
+
+def pblas_simple_symm(desca, descb, descc, a_MK, b_KN, c_MN,
+                      side='L', uplo='L'):
+    alpha = 1.0
+    beta = 0.0
+    pblas_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
 
 
 def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
