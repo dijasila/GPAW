@@ -57,9 +57,9 @@ class Scissors(DirectLCAO):
             D_MM = np.zeros_like(S_MM)
             D_MM[M1:M2, M1:M2] = S_MM[M1:M2, M1:M2]
 
-            H_MM += iC_Mn @ (
+            H_MM += iC_Mn.conj() @ (
                 Co_nM.conj() @ D_MM @ Co_nM.T * homo +
-                Cu_nM.conj() @ D_MM @ Cu_nM.T * lumo) @ iC_Mn.T.conj()
+                Cu_nM.conj() @ D_MM @ Cu_nM.T * lumo) @ iC_Mn.T
 
             a1 = a2
             M1 = M2
