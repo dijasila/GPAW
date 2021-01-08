@@ -17,6 +17,7 @@ http://www.netlib.org/scalapack
 import _gpaw
 
 switch_lu = {'U': 'L', 'L': 'U'}
+switch_lr = {'L': 'R', 'R': 'L'}
 
 
 def scalapack_tri2full(desc, array):
@@ -379,15 +380,11 @@ def _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     Kb, N = descb.gshape
     if side == 'R':
         Kb, N = N, Kb
+        M, N = N, M
 
     if not desca.blacsgrid.is_active():
         return
-    fortran_side = {'L': 'R', 'R': 'L'}
-    fortran_uplo = {'U': 'L', 'L': 'U'}
-    if side == 'R':
-        M, N = N, M
-
-    _gpaw.pblas_hemm_symm(fortran_side[side], fortran_uplo[uplo],
+    _gpaw.pblas_hemm_symm(switch_lr[side], switch_lu[uplo],
                           N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
                           desca.asarray(), descb.asarray(), descc.asarray(),
                           hemm)
