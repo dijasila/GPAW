@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from ase.build import molecule
 
 from gpaw import GPAW
@@ -9,16 +10,35 @@ from gpaw.lcaotddft.densitymatrix import DensityMatrix
 from gpaw.lcaotddft.frequencydensitymatrix import FrequencyDensityMatrix
 from gpaw.lcaotddft.ksdecomposition import KohnShamDecomposition
 from gpaw.tddft.folding import frequencies
-from gpaw.tddft.units import au_to_eV
+from gpaw.tddft.units import au_to_eV, eV_to_au
 from gpaw.tddft.spectrum import photoabsorption_spectrum
 from gpaw.mpi import world
 from gpaw.test import equal
+from gpaw.utilities import compiled_with_sl
 
 
-def test_lcaotddft_ksdecomp(in_tmp_dir):
-    def relative_equal(x, y, *args, **kwargs):
-        return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
+# Generate different parallelization options
+parallel_i = [{}]
+if compiled_with_sl():
+    if world.size == 1:
+        # Choose BLACS grid manually as the one given by sl_auto
+        # doesn't work well for the small test system and 1 process
+        parallel_i.append({'sl_default': (1, 1, 8)})
+    else:
+        parallel_i.append({'sl_auto': True})
+        parallel_i.append({'sl_auto': True, 'band': 2})
 
+
+# Options used in the fixtures and tests
+kick_v = np.ones(3) * 1e-5
+e_min = 0.1
+e_max = 30.0
+delta_e = 5.0
+freq_w = np.arange(e_min, e_max + 0.5 * delta_e, delta_e)
+
+
+@pytest.fixture
+def calculate_system(in_tmp_dir):
     # Atoms
     atoms = molecule('NaCl')
     atoms.center(vacuum=4.0)
@@ -37,66 +57,88 @@ def test_lcaotddft_ksdecomp(in_tmp_dir):
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation
+    width = 0.1
     td_calc = LCAOTDDFT('gs.gpw', txt='td.out')
     dmat = DensityMatrix(td_calc)
-    freqs = frequencies(range(0, 31, 5), 'Gauss', 0.1)
-    fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=freqs)
+    ffreqs = frequencies(freq_w, 'Gauss', width)
+    fdm = FrequencyDensityMatrix(td_calc, dmat, frequencies=ffreqs)
     DipoleMomentWriter(td_calc, 'dm.dat')
-    kick_v = np.ones(3) * 1e-5
     td_calc.absorption_kick(kick_v)
     td_calc.propagate(20, 3)
     fdm.write('fdm.ulm')
 
     # Calculate reference spectrum
-    photoabsorption_spectrum('dm.dat', 'spec.dat', delta_e=5, width=0.1)
-    world.barrier()
-    ref_wv = np.loadtxt('spec.dat')[:, 1:]
+    photoabsorption_spectrum('dm.dat', 'spec.dat', e_min=e_min, e_max=e_max,
+                             delta_e=delta_e, width=width)
 
     # Calculate ground state with full unoccupied space
     calc = GPAW('gs.gpw', txt=None).fixed_density(
         nbands='nao', txt='unocc.out')
     calc.write('unocc.gpw', mode='all')
 
-    # Construct KS electron-hole basis
+
+@pytest.fixture(params=parallel_i)
+def build_ksdecomp(calculate_system, in_tmp_dir, request):
+    # Construct KS decomposition with the parallelization options
+    calc = GPAW('unocc.gpw', parallel=request.param, txt=None)
     ksd = KohnShamDecomposition(calc)
     ksd.initialize(calc)
     ksd.write('ksd.ulm')
 
-    # Load the objects
-    calc = GPAW('unocc.gpw', txt=None)
+
+@pytest.fixture(params=parallel_i)
+def load_ksdecomp(build_ksdecomp, in_tmp_dir, request):
+    # Load KS decomposition with the parallelization options
+    calc = GPAW('unocc.gpw', parallel=request.param, txt=None)
+    using_blacs = calc.wfs.ksl.using_blacs
     calc.initialize_positions()  # Initialize in order to calculate density
     ksd = KohnShamDecomposition(calc, 'ksd.ulm')
     dmat = DensityMatrix(calc)
     fdm = FrequencyDensityMatrix(calc, dmat, 'fdm.ulm')
+    return using_blacs, calc, ksd, dmat, fdm
 
-    for w in range(1, len(fdm.freq_w)):
+
+def test_ksdecomp(calculate_system, load_ksdecomp, in_tmp_dir):
+    def relative_equal(x, y, *args, **kwargs):
+        return equal(np.zeros_like(x), (x - y) / x, *args, **kwargs)
+
+    using_blacs, calc, ksd, dmat, fdm = load_ksdecomp
+
+    # Read the reference values
+    ref_wv = np.loadtxt('spec.dat')[:, 1:]
+
+    for w in range(len(freq_w)):
         rho_uMM = fdm.FReDrho_wuMM[w]
         rho_uMM = [rho_uMM[0] * kick_v[0] / np.sum(kick_v**2)]
-        freq = fdm.freq_w[w]
-
-        # Calculate dipole moment from density matrix
-        rho_g = dmat.get_density([rho_uMM[0].imag])
-        dm_v = dmat.density.finegd.calculate_dipole_moment(rho_g)
-        spec_v = 2 * freq.freq / np.pi * dm_v / au_to_eV
-
-        tol = 2e-3
-        relative_equal(ref_wv[w], spec_v, tol)
+        freq = freq_w[w] * eV_to_au
 
         # KS transformation
         rho_up = ksd.transform(rho_uMM, broadcast=True)
 
-        # Calculate dipole moment from induced density
-        rho_g = ksd.get_density(calc.wfs, [rho_up[0].imag])
-        dm_v = ksd.density.finegd.calculate_dipole_moment(rho_g)
-        spec_v = 2 * freq.freq / np.pi * dm_v / au_to_eV
+        # Calculate dipole moment from matrix elements
+        dmrho_vp = ksd.get_dipole_moment_contributions(rho_up)
+        spec_vp = 2 * freq / np.pi * dmrho_vp.imag / au_to_eV
+        spec_v = np.sum(spec_vp, axis=1)
 
         tol = 2e-3
         relative_equal(ref_wv[w], spec_v, tol)
 
-        # Calculate dipole moment from matrix elements
-        dmrho_vp = ksd.get_dipole_moment_contributions(rho_up)
-        spec_vp = 2 * freq.freq / np.pi * dmrho_vp.imag / au_to_eV
-        spec_v = np.sum(spec_vp, axis=1)
+        # The remaining operations do not support scalapack
+        if using_blacs:
+            continue
+
+        # Calculate dipole moment from density matrix
+        rho_g = dmat.get_density([rho_uMM[0].imag])
+        dm_v = dmat.density.finegd.calculate_dipole_moment(rho_g)
+        spec_v = 2 * freq / np.pi * dm_v / au_to_eV
+
+        tol = 2e-3
+        relative_equal(ref_wv[w], spec_v, tol)
+
+        # Calculate dipole moment from induced density
+        rho_g = ksd.get_density(calc.wfs, [rho_up[0].imag])
+        dm_v = ksd.density.finegd.calculate_dipole_moment(rho_g)
+        spec_v = 2 * freq / np.pi * dm_v / au_to_eV
 
         tol = 2e-3
         relative_equal(ref_wv[w], spec_v, tol)
