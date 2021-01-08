@@ -201,7 +201,6 @@ static PyMethodDef functions[] = {
     {"LFC", NewLFCObject, METH_VARARGS, 0},
     {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
     {"get_num_threads", get_num_threads, METH_VARARGS, 0},
-    {"get_num_threads", get_num_threads, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
