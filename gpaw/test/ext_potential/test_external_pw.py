@@ -8,14 +8,13 @@ from gpaw.external import ConstantPotential
 
 
 def test_ext_potential_external_pw():
-    cp = ConstantPotential()
+    ConstantPotential()
 
     sc = 2.9
     R = 0.7  # approx. experimental bond length
     R = 1.0
     a = 2 * sc
     c = 3 * sc
-    at = 'H'
     H2 = Atoms('HH', [(a / 2, a / 2, (c - R) / 2),
                       (a / 2, a / 2, (c + R) / 2)],
                cell=(a, a, c),
@@ -35,7 +34,7 @@ def test_ext_potential_external_pw():
                    convergence=convergence,
                    txt=txt)
         c00.calculate(H2)
-        eps00_n = c00.get_eigenvalues()
+        c00.get_eigenvalues()
 
     # 0 potential
     if True:

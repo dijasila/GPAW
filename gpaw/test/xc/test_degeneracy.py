@@ -21,7 +21,6 @@ def test_xc_degeneracy():
     calc = GPAW(h=0.25, nbands=4, convergence={'eigenstates': 7.8e-10})
     atoms.calc = calc
     energy = atoms.get_potential_energy()
-    niter = calc.get_number_of_iterations()
 
     # The three eigenvalues e[1], e[2], and e[3] must be degenerate:
     e = calc.get_eigenvalues()
@@ -29,7 +28,6 @@ def test_xc_degeneracy():
     equal(e[1], e[3], 9.3e-8)
 
     energy_tolerance = 0.002
-    niter_tolerance = 0
     equal(energy, -23.631, energy_tolerance)
 
     # Calculate non-selfconsistent PBE eigenvalues:

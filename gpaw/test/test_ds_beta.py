@@ -10,7 +10,6 @@ from gpaw.pes.ds_beta import CrossSectionBeta
 
 
 def test_ds_beta(in_tmp_dir):
-    xc = 'PBE'
     ngauss = 2
 
     h = .3
@@ -29,7 +28,6 @@ def test_ds_beta(in_tmp_dir):
         c.converge_wave_functions()
     cm = s.get_center_of_mass()
     Ekin = 1.
-    ekin = Ekin / Ha
 
     for form, title in [('L', 'length form'),
                         ('V', 'velocity form')]:

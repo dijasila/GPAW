@@ -535,7 +535,7 @@ class KernelWave:
             self.s2_g = np.sqrt(np.sum(gradnf_vg[:, ::2, ::2, ::2]**2.0,
                                        0)).flatten()  # |\nabla\rho|
             self.s2_g *= 1.0 / (2.0 * (3.0 * np.pi**2.0)**(1.0 / 3.0)
-                                * self.n_g**(4.0/3.0))
+                                * self.n_g**(4.0 / 3.0))
             # |\nabla\rho|/(2kF\rho) = s
             self.s2_g = self.s2_g**2  # s^2
             assert len(self.n_g) == len(self.s2_g)
@@ -550,7 +550,7 @@ class KernelWave:
                 print('The APBE kernel takes positive values at ' +
                       '%s grid points out of a total of %s (%3.2f%%).' %
                       (len(poskern_ind[0]), self.gridsize,
-                       100.0 * len(poskern_ind[0])/self.gridsize),
+                       100.0 * len(poskern_ind[0]) / self.gridsize),
                       file=self.fd)
                 print('The ALDA kernel will be used at these points',
                       file=self.fd)
@@ -568,7 +568,7 @@ class KernelWave:
                 continue
 
             thisqd = KPointDescriptor([q_c])
-            pd = PWDescriptor(self.ecut/Ha, self.gd, complex, thisqd)
+            pd = PWDescriptor(self.ecut / Ha, self.gd, complex, thisqd)
 
             nG = pd.ngmax
             G_G = pd.G2_qG[0]**0.5  # |G+q|
