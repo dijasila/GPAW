@@ -1,11 +1,13 @@
 from functools import partial
 
 from ase.utils.timing import timer
+from ase.parallel import world, parprint
 import numpy as np
 
 from gpaw import debug
 from gpaw.eigensolvers.eigensolver import Eigensolver
 from gpaw.matrix import matrix_matrix_multiply as mmm
+from gpaw.blacs import BlacsGrid# , general_diagonalize_dc
 
 
 class DummyArray:
@@ -32,6 +34,7 @@ class Davidson(Eigensolver):
         self.niter = niter
         self.smin = smin
         self.normalize = normalize
+
 
         if smin is not None:
             raise NotImplementedError(
@@ -159,8 +162,57 @@ class Davidson(Eigensolver):
                 mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
 
+            grid = BlacsGrid(comm, 2, 2)
+            block_desc = grid.new_descriptor(2 * B, 2 * B, 16, 16)
+            local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2* B)
+
+            eps_M = np.empty([2 * B])
+            Hsc_MM = local_desc.empty(dtype=self.dtype)
+            Ssc_MM = local_desc.empty(dtype=self.dtype)
+            Csc_MM = local_desc.empty(dtype=self.dtype)
+
+            Hsc_mm = block_desc.empty(dtype=self.dtype)
+            Ssc_mm = block_desc.empty(dtype=self.dtype)
+            Csc_mm = block_desc.empty(dtype=self.dtype)
+
+            if comm.rank == 0 and bd.comm.rank == 0:
+                H_NN[:B, :B] = np.diag(eps_N[:B])
+                S_NN[:B, :B] = np.eye(B)
+                
+            
+                Hsc_MM = H_NN.copy()
+                Ssc_MM = S_NN.copy()
+                eps_M = eps_N.copy()
+
+            from gpaw.blacs import Redistributor
+            redistributor = Redistributor(comm, local_desc, block_desc)
+            redistributor.redistribute(Hsc_MM, Hsc_mm)
+            redistributor.redistribute(Ssc_MM, Ssc_mm)
+            redistributor.redistribute(Csc_MM, Csc_mm)
+
+            parprint(Hsc_MM[:3, :3], Hsc_mm[:3, :3])
+            parprint(Ssc_MM[:3, :3], Ssc_mm[:3, :3])
+            block_desc.general_diagonalize_dc(Hsc_mm, Ssc_mm, Csc_mm, eps_M)
+            redistributor2 = Redistributor(comm, block_desc, local_desc)
+            redistributor2.redistribute(Csc_mm, Csc_MM)
+            if comm.rank == 0 and bd.comm.rank == 0:
+                H_NN[:] = Csc_MM.copy()
+                eps_N = eps_M.copy()
+
+            # comm.barrier()
+            if comm.rank == 0:
+                bd.distribute(eps_N[:B], kpt.eps_n)
+            comm.broadcast(kpt.eps_n, 0)
+
+            del redistributor
+            del redistributor2
+            del grid
+            # comm.barrier()
+
             with self.timer('diagonalize'):
                 if comm.rank == 0 and bd.comm.rank == 0:
+                    parprint("World rank:", world.rank)
+
                     H_NN[:B, :B] = np.diag(eps_N[:B])
                     S_NN[:B, :B] = np.eye(B)
                     if debug:
