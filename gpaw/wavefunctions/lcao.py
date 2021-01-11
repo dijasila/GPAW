@@ -160,7 +160,6 @@ class LCAOWaveFunctions(WaveFunctions):
 
         nq = len(self.kd.ibzk_qc)
         nao = self.setups.nao
-        mynbands = self.bd.mynbands
         Mstop = self.ksl.Mstop
         Mstart = self.ksl.Mstart
         mynao = Mstop - Mstart
