@@ -39,7 +39,7 @@ if world.size >= 8:
 @pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_parallel_pblas(dtype, mprocs, nprocs,
-                        M=160, N=120, K=140, seed=42):
+                        M=160, K=140, seed=42):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
 
@@ -132,9 +132,9 @@ def test_parallel_pblas(dtype, mprocs, nprocs,
 
 
 @pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
-@pytest.mark.parametrize('simple', [True, False])
 @pytest.mark.parametrize('transb', ['N', 'T', 'C'])
 @pytest.mark.parametrize('transa', ['N', 'T', 'C'])
+@pytest.mark.parametrize('simple', [True, False])
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_pblas_gemm(dtype, simple, transa, transb, mprocs, nprocs,
                     M=160, N=120, K=140, seed=42):
@@ -227,7 +227,7 @@ def test_pblas_gemm(dtype, simple, transa, transb, mprocs, nprocs,
 @pytest.mark.parametrize('simple', [True, False])
 @pytest.mark.parametrize('hemm', [True, False])
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_pblas_hemm_symm(dtype, hemm, simple, uplo, side, mprocs, nprocs,
+def test_pblas_hemm_symm(dtype, hemm, simple, side, uplo, mprocs, nprocs,
                          M=160, N=120, seed=42):
     """Test pblas_simple_hemm, pblas_simple_symm, pblas_hemm, pblas_symm
 
