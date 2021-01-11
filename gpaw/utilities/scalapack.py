@@ -357,23 +357,26 @@ def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
                      desca.asarray(), descc.asarray())
 
 
-def _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+def _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
                      side, uplo, hemm):
     """Hermitian or symmetric matrix-matrix product.
 
     Do not call this function directly but
     use :func:`pblas_hemm` or :func:`pblas_symm` instead.
 
-    Only lower or upper diagonal of a_MK is used.
-    By default, C = beta*C + alpha*A*B.
+    C <- alpha*A*B + beta*C  if side == 'L'
+    C <- alpha*B*A + beta*C  if side == 'R'
+
+    Only lower or upper diagonal of a_MM is used.
 
     This function executes the following PBLAS routine:
     * pzhemm if matrices are complex and hemm == True
     * pzsymm if matrices are complex and hemm == False
     * pdsymm if matrices are real
     """
-    desca.checkassert(a_MK)
-    descb.checkassert(b_KN)
+    # Note: if side == 'R', then a_MM matrix is actually size of a_NN
+    desca.checkassert(a_MM)
+    descb.checkassert(b_MN)
     descc.checkassert(c_MN)
     assert side in ['R', 'L'] and uplo in ['L', 'U']
     M, N = descc.gshape
@@ -381,39 +384,43 @@ def _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     if not desca.blacsgrid.is_active():
         return
     _gpaw.pblas_hemm_symm(switch_lr[side], switch_lu[uplo],
-                          N, M, alpha, a_MK.T, b_KN.T, beta, c_MN.T,
+                          N, M, alpha, a_MM.T, b_MN.T, beta, c_MN.T,
                           desca.asarray(), descb.asarray(), descc.asarray(),
                           hemm)
 
 
-def pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+def pblas_hemm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
                side='L', uplo='L'):
     """Hermitian matrix-matrix product.
 
-    Only lower or upper diagonal of a_MK is used.
-    By default, C = beta*C + alpha*A*B.
+    C <- alpha*A*B + beta*C  if side == 'L'
+    C <- alpha*B*A + beta*C  if side == 'R'
+
+    Only lower or upper diagonal of a_MM is used.
 
     This function executes the following PBLAS routine:
     * pzhemm if matrices are complex
     * pdsymm if matrices are real
     """
-    return _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN,
+    return _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN,
                             desca, descb, descc,
                             side, uplo, hemm=True)
 
 
-def pblas_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
+def pblas_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
                side='L', uplo='L'):
     """Symmetric matrix-matrix product.
 
-    Only lower or upper diagonal of a_MK is used.
-    By default, C = beta*C + alpha*A*B.
+    C <- alpha*A*B + beta*C  if side == 'L'
+    C <- alpha*B*A + beta*C  if side == 'R'
+
+    Only lower or upper diagonal of a_MM is used.
 
     This function executes the following PBLAS routine:
     * pzsymm if matrices are complex
     * pdsymm if matrices are real
     """
-    return _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN,
+    return _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN,
                             desca, descb, descc,
                             side, uplo, hemm=False)
 
@@ -481,18 +488,18 @@ def pblas_simple_gemm(desca, descb, descc, a_MK, b_KN, c_MN,
                transa, transb)
 
 
-def pblas_simple_hemm(desca, descb, descc, a_MK, b_KN, c_MN,
+def pblas_simple_hemm(desca, descb, descc, a_MM, b_MN, c_MN,
                       side='L', uplo='L'):
     alpha = 1.0
     beta = 0.0
-    pblas_hemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
+    pblas_hemm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc, side, uplo)
 
 
-def pblas_simple_symm(desca, descb, descc, a_MK, b_KN, c_MN,
+def pblas_simple_symm(desca, descb, descc, a_MM, b_MN, c_MN,
                       side='L', uplo='L'):
     alpha = 1.0
     beta = 0.0
-    pblas_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc, side, uplo)
+    pblas_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc, side, uplo)
 
 
 def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
