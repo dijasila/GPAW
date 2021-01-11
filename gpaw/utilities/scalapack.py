@@ -376,11 +376,7 @@ def _pblas_hemm_symm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     descb.checkassert(b_KN)
     descc.checkassert(c_MN)
     assert side in ['R', 'L'] and uplo in ['L', 'U']
-    M, Ka = desca.gshape
-    Kb, N = descb.gshape
-    if side == 'R':
-        Kb, N = N, Kb
-        M, N = N, M
+    M, N = descc.gshape
 
     if not desca.blacsgrid.is_active():
         return
