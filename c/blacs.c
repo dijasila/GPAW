@@ -424,7 +424,7 @@ PyObject* pblas_hemm_symm(PyObject *self, PyObject *args)
   PyArrayObject *desca, *descb, *descc;
   int hemm;
   int one = 1;
-  if (!PyArg_ParseTuple(args, "ssiiDOOdOOOOi",
+  if (!PyArg_ParseTuple(args, "ssiiDOODOOOOi",
                  &side, &uplo, &n, &m,
                  &alpha, &a, &b, &beta,
                  &c, &desca, &descb, &descc,
