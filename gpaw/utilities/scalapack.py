@@ -443,9 +443,9 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     M, Ka = desca.gshape
     Kb, N = descb.gshape
 
-    if transa == 'T':
+    if transa in ['T', 'C']:
         M, Ka = Ka, M
-    if transb == 'T':
+    if transb in ['T', 'C']:
         Kb, N = N, Kb
     Mc, Nc = descc.gshape
 
