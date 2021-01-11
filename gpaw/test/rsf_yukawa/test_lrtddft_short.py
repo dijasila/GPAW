@@ -34,10 +34,10 @@ def test_rsf_yukawa_lrtddft_short(in_tmp_dir):
     calc_plus = get_paw()
     calc_plus.set(txt='Be_plus_LCY_PBE_083.log', charge=1)
     o_plus.calc = calc_plus
-    e_o_plus = o_plus.get_potential_energy()
+    o_plus.get_potential_energy()
     calc_plus.set(xc='LCY-PBE:omega=0.83:unocc=True',
                   experimental={'niter_fixdensity': 2})
-    e_o_plus = o_plus.get_potential_energy()
+    o_plus.get_potential_energy()
     lr = LrTDDFT(calc_plus, txt='LCY_TDDFT_Be.log',
                  restrict={'istart': 0, 'jend': 1})
     equal(lr.xc.omega, 0.83)

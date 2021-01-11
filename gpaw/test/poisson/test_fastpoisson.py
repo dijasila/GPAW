@@ -22,7 +22,6 @@ def test_poisson_fastpoisson():
     rng = np.random.RandomState(42)
 
     tf = range(2)
-    comm = world
 
     def icells():
         # cells: orthorhombic fcc bcc hcp
@@ -38,8 +37,6 @@ def test_poisson_fastpoisson():
         for sym in ['Au', 'Fe', 'Sc']:
             cell = bulk(sym).cell
             yield sym, cell.copy()
-
-    #import matplotlib.pyplot as plt
 
     tolerance = 1e-12
 
@@ -86,7 +83,8 @@ def test_poisson_fastpoisson():
                 exclude_points = nn - 1
                 for c in range(3):
                     if nn > 1 and not pbc[c]:
-                        # get view ehere axis c refers becomes zeroth dimension:
+                        # get view ehere axis c refers becomes
+                        # zeroth dimension:
                         X = residual.transpose(c, (c + 1) % 3, (c + 2) % 3)
 
                         if gd.beg_c[c] == 1:

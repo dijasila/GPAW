@@ -82,10 +82,10 @@ class ExteriorElectronDensity:
         for kpt in wfs.kpt_u:
             for n in range(wfs.bd.nbands):
                 print('%4d %3d %1d %8.5f  %10.5f  %10.5f  %10.5f' %
-                     (n, kpt.k, kpt.s, kpt.weight,
-                      kpt.eps_n[n] * Hartree,
-                      kpt.f_n[n],
-                      self.get_weight(kpt.psit_nG[n])
-                      ), file=out)
+                      (n, kpt.k, kpt.s, kpt.weight,
+                       kpt.eps_n[n] * Hartree,
+                       kpt.f_n[n],
+                       self.get_weight(kpt.psit_nG[n])
+                       ), file=out)
                 if hasattr(out, 'flush'):
                     out.flush()

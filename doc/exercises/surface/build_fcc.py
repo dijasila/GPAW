@@ -44,6 +44,7 @@ def fcc100(symbol, a, layers, L):
 
     return atoms
 
+
 if __name__ == '__main__':
 
     fcc = fcc100('Al', 4.0, 4, 15.0)

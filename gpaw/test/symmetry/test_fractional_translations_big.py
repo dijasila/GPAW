@@ -5,7 +5,7 @@ from gpaw.test import equal
 
 
 def test_symmetry_fractional_translations_big():
-    name = 'cristobalite'
+    'cristobalite'
     # no. 92 - tetragonal
 
     a = 5.0833674

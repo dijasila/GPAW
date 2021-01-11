@@ -56,8 +56,10 @@ def test_symmetry_symmetry_ft():
     z1 = np.sqrt(1. / 24.)
     z2 = np.sqrt(1. / 6.)
     cell_cv = a * np.array([(x, y, -z1), (x, -y, -z1), (x, 0., z2)])
-    spos_ac = np.array([[0., 0., 0.], [1. / 2., 1. / 2., 1. / 2.],
-                        [1. / 4., 1. / 4., 1. / 4.], [3. / 4., 3. / 4., 3. / 4.]])
+    spos_ac = np.array([[0., 0., 0.],
+                        [1. / 2., 1. / 2., 1. / 2.],
+                        [1. / 4., 1. / 4., 1. / 4.],
+                        [3. / 4., 3. / 4., 3. / 4.]])
     id_a = [1, 2, 3, 3]
     pbc_c = np.array([1, 1, 1], bool)
     bzk_kc = monkhorst_pack((2, 2, 2))

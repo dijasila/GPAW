@@ -249,11 +249,11 @@ class FDTDPoissonSolver:
 
     def estimate_memory(self, mem):
         # self.cl.poisson_solver.estimate_memory(mem)
-        #print(self.qm.poisson_solver.estimate_memory.__code__.co_varnames)
+        # print(self.qm.poisson_solver.estimate_memory.__code__.co_varnames)
         # WTF?  How can this shabby method suddenly be unbound?
         # It needs both self and mem.
         # Ferchrissakes!
-        #self.qm.poisson_solver.estimate_memory(mem=mem)
+        # self.qm.poisson_solver.estimate_memory(mem=mem)
         pass
 
     # Return the TDDFT stencil by default
@@ -264,9 +264,9 @@ class FDTDPoissonSolver:
             return self.cl.poisson_solver.get_stencil()
 
     # Initialize both PoissonSolvers
-    #def initialize(self):
-    #    self.qm.poisson_solver._init()
-    #    self.cl.poisson_solver._init()
+    # def initialize(self):
+    #     self.qm.poisson_solver._init()
+    #     self.cl.poisson_solver._init()
 
     def set_grid_descriptor(self, qmgd):
         if not self.has_subsystems:
@@ -282,7 +282,7 @@ class FDTDPoissonSolver:
             relax=self.relax,
             remove_moment=self.remove_moment_qm)
         self.qm.poisson_solver.set_grid_descriptor(self.qm.gd)
-        #self.qm.poisson_solver.initialize()
+        # self.qm.poisson_solver.initialize()
         self.qm.phi = self.qm.gd.zeros()
         self.qm.rho = self.qm.gd.zeros()
 
@@ -297,7 +297,7 @@ class FDTDPoissonSolver:
             relax=self.relax,
             remove_moment=self.remove_moment_cl)
         self.cl.poisson_solver.set_grid_descriptor(self.cl.gd)
-        #self.cl.poisson_solver.initialize()
+        # self.cl.poisson_solver.initialize()
 
         # Initialize classical material,
         # its Poisson solver was generated already
@@ -814,7 +814,7 @@ class FDTDPoissonSolver:
             # Mix potential
             try:
                 self.mix_phi
-            except:
+            except AttributeError:
                 self.mix_phi = SimpleMixer(0.10, self.qm.phi)
 
             self.qm.phi = self.mix_phi.mix(self.qm.phi)

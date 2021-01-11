@@ -14,7 +14,7 @@ def test_rpa_rpa_energy_Si(in_tmp_dir):
                 occupations=FermiDirac(0.001),
                 communicator=serial_comm)
     Si.calc = calc
-    E = Si.get_potential_energy()
+    Si.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 
     ecut = 50

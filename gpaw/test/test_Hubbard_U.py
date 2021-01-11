@@ -37,7 +37,7 @@ def test_Hubbard_U(in_tmp_dir):
             kpts=(k, k, k),
             xc='oldPBE')
         atoms.calc = calc
-        e = atoms.get_potential_energy()
+        atoms.get_potential_energy()
         gap, _, _ = bandgap(calc)
         print(name, gap)
         if name == 'ni2o2':

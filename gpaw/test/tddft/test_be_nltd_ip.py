@@ -17,16 +17,18 @@ def test_tddft_be_nltd_ip(in_tmp_dir):
 
     td_calc = TDDFT('be_gs.gpw',
                     td_potential=CWField(1e-3, 2.0 * np.pi / 50.0, 150.0))
-    td_calc.set_absorbing_boundary(LinearAbsorbingBoundary(5.0, 0.01,
-                                                           atoms.positions.copy()))
+    td_calc.set_absorbing_boundary(
+        LinearAbsorbingBoundary(5.0, 0.01,
+                                atoms.positions.copy()))
     td_calc.propagate(8.0, 5,
                       'be_nl_dmz_ipabs_1e-3.dat',
                       'be_nl_td.gpw')
 
     td_rest = TDDFT('be_nl_td.gpw',
                     td_potential=CWField(1e-3, 2.0 * np.pi / 50.0, 150.0))
-    td_rest.set_absorbing_boundary(LinearAbsorbingBoundary(5.0, 0.01,
-                                                           atoms.positions.copy()))
+    td_rest.set_absorbing_boundary(
+        LinearAbsorbingBoundary(5.0, 0.01,
+                                atoms.positions.copy()))
     td_rest.propagate(8.0, 5,
                       'be_nl_dmz_ipabs_1e-3.dat',
                       'be_nl_td.gpw')

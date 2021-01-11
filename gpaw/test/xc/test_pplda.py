@@ -14,8 +14,13 @@ def test_xc_pplda():
     f = np.array([])
 
     for xc in ['LDA', 'PPLDA']:
-        calc = GPAW(nbands=-1, xc=xc, convergence={'eigenstates': 1.e-9}, txt=None,
-                    mode='lcao', basis='szp(dzp)', h=0.3)
+        calc = GPAW(nbands=-1,
+                    xc=xc,
+                    convergence={'eigenstates': 1.e-9},
+                    txt=None,
+                    mode='lcao',
+                    basis='szp(dzp)',
+                    h=0.3)
         h2.calc = calc
         e = np.append(e, h2.get_potential_energy())
         f = np.append(f, h2.get_forces())

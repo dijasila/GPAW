@@ -22,7 +22,6 @@ dyn1 = BFGSLineSearch(cluster, trajectory='Au_cluster_lcao.traj')
 dyn1.run(fmax=0.02)
 e_cluster_lcao = cluster.get_potential_energy()
 
-#cluster.calc = GPAW(h=0.18,tex=None)
 dyn2 = BFGSLineSearch(cluster, trajectory='Au_cluster_paw.traj')
 dyn2.run(fmax=0.02)
 e_cluster_paw = cluster.get_potential_energy()

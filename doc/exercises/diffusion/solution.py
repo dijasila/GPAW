@@ -27,6 +27,7 @@ def aual100(site, height, calc=None):
 
     return slab.get_potential_energy()
 
+
 e_hollow = aual100('hollow', 1.6)
 e_bridge = aual100('bridge', 2.0)
 e_ontop = aual100('ontop', 2.4)
