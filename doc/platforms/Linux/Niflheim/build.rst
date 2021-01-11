@@ -65,7 +65,7 @@ submit to Niflheim.  Here are three ways to do it:
 1) If you always want to use one venv then just put the activation
    command in your ``~/.bashrc``.
 
-2) If you only want job running inside a certain folder to use the venv,
+2) If you only want jobs running inside a certain folder to use the venv,
    then add this to your ``~/.bashrc``::
 
        if [[ $SLURM_SUBMIT_DIR/ = $HOME/project-1* ]]; then
