@@ -10,6 +10,7 @@ See::
     Phys. Rev. Research 2, 022024(R) – Published 30 April 2020
 
 """
+from collections import defaultdict
 from math import pi
 from typing import List, Tuple
 
@@ -107,6 +108,8 @@ def zfs1(wf1: WaveFunctions,
          compensation_charge: PWLFC,
          with_paw_correction: bool) -> Array2D:
     """Compute dipole coupling."""
+    sign = 1.0 if wf1.spin == wf2.spin else -1.0
+
     pd = wf1.pd
     setups = wf1.setups
     N2 = len(wf2)
@@ -116,12 +119,12 @@ def zfs1(wf1: WaveFunctions,
     G_Gv = pd.get_reciprocal_vectors() / G_G[:, np.newaxis]
 
     n_sG = pd.zeros(2)
+    D_asii = defaultdict(list)
     for n_G, wf in zip(n_sG, [wf1, wf2]):
-        D_aii = {}
         Q_aL = {}
         for a, P_ni in wf.projections.items():
             D_ii = np.einsum('ni, nj -> ij', P_ni, P_ni)
-            D_aii[a] = D_ii
+            D_asii[a].append(D_ii)
             Q_aL[a] = np.einsum('ij, ijL -> L', D_ii, setups[a].Delta_iiL)
 
         for psit_R in wf.psit_nR:
@@ -131,8 +134,12 @@ def zfs1(wf1: WaveFunctions,
 
     nn_G = (n_sG[0] * n_sG[1].conj()).real
     D_vv = zfs2(pd, G_Gv, nn_G)
+    if with_paw_correction:
+        for a, D_sii in D_asii.items():
+            D_vv += zfs2paw(*D_sii, setups[a])
 
     n_nG = pd.empty(N2)
+    # D_naii = ...
     for n1, psit1_R in enumerate(wf1.psit_nR):
         D_anii = {}
         Q_anL = {}
@@ -152,8 +159,6 @@ def zfs1(wf1: WaveFunctions,
 
     D_vv -= np.trace(D_vv) / 3 * np.eye(3)  # should be traceless
 
-    sign = 1.0 if wf1.spin == wf2.spin else -1.0
-
     return sign * alpha**2 * pi * D_vv * Ha
 
 
@@ -164,6 +169,11 @@ def zfs2(pd: PWDescriptor,
     D_vv = np.einsum('gv, gw, g -> vw', G_Gv, G_Gv, nn_G)
     D_vv *= 2 * pd.gd.dv / pd.gd.N_c.prod()
     return D_vv
+
+
+def zfs2paw(D1_ii, D2_ii, setup) -> Array2D:
+    """PAW correction."""
+    return ...
 
 
 def convert_tensor(D_vv: Array2D,
