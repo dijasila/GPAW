@@ -378,8 +378,17 @@ def _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
     desca.checkassert(a_MM)
     descb.checkassert(b_MN)
     descc.checkassert(c_MN)
-    assert side in ['R', 'L'] and uplo in ['L', 'U']
+    assert side in ['L', 'R'] and uplo in ['L', 'U']
+    Ma, Ma2 = desca.gshape
+    assert Ma == Ma2, 'A not square matrix'
+    Mb, Nb = descb.gshape
+    if side == 'L':
+        assert Mb == Ma
+    else:
+        assert Nb == Ma
     M, N = descc.gshape
+    assert M == Mb
+    assert N == Nb
 
     if not desca.blacsgrid.is_active():
         return
