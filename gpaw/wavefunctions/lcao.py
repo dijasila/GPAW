@@ -184,10 +184,6 @@ class LCAOWaveFunctions(WaveFunctions):
                           self.kd.ibzk_qc, spos_ac, oldspos_ac,
                           self.setups, Mstart)
 
-        for kpt in self.kpt_u:
-            if kpt.C_nM is None:
-                kpt.C_nM = np.empty((mynbands, nao), self.dtype)
-
         if 0:  # self.debug_tci:
             # if self.ksl.using_blacs:
             #     self.tci.set_matrix_distribution(Mstart, mynao)

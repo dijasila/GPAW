@@ -10,7 +10,6 @@ class Scissors(DirectLCAO):
         self.components = []
         for homo, lumo, natoms in components:
             self.components.append((homo / Ha, lumo / Ha, natoms))
-        self.not_first_time = set()
 
     def write(self, writer):
         writer.write(name='lcao')
@@ -31,8 +30,7 @@ class Scissors(DirectLCAO):
                                      root=-1, add_kinetic=True):
         H_MM = DirectLCAO.calculate_hamiltonian_matrix(
             self, ham, wfs, kpt, Vt_xMM, root, add_kinetic)
-        if kpt.k not in self.not_first_time:
-            self.not_first_time.add(kpt.k)
+        if kpt.C_nM is None:
             return H_MM
 
         S_MM = wfs.S_qMM[kpt.q]
