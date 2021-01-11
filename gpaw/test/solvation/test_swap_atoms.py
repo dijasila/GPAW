@@ -22,7 +22,10 @@ def test_solvation_swap_atoms():
     st = 18.4 * 1e-3 * Pascal * m
     T = 298.15
     vdw_radii[1] = 1.09
-    def atomic_radii(atoms): return [vdw_radii[n] for n in atoms.numbers]
+
+    def atomic_radii(atoms):
+        return [vdw_radii[n] for n in atoms.numbers]
+
     convergence = {
         'energy': 0.1 / 8.,
         'density': 10.,

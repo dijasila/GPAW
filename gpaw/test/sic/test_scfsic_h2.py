@@ -18,12 +18,12 @@ def test_sic_scfsic_h2(in_tmp_dir):
                 setups='hgh')
 
     atom.calc = calc
-    e1 = atom.get_potential_energy()
+    atom.get_potential_energy()
 
     molecule.calc = calc
     e2 = molecule.get_potential_energy()
-    F_ac = molecule.get_forces()
-    de = 2 * e1 - e2
+    molecule.get_forces()
+    # de = 2 * e1 - e2
     # equal(de, 4.5, 0.1)
 
     # Test forces ...

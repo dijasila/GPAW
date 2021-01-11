@@ -65,7 +65,7 @@ class Overlap:
         for a, P_xi in P_axi.items():
             P_axi[a] = np.dot(P_xi, wfs.setups[a].dO_ii)
             # gemm(1.0, wfs.setups[a].dO_ii, P_xi, 0.0, P_xi, 'n')
-        wfs.pt.add(b_xG, P_axi, kpt.q) # b_xG += sum_ai pt^a_i P_axi
+        wfs.pt.add(b_xG, P_axi, kpt.q)  # b_xG += sum_ai pt^a_i P_axi
 
     def apply_inverse(self, a_xG, b_xG, wfs, kpt, calculate_P_ani=True):
         """Apply approximative inverse overlap operator to wave functions."""

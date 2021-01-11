@@ -73,7 +73,7 @@ class SolvationGPAW(GPAW):
         It has to match the value of a subscript attribute of one of
         the interactions in the interactions list.
         """
-        #self.calculate(atoms, converge=True)
+        # self.calculate(atoms, converge=True)
         return Hartree * getattr(self.hamiltonian, 'e_' + subscript)
 
     def get_cavity_volume(self, atoms=None):
@@ -82,7 +82,7 @@ class SolvationGPAW(GPAW):
         In case no volume calculator has been set for the cavity, None
         is returned.
         """
-        #self.calculate(atoms, converge=True)
+        # self.calculate(atoms, converge=True)
         V = self.hamiltonian.cavity.V
         return V and V * Bohr ** 3
 
@@ -92,7 +92,7 @@ class SolvationGPAW(GPAW):
         In case no surface calculator has been set for the cavity,
         None is returned.
         """
-        #self.calculate(atoms, converge=True)
+        # self.calculate(atoms, converge=True)
         A = self.hamiltonian.cavity.A
         return A and A * Bohr ** 2
 

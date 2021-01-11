@@ -23,10 +23,14 @@ master:
       -e gpaw/point_groups/groups.py
       gpaw
     - >
-      flake8 --exit-zero --doctests --statistics --count -qq
-      --exclude "doc/platforms/*,gpaw/lrtddft2/*,doc/*/summerschool18/*/*"
-      gpaw doc | tee f8
+      flake8
+      --doctests
+      --exclude "gpaw/lrtddft2/*"
+      gpaw
     - >
-      python -c
-      "assert int(open('f8').readlines()[-1]) <= 430, 'Run flake8 on your code'"
+      flake8
+      --doctests
+      --exclude "doc/platforms/*,doc/*/summerschool18/*/*"
+      --extend-ignore E402
+      doc
     - python -We:invalid -m compileall -f -q gpaw/

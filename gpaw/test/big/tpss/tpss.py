@@ -83,7 +83,7 @@ for formula in systems:
         diffm = calc.get_xc_difference('M06-L')
         energies[formula] = (energy, energy + difft, energy + diffr,
                              energy + diffm)
-    except:
+    except Exception:
         print(formula, 'Error', file=data)
     else:
         print(formula, energy, energy + difft, energy + diffr, energy + diffm,
@@ -107,7 +107,7 @@ for formula in systems[:13]:
             de_revtpss += energies[atom_formula][2]
             de_m06l += energies[atom_formula][3]
             de_pbe += energies[atom_formula][0]
-    except:
+    except Exception:
         print(formula, 'Error', file=file)
     else:
         de_tpss *= 627.5 / 27.211
