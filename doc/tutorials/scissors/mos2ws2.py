@@ -22,7 +22,6 @@ a12.calc.write('12.gpw')
 
 bp = a12.cell.bandpath('GMKG', npoints=80)
 
-a12.calc.wfs.eigensolver.not_first_time = set()  # ???
 c12 = a12.calc.fixed_density(kpts=bp, symmetry='off')
 bs = c12.band_structure()
 bs.write('12bs.json')
