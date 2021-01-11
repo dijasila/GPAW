@@ -152,10 +152,10 @@ def plot(xdata, ydata, std,
     pylab.gca().set_position([0.10, 0.20, 0.85, 0.60])
     # let the plot have fixed y-axis scale
     # ywindow = maxy - miny
-    #pylab.gca().set_ylim(miny, maxy+ywindow/5.0)
+    # pylab.gca().set_ylim(miny, maxy+ywindow/5.0)
     pylab.gca().set_ylim(miny, maxy)
-    #pylab.plot(xdata, ydata, 'b.', label=label, color=color)
-    #pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
+    # pylab.plot(xdata, ydata, 'b.', label=label, color=color)
+    # pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
     pylab.bar(xdata, ydata, 0.9, label=label, color=color, alpha=alpha)
     t = pylab.title(title)
     # http://old.nabble.com/More-space-between-title-and-secondary-x-axis-td31722298.html

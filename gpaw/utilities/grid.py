@@ -158,6 +158,7 @@ def grid2grid(comm, gd1, gd2, src_g, dst_g, offset1_c=None, offset2_c=None):
                          rank2parpos1, rank2parpos2,
                          src_g, dst_g)
 
+
 def main():
     from gpaw.grid_descriptor import GridDescriptor
     from gpaw.mpi import world
@@ -200,18 +201,13 @@ def main():
         print(world.rank, 'a2 distributed', a2.ravel())
         world.barrier()
 
-        #grid2grid(world, gd2, gd2_serial
-
         gd1 = GridDescriptor(N1_c, N1_c * 0.2)
-        #serialgd = gd2.new_descriptor(
 
         a1 = gd1.empty()
         a1.flat[:] = gen.rand(a1.size)
 
-        #print a1
         grid2grid(world, gd1, gd2, a1, a2)
 
-        #print a2
 
 if __name__ == '__main__':
     main()
