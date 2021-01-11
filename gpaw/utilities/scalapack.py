@@ -461,35 +461,6 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
     assert M == Mc
     assert N == Nc
 
-    # trans = transa + transb
-
-    """
-    if transb == 'N':
-        assert desca.gshape[1] == descb.gshape[0]
-        assert desca.gshape[0] == descc.gshape[0]
-        assert descb.gshape[1] == descc.gshape[1]
-    if transb == 'T':
-        N, Kb = Kb, N
-        #assert desca.gshape[1] == descb.gshape[1]
-        assert desca.gshape[0] == descc.gshape[0]
-        assert descb.gshape[0] == descc.gshape[1]
-
-    if trans == 'NN':
-        assert desca.gshape[1] == descb.gshape[0]
-        assert desca.gshape[0] == descc.gshape[0]
-        assert descb.gshape[1] == descc.gshape[1]
-    elif transa == 'T':
-        M, Ka = Ka, M
-        assert desca.gshape[1] == descc.gshape[0]
-    if transb == 'N':
-        assert descb.gshape[1] == descc.gshape[1]
-    elif transb == 'T':
-        assert descb.gshape[1] == descc.gshape[1]
-    assert Ka == Kb
-    #assert transa == 'N' # XXX remember to implement 'T'
-    _gpaw.pblas_gemm(N, M, Ka, alpha, b_KN.T, a_MK.T, beta, c_MN.T,
-    """
-    # assert transa == 'N' # XXX remember to implement 'T'
     if not desca.blacsgrid.is_active():
         return
     _gpaw.pblas_gemm(N, M, Ka, alpha, b_KN.T, a_MK.T, beta, c_MN.T,
