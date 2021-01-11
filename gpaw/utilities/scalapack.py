@@ -436,6 +436,14 @@ def pblas_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
 
 def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
                transa='N', transb='N'):
+    """General matrix-matrix product.
+
+    C <- alpha*A*B + beta*C
+
+    This function executes the following PBLAS routine:
+    * pzgemm if matrices are complex
+    * pdgemm if matrices are real
+    """
     desca.checkassert(a_MK)
     descb.checkassert(b_KN)
     descc.checkassert(c_MN)
