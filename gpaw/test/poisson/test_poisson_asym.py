@@ -25,7 +25,7 @@ def test_poisson_poisson_asym():
     solver.load_gauss()
     vg = test_poisson.get_gauss_pot(0)
     # Get analytic functions
-    ng = gauss.get_gauss(0)
+    gauss.get_gauss(0)
     #    vg = solver.phi_gauss
     # Solve potential numerically
     # Determine residual

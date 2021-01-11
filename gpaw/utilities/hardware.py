@@ -64,7 +64,7 @@ def dhms(secs):
     s = secs % 3600
     dhms[2] = int(s // 60)
     s = secs % 60
-    dhms[3] = int(s+.5)
+    dhms[3] = int(s + .5)
     return dhms
 
 
@@ -75,7 +75,7 @@ def hms(secs):
     s = secs % 3600
     hms[1] = int(s // 60)
     s = secs % 60
-    hms[2] = int(s+.5)
+    hms[2] = int(s + 0.5)
     return hms
 
 
@@ -115,7 +115,7 @@ class ComputeCluster:
             try:
                 import socket
                 return socket.gethostname().split('-')[0]
-            except:
+            except Exception:
                 dummy, hostname = os.popen4('hostname -s')
                 return hostname.readline().split()
 

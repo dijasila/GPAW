@@ -1061,8 +1061,9 @@ class KernelWave:
             pw_beta[2] * rs**1.5 + pw_beta[3] * rs**2.0)
 
         pw_dlogdenom = 2.0 * pw_A * (0.5 * pw_beta[0] * rs**(-0.5) +
-                                     1.0 * pw_beta[1] + 1.5 * pw_beta[2] * rs**
-                                     (0.5) + 2.0 * pw_beta[3] * rs)
+                                     1.0 * pw_beta[1] +
+                                     1.5 * pw_beta[2] * rs**0.5 +
+                                     2.0 * pw_beta[3] * rs)
 
         pw_d2logdenom = 2.0 * pw_A * (-0.25 * pw_beta[0] * rs**(-1.5) +
                                       0.75 * pw_beta[2] * rs**(-0.5) +

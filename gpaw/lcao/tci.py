@@ -247,10 +247,14 @@ class ManyTCICalculator:
         P_axMi = {}
         if derivative:
             P = self.tci.dPdR
-            empty = lambda nI: np.empty((self.nq, 3, self.nao, nI), self.dtype)
+
+            def empty(nI):
+                return np.empty((self.nq, 3, self.nao, nI), self.dtype)
         else:
             P = self.tci.P
-            empty = lambda nI: np.empty((self.nq, self.nao, nI), self.dtype)
+
+            def empty(nI):
+                return np.empty((self.nq, self.nao, nI), self.dtype)
 
         Mindices = self.Mindices
 

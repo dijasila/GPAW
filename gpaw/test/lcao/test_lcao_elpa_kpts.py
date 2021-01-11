@@ -17,7 +17,8 @@ def test_lcao_lcao_elpa_kpts():
         atoms = bulk('Al')
         calc = GPAW(mode='lcao', basis='sz(dzp)',
                     kpts=[2, 2, 2],
-                    parallel=dict(sl_auto=True, use_elpa=elpasolver is not None,
+                    parallel=dict(sl_auto=True,
+                                  use_elpa=elpasolver is not None,
                                   band=2 if world.size > 4 else 1,
                                   kpt=2 if world.size > 2 else 1,
                                   elpasolver=elpasolver),
