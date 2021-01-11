@@ -26,7 +26,8 @@ from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
 
 
 def zfs(calc: GPAW,
-        method: int = 1) -> Array2D:
+        method: int = 1,
+        with_paw_correction: bool = True) -> Array2D:
     """Zero-field splitting.
 
     Calculate magnetic dipole coupling tensor in eV.
@@ -38,12 +39,12 @@ def zfs(calc: GPAW,
     if method == 1:
         n1 = len(wf1)
         wf = wf1.view(n1 - 2, n1)
-        return zfs1(wf, wf, compensation_charge)
+        return zfs1(wf, wf, compensation_charge, with_paw_correction)
 
     D_vv = np.zeros((3, 3))
     for wfa in [wf1, wf2]:
         for wfb in [wf1, wf2]:
-            d_vv = zfs1(wfa, wfb, compensation_charge)
+            d_vv = zfs1(wfa, wfb, compensation_charge, with_paw_correction)
             D_vv += d_vv
 
     return D_vv
@@ -103,7 +104,8 @@ def create_compensation_charge(wf: WaveFunctions,
 
 def zfs1(wf1: WaveFunctions,
          wf2: WaveFunctions,
-         compensation_charge: PWLFC) -> Array2D:
+         compensation_charge: PWLFC,
+         with_paw_correction: bool) -> Array2D:
     """Compute dipole coupling."""
     pd = wf1.pd
     setups = wf1.setups
