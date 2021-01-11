@@ -162,9 +162,12 @@ class Davidson(Eigensolver):
                 mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
 
-            grid = BlacsGrid(comm, 2, 2)
+            # dbcomm = wfs.mode.sl[0]
+            slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
+            # parprint(wfs.scalapack_parameters)
+            grid = BlacsGrid(slcomm, nrows, ncols)
             block_desc = grid.new_descriptor(2 * B, 2 * B, 16, 16)
-            local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2* B)
+            local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
 
             eps_M = np.empty([2 * B])
             Hsc_MM = local_desc.empty(dtype=self.dtype)
@@ -175,7 +178,7 @@ class Davidson(Eigensolver):
             Ssc_mm = block_desc.empty(dtype=self.dtype)
             Csc_mm = block_desc.empty(dtype=self.dtype)
 
-            if comm.rank == 0 and bd.comm.rank == 0:
+            if slcomm.rank == 0:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
                 S_NN[:B, :B] = np.eye(B)
                 
@@ -185,24 +188,24 @@ class Davidson(Eigensolver):
                 eps_M = eps_N.copy()
 
             from gpaw.blacs import Redistributor
-            redistributor = Redistributor(comm, local_desc, block_desc)
-            redistributor.redistribute(Hsc_MM, Hsc_mm)
-            redistributor.redistribute(Ssc_MM, Ssc_mm)
-            redistributor.redistribute(Csc_MM, Csc_mm)
+            redistributor = Redistributor(slcomm, local_desc, block_desc)
+            redistributor.redistribute(Hsc_MM, Hsc_mm, uplo='L')
+            redistributor.redistribute(Ssc_MM, Ssc_mm, uplo='L')
+            redistributor.redistribute(Csc_MM, Csc_mm, uplo='L')
 
-            parprint(Hsc_MM[:3, :3], Hsc_mm[:3, :3])
-            parprint(Ssc_MM[:3, :3], Ssc_mm[:3, :3])
+            # parprint(Hsc_MM[:3, :3], Hsc_mm[:3, :3])
+            # parprint(Ssc_MM[:3, :3], Ssc_mm[:3, :3])
             block_desc.general_diagonalize_dc(Hsc_mm, Ssc_mm, Csc_mm, eps_M)
-            redistributor2 = Redistributor(comm, block_desc, local_desc)
-            redistributor2.redistribute(Csc_mm, Csc_MM)
-            if comm.rank == 0 and bd.comm.rank == 0:
-                H_NN[:] = Csc_MM.copy()
-                eps_N = eps_M.copy()
+            redistributor2 = Redistributor(slcomm, block_desc, local_desc)
+            redistributor2.redistribute(Csc_mm, Csc_MM, uplo='L')
+            # if comm.rank == 0 and bd.comm.rank == 0:
+            #     H_NN[:] = Csc_MM.copy()
+            #     eps_N = eps_M.copy()
 
-            # comm.barrier()
-            if comm.rank == 0:
-                bd.distribute(eps_N[:B], kpt.eps_n)
-            comm.broadcast(kpt.eps_n, 0)
+            # # comm.barrier()
+            # if comm.rank == 0:
+            #     bd.distribute(eps_N[:B], kpt.eps_n)
+            # comm.broadcast(kpt.eps_n, 0)
 
             del redistributor
             del redistributor2
@@ -211,7 +214,6 @@ class Davidson(Eigensolver):
 
             with self.timer('diagonalize'):
                 if comm.rank == 0 and bd.comm.rank == 0:
-                    parprint("World rank:", world.rank)
 
                     H_NN[:B, :B] = np.diag(eps_N[:B])
                     S_NN[:B, :B] = np.eye(B)
