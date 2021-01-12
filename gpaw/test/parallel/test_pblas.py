@@ -16,7 +16,7 @@ from gpaw.utilities import compiled_with_sl
 from gpaw.utilities.blas import r2k, rk
 from gpaw.utilities.scalapack import \
     pblas_simple_gemm, pblas_gemm, \
-    pblas_simple_gemv, \
+    pblas_simple_gemv, pblas_gemv, \
     pblas_simple_r2k, pblas_simple_rk, \
     pblas_simple_hemm, pblas_simple_symm, pblas_hemm, pblas_symm
 
@@ -50,8 +50,6 @@ def test_parallel_pblas(dtype, mprocs, nprocs,
 
     # Create descriptors for matrices on master:
     globA = grid.new_descriptor(M, K, M, K)
-    globX = grid.new_descriptor(K, 1, K, 1)
-    globY = grid.new_descriptor(M, 1, M, 1)
     globD = grid.new_descriptor(M, K, M, K)
     globS = grid.new_descriptor(M, M, M, M)
     globU = grid.new_descriptor(M, M, M, M)
@@ -60,75 +58,145 @@ def test_parallel_pblas(dtype, mprocs, nprocs,
     # Populate matrices local to master:
     A0 = gen.rand(*globA.shape) + epsilon * gen.rand(*globA.shape)
     D0 = gen.rand(*globD.shape) + epsilon * gen.rand(*globD.shape)
-    X0 = gen.rand(*globX.shape) + epsilon * gen.rand(*globX.shape)
 
     # Local result matrices
-    Y0 = globY.empty(dtype=dtype)
     S0 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U0 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
 
     # Local reference matrix product:
     if rank == 0:
-        # Y0[:] = np.dot(A0, X0)
-        # gemv(1.0, A0, X0.ravel(), 0.0, Y0.ravel())
-        Y0[:, 0] = A0.dot(X0.ravel())
         r2k(1.0, A0, D0, 0.0, S0)
         rk(1.0, A0, 0.0, U0)
     assert globA.check(A0)
-    assert globX.check(X0) and globY.check(Y0)
     assert globD.check(D0) and globS.check(S0) and globU.check(U0)
 
     # Create distributed destriptors with various block sizes:
     distA = grid.new_descriptor(M, K, 2, 2)
-    distX = grid.new_descriptor(K, 1, 4, 1)
-    distY = grid.new_descriptor(M, 1, 3, 1)
     distD = grid.new_descriptor(M, K, 2, 3)
     distS = grid.new_descriptor(M, M, 2, 2)
     distU = grid.new_descriptor(M, M, 2, 2)
 
     # Distributed matrices:
     A = distA.empty(dtype=dtype)
-    X = distX.empty(dtype=dtype)
-    Y = distY.empty(dtype=dtype)
     D = distD.empty(dtype=dtype)
     S = distS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U = distU.zeros(dtype=dtype)  # zeros needed for rank-updates
     Redistributor(world, globA, distA).redistribute(A0, A)
-    Redistributor(world, globX, distX).redistribute(X0, X)
     Redistributor(world, globD, distD).redistribute(D0, D)
 
-    pblas_simple_gemv(distA, distX, distY, A, X, Y)
     pblas_simple_r2k(distA, distD, distS, A, D, S)
     pblas_simple_rk(distA, distU, A, U)
 
     # Collect result back on master
-    Y1 = globY.empty(dtype=dtype)
     S1 = globS.zeros(dtype=dtype)  # zeros needed for rank-updates
     U1 = globU.zeros(dtype=dtype)  # zeros needed for rank-updates
-    Redistributor(world, distY, globY).redistribute(Y, Y1)
     Redistributor(world, distS, globS).redistribute(S, S1)
     Redistributor(world, distU, globU).redistribute(U, U1)
 
     if rank == 0:
-        gemv_err = abs(Y1 - Y0).max()
         r2k_err = abs(S1 - S0).max()
         rk_err = abs(U1 - U0).max()
-        print('gemv err', gemv_err)
         print('r2k err', r2k_err)
         print('rk_err', rk_err)
     else:
-        gemv_err = 0.0
         r2k_err = 0.0
         rk_err = 0.0
 
     # We don't like exceptions on only one cpu
-    gemv_err = world.sum(gemv_err)
     r2k_err = world.sum(r2k_err)
     rk_err = world.sum(rk_err)
 
-    equal(gemv_err, 0, tol)
     equal(r2k_err, 0, tol)
     equal(rk_err, 0, tol)
+
+
+@pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
+@pytest.mark.parametrize('simple', [True, False])
+@pytest.mark.parametrize('transa', ['N', 'T', 'C'])
+@pytest.mark.parametrize('dtype', [float, complex])
+def test_pblas_gemv(dtype, simple, transa, mprocs, nprocs,
+                    M=160, N=120, seed=42):
+    """Test pblas_simple_gemv, pblas_gemv
+
+    The operation is
+    * y <- alpha*A*x + beta*y
+
+    Additional options
+    * alpha=1 and beta=0       if simple == True
+    """
+    gen = np.random.default_rng(seed)
+    grid = BlacsGrid(world, mprocs, nprocs)
+
+    if dtype == complex:
+        def random(*args):
+            return gen.random(*args) + 1.0j * gen.random(*args)
+    else:
+        def random(*args):
+            return gen.random(*args)
+
+    # Create descriptors for matrices
+    globA = grid.new_descriptor(M, N, M, N)
+    distA = grid.new_descriptor(M, N, 2, 2)
+    if transa == 'N':
+        globX = grid.new_descriptor(N, 1, N, 1)
+        distX = grid.new_descriptor(N, 1, 4, 1)
+
+        globY = grid.new_descriptor(M, 1, M, 1)
+        distY = grid.new_descriptor(M, 1, 3, 1)
+    else:
+        globX = grid.new_descriptor(M, 1, M, 1)
+        distX = grid.new_descriptor(M, 1, 4, 1)
+
+        globY = grid.new_descriptor(N, 1, N, 1)
+        distY = grid.new_descriptor(N, 1, 3, 1)
+
+    # Generate random matrices and coefficients
+    if simple:
+        alpha = 1.0
+        beta = 0.0
+    else:
+        alpha = random()
+        beta = random()
+    A0 = random(globA.shape)
+    X0 = random(globX.shape)
+    Y0 = random(globY.shape)
+
+    if world.rank == 0:
+        # Local reference matrix product
+        op_t = {'N': lambda M: M,
+                'T': lambda M: np.transpose(M),
+                'C': lambda M: np.conjugate(np.transpose(M))}
+        ref_Y0 = alpha * np.dot(op_t[transa](A0), X0) + beta * Y0
+
+    assert globA.check(A0)
+    assert globX.check(X0)
+    assert globY.check(Y0)
+
+    # Distribute matrices
+    A = distA.empty(dtype=dtype)
+    X = distX.empty(dtype=dtype)
+    Y = distY.empty(dtype=dtype)
+    Redistributor(world, globA, distA).redistribute(A0, A)
+    Redistributor(world, globX, distX).redistribute(X0, X)
+    Redistributor(world, globY, distY).redistribute(Y0, Y)
+
+    # Calculate with scalapack
+    if simple:
+        pblas_simple_gemv(distA, distX, distY, A, X, Y,
+                          transa=transa)
+    else:
+        pblas_gemv(alpha, A, X, beta, Y, distA, distX, distY,
+                   transa=transa)
+
+    # Collect result back on master
+    Redistributor(world, distY, globY).redistribute(Y, Y0)
+    if world.rank == 0:
+        err = np.abs(ref_Y0 - Y0).max()
+    else:
+        err = np.nan
+
+    err = broadcast_float(err, world)
+    assert err < tol
 
 
 @pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
