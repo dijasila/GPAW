@@ -433,10 +433,10 @@ PyObject* pblas_hemm_symm(PyObject *self, PyObject *args)
   }
 
   if (PyArray_DESCR(c)->type_num == NPY_DOUBLE) {
-     pdsymm_(side, uplo, &n, &m, &alpha,
+     pdsymm_(side, uplo, &n, &m, &(alpha.real),
              (void*)DOUBLEP(a), &one, &one, INTP(desca),
              (void*)DOUBLEP(b), &one, &one, INTP(descb),
-             &beta,
+             &(beta.real),
              (void*)DOUBLEP(c), &one, &one, INTP(descc));
   } else if (hemm) {
      pzhemm_(side, uplo, &n, &m, &alpha,
