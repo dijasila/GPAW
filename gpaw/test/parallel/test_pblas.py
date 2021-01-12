@@ -38,8 +38,8 @@ if world.size >= 8:
 
 @pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
 @pytest.mark.parametrize('dtype', [float, complex])
-def test_parallel_pblas(dtype, mprocs, nprocs,
-                        M=160, K=140, seed=42):
+def test_pblas_rk_r2k(dtype, mprocs, nprocs,
+                      M=160, K=140, seed=42):
     gen = np.random.RandomState(seed)
     grid = BlacsGrid(world, mprocs, nprocs)
 
