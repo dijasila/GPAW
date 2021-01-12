@@ -22,11 +22,7 @@ master:
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
-    - >
-      flake8
-      --doctests
-      --exclude "gpaw/lrtddft2/*"
-      gpaw
+    - flake8 --doctests gpaw
     - >
       flake8
       --doctests
