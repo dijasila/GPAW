@@ -33,6 +33,7 @@ def test_get(H2, lrtddft):
         assert energies.shape == res.shape
     assert (energies >= 0).all()
 
+
 def test_write(H2, lrtddft, in_tmp_dir):
     fname = 'dielectric.dat'
     dielectric(lrtddft, H2.get_volume(), fname)
