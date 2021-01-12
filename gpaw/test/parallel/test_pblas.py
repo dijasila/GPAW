@@ -36,6 +36,17 @@ if world.size >= 8:
     mnprocs_i += [(2, 4), (4, 2)]
 
 
+def get_rng(seed, dtype):
+    gen = np.random.default_rng(seed)
+    if dtype == complex:
+        def random(*args):
+            return gen.random(*args) + 1.0j * gen.random(*args)
+    else:
+        def random(*args):
+            return gen.random(*args)
+    return random
+
+
 @pytest.mark.parametrize('mprocs, nprocs', mnprocs_i)
 @pytest.mark.parametrize('dtype', [float, complex])
 def test_pblas_rk_r2k(dtype, mprocs, nprocs,
@@ -124,15 +135,8 @@ def test_pblas_gemv(dtype, simple, transa, mprocs, nprocs,
     Additional options
     * alpha=1 and beta=0       if simple == True
     """
-    gen = np.random.default_rng(seed)
+    random = get_rng(seed, dtype)
     grid = BlacsGrid(world, mprocs, nprocs)
-
-    if dtype == complex:
-        def random(*args):
-            return gen.random(*args) + 1.0j * gen.random(*args)
-    else:
-        def random(*args):
-            return gen.random(*args)
 
     # Create descriptors for matrices
     globA = grid.new_descriptor(M, N, M, N)
@@ -214,15 +218,8 @@ def test_pblas_gemm(dtype, simple, transa, transb, mprocs, nprocs,
     Additional options
     * alpha=1 and beta=0       if simple == True
     """
-    gen = np.random.default_rng(seed)
+    random = get_rng(seed, dtype)
     grid = BlacsGrid(world, mprocs, nprocs)
-
-    if dtype == complex:
-        def random(*args):
-            return gen.random(*args) + 1.0j * gen.random(*args)
-    else:
-        def random(*args):
-            return gen.random(*args)
 
     # Create descriptors for matrices
     if transa == 'N':
@@ -312,15 +309,8 @@ def test_pblas_hemm_symm(dtype, hemm, simple, side, uplo, mprocs, nprocs,
     * A is symmetric           if hemm == False
     * alpha=1 and beta=0       if simple == True
     """
-    gen = np.random.default_rng(seed)
+    random = get_rng(seed, dtype)
     grid = BlacsGrid(world, mprocs, nprocs)
-
-    if dtype == complex:
-        def random(*args):
-            return gen.random(*args) + 1.0j * gen.random(*args)
-    else:
-        def random(*args):
-            return gen.random(*args)
 
     # Create descriptors for matrices
     if side == 'L':
