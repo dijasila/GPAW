@@ -393,7 +393,7 @@ def _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
     if not desca.blacsgrid.is_active():
         return
     _gpaw.pblas_hemm_symm(switch_lr[side], switch_lu[uplo],
-                          N, M, alpha, a_MM.T, b_MN.T, beta, c_MN.T,
+                          N, M, alpha, a_MM, b_MN, beta, c_MN,
                           desca.asarray(), descb.asarray(), descc.asarray(),
                           hemm)
 
@@ -463,7 +463,7 @@ def pblas_gemm(alpha, a_MK, b_KN, beta, c_MN, desca, descb, descc,
 
     if not desca.blacsgrid.is_active():
         return
-    _gpaw.pblas_gemm(N, M, Ka, alpha, b_KN.T, a_MK.T, beta, c_MN.T,
+    _gpaw.pblas_gemm(N, M, Ka, alpha, b_KN, a_MK, beta, c_MN,
                      descb.asarray(), desca.asarray(), descc.asarray(),
                      transb, transa)
 
