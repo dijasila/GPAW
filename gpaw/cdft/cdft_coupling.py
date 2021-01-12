@@ -538,9 +538,9 @@ class CouplingParameters:
 
                 if spin == 0:
                     w_kij_AB.append(
-                        np.zeros((n_occup, n_occup), dtype=np.complex))
+                        np.zeros((n_occup, n_occup), dtype=complex))
                     w_kij_BA.append(
-                        np.zeros((n_occup, n_occup), dtype=np.complex))
+                        np.zeros((n_occup, n_occup), dtype=complex))
 
                 # store k-point weights
                 kd = self.calc_A.wfs.kd
@@ -654,8 +654,8 @@ class CouplingParameters:
             # form overlap matrices of correct size for each kpt
 
             if spin == 0:
-                w_kij_AB.append(np.zeros((n_occup, n_occup), dtype=np.complex))
-                w_kij_BA.append(np.zeros((n_occup, n_occup), dtype=np.complex))
+                w_kij_AB.append(np.zeros((n_occup, n_occup), dtype=complex))
+                w_kij_BA.append(np.zeros((n_occup, n_occup), dtype=complex))
 
             # store k-point weights
             kd = self.calc_A.wfs.kd
@@ -791,7 +791,7 @@ class CouplingParameters:
                     warnings.warn(warning)
                 # form overlap matrices of correct size for each kpt
                 if spin == 0:
-                    n_AB.append(np.zeros((n_occup, n_occup), dtype=np.complex))
+                    n_AB.append(np.zeros((n_occup, n_occup), dtype=complex))
 
                 for i in range(n_occup_s[spin]):
                     for j in range(n_occup_s[spin]):
@@ -868,7 +868,7 @@ class CouplingParameters:
                 warnings.warn(warning)
             # form overlap matrices of correct size for each kpt
             if spin == 0:
-                n_AB.append(np.zeros((n_occup, n_occup), dtype=np.complex))
+                n_AB.append(np.zeros((n_occup, n_occup), dtype=complex))
 
             kd = calc_A.wfs.kd
             w_kA = kd.weight_k[k]

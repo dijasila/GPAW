@@ -29,6 +29,7 @@ def bcc100(symbol, a, layers, L):
     atoms.center(axis=2)
     return atoms
 
+
 if __name__ == '__main__':
     bcc = bcc100('Al', 4.0, 4, 15.0)
     from ase.visualize import view

@@ -21,15 +21,19 @@ from gpaw.solvation.sjm import SJM, SJMPower12Potential
 # Solvent parameters from JCP 141, 174108 (2014):
 u0 = 0.180  # eV
 epsinf = 78.36  # dielectric constant of water at 298 K
-gamma = 18.4*1e-3 * Pascal * m  # Surface tension
+gamma = 18.4 * 1e-3 * Pascal * m  # Surface tension
 T = 298.15  # Temperature
-atomic_radii = lambda atoms: [vdw_radii[n] for n in atoms.numbers]
+
+
+def atomic_radii(atoms):
+    return [vdw_radii[n] for n in atoms.numbers]
+
 
 # NEB parameters
 nimg = 4         # Number of neb images
 potential = 4.4  # Desired potential
 
-interpolate = True # True if it is a fresh start with interpolating IS and FS
+interpolate = True  # True if it is a fresh start with interpolating IS and FS
 relax_end_states = True
 climb = False
 
@@ -66,13 +70,13 @@ def calculator():
 
 # Setting up the images
 if restart_file:
-    images = read(restart_file, index='-%i:' % (nimg+2))
+    images = read(restart_file, index='-%i:' % (nimg + 2))
     try:
         # This needs a slight adaptation in ase
         ne_img = [float(image.calc.results['ne']) for image in images]
     except (AttributeError, KeyError):
         # Very bad initial guesses! Should be exchanged by actual values
-        ne_img = [i/10. for i in list(range(nimg + 2))]
+        ne_img = [i / 10. for i in list(range(nimg + 2))]
 
 else:
     initial = read(initial_file)
@@ -87,7 +91,7 @@ else:
 
     for i in range(nimg):
         images.append(initial.copy())
-        ne_img.append(ne_IS + (ne_FS - ne_IS) * (i+1) / float(nimg + 1))
+        ne_img.append(ne_IS + (ne_FS - ne_IS) * (i + 1) / float(nimg + 1))
 
     images.append(final)
     ne_img.append(ne_FS)
@@ -104,14 +108,14 @@ if relax_end_states:
     system = ['IS', 'FS']
     for i in endstates:
         images[i].calc = calculator()
-        images[i].calc.set(txt=system[i]+'.txt')
+        images[i].calc.set(txt=system[i] + '.txt')
         images[i].calc.ne = ne_img[i]
 
-        qn = BFGS(images[i], logfile=system[i]+'.log',
-                  trajectory=system[i]+'.traj')
+        qn = BFGS(images[i], logfile=system[i] + '.log',
+                  trajectory=system[i] + '.traj')
         qn.run(fmax=0.03)
 
-        write(system[i]+'_relaxed_pot_%1.2f_ne_%1.5f.traj'
+        write(system[i] + '_relaxed_pot_%1.2f_ne_%1.5f.traj'
               % (potential, images[i].calc.ne), images[i])
 else:
     for i in [0, -1]:
@@ -119,7 +123,7 @@ else:
 
 
 # Combine NEB images with their respective calculators
-for i in range(1, nimg+1):
+for i in range(1, nimg + 1):
     images[i].calc = calculator()
     images[i].calc.set(txt='image_%i.txt' % (i))
     images[i].calc.ne = ne_img[i]

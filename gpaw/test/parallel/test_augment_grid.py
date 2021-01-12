@@ -9,7 +9,6 @@ def test_parallel_augment_grid(in_tmp_dir):
     system.cell = (4, 4, 4)
     system.pbc = 1
 
-
     for mode in ['fd',
                  'pw',
                  'lcao'
@@ -51,7 +50,7 @@ def test_parallel_augment_grid(in_tmp_dir):
         ferr = np.abs(force[1] - force[0]).max()
         eerr = abs(energy[1] - energy[0])
         if mode == 'pw':
-            serr = np.abs(stress[1] - stress[0]).max()
+            _ = np.abs(stress[1] - stress[0]).max()
 
         assert eerr < 1e-10, eerr
         assert ferr < 1e-10, ferr

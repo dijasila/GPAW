@@ -7,7 +7,6 @@ from gpaw.xc.fxc import FXCCorrelation
 
 
 def test_rpa_rpa_energy_Ni(in_tmp_dir):
-    a0 = 5.43
     Ni = bulk('Ni', 'fcc')
     Ni.set_initial_magnetic_moments([0.7])
 
@@ -17,7 +16,7 @@ def test_rpa_rpa_energy_Ni(in_tmp_dir):
                 setups={'Ni': '10'},
                 communicator=serial_comm)
     Ni.calc = calc
-    E = Ni.get_potential_energy()
+    Ni.get_potential_energy()
     calc.diagonalize_full_hamiltonian(nbands=50)
 
     rpa = RPACorrelation(calc, nfrequencies=8, skip_gamma=True)

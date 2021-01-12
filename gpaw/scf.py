@@ -6,6 +6,7 @@ from ase.units import Ha, Bohr
 
 from gpaw import KohnShamConvergenceError
 from gpaw.forces import calculate_forces
+from gpaw.mpi import broadcast_float
 
 
 class SCFLoop:
@@ -102,8 +103,11 @@ class SCFLoop:
     def collect_errors(self, dens, ham, wfs):
         """Check convergence of eigenstates, energy and density."""
 
+        # XXX Make sure all agree on the density error:
+        denserror = broadcast_float(dens.error, wfs.world)
+
         errors = {'eigenstates': wfs.eigensolver.error,
-                  'density': dens.error,
+                  'density': denserror,
                   'energy': np.inf}
 
         if dens.fixed:

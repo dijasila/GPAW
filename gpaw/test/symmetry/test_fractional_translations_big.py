@@ -5,7 +5,7 @@ from gpaw.test import equal
 
 
 def test_symmetry_fractional_translations_big():
-    name = 'cristobalite'
+    'cristobalite'
     # no. 92 - tetragonal
 
     a = 5.0833674
@@ -15,7 +15,6 @@ def test_symmetry_fractional_translations_big():
 
     atoms = crystal(['Si', 'O'], basis=[p0, p1],
                     spacegroup=92, cellpar=[a, a, c, 90, 90, 90])
-
 
     # with fractional translations
     calc = GPAW(mode=PW(),

@@ -158,6 +158,10 @@ sources.sort()
 
 check_dependencies(sources)
 
+# Convert Path objects to str:
+library_dirs = [str(dir) for dir in library_dirs]
+include_dirs = [str(dir) for dir in include_dirs]
+
 extensions = [Extension('_gpaw',
                         sources,
                         libraries=libraries,

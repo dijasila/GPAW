@@ -6,6 +6,7 @@ from gpaw import GPAW, Davidson, Mixer
 from gpaw.test.pseudopotential.H_sg15 import pp_text
 from gpaw import setup_paths
 
+
 def test_pseudopotential_sg15_hydrogen(in_tmp_dir):
     setup_paths.insert(0, '.')
     from gpaw.mpi import world

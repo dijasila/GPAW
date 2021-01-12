@@ -17,7 +17,8 @@ def test_xc_xcatom():
         D_p = 0.1 * ra.random(nii) + 0.2
         H_p = np.zeros(nii)
 
-        E = xc.calculate_paw_correction(s, D_p.reshape(1, -1), H_p.reshape(1, -1))
+        xc.calculate_paw_correction(
+            s, D_p.reshape(1, -1), H_p.reshape(1, -1))
         dD_p = x * ra.random(nii)
         dE = np.dot(H_p, dD_p) / x
         D_p += dD_p
@@ -34,7 +35,7 @@ def test_xc_xcatom():
         D_sp = 0.1 * ra.random((2, nii)) + 0.2
         H_sp = np.zeros((2, nii))
 
-        E = xc.calculate_paw_correction(s, D_sp, H_sp)
+        xc.calculate_paw_correction(s, D_sp, H_sp)
         dD_sp = x * ra.random((2, nii))
         dE = np.dot(H_sp.ravel(), dD_sp.ravel()) / x
         D_sp += dD_sp

@@ -109,16 +109,16 @@ structures, giving four different symmetry types for each atomic composition.
 # %%
 # teacher
 # general formula ABX
-print('example of a name: {}'.format((next(db.select('project')).name)))
+print(f"example of a name: {next(db.select('project')).name}")
 As = {r.name[:2] for r in db.select('project')}
 Bs = {r.name[2:4] for r in db.select('project')}
 symclasses = {r.symmetry for r in db.select('project')}
 Xs = ['I3', 'Br3', 'Cl3', 'I2Br', 'IBr2', 'I2Cl', 'ICl2',
       'IBrCl', 'Br2Cl', 'BrCl2']
-print('{} As: {}'.format(len(As), As))
-print('{} Bs: {}'.format(len(Bs), Bs))
-print('{} Xs: {}'.format(len(Xs), Xs))
-print('{} symclasses: {}'.format(len(symclasses), symclasses))
+print(f'{len(As)} As: {As}')
+print(f'{len(Bs)} Bs: {Bs}')
+print(f'{len(Xs)} Xs: {Xs}')
+print(f'{len(symclasses)} symclasses: {symclasses}')
 NA = len(As)
 NB = len(Bs)
 NS = len(symclasses)
@@ -206,7 +206,7 @@ for row in db.select(subproject='references'):
     en_refs[row.element] = row.energy / row.natoms
 
 E_standard = en_cubic - (8 * en_refs['MA'] + en_refs['Pb'] + 3 * en_refs['I'])
-print('hof={:.3f} eV/atom'.format(E_standard / row.natoms))
+print(f'hof={E_standard / row.natoms:.3f} eV/atom')
 
 # %%
 """
@@ -220,7 +220,7 @@ view(row_c.toatoms())
 row_t = db.get(name='MAPbI3', symmetry='tetragonal')
 de = row_c.energy / row_c.natoms - row_t.energy / row_t.natoms
 de_form = 12 * de  # 12 atoms per formula unit
-print('E(cubic) - E(tetragonal)={:.4f} eV/Fu'.format(de_form))
+print(f'E(cubic) - E(tetragonal)={de_form:.4f} eV/Fu')
 
 # %%
 """
@@ -269,8 +269,8 @@ As an example, we apply the encoding to the first few rows of the database with 
 
 # %%
 for row in db.select(symmetry='cubic', limit=5):
-    print('name={} formula={} symmetry={}'.format(row.name, row.formula, row.symmetry))
-    print('vec={}'.format(calculate_input_vector(row)))
+    print(f'name={row.name} formula={row.formula} symmetry={row.symmetry}')
+    print(f'vec={calculate_input_vector(row)}')
     print('-'*79)
 
 # %%

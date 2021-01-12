@@ -17,15 +17,15 @@ def test_psp_upf_h2o():
 
     import numpy as np
     x = np.linspace(0.0, 5.0, 1000)
-    dr = x[1] - x[0]
+    # dr = x[1] - x[0]
 
-    psi = pp.phit_j[0].map(x)
-    p = pp.pt_j[0].map(x)
+    pp.phit_j[0].map(x)
+    pp.pt_j[0].map(x)
 
     from gpaw.atom.atompaw import AtomPAW
 
     if 0:
-        f = 1.0  # 1e-12
+        # f = 1.0  # 1e-12
         c = AtomPAW('H', [[[2.0], [4.0]]],
                     # charge=1 - f,
                     h=0.04,

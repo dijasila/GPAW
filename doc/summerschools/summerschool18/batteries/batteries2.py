@@ -598,7 +598,7 @@ The equilibrium potential for a FePO$_4$/Li battery is thus as a good estimate:
 """
 
 # %%
-print('{:.2f} V +- {:.2f} V'.format(V_eq, error))
+print(f'{V_eq:.2f} V +- {error:.2f} V')
 
 # %%
 """

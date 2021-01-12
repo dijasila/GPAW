@@ -54,4 +54,4 @@ def test_electronphonon(in_tmp_dir):
     frequencies, modes = ph.band_structure(kpts, modes=True)
 
     c_kn = np.array([[gamma_bands[0]]])
-    g_qklnn = elph.bloch_matrix(c_kn=c_kn, kpts=kpts, qpts=kpts, u_ql=modes)
+    _ = elph.bloch_matrix(c_kn=c_kn, kpts=kpts, qpts=kpts, u_ql=modes)

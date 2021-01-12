@@ -3,7 +3,7 @@ from gpaw.lrtddft import LrTDDFT, photoabsorption_spectrum
 from gpaw.inducedfield.inducedfield_lrtddft import LrTDDFTInducedField
 
 # Load LrTDDFT object
-lr = LrTDDFT('na2_lr.dat.gz')
+lr = LrTDDFT.read('na2_lr.dat.gz')
 
 # Calculate photoabsorption spectrum as usual
 folding = 'Gauss'

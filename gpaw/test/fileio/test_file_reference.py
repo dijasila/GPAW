@@ -6,7 +6,6 @@ from gpaw import GPAW
 from gpaw.mpi import world, rank
 
 
-
 def test_fileio_file_reference(in_tmp_dir):
     d = 3.0
     atoms = Atoms('Na3',
@@ -23,7 +22,7 @@ def test_fileio_file_reference(in_tmp_dir):
                 setups={'Na': '1'},
                 nbands=3, convergence=conv)
     atoms.calc = calc
-    e0 = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     wf0 = calc.get_pseudo_wave_function(2, 1, 1, broadcast=True)
 
     calc.write('tmp', 'all')

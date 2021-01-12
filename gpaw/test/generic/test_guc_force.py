@@ -12,8 +12,9 @@ from gpaw.test import equal
 
 
 def test_generic_guc_force():
-    sibasis = BasisMaker('Si').generate(2, 1, energysplit=0.3, tailnorm=0.03**.5)
-    basis = {'Si' : sibasis}
+    sibasis = BasisMaker('Si').generate(
+        2, 1, energysplit=0.3, tailnorm=0.03**.5)
+    basis = {'Si': sibasis}
 
     a = 5.475
     system = Atoms(symbols='Si2', pbc=True,
@@ -26,8 +27,8 @@ def test_generic_guc_force():
     calc = GPAW(h=0.2,
                 mode='lcao',
                 basis=basis,
-                kpts=(2,2,2),
-                convergence={'density':1e-5, 'energy': 1e-6}
+                kpts=(2, 2, 2),
+                convergence={'density': 1e-5, 'energy': 1e-6}
                 )
     system.calc = calc
 
@@ -55,7 +56,6 @@ def test_generic_guc_force():
 
     # ASE uses dx = [+|-] 0.001 by default,
     # error should be around 2e-3.  In fact 4e-3 would probably be acceptable
-
 
     equal(err, 0, 6e-3)
 

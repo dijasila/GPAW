@@ -26,7 +26,7 @@ def test_inducedfield_lrtddft(in_tmp_dir):
                 experimental={'niter_fixdensity': 2},
                 convergence={'density': density_eps})
     atoms.calc = calc
-    energy = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     calc.write('na2_gs_casida.gpw', mode='all')
 
     # 2) Casida calculation
@@ -34,7 +34,7 @@ def test_inducedfield_lrtddft(in_tmp_dir):
     istart = 0
     jend = 20
     lr = LrTDDFT(calc, xc='LDA',
-                 restrict={'istart':istart, 'jend':jend})
+                 restrict={'istart': istart, 'jend': jend})
     lr.diagonalize()
     lr.write('na2_lr.dat.gz')
 

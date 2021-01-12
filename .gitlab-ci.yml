@@ -18,15 +18,15 @@ master:
     - su user -c 'pytest -v -m ci'
     - mypy -p gpaw
     - >
-      interrogate -m -i -f 34.6
+      interrogate -m -i -f 34.9
       -e gpaw/test
       -e gpaw/point_groups/groups.py
       gpaw
+    - flake8 --doctests gpaw
     - >
-      flake8 --exit-zero --doctests --statistics --count -qq
-      --exclude "doc/platforms/*,gpaw/lrtddft2/*,doc/*/summerschool18/*/*"
-      gpaw doc | tee f8
-    - >
-      python -c
-      "assert int(open('f8').readlines()[-1]) <= 1076, 'Run flake8 on your code'"
+      flake8
+      --doctests
+      --exclude "doc/platforms/*,doc/*/summerschool18/*/*"
+      --extend-ignore E402
+      doc
     - python -We:invalid -m compileall -f -q gpaw/

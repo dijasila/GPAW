@@ -163,7 +163,6 @@ class WaveFunction:
         if a in P_amsi:
             dos_ms[:, :] = (abs(P_amsi[a][:, :, indices])**2).sum(2)
 
-        self.projections.atom_partition.comm.sum(dos_ms)
         return dos_ms
 
 
@@ -281,25 +280,36 @@ class BZWaveFunctions:
         def func(wf):
             return wf.pdos_weights(a, indices)
 
-        return self._collect(func, (2,), broadcast=broadcast)
+        return self._collect(func,
+                             (2,),
+                             broadcast=broadcast,
+                             sum_over_domain=True)
 
     def _collect(self,
                  func: Callable[[WaveFunction], ArrayND],
                  shape: Tuple[int, ...] = None,
                  dtype=float,
-                 broadcast: bool = True) -> ArrayND:
+                 broadcast: bool = True,
+                 sum_over_domain: bool = False) -> ArrayND:
         """Helper method for collecting (and broadcasting) ndarrays."""
 
         total_shape = self.shape + (shape or ())
 
         if broadcast:
-            array_kmx = self._collect(func, shape, dtype, False)
+            array_kmx = self._collect(func,
+                                      shape,
+                                      dtype,
+                                      False,
+                                      sum_over_domain)
             if array_kmx.ndim == 0:
                 array_kmx = np.empty(total_shape, dtype)
             return broadcast_array(array_kmx,
                                    self.kpt_comm, self.bcomm, self.domain_comm)
 
-        if self.bcomm.rank != 0 or self.domain_comm.rank != 0:
+        if self.bcomm.rank != 0:
+            return np.empty(shape=())
+
+        if not sum_over_domain and self.domain_comm.rank != 0:
             return np.empty(shape=())
 
         comm = self.kpt_comm
@@ -310,7 +320,12 @@ class BZWaveFunctions:
                     array_kmx[k] = func(self[k])
                 else:
                     comm.receive(array_kmx[k], rank)
-            return array_kmx
+            if sum_over_domain:
+                self.domain_comm.sum(array_kmx)
+            if self.domain_comm.rank == 0:
+                return array_kmx
+            else:
+                return np.empty(shape=())
 
         for k, rank in enumerate(self.ranks):
             if rank == comm.rank:
@@ -368,7 +383,7 @@ def extract_ibz_wave_functions(kpt_qs: List[List[KPoint]],
     """Yield tuples of IBZ-index and wave functions.
 
     All atoms and bands will be on rank == 0 of gd.comm and bd.comm
-    rfespectively.  THis makes slicing the bands (from n1 to n2-1)
+    respectively.  This makes slicing the bands (from n1 to n2-1)
     and symmetry operations on the projections easier.
     """
 
@@ -461,7 +476,7 @@ def soc_eigenstates(calc: Union['GPAW', str, Path],
 
     from gpaw import GPAW  # noqa
 
-    if not isinstance(calc, GPAW):
+    if isinstance(calc, (str, Path)):
         calc = GPAW(calc)
 
     n1 = n1 or 0
@@ -720,8 +735,8 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
             e_in.append(n_n)
 
     print()
-    print(' Inversion center at: %s' % inversion_center)
-    print(' Calculating inversion eigenvalues at k = %s' % kpt_c)
+    print(f' Inversion center at: {inversion_center}')
+    print(f' Calculating inversion eigenvalues at k = {kpt_c}')
     print()
 
     center_v = np.array(inversion_center) / Bohr
@@ -776,12 +791,12 @@ def get_parity_eigenvalues(calc, ik=0, spin_orbit=False, bands=None, Nv=None,
                 Pm = np.sign(P_eig).tolist().count(-1)
                 Pp = np.sign(P_eig).tolist().count(1)
                 P_n = Pm // 2 * [-1] + Pp // 2 * [1]
-            print('%s: %s' % (str(n_n)[1:-1], str(P_n)[1:-1]))
+            print(f'{str(n_n)[1:-1]}: {str(P_n)[1:-1]}')
             p_n += P_n
         else:
-            print('  %s are not parity eigenstates' % n_n)
-            print('     P_n: %s' % P_eig)
-            print('     e_n: %s' % eig_n[n_n])
+            print(f'  {n_n} are not parity eigenstates')
+            print(f'     P_n: {P_eig}')
+            print(f'     e_n: {eig_n[n_n]}')
             p_n += [0 for n in n_n]
 
     return np.ravel(p_n)

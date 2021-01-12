@@ -62,7 +62,6 @@ def test_utilities_elf():
     atoms.calc = calc
     energy_spinpol = atoms.get_potential_energy()
 
-        
     def check_diff(g1, g2, gd, txt):
         # print rank, txt, "shapes", g1.shape, g2.shape
         intd = gd.integrate(np.abs(g1 - g2))
@@ -74,7 +73,7 @@ def test_utilities_elf():
 
     nt_spinpol_G = calc.density.nt_sG.sum(axis=0)
     check_diff(nt_G, nt_spinpol_G, elf.finegd, 'nt_G')
-       
+
     equal(energy, energy_spinpol, 0.0001)
 
     elf_spinpol = ELF(calc)
