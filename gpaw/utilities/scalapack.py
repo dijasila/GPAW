@@ -12,7 +12,7 @@ http://www.netlib.org/blacs
 and
 http://www.netlib.org/scalapack
 """
-
+import numpy as np
 
 import _gpaw
 
@@ -490,31 +490,51 @@ def pblas_simple_symm(desca, descb, descc, a_MM, b_MN, c_MN,
     pblas_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc, side, uplo)
 
 
-def pblas_gemv(alpha, a, x, beta, y, desca, descx, descy,
-               transa='T'):
-    desca.checkassert(a)
-    descx.checkassert(x)
-    descy.checkassert(y)
+def pblas_gemv(alpha, a_MN, x_N, beta, y_M, desca, descx, descy,
+               transa='N'):
+    """General matrix-vector product.
+
+    y <- alpha*A*x + beta*y
+
+    This function executes the following PBLAS routine:
+    * pzgemv if matrices are complex
+    * pdgemv if matrices are real
+    """
+    desca.checkassert(a_MN)
+    descx.checkassert(x_N)
+    descy.checkassert(y_M)
+    assert transa in ['N', 'T', 'C']
     M, N = desca.gshape
-    # XXX transa = 'N' not implemented
-    assert transa in ['T', 'C']
-    assert desca.gshape[0] == descy.gshape[0]
-    assert desca.gshape[1] == descx.gshape[0]
-    assert descx.gshape[1] == descy.gshape[1]
+    Nx, Ox = descx.gshape
+    My, Oy = descy.gshape
+    assert Ox == 1
+    assert Oy == 1
+    if transa == 'N':
+        assert Nx == N
+        assert My == M
+    else:
+        assert Nx == M
+        assert My == N
+
+    # Switch transposition and handle complex conjugation manually
+    if transa == 'C':
+        a_MN = np.ascontiguousarray(a_MN.conj())
+    switch_ntc = {'N': 'T', 'T': 'N', 'C': 'N'}
+
     if not desca.blacsgrid.is_active():
         return
     _gpaw.pblas_gemv(N, M, alpha,
-                     a, x, beta, y,
+                     a_MN, x_N, beta, y_M,
                      desca.asarray(),
                      descx.asarray(),
                      descy.asarray(),
-                     transa)
+                     switch_ntc[transa])
 
 
-def pblas_simple_gemv(desca, descx, descy, a, x, y):
+def pblas_simple_gemv(desca, descx, descy, a, x, y, transa='N'):
     alpha = 1.0
     beta = 0.0
-    pblas_gemv(alpha, a, x, beta, y, desca, descx, descy)
+    pblas_gemv(alpha, a, x, beta, y, desca, descx, descy, transa)
 
 
 def pblas_r2k(alpha, a_NK, b_NK, beta, c_NN, desca, descb, descc,
