@@ -1,6 +1,3 @@
-"""
-Test Placzek Raman implementation
-"""
 from ase import Atoms, Atom
 from ase.vibrations.resonant_raman import ResonantRamanCalculator
 from ase.vibrations.placzek import Placzek, Profeta

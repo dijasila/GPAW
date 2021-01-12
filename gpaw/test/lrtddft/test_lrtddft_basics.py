@@ -48,6 +48,7 @@ def test_invocation():
     H2 = get_H2(calc)
     exlst = LrTDDFT(restrict={'eps': 0.4, 'jend': 3}, txt=None)
     exlst.calculate(H2)
+    assert exlst.xc is not None
     assert hasattr(exlst, 'Om')
 
     # traditional way
