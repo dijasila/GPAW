@@ -30,9 +30,10 @@ def test_poisson_screened_poisson():
     solver.load_gauss()
     vg = test_screened_poisson.get_phi(-coupling)  # esp. for dampening
     # Get analytic functions
-    gauss.get_gauss(0)
+    ng = gauss.get_gauss(0)
     #    vg = solver.phi_gauss
     # Solve potential numerically
+    solver.solve(pot, ng, charge=None, zero_initial_phi=True)
     # Determine residual
     # residual = norm(pot - vg)
     residual = gd.integrate((pot - vg)**2)**0.5
