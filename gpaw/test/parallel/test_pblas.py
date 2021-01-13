@@ -139,20 +139,16 @@ def test_pblas_gemv(dtype, simple, transa, mprocs, nprocs,
     grid = BlacsGrid(world, mprocs, nprocs)
 
     # Create descriptors for matrices
-    globA = grid.new_descriptor(M, N, M, N)
     distA = grid.new_descriptor(M, N, 2, 2)
     if transa == 'N':
-        globX = grid.new_descriptor(N, 1, N, 1)
         distX = grid.new_descriptor(N, 1, 4, 1)
-
-        globY = grid.new_descriptor(M, 1, M, 1)
         distY = grid.new_descriptor(M, 1, 3, 1)
     else:
-        globX = grid.new_descriptor(M, 1, M, 1)
         distX = grid.new_descriptor(M, 1, 4, 1)
-
-        globY = grid.new_descriptor(N, 1, N, 1)
         distY = grid.new_descriptor(N, 1, 3, 1)
+    globA = distA.as_serial()
+    globX = distX.as_serial()
+    globY = distY.as_serial()
 
     # Generate random matrices and coefficients
     if simple:
@@ -177,23 +173,22 @@ def test_pblas_gemv(dtype, simple, transa, mprocs, nprocs,
     assert globY.check(Y0)
 
     # Distribute matrices
-    A = distA.empty(dtype=dtype)
-    X = distX.empty(dtype=dtype)
-    Y = distY.empty(dtype=dtype)
-    Redistributor(world, globA, distA).redistribute(A0, A)
-    Redistributor(world, globX, distX).redistribute(X0, X)
-    Redistributor(world, globY, distY).redistribute(Y0, Y)
+    A = globA.redistribute(distA, A0)
+    X = globX.redistribute(distX, X0)
+    Y = globY.redistribute(distY, Y0)
 
     # Calculate with scalapack
     if simple:
-        pblas_simple_gemv(distA, distX, distY, A, X, Y,
+        pblas_simple_gemv(distA, distX, distY,
+                          A, X, Y,
                           transa=transa)
     else:
-        pblas_gemv(alpha, A, X, beta, Y, distA, distX, distY,
+        pblas_gemv(alpha, A, X, beta, Y,
+                   distA, distX, distY,
                    transa=transa)
 
     # Collect result back on master
-    Redistributor(world, distY, globY).redistribute(Y, Y0)
+    Y0 = distY.redistribute(globY, Y)
     if world.rank == 0:
         err = np.abs(ref_Y0 - Y0).max()
     else:
@@ -223,19 +218,17 @@ def test_pblas_gemm(dtype, simple, transa, transb, mprocs, nprocs,
 
     # Create descriptors for matrices
     if transa == 'N':
-        globA = grid.new_descriptor(M, K, M, K)
         distA = grid.new_descriptor(M, K, 2, 2)
     else:
-        globA = grid.new_descriptor(K, M, K, M)
         distA = grid.new_descriptor(K, M, 2, 2)
     if transb == 'N':
-        globB = grid.new_descriptor(K, N, K, N)
         distB = grid.new_descriptor(K, N, 2, 4)
     else:
-        globB = grid.new_descriptor(N, K, N, K)
         distB = grid.new_descriptor(N, K, 2, 4)
-    globC = grid.new_descriptor(M, N, M, N)
     distC = grid.new_descriptor(M, N, 3, 2)
+    globA = distA.as_serial()
+    globB = distB.as_serial()
+    globC = distC.as_serial()
 
     # Generate random matrices and coefficients
     if simple:
@@ -260,23 +253,22 @@ def test_pblas_gemm(dtype, simple, transa, transb, mprocs, nprocs,
     assert globC.check(C0)
 
     # Distribute matrices
-    A = distA.empty(dtype=dtype)
-    B = distB.empty(dtype=dtype)
-    C = distC.empty(dtype=dtype)
-    Redistributor(world, globA, distA).redistribute(A0, A)
-    Redistributor(world, globB, distB).redistribute(B0, B)
-    Redistributor(world, globC, distC).redistribute(C0, C)
+    A = globA.redistribute(distA, A0)
+    B = globB.redistribute(distB, B0)
+    C = globC.redistribute(distC, C0)
 
     # Calculate with scalapack
     if simple:
-        pblas_simple_gemm(distA, distB, distC, A, B, C,
+        pblas_simple_gemm(distA, distB, distC,
+                          A, B, C,
                           transa=transa, transb=transb)
     else:
-        pblas_gemm(alpha, A, B, beta, C, distA, distB, distC,
+        pblas_gemm(alpha, A, B, beta, C,
+                   distA, distB, distC,
                    transa=transa, transb=transb)
 
     # Collect result back on master
-    Redistributor(world, distC, globC).redistribute(C, C0)
+    C0 = distC.redistribute(globC, C)
     if world.rank == 0:
         err = np.abs(ref_C0 - C0).max()
     else:
@@ -314,15 +306,14 @@ def test_pblas_hemm_symm(dtype, hemm, simple, side, uplo, mprocs, nprocs,
 
     # Create descriptors for matrices
     if side == 'L':
-        globA = grid.new_descriptor(M, M, M, M)
         distA = grid.new_descriptor(M, M, 2, 2)
     else:
-        globA = grid.new_descriptor(N, N, N, N)
         distA = grid.new_descriptor(N, N, 2, 2)
-    globB = grid.new_descriptor(M, N, M, N)
     distB = grid.new_descriptor(M, N, 2, 4)
-    globC = grid.new_descriptor(M, N, M, N)
     distC = grid.new_descriptor(M, N, 3, 2)
+    globA = distA.as_serial()
+    globB = distB.as_serial()
+    globC = distC.as_serial()
 
     # Generate random matrices and coefficients
     if simple:
@@ -358,37 +349,37 @@ def test_pblas_hemm_symm(dtype, hemm, simple, side, uplo, mprocs, nprocs,
         else:
             A0 += np.tril(A0 * np.nan, -1)
 
-        if world.rank == 0:
-            print(A0)
+        print(A0)
 
     assert globA.check(A0)
     assert globB.check(B0)
     assert globC.check(C0)
 
     # Distribute matrices
-    A = distA.empty(dtype=dtype)
-    B = distB.empty(dtype=dtype)
-    C = distC.empty(dtype=dtype)
-    Redistributor(world, globA, distA).redistribute(A0, A)
-    Redistributor(world, globB, distB).redistribute(B0, B)
-    Redistributor(world, globC, distC).redistribute(C0, C)
+    A = globA.redistribute(distA, A0)
+    B = globB.redistribute(distB, B0)
+    C = globC.redistribute(distC, C0)
 
     # Calculate with scalapack
     if simple and hemm:
-        pblas_simple_hemm(distA, distB, distC, A, B, C,
+        pblas_simple_hemm(distA, distB, distC,
+                          A, B, C,
                           uplo=uplo, side=side)
     elif hemm:
-        pblas_hemm(alpha, A, B, beta, C, distA, distB, distC,
+        pblas_hemm(alpha, A, B, beta, C,
+                   distA, distB, distC,
                    uplo=uplo, side=side)
     elif simple:
-        pblas_simple_symm(distA, distB, distC, A, B, C,
+        pblas_simple_symm(distA, distB, distC,
+                          A, B, C,
                           uplo=uplo, side=side)
     else:
-        pblas_symm(alpha, A, B, beta, C, distA, distB, distC,
+        pblas_symm(alpha, A, B, beta, C,
+                   distA, distB, distC,
                    uplo=uplo, side=side)
 
     # Collect result back on master
-    Redistributor(world, distC, globC).redistribute(C, C0)
+    C0 = distC.redistribute(globC, C)
     if world.rank == 0:
         err = np.abs(ref_C0 - C0).max()
     else:
