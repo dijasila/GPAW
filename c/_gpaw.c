@@ -62,6 +62,7 @@ PyObject* tci_overlap(PyObject *self, PyObject *args);
 PyObject *pwlfc_expand(PyObject *self, PyObject *args);
 PyObject *pw_insert(PyObject *self, PyObject *args);
 PyObject *pw_precond(PyObject *self, PyObject *args);
+PyObject *fd_precond(PyObject *self, PyObject *args);
 PyObject* vdw(PyObject *self, PyObject *args);
 PyObject* vdw2(PyObject *self, PyObject *args);
 PyObject* spherical_harmonics(PyObject *self, PyObject *args);
@@ -116,6 +117,9 @@ PyObject * FFTWPlan(PyObject *self, PyObject *args);
 PyObject * FFTWExecute(PyObject *self, PyObject *args);
 PyObject * FFTWDestroy(PyObject *self, PyObject *args);
 #endif
+
+// Threading
+PyObject* get_num_threads(PyObject *self, PyObject *args);
 
 #ifdef GPAW_PAPI
 PyObject* papi_mem_info(PyObject *self, PyObject *args);
@@ -177,6 +181,7 @@ static PyMethodDef functions[] = {
     {"pwlfc_expand", pwlfc_expand, METH_VARARGS, 0},
     {"pw_insert", pw_insert, METH_VARARGS, 0},
     {"pw_precond", pw_precond, METH_VARARGS, 0},
+    {"fd_precond", fd_precond, METH_VARARGS, 0},
     {"pack", pack, METH_VARARGS, 0},
     {"unpack", unpack, METH_VARARGS, 0},
     {"unpack_complex", unpack_complex,           METH_VARARGS, 0},
@@ -195,6 +200,7 @@ static PyMethodDef functions[] = {
     {"spline_to_grid", spline_to_grid, METH_VARARGS, 0},
     {"LFC", NewLFCObject, METH_VARARGS, 0},
     {"globally_broadcast_bytes", globally_broadcast_bytes, METH_VARARGS, 0},
+    {"get_num_threads", get_num_threads, METH_VARARGS, 0},
 #if defined(GPAW_WITH_SL) && defined(PARALLEL)
     {"new_blacs_context", new_blacs_context, METH_VARARGS, NULL},
     {"get_blacs_gridinfo", get_blacs_gridinfo, METH_VARARGS, NULL},
@@ -382,6 +388,11 @@ static PyObject* moduleinit(void)
                            PyUnicode_FromString(xc_version_string()));
 # endif
 #endif
+#ifdef _OPENMP
+    PyObject_SetAttrString(m, "have_openmp", Py_True);
+#else
+    PyObject_SetAttrString(m, "have_openmp", Py_False);
+#endif
 
     Py_INCREF(&LFCType);
     Py_INCREF(&OperatorType);
@@ -448,14 +459,14 @@ gpaw_main()
 int
 main(int argc, char **argv)
 {
-#ifndef GPAW_OMP
+#ifndef _OPENMP
     MPI_Init(&argc, &argv);
 #else
     int granted;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &granted);
     if (granted != MPI_THREAD_MULTIPLE)
         exit(1);
-#endif // GPAW_OMP
+#endif 
 
 #define PyChar wchar_t
     wchar_t* wargv[argc];
