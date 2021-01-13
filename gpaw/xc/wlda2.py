@@ -79,6 +79,8 @@ def define_indicator(ia, alphas):
 def define_alphas(n_sg, nalphas):
     minn = np.min(n_sg)
     maxn = np.max(n_sg)
+    if np.allclose(minn, maxn):
+        maxn *= 1.05
     # The indicator anchors
     minanchor = 1e-5 # 1e-4 * 200 / nalphas + 5*1e-4
     minn = max(minn, minanchor)
@@ -123,6 +125,25 @@ class WLDA(XCFunctional):
 
         # If spin-paired we can reuse the weighted density
         nstar_sg, alpha_indices = self.wlda_x(wn_sg, exc_g, vxc_sg)
+        
+
+        ## DEBUG
+        # from gpaw.xc.lda import lda_x
+        # e_lda = np.zeros(wn_sg.shape[1:])
+        # v_lda = np.zeros(wn_sg.shape)
+        # lda_x(0, e_lda, wn_sg[0], v_lda[0])
+        # ratiov = np.mean(np.abs(v_lda[0])) / np.mean(np.abs(vxc_sg[0]))
+        # ratioe = np.mean(np.abs(e_lda)) / np.mean(np.abs(exc_g))
+        # if ratiov > 10 or ratiov < 0.1 or ratioe > 10 or ratioe < 0.1:
+        #     debugdata = {"Nc": self.gd.N_c, "cell": self.gd.cell_cv,
+        #                  "wn_sg": wn_sg, "exc_g": exc_g, "vxc_sg": vxc_sg,
+        #                  "nstar_sg": nstar_sg, "alphas": self.alphas}
+        #     if mpi.world.rank == 0:
+        #         np.save("debugdata.npy", debugdata)
+        #     mpi.world.barrier()
+        #     raise ValueError("Large stuff")
+        ## /DEBUG
+
 
         # nstar_sg = self.wlda_c(wn_sg, exc_g, vxc_sg,
         #                        nstar_sg, alpha_indices)
@@ -132,7 +153,6 @@ class WLDA(XCFunctional):
         gd.distribute(exc_g, e_g)
         gd.distribute(vxc_sg, v_sg)
 
-    @timer
     def get_working_density(self, n_sg, gd):
         """Construct the "working" density.
 
@@ -160,7 +180,6 @@ class WLDA(XCFunctional):
 
         return wn_sg
 
-    @timer
     def wlda_x(self, wn_sg, exc_g, vxc_sg):
         """
         Calculate WLDA exchange energy.
@@ -226,7 +245,6 @@ class WLDA(XCFunctional):
             vxc_sg[:] = v1_sg + v2_sg - v3_sg
             return None, None
 
-    @timer
     def wlda_c(self, wn_sg, exc_g, vxc_sg, nstar_sg, alpha_indices):
         """Calculate the WLDA correlation energy.
         
@@ -274,7 +292,6 @@ class WLDA(XCFunctional):
         vxc_sg[:] += v1_sg + v2_sg - v3_sg
         return nstar_sg
 
-    @timer
     def get_weighted_density(self, wn_sg):
         """Set up the weighted density.
 
@@ -461,14 +478,24 @@ class WLDA(XCFunctional):
         self.get_dindicator_g = timer(get_dind_g)
 
     def ind_asg(self, ia, spin):
-        if type(ia) != int:
+        if type(ia) != int and type(ia) != list:
             raise ValueError(f"Incorrect type: {ia}, {type(ia)}")
-        _i, _ = define_indicator(ia, self.alphas)
 
-        if type(spin) == list:
-            return np.array([_i(self.wn_sg[s]) for s in spin])
-        else:
-            return _i(self.wn_sg[spin])
+        if type(ia) == list:
+            _is = [define_indicator(x, self.alphas)[0] for x in ia]
+            if type(spin) == list:
+                return np.array([[_i(self.wn_sg[s]) for s in spin] for _i in _is])
+            else:
+                return np.array([_i(self.wn_sg[spin]) for _i in _is])
+
+
+        if type(ia) == int:
+            _i, _ = define_indicator(ia, self.alphas)
+
+            if type(spin) == list:
+                return np.array([_i(self.wn_sg[s]) for s in spin])
+            else:
+                return _i(self.wn_sg[spin])
 
     def dind_asg(self, ia, spin):
         _, _di = define_indicator(ia, self.alphas)
@@ -519,10 +546,11 @@ class WLDA(XCFunctional):
         #f_sg = self.get_indicator_sg(wn_sg, ia) * wn_sg
         spins = list(range(wn_sg.shape[0]))
         f_sg = self.ind_asg(ia, spins) * wn_sg
+        assert len(wn_sg.shape) == len(f_sg.shape), spins
         f_sG = self.fftn(f_sg, axes=(1, 2, 3))
 
-        w_sG = self.get_weight_function(ia, gd, self.alphas)
-        
+        w_sG = np.array([self.get_weight_function(ia, gd, self.alphas) for _ in spins])
+        assert w_sG.shape == f_sG.shape
         r_sg = self.ifftn(w_sG * f_sG, axes=(1, 2, 3))
 
         return r_sg.real
@@ -856,7 +884,6 @@ class WLDA(XCFunctional):
             v[1] = self.fold_with_derivative(v[1],
                                              wn_g, my_alpha_indices, 1)
 
-    @timer            
     def fold_with_derivative(self, f_g, n_g, my_alpha_indices, spin):
         """Fold function f_g with the derivative of the weighted density.
 
@@ -880,7 +907,7 @@ class WLDA(XCFunctional):
             w_G = self.get_weight_function(ia, self.gd, self.alphas)
             r_g = self.ifftn(w_G * int_G)
             res_g += r_g.real * fac_g
-            assert np.allclose(res_g, res_g.real)
+            # assert np.allclose(res_g, res_g.real)
 
         res_g = np.ascontiguousarray(res_g)
         mpi.world.sum(res_g)
@@ -909,7 +936,6 @@ class WLDA(XCFunctional):
         else:
             return n_sg
 
-    @timer
     def hartree_correction(self, gd, e_g, v_sg, wn_sg, nstar_sg, my_alpha_indices):
         """Apply the correction to the Hartree energy.
         
@@ -928,6 +954,9 @@ class WLDA(XCFunctional):
             Delta v(r) = -2 * (V(r)
                     -    int dr' dn*(r')/dn(r) V(r')
         """
+        if self.settings.get("nohartreecorr", False):
+            return
+
         if len(wn_sg) == 2 and not self.settings.get("hartreexc", False):
             # Undo modification of density performed by wlda_x
             wn_sg *= 0.5
