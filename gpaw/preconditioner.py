@@ -54,7 +54,8 @@ class Preconditioner:
                              self.restrictor_object1.transformer,
                              self.interpolator_object1.transformer,
                              self.interpolator_object2.transformer,
-                             self.kin0.operator, self.kin1.operator, self.kin2.operator,
+                             self.kin0.operator, self.kin1.operator,
+                             self.kin2.operator,
                              d0, q0, r1, d1, q1, r2, d2, q2,
                              residuals, -residuals, step, phases)
             return d0
