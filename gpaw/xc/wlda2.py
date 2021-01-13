@@ -1589,8 +1589,8 @@ class WLDA(XCFunctional):
         elif len(n_sg) == 2 and self.settings.get("hartreexc", False):
             self.setup_radial_indicators(n_sg)
             nstar_sg = self.radial_weighted_density(n_sg)
-            self.do_radial_hartree_corr(rgd, n_sg[0], nstart_sg[0], e_g, v_sg, [0])
-            self.do_radial_hartree_corr(rgd, n_sg[1], nstart_sg[1], e_g, v_sg, [1])
+            self.do_radial_hartree_corr(rgd, n_sg[0], nstar_sg[0], e_g, v_sg, [0])
+            self.do_radial_hartree_corr(rgd, n_sg[1], nstar_sg[1], e_g, v_sg, [1])
             
             e_g *= 0.5
             v_sg *= 0.5
