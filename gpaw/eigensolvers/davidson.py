@@ -230,13 +230,16 @@ class Davidson(Eigensolver):
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
-                    from scipy.linalg import eigh
+                    from scipy.linalg import eigh, orth
                     
-                    eps_N, H_NN[:, :] = eigh(H_NN, S_NN,
-                                          lower=True,
-                                          check_finite=debug)
-                    np.set_printoptions(linewidth=200, precision=4, threshold=np.inf)
-                    print("Scalapack consistency", np.max(np.abs(H_NN[np.tril_indices(2 * B)] - Csc_MM[np.tril_indices(2 * B)])), sep='\n')
+                    # eps_N, H_NN[:, :] = eigh(H_NN, S_NN,
+                    #                       lower=True,
+                    #                       check_finite=debug)
+                    np.set_printoptions(linewidth=200, precision=4, threshold=np.inf, suppress=True, floatmode='fixed')
+                    H_NN[:, :] = Csc_MM.T.copy()
+                    eps_N[:] = eps_M.copy()
+                    # print("Scalapack consistency", np.linalg.norm(H_NN[:, :B], axis=0), np.linalg.norm(Csc_MM[:, :B], axis=0), sep='\n')
+                    # print("Scalapack consistency", eps_N, eps_M, sep='\n')
                     np.savez(f'posteighHmat{self.i}.npz', H_NN)
                 
                     
