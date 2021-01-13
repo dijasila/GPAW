@@ -22,13 +22,9 @@
 #ifndef BMGS_H
 #define BMGS_H
 
-//#ifdef NO_C99_COMPLEX
 typedef int bool;
 #define true 1
 #define false 0
-//#else
-//#include <stdbool.h>
-//#endif
 
 typedef struct
 {

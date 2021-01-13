@@ -50,6 +50,7 @@ def info():
         results.append(('parallel',
                         p.communicate()[0].strip().decode() or False))
     results.append(('MPI enabled', have_mpi))
+    results.append(('OpenMP enabled', _gpaw.have_openmp))
     if have_mpi:
         have_sl = compiled_with_sl()
         have_elpa = LibElpa.have_elpa()
