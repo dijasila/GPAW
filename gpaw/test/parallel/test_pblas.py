@@ -37,7 +37,7 @@ if world.size >= 8:
 
 
 def get_rng(seed, dtype):
-    gen = np.random.default_rng(seed)
+    gen = np.random.Generator(np.random.PCG64(seed))
     if dtype == complex:
         def random(*args):
             return gen.random(*args) + 1.0j * gen.random(*args)
