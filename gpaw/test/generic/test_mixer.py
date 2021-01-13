@@ -17,9 +17,8 @@ def test_generic_mixer(in_tmp_dir):
                 mixer=Mixer(nmaxold=5))
     bulk.calc = calc
     e = bulk.get_potential_energy()
-    niter = calc.get_number_of_iterations()
     calc.write('Li.gpw')
-    calc2 = GPAW('Li.gpw')
+    GPAW('Li.gpw')
 
     energy_tolerance = 0.0001
     equal(e, -1.20257, energy_tolerance)

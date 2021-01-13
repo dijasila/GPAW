@@ -38,14 +38,10 @@ def plot(xdata, ydata, std, title, xlabel, ylabel, label, color, num=1):
     maxy = max(ydata)
     ywindow = maxy - miny
     pylab.gca().set_ylim(miny - ywindow / 4.0, maxy + ywindow / 3.0)
-    #pylab.plot(xdata, ydata, 'b.', label=label, color=color)
-    #pylab.plot(xdata, ydata, 'b-', label='_nolegend_', color=color)
     pylab.bar(xdata, ydata, 0.3, yerr=std, label=label, color=color)
     pylab.title(title)
     pylab.xlabel(xlabel)
     pylab.ylabel(ylabel)
-    #pylab.legend(loc='upper right')
-    #pylab.savefig(directory_name + os.path.sep + out_prefix +'.png')
 
 
 def plot_save(directory_name, out_prefix):
@@ -57,11 +53,6 @@ def plot_save(directory_name, out_prefix):
 
 
 def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
-    #system = ['carbon_py']
-    #system = ['carbon']
-    #system = ['niflheim_py']
-    #system = ['niflheim']
-    #system = ['TEST_py']
     system = machine + '_py'
 
     systems_string = {
@@ -136,14 +127,11 @@ def analyse_benchmark(ncores=8, startcores=1, machine='TEST', runs=7):
         # extract results
         rundir = os.path.join(root_abspath, system + run)
         file = os.path.join(rundir, 'out.txt')
-        try:
-            f = open(file, 'r')
-            #
-            print('Analysing ' + file, end=' ')
-            #
-            lines = f.readlines()
-        except:
-            pass
+        f = open(file, 'r')
+        #
+        print('Analysing ' + file, end=' ')
+        #
+        lines = f.readlines()
         # extract gpaw version
         for n, l in enumerate(lines):
             if l.startswith(' |__ |  _|___|_____|'):

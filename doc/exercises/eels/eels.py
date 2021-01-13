@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+import numpy as np
 from gpaw import GPAW
 from gpaw.response.df import DielectricFunction
 
@@ -13,9 +15,8 @@ df = DielectricFunction(calc='Ag_LDA_full.gpw',  # Ground state input
 q_c = [1.0 / 10, 0, 0]
 df.get_eels_spectrum(q_c=q_c)  # a file called 'eels.csv' is generated
 
+
 # Plot spectrum
-import numpy as np
-import matplotlib.pyplot as plt
 data = np.loadtxt('eels.csv', delimiter=',')
 omega = data[:, 0]
 eels = data[:, 2]

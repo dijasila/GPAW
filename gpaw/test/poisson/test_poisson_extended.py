@@ -19,8 +19,6 @@ def test_poisson_poisson_extended():
 
     # Construct model density
     coord_vg = gd.get_grid_point_coordinates()
-    x_g = coord_vg[0, :]
-    y_g = coord_vg[1, :]
     z_g = coord_vg[2, :]
     rho_g = gd.zeros()
     for z0 in [1, 2]:
@@ -92,9 +90,10 @@ def test_poisson_poisson_extended():
     compare(phi_g, phiref_g, 4.1182101206e-02)
 
     # Test moment_corrections=list
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                    moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
-                                                        {'moms': range(4), 'center': [.5, .5, 2]}])
+    poisson = ExtendedPoissonSolver(
+        eps=poissoneps,
+        moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
+                            {'moms': range(4), 'center': [.5, .5, 2]}])
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g)
@@ -110,11 +109,12 @@ def test_poisson_poisson_extended():
     compare(phi_g, phiref_g, 2.5351851105e-02)
 
     # Test extendedgpts + moment_corrections, extendedhistory=False
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                    extended={'gpts': (24, 24, 3 * 24),
-                                              'useprev': False},
-                                    moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
-                                                        {'moms': range(4), 'center': [.5, .5, 2]}])
+    poisson = ExtendedPoissonSolver(
+        eps=poissoneps,
+        extended={'gpts': (24, 24, 3 * 24),
+                  'useprev': False},
+        moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
+                            {'moms': range(4), 'center': [.5, .5, 2]}])
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     plot_phi(phi_g)
@@ -125,11 +125,12 @@ def test_poisson_poisson_extended():
 
     # Test extendedgpts + moment_corrections,
     # extendedhistory=True
-    poisson = ExtendedPoissonSolver(eps=poissoneps,
-                                    extended={'gpts': (24, 24, 3 * 24),
-                                              'useprev': True},
-                                    moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
-                                                        {'moms': range(4), 'center': [.5, .5, 2]}])
+    poisson = ExtendedPoissonSolver(
+        eps=poissoneps,
+        extended={'gpts': (24, 24, 3 * 24),
+                  'useprev': True},
+        moment_corrections=[{'moms': range(4), 'center': [.5, .5, 1]},
+                            {'moms': range(4), 'center': [.5, .5, 2]}])
     poisson.set_grid_descriptor(gd)
     phi_g, npoisson = poisson_solve(gd, rho_g, poisson)
     phi2_g, npoisson2 = poisson_solve(gd, rho_g, poisson)

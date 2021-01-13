@@ -7,8 +7,9 @@ from gpaw import GPAW, FermiDirac, PW
 from gpaw.response.g0w0 import G0W0
 from gpaw.test import equal
 
-pytestmark = pytest.mark.skipif(world.size != 1 and not compiled_with_sl(),
-                                reason='world.size != 1 and not compiled_with_sl()')
+pytestmark = pytest.mark.skipif(
+    world.size != 1 and not compiled_with_sl(),
+    reason='world.size != 1 and not compiled_with_sl()')
 
 
 def test_response_gw0_hBN(in_tmp_dir):
@@ -22,7 +23,7 @@ def test_response_gw0_hBN(in_tmp_dir):
                 occupations=FermiDirac(0.001))
 
     atoms.calc = calc
-    e0 = atoms.get_potential_energy()
+    atoms.get_potential_energy()
 
     calc.diagonalize_full_hamiltonian(scalapack=True)
     calc.write('BN_bulk_k2_ecut400_allbands.gpw', mode='all')
