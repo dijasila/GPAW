@@ -552,6 +552,7 @@ class LrTDDFTExcitation(Excitation):
 
 def photoabsorption_spectrum(excitation_list, spectrum_file=None,
                              e_min=None, e_max=None, delta_e=None,
+                             energyunit='eV',
                              folding='Gauss', width=0.1, comment=None):
     """Uniform absorption spectrum interface
 
@@ -571,6 +572,6 @@ def photoabsorption_spectrum(excitation_list, spectrum_file=None,
 
     spectrum(exlist=excitation_list, filename=spectrum_file,
              emin=e_min, emax=e_max,
-             de=delta_e, energyunit='eV',
+             de=delta_e, energyunit=energyunit,
              folding=folding, width=width,
              comment=comment)
