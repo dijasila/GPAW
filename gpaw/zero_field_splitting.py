@@ -28,19 +28,33 @@ from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
 
 def zfs(calc: GPAW,
         method: int = 1,
-        with_paw_correction: bool = True) -> Array2D:
+        with_paw_correction: bool = True,
+        grid_spacing: float = -1.0) -> Array2D:
     """Zero-field splitting.
 
     Calculate magnetic dipole coupling tensor in eV.
     """
-    wf1, wf2 = (WaveFunctions.from_calc(calc, spin) for spin in [0, 1])
+    if not with_paw_correction:
+        if grid_spacing != -1.0:
+            raise ValueError(
+                'Only specify grid_spacing for with_paw_correction=True')
 
-    compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
+        wf1, wf2 = (WaveFunctions.from_calc(calc, spin) for spin in [0, 1])
+        compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
+    else:
+        if grid_spacing != -1.0:
+            grid_spacing = 0.1
+        converter = PS2AE(calc, grid_spacing)
+        psit_nR = np.array([converter.get_wave_function(n, ae=True) * bohr**1.5
+                            for n in [5, 6]])
+        wf3 = WaveFunctions(psit_nR, {}, 0, calc.setups, converter.gd)
+        cc = SimpleNamespace(add=lambda a, b: None)
+
 
     if method == 1:
         n1 = len(wf1)
-        wf = wf1.view(n1 - 2, n1)
-        return zfs1(wf, wf, compensation_charge, with_paw_correction)
+        wf1 = wf1.view(n1 - 2, n1)
+        wf2 = wf2.view(0, 0)
 
     D_vv = np.zeros((3, 3))
     for wfa in [wf1, wf2]:
@@ -229,8 +243,9 @@ def main(argv: List[str] = None) -> Array2D:
     add = parser.add_argument
     add('file', metavar='input-file',
         help='GPW-file with wave functions.')
-    add('-u', '--unit', default='ueV', choices=['ueV', 'MHz', '1/cm'],
-        help='Unit.  Must be "ueV" (micro-eV, default), "MHz" or "1/cm".')
+    add('-u', '--unit', default='ueV', choices=['eV', 'ueV', 'MHz', '1/cm'],
+        help=
+        'Unit.  Must be "eV", "ueV" (micro-eV, default), "MHz" or "1/cm".')
     add('-m', '--method', type=int, default=1)
 
     if hasattr(parser, 'parse_intermixed_args'):
@@ -240,7 +255,7 @@ def main(argv: List[str] = None) -> Array2D:
 
     calc = GPAW(args.file)
 
-    D_vv = zfs(calc, args.method)
+    D_vv = zfs(calc, args.method, False)
     D, E, axis, D_vv = convert_tensor(D_vv, args.unit)
 
     unit = args.unit
