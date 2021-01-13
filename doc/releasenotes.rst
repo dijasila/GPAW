@@ -14,6 +14,8 @@ Git master branch
 
 * New :ref:`zfs` module.
 
+* New :ref:`scissors operator`.
+
 * Nonlinear optical responses can now be calculated in the independent
   particle approximations. See the :ref:`nlo_tutorial` tutorial for how
   to use it to compute the second-harmonic generation and shift current
