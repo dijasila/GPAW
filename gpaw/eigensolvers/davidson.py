@@ -34,6 +34,7 @@ class Davidson(Eigensolver):
         self.niter = niter
         self.smin = smin
         self.normalize = normalize
+        self.i = 0
 
 
         if smin is not None:
@@ -58,9 +59,9 @@ class Davidson(Eigensolver):
         if wfs.gd.comm.rank == 0 and wfs.bd.comm.rank == 0:
             # Allocate arrays
             B = self.nbands
-            self.H_NN = np.empty((2 * B, 2 * B), self.dtype)
-            self.S_NN = np.empty((2 * B, 2 * B), self.dtype)
-            self.eps_N = np.empty(2 * B)
+            self.H_NN = np.zeros((2 * B, 2 * B), self.dtype)
+            self.S_NN = np.zeros((2 * B, 2 * B), self.dtype)
+            self.eps_N = np.zeros(2 * B)
 
     def estimate_memory(self, mem, wfs):
         Eigensolver.estimate_memory(self, mem, wfs)
@@ -157,7 +158,7 @@ class Davidson(Eigensolver):
                 mmm(1.0, P2, 'N', P3, 'C', 1.0, M)
                 copy(M, S_NN[B:, B:])
 
-                # <psi2 | S | psi>
+                # <psi2 | S | psi> 
                 psit2.matrix_elements(psit, out=M, cc=True)
                 mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
@@ -165,65 +166,80 @@ class Davidson(Eigensolver):
             # dbcomm = wfs.mode.sl[0]
             slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
             # parprint(wfs.scalapack_parameters)
+            # import pdb
+            # pdb.set_trace()
             grid = BlacsGrid(slcomm, nrows, ncols)
-            block_desc = grid.new_descriptor(2 * B, 2 * B, 16, 16)
+            block_desc = grid.new_descriptor(2 * B, 2 * B, 4, 4)
             local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
 
-            eps_M = np.empty([2 * B])
-            Hsc_MM = local_desc.empty(dtype=self.dtype)
-            Ssc_MM = local_desc.empty(dtype=self.dtype)
-            Csc_MM = local_desc.empty(dtype=self.dtype)
+            eps_M = np.zeros([2 * B])
+            Hsc_MM = local_desc.zeros(dtype=self.dtype)
+            Ssc_MM = local_desc.zeros(dtype=self.dtype)
+            Csc_MM = local_desc.zeros(dtype=self.dtype)
 
-            Hsc_mm = block_desc.empty(dtype=self.dtype)
-            Ssc_mm = block_desc.empty(dtype=self.dtype)
-            Csc_mm = block_desc.empty(dtype=self.dtype)
+            Hsc_mm = block_desc.zeros(dtype=self.dtype)
+            Ssc_mm = block_desc.zeros(dtype=self.dtype)
+            Csc_mm = block_desc.zeros(dtype=self.dtype)
 
             if slcomm.rank == 0:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
                 S_NN[:B, :B] = np.eye(B)
-                
-            
-                Hsc_MM = H_NN.copy()
-                Ssc_MM = S_NN.copy()
-                eps_M = eps_N.copy()
+
+                assert Hsc_MM.shape == H_NN.shape
+                assert Ssc_MM.shape == H_NN.shape
+                assert Csc_MM.shape == H_NN.shape
+                Hsc_MM[:, :] = H_NN.copy()
+                Ssc_MM[:, :] = S_NN.copy()
+                # eps_M[:] = eps_N.copy()
 
             from gpaw.blacs import Redistributor
             redistributor = Redistributor(slcomm, local_desc, block_desc)
-            redistributor.redistribute(Hsc_MM, Hsc_mm, uplo='L')
-            redistributor.redistribute(Ssc_MM, Ssc_mm, uplo='L')
-            redistributor.redistribute(Csc_MM, Csc_mm, uplo='L')
+            redistributor.redistribute(Hsc_MM, Hsc_mm)
+            redistributor.redistribute(Ssc_MM, Ssc_mm)
+            redistributor.redistribute(Csc_MM, Csc_mm)
 
-            # parprint(Hsc_MM[:3, :3], Hsc_mm[:3, :3])
-            # parprint(Ssc_MM[:3, :3], Ssc_mm[:3, :3])
-            block_desc.general_diagonalize_dc(Hsc_mm, Ssc_mm, Csc_mm, eps_M)
+            # block_desc.general_diagonalize_dc(Hsc_mm, Ssc_mm, Csc_mm, eps_M)
+            block_desc.general_diagonalize_dc(Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
+            # block_desc.inverse_cholesky(Csc_mm)
+
             redistributor2 = Redistributor(slcomm, block_desc, local_desc)
-            redistributor2.redistribute(Csc_mm, Csc_MM, uplo='L')
-            # if comm.rank == 0 and bd.comm.rank == 0:
-            #     H_NN[:] = Csc_MM.copy()
-            #     eps_N = eps_M.copy()
+            redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')
 
-            # # comm.barrier()
+            if slcomm.rank == 0:
+                import time as t
+                np.savez(f'scalH{self.i}.npz', Hsc_MM)
+                np.savez(f'scalCtrans{self.i}.npz', Csc_MM.T)
+            # if slcomm.rank == 0:
+            #     H_NN[:, :] = Csc_MM.copy()
+            #     eps_N[:] = eps_M.copy()
+
             # if comm.rank == 0:
-            #     bd.distribute(eps_N[:B], kpt.eps_n)
+            #     bd.distribute(eps_M[:B], kpt.eps_n)
             # comm.broadcast(kpt.eps_n, 0)
 
-            del redistributor
-            del redistributor2
-            del grid
-            # comm.barrier()
+            # del redistributor
+            # del redistributor2
+            # del grid
 
             with self.timer('diagonalize'):
                 if comm.rank == 0 and bd.comm.rank == 0:
-
                     H_NN[:B, :B] = np.diag(eps_N[:B])
                     S_NN[:B, :B] = np.eye(B)
+                    np.savez(f'preteighHmat{self.i}.npz', H_NN)
+                    np.savez(f'preteighSmat{self.i}.npz', S_NN)
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh
-                    eps_N, H_NN[:] = eigh(H_NN, S_NN,
+                    
+                    eps_N, H_NN[:, :] = eigh(H_NN, S_NN,
                                           lower=True,
                                           check_finite=debug)
+                    np.set_printoptions(linewidth=200, precision=4, threshold=np.inf)
+                    print("Scalapack consistency", np.max(np.abs(H_NN[np.tril_indices(2 * B)] - Csc_MM[np.tril_indices(2 * B)])), sep='\n')
+                    np.savez(f'posteighHmat{self.i}.npz', H_NN)
+                
+                    
 
             if comm.rank == 0:
                 bd.distribute(eps_N[:B], kpt.eps_n)
@@ -254,4 +270,5 @@ class Davidson(Eigensolver):
                                          P, kpt.eps_n, R, P2)
 
         error = wfs.gd.comm.sum(error)
+        self.i += 1
         return error
