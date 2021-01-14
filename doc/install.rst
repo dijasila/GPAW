@@ -225,6 +225,16 @@ Additionally a user may want to enable ScaLAPACK, setting in
 and, in this case, provide BLACS/ScaLAPACK ``libraries`` and ``library_dirs``
 as described in :ref:`siteconfig`.
 
+Part of the code can be parallelized also with OpenMP. OpenMP
+threading can be enabled by setting in ``siteconfig.py``::
+
+    extra_compile_args += ['-fopenmp']
+    extra_link_args += ['-fopenmp']
+
+Note that a multithreaded BLAS library should be used together with 
+OpenMP parallelization. Also, MPI library needs to support 
+the MPI_THREAD_MULTIPLE thread support level.
+
 Instructions for running parallel calculations can be found in the
 :ref:`user manual <manual_parallel_calculations>`.
 
