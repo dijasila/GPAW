@@ -969,11 +969,13 @@ class WLDA(XCFunctional):
 
             # Density already multipled by 2 so don't need to do it
             # here
-            self.do_hartree_corr(gd, n_g[0], nstar_sg[0], e_g, v_sg, [0], my_alpha_indices)
-            self.do_hartree_corr(gd, n_g[1], nstar_sg[1], e_g, v_sg, [1], my_alpha_indices)
+            e1_g = np.zeros_like(e_g)
+            v1_sg = np.zeros_like(v1_sg)
+            self.do_hartree_corr(gd, n_g[0], nstar_sg[0], e1_g, v1_sg, [0], my_alpha_indices)
+            self.do_hartree_corr(gd, n_g[1], nstar_sg[1], e1_g, v1_sg, [1], my_alpha_indices)
 
-            e_g *= 0.5
-            v_sg *= 0.5
+            e_g += 0.5 * e1_g
+            v_sg += 0.5 * v1_sg
 
             # K_G[0, 0, 0] = 1.0
             
@@ -1578,6 +1580,9 @@ class WLDA(XCFunctional):
 
         Also potential.
         """
+        if self.settings.get("nohartreecorr", False):
+            return
+
         if len(n_sg) == 2 and not self.settings.get("hartreexc", False):
             # Undo modification by radial_x
             n_sg *= 0.5
@@ -1589,11 +1594,13 @@ class WLDA(XCFunctional):
         elif len(n_sg) == 2 and self.settings.get("hartreexc", False):
             self.setup_radial_indicators(n_sg)
             nstar_sg = self.radial_weighted_density(n_sg)
-            self.do_radial_hartree_corr(rgd, n_sg[0], nstar_sg[0], e_g, v_sg, [0])
-            self.do_radial_hartree_corr(rgd, n_sg[1], nstar_sg[1], e_g, v_sg, [1])
+            e1_g = np.zeros_like(e_g)
+            v1_sg = np.zeros_like(v_sg)
+            self.do_radial_hartree_corr(rgd, n_sg[0], nstar_sg[0], e1_g, v1_sg, [0])
+            self.do_radial_hartree_corr(rgd, n_sg[1], nstar_sg[1], e1_g, v1_sg, [1])
             
-            e_g *= 0.5
-            v_sg *= 0.5
+            e_g += 0.5 * e1_g
+            v_sg += 0.5 * v1_sg
         else:
             self.do_radial_hartree_corr(rgd, n_sg.sum(axis=0), nstar_sg.sum(axis=0),
                                         e_g, v_sg, [0])
