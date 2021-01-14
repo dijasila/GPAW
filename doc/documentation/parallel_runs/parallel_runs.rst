@@ -384,3 +384,21 @@ where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
 of three ScaLAPACK keywords.
 Note that some combinations of keywords may not be supported.
+
+Hybrid OpenMP/MPI parallelization
+---------------------------------
+
+In some hardware the performance of large FD and LCAO and calculations
+can be improved by using OpenMP parallelization in addition to
+MPI. When GPAW is built with OpenMP support, hybrid parallelization
+is enabled by setting the OMP_NUM_THREADS environment variable::
+
+  export OMP_NUM_THREADS=4
+  mpiexec -n 512 gpaw python script.py
+
+This would run the calculation with a total of 2048 CPU cores. As the
+optimum MPI task / OpenMP thread ratio depends a lot on the particular
+input and underlying hardware, it is recommended to experiment with
+different settings before production calculations.
+
+
