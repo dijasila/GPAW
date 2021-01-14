@@ -189,6 +189,7 @@ class build_ext(_build_ext):
         _build_ext.run(self)
 
         if parallel_python_interpreter:
+            include_dirs.append(np.get_include())
             # Also build gpaw-python:
             error = build_interpreter(
                 define_macros, include_dirs, libraries,
