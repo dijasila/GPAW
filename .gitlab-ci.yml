@@ -31,3 +31,6 @@ master:
       --extend-ignore E402
       doc
     - python -We:invalid -m compileall -f -q gpaw/
+    - echo "parallel_python_interpreter = True" >> ~/.gpaw/siteconfig.py
+    - python setup.py install > gpaw-python-install.output
+    - su user -c 'gpaw-python -m gpaw  info'
