@@ -12,13 +12,16 @@ Parallel runs
 Running jobs in parallel
 ========================
 
-Parallel calculations are done with MPI.
+Parallel calculations are done primarily with MPI.
 The parallelization can be done over the **k**-points, bands, spin in
 spin-polarized calculations, and using real-space domain
 decomposition.  The code will try to make a sensible domain
 decomposition that match both the number of processors and the size of
 the unit cell.  This choice can be overruled, see
-:ref:`manual_parallelization_types`.
+:ref:`manual_parallelization_types`. Complementary OpenMP
+parallelization can improve the performance in some cases, see
+:ref:`manual_openmp`.
+
 
 Before starting a parallel calculation, it might be useful to check how the
 parallelization corresponding to the given number of processes would be done
@@ -384,6 +387,8 @@ where ``p``, ``q``, ``pb``, ``m``, ``n``, and ``mb`` all
 have different values. The most general case is the combination
 of three ScaLAPACK keywords.
 Note that some combinations of keywords may not be supported.
+
+.. _manual_openmp:
 
 Hybrid OpenMP/MPI parallelization
 ---------------------------------
