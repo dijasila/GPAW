@@ -12,6 +12,7 @@ See::
 """
 from collections import defaultdict
 from math import pi
+from types import SimpleNamespace
 from typing import List, Tuple
 
 import numpy as np
@@ -23,6 +24,7 @@ from gpaw.hints import Array1D, Array2D, Array4D
 from gpaw.hyperfine import alpha  # fine-structure constant: ~ 1 / 137
 from gpaw.projections import Projections
 from gpaw.setup import Setup
+from gpaw.utilities.ps2ae import PS2AE
 from gpaw.wavefunctions.pw import PWLFC, PWDescriptor
 
 
@@ -32,24 +34,23 @@ def zfs(calc: GPAW,
         grid_spacing: float = -1.0) -> Array2D:
     """Zero-field splitting.
 
-    Calculate magnetic dipole coupling tensor in eV.
+    Calculate magnetic dipole-coupling tensor in eV.
     """
     if not with_paw_correction:
         if grid_spacing != -1.0:
             raise ValueError(
                 'Only specify grid_spacing for with_paw_correction=True')
 
-        wf1, wf2 = (WaveFunctions.from_calc(calc, spin) for spin in [0, 1])
+        wf1, wf2 = (WaveFunctions.from_calc(calc, spin)
+                    for spin in [0, 1])
         compensation_charge = create_compensation_charge(wf1, calc.spos_ac)
     else:
-        if grid_spacing != -1.0:
+        if grid_spacing == -1.0:
             grid_spacing = 0.1
         converter = PS2AE(calc, grid_spacing)
-        psit_nR = np.array([converter.get_wave_function(n, ae=True) * bohr**1.5
-                            for n in [5, 6]])
-        wf3 = WaveFunctions(psit_nR, {}, 0, calc.setups, converter.gd)
-        cc = SimpleNamespace(add=lambda a, b: None)
-
+        wf1, wf2 = (WaveFunctions.from_calc_ae(calc, spin, converter)
+                    for spin in [0, 1])
+        compensation_charge = SimpleNamespace(add=lambda a, b: None)
 
     if method == 1:
         n1 = len(wf1)
@@ -59,7 +60,7 @@ def zfs(calc: GPAW,
     D_vv = np.zeros((3, 3))
     for wfa in [wf1, wf2]:
         for wfb in [wf1, wf2]:
-            d_vv = zfs1(wfa, wfb, compensation_charge, with_paw_correction)
+            d_vv = zfs1(wfa, wfb, compensation_charge)
             D_vv += d_vv
 
     return D_vv
@@ -90,8 +91,9 @@ class WaveFunctions:
                              pd=self.pd)
 
     @staticmethod
-    def from_calc(calc, spin) -> 'WaveFunctions':
-        """Create WaveFunctions object from PW-mode representation."""
+    def from_calc(calc: GPAW,
+                  spin: int) -> 'WaveFunctions':
+        """Create WaveFunctions object from GPAW object."""
         kpt = calc.wfs.kpt_qs[0][spin]
         nocc = (kpt.f_n > 0.5).sum()
         gd = calc.wfs.gd.new_descriptor(pbc_c=np.ones(3, bool))
@@ -105,6 +107,24 @@ class WaveFunctions:
                              spin,
                              calc.setups,
                              gd=gd)
+
+    @staticmethod
+    def from_calc_ae(calc: GPAW,
+                     spin: int,
+                     converter: PS2AE) -> 'WaveFunctions':
+        """Create all-electron WaveFunctions object from GPAW object.
+
+        The wave-functions are interpolated to a fine grid with
+        PAW-corrections added.
+        """
+        kpt = calc.wfs.kpt_qs[0][spin]
+        nocc = (kpt.f_n > 0.5).sum()
+        psit_nR = converter.gd.empty(nocc)
+        for band, psit_R in enumerate(psit_nR):
+            psit_R[:] = converter.get_wave_function(n=band,
+                                                    s=spin,
+                                                    ae=True) * Bohr**1.5
+        return WaveFunctions(psit_nR, {}, spin, calc.setups, converter.gd)
 
     def __len__(self) -> int:
         return len(self.psit_nR)
@@ -247,6 +267,7 @@ def main(argv: List[str] = None) -> Array2D:
         help=
         'Unit.  Must be "eV", "ueV" (micro-eV, default), "MHz" or "1/cm".')
     add('-m', '--method', type=int, default=1)
+    add('-g', '--grid-spacing', type=float, default=-1.0)
 
     if hasattr(parser, 'parse_intermixed_args'):
         args = parser.parse_intermixed_args(argv)
@@ -255,7 +276,7 @@ def main(argv: List[str] = None) -> Array2D:
 
     calc = GPAW(args.file)
 
-    D_vv = zfs(calc, args.method, False)
+    D_vv = zfs(calc, args.method, args.grid_spacing != -1.0, args.grid_spacing)
     D, E, axis, D_vv = convert_tensor(D_vv, args.unit)
 
     unit = args.unit
