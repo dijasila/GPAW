@@ -1,13 +1,12 @@
-from ase import Atoms, Atom
-from ase.vibrations.resonant_raman import ResonantRamanCalculator
-from ase.vibrations.placzek import Placzek, Profeta
-from ase.vibrations.albrecht import Albrecht
+from distutils.version import LooseVersion
+
+import pytest
+from ase import Atom, Atoms, __version__
 
 from gpaw import GPAW
+from gpaw.analyse.overlap import Overlap
 from gpaw.lrtddft.kssingle import KSSingles
 from gpaw.test import equal
-from gpaw.analyse.overlap import Overlap
-
 
 txt = '-'
 txt = None
@@ -30,7 +29,13 @@ class GPAW_with_classmethod_read(GPAW):
         return gpw
 
 
+@pytest.mark.skipif(LooseVersion(__version__) < '3.21',
+                    reason='ASE too old')
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
+    from ase.vibrations.albrecht import Albrecht
+    from ase.vibrations.placzek import Placzek, Profeta
+    from ase.vibrations.resonant_raman import ResonantRamanCalculator
+
     H2 = Atoms([Atom('H', (a / 2, a / 2, (c - R) / 2)),
                 Atom('H', (a / 2, a / 2, (c + R) / 2))],
                cell=(a, a, c))
