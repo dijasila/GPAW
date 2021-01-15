@@ -10,8 +10,8 @@ def get_density(rho_MM, wfs, density, density_type='comp', u=0):
     rho_G = density.gd.zeros()
     kpt = wfs.kpt_u[u]
     assert kpt.q == 0
-    rho_MM = rho_MM.astype(wfs.dtype)
-    wfs.basis_functions.construct_density(rho_MM, rho_G, kpt.q)
+    wfs.basis_functions.construct_density(rho_MM.astype(wfs.dtype),
+                                          rho_G, kpt.q)
 
     # Uncomment this if you want to add the static part
     # rho_G += density.nct_G
