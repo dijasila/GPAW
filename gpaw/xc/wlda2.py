@@ -117,6 +117,7 @@ class WLDA(XCFunctional):
 
     def calculate_impl(self, gd, n_sg, v_sg, e_g):
         """Interface for GPAW."""
+        n_sg = n_sg.copy()
         wn_sg = self.get_working_density(n_sg, gd)
 
         # Construct arrays for un-distributed energy and potential
@@ -1052,6 +1053,7 @@ class WLDA(XCFunctional):
         if e_g is None:
             e_g = rgd.empty()
         self.rgd = rgd
+        n_sg = n_sg.copy()
         n_sg[n_sg < 1e-20] = 1e-40
 
         self.setup_radial_indicators(n_sg)
