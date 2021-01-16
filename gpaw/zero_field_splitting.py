@@ -272,8 +272,8 @@ def main(argv: List[str] = None) -> Array2D:
     add('file', metavar='input-file',
         help='GPW-file with wave functions.')
     add('-u', '--unit', default='ueV', choices=['eV', 'ueV', 'MHz', '1/cm'],
-        help=
-        'Unit.  Must be "eV", "ueV" (micro-eV, default), "MHz" or "1/cm".')
+        help='Unit.  Must be "eV", "ueV" (micro-eV, default), '
+        '"MHz" or "1/cm".')
     add('-m', '--method', type=int, default=1)
     add('-g', '--grid-spacing', type=float, default=-1.0)
 
