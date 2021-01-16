@@ -12,7 +12,6 @@ See::
 """
 from collections import defaultdict
 from math import pi
-from types import SimpleNamespace
 from typing import List, Tuple
 
 import numpy as np
@@ -36,6 +35,8 @@ def zfs(calc: GPAW,
 
     Calculate magnetic dipole-coupling tensor in eV.
     """
+    compensation_charge = None
+
     if not with_paw_correction:
         if grid_spacing != -1.0:
             raise ValueError(
@@ -50,7 +51,6 @@ def zfs(calc: GPAW,
         converter = PS2AE(calc, grid_spacing)
         wf1, wf2 = (WaveFunctions.from_calc_ae(calc, spin, converter)
                     for spin in [0, 1])
-        compensation_charge = SimpleNamespace(add=lambda a, b: None)
 
     if method == 1:
         n1 = len(wf1)
@@ -74,13 +74,15 @@ class WaveFunctions:
                  setups: List[Setup],
                  gd: GridDescriptor = None,
                  pd: PWDescriptor = None):
-        """Container for wave function in real-space and projections."""
-
+        """Container for wave functions in real-space and projections."""
         self.pd = pd or PWDescriptor(ecut=None, gd=gd)
         self.psit_nR = psit_nR
         self.projections = projections
         self.spin = spin
         self.setups = setups
+
+    def __len__(self) -> int:
+        return len(self.psit_nR)
 
     def view(self, n1: int, n2: int) -> 'WaveFunctions':
         """Create WaveFuntions object with view of data."""
@@ -124,10 +126,12 @@ class WaveFunctions:
             psit_R[:] = converter.get_wave_function(n=band,
                                                     s=spin,
                                                     ae=True) * Bohr**1.5
-        return WaveFunctions(psit_nR, {}, spin, calc.setups, converter.gd)
-
-    def __len__(self) -> int:
-        return len(self.psit_nR)
+        projections = Projections(nocc, [])
+        return WaveFunctions(psit_nR,
+                             projections,
+                             spin,
+                             calc.setups,
+                             converter.gd)
 
 
 def create_compensation_charge(wf: WaveFunctions,
@@ -139,8 +143,8 @@ def create_compensation_charge(wf: WaveFunctions,
 
 def zfs1(wf1: WaveFunctions,
          wf2: WaveFunctions,
-         compensation_charge: PWLFC,
-         with_paw_correction: bool) -> Array2D:
+         compensation_charge: PWLFC = None,
+         with_paw_correction: bool = False) -> Array2D:
     """Compute dipole coupling."""
     sign = 1.0 if wf1.spin == wf2.spin else -1.0
 
@@ -155,26 +159,32 @@ def zfs1(wf1: WaveFunctions,
     n_sG = pd.zeros(2)
     D_asii = defaultdict(list)
     for n_G, wf in zip(n_sG, [wf1, wf2]):
+        for psit_R in wf.psit_nR:
+            n_G += pd.fft(psit_R**2)
+
         Q_aL = {}
         for a, P_ni in wf.projections.items():
             D_ii = np.einsum('ni, nj -> ij', P_ni, P_ni)
             D_asii[a].append(D_ii)
             Q_aL[a] = np.einsum('ij, ijL -> L', D_ii, setups[a].Delta_iiL)
 
-        for psit_R in wf.psit_nR:
-            n_G += pd.fft(psit_R**2)
-
-        compensation_charge.add(n_G, Q_aL)
+        if compensation_charge:
+            compensation_charge.add(n_G, Q_aL)
 
     nn_G = (n_sG[0] * n_sG[1].conj()).real
     D_vv = zfs2(pd, G_Gv, nn_G)
+
     if with_paw_correction:
-        for a, D_sii in D_asii.items():
-            D_vv += zfs2paw(*D_sii, setups[a])
+        pass
+        # for a, D_sii in D_asii.items():
+        #     D_vv += zfs2paw(*D_sii, setups[a])
 
     n_nG = pd.empty(N2)
     # D_naii = ...
     for n1, psit1_R in enumerate(wf1.psit_nR):
+        for n_G, psit2_R in zip(n_nG, wf2.psit_nR):
+            n_G[:] = pd.fft(psit1_R * psit2_R)
+
         D_anii = {}
         Q_anL = {}
         for a, P1_ni in wf1.projections.items():
@@ -183,10 +193,8 @@ def zfs1(wf1: WaveFunctions,
             Q_anL[a] = np.einsum('nij, ijL -> nL',
                                  D_nii, setups[a].Delta_iiL)
 
-        for n_G, psit2_R in zip(n_nG, wf2.psit_nR):
-            n_G[:] = pd.fft(psit1_R * psit2_R)
-
-        compensation_charge.add(n_nG, Q_anL)
+        if compensation_charge:
+            compensation_charge.add(n_nG, Q_anL)
 
         nn_G = (n_nG * n_nG.conj()).sum(axis=0).real
         D_vv -= zfs2(pd, G_Gv, nn_G)
@@ -205,7 +213,7 @@ def zfs2(pd: PWDescriptor,
     return D_vv
 
 
-def zfs2paw(D1_ii, D2_ii, setup) -> Array2D:
+def zfs2paw(D1_ii, D2_ii, setup):
     """PAW correction."""
     return ...
 

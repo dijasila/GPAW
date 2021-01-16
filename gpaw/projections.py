@@ -1,11 +1,11 @@
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Generator, Tuple
 
 import numpy as np
 
 from gpaw.matrix import Matrix
 from gpaw.mpi import serial_comm
 from gpaw.utilities.partition import AtomPartition
-from .hints import Array2D
+from .hints import Array2D, ArrayND
 
 MPIComm = Any
 
@@ -14,7 +14,7 @@ class Projections:
     def __init__(self,
                  nbands: int,
                  nproj_a: List[int],
-                 atom_partition: AtomPartition,
+                 atom_partition: AtomPartition = None,
                  bcomm: MPIComm = None,
                  collinear=True,
                  spin=0,
@@ -27,6 +27,9 @@ class Projections:
         else:
             assert bcomm is None
             self.bcomm = bdist[0]
+
+        if atom_partition is None:
+            atom_partition = AtomPartition(serial_comm, np.zeros(len(nproj_a)))
 
         self.nproj_a = np.asarray(nproj_a)
         self.atom_partition = atom_partition
@@ -82,11 +85,11 @@ class Projections:
                            self.bcomm, self.collinear, self.spin,
                            self.matrix.dtype, self.matrix.array[n1:n2])
 
-    def items(self):
+    def items(self) -> Generator[Tuple[int, ArrayND], None, None]:
         for a, I1, I2 in self.indices:
             yield a, self.array[..., I1:I2]
 
-    def __getitem__(self, a):
+    def __getitem__(self, a: int) -> ArrayND:
         I1, I2 = self.map[a]
         return self.array[..., I1:I2]
 
