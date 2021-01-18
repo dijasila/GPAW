@@ -50,3 +50,6 @@ if __name__ == '__main__':
                           txt=name + '.txt')
         atoms.get_potential_energy()
         atoms.calc.write(name + '.gpw', 'all')
+        atoms.calc.set(occupations=BS())
+        atoms.get_potential_energy()
+        atoms.calc.write(name + '.BS.gpw', 'all')
