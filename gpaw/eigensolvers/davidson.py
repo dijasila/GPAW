@@ -82,6 +82,20 @@ class Davidson(Eigensolver):
         S_NN = self.S_NN
         eps_N = self.eps_N
 
+        slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
+        grid = BlacsGrid(slcomm, nrows, ncols)
+        block_desc = grid.new_descriptor(2 * B, 2 * B, 8, 8)
+        local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
+
+        eps_M = np.zeros([2 * B])
+        Hsc_MM = local_desc.zeros(dtype=self.dtype)
+        Ssc_MM = local_desc.zeros(dtype=self.dtype)
+        Csc_MM = local_desc.zeros(dtype=self.dtype)
+
+        Hsc_mm = block_desc.zeros(dtype=self.dtype)
+        Ssc_mm = block_desc.zeros(dtype=self.dtype)
+        Csc_mm = block_desc.zeros(dtype=self.dtype)
+
         def integrate(a_G):
             if wfs.collinear:
                 return np.real(wfs.integrate(a_G, a_G, global_integral=False))
@@ -163,23 +177,6 @@ class Davidson(Eigensolver):
                 mmm(1.0, P3, 'N', P, 'C', 1.0, M)
                 copy(M, S_NN[B:, :B])
 
-            # dbcomm = wfs.mode.sl[0]
-            slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
-            # parprint(wfs.scalapack_parameters)
-            # import pdb
-            # pdb.set_trace()
-            grid = BlacsGrid(slcomm, nrows, ncols)
-            block_desc = grid.new_descriptor(2 * B, 2 * B, 4, 4)
-            local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
-
-            eps_M = np.zeros([2 * B])
-            Hsc_MM = local_desc.zeros(dtype=self.dtype)
-            Ssc_MM = local_desc.zeros(dtype=self.dtype)
-            Csc_MM = local_desc.zeros(dtype=self.dtype)
-
-            Hsc_mm = block_desc.zeros(dtype=self.dtype)
-            Ssc_mm = block_desc.zeros(dtype=self.dtype)
-            Csc_mm = block_desc.zeros(dtype=self.dtype)
 
             if slcomm.rank == 0:
                 H_NN[:B, :B] = np.diag(eps_N[:B])
@@ -198,49 +195,43 @@ class Davidson(Eigensolver):
             redistributor.redistribute(Ssc_MM, Ssc_mm)
             redistributor.redistribute(Csc_MM, Csc_mm)
 
-            # block_desc.general_diagonalize_dc(Hsc_mm, Ssc_mm, Csc_mm, eps_M)
-            block_desc.general_diagonalize_dc(Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
+            scalapacked_davidson = False
+            if scalapacked_davidson:
+                block_desc.general_diagonalize_dc(Hsc_mm.copy(), Ssc_mm.copy(), Csc_mm, eps_M)
             # block_desc.inverse_cholesky(Csc_mm)
 
             redistributor2 = Redistributor(slcomm, block_desc, local_desc)
             redistributor2.redistribute(Csc_mm, Csc_MM, uplo='G')
 
-            if slcomm.rank == 0:
-                import time as t
-                np.savez(f'scalH{self.i}.npz', Hsc_MM)
-                np.savez(f'scalCtrans{self.i}.npz', Csc_MM.T)
             # if slcomm.rank == 0:
-            #     H_NN[:, :] = Csc_MM.copy()
-            #     eps_N[:] = eps_M.copy()
-
-            # if comm.rank == 0:
-            #     bd.distribute(eps_M[:B], kpt.eps_n)
-            # comm.broadcast(kpt.eps_n, 0)
-
-            # del redistributor
-            # del redistributor2
-            # del grid
+            #     import time as t
+            #     np.savez(f'scalH{self.i}.npz', Hsc_MM)
+            #     np.savez(f'scalCtrans{self.i}.npz', Csc_MM.T)
 
             with self.timer('diagonalize'):
-                if comm.rank == 0 and bd.comm.rank == 0:
-                    H_NN[:B, :B] = np.diag(eps_N[:B])
-                    S_NN[:B, :B] = np.eye(B)
-                    np.savez(f'preteighHmat{self.i}.npz', H_NN)
-                    np.savez(f'preteighSmat{self.i}.npz', S_NN)
+                if slcomm.rank == 0 and comm.rank == 0 and bd.comm.rank == 0:
+                    # H_NN[:B, :B] = np.diag(eps_N[:B])
+                    # S_NN[:B, :B] = np.eye(B)
+                    # np.savez(f'preteighHmat{self.i}.npz', H_NN)
+                    # np.savez(f'preteighSmat{self.i}.npz', S_NN)
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh, orth
                     
-                    # eps_N, H_NN[:, :] = eigh(H_NN, S_NN,
-                    #                       lower=True,
-                    #                       check_finite=debug)
+                    eps_N, scipy_eigvecs = eigh(H_NN, S_NN,
+                                          lower=True,
+                                          check_finite=debug)
                     np.set_printoptions(linewidth=200, precision=4, threshold=np.inf, suppress=True, floatmode='fixed')
-                    H_NN[:, :] = Csc_MM.T.copy()
-                    eps_N[:] = eps_M.copy()
+                    if scalapacked_davidson
+                        H_NN[:, :] = Csc_MM.T.copy()
+                        eps_N[:] = eps_M.copy()
+                    else:
+                        H_NN[:, :] = scipy_eigvecs.copy()
+                        # eps_N[:] = eps_M.copy()
                     # print("Scalapack consistency", np.linalg.norm(H_NN[:, :B], axis=0), np.linalg.norm(Csc_MM[:, :B], axis=0), sep='\n')
                     # print("Scalapack consistency", eps_N, eps_M, sep='\n')
-                    np.savez(f'posteighHmat{self.i}.npz', H_NN)
+                    # np.savez(f'posteighHmat{self.i}.npz', H_NN)
                 
                     
 
