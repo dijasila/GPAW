@@ -9,13 +9,24 @@ Scissors operator for LCAO mode
 .. module:: gpaw.lcao.scissors
 .. autoclass:: Scissors
 
-:ref:`lcao`
+In :ref:`lcao` we solve the following generalized eigenvalue problem:
 
 .. math::
 
- \sum_\nu H_{\mu\nu} C_{\nu n} = \sum_{\nu} S_{\mu\nu} C_{\nu n} \epsilon_n
+ \sum_\nu (H + \Delta H)_{\mu\nu} C_{\nu n}
+ = \sum_{\nu} S_{\mu\nu} C_{\nu n} \epsilon_n,
 
-`\Delta H = \sum_i(\Delta H^{i,\text{occ}}+\Delta H^{i,\text{unocc}})`
+where `\Delta H` is a scissors operator.
+
+Space is divided into regions `\Omega_i` and for each region we define desired
+shifts of the occupied and unoccupied bands: `\Delta_{i,\text{occ}}` and
+`\Delta_{i,\text{unocc}}`.  The scissors operator is given as:
+
+.. math::
+
+    \Delta H = \sum_i(\Delta H^{i,\text{occ}}+\Delta H^{i,\text{unocc}}),
+
+where
 
 .. math::
 
