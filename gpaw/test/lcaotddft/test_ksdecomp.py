@@ -53,7 +53,8 @@ def test_lcaotddft_ksdecomp(in_tmp_dir):
     ref_wv = np.loadtxt('spec.dat')[:, 1:]
 
     # Calculate ground state with full unoccupied space
-    calc = GPAW('gs.gpw', txt=None).fixed_density(nbands='nao', txt='unocc.out')
+    calc = GPAW('gs.gpw', txt=None).fixed_density(
+        nbands='nao', txt='unocc.out')
     calc.write('unocc.gpw', mode='all')
 
     # Construct KS electron-hole basis

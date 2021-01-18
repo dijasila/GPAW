@@ -20,7 +20,7 @@ for k in range(2, 9):
                        eigensolver='rmm-diis',
                        txt=None)
         si.get_potential_energy()
-        name = 'si-{0:.2f}-{1}'.format(a, k)
+        name = f'si-{a:.2f}-{k}'
         si.calc.write(name + '.gpw', mode='all')
         epbe0 = nsc_energy(name + '.gpw', 'PBE0').sum()
 

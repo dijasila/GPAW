@@ -139,7 +139,7 @@ class ArrayDict:
         # XXX direct comparison of communicators are unsafe as we do not use
         # MPI_Comm_compare
 
-        #assert subpartition.comm.parent == self.partition.comm
+        # assert subpartition.comm.parent == self.partition.comm
         from gpaw.utilities.partition import AtomPartition
 
         newrank_a = self.partition.rank_a % dist_comm.size

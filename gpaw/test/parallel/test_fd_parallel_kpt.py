@@ -2,7 +2,7 @@ import pytest
 from gpaw.mpi import world
 import sys
 
-from ase.utils import devnull
+from gpaw.utilities import devnull
 
 from gpaw import GPAW, FermiDirac
 from gpaw import KohnShamConvergenceError

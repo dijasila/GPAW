@@ -12,10 +12,8 @@ def test_spin_spinpol():
                 occupations=FermiDirac(0.0))
     hydrogen.calc = calc
     e1 = hydrogen.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
     hydrogen.set_initial_magnetic_moments([1.0])
     e2 = hydrogen.get_potential_energy()
-    niter2 = calc.get_number_of_iterations()
     de = e1 - e2
     print(de)
     equal(de, 0.7871, 1.e-4)

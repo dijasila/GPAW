@@ -12,11 +12,13 @@ def test_coulomb():
     def test_coulomb(N=2**6, a=20):
         Nc = (N, N, N)            # Number of grid point
         gd = GridDescriptor(Nc, (a, a, a), True)  # grid-descriptor object
-        xyz, r2 = coordinates(gd) # matrix with the square of the radial coordinate
-        r = np.sqrt(r2)           # matrix with the values of the radial coordinate
+        # matrix with the square of the radial coordinate
+        xyz, r2 = coordinates(gd)
+        # matrix with the values of the radial coordinate
+        r = np.sqrt(r2)
         nH = np.exp(-2 * r) / pi  # density of the hydrogen atom
         C = Coulomb(gd)           # coulomb calculator
-        
+
         if world.size > 1:
             C.load('real')
             t0 = time.time()
@@ -49,10 +51,9 @@ def test_coulomb():
         for method, et in res.items():
             print('%12s %2.6f %1.7f' % ((method,) + et))
 
-        equal(res['real'][0],         analytic, 6e-3)
-        equal(res['recip_gauss'][0],  analytic, 6e-3)
-        equal(res['recip_ewald'][0],  analytic, 2e-2)
+        equal(res['real'][0], analytic, 6e-3)
+        equal(res['recip_gauss'][0], analytic, 6e-3)
+        equal(res['recip_ewald'][0], analytic, 2e-2)
         equal(res['dual density'][0], res['recip_gauss'][0], 1e-9)
-
 
     # mpirun -np 2 python coulomb.py --gpaw-parallel --gpaw-debug

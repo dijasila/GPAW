@@ -1,5 +1,6 @@
 /*  Copyright (C) 2003-2007  CAMP
  *  Copyright (C) 2007-2009  CAMd
+ *  Copyright (C) 2010,2020  CSC - IT Center for Science Ltd.
  *  Please see the accompanying LICENSE file for further information. */
 
 #ifndef LFC_H
@@ -22,9 +23,10 @@ typedef struct
   double dv;                 // volume per grid point
   int nW;                    // number of volumes
   int nB;                    // number of boundary points
+  int nimax;                 // maximum number of current volumes
   double* work_gm;           // work space
   LFVolume* volume_W;        // pointers to volumes
-  LFVolume* volume_i;        // pointers to volumes at current grid point
+  LFVolume** volume_i;       // pointers to volumes at current grid point
   int* G_B;                  // boundary grid points
   int* W_B;                  // volume numbers
   int* i_W;                  // mapping from all volumes to current volumes
@@ -35,15 +37,15 @@ typedef struct
 } LFCObject;
 
 
-#define GRID_LOOP_START(lfc, k)                                    \
+#define GRID_LOOP_START(lfc, k, thread_id)                         \
 {                                                                  \
-  int* G_B = lfc->G_B;                                             \
-  int* W_B = lfc->W_B;                                             \
-  int* i_W = lfc->i_W;                                             \
-  complex double* phase_i = lfc->phase_i;                          \
-  LFVolume* volume_i = lfc->volume_i;                              \
-  LFVolume* volume_W = lfc->volume_W;                              \
-  double complex* phase_W = lfc->phase_kW + k * lfc->nW;           \
+  const int* G_B = lfc->G_B;                                       \
+  const int* W_B = lfc->W_B;                                       \
+  int* i_W = lfc->i_W + thread_id * lfc->nW;                       \
+  complex double* phase_i = lfc->phase_i + thread_id * lfc->nimax; \
+  LFVolume **volume_i = lfc->volume_i + thread_id * lfc->nimax;    \
+  LFVolume *volume_W = lfc->volume_W + thread_id * lfc->nW;        \
+  const double complex* phase_W = lfc->phase_kW + k * lfc->nW;     \
   int Ga = 0;                                                      \
   int ni = 0;                                                      \
   for (int B = 0; B < lfc->nB; B++)                                \
@@ -53,15 +55,16 @@ typedef struct
       if (nG > 0)                                                  \
         {
 
-#define GRID_LOOP_STOP(lfc, k)                                     \
+#define GRID_LOOP_STOP(lfc, k, thread_id)                          \
           for (int i = 0; i < ni; i++)                             \
-            volume_i[i].A_gm += nG * volume_i[i].nm;               \
+            volume_i[i]->A_gm += nG * volume_i[i]->nm;             \
         }                                                          \
       int Wnew = W_B[B];                                           \
       if (Wnew >= 0)                                               \
         {                                                          \
-          /* Entering new sphere: */                               \
-          volume_i[ni] = volume_W[Wnew];                           \
+          /* Entering new sphere. Add the new volume to
+             the head of the list of current volumes. */           \
+          volume_i[ni] = &volume_W[Wnew];                          \
           if (k >= 0)                                              \
             phase_i[ni] = phase_W[Wnew];                           \
           i_W[Wnew] = ni;                                          \
@@ -69,19 +72,20 @@ typedef struct
         }                                                          \
       else                                                         \
         {                                                          \
-          /* Leaving sphere: */                                    \
+          /* Leaving sphere. Remove the volume from the list
+             of current volumes. */                                \
           int Wold = -1 - Wnew;                                    \
           int iold = i_W[Wold];                                    \
-          volume_W[Wold].A_gm = volume_i[iold].A_gm;               \
           ni--;                                                    \
           volume_i[iold] = volume_i[ni];                           \
           if (k >= 0)                                              \
             phase_i[iold] = phase_i[ni];                           \
-          int Wlast = volume_i[iold].W;                            \
+          int Wlast = volume_i[iold]->W;                           \
           i_W[Wlast] = iold;                                       \
         }                                                          \
       Ga = Gb;                                                     \
     }                                                              \
+  /* Restore function value pointers to the initial state. */      \
   for (int W = 0; W < lfc->nW; W++)                                \
     volume_W[W].A_gm -= lfc->ngm_W[W];                             \
 }

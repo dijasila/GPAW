@@ -16,7 +16,8 @@ Use the :func:`hyperfine_parameters` function or the CLI tool::
 
 .. autofunction:: hyperfine_parameters
 
-For details, see :doi:`Peter E. Blöchl <10.1103/PhysRevB.62.6158>`.
+For details, see :doi:`Peter E. Blöchl <10.1103/PhysRevB.62.6158>` and
+:doi:`Oleg V. Yazyev *et al.* <10.1103/PhysRevB.71.115110>`.
 
 
 G-factors
@@ -39,5 +40,5 @@ Here is how to calculate the famous hydrogen spectral line of 21 cm:
     :end-before: assert
 
 The output will be ``23.2 cm``.
-It's slightly off because the LDA spin-density at the positions of the hydrogen
+It's slightly off because the LDA spin-density at the position of the hydrogen
 nucleus is a bit too low (should be `1/\pi` in atomic units).

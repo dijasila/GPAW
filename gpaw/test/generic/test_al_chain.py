@@ -2,6 +2,7 @@ from ase import Atoms
 from gpaw import GPAW
 from gpaw.mpi import size
 
+
 def test_generic_al_chain(in_tmp_dir):
     d = 4.0 / 2**0.5
     ndomains = size // 8 + 1

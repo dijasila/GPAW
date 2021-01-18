@@ -37,4 +37,4 @@ else:
 
     # Ea = E[molecule] - 2 * E[atom]
     atomization_energy = container[0] - 2 * energy
-    print('Atomization energy: %.4f eV' % atomization_energy)
+    print(f'Atomization energy: {atomization_energy:.4f} eV')

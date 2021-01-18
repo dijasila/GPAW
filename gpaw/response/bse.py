@@ -5,7 +5,7 @@ import sys
 
 import numpy as np
 from ase.units import Hartree, Bohr
-from ase.utils import devnull
+from gpaw.utilities import devnull
 from ase.dft import monkhorst_pack
 from scipy.linalg import eigh
 

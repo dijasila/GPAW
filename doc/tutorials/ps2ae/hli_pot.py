@@ -13,7 +13,7 @@ plt.plot([zh - rh, zh + rh], [vh, vh], label=r'$\tilde v$(H)')
 plt.plot([zli - rli, zli + rli], [vli, vli], label=r'$\tilde v$(Li)')
 
 # Transformer:
-t = PS2AE(calc, h=0.05)
+t = PS2AE(calc, grid_spacing=0.05)
 
 # Interpolated PS and AE potentials:
 ps = t.get_electrostatic_potential(ae=False)

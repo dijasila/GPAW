@@ -103,7 +103,7 @@ class TCM(object):
             from matplotlib.colors import hsv_to_rgb
 
             def transform_to_hsv(z, rmin, rmax, hue_start=90):
-                amp = np.absolute(z) #**2
+                amp = np.absolute(z)  # **2
                 amp = np.where(amp < rmin, rmin, amp)
                 amp = np.where(amp > rmax, rmax, amp)
                 ph = np.angle(z, deg=1) + hue_start

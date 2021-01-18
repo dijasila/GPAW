@@ -92,7 +92,6 @@ def test_lcao_complicated():
                                         % world.size)
 
     parallel = dict(domain=1, band=1)
-    sl_cpus = world.size
     if world.size % 2 == 0:
         parallel['band'] = 2
     if world.size % 4 == 0:
@@ -101,7 +100,7 @@ def test_lcao_complicated():
     # If size is 8, this will also use kpt parallelization.  This test should
     # run with 8 CPUs for best coverage of parallelizations
     if world.size == 8:
-        sl_cpus = 4
+        pass  # sl_cpus = 4 ???
 
     if world.size > 1:
         check(parallel)
