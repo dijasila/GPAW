@@ -37,7 +37,7 @@ with broadcast_imports:
 
 assert not np.version.version.startswith('1.6.0')
 
-__version__ = '21.1.0'
+__version__ = '21.1.1b1'
 __ase_version_required__ = '3.21.0'
 
 __all__ = ['GPAW',
