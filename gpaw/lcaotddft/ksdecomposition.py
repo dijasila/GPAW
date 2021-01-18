@@ -333,7 +333,7 @@ class KohnShamDecomposition(object):
     def transform(self, rho_uMM, broadcast=False):
         assert len(rho_uMM) == 1, 'K-points not implemented'
         u = 0
-        rho_MM = rho_uMM[u]
+        rho_MM = np.ascontiguousarray(rho_uMM[u])
         C0S_nM = self.C0S_unM[u].astype(rho_MM.dtype, copy=True)
         # KS decomposition
         if self.ksl.using_blacs:
