@@ -1348,7 +1348,7 @@ class WLDA(XCFunctional):
         elif wf == "exponential":
             return 1 / (1 + qt**2)**2
         else:
-            raise ValueError(f'Weightfunction type "{weightfunc}" not allowed.')
+            raise ValueError(f'Weightfunction type "{wf}" not allowed.')
 
     def radial_x1(self, spin, e_g, n_g, nstar_g, v_g):
         """Calculate e_x[n*]n and potential."""
