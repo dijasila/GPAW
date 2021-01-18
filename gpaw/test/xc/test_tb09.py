@@ -18,7 +18,7 @@ def test_xc_tb09(in_tmp_dir):
                       xc=xc('TB09'),
                       convergence={'bands': -3},
                       txt='si.txt')
-    e = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     gap, (sv, kv, nv), (sc, kc, nc) = bandgap(atoms.calc)
     c = atoms.calc.hamiltonian.xc.c
     print(gap, kv, kc)

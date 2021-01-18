@@ -27,8 +27,6 @@ def test_utilities_partitioning(in_tmp_dir):
                         [[1, 2], 2],
                         [[0], 8],
                         ]
-            #expected = [[[0, 2], 9], ]
-            #expected = [[None, 10], ]
             for gridrefinement in [1, 2, 4]:
                 # Test for all gridrefinements for get_all_electron_density
                 parprint('grid refinement', gridrefinement)

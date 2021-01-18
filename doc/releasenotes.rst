@@ -10,7 +10,15 @@ Git master branch
 
 :git:`master <>`.
 
-* Corresponding ASE release: ASE-3.20.1b1
+* Corresponding ASE release: ASE-3.21.1b1
+
+
+Version 21.1.0
+===============
+
+18 Jan 2021: :git:`21.1.0 <../21.1.0>`
+
+* Corresponding ASE release: ASE-3.21.0.
 
 * New :ref:`zfs` module.
 

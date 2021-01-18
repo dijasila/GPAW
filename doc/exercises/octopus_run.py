@@ -1,8 +1,8 @@
 #!/usr/bin/env python
+from os import environ
 
 label = 'oscillator'
 
-from os import environ
 octopus = environ['OCTOPUS_SCRIPT']
 locals = {'label': label}
 exec(open(octopus).read(), {}, locals)

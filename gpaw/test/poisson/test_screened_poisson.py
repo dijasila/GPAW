@@ -23,9 +23,7 @@ def test_poisson_screened_poisson():
     gauss = Gaussian(gd, a=inv_width)          # An instance of Gaussian
     test_screened_poisson = ScreenedPoissonGaussian(gd, a=inv_width)
 
-    # /-------------------------------------------------\
-    # | Check if Gaussian potentials are made correctly |
-    # \-------------------------------------------------/
+    # Check if Gaussian potentials are made correctly
 
     # Array for storing the potential
     pot = gd.zeros(dtype=float, global_array=False)
@@ -35,7 +33,7 @@ def test_poisson_screened_poisson():
     ng = gauss.get_gauss(0)
     #    vg = solver.phi_gauss
     # Solve potential numerically
-    niter = solver.solve(pot, ng, charge=None, zero_initial_phi=True)
+    solver.solve(pot, ng, charge=None, zero_initial_phi=True)
     # Determine residual
     # residual = norm(pot - vg)
     residual = gd.integrate((pot - vg)**2)**0.5

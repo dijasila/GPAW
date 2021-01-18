@@ -8,7 +8,6 @@ from gpaw.test import equal
 
 def test_lcao_fd2lcao_restart(in_tmp_dir):
     energy_tolerance = 0.001
-    niter_tolerance = 0
 
     if not os.path.isfile('Na4_fd.gpw'):
         # Do grid kpts calculation
@@ -28,7 +27,6 @@ def test_lcao_fd2lcao_restart(in_tmp_dir):
                     txt='Na4_fd.txt')
         atoms.calc = calc
         etot_fd = atoms.get_potential_energy()
-        niter_fd = calc.get_number_of_iterations()
         print('Etot:', etot_fd, 'eV in fd-mode')
         calc.write('Na4_fd.gpw')
         del atoms, calc
@@ -42,7 +40,6 @@ def test_lcao_fd2lcao_restart(in_tmp_dir):
                               mode='lcao',
                               txt='Na4_lcao.txt')
         etot_lcao = atoms.get_potential_energy()
-        niter_lcao = calc.get_number_of_iterations()
         print('Etot:', etot_lcao, 'eV in lcao-mode')
         calc.write('Na4_lcao.gpw')
         del atoms, calc

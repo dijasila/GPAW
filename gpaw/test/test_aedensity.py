@@ -10,7 +10,6 @@ def test_aedensity(in_tmp_dir):
         calc = GPAW('NaCl.gpw')
         NaCl = calc.get_atoms()
         e = NaCl.get_potential_energy()
-        niter = None
     except IOError:
         h = 0.21  # gridspacing
         a = [6.5, 6.5, 7.7]  # unit cell
@@ -26,7 +25,6 @@ def test_aedensity(in_tmp_dir):
 
         NaCl.calc = calc
         e = NaCl.get_potential_energy()
-        niter = calc.get_number_of_iterations()
         calc.write('NaCl.gpw')
 
     equal(e, -4.907, 0.002)

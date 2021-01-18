@@ -23,7 +23,7 @@ def test_lcaotddft_fxc_rpa(in_tmp_dir):
                 convergence={'density': 1e-8},
                 txt='gs.out')
     atoms.calc = calc
-    energy = atoms.get_potential_energy()
+    atoms.get_potential_energy()
     calc.write('gs.gpw', mode='all')
 
     # Time-propagation calculation with fxc
