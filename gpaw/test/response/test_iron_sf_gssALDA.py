@@ -91,8 +91,8 @@ def test_response_iron_sf_gssALDA(in_tmp_dir):
     wpeak1, Ipeak1 = findpeak(w1_w, chi1_w.imag)
     wpeak2, Ipeak2 = findpeak(w2_w, chi2_w.imag)
 
-    mw1 = (wpeak1 + w1_w[0]) * 1000
-    mw2 = (wpeak2 + w2_w[0]) * 1000
+    mw1 = wpeak1 * 1000
+    mw2 = wpeak2 * 1000
 
     # Part 4: compare new results to test values
     test_fxcs = 1.033

@@ -57,6 +57,8 @@ There are two special GPAW-fixtures:
 Check the :git:`~gpaw/test/conftest.py` to see which gpw-files are available.
 Use a ``_wfs`` postfix to get a gpw-file that contains the wave functions.
 
+.. autofunction:: gpaw.test.findpeak
+
 
 Adding new tests
 ----------------
