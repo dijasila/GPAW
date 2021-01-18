@@ -173,6 +173,22 @@ def test_ksd_transform(ksd_transform, ksd_transform_reference):
     assert err < atol
 
 
+def test_ksd_transform_real_only(load_ksd, ksd_transform_reference):
+    ksd, fdm = load_ksd
+    ref_iwp = ksd_transform_reference
+    rho_iwp = np.empty((2, len(fdm.freq_w), len(ksd.w_p)), dtype=complex) \
+        + np.nan
+    for i, rho_wuMM in enumerate([fdm.FReDrho_wuMM, fdm.FImDrho_wuMM]):
+        for w in range(len(fdm.freq_w)):
+            rho_uMM = rho_wuMM[w]
+            rho_p = ksd.transform([rho_uMM[0].real], broadcast=True)[0] \
+                + 1j * ksd.transform([rho_uMM[0].imag], broadcast=True)[0]
+            rho_iwp[i, w, :] = rho_p
+    err = calculate_error(rho_iwp, ref_iwp)
+    atol = 1e-18
+    assert err < atol
+
+
 def test_dipole_moment_from_ksd(ksd_transform, load_ksd,
                                 dipole_moment_reference):
     ksd, fdm = load_ksd
