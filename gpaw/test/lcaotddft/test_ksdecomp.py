@@ -19,6 +19,16 @@ pytestmark = pytest.mark.usefixtures('module_tmp_path')
 
 
 def only_on_master(comm, broadcast=None):
+    """Decorator for executing the function only on the rank 0.
+
+    Parameters
+    ----------
+    comm
+        communicator
+    broadcast
+        function for broadcasting the return value or
+        `None` for no broadcasting
+    """
     def wrap(func):
         @wraps(func)
         def wrapped_func(*args, **kwargs):
