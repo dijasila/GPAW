@@ -131,8 +131,8 @@ def ksd_reference(initialize_system):
 
 
 def ksd_transform_fdm(ksd, fdm):
-    rho_iwp = np.empty((2, len(fdm.freq_w), len(ksd.w_p)), dtype=complex) \
-        + np.nan
+    rho_iwp = np.empty((2, len(fdm.freq_w), len(ksd.w_p)), dtype=complex)
+    rho_iwp[:] = np.nan + 1j * np.nan
     for i, rho_wuMM in enumerate([fdm.FReDrho_wuMM, fdm.FImDrho_wuMM]):
         for w in range(len(fdm.freq_w)):
             rho_uMM = rho_wuMM[w]
@@ -186,8 +186,8 @@ def test_ksd_transform(ksd_transform, ksd_transform_reference):
 def test_ksd_transform_real_only(load_ksd, ksd_transform_reference):
     ksd, fdm = load_ksd
     ref_iwp = ksd_transform_reference
-    rho_iwp = np.empty((2, len(fdm.freq_w), len(ksd.w_p)), dtype=complex) \
-        + np.nan
+    rho_iwp = np.empty((2, len(fdm.freq_w), len(ksd.w_p)), dtype=complex)
+    rho_iwp[:] = np.nan + 1j * np.nan
     for i, rho_wuMM in enumerate([fdm.FReDrho_wuMM, fdm.FImDrho_wuMM]):
         for w in range(len(fdm.freq_w)):
             rho_uMM = rho_wuMM[w]
@@ -202,7 +202,8 @@ def test_ksd_transform_real_only(load_ksd, ksd_transform_reference):
 def test_dipole_moment_from_ksd(ksd_transform, load_ksd,
                                 dipole_moment_reference):
     ksd, fdm = load_ksd
-    dm_wv = np.empty((len(fdm.freq_w), 3), dtype=complex) + np.nan
+    dm_wv = np.empty((len(fdm.freq_w), 3), dtype=complex)
+    dm_wv[:] = np.nan + 1j * np.nan
     rho_wp = ksd_transform[0]
     for w in range(len(fdm.freq_w)):
         dm_v = ksd.get_dipole_moment([rho_wp[w]])
@@ -216,8 +217,8 @@ def test_dipole_moment_from_ksd(ksd_transform, load_ksd,
 
 def get_density_fdm(ksd, fdm, kind):
     assert kind in ['dmat', 'ksd']
-    rho_wg = fdm.dmat.density.finegd.empty(len(fdm.freq_w), dtype=complex) \
-        + np.nan
+    rho_wg = fdm.dmat.density.finegd.empty(len(fdm.freq_w), dtype=complex)
+    rho_wg[:] = np.nan + 1j * np.nan
     for w in range(len(fdm.freq_w)):
         rho_uMM = fdm.FReDrho_wuMM[w]
         if kind == 'dmat':
@@ -273,7 +274,8 @@ def test_dipole_moment_from_density(kind, density, load_ksd,
                                     dipole_moment_reference):
     ksd, fdm = load_ksd
     rho_wg = density[kind]
-    dm_wv = np.empty((len(fdm.freq_w), 3), dtype=complex) + np.nan
+    dm_wv = np.empty((len(fdm.freq_w), 3), dtype=complex)
+    dm_wv[:] = np.nan + 1j * np.nan
     for w in range(len(fdm.freq_w)):
         dm_v = ksd.density.finegd.calculate_dipole_moment(rho_wg[w])
         dm_wv[w, :] = dm_v
