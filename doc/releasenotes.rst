@@ -16,7 +16,7 @@ Git master branch
 Version 21.1.0
 ===============
 
-19 Oct 2020: :git:`21.1.0 <../21.1.0>`
+18 Jan 2021: :git:`21.1.0 <../21.1.0>`
 
 * Corresponding ASE release: ASE-3.21.0.
 
