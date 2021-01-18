@@ -1,7 +1,4 @@
-from distutils.version import LooseVersion
-
-import pytest
-from ase import Atom, Atoms, __version__
+from ase import Atom, Atoms
 
 from gpaw import GPAW
 from gpaw.analyse.overlap import Overlap
@@ -29,8 +26,6 @@ class GPAW_with_classmethod_read(GPAW):
         return gpw
 
 
-@pytest.mark.skipif(LooseVersion(__version__) < '3.21',
-                    reason='ASE too old')
 def test_lrtddft_placzek_profeta_albrecht(in_tmp_dir):
     from ase.vibrations.albrecht import Albrecht
     from ase.vibrations.placzek import Placzek, Profeta

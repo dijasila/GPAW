@@ -5,6 +5,7 @@ import numpy as np
 
 from ase import Atoms
 from ase.io import read
+from ase.build.connected import connected_indices
 
 
 class Cluster(Atoms):
@@ -37,7 +38,6 @@ class Cluster(Atoms):
 
     def find_connected(self, index, dmax=None, scale=1.5):
         """Find atoms connected to self[index] and return them."""
-        from ase.build.connected import connected_indices
         return self[connected_indices(self, index, dmax, scale)]
 
     def minimal_box(self, border=0, h=None, multiple=4):
