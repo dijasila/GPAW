@@ -17,14 +17,11 @@ from gpaw.utilities import h2gpts
 # use_cholesky keyword
 
 
-
 def test_poisson_fastpoisson():
     cell_cv = np.array(bulk('Au').cell)
     rng = np.random.RandomState(42)
 
     tf = range(2)
-    comm = world
-
 
     def icells():
         # cells: orthorhombic fcc bcc hcp
@@ -40,10 +37,6 @@ def test_poisson_fastpoisson():
         for sym in ['Au', 'Fe', 'Sc']:
             cell = bulk(sym).cell
             yield sym, cell.copy()
-
-
-
-    #import matplotlib.pyplot as plt
 
     tolerance = 1e-12
 
@@ -66,7 +59,7 @@ def test_poisson_fastpoisson():
         # Check use_cholesky=True/False ?
         from gpaw.poisson import FDPoissonSolver
         ps = FastPoissonSolver(nn=nn)
-        #print('setgrid')
+        # print('setgrid')
 
         # Will raise BadAxesError for some pbc/cell combinations
         ps.set_grid_descriptor(gd)
@@ -90,7 +83,8 @@ def test_poisson_fastpoisson():
                 exclude_points = nn - 1
                 for c in range(3):
                     if nn > 1 and not pbc[c]:
-                        # get view ehere axis c refers becomes zeroth dimension:
+                        # get view ehere axis c refers becomes
+                        # zeroth dimension:
                         X = residual.transpose(c, (c + 1) % 3, (c + 2) % 3)
 
                         if gd.beg_c[c] == 1:
@@ -124,7 +118,6 @@ def test_poisson_fastpoisson():
 
         return maxerr
 
-
     errs = []
     for idiv in [4, 1]:
         for cellno, (cellname, cell_cv) in enumerate(icells()):
@@ -137,7 +130,6 @@ def test_poisson_fastpoisson():
                         continue
 
                     errs.append(err)
-
 
     for i, err in enumerate(errs):
         assert err < tolerance, err

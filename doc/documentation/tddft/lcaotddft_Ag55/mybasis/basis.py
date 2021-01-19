@@ -16,7 +16,7 @@ generator = Generator(atom, xc, scalarrel=True)
 generator.run(write_xml=True, **args)
 
 # Generate basis
-bm = BasisMaker(atom, name='{}.{}'.format(name, xc), xc=xc, run=False)
+bm = BasisMaker(atom, name=f'{name}.{xc}', xc=xc, run=False)
 bm.generator.run(write_xml=False, **args)
 basis = bm.generate(zetacount=2, polarizationcount=0,
                     jvalues=[0, 1, 2],  # include d, s and p

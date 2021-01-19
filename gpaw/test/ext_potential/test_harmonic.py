@@ -9,11 +9,9 @@ from gpaw.poisson import NoInteractionPoissonSolver
 from gpaw.external import ExternalPotential
 
 
-
 def test_ext_potential_harmonic():
     a = 4.0
     x = Atoms(cell=(a, a, a))  # no atoms
-
 
     class HarmonicPotential(ExternalPotential):
         def calculate_potential(self, gd):
@@ -22,7 +20,6 @@ def test_ext_potential_harmonic():
 
         def get_name(self):
             return 'HarmonicPotential'
-
 
     calc = GPAW(charge=-8,
                 nbands=4,

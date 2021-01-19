@@ -17,7 +17,6 @@ def test_vdw_ts09(in_tmp_dir):
     s = Cluster(molecule('LiH'))
     s.minimal_box(3., h=h)
 
-
     def print_charge_and_check(hp, q=0, label='unpolarized'):
         q_a = np.array(hp.get_charges())
         parprint('Charges ({0})='.format(label), q_a, ', sum=', q_a.sum())
@@ -80,5 +79,5 @@ def test_vdw_ts09(in_tmp_dir):
                                 vdWradii(s.get_chemical_symbols(), 'PBE'))
         s.calc = cp
         E = s.get_potential_energy()
-        
+
         print_charge_and_check(hpp, 1, label='+1')

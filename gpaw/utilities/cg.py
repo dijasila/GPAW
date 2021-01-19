@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
     """Solve X*A=B using conjugate gradient method.
 
@@ -10,7 +11,7 @@ def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
       A(X, Y)
 
     will store ``X*A`` in the output array ``Y``.
-    
+
     On return ``X`` will be the solution to ``X*A=B`` within
     ``tolerance``."""
 
@@ -29,8 +30,7 @@ def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
         if error < tolerance:
             return i, error
         A(P, Q)
-        #alpha = c1 / reshape([vdot(p, q) for p, q in zip(P, Q)], shape)
-        alpha = c1 / A.sum(np.reshape([np.vdot(q,p)
+        alpha = c1 / A.sum(np.reshape([np.vdot(q, p)
                                        for p, q in zip(P, Q)], shape))
         X -= alpha * P
         R -= alpha * Q
@@ -39,5 +39,5 @@ def CG(A, X, B, maxiter=20, tolerance=1.0e-10, verbose=False):
         beta = c1 / c0
         P *= beta
         P += R
-        
+
     raise ArithmeticError('Did not converge!')

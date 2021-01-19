@@ -17,8 +17,8 @@ for ii, name in enumerate(res_name):
     w_l = shg[0]
     plt.plot(np.real(w_l), np.real(mult * shg[1] * 1e18), '-')
     plt.plot(np.real(w_l), np.imag(mult * shg[1] * 1e18), '--')
-    legls.append('{}: Re'.format(name))
-    legls.append('{}: Im'.format(name))
+    legls.append(f'{name}: Re')
+    legls.append(f'{name}: Im')
     plt.xlabel(r'$\hbar\omega$ (eV)')
     plt.ylabel(r'$\chi_yyy$ (nm$^2$/V)')
     plt.legend(legls, ncol=2)

@@ -67,5 +67,5 @@ def test_response_bse_MoS2_cut(in_tmp_dir):
 
     equal(w0, 1.02, 0.01)
     equal(I0, 13.1, 0.35)
-    equal(w1, 1.16, 0.01)
+    equal(w1, 2.26, 0.01)
     equal(I1, 12.8, 0.35)

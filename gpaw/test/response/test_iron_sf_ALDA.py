@@ -136,14 +136,14 @@ def test_response_iron_sf_ALDA(in_tmp_dir):
     wpeak7, Ipeak7 = findpeak(w7_w, chi7_w.imag)
     wpeak8, Ipeak8 = findpeak(w8_w, chi8_w.imag)
 
-    mw1 = (wpeak1 + w1_w[0]) * 1000
-    mw2 = (wpeak2 + w2_w[0]) * 1000
-    mw3 = (wpeak3 + w3_w[0]) * 1000
-    mw4 = (wpeak4 + w4_w[0]) * 1000
-    mw5 = (wpeak5 + w5_w[0]) * 1000
-    mw6 = (wpeak6 + w6_w[0]) * 1000
-    mw7 = (wpeak7 + w7_w[0]) * 1000
-    mw8 = (wpeak8 + w8_w[0]) * 1000
+    mw1 = wpeak1 * 1000
+    mw2 = wpeak2 * 1000
+    mw3 = wpeak3 * 1000
+    mw4 = wpeak4 * 1000
+    mw5 = wpeak5 * 1000
+    mw6 = wpeak6 * 1000
+    mw7 = wpeak7 * 1000
+    mw8 = wpeak8 * 1000
 
     # Part 4: compare new results to test values
     test_mw1 = 234.63  # meV

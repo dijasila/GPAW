@@ -4,7 +4,6 @@ from gpaw.test import equal
 from ase.build import molecule
 
 
-
 def test_pathological_LDA_unstable():
     for i in range(12):
         mol = molecule('H2')

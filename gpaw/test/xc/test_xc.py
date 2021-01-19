@@ -48,6 +48,9 @@ def test_xc_xc():
         e_g = np.empty_like(n_xg[0])
         n_sg = n_xg[:2]
         sigma_xg = n_xg[2:5]
+        # Triangle inequality:
+        assert (sigma_xg[1] <= (sigma_xg[0] + sigma_xg[2]) / 2).all()
+        assert (sigma_xg[1] >= -(sigma_xg[0] + sigma_xg[2]) / 2).all()
         tau_sg = n_xg[5:]
         dedn_sg = np.zeros_like(n_sg)
         dedsigma_xg = np.zeros_like(sigma_xg)
@@ -102,12 +105,12 @@ def test_xc_xc():
 
     n_xg = np.array(
         [[na, nb, sigma0, sigma1, sigma2, taua, taub],
-         [0.1, 0.1, 0.025, 0.025, 0.025, 0.25, 0.25],
-         [0.1, 0.1, 0.125, 0.125, 0.125, 0.0025, 0.025],
-         [0.1, 0.1, 0.01, 0.01, 0.01, 0.2, 0.2],
+         [0.1, 0.1, 0.025, 0.02, 0.025, 0.25, 0.25],
+         [0.1, 0.1, 0.125, 0.12, 0.125, 0.0025, 0.025],
+         [0.1, 0.1, 0.01, 0.01, 0.015, 0.2, 0.2],
          [0.1, 0.2, 0.1, -0.08, 0.10, 0.01, 0.05],
          [0.1, 0.1, 0.1, 0.01, 0.01, 0.01, 0.01],
-         [0.1, 0.1, 0.1, 0.15, 0.20, 0.01, 0.05]]).T.copy()
+         [0.1, 0.1, 0.1, 0.14, 0.20, 0.01, 0.05]]).T.copy()
 
     for i, func in enumerate(funcs):
         xc = create_xc(funcs[i], modes[i])

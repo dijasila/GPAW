@@ -3,7 +3,6 @@ import numpy as np
 from math import pi
 import ase.units
 from ase.parallel import world
-from ase.utils import devnull
 import sys
 import os
 
@@ -242,7 +241,8 @@ class Heterostructure:
                                              self.z0[k]))
                     dphi_array[self.dim // self.n_layers * k,
                                iq, i_1: i_2 + 1] = (fm(z_big[i_1: i_2 + 1]) +
-                                                1j * fm2(z_big[i_1: i_2 + 1]))
+                                                    1j *
+                                                    fm2(z_big[i_1: i_2 + 1]))
                     if self.chi_dipole is not None:
                         dphi_array[2 * k + 1, iq] = \
                             self.potential_model(self.myq_abs[iq], self.z_big,
@@ -1008,6 +1008,7 @@ class BuildingBlock():
         self.world = self.df.chi0.world
 
         if self.world.rank != 0:
+            from gpaw.utilities import devnull
             txt = devnull
         elif isinstance(txt, str):
             txt = open(txt, 'w', 1)

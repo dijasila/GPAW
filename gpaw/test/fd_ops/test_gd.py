@@ -20,8 +20,10 @@ def test_fd_ops_gd():
     # Point outside box in non-periodic direction should stay
     r_v = np.array([0.01, 2.49, 0.01])
     dr_cG = gd.get_grid_point_distance_vectors(r_v)
-    equal(dr_cG[:, 0, 0, 0], mic(np.dot(gd.h_cv, gd.beg_c) - r_v, pbc_c), 1e-15)
+    equal(dr_cG[:, 0, 0, 0], mic(
+        np.dot(gd.h_cv, gd.beg_c) - r_v, pbc_c), 1e-15)
     # Point outside box in periodic direction should be folded inside
     r_v = np.array([2.49, 0.01, 0.01])
     dr_cG = gd.get_grid_point_distance_vectors(r_v)
-    equal(dr_cG[:, 0, 0, 0], mic(np.dot(gd.h_cv, gd.beg_c) - r_v, pbc_c), 1e-15)
+    equal(dr_cG[:, 0, 0, 0], mic(
+        np.dot(gd.h_cv, gd.beg_c) - r_v, pbc_c), 1e-15)

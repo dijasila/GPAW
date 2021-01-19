@@ -1,10 +1,10 @@
+from math import sqrt
 
 from ase import Atoms
-from gpaw.mpi import world
+
 from gpaw.cluster import Cluster
+from gpaw.mpi import world
 from gpaw.test import equal
-from ase.build import molecule
-from math import sqrt
 
 
 def test_cluster(in_tmp_dir):
@@ -50,14 +50,6 @@ def test_cluster(in_tmp_dir):
             print(a.symbol, b[c], a.position[c], cc[c, c] - a.position[c])
             assert(a.position[c] > b[c])
         equal(cc[c, c] / h % 4, 0.0, 1e-10)
-
-    # connected atoms
-    assert(len(CO.find_connected(0, 1.1 * R)) == 2)
-    assert(len(CO.find_connected(0, 0.9 * R)) == 1)
-
-    H2O = Cluster(molecule('H2O'))
-    assert (len(H2O.find_connected(0)) == 3)
-    assert (len(H2O.find_connected(0, scale=0.9)) == 1)
 
     # I/O
     fxyz = 'CO.xyz'

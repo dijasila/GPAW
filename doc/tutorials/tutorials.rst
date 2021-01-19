@@ -43,6 +43,8 @@ Specialized tutorials
    point_groups/point_groups
    jellium/jellium
    hydrogen/h
+   scissors/scissors
+   zfs/zfs
    muonsites/mnsi
    defects/defects
    stm/stm

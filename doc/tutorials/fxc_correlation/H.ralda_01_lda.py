@@ -19,7 +19,7 @@ H.calc = calc
 E_lda = H.get_potential_energy()
 E_c_lda = -calc.get_xc_difference('LDA_X')
 
-resultfile.write('LDA correlation: %s eV' % E_c_lda)
+resultfile.write(f'LDA correlation: {E_c_lda} eV')
 resultfile.write('\n')
 
 calc.diagonalize_full_hamiltonian()

@@ -138,6 +138,7 @@ API
 
 .. autofunction:: gpaw.nlopt.matrixel.make_nlodata
 .. autofunction:: gpaw.nlopt.shg.get_shg
+.. autofunction:: gpaw.nlopt.linear.get_chi_tensor
 
 
 .. [#Taghizadeh] A. Taghizadeh, K. S. Thygesen and T. G. Pedersen

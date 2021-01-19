@@ -20,7 +20,6 @@ def test_generic_H_force():
                 occupations=FermiDirac(0.0))
     atoms.calc = calc
     e1 = atoms.get_potential_energy()
-    niter1 = calc.get_number_of_iterations()
     f1 = atoms.get_forces()[0]
     for i in range(3):
         f2i = numeric_force(atoms, 0, i)
@@ -29,7 +28,6 @@ def test_generic_H_force():
 
     energy_tolerance = 0.001
     force_tolerance = 0.004
-    niter_tolerance = 0
     equal(e1, -0.5318, energy_tolerance)
     f1_ref = [-0.29138, -0.3060, -0.3583]
     for i in range(3):

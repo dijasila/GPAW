@@ -40,6 +40,7 @@ def analyse(c, collection):
         A.append((e, v, B0, B1, R))
     return np.array(A).T
 
+
 E, V, B0, B1, R = analyse(c, collection)
 
 fd = open(db + '_raw.txt', 'w')
@@ -49,4 +50,4 @@ for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
 fd = open(db + '_raw.csv', 'w')
 for name, e, v, b0, b1, r, in zip(collection.names, E, V, B0, B1, R):
     if not np.isnan(e):
-        print('%s, %8.4f, %8.4f, %8.4f' % (name, v, b0, b1), file=fd)
+        print(f'{name}, {v:8.4f}, {b0:8.4f}, {b1:8.4f}', file=fd)

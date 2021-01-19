@@ -8,13 +8,13 @@ def test_fileio_wfs_io(in_tmp_dir):
     h2.center(vacuum=2.0)
     calc = GPAW(nbands=2, convergence={'eigenstates': 1e-3})
     h2.calc = calc
-    e0 = h2.get_potential_energy()
+    h2.get_potential_energy()
     r0 = calc.wfs.eigensolver.error * Hartree**2 / 2
     assert r0 < 1e-3
     calc.write('h2', 'all')
-        
+
     # refine the restart file containing the wfs
     calc = GPAW('h2', convergence={'eigenstates': 1e-5})
-    e1 = calc.get_atoms().get_potential_energy()
+    calc.get_atoms().get_potential_energy()
     r1 = calc.wfs.eigensolver.error * Hartree**2 / 2
     assert r1 < 1e-5

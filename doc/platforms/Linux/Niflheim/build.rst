@@ -25,11 +25,14 @@ Creating the venv
 
 Download the :download:`gpaw-venv.sh` script and run it like this::
 
-    $ ./gpaw-venv.sh <venv-name>
+    $ ./gpaw-venv.sh <venv-name> [intel]
     ...
 
 After a few minutes, you will have a ``<venv-name>`` folder with
-a GPAW installation inside.
+a GPAW installation inside.  If you add the word ``intel`` as the
+second argument it will have been built with the Intel compilers,
+otherwise it will be built with the FOSS compilers.
+
 In the following, we will assume that your venv folder is ``~/venv1/``.
 
 The ``gpaw-venv.sh`` script does the following:
@@ -62,7 +65,7 @@ submit to Niflheim.  Here are three ways to do it:
 1) If you always want to use one venv then just put the activation
    command in your ``~/.bashrc``.
 
-2) If you only want job running inside a certain folder to use the venv,
+2) If you only want jobs running inside a certain folder to use the venv,
    then add this to your ``~/.bashrc``::
 
        if [[ $SLURM_SUBMIT_DIR/ = $HOME/project-1* ]]; then

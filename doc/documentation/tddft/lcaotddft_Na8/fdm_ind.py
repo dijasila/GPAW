@@ -18,19 +18,19 @@ def do(w):
     rho_MM = fdm.FReDrho_wuMM[w][0]
     freq = fdm.freq_w[w]
     frequency = freq.freq * au_to_eV
-    print('Frequency: %.2f eV' % frequency)
-    print('Folding: %s' % freq.folding)
+    print(f'Frequency: {frequency:.2f} eV')
+    print(f'Folding: {freq.folding}')
 
     # Induced density
     rho_g = dmat.get_density([rho_MM.imag])
 
     # Save as a cube file
-    write('ind_%.2f.cube' % frequency, calc.atoms, data=rho_g)
+    write(f'ind_{frequency:.2f}.cube', calc.atoms, data=rho_g)
 
     # Calculate dipole moment for reference
     dm_v = dmat.density.finegd.calculate_dipole_moment(rho_g, center=True)
     absorption = 2 * freq.freq / np.pi * dm_v[0] / au_to_eV * 1e5
-    print('Total absorption: %.2f eV^-1' % absorption)
+    print(f'Total absorption: {absorption:.2f} eV^-1')
 
 
 do(0)

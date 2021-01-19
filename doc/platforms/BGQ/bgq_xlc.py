@@ -53,7 +53,7 @@ flags_list = {1: "-g -O3 -qlanglvl=extc99 -qflag=w:w",
               }
 
 flags = flags_list[opt]  
-cmd = "mpixlc_r %s %s"%(flags, cmd)
+cmd = f"mpixlc_r {flags} {cmd}"
 
-print("\nexecmd: %s\n"%cmd)
+print(f"\nexecmd: {cmd}\n")
 call(cmd, shell=True)

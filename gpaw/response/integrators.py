@@ -1,7 +1,7 @@
 from functools import partial
 
 import numpy as np
-from ase.utils import devnull, convert_string_to_fd
+from ase.utils import convert_string_to_fd
 from ase.utils.timing import timer, Timer
 from scipy.spatial import Delaunay
 from scipy.linalg.blas import zher
@@ -51,8 +51,6 @@ class Integrator:
             ranks = range(comm.rank % nblocks, comm.size, nblocks)
             self.kncomm = self.comm.new_communicator(ranks)
 
-        if comm.rank != 0:
-            txt = devnull
         self.fd = convert_string_to_fd(txt, comm)
 
         self.timer = timer or Timer()

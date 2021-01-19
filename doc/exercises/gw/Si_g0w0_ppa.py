@@ -28,5 +28,5 @@ qp_cbmin = np.amin(qp_skn[0, :, 1])  # GW conduction band minimum
 qp_vbmax = np.amax(qp_skn[0, :, 0])  # GW valence band maximum
 qp_gap = qp_cbmin - qp_vbmax         # GW band gap
 
-parprint('Kohn-Sham gap = %.3f' % ks_gap)
-parprint('G0W0 gap = %.3f' % qp_gap)
+parprint(f'Kohn-Sham gap = {ks_gap:.3f}')
+parprint(f'G0W0 gap = {qp_gap:.3f}')

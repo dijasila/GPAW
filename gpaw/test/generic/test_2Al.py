@@ -18,7 +18,6 @@ def test_generic_2Al():
                 xc='LDA')
     bulk.calc = calc
     e2 = bulk.get_potential_energy()
-    niter2 = calc.get_number_of_iterations()
 
     bulk = bulk.repeat((1, 1, 2))
     bulk.calc = calc
@@ -26,11 +25,9 @@ def test_generic_2Al():
              kpts=(1, 1, 2),
              gpts=(2 * n, 2 * n, 2 * n))
     e4 = bulk.get_potential_energy()
-    niter4 = calc.get_number_of_iterations()
 
     # checks
     energy_tolerance = 0.002
-    niter_tolerance = 0
 
     print(e2, e4)
     equal(e4 / 2, e2, 48e-6)
