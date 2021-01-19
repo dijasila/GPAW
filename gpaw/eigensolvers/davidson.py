@@ -84,7 +84,7 @@ class Davidson(Eigensolver):
 
         slcomm, nrows, ncols, slsize = wfs.scalapack_parameters
         grid = BlacsGrid(slcomm, nrows, ncols)
-        block_desc = grid.new_descriptor(2 * B, 2 * B, 8, 8)
+        block_desc = grid.new_descriptor(2 * B, 2 * B, 16, 16)
         local_desc = grid.new_descriptor(2 * B, 2 * B, 2 * B, 2 * B)
 
         eps_M = np.zeros([2 * B])
@@ -212,21 +212,20 @@ class Davidson(Eigensolver):
                 if slcomm.rank == 0 and comm.rank == 0 and bd.comm.rank == 0:
                     # H_NN[:B, :B] = np.diag(eps_N[:B])
                     # S_NN[:B, :B] = np.eye(B)
-                    # np.savez(f'preteighHmat{self.i}.npz', H_NN)
-                    # np.savez(f'preteighSmat{self.i}.npz', S_NN)
                     if debug:
                         H_NN[np.triu_indices(2 * B, 1)] = 42.0
                         S_NN[np.triu_indices(2 * B, 1)] = 42.0
                     from scipy.linalg import eigh, orth
-                    
-                    eps_N, scipy_eigvecs = eigh(H_NN, S_NN,
-                                          lower=True,
-                                          check_finite=debug)
+
                     np.set_printoptions(linewidth=200, precision=4, threshold=np.inf, suppress=True, floatmode='fixed')
-                    if scalapacked_davidson
+                    if scalapacked_davidson:
+                        # parprint("Definitely using scalapack")
                         H_NN[:, :] = Csc_MM.T.copy()
                         eps_N[:] = eps_M.copy()
                     else:
+                        eps_N, scipy_eigvecs = eigh(H_NN, S_NN,
+                                          lower=True,
+                                          check_finite=debug)
                         H_NN[:, :] = scipy_eigvecs.copy()
                         # eps_N[:] = eps_M.copy()
                     # print("Scalapack consistency", np.linalg.norm(H_NN[:, :B], axis=0), np.linalg.norm(Csc_MM[:, :B], axis=0), sep='\n')
