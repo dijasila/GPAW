@@ -1028,13 +1028,13 @@ class DirectMin(Eigensolver):
                 wfs.gd.comm.broadcast(kpt.eps_n, 0)
             occ.calculate(wfs)  # fill occ numbers
 
-        if wfs.mode == 'pw' and \
-                self.initial_orbitals != 'KS' and \
-                self.initial_orbitals is not None:
-            parprint('WARNING: plane-waves mode '
-                     'can use ER localization only.\n'
-                     'Will change localization to ER now')
-            self.initial_orbitals = 'ER'
+        # if wfs.mode == 'pw' and \
+        #         self.initial_orbitals != 'KS' and \
+        #         self.initial_orbitals is not None:
+        #     parprint('WARNING: plane-waves mode '
+        #              'can use ER localization only.\n'
+        #              'Will change localization to ER now')
+        #     self.initial_orbitals = 'ER'
 
         io = self.initial_orbitals
 
@@ -1052,28 +1052,38 @@ class DirectMin(Eigensolver):
                 self.need_init_orbs = False
                 break
             elif io == 'PM' or io == 'PMER':
+                log('Pipek-Mezey localization started', flush=True)
                 lf_obj = PipekMezey(
                     wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
                 lf_obj.localize(tolerance=tol)
+                log('Pipek-Mezey localization finished', flush=True)
                 U = np.ascontiguousarray(
                     lf_obj.W_k[kpt.q].T)
                 wfs.gd.comm.broadcast(U, 0)
                 dim = U.shape[0]
-                kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                              U, kpt.psit_nG[:dim])
+                if wfs.mode == 'fd':
+                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
+                                                  U, kpt.psit_nG[:dim])
+                else:
+                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
                 del lf_obj
             elif io == 'W' or io == 'WER':
+                log('Foster-Boys localization started', flush=True)
                 lf_obj = WannierLocalization(
                     wfs=wfs, spin=kpt.s)
                 lf_obj.localize(tolerance=tol)
+                log('Foster-Boys localization finsihed', flush=True)
                 U = np.ascontiguousarray(
                     lf_obj.U_kww[kpt.q].T)
                 if kpt.psit_nG.dtype == float:
                     U = U.real
                 wfs.gd.comm.broadcast(U, 0)
                 dim = U.shape[0]
-                kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                              U, kpt.psit_nG[:dim])
+                if wfs.mode == 'fd':
+                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
+                                                  U, kpt.psit_nG[:dim])
+                else:
+                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
                 del lf_obj
             elif io == 'ER':
                 continue
@@ -1081,10 +1091,11 @@ class DirectMin(Eigensolver):
                 raise ValueError('Check initial orbitals.')
 
         if io == 'PMER' or io == 'WER' or io == 'ER':
-            log('Edmiston-Ruedenberg localisation', flush=True)
+            log('Edmiston-Ruedenberg localization started', flush=True)
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-5)
+            log('Edmiston-Ruedenberg localization finished', flush=True)
             dm.run(wfs, dens)
             del dm
 
