@@ -203,13 +203,17 @@ def loewdin(C_nM, S_MM):
 
 
 def gramschmidt(C_nM, S_MM):
+    """
+    Gram-Schmidt orthonormalization
+    """
 
     S_nn = np.dot(C_nM.conj(), np.dot(S_MM, C_nM.T))
     L_nn = sp.linalg.cholesky(S_nn,
-                           lower=True,
-                           overwrite_a=True,
-                           check_finite=False)
+                              lower=True,
+                              overwrite_a=True,
+                              check_finite=False)
     S_nn = sp.linalg.inv(L_nn,
                          overwrite_a=True,
                          check_finite=False)
+
     return np.dot(S_nn, C_nM)

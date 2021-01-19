@@ -725,6 +725,10 @@ class LSR1P(SteepestDescent):
             j_k[kp[k]] = self.calc_diff(s_k, by_k, wfs)
             yj_k[kp[k]] = self.dot_all_k_and_b(y_k, j_k[kp[k]], wfs)
 
+            if self.method == 'LSR1':
+                if abs(yj_k[kp[k]]) < 1e-12:
+                    yj_k[kp[k]] = 1e-12
+
             dot_yy = self.dot_all_k_and_b(y_k, y_k, wfs)
             if abs(dot_yy) > 1.0e-15:
                 u_k[kp[k]] = self.multiply(y_k, 1.0 / dot_yy)
