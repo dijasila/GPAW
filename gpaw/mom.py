@@ -194,8 +194,6 @@ class OccupationsMOM:
         if self.wfs.mode == 'lcao':
             P = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
                        np.dot(kpt.S_MM, kpt.C_nM[unoccupied].T))
-            P = np.sum(P**2, axis=0)
-            P = P ** 0.5
         else:
             # Pseudo wave function overlaps
             P = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
@@ -210,8 +208,9 @@ class OccupationsMOM:
 
             # Sum pseudo wave and PAW contributions
             P += P_corr
-            P = np.sum(P ** 2, axis=0)
-            P = P ** 0.5
+
+        P = np.sum(P ** 2, axis=0)
+        P = P ** 0.5
 
         return P
 
