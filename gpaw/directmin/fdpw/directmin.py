@@ -60,7 +60,7 @@ class DirectMin(Eigensolver):
 
         if 'SIC' in self.odd_parameters['name']:
             if self.initial_orbitals is None:
-                self.initial_orbitals = 'WER'
+                self.initial_orbitals ='FBER'
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
@@ -1067,7 +1067,7 @@ class DirectMin(Eigensolver):
                 else:
                     kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
                 del lf_obj
-            elif io == 'W' or io == 'WER':
+            elif io == 'FB' or io == 'FBER':
                 log('Foster-Boys localization started', flush=True)
                 lf_obj = WannierLocalization(
                     wfs=wfs, spin=kpt.s)
@@ -1090,7 +1090,7 @@ class DirectMin(Eigensolver):
             else:
                 raise ValueError('Check initial orbitals.')
 
-        if io == 'PMER' or io == 'WER' or io == 'ER':
+        if io == 'PMER' or io == 'FBER' or io == 'ER':
             log('Edmiston-Ruedenberg localization started', flush=True)
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
