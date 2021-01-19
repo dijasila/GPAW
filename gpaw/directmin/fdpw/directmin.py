@@ -1095,8 +1095,8 @@ class DirectMin(Eigensolver):
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-5)
-            log('Edmiston-Ruedenberg localization finished', flush=True)
             dm.run(wfs, dens)
+            log('Edmiston-Ruedenberg localization finished', flush=True)
             del dm
 
         self.need_init_orbs = False
