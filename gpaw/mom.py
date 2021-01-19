@@ -112,7 +112,12 @@ class OccupationsMOM:
                     for f_n_unique in self.f_sn_unique[kpt.s]:
                         occupied = self.f_sn_unique[kpt.s][f_n_unique]
                         n_occ = len(f_sn[kpt.s][occupied])
-                        P = self.calculate_mom_projections(kpt, f_n_unique)
+                        unoccupied = f_sn[kpt.s] == 0
+
+                        P = np.zeros(len(f_sn[kpt.s]))
+                        # The projections are calculated only for orbitals
+                        # that have not already been occupied
+                        P[unoccupied] = self.calculate_mom_projections(kpt, f_n_unique, unoccupied)
                         P_max = np.argpartition(P, -n_occ)[-n_occ:]
                         f_sn[kpt.s][P_max] = f_n_unique
 
@@ -193,21 +198,21 @@ class OccupationsMOM:
 
         self.initialized = True
 
-    def calculate_mom_projections(self, kpt, f_n_unique):
+    def calculate_mom_projections(self, kpt, f_n_unique, unoccupied):
         if self.wfs.mode == 'lcao':
             P = np.dot(self.c_ref[kpt.s][f_n_unique].conj(),
-                       np.dot(kpt.S_MM, kpt.C_nM.T))
+                       np.dot(kpt.S_MM, kpt.C_nM[unoccupied].T))
             P = np.sum(P**2, axis=0)
             P = P ** 0.5
         else:
             # Pseudo wave function overlaps
             P = self.wfs.integrate(self.wf[kpt.s][f_n_unique][:],
-                                   kpt.psit_nG[:], True)
+                                   kpt.psit_nG[unoccupied][:], True)
 
             # PAW corrections
             P_corr = np.zeros_like(P)
             for a, p_a in self.p_an[kpt.s][f_n_unique].items():
-                P_corr += np.dot(kpt.P_ani[a].conj(), p_a).T
+                P_corr += np.dot(kpt.P_ani[a][unoccupied].conj(), p_a).T
             P_corr = np.ascontiguousarray(P_corr)
             self.wfs.gd.comm.sum(P_corr)
 
