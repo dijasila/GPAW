@@ -142,14 +142,6 @@ class OccupationsMOM:
                     else:
                         f_sn[kpt.s][max_overlap] += c[0]
 
-        if self.ne is None:
-            self.ne = f_sn.sum(1)
-        else:
-            # TODO: Works only for spin polarized calculations
-            for kpt in self.wfs.kpt_u:
-                 f_sn[kpt.s] = self.check_number_of_electrons(kpt,
-                                                              f_sn[kpt.s])
-
         self.occ.f_sn = f_sn
         f_qn, fermi_levels, e_entropy = self.occ.calculate(nelectrons,
                                                            eigenvalues,
@@ -236,24 +228,6 @@ class OccupationsMOM:
         gauss /= sum(gauss)
 
         return mask, gauss
-
-    def check_number_of_electrons(self, kpt, occ):
-        ne_diff = occ.sum() - self.ne[kpt.s]
-        lumo = int(self.ne[kpt.s])
-        homo = int(lumo - 1)
-
-        # Check that total number of electrons is conserved
-        while ne_diff != 0:
-            if ne_diff < 0:
-                occ[lumo] += 1
-                lumo += 1
-                ne_diff += 1
-            else:
-                occ[homo] -= 1
-                homo -= 1
-                ne_diff -= 1
-
-        return occ
 
     def find_unique_occupations(self):
         if self.wfs.collinear and self.wfs.nspins == 1:
