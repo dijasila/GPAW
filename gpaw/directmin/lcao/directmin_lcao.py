@@ -69,7 +69,7 @@ class DirectMinLCAO(DirectLCAO):
 
         if self.odd_parameters['name'] == 'PZ_SIC':
             if self.initial_orbitals is None:
-                self.initial_orbitals = 'W'
+                self.initial_orbitals = 'FB'
 
         if self.sda['name'] == 'LBFGS_P' and not self.use_prec:
             raise ValueError('Use LBFGS_P with use_prec=True')
@@ -1061,7 +1061,7 @@ class DirectMinLCAO(DirectLCAO):
             elif self.initial_orbitals == 'PM':
                 lf_obj = pm(wfs=wfs, spin=kpt.s,
                             dtype=wfs.dtype)
-            elif self.initial_orbitals == 'W':
+            elif self.initial_orbitals == 'FB':
                 lf_obj = wl(wfs=wfs, spin=kpt.s)
             else:
                 raise ValueError('Check initial orbitals.')

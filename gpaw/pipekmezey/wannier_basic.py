@@ -362,9 +362,19 @@ class WannierLocalization:
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
 
-                cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
-                cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
+                #
+                if self.wfs.mode == 'pw':
+                    cmo  = self.gd.zeros(Nw,dtype=self.wfs.dtype)
+                    cmo1 = self.gd.zeros(Nw,dtype=self.wfs.dtype)
+                    for i in range(Nw):
+                        cmo[i]  = self.wfs._get_wave_function_array(u,  i)
+                        cmo1[i] = self.wfs._get_wave_function_array(u1, i)
+                else:
+                    cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
+                    cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
 
+                #cmo = self.wfs.kpt_u[u].psit_nG[:Nw]
+                #cmo1 = self.wfs.kpt_u[u1].psit_nG[:Nw]
                 #
                 e_G = np.exp(-2.j * pi *
                              np.dot(np.indices(self.gd.n_c).T +

@@ -69,7 +69,7 @@ class DirectMin(Eigensolver):
 
         if 'SIC' in self.odd_parameters['name']:
             if self.initial_orbitals is None:
-                self.initial_orbitals = 'WER'
+                self.initial_orbitals ='FBER'
         if self.sda is None:
             self.sda = 'LBFGS'
         if isinstance(self.sda, basestring):
@@ -1163,7 +1163,7 @@ class DirectMin(Eigensolver):
             log_f(self.iters, en, er, log)
             # it is quite difficult to converge lumo with the same
             # accuaracy as occupaied states.
-            if er < 5.0e-4:
+            if er < max(max_err, 5.0e-4):
                 log('\nUnoccupied states converged after'
                     ' {:d} iterations'.format(self.iters))
                 break
@@ -1322,13 +1322,13 @@ class DirectMin(Eigensolver):
                 for kpt in wfs.kpt_u:
                     occ.sort_wavefunctions(wfs, kpt)
 
-        if wfs.mode == 'pw' and \
-                self.initial_orbitals != 'KS' and \
-                self.initial_orbitals is not None:
-            parprint('WARNING: plane-waves mode '
-                     'can use ER localization only.\n'
-                     'Will change localization to ER now')
-            self.initial_orbitals = 'ER'
+        # if wfs.mode == 'pw' and \
+        #         self.initial_orbitals != 'KS' and \
+        #         self.initial_orbitals is not None:
+        #     parprint('WARNING: plane-waves mode '
+        #              'can use ER localization only.\n'
+        #              'Will change localization to ER now')
+        #     self.initial_orbitals = 'ER'
 
         io = self.initial_orbitals
 
@@ -1346,39 +1346,50 @@ class DirectMin(Eigensolver):
                 self.need_init_orbs = False
                 break
             elif io == 'PM' or io == 'PMER':
+                log('Pipek-Mezey localization started', flush=True)
                 lf_obj = PipekMezey(
                     wfs=wfs, spin=kpt.s, dtype=wfs.dtype)
                 lf_obj.localize(tolerance=tol)
+                log('Pipek-Mezey localization finished', flush=True)
                 U = np.ascontiguousarray(
                     lf_obj.W_k[kpt.q].T)
                 wfs.gd.comm.broadcast(U, 0)
                 dim = U.shape[0]
-                kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                              U, kpt.psit_nG[:dim])
+                if wfs.mode == 'fd':
+                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
+                                                  U, kpt.psit_nG[:dim])
+                else:
+                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
                 del lf_obj
-            elif io == 'W' or io == 'WER':
+            elif io == 'FB' or io == 'FBER':
+                log('Foster-Boys localization started', flush=True)
                 lf_obj = WannierLocalization(
                     wfs=wfs, spin=kpt.s)
                 lf_obj.localize(tolerance=tol)
+                log('Foster-Boys localization finsihed', flush=True)
                 U = np.ascontiguousarray(
                     lf_obj.U_kww[kpt.q].T)
                 if kpt.psit_nG.dtype == float:
                     U = U.real
                 wfs.gd.comm.broadcast(U, 0)
                 dim = U.shape[0]
-                kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
-                                              U, kpt.psit_nG[:dim])
+                if wfs.mode == 'fd':
+                    kpt.psit_nG[:dim] = np.einsum('ij,jkml->ikml',
+                                                  U, kpt.psit_nG[:dim])
+                else:
+                    kpt.psit_nG[:dim] = U @ kpt.psit_nG[:dim]
                 del lf_obj
             elif io == 'ER':
                 continue
             else:
                 raise ValueError('Check initial orbitals.')
 
-        if io == 'PMER' or io == 'WER' or io == 'ER':
-            log('Edmiston-Ruedenberg localisation', flush=True)
+        if io == 'PMER' or io == 'FBER' or io == 'ER':
+            log('Edmiston-Ruedenberg localization started', flush=True)
             dm = DirectMinLocalize(
                 ERL(wfs, dens, ham), wfs,
                 maxiter=200, g_tol=5.0e-5)
+            log('Edmiston-Ruedenberg localization finished', flush=True)
             dm.run(wfs, dens)
             del dm
 

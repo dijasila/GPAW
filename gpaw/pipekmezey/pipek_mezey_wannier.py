@@ -272,8 +272,15 @@ class PipekMezey:
                 kr1, u1 = divmod(k1 + len(self.wfs.kd.ibzk_kc) * spin,
                                  len(self.wfs.kpt_u))
                 #
-                cmo = self.wfs.kpt_u[u].psit_nG[:self.nocc]
-                cmo1 = self.wfs.kpt_u[u1].psit_nG[:self.nocc]
+                if self.wfs.mode == 'pw':
+                    cmo  = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
+                    cmo1 = self.gd.zeros(self.nocc, dtype=self.wfs.dtype)
+                    for i in range(self.nocc):
+                        cmo[i]  = self.wfs._get_wave_function_array(u,  i)
+                        cmo1[i] = self.wfs._get_wave_function_array(u1, i)
+                else:
+                    cmo = self.wfs.kpt_u[u].psit_nG[:self.nocc]
+                    cmo1 = self.wfs.kpt_u[u1].psit_nG[:self.nocc]
                 # Inner product
                 e_G = np.exp(-2j * pi *
                              np.dot(np.indices(self.gd.n_c).T +
