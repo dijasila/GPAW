@@ -6,8 +6,7 @@ from gpaw import debug
 from gpaw.tddft.units import au_to_as
 from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_symm,
                                       scalapack_inverse, scalapack_solve,
-                                      scalapack_tri2full,
-                                      scalapack_zero)
+                                      scalapack_tri2full)
 
 
 def create_propagator(name, **kwargs):
@@ -210,10 +209,6 @@ class ECNPropagator(LCAOPropagator):
                 self.MM2mm = Redistributor(ksl.block_comm,
                                            self.MM_descriptor,
                                            self.mm_block_descriptor)
-
-            for kpt in self.wfs.kpt_u:
-                scalapack_zero(self.mm_block_descriptor, kpt.S_MM, 'U')
-                scalapack_zero(self.mm_block_descriptor, kpt.T_MM, 'U')
 
     def kick(self, ext, time):
         # Propagate
