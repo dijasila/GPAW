@@ -70,47 +70,13 @@ class OccupationsMOM:
                   eigenvalues,
                   weights,
                   fermi_levels_guess):
-        f_sn = self.numbers.copy()
 
         if not self.initialized:
             self.initialize_reference_orbitals()
+            self.occ.f_sn = self.numbers.copy()
+        else:
+            self.occ.f_sn = self.update_occupations()
 
-        for kpt in self.wfs.kpt_u:
-            if not self.initialized:
-                # If the MOM reference orbitals are not initialized
-                # (e.g. when the density is initialized from atomic
-                # densities) set the occupation numbers according to
-                # the supplied numbers
-                continue
-            else:
-                f_sn[kpt.s].fill(0)
-                # Compute projections within equally occupied subspaces
-                # and occupy orbitals with biggest projections
-                for f_n_unique in self.f_sn_unique[kpt.s]:
-                    occupied = self.f_sn_unique[kpt.s][f_n_unique]
-                    n_occ = len(f_sn[kpt.s][occupied])
-                    unoccupied = f_sn[kpt.s] == 0
-
-                    P = np.zeros(len(f_sn[kpt.s]))
-                    # The projections are calculated only for orbitals
-                    # that have not already been occupied
-                    P[unoccupied] = self.calculate_mom_projections(kpt,
-                                                                   f_n_unique,
-                                                                   unoccupied)
-                    P_max = np.argpartition(P, -n_occ)[-n_occ:]
-                    f_sn[kpt.s][P_max] = f_n_unique
-
-            self.numbers[kpt.s] = f_sn[kpt.s].copy()
-
-            if self.width != 0.0:
-                orbs, f_sn_gs = self.find_hole_and_excited_orbitals(f_sn, kpt)
-                if orbs:
-                    for o in orbs:
-                        mask, gauss = self.gaussian_smearing(kpt, f_sn_gs, o)
-                        f_sn_gs[mask] += (o[1] * gauss)
-                    f_sn[kpt.s] = f_sn_gs.copy()
-
-        self.occ.f_sn = f_sn
         f_qn, fermi_levels, e_entropy = self.occ.calculate(nelectrons,
                                                            eigenvalues,
                                                            weights,
@@ -124,6 +90,10 @@ class OccupationsMOM:
         if self.wfs.kpt_u[0].f_n is None:
             # If the density is initialized from atomic densities
             # the occupation numbers are not available yet
+            # If the MOM reference orbitals are not initialized
+            # (e.g. when the density is initialized from atomic
+            # densities) set the occupation numbers according to
+            # the supplied numbers
             return
 
         self.iters = 0
@@ -157,6 +127,37 @@ class OccupationsMOM:
                               for a, P_ni in kpt.P_ani.items()])
 
         self.initialized = True
+
+    def update_occupations(self):
+        f_sn = np.zeros_like(self.numbers)
+        for kpt in self.wfs.kpt_u:
+            # Compute projections within equally occupied subspaces
+            # and occupy orbitals with biggest projections
+            for f_n_unique in self.f_sn_unique[kpt.s]:
+                occupied = self.f_sn_unique[kpt.s][f_n_unique]
+                n_occ = len(f_sn[kpt.s][occupied])
+                unoccupied = f_sn[kpt.s] == 0
+
+                P = np.zeros(len(f_sn[kpt.s]))
+                # The projections are calculated only for orbitals
+                # that have not already been occupied
+                P[unoccupied] = self.calculate_mom_projections(kpt,
+                                                               f_n_unique,
+                                                               unoccupied)
+                P_max = np.argpartition(P, -n_occ)[-n_occ:]
+                f_sn[kpt.s][P_max] = f_n_unique
+
+            self.numbers[kpt.s] = f_sn[kpt.s].copy()
+
+            if self.width != 0.0:
+                orbs, f_sn_gs = self.find_hole_and_excited_orbitals(f_sn, kpt)
+                if orbs:
+                    for o in orbs:
+                        mask, gauss = self.gaussian_smearing(kpt, f_sn_gs, o)
+                        f_sn_gs[mask] += (o[1] * gauss)
+                    f_sn[kpt.s] = f_sn_gs.copy()
+
+        return f_sn
 
     def calculate_mom_projections(self, kpt, f_n_unique, unoccupied):
         if self.wfs.mode == 'lcao':
