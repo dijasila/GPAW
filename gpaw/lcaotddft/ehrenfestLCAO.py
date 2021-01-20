@@ -106,7 +106,7 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy() 
         self.F = self.get_forces()
-
+ 
         for i in range(len(self.F)):
             self.a[i] = self.F[i] / self.M[i]
 
@@ -131,15 +131,16 @@ class EhrenfestVelocityVerletLCAO:
         # psi(t+dt)   = U(t,t+dt) psi(t)
         self.propagate_single(dt)
 
+
         # m a(t+dt/2) = F[psi(t+dt),x(t+dt/2)]
         self.calc.atoms.positions = self.xh * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
         self.F = self.get_forces()
-
+ 
         for i in range(len(self.F)):
             self.ah[i] = self.F[i] / self.M[i]
-
+ 
         # x(t+dt)     = x(t+dt/2) + v(t+dt/2) dt/2 + .5 a(t+dt/2) (dt/2)^2
         # vh(t+dt)    = v(t+dt/2) + .5 a(t+dt/2) dt/2
         self.xn = self.xh + self.vh * dt / 2 + 0.5 * self.ah * dt / 2 * dt / 2
@@ -149,13 +150,13 @@ class EhrenfestVelocityVerletLCAO:
         self.calc.atoms.positions = self.xn * Bohr
         self.calc.set_positions(self.calc.atoms)
         self.calc.get_td_energy()
-        self.calc.update_eigenvalues()  # Need modification
+#        self.calc.update_eigenvalues()  # Need modification
         self.F = self.get_forces()
 
         for i in range(len(self.F)):
             self.an[i] = self.F[i] / self.M[i]
 
-        # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
+         # v(t+dt)     = vh(t+dt/2) + .5 a(t+dt/2) dt/2
         self.vn = self.vhh + .5 * self.an * dt / 2
 
         # update
@@ -166,7 +167,7 @@ class EhrenfestVelocityVerletLCAO:
         # update atoms
         self.calc.atoms.set_positions(self.x * Bohr)
         self.calc.atoms.set_velocities(self.v * Bohr / AUT)
-
+     
     def propagate_single(self, dt):
 
         if self.setups == 'paw' and self.calc.name == 'tddft':

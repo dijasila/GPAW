@@ -179,14 +179,17 @@ class LCAOTDDFT(GPAW):
            return 0.0
 #        print ('=====',type(self),dir(self))
 #        self.td_overlap.update(self.wfs)
-        self.td_density.update()
+#        self.td_density.update()
+#        self.td_hamiltonian.update('density')
 #        self.td_hamiltonian.update(self.td_density.get_density(),self.time)
         self.td_hamiltonian.update()
-#        self.update_eigenvalues()
+        self.update_eigenvalues()
 
 #        return self.Etot
 
     def update_eigenvalues(self):
+#        print ('in update eig',type(self),type(self.hamiltonian),type(self.wfs))
+        self.wfs.eigensolver.iterate(self.hamiltonian, self.wfs) # Vlad ED
         ''' THIS NEEDS TO BE MODIFIED FOR LCAO '''
         '''
         kpt_u = self.wfs.kpt_u
@@ -220,4 +223,3 @@ class LCAOTDDFT(GPAW):
         self.Exc = H.e_xc
         self.Etot = self.Ekin + self.e_coulomb + self.Ebar + self.Exc
         '''
-        pass
