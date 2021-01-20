@@ -233,9 +233,3 @@ class OccupationsMOM:
                     f_sn_unique[kpt.s][f_n_unique] = f_n == f_n_unique
 
         return f_sn_unique
-
-    def reset(self):
-        # TODO: We should probably get rid of this
-        self.iters = 0
-        for u, kpt in enumerate(self.wfs.kpt_u):
-            self.numbers[u] = kpt.f_n
