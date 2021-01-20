@@ -1,13 +1,10 @@
 #!/usr/bin/bash
-# Install gpaw, ase, ase-ext, spglib, sklearn and myqueue on Niflheim in a venv
+# Install gpaw, ase, ase-ext, spglib, sklearn and myqueue in a venv
 
 set -e  # stop if there are errors
 
 NAME=$1
 FOLDER=$PWD
-
-# Some modules are not yet loaded.  Once they are installed, this
-# script is changed to load them instead of pip-installing them.
 
 echo "
 module purge
@@ -41,7 +38,7 @@ rm old
 git clone https://gitlab.com/ase/ase.git
 $PIP install -e ase/
 
-$PIP install myqueue graphviz ase-ext
+$PIP install myqueue graphviz ase-ext spglib sklearn pytest-xdist
 
 # Install GPAW:
 git clone https://gitlab.com/gpaw/gpaw.git
