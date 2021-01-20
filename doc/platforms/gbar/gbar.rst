@@ -19,7 +19,7 @@ Creating the venv
 =================
 
 Download the ``gpaw-venv.sh`` script
-using this link: :download:`gpaw-venv.sh` or these commands_:
+using this link: :download:`gpaw-venv.sh` or these commands:
 
     $ gpaw=https://gitlab.com/gpaw/gpaw
     $ wget $gpaw/-/raw/master/doc/platforms/gbar/gpaw-venv.sh
