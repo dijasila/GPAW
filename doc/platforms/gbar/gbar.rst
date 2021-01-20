@@ -61,7 +61,7 @@ Using MyQueue
 
 First, configure MyQueue_::
 
-    $ python3 -m myqueue.config -i -q hpc lsf
+    $ mq config --in-place -Q hpc lsf
 
 Then you can submit jobs with::
 
