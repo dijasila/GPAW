@@ -72,7 +72,9 @@ def test_solvation_api():
     u0 = 0.180  # eV
     vdw_radii2 = vdw_radii.copy()
     vdw_radii2[1] = 1.09
-    def atomic_radii(atoms): return [vdw_radii2[n] for n in atoms.numbers]
+
+    def atomic_radii(atoms):
+        return [vdw_radii2[n] for n in atoms.numbers]
 
     # density cavity params (examples)
     # --------------------------------

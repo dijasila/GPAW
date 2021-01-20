@@ -5,8 +5,7 @@ from gpaw.solvation import (
     SolvationGPAW,
     EffectivePotentialCavity,
     Power12Potential,
-    LinearDielectric
-)
+    LinearDielectric)
 from gpaw.solvation.poisson import ADM12PoissonSolver
 import warnings
 
@@ -17,7 +16,10 @@ epsinf = 80.
 T = 298.15
 vdw_radii = vdw_radii.copy()
 vdw_radii[1] = 1.09
-def atomic_radii(atoms): return [vdw_radii[n] for n in atoms.numbers]
+
+
+def atomic_radii(atoms):
+    return [vdw_radii[n] for n in atoms.numbers]
 
 
 convergence = {

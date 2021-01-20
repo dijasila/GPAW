@@ -34,9 +34,6 @@ def test_parallel_arraydict_redist():
         # print atomdict
         assert set(atomdict.keys()) == set(ref.keys())  # check keys()
         for a in atomdict:  # check __iter__, __getitem__
-            # print ref[a].shape, atomdict[a].shape #ref[a].shape, atomdict[a].shape
-            # print ref[a], atomdict[a]
-            # assert 1#ref[a] is atomdict[a]
             assert ref[a] is atomdict[a]
         values = atomdict.values()
         for i, key in enumerate(atomdict):
@@ -59,7 +56,7 @@ def test_parallel_arraydict_redist():
         ad[key][:] = key
     array0 = ad.toarray()
 
-    ad0 = dict(ad)
+    _ = dict(ad)
     check(ad, 'new')
     ad.redistribute(even_partition)
     array1 = ad.toarray()

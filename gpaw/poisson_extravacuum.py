@@ -1,15 +1,12 @@
 import numpy as np
-
-from ase.units import Bohr
 from ase.geometry import cell_to_cellpar
+from ase.units import Bohr
 
-from gpaw.transformers import Transformer
 from gpaw.fd_operators import Laplace
-from gpaw.poisson import _PoissonSolver
-from gpaw.poisson import create_poisson_solver
-
-from gpaw.utilities.extend_grid import extended_grid_descriptor, \
-    extend_array, deextend_array
+from gpaw.poisson import _PoissonSolver, create_poisson_solver
+from gpaw.transformers import Transformer
+from gpaw.utilities.extend_grid import (deextend_array, extend_array,
+                                        extended_grid_descriptor)
 
 
 def ext_gd(gd, **kwargs):
@@ -152,10 +149,10 @@ class ExtraVacuumPoissonSolver(_PoissonSolver):
         self._initialized = True
 
         # Initialize poissonsolvers
-        #self.ps_large_coar._init()
-        #if not self.use_coarse:
-        #    return
-        #self.ps_small_fine._init()
+        # self.ps_large_coar._init()
+        # if not self.use_coarse:
+        #     return
+        # self.ps_small_fine._init()
 
     def solve(self, phi, rho, **kwargs):
         self._init()

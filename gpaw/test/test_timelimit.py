@@ -23,7 +23,7 @@ def test_timelimit(in_tmp_dir):
     try:
         atoms.get_potential_energy()
     except KohnShamConvergenceError:
-        assert calc.scf.maxiter < maxiter, 'TimeLimiter did not break the SCF loop'
+        assert calc.scf.maxiter < maxiter, 'TimeLimiter did not break SCF loop'
     else:
         raise AssertionError('SCF loop ended too early')
     calc.write('gs.gpw', mode='all')
@@ -33,7 +33,7 @@ def test_timelimit(in_tmp_dir):
     tl = TimeLimiter(td_calc, timelimit=0, output='lcaotddft.txt')
     tl.reset('tddft', min_updates=3)
     td_calc.propagate(10, maxiter - td_calc.niter)
-    assert td_calc.maxiter < maxiter, 'TimeLimiter did not break the TDDFT loop'
+    assert td_calc.maxiter < maxiter, 'TimeLimiter did not break TDDFT loop'
 
     # Test mode='fd'
 
@@ -51,4 +51,4 @@ def test_timelimit(in_tmp_dir):
     tl = TimeLimiter(td_calc, timelimit=0, output='tddft.txt')
     tl.reset('tddft', min_updates=3)
     td_calc.propagate(10, maxiter - td_calc.niter)
-    assert td_calc.maxiter < maxiter, 'TimeLimiter did not break the TDDFT loop'
+    assert td_calc.maxiter < maxiter, 'TimeLimiter did not break TDDFT loop'

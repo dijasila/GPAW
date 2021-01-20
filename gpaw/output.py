@@ -1,8 +1,9 @@
-
 import numpy as np
-from ase.units import Bohr
+from _gpaw import get_num_threads
+from ase import Atoms
 from ase.data import chemical_symbols
 from ase.geometry import cell_to_cellpar
+from ase.units import Bohr
 
 
 def print_cell(gd, pbc_c, log):
@@ -63,28 +64,34 @@ def print_parallelization_details(wfs, ham, log):
 
     if wfs.bd.comm.size > 1:  # band parallelization
         log('Parallelization over states: %d' % wfs.bd.comm.size)
+
+    if get_num_threads() > 1:  # OpenMP threading
+        log('OpenMP threads: {}'.format(get_num_threads()))
     log()
 
 
-def plot(atoms):
+def plot(atoms: Atoms) -> str:
     """Ascii-art plot of the atoms."""
 
-#   y
-#   |
-#   .-- x
-#  /
-# z
+    #   y
+    #   |
+    #   .-- x
+    #  /
+    # z
+
+    if atoms.cell.handedness != 1:
+        # See example we can't handle in test_ascii_art()
+        return ''
 
     cell_cv = atoms.get_cell()
-    if ((cell_cv - np.diag(cell_cv.diagonal())).any() or
-        atoms.cell.rank < 3):
+    if atoms.cell.rank == 3 and atoms.cell.orthorhombic:
+        plot_box = True
+    else:
         atoms = atoms.copy()
         atoms.cell = [1, 1, 1]
         atoms.center(vacuum=2.0)
         cell_cv = atoms.get_cell()
         plot_box = False
-    else:
-        plot_box = True
 
     cell = np.diagonal(cell_cv) / Bohr
     positions = atoms.get_positions() / Bohr

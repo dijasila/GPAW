@@ -22,9 +22,9 @@ c = ase.db.connect('dcdft_aims.db')
 
 # select the basis set
 basis = 'light'
-#basis = 'tight'
-#basis = 'really_tight'
-#basis = 'tier2'
+# basis = 'tight'
+# basis = 'really_tight'
+# basis = 'tier2'
 
 kptdensity = 16.0  # this is converged
 kptdensity = 6.0  # just for testing
