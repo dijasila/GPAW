@@ -55,7 +55,7 @@ Using MyQueue
 
 First, configure MyQueue_::
 
-    $ python3 -m myqueue.config -q hpc
+    $ python3 -m myqueue.config -i -q hpc
 
 Then you can submit jobs with::
 
