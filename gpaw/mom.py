@@ -54,7 +54,6 @@ class OccupationsMOM:
         self.name = 'mom'
         self.iters = 0
         self.initialized = False
-        self.ne = None
 
     def todict(self):
         dct = {'name': self.name,
@@ -101,7 +100,9 @@ class OccupationsMOM:
                     P = np.zeros(len(f_sn[kpt.s]))
                     # The projections are calculated only for orbitals
                     # that have not already been occupied
-                    P[unoccupied] = self.calculate_mom_projections(kpt, f_n_unique, unoccupied)
+                    P[unoccupied] = self.calculate_mom_projections(kpt,
+                                                                   f_n_unique,
+                                                                   unoccupied)
                     P_max = np.argpartition(P, -n_occ)[-n_occ:]
                     f_sn[kpt.s][P_max] = f_n_unique
 
@@ -132,7 +133,7 @@ class OccupationsMOM:
             return
 
         self.iters = 0
-        self.f_sn_unique = self.find_unique_occupations()
+        self.f_sn_unique = self.find_unique_occupation_numbers()
         if self.wfs.mode == 'lcao':
             self.c_ref = {}
 
@@ -215,7 +216,7 @@ class OccupationsMOM:
 
         return mask, gauss
 
-    def find_unique_occupations(self):
+    def find_unique_occupation_numbers(self):
         if self.wfs.collinear and self.wfs.nspins == 1:
             degeneracy = 2
         else:
@@ -240,4 +241,3 @@ class OccupationsMOM:
         self.iters = 0
         for u, kpt in enumerate(self.wfs.kpt_u):
             self.numbers[u] = kpt.f_n
-
