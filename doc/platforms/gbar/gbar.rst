@@ -26,11 +26,11 @@ using this link: :download:`gpaw-venv.sh` or these commands::
 
 and run it like this::
 
-    $ ./gpaw-venv.sh <venv-name>
+    $ sh gpaw-venv.sh <venv-name>
     ...
 
 After a few minutes, you will have a ``<venv-name>`` folder with
-a GPAW installation inside.
+a GPAW installation inside (plus some other stuff).
 
 In the following, we will assume that your venv folder is ``~/venv/``.
 
