@@ -8,8 +8,8 @@ from gpaw.occupations import FixedOccupationNumbers
 def mom_calculation(calc, atoms,
                     numbers,
                     width=0.0,
-                    width_increment=0.01,
-                    niter_smearing=None):
+                    width_increment=0.0,
+                    niter_smearing=10):
 
     if calc.wfs is None:
         # We need the wfs object to initialize OccupationsMOM
@@ -35,8 +35,8 @@ class OccupationsMOM:
     def __init__(self, wfs, occ,
                  numbers,
                  width=0.0,
-                 width_increment=0.01,
-                 niter_smearing=None):
+                 width_increment=0.0,
+                 niter_smearing=10):
         self.wfs = wfs
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
@@ -76,13 +76,12 @@ class OccupationsMOM:
             self.occ.f_sn = self.numbers.copy()
         else:
             self.occ.f_sn = self.update_occupations()
+            self.iters += 1
 
         f_qn, fermi_levels, e_entropy = self.occ.calculate(nelectrons,
                                                            eigenvalues,
                                                            weights,
                                                            fermi_levels_guess)
-
-        self.iters += 1
 
         return f_qn, fermi_levels, e_entropy
 
@@ -130,6 +129,15 @@ class OccupationsMOM:
 
     def update_occupations(self):
         f_sn = np.zeros_like(self.numbers)
+
+        if self.width != 0.0:
+            if self.iters == 0:
+                self.width_increment_ct = 0
+            if self.iters % self.niter_smearing == 0:
+                self.gauss_width = self.width + \
+                                   self.width_increment_ct * self.width_increment
+                self.width_increment_ct += 1
+
         for kpt in self.wfs.kpt_u:
             # Compute projections within equally occupied subspaces
             # and occupy orbitals with biggest projections
@@ -153,7 +161,10 @@ class OccupationsMOM:
                 orbs, f_sn_gs = self.find_hole_and_excited_orbitals(f_sn, kpt)
                 if orbs:
                     for o in orbs:
-                        mask, gauss = self.gaussian_smearing(kpt, f_sn_gs, o)
+                        mask, gauss = self.gaussian_smearing(kpt,
+                                                             f_sn_gs,
+                                                             o,
+                                                             self.gauss_width)
                         f_sn_gs[mask] += (o[1] * gauss)
                     f_sn[kpt.s] = f_sn_gs.copy()
 
@@ -197,7 +208,7 @@ class OccupationsMOM:
 
         return orbs, f_sn_gs
 
-    def gaussian_smearing(self, kpt, f_sn_gs, o):
+    def gaussian_smearing(self, kpt, f_sn_gs, o, gauss_width):
         if o[1] < 0:
             mask = (f_sn_gs > 1e-8)
         else:
@@ -205,8 +216,8 @@ class OccupationsMOM:
 
         e = kpt.eps_n[mask]
         de2 = -(e - kpt.eps_n[o[0]]) ** 2
-        gauss = (1 / (self.width * np.sqrt(2 * np.pi)) *
-                 np.exp(de2 / (2 * self.width ** 2)))
+        gauss = (1 / (gauss_width * np.sqrt(2 * np.pi)) *
+                 np.exp(de2 / (2 * gauss_width ** 2)))
         gauss /= sum(gauss)
 
         return mask, gauss
