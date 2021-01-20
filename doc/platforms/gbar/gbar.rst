@@ -18,7 +18,13 @@ This document shows how to build a *venv* for GPAW+ASE.
 Creating the venv
 =================
 
-Download the :download:`gpaw-venv.sh` script and run it like this::
+Download the ``gpaw-venv.sh`` script
+using this link: :download:`gpaw-venv.sh` or these commands_:
+
+    $ gpaw=https://gitlab.com/gpaw/gpaw
+    $ wget $gpaw/-/raw/master/doc/platforms/gbar/gpaw-venv.sh
+
+and run it like this::
 
     $ ./gpaw-venv.sh <venv-name>
     ...
@@ -55,7 +61,7 @@ Using MyQueue
 
 First, configure MyQueue_::
 
-    $ python3 -m myqueue.config -i -q hpc
+    $ python3 -m myqueue.config -i -q hpc lsf
 
 Then you can submit jobs with::
 
