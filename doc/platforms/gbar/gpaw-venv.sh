@@ -15,6 +15,7 @@ module load python/3.8.5
 module load fftw/3.3.8 libxc/4.3.4
 module load scalapack/2.1.0
 module load openblas/0.3.10
+module load dftd3/3.2.0
 unset CC
 " > modules.sh
 
