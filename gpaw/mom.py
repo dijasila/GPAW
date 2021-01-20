@@ -10,16 +10,9 @@ from gpaw.occupations import FixedOccupationNumbers
 def mom_calculation(calc, atoms,
                     numbers,
                     constraints=None,
-                    space='full',
                     width=0.0,
                     width_increment=0.01,
                     niter_smearing=None):
-
-    if space == 'reduced':
-        assert constraints is not None, \
-            'Provide constraints as MOMConstraint objects'
-    if space == 'full' and width != 0.0:
-        warnings.warn("Smearing not available for space='full'")
 
     if calc.wfs is None:
         # We need the wfs object to initialize OccupationsMOM
@@ -38,7 +31,7 @@ def mom_calculation(calc, atoms,
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              numbers,
                              constraints,
-                             space, width,
+                             width,
                              width_increment,
                              niter_smearing)
 
@@ -52,7 +45,6 @@ class OccupationsMOM:
     def __init__(self, wfs, occ,
                  numbers,
                  constraints=None,
-                 space='full',
                  width=0.0,
                  width_increment=0.01,
                  niter_smearing=None):
@@ -61,7 +53,6 @@ class OccupationsMOM:
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
         self.constraints = constraints
-        self.space = space
         self.width = width / Ha
         self.width_increment = width_increment / Ha
         self.niter_smearing = niter_smearing
@@ -94,7 +85,7 @@ class OccupationsMOM:
                   fermi_levels_guess):
         f_sn = self.numbers.copy()
 
-        if not self.initialized and self.space == 'full':
+        if not self.initialized:
             self.initialize_reference_orbitals()
 
         for kpt in self.wfs.kpt_u:
@@ -102,7 +93,7 @@ class OccupationsMOM:
                 # If the MOM reference orbitals are not initialized
                 # (e.g. when the density is initialized from atomic
                 # densities) set the occupation numbers according to
-                # the supplied occupation numbers
+                # the supplied numbers
                 continue
             else:
                 f_sn[kpt.s].fill(0)
@@ -119,6 +110,8 @@ class OccupationsMOM:
                     P[unoccupied] = self.calculate_mom_projections(kpt, f_n_unique, unoccupied)
                     P_max = np.argpartition(P, -n_occ)[-n_occ:]
                     f_sn[kpt.s][P_max] = f_n_unique
+
+            self.numbers[kpt.s] = f_sn[kpt.s].copy()
 
             if self.width != 0.0:
                 orbs, f_sn_gs = self.find_hole_and_excited_orbitals(f_sn, kpt)
@@ -237,7 +230,11 @@ class OccupationsMOM:
         f_sn_unique = {}
         for kpt in self.wfs.kpt_u:
             f_sn_unique[kpt.s] = {}
-            f_n = kpt.f_n / degeneracy
+            if self.width != 0.0:
+                f_n = self.numbers[kpt.s]
+            else:
+                f_n = kpt.f_n / degeneracy
+
             for f_n_unique in np.unique(f_n):
                 if f_n_unique >= 1.0e-10:
                     f_sn_unique[kpt.s][f_n_unique] = f_n == f_n_unique
@@ -247,74 +244,6 @@ class OccupationsMOM:
     def reset(self):
         # TODO: We should probably get rid of this
         self.iters = 0
-        if self.space == 'full':
-            for u, kpt in enumerate(self.wfs.kpt_u):
-                self.numbers[u] = kpt.f_n
-
-
-class MOMConstraint:
-    def __init__(self, n, nstart=0, nend=None):
-        self.n = n
-        self.nstart = nstart
-        self.nend = nend
-
-    def initialize(self, wfs, c):
-        nocc = wfs.nvalence // 2
-        if self.nend is None:
-            if c < 0:
-                self.nend = nocc
-            else:
-                self.nend = self.nbands - nocc
-        if c < 0:
-            self.ini = self.nstart
-            self.fin = self.nend
-        else:
-            self.ini = nocc + self.nstart
-            self.fin = nocc + self.nend
-
-    def update_target_orbital(self, wfs, kpt):
-        if wfs.mode == 'lcao':
-            self.c_n = kpt.C_nM[self.n].copy()
-        else:
-            self.wf_n = kpt.psit_nG[self.n].copy()
-            self.p_an = dict([(a, np.dot(wfs.setups[a].dO_ii, P_ni[self.n]))
-                               for a, P_ni in kpt.P_ani.items()])
-
-    def get_maximum_overlap(self, wfs, kpt, c, iters):
-        self.nbands = wfs.bd.nbands
-
-        if iters == 0:
-            self.initialize(wfs, c)
-            self.update_target_orbital(wfs, kpt)
-        ini = self.ini
-        fin = self.fin
-
-        P_n = np.zeros(self.nbands)
-        if wfs.mode == 'lcao':
-            if kpt.S_MM is None:
-                return self.n
-            else:
-                P_n[ini:fin] = np.dot(self.c_n.conj(),
-                                  np.dot(kpt.S_MM, kpt.C_nM[ini:fin].T))
-        else:
-            # Pseudo wave functions overlaps
-            P_n[ini:fin] = wfs.integrate(self.wf_n, kpt.psit_nG[ini:fin], False)
-
-            if iters > 1:
-                # Add PAW corrections
-                for a, p_a in self.p_an.items():
-                    P_n[ini:fin] += np.dot(kpt.P_ani[a][ini:fin].conj(), p_a)
-            wfs.gd.comm.sum(P_n)
-
-        P_n = P_n ** 2
-
-        # Update index of target orbital
-        self.n = np.argmax(P_n)
-
-        if iters == 1:
-            # If positions have changed than overlap operators change
-            # So reinitialize reference orbitals
-            self.update_target_orbital(wfs, kpt)
-
-        return self.n
+        for u, kpt in enumerate(self.wfs.kpt_u):
+            self.numbers[u] = kpt.f_n
 
