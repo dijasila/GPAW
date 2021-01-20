@@ -7,6 +7,7 @@ NAME=$1
 FOLDER=$PWD
 
 echo "
+source /dtu/sw/dcc/dcc-sw.bash
 module purge
 unset PYTHONPATH
 module load dcc-setup/2020-aug
