@@ -1,5 +1,3 @@
-import warnings
-
 import numpy as np
 
 from ase.units import Ha
@@ -9,7 +7,6 @@ from gpaw.occupations import FixedOccupationNumbers
 
 def mom_calculation(calc, atoms,
                     numbers,
-                    constraints=None,
                     width=0.0,
                     width_increment=0.01,
                     niter_smearing=None):
@@ -30,7 +27,6 @@ def mom_calculation(calc, atoms,
 
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              numbers,
-                             constraints,
                              width,
                              width_increment,
                              niter_smearing)
@@ -44,7 +40,6 @@ def mom_calculation(calc, atoms,
 class OccupationsMOM:
     def __init__(self, wfs, occ,
                  numbers,
-                 constraints=None,
                  width=0.0,
                  width_increment=0.01,
                  niter_smearing=None):
@@ -52,7 +47,6 @@ class OccupationsMOM:
         self.occ = occ
         self.extrapolate_factor = occ.extrapolate_factor
         self.numbers = np.array(numbers)
-        self.constraints = constraints
         self.width = width / Ha
         self.width_increment = width_increment / Ha
         self.niter_smearing = niter_smearing
@@ -71,7 +65,7 @@ class OccupationsMOM:
 
     def __str__(self):
         s = 'Excited-state calculation with Maximum Overlap Method\n'
-        s += '  Smearing of constraints: '
+        s += '  Smearing of holes and excited electrons: '
         if self.width == 0.0:
             s += 'off\n'
         else:
