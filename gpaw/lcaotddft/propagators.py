@@ -4,10 +4,10 @@ from numpy.linalg import inv, solve
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw import debug
 from gpaw.tddft.units import au_to_as
-from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
+from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_symm,
                                       scalapack_inverse, scalapack_solve,
-                                      scalapack_zero, pblas_tran,
-                                      scalapack_set)
+                                      scalapack_tri2full,
+                                      scalapack_zero)
 
 
 def create_propagator(name, **kwargs):
@@ -251,44 +251,22 @@ class ECNPropagator(LCAOPropagator):
                 # (these are 0,x or x,0 arrays)
                 sourceC_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
 
-            # 1. target = (S+0.5j*H*dt) * source
-            # Wave functions to target
             self.CnM2nm.redistribute(sourceC_nM, temp_blockC_nm)
 
-            # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
-            # Remove upper diagonal
-            scalapack_zero(self.mm_block_descriptor, H_MM, 'U')
-            # Lower diagonal matrix:
+            # 1. target = (S + 0.5j*H*dt) * source
             temp_block_mm[:] = S_MM - (0.5j * dt) * H_MM
-            scalapack_set(self.mm_block_descriptor, temp_block_mm, 0, 0, 'U')
-            # Note it's strictly lower diagonal matrix
-            # Add transpose of H
-            pblas_tran(-0.5j * dt, H_MM, 1.0, temp_block_mm,
-                       self.mm_block_descriptor, self.mm_block_descriptor)
-            # Add transpose of S
-            pblas_tran(1.0, S_MM, 1.0, temp_block_mm,
-                       self.mm_block_descriptor, self.mm_block_descriptor)
-
-            pblas_simple_gemm(self.Cnm_block_descriptor,
-                              self.mm_block_descriptor,
+            pblas_simple_symm(self.mm_block_descriptor,
                               self.Cnm_block_descriptor,
-                              temp_blockC_nm,
+                              self.Cnm_block_descriptor,
                               temp_block_mm,
-                              target_blockC_nm)
-            # 2. target = (S-0.5j*H*dt)^-1 * target
-            # temp_block_mm[:] = S_MM + (0.5j*dt) * H_MM
-            # XXX It can't be this f'n hard to symmetrize a matrix (tri2full)
-            # Lower diagonal matrix:
-            temp_block_mm[:] = S_MM + (0.5j * dt) * H_MM
-            # Not it's stricly lower diagonal matrix:
-            scalapack_set(self.mm_block_descriptor, temp_block_mm, 0, 0, 'U')
-            # Add transpose of H:
-            pblas_tran(+0.5j * dt, H_MM, 1.0, temp_block_mm,
-                       self.mm_block_descriptor, self.mm_block_descriptor)
-            # Add transpose of S
-            pblas_tran(1.0, S_MM, 1.0, temp_block_mm,
-                       self.mm_block_descriptor, self.mm_block_descriptor)
+                              temp_blockC_nm,
+                              target_blockC_nm,
+                              side='R', uplo='L')
 
+            # 2. target = (S - 0.5j*H*dt)^-1 * target
+            temp_block_mm[:] = temp_block_mm.conj()
+            scalapack_tri2full(self.mm_block_descriptor, temp_block_mm,
+                               conj=False)
             scalapack_solve(self.mm_block_descriptor,
                             self.Cnm_block_descriptor,
                             temp_block_mm,
