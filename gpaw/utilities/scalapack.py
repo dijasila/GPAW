@@ -345,16 +345,24 @@ def scalapack_solve(desca, descb, a, b):
         raise RuntimeError('scalapack_solve error: %d' % info)
 
 
-def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc):
-    """C <- beta C + alpha A.T.
+def pblas_tran(alpha, a_MN, beta, c_NM, desca, descc, conj=True):
+    """Matrix transpose.
 
-    See also pdtran from PBLAS."""
+    C <- alpha*A.H + beta*C  if conj == True
+    C <- alpha*A.T + beta*C  if conj == False
+
+    This function executes the following PBLAS routine:
+    * pztranc if matrices are complex and conj == True
+    * pztranu if matrices are complex and conj == False
+    * pdtran  if matrices are real
+    """
     desca.checkassert(a_MN)
     descc.checkassert(c_NM)
     M, N = desca.gshape
     assert N, M == descc.gshape
     _gpaw.pblas_tran(N, M, alpha, a_MN, beta, c_NM,
-                     desca.asarray(), descc.asarray())
+                     desca.asarray(), descc.asarray(),
+                     conj)
 
 
 def _pblas_hemm_symm(alpha, a_MM, b_MN, beta, c_MN, desca, descb, descc,
