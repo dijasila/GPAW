@@ -232,40 +232,40 @@ class ECNPropagator(LCAOPropagator):
         self.hamiltonian.update()
         return time + time_step
 
-    def propagate_wfs(self, sourceC_nM, targetC_nM, S_MM, H_MM, dt):
+    def propagate_wfs(self, source_C_nM, target_C_nM, S_MM, H_MM, dt):
         self.timer.start('Linear solve')
 
         if self.blacs:
             # XXX, Preallocate
-            target_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex)
-            temp_blockC_nm = self.Cnm_block_descriptor.empty(dtype=complex)
-            temp_block_mm = self.mm_block_descriptor.empty(dtype=complex)
+            target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
+            source_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
+            SjH_mm = self.mm_block_descriptor.empty(dtype=complex)
             if self.density.gd.comm.rank != 0:
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some
                 # weird asserts
                 # (these are 0,x or x,0 arrays)
-                sourceC_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
+                source_C_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
 
-            self.CnM2nm.redistribute(sourceC_nM, temp_blockC_nm)
+            self.CnM2nm.redistribute(source_C_nM, source_C_nm)
 
             # 1. target = (S + 0.5j*H*dt) * source
-            temp_block_mm[:] = S_MM - (0.5j * dt) * H_MM
+            SjH_mm[:] = S_MM - (0.5j * dt) * H_MM
             pblas_simple_symm(self.mm_block_descriptor,
                               self.Cnm_block_descriptor,
                               self.Cnm_block_descriptor,
-                              temp_block_mm,
-                              temp_blockC_nm,
-                              target_blockC_nm,
+                              SjH_mm,
+                              source_C_nm,
+                              target_C_nm,
                               side='R', uplo='L')
 
             # 2. target = (S - 0.5j*H*dt)^-1 * target
-            temp_block_mm[:] = temp_block_mm.conj()
-            scalapack_tri2full(self.mm_block_descriptor, temp_block_mm,
+            SjH_mm[:] = SjH_mm.conj()
+            scalapack_tri2full(self.mm_block_descriptor, SjH_mm,
                                conj=False)
             scalapack_solve(self.mm_block_descriptor,
                             self.Cnm_block_descriptor,
-                            temp_block_mm,
-                            target_blockC_nm)
+                            SjH_mm,
+                            target_C_nm)
 
             if self.density.gd.comm.rank != 0:  # XXX is this correct?
                 # XXX Fake blacks nbands, nao, nbands, nao grid because some
@@ -273,15 +273,15 @@ class ECNPropagator(LCAOPropagator):
                 # (these are 0,x or x,0 arrays)
                 target = self.CnM_unique_descriptor.zeros(dtype=complex)
             else:
-                target = targetC_nM
-            self.Cnm2nM.redistribute(target_blockC_nm, target)
-            self.density.gd.comm.broadcast(targetC_nM, 0)  # Is this required?
+                target = target_C_nM
+            self.Cnm2nM.redistribute(target_C_nm, target)
+            self.density.gd.comm.broadcast(target_C_nM, 0)  # Is this required?
         else:
             # Note: The full equation is conjugated (therefore -+, not +-)
-            targetC_nM[:] = \
+            target_C_nM[:] = \
                 solve(S_MM - 0.5j * H_MM * dt,
                       np.dot(S_MM + 0.5j * H_MM * dt,
-                             sourceC_nM.T.conjugate())).T.conjugate()
+                             source_C_nM.T.conjugate())).T.conjugate()
 
         self.timer.stop('Linear solve')
 
