@@ -20,8 +20,11 @@ switch_lu = {'U': 'L', 'L': 'U'}
 switch_lr = {'L': 'R', 'R': 'L'}
 
 
-def scalapack_tri2full(desc, array):
+def scalapack_tri2full(desc, array, conj=True):
     """Write lower triangular part into upper triangular part of matrix.
+
+    If conj == True, the lower triangular part is the complex conjugate
+    of the upper triangular part.
 
     This function is a frightful hack, but we can improve the
     implementation later."""
@@ -34,7 +37,8 @@ def scalapack_tri2full(desc, array):
     # Now transpose tmp_mm adding the result to the original matrix:
     pblas_tran(alpha=1.0, a_MN=buf,
                beta=1.0, c_NM=array,
-               desca=desc, descc=desc)
+               desca=desc, descc=desc,
+               conj=conj)
 
 
 def scalapack_zero(desca, a, uplo, ia=1, ja=1):
