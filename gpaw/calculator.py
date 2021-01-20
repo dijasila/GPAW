@@ -899,12 +899,6 @@ class GPAW(Calculator):
         kwargs = dct.copy()
         name = kwargs.pop('name', '')
         if name == 'mom':
-            if self.wfs.kpt_u[0].f_n is not None:
-                # We need to set the occupation numbers according
-                # to the supplied occupation numbers to initialize
-                # the MOM reference orbitals correctly
-                self.wfs.occupations = occ
-                self.wfs.calculate_occupation_numbers()
             from gpaw.mom import OccupationsMOM
             occ = OccupationsMOM(self.wfs, occ, **kwargs)
 

@@ -19,12 +19,6 @@ def mom_calculation(calc, atoms,
     parallel_layout = calc.wfs.occupations.parallel_layout
     occ = FixedOccupationNumbers(numbers, parallel_layout)
 
-    if calc.scf.converged:
-        # We need to set the occupation numbers according to the supplied
-        # occupation numbers to initialize the MOM reference orbitals correctly
-        calc.wfs.occupations = occ
-        calc.wfs.calculate_occupation_numbers()
-
     occ_mom = OccupationsMOM(calc.wfs, occ,
                              numbers,
                              width,
@@ -136,7 +130,6 @@ class OccupationsMOM:
         self.f_sn_unique = self.find_unique_occupation_numbers()
         if self.wfs.mode == 'lcao':
             self.c_ref = {}
-
             for kpt in self.wfs.kpt_u:
                 self.c_ref[kpt.s] = {}
 
@@ -144,6 +137,7 @@ class OccupationsMOM:
                 for f_n_unique in self.f_sn_unique[kpt.s]:
                     occupied = self.f_sn_unique[kpt.s][f_n_unique]
                     self.c_ref[kpt.s][f_n_unique] = kpt.C_nM[occupied].copy()
+
         else:
             self.wf = {}
             self.p_an = {}
@@ -217,18 +211,10 @@ class OccupationsMOM:
         return mask, gauss
 
     def find_unique_occupation_numbers(self):
-        if self.wfs.collinear and self.wfs.nspins == 1:
-            degeneracy = 2
-        else:
-            degeneracy = 1
-
         f_sn_unique = {}
         for kpt in self.wfs.kpt_u:
             f_sn_unique[kpt.s] = {}
-            if self.width != 0.0:
-                f_n = self.numbers[kpt.s]
-            else:
-                f_n = kpt.f_n / degeneracy
+            f_n = self.numbers[kpt.s]
 
             for f_n_unique in np.unique(f_n):
                 if f_n_unique >= 1.0e-10:
