@@ -135,7 +135,7 @@ class OccupationsMOM:
                 self.width_increment_ct = 0
             if self.iters % self.niter_smearing == 0:
                 self.gauss_width = self.width + self.width_increment_ct \
-                                   * self.width_increment
+                    * self.width_increment
                 self.width_increment_ct += 1
 
         for kpt in self.wfs.kpt_u:
