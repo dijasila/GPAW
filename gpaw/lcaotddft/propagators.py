@@ -177,8 +177,8 @@ class ECNPropagator(LCAOPropagator):
             self.hamiltonian = hamiltonian
 
         ksl = self.wfs.ksl
-        self.blacs = ksl.using_blacs
-        if self.blacs:
+        self.using_blacs = ksl.using_blacs
+        if self.using_blacs:
             from gpaw.blacs import Redistributor
             self.log('BLACS Parallelization')
 
@@ -243,7 +243,7 @@ class ECNPropagator(LCAOPropagator):
     def propagate_wfs(self, source_C_nM, target_C_nM, S_MM, H_MM, dt):
         self.timer.start('Linear solve')
 
-        if self.blacs:
+        if self.using_blacs:
             # XXX, Preallocate
             target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
             source_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
