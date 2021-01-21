@@ -200,6 +200,14 @@ class ECNPropagator(LCAOPropagator):
                                         self.CnM_unique_descriptor,
                                         self.Cnm_block_descriptor)
 
+            if self.density.gd.comm.rank != 0:
+                # This is a (0, 0) dummy array that is needed for
+                # redistributing between nM and nm block descriptor.
+                # See propagate_wfs() and also
+                # BlacsOrbitalLayouts.calculate_blocked_density_matrix()
+                self.dummy_C_nM = \
+                    self.CnM_unique_descriptor.zeros(dtype=complex)
+
             if debug:
                 nao = ksl.nao
                 self.MM_descriptor = grid.new_descriptor(nao, nao, nao, nao)
@@ -240,13 +248,15 @@ class ECNPropagator(LCAOPropagator):
             target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
             source_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
             SjH_mm = self.mm_block_descriptor.empty(dtype=complex)
-            if self.density.gd.comm.rank != 0:
-                # XXX Fake blacks nbands, nao, nbands, nao grid because some
-                # weird asserts
-                # (these are 0,x or x,0 arrays)
-                source_C_nM = self.CnM_unique_descriptor.zeros(dtype=complex)
 
-            self.CnM2nm.redistribute(source_C_nM, source_C_nm)
+            # C_nM is duplicated over all ranks in gd.comm.
+            # Master rank will provide the actual data and other
+            # ranks use a dummy array in redistribute().
+            if self.density.gd.comm.rank != 0:
+                source = self.dummy_C_nM
+            else:
+                source = source_C_nM
+            self.CnM2nm.redistribute(source, source_C_nm)
 
             # 1. target = (S + 0.5j*H*dt) * source
             SjH_mm[:] = S_MM - (0.5j * dt) * H_MM
@@ -267,15 +277,17 @@ class ECNPropagator(LCAOPropagator):
                             SjH_mm,
                             target_C_nm)
 
-            if self.density.gd.comm.rank != 0:  # XXX is this correct?
-                # XXX Fake blacks nbands, nao, nbands, nao grid because some
-                # weird asserts
-                # (these are 0,x or x,0 arrays)
-                target = self.CnM_unique_descriptor.zeros(dtype=complex)
+            # C_nM is duplicated over all ranks in gd.comm.
+            # Master rank will receive the data and other
+            # ranks use a dummy array in redistribute()
+            if self.density.gd.comm.rank != 0:
+                target = self.dummy_C_nM
             else:
                 target = target_C_nM
             self.Cnm2nM.redistribute(target_C_nm, target)
-            self.density.gd.comm.broadcast(target_C_nM, 0)  # Is this required?
+
+            # Broadcast the new C_nM to all ranks in gd.comm
+            self.density.gd.comm.broadcast(target_C_nM, 0)
         else:
             # Note: The full equation is conjugated (therefore -+, not +-)
             target_C_nM[:] = \
