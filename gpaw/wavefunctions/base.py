@@ -609,7 +609,10 @@ def eigenvalue_string(wfs, comment=' '):
         eps_n = wfs.collect_eigenvalues(k, s)
         return eps_n * Ha
 
-    occs = wfs.collect_occupations
+    def occs(k, s):
+        occ_n = wfs.collect_occupations(k, s)
+        occ_n /= wfs.kd.weight_k[k]
+        return occ_n
 
     if len(wfs.kd.ibzk_kc) == 1:
         if wfs.nspins == 1:
