@@ -291,11 +291,9 @@ class ECNPropagator(LCAOPropagator):
             # Broadcast the new C_nM to all ranks in gd.comm
             self.density.gd.comm.broadcast(target_C_nM, 0)
         else:
-            # Note: The full equation is conjugated (therefore -+, not +-)
+            SjH_MM = S_MM + (0.5j * dt) * H_MM
             target_C_nM[:] = \
-                solve(S_MM - 0.5j * H_MM * dt,
-                      np.dot(S_MM + 0.5j * H_MM * dt,
-                             source_C_nM.T.conjugate())).T.conjugate()
+                solve(SjH_MM.T, np.dot(SjH_MM.conj(), source_C_nM.T)).T
 
         self.timer.stop('Linear solve')
 
