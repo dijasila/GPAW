@@ -84,6 +84,7 @@ int Csys2blacs_handle_(MPI_Comm SysCtxt);
 #define   pztrsm_  pztrsm
 
 #define   pzhemm_  pzhemm
+#define   pzsymm_  pzsymm
 #define   pdsymm_  pdsymm
 
 #endif
@@ -277,6 +278,13 @@ void pzhemm_(char* side, char* uplo, int* m, int* n,
              void* beta,
              void* c, int* ic, int* jc, int* descc);
 
+void pzsymm_(char* side, char* uplo, int* m, int* n,
+             void* alpha,
+             void* a, int* ia, int* ja, int* desca,
+             void* b, int* ib, int* jb, int* descb,
+             void* beta,
+             void* c, int* ic, int* jc, int* descc);
+
 void pdsymm_(char* side, char* uplo, int* m, int* n,
              void* alpha,
              void* a, int* ia, int* ja, int* desca,
@@ -405,7 +413,7 @@ PyObject* pblas_gemm(PyObject *self, PyObject *args)
 }
 
 
-PyObject* pblas_hemm(PyObject *self, PyObject *args)
+PyObject* pblas_hemm_symm(PyObject *self, PyObject *args)
 {
   char* side;
   char* uplo;
@@ -414,22 +422,30 @@ PyObject* pblas_hemm(PyObject *self, PyObject *args)
   Py_complex beta;
   PyArrayObject *a, *b, *c;
   PyArrayObject *desca, *descb, *descc;
+  int hemm;
   int one = 1;
-  if (!PyArg_ParseTuple(args, "ssiiDOOdOOOO",
+  if (!PyArg_ParseTuple(args, "ssiiDOODOOOOi",
                  &side, &uplo, &n, &m,
                  &alpha, &a, &b, &beta,
-                 &c, &desca, &descb, &descc)) {
+                 &c, &desca, &descb, &descc,
+                 &hemm)) {
     return NULL;
   }
 
   if (PyArray_DESCR(c)->type_num == NPY_DOUBLE) {
-     pdsymm_(side, uplo, &n, &m, &alpha,
+     pdsymm_(side, uplo, &n, &m, &(alpha.real),
              (void*)DOUBLEP(a), &one, &one, INTP(desca),
              (void*)DOUBLEP(b), &one, &one, INTP(descb),
-             &beta,
+             &(beta.real),
              (void*)DOUBLEP(c), &one, &one, INTP(descc));
-  } else {
+  } else if (hemm) {
      pzhemm_(side, uplo, &n, &m, &alpha,
+             (void*)COMPLEXP(a), &one, &one, INTP(desca),
+             (void*)COMPLEXP(b), &one, &one, INTP(descb),
+             &beta,
+             (void*)COMPLEXP(c), &one, &one, INTP(descc));
+  } else {
+     pzsymm_(side, uplo, &n, &m, &alpha,
              (void*)COMPLEXP(a), &one, &one, INTP(desca),
              (void*)COMPLEXP(b), &one, &one, INTP(descb),
              &beta,
