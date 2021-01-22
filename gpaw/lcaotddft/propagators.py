@@ -4,7 +4,7 @@ from numpy.linalg import inv, solve
 from gpaw.lcaotddft.hamiltonian import KickHamiltonian
 from gpaw import debug
 from gpaw.tddft.units import au_to_as
-from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_symm,
+from gpaw.utilities.scalapack import (pblas_simple_hemm, pblas_simple_gemm,
                                       scalapack_inverse, scalapack_solve,
                                       scalapack_tri2full)
 
@@ -200,6 +200,9 @@ class ECNPropagator(LCAOPropagator):
                                         self.CnM_unique_descriptor,
                                         self.Cnm_block_descriptor)
 
+            for kpt in self.wfs.kpt_u:
+                scalapack_tri2full(self.mm_block_descriptor, kpt.S_MM)
+
             if self.density.gd.comm.rank != 0:
                 # This is a (0, 0) dummy array that is needed for
                 # redistributing between nM and nm block descriptor.
@@ -247,7 +250,6 @@ class ECNPropagator(LCAOPropagator):
             # XXX, Preallocate
             target_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
             source_C_nm = self.Cnm_block_descriptor.empty(dtype=complex)
-            SjH_mm = self.mm_block_descriptor.empty(dtype=complex)
 
             # C_nM is duplicated over all ranks in gd.comm.
             # Master rank will provide the actual data and other
@@ -258,20 +260,20 @@ class ECNPropagator(LCAOPropagator):
                 source = source_C_nM
             self.CnM2nm.redistribute(source, source_C_nm)
 
-            # 1. target = (S + 0.5j*H*dt) * source
-            SjH_mm[:] = S_MM - (0.5j * dt) * H_MM
-            pblas_simple_symm(self.mm_block_descriptor,
-                              self.Cnm_block_descriptor,
-                              self.Cnm_block_descriptor,
-                              SjH_mm,
-                              source_C_nm,
-                              target_C_nm,
-                              side='R', uplo='L')
+            # Note: tri2full(S_MM) is done already in initialize()
+            scalapack_tri2full(self.mm_block_descriptor, H_MM)
+            SjH_mm = S_MM + (0.5j * dt) * H_MM
 
-            # 2. target = (S - 0.5j*H*dt)^-1 * target
-            SjH_mm[:] = SjH_mm.conj()
-            scalapack_tri2full(self.mm_block_descriptor, SjH_mm,
-                               conj=False)
+            # 1. target = (S - 0.5j*H*dt) * source
+            pblas_simple_gemm(self.Cnm_block_descriptor,
+                              self.mm_block_descriptor,
+                              self.Cnm_block_descriptor,
+                              source_C_nm,
+                              SjH_mm,
+                              target_C_nm,
+                              transb='C')
+
+            # 2. target = (S + 0.5j*H*dt)^-1 * target
             scalapack_solve(self.mm_block_descriptor,
                             self.Cnm_block_descriptor,
                             SjH_mm,
